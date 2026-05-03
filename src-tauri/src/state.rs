@@ -774,22 +774,30 @@ impl AppState {
 
         use crate::tool_manager::UpgradeOutcome;
         let needs_commit_or_rollback = matches!(maintenance_kind, RuntimeMaintenanceKind::Upgrade);
-        let install_result = match maintenance_plan {
+        // Ok carries the pip-output tail captured during install — empty
+        // string for RequirementsRepair (no pip ran in our wrapper) and for
+        // any path that didn't request a capture. Held across the
+        // install→boot-validation boundary so a later boot-validation
+        // failure can attach it to the Sentry event.
+        let install_result: Result<String, (bool, anyhow::Error)> = match maintenance_plan {
             RuntimeMaintenancePlan::Upgrade(release) => {
                 match self
                     .tool_manager
                     .atomic_upgrade_headroom(&release, progress)
                 {
-                    UpgradeOutcome::InstalledPendingValidation => Ok(()),
+                    UpgradeOutcome::InstalledPendingValidation { pip_output_tail } => {
+                        Ok(pip_output_tail)
+                    }
                     UpgradeOutcome::InstallFailed { restored, error } => Err((restored, error)),
                 }
             }
             RuntimeMaintenancePlan::RequirementsRepair => self
                 .tool_manager
                 .repair_stale_requirements_with_progress(progress)
+                .map(|()| String::new())
                 .map_err(|error| (false, error)),
         };
-        match install_result {
+        let install_pip_output_tail: String = match install_result {
             Err((restored, error)) => {
                 let duration_ms = start.elapsed().as_millis() as u64;
                 log::warn!(
@@ -882,8 +890,8 @@ impl AppState {
                 self.invalidate_runtime_status_cache();
                 return;
             }
-            Ok(()) => {}
-        }
+            Ok(tail) => tail,
+        };
 
         // Boot validation: start the proxy and wait for reachability.
         self.set_upgrade_progress(|p| {
@@ -1032,6 +1040,7 @@ impl AppState {
             pricing_allows_optimization: post_spawn.pricing_allows_optimization,
             runtime_paused: post_spawn.runtime_paused,
             ensure_error: post_spawn.ensure_error.clone(),
+            pip_output_tail: install_pip_output_tail.clone(),
         };
 
         // Capture the tail of the proxy log BEFORE stop_headroom runs — for

@@ -847,6 +847,12 @@ pub(crate) struct UpgradeBootDiagnostics {
     pub pricing_allows_optimization: bool,
     pub runtime_paused: bool,
     pub ensure_error: Option<String>,
+    /// Last ~100 lines of pip stdout/stderr from the install pass that
+    /// produced the venv we're now booting. Pip can return exit 0 while
+    /// leaving the venv broken (skipped packages, ABI-mismatched native
+    /// deps); this tail is the only forensic record of what pip actually
+    /// did. Empty string when no pip ran (e.g. requirements-repair).
+    pub pip_output_tail: String,
 }
 
 /// Report a runtime upgrade failure to Sentry. `phase` is "install" for
@@ -938,6 +944,21 @@ pub(crate) fn capture_upgrade_failure(
                 scope.set_extra("runtime_paused", diag.runtime_paused.into());
                 if let Some(err) = diag.ensure_error.as_deref() {
                     scope.set_extra("ensure_headroom_running_error", err.into());
+                }
+                if !diag.pip_output_tail.is_empty() {
+                    // Cap aggressively — Sentry drops extras > ~16KB and the
+                    // tail (where pip warnings/skips/successfully-installed
+                    // lines live) is the most informative part.
+                    let tail = if diag.pip_output_tail.len() > 12_000 {
+                        let cut = diag.pip_output_tail.len() - 12_000;
+                        format!(
+                            "[truncated {cut} bytes]\n...{}",
+                            &diag.pip_output_tail[cut..]
+                        )
+                    } else {
+                        diag.pip_output_tail.clone()
+                    };
+                    scope.set_extra("pip_install_output", tail.into());
                 }
             }
             if let Some(failure) = cmd_failure {

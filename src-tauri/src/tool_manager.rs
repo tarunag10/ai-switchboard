@@ -1251,6 +1251,9 @@ impl ToolManager {
 
     /// Bootstrap path: installs the pinned headroom release.
     fn install_headroom(&self) -> Result<()> {
+        // Bootstrap path runs at first launch where there is no boot
+        // validation yet — no caller will read the captured pip output, so
+        // skip the buffer to avoid allocating it.
         self.install_headroom_release(
             &HeadroomRelease {
                 version: HEADROOM_PINNED_VERSION.into(),
@@ -1258,10 +1261,16 @@ impl ToolManager {
                 sha256: HEADROOM_PINNED_SHA256.into(),
             },
             |_| {},
+            None,
         )
     }
 
-    fn install_headroom_release<F>(&self, release: &HeadroomRelease, mut progress: F) -> Result<()>
+    fn install_headroom_release<F>(
+        &self,
+        release: &HeadroomRelease,
+        mut progress: F,
+        pip_capture: Option<&std::cell::RefCell<PipOutputCapture>>,
+    ) -> Result<()>
     where
         F: FnMut(BootstrapStepUpdate),
     {
@@ -1301,7 +1310,9 @@ impl ToolManager {
         // Stream pip's stdout/stderr and translate noteworthy lines into
         // user-facing step updates so the progress UI actually changes
         // during the ~60-90s dependency install instead of staring at a
-        // single "Updating dependencies" frame.
+        // single "Updating dependencies" frame. Also funnel each line into
+        // the diagnostic capture so a later boot-validation failure can
+        // forensic the pip run that produced the broken venv.
         let deps_start = std::time::Instant::now();
         let deps_progress_ref = std::cell::RefCell::new(&mut progress);
         let mut dep_counter: u32 = 0;
@@ -1325,6 +1336,9 @@ impl ToolManager {
             ],
             &self.runtime.root_dir,
             |line| {
+                if let Some(cap) = pip_capture {
+                    cap.borrow_mut().push(line);
+                }
                 if let Some(update) =
                     pip_line_to_progress(line, deps_start.elapsed(), &mut dep_counter, 55, 80)
                 {
@@ -1349,7 +1363,7 @@ impl ToolManager {
         } else {
             headroom_spec.clone()
         };
-        run_pip_install_with_retries(
+        run_pip_install_with_retries_streaming(
             &self.runtime.managed_python(),
             &[
                 "-m",
@@ -1365,6 +1379,11 @@ impl ToolManager {
                 &headroom_arg,
             ],
             &self.runtime.root_dir,
+            |line| {
+                if let Some(cap) = pip_capture {
+                    cap.borrow_mut().push(line);
+                }
+            },
         )
         .with_context(|| {
             if use_wheel {
@@ -1795,7 +1814,9 @@ impl ToolManager {
         }
 
         // install_headroom_release emits its own granular progress from ~40-90%.
-        if let Err(err) = self.install_headroom_release(release, &mut progress) {
+        let pip_capture = std::cell::RefCell::new(PipOutputCapture::new(100));
+        if let Err(err) = self.install_headroom_release(release, &mut progress, Some(&pip_capture))
+        {
             let restored = self.rollback_partial_upgrade(had_live_venv, had_receipt);
             return UpgradeOutcome::InstallFailed {
                 restored,
@@ -1838,7 +1859,9 @@ impl ToolManager {
             percent: 97,
         });
 
-        UpgradeOutcome::InstalledPendingValidation
+        UpgradeOutcome::InstalledPendingValidation {
+            pip_output_tail: pip_capture.into_inner().into_string(),
+        }
     }
 
     /// Tear down the new venv and restore the previous one. Called by the
@@ -2008,6 +2031,13 @@ impl ToolManager {
             };
         }
 
+        // Bounded ring buffer collecting pip stdout/stderr across both
+        // install steps. Attached to the boot-validation Sentry event when
+        // it later fails — pip can return exit 0 while leaving the venv
+        // broken (skipped packages, ABI-mismatched native deps), and the
+        // tail is the only forensic record of what pip actually did.
+        let pip_capture = std::cell::RefCell::new(PipOutputCapture::new(100));
+
         // Dep-lock upgrade (only when pins changed).
         if ctx.previous_lock_backup.is_some() {
             progress(BootstrapStepUpdate {
@@ -2052,6 +2082,7 @@ impl ToolManager {
                 ],
                 &self.runtime.root_dir,
                 |line| {
+                    pip_capture.borrow_mut().push(line);
                     if let Some(update) =
                         pip_line_to_progress(line, deps_start.elapsed(), &mut dep_counter, 15, 55)
                     {
@@ -2104,7 +2135,7 @@ impl ToolManager {
         } else {
             headroom_spec.clone()
         };
-        if let Err(err) = run_pip_install_with_retries(
+        if let Err(err) = run_pip_install_with_retries_streaming(
             &self.runtime.managed_python(),
             &[
                 "-m",
@@ -2121,6 +2152,9 @@ impl ToolManager {
                 &headroom_arg,
             ],
             &self.runtime.root_dir,
+            |line| {
+                pip_capture.borrow_mut().push(line);
+            },
         ) {
             let restored = self.rollback_in_place_upgrade_inner(&ctx);
             let context_msg = if use_wheel {
@@ -2188,7 +2222,9 @@ impl ToolManager {
             percent: 97,
         });
 
-        UpgradeOutcome::InstalledPendingValidation
+        UpgradeOutcome::InstalledPendingValidation {
+            pip_output_tail: pip_capture.into_inner().into_string(),
+        }
     }
 
     fn pip_force_reinstall_headroom_version(&self, version: &str) -> Result<()> {
@@ -3086,12 +3122,51 @@ pub(crate) enum RuntimeMaintenanceKind {
 /// `InstalledPendingValidation` means install + smoke test succeeded but the
 /// backup is still on disk. The caller must either commit or rollback.
 pub enum UpgradeOutcome {
-    InstalledPendingValidation,
+    InstalledPendingValidation {
+        /// Last ~100 lines of pip stdout/stderr from this install. Attached
+        /// to the boot-validation Sentry event when it later fails — pip
+        /// can return exit 0 while leaving the venv in a broken state
+        /// (skipped packages, downgraded native deps with mismatched ABI,
+        /// etc.), and without the tail there's no record of what actually
+        /// happened. Empty string when capture was skipped (e.g., bootstrap).
+        pip_output_tail: String,
+    },
     InstallFailed {
         /// True if we successfully restored the old venv + receipt.
         restored: bool,
         error: anyhow::Error,
     },
+}
+
+/// Bounded ring buffer collecting pip stdout/stderr lines for post-mortem
+/// diagnostics. Keeps the LAST `max_lines` (drops oldest when full) so
+/// warnings, "Skipping X", "Successfully installed ..." lines that pip
+/// prints near the end of a run survive. Sentry extras cap at ~16KB; 100
+/// lines at the typical ~120-char pip line averages ~12KB.
+pub(crate) struct PipOutputCapture {
+    lines: std::collections::VecDeque<String>,
+    max_lines: usize,
+}
+
+impl PipOutputCapture {
+    pub(crate) fn new(max_lines: usize) -> Self {
+        Self {
+            lines: std::collections::VecDeque::with_capacity(max_lines),
+            max_lines,
+        }
+    }
+
+    pub(crate) fn push(&mut self, line: &str) {
+        if self.lines.len() >= self.max_lines {
+            self.lines.pop_front();
+        }
+        self.lines.push_back(line.to_string());
+    }
+
+    pub(crate) fn into_string(self) -> String {
+        let parts: Vec<String> = self.lines.into_iter().collect();
+        parts.join("\n")
+    }
 }
 
 /// State required to perform (and roll back) an in-place upgrade — i.e. an
@@ -3966,8 +4041,8 @@ mod tests {
         read_headroom_learn_metadata_from_path, receipt_requires_atomic_rebuild,
         requirements_lock_sha, rtk_distribution_artifact, run_command, sanitize_log_variant,
         sha256_bytes, verify_sha256_file, CommandFailure, HeadroomRelease, ManagedRuntime,
-        ToolManager, UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION, HEADROOM_PROXY_PORT,
-        RTK_VERSION,
+        PipOutputCapture, ToolManager, UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION,
+        HEADROOM_PROXY_PORT, RTK_VERSION,
     };
 
     #[test]
@@ -5008,7 +5083,7 @@ after
             UpgradeOutcome::InstallFailed { restored, .. } => {
                 assert!(restored, "old venv should be restored after failure");
             }
-            UpgradeOutcome::InstalledPendingValidation => {
+            UpgradeOutcome::InstalledPendingValidation { .. } => {
                 panic!("unexpected success without python");
             }
         }
@@ -5440,5 +5515,35 @@ exit 0
         // Unparseable receipts are treated as too-old (conservative).
         assert!(receipt_requires_atomic_rebuild(""));
         assert!(receipt_requires_atomic_rebuild("garbage"));
+    }
+
+    #[test]
+    fn pip_output_capture_keeps_last_n_lines() {
+        let mut cap = PipOutputCapture::new(3);
+        cap.push("first");
+        cap.push("second");
+        cap.push("third");
+        // Buffer is now full; the next push must evict "first".
+        cap.push("fourth");
+        cap.push("fifth");
+        let out = cap.into_string();
+        // We keep the LAST 3 lines because the tail (warnings, "Successfully
+        // installed", "Skipping X") is the diagnostically interesting part.
+        assert_eq!(out, "third\nfourth\nfifth");
+    }
+
+    #[test]
+    fn pip_output_capture_handles_empty_and_partial_fill() {
+        let cap = PipOutputCapture::new(10);
+        assert_eq!(cap.into_string(), "");
+
+        let mut cap = PipOutputCapture::new(10);
+        cap.push("only line");
+        assert_eq!(cap.into_string(), "only line");
+
+        let mut cap = PipOutputCapture::new(10);
+        cap.push("a");
+        cap.push("b");
+        assert_eq!(cap.into_string(), "a\nb");
     }
 }
