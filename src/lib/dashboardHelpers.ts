@@ -15,16 +15,6 @@ export interface SavingsChartDatum {
   totalTokensBeforeOptimization: number;
 }
 
-const GENERIC_PROXY_TELEMETRY_PATTERNS = [
-  /\btoin:/i,
-  /\bpatterns,\s*\d+\s*compressions/i,
-  /\bretrieval rate\b/i
-];
-
-const CONNECTOR_LOG_MARKERS: Record<string, RegExp[]> = {
-  claude_code: [/\bclaude\b/i, /\banthropic\b/i, /\/v1\/messages/i]
-};
-
 export function currencyExact(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -334,22 +324,3 @@ export function sortClientConnectors(connectors: ClientConnectorStatus[]) {
   });
 }
 
-export function isGenericProxyTelemetry(line: string) {
-  return GENERIC_PROXY_TELEMETRY_PATTERNS.some((pattern) => pattern.test(line));
-}
-
-export function findClientVerificationLogLine(clientId: string, lines: string[]) {
-  const markers = CONNECTOR_LOG_MARKERS[clientId] ?? [];
-  if (markers.length === 0) {
-    return null;
-  }
-
-  return [...lines]
-    .reverse()
-    .find(
-      (line) =>
-        line.trim().length > 0 &&
-        !isGenericProxyTelemetry(line) &&
-        markers.some((marker) => marker.test(line))
-    ) ?? null;
-}

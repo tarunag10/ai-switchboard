@@ -87,7 +87,6 @@ import {
   dayOfMonthTickFormatter,
   earliestHourlyDay,
   earliestSavingsMonth,
-  findClientVerificationLogLine,
   formatDateTime,
   formatDayKey,
   formatLearnStatus,
@@ -588,12 +587,10 @@ export default function App() {
   const [openConnectorWarningId, setOpenConnectorWarningId] = useState<string | null>(null);
   const [connectorsBusy, setConnectorsBusy] = useState(false);
   const [connectorPhase, setConnectorPhase] = useState<"disabled" | "verifying" | "healthy">("healthy");
-  const reenableLogAnchorRef = useRef<string | null>(null);
   const [connectorsError, setConnectorsError] = useState<string | null>(null);
   const [proxyVerificationRows, setProxyVerificationRows] = useState<ProxyVerificationRow[]>([]);
   const [proxyVerificationHint, setProxyVerificationHint] = useState<string | null>(null);
-  const proxyVerificationLastSignatureRef = useRef("");
-  const proxyVerificationBaselineLinesRef = useRef<Set<string>>(new Set());
+  const proxyVerificationRequestAnchorRef = useRef<number | null>(null);
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
   const [appUpdateConfig, setAppUpdateConfig] = useState<AppUpdateConfiguration | null>(null);
   const [appUpdateAvailable, setAppUpdateAvailable] = useState<AvailableAppUpdate | null>(null);
@@ -1131,16 +1128,16 @@ export default function App() {
     const interval = window.setInterval(() => {
       void (async () => {
         try {
-          const [runtime, lines] = await Promise.all([
+          const [runtime, count] = await Promise.all([
             invoke<RuntimeStatus>("get_runtime_status"),
-            invoke<string[]>("get_headroom_logs", { maxLines: 220 })
+            invoke<number | null>("get_headroom_request_count").catch(() => null)
           ]);
 
           if (!active) {
             return;
           }
 
-          if (!runtime.proxyReachable) {
+          if (!runtime.proxyReachable || count === null) {
             setProxyVerificationHint(
               "Headroom proxy is not reachable yet. Start Headroom runtime, then send a test message."
             );
@@ -1148,46 +1145,29 @@ export default function App() {
           }
 
           setProxyVerificationHint(null);
-          const signature = lines.join("\n");
-          if (!signature.trim() || signature === proxyVerificationLastSignatureRef.current) {
+
+          // Capture the baseline on the first reachable poll. Anchoring on a
+          // null/unreachable reading would let a later "proxy came up" jump
+          // (0 → N) look like new traffic.
+          if (proxyVerificationRequestAnchorRef.current === null) {
+            proxyVerificationRequestAnchorRef.current = count;
             return;
           }
-          proxyVerificationLastSignatureRef.current = signature;
 
-          const candidateLines = lines.filter(
-            (line) => !proxyVerificationBaselineLinesRef.current.has(line)
+          if (count <= proxyVerificationRequestAnchorRef.current) {
+            return;
+          }
+
+          setProxyVerificationRows((current) =>
+            current.map((row) =>
+              row.state === "verified"
+                ? row
+                : { ...row, state: "verified", message: "Request received" }
+            )
           );
-          if (candidateLines.length === 0) {
-            return;
-          }
-
-          setProxyVerificationRows((current) => {
-            const unusedLines = [...candidateLines];
-            return current.map((row) => {
-              if (row.state === "verified") {
-                return row;
-              }
-              const matched = findClientVerificationLogLine(row.clientId, unusedLines);
-              if (!matched) {
-                return row;
-              }
-              const idx = unusedLines.lastIndexOf(matched);
-              if (idx >= 0) {
-                unusedLines.splice(idx, 1);
-              }
-              proxyVerificationBaselineLinesRef.current.add(matched);
-              const snippet =
-                matched.length > 160 ? `${matched.slice(0, 160)}...` : matched;
-              return {
-                ...row,
-                state: "verified",
-                message: snippet
-              };
-            });
-          });
         } catch {
           if (active) {
-            setProxyVerificationHint("Waiting for Headroom log activity...");
+            setProxyVerificationHint("Waiting for Headroom proxy activity...");
           }
         }
       })();
@@ -1670,7 +1650,11 @@ export default function App() {
   useEffect(() => {
     setConnectorPhase((prev) => {
       if (!claudeConnectorEnabled) return "disabled";
-      if (prev === "disabled") return "healthy"; // externally re-enabled
+      // Any transition from "disabled" → enabled (re-enable click, externally
+      // toggled, or fresh app launch) drops into verifying, so the polling
+      // effect below confirms via /stats that traffic is actually flowing
+      // before the badge flips green.
+      if (prev === "disabled") return "verifying";
       return prev; // keep "verifying" or "healthy"
     });
   }, [claudeConnectorEnabled]);
@@ -1764,18 +1748,33 @@ export default function App() {
       });
   }, [connectorPhase, pricingStatus?.authenticated, runtimeStatus?.proxyReachable, runtimeStatus?.running]);
 
-  // Poll logs while verifying; dismiss when a matching line appears after the anchor
+  // While verifying, poll the proxy's /stats request counter and flip to
+  // healthy when it ticks past the anchor we captured on the first reachable
+  // poll. The previous implementation scanned the python proxy log for
+  // /v1/messages lines, but Claude Code traffic actually flows through the
+  // Rust front proxy on 6767 — the python log only sees background activity,
+  // so the regex match could hang forever even while requests were being
+  // optimized normally.
   useEffect(() => {
     if (connectorPhase !== "verifying") return;
     let active = true;
+    let anchor: number | null = null;
     const interval = setInterval(() => {
       void (async () => {
-        const lines = await invoke<string[]>("get_headroom_logs", { maxLines: 200 });
+        const count = await invoke<number | null>("get_headroom_request_count").catch(
+          () => null
+        );
         if (!active) return;
-        const anchor = reenableLogAnchorRef.current;
-        const anchorIdx = anchor ? lines.lastIndexOf(anchor) : -1;
-        const newLines = anchorIdx >= 0 ? lines.slice(anchorIdx + 1) : lines;
-        if (findClientVerificationLogLine("claude_code", newLines)) {
+        // null = proxy unreachable. Don't anchor on transient
+        // unreachable readings — a later reachable reading would otherwise
+        // jump from 0 → N and flip the badge healthy without observing
+        // any new traffic.
+        if (count === null) return;
+        if (anchor === null) {
+          anchor = count;
+          return;
+        }
+        if (count > anchor) {
           setConnectorPhase("healthy");
         }
       })();
@@ -2497,14 +2496,10 @@ export default function App() {
     setLauncherStage("proxy_verify");
     setProxyVerificationHint(null);
     setProxyVerificationRows(buildInitialProxyVerificationRows(fresh));
-    try {
-      const lines = await invoke<string[]>("get_headroom_logs", { maxLines: 200 });
-      proxyVerificationLastSignatureRef.current = lines.join("\n");
-      proxyVerificationBaselineLinesRef.current = new Set(lines);
-    } catch {
-      proxyVerificationLastSignatureRef.current = "";
-      proxyVerificationBaselineLinesRef.current = new Set();
-    }
+    // Reset to null so the polling effect re-anchors on its first reachable
+    // /stats reading. Setting it here would risk anchoring on a stale value
+    // from a prior visit to this stage.
+    proxyVerificationRequestAnchorRef.current = null;
   }
 
   async function toggleConnector(connector: ClientConnectorStatus, nextEnabled: boolean) {
@@ -2702,6 +2697,18 @@ export default function App() {
                 type="button"
                 className="secondary-button secondary-button--small"
                 onClick={() =>
+                  void invoke("retry_runtime_upgrade_with_rebuild")
+                }
+                disabled={runtimeUpgradeProgress.running}
+              >
+                Retry with full rebuild
+              </button>
+            )}
+            {upgradeFailure.failurePhase === "boot_validation" && (
+              <button
+                type="button"
+                className="secondary-button secondary-button--small"
+                onClick={() =>
                   void invoke("open_external_link", {
                     url: "mailto:support@extraheadroom.com?subject=Headroom Update Issue",
                   }).catch(() => {})
@@ -2818,6 +2825,18 @@ export default function App() {
               >
                 Continue with previous version
               </button>
+              {upgradeFailure.failurePhase === "boot_validation" && (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() =>
+                    void invoke("retry_runtime_upgrade_with_rebuild")
+                  }
+                  disabled={runtimeUpgradeProgress.running}
+                >
+                  Retry with full rebuild
+                </button>
+              )}
               {upgradeFailure.failurePhase === "boot_validation" && (
                 <button
                   type="button"
@@ -3769,8 +3788,6 @@ export default function App() {
                   className="callout-banner__action"
                   disabled={connectorsBusy}
                   onClick={async () => {
-                    const currentLines = await invoke<string[]>("get_headroom_logs", { maxLines: 200 }).catch(() => [] as string[]);
-                    reenableLogAnchorRef.current = currentLines[currentLines.length - 1] ?? null;
                     await toggleConnector(claudeConnector, true);
                     setConnectorPhase("verifying");
                   }}

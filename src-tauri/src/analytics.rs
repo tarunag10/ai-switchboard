@@ -26,6 +26,7 @@ pub struct AnalyticsClient {
     dispatcher: Mutex<Option<DispatcherHandle>>,
     system_props: SystemProperties,
     app_version: String,
+    headroom_ai_version: Mutex<Option<String>>,
 }
 
 struct DispatcherHandle {
@@ -73,7 +74,12 @@ impl AnalyticsClient {
             dispatcher: Mutex::new(dispatcher),
             system_props,
             app_version,
+            headroom_ai_version: Mutex::new(None),
         }
+    }
+
+    pub fn set_headroom_ai_version(&self, version: Option<String>) {
+        *self.headroom_ai_version.lock() = version.and_then(non_empty_string);
     }
 
     pub fn track_event(&self, name: &str, properties: Option<Value>) -> Result<(), String> {
@@ -85,6 +91,23 @@ impl AnalyticsClient {
         if normalized_name.is_empty() {
             return Ok(());
         }
+
+        let mut props = sanitize_properties(properties)
+            .and_then(|value| match value {
+                Value::Object(map) => Some(map),
+                _ => None,
+            })
+            .unwrap_or_default();
+        if let Some(version) = self.headroom_ai_version.lock().clone() {
+            props
+                .entry("headroom_ai_version".to_string())
+                .or_insert(Value::String(version));
+        }
+        let props_value = if props.is_empty() {
+            Value::Null
+        } else {
+            Value::Object(props)
+        };
 
         let event = json!({
             "timestamp": chrono::Utc::now().to_rfc3339(),
@@ -100,7 +123,7 @@ impl AnalyticsClient {
                 "appVersion": self.app_version,
                 "sdkVersion": "headroom-desktop"
             },
-            "props": sanitize_properties(properties)
+            "props": props_value
         });
 
         let dispatcher = self.dispatcher.lock();
@@ -188,6 +211,11 @@ pub fn track_event(app: &AppHandle, name: &str, properties: Option<Value>) {
             name.trim()
         ));
     }
+}
+
+pub fn set_headroom_ai_version(app: &AppHandle, version: Option<String>) {
+    let client = app.state::<AnalyticsClient>();
+    client.set_headroom_ai_version(version);
 }
 
 fn log_stderr(args: std::fmt::Arguments<'_>) {

@@ -11,7 +11,6 @@ import {
   dayOfMonthTickFormatter,
   earliestHourlyDay,
   earliestSavingsMonth,
-  findClientVerificationLogLine,
   formatDateTime,
   formatDayKey,
   formatLearnStatus,
@@ -152,18 +151,6 @@ describe("dashboard helpers", () => {
       "cursor",
       "zed"
     ]);
-  });
-
-  it("filters generic proxy noise when locating verification lines", () => {
-    const lines = [
-      "patterns, 42 compressions",
-      "claude request POST /v1/messages completed",
-      "anthropic handshake",
-      "retrieval rate 0.2"
-    ];
-
-    expect(findClientVerificationLogLine("claude_code", lines)).toBe("anthropic handshake");
-    expect(findClientVerificationLogLine("unknown", lines)).toBeNull();
   });
 
   it("formats timestamps and learn recency with clear fallbacks", () => {

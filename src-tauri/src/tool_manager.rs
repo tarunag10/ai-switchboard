@@ -101,6 +101,14 @@ const LEGACY_REQUIREMENTS_LOCK_SHAS: &[&str] = &[
 ///   on disk and have not produced upgrade-failure events, so we let them
 ///   take the cheap in-place path. If 0.10.x fallbacks start appearing in
 ///   Sentry, raise the floor.
+/// - 0.3.8: a single `fallback: 0.10.12` boot-validation stall appeared in
+///   Sentry, but a clean-VM 0.3.5 → 0.3.7 upgrade reproduced the same
+///   0.10.12 → 0.19.0 in-place delta and succeeded. The N=1 failure looks
+///   environmental, not universal to the 0.10.x cohort. With the new
+///   "Retry with full rebuild" button as a recovery path for the
+///   environmental cases, we keep the floor at 0.10.0 rather than penalize
+///   the (probably ~99%) of 0.10.x users who succeed in-place. Re-evaluate
+///   if multi-machine 0.10.x failures show up in 0.3.8 telemetry.
 const ATOMIC_REBUILD_FLOOR_VERSION: (u32, u32, u32) = (0, 10, 0);
 
 /// Parse the leading `major.minor.patch` from a version string, tolerating
@@ -1702,10 +1710,17 @@ impl ToolManager {
     ///
     /// On failure in any install step: rolls back internally, restoring the
     /// previous venv + receipt byte-for-byte, and returns `InstallFailed`.
+    ///
+    /// `force_rebuild` skips the in-place upgrade attempt and goes straight
+    /// to the move-aside-and-rebuild path. Used by the user-facing "Retry
+    /// with full rebuild" recovery flow when an in-place upgrade installed
+    /// cleanly but boot validation failed (typically an ABI mismatch in
+    /// native deps that pip can't detect).
     pub fn atomic_upgrade_headroom<F>(
         &self,
         release: &HeadroomRelease,
         mut progress: F,
+        force_rebuild: bool,
     ) -> UpgradeOutcome
     where
         F: FnMut(BootstrapStepUpdate),
@@ -1725,11 +1740,14 @@ impl ToolManager {
         // In-place path: mutate the live venv rather than rebuilding it.
         // Covers both the wheel-only case (lock unchanged) and the lock-churn
         // case (`pip install --upgrade -r lock` reinstalls only the pins that
-        // actually differ). Falls through to the atomic rebuild only for
-        // fresh installs and the rare case where the lock snapshot needed
-        // for safe rollback is missing on disk.
-        if let Some(ctx) = self.prepare_in_place_upgrade() {
-            return self.in_place_upgrade_headroom(release, ctx, progress);
+        // actually differ). Skipped when `force_rebuild` is set (user-
+        // initiated recovery from a botched in-place upgrade) or when
+        // `prepare_in_place_upgrade` decides the receipt isn't safe to
+        // mutate in-place.
+        if !force_rebuild {
+            if let Some(ctx) = self.prepare_in_place_upgrade() {
+                return self.in_place_upgrade_headroom(release, ctx, progress);
+            }
         }
 
         let venv_dir = self.runtime.venv_dir.clone();
@@ -2473,6 +2491,14 @@ impl ToolManager {
     /// configured via the legacy `~/.claude/mcp.json` fallback (which Claude
     /// Code ≥2.x ignores). Safe to call at every launch — no-ops when the
     /// server is already registered via `claude mcp add` or direct json write.
+    ///
+    /// If the install fails with a Python `ModuleNotFoundError`/`ImportError`
+    /// in stderr, the venv is missing one or more pinned dependencies despite
+    /// the receipt's `requirementsLockSha256` saying otherwise (seen on
+    /// upgrades from very-old desktop versions where a partial install left
+    /// the receipt stamped but the venv incomplete). Self-heal by running the
+    /// requirements repair, which re-installs the full lock file and retries
+    /// MCP install internally.
     pub fn ensure_mcp_configured(&self) -> Result<()> {
         if self.headroom_mcp_configured() == Some(true)
             && matches!(
@@ -2482,7 +2508,24 @@ impl ToolManager {
         {
             return Ok(());
         }
-        let method = self.install_headroom_mcp()?;
+        let method = match self.install_headroom_mcp() {
+            Ok(method) => method,
+            Err(err) if looks_like_corrupt_venv_error(&err) => {
+                log::warn!(
+                    "MCP install hit a Python import error; running requirements repair: {err:#}"
+                );
+                sentry::capture_message(
+                    "MCP install hit corrupt-venv signal; auto-running requirements repair",
+                    sentry::Level::Info,
+                );
+                self.repair_stale_requirements_with_progress(|_| {})
+                    .context("auto-repairing venv after MCP install import error")?;
+                // repair_stale_requirements_with_progress runs install_headroom_mcp
+                // and writes the mcp section of the receipt itself, so we're done.
+                return Ok(());
+            }
+            Err(err) => return Err(err),
+        };
         let receipt_path = self.runtime.tools_dir.join("headroom.json");
         if let Ok(bytes) = std::fs::read(&receipt_path) {
             if let Ok(mut receipt) = serde_json::from_slice::<Value>(&bytes) {
@@ -2889,9 +2932,57 @@ pub(crate) fn tail_log_file(path: &Path, max_lines: usize) -> String {
         if lines.len() == max_lines {
             lines.pop_front();
         }
-        lines.push_back(line);
+        lines.push_back(redact_sensitive(&line));
     }
     lines.into_iter().collect::<Vec<_>>().join("\n")
+}
+
+/// Strip Anthropic API keys and bearer tokens from log content before it gets
+/// handed to Sentry. Without this, Sentry's default PII scrubber sees one
+/// `sk-ant-…` and replaces the entire `proxy_log_tail` field with `[Filtered]`,
+/// which is the single most diagnostic field in `proxy_unreachable_post_boot`.
+/// Pre-redact so the rest of the line survives the scrubber.
+fn redact_sensitive(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let bytes = line.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let rest = &line[i..];
+        if let Some(consumed) = match_redactable(rest) {
+            out.push_str("[REDACTED]");
+            i += consumed;
+        } else {
+            let ch = rest.chars().next().unwrap();
+            out.push(ch);
+            i += ch.len_utf8();
+        }
+    }
+    out
+}
+
+/// If `rest` starts with a redactable token, return the byte length to skip.
+fn match_redactable(rest: &str) -> Option<usize> {
+    if let Some(after) = rest.strip_prefix("sk-ant-") {
+        let token_len = after
+            .bytes()
+            .take_while(|b| b.is_ascii_alphanumeric() || *b == b'-' || *b == b'_')
+            .count();
+        return Some("sk-ant-".len() + token_len);
+    }
+    for prefix in ["Bearer ", "bearer "] {
+        if let Some(after) = rest.strip_prefix(prefix) {
+            let token_len = after
+                .bytes()
+                .take_while(|b| {
+                    b.is_ascii_alphanumeric() || matches!(*b, b'-' | b'_' | b'.' | b'~' | b'+' | b'/' | b'=')
+                })
+                .count();
+            if token_len >= 8 {
+                return Some(prefix.len() + token_len);
+            }
+        }
+    }
+    None
 }
 
 /// Newest `headroom-proxy*.log` in the logs directory, if any.
@@ -3993,6 +4084,19 @@ impl std::fmt::Display for CommandFailure {
 
 impl std::error::Error for CommandFailure {}
 
+/// Returns true when an `anyhow::Error` from a `headroom <subcommand>` shell-out
+/// looks like the venv is missing pinned dependencies — i.e. Python died with
+/// `ModuleNotFoundError` or `ImportError` before the CLI could run. This is the
+/// recovery signal for a partial install that left the receipt's
+/// `requirementsLockSha256` stamped but the venv contents incomplete.
+fn looks_like_corrupt_venv_error(err: &anyhow::Error) -> bool {
+    let Some(failure) = err.downcast_ref::<CommandFailure>() else {
+        return false;
+    };
+    let stderr = failure.stderr.as_str();
+    stderr.contains("ModuleNotFoundError") || stderr.contains("ImportError")
+}
+
 /// Structured error emitted when the headroom proxy subprocess fails to open
 /// its port. Capture sites downcast to pull the log tail into Sentry `extra`
 /// fields, which are not subject to the 8KB message cap.
@@ -4037,13 +4141,99 @@ mod tests {
     use super::{
         bootstrap_requirements_lock_for_target, extract_required_pydantic_core_version,
         headroom_entrypoint_startup_args, headroom_python_startup_args,
-        parse_major_minor_patch, proxy_argv_contains_expected_flags,
-        read_headroom_learn_metadata_from_path, receipt_requires_atomic_rebuild,
-        requirements_lock_sha, rtk_distribution_artifact, run_command, sanitize_log_variant,
-        sha256_bytes, verify_sha256_file, CommandFailure, HeadroomRelease, ManagedRuntime,
+        looks_like_corrupt_venv_error, parse_major_minor_patch,
+        proxy_argv_contains_expected_flags, read_headroom_learn_metadata_from_path,
+        receipt_requires_atomic_rebuild, redact_sensitive, requirements_lock_sha,
+        rtk_distribution_artifact, run_command, sanitize_log_variant, sha256_bytes,
+        verify_sha256_file, CommandFailure, HeadroomRelease, ManagedRuntime,
         PipOutputCapture, ToolManager, UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION,
         HEADROOM_PROXY_PORT, RTK_VERSION,
     };
+
+    #[test]
+    fn redact_sensitive_strips_anthropic_keys() {
+        let line = "POST /v1/messages x-api-key: sk-ant-api03-AbCdEf-12_34 done";
+        let out = redact_sensitive(line);
+        assert!(!out.contains("sk-ant-"), "leak: {out}");
+        assert!(out.contains("[REDACTED]"));
+        assert!(out.contains("done"));
+    }
+
+    #[test]
+    fn redact_sensitive_strips_bearer_tokens() {
+        let line = "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig trailing";
+        let out = redact_sensitive(line);
+        assert!(!out.contains("eyJhbGciOiJIUzI1NiJ9"), "leak: {out}");
+        assert!(out.contains("[REDACTED]"));
+        assert!(out.contains("trailing"));
+    }
+
+    #[test]
+    fn redact_sensitive_passes_through_clean_lines() {
+        let line = "2026-05-03T20:31:34Z proxy started on 127.0.0.1:6767";
+        assert_eq!(redact_sensitive(line), line);
+    }
+
+    #[test]
+    fn redact_sensitive_ignores_short_bearer_word() {
+        // "Bearer" followed by something too short to be a real token shouldn't
+        // be redacted — we don't want to nuke unrelated prose.
+        let line = "the Bearer of the message is fine";
+        assert_eq!(redact_sensitive(line), line);
+    }
+
+    fn cmd_failure_with_stderr(stderr: &str) -> anyhow::Error {
+        anyhow::Error::new(CommandFailure {
+            program: "/runtime/venv/bin/headroom".into(),
+            args: vec!["mcp".into(), "install".into()],
+            stdout: String::new(),
+            stderr: stderr.into(),
+            exit_code: Some(1),
+        })
+    }
+
+    #[test]
+    fn looks_like_corrupt_venv_error_matches_module_not_found() {
+        let err = cmd_failure_with_stderr(
+            "Traceback (most recent call last):\n\
+             ...\n\
+             ModuleNotFoundError: No module named 'opentelemetry'\n",
+        );
+        assert!(looks_like_corrupt_venv_error(&err));
+    }
+
+    #[test]
+    fn looks_like_corrupt_venv_error_matches_import_error() {
+        let err = cmd_failure_with_stderr(
+            "Traceback (most recent call last):\n\
+             ImportError: cannot import name 'X' from partially initialized module 'Y'\n",
+        );
+        assert!(looks_like_corrupt_venv_error(&err));
+    }
+
+    #[test]
+    fn looks_like_corrupt_venv_error_ignores_unrelated_failures() {
+        let err = cmd_failure_with_stderr("error: invalid --proxy-url\n");
+        assert!(!looks_like_corrupt_venv_error(&err));
+    }
+
+    #[test]
+    fn looks_like_corrupt_venv_error_ignores_non_command_errors() {
+        let err = anyhow::anyhow!("some other failure with ModuleNotFoundError in the message");
+        // Only CommandFailure errors carry the structured stderr we trust as a
+        // corrupt-venv signal — a bare anyhow message could be anything.
+        assert!(!looks_like_corrupt_venv_error(&err));
+    }
+
+    #[test]
+    fn looks_like_corrupt_venv_error_survives_anyhow_context() {
+        use anyhow::Context as _;
+        let err = cmd_failure_with_stderr("ModuleNotFoundError: No module named 'opentelemetry'\n");
+        let wrapped = Err::<(), _>(err)
+            .context("configuring Headroom MCP integration")
+            .unwrap_err();
+        assert!(looks_like_corrupt_venv_error(&wrapped));
+    }
 
     #[test]
     fn requirements_lock_sha_ignores_comments_and_blank_lines() {
@@ -5077,7 +5267,7 @@ after
             sha256: "deadbeef".into(),
         };
 
-        let outcome = manager.atomic_upgrade_headroom(&release, |_| {});
+        let outcome = manager.atomic_upgrade_headroom(&release, |_| {}, false);
 
         match outcome {
             UpgradeOutcome::InstallFailed { restored, .. } => {
@@ -5486,14 +5676,15 @@ exit 0
 
     #[test]
     fn receipt_requires_atomic_rebuild_below_floor() {
-        // Floor is 0.10.0 at time of writing — catches 0.5.x/0.6.x/0.8.x/0.9.x
-        // (different lock or smaller user base) while letting 0.10.x users
-        // (same lock as 0.8.2 but no observed Sentry failures) take the
-        // in-place path.
+        // Floor held at 0.10.0 in 0.3.8: a clean-VM 0.3.5 → 0.3.7 upgrade
+        // reproduced the 0.10.12 → 0.19.0 in-place delta successfully, so
+        // the single Sentry stall looks environmental rather than universal
+        // to the 0.10.x cohort. The "Retry with full rebuild" button is the
+        // recovery path for environmental cases.
         assert_eq!(ATOMIC_REBUILD_FLOOR_VERSION, (0, 10, 0));
 
-        // Pre-floor: shipped in 0.2.40 → 0.3.0-rc.10 desktop bundles, plus the
-        // 0.8.2 fallback that produced the original Sentry events.
+        // Pre-floor: shipped in 0.2.40 → 0.3.0-rc.10 desktop bundles, plus
+        // the 0.8.2 fallback that produced the original Sentry events.
         assert!(receipt_requires_atomic_rebuild("0.5.18"));
         assert!(receipt_requires_atomic_rebuild("0.5.24"));
         assert!(receipt_requires_atomic_rebuild("0.6.5"));

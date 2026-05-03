@@ -282,6 +282,7 @@ pub fn get_pricing_status(state: &AppState) -> Result<HeadroomPricingStatus, Str
         };
 
     let claude = detect_claude_profile(state);
+    let last_known_good_plan_tier = state.last_known_good_plan_tier();
 
     Ok(evaluate_pricing_status(
         authenticated,
@@ -292,6 +293,7 @@ pub fn get_pricing_status(state: &AppState) -> Result<HeadroomPricingStatus, Str
         account,
         claude,
         launch_discount_active,
+        last_known_good_plan_tier,
     ))
 }
 
@@ -399,6 +401,7 @@ pub(crate) fn verify_auth_code_with_base_url(
     let local_state = reconcile_local_state_with_server(state)?;
     let local_grace_ends_at = local_state.first_seen_at + Duration::hours(LOCAL_GRACE_PERIOD_HOURS);
     let claude = detect_claude_profile(state);
+    let last_known_good_plan_tier = state.last_known_good_plan_tier();
 
     Ok(evaluate_pricing_status(
         true,
@@ -409,6 +412,7 @@ pub(crate) fn verify_auth_code_with_base_url(
         Some(remote_account_to_profile(body.account)),
         claude,
         body.launch_discount_active,
+        last_known_good_plan_tier,
     ))
 }
 
@@ -468,6 +472,7 @@ pub(crate) fn activate_account_with_base_url(
     let local_state = reconcile_local_state_with_server(state)?;
     let local_grace_ends_at = local_state.first_seen_at + Duration::hours(LOCAL_GRACE_PERIOD_HOURS);
     let claude = detect_claude_profile(state);
+    let last_known_good_plan_tier = state.last_known_good_plan_tier();
 
     Ok(evaluate_pricing_status(
         true,
@@ -478,6 +483,7 @@ pub(crate) fn activate_account_with_base_url(
         Some(remote_account_to_profile(body.account)),
         claude,
         body.launch_discount_active,
+        last_known_good_plan_tier,
     ))
 }
 
@@ -656,6 +662,7 @@ fn evaluate_pricing_status(
     account: Option<HeadroomAccountProfile>,
     claude: ClaudeAccountProfile,
     launch_discount_active: bool,
+    last_known_good_plan_tier: Option<ClaudePlanTier>,
 ) -> HeadroomPricingStatus {
     #[cfg(debug_assertions)]
     let local_grace_active = if INDEFINITE_TRIAL {
@@ -688,29 +695,6 @@ fn evaluate_pricing_status(
             gate_message =
                 "Your 14-day Headroom trial is active with unlimited optimization.".into();
         } else {
-            let pricing = pricing_policy_for_plan(&claude.plan_tier);
-            let bonus = account.invite_bonus_percent.clamp(0.0, 50.0);
-            nudge_threshold_percent = pricing
-                .as_ref()
-                .map(|policy| policy.nudge_thresholds_percent[0]);
-            effective_nudge_thresholds_percent = pricing.as_ref().map(|policy| {
-                policy
-                    .nudge_thresholds_percent
-                    .iter()
-                    .map(|n| n + bonus)
-                    .collect()
-            });
-            disable_threshold_percent = pricing
-                .as_ref()
-                .map(|policy| policy.disable_threshold_percent);
-            effective_disable_threshold_percent = pricing.as_ref().map(|policy| {
-                (policy.disable_threshold_percent + account.invite_bonus_percent)
-                    .min(policy.disable_threshold_percent + 50.0)
-            });
-            recommended_subscription_tier = pricing
-                .as_ref()
-                .map(|policy| policy.recommended_tier.clone());
-
             match claude.plan_tier {
                 ClaudePlanTier::Free => {
                     gate_message =
@@ -718,37 +702,51 @@ fn evaluate_pricing_status(
                             .into();
                 }
                 ClaudePlanTier::Unknown => {
-                    gate_message = "Send a Claude Code message through Headroom so we can detect your current Claude usage and apply the right pricing thresholds.".into();
+                    // Live classifier returned Unknown — Anthropic's OAuth
+                    // profile came back sparse. Free usage requires a live
+                    // Free signal; cached Free is not enough to grant it
+                    // post-trial. Fall back to cached paid tier when present,
+                    // otherwise Pro as the default upgrade path.
+                    let effective_tier = match last_known_good_plan_tier.as_ref() {
+                        Some(tier) if !matches!(tier, ClaudePlanTier::Free) => tier.clone(),
+                        _ => ClaudePlanTier::Pro,
+                    };
+                    let gate = paid_plan_gate(
+                        &effective_tier,
+                        claude.weekly_utilization_pct,
+                        account.invite_bonus_percent,
+                    );
+                    optimization_allowed = gate.optimization_allowed;
+                    should_nudge = gate.should_nudge;
+                    nudge_level = gate.nudge_level;
+                    gate_reason = gate.gate_reason;
+                    nudge_threshold_percent = gate.nudge_threshold_percent;
+                    effective_nudge_thresholds_percent = gate.effective_nudge_thresholds_percent;
+                    disable_threshold_percent = gate.disable_threshold_percent;
+                    effective_disable_threshold_percent = gate.effective_disable_threshold_percent;
+                    recommended_subscription_tier = gate.recommended_subscription_tier;
+                    gate_message = format!(
+                        "We couldn't refresh your Claude plan from Anthropic right now, so we're applying {} thresholds until the next sync. {}",
+                        plan_tier_display(&effective_tier),
+                        gate.gate_message
+                    );
                 }
                 _ => {
-                    if let (Some(weekly_usage), Some(nudges), Some(disable)) = (
+                    let gate = paid_plan_gate(
+                        &claude.plan_tier,
                         claude.weekly_utilization_pct,
-                        effective_nudge_thresholds_percent.as_ref(),
-                        effective_disable_threshold_percent,
-                    ) {
-                        if weekly_usage >= disable {
-                            optimization_allowed = false;
-                            gate_reason = Some(PricingGateReason::WeeklyUsageLimitReached);
-                            gate_message = format!(
-                                "Headroom is paused because you've reached {:.1}% of weekly Claude usage. Upgrade to raise your limit.",
-                                weekly_usage
-                            );
-                        } else {
-                            nudge_level =
-                                nudges.iter().filter(|t| weekly_usage >= **t).count() as u8;
-                            should_nudge = nudge_level > 0;
-                            gate_message = if should_nudge {
-                                format_nudge_message(weekly_usage, disable, nudge_level)
-                            } else {
-                                format!(
-                                    "Headroom is active. It will start nudging at {:.1}% and pause at {:.1}% of weekly Claude usage for your detected plan.",
-                                    nudges[0], disable
-                                )
-                            };
-                        }
-                    } else {
-                        gate_message = "Headroom is active. Send a Claude Code message through Headroom to sync your current weekly usage and pricing threshold.".into();
-                    }
+                        account.invite_bonus_percent,
+                    );
+                    optimization_allowed = gate.optimization_allowed;
+                    should_nudge = gate.should_nudge;
+                    nudge_level = gate.nudge_level;
+                    gate_reason = gate.gate_reason;
+                    nudge_threshold_percent = gate.nudge_threshold_percent;
+                    effective_nudge_thresholds_percent = gate.effective_nudge_thresholds_percent;
+                    disable_threshold_percent = gate.disable_threshold_percent;
+                    effective_disable_threshold_percent = gate.effective_disable_threshold_percent;
+                    recommended_subscription_tier = gate.recommended_subscription_tier;
+                    gate_message = gate.gate_message;
                 }
             }
         }
@@ -782,6 +780,106 @@ fn evaluate_pricing_status(
         claude,
         account,
         launch_discount_active,
+    }
+}
+
+struct PaidPlanGate {
+    optimization_allowed: bool,
+    should_nudge: bool,
+    nudge_level: u8,
+    gate_reason: Option<PricingGateReason>,
+    gate_message: String,
+    nudge_threshold_percent: Option<f64>,
+    effective_nudge_thresholds_percent: Option<Vec<f64>>,
+    disable_threshold_percent: Option<f64>,
+    effective_disable_threshold_percent: Option<f64>,
+    recommended_subscription_tier: Option<HeadroomSubscriptionTier>,
+}
+
+fn paid_plan_gate(
+    tier: &ClaudePlanTier,
+    weekly_utilization_pct: Option<f64>,
+    invite_bonus_percent: f64,
+) -> PaidPlanGate {
+    let pricing = pricing_policy_for_plan(tier);
+    let bonus = invite_bonus_percent.clamp(0.0, 50.0);
+    let nudge_threshold_percent = pricing
+        .as_ref()
+        .map(|policy| policy.nudge_thresholds_percent[0]);
+    let effective_nudge_thresholds_percent: Option<Vec<f64>> =
+        pricing.as_ref().map(|policy| {
+            policy
+                .nudge_thresholds_percent
+                .iter()
+                .map(|n| n + bonus)
+                .collect()
+        });
+    let disable_threshold_percent = pricing
+        .as_ref()
+        .map(|policy| policy.disable_threshold_percent);
+    let effective_disable_threshold_percent = pricing.as_ref().map(|policy| {
+        (policy.disable_threshold_percent + invite_bonus_percent)
+            .min(policy.disable_threshold_percent + 50.0)
+    });
+    let recommended_subscription_tier = pricing
+        .as_ref()
+        .map(|policy| policy.recommended_tier.clone());
+
+    let mut optimization_allowed = true;
+    let mut should_nudge = false;
+    let mut nudge_level: u8 = 0;
+    let mut gate_reason = None;
+    let gate_message: String;
+
+    if let (Some(weekly_usage), Some(nudges), Some(disable)) = (
+        weekly_utilization_pct,
+        effective_nudge_thresholds_percent.as_ref(),
+        effective_disable_threshold_percent,
+    ) {
+        if weekly_usage >= disable {
+            optimization_allowed = false;
+            gate_reason = Some(PricingGateReason::WeeklyUsageLimitReached);
+            gate_message = format!(
+                "Headroom is paused because you've reached {:.1}% of weekly Claude usage. Upgrade to raise your limit.",
+                weekly_usage
+            );
+        } else {
+            nudge_level = nudges.iter().filter(|t| weekly_usage >= **t).count() as u8;
+            should_nudge = nudge_level > 0;
+            gate_message = if should_nudge {
+                format_nudge_message(weekly_usage, disable, nudge_level)
+            } else {
+                format!(
+                    "Headroom is active. It will start nudging at {:.1}% and pause at {:.1}% of weekly Claude usage for your detected plan.",
+                    nudges[0], disable
+                )
+            };
+        }
+    } else {
+        gate_message = "Headroom is active. Send a Claude Code message through Headroom to sync your current weekly usage and pricing threshold.".into();
+    }
+
+    PaidPlanGate {
+        optimization_allowed,
+        should_nudge,
+        nudge_level,
+        gate_reason,
+        gate_message,
+        nudge_threshold_percent,
+        effective_nudge_thresholds_percent,
+        disable_threshold_percent,
+        effective_disable_threshold_percent,
+        recommended_subscription_tier,
+    }
+}
+
+fn plan_tier_display(tier: &ClaudePlanTier) -> &'static str {
+    match tier {
+        ClaudePlanTier::Free => "Free",
+        ClaudePlanTier::Pro => "Pro",
+        ClaudePlanTier::Max5x => "Max x5",
+        ClaudePlanTier::Max20x => "Max x20",
+        ClaudePlanTier::Unknown => "Unknown",
     }
 }
 
@@ -842,6 +940,12 @@ pub fn detect_claude_profile_uncached(state: &AppState) -> ClaudeAccountProfile 
     } else {
         (ClaudePlanTier::Unknown, None)
     };
+
+    // Persist the classifier output when it carries real signal so the
+    // pricing gate can fall back to it next time Anthropic returns a sparse
+    // profile and we'd otherwise classify as Unknown. The helper filters
+    // Unknown internally.
+    state.record_known_good_plan_tier(&plan_tier);
 
     ClaudeAccountProfile {
         auth_method: ClaudeAuthMethod::ClaudeAiOauth,
@@ -1425,11 +1529,10 @@ mod tests {
 
     use super::{
         detect_plan_tier_from_profile, evaluate_pricing_status, merge_background_account_sync,
-        plan_tier_header_value, pricing_policy_for_plan, remote_account_to_profile,
-        resolve_account_api_base_url, ClaudeOauthProfile, ClaudeOauthProfileAccount,
-        ClaudeOauthProfileOrganization, HeadroomSubscriptionTier, IdentityPayload,
-        LocalPricingState, RemoteAccountResponse, RemoteAccountSyncError,
-        DEFAULT_ACCOUNT_API_BASE_URL,
+        plan_tier_header_value, remote_account_to_profile, resolve_account_api_base_url,
+        ClaudeOauthProfile, ClaudeOauthProfileAccount, ClaudeOauthProfileOrganization,
+        HeadroomSubscriptionTier, IdentityPayload, LocalPricingState, RemoteAccountResponse,
+        RemoteAccountSyncError, DEFAULT_ACCOUNT_API_BASE_URL,
     };
     use crate::models::{
         BillingPeriod, ClaudeAccountProfile, ClaudeAuthMethod, ClaudePlanTier,
@@ -1634,6 +1737,12 @@ mod tests {
         p
     }
 
+    fn unknown_profile_with_weekly(weekly: f64) -> ClaudeAccountProfile {
+        let mut p = empty_claude_profile(ClaudePlanTier::Unknown);
+        p.weekly_utilization_pct = Some(weekly);
+        p
+    }
+
     fn trial_account() -> HeadroomAccountProfile {
         HeadroomAccountProfile {
             email: "user@example.com".into(),
@@ -1691,6 +1800,7 @@ mod tests {
             Some(trial_account()),
             pro_profile_with_weekly(95.0),
             false,
+            None,
         );
         assert!(status.optimization_allowed);
         assert!(!status.should_nudge);
@@ -1713,6 +1823,7 @@ mod tests {
             Some(account),
             pro_profile_with_weekly(99.0),
             false,
+            None,
         );
         assert!(status.optimization_allowed);
         assert!(status.gate_reason.is_none());
@@ -1730,6 +1841,7 @@ mod tests {
             Some(expired_account(0.0)),
             empty_claude_profile(ClaudePlanTier::Free),
             false,
+            None,
         );
         assert!(status.optimization_allowed);
         assert!(!status.should_nudge);
@@ -1737,7 +1849,9 @@ mod tests {
     }
 
     #[test]
-    fn unknown_tier_surfaces_detection_prompt() {
+    fn unknown_tier_without_cache_falls_back_to_pro_thresholds() {
+        // No last-known-good cache, no weekly usage signal — fallback applies
+        // Pro thresholds but the user keeps optimization on (no gating yet).
         let (start, end) = grace();
         let status = evaluate_pricing_status(
             true,
@@ -1748,10 +1862,147 @@ mod tests {
             Some(expired_account(0.0)),
             empty_claude_profile(ClaudePlanTier::Unknown),
             false,
+            None,
         );
         assert!(status.optimization_allowed);
         assert!(!status.should_nudge);
-        assert!(status.gate_message.contains("detect"));
+        // Pro pricing policy is exposed even though classifier returned Unknown.
+        assert_eq!(status.disable_threshold_percent, Some(50.0));
+        assert!(status.gate_message.contains("Pro"));
+    }
+
+    #[test]
+    fn unknown_tier_without_cache_gates_at_pro_disable_threshold() {
+        // Same fallback, but weekly usage is already over Pro's 50% disable
+        // threshold — the user MUST be paused, not given a free pass.
+        let (start, end) = grace();
+        let status = evaluate_pricing_status(
+            true,
+            start,
+            end,
+            false,
+            None,
+            Some(expired_account(0.0)),
+            unknown_profile_with_weekly(60.0),
+            false,
+            None,
+        );
+        assert!(!status.optimization_allowed);
+        assert!(matches!(
+            status.gate_reason,
+            Some(PricingGateReason::WeeklyUsageLimitReached)
+        ));
+    }
+
+    #[test]
+    fn unknown_tier_with_cached_max5x_uses_max5x_thresholds() {
+        let (start, end) = grace();
+        let status = evaluate_pricing_status(
+            true,
+            start,
+            end,
+            false,
+            None,
+            Some(expired_account(0.0)),
+            unknown_profile_with_weekly(60.0),
+            false,
+            Some(ClaudePlanTier::Max5x),
+        );
+        assert!(!status.optimization_allowed);
+        assert!(matches!(
+            status.gate_reason,
+            Some(PricingGateReason::WeeklyUsageLimitReached)
+        ));
+        assert!(matches!(
+            status.recommended_subscription_tier,
+            Some(HeadroomSubscriptionTier::Max5x)
+        ));
+    }
+
+    #[test]
+    fn unknown_tier_with_cached_pro_below_threshold_nudges_at_pro_levels() {
+        // Pro nudges at 25% — confirm fallback applies the nudge, not silence.
+        let (start, end) = grace();
+        let status = evaluate_pricing_status(
+            true,
+            start,
+            end,
+            false,
+            None,
+            Some(expired_account(0.0)),
+            unknown_profile_with_weekly(30.0),
+            false,
+            Some(ClaudePlanTier::Pro),
+        );
+        assert!(status.optimization_allowed);
+        assert!(status.should_nudge);
+        assert_eq!(status.nudge_threshold_percent, Some(25.0));
+    }
+
+    #[test]
+    fn live_pro_classification_ignores_cached_free() {
+        // Cache says Free (a stale prior signal); classifier now says Pro.
+        // Live wins — Pro thresholds apply.
+        let (start, end) = grace();
+        let status = evaluate_pricing_status(
+            true,
+            start,
+            end,
+            false,
+            None,
+            Some(expired_account(0.0)),
+            pro_profile_with_weekly(50.0),
+            false,
+            Some(ClaudePlanTier::Free),
+        );
+        assert!(!status.optimization_allowed);
+        assert!(matches!(
+            status.gate_reason,
+            Some(PricingGateReason::WeeklyUsageLimitReached)
+        ));
+    }
+
+    #[test]
+    fn unknown_tier_with_cached_free_falls_back_to_pro_not_free() {
+        // Free usage is granted only when the live classifier currently
+        // returns Free. A cached known-good Free is stale and must not
+        // re-open the no-gating path once the live signal goes Unknown.
+        let (start, end) = grace();
+        let status = evaluate_pricing_status(
+            true,
+            start,
+            end,
+            false,
+            None,
+            Some(expired_account(0.0)),
+            unknown_profile_with_weekly(60.0),
+            false,
+            Some(ClaudePlanTier::Free),
+        );
+        assert!(!status.optimization_allowed);
+        assert!(matches!(
+            status.gate_reason,
+            Some(PricingGateReason::WeeklyUsageLimitReached)
+        ));
+        assert_eq!(status.disable_threshold_percent, Some(50.0));
+        assert!(status.gate_message.contains("Pro"));
+    }
+
+    #[test]
+    fn unknown_tier_gate_message_names_fallback_tier() {
+        let (start, end) = grace();
+        let status = evaluate_pricing_status(
+            true,
+            start,
+            end,
+            false,
+            None,
+            Some(expired_account(0.0)),
+            empty_claude_profile(ClaudePlanTier::Unknown),
+            false,
+            Some(ClaudePlanTier::Max20x),
+        );
+        assert!(status.gate_message.contains("Max x20"));
     }
 
     #[test]
@@ -1766,6 +2017,7 @@ mod tests {
             Some(expired_account(0.0)),
             pro_profile_with_weekly(20.0),
             false,
+            None,
         );
         assert!(status.optimization_allowed);
         assert!(!status.should_nudge);
@@ -1784,6 +2036,7 @@ mod tests {
             Some(expired_account(0.0)),
             pro_profile_with_weekly(25.0),
             false,
+            None,
         );
         assert!(status.optimization_allowed);
         assert!(status.should_nudge);
@@ -1802,6 +2055,7 @@ mod tests {
             Some(expired_account(0.0)),
             pro_profile_with_weekly(36.0),
             false,
+            None,
         );
         assert!(status.optimization_allowed);
         assert_eq!(status.nudge_level, 2);
@@ -1819,6 +2073,7 @@ mod tests {
             Some(expired_account(0.0)),
             pro_profile_with_weekly(46.0),
             false,
+            None,
         );
         assert!(status.optimization_allowed);
         assert_eq!(status.nudge_level, 3);
@@ -1840,6 +2095,7 @@ mod tests {
             Some(expired_account(10.0)),
             pro_profile_with_weekly(30.0),
             false,
+            None,
         );
         assert!(status.optimization_allowed);
         assert_eq!(status.nudge_level, 0);
@@ -1861,6 +2117,7 @@ mod tests {
             Some(expired_account(0.0)),
             pro_profile_with_weekly(50.0),
             false,
+            None,
         );
         assert!(!status.optimization_allowed);
         assert!(matches!(
@@ -1882,6 +2139,7 @@ mod tests {
             Some(expired_account(10.0)),
             pro_profile_with_weekly(55.0),
             false,
+            None,
         );
         assert!(status.optimization_allowed);
         assert!(status.should_nudge);
@@ -1901,6 +2159,7 @@ mod tests {
             Some(expired_account(200.0)),
             pro_profile_with_weekly(0.0),
             false,
+            None,
         );
         assert_eq!(status.effective_disable_threshold_percent, Some(100.0));
     }
@@ -1917,6 +2176,7 @@ mod tests {
             Some(expired_account(0.0)),
             empty_claude_profile(ClaudePlanTier::Pro),
             false,
+            None,
         );
         assert!(status.optimization_allowed);
         assert!(!status.should_nudge);
@@ -1934,6 +2194,7 @@ mod tests {
             None,
             empty_claude_profile(ClaudePlanTier::Pro),
             false,
+            None,
         );
         assert!(status.optimization_allowed);
         assert!(!status.needs_authentication);
@@ -1952,6 +2213,7 @@ mod tests {
             None,
             empty_claude_profile(ClaudePlanTier::Pro),
             false,
+            None,
         );
         assert!(status.needs_authentication);
         assert!(!status.optimization_allowed);
