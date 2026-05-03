@@ -441,6 +441,8 @@ pub struct AppState {
     pub proxy_bypass: Arc<AtomicBool>,
     launch_profile: Mutex<LaunchProfile>,
     launch_profile_path: std::path::PathBuf,
+    last_known_good_plan: Mutex<Option<LastKnownGoodPlan>>,
+    last_known_good_plan_path: std::path::PathBuf,
     savings_tracker: Mutex<SavingsTracker>,
     activity_facts: Mutex<ActivityFacts>,
     cached_clients: Mutex<Option<(Vec<ClientStatus>, Instant)>>,
@@ -494,6 +496,7 @@ impl AppState {
         let runtime = ManagedRuntime::bootstrap_root(&base_dir);
         let tool_manager = ToolManager::new(runtime);
         let (launch_profile, launch_profile_path) = LaunchProfile::load_or_create(&base_dir)?;
+        let (last_known_good_plan, last_known_good_plan_path) = LastKnownGoodPlan::load(&base_dir);
         let savings_tracker = SavingsTracker::load_or_create(&base_dir)?;
         let activity_facts = ActivityFacts::load_or_create(&base_dir)?;
 
@@ -540,6 +543,8 @@ impl AppState {
             }),
             launch_profile: Mutex::new(launch_profile),
             launch_profile_path,
+            last_known_good_plan: Mutex::new(last_known_good_plan),
+            last_known_good_plan_path,
             savings_tracker: Mutex::new(savings_tracker),
             activity_facts: Mutex::new(activity_facts),
             cached_clients: Mutex::new(None),
@@ -1576,6 +1581,48 @@ impl AppState {
         let mut cache = self.cached_claude_profile.lock();
         *cache = Some((current_token, profile.clone(), Instant::now()));
         profile
+    }
+
+    /// The most recent classifier output that was something other than
+    /// `Unknown`. Used by the pricing gate to keep applying real thresholds
+    /// when a transient OAuth-profile fetch returns sparse fields and the
+    /// live classifier returns Unknown.
+    pub fn last_known_good_plan_tier(&self) -> Option<crate::models::ClaudePlanTier> {
+        self.last_known_good_plan
+            .lock()
+            .as_ref()
+            .map(|p| p.plan_tier.clone())
+    }
+
+    /// Persist a classifier result if it carries real signal. Unknown is
+    /// silently ignored — it's "we don't know yet", never an authoritative
+    /// downgrade.
+    pub fn record_known_good_plan_tier(&self, tier: &crate::models::ClaudePlanTier) {
+        if matches!(tier, crate::models::ClaudePlanTier::Unknown) {
+            return;
+        }
+        let entry = LastKnownGoodPlan {
+            plan_tier: tier.clone(),
+            recorded_at: Utc::now(),
+        };
+        {
+            let mut cache = self.last_known_good_plan.lock();
+            if let Some(existing) = cache.as_ref() {
+                // Same tier as before — skip the disk write to avoid touching
+                // the file on every classification refresh.
+                if matches!(
+                    (&existing.plan_tier, tier),
+                    (crate::models::ClaudePlanTier::Free, crate::models::ClaudePlanTier::Free)
+                        | (crate::models::ClaudePlanTier::Pro, crate::models::ClaudePlanTier::Pro)
+                        | (crate::models::ClaudePlanTier::Max5x, crate::models::ClaudePlanTier::Max5x)
+                        | (crate::models::ClaudePlanTier::Max20x, crate::models::ClaudePlanTier::Max20x)
+                ) {
+                    return;
+                }
+            }
+            *cache = Some(entry.clone());
+        }
+        persist_last_known_good_plan(&self.last_known_good_plan_path, &entry);
     }
 
     fn cached_headroom_stats(&self) -> Option<HeadroomDashboardStats> {
@@ -2758,6 +2805,36 @@ impl LaunchProfile {
         .with_context(|| format!("writing {}", path.display()))?;
 
         Ok((current, path))
+    }
+}
+
+/// Last classification that returned a non-Unknown tier. Persisted so the
+/// pricing gate can keep applying the right thresholds when Anthropic's
+/// OAuth profile transiently comes back sparse and the live classifier
+/// returns Unknown.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct LastKnownGoodPlan {
+    plan_tier: crate::models::ClaudePlanTier,
+    recorded_at: DateTime<Utc>,
+}
+
+impl LastKnownGoodPlan {
+    fn load(base_dir: &std::path::Path) -> (Option<Self>, std::path::PathBuf) {
+        let path = config_file(base_dir, "last-known-good-plan.json");
+        let value = if path.exists() {
+            std::fs::read(&path)
+                .ok()
+                .and_then(|bytes| serde_json::from_slice::<Self>(&bytes).ok())
+        } else {
+            None
+        };
+        (value, path)
+    }
+}
+
+fn persist_last_known_good_plan(path: &std::path::Path, plan: &LastKnownGoodPlan) {
+    if let Ok(bytes) = serde_json::to_vec_pretty(plan) {
+        let _ = std::fs::write(path, bytes);
     }
 }
 
@@ -5394,6 +5471,58 @@ mod tests {
             .proxy_bypass
             .load(std::sync::atomic::Ordering::Acquire));
 
+        fs::remove_dir_all(base_dir).ok();
+    }
+
+    #[test]
+    fn last_known_good_plan_returns_none_on_fresh_install() {
+        let base_dir = temp_test_dir("headroom-last-known-good-fresh");
+        let state = AppState::new_in(base_dir.clone()).expect("app state");
+        assert!(state.last_known_good_plan_tier().is_none());
+        fs::remove_dir_all(base_dir).ok();
+    }
+
+    #[test]
+    fn record_known_good_plan_tier_skips_unknown() {
+        use crate::models::ClaudePlanTier;
+        let base_dir = temp_test_dir("headroom-last-known-good-skip-unknown");
+        let state = AppState::new_in(base_dir.clone()).expect("app state");
+        state.record_known_good_plan_tier(&ClaudePlanTier::Pro);
+        state.record_known_good_plan_tier(&ClaudePlanTier::Unknown);
+        assert!(matches!(
+            state.last_known_good_plan_tier(),
+            Some(ClaudePlanTier::Pro)
+        ));
+        fs::remove_dir_all(base_dir).ok();
+    }
+
+    #[test]
+    fn last_known_good_plan_persists_across_appstate_reload() {
+        use crate::models::ClaudePlanTier;
+        let base_dir = temp_test_dir("headroom-last-known-good-persist");
+        {
+            let state = AppState::new_in(base_dir.clone()).expect("app state");
+            state.record_known_good_plan_tier(&ClaudePlanTier::Max5x);
+        }
+        let reloaded = AppState::new_in(base_dir.clone()).expect("reloaded app state");
+        assert!(matches!(
+            reloaded.last_known_good_plan_tier(),
+            Some(ClaudePlanTier::Max5x)
+        ));
+        fs::remove_dir_all(base_dir).ok();
+    }
+
+    #[test]
+    fn record_known_good_plan_tier_overwrites_with_newer_known_tier() {
+        use crate::models::ClaudePlanTier;
+        let base_dir = temp_test_dir("headroom-last-known-good-overwrite");
+        let state = AppState::new_in(base_dir.clone()).expect("app state");
+        state.record_known_good_plan_tier(&ClaudePlanTier::Pro);
+        state.record_known_good_plan_tier(&ClaudePlanTier::Max20x);
+        assert!(matches!(
+            state.last_known_good_plan_tier(),
+            Some(ClaudePlanTier::Max20x)
+        ));
         fs::remove_dir_all(base_dir).ok();
     }
 
