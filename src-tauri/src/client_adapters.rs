@@ -710,13 +710,35 @@ fn load_setup_state() -> ClientSetupState {
         return ClientSetupState::default();
     }
 
-    match std::fs::read(&path)
-        .ok()
-        .and_then(|bytes| serde_json::from_slice::<ClientSetupState>(&bytes).ok())
-    {
-        Some(state) => normalize_setup_state(state),
-        None => ClientSetupState::default(),
+    // The on-disk file is rewritten by other code paths in this module
+    // (apply_client_setup, disable_client_setup, clear_client_setups). Even
+    // though `write_setup_state` now publishes via tmp+rename, retry once
+    // before giving up: a parse failure on an existing file is almost always
+    // a transient race or a partially-written file from an older build, and
+    // returning the empty default flips `is_claude_code_enabled` to false,
+    // which the tray reads as "Claude Code disconnected" and notifies on.
+    match try_load_setup_state(&path) {
+        Ok(state) => normalize_setup_state(state),
+        Err(first_err) => {
+            std::thread::sleep(std::time::Duration::from_millis(15));
+            match try_load_setup_state(&path) {
+                Ok(state) => normalize_setup_state(state),
+                Err(second_err) => {
+                    log::warn!(
+                        "load_setup_state: failed to read/parse {} twice ({first_err:#}; {second_err:#}); returning default",
+                        path.display()
+                    );
+                    ClientSetupState::default()
+                }
+            }
+        }
     }
+}
+
+fn try_load_setup_state(path: &Path) -> Result<ClientSetupState> {
+    let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    serde_json::from_slice::<ClientSetupState>(&bytes)
+        .with_context(|| format!("parsing {}", path.display()))
 }
 
 fn normalize_setup_state(mut state: ClientSetupState) -> ClientSetupState {
@@ -752,7 +774,23 @@ fn normalize_shell_file_entries(
 fn write_setup_state(state: &ClientSetupState) -> Result<()> {
     let path = setup_state_path();
     let payload = serde_json::to_vec_pretty(state).context("serializing client setup state")?;
-    std::fs::write(&path, payload).with_context(|| format!("writing {}", path.display()))
+
+    // Publish atomically: write to a sibling tmp file then rename. POSIX
+    // rename is atomic, so concurrent readers (e.g. the tray-icon thread
+    // calling `is_claude_code_enabled` every 2s) see either the old file or
+    // the new one — never a half-written truncate. The previous direct
+    // `fs::write` opened a microsecond window where readers parsed an empty
+    // file, concluded no clients were configured, and flipped the tray to
+    // "Disconnected" with a spurious notification.
+    let tmp_path = {
+        let mut s = path.clone().into_os_string();
+        s.push(".tmp");
+        PathBuf::from(s)
+    };
+    std::fs::write(&tmp_path, &payload)
+        .with_context(|| format!("writing {}", tmp_path.display()))?;
+    std::fs::rename(&tmp_path, &path)
+        .with_context(|| format!("renaming {} -> {}", tmp_path.display(), path.display()))
 }
 
 fn setup_state_path() -> PathBuf {
@@ -3067,5 +3105,49 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let missing = tmp.path().join("does-not-exist").join("settings.json");
         let removed = super::sweep_managed_backups(&missing);
         assert!(removed.is_empty());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn write_setup_state_publishes_atomically() {
+        let _home = TestHome::new();
+        let mut state = super::ClientSetupState::default();
+        state
+            .configured_clients
+            .insert("claude_code".into(), "2026-01-01T00:00:00+00:00".into());
+        super::write_setup_state(&state).expect("write");
+
+        let path = super::setup_state_path();
+        assert!(path.exists(), "setup state file written");
+
+        // The sibling .tmp file must not be left behind after a successful
+        // publish — its presence would mean the rename step never happened.
+        let tmp = {
+            let mut s = path.clone().into_os_string();
+            s.push(".tmp");
+            std::path::PathBuf::from(s)
+        };
+        assert!(!tmp.exists(), "tmp file cleaned up by rename, got: {tmp:?}");
+
+        // Round-trip survives.
+        let reloaded = super::load_setup_state();
+        assert!(reloaded.configured_clients.contains_key("claude_code"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn load_setup_state_falls_back_to_default_on_corrupt_file() {
+        let _home = TestHome::new();
+        let path = super::setup_state_path();
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        // Simulate a torn / partial write that would have happened with the
+        // pre-fix non-atomic writer. The retry path inside load_setup_state
+        // re-reads after a short backoff and, when the file is still bad,
+        // logs a warning and returns the default rather than panicking.
+        std::fs::write(&path, b"{ not json").unwrap();
+
+        let state = super::load_setup_state();
+        assert!(state.configured_clients.is_empty());
+        assert!(state.remembered_clients.is_empty());
     }
 }
