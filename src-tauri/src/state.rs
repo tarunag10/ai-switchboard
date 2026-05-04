@@ -90,20 +90,21 @@ pub fn runtime_upgrade_disabled_by_env() -> bool {
     )
 }
 
-/// One-shot probe of the new proxy. Hits `/livez` on port 6768 directly
-/// first (bypasses the intercept layer on 6767). Falls back to `/health`
-/// for older headroom-ai versions that don't expose `/livez`, then through
-/// the intercept layer on 6767 as a last resort — which also succeeds if
-/// the proxy is alive but too CPU-saturated to answer a direct probe
+/// One-shot probe of the new proxy. Hits `/livez` on the backend port
+/// directly first (bypasses the intercept layer on 6767). Falls back to
+/// `/health` for older headroom-ai versions that don't expose `/livez`, then
+/// through the intercept layer on 6767 as a last resort — which also succeeds
+/// if the proxy is alive but too CPU-saturated to answer a direct probe
 /// quickly, since the intercept has its own retry + longer timeout path.
 fn probe_proxy_livez(client: &reqwest::blocking::Client) -> bool {
+    let backend = crate::backend_port::get();
     let urls = [
-        "http://127.0.0.1:6768/livez",
-        "http://127.0.0.1:6768/health",
-        "http://127.0.0.1:6767/livez",
-        "http://127.0.0.1:6767/health",
+        format!("http://127.0.0.1:{backend}/livez"),
+        format!("http://127.0.0.1:{backend}/health"),
+        "http://127.0.0.1:6767/livez".to_string(),
+        "http://127.0.0.1:6767/health".to_string(),
     ];
-    for url in urls {
+    for url in &urls {
         if client
             .get(url)
             .send()
@@ -216,10 +217,11 @@ fn tcp_port_accepts_connection(addr: std::net::SocketAddr, timeout: std::time::D
     std::net::TcpStream::connect_timeout(&addr, timeout).is_ok()
 }
 
-/// Probe the proxy's loopback port (6768) with a 1s timeout. See
-/// [`tcp_port_accepts_connection`] for semantics.
+/// Probe the proxy's loopback port with a 1s timeout. See
+/// [`tcp_port_accepts_connection`] for semantics. The backend port is
+/// normally 6768 but may have been switched to a fallback by `backend_port`.
 fn proxy_port_accepts_connection() -> bool {
-    let addr: std::net::SocketAddr = ([127, 0, 0, 1], 6768).into();
+    let addr: std::net::SocketAddr = ([127, 0, 0, 1], crate::backend_port::get()).into();
     tcp_port_accepts_connection(addr, std::time::Duration::from_secs(1))
 }
 
@@ -1295,15 +1297,16 @@ impl AppState {
         }
     }
 
-    /// Adaptive boot validation loop. Probes `/livez` on port 6768 until the
-    /// proxy responds, the proxy process exits, the log goes silent past the
+    /// Adaptive boot validation loop. Probes `/livez` on the backend port
+    /// (default 6768; may be a fallback in 6769..=6790) until the proxy
+    /// responds, the proxy process exits, the log goes silent past the
     /// stall threshold, or `RUNTIME_UPGRADE_BOOT_MAX_SECS` elapses. On each
     /// pass through the loop, emits a progress update via `on_progress`.
     ///
     /// "Activity" is the union of four signals: (1) a write to any
     /// ``headroom-proxy*.log`` file, (2) growth in the HuggingFace hub
-    /// cache, (3) a successful TCP connect to ``127.0.0.1:6768``, and
-    /// (4) advancement of the tracked child's accumulated CPU time.
+    /// cache, (3) a successful TCP connect to the backend loopback port,
+    /// and (4) advancement of the tracked child's accumulated CPU time.
     /// Any one resets the silence timer. The HF signal is what keeps
     /// slow-but-progressing first-run downloads from being killed —
     /// when transformers/huggingface_hub is silently pulling multi-GB
@@ -2286,8 +2289,8 @@ impl AppState {
         }
 
         // Serialize lifecycle transitions so launch warm-up, tray open, and the
-        // watchdog cannot race into concurrent proxy spawns before port 6768 is
-        // reachable and `headroom_process` has been recorded.
+        // watchdog cannot race into concurrent proxy spawns before the backend
+        // port is reachable and `headroom_process` has been recorded.
         let _lifecycle_guard = self.lifecycle_lock.lock();
 
         // Another caller may have brought the runtime up while we waited.
@@ -2495,14 +2498,18 @@ impl AppState {
 
         // Also clean up detached/orphaned Headroom-managed headroom proxies
         // so quitting the UI cannot leave the background listener behind.
+        // We deliberately drop the port number from the match pattern: the
+        // proxy may have fallen back to 6769..=6790 if 6768 was foreign-held,
+        // and the python module path / entrypoint subcommand is unique enough
+        // to identify our proxies regardless of port.
         let managed_python = self.tool_manager.managed_python();
         let command_patterns = [
             format!(
-                "{} -m headroom.proxy.server --port 6768 --no-http2",
+                "{} -m headroom.proxy.server",
                 managed_python.display()
             ),
             format!(
-                "{} proxy --port 6768",
+                "{} proxy --port",
                 self.tool_manager.headroom_entrypoint().display()
             ),
         ];
@@ -4603,10 +4610,14 @@ pub(crate) fn headroom_proxy_reachable() -> bool {
 /// case the UI falls back to a generic "open logs" prompt.
 pub(crate) fn classify_startup_error(raw: &str) -> Option<String> {
     if raw.contains("is occupied by a non-headroom process") {
+        // Only reaches here when even the fallback port range was unavailable
+        // (`tool_manager` scans 6768..=6790 before bailing). At that point the
+        // user has 23 unrelated daemons in that range — a reboot is the only
+        // realistic remediation, since common offenders like rapportd reset
+        // their port at login.
         return Some(
-            "Port 6768 is in use by another app on your machine. \
-             Run `lsof -iTCP:6768 -sTCP:LISTEN` in a terminal to find it, \
-             quit that process, then click Retry."
+            "A port Headroom needs is held by another app on your machine. \
+             Reboot to clear stuck listeners, then relaunch Headroom."
                 .into(),
         );
     }
@@ -5122,7 +5133,53 @@ mod tests {
         let raw =
             "port 6768 is occupied by a non-headroom process (pid 1234 node); cannot start proxy.";
         let hint = classify_startup_error(raw).expect("foreign port should classify");
-        assert!(hint.contains("lsof -iTCP:6768"), "got: {hint}");
+        assert!(hint.contains("Reboot"), "got: {hint}");
+    }
+
+    #[test]
+    fn classify_startup_error_foreign_port_with_fallback_exhausted() {
+        let raw =
+            "port 6768 is occupied by a non-headroom process (rapportd pid 594) and fallback ports 6769-6790 are also unavailable; cannot start proxy. Reboot to clear stuck listeners, then relaunch Headroom.";
+        let hint = classify_startup_error(raw).expect("all-foreign should classify");
+        assert!(hint.contains("Reboot"), "got: {hint}");
+    }
+
+    /// Defensive: classify_startup_error must NOT regress on any of the
+    /// bail strings that tool_manager actually produces. If the message
+    /// shape drifts (e.g. someone tweaks the bail wording), this test
+    /// fails and forces the classifier to be updated alongside.
+    #[test]
+    fn classify_startup_error_handles_every_tool_manager_bail_format() {
+        // 1. all-foreign exhaustion
+        let raw = "port 6768 is occupied by a non-headroom process (rapportd pid 594) and fallback ports 6769-6790 are also unavailable; cannot start proxy. \
+                   Reboot to clear stuck listeners, then relaunch Headroom.";
+        assert!(
+            classify_startup_error(raw).is_some(),
+            "all-foreign bail must classify"
+        );
+
+        // 2. stale headroom proxy
+        let raw = "headroom proxy already running on port 6768 (likely a stale process from a prior session). \
+                   Run `lsof -iTCP:6768 -sTCP:LISTEN` to find and kill it, then retry.";
+        assert!(
+            classify_startup_error(raw).is_some(),
+            "stale proxy bail must classify"
+        );
+
+        // 3. spawn timeout (port never opened) — phrased generically over
+        //    whatever port the proxy ended up on, so test with a fallback port.
+        let raw = "never opened port 6770 within 60000ms";
+        assert!(
+            classify_startup_error(raw).is_some(),
+            "spawn timeout must classify on any port"
+        );
+
+        // 4. python crash
+        let raw = "exited with status 1 before opening port 6770";
+        assert!(
+            classify_startup_error(raw).is_some(),
+            "python crash must classify on any port"
+        );
     }
 
     #[test]

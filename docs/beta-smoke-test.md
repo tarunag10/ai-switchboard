@@ -48,7 +48,7 @@ In Settings, toggle Pause then Resume. After Pause, `cat ~/.claude/settings.json
 ### 7. Real compression event (not just a heartbeat)
 Capture the compression counter, then trigger a large request (Claude: read a long file like `src-tauri/src/lib.rs` with no offset/limit so the prompt exceeds ~10k tokens), then re-check:
 ```bash
-rtk proxy curl -s http://127.0.0.1:6768/stats | jq '.summary.compression.requests_compressed, .summary.compression.total_tokens_removed'
+rtk proxy curl -s http://127.0.0.1:6767/stats | jq '.summary.compression.requests_compressed, .summary.compression.total_tokens_removed'
 ```
 Expect: `requests_compressed` increased by at least 1 between the two captures, and `total_tokens_removed` is strictly greater. A bumped mtime on `activity-facts.json` is not enough — interception without compression would still touch that file.
 
@@ -60,7 +60,37 @@ The desktop ships its own Python venv and `headroom` CLI; if either is broken, t
 ```
 Expect: a `headroom, version X.Y.Z` line and a path under `.../runtime/venv/lib/python3.12/site-packages/headroom/__init__.py`. No `ModuleNotFoundError`, no `pydantic-core` mismatch traceback (see `extract_required_pydantic_core_version` in `tool_manager.rs` for the exact failure mode).
 
-### 9. Auth / pricing state is intact
+### 9. Backend port fallback when 6768 is held
+The desktop's internal proxy port (default `6768`) can be claimed by other macOS processes — most often `rapportd` at login. The desktop should scan `6769..=6790` and pick a free one instead of failing.
+
+First, confirm the live port and verify the proxy answers there:
+```bash
+lsof -iTCP -sTCP:LISTEN -nP 2>/dev/null | awk '$1 ~ /(headroom|python)/ && $9 ~ /:(67[6-9][0-9]|6790)/ { print $9 }'
+curl -sS -o /dev/null -w '%{http_code}\n' "http://127.0.0.1:6767/livez"
+```
+Expect: at least one `127.0.0.1:67XX` line in the 6768-6790 range, and the curl returns `200`.
+
+Then, force a fallback. Quit Headroom, hold 6768 with a Python blocker (`nc -l` exits after one connection, so the proxy's first probe frees the port before fallback can trigger), relaunch, and confirm the proxy comes up on a different port. The proxy on a fallback port boots cold (memory tools / model load), so poll `/livez` for up to 90s instead of a fixed sleep:
+```bash
+osascript -e 'quit app "Headroom"' 2>/dev/null; sleep 2
+python3 -c "import socket,time; s=socket.socket(); s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1); s.bind(('127.0.0.1',6768)); s.listen(16); time.sleep(180)" &
+BLOCK_PID=$!
+sleep 1
+open -a Headroom
+for _ in $(seq 1 90); do
+  code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:6767/livez" 2>/dev/null)
+  [ "$code" = "200" ] && break
+  sleep 1
+done
+echo "livez=$code"
+lsof -iTCP -sTCP:LISTEN -nP 2>/dev/null | awk -v IGNORECASE=1 '$1 ~ /(headroom|python)/ && $9 ~ /:(67[6-9][0-9]|6790)/ { print $9 }'
+kill $BLOCK_PID 2>/dev/null
+```
+Expect: `livez=200`, a `127.0.0.1:67XX` line where `XX` is NOT `68` (the fallback worked). After the test, quit + relaunch Headroom so the next session goes back to 6768.
+
+If the fallback is missing, check `~/Library/Application Support/Headroom/headroom/logs/` for a `[backend_port]` warning line that names the occupant and the chosen fallback port.
+
+### 10. Auth / pricing state is intact
 The session token lives in the macOS keychain under service `com.extraheadroom.headroom.account`, account `session-token`; the local pricing state lives next to `activity-facts.json`.
 ```bash
 security find-generic-password -s com.extraheadroom.headroom.account -a session-token >/dev/null 2>&1 && echo 'signed in' || echo 'not signed in'
@@ -73,7 +103,7 @@ Expect: if the build is supposed to be signed in, line 1 reports `signed in`; li
 When inspecting the running proxy by hand (e.g. checking `/stats`), wrap `curl` with `rtk proxy` to bypass RTK's output filtering — otherwise large JSON responses get summarized into a type-shape view that looks like a broken endpoint:
 
 ```bash
-rtk proxy curl -s http://127.0.0.1:6768/stats | jq .summary
+rtk proxy curl -s http://127.0.0.1:6767/stats | jq .summary
 ```
 
 ## When something fails

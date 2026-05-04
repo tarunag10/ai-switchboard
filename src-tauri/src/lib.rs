@@ -1,5 +1,6 @@
 mod activity_facts;
 mod analytics;
+mod backend_port;
 mod bearer;
 mod claude_cli;
 mod client_adapters;
@@ -2633,6 +2634,25 @@ struct HeadroomLearnRunResult {
     output_tail: Vec<String>,
 }
 
+/// Detect `headroom.learn.analyzer` warnings that mean the LLM never produced
+/// recommendations even though the CLI exited 0. Returns a user-facing message
+/// joining all such warnings, or None if the run was clean.
+fn extract_llm_failure_warnings(stderr: &str) -> Option<String> {
+    const MARKER: &str = "LLM analysis failed:";
+    let messages: Vec<String> = stderr
+        .lines()
+        .filter_map(|line| {
+            line.split_once(MARKER)
+                .map(|(_, rest)| format!("{} {}", MARKER, rest.trim()))
+        })
+        .collect();
+    if messages.is_empty() {
+        None
+    } else {
+        Some(messages.join("\n"))
+    }
+}
+
 fn execute_headroom_learn_run(state: &AppState, project_path: &str) -> HeadroomLearnRunResult {
     let project_name = Path::new(project_path)
         .file_name()
@@ -2694,15 +2714,27 @@ fn execute_headroom_learn_run(state: &AppState, project_path: &str) -> HeadroomL
             };
             let output_tail = crate::state::tail_lines(&merged, 32);
             if output.status.success() {
-                (
-                    format!("headroom learn completed for {project_name}."),
-                    true,
-                    None,
-                    output_tail,
-                    stdout,
-                    stderr,
-                    output.status.to_string(),
-                )
+                if let Some(warnings) = extract_llm_failure_warnings(&stderr) {
+                    (
+                        format!("headroom learn could not produce recommendations for {project_name}."),
+                        false,
+                        Some(warnings),
+                        output_tail,
+                        stdout,
+                        stderr,
+                        output.status.to_string(),
+                    )
+                } else {
+                    (
+                        format!("headroom learn completed for {project_name}."),
+                        true,
+                        None,
+                        output_tail,
+                        stdout,
+                        stderr,
+                        output.status.to_string(),
+                    )
+                }
             } else {
                 let fail_tail = if output_tail.is_empty() {
                     "No output captured.".to_string()
@@ -3699,10 +3731,10 @@ mod tests {
         beta_channel_enabled_from, build_release_updater_config, build_watchdog_give_up_report,
         check_headroom_learn_prereqs, classify_bootstrap_failure, compute_tray_window_position,
         count_memories_created_today, debounced_tray_runtime_visual, delete_applied_pattern,
-        empty_live_learnings_for_projects, fetch_transformations_feed_from, install_pending_update,
-        is_port_conflict_failure, is_prerelease_version, lifetime_token_milestone_kind,
-        parse_live_learnings, parse_request_count_from_stats_body, parse_updater_endpoint_list,
-        pattern_matches_project,
+        empty_live_learnings_for_projects, extract_llm_failure_warnings,
+        fetch_transformations_feed_from, install_pending_update, is_port_conflict_failure,
+        is_prerelease_version, lifetime_token_milestone_kind, parse_live_learnings,
+        parse_request_count_from_stats_body, parse_updater_endpoint_list, pattern_matches_project,
         physical_rect_from_rect, read_applied_patterns_for_project, resolve_release_updater_config,
         select_updater_endpoints, store_checked_update, watchdog_should_be_up,
         AvailableAppUpdate, BootstrapFailureKind, HeadroomLearnPrereqStatus,
@@ -4924,5 +4956,31 @@ Some unrelated content.
         let report =
             build_watchdog_give_up_report(3, false, false, None, None, Some(String::new()));
         assert!(report.last_startup_error.is_none());
+    }
+
+    #[test]
+    fn extract_llm_failure_warnings_returns_none_for_clean_stderr() {
+        let stderr =
+            "2026-05-04 09:00:00,000 - headroom.learn.analyzer - INFO - using claude CLI backend\n";
+        assert!(extract_llm_failure_warnings(stderr).is_none());
+    }
+
+    #[test]
+    fn extract_llm_failure_warnings_extracts_single_timeout() {
+        let stderr = "2026-05-03 22:18:50,070 - headroom.learn.analyzer - WARNING - LLM analysis failed: `claude -p` did not respond within 120s. Check network connectivity or try a different backend with --model <litellm-model-name>.\n";
+        let extracted = extract_llm_failure_warnings(stderr).expect("warning extracted");
+        assert!(extracted.starts_with("LLM analysis failed:"));
+        assert!(extracted.contains("did not respond within 120s"));
+    }
+
+    #[test]
+    fn extract_llm_failure_warnings_joins_multiple_lines() {
+        let stderr = "\
+2026-05-03 22:18:50,070 - headroom.learn.analyzer - WARNING - LLM analysis failed: `claude -p` did not respond within 120s.
+2026-05-03 22:20:50,749 - headroom.learn.analyzer - WARNING - LLM analysis failed: `claude -p` did not respond within 120s.
+";
+        let extracted = extract_llm_failure_warnings(stderr).expect("warnings extracted");
+        assert_eq!(extracted.matches("LLM analysis failed:").count(), 2);
+        assert!(extracted.contains('\n'));
     }
 }

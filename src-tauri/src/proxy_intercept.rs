@@ -1,7 +1,13 @@
 /// Transparent HTTP proxy intercept layer.
 ///
 /// Binds on 127.0.0.1:6767 (the address clients point at) and forwards every
-/// request unchanged to 127.0.0.1:6768 (where headroom actually listens).
+/// request unchanged to 127.0.0.1:<backend_port>, where headroom actually
+/// listens. The backend port is normally 6768 but is selected at proxy spawn
+/// time and stored in `crate::backend_port`; it can shift to 6769..=6790 if
+/// 6768 is held by a foreign process. We re-read the port per connection so
+/// the intercept (which spawns before proxy startup runs the selection) picks
+/// up the chosen value as soon as it's set.
+///
 /// As each request passes through, any `Authorization: Bearer …` header is
 /// captured into `AppState::claude_bearer_token` so the usage-stats feature
 /// can call the Anthropic OAuth usage endpoint without touching the keychain.
@@ -15,10 +21,10 @@ use parking_lot::Mutex;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
+use crate::backend_port;
 use crate::bearer::BearerToken;
 
 pub const INTERCEPT_PORT: u16 = 6767;
-pub const HEADROOM_BACKEND_PORT: u16 = 6768;
 
 const HEADER_READ_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_HEADER_BYTES: usize = 64 * 1024;
@@ -51,8 +57,7 @@ pub fn spawn(token_slot: SharedToken, bypass: BypassFlag) {
                 .expect("proxy intercept runtime");
             rt.block_on(async move {
                 let bind_addr: SocketAddr = ([127, 0, 0, 1], INTERCEPT_PORT).into();
-                let backend_addr: SocketAddr = ([127, 0, 0, 1], HEADROOM_BACKEND_PORT).into();
-                match run(bind_addr, backend_addr, token_slot, bypass, upstream_base).await {
+                match run(bind_addr, token_slot, bypass, upstream_base).await {
                     Ok(()) => {}
                     Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
                         // Port is already bound. If /health responds over HTTP, an
@@ -92,7 +97,6 @@ pub fn spawn(token_slot: SharedToken, bypass: BypassFlag) {
 
 async fn run(
     bind_addr: SocketAddr,
-    backend_addr: SocketAddr,
     token_slot: SharedToken,
     bypass: BypassFlag,
     upstream_base: Arc<String>,
@@ -105,7 +109,7 @@ async fn run(
                 let slot = token_slot.clone();
                 let bypass = bypass.clone();
                 let upstream_base = upstream_base.clone();
-                tokio::spawn(handle(client, backend_addr, slot, bypass, upstream_base));
+                tokio::spawn(handle(client, slot, bypass, upstream_base));
             }
             Err(e) => {
                 // EMFILE/ENFILE/ECONNABORTED are transient — log and keep serving
@@ -119,11 +123,15 @@ async fn run(
 
 async fn handle(
     mut client: TcpStream,
-    backend_addr: SocketAddr,
     token_slot: SharedToken,
     bypass: BypassFlag,
     upstream_base: Arc<String>,
 ) {
+    // Re-read the backend port on each connection. `tool_manager` selects the
+    // port (and may switch to a fallback) when the proxy spawn runs, which
+    // happens after this thread is already accepting; reading per-connection
+    // means existing clients pick up the chosen port without restarting.
+    let backend_addr: SocketAddr = ([127, 0, 0, 1], backend_port::get()).into();
     // Read only through the end of the HTTP headers. We only need headers to
     // capture the bearer token, and forwarding early avoids deadlocks with
     // `Expect: 100-continue` request flows.
@@ -535,10 +543,12 @@ mod tests {
         is_hop_by_hop_response_header, parse_request_head, read_http_headers,
         request_is_loopback_safe, run, BypassFlag, SharedToken,
     };
+    use crate::backend_port;
     use std::net::SocketAddr;
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
     use parking_lot::Mutex;
+    use serial_test::serial;
     use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt};
     use tokio::net::{TcpListener, TcpStream};
     use tokio::time::{timeout, Duration};
@@ -638,6 +648,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[serial(backend_port)]
     async fn intercept_captures_bearer_and_forwards_headers_to_backend() {
         // Fake backend: accept one connection, read its header block, hold the
         // connection open long enough for the test to inspect what arrived.
@@ -653,6 +664,11 @@ mod tests {
             received
         });
 
+        // Point the intercept's per-connection backend lookup at our fake
+        // backend's ephemeral port. Serialized via #[serial(backend_port)] so
+        // tests that mutate the global don't race.
+        backend_port::set(backend_addr.port());
+
         // Run the intercept on its own ephemeral port.
         let token_slot: SharedToken = Arc::new(Mutex::new(None));
         let intercept_listener = TcpListener::bind("127.0.0.1:0").await.expect("intercept bind");
@@ -665,7 +681,6 @@ mod tests {
             // run() loops forever; the test cancels it via abort below.
             let _ = run(
                 intercept_addr,
-                backend_addr,
                 slot_for_run,
                 bypass_for_run,
                 upstream_base,
@@ -723,14 +738,17 @@ mod tests {
         );
 
         run_task.abort();
+        backend_port::reset_for_tests();
     }
 
     #[tokio::test]
+    #[serial(backend_port)]
     async fn intercept_returns_502_when_backend_is_unreachable() {
         // Pick a backend port that nothing is listening on. Bind+immediately
         // drop a listener to grab a free port, then connect attempts will fail.
         let (probe, dead_backend_addr) = bind_ephemeral().await;
         drop(probe);
+        backend_port::set(dead_backend_addr.port());
 
         let token_slot: SharedToken = Arc::new(Mutex::new(None));
         let intercept_listener = TcpListener::bind("127.0.0.1:0").await.expect("intercept bind");
@@ -742,7 +760,6 @@ mod tests {
         let run_task = tokio::spawn(async move {
             let _ = run(
                 intercept_addr,
-                dead_backend_addr,
                 slot_for_run,
                 bypass_for_run,
                 upstream_base,
@@ -791,6 +808,7 @@ mod tests {
         );
 
         run_task.abort();
+        backend_port::reset_for_tests();
     }
 
     #[test]
@@ -880,6 +898,7 @@ mod tests {
     /// forwards a request to a fake upstream, then streams the upstream's
     /// response back to the client as HTTP/1.1 chunked transfer.
     #[tokio::test]
+    #[serial(backend_port)]
     async fn bypass_forwards_request_to_upstream_and_streams_response_back() {
         let (upstream_listener, upstream_addr) = bind_ephemeral().await;
         let upstream_base = format!("http://127.0.0.1:{}", upstream_addr.port());
@@ -933,13 +952,14 @@ mod tests {
         let intercept_addr = intercept_listener.local_addr().expect("intercept addr");
         drop(intercept_listener);
         let bypass: BypassFlag = Arc::new(AtomicBool::new(true));
-        let backend_addr: SocketAddr = "127.0.0.1:1".parse().unwrap();
+        // Bypass means we never actually contact the backend; pin to an
+        // unused loopback port so any accidental connect would fail fast.
+        backend_port::set(1);
         let upstream_base_arc = Arc::new(upstream_base);
         let token_for_run = token_slot.clone();
         let run_task = tokio::spawn(async move {
             let _ = run(
                 intercept_addr,
-                backend_addr,
                 token_for_run,
                 bypass,
                 upstream_base_arc,
@@ -1055,9 +1075,11 @@ mod tests {
         );
 
         run_task.abort();
+        backend_port::reset_for_tests();
     }
 
     #[tokio::test]
+    #[serial(backend_port)]
     async fn bypass_returns_502_when_upstream_unreachable() {
         // Bind+drop to grab a free port nothing is listening on.
         let (probe, dead_addr) = bind_ephemeral().await;
@@ -1069,17 +1091,10 @@ mod tests {
         let intercept_addr = intercept_listener.local_addr().expect("intercept addr");
         drop(intercept_listener);
         let bypass: BypassFlag = Arc::new(AtomicBool::new(true));
-        let backend_addr: SocketAddr = "127.0.0.1:1".parse().unwrap();
+        backend_port::set(1);
         let upstream_base_arc = Arc::new(upstream_base);
         let run_task = tokio::spawn(async move {
-            let _ = run(
-                intercept_addr,
-                backend_addr,
-                token_slot,
-                bypass,
-                upstream_base_arc,
-            )
-            .await;
+            let _ = run(intercept_addr, token_slot, bypass, upstream_base_arc).await;
         });
 
         let mut client = None;
@@ -1122,5 +1137,91 @@ mod tests {
         );
 
         run_task.abort();
+        backend_port::reset_for_tests();
+    }
+
+    /// New: the intercept must read the backend port per connection so that
+    /// when `tool_manager` selects a fallback port mid-launch, in-flight
+    /// clients get routed to the new backend without a thread restart.
+    #[tokio::test]
+    #[serial(backend_port)]
+    async fn intercept_picks_up_backend_port_changes_between_connections() {
+        let (first_listener, first_addr) = bind_ephemeral().await;
+        let (second_listener, second_addr) = bind_ephemeral().await;
+
+        let first_task = tokio::spawn(async move {
+            let (mut sock, _) = first_listener.accept().await.expect("first accept");
+            let _ = read_until_header_end(&mut sock).await;
+            let _ = sock
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+                .await;
+            "first"
+        });
+        let second_task = tokio::spawn(async move {
+            let (mut sock, _) = second_listener.accept().await.expect("second accept");
+            let _ = read_until_header_end(&mut sock).await;
+            let _ = sock
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")
+                .await;
+            "second"
+        });
+
+        backend_port::set(first_addr.port());
+
+        let token_slot: SharedToken = Arc::new(Mutex::new(None));
+        let intercept_listener = TcpListener::bind("127.0.0.1:0").await.expect("intercept bind");
+        let intercept_addr = intercept_listener.local_addr().expect("intercept addr");
+        drop(intercept_listener);
+        let bypass_for_run: BypassFlag = Arc::new(AtomicBool::new(false));
+        let upstream_base = Arc::new("https://api.anthropic.com".to_string());
+        let token_for_run = token_slot.clone();
+        let run_task = tokio::spawn(async move {
+            let _ = run(intercept_addr, token_for_run, bypass_for_run, upstream_base).await;
+        });
+
+        // Wait for the intercept to bind, then send the first request.
+        let mut first_client = None;
+        for _ in 0..50 {
+            if let Ok(c) = TcpStream::connect(intercept_addr).await {
+                first_client = Some(c);
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        let mut first_client = first_client.expect("intercept reachable");
+        let req = format!(
+            "POST / HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nContent-Length: 0\r\n\r\n",
+            intercept_addr.port()
+        );
+        first_client
+            .write_all(req.as_bytes())
+            .await
+            .expect("write first req");
+
+        let routed_first = timeout(Duration::from_secs(2), first_task)
+            .await
+            .expect("first backend received request")
+            .expect("first task ok");
+        assert_eq!(routed_first, "first");
+
+        // Switch the global to the second backend; next connection routes there.
+        backend_port::set(second_addr.port());
+
+        let mut second_client = TcpStream::connect(intercept_addr)
+            .await
+            .expect("connect second");
+        second_client
+            .write_all(req.as_bytes())
+            .await
+            .expect("write second req");
+
+        let routed_second = timeout(Duration::from_secs(2), second_task)
+            .await
+            .expect("second backend received request")
+            .expect("second task ok");
+        assert_eq!(routed_second, "second");
+
+        run_task.abort();
+        backend_port::reset_for_tests();
     }
 }

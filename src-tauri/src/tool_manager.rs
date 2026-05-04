@@ -18,6 +18,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use tar::Archive;
 
+use crate::backend_port::{self, AllForeign, SelectedFallback};
 use crate::models::{ManagedTool, RtkTodayStats, ToolStatus};
 
 /// Pinned headroom-ai version. Upgrade logic is disabled; this exact version
@@ -31,8 +32,13 @@ const HEADROOM_SMOKE_TEST_TIMEOUT: Duration = Duration::from_secs(15);
 /// GitHub's expanded_assets endpoint serves HTML anchors pip can consume via --find-links.
 const VENDOR_WHEELS_INDEX_URL: &str =
     "https://github.com/gglucass/headroom-desktop/releases/expanded_assets/vendor-wheels-v1";
-// headroom binds on 6768; the intercept layer on 6767 forwards to it.
-const HEADROOM_PROXY_PORT: &str = "6768";
+// headroom binds on the backend port chosen at spawn time (default 6768);
+// the intercept layer on 6767 forwards to it. The backend port is dynamic
+// because something else on the machine (e.g. rapportd) can claim 6768 at
+// login — see `backend_port` for the selection logic.
+fn headroom_proxy_port() -> String {
+    backend_port::get().to_string()
+}
 const HEADROOM_PROXY_URL: &str = "http://127.0.0.1:6767";
 const MCP_METHOD_CLAUDE_CLI: &str = "claude_cli";
 const MCP_METHOD_FALLBACK_JSON: &str = "fallback_json";
@@ -437,9 +443,106 @@ impl ToolManager {
                 bail!("headroom managed python not found at {}", python.display());
             }
 
+            let entrypoint = self.headroom_entrypoint();
+
+            let mut failures: Vec<HeadroomStartupFailure> = Vec::new();
+            let logs_dir = self.runtime.logs_dir();
+            std::fs::create_dir_all(&logs_dir)
+                .with_context(|| format!("creating {}", logs_dir.display()))?;
+
+            // Pre-flight: 6768 may already be held. Three cases:
+            //   * Free → spawn on 6768.
+            //   * HeadroomRunning → bail (a previous headroom proxy is alive;
+            //     we want a fresh one).
+            //   * ForeignOccupant → try to fall back to a port in
+            //     6769..=6790. Only bail if every fallback is also taken.
+            // The chosen port is stored in `backend_port` so the intercept,
+            // health probes, and spawn args all pick it up.
+            let initial_state = diagnose_proxy_port(backend_port::DEFAULT_BACKEND_PORT);
+            match initial_state {
+                PortState::Free => {
+                    backend_port::set(backend_port::DEFAULT_BACKEND_PORT);
+                }
+                PortState::HeadroomRunning => {
+                    bail!(
+                        "{}",
+                        format_already_running_bail(backend_port::DEFAULT_BACKEND_PORT)
+                    );
+                }
+                PortState::ForeignOccupant(detail) => {
+                    let pid = parse_pid_from_lsof_detail(&detail);
+                    let try_bind = |port: u16| {
+                        TcpListener::bind(("127.0.0.1", port)).is_ok()
+                    };
+                    match backend_port::select_fallback(detail.clone(), pid, try_bind) {
+                        Ok(SelectedFallback {
+                            port,
+                            original_occupant,
+                            original_pid,
+                        }) => {
+                            backend_port::set(port);
+                            log::warn!(
+                                "[backend_port] {} held by {}; falling back to {}",
+                                backend_port::DEFAULT_BACKEND_PORT,
+                                original_occupant,
+                                port,
+                            );
+                            sentry::with_scope(
+                                |scope| {
+                                    scope.set_tag("flow", "backend_port_fallback");
+                                    scope.set_tag(
+                                        "occupant_cmd",
+                                        original_occupant
+                                            .split(" pid ")
+                                            .next()
+                                            .unwrap_or("unknown"),
+                                    );
+                                    scope.set_extra(
+                                        "original_port",
+                                        backend_port::DEFAULT_BACKEND_PORT.into(),
+                                    );
+                                    scope.set_extra("chosen_port", port.into());
+                                    if let Some(p) = original_pid {
+                                        scope.set_extra("occupant_pid", p.into());
+                                    }
+                                },
+                                || {
+                                    sentry::capture_message(
+                                        &format!(
+                                            "backend_port_fallback: {} held by {}, using {}",
+                                            backend_port::DEFAULT_BACKEND_PORT,
+                                            original_occupant,
+                                            port,
+                                        ),
+                                        sentry::Level::Info,
+                                    );
+                                },
+                            );
+                        }
+                        Err(AllForeign {
+                            original_occupant,
+                            fallback_range,
+                            ..
+                        }) => {
+                            bail!(
+                                "{}",
+                                format_all_foreign_bail(
+                                    backend_port::DEFAULT_BACKEND_PORT,
+                                    &original_occupant,
+                                    fallback_range,
+                                )
+                            );
+                        }
+                    }
+                }
+            }
+
+            // Construct spawn variants AFTER pre-flight so `--port` reflects any
+            // fallback chosen above. The arg helpers read `backend_port::get()`
+            // eagerly; building them earlier bakes in the stale default and the
+            // proxy ends up trying to bind the foreign-held port.
             // Use the console_scripts entrypoint when available to avoid the Python
             // -m double-import RuntimeWarning. Fall back to -m if missing.
-            let entrypoint = self.headroom_entrypoint();
             let startup_variants: Vec<(PathBuf, Vec<String>)> = if entrypoint.exists() {
                 vec![
                     (entrypoint, headroom_entrypoint_startup_args()),
@@ -448,36 +551,6 @@ impl ToolManager {
             } else {
                 vec![(python.clone(), headroom_python_startup_args())]
             };
-
-            let mut failures: Vec<HeadroomStartupFailure> = Vec::new();
-            let logs_dir = self.runtime.logs_dir();
-            std::fs::create_dir_all(&logs_dir)
-                .with_context(|| format!("creating {}", logs_dir.display()))?;
-
-            // Pre-flight: if port 6768 is already bound, the subprocess will
-            // immediately exit with status 1 when it fails to bind. Distinguish
-            // "ours" (a prior headroom proxy still running, which we can reuse) from
-            // "foreign" (something else is holding the port).
-            match diagnose_proxy_port() {
-                PortState::Free => {}
-                PortState::HeadroomRunning => {
-                    bail!(
-                    "headroom proxy already running on port {} (likely a stale process from a prior session). \
-                     Run `lsof -iTCP:{} -sTCP:LISTEN` to find and kill it, then retry.",
-                    HEADROOM_PROXY_PORT,
-                    HEADROOM_PROXY_PORT
-                );
-                }
-                PortState::ForeignOccupant(detail) => {
-                    bail!(
-                        "port {} is occupied by a non-headroom process ({}); cannot start proxy. \
-                     Run `lsof -iTCP:{} -sTCP:LISTEN` to identify it.",
-                        HEADROOM_PROXY_PORT,
-                        detail,
-                        HEADROOM_PROXY_PORT
-                    );
-                }
-            }
 
             for (executable, args) in &startup_variants {
                 let variant = if args.is_empty() {
@@ -540,7 +613,7 @@ impl ToolManager {
                         Ok(Some(status)) => {
                             reason = Some(format!(
                                 "exited with status {} before opening port {}",
-                                status, HEADROOM_PROXY_PORT
+                                status, headroom_proxy_port()
                             ));
                             break;
                         }
@@ -573,7 +646,8 @@ impl ToolManager {
                 let reason = reason.unwrap_or_else(|| {
                     format!(
                         "never opened port {} within {}ms",
-                        HEADROOM_PROXY_PORT, HEADROOM_STARTUP_TIMEOUT_MS
+                        headroom_proxy_port(),
+                        HEADROOM_STARTUP_TIMEOUT_MS
                     )
                 });
                 failures.push(HeadroomStartupFailure {
@@ -2849,13 +2923,9 @@ fn write_headroom_to_claude_json(entrypoint: &Path, proxy_url: &str) -> Result<(
 }
 
 fn is_local_proxy_reachable() -> bool {
-    // Check headroom's actual backend port (6768), not the intercept port (6767),
+    // Check headroom's actual backend port, not the intercept port (6767),
     // because the intercept starts before headroom and would always be reachable.
-    let address: SocketAddr = match "127.0.0.1:6768".parse() {
-        Ok(address) => address,
-        Err(_) => return false,
-    };
-
+    let address: SocketAddr = ([127, 0, 0, 1], backend_port::get()).into();
     TcpStream::connect_timeout(&address, Duration::from_millis(180)).is_ok()
 }
 
@@ -2865,29 +2935,26 @@ enum PortState {
     ForeignOccupant(String),
 }
 
-fn diagnose_proxy_port() -> PortState {
+fn diagnose_proxy_port(port: u16) -> PortState {
     // If we can bind the port, nothing is there.
-    if TcpListener::bind(("127.0.0.1", 6768)).is_ok() {
+    if TcpListener::bind(("127.0.0.1", port)).is_ok() {
         return PortState::Free;
     }
 
     // Port is held. Probe it: headroom's proxy speaks HTTP and, for an
     // unrecognized path, responds with an HTTP status line. A foreign
     // non-HTTP service (SSH, Redis, etc.) will not.
-    let headroom_like = probe_headroom_http(Duration::from_millis(400));
+    let headroom_like = probe_headroom_http(port, Duration::from_millis(400));
     if headroom_like {
         PortState::HeadroomRunning
     } else {
-        PortState::ForeignOccupant(lsof_listener(6768).unwrap_or_else(|| "unknown process".into()))
+        PortState::ForeignOccupant(lsof_listener(port).unwrap_or_else(|| "unknown process".into()))
     }
 }
 
-fn probe_headroom_http(timeout: Duration) -> bool {
+fn probe_headroom_http(port: u16, timeout: Duration) -> bool {
     use std::io::{Read, Write};
-    let addr: SocketAddr = match "127.0.0.1:6768".parse() {
-        Ok(a) => a,
-        Err(_) => return false,
-    };
+    let addr: SocketAddr = ([127, 0, 0, 1], port).into();
     let Ok(mut stream) = TcpStream::connect_timeout(&addr, timeout) else {
         return false;
     };
@@ -2920,6 +2987,38 @@ fn lsof_listener(port: u16) -> Option<String> {
     let cmd = fields.next()?;
     let pid = fields.next()?;
     Some(format!("{cmd} pid {pid}"))
+}
+
+/// Extract the numeric pid from a `"cmd pid 1234"` string returned by
+/// [`lsof_listener`]. Returns None for the `"unknown process"` placeholder
+/// or any unparseable shape. Companion to `port_conflict::parse_occupant`,
+/// which works on the full bail string instead of the lsof detail.
+fn parse_pid_from_lsof_detail(detail: &str) -> Option<u32> {
+    let idx = detail.rfind(" pid ")?;
+    detail[idx + " pid ".len()..].trim().parse().ok()
+}
+
+/// Bail message when a previous (still-alive) headroom proxy holds the port.
+/// Extracted as a function so the exact format is testable against
+/// `port_conflict::is_port_conflict` and `state::classify_startup_error`.
+fn format_already_running_bail(port: u16) -> String {
+    format!(
+        "headroom proxy already running on port {port} (likely a stale process from a prior session). \
+         Run `lsof -iTCP:{port} -sTCP:LISTEN` to find and kill it, then retry."
+    )
+}
+
+/// Bail message when 6768 is foreign-held AND every port in the fallback
+/// range is also taken. Must contain `"is occupied by a non-headroom process"`
+/// so `port_conflict::is_port_conflict` continues to match, and the
+/// `(occupant)` parenthetical so `port_conflict::parse_occupant` can extract
+/// the cmd/pid for the persistent-conflict marker.
+fn format_all_foreign_bail(default_port: u16, occupant: &str, range: (u16, u16)) -> String {
+    let (start, end) = range;
+    format!(
+        "port {default_port} is occupied by a non-headroom process ({occupant}) and fallback ports {start}-{end} are also unavailable; cannot start proxy. \
+         Reboot to clear stuck listeners, then relaunch Headroom."
+    )
 }
 
 pub(crate) fn tail_log_file(path: &Path, max_lines: usize) -> String {
@@ -3019,7 +3118,7 @@ fn headroom_python_startup_args() -> Vec<String> {
         "-m".to_string(),
         "headroom.proxy.server".to_string(),
         "--port".to_string(),
-        HEADROOM_PROXY_PORT.to_string(),
+        headroom_proxy_port(),
         "--no-http2".to_string(),
         "--log-messages".to_string(),
     ]
@@ -3033,7 +3132,7 @@ fn headroom_entrypoint_startup_args() -> Vec<String> {
     let mut args = vec![
         "proxy".to_string(),
         "--port".to_string(),
-        HEADROOM_PROXY_PORT.to_string(),
+        headroom_proxy_port(),
         "--log-messages".to_string(),
     ];
     args.extend(headroom_learn_startup_args());
@@ -3057,7 +3156,7 @@ fn expected_proxy_arg_signature() -> Vec<&'static str> {
 /// Returns the full command line of whatever process is currently listening on
 /// the proxy port, or `None` if we couldn't determine it.
 pub fn running_proxy_argv() -> Option<String> {
-    let pid = lsof_listener_pid(HEADROOM_PROXY_PORT.parse().ok()?)?;
+    let pid = lsof_listener_pid(backend_port::get())?;
     ps_command(pid)
 }
 
@@ -4140,15 +4239,18 @@ mod tests {
 
     use super::{
         bootstrap_requirements_lock_for_target, extract_required_pydantic_core_version,
+        format_all_foreign_bail, format_already_running_bail,
         headroom_entrypoint_startup_args, headroom_python_startup_args,
-        looks_like_corrupt_venv_error, parse_major_minor_patch,
+        looks_like_corrupt_venv_error, parse_major_minor_patch, parse_pid_from_lsof_detail,
         proxy_argv_contains_expected_flags, read_headroom_learn_metadata_from_path,
         receipt_requires_atomic_rebuild, redact_sensitive, requirements_lock_sha,
         rtk_distribution_artifact, run_command, sanitize_log_variant, sha256_bytes,
         verify_sha256_file, CommandFailure, HeadroomRelease, ManagedRuntime,
         PipOutputCapture, ToolManager, UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION,
-        HEADROOM_PROXY_PORT, RTK_VERSION,
+        RTK_VERSION,
     };
+    use crate::backend_port;
+    use crate::port_conflict;
 
     #[test]
     fn redact_sensitive_strips_anthropic_keys() {
@@ -4564,6 +4666,69 @@ mod tests {
     }
 
     #[test]
+    fn parse_pid_from_lsof_detail_extracts_numeric_pid() {
+        assert_eq!(parse_pid_from_lsof_detail("rapportd pid 594"), Some(594));
+        assert_eq!(parse_pid_from_lsof_detail("python3.12 pid 1073"), Some(1073));
+        assert_eq!(
+            parse_pid_from_lsof_detail("Google Chrome Helper pid 4242"),
+            Some(4242)
+        );
+    }
+
+    #[test]
+    fn parse_pid_from_lsof_detail_returns_none_for_unknown_or_malformed() {
+        assert_eq!(parse_pid_from_lsof_detail("unknown process"), None);
+        assert_eq!(parse_pid_from_lsof_detail(""), None);
+        assert_eq!(parse_pid_from_lsof_detail("rapportd pid not-a-number"), None);
+        // Missing the " pid " separator entirely.
+        assert_eq!(parse_pid_from_lsof_detail("rapportd 594"), None);
+    }
+
+    /// Round-trip: the bail string produced by `format_all_foreign_bail` must
+    /// be matched by `port_conflict::is_port_conflict` (so the persistent-
+    /// conflict marker keeps tracking it) AND the occupant must be parseable
+    /// by `port_conflict::parse_occupant` (so analytics/Sentry get the
+    /// process name and pid).
+    #[test]
+    fn all_foreign_bail_round_trips_through_port_conflict_helpers() {
+        let bail = format_all_foreign_bail(6768, "rapportd pid 594", (6769, 6790));
+        assert!(
+            port_conflict::is_port_conflict(&bail),
+            "bail must match is_port_conflict so the marker keeps tracking; got: {bail}"
+        );
+        let (cmd, pid) = port_conflict::parse_occupant(&bail);
+        assert_eq!(cmd.as_deref(), Some("rapportd"), "bail: {bail}");
+        assert_eq!(pid, Some(594), "bail: {bail}");
+    }
+
+    /// Mirror round-trip for the unknown-occupant path (lsof returned nothing
+    /// useful). `parse_occupant` should return None/None instead of inventing
+    /// a fake cmd from "unknown process".
+    #[test]
+    fn all_foreign_bail_with_unknown_occupant_round_trips() {
+        let bail = format_all_foreign_bail(6768, "unknown process", (6769, 6790));
+        assert!(port_conflict::is_port_conflict(&bail));
+        let (cmd, pid) = port_conflict::parse_occupant(&bail);
+        assert!(cmd.is_none(), "got cmd: {cmd:?} from bail: {bail}");
+        assert!(pid.is_none(), "got pid: {pid:?} from bail: {bail}");
+    }
+
+    /// The "stale headroom proxy holding the port" bail must NOT trigger
+    /// the foreign-process port-conflict path — those are separate
+    /// fingerprints in Sentry. Verifies the boundary stays intact.
+    #[test]
+    fn already_running_bail_is_not_classified_as_foreign_conflict() {
+        let bail = format_already_running_bail(6768);
+        assert!(
+            !port_conflict::is_port_conflict(&bail),
+            "stale-proxy bail must not match foreign-port classifier; got: {bail}"
+        );
+        // But the lib.rs port-conflict-failure classifier (which fingerprints
+        // both shapes the same way) still catches it via its second condition.
+        assert!(crate::is_port_conflict_failure(&bail));
+    }
+
+    #[test]
     fn extract_required_pydantic_core_version_pulls_pin_from_systemerror() {
         let log = "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 189, in _run_module_as_main\n  ...\nSystemError: The installed pydantic-core version (2.46.3) is incompatible with the current pydantic version, which requires 2.41.5. If you encounter this error, make sure that you haven't upgraded pydantic-core manually.\n";
         assert_eq!(
@@ -4588,11 +4753,13 @@ mod tests {
 
     #[test]
     fn managed_headroom_startup_uses_supported_proxy_args() {
+        backend_port::reset_for_tests();
+        let default_port = backend_port::DEFAULT_BACKEND_PORT.to_string();
         let entrypoint_args = headroom_entrypoint_startup_args();
         assert!(entrypoint_args.starts_with(&[
             "proxy".to_string(),
             "--port".to_string(),
-            HEADROOM_PROXY_PORT.to_string(),
+            default_port.clone(),
             "--log-messages".to_string(),
         ]));
         assert!(entrypoint_args.contains(&"--learn".to_string()));
@@ -4607,7 +4774,7 @@ mod tests {
                 "-m".to_string(),
                 "headroom.proxy.server".to_string(),
                 "--port".to_string(),
-                HEADROOM_PROXY_PORT.to_string(),
+                default_port,
                 "--no-http2".to_string(),
                 "--log-messages".to_string(),
             ]
@@ -4618,6 +4785,36 @@ mod tests {
         assert!(!python_args.contains(&"--no-memory-tools".to_string()));
         assert!(!python_args.contains(&"--no-memory-context".to_string()));
         assert!(!python_args.contains(&"--memory-db-path".to_string()));
+
+        backend_port::reset_for_tests();
+    }
+
+    /// Regression: `start_headroom_background` previously built `startup_variants`
+    /// before pre-flight ran, so when fallback called `backend_port::set(6769)`
+    /// the variants still spawned with `--port 6768` and both failed with
+    /// EADDRINUSE. The arg helpers read the atomic at call time, so as long as
+    /// the helpers are invoked AFTER fallback has updated the atomic, the
+    /// chosen fallback port flows through.
+    #[test]
+    fn startup_args_reflect_fallback_port_set_after_default() {
+        backend_port::reset_for_tests();
+        backend_port::set(6770);
+
+        let entrypoint_args = headroom_entrypoint_startup_args();
+        let port_idx = entrypoint_args
+            .iter()
+            .position(|a| a == "--port")
+            .expect("entrypoint args contain --port");
+        assert_eq!(entrypoint_args[port_idx + 1], "6770");
+
+        let python_args = headroom_python_startup_args();
+        let port_idx = python_args
+            .iter()
+            .position(|a| a == "--port")
+            .expect("python args contain --port");
+        assert_eq!(python_args[port_idx + 1], "6770");
+
+        backend_port::reset_for_tests();
     }
 
     #[test]

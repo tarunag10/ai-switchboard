@@ -277,15 +277,31 @@ mod tests {
         (python3.1 pid 1073); cannot start proxy. \
         Run `lsof -iTCP:6768 -sTCP:LISTEN` to identify it.";
 
+    /// New bail shape emitted by `tool_manager::start_headroom_background`
+    /// when even the fallback range (6769-6790) is exhausted. The marker
+    /// substring `"is occupied by a non-headroom process"` is preserved so
+    /// `is_port_conflict` and `parse_occupant` continue to match.
+    const SAMPLE_BAIL_ALL_FOREIGN: &str = "port 6768 is occupied by a non-headroom process \
+        (rapportd pid 594) and fallback ports 6769-6790 are also unavailable; cannot start proxy. \
+        Reboot to clear stuck listeners, then relaunch Headroom.";
+
     #[test]
     fn is_port_conflict_matches_bail_string() {
         assert!(is_port_conflict(SAMPLE_BAIL));
+        assert!(is_port_conflict(SAMPLE_BAIL_ALL_FOREIGN));
         assert!(!is_port_conflict(
             "headroom proxy already running on port 6768 (likely a stale process)"
         ));
         assert!(!is_port_conflict(
             "exited with status 1 before opening port 6768"
         ));
+    }
+
+    #[test]
+    fn parse_occupant_works_on_all_foreign_bail_shape() {
+        let (cmd, pid) = parse_occupant(SAMPLE_BAIL_ALL_FOREIGN);
+        assert_eq!(cmd.as_deref(), Some("rapportd"));
+        assert_eq!(pid, Some(594));
     }
 
     #[test]
