@@ -6,7 +6,7 @@
 
 [![Website](https://img.shields.io/badge/extraheadroom.com-website-blue?style=for-the-badge)](https://extraheadroom.com)&nbsp;&nbsp;[![Download for macOS](https://img.shields.io/github/v/release/gglucass/headroom-desktop?label=Download%20for%20macOS&style=for-the-badge&logo=apple&logoColor=white&color=000000)](https://github.com/gglucass/headroom-desktop/releases/latest)
 
-> **Stable:** macOS on Apple Silicon (M1 or later)
+> **Stable:** macOS 14 (Sonoma) or later on Apple Silicon (M1 or later)
 >
 > **Preview:** Linux x86_64 builds are experimental and currently support the core proxy flow only.
 

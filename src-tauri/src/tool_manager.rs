@@ -3949,10 +3949,17 @@ where
         match run_command_streaming(python, args, cwd, &mut on_line) {
             Ok(()) => return Ok(()),
             Err(err) => {
-                log::warn!(
-                    "pip install attempt {}/{} failed: {}",
-                    attempt, MAX_ATTEMPTS, err
-                );
+                if attempt < MAX_ATTEMPTS {
+                    log::info!(
+                        "pip install attempt {}/{} failed (will retry): {}",
+                        attempt, MAX_ATTEMPTS, err
+                    );
+                } else {
+                    log::warn!(
+                        "pip install attempt {}/{} failed (final): {}",
+                        attempt, MAX_ATTEMPTS, err
+                    );
+                }
                 last_err = Some(err);
                 if attempt < MAX_ATTEMPTS {
                     let idx = (attempt as usize - 1).min(BACKOFFS_SECS.len() - 1);

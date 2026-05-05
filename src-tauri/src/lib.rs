@@ -2677,17 +2677,29 @@ fn execute_headroom_learn_run(state: &AppState, project_path: &str) -> HeadroomL
         .arg("--project")
         .arg(project_path)
         .arg("--apply")
+        // Headroom-desktop only manages CLAUDE.md / MEMORY.md for Claude Code.
+        // Skip codex / gemini analysis so we don't burn LLM budget producing
+        // recommendations the desktop won't apply anywhere.
+        .arg("--agent")
+        .arg("claude")
         .current_dir(project_path)
         .env("PYTHONNOUSERSITE", "1")
         .env("PIP_DISABLE_PIP_VERSION_CHECK", "1")
         .env("PIP_NO_INPUT", "1")
         .env("HEADROOM_LEARN_CLI", "claude")
-        .env("ANTHROPIC_MODEL", "claude-sonnet-4-6")
         // Force the claude CLI backend: the analyzer picks LiteLLM over
         // HEADROOM_LEARN_CLI when any of these keys is set in the parent env.
         .env_remove("ANTHROPIC_API_KEY")
         .env_remove("OPENAI_API_KEY")
-        .env_remove("GEMINI_API_KEY");
+        .env_remove("GEMINI_API_KEY")
+        // Don't pin ANTHROPIC_MODEL here: it's a LiteLLM identifier that the
+        // analyzer never reads on the CLI path (litellm is skipped when
+        // API keys are stripped above). Worse, it's inherited by the spawned
+        // `claude -p` subprocess, where Claude Code's CLI does honor it —
+        // and "claude-sonnet-4-6" is not a valid Claude Code model alias,
+        // which routes the call to a slow/hung path past 120s. Letting
+        // claude -p use its default model fixes the hang.
+        .env_remove("ANTHROPIC_MODEL");
     if let Some(claude_path) = claude_cli::detect_claude_cli() {
         if let Some(dir) = claude_path.parent() {
             let existing = std::env::var("PATH").unwrap_or_default();
