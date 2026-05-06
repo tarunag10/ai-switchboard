@@ -1612,6 +1612,10 @@ impl ToolManager {
                     .chain()
                     .find_map(|cause| cause.downcast_ref::<CommandFailure>())
                     .and_then(|failure| failure.exit_code),
+                signal: err
+                    .chain()
+                    .find_map(|cause| cause.downcast_ref::<CommandFailure>())
+                    .and_then(|failure| failure.signal),
             }))
             .context("Headroom smoke test failed — the new version cannot be imported");
         }
@@ -2646,6 +2650,7 @@ impl ToolManager {
             let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
             let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
             let exit_code = output.status.code();
+            let signal = exit_status_signal(&output.status);
             let detected = detected_claude
                 .as_ref()
                 .map(|p| p.display().to_string())
@@ -2654,6 +2659,7 @@ impl ToolManager {
                 |scope| {
                     scope.set_extra("claude_cli_detected", detected.clone().into());
                     scope.set_extra("exit_code", exit_code.map(|c| c.into()).unwrap_or(serde_json::Value::Null));
+                    scope.set_extra("signal", signal.map(|s| s.into()).unwrap_or(serde_json::Value::Null));
                     scope.set_extra(
                         "stdout_tail",
                         stdout[stdout.char_indices().rev().nth(2047).map_or(0, |(i, _)| i)..].into(),
@@ -2676,6 +2682,7 @@ impl ToolManager {
                 stdout,
                 stderr,
                 exit_code,
+                signal,
             }))
             .context("configuring Headroom MCP integration");
         }
@@ -3927,6 +3934,39 @@ fn pip_line_to_progress(
     })
 }
 
+// Compact representation of a pip-install failure for log/Sentry. The full
+// CommandFailure Display dumps program + args + stdout + stderr, which the
+// 400-char Sentry cap eats before any stderr lines appear. Pip's actual
+// reason lives on stderr, so prefer the tail of stderr (or stdout if stderr
+// is empty) plus exit code.
+fn compact_pip_failure(err: &anyhow::Error) -> String {
+    const TAIL_BUDGET: usize = 300;
+    let Some(failure) = err.chain().find_map(|c| c.downcast_ref::<CommandFailure>()) else {
+        return err.to_string();
+    };
+    let source = if !failure.stderr.trim().is_empty() {
+        failure.stderr.as_str()
+    } else {
+        failure.stdout.as_str()
+    };
+    let trimmed = source.trim_end();
+    let tail = if trimmed.len() > TAIL_BUDGET {
+        let start = trimmed.len() - TAIL_BUDGET;
+        let aligned = trimmed[start..]
+            .find('\n')
+            .map(|i| start + i + 1)
+            .unwrap_or(start);
+        &trimmed[aligned..]
+    } else {
+        trimmed
+    };
+    let exit = failure
+        .exit_code
+        .map(|c| c.to_string())
+        .unwrap_or_else(|| "signal".into());
+    format!("exit={exit}; stderr tail: {tail}")
+}
+
 /// Streaming variant of `run_pip_install_with_retries`. Each line emitted by
 /// pip on stdout/stderr is piped through `on_line` as it arrives, so callers
 /// can translate noteworthy pip events ("Collecting X", "Downloading Y",
@@ -3957,7 +3997,7 @@ where
                 } else {
                     log::warn!(
                         "pip install attempt {}/{} failed (final): {}",
-                        attempt, MAX_ATTEMPTS, err
+                        attempt, MAX_ATTEMPTS, compact_pip_failure(&err)
                     );
                 }
                 last_err = Some(err);
@@ -4041,6 +4081,7 @@ where
             stdout: stdout_buf,
             stderr: stderr_buf,
             exit_code: status.code(),
+            signal: exit_status_signal(&status),
         }));
     }
 
@@ -4129,6 +4170,7 @@ fn run_command_with_timeout(
             stdout,
             stderr,
             exit_code: None,
+            signal: exit_status_signal(&status),
         }));
     }
 
@@ -4139,6 +4181,7 @@ fn run_command_with_timeout(
             stdout,
             stderr,
             exit_code: status.code(),
+            signal: exit_status_signal(&status),
         }));
     }
 
@@ -4157,6 +4200,7 @@ fn run_command(binary: &Path, args: &[&str], cwd: &Path) -> Result<()> {
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
             stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
             exit_code: output.status.code(),
+            signal: exit_status_signal(&output.status),
         }));
     }
 
@@ -4173,13 +4217,23 @@ pub struct CommandFailure {
     pub stdout: String,
     pub stderr: String,
     pub exit_code: Option<i32>,
+    /// Unix signal number when the child was killed by a signal (`exit_code` is
+    /// `None` in that case). Lets us tell SIGKILL (9 — likely parent shutdown,
+    /// OOM, or launchd) from SIGTERM (15 — graceful kill) in failure reports.
+    pub signal: Option<i32>,
 }
 
 impl std::fmt::Display for CommandFailure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let status = match (self.exit_code, self.signal) {
+            (Some(code), _) => format!("exit {}", code),
+            (None, Some(sig)) => format!("killed by signal {}", sig),
+            (None, None) => "killed by signal".to_string(),
+        };
         write!(
             f,
-            "command failed: {} {}\nstdout:\n{}\nstderr:\n{}",
+            "command failed ({}): {} {}\nstdout:\n{}\nstderr:\n{}",
+            status,
             self.program,
             self.args.join(" "),
             self.stdout,
@@ -4189,6 +4243,22 @@ impl std::fmt::Display for CommandFailure {
 }
 
 impl std::error::Error for CommandFailure {}
+
+/// Extract the Unix signal number that killed a child, or `None` on non-Unix
+/// or when the process exited normally. Used to populate `CommandFailure.signal`
+/// so failure reports distinguish SIGKILL from SIGTERM.
+fn exit_status_signal(status: &std::process::ExitStatus) -> Option<i32> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        status.signal()
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = status;
+        None
+    }
+}
 
 /// Returns true when an `anyhow::Error` from a `headroom <subcommand>` shell-out
 /// looks like the venv is missing pinned dependencies — i.e. Python died with
@@ -4298,6 +4368,7 @@ mod tests {
             stdout: String::new(),
             stderr: stderr.into(),
             exit_code: Some(1),
+            signal: None,
         })
     }
 

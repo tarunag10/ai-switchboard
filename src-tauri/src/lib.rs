@@ -640,6 +640,13 @@ fn capture_bootstrap_failure(err: &anyhow::Error, kind: BootstrapFailureKind) {
                         .unwrap_or_else(|| "signal".into())
                         .into(),
                 );
+                scope.set_extra(
+                    "signal",
+                    failure
+                        .signal
+                        .map(|s| s.to_string().into())
+                        .unwrap_or(serde_json::Value::Null),
+                );
                 scope.set_extra("stdout", failure.stdout.clone().into());
                 scope.set_extra("stderr", failure.stderr.clone().into());
                 scope.set_extra("error_chain", technical_err.clone().into());
@@ -757,8 +764,34 @@ pub(crate) struct WatchdogGiveUpReport {
     /// "spawn returned Ok but `/readyz` never came back" (None) — the two
     /// failure modes look identical without this field.
     pub last_startup_error: Option<String>,
+    /// PID of the tracked Python child at give-up time, if we own a Child
+    /// handle. Useful for ad-hoc correlation with external `ps`/Activity
+    /// Monitor snapshots the user can attach to a bug report.
+    pub tracked_pid: Option<u32>,
+    /// Whether the backend loopback port still accepts a TCP connection.
+    /// Distinguishes "process gone, port closed" (false) from "process
+    /// alive but event loop wedged" (true) — the kernel completes
+    /// `accept()` even when uvicorn can't service HTTP. See
+    /// `state::tcp_port_accepts_connection` for full semantics.
+    pub port_accepts_tcp: bool,
+    /// Accumulated CPU seconds for the tracked PID at give-up time.
+    /// None when no tracked child or `ps` failed. Combined with
+    /// `log_silent_secs`, lets us see whether the child was burning CPU
+    /// silently (sync compute) vs idle/blocked (deadlock, await never
+    /// resolving).
+    pub process_cpu_secs: Option<u64>,
+    /// Seconds since the newest `headroom-proxy*.log` file was last
+    /// modified. None when there is no proxy log on disk yet, or the
+    /// mtime is in the future (clock skew).
+    pub log_silent_secs: Option<u64>,
+    /// Outcome of probing `/readyz` directly on the backend port at
+    /// give-up time. Disambiguates intercept-layer failures (intercept
+    /// fails, backend `ok`) from Python-layer failures (both fail).
+    /// One of: `ok`, `timeout`, `refused`, `http_<status>`, `error: <msg>`.
+    pub backend_readyz_outcome: String,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn build_watchdog_give_up_report(
     consecutive_failures: u32,
     bypass_active: bool,
@@ -766,6 +799,11 @@ pub(crate) fn build_watchdog_give_up_report(
     exit_status: Option<String>,
     log_tail: Option<String>,
     last_startup_error: Option<String>,
+    tracked_pid: Option<u32>,
+    port_accepts_tcp: bool,
+    process_cpu_secs: Option<u64>,
+    log_silent_secs: Option<u64>,
+    backend_readyz_outcome: String,
 ) -> WatchdogGiveUpReport {
     WatchdogGiveUpReport {
         message: format!(
@@ -778,6 +816,47 @@ pub(crate) fn build_watchdog_give_up_report(
         consecutive_failures,
         log_tail: log_tail.filter(|s| !s.is_empty()),
         last_startup_error: last_startup_error.filter(|s| !s.is_empty()),
+        tracked_pid,
+        port_accepts_tcp,
+        process_cpu_secs,
+        log_silent_secs,
+        backend_readyz_outcome,
+    }
+}
+
+/// Probe `/readyz` on the backend port directly (bypassing the Rust
+/// intercept on 6767) and classify the outcome for inclusion in a
+/// give-up Sentry event. 1.5s timeout matches `is_headroom_proxy_reachable`
+/// so a `timeout` here corresponds to the same wait the watchdog already
+/// experienced.
+fn probe_backend_readyz_outcome() -> String {
+    let port = crate::backend_port::get();
+    let client = match reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_millis(1500))
+        .build()
+    {
+        Ok(c) => c,
+        Err(err) => return format!("error: {err}"),
+    };
+    let url = format!("http://127.0.0.1:{port}/readyz");
+    match client.get(&url).send() {
+        Ok(response) => {
+            let status = response.status();
+            if status.is_success() {
+                "ok".to_string()
+            } else {
+                format!("http_{}", status.as_u16())
+            }
+        }
+        Err(err) => {
+            if err.is_timeout() {
+                "timeout".to_string()
+            } else if err.is_connect() {
+                "refused".to_string()
+            } else {
+                format!("error: {err}")
+            }
+        }
     }
 }
 
@@ -797,9 +876,26 @@ fn capture_watchdog_give_up(
     }
     let exit_status = state.headroom_process_exited();
     let upgrade_in_progress = state.runtime_upgrade_in_progress();
-    let log_tail = tool_manager::newest_proxy_log_path(&state.tool_manager.logs_dir())
-        .map(|path| tool_manager::tail_log_file(&path, 30));
+    let logs_dir = state.tool_manager.logs_dir();
+    let log_tail = tool_manager::newest_proxy_log_path(&logs_dir)
+        .map(|path| tool_manager::tail_log_file(&path, 100));
     let last_startup_error = state.last_startup_error.lock().clone();
+
+    let tracked_pid: Option<u32> = state
+        .headroom_process
+        .lock()
+        .as_ref()
+        .map(|child| child.id());
+    let port_accepts_tcp = crate::state::proxy_port_accepts_connection();
+    let process_cpu_secs =
+        tracked_pid.and_then(crate::state::tracked_process_cpu_time_secs);
+    let log_silent_secs = crate::state::newest_proxy_log_mtime(&logs_dir).and_then(|mtime| {
+        std::time::SystemTime::now()
+            .duration_since(mtime)
+            .ok()
+            .map(|d| d.as_secs())
+    });
+    let backend_readyz_outcome = probe_backend_readyz_outcome();
 
     let report = build_watchdog_give_up_report(
         consecutive_failures,
@@ -808,6 +904,11 @@ fn capture_watchdog_give_up(
         exit_status,
         log_tail,
         last_startup_error,
+        tracked_pid,
+        port_accepts_tcp,
+        process_cpu_secs,
+        log_silent_secs,
+        backend_readyz_outcome,
     );
 
     sentry::with_scope(
@@ -833,6 +934,20 @@ fn capture_watchdog_give_up(
             if let Some(err) = &report.last_startup_error {
                 scope.set_extra("last_startup_error", err.clone().into());
             }
+            if let Some(pid) = report.tracked_pid {
+                scope.set_extra("tracked_pid", (pid as i64).into());
+            }
+            scope.set_extra("port_accepts_tcp", report.port_accepts_tcp.into());
+            if let Some(cpu) = report.process_cpu_secs {
+                scope.set_extra("process_cpu_secs", (cpu as i64).into());
+            }
+            if let Some(silent) = report.log_silent_secs {
+                scope.set_extra("log_silent_secs", (silent as i64).into());
+            }
+            scope.set_extra(
+                "backend_readyz_outcome",
+                report.backend_readyz_outcome.clone().into(),
+            );
         },
         || {
             sentry::capture_message(&report.message, sentry::Level::Error);
@@ -984,6 +1099,13 @@ pub(crate) fn capture_upgrade_failure(
                         .map(|c| c.to_string())
                         .unwrap_or_else(|| "signal".into())
                         .into(),
+                );
+                scope.set_extra(
+                    "signal",
+                    failure
+                        .signal
+                        .map(|s| s.to_string().into())
+                        .unwrap_or(serde_json::Value::Null),
                 );
                 scope.set_extra("stdout", failure.stdout.clone().into());
                 scope.set_extra("stderr", failure.stderr.clone().into());
@@ -2758,6 +2880,17 @@ fn execute_headroom_learn_run(state: &AppState, project_path: &str) -> HeadroomL
                     .code()
                     .map(|c| c.to_string())
                     .unwrap_or_else(|| "signal".into());
+                let signal_num: Option<i32> = {
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::process::ExitStatusExt;
+                        output.status.signal()
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        None
+                    }
+                };
                 // First non-empty line of stderr (or stdout if stderr empty),
                 // truncated, used both in the message and the fingerprint so
                 // events group by failure mode instead of the capture-site stack.
@@ -2789,6 +2922,12 @@ fn execute_headroom_learn_run(state: &AppState, project_path: &str) -> HeadroomL
                         scope.set_tag("flow", "headroom_learn");
                         scope.set_tag("exit_code", &exit_code_str);
                         scope.set_extra("exit_status", output.status.to_string().into());
+                        scope.set_extra(
+                            "signal",
+                            signal_num
+                                .map(|s| s.to_string().into())
+                                .unwrap_or(serde_json::Value::Null),
+                        );
                         scope.set_extra("output_tail", fail_tail.clone().into());
                         scope.set_extra("stderr_head", stderr_head.into());
                         scope.set_extra("stdout_head", stdout_head.into());
@@ -4572,6 +4711,7 @@ mod tests {
             stdout: String::new(),
             stderr: stderr.into(),
             exit_code: Some(1),
+            signal: None,
         }
     }
 
@@ -4909,6 +5049,11 @@ Some unrelated content.
             Some("exit status: 1".to_string()),
             Some("Traceback (most recent call last):\n  ...".to_string()),
             None,
+            None,
+            false,
+            None,
+            None,
+            "ok".to_string(),
         );
         assert_eq!(report.tracked_child_exit_status, "exit status: 1");
         assert_eq!(report.consecutive_failures, 3);
@@ -4926,7 +5071,19 @@ Some unrelated content.
     fn build_watchdog_give_up_report_falls_back_when_child_untracked() {
         // headroom_process_exited returns None when no Child handle is held
         // or the OS hasn't reaped the child. Payload must still be useful.
-        let report = build_watchdog_give_up_report(5, true, false, None, None, None);
+        let report = build_watchdog_give_up_report(
+            5,
+            true,
+            false,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            "refused".to_string(),
+        );
         assert_eq!(report.tracked_child_exit_status, "still_alive_or_untracked");
         assert!(report.bypass_active);
         assert!(report.log_tail.is_none());
@@ -4936,14 +5093,37 @@ Some unrelated content.
     fn build_watchdog_give_up_report_drops_empty_log_tail() {
         // tail_log_file returns "" when the log file is missing or unreadable.
         // Empty tails must not become an empty `proxy_log_tail` Sentry extra.
-        let report =
-            build_watchdog_give_up_report(3, false, false, None, Some(String::new()), None);
+        let report = build_watchdog_give_up_report(
+            3,
+            false,
+            false,
+            None,
+            Some(String::new()),
+            None,
+            None,
+            false,
+            None,
+            None,
+            "timeout".to_string(),
+        );
         assert!(report.log_tail.is_none());
     }
 
     #[test]
     fn build_watchdog_give_up_report_propagates_upgrade_flag() {
-        let report = build_watchdog_give_up_report(3, false, true, None, None, None);
+        let report = build_watchdog_give_up_report(
+            3,
+            false,
+            true,
+            None,
+            None,
+            None,
+            None,
+            false,
+            None,
+            None,
+            "timeout".to_string(),
+        );
         assert!(report.runtime_upgrade_in_progress);
     }
 
@@ -4956,6 +5136,11 @@ Some unrelated content.
             None,
             None,
             Some("Address already in use (os error 48)".to_string()),
+            None,
+            false,
+            None,
+            None,
+            "refused".to_string(),
         );
         assert_eq!(
             report.last_startup_error.as_deref(),
@@ -4965,9 +5150,44 @@ Some unrelated content.
 
     #[test]
     fn build_watchdog_give_up_report_drops_empty_last_startup_error() {
-        let report =
-            build_watchdog_give_up_report(3, false, false, None, None, Some(String::new()));
+        let report = build_watchdog_give_up_report(
+            3,
+            false,
+            false,
+            None,
+            None,
+            Some(String::new()),
+            None,
+            false,
+            None,
+            None,
+            "ok".to_string(),
+        );
         assert!(report.last_startup_error.is_none());
+    }
+
+    #[test]
+    fn build_watchdog_give_up_report_carries_diagnostic_fields() {
+        // Busy-event-loop signature: process alive, port still binds,
+        // backend /readyz times out, log silent for ~30s.
+        let report = build_watchdog_give_up_report(
+            3,
+            false,
+            false,
+            None,
+            None,
+            None,
+            Some(54321),
+            true,
+            Some(120),
+            Some(30),
+            "timeout".to_string(),
+        );
+        assert_eq!(report.tracked_pid, Some(54321));
+        assert!(report.port_accepts_tcp);
+        assert_eq!(report.process_cpu_secs, Some(120));
+        assert_eq!(report.log_silent_secs, Some(30));
+        assert_eq!(report.backend_readyz_outcome, "timeout");
     }
 
     #[test]

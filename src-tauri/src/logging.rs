@@ -71,12 +71,7 @@ impl FileLogger {
     }
 }
 
-// Drop transient updater transport errors (offline laptop, flaky wifi, GitHub
-// blip) from Sentry. They still hit the local log file via write_record.
-fn skip_sentry(target: &str, msg: &str) -> bool {
-    if !target.starts_with("tauri_plugin_updater") {
-        return false;
-    }
+fn is_transient_transport_error(msg: &str) -> bool {
     msg.contains("error sending request")
         || msg.contains("dns error")
         || msg.contains("connection refused")
@@ -86,6 +81,23 @@ fn skip_sentry(target: &str, msg: &str) -> bool {
         || msg.contains("os error 50") // macOS: Network is down
         || msg.contains("os error 51") // macOS: Network is unreachable
         || msg.contains("os error 65") // macOS: No route to host
+}
+
+// Drop transient transport errors (offline laptop, flaky wifi, upstream blip)
+// from Sentry. They still hit the local log file via write_record.
+fn skip_sentry(target: &str, msg: &str) -> bool {
+    if target.starts_with("tauri_plugin_updater") {
+        return is_transient_transport_error(msg);
+    }
+    // proxy_intercept bypass forwarder: when CC is bypassing the local Python
+    // proxy and we re-issue directly to api.anthropic.com, transient network
+    // failures aren't actionable — client already gets a 502 and CC retries.
+    if target.starts_with("headroom_desktop_lib::proxy_intercept")
+        && msg.starts_with("proxy_intercept bypass forward failed")
+    {
+        return is_transient_transport_error(msg);
+    }
+    false
 }
 
 impl Log for FileLogger {
@@ -196,5 +208,29 @@ mod tests {
             "error sending request: timeout"
         ));
         assert!(!skip_sentry("reqwest", "error sending request"));
+    }
+
+    #[test]
+    fn skips_proxy_intercept_bypass_transport_errors() {
+        assert!(skip_sentry(
+            "headroom_desktop_lib::proxy_intercept",
+            "proxy_intercept bypass forward failed: error sending request for url (https://api.anthropic.com/v1/messages?beta=true)"
+        ));
+        assert!(skip_sentry(
+            "headroom_desktop_lib::proxy_intercept",
+            "proxy_intercept bypass forward failed: dns error: failed to lookup address"
+        ));
+    }
+
+    #[test]
+    fn keeps_proxy_intercept_non_transport_errors() {
+        assert!(!skip_sentry(
+            "headroom_desktop_lib::proxy_intercept",
+            "proxy_intercept bypass forward failed: invalid header value"
+        ));
+        assert!(!skip_sentry(
+            "headroom_desktop_lib::proxy_intercept",
+            "some other proxy_intercept warning"
+        ));
     }
 }

@@ -220,7 +220,7 @@ fn tcp_port_accepts_connection(addr: std::net::SocketAddr, timeout: std::time::D
 /// Probe the proxy's loopback port with a 1s timeout. See
 /// [`tcp_port_accepts_connection`] for semantics. The backend port is
 /// normally 6768 but may have been switched to a fallback by `backend_port`.
-fn proxy_port_accepts_connection() -> bool {
+pub(crate) fn proxy_port_accepts_connection() -> bool {
     let addr: std::net::SocketAddr = ([127, 0, 0, 1], crate::backend_port::get()).into();
     tcp_port_accepts_connection(addr, std::time::Duration::from_secs(1))
 }
@@ -254,7 +254,7 @@ fn parse_ps_cpu_time(raw: &str) -> Option<u64> {
 /// Returns None if the process is gone or `ps` fails. Cheap enough
 /// to call on a 500ms boot-validation tick — fork+exec of a tiny
 /// system binary, no I/O beyond the kernel proc table.
-fn tracked_process_cpu_time_secs(pid: u32) -> Option<u64> {
+pub(crate) fn tracked_process_cpu_time_secs(pid: u32) -> Option<u64> {
     let output = Command::new("ps")
         .args(["-p", &pid.to_string(), "-o", "time="])
         .output()
@@ -301,7 +301,7 @@ fn boot_validation_stalled(
 
 /// Newest mtime of any `headroom-proxy*.log` file in the logs directory, as
 /// a "is the proxy doing anything" signal. Returns None if no logs yet.
-fn newest_proxy_log_mtime(logs_dir: &std::path::Path) -> Option<std::time::SystemTime> {
+pub(crate) fn newest_proxy_log_mtime(logs_dir: &std::path::Path) -> Option<std::time::SystemTime> {
     let entries = std::fs::read_dir(logs_dir).ok()?;
     let mut newest: Option<std::time::SystemTime> = None;
     for entry in entries.flatten() {
