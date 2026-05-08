@@ -26,7 +26,7 @@ struct FileLogger {
 }
 
 impl FileLogger {
-    fn write_record(&self, record: &Record) {
+    fn write_record(&self, record: &Record, display_level: Level) {
         let Ok(mut guard) = self.file.lock() else {
             return;
         };
@@ -37,7 +37,7 @@ impl FileLogger {
         let _ = writeln!(
             file,
             "{ts} {level:<5} {target}: {msg}",
-            level = record.level(),
+            level = display_level,
             target = record.target(),
             msg = record.args(),
         );
@@ -106,14 +106,21 @@ impl Log for FileLogger {
     }
 
     fn log(&self, record: &Record) {
-        if record.level() <= Level::Warn {
+        let msg = format!("{}", record.args());
+        let demote = record.level() <= Level::Warn && skip_sentry(record.target(), &msg);
+        let display_level = if demote && record.level() == Level::Error {
+            Level::Warn
+        } else {
+            record.level()
+        };
+
+        if display_level <= Level::Warn {
             self.rotate_if_needed();
         }
-        self.write_record(record);
+        self.write_record(record, display_level);
 
         if record.level() <= Level::Warn {
-            let msg = format!("{}", record.args());
-            if skip_sentry(record.target(), &msg) {
+            if demote {
                 return;
             }
             let level = match record.level() {

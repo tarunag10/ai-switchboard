@@ -460,6 +460,18 @@ pub struct AppState {
     cached_rtk_gain_summary: Mutex<Option<(Option<RtkGainSummary>, Instant)>>,
     cached_rtk_today_stats: Mutex<Option<(Option<crate::models::RtkTodayStats>, Instant)>>,
     cached_claude_profile: Mutex<Option<(Option<String>, ClaudeAccountProfile, Instant)>>,
+    /// Last `IdentityFingerprint` we successfully posted to
+    /// `desktop/grace/start`. Used by the bearer-triggered identity-pusher
+    /// worker to skip redundant posts when the same Claude account/plan is
+    /// already on file with headroom-web.
+    last_pushed_identity_fingerprint: Mutex<Option<crate::pricing::IdentityFingerprint>>,
+    /// When we most recently completed a fresh OAuth profile fetch that
+    /// returned a *complete* identity (UUID + email + non-Unknown plan
+    /// tier). The identity-pusher worker uses this to throttle further
+    /// `/api/oauth/profile` calls to ~once per 24 h once we already know
+    /// who the user is. `Instant`, so it resets on app restart — first
+    /// post-restart bearer always triggers a fresh fetch.
+    last_complete_identity_fetch_at: Mutex<Option<Instant>>,
     /// Cached stdout of `headroom memory export`. Shared by every OptimizePanel
     /// that mounts at once — without it, N panels = N Python cold-starts.
     cached_memory_export: Mutex<Option<(String, Instant)>>,
@@ -563,6 +575,8 @@ impl AppState {
             cached_rtk_gain_summary: Mutex::new(None),
             cached_rtk_today_stats: Mutex::new(None),
             cached_claude_profile: Mutex::new(None),
+            last_pushed_identity_fingerprint: Mutex::new(None),
+            last_complete_identity_fetch_at: Mutex::new(None),
             cached_memory_export: Mutex::new(None),
             cached_claude_code_projects: Mutex::new(None),
             cached_headroom_learn_prereq: Mutex::new(None),
@@ -1608,9 +1622,56 @@ impl AppState {
         }
 
         let profile = pricing::detect_claude_profile_uncached(self);
+        if pricing::is_identity_complete(&profile) {
+            self.record_complete_identity_fetch();
+        }
         let mut cache = self.cached_claude_profile.lock();
         *cache = Some((current_token, profile.clone(), Instant::now()));
         profile
+    }
+
+    /// True iff a `desktop/grace/start` post with this exact set of Claude
+    /// fields has already been recorded as successful in this session.
+    /// Identity-pusher worker uses this to skip repeat posts when the bearer
+    /// rotates but the underlying account/plan has not changed.
+    pub fn identity_fingerprint_already_pushed(
+        &self,
+        fp: &crate::pricing::IdentityFingerprint,
+    ) -> bool {
+        self.last_pushed_identity_fingerprint
+            .lock()
+            .as_ref()
+            .map(|prev| prev == fp)
+            .unwrap_or(false)
+    }
+
+    /// Mark the given fingerprint as the most recent one we've pushed to
+    /// `desktop/grace/start`. Called by the worker after a successful post,
+    /// and by the sign-in / activation paths that send the same payload.
+    pub fn record_pushed_identity_fingerprint(
+        &self,
+        fp: crate::pricing::IdentityFingerprint,
+    ) {
+        *self.last_pushed_identity_fingerprint.lock() = Some(fp);
+    }
+
+    /// True iff a fresh OAuth profile fetch returned a *complete* identity
+    /// (UUID + email + non-Unknown plan tier) within `max_age`. The
+    /// identity-pusher worker uses this to throttle further OAuth calls.
+    pub fn complete_identity_fetched_within(&self, max_age: Duration) -> bool {
+        self.last_complete_identity_fetch_at
+            .lock()
+            .as_ref()
+            .map(|at| at.elapsed() < max_age)
+            .unwrap_or(false)
+    }
+
+    /// Record that we just successfully fetched a complete OAuth identity.
+    /// Called from `cached_claude_profile()` whenever a fresh fetch returns
+    /// a fully populated profile, so every code path that re-warms the
+    /// profile cache contributes to the throttle window.
+    fn record_complete_identity_fetch(&self) {
+        *self.last_complete_identity_fetch_at.lock() = Some(Instant::now());
     }
 
     /// The most recent classifier output that was something other than

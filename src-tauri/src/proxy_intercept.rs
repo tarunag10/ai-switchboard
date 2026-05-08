@@ -13,6 +13,7 @@
 /// can call the Anthropic OAuth usage endpoint without touching the keychain.
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -22,7 +23,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 use crate::backend_port;
-use crate::bearer::BearerToken;
+use crate::bearer::{BearerToken, BEARER_TOKEN_TTL};
 
 pub const INTERCEPT_PORT: u16 = 6767;
 
@@ -40,13 +41,19 @@ pub type SharedToken = Arc<Mutex<Option<BearerToken>>>;
 /// Python proxy because the user crossed the free disable threshold.
 pub type BypassFlag = Arc<AtomicBool>;
 
+/// Channel sender used to notify a background worker that the intercept just
+/// captured a bearer token whose value differs from whatever was previously
+/// in the slot. Empty payload — the worker reads the bearer from `AppState`
+/// directly. Cloned per-connection in `run`.
+pub type FreshBearerNotifier = mpsc::Sender<()>;
+
 pub const ANTHROPIC_DIRECT_BASE: &str = "https://api.anthropic.com";
 
 /// Spawn the intercept proxy as a background Tokio task.
 /// Returns immediately; the server runs until the process exits.
 /// Uses a dedicated OS thread with its own Tokio runtime so it's safe to call
 /// from Tauri's `.setup()` before the main async runtime has started.
-pub fn spawn(token_slot: SharedToken, bypass: BypassFlag) {
+pub fn spawn(token_slot: SharedToken, bypass: BypassFlag, fresh_bearer_tx: FreshBearerNotifier) {
     let upstream_base = Arc::new(ANTHROPIC_DIRECT_BASE.to_string());
     std::thread::Builder::new()
         .name("proxy-intercept".into())
@@ -57,7 +64,7 @@ pub fn spawn(token_slot: SharedToken, bypass: BypassFlag) {
                 .expect("proxy intercept runtime");
             rt.block_on(async move {
                 let bind_addr: SocketAddr = ([127, 0, 0, 1], INTERCEPT_PORT).into();
-                match run(bind_addr, token_slot, bypass, upstream_base).await {
+                match run(bind_addr, token_slot, bypass, fresh_bearer_tx, upstream_base).await {
                     Ok(()) => {}
                     Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
                         // Port is already bound. If /health responds over HTTP, an
@@ -99,6 +106,7 @@ async fn run(
     bind_addr: SocketAddr,
     token_slot: SharedToken,
     bypass: BypassFlag,
+    fresh_bearer_tx: FreshBearerNotifier,
     upstream_base: Arc<String>,
 ) -> std::io::Result<()> {
     let listener = TcpListener::bind(bind_addr).await?;
@@ -109,7 +117,8 @@ async fn run(
                 let slot = token_slot.clone();
                 let bypass = bypass.clone();
                 let upstream_base = upstream_base.clone();
-                tokio::spawn(handle(client, slot, bypass, upstream_base));
+                let tx = fresh_bearer_tx.clone();
+                tokio::spawn(handle(client, slot, bypass, tx, upstream_base));
             }
             Err(e) => {
                 // EMFILE/ENFILE/ECONNABORTED are transient — log and keep serving
@@ -121,10 +130,23 @@ async fn run(
     }
 }
 
+/// Returns `true` when `candidate` differs from whatever fresh bearer is
+/// already in `slot`. An empty slot or a slot whose previous bearer has
+/// aged out of `BEARER_TOKEN_TTL` both count as "changed" — the worker
+/// should re-confirm identity in either case.
+fn bearer_value_changed(slot: &SharedToken, candidate: &str) -> bool {
+    let lock = slot.lock();
+    lock.as_ref()
+        .and_then(|t| t.value_if_fresh(BEARER_TOKEN_TTL))
+        .map(|v| v != candidate)
+        .unwrap_or(true)
+}
+
 async fn handle(
     mut client: TcpStream,
     token_slot: SharedToken,
     bypass: BypassFlag,
+    fresh_bearer_tx: FreshBearerNotifier,
     upstream_base: Arc<String>,
 ) {
     // Re-read the backend port on each connection. `tool_manager` selects the
@@ -158,9 +180,18 @@ async fn handle(
         return;
     }
 
-    // Scan headers for a Bearer token and capture it.
+    // Scan headers for a Bearer token and capture it. When the token's
+    // value differs from what was previously in the slot — or the slot was
+    // empty / its previous token has aged out of the TTL — signal the
+    // identity-pusher worker so it can re-confirm the user's Claude
+    // identity with headroom-web. The send is non-blocking; the actual
+    // OAuth-profile fetch happens off the request hot path.
     if let Some(token) = extract_bearer(&buf) {
+        let changed = bearer_value_changed(&token_slot, &token);
         *token_slot.lock() = Some(BearerToken::new(token));
+        if changed {
+            let _ = fresh_bearer_tx.send(());
+        }
     }
 
     // When the pricing gate has bypassed Headroom, the Python proxy on
@@ -539,11 +570,12 @@ fn extract_bearer(buf: &[u8]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        extract_bearer, find_header_end, is_hop_by_hop_request_header,
+        bearer_value_changed, extract_bearer, find_header_end, is_hop_by_hop_request_header,
         is_hop_by_hop_response_header, parse_request_head, read_http_headers,
         request_is_loopback_safe, run, BypassFlag, SharedToken,
     };
     use crate::backend_port;
+    use crate::bearer::BearerToken;
     use std::net::SocketAddr;
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
@@ -563,6 +595,24 @@ mod tests {
     fn extracts_bearer_token_case_insensitively() {
         let request = b"POST / HTTP/1.1\r\nAuthorization: Bearer test-token\r\n\r\n";
         assert_eq!(extract_bearer(request).as_deref(), Some("test-token"));
+    }
+
+    #[test]
+    fn bearer_value_changed_treats_empty_slot_as_changed() {
+        let slot: SharedToken = Arc::new(Mutex::new(None));
+        assert!(bearer_value_changed(&slot, "any-token"));
+    }
+
+    #[test]
+    fn bearer_value_changed_skips_signal_when_value_matches() {
+        let slot: SharedToken = Arc::new(Mutex::new(Some(BearerToken::new("token-A".into()))));
+        assert!(!bearer_value_changed(&slot, "token-A"));
+    }
+
+    #[test]
+    fn bearer_value_changed_signals_when_value_differs() {
+        let slot: SharedToken = Arc::new(Mutex::new(Some(BearerToken::new("token-A".into()))));
+        assert!(bearer_value_changed(&slot, "token-B"));
     }
 
     #[test]
@@ -677,12 +727,14 @@ mod tests {
         let slot_for_run = token_slot.clone();
         let bypass_for_run: BypassFlag = Arc::new(AtomicBool::new(false));
         let upstream_base = Arc::new("https://api.anthropic.com".to_string());
+        let (fresh_bearer_tx, _fresh_bearer_rx) = std::sync::mpsc::channel::<()>();
         let run_task = tokio::spawn(async move {
             // run() loops forever; the test cancels it via abort below.
             let _ = run(
                 intercept_addr,
                 slot_for_run,
                 bypass_for_run,
+                fresh_bearer_tx,
                 upstream_base,
             )
             .await;
@@ -757,11 +809,13 @@ mod tests {
         let slot_for_run = token_slot.clone();
         let bypass_for_run: BypassFlag = Arc::new(AtomicBool::new(false));
         let upstream_base = Arc::new("https://api.anthropic.com".to_string());
+        let (fresh_bearer_tx, _fresh_bearer_rx) = std::sync::mpsc::channel::<()>();
         let run_task = tokio::spawn(async move {
             let _ = run(
                 intercept_addr,
                 slot_for_run,
                 bypass_for_run,
+                fresh_bearer_tx,
                 upstream_base,
             )
             .await;
@@ -957,11 +1011,13 @@ mod tests {
         backend_port::set(1);
         let upstream_base_arc = Arc::new(upstream_base);
         let token_for_run = token_slot.clone();
+        let (fresh_bearer_tx, _fresh_bearer_rx) = std::sync::mpsc::channel::<()>();
         let run_task = tokio::spawn(async move {
             let _ = run(
                 intercept_addr,
                 token_for_run,
                 bypass,
+                fresh_bearer_tx,
                 upstream_base_arc,
             )
             .await;
@@ -1093,8 +1149,16 @@ mod tests {
         let bypass: BypassFlag = Arc::new(AtomicBool::new(true));
         backend_port::set(1);
         let upstream_base_arc = Arc::new(upstream_base);
+        let (fresh_bearer_tx, _fresh_bearer_rx) = std::sync::mpsc::channel::<()>();
         let run_task = tokio::spawn(async move {
-            let _ = run(intercept_addr, token_slot, bypass, upstream_base_arc).await;
+            let _ = run(
+                intercept_addr,
+                token_slot,
+                bypass,
+                fresh_bearer_tx,
+                upstream_base_arc,
+            )
+            .await;
         });
 
         let mut client = None;
@@ -1175,8 +1239,16 @@ mod tests {
         let bypass_for_run: BypassFlag = Arc::new(AtomicBool::new(false));
         let upstream_base = Arc::new("https://api.anthropic.com".to_string());
         let token_for_run = token_slot.clone();
+        let (fresh_bearer_tx, _fresh_bearer_rx) = std::sync::mpsc::channel::<()>();
         let run_task = tokio::spawn(async move {
-            let _ = run(intercept_addr, token_for_run, bypass_for_run, upstream_base).await;
+            let _ = run(
+                intercept_addr,
+                token_for_run,
+                bypass_for_run,
+                fresh_bearer_tx,
+                upstream_base,
+            )
+            .await;
         });
 
         // Wait for the intercept to bind, then send the first request.

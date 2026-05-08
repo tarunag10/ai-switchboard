@@ -56,6 +56,14 @@ struct IdentityPayload {
     claude_billing_type: Option<String>,
 }
 
+/// Reqwest errors caused by the user's environment (offline, captive portal,
+/// flaky DNS, slow network) rather than anything actionable on our side.
+/// Filtering these out of Sentry keeps the activation alert signal-to-noise
+/// high.
+fn is_transient_transport_error(err: &reqwest::Error) -> bool {
+    err.is_connect() || err.is_timeout() || err.is_request()
+}
+
 fn plan_tier_header_value(tier: &ClaudePlanTier) -> &'static str {
     match tier {
         ClaudePlanTier::Free => "free",
@@ -117,6 +125,114 @@ impl IdentityPayload {
             builder = builder.header("X-Headroom-Claude-Billing-Type", value);
         }
         builder
+    }
+}
+
+/// Stable comparison key for an `IdentityPayload`'s Claude fields. Used to
+/// skip redundant `desktop/grace/start` posts when the bearer-triggered
+/// worker fires for an account whose fingerprint has not changed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IdentityFingerprint {
+    claude_account_uuid: Option<String>,
+    claude_email: Option<String>,
+    claude_plan_tier: Option<ClaudePlanTier>,
+    claude_organization_type: Option<String>,
+    claude_rate_limit_tier: Option<String>,
+    claude_billing_type: Option<String>,
+}
+
+impl IdentityFingerprint {
+    fn from_payload(p: &IdentityPayload) -> Self {
+        Self {
+            claude_account_uuid: p.claude_account_uuid.clone(),
+            claude_email: p.claude_email.clone(),
+            claude_plan_tier: p.claude_plan_tier.clone(),
+            claude_organization_type: p.claude_organization_type.clone(),
+            claude_rate_limit_tier: p.claude_rate_limit_tier.clone(),
+            claude_billing_type: p.claude_billing_type.clone(),
+        }
+    }
+
+    /// True when there is nothing meaningful to report — no UUID and no real
+    /// plan tier. This is the bearer-not-yet-captured shape.
+    fn is_empty(&self) -> bool {
+        self.claude_account_uuid.is_none()
+            && matches!(
+                self.claude_plan_tier,
+                None | Some(ClaudePlanTier::Unknown)
+            )
+    }
+}
+
+/// True when a Claude profile carries every identity field we want headroom-web
+/// to record: account UUID, email, and a classified plan tier (i.e. Anthropic's
+/// OAuth profile fetch returned a populated payload, not a sparse one).
+pub fn is_identity_complete(profile: &ClaudeAccountProfile) -> bool {
+    profile.account_uuid.is_some()
+        && profile.email.is_some()
+        && !matches!(profile.plan_tier, ClaudePlanTier::Unknown)
+}
+
+/// Warm the cached Claude profile and, if it carries new identity fields,
+/// push the populated `IdentityPayload` to `desktop/grace/start`.
+///
+/// Invoked by the bearer-pusher worker thread whenever the intercept proxy
+/// captures a fresh bearer. The OAuth-profile fetch is throttled to once
+/// per 24 h once we already know who the user is, so the per-hour bearer
+/// rotations don't translate into per-hour calls to Anthropic's
+/// `/api/oauth/profile`.
+///
+/// Throttle does NOT short-circuit the function: we still consult
+/// `cached_claude_profile()` (which may have been refreshed by the pricing
+/// UI) and push whatever fingerprint it yields if it differs from what we
+/// last sent to headroom-web. That way an account switch picked up by
+/// another path still propagates without waiting for the 24 h window to
+/// expire.
+///
+/// Idempotent: if the resulting fingerprint matches the last successful
+/// push in this session, this is a no-op. On HTTP failure the fingerprint
+/// is not recorded, so the next bearer change retries.
+pub fn warm_and_push_identity(state: &AppState) {
+    const COMPLETE_FETCH_THROTTLE: std::time::Duration =
+        std::time::Duration::from_secs(24 * 60 * 60);
+
+    // When the throttle is active we skip the explicit cache warm — but we
+    // still read whatever's currently cached and let the fingerprint memo
+    // decide whether anything is worth pushing. `IdentityPayload::for_state`
+    // calls `cached_claude_profile()`, which itself respects the 5-min TTL
+    // and will only round-trip to Anthropic on a true cache miss.
+    let throttled = state.complete_identity_fetched_within(COMPLETE_FETCH_THROTTLE);
+    if !throttled {
+        // Force-warm. Cheap when the bearer slot is empty (short-circuits
+        // inside `detect_claude_profile_uncached`).
+        let _ = state.cached_claude_profile();
+    }
+
+    let identity = IdentityPayload::for_state(state);
+    let fp = IdentityFingerprint::from_payload(&identity);
+
+    if fp.is_empty() {
+        return;
+    }
+
+    if state.identity_fingerprint_already_pushed(&fp) {
+        return;
+    }
+
+    // Fingerprint differs from last push but throttle is active: another
+    // path (pricing UI poll, sign-in) must have refreshed the cache with
+    // new identity fields. Push them now even though the worker would
+    // otherwise have skipped the OAuth fetch — this is the account-switch
+    // path.
+    match fetch_grace_start(&identity) {
+        Ok(_) => state.record_pushed_identity_fingerprint(fp),
+        Err(_) => {
+            // Silent — matches `reconcile_local_state_with_server`'s
+            // pattern. `fetch_grace_start` failures are typically transient
+            // (offline, captive portal, headroom-web blip) and the next
+            // bearer change will retry. Sentry-capturing per failure would
+            // pin every offline session.
+        }
     }
 }
 
@@ -446,7 +562,9 @@ pub(crate) fn activate_account_with_base_url(
         .send()
         .map_err(|err| {
             let msg = format!("Could not activate Headroom desktop access: {err}");
-            sentry::capture_message(&msg, sentry::Level::Warning);
+            if !is_transient_transport_error(&err) {
+                sentry::capture_message(&msg, sentry::Level::Warning);
+            }
             msg
         })?;
 
@@ -1326,6 +1444,11 @@ fn reconcile_local_state_with_server(state: &AppState) -> Result<LocalPricingSta
     let identity = IdentityPayload::for_state(state);
     match fetch_grace_start(&identity) {
         Ok(response) => {
+            // Record the fingerprint we just successfully posted so the
+            // bearer-pusher worker doesn't immediately repost the same data.
+            state.record_pushed_identity_fingerprint(IdentityFingerprint::from_payload(
+                &identity,
+            ));
             let server_first_seen = response.first_seen_at;
             let new_first_seen = if local.reconcile_with_server {
                 server_first_seen.min(local.first_seen_at)
@@ -1528,11 +1651,12 @@ mod tests {
     use chrono::{DateTime, Utc};
 
     use super::{
-        detect_plan_tier_from_profile, evaluate_pricing_status, merge_background_account_sync,
-        plan_tier_header_value, remote_account_to_profile, resolve_account_api_base_url,
-        ClaudeOauthProfile, ClaudeOauthProfileAccount, ClaudeOauthProfileOrganization,
-        HeadroomSubscriptionTier, IdentityPayload, LocalPricingState, RemoteAccountResponse,
-        RemoteAccountSyncError, DEFAULT_ACCOUNT_API_BASE_URL,
+        detect_plan_tier_from_profile, evaluate_pricing_status, is_identity_complete,
+        merge_background_account_sync, plan_tier_header_value, remote_account_to_profile,
+        resolve_account_api_base_url, ClaudeOauthProfile, ClaudeOauthProfileAccount,
+        ClaudeOauthProfileOrganization, HeadroomSubscriptionTier, IdentityFingerprint,
+        IdentityPayload, LocalPricingState, RemoteAccountResponse, RemoteAccountSyncError,
+        DEFAULT_ACCOUNT_API_BASE_URL,
     };
     use crate::models::{
         BillingPeriod, ClaudeAccountProfile, ClaudeAuthMethod, ClaudePlanTier,
@@ -1624,6 +1748,112 @@ mod tests {
             .build()
             .unwrap();
         assert!(req.headers().get("X-Headroom-Claude-Plan").is_none());
+    }
+
+    fn complete_profile() -> ClaudeAccountProfile {
+        ClaudeAccountProfile {
+            auth_method: ClaudeAuthMethod::ClaudeAiOauth,
+            email: Some("user@example.com".into()),
+            display_name: Some("User".into()),
+            account_uuid: Some("uuid-1".into()),
+            organization_uuid: Some("org-1".into()),
+            billing_type: Some("personal".into()),
+            account_created_at: None,
+            subscription_created_at: None,
+            has_extra_usage_enabled: false,
+            plan_tier: ClaudePlanTier::Pro,
+            plan_detection_source: Some("oauth_profile.org.rate_limit_tier".into()),
+            organization_type: Some("claude_pro".into()),
+            rate_limit_tier: Some("default_claude_ai".into()),
+            weekly_utilization_pct: None,
+            five_hour_utilization_pct: None,
+            extra_usage_monthly_limit: None,
+            profile_fetch_error: None,
+        }
+    }
+
+    #[test]
+    fn is_identity_complete_requires_uuid_email_and_known_plan() {
+        let mut profile = complete_profile();
+        assert!(is_identity_complete(&profile));
+
+        profile.account_uuid = None;
+        assert!(!is_identity_complete(&profile));
+
+        profile = complete_profile();
+        profile.email = None;
+        assert!(!is_identity_complete(&profile));
+
+        profile = complete_profile();
+        profile.plan_tier = ClaudePlanTier::Unknown;
+        assert!(!is_identity_complete(&profile));
+
+        profile = complete_profile();
+        profile.plan_tier = ClaudePlanTier::Free;
+        assert!(is_identity_complete(&profile));
+    }
+
+    #[test]
+    fn identity_fingerprint_round_trips_payload_claude_fields() {
+        let payload = IdentityPayload {
+            device_id: "device-abc".into(),
+            chopratejas_instance_id: Some("ignored".into()),
+            claude_account_uuid: Some("uuid-1".into()),
+            claude_email: Some("user@example.com".into()),
+            claude_plan_tier: Some(ClaudePlanTier::Max20x),
+            claude_organization_type: Some("claude_max".into()),
+            claude_rate_limit_tier: Some("default_claude_max_x20".into()),
+            claude_billing_type: Some("personal".into()),
+        };
+        let fp = IdentityFingerprint::from_payload(&payload);
+
+        // Same payload produces equal fingerprint.
+        assert_eq!(fp, IdentityFingerprint::from_payload(&payload));
+
+        // Mutating any Claude field changes the fingerprint.
+        let mut other = payload.clone();
+        other.claude_plan_tier = Some(ClaudePlanTier::Pro);
+        assert_ne!(fp, IdentityFingerprint::from_payload(&other));
+
+        // device_id / chopratejas_instance_id are not part of the fingerprint.
+        let mut device_only_diff = payload.clone();
+        device_only_diff.device_id = "different-device".into();
+        device_only_diff.chopratejas_instance_id = Some("different".into());
+        assert_eq!(fp, IdentityFingerprint::from_payload(&device_only_diff));
+    }
+
+    #[test]
+    fn identity_fingerprint_is_empty_when_no_claude_signal_captured() {
+        // Bearer-not-yet-captured shape: no UUID, plan_tier defaulted to Unknown.
+        let empty_unknown = IdentityFingerprint::from_payload(&IdentityPayload {
+            device_id: "abc".into(),
+            claude_plan_tier: Some(ClaudePlanTier::Unknown),
+            ..Default::default()
+        });
+        assert!(empty_unknown.is_empty());
+
+        // Device-only payload: no plan tier at all.
+        let device_only = IdentityFingerprint::from_payload(&IdentityPayload {
+            device_id: "abc".into(),
+            ..Default::default()
+        });
+        assert!(device_only.is_empty());
+
+        // Anything with a real plan tier OR a UUID is NOT empty.
+        let with_plan = IdentityFingerprint::from_payload(&IdentityPayload {
+            device_id: "abc".into(),
+            claude_plan_tier: Some(ClaudePlanTier::Pro),
+            ..Default::default()
+        });
+        assert!(!with_plan.is_empty());
+
+        let with_uuid = IdentityFingerprint::from_payload(&IdentityPayload {
+            device_id: "abc".into(),
+            claude_account_uuid: Some("uuid".into()),
+            claude_plan_tier: Some(ClaudePlanTier::Unknown),
+            ..Default::default()
+        });
+        assert!(!with_uuid.is_empty());
     }
 
     #[test]

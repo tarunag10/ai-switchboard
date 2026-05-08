@@ -911,6 +911,20 @@ fn capture_watchdog_give_up(
         backend_readyz_outcome,
     );
 
+    // Default to Warning: give-up is the documented recovery path, not a
+    // bug. Escalate to Error only when there's a real signal something is
+    // stuck — spawn keeps erroring, or the child is alive and burning CPU
+    // (likely deadlock) while the log has gone quiet. Plain network/restart
+    // blips stay at Warning so they don't pollute the Error inbox.
+    let cpu_deadlock_signal = report.tracked_pid.is_some()
+        && report.process_cpu_secs.unwrap_or(0) >= 5
+        && report.log_silent_secs.unwrap_or(0) >= 30;
+    let level = if report.last_startup_error.is_some() || cpu_deadlock_signal {
+        sentry::Level::Error
+    } else {
+        sentry::Level::Warning
+    };
+
     sentry::with_scope(
         |scope| {
             let fp: &[&str] = &["proxy_unreachable_post_boot"];
@@ -950,7 +964,7 @@ fn capture_watchdog_give_up(
             );
         },
         || {
-            sentry::capture_message(&report.message, sentry::Level::Error);
+            sentry::capture_message(&report.message, level);
         },
     );
 }
@@ -2321,10 +2335,53 @@ pub fn run() {
                     "autostart_launch": launched_from_autostart
                 })),
             );
+            // Wire up the bearer-triggered identity-pusher worker. The
+            // intercept thread sends a signal here every time it captures a
+            // bearer whose value differs from what was previously in the
+            // slot; the worker calls `pricing::warm_and_push_identity`,
+            // which warms the OAuth profile cache and posts the populated
+            // IdentityPayload to `desktop/grace/start`. Throttled to one
+            // OAuth fetch per 24 h once the identity is complete.
+            //
+            // Each iteration is wrapped in `catch_unwind` so a panic inside
+            // the HTTP / parsing stack doesn't silently kill the worker
+            // thread (which would leave bearer signals piling up in the
+            // channel forever). On panic we log + report and resume the
+            // recv loop on the next signal.
+            let (fresh_bearer_tx, fresh_bearer_rx) = std::sync::mpsc::channel::<()>();
+            let app_handle_for_pusher = app.handle().clone();
+            std::thread::Builder::new()
+                .name("identity-pusher".into())
+                .spawn(move || {
+                    while fresh_bearer_rx.recv().is_ok() {
+                        // Coalesce: drain any signals that piled up while
+                        // we were processing the previous one.
+                        while fresh_bearer_rx.try_recv().is_ok() {}
+                        let app_handle = app_handle_for_pusher.clone();
+                        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+                            move || {
+                                let state: tauri::State<'_, AppState> = app_handle.state();
+                                pricing::warm_and_push_identity(&state);
+                            },
+                        ));
+                        if result.is_err() {
+                            log::error!(
+                                "identity-pusher worker panicked during warm_and_push_identity"
+                            );
+                            sentry::capture_message(
+                                "identity-pusher worker panicked",
+                                sentry::Level::Error,
+                            );
+                        }
+                    }
+                })
+                .expect("spawn identity pusher");
+
             // Start the intercept layer before anything else touches port 6767.
             proxy_intercept::spawn(
                 std::sync::Arc::clone(&state.claude_bearer_token),
                 std::sync::Arc::clone(&state.proxy_bypass),
+                fresh_bearer_tx,
             );
             if state.should_present_on_launch() && !launched_from_autostart {
                 let _ = show_launcher_window(app.handle());
@@ -3300,12 +3357,22 @@ fn watchdog_should_be_up(
 fn spawn_proxy_watchdog(app: AppHandle) {
     const POLL: std::time::Duration = std::time::Duration::from_secs(5);
     const MAX_CONSECUTIVE_FAILURES: u32 = 3;
+    // If a tick takes far longer than POLL of wall time, the system was
+    // suspended (laptop sleep, App Nap throttle). Don't blame Python for
+    // not responding to the first probe after resume — uvicorn's event
+    // loop may need a beat to catch up before /readyz answers.
+    const RESUME_THRESHOLD: std::time::Duration = std::time::Duration::from_secs(30);
 
     std::thread::spawn(move || {
         let mut consecutive_failures: u32 = 0;
+        let mut last_tick = std::time::Instant::now();
 
         loop {
             std::thread::sleep(POLL);
+            let now = std::time::Instant::now();
+            let elapsed = now.duration_since(last_tick);
+            last_tick = now;
+            let just_resumed = elapsed > RESUME_THRESHOLD;
 
             let state: tauri::State<'_, AppState> = app.state();
             let runtime = state.runtime_status();
@@ -3350,13 +3417,31 @@ fn spawn_proxy_watchdog(app: AppHandle) {
                 continue;
             }
 
+            // System resumed from sleep/throttle — give Python one POLL to
+            // catch up before counting failures. Without this, the watchdog
+            // probes a still-paged-out uvicorn 3× in 15s and auto-pauses a
+            // process that would have recovered on its own.
+            if just_resumed {
+                log::info!(
+                    "watchdog: probe skipped (system resumed after {elapsed:?}); resetting failure counter"
+                );
+                consecutive_failures = 0;
+                continue;
+            }
+
             consecutive_failures = consecutive_failures.saturating_add(1);
             log::info!(
                 "watchdog: proxy unreachable (failure {consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}, bypass={bypass_active}), attempting restart"
             );
 
             if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
-                log::error!(
+                // warn! not error!: this is the documented recovery path
+                // (flip bypass, pause runtime, notify user). FileLogger
+                // forwards error! to Sentry as capture_message, which
+                // produces a payload-less duplicate of the structured event
+                // built by capture_watchdog_give_up below — that one already
+                // carries the exit status, log tail, and backend probe.
+                log::warn!(
                     "watchdog: giving up after {MAX_CONSECUTIVE_FAILURES} failures; pausing runtime and bypassing to Anthropic"
                 );
                 // Capture once per down episode, BEFORE stop_headroom tears
