@@ -610,7 +610,7 @@ fn user_message_for(kind: BootstrapFailureKind) -> &'static str {
         }
         BootstrapFailureKind::Other => {
             "Installation failed: Headroom couldn't download a required file. \
-             Please check your internet connection and try restarting the app. \
+             Check your internet connection, then click Try again. \
              If this keeps happening, contact support at support@extraheadroom.com."
         }
     }

@@ -148,6 +148,7 @@ import type {
   AppliedPatterns,
   HourlySavingsPoint,
   RuntimeStatus,
+  RuntimeUpgradeFailure,
   RuntimeUpgradeProgress,
 } from "./lib/types";
 
@@ -551,6 +552,31 @@ function DailySavingsChart({
 
 function renderConnectorLogo(clientId: string) {
   return <Sparkle className="client-logo__glyph" size={20} weight="duotone" />;
+}
+
+function buildUpgradeIssueMailto(failure: RuntimeUpgradeFailure): string {
+  const subject = `Headroom update issue (${failure.targetHeadroomVersion}, ${failure.failurePhase})`;
+  const diagnosticLines = [
+    `App version: ${failure.appVersion}`,
+    `Target Headroom: ${failure.targetHeadroomVersion}`,
+    failure.fallbackHeadroomVersion
+      ? `Fallback running: ${failure.fallbackHeadroomVersion}`
+      : null,
+    `Failure phase: ${failure.failurePhase}`,
+    `Attempts: ${failure.attempts}`,
+    `First attempt: ${failure.firstAttemptAt}`,
+    `Last attempt: ${failure.lastAttemptAt}`,
+    `Rollback restored: ${failure.rollbackRestored ? "yes" : "no"}`,
+    "",
+    "Error:",
+    failure.errorMessage,
+  ].filter((line): line is string => line !== null);
+  const body =
+    "What were you doing when this happened?\n\n\n" +
+    "---\n" +
+    "Diagnostic info (please keep):\n" +
+    diagnosticLines.join("\n");
+  return `mailto:support@extraheadroom.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 interface ProxyVerificationRow {
@@ -2667,15 +2693,15 @@ export default function App() {
           <div className="runtime-upgrade-banner__body">
             <strong>
               {upgradeFailure.failurePhase === "boot_validation"
-                ? `Headroom ${upgradeFailure.targetHeadroomVersion} installed but didn't start.`
+                ? `headroom-ai ${upgradeFailure.targetHeadroomVersion} installed but didn't start.`
                 : "Headroom update didn't finish."}
             </strong>
             <span>
               {upgradeFailure.errorHint ??
                 (upgradeFailure.failurePhase === "boot_validation" &&
                 upgradeFailure.fallbackHeadroomVersion
-                  ? `Reverted to Headroom ${upgradeFailure.fallbackHeadroomVersion}.`
-                  : "Running the previous Headroom version.")}
+                  ? `Reverted to headroom-ai ${upgradeFailure.fallbackHeadroomVersion}.`
+                  : "Running the previous headroom-ai version.")}
             </span>
             {upgradeExhausted && (
               <span className="runtime-upgrade-banner__note">
@@ -2686,7 +2712,7 @@ export default function App() {
           <div className="runtime-upgrade-banner__actions">
             <button
               type="button"
-              className="button button--primary"
+              className="primary-button primary-button--small"
               onClick={() => void invoke("retry_runtime_upgrade")}
               disabled={runtimeUpgradeProgress.running}
             >
@@ -2710,7 +2736,7 @@ export default function App() {
                 className="secondary-button secondary-button--small"
                 onClick={() =>
                   void invoke("open_external_link", {
-                    url: "mailto:support@extraheadroom.com?subject=Headroom Update Issue",
+                    url: buildUpgradeIssueMailto(upgradeFailure),
                   }).catch(() => {})
                 }
               >
@@ -2843,7 +2869,7 @@ export default function App() {
                   className="secondary-button secondary-button--small"
                   onClick={() =>
                     void invoke("open_external_link", {
-                      url: "mailto:support@extraheadroom.com?subject=Headroom Update Issue",
+                      url: buildUpgradeIssueMailto(upgradeFailure),
                     }).catch(() => {})
                   }
                 >
@@ -2946,7 +2972,11 @@ export default function App() {
               onClick={() => void handleBootstrap()}
               type="button"
             >
-              {bootstrapping ? "Installing Headroom…" : "Install Headroom"}
+              {bootstrapping
+                ? "Installing Headroom…"
+                : bootstrapProgress.failed
+                  ? "Try again"
+                  : "Install Headroom"}
             </button>
             {!bootstrapping && (
               <div className="install-disclosure">

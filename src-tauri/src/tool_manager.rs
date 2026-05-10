@@ -23,10 +23,10 @@ use crate::models::{ManagedTool, RtkTodayStats, ToolStatus};
 
 /// Pinned headroom-ai version. Upgrade logic is disabled; this exact version
 /// will be installed if the currently-installed version differs.
-pub(crate) const HEADROOM_PINNED_VERSION: &str = "0.20.15";
-const HEADROOM_PINNED_WHEEL_URL: &str = "https://files.pythonhosted.org/packages/8e/b5/14daa0c1fe0949ff2dbf2dbc3846769fc8567f42349b162416f8c377c9fd/headroom_ai-0.20.15-py3-none-any.whl";
+pub(crate) const HEADROOM_PINNED_VERSION: &str = "0.19.0";
+const HEADROOM_PINNED_WHEEL_URL: &str = "https://files.pythonhosted.org/packages/ca/69/01718d4ff39e3e33128bcb58d7f5f905e37e5814d74e3fcad8f193d7dcfb/headroom_ai-0.19.0-py3-none-any.whl";
 const HEADROOM_PINNED_SHA256: &str =
-    "89817cc7354ed00b6131b334ada07c4279edc2b9d9d9a6b30af991d406a4156c";
+    "3bf6a7c2bcbe509388adaa0352e66d9857d8c7e1bef03e3d5925f4104337abf6";
 const HEADROOM_SMOKE_TEST_TIMEOUT: Duration = Duration::from_secs(15);
 /// Index of pre-built wheels for sdist-only PyPI packages (e.g. hnswlib).
 /// GitHub's expanded_assets endpoint serves HTML anchors pip can consume via --find-links.
@@ -78,13 +78,11 @@ const HEADROOM_LINUX_REQUIREMENTS_LOCK: &str =
 /// lock. Drop any entry that no longer matches — those users need a real
 /// reinstall.
 const LEGACY_REQUIREMENTS_LOCK_SHAS: &[&str] = &[
-    // 0.20.15 freeze bumps a handful of pure-Python pins relative to the
-    // 0.19.0 lock (anthropic 0.97 → 0.100, openai 2.33 → 2.36, pydantic
-    // 2.13.3 → 2.13.4, transformers 5.7 → 5.8, cryptography 47 → 48, etc.)
-    // and drops the standalone tree-sitter pin (tree-sitter-language-pack
-    // 1.8.0 vendors what we used). Users on the 0.19.0 lock genuinely need a
-    // dep-upgrade pass (mostly no-op pip skips on unchanged pins, real
-    // installs on the bumped ones), so the legacy migration list is empty.
+    // 0.19.0 freeze diverges from every prior shipment (headroom-ai[all]==0.19.0
+    // pulls in fastembed, loguru, mmh3, py_rust_stemmers and bumps anthropic,
+    // cryptography, opentelemetry-*, transformers, uvicorn, etc.). Users on any
+    // older receipt must do a real reinstall, so the legacy migration list is
+    // empty until the next no-op cosmetic change.
 ];
 
 /// Receipts strictly below this version cannot be safely upgraded in place to
@@ -5290,7 +5288,7 @@ after
     #[test]
     fn update_headroom_receipt_after_in_place_upgrade_rewrites_artifact() {
         // Guards the legacy-sha migration path. When LEGACY_REQUIREMENTS_LOCK_SHAS
-        // is empty (current state after the 0.20.15 lock regen), there is no
+        // is empty (current state after the 0.19.0 lock regen), there is no
         // legacy fixture to inject — re-enable when a future cosmetic-only lock
         // change re-populates the list.
         if super::LEGACY_REQUIREMENTS_LOCK_SHAS.is_empty() {

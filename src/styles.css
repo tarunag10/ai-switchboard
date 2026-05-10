@@ -4232,7 +4232,7 @@ html.window-hiding {
   align-items: center;
 }
 
-.runtime-upgrade-banner__actions .button,
+.runtime-upgrade-banner__actions .primary-button,
 .runtime-upgrade-banner__actions .secondary-button {
   white-space: nowrap;
 }
