@@ -23,10 +23,19 @@ use crate::models::{ManagedTool, RtkTodayStats, ToolStatus};
 
 /// Pinned headroom-ai version. Upgrade logic is disabled; this exact version
 /// will be installed if the currently-installed version differs.
-pub(crate) const HEADROOM_PINNED_VERSION: &str = "0.19.0";
-const HEADROOM_PINNED_WHEEL_URL: &str = "https://files.pythonhosted.org/packages/ca/69/01718d4ff39e3e33128bcb58d7f5f905e37e5814d74e3fcad8f193d7dcfb/headroom_ai-0.19.0-py3-none-any.whl";
+///
+/// Starting with 0.20.x upstream switched to a maturin/Rust-native single-wheel
+/// build (upstream #355), so the wheel URL is per-Python-version and per-platform.
+/// The pin below is for cp312 + macOS arm64 — the only target our release
+/// workflow builds today (release-macos.yml). If `PYTHON_STANDALONE_RELEASE`
+/// ever moves to a different cpython major (3.13+), re-pick the matching wheel
+/// from https://pypi.org/pypi/headroom-ai/<version>/json. If Linux is ever
+/// added to the release matrix, a per-platform wheel-picker (mirroring
+/// `python_distribution_artifact`) is required.
+pub(crate) const HEADROOM_PINNED_VERSION: &str = "0.21.39";
+const HEADROOM_PINNED_WHEEL_URL: &str = "https://files.pythonhosted.org/packages/cd/fe/9874c65b5f66f1dbc8cdf5ca0977e3f25e6e3ccbee091bd0849dad6bd041/headroom_ai-0.21.39-cp312-cp312-macosx_11_0_arm64.whl";
 const HEADROOM_PINNED_SHA256: &str =
-    "3bf6a7c2bcbe509388adaa0352e66d9857d8c7e1bef03e3d5925f4104337abf6";
+    "1b55875f63e27f059f65365a927d388ff6f56dd32f471d9f1b328011098f2aea";
 const HEADROOM_SMOKE_TEST_TIMEOUT: Duration = Duration::from_secs(15);
 /// Index of pre-built wheels for sdist-only PyPI packages (e.g. hnswlib).
 /// GitHub's expanded_assets endpoint serves HTML anchors pip can consume via --find-links.
@@ -78,11 +87,14 @@ const HEADROOM_LINUX_REQUIREMENTS_LOCK: &str =
 /// lock. Drop any entry that no longer matches — those users need a real
 /// reinstall.
 const LEGACY_REQUIREMENTS_LOCK_SHAS: &[&str] = &[
-    // 0.19.0 freeze diverges from every prior shipment (headroom-ai[all]==0.19.0
-    // pulls in fastembed, loguru, mmh3, py_rust_stemmers and bumps anthropic,
-    // cryptography, opentelemetry-*, transformers, uvicorn, etc.). Users on any
-    // older receipt must do a real reinstall, so the legacy migration list is
-    // empty until the next no-op cosmetic change.
+    // 0.21.39 freeze diverges from every prior shipment. Upstream 0.20.x moved
+    // headroom-ai to a maturin/Rust-native wheel (upstream #355) and reshaped
+    // its transitive dep set as parts of the old Python implementation moved
+    // into the Rust `headroom_core` crate. There is no clean lockfile overlap
+    // with the 0.19.0 freeze, so users on any older receipt must do a real
+    // reinstall (and the 0.10.x–0.19.x cohort is forced down the atomic
+    // rebuild path by ATOMIC_REBUILD_FLOOR_VERSION below). The legacy
+    // migration list stays empty until the next no-op cosmetic lock change.
 ];
 
 /// Receipts strictly below this version cannot be safely upgraded in place to
@@ -115,7 +127,16 @@ const LEGACY_REQUIREMENTS_LOCK_SHAS: &[&str] = &[
 ///   environmental cases, we keep the floor at 0.10.0 rather than penalize
 ///   the (probably ~99%) of 0.10.x users who succeed in-place. Re-evaluate
 ///   if multi-machine 0.10.x failures show up in 0.3.8 telemetry.
-const ATOMIC_REBUILD_FLOOR_VERSION: (u32, u32, u32) = (0, 10, 0);
+/// - 0.4.0: raised to 0.20.0. Upstream 0.20.x switched headroom-ai to a
+///   maturin/Rust-native single-wheel build (upstream #355) — wheels are now
+///   per-Python-version and per-platform and ship a compiled `headroom_core`
+///   `.so`. 0.19.0 venvs were built against a `py3-none-any` wheel with no
+///   native extension; an in-place pip upgrade onto the new wheel would
+///   layer the new `.so` on top of stale transitive native pins from the
+///   old lock, which is the exact segfault-on-import pattern this floor
+///   exists to prevent. Atomic rebuild is the only safe path for the
+///   0.10.x–0.19.x cohort on this bump.
+const ATOMIC_REBUILD_FLOOR_VERSION: (u32, u32, u32) = (0, 20, 0);
 
 /// Parse the leading `major.minor.patch` from a version string, tolerating
 /// pre-release/build suffixes (`-rc.1`, `+build`, `.dev0`, etc.). Returns
@@ -5626,7 +5647,7 @@ after
         fs::write(
             runtime.tools_dir.join("headroom.json"),
             serde_json::to_vec(&serde_json::json!({
-                "version": "0.19.0",
+                "version": "0.20.0",
                 "artifact": { "requirementsLockSha256": current_sha },
             }))
             .unwrap(),
@@ -5636,7 +5657,7 @@ after
         let ctx = manager
             .prepare_in_place_upgrade()
             .expect("eligible for in-place");
-        assert_eq!(ctx.previous_version, "0.19.0");
+        assert_eq!(ctx.previous_version, "0.20.0");
         assert!(
             ctx.previous_lock_backup.is_none(),
             "lock unchanged => no snapshot"
@@ -5656,7 +5677,7 @@ after
         fs::write(
             runtime.tools_dir.join("headroom.json"),
             serde_json::to_vec(&serde_json::json!({
-                "version": "0.19.0",
+                "version": "0.20.0",
                 "artifact": { "requirementsLockSha256": legacy_sha },
             }))
             .unwrap(),
@@ -5666,7 +5687,7 @@ after
         let ctx = manager
             .prepare_in_place_upgrade()
             .expect("eligible for in-place");
-        assert_eq!(ctx.previous_version, "0.19.0");
+        assert_eq!(ctx.previous_version, "0.20.0");
         assert!(ctx.previous_lock_backup.is_none());
         let _ = fs::remove_dir_all(root);
     }
@@ -5680,7 +5701,7 @@ after
         fs::write(
             runtime.tools_dir.join("headroom.json"),
             serde_json::to_vec(&serde_json::json!({
-                "version": "0.19.0",
+                "version": "0.20.0",
                 "artifact": { "requirementsLockSha256": "deadbeef".repeat(8) },
             }))
             .unwrap(),
@@ -5692,7 +5713,7 @@ after
         let ctx = manager
             .prepare_in_place_upgrade()
             .expect("eligible for in-place");
-        assert_eq!(ctx.previous_version, "0.19.0");
+        assert_eq!(ctx.previous_version, "0.20.0");
         let backup = ctx
             .previous_lock_backup
             .as_ref()
@@ -5714,7 +5735,7 @@ after
         fs::write(
             runtime.tools_dir.join("headroom.json"),
             serde_json::to_vec(&serde_json::json!({
-                "version": "0.19.0",
+                "version": "0.20.0",
                 "artifact": { "requirementsLockSha256": "deadbeef".repeat(8) },
             }))
             .unwrap(),
@@ -5951,32 +5972,33 @@ exit 0
 
     #[test]
     fn receipt_requires_atomic_rebuild_below_floor() {
-        // Floor held at 0.10.0 in 0.3.8: a clean-VM 0.3.5 → 0.3.7 upgrade
-        // reproduced the 0.10.12 → 0.19.0 in-place delta successfully, so
-        // the single Sentry stall looks environmental rather than universal
-        // to the 0.10.x cohort. The "Retry with full rebuild" button is the
-        // recovery path for environmental cases.
-        assert_eq!(ATOMIC_REBUILD_FLOOR_VERSION, (0, 10, 0));
+        // Floor raised to 0.20.0 in 0.4.0: upstream 0.20.x switched
+        // headroom-ai to a maturin/Rust-native single-wheel build (upstream
+        // #355). The 0.10.x–0.19.x cohort was built against the old
+        // py3-none-any wheel with no `headroom_core` `.so`; an in-place
+        // upgrade onto the new native wheel would layer a fresh extension
+        // on top of stale transitive native pins, which is the exact
+        // segfault-on-import pattern this floor exists to prevent.
+        assert_eq!(ATOMIC_REBUILD_FLOOR_VERSION, (0, 20, 0));
 
-        // Pre-floor: shipped in 0.2.40 → 0.3.0-rc.10 desktop bundles, plus
-        // the 0.8.2 fallback that produced the original Sentry events.
+        // Pre-floor: every desktop shipment up to and including 0.3.x
+        // (which bundled headroom-ai 0.19.0). Both the original 0.8.2
+        // fallback cohort and the 0.10.x → 0.19.x cohort now fall here.
         assert!(receipt_requires_atomic_rebuild("0.5.18"));
-        assert!(receipt_requires_atomic_rebuild("0.5.24"));
-        assert!(receipt_requires_atomic_rebuild("0.6.5"));
         assert!(receipt_requires_atomic_rebuild("0.8.2"));
         assert!(receipt_requires_atomic_rebuild("0.9.7"));
+        assert!(receipt_requires_atomic_rebuild("0.10.4"));
+        assert!(receipt_requires_atomic_rebuild("0.10.12"));
+        assert!(receipt_requires_atomic_rebuild("0.19.0"));
 
-        // At-or-above the floor: in-place is allowed (0.10.x cohort + future).
-        assert!(!receipt_requires_atomic_rebuild("0.10.4"));
-        assert!(!receipt_requires_atomic_rebuild("0.10.7"));
-        assert!(!receipt_requires_atomic_rebuild("0.10.8"));
-        assert!(!receipt_requires_atomic_rebuild("0.10.12"));
-        assert!(!receipt_requires_atomic_rebuild("0.19.0"));
+        // At-or-above the floor: in-place is allowed (0.20.x cohort + future).
+        assert!(!receipt_requires_atomic_rebuild("0.20.0"));
+        assert!(!receipt_requires_atomic_rebuild("0.21.39"));
         assert!(!receipt_requires_atomic_rebuild("1.0.0"));
 
         // Pre-release suffixes don't change the comparison.
-        assert!(!receipt_requires_atomic_rebuild("0.10.0-rc.1"));
-        assert!(receipt_requires_atomic_rebuild("0.9.99-rc.1"));
+        assert!(!receipt_requires_atomic_rebuild("0.20.0-rc.1"));
+        assert!(receipt_requires_atomic_rebuild("0.19.99-rc.1"));
 
         // Unparseable receipts are treated as too-old (conservative).
         assert!(receipt_requires_atomic_rebuild(""));

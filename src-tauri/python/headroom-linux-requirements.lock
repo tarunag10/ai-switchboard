@@ -2,22 +2,27 @@
 # This intentionally excludes optional memory/ML extras from headroom-ai[all]
 # because packages such as hnswlib do not ship broadly compatible Linux wheels
 # and cause bootstrap to fail on fresh machines.
-ast-grep-cli==0.42.1
-click==8.3.3
+#
+# Versions kept in sync with headroom-requirements.lock (0.21.39 freeze on
+# 2026-05-18) where the package overlaps. We do not currently ship Linux from
+# release-macos.yml; when Linux is added, re-validate this lock against a real
+# Linux minimal install before relying on it.
+ast-grep-cli==0.42.2
+click==8.4.0
 fastapi==0.136.1
 httpx[http2]==0.28.1
 litellm==1.82.3
-magika==1.0.2
-mcp==1.27.0
-onnxruntime==1.25.1
+magika==1.0.3
+mcp==1.27.1
+onnxruntime==1.26.0
 opentelemetry-api==1.41.1
-openai==2.33.0
-pydantic==2.13.3
+openai==2.37.0
+pydantic==2.13.4
 rich==15.0.0
 sqlite-vec==0.1.9
-tiktoken==0.12.0
-transformers==5.7.0
-uvicorn==0.46.0
+tiktoken==0.13.0
+transformers==5.8.1
+uvicorn==0.47.0
 watchdog==6.0.0
 websockets==16.0
 zstandard==0.25.0
