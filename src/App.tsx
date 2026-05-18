@@ -686,6 +686,7 @@ export default function App() {
   const [showAllUpgradePlans, setShowAllUpgradePlans] = useState(false);
   const [checkoutPollingDeadline, setCheckoutPollingDeadline] = useState<number | null>(null);
   const desktopActivationSentRef = useRef(false);
+  const autoDisabledByGateRef = useRef(false);
   const [learnInstallCopyNotice, setLearnInstallCopyNotice] = useState<string | null>(null);
 
   const [stepSignature, setStepSignature] = useState("");
@@ -1755,7 +1756,25 @@ export default function App() {
     if (connectorsBusy) {
       return;
     }
+    autoDisabledByGateRef.current = true;
     void toggleConnector(claudeConnector, false);
+  }, [connectors, connectorsBusy, pricingStatus]);
+
+  // Companion to the auto-disable effect above: when the pricing gate
+  // releases (e.g., user just signed up post-grace, or weekly usage
+  // rolled over), bring the connector back without forcing a manual
+  // re-enable click. Gated only on our own prior auto-disable so a
+  // user's manual disable during an ungated period is preserved.
+  useEffect(() => {
+    const claudeConnector = getClaudeConnector(connectors);
+    if (!pricingStatus?.optimizationAllowed || !autoDisabledByGateRef.current) {
+      return;
+    }
+    if (!claudeConnector || claudeConnector.enabled || connectorsBusy) {
+      return;
+    }
+    autoDisabledByGateRef.current = false;
+    void toggleConnector(claudeConnector, true);
   }, [connectors, connectorsBusy, pricingStatus]);
 
   useEffect(() => {

@@ -83,11 +83,17 @@ fn is_transient_transport_error(msg: &str) -> bool {
         || msg.contains("os error 65") // macOS: No route to host
 }
 
+// Non-2xx response from the update endpoint. Most commonly a transient 5xx
+// from GitHub releases or a 404 during a tag-publish race — not actionable.
+fn is_updater_endpoint_error(msg: &str) -> bool {
+    msg.contains("update endpoint did not respond with a successful status code")
+}
+
 // Drop transient transport errors (offline laptop, flaky wifi, upstream blip)
 // from Sentry. They still hit the local log file via write_record.
 fn skip_sentry(target: &str, msg: &str) -> bool {
     if target.starts_with("tauri_plugin_updater") {
-        return is_transient_transport_error(msg);
+        return is_transient_transport_error(msg) || is_updater_endpoint_error(msg);
     }
     // proxy_intercept bypass forwarder: when CC is bypassing the local Python
     // proxy and we re-issue directly to api.anthropic.com, transient network
@@ -193,6 +199,14 @@ mod tests {
         assert!(skip_sentry(
             "tauri_plugin_updater::updater",
             "operation timed out"
+        ));
+    }
+
+    #[test]
+    fn skips_updater_endpoint_status_errors() {
+        assert!(skip_sentry(
+            "tauri_plugin_updater::updater",
+            "update endpoint did not respond with a successful status code"
         ));
     }
 

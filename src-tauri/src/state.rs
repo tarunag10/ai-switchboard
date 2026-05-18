@@ -661,7 +661,16 @@ impl AppState {
         // window where the UI poller sees !running && !starting and fires
         // the "Headroom isn't running" notification while readiness is still
         // loading.
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        //
+        // 5-minute ceiling: cold-boot in the Python proxy synchronously warms
+        // an ONNX embedder (hf_hub_download of all-MiniLM-L6-v2), which on
+        // first launch or with a slow network can hold /readyz at 503 for
+        // 30s+. The old 60s deadline cleared `starting` before /readyz came
+        // up, letting the watchdog auto-pause a process that was about to
+        // recover — see Sentry `proxy_unreachable_post_boot`. The loop breaks
+        // immediately on reachability, so a longer ceiling has no cost in the
+        // happy path; this only changes behavior for genuinely slow boots.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(300);
         while std::time::Instant::now() < deadline {
             if is_headroom_proxy_reachable() {
                 break;

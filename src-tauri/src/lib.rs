@@ -863,10 +863,15 @@ fn probe_backend_readyz_outcome() -> String {
 /// Capture once per "down episode" when the watchdog gives up on restarting
 /// the proxy. Fires before stop_headroom tears down the tracked child handle
 /// and proxy log, so the payload reflects the failure we're recovering from.
+///
+/// `backend_readyz_outcome` is probed by the watchdog before deciding to give
+/// up (so the rescue path can inspect it) and threaded through here to avoid
+/// a second probe.
 fn capture_watchdog_give_up(
     state: &AppState,
     consecutive_failures: u32,
     bypass_active: bool,
+    backend_readyz_outcome: String,
 ) {
     if WATCHDOG_DOWN_CAPTURED
         .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
@@ -895,7 +900,6 @@ fn capture_watchdog_give_up(
             .ok()
             .map(|d| d.as_secs())
     });
-    let backend_readyz_outcome = probe_backend_readyz_outcome();
 
     let report = build_watchdog_give_up_report(
         consecutive_failures,
@@ -1440,6 +1444,11 @@ fn verify_headroom_auth_code(
         .as_ref()
         .is_some_and(|value| !value.trim().is_empty());
     let status = pricing::verify_auth_code(&state, &email, &code, invite_code.as_deref())?;
+    // Reconcile the runtime with the freshly evaluated status. Mirrors
+    // `get_headroom_pricing_status` so a user who signs up after grace
+    // expiry doesn't have to wait for the next 60s pricing poll for
+    // Python to come back online.
+    state.apply_pricing_gate_status(&status);
     analytics::track_event(
         &app,
         "auth_verified",
@@ -2047,13 +2056,19 @@ fn validate_contact_request_url(raw: &str) -> Option<reqwest::Url> {
 
 #[tauri::command]
 fn apply_client_setup(app: AppHandle, client_id: String) -> Result<ClientSetupResult, String> {
-    // The watchdog give-up path pauses the runtime and clears client setups
-    // (lib.rs ~3050). The tray-banner "Re-enable" button funnels through here
-    // to recover, so we also need to resume the runtime — without this, env
-    // vars get rewritten but the proxy stays down and Claude Code traffic
-    // hits a dead port until the desktop is restarted.
+    // Two recovery paths land on the tray-banner "Re-enable" button:
+    //   1. Watchdog give-up — pauses the runtime and clears client setups.
+    //   2. Pricing gate (grace expiry, weekly cap) — sets `proxy_bypass` and
+    //      calls `stop_headroom()` without flipping `runtime_paused`.
+    // Both leave Python stopped, so re-enable has to clear bypass and bring
+    // the runtime back. Without this, env vars get rewritten but the proxy
+    // stays down and Claude Code traffic flows unoptimized until the next
+    // pricing poll (or, in the watchdog case, until restart).
     let state: tauri::State<'_, AppState> = app.state();
-    if state.runtime_is_paused() {
+    let bypassed = state
+        .proxy_bypass
+        .load(std::sync::atomic::Ordering::Acquire);
+    if state.runtime_is_paused() || bypassed {
         if let Err(err) = state.resume_runtime() {
             log::warn!("apply_client_setup: resume_runtime failed: {err:#}");
         }
@@ -2104,7 +2119,7 @@ fn apply_client_setup(app: AppHandle, client_id: String) -> Result<ClientSetupRe
                 && !msg.starts_with("Codex integration has been disabled")
             {
                 sentry::capture_message(
-                    &format!("client setup failed for {client_id}: {msg}"),
+                    &format!("client setup failed for {client_id}: {err:#}"),
                     sentry::Level::Error,
                 );
             }
@@ -3435,13 +3450,33 @@ fn spawn_proxy_watchdog(app: AppHandle) {
             );
 
             if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
-                // warn! not error!: this is the documented recovery path
-                // (flip bypass, pause runtime, notify user). FileLogger
-                // forwards error! to Sentry as capture_message, which
-                // produces a payload-less duplicate of the structured event
-                // built by capture_watchdog_give_up below — that one already
-                // carries the exit status, log tail, and backend probe.
-                log::warn!(
+                // Before pausing, probe the backend directly on its loopback
+                // port. `is_headroom_proxy_reachable` goes through the Rust
+                // intercept on 6767, which forwards to Python on 6768 with a
+                // 1.5s timeout — a slow cold-boot (ONNX embedder downloading
+                // model.onnx from huggingface during lifespan startup) can
+                // make 6767 time out while the backend was about to recover.
+                // If the backend now answers /readyz directly, treat the 3
+                // intercept failures as a transient blip rather than a dead
+                // process: reset the counter and keep probing. We're already
+                // 15s into the down episode, so one extra POLL of patience is
+                // cheap compared to auto-pausing a process that just came up.
+                let backend_readyz_outcome = probe_backend_readyz_outcome();
+                if backend_readyz_outcome == "ok" {
+                    log::info!(
+                        "watchdog: backend /readyz answers ok after {consecutive_failures} intercept failures; skipping auto-pause and resetting counter"
+                    );
+                    consecutive_failures = 0;
+                    continue;
+                }
+                // info! not warn!/error!: this is the documented recovery
+                // path (flip bypass, pause runtime, notify user). FileLogger
+                // forwards both warn! and error! to Sentry as capture_message,
+                // which would produce a payload-less duplicate of the
+                // structured event built by capture_watchdog_give_up below —
+                // that one already carries the exit status, log tail, and
+                // backend probe.
+                log::info!(
                     "watchdog: giving up after {MAX_CONSECUTIVE_FAILURES} failures; pausing runtime and bypassing to Anthropic"
                 );
                 // Capture once per down episode, BEFORE stop_headroom tears
@@ -3452,6 +3487,7 @@ fn spawn_proxy_watchdog(app: AppHandle) {
                     &*state,
                     consecutive_failures,
                     bypass_active,
+                    backend_readyz_outcome,
                 );
                 // Flip bypass FIRST so the Rust intercept passes new
                 // requests straight through to Anthropic instead of returning
