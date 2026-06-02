@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   describeInvokeError,
   getNextLowerUpgradePlanId,
+  getPlanRenewalPriceLabel,
   getUpgradePlans,
+  isTierDowngrade,
   upgradePlanIntentLabel,
 } from "./appHelpers";
 
@@ -144,6 +146,31 @@ describe("app helpers", () => {
     // Upgrade targets show the discounted price with the full price struck through.
     expect([byId("max5x")?.price, byId("max5x")?.originalPrice]).toEqual(["$10", "$20"]);
     expect([byId("max20x")?.price, byId("max20x")?.originalPrice]).toEqual(["$20", "$40"]);
+  });
+
+  it("classifies tier direction for plan changes", () => {
+    expect(isTierDowngrade("pro", "max20x")).toBe(false);
+    expect(isTierDowngrade("max20x", "pro")).toBe(true);
+    expect(isTierDowngrade("max5x", "max20x")).toBe(false);
+    expect(isTierDowngrade("max20x", "max5x")).toBe(true);
+  });
+
+  describe("getPlanRenewalPriceLabel", () => {
+    it("returns the standard full price when no current paid amount is given", () => {
+      expect(getPlanRenewalPriceLabel("max5x", "annual")).toBe("$20/year");
+      expect(getPlanRenewalPriceLabel("max5x", "monthly")).toBe("$30/month");
+    });
+
+    it("carries the user's current discount ratio forward to the target plan", () => {
+      // 100% discount on Pro ($0 paid against $5 list) -> 100% off on Max x20 ($0/year).
+      expect(
+        getPlanRenewalPriceLabel("max20x", "annual", { fromTier: "pro", currentPaidCents: 0 })
+      ).toBe("$0/year");
+      // 50% off Pro ($2.50 paid against $5 list) -> 50% off Max x5 annual ($20 -> $10).
+      expect(
+        getPlanRenewalPriceLabel("max5x", "annual", { fromTier: "pro", currentPaidCents: 250 })
+      ).toBe("$10/year");
+    });
   });
 
   describe("active plan purchase info", () => {

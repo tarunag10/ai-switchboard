@@ -62,7 +62,9 @@ import {
 import {
   describeInvokeError,
   getNextLowerUpgradePlanId,
+  getPlanRenewalPriceLabel,
   getUpgradePlans,
+  isTierDowngrade,
   upgradePlanIntentLabel,
   type BillingPeriod,
   type PricingAudience,
@@ -4897,59 +4899,89 @@ export default function App() {
             </div>
           ) : null}
 
-          {pendingPlanChange ? (
-            <div
-              className="modal-backdrop"
-              role="dialog"
-              aria-modal="true"
-              onClick={cancelPlanChange}
-            >
-              <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-                <h3>Confirm your upgrade</h3>
-                <p>
-                  You'll upgrade from your{" "}
-                  <strong>{upgradePlanIntentLabel(pendingPlanChange.fromTier)}</strong>{" "}
-                  plan to <strong>{upgradePlanIntentLabel(pendingPlanChange.toTier)}</strong>.
-                </p>
-                <p>
-                  You'll be charged a prorated amount today for the remaining time in
-                  your current billing period.
-                </p>
-                {pricingStatus?.account?.subscriptionRenewsAt ? (
+          {pendingPlanChange ? (() => {
+            const isDowngrade = isTierDowngrade(
+              pendingPlanChange.fromTier,
+              pendingPlanChange.toTier
+            );
+            const action = isDowngrade ? "downgrade" : "upgrade";
+            const actionTitle = isDowngrade ? "Downgrade" : "Upgrade";
+            const renewalPriceLabel = getPlanRenewalPriceLabel(
+              pendingPlanChange.toTier,
+              pendingPlanChange.billingPeriod,
+              {
+                fromTier: pendingPlanChange.fromTier,
+                currentPaidCents: pricingStatus?.account?.subscriptionAmountCents
+              }
+            );
+            return (
+              <div
+                className="modal-backdrop"
+                role="dialog"
+                aria-modal="true"
+                onClick={cancelPlanChange}
+              >
+                <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+                  <h3>Confirm your {action}</h3>
                   <p>
-                    Your subscription will then continue renewing on{" "}
-                    <strong>
-                      {new Date(pricingStatus.account.subscriptionRenewsAt).toLocaleDateString(
-                        undefined,
-                        { year: "numeric", month: "long", day: "numeric" }
-                      )}
-                    </strong>.
+                    You'll {action} from your{" "}
+                    <strong>{upgradePlanIntentLabel(pendingPlanChange.fromTier)}</strong>{" "}
+                    plan to{" "}
+                    <strong>{upgradePlanIntentLabel(pendingPlanChange.toTier)}</strong>.
                   </p>
-                ) : null}
-                {planChangeError ? (
-                  <p className="install-progress__error">{planChangeError}</p>
-                ) : null}
-                <div className="modal-actions">
-                  <button
-                    className="secondary-button"
-                    disabled={planChangeBusy}
-                    onClick={cancelPlanChange}
-                    type="button"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="primary-button"
-                    disabled={planChangeBusy}
-                    onClick={() => void confirmPlanChange()}
-                    type="button"
-                  >
-                    {planChangeBusy ? "Upgrading…" : "Confirm upgrade"}
-                  </button>
+                  <p>
+                    {isDowngrade
+                      ? "You'll receive a prorated credit toward your next billing cycle for the unused time on your current plan."
+                      : "You'll be charged a prorated amount today for the remaining time in your current billing period."}
+                  </p>
+                  <p>
+                    Your subscription will then renew at{" "}
+                    <strong>{renewalPriceLabel}</strong>
+                    {pricingStatus?.account?.subscriptionRenewsAt ? (
+                      <>
+                        {" "}on{" "}
+                        <strong>
+                          {new Date(
+                            pricingStatus.account.subscriptionRenewsAt
+                          ).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric"
+                          })}
+                        </strong>
+                      </>
+                    ) : null}
+                    .
+                  </p>
+                  {planChangeError ? (
+                    <p className="install-progress__error">{planChangeError}</p>
+                  ) : null}
+                  <div className="modal-actions">
+                    <button
+                      className="secondary-button"
+                      disabled={planChangeBusy}
+                      onClick={cancelPlanChange}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="primary-button"
+                      disabled={planChangeBusy}
+                      onClick={() => void confirmPlanChange()}
+                      type="button"
+                    >
+                      {planChangeBusy
+                        ? isDowngrade
+                          ? "Downgrading…"
+                          : "Upgrading…"
+                        : `Confirm ${action}`}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : null}
+            );
+          })() : null}
 
           {showAppUpdateDialog && appUpdateAvailable ? (
             <div className="modal-backdrop" role="dialog" aria-modal="true">

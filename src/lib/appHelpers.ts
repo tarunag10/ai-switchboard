@@ -15,6 +15,37 @@ const PLAN_PRICES: Record<
   max5x: { annual: { full: "$20", fullCents: 2000, discounted: "$10"   }, monthly: { full: "$30",   fullCents: 3000, discounted: "$15"   } },
   max20x:{ annual: { full: "$40", fullCents: 4000, discounted: "$20"   }, monthly: { full: "$60",   fullCents: 6000, discounted: "$30"   } },
 };
+const TIER_RANK: Record<HeadroomSubscriptionTier, number> = { pro: 1, max5x: 2, max20x: 3 };
+
+export function isTierDowngrade(
+  fromTier: HeadroomSubscriptionTier,
+  toTier: HeadroomSubscriptionTier
+): boolean {
+  return TIER_RANK[toTier] < TIER_RANK[fromTier];
+}
+
+/// Estimates the user's renewal price on the target plan by carrying their
+/// current discount ratio forward. Falls back to the standard full price when
+/// no current paid amount is known.
+export function getPlanRenewalPriceLabel(
+  toTier: HeadroomSubscriptionTier,
+  billingPeriod: BillingPeriod,
+  options?: { fromTier?: HeadroomSubscriptionTier; currentPaidCents?: number | null }
+): string {
+  const toFull = PLAN_PRICES[toTier][billingPeriod].fullCents;
+  let cents = toFull;
+  const fromTier = options?.fromTier;
+  const currentPaidCents = options?.currentPaidCents ?? null;
+  if (fromTier && currentPaidCents !== null) {
+    const fromFull = PLAN_PRICES[fromTier][billingPeriod].fullCents;
+    if (fromFull > 0) cents = Math.round(toFull * (currentPaidCents / fromFull));
+  }
+  const dollars = cents / 100;
+  const formatted = cents % 100 === 0 ? `$${dollars}` : `$${dollars.toFixed(2)}`;
+  const suffix = billingPeriod === "annual" ? "/year" : "/month";
+  return `${formatted}${suffix}`;
+}
+
 export type UpgradePlanId = "free" | "pro" | "max5x" | "max20x" | "team" | "enterprise";
 type IndividualUpgradePlanId = "free" | "pro" | "max5x" | "max20x";
 type PaidUpgradePlanId = HeadroomSubscriptionTier;
