@@ -2431,18 +2431,6 @@ export default function App() {
     const subscriberHasDiscount = Boolean(
       pricingStatus?.account?.subscriptionDiscountDuration
     );
-    // For active subscribers, the cycle to upgrade/downgrade *into* is their
-    // current cycle, not whatever the upgrade-view toggle happens to be set
-    // to. The toggle is a price-preview UI for new subscribers; reusing it
-    // for tier changes would let someone accidentally switch from annual to
-    // monthly billing just by clicking "Upgrade to Max x5" after peeking at
-    // monthly prices. New subscribers fall through to the toggle state.
-    const accountBillingPeriod = pricingStatus?.account?.subscriptionBillingPeriod;
-    const effectiveBillingPeriod: BillingPeriod =
-      activeHeadroomPlanId &&
-      (accountBillingPeriod === "annual" || accountBillingPeriod === "monthly")
-        ? accountBillingPeriod
-        : billingPeriod;
     const action = (() => {
       switch (planId) {
         case "free":
@@ -2510,7 +2498,7 @@ export default function App() {
       setPendingPlanChange({
         fromTier,
         toTier: planId as HeadroomSubscriptionTier,
-        billingPeriod: effectiveBillingPeriod,
+        billingPeriod,
         flowKind: action.kind === "upgrade_checkout" ? "checkout" : "patch"
       });
       return;
