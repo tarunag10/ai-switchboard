@@ -24,26 +24,53 @@ export function isTierDowngrade(
   return TIER_RANK[toTier] < TIER_RANK[fromTier];
 }
 
-/// Estimates the user's renewal price on the target plan by carrying their
-/// current discount ratio forward. Falls back to the standard full price when
-/// no current paid amount is known.
+function projectPerMonthCents(
+  toTier: HeadroomSubscriptionTier,
+  billingPeriod: BillingPeriod,
+  options?: { fromTier?: HeadroomSubscriptionTier; currentPaidCents?: number | null }
+): number {
+  // PLAN_PRICES.fullCents is per-month even on annual cycles.
+  const toFullPerMonth = PLAN_PRICES[toTier][billingPeriod].fullCents;
+  const fromTier = options?.fromTier;
+  const currentPaidCents = options?.currentPaidCents ?? null;
+  if (!fromTier || currentPaidCents === null) return toFullPerMonth;
+  const fromFullPerMonth = PLAN_PRICES[fromTier][billingPeriod].fullCents;
+  if (fromFullPerMonth <= 0) return toFullPerMonth;
+  // Polar reports subscription_amount_cents per full billing cycle (12x
+  // per-month for annual), so normalize to per-month before the ratio math.
+  const cycleMonths = billingPeriod === "annual" ? 12 : 1;
+  const currentPaidPerMonth = currentPaidCents / cycleMonths;
+  return Math.round(toFullPerMonth * (currentPaidPerMonth / fromFullPerMonth));
+}
+
+function formatCents(cents: number): string {
+  const dollars = cents / 100;
+  return cents % 100 === 0 ? `$${dollars}` : `$${dollars.toFixed(2)}`;
+}
+
+/// Per-month price label for the target tier (e.g. `$20 / month`), with the
+/// user's current discount ratio carried forward. Matches the upgrade view
+/// convention where annual prices are shown per-month for tier comparison.
 export function getPlanRenewalPriceLabel(
   toTier: HeadroomSubscriptionTier,
   billingPeriod: BillingPeriod,
   options?: { fromTier?: HeadroomSubscriptionTier; currentPaidCents?: number | null }
 ): string {
-  const toFull = PLAN_PRICES[toTier][billingPeriod].fullCents;
-  let cents = toFull;
-  const fromTier = options?.fromTier;
-  const currentPaidCents = options?.currentPaidCents ?? null;
-  if (fromTier && currentPaidCents !== null) {
-    const fromFull = PLAN_PRICES[fromTier][billingPeriod].fullCents;
-    if (fromFull > 0) cents = Math.round(toFull * (currentPaidCents / fromFull));
-  }
-  const dollars = cents / 100;
-  const formatted = cents % 100 === 0 ? `$${dollars}` : `$${dollars.toFixed(2)}`;
-  const suffix = billingPeriod === "annual" ? "/year" : "/month";
-  return `${formatted}${suffix}`;
+  return `${formatCents(projectPerMonthCents(toTier, billingPeriod, options))} / month`;
+}
+
+/// Total amount charged on a single billing cycle (e.g. `$120` for a 50%-off
+/// Max x5 annual subscriber paying $10/month for 12 months upfront). Used in
+/// the upgrade confirmation modal when telling a checkout-bound user the
+/// dollar figure they'll see on Polar's checkout.
+export function getPlanCycleTotalLabel(
+  toTier: HeadroomSubscriptionTier,
+  billingPeriod: BillingPeriod,
+  options?: { fromTier?: HeadroomSubscriptionTier; currentPaidCents?: number | null }
+): string {
+  const perMonth = projectPerMonthCents(toTier, billingPeriod, options);
+  const cycleMonths = billingPeriod === "annual" ? 12 : 1;
+  return formatCents(perMonth * cycleMonths);
 }
 
 export type UpgradePlanId = "free" | "pro" | "max5x" | "max20x" | "team" | "enterprise";

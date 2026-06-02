@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   describeInvokeError,
   getNextLowerUpgradePlanId,
+  getPlanCycleTotalLabel,
   getPlanRenewalPriceLabel,
   getUpgradePlans,
   isTierDowngrade,
@@ -156,20 +157,48 @@ describe("app helpers", () => {
   });
 
   describe("getPlanRenewalPriceLabel", () => {
-    it("returns the standard full price when no current paid amount is given", () => {
-      expect(getPlanRenewalPriceLabel("max5x", "annual")).toBe("$20/year");
-      expect(getPlanRenewalPriceLabel("max5x", "monthly")).toBe("$30/month");
+    it("returns the standard per-month price when no current paid amount is given", () => {
+      // Max x5 annual is $20 / month (billed annually).
+      expect(getPlanRenewalPriceLabel("max5x", "annual")).toBe("$20 / month");
+      expect(getPlanRenewalPriceLabel("max5x", "monthly")).toBe("$30 / month");
     });
 
     it("carries the user's current discount ratio forward to the target plan", () => {
-      // 100% discount on Pro ($0 paid against $5 list) -> 100% off on Max x20 ($0/year).
+      // 100% off Pro annual (paid $0 vs $60/year list) -> 100% off Max x20.
       expect(
         getPlanRenewalPriceLabel("max20x", "annual", { fromTier: "pro", currentPaidCents: 0 })
-      ).toBe("$0/year");
-      // 50% off Pro ($2.50 paid against $5 list) -> 50% off Max x5 annual ($20 -> $10).
+      ).toBe("$0 / month");
+      // 50% off Pro annual (paid $30/year = 3000 cents per cycle vs $60 list)
+      // -> 50% off Max x5 annual: $20 / month list -> $10 / month.
       expect(
-        getPlanRenewalPriceLabel("max5x", "annual", { fromTier: "pro", currentPaidCents: 250 })
-      ).toBe("$10/year");
+        getPlanRenewalPriceLabel("max5x", "annual", { fromTier: "pro", currentPaidCents: 3000 })
+      ).toBe("$10 / month");
+      // 50% off monthly cycle (paid $3.75 vs $7.50 list per month) -> 50% off Max x5
+      // monthly: $30 / month list -> $15 / month.
+      expect(
+        getPlanRenewalPriceLabel("max5x", "monthly", { fromTier: "pro", currentPaidCents: 375 })
+      ).toBe("$15 / month");
+    });
+  });
+
+  describe("getPlanCycleTotalLabel", () => {
+    it("returns the full-cycle total for the target plan", () => {
+      // Max x5 annual is $20 / month -> $240 charged once a year.
+      expect(getPlanCycleTotalLabel("max5x", "annual")).toBe("$240");
+      // Max x5 monthly is $30 / month -> $30 per monthly cycle.
+      expect(getPlanCycleTotalLabel("max5x", "monthly")).toBe("$30");
+    });
+
+    it("carries the user's current discount ratio into the cycle total", () => {
+      // 100%-off Pro annual ($0 paid) -> $0 for a full year of Max x20.
+      expect(
+        getPlanCycleTotalLabel("max20x", "annual", { fromTier: "pro", currentPaidCents: 0 })
+      ).toBe("$0");
+      // 50%-off Pro annual (paid $30/year of $60 list) -> half of Max x5
+      // annual: $240 list -> $120 total today.
+      expect(
+        getPlanCycleTotalLabel("max5x", "annual", { fromTier: "pro", currentPaidCents: 3000 })
+      ).toBe("$120");
     });
   });
 
