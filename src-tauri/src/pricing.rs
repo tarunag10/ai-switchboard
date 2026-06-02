@@ -686,50 +686,6 @@ pub(crate) fn create_checkout_session_with_base_url(
         .map_err(|err| format!("Could not parse checkout response: {err}"))
 }
 
-pub fn change_subscription_plan(
-    subscription_tier: HeadroomSubscriptionTier,
-    billing_period: BillingPeriod,
-) -> Result<(), String> {
-    change_subscription_plan_with_base_url(subscription_tier, billing_period, &api_base_url())
-}
-
-/// Test-only seam: `change_subscription_plan` against a parameterized base URL.
-pub(crate) fn change_subscription_plan_with_base_url(
-    subscription_tier: HeadroomSubscriptionTier,
-    billing_period: BillingPeriod,
-    base_url: &str,
-) -> Result<(), String> {
-    let token = read_session_token()?
-        .ok_or_else(|| "Sign in to Headroom before changing your plan.".to_string())?;
-    let response = http_client()?
-        .post(join_url(base_url, "desktop/subscriptions/change_plan"))
-        .header("Authorization", format!("Bearer {token}"))
-        .json(&CheckoutSessionPayload {
-            subscription_tier,
-            billing_period,
-        })
-        .send()
-        .map_err(|err| format!("Could not change subscription plan: {err}"))?;
-
-    if response.status().as_u16() == 401 {
-        clear_session_token()?;
-        return Err("Your Headroom session expired. Sign in again.".into());
-    }
-
-    if !response.status().is_success() {
-        let status = response.status().as_u16();
-        let api_error = response
-            .json::<ApiErrorResponse>()
-            .ok()
-            .and_then(|body| body.error)
-            .filter(|value| !value.trim().is_empty());
-        return Err(api_error
-            .unwrap_or_else(|| format!("Could not change subscription plan (status {status}).")));
-    }
-
-    Ok(())
-}
-
 pub fn get_billing_portal_url() -> Result<String, String> {
     get_billing_portal_url_with_base_url(&api_base_url())
 }
@@ -3497,65 +3453,4 @@ mod tests {
         assert!(status.tier_mismatch.is_some_and(|m| m.clamped));
     }
 
-    #[test]
-    #[serial_test::serial]
-    fn change_subscription_plan_returns_ok_on_success() {
-        let _env = AuthedTestEnv::new("session-xyz");
-        let (port, server) =
-            spawn_canned_response_server(serde_json::json!({ "ok": true }), "HTTP/1.1 200 OK");
-
-        super::change_subscription_plan_with_base_url(
-            HeadroomSubscriptionTier::Max5x,
-            BillingPeriod::Annual,
-            &format!("http://127.0.0.1:{port}"),
-        )
-        .expect("plan change succeeds");
-        server.join().unwrap();
-    }
-
-    #[test]
-    #[serial_test::serial]
-    fn change_subscription_plan_surfaces_api_error_message() {
-        let _env = AuthedTestEnv::new("session-xyz");
-        let (port, server) = spawn_canned_response_server(
-            serde_json::json!({ "error": "No active subscription to change." }),
-            "HTTP/1.1 422 Unprocessable Entity",
-        );
-
-        let err = super::change_subscription_plan_with_base_url(
-            HeadroomSubscriptionTier::Max5x,
-            BillingPeriod::Annual,
-            &format!("http://127.0.0.1:{port}"),
-        )
-        .expect_err("4xx surfaces as error");
-        server.join().unwrap();
-
-        assert_eq!(err, "No active subscription to change.");
-    }
-
-    #[test]
-    #[serial_test::serial]
-    fn change_subscription_plan_clears_session_on_401() {
-        let _env = AuthedTestEnv::new("session-xyz");
-        let (port, server) = spawn_canned_response_server(
-            serde_json::json!({ "error": "Unauthorized" }),
-            "HTTP/1.1 401 Unauthorized",
-        );
-
-        let err = super::change_subscription_plan_with_base_url(
-            HeadroomSubscriptionTier::Max5x,
-            BillingPeriod::Annual,
-            &format!("http://127.0.0.1:{port}"),
-        )
-        .expect_err("401 surfaces as error");
-        server.join().unwrap();
-        assert!(err.contains("session expired"));
-
-        let stored = crate::keychain::read_secret(
-            super::HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-            super::HEADROOM_ACCOUNT_SESSION_ACCOUNT,
-        )
-        .expect("read after 401");
-        assert!(stored.is_none(), "session token cleared after 401");
-    }
 }

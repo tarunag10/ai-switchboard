@@ -602,6 +602,17 @@ impl AppState {
         self.enforce_pricing_gate();
         self.stop_python_if_gated();
 
+        // rtk is pinned to a specific version in source. On an app upgrade the
+        // bundled binary on disk can be stale because bootstrap only runs on
+        // first-run. Reinstall if the receipt's version doesn't match the
+        // pinned version. install_rtk hits GitHub Releases, so this needs
+        // network — failure here is logged and we move on.
+        match self.tool_manager.ensure_rtk_current() {
+            Ok(true) => log::info!("rtk refreshed to pinned version on launch"),
+            Ok(false) => {}
+            Err(err) => log::warn!("rtk version check on launch failed: {err}"),
+        }
+
         if let Err(err) = ensure_rtk_integrations(
             &self.tool_manager.rtk_entrypoint(),
             &self.tool_manager.managed_python(),
