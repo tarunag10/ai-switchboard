@@ -977,6 +977,21 @@ impl ToolManager {
             .map(|v| v.to_string())
     }
 
+    pub fn rtk_needs_install(&self) -> bool {
+        !self.rtk_entrypoint().exists()
+            || self.installed_rtk_version().as_deref() != Some(RTK_VERSION)
+    }
+
+    /// Reinstall rtk if the on-disk version doesn't match the pinned version.
+    /// Returns Ok(true) if work was done, Ok(false) if already current.
+    pub fn ensure_rtk_current(&self) -> Result<bool> {
+        if !self.rtk_needs_install() {
+            return Ok(false);
+        }
+        self.install_rtk()?;
+        Ok(true)
+    }
+
     fn rtk_gain_output(&self) -> Option<RtkDailyGainOutput> {
         if !self.rtk_installed() {
             return None;
@@ -4677,6 +4692,59 @@ mod tests {
             Some("0.37.2-test")
         );
 
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn rtk_needs_install_true_when_binary_missing() {
+        let (root, _runtime, manager) = seed_test_runtime("rtk-needs-install-missing");
+        manager
+            .write_tool_receipt("rtk", serde_json::json!({ "version": RTK_VERSION }))
+            .expect("rtk receipt");
+        assert!(manager.rtk_needs_install());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn rtk_needs_install_true_when_version_stale() {
+        let (root, runtime, manager) = seed_test_runtime("rtk-needs-install-stale");
+        write_executable(
+            &runtime.bin_dir.join("rtk"),
+            "#!/usr/bin/env bash\nexit 0\n",
+        );
+        manager
+            .write_tool_receipt("rtk", serde_json::json!({ "version": "0.0.1-old" }))
+            .expect("rtk receipt");
+        assert!(manager.rtk_needs_install());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn rtk_needs_install_false_when_current() {
+        let (root, runtime, manager) = seed_test_runtime("rtk-needs-install-current");
+        write_executable(
+            &runtime.bin_dir.join("rtk"),
+            "#!/usr/bin/env bash\nexit 0\n",
+        );
+        manager
+            .write_tool_receipt("rtk", serde_json::json!({ "version": RTK_VERSION }))
+            .expect("rtk receipt");
+        assert!(!manager.rtk_needs_install());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn ensure_rtk_current_is_noop_when_already_current() {
+        let (root, runtime, manager) = seed_test_runtime("rtk-ensure-current-noop");
+        write_executable(
+            &runtime.bin_dir.join("rtk"),
+            "#!/usr/bin/env bash\nexit 0\n",
+        );
+        manager
+            .write_tool_receipt("rtk", serde_json::json!({ "version": RTK_VERSION }))
+            .expect("rtk receipt");
+        let did_work = manager.ensure_rtk_current().expect("ensure_rtk_current");
+        assert!(!did_work, "should skip install when already current");
         let _ = fs::remove_dir_all(root);
     }
 

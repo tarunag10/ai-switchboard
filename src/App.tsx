@@ -2414,17 +2414,15 @@ export default function App() {
             kind: activeHeadroomPlanId ? "billing_portal" as const : "internal" as const
           };
         case "pro":
-          return {
-            kind: activeHeadroomPlanId === planId ? "internal" as const : "checkout" as const
-          };
         case "max5x":
-          return {
-            kind: activeHeadroomPlanId === planId ? "internal" as const : "checkout" as const
-          };
-        case "max20x":
-          return {
-            kind: activeHeadroomPlanId === planId ? "internal" as const : "checkout" as const
-          };
+        case "max20x": {
+          if (activeHeadroomPlanId === planId) return { kind: "internal" as const };
+          // Existing subscriber switching to a different paid tier: Polar
+          // rejects a fresh checkout ("You already have an active subscription"),
+          // so do an in-place subscription product switch with invoice proration.
+          if (activeHeadroomPlanId) return { kind: "change_plan" as const };
+          return { kind: "checkout" as const };
+        }
         case "team":
           return {
             kind: "external" as const,
@@ -2480,6 +2478,27 @@ export default function App() {
       } catch (error) {
         setUpgradeActionError(
           error instanceof Error ? error.message : typeof error === "string" ? error : "Could not start checkout."
+        );
+      } finally {
+        setUpgradeActionBusy(null);
+      }
+      return;
+    }
+
+    if (action.kind === "change_plan") {
+      setUpgradeActionBusy(planId);
+      setUpgradeActionError(null);
+
+      try {
+        await invoke("change_headroom_subscription_plan", {
+          subscriptionTier: planId,
+          billingPeriod
+        });
+        await refreshPricingStatus();
+        setActiveView("home");
+      } catch (error) {
+        setUpgradeActionError(
+          error instanceof Error ? error.message : typeof error === "string" ? error : "Could not change subscription plan."
         );
       } finally {
         setUpgradeActionBusy(null);

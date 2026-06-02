@@ -487,6 +487,24 @@ fn start_bootstrap(app: AppHandle) -> Result<(), String> {
             ) {
                 log::warn!("RTK integrations failed after start_bootstrap thread: {err}");
             }
+        } else {
+            // Python runtime is already installed, so we skip the full bootstrap.
+            // But rtk is pinned to a specific version in source; on an app upgrade
+            // the binary on disk can be stale. Refresh it here so users actually
+            // get the version this build targets.
+            match state.tool_manager.ensure_rtk_current() {
+                Ok(true) => {
+                    log::info!("rtk refreshed to pinned version on launch");
+                    if let Err(err) = client_adapters::ensure_rtk_integrations(
+                        &state.tool_manager.rtk_entrypoint(),
+                        &state.tool_manager.managed_python(),
+                    ) {
+                        log::warn!("RTK integrations refresh failed after rtk upgrade: {err}");
+                    }
+                }
+                Ok(false) => {}
+                Err(err) => log::warn!("rtk version check on launch failed: {err}"),
+            }
         }
 
         // Show "Starting Headroom" in the install loader while we wait for the
@@ -1631,6 +1649,23 @@ fn create_headroom_checkout_session(
 }
 
 #[tauri::command]
+fn change_headroom_subscription_plan(
+    app: AppHandle,
+    subscription_tier: HeadroomSubscriptionTier,
+    billing_period: BillingPeriod,
+) -> Result<(), String> {
+    pricing::change_subscription_plan(subscription_tier.clone(), billing_period)?;
+    analytics::track_event(
+        &app,
+        "subscription_plan_changed",
+        Some(json!({
+            "subscription_tier": subscription_tier_label(&subscription_tier)
+        })),
+    );
+    Ok(())
+}
+
+#[tauri::command]
 fn get_headroom_billing_portal_url() -> Result<String, String> {
     pricing::get_billing_portal_url()
 }
@@ -2645,6 +2680,7 @@ pub fn run() {
             sign_out_headroom_account,
             activate_headroom_account,
             create_headroom_checkout_session,
+            change_headroom_subscription_plan,
             get_headroom_billing_portal_url,
             get_activity_feed,
             list_live_learnings,
