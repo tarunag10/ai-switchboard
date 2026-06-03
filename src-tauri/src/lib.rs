@@ -1694,6 +1694,13 @@ fn change_headroom_subscription_plan(
 }
 
 #[tauri::command]
+fn reactivate_headroom_subscription(app: AppHandle) -> Result<(), String> {
+    pricing::reactivate_subscription()?;
+    analytics::track_event(&app, "subscription_reactivated", None);
+    Ok(())
+}
+
+#[tauri::command]
 fn get_headroom_billing_portal_url(target: Option<String>) -> Result<String, String> {
     pricing::get_billing_portal_url(target)
 }
@@ -2722,6 +2729,7 @@ pub fn run() {
             activate_headroom_account,
             create_headroom_checkout_session,
             change_headroom_subscription_plan,
+            reactivate_headroom_subscription,
             get_headroom_billing_portal_url,
             get_activity_feed,
             list_live_learnings,

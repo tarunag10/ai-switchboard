@@ -420,6 +420,8 @@ export interface HeadroomAccountProfile {
   subscriptionBillingPeriod?: string | null;
   subscriptionDiscountDuration?: string | null;
   subscriptionDiscountDurationInMonths?: number | null;
+  subscriptionCancelAtPeriodEnd?: boolean;
+  subscriptionEndsAt?: string | null;
   inviteCode?: string | null;
   acceptedInvitesCount: number;
   inviteBonusPercent: number;

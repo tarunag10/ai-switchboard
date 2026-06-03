@@ -122,6 +122,8 @@ export interface UpgradePlanPurchaseInfo {
   renewsOn: string;
   paidPerMonthLabel: string;
   discountPct: number;
+  cancelAtPeriodEnd?: boolean;
+  endsOn?: string;
 }
 
 export interface UpgradePlan {
@@ -210,12 +212,18 @@ export function getUpgradePlans(
   subscriptionRenewsAt?: string | null,
   subscriptionStartedAt?: string | null,
   subscriptionDiscountDuration?: string | null,
-  subscriptionDiscountDurationInMonths?: number | null
+  subscriptionDiscountDurationInMonths?: number | null,
+  subscriptionCancelAtPeriodEnd: boolean = false,
+  subscriptionEndsAt?: string | null
 ): {
   plans: UpgradePlan[];
   featuredPlanId: UpgradePlanId;
 } {
   if (audience === "individual") {
+    const downgradeEndsOn = subscriptionCancelAtPeriodEnd && subscriptionEndsAt
+      ? new Date(subscriptionEndsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+      : undefined;
+
     const freePlan: UpgradePlan = {
       id: "free",
       name: "Free",
@@ -228,9 +236,20 @@ export function getUpgradePlans(
         "Use with 25% of your Claude plan",
         "Optimize Claude Code practices"
       ],
-      ctaLabel: "Stay on Free plan",
+      ctaLabel: downgradeEndsOn ? "Downgrade scheduled" : "Stay on Free plan",
       ctaVariant: "secondary",
-      ctaTone: "default"
+      ctaTone: "default",
+      ...(downgradeEndsOn
+        ? {
+            purchaseInfo: {
+              renewsOn: downgradeEndsOn,
+              paidPerMonthLabel: "$0",
+              discountPct: 0,
+              cancelAtPeriodEnd: true,
+              endsOn: downgradeEndsOn
+            }
+          }
+        : {})
     };
 
     const billingLabel = billingPeriod === "annual" ? "billed annually" : "billed monthly";
@@ -284,7 +303,16 @@ export function getUpgradePlans(
         ? new Date(subscriptionRenewsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
         : null;
       if (!renewsOn) return undefined;
-      return { renewsOn, paidPerMonthLabel, discountPct };
+      const endsOn = subscriptionCancelAtPeriodEnd && subscriptionEndsAt
+        ? new Date(subscriptionEndsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+        : undefined;
+      return {
+        renewsOn,
+        paidPerMonthLabel,
+        discountPct,
+        cancelAtPeriodEnd: subscriptionCancelAtPeriodEnd,
+        endsOn
+      };
     })();
 
     function paidPlan(
@@ -337,6 +365,12 @@ export function getUpgradePlans(
 
     const withRelativeCta = (plan: UpgradePlan): UpgradePlan => {
       if (!activeHeadroomPlanId) {
+        return plan;
+      }
+
+      // Free card during a scheduled downgrade is the pending target — its
+      // CTA was set to "Downgrade scheduled" above and must not be overridden.
+      if (plan.purchaseInfo?.cancelAtPeriodEnd && plan.id !== activeHeadroomPlanId) {
         return plan;
       }
 

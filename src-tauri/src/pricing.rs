@@ -309,6 +309,10 @@ struct RemoteAccountResponse {
     subscription_discount_duration: Option<String>,
     #[serde(default)]
     subscription_discount_duration_in_months: Option<i64>,
+    #[serde(default)]
+    subscription_cancel_at_period_end: bool,
+    #[serde(default)]
+    subscription_ends_at: Option<DateTime<Utc>>,
     invite_code: Option<String>,
     accepted_invites_count: usize,
     invite_bonus_percent: f64,
@@ -725,6 +729,38 @@ pub(crate) fn change_subscription_plan_with_base_url(
             .filter(|value| !value.trim().is_empty());
         return Err(api_error
             .unwrap_or_else(|| format!("Could not change subscription plan (status {status}).")));
+    }
+
+    Ok(())
+}
+
+pub fn reactivate_subscription() -> Result<(), String> {
+    reactivate_subscription_with_base_url(&api_base_url())
+}
+
+pub(crate) fn reactivate_subscription_with_base_url(base_url: &str) -> Result<(), String> {
+    let token = read_session_token()?
+        .ok_or_else(|| "Sign in to Headroom before reactivating your plan.".to_string())?;
+    let response = http_client()?
+        .post(join_url(base_url, "desktop/subscriptions/reactivate"))
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .map_err(|err| format!("Could not reactivate subscription: {err}"))?;
+
+    if response.status().as_u16() == 401 {
+        clear_session_token()?;
+        return Err("Your Headroom session expired. Sign in again.".into());
+    }
+
+    if !response.status().is_success() {
+        let status = response.status().as_u16();
+        let api_error = response
+            .json::<ApiErrorResponse>()
+            .ok()
+            .and_then(|body| body.error)
+            .filter(|value| !value.trim().is_empty());
+        return Err(api_error
+            .unwrap_or_else(|| format!("Could not reactivate subscription (status {status}).")));
     }
 
     Ok(())
@@ -1514,6 +1550,8 @@ fn remote_account_to_profile(value: RemoteAccountResponse) -> HeadroomAccountPro
         subscription_billing_period: value.subscription_billing_period,
         subscription_discount_duration: value.subscription_discount_duration,
         subscription_discount_duration_in_months: value.subscription_discount_duration_in_months,
+        subscription_cancel_at_period_end: value.subscription_cancel_at_period_end,
+        subscription_ends_at: value.subscription_ends_at,
         invite_code: value.invite_code,
         accepted_invites_count: value.accepted_invites_count,
         invite_bonus_percent: value.invite_bonus_percent.min(50.0).max(0.0),
@@ -1863,6 +1901,8 @@ mod tests {
             subscription_billing_period: None,
             subscription_discount_duration: None,
             subscription_discount_duration_in_months: None,
+            subscription_cancel_at_period_end: false,
+            subscription_ends_at: None,
             invite_code: Some("invite-code".into()),
             accepted_invites_count: 2,
             invite_bonus_percent: 10.0,
@@ -2190,6 +2230,8 @@ mod tests {
             subscription_billing_period: None,
             subscription_discount_duration: None,
             subscription_discount_duration_in_months: None,
+            subscription_cancel_at_period_end: false,
+            subscription_ends_at: None,
             invite_code: None,
             accepted_invites_count: 0,
             invite_bonus_percent: 0.0,
@@ -2210,6 +2252,8 @@ mod tests {
             subscription_billing_period: None,
             subscription_discount_duration: None,
             subscription_discount_duration_in_months: None,
+            subscription_cancel_at_period_end: false,
+            subscription_ends_at: None,
             invite_code: None,
             accepted_invites_count: 0,
             invite_bonus_percent: invite_bonus,
@@ -2830,6 +2874,8 @@ mod tests {
             subscription_billing_period: None,
             subscription_discount_duration: None,
             subscription_discount_duration_in_months: None,
+            subscription_cancel_at_period_end: false,
+            subscription_ends_at: None,
             invite_code: None,
             accepted_invites_count: 0,
             invite_bonus_percent: 999.0,
@@ -2852,6 +2898,8 @@ mod tests {
             subscription_billing_period: None,
             subscription_discount_duration: None,
             subscription_discount_duration_in_months: None,
+            subscription_cancel_at_period_end: false,
+            subscription_ends_at: None,
             invite_code: None,
             accepted_invites_count: 0,
             invite_bonus_percent: -10.0,
@@ -3369,6 +3417,59 @@ mod tests {
             BillingPeriod::Annual,
             &format!("http://127.0.0.1:{port}"),
         )
+        .expect_err("401");
+        server.join().unwrap();
+        assert!(err.contains("session expired"));
+
+        let stored = crate::keychain::read_secret(
+            super::HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
+            super::HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+        )
+        .unwrap();
+        assert!(stored.is_none());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn reactivate_subscription_succeeds_on_200() {
+        let _env = AuthedTestEnv::new("session-xyz");
+        let (port, server) = spawn_canned_response_server(
+            serde_json::json!({ "ok": true }),
+            "HTTP/1.1 200 OK",
+        );
+
+        super::reactivate_subscription_with_base_url(&format!("http://127.0.0.1:{port}"))
+            .expect("reactivate succeeds");
+        server.join().unwrap();
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn reactivate_subscription_surfaces_api_error_message() {
+        let _env = AuthedTestEnv::new("session-xyz");
+        let (port, server) = spawn_canned_response_server(
+            serde_json::json!({ "error": "Subscription is not scheduled for cancellation." }),
+            "HTTP/1.1 422 Unprocessable Entity",
+        );
+
+        let err = super::reactivate_subscription_with_base_url(&format!(
+            "http://127.0.0.1:{port}"
+        ))
+        .expect_err("4xx surfaces as error");
+        server.join().unwrap();
+        assert_eq!(err, "Subscription is not scheduled for cancellation.");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn reactivate_subscription_clears_session_on_401() {
+        let _env = AuthedTestEnv::new("session-xyz");
+        let (port, server) =
+            spawn_canned_response_server(serde_json::json!({}), "HTTP/1.1 401 Unauthorized");
+
+        let err = super::reactivate_subscription_with_base_url(&format!(
+            "http://127.0.0.1:{port}"
+        ))
         .expect_err("401");
         server.join().unwrap();
         assert!(err.contains("session expired"));

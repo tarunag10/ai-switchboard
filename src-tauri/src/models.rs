@@ -671,6 +671,10 @@ pub struct HeadroomAccountProfile {
     pub subscription_billing_period: Option<String>,
     pub subscription_discount_duration: Option<String>,
     pub subscription_discount_duration_in_months: Option<i64>,
+    #[serde(default)]
+    pub subscription_cancel_at_period_end: bool,
+    #[serde(default)]
+    pub subscription_ends_at: Option<DateTime<Utc>>,
     pub invite_code: Option<String>,
     pub accepted_invites_count: usize,
     pub invite_bonus_percent: f64,

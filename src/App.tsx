@@ -717,6 +717,8 @@ export default function App() {
   } | null>(null);
   const [planChangeBusy, setPlanChangeBusy] = useState(false);
   const [planChangeError, setPlanChangeError] = useState<string | null>(null);
+  const [reactivateBusy, setReactivateBusy] = useState(false);
+  const [reactivateError, setReactivateError] = useState<string | null>(null);
   const [contactEmail, setContactEmail] = useState("");
   const [contactMessage, setContactMessage] = useState("");
   const [contactSubmitBusy, setContactSubmitBusy] = useState(false);
@@ -749,7 +751,9 @@ export default function App() {
     pricingStatus?.account?.subscriptionRenewsAt,
     pricingStatus?.account?.subscriptionStartedAt,
     pricingStatus?.account?.subscriptionDiscountDuration,
-    pricingStatus?.account?.subscriptionDiscountDurationInMonths
+    pricingStatus?.account?.subscriptionDiscountDurationInMonths,
+    pricingStatus?.account?.subscriptionCancelAtPeriodEnd ?? false,
+    pricingStatus?.account?.subscriptionEndsAt
   );
   const contactEmailValid = isValidEmailAddress(contactEmail);
   const authEmailValid = isValidEmailAddress(authEmail);
@@ -2626,6 +2630,26 @@ export default function App() {
     setPlanChangeError(null);
   }
 
+  async function handleReactivateSubscription() {
+    if (reactivateBusy) return;
+    setReactivateBusy(true);
+    setReactivateError(null);
+    try {
+      await invoke("reactivate_headroom_subscription");
+      await refreshPricingStatus();
+    } catch (error) {
+      setReactivateError(
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Could not reactivate subscription."
+      );
+    } finally {
+      setReactivateBusy(false);
+    }
+  }
+
   async function handleContactSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -4400,11 +4424,17 @@ export default function App() {
                         </span>
                       </div>
                     )}
-                    {isActivePlan && plan.purchaseInfo ? (
+                    {plan.purchaseInfo ? (
                       <p className="upgrade-plan-card__purchase-info">
-                        {plan.purchaseInfo.discountPct > 0
-                          ? `Renews ${plan.purchaseInfo.paidPerMonthLabel}/mo on ${plan.purchaseInfo.renewsOn} (${plan.purchaseInfo.discountPct}% off)`
-                          : `Renews ${plan.price}/mo on ${plan.purchaseInfo.renewsOn}`}
+                        {plan.purchaseInfo.cancelAtPeriodEnd && plan.purchaseInfo.endsOn
+                          ? plan.id === "free"
+                            ? `Activates on ${plan.purchaseInfo.endsOn}`
+                            : `Downgrades to Free on ${plan.purchaseInfo.endsOn}`
+                          : isActivePlan
+                          ? plan.purchaseInfo.discountPct > 0
+                            ? `Renews ${plan.purchaseInfo.paidPerMonthLabel}/mo on ${plan.purchaseInfo.renewsOn} (${plan.purchaseInfo.discountPct}% off)`
+                            : `Renews ${plan.price}/mo on ${plan.purchaseInfo.renewsOn}`
+                          : null}
                       </p>
                     ) : null}
                   </div>
@@ -4450,6 +4480,23 @@ export default function App() {
                           {contactSubmitBusy ? "Sending..." : plan.ctaLabel}
                         </button>
                       </form>
+                    ) : isActivePlan && plan.purchaseInfo?.cancelAtPeriodEnd ? (
+                      <button
+                        className={buttonClassName}
+                        disabled={reactivateBusy}
+                        onClick={() => void handleReactivateSubscription()}
+                        type="button"
+                      >
+                        {reactivateBusy ? "Resuming..." : `Resume ${plan.name} plan`}
+                      </button>
+                    ) : plan.id === "free" && plan.purchaseInfo?.cancelAtPeriodEnd ? (
+                      <button
+                        className={buttonClassName}
+                        disabled
+                        type="button"
+                      >
+                        {plan.ctaLabel}
+                      </button>
                     ) : (
                       <button
                         className={buttonClassName}
@@ -4497,6 +4544,9 @@ export default function App() {
 
           {upgradeActionError ? (
             <p className="install-progress__error">{upgradeActionError}</p>
+          ) : null}
+          {reactivateError ? (
+            <p className="install-progress__error">{reactivateError}</p>
           ) : null}
         </div>
 

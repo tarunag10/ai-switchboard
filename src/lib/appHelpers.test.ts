@@ -364,4 +364,76 @@ describe("app helpers", () => {
       });
     });
   });
+
+  describe("scheduled downgrade", () => {
+    const baseArgs = [
+      "individual" as const,
+      undefined,
+      undefined,
+      "max20x" as const,
+      true,
+      false,
+      "annual" as const,
+    ] as const;
+
+    function planById(result: ReturnType<typeof getUpgradePlans>, id: string) {
+      return result.plans.find((p) => p.id === id);
+    }
+
+    it("stamps cancel info on the active plan card when downgrade is scheduled", () => {
+      const result = getUpgradePlans(
+        ...baseArgs,
+        12000, // $10/mo annual
+        "annual",
+        "2027-03-31",
+        "2026-03-31",
+        null,
+        null,
+        true,
+        "2027-03-31T20:31:45Z"
+      );
+      const active = planById(result, "max20x");
+      expect(active?.purchaseInfo?.cancelAtPeriodEnd).toBe(true);
+      expect(active?.purchaseInfo?.endsOn).toBeDefined();
+    });
+
+    it("stamps the free plan with the activation date and downgrade-scheduled CTA", () => {
+      const result = getUpgradePlans(
+        ...baseArgs,
+        12000,
+        "annual",
+        "2027-03-31",
+        "2026-03-31",
+        null,
+        null,
+        true,
+        "2027-03-31T20:31:45Z"
+      );
+      const free = planById(result, "free");
+      expect(free?.ctaLabel).toBe("Downgrade scheduled");
+      expect(free?.purchaseInfo?.cancelAtPeriodEnd).toBe(true);
+      expect(free?.purchaseInfo?.endsOn).toBeDefined();
+    });
+
+    it("leaves both cards untouched when no downgrade is scheduled", () => {
+      const result = getUpgradePlans(
+        ...baseArgs,
+        12000,
+        "annual",
+        "2027-03-31",
+        "2026-03-31",
+        null,
+        null,
+        false,
+        null
+      );
+      const free = planById(result, "free");
+      const active = planById(result, "max20x");
+      // On Max x20, the Free card's natural relative-CTA is "Downgrade to Free plan".
+      expect(free?.ctaLabel).toBe("Downgrade to Free plan");
+      expect(free?.purchaseInfo).toBeUndefined();
+      expect(active?.purchaseInfo?.cancelAtPeriodEnd).toBe(false);
+      expect(active?.purchaseInfo?.endsOn).toBeUndefined();
+    });
+  });
 });
