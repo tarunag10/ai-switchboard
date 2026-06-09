@@ -328,3 +328,34 @@ export function sortClientConnectors(connectors: ClientConnectorStatus[]) {
   });
 }
 
+export function getEnabledSupportedConnectors(
+  connectors: ClientConnectorStatus[]
+) {
+  return aggregateClientConnectors(connectors).filter(
+    (connector) => connector.enabled
+  );
+}
+
+export function hasEnabledConnector(connectors: ClientConnectorStatus[]) {
+  return getEnabledSupportedConnectors(connectors).length > 0;
+}
+
+export type ConnectorDashboardTone = "active" | "pending" | "idle";
+
+export function connectorDashboardStatus(connector: ClientConnectorStatus): {
+  label: string;
+  tone: ConnectorDashboardTone;
+} {
+  if (!connector.enabled) {
+    return connector.installed
+      ? { label: "Off", tone: "idle" }
+      : { label: "Not installed", tone: "idle" };
+  }
+  if (!connector.verified) {
+    return connector.installed
+      ? { label: "Verifying", tone: "pending" }
+      : { label: "Restart needed", tone: "pending" };
+  }
+  return { label: "Active", tone: "active" };
+}
+

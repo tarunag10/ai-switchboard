@@ -6,6 +6,7 @@ import {
   buildMonthlySavingsChartData,
   buildMonthlySavingsWindow,
   compactNumber,
+  connectorDashboardStatus,
   currency,
   currencyExact,
   dayOfMonthTickFormatter,
@@ -14,6 +15,8 @@ import {
   formatDateTime,
   formatDayKey,
   formatLearnStatus,
+  getEnabledSupportedConnectors,
+  hasEnabledConnector,
   hourOfDayTickFormatter,
   percent1,
   sortClientConnectors
@@ -163,6 +166,37 @@ describe("dashboard helpers", () => {
     expect(
       aggregateClientConnectors(connectors).map((connector) => connector.clientId).sort()
     ).toEqual(["claude_code", "codex"]);
+  });
+
+  it("reports enabled supported connectors regardless of which tool", () => {
+    const connectors: ClientConnectorStatus[] = [
+      { clientId: "claude_code", name: "Claude Code", installed: true, enabled: false, verified: false },
+      { clientId: "codex", name: "Codex", installed: true, enabled: true, verified: true },
+      { clientId: "cursor", name: "Cursor", installed: true, enabled: true, verified: true }
+    ];
+
+    expect(getEnabledSupportedConnectors(connectors).map((c) => c.clientId)).toEqual(["codex"]);
+    expect(hasEnabledConnector(connectors)).toBe(true);
+    expect(
+      hasEnabledConnector([
+        { clientId: "claude_code", name: "Claude Code", installed: true, enabled: false, verified: false }
+      ])
+    ).toBe(false);
+  });
+
+  it("derives a dashboard status label/tone per connector state", () => {
+    expect(
+      connectorDashboardStatus({ clientId: "codex", name: "Codex", installed: false, enabled: false, verified: false })
+    ).toEqual({ label: "Not installed", tone: "idle" });
+    expect(
+      connectorDashboardStatus({ clientId: "codex", name: "Codex", installed: true, enabled: false, verified: false })
+    ).toEqual({ label: "Off", tone: "idle" });
+    expect(
+      connectorDashboardStatus({ clientId: "codex", name: "Codex", installed: true, enabled: true, verified: false })
+    ).toEqual({ label: "Verifying", tone: "pending" });
+    expect(
+      connectorDashboardStatus({ clientId: "codex", name: "Codex", installed: true, enabled: true, verified: true })
+    ).toEqual({ label: "Active", tone: "active" });
   });
 
   it("formats timestamps and learn recency with clear fallbacks", () => {

@@ -87,6 +87,7 @@ import {
   buildMonthlySavingsChartData,
   buildMonthlySavingsWindow,
   compactNumber,
+  connectorDashboardStatus,
   currency,
   currencyExact,
   dayOfMonthTickFormatter,
@@ -97,6 +98,8 @@ import {
   formatLearnStatus,
   formatMonthLabel,
   formatSelectedDayLabel,
+  getEnabledSupportedConnectors,
+  hasEnabledConnector,
   hourOfDayTickFormatter,
   percent1,
   sortClientConnectors,
@@ -758,7 +761,7 @@ export default function App() {
   const [showAllUpgradePlans, setShowAllUpgradePlans] = useState(false);
   const [checkoutPollingDeadline, setCheckoutPollingDeadline] = useState<number | null>(null);
   const desktopActivationSentRef = useRef(false);
-  const autoDisabledByGateRef = useRef(false);
+  const autoDisabledByGateRef = useRef<Set<string>>(new Set());
   const [learnInstallCopyNotice, setLearnInstallCopyNotice] = useState<string | null>(null);
 
   const [stepSignature, setStepSignature] = useState("");
@@ -1779,11 +1782,13 @@ export default function App() {
     optimizeAppliedRefreshTick,
   ]);
 
-  // Keep connectorPhase in sync with the connector enabled state from the backend
-  const claudeConnectorEnabled = getClaudeConnector(connectors)?.enabled;
+  // Keep connectorPhase in sync with the connector enabled state from the backend.
+  // Any supported connector (Claude Code, Codex, ...) being enabled counts as
+  // "connected" — the request-count poller below is connector-agnostic.
+  const anyConnectorEnabled = hasEnabledConnector(connectors);
   useEffect(() => {
     setConnectorPhase((prev) => {
-      if (!claudeConnectorEnabled) return "disabled";
+      if (!anyConnectorEnabled) return "disabled";
       // Any transition from "disabled" → enabled (re-enable click, externally
       // toggled, or fresh app launch) drops into verifying, so the polling
       // effect below confirms via /stats that traffic is actually flowing
@@ -1791,7 +1796,7 @@ export default function App() {
       if (prev === "disabled") return "verifying";
       return prev; // keep "verifying" or "healthy"
     });
-  }, [claudeConnectorEnabled]);
+  }, [anyConnectorEnabled]);
 
   useEffect(() => {
     // Pricing status hits the remote Headroom API. When the tray is focused,
@@ -1855,33 +1860,42 @@ export default function App() {
     }
   }, [checkoutPollingDeadline, pricingStatus?.account?.subscriptionActive]);
 
+  // When the pricing gate closes, pause optimization on every enabled
+  // connector (not just Claude Code) one at a time. Each disable refreshes
+  // `connectors`, re-running this effect until none remain enabled.
   useEffect(() => {
-    const claudeConnector = getClaudeConnector(connectors);
-    if (!pricingStatus || pricingStatus.optimizationAllowed || !claudeConnector?.enabled) {
+    if (!pricingStatus || pricingStatus.optimizationAllowed || connectorsBusy) {
+      return;
+    }
+    const target = getEnabledSupportedConnectors(connectors)[0];
+    if (!target) {
+      return;
+    }
+    autoDisabledByGateRef.current.add(target.clientId);
+    void toggleConnector(target, false);
+  }, [connectors, connectorsBusy, pricingStatus]);
+
+  // Companion to the auto-disable effect above: when the pricing gate
+  // releases (e.g., user just signed up post-grace, or weekly usage
+  // rolled over), bring back every connector we auto-disabled without forcing
+  // a manual re-enable click. Scoped to our own prior auto-disables so a
+  // user's manual disable during an ungated period is preserved.
+  useEffect(() => {
+    if (!pricingStatus?.optimizationAllowed || autoDisabledByGateRef.current.size === 0) {
       return;
     }
     if (connectorsBusy) {
       return;
     }
-    autoDisabledByGateRef.current = true;
-    void toggleConnector(claudeConnector, false);
-  }, [connectors, connectorsBusy, pricingStatus]);
-
-  // Companion to the auto-disable effect above: when the pricing gate
-  // releases (e.g., user just signed up post-grace, or weekly usage
-  // rolled over), bring the connector back without forcing a manual
-  // re-enable click. Gated only on our own prior auto-disable so a
-  // user's manual disable during an ungated period is preserved.
-  useEffect(() => {
-    const claudeConnector = getClaudeConnector(connectors);
-    if (!pricingStatus?.optimizationAllowed || !autoDisabledByGateRef.current) {
+    const target = aggregateClientConnectors(connectors).find(
+      (connector) =>
+        autoDisabledByGateRef.current.has(connector.clientId) && !connector.enabled
+    );
+    if (!target) {
+      autoDisabledByGateRef.current.clear();
       return;
     }
-    if (!claudeConnector || claudeConnector.enabled || connectorsBusy) {
-      return;
-    }
-    autoDisabledByGateRef.current = false;
-    void toggleConnector(claudeConnector, true);
+    void toggleConnector(target, true);
   }, [connectors, connectorsBusy, pricingStatus]);
 
   useEffect(() => {
@@ -3490,7 +3504,7 @@ export default function App() {
             </div>
           ) : (
             <p className="launcher-restart-hint">
-              Claude Code is not enabled yet. Go back to the previous step to enable it.
+              No tools are enabled yet. Go back to the previous step to enable one.
             </p>
           )}
           {proxyVerificationHint ? (
@@ -3633,8 +3647,6 @@ export default function App() {
     runtimeStatus?.headroomLearnDisabledReason ??
     "Headroom Learn is unavailable on this platform.";
 
-  const claudeConnector = getClaudeConnector(connectors);
-
   const calloutBanner = (() => {
     if (!runtimeStatus) {
       return {
@@ -3682,13 +3694,13 @@ export default function App() {
       if (connectorPhase === "disabled") {
         return {
           tone: "disabled",
-          title: "Claude is disconnected — Headroom isn't reducing costs."
+          title: "No coding tools connected — Headroom isn't reducing costs."
         } as const;
       }
       if (connectorPhase === "verifying") {
         return {
           tone: "starting",
-          title: "Send a message in Claude Code to verify the connection is working. You may need to restart Claude Code first."
+          title: "Send a message in a connected tool to verify the connection is working. You may need to restart it first."
         } as const;
       }
       return {
@@ -4075,22 +4087,48 @@ export default function App() {
                   <p className="callout-banner__subtitle">{platformPreviewNotice}</p>
                 ) : null}
                 {calloutBanner.tone === "healthy" && dashboard.lifetimeEstimatedTokensSaved < 1_000_000 && (
-                  <p className="callout-banner__subtitle">Now use Claude Code as normal, and check back later to see how much you are saving by using Headroom.</p>
+                  <p className="callout-banner__subtitle">Now use your connected tools as normal, and check back later to see how much you are saving by using Headroom.</p>
                 )}
               </div>
-              {connectorPhase === "disabled" && claudeConnector && (
-                <button
-                  className="callout-banner__action"
-                  disabled={connectorsBusy}
-                  onClick={async () => {
-                    await toggleConnector(claudeConnector, true);
-                    setConnectorPhase("verifying");
-                  }}
-                  type="button"
-                >
-                  Re-enable
-                </button>
-              )}
+            </section>
+
+            <section className="dashboard-connectors" aria-label="Connector status">
+              {sortClientConnectors(aggregateClientConnectors(connectors))
+                .filter((connector) => connector.installed || connector.enabled)
+                .map((connector) => {
+                const status = connectorDashboardStatus(connector);
+                const toggleDisabled =
+                  connectorsBusy || !canConfigureConnectorWithoutDetection(connector);
+                return (
+                  <article className="dashboard-connector" key={connector.clientId}>
+                    <div className="dashboard-connector__head">
+                      <span className="dashboard-connector__logo" aria-hidden="true">
+                        {renderConnectorLogo(connector.clientId)}
+                      </span>
+                      <span className="dashboard-connector__name">{connector.name}</span>
+                      <span
+                        className={`dashboard-connector__status dashboard-connector__status--${status.tone}`}
+                      >
+                        {status.label}
+                      </span>
+                      <button
+                        aria-checked={connector.enabled}
+                        aria-label={`${connector.enabled ? "Disable" : "Enable"} ${connector.name} connector`}
+                        className={`connector-switch${connector.enabled ? " is-on" : ""}`}
+                        disabled={toggleDisabled}
+                        onClick={() => void toggleConnector(connector, !connector.enabled)}
+                        role="switch"
+                        type="button"
+                      >
+                        <span className="connector-switch__thumb" />
+                      </button>
+                    </div>
+                    {connector.clientId === "codex" && connector.enabled
+                      ? renderCodexUsage(pricingStatus?.codex)
+                      : null}
+                  </article>
+                );
+              })}
             </section>
 
             <section className="stat-grid stat-grid--2col">
