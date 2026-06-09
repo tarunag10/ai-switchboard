@@ -19,7 +19,7 @@ use sha2::{Digest, Sha256};
 use tar::Archive;
 
 use crate::backend_port::{self, AllForeign, SelectedFallback};
-use crate::models::{ManagedTool, RtkTodayStats, ToolStatus};
+use crate::models::{ManagedTool, OptimizationMode, RtkTodayStats, ToolStatus};
 
 /// Pinned headroom-ai version. Upgrade logic is disabled; this exact version
 /// will be installed if the currently-installed version differs.
@@ -32,10 +32,10 @@ use crate::models::{ManagedTool, RtkTodayStats, ToolStatus};
 /// from https://pypi.org/pypi/headroom-ai/<version>/json. If Linux is ever
 /// added to the release matrix, a per-platform wheel-picker (mirroring
 /// `python_distribution_artifact`) is required.
-pub(crate) const HEADROOM_PINNED_VERSION: &str = "0.21.39";
-const HEADROOM_PINNED_WHEEL_URL: &str = "https://files.pythonhosted.org/packages/cd/fe/9874c65b5f66f1dbc8cdf5ca0977e3f25e6e3ccbee091bd0849dad6bd041/headroom_ai-0.21.39-cp312-cp312-macosx_11_0_arm64.whl";
+pub(crate) const HEADROOM_PINNED_VERSION: &str = "0.24.0";
+const HEADROOM_PINNED_WHEEL_URL: &str = "https://files.pythonhosted.org/packages/64/74/c487d1eae2603127b4b00e35e6d418daae5ed7f587f0da338e0829e230eb/headroom_ai-0.24.0-cp312-cp312-macosx_11_0_arm64.whl";
 const HEADROOM_PINNED_SHA256: &str =
-    "1b55875f63e27f059f65365a927d388ff6f56dd32f471d9f1b328011098f2aea";
+    "f648ec7599d8ce60753c5a68a5463fb74b4a0542ba82c6ffc9d12158dff5bd2a";
 const HEADROOM_SMOKE_TEST_TIMEOUT: Duration = Duration::from_secs(15);
 /// Index of pre-built wheels for sdist-only PyPI packages (e.g. hnswlib).
 /// GitHub's expanded_assets endpoint serves HTML anchors pip can consume via --find-links.
@@ -87,14 +87,15 @@ const HEADROOM_LINUX_REQUIREMENTS_LOCK: &str =
 /// lock. Drop any entry that no longer matches — those users need a real
 /// reinstall.
 const LEGACY_REQUIREMENTS_LOCK_SHAS: &[&str] = &[
-    // 0.21.39 freeze diverges from every prior shipment. Upstream 0.20.x moved
-    // headroom-ai to a maturin/Rust-native wheel (upstream #355) and reshaped
-    // its transitive dep set as parts of the old Python implementation moved
-    // into the Rust `headroom_core` crate. There is no clean lockfile overlap
-    // with the 0.19.0 freeze, so users on any older receipt must do a real
-    // reinstall (and the 0.10.x–0.19.x cohort is forced down the atomic
-    // rebuild path by ATOMIC_REBUILD_FLOOR_VERSION below). The legacy
-    // migration list stays empty until the next no-op cosmetic lock change.
+    // The 0.24.0 freeze bumps several transitive pins (onnxruntime, torch,
+    // scikit-learn, safetensors, py-rust-stemmers, lxml, numpy, jiter, rpds-py)
+    // and adds coloredlogs/humanfriendly/narwhals over the 0.21.39 freeze, so it
+    // is byte-incompatible with every prior shipment — no legacy sha can be
+    // treated as up-to-date. These are ordinary pip-managed deps, so the
+    // 0.20.x+ cohort still upgrades cleanly in place (no native restructuring
+    // like the 0.19->0.20 Python->Rust core move), and the floor stays at
+    // 0.20.0. The legacy migration list stays empty until the next no-op
+    // cosmetic lock change.
 ];
 
 /// Receipts strictly below this version cannot be safely upgraded in place to
@@ -456,7 +457,7 @@ impl ToolManager {
         }
     }
 
-    pub fn start_headroom_background(&self) -> Result<Child> {
+    pub fn start_headroom_background(&self, mode: OptimizationMode) -> Result<Child> {
         let mut allow_repair = true;
         'attempt: loop {
             let python = self.managed_python();
@@ -601,8 +602,23 @@ impl ToolManager {
                     .env("PYTHONFAULTHANDLER", "1")
                     .env("PIP_DISABLE_PIP_VERSION_CHECK", "1")
                     .env("PIP_NO_INPUT", "1")
+                    // Force huggingface_hub off the native `hf_xet` downloader.
+                    // Its Rust extension can SIGABRT ("Fatal Python error: Aborted")
+                    // inside xet_get while pulling kompress-int8.onnx during
+                    // eager_load_compressors, killing the interpreter before it
+                    // binds the port (Sentry: never opened port within timeout).
+                    // The SIGABRT is uncatchable in Python; disabling xet falls
+                    // back to the stable HTTPS download path.
+                    .env("HF_HUB_DISABLE_XET", "1")
                     .env("HEADROOM_SDK", "headroom-desktop-proxy")
                     .env("HEADROOM_HTTP2", "false")
+                    // Optimization mode. Defaults to cache (prefix-stable) because
+                    // desktop traffic is overwhelmingly Claude Code (subscription/OAuth),
+                    // billed on the cache-weighted meter where token mode's prior-turn
+                    // rewrites bust the prefix cache and inflate usage. The intercept
+                    // flips this to `token` when it detects pay-per-token API-key traffic
+                    // (see AppState::set_optimization_mode_and_restart).
+                    .env("HEADROOM_MODE", mode.as_env_str())
                     .stdin(Stdio::null())
                     .stdout(Stdio::from(
                         log_file
@@ -1817,7 +1833,7 @@ impl ToolManager {
         // `check_headroom_upgrade` will then retry the swap fresh.
         if let Some((previous_version, _target, previous_lock_backup)) = self.read_in_place_marker()
         {
-            log::warn!(
+            log::info!(
                 "recover_from_interrupted_upgrade: in-place upgrade was in progress; \
                  reinstalling previous headroom-ai {previous_version}"
             );
@@ -1842,7 +1858,7 @@ impl ToolManager {
         let receipt_backup = self.headroom_receipt_backup_path();
         let receipt_path = self.headroom_receipt_path();
 
-        log::warn!(
+        log::info!(
             "recover_from_interrupted_upgrade: found stale marker at {}; restoring backup",
             marker.display()
         );

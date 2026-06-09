@@ -448,7 +448,9 @@ pub(crate) fn request_auth_code_with_base_url(
         .send()
         .map_err(|err| {
             let msg = format!("Could not request sign-in code: {err}");
-            sentry::capture_message(&msg, sentry::Level::Info);
+            if !is_transient_transport_error(&err) {
+                sentry::capture_message(&msg, sentry::Level::Warning);
+            }
             msg
         })?;
 

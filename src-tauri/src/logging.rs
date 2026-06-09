@@ -103,6 +103,13 @@ fn skip_sentry(target: &str, msg: &str) -> bool {
     {
         return is_transient_transport_error(msg);
     }
+    // The accept loop self-heals: it backs off and keeps accepting. A transient
+    // EMFILE (or similar) under load isn't actionable as a Sentry event.
+    if target.starts_with("headroom_desktop_lib::proxy_intercept")
+        && msg.starts_with("[proxy_intercept] accept error")
+    {
+        return true;
+    }
     false
 }
 

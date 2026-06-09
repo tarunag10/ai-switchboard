@@ -648,6 +648,12 @@ enum BootstrapFailureKind {
     /// but the default "couldn't download a file" message is misleading
     /// because pip never even got to the network.
     NoUsableTempDir,
+    /// Transient network/download problem: the server returned a 5xx (e.g.
+    /// GitHub's 504 Gateway Time-out on a release asset), the connection was
+    /// reset, DNS failed, or a request timed out. Not our bug and not the
+    /// user's environment — it's self-recoverable, so we frame it softly and
+    /// the user just needs to click Try again.
+    NetworkDownload,
     Other,
 }
 
@@ -656,19 +662,24 @@ impl BootstrapFailureKind {
         match self {
             BootstrapFailureKind::SslInterception => "ssl_interception",
             BootstrapFailureKind::NoUsableTempDir => "no_usable_tempdir",
+            BootstrapFailureKind::NetworkDownload => "network_download",
             BootstrapFailureKind::Other => "other",
         }
     }
 }
 
 fn classify_bootstrap_failure(err: &anyhow::Error) -> BootstrapFailureKind {
-    let Some(failure) = err
+    // pip/venv failures surface as CommandFailure, where stdout/stderr carry the
+    // real signal. Our own reqwest downloads (Python runtime, rtk binary) have no
+    // CommandFailure, so fall back to the formatted error chain for those.
+    let cmd_failure = err
         .chain()
-        .find_map(|e| e.downcast_ref::<tool_manager::CommandFailure>())
-    else {
-        return BootstrapFailureKind::Other;
+        .find_map(|e| e.downcast_ref::<tool_manager::CommandFailure>());
+    let haystack = match cmd_failure {
+        Some(failure) => format!("{}\n{}", failure.stdout, failure.stderr),
+        None => format!("{err:#}"),
     };
-    let haystack = format!("{}\n{}", failure.stdout, failure.stderr);
+
     if haystack.contains("CERTIFICATE_VERIFY_FAILED")
         || haystack.contains("self-signed certificate in certificate chain")
         || haystack.contains("self signed certificate in certificate chain")
@@ -676,9 +687,42 @@ fn classify_bootstrap_failure(err: &anyhow::Error) -> BootstrapFailureKind {
         BootstrapFailureKind::SslInterception
     } else if haystack.contains("No usable temporary directory found") {
         BootstrapFailureKind::NoUsableTempDir
+    } else if is_network_download_signal(&haystack) {
+        BootstrapFailureKind::NetworkDownload
     } else {
         BootstrapFailureKind::Other
     }
+}
+
+/// True when a bootstrap failure looks like a transient network/download
+/// problem (server 5xx, connection reset, DNS failure, request timeout) rather
+/// than a configuration or environment fault. These are self-recoverable: the
+/// user just needs to retry, so we frame them softly and report them to Sentry
+/// as warnings instead of errors.
+fn is_network_download_signal(text: &str) -> bool {
+    // Signatures from reqwest (`error_for_status`, transport errors) and curl/pip
+    // network failures. Lowercased once; keep entries lowercase.
+    const SIGNALS: &[&str] = &[
+        "http status server error", // reqwest error_for_status on any 5xx
+        "gateway time-out",         // 502/504 from GitHub's edge
+        "bad gateway",
+        "service unavailable",
+        "error sending request",
+        "operation timed out",
+        "connection timed out",
+        "timed out",
+        "connection refused",
+        "connection reset",
+        "connection closed",
+        "tcp connect error",
+        "dns error",
+        "failed to lookup address",
+        "could not resolve host",
+        "network is unreachable",
+        "temporary failure in name resolution",
+    ];
+    let lower = text.to_ascii_lowercase();
+    SIGNALS.iter().any(|signal| lower.contains(signal))
 }
 
 fn user_message_for(kind: BootstrapFailureKind) -> &'static str {
@@ -698,6 +742,12 @@ fn user_message_for(kind: BootstrapFailureKind) -> &'static str {
              profile or endpoint protection) is blocking writes to /tmp and \
              /var/folders. Free up disk space, restart your Mac, and try again. \
              If it still fails, contact support@extraheadroom.com."
+        }
+        BootstrapFailureKind::NetworkDownload => {
+            "Couldn't reach the download server. This is usually a temporary \
+             network or server hiccup, not a problem with your Mac. Check your \
+             internet connection and click Try again. If it keeps failing, \
+             contact support@extraheadroom.com."
         }
         BootstrapFailureKind::Other => {
             "Installation failed: Headroom couldn't download a required file. \
@@ -739,6 +789,13 @@ fn capture_bootstrap_failure(err: &anyhow::Error, kind: BootstrapFailureKind) {
         return;
     }
 
+    // Transient network/download failures are self-recoverable via the retry
+    // button; report them as warnings so they don't pollute the error feed.
+    let level = match kind {
+        BootstrapFailureKind::NetworkDownload => sentry::Level::Warning,
+        _ => sentry::Level::Error,
+    };
+
     if let Some(failure) = cmd_failure {
         sentry::with_scope(
             |scope| {
@@ -769,7 +826,7 @@ fn capture_bootstrap_failure(err: &anyhow::Error, kind: BootstrapFailureKind) {
                 scope.set_extra("error_chain", technical_err.clone().into());
             },
             || {
-                sentry::capture_message("bootstrap_failed (install_runtime)", sentry::Level::Error);
+                sentry::capture_message("bootstrap_failed (install_runtime)", level);
             },
         );
     } else {
@@ -785,7 +842,7 @@ fn capture_bootstrap_failure(err: &anyhow::Error, kind: BootstrapFailureKind) {
             || {
                 sentry::capture_message(
                     &format!("bootstrap_failed (install_runtime): {technical_err}"),
-                    sentry::Level::Error,
+                    level,
                 );
             },
         );
@@ -2552,6 +2609,20 @@ pub fn run() {
     // records flow into Sentry too. Failure here cannot abort startup.
     let _ = logging::init();
 
+    // Raise the open-file soft limit to the hard limit. macOS launches GUI apps
+    // with RLIMIT_NOFILE soft = 256, which the intercept proxy exhausts under
+    // bursty load (each proxied request holds a client + backend FD), producing
+    // EMFILE on accept(). The hard limit is far higher; the kernel clamps to
+    // kern.maxfilesperproc if rlim_max is RLIM_INFINITY.
+    #[cfg(unix)]
+    unsafe {
+        let mut lim = std::mem::zeroed::<libc::rlimit>();
+        if libc::getrlimit(libc::RLIMIT_NOFILE, &mut lim) == 0 && lim.rlim_cur < lim.rlim_max {
+            lim.rlim_cur = lim.rlim_max;
+            let _ = libc::setrlimit(libc::RLIMIT_NOFILE, &lim);
+        }
+    }
+
     #[cfg(target_os = "linux")]
     {
         let has_display = std::env::var("DISPLAY").is_ok() || std::env::var("WAYLAND_DISPLAY").is_ok();
@@ -2660,11 +2731,79 @@ pub fn run() {
                 })
                 .expect("spawn identity pusher");
 
+            // Auth-mode detector: the intercept reports how each request
+            // authenticated; we switch the backend optimization mode to match.
+            // API-key traffic pays per raw token (token mode); subscription /
+            // OAuth traffic is billed on the cache-weighted meter (cache mode).
+            // Hysteresis (N consecutive same-class observations) + a debounce
+            // interval prevent flapping; ambiguous/mixed traffic never reaches
+            // the threshold and stays on the safe `cache` default.
+            let (auth_tx, auth_rx) = std::sync::mpsc::channel::<proxy_intercept::AuthClass>();
+            let app_handle_for_mode = app.handle().clone();
+            std::thread::Builder::new()
+                .name("auth-mode-detector".into())
+                .spawn(move || {
+                    use crate::models::OptimizationMode;
+                    use proxy_intercept::{AuthClass, AuthModeHysteresis};
+                    const CONFIRM_THRESHOLD: u32 = 5;
+                    const MIN_SWITCH_INTERVAL: std::time::Duration =
+                        std::time::Duration::from_secs(120);
+
+                    let mut hysteresis = AuthModeHysteresis::new(CONFIRM_THRESHOLD);
+                    let mut last_switch: Option<std::time::Instant> = None;
+
+                    while let Ok(class) = auth_rx.recv() {
+                        let Some(class) = hysteresis.observe(class) else {
+                            continue;
+                        };
+                        let desired = match class {
+                            AuthClass::ApiKey => OptimizationMode::Token,
+                            AuthClass::Subscription => OptimizationMode::Cache,
+                        };
+                        if let Some(prev) = last_switch {
+                            if prev.elapsed() < MIN_SWITCH_INTERVAL {
+                                continue;
+                            }
+                        }
+                        let app_handle = app_handle_for_mode.clone();
+                        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+                            move || -> bool {
+                                let state: tauri::State<'_, AppState> = app_handle.state();
+                                if state.optimization_mode() == desired {
+                                    return false;
+                                }
+                                match state.set_optimization_mode_and_restart(desired) {
+                                    Ok(()) => true,
+                                    Err(err) => {
+                                        log::warn!(
+                                            "auth-mode-detector: mode switch failed: {err:#}"
+                                        );
+                                        false
+                                    }
+                                }
+                            },
+                        ));
+                        match outcome {
+                            Ok(true) => last_switch = Some(std::time::Instant::now()),
+                            Ok(false) => {}
+                            Err(_) => {
+                                log::error!("auth-mode-detector worker panicked");
+                                sentry::capture_message(
+                                    "auth-mode-detector worker panicked",
+                                    sentry::Level::Error,
+                                );
+                            }
+                        }
+                    }
+                })
+                .expect("spawn auth mode detector");
+
             // Start the intercept layer before anything else touches port 6767.
             proxy_intercept::spawn(
                 std::sync::Arc::clone(&state.claude_bearer_token),
                 std::sync::Arc::clone(&state.proxy_bypass),
                 fresh_bearer_tx,
+                auth_tx,
             );
             if state.should_present_on_launch() && !launched_from_autostart {
                 let _ = show_launcher_window(app.handle());
@@ -3146,7 +3285,19 @@ fn execute_headroom_learn_run(state: &AppState, project_path: &str) -> HeadroomL
         // recommendations the desktop won't apply anywhere.
         .arg("--agent")
         .arg("claude")
-        .current_dir(project_path)
+        // Run from an app-owned directory, not project_path. The project is
+        // passed explicitly via --project, so CWD is irrelevant to the analysis.
+        // If project_path lives in a TCC-protected location, getcwd() in the
+        // spawned `claude -p` shells fails with EPERM ("shell-init: error
+        // retrieving current directory ... Operation not permitted"), which the
+        // tool surfaces as an exit-1 failure. The entrypoint's parent dir
+        // (inside Application Support) is always accessible.
+        .current_dir(
+            entrypoint
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| project_path.into()),
+        )
         .env("PYTHONNOUSERSITE", "1")
         .env("PIP_DISABLE_PIP_VERSION_CHECK", "1")
         .env("PIP_NO_INPUT", "1")
@@ -3815,7 +3966,12 @@ fn spawn_proxy_watchdog(app: AppHandle) {
             match state.ensure_headroom_running() {
                 Ok(()) => port_conflict::note_proxy_started(&app),
                 Err(err) => {
-                    log::warn!("watchdog: ensure_headroom_running failed: {err:#}");
+                    // info! not warn!: FileLogger forwards warn!/error! to
+                    // Sentry as a payload-less capture_message. This fires on
+                    // every failed retry during a down episode; the structured,
+                    // actionable signal is capture_watchdog_give_up above, sent
+                    // once per episode after MAX_CONSECUTIVE_FAILURES.
+                    log::info!("watchdog: ensure_headroom_running failed: {err:#}");
                     // In-session retry: don't bump the launch counter.
                     port_conflict::note_proxy_failed(&app, &err, false);
                 }
@@ -4307,7 +4463,8 @@ mod tests {
         delete_applied_pattern, empty_live_learnings_for_projects, extract_llm_failure_warnings,
         fetch_transformations_feed_from, install_pending_update,
         noop_app_update_progress_emitter, is_disk_full_signal,
-        is_endpoint_protection_signal, is_port_conflict_failure, is_prerelease_version,
+        is_endpoint_protection_signal, is_network_download_signal, is_port_conflict_failure,
+        is_prerelease_version,
         lifetime_token_milestone_kind,
         parse_live_learnings, parse_request_count_from_stats_body, parse_updater_endpoint_list,
         pattern_matches_project, physical_rect_from_rect, read_applied_patterns_for_project,
@@ -5304,10 +5461,20 @@ mod tests {
     }
 
     #[test]
-    fn classify_bootstrap_failure_returns_other_for_unrelated_command_errors() {
+    fn classify_bootstrap_failure_flags_pip_connection_reset_as_network() {
         let err: anyhow::Error =
             make_command_failure("ConnectionResetError: [Errno 54] Connection reset by peer")
                 .into();
+        assert!(matches!(
+            classify_bootstrap_failure(&err),
+            BootstrapFailureKind::NetworkDownload
+        ));
+    }
+
+    #[test]
+    fn classify_bootstrap_failure_returns_other_for_unrelated_command_errors() {
+        let err: anyhow::Error =
+            make_command_failure("ModuleNotFoundError: No module named 'headroom'").into();
         assert!(matches!(
             classify_bootstrap_failure(&err),
             BootstrapFailureKind::Other
@@ -5315,8 +5482,8 @@ mod tests {
     }
 
     #[test]
-    fn classify_bootstrap_failure_returns_other_when_no_command_failure_in_chain() {
-        let err = anyhow::anyhow!("network is down");
+    fn classify_bootstrap_failure_returns_other_for_unrecognized_non_command_chain() {
+        let err = anyhow::anyhow!("something unexpected went wrong");
         assert!(matches!(
             classify_bootstrap_failure(&err),
             BootstrapFailureKind::Other
@@ -5752,6 +5919,41 @@ Some unrelated content.
         let extracted = extract_llm_failure_warnings(stderr).expect("warnings extracted");
         assert_eq!(extracted.matches("LLM analysis failed:").count(), 2);
         assert!(extracted.contains('\n'));
+    }
+
+    #[test]
+    fn classify_bootstrap_failure_flags_github_504_as_network() {
+        // Mirrors the reqwest chain produced when error_for_status hits a 504 on
+        // a GitHub release asset (the install_rtk download path).
+        let err = anyhow::anyhow!(
+            "HTTP status server error (504 Gateway Time-out) for url \
+             (https://github.com/rtk-ai/rtk/releases/download/v0.42.0/rtk-aarch64-apple-darwin.tar.gz)"
+        )
+        .context("downloading https://github.com/rtk-ai/rtk/releases/download/v0.42.0/rtk-aarch64-apple-darwin.tar.gz");
+        assert!(matches!(
+            classify_bootstrap_failure(&err),
+            BootstrapFailureKind::NetworkDownload
+        ));
+    }
+
+    #[test]
+    fn is_network_download_signal_matches_transient_failures() {
+        for sample in [
+            "HTTP status server error (504 Gateway Time-out)",
+            "error sending request for url (https://pypi.org/...)",
+            "tcp connect error: Connection refused (os error 61)",
+            "dns error: failed to lookup address information",
+            "operation timed out",
+        ] {
+            assert!(is_network_download_signal(sample), "should match: {sample}");
+        }
+    }
+
+    #[test]
+    fn is_network_download_signal_ignores_config_failures() {
+        assert!(!is_network_download_signal("CERTIFICATE_VERIFY_FAILED"));
+        assert!(!is_network_download_signal("No usable temporary directory found"));
+        assert!(!is_network_download_signal("checksum mismatch for ...: expected abc, got def"));
     }
 
     // Endpoint-protection signature matcher: kept conservative on purpose, so

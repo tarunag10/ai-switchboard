@@ -111,6 +111,7 @@ pub struct ClientStatus {
 #[serde(rename_all = "snake_case")]
 pub enum LaunchExperience {
     FirstRun,
+    #[serde(alias = "resumed")]
     Resume,
     Dashboard,
 }
@@ -587,6 +588,43 @@ pub enum ClaudePlanTier {
     Unknown,
 }
 
+/// Backend optimization mode passed to the managed headroom proxy via the
+/// `HEADROOM_MODE` env var. `Cache` keeps Anthropic's prefix cache stable
+/// (correct for subscription/OAuth traffic billed on the cache-weighted
+/// meter); `Token` rewrites prior turns for maximum raw-token savings
+/// (correct for pay-per-token API keys). Stored in an `AtomicU8` for
+/// lock-free reads at spawn time, hence `as_u8`/`from_u8`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum OptimizationMode {
+    #[default]
+    Cache,
+    Token,
+}
+
+impl OptimizationMode {
+    pub fn as_env_str(self) -> &'static str {
+        match self {
+            OptimizationMode::Cache => "cache",
+            OptimizationMode::Token => "token",
+        }
+    }
+
+    pub fn as_u8(self) -> u8 {
+        match self {
+            OptimizationMode::Cache => 0,
+            OptimizationMode::Token => 1,
+        }
+    }
+
+    pub fn from_u8(value: u8) -> Self {
+        match value {
+            1 => OptimizationMode::Token,
+            _ => OptimizationMode::Cache,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HeadroomSubscriptionTier {
@@ -722,4 +760,36 @@ pub struct TierMismatch {
 pub struct HeadroomAuthCodeRequest {
     pub email: String,
     pub expires_in_seconds: u64,
+}
+
+#[cfg(test)]
+mod optimization_mode_tests {
+    use super::OptimizationMode;
+
+    #[test]
+    fn u8_round_trip_and_default() {
+        assert_eq!(OptimizationMode::default(), OptimizationMode::Cache);
+        assert_eq!(OptimizationMode::Cache.as_u8(), 0);
+        assert_eq!(OptimizationMode::Token.as_u8(), 1);
+        assert_eq!(OptimizationMode::from_u8(0), OptimizationMode::Cache);
+        assert_eq!(OptimizationMode::from_u8(1), OptimizationMode::Token);
+        // Unknown bytes fall back to the safe cache mode.
+        assert_eq!(OptimizationMode::from_u8(99), OptimizationMode::Cache);
+    }
+
+    #[test]
+    fn env_str_matches_backend() {
+        assert_eq!(OptimizationMode::Cache.as_env_str(), "cache");
+        assert_eq!(OptimizationMode::Token.as_env_str(), "token");
+    }
+
+    #[test]
+    fn serde_is_lowercase() {
+        assert_eq!(
+            serde_json::to_string(&OptimizationMode::Token).unwrap(),
+            "\"token\""
+        );
+        let parsed: OptimizationMode = serde_json::from_str("\"cache\"").unwrap();
+        assert_eq!(parsed, OptimizationMode::Cache);
+    }
 }
