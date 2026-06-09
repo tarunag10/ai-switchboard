@@ -13,6 +13,7 @@ import {
   ArrowClockwise,
   Bell,
   Brain,
+  CaretDown,
   CaretLeft,
   Cpu,
   CurrencyCircleDollar,
@@ -687,8 +688,16 @@ export default function App() {
   const [openConnectorHelpId, setOpenConnectorHelpId] = useState<string | null>(null);
   const [openConnectorWarningId, setOpenConnectorWarningId] = useState<string | null>(null);
   const [connectorsBusy, setConnectorsBusy] = useState(false);
+  const [connectorDetailsOpen, setConnectorDetailsOpen] = useState(false);
   const [connectorPhase, setConnectorPhase] = useState<"disabled" | "verifying" | "healthy">("healthy");
   const [connectorsError, setConnectorsError] = useState<string | null>(null);
+  const [codexNudgeDismissed, setCodexNudgeDismissed] = useState(() => {
+    try {
+      return window.localStorage.getItem("headroom:codexNudgeDismissed") === "1";
+    } catch {
+      return false;
+    }
+  });
   const [proxyVerificationRows, setProxyVerificationRows] = useState<ProxyVerificationRow[]>([]);
   const [proxyVerificationHint, setProxyVerificationHint] = useState<string | null>(null);
   const proxyVerificationRequestAnchorRef = useRef<number | null>(null);
@@ -2802,6 +2811,16 @@ export default function App() {
   }
 
 
+  function dismissCodexNudge() {
+    setCodexNudgeDismissed(true);
+    try {
+      window.localStorage.setItem("headroom:codexNudgeDismissed", "1");
+    } catch {
+      // localStorage unavailable (private mode); the nudge stays dismissed for
+      // this session via state, which is good enough.
+    }
+  }
+
   function handleLauncherSurfaceMouseDown(event: MouseEvent<HTMLElement>) {
     if (event.button !== 0) {
       return;
@@ -4089,47 +4108,115 @@ export default function App() {
                 {calloutBanner.tone === "healthy" && dashboard.lifetimeEstimatedTokensSaved < 1_000_000 && (
                   <p className="callout-banner__subtitle">Now use your connected tools as normal, and check back later to see how much you are saving by using Headroom.</p>
                 )}
+                {(() => {
+                  const homeConnectors = sortClientConnectors(aggregateClientConnectors(connectors))
+                    .filter((connector) => connector.installed || connector.enabled);
+                  if (homeConnectors.length === 0) {
+                    return null;
+                  }
+                  return (
+                    <div className="callout-banner__connectors-wrap">
+                      <button
+                        type="button"
+                        className={`callout-banner__connectors${connectorDetailsOpen ? " is-open" : ""}`}
+                        aria-expanded={connectorDetailsOpen}
+                        aria-label={connectorDetailsOpen ? "Hide connector details" : "Show connector details"}
+                        onClick={() => setConnectorDetailsOpen((open) => !open)}
+                      >
+                        {homeConnectors.map((connector) => {
+                          const status = connectorDashboardStatus(connector);
+                          return (
+                            <span
+                              className={`callout-banner__chip callout-banner__chip--${status.tone}`}
+                              key={connector.clientId}
+                            >
+                              <span className="callout-banner__chip-logo" aria-hidden="true">
+                                {renderConnectorLogo(connector.clientId)}
+                              </span>
+                              <span className="callout-banner__chip-name">{connector.name}</span>
+                              <span className="callout-banner__chip-status">{status.label}</span>
+                            </span>
+                          );
+                        })}
+                        <CaretDown
+                          className="callout-banner__connectors-caret"
+                          size={13}
+                          weight="bold"
+                          aria-hidden="true"
+                        />
+                      </button>
+                      {connectorDetailsOpen ? (
+                        <div className="callout-banner__connector-details">
+                          {homeConnectors.map((connector) => {
+                            const status = connectorDashboardStatus(connector);
+                            return (
+                              <div className="callout-banner__connector-detail" key={connector.clientId}>
+                                <div className="callout-banner__connector-detail-head">
+                                  <span className="callout-banner__chip-logo" aria-hidden="true">
+                                    {renderConnectorLogo(connector.clientId)}
+                                  </span>
+                                  <span className="callout-banner__chip-name">{connector.name}</span>
+                                  <span
+                                    className={`callout-banner__chip-status callout-banner__chip-status--${status.tone}`}
+                                  >
+                                    {status.label}
+                                  </span>
+                                </div>
+                                {connector.clientId === "codex" && connector.enabled
+                                  ? renderCodexUsage(pricingStatus?.codex)
+                                  : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })()}
               </div>
             </section>
 
-            <section className="dashboard-connectors" aria-label="Connector status">
-              {sortClientConnectors(aggregateClientConnectors(connectors))
-                .filter((connector) => connector.installed || connector.enabled)
-                .map((connector) => {
-                const status = connectorDashboardStatus(connector);
-                const toggleDisabled =
-                  connectorsBusy || !canConfigureConnectorWithoutDetection(connector);
-                return (
-                  <article className="dashboard-connector" key={connector.clientId}>
-                    <div className="dashboard-connector__head">
-                      <span className="dashboard-connector__logo" aria-hidden="true">
-                        {renderConnectorLogo(connector.clientId)}
-                      </span>
-                      <span className="dashboard-connector__name">{connector.name}</span>
-                      <span
-                        className={`dashboard-connector__status dashboard-connector__status--${status.tone}`}
-                      >
-                        {status.label}
-                      </span>
-                      <button
-                        aria-checked={connector.enabled}
-                        aria-label={`${connector.enabled ? "Disable" : "Enable"} ${connector.name} connector`}
-                        className={`connector-switch${connector.enabled ? " is-on" : ""}`}
-                        disabled={toggleDisabled}
-                        onClick={() => void toggleConnector(connector, !connector.enabled)}
-                        role="switch"
-                        type="button"
-                      >
-                        <span className="connector-switch__thumb" />
-                      </button>
-                    </div>
-                    {connector.clientId === "codex" && connector.enabled
-                      ? renderCodexUsage(pricingStatus?.codex)
-                      : null}
-                  </article>
-                );
-              })}
-            </section>
+            {(() => {
+              const codexConnector = aggregateClientConnectors(connectors).find(
+                (connector) => connector.clientId === "codex"
+              );
+              const showCodexNudge =
+                !codexNudgeDismissed &&
+                !!codexConnector &&
+                codexConnector.installed &&
+                !codexConnector.enabled &&
+                pricingStatus?.optimizationAllowed !== false;
+              if (!showCodexNudge || !codexConnector) {
+                return null;
+              }
+              return (
+                <section className="connector-nudge" aria-label="Codex now supported">
+                  <div className="connector-nudge__body">
+                    <p className="connector-nudge__title">Headroom now supports Codex</p>
+                    <p className="connector-nudge__message">
+                      Route Codex through Headroom to trim its token costs too, the same way it
+                      already does for Claude Code.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="connector-nudge__action"
+                    disabled={connectorsBusy}
+                    onClick={() => void toggleConnector(codexConnector, true)}
+                  >
+                    Turn on Codex
+                  </button>
+                  <button
+                    type="button"
+                    className="connector-nudge__dismiss"
+                    aria-label="Dismiss Codex suggestion"
+                    onClick={dismissCodexNudge}
+                  >
+                    Dismiss
+                  </button>
+                </section>
+              );
+            })()}
 
             <section className="stat-grid stat-grid--2col">
               <article
