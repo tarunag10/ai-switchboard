@@ -4607,47 +4607,48 @@ export default function App() {
                         </p>
                         <div className="founder-promo__head">
                           <div className="founder-promo__urgency">
-                            {spotsLeft != null ? (
-                              <>
-                                <span className="founder-promo__count">{spotsLeft}</span>
-                                <span className="founder-promo__count-label">{activeLabel} spots left</span>
-                              </>
-                            ) : (
-                              <span className="founder-promo__count-label">{activeLabel} pricing</span>
-                            )}
-                          </div>
-                          <div className="founder-promo__steps">
-                            <div className="founder-promo__step founder-promo__step--now">
-                              <span className="founder-promo__step-tag">Now</span>
-                              <span className="founder-promo__step-pct">{pct}% OFF</span>
-                              {stepPricing ? (
-                                <span className="founder-promo__step-price">{stepPricing.now} / month</span>
-                              ) : null}
+                            <div className="founder-promo__count-row">
+                              {spotsLeft != null ? (
+                                <>
+                                  <span className="founder-promo__count">{spotsLeft}</span>
+                                  <span className="founder-promo__count-label">{activeLabel} spots left</span>
+                                </>
+                              ) : (
+                                <span className="founder-promo__count-label">{activeLabel} pricing</span>
+                              )}
                             </div>
-                            {next ? (
-                              <div className="founder-promo__step founder-promo__step--next">
-                                <span className="founder-promo__step-tag">Next</span>
-                                <span className="founder-promo__step-pct">
-                                  {next.percentOff > 0 ? `${next.percentOff}% OFF` : "Full price"}
-                                </span>
-                                {stepPricing ? (
-                                  <span className="founder-promo__step-price">{stepPricing.next} / month</span>
-                                ) : null}
+                            {filledPct != null ? (
+                              <div className="founder-promo__bar" role="presentation">
+                                <span
+                                  className="founder-promo__bar-fill"
+                                  style={{ width: `${filledPct}%` }}
+                                />
                               </div>
                             ) : null}
                           </div>
-                        </div>
-
-                        <div className="founder-promo__footer">
-                          {filledPct != null ? (
-                            <div className="founder-promo__bar" role="presentation">
-                              <span
-                                className="founder-promo__bar-fill"
-                                style={{ width: `${filledPct}%` }}
-                              />
+                          <div className="founder-promo__offer">
+                            <div className="founder-promo__steps">
+                              <div className="founder-promo__step founder-promo__step--now">
+                                <span className="founder-promo__step-tag">Now</span>
+                                <span className="founder-promo__step-pct">{pct}% OFF</span>
+                                {stepPricing ? (
+                                  <span className="founder-promo__step-price">{stepPricing.now} / month</span>
+                                ) : null}
+                              </div>
+                              {next ? (
+                                <div className="founder-promo__step founder-promo__step--next">
+                                  <span className="founder-promo__step-tag">Next</span>
+                                  <span className="founder-promo__step-pct">
+                                    {next.percentOff > 0 ? `${next.percentOff}% OFF` : "Full price"}
+                                  </span>
+                                  {stepPricing ? (
+                                    <span className="founder-promo__step-price">{stepPricing.next} / month</span>
+                                  ) : null}
+                                </div>
+                              ) : null}
                             </div>
-                          ) : null}
-                          <p className="founder-promo__lock">Your price is locked in for good.</p>
+                            <p className="founder-promo__lock">Your price is locked in for good.</p>
+                          </div>
                         </div>
                       </section>
                     );
