@@ -204,6 +204,18 @@ describe("ActivityFeed", () => {
     expect(markup).toContain("Crushed 2 tools");
   });
 
+  it("renders smart_crush tags (current proxy) like the legacy tool_crush tags", () => {
+    const feed = feedWith({
+      transformation: transformation({
+        transformsApplied: ["smart_crush:7", "smart_crush:2:Bash,Grep"]
+      })
+    });
+    const markup = renderToStaticMarkup(<ActivityFeed feed={feed} error={null} />);
+    expect(markup).toContain("Crushed 7 tools");
+    expect(markup).toContain("Crushed 2 tools");
+    expect(markup).toContain("Bash,Grep");
+  });
+
   it("makes the row expandable when request/response messages are logged, and skips it when null", () => {
     // Static markup keeps the detail pane collapsed, so we can't assert on
     // the <pre> contents here. But the row gains `activity-feed__item--clickable`

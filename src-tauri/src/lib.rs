@@ -1706,6 +1706,7 @@ fn get_headroom_pricing_status(
     // gate's bypass flag would stay set and Python would stay down until
     // the next app launch.
     state.apply_pricing_gate_status(&status);
+    state.apply_codex_pricing_gate_status(status.codex.as_ref());
     Ok(status)
 }
 
@@ -1737,6 +1738,7 @@ fn verify_headroom_auth_code(
     // expiry doesn't have to wait for the next 60s pricing poll for
     // Python to come back online.
     state.apply_pricing_gate_status(&status);
+    state.apply_codex_pricing_gate_status(status.codex.as_ref());
     analytics::track_event(
         &app,
         "auth_verified",
@@ -2733,7 +2735,9 @@ pub fn run() {
             proxy_intercept::spawn(
                 std::sync::Arc::clone(&state.claude_bearer_token),
                 std::sync::Arc::clone(&state.codex_rate_limits),
+                std::sync::Arc::clone(&state.codex_plan_tier),
                 std::sync::Arc::clone(&state.proxy_bypass),
+                std::sync::Arc::clone(&state.codex_bypass),
                 fresh_bearer_tx,
             );
             if state.should_present_on_launch() && !launched_from_autostart {
@@ -2786,6 +2790,7 @@ pub fn run() {
                                 match pricing::get_pricing_status(&state) {
                                     Ok(status) => {
                                         state.apply_pricing_gate_status(&status);
+                                        state.apply_codex_pricing_gate_status(status.codex.as_ref());
                                         let _ = app_handle.emit("pricing-refreshed", &status);
                                     }
                                     Err(err) => {
@@ -2871,6 +2876,7 @@ pub fn run() {
             submit_contact_request,
             hide_launcher_animated,
             complete_setup_wizard,
+            accept_terms,
             get_autostart_enabled,
             set_autostart_enabled,
             uninstall_and_quit,
@@ -3852,6 +3858,43 @@ fn spawn_proxy_watchdog(app: AppHandle) {
                     }
                     continue;
                 }
+                // Cold-boot rescue. "refused" means the backend port never
+                // bound; combined with a tracked child that is still alive,
+                // that is the signature of a process mid-cold-boot — uvicorn's
+                // lifespan is synchronously pulling multi-GB model weights from
+                // HuggingFace (kompress-base, ModernBERT, MiniLM) before it
+                // binds. A watchdog-initiated restart spawns via
+                // `start_headroom_background`, which returns before /readyz is
+                // up and clears `starting` immediately, so the 15s give-up
+                // clock ticks against a download that legitimately needs
+                // minutes (see Sentry `proxy_unreachable_post_boot`). Hand the
+                // child to the same boot-validation loop the launch path uses:
+                // it waits out HF-cache growth / CPU / log activity under a
+                // 600s ceiling, so a real download survives while a genuine
+                // pre-bind hang still stalls out (~90s) and falls through to
+                // the auto-pause below. Scoped to "refused" on purpose: a bound
+                // "timeout" is the deadlock the hung-kill path already owns, and
+                // a bound child would let /livez answer green and thrash this
+                // loop forever.
+                if backend_readyz_outcome == "refused" && state.tracked_child_alive() {
+                    log::info!(
+                        "watchdog: backend refused after {consecutive_failures} failures but tracked child is alive; waiting out cold boot before auto-pausing"
+                    );
+                    let outcome = state.wait_for_boot_validation(|_elapsed, _active| {});
+                    if outcome.is_ok() {
+                        log::info!(
+                            "watchdog: cold boot completed (backend reachable); resetting failure counter"
+                        );
+                        consecutive_failures = 0;
+                        hung_kill_attempted = false;
+                        WATCHDOG_DOWN_CAPTURED.store(false, Ordering::Release);
+                        continue;
+                    }
+                    log::info!(
+                        "watchdog: cold-boot wait ended without reachability ({}); proceeding to auto-pause",
+                        outcome.label()
+                    );
+                }
                 // info! not warn!/error!: this is the documented recovery
                 // path (flip bypass, pause runtime, notify user). FileLogger
                 // forwards both warn! and error! to Sentry as capture_message,
@@ -4209,6 +4252,22 @@ fn onboarding_complete(app: &AppHandle) -> bool {
 #[tauri::command]
 fn complete_setup_wizard(state: tauri::State<'_, AppState>) {
     state.mark_setup_wizard_complete();
+}
+
+#[tauri::command]
+fn accept_terms(app: AppHandle, version: u32) {
+    // Local acceptance is the authoritative gate (works offline / pre-signin).
+    {
+        let state: tauri::State<'_, AppState> = app.state();
+        state.mark_terms_accepted(version);
+    }
+    // Best-effort: tell the server now. `fetch_grace_start` is blocking, so
+    // run it off the IPC thread; failures are swallowed and the value rides
+    // along on the next identity push regardless.
+    std::thread::spawn(move || {
+        let state: tauri::State<'_, AppState> = app.state();
+        crate::pricing::push_terms_acceptance(&state, version);
+    });
 }
 
 fn show_main_window(app: &AppHandle, anchor_rect: Option<Rect>) -> tauri::Result<()> {

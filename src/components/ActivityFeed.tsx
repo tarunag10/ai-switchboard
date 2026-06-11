@@ -574,6 +574,27 @@ function formatTransform(raw: string): { label: string; title: string; target?: 
     };
   }
 
+  // smart_crush:<n>[:<name1,name2,...>] — the current proxy tag (SmartCrusher
+  // replaced the retired ToolCrusher). Same shape/labels as tool_crush above,
+  // which is kept for older activity records.
+  const smartCrushWithNames = /^smart_crush:(\d+):(.+)$/.exec(raw);
+  if (smartCrushWithNames) {
+    const n = Number(smartCrushWithNames[1]);
+    return {
+      label: `Crushed ${n} tool${n === 1 ? "" : "s"}`,
+      title: "tool outputs compacted",
+      target: smartCrushWithNames[2]
+    };
+  }
+  const smartCrush = /^smart_crush:(\d+)$/.exec(raw);
+  if (smartCrush) {
+    const n = Number(smartCrush[1]);
+    return {
+      label: `Crushed ${n} tool${n === 1 ? "" : "s"}`,
+      title: "tool outputs compacted"
+    };
+  }
+
   const breakpoints = /^inserted_(\d+)_cache_breakpoints$/.exec(raw);
   if (breakpoints) {
     const n = Number(breakpoints[1]);

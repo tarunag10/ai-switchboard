@@ -156,6 +156,12 @@ pub struct DashboardState {
     pub clients: Vec<ClientStatus>,
     pub recent_usage: Vec<UsageEvent>,
     pub insights: Vec<DailyInsight>,
+    /// Terms-of-Service version the app currently requires the user to accept.
+    pub required_terms_version: u32,
+    /// Highest terms version this user has already accepted (0 = none).
+    pub accepted_terms_version: u32,
+    /// Canonical Terms-of-Service URL the acceptance gate links to.
+    pub terms_url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -629,6 +635,55 @@ pub enum BillingPeriod {
 pub enum PricingGateReason {
     SignInRequired,
     WeeklyUsageLimitReached,
+    CodexWeeklyUsageLimitReached,
+}
+
+/// The OpenAI/ChatGPT plan behind a Codex session, decoded best-effort from the
+/// `chatgpt_plan_type` claim in the Codex OAuth bearer JWT
+/// (`proxy_intercept::decode_codex_plan_tier`). Drives the Codex upgrade nudge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CodexPlanTier {
+    Free,
+    Plus,
+    Pro,
+    Team,
+    Business,
+    Enterprise,
+    Edu,
+    Unknown,
+}
+
+impl CodexPlanTier {
+    /// Parse the raw `chatgpt_plan_type` claim value.
+    pub fn from_claim(raw: &str) -> Self {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "free" => CodexPlanTier::Free,
+            "plus" => CodexPlanTier::Plus,
+            "pro" => CodexPlanTier::Pro,
+            "team" => CodexPlanTier::Team,
+            "business" => CodexPlanTier::Business,
+            "enterprise" => CodexPlanTier::Enterprise,
+            "edu" => CodexPlanTier::Edu,
+            _ => CodexPlanTier::Unknown,
+        }
+    }
+}
+
+/// Price-parity map from an OpenAI plan to the recommended Headroom upgrade
+/// tier: Plus -> Pro ($20), Team/Business/Enterprise/Edu -> Max x5, Pro -> Max
+/// x20 ($200). Free/Unknown carry no confident recommendation (caller defaults
+/// to Pro as the entry upgrade path).
+pub fn headroom_tier_for_codex_plan(plan: &CodexPlanTier) -> Option<HeadroomSubscriptionTier> {
+    match plan {
+        CodexPlanTier::Plus => Some(HeadroomSubscriptionTier::Pro),
+        CodexPlanTier::Team
+        | CodexPlanTier::Business
+        | CodexPlanTier::Enterprise
+        | CodexPlanTier::Edu => Some(HeadroomSubscriptionTier::Max5x),
+        CodexPlanTier::Pro => Some(HeadroomSubscriptionTier::Max20x),
+        CodexPlanTier::Free | CodexPlanTier::Unknown => None,
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -681,8 +736,20 @@ pub struct CodexUsage {
     pub secondary: Option<CodexUsageWindow>,
     pub credits_balance: Option<String>,
     pub credits_unlimited: bool,
-    /// True once primary usage crosses the soft nudge threshold.
+    /// True while Codex optimization is permitted. Flips false once weekly
+    /// (secondary-window) usage reaches the disable threshold on a free
+    /// Headroom account — the Codex-only parallel to the Claude gate.
+    pub optimization_allowed: bool,
+    /// True once weekly usage crosses the soft nudge threshold.
     pub should_nudge: bool,
+    /// Number of nudge thresholds crossed (0..=3), mirroring the Claude gate.
+    pub nudge_level: u8,
+    /// Set when the gate pauses Codex optimization.
+    pub gate_reason: Option<PricingGateReason>,
+    /// Headroom tier to recommend, derived from the detected OpenAI plan.
+    pub recommended_subscription_tier: Option<HeadroomSubscriptionTier>,
+    /// The weekly (secondary-window) utilization the gate was evaluated against.
+    pub weekly_used_percent: Option<f64>,
     /// Display copy for the codex usage state (active / nudging / near-limit).
     pub gate_message: String,
 }

@@ -7,10 +7,11 @@ use serde::{Deserialize, Serialize};
 use crate::device;
 use crate::keychain;
 use crate::models::{
-    headroom_tier_for_claude_plan, BillingPeriod, ClaudeAccountProfile, ClaudeAuthMethod,
-    ClaudePlanTier, ClaudeUsage, ClaudeUsageWindow, CodexRateLimitSnapshot, CodexUsage,
-    CodexUsageWindow, HeadroomAccountProfile, HeadroomAuthCodeRequest, HeadroomPricingStatus,
-    HeadroomSubscriptionTier, PricingGateReason, TierMismatch,
+    headroom_tier_for_claude_plan, headroom_tier_for_codex_plan, BillingPeriod,
+    ClaudeAccountProfile, ClaudeAuthMethod, ClaudePlanTier, ClaudeUsage, ClaudeUsageWindow,
+    CodexPlanTier, CodexRateLimitSnapshot, CodexUsage, HeadroomAccountProfile,
+    HeadroomAuthCodeRequest, HeadroomPricingStatus, HeadroomSubscriptionTier, PricingGateReason,
+    TierMismatch,
 };
 use crate::state::AppState;
 use crate::storage::{app_data_dir, config_file};
@@ -58,6 +59,11 @@ struct IdentityPayload {
     claude_rate_limit_tier: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     claude_billing_type: Option<String>,
+    /// Highest Terms-of-Service version the user has accepted locally. Rides
+    /// along on every grace/start so the server's device-keyed trial record
+    /// captures acceptance. `None` (omitted) when nothing accepted yet.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    accepted_terms_version: Option<u32>,
 }
 
 /// Reqwest errors caused by the user's environment (offline, captive portal,
@@ -81,7 +87,10 @@ fn plan_tier_header_value(tier: &ClaudePlanTier) -> &'static str {
 impl IdentityPayload {
     fn for_state(state: &AppState) -> Self {
         let claude = state.cached_claude_profile();
-        Self::build(Some(&claude))
+        let mut payload = Self::build(Some(&claude));
+        let accepted = state.accepted_terms_version();
+        payload.accepted_terms_version = (accepted > 0).then_some(accepted);
+        payload
     }
 
     fn device_only() -> Self {
@@ -99,6 +108,7 @@ impl IdentityPayload {
             claude_organization_type: claude.and_then(|p| p.organization_type.clone()),
             claude_rate_limit_tier: claude.and_then(|p| p.rate_limit_tier.clone()),
             claude_billing_type: claude.and_then(|p| p.billing_type.clone()),
+            accepted_terms_version: None,
         }
     }
 
@@ -129,8 +139,22 @@ impl IdentityPayload {
         if let Some(value) = self.claude_billing_type.as_deref() {
             builder = builder.header("X-Headroom-Claude-Billing-Type", value);
         }
+        if let Some(version) = self.accepted_terms_version {
+            builder = builder.header("X-Headroom-Terms-Version", version.to_string());
+        }
         builder
     }
+}
+
+/// Best-effort: record the user's accepted terms version on the server's
+/// device-keyed trial identity. Called right after local acceptance so the
+/// server learns immediately; the value also rides along on every subsequent
+/// `grace/start` via `IdentityPayload::for_state`. Silent on failure — offline
+/// is fine, the next identity push will carry it.
+pub fn push_terms_acceptance(state: &AppState, version: u32) {
+    let mut identity = IdentityPayload::for_state(state);
+    identity.accepted_terms_version = Some(version);
+    let _ = fetch_grace_start(&identity);
 }
 
 /// Stable comparison key for an `IdentityPayload`'s Claude fields. Used to
@@ -422,82 +446,152 @@ pub fn get_pricing_status(state: &AppState) -> Result<HeadroomPricingStatus, Str
         last_known_good_plan_tier,
         tier_mismatch,
     );
-    status.codex = fetch_codex_usage(state);
+    status.codex = fetch_codex_usage(state, status.account.as_ref());
     Ok(status)
 }
 
-/// Primary-window utilization (%) at which the Codex usage gauge starts nudging.
-const CODEX_NUDGE_THRESHOLD_PCT: f64 = 80.0;
-/// Primary-window utilization (%) treated as "near limit" in the gauge copy.
-const CODEX_NEAR_LIMIT_THRESHOLD_PCT: f64 = 95.0;
+/// Weekly (secondary-window) utilization (%) at which the Codex gate pauses
+/// optimization on a free Headroom account. Mirrors the Claude paid-plan
+/// disable threshold so both gates stay in lockstep.
+const CODEX_WEEKLY_DISABLE_THRESHOLD_PCT: f64 = 50.0;
 
-/// Build the Codex subscription usage from the latest rate-limit snapshot the
-/// intercept proxy captured off live Codex traffic (`AppState::codex_rate_limits`,
+/// Build the Codex subscription usage + gate from the latest rate-limit snapshot
+/// the intercept proxy captured off live Codex traffic (`AppState::codex_rate_limits`,
 /// populated by `proxy_intercept::parse_codex_rate_limit_headers`). Returns
 /// `None` when the Codex connector is disabled or no snapshot has been captured
 /// yet (no Codex response has flowed through the proxy).
-fn fetch_codex_usage(state: &AppState) -> Option<CodexUsage> {
+///
+/// `account` is the Headroom account state: the gate only nudges/pauses for free
+/// accounts (no active subscription, no active trial), exactly like the Claude
+/// paid-plan gate. The plan tier behind the recommendation comes from the Codex
+/// OAuth JWT (`AppState::codex_plan_tier`).
+fn fetch_codex_usage(
+    state: &AppState,
+    account: Option<&HeadroomAccountProfile>,
+) -> Option<CodexUsage> {
     if !crate::client_adapters::is_codex_enabled() {
         return None;
     }
     let snapshot = state.codex_rate_limits.lock().clone()?;
-    codex_usage_from_snapshot(snapshot)
+    let plan_tier = state.codex_plan_tier();
+    let gate_enabled = account
+        .map(|a| !a.subscription_active && !a.trial_active)
+        .unwrap_or(false);
+    Some(codex_usage_from_snapshot(snapshot, plan_tier, gate_enabled))
 }
 
-/// Derive the display-facing `CodexUsage` (nudge state + gate copy) from a
-/// captured snapshot. Returns `None` when the snapshot carries no usable signal.
-fn codex_usage_from_snapshot(snapshot: CodexRateLimitSnapshot) -> Option<CodexUsage> {
-    if snapshot.primary.is_none()
-        && snapshot.secondary.is_none()
-        && snapshot.credits_balance.is_none()
-    {
-        return None;
-    }
+/// Derive the display-facing `CodexUsage` (gate state + copy) from a captured
+/// snapshot. When `gate_enabled` is false (active subscription/trial, or no
+/// account), optimization stays allowed and no nudge fires — usage is shown for
+/// reference only.
+fn codex_usage_from_snapshot(
+    snapshot: CodexRateLimitSnapshot,
+    plan_tier: CodexPlanTier,
+    gate_enabled: bool,
+) -> CodexUsage {
+    let recommended_subscription_tier =
+        Some(headroom_tier_for_codex_plan(&plan_tier).unwrap_or(HeadroomSubscriptionTier::Pro));
+    let weekly_used_percent = snapshot.secondary.as_ref().map(|w| w.used_percent);
 
-    let (should_nudge, gate_message) = codex_gate(snapshot.primary.as_ref());
+    let gate = codex_plan_gate(weekly_used_percent, gate_enabled);
 
-    Some(CodexUsage {
+    CodexUsage {
         limit_name: snapshot.limit_name,
         primary: snapshot.primary,
         secondary: snapshot.secondary,
         credits_balance: snapshot.credits_balance,
         credits_unlimited: snapshot.credits_unlimited,
-        should_nudge,
-        gate_message,
-    })
+        optimization_allowed: gate.optimization_allowed,
+        should_nudge: gate.should_nudge,
+        nudge_level: gate.nudge_level,
+        gate_reason: gate.gate_reason,
+        recommended_subscription_tier,
+        weekly_used_percent,
+        gate_message: gate.gate_message,
+    }
 }
 
-/// Codex usage gate: a display-only nudge derived from primary-window
-/// utilization. Codex billing is OpenAI's, separate from Headroom's account
-/// gate, so this never flips the global (Claude-driven) `optimization_allowed`
-/// — it only surfaces a parallel nudge in the Codex gauge.
-fn codex_gate(primary: Option<&CodexUsageWindow>) -> (bool, String) {
-    let Some(window) = primary else {
-        return (
-            false,
-            "Send a Codex prompt through Headroom to sync your current usage window.".into(),
-        );
+struct CodexGate {
+    optimization_allowed: bool,
+    should_nudge: bool,
+    nudge_level: u8,
+    gate_reason: Option<PricingGateReason>,
+    gate_message: String,
+}
+
+/// Codex weekly-usage gate, the Codex-only parallel to `paid_plan_gate`. Uses
+/// the same nudge thresholds and a 50% disable threshold against the weekly
+/// (secondary) window. Enforcement is scoped to Codex traffic via
+/// `AppState::codex_bypass`, so it never pauses Claude optimization.
+fn codex_plan_gate(weekly_used_percent: Option<f64>, gate_enabled: bool) -> CodexGate {
+    let disable = CODEX_WEEKLY_DISABLE_THRESHOLD_PCT;
+    let nudges = NUDGE_THRESHOLDS_PERCENT;
+
+    let Some(weekly_usage) = weekly_used_percent else {
+        return CodexGate {
+            optimization_allowed: true,
+            should_nudge: false,
+            nudge_level: 0,
+            gate_reason: None,
+            gate_message:
+                "Send a Codex prompt through Headroom to sync your current weekly usage window."
+                    .into(),
+        };
     };
-    let used = window.used_percent;
-    if used >= CODEX_NEAR_LIMIT_THRESHOLD_PCT {
-        (
-            true,
-            format!(
-                "You're at {used:.0}% of your Codex usage window. You're close to the limit — Headroom keeps your prompts lean to stretch it further."
+
+    if !gate_enabled {
+        return CodexGate {
+            optimization_allowed: true,
+            should_nudge: false,
+            nudge_level: 0,
+            gate_reason: None,
+            gate_message: format!("Codex weekly usage is at {weekly_usage:.0}% of the current window."),
+        };
+    }
+
+    if weekly_usage >= disable {
+        return CodexGate {
+            optimization_allowed: false,
+            should_nudge: false,
+            nudge_level: 0,
+            gate_reason: Some(PricingGateReason::CodexWeeklyUsageLimitReached),
+            gate_message: format!(
+                "Headroom is paused because you've reached {weekly_usage:.1}% of weekly Codex usage. Upgrade to raise your limit."
             ),
-        )
-    } else if used >= CODEX_NUDGE_THRESHOLD_PCT {
-        (
-            true,
-            format!(
-                "You're at {used:.0}% of your Codex usage window. Headroom is trimming context to keep you under the limit."
-            ),
-        )
+        };
+    }
+
+    let nudge_level = nudges.iter().filter(|t| weekly_usage >= **t).count() as u8;
+    let should_nudge = nudge_level > 0;
+    let gate_message = if should_nudge {
+        format_codex_nudge_message(weekly_usage, disable, nudge_level)
     } else {
-        (
-            false,
-            format!("Codex usage is at {used:.0}% of the current window."),
+        format!(
+            "Headroom is active. It will start nudging at {:.1}% and pause at {:.1}% of weekly Codex usage.",
+            nudges[0], disable
         )
+    };
+
+    CodexGate {
+        optimization_allowed: true,
+        should_nudge,
+        nudge_level,
+        gate_reason: None,
+        gate_message,
+    }
+}
+
+fn format_codex_nudge_message(weekly_usage: f64, disable: f64, level: u8) -> String {
+    match level {
+        1 => format!(
+            "You're at {weekly_usage:.1}% of weekly Codex usage. Upgrade Headroom to keep optimization through {disable:.1}%."
+        ),
+        2 => format!(
+            "You're at {weekly_usage:.1}% of weekly Codex usage. Headroom pauses at {disable:.1}% on the free plan — upgrade now to keep going."
+        ),
+        _ => format!(
+            "You're at {weekly_usage:.1}% of weekly Codex usage. Headroom will pause at {disable:.1}% — upgrade now to avoid losing optimization."
+        ),
     }
 }
 
@@ -1280,34 +1374,47 @@ pub fn detect_claude_profile(state: &AppState) -> ClaudeAccountProfile {
     state.cached_claude_profile()
 }
 
-pub fn detect_claude_profile_uncached(state: &AppState) -> ClaudeAccountProfile {
+/// Result of a live profile detection. `error_is_transient` is true when the
+/// fetch failed for a reason that clears itself once a fresh bearer flows
+/// through the proxy (stale-token 401/403, 5xx, or a network blip), signalling
+/// the caller to keep serving the last known-good profile rather than flashing
+/// a banner.
+pub struct ProfileDetection {
+    pub profile: ClaudeAccountProfile,
+    pub error_is_transient: bool,
+}
+
+pub fn detect_claude_profile_uncached(state: &AppState) -> ProfileDetection {
     let Some(token) = state.current_bearer_token() else {
         // No token yet — proxy hasn't seen a request through. Return a minimal
         // profile so the app can show "send a message first" messaging.
-        return ClaudeAccountProfile {
-            auth_method: ClaudeAuthMethod::Unknown,
-            email: None,
-            display_name: None,
-            account_uuid: None,
-            organization_uuid: None,
-            billing_type: None,
-            account_created_at: None,
-            subscription_created_at: None,
-            has_extra_usage_enabled: false,
-            plan_tier: ClaudePlanTier::Unknown,
-            plan_detection_source: None,
-            organization_type: None,
-            rate_limit_tier: None,
-            weekly_utilization_pct: None,
-            five_hour_utilization_pct: None,
-            extra_usage_monthly_limit: None,
-            profile_fetch_error: None,
+        return ProfileDetection {
+            profile: ClaudeAccountProfile {
+                auth_method: ClaudeAuthMethod::Unknown,
+                email: None,
+                display_name: None,
+                account_uuid: None,
+                organization_uuid: None,
+                billing_type: None,
+                account_created_at: None,
+                subscription_created_at: None,
+                has_extra_usage_enabled: false,
+                plan_tier: ClaudePlanTier::Unknown,
+                plan_detection_source: None,
+                organization_type: None,
+                rate_limit_tier: None,
+                weekly_utilization_pct: None,
+                five_hour_utilization_pct: None,
+                extra_usage_monthly_limit: None,
+                profile_fetch_error: None,
+            },
+            error_is_transient: false,
         };
     };
 
-    let (profile, profile_fetch_error) = match fetch_oauth_profile(&token) {
-        Ok(p) => (Some(p), None),
-        Err(msg) => (None, Some(msg)),
+    let (profile, profile_fetch_error, error_is_transient) = match fetch_oauth_profile(&token) {
+        Ok(p) => (Some(p), None, false),
+        Err(err) => (None, Some(err.message), err.transient),
     };
     let usage = fetch_claude_usage(state).ok();
 
@@ -1323,7 +1430,7 @@ pub fn detect_claude_profile_uncached(state: &AppState) -> ClaudeAccountProfile 
     // Unknown internally.
     state.record_known_good_plan_tier(&plan_tier);
 
-    ClaudeAccountProfile {
+    let detected = ClaudeAccountProfile {
         auth_method: ClaudeAuthMethod::ClaudeAiOauth,
         email: profile.as_ref().and_then(|p| p.account.email.clone()),
         display_name: profile
@@ -1364,40 +1471,69 @@ pub fn detect_claude_profile_uncached(state: &AppState) -> ClaudeAccountProfile 
             .as_ref()
             .and_then(|u| u.extra_usage.as_ref().and_then(|e| e.monthly_limit)),
         profile_fetch_error,
+    };
+
+    ProfileDetection {
+        profile: detected,
+        error_is_transient,
     }
 }
 
-fn fetch_oauth_profile(token: &str) -> Result<ClaudeOauthProfile, String> {
-    let response = http_client()?
+/// Failure from the OAuth profile fetch. `transient` marks the conditions
+/// that resolve on their own once a fresh bearer flows through the proxy
+/// (network blip, 5xx, or a 401/403 from a stale captured token during the
+/// token-rotation gap). Callers suppress the banner for transient errors and
+/// keep serving the last known-good profile instead.
+struct ProfileFetchError {
+    message: String,
+    transient: bool,
+}
+
+fn fetch_oauth_profile(token: &str) -> Result<ClaudeOauthProfile, ProfileFetchError> {
+    let response = http_client()
+        .map_err(|message| ProfileFetchError {
+            message,
+            transient: true,
+        })?
         .get("https://api.anthropic.com/api/oauth/profile")
         .header("Authorization", format!("Bearer {token}"))
         .header("anthropic-beta", "oauth-2025-04-20")
         .header("Content-Type", "application/json")
         .send()
-        .map_err(|_| {
-            "Couldn't reach Anthropic to refresh your Claude plan. Check your internet connection \
-             and we'll try again shortly."
-                .to_string()
+        .map_err(|_| ProfileFetchError {
+            message: "Couldn't reach Anthropic to refresh your Claude plan. Check your internet \
+                      connection and we'll try again shortly."
+                .to_string(),
+            transient: true,
         })?;
 
     if !response.status().is_success() {
         let status = response.status().as_u16();
-        let user_msg = if status >= 500 {
-            format!(
-                "Anthropic is having trouble serving your Claude plan right now (HTTP {status}). \
-                 We'll keep trying."
+        let (message, transient) = if status >= 500 {
+            (
+                format!(
+                    "Anthropic is having trouble serving your Claude plan right now (HTTP \
+                     {status}). We'll keep trying."
+                ),
+                true,
             )
         } else if status == 401 || status == 403 {
-            "Anthropic rejected our request for your Claude plan. Try signing out of Claude Code \
-             and back in."
-                .to_string()
+            (
+                "Anthropic rejected our request for your Claude plan. Try signing out of Claude \
+                 Code and back in."
+                    .to_string(),
+                true,
+            )
         } else {
-            format!(
-                "Anthropic returned an unexpected response for your Claude plan (HTTP {status}). \
-                 We'll try again shortly."
+            (
+                format!(
+                    "Anthropic returned an unexpected response for your Claude plan (HTTP \
+                     {status}). We'll try again shortly."
+                ),
+                false,
             )
         };
-        return Err(user_msg);
+        return Err(ProfileFetchError { message, transient });
     }
 
     let body: serde_json::Value = response.json().map_err(|err| {
@@ -1405,15 +1541,19 @@ fn fetch_oauth_profile(token: &str) -> Result<ClaudeOauthProfile, String> {
             &format!("Could not parse Claude OAuth profile: {err}"),
             sentry::Level::Error,
         );
-        "We couldn't read the response from Anthropic for your Claude plan. Please report this if \
-         it keeps happening."
-            .to_string()
+        ProfileFetchError {
+            message: "We couldn't read the response from Anthropic for your Claude plan. Please \
+                      report this if it keeps happening."
+                .to_string(),
+            transient: false,
+        }
     })?;
 
-    parse_oauth_profile_value(&body).ok_or_else(|| {
-        "Anthropic's response didn't include your Claude account details. Please report this if \
-         it keeps happening."
-            .to_string()
+    parse_oauth_profile_value(&body).ok_or_else(|| ProfileFetchError {
+        message: "Anthropic's response didn't include your Claude account details. Please report \
+                  this if it keeps happening."
+            .to_string(),
+        transient: false,
     })
 }
 
@@ -2128,6 +2268,7 @@ mod tests {
             claude_organization_type: Some("claude_max".into()),
             claude_rate_limit_tier: Some("default_claude_max_x20".into()),
             claude_billing_type: Some("personal".into()),
+            accepted_terms_version: Some(1),
         };
         let fp = IdentityFingerprint::from_payload(&payload);
 
@@ -3078,76 +3219,128 @@ mod tests {
         assert!(usage.five_hour.is_none());
     }
 
-    // ── codex usage from captured snapshot ──────────────────────────────────
-    #[test]
-    fn codex_usage_from_snapshot_builds_usage() {
-        let snapshot = super::CodexRateLimitSnapshot {
+    // ── codex usage + gate from captured snapshot ───────────────────────────
+    fn codex_snapshot_with_weekly(secondary_used: f64) -> super::CodexRateLimitSnapshot {
+        super::CodexRateLimitSnapshot {
             limit_name: Some("gpt-5.2-codex".into()),
-            primary: Some(super::CodexUsageWindow {
+            primary: Some(crate::models::CodexUsageWindow {
                 used_percent: 42.5,
                 window_label: Some("5h".into()),
                 window_minutes: Some(300),
                 seconds_until_reset: Some(7200),
             }),
-            secondary: Some(super::CodexUsageWindow {
-                used_percent: 12.0,
+            secondary: Some(crate::models::CodexUsageWindow {
+                used_percent: secondary_used,
                 window_label: Some("7d".into()),
                 window_minutes: Some(10080),
                 seconds_until_reset: Some(86400),
             }),
             credits_balance: Some("$5.00".into()),
             credits_unlimited: false,
-        };
-        let usage = super::codex_usage_from_snapshot(snapshot).expect("codex usage");
+        }
+    }
+
+    #[test]
+    fn codex_usage_from_snapshot_builds_usage() {
+        let snapshot = codex_snapshot_with_weekly(12.0);
+        let usage = super::codex_usage_from_snapshot(
+            snapshot,
+            crate::models::CodexPlanTier::Plus,
+            true,
+        );
         assert_eq!(usage.limit_name.as_deref(), Some("gpt-5.2-codex"));
         let primary = usage.primary.expect("primary window");
         assert_eq!(primary.used_percent, 42.5);
-        assert_eq!(primary.window_label.as_deref(), Some("5h"));
-        assert_eq!(primary.seconds_until_reset, Some(7200));
         assert_eq!(usage.credits_balance.as_deref(), Some("$5.00"));
-        assert!(!usage.credits_unlimited);
-        assert!(!usage.should_nudge, "42% is below nudge threshold");
+        assert!(usage.optimization_allowed);
+        assert!(!usage.should_nudge, "12% weekly is below the first nudge threshold");
+        assert_eq!(usage.weekly_used_percent, Some(12.0));
+        assert_eq!(
+            usage.recommended_subscription_tier,
+            Some(crate::models::HeadroomSubscriptionTier::Pro),
+            "Plus maps to Headroom Pro"
+        );
     }
 
     #[test]
-    fn codex_usage_from_snapshot_no_signal_returns_none() {
-        // Snapshot present but no windows and no credits balance.
-        let snapshot = super::CodexRateLimitSnapshot {
-            limit_name: Some("codex".into()),
-            credits_unlimited: false,
-            ..Default::default()
-        };
-        assert!(super::codex_usage_from_snapshot(snapshot).is_none());
+    fn codex_gate_nudges_then_pauses_for_free_account() {
+        // Below first threshold: no nudge, optimization allowed.
+        let low = super::codex_usage_from_snapshot(
+            codex_snapshot_with_weekly(20.0),
+            crate::models::CodexPlanTier::Pro,
+            true,
+        );
+        assert!(low.optimization_allowed);
+        assert_eq!(low.nudge_level, 0);
+
+        // Crossing thresholds escalates the nudge level.
+        let mid = super::codex_usage_from_snapshot(
+            codex_snapshot_with_weekly(36.0),
+            crate::models::CodexPlanTier::Pro,
+            true,
+        );
+        assert!(mid.optimization_allowed);
+        assert_eq!(mid.nudge_level, 2, "36% crosses the 25% and 35% thresholds");
+        assert!(mid.should_nudge);
+
+        // At/over the disable threshold: optimization paused with the Codex reason.
+        let over = super::codex_usage_from_snapshot(
+            codex_snapshot_with_weekly(50.0),
+            crate::models::CodexPlanTier::Pro,
+            true,
+        );
+        assert!(!over.optimization_allowed);
+        assert!(matches!(
+            over.gate_reason,
+            Some(crate::models::PricingGateReason::CodexWeeklyUsageLimitReached)
+        ));
+        assert_eq!(
+            over.recommended_subscription_tier,
+            Some(crate::models::HeadroomSubscriptionTier::Max20x),
+            "ChatGPT Pro maps to Headroom Max x20"
+        );
     }
 
     #[test]
-    fn codex_gate_nudges_above_threshold() {
-        let near = super::CodexUsageWindow {
-            used_percent: 96.0,
-            window_label: Some("5h".into()),
-            window_minutes: Some(300),
-            seconds_until_reset: Some(60),
-        };
-        let (nudge, msg) = super::codex_gate(Some(&near));
-        assert!(nudge);
-        assert!(msg.contains("96%"));
+    fn codex_gate_inactive_when_subscribed_or_trialing() {
+        // gate_enabled = false (active subscription / trial) → never paused or
+        // nudged, even past the disable threshold.
+        let usage = super::codex_usage_from_snapshot(
+            codex_snapshot_with_weekly(80.0),
+            crate::models::CodexPlanTier::Plus,
+            false,
+        );
+        assert!(usage.optimization_allowed);
+        assert!(!usage.should_nudge);
+        assert!(usage.gate_reason.is_none());
+    }
 
-        let mid = super::CodexUsageWindow {
-            used_percent: 85.0,
-            ..near.clone()
-        };
-        let (nudge, _) = super::codex_gate(Some(&mid));
-        assert!(nudge);
-
-        let low = super::CodexUsageWindow {
-            used_percent: 20.0,
-            ..near
-        };
-        let (nudge, _) = super::codex_gate(Some(&low));
-        assert!(!nudge);
-
-        let (nudge, _) = super::codex_gate(None);
-        assert!(!nudge);
+    #[test]
+    fn codex_plan_mapping_is_price_parity() {
+        use crate::models::{headroom_tier_for_codex_plan, CodexPlanTier, HeadroomSubscriptionTier};
+        assert_eq!(
+            headroom_tier_for_codex_plan(&CodexPlanTier::Plus),
+            Some(HeadroomSubscriptionTier::Pro)
+        );
+        assert_eq!(
+            headroom_tier_for_codex_plan(&CodexPlanTier::Business),
+            Some(HeadroomSubscriptionTier::Max5x)
+        );
+        assert_eq!(
+            headroom_tier_for_codex_plan(&CodexPlanTier::Pro),
+            Some(HeadroomSubscriptionTier::Max20x)
+        );
+        assert_eq!(headroom_tier_for_codex_plan(&CodexPlanTier::Free), None);
+        // Free/Unknown fall back to Pro as the entry upgrade path in the usage.
+        let usage = super::codex_usage_from_snapshot(
+            codex_snapshot_with_weekly(10.0),
+            CodexPlanTier::Free,
+            true,
+        );
+        assert_eq!(
+            usage.recommended_subscription_tier,
+            Some(HeadroomSubscriptionTier::Pro)
+        );
     }
 
     // ── headroom-web auth contract tests ────────────────────────────────────

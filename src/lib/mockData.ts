@@ -39,7 +39,12 @@ export const mockDashboard: DashboardState = {
     }
   ],
   recentUsage: [],
-  insights: []
+  insights: [],
+  // Mock represents an already-accepted user so the terms gate never flashes
+  // over the initial mock state before the real dashboard loads.
+  requiredTermsVersion: 1,
+  acceptedTermsVersion: 1,
+  termsUrl: "https://extraheadroom.com/terms"
 };
 
 export const researchCandidates: ResearchCandidate[] = [

@@ -114,6 +114,7 @@ import {
   getInitialLauncherStage,
   getLauncherAutoConfigureDecision,
   isValidEmailAddress,
+  needsTermsAcceptance,
   nextAutoConfigureStep,
   nextAutoConfigureStepAfterApply,
   type LauncherStage
@@ -138,6 +139,7 @@ import { trackAnalyticsEvent, trackInstallMilestoneOnce } from "./lib/analytics"
 import { ActivityFeed } from "./components/ActivityFeed";
 import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
+import { TermsGate } from "./components/TermsGate";
 import type {
   AppUpdateConfiguration,
   AvailableAppUpdate,
@@ -601,7 +603,10 @@ function renderCodexUsageWindow(label: string, window: CodexUsageWindow) {
   );
 }
 
-function renderCodexUsage(codex: CodexUsage | null | undefined) {
+function renderCodexUsage(
+  codex: CodexUsage | null | undefined,
+  onUpgrade: (planId: UpgradePlanId) => void
+) {
   if (!codex || (!codex.primary && !codex.secondary)) {
     return (
       <div className="codex-usage codex-usage--empty">
@@ -612,6 +617,9 @@ function renderCodexUsage(codex: CodexUsage | null | undefined) {
       </div>
     );
   }
+  const paused = codex.optimizationAllowed === false;
+  const showNudge = paused || codex.shouldNudge;
+  const upgradePlanId = (codex.recommendedSubscriptionTier ?? "pro") as UpgradePlanId;
   return (
     <div className="codex-usage">
       <p className="codex-usage__title">Subscription usage</p>
@@ -622,8 +630,17 @@ function renderCodexUsage(codex: CodexUsage | null | undefined) {
           Credits: {codex.creditsUnlimited ? "unlimited" : codex.creditsBalance}
         </p>
       ) : null}
-      {codex.shouldNudge ? (
-        <p className="codex-usage__nudge">{codex.gateMessage}</p>
+      {showNudge ? (
+        <div className={`codex-usage__nudge${paused ? " codex-usage__nudge--paused" : ""}`}>
+          <p className="codex-usage__nudge-text">{codex.gateMessage}</p>
+          <button
+            type="button"
+            className="codex-usage__nudge-action"
+            onClick={() => onUpgrade(upgradePlanId)}
+          >
+            Upgrade
+          </button>
+        </div>
       ) : null}
     </div>
   );
@@ -2908,6 +2925,30 @@ export default function App() {
     return null;
   }
 
+  // Block every window (launcher and main) until the user accepts the current
+  // Terms of Service. New installs hit this in the launcher; updating users —
+  // who may never see the launcher — hit it in the main window. Bumping the
+  // backend's REQUIRED_TERMS_VERSION re-triggers it on the next launch.
+  if (
+    needsTermsAcceptance(
+      dashboard.requiredTermsVersion,
+      dashboard.acceptedTermsVersion
+    )
+  ) {
+    return (
+      <TermsGate
+        requiredVersion={dashboard.requiredTermsVersion}
+        termsUrl={dashboard.termsUrl}
+        onAccepted={() =>
+          setDashboard((prev) => ({
+            ...prev,
+            acceptedTermsVersion: prev.requiredTermsVersion
+          }))
+        }
+      />
+    );
+  }
+
   const upgradeFailure = runtimeStatus?.runtimeUpgradeFailure ?? null;
   const showUpgradeModal =
     runtimeUpgradeProgress.running &&
@@ -3713,6 +3754,23 @@ export default function App() {
       } as const;
     }
 
+    // Codex-only gate: surface in the top banner only when the Claude side isn't
+    // itself gating/nudging (handled above), so mixed users never get a double
+    // banner. Codex billing/pausing is scoped to Codex traffic.
+    const codexUsage = pricingStatus?.codex;
+    if (codexUsage && codexUsage.optimizationAllowed === false) {
+      return {
+        tone: "disabled",
+        title: codexUsage.gateMessage
+      } as const;
+    }
+    if (codexUsage?.shouldNudge) {
+      return {
+        tone: "starting",
+        title: codexUsage.gateMessage
+      } as const;
+    }
+
     if (runtimeHealthy) {
       if (connectorPhase === "disabled") {
         return {
@@ -3795,7 +3853,10 @@ export default function App() {
   );
   const upgradeDefaultPlanId =
     pricingAudience === "individual"
-      ? (pricingStatus?.recommendedSubscriptionTier ?? cachedPricing.recommendedSubscriptionTier ?? upgradePlansState.featuredPlanId)
+      ? (pricingStatus?.recommendedSubscriptionTier ??
+          pricingStatus?.codex?.recommendedSubscriptionTier ??
+          cachedPricing.recommendedSubscriptionTier ??
+          upgradePlansState.featuredPlanId)
       : "enterprise";
   const upgradeDefaultPlan = upgradePlansState.plans.find((plan) => plan.id === upgradeDefaultPlanId) ?? null;
   const activeHeadroomPlanId =
@@ -4819,7 +4880,9 @@ export default function App() {
                             </p>
                           ) : null}
                           {connector.clientId === "codex" && connector.enabled
-                            ? renderCodexUsage(pricingStatus?.codex)
+                            ? renderCodexUsage(pricingStatus?.codex, (planId) =>
+                                void handleUpgradeAction(planId)
+                              )
                             : null}
                         </div>
                         <div className="connector-item__controls">

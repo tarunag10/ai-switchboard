@@ -36,6 +36,15 @@ export function isValidEmailAddress(email: string) {
   return EMAIL_ADDRESS_PATTERN.test(email.trim());
 }
 
+/// True when the user must (re-)accept the Terms of Service before using the
+/// app: the version the app requires is newer than what they've accepted.
+export function needsTermsAcceptance(
+  requiredVersion: number,
+  acceptedVersion: number
+) {
+  return acceptedVersion < requiredVersion;
+}
+
 export function getContactRequestValidationError(
   contactFormUrl: string | undefined,
   email: string

@@ -37,6 +37,15 @@ use crate::tool_manager::{
 /// we stop auto-retrying and surface a persistent banner with a Retry button.
 pub const MAX_UPGRADE_AUTO_RETRIES: u32 = 2;
 
+/// Current Terms-of-Service version the user must have accepted to use the app.
+/// BUMP THIS whenever the terms on extraheadroom.com/terms change: a release
+/// shipping a higher value forces every user to re-accept on first launch,
+/// because their locally-stored `accepted_terms_version` will be lower.
+pub const REQUIRED_TERMS_VERSION: u32 = 1;
+
+/// Canonical Terms-of-Service URL opened from the acceptance gate.
+pub const TERMS_URL: &str = "https://extraheadroom.com/terms";
+
 /// Absolute maximum time we'll wait for the new proxy to come up during
 /// boot validation, regardless of observed activity. Bounded so an
 /// indefinitely-hung process is still detected eventually. Adaptive stall
@@ -440,12 +449,24 @@ pub struct AppState {
     /// task can update it without going through AppState; read by
     /// `pricing::fetch_codex_usage` to drive the Codex usage gauge.
     pub codex_rate_limits: Arc<Mutex<Option<CodexRateLimitSnapshot>>>,
+    /// OpenAI/ChatGPT plan decoded from the latest Codex OAuth bearer JWT seen by
+    /// the proxy intercept (`proxy_intercept::decode_codex_plan_tier`). Read by
+    /// `pricing::fetch_codex_usage` to pick the recommended upgrade tier.
+    pub codex_plan_tier: Arc<Mutex<Option<crate::models::CodexPlanTier>>>,
     /// When true, the Rust intercept on :6767 forwards traffic directly to
     /// api.anthropic.com instead of the Python proxy on :6768. Flipped on by
     /// `enforce_pricing_gate` once a Pro/Max user crosses the disable threshold
     /// without a Headroom subscription, so existing CC sessions stay alive
     /// while optimization is genuinely off.
     pub proxy_bypass: Arc<AtomicBool>,
+    /// Codex-only parallel to `proxy_bypass`: when true, the intercept forwards
+    /// OpenAI-path (Codex) traffic directly to api.openai.com while leaving the
+    /// Python proxy up for Claude. Flipped by `apply_codex_pricing_gate_status`
+    /// once a free user crosses the weekly Codex disable threshold, so Codex
+    /// gating never pauses Claude optimization for mixed users.
+    pub codex_bypass: Arc<AtomicBool>,
+    /// Debounce streak for `codex_bypass`, mirroring `pricing_gate_violation_streak`.
+    codex_gate_violation_streak: Arc<AtomicU32>,
     /// Number of consecutive `apply_pricing_gate_status` calls that reported
     /// `optimization_allowed=false` while bypass was off. Acts as a debounce:
     /// the ungated→gated transition only fires once this hits
@@ -465,6 +486,12 @@ pub struct AppState {
     cached_rtk_gain_summary: Mutex<Option<(Option<RtkGainSummary>, Instant)>>,
     cached_rtk_today_stats: Mutex<Option<(Option<crate::models::RtkTodayStats>, Instant)>>,
     cached_claude_profile: Mutex<Option<(Option<String>, ClaudeAccountProfile, Instant)>>,
+    /// When the current run of transient profile-fetch failures began. Set the
+    /// first time we suppress a transient error (and serve the last good
+    /// profile), cleared on the next successful fetch. Once the run exceeds
+    /// `STALE_PROFILE_ESCALATE_AFTER` we stop suppressing and surface the
+    /// banner — the token-rotation gap has lasted long enough to be real.
+    stale_profile_since: Mutex<Option<Instant>>,
     /// Last `IdentityFingerprint` we successfully posted to
     /// `desktop/grace/start`. Used by the bearer-triggered identity-pusher
     /// worker to skip redundant posts when the same Claude account/plan is
@@ -557,7 +584,10 @@ impl AppState {
             }),
             claude_bearer_token: Arc::new(Mutex::new(None)),
             codex_rate_limits: Arc::new(Mutex::new(None)),
+            codex_plan_tier: Arc::new(Mutex::new(None)),
             proxy_bypass: Arc::new(AtomicBool::new(false)),
+            codex_bypass: Arc::new(AtomicBool::new(false)),
+            codex_gate_violation_streak: Arc::new(AtomicU32::new(0)),
             pricing_gate_violation_streak: Arc::new(AtomicU32::new(0)),
             headroom_learn_state: Mutex::new(HeadroomLearnRuntimeState {
                 running: false,
@@ -581,6 +611,7 @@ impl AppState {
             cached_rtk_gain_summary: Mutex::new(None),
             cached_rtk_today_stats: Mutex::new(None),
             cached_claude_profile: Mutex::new(None),
+            stale_profile_since: Mutex::new(None),
             last_pushed_identity_fingerprint: Mutex::new(None),
             last_complete_identity_fetch_at: Mutex::new(None),
             cached_memory_export: Mutex::new(None),
@@ -1353,6 +1384,21 @@ impl AppState {
         }
     }
 
+    /// True iff we own a tracked proxy child that has not yet exited.
+    /// Distinguishes "alive (possibly still cold-booting)" from both
+    /// "exited/crashed" and "no tracked child at all". `headroom_process_exited`
+    /// collapses the latter two into `None`, but the watchdog needs to tell
+    /// them apart: an unreachable backend whose tracked child is still alive is
+    /// a download-in-progress worth waiting on, whereas a missing or exited
+    /// child is a genuine failure to auto-pause immediately.
+    pub(crate) fn tracked_child_alive(&self) -> bool {
+        let mut guard = self.headroom_process.lock();
+        match guard.as_mut() {
+            Some(child) => matches!(child.try_wait(), Ok(None)),
+            None => false,
+        }
+    }
+
     /// Adaptive boot validation loop. Probes `/livez` on the backend port
     /// (default 6768; may be a fallback in 6769..=6790) until the proxy
     /// responds, the proxy process exits, the log goes silent past the
@@ -1380,7 +1426,7 @@ impl AppState {
     /// e.g. ONNX graph compilation or eager-loading already-cached
     /// models. As long as the python process is burning CPU, it's
     /// not deadlocked.
-    fn wait_for_boot_validation<F>(&self, mut on_progress: F) -> BootValidationOutcome
+    pub(crate) fn wait_for_boot_validation<F>(&self, mut on_progress: F) -> BootValidationOutcome
     where
         F: FnMut(std::time::Duration, bool),
     {
@@ -1623,6 +1669,19 @@ impl AppState {
         persist_launch_profile(&self.launch_profile_path, &profile);
     }
 
+    pub fn accepted_terms_version(&self) -> u32 {
+        self.launch_profile.lock().accepted_terms_version
+    }
+
+    pub fn mark_terms_accepted(&self, version: u32) {
+        let mut profile = self.launch_profile.lock();
+        if profile.accepted_terms_version >= version {
+            return;
+        }
+        profile.accepted_terms_version = version;
+        persist_launch_profile(&self.launch_profile_path, &profile);
+    }
+
     pub fn cached_clients(&self) -> Vec<ClientStatus> {
         const TTL: Duration = Duration::from_secs(8);
         let mut cache = self.cached_clients.lock();
@@ -1672,6 +1731,11 @@ impl AppState {
 
     pub fn cached_claude_profile(&self) -> ClaudeAccountProfile {
         const TTL: Duration = Duration::from_secs(300);
+        // How long a run of transient profile-fetch failures may suppress the
+        // banner before we surface it. Comfortably longer than a normal token
+        // rotation gap, short enough that a genuinely expired/revoked token
+        // still gets the user's attention.
+        const STALE_PROFILE_ESCALATE_AFTER: Duration = Duration::from_secs(15 * 60);
 
         let current_token = self.current_bearer_token();
 
@@ -1684,10 +1748,41 @@ impl AppState {
             }
         }
 
-        let profile = pricing::detect_claude_profile_uncached(self);
+        let detection = pricing::detect_claude_profile_uncached(self);
+        let profile = detection.profile;
         if pricing::is_identity_complete(&profile) {
             self.record_complete_identity_fetch();
+            *self.stale_profile_since.lock() = None;
         }
+
+        // During a token-rotation gap the captured bearer is briefly stale and
+        // Anthropic rejects the profile fetch (401/403, or a 5xx/network blip).
+        // Rather than flashing an alarming "sign out" banner, keep serving the
+        // last identity-complete profile until a fresh bearer flows through and
+        // the next fetch succeeds. We re-key it to the current token so repeated
+        // UI polls within this gap don't re-hit Anthropic with the stale token.
+        //
+        // If the failures persist past STALE_PROFILE_ESCALATE_AFTER the gap is
+        // no longer a momentary rotation blip, so we stop suppressing and let
+        // the real error (and its banner) through.
+        if detection.error_is_transient && !pricing::is_identity_complete(&profile) {
+            let escalate = {
+                let mut since = self.stale_profile_since.lock();
+                let started = since.get_or_insert_with(Instant::now);
+                started.elapsed() >= STALE_PROFILE_ESCALATE_AFTER
+            };
+            if !escalate {
+                let mut cache = self.cached_claude_profile.lock();
+                if let Some((_, prev, _)) = cache.as_ref() {
+                    if pricing::is_identity_complete(prev) {
+                        let good = prev.clone();
+                        *cache = Some((current_token, good.clone(), Instant::now()));
+                        return good;
+                    }
+                }
+            }
+        }
+
         let mut cache = self.cached_claude_profile.lock();
         *cache = Some((current_token, profile.clone(), Instant::now()));
         profile
@@ -2033,6 +2128,9 @@ impl AppState {
                 clients,
                 recent_usage,
                 insights,
+                required_terms_version: REQUIRED_TERMS_VERSION,
+                accepted_terms_version: self.launch_profile.lock().accepted_terms_version,
+                terms_url: TERMS_URL.to_string(),
             },
             pending_milestones,
         )
@@ -2744,6 +2842,55 @@ impl AppState {
             }
         }
     }
+
+    pub fn codex_plan_tier(&self) -> crate::models::CodexPlanTier {
+        (*self.codex_plan_tier.lock()).unwrap_or(crate::models::CodexPlanTier::Unknown)
+    }
+
+    #[cfg(test)]
+    pub fn set_codex_plan_tier_for_test(&self, tier: crate::models::CodexPlanTier) {
+        *self.codex_plan_tier.lock() = Some(tier);
+    }
+
+    /// Codex-only parallel to `apply_pricing_gate_status`. Flips `codex_bypass`
+    /// from the Codex gate's `optimization_allowed`, debounced the same way.
+    /// Unlike the Claude gate this NEVER stops the Python backend — enforcement
+    /// is per-request in the intercept (OpenAI-path traffic forwards direct),
+    /// so a Codex overage can't pause Claude optimization for a mixed user.
+    pub fn apply_codex_pricing_gate_status(&self, codex: Option<&crate::models::CodexUsage>) {
+        let was_bypassed = self.codex_bypass.load(std::sync::atomic::Ordering::Acquire);
+        // No Codex usage signal yet → leave the current state untouched rather
+        // than clearing a gate that a transient empty poll didn't disprove.
+        let Some(codex) = codex else {
+            return;
+        };
+        let should_bypass = !codex.optimization_allowed;
+
+        if should_bypass {
+            if was_bypassed {
+                return;
+            }
+            let prev = self
+                .codex_gate_violation_streak
+                .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            let streak = prev.saturating_add(1);
+            if streak < PRICING_GATE_DEBOUNCE_POLLS {
+                log::info!(
+                    "codex_gate: gated reading {streak}/{PRICING_GATE_DEBOUNCE_POLLS} — debouncing before bypass flip"
+                );
+                return;
+            }
+            self.codex_bypass
+                .store(true, std::sync::atomic::Ordering::Release);
+        } else {
+            self.codex_gate_violation_streak
+                .store(0, std::sync::atomic::Ordering::Release);
+            if was_bypassed {
+                self.codex_bypass
+                    .store(false, std::sync::atomic::Ordering::Release);
+            }
+        }
+    }
 }
 
 /// Number of consecutive gated pricing polls required before flipping
@@ -2977,6 +3124,11 @@ struct LaunchProfile {
     last_launched_app_version: Option<String>,
     #[serde(default)]
     last_runtime_upgrade_failure: Option<RuntimeUpgradeFailure>,
+    /// Highest Terms-of-Service version the user has accepted. Defaults to 0
+    /// for profiles written before this field existed, so existing users are
+    /// re-prompted by the acceptance gate when `REQUIRED_TERMS_VERSION` > 0.
+    #[serde(default)]
+    accepted_terms_version: u32,
 }
 
 fn persist_launch_profile(path: &std::path::Path, profile: &LaunchProfile) {
@@ -3004,6 +3156,7 @@ impl LaunchProfile {
                 setup_wizard_complete: false,
                 last_launched_app_version: None,
                 last_runtime_upgrade_failure: None,
+                accepted_terms_version: 0,
             }
         };
 
@@ -5382,6 +5535,9 @@ mod tests {
         assert!(profile.last_launched_app_version.is_none());
         assert!(profile.last_runtime_upgrade_failure.is_none());
         assert!(!profile.setup_wizard_complete);
+        // Legacy profiles predate terms gating: default to 0 so the gate
+        // re-prompts once REQUIRED_TERMS_VERSION > 0.
+        assert_eq!(profile.accepted_terms_version, 0);
     }
 
     #[test]
@@ -5408,6 +5564,7 @@ mod tests {
                 error_hint: Some("Reverted to 0.6.5".into()),
                 rollback_restored: true,
             }),
+            accepted_terms_version: 3,
         };
         super::persist_launch_profile(&path, &profile);
 
@@ -5427,6 +5584,7 @@ mod tests {
             failure.failure_phase,
             crate::models::UpgradeFailurePhase::BootValidation
         );
+        assert_eq!(round_tripped.accepted_terms_version, 3);
         let _ = std::fs::remove_file(&path);
     }
 
@@ -5761,6 +5919,64 @@ mod tests {
                 .load(std::sync::atomic::Ordering::Acquire),
             "second consecutive gated reading must flip bypass=true"
         );
+        fs::remove_dir_all(base_dir).ok();
+    }
+
+    fn codex_usage_with_optimization(allowed: bool) -> crate::models::CodexUsage {
+        crate::models::CodexUsage {
+            limit_name: None,
+            primary: None,
+            secondary: None,
+            credits_balance: None,
+            credits_unlimited: false,
+            optimization_allowed: allowed,
+            should_nudge: false,
+            nudge_level: 0,
+            gate_reason: None,
+            recommended_subscription_tier: None,
+            weekly_used_percent: None,
+            gate_message: String::new(),
+        }
+    }
+
+    #[test]
+    fn apply_codex_gate_flips_codex_bypass_without_stopping_backend() {
+        let base_dir = temp_test_dir("headroom-codex-bypass");
+        let state = AppState::new_in(base_dir.clone()).expect("app state");
+        assert!(!state.codex_bypass.load(std::sync::atomic::Ordering::Acquire));
+        assert!(
+            !state.proxy_bypass.load(std::sync::atomic::Ordering::Acquire),
+            "Claude bypass must stay untouched by the Codex gate"
+        );
+
+        // Debounce: first gated reading just bumps the streak.
+        state.apply_codex_pricing_gate_status(Some(&codex_usage_with_optimization(false)));
+        assert!(!state.codex_bypass.load(std::sync::atomic::Ordering::Acquire));
+
+        // Second consecutive gated reading crosses the debounce threshold.
+        state.apply_codex_pricing_gate_status(Some(&codex_usage_with_optimization(false)));
+        assert!(state.codex_bypass.load(std::sync::atomic::Ordering::Acquire));
+        // Crucially the Claude-wide bypass never flipped, so Claude stays optimized.
+        assert!(!state.proxy_bypass.load(std::sync::atomic::Ordering::Acquire));
+
+        // An ungated reading clears the Codex bypass again.
+        state.apply_codex_pricing_gate_status(Some(&codex_usage_with_optimization(true)));
+        assert!(!state.codex_bypass.load(std::sync::atomic::Ordering::Acquire));
+
+        fs::remove_dir_all(base_dir).ok();
+    }
+
+    #[test]
+    fn apply_codex_gate_ignores_absent_usage() {
+        let base_dir = temp_test_dir("headroom-codex-bypass-none");
+        let state = AppState::new_in(base_dir.clone()).expect("app state");
+        // Flip it on first.
+        state.apply_codex_pricing_gate_status(Some(&codex_usage_with_optimization(false)));
+        state.apply_codex_pricing_gate_status(Some(&codex_usage_with_optimization(false)));
+        assert!(state.codex_bypass.load(std::sync::atomic::Ordering::Acquire));
+        // A poll with no Codex signal must leave the gate as-is, not clear it.
+        state.apply_codex_pricing_gate_status(None);
+        assert!(state.codex_bypass.load(std::sync::atomic::Ordering::Acquire));
         fs::remove_dir_all(base_dir).ok();
     }
 

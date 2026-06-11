@@ -7,6 +7,7 @@ import {
   getInitialLauncherStage,
   getLauncherAutoConfigureDecision,
   isValidEmailAddress,
+  needsTermsAcceptance,
   nextAutoConfigureStep,
   nextAutoConfigureStepAfterApply
 } from "./launcherHelpers";
@@ -17,6 +18,17 @@ describe("launcher helpers", () => {
     expect(isValidEmailAddress("  user@example.com  ")).toBe(true);
     expect(isValidEmailAddress("missing-at-symbol")).toBe(false);
     expect(isValidEmailAddress("user@example")).toBe(false);
+  });
+
+  it("gates on terms acceptance until the accepted version catches up", () => {
+    // New install: nothing accepted yet.
+    expect(needsTermsAcceptance(1, 0)).toBe(true);
+    // Already accepted the current version.
+    expect(needsTermsAcceptance(1, 1)).toBe(false);
+    // Terms bumped in an update: previously-accepted version is now stale.
+    expect(needsTermsAcceptance(2, 1)).toBe(true);
+    // Accepted version somehow ahead (downgrade): do not block.
+    expect(needsTermsAcceptance(1, 2)).toBe(false);
   });
 
   it("returns contact validation errors before submit work begins", () => {

@@ -22,9 +22,11 @@ use parking_lot::Mutex;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
+use base64::Engine;
+
 use crate::backend_port;
 use crate::bearer::{BearerToken, BEARER_TOKEN_TTL};
-use crate::models::{CodexRateLimitSnapshot, CodexUsageWindow};
+use crate::models::{CodexPlanTier, CodexRateLimitSnapshot, CodexUsageWindow};
 
 pub const INTERCEPT_PORT: u16 = 6767;
 
@@ -46,6 +48,10 @@ pub type CodexRateLimitSlot = Arc<Mutex<Option<CodexRateLimitSnapshot>>>;
 /// Python proxy because the user crossed the free disable threshold.
 pub type BypassFlag = Arc<AtomicBool>;
 
+/// Shared with `AppState::codex_plan_tier`; populated from the Codex OAuth bearer
+/// JWT and read by `pricing::fetch_codex_usage` to pick the recommended tier.
+pub type CodexPlanSlot = Arc<Mutex<Option<crate::models::CodexPlanTier>>>;
+
 /// Channel sender used to notify a background worker that the intercept just
 /// captured a bearer token whose value differs from whatever was previously
 /// in the slot. Empty payload — the worker reads the bearer from `AppState`
@@ -62,7 +68,9 @@ pub const OPENAI_DIRECT_BASE: &str = "https://api.openai.com";
 pub fn spawn(
     token_slot: SharedToken,
     codex_slot: CodexRateLimitSlot,
+    codex_plan_slot: CodexPlanSlot,
     bypass: BypassFlag,
+    codex_bypass: BypassFlag,
     fresh_bearer_tx: FreshBearerNotifier,
 ) {
     let upstream_base = Arc::new(ANTHROPIC_DIRECT_BASE.to_string());
@@ -79,7 +87,9 @@ pub fn spawn(
                     bind_addr,
                     token_slot,
                     codex_slot,
+                    codex_plan_slot,
                     bypass,
+                    codex_bypass,
                     fresh_bearer_tx,
                     upstream_base,
                 )
@@ -126,7 +136,9 @@ async fn run(
     bind_addr: SocketAddr,
     token_slot: SharedToken,
     codex_slot: CodexRateLimitSlot,
+    codex_plan_slot: CodexPlanSlot,
     bypass: BypassFlag,
+    codex_bypass: BypassFlag,
     fresh_bearer_tx: FreshBearerNotifier,
     upstream_base: Arc<String>,
 ) -> std::io::Result<()> {
@@ -137,10 +149,21 @@ async fn run(
             Ok((client, _)) => {
                 let slot = token_slot.clone();
                 let codex_slot = codex_slot.clone();
+                let codex_plan_slot = codex_plan_slot.clone();
                 let bypass = bypass.clone();
+                let codex_bypass = codex_bypass.clone();
                 let upstream_base = upstream_base.clone();
                 let tx = fresh_bearer_tx.clone();
-                tokio::spawn(handle(client, slot, codex_slot, bypass, tx, upstream_base));
+                tokio::spawn(handle(
+                    client,
+                    slot,
+                    codex_slot,
+                    codex_plan_slot,
+                    bypass,
+                    codex_bypass,
+                    tx,
+                    upstream_base,
+                ));
             }
             Err(e) => {
                 // EMFILE/ENFILE/ECONNABORTED are transient — log and keep serving
@@ -164,11 +187,14 @@ fn bearer_value_changed(slot: &SharedToken, candidate: &str) -> bool {
         .unwrap_or(true)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn handle(
     mut client: TcpStream,
     token_slot: SharedToken,
     codex_slot: CodexRateLimitSlot,
+    codex_plan_slot: CodexPlanSlot,
     bypass: BypassFlag,
+    codex_bypass: BypassFlag,
     fresh_bearer_tx: FreshBearerNotifier,
     upstream_base: Arc<String>,
 ) {
@@ -203,6 +229,13 @@ async fn handle(
         return;
     }
 
+    // Whether this is a Codex (OpenAI-path) request. Parsed once here and
+    // reused for the Codex plan capture, the Codex-only bypass, and the
+    // response-head sniff below.
+    let is_codex = find_header_end(&buf)
+        .and_then(|end| parse_request_head(&buf[..end + 4]))
+        .is_some_and(|head| is_openai_path(&head.path));
+
     // Scan headers for a Bearer token and capture it. When the token's
     // value differs from what was previously in the slot — or the slot was
     // empty / its previous token has aged out of the TTL — signal the
@@ -211,6 +244,13 @@ async fn handle(
     // OAuth-profile fetch happens off the request hot path.
     if let Some(token) = extract_bearer(&buf) {
         let changed = bearer_value_changed(&token_slot, &token);
+        // For Codex requests the bearer is an OpenAI OAuth JWT carrying the
+        // ChatGPT plan; decode it so the Codex gate can recommend a tier.
+        if is_codex {
+            if let Some(tier) = decode_codex_plan_tier(&token) {
+                *codex_plan_slot.lock() = Some(tier);
+            }
+        }
         *token_slot.lock() = Some(BearerToken::new(token));
         if changed {
             let _ = fresh_bearer_tx.send(());
@@ -221,6 +261,15 @@ async fn handle(
     // `backend_addr` is intentionally stopped. Forward direct to Anthropic so
     // already-running CC sessions stay alive while optimization is off.
     if bypass.load(Ordering::Acquire) {
+        forward_direct_to_anthropic(client, buf, &upstream_base).await;
+        return;
+    }
+
+    // Codex-only gate: when a free user has crossed the weekly Codex limit,
+    // forward Codex traffic straight to OpenAI (unoptimized) while leaving the
+    // Python backend up for Claude. `forward_direct_to_anthropic` routes
+    // OpenAI paths to OPENAI_DIRECT_BASE, so it does the right thing here.
+    if is_codex && codex_bypass.load(Ordering::Acquire) {
         forward_direct_to_anthropic(client, buf, &upstream_base).await;
         return;
     }
@@ -244,10 +293,6 @@ async fn handle(
     // only) never fires for it — this proxy is the only component left in the
     // response path that sees those headers. Every other client (Claude) keeps
     // the untouched zero-copy splice.
-    let is_codex = find_header_end(&buf)
-        .and_then(|end| parse_request_head(&buf[..end + 4]))
-        .is_some_and(|head| is_openai_path(&head.path));
-
     if is_codex {
         splice_with_codex_capture(client, backend, &codex_slot).await;
     } else {
@@ -370,6 +415,25 @@ fn parse_codex_rate_limit_headers(head: &[u8]) -> Option<CodexRateLimitSnapshot>
         credits_balance,
         credits_unlimited,
     })
+}
+
+/// Best-effort decode of the ChatGPT plan from a Codex OAuth bearer JWT. Reads
+/// the `chatgpt_plan_type` claim from the `https://api.openai.com/auth` payload
+/// object, mirroring the Python proxy's `_decode_openai_bearer_payload`. No
+/// signature verification — this is a recommendation hint only.
+fn decode_codex_plan_tier(token: &str) -> Option<CodexPlanTier> {
+    let payload_b64 = token.split('.').nth(1)?;
+    // JWT payloads are base64url without padding; tolerate either form.
+    let trimmed = payload_b64.trim_end_matches('=');
+    let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(trimmed)
+        .ok()?;
+    let json: serde_json::Value = serde_json::from_slice(&decoded).ok()?;
+    let plan = json
+        .get("https://api.openai.com/auth")
+        .and_then(|auth| auth.get("chatgpt_plan_type"))
+        .and_then(|v| v.as_str())?;
+    Some(CodexPlanTier::from_claim(plan))
 }
 
 /// Window label derived from a minute count, matching upstream's
@@ -766,13 +830,15 @@ fn extract_bearer(buf: &[u8]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        bearer_value_changed, codex_window_label, extract_bearer, find_header_end,
-        is_hop_by_hop_request_header, is_hop_by_hop_response_header, is_local_proxy_path,
-        is_openai_path, parse_codex_rate_limit_headers, parse_request_head, read_http_headers,
-        request_is_loopback_safe, run, BypassFlag, SharedToken,
+        bearer_value_changed, codex_window_label, decode_codex_plan_tier, extract_bearer,
+        find_header_end, is_hop_by_hop_request_header, is_hop_by_hop_response_header,
+        is_local_proxy_path, is_openai_path, parse_codex_rate_limit_headers, parse_request_head,
+        read_http_headers, request_is_loopback_safe, run, BypassFlag, SharedToken,
     };
     use crate::backend_port;
     use crate::bearer::BearerToken;
+    use crate::models::CodexPlanTier;
+    use base64::Engine;
     use std::net::SocketAddr;
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
@@ -950,7 +1016,9 @@ mod tests {
                 intercept_addr,
                 slot_for_run,
                 Arc::new(Mutex::new(None)),
+                Arc::new(Mutex::new(None)),
                 bypass_for_run,
+                Arc::new(AtomicBool::new(false)),
                 fresh_bearer_tx,
                 upstream_base,
             )
@@ -1032,7 +1100,9 @@ mod tests {
                 intercept_addr,
                 slot_for_run,
                 Arc::new(Mutex::new(None)),
+                Arc::new(Mutex::new(None)),
                 bypass_for_run,
+                Arc::new(AtomicBool::new(false)),
                 fresh_bearer_tx,
                 upstream_base,
             )
@@ -1235,7 +1305,9 @@ mod tests {
                 intercept_addr,
                 token_for_run,
                 Arc::new(Mutex::new(None)),
+                Arc::new(Mutex::new(None)),
                 bypass,
+                Arc::new(AtomicBool::new(false)),
                 fresh_bearer_tx,
                 upstream_base_arc,
             )
@@ -1374,7 +1446,9 @@ mod tests {
                 intercept_addr,
                 token_slot,
                 Arc::new(Mutex::new(None)),
+                Arc::new(Mutex::new(None)),
                 bypass,
+                Arc::new(AtomicBool::new(false)),
                 fresh_bearer_tx,
                 upstream_base_arc,
             )
@@ -1465,7 +1539,9 @@ mod tests {
                 intercept_addr,
                 token_for_run,
                 Arc::new(Mutex::new(None)),
+                Arc::new(Mutex::new(None)),
                 bypass_for_run,
+                Arc::new(AtomicBool::new(false)),
                 fresh_bearer_tx,
                 upstream_base,
             )
@@ -1583,6 +1659,42 @@ mod tests {
         // No header terminator / garbage — must not panic, no signal.
         let head = "HTTP/1.1 200 OK\r\nx-codex-limit-name: codex";
         assert!(parse_codex_rate_limit_headers(head.as_bytes()).is_none());
+    }
+
+    fn jwt_with_plan(plan: &str) -> String {
+        let header = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b"{\"alg\":\"none\"}");
+        let payload_json = format!(
+            "{{\"https://api.openai.com/auth\":{{\"chatgpt_plan_type\":\"{plan}\",\"chatgpt_account_id\":\"acct_1\"}}}}"
+        );
+        let payload =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(payload_json.as_bytes());
+        format!("{header}.{payload}.sig")
+    }
+
+    #[test]
+    fn decode_codex_plan_tier_reads_chatgpt_plan_type() {
+        assert_eq!(
+            decode_codex_plan_tier(&jwt_with_plan("plus")),
+            Some(CodexPlanTier::Plus)
+        );
+        assert_eq!(
+            decode_codex_plan_tier(&jwt_with_plan("pro")),
+            Some(CodexPlanTier::Pro)
+        );
+        // Unrecognized claim value still decodes, mapped to Unknown.
+        assert_eq!(
+            decode_codex_plan_tier(&jwt_with_plan("mystery")),
+            Some(CodexPlanTier::Unknown)
+        );
+    }
+
+    #[test]
+    fn decode_codex_plan_tier_rejects_malformed_tokens() {
+        assert!(decode_codex_plan_tier("not-a-jwt").is_none());
+        assert!(decode_codex_plan_tier("only.two").is_none());
+        // Valid JWT shape but no auth claim.
+        let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(b"{\"sub\":\"x\"}");
+        assert!(decode_codex_plan_tier(&format!("h.{payload}.s")).is_none());
     }
 
     #[test]

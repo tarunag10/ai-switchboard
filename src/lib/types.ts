@@ -91,6 +91,9 @@ export interface DashboardState {
   clients: ClientStatus[];
   recentUsage: UsageEvent[];
   insights: DailyInsight[];
+  requiredTermsVersion: number;
+  acceptedTermsVersion: number;
+  termsUrl: string;
 }
 
 export interface BootstrapProgress {
@@ -387,7 +390,10 @@ export type HeadroomSubscriptionTier = "pro" | "max5x" | "max20x";
 
 export type BillingPeriod = "annual" | "monthly";
 
-export type PricingGateReason = "sign_in_required" | "weekly_usage_limit_reached";
+export type PricingGateReason =
+  | "sign_in_required"
+  | "weekly_usage_limit_reached"
+  | "codex_weekly_usage_limit_reached";
 
 export interface ClaudeAccountProfile {
   authMethod: ClaudeAuthMethod;
@@ -420,7 +426,12 @@ export interface CodexUsage {
   secondary?: CodexUsageWindow | null;
   creditsBalance?: string | null;
   creditsUnlimited: boolean;
+  optimizationAllowed: boolean;
   shouldNudge: boolean;
+  nudgeLevel: number;
+  gateReason?: PricingGateReason | null;
+  recommendedSubscriptionTier?: HeadroomSubscriptionTier | null;
+  weeklyUsedPercent?: number | null;
   gateMessage: string;
 }
 
