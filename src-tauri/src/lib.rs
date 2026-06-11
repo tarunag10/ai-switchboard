@@ -364,6 +364,45 @@ where
 
 #[tauri::command]
 fn restart_app(app: AppHandle) {
+    // Tauri 2.x has an open bug on macOS (tauri-apps/tauri#13923, #11392)
+    // where `request_restart()` and `restart()` exit the process but never
+    // relaunch — especially with `tauri-plugin-single-instance` loaded.
+    // Workaround: spawn a detached relauncher via `open -n` against this
+    // app's .app bundle (which is in-place updated by the updater).
+    //
+    // The relauncher is armed BEFORE the teardown below, because that teardown
+    // can block the main thread for a long time (stop_headroom() does a
+    // `child.wait()` with no timeout on the Python backend, and
+    // analytics::shutdown() joins a worker whose last act is a network flush) —
+    // observed as "Headroom is not responding". A previous version used a blind
+    // `sleep 1` before `open -n`, which raced that teardown: if we hadn't
+    // exited (and released the single-instance lock) within 1s, the new
+    // instance saw the lock held, focused the dying old window, and bailed —
+    // so the app was killed but never came back.
+    //
+    // Instead the relauncher waits for THIS pid to actually die (lock released)
+    // before launching, and force-kills us after a deadline if teardown truly
+    // deadlocks, so the lock is always freed and the new instance can boot.
+    #[cfg(target_os = "macos")]
+    {
+        if let Some(bundle) = current_app_bundle_path() {
+            let pid = std::process::id();
+            let quoted = shell_quote_path(&bundle);
+            let cmd = format!(
+                "alive=1; \
+                 for i in $(seq 1 100); do \
+                   if ! kill -0 {pid} 2>/dev/null; then alive=0; break; fi; \
+                   sleep 0.1; \
+                 done; \
+                 if [ \"$alive\" = 1 ]; then kill -9 {pid} 2>/dev/null; sleep 0.5; fi; \
+                 /usr/bin/open -n {quoted}",
+                pid = pid,
+                quoted = quoted,
+            );
+            let _ = Command::new("/bin/sh").arg("-c").arg(cmd).spawn();
+        }
+    }
+
     // Stop the proxy before relaunching so the new build starts a fresh proxy
     // with current args (otherwise the orphan keeps serving traffic and the
     // new desktop reuses it via the reachability check). Without this, any
@@ -374,25 +413,8 @@ fn restart_app(app: AppHandle) {
     }
     analytics::shutdown(&app);
 
-    // Tauri 2.x has an open bug on macOS (tauri-apps/tauri#13923, #11392)
-    // where `request_restart()` and `restart()` exit the process but never
-    // relaunch — especially with `tauri-plugin-single-instance` loaded.
-    // Workaround: spawn a detached relauncher via `open -n` against this
-    // app's .app bundle (which is in-place updated by the updater), then
-    // exit cleanly so the single-instance lock is released before the new
-    // process starts.
     #[cfg(target_os = "macos")]
     {
-        if let Some(bundle) = current_app_bundle_path() {
-            // Tiny sleep so the relaunch fires after our exit releases the
-            // single-instance lock; without it the new process can detect
-            // the still-dying old one and bail.
-            let cmd = format!(
-                "sleep 1 && /usr/bin/open -n {}",
-                shell_quote_path(&bundle)
-            );
-            let _ = Command::new("/bin/sh").arg("-c").arg(cmd).spawn();
-        }
         app.exit(0);
         return;
     }

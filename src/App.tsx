@@ -3971,7 +3971,7 @@ export default function App() {
     }
     return {
       tone: pricingStatus.optimizationAllowed ? "warning" as const : "expired" as const,
-      message: `Trial expired. You can only use Headroom for ${weeklyLimitPercentLabel} of your weekly Claude Code and Codex limits. To continue using Headroom without limits.`,
+      message: `Trial expired. In the free plan you can only use Headroom for ${weeklyLimitPercentLabel} of your weekly Claude Code / Codex limits. Upgrade to use Headroom without limits.`,
       actionLabel: "Upgrade",
       onAction: () => void handleUpgradeAction(upgradeDefaultPlanId)
     };
@@ -4582,6 +4582,7 @@ export default function App() {
                 ? (() => {
                     const cohorts = pricingStatus.pricingCohorts ?? [];
                     const active = cohorts.find((c) => c.status === "active");
+                    const activeLabel = active?.label ?? "Founder";
                     const pct = pricingStatus.activePercentOff ?? active?.percentOff ?? 0;
                     const spotsLeft = active?.spotsLeft ?? null;
                     const capacity = active?.capacity ?? null;
@@ -4589,7 +4590,7 @@ export default function App() {
                       capacity && spotsLeft != null
                         ? Math.max(4, Math.min(100, Math.round(((capacity - spotsLeft) / capacity) * 100)))
                         : null;
-                    const firstUpcoming = cohorts.find((c) => c.status === "upcoming")?.key;
+                    const next = cohorts.find((c) => c.status === "upcoming") ?? null;
                     return (
                       <section className="founder-promo" aria-label="Founder pricing">
                         <div className="founder-promo__head">
@@ -4597,13 +4598,26 @@ export default function App() {
                             {spotsLeft != null ? (
                               <>
                                 <span className="founder-promo__count">{spotsLeft}</span>
-                                <span className="founder-promo__count-label">founder spots left</span>
+                                <span className="founder-promo__count-label">{activeLabel} spots left</span>
                               </>
                             ) : (
-                              <span className="founder-promo__count-label">Founder pricing</span>
+                              <span className="founder-promo__count-label">{activeLabel} pricing</span>
                             )}
                           </div>
-                          <span className="founder-promo__discount">{pct}% off</span>
+                          <div className="founder-promo__steps">
+                            <div className="founder-promo__step founder-promo__step--now">
+                              <span className="founder-promo__step-pct">{pct}% OFF</span>
+                              <span className="founder-promo__step-tag">Now</span>
+                            </div>
+                            {next ? (
+                              <div className="founder-promo__step founder-promo__step--next">
+                                <span className="founder-promo__step-pct">
+                                  {next.percentOff > 0 ? `${next.percentOff}% OFF` : "Full price"}
+                                </span>
+                                <span className="founder-promo__step-tag">Next</span>
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
 
                         {filledPct != null ? (
@@ -4613,45 +4627,6 @@ export default function App() {
                               style={{ width: `${filledPct}%` }}
                             />
                           </div>
-                        ) : null}
-
-                        {cohorts.length > 0 ? (
-                          <>
-                            <ol className="founder-ladder" aria-label="Founder pricing ladder">
-                              {cohorts.map((cohort) => {
-                                const stage =
-                                  cohort.status === "active"
-                                    ? "now"
-                                    : cohort.status === "sold_out"
-                                    ? "gone"
-                                    : cohort.key === firstUpcoming
-                                    ? "next"
-                                    : "later";
-                                return (
-                                  <li
-                                    key={cohort.key}
-                                    className={`founder-ladder__step founder-ladder__step--${stage}`}
-                                  >
-                                    <span className="founder-ladder__percent">
-                                      {cohort.percentOff > 0 ? `${cohort.percentOff}%` : "Full"}
-                                    </span>
-                                    <span className="founder-ladder__tag">
-                                      {stage === "now"
-                                        ? "Now"
-                                        : stage === "next"
-                                        ? "Next"
-                                        : stage === "gone"
-                                        ? "Gone"
-                                        : ""}
-                                    </span>
-                                  </li>
-                                );
-                              })}
-                            </ol>
-                            <p className="founder-promo__foot">
-                              Price rises as founder spots fill. Your rate is locked in for good.
-                            </p>
-                          </>
                         ) : null}
                       </section>
                     );
