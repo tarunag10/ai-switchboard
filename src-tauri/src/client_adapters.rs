@@ -1284,8 +1284,11 @@ fn codex_config_toml_path() -> PathBuf {
 // `invalid type: string "headroom", expected a boolean in features`. The root
 // keys therefore go in a block at the *top* of the file (nothing above ⇒ root
 // scope), and the `[model_providers.headroom]` table goes in a block at the
-// *end*. `requires_openai_auth` is intentionally omitted (it would force Codex
-// to demand OpenAI OAuth for local-proxy traffic).
+// *end*. `requires_openai_auth` is emitted only for ChatGPT-OAuth users: the
+// flag is what makes Codex render the account menu (profile/email/plan/usage),
+// but it also forces Codex to demand an OpenAI OAuth login (issue #406), which
+// would break users authenticated with an OpenAI API key. See
+// `codex_uses_chatgpt_auth`.
 const CODEX_ROOT_BLOCK_ID: &str = "codex_cli";
 const CODEX_TABLE_BLOCK_ID: &str = "codex_cli_provider";
 
@@ -1297,14 +1300,45 @@ fn codex_root_keys_body() -> String {
     )
 }
 
-fn codex_provider_table_body() -> String {
-    format!(
+/// Whether Codex is authenticated via ChatGPT OAuth (rather than an OpenAI API
+/// key), read from `~/.codex/auth.json`. Drives whether the managed provider
+/// block carries `requires_openai_auth = true` (see [`codex_provider_table_body`]).
+fn codex_uses_chatgpt_auth() -> bool {
+    let path = home_dir().join(".codex").join("auth.json");
+    let Ok(raw) = std::fs::read_to_string(&path) else {
+        return false;
+    };
+    let Ok(value) = serde_json::from_str::<Value>(&raw) else {
+        return false;
+    };
+    let Some(obj) = value.as_object() else {
+        return false;
+    };
+    // Codex records the active method explicitly; trust it when present.
+    if let Some(mode) = obj.get("auth_mode").and_then(Value::as_str) {
+        return mode.eq_ignore_ascii_case("chatgpt");
+    }
+    // Older auth.json files predate `auth_mode`: infer ChatGPT mode from the
+    // presence of an OAuth account id.
+    obj.get("tokens")
+        .and_then(Value::as_object)
+        .and_then(|tokens| tokens.get("account_id"))
+        .and_then(Value::as_str)
+        .is_some_and(|id| !id.is_empty())
+}
+
+fn codex_provider_table_body(requires_openai_auth: bool) -> String {
+    let mut body = format!(
         "[model_providers.headroom]\n\
          name = \"Headroom persistent proxy\"\n\
          base_url = \"{base}\"\n\
          supports_websockets = true",
         base = HEADROOM_OPENAI_BASE_URL,
-    )
+    );
+    if requires_openai_auth {
+        body.push_str("\nrequires_openai_auth = true");
+    }
+    body
 }
 
 fn codex_marker_block(block_id: &str, body: &str) -> String {
@@ -1364,7 +1398,7 @@ fn render_codex_config(existing: &str) -> String {
     out.push('\n');
     out.push_str(&codex_marker_block(
         CODEX_TABLE_BLOCK_ID,
-        &codex_provider_table_body(),
+        &codex_provider_table_body(codex_uses_chatgpt_auth()),
     ));
     out
 }
@@ -3375,9 +3409,11 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             toml.contains("base_url = \"http://127.0.0.1:6767/v1\""),
             "provider base_url points at proxy, got:\n{toml}"
         );
+        // No ~/.codex/auth.json in this test ⇒ not ChatGPT-OAuth ⇒ the flag is
+        // omitted (it would force an OpenAI OAuth login for API-key users, #406).
         assert!(
             !toml.contains("requires_openai_auth"),
-            "requires_openai_auth must NOT be written, got:\n{toml}"
+            "requires_openai_auth must NOT be written without ChatGPT auth, got:\n{toml}"
         );
 
         // OPENAI_BASE_URL exported from a managed shell block.
@@ -3447,6 +3483,48 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             toml_second.matches("# >>> headroom:codex_cli >>>").count(),
             1,
             "managed block appears exactly once"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn apply_codex_emits_requires_openai_auth_for_chatgpt_users() {
+        let home = TestHome::new();
+        fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
+        let codex_dir = home.path().join(".codex");
+        fs::create_dir_all(&codex_dir).unwrap();
+        fs::write(
+            codex_dir.join("auth.json"),
+            "{\"auth_mode\":\"chatgpt\",\"tokens\":{\"account_id\":\"acct_123\"}}",
+        )
+        .unwrap();
+
+        super::apply_client_setup("codex").expect("apply_client_setup succeeds");
+        let toml = fs::read_to_string(codex_dir.join("config.toml")).unwrap();
+        assert!(
+            toml.contains("requires_openai_auth = true"),
+            "ChatGPT-OAuth users need the flag for the account menu, got:\n{toml}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn apply_codex_omits_requires_openai_auth_for_api_key_users() {
+        let home = TestHome::new();
+        fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
+        let codex_dir = home.path().join(".codex");
+        fs::create_dir_all(&codex_dir).unwrap();
+        fs::write(
+            codex_dir.join("auth.json"),
+            "{\"auth_mode\":\"apikey\",\"OPENAI_API_KEY\":\"sk-test\"}",
+        )
+        .unwrap();
+
+        super::apply_client_setup("codex").expect("apply_client_setup succeeds");
+        let toml = fs::read_to_string(codex_dir.join("config.toml")).unwrap();
+        assert!(
+            !toml.contains("requires_openai_auth"),
+            "API-key users must not be forced into an OpenAI OAuth login (#406), got:\n{toml}"
         );
     }
 
