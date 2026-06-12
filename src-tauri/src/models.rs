@@ -126,6 +126,20 @@ pub struct DailySavingsPoint {
     pub total_tokens_sent: u64,
 }
 
+/// Per-provider (anthropic / openai / unknown) attribution for a single hourly
+/// bucket, sourced from the `by_provider` map added to `/stats-history` rollups
+/// upstream. Surfaced only in the hourly history-chart hover; empty for buckets
+/// that predate the upstream feature (local-tracker hours before the cutoff).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderSavingsPoint {
+    pub provider: String,
+    pub estimated_savings_usd: f64,
+    pub estimated_tokens_saved: u64,
+    pub actual_cost_usd: f64,
+    pub total_tokens_sent: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HourlySavingsPoint {
@@ -134,6 +148,8 @@ pub struct HourlySavingsPoint {
     pub estimated_tokens_saved: u64,
     pub actual_cost_usd: f64,
     pub total_tokens_sent: u64,
+    #[serde(default)]
+    pub by_provider: Vec<ProviderSavingsPoint>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

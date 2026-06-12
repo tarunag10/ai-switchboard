@@ -275,6 +275,21 @@ async function loadDashboard(): Promise<DashboardState> {
   }
 }
 
+// Upstream `by_provider` keys are upstream provider ids; map to the connector
+// names the rest of the desktop uses. `unknown` covers pre-attribution buckets.
+function providerLabel(provider: string): string {
+  switch (provider.toLowerCase()) {
+    case "anthropic":
+      return "Claude";
+    case "openai":
+      return "Codex";
+    case "unknown":
+      return "Other";
+    default:
+      return provider.charAt(0).toUpperCase() + provider.slice(1);
+  }
+}
+
 function SavingsChartTooltip({
   active,
   payload,
@@ -288,6 +303,8 @@ function SavingsChartTooltip({
   if (!active || !point) {
     return null;
   }
+
+  const byProvider = point.byProvider ?? [];
 
   return (
     <div className="savings-chart__tooltip">
@@ -329,6 +346,25 @@ function SavingsChartTooltip({
           </span>
         </div>
       )}
+      {byProvider.length > 0 ? (
+        <div className="savings-chart__tooltip-group">
+          <span className="savings-chart__tooltip-label">By provider</span>
+          {byProvider.map((provider) => (
+            <span className="savings-chart__tooltip-item" key={provider.provider}>
+              <i
+                aria-hidden="true"
+                className={`savings-chart__tooltip-dot savings-chart__tooltip-dot--${
+                  chartMode === "usd" ? "saved-usd" : "saved-tokens"
+                }`}
+              />
+              {providerLabel(provider.provider)}{" "}
+              {chartMode === "usd"
+                ? `saved ${currencyExact(provider.estimatedSavingsUsd)}`
+                : `saved ${compactNumber(provider.estimatedTokensSaved)} tokens`}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

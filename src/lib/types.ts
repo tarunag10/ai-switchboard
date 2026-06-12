@@ -65,12 +65,21 @@ export interface DailySavingsPoint {
   totalTokensSent: number;
 }
 
+export interface ProviderSavingsPoint {
+  provider: string;
+  estimatedSavingsUsd: number;
+  estimatedTokensSaved: number;
+  actualCostUsd: number;
+  totalTokensSent: number;
+}
+
 export interface HourlySavingsPoint {
   hour: string;
   estimatedSavingsUsd: number;
   estimatedTokensSaved: number;
   actualCostUsd: number;
   totalTokensSent: number;
+  byProvider: ProviderSavingsPoint[];
 }
 
 export interface DashboardState {

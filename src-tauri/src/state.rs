@@ -3482,6 +3482,8 @@ impl SavingsTracker {
                 estimated_tokens_saved: bucket.estimated_tokens_saved,
                 actual_cost_usd: bucket.actual_cost_usd,
                 total_tokens_sent: bucket.total_tokens_sent,
+                // The local pre-cutoff tracker has no provider dimension.
+                by_provider: Vec::new(),
             })
             .collect()
     }
@@ -4068,13 +4070,26 @@ struct HeadroomDashboardStats {
     savings_history: Vec<HeadroomSavingsHistoryPoint>,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+/// One provider's slice of a rollup bucket's delta, parsed from the upstream
+/// `by_provider` map (`anthropic` / `openai` / `unknown`). Field names mirror the
+/// bucket total; `hourly_savings` maps these to the display `ProviderSavingsPoint`.
+#[derive(Debug, Default, Clone)]
+struct ProviderRollupDelta {
+    provider: String,
+    tokens_saved: u64,
+    compression_savings_usd_delta: f64,
+    total_input_tokens_delta: u64,
+    total_input_cost_usd_delta: f64,
+}
+
+#[derive(Debug, Default, Clone)]
 struct HeadroomSavingsRollupPoint {
     timestamp: chrono::DateTime<Utc>,
     tokens_saved: u64,
     compression_savings_usd_delta: f64,
     total_input_tokens_delta: u64,
     total_input_cost_usd_delta: f64,
+    by_provider: Vec<ProviderRollupDelta>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -4108,6 +4123,17 @@ impl HeadroomSavingsHistoryResponse {
                 estimated_tokens_saved: point.tokens_saved,
                 actual_cost_usd: point.total_input_cost_usd_delta,
                 total_tokens_sent: point.total_input_tokens_delta,
+                by_provider: point
+                    .by_provider
+                    .iter()
+                    .map(|p| crate::models::ProviderSavingsPoint {
+                        provider: p.provider.clone(),
+                        estimated_savings_usd: p.compression_savings_usd_delta,
+                        estimated_tokens_saved: p.tokens_saved,
+                        actual_cost_usd: p.total_input_cost_usd_delta,
+                        total_tokens_sent: p.total_input_tokens_delta,
+                    })
+                    .collect(),
             })
             .collect()
     }
@@ -4456,7 +4482,44 @@ fn parse_savings_rollup_point(value: &Value) -> Option<HeadroomSavingsRollupPoin
             .and_then(parse_f64_value)
             .unwrap_or_default()
             .max(0.0),
+        by_provider: parse_rollup_by_provider(map.get("by_provider")),
     })
+}
+
+/// Parse the upstream `by_provider` map (`{ "anthropic": { tokens_saved, ... }, ... }`)
+/// into a deterministically-ordered list. Missing/empty yields an empty Vec, so
+/// pre-feature buckets carry no provider breakdown.
+fn parse_rollup_by_provider(value: Option<&Value>) -> Vec<ProviderRollupDelta> {
+    let Some(Value::Object(providers)) = value else {
+        return Vec::new();
+    };
+    let mut out: Vec<ProviderRollupDelta> = providers
+        .iter()
+        .map(|(provider, entry)| {
+            let get_u64 = |key: &str| {
+                entry
+                    .get(key)
+                    .and_then(parse_u64_value)
+                    .unwrap_or_default()
+            };
+            let get_f64 = |key: &str| {
+                entry
+                    .get(key)
+                    .and_then(parse_f64_value)
+                    .unwrap_or_default()
+                    .max(0.0)
+            };
+            ProviderRollupDelta {
+                provider: provider.clone(),
+                tokens_saved: get_u64("tokens_saved"),
+                compression_savings_usd_delta: get_f64("compression_savings_usd_delta"),
+                total_input_tokens_delta: get_u64("total_input_tokens_delta"),
+                total_input_cost_usd_delta: get_f64("total_input_cost_usd_delta"),
+            }
+        })
+        .collect();
+    out.sort_by(|a, b| a.provider.cmp(&b.provider));
+    out
 }
 
 fn parse_history_timestamp(text: &str) -> Option<chrono::DateTime<Utc>> {
@@ -6679,6 +6742,67 @@ mod tests {
         assert_eq!(hourly_points[0].hour, expected_hour);
         assert_eq!(hourly_points[0].estimated_tokens_saved, 150);
         assert!((hourly_points[0].estimated_savings_usd - 0.15).abs() < 1e-9);
+        // No by_provider in this fixture -> empty breakdown.
+        assert!(hourly_points[0].by_provider.is_empty());
+    }
+
+    #[test]
+    fn parse_headroom_stats_history_attributes_hourly_by_provider() {
+        let parsed = parse_headroom_stats_history_from_json(
+            r#"{
+                "series": {
+                    "hourly": [
+                        {
+                            "timestamp": "2026-03-27T09:00:00Z",
+                            "tokens_saved": 140,
+                            "compression_savings_usd_delta": 0.14,
+                            "total_input_tokens_delta": 200,
+                            "total_input_cost_usd_delta": 0.40,
+                            "by_provider": {
+                                "openai": {
+                                    "tokens_saved": 40,
+                                    "compression_savings_usd_delta": 0.04,
+                                    "total_input_tokens_delta": 80,
+                                    "total_input_cost_usd_delta": 0.16
+                                },
+                                "anthropic": {
+                                    "tokens_saved": 100,
+                                    "compression_savings_usd_delta": 0.10,
+                                    "total_input_tokens_delta": 120,
+                                    "total_input_cost_usd_delta": 0.24
+                                }
+                            }
+                        }
+                    ]
+                }
+            }"#,
+        )
+        .expect("parsed history");
+
+        // Parsed rollup keeps every provider, sorted by name for stable display.
+        let providers = &parsed.hourly[0].by_provider;
+        assert_eq!(providers.len(), 2);
+        assert_eq!(providers[0].provider, "anthropic");
+        assert_eq!(providers[1].provider, "openai");
+
+        // hourly_savings() maps the delta fields onto the display point.
+        let hourly_points = parsed.hourly_savings();
+        let by_provider = &hourly_points[0].by_provider;
+        assert_eq!(by_provider.len(), 2);
+        let anthropic = &by_provider[0];
+        assert_eq!(anthropic.provider, "anthropic");
+        assert_eq!(anthropic.estimated_tokens_saved, 100);
+        assert!((anthropic.estimated_savings_usd - 0.10).abs() < 1e-9);
+        assert_eq!(anthropic.total_tokens_sent, 120);
+        assert!((anthropic.actual_cost_usd - 0.24).abs() < 1e-9);
+        let openai = &by_provider[1];
+        assert_eq!(openai.provider, "openai");
+        assert_eq!(openai.estimated_tokens_saved, 40);
+        // Per-provider tokens-saved sum back to the bucket total.
+        assert_eq!(
+            anthropic.estimated_tokens_saved + openai.estimated_tokens_saved,
+            hourly_points[0].estimated_tokens_saved
+        );
     }
 
     #[test]
@@ -7254,6 +7378,7 @@ mod tests {
             estimated_savings_usd: 0.0,
             actual_cost_usd: 0.0,
             total_tokens_sent: 0,
+            by_provider: Vec::new(),
         }
     }
 

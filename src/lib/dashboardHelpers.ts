@@ -1,7 +1,8 @@
 import type {
   ClientConnectorStatus,
   DailySavingsPoint,
-  HourlySavingsPoint
+  HourlySavingsPoint,
+  ProviderSavingsPoint
 } from "./types";
 
 export interface SavingsChartDatum {
@@ -13,6 +14,9 @@ export interface SavingsChartDatum {
   totalTokensSent: number;
   totalCostBeforeOptimization: number;
   totalTokensBeforeOptimization: number;
+  // Per-provider attribution, only populated for hourly buckets (day view).
+  // Undefined for monthly buckets, which have no provider dimension.
+  byProvider?: ProviderSavingsPoint[];
 }
 
 export function currencyExact(value: number) {
@@ -160,7 +164,8 @@ export function buildHourlySavingsWindow(data: HourlySavingsPoint[], day: Date) 
       estimatedSavingsUsd: 0,
       estimatedTokensSaved: 0,
       actualCostUsd: 0,
-      totalTokensSent: 0
+      totalTokensSent: 0,
+      byProvider: []
     };
   });
 }
@@ -187,7 +192,8 @@ export function buildHourlySavingsChartData(data: HourlySavingsPoint[]): Savings
     actualCostUsd: point.actualCostUsd,
     totalTokensSent: point.totalTokensSent,
     totalCostBeforeOptimization: point.actualCostUsd + point.estimatedSavingsUsd,
-    totalTokensBeforeOptimization: point.totalTokensSent + point.estimatedTokensSaved
+    totalTokensBeforeOptimization: point.totalTokensSent + point.estimatedTokensSaved,
+    byProvider: point.byProvider ?? []
   }));
 }
 

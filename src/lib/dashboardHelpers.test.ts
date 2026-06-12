@@ -73,7 +73,16 @@ describe("dashboard helpers", () => {
         estimatedSavingsUsd: 1.25,
         estimatedTokensSaved: 125,
         actualCostUsd: 0.75,
-        totalTokensSent: 500
+        totalTokensSent: 500,
+        byProvider: [
+          {
+            provider: "anthropic",
+            estimatedSavingsUsd: 1.25,
+            estimatedTokensSaved: 125,
+            actualCostUsd: 0.75,
+            totalTokensSent: 500
+          }
+        ]
       }
     ];
 
@@ -92,6 +101,9 @@ describe("dashboard helpers", () => {
       totalCostBeforeOptimization: 2,
       totalTokensBeforeOptimization: 625
     });
+    // Per-provider breakdown carries through; padded hours default to empty.
+    expect(chartData[4].byProvider).toEqual(data[0].byProvider);
+    expect(chartData[3].byProvider).toEqual([]);
   });
 
   it("builds monthly chart data and finds earliest visible history", () => {
@@ -117,7 +129,8 @@ describe("dashboard helpers", () => {
         estimatedSavingsUsd: 0.5,
         estimatedTokensSaved: 50,
         actualCostUsd: 1,
-        totalTokensSent: 300
+        totalTokensSent: 300,
+        byProvider: []
       }
     ];
 
