@@ -43,7 +43,8 @@ use tauri_plugin_updater::{Update, UpdaterExt};
 use crate::models::{
     ActivityFeedResponse, BillingPeriod, BootstrapProgress, ClaudeAccountProfile,
     ClaudeCodeProject, ClaudeUsage, ClientConnectorStatus, ClientSetupResult,
-    ClientSetupVerification, DashboardState, HeadroomAuthCodeRequest, HeadroomLearnPrereqStatus,
+    ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
+    HeadroomLearnPrereqStatus,
     HeadroomLearnStatus, HeadroomPricingStatus, HeadroomSubscriptionTier, ResearchCandidate,
     RuntimeStatus, RuntimeUpgradeProgress, TransformationFeedResponse,
 };
@@ -193,28 +194,40 @@ static PORT_CONFLICT_CAPTURED: AtomicBool = AtomicBool::new(false);
 // deserialize those fields as 0 via #[serde(default)], producing false positives.
 const SPEND_SCHEMA_CUTOFF_DATE: &str = "2026-04-13";
 
-fn check_zero_spend_anomaly(dashboard: &DashboardState) {
-    if ZERO_SPEND_ALERT_FIRED.load(Ordering::Relaxed) {
-        return;
-    }
-    let affected_days: Vec<&str> = dashboard
-        .daily_savings
+// Trigger on compression *dollar* savings, not the all-layers token total.
+// `estimated_tokens_saved` folds in CLI context-tool filtering (RTK / lean-ctx),
+// whose tokens are avoided before they ever reach a model request -- so they
+// legitimately produce savings with zero tokens_sent and zero cost, tripping
+// this probe on days dominated by that layer. `estimated_savings_usd` is
+// proxy-compression-only (the proxy prices it at the model rate and excludes CLI
+// filtering and prefix-cache discounts), so it is > 0 iff a real model request
+// was compressed -- which implies tokens were sent and a cost incurred. Zero
+// spend against it is the genuine pipeline anomaly.
+fn zero_spend_affected_days(daily_savings: &[DailySavingsPoint]) -> Vec<&str> {
+    daily_savings
         .iter()
         .filter(|p| {
             p.date.as_str() >= SPEND_SCHEMA_CUTOFF_DATE
-                && p.estimated_tokens_saved > 0
+                && p.estimated_savings_usd > 0.000_001
                 && p.actual_cost_usd == 0.0
                 && p.total_tokens_sent == 0
         })
         .map(|p| p.date.as_str())
-        .collect();
+        .collect()
+}
+
+fn check_zero_spend_anomaly(dashboard: &DashboardState) {
+    if ZERO_SPEND_ALERT_FIRED.load(Ordering::Relaxed) {
+        return;
+    }
+    let affected_days = zero_spend_affected_days(&dashboard.daily_savings);
     if affected_days.is_empty() {
         return;
     }
     ZERO_SPEND_ALERT_FIRED.store(true, Ordering::Relaxed);
     sentry::capture_message(
         &format!(
-            "graph shows tokens saved but zero tokens spent on days: {}",
+            "graph shows compression savings but zero tokens spent on days: {}",
             affected_days.join(", ")
         ),
         sentry::Level::Warning,
@@ -466,6 +479,63 @@ fn shell_quote_path(path: &std::path::Path) -> String {
     // ', which we close-escape-open. Safe against spaces / special chars in
     // the bundle path (e.g. `/Applications/Headroom RC.app`).
     format!("'{}'", s.replace('\'', "'\\''"))
+}
+
+/// Best-effort: schedule the running `.app` bundle to be moved to the user's
+/// Trash once this process exits. Returns the bundle path that was scheduled,
+/// or `None` if there is no enclosing bundle, it is App-Translocated, or the
+/// detached helper could not be spawned.
+///
+/// We can't delete our own running bundle inline, so we spawn a detached shell
+/// that waits for our PID to exit (mirroring the `restart_app` relauncher) and
+/// then `mv`s the bundle into `~/.Trash`. `mv` is used rather than a Finder
+/// "delete" because by the time it runs the app is gone and could not answer a
+/// Finder automation (TCC) prompt; moving into `~/.Trash` needs no such
+/// permission and keeps the uninstall recoverable.
+#[cfg(target_os = "macos")]
+fn schedule_app_bundle_trash() -> Option<std::path::PathBuf> {
+    let bundle = current_app_bundle_path()?;
+
+    // App Translocation: the app was launched quarantined (e.g. straight from a
+    // DMG, never moved to /Applications) and runs from a randomized read-only
+    // copy under `.../AppTranslocation/...`. Trashing that copy does nothing
+    // useful and leaves the real install in place, so skip it.
+    if bundle.to_string_lossy().contains("/AppTranslocation/") {
+        log::warn!(
+            "uninstall: skipping app-bundle removal; running from translocated path {bundle:?}"
+        );
+        return None;
+    }
+
+    let pid = std::process::id();
+    let quoted = shell_quote_path(&bundle);
+    let log_quoted = shell_quote_path(&logging::log_path());
+    let cmd = format!(
+        "alive=1; \
+         for i in $(seq 1 100); do \
+           if ! kill -0 {pid} 2>/dev/null; then alive=0; break; fi; \
+           sleep 0.1; \
+         done; \
+         if [ \"$alive\" = 1 ]; then kill -9 {pid} 2>/dev/null; sleep 0.5; fi; \
+         base=$(basename {quoted}); \
+         dest=\"$HOME/.Trash/$base\"; \
+         if [ -e \"$dest\" ]; then dest=\"$HOME/.Trash/${{base%.app}} $(date +%s).app\"; fi; \
+         mv -f {quoted} \"$dest\"; rc=$?; \
+         echo \"$(date '+%Y-%m-%d %H:%M:%S') uninstall: mv {quoted} -> $dest exited rc=$rc (alive=$alive)\" >> {log_quoted}",
+        pid = pid,
+        quoted = quoted,
+        log_quoted = log_quoted,
+    );
+    match Command::new("/bin/sh").arg("-c").arg(cmd).spawn() {
+        Ok(_) => {
+            log::info!("uninstall: scheduled app-bundle trash for {bundle:?}");
+            Some(bundle)
+        }
+        Err(err) => {
+            log::error!("uninstall: failed to spawn app-bundle trasher: {err}");
+            None
+        }
+    }
 }
 
 #[tauri::command]
@@ -2645,7 +2715,15 @@ fn uninstall_and_quit(app: AppHandle) -> Result<Vec<String>, String> {
     // listing Headroom as a background item even if the user later reinstalls.
     let _ = app.autolaunch().disable();
 
-    let removed = client_adapters::perform_full_cleanup();
+    let mut removed = client_adapters::perform_full_cleanup();
+
+    // Trash the running .app bundle itself once we exit. Best-effort and
+    // macOS-only; everything above only removed Headroom's on-disk footprint
+    // (config, runtime, caches), not the application.
+    #[cfg(target_os = "macos")]
+    if let Some(bundle) = schedule_app_bundle_trash() {
+        removed.push(bundle.display().to_string());
+    }
 
     analytics::track_event(
         &app,
@@ -4687,8 +4765,9 @@ mod tests {
         pattern_matches_project, physical_rect_from_rect, read_applied_patterns_for_project,
         auto_resume_backoff, resolve_release_updater_config, select_updater_endpoints,
         store_checked_update,
-        watchdog_should_be_up, AppUpdateProgress, AppUpdateProgressEmitter, AvailableAppUpdate,
-        BootstrapFailureKind, HeadroomLearnPrereqStatus, InstallPendingUpdateFuture,
+        watchdog_should_be_up, zero_spend_affected_days, AppUpdateProgress, AppUpdateProgressEmitter,
+        AvailableAppUpdate,
+        BootstrapFailureKind, DailySavingsPoint, HeadroomLearnPrereqStatus, InstallPendingUpdateFuture,
         InstallableAppUpdate, MonitorBounds, PhysicalRect, QuitSource, TrayRuntimeVisual,
         DEFAULT_UPDATER_ENDPOINT, DEFAULT_UPDATER_PUBLIC_KEY,
     };
@@ -4719,6 +4798,51 @@ mod tests {
             published_at: Some("2026-04-02T12:00:00Z".into()),
             notes: Some("Bug fixes.".into()),
         }
+    }
+
+    fn daily_point(
+        date: &str,
+        savings_usd: f64,
+        tokens_saved: u64,
+        cost_usd: f64,
+        tokens_sent: u64,
+    ) -> DailySavingsPoint {
+        DailySavingsPoint {
+            date: date.into(),
+            estimated_savings_usd: savings_usd,
+            estimated_tokens_saved: tokens_saved,
+            actual_cost_usd: cost_usd,
+            total_tokens_sent: tokens_sent,
+        }
+    }
+
+    #[test]
+    fn zero_spend_ignores_days_with_only_cli_filtering_savings() {
+        // CLI/RTK filtering inflates the token total but never the compression
+        // dollar figure (those tokens never reach a model request), so a day with
+        // token savings but zero compression-USD is not an anomaly.
+        let days = vec![daily_point("2026-06-16", 0.0, 5_000, 0.0, 0)];
+        assert!(zero_spend_affected_days(&days).is_empty());
+    }
+
+    #[test]
+    fn zero_spend_flags_compression_savings_with_no_spend() {
+        // Compression dollars recorded but the spend pipeline reported nothing.
+        let days = vec![daily_point("2026-06-16", 0.12, 5_000, 0.0, 0)];
+        assert_eq!(zero_spend_affected_days(&days), vec!["2026-06-16"]);
+    }
+
+    #[test]
+    fn zero_spend_ignores_compression_days_that_recorded_spend() {
+        let days = vec![daily_point("2026-06-16", 0.12, 5_000, 0.34, 8_000)];
+        assert!(zero_spend_affected_days(&days).is_empty());
+    }
+
+    #[test]
+    fn zero_spend_ignores_pre_schema_cutoff_days() {
+        // Pre-v6 records deserialize spend fields as 0; never flag them.
+        let days = vec![daily_point("2026-04-12", 0.12, 5_000, 0.0, 0)];
+        assert!(zero_spend_affected_days(&days).is_empty());
     }
 
     #[test]

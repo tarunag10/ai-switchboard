@@ -110,6 +110,17 @@ fn skip_sentry(target: &str, msg: &str) -> bool {
     {
         return true;
     }
+    // Kompress prefetch is best-effort; the proxy lazy-loads the model on first
+    // request if this fails. These two variants carry no actionable detail (the
+    // spawn error is rare and the restart self-heals on next request), so they
+    // are pure noise. The "download error" variant is NOT suppressed — it
+    // carries a classified cause and is the systemic signal worth tracking.
+    if target.starts_with("headroom_desktop_lib::state")
+        && (msg.starts_with("kompress prefetch failed")
+            || msg.starts_with("kompress prefetch: restart after download failed"))
+    {
+        return true;
+    }
     false
 }
 
@@ -259,6 +270,36 @@ mod tests {
         assert!(!skip_sentry(
             "headroom_desktop_lib::proxy_intercept",
             "some other proxy_intercept warning"
+        ));
+    }
+
+    #[test]
+    fn skips_kompress_prefetch_best_effort_warnings() {
+        assert!(skip_sentry(
+            "headroom_desktop_lib::state",
+            "kompress prefetch failed: some error"
+        ));
+        assert!(skip_sentry(
+            "headroom_desktop_lib::state",
+            "kompress prefetch: restart after download failed: boom"
+        ));
+    }
+
+    #[test]
+    fn keeps_kompress_prefetch_download_error() {
+        // The classified-cause variant carries the systemic signal and must
+        // reach Sentry.
+        assert!(!skip_sentry(
+            "headroom_desktop_lib::state",
+            "kompress prefetch download error: [network] Max retries exceeded"
+        ));
+    }
+
+    #[test]
+    fn keeps_other_state_warnings() {
+        assert!(!skip_sentry(
+            "headroom_desktop_lib::state",
+            "some other state warning"
         ));
     }
 }

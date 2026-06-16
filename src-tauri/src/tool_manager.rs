@@ -336,6 +336,67 @@ pub struct HeadroomLearnProjectSummary {
     pub pattern_count: Option<usize>,
 }
 
+/// Result of a best-effort kompress model prefetch.
+pub enum KompressPrefetchOutcome {
+    /// Model successfully downloaded and cached.
+    Downloaded,
+    /// Subprocess exited non-zero. `cause` is a coarse category plus the last
+    /// meaningful line of `kompress-prefetch.log`, suitable for Sentry.
+    Failed { cause: String },
+}
+
+/// Build a short, Sentry-friendly cause from the tail of the prefetch log.
+/// The leading `[category]` keeps related failures grouped; the trailing line
+/// carries the specific error for triage.
+fn summarize_kompress_prefetch_failure(log_path: &Path) -> String {
+    let contents = std::fs::read_to_string(log_path).unwrap_or_default();
+    let lines: Vec<&str> = contents.lines().collect();
+    let start = lines.len().saturating_sub(40);
+    let tail = lines[start..].join("\n");
+
+    let category = classify_kompress_prefetch_failure(&tail);
+    let detail: String = tail
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .next_back()
+        .unwrap_or("(no output in kompress-prefetch.log)")
+        .chars()
+        .take(200)
+        .collect();
+
+    format!("[{category}] {detail}")
+}
+
+/// Bucket a prefetch-log tail into a coarse, stable failure category.
+fn classify_kompress_prefetch_failure(tail: &str) -> &'static str {
+    let t = tail.to_lowercase();
+    if t.is_empty() {
+        "no output"
+    } else if t.contains("sigabrt") || t.contains("aborted") {
+        "native abort"
+    } else if t.contains("no space left")
+        || t.contains("disk full")
+        || t.contains("errno 28")
+    {
+        "disk full"
+    } else if t.contains("connection")
+        || t.contains("timed out")
+        || t.contains("timeout")
+        || t.contains("name resolution")
+        || t.contains("failed to resolve")
+        || t.contains("max retries exceeded")
+        || t.contains("ssl")
+        || t.contains("httperror")
+    {
+        "network"
+    } else if t.contains("permission denied") {
+        "permission denied"
+    } else {
+        "other"
+    }
+}
+
 impl ToolManager {
     pub fn new(runtime: ManagedRuntime) -> Self {
         let rtk_checksum = rtk_distribution_artifact()
@@ -1005,13 +1066,15 @@ impl ToolManager {
     /// Download the Kompress model (~260MB) into the HF cache by running the
     /// bundled venv python's loader with network enabled. Blocks until the
     /// download finishes — call this on a background thread. Output is captured
-    /// to `logs/kompress-prefetch.log`. Returns `Ok(true)` on success.
+    /// to `logs/kompress-prefetch.log`.
     ///
     /// This front-loads the download the proxy would otherwise do lazily on
     /// first request, so a fresh install has ML compression ready before any
     /// traffic. It is best-effort: on failure the proxy's own lazy-load path
-    /// still downloads on first use.
-    pub fn prefetch_kompress_model(&self) -> Result<bool> {
+    /// still downloads on first use. On a non-zero exit the returned
+    /// [`KompressPrefetchOutcome::Failed`] carries a short, Sentry-friendly
+    /// cause read from the tail of the prefetch log.
+    pub fn prefetch_kompress_model(&self) -> Result<KompressPrefetchOutcome> {
         let python = self.managed_python();
         if !python.exists() {
             bail!("headroom managed python not found at {}", python.display());
@@ -1048,7 +1111,13 @@ impl ToolManager {
             .status()
             .with_context(|| format!("running kompress prefetch via {}", python.display()))?;
 
-        Ok(status.success())
+        if status.success() {
+            Ok(KompressPrefetchOutcome::Downloaded)
+        } else {
+            Ok(KompressPrefetchOutcome::Failed {
+                cause: summarize_kompress_prefetch_failure(&log_path),
+            })
+        }
     }
 
     fn read_headroom_receipt(&self) -> Option<Value> {
@@ -4623,17 +4692,74 @@ mod tests {
     use chrono::Local;
 
     use super::{
-        bootstrap_requirements_lock_for_target, extract_required_pydantic_core_version,
-        format_all_foreign_bail, format_already_running_bail, headroom_entrypoint_startup_args,
-        headroom_python_startup_args, looks_like_corrupt_venv_error, parse_major_minor_patch,
-        parse_pid_from_lsof_detail, proxy_argv_contains_expected_flags,
+        bootstrap_requirements_lock_for_target, classify_kompress_prefetch_failure,
+        extract_required_pydantic_core_version, format_all_foreign_bail, format_already_running_bail,
+        headroom_entrypoint_startup_args, headroom_python_startup_args, looks_like_corrupt_venv_error,
+        parse_major_minor_patch, parse_pid_from_lsof_detail, proxy_argv_contains_expected_flags,
         read_headroom_learn_metadata_from_path, receipt_requires_atomic_rebuild, redact_sensitive,
         requirements_lock_sha, rtk_distribution_artifact, run_command, sanitize_log_variant,
-        sha256_bytes, verify_sha256_file, CommandFailure, HeadroomRelease, ManagedRuntime,
-        PipOutputCapture, ToolManager, UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION, RTK_VERSION,
+        sha256_bytes, summarize_kompress_prefetch_failure, verify_sha256_file, CommandFailure,
+        HeadroomRelease, ManagedRuntime, PipOutputCapture, ToolManager, UpgradeOutcome,
+        ATOMIC_REBUILD_FLOOR_VERSION, RTK_VERSION,
     };
     use crate::backend_port;
     use crate::port_conflict;
+
+    #[test]
+    fn classify_kompress_prefetch_failure_buckets_known_causes() {
+        assert_eq!(classify_kompress_prefetch_failure(""), "no output");
+        assert_eq!(
+            classify_kompress_prefetch_failure("python3 abort trap: 6 (SIGABRT)"),
+            "native abort"
+        );
+        assert_eq!(
+            classify_kompress_prefetch_failure("OSError: [Errno 28] No space left on device"),
+            "disk full"
+        );
+        assert_eq!(
+            classify_kompress_prefetch_failure(
+                "requests.exceptions.ConnectionError: Max retries exceeded with url"
+            ),
+            "network"
+        );
+        assert_eq!(
+            classify_kompress_prefetch_failure("PermissionError: [Errno 13] Permission denied"),
+            "permission denied"
+        );
+        assert_eq!(
+            classify_kompress_prefetch_failure("ValueError: something unexpected"),
+            "other"
+        );
+    }
+
+    #[test]
+    fn summarize_kompress_prefetch_failure_uses_last_meaningful_line() {
+        let dir = std::env::temp_dir().join(format!(
+            "kompress-prefetch-test-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let log = dir.join("kompress-prefetch.log");
+        fs::write(
+            &log,
+            "Downloading model...\nTraceback (most recent call last):\n  File x\nConnectionError: Max retries exceeded\n\n",
+        )
+        .unwrap();
+
+        let cause = summarize_kompress_prefetch_failure(&log);
+        assert_eq!(cause, "[network] ConnectionError: Max retries exceeded");
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn summarize_kompress_prefetch_failure_handles_missing_log() {
+        let cause = summarize_kompress_prefetch_failure(&PathBuf::from("/no/such/prefetch.log"));
+        assert_eq!(cause, "[no output] (no output in kompress-prefetch.log)");
+    }
 
     #[test]
     fn redact_sensitive_strips_anthropic_keys() {

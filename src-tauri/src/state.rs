@@ -2894,16 +2894,18 @@ impl AppState {
         }
 
         log::info!("kompress prefetch: downloading model on fresh install");
-        let downloaded = match self.tool_manager.prefetch_kompress_model() {
-            Ok(ok) => ok,
+        match self.tool_manager.prefetch_kompress_model() {
+            Ok(crate::tool_manager::KompressPrefetchOutcome::Downloaded) => {}
+            Ok(crate::tool_manager::KompressPrefetchOutcome::Failed { cause }) => {
+                // Reported to Sentry: the cause distinguishes systemic failures
+                // (network / disk / native abort) worth acting on in aggregate.
+                log::warn!("kompress prefetch download error: {cause}");
+                return;
+            }
             Err(err) => {
                 log::warn!("kompress prefetch failed: {err:#}");
                 return;
             }
-        };
-        if !downloaded {
-            log::warn!("kompress prefetch exited non-zero; see logs/kompress-prefetch.log");
-            return;
         }
         log::info!("kompress prefetch: model cached");
 
@@ -4517,7 +4519,11 @@ fn parse_headroom_stats_from_json(body: &str) -> Option<HeadroomDashboardStats> 
         });
     // Prefer new input (cache_write + uncached); fall back to total forwarded
     // tokens for proxy builds that do not report prefix-cache totals (back-compat).
+    // Filter the primary to >0 *before* the fallback: new_input_tokens is
+    // Some(0) on a fully-cached snapshot, and `.or` only fires on None -- without
+    // this the Some(0) skips the fallback and is then dropped, losing a valid count.
     let session_total_tokens_sent = new_input_tokens
+        .filter(|value| *value > 0)
         .or(total_after_compression)
         .filter(|value| *value > 0);
     // Ratio against new input: saved / (saved + uncached_forwarded). The
@@ -6986,6 +6992,33 @@ mod tests {
         assert_eq!(parsed.session_total_tokens_sent, Some(8_000));
         let pct = parsed.session_savings_pct.expect("savings pct");
         assert!((pct - 20.0).abs() < 1e-9, "expected 20%, got {pct}");
+    }
+
+    #[test]
+    fn parse_headroom_stats_falls_back_to_total_when_new_input_is_zero() {
+        // Fully-cached snapshot: prefix_cache.totals is present but cache_write
+        // and uncached are both 0, so new_input_tokens is Some(0). The fallback
+        // to the forwarded total (50_000) must still apply -- otherwise the
+        // Some(0) skips `.or` and is dropped, leaving savings with zero spend.
+        let parsed = parse_headroom_stats_from_json(
+            r#"{
+                "tokens": {
+                    "saved": 2000,
+                    "input": 50000
+                },
+                "prefix_cache": {
+                    "totals": {
+                        "cache_read_tokens": 92000,
+                        "cache_write_tokens": 0,
+                        "uncached_input_tokens": 0
+                    }
+                }
+            }"#,
+        )
+        .expect("parsed stats");
+
+        assert_eq!(parsed.session_estimated_tokens_saved, Some(2_000));
+        assert_eq!(parsed.session_total_tokens_sent, Some(50_000));
     }
 
     #[test]
