@@ -7814,6 +7814,60 @@ mod tests {
         assert!(!tracker.ingest_native_rollups(&native_daily, &native_hourly, cutoff, today));
     }
 
+    #[test]
+    fn ingest_native_rollups_overwrites_stale_tracker_value_with_authoritative() {
+        let mut tracker = make_tracker();
+        // A prior, approximate self-observed value for a settled day.
+        assert!(tracker.ingest_native_rollups(
+            &[daily("2026-06-10", 50, 0.5)],
+            &[],
+            "2026-06-02",
+            "2026-06-16",
+        ));
+        // Backend reports the authoritative (different) value -> overwrite + change.
+        assert!(tracker.ingest_native_rollups(
+            &[daily("2026-06-10", 100, 1.0)],
+            &[],
+            "2026-06-02",
+            "2026-06-16",
+        ));
+        let point = tracker
+            .daily_savings()
+            .into_iter()
+            .find(|p| p.date == "2026-06-10")
+            .expect("settled day present");
+        assert_eq!(point.estimated_tokens_saved, 100);
+    }
+
+    #[test]
+    fn ingest_native_rollups_leaves_days_absent_from_native_untouched() {
+        // Guards the integrity property: once the trimmed boundary bucket is
+        // dropped by the parser it is absent from `native`, so ingestion must
+        // never clobber the good value archived on the prior render.
+        let mut tracker = make_tracker();
+        assert!(tracker.ingest_native_rollups(
+            &[daily("2026-06-10", 100, 1.0)],
+            &[],
+            "2026-06-02",
+            "2026-06-16",
+        ));
+        // Next render: June 10 is now the dropped boundary (absent); only the
+        // newer settled day arrives.
+        assert!(tracker.ingest_native_rollups(
+            &[daily("2026-06-11", 70, 0.7)],
+            &[],
+            "2026-06-02",
+            "2026-06-16",
+        ));
+        let by_date: std::collections::BTreeMap<String, u64> = tracker
+            .daily_savings()
+            .into_iter()
+            .map(|p| (p.date, p.estimated_tokens_saved))
+            .collect();
+        assert_eq!(by_date.get("2026-06-10"), Some(&100)); // preserved
+        assert_eq!(by_date.get("2026-06-11"), Some(&70)); // newly archived
+    }
+
     // merge_daily_savings
 
     #[test]
