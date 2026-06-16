@@ -2148,10 +2148,27 @@ impl AppState {
             }
             let cutoff_date = savings_history_cutoff_date();
             let cutoff_hour = format!("{cutoff_date}T00:00");
-            daily_savings =
-                merge_daily_savings(daily_savings, history.daily_savings(), &cutoff_date);
-            hourly_savings =
-                merge_hourly_savings(hourly_savings, history.hourly_savings(), &cutoff_hour);
+            let native_daily = history.daily_savings();
+            let native_hourly = history.hourly_savings();
+
+            // Lock the backend's authoritative settled rollups into the local
+            // archive so they survive its history trimming and fill gaps from
+            // periods the app wasn't running.
+            {
+                let today_key = local_day_key(Local::now());
+                let mut tracker = self.savings_tracker.lock();
+                if tracker.ingest_native_rollups(
+                    &native_daily,
+                    &native_hourly,
+                    &cutoff_date,
+                    &today_key,
+                ) {
+                    let _ = tracker.persist_state();
+                }
+            }
+
+            daily_savings = merge_daily_savings(daily_savings, native_daily, &cutoff_date);
+            hourly_savings = merge_hourly_savings(hourly_savings, native_hourly, &cutoff_hour);
         }
 
         let (launch_experience, accepted_terms_version) = {
@@ -3629,6 +3646,57 @@ impl SavingsTracker {
                 by_provider: Vec::new(),
             })
             .collect()
+    }
+
+    /// Fold the backend's authoritative rollups into the local archive so they
+    /// survive its history trimming and fill gaps from periods the app wasn't
+    /// running. Only settled days in `[cutoff_date, today_key)` are written:
+    /// today's live buckets are left to `observe`, and pre-cutoff days are
+    /// skipped (pre-v6 schema drift). Native values overwrite the tracker's own
+    /// observed values for those keys, mirroring the display-time merge.
+    /// Returns true if any bucket changed (caller should persist).
+    fn ingest_native_rollups(
+        &mut self,
+        daily: &[DailySavingsPoint],
+        hourly: &[HourlySavingsPoint],
+        cutoff_date: &str,
+        today_key: &str,
+    ) -> bool {
+        let cutoff_hour = format!("{cutoff_date}T00:00");
+        let mut changed = false;
+        for point in daily {
+            if point.date.as_str() < cutoff_date || point.date.as_str() >= today_key {
+                continue;
+            }
+            let bucket = DailySavingsBucket {
+                estimated_savings_usd: point.estimated_savings_usd,
+                estimated_tokens_saved: point.estimated_tokens_saved,
+                actual_cost_usd: point.actual_cost_usd,
+                total_tokens_sent: point.total_tokens_sent,
+            };
+            if self.daily_savings.get(&point.date) != Some(&bucket) {
+                self.daily_savings.insert(point.date.clone(), bucket);
+                changed = true;
+            }
+        }
+        for point in hourly {
+            if point.hour.as_str() < cutoff_hour.as_str()
+                || day_key_from_hour_key(&point.hour).as_str() >= today_key
+            {
+                continue;
+            }
+            let bucket = DailySavingsBucket {
+                estimated_savings_usd: point.estimated_savings_usd,
+                estimated_tokens_saved: point.estimated_tokens_saved,
+                actual_cost_usd: point.actual_cost_usd,
+                total_tokens_sent: point.total_tokens_sent,
+            };
+            if self.hourly_savings.get(&point.hour) != Some(&bucket) {
+                self.hourly_savings.insert(point.hour.clone(), bucket);
+                changed = true;
+            }
+        }
+        changed
     }
 
     fn take_pending_lifetime_token_milestones(&mut self) -> Vec<u64> {
@@ -7710,6 +7778,40 @@ mod tests {
             total_tokens_sent: 0,
             by_provider: Vec::new(),
         }
+    }
+
+    #[test]
+    fn ingest_native_rollups_writes_settled_days_only_and_is_idempotent() {
+        let mut tracker = make_tracker();
+        let cutoff = "2026-06-02";
+        let today = "2026-06-16";
+        let native_daily = vec![
+            daily("2026-06-01", 999, 9.99), // pre-cutoff -> skipped
+            daily("2026-06-10", 100, 1.0),  // settled -> ingested
+            daily("2026-06-16", 500, 5.0),  // today -> left to observe
+        ];
+        let native_hourly = vec![
+            hourly("2026-06-10T09:00", 40), // settled day -> ingested
+            hourly("2026-06-16T09:00", 60), // today -> skipped
+        ];
+
+        assert!(tracker.ingest_native_rollups(&native_daily, &native_hourly, cutoff, today));
+
+        let daily_dates: Vec<String> = tracker
+            .daily_savings()
+            .into_iter()
+            .map(|p| p.date)
+            .collect();
+        assert_eq!(daily_dates, vec!["2026-06-10"]);
+        let hourly_keys: Vec<String> = tracker
+            .hourly_savings()
+            .into_iter()
+            .map(|p| p.hour)
+            .collect();
+        assert_eq!(hourly_keys, vec!["2026-06-10T09:00"]);
+
+        // Re-ingesting identical data must not report a change (no needless persist).
+        assert!(!tracker.ingest_native_rollups(&native_daily, &native_hourly, cutoff, today));
     }
 
     // merge_daily_savings

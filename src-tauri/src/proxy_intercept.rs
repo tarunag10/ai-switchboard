@@ -309,6 +309,15 @@ async fn handle(
     // traffic, so stamp `X-Client: codex` (which the backend honours over the
     // User-Agent) to keep Codex GUI and Codex CLI on the same backend path.
     if is_codex {
+        // TEMPORARY (codex-ua-capture): log the inbound User-Agent so the real
+        // Codex GUI UA can be added to upstream CLIENT_UA_MAP. Remove once
+        // captured. Grep logs for "codex-ua-capture". info! (not warn!) so this
+        // stays in the local file and out of Sentry.
+        log::info!(
+            "[codex-ua-capture] user-agent={:?} x-client={:?}",
+            extract_header_value(&buf, "user-agent"),
+            extract_header_value(&buf, "x-client"),
+        );
         stamp_codex_client_header(&mut buf);
     }
 

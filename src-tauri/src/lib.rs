@@ -2868,6 +2868,16 @@ pub fn run() {
             // Restore previously connected client integrations in the background.
             std::thread::spawn(|| {
                 client_adapters::restore_client_setups();
+                // restore_client_setups only retags Codex threads back to the
+                // headroom provider for clients in `remembered_clients`, which a
+                // plain Cmd-Q / dock quit / app-update restart never populates
+                // (only pause and the Settings "Quit" do). Those exit paths still
+                // run the quit-time headroom->openai retag, so without this the
+                // Codex history menu stays empty after an update restart. Mirror
+                // the quit retag whenever Codex is still configured.
+                if client_adapters::is_codex_enabled() {
+                    client_adapters::retag_codex_threads_to_headroom();
+                }
             });
 
             // headroom:// deep link — Polar's checkout success page redirects

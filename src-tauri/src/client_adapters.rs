@@ -1464,6 +1464,14 @@ pub fn retag_codex_threads_to_native() {
     retag_codex_thread_providers(CODEX_HEADROOM_PROVIDER, CODEX_NATIVE_PROVIDER);
 }
 
+/// Pull Codex threads into the headroom provider menu. Exposed for the
+/// app-launch hook in `lib.rs`, which must undo the quit-time native retag on
+/// the exit paths (Cmd-Q, dock quit, app-update restart) that never populate
+/// `remembered_clients` and are therefore skipped by `restore_client_setups`.
+pub fn retag_codex_threads_to_headroom() {
+    retag_codex_thread_providers(CODEX_NATIVE_PROVIDER, CODEX_HEADROOM_PROVIDER);
+}
+
 fn codex_root_keys_body() -> String {
     format!(
         "model_provider = \"headroom\"\n\
@@ -2522,7 +2530,8 @@ mod tests {
         build_headroom_rtk_hook, claude_code_user_state_exists, claude_hook_present_in_value,
         default_shell_targets_for_family, entry_contains_hook, find_on_path_entries,
         normalize_setup_state, normalized_setup_id, nvm_binary_candidates, parse_json_object,
-        remove_managed_block, retag_codex_thread_providers, retag_one_codex_db, serialize_paths,
+        remove_managed_block, retag_codex_thread_providers, retag_codex_threads_to_headroom,
+        retag_one_codex_db, serialize_paths,
         shell_block_contains_in_files, shell_block_contains_text_in_files, shell_double_quote,
         strip_headroom_hook_from_settings, upsert_managed_block, write_file_if_changed,
         ClientSetupState, ShellFamily,
@@ -3970,5 +3979,23 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let _home = TestHome::new();
         // No ~/.codex stores exist under the temp home: must not panic.
         retag_codex_thread_providers("openai", "headroom");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn retag_codex_threads_to_headroom_pulls_native_threads_back() {
+        // Reproduces the app-update restart path: the quit handler left threads
+        // tagged `openai`; launch must retag them back to `headroom`.
+        let home = TestHome::new();
+        let db = home.path().join(".codex").join("state_5.sqlite");
+        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+        seed_codex_threads_db(&db, &[("a", "openai"), ("b", "openai"), ("c", "anthropic")]);
+
+        retag_codex_threads_to_headroom();
+
+        assert_eq!(provider_count(&db, "headroom"), 2);
+        assert_eq!(provider_count(&db, "openai"), 0);
+        // Third-party threads are untouched.
+        assert_eq!(provider_count(&db, "anthropic"), 1);
     }
 }
