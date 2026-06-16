@@ -3314,6 +3314,13 @@ details[open] .optimize-minimal__details summary::after {
   margin-top: 8px;
 }
 
+.runtime-status__meta--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .runtime-status__section-title {
   font-size: var(--text-sm);
   line-height: 1.2;

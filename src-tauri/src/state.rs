@@ -17,7 +17,9 @@ use uuid::Uuid;
 use crate::activity_facts::{ActivityFacts, WeeklyTotals};
 use crate::analytics;
 use crate::bearer::{BearerToken, BEARER_TOKEN_TTL};
-use crate::client_adapters::{detect_clients, ensure_rtk_integrations, rtk_integration_status};
+use crate::client_adapters::{
+    detect_clients, ensure_rtk_integrations, is_rtk_disabled, rtk_integration_status,
+};
 use crate::insights::generate_daily_insights;
 use crate::models::{
     ActivityEvent, BootstrapProgress, ClaudeAccountProfile, ClaudeCodeProject, ClientStatus,
@@ -2670,6 +2672,7 @@ impl AppState {
             runtime_upgrade_failure: self.runtime_upgrade_failure(),
             rtk: RtkRuntimeStatus {
                 installed: rtk_installed,
+                enabled: !is_rtk_disabled(),
                 version: rtk_version,
                 path_configured: rtk_path_configured,
                 hook_configured: rtk_hook_configured,
@@ -4362,17 +4365,28 @@ fn parse_headroom_stats_from_json(body: &str) -> Option<HeadroomDashboardStats> 
             ],
         )
     });
-    // Denominator for the savings ratio = "new (uncached) input" only.
+    // Denominator for the savings ratio = "new input" this turn only.
     // Claude Code re-sends the entire conversation every turn; the cached
     // prefix (cache_read tokens) is forwarded but Headroom deliberately never
     // compresses it -- doing so would bust the provider prefix cache for a net
     // loss. Counting those re-sent cached tokens in the denominator drove the
     // displayed ratio toward zero as sessions grew longer and caching got more
-    // effective. Measure compression against the uncached input we can act on.
-    let uncached_input_tokens =
-        value_at_path_u64(&root, &["prefix_cache", "totals", "uncached_input_tokens"]).or_else(
-            || find_u64_key_recursive(&root, &["uncachedInputTokens", "uncached_input_tokens"]),
-        );
+    // effective. Under provider prompt caching, genuinely-new content lands in
+    // cache_write (1.25x), NOT in uncached_input -- which collapses to ~0 and
+    // would blow the ratio up to ~100%. New input we can actually compress is
+    // cache_write + uncached, so measure compression against that.
+    let new_input_tokens = {
+        let cache_write =
+            value_at_path_u64(&root, &["prefix_cache", "totals", "cache_write_tokens"]);
+        let uncached =
+            value_at_path_u64(&root, &["prefix_cache", "totals", "uncached_input_tokens"]).or_else(
+                || find_u64_key_recursive(&root, &["uncachedInputTokens", "uncached_input_tokens"]),
+            );
+        match (cache_write, uncached) {
+            (None, None) => None,
+            (write, uncached) => Some(write.unwrap_or(0).saturating_add(uncached.unwrap_or(0))),
+        }
+    };
     let total_after_compression = value_at_path_u64(&root, &["tokens", "input"])
         .or_else(|| value_at_path_u64(&root, &["cost", "total_input_tokens"]))
         .or_else(|| value_at_path_u64(&root, &["tokens", "actual_input_tokens"]))
@@ -4399,9 +4413,9 @@ fn parse_headroom_stats_from_json(body: &str) -> Option<HeadroomDashboardStats> 
                 ],
             )
         });
-    // Prefer uncached input; fall back to total forwarded tokens for proxy
-    // builds that do not report prefix-cache totals (back-compat).
-    let session_total_tokens_sent = uncached_input_tokens
+    // Prefer new input (cache_write + uncached); fall back to total forwarded
+    // tokens for proxy builds that do not report prefix-cache totals (back-compat).
+    let session_total_tokens_sent = new_input_tokens
         .or(total_after_compression)
         .filter(|value| *value > 0);
     // Ratio against new input: saved / (saved + uncached_forwarded). The
@@ -6808,11 +6822,12 @@ mod tests {
     }
 
     #[test]
-    fn parse_headroom_stats_ratio_uses_uncached_input_not_cached_prefix() {
+    fn parse_headroom_stats_ratio_uses_new_input_not_cached_prefix() {
         // The cached prefix (cache_read) is re-sent every turn but never
-        // compressed; it must not inflate the savings denominator. Here the
-        // forwarded input is 100_000 tokens but only 8_000 are new (uncached),
-        // so the ratio is measured against new input: 2000 / (2000 + 8000).
+        // compressed; it must not inflate the savings denominator. Under prompt
+        // caching, new content lands in cache_write (here 7_000) plus any
+        // uncached input (1_000), so new input is 8_000 and the ratio is
+        // 2000 / (2000 + 8000) = 20% -- the 92_000 cache_read is excluded.
         let parsed = parse_headroom_stats_from_json(
             r#"{
                 "requests": { "total": 7 },
@@ -6823,7 +6838,8 @@ mod tests {
                 "prefix_cache": {
                     "totals": {
                         "cache_read_tokens": 92000,
-                        "uncached_input_tokens": 8000
+                        "cache_write_tokens": 7000,
+                        "uncached_input_tokens": 1000
                     }
                 }
             }"#,
@@ -6831,7 +6847,8 @@ mod tests {
         .expect("parsed stats");
 
         assert_eq!(parsed.session_estimated_tokens_saved, Some(2_000));
-        // Denominator is uncached input, not the 100_000 forwarded total.
+        // Denominator is new input (cache_write + uncached), not the 100_000
+        // forwarded total and not uncached alone.
         assert_eq!(parsed.session_total_tokens_sent, Some(8_000));
         let pct = parsed.session_savings_pct.expect("savings pct");
         assert!((pct - 20.0).abs() < 1e-9, "expected 20%, got {pct}");

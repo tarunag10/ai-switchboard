@@ -230,6 +230,9 @@ pub struct ClientConnectorStatus {
 #[serde(rename_all = "camelCase")]
 pub struct RtkRuntimeStatus {
     pub installed: bool,
+    /// User-facing on/off state from the tool status toggle. False means the
+    /// user opted RTK out; integrations are torn down and stay off.
+    pub enabled: bool,
     pub version: Option<String>,
     pub path_configured: bool,
     pub hook_configured: bool,

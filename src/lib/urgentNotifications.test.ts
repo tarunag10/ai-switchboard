@@ -79,6 +79,7 @@ function makeRuntime(overrides: Partial<RuntimeStatus> = {}): RuntimeStatus {
     headroomLearnSupported: true,
     rtk: {
       installed: true,
+      enabled: true,
       pathConfigured: true,
       hookConfigured: true,
     },

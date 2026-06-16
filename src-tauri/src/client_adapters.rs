@@ -82,6 +82,13 @@ fn ensure_rtk_integrations_for_targets(
     managed_python_path: &Path,
     shell_targets: &[PathBuf],
 ) -> Result<(Vec<String>, Vec<String>)> {
+    // Respect the user's opt-out so bootstrap, restore, and client setup don't
+    // silently re-add the PATH export and Claude Code hook after they've been
+    // turned off via the tool status toggle.
+    if is_rtk_disabled() {
+        return Ok((Vec::new(), Vec::new()));
+    }
+
     let mut changed_files = Vec::new();
     let mut backup_files = Vec::new();
 
@@ -104,6 +111,41 @@ pub fn rtk_integration_status() -> Result<(bool, bool)> {
     let hook_configured = claude_settings_hook_matches("headroom-rtk-rewrite.sh")?
         && headroom_rtk_hook_path().exists();
     Ok((path_configured, hook_configured))
+}
+
+/// True when the user turned RTK off via the tool status toggle.
+pub fn is_rtk_disabled() -> bool {
+    load_setup_state().rtk_disabled
+}
+
+/// Enable or disable RTK from the tool status toggle. Disabling tears down the
+/// RTK PATH export and Claude Code hook (without touching `ANTHROPIC_BASE_URL`
+/// routing) and persists the opt-out so bootstrap won't re-add them. Enabling
+/// clears the flag and re-applies the integrations.
+pub fn set_rtk_enabled(
+    enabled: bool,
+    managed_rtk_path: &Path,
+    managed_python_path: &Path,
+) -> Result<()> {
+    let mut state = load_setup_state();
+    state.rtk_disabled = !enabled;
+    write_setup_state(&state)?;
+
+    if enabled {
+        ensure_rtk_integrations(managed_rtk_path, managed_python_path)?;
+    } else {
+        let shell_targets = resolve_client_shell_targets_for_cleanup(&state, "claude_code")?;
+        remove_shell_block(&shell_targets, "managed_rtk")?;
+        for settings_path in claude_settings_candidates() {
+            let _ = strip_headroom_hook_from_settings(&settings_path);
+        }
+        let hook_path = headroom_rtk_hook_path();
+        if hook_path.exists() {
+            let _ = std::fs::remove_file(&hook_path);
+        }
+    }
+
+    Ok(())
 }
 
 pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
@@ -787,6 +829,10 @@ struct ClientSetupState {
     managed_shell_files: BTreeMap<String, Vec<String>>,
     #[serde(default)]
     remembered_shell_files: BTreeMap<String, Vec<String>>,
+    /// User opted RTK out via the tool status toggle. When true, bootstrap and
+    /// client setup skip re-adding the RTK PATH export and Claude Code hook.
+    #[serde(default)]
+    rtk_disabled: bool,
 }
 
 fn is_configured(state: &ClientSetupState, client_id: &str) -> bool {
@@ -2423,6 +2469,7 @@ mod tests {
                 ("codex".into(), vec!["/Users/test/.bash_profile".into()]),
                 ("claude_code".into(), vec!["/Users/test/.bashrc".into()]),
             ]),
+            rtk_disabled: false,
         };
 
         let normalized = normalize_setup_state(state);

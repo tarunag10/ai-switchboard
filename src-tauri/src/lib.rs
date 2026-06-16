@@ -2622,6 +2622,19 @@ fn set_autostart_enabled(app: AppHandle, enabled: bool) -> Result<bool, String> 
 }
 
 #[tauri::command]
+fn set_rtk_enabled(app: AppHandle, enabled: bool) -> Result<bool, String> {
+    let state: tauri::State<'_, AppState> = app.state();
+    client_adapters::set_rtk_enabled(
+        enabled,
+        &state.tool_manager.rtk_entrypoint(),
+        &state.tool_manager.managed_python(),
+    )
+    .map_err(|err| err.to_string())?;
+    state.invalidate_runtime_status_cache();
+    Ok(!client_adapters::is_rtk_disabled())
+}
+
+#[tauri::command]
 fn uninstall_and_quit(app: AppHandle) -> Result<Vec<String>, String> {
     {
         let state: tauri::State<'_, AppState> = app.state();
@@ -2975,6 +2988,7 @@ pub fn run() {
             accept_terms,
             get_autostart_enabled,
             set_autostart_enabled,
+            set_rtk_enabled,
             uninstall_and_quit,
             quit_headroom,
             #[cfg(debug_assertions)]

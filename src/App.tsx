@@ -767,6 +767,7 @@ export default function App() {
   const [showSavingsInfo, setShowSavingsInfo] = useState(false);
   const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(null);
   const [autostartBusy, setAutostartBusy] = useState(false);
+  const [rtkBusy, setRtkBusy] = useState(false);
   const [showUninstallDialog, setShowUninstallDialog] = useState(false);
   const [uninstallBusy, setUninstallBusy] = useState(false);
   const [uninstallError, setUninstallError] = useState<string | null>(null);
@@ -1503,6 +1504,18 @@ export default function App() {
       console.error("Failed to update autostart", error);
     } finally {
       setAutostartBusy(false);
+    }
+  }
+
+  async function handleRtkToggle(nextEnabled: boolean) {
+    setRtkBusy(true);
+    try {
+      await invoke<boolean>("set_rtk_enabled", { enabled: nextEnabled });
+      await refreshRuntimeStatus();
+    } catch (error) {
+      console.error("Failed to update RTK", error);
+    } finally {
+      setRtkBusy(false);
     }
   }
 
@@ -5125,7 +5138,7 @@ export default function App() {
                       {headroomLogLines.length > 0 ? headroomLogLines.join("\n") : "No log output yet."}
                     </pre>
                   ) : null}
-                  <div className="runtime-status__meta">
+                  <div className="runtime-status__meta runtime-status__meta--row">
                     <span className="runtime-status__section-title">
                       RTK ({runtimeStatus?.rtk.version ?? "not installed"})
                       {rtkAvgSavingsPct !== null ? (
@@ -5135,6 +5148,17 @@ export default function App() {
                         </span>
                       ) : null}
                     </span>
+                    <button
+                      aria-checked={runtimeStatus?.rtk.enabled === true}
+                      aria-label={`${runtimeStatus?.rtk.enabled ? "Disable" : "Enable"} RTK`}
+                      className={`connector-switch${runtimeStatus?.rtk.enabled ? " is-on" : ""}`}
+                      disabled={rtkBusy || !runtimeStatus}
+                      onClick={() => void handleRtkToggle(!runtimeStatus?.rtk.enabled)}
+                      role="switch"
+                      type="button"
+                    >
+                      <span className="connector-switch__thumb" />
+                    </button>
                   </div>
                   <div className="runtime-status__grid runtime-status__grid--3">
                     {[

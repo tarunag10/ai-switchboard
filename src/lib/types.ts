@@ -180,6 +180,7 @@ export interface RuntimeStatus {
   runtimeUpgradeFailure?: RuntimeUpgradeFailure | null;
   rtk: {
     installed: boolean;
+    enabled: boolean;
     version?: string | null;
     pathConfigured: boolean;
     hookConfigured: boolean;
