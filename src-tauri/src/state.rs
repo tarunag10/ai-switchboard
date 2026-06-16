@@ -491,7 +491,11 @@ pub struct AppState {
     activity_facts: Mutex<ActivityFacts>,
     cached_clients: Mutex<Option<(Vec<ClientStatus>, Instant)>>,
     cached_headroom_stats: Mutex<Option<(Option<HeadroomDashboardStats>, Instant)>>,
-    cached_headroom_history: Mutex<Option<(Option<HeadroomSavingsHistoryResponse>, Instant)>>,
+    /// `(history, fetched_at, fresh)` — `fresh` is false when `history` is a
+    /// retained last-good value served because the latest fetch failed (proxy
+    /// paused/unreachable), so it re-probes on the short miss TTL.
+    cached_headroom_history:
+        Mutex<Option<(Option<HeadroomSavingsHistoryResponse>, Instant, bool)>>,
     cached_rtk_gain_summary: Mutex<Option<(Option<RtkGainSummary>, Instant)>>,
     cached_rtk_today_stats: Mutex<Option<(Option<crate::models::RtkTodayStats>, Instant)>>,
     cached_claude_profile: Mutex<Option<(Option<String>, ClaudeAccountProfile, Instant)>>,
@@ -1915,20 +1919,33 @@ impl AppState {
         // active traffic. A 30s TTL absorbs most dashboard polls while still
         // updating the chart's most-recent bucket within one full refresh.
         const TTL: Duration = Duration::from_secs(30);
-        // A miss (backend not yet reachable on cold start) is cached briefly so
-        // the chart resolves within a few seconds of the backend coming up,
-        // instead of holding the startup loading state for a full 30s.
+        // A miss (backend not yet reachable on cold start, or a retained
+        // last-good value while the proxy is paused) is cached briefly so the
+        // chart resolves/recovers within a few seconds, instead of holding the
+        // startup loading state or stale data for a full 30s.
         const MISS_TTL: Duration = Duration::from_secs(3);
         let mut cache = self.cached_headroom_history.lock();
-        if let Some((history, at)) = cache.as_ref() {
-            let ttl = if history.is_some() { TTL } else { MISS_TTL };
+        if let Some((history, at, fresh)) = cache.as_ref() {
+            let ttl = if *fresh { TTL } else { MISS_TTL };
             if at.elapsed() < ttl {
                 return history.clone();
             }
         }
-        let history = fetch_headroom_savings_history();
-        *cache = Some((history.clone(), Instant::now()));
-        history
+        match fetch_headroom_savings_history() {
+            Some(history) => {
+                *cache = Some((Some(history.clone()), Instant::now(), true));
+                Some(history)
+            }
+            None => {
+                // Retain the last good history so a transient proxy pause
+                // doesn't revert the Home chart to the sparse tracker-only
+                // layer. Mark it stale so we re-probe on the short miss TTL and
+                // recover quickly once the proxy returns.
+                let retained = cache.as_ref().and_then(|(h, _, _)| h.clone());
+                *cache = Some((retained.clone(), Instant::now(), false));
+                retained
+            }
+        }
     }
 
     fn cached_rtk_gain_summary(&self) -> Option<RtkGainSummary> {
