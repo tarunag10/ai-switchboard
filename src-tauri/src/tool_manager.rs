@@ -178,15 +178,15 @@ fn receipt_requires_atomic_rebuild(previous_version: &str) -> bool {
         None => true,
     }
 }
-const RTK_VERSION: &str = "0.42.0";
+const RTK_VERSION: &str = "0.42.4";
 const RTK_SHA256_MACOS_AARCH64: &str =
-    "cddc9cd11cdf80b3342eebaba0e6ab26d9c8dec45295ea44cf98062987185724";
+    "f223ca074a0215af002679bc1d34ca92b93e25b3e8ae16aace6e84c06e586802";
 const RTK_SHA256_MACOS_X86_64: &str =
-    "3b1b9f13548599ae9d920f5e3169cc402db1930044ea24e0be4e236b7f072a99";
+    "84121316867613e61925c209607f033b2113bb0ce312c267a79d3e3e8f221e49";
 const RTK_SHA256_LINUX_AARCH64: &str =
-    "62bb749df1ed64f09149998c31de864932f047a1be4e0f882a8ceada849e0871";
+    "cc2b91c064eb670c097c184913c8fbcb1a943d53d7fe505375e96ba0c5b6459f";
 const RTK_SHA256_LINUX_X86_64: &str =
-    "cdd4f87ac97ce958f71b53a991880d6adcc41cc5bca1044175a64630980152be";
+    "34975116da11e09e502501daf758143e0b22ed3a42a10eb67fb693a6270d9e36";
 const PYTHON_STANDALONE_RELEASE: &str = "20251014";
 const PYTHON_SHA256_MACOS_AARCH64: &str =
     "84cb7acbf75264982c8bdd818bfa1ff0f1eb76007b48a5f3e01d28633b46afdf";
