@@ -498,6 +498,25 @@ pub fn clear_client_setups() -> Result<()> {
 ///
 /// Returns the list of paths that were successfully removed (useful for
 /// surfacing to the user). Per-step failures are logged and skipped.
+/// `remove_dir_all`, retrying on transient `ENOTEMPTY`. A backend/proxy
+/// process killed in `stop_headroom` may still flush a log line into the
+/// directory tree mid-walk, re-creating an entry so the final `rmdir` fails
+/// with "Directory not empty". A short backoff lets the writer finish.
+fn remove_dir_all_retry(path: &Path) -> std::io::Result<()> {
+    let mut last = Ok(());
+    for attempt in 0..5 {
+        match std::fs::remove_dir_all(path) {
+            Ok(()) => return Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(e) => {
+                last = Err(e);
+                std::thread::sleep(Duration::from_millis(100 * (attempt + 1)));
+            }
+        }
+    }
+    last
+}
+
 pub fn perform_full_cleanup() -> Vec<String> {
     let mut removed: Vec<String> = Vec::new();
 
@@ -537,7 +556,7 @@ pub fn perform_full_cleanup() -> Vec<String> {
 
     let app_dir = app_data_dir();
     if app_dir.exists() {
-        match std::fs::remove_dir_all(&app_dir) {
+        match remove_dir_all_retry(&app_dir) {
             Ok(_) => removed.push(app_dir.display().to_string()),
             Err(err) => log::warn!("cleanup: removing {} failed: {err}", app_dir.display()),
         }

@@ -1097,8 +1097,8 @@ impl ToolManager {
         let status = Command::new(&python)
             .arg("-c")
             .arg(
-                "from headroom.transforms.kompress_compressor import load_kompress_model; \
-                 load_kompress_model(allow_download=True)",
+                "from headroom.transforms.kompress_compressor import KompressCompressor; \
+                 KompressCompressor().preload(allow_download=True)",
             )
             .current_dir(&self.runtime.root_dir)
             .env("PYTHONNOUSERSITE", "1")
@@ -3327,8 +3327,11 @@ fn probe_headroom_http(port: u16, timeout: Duration) -> bool {
 }
 
 fn lsof_listener(port: u16) -> Option<String> {
+    // Only `-iTCP:{port}` — a bare `-iTCP` here would OR with the port
+    // selector (lsof ORs `-i` options) and match every listening socket on
+    // the machine, so `nth(1)` would return an unrelated daemon's pid.
     let output = Command::new("/usr/sbin/lsof")
-        .args(["-nP", "-iTCP", &format!("-iTCP:{port}"), "-sTCP:LISTEN"])
+        .args(["-nP", &format!("-iTCP:{port}"), "-sTCP:LISTEN"])
         .output()
         .ok()?;
     if !output.status.success() {
@@ -4784,7 +4787,8 @@ mod tests {
         format_already_running_bail, headroom_entrypoint_startup_args,
         headroom_python_startup_args, looks_like_corrupt_venv_error, parse_major_minor_patch,
         parse_pid_from_lsof_detail, probe_backend_readyz_ok, proxy_argv_contains_expected_flags,
-        read_headroom_learn_metadata_from_path, receipt_requires_atomic_rebuild, redact_sensitive,
+        read_headroom_learn_metadata_from_path, receipt_requires_atomic_rebuild,
+        reclaim_orphan_proxy, redact_sensitive,
         requirements_lock_sha, rtk_distribution_artifact, run_command, sanitize_log_variant,
         sha256_bytes, summarize_kompress_prefetch_failure, verify_sha256_file, wait_for_port_free,
         CommandFailure, HeadroomRelease, ManagedRuntime, PipOutputCapture, ToolManager,
@@ -5442,6 +5446,77 @@ mod tests {
             wait_for_port_free(port, Duration::from_secs(2)),
             "port must report free shortly after the listener is dropped"
         );
+    }
+
+    /// Reproduces the upgrade-rollback scenario from the Sentry report: a
+    /// *healthy* orphaned proxy (answers /readyz) squatting on the backend
+    /// port. Normal launch (`force_unhealthy_too=false`) must leave it alone
+    /// and bail; an upgrade boot validation (`true`) must reclaim it anyway so
+    /// the new venv can bind. Ignored by default — spawns a child process,
+    /// binds a port, and kills the process. Run locally:
+    /// `cargo test --manifest-path src-tauri/Cargo.toml --lib -- --ignored reclaim_orphan`
+    #[test]
+    #[ignore]
+    fn reclaim_orphan_proxy_respects_upgrade_override() {
+        let port = {
+            let l = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+            l.local_addr().unwrap().port()
+        };
+
+        // Stand-in for a live old-version proxy: answers 200 on every path so
+        // `/readyz` reads healthy. argv is `python3 -c ...`, which deliberately
+        // does NOT match `stop_headroom`'s pattern-kill — exactly the orphan
+        // that survives into the spawn pre-flight.
+        let script = r#"
+import http.server, socketserver, sys
+class S(socketserver.TCPServer):
+    allow_reuse_address = True
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200); self.end_headers(); self.wfile.write(b'ok')
+    def log_message(self, *a):
+        pass
+S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
+"#;
+
+        let mut child = std::process::Command::new("/usr/bin/python3")
+            .arg("-c")
+            .arg(script)
+            .arg(port.to_string())
+            .spawn()
+            .expect("spawn stand-in proxy");
+
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while !probe_backend_readyz_ok(port) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "stand-in proxy never became healthy on port {port}"
+            );
+            std::thread::sleep(Duration::from_millis(100));
+        }
+
+        // Normal launch: a healthy occupant is left alone, reclaim bails.
+        assert!(
+            reclaim_orphan_proxy(port, false).is_err(),
+            "force=false must bail on a healthy occupant"
+        );
+        assert!(
+            probe_backend_readyz_ok(port),
+            "force=false must NOT kill the healthy occupant"
+        );
+
+        // Upgrade validation: the healthy old proxy is reclaimed regardless.
+        assert!(
+            reclaim_orphan_proxy(port, true).is_ok(),
+            "force=true must reclaim even a healthy occupant"
+        );
+        assert!(
+            wait_for_port_free(port, Duration::from_secs(3)),
+            "force=true must free the port"
+        );
+
+        let _ = child.kill();
+        let _ = child.wait();
     }
 
     #[test]

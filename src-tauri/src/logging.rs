@@ -121,6 +121,14 @@ fn skip_sentry(target: &str, msg: &str) -> bool {
     {
         return true;
     }
+    // Uninstall cleanup is best-effort and races a still-exiting backend/proxy
+    // that may re-create a file mid-walk ("Directory not empty"). The removal
+    // is retried; a residual failure during teardown isn't actionable.
+    if target.starts_with("headroom_desktop_lib::client_adapters")
+        && msg.starts_with("cleanup: removing")
+    {
+        return true;
+    }
     false
 }
 
@@ -282,6 +290,14 @@ mod tests {
         assert!(skip_sentry(
             "headroom_desktop_lib::state",
             "kompress prefetch: restart after download failed: boom"
+        ));
+    }
+
+    #[test]
+    fn skips_uninstall_cleanup_removal_warnings() {
+        assert!(skip_sentry(
+            "headroom_desktop_lib::client_adapters",
+            "cleanup: removing /Users/x/Library/Application Support/Headroom failed: Directory not empty (os error 66)"
         ));
     }
 

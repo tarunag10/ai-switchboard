@@ -1238,6 +1238,16 @@ fn readyz_failure_has_core_unhealthy(outcome: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Whether two cumulative CPU samples (`ps -o time=`, whole seconds) taken
+/// `elapsed_secs` apart represent a process actively burning CPU. Uses the
+/// *rate*, not the delta: `ps` reports whole seconds, so a single incidental
+/// tick at a second boundary reads as +1, which over a short window looks like
+/// activity. Require >0.5 CPU-sec/sec so a real spin (~1.0) passes while a lone
+/// boundary tick (~0.25 over a ~4s window) does not.
+fn cpu_rate_indicates_burn(before: u64, after: u64, elapsed_secs: f64) -> bool {
+    elapsed_secs > 0.0 && (after.saturating_sub(before) as f64) / elapsed_secs > 0.5
+}
+
 /// Capture once per "down episode" when the watchdog gives up on restarting
 /// the proxy. Fires before stop_headroom tears down the tracked child handle
 /// and proxy log, so the payload reflects the failure we're recovering from.
@@ -1275,21 +1285,15 @@ fn capture_watchdog_give_up(
     // (`ps -o time=`); any long-lived-but-now-idle process carries a large
     // cumulative value, so using it as a deadlock proxy mislabels a healthy
     // idle process as a deadlock (Sentry proxy_unreachable_post_boot showed 12s
-    // cumulative + 28min silent flagged as Error). Re-sample over a window and
-    // treat the process as actively burning CPU only if the rate clears half a
-    // core. `ps` reports whole seconds, so a single incidental tick at a second
-    // boundary reads as +1; over a 2s window that is rate 0.5 and would
-    // false-flag an idle process. Sample ~4s and require >0.5 CPU-sec/sec so a
-    // real spin (~1.0) passes while a lone boundary tick (~0.25) does not.
+    // cumulative + 28min silent flagged as Error). Re-sample over a ~4s window
+    // and defer the rate judgement to `cpu_rate_indicates_burn`.
     let cpu_actively_burning = match (tracked_pid, process_cpu_secs) {
         (Some(pid), Some(before)) => {
             let started = std::time::Instant::now();
             std::thread::sleep(std::time::Duration::from_secs(4));
             let elapsed = started.elapsed().as_secs_f64();
             crate::state::tracked_process_cpu_time_secs(pid)
-                .map(|after| {
-                    elapsed > 0.0 && (after.saturating_sub(before) as f64) / elapsed > 0.5
-                })
+                .map(|after| cpu_rate_indicates_burn(before, after, elapsed))
                 .unwrap_or(false)
         }
         _ => false,
@@ -5009,7 +5013,8 @@ mod tests {
         auto_resume_backoff, beta_channel_enabled_from, build_release_updater_config,
         build_watchdog_give_up_report, check_headroom_learn_prereqs, classify_bootstrap_failure,
         classify_upgrade_error, compute_tray_window_position, count_memories_created_today,
-        debounced_tray_runtime_visual, delete_applied_pattern, empty_live_learnings_for_projects,
+        cpu_rate_indicates_burn, debounced_tray_runtime_visual, delete_applied_pattern,
+        empty_live_learnings_for_projects,
         extract_llm_failure_warnings, fetch_transformations_feed_from, install_pending_update,
         is_disk_full_signal, is_endpoint_protection_signal, is_network_download_signal,
         is_port_conflict_failure, is_prerelease_version, lifetime_token_milestone_kind,
@@ -6572,6 +6577,28 @@ Some unrelated content.
         assert!(!readyz_failure_has_core_unhealthy("http_503"));
         assert!(!readyz_failure_has_core_unhealthy("ok"));
         assert!(!readyz_failure_has_core_unhealthy("timeout"));
+    }
+
+    #[test]
+    fn cpu_rate_indicates_burn_separates_spin_from_boundary_tick() {
+        // Real spin: ~1 CPU-sec per wall-sec over the window.
+        assert!(cpu_rate_indicates_burn(100, 104, 4.0));
+        // Lone boundary tick: a single +1 over a ~4s window is rate 0.25.
+        assert!(!cpu_rate_indicates_burn(100, 101, 4.0));
+        // Idle: counter flat.
+        assert!(!cpu_rate_indicates_burn(100, 100, 4.0));
+        // Exactly at the 0.5 threshold does not count (strictly greater).
+        assert!(!cpu_rate_indicates_burn(100, 102, 4.0));
+        assert!(cpu_rate_indicates_burn(100, 103, 4.0));
+    }
+
+    #[test]
+    fn cpu_rate_indicates_burn_guards_degenerate_inputs() {
+        // Zero elapsed: avoid divide-by-zero, report not burning.
+        assert!(!cpu_rate_indicates_burn(100, 200, 0.0));
+        // `ps` counter going backwards (pid reuse / sampling skew): saturating
+        // sub yields 0, not a panic or huge rate.
+        assert!(!cpu_rate_indicates_burn(200, 100, 4.0));
     }
 
     #[test]
