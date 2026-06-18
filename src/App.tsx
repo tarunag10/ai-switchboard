@@ -4834,9 +4834,16 @@ export default function App() {
                     const pct = pricingStatus.activePercentOff ?? active?.percentOff ?? 0;
                     const spotsLeft = active?.spotsLeft ?? null;
                     const capacity = active?.capacity ?? null;
+                    const totalCapacity = cohorts.reduce((sum, c) => sum + (c.capacity ?? 0), 0);
+                    const totalFilled = cohorts.reduce((sum, c) => {
+                      const cap = c.capacity ?? 0;
+                      if (c.status === "sold_out") return sum + cap;
+                      if (c.status === "active") return sum + Math.max(0, cap - (c.spotsLeft ?? 0));
+                      return sum;
+                    }, 0);
                     const filledPct =
-                      capacity && spotsLeft != null
-                        ? Math.max(4, Math.min(100, Math.round(((capacity - spotsLeft) / capacity) * 100)))
+                      totalCapacity > 0
+                        ? Math.min(100, Math.round(50 + 50 * (totalFilled / totalCapacity)))
                         : null;
                     const next = cohorts.find((c) => c.status === "upcoming") ?? null;
                     const stepPricing = getFounderStepPricing(
