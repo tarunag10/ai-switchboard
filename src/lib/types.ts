@@ -65,6 +65,17 @@ export interface DailySavingsPoint {
   totalTokensSent: number;
 }
 
+// Counterfactual output-token reduction from the proxy's output shaper.
+// `method` is "estimated" (synthetic control vs a learned baseline) or
+// "measured" (A/B holdout); the percentage carries a 95% confidence band.
+export interface OutputReduction {
+  method: string;
+  reductionPercent: number;
+  ciLowPercent: number;
+  ciHighPercent: number;
+  requests: number;
+}
+
 export interface ProviderSavingsPoint {
   provider: string;
   estimatedSavingsUsd: number;
@@ -94,6 +105,7 @@ export interface DashboardState {
   sessionEstimatedSavingsUsd: number;
   sessionEstimatedTokensSaved: number;
   sessionSavingsPct: number;
+  outputReduction: OutputReduction | null;
   dailySavings: DailySavingsPoint[];
   hourlySavings: HourlySavingsPoint[];
   savingsHistoryLoaded: boolean;

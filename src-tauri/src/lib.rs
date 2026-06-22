@@ -189,6 +189,14 @@ static WATCHDOG_DOWN_CAPTURED: AtomicBool = AtomicBool::new(false);
 // doesn't drown in the sleep/wake / kill -9 race noise.
 static PORT_CONFLICT_CAPTURED: AtomicBool = AtomicBool::new(false);
 
+// Guards the quit-time `clear_client_setups()` so it runs at most once per
+// process. The exit handler fires for both `ExitRequested` and `Exit`, and a
+// second `clear_client_setups()` call is destructive: its `disable_client_setup`
+// loop wipes `remembered_clients` and then skips the snapshot re-save because
+// `configured_clients` is already empty, leaving nothing for the next launch's
+// `restore_client_setups()` to bring back.
+static EXIT_CLEAR_DONE: AtomicBool = AtomicBool::new(false);
+
 // Spend fields (actual_cost_usd, total_tokens_sent) were added to SavingsRecord in
 // schema v6, shipped in 0.2.40 on 2026-04-13. Records written before that date
 // deserialize those fields as 0 via #[serde(default)], producing false positives.
@@ -634,7 +642,7 @@ fn bootstrap_runtime(state: State<'_, AppState>) -> Result<DashboardState, Strin
         &state.tool_manager.rtk_entrypoint(),
         &state.tool_manager.managed_python(),
     ) {
-        log::warn!("RTK integrations failed after bootstrap_runtime: {err}");
+        log::warn!("RTK integrations failed after bootstrap_runtime: {err:#}");
     }
     state
         .ensure_headroom_running()
@@ -693,7 +701,7 @@ fn start_bootstrap(app: AppHandle) -> Result<(), String> {
                 &state.tool_manager.rtk_entrypoint(),
                 &state.tool_manager.managed_python(),
             ) {
-                log::warn!("RTK integrations failed after start_bootstrap thread: {err}");
+                log::warn!("RTK integrations failed after start_bootstrap thread: {err:#}");
             }
         }
 
@@ -713,6 +721,14 @@ fn start_bootstrap(app: AppHandle) -> Result<(), String> {
         // readiness) — so we re-assert it here, *after* that call, and clear
         // it only once the proxy is reachable (or we time out). This mirrors
         // `warm_runtime_on_launch`.
+        // Seed the output-shaper savings baseline BEFORE starting the proxy
+        // (runtime is installed by this point). The proxy's recorder loads the
+        // baseline once at boot and clobbers a later write on flush, so seeding
+        // first is what lets the dashboard estimate appear without an app
+        // relaunch. Idempotent and bounded; we are on the bootstrap thread, so
+        // the one-time scan does not block the UI.
+        state.tool_manager.seed_verbosity_baseline_if_needed();
+
         let ensure_result = state.ensure_headroom_running();
         state.set_runtime_starting(true);
 
@@ -2950,8 +2966,13 @@ pub fn run() {
         .setup(|app| {
             #[cfg(target_os = "macos")]
             {
+                // Accessory policy makes this a menu-bar-only app (no dock icon).
+                // Do NOT also call set_dock_visibility(false): it uses Carbon's
+                // TransformProcessType, which Apple warns must not be mixed with
+                // setActivationPolicy on the same process and intermittently
+                // registers a dock icon. LSUIElement=true in Info.plist already
+                // covers the packaged bundle.
                 app.set_activation_policy(ActivationPolicy::Accessory);
-                app.set_dock_visibility(false);
             }
 
             let launched_from_autostart = launched_from_autostart();
@@ -3201,6 +3222,19 @@ pub fn run() {
             ) {
                 let state: tauri::State<'_, AppState> = app.state();
                 state.stop_headroom();
+                // Gracefully reverse every client's base-URL override (and shell
+                // blocks) on quit so Claude Code / Codex fall back to talking
+                // directly to their native providers while Headroom is not
+                // running, instead of pointing at a now-dead proxy on 6767. The
+                // snapshot is remembered so the next launch's
+                // restore_client_setups re-applies it. Guarded to run once: the
+                // exit handler fires for both ExitRequested and Exit, and a
+                // second clear_client_setups wipes the remembered snapshot.
+                if !EXIT_CLEAR_DONE.swap(true, Ordering::AcqRel) {
+                    if let Err(err) = client_adapters::clear_client_setups() {
+                        log::warn!("exit: clear_client_setups failed: {err}");
+                    }
+                }
                 // Hand Codex threads back to the native provider so its history
                 // menu stays whole while Headroom is not running. Cmd-Q / dock
                 // quit / signals skip exit_headroom -> clear_client_setups, so

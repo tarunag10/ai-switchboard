@@ -108,6 +108,14 @@ function makeRuntime(overrides: Partial<RuntimeStatus> = {}): RuntimeStatus {
 }
 
 describe("maybeFireUrgentPricingNotifications", () => {
+  const gatedFreeAccount: NonNullable<HeadroomPricingStatus["account"]> = {
+    email: "free@example.com",
+    trialActive: false,
+    subscriptionActive: false,
+    acceptedInvitesCount: 0,
+    inviteBonusPercent: 0,
+  };
+
   afterEach(() => {
     invokeMock.mockReset();
     isVisibleMock.mockReset();
@@ -255,6 +263,7 @@ describe("maybeFireUrgentPricingNotifications", () => {
 
     await maybeFireUrgentPricingNotifications(
       makePricing({
+        account: gatedFreeAccount,
         shouldNudge: true,
         nudgeLevel: 1,
         gateMessage: "You're at 27.0% of weekly Claude usage.",
@@ -268,39 +277,37 @@ describe("maybeFireUrgentPricingNotifications", () => {
     });
   });
 
-  it("fires distinct notifications for each nudge level within the same week", async () => {
+  it("fires at most one upgrade nudge per day across rising levels", async () => {
     isVisibleMock.mockResolvedValue(false);
     installStorage();
 
     await maybeFireUrgentPricingNotifications(
-      makePricing({ shouldNudge: true, nudgeLevel: 1, gateMessage: "25%" })
+      makePricing({ account: gatedFreeAccount, shouldNudge: true, nudgeLevel: 1, gateMessage: "25%" })
     );
     await maybeFireUrgentPricingNotifications(
-      makePricing({ shouldNudge: true, nudgeLevel: 2, gateMessage: "35%" })
+      makePricing({ account: gatedFreeAccount, shouldNudge: true, nudgeLevel: 2, gateMessage: "35%" })
     );
     await maybeFireUrgentPricingNotifications(
-      makePricing({ shouldNudge: true, nudgeLevel: 3, gateMessage: "45%" })
+      makePricing({ account: gatedFreeAccount, shouldNudge: true, nudgeLevel: 3, gateMessage: "45%" })
     );
 
-    expect(invokeMock).toHaveBeenCalledTimes(3);
-    const titles = invokeMock.mock.calls.map((c) => c[1].title);
-    expect(titles).toEqual([
-      "Heads up: 25% of your weekly Claude usage",
-      "Halfway there: 35% of your weekly Claude usage",
-      "Almost paused: 45% of your weekly Claude usage",
-    ]);
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledWith(
+      "show_notification",
+      expect.objectContaining({ title: "Heads up: 25% of your weekly Claude usage" })
+    );
   });
 
-  it("does not repeat a nudge level already fired this week", async () => {
+  it("does not fire a second upgrade nudge the same day", async () => {
     isVisibleMock.mockResolvedValue(false);
     installStorage();
 
     await maybeFireUrgentPricingNotifications(
-      makePricing({ shouldNudge: true, nudgeLevel: 2, gateMessage: "35%" })
+      makePricing({ account: gatedFreeAccount, shouldNudge: true, nudgeLevel: 2, gateMessage: "35%" })
     );
     invokeMock.mockClear();
     await maybeFireUrgentPricingNotifications(
-      makePricing({ shouldNudge: true, nudgeLevel: 2, gateMessage: "36%" })
+      makePricing({ account: gatedFreeAccount, shouldNudge: true, nudgeLevel: 2, gateMessage: "36%" })
     );
 
     expect(invokeMock).not.toHaveBeenCalled();
@@ -337,6 +344,81 @@ describe("maybeFireUrgentPricingNotifications", () => {
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
+  it("fires a generic daily reminder for a gated free account with no usage nudge", async () => {
+    isVisibleMock.mockResolvedValue(false);
+    installStorage();
+
+    await maybeFireUrgentPricingNotifications(
+      makePricing({ account: gatedFreeAccount })
+    );
+
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledWith("show_notification", {
+      title: "Headroom is ready when you are",
+      body: "You're on the free plan. Upgrade to keep Headroom optimizing every prompt.",
+      action: "billing",
+    });
+  });
+
+  it("fires the generic reminder at most once per day", async () => {
+    isVisibleMock.mockResolvedValue(false);
+    installStorage({
+      headroom_urgent_nudge_date: new Date().toISOString().slice(0, 10),
+    });
+
+    await maybeFireUrgentPricingNotifications(
+      makePricing({ account: gatedFreeAccount })
+    );
+
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("fires the usage nudge instead of the generic reminder when a threshold is crossed", async () => {
+    isVisibleMock.mockResolvedValue(false);
+    installStorage();
+
+    await maybeFireUrgentPricingNotifications(
+      makePricing({
+        account: gatedFreeAccount,
+        shouldNudge: true,
+        nudgeLevel: 1,
+        gateMessage: "25%",
+      })
+    );
+
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledWith(
+      "show_notification",
+      expect.objectContaining({ title: "Heads up: 25% of your weekly Claude usage" })
+    );
+  });
+
+  it("does not fire the generic reminder for a subscribed account", async () => {
+    isVisibleMock.mockResolvedValue(false);
+    installStorage();
+
+    await maybeFireUrgentPricingNotifications(
+      makePricing({
+        account: { ...gatedFreeAccount, subscriptionActive: true },
+      })
+    );
+
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("does not fire the generic reminder during an active trial", async () => {
+    isVisibleMock.mockResolvedValue(false);
+    installStorage();
+
+    await maybeFireUrgentPricingNotifications(
+      makePricing({
+        account: { ...gatedFreeAccount, trialActive: true },
+      })
+    );
+
+    expect(invokeMock).not.toHaveBeenCalled();
+  });
+
   it("fires a Codex optimization-blocked notification when the Codex gate is off", async () => {
     isVisibleMock.mockResolvedValue(false);
     installStorage();
@@ -364,6 +446,7 @@ describe("maybeFireUrgentPricingNotifications", () => {
 
     await maybeFireUrgentPricingNotifications(
       makePricing({
+        account: gatedFreeAccount,
         codex: makeCodex({
           shouldNudge: true,
           nudgeLevel: 1,
@@ -379,12 +462,13 @@ describe("maybeFireUrgentPricingNotifications", () => {
     });
   });
 
-  it("fires both the Claude and Codex nudges in the same window", async () => {
+  it("fires only the higher-level nudge when both Claude and Codex cross", async () => {
     isVisibleMock.mockResolvedValue(false);
     installStorage();
 
     await maybeFireUrgentPricingNotifications(
       makePricing({
+        account: gatedFreeAccount,
         shouldNudge: true,
         nudgeLevel: 1,
         gateMessage: "Claude 27%",
@@ -396,28 +480,33 @@ describe("maybeFireUrgentPricingNotifications", () => {
       })
     );
 
-    expect(invokeMock).toHaveBeenCalledTimes(2);
-    const titles = invokeMock.mock.calls.map((c) => c[1].title);
-    expect(titles).toEqual([
-      "Heads up: 25% of your weekly Claude usage",
-      "Halfway there: 35% of your weekly Codex usage",
-    ]);
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledWith("show_notification", {
+      title: "Halfway there: 35% of your weekly Codex usage",
+      body: "Codex 36%",
+      action: "billing",
+    });
   });
 
-  it("keys the Codex nudge separately so a Claude nudge the same week can't suppress it", async () => {
+  it("breaks a Claude/Codex tie in favor of Claude", async () => {
     isVisibleMock.mockResolvedValue(false);
-    const store = installStorage();
+    installStorage();
 
     await maybeFireUrgentPricingNotifications(
       makePricing({
+        account: gatedFreeAccount,
+        shouldNudge: true,
+        nudgeLevel: 1,
+        gateMessage: "Claude 27%",
         codex: makeCodex({ shouldNudge: true, nudgeLevel: 1, gateMessage: "Codex 27%" }),
       })
     );
 
-    const codexKey = [...store.keys()].find((k) =>
-      k.startsWith("headroom_urgent_codex_nudge_level")
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledWith(
+      "show_notification",
+      expect.objectContaining({ title: "Heads up: 25% of your weekly Claude usage" })
     );
-    expect(codexKey).toBeDefined();
   });
 
   it("prefers the needs-auth notification over a Codex nudge", async () => {

@@ -36,11 +36,16 @@ use crate::models::{ManagedTool, RtkTodayStats, ToolStatus};
 /// `*-manylinux_*` abi3 wheel from
 /// https://pypi.org/pypi/headroom-ai/<version>/json and add a per-platform
 /// wheel-picker (mirroring `python_distribution_artifact`).
-pub(crate) const HEADROOM_PINNED_VERSION: &str = "0.26.0";
-const HEADROOM_PINNED_WHEEL_URL: &str = "https://files.pythonhosted.org/packages/be/14/4ba140f4899832a4fb868b3bfff81925d8e4fc8cb2c1522cb1d344b4925b/headroom_ai-0.26.0-cp310-abi3-macosx_11_0_arm64.whl";
+pub(crate) const HEADROOM_PINNED_VERSION: &str = "0.27.0";
+const HEADROOM_PINNED_WHEEL_URL: &str = "https://files.pythonhosted.org/packages/10/95/928bfb645df23025fb375de19c7d57ec21a0991712236d7748ce456139e3/headroom_ai-0.27.0-cp310-abi3-macosx_11_0_arm64.whl";
 const HEADROOM_PINNED_SHA256: &str =
-    "f1696770d2388cba99c567130968730daf5add69c7e38499fccdc6d0c85386cf";
+    "00b54b70533c841f4702fffaf215eff84bafed7612c07a56d675ef8a1ffab543";
 const HEADROOM_SMOKE_TEST_TIMEOUT: Duration = Duration::from_secs(15);
+/// Upper bound on the one-time `learn --verbosity` baseline seed run before
+/// proxy start. Typical runs are a few seconds (a ~100MB transcript project
+/// seeds in ~3s); the cap only trips on pathological corpora, after which the
+/// proxy starts anyway and seeding retries next launch.
+const HEADROOM_BASELINE_SEED_TIMEOUT: Duration = Duration::from_secs(30);
 /// Index of pre-built wheels for sdist-only PyPI packages (e.g. hnswlib).
 /// GitHub's expanded_assets endpoint serves HTML anchors pip can consume via --find-links.
 const VENDOR_WHEELS_INDEX_URL: &str =
@@ -91,16 +96,14 @@ const HEADROOM_LINUX_REQUIREMENTS_LOCK: &str =
 /// lock. Drop any entry that no longer matches — those users need a real
 /// reinstall.
 const LEGACY_REQUIREMENTS_LOCK_SHAS: &[&str] = &[
-    // The 0.26.0 bundle reuses the 0.25.0 lock byte-for-byte: headroom-ai's
-    // `requires_dist` is identical between 0.25.0 and 0.26.0 (verified against
-    // pypi.org/pypi/headroom-ai/<v>/json), so the 0.25.0 resolution remains a
-    // valid resolution for 0.26.0 and no pin — pure-Python or native — moves.
-    // headroom-ai itself is not in this lock (it installs from the pinned
-    // wheel), so the stripped lock sha is unchanged and the entire 0.25.0
-    // cohort's lock receipt is already current: the upgrade swaps only the
-    // headroom-ai wheel in place. The list stays empty until a real lock pin
-    // changes; add a sha here only when a future no-op cosmetic lock edit needs
-    // to be treated as up-to-date.
+    // The 0.25.0 and 0.26.0 bundles shared one lock byte-for-byte (identical
+    // requires_dist). 0.27.0 actually moves pins (tree-sitter-language-pack
+    // 1.8.1 -> 0.13.0 plus the spreadsheet extra: et-xmlfile/openpyxl/xlrd), so
+    // the stripped lock sha changes. The 0.25.0/0.26.0 cohort's lock receipt is
+    // now genuinely stale and SHOULD trigger a reinstall — do not whitelist the
+    // old sha here. The list stays empty until a future no-op cosmetic lock edit
+    // (comments/blank lines only, no pin moves) needs to be treated as
+    // up-to-date.
 ];
 
 /// Receipts strictly below this version cannot be safely upgraded in place to
@@ -158,6 +161,16 @@ const LEGACY_REQUIREMENTS_LOCK_SHAS: &[&str] = &[
 ///   wheel (clearing its `.so` via RECORD) and unpacks the 0.26.0 abi3 wheel;
 ///   no stale native extension is layered. The 0.20.x+ cohort upgrades in
 ///   place with no wheel rebuilds.
+/// - 0.4.x (0.26.0 → 0.27.0 bundle): floor stays at 0.20.0. The lock moves three
+///   pins: tree-sitter-language-pack 1.8.1 → 0.13.0 (native, ships compiled
+///   grammar `.so`s) and the new spreadsheet extra (et-xmlfile/openpyxl/xlrd,
+///   pure-Python). The language-pack move is a version *change*, so pip
+///   uninstalls 1.8.1 via its RECORD (removing the old grammar `.so`s) before
+///   unpacking 0.13.0 — no stale native extension is layered, unlike the
+///   same-version in-place rebuilds this floor guards against. headroom-ai's own
+///   abi3 wheel is likewise uninstalled-then-reinstalled. The 0.20.x+ cohort
+///   upgrades in place. Raise the floor only if a future lock adds or
+///   ABI-bumps a native transitive dep without a version bump.
 const ATOMIC_REBUILD_FLOOR_VERSION: (u32, u32, u32) = (0, 20, 0);
 
 /// Parse the leading `major.minor.patch` from a version string, tolerating
@@ -478,6 +491,75 @@ impl ToolManager {
         self.runtime.bin_dir.join("rtk")
     }
 
+    /// Seed the output-shaper savings baseline by mining the user's Claude Code
+    /// transcripts once. The proxy's `/stats` `output_shaping` estimate stays
+    /// `available: false` until this baseline exists, so without it the
+    /// dashboard would never show an output-reduction number. Heuristic-only
+    /// (no `--llm-judge`), so it needs no API key or network, and writes the
+    /// baseline into `~/.headroom/output_savings.json` (the same `workspace_dir`
+    /// the proxy's recorder reads).
+    ///
+    /// Targets a single transcript-rich project rather than `--all`: upstream's
+    /// `_run_verbosity` writes the ledger *inside* its per-project loop
+    /// (last-project-wins), so `--apply --all` overwrites the baseline with
+    /// whatever project sorts last — often a near-empty one. We instead pick the
+    /// project with the most transcript bytes and pass its real path via
+    /// `--project`. Baseline strata (model / turn kind / size / tools) are
+    /// project-independent, so one busy project yields a usable baseline. (A
+    /// proper cross-project aggregate belongs upstream; tracked separately.)
+    ///
+    /// Best-effort and idempotent: skips when a baseline is already present.
+    ///
+    /// MUST run *before* the proxy starts. The proxy's `SavingsRecorder` loads
+    /// the baseline once at boot and, on its periodic flush, writes its
+    /// in-memory ledger back to disk — so a baseline written after the proxy is
+    /// running is both invisible (never reloaded) and eventually clobbered by an
+    /// empty-baseline flush. Seeding first means the recorder boots with the
+    /// real baseline and the number shows without an app relaunch. Synchronous
+    /// but bounded by `HEADROOM_BASELINE_SEED_TIMEOUT`; callers already run it on
+    /// a background thread, so the one-time ~3s scan never blocks the UI.
+    ///
+    /// The learned verbosity level it also writes is intentionally ignored: the
+    /// proxy spawn pins `HEADROOM_VERBOSITY_LEVEL=2`, the manual-override tier.
+    pub fn seed_verbosity_baseline_if_needed(&self) {
+        if verbosity_baseline_present() {
+            log::debug!("verbosity baseline seeding skipped: baseline already present");
+            return;
+        }
+        let entrypoint = self.headroom_entrypoint();
+        if !entrypoint.exists() {
+            log::debug!(
+                "verbosity baseline seeding skipped: entrypoint not yet installed at {}",
+                entrypoint.display()
+            );
+            return;
+        }
+        log::info!("seeding output-shaper verbosity baseline (no baseline present yet)");
+        let Some(project_cwd) = busiest_claude_project_cwd() else {
+            log::info!("verbosity baseline seeding skipped: no Claude transcripts found");
+            return;
+        };
+        let args = [
+            "learn",
+            "--verbosity",
+            "--apply",
+            "--project",
+            project_cwd.as_str(),
+        ];
+        // Bounded so a pathological transcript corpus can never hang launch:
+        // typical runs are a few seconds; the cap only trips on outliers, after
+        // which we proceed and retry next launch.
+        match run_command_with_timeout(
+            &entrypoint,
+            &args,
+            &self.runtime.root_dir,
+            HEADROOM_BASELINE_SEED_TIMEOUT,
+        ) {
+            Ok(()) => log::info!("seeded output-shaper verbosity baseline from {project_cwd}"),
+            Err(err) => log::info!("verbosity baseline seeding failed: {err:#}"),
+        }
+    }
+
     pub fn headroom_learn_log_path(&self, project_path: &str) -> PathBuf {
         let logs_dir = self.runtime.logs_dir();
         let project_name = Path::new(project_path)
@@ -723,6 +805,26 @@ impl ToolManager {
                     // cached content almost never busts the frozen prefix, and
                     // protect_recent/min_tokens guard the just-typed prompt.
                     .env("HEADROOM_COMPRESS_USER_MESSAGES", "1")
+                    // Output-token shaping (new in headroom-ai 0.27.0). The proxy
+                    // never emits output tokens, so this works request-side: it
+                    // appends a byte-stable verbosity instruction to the TAIL of
+                    // the system prompt (after the cache_control breakpoint, so the
+                    // provider prefix cache is preserved) and lowers an
+                    // already-present output_config.effort on mechanically-classified
+                    // turns. Off by default upstream; enabled here. Effort router
+                    // and mechanical-effort use upstream defaults (on, "low"). The
+                    // shaper only ever lowers an effort the client already sent and
+                    // never toggles thinking.type, so it cannot 400 a model that
+                    // lacks effort support.
+                    .env("HEADROOM_OUTPUT_SHAPER", "1")
+                    // Pin the steering level explicitly. An explicit env is the
+                    // manual-override tier in the shaper's level resolution, so it
+                    // wins over the per-user learned level written to verbosity.json
+                    // by the baseline-seeding `learn --verbosity` run. That keeps
+                    // steering uniform/predictable across users while the seeded
+                    // baseline still feeds the /stats savings estimate. Level 2 =
+                    // skip pre/postamble, don't restate in-context code/tool output.
+                    .env("HEADROOM_VERBOSITY_LEVEL", "2")
                     .stdin(Stdio::null())
                     .stdout(Stdio::from(
                         log_file
@@ -3575,8 +3677,10 @@ fn headroom_python_startup_args() -> Vec<String> {
 }
 
 fn headroom_entrypoint_startup_args() -> Vec<String> {
-    // The CLI `proxy` command does not expose --no-http2; HTTP/2 is controlled
-    // via the HEADROOM_HTTP2 env var when using the entrypoint.
+    // HTTP/2 on the entrypoint is controlled via the HEADROOM_HTTP2 env var
+    // (set to "false" in the spawn env). Older bundled runtimes ignored this var
+    // and ran HTTP/2 unconditionally, which surfaced as SSLV3_ALERT_BAD_RECORD_MAC
+    // under multi-tab concurrency; the runtime bundled with this build honors it.
     // --log-messages stores full request/response bodies so the desktop's
     // Activity tab can render the live transformations feed.
     let mut args = vec![
@@ -4321,6 +4425,101 @@ fn bootstrap_requirements_lock_for_target(os: &str) -> &'static str {
 
 fn run_python_command(python: &Path, args: &[&str], cwd: &Path) -> Result<()> {
     run_command(python, args, cwd)
+}
+
+/// Path to the output-shaper savings ledger. Mirrors headroom's
+/// `workspace_dir()` default of `~/.headroom` (neither the proxy nor the
+/// seeding run sets `HEADROOM_WORKSPACE_DIR`, so both resolve here).
+fn output_savings_ledger_path() -> Option<PathBuf> {
+    let home = std::env::var_os("HOME")?;
+    Some(
+        PathBuf::from(home)
+            .join(".headroom")
+            .join("output_savings.json"),
+    )
+}
+
+/// True once the verbosity baseline has been seeded (non-empty sample count).
+/// The persisted baseline does not carry a `total_samples` field — that is a
+/// computed property of the in-memory model. On disk the total observation
+/// count lives in `baseline.glob.n` (the global accumulator), so that is what
+/// we gate on. The proxy reports the savings estimate as unavailable until a
+/// baseline with observations exists.
+fn verbosity_baseline_present() -> bool {
+    let Some(path) = output_savings_ledger_path() else {
+        return false;
+    };
+    let Ok(bytes) = std::fs::read(&path) else {
+        return false;
+    };
+    serde_json::from_slice::<serde_json::Value>(&bytes)
+        .ok()
+        .and_then(|json| {
+            json.get("baseline")
+                .and_then(|b| b.get("glob"))
+                .and_then(|g| g.get("n"))
+                .and_then(|n| n.as_u64())
+        })
+        .is_some_and(|n| n > 0)
+}
+
+/// Real project root (the transcript `cwd`) of the Claude Code project with the
+/// most transcript bytes under `~/.claude/projects`. Reading `cwd` from a
+/// transcript avoids lossily decoding the mangled `~/.claude/projects` dir name
+/// — it is exactly the path headroom's plugin resolves to, so `--project <cwd>`
+/// matches. Returns `None` when no non-empty transcript exists.
+fn busiest_claude_project_cwd() -> Option<String> {
+    let home = std::env::var_os("HOME")?;
+    let projects_dir = PathBuf::from(home).join(".claude").join("projects");
+
+    let mut best: Option<(u64, PathBuf)> = None;
+    for entry in std::fs::read_dir(&projects_dir).ok()?.flatten() {
+        let dir = entry.path();
+        if !dir.is_dir() {
+            continue;
+        }
+        let mut bytes = 0u64;
+        if let Ok(files) = std::fs::read_dir(&dir) {
+            for f in files.flatten() {
+                let p = f.path();
+                if p.extension().and_then(|e| e.to_str()) == Some("jsonl") {
+                    if let Ok(meta) = f.metadata() {
+                        bytes += meta.len();
+                    }
+                }
+            }
+        }
+        if bytes > 0 && best.as_ref().is_none_or(|(b, _)| bytes > *b) {
+            best = Some((bytes, dir));
+        }
+    }
+
+    project_cwd_from_transcript_dir(&best?.1)
+}
+
+/// Pull the `cwd` field from the first transcript line that has one. Reads at
+/// most a few lines so a multi-hundred-MB transcript dir stays cheap.
+fn project_cwd_from_transcript_dir(dir: &Path) -> Option<String> {
+    use std::io::{BufRead, BufReader};
+    for f in std::fs::read_dir(dir).ok()?.flatten() {
+        let p = f.path();
+        if p.extension().and_then(|e| e.to_str()) != Some("jsonl") {
+            continue;
+        }
+        let Ok(file) = std::fs::File::open(&p) else {
+            continue;
+        };
+        for line in BufReader::new(file).lines().take(50).map_while(Result::ok) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
+                if let Some(cwd) = v.get("cwd").and_then(|c| c.as_str()) {
+                    if !cwd.is_empty() {
+                        return Some(cwd.to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 fn build_command(binary: &Path, args: &[&str], cwd: &Path) -> Command {

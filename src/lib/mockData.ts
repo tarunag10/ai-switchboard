@@ -13,6 +13,7 @@ export const mockDashboard: DashboardState = {
   sessionEstimatedSavingsUsd: 0,
   sessionEstimatedTokensSaved: 0,
   sessionSavingsPct: 0,
+  outputReduction: null,
   dailySavings: [],
   hourlySavings: [],
   savingsHistoryLoaded: false,

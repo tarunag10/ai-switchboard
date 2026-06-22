@@ -4,9 +4,11 @@
 # and cause bootstrap to fail on fresh machines.
 #
 # Versions kept in sync with headroom-requirements.lock (0.25.0 freeze on
-# 2026-06-12, reused unchanged for 0.26.0) where the package overlaps. We do not currently ship Linux from
-# release-macos.yml; when Linux is added, re-validate this lock against a real
-# Linux minimal install before relying on it.
+# 2026-06-12, carried to 0.27.0 on 2026-06-22) where the package overlaps. The
+# 0.27.0 lock moves (tree-sitter-language-pack, spreadsheet extra) do not touch
+# any package in this minimal subset, so no version here changes. We do not
+# currently ship Linux from release-macos.yml; when Linux is added, re-validate
+# this lock against a real Linux minimal install before relying on it.
 ast-grep-cli==0.42.2
 click==8.4.0
 fastapi==0.136.1

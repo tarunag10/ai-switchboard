@@ -116,6 +116,21 @@ pub enum LaunchExperience {
     Dashboard,
 }
 
+/// Honestly-labelled output-token reduction estimate surfaced from the proxy's
+/// `/stats`. `method` is "estimated" (synthetic control vs a learned baseline)
+/// or "measured" (A/B holdout); the percentage carries a 95% confidence band
+/// (`ci_low_percent`..`ci_high_percent`). Output savings are counterfactual, so
+/// this is never presented as an exact count.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OutputReduction {
+    pub method: String,
+    pub reduction_percent: f64,
+    pub ci_low_percent: f64,
+    pub ci_high_percent: f64,
+    pub requests: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DailySavingsPoint {
@@ -166,6 +181,10 @@ pub struct DashboardState {
     pub session_estimated_savings_usd: f64,
     pub session_estimated_tokens_saved: u64,
     pub session_savings_pct: f64,
+    /// Counterfactual output-token reduction from the proxy's output shaper.
+    /// `None` until a verbosity baseline is seeded (the dashboard hides the stat
+    /// until then). Always honestly labelled (`method` + confidence band).
+    pub output_reduction: Option<OutputReduction>,
     pub daily_savings: Vec<DailySavingsPoint>,
     pub hourly_savings: Vec<HourlySavingsPoint>,
     /// True once native savings history has loaded at least once this process.
@@ -642,14 +661,16 @@ impl HeadroomSubscriptionTier {
     }
 }
 
-/// The Headroom subscription tier that matches a detected Claude plan. Returns
-/// `None` for plans that carry no paid Headroom equivalent (Free/Unknown).
+/// The Headroom subscription tier that matches a detected Claude plan. Unknown
+/// maps to Max x20 (these are paying org customers whose taxonomy we couldn't
+/// decode, so pitch the top plan rather than under-recommend). Free carries no
+/// paid Headroom equivalent.
 pub fn headroom_tier_for_claude_plan(plan: &ClaudePlanTier) -> Option<HeadroomSubscriptionTier> {
     match plan {
         ClaudePlanTier::Pro => Some(HeadroomSubscriptionTier::Pro),
         ClaudePlanTier::Max5x => Some(HeadroomSubscriptionTier::Max5x),
-        ClaudePlanTier::Max20x => Some(HeadroomSubscriptionTier::Max20x),
-        ClaudePlanTier::Free | ClaudePlanTier::Unknown => None,
+        ClaudePlanTier::Max20x | ClaudePlanTier::Unknown => Some(HeadroomSubscriptionTier::Max20x),
+        ClaudePlanTier::Free => None,
     }
 }
 
@@ -675,11 +696,14 @@ pub enum PricingGateReason {
 #[serde(rename_all = "snake_case")]
 pub enum CodexPlanTier {
     Free,
+    Go,
     Plus,
     Pro,
     Team,
     Business,
+    SelfServeBusinessUsageBased,
     Enterprise,
+    EnterpriseCbpUsageBased,
     Edu,
     Unknown,
 }
@@ -689,11 +713,14 @@ impl CodexPlanTier {
     pub fn from_claim(raw: &str) -> Self {
         match raw.trim().to_ascii_lowercase().as_str() {
             "free" => CodexPlanTier::Free,
+            "go" => CodexPlanTier::Go,
             "plus" => CodexPlanTier::Plus,
             "pro" => CodexPlanTier::Pro,
             "team" => CodexPlanTier::Team,
             "business" => CodexPlanTier::Business,
+            "self_serve_business_usage_based" => CodexPlanTier::SelfServeBusinessUsageBased,
             "enterprise" => CodexPlanTier::Enterprise,
+            "enterprise_cbp_usage_based" => CodexPlanTier::EnterpriseCbpUsageBased,
             "edu" => CodexPlanTier::Edu,
             _ => CodexPlanTier::Unknown,
         }
@@ -705,11 +732,14 @@ impl CodexPlanTier {
     pub fn as_header_str(&self) -> &'static str {
         match self {
             CodexPlanTier::Free => "free",
+            CodexPlanTier::Go => "go",
             CodexPlanTier::Plus => "plus",
             CodexPlanTier::Pro => "pro",
             CodexPlanTier::Team => "team",
             CodexPlanTier::Business => "business",
+            CodexPlanTier::SelfServeBusinessUsageBased => "self_serve_business_usage_based",
             CodexPlanTier::Enterprise => "enterprise",
+            CodexPlanTier::EnterpriseCbpUsageBased => "enterprise_cbp_usage_based",
             CodexPlanTier::Edu => "edu",
             CodexPlanTier::Unknown => "unknown",
         }
@@ -717,18 +747,35 @@ impl CodexPlanTier {
 }
 
 /// Price-parity map from an OpenAI plan to the recommended Headroom upgrade
-/// tier: Plus -> Pro ($20), Team/Business/Enterprise/Edu -> Max x5, Pro -> Max
-/// x20 ($200). Free/Unknown carry no confident recommendation (caller defaults
-/// to Pro as the entry upgrade path).
+/// tier, by per-seat spend with a one-tier bump for orgs:
+/// - Go ($8) / Plus ($20) -> Pro ($20): individual, low spend.
+/// - Pro ($100/$200) -> Max x20: individual already paying top dollar.
+/// - Business / self-serve usage-based / Team -> Max x5: Plus-level per-seat
+///   ($20-25), bumped one tier for org procurement budget. (Team is legacy
+///   Business, folded into Business by OpenAI.)
+/// - Enterprise / enterprise CBP usage-based -> Max x20: $60+/seat at a 150-seat
+///   minimum, the genuine high-budget tier.
+/// - Edu -> Max x5: institutional but discounted.
+/// - Unknown -> Max x20: plan claim couldn't be decoded, so pitch the top plan
+///   rather than under-recommend.
+/// Free carries no recommendation (already on the no-cost tier).
 pub fn headroom_tier_for_codex_plan(plan: &CodexPlanTier) -> Option<HeadroomSubscriptionTier> {
     match plan {
-        CodexPlanTier::Plus => Some(HeadroomSubscriptionTier::Pro),
+        CodexPlanTier::Go | CodexPlanTier::Plus => Some(HeadroomSubscriptionTier::Pro),
+        // Codex Team/Business -> Max x5 is intentionally NOT parity with Claude
+        // Team (-> Max x20, see `pricing::detect_plan_tier_from_profile`). A
+        // ChatGPT Business seat grants a modest Codex allowance, while a Claude
+        // Team seat grants Claude usage at Max-tier limits. Different products,
+        // different recommendations. Do not "unify" them.
         CodexPlanTier::Team
         | CodexPlanTier::Business
-        | CodexPlanTier::Enterprise
+        | CodexPlanTier::SelfServeBusinessUsageBased
         | CodexPlanTier::Edu => Some(HeadroomSubscriptionTier::Max5x),
-        CodexPlanTier::Pro => Some(HeadroomSubscriptionTier::Max20x),
-        CodexPlanTier::Free | CodexPlanTier::Unknown => None,
+        CodexPlanTier::Pro
+        | CodexPlanTier::Enterprise
+        | CodexPlanTier::EnterpriseCbpUsageBased
+        | CodexPlanTier::Unknown => Some(HeadroomSubscriptionTier::Max20x),
+        CodexPlanTier::Free => None,
     }
 }
 
@@ -984,24 +1031,29 @@ mod tests {
     #[test]
     fn codex_plan_maps_to_price_parity_headroom_tier() {
         use HeadroomSubscriptionTier::*;
-        assert_eq!(
-            headroom_tier_for_codex_plan(&CodexPlanTier::Plus),
-            Some(Pro)
-        );
-        assert_eq!(
-            headroom_tier_for_codex_plan(&CodexPlanTier::Pro),
-            Some(Max20x)
-        );
+        for plan in [CodexPlanTier::Go, CodexPlanTier::Plus] {
+            assert_eq!(headroom_tier_for_codex_plan(&plan), Some(Pro));
+        }
+        for plan in [
+            CodexPlanTier::Pro,
+            CodexPlanTier::Enterprise,
+            CodexPlanTier::EnterpriseCbpUsageBased,
+        ] {
+            assert_eq!(headroom_tier_for_codex_plan(&plan), Some(Max20x));
+        }
         for plan in [
             CodexPlanTier::Team,
             CodexPlanTier::Business,
-            CodexPlanTier::Enterprise,
+            CodexPlanTier::SelfServeBusinessUsageBased,
             CodexPlanTier::Edu,
         ] {
             assert_eq!(headroom_tier_for_codex_plan(&plan), Some(Max5x));
         }
         assert_eq!(headroom_tier_for_codex_plan(&CodexPlanTier::Free), None);
-        assert_eq!(headroom_tier_for_codex_plan(&CodexPlanTier::Unknown), None);
+        assert_eq!(
+            headroom_tier_for_codex_plan(&CodexPlanTier::Unknown),
+            Some(Max20x)
+        );
     }
 
     #[test]

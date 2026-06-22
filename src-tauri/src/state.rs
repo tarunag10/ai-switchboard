@@ -683,7 +683,7 @@ impl AppState {
             &self.tool_manager.rtk_entrypoint(),
             &self.tool_manager.managed_python(),
         ) {
-            log::warn!("RTK integrations failed during warm_runtime_on_launch: {err}");
+            log::warn!("RTK integrations failed during warm_runtime_on_launch: {err:#}");
         }
 
         // App-version-triggered atomic runtime upgrade. Replaces the old
@@ -714,6 +714,16 @@ impl AppState {
             // (and stripped) Sentry event from the FileLogger forwarder.
             log::info!("headroom MCP configuration failed: {err:#}");
         }
+
+        // Seed the output-shaper savings baseline BEFORE starting the proxy.
+        // This is the launch path for already-installed users (start_bootstrap
+        // only runs the first-install wizard), so without it the seeding never
+        // runs after an app update. It must precede proxy start: the recorder
+        // loads the baseline once at boot and clobbers a later-written one on
+        // flush, so seeding first is what lets the number appear without an app
+        // relaunch. Idempotent and bounded; we are already on a background
+        // thread, so the one-time scan does not block the UI.
+        self.tool_manager.seed_verbosity_baseline_if_needed();
 
         match self.ensure_headroom_running() {
             Ok(()) => {
@@ -2144,6 +2154,18 @@ impl AppState {
             }
         }
 
+        let output_reduction =
+            stats
+                .as_ref()
+                .and_then(|s| s.output_reduction.as_ref())
+                .map(|o| crate::models::OutputReduction {
+                    method: o.method.clone(),
+                    reduction_percent: o.reduction_percent,
+                    ci_low_percent: o.ci_low_percent,
+                    ci_high_percent: o.ci_high_percent,
+                    requests: o.requests,
+                });
+
         if let Some(history) = history.as_ref() {
             if let Some(saved_usd) = history.lifetime_estimated_savings_usd {
                 snapshot.lifetime_estimated_savings_usd = saved_usd;
@@ -2197,6 +2219,7 @@ impl AppState {
                 session_estimated_savings_usd: snapshot.session_estimated_savings_usd,
                 session_estimated_tokens_saved: snapshot.session_estimated_tokens_saved,
                 session_savings_pct: snapshot.session_savings_pct,
+                output_reduction,
                 daily_savings,
                 hourly_savings,
                 savings_history_loaded: self
@@ -4310,6 +4333,21 @@ struct HeadroomDashboardStats {
     session_actual_cost_usd: Option<f64>,
     session_total_tokens_sent: Option<u64>,
     savings_history: Vec<HeadroomSavingsHistoryPoint>,
+    output_reduction: Option<OutputReduction>,
+}
+
+/// Counterfactual output-token reduction from the proxy's output shaper,
+/// parsed from `/stats` (`savings.by_layer.output_shaping`). `method` is
+/// "estimated" (synthetic control vs a learned baseline) or "measured" (A/B
+/// holdout); the percentage always carries a 95% confidence band. Only
+/// populated when the proxy reports `available: true` (i.e. a baseline exists).
+#[derive(Debug, Clone)]
+struct OutputReduction {
+    method: String,
+    reduction_percent: f64,
+    ci_low_percent: f64,
+    ci_high_percent: f64,
+    requests: u64,
 }
 
 /// One provider's slice of a rollup bucket's delta, parsed from the upstream
@@ -4443,6 +4481,40 @@ fn fetch_headroom_savings_history() -> Option<HeadroomSavingsHistoryResponse> {
     }
 
     None
+}
+
+/// Parse the output-shaper reduction estimate from a `/stats` payload. Lives
+/// under `savings.by_layer.output_shaping`, with `tokens.output_reduction` as a
+/// fallback. Returns `None` unless the proxy reports `available: true`, so the
+/// dashboard hides the stat until a baseline has been seeded.
+fn parse_output_reduction(root: &Value) -> Option<OutputReduction> {
+    let node = value_at_path(root, &["savings", "by_layer", "output_shaping"])
+        .or_else(|| value_at_path(root, &["tokens", "output_reduction"]))?;
+
+    if !node.get("available").and_then(Value::as_bool).unwrap_or(false) {
+        return None;
+    }
+
+    Some(OutputReduction {
+        method: node
+            .get("method")
+            .and_then(Value::as_str)
+            .unwrap_or("estimated")
+            .to_string(),
+        reduction_percent: node
+            .get("reduction_percent")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0),
+        ci_low_percent: node
+            .get("ci_low_percent")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0),
+        ci_high_percent: node
+            .get("ci_high_percent")
+            .and_then(Value::as_f64)
+            .unwrap_or(0.0),
+        requests: node.get("requests").and_then(Value::as_u64).unwrap_or(0),
+    })
 }
 
 fn parse_headroom_stats_from_json(body: &str) -> Option<HeadroomDashboardStats> {
@@ -4599,11 +4671,14 @@ fn parse_headroom_stats_from_json(body: &str) -> Option<HeadroomDashboardStats> 
         .and_then(parse_savings_history)
         .unwrap_or_default();
 
+    let output_reduction = parse_output_reduction(&root);
+
     if requests.is_none()
         && tokens.is_none()
         && usd.is_none()
         && session_total_tokens_sent.is_none()
         && actual_cost_usd.is_none()
+        && output_reduction.is_none()
     {
         None
     } else {
@@ -4615,6 +4690,7 @@ fn parse_headroom_stats_from_json(body: &str) -> Option<HeadroomDashboardStats> 
             session_actual_cost_usd: actual_cost_usd.map(|value| value.max(0.0)),
             session_total_tokens_sent,
             savings_history,
+            output_reduction,
         })
     }
 }
@@ -6063,6 +6139,7 @@ mod tests {
         let mut tracker = make_tracker();
         tracker.lifetime_estimated_savings_usd = 7.5;
         let stats = HeadroomDashboardStats {
+            output_reduction: None,
             session_requests: Some(1),
             session_estimated_savings_usd: Some(60.0),
             session_estimated_tokens_saved: Some(1),
@@ -6654,6 +6731,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(1),
                 session_estimated_savings_usd: Some(1.0),
                 session_estimated_tokens_saved: Some(12_000_000),
@@ -6672,6 +6750,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(2),
                 session_estimated_savings_usd: Some(2.0),
                 session_estimated_tokens_saved: Some(21_000_000),
@@ -6700,6 +6779,7 @@ mod tests {
         let state = AppState::new_in(base_dir.clone()).expect("app state");
 
         let stats = HeadroomDashboardStats {
+            output_reduction: None,
             session_requests: Some(1),
             session_estimated_savings_usd: Some(1.0),
             session_estimated_tokens_saved: Some(1_500_000),
@@ -6743,6 +6823,7 @@ mod tests {
 
         let first = tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(10),
                 session_estimated_savings_usd: Some(1.2),
                 session_estimated_tokens_saved: Some(1_200),
@@ -6762,6 +6843,7 @@ mod tests {
 
         let second = tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(12),
                 session_estimated_savings_usd: Some(1.5),
                 session_estimated_tokens_saved: Some(1_500),
@@ -6785,6 +6867,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(10),
                 session_estimated_savings_usd: Some(1.0),
                 session_estimated_tokens_saved: Some(1_000),
@@ -6797,6 +6880,7 @@ mod tests {
 
         let reset = tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(2),
                 session_estimated_savings_usd: Some(0.2),
                 session_estimated_tokens_saved: Some(200),
@@ -6819,6 +6903,7 @@ mod tests {
         let mut tracker = make_tracker();
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(4),
                 session_estimated_savings_usd: Some(0.5),
                 session_estimated_tokens_saved: Some(1_000),
@@ -6884,6 +6969,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(4),
                 session_estimated_savings_usd: Some(0.5),
                 session_estimated_tokens_saved: Some(1_000),
@@ -6988,6 +7074,77 @@ mod tests {
         assert_eq!(parsed.session_actual_cost_usd, Some(1.23));
         assert_eq!(parsed.session_total_tokens_sent, Some(3_600));
         assert_eq!(parsed.savings_history.len(), 1);
+    }
+
+    #[test]
+    fn parse_output_reduction_reads_available_estimate_from_by_layer() {
+        let parsed = parse_headroom_stats_from_json(
+            r#"{
+                "requests": { "total": 5 },
+                "tokens": { "saved": 1200 },
+                "savings": {
+                    "by_layer": {
+                        "output_shaping": {
+                            "available": true,
+                            "method": "estimated",
+                            "reduction_percent": 18.4,
+                            "ci_low_percent": 9.1,
+                            "ci_high_percent": 27.7,
+                            "requests": 340
+                        }
+                    }
+                }
+            }"#,
+        )
+        .expect("parsed stats");
+
+        let reduction = parsed.output_reduction.expect("output reduction present");
+        assert_eq!(reduction.method, "estimated");
+        assert_eq!(reduction.reduction_percent, 18.4);
+        assert_eq!(reduction.ci_low_percent, 9.1);
+        assert_eq!(reduction.ci_high_percent, 27.7);
+        assert_eq!(reduction.requests, 340);
+    }
+
+    #[test]
+    fn parse_output_reduction_is_none_when_unavailable() {
+        let parsed = parse_headroom_stats_from_json(
+            r#"{
+                "requests": { "total": 5 },
+                "tokens": { "saved": 1200 },
+                "savings": {
+                    "by_layer": {
+                        "output_shaping": { "available": false }
+                    }
+                }
+            }"#,
+        )
+        .expect("parsed stats");
+        assert!(parsed.output_reduction.is_none());
+    }
+
+    #[test]
+    fn parse_output_reduction_falls_back_to_tokens_block() {
+        let parsed = parse_headroom_stats_from_json(
+            r#"{
+                "requests": { "total": 5 },
+                "tokens": {
+                    "saved": 1200,
+                    "output_reduction": {
+                        "available": true,
+                        "method": "measured",
+                        "reduction_percent": 22.0,
+                        "ci_low_percent": 15.0,
+                        "ci_high_percent": 29.0,
+                        "requests": 90
+                    }
+                }
+            }"#,
+        )
+        .expect("parsed stats");
+        let reduction = parsed.output_reduction.expect("output reduction present");
+        assert_eq!(reduction.method, "measured");
+        assert_eq!(reduction.requests, 90);
     }
 
     #[test]
@@ -7379,6 +7536,7 @@ mod tests {
         let mut tracker = make_tracker();
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(4),
                 session_estimated_savings_usd: Some(0.5),
                 session_estimated_tokens_saved: Some(1_000),
@@ -7399,6 +7557,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(4),
                 session_estimated_savings_usd: Some(0.5),
                 session_estimated_tokens_saved: Some(1_000),
@@ -7415,6 +7574,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(4),
                 session_estimated_savings_usd: Some(0.5),
                 session_estimated_tokens_saved: Some(1_000),
@@ -7441,6 +7601,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(1),
                 session_estimated_savings_usd: Some(0.2),
                 session_estimated_tokens_saved: Some(400),
@@ -7456,6 +7617,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(2),
                 session_estimated_savings_usd: Some(0.5),
                 session_estimated_tokens_saved: Some(1_000),
@@ -7535,6 +7697,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(11),
                 session_estimated_savings_usd: Some(10.1),
                 session_estimated_tokens_saved: Some(10_200),
@@ -7560,6 +7723,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(2),
                 session_estimated_savings_usd: Some(0.5),
                 session_estimated_tokens_saved: Some(1_000),
@@ -7576,6 +7740,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(3),
                 session_estimated_savings_usd: Some(0.6),
                 session_estimated_tokens_saved: Some(1_200),
@@ -7601,6 +7766,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(1),
                 session_estimated_savings_usd: Some(0.2),
                 session_estimated_tokens_saved: Some(400),
@@ -7621,6 +7787,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(5),
                 session_estimated_savings_usd: Some(10.0),
                 session_estimated_tokens_saved: Some(10_000),
@@ -7651,6 +7818,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(5),
                 session_estimated_savings_usd: Some(10.0),
                 session_estimated_tokens_saved: Some(10_000),
@@ -7667,6 +7835,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(6),
                 session_estimated_savings_usd: Some(10.0),
                 session_estimated_tokens_saved: Some(10_000),
@@ -7693,6 +7862,7 @@ mod tests {
 
         tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(10),
                 session_estimated_savings_usd: Some(1.0),
                 session_estimated_tokens_saved: Some(1_000),
@@ -7705,6 +7875,7 @@ mod tests {
 
         let second = tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(11),
                 session_estimated_savings_usd: Some(1.2),
                 session_estimated_tokens_saved: Some(1_200),
@@ -7755,6 +7926,7 @@ mod tests {
 
         let snapshot = tracker
             .observe(&HeadroomDashboardStats {
+                output_reduction: None,
                 session_requests: Some(11),
                 session_estimated_savings_usd: Some(5.5),
                 session_estimated_tokens_saved: Some(1_100),
@@ -8024,6 +8196,7 @@ mod tests {
 
         // First observation: 1_000 tokens saved, history shows 0→1_000 across hours 9→10.
         tracker.observe(&HeadroomDashboardStats {
+                output_reduction: None,
             session_requests: Some(1),
             session_estimated_savings_usd: Some(1.0),
             session_estimated_tokens_saved: Some(1_000),
@@ -8040,6 +8213,7 @@ mod tests {
 
         // Second observation: 3_000 tokens saved, history adds hour 11.
         tracker.observe(&HeadroomDashboardStats {
+                output_reduction: None,
             session_requests: Some(3),
             session_estimated_savings_usd: Some(3.0),
             session_estimated_tokens_saved: Some(3_000),

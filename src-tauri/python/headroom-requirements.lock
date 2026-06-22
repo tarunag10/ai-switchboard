@@ -1,7 +1,14 @@
 # Reviewed known-good Headroom runtime lock.
-# Source: headroom-ai[all]==0.25.0 dependency resolution captured on 2026-06-12 for cp312.
-# Reused unchanged for headroom-ai 0.26.0: its requires_dist is byte-identical
-# to 0.25.0, so this resolution remains valid and no pin moves.
+# Source: headroom-ai[all]==0.25.0 dependency resolution captured on 2026-06-12 for cp312,
+# then carried forward for 0.27.0 (2026-06-22). The 0.25.0 resolution was reused
+# byte-for-byte for 0.26.0 (identical requires_dist). 0.27.0 moved three pins:
+#   - tree-sitter-language-pack 1.8.1 -> 0.13.0: upstream added a `<1.0` upper
+#     bound on the `code` extra (1.x is API-incompatible). 0.13.0 is the highest
+#     <1.0 release and requires tree-sitter>=0.23, satisfied by the pin below.
+#   - et-xmlfile / openpyxl / xlrd added: the `spreadsheet` extra was added to
+#     headroom-ai[all] in 0.27.0.
+# tree-sitter (0.25.2) already satisfies 0.27.0's new `tree-sitter<0.26,>=0.25.2`
+# direct pin. All other pins are unchanged from the 0.25.0 freeze.
 absl-py==2.4.0
 aiohappyeyeballs==2.6.2
 aiohttp==3.14.1
@@ -28,6 +35,7 @@ dateparser==1.4.0
 dill==0.4.1
 distro==1.9.0
 docstring-parser==0.18.0
+et-xmlfile==2.0.0
 evaluate==0.4.6
 fastapi==0.136.3
 fastembed==0.8.0
@@ -80,6 +88,7 @@ numpy==2.4.6
 onnxruntime==1.23.2
 openai==2.41.0
 opencv-python==4.13.0.92
+openpyxl==3.1.5
 opentelemetry-api==1.42.1
 opentelemetry-exporter-otlp-proto-common==1.42.1
 opentelemetry-exporter-otlp-proto-http==1.42.1
@@ -144,7 +153,7 @@ tqdm==4.68.1
 trafilatura==2.1.0
 transformers==5.10.2
 tree-sitter==0.25.2
-tree-sitter-language-pack==1.8.1
+tree-sitter-language-pack==0.13.0
 typepy==1.3.5
 typer==0.25.1
 typing-extensions==4.15.0
@@ -155,6 +164,7 @@ uvicorn==0.49.0
 watchdog==6.0.0
 websockets==16.0
 word2number==1.1
+xlrd==2.0.2
 xxhash==3.7.0
 yarl==1.24.2
 zipp==4.1.0

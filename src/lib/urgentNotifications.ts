@@ -6,12 +6,17 @@ import type { HeadroomPricingStatus, RuntimeStatus } from "./types";
 const NEEDS_AUTH_KEY = "headroom_urgent_needs_auth_date";
 const OPTIMIZATION_BLOCKED_KEY = "headroom_urgent_opt_blocked_date";
 const RUNTIME_DOWN_KEY = "headroom_urgent_runtime_down_date";
-const NUDGE_KEY_PREFIX = "headroom_urgent_nudge_level";
+// Single daily slot for the upgrade nudge: either a usage-based nudge or, when
+// no threshold is crossed, a generic reminder. One key keeps the two mutually
+// exclusive so a gated free user gets at most one upgrade nudge per ~24h.
+const DAILY_NUDGE_KEY = "headroom_urgent_nudge_date";
+const NUDGE_REMINDER_TITLE = "Headroom is ready when you are";
+const NUDGE_REMINDER_BODY =
+  "You're on the free plan. Upgrade to keep Headroom optimizing every prompt.";
 
-// Codex uses storage keys distinct from the Claude gate so a Claude
+// Codex uses a storage key distinct from the Claude gate so a Claude
 // notification firing in the same window can't suppress the Codex one.
 const CODEX_OPTIMIZATION_BLOCKED_KEY = "headroom_urgent_codex_opt_blocked_date";
-const CODEX_NUDGE_KEY_PREFIX = "headroom_urgent_codex_nudge_level";
 
 const NUDGE_TITLES: Record<number, string> = {
   1: "Heads up: 25% of your weekly Claude usage",
@@ -53,26 +58,8 @@ export async function maybeFireUrgentPricingNotifications(
     return;
   }
 
-  if (status.shouldNudge && status.nudgeLevel > 0) {
-    const level = Math.min(status.nudgeLevel, 3);
-    await fireOncePerWeek(
-      `${NUDGE_KEY_PREFIX}_${level}`,
-      NUDGE_TITLES[level] ?? "Heads up: weekly Claude usage rising",
-      status.gateMessage ||
-        "Headroom will pause optimization at your weekly usage cap. Upgrade to keep going.",
-      "billing"
-    );
-  }
-
-  // Codex gate fires independently of the Claude gate above, with its own
-  // storage keys and provider wording, so a Codex-routing user gets the same
-  // nudge/pause notifications a Claude user does. needs-auth (account-wide) and
-  // a blocked Claude plan returned above already cover the user, so they take
-  // precedence; the daily/weekly throttle keeps a dual-routing user from spam.
   const codex = status.codex;
-  if (!codex) return;
-
-  if (!codex.optimizationAllowed) {
+  if (codex && !codex.optimizationAllowed) {
     await fireOncePerDay(
       CODEX_OPTIMIZATION_BLOCKED_KEY,
       "Headroom optimization is off",
@@ -83,16 +70,65 @@ export async function maybeFireUrgentPricingNotifications(
     return;
   }
 
-  if (codex.shouldNudge && codex.nudgeLevel > 0) {
-    const level = Math.min(codex.nudgeLevel, 3);
-    await fireOncePerWeek(
-      `${CODEX_NUDGE_KEY_PREFIX}_${level}`,
-      CODEX_NUDGE_TITLES[level] ?? "Heads up: weekly Codex usage rising",
-      codex.gateMessage ||
+  // One upgrade nudge per ~24h for gated free users. When a weekly usage
+  // threshold is crossed we show the usage-based copy, otherwise a generic
+  // reminder so we never go silent. Claude/Codex already track the weekly
+  // window for us, so there's no separate weekly gate here -- the daily key is
+  // the only throttle, and it's shared so the two paths can't both fire.
+  if (!isGatedFreeAccount(status)) return;
+
+  const usage = pickUsageNudge(status);
+  await fireOncePerDay(
+    DAILY_NUDGE_KEY,
+    usage?.title ?? NUDGE_REMINDER_TITLE,
+    usage?.body ?? NUDGE_REMINDER_BODY,
+    "billing"
+  );
+}
+
+// Highest usage nudge currently active across Claude and Codex, or null when
+// neither has crossed a threshold. Ties go to Claude.
+function pickUsageNudge(
+  status: HeadroomPricingStatus
+): { title: string; body: string } | null {
+  const claudeLevel =
+    status.shouldNudge && status.nudgeLevel > 0 ? Math.min(status.nudgeLevel, 3) : 0;
+  const codex = status.codex;
+  const codexLevel =
+    codex && codex.shouldNudge && codex.nudgeLevel > 0
+      ? Math.min(codex.nudgeLevel, 3)
+      : 0;
+
+  if (claudeLevel === 0 && codexLevel === 0) return null;
+
+  if (codexLevel > claudeLevel) {
+    return {
+      title: CODEX_NUDGE_TITLES[codexLevel] ?? "Heads up: weekly Codex usage rising",
+      body:
+        codex!.gateMessage ||
         "Headroom will pause Codex optimization at your weekly cap. Upgrade to keep going.",
-      "billing"
-    );
+    };
   }
+
+  return {
+    title: NUDGE_TITLES[claudeLevel] ?? "Heads up: weekly Claude usage rising",
+    body:
+      status.gateMessage ||
+      "Headroom will pause optimization at your weekly usage cap. Upgrade to keep going.",
+  };
+}
+
+// A gated free account: authenticated, optimization still allowed, but no
+// active subscription or trial. Mirrors the backend gate that drives shouldNudge.
+function isGatedFreeAccount(status: HeadroomPricingStatus): boolean {
+  const account = status.account;
+  return (
+    !status.needsAuthentication &&
+    status.optimizationAllowed &&
+    !!account &&
+    !account.subscriptionActive &&
+    !account.trialActive
+  );
 }
 
 export async function maybeFireUrgentRuntimeNotification(
@@ -118,47 +154,23 @@ export async function maybeFireUrgentRuntimeNotification(
   );
 }
 
+// Returns true when a notification was actually shown (false when throttled).
 async function fireOncePerDay(
   storageKey: string,
   title: string,
   body: string,
   action: string
-): Promise<void> {
+): Promise<boolean> {
   const today = new Date().toISOString().slice(0, 10);
-  if (localStorage.getItem(storageKey) === today) return;
+  if (localStorage.getItem(storageKey) === today) return false;
   try {
     await invoke("show_notification", { title, body, action });
     localStorage.setItem(storageKey, today);
+    return true;
   } catch {
     // best-effort
+    return false;
   }
-}
-
-async function fireOncePerWeek(
-  storageKey: string,
-  title: string,
-  body: string,
-  action: string
-): Promise<void> {
-  const week = isoWeekKey(new Date());
-  if (localStorage.getItem(storageKey) === week) return;
-  try {
-    await invoke("show_notification", { title, body, action });
-    localStorage.setItem(storageKey, week);
-  } catch {
-    // best-effort
-  }
-}
-
-// Returns "YYYY-Www" using ISO 8601 week numbering. Used to key
-// notifications that should re-fire each new Claude weekly usage window.
-function isoWeekKey(date: Date): string {
-  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
 }
 
 async function isWindowVisible(): Promise<boolean> {
