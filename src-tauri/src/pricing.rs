@@ -2242,6 +2242,9 @@ fn non_empty_string(value: String) -> Option<String> {
 }
 
 const NUDGE_THRESHOLDS_PERCENT: [f64; 3] = [25.0, 35.0, 45.0];
+// Max tiers pause at 25% (vs 50% for Pro), so their nudges sit below that
+// cutoff to keep the warn-then-pause cadence instead of pausing with no notice.
+const MAX_TIER_NUDGE_THRESHOLDS_PERCENT: [f64; 3] = [10.0, 15.0, 20.0];
 
 #[derive(Debug, Clone)]
 struct PricingPolicy {
@@ -2259,13 +2262,13 @@ fn pricing_policy_for_plan(plan: &ClaudePlanTier) -> Option<PricingPolicy> {
             recommended_tier: HeadroomSubscriptionTier::Pro,
         }),
         ClaudePlanTier::Max5x => Some(PricingPolicy {
-            nudge_thresholds_percent: NUDGE_THRESHOLDS_PERCENT,
-            disable_threshold_percent: 50.0,
+            nudge_thresholds_percent: MAX_TIER_NUDGE_THRESHOLDS_PERCENT,
+            disable_threshold_percent: 25.0,
             recommended_tier: HeadroomSubscriptionTier::Max5x,
         }),
         ClaudePlanTier::Max20x => Some(PricingPolicy {
-            nudge_thresholds_percent: NUDGE_THRESHOLDS_PERCENT,
-            disable_threshold_percent: 50.0,
+            nudge_thresholds_percent: MAX_TIER_NUDGE_THRESHOLDS_PERCENT,
+            disable_threshold_percent: 25.0,
             recommended_tier: HeadroomSubscriptionTier::Max20x,
         }),
         ClaudePlanTier::Unknown => None,
@@ -2784,6 +2787,12 @@ mod tests {
         p
     }
 
+    fn max5x_profile_with_weekly(weekly: f64) -> ClaudeAccountProfile {
+        let mut p = empty_claude_profile(ClaudePlanTier::Max5x);
+        p.weekly_utilization_pct = Some(weekly);
+        p
+    }
+
     fn trial_account() -> HeadroomAccountProfile {
         HeadroomAccountProfile {
             email: "user@example.com".into(),
@@ -2962,6 +2971,50 @@ mod tests {
             status.recommended_subscription_tier,
             Some(HeadroomSubscriptionTier::Max5x)
         ));
+    }
+
+    #[test]
+    fn max5x_gates_at_25_percent() {
+        // Max tiers pause at 25% (vs Pro's 50%). 30% must pause.
+        let (start, end) = grace();
+        let status = evaluate_pricing_status(
+            true,
+            start,
+            end,
+            false,
+            None,
+            Some(expired_account(0.0)),
+            max5x_profile_with_weekly(30.0),
+            false,
+            None,
+        );
+        assert!(!status.optimization_allowed);
+        assert!(matches!(
+            status.gate_reason,
+            Some(PricingGateReason::WeeklyUsageLimitReached)
+        ));
+        assert_eq!(status.disable_threshold_percent, Some(25.0));
+    }
+
+    #[test]
+    fn max5x_below_25_percent_nudges_instead_of_pausing() {
+        // 18% is under the 25% cutoff but over the 15% nudge level — the user
+        // keeps optimization but gets warned.
+        let (start, end) = grace();
+        let status = evaluate_pricing_status(
+            true,
+            start,
+            end,
+            false,
+            None,
+            Some(expired_account(0.0)),
+            max5x_profile_with_weekly(18.0),
+            false,
+            None,
+        );
+        assert!(status.optimization_allowed);
+        assert!(status.should_nudge);
+        assert_eq!(status.nudge_threshold_percent, Some(10.0));
     }
 
     #[test]

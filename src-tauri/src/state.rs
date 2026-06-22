@@ -683,7 +683,7 @@ impl AppState {
             &self.tool_manager.rtk_entrypoint(),
             &self.tool_manager.managed_python(),
         ) {
-            log::warn!("RTK integrations failed during warm_runtime_on_launch: {err}");
+            log::warn!("RTK integrations failed during warm_runtime_on_launch: {err:#}");
         }
 
         // App-version-triggered atomic runtime upgrade. Replaces the old

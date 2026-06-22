@@ -36,10 +36,10 @@ use crate::models::{ManagedTool, RtkTodayStats, ToolStatus};
 /// `*-manylinux_*` abi3 wheel from
 /// https://pypi.org/pypi/headroom-ai/<version>/json and add a per-platform
 /// wheel-picker (mirroring `python_distribution_artifact`).
-pub(crate) const HEADROOM_PINNED_VERSION: &str = "0.26.0";
-const HEADROOM_PINNED_WHEEL_URL: &str = "https://files.pythonhosted.org/packages/be/14/4ba140f4899832a4fb868b3bfff81925d8e4fc8cb2c1522cb1d344b4925b/headroom_ai-0.26.0-cp310-abi3-macosx_11_0_arm64.whl";
+pub(crate) const HEADROOM_PINNED_VERSION: &str = "0.27.0";
+const HEADROOM_PINNED_WHEEL_URL: &str = "https://files.pythonhosted.org/packages/10/95/928bfb645df23025fb375de19c7d57ec21a0991712236d7748ce456139e3/headroom_ai-0.27.0-cp310-abi3-macosx_11_0_arm64.whl";
 const HEADROOM_PINNED_SHA256: &str =
-    "f1696770d2388cba99c567130968730daf5add69c7e38499fccdc6d0c85386cf";
+    "00b54b70533c841f4702fffaf215eff84bafed7612c07a56d675ef8a1ffab543";
 const HEADROOM_SMOKE_TEST_TIMEOUT: Duration = Duration::from_secs(15);
 /// Index of pre-built wheels for sdist-only PyPI packages (e.g. hnswlib).
 /// GitHub's expanded_assets endpoint serves HTML anchors pip can consume via --find-links.
@@ -91,16 +91,14 @@ const HEADROOM_LINUX_REQUIREMENTS_LOCK: &str =
 /// lock. Drop any entry that no longer matches — those users need a real
 /// reinstall.
 const LEGACY_REQUIREMENTS_LOCK_SHAS: &[&str] = &[
-    // The 0.26.0 bundle reuses the 0.25.0 lock byte-for-byte: headroom-ai's
-    // `requires_dist` is identical between 0.25.0 and 0.26.0 (verified against
-    // pypi.org/pypi/headroom-ai/<v>/json), so the 0.25.0 resolution remains a
-    // valid resolution for 0.26.0 and no pin — pure-Python or native — moves.
-    // headroom-ai itself is not in this lock (it installs from the pinned
-    // wheel), so the stripped lock sha is unchanged and the entire 0.25.0
-    // cohort's lock receipt is already current: the upgrade swaps only the
-    // headroom-ai wheel in place. The list stays empty until a real lock pin
-    // changes; add a sha here only when a future no-op cosmetic lock edit needs
-    // to be treated as up-to-date.
+    // The 0.25.0 and 0.26.0 bundles shared one lock byte-for-byte (identical
+    // requires_dist). 0.27.0 actually moves pins (tree-sitter-language-pack
+    // 1.8.1 -> 0.13.0 plus the spreadsheet extra: et-xmlfile/openpyxl/xlrd), so
+    // the stripped lock sha changes. The 0.25.0/0.26.0 cohort's lock receipt is
+    // now genuinely stale and SHOULD trigger a reinstall — do not whitelist the
+    // old sha here. The list stays empty until a future no-op cosmetic lock edit
+    // (comments/blank lines only, no pin moves) needs to be treated as
+    // up-to-date.
 ];
 
 /// Receipts strictly below this version cannot be safely upgraded in place to
@@ -158,6 +156,16 @@ const LEGACY_REQUIREMENTS_LOCK_SHAS: &[&str] = &[
 ///   wheel (clearing its `.so` via RECORD) and unpacks the 0.26.0 abi3 wheel;
 ///   no stale native extension is layered. The 0.20.x+ cohort upgrades in
 ///   place with no wheel rebuilds.
+/// - 0.4.x (0.26.0 → 0.27.0 bundle): floor stays at 0.20.0. The lock moves three
+///   pins: tree-sitter-language-pack 1.8.1 → 0.13.0 (native, ships compiled
+///   grammar `.so`s) and the new spreadsheet extra (et-xmlfile/openpyxl/xlrd,
+///   pure-Python). The language-pack move is a version *change*, so pip
+///   uninstalls 1.8.1 via its RECORD (removing the old grammar `.so`s) before
+///   unpacking 0.13.0 — no stale native extension is layered, unlike the
+///   same-version in-place rebuilds this floor guards against. headroom-ai's own
+///   abi3 wheel is likewise uninstalled-then-reinstalled. The 0.20.x+ cohort
+///   upgrades in place. Raise the floor only if a future lock adds or
+///   ABI-bumps a native transitive dep without a version bump.
 const ATOMIC_REBUILD_FLOOR_VERSION: (u32, u32, u32) = (0, 20, 0);
 
 /// Parse the leading `major.minor.patch` from a version string, tolerating
@@ -723,6 +731,20 @@ impl ToolManager {
                     // cached content almost never busts the frozen prefix, and
                     // protect_recent/min_tokens guard the just-typed prompt.
                     .env("HEADROOM_COMPRESS_USER_MESSAGES", "1")
+                    // Output-token shaping (new in headroom-ai 0.27.0). The proxy
+                    // never emits output tokens, so this works request-side: it
+                    // appends a byte-stable verbosity instruction to the TAIL of
+                    // the system prompt (after the cache_control breakpoint, so the
+                    // provider prefix cache is preserved) and lowers an
+                    // already-present output_config.effort on mechanically-classified
+                    // turns. Off by default upstream; enabled here. Remaining knobs
+                    // use upstream defaults: HEADROOM_VERBOSITY_LEVEL=2 (skip
+                    // pre/postamble, don't restate in-context code/tool output),
+                    // HEADROOM_EFFORT_ROUTER on, HEADROOM_MECHANICAL_EFFORT=low. The
+                    // shaper only ever lowers an effort the client already sent and
+                    // never toggles thinking.type, so it cannot 400 a model that
+                    // lacks effort support.
+                    .env("HEADROOM_OUTPUT_SHAPER", "1")
                     .stdin(Stdio::null())
                     .stdout(Stdio::from(
                         log_file
@@ -3575,8 +3597,10 @@ fn headroom_python_startup_args() -> Vec<String> {
 }
 
 fn headroom_entrypoint_startup_args() -> Vec<String> {
-    // The CLI `proxy` command does not expose --no-http2; HTTP/2 is controlled
-    // via the HEADROOM_HTTP2 env var when using the entrypoint.
+    // HTTP/2 on the entrypoint is controlled via the HEADROOM_HTTP2 env var
+    // (set to "false" in the spawn env). Older bundled runtimes ignored this var
+    // and ran HTTP/2 unconditionally, which surfaced as SSLV3_ALERT_BAD_RECORD_MAC
+    // under multi-tab concurrency; the runtime bundled with this build honors it.
     // --log-messages stores full request/response bodies so the desktop's
     // Activity tab can render the live transformations feed.
     let mut args = vec![
