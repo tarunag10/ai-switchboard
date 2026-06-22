@@ -41,6 +41,11 @@ const HEADROOM_PINNED_WHEEL_URL: &str = "https://files.pythonhosted.org/packages
 const HEADROOM_PINNED_SHA256: &str =
     "00b54b70533c841f4702fffaf215eff84bafed7612c07a56d675ef8a1ffab543";
 const HEADROOM_SMOKE_TEST_TIMEOUT: Duration = Duration::from_secs(15);
+/// Upper bound on the one-time `learn --verbosity` baseline seed run before
+/// proxy start. Typical runs are a few seconds (a ~100MB transcript project
+/// seeds in ~3s); the cap only trips on pathological corpora, after which the
+/// proxy starts anyway and seeding retries next launch.
+const HEADROOM_BASELINE_SEED_TIMEOUT: Duration = Duration::from_secs(30);
 /// Index of pre-built wheels for sdist-only PyPI packages (e.g. hnswlib).
 /// GitHub's expanded_assets endpoint serves HTML anchors pip can consume via --find-links.
 const VENDOR_WHEELS_INDEX_URL: &str =
@@ -504,18 +509,32 @@ impl ToolManager {
     /// proper cross-project aggregate belongs upstream; tracked separately.)
     ///
     /// Best-effort and idempotent: skips when a baseline is already present.
-    /// Meant to run on a background thread — the transcript scan can take
-    /// several seconds. The learned verbosity level it also writes is
-    /// intentionally ignored: the spawn pins `HEADROOM_VERBOSITY_LEVEL=2`, which
-    /// is the manual-override tier.
+    ///
+    /// MUST run *before* the proxy starts. The proxy's `SavingsRecorder` loads
+    /// the baseline once at boot and, on its periodic flush, writes its
+    /// in-memory ledger back to disk — so a baseline written after the proxy is
+    /// running is both invisible (never reloaded) and eventually clobbered by an
+    /// empty-baseline flush. Seeding first means the recorder boots with the
+    /// real baseline and the number shows without an app relaunch. Synchronous
+    /// but bounded by `HEADROOM_BASELINE_SEED_TIMEOUT`; callers already run it on
+    /// a background thread, so the one-time ~3s scan never blocks the UI.
+    ///
+    /// The learned verbosity level it also writes is intentionally ignored: the
+    /// proxy spawn pins `HEADROOM_VERBOSITY_LEVEL=2`, the manual-override tier.
     pub fn seed_verbosity_baseline_if_needed(&self) {
         if verbosity_baseline_present() {
+            log::debug!("verbosity baseline seeding skipped: baseline already present");
             return;
         }
         let entrypoint = self.headroom_entrypoint();
         if !entrypoint.exists() {
+            log::debug!(
+                "verbosity baseline seeding skipped: entrypoint not yet installed at {}",
+                entrypoint.display()
+            );
             return;
         }
+        log::info!("seeding output-shaper verbosity baseline (no baseline present yet)");
         let Some(project_cwd) = busiest_claude_project_cwd() else {
             log::info!("verbosity baseline seeding skipped: no Claude transcripts found");
             return;
@@ -527,23 +546,17 @@ impl ToolManager {
             "--project",
             project_cwd.as_str(),
         ];
-        match build_command(&entrypoint, &args, &self.runtime.root_dir)
-            .stdin(Stdio::null())
-            .output()
-        {
-            Ok(out) if out.status.success() => {
-                log::info!("seeded output-shaper verbosity baseline from {project_cwd}");
-            }
-            Ok(out) => {
-                log::info!(
-                    "verbosity baseline seeding exited {}: {}",
-                    out.status,
-                    String::from_utf8_lossy(&out.stderr).trim()
-                );
-            }
-            Err(err) => {
-                log::info!("verbosity baseline seeding failed to spawn: {err:#}");
-            }
+        // Bounded so a pathological transcript corpus can never hang launch:
+        // typical runs are a few seconds; the cap only trips on outliers, after
+        // which we proceed and retry next launch.
+        match run_command_with_timeout(
+            &entrypoint,
+            &args,
+            &self.runtime.root_dir,
+            HEADROOM_BASELINE_SEED_TIMEOUT,
+        ) {
+            Ok(()) => log::info!("seeded output-shaper verbosity baseline from {project_cwd}"),
+            Err(err) => log::info!("verbosity baseline seeding failed: {err:#}"),
         }
     }
 

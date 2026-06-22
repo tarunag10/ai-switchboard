@@ -715,6 +715,16 @@ impl AppState {
             log::info!("headroom MCP configuration failed: {err:#}");
         }
 
+        // Seed the output-shaper savings baseline BEFORE starting the proxy.
+        // This is the launch path for already-installed users (start_bootstrap
+        // only runs the first-install wizard), so without it the seeding never
+        // runs after an app update. It must precede proxy start: the recorder
+        // loads the baseline once at boot and clobbers a later-written one on
+        // flush, so seeding first is what lets the number appear without an app
+        // relaunch. Idempotent and bounded; we are already on a background
+        // thread, so the one-time scan does not block the UI.
+        self.tool_manager.seed_verbosity_baseline_if_needed();
+
         match self.ensure_headroom_running() {
             Ok(()) => {
                 crate::port_conflict::note_proxy_started(app);
