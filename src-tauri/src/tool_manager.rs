@@ -489,15 +489,25 @@ impl ToolManager {
     /// Seed the output-shaper savings baseline by mining the user's Claude Code
     /// transcripts once. The proxy's `/stats` `output_shaping` estimate stays
     /// `available: false` until this baseline exists, so without it the
-    /// dashboard would never show an output-reduction number. `--verbosity
-    /// --apply --all` is heuristic-only (no `--llm-judge`), so it needs no API
-    /// key or network — it reads `~/.claude/projects/*/*.jsonl` and writes the
+    /// dashboard would never show an output-reduction number. Heuristic-only
+    /// (no `--llm-judge`), so it needs no API key or network, and writes the
     /// baseline into `~/.headroom/output_savings.json` (the same `workspace_dir`
-    /// the proxy's recorder reads). Best-effort and idempotent: it skips when a
-    /// baseline is already present. Meant to run on a background thread — the
-    /// transcript scan can take several seconds. The learned verbosity level it
-    /// also writes is intentionally ignored: the spawn pins
-    /// `HEADROOM_VERBOSITY_LEVEL=2`, which is the manual-override tier.
+    /// the proxy's recorder reads).
+    ///
+    /// Targets a single transcript-rich project rather than `--all`: upstream's
+    /// `_run_verbosity` writes the ledger *inside* its per-project loop
+    /// (last-project-wins), so `--apply --all` overwrites the baseline with
+    /// whatever project sorts last — often a near-empty one. We instead pick the
+    /// project with the most transcript bytes and pass its real path via
+    /// `--project`. Baseline strata (model / turn kind / size / tools) are
+    /// project-independent, so one busy project yields a usable baseline. (A
+    /// proper cross-project aggregate belongs upstream; tracked separately.)
+    ///
+    /// Best-effort and idempotent: skips when a baseline is already present.
+    /// Meant to run on a background thread — the transcript scan can take
+    /// several seconds. The learned verbosity level it also writes is
+    /// intentionally ignored: the spawn pins `HEADROOM_VERBOSITY_LEVEL=2`, which
+    /// is the manual-override tier.
     pub fn seed_verbosity_baseline_if_needed(&self) {
         if verbosity_baseline_present() {
             return;
@@ -506,13 +516,23 @@ impl ToolManager {
         if !entrypoint.exists() {
             return;
         }
-        let args = ["learn", "--verbosity", "--apply", "--all"];
+        let Some(project_cwd) = busiest_claude_project_cwd() else {
+            log::info!("verbosity baseline seeding skipped: no Claude transcripts found");
+            return;
+        };
+        let args = [
+            "learn",
+            "--verbosity",
+            "--apply",
+            "--project",
+            project_cwd.as_str(),
+        ];
         match build_command(&entrypoint, &args, &self.runtime.root_dir)
             .stdin(Stdio::null())
             .output()
         {
             Ok(out) if out.status.success() => {
-                log::info!("seeded output-shaper verbosity baseline");
+                log::info!("seeded output-shaper verbosity baseline from {project_cwd}");
             }
             Ok(out) => {
                 log::info!(
@@ -4407,8 +4427,11 @@ fn output_savings_ledger_path() -> Option<PathBuf> {
 }
 
 /// True once the verbosity baseline has been seeded (non-empty sample count).
-/// `learn --verbosity` writes `baseline.total_samples`; the proxy reports the
-/// savings estimate as unavailable until it is > 0.
+/// The persisted baseline does not carry a `total_samples` field — that is a
+/// computed property of the in-memory model. On disk the total observation
+/// count lives in `baseline.glob.n` (the global accumulator), so that is what
+/// we gate on. The proxy reports the savings estimate as unavailable until a
+/// baseline with observations exists.
 fn verbosity_baseline_present() -> bool {
     let Some(path) = output_savings_ledger_path() else {
         return false;
@@ -4420,10 +4443,70 @@ fn verbosity_baseline_present() -> bool {
         .ok()
         .and_then(|json| {
             json.get("baseline")
-                .and_then(|b| b.get("total_samples"))
+                .and_then(|b| b.get("glob"))
+                .and_then(|g| g.get("n"))
                 .and_then(|n| n.as_u64())
         })
         .is_some_and(|n| n > 0)
+}
+
+/// Real project root (the transcript `cwd`) of the Claude Code project with the
+/// most transcript bytes under `~/.claude/projects`. Reading `cwd` from a
+/// transcript avoids lossily decoding the mangled `~/.claude/projects` dir name
+/// — it is exactly the path headroom's plugin resolves to, so `--project <cwd>`
+/// matches. Returns `None` when no non-empty transcript exists.
+fn busiest_claude_project_cwd() -> Option<String> {
+    let home = std::env::var_os("HOME")?;
+    let projects_dir = PathBuf::from(home).join(".claude").join("projects");
+
+    let mut best: Option<(u64, PathBuf)> = None;
+    for entry in std::fs::read_dir(&projects_dir).ok()?.flatten() {
+        let dir = entry.path();
+        if !dir.is_dir() {
+            continue;
+        }
+        let mut bytes = 0u64;
+        if let Ok(files) = std::fs::read_dir(&dir) {
+            for f in files.flatten() {
+                let p = f.path();
+                if p.extension().and_then(|e| e.to_str()) == Some("jsonl") {
+                    if let Ok(meta) = f.metadata() {
+                        bytes += meta.len();
+                    }
+                }
+            }
+        }
+        if bytes > 0 && best.as_ref().is_none_or(|(b, _)| bytes > *b) {
+            best = Some((bytes, dir));
+        }
+    }
+
+    project_cwd_from_transcript_dir(&best?.1)
+}
+
+/// Pull the `cwd` field from the first transcript line that has one. Reads at
+/// most a few lines so a multi-hundred-MB transcript dir stays cheap.
+fn project_cwd_from_transcript_dir(dir: &Path) -> Option<String> {
+    use std::io::{BufRead, BufReader};
+    for f in std::fs::read_dir(dir).ok()?.flatten() {
+        let p = f.path();
+        if p.extension().and_then(|e| e.to_str()) != Some("jsonl") {
+            continue;
+        }
+        let Ok(file) = std::fs::File::open(&p) else {
+            continue;
+        };
+        for line in BufReader::new(file).lines().take(50).map_while(Result::ok) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
+                if let Some(cwd) = v.get("cwd").and_then(|c| c.as_str()) {
+                    if !cwd.is_empty() {
+                        return Some(cwd.to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 fn build_command(binary: &Path, args: &[&str], cwd: &Path) -> Command {
