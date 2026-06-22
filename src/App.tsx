@@ -382,30 +382,71 @@ function delay(ms: number) {
 type SavingsChartView = "month" | "day";
 type SavingsChartMode = "usd" | "tokens";
 
-// Output-token reduction from the proxy's output shaper. This is a single
-// aggregate estimate with a confidence band, not a time series, so it renders
-// as a labelled summary line above the savings chart rather than a chart line.
-// Always shows the method ("estimated"/"measured") and CI so the counterfactual
-// nature is explicit. Caller only renders this when `reduction` is present
-// (the backend returns null until a verbosity baseline is seeded).
-function OutputReductionStat({ reduction }: { reduction: OutputReduction }) {
+// Output-token reduction from the proxy's output shaper, shown as a compact
+// chip in the History header (no extra vertical space). The chip carries just
+// the headline percent; clicking it opens a popover with the method
+// ("estimated"/"measured"), confidence band, request count, and a note that
+// output savings are counterfactual. Caller renders this only when `reduction`
+// is present (the backend returns null until a verbosity baseline is seeded).
+function OutputReductionChip({ reduction }: { reduction: OutputReduction }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   const isMeasured = reduction.method === "measured";
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: Event) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: Event) => {
+      if ((e as KeyboardEvent).key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   return (
-    <div className="output-reduction" title={
-      isMeasured
-        ? "Output tokens the model didn't emit because the shaper steered verbosity / routed effort down. Measured via an A/B holdout, with a 95% confidence band."
-        : "Output tokens the model didn't emit because the shaper steered verbosity / routed effort down. Output savings are counterfactual, so this is an estimate vs a learned baseline, shown with a 95% confidence band."
-    }>
-      <div className="output-reduction__head">
-        <span className="output-reduction__label">Output reduction</span>
-        <span className="output-reduction__badge">{isMeasured ? "measured" : "estimated"}</span>
-      </div>
-      <div className="output-reduction__value">{percent1(reduction.reductionPercent)}%</div>
-      <div className="output-reduction__meta">
-        95% CI {percent1(reduction.ciLowPercent)}–{percent1(reduction.ciHighPercent)}%
-        {" · "}
-        {compactNumber(reduction.requests)} requests
-      </div>
+    <div className="output-chip" ref={ref}>
+      <button
+        type="button"
+        className={`output-chip__button${open ? " is-open" : ""}`}
+        aria-expanded={open}
+        aria-label="Output token reduction details"
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="output-chip__dot" aria-hidden="true" />
+        Output −{percent1(reduction.reductionPercent)}%
+      </button>
+      {open ? (
+        <div className="output-chip__popover" role="dialog" aria-label="Output reduction details">
+          <div className="output-chip__pop-head">
+            <span className="output-chip__pop-title">Output token reduction</span>
+            <span className="output-chip__pop-badge">{isMeasured ? "measured" : "estimated"}</span>
+          </div>
+          <div className="output-chip__pop-value">{percent1(reduction.reductionPercent)}%</div>
+          <dl className="output-chip__pop-stats">
+            <div>
+              <dt>95% CI</dt>
+              <dd>
+                {percent1(reduction.ciLowPercent)}–{percent1(reduction.ciHighPercent)}%
+              </dd>
+            </div>
+            <div>
+              <dt>Requests</dt>
+              <dd>{compactNumber(reduction.requests)}</dd>
+            </div>
+          </dl>
+          <p className="output-chip__pop-note">
+            {isMeasured
+              ? "Output tokens the model didn't emit because the shaper steered verbosity / routed effort down — measured against an unshaped A/B holdout."
+              : "Output tokens the model didn't emit because the shaper steered verbosity / routed effort down. Output savings are counterfactual, so this is an estimate vs a learned baseline."}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -415,13 +456,15 @@ function DailySavingsChart({
   hourlyData,
   resetSignal,
   chartMode,
-  setChartMode
+  setChartMode,
+  outputReduction
 }: {
   data: DailySavingsPoint[];
   hourlyData: HourlySavingsPoint[];
   resetSignal: number;
   chartMode: SavingsChartMode;
   setChartMode: (mode: SavingsChartMode) => void;
+  outputReduction: OutputReduction | null;
 }) {
   const currentMonth = startOfMonth(new Date());
   const today = startOfDay(new Date());
@@ -465,6 +508,7 @@ function DailySavingsChart({
         <div className="savings-chart__panel-header">
           <div className="savings-chart__title-row">
             <strong>History</strong>
+            {outputReduction ? <OutputReductionChip reduction={outputReduction} /> : null}
             <div className="savings-chart__toggle" aria-label="Metric">
               <button
                 className={`savings-chart__toggle-button${chartMode === "usd" ? " is-active" : ""}`}
@@ -4395,10 +4439,6 @@ export default function App() {
               </article>
             </section>
 
-            {dashboard.outputReduction ? (
-              <OutputReductionStat reduction={dashboard.outputReduction} />
-            ) : null}
-
             {dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
               <DailySavingsChart
                 data={dashboard.dailySavings}
@@ -4406,6 +4446,7 @@ export default function App() {
                 resetSignal={chartResetSignal}
                 chartMode={chartMode}
                 setChartMode={setChartMode}
+                outputReduction={dashboard.outputReduction}
               />
             ) : (
               <div className="savings-chart__skeleton" role="status">
