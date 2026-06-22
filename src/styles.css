@@ -2242,22 +2242,31 @@ select {
   margin-top: 12px;
 }
 
-/* Output-shaper reduction: a secondary line inside the "Total input tokens
-   saved" card that opens a details popover on click. All colors come from
-   semantic tokens, so dark mode needs no separate override. */
+/* Row pairing the big "input tokens saved" value with the output-reduction
+   chip so the two numbers sit side by side. */
+.stat-value-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Output-shaper reduction: a compact pill next to the big token value that
+   opens a details popover on click. All colors come from semantic tokens, so
+   dark mode needs no separate override. */
 .output-chip {
   position: relative;
-  display: block;
-  margin-top: 6px;
+  display: inline-flex;
 }
 
 .output-chip__button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0;
-  border: none;
-  background: none;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
   color: var(--text-secondary);
   font-size: var(--text-xs);
   font-weight: 600;
@@ -2266,18 +2275,15 @@ select {
 
 .output-chip__button:hover,
 .output-chip__button.is-open {
+  border-color: var(--border-default);
   color: var(--text-primary);
 }
 
-.output-chip__tag {
-  font-size: var(--text-xxs);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: var(--chip-bg);
-  color: var(--chip-text);
+.output-chip__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
 }
 
 .output-chip__popover {

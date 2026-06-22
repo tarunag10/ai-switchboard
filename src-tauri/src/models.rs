@@ -762,6 +762,11 @@ impl CodexPlanTier {
 pub fn headroom_tier_for_codex_plan(plan: &CodexPlanTier) -> Option<HeadroomSubscriptionTier> {
     match plan {
         CodexPlanTier::Go | CodexPlanTier::Plus => Some(HeadroomSubscriptionTier::Pro),
+        // Codex Team/Business -> Max x5 is intentionally NOT parity with Claude
+        // Team (-> Max x20, see `pricing::detect_plan_tier_from_profile`). A
+        // ChatGPT Business seat grants a modest Codex allowance, while a Claude
+        // Team seat grants Claude usage at Max-tier limits. Different products,
+        // different recommendations. Do not "unify" them.
         CodexPlanTier::Team
         | CodexPlanTier::Business
         | CodexPlanTier::SelfServeBusinessUsageBased

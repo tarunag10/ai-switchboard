@@ -424,8 +424,8 @@ function OutputReductionChip({ reduction }: { reduction: OutputReduction }) {
         }}
         onKeyDown={(e) => e.stopPropagation()}
       >
+        <span className="output-chip__dot" aria-hidden="true" />
         Output −{percent1(reduction.reductionPercent)}%
-        <span className="output-chip__tag">{isMeasured ? "measured" : "estimated"}</span>
       </button>
       {open ? (
         <div
@@ -4441,12 +4441,14 @@ export default function App() {
                   <Cpu aria-hidden="true" className="stat-card__icon" size={15} weight="bold"/>
                   Total input tokens saved
                 </span>
-                <strong className="stat-value--blue">
-                  {compactNumber(dashboard.lifetimeEstimatedTokensSaved)}
-                </strong>
-                {dashboard.outputReduction ? (
-                  <OutputReductionChip reduction={dashboard.outputReduction} />
-                ) : null}
+                <div className="stat-value-row">
+                  <strong className="stat-value--blue">
+                    {compactNumber(dashboard.lifetimeEstimatedTokensSaved)}
+                  </strong>
+                  {dashboard.outputReduction ? (
+                    <OutputReductionChip reduction={dashboard.outputReduction} />
+                  ) : null}
+                </div>
               </article>
             </section>
 

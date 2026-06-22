@@ -1846,7 +1846,11 @@ fn detect_plan_tier_from_profile(profile: &ClaudeOauthProfile) -> (ClaudePlanTie
             );
         }
         // Anthropic's internal label for Team-plan rate limits. Show Max20x
-        // pricing rather than falling through to Pro.
+        // pricing rather than falling through to Pro. NOTE: this is
+        // intentionally NOT parity with Codex Team/Business (-> Max x5). A
+        // Claude Team seat grants Claude usage at Max-tier limits, whereas a
+        // Codex/ChatGPT Business seat grants a far smaller Codex allowance, so
+        // the right recommendation differs by product. Do not "unify" them.
         if normalized.contains("raven") {
             return (
                 ClaudePlanTier::Max20x,
