@@ -6369,8 +6369,8 @@ Some unrelated content.
         assert_eq!(first.bullets.len(), 2);
     }
 
-    #[test]
-    fn delete_applied_pattern_removes_one_bullet_and_keeps_section() {
+    #[tokio::test]
+    async fn delete_applied_pattern_removes_one_bullet_and_keeps_section() {
         let tmp = tempfile::tempdir().expect("tempdir");
         write_claude_md_with_headroom_block(tmp.path());
 
@@ -6380,6 +6380,7 @@ Some unrelated content.
             "First Section".into(),
             "First bullet.".into(),
         )
+        .await
         .expect("delete bullet");
 
         let result = read_applied_patterns_for_project(tmp.path().to_str().unwrap());
@@ -6395,8 +6396,8 @@ Some unrelated content.
         );
     }
 
-    #[test]
-    fn delete_applied_pattern_drops_last_section_and_keeps_block_parseable() {
+    #[tokio::test]
+    async fn delete_applied_pattern_drops_last_section_and_keeps_block_parseable() {
         // Regression: deleting the last bullet in the last section used to
         // truncate the block's trailing end marker, leaving the file
         // unparseable. After the fix, the block must still be reparseable
@@ -6410,6 +6411,7 @@ Some unrelated content.
             "Second Section".into(),
             "Third bullet.".into(),
         )
+        .await
         .expect("delete bullet");
 
         let result = read_applied_patterns_for_project(tmp.path().to_str().unwrap());
@@ -6438,8 +6440,8 @@ Some unrelated content.
         );
     }
 
-    #[test]
-    fn delete_applied_pattern_rejects_unknown_file_kind() {
+    #[tokio::test]
+    async fn delete_applied_pattern_rejects_unknown_file_kind() {
         let tmp = tempfile::tempdir().expect("tempdir");
         write_claude_md_with_headroom_block(tmp.path());
 
@@ -6449,6 +6451,7 @@ Some unrelated content.
             "First Section".into(),
             "First bullet.".into(),
         )
+        .await
         .expect_err("unknown file_kind rejected");
         assert!(
             err.contains("Unknown file_kind"),
