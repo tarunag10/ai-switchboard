@@ -294,6 +294,47 @@ export function formatRequestMessages(messages: TransformationRequestMessage[]):
     .join("\n\n");
 }
 
+export type DiffLine = { type: "same" | "add" | "del"; text: string };
+
+// LCS line diff. ponytail: O(n*m) table — capped at MAX_DIFF_LINES per side so a
+// giant tool-result dump can't allocate a huge matrix; over the cap we fall back
+// to the side-by-side dumps. Upgrade to Myers/chunked diff if the cap bites.
+const MAX_DIFF_LINES = 600;
+
+export function diffLines(a: string, b: string): DiffLine[] | null {
+  const oldL = a.split("\n");
+  const newL = b.split("\n");
+  const n = oldL.length;
+  const m = newL.length;
+  if (n > MAX_DIFF_LINES || m > MAX_DIFF_LINES) return null;
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      dp[i][j] =
+        oldL[i] === newL[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+    }
+  }
+  const out: DiffLine[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < n && j < m) {
+    if (oldL[i] === newL[j]) {
+      out.push({ type: "same", text: oldL[i] });
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      out.push({ type: "del", text: oldL[i] });
+      i++;
+    } else {
+      out.push({ type: "add", text: newL[j] });
+      j++;
+    }
+  }
+  while (i < n) out.push({ type: "del", text: oldL[i++] });
+  while (j < m) out.push({ type: "add", text: newL[j++] });
+  return out;
+}
+
 function TransformationRow({ event }: { event: TransformationFeedEvent }) {
   const saved = event.tokensSaved ?? 0;
   const pct = event.savingsPercent ?? 0;
@@ -362,35 +403,55 @@ function TransformationRow({ event }: { event: TransformationFeedEvent }) {
         </>
       ) : null}
       {hasRequestMessages && hasCompressedMessages ? (
-        // New proxy shape: both sides present. Render the pre/post pair with
-        // token counts so the N → M savings on the headline become legible
-        // in terms of the actual message content below.
-        <>
-          <dt>
-            Request (original
-            {event.inputTokensOriginal != null
-              ? `, ${event.inputTokensOriginal.toLocaleString()} tokens`
-              : ""}
-            )
-          </dt>
-          <dd>
-            <pre className="activity-feed__message-dump">
-              {formatRequestMessages(event.requestMessages!)}
-            </pre>
-          </dd>
-          <dt>
-            Request (compressed
-            {event.inputTokensOptimized != null
-              ? `, ${event.inputTokensOptimized.toLocaleString()} tokens`
-              : ""}
-            )
-          </dt>
-          <dd>
-            <pre className="activity-feed__message-dump">
-              {formatRequestMessages(event.compressedMessages!)}
-            </pre>
-          </dd>
-        </>
+        // New proxy shape: both sides present. Render a unified line diff so
+        // pruned content (red) and inserted truncation markers (green) pop —
+        // the two near-identical dumps were hard to tell apart at a glance.
+        (() => {
+          const original = formatRequestMessages(event.requestMessages!);
+          const compressed = formatRequestMessages(event.compressedMessages!);
+          const diff = diffLines(original, compressed);
+          const label = (
+            <dt>
+              Compression diff
+              {event.inputTokensOriginal != null && event.inputTokensOptimized != null
+                ? ` (${event.inputTokensOriginal.toLocaleString()} → ${event.inputTokensOptimized.toLocaleString()} tokens)`
+                : ""}
+            </dt>
+          );
+          if (!diff) {
+            // Too large to diff — fall back to side-by-side dumps.
+            return (
+              <>
+                <dt>Request (original)</dt>
+                <dd>
+                  <pre className="activity-feed__message-dump">{original}</pre>
+                </dd>
+                <dt>Request (compressed)</dt>
+                <dd>
+                  <pre className="activity-feed__message-dump">{compressed}</pre>
+                </dd>
+              </>
+            );
+          }
+          return (
+            <>
+              {label}
+              <dd>
+                <pre className="activity-feed__message-dump activity-feed__diff">
+                  {diff.map((line, idx) => (
+                    <div
+                      key={idx}
+                      className={`activity-feed__diff-line activity-feed__diff-line--${line.type}`}
+                    >
+                      {line.type === "del" ? "- " : line.type === "add" ? "+ " : "  "}
+                      {line.text}
+                    </div>
+                  ))}
+                </pre>
+              </dd>
+            </>
+          );
+        })()
       ) : hasRequestMessages ? (
         // Legacy proxy shape: only `requestMessages` exists. Its content may
         // actually be the post-compression list (field was inconsistent

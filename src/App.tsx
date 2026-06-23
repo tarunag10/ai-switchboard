@@ -2135,7 +2135,7 @@ export default function App() {
   );
   const learnBlurb =
     claudeLearnEnabled && codexLearnEnabled
-      ? "Headroom learns from your Claude Code and Codex sessions. When an agent repeats a mistake, Headroom updates that agent's memory — CLAUDE.md / MEMORY.md for Claude Code, AGENTS.md / instructions.md for Codex — so it doesn't happen again."
+      ? "Headroom learns from your Claude Code and Codex sessions. When an agent repeats a mistake, Headroom updates that agent's memory so it doesn't happen again."
       : codexLearnEnabled
         ? "Headroom learns from your Codex sessions. When Codex repeats a mistake, Headroom updates your ~/.codex/AGENTS.md and instructions.md so it doesn't happen again."
         : "Headroom helps Claude Code learn from experience. When Claude makes mistakes, Headroom automatically updates the project's MEMORY.md so they don't happen again. You can also ask Headroom to scan past sessions & add token-saving learnings to CLAUDE.md.";
@@ -5868,8 +5868,9 @@ export default function App() {
                   </div>
                 </div>
                 <p>
-                  Reverses every change Headroom made: removes the managed Python runtime, the Claude Code
-                  hook, and restores <code>~/.claude/settings.json</code> changes. Headroom will quit when done.
+                  Reverses every change Headroom made: removes the managed Python runtime and the shell
+                  hooks, and restores <code>~/.claude/settings.json</code> and{" "}
+                  <code>~/.codex/config.toml</code> changes. Headroom will quit when done.
                 </p>
                 <button
                   className="secondary-button secondary-button--small"

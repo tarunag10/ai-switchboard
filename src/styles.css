@@ -5148,6 +5148,26 @@ html.window-hiding {
   overflow-wrap: anywhere;
 }
 
+.activity-feed__diff {
+  padding: 6px 0;
+}
+
+.activity-feed__diff-line {
+  padding: 0 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.activity-feed__diff-line--del {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+.activity-feed__diff-line--add {
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+}
+
 .activity-feed__detail-list {
   list-style: none;
   margin: 0;

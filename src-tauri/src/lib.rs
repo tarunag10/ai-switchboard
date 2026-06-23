@@ -1922,7 +1922,7 @@ fn debug_force_proxy_bypass(state: State<'_, AppState>, on: bool) -> Result<bool
 }
 
 #[tauri::command]
-fn get_headroom_logs(
+async fn get_headroom_logs(
     state: State<'_, AppState>,
     max_lines: Option<usize>,
 ) -> Result<Vec<String>, String> {
@@ -1946,7 +1946,7 @@ fn get_headroom_logs(
 /// a transient unreachable → reachable transition would look like a counter
 /// jump from 0 → N and falsely flip the badge to healthy.
 #[tauri::command]
-fn get_headroom_request_count() -> Option<u64> {
+async fn get_headroom_request_count() -> Option<u64> {
     fetch_proxy_request_count_stats()
 }
 
@@ -1978,7 +1978,7 @@ fn fetch_proxy_stats_body() -> Option<String> {
 /// proxy's agent id (`claude-code`, `codex`, ...). Used by setup verification
 /// so a prompt sent to one client only flips that client's row, not all rows.
 #[tauri::command]
-fn get_headroom_request_counts_by_agent() -> Option<std::collections::HashMap<String, u64>> {
+async fn get_headroom_request_counts_by_agent() -> Option<std::collections::HashMap<String, u64>> {
     parse_request_counts_by_agent(&fetch_proxy_stats_body()?)
 }
 
@@ -2050,7 +2050,7 @@ fn find_u64_key_recursive_local(value: &serde_json::Value, key: &str) -> Option<
 }
 
 #[tauri::command]
-fn get_rtk_activity(
+async fn get_rtk_activity(
     state: State<'_, AppState>,
     max_lines: Option<usize>,
 ) -> Result<Vec<String>, String> {
@@ -2062,7 +2062,7 @@ fn get_rtk_activity(
 }
 
 #[tauri::command]
-fn get_tool_logs(
+async fn get_tool_logs(
     state: State<'_, AppState>,
     tool_id: String,
     max_lines: Option<usize>,
@@ -2075,14 +2075,14 @@ fn get_tool_logs(
 }
 
 #[tauri::command]
-fn get_claude_code_projects(state: State<'_, AppState>) -> Result<Vec<ClaudeCodeProject>, String> {
+async fn get_claude_code_projects(state: State<'_, AppState>) -> Result<Vec<ClaudeCodeProject>, String> {
     state
         .list_claude_code_projects()
         .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
-fn get_claude_usage(state: State<'_, AppState>) -> Result<ClaudeUsage, String> {
+async fn get_claude_usage(state: State<'_, AppState>) -> Result<ClaudeUsage, String> {
     pricing::fetch_claude_usage(&state)
 }
 
@@ -2092,7 +2092,7 @@ fn get_claude_profile(state: State<'_, AppState>) -> ClaudeAccountProfile {
 }
 
 #[tauri::command]
-fn get_headroom_pricing_status(
+async fn get_headroom_pricing_status(
     state: State<'_, AppState>,
 ) -> Result<HeadroomPricingStatus, String> {
     let status = pricing::get_pricing_status(&state)?;
@@ -2107,7 +2107,7 @@ fn get_headroom_pricing_status(
 }
 
 #[tauri::command]
-fn request_headroom_auth_code(
+async fn request_headroom_auth_code(
     app: AppHandle,
     state: State<'_, AppState>,
     email: String,
@@ -2118,7 +2118,7 @@ fn request_headroom_auth_code(
 }
 
 #[tauri::command]
-fn verify_headroom_auth_code(
+async fn verify_headroom_auth_code(
     app: AppHandle,
     state: State<'_, AppState>,
     email: String,
@@ -2144,12 +2144,12 @@ fn verify_headroom_auth_code(
 }
 
 #[tauri::command]
-fn sign_out_headroom_account() -> Result<(), String> {
+async fn sign_out_headroom_account() -> Result<(), String> {
     pricing::sign_out()
 }
 
 #[tauri::command]
-fn activate_headroom_account(
+async fn activate_headroom_account(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<HeadroomPricingStatus, String> {
@@ -2160,7 +2160,7 @@ fn activate_headroom_account(
 }
 
 #[tauri::command]
-fn create_headroom_checkout_session(
+async fn create_headroom_checkout_session(
     app: AppHandle,
     subscription_tier: HeadroomSubscriptionTier,
     billing_period: BillingPeriod,
@@ -2177,7 +2177,7 @@ fn create_headroom_checkout_session(
 }
 
 #[tauri::command]
-fn change_headroom_subscription_plan(
+async fn change_headroom_subscription_plan(
     app: AppHandle,
     subscription_tier: HeadroomSubscriptionTier,
     billing_period: BillingPeriod,
@@ -2194,14 +2194,14 @@ fn change_headroom_subscription_plan(
 }
 
 #[tauri::command]
-fn reactivate_headroom_subscription(app: AppHandle) -> Result<(), String> {
+async fn reactivate_headroom_subscription(app: AppHandle) -> Result<(), String> {
     pricing::reactivate_subscription()?;
     analytics::track_event(&app, "subscription_reactivated", None);
     Ok(())
 }
 
 #[tauri::command]
-fn get_headroom_billing_portal_url(target: Option<String>) -> Result<String, String> {
+async fn get_headroom_billing_portal_url(target: Option<String>) -> Result<String, String> {
     pricing::get_billing_portal_url(target)
 }
 
@@ -2225,7 +2225,7 @@ fn get_headroom_learn_prereq_status(
 }
 
 #[tauri::command]
-fn get_transformations_feed(limit: Option<u32>) -> TransformationFeedResponse {
+async fn get_transformations_feed(limit: Option<u32>) -> TransformationFeedResponse {
     let limit = limit.unwrap_or(50).min(100);
     fetch_transformations_feed(limit).unwrap_or_else(|_| TransformationFeedResponse {
         log_full_messages: false,
@@ -2363,7 +2363,7 @@ fn flatten_applied_bullets(sections: &[crate::models::AppliedSection]) -> Vec<St
 }
 
 #[tauri::command]
-fn list_live_learnings(
+async fn list_live_learnings(
     state: State<'_, AppState>,
     project_path: String,
 ) -> Result<Vec<crate::models::LiveLearning>, String> {
@@ -2376,7 +2376,7 @@ fn list_live_learnings(
 }
 
 #[tauri::command]
-fn list_live_learnings_for_projects(
+async fn list_live_learnings_for_projects(
     state: State<'_, AppState>,
     project_paths: Vec<String>,
 ) -> Result<std::collections::HashMap<String, Vec<crate::models::LiveLearning>>, String> {
@@ -2421,7 +2421,7 @@ fn memory_export_cached(state: &State<'_, AppState>, memory_path: &Path) -> Resu
 }
 
 #[tauri::command]
-fn delete_live_learning(state: State<'_, AppState>, memory_id: String) -> Result<(), String> {
+async fn delete_live_learning(state: State<'_, AppState>, memory_id: String) -> Result<(), String> {
     let memory_path = headroom_memory_db_path();
     if !memory_path.exists() {
         return Err("Memory database does not exist.".into());
@@ -2450,12 +2450,12 @@ fn delete_live_learning(state: State<'_, AppState>, memory_id: String) -> Result
 }
 
 #[tauri::command]
-fn list_applied_patterns(project_path: String) -> Result<crate::models::AppliedPatterns, String> {
+async fn list_applied_patterns(project_path: String) -> Result<crate::models::AppliedPatterns, String> {
     Ok(read_applied_patterns_for_project(&project_path))
 }
 
 #[tauri::command]
-fn list_applied_patterns_for_projects(
+async fn list_applied_patterns_for_projects(
     project_paths: Vec<String>,
 ) -> Result<std::collections::HashMap<String, crate::models::AppliedPatterns>, String> {
     let mut out = std::collections::HashMap::with_capacity(project_paths.len());
@@ -2477,7 +2477,7 @@ fn read_applied_patterns_for_project(project_path: &str) -> crate::models::Appli
 }
 
 #[tauri::command]
-fn delete_applied_pattern(
+async fn delete_applied_pattern(
     project_path: String,
     file_kind: String,
     section_title: String,
@@ -2607,7 +2607,7 @@ fn pattern_matches_project(content: &str, entity_refs: &[String], project_path: 
 }
 
 #[tauri::command]
-fn start_headroom_learn(
+async fn start_headroom_learn(
     app: AppHandle,
     agent: String,
     project_path: Option<String>,
@@ -2655,7 +2655,7 @@ fn show_dashboard_window(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn open_headroom_dashboard() -> Result<(), String> {
+async fn open_headroom_dashboard() -> Result<(), String> {
     open_external_link_impl(HEADROOM_DASHBOARD_URL)
         .map_err(|err| format!("Failed to open Headroom dashboard: {err}"))
 }
@@ -2723,7 +2723,7 @@ fn open_external_link_impl(url: &str) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn open_external_link(url: String) -> Result<(), String> {
+async fn open_external_link(url: String) -> Result<(), String> {
     open_external_link_impl(&url)
 }
 
@@ -2792,7 +2792,7 @@ fn validate_contact_request_url(raw: &str) -> Option<reqwest::Url> {
 }
 
 #[tauri::command]
-fn apply_client_setup(app: AppHandle, client_id: String) -> Result<ClientSetupResult, String> {
+async fn apply_client_setup(app: AppHandle, client_id: String) -> Result<ClientSetupResult, String> {
     // Two recovery paths land on the tray-banner "Re-enable" button:
     //   1. Watchdog give-up — pauses the runtime and clears client setups.
     //   2. Pricing gate (grace expiry, weekly cap) — sets `proxy_bypass` and
@@ -2864,17 +2864,17 @@ fn apply_client_setup(app: AppHandle, client_id: String) -> Result<ClientSetupRe
 }
 
 #[tauri::command]
-fn verify_client_setup(client_id: String) -> Result<ClientSetupVerification, String> {
+async fn verify_client_setup(client_id: String) -> Result<ClientSetupVerification, String> {
     client_adapters::verify_client_setup(&client_id).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
-fn get_client_connectors(state: State<'_, AppState>) -> Result<Vec<ClientConnectorStatus>, String> {
+async fn get_client_connectors(state: State<'_, AppState>) -> Result<Vec<ClientConnectorStatus>, String> {
     client_adapters::list_client_connectors(&state.cached_clients()).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
-fn disable_client_setup(app: AppHandle, client_id: String) -> Result<(), String> {
+async fn disable_client_setup(app: AppHandle, client_id: String) -> Result<(), String> {
     client_adapters::disable_client_setup(&client_id).map_err(|err| err.to_string())?;
     analytics::track_event(
         &app,
@@ -2885,12 +2885,12 @@ fn disable_client_setup(app: AppHandle, client_id: String) -> Result<(), String>
 }
 
 #[tauri::command]
-fn clear_client_setups() -> Result<(), String> {
+async fn clear_client_setups() -> Result<(), String> {
     client_adapters::clear_client_setups().map_err(|err| err.to_string())
 }
 
 #[tauri::command]
-fn pause_headroom(app: AppHandle) -> Result<(), String> {
+async fn pause_headroom(app: AppHandle) -> Result<(), String> {
     let state: tauri::State<'_, AppState> = app.state();
     state.set_runtime_paused(true);
     // A deliberate user pause is not an auto-pause; clear the flag so the
@@ -2903,7 +2903,7 @@ fn pause_headroom(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn start_headroom(app: AppHandle) -> Result<(), String> {
+async fn start_headroom(app: AppHandle) -> Result<(), String> {
     let state: tauri::State<'_, AppState> = app.state();
     state.resume_runtime().map_err(|err| err.to_string())?;
     std::thread::spawn(|| {
@@ -2920,7 +2920,7 @@ fn start_headroom(app: AppHandle) -> Result<(), String> {
 /// wedged process is actually replaced by a fresh one. This is the one-click
 /// equivalent of the manual quit-and-relaunch users do today.
 #[tauri::command]
-fn force_restart_headroom(app: AppHandle) -> Result<(), String> {
+async fn force_restart_headroom(app: AppHandle) -> Result<(), String> {
     let state: tauri::State<'_, AppState> = app.state();
     state.stop_headroom();
     state.set_runtime_auto_paused(false);
@@ -2941,12 +2941,12 @@ fn hide_launcher_animated(app: AppHandle) {
 }
 
 #[tauri::command]
-fn get_autostart_enabled(app: AppHandle) -> Result<bool, String> {
+async fn get_autostart_enabled(app: AppHandle) -> Result<bool, String> {
     app.autolaunch().is_enabled().map_err(|err| err.to_string())
 }
 
 #[tauri::command]
-fn set_autostart_enabled(app: AppHandle, enabled: bool) -> Result<bool, String> {
+async fn set_autostart_enabled(app: AppHandle, enabled: bool) -> Result<bool, String> {
     let manager = app.autolaunch();
     if enabled {
         manager.enable().map_err(|err| err.to_string())?;
@@ -2957,7 +2957,7 @@ fn set_autostart_enabled(app: AppHandle, enabled: bool) -> Result<bool, String> 
 }
 
 #[tauri::command]
-fn set_rtk_enabled(app: AppHandle, enabled: bool) -> Result<bool, String> {
+async fn set_rtk_enabled(app: AppHandle, enabled: bool) -> Result<bool, String> {
     let state: tauri::State<'_, AppState> = app.state();
     client_adapters::set_rtk_enabled(
         enabled,
@@ -5003,7 +5003,7 @@ fn complete_setup_wizard(state: tauri::State<'_, AppState>) {
 }
 
 #[tauri::command]
-fn accept_terms(app: AppHandle, version: u32) {
+async fn accept_terms(app: AppHandle, version: u32) {
     // Local acceptance is the authoritative gate (works offline / pre-signin).
     {
         let state: tauri::State<'_, AppState> = app.state();

@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { ActivityFeed, formatRequestMessages, groupTransforms } from "./ActivityFeed";
+import { ActivityFeed, diffLines, formatRequestMessages, groupTransforms } from "./ActivityFeed";
 import type {
   ActivityFeedResponse,
   ActivityFeedSnapshot,
@@ -824,5 +824,21 @@ describe("formatRequestMessages", () => {
     expect(formatRequestMessages([{ content: "orphan content" }])).toBe(
       "(unknown):\norphan content"
     );
+  });
+});
+
+describe("diffLines", () => {
+  it("marks removed, kept, and added lines", () => {
+    expect(diffLines("a\nb\nc", "a\nINSERTED\nc")).toEqual([
+      { type: "same", text: "a" },
+      { type: "del", text: "b" },
+      { type: "add", text: "INSERTED" },
+      { type: "same", text: "c" }
+    ]);
+  });
+
+  it("returns null when either side exceeds the line cap", () => {
+    const huge = Array.from({ length: 601 }, (_, i) => String(i)).join("\n");
+    expect(diffLines(huge, "x")).toBeNull();
   });
 });
