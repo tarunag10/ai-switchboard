@@ -197,6 +197,7 @@ fn receipt_requires_atomic_rebuild(previous_version: &str) -> bool {
     }
 }
 const RTK_VERSION: &str = "0.42.4";
+const MARKITDOWN_PINNED_VERSION: &str = "0.1.6";
 const RTK_SHA256_MACOS_AARCH64: &str =
     "f223ca074a0215af002679bc1d34ca92b93e25b3e8ae16aace6e84c06e586802";
 const RTK_SHA256_MACOS_X86_64: &str =
@@ -439,6 +440,18 @@ impl ToolManager {
                 checksum: rtk_checksum,
                 required: true,
             },
+            ManagedToolManifest {
+                id: "markitdown".into(),
+                name: "MarkItDown".into(),
+                description:
+                    "Converts PDF and Office documents to Markdown so they cost far fewer tokens when Claude reads them."
+                        .into(),
+                runtime: "python".into(),
+                source_url: "https://github.com/microsoft/markitdown".into(),
+                version: MARKITDOWN_PINNED_VERSION.into(),
+                checksum: None,
+                required: false,
+            },
         ];
 
         Self {
@@ -457,7 +470,7 @@ impl ToolManager {
                 description: manifest.description.clone(),
                 runtime: manifest.runtime.clone(),
                 required: manifest.required,
-                enabled: true,
+                enabled: self.tool_enabled(&manifest.id),
                 status: self.detect_status(&manifest.id),
                 source_url: manifest.source_url.clone(),
                 version: if manifest.id == "headroom" {
@@ -3311,6 +3324,83 @@ impl ToolManager {
         Ok(())
     }
 
+    fn read_tool_receipt(&self, tool_id: &str) -> Option<Value> {
+        let path = self.runtime.tools_dir.join(format!("{tool_id}.json"));
+        let bytes = std::fs::read(path).ok()?;
+        serde_json::from_slice(&bytes).ok()
+    }
+
+    /// Optional tools persist an `enabled` flag in their receipt. Required core
+    /// tools (headroom, rtk) are always enabled. Missing flag defaults to true.
+    fn tool_enabled(&self, tool_id: &str) -> bool {
+        self.read_tool_receipt(tool_id)
+            .and_then(|receipt| receipt.get("enabled").and_then(Value::as_bool))
+            .unwrap_or(true)
+    }
+
+    pub fn markitdown_entrypoint(&self) -> PathBuf {
+        self.runtime.venv_dir.join("bin").join("markitdown")
+    }
+
+    pub fn markitdown_installed(&self) -> bool {
+        self.runtime.tools_dir.join("markitdown.json").exists() && self.markitdown_entrypoint().exists()
+    }
+
+    pub fn install_markitdown(&self) -> Result<()> {
+        run_pip_install_with_retries_streaming(
+            &self.runtime.managed_python(),
+            &[
+                "-m",
+                "pip",
+                "install",
+                "--timeout",
+                "180",
+                "--retries",
+                "10",
+                &format!("markitdown[all]=={MARKITDOWN_PINNED_VERSION}"),
+            ],
+            &self.runtime.root_dir,
+            |line| log::info!("markitdown pip: {line}"),
+        )?;
+        if !self.markitdown_entrypoint().exists() {
+            bail!(
+                "markitdown install completed but {} was not found",
+                self.markitdown_entrypoint().display()
+            );
+        }
+        self.write_tool_receipt(
+            "markitdown",
+            json!({ "version": MARKITDOWN_PINNED_VERSION, "enabled": true }),
+        )?;
+        Ok(())
+    }
+
+    pub fn set_markitdown_enabled(&self, enabled: bool) -> Result<()> {
+        if !self.markitdown_installed() {
+            bail!("markitdown is not installed");
+        }
+        self.write_tool_receipt(
+            "markitdown",
+            json!({ "version": MARKITDOWN_PINNED_VERSION, "enabled": enabled }),
+        )?;
+        Ok(())
+    }
+
+    pub fn uninstall_markitdown(&self) -> Result<()> {
+        let _ = run_command_streaming(
+            &self.runtime.managed_python(),
+            &["-m", "pip", "uninstall", "-y", "markitdown"],
+            &self.runtime.root_dir,
+            &mut |line: &str| log::info!("markitdown pip uninstall: {line}"),
+        );
+        let receipt = self.runtime.tools_dir.join("markitdown.json");
+        if receipt.exists() {
+            std::fs::remove_file(&receipt)
+                .with_context(|| format!("removing {}", receipt.display()))?;
+        }
+        Ok(())
+    }
+
     fn detect_status(&self, tool_id: &str) -> ToolStatus {
         let installed_path = self.runtime.tools_dir.join(format!("{tool_id}.json"));
         if installed_path.exists() && self.python_runtime_installed() {
@@ -6131,6 +6221,27 @@ after
         .expect("receipt");
         let manager = ToolManager::new(runtime.clone());
         (root, runtime, manager)
+    }
+
+    #[test]
+    fn tool_enabled_reads_receipt_flag_and_defaults_true() {
+        let (_root, runtime, manager) = seed_test_runtime("tool-enabled");
+        // No receipt -> default enabled.
+        assert!(manager.tool_enabled("markitdown"));
+
+        fs::write(
+            runtime.tools_dir.join("markitdown.json"),
+            br#"{"version":"0.1.6","enabled":false}"#,
+        )
+        .expect("receipt");
+        assert!(!manager.tool_enabled("markitdown"));
+
+        fs::write(
+            runtime.tools_dir.join("markitdown.json"),
+            br#"{"version":"0.1.6","enabled":true}"#,
+        )
+        .expect("receipt");
+        assert!(manager.tool_enabled("markitdown"));
     }
 
     #[test]

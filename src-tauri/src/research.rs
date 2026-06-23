@@ -53,6 +53,18 @@ pub fn candidate_matrix() -> Vec<ResearchCandidate> {
                     .into(),
         },
         ResearchCandidate {
+            name: "MarkItDown".into(),
+            category: "Token optimization".into(),
+            repository: "https://github.com/microsoft/markitdown".into(),
+            runtime: "Python".into(),
+            license: "MIT".into(),
+            local_only_fit: "Strong fit: converts PDF/Office documents to Markdown before they enter context".into(),
+            install_method: "Pinned pip install inside Headroom-managed Python, surfaced via a Read PreToolUse hook".into(),
+            maintenance: "Low; pinned upstream release".into(),
+            decision: CandidateDecision::Include,
+            notes: "Optional addon. Document reads are redirected through markitdown so they cost fewer tokens.".into(),
+        },
+        ResearchCandidate {
             name: "claude-cognitive".into(),
             category: "Workflow enhancement".into(),
             repository: "https://github.com/GMaN1911/claude-cognitive".into(),

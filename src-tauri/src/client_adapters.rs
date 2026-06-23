@@ -651,6 +651,15 @@ fn claude_settings_candidates() -> Vec<PathBuf> {
 /// the `PreToolUse` array if it becomes empty, and the `hooks` object if it
 /// has no remaining event arrays. Returns true if the file was modified.
 fn strip_headroom_hook_from_settings(settings_path: &Path) -> Result<bool> {
+    remove_pre_tool_use_markers(
+        settings_path,
+        &["headroom-rtk-rewrite.sh", "headroom-markitdown-read.sh"],
+    )
+}
+
+/// Removes every PreToolUse hook entry whose command contains one of `markers`,
+/// pruning empty `PreToolUse`/`hooks` containers. Returns whether the file changed.
+fn remove_pre_tool_use_markers(settings_path: &Path, markers: &[&str]) -> Result<bool> {
     if !settings_path.exists() {
         return Ok(false);
     }
@@ -676,7 +685,8 @@ fn strip_headroom_hook_from_settings(settings_path: &Path) -> Result<bool> {
         .and_then(|value| value.as_array_mut())
     {
         let before = pre_tool_use.len();
-        pre_tool_use.retain(|entry| !entry_contains_hook(entry, "headroom-rtk-rewrite.sh"));
+        pre_tool_use
+            .retain(|entry| !markers.iter().any(|marker| entry_contains_hook(entry, marker)));
         if pre_tool_use.len() != before {
             changed = true;
         }
@@ -1070,11 +1080,52 @@ fn ensure_claude_code_rtk_hook(
         backup_files.push(path.display().to_string());
     }
 
-    let (settings_changed, settings_backups) = ensure_claude_settings_hook(&hook_path)?;
+    let (settings_changed, settings_backups) =
+        ensure_claude_settings_hook(&hook_path, "Bash", "headroom-rtk-rewrite.sh")?;
     changed_files.extend(settings_changed);
     backup_files.extend(settings_backups);
 
     Ok((changed_files, backup_files))
+}
+
+/// Installs the MarkItDown PreToolUse(Read) hook: writes the hook script and
+/// registers it in `~/.claude/settings.json`. Reuses the same marker-based
+/// settings writer as the RTK hook.
+pub fn enable_markitdown_read_hook(
+    markitdown_path: &Path,
+    python_path: &Path,
+) -> Result<(Vec<String>, Vec<String>)> {
+    let hook_path = headroom_markitdown_hook_path();
+    let hook_body = build_headroom_markitdown_hook(markitdown_path, python_path);
+    let (hook_changed, hook_backup) = write_file_if_changed(&hook_path, &hook_body, true)?;
+    let mut changed_files = Vec::new();
+    let mut backup_files = Vec::new();
+
+    if hook_changed {
+        changed_files.push(hook_path.display().to_string());
+    }
+    if let Some(path) = hook_backup {
+        backup_files.push(path.display().to_string());
+    }
+
+    let (settings_changed, settings_backups) =
+        ensure_claude_settings_hook(&hook_path, "Read", "headroom-markitdown-read.sh")?;
+    changed_files.extend(settings_changed);
+    backup_files.extend(settings_backups);
+
+    Ok((changed_files, backup_files))
+}
+
+/// Removes the MarkItDown Read hook from settings and deletes the hook script,
+/// leaving any RTK hook untouched.
+pub fn disable_markitdown_read_hook() -> Result<bool> {
+    let changed =
+        remove_pre_tool_use_markers(&claude_settings_path(), &["headroom-markitdown-read.sh"])?;
+    let hook_path = headroom_markitdown_hook_path();
+    if hook_path.exists() {
+        let _ = std::fs::remove_file(&hook_path);
+    }
+    Ok(changed)
 }
 
 fn disable_codex_cli() -> Result<()> {
@@ -1196,7 +1247,11 @@ fn configure_claude_settings_env(
     ))
 }
 
-fn ensure_claude_settings_hook(hook_path: &Path) -> Result<(Vec<String>, Vec<String>)> {
+fn ensure_claude_settings_hook(
+    hook_path: &Path,
+    matcher: &str,
+    marker: &str,
+) -> Result<(Vec<String>, Vec<String>)> {
     let settings_path = claude_settings_path();
     let mut content = if settings_path.exists() {
         let raw = std::fs::read_to_string(&settings_path)
@@ -1251,9 +1306,9 @@ fn ensure_claude_settings_hook(hook_path: &Path) -> Result<(Vec<String>, Vec<Str
         return Err(anyhow!("unable to write Claude PreToolUse hooks"));
     };
 
-    pre_tool_use.retain(|entry| !entry_contains_hook(entry, "headroom-rtk-rewrite.sh"));
+    pre_tool_use.retain(|entry| !entry_contains_hook(entry, marker));
     pre_tool_use.push(serde_json::json!({
-        "matcher": "Bash",
+        "matcher": matcher,
         "hooks": [{
             "type": "command",
             "command": hook_command
@@ -2247,6 +2302,79 @@ fn headroom_rtk_hook_path() -> PathBuf {
         .join("headroom-rtk-rewrite.sh")
 }
 
+fn headroom_markitdown_hook_path() -> PathBuf {
+    home_dir()
+        .join(".claude")
+        .join("hooks")
+        .join("headroom-markitdown-read.sh")
+}
+
+/// PreToolUse(Read) hook: when Claude reads a document format, convert it to
+/// Markdown via the managed `markitdown` and redirect the read at the converted
+/// file through `updatedInput.file_path`. Fails open at every step so a missing
+/// binary, oversized file, or conversion error falls through to a native Read.
+fn build_headroom_markitdown_hook(markitdown_path: &Path, python_path: &Path) -> String {
+    let markitdown = shell_double_quote(&markitdown_path.to_string_lossy());
+    let python = shell_double_quote(&python_path.to_string_lossy());
+
+    format!(
+        r#"#!/usr/bin/env bash
+set -euo pipefail
+
+HEADROOM_MARKITDOWN="{markitdown}"
+HEADROOM_PYTHON="{python}"
+
+if [ ! -x "$HEADROOM_MARKITDOWN" ] || [ ! -x "$HEADROOM_PYTHON" ]; then
+  exit 0
+fi
+
+INPUT="$(cat)"
+if [ -z "$INPUT" ]; then
+  exit 0
+fi
+
+HEADROOM_MD_CACHE="${{TMPDIR:-/tmp}}/headroom-markitdown"
+mkdir -p "$HEADROOM_MD_CACHE" 2>/dev/null || exit 0
+
+HEADROOM_MARKITDOWN_BIN="$HEADROOM_MARKITDOWN" HEADROOM_MD_CACHE="$HEADROOM_MD_CACHE" "$HEADROOM_PYTHON" -c 'import json, os, sys, subprocess, hashlib
+ALLOWED = {{".pdf", ".docx", ".doc", ".pptx", ".ppt", ".xlsx", ".xls"}}
+MAX_BYTES = 25 * 1024 * 1024
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+tool_input = data.get("tool_input")
+if not isinstance(tool_input, dict):
+    sys.exit(0)
+fp = tool_input.get("file_path")
+if not isinstance(fp, str) or not fp:
+    sys.exit(0)
+if os.path.splitext(fp)[1].lower() not in ALLOWED:
+    sys.exit(0)
+try:
+    st = os.stat(fp)
+except OSError:
+    sys.exit(0)
+if st.st_size > MAX_BYTES:
+    sys.exit(0)
+binpath = os.environ["HEADROOM_MARKITDOWN_BIN"]
+cache = os.environ["HEADROOM_MD_CACHE"]
+key = hashlib.sha256((os.path.abspath(fp) + ":" + str(st.st_mtime_ns)).encode()).hexdigest()[:16]
+out = os.path.join(cache, key + ".md")
+if not (os.path.exists(out) and os.path.getsize(out) > 0):
+    try:
+        subprocess.run([binpath, fp, "-o", out], check=True, capture_output=True, timeout=120)
+    except Exception:
+        sys.exit(0)
+if not (os.path.exists(out) and os.path.getsize(out) > 0):
+    sys.exit(0)
+updated = dict(tool_input)
+updated["file_path"] = out
+json.dump({{"hookSpecificOutput": {{"hookEventName": "PreToolUse", "permissionDecision": "allow", "permissionDecisionReason": "Headroom MarkItDown conversion", "updatedInput": updated}}}}, sys.stdout)' <<<"$INPUT" 2>/dev/null || exit 0
+"#
+    )
+}
+
 fn shell_double_quote(value: &str) -> String {
     value
         .replace('\\', "\\\\")
@@ -2636,7 +2764,8 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        build_headroom_rtk_hook, claude_code_user_state_exists, claude_hook_present_in_value,
+        build_headroom_markitdown_hook, build_headroom_rtk_hook, claude_code_user_state_exists,
+        claude_hook_present_in_value, remove_pre_tool_use_markers,
         default_shell_targets_for_family, entry_contains_hook, find_on_path_entries,
         normalize_setup_state, normalized_setup_id, nvm_binary_candidates, parse_json_object,
         codex_home, codex_store_version, discover_codex_state_dbs, remove_managed_block,
@@ -2774,6 +2903,54 @@ mod tests {
         assert!(hook.contains("HEADROOM_PYTHON=\"/tmp/head room/runtime/\\$python\""));
         assert!(hook.contains("Headroom RTK auto-rewrite"));
         assert!(hook.contains("\"updatedInput\": updated"));
+    }
+
+    #[test]
+    fn generated_markitdown_hook_escapes_paths_and_redirects_read() {
+        let hook = build_headroom_markitdown_hook(
+            Path::new("/tmp/head room/venv/bin/markitdown"),
+            Path::new("/tmp/head room/venv/bin/$python"),
+        );
+
+        assert!(hook.contains("HEADROOM_MARKITDOWN=\"/tmp/head room/venv/bin/markitdown\""));
+        assert!(hook.contains("HEADROOM_PYTHON=\"/tmp/head room/venv/bin/\\$python\""));
+        // Scoped to document formats, redirects via updatedInput, and fails open.
+        assert!(hook.contains(".pdf"));
+        assert!(hook.contains(".docx"));
+        assert!(hook.contains("updated[\"file_path\"] = out"));
+        assert!(hook.contains("\"updatedInput\": updated"));
+        assert!(hook.contains("Headroom MarkItDown conversion"));
+        assert!(hook.contains("sys.exit(0)"));
+    }
+
+    #[test]
+    fn disabling_markitdown_marker_leaves_rtk_hook_intact() {
+        let root = unique_temp_dir("headroom-strip-markitdown");
+        fs::create_dir_all(&root).expect("create root");
+        let settings = root.join("settings.json");
+        fs::write(
+            &settings,
+            serde_json::to_string_pretty(&json!({
+                "hooks": {
+                    "PreToolUse": [
+                        { "matcher": "Bash", "hooks": [{ "type": "command", "command": "/h/headroom-rtk-rewrite.sh" }] },
+                        { "matcher": "Read", "hooks": [{ "type": "command", "command": "/h/headroom-markitdown-read.sh" }] }
+                    ]
+                }
+            }))
+            .unwrap(),
+        )
+        .expect("write settings");
+
+        let changed =
+            remove_pre_tool_use_markers(&settings, &["headroom-markitdown-read.sh"]).expect("strip");
+        assert!(changed);
+
+        let after: serde_json::Value =
+            serde_json::from_slice(&fs::read(&settings).unwrap()).unwrap();
+        let entries = after["hooks"]["PreToolUse"].as_array().unwrap();
+        assert_eq!(entries.len(), 1);
+        assert!(entry_contains_hook(&entries[0], "headroom-rtk-rewrite.sh"));
     }
 
     #[test]

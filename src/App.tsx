@@ -23,6 +23,7 @@ import {
   House,
   Heart,
   Key,
+  PuzzlePiece,
   SignOut,
   Sliders,
   Sparkle,
@@ -178,6 +179,7 @@ const navItems: NavItem[] = [
   { id: "optimization", label: "Optimize", icon: Sliders },
   { id: "health", label: "Health", icon: Heart },
   { id: "notifications", label: "Activity", icon: Bell },
+  { id: "addons", label: "Addons", icon: PuzzlePiece },
 ];
 
 const connectorSetupDetails: Record<string, string> = {
@@ -736,6 +738,8 @@ interface ProxyVerificationRow {
 
 export default function App() {
   const [dashboard, setDashboard] = useState<DashboardState>(mockDashboard);
+  const [addonBusyId, setAddonBusyId] = useState<string | null>(null);
+  const [addonError, setAddonError] = useState<string | null>(null);
   const [bootstrapping, setBootstrapping] = useState(false);
   const [bootstrapProgress, setBootstrapProgress] =
     useState<BootstrapProgress>(idleBootstrapProgress);
@@ -2560,6 +2564,25 @@ export default function App() {
 
   async function openExternalLink(url: string) {
     await invoke("open_external_link", { url });
+  }
+
+  async function runAddonAction(
+    command: "install_addon" | "set_addon_enabled" | "uninstall_addon",
+    id: string,
+    enabled?: boolean
+  ) {
+    setAddonBusyId(id);
+    setAddonError(null);
+    try {
+      const next = await invoke<DashboardState>(command, { id, enabled });
+      setDashboard(next);
+    } catch (error) {
+      setAddonError(
+        error instanceof Error ? error.message : "The addon action could not be completed."
+      );
+    } finally {
+      setAddonBusyId(null);
+    }
   }
 
   function openUpgradeAuthView(planId: UpgradePlanId | null = null) {
@@ -4847,6 +4870,85 @@ export default function App() {
             loaded={activityFeedLoaded}
             onNavigateToOptimize={() => setActiveView("optimization")}
           />
+        </div>
+
+        <div className="tray-content" hidden={activeView !== "addons"}>
+          <section className="addons">
+            <header className="addons__header">
+              <h1>Addons</h1>
+              <p className="addons__subtitle">
+                Optional tools that reduce token usage. Install one to enable it in Claude Code.
+              </p>
+            </header>
+            {addonError ? <p className="addons__error">{addonError}</p> : null}
+            <ul className="addons__list">
+              {dashboard.tools
+                .filter((tool) => !tool.required)
+                .map((tool) => {
+                  const busy = addonBusyId === tool.id;
+                  const installed = tool.status !== "not_installed";
+                  return (
+                    <li key={tool.id} className="addon-card">
+                      <div className="addon-card__body">
+                        <div className="addon-card__heading">
+                          <span className="addon-card__name">{tool.name}</span>
+                          {installed ? (
+                            <span
+                              className={`addon-card__badge addon-card__badge--${
+                                tool.enabled ? "on" : "off"
+                              }`}
+                            >
+                              {tool.enabled ? "Enabled" : "Disabled"}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="addon-card__description">{tool.description}</p>
+                        <button
+                          type="button"
+                          className="addon-card__link"
+                          onClick={() => void openExternalLink(tool.sourceUrl)}
+                        >
+                          {tool.sourceUrl}
+                        </button>
+                      </div>
+                      <div className="addon-card__actions">
+                        {!installed ? (
+                          <button
+                            type="button"
+                            className="addon-card__action addon-card__action--primary"
+                            disabled={busy}
+                            onClick={() => void runAddonAction("install_addon", tool.id)}
+                          >
+                            {busy ? "Installing..." : "Install"}
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="addon-card__action"
+                              disabled={busy}
+                              onClick={() =>
+                                void runAddonAction("set_addon_enabled", tool.id, !tool.enabled)
+                              }
+                            >
+                              {tool.enabled ? "Disable" : "Enable"}
+                            </button>
+                            <button
+                              type="button"
+                              className="addon-card__action addon-card__action--danger"
+                              disabled={busy}
+                              onClick={() => void runAddonAction("uninstall_addon", tool.id)}
+                            >
+                              Uninstall
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+            </ul>
+          </section>
         </div>
 
         <div className="tray-content tray-content--upgrade" hidden={activeView !== "upgrade"}>

@@ -5583,3 +5583,141 @@ html.window-hiding {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Addons */
+.addons {
+  padding: 18px 20px;
+}
+
+.addons__header h1 {
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.addons__subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 6px 0 0;
+}
+
+.addons__error {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: var(--text-xs);
+  color: var(--danger);
+  background: var(--danger-tint);
+}
+
+.addons__list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.addon-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-default);
+  background: var(--surface-raised);
+}
+
+.addon-card__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.addon-card__name {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.addon-card__badge {
+  font-size: var(--text-xxs);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--chip-text);
+}
+
+.addon-card__badge--on {
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.addon-card__description {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 6px 0 0;
+}
+
+.addon-card__link {
+  margin: 8px 0 0;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: var(--text-xs);
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+
+.addon-card__link:hover {
+  text-decoration: underline;
+}
+
+.addon-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.addon-card__action {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.addon-card__action:hover:not(:disabled) {
+  background: var(--fill-hover);
+}
+
+.addon-card__action--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-inverse);
+}
+
+.addon-card__action--primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+.addon-card__action--danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.addon-card__action--danger:hover:not(:disabled) {
+  background: var(--danger-tint);
+}
+
+.addon-card__action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

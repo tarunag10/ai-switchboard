@@ -633,6 +633,67 @@ fn get_research_candidates() -> Vec<ResearchCandidate> {
 }
 
 #[tauri::command]
+fn install_addon(state: State<'_, AppState>, id: String) -> Result<DashboardState, String> {
+    match id.as_str() {
+        "markitdown" => {
+            state
+                .tool_manager
+                .install_markitdown()
+                .map_err(|err| err.to_string())?;
+            client_adapters::enable_markitdown_read_hook(
+                &state.tool_manager.markitdown_entrypoint(),
+                &state.tool_manager.managed_python(),
+            )
+            .map_err(|err| format!("markitdown installed but enabling Read hook failed: {err:#}"))?;
+            Ok(state.dashboard())
+        }
+        other => Err(format!("unknown addon: {other}")),
+    }
+}
+
+#[tauri::command]
+fn set_addon_enabled(
+    state: State<'_, AppState>,
+    id: String,
+    enabled: bool,
+) -> Result<DashboardState, String> {
+    match id.as_str() {
+        "markitdown" => {
+            state
+                .tool_manager
+                .set_markitdown_enabled(enabled)
+                .map_err(|err| err.to_string())?;
+            if enabled {
+                client_adapters::enable_markitdown_read_hook(
+                    &state.tool_manager.markitdown_entrypoint(),
+                    &state.tool_manager.managed_python(),
+                )
+                .map_err(|err| err.to_string())?;
+            } else {
+                client_adapters::disable_markitdown_read_hook().map_err(|err| err.to_string())?;
+            }
+            Ok(state.dashboard())
+        }
+        other => Err(format!("unknown addon: {other}")),
+    }
+}
+
+#[tauri::command]
+fn uninstall_addon(state: State<'_, AppState>, id: String) -> Result<DashboardState, String> {
+    match id.as_str() {
+        "markitdown" => {
+            let _ = client_adapters::disable_markitdown_read_hook();
+            state
+                .tool_manager
+                .uninstall_markitdown()
+                .map_err(|err| err.to_string())?;
+            Ok(state.dashboard())
+        }
+        other => Err(format!("unknown addon: {other}")),
+    }
+}
+
+#[tauri::command]
 fn bootstrap_runtime(state: State<'_, AppState>) -> Result<DashboardState, String> {
     state
         .tool_manager
@@ -3151,6 +3212,9 @@ pub fn run() {
             show_app_update_notification,
             show_notification,
             get_research_candidates,
+            install_addon,
+            set_addon_enabled,
+            uninstall_addon,
             bootstrap_runtime,
             start_bootstrap,
             get_bootstrap_progress,
