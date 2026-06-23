@@ -3399,8 +3399,9 @@ impl ToolManager {
         self.runtime.venv_dir.join("bin").join("markitdown")
     }
 
-    /// Symlink in the Headroom-managed bin dir (already exported onto PATH by the
-    /// RTK integration) so Claude Code can run `markitdown` for the Office nudge.
+    /// Symlink in the Headroom-managed bin dir. The Office nudge and the Bash
+    /// permission both reference this absolute path, so it works whether or not
+    /// the bin dir is on PATH (RTK, which exports it, is now opt-in).
     pub fn markitdown_shim_path(&self) -> PathBuf {
         self.runtime.bin_dir.join("markitdown")
     }
@@ -3512,6 +3513,10 @@ impl ToolManager {
             && PluginHost::ALL.iter().any(|host| host.plugin_present())
     }
 
+    fn ponytail_receipt_exists(&self) -> bool {
+        self.runtime.tools_dir.join("ponytail.json").exists()
+    }
+
     fn run_ponytail_cmd(&self, cli: &Path, host: PluginHost, args: &[&str]) -> Result<()> {
         let label = host.label();
         run_command_streaming(cli, args, &self.runtime.root_dir, &mut |line: &str| {
@@ -3562,7 +3567,10 @@ impl ToolManager {
     }
 
     pub fn set_ponytail_enabled(&self, enabled: bool) -> Result<()> {
-        if !self.ponytail_installed() {
+        // Guard on the receipt, not host presence: disabling on a host without a
+        // disable verb (Codex) removes the plugin, so `ponytail_installed()`
+        // would be false and re-enabling could never get past this check.
+        if !self.ponytail_receipt_exists() {
             bail!("ponytail is not installed");
         }
         let mut errors: Vec<String> = Vec::new();
@@ -3592,6 +3600,11 @@ impl ToolManager {
     }
 
     pub fn uninstall_ponytail(&self) -> Result<()> {
+        // No receipt means Headroom never installed it. Don't touch the user's
+        // plugin config or marketplace registration (which they may own).
+        if !self.ponytail_receipt_exists() {
+            return Ok(());
+        }
         for host in PluginHost::ALL {
             if let Some(cli) = host.cli() {
                 let _ = self.run_ponytail_cmd(&cli, host, host.uninstall_args());
@@ -3608,7 +3621,22 @@ impl ToolManager {
 
     fn detect_status(&self, tool_id: &str) -> ToolStatus {
         if tool_id == "ponytail" {
-            return if self.ponytail_installed() {
+            let Some(receipt) = self.read_tool_receipt("ponytail") else {
+                return ToolStatus::NotInstalled;
+            };
+            // Intentionally disabled via the app: the plugin may be gone from
+            // hosts that lack a disable verb (Codex), but the receipt means it's
+            // still installed -- report Healthy so the card shows Enable, not Install.
+            let enabled = receipt
+                .get("enabled")
+                .and_then(Value::as_bool)
+                .unwrap_or(true);
+            if !enabled {
+                return ToolStatus::Healthy;
+            }
+            // Enabled per our receipt: require it still be registered with a host,
+            // so a manual `/plugin` removal surfaces as not-installed.
+            return if PluginHost::ALL.iter().any(|host| host.plugin_present()) {
                 ToolStatus::Healthy
             } else {
                 ToolStatus::NotInstalled
@@ -7265,6 +7293,34 @@ after
         let (root, _runtime, manager) = seed_test_runtime("ponytail-smoke-absent");
         manager
             .smoke_test_ponytail()
+            .expect("no-op when ponytail receipt is absent");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn ponytail_disabled_receipt_reports_installed_not_missing() {
+        // A receipt with enabled:false means the user disabled it via the app.
+        // On hosts without a disable verb the plugin is gone, but the card must
+        // still show "installed" (Enable), not "not installed" (Install).
+        let (root, runtime, manager) = seed_test_runtime("ponytail-disabled");
+        fs::write(
+            runtime.tools_dir.join("ponytail.json"),
+            br#"{"version":"latest","enabled":false}"#,
+        )
+        .expect("receipt");
+        assert!(matches!(
+            manager.detect_status("ponytail"),
+            crate::models::ToolStatus::Healthy
+        ));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn uninstall_ponytail_is_noop_without_receipt() {
+        // Cleanup must not touch plugin/marketplace config Headroom never wrote.
+        let (root, _runtime, manager) = seed_test_runtime("ponytail-uninstall-noreceipt");
+        manager
+            .uninstall_ponytail()
             .expect("no-op when ponytail receipt is absent");
         let _ = fs::remove_dir_all(root);
     }

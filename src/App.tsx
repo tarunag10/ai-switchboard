@@ -218,6 +218,19 @@ const addonCopy: Record<string, AddonCopy> = {
     enabling: "Enabling MarkItDown...",
     disabling: "Disabling MarkItDown...",
     disabled: "MarkItDown is off. It stays installed but no longer converts documents."
+  },
+  ponytail: {
+    whatItDoes:
+      "Installing registers the Ponytail marketplace and plugin in Claude Code and/or Codex (whichever CLIs are on your PATH). It nudges the agent to write the least code possible. Removed from the plugin registry when you uninstall it or Headroom.",
+    installing: "Registering the Ponytail plugin with your agent...",
+    installed:
+      "Ponytail is active. Your agent is now nudged to write the least code possible.",
+    uninstalling: "Removing the Ponytail plugin...",
+    uninstalled: "Ponytail removed. Your agent writes code without the Ponytail nudge.",
+    enabling: "Enabling Ponytail...",
+    enabled: "Ponytail is on. Your agent is nudged to write the least code possible.",
+    disabling: "Disabling Ponytail...",
+    disabled: "Ponytail is off. It stays installed but no longer nudges the agent."
   }
 };
 
