@@ -577,29 +577,6 @@ pub struct ActivityFeedResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum CandidateDecision {
-    Include,
-    Defer,
-    Research,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ResearchCandidate {
-    pub name: String,
-    pub category: String,
-    pub repository: String,
-    pub runtime: String,
-    pub license: String,
-    pub local_only_fit: String,
-    pub install_method: String,
-    pub maintenance: String,
-    pub decision: CandidateDecision,
-    pub notes: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ClaudeUsageWindow {
     /// 0–100 percentage consumed

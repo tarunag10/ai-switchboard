@@ -183,11 +183,10 @@ const navItems: NavItem[] = [
 interface AddonCopy {
   whatItDoes: string;
   installing?: string;
-  installed?: string;
   uninstalling?: string;
+  installed?: string;
   uninstalled?: string;
   enabling?: string;
-  enabled?: string;
   disabling?: string;
   disabled?: string;
 }
@@ -197,13 +196,9 @@ const addonCopy: Record<string, AddonCopy> = {
     whatItDoes:
       "Installing downloads the RTK binary into Headroom's managed runtime, adds it to your shell PATH, and turns on the bash auto-rewrite hook. Shell commands your agent runs are routed through RTK, which compacts their output so it costs far fewer tokens. Removed cleanly when you uninstall it or Headroom.",
     installing: "Downloading RTK and registering the bash hook...",
-    installed:
-      "RTK is installed and on. Your agent's bash commands now route through RTK and return token-optimized output.",
     uninstalling: "Removing RTK, its PATH entry, and the bash hook...",
     uninstalled: "RTK removed. Shell commands run normally, without output rewriting.",
     enabling: "Enabling RTK and registering the bash hook...",
-    enabled:
-      "RTK is on. Your agent's bash commands now route through RTK and return token-optimized output.",
     disabling: "Disabling RTK and removing the bash hook...",
     disabled: "RTK is off but still installed. Re-enable any time without re-downloading."
   },
@@ -211,8 +206,6 @@ const addonCopy: Record<string, AddonCopy> = {
     whatItDoes:
       "Installing adds the MarkItDown converter to Headroom's managed Python runtime and registers a document Read hook. Nothing is installed system-wide - it all lives under Headroom's app data and is removed when you uninstall Headroom.",
     installing: "Installing MarkItDown and registering the Read hook...",
-    installed:
-      "MarkItDown is active. When your agent reads a PDF or Office file, Headroom converts it to Markdown first so it costs far fewer tokens.",
     uninstalling: "Removing MarkItDown and its Read hook...",
     uninstalled: "MarkItDown removed. Your agent reads documents in their original format again.",
     enabling: "Enabling MarkItDown...",
@@ -223,12 +216,10 @@ const addonCopy: Record<string, AddonCopy> = {
     whatItDoes:
       "Installing registers the Ponytail marketplace and plugin in Claude Code and/or Codex (whichever CLIs are on your PATH). It nudges the agent to write the least code possible. Removed from the plugin registry when you uninstall it or Headroom.",
     installing: "Registering the Ponytail plugin with your agent...",
-    installed:
-      "Ponytail is active. Your agent is now nudged to write the least code possible.",
     uninstalling: "Removing the Ponytail plugin...",
     uninstalled: "Ponytail removed. Your agent writes code without the Ponytail nudge.",
+    installed: "Ponytail installed. Run /ponytail-audit in your agent to scan this codebase for over-engineering.",
     enabling: "Enabling Ponytail...",
-    enabled: "Ponytail is on. Your agent is nudged to write the least code possible.",
     disabling: "Disabling Ponytail...",
     disabled: "Ponytail is off. It stays installed but no longer nudges the agent."
   }
@@ -784,6 +775,142 @@ function AddonClientChips({
         );
       })}
     </div>
+  );
+}
+
+function formatAddonVersion(version: string): string {
+  return /^\d/.test(version) ? `v${version}` : version;
+}
+
+function AddonCard({
+  name,
+  version,
+  installed,
+  enabled,
+  description,
+  copy,
+  infoOpen,
+  onToggleInfo,
+  busy,
+  busyLabel,
+  resultMessage,
+  onDismissResult,
+  sourceUrl,
+  onOpenSource,
+  connectors,
+  showClients,
+  actionsDisabled,
+  onInstall,
+  onToggleEnabled,
+  onUninstall,
+  children
+}: {
+  name: string;
+  version?: string | null;
+  installed: boolean;
+  enabled: boolean;
+  description: ReactNode;
+  copy?: AddonCopy;
+  infoOpen: boolean;
+  onToggleInfo: () => void;
+  busy: boolean;
+  busyLabel: string | null;
+  resultMessage: string | null;
+  onDismissResult: () => void;
+  sourceUrl: string;
+  onOpenSource: () => void;
+  connectors: ClientConnectorStatus[];
+  showClients: boolean;
+  actionsDisabled: boolean;
+  onInstall: () => void;
+  onToggleEnabled: () => void;
+  onUninstall: () => void;
+  children?: ReactNode;
+}) {
+  return (
+    <li className="addon-card">
+      <div className="addon-card__body">
+        <div className="addon-card__heading">
+          <span className="addon-card__name">{name}</span>
+          {installed && version ? (
+            <span className="addon-card__version">{formatAddonVersion(version)}</span>
+          ) : null}
+          {copy ? (
+            <button
+              type="button"
+              className="addon-card__info"
+              aria-label={`What ${name} does`}
+              aria-expanded={infoOpen}
+              onClick={onToggleInfo}
+            >
+              i
+            </button>
+          ) : null}
+          {installed ? (
+            <span
+              className={`addon-card__badge addon-card__badge--${enabled ? "on" : "off"}`}
+            >
+              {enabled ? "Enabled" : "Disabled"}
+            </span>
+          ) : null}
+        </div>
+        {infoOpen && copy ? (
+          <p className="addon-card__info-text">{copy.whatItDoes}</p>
+        ) : null}
+        <p className="addon-card__description">{description}</p>
+        {showClients ? <AddonClientChips connectors={connectors} /> : null}
+        <button type="button" className="addon-card__link" onClick={onOpenSource}>
+          {sourceUrl}
+        </button>
+        {busy && busyLabel ? (
+          <p className="addon-card__progress">{busyLabel}</p>
+        ) : resultMessage ? (
+          <p className="addon-card__result">
+            {resultMessage}
+            <button
+              type="button"
+              className="addon-card__result-dismiss"
+              aria-label="Dismiss"
+              onClick={onDismissResult}
+            >
+              ×
+            </button>
+          </p>
+        ) : null}
+        {children}
+      </div>
+      <div className="addon-card__actions">
+        {!installed ? (
+          <button
+            type="button"
+            className="addon-card__action addon-card__action--primary"
+            disabled={actionsDisabled}
+            onClick={onInstall}
+          >
+            Install
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="addon-card__action"
+              disabled={actionsDisabled}
+              onClick={onToggleEnabled}
+            >
+              {enabled ? "Disable" : "Enable"}
+            </button>
+            <button
+              type="button"
+              className="addon-card__action addon-card__action--danger"
+              disabled={actionsDisabled}
+              onClick={onUninstall}
+            >
+              Uninstall
+            </button>
+          </>
+        )}
+      </div>
+    </li>
   );
 }
 
@@ -1703,7 +1830,7 @@ export default function App() {
     try {
       await invoke<boolean>("set_rtk_enabled", { enabled: nextEnabled });
       await refreshRuntimeStatus();
-      const message = nextEnabled ? copy?.enabled : copy?.disabled;
+      const message = nextEnabled ? undefined : copy?.disabled;
       if (message) {
         setAddonResult({ id: "rtk", message });
       }
@@ -2692,7 +2819,7 @@ export default function App() {
           : command === "uninstall_addon"
             ? copy?.uninstalled
             : enabled
-              ? copy?.enabled
+              ? undefined
               : copy?.disabled;
       if (message) {
         setAddonResult({ id, message });
@@ -5000,212 +5127,108 @@ export default function App() {
             </header>
             {addonError ? <p className="addons__error">{addonError}</p> : null}
             <ul className="addons__list">
-              <li className="addon-card">
-                <div className="addon-card__body">
-                  <div className="addon-card__heading">
-                    <span className="addon-card__name">
-                      RTK ({runtimeStatus?.rtk.version ?? "not installed"})
-                    </span>
-                    <button
-                      type="button"
-                      className="addon-card__info"
-                      aria-label="What RTK does"
-                      aria-expanded={addonInfoId === "rtk"}
-                      onClick={() => setAddonInfoId(addonInfoId === "rtk" ? null : "rtk")}
-                    >
-                      i
-                    </button>
-                    {runtimeStatus?.rtk.installed ? (
-                      <span
-                        className={`addon-card__badge addon-card__badge--${
-                          runtimeStatus.rtk.enabled ? "on" : "off"
-                        }`}
-                      >
-                        {runtimeStatus.rtk.enabled ? "Enabled" : "Disabled"}
-                      </span>
-                    ) : null}
-                  </div>
-                  {addonInfoId === "rtk" ? (
-                    <p className="addon-card__info-text">{addonCopy.rtk.whatItDoes}</p>
-                  ) : null}
-                  <p className="addon-card__description">
+              <AddonCard
+                key="rtk"
+                name="RTK"
+                version={runtimeStatus?.rtk.version}
+                installed={runtimeStatus?.rtk.installed === true}
+                enabled={runtimeStatus?.rtk.enabled === true}
+                description={
+                  <>
                     Token-optimizing proxy that auto-rewrites your agent's bash commands.
                     {rtkAvgSavingsPct !== null
                       ? ` ${percent1(rtkAvgSavingsPct)}% avg savings.`
                       : ""}
-                  </p>
-                  {runtimeStatus?.rtk.installed && runtimeStatus.rtk.enabled ? (
-                    <AddonClientChips connectors={connectors} />
-                  ) : null}
-                  {addonBusyId === "rtk" && addonBusyLabel ? (
-                    <p className="addon-card__progress">{addonBusyLabel}</p>
-                  ) : addonResult?.id === "rtk" ? (
-                    <p className="addon-card__result">{addonResult.message}</p>
-                  ) : null}
-                  {runtimeStatus?.rtk.installed ? (
-                    <>
-                      <div className="runtime-status__grid runtime-status__grid--3">
-                        {[
-                          { name: "Binary", ok: runtimeStatus?.rtk.installed === true },
-                          { name: "PATH", ok: runtimeStatus?.rtk.pathConfigured === true },
-                          { name: "Hook", ok: runtimeStatus?.rtk.hookConfigured === true }
-                        ].map((s) => (
-                          <span key={s.name} className="runtime-status__item">
-                            <span className="runtime-status__label">{s.name}:</span>
-                            <span
-                              className={`runtime-status__indicator ${s.ok ? "runtime-status__indicator--ok" : "runtime-status__indicator--off"}`}
-                            >
-                              {s.ok ? "✔" : "✖"}
-                            </span>
-                          </span>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        className="addon-card__link"
-                        onClick={async () => {
-                          const next = !showRtkDetails;
-                          setShowRtkDetails(next);
-                          if (next) {
-                            try {
-                              const lines = await invoke<string[]>("get_rtk_activity", { maxLines: 80 });
-                              setRtkActivityLines(lines);
-                            } catch {
-                              setRtkActivityLines(["Failed to load RTK activity."]);
-                            }
-                          }
-                        }}
-                      >
-                        {showRtkDetails ? "Hide RTK activity" : "Show RTK activity"}
-                      </button>
-                      {showRtkDetails ? (
-                        <pre className="runtime-log" ref={rtkActivityRef}>
-                          {rtkActivityLines.length > 0 ? rtkActivityLines.join("\n") : "No RTK activity yet."}
-                        </pre>
-                      ) : null}
-                    </>
-                  ) : null}
-                </div>
-                <div className="addon-card__actions">
-                  {runtimeStatus?.rtk.installed ? (
-                    <>
-                      <button
-                        type="button"
-                        className="addon-card__action"
-                        disabled={rtkBusy || addonBusyId === "rtk" || !runtimeStatus}
-                        onClick={() => void handleRtkToggle(!runtimeStatus?.rtk.enabled)}
-                      >
-                        {runtimeStatus?.rtk.enabled ? "Disable" : "Enable"}
-                      </button>
-                      <button
-                        type="button"
-                        className="addon-card__action addon-card__action--danger"
-                        disabled={rtkBusy || addonBusyId === "rtk" || !runtimeStatus}
-                        onClick={() => void runAddonAction("uninstall_addon", "rtk")}
-                      >
-                        Uninstall
-                      </button>
-                    </>
-                  ) : (
+                  </>
+                }
+                copy={addonCopy.rtk}
+                infoOpen={addonInfoId === "rtk"}
+                onToggleInfo={() => setAddonInfoId(addonInfoId === "rtk" ? null : "rtk")}
+                busy={addonBusyId === "rtk"}
+                busyLabel={addonBusyLabel}
+                resultMessage={addonResult?.id === "rtk" ? addonResult.message : null}
+                onDismissResult={() => setAddonResult(null)}
+                sourceUrl={
+                  dashboard.tools.find((tool) => tool.id === "rtk")?.sourceUrl ??
+                  "https://github.com/rtk-ai/rtk"
+                }
+                onOpenSource={() =>
+                  void openExternalLink(
+                    dashboard.tools.find((tool) => tool.id === "rtk")?.sourceUrl ??
+                      "https://github.com/rtk-ai/rtk"
+                  )
+                }
+                connectors={connectors}
+                showClients={
+                  runtimeStatus?.rtk.installed === true && runtimeStatus.rtk.enabled === true
+                }
+                actionsDisabled={rtkBusy || addonBusyId === "rtk" || !runtimeStatus}
+                onInstall={() => void runAddonAction("install_addon", "rtk")}
+                onToggleEnabled={() => void handleRtkToggle(!runtimeStatus?.rtk.enabled)}
+                onUninstall={() => void runAddonAction("uninstall_addon", "rtk")}
+              >
+                {runtimeStatus?.rtk.installed ? (
+                  <>
                     <button
                       type="button"
-                      className="addon-card__action addon-card__action--primary"
-                      disabled={rtkBusy || addonBusyId === "rtk" || !runtimeStatus}
-                      onClick={() => void runAddonAction("install_addon", "rtk")}
+                      className="addon-card__link"
+                      onClick={async () => {
+                        const next = !showRtkDetails;
+                        setShowRtkDetails(next);
+                        if (next) {
+                          try {
+                            const lines = await invoke<string[]>("get_rtk_activity", { maxLines: 80 });
+                            setRtkActivityLines(lines);
+                          } catch {
+                            setRtkActivityLines(["Failed to load RTK activity."]);
+                          }
+                        }
+                      }}
                     >
-                      Install
+                      {showRtkDetails ? "Hide RTK activity" : "Show RTK activity"}
                     </button>
-                  )}
-                </div>
-              </li>
+                    {showRtkDetails ? (
+                      <pre className="runtime-log" ref={rtkActivityRef}>
+                        {rtkActivityLines.length > 0 ? rtkActivityLines.join("\n") : "No RTK activity yet."}
+                      </pre>
+                    ) : null}
+                  </>
+                ) : null}
+              </AddonCard>
               {dashboard.tools
                 .filter((tool) => !tool.required && tool.id !== "rtk")
                 .map((tool) => {
-                  const busy = addonBusyId === tool.id;
                   const installed = tool.status !== "not_installed";
-                  const info = addonCopy[tool.id];
                   return (
-                    <li key={tool.id} className="addon-card">
-                      <div className="addon-card__body">
-                        <div className="addon-card__heading">
-                          <span className="addon-card__name">{tool.name}</span>
-                          {info ? (
-                            <button
-                              type="button"
-                              className="addon-card__info"
-                              aria-label={`What ${tool.name} does`}
-                              aria-expanded={addonInfoId === tool.id}
-                              onClick={() =>
-                                setAddonInfoId(addonInfoId === tool.id ? null : tool.id)
-                              }
-                            >
-                              i
-                            </button>
-                          ) : null}
-                          {installed ? (
-                            <span
-                              className={`addon-card__badge addon-card__badge--${
-                                tool.enabled ? "on" : "off"
-                              }`}
-                            >
-                              {tool.enabled ? "Enabled" : "Disabled"}
-                            </span>
-                          ) : null}
-                        </div>
-                        {addonInfoId === tool.id && info ? (
-                          <p className="addon-card__info-text">{info.whatItDoes}</p>
-                        ) : null}
-                        <p className="addon-card__description">{tool.description}</p>
-                        {installed && tool.enabled ? (
-                          <AddonClientChips connectors={connectors} />
-                        ) : null}
-                        <button
-                          type="button"
-                          className="addon-card__link"
-                          onClick={() => void openExternalLink(tool.sourceUrl)}
-                        >
-                          {tool.sourceUrl}
-                        </button>
-                        {busy && addonBusyLabel ? (
-                          <p className="addon-card__progress">{addonBusyLabel}</p>
-                        ) : addonResult?.id === tool.id ? (
-                          <p className="addon-card__result">{addonResult.message}</p>
-                        ) : null}
-                      </div>
-                      <div className="addon-card__actions">
-                        {!installed ? (
-                          <button
-                            type="button"
-                            className="addon-card__action addon-card__action--primary"
-                            disabled={busy}
-                            onClick={() => void runAddonAction("install_addon", tool.id)}
-                          >
-                            {busy ? "Installing..." : "Install"}
-                          </button>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              className="addon-card__action"
-                              disabled={busy}
-                              onClick={() =>
-                                void runAddonAction("set_addon_enabled", tool.id, !tool.enabled)
-                              }
-                            >
-                              {tool.enabled ? "Disable" : "Enable"}
-                            </button>
-                            <button
-                              type="button"
-                              className="addon-card__action addon-card__action--danger"
-                              disabled={busy}
-                              onClick={() => void runAddonAction("uninstall_addon", tool.id)}
-                            >
-                              Uninstall
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </li>
+                    <AddonCard
+                      key={tool.id}
+                      name={tool.name}
+                      version={tool.version}
+                      installed={installed}
+                      enabled={tool.enabled}
+                      description={tool.description}
+                      copy={addonCopy[tool.id]}
+                      infoOpen={addonInfoId === tool.id}
+                      onToggleInfo={() =>
+                        setAddonInfoId(addonInfoId === tool.id ? null : tool.id)
+                      }
+                      busy={addonBusyId === tool.id}
+                      busyLabel={addonBusyLabel}
+                      resultMessage={
+                        addonResult?.id === tool.id ? addonResult.message : null
+                      }
+                      onDismissResult={() => setAddonResult(null)}
+                      sourceUrl={tool.sourceUrl}
+                      onOpenSource={() => void openExternalLink(tool.sourceUrl)}
+                      connectors={connectors}
+                      showClients={installed && tool.enabled}
+                      actionsDisabled={addonBusyId === tool.id}
+                      onInstall={() => void runAddonAction("install_addon", tool.id)}
+                      onToggleEnabled={() =>
+                        void runAddonAction("set_addon_enabled", tool.id, !tool.enabled)
+                      }
+                      onUninstall={() => void runAddonAction("uninstall_addon", tool.id)}
+                    />
                   );
                 })}
             </ul>

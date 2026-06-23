@@ -3443,11 +3443,6 @@ details[open] .optimize-minimal__details summary::after {
   justify-content: space-between;
 }
 
-.runtime-status__grid--3 {
-  grid-template-columns: repeat(3, max-content);
-  justify-content: space-between;
-}
-
 .runtime-status__meta {
   margin-top: 8px;
 }
@@ -5642,6 +5637,16 @@ html.window-hiding {
   color: var(--text-primary);
 }
 
+.addon-card__version {
+  font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  font-size: var(--text-xxs);
+  color: var(--text-muted);
+  background: var(--surface-sunken);
+  padding: 1px 6px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
 .addon-card__info {
   width: 16px;
   height: 16px;
@@ -5683,6 +5688,9 @@ html.window-hiding {
 }
 
 .addon-card__result {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   margin: 8px 0 0;
   padding: 8px 10px;
   border-radius: 8px;
@@ -5690,6 +5698,23 @@ html.window-hiding {
   font-size: var(--text-xs);
   line-height: 1.4;
   color: var(--accent);
+}
+
+.addon-card__result-dismiss {
+  flex-shrink: 0;
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.7;
+  transition: opacity 120ms ease;
+}
+
+.addon-card__result-dismiss:hover {
+  opacity: 1;
 }
 
 .addon-card__badge {

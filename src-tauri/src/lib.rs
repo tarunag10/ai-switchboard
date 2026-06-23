@@ -13,7 +13,6 @@ mod models;
 mod port_conflict;
 mod pricing;
 mod proxy_intercept;
-mod research;
 mod state;
 mod storage;
 mod tool_manager;
@@ -45,7 +44,7 @@ use crate::models::{
     ClaudeCodeProject, ClaudeUsage, ClientConnectorStatus, ClientSetupResult,
     ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
     HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
-    HeadroomSubscriptionTier, ResearchCandidate, RuntimeStatus, RuntimeUpgradeProgress,
+    HeadroomSubscriptionTier, RuntimeStatus, RuntimeUpgradeProgress,
     TransformationFeedResponse,
 };
 use crate::state::AppState;
@@ -625,11 +624,6 @@ fn show_notification_impl(
         .body(body)
         .show()
         .map_err(|e| format!("Could not show notification: {e}"))
-}
-
-#[tauri::command]
-fn get_research_candidates() -> Vec<ResearchCandidate> {
-    research::candidate_matrix()
 }
 
 #[tauri::command]
@@ -3271,7 +3265,6 @@ pub fn run() {
             restart_app,
             show_app_update_notification,
             show_notification,
-            get_research_candidates,
             install_addon,
             set_addon_enabled,
             uninstall_addon,

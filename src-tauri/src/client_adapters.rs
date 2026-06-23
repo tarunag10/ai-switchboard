@@ -2592,6 +2592,15 @@ if [ -z "$REWRITTEN" ] || [ "$CMD" = "$REWRITTEN" ]; then
   exit 0
 fi
 
+# `rtk rewrite` emits a bare `rtk` leading token, which only resolves if the
+# managed PATH export has propagated into this session's environment. GUI apps
+# (VSCode, terminals) launched before rtk was enabled inherit a stale PATH, so
+# `rtk` is missing and the rewrite would fail with "command not found". Pin the
+# leading token to the managed binary's absolute path so it works regardless.
+if [ "${{REWRITTEN%% *}}" = "rtk" ]; then
+  REWRITTEN="$HEADROOM_RTK${{REWRITTEN#rtk}}"
+fi
+
 # Defense-in-depth: if the rewritten command's first token isn't resolvable
 # (e.g. a partial uninstall left `rtk` missing from PATH), fall through to the
 # original command instead of handing Claude Code a command that will fail with
@@ -3714,6 +3723,69 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(
             stdout.contains("Headroom RTK auto-rewrite"),
             "should be a rewrite hookSpecificOutput payload"
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn hook_script_pins_bare_rtk_token_to_managed_absolute_path() {
+        let root = unique_temp_dir("headroom-hook-pin-rtk");
+        fs::create_dir_all(&root).expect("create root");
+
+        // Fake rtk emits a bare `rtk` leading token, like the real binary.
+        // `rtk` is NOT on PATH here, so without pinning the rewrite would be a
+        // "command not found" landmine and the defense-in-depth guard would
+        // drop it. Pinning to the managed absolute path must keep the rewrite.
+        let fake_rtk = root.join("rtk");
+        fs::write(&fake_rtk, "#!/usr/bin/env bash\nshift\necho \"rtk $*\"\n")
+            .expect("write fake rtk");
+        fs::set_permissions(
+            &fake_rtk,
+            <fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o755),
+        )
+        .expect("chmod rtk");
+
+        let system_python = PathBuf::from("/usr/bin/python3");
+        let hook_body = build_headroom_rtk_hook(&fake_rtk, &system_python);
+        let hook_path = root.join("hook.sh");
+        fs::write(&hook_path, &hook_body).expect("write hook");
+        fs::set_permissions(
+            &hook_path,
+            <fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o755),
+        )
+        .expect("chmod hook");
+
+        let stdin = r#"{"tool_input":{"command":"git status"}}"#;
+        let output = std::process::Command::new("bash")
+            .arg(&hook_path)
+            .env("PATH", "/usr/bin:/bin") // ensure bare `rtk` is unresolvable
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .and_then(|mut child| {
+                use std::io::Write;
+                child
+                    .stdin
+                    .as_mut()
+                    .unwrap()
+                    .write_all(stdin.as_bytes())
+                    .unwrap();
+                child.wait_with_output()
+            })
+            .expect("run hook");
+
+        assert!(output.status.success(), "hook should exit 0");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("Headroom RTK auto-rewrite"),
+            "rewrite should survive when bare `rtk` is pinned to absolute path, got stdout: {stdout:?}, stderr: {:?}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            stdout.contains(&fake_rtk.to_string_lossy().replace('"', "\\\"")),
+            "rewritten command should invoke the managed rtk by absolute path, got: {stdout:?}"
         );
 
         let _ = fs::remove_dir_all(root);
