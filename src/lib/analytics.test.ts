@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const invokeMock = vi.fn();
 
@@ -36,10 +36,16 @@ function installThrowingStorage() {
 }
 
 describe("analytics helpers", () => {
+  beforeEach(() => {
+    vi.stubEnv("VITE_HEADROOM_LOCAL_ONLY", "0");
+    vi.stubEnv("VITE_HEADROOM_REMOTE_TELEMETRY", "1");
+  });
+
   afterEach(() => {
     invokeMock.mockReset();
     invokeMock.mockResolvedValue(undefined);
     vi.resetModules();
+    vi.unstubAllEnvs();
     Reflect.deleteProperty(globalThis, "localStorage");
   });
 
@@ -56,6 +62,16 @@ describe("analytics helpers", () => {
       name: "dashboard_opened",
       properties: { source: "tray", count: 2 },
     });
+  });
+
+  it("does not track analytics events in local-only mode", async () => {
+    vi.stubEnv("VITE_HEADROOM_LOCAL_ONLY", "1");
+    const { trackAnalyticsEvent } = await import("./analytics");
+
+    trackAnalyticsEvent("dashboard_opened", { source: "tray" });
+    await Promise.resolve();
+
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 
   it("records install milestones only once per name", async () => {

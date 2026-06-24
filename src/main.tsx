@@ -3,12 +3,15 @@ import ReactDOM from "react-dom/client";
 import * as Sentry from "@sentry/react";
 import Clarity from "@microsoft/clarity";
 import App from "./App";
+import { remoteTelemetryEnabled } from "./lib/localMode";
 import "./styles.css";
+
+const telemetryEnabled = remoteTelemetryEnabled();
+const isEEA = Intl.DateTimeFormat().resolvedOptions().timeZone.startsWith("Europe/");
 
 // Clarity is only enabled outside the EEA/UK to avoid GDPR consent requirements.
 // Microsoft's own FAQ confirms explicit consent is required for EEA users.
-const isEEA = Intl.DateTimeFormat().resolvedOptions().timeZone.startsWith("Europe/");
-if (!isEEA) {
+if (telemetryEnabled && !isEEA && import.meta.env.VITE_CLARITY_PROJECT_ID) {
   Clarity.init(import.meta.env.VITE_CLARITY_PROJECT_ID);
   Clarity.consent(!document.hidden);
   document.addEventListener("visibilitychange", () => {
@@ -16,11 +19,13 @@ if (!isEEA) {
   });
 }
 
-Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN,
-  integrations: [Sentry.browserTracingIntegration()],
-  tracesSampleRate: 0.1,
-});
+if (telemetryEnabled && import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    integrations: [Sentry.browserTracingIntegration()],
+    tracesSampleRate: 0.1,
+  });
+}
 
 function hideBootLoading() {
   const bootLoading = document.getElementById("boot-loading");
@@ -41,8 +46,12 @@ window.addEventListener("headroom:boot-complete", () => {
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <Sentry.ErrorBoundary fallback={<p>Something went wrong.</p>} showDialog>
+    {telemetryEnabled ? (
+      <Sentry.ErrorBoundary fallback={<p>Something went wrong.</p>}>
+        <App />
+      </Sentry.ErrorBoundary>
+    ) : (
       <App />
-    </Sentry.ErrorBoundary>
+    )}
   </React.StrictMode>
 );

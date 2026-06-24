@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/react";
 
 import { describeInvokeError } from "./appHelpers";
+import { remoteTelemetryEnabled } from "./localMode";
 import type { BootstrapProgress } from "./types";
 
 export type BootstrapFailurePhase =
@@ -74,6 +75,10 @@ export function bootstrapFailureSignature(report: BootstrapFailureReport): strin
 }
 
 export function reportBootstrapFailure(report: BootstrapFailureReport, cause?: unknown) {
+  if (!remoteTelemetryEnabled()) {
+    return;
+  }
+
   const error = new Error(report.message);
   error.name = "BootstrapFailedError";
 

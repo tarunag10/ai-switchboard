@@ -7,6 +7,7 @@ mod client_adapters;
 mod device;
 mod insights;
 mod keychain;
+mod local_mode;
 mod logging;
 mod memory_scrubber;
 mod models;
@@ -3055,14 +3056,20 @@ fn app_quit_requested_properties(source: QuitSource, runtime_paused: bool) -> Va
 }
 
 pub fn run() {
-    let _sentry = sentry::init((
-        SENTRY_DSN.unwrap_or(""),
-        sentry::ClientOptions {
-            release: sentry::release_name!(),
-            attach_stacktrace: true,
-            ..Default::default()
-        },
-    ));
+    let _sentry = if local_mode::enabled() {
+        None
+    } else {
+        SENTRY_DSN.map(|dsn| {
+            sentry::init((
+                dsn,
+                sentry::ClientOptions {
+                    release: sentry::release_name!(),
+                    attach_stacktrace: true,
+                    ..Default::default()
+                },
+            ))
+        })
+    };
 
     // Initialize the panic-safe file logger after Sentry so warn!/error!
     // records flow into Sentry too. Failure here cannot abort startup.

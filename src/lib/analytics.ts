@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { remoteTelemetryEnabled } from "./localMode";
 
 export type AnalyticsProperties = Record<
   string,
@@ -12,6 +13,10 @@ export function trackAnalyticsEvent(
   name: string,
   properties?: AnalyticsProperties
 ) {
+  if (!remoteTelemetryEnabled()) {
+    return;
+  }
+
   void invoke("track_analytics_event", { name, properties }).catch(() => {
     // Analytics should never interrupt product flows.
   });

@@ -12,6 +12,8 @@ use reqwest::Url;
 use serde_json::{json, Map, Value};
 use tauri::{webview_version, AppHandle, Manager};
 
+use crate::local_mode;
+
 const HEADROOM_APTABASE_APP_KEY: Option<&str> = option_env!("HEADROOM_APTABASE_APP_KEY");
 const SESSION_TIMEOUT_SECS: i64 = 4 * 60 * 60;
 const HTTP_REQUEST_TIMEOUT_SECS: u64 = 10;
@@ -172,6 +174,10 @@ impl TrackingSession {
 
 impl AnalyticsConfig {
     fn from_env() -> Option<Self> {
+        if local_mode::enabled() {
+            return None;
+        }
+
         let app_key = resolve_app_key()?;
         let mut parts = app_key.split('-');
         let _app = parts.next()?;

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Sentry from "@sentry/react";
 
 import {
@@ -98,7 +98,13 @@ describe("bootstrap sentry helpers", () => {
 
 describe("reportBootstrapFailure", () => {
   beforeEach(() => {
+    vi.stubEnv("VITE_HEADROOM_LOCAL_ONLY", "0");
+    vi.stubEnv("VITE_HEADROOM_REMOTE_TELEMETRY", "1");
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("calls withScope and captureException", () => {
@@ -114,6 +120,18 @@ describe("reportBootstrapFailure", () => {
     expect(err).toBeInstanceOf(Error);
     expect(err.name).toBe("BootstrapFailedError");
     expect(err.message).toBe("Installation failed: disk full");
+  });
+
+  it("does not report bootstrap failures in local-only mode", () => {
+    vi.stubEnv("VITE_HEADROOM_LOCAL_ONLY", "1");
+    const report = buildBootstrapFailureReport(
+      makeFailedProgress("Installation failed: disk full")
+    );
+
+    reportBootstrapFailure(report);
+
+    expect(Sentry.withScope).not.toHaveBeenCalled();
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
   it("includes cause as extra when provided", () => {
