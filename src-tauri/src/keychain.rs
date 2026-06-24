@@ -62,6 +62,7 @@ mod platform {
     type CFIndex = c_long;
 
     const ERR_SEC_ITEM_NOT_FOUND: OSStatus = -25300;
+    const ERR_SEC_DUPLICATE_ITEM: OSStatus = -25299;
     const K_CF_STRING_ENCODING_UTF8: u32 = 0x08000100;
 
     #[repr(C)]
@@ -237,6 +238,14 @@ mod platform {
             CFRelease(data);
             CFRelease(svc);
             CFRelease(acc);
+            if add_status == ERR_SEC_DUPLICATE_ITEM {
+                // Update missed it (inaccessible/ghost item, e.g. created by a
+                // prior app signature) but Add sees the primary-key collision.
+                // Drop the stale item and re-add once. ponytail: single retry --
+                // a duplicate can't recur after a successful delete.
+                let _ = delete_secret(service, account);
+                return write_secret(service, account, secret);
+            }
             check_status(add_status, "write keychain secret")
         }
     }

@@ -1674,6 +1674,32 @@ fn codex_state_dirs() -> Vec<PathBuf> {
     vec![codex.join("sqlite"), codex]
 }
 
+/// True when Codex keeps (or kept) a sqlite-backed thread store on this machine,
+/// so a *missing* recognized `state_<N>.sqlite` means the store moved/renamed --
+/// the case worth a signal. Two store shapes exist: the GUI uses the
+/// `<codex_home>/sqlite/` dir, the CLI/TUI drops `state_<N>.sqlite` loose in
+/// `<codex_home>/`. Evidence of either: the `sqlite/` dir, or any
+/// `state_*.sqlite`-shaped file (incl. a renamed one whose version no longer
+/// parses, which is exactly the relocation we want to catch). CLI-only or
+/// pre-sqlite installs with just `config.toml`/`sessions/` match neither and
+/// stay silent -- they have no thread store to split.
+fn codex_sqlite_store_expected() -> bool {
+    if codex_home().join("sqlite").is_dir() {
+        return true;
+    }
+    codex_state_dirs().iter().any(|dir| {
+        std::fs::read_dir(dir)
+            .map(|entries| {
+                entries.flatten().any(|e| {
+                    e.file_name()
+                        .to_str()
+                        .is_some_and(|n| n.starts_with("state_") && n.ends_with(".sqlite"))
+                })
+            })
+            .unwrap_or(false)
+    })
+}
+
 /// Parse `N` from a `state_<N>.sqlite` filename (`state_5.sqlite` -> `Some(5)`).
 /// Anything else -> `None`.
 fn codex_store_version(path: &Path) -> Option<u32> {
@@ -1715,10 +1741,12 @@ fn discover_codex_state_dbs() -> Vec<(PathBuf, u32)> {
 fn retag_codex_thread_providers(from: &str, to: &str) {
     let stores = discover_codex_state_dbs();
     if stores.is_empty() {
-        // Only a signal when Codex is actually present: the launch/quit
-        // lifecycle hooks call this for every user, so a clean machine with no
-        // Codex install must stay silent.
-        if codex_user_state_exists() {
+        // Only a signal when a sqlite thread store is actually expected: the
+        // launch/quit lifecycle hooks call this for every user, so a clean
+        // machine -- or a CLI-only / pre-sqlite Codex with config but no
+        // state_<N>.sqlite -- must stay silent. A present sqlite/ dir with no
+        // recognized store is the genuine moved/renamed case worth flagging.
+        if codex_sqlite_store_expected() {
             log::warn!(
                 "codex retag {from}->{to}: Codex is present but no state_<N>.sqlite \
                  store was found under {dirs:?}; the history menu may split. Codex \
@@ -2966,7 +2994,8 @@ mod tests {
         claude_hook_present_in_value, remove_pre_tool_use_markers,
         default_shell_targets_for_family, entry_contains_hook, find_on_path_entries,
         normalize_setup_state, normalized_setup_id, nvm_binary_candidates, parse_json_object,
-        codex_home, codex_store_version, discover_codex_state_dbs, remove_managed_block,
+        codex_home, codex_sqlite_store_expected, codex_store_version,
+        discover_codex_state_dbs, remove_managed_block,
         retag_codex_thread_providers, retag_codex_threads_to_headroom, retag_one_codex_db,
         serialize_paths, shell_block_contains_in_files,
         shell_block_contains_text_in_files, shell_double_quote, strip_headroom_hook_from_settings,
@@ -4691,6 +4720,28 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let _home = TestHome::new();
         // No ~/.codex stores exist under the temp home: must not panic.
         retag_codex_thread_providers("openai", "headroom");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn codex_sqlite_store_expected_gates_on_sqlite_dir_not_config() {
+        let home = TestHome::new();
+        let codex = home.path().join(".codex");
+        // CLI-only / pre-sqlite Codex: config + sessions but no sqlite/ store.
+        std::fs::create_dir_all(codex.join("sessions")).unwrap();
+        std::fs::write(codex.join("config.toml"), "").unwrap();
+        assert!(
+            !codex_sqlite_store_expected(),
+            "config/sessions alone must not trigger the moved-store warning"
+        );
+        // CLI store renamed loose in codex_home (version no longer parses) ->
+        // expected, so the relocation gets flagged.
+        std::fs::write(codex.join("state_5x.sqlite"), "").unwrap();
+        assert!(codex_sqlite_store_expected());
+        std::fs::remove_file(codex.join("state_5x.sqlite")).unwrap();
+        // GUI store dir present -> a missing state_<N>.sqlite is worth flagging.
+        std::fs::create_dir_all(codex.join("sqlite")).unwrap();
+        assert!(codex_sqlite_store_expected());
     }
 
     #[test]

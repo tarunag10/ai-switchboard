@@ -61,9 +61,7 @@ import {
 } from "./lib/urgentNotifications";
 import {
   describeInvokeError,
-  detectSubscriberHasDiscount,
   getNextLowerUpgradePlanId,
-  getPlanCycleTotalLabel,
   getPlanRenewalPriceLabel,
   getUpgradePlans,
   getFounderStepPricing,
@@ -1085,7 +1083,6 @@ export default function App() {
     fromTier: HeadroomSubscriptionTier;
     toTier: HeadroomSubscriptionTier;
     billingPeriod: BillingPeriod;
-    flowKind: "patch" | "checkout";
   } | null>(null);
   const [planChangeBusy, setPlanChangeBusy] = useState(false);
   const [planChangeError, setPlanChangeError] = useState<string | null>(null);
@@ -2943,25 +2940,6 @@ export default function App() {
       pricingStatus?.account?.subscriptionActive
         ? pricingStatus.account.subscriptionTier ?? null
         : null;
-    const accountBillingPeriod = pricingStatus?.account?.subscriptionBillingPeriod;
-    const currentBillingPeriod: BillingPeriod | null =
-      accountBillingPeriod === "annual" || accountBillingPeriod === "monthly"
-        ? accountBillingPeriod
-        : null;
-    // Treat the user as discounted when sync explicitly reports a discount OR
-    // when the launch discount is globally active and the user is paying
-    // below list — the latter catches the case where a `once`-duration
-    // discount has been consumed by its first invoice but the user is still
-    // morally entitled to the launch deal on future charges. Without this
-    // second branch, those users silently route into a PATCH that bills the
-    // full prorated diff (see the LAUNCH1YEAR `once` incident).
-    const subscriberHasDiscount = detectSubscriberHasDiscount({
-      subscriptionDiscountDuration: pricingStatus?.account?.subscriptionDiscountDuration,
-      launchDiscountActive: pricingStatus?.launchDiscountActive,
-      currentTier: activeHeadroomPlanId,
-      currentBillingPeriod,
-      subscriptionAmountCents: pricingStatus?.account?.subscriptionAmountCents
-    });
     const action = (() => {
       switch (planId) {
         case "free":
@@ -2972,15 +2950,10 @@ export default function App() {
         case "max5x":
         case "max20x": {
           if (activeHeadroomPlanId === planId) return { kind: "internal" as const };
+          // Polar prorates the product swap with the existing discount applied,
+          // so every plan change on an active subscription uses the PATCH path.
           if (activeHeadroomPlanId) {
-            // Only discounted *upgrades* go through a fresh Polar Checkout (so
-            // the discount applies to the immediate charge). Downgrades and
-            // non-discount changes use the PATCH path, also gated by the
-            // confirmation modal.
-            const isUpgrade = !isTierDowngrade(activeHeadroomPlanId, planId);
-            return subscriberHasDiscount && isUpgrade
-              ? { kind: "upgrade_checkout" as const }
-              : { kind: "change_plan" as const };
+            return { kind: "change_plan" as const };
           }
           return { kind: "checkout" as const };
         }
@@ -3022,15 +2995,14 @@ export default function App() {
       return;
     }
 
-    if (action.kind === "change_plan" || action.kind === "upgrade_checkout") {
+    if (action.kind === "change_plan") {
       const fromTier = pricingStatus?.account?.subscriptionTier;
       if (!fromTier) return;
       setPlanChangeError(null);
       setPendingPlanChange({
         fromTier,
         toTier: planId as HeadroomSubscriptionTier,
-        billingPeriod,
-        flowKind: action.kind === "upgrade_checkout" ? "checkout" : "patch"
+        billingPeriod
       });
       return;
     }
@@ -3104,22 +3076,13 @@ export default function App() {
     setPlanChangeBusy(true);
     setPlanChangeError(null);
     try {
-      if (pendingPlanChange.flowKind === "checkout") {
-        const url = await invoke<string>("create_headroom_checkout_session", {
-          subscriptionTier: pendingPlanChange.toTier,
-          billingPeriod: pendingPlanChange.billingPeriod
-        });
-        await openExternalLink(url);
-        setPendingPlanChange(null);
-      } else {
-        await invoke("change_headroom_subscription_plan", {
-          subscriptionTier: pendingPlanChange.toTier,
-          billingPeriod: pendingPlanChange.billingPeriod
-        });
-        await refreshPricingStatus();
-        setPendingPlanChange(null);
-        setActiveView("home");
-      }
+      await invoke("change_headroom_subscription_plan", {
+        subscriptionTier: pendingPlanChange.toTier,
+        billingPeriod: pendingPlanChange.billingPeriod
+      });
+      await refreshPricingStatus();
+      setPendingPlanChange(null);
+      setActiveView("home");
     } catch (error) {
       setPlanChangeError(
         error instanceof Error
@@ -6000,17 +5963,6 @@ export default function App() {
                 currentPaidCents: pricingStatus?.account?.subscriptionAmountCents
               }
             );
-            const newCycleTotalLabel = getPlanCycleTotalLabel(
-              pendingPlanChange.toTier,
-              pendingPlanChange.billingPeriod,
-              {
-                fromTier: pendingPlanChange.fromTier,
-                currentPaidCents: pricingStatus?.account?.subscriptionAmountCents
-              }
-            );
-            const billingCycleLabel =
-              pendingPlanChange.billingPeriod === "annual" ? "year" : "month";
-            const isCheckoutFlow = pendingPlanChange.flowKind === "checkout";
             return (
               <div
                 className="modal-backdrop"
@@ -6030,45 +5982,26 @@ export default function App() {
                     plan, billed{" "}
                     {pendingPlanChange.billingPeriod === "annual" ? "annually" : "monthly"}.
                   </p>
-                  {isCheckoutFlow ? (
-                    <>
-                      <p>
-                        You'll be charged{" "}
-                        <strong>{newCycleTotalLabel}</strong>{" "}
-                        today for a full {billingCycleLabel} of{" "}
-                        <strong>{upgradePlanIntentLabel(pendingPlanChange.toTier)}</strong>
-                        {" "}with your existing discount applied.
-                      </p>
-                      <p>
-                        Any unused time on your current{" "}
-                        <strong>{upgradePlanIntentLabel(pendingPlanChange.fromTier)}</strong>{" "}
-                        plan will be automatically refunded to your card.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        {isDowngrade
-                          ? "You'll receive a prorated credit toward your next billing cycle for the unused time on your current plan."
-                          : "You'll be charged a prorated amount today for the remaining time in your current billing period."}
-                      </p>
-                      {pricingStatus?.account?.subscriptionRenewsAt ? (
-                        <p>
-                          Your subscription will then renew on{" "}
-                          <strong>
-                            {new Date(
-                              pricingStatus.account.subscriptionRenewsAt
-                            ).toLocaleDateString(undefined, {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric"
-                            })}
-                          </strong>
-                          .
-                        </p>
-                      ) : null}
-                    </>
-                  )}
+                  <p>
+                    {isDowngrade
+                      ? "You'll receive a prorated credit toward your next billing cycle for the unused time on your current plan."
+                      : "You'll be charged a prorated amount today for the remaining time in your current billing period, with your existing discount applied."}
+                  </p>
+                  {pricingStatus?.account?.subscriptionRenewsAt ? (
+                    <p>
+                      Your subscription will then renew on{" "}
+                      <strong>
+                        {new Date(
+                          pricingStatus.account.subscriptionRenewsAt
+                        ).toLocaleDateString(undefined, {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric"
+                        })}
+                      </strong>
+                      .
+                    </p>
+                  ) : null}
                   {planChangeError ? (
                     <p className="install-progress__error">{planChangeError}</p>
                   ) : null}
@@ -6088,14 +6021,10 @@ export default function App() {
                       type="button"
                     >
                       {planChangeBusy
-                        ? isCheckoutFlow
-                          ? "Opening Polar…"
-                          : isDowngrade
-                            ? "Downgrading…"
-                            : "Upgrading…"
-                        : isCheckoutFlow
-                          ? "Continue upgrade"
-                          : `Confirm ${action}`}
+                        ? isDowngrade
+                          ? "Downgrading…"
+                          : "Upgrading…"
+                        : `Confirm ${action}`}
                     </button>
                   </div>
                 </div>
