@@ -1412,26 +1412,34 @@ function PlannedConnectorRoadmap({
               <span>{connectorCategoryLabel(connector.category)}</span>
             </div>
             <p>{connector.integrationTarget}</p>
-          <div className="planned-connectors__capabilities">
-            {connector.capabilityBadges.map((badge) => (
-              <span key={badge}>{badge}</span>
-            ))}
-          </div>
-          <div className="planned-connectors__readiness">
-            <div>
-              <span>Config surface</span>
-              <strong>{connector.configSurfaces[0]}</strong>
+            <div className="planned-connectors__capabilities">
+              {connector.capabilityBadges.map((badge) => (
+                <span key={badge}>{badge}</span>
+              ))}
+            </div>
+            <div className="planned-connectors__modes" aria-label={`${connector.name} supported modes`}>
+              {connector.supportedModes.map((mode) => (
+                <span key={mode}>{mode}</span>
+              ))}
+            </div>
+            <div className="planned-connectors__readiness">
+              <div>
+                <span>Config surface</span>
+                <strong>{connector.configSurfaces[0]}</strong>
             </div>
             <div>
               <span>Automation gate</span>
-              <strong>{connector.automationGates[0]}</strong>
+                <strong>{connector.automationGates[0]}</strong>
+              </div>
             </div>
-          </div>
-          <p className="planned-connectors__manual">
-            Today: {connector.manualWorkflow[0]}
-          </p>
-          <div className="planned-connectors__meta">
-            <span>{connector.setupPhase}</span>
+            <p className="planned-connectors__manual">
+              Today: {connector.safeToday}
+            </p>
+            <p className="planned-connectors__manual">
+              Next: {connector.firstAutomation}
+            </p>
+            <div className="planned-connectors__meta">
+              <span>{connector.setupPhase}</span>
             <span>{connector.statusLabel}</span>
           </div>
           </li>

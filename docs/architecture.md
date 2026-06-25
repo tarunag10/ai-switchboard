@@ -24,7 +24,7 @@ The packaged app identity is `Mac AI Switchboard`, but runtime storage intention
 - `rtk` is required for local shell-output compression.
 - Managed tools may be Python-based or standalone binaries, but Headroom owns their install path.
 - Client configuration changes require explicit user consent and rollback support.
-- Planned connectors are visible and guided, but automatic setup stays disabled until backup, restore, and off-mode cleanup are implemented per tool. Each planned connector carries a readiness contract: config surfaces the app may inspect, automation gates that must pass before writes are allowed, and manual workflows that are safe today.
+- Planned connectors are visible and guided, but automatic setup stays disabled until backup, restore, and off-mode cleanup are implemented per tool. Each planned connector carries a readiness contract: config surfaces the app may inspect, safe Switchboard modes available today, automation gates that must pass before writes are allowed, the current manual workflow, and the first safe automation step.
 - Repo Intelligence is read-only in the current app: it scans local repo metadata, estimates tokens, builds bounded context packs, persists the latest summary in managed app storage, exposes Doctor warnings for stale or missing indexes, and lets users clear the saved index. It now surfaces dependency hubs alongside directories, languages, entrypoints, tests, and config hubs. It does not yet provide a full Graphy-style symbol graph, import graph, call graph, or agent-facing local API.
 
 ## Repo Intelligence

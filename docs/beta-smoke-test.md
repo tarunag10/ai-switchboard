@@ -73,7 +73,7 @@ Expect: this is treated as a Codex routing/config problem, not as an RTK compres
 
 Open Settings and inspect the coding tool connector list.
 
-Expect: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, and Goose all appear when detected or known to the connector registry. Each planned connector shows a **Planned** badge, setup phase, category, copyable manual setup guide, and disabled switch. Doctor may show **Planned coding tools detected**, but it must be a manual step with no **Repair all** action for those tools. If a report mixes repairable and manual items, Doctor says **Repair all will leave manual steps visible.** Launcher auto-setup and proxy verification should include only managed connectors such as Claude Code and Codex.
+Expect: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, and Goose all appear when detected or known to the connector registry. Each planned connector shows a **Planned** badge, setup phase, category, safe mode chips such as RTK only or Repo packs, copyable manual setup guide, and disabled switch. Cards explain what is safe today and the first automation step before config writes. Doctor may show **Planned coding tools detected**, but it must be a manual step with no **Repair all** action for those tools. If a report mixes repairable and manual items, Doctor says **Repair all will leave manual steps visible.** Launcher auto-setup and proxy verification should include only managed connectors such as Claude Code and Codex.
 
 ### S9. Repo Intelligence index health
 

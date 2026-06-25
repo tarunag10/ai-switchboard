@@ -8,6 +8,9 @@ export interface PlannedConnector {
   notes: string;
   capabilityBadges: string[];
   capabilityRows: PlannedConnectorCapability[];
+  supportedModes: string[];
+  safeToday: string;
+  firstAutomation: string;
   configSurfaces: string[];
   automationGates: string[];
   manualWorkflow: string[];
@@ -36,6 +39,11 @@ export const plannedConnectors: PlannedConnector[] = [
     notes:
       "Detect installed CLI first, then add Headroom routing only when provider configuration supports local proxy.",
     capabilityBadges: ["CLI detection", "RTK-safe today", "Provider routing pending"],
+    supportedModes: ["RTK only", "Off"],
+    safeToday:
+      "Detect binary and use RTK around verbose Gemini shell runs; provider routing remains manual.",
+    firstAutomation:
+      "Add a read-only config probe that reports detected provider surface and model/account compatibility.",
     capabilityRows: [
       {
         label: "Detection",
@@ -75,6 +83,11 @@ export const plannedConnectors: PlannedConnector[] = [
     notes:
       "Keep off-mode cleanup symmetric with Claude Code and Codex before enabling automatic setup.",
     capabilityBadges: ["CLI detection", "RTK-safe today", "Backup/restore pending"],
+    supportedModes: ["RTK only", "Off"],
+    safeToday:
+      "Detect binary and compact command output while provider config handling stays untouched.",
+    firstAutomation:
+      "Ship backup/restore for the active provider config path before enabling Headroom routing.",
     capabilityRows: [
       {
         label: "Detection",
@@ -115,6 +128,11 @@ export const plannedConnectors: PlannedConnector[] = [
     notes:
       "Treat as guided setup first because Cursor settings and extension behavior can vary by account release channel.",
     capabilityBadges: ["App detection", "Guided setup", "Settings backup pending"],
+    supportedModes: ["Repo packs", "Guided setup", "Off"],
+    safeToday:
+      "Show Cursor as a guided editor target and let users copy Repo Intelligence packs into sessions.",
+    firstAutomation:
+      "Add profile-aware settings discovery with a dry-run diff before any settings write.",
     capabilityRows: [
       {
         label: "App detection",
@@ -154,6 +172,11 @@ export const plannedConnectors: PlannedConnector[] = [
     notes:
       "Track separately from generic OpenAI-compatible clients so account/model constraints stay visible in Doctor.",
     capabilityBadges: ["CLI detection", "Model guardrails pending", "Provider routing pending"],
+    supportedModes: ["RTK only", "Off"],
+    safeToday:
+      "Detect grok or xai commands and keep model/provider choices visible instead of auto-routing.",
+    firstAutomation:
+      "Add Doctor model/account guardrails before a local provider adapter is offered.",
     capabilityRows: [
       {
         label: "Detection",
@@ -193,6 +216,11 @@ export const plannedConnectors: PlannedConnector[] = [
     notes:
       "Good fit for RTK and future repo graph context because it is frequently used inside long coding sessions.",
     capabilityBadges: ["CLI detection", "RTK-safe today", "Repo packs planned"],
+    supportedModes: ["RTK only", "Repo packs", "Off"],
+    safeToday:
+      "Use RTK for noisy verification commands and copy implementation or handoff packs into Aider.",
+    firstAutomation:
+      "Add a reversible environment wrapper that points one Aider launch at local routing without editing saved secrets.",
     capabilityRows: [
       {
         label: "Detection",
@@ -232,6 +260,11 @@ export const plannedConnectors: PlannedConnector[] = [
     notes:
       "Start with read-only detection and guided setup because Continue configs often contain multiple providers.",
     capabilityBadges: ["Config detection", "Guided setup", "Backup/restore pending"],
+    supportedModes: ["Repo packs", "Guided setup", "Off"],
+    safeToday:
+      "Guide users to review Continue provider config and copy Repo Intelligence packs manually.",
+    firstAutomation:
+      "Parse the provider list losslessly, back it up, and show an exact restore plan before writes.",
     capabilityRows: [
       {
         label: "Config detection",
@@ -271,6 +304,11 @@ export const plannedConnectors: PlannedConnector[] = [
     notes:
       "Useful target once Switchboard has a stable connector capability model for agent-style tools.",
     capabilityBadges: ["CLI detection", "MCP handoff planned", "Repo packs planned"],
+    supportedModes: ["RTK only", "Repo packs", "Off"],
+    safeToday:
+      "Detect Goose and copy Repo Intelligence packs into sessions while MCP handoff remains planned.",
+    firstAutomation:
+      "Prototype a read-only MCP handoff manifest before managing provider configuration.",
     capabilityRows: [
       {
         label: "Detection",
