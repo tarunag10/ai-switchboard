@@ -5,6 +5,12 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${REPO_ROOT}"
 
+echo "Checking semantic color tokens..."
+npm run check:colors
+
+echo "Building production frontend..."
+npm run build
+
 echo "Running frontend coverage..."
 npm run test:coverage
 

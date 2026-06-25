@@ -28,6 +28,7 @@ npm run build:mac:dmg
 ```
 
 This produces a signed `Mac-AI-Switchboard_<version>.dmg` in `src-tauri/target/release/bundle/dmg/`.
+The release gate runs semantic color checks, a production frontend build, frontend coverage, and desktop tests before publishing.
 
 If you want a universal build, install both Rust macOS targets first and then run:
 
