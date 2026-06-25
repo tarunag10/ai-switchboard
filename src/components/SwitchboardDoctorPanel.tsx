@@ -37,33 +37,37 @@ export function SwitchboardDoctorPanel({
   const title = report.status === "ok" ? "Ready" : "Needs attention";
 
   return (
-    <section className="switchboard-doctor" aria-label="Switchboard Doctor">
+    <section
+      className={`switchboard-doctor switchboard-doctor--${report.status}`}
+      aria-label="Switchboard Doctor"
+    >
       <div className="switchboard-doctor__head">
         <div>
           <p className="switchboard-doctor__eyebrow">Doctor</p>
           <h2>{title}</h2>
         </div>
-        <span
-          className={`switchboard-doctor__badge switchboard-doctor__badge--${report.status}`}
-        >
-          {report.status}
-        </span>
+        <div className="switchboard-doctor__head-actions">
+          <span
+            className={`switchboard-doctor__badge switchboard-doctor__badge--${report.status}`}
+          >
+            {report.status}
+          </span>
+          {canRepair ? (
+            <button
+              type="button"
+              className="switchboard-doctor__repair-all"
+              disabled={busyAction !== null}
+              onClick={() => onRepair("repair_all")}
+            >
+              {busyAction === "repair_all" ? "Repairing all" : "Repair all"}
+            </button>
+          ) : null}
+        </div>
       </div>
       <p className="switchboard-doctor__summary">{report.summary}</p>
 
       {successMessage ? (
         <p className="switchboard-doctor__success">{successMessage}</p>
-      ) : null}
-
-      {canRepair ? (
-        <button
-          type="button"
-          className="switchboard-doctor__repair-all"
-          disabled={busyAction !== null}
-          onClick={() => onRepair("repair_all")}
-        >
-          {busyAction === "repair_all" ? "Repairing all" : "Repair all"}
-        </button>
       ) : null}
 
       <div className="switchboard-doctor__issues">

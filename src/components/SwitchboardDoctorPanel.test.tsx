@@ -79,10 +79,13 @@ describe("SwitchboardDoctorPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Ready" })).toBeInTheDocument();
-    expect(
-      screen.getByText("Repair complete. Switchboard looks ready."),
-    ).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Ready" })).toBeInTheDocument();
+  expect(screen.getByLabelText("Switchboard Doctor")).toHaveClass(
+    "switchboard-doctor--ok",
+  );
+  expect(
+    screen.getByText("Repair complete. Switchboard looks ready."),
+  ).toBeInTheDocument();
   });
 
   it("renders issues and runs repair actions", async () => {
@@ -98,9 +101,12 @@ describe("SwitchboardDoctorPanel", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("heading", { name: "Needs attention" }),
-    ).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: "Needs attention" }),
+  ).toBeInTheDocument();
+  expect(screen.getByLabelText("Switchboard Doctor")).toHaveClass(
+    "switchboard-doctor--warning",
+  );
     expect(screen.getByText("Codex is bypassing Headroom")).toBeInTheDocument();
     expect(
       screen.getByText("Codex routing config needs repair"),
