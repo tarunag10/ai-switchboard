@@ -2721,8 +2721,9 @@ applyConnectorsIfChanged(state.clients);
 await refreshDoctorReport();
 } catch (error) {
 setSwitchboardModeError(
-error instanceof Error ? error.message : "Could not switch optimization mode."
+`${error instanceof Error ? error.message : "Could not switch optimization mode."} Switchboard and Doctor have been refreshed.`
 );
+await Promise.allSettled([refreshSwitchboardState(), refreshDoctorReport()]);
 } finally {
 setSwitchboardModeBusy(null);
 }
