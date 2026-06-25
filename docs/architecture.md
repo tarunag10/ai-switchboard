@@ -1,6 +1,6 @@
-# Headroom Architecture
+# Mac AI Switchboard Architecture
 
-Headroom v1 is split into a small desktop shell and a local daemon-oriented backend:
+Mac AI Switchboard is split into a small desktop shell and a local daemon-oriented backend built on the Headroom engine:
 
 - `src/`: Tauri frontend for the tray UI, onboarding surfaces, live activity, and research visibility.
 - `src-tauri/src/lib.rs`: Tauri command entrypoints and tray wiring.
@@ -14,6 +14,8 @@ Headroom v1 is split into a small desktop shell and a local daemon-oriented back
 ## Bootstrap strategy
 
 The downloadable app stays small because it ships only the Tauri shell, Rust daemon, and installer logic. Third-party Python components are fetched after first launch into a Headroom-managed application support directory.
+
+The packaged app identity is `Mac AI Switchboard`, but runtime storage intentionally remains under `~/Library/Application Support/Headroom` for now. That preserves existing managed Python runtimes, logs, receipts, backups, and cleanup paths until a dedicated migration can copy and verify state safely.
 
 ## v1 boundaries
 

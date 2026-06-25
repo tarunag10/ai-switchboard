@@ -4,7 +4,7 @@ After installing a new beta (`-rc.N`) build, paste this file into Claude Code an
 
 ## Setup
 
-1. Quit and relaunch Headroom from Applications.
+1. Quit and relaunch Mac AI Switchboard from Applications.
 2. Confirm the tray icon appears in the menu bar.
 3. Open the dashboard window once (so the proxy is fully booted).
 
@@ -73,8 +73,8 @@ Run these from a Claude Code session and report PASS / FAIL with the observed va
 
 ### 1. Version matches the new beta
 ```bash
-ls ~/Applications/Headroom.app/Contents/Info.plist >/dev/null && \
-  /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" /Applications/Headroom.app/Contents/Info.plist
+ls /Applications/Mac\ AI\ Switchboard.app/Contents/Info.plist >/dev/null && \
+  /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" /Applications/Mac\ AI\ Switchboard.app/Contents/Info.plist
 ```
 Expect: the `-rc.N` version you just installed.
 
@@ -167,7 +167,7 @@ echo "livez=$code"
 lsof -iTCP -sTCP:LISTEN -nP 2>/dev/null | awk -v IGNORECASE=1 '$1 ~ /(headroom|python)/ && $9 ~ /:(67[6-9][0-9]|6790)/ { print $9 }'
 kill $BLOCK_PID 2>/dev/null
 ```
-Expect: `livez=200`, a `127.0.0.1:67XX` line where `XX` is NOT `68` (the fallback worked). After the test, quit + relaunch Headroom so the next session goes back to 6768.
+Expect: `livez=200`, a `127.0.0.1:67XX` line where `XX` is NOT `68` (the fallback worked). After the test, quit + relaunch Mac AI Switchboard so the next session goes back to 6768.
 
 If the fallback is missing, check `~/Library/Application Support/Headroom/headroom/logs/` for a `[backend_port]` warning line that names the occupant and the chosen fallback port.
 
@@ -231,6 +231,6 @@ Every `rtk` invocation in this doc (checks 3, 7, C2, and above) has the same PAT
 
 ## When something fails
 
-- Proxy log silent → check `~/Library/Application Support/Headroom/headroom/logs/` for a newer log file or a crash file.
+- Proxy log silent → check `~/Library/Application Support/Headroom/headroom/logs/` for a newer log file or a crash file. This compatibility storage path remains named Headroom until a dedicated state migration is implemented.
 - RTK missing → check the managed block in `~/.zshrc` / `~/.zprofile` is intact and the shell has been reloaded.
 - MCP tool missing → restart Claude Code; the MCP server registration happens at session start.

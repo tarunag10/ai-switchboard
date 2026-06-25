@@ -102,6 +102,8 @@ Headroom sits in your menu bar and does three things:
 
 The app ships as a slim Tauri shell (~a few MB). Heavy Python components are fetched on first launch and kept in `~/Library/Application Support/Headroom`.
 
+Compatibility note: the packaged app is now **Mac AI Switchboard**, but the managed runtime/storage directory remains named `Headroom` until a dedicated state migration exists. This avoids orphaning existing runtimes, logs, receipts, backups, and cleanup paths.
+
 ## What Headroom changes on your system
 
 Full disclosure of every location Headroom writes to, so you can decide before installing. The install screen in the app shows the same list, and the uninstall flow reverses every item.
