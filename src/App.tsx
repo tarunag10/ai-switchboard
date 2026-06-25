@@ -143,6 +143,11 @@ type TrayView
 import { trackAnalyticsEvent, trackInstallMilestoneOnce } from "./lib/analytics";
 import { localOnlyModeEnabled } from "./lib/localMode";
 import {
+  uninstallDisclosureFooter,
+  uninstallDisclosureItems,
+  uninstallDisclosureTitle
+} from "./lib/uninstallDisclosure";
+import {
   deriveSwitchboardMode,
   switchboardModeLabel,
   switchboardModeSummary
@@ -6090,9 +6095,9 @@ onRepair={(action) => void handleDoctorRepair(action)}
                   </div>
                 </div>
                 <p>
-                  Reverses every change Headroom made: removes the managed Python runtime and the shell
-                  hooks, and restores <code>~/.claude/settings.json</code> and{" "}
-                  <code>~/.codex/config.toml</code> changes. Headroom will quit when done.
+                  Reverses Mac AI Switchboard changes: removes routing hooks, managed runtime storage,
+                  app state, login item, known Keychain entries, and managed config blocks.
+                  Mac AI Switchboard will quit when done.
                 </p>
                 <button
                   className="secondary-button secondary-button--small"
@@ -6102,7 +6107,7 @@ onRepair={(action) => void handleDoctorRepair(action)}
                   }}
                   type="button"
                 >
-                  Uninstall Headroom
+                  Uninstall Mac AI Switchboard
                 </button>
               </article>
 
@@ -6162,18 +6167,24 @@ onRepair={(action) => void handleDoctorRepair(action)}
               }}
             >
               <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-                <h3>Uninstall Headroom?</h3>
+                <h3>{uninstallDisclosureTitle}</h3>
                 <p>This will:</p>
                 <ul className="api-key-guide">
-                  <li>Strip Headroom's hook and env from <code>~/.claude/settings.json</code> and <code>settings.local.json</code></li>
-                  <li>Delete <code>~/.claude/hooks/headroom-rtk-rewrite.sh</code></li>
-                  <li>Delete <code>~/Library/Application Support/Headroom</code> (logs, caches, setup state)</li>
-                  <li>Delete <code>~/.headroom</code> (Python runtime)</li>
-                  <li>Remove the LaunchAgent plist from <code>~/Library/LaunchAgents/</code> and disable the login item</li>
-                  <li>Delete <code>~/Library/Preferences/com.extraheadroom.headroom*</code> and <code>~/Library/Caches/com.extraheadroom.headroom</code></li>
-                  <li>Delete Headroom's keychain entries (session token plus any API keys saved by older builds)</li>
+                  {uninstallDisclosureItems.map((item) => (
+                    <li key={item.id}>
+                      {item.text}
+                      {item.paths.length > 0 ? (
+                        <>
+                          {" "}
+                          {item.paths.map((path) => (
+                            <code key={path}>{path}</code>
+                          ))}
+                        </>
+                      ) : null}
+                    </li>
+                  ))}
                 </ul>
-                <p>You can reinstall at any time by launching Headroom again.</p>
+                <p>{uninstallDisclosureFooter}</p>
                 {uninstallError ? (
                   <p className="install-progress__error">{uninstallError}</p>
                 ) : null}
