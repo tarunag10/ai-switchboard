@@ -1,4 +1,8 @@
 import {
+  localOnlySetupLabel,
+  remoteServicesCopy,
+} from "../lib/remoteServices";
+import {
   switchboardAttentionCopy,
   switchboardModeEffect,
   switchboardModeLabel,
@@ -54,6 +58,8 @@ export function SwitchboardPanel({
   const attentionCopy = needsAttention
     ? switchboardAttentionCopy(mode, effectiveMode ?? mode)
     : "";
+  const setupLabel = localOnlySetupLabel(localOnly);
+  const remoteCopy = remoteServicesCopy(remoteServicesEnabled);
 
   return (
     <section
@@ -63,7 +69,7 @@ export function SwitchboardPanel({
       <div className="switchboard-panel__head">
         <div>
           <p className="switchboard-panel__eyebrow">
-            {localOnly ? "Local-only Mac setup" : "Headroom cloud setup"}
+            {setupLabel}
           </p>
           <h2>{modeLabel}</h2>
         </div>
@@ -120,12 +126,8 @@ export function SwitchboardPanel({
         </div>
         <div className="switchboard-panel__item">
           <span className="switchboard-panel__label">Remote services</span>
-          <strong>{remoteServicesEnabled ? "Available" : "Off"}</strong>
-          <small>
-            {remoteServicesEnabled
-              ? "Account features enabled"
-              : "No pricing, trial, Clarity, or Sentry calls"}
-          </small>
+            <strong>{remoteCopy.label}</strong>
+            <small>{remoteCopy.detail}</small>
         </div>
       </div>
       <div className="switchboard-panel__actions">

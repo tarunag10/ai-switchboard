@@ -46,7 +46,7 @@ describe("SwitchboardPanel", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("No pricing, trial, Clarity, or Sentry calls"),
+      screen.getByText("No pricing, trial, Clarity, Sentry, or Aptabase calls."),
     ).toBeInTheDocument();
   });
 
@@ -61,7 +61,9 @@ describe("SwitchboardPanel", () => {
       screen.getByRole("heading", { name: "Headroom only" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Headroom cloud setup")).toBeInTheDocument();
-    expect(screen.getByText("Account features enabled")).toBeInTheDocument();
+    expect(
+      screen.getByText("Account features and optional remote telemetry are enabled."),
+    ).toBeInTheDocument();
   });
 
   it("shows and disables resume action while resuming", () => {
