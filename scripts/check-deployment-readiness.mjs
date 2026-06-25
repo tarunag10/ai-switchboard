@@ -65,6 +65,9 @@ const requiredDocSignals = {
     "latest.json",
     "GitHub Releases",
     "npm run smoke:preflight",
+    "Rust formatting",
+    "a production frontend build",
+    "handing a DMG to a tester",
   ],
   "docs/beta-smoke-test.md": [
     "Local-only",
