@@ -166,6 +166,9 @@ export interface ClientConnectorStatus {
   supportStatus?: "managed" | "planned";
   setupPhase?: "managed" | "detect" | "guide" | "adapt";
   setupHint?: string;
+  category?: string;
+  detectionSources?: string[];
+  configLocations?: string[];
   installed: boolean;
   enabled: boolean;
   verified: boolean;

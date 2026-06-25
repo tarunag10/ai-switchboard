@@ -157,13 +157,17 @@ const requiredSourceSignals = {
   "src-tauri/src/models.rs": [
     "setup_phase",
     "setup_hint",
+    "detection_sources",
+    "config_locations",
   ],
   "src-tauri/src/client_adapters.rs": [
-    "planned_connector_setup_phase",
-    "planned_connector_setup_hint",
+    "struct PlannedClientSpec",
+    "detection_sources",
+    "config_locations",
+    "planned_connector_registry_includes_backend_detection_metadata",
     "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.",
   ],
-"src/lib/dashboardHelpers.ts": [
+  "src/lib/dashboardHelpers.ts": [
 "connectorSupportsAutomaticSetup",
 "connector.setupHint",
 "connector.setupPhase",

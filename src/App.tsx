@@ -6366,11 +6366,27 @@ onRepair={(action) => void handleDoctorRepair(action)}
                         <div className="connector-plan">
                           <div className="connector-plan__meta">
                             <span>{connectorSetupPhase}</span>
-                            <span>{plannedConnector.category}</span>
+                            <span>{connector.category ?? plannedConnector.category}</span>
                           </div>
                           <p className="connector-plan__target">
                             {plannedConnector.integrationTarget}
                           </p>
+                          {connector.detectionSources?.length ||
+                          connector.configLocations?.length ? (
+                            <div className="connector-plan__backend">
+                              <strong>Backend checks</strong>
+                              {connector.detectionSources?.length ? (
+                                <span>
+                                  Detects {connector.detectionSources.slice(0, 3).join(", ")}
+                                </span>
+                              ) : null}
+                              {connector.configLocations?.length ? (
+                                <span>
+                                  Watches {connector.configLocations.slice(0, 2).join(", ")}
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : null}
                           <div className="connector-plan__capabilities">
                             {plannedConnector.capabilityRows.map((capability) => (
                               <div

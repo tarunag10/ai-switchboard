@@ -51,34 +51,80 @@ const MANAGED_CLIENT_SPECS: [ManagedClientSpec; 2] = [
     },
 ];
 
-const PLANNED_CLIENT_SPECS: [ManagedClientSpec; 7] = [
-    ManagedClientSpec {
+#[derive(Debug, Clone, Copy)]
+struct PlannedClientSpec {
+    id: &'static str,
+    name: &'static str,
+    category: &'static str,
+    setup_phase: &'static str,
+    setup_hint: &'static str,
+    detection_sources: &'static [&'static str],
+    config_locations: &'static [&'static str],
+}
+
+const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 7] = [
+    PlannedClientSpec {
         id: "gemini_cli",
         name: "Gemini CLI",
+        category: "cli",
+        setup_phase: "guide",
+        setup_hint: "Manual guide only. Reversible Gemini provider routing is planned once config support is verified.",
+        detection_sources: &["PATH: gemini", "~/.gemini", "~/.config/gemini"],
+        config_locations: &["~/.gemini", "~/.config/gemini"],
     },
-    ManagedClientSpec {
+    PlannedClientSpec {
         id: "opencode",
         name: "OpenCode",
+        category: "cli",
+        setup_phase: "adapt",
+        setup_hint: "Manual guide only. Automatic setup waits for backed-up provider config edits and Off mode cleanup.",
+        detection_sources: &["PATH: opencode", "PATH: open-code", "~/.opencode", "~/.config/opencode"],
+        config_locations: &["~/.opencode", "~/.config/opencode"],
     },
-    ManagedClientSpec {
+    PlannedClientSpec {
         id: "cursor",
         name: "Cursor",
+        category: "editor",
+        setup_phase: "guide",
+        setup_hint: "Manual guide only. Cursor routing stays opt-in until account-specific settings are safely detected.",
+        detection_sources: &["PATH: cursor", "/Applications/Cursor.app", "~/Library/Application Support/Cursor"],
+        config_locations: &["~/Library/Application Support/Cursor"],
     },
-    ManagedClientSpec {
+    PlannedClientSpec {
         id: "grok_cli",
         name: "Grok / xAI CLI",
+        category: "cli",
+        setup_phase: "detect",
+        setup_hint: "Detection only. Stable Grok / xAI CLI provider behavior must be confirmed before routing.",
+        detection_sources: &["PATH: grok", "PATH: xai", "~/.config/xai"],
+        config_locations: &["~/.config/xai"],
     },
-    ManagedClientSpec {
+    PlannedClientSpec {
         id: "aider",
         name: "Aider",
+        category: "agent",
+        setup_phase: "adapt",
+        setup_hint: "Manual guide only. RTK-only mode is available while provider wrapping and repo context support are built.",
+        detection_sources: &["PATH: aider", "~/.aider.conf.yml", "~/.config/aider"],
+        config_locations: &["~/.aider.conf.yml", "~/.config/aider"],
     },
-    ManagedClientSpec {
+    PlannedClientSpec {
         id: "continue",
         name: "Continue",
+        category: "editor",
+        setup_phase: "guide",
+        setup_hint: "Manual guide only. Continue provider configs require explicit backup and restore coverage first.",
+        detection_sources: &["~/.continue", "~/Library/Application Support/Continue"],
+        config_locations: &["~/.continue", "~/Library/Application Support/Continue"],
     },
-    ManagedClientSpec {
+    PlannedClientSpec {
         id: "goose",
         name: "Goose",
+        category: "agent",
+        setup_phase: "adapt",
+        setup_hint: "Manual guide only. Provider routing and MCP handoff support are planned after reversible setup coverage.",
+        detection_sources: &["PATH: goose", "~/.config/goose"],
+        config_locations: &["~/.config/goose"],
     },
 ];
 
@@ -473,6 +519,9 @@ pub fn list_client_connectors(
                 support_status: ClientConnectorSupportStatus::Managed,
                 setup_phase: "managed".to_string(),
                 setup_hint: "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.".to_string(),
+                category: "managed".to_string(),
+                detection_sources: vec!["App state and local config".to_string()],
+                config_locations: managed_connector_config_locations(spec.id),
                 installed,
                 enabled,
                 verified,
@@ -492,8 +541,19 @@ pub fn list_client_connectors(
                 client_id: spec.id.to_string(),
                 name: spec.name.to_string(),
                 support_status: ClientConnectorSupportStatus::Planned,
-                setup_phase: planned_connector_setup_phase(spec.id).to_string(),
-                setup_hint: planned_connector_setup_hint(spec.id).to_string(),
+                setup_phase: spec.setup_phase.to_string(),
+                setup_hint: spec.setup_hint.to_string(),
+                category: spec.category.to_string(),
+                detection_sources: spec
+                    .detection_sources
+                    .iter()
+                    .map(|source| source.to_string())
+                    .collect(),
+                config_locations: spec
+                    .config_locations
+                    .iter()
+                    .map(|location| location.to_string())
+                    .collect(),
                 installed,
                 enabled: false,
             verified: false,
@@ -504,42 +564,19 @@ pub fn list_client_connectors(
     Ok(connectors)
 }
 
-fn planned_connector_setup_phase(client_id: &str) -> &'static str {
+fn managed_connector_config_locations(client_id: &str) -> Vec<String> {
     match client_id {
-        "grok_cli" => "detect",
-        "gemini_cli" | "cursor" | "continue" => "guide",
-        "opencode" | "aider" | "goose" => "adapt",
-        _ => "detect",
+        "claude_code" => vec![
+            "~/.claude/settings.json".to_string(),
+            "~/.claude/settings.local.json".to_string(),
+        ],
+        "codex" => vec![
+            "~/.codex/config.toml".to_string(),
+            "~/.codex/AGENTS.md".to_string(),
+        ],
+        _ => Vec::new(),
     }
 }
-
-fn planned_connector_setup_hint(client_id: &str) -> &'static str {
-    match client_id {
-        "gemini_cli" => {
-            "Manual guide only. Reversible Gemini provider routing is planned after config support is verified."
-        }
-        "opencode" => {
-            "Manual guide only. Automatic setup waits for backed-up provider config edits and off-mode cleanup."
-        }
-        "cursor" => {
-            "Manual guide only. Cursor routing stays opt-in until account-specific settings are safely detected."
-        }
-        "grok_cli" => {
-            "Detection only. Stable Grok / xAI CLI provider behavior must be confirmed before routing."
-        }
-        "aider" => {
-            "Manual guide only. RTK-only mode is available while provider wrapping and repo context support are built."
-        }
-        "continue" => {
-            "Manual guide only. Continue provider configs require explicit backup and restore coverage first."
-        }
-        "goose" => {
-            "Manual guide only. Provider routing and MCP handoff support are planned after reversible setup coverage."
-        }
-        _ => "Manual guide only. Automatic setup is not available yet.",
-    }
-}
-
 pub fn disable_client_setup(client_id: &str) -> Result<()> {
     let mut state = load_setup_state();
 
@@ -3357,6 +3394,30 @@ mod tests {
     }
 
     #[test]
+    fn planned_connector_registry_includes_backend_detection_metadata() {
+        for spec in PLANNED_CLIENT_SPECS {
+            assert!(matches!(spec.category, "cli" | "editor" | "agent"));
+            assert!(matches!(spec.setup_phase, "detect" | "guide" | "adapt"));
+            assert!(
+                !spec.detection_sources.is_empty(),
+                "{} should have detection sources",
+                spec.id
+            );
+            assert!(
+                !spec.config_locations.is_empty(),
+                "{} should have config locations",
+                spec.id
+            );
+            assert!(
+                spec.setup_hint.contains("Manual guide")
+                    || spec.setup_hint.contains("Detection only"),
+                "{} should stay manual until reversible adapters exist",
+                spec.id
+            );
+        }
+    }
+
+    #[test]
     fn planned_connectors_are_detected_but_not_enabled_or_verified() {
         let detected_clients = vec![
             ClientStatus {
@@ -3389,6 +3450,9 @@ mod tests {
             assert!(!connector.enabled);
             assert!(!connector.verified);
             assert_eq!(connector.last_configured_at, None);
+            assert!(!connector.category.is_empty());
+            assert!(!connector.detection_sources.is_empty());
+            assert!(!connector.config_locations.is_empty());
         }
 
         assert!(connectors.iter().any(|connector| {
