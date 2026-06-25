@@ -39,6 +39,7 @@ export interface RepoGraphSummary {
   entrypoints: RepoFileSignal[];
   likelyTests: RepoFileSignal[];
   configHubs: RepoFileSignal[];
+  dependencyHubs?: RepoFileSignal[];
 }
 
 export interface RepoIntelligenceSummary {
@@ -82,6 +83,7 @@ export interface RepoAgentManifest {
     entrypointCount: number;
     likelyTestCount: number;
     configHubCount: number;
+    dependencyHubCount: number;
   };
   packs: Array<{
     id: string;
@@ -378,6 +380,7 @@ export function buildRepoAgentManifest(
       entrypointCount: summary.graph?.entrypoints.length ?? 0,
       likelyTestCount: summary.graph?.likelyTests.length ?? 0,
       configHubCount: summary.graph?.configHubs.length ?? 0,
+      dependencyHubCount: summary.graph?.dependencyHubs?.length ?? 0,
     },
     packs: summary.packs.map((pack) => ({
       id: pack.id,
@@ -462,6 +465,9 @@ function formatRepoGraphMarkdown(graph: RepoGraphSummary | undefined): string {
   const config = graph.configHubs
     .map((file) => `- ${file.path}`)
     .slice(0, 8);
+  const dependencies = (graph.dependencyHubs ?? [])
+    .map((file) => `- ${file.path}`)
+    .slice(0, 8);
 
   if (directories.length) {
     lines.push("", "Top directories", ...directories);
@@ -477,6 +483,9 @@ function formatRepoGraphMarkdown(graph: RepoGraphSummary | undefined): string {
   }
   if (config.length) {
     lines.push("", "Config hubs", ...config);
+  }
+  if (dependencies.length) {
+    lines.push("", "Dependency hubs", ...dependencies);
   }
 
   return lines.join("\n");
@@ -528,6 +537,7 @@ function buildRepoGraphSummary(files: RepoFileSignal[]): RepoGraphSummary {
     entrypoints: sourceAndConfig.filter(isLikelyEntrypoint).slice(0, 12),
     likelyTests: included.filter((file) => file.role === "test").slice(0, 12),
     configHubs: included.filter((file) => file.role === "config").slice(0, 12),
+    dependencyHubs: files.filter(isDependencyHub).slice(0, 12),
   };
 }
 
@@ -573,6 +583,20 @@ function topDirectory(filePath: string): string {
     return ".";
   }
   return first;
+}
+
+function isDependencyHub(file: RepoFileSignal): boolean {
+  const name = file.path.split("/").pop()?.toLowerCase() ?? file.path.toLowerCase();
+  return (
+    file.role === "lockfile" ||
+    name === "package.json" ||
+    name === "pyproject.toml" ||
+    name === "requirements.txt" ||
+    name === "cargo.toml" ||
+    name === "go.mod" ||
+    name === "gemfile" ||
+    name === "podfile"
+  );
 }
 
 function isLikelyEntrypoint(file: RepoFileSignal): boolean {

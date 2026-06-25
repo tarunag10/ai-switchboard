@@ -77,26 +77,31 @@ describe("repoIntelligence", () => {
       { path: "src/main.tsx", bytes: 1400 },
       { path: "src/App.test.tsx", bytes: 2000 },
       { path: "src-tauri/src/lib.rs", bytes: 5000 },
-      { path: "scripts/release.mjs", bytes: 1200 },
-      { path: "package.json", bytes: 800 },
-      { path: ".env.local", bytes: 200 },
+{ path: "scripts/release.mjs", bytes: 1200 },
+{ path: "package.json", bytes: 800 },
+{ path: "package-lock.json", bytes: 1600 },
+{ path: ".env.local", bytes: 200 },
     ]);
 
     expect(summary.graph?.topDirectories[0].label).toBe("src");
     expect(summary.graph?.topLanguages.map((node) => node.label)).toContain("React");
     expect(summary.graph?.entrypoints.map((file) => file.path)).toContain("src/main.tsx");
     expect(summary.graph?.likelyTests.map((file) => file.path)).toContain("src/App.test.tsx");
-    expect(summary.graph?.configHubs.map((file) => file.path)).toContain("package.json");
-    expect(summary.graph?.configHubs.map((file) => file.path)).not.toContain(".env.local");
-  });
+expect(summary.graph?.configHubs.map((file) => file.path)).toContain("package.json");
+expect(summary.graph?.configHubs.map((file) => file.path)).not.toContain(".env.local");
+expect(summary.graph?.dependencyHubs?.map((file) => file.path)).toEqual([
+"package.json",
+]);
+});
 
   it("formats bounded context packs for agent handoff", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },
       { path: "src/App.test.tsx", bytes: 2000 },
-      { path: "docs/install.md", bytes: 1200 },
-      { path: "package.json", bytes: 800 },
-    ]);
+{ path: "docs/install.md", bytes: 1200 },
+{ path: "package.json", bytes: 800 },
+{ path: "package-lock.json", bytes: 1600 },
+]);
     summary.repoRoot = "/Users/me/app";
     summary.indexedAt = "2026-06-25T10:00:00Z";
 
@@ -105,9 +110,11 @@ describe("repoIntelligence", () => {
     expect(markdown).toContain("# Repo Intelligence Context Pack: /Users/me/app");
     expect(markdown).toContain("Indexed at: 2026-06-25T10:00:00Z");
     expect(markdown).toContain("## Repo Graph Summary");
-    expect(markdown).toContain("Top directories");
-    expect(markdown).toContain("Likely tests");
-    expect(markdown).toContain("## Implementation Pack");
+expect(markdown).toContain("Top directories");
+expect(markdown).toContain("Likely tests");
+expect(markdown).toContain("Dependency hubs");
+expect(markdown).toContain("- package.json");
+expect(markdown).toContain("## Implementation Pack");
     expect(markdown).toContain("src/App.tsx");
     expect(markdown).toContain("Estimated savings vs full scan");
   });
@@ -137,9 +144,10 @@ it("formats an agent-readable manifest for external coding tools", () => {
   const summary = buildRepoIntelligenceSummary([
     { path: "src/App.tsx", bytes: 4000 },
     { path: "src/App.test.tsx", bytes: 2000 },
-    { path: "docs/install.md", bytes: 1200 },
-    { path: "package.json", bytes: 800 },
-    { path: ".env.local", bytes: 300 },
+{ path: "docs/install.md", bytes: 1200 },
+{ path: "package.json", bytes: 800 },
+{ path: "package-lock.json", bytes: 1600 },
+{ path: ".env.local", bytes: 300 },
   ]);
   summary.repoRoot = "/Users/me/app";
   const manifest = buildRepoAgentManifest(summary, "2026-06-25T10:00:00Z");
@@ -157,7 +165,8 @@ it("formats an agent-readable manifest for external coding tools", () => {
     "handoff",
   ]);
   expect(manifest.packs[0].command).toContain("--pack implementation --format markdown");
-  expect(manifest.graph.available).toBe(true);
+expect(manifest.graph.available).toBe(true);
+expect(manifest.graph.dependencyHubCount).toBe(1);
 
   const parsed = JSON.parse(formatRepoAgentManifestJson(summary, "2026-06-25T10:00:00Z"));
   expect(parsed.packs[0].estimatedTokensAvoided).toBeGreaterThan(0);
