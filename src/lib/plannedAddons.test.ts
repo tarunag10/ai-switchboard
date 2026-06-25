@@ -26,6 +26,23 @@ describe("planned add-ons", () => {
   it("keeps planned add-on ids stable for UI rendering", () => {
     expect(plannedAddons.map((addon) => addon.id)).toEqual([
       "repo_intelligence",
+      "agent_connectors",
     ]);
+  });
+
+  it("tracks popular planned coding-agent connectors", () => {
+    const connectors = getPlannedAddon("agent_connectors");
+
+    expect(connectors).toMatchObject({
+      name: "Agent Connectors",
+      statusLabel: "Planned",
+    });
+    expect(connectors?.description).toContain("Gemini CLI");
+    expect(connectors?.description).toContain("OpenCode");
+    expect(connectors?.description).toContain("Cursor");
+    expect(connectors?.description).toContain("Grok / xAI CLI");
+    expect(connectors?.bullets.join(" ")).toContain("read-only detection");
+    expect(connectors?.bullets.join(" ")).toContain("reversible local");
+    expect(connectors?.bullets.join(" ")).toContain("Doctor repair");
   });
 });

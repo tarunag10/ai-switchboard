@@ -20,22 +20,27 @@ For installation paths, first-run footprint, DMG expectations, and uninstall beh
 
 ## Supported Local Tools
 
-| Tool              | Role                                                                      | Status        |
-| ----------------- | ------------------------------------------------------------------------- | ------------- |
-| Headroom          | Local prompt/context optimization proxy                                   | Core runtime  |
-| RTK               | Token-optimized command output for shells and agents                      | Add-on / mode |
-| Claude Code       | Local client routing and RTK hook target                                  | Supported     |
-| Codex             | Local provider/base-url routing target                                    | Supported     |
-| Gemini CLI        | Detected in the switchboard; reversible routing adapter pending           | Planned       |
-| OpenCode          | Detected in the switchboard; reversible routing adapter pending           | Planned       |
-| Ponytail          | Agent behavior nudge toward smaller changes                               | Add-on        |
-| MarkItDown        | Document-to-Markdown preprocessing                                        | Add-on        |
-| Repo Intelligence | Future local Graphy-style code graph, symbol index, and repo memory layer | Planned       |
+| Tool              | Role                                                                     | Status        |
+| ----------------- | ------------------------------------------------------------------------ | ------------- |
+| Headroom          | Local prompt/context optimization proxy                                  | Core runtime  |
+| RTK               | Token-optimized command output for shells and agents                     | Add-on / mode |
+| Claude Code       | Local client routing and RTK hook target                                 | Supported     |
+| Codex             | Local provider/base-url routing target                                   | Supported     |
+| Gemini CLI        | Detected in the switchboard; reversible routing adapter pending          | Planned       |
+| OpenCode          | Detected in the switchboard; reversible routing adapter pending          | Planned       |
+| Cursor            | Editor/agent config detection and guided routing adapter pending         | Planned       |
+| Grok / xAI CLI    | Provider/base-url adapter pending once stable CLI surface is identified  | Planned       |
+| Aider             | Agent wrapper plus RTK and Repo Intelligence context handoff pending     | Planned       |
+| Continue          | Editor-agent config adapter with explicit backup/restore pending         | Planned       |
+| Goose             | Agent provider adapter and MCP/repo-intelligence handoff pending         | Planned       |
+| Ponytail          | Agent behavior nudge toward smaller changes                              | Add-on        |
+| MarkItDown        | Document-to-Markdown preprocessing                                       | Add-on        |
+| Repo Intelligence | Future local Graphy-style code graph, symbol index, repo memory layer    | Planned       |
 
 ## Recommended Future Integrations
 
 - **Repo Intelligence / Graphy-style repo graph:** planned, not fully added yet. The app does not currently ship a complete Graphy-style integration, graph builder, token-saving graph context layer, or UI workflow. Recommended path: local read-only repo index, tree-sitter-backed symbol extraction, dependency/call-graph analysis, repomix-style bounded repo packs, MCP repo-memory adapter, visible UI workflow, and tests proving no remote graph service or project-file mutation. See [docs/repo-intelligence-plan.md](docs/repo-intelligence-plan.md).
-- **Gemini CLI and OpenCode routing:** detected and labeled planned today. Next step: reversible local config adapters with the same backup/off-mode behavior as Claude Code and Codex.
+- **Agent connector expansion:** Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, and similar coding agents are planned as local-first connectors. Build order should be detection first, guided setup second, reversible config adapters third, then Doctor repair/off-mode cleanup once each tool has a stable config surface.
 - **Add-on hardening:** RTK, Ponytail, and MarkItDown are installable add-ons today; next work should add deeper health checks, smoke-test actions, and clearer savings attribution per add-on.
 
 ## Local-First Defaults
