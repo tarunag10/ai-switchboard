@@ -1118,6 +1118,21 @@ function RepoIntelligencePreview() {
   const [indexError, setIndexError] = useState<string | null>(null);
   const isPreview = summary === repoIntelligencePreview;
 
+  useEffect(() => {
+    let cancelled = false;
+    invoke<RepoIntelligenceSummary | null>("get_latest_repo_intelligence_summary")
+      .then((latest) => {
+        if (!cancelled && latest) {
+          setSummary(latest);
+          setRepoPath(latest.repoRoot ?? "");
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function runRepoIndex() {
     const trimmedPath = repoPath.trim();
     if (!trimmedPath) {
@@ -1169,6 +1184,11 @@ function RepoIntelligencePreview() {
       </div>
       {summary.repoRoot ? (
         <p className="repo-intelligence-preview__path">{summary.repoRoot}</p>
+      ) : null}
+      {summary.indexedAt ? (
+        <p className="repo-intelligence-preview__path">
+          Indexed {new Date(summary.indexedAt).toLocaleString()}
+        </p>
       ) : null}
       {indexError ? <p className="install-progress__error">{indexError}</p> : null}
       <div className="repo-intelligence-preview__grid">

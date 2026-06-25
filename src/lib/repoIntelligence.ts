@@ -27,6 +27,7 @@ export interface RepoContextPack {
 }
 
 export interface RepoIntelligenceSummary {
+  indexedAt?: string;
   repoRoot?: string;
   totalFiles: number;
   indexedFiles: number;

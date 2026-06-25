@@ -126,6 +126,7 @@ pub struct RepoContextPack {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RepoIntelligenceSummary {
+    pub indexed_at: String,
     pub repo_root: String,
     pub total_files: u64,
     pub indexed_files: u64,

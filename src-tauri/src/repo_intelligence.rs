@@ -3,8 +3,10 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
+use chrono::Utc;
 
 use crate::models::{RepoContextPack, RepoFileRole, RepoFileSignal, RepoIntelligenceSummary};
+use crate::storage::{app_data_dir, config_file, ensure_data_dirs};
 
 const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
@@ -85,6 +87,7 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
     ];
 
     Ok(RepoIntelligenceSummary {
+        indexed_at: Utc::now().to_rfc3339(),
         repo_root: repo_root.display().to_string(),
         total_files,
         indexed_files: indexed.len() as u64,
@@ -93,6 +96,32 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
         role_counts,
         packs,
     })
+}
+
+pub fn save_latest_summary(summary: &RepoIntelligenceSummary) -> Result<()> {
+    let app_dir = app_data_dir();
+    ensure_data_dirs(&app_dir)?;
+    let path = latest_summary_path();
+    let json = serde_json::to_vec_pretty(summary)?;
+    std::fs::write(&path, json)
+        .with_context(|| format!("writing repo intelligence summary {}", path.display()))?;
+    Ok(())
+}
+
+pub fn load_latest_summary() -> Result<Option<RepoIntelligenceSummary>> {
+    let path = latest_summary_path();
+    if !path.exists() {
+        return Ok(None);
+    }
+    let raw = std::fs::read(&path)
+        .with_context(|| format!("reading repo intelligence summary {}", path.display()))?;
+    let summary = serde_json::from_slice(&raw)
+        .with_context(|| format!("parsing repo intelligence summary {}", path.display()))?;
+    Ok(Some(summary))
+}
+
+fn latest_summary_path() -> PathBuf {
+    config_file(&app_data_dir(), "repo-intelligence-latest.json")
 }
 
 fn normalize_repo_root(path: &Path) -> Result<PathBuf> {

@@ -246,7 +246,14 @@ fn check_zero_spend_anomaly(dashboard: &DashboardState) {
 
 #[tauri::command]
 fn build_repo_intelligence_summary(repo_path: String) -> Result<RepoIntelligenceSummary, String> {
-    repo_intelligence::summarize_repo(repo_path).map_err(|err| err.to_string())
+    let summary = repo_intelligence::summarize_repo(repo_path).map_err(|err| err.to_string())?;
+    repo_intelligence::save_latest_summary(&summary).map_err(|err| err.to_string())?;
+    Ok(summary)
+}
+
+#[tauri::command]
+fn get_latest_repo_intelligence_summary() -> Result<Option<RepoIntelligenceSummary>, String> {
+    repo_intelligence::load_latest_summary().map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -3779,6 +3786,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_dashboard_state,
             build_repo_intelligence_summary,
+            get_latest_repo_intelligence_summary,
             get_app_update_configuration,
             check_for_app_update,
             install_app_update,
