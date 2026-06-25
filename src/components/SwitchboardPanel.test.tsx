@@ -52,6 +52,11 @@ describe("SwitchboardPanel", () => {
     ),
   ).toBeInTheDocument();
   expect(
+    screen.getByRole("button", {
+      name: /Full optimization: Routes supported clients through Headroom/,
+    }).querySelector("svg"),
+  ).not.toBeNull();
+  expect(
     screen.getByRole("button", { name: "Switch to RTK only" }),
   ).toBeInTheDocument();
     expect(

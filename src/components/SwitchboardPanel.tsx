@@ -1,3 +1,11 @@
+import {
+  Brain,
+  Power,
+  Sparkle,
+  Terminal,
+  type Icon,
+} from "@phosphor-icons/react";
+
 import { codexConcurrencyGuidance } from "../lib/codexConcurrencyGuidance";
 import {
   localOnlySetupLabel,
@@ -32,6 +40,12 @@ interface SwitchboardPanelProps {
 }
 
 const SWITCHBOARD_MODES: SwitchboardMode[] = ["full", "headroom", "rtk", "off"];
+const SWITCHBOARD_MODE_ICONS: Record<SwitchboardMode, Icon> = {
+  full: Sparkle,
+  headroom: Brain,
+  rtk: Terminal,
+  off: Power,
+};
 
 export function SwitchboardPanel({
   mode,
@@ -93,24 +107,31 @@ export function SwitchboardPanel({
         role="group"
         aria-label="Switch optimization mode"
       >
-        {SWITCHBOARD_MODES.map((option) => (
-          <button
-            key={option}
-            type="button"
-            className={`switchboard-panel__mode${option === mode ? " is-active" : ""}`}
-            onClick={() => onSetMode(option)}
-            disabled={modeBusy !== null}
-            aria-pressed={option === mode}
-            aria-label={
-              modeBusy === option
-                ? `Applying ${switchboardModeLabel(option)}`
-                : `${switchboardModeLabel(option)}: ${switchboardModeEffect(option)}`
-            }
-            title={switchboardModeEffect(option)}
-          >
-            {modeBusy === option ? "Applying" : switchboardModeLabel(option)}
-          </button>
-        ))}
+        {SWITCHBOARD_MODES.map((option) => {
+          const ModeIcon = SWITCHBOARD_MODE_ICONS[option];
+
+          return (
+            <button
+              key={option}
+              type="button"
+              className={`switchboard-panel__mode${option === mode ? " is-active" : ""}`}
+              onClick={() => onSetMode(option)}
+              disabled={modeBusy !== null}
+              aria-pressed={option === mode}
+              aria-label={
+                modeBusy === option
+                  ? `Applying ${switchboardModeLabel(option)}`
+                  : `${switchboardModeLabel(option)}: ${switchboardModeEffect(option)}`
+              }
+              title={switchboardModeEffect(option)}
+            >
+              <ModeIcon aria-hidden weight="duotone" />
+              <span>
+                {modeBusy === option ? "Applying" : switchboardModeLabel(option)}
+              </span>
+            </button>
+          );
+        })}
       </div>
       <p className="switchboard-panel__mode-effect">{modeEffect}</p>
       {codexGuidance ? (
