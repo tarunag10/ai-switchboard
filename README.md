@@ -1,25 +1,50 @@
-# Headroom Desktop
+# Mac AI Switchboard
 
-**Cut your LLM API bills by ~50% without changing how you code.**
+**A local-first Mac menu bar switchboard for Headroom, RTK, Claude Code, Codex, and token-saving coding add-ons.**
 
-> **Pricing:** Headroom has a free tier and paid plans — see [pricing](https://extraheadroom.com/pricing). The desktop shell in this repo is MIT-licensed; account features and paid plans are opt-in.
+[![Repository](https://img.shields.io/badge/GitHub-tarunag10%2Fmac--ai--switchboard-blue?style=for-the-badge&logo=github)](https://github.com/tarunag10/mac-ai-switchboard)
+[![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
-[![Website](https://img.shields.io/badge/extraheadroom.com-website-blue?style=for-the-badge)](https://extraheadroom.com)&nbsp;&nbsp;[![Download for macOS](https://img.shields.io/github/v/release/gglucass/headroom-desktop?label=Download%20for%20macOS&style=for-the-badge&logo=apple&logoColor=white&color=000000)](https://github.com/gglucass/headroom-desktop/releases/latest)
+Mac AI Switchboard is a personal, open-source wrapper around the Headroom Desktop shell that is being reshaped into a privacy-first Mac utility. The goal is an on/off control panel for local coding-agent optimization:
 
-> **Stable:** macOS 14 (Sonoma) or later on Apple Silicon (M1 or later)
->
-> **Preview:** Linux x86_64 builds are experimental and currently support the core proxy flow only.
+- **Full optimization:** Headroom proxy routing plus RTK command-output compression.
+- **Headroom only:** route supported clients through the local Headroom proxy.
+- **RTK only:** keep command-output compression without routing LLM traffic through Headroom.
+- **Off:** remove local routing hooks and leave coding clients behaving normally.
 
-### Install
+The app is **local-first**, not offline-only. Claude/OpenAI model calls still go to their normal remote APIs; the switchboard, routing, reversible client config edits, RTK hooks, Doctor/repair workflows, and telemetry defaults live on your Mac.
 
-1. Go to the [latest release](https://github.com/gglucass/headroom-desktop/releases/latest)
-2. On macOS, download the `.dmg` file (for example `Headroom_0.2.9.dmg`)
-3. Open the DMG, drag **Headroom** to Applications
-4. Launch Headroom — it appears in your menu bar and walks you through setup
+> Current status: active productization branch. The standalone repository is public, but release artifacts are not published yet. Build from source for now.
 
-Headroom is signed and notarized, so macOS will open it without Gatekeeper warnings.
+## Supported Local Tools
 
-Linux preview artifacts are published on the same release page. Today they are best treated as a preview for the core Headroom proxy, Claude Code routing, and RTK flow. `Headroom Learn` is not supported yet on Linux preview builds.
+| Tool | Role | Status |
+|------|------|--------|
+| Headroom | Local prompt/context optimization proxy | Core runtime |
+| RTK | Token-optimized command output for shells and agents | Add-on / mode |
+| Claude Code | Local client routing and RTK hook target | Supported |
+| Codex | Local provider/base-url routing target | Supported |
+| Ponytail | Agent behavior nudge toward smaller changes | Add-on |
+| MarkItDown | Document-to-Markdown preprocessing | Add-on |
+| Repo graph tools | Future local code-intelligence layer | Planned |
+
+## Local-First Defaults
+
+For a personal build, create `.env` with:
+
+```bash
+HEADROOM_LOCAL_ONLY="1"
+VITE_HEADROOM_LOCAL_ONLY="1"
+VITE_HEADROOM_REMOTE_TELEMETRY="0"
+```
+
+In local-only mode the app hides cloud upgrade/auth surfaces, disables Clarity/Sentry/Aptabase unless explicitly re-enabled, and keeps the Home view focused on Mac-side switchboard controls and Doctor repairs.
+
+## Upstream Foundation
+
+This project started from the MIT-licensed Headroom Desktop shell. The current work keeps the useful Tauri/Rust + React + managed-runtime foundation while moving the product toward a standalone local Mac AI work switchboard.
+
+The original Headroom Desktop documentation continues below until the standalone docs are fully rewritten.
 
 ---
 
