@@ -133,6 +133,7 @@ import {
 import {
 activityFeedSignature,
 notificationActionView,
+safeTrayViewForMode,
 serializeState,
 shouldShowCodexNudge,
 type TrayView
@@ -1250,15 +1251,15 @@ const localOnlyMode = localOnlyModeEnabled();
           return;
         }
         const view = notificationActionView(action);
-        if (view) {
-          setActiveView(view);
-        }
+if (view) {
+setActiveView(safeTrayViewForMode(view, localOnlyMode));
+}
       }
     );
     return () => {
       void unlistenPromise.then((unlisten) => unlisten());
     };
-  }, []);
+}, [localOnlyMode]);
 
   useEffect(() => {
     if (localOnlyMode && (activeView === "upgrade" || activeView === "upgradeAuth")) {
@@ -2990,8 +2991,8 @@ await refreshDoctorReport();
     }
   }
 
-  function openUpgradeAuthView(planId: UpgradePlanId | null = null) {
-    setActiveView("upgradeAuth");
+function openUpgradeAuthView(planId: UpgradePlanId | null = null) {
+setActiveView(safeTrayViewForMode("upgradeAuth", localOnlyMode));
     setPendingUpgradePlanId(planId);
     setAuthFlowError(null);
     setAuthFlowSuccess(null);
@@ -3049,7 +3050,7 @@ await refreshDoctorReport();
       setAuthCodeRequestedFor(null);
       setAuthFlowSuccess("Headroom account connected.");
       setPendingUpgradePlanId(null);
-      setActiveView("upgrade");
+setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       await refreshConnectors();
     } catch (error) {
       setAuthFlowError(describeInvokeError(error, "Could not verify sign-in code."));

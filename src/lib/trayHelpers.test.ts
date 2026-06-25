@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { activityFeedSignature, notificationActionView, shouldShowCodexNudge } from "./trayHelpers";
+import { activityFeedSignature, notificationActionView, safeTrayViewForMode, shouldShowCodexNudge } from "./trayHelpers";
 import type { ActivityFeedResponse, ClientConnectorStatus, HeadroomPricingStatus } from "./types";
 
 const emptySnapshot: ActivityFeedResponse = {
@@ -49,6 +49,24 @@ describe("notificationActionView", () => {
     expect(notificationActionView(null)).toBeNull();
     expect(notificationActionView("not-a-real-action")).toBeNull();
     expect(notificationActionView("")).toBeNull();
+  });
+});
+
+describe("safeTrayViewForMode", () => {
+  it("redirects upgrade views to home in local-only mode", () => {
+    expect(safeTrayViewForMode("upgrade", true)).toBe("home");
+    expect(safeTrayViewForMode("upgradeAuth", true)).toBe("home");
+  });
+
+  it("keeps local utility views in local-only mode", () => {
+    expect(safeTrayViewForMode("home", true)).toBe("home");
+    expect(safeTrayViewForMode("optimization", true)).toBe("optimization");
+    expect(safeTrayViewForMode("settings", true)).toBe("settings");
+  });
+
+  it("keeps upgrade views when remote services are enabled", () => {
+    expect(safeTrayViewForMode("upgrade", false)).toBe("upgrade");
+    expect(safeTrayViewForMode("upgradeAuth", false)).toBe("upgradeAuth");
   });
 });
 

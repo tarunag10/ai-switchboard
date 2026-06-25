@@ -39,6 +39,13 @@ export function notificationActionView(action: string | null): TrayView | null {
 /// two polls in a row (the common case between compressions). Each tile
 /// contributes a stable id for its slot — `null` when absent — so any slot
 /// flip shows up in the signature.
+export function safeTrayViewForMode(view: TrayView, localOnly: boolean): TrayView {
+if (!localOnly) {
+return view;
+}
+return view === "upgrade" || view === "upgradeAuth" ? "home" : view;
+}
+
 export function shouldShowCodexNudge(
 connector: ClientConnectorStatus | null | undefined,
 pricingStatus: HeadroomPricingStatus | null,
