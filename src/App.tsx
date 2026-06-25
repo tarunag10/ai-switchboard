@@ -15,6 +15,7 @@ import {
   Brain,
   Calculator,
   CaretLeft,
+  Copy,
   Cpu,
   CurrencyCircleDollar,
   CurrencyDollar,
@@ -63,6 +64,7 @@ maybeFireUrgentRuntimeNotification,
 import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
 import {
   getPlannedConnector,
+  getPlannedConnectorSetupGuide,
   plannedConnectors,
   type PlannedConnector
 } from "./lib/plannedConnectors";
@@ -1182,6 +1184,7 @@ export default function App() {
   const [connectors, setConnectors] = useState<ClientConnectorStatus[]>([]);
   const [openConnectorHelpId, setOpenConnectorHelpId] = useState<string | null>(null);
   const [openConnectorWarningId, setOpenConnectorWarningId] = useState<string | null>(null);
+  const [plannedConnectorCopyNotice, setPlannedConnectorCopyNotice] = useState<string | null>(null);
   const [connectorsBusy, setConnectorsBusy] = useState(false);
   const [connectorPhase, setConnectorPhase] = useState<"disabled" | "verifying" | "healthy">("healthy");
   const [connectorsError, setConnectorsError] = useState<string | null>(null);
@@ -3022,6 +3025,20 @@ await refreshDoctorReport();
     } catch {
       setLearnInstallCopyNotice("Copy failed. Select the command and copy manually.");
       window.setTimeout(() => setLearnInstallCopyNotice(null), 3000);
+    }
+  }
+
+  async function copyPlannedConnectorCommand(command: string, connectorName: string) {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(command);
+      setPlannedConnectorCopyNotice(`${connectorName} command copied.`);
+      window.setTimeout(() => setPlannedConnectorCopyNotice(null), 2000);
+    } catch {
+      setPlannedConnectorCopyNotice("Copy failed. Select the command manually.");
+      window.setTimeout(() => setPlannedConnectorCopyNotice(null), 3000);
     }
   }
 
@@ -6058,6 +6075,9 @@ onRepair={(action) => void handleDoctorRepair(action)}
                     connector.supportStatus === "planned"
                       ? getPlannedConnector(connector.clientId)
                       : null;
+                  const plannedSetupGuide = plannedConnector
+                    ? getPlannedConnectorSetupGuide(plannedConnector.id)
+                    : null;
                   return (
                     <article className="connector-item" key={connector.clientId}>
                       <div>
@@ -6079,11 +6099,11 @@ onRepair={(action) => void handleDoctorRepair(action)}
                                 )
                               }
                               type="button"
-                              aria-label={`Show setup details for ${connector.name}`}
-                              aria-expanded={openConnectorHelpId === connector.clientId}
-                            >
-                              i
-                            </button>
+                        aria-label={`Show setup details for ${connector.name}`}
+                        aria-expanded={openConnectorHelpId === connector.clientId}
+                      >
+                        <Info size={11} weight="bold" />
+                      </button>
                           </h3>
                           {openConnectorHelpId === connector.clientId ? (
                             <p className="connector-tooltip">
@@ -6106,6 +6126,32 @@ onRepair={(action) => void handleDoctorRepair(action)}
                               plannedConnector
                             )}
                           </p>
+                          {plannedSetupGuide ? (
+                            <div className="connector-plan__guide">
+                              <div>
+                                <strong>{plannedSetupGuide.label}</strong>
+                                <code>{plannedSetupGuide.command}</code>
+                              </div>
+                              <button
+                                type="button"
+                                className="connector-plan__copy"
+                                onClick={() =>
+                                  void copyPlannedConnectorCommand(
+                                    plannedSetupGuide.command,
+                                    connector.name
+                                  )
+                                }
+                                aria-label={`Copy ${connector.name} setup check command`}
+                              >
+                                <Copy size={13} weight="bold" />
+                              </button>
+                            </div>
+                          ) : null}
+                          {plannedSetupGuide ? (
+                            <p className="connector-plan__note">
+                              {plannedSetupGuide.notes}
+                            </p>
+                          ) : null}
                         </div>
                       ) : null}
                       {connector.enabled && !connector.verified && connector.installed ? (
@@ -6139,10 +6185,15 @@ onRepair={(action) => void handleDoctorRepair(action)}
                     );
                   })}
                 </div>
-                {connectorsError ? (
-                  <p className="install-progress__error">{connectorsError}</p>
-                ) : null}
-              </article>
+              {connectorsError ? (
+                <p className="install-progress__error">{connectorsError}</p>
+              ) : null}
+              {plannedConnectorCopyNotice ? (
+                <p className="connector-copy-notice">
+                  {plannedConnectorCopyNotice}
+                </p>
+              ) : null}
+            </article>
 
               <article className="soft-card panel-card">
                 <div className="panel-card__header">

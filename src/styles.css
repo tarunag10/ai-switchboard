@@ -4605,7 +4605,9 @@ details[open] .optimize-minimal__details summary::after {
 }
 
 .connector-plan__target,
-.connector-plan__next {
+.connector-plan__next,
+.connector-plan__note,
+.connector-copy-notice {
   font-size: var(--text-xs) !important;
   line-height: 1.35;
 }
@@ -4616,6 +4618,59 @@ details[open] .optimize-minimal__details summary::after {
 
 .connector-plan__next {
   color: var(--text-strong) !important;
+}
+
+.connector-plan__guide {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.connector-plan__guide strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-strong);
+  font-size: var(--text-xs);
+}
+
+.connector-plan__guide code {
+  display: block;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connector-plan__copy {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-card);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.connector-plan__copy:hover {
+  background: var(--surface-hover);
+}
+
+.connector-plan__note,
+.connector-copy-notice {
+  color: var(--text-muted) !important;
+}
+
+.connector-copy-notice {
+  margin-top: 8px !important;
 }
 
 .callout-banner__connectors {

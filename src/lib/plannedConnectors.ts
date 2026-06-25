@@ -8,6 +8,12 @@ export interface PlannedConnector {
   notes: string;
 }
 
+export interface PlannedConnectorSetupGuide {
+  label: string;
+  command: string;
+  notes: string;
+}
+
 export const plannedConnectors: PlannedConnector[] = [
   {
     id: "gemini_cli",
@@ -86,4 +92,62 @@ export const plannedConnectors: PlannedConnector[] = [
 
 export function getPlannedConnector(id: string) {
   return plannedConnectors.find((connector) => connector.id === id) ?? null;
+}
+
+export function getPlannedConnectorSetupGuide(
+  id: string
+): PlannedConnectorSetupGuide | null {
+  switch (id) {
+    case "gemini_cli":
+      return {
+        label: "Check Gemini CLI",
+        command: "command -v gemini && gemini --help",
+        notes:
+          "Use this only to confirm the CLI is present. Mac AI Switchboard will add provider routing after reversible Gemini config support lands.",
+      };
+    case "opencode":
+      return {
+        label: "Check OpenCode",
+        command: "command -v opencode && opencode --help",
+        notes:
+          "Confirms the OpenCode binary before the app offers backed-up provider config edits.",
+      };
+    case "cursor":
+      return {
+        label: "Open Cursor settings",
+        command: "open -a Cursor",
+        notes:
+          "Open Cursor and review model/provider settings manually. Automatic routing waits for account-safe settings detection.",
+      };
+    case "grok_cli":
+      return {
+        label: "Check xAI CLI",
+        command: "command -v grok || command -v xai",
+        notes:
+          "Confirms whether a local xAI/Grok CLI exists. Provider/model compatibility remains a Doctor check before routing.",
+      };
+    case "aider":
+      return {
+        label: "Check Aider",
+        command: "command -v aider && aider --help",
+        notes:
+          "Confirms Aider is available. RTK-only mode can already reduce noisy shell output while provider wrapping is built.",
+      };
+    case "continue":
+      return {
+        label: "Inspect Continue config",
+        command: "open ~/.continue",
+        notes:
+          "Review configured providers manually. Mac AI Switchboard will only edit Continue after backup and restore coverage exists.",
+      };
+    case "goose":
+      return {
+        label: "Check Goose",
+        command: "command -v goose && goose --help",
+        notes:
+          "Confirms Goose is present before local provider and MCP handoff support is enabled.",
+      };
+    default:
+      return null;
+  }
 }
