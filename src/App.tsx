@@ -925,6 +925,34 @@ function AddonCard({
   );
 }
 
+function PlannedAddonCard() {
+  return (
+    <li className="addon-card addon-card--planned">
+      <div className="addon-card__body">
+        <div className="addon-card__heading">
+          <span className="addon-card__name">Repo Intelligence</span>
+          <span className="addon-card__badge addon-card__badge--planned">Planned</span>
+        </div>
+        <p className="addon-card__description">
+          Local code graph and repository memory layer for symbol, import, route, and
+          call-path context. This should reduce repeated file reads and help agents pick
+          smaller, safer edits before spending tokens.
+        </p>
+        <ul className="addon-card__bullets">
+          <li>Future adapters for Graphify, CodeGraph-style indexes, and MCP repo memory.</li>
+          <li>Local-first index stored on this Mac, with no remote service requirement.</li>
+          <li>Read-only planning mode first; write or auto-repair actions stay explicit.</li>
+        </ul>
+      </div>
+      <div className="addon-card__actions">
+        <button type="button" className="addon-card__action" disabled>
+          Coming soon
+        </button>
+      </div>
+    </li>
+  );
+}
+
 function buildUpgradeIssueMailto(failure: RuntimeUpgradeFailure): string {
   const subject = `Headroom update issue (${failure.targetHeadroomVersion}, ${failure.failurePhase})`;
   const diagnosticLines = [
@@ -5413,6 +5441,7 @@ onRepair={(action) => void handleDoctorRepair(action)}
                     />
                   );
                 })}
+              <PlannedAddonCard />
             </ul>
           </section>
         </div>

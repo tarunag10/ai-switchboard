@@ -5958,6 +5958,10 @@ html.window-hiding {
   background: var(--surface-raised);
 }
 
+.addon-card--planned {
+  background: var(--surface-sunken);
+}
+
 .addon-card__heading {
   display: flex;
   align-items: center;
@@ -6063,10 +6067,27 @@ html.window-hiding {
   color: var(--text-inverse);
 }
 
+.addon-card__badge--planned {
+  background: var(--warning-tint);
+  color: var(--warning);
+}
+
 .addon-card__description {
   font-size: var(--text-sm);
   color: var(--text-secondary);
   margin: 6px 0 0;
+}
+
+.addon-card__bullets {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.addon-card__bullets li + li {
+  margin-top: 4px;
 }
 
 .addon-card__clients {
