@@ -239,7 +239,7 @@ const addonCopy: Record<string, AddonCopy> = {
 
 const connectorSetupDetails: Record<string, string> = {
   claude_code:
-    "Headroom injects ANTHROPIC_BASE_URL into shell profiles and ~/.claude/settings.json so Claude Code connects through Headroom. Token-saving add-ons like RTK are optional: install them from the add-ons list and Headroom wires up the PATH entry and auto-rewrite hook only then.",
+    "Headroom injects ANTHROPIC_BASE_URL into shell profiles and ~/.claude/settings.json so Claude Code connects through Headroom. Token-saving add-ons like RTK are optional: install them from the add-ons list, and Headroom wires up the PATH entry and auto-rewrite hook only then.",
   codex:
     "Headroom writes a managed provider block to ~/.codex/config.toml and exports OPENAI_BASE_URL in your shell profiles so Codex connects through Headroom.",
   gemini_cli:
@@ -1439,7 +1439,7 @@ setActiveView(view);
         setLauncherStage(initialStage);
       }
 
-      updateStartup("runtime", 80, "Preparing Headroom runtime…");
+      updateStartup("runtime", 80, "Preparing local engine…");
 const [runtimeResult, switchboardResult, doctorResult, pricingResult] = await Promise.all([
 invoke<RuntimeStatus>("get_runtime_status").catch(() => null),
 invoke<SwitchboardState>("get_switchboard_state").catch(() => null),
@@ -1475,7 +1475,7 @@ if (pricingResult) {
           return;
         }
         setStartupPercent(100);
-        setStartupCopy("Headroom is ready.");
+        setStartupCopy("Mac AI Switchboard is ready.");
         setStartupReady(true);
       }, 120);
     };
@@ -1562,7 +1562,7 @@ if (pricingResult) {
         // Always land on the install step after a bootstrap completes during
         // this session, regardless of launchExperience. The install step's
         // Continue button is gated on runtime.running, so it handles both the
-        // readiness wait and the "Headroom installation present" confirmation
+        // readiness wait and the "Local switchboard runtime is ready" confirmation
         // for Resume users whose launch_count > 1 (e.g., they reinstalled the
         // app without clearing ~/Library/Application Support/Headroom).
         if (windowLabel === "launcher") {
@@ -3784,28 +3784,28 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
         showSpinner={bootstrapping}
       >
         <h1>
-          Headroom cuts Claude Code and Codex costs
-           ~<span className="headline-highlight">50%</span> by trimming prompt bloat.
+            Mac AI Switchboard keeps coding-agent work lean, local, and reversible.
         </h1>
         <div className="intro-shell__checklist">
           <article>
-            <strong>Privacy first</strong>
+            <strong>Local-first</strong>
             <p>
-              Your prompts never touch our servers — everything runs locally on your machine.
+              Routing, client setup, Doctor repairs, and add-ons run on your Mac.
+              Model calls still go to your normal provider accounts.
             </p>
           </article>
           <article>
-            <strong>Self-contained</strong>
+            <strong>Self-contained runtime</strong>
             <p>
-              Keeps your runtime clean, never interfering with packages your
-              projects depend on.
+                  Installs Headroom helper tools into app-owned storage without
+                  changing your system Python.
             </p>
           </article>
           <article>
-            <strong>Less tokens, no impact</strong>
+            <strong>Off means off</strong>
             <p>
-              Smart optimization cuts noise before your coding tool sees it, with
-              no impact on the output.
+                  Switchboard can remove routing hooks, and Doctor can repair
+                  stale local setup if a client or proxy drifts.
             </p>
           </article>
         </div>
@@ -3813,18 +3813,18 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           <>
             {runtimeStatus?.running !== true ? (
               <>
-                <p className="launcher-install-notice">Starting Headroom for the first time (this can take 1-2 minutes)…</p>
+                    <p className="launcher-install-notice">Starting the local Headroom engine for the first time (this can take 1-2 minutes)…</p>
                 <button
                   className="primary-button primary-button--large primary-button--install launcher-step1-continue"
                   disabled
                   type="button"
                 >
-                  Starting Headroom…
+                  Starting engine…
                 </button>
               </>
             ) : (
               <>
-                <p className="launcher-install-notice">Headroom installation present</p>
+ <p className="launcher-install-notice">Local switchboard runtime is ready</p>
                 <button
                   className="primary-button primary-button--large primary-button--success launcher-step1-continue"
                   onClick={() => void handleFirstLaunchContinue()}
@@ -3839,7 +3839,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           <>
             {!bootstrapping && (
               <p className="install-pre-notice">
-                Takes a minute or two to install.
+                  Takes a minute or two to install the local engine.
               </p>
             )}
             <button
@@ -3849,26 +3849,32 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
               type="button"
             >
               {bootstrapping
-                ? "Installing Headroom…"
+                ? "Installing local engine…"
                 : bootstrapProgress.failed
                   ? "Try again"
-                  : "Install Headroom"}
+                  : "Install Mac AI Switchboard"}
             </button>
             {!bootstrapping && (
               <div className="install-disclosure">
                 <p className="install-disclosure__lead">Clicking Install will:</p>
                 <ul className="install-disclosure__list">
                   <li>
-                    Download a self-contained Python runtime (~2 GB) to <code>~/.headroom</code>.
-                    Your system Python is untouched.
+                        Download a self-contained Python runtime (~2 GB) to <code>~/.headroom</code>.
+                        Your system Python is untouched.
                   </li>
                   <li>
-                    Point your installed coding CLIs at Headroom: Claude Code via{" "}
-                    <code>ANTHROPIC_BASE_URL</code> in your shell profile and{" "}
-                    <code>~/.claude/settings.json</code>, and Codex via <code>OPENAI_BASE_URL</code>{" "}
-                    and a managed provider block in <code>~/.codex/config.toml</code>. A timestamped
-                    backup is written before any edit. Token-saving add-ons like RTK are optional and
-                    installed separately.
+                        Ask before routing supported coding clients through the local proxy:
+                    Claude Code via <code>ANTHROPIC_BASE_URL</code> and{" "}
+                    <code>~/.claude/settings.json</code>; Codex via <code>OPENAI_BASE_URL</code>{" "}
+                        and a managed provider block in <code>~/.codex/config.toml</code>.
+                  </li>
+                  <li>
+                    Write timestamped backups before local config edits. Off mode removes
+                        routing hooks; Doctor can re-apply or repair stale setup.
+                  </li>
+                  <li>
+                        Keep RTK, Ponytail, MarkItDown, and future Repo Intelligence as optional
+                    add-ons you control separately.
                   </li>
                 </ul>
               </div>
@@ -4104,9 +4110,9 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
         version={appSemver}
       >
         <div className="post-install__lead">
-          <h1>Test your setup</h1>
+            <h1>Test your setup</h1>
           <p>
-            Send a message in each connected tool to verify the connection is working. You may need to restart it first.
+              Send one message in each connected tool to verify local routing. If the tool was already open, restart it first so it reloads the managed config.
           </p>
           {hasEnabledApps ? (
             <div className="connector-list">
@@ -4131,7 +4137,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
             </div>
           ) : (
             <p className="launcher-restart-hint">
-              No tools are enabled yet. Go back to the previous step to enable one.
+                  No tools are enabled yet. Go back to the previous step and enable one.
             </p>
           )}
           {proxyVerificationHint ? (
@@ -4176,18 +4182,18 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       >
         <div className="post-install__lead">
           <h1>
-            Headroom is now running
+              Mac AI Switchboard is ready
             <br />
-            in the background
+ in the menu bar
           </h1>
           {dashboard.launchExperience === "first_run" ? (
             <p>
-              Send your first prompt and Headroom will start reducing costs automatically.
+                Send your first prompt from a connected tool. The switchboard will route through the local Headroom engine and track savings automatically.
             </p>
           ) : (
             <>
               <p>
-                It will trim prompt bloat whenever you use Claude Code or Codex.
+                  Mac AI Switchboard will trim prompt bloat whenever you use enabled clients such as Claude Code or Codex.
               </p>
               <div className="post-install__metrics">
                 <article className="soft-card stat-card">
@@ -6300,13 +6306,13 @@ onRepair={(action) => void handleDoctorRepair(action)}
               <div className="modal-card">
                 <h3>
                   {appUpdateReadyToRestart
-                    ? `Restart to finish updating to ${appUpdateAvailable.version}`
-                    : `Headroom ${appUpdateAvailable.version} is available`}
+                      ? `Restart to finish updating ${appUpdateAvailable.version}`
+                      : `Mac AI Switchboard ${appUpdateAvailable.version} is available`}
                 </h3>
                 <p>
                   {appUpdateReadyToRestart
-                    ? "The new version has been installed. Restart Headroom when you're ready to switch over."
-                    : "Headroom found a new release in the background. Nothing will install until you confirm it here."}
+                      ? "The new version has been installed. Restart Mac AI Switchboard when you are ready to switch over."
+                      : "Mac AI Switchboard found a new release in the background. Nothing will install until you confirm it here."}
                 </p>
                 <ul className="api-key-guide">
                   <li>Current version: {appUpdateAvailable.currentVersion}</li>
