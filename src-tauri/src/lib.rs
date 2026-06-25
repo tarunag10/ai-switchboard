@@ -2028,7 +2028,7 @@ let connectors = client_adapters::list_client_connectors(&state.cached_clients()
                     crate::models::ClientConnectorSupportStatus::Planned
                 )
         })
-        .map(|client| client.name.clone())
+        .cloned()
         .collect::<Vec<_>>();
 
 if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
@@ -2080,10 +2080,7 @@ repair_action: Some("repair_codex_setup".to_string()),
         issues.push(crate::models::DoctorIssue {
             id: "planned_connectors_detected".to_string(),
             title: "Planned coding tools detected".to_string(),
-            body: format!(
-                "{} detected. Mac AI Switchboard shows guided setup commands for these tools, but automatic routing is disabled until backup, restore, and off-mode cleanup are implemented.",
-                planned_installed.join(", ")
-            ),
+            body: planned_connector_doctor_body(&planned_installed),
             severity: crate::models::DoctorSeverity::Warning,
             repair_action: None,
         });
@@ -2209,11 +2206,71 @@ crate::models::DoctorSeverity::Error => "Doctor found a blocking switchboard iss
 }
 .to_string();
 
-crate::models::DoctorReport {
-status,
-summary,
-issues,
+    crate::models::DoctorReport {
+        status,
+        summary,
+        issues,
+    }
 }
+
+fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String {
+    let names = connectors
+        .iter()
+        .map(|client| client.name.as_str())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sources = connectors
+        .iter()
+        .flat_map(|client| client.detection_sources.iter().map(String::as_str))
+        .take(4)
+        .collect::<Vec<_>>();
+    let locations = connectors
+        .iter()
+        .flat_map(|client| client.config_locations.iter().map(String::as_str))
+        .take(3)
+        .collect::<Vec<_>>();
+
+    let mut parts = vec![format!(
+        "{names} detected. Mac AI Switchboard can identify these tools but keeps routing manual until backup, restore, and Off mode cleanup are implemented."
+    )];
+
+    if !sources.is_empty() {
+        parts.push(format!("Backend checks: {}.", sources.join(", ")));
+    }
+
+    if !locations.is_empty() {
+        parts.push(format!("Config locations watched: {}.", locations.join(", ")));
+    }
+
+    parts.join(" ")
+}
+
+#[cfg(test)]
+mod doctor_tests {
+    use super::*;
+
+    #[test]
+    fn planned_connector_doctor_body_includes_backend_metadata() {
+        let body = planned_connector_doctor_body(&[ClientConnectorStatus {
+            client_id: "gemini_cli".to_string(),
+            name: "Gemini CLI".to_string(),
+            support_status: crate::models::ClientConnectorSupportStatus::Planned,
+            setup_phase: "guide".to_string(),
+            setup_hint: "Manual guide only.".to_string(),
+            category: "cli".to_string(),
+            detection_sources: vec!["PATH: gemini".to_string(), "~/.gemini".to_string()],
+            config_locations: vec!["~/.gemini".to_string()],
+            installed: true,
+            enabled: false,
+            verified: false,
+            last_configured_at: None,
+        }]);
+
+        assert!(body.contains("Gemini CLI detected"));
+        assert!(body.contains("Backend checks: PATH: gemini, ~/.gemini."));
+        assert!(body.contains("Config locations watched: ~/.gemini."));
+        assert!(body.contains("keeps routing manual"));
+    }
 }
 
 #[tauri::command]

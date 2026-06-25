@@ -152,7 +152,10 @@ const requiredSourceSignals = {
     "planned_connectors_detected",
     "ClientConnectorSupportStatus::Planned",
     "ClientConnectorSupportStatus::Managed",
-    "automatic routing is disabled until backup, restore, and off-mode cleanup are implemented",
+    "planned_connector_doctor_body",
+    "keeps routing manual until backup, restore, and Off mode cleanup are implemented",
+    "Backend checks:",
+    "Config locations watched:",
   ],
   "src-tauri/src/models.rs": [
     "setup_phase",
