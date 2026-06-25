@@ -105,6 +105,26 @@ describe("SwitchboardDoctorPanel", () => {
     expect(
       screen.getByText("Codex routing config needs repair"),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Routes Codex back through Headroom after you compact or reduce the oversized request.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Re-applies the managed Codex provider block and localhost proxy URL with backups.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Installs or enables RTK in managed storage for local shell-output compression.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Restores RTK PATH and hook wiring without reinstalling the binary.",
+      ),
+    ).toBeInTheDocument();
 
     expect(
       screen.getByRole("button", { name: "Repair all" }),

@@ -2670,6 +2670,11 @@ color: var(--text-primary);
   line-height: 1.35;
 }
 
+.switchboard-doctor__hint {
+  color: var(--text-muted) !important;
+  font-weight: 650;
+}
+
 .switchboard-doctor__repair {
   flex-shrink: 0;
   border: 1px solid transparent;
