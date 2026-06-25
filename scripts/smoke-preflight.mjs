@@ -71,7 +71,7 @@ Generated: ${generatedAt}
 - Switchboard modes: Full optimization, Headroom only, RTK only, Off
 - Doctor repairs: runtime, Codex setup, RTK, planned connector manual warnings, and Repo Intelligence stale/missing-index warnings
 - Planned connectors: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose
-- Repo Intelligence: local repo index, persisted latest summary, context-pack preview
+- Repo Intelligence: local repo index, persisted latest summary, clear saved index, context-pack preview
 - Local-first behavior: remote services gated, Off mode reversible cleanup
 - Codex resilience: compression refusal reset and model/provider repair
 

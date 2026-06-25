@@ -1155,6 +1155,22 @@ function RepoIntelligencePreview() {
     }
   }
 
+  async function clearRepoIndex() {
+    setIndexing(true);
+    setIndexError(null);
+    try {
+      await invoke<boolean>("clear_repo_intelligence_summary");
+      setSummary(repoIntelligencePreview);
+      setRepoPath("");
+    } catch (error) {
+      setIndexError(
+        error instanceof Error ? error.message : "Repo Intelligence could not clear the saved index.",
+      );
+    } finally {
+      setIndexing(false);
+    }
+  }
+
   return (
     <div className="repo-intelligence-preview" aria-label="Repo Intelligence context pack preview">
       <div className="repo-intelligence-preview__topline">
@@ -1181,6 +1197,16 @@ function RepoIntelligencePreview() {
         >
           {indexing ? "Indexing..." : "Index"}
         </button>
+        {!isPreview ? (
+          <button
+            className="addon-card__action"
+            disabled={indexing}
+            onClick={() => void clearRepoIndex()}
+            type="button"
+          >
+            Clear
+          </button>
+        ) : null}
       </div>
       {summary.repoRoot ? (
         <p className="repo-intelligence-preview__path">{summary.repoRoot}</p>

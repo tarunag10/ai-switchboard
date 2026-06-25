@@ -120,6 +120,16 @@ pub fn load_latest_summary() -> Result<Option<RepoIntelligenceSummary>> {
     Ok(Some(summary))
 }
 
+pub fn clear_latest_summary() -> Result<bool> {
+    let path = latest_summary_path();
+    if !path.exists() {
+        return Ok(false);
+    }
+    std::fs::remove_file(&path)
+        .with_context(|| format!("removing repo intelligence summary {}", path.display()))?;
+    Ok(true)
+}
+
 fn latest_summary_path() -> PathBuf {
     config_file(&app_data_dir(), "repo-intelligence-latest.json")
 }

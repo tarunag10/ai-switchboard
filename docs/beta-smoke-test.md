@@ -83,6 +83,10 @@ Expect: the card shows indexed signals, context packs, the repo path, and indexe
 
 Expect: the latest Repo Intelligence summary reloads from managed app storage. If the indexed repo folder is moved or deleted, Doctor shows a manual warning to re-index an available local repo and does not offer **Repair all** for that issue.
 
+Click **Clear** in the Repo Intelligence card.
+
+Expect: the card returns to the read-only preview state, the saved repo path disappears, and Doctor no longer reports stale or missing Repo Intelligence index warnings.
+
 ## Checks (Claude Code pass)
 
 Run these from a Claude Code session and report PASS / FAIL with the observed value. Checks 1, 5, 8, 9, and 10 are client-agnostic — run them once in either client. Codex has very different wiring (no RTK, no `~/.claude/settings.json`, pay-per-token), so its equivalents of checks 6 and 7 live in the **Codex pass** below; run that whole section from a Codex session.

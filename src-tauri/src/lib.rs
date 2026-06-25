@@ -257,6 +257,11 @@ fn get_latest_repo_intelligence_summary() -> Result<Option<RepoIntelligenceSumma
 }
 
 #[tauri::command]
+fn clear_repo_intelligence_summary() -> Result<bool, String> {
+    repo_intelligence::clear_latest_summary().map_err(|err| err.to_string())
+}
+
+#[tauri::command]
 async fn get_dashboard_state(app: AppHandle) -> Result<DashboardState, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state: State<'_, AppState> = app.state();
@@ -3823,6 +3828,7 @@ pub fn run() {
             get_dashboard_state,
             build_repo_intelligence_summary,
             get_latest_repo_intelligence_summary,
+            clear_repo_intelligence_summary,
             get_app_update_configuration,
             check_for_app_update,
             install_app_update,
