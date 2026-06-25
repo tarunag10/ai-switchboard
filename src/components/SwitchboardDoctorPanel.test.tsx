@@ -104,10 +104,15 @@ describe("SwitchboardDoctorPanel", () => {
   expect(
     screen.getByRole("heading", { name: "Needs attention" }),
   ).toBeInTheDocument();
-  expect(screen.getByLabelText("Switchboard Doctor")).toHaveClass(
-    "switchboard-doctor--warning",
-  );
-    expect(screen.getByText("Codex is bypassing Headroom")).toBeInTheDocument();
+expect(screen.getByLabelText("Switchboard Doctor")).toHaveClass(
+"switchboard-doctor--warning",
+);
+expect(screen.getByText("6 automatic")).toBeInTheDocument();
+expect(screen.getByText("0 manual")).toBeInTheDocument();
+expect(
+  screen.queryByText("Repair all will leave manual steps visible."),
+).not.toBeInTheDocument();
+expect(screen.getByText("Codex is bypassing Headroom")).toBeInTheDocument();
     expect(
       screen.getByText("Codex routing config needs repair"),
     ).toBeInTheDocument();

@@ -27,9 +27,11 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
       />,
     );
 
-    expect(screen.getByText("Manual step")).toBeInTheDocument();
-    expect(
-      screen.getByText(
+ expect(screen.getByText("Manual step")).toBeInTheDocument();
+ expect(screen.getByText("0 automatic")).toBeInTheDocument();
+ expect(screen.getByText("1 manual")).toBeInTheDocument();
+ expect(
+ screen.getByText(
         "No automatic repair available yet. Follow issue guidance, then re-run Doctor.",
       ),
     ).toBeInTheDocument();
@@ -82,8 +84,10 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
       />,
     );
 
-    expect(
-      screen.getByText(
+ expect(screen.getByText("0 automatic")).toBeInTheDocument();
+ expect(screen.getByText("4 manual")).toBeInTheDocument();
+ expect(
+ screen.getByText(
         "Open Settings, review each planned connector guide, and keep routing manual until backup, restore, and Off mode cleanup are available.",
       ),
     ).toBeInTheDocument();
@@ -102,6 +106,44 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
         "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("warns when repair all will leave manual follow-up", () => {
+    render(
+      <SwitchboardDoctorPanel
+        report={{
+          status: "warning",
+          summary: "Mixed setup required.",
+          issues: [
+            {
+              id: "rtk_not_active",
+              title: "RTK is not active",
+              body: "Repair will install RTK.",
+              severity: "warning",
+              repairAction: "repair_rtk_runtime",
+            },
+            {
+              id: "planned_connectors_detected",
+              title: "Planned coding tools detected",
+              body: "Gemini CLI detected.",
+              severity: "warning",
+              repairAction: null,
+            },
+          ],
+        }}
+        busyAction={null}
+        error={null}
+        successMessage={null}
+        onRepair={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("1 automatic")).toBeInTheDocument();
+    expect(screen.getByText("1 manual")).toBeInTheDocument();
+    expect(
+      screen.getByText("Repair all will leave manual steps visible."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Repair all" })).toBeInTheDocument();
   });
 
   it("labels repairable issues as automatic", () => {

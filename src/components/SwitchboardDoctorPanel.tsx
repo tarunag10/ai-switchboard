@@ -33,10 +33,14 @@ export function SwitchboardDoctorPanel({
     return null;
   }
 
-  const canRepair = report.issues.some((issue) =>
-    canRepairIssue(issue.repairAction),
-  );
-  const title = report.status === "ok" ? "Ready" : "Needs attention";
+ const canRepair = report.issues.some((issue) =>
+ canRepairIssue(issue.repairAction),
+ );
+ const repairableCount = report.issues.filter((issue) =>
+ canRepairIssue(issue.repairAction),
+ ).length;
+ const manualCount = Math.max(0, report.issues.length - repairableCount);
+ const title = report.status === "ok" ? "Ready" : "Needs attention";
 
   return (
     <section
@@ -65,10 +69,20 @@ export function SwitchboardDoctorPanel({
             </button>
           ) : null}
         </div>
-      </div>
-      <p className="switchboard-doctor__summary">{report.summary}</p>
+ </div>
+ <p className="switchboard-doctor__summary">{report.summary}</p>
 
-      {successMessage ? (
+ {report.issues.length > 0 ? (
+ <div className="switchboard-doctor__triage" aria-label="Doctor triage summary">
+ <span>{repairableCount} automatic</span>
+ <span>{manualCount} manual</span>
+ {canRepair && manualCount > 0 ? (
+ <strong>Repair all will leave manual steps visible.</strong>
+ ) : null}
+ </div>
+ ) : null}
+
+ {successMessage ? (
         <p className="switchboard-doctor__success">{successMessage}</p>
       ) : null}
 
