@@ -7,6 +7,8 @@ describe("codexConcurrencyGuidance", () => {
     expect(codexConcurrencyGuidance("full", "Codex, Claude Code")).toEqual({
       title: "Running several Codex goals?",
       body: "Use RTK only for multiple heavy active Codex chats or goals; keep Full optimization for one main Codex session after compacting context.",
+      recommendedMode: "rtk",
+      actionLabel: "Switch to RTK only",
     });
 
     expect(codexConcurrencyGuidance("headroom", "codex")).not.toBeNull();

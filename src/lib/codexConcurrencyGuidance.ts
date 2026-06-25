@@ -3,6 +3,8 @@ import type { SwitchboardMode } from "./types";
 export interface CodexConcurrencyGuidance {
   title: string;
   body: string;
+  recommendedMode: SwitchboardMode;
+  actionLabel: string;
 }
 
 export function codexConcurrencyGuidance(
@@ -19,5 +21,7 @@ export function codexConcurrencyGuidance(
   return {
     title: "Running several Codex goals?",
     body: "Use RTK only for multiple heavy active Codex chats or goals; keep Full optimization for one main Codex session after compacting context.",
+    recommendedMode: "rtk",
+    actionLabel: "Switch to RTK only",
   };
 }

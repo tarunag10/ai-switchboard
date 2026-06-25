@@ -47,10 +47,13 @@ describe("SwitchboardPanel", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Running several Codex goals?")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Use RTK only for multiple heavy active Codex chats or goals; keep Full optimization for one main Codex session after compacting context.",
-      ),
-    ).toBeInTheDocument();
+    screen.getByText(
+      "Use RTK only for multiple heavy active Codex chats or goals; keep Full optimization for one main Codex session after compacting context.",
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Switch to RTK only" }),
+  ).toBeInTheDocument();
     expect(
       screen.getByText("No pricing, trial, Clarity, Sentry, or Aptabase calls."),
     ).toBeInTheDocument();
@@ -62,8 +65,24 @@ describe("SwitchboardPanel", () => {
       headroomDetail: "Codex, Claude Code",
     });
 
-    expect(screen.queryByText("Running several Codex goals?")).not.toBeInTheDocument();
-  });
+  expect(screen.queryByText("Running several Codex goals?")).not.toBeInTheDocument();
+});
+
+it("switches to RTK only from Codex parallel-goal guidance", async () => {
+  const user = userEvent.setup();
+  const onSetMode = vi.fn();
+  renderPanel({ onSetMode });
+
+  await user.click(screen.getByRole("button", { name: "Switch to RTK only" }));
+
+  expect(onSetMode).toHaveBeenCalledWith("rtk");
+});
+
+it("disables Codex parallel-goal action while applying RTK mode", () => {
+  renderPanel({ modeBusy: "rtk" });
+
+  expect(screen.getByRole("button", { name: "Applying" })).toBeDisabled();
+});
 
   it("renders cloud availability when remote services are enabled", () => {
     renderPanel({

@@ -116,6 +116,16 @@ export function SwitchboardPanel({
       {codexGuidance ? (
         <p className="switchboard-panel__attention">
           <strong>{codexGuidance.title}</strong> {codexGuidance.body}
+          <button
+            type="button"
+            className="switchboard-panel__inline-action"
+            disabled={modeBusy !== null}
+            onClick={() => onSetMode(codexGuidance.recommendedMode)}
+          >
+            {modeBusy === codexGuidance.recommendedMode
+              ? "Applying"
+              : codexGuidance.actionLabel}
+          </button>
         </p>
       ) : null}
       {modeError ? (

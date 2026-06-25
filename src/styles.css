@@ -2434,6 +2434,8 @@ color: var(--text-primary);
 
 .switchboard-panel__attention {
   display: inline-flex;
+  align-items: center;
+  gap: 8px;
   margin: -4px 0 12px;
   padding: 4px 8px;
   border-radius: 8px;
@@ -2441,6 +2443,23 @@ color: var(--text-primary);
   color: var(--warning);
   font-size: var(--text-xs);
   font-weight: 600;
+}
+
+.switchboard-panel__inline-action {
+  border: 1px solid var(--warning);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--warning);
+  cursor: pointer;
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  line-height: 1;
+  padding: 5px 7px;
+}
+
+.switchboard-panel__inline-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .switchboard-panel__modes {
