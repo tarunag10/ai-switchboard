@@ -7,6 +7,8 @@ Mac AI Switchboard is set up for outside-the-App-Store macOS distribution with:
 - user-confirmed install prompts
 - Apple code signing and notarization
 
+For the user-facing install path and first-run footprint, see [Installing Mac AI Switchboard](install.md).
+
 ## Build a signed DMG locally
 
 If your Apple Developer access is ready on your Mac, the fastest local path is:

@@ -16,6 +16,8 @@ The app is **local-first**, not offline-only. Claude/OpenAI model calls still go
 
 > Current status: active productization branch. The standalone repository is public, but release artifacts are not published yet. Build from source for now.
 
+For installation paths, first-run footprint, DMG expectations, and uninstall behavior, see [docs/install.md](docs/install.md).
+
 ## Supported Local Tools
 
 | Tool | Role | Status |
