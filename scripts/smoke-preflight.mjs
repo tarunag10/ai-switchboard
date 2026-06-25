@@ -11,8 +11,13 @@ const releaseReportPath = "dist/release-readiness-report.md";
 const requiredSignals = {
   [betaSmokeDoc]: [
     "Switchboard checks",
+    "local footprint matrix",
+    "Doctor triage shows automatic and manual counts",
     "Planned connectors are visible but manual",
+    "Repair all will leave manual steps visible",
     "copyable manual setup guide",
+    "Copy agent manifest",
+    "Release readiness visible in Settings",
     "Launcher auto-setup and proxy verification should include only managed connectors",
     "Codex traffic is actively optimized",
     "Pause / resume",

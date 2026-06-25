@@ -185,6 +185,9 @@ const requiredSourceSignals = {
 "headroom_paused",
 ],
 "src/components/SwitchboardDoctorPanel.manual.test.tsx": [
+    "Repair all will leave manual steps visible",
+    "1 automatic",
+    "1 manual",
 "gives specific manual guidance for planned connectors and repo intelligence",
 "Open Settings, review each planned connector guide",
 "Open Addons, index an available local repo again",
@@ -201,12 +204,17 @@ const requiredSourceSignals = {
     "config_hubs",
   ],
   "src/App.tsx": [
+    "Copy agent manifest",
+    "releaseReadinessGroups",
+    "Release readiness",
     "repo-intelligence-graph",
     "Repo Intelligence graph summary",
     "Top directories",
     "Likely tests",
   ],
   "src/styles.css": [
+    ".switchboard-panel__footprint",
+    ".release-readiness-card",
     ".repo-intelligence-graph",
     "grid-template-columns: repeat(4, minmax(0, 1fr))",
   ],
@@ -220,6 +228,7 @@ const requiredSourceSignals = {
     "Estimated savings vs full scan",
   ],
   "src/lib/repoIntelligence.test.ts": [
+    "formats an agent-readable manifest",
     "formats bounded context packs for agent handoff",
     "builds a bounded repo graph summary for agent context",
     "Repo Intelligence Context Pack",

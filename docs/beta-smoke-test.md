@@ -29,7 +29,7 @@ Click each mode button without leaving Home:
 - RTK only
 - Off
 
-Expect: the mode effect line changes to describe exactly what will be routed or left alone. The selected mode badge matches the requested mode.
+Expect: the mode effect line changes to describe exactly what will be routed or left alone. The selected mode badge matches the requested mode. The local footprint matrix changes with each mode and shows **Client routing**, **Shell output**, and **Repo packs** as On, Off, or Local.
 
 ### S3. Requested mode vs active mode is honest
 
@@ -41,7 +41,7 @@ Expect: Switchboard still shows the requested mode, but the attention line repor
 
 From the degraded state in S3, run the RTK Doctor repair.
 
-Expect: Doctor offers **Install RTK** when RTK is missing or disabled. After repair, RTK is installed/enabled, the Doctor issue clears or changes to a more specific RTK integration issue, and the Switchboard refreshes within a few seconds.
+Expect: Doctor offers **Install RTK** when RTK is missing or disabled. Doctor triage shows automatic and manual counts. After repair, RTK is installed/enabled, the Doctor issue clears or changes to a more specific RTK integration issue, and the Switchboard refreshes within a few seconds.
 
 ### S5. Off mode is a clean pass-through
 
@@ -73,7 +73,7 @@ Expect: this is treated as a Codex routing/config problem, not as an RTK compres
 
 Open Settings and inspect the coding tool connector list.
 
-Expect: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, and Goose all appear when detected or known to the connector registry. Each planned connector shows a **Planned** badge, setup phase, category, copyable manual setup guide, and disabled switch. Doctor may show **Planned coding tools detected**, but it must be a manual step with no **Repair all** action for those tools. Launcher auto-setup and proxy verification should include only managed connectors such as Claude Code and Codex.
+Expect: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, and Goose all appear when detected or known to the connector registry. Each planned connector shows a **Planned** badge, setup phase, category, copyable manual setup guide, and disabled switch. Doctor may show **Planned coding tools detected**, but it must be a manual step with no **Repair all** action for those tools. If a report mixes repairable and manual items, Doctor says **Repair all will leave manual steps visible.** Launcher auto-setup and proxy verification should include only managed connectors such as Claude Code and Codex.
 
 ### S9. Repo Intelligence index health
 
@@ -85,11 +85,21 @@ Expect: the latest Repo Intelligence summary reloads from managed app storage. I
 
 Click **Copy pack**.
 
-Expect: a bounded Markdown context pack is copied for agent handoff. It includes the repo path, pack headings, estimated token counts, and file lists, but no file contents.
+Expect: bounded Markdown context pack is copied for agent handoff. It includes repo path, pack headings, estimated token counts, file lists, but no file contents.
+
+Click **Copy agent manifest**.
+
+Expect: JSON manifest is copied for external coding agents. It includes `mac_ai_switchboard.repo_intelligence_manifest`, implementation/verification/handoff pack ids, per-pack commands, token savings, and read-only safety flags.
 
 Click **Clear** in the Repo Intelligence card.
 
 Expect: the card returns to the read-only preview state, the saved repo path disappears, and Doctor no longer reports stale or missing Repo Intelligence index warnings.
+
+### S10. Release readiness visible in Settings
+
+Open Settings and find **Release readiness**.
+
+Expect: card shows 9 checks across Environment, Signing, and Installed App Smoke. **Copy report command** copies `npm run release:report`. The card should not claim the app is releasable until signing/notarization variables and installed-app smoke are complete.
 
 ## Checks (Claude Code pass)
 
