@@ -8,6 +8,9 @@ cd "${REPO_ROOT}"
 echo "Checking deployment readiness..."
 npm run check:deployment
 
+echo "Checking release environment..."
+node scripts/check-release-env.mjs --strict
+
 echo "Checking installed-app smoke preflight..."
 npm run smoke:preflight
 
