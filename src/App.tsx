@@ -587,6 +587,7 @@ function SavingsCalculatorCard({
   const savedLabel = compactNumber(summary.savedTokens);
   const sentLabel = compactNumber(summary.sentTokens);
   const beforeLabel = compactNumber(summary.beforeTokens);
+  const conservativeUsdLabel = currencyExact(summary.conservativeSavedUsd);
   const hasUsage = summary.requests > 0 || summary.savedTokens > 0;
   const percentLabel =
     summary.savingsPct === null
@@ -643,6 +644,10 @@ function SavingsCalculatorCard({
           <div>
             <dt>Reduction</dt>
             <dd>{percentLabel}</dd>
+          </div>
+          <div>
+            <dt>Likely at least</dt>
+            <dd>{conservativeUsdLabel}</dd>
           </div>
         </dl>
       </div>

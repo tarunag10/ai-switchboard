@@ -67,6 +67,7 @@ describe("savings calculator", () => {
       expect(summary.scope).toBe(scope);
       expect(summary.savedTokens).toBe(scope === "session" ? 300 : 2_000);
       expect(summary.savedUsd).toBe(scope === "session" ? 0.75 : 4.5);
+      expect(summary.conservativeSavedUsd).toBe(scope === "session" ? 0.375 : 2.25);
       expect(summary.requests).toBe(scope === "session" ? 2 : 10);
       expect(summary.savingsPct).toBe(20);
     },

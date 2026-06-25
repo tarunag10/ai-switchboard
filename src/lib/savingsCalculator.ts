@@ -7,6 +7,7 @@ export interface SavingsCalculatorSummary {
   requests: number;
   savedTokens: number;
   savedUsd: number;
+  conservativeSavedUsd: number;
   sentTokens: number;
   beforeTokens: number;
   savingsPct: number | null;
@@ -30,6 +31,7 @@ export function buildSavingsCalculatorSummary(
       requests: dashboard.sessionRequests,
       savedTokens: dashboard.sessionEstimatedTokensSaved,
       savedUsd: dashboard.sessionEstimatedSavingsUsd,
+      conservativeSavedUsd: dashboard.sessionEstimatedSavingsUsd * 0.5,
       sentTokens,
       beforeTokens,
       savingsPct:
@@ -57,6 +59,7 @@ export function buildSavingsCalculatorSummary(
     requests: dashboard.lifetimeRequests,
     savedTokens: dashboard.lifetimeEstimatedTokensSaved,
     savedUsd: dashboard.lifetimeEstimatedSavingsUsd,
+    conservativeSavedUsd: dashboard.lifetimeEstimatedSavingsUsd * 0.5,
     sentTokens,
     beforeTokens,
     savingsPct,
