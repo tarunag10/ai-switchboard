@@ -84,6 +84,12 @@ const requiredDocSignals = {
     "multiple active chats",
     "The '' model is not supported",
   ],
+  "docs/architecture.md": [
+    "src-tauri/src/repo_intelligence.rs",
+    "repo-intelligence-latest.json",
+    "User repositories are not modified",
+    "does not yet provide a full Graphy-style symbol graph",
+  ],
 };
 
 const requiredSourceSignals = {
