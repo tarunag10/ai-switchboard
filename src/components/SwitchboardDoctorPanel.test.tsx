@@ -14,6 +14,20 @@ const warningReport: DoctorReport = {
       body: "Compact the conversation context, then reset this bypass.",
       severity: "warning",
       repairAction: "reset_codex_bypass"
+    },
+    {
+      id: "no_headroom_clients",
+      title: "No clients are routed through Headroom",
+      body: "Repair will re-apply reversible client setup.",
+      severity: "warning",
+      repairAction: "repair_client_setups"
+    },
+    {
+      id: "rtk_integration_incomplete",
+      title: "RTK integration is incomplete",
+      body: "Repair will re-apply the local RTK integration.",
+      severity: "warning",
+      repairAction: "repair_rtk_integrations"
     }
   ]
 };
@@ -47,7 +61,10 @@ describe("SwitchboardDoctorPanel", () => {
     expect(screen.getByRole("heading", { name: "Needs attention" })).toBeInTheDocument();
     expect(screen.getByText("Codex is bypassing Headroom")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Repair" }));
+    expect(screen.getByRole("button", { name: "Repair clients" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Repair RTK" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Reset Codex" }));
     expect(onRepair).toHaveBeenCalledWith("reset_codex_bypass");
   });
 

@@ -1967,6 +1967,9 @@ SwitchboardMode::Off
 }
 });
 let mut issues = Vec::new();
+let connectors = client_adapters::list_client_connectors(&state.cached_clients()).unwrap_or_default();
+let enabled_clients = connectors.iter().filter(|client| client.enabled).count();
+let installed_clients = connectors.iter().filter(|client| client.installed).count();
 
 if codex_direct_bypass && matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom) {
 issues.push(crate::models::DoctorIssue {
@@ -1975,6 +1978,39 @@ title: "Codex is bypassing Headroom".to_string(),
 body: "Headroom refused compression for an oversized Codex request, so Codex is temporarily going direct. Compact the conversation context, then reset this bypass to route Codex through Headroom again.".to_string(),
 severity: crate::models::DoctorSeverity::Warning,
 repair_action: Some("reset_codex_bypass".to_string()),
+});
+}
+
+if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom) && enabled_clients == 0 {
+let repair_action = if installed_clients > 0 {
+Some("repair_client_setups".to_string())
+} else {
+None
+};
+issues.push(crate::models::DoctorIssue {
+id: "no_headroom_clients".to_string(),
+title: "No clients are routed through Headroom".to_string(),
+body: if installed_clients > 0 {
+"Installed coding clients were found, but none are currently configured to use Headroom. Repair will re-apply reversible client setup.".to_string()
+} else {
+"No supported coding clients were detected yet. Install or open Codex, Claude Code, or a supported editor, then return to connect it.".to_string()
+},
+severity: crate::models::DoctorSeverity::Warning,
+repair_action,
+});
+}
+
+if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Rtk)
+&& runtime.rtk.installed
+&& runtime.rtk.enabled
+&& (!runtime.rtk.path_configured || !runtime.rtk.hook_configured)
+{
+issues.push(crate::models::DoctorIssue {
+id: "rtk_integration_incomplete".to_string(),
+title: "RTK integration is incomplete".to_string(),
+body: "RTK is enabled, but its shell PATH export or Claude Code hook is missing. Repair will re-apply the local RTK integration.".to_string(),
+severity: crate::models::DoctorSeverity::Warning,
+repair_action: Some("repair_rtk_integrations".to_string()),
 });
 }
 
@@ -2035,6 +2071,34 @@ match action.as_str() {
 state
 .codex_bypass
 .store(false, std::sync::atomic::Ordering::Release);
+state.invalidate_runtime_status_cache();
+Ok(build_doctor_report(&state))
+}
+"repair_client_setups" => {
+state
+.codex_bypass
+.store(false, std::sync::atomic::Ordering::Release);
+state.resume_runtime().map_err(|err| err.to_string())?;
+let connectors = client_adapters::list_client_connectors(&state.cached_clients())
+.map_err(|err| err.to_string())?;
+let mut repaired = 0usize;
+for connector in connectors.iter().filter(|connector| connector.installed) {
+client_adapters::apply_client_setup(&connector.client_id).map_err(|err| err.to_string())?;
+repaired += 1;
+}
+if repaired == 0 {
+return Err("no installed supported clients found to repair".to_string());
+}
+state.invalidate_runtime_status_cache();
+Ok(build_doctor_report(&state))
+}
+"repair_rtk_integrations" => {
+client_adapters::set_rtk_enabled(
+true,
+&state.tool_manager.rtk_entrypoint(),
+&state.tool_manager.managed_python(),
+)
+.map_err(|err| err.to_string())?;
 state.invalidate_runtime_status_cache();
 Ok(build_doctor_report(&state))
 }

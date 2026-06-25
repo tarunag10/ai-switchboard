@@ -11,6 +11,19 @@ function issueTone(issue: DoctorIssue): string {
   return issue.severity === "error" ? "error" : "warning";
 }
 
+function repairLabel(action: string): string {
+  switch (action) {
+    case "reset_codex_bypass":
+      return "Reset Codex";
+    case "repair_client_setups":
+      return "Repair clients";
+    case "repair_rtk_integrations":
+      return "Repair RTK";
+    default:
+      return "Repair";
+  }
+}
+
 export function SwitchboardDoctorPanel({
   report,
   busyAction,
@@ -50,7 +63,7 @@ export function SwitchboardDoctorPanel({
                 disabled={busyAction !== null}
                 onClick={() => onRepair(issue.repairAction as string)}
               >
-                {busyAction === issue.repairAction ? "Repairing" : "Repair"}
+                {busyAction === issue.repairAction ? "Repairing" : repairLabel(issue.repairAction)}
               </button>
             ) : null}
           </article>
