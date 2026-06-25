@@ -1,6 +1,7 @@
 import fs from "node:fs";
 
 const requiredFiles = [
+  ".env.example",
   "docs/install.md",
   "docs/macos-release.md",
   "docs/beta-smoke-test.md",
@@ -30,6 +31,14 @@ const requiredScripts = {
 };
 
 const requiredDocSignals = {
+  ".env.example": [
+    'HEADROOM_LOCAL_ONLY="1"',
+    'VITE_HEADROOM_LOCAL_ONLY="1"',
+    'VITE_HEADROOM_REMOTE_TELEMETRY="0"',
+    'VITE_CLARITY_PROJECT_ID=""',
+    "# Optional: app updater configuration for signed release builds",
+    "# Optional: local signed macOS DMG builds",
+  ],
   "docs/install.md": [
     "Mac-AI-Switchboard_<version>.dmg",
     "Applications",
@@ -64,6 +73,31 @@ const requiredDocSignals = {
     "Reset Codex",
     "multiple active chats",
     "The '' model is not supported",
+  ],
+};
+
+const requiredSourceSignals = {
+  "src/lib/localMode.ts": [
+    "VITE_HEADROOM_LOCAL_ONLY",
+    "VITE_HEADROOM_REMOTE_TELEMETRY",
+    "!localOnlyModeEnabled()",
+  ],
+  "src/lib/analytics.ts": ["remoteTelemetryEnabled()"],
+  "src/lib/bootstrapSentry.ts": ["remoteTelemetryEnabled()"],
+  "src/lib/trayHelpers.ts": [
+    'view === "upgrade"',
+    'view === "upgradeAuth"',
+    'return view === "upgrade" || view === "upgradeAuth" ? "home" : view',
+  ],
+  "src/lib/trayHelpers.test.ts": [
+    "redirects upgrade views to home in local-only mode",
+    "redirects auth notification actions to home in local-only mode",
+  ],
+  "src/lib/analytics.test.ts": [
+    "does not track analytics events in local-only mode",
+  ],
+  "src/lib/bootstrapSentry.test.ts": [
+    "does not report bootstrap failures in local-only mode",
   ],
 };
 
@@ -127,6 +161,16 @@ for (const [path, signals] of Object.entries(requiredDocSignals)) {
   for (const signal of signals) {
     if (!body.includes(signal)) {
       failures.push(`${path} missing deployment doc signal: ${signal}`);
+    }
+  }
+}
+
+for (const [path, signals] of Object.entries(requiredSourceSignals)) {
+  if (!requireFile(path)) continue;
+  const body = read(path);
+  for (const signal of signals) {
+    if (!body.includes(signal)) {
+      failures.push(`${path} missing local-first source signal: ${signal}`);
     }
   }
 }
