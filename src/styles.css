@@ -7206,14 +7206,32 @@ gap: 10px;
 }
 
 .planned-connectors__item p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  line-height: 1.35;
+margin: 0;
+color: var(--text-secondary);
+font-size: var(--text-xs);
+line-height: 1.35;
+}
+
+.planned-connectors__capabilities {
+display: flex;
+flex-wrap: wrap;
+gap: 5px;
+min-width: 0;
+}
+
+.planned-connectors__capabilities span {
+padding: 4px 7px;
+border: 1px solid var(--border-subtle);
+border-radius: 999px;
+background: var(--surface-raised);
+color: var(--text-secondary);
+font-size: var(--text-xxs);
+font-weight: 800;
+line-height: 1.1;
 }
 
 .planned-connectors__meta {
-  justify-content: flex-start;
+justify-content: flex-start;
 }
 
 .planned-connectors__meta span {

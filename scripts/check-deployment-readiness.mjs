@@ -252,20 +252,20 @@ const forbiddenUserCopy = {
     "consistent Claude Code Codex",
     "RTK future Repo Intelligence",
   ],
-  "src/lib/plannedConnectors.ts": [
-    "only provider configuration supports",
-    "after stable local CLI surface",
-    "Track separately generic",
-    "Local config adapter explicit backup restore",
-    "Switchboard has stable connector capability model",
-  ],
-  "src/App.tsx": [
-    "RTK are optional: install them",
-    "in your shell profiles",
-    "tracked planned adapter",
-    "command-output savings.",
-    "provider config backup restore",
-  ],
+"src/lib/plannedConnectors.ts": [
+"only provider configuration supports",
+"after stable local CLI surface",
+"Track separately generic",
+"Local config adapter explicit backup restore",
+"Switchboard has stable connector capability model",
+],
+"src/App.tsx": [
+"RTK are optional: install them",
+"in your shell profiles",
+"tracked planned adapter",
+"command-output savings.",
+"provider config backup restore",
+],
 };
 
 const failures = [];

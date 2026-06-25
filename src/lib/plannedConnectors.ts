@@ -6,6 +6,7 @@ export interface PlannedConnector {
   setupPhase: "Detect" | "Guide" | "Adapt";
   integrationTarget: string;
   notes: string;
+  capabilityBadges: string[];
 }
 
 export interface PlannedConnectorSetupGuide {
@@ -23,7 +24,8 @@ export const plannedConnectors: PlannedConnector[] = [
     setupPhase: "Guide",
     integrationTarget: "Reversible local config base-url routing adapter.",
     notes:
-      "Detect the installed CLI first, then add Headroom routing only when the provider configuration supports a local proxy.",
+      "Detect installed CLI first, then add Headroom routing only when provider configuration supports a local proxy.",
+    capabilityBadges: ["CLI detection", "RTK-safe today", "Provider routing pending"],
   },
   {
     id: "opencode",
@@ -34,6 +36,7 @@ export const plannedConnectors: PlannedConnector[] = [
     integrationTarget: "Reversible provider config adapter plus RTK shell-output support.",
     notes:
       "Keep off-mode cleanup symmetric with Claude Code and Codex before enabling automatic setup.",
+    capabilityBadges: ["CLI detection", "RTK-safe today", "Backup/restore pending"],
   },
   {
     id: "cursor",
@@ -45,6 +48,7 @@ export const plannedConnectors: PlannedConnector[] = [
       "Editor settings/profile detection with opt-in local proxy routing where supported.",
     notes:
       "Treat as guided setup first because Cursor settings and extension behavior can vary by account release channel.",
+    capabilityBadges: ["App detection", "Guided setup", "Settings backup pending"],
   },
   {
     id: "grok_cli",
@@ -52,10 +56,10 @@ export const plannedConnectors: PlannedConnector[] = [
     category: "cli",
     statusLabel: "Planned",
     setupPhase: "Detect",
-    integrationTarget:
-      "Provider/base-url adapter after a stable local CLI surface is identified.",
+    integrationTarget: "Provider/base-url adapter after a stable local CLI surface is identified.",
     notes:
-      "Track separately from generic OpenAI-compatible clients so account/model constraints are visible in Doctor.",
+      "Track separately from generic OpenAI-compatible clients so account/model constraints stay visible in Doctor.",
+    capabilityBadges: ["CLI detection", "Model guardrails pending", "Provider routing pending"],
   },
   {
     id: "aider",
@@ -63,10 +67,10 @@ export const plannedConnectors: PlannedConnector[] = [
     category: "agent",
     statusLabel: "Planned",
     setupPhase: "Adapt",
-    integrationTarget:
-      "Local environment/provider wrapper plus Repo Intelligence context packs.",
+    integrationTarget: "Local environment/provider wrapper plus Repo Intelligence context packs.",
     notes:
       "Good fit for RTK and future repo graph context because it is frequently used inside long coding sessions.",
+    capabilityBadges: ["CLI detection", "RTK-safe today", "Repo packs planned"],
   },
   {
     id: "continue",
@@ -77,6 +81,7 @@ export const plannedConnectors: PlannedConnector[] = [
     integrationTarget: "Local config adapter with explicit backup and restore.",
     notes:
       "Start with read-only detection and guided setup because Continue configs often contain multiple providers.",
+    capabilityBadges: ["Config detection", "Guided setup", "Backup/restore pending"],
   },
   {
     id: "goose",
@@ -87,6 +92,7 @@ export const plannedConnectors: PlannedConnector[] = [
     integrationTarget: "Local provider adapter and MCP/Repo Intelligence handoff.",
     notes:
       "Useful target once Switchboard has a stable connector capability model for agent-style tools.",
+    capabilityBadges: ["CLI detection", "MCP handoff planned", "Repo packs planned"],
   },
 ];
 
@@ -95,7 +101,7 @@ export function getPlannedConnector(id: string) {
 }
 
 export function getPlannedConnectorSetupGuide(
-  id: string
+  id: string,
 ): PlannedConnectorSetupGuide | null {
   switch (id) {
     case "gemini_cli":

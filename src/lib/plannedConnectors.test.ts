@@ -24,10 +24,21 @@ describe("planned connectors", () => {
       expect(connector.statusLabel).toBe("Planned");
       expect(["Detect", "Guide", "Adapt"]).toContain(connector.setupPhase);
       expect(connector.integrationTarget.length).toBeGreaterThan(20);
+      expect(connector.capabilityBadges.length).toBeGreaterThanOrEqual(3);
+      expect(connector.capabilityBadges.every((badge) => badge.length > 5)).toBe(true);
       expect(`${connector.integrationTarget} ${connector.notes}`).toMatch(
         /local|reversible|backup|restore|off-mode|guided/i,
       );
     }
+  });
+
+  it("surfaces concrete capability badges for roadmap decisions", () => {
+    const badges = plannedConnectors.flatMap((connector) => connector.capabilityBadges);
+
+    expect(badges).toContain("RTK-safe today");
+    expect(badges).toContain("Backup/restore pending");
+    expect(badges).toContain("Repo packs planned");
+    expect(badges).toContain("Provider routing pending");
   });
 
   it("stages connector rollout before automatic config edits", () => {
