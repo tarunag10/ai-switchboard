@@ -81,6 +81,8 @@ const requiredDocSignals = {
     "Mac AI Switchboard.app",
     "Pause / resume",
     "Codex traffic is actively optimized",
+    "Copy pack",
+    "bounded Markdown context pack",
   ],
   "docs/codex-compression-troubleshooting.md": [
     "compression_refused",
@@ -151,9 +153,19 @@ const requiredSourceSignals = {
     "connector.setupHint",
     "connector.setupPhase",
   ],
+  "src/lib/repoIntelligence.ts": [
+    "formatRepoContextPackMarkdown",
+    "Repo Intelligence Context Pack",
+    "Estimated savings vs full scan",
+  ],
+  "src/lib/repoIntelligence.test.ts": [
+    "formats bounded context packs for agent handoff",
+    "Repo Intelligence Context Pack",
+  ],
   "scripts/smoke-preflight.mjs": [
     "Planned connectors are visible but manual",
     "copyable manual setup guide",
+    "copy bounded context pack",
     "Installed app present",
     "dist/smoke-preflight-summary.md",
     "Required Installed-App Smoke Areas",
