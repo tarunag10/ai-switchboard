@@ -243,10 +243,18 @@ pub struct ClientSetupVerification {
 pub struct ClientConnectorStatus {
     pub client_id: String,
     pub name: String,
+    pub support_status: ClientConnectorSupportStatus,
     pub installed: bool,
     pub enabled: bool,
     pub verified: bool,
     pub last_configured_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClientConnectorSupportStatus {
+    Managed,
+    Planned,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

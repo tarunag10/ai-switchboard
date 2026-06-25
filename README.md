@@ -24,6 +24,8 @@ The app is **local-first**, not offline-only. Claude/OpenAI model calls still go
 | RTK | Token-optimized command output for shells and agents | Add-on / mode |
 | Claude Code | Local client routing and RTK hook target | Supported |
 | Codex | Local provider/base-url routing target | Supported |
+| Gemini CLI | Detected in the switchboard; reversible routing adapter pending | Planned |
+| OpenCode | Detected in the switchboard; reversible routing adapter pending | Planned |
 | Ponytail | Agent behavior nudge toward smaller changes | Add-on |
 | MarkItDown | Document-to-Markdown preprocessing | Add-on |
 | Repo graph tools | Future local code-intelligence layer | Planned |

@@ -240,7 +240,11 @@ const connectorSetupDetails: Record<string, string> = {
   claude_code:
     "Headroom injects ANTHROPIC_BASE_URL into shell profiles and ~/.claude/settings.json so Claude Code connects through Headroom. Token-saving add-ons like RTK are optional: install them from the add-ons list and Headroom wires up the PATH entry and auto-rewrite hook only then.",
   codex:
-    "Headroom writes a managed provider block to ~/.codex/config.toml and exports OPENAI_BASE_URL in your shell profiles so Codex connects through Headroom."
+    "Headroom writes a managed provider block to ~/.codex/config.toml and exports OPENAI_BASE_URL in your shell profiles so Codex connects through Headroom.",
+  gemini_cli:
+    "Gemini CLI is tracked as a planned adapter. Until its reversible config path is implemented, use RTK-only mode for command-output savings.",
+  opencode:
+    "OpenCode is tracked as a planned adapter. Until its reversible config path is implemented, use RTK-only mode for command-output savings."
 };
 
 const connectorSupportWarnings: Record<string, string> = {};
@@ -249,7 +253,9 @@ const connectorUnavailableReasons: Record<string, string> = {
   claude_code:
     "Claude Code was not detected. Install Claude Code and restart Headroom.",
   codex:
-    "Codex was not detected. Install the Codex CLI and restart Headroom."
+    "Codex was not detected. Install the Codex CLI and restart Headroom.",
+  gemini_cli: "Gemini CLI adapter is planned but not configurable yet.",
+  opencode: "OpenCode adapter is planned but not configurable yet."
 };
 
 const launcherConnectorFallback: ClientConnectorStatus[] = [
@@ -2546,6 +2552,9 @@ void refreshDoctorReport();
   }
 
   function canConfigureConnectorWithoutDetection(connector: ClientConnectorStatus) {
+    if (connector.supportStatus === "planned") {
+      return false;
+    }
     // Codex configuration is written to ~/.codex/config.toml, which both the CLI
     // and the GUI app read, so the toggle should be usable even when the CLI
     // binary isn't on the app's PATH (same rationale as claude_code).

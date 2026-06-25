@@ -1988,8 +1988,19 @@ SwitchboardMode::Off
 });
 let mut issues = Vec::new();
 let connectors = client_adapters::list_client_connectors(&state.cached_clients()).unwrap_or_default();
-let enabled_clients = connectors.iter().filter(|client| client.enabled).count();
-let installed_clients = connectors.iter().filter(|client| client.installed).count();
+    let managed_connectors = connectors.iter().filter(|client| {
+        matches!(
+            client.support_status,
+            crate::models::ClientConnectorSupportStatus::Managed
+        )
+    });
+    let enabled_clients = managed_connectors
+        .clone()
+        .filter(|client| client.enabled)
+        .count();
+    let installed_clients = managed_connectors
+        .filter(|client| client.installed)
+        .count();
 
 if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
 && runtime.installed

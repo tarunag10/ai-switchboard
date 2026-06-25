@@ -163,6 +163,7 @@ export interface ClientSetupVerification {
 export interface ClientConnectorStatus {
   clientId: string;
   name: string;
+  supportStatus?: "managed" | "planned";
   installed: boolean;
   enabled: boolean;
   verified: boolean;

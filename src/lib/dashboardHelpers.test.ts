@@ -170,22 +170,25 @@ describe("dashboard helpers", () => {
     ]);
   });
 
-  it("keeps codex alongside claude_code as a supported connector", () => {
+  it("keeps managed and planned switchboard connectors visible", () => {
     const connectors: ClientConnectorStatus[] = [
       { clientId: "codex", name: "Codex", installed: true, enabled: false, verified: false },
       { clientId: "claude_code", name: "Claude Code", installed: true, enabled: true, verified: true },
+      { clientId: "gemini_cli", name: "Gemini CLI", supportStatus: "planned", installed: true, enabled: false, verified: false },
+      { clientId: "opencode", name: "OpenCode", supportStatus: "planned", installed: false, enabled: false, verified: false },
       { clientId: "cursor", name: "Cursor", installed: true, enabled: false, verified: false }
     ];
 
     expect(
       aggregateClientConnectors(connectors).map((connector) => connector.clientId).sort()
-    ).toEqual(["claude_code", "codex"]);
+    ).toEqual(["claude_code", "codex", "gemini_cli", "opencode"]);
   });
 
   it("reports enabled supported connectors regardless of which tool", () => {
     const connectors: ClientConnectorStatus[] = [
       { clientId: "claude_code", name: "Claude Code", installed: true, enabled: false, verified: false },
       { clientId: "codex", name: "Codex", installed: true, enabled: true, verified: true },
+      { clientId: "gemini_cli", name: "Gemini CLI", supportStatus: "planned", installed: true, enabled: true, verified: false },
       { clientId: "cursor", name: "Cursor", installed: true, enabled: true, verified: true }
     ];
 
@@ -211,6 +214,12 @@ describe("dashboard helpers", () => {
     expect(
       connectorDashboardStatus({ clientId: "codex", name: "Codex", installed: true, enabled: true, verified: true })
     ).toEqual({ label: "Active", tone: "active" });
+    expect(
+      connectorDashboardStatus({ clientId: "gemini_cli", name: "Gemini CLI", supportStatus: "planned", installed: true, enabled: false, verified: false })
+    ).toEqual({ label: "Planned", tone: "pending" });
+    expect(
+      connectorDashboardStatus({ clientId: "opencode", name: "OpenCode", supportStatus: "planned", installed: false, enabled: false, verified: false })
+    ).toEqual({ label: "Coming soon", tone: "idle" });
   });
 
   it("formats timestamps and learn recency with clear fallbacks", () => {

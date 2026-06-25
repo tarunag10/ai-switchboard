@@ -365,11 +365,16 @@ export function formatLearnStatus(project: {
   return `last scan: ${diffDays} days ago`;
 }
 
-const SUPPORTED_CONNECTOR_IDS = new Set(["claude_code", "codex"]);
+const KNOWN_CONNECTOR_IDS = new Set([
+  "claude_code",
+  "codex",
+  "gemini_cli",
+  "opencode",
+]);
 
 export function aggregateClientConnectors(connectors: ClientConnectorStatus[]) {
   return connectors.filter((connector) =>
-    SUPPORTED_CONNECTOR_IDS.has(connector.clientId)
+    KNOWN_CONNECTOR_IDS.has(connector.clientId)
   );
 }
 
@@ -386,7 +391,8 @@ export function getEnabledSupportedConnectors(
   connectors: ClientConnectorStatus[]
 ) {
   return aggregateClientConnectors(connectors).filter(
-    (connector) => connector.enabled
+    (connector) =>
+      connector.enabled && (connector.supportStatus ?? "managed") === "managed"
   );
 }
 
@@ -400,6 +406,11 @@ export function connectorDashboardStatus(connector: ClientConnectorStatus): {
   label: string;
   tone: ConnectorDashboardTone;
 } {
+  if (connector.supportStatus === "planned") {
+    return connector.installed
+      ? { label: "Planned", tone: "pending" }
+      : { label: "Coming soon", tone: "idle" };
+  }
   if (!connector.enabled) {
     return connector.installed
       ? { label: "Off", tone: "idle" }
@@ -412,4 +423,3 @@ export function connectorDashboardStatus(connector: ClientConnectorStatus): {
   }
   return { label: "Active", tone: "active" };
 }
-

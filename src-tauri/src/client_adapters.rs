@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::models::{
-    ClientConnectorStatus, ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus,
-    SwitchboardMode,
+    ClientConnectorStatus, ClientConnectorSupportStatus, ClientHealth, ClientSetupResult,
+    ClientSetupVerification, ClientStatus, SwitchboardMode,
 };
 use crate::storage::{app_data_dir, config_file};
 
@@ -51,6 +51,17 @@ const MANAGED_CLIENT_SPECS: [ManagedClientSpec; 2] = [
     },
 ];
 
+const PLANNED_CLIENT_SPECS: [ManagedClientSpec; 2] = [
+    ManagedClientSpec {
+        id: "gemini_cli",
+        name: "Gemini CLI",
+    },
+    ManagedClientSpec {
+        id: "opencode",
+        name: "OpenCode",
+    },
+];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ShellFamily {
     Zsh,
@@ -64,6 +75,8 @@ pub fn detect_clients() -> Vec<ClientStatus> {
     vec![
         detect_claude_code_client(is_configured(&setup_state, "claude_code")),
         detect_codex_client(is_configured(&setup_state, "codex")),
+        detect_gemini_cli_client(),
+        detect_opencode_client(),
     ]
 }
 
@@ -406,7 +419,7 @@ pub fn list_client_connectors(
 ) -> Result<Vec<ClientConnectorStatus>> {
     let setup_state = load_setup_state();
 
-    let connectors = MANAGED_CLIENT_SPECS
+    let mut connectors = MANAGED_CLIENT_SPECS
         .iter()
         .map(|spec| {
             let installed = detected_clients
@@ -432,13 +445,32 @@ pub fn list_client_connectors(
             ClientConnectorStatus {
                 client_id: spec.id.to_string(),
                 name: spec.name.to_string(),
+                support_status: ClientConnectorSupportStatus::Managed,
                 installed,
                 enabled,
                 verified,
                 last_configured_at: configured_timestamp(&setup_state, spec.id),
             }
         })
-        .collect();
+        .collect::<Vec<_>>();
+
+    connectors.extend(PLANNED_CLIENT_SPECS.iter().map(|spec| {
+        let installed = detected_clients
+            .iter()
+            .find(|client| client.id == spec.id)
+            .map(|client| client.installed)
+            .unwrap_or(false);
+
+        ClientConnectorStatus {
+            client_id: spec.id.to_string(),
+            name: spec.name.to_string(),
+            support_status: ClientConnectorSupportStatus::Planned,
+            installed,
+            enabled: false,
+            verified: false,
+            last_configured_at: None,
+        }
+    }));
 
     Ok(connectors)
 }
@@ -2935,6 +2967,98 @@ fn codex_user_state_exists() -> bool {
 /// Locate the Codex CLI binary the same way [`detect_codex_client`] does: known
 /// install locations first, then a PATH lookup. Used as the Headroom Learn
 /// analysis backend (`codex exec`) for Codex sessions.
+fn detect_gemini_cli_client() -> ClientStatus {
+    detect_planned_client(
+        "gemini_cli",
+        "Gemini CLI",
+        &["gemini"],
+        &[
+            home_dir().join(".gemini"),
+            home_dir().join(".config").join("gemini"),
+        ],
+        "Detected, but the Headroom adapter is not implemented yet. For now use RTK-only mode for shell-output savings.",
+    )
+}
+
+fn detect_opencode_client() -> ClientStatus {
+    detect_planned_client(
+        "opencode",
+        "OpenCode",
+        &["opencode", "open-code"],
+        &[
+            home_dir().join(".opencode"),
+            home_dir().join(".config").join("opencode"),
+        ],
+        "Detected, but the Headroom adapter is not implemented yet. For now use RTK-only mode for shell-output savings.",
+    )
+}
+
+fn detect_planned_client(
+    id: &str,
+    name: &str,
+    binary_names: &[&str],
+    state_paths: &[PathBuf],
+    planned_note: &str,
+) -> ClientStatus {
+    let executable = common_cli_candidate_paths(binary_names)
+        .into_iter()
+        .find(|path| path.exists())
+        .or_else(|| find_on_path(binary_names));
+    let detected = executable
+        .as_ref()
+        .map(|path| format!("Detected at {}", path.display()))
+        .or_else(|| {
+            state_paths
+                .iter()
+                .find(|path| path.exists())
+                .map(|path| format!("Detected data at {}.", path.display()))
+        });
+
+    if let Some(detected_note) = detected {
+        return ClientStatus {
+            id: id.into(),
+            name: name.into(),
+            installed: true,
+            configured: false,
+            health: ClientHealth::Attention,
+            notes: vec![detected_note, planned_note.into()],
+        };
+    }
+
+    ClientStatus {
+        id: id.into(),
+        name: name.into(),
+        installed: false,
+        configured: false,
+        health: ClientHealth::NotDetected,
+        notes: vec!["Not detected on machine yet.".into()],
+    }
+}
+
+fn common_cli_candidate_paths(binary_names: &[&str]) -> Vec<PathBuf> {
+    let home = home_dir();
+    let mut directories = vec![
+        PathBuf::from("/usr/local/bin"),
+        PathBuf::from("/opt/homebrew/bin"),
+    ];
+    directories.extend([
+        home.join(".local").join("bin"),
+        home.join(".cargo").join("bin"),
+        home.join("bin"),
+        home.join(".npm-global").join("bin"),
+        home.join(".yarn").join("bin"),
+        home.join(".volta").join("bin"),
+        home.join(".bun").join("bin"),
+        home.join(".asdf").join("shims"),
+        home.join(".mise").join("shims"),
+        home.join(".nodenv").join("shims"),
+    ]);
+
+    let mut paths = binary_candidates_in_dirs(&directories, binary_names);
+    paths.extend(nvm_binary_candidates(&home, binary_names));
+    dedupe_paths(paths)
+}
+
 pub(crate) fn detect_codex_cli() -> Option<PathBuf> {
     codex_candidate_paths()
         .into_iter()
