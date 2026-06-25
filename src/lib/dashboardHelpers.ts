@@ -391,8 +391,7 @@ export function getEnabledSupportedConnectors(
   connectors: ClientConnectorStatus[]
 ) {
   return aggregateClientConnectors(connectors).filter(
-    (connector) =>
-      connector.enabled && (connector.supportStatus ?? "managed") === "managed"
+    (connector) => connector.enabled && connectorSupportsAutomaticSetup(connector)
   );
 }
 
@@ -404,17 +403,16 @@ export function connectorControlState(connector: ClientConnectorStatus): {
   disabled: boolean;
   reason: string | null;
 } {
-  if (connector.supportStatus === "planned") {
+  if (!connectorSupportsAutomaticSetup(connector)) {
     const releaseCopy = connector.installed
-      ? "is detected, but reversible routing support is planned for a later release"
+      ? "is detected, but automatic routing is not available yet"
       : "support is planned for a later release";
+    const hint = connector.setupHint
+      ? ` ${connector.setupHint}`
+      : " Use RTK-only mode for command output savings today.";
     return {
       disabled: true,
-      reason:
-        connector.name +
-        " " +
-        releaseCopy +
-        ". Use RTK-only mode for command-output savings today."
+      reason: connector.name + " " + releaseCopy + "." + hint
     };
   }
 
@@ -438,9 +436,9 @@ export function connectorDashboardStatus(connector: ClientConnectorStatus): {
   label: string;
   tone: ConnectorDashboardTone;
 } {
-  if (connector.supportStatus === "planned") {
+  if (!connectorSupportsAutomaticSetup(connector)) {
     return connector.installed
-      ? { label: "Planned", tone: "pending" }
+      ? { label: connector.setupPhase ?? "Planned", tone: "pending" }
       : { label: "Coming soon", tone: "idle" };
   }
   if (!connector.enabled) {
@@ -454,4 +452,13 @@ export function connectorDashboardStatus(connector: ClientConnectorStatus): {
       : { label: "Restart needed", tone: "pending" };
   }
   return { label: "Active", tone: "active" };
+}
+
+export function connectorSupportsAutomaticSetup(
+  connector: ClientConnectorStatus
+) {
+  return (
+    (connector.setupPhase ?? "managed") === "managed" &&
+    (connector.supportStatus ?? "managed") === "managed"
+  );
 }

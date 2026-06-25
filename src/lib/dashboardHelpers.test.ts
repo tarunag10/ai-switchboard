@@ -8,6 +8,7 @@ import {
   compactNumber,
   connectorControlState,
   connectorDashboardStatus,
+  connectorSupportsAutomaticSetup,
   currency,
   currencyExact,
   dayOfMonthTickFormatter,
@@ -205,10 +206,13 @@ describe("dashboard helpers", () => {
       { clientId: "claude_code", name: "Claude Code", installed: true, enabled: false, verified: false },
       { clientId: "codex", name: "Codex", installed: true, enabled: true, verified: true },
       { clientId: "gemini_cli", name: "Gemini CLI", supportStatus: "planned", installed: true, enabled: true, verified: false },
-      { clientId: "cursor", name: "Cursor", supportStatus: "planned", installed: true, enabled: true, verified: true }
+      { clientId: "cursor", name: "Cursor", supportStatus: "planned", setupPhase: "guide", installed: true, enabled: true, verified: true },
+      { clientId: "goose", name: "Goose", setupPhase: "adapt", installed: true, enabled: true, verified: true }
     ];
 
     expect(getEnabledSupportedConnectors(connectors).map((c) => c.clientId)).toEqual(["codex"]);
+    expect(connectorSupportsAutomaticSetup(connectors[1])).toBe(true);
+    expect(connectorSupportsAutomaticSetup(connectors[4])).toBe(false);
     expect(hasEnabledConnector(connectors)).toBe(true);
     expect(
       hasEnabledConnector([
@@ -223,6 +227,7 @@ describe("dashboard helpers", () => {
         clientId: "gemini_cli",
         name: "Gemini CLI",
         supportStatus: "planned",
+        setupHint: "Manual guide only. Reversible Gemini provider routing is planned.",
         installed: true,
         enabled: false,
         verified: false
@@ -230,7 +235,7 @@ describe("dashboard helpers", () => {
     ).toEqual({
       disabled: true,
       reason:
-        "Gemini CLI is detected, but reversible routing support is planned for a later release. Use RTK-only mode for command-output savings today."
+        "Gemini CLI is detected, but automatic routing is not available yet. Manual guide only. Reversible Gemini provider routing is planned."
     });
 
     expect(
@@ -245,7 +250,7 @@ describe("dashboard helpers", () => {
     ).toEqual({
       disabled: true,
       reason:
-        "OpenCode support is planned for a later release. Use RTK-only mode for command-output savings today."
+        "OpenCode support is planned for a later release. Use RTK-only mode for command output savings today."
     });
 
     expect(
@@ -275,6 +280,9 @@ describe("dashboard helpers", () => {
     expect(
       connectorDashboardStatus({ clientId: "gemini_cli", name: "Gemini CLI", supportStatus: "planned", installed: true, enabled: false, verified: false })
     ).toEqual({ label: "Planned", tone: "pending" });
+    expect(
+      connectorDashboardStatus({ clientId: "cursor", name: "Cursor", supportStatus: "planned", setupPhase: "guide", installed: true, enabled: false, verified: false })
+    ).toEqual({ label: "guide", tone: "pending" });
     expect(
       connectorDashboardStatus({ clientId: "opencode", name: "OpenCode", supportStatus: "planned", installed: false, enabled: false, verified: false })
     ).toEqual({ label: "Coming soon", tone: "idle" });

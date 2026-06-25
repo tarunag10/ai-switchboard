@@ -133,6 +133,11 @@ const requiredSourceSignals = {
     "planned_connector_setup_hint",
     "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.",
   ],
+  "src/lib/dashboardHelpers.ts": [
+    "connectorSupportsAutomaticSetup",
+    "connector.setupHint",
+    "connector.setupPhase",
+  ],
   "scripts/smoke-preflight.mjs": [
     "Planned connectors are visible but manual",
     "copyable manual setup guide",
