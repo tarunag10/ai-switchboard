@@ -13,12 +13,15 @@ function renderPanel(overrides: Partial<React.ComponentProps<typeof SwitchboardP
     headroomDetail: "Codex, Claude Code",
     rtkStatus: "Enabled",
     rtkDetail: "82.5% average savings",
-    remoteServicesEnabled: false,
-    paused: false,
-    resuming: false,
-    onResume: vi.fn(),
-    onManageClients: vi.fn(),
-    onManageRtk: vi.fn(),
+remoteServicesEnabled: false,
+paused: false,
+resuming: false,
+modeBusy: null,
+modeError: null,
+onSetMode: vi.fn(),
+onResume: vi.fn(),
+onManageClients: vi.fn(),
+onManageRtk: vi.fn(),
     ...overrides
   };
   return { ...render(<SwitchboardPanel {...props} />), props };
@@ -53,16 +56,25 @@ describe("SwitchboardPanel", () => {
     const user = userEvent.setup();
     const onResume = vi.fn();
     const onManageClients = vi.fn();
-    const onManageRtk = vi.fn();
-    renderPanel({ paused: true, onResume, onManageClients, onManageRtk });
+const onManageRtk = vi.fn();
+const onSetMode = vi.fn();
+renderPanel({ paused: true, onResume, onManageClients, onManageRtk, onSetMode });
 
-    await user.click(screen.getByRole("button", { name: "Resume Headroom" }));
-    await user.click(screen.getByRole("button", { name: "Manage clients" }));
-    await user.click(screen.getByRole("button", { name: "Manage RTK" }));
+await user.click(screen.getByRole("button", { name: "RTK only" }));
+await user.click(screen.getByRole("button", { name: "Resume Headroom" }));
+await user.click(screen.getByRole("button", { name: "Manage clients" }));
+await user.click(screen.getByRole("button", { name: "Manage RTK" }));
 
-    expect(onResume).toHaveBeenCalledOnce();
-    expect(onManageClients).toHaveBeenCalledOnce();
-    expect(onManageRtk).toHaveBeenCalledOnce();
-  });
+expect(onSetMode).toHaveBeenCalledWith("rtk");
+expect(onResume).toHaveBeenCalledOnce();
+expect(onManageClients).toHaveBeenCalledOnce();
+expect(onManageRtk).toHaveBeenCalledOnce();
 });
 
+it("shows busy and error states for mode changes", () => {
+renderPanel({ modeBusy: "headroom", modeError: "Could not switch optimization mode." });
+
+expect(screen.getByRole("button", { name: "Applying" })).toBeDisabled();
+expect(screen.getByText("Could not switch optimization mode.")).toBeInTheDocument();
+});
+});

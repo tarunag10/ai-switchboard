@@ -1100,10 +1100,12 @@ export default function App() {
   const [contactEmail, setContactEmail] = useState("");
   const [contactMessage, setContactMessage] = useState("");
   const [contactSubmitBusy, setContactSubmitBusy] = useState(false);
-  const [contactSubmitError, setContactSubmitError] = useState<string | null>(null);
-  const [contactSubmitSuccess, setContactSubmitSuccess] = useState<string | null>(null);
-  const [switchboardState, setSwitchboardState] = useState<SwitchboardState | null>(null);
-  const localOnlyMode = localOnlyModeEnabled();
+const [contactSubmitError, setContactSubmitError] = useState<string | null>(null);
+const [contactSubmitSuccess, setContactSubmitSuccess] = useState<string | null>(null);
+const [switchboardState, setSwitchboardState] = useState<SwitchboardState | null>(null);
+const [switchboardModeBusy, setSwitchboardModeBusy] = useState<SwitchboardMode | null>(null);
+const [switchboardModeError, setSwitchboardModeError] = useState<string | null>(null);
+const localOnlyMode = localOnlyModeEnabled();
   const appSemver = appUpdateConfig?.currentVersion ?? packageJson.version;
   const bootstrapFailureSignatureRef = useRef("");
   const mainWindowLastBlurAtRef = useRef<number | null>(null);
@@ -2642,18 +2644,38 @@ export default function App() {
     }
   }
 
-  async function refreshSwitchboardState() {
-    try {
-      const state = await invoke<SwitchboardState>("get_switchboard_state");
-      applySwitchboardStateIfChanged(state);
-      applyRuntimeStatusIfChanged(state.runtime);
-      applyConnectorsIfChanged(state.clients);
-    } catch {
-      applySwitchboardStateIfChanged(null);
-    }
-  }
+async function refreshSwitchboardState() {
+try {
+const state = await invoke<SwitchboardState>("get_switchboard_state");
+applySwitchboardStateIfChanged(state);
+applyRuntimeStatusIfChanged(state.runtime);
+applyConnectorsIfChanged(state.clients);
+} catch {
+applySwitchboardStateIfChanged(null);
+}
+}
 
-  async function refreshRuntimeStatus() {
+async function handleSetSwitchboardMode(mode: SwitchboardMode) {
+if (switchboardModeBusy !== null) {
+return;
+}
+setSwitchboardModeBusy(mode);
+setSwitchboardModeError(null);
+try {
+const state = await invoke<SwitchboardState>("set_switchboard_mode", { mode });
+applySwitchboardStateIfChanged(state);
+applyRuntimeStatusIfChanged(state.runtime);
+applyConnectorsIfChanged(state.clients);
+} catch (error) {
+setSwitchboardModeError(
+error instanceof Error ? error.message : "Could not switch optimization mode."
+);
+} finally {
+setSwitchboardModeBusy(null);
+}
+}
+
+async function refreshRuntimeStatus() {
     try {
       const runtime = await invoke<RuntimeStatus>("get_runtime_status");
       applyRuntimeStatusIfChanged(runtime);
@@ -4785,13 +4807,16 @@ export default function App() {
               headroomDetail={switchboardHeadroomLabel}
               rtkStatus={switchboardRtkLabel}
               rtkDetail={switchboardRtkDetail}
-              remoteServicesEnabled={switchboardRemoteServicesEnabled}
-              paused={runtimeStatus?.paused === true}
-              resuming={resuming}
-              onResume={() => void handleResumeRuntime()}
-              onManageClients={() => setActiveView("settings")}
-              onManageRtk={() => setActiveView("addons")}
-            />
+remoteServicesEnabled={switchboardRemoteServicesEnabled}
+paused={runtimeStatus?.paused === true}
+resuming={resuming}
+modeBusy={switchboardModeBusy}
+modeError={switchboardModeError}
+onSetMode={(mode) => void handleSetSwitchboardMode(mode)}
+onResume={() => void handleResumeRuntime()}
+onManageClients={() => setActiveView("settings")}
+onManageRtk={() => setActiveView("addons")}
+/>
 
             <section className="stat-grid stat-grid--2col">
               <article

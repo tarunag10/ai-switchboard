@@ -9,28 +9,36 @@ interface SwitchboardPanelProps {
   headroomDetail: string;
   rtkStatus: string;
   rtkDetail: string;
-  remoteServicesEnabled: boolean;
-  paused: boolean;
-  resuming: boolean;
-  onResume: () => void;
-  onManageClients: () => void;
-  onManageRtk: () => void;
+remoteServicesEnabled: boolean;
+paused: boolean;
+resuming: boolean;
+modeBusy: SwitchboardMode | null;
+modeError: string | null;
+onSetMode: (mode: SwitchboardMode) => void;
+onResume: () => void;
+onManageClients: () => void;
+onManageRtk: () => void;
 }
 
+const SWITCHBOARD_MODES: SwitchboardMode[] = ["full", "headroom", "rtk", "off"];
+
 export function SwitchboardPanel({
-  mode,
-  summary,
-  localOnly,
+mode,
+summary,
+localOnly,
   proxyStatus,
   headroomDetail,
   rtkStatus,
   rtkDetail,
-  remoteServicesEnabled,
-  paused,
-  resuming,
-  onResume,
-  onManageClients,
-  onManageRtk
+remoteServicesEnabled,
+paused,
+resuming,
+modeBusy,
+modeError,
+onSetMode,
+onResume,
+onManageClients,
+onManageRtk
 }: SwitchboardPanelProps) {
   const modeLabel = switchboardModeLabel(mode);
 
@@ -46,9 +54,24 @@ export function SwitchboardPanel({
         <span className={`switchboard-panel__badge switchboard-panel__badge--${mode}`}>
           {modeLabel}
         </span>
-      </div>
-      <p className="switchboard-panel__copy">{summary}</p>
-      <div className="switchboard-panel__grid">
+</div>
+<p className="switchboard-panel__copy">{summary}</p>
+<div className="switchboard-panel__modes" role="group" aria-label="Switch optimization mode">
+{SWITCHBOARD_MODES.map((option) => (
+<button
+key={option}
+type="button"
+className={`switchboard-panel__mode${option === mode ? " is-active" : ""}`}
+onClick={() => onSetMode(option)}
+disabled={modeBusy !== null}
+aria-pressed={option === mode}
+>
+{modeBusy === option ? "Applying" : switchboardModeLabel(option)}
+</button>
+))}
+</div>
+{modeError ? <p className="switchboard-panel__error">{modeError}</p> : null}
+<div className="switchboard-panel__grid">
         <div className="switchboard-panel__item">
           <span className="switchboard-panel__label">Headroom proxy</span>
           <strong>{proxyStatus}</strong>
@@ -90,4 +113,3 @@ export function SwitchboardPanel({
     </section>
   );
 }
-

@@ -322,9 +322,9 @@ async fn handle(
     // only) never fires for it — this proxy is the only component left in the
     // response path that sees those headers. Every other client (Claude) keeps
     // the untouched zero-copy splice.
-    if is_codex {
-        splice_with_codex_capture(client, backend, &codex_slot).await;
-    } else {
+if is_codex {
+splice_with_codex_capture(client, backend, &codex_slot, &codex_bypass).await;
+} else {
         let _ = tokio::io::copy_bidirectional(&mut client, &mut backend).await;
     }
 }
@@ -336,9 +336,10 @@ async fn handle(
 /// read error before the head completes, whatever was read is still forwarded,
 /// so the response is never corrupted.
 async fn splice_with_codex_capture(
-    mut client: TcpStream,
-    mut backend: TcpStream,
-    codex_slot: &CodexRateLimitSlot,
+mut client: TcpStream,
+mut backend: TcpStream,
+codex_slot: &CodexRateLimitSlot,
+codex_bypass: &BypassFlag,
 ) {
     let (mut client_rd, mut client_wr) = client.split();
     let (mut backend_rd, mut backend_wr) = backend.split();
@@ -358,11 +359,17 @@ async fn splice_with_codex_capture(
         )
         .await;
 
-        if matches!(read_head, Ok(Ok(()))) {
-            if let Some(snapshot) = parse_codex_rate_limit_headers(&head) {
-                *codex_slot.lock() = Some(snapshot);
-            }
-        }
+if matches!(read_head, Ok(Ok(()))) {
+if let Some(snapshot) = parse_codex_rate_limit_headers(&head) {
+*codex_slot.lock() = Some(snapshot);
+}
+if is_headroom_compression_refusal_response(&head) {
+log::warn!(
+"Headroom refused Codex compression for an oversized request; enabling Codex direct bypass for subsequent requests"
+);
+codex_bypass.store(true, Ordering::Release);
+}
+}
 
         // Forward the head bytes we read (full head on success, partial on
         // timeout/EOF — `read_http_headers` may also include leading body bytes
@@ -375,6 +382,17 @@ async fn splice_with_codex_capture(
     };
 
     tokio::join!(upstream, downstream);
+}
+
+fn is_headroom_compression_refusal_response(head: &[u8]) -> bool {
+let Ok(text) = std::str::from_utf8(head) else {
+return false;
+};
+let lower = text.to_ascii_lowercase();
+lower.starts_with("http/1.1 413")
+&& lower.contains("compression_refused")
+&& lower.contains("headroom:")
+&& lower.contains("compression timeout")
 }
 
 /// Parse the `x-codex-*` rate-limit headers out of a raw HTTP response head
@@ -1972,6 +1990,28 @@ mod tests {
         // No header terminator / garbage — must not panic, no signal.
         let head = "HTTP/1.1 200 OK\r\nx-codex-limit-name: codex";
         assert!(parse_codex_rate_limit_headers(head.as_bytes()).is_none());
+    }
+
+    #[test]
+    fn detects_headroom_compression_refusal_413() {
+        let head = concat!(
+            "HTTP/1.1 413 Payload Too Large\r\n",
+            "content-type: application/json\r\n",
+            "\r\n",
+            r#"{"detail":{"error":{"type":"compression_refused","message":"headroom: compression timeout on a 1510408-byte request - please compact context and retry."}}}"#
+        );
+        assert!(is_headroom_compression_refusal_response(head.as_bytes()));
+    }
+
+    #[test]
+    fn ignores_unrelated_payload_too_large() {
+        let head = concat!(
+            "HTTP/1.1 413 Payload Too Large\r\n",
+            "content-type: application/json\r\n",
+            "\r\n",
+            r#"{"error":{"message":"request body too large"}}"#
+        );
+        assert!(!is_headroom_compression_refusal_response(head.as_bytes()));
     }
 
     // A faithful GET /wham/usage body (shape captured from a live Plus account).

@@ -1888,11 +1888,10 @@ fn get_runtime_status(state: State<'_, AppState>) -> RuntimeStatus {
     state.runtime_status()
 }
 
-#[tauri::command]
-async fn get_switchboard_state(state: State<'_, AppState>) -> Result<SwitchboardState, String> {
-    let runtime = state.runtime_status();
-    let clients = client_adapters::list_client_connectors(&state.cached_clients())
-        .map_err(|err| err.to_string())?;
+fn build_switchboard_state(state: &AppState) -> Result<SwitchboardState, String> {
+let runtime = state.runtime_status();
+let clients = client_adapters::list_client_connectors(&state.cached_clients())
+.map_err(|err| err.to_string())?;
     let enabled_clients: Vec<ClientConnectorStatus> = clients
         .iter()
         .filter(|client| client.enabled)
@@ -1901,38 +1900,125 @@ async fn get_switchboard_state(state: State<'_, AppState>) -> Result<Switchboard
     let rtk_enabled = runtime.rtk.installed && runtime.rtk.enabled;
     let headroom_enabled =
         runtime.running && runtime.proxy_reachable && !runtime.paused && !enabled_clients.is_empty();
-    let mode = match (headroom_enabled, rtk_enabled) {
-        (true, true) => SwitchboardMode::Full,
-        (true, false) => SwitchboardMode::Headroom,
-        (false, true) => SwitchboardMode::Rtk,
-        (false, false) => SwitchboardMode::Off,
-    };
-    let summary = match mode {
-        SwitchboardMode::Full => {
-            "Headroom proxy routing and RTK command compression are both active."
-        }
+let inferred_mode = match (headroom_enabled, rtk_enabled) {
+(true, true) => SwitchboardMode::Full,
+(true, false) => SwitchboardMode::Headroom,
+(false, true) => SwitchboardMode::Rtk,
+(false, false) => SwitchboardMode::Off,
+};
+let mode = client_adapters::load_switchboard_mode().unwrap_or(inferred_mode);
+let codex_direct_bypass = state
+.codex_bypass
+.load(std::sync::atomic::Ordering::Acquire);
+let summary = if codex_direct_bypass
+&& matches!(mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
+{
+"Codex is temporarily bypassing Headroom after an oversized compression refusal. Compact context or switch to RTK only, then re-enable Headroom."
+.to_string()
+} else {
+match mode {
+SwitchboardMode::Full => {
+"Headroom proxy routing and RTK command compression are both active."
+}
         SwitchboardMode::Headroom => {
             "LLM traffic is routed through Headroom. RTK command compression is off."
         }
         SwitchboardMode::Rtk => {
             "RTK command compression is active. No coding client is routed through Headroom."
         }
-        SwitchboardMode::Off => "No optimization layer is active right now.",
-    }
-    .to_string();
+SwitchboardMode::Off => "No optimization layer is active right now.",
+}
+.to_string()
+};
     let local_only = local_mode::enabled();
 
-    Ok(SwitchboardState {
-        mode,
-        local_only,
-        remote_services_enabled: !local_only,
-        runtime,
-        clients,
-        enabled_clients,
-        rtk_enabled,
-        headroom_enabled,
-        summary,
-    })
+Ok(SwitchboardState {
+mode,
+local_only,
+remote_services_enabled: !local_only,
+runtime,
+clients,
+enabled_clients,
+rtk_enabled,
+headroom_enabled,
+summary,
+})
+}
+
+#[tauri::command]
+async fn get_switchboard_state(state: State<'_, AppState>) -> Result<SwitchboardState, String> {
+build_switchboard_state(&state)
+}
+
+#[tauri::command]
+async fn set_switchboard_mode(
+app: AppHandle,
+mode: SwitchboardMode,
+) -> Result<SwitchboardState, String> {
+let state: tauri::State<'_, AppState> = app.state();
+client_adapters::write_switchboard_mode(mode.clone()).map_err(|err| err.to_string())?;
+
+match mode {
+SwitchboardMode::Off => {
+client_adapters::set_rtk_enabled(
+false,
+&state.tool_manager.rtk_entrypoint(),
+&state.tool_manager.managed_python(),
+)
+.map_err(|err| err.to_string())?;
+state.set_runtime_paused(true);
+state.set_runtime_auto_paused(false);
+state.codex_bypass
+.store(true, std::sync::atomic::Ordering::Release);
+state.stop_headroom();
+client_adapters::clear_client_setups().map_err(|err| err.to_string())?;
+analytics::track_event(&app, "switchboard_mode_off", None);
+}
+SwitchboardMode::Rtk => {
+client_adapters::set_rtk_enabled(
+true,
+&state.tool_manager.rtk_entrypoint(),
+&state.tool_manager.managed_python(),
+)
+.map_err(|err| err.to_string())?;
+state.set_runtime_paused(true);
+state.set_runtime_auto_paused(false);
+state.codex_bypass
+.store(true, std::sync::atomic::Ordering::Release);
+state.stop_headroom();
+client_adapters::clear_client_setups().map_err(|err| err.to_string())?;
+analytics::track_event(&app, "switchboard_mode_rtk", None);
+}
+SwitchboardMode::Headroom => {
+client_adapters::set_rtk_enabled(
+false,
+&state.tool_manager.rtk_entrypoint(),
+&state.tool_manager.managed_python(),
+)
+.map_err(|err| err.to_string())?;
+state.codex_bypass
+.store(false, std::sync::atomic::Ordering::Release);
+state.resume_runtime().map_err(|err| err.to_string())?;
+client_adapters::restore_client_setups();
+analytics::track_event(&app, "switchboard_mode_headroom", None);
+}
+SwitchboardMode::Full => {
+client_adapters::set_rtk_enabled(
+true,
+&state.tool_manager.rtk_entrypoint(),
+&state.tool_manager.managed_python(),
+)
+.map_err(|err| err.to_string())?;
+state.codex_bypass
+.store(false, std::sync::atomic::Ordering::Release);
+state.resume_runtime().map_err(|err| err.to_string())?;
+client_adapters::restore_client_setups();
+analytics::track_event(&app, "switchboard_mode_full", None);
+}
+}
+
+state.invalidate_runtime_status_cache();
+build_switchboard_state(&state)
 }
 
 /// Debug-only: force the proxy intercept's bypass flag on/off so a developer
@@ -3363,9 +3449,10 @@ pub fn run() {
             retry_runtime_upgrade,
             retry_runtime_upgrade_with_rebuild,
             dismiss_runtime_upgrade_failure,
-            get_runtime_status,
-            get_switchboard_state,
-            get_headroom_logs,
+get_runtime_status,
+get_switchboard_state,
+set_switchboard_mode,
+get_headroom_logs,
             get_headroom_request_count,
             get_headroom_request_counts_by_agent,
             get_rtk_activity,
