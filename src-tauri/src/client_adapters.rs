@@ -471,6 +471,8 @@ pub fn list_client_connectors(
                 client_id: spec.id.to_string(),
                 name: spec.name.to_string(),
                 support_status: ClientConnectorSupportStatus::Managed,
+                setup_phase: "managed".to_string(),
+                setup_hint: "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.".to_string(),
                 installed,
                 enabled,
                 verified,
@@ -486,18 +488,56 @@ pub fn list_client_connectors(
             .map(|client| client.installed)
             .unwrap_or(false);
 
-        ClientConnectorStatus {
-            client_id: spec.id.to_string(),
-            name: spec.name.to_string(),
-            support_status: ClientConnectorSupportStatus::Planned,
-            installed,
-            enabled: false,
+            ClientConnectorStatus {
+                client_id: spec.id.to_string(),
+                name: spec.name.to_string(),
+                support_status: ClientConnectorSupportStatus::Planned,
+                setup_phase: planned_connector_setup_phase(spec.id).to_string(),
+                setup_hint: planned_connector_setup_hint(spec.id).to_string(),
+                installed,
+                enabled: false,
             verified: false,
             last_configured_at: None,
         }
     }));
 
     Ok(connectors)
+}
+
+fn planned_connector_setup_phase(client_id: &str) -> &'static str {
+    match client_id {
+        "grok_cli" => "detect",
+        "gemini_cli" | "cursor" | "continue" => "guide",
+        "opencode" | "aider" | "goose" => "adapt",
+        _ => "detect",
+    }
+}
+
+fn planned_connector_setup_hint(client_id: &str) -> &'static str {
+    match client_id {
+        "gemini_cli" => {
+            "Manual guide only. Reversible Gemini provider routing is planned after config support is verified."
+        }
+        "opencode" => {
+            "Manual guide only. Automatic setup waits for backed-up provider config edits and off-mode cleanup."
+        }
+        "cursor" => {
+            "Manual guide only. Cursor routing stays opt-in until account-specific settings are safely detected."
+        }
+        "grok_cli" => {
+            "Detection only. Stable Grok / xAI CLI provider behavior must be confirmed before routing."
+        }
+        "aider" => {
+            "Manual guide only. RTK-only mode is available while provider wrapping and repo context support are built."
+        }
+        "continue" => {
+            "Manual guide only. Continue provider configs require explicit backup and restore coverage first."
+        }
+        "goose" => {
+            "Manual guide only. Provider routing and MCP handoff support are planned after reversible setup coverage."
+        }
+        _ => "Manual guide only. Automatic setup is not available yet.",
+    }
 }
 
 pub fn disable_client_setup(client_id: &str) -> Result<()> {

@@ -124,6 +124,15 @@ const requiredSourceSignals = {
     "ClientConnectorSupportStatus::Managed",
     "automatic routing is disabled until backup, restore, and off-mode cleanup are implemented",
   ],
+  "src-tauri/src/models.rs": [
+    "setup_phase",
+    "setup_hint",
+  ],
+  "src-tauri/src/client_adapters.rs": [
+    "planned_connector_setup_phase",
+    "planned_connector_setup_hint",
+    "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.",
+  ],
   "scripts/smoke-preflight.mjs": [
     "Planned connectors are visible but manual",
     "copyable manual setup guide",

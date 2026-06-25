@@ -6098,6 +6098,10 @@ onRepair={(action) => void handleDoctorRepair(action)}
                   const plannedSetupGuide = plannedConnector
                     ? getPlannedConnectorSetupGuide(plannedConnector.id)
                     : null;
+                  const connectorSetupPhase =
+                    connector.setupPhase ?? plannedConnector?.setupPhase ?? null;
+                  const connectorSetupHint =
+                    connector.setupHint ?? plannedConnector?.notes ?? null;
                   return (
                     <article className="connector-item" key={connector.clientId}>
                       <div>
@@ -6127,15 +6131,15 @@ onRepair={(action) => void handleDoctorRepair(action)}
                           </h3>
                           {openConnectorHelpId === connector.clientId ? (
                             <p className="connector-tooltip">
-                          {plannedConnector?.notes ??
-                            connectorSetupDetails[connector.clientId] ??
-                            "Headroom applies local connector configuration."}
+                        {connectorSetupHint ??
+                          connectorSetupDetails[connector.clientId] ??
+                          "Headroom applies local connector configuration."}
                         </p>
                       ) : null}
                       {plannedConnector ? (
                         <div className="connector-plan">
                           <div className="connector-plan__meta">
-                            <span>{plannedConnector.setupPhase}</span>
+                            <span>{connectorSetupPhase}</span>
                             <span>{plannedConnector.category}</span>
                           </div>
                           <p className="connector-plan__target">

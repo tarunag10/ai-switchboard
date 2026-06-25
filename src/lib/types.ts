@@ -164,6 +164,8 @@ export interface ClientConnectorStatus {
   clientId: string;
   name: string;
   supportStatus?: "managed" | "planned";
+  setupPhase?: "managed" | "detect" | "guide" | "adapt";
+  setupHint?: string;
   installed: boolean;
   enabled: boolean;
   verified: boolean;

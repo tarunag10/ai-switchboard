@@ -244,6 +244,8 @@ pub struct ClientConnectorStatus {
     pub client_id: String,
     pub name: String,
     pub support_status: ClientConnectorSupportStatus,
+    pub setup_phase: String,
+    pub setup_hint: String,
     pub installed: bool,
     pub enabled: bool,
     pub verified: bool,
