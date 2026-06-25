@@ -13,6 +13,7 @@ import {
   ArrowClockwise,
   Bell,
   Brain,
+  Calculator,
   CaretLeft,
   Cpu,
   CurrencyCircleDollar,
@@ -152,6 +153,10 @@ import {
   switchboardModeLabel,
   switchboardModeSummary
 } from "./lib/switchboardDisplay";
+import {
+  buildSavingsCalculatorSummary,
+  type SavingsCalculatorScope
+} from "./lib/savingsCalculator";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
@@ -528,6 +533,101 @@ function OutputReductionChip({ reduction }: { reduction: OutputReduction }) {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function SavingsCalculatorCard({
+  dashboard,
+  scope,
+  onScopeChange
+}: {
+  dashboard: DashboardState;
+  scope: SavingsCalculatorScope;
+  onScopeChange: (scope: SavingsCalculatorScope) => void;
+}) {
+  const summary = buildSavingsCalculatorSummary(dashboard, scope);
+  const savedLabel = compactNumber(summary.savedTokens);
+  const sentLabel = compactNumber(summary.sentTokens);
+  const beforeLabel = compactNumber(summary.beforeTokens);
+  const hasUsage = summary.requests > 0 || summary.savedTokens > 0;
+  const percentLabel =
+    summary.savingsPct === null
+      ? "Waiting for usage"
+      : `${percent1(summary.savingsPct)}%`;
+
+  return (
+    <article className="soft-card savings-calculator">
+      <header className="savings-calculator__header">
+        <div className="savings-calculator__title">
+          <span className="savings-calculator__icon" aria-hidden="true">
+            <Calculator weight="duotone" />
+          </span>
+          <div>
+            <h2>Savings calculator</h2>
+            <p>{summary.dataLabel}</p>
+          </div>
+        </div>
+        <div
+          className="savings-calculator__scope"
+          role="group"
+          aria-label="Savings scope"
+        >
+          {(["session", "overall"] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              className={`savings-calculator__scope-button${
+                scope === item ? " is-active" : ""
+              }`}
+              onClick={() => onScopeChange(item)}
+            >
+              {item === "session" ? "Session" : "Overall"}
+            </button>
+          ))}
+        </div>
+      </header>
+      <div className="savings-calculator__body">
+        <div className="savings-calculator__hero">
+          <span>
+            {scope === "session" ? "Saved this session" : "Saved overall"}
+          </span>
+          <strong>{currencyExact(summary.savedUsd)}</strong>
+        </div>
+        <dl className="savings-calculator__metrics">
+          <div>
+            <dt>Tokens saved</dt>
+            <dd>{savedLabel}</dd>
+          </div>
+          <div>
+            <dt>Requests</dt>
+            <dd>{compactNumber(summary.requests)}</dd>
+          </div>
+          <div>
+            <dt>Reduction</dt>
+            <dd>{percentLabel}</dd>
+          </div>
+        </dl>
+      </div>
+      <div className="savings-calculator__equation" aria-label="Savings equation">
+        <span>
+          Before <strong>{beforeLabel}</strong>
+        </span>
+        <span aria-hidden="true">-</span>
+        <span>
+          Sent <strong>{sentLabel}</strong>
+        </span>
+        <span aria-hidden="true">=</span>
+        <span>
+          Saved <strong>{savedLabel}</strong>
+        </span>
+      </div>
+      {!hasUsage ? (
+        <p className="savings-calculator__empty">
+          Run a connected coding agent through Mac AI Switchboard and this card
+          will update automatically.
+        </p>
+      ) : null}
+    </article>
   );
 }
 
@@ -1119,6 +1219,8 @@ export default function App() {
   const [stepBasePercent, setStepBasePercent] = useState(0);
   const [chartResetSignal, setChartResetSignal] = useState(0);
   const [chartMode, setChartMode] = useState<SavingsChartMode>("usd");
+  const [savingsCalculatorScope, setSavingsCalculatorScope] =
+    useState<SavingsCalculatorScope>("session");
   // Safety net: if native history never loads (backend unreachable), reveal the
   // chart anyway after this delay rather than spinning forever.
   const [historyLoadTimedOut, setHistoryLoadTimedOut] = useState(false);
@@ -4950,11 +5052,17 @@ onRepair={(action) => void handleDoctorRepair(action)}
                     <OutputReductionChip reduction={dashboard.outputReduction} />
                   ) : null}
                 </div>
-              </article>
-            </section>
+</article>
+</section>
 
-            {dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
-              <DailySavingsChart
+<SavingsCalculatorCard
+  dashboard={dashboard}
+  scope={savingsCalculatorScope}
+  onScopeChange={setSavingsCalculatorScope}
+/>
+
+{dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
+<DailySavingsChart
                 data={dashboard.dailySavings}
                 hourlyData={dashboard.hourlySavings}
                 resetSignal={chartResetSignal}
