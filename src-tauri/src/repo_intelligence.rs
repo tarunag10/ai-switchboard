@@ -5,7 +5,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 
-use crate::models::{RepoContextPack, RepoFileRole, RepoFileSignal, RepoIntelligenceSummary};
+use crate::models::{
+    RepoContextPack, RepoFileRole, RepoFileSignal, RepoGraphNode, RepoGraphSummary,
+    RepoIntelligenceSummary,
+};
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs};
 
 const MAX_SCAN_FILES: usize = 2_500;
@@ -61,6 +64,7 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
         *role_counts.entry(role_key(&signal.role).to_string()).or_insert(0) += 1;
     }
 
+    let graph = build_repo_graph_summary(&indexed);
     let packs = vec![
         build_context_pack(
             "implementation",
@@ -105,6 +109,7 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
         skipped_files: signals.len().saturating_sub(indexed.len()) as u64,
         estimated_full_scan_tokens,
         role_counts,
+        graph: Some(graph),
         packs,
     })
 }
@@ -307,6 +312,110 @@ fn build_context_pack(
     }
 }
 
+fn build_repo_graph_summary(files: &[RepoFileSignal]) -> RepoGraphSummary {
+    let included = files
+        .iter()
+        .filter(|signal| signal.include_by_default)
+        .cloned()
+        .collect::<Vec<_>>();
+    let source_and_config = included
+        .iter()
+        .filter(|signal| matches!(signal.role, RepoFileRole::Source | RepoFileRole::Config))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    RepoGraphSummary {
+        top_directories: summarize_graph_nodes(&included, top_directory, 6),
+        top_languages: summarize_graph_nodes(
+            &included
+                .iter()
+                .filter(|signal| signal.language != "Unknown")
+                .cloned()
+                .collect::<Vec<_>>(),
+            |signal| signal.language.clone(),
+            6,
+        ),
+        entrypoints: source_and_config
+            .iter()
+            .filter(|signal| is_likely_entrypoint(signal))
+            .take(12)
+            .cloned()
+            .collect(),
+        likely_tests: included
+            .iter()
+            .filter(|signal| matches!(signal.role, RepoFileRole::Test))
+            .take(12)
+            .cloned()
+            .collect(),
+        config_hubs: included
+            .iter()
+            .filter(|signal| matches!(signal.role, RepoFileRole::Config))
+            .take(12)
+            .cloned()
+            .collect(),
+    }
+}
+
+fn summarize_graph_nodes<F>(files: &[RepoFileSignal], label_for_file: F, limit: usize) -> Vec<RepoGraphNode>
+where
+    F: Fn(&RepoFileSignal) -> String,
+{
+    let mut nodes: BTreeMap<String, RepoGraphNode> = BTreeMap::new();
+
+    for file in files {
+        let label = label_for_file(file);
+        let node = nodes.entry(label.clone()).or_insert_with(|| RepoGraphNode {
+            label,
+            count: 0,
+            estimated_tokens: 0,
+            examples: Vec::new(),
+        });
+        node.count += 1;
+        node.estimated_tokens += file.estimated_tokens;
+        if node.examples.len() < 4 {
+            node.examples.push(file.path.clone());
+        }
+    }
+
+    let mut nodes = nodes.into_values().collect::<Vec<_>>();
+    nodes.sort_by(|a, b| {
+        b.count
+            .cmp(&a.count)
+            .then_with(|| b.estimated_tokens.cmp(&a.estimated_tokens))
+            .then_with(|| a.label.cmp(&b.label))
+    });
+    nodes.truncate(limit);
+    nodes
+}
+
+fn top_directory(file: &RepoFileSignal) -> String {
+    file.path
+        .split_once('/')
+        .map(|(first, _)| first.to_string())
+        .unwrap_or_else(|| ".".to_string())
+}
+
+fn is_likely_entrypoint(file: &RepoFileSignal) -> bool {
+    if !matches!(file.role, RepoFileRole::Source) {
+        return false;
+    }
+    let normalized = file.path.to_lowercase();
+    let name = normalized.rsplit('/').next().unwrap_or(&normalized);
+    matches!(
+        name,
+        "main.ts"
+            | "main.tsx"
+            | "main.js"
+            | "index.ts"
+            | "index.tsx"
+            | "index.js"
+            | "app.tsx"
+            | "app.ts"
+            | "lib.rs"
+            | "main.rs"
+    ) || normalized.ends_with("/src-tauri/src/lib.rs")
+}
+
 fn estimate_tokens(bytes: u64) -> u64 {
     std::cmp::max(1, bytes.saturating_add(3) / 4)
 }
@@ -422,6 +531,36 @@ mod tests {
                 "{path}"
             );
         }
+    }
+
+    #[test]
+    fn builds_repo_graph_summary_for_agent_context() {
+        let files = vec![
+            classify_file("src/App.tsx", 4000),
+            classify_file("src/main.tsx", 1400),
+            classify_file("src/App.test.tsx", 2000),
+            classify_file("src-tauri/src/lib.rs", 5000),
+            classify_file("scripts/release.mjs", 1200),
+            classify_file("package.json", 800),
+            classify_file(".env.local", 200),
+        ];
+        let graph = build_repo_graph_summary(&files);
+
+        assert_eq!(graph.top_directories[0].label, "src");
+        assert!(graph.top_languages.iter().any(|node| node.label == "React"));
+        assert!(graph.entrypoints.iter().any(|file| file.path == "src/main.tsx"));
+        assert!(graph
+            .likely_tests
+            .iter()
+            .any(|file| file.path == "src/App.test.tsx"));
+        assert!(graph
+            .config_hubs
+            .iter()
+            .any(|file| file.path == "package.json"));
+        assert!(!graph
+            .config_hubs
+            .iter()
+            .any(|file| file.path == ".env.local"));
     }
 
     #[test]

@@ -186,7 +186,28 @@ const requiredSourceSignals = {
 "Open Settings, review each planned connector guide",
 "Open Addons, index an available local repo again",
 ],
-"src/lib/repoIntelligence.ts": [
+"src-tauri/src/models.rs": [
+    "RepoGraphSummary",
+    "RepoGraphNode",
+    "pub graph: Option<RepoGraphSummary>",
+  ],
+  "src-tauri/src/repo_intelligence.rs": [
+    "build_repo_graph_summary",
+    "builds_repo_graph_summary_for_agent_context",
+    "top_directories",
+    "config_hubs",
+  ],
+  "src/App.tsx": [
+    "repo-intelligence-graph",
+    "Repo Intelligence graph summary",
+    "Top directories",
+    "Likely tests",
+  ],
+  "src/styles.css": [
+    ".repo-intelligence-graph",
+    "grid-template-columns: repeat(4, minmax(0, 1fr))",
+  ],
+  "src/lib/repoIntelligence.ts": [
     "formatRepoContextPackMarkdown",
     "isSecretLikeRepoPath",
     "Repo Intelligence Context Pack",

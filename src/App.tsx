@@ -1284,6 +1284,36 @@ function RepoIntelligencePreview() {
           <em>{savingsEstimate.allPacksSavingsPct.toFixed(1)}% vs full scan</em>
         </div>
       </div>
+      {summary.graph ? (
+        <div className="repo-intelligence-graph" aria-label="Repo Intelligence graph summary">
+          <div>
+            <span>Top directories</span>
+            <strong>
+              {summary.graph.topDirectories
+                .slice(0, 3)
+                .map((node) => `${node.label} (${node.count})`)
+                .join(", ") || "None"}
+            </strong>
+          </div>
+          <div>
+            <span>Languages</span>
+            <strong>
+              {summary.graph.topLanguages
+                .slice(0, 3)
+                .map((node) => node.label)
+                .join(", ") || "Unknown"}
+            </strong>
+          </div>
+          <div>
+            <span>Entrypoints</span>
+            <strong>{summary.graph.entrypoints.length}</strong>
+          </div>
+          <div>
+            <span>Likely tests</span>
+            <strong>{summary.graph.likelyTests.length}</strong>
+          </div>
+        </div>
+      ) : null}
       <div className="repo-intelligence-preview__grid">
         {summary.packs.map((pack) => (
           <article className="repo-intelligence-pack" key={pack.id}>

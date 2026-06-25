@@ -125,6 +125,25 @@ pub struct RepoContextPack {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RepoGraphNode {
+    pub label: String,
+    pub count: u64,
+    pub estimated_tokens: u64,
+    pub examples: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoGraphSummary {
+    pub top_directories: Vec<RepoGraphNode>,
+    pub top_languages: Vec<RepoGraphNode>,
+    pub entrypoints: Vec<RepoFileSignal>,
+    pub likely_tests: Vec<RepoFileSignal>,
+    pub config_hubs: Vec<RepoFileSignal>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepoIntelligenceSummary {
     pub indexed_at: String,
     pub repo_root: String,
@@ -133,6 +152,7 @@ pub struct RepoIntelligenceSummary {
     pub skipped_files: u64,
     pub estimated_full_scan_tokens: u64,
     pub role_counts: std::collections::BTreeMap<String, u64>,
+    pub graph: Option<RepoGraphSummary>,
     pub packs: Vec<RepoContextPack>,
 }
 
