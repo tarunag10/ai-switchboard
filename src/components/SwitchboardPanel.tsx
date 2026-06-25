@@ -1,3 +1,4 @@
+import { codexConcurrencyGuidance } from "../lib/codexConcurrencyGuidance";
 import {
   localOnlySetupLabel,
   remoteServicesCopy,
@@ -61,6 +62,7 @@ export function SwitchboardPanel({
   const modeEffect = switchboardModeEffect(mode);
   const setupLabel = localOnlySetupLabel(localOnly);
   const remoteCopy = remoteServicesCopy(remoteServicesEnabled);
+  const codexGuidance = codexConcurrencyGuidance(mode, headroomDetail);
 
   return (
     <section
@@ -111,6 +113,11 @@ export function SwitchboardPanel({
         ))}
       </div>
       <p className="switchboard-panel__mode-effect">{modeEffect}</p>
+      {codexGuidance ? (
+        <p className="switchboard-panel__attention">
+          <strong>{codexGuidance.title}</strong> {codexGuidance.body}
+        </p>
+      ) : null}
       {modeError ? (
         <p className="switchboard-panel__error">{modeError}</p>
       ) : null}

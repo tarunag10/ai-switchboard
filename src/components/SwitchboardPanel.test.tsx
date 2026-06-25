@@ -45,9 +45,24 @@ describe("SwitchboardPanel", () => {
         "Routes supported clients through Headroom and compresses shell output with RTK.",
       ),
     ).toBeInTheDocument();
+    expect(screen.getByText("Running several Codex goals?")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Use RTK only for multiple heavy active Codex chats or goals; keep Full optimization for one main Codex session after compacting context.",
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("No pricing, trial, Clarity, Sentry, or Aptabase calls."),
     ).toBeInTheDocument();
+  });
+
+  it("hides Codex parallel-goal guidance outside Headroom routed Codex modes", () => {
+    renderPanel({
+      mode: "rtk",
+      headroomDetail: "Codex, Claude Code",
+    });
+
+    expect(screen.queryByText("Running several Codex goals?")).not.toBeInTheDocument();
   });
 
   it("renders cloud availability when remote services are enabled", () => {
