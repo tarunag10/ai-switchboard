@@ -1377,15 +1377,28 @@ function PlannedConnectorRoadmap({
               <span>{connectorCategoryLabel(connector.category)}</span>
             </div>
             <p>{connector.integrationTarget}</p>
-            <div className="planned-connectors__capabilities">
-              {connector.capabilityBadges.map((badge) => (
-                <span key={badge}>{badge}</span>
-              ))}
+          <div className="planned-connectors__capabilities">
+            {connector.capabilityBadges.map((badge) => (
+              <span key={badge}>{badge}</span>
+            ))}
+          </div>
+          <div className="planned-connectors__readiness">
+            <div>
+              <span>Config surface</span>
+              <strong>{connector.configSurfaces[0]}</strong>
             </div>
-            <div className="planned-connectors__meta">
-              <span>{connector.setupPhase}</span>
-              <span>{connector.statusLabel}</span>
+            <div>
+              <span>Automation gate</span>
+              <strong>{connector.automationGates[0]}</strong>
             </div>
+          </div>
+          <p className="planned-connectors__manual">
+            Today: {connector.manualWorkflow[0]}
+          </p>
+          <div className="planned-connectors__meta">
+            <span>{connector.setupPhase}</span>
+            <span>{connector.statusLabel}</span>
+          </div>
           </li>
         ))}
       </ul>

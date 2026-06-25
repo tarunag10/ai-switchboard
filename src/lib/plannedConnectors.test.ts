@@ -43,6 +43,23 @@ describe("planned connectors", () => {
     expect(badges).toContain("Provider routing pending");
   });
 
+  it("defines safe automation contracts for every future connector", () => {
+    for (const connector of plannedConnectors) {
+      expect(connector.configSurfaces.length).toBeGreaterThanOrEqual(3);
+      expect(connector.automationGates.length).toBeGreaterThanOrEqual(3);
+      expect(connector.manualWorkflow.length).toBeGreaterThanOrEqual(3);
+      expect(connector.configSurfaces.join(" ")).toMatch(
+        /binary|config|settings|environment|provider|profile|MCP|app/i,
+      );
+      expect(connector.automationGates.join(" ")).toMatch(
+        /detect|backup|restore|Off mode|Doctor|guardrails|secrets|MCP|provider/i,
+      );
+      expect(connector.manualWorkflow.join(" ")).toMatch(
+        /confirm|review|copy|RTK|manual|installed|settings|packs/i,
+      );
+    }
+  });
+
   it("shows a concrete capability matrix for each future agent", () => {
     for (const connector of plannedConnectors) {
       expect(connector.capabilityRows).toHaveLength(3);

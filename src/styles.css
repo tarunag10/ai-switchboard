@@ -7396,18 +7396,53 @@ min-width: 0;
 }
 
 .planned-connectors__capabilities span {
-padding: 4px 7px;
-border: 1px solid var(--border-subtle);
-border-radius: 999px;
+  padding: 4px 7px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
 background: var(--surface-raised);
 color: var(--text-secondary);
 font-size: var(--text-xxs);
-font-weight: 800;
-line-height: 1.1;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.planned-connectors__readiness {
+  display: grid;
+  gap: 6px;
+}
+
+.planned-connectors__readiness div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.planned-connectors__readiness span {
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.planned-connectors__readiness strong {
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.planned-connectors__manual {
+  color: var(--text-secondary);
 }
 
 .planned-connectors__meta {
-justify-content: flex-start;
+  justify-content: flex-start;
 }
 
 .planned-connectors__meta span {

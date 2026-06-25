@@ -8,6 +8,9 @@ export interface PlannedConnector {
   notes: string;
   capabilityBadges: string[];
   capabilityRows: PlannedConnectorCapability[];
+  configSurfaces: string[];
+  automationGates: string[];
+  manualWorkflow: string[];
 }
 
 export interface PlannedConnectorCapability {
@@ -50,6 +53,17 @@ export const plannedConnectors: PlannedConnector[] = [
         detail: "Automatic base-url routing waits for backed-up Gemini config support.",
       },
     ],
+    configSurfaces: ["Gemini CLI binary", "provider settings", "shell environment"],
+    automationGates: [
+      "Detect a stable Gemini config file or documented provider flag.",
+      "Back up and restore provider settings before enabling setup.",
+      "Verify Off mode removes local proxy routing without changing account state.",
+    ],
+    manualWorkflow: [
+      "Confirm the Gemini CLI binary is installed.",
+      "Use RTK-only mode around noisy Gemini shell commands.",
+      "Keep provider routing manual until the Doctor can verify account and model compatibility.",
+    ],
   },
   {
     id: "opencode",
@@ -77,6 +91,17 @@ export const plannedConnectors: PlannedConnector[] = [
         state: "Planned",
         detail: "Automatic setup is gated on backup, restore, and Off mode cleanup.",
       },
+    ],
+    configSurfaces: ["OpenCode binary", "provider config", "shell environment"],
+    automationGates: [
+      "Identify the active provider config path without guessing.",
+      "Create timestamped backups before any provider edits.",
+      "Prove Off mode restores the exact previous provider config.",
+    ],
+    manualWorkflow: [
+      "Confirm OpenCode is installed.",
+      "Run OpenCode commands through RTK when output is noisy.",
+      "Leave provider config edits manual until backup and restore checks ship.",
     ],
   },
   {
@@ -107,6 +132,17 @@ export const plannedConnectors: PlannedConnector[] = [
         detail: "Automatic edits wait for profile-aware backups and restore tests.",
       },
     ],
+    configSurfaces: ["Cursor app bundle", "user settings", "profile settings"],
+    automationGates: [
+      "Detect the active Cursor profile before reading settings.",
+      "Back up settings without touching extension-managed secrets.",
+      "Keep account-specific model choices visible before routing.",
+    ],
+    manualWorkflow: [
+      "Open Cursor settings from the setup guide.",
+      "Review provider/model settings manually.",
+      "Use Repo Intelligence packs as copyable context until editor handoff is stable.",
+    ],
   },
   {
     id: "grok_cli",
@@ -134,6 +170,17 @@ export const plannedConnectors: PlannedConnector[] = [
         state: "Planned",
         detail: "Automatic setup waits for a stable OpenAI-compatible local config surface.",
       },
+    ],
+    configSurfaces: ["grok or xai binary", "provider/model flags", "shell environment"],
+    automationGates: [
+      "Detect a stable xAI CLI surface.",
+      "Add Doctor guardrails for unsupported model/account combinations.",
+      "Keep API key and account state outside managed app storage.",
+    ],
+    manualWorkflow: [
+      "Confirm whether grok or xai exists locally.",
+      "Use RTK-only mode for command output savings.",
+      "Keep model selection manual until compatibility checks are explicit.",
     ],
   },
   {
@@ -163,6 +210,17 @@ export const plannedConnectors: PlannedConnector[] = [
         detail: "Automatic provider environment wrapping waits for reversible setup state.",
       },
     ],
+    configSurfaces: ["Aider binary", "provider environment", "repo context files"],
+    automationGates: [
+      "Detect provider configuration without exposing secrets.",
+      "Route through a reversible environment wrapper first.",
+      "Expose Repo Intelligence packs without writing into the repo by default.",
+    ],
+    manualWorkflow: [
+      "Confirm Aider is installed.",
+      "Copy implementation or handoff packs into long Aider sessions.",
+      "Use RTK-only mode for noisy verification commands.",
+    ],
   },
   {
     id: "continue",
@@ -191,6 +249,17 @@ export const plannedConnectors: PlannedConnector[] = [
         detail: "Automatic edits wait for multi-provider backup and restore coverage.",
       },
     ],
+    configSurfaces: ["Continue config folder", "provider list", "editor integration"],
+    automationGates: [
+      "Parse multi-provider configs without dropping unknown fields.",
+      "Back up the exact config before provider routing changes.",
+      "Offer guided setup before automatic edits.",
+    ],
+    manualWorkflow: [
+      "Open the Continue config folder.",
+      "Review configured providers manually.",
+      "Use Repo Intelligence packs beside Continue until the adapter can preserve every provider entry.",
+    ],
   },
   {
     id: "goose",
@@ -218,6 +287,17 @@ export const plannedConnectors: PlannedConnector[] = [
         state: "Planned",
         detail: "Automatic MCP and provider handoff waits for tested connector state.",
       },
+    ],
+    configSurfaces: ["Goose binary", "provider config", "MCP handoff"],
+    automationGates: [
+      "Detect Goose provider configuration safely.",
+      "Confirm MCP handoff shape before adding managed setup.",
+      "Verify Off mode removes local provider routing and leaves MCP config intact.",
+    ],
+    manualWorkflow: [
+      "Confirm Goose is installed.",
+      "Copy Repo Intelligence packs into Goose sessions today.",
+      "Wait for managed MCP handoff before enabling automatic provider setup.",
     ],
   },
 ];
