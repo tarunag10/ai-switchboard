@@ -51,7 +51,7 @@ const MANAGED_CLIENT_SPECS: [ManagedClientSpec; 2] = [
     },
 ];
 
-const PLANNED_CLIENT_SPECS: [ManagedClientSpec; 2] = [
+const PLANNED_CLIENT_SPECS: [ManagedClientSpec; 7] = [
     ManagedClientSpec {
         id: "gemini_cli",
         name: "Gemini CLI",
@@ -59,6 +59,26 @@ const PLANNED_CLIENT_SPECS: [ManagedClientSpec; 2] = [
     ManagedClientSpec {
         id: "opencode",
         name: "OpenCode",
+    },
+    ManagedClientSpec {
+        id: "cursor",
+        name: "Cursor",
+    },
+    ManagedClientSpec {
+        id: "grok_cli",
+        name: "Grok / xAI CLI",
+    },
+    ManagedClientSpec {
+        id: "aider",
+        name: "Aider",
+    },
+    ManagedClientSpec {
+        id: "continue",
+        name: "Continue",
+    },
+    ManagedClientSpec {
+        id: "goose",
+        name: "Goose",
     },
 ];
 
@@ -77,6 +97,11 @@ pub fn detect_clients() -> Vec<ClientStatus> {
         detect_codex_client(is_configured(&setup_state, "codex")),
         detect_gemini_cli_client(),
         detect_opencode_client(),
+        detect_cursor_client(),
+        detect_grok_cli_client(),
+        detect_aider_client(),
+        detect_continue_client(),
+        detect_goose_client(),
     ]
 }
 
@@ -2993,6 +3018,68 @@ fn detect_opencode_client() -> ClientStatus {
     )
 }
 
+fn detect_cursor_client() -> ClientStatus {
+    detect_planned_client(
+        "cursor",
+        "Cursor",
+        &["cursor"],
+        &[
+            home_dir()
+                .join("Library")
+                .join("Application Support")
+                .join("Cursor"),
+            PathBuf::from("/Applications/Cursor.app"),
+        ],
+        "Detected, but Headroom adapter not implemented yet. use guided setup until Cursor routing is verified.",
+    )
+}
+
+fn detect_grok_cli_client() -> ClientStatus {
+    detect_planned_client(
+        "grok_cli",
+        "Grok / xAI CLI",
+        &["grok", "xai"],
+        &[home_dir().join(".config").join("xai")],
+        "Detected, but Headroom adapter not implemented yet. keep provider/model compatibility visible in Doctor.",
+    )
+}
+
+fn detect_aider_client() -> ClientStatus {
+    detect_planned_client(
+        "aider",
+        "Aider",
+        &["aider"],
+        &[
+            home_dir().join(".aider.conf.yml"),
+            home_dir().join(".config").join("aider"),
+        ],
+        "Detected, but Headroom adapter not implemented yet. use RTK-only mode shell-output savings for now.",
+    )
+}
+
+fn detect_continue_client() -> ClientStatus {
+    detect_planned_client(
+        "continue",
+        "Continue",
+        &["continue"],
+        &[
+            home_dir().join(".continue"),
+            home_dir().join(".config").join("continue"),
+        ],
+        "Detected, but Headroom adapter not implemented yet. guided setup is safest because provider configs can vary.",
+    )
+}
+
+fn detect_goose_client() -> ClientStatus {
+    detect_planned_client(
+        "goose",
+        "Goose",
+        &["goose"],
+        &[home_dir().join(".config").join("goose")],
+        "Detected, but Headroom adapter not implemented yet. use RTK-only mode until provider routing is reversible.",
+    )
+}
+
 fn detect_planned_client(
     id: &str,
     name: &str,
@@ -3144,18 +3231,21 @@ mod tests {
 
     use serde_json::json;
 
+    use crate::models::{ClientConnectorSupportStatus, ClientHealth, ClientStatus};
+
     use super::{
         build_headroom_markitdown_hook, build_markitdown_codex_nudge, build_markitdown_office_nudge,
         build_headroom_rtk_hook, claude_code_user_state_exists,
         claude_hook_present_in_value, remove_pre_tool_use_markers,
         default_shell_targets_for_family, entry_contains_hook, find_on_path_entries,
-        normalize_setup_state, normalized_setup_id, nvm_binary_candidates, parse_json_object,
-        codex_home, codex_sqlite_store_expected, codex_store_version,
+        list_client_connectors, normalize_setup_state, normalized_setup_id, nvm_binary_candidates,
+        parse_json_object, codex_home, codex_sqlite_store_expected, codex_store_version,
         discover_codex_state_dbs, remove_managed_block,
         retag_codex_thread_providers, retag_codex_threads_to_headroom, retag_one_codex_db,
         serialize_paths, shell_block_contains_in_files,
         shell_block_contains_text_in_files, shell_double_quote, strip_headroom_hook_from_settings,
         upsert_managed_block, write_file_if_changed, ClientSetupState, ShellFamily,
+        PLANNED_CLIENT_SPECS,
     };
     use rusqlite::Connection;
 
@@ -3203,6 +3293,74 @@ mod tests {
             .remembered_shell_files
             .contains_key("claude_code"));
         assert!(normalized.remembered_shell_files.contains_key("codex"));
+    }
+
+    #[test]
+    fn planned_connector_registry_tracks_popular_agent_tools() {
+        let ids = PLANNED_CLIENT_SPECS
+            .iter()
+            .map(|spec| spec.id)
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(
+            ids,
+            BTreeSet::from([
+                "aider",
+                "continue",
+                "cursor",
+                "gemini_cli",
+                "goose",
+                "grok_cli",
+                "opencode",
+            ])
+        );
+    }
+
+    #[test]
+    fn planned_connectors_are_detected_but_not_enabled_or_verified() {
+        let detected_clients = vec![
+            ClientStatus {
+                id: "gemini_cli".into(),
+                name: "Gemini CLI".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![],
+            },
+            ClientStatus {
+                id: "aider".into(),
+                name: "Aider".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![],
+            },
+        ];
+
+        let connectors = list_client_connectors(&detected_clients).expect("list connectors");
+        let planned = connectors
+            .iter()
+            .filter(|connector| connector.support_status == ClientConnectorSupportStatus::Planned)
+            .collect::<Vec<_>>();
+
+        assert_eq!(planned.len(), PLANNED_CLIENT_SPECS.len());
+
+        for connector in planned {
+            assert!(!connector.enabled);
+            assert!(!connector.verified);
+            assert_eq!(connector.last_configured_at, None);
+        }
+
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "gemini_cli"
+                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.installed
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "aider"
+                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.installed
+        }));
     }
 
     #[test]
