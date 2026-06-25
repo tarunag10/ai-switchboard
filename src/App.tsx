@@ -137,6 +137,7 @@ import {
   type TrayView
 } from "./lib/trayHelpers";
 import { trackAnalyticsEvent, trackInstallMilestoneOnce } from "./lib/analytics";
+import { localOnlyModeEnabled } from "./lib/localMode";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
@@ -315,6 +316,22 @@ type StartupPhase = "window" | "dashboard" | "bootstrap" | "runtime" | "ready";
 const authCodeExpiryFallbackSeconds = 900;
 const APP_UPDATE_BACKGROUND_INITIAL_DELAY_MS = 12_000;
 const APP_UPDATE_BACKGROUND_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+
+type SwitchboardMode = "off" | "rtk" | "headroom" | "full";
+
+function switchboardModeLabel(mode: SwitchboardMode): string {
+  switch (mode) {
+    case "full":
+      return "Full optimization";
+    case "headroom":
+      return "Headroom only";
+    case "rtk":
+      return "RTK only";
+    case "off":
+    default:
+      return "Off";
+  }
+}
 
 async function loadDashboard(): Promise<DashboardState> {
   try {
@@ -1093,6 +1110,7 @@ export default function App() {
   const [contactSubmitBusy, setContactSubmitBusy] = useState(false);
   const [contactSubmitError, setContactSubmitError] = useState<string | null>(null);
   const [contactSubmitSuccess, setContactSubmitSuccess] = useState<string | null>(null);
+  const localOnlyMode = localOnlyModeEnabled();
   const appSemver = appUpdateConfig?.currentVersion ?? packageJson.version;
   const bootstrapFailureSignatureRef = useRef("");
   const mainWindowLastBlurAtRef = useRef<number | null>(null);
@@ -1228,6 +1246,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (localOnlyMode && (activeView === "upgrade" || activeView === "upgradeAuth")) {
+      setActiveView("home");
+    }
+  }, [activeView, localOnlyMode]);
+
+  useEffect(() => {
     setShowAllUpgradePlans(false);
     if (pricingAudience !== "individual") setBillingPeriod("annual");
   }, [pricingAudience]);
@@ -1245,6 +1269,10 @@ export default function App() {
 
   useEffect(() => {
     const STORAGE_KEY = "headroom:lastNotifiedMismatchTier";
+    if (localOnlyMode) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
     const mismatch = pricingStatus?.tierMismatch;
     if (!mismatch) {
       window.localStorage.removeItem(STORAGE_KEY);
@@ -1264,7 +1292,7 @@ export default function App() {
       body: `Your ${sourceLabel} usage needs the Headroom ${recommendedLabel} plan, above your current ${paidLabel} plan. Upgrade to keep unlimited optimization.`,
     }).catch(() => {});
     window.localStorage.setItem(STORAGE_KEY, mismatch.recommendedTier);
-  }, [pricingStatus?.tierMismatch?.recommendedTier, pricingStatus?.tierMismatch]);
+  }, [localOnlyMode, pricingStatus?.tierMismatch?.recommendedTier, pricingStatus?.tierMismatch]);
 
   useEffect(() => {
     const claudeConnector = getClaudeConnector(connectors);
@@ -1364,7 +1392,9 @@ export default function App() {
       updateStartup("runtime", 80, "Preparing Headroom runtime…");
       const [runtimeResult, pricingResult] = await Promise.all([
         invoke<RuntimeStatus>("get_runtime_status").catch(() => null),
-        invoke<HeadroomPricingStatus>("get_headroom_pricing_status").catch(() => null),
+        localOnlyMode
+          ? Promise.resolve(null)
+          : invoke<HeadroomPricingStatus>("get_headroom_pricing_status").catch(() => null),
         refreshConnectors(),
       ]);
       if (!active) {
@@ -1397,7 +1427,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [localOnlyMode]);
 
   useEffect(() => {
     if (startupReady) {
@@ -2149,6 +2179,9 @@ export default function App() {
   }, [anyConnectorEnabled]);
 
   useEffect(() => {
+    if (localOnlyMode) {
+      return;
+    }
     // Pricing status hits the remote Headroom API. When the tray is focused,
     // poll at 60s so fresh subscription/trial state is visible on demand.
     // When hidden, slow to 10 min — still fast enough for trial-expiry and
@@ -2163,7 +2196,7 @@ export default function App() {
     return () => {
       window.clearInterval(interval);
     };
-  }, [trayWindowFocused]);
+  }, [localOnlyMode, trayWindowFocused]);
 
   // headroom:// deep links from the backend trigger an immediate pricing
   // refresh — the typical case is Polar's checkout success page redirecting
@@ -2171,6 +2204,9 @@ export default function App() {
   // just pulls the new status into UI state without waiting for the next
   // poll tick.
   useEffect(() => {
+    if (localOnlyMode) {
+      return;
+    }
     let unlisten: (() => void) | undefined;
     void listen("pricing-refreshed", () => {
       void refreshPricingStatus();
@@ -2178,13 +2214,16 @@ export default function App() {
       unlisten = fn;
     });
     return () => unlisten?.();
-  }, []);
+  }, [localOnlyMode]);
 
   // After the user opens a Polar checkout URL, poll pricing status every 5s
   // for up to 5 minutes so we can flip the UI back to "active" within seconds
   // of payment confirmation, instead of waiting out the 60s baseline cadence.
   // Auto-stops once subscription_active is observed or the window expires.
   useEffect(() => {
+    if (localOnlyMode) {
+      return;
+    }
     if (checkoutPollingDeadline === null) return;
     if (Date.now() > checkoutPollingDeadline) {
       setCheckoutPollingDeadline(null);
@@ -2200,20 +2239,26 @@ export default function App() {
     return () => {
       window.clearInterval(interval);
     };
-  }, [checkoutPollingDeadline]);
+  }, [checkoutPollingDeadline, localOnlyMode]);
 
   // Stop the aggressive checkout poll the moment we observe a live
   // subscription. Saves traffic and stops competing with the 60s cadence.
   useEffect(() => {
+    if (localOnlyMode) {
+      return;
+    }
     if (checkoutPollingDeadline !== null && pricingStatus?.account?.subscriptionActive) {
       setCheckoutPollingDeadline(null);
     }
-  }, [checkoutPollingDeadline, pricingStatus?.account?.subscriptionActive]);
+  }, [checkoutPollingDeadline, localOnlyMode, pricingStatus?.account?.subscriptionActive]);
 
   // When the pricing gate closes, pause optimization on every enabled
   // connector (not just Claude Code) one at a time. Each disable refreshes
   // `connectors`, re-running this effect until none remain enabled.
   useEffect(() => {
+    if (localOnlyMode) {
+      return;
+    }
     if (!pricingStatus || pricingStatus.optimizationAllowed || connectorsBusy) {
       return;
     }
@@ -2223,7 +2268,7 @@ export default function App() {
     }
     autoDisabledByGateRef.current.add(target.clientId);
     void toggleConnector(target, false);
-  }, [connectors, connectorsBusy, pricingStatus]);
+  }, [connectors, connectorsBusy, localOnlyMode, pricingStatus]);
 
   // Companion to the auto-disable effect above: when the pricing gate
   // releases (e.g., user just signed up post-grace, or weekly usage
@@ -2231,6 +2276,9 @@ export default function App() {
   // a manual re-enable click. Scoped to our own prior auto-disables so a
   // user's manual disable during an ungated period is preserved.
   useEffect(() => {
+    if (localOnlyMode) {
+      return;
+    }
     if (!pricingStatus?.optimizationAllowed || autoDisabledByGateRef.current.size === 0) {
       return;
     }
@@ -2246,9 +2294,12 @@ export default function App() {
       return;
     }
     void toggleConnector(target, true);
-  }, [connectors, connectorsBusy, pricingStatus]);
+  }, [connectors, connectorsBusy, localOnlyMode, pricingStatus]);
 
   useEffect(() => {
+    if (localOnlyMode) {
+      return;
+    }
     const runtimeHealthyNow =
       runtimeStatus?.running === true &&
       runtimeStatus?.proxyReachable === true &&
@@ -2262,7 +2313,7 @@ export default function App() {
       .catch(() => {
         desktopActivationSentRef.current = false;
       });
-  }, [connectorPhase, pricingStatus?.authenticated, runtimeStatus?.proxyReachable, runtimeStatus?.running]);
+  }, [connectorPhase, localOnlyMode, pricingStatus?.authenticated, runtimeStatus?.proxyReachable, runtimeStatus?.running]);
 
   // While verifying, poll the proxy's /stats request counter and flip to
   // healthy when it ticks past the anchor we captured on the first reachable
@@ -2600,6 +2651,11 @@ export default function App() {
   }
 
   async function refreshPricingStatus() {
+    if (localOnlyMode) {
+      setPricingBusy(false);
+      setPricingError(null);
+      return;
+    }
     if (pricingRefreshInFlightRef.current) {
       return;
     }
@@ -4117,21 +4173,21 @@ export default function App() {
       } as const;
     }
 
-    if (pricingStatus?.needsAuthentication) {
+    if (!localOnlyMode && pricingStatus?.needsAuthentication) {
       return {
         tone: "degraded",
         title: pricingStatus.gateMessage
       } as const;
     }
 
-    if (pricingStatus && !pricingStatus.optimizationAllowed) {
+    if (!localOnlyMode && pricingStatus && !pricingStatus.optimizationAllowed) {
       return {
         tone: "disabled",
         title: pricingStatus.gateMessage
       } as const;
     }
 
-    if (pricingStatus?.shouldNudge) {
+    if (!localOnlyMode && pricingStatus?.shouldNudge) {
       return {
         tone: "starting",
         title: pricingStatus.gateMessage
@@ -4141,7 +4197,7 @@ export default function App() {
     // Codex-only gate: surface in the top banner only when the Claude side isn't
     // itself gating/nudging (handled above), so mixed users never get a double
     // banner. Codex billing/pausing is scoped to Codex traffic.
-    const codexUsage = pricingStatus?.codex;
+    const codexUsage = localOnlyMode ? null : pricingStatus?.codex;
     if (codexUsage && codexUsage.optimizationAllowed === false) {
       return {
         tone: "disabled",
@@ -4206,7 +4262,36 @@ export default function App() {
           }
           return `Headroom needs attention: ${primaryIssue}.`;
         })();
-  const tierMismatch = pricingStatus?.tierMismatch ?? null;
+  const tierMismatch = localOnlyMode ? null : pricingStatus?.tierMismatch ?? null;
+  const switchboardConnectors = sortClientConnectors(aggregateClientConnectors(connectors));
+  const enabledSwitchboardConnectors = switchboardConnectors.filter((connector) => connector.enabled);
+  const rtkSwitchboardEnabled = runtimeStatus?.rtk.installed === true && runtimeStatus.rtk.enabled === true;
+  const headroomSwitchboardEnabled =
+    runtimeHealthy && enabledSwitchboardConnectors.length > 0 && runtimeStatus?.paused !== true;
+  const switchboardMode: SwitchboardMode = headroomSwitchboardEnabled
+    ? rtkSwitchboardEnabled
+      ? "full"
+      : "headroom"
+    : rtkSwitchboardEnabled
+      ? "rtk"
+      : "off";
+  const switchboardModeCopy =
+    switchboardMode === "full"
+      ? "Headroom proxy routing and RTK command compression are both active."
+      : switchboardMode === "headroom"
+        ? "LLM traffic is routed through Headroom. RTK command compression is off."
+        : switchboardMode === "rtk"
+          ? "RTK command compression is active. No coding client is routed through Headroom."
+          : "No optimization layer is active right now.";
+  const switchboardRtkLabel = runtimeStatus?.rtk.installed
+    ? runtimeStatus.rtk.enabled
+      ? "Enabled"
+      : "Installed, off"
+    : "Not installed";
+  const switchboardHeadroomLabel =
+    enabledSwitchboardConnectors.length > 0
+      ? enabledSwitchboardConnectors.map((connector) => connector.name).join(", ")
+      : "No clients enabled";
   const sortedClaudeProjects = [...claudeProjects].sort((left, right) => {
     const leftTime = Date.parse(left.lastWorkedAt);
     const rightTime = Date.parse(right.lastWorkedAt);
@@ -4502,13 +4587,15 @@ export default function App() {
           ))}
         </nav>
         <div className="tray-sidebar__footer">
-          <button
-            className={`upgrade-pill${activeView === "upgrade" || activeView === "upgradeAuth" ? " is-active" : ""}`}
-            onMouseDown={() => setActiveView("upgrade")}
-            type="button"
-          >
-            Upgrade
-          </button>
+          {!localOnlyMode ? (
+            <button
+              className={`upgrade-pill${activeView === "upgrade" || activeView === "upgradeAuth" ? " is-active" : ""}`}
+              onMouseDown={() => setActiveView("upgrade")}
+              type="button"
+            >
+              Upgrade
+            </button>
+          ) : null}
           <button
             className={`tray-nav__item${activeView === "settings" ? " is-active" : ""}`}
             onMouseDown={() => setActiveView("settings")}
@@ -4652,6 +4739,74 @@ export default function App() {
                 </section>
               );
             })()}
+
+            <section className="switchboard-panel" aria-label="Local switchboard status">
+              <div className="switchboard-panel__head">
+                <div>
+                  <p className="switchboard-panel__eyebrow">
+                    {localOnlyMode ? "Local-only Mac setup" : "Headroom cloud setup"}
+                  </p>
+                  <h2>{switchboardModeLabel(switchboardMode)}</h2>
+                </div>
+                <span className={`switchboard-panel__badge switchboard-panel__badge--${switchboardMode}`}>
+                  {switchboardModeLabel(switchboardMode)}
+                </span>
+              </div>
+              <p className="switchboard-panel__copy">{switchboardModeCopy}</p>
+              <div className="switchboard-panel__grid">
+                <div className="switchboard-panel__item">
+                  <span className="switchboard-panel__label">Headroom proxy</span>
+                  <strong>
+                    {runtimeStatus?.running && runtimeStatus.proxyReachable
+                      ? "Running"
+                      : runtimeStatus?.paused
+                        ? "Paused"
+                        : "Offline"}
+                  </strong>
+                  <small>{switchboardHeadroomLabel}</small>
+                </div>
+                <div className="switchboard-panel__item">
+                  <span className="switchboard-panel__label">RTK</span>
+                  <strong>{switchboardRtkLabel}</strong>
+                  <small>
+                    {rtkAvgSavingsPct !== null
+                      ? `${percent1(rtkAvgSavingsPct)}% average savings`
+                      : "Shell output compression"}
+                  </small>
+                </div>
+                <div className="switchboard-panel__item">
+                  <span className="switchboard-panel__label">Remote services</span>
+                  <strong>{localOnlyMode ? "Off" : "Available"}</strong>
+                  <small>{localOnlyMode ? "No pricing, trial, Clarity, or Sentry calls" : "Account features enabled"}</small>
+                </div>
+              </div>
+              <div className="switchboard-panel__actions">
+                {runtimeStatus?.paused ? (
+                  <button
+                    type="button"
+                    className="switchboard-panel__action switchboard-panel__action--primary"
+                    onClick={() => void handleResumeRuntime()}
+                    disabled={resuming}
+                  >
+                    {resuming ? "Restarting…" : "Resume Headroom"}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="switchboard-panel__action"
+                  onClick={() => setActiveView("settings")}
+                >
+                  Manage clients
+                </button>
+                <button
+                  type="button"
+                  className="switchboard-panel__action"
+                  onClick={() => setActiveView("addons")}
+                >
+                  Manage RTK
+                </button>
+              </div>
+            </section>
 
             <section className="stat-grid stat-grid--2col">
               <article
