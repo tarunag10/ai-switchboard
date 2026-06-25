@@ -77,6 +77,11 @@ import {
   type PlannedConnector
 } from "./lib/plannedConnectors";
 import {
+  releaseReadinessCommand,
+  releaseReadinessGroups,
+  releaseReadinessItemCount,
+} from "./lib/releaseReadiness";
+import {
 describeInvokeError,
   getNextLowerUpgradePlanId,
   getPlanRenewalPriceLabel,
@@ -1467,9 +1472,10 @@ export default function App() {
   const [launcherStage, setLauncherStage] = useState<LauncherStage>("install");
   const [connectors, setConnectors] = useState<ClientConnectorStatus[]>([]);
   const [openConnectorHelpId, setOpenConnectorHelpId] = useState<string | null>(null);
-  const [openConnectorWarningId, setOpenConnectorWarningId] = useState<string | null>(null);
-  const [plannedConnectorCopyNotice, setPlannedConnectorCopyNotice] = useState<string | null>(null);
-  const [connectorsBusy, setConnectorsBusy] = useState(false);
+const [openConnectorWarningId, setOpenConnectorWarningId] = useState<string | null>(null);
+const [plannedConnectorCopyNotice, setPlannedConnectorCopyNotice] = useState<string | null>(null);
+const [releaseReadinessCopyNotice, setReleaseReadinessCopyNotice] = useState<string | null>(null);
+const [connectorsBusy, setConnectorsBusy] = useState(false);
   const [connectorPhase, setConnectorPhase] = useState<"disabled" | "verifying" | "healthy">("healthy");
   const [connectorsError, setConnectorsError] = useState<string | null>(null);
   const [codexNudgeDismissed, setCodexNudgeDismissed] = useState(() => {
@@ -3312,19 +3318,33 @@ await refreshDoctorReport();
     }
   }
 
-  async function copyPlannedConnectorCommand(command: string, connectorName: string) {
-    try {
-      if (!navigator.clipboard) {
-        throw new Error("Clipboard API unavailable");
+async function copyPlannedConnectorCommand(command: string, connectorName: string) {
+  try {
+    if (!navigator.clipboard) {
+      throw new Error("Clipboard API unavailable");
       }
       await navigator.clipboard.writeText(command);
       setPlannedConnectorCopyNotice(`${connectorName} command copied.`);
       window.setTimeout(() => setPlannedConnectorCopyNotice(null), 2000);
     } catch {
       setPlannedConnectorCopyNotice("Copy failed. Select the command manually.");
-      window.setTimeout(() => setPlannedConnectorCopyNotice(null), 3000);
-    }
+    window.setTimeout(() => setPlannedConnectorCopyNotice(null), 3000);
   }
+}
+
+async function copyReleaseReadinessCommand() {
+  try {
+    if (!navigator.clipboard) {
+      throw new Error("Clipboard API unavailable");
+    }
+    await navigator.clipboard.writeText(releaseReadinessCommand);
+    setReleaseReadinessCopyNotice("Release report command copied.");
+    window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2000);
+  } catch {
+    setReleaseReadinessCopyNotice("Copy failed. Select command manually.");
+    window.setTimeout(() => setReleaseReadinessCopyNotice(null), 3000);
+  }
+}
 
   async function autoConfigureConnectorsForLauncher() {
     setConnectorsBusy(true);
@@ -6645,9 +6665,50 @@ onRepair={(action) => void handleDoctorRepair(action)}
                       {headroomLogLines.length > 0 ? headroomLogLines.join("\n") : "No log output yet."}
                     </pre>
                   ) : null}
-                </div>
-              </article>
-              <article className="soft-card panel-card">
+</div>
+</article>
+<article className="soft-card panel-card release-readiness-card">
+  <div className="panel-card__header">
+    <div>
+      <h3>Release readiness</h3>
+      <p>
+        {releaseReadinessItemCount()} checks before a signed DMG can be handed
+        to testers.
+      </p>
+    </div>
+    <button
+      className="secondary-button secondary-button--small"
+      onClick={() => void copyReleaseReadinessCommand()}
+      type="button"
+    >
+      <Copy size={14} weight="bold" />
+      Copy report command
+    </button>
+  </div>
+  <div className="release-readiness-card__command">
+    <Terminal size={15} weight="duotone" />
+    <code>{releaseReadinessCommand}</code>
+  </div>
+  <div className="release-readiness-card__grid">
+    {releaseReadinessGroups.map((group) => (
+      <section className="release-readiness-card__group" key={group.id}>
+        <h4>{group.title}</h4>
+        <ul>
+          {group.items.map((item) => (
+            <li key={item.id}>
+              <strong>{item.label}</strong>
+              <span>{item.detail}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ))}
+  </div>
+  {releaseReadinessCopyNotice ? (
+    <p className="connector-copy-notice">{releaseReadinessCopyNotice}</p>
+  ) : null}
+</article>
+<article className="soft-card panel-card">
                 <div className="panel-card__header">
                   <div>
                     <h3>Open on login</h3>

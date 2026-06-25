@@ -1,0 +1,45 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  releaseReadinessCommand,
+  releaseReadinessGroups,
+  releaseReadinessItemCount,
+} from "./releaseReadiness";
+
+describe("release readiness checklist", () => {
+  it("points users at the durable release report command", () => {
+    expect(releaseReadinessCommand).toBe("npm run release:report");
+  });
+
+  it("covers environment, signing, and installed-app smoke gates", () => {
+    expect(releaseReadinessGroups.map((group) => group.id)).toEqual([
+      "environment",
+      "signing",
+      "smoke",
+    ]);
+    expect(releaseReadinessItemCount()).toBe(9);
+
+    const allCopy = releaseReadinessGroups
+      .flatMap((group) => group.items)
+      .map((item) => `${item.label} ${item.detail}`)
+      .join(" ");
+
+    expect(allCopy).toMatch(/cargo|rustup/i);
+    expect(allCopy).toMatch(/Developer ID/i);
+    expect(allCopy).toMatch(/notarization|App Store Connect/i);
+    expect(allCopy).toMatch(/signed DMG/i);
+    expect(allCopy).toMatch(/beta-smoke-test\.md/i);
+  });
+
+  it("keeps checklist entries concrete enough for a release handoff", () => {
+    for (const group of releaseReadinessGroups) {
+      expect(group.title.length).toBeGreaterThan(4);
+      expect(group.items).toHaveLength(3);
+
+      for (const item of group.items) {
+        expect(item.label.length).toBeGreaterThan(5);
+        expect(item.detail.length).toBeGreaterThan(40);
+      }
+    }
+  });
+});
