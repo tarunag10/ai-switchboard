@@ -73,7 +73,7 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
 
   switch (issue.id) {
     case "planned_connectors_detected":
-      return "Open Settings, review each planned connector guide, and keep routing manual until backup, restore, and Off mode cleanup are available.";
+      return "Open Settings, review detected evidence and each planned connector guide. Use RTK-only mode or Repo Intelligence packs; keep provider routing manual until backup, restore, and Off mode cleanup are available.";
     case "repo_intelligence_repo_missing":
       return "Clear the saved Repo Intelligence index, then open Addons and index an available local repo when ready.";
     case "repo_intelligence_stale":

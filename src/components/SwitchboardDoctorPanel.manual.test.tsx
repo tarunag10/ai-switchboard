@@ -86,7 +86,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.getByText("2 manual")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Open Settings, review each planned connector guide, and keep routing manual until backup, restore, and Off mode cleanup are available.",
+        "Open Settings, review detected evidence and each planned connector guide. Use RTK-only mode or Repo Intelligence packs; keep provider routing manual until backup, restore, and Off mode cleanup are available.",
       ),
     ).toBeInTheDocument();
     expect(

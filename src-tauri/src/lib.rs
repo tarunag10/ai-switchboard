@@ -2229,6 +2229,11 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
         .flat_map(|client| client.config_locations.iter().map(String::as_str))
         .take(3)
         .collect::<Vec<_>>();
+    let evidence = connectors
+        .iter()
+        .flat_map(|client| client.detection_evidence.iter().map(String::as_str))
+        .take(3)
+        .collect::<Vec<_>>();
 
     let mut parts = vec![format!(
         "{names} detected. Mac AI Switchboard can identify these tools but keeps routing manual until backup, restore, and Off mode cleanup are implemented."
@@ -2241,6 +2246,13 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
     if !locations.is_empty() {
         parts.push(format!("Config locations watched: {}.", locations.join(", ")));
     }
+    if !evidence.is_empty() {
+        parts.push(format!("Detection evidence: {}.", evidence.join(" | ")));
+    }
+    parts.push(
+        "Safe today: use RTK-only mode or Repo Intelligence packs; do not enable automatic provider routing yet."
+            .to_string(),
+    );
 
     parts.join(" ")
 }
@@ -2259,6 +2271,7 @@ mod doctor_tests {
             setup_hint: "Manual guide only.".to_string(),
             category: "cli".to_string(),
             detection_sources: vec!["PATH: gemini".to_string(), "~/.gemini".to_string()],
+            detection_evidence: vec!["Detected at /opt/homebrew/bin/gemini".to_string()],
             config_locations: vec!["~/.gemini".to_string()],
             installed: true,
             enabled: false,
@@ -2269,6 +2282,8 @@ mod doctor_tests {
         assert!(body.contains("Gemini CLI detected"));
         assert!(body.contains("Backend checks: PATH: gemini, ~/.gemini."));
         assert!(body.contains("Config locations watched: ~/.gemini."));
+        assert!(body.contains("Detection evidence: Detected at /opt/homebrew/bin/gemini."));
+        assert!(body.contains("Safe today: use RTK-only mode or Repo Intelligence packs"));
         assert!(body.contains("keeps routing manual"));
     }
 }

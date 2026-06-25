@@ -161,6 +161,8 @@ const requiredSourceSignals = {
     "keeps routing manual until backup, restore, and Off mode cleanup are implemented",
     "Backend checks:",
     "Config locations watched:",
+    "Detection evidence:",
+    "Safe today: use RTK-only mode or Repo Intelligence packs",
   ],
   "src-tauri/src/models.rs": [
     "setup_phase",
@@ -193,7 +195,7 @@ const requiredSourceSignals = {
     "1 automatic",
     "1 manual",
 "separates manual connector guidance from automatic Repo Intelligence cleanup",
-"Open Settings, review each planned connector guide",
+    "Open Settings, review detected evidence and each planned connector guide",
 "saved Repo Intelligence summary",
 ],
 "src-tauri/src/models.rs": [
