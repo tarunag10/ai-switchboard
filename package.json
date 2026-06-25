@@ -15,7 +15,8 @@
     "test:desktop": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:all": "npm run test:frontend && npm run test:desktop",
     "release:check": "./scripts/verify-release.sh",
-    "check:colors": "./scripts/check-colors.sh"
+    "check:colors": "./scripts/check-colors.sh",
+    "check:governance": "node scripts/check-governance-docs.mjs"
   },
   "dependencies": {
     "@microsoft/clarity": "^1.0.2",

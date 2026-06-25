@@ -8,6 +8,9 @@ cd "${REPO_ROOT}"
 echo "Checking semantic color tokens..."
 npm run check:colors
 
+echo "Checking governance docs..."
+npm run check:governance
+
 echo "Building production frontend..."
 npm run build
 

@@ -1,0 +1,9 @@
+Mac AI Switchboard
+
+This project began as a fork of the MIT-licensed Headroom Desktop shell and is being reshaped into a local-first Mac AI work switchboard.
+
+Portions of the desktop runtime, Tauri shell, managed Headroom runtime integration, and client setup approach are derived from the upstream Headroom Desktop project.
+
+The repository also integrates or references optional local tooling such as Headroom, RTK, Ponytail, MarkItDown, and planned local-first connector or repo-intelligence integrations. Each dependency or external project remains subject to its own license.
+
+The MIT License in this repository applies to this repository's source code. It does not grant rights to reuse official branding, signing identities, release artifacts, update endpoints, or distribution channels. See TRADEMARKS.md.

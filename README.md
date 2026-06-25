@@ -5,6 +5,10 @@
 [![Repository](https://img.shields.io/badge/GitHub-tarunag10%2Fmac--ai--switchboard-blue?style=for-the-badge&logo=github)](https://github.com/tarunag10/mac-ai-switchboard)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
+## License, Branding, and Contributions
+
+The source code is MIT-licensed. Official app names, icons, signing identities, update endpoints, release artifacts, and distribution channels are not licensed for reuse; forks should rename the app and use their own bundle identifier, signing identity, and update channel. See [TRADEMARKS.md](TRADEMARKS.md), [NOTICE](NOTICE), [CONTRIBUTING.md](CONTRIBUTING.md), and [SECURITY.md](SECURITY.md).
+
 Mac AI Switchboard is a personal, open-source wrapper around the Headroom Desktop shell reshaped into a privacy-first Mac utility. The goal is an on/off control panel for local coding-agent optimization:
 
 - **Full optimization:** Headroom proxy routing plus RTK command-output compression.
