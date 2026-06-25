@@ -4616,6 +4616,73 @@ details[open] .optimize-minimal__details summary::after {
   color: var(--text-muted) !important;
 }
 
+.connector-plan__capabilities {
+  display: grid;
+  gap: 5px;
+  margin-top: 1px;
+}
+
+.connector-plan__capability {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.connector-plan__capability strong,
+.connector-plan__capability span {
+  display: block;
+}
+
+.connector-plan__capability strong {
+  color: var(--text-strong);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+
+.connector-plan__capability span {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  line-height: 1.3;
+}
+
+.connector-plan__state {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  margin-top: 0 !important;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted) !important;
+  font-size: var(--text-xxs) !important;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.connector-plan__state--available-now {
+  background: var(--success-tint);
+  border-color: var(--success);
+  color: var(--success) !important;
+}
+
+.connector-plan__state--manual-today {
+  background: var(--warning-tint);
+  border-color: var(--warning);
+  color: var(--warning) !important;
+}
+
+.connector-plan__state--planned {
+  background: var(--surface-card);
+}
+
 .connector-plan__next {
   color: var(--text-strong) !important;
 }

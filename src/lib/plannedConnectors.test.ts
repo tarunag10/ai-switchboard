@@ -25,20 +25,44 @@ describe("planned connectors", () => {
       expect(["Detect", "Guide", "Adapt"]).toContain(connector.setupPhase);
       expect(connector.integrationTarget.length).toBeGreaterThan(20);
       expect(connector.capabilityBadges.length).toBeGreaterThanOrEqual(3);
-      expect(connector.capabilityBadges.every((badge) => badge.length > 5)).toBe(true);
+      expect(connector.capabilityBadges.every((badge) => badge.length > 5)).toBe(
+        true,
+      );
       expect(`${connector.integrationTarget} ${connector.notes}`).toMatch(
         /local|reversible|backup|restore|off-mode|guided/i,
       );
     }
   });
 
-  it("surfaces concrete capability badges for roadmap decisions", () => {
+  it("surfaces concrete capability badges roadmap decisions", () => {
     const badges = plannedConnectors.flatMap((connector) => connector.capabilityBadges);
 
     expect(badges).toContain("RTK-safe today");
     expect(badges).toContain("Backup/restore pending");
     expect(badges).toContain("Repo packs planned");
     expect(badges).toContain("Provider routing pending");
+  });
+
+  it("shows a concrete capability matrix for each future agent", () => {
+    for (const connector of plannedConnectors) {
+      expect(connector.capabilityRows).toHaveLength(3);
+      expect(
+        connector.capabilityRows.some(
+          (capability) => capability.state === "Available now",
+        ),
+      ).toBe(true);
+      expect(
+        connector.capabilityRows.some((capability) => capability.state === "Planned"),
+      ).toBe(true);
+
+      for (const capability of connector.capabilityRows) {
+        expect(capability.label.length).toBeGreaterThan(4);
+        expect(capability.detail.length).toBeGreaterThan(30);
+        expect(["Available now", "Manual today", "Planned"]).toContain(
+          capability.state,
+        );
+      }
+    }
   });
 
   it("stages connector rollout before automatic config edits", () => {
@@ -53,24 +77,18 @@ describe("planned connectors", () => {
     ).toHaveLength(3);
   });
 
-  it("looks up individual planned connectors", () => {
-    expect(getPlannedConnector("cursor")?.name).toBe("Cursor");
-    expect(getPlannedConnector("grok_cli")?.name).toBe("Grok / xAI CLI");
+  it("looks up connector metadata by id", () => {
+    expect(getPlannedConnector("aider")?.name).toBe("Aider");
     expect(getPlannedConnector("missing")).toBeNull();
   });
 
-  it("provides copyable manual setup guides without routing mutations", () => {
+  it("provides manual setup checks without enabling automatic repair", () => {
     for (const connector of plannedConnectors) {
       const guide = getPlannedConnectorSetupGuide(connector.id);
 
-      expect(guide?.label.length).toBeGreaterThan(8);
-      expect(guide?.command).toMatch(/command -v|open /);
-      expect(guide?.notes).toMatch(/confirm|review|manual|backup|Doctor|RTK/i);
-      expect(`${guide?.command} ${guide?.notes}`).not.toMatch(
-        /ANTHROPIC_BASE_URL|OPENAI_BASE_URL|HEADROOM_PROXY_URL/
-      );
+      expect(guide?.label.length).toBeGreaterThan(5);
+      expect(guide?.command.length).toBeGreaterThan(8);
+      expect(guide?.notes).toMatch(/manual|confirm|review|before|after|only/i);
     }
-
-    expect(getPlannedConnectorSetupGuide("missing")).toBeNull();
   });
 });

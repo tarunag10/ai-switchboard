@@ -6371,6 +6371,26 @@ onRepair={(action) => void handleDoctorRepair(action)}
                           <p className="connector-plan__target">
                             {plannedConnector.integrationTarget}
                           </p>
+                          <div className="connector-plan__capabilities">
+                            {plannedConnector.capabilityRows.map((capability) => (
+                              <div
+                                className="connector-plan__capability"
+                                key={`${plannedConnector.id}-${capability.label}`}
+                              >
+                                <div>
+                                  <strong>{capability.label}</strong>
+                                  <span>{capability.detail}</span>
+                                </div>
+                                <span
+                                  className={`connector-plan__state connector-plan__state--${capability.state
+                                    .toLowerCase()
+                                    .replace(/\s+/g, "-")}`}
+                                >
+                                  {capability.state}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                           <p className="connector-plan__next">
                             {getPlannedConnectorNextStep(
                               connector,
