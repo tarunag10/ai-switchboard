@@ -2040,6 +2040,22 @@ repair_action,
 }
 
 if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Rtk)
+&& (!runtime.rtk.installed || !runtime.rtk.enabled)
+{
+issues.push(crate::models::DoctorIssue {
+id: "rtk_not_active".to_string(),
+title: "RTK is not active".to_string(),
+body: if runtime.rtk.installed {
+"RTK is installed but turned off. Repair will enable local RTK shell compression.".to_string()
+} else {
+"RTK is required for the requested switchboard mode. Repair will install RTK into Headroom-managed storage and enable local shell compression.".to_string()
+},
+severity: crate::models::DoctorSeverity::Warning,
+repair_action: Some("repair_rtk_runtime".to_string()),
+});
+}
+
+if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Rtk)
 && runtime.rtk.installed
 && runtime.rtk.enabled
 && (!runtime.rtk.path_configured || !runtime.rtk.hook_configured)
@@ -2138,6 +2154,16 @@ state.invalidate_runtime_status_cache();
 Ok(())
 }
 
+fn repair_rtk_runtime(state: &AppState) -> Result<(), String> {
+if !state.tool_manager.rtk_installed() {
+state
+.tool_manager
+.install_rtk()
+.map_err(|err| err.to_string())?;
+}
+repair_rtk_integrations(state)
+}
+
 #[tauri::command]
 async fn run_doctor_repair(
 state: State<'_, AppState>,
@@ -2163,6 +2189,10 @@ Ok(build_doctor_report(&state))
 repair_rtk_integrations(&state)?;
 Ok(build_doctor_report(&state))
 }
+"repair_rtk_runtime" => {
+repair_rtk_runtime(&state)?;
+Ok(build_doctor_report(&state))
+}
 "repair_all" => {
 let report = build_doctor_report(&state);
 for issue in report.issues {
@@ -2176,6 +2206,7 @@ state.invalidate_runtime_status_cache();
 Some("repair_runtime") => repair_runtime(&state)?,
 Some("repair_client_setups") => repair_client_setups(&state)?,
 Some("repair_rtk_integrations") => repair_rtk_integrations(&state)?,
+Some("repair_rtk_runtime") => repair_rtk_runtime(&state)?,
 _ => {}
 }
 }

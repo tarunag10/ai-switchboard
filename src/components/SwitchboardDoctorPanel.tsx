@@ -22,37 +22,46 @@ function repairLabel(action: string): string {
       return "Repair clients";
     case "repair_rtk_integrations":
       return "Repair RTK";
+    case "repair_rtk_runtime":
+      return "Install RTK";
     default:
       return "Repair";
   }
 }
 
 export function SwitchboardDoctorPanel({
-report,
-busyAction,
-error,
-successMessage,
-onRepair
+  report,
+  busyAction,
+  error,
+  successMessage,
+  onRepair,
 }: SwitchboardDoctorPanelProps) {
-if (!report || (report.status === "ok" && report.issues.length === 0 && !successMessage)) {
-return null;
-}
-const canRepair = report.issues.some((issue) => !!issue.repairAction);
-const hasIssues = report.issues.length > 0;
+  if (
+    !report ||
+    (report.status === "ok" && report.issues.length === 0 && !successMessage)
+  ) {
+    return null;
+  }
+  const canRepair = report.issues.some((issue) => !!issue.repairAction);
+  const hasIssues = report.issues.length > 0;
 
   return (
     <section className="switchboard-doctor" aria-label="Switchboard doctor">
       <div className="switchboard-doctor__head">
-<div>
-<p className="switchboard-doctor__eyebrow">Doctor</p>
-<h2>{hasIssues ? "Needs attention" : "Ready"}</h2>
-</div>
-        <span className={`switchboard-doctor__badge switchboard-doctor__badge--${report.status}`}>
+        <div>
+          <p className="switchboard-doctor__eyebrow">Doctor</p>
+          <h2>{hasIssues ? "Needs attention" : "Ready"}</h2>
+        </div>
+        <span
+          className={`switchboard-doctor__badge switchboard-doctor__badge--${report.status}`}
+        >
           {report.status}
         </span>
-</div>
-<p className="switchboard-doctor__summary">{report.summary}</p>
-{successMessage ? <p className="switchboard-doctor__success">{successMessage}</p> : null}
+      </div>
+      <p className="switchboard-doctor__summary">{report.summary}</p>
+      {successMessage ? (
+        <p className="switchboard-doctor__success">{successMessage}</p>
+      ) : null}
       {canRepair ? (
         <button
           type="button"
@@ -80,7 +89,9 @@ const hasIssues = report.issues.length > 0;
                 disabled={busyAction !== null}
                 onClick={() => onRepair(issue.repairAction as string)}
               >
-                {busyAction === issue.repairAction ? "Repairing" : repairLabel(issue.repairAction)}
+                {busyAction === issue.repairAction
+                  ? "Repairing"
+                  : repairLabel(issue.repairAction)}
               </button>
             ) : null}
           </article>
