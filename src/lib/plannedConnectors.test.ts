@@ -18,11 +18,24 @@ describe("planned connectors", () => {
   it("keeps every planned connector explicit about local reversible setup", () => {
     for (const connector of plannedConnectors) {
       expect(connector.statusLabel).toBe("Planned");
+      expect(["Detect", "Guide", "Adapt"]).toContain(connector.setupPhase);
       expect(connector.integrationTarget.length).toBeGreaterThan(20);
       expect(`${connector.integrationTarget} ${connector.notes}`).toMatch(
         /local|reversible|backup|restore|off-mode|guided/i,
       );
     }
+  });
+
+  it("stages connector rollout before automatic config edits", () => {
+    expect(
+      plannedConnectors.filter((connector) => connector.setupPhase === "Detect"),
+    ).toHaveLength(1);
+    expect(
+      plannedConnectors.filter((connector) => connector.setupPhase === "Guide"),
+    ).toHaveLength(3);
+    expect(
+      plannedConnectors.filter((connector) => connector.setupPhase === "Adapt"),
+    ).toHaveLength(3);
   });
 
   it("looks up individual planned connectors", () => {

@@ -3,6 +3,7 @@ export interface PlannedConnector {
   name: string;
   category: "cli" | "editor" | "agent";
   statusLabel: "Planned";
+  setupPhase: "Detect" | "Guide" | "Adapt";
   integrationTarget: string;
   notes: string;
 }
@@ -13,15 +14,17 @@ export const plannedConnectors: PlannedConnector[] = [
     name: "Gemini CLI",
     category: "cli",
     statusLabel: "Planned",
-    integrationTarget: "Reversible local config and base-url routing adapter.",
+    setupPhase: "Guide",
+    integrationTarget: "Reversible local config base-url routing adapter.",
     notes:
-      "Detect installed CLI first, then add Headroom routing only when its provider configuration supports a local proxy.",
+      "Detect the installed CLI first, then add Headroom routing only when the provider configuration supports a local proxy.",
   },
   {
     id: "opencode",
     name: "OpenCode",
     category: "cli",
     statusLabel: "Planned",
+    setupPhase: "Adapt",
     integrationTarget: "Reversible provider config adapter plus RTK shell-output support.",
     notes:
       "Keep off-mode cleanup symmetric with Claude Code and Codex before enabling automatic setup.",
@@ -31,16 +34,20 @@ export const plannedConnectors: PlannedConnector[] = [
     name: "Cursor",
     category: "editor",
     statusLabel: "Planned",
-    integrationTarget: "Editor settings/profile detection with opt-in local proxy routing where supported.",
+    setupPhase: "Guide",
+    integrationTarget:
+      "Editor settings/profile detection with opt-in local proxy routing where supported.",
     notes:
-      "Treat as a guided setup first because Cursor settings and extension behavior can vary by account and release channel.",
+      "Treat as guided setup first because Cursor settings and extension behavior can vary by account release channel.",
   },
   {
     id: "grok_cli",
     name: "Grok / xAI CLI",
     category: "cli",
     statusLabel: "Planned",
-    integrationTarget: "Provider/base-url adapter after a stable local CLI surface is identified.",
+    setupPhase: "Detect",
+    integrationTarget:
+      "Provider/base-url adapter after a stable local CLI surface is identified.",
     notes:
       "Track separately from generic OpenAI-compatible clients so account/model constraints are visible in Doctor.",
   },
@@ -49,15 +56,18 @@ export const plannedConnectors: PlannedConnector[] = [
     name: "Aider",
     category: "agent",
     statusLabel: "Planned",
-    integrationTarget: "Local environment/provider wrapper plus repo-intelligence context packs.",
+    setupPhase: "Adapt",
+    integrationTarget:
+      "Local environment/provider wrapper plus Repo Intelligence context packs.",
     notes:
-      "Good fit for RTK and future repo graph context because it is frequently used inside long coding sessions.",
+      "Good fit for RTK future repo graph context because it is frequently used inside long coding sessions.",
   },
   {
     id: "continue",
     name: "Continue",
     category: "editor",
     statusLabel: "Planned",
+    setupPhase: "Guide",
     integrationTarget: "Local config adapter with explicit backup and restore.",
     notes:
       "Start with read-only detection and guided setup because Continue configs often contain multiple providers.",
@@ -67,9 +77,10 @@ export const plannedConnectors: PlannedConnector[] = [
     name: "Goose",
     category: "agent",
     statusLabel: "Planned",
-    integrationTarget: "Local provider adapter and MCP/repo-intelligence handoff.",
+    setupPhase: "Adapt",
+    integrationTarget: "Local provider adapter and MCP/Repo Intelligence handoff.",
     notes:
-      "Useful target once the switchboard has a stable connector capability model for agent-style tools.",
+      "Useful target once Switchboard has a stable connector capability model for agent-style tools.",
   },
 ];
 

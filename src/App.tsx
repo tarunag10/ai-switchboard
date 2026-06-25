@@ -57,12 +57,16 @@ import {
 } from "./lib/appUpdate";
 import { maybeFireTrialNotifications } from "./lib/trialNotifications";
 import {
-  maybeFireUrgentPricingNotifications,
-  maybeFireUrgentRuntimeNotification,
+maybeFireUrgentPricingNotifications,
+maybeFireUrgentRuntimeNotification,
 } from "./lib/urgentNotifications";
 import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
 import {
-  describeInvokeError,
+  plannedConnectors,
+  type PlannedConnector
+} from "./lib/plannedConnectors";
+import {
+describeInvokeError,
   getNextLowerUpgradePlanId,
   getPlanRenewalPriceLabel,
   getUpgradePlans,
@@ -1039,6 +1043,8 @@ function AddonCard({
 }
 
 function PlannedAddonCard({ addon }: { addon: PlannedAddon }) {
+  const showConnectorRoadmap = addon.id === "agent_connectors";
+
   return (
     <li className="addon-card addon-card--planned">
       <div className="addon-card__body">
@@ -1054,6 +1060,9 @@ function PlannedAddonCard({ addon }: { addon: PlannedAddon }) {
             <li key={bullet}>{bullet}</li>
           ))}
         </ul>
+        {showConnectorRoadmap ? (
+          <PlannedConnectorRoadmap connectors={plannedConnectors} />
+        ) : null}
       </div>
       <div className="addon-card__actions">
         <button type="button" className="addon-card__action" disabled>
@@ -1061,6 +1070,52 @@ function PlannedAddonCard({ addon }: { addon: PlannedAddon }) {
         </button>
       </div>
     </li>
+  );
+}
+
+function connectorCategoryLabel(category: PlannedConnector["category"]) {
+  switch (category) {
+    case "cli":
+      return "CLI";
+    case "editor":
+      return "Editor";
+    case "agent":
+      return "Agent";
+  }
+}
+
+function PlannedConnectorRoadmap({
+  connectors
+}: {
+  connectors: PlannedConnector[];
+}) {
+  return (
+    <div className="planned-connectors" aria-label="Planned connector roadmap">
+      <div className="planned-connectors__intro">
+        <span>Expansion path</span>
+        <strong>Detect first, adapt only when reversible.</strong>
+      </div>
+      <div className="planned-connectors__steps" aria-label="Connector setup phases">
+        <span>Read-only detection</span>
+        <span>Guided setup</span>
+        <span>Doctor-backed cleanup</span>
+      </div>
+      <ul className="planned-connectors__list">
+        {connectors.map((connector) => (
+          <li className="planned-connectors__item" key={connector.id}>
+            <div className="planned-connectors__item-head">
+              <strong>{connector.name}</strong>
+              <span>{connectorCategoryLabel(connector.category)}</span>
+            </div>
+            <p>{connector.integrationTarget}</p>
+            <div className="planned-connectors__meta">
+              <span>{connector.setupPhase}</span>
+              <span>{connector.statusLabel}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
