@@ -3,6 +3,8 @@ import type { SwitchboardMode } from "../lib/types";
 
 interface SwitchboardPanelProps {
   mode: SwitchboardMode;
+  effectiveMode?: SwitchboardMode;
+  needsAttention?: boolean;
   summary: string;
   localOnly: boolean;
   proxyStatus: string;
@@ -24,6 +26,8 @@ const SWITCHBOARD_MODES: SwitchboardMode[] = ["full", "headroom", "rtk", "off"];
 
 export function SwitchboardPanel({
 mode,
+effectiveMode,
+needsAttention,
 summary,
 localOnly,
   proxyStatus,
@@ -41,6 +45,7 @@ onManageClients,
 onManageRtk
 }: SwitchboardPanelProps) {
   const modeLabel = switchboardModeLabel(mode);
+  const effectiveModeLabel = switchboardModeLabel(effectiveMode ?? mode);
 
   return (
     <section className="switchboard-panel" aria-label="Local switchboard status">
@@ -56,6 +61,11 @@ onManageRtk
         </span>
 </div>
 <p className="switchboard-panel__copy">{summary}</p>
+{needsAttention ? (
+<p className="switchboard-panel__attention">
+Active now: {effectiveModeLabel}
+</p>
+) : null}
 <div className="switchboard-panel__modes" role="group" aria-label="Switch optimization mode">
 {SWITCHBOARD_MODES.map((option) => (
 <button

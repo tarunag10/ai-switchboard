@@ -207,6 +207,9 @@ export type SwitchboardMode = "off" | "rtk" | "headroom" | "full";
 
 export interface SwitchboardState {
   mode: SwitchboardMode;
+  desiredMode?: SwitchboardMode;
+  effectiveMode?: SwitchboardMode;
+  needsAttention?: boolean;
   localOnly: boolean;
   remoteServicesEnabled: boolean;
   runtime: RuntimeStatus;

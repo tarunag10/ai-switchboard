@@ -4393,9 +4393,12 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     runtimeStatus,
     enabledSwitchboardConnectors
   );
-  const switchboardMode = switchboardState?.mode ?? derivedSwitchboardMode;
-  const switchboardModeCopy =
-    switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
+const switchboardMode = switchboardState?.mode ?? derivedSwitchboardMode;
+const switchboardEffectiveMode = switchboardState?.effectiveMode ?? derivedSwitchboardMode;
+const switchboardNeedsAttention =
+switchboardState?.needsAttention ?? switchboardMode !== switchboardEffectiveMode;
+const switchboardModeCopy =
+switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
   const switchboardRtkLabel = runtimeStatus?.rtk.installed
     ? runtimeStatus.rtk.enabled
       ? "Enabled"
@@ -4864,9 +4867,11 @@ shouldShowCodexNudge(codexConnector, pricingStatus, codexNudgeDismissed, localOn
               );
             })()}
 
-            <SwitchboardPanel
-              mode={switchboardMode}
-              summary={switchboardModeCopy}
+<SwitchboardPanel
+mode={switchboardMode}
+effectiveMode={switchboardEffectiveMode}
+needsAttention={switchboardNeedsAttention}
+summary={switchboardModeCopy}
               localOnly={switchboardLocalOnly}
               proxyStatus={switchboardProxyStatus}
               headroomDetail={switchboardHeadroomLabel}

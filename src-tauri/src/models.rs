@@ -304,6 +304,9 @@ pub enum SwitchboardMode {
 #[serde(rename_all = "camelCase")]
 pub struct SwitchboardState {
     pub mode: SwitchboardMode,
+    pub desired_mode: SwitchboardMode,
+    pub effective_mode: SwitchboardMode,
+    pub needs_attention: bool,
     pub local_only: bool,
     pub remote_services_enabled: bool,
     pub runtime: RuntimeStatus,

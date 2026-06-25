@@ -77,4 +77,16 @@ renderPanel({ modeBusy: "headroom", modeError: "Could not switch optimization mo
 expect(screen.getByRole("button", { name: "Applying" })).toBeDisabled();
 expect(screen.getByText("Could not switch optimization mode.")).toBeInTheDocument();
 });
+
+it("shows the effective mode when the requested mode needs attention", () => {
+renderPanel({
+mode: "full",
+effectiveMode: "rtk",
+needsAttention: true,
+summary: "Full optimization requested, but RTK only is currently active."
+});
+
+expect(screen.getByRole("heading", { name: "Full optimization" })).toBeInTheDocument();
+expect(screen.getByText("Active now: RTK only")).toBeInTheDocument();
+});
 });

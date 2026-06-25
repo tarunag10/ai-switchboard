@@ -1888,6 +1888,15 @@ fn get_runtime_status(state: State<'_, AppState>) -> RuntimeStatus {
     state.runtime_status()
 }
 
+fn switchboard_mode_label(mode: &SwitchboardMode) -> &'static str {
+    match mode {
+        SwitchboardMode::Off => "Off",
+        SwitchboardMode::Rtk => "RTK only",
+        SwitchboardMode::Headroom => "Headroom only",
+        SwitchboardMode::Full => "Full optimization",
+    }
+}
+
 fn build_switchboard_state(state: &AppState) -> Result<SwitchboardState, String> {
 let runtime = state.runtime_status();
 let clients = client_adapters::list_client_connectors(&state.cached_clients())
@@ -1906,17 +1915,25 @@ let inferred_mode = match (headroom_enabled, rtk_enabled) {
 (false, true) => SwitchboardMode::Rtk,
 (false, false) => SwitchboardMode::Off,
 };
-let mode = client_adapters::load_switchboard_mode().unwrap_or(inferred_mode);
+let desired_mode = client_adapters::load_switchboard_mode().unwrap_or(inferred_mode.clone());
+let effective_mode = inferred_mode;
+let needs_attention = desired_mode != effective_mode;
 let codex_direct_bypass = state
 .codex_bypass
 .load(std::sync::atomic::Ordering::Acquire);
-let summary = if codex_direct_bypass
-&& matches!(mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
+let summary = if needs_attention {
+format!(
+"{} requested, but {} is currently active. Run Doctor to repair the missing local pieces.",
+switchboard_mode_label(&desired_mode),
+switchboard_mode_label(&effective_mode)
+)
+} else if codex_direct_bypass
+&& matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
 {
 "Codex is temporarily bypassing Headroom after an oversized compression refusal. Compact context or switch to RTK only, then re-enable Headroom."
 .to_string()
 } else {
-match mode {
+match desired_mode {
 SwitchboardMode::Full => {
 "Headroom proxy routing and RTK command compression are both active."
 }
@@ -1933,7 +1950,10 @@ SwitchboardMode::Off => "No optimization layer is active right now.",
     let local_only = local_mode::enabled();
 
 Ok(SwitchboardState {
-mode,
+mode: desired_mode.clone(),
+desired_mode,
+effective_mode,
+needs_attention,
 local_only,
 remote_services_enabled: !local_only,
 runtime,
