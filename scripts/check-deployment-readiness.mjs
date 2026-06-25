@@ -11,6 +11,7 @@ const requiredFiles = [
 "scripts/check-release-env.mjs",
 "scripts/check-deployment-readiness.mjs",
   "scripts/smoke-preflight.mjs",
+ "scripts/repo-intelligence.mjs",
   ".github/workflows/release-macos.yml",
   ".github/workflows/release-macos-staging.yml",
 ];
@@ -106,6 +107,7 @@ const requiredDocSignals = {
   "docs/architecture.md": [
     "src-tauri/src/repo_intelligence.rs",
     "repo-intelligence-latest.json",
+    "--pack implementation --format markdown",
     "User repositories are not modified",
     "does not yet provide a full Graphy-style symbol graph",
   ],
@@ -181,9 +183,15 @@ const requiredSourceSignals = {
  "copy individual task pack",
     "Installed app present",
     "dist/smoke-preflight-summary.md",
-    "Required Installed-App Smoke Areas",
-    "docs/beta-smoke-test.md",
-  ],
+"Required Installed-App Smoke Areas",
+"docs/beta-smoke-test.md",
+],
+"scripts/repo-intelligence.mjs": [
+"--pack <id>",
+"--format <format>",
+"formatSinglePackMarkdown",
+"Available packs",
+],
 };
 
 const workflowSignals = {
