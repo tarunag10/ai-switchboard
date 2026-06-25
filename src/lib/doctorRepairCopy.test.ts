@@ -1,0 +1,49 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  canRepairIssue,
+  doctorRepairHint,
+  doctorRepairLabel,
+} from "./doctorRepairCopy";
+
+describe("doctor repair copy", () => {
+  it.each([
+    ["repair_runtime", "Restart Headroom"],
+    ["reset_codex_bypass", "Reset Codex"],
+    ["repair_codex_setup", "Repair Codex"],
+    ["repair_client_setups", "Repair clients"],
+    ["repair_rtk_integrations", "Repair RTK"],
+    ["repair_rtk_runtime", "Install RTK"],
+    ["unknown", "Repair"],
+  ])("labels %s", (action, label) => {
+    expect(doctorRepairLabel(action)).toBe(label);
+  });
+
+  it("uses Codex-specific hints for Codex repair actions", () => {
+    expect(doctorRepairHint("reset_codex_bypass")).toContain(
+      "Compact the Codex conversation",
+    );
+    expect(doctorRepairHint("repair_codex_setup")).toContain(
+      "Codex-supported ChatGPT model",
+    );
+  });
+
+  it("describes runtime and RTK repair actions", () => {
+    expect(doctorRepairHint("repair_runtime")).toContain(
+      "refreshes switchboard status",
+    );
+    expect(doctorRepairHint("repair_rtk_integrations")).toContain(
+      "RTK PATH and hook",
+    );
+    expect(doctorRepairHint("repair_rtk_runtime")).toContain(
+      "local shell-output compression",
+    );
+  });
+
+  it("detects repairable issues from action presence", () => {
+    expect(canRepairIssue("repair_runtime")).toBe(true);
+    expect(canRepairIssue("")).toBe(false);
+    expect(canRepairIssue(null)).toBe(false);
+    expect(canRepairIssue(undefined)).toBe(false);
+  });
+});

@@ -1,4 +1,8 @@
-import { codexDoctorHint } from "../lib/codexErrorGuidance";
+import {
+  canRepairIssue,
+  doctorRepairHint,
+  doctorRepairLabel,
+} from "../lib/doctorRepairCopy";
 import type { DoctorIssue, DoctorReport } from "../lib/types";
 
 interface SwitchboardDoctorPanelProps {
@@ -11,45 +15,6 @@ interface SwitchboardDoctorPanelProps {
 
 function issueTone(issue: DoctorIssue): string {
   return issue.severity === "error" ? "error" : "warning";
-}
-
-function repairLabel(action: string): string {
-  switch (action) {
-    case "repair_runtime":
-      return "Restart Headroom";
-    case "reset_codex_bypass":
-      return "Reset Codex";
-    case "repair_codex_setup":
-      return "Repair Codex";
-    case "repair_client_setups":
-      return "Repair clients";
-    case "repair_rtk_integrations":
-      return "Repair RTK";
-    case "repair_rtk_runtime":
-      return "Install RTK";
-    default:
-      return "Repair";
-  }
-}
-
-function repairHint(action: string): string {
-  const codexHint = codexDoctorHint(action);
-  if (codexHint) {
-    return codexHint;
-  }
-
-  switch (action) {
-    case "repair_runtime":
-      return "Restarts the local Headroom engine and refreshes switchboard status.";
-    case "repair_client_setups":
-      return "Re-applies reversible setup for installed managed clients.";
-    case "repair_rtk_integrations":
-      return "Restores RTK PATH and hook wiring without reinstalling the binary.";
-    case "repair_rtk_runtime":
-      return "Installs or enables RTK in managed storage for local shell-output compression.";
-    default:
-      return "Runs the safest available repair for this issue.";
-  }
 }
 
 export function SwitchboardDoctorPanel({
@@ -65,15 +30,18 @@ export function SwitchboardDoctorPanel({
   ) {
     return null;
   }
-  const canRepair = report.issues.some((issue) => !!issue.repairAction);
-  const hasIssues = report.issues.length > 0;
+
+  const canRepair = report.issues.some((issue) =>
+    canRepairIssue(issue.repairAction),
+  );
+  const title = report.status === "ok" ? "Ready" : "Needs attention";
 
   return (
-    <section className="switchboard-doctor" aria-label="Switchboard doctor">
+    <section className="switchboard-doctor" aria-label="Switchboard Doctor">
       <div className="switchboard-doctor__head">
         <div>
           <p className="switchboard-doctor__eyebrow">Doctor</p>
-          <h2>{hasIssues ? "Needs attention" : "Ready"}</h2>
+          <h2>{title}</h2>
         </div>
         <span
           className={`switchboard-doctor__badge switchboard-doctor__badge--${report.status}`}
@@ -82,9 +50,11 @@ export function SwitchboardDoctorPanel({
         </span>
       </div>
       <p className="switchboard-doctor__summary">{report.summary}</p>
+
       {successMessage ? (
         <p className="switchboard-doctor__success">{successMessage}</p>
       ) : null}
+
       {canRepair ? (
         <button
           type="button"
@@ -95,36 +65,43 @@ export function SwitchboardDoctorPanel({
           {busyAction === "repair_all" ? "Repairing all" : "Repair all"}
         </button>
       ) : null}
+
       <div className="switchboard-doctor__issues">
-        {report.issues.map((issue) => (
-          <article
-            key={issue.id}
-            className={`switchboard-doctor__issue switchboard-doctor__issue--${issueTone(issue)}`}
-          >
-            <div>
-              <strong>{issue.title}</strong>
-              <p>{issue.body}</p>
-              {issue.repairAction ? (
-                <p className="switchboard-doctor__hint">
-                  {repairHint(issue.repairAction)}
-                </p>
+        {report.issues.map((issue) => {
+          const repairAction = issue.repairAction ?? null;
+          const repairable = canRepairIssue(repairAction);
+
+          return (
+            <article
+              key={issue.id}
+              className={`switchboard-doctor__issue switchboard-doctor__issue--${issueTone(issue)}`}
+            >
+              <div>
+                <strong>{issue.title}</strong>
+                <p>{issue.body}</p>
+                {repairable ? (
+                  <p className="switchboard-doctor__hint">
+                    {doctorRepairHint(repairAction as string)}
+                  </p>
+                ) : null}
+              </div>
+              {repairable ? (
+                <button
+                  type="button"
+                  className="switchboard-doctor__repair"
+                  disabled={busyAction !== null}
+                  onClick={() => onRepair(repairAction as string)}
+                >
+                  {busyAction === repairAction
+                    ? "Repairing"
+                    : doctorRepairLabel(repairAction as string)}
+                </button>
               ) : null}
-            </div>
-            {issue.repairAction ? (
-              <button
-                type="button"
-                className="switchboard-doctor__repair"
-                disabled={busyAction !== null}
-                onClick={() => onRepair(issue.repairAction as string)}
-              >
-                {busyAction === issue.repairAction
-                  ? "Repairing"
-                  : repairLabel(issue.repairAction)}
-              </button>
-            ) : null}
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </div>
+
       {error ? <p className="switchboard-doctor__error">{error}</p> : null}
     </section>
   );
