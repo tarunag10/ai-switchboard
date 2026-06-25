@@ -128,6 +128,8 @@ const requiredSourceSignals = {
     "Planned connectors are visible but manual",
     "copyable manual setup guide",
     "Installed app present",
+    "dist/smoke-preflight-summary.md",
+    "Required Installed-App Smoke Areas",
     "docs/beta-smoke-test.md",
   ],
 };

@@ -1,9 +1,11 @@
 import fs from "node:fs";
+import path from "node:path";
 
 const betaSmokeDoc = "docs/beta-smoke-test.md";
 const installDoc = "docs/install.md";
 const releaseDoc = "docs/macos-release.md";
 const appPath = "/Applications/Mac AI Switchboard.app";
+const summaryPath = "dist/smoke-preflight-summary.md";
 
 const requiredSignals = {
   [betaSmokeDoc]: [
@@ -31,19 +33,19 @@ const requiredSignals = {
 
 const failures = [];
 
-function read(path) {
-  if (!fs.existsSync(path)) {
-    failures.push(`Missing ${path}`);
+function read(pathname) {
+  if (!fs.existsSync(pathname)) {
+    failures.push(`Missing ${pathname}`);
     return "";
   }
-  return fs.readFileSync(path, "utf8");
+  return fs.readFileSync(pathname, "utf8");
 }
 
-for (const [path, signals] of Object.entries(requiredSignals)) {
-  const body = read(path);
+for (const [pathname, signals] of Object.entries(requiredSignals)) {
+  const body = read(pathname);
   for (const signal of signals) {
     if (!body.includes(signal)) {
-      failures.push(`${path} missing smoke signal: ${signal}`);
+      failures.push(`${pathname} missing smoke signal: ${signal}`);
     }
   }
 }
@@ -54,7 +56,31 @@ if (failures.length > 0) {
 }
 
 const installed = fs.existsSync(appPath);
+const generatedAt = new Date().toISOString();
+const summary = `# Smoke Preflight Summary
+
+Generated: ${generatedAt}
+
+- Static smoke coverage: pass
+- Installed app present: ${installed ? "yes" : "no"} (${appPath})
+- Installed-app checklist: ${betaSmokeDoc}
+- Release instructions: ${releaseDoc}
+
+## Required Installed-App Smoke Areas
+
+- Switchboard modes: Full optimization, Headroom only, RTK only, Off
+- Doctor repairs: runtime, Codex setup, RTK, and planned connector manual warnings
+- Planned connectors: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose
+- Local-first behavior: remote services gated, Off mode reversible cleanup
+- Codex resilience: compression refusal reset and model/provider repair
+
+Next step: install the DMG, open ${appPath}, then run ${betaSmokeDoc}.
+`;
+
+fs.mkdirSync(path.dirname(summaryPath), { recursive: true });
+fs.writeFileSync(summaryPath, summary);
 
 console.log("Smoke preflight passed.");
 console.log(`Installed app present: ${installed ? "yes" : "no"} (${appPath})`);
+console.log(`Summary written: ${summaryPath}`);
 console.log(`Next: install the DMG, then run ${betaSmokeDoc} on the installed app.`);
