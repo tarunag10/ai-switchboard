@@ -188,6 +188,41 @@ export function buildRepoIntelligenceSummary(
   };
 }
 
+export function formatRepoContextPackMarkdown(summary: RepoIntelligenceSummary): string {
+  const title = summary.repoRoot
+    ? `# Repo Intelligence Context Pack: ${summary.repoRoot}`
+    : "# Repo Intelligence Context Pack";
+  const indexedAt = summary.indexedAt ? `\nIndexed at: ${summary.indexedAt}` : "";
+  const overview = [
+    title,
+    indexedAt.trim(),
+    "",
+    `Files scanned: ${summary.totalFiles}`,
+    `Indexed signals: ${summary.indexedFiles}`,
+    `Estimated full scan tokens: ${summary.estimatedFullScanTokens.toLocaleString()}`,
+    "",
+  ].filter(Boolean);
+
+  const packSections = summary.packs.map((pack) => {
+    const files = pack.files
+      .slice(0, 12)
+      .map(
+        (file) =>
+          `- ${file.path} (${file.role}, ${file.language}, ~${file.estimatedTokens.toLocaleString()} tokens)`,
+      );
+    return [
+      `## ${pack.title}`,
+      pack.purpose,
+      `Estimated pack tokens: ${pack.estimatedTokens.toLocaleString()}`,
+      `Estimated savings vs full scan: ${pack.savingsVsFullScanPct.toFixed(1)}%`,
+      "",
+      ...files,
+    ].join("\n");
+  });
+
+  return [...overview, ...packSections].join("\n\n").trim();
+}
+
 function buildContextPack(
   id: string,
   title: string,

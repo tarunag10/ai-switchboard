@@ -19,6 +19,7 @@ The goal is to make Mac AI Switchboard useful before an agent burns tokens readi
    - CLI foundation: run `npm run repo:intelligence -- <repo-path>` to produce local file roles, token estimates, and bounded context packs.
    - App workflow: enter a local repo path in the Repo Intelligence add-on card and click **Index**.
    - Persistence: the latest successful summary is saved under Mac AI Switchboard managed config storage, not inside the user repo.
+   - Handoff: click **Copy pack** to copy a bounded Markdown summary for another local coding agent without copying file contents.
    - Safety: respect common vendor folders, generated outputs, large files, and secret-like paths.
 2. **Graph storage freshness**
    - Persist file hashes, parser versions, last indexed time, file count, symbol count, symbols, likely tests, risk notes, and exact local paths.

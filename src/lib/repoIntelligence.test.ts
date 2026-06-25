@@ -4,6 +4,7 @@ import {
   buildRepoIntelligenceSummary,
   classifyRepoFile,
   estimateRepoTokens,
+  formatRepoContextPackMarkdown,
 } from "./repoIntelligence";
 
 describe("repoIntelligence", () => {
@@ -39,5 +40,24 @@ describe("repoIntelligence", () => {
     expect(summary.packs[0].id).toBe("implementation");
     expect(summary.packs[0].files.map((file) => file.path)).toContain("src/App.tsx");
     expect(summary.packs[0].savingsVsFullScanPct).toBeGreaterThan(50);
+  });
+
+  it("formats bounded context packs for agent handoff", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+
+    const markdown = formatRepoContextPackMarkdown(summary);
+
+    expect(markdown).toContain("# Repo Intelligence Context Pack: /Users/me/app");
+    expect(markdown).toContain("Indexed at: 2026-06-25T10:00:00Z");
+    expect(markdown).toContain("## Implementation Pack");
+    expect(markdown).toContain("src/App.tsx");
+    expect(markdown).toContain("Estimated savings vs full scan");
   });
 });

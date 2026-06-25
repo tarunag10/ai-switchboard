@@ -64,6 +64,7 @@ maybeFireUrgentRuntimeNotification,
 import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
 import {
   buildRepoIntelligenceSummary,
+  formatRepoContextPackMarkdown,
   type RepoIntelligenceSummary,
 } from "./lib/repoIntelligence";
 import {
@@ -1116,6 +1117,7 @@ function RepoIntelligencePreview() {
   const [summary, setSummary] = useState<RepoIntelligenceSummary>(repoIntelligencePreview);
   const [indexing, setIndexing] = useState(false);
   const [indexError, setIndexError] = useState<string | null>(null);
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const isPreview = summary === repoIntelligencePreview;
 
   useEffect(() => {
@@ -1171,6 +1173,20 @@ function RepoIntelligencePreview() {
     }
   }
 
+  async function copyContextPack() {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(formatRepoContextPackMarkdown(summary));
+      setCopyNotice("Context pack copied.");
+      window.setTimeout(() => setCopyNotice(null), 2000);
+    } catch {
+      setCopyNotice("Copy failed. Select pack details manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
+
   return (
     <div className="repo-intelligence-preview" aria-label="Repo Intelligence context pack preview">
       <div className="repo-intelligence-preview__topline">
@@ -1198,6 +1214,18 @@ function RepoIntelligencePreview() {
           {indexing ? "Indexing..." : "Index"}
         </button>
         {!isPreview ? (
+          <>
+            <button
+              className="addon-card__action"
+              disabled={indexing}
+              onClick={() => void copyContextPack()}
+              type="button"
+            >
+              Copy pack
+            </button>
+          </>
+        ) : null}
+        {!isPreview ? (
           <button
             className="addon-card__action"
             disabled={indexing}
@@ -1216,6 +1244,7 @@ function RepoIntelligencePreview() {
           Indexed {new Date(summary.indexedAt).toLocaleString()}
         </p>
       ) : null}
+      {copyNotice ? <p className="repo-intelligence-preview__path">{copyNotice}</p> : null}
       {indexError ? <p className="install-progress__error">{indexError}</p> : null}
       <div className="repo-intelligence-preview__grid">
         {summary.packs.map((pack) => (

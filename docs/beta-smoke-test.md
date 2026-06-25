@@ -83,6 +83,10 @@ Expect: the card shows indexed signals, context packs, the repo path, and indexe
 
 Expect: the latest Repo Intelligence summary reloads from managed app storage. If the indexed repo folder is moved or deleted, Doctor shows a manual warning to re-index an available local repo and does not offer **Repair all** for that issue.
 
+Click **Copy pack**.
+
+Expect: a bounded Markdown context pack is copied for agent handoff. It includes the repo path, pack headings, estimated token counts, and file lists, but no file contents.
+
 Click **Clear** in the Repo Intelligence card.
 
 Expect: the card returns to the read-only preview state, the saved repo path disappears, and Doctor no longer reports stale or missing Repo Intelligence index warnings.
