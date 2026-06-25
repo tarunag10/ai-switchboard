@@ -162,14 +162,25 @@ const requiredSourceSignals = {
     "planned_connector_setup_hint",
     "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.",
   ],
-  "src/lib/dashboardHelpers.ts": [
-    "connectorSupportsAutomaticSetup",
-    "connector.setupHint",
-    "connector.setupPhase",
-  ],
-  "src/lib/repoIntelligence.ts": [
-    "formatRepoContextPackMarkdown",
-    "Repo Intelligence Context Pack",
+"src/lib/dashboardHelpers.ts": [
+"connectorSupportsAutomaticSetup",
+"connector.setupHint",
+"connector.setupPhase",
+],
+"src/lib/doctorRepairCopy.ts": [
+"doctorIssueGuidance",
+"planned_connectors_detected",
+"repo_intelligence_repo_missing",
+"headroom_paused",
+],
+"src/components/SwitchboardDoctorPanel.manual.test.tsx": [
+"gives specific manual guidance for planned connectors and repo intelligence",
+"Open Settings, review each planned connector guide",
+"Open Addons, index an available local repo again",
+],
+"src/lib/repoIntelligence.ts": [
+"formatRepoContextPackMarkdown",
+"Repo Intelligence Context Pack",
     "Estimated savings vs full scan",
   ],
   "src/lib/repoIntelligence.test.ts": [

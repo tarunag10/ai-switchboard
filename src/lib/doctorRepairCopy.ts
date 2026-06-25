@@ -1,4 +1,5 @@
 import { codexDoctorHint } from "./codexErrorGuidance";
+import type { DoctorIssue } from "./types";
 
 export function doctorRepairLabel(action: string): string {
   switch (action) {
@@ -27,7 +28,7 @@ export function doctorRepairHint(action: string): string {
 
   switch (action) {
     case "repair_runtime":
-      return "Restarts local Headroom engine and refreshes switchboard status.";
+      return "Restarts the local Headroom engine and refreshes switchboard status.";
     case "repair_client_setups":
       return "Re-applies reversible setup for installed managed clients.";
     case "repair_rtk_integrations":
@@ -49,18 +50,31 @@ export function doctorIssueActionKind(
   return canRepairIssue(action) ? "automatic" : "manual";
 }
 
-export function doctorIssueActionLabel(
-  action: string | null | undefined,
-): string {
-  return doctorIssueActionKind(action) === "automatic"
-    ? "Auto repair"
-    : "Manual step";
+export function doctorIssueActionLabel(action: string | null | undefined): string {
+  return doctorIssueActionKind(action) === "automatic" ? "Auto repair" : "Manual step";
 }
 
-export function doctorIssueActionHint(
-  action: string | null | undefined,
-): string {
+export function doctorIssueActionHint(action: string | null | undefined): string {
   return doctorIssueActionKind(action) === "automatic"
     ? doctorRepairHint(action as string)
-    : "No automatic repair is available yet. Follow the issue guidance, then re-run Doctor.";
+    : "No automatic repair available yet. Follow issue guidance, then re-run Doctor.";
+}
+
+export function doctorIssueGuidance(issue: DoctorIssue): string {
+  if (doctorIssueActionKind(issue.repairAction) === "automatic") {
+    return doctorRepairHint(issue.repairAction as string);
+  }
+
+  switch (issue.id) {
+    case "planned_connectors_detected":
+      return "Open Settings, review each planned connector guide, and keep routing manual until backup, restore, and Off mode cleanup are available.";
+    case "repo_intelligence_repo_missing":
+      return "Open Addons, index an available local repo again, or clear the saved Repo Intelligence index if you no longer need it.";
+    case "repo_intelligence_stale":
+      return "Open Addons and re-index this repo before copying packs to another agent.";
+    case "headroom_paused":
+      return "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.";
+    default:
+      return doctorIssueActionHint(issue.repairAction);
+  }
 }

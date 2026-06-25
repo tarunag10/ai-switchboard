@@ -30,12 +30,78 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.getByText("Manual step")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "No automatic repair is available yet. Follow the issue guidance, then re-run Doctor.",
+        "No automatic repair available yet. Follow issue guidance, then re-run Doctor.",
+      ),
+    ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Repair all" }),
+  ).not.toBeInTheDocument();
+  });
+
+  it("gives specific manual guidance for planned connectors and repo intelligence", () => {
+    render(
+      <SwitchboardDoctorPanel
+        report={{
+          status: "warning",
+          summary: "Manual setup required.",
+          issues: [
+            {
+              id: "planned_connectors_detected",
+              title: "Planned coding tools detected",
+              body: "Gemini CLI detected.",
+              severity: "warning",
+              repairAction: null,
+            },
+            {
+              id: "repo_intelligence_repo_missing",
+              title: "Repo Intelligence index points to missing folder",
+              body: "The last indexed path is gone.",
+              severity: "warning",
+              repairAction: null,
+            },
+            {
+              id: "repo_intelligence_stale",
+              title: "Repo Intelligence index is stale",
+              body: "The last index is more than 7 days old.",
+              severity: "warning",
+              repairAction: null,
+            },
+            {
+              id: "headroom_paused",
+              title: "Headroom is paused",
+              body: "The proxy is intentionally off.",
+              severity: "warning",
+              repairAction: null,
+            },
+          ],
+        }}
+        busyAction={null}
+        error={null}
+        successMessage={null}
+        onRepair={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "Open Settings, review each planned connector guide, and keep routing manual until backup, restore, and Off mode cleanup are available.",
       ),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Repair all" }),
-    ).not.toBeInTheDocument();
+      screen.getByText(
+        "Open Addons, index an available local repo again, or clear the saved Repo Intelligence index if you no longer need it.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Open Addons and re-index this repo before copying packs to another agent.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("labels repairable issues as automatic", () => {

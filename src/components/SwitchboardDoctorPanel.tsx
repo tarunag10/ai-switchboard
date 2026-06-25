@@ -1,8 +1,8 @@
 import {
   canRepairIssue,
-  doctorIssueActionHint,
   doctorIssueActionKind,
   doctorIssueActionLabel,
+  doctorIssueGuidance,
   doctorRepairLabel,
 } from "../lib/doctorRepairCopy";
 import type { DoctorIssue, DoctorReport } from "../lib/types";
@@ -94,7 +94,7 @@ className={`switchboard-doctor__action-kind switchboard-doctor__action-kind--${a
 </div>
 <p>{issue.body}</p>
 <p className="switchboard-doctor__hint">
-{doctorIssueActionHint(repairAction)}
+                {doctorIssueGuidance(issue)}
 </p>
 </div>
               {repairable ? (
