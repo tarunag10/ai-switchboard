@@ -387,6 +387,48 @@ export function sortClientConnectors(connectors: ClientConnectorStatus[]) {
   });
 }
 
+export interface PlannedConnectorReadinessSummary {
+  detectedCount: number;
+  manualOnlyCount: number;
+  notDetectedCount: number;
+  detectedNames: string[];
+  notDetectedNames: string[];
+  headline: string;
+  detail: string;
+}
+
+export function summarizePlannedConnectorReadiness(
+  connectors: ClientConnectorStatus[]
+): PlannedConnectorReadinessSummary {
+  const planned = aggregateClientConnectors(connectors).filter(
+    (connector) => connector.supportStatus === "planned"
+  );
+  const detected = planned.filter((connector) => connector.installed);
+  const notDetected = planned.filter((connector) => !connector.installed);
+
+  const detectedNames = detected.map((connector) => connector.name);
+  const notDetectedNames = notDetected.map((connector) => connector.name);
+  const detectedCopy =
+    detectedNames.length > 0 ? detectedNames.join(", ") : "No planned tools";
+  const notDetectedCopy =
+    notDetectedNames.length > 0
+      ? notDetectedNames.join(", ")
+      : "all planned tools detected";
+
+  return {
+    detectedCount: detected.length,
+    manualOnlyCount: planned.length,
+    notDetectedCount: notDetected.length,
+    detectedNames,
+    notDetectedNames,
+    headline:
+      detected.length > 0
+        ? `${detected.length} planned tool${detected.length === 1 ? "" : "s"} detected locally`
+        : "No planned coding tools detected yet",
+    detail: `${detectedCopy} are read-only today. Not found: ${notDetectedCopy}. Automatic routing stays locked until backup, restore, and Off mode cleanup ship.`
+  };
+}
+
 export function getEnabledSupportedConnectors(
   connectors: ClientConnectorStatus[]
 ) {

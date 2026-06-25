@@ -130,6 +130,7 @@ import {
   sortClientConnectors,
   startOfDay,
   startOfMonth,
+  summarizePlannedConnectorReadiness,
   type SavingsChartDatum
 } from "./lib/dashboardHelpers";
 import {
@@ -2705,6 +2706,8 @@ void refreshDoctorReport();
   // Any supported connector (Claude Code, Codex, ...) being enabled counts as
   // "connected" — the request-count poller below is connector-agnostic.
   const anyConnectorEnabled = hasEnabledConnector(connectors);
+  const plannedConnectorReadiness =
+    summarizePlannedConnectorReadiness(connectors);
 
   // Which agents Headroom Learn should offer, driven by the enabled connectors.
   const claudeLearnEnabled = getClaudeConnector(connectors)?.enabled ?? false;
@@ -6390,6 +6393,32 @@ onRepair={(action) => void handleDoctorRepair(action)}
               <article className="soft-card panel-card">
                 <div className="panel-card__header">
                   <div />
+                </div>
+                <div className="connector-readiness">
+                  <div>
+                    <span className="connector-readiness__eyebrow">
+                      Planned tool readiness
+                    </span>
+                    <strong>{plannedConnectorReadiness.headline}</strong>
+                    <p>{plannedConnectorReadiness.detail}</p>
+                  </div>
+                  <div
+                    className="connector-readiness__metrics"
+                    aria-label="Planned connector readiness summary"
+                  >
+                    <span>
+                      <strong>{plannedConnectorReadiness.detectedCount}</strong>
+                      detected
+                    </span>
+                    <span>
+                      <strong>{plannedConnectorReadiness.manualOnlyCount}</strong>
+                      manual
+                    </span>
+                    <span>
+                      <strong>{plannedConnectorReadiness.notDetectedCount}</strong>
+                      missing
+                    </span>
+                  </div>
                 </div>
                 <div className="connector-list">
                   {sortClientConnectors(aggregateClientConnectors(connectors)).map((connector) => {

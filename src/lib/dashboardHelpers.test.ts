@@ -22,7 +22,8 @@ import {
   hourOfDayTickFormatter,
   mergeProviderSavingsForDisplay,
   percent1,
-  sortClientConnectors
+  sortClientConnectors,
+  summarizePlannedConnectorReadiness
 } from "./dashboardHelpers";
 import type {
   ClientConnectorStatus,
@@ -363,5 +364,25 @@ describe("mergeProviderSavingsForDisplay", () => {
 
   it("returns nothing for an empty breakdown", () => {
     expect(mergeProviderSavingsForDisplay([])).toEqual([]);
+  });
+
+  it("summarizes planned connector readiness without enabling automation", () => {
+    const connectors: ClientConnectorStatus[] = [
+      { clientId: "claude_code", name: "Claude Code", installed: true, enabled: true, verified: true },
+      { clientId: "gemini_cli", name: "Gemini CLI", supportStatus: "planned", installed: true, enabled: false, verified: false },
+      { clientId: "opencode", name: "OpenCode", supportStatus: "planned", installed: false, enabled: false, verified: false },
+      { clientId: "cursor", name: "Cursor", supportStatus: "planned", installed: true, enabled: false, verified: false }
+    ];
+
+    expect(summarizePlannedConnectorReadiness(connectors)).toEqual({
+      detectedCount: 2,
+      manualOnlyCount: 3,
+      notDetectedCount: 1,
+      detectedNames: ["Gemini CLI", "Cursor"],
+      notDetectedNames: ["OpenCode"],
+      headline: "2 planned tools detected locally",
+      detail:
+        "Gemini CLI, Cursor are read-only today. Not found: OpenCode. Automatic routing stays locked until backup, restore, and Off mode cleanup ship."
+    });
   });
 });
