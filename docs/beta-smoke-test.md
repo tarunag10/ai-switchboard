@@ -55,7 +55,7 @@ If Codex hits:
 unexpected status 413 Payload Too Large: compression_refused
 ```
 
-Expect: Codex temporarily bypasses Headroom so work can continue. After compacting context or switching to RTK only, Doctor shows the Codex bypass issue and **Reset Codex** routes Codex through Headroom again.
+Expect: Codex temporarily bypasses Headroom so work can continue. After compacting context or switching to **RTK only**, Doctor shows the Codex bypass issue and **Reset Codex** routes Codex through Headroom again. If this happens with several active Codex chats or goals, follow [Codex Compression Troubleshooting](codex-compression-troubleshooting.md).
 
 ### S7. Codex model/provider mismatch is repairable
 

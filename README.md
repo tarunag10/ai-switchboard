@@ -83,7 +83,7 @@ For the real-world Codex error:
 unexpected status 413 Payload Too Large: compression_refused
 ```
 
-The app lets Codex bypass Headroom temporarily so work can continue. After compacting the conversation or switching to RTK only, use Doctor to reset the bypass and route through Headroom again.
+The app lets Codex bypass Headroom temporarily so work can continue. After compacting the conversation or switching to **RTK only**, use Doctor to reset the bypass and route through Headroom again. If this happens when more than 2-3 active Codex chats or goals are open, see [Codex Compression Troubleshooting](docs/codex-compression-troubleshooting.md).
 
 If Codex instead reports:
 

@@ -61,6 +61,6 @@ Every managed config edit is reversible and should be fenced with `headroom:` ma
 - **Pause/Quit** tears down interception while keeping runtime files for faster next launch.
 - **Uninstall** removes app-managed LaunchAgent, preferences, caches, keychain entries, routing hooks, and managed config blocks.
 
-If Codex hits a large-request issue such as `413 Payload Too Large: compression_refused`, use RTK-only mode or compact the conversation, then let Doctor reset the Codex bypass.
+If Codex hits a large-request issue such as `413 Payload Too Large: compression_refused`, use **RTK only** mode or compact the conversation, then let Doctor reset the Codex bypass. See [Codex Compression Troubleshooting](codex-compression-troubleshooting.md) for the multiple active chats/goals workflow.
 
-If Codex reports `The '' model is not supported when using Codex with a ChatGPT account`, treat that as a Codex model/provider configuration issue rather than a Headroom compression issue. Use Doctor to repair the Codex provider block, then choose a Codex-supported ChatGPT model before retrying.
+If Codex reports `The '' model is not supported when using Codex with a ChatGPT account`, treat it as a Codex model/provider configuration issue rather than a Headroom compression issue. Use Doctor to repair the Codex provider block, then choose a Codex-supported ChatGPT model before retrying.
