@@ -37,6 +37,23 @@ const lockfileNames = new Set([
   "yarn.lock",
   "bun.lockb",
 ]);
+const secretFileNames = new Set([
+  ".env",
+  ".env.local",
+  ".env.production",
+  ".npmrc",
+  ".pypirc",
+  "id_rsa",
+  "id_ed25519",
+]);
+const secretPathPatterns = [
+  /(^|\/)\.secrets?\//,
+  /(^|\/)secrets?\//,
+  /(^|\/)private_keys?\//,
+  /(^|\/)\.private_keys?\//,
+  /(^|\/)authkey_[^/]+\.p8$/i,
+  /\.(pem|p8|p12|key|crt|cer)$/i,
+];
 
 function parseArgs(argv) {
   const options = {
@@ -109,6 +126,16 @@ function estimateTokens(bytes) {
   return Math.max(1, Math.ceil(bytes / 4));
 }
 
+function isSecretLikePath(filePath) {
+  const normalized = filePath.replace(/\\/g, "/");
+  const name = normalized.split("/").pop()?.toLowerCase() ?? normalized.toLowerCase();
+  return (
+    secretFileNames.has(name) ||
+    name.startsWith(".env.") ||
+    secretPathPatterns.some((pattern) => pattern.test(normalized))
+  );
+}
+
 function classify(filePath, bytes) {
   const name = filePath.split("/").pop() ?? filePath;
   const lower = filePath.toLowerCase();
@@ -127,7 +154,7 @@ function classify(filePath, bytes) {
     role,
     language: languageByExtension[extension] ?? "Unknown",
     estimatedTokens: estimateTokens(bytes),
-    includeByDefault: role !== "asset" && role !== "lockfile",
+    includeByDefault: role !== "asset" && role !== "lockfile" && !isSecretLikePath(filePath),
   };
 }
 

@@ -66,6 +66,23 @@ const lockfileNames = new Set([
   "yarn.lock",
   "bun.lockb",
 ]);
+const secretFileNames = new Set([
+  ".env",
+  ".env.local",
+  ".env.production",
+  ".npmrc",
+  ".pypirc",
+  "id_rsa",
+  "id_ed25519",
+]);
+const secretPathPatterns = [
+  /(^|\/)\.secrets?\//,
+  /(^|\/)secrets?\//,
+  /(^|\/)private_keys?\//,
+  /(^|\/)\.private_keys?\//,
+  /(^|\/)authkey_[^/]+\.p8$/i,
+  /\.(pem|p8|p12|key|crt|cer)$/i,
+];
 
 const languageByExtension: Record<string, string> = {
   ".css": "CSS",
@@ -86,6 +103,16 @@ const languageByExtension: Record<string, string> = {
 
 export function estimateRepoTokens(bytes: number): number {
   return Math.max(1, Math.ceil(bytes / 4));
+}
+
+export function isSecretLikeRepoPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+  const name = normalized.split("/").pop()?.toLowerCase() ?? normalized.toLowerCase();
+  return (
+    secretFileNames.has(name) ||
+    name.startsWith(".env.") ||
+    secretPathPatterns.some((pattern) => pattern.test(normalized))
+  );
 }
 
 export function classifyRepoFile(path: string, bytes = 0): RepoFileSignal {
@@ -127,8 +154,13 @@ export function classifyRepoFile(path: string, bytes = 0): RepoFileSignal {
   }
 
   const estimatedTokens = estimateRepoTokens(bytes);
+  const secretLike = isSecretLikeRepoPath(normalized);
+  if (secretLike) {
+    reasons.push("secret-like path excluded");
+  }
   const includeByDefault =
-    role === "source" || role === "test" || role === "config" || role === "docs";
+    !secretLike &&
+    (role === "source" || role === "test" || role === "config" || role === "docs");
 
   return {
     path: normalized,

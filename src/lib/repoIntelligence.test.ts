@@ -7,6 +7,7 @@ import {
   estimateRepoTokens,
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
+  isSecretLikeRepoPath,
 } from "./repoIntelligence";
 
 describe("repoIntelligence", () => {
@@ -22,7 +23,31 @@ describe("repoIntelligence", () => {
     expect(classifyRepoFile("docs/install.md", 100).role).toBe("docs");
     expect(classifyRepoFile("package-lock.json", 100).role).toBe("lockfile");
     expect(classifyRepoFile("dist/assets/app.js", 100).role).toBe("generated");
-    expect(classifyRepoFile("src/assets/logo.svg", 100).role).toBe("asset");
+  expect(classifyRepoFile("src/assets/logo.svg", 100).role).toBe("asset");
+  });
+
+  it("excludes secret-like paths from default context packs", () => {
+    expect(isSecretLikeRepoPath(".env.local")).toBe(true);
+    expect(isSecretLikeRepoPath(".private_keys/AuthKey_ABC123XYZ.p8")).toBe(true);
+    expect(isSecretLikeRepoPath("config/service-account.pem")).toBe(true);
+
+    const envFile = classifyRepoFile(".env.local", 100);
+    expect(envFile.role).toBe("config");
+    expect(envFile.includeByDefault).toBe(false);
+    expect(envFile.reasons).toContain("secret-like path excluded");
+
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: ".env.local", bytes: 400 },
+      { path: ".private_keys/AuthKey_ABC123XYZ.p8", bytes: 800 },
+    ]);
+    const packedPaths = summary.packs.flatMap((pack) =>
+      pack.files.map((file) => file.path),
+    );
+
+    expect(packedPaths).toContain("src/App.tsx");
+    expect(packedPaths).not.toContain(".env.local");
+    expect(packedPaths).not.toContain(".private_keys/AuthKey_ABC123XYZ.p8");
   });
 
   it("builds bounded context packs with savings estimates", () => {

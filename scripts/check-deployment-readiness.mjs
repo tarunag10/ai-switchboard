@@ -108,6 +108,7 @@ const requiredDocSignals = {
     "src-tauri/src/repo_intelligence.rs",
     "repo-intelligence-latest.json",
     "--pack implementation --format markdown",
+    "Default packs exclude secret-like paths",
     "User repositories are not modified",
     "does not yet provide a full Graphy-style symbol graph",
   ],
@@ -180,6 +181,7 @@ const requiredSourceSignals = {
 ],
 "src/lib/repoIntelligence.ts": [
 "formatRepoContextPackMarkdown",
+"isSecretLikeRepoPath",
 "Repo Intelligence Context Pack",
     "Estimated savings vs full scan",
   ],
@@ -201,6 +203,7 @@ const requiredSourceSignals = {
 "--pack <id>",
 "--format <format>",
 "formatSinglePackMarkdown",
+"secretPathPatterns",
 "Available packs",
 ],
 };

@@ -33,6 +33,7 @@ Repo Intelligence exists to reduce repeated agent discovery work before large co
 
 - CLI: `npm run repo:intelligence -- <repo-path>` prints file roles, rough token estimates, and implementation, verification, and handoff packs.
   Agents can request one task-specific Markdown pack with `npm run repo:intelligence -- <repo-path> --pack implementation --format markdown`.
+  Default packs exclude secret-like paths such as `.env*`, private-key folders, `.pem`, `.p8`, `.p12`, and certificate files.
 - App UI: the Repo Intelligence add-on card accepts a local repo path, runs the read-only backend indexer, shows compact context packs, supports combined and individual pack copy, reloads the latest summary on launch, and can clear the saved summary.
 - Doctor: stale or missing saved repo indexes appear as manual warnings and are excluded from **Repair all**.
 
