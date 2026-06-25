@@ -4,6 +4,7 @@ interface SwitchboardDoctorPanelProps {
   report: DoctorReport | null;
   busyAction: string | null;
   error: string | null;
+  successMessage?: string | null;
   onRepair: (action: string) => void;
 }
 
@@ -27,28 +28,31 @@ function repairLabel(action: string): string {
 }
 
 export function SwitchboardDoctorPanel({
-  report,
-  busyAction,
-  error,
-  onRepair
+report,
+busyAction,
+error,
+successMessage,
+onRepair
 }: SwitchboardDoctorPanelProps) {
-  if (!report || (report.status === "ok" && report.issues.length === 0)) {
-    return null;
-  }
-  const canRepair = report.issues.some((issue) => !!issue.repairAction);
+if (!report || (report.status === "ok" && report.issues.length === 0 && !successMessage)) {
+return null;
+}
+const canRepair = report.issues.some((issue) => !!issue.repairAction);
+const hasIssues = report.issues.length > 0;
 
   return (
     <section className="switchboard-doctor" aria-label="Switchboard doctor">
       <div className="switchboard-doctor__head">
-        <div>
-          <p className="switchboard-doctor__eyebrow">Doctor</p>
-          <h2>Needs attention</h2>
-        </div>
+<div>
+<p className="switchboard-doctor__eyebrow">Doctor</p>
+<h2>{hasIssues ? "Needs attention" : "Ready"}</h2>
+</div>
         <span className={`switchboard-doctor__badge switchboard-doctor__badge--${report.status}`}>
           {report.status}
         </span>
-      </div>
-      <p className="switchboard-doctor__summary">{report.summary}</p>
+</div>
+<p className="switchboard-doctor__summary">{report.summary}</p>
+{successMessage ? <p className="switchboard-doctor__success">{successMessage}</p> : null}
       {canRepair ? (
         <button
           type="button"

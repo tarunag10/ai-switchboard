@@ -46,12 +46,28 @@ describe("SwitchboardDoctorPanel", () => {
         report={{ status: "ok", summary: "No issues.", issues: [] }}
         busyAction={null}
         error={null}
+        successMessage={null}
         onRepair={vi.fn()}
       />
-    );
+);
 
-    expect(container).toBeEmptyDOMElement();
-  });
+expect(container).toBeEmptyDOMElement();
+});
+
+it("shows successful repair message when report is healthy", () => {
+render(
+<SwitchboardDoctorPanel
+        report={{ status: "ok", summary: "No issues.", issues: [] }}
+        busyAction={null}
+        error={null}
+        successMessage="Repair complete. Switchboard looks ready."
+        onRepair={vi.fn()}
+      />
+);
+
+expect(screen.getByRole("heading", { name: "Ready" })).toBeInTheDocument();
+expect(screen.getByText("Repair complete. Switchboard looks ready.")).toBeInTheDocument();
+});
 
   it("renders issues and runs repair actions", async () => {
     const user = userEvent.setup();
@@ -61,6 +77,7 @@ describe("SwitchboardDoctorPanel", () => {
         report={warningReport}
         busyAction={null}
         error={null}
+        successMessage={null}
         onRepair={onRepair}
       />
     );
@@ -85,6 +102,7 @@ describe("SwitchboardDoctorPanel", () => {
         report={warningReport}
         busyAction="repair_all"
         error="Could not repair."
+        successMessage={null}
         onRepair={vi.fn()}
       />
     );

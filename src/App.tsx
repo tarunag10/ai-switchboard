@@ -1140,6 +1140,7 @@ const [switchboardModeError, setSwitchboardModeError] = useState<string | null>(
 const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
 const [doctorRepairBusy, setDoctorRepairBusy] = useState<string | null>(null);
 const [doctorRepairError, setDoctorRepairError] = useState<string | null>(null);
+const [doctorRepairSuccess, setDoctorRepairSuccess] = useState<string | null>(null);
 const localOnlyMode = localOnlyModeEnabled();
   const appSemver = appUpdateConfig?.currentVersion ?? packageJson.version;
   const bootstrapFailureSignatureRef = useRef("");
@@ -2711,6 +2712,7 @@ return;
 }
 setSwitchboardModeBusy(mode);
 setSwitchboardModeError(null);
+setDoctorRepairSuccess(null);
 try {
 const state = await invoke<SwitchboardState>("set_switchboard_mode", { mode });
 applySwitchboardStateIfChanged(state);
@@ -2732,9 +2734,15 @@ return;
 }
 setDoctorRepairBusy(action);
 setDoctorRepairError(null);
+setDoctorRepairSuccess(null);
 try {
 const report = await invoke<DoctorReport>("run_doctor_repair", { action });
 setDoctorReport(report);
+setDoctorRepairSuccess(
+report.status === "ok" && report.issues.length === 0
+? "Repair complete. Switchboard looks ready."
+: "Repair finished. Review the remaining Doctor items."
+);
 await refreshSwitchboardState();
 } catch (error) {
 setDoctorRepairError(error instanceof Error ? error.message : "Could not run repair.");
@@ -4892,6 +4900,7 @@ onManageRtk={() => setActiveView("addons")}
 report={doctorReport}
 busyAction={doctorRepairBusy}
 error={doctorRepairError}
+successMessage={doctorRepairSuccess}
 onRepair={(action) => void handleDoctorRepair(action)}
 />
 
