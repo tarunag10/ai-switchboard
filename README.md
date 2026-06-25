@@ -40,6 +40,32 @@ VITE_HEADROOM_REMOTE_TELEMETRY="0"
 
 In local-only mode the app hides cloud upgrade/auth surfaces, disables Clarity/Sentry/Aptabase unless explicitly re-enabled, and keeps the Home view focused on Mac-side switchboard controls and Doctor repairs.
 
+## Using The Switchboard
+
+The Home view is the control surface for the Mac-side optimization stack:
+
+| Mode | What It Does | Typical Use |
+|------|--------------|-------------|
+| Full optimization | Routes supported clients through Headroom and enables RTK shell-output compression. | Daily coding-agent work when you want the full local optimization layer. |
+| Headroom only | Routes supported clients through the local Headroom proxy while leaving shell output unchanged. | LLM prompt/context optimization without shell command rewriting. |
+| RTK only | Keeps LLM traffic direct and enables RTK shell-output compression. | When a client should bypass Headroom, or after an oversized compression refusal. |
+| Off | Removes local routing hooks and disables RTK integration. | Clean pass-through mode before debugging client config or comparing behavior. |
+
+The app separates **requested mode** from **active mode**. If a mode is requested but a dependency is missing, the Switchboard shows what is actually active and points you to Doctor. Doctor can currently repair:
+
+- Headroom runtime reachability.
+- Reversible client setup for supported installed tools.
+- RTK install/enablement and RTK shell integration.
+- Codex direct-bypass state after Headroom returns a `413 compression_refused` response for an oversized request.
+
+For the real-world Codex error:
+
+```text
+unexpected status 413 Payload Too Large: compression_refused
+```
+
+the app lets Codex bypass Headroom temporarily so work can continue. After compacting the conversation or switching to RTK-only, use Doctor to reset the bypass and route through Headroom again.
+
 ## Upstream Foundation
 
 This project started from the MIT-licensed Headroom Desktop shell. The current work keeps the useful Tauri/Rust + React + managed-runtime foundation while moving the product toward a standalone local Mac AI work switchboard.
