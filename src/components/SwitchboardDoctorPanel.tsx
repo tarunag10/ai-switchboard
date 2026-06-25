@@ -1,3 +1,4 @@
+import { codexDoctorHint } from "../lib/codexErrorGuidance";
 import type { DoctorIssue, DoctorReport } from "../lib/types";
 
 interface SwitchboardDoctorPanelProps {
@@ -32,13 +33,14 @@ function repairLabel(action: string): string {
 }
 
 function repairHint(action: string): string {
+  const codexHint = codexDoctorHint(action);
+  if (codexHint) {
+    return codexHint;
+  }
+
   switch (action) {
     case "repair_runtime":
       return "Restarts the local Headroom engine and refreshes switchboard status.";
-    case "reset_codex_bypass":
-      return "Routes Codex back through Headroom after you compact or reduce the oversized request.";
-    case "repair_codex_setup":
-      return "Re-applies the managed Codex provider block and localhost proxy URL with backups.";
     case "repair_client_setups":
       return "Re-applies reversible setup for installed managed clients.";
     case "repair_rtk_integrations":
@@ -99,15 +101,15 @@ export function SwitchboardDoctorPanel({
             key={issue.id}
             className={`switchboard-doctor__issue switchboard-doctor__issue--${issueTone(issue)}`}
           >
-              <div>
-                <strong>{issue.title}</strong>
-                <p>{issue.body}</p>
-                {issue.repairAction ? (
-                  <p className="switchboard-doctor__hint">
-                    {repairHint(issue.repairAction)}
-                  </p>
-                ) : null}
-              </div>
+            <div>
+              <strong>{issue.title}</strong>
+              <p>{issue.body}</p>
+              {issue.repairAction ? (
+                <p className="switchboard-doctor__hint">
+                  {repairHint(issue.repairAction)}
+                </p>
+              ) : null}
+            </div>
             {issue.repairAction ? (
               <button
                 type="button"

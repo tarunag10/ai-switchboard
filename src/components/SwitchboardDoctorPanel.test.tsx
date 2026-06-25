@@ -107,12 +107,12 @@ describe("SwitchboardDoctorPanel", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Routes Codex back through Headroom after you compact or reduce the oversized request.",
+        "Compact the Codex conversation or switch to RTK only, then reset the Codex bypass when you want Headroom routing again.",
       ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Re-applies the managed Codex provider block and localhost proxy URL with backups.",
+        "Repair Codex setup to re-apply the managed provider block, then choose a Codex-supported ChatGPT model before retrying. This also refreshes the localhost proxy URL with backups.",
       ),
     ).toBeInTheDocument();
     expect(
