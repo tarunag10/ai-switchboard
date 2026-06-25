@@ -5,14 +5,14 @@
 [![Repository](https://img.shields.io/badge/GitHub-tarunag10%2Fmac--ai--switchboard-blue?style=for-the-badge&logo=github)](https://github.com/tarunag10/mac-ai-switchboard)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
-Mac AI Switchboard is a personal, open-source wrapper around the Headroom Desktop shell that is being reshaped into a privacy-first Mac utility. The goal is an on/off control panel for local coding-agent optimization:
+Mac AI Switchboard is a personal, open-source wrapper around the Headroom Desktop shell reshaped into a privacy-first Mac utility. The goal is an on/off control panel for local coding-agent optimization:
 
 - **Full optimization:** Headroom proxy routing plus RTK command-output compression.
 - **Headroom only:** route supported clients through the local Headroom proxy.
 - **RTK only:** keep command-output compression without routing LLM traffic through Headroom.
 - **Off:** remove local routing hooks and leave coding clients behaving normally.
 
-The app is **local-first**, not offline-only. Claude/OpenAI model calls still go to their normal remote APIs; the switchboard, routing, reversible client config edits, RTK hooks, Doctor/repair workflows, and telemetry defaults live on your Mac.
+The app is **local-first**, not offline-only. Claude/OpenAI model calls still go to the normal remote APIs; switchboard state, routing, reversible client config edits, RTK hooks, Doctor/repair workflows, and telemetry defaults live on your Mac.
 
 > Current status: active productization branch. The standalone repository is public, but release artifacts are not published yet. Build from source for now.
 
@@ -20,22 +20,22 @@ For installation paths, first-run footprint, DMG expectations, and uninstall beh
 
 ## Supported Local Tools
 
-| Tool | Role | Status |
-|------|------|--------|
-| Headroom | Local prompt/context optimization proxy | Core runtime |
-| RTK | Token-optimized command output for shells and agents | Add-on / mode |
-| Claude Code | Local client routing and RTK hook target | Supported |
-| Codex | Local provider/base-url routing target | Supported |
-| Gemini CLI | Detected in the switchboard; reversible routing adapter pending | Planned |
-| OpenCode | Detected in the switchboard; reversible routing adapter pending | Planned |
-| Ponytail | Agent behavior nudge toward smaller changes | Add-on |
-| MarkItDown | Document-to-Markdown preprocessing | Add-on |
-| Repo Intelligence | Future local Graphy-style code graph, symbol index, and repo memory layer | Planned |
+| Tool              | Role                                                                      | Status        |
+| ----------------- | ------------------------------------------------------------------------- | ------------- |
+| Headroom          | Local prompt/context optimization proxy                                   | Core runtime  |
+| RTK               | Token-optimized command output for shells and agents                      | Add-on / mode |
+| Claude Code       | Local client routing and RTK hook target                                  | Supported     |
+| Codex             | Local provider/base-url routing target                                    | Supported     |
+| Gemini CLI        | Detected in the switchboard; reversible routing adapter pending           | Planned       |
+| OpenCode          | Detected in the switchboard; reversible routing adapter pending           | Planned       |
+| Ponytail          | Agent behavior nudge toward smaller changes                               | Add-on        |
+| MarkItDown        | Document-to-Markdown preprocessing                                        | Add-on        |
+| Repo Intelligence | Future local Graphy-style code graph, symbol index, and repo memory layer | Planned       |
 
 ## Recommended Future Integrations
 
-- **Repo Intelligence / Graphy-style repo graph:** planned, not fully added yet. The app does not currently ship a complete Graphy-style integration, graph builder, token-saving graph context layer, or UI workflow. The recommended path is a local read-only repo index, bounded context-pack API, visible UI workflow, and tests proving no remote graph service or project-file mutation. See [docs/repo-intelligence-plan.md](docs/repo-intelligence-plan.md).
-- **Gemini CLI and OpenCode routing:** detected and labeled as planned today. Next step is reversible local config adapters with the same backup/off-mode behavior as Claude Code and Codex.
+- **Repo Intelligence / Graphy-style repo graph:** planned, not fully added yet. The app does not currently ship a complete Graphy-style integration, graph builder, token-saving graph context layer, or UI workflow. Recommended path: local read-only repo index, tree-sitter-backed symbol extraction, dependency/call-graph analysis, repomix-style bounded repo packs, MCP repo-memory adapter, visible UI workflow, and tests proving no remote graph service or project-file mutation. See [docs/repo-intelligence-plan.md](docs/repo-intelligence-plan.md).
+- **Gemini CLI and OpenCode routing:** detected and labeled planned today. Next step: reversible local config adapters with the same backup/off-mode behavior as Claude Code and Codex.
 - **Add-on hardening:** RTK, Ponytail, and MarkItDown are installable add-ons today; next work should add deeper health checks, smoke-test actions, and clearer savings attribution per add-on.
 
 ## Local-First Defaults
@@ -54,12 +54,12 @@ In local-only mode the app hides cloud upgrade/auth surfaces, disables Clarity/S
 
 The Home view is the control surface for the Mac-side optimization stack:
 
-| Mode | What It Does | Typical Use |
-|------|--------------|-------------|
-| Full optimization | Routes supported clients through Headroom and enables RTK shell-output compression. | Daily coding-agent work when you want the full local optimization layer. |
-| Headroom only | Routes supported clients through the local Headroom proxy while leaving shell output unchanged. | LLM prompt/context optimization without shell command rewriting. |
-| RTK only | Keeps LLM traffic direct and enables RTK shell-output compression. | When a client should bypass Headroom, or after an oversized compression refusal. |
-| Off | Removes local routing hooks and disables RTK integration. | Clean pass-through mode before debugging client config or comparing behavior. |
+| Mode              | What It Does                                                                                    | Typical Use                                                                      |
+| ----------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Full optimization | Routes supported clients through Headroom and enables RTK shell-output compression.             | Daily coding-agent work when you want the full local optimization layer.         |
+| Headroom only     | Routes supported clients through the local Headroom proxy while leaving shell output unchanged. | LLM prompt/context optimization without shell command rewriting.                 |
+| RTK only          | Keeps LLM traffic direct and enables RTK shell-output compression.                              | When a client should bypass Headroom, or after an oversized compression refusal. |
+| Off               | Removes local routing hooks and disables RTK integration.                                       | Clean pass-through mode before debugging client config or comparing behavior.    |
 
 The app separates **requested mode** from **active mode**. If a mode is requested but a dependency is missing, the Switchboard shows what is actually active and points you to Doctor. Doctor can currently repair:
 
@@ -134,12 +134,12 @@ If the proxy dies unexpectedly, a watchdog restarts it; after repeated failures 
 
 ## Bundled tools
 
-| Tool | What it does | Default |
-|------|-------------|---------|
-| [headroom](https://pypi.org/project/headroom-ai/) | Prompt optimization pipeline (Python) | Required |
-| [rtk](https://github.com/gglucass/rtk) | Rewrites Claude Code bash commands to strip noise before it reaches the context window | Opt-in add-on |
-| [markitdown](https://github.com/microsoft/markitdown) | Converts PDFs and Office documents to clean Markdown before the agent reads them | Opt-in add-on |
-| ponytail | Nudges the agent toward leaner, less over-engineered code | Opt-in add-on |
+| Tool                                                  | What it does                                                                           | Default       |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------- |
+| [headroom](https://pypi.org/project/headroom-ai/)     | Prompt optimization pipeline (Python)                                                  | Required      |
+| [rtk](https://github.com/gglucass/rtk)                | Rewrites Claude Code bash commands to strip noise before it reaches the context window | Opt-in add-on |
+| [markitdown](https://github.com/microsoft/markitdown) | Converts PDFs and Office documents to clean Markdown before the agent reads them       | Opt-in add-on |
+| ponytail                                              | Nudges the agent toward leaner, less over-engineered code                              | Opt-in add-on |
 
 **Tool inclusion policy:** only tools that run entirely locally, inside Headroom-managed storage, with a stable CLI surface make it in. No cloud dependencies, no host profile mutations. See [`research/tool-compatibility-matrix.md`](research/tool-compatibility-matrix.md).
 
@@ -149,31 +149,31 @@ Numbers from the [headroom](https://github.com/chopratejas/headroom) open-source
 
 ### Current benchmark summary
 
-| Benchmark | What it tests | Result |
-|-----------|---------------|--------|
-| Scrapinghub article extraction | Extract article bodies from 181 HTML pages while removing boilerplate | 0.919 F1, 98.2% recall, **94.9% compression** |
-| SmartCrusher JSON compression | Find a critical error in 100 production log entries after compression | 4/4 correct, **87.6% compression** |
-| QA accuracy preservation | Ask the same questions on raw HTML vs. extracted content | 0.87 F1 vs. 0.85 baseline, 62% exact match vs. 60% |
-| Multi-tool agent test | 4-tool agent investigating a memory leak with compressed tool output | 6,100 vs. 15,662 tokens sent, **76.3% compression**, same findings |
+| Benchmark                      | What it tests                                                         | Result                                                             |
+| ------------------------------ | --------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Scrapinghub article extraction | Extract article bodies from 181 HTML pages while removing boilerplate | 0.919 F1, 98.2% recall, **94.9% compression**                      |
+| SmartCrusher JSON compression  | Find a critical error in 100 production log entries after compression | 4/4 correct, **87.6% compression**                                 |
+| QA accuracy preservation       | Ask the same questions on raw HTML vs. extracted content              | 0.87 F1 vs. 0.85 baseline, 62% exact match vs. 60%                 |
+| Multi-tool agent test          | 4-tool agent investigating a memory leak with compressed tool output  | 6,100 vs. 15,662 tokens sent, **76.3% compression**, same findings |
 
 ### Benchmark details
 
-| Benchmark | Setup | Accuracy | Compression |
-|-----------|-------|----------|-------------|
-| HTML extraction | Scrapinghub article extraction benchmark, 181 pages | 0.919 F1, 0.879 precision, 0.982 recall | 94.9% |
-| JSON compression | 100 production log entries, critical error at position 67 | 4/4 correct answers | 87.6% |
-| QA preservation | SQuAD v2 + HotpotQA on raw HTML vs. extracted content | +0.02 F1, +2% exact match vs. raw HTML | — |
-| Multi-tool agent test | Agno agent with 4 tools investigating a memory leak | Same findings as baseline | 76.3% |
+| Benchmark             | Setup                                                     | Accuracy                                | Compression |
+| --------------------- | --------------------------------------------------------- | --------------------------------------- | ----------- |
+| HTML extraction       | Scrapinghub article extraction benchmark, 181 pages       | 0.919 F1, 0.879 precision, 0.982 recall | 94.9%       |
+| JSON compression      | 100 production log entries, critical error at position 67 | 4/4 correct answers                     | 87.6%       |
+| QA preservation       | SQuAD v2 + HotpotQA on raw HTML vs. extracted content     | +0.02 F1, +2% exact match vs. raw HTML  | —           |
+| Multi-tool agent test | Agno agent with 4 tools investigating a memory leak       | Same findings as baseline               | 76.3%       |
 
 ### What compresses well vs. what doesn't
 
-| Content type | Typical savings | Notes |
-|-------------|-----------------|-------|
-| JSON arrays (search results, API responses, DB rows) | 86–100% | Primary use case |
-| Structured logs | 82–95% | Errors and anomalies always preserved |
-| Agentic conversations (25–50 turns) | 56–81% | |
-| Plain text / documentation | 43–46% | Cost savings only, adds latency |
-| Source code | Mostly passthrough | Code in active messages is protected by default — see limitations |
+| Content type                                         | Typical savings    | Notes                                                             |
+| ---------------------------------------------------- | ------------------ | ----------------------------------------------------------------- |
+| JSON arrays (search results, API responses, DB rows) | 86–100%            | Primary use case                                                  |
+| Structured logs                                      | 82–95%             | Errors and anomalies always preserved                             |
+| Agentic conversations (25–50 turns)                  | 56–81%             |                                                                   |
+| Plain text / documentation                           | 43–46%             | Cost savings only, adds latency                                   |
+| Source code                                          | Mostly passthrough | Code in active messages is protected by default — see limitations |
 
 ### Limitations worth knowing
 
