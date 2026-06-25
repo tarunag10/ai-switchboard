@@ -4807,6 +4807,12 @@ details[open] .optimize-minimal__details summary::after {
   gap: 6px;
 }
 
+.connector-readiness__actions {
+  display: grid;
+  gap: 6px;
+  justify-items: stretch;
+}
+
 .connector-readiness__metrics span {
   display: grid;
   gap: 2px;
@@ -4826,6 +4832,25 @@ details[open] .optimize-minimal__details summary::after {
   color: var(--text-strong);
   font-size: var(--text-lg);
   line-height: 1;
+}
+
+.connector-readiness__copy {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-card);
+  color: var(--text-strong);
+  font-size: var(--text-xs);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.connector-readiness__copy:hover {
+  background: var(--surface-hover);
 }
 
 .connector-plan {
@@ -7494,6 +7519,10 @@ grid-template-columns: 1fr;
 
 .connector-readiness__metrics {
 grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.connector-readiness__actions {
+justify-items: stretch;
 }
 
 .repo-intelligence-preview__controls {

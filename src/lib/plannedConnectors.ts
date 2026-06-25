@@ -360,6 +360,26 @@ export function getPlannedConnectorSetupGuide(
           "Confirms Goose is present before local provider and MCP handoff support is enabled.",
       };
     default:
-      return null;
+    return null;
   }
+}
+
+export function getPlannedConnectorSetupChecklistScript() {
+  const lines = [
+    "# Mac AI Switchboard planned-tool detection checks",
+    "# Read-only: these commands only inspect local app/CLI availability.",
+    ...plannedConnectors.flatMap((connector) => {
+      const guide = getPlannedConnectorSetupGuide(connector.id);
+      if (!guide) {
+        return [];
+      }
+      return [
+        "",
+        `echo "== ${connector.name} =="`,
+        `${guide.command} || true`,
+      ];
+    }),
+  ];
+
+  return lines.join("\n");
 }

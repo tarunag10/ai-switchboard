@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getPlannedConnector,
+  getPlannedConnectorSetupChecklistScript,
   getPlannedConnectorSetupGuide,
   plannedConnectors,
 } from "./plannedConnectors";
@@ -106,6 +107,17 @@ describe("planned connectors", () => {
       expect(guide?.label.length).toBeGreaterThan(5);
       expect(guide?.command.length).toBeGreaterThan(8);
       expect(guide?.notes).toMatch(/manual|confirm|review|before|after|only/i);
+    }
+  });
+
+  it("builds a read-only setup checklist for every planned connector", () => {
+    const script = getPlannedConnectorSetupChecklistScript();
+
+    expect(script).toContain("Read-only");
+    expect(script).not.toMatch(/export|>|tee|sed -i|defaults write|launchctl/i);
+    for (const connector of plannedConnectors) {
+      expect(script).toContain(`== ${connector.name} ==`);
+      expect(script).toContain(getPlannedConnectorSetupGuide(connector.id)?.command);
     }
   });
 });

@@ -72,10 +72,11 @@ import {
   type RepoIntelligenceSummary,
 } from "./lib/repoIntelligence";
 import {
-  getPlannedConnector,
-  getPlannedConnectorSetupGuide,
-  plannedConnectors,
-  type PlannedConnector
+getPlannedConnector,
+getPlannedConnectorSetupChecklistScript,
+getPlannedConnectorSetupGuide,
+plannedConnectors,
+type PlannedConnector
 } from "./lib/plannedConnectors";
 import {
   releaseReadinessCommand,
@@ -6402,22 +6403,37 @@ onRepair={(action) => void handleDoctorRepair(action)}
                     <strong>{plannedConnectorReadiness.headline}</strong>
                     <p>{plannedConnectorReadiness.detail}</p>
                   </div>
-                  <div
-                    className="connector-readiness__metrics"
-                    aria-label="Planned connector readiness summary"
-                  >
-                    <span>
-                      <strong>{plannedConnectorReadiness.detectedCount}</strong>
-                      detected
-                    </span>
-                    <span>
-                      <strong>{plannedConnectorReadiness.manualOnlyCount}</strong>
-                      manual
-                    </span>
-                    <span>
-                      <strong>{plannedConnectorReadiness.notDetectedCount}</strong>
-                      missing
-                    </span>
+                  <div className="connector-readiness__actions">
+                    <div
+                      className="connector-readiness__metrics"
+                      aria-label="Planned connector readiness summary"
+                    >
+                      <span>
+                        <strong>{plannedConnectorReadiness.detectedCount}</strong>
+                        detected
+                      </span>
+                      <span>
+                        <strong>{plannedConnectorReadiness.manualOnlyCount}</strong>
+                        manual
+                      </span>
+                      <span>
+                        <strong>{plannedConnectorReadiness.notDetectedCount}</strong>
+                        missing
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="connector-readiness__copy"
+                      onClick={() =>
+                        void copyPlannedConnectorCommand(
+                          getPlannedConnectorSetupChecklistScript(),
+                          "Planned tool checklist"
+                        )
+                      }
+                    >
+                      <Copy size={13} weight="bold" />
+                      Copy checks
+                    </button>
                   </div>
                 </div>
                 <div className="connector-list">
