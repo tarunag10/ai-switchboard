@@ -4,6 +4,8 @@ After installing a new beta (`-rc.N`) build, paste this file into Claude Code an
 
 ## Setup
 
+These checks assume the installed bundle is `/Applications/Mac AI Switchboard.app`.
+
 1. Quit and relaunch Mac AI Switchboard from Applications.
 2. Confirm the tray icon appears in the menu bar.
 3. Open the dashboard window once (so the proxy is fully booted).

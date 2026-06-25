@@ -5,6 +5,9 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${REPO_ROOT}"
 
+echo "Checking deployment readiness..."
+npm run check:deployment
+
 echo "Checking semantic color tokens..."
 npm run check:colors
 

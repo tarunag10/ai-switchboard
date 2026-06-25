@@ -16,7 +16,8 @@
     "test:all": "npm run test:frontend && npm run test:desktop",
     "release:check": "./scripts/verify-release.sh",
     "check:colors": "./scripts/check-colors.sh",
-    "check:governance": "node scripts/check-governance-docs.mjs"
+    "check:governance": "node scripts/check-governance-docs.mjs",
+    "check:deployment": "node scripts/check-deployment-readiness.mjs"
   },
   "dependencies": {
     "@microsoft/clarity": "^1.0.2",
