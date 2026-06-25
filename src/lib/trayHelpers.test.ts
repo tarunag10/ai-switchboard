@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { activityFeedSignature, notificationActionView } from "./trayHelpers";
-import type { ActivityFeedResponse } from "./types";
+import { activityFeedSignature, notificationActionView, shouldShowCodexNudge } from "./trayHelpers";
+import type { ActivityFeedResponse, ClientConnectorStatus, HeadroomPricingStatus } from "./types";
 
 const emptySnapshot: ActivityFeedResponse = {
   proxyReachable: true,
@@ -14,6 +14,19 @@ const emptySnapshot: ActivityFeedResponse = {
     trainSuggestion: null
   }
 };
+
+const codexConnector: ClientConnectorStatus = {
+  clientId: "codex",
+  name: "Codex",
+  installed: true,
+  enabled: false,
+  verified: false,
+  lastConfiguredAt: null
+};
+
+function pricing(optimizationAllowed: boolean): HeadroomPricingStatus {
+  return { optimizationAllowed } as HeadroomPricingStatus;
+}
 
 describe("notificationActionView", () => {
   it("routes auth-related actions to upgradeAuth", () => {
@@ -36,6 +49,25 @@ describe("notificationActionView", () => {
     expect(notificationActionView(null)).toBeNull();
     expect(notificationActionView("not-a-real-action")).toBeNull();
     expect(notificationActionView("")).toBeNull();
+  });
+});
+
+describe("shouldShowCodexNudge", () => {
+  it("hides Codex nudge in local-only mode", () => {
+    expect(shouldShowCodexNudge(codexConnector, null, false, true)).toBe(false);
+  });
+
+  it("shows Codex nudge for installed disabled Codex when remote pricing allows it", () => {
+    expect(shouldShowCodexNudge(codexConnector, pricing(true), false, false)).toBe(true);
+  });
+
+  it("hides Codex nudge when dismissed, gated, missing, or already enabled", () => {
+    expect(shouldShowCodexNudge(codexConnector, pricing(true), true, false)).toBe(false);
+    expect(shouldShowCodexNudge(codexConnector, pricing(false), false, false)).toBe(false);
+    expect(shouldShowCodexNudge(null, pricing(true), false, false)).toBe(false);
+    expect(
+      shouldShowCodexNudge({ ...codexConnector, enabled: true }, pricing(true), false, false)
+    ).toBe(false);
   });
 });
 

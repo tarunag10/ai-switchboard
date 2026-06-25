@@ -1,4 +1,4 @@
-import type { ActivityFeedResponse } from "./types";
+import type { ActivityFeedResponse, ClientConnectorStatus, HeadroomPricingStatus } from "./types";
 
 /// All views the tray window can land on. Kept here (rather than in App.tsx)
 /// so helpers and tests can import the union without pulling in App.tsx's
@@ -39,6 +39,22 @@ export function notificationActionView(action: string | null): TrayView | null {
 /// two polls in a row (the common case between compressions). Each tile
 /// contributes a stable id for its slot — `null` when absent — so any slot
 /// flip shows up in the signature.
+export function shouldShowCodexNudge(
+connector: ClientConnectorStatus | null | undefined,
+pricingStatus: HeadroomPricingStatus | null,
+dismissed: boolean,
+localOnly: boolean
+): boolean {
+if (localOnly || dismissed || !connector) {
+return false;
+}
+return (
+connector.installed &&
+!connector.enabled &&
+pricingStatus?.optimizationAllowed !== false
+);
+}
+
 export function activityFeedSignature(feed: ActivityFeedResponse): string {
   const { tiles } = feed;
   const parts = [

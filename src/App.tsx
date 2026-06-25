@@ -131,10 +131,11 @@ import {
   writeCachedPricing
 } from "./lib/pricing";
 import {
-  activityFeedSignature,
-  notificationActionView,
-  serializeState,
-  type TrayView
+activityFeedSignature,
+notificationActionView,
+serializeState,
+shouldShowCodexNudge,
+type TrayView
 } from "./lib/trayHelpers";
 import { trackAnalyticsEvent, trackInstallMilestoneOnce } from "./lib/analytics";
 import { localOnlyModeEnabled } from "./lib/localMode";
@@ -4800,12 +4801,8 @@ await refreshDoctorReport();
               const codexConnector = aggregateClientConnectors(connectors).find(
                 (connector) => connector.clientId === "codex"
               );
-              const showCodexNudge =
-                !codexNudgeDismissed &&
-                !!codexConnector &&
-                codexConnector.installed &&
-                !codexConnector.enabled &&
-                pricingStatus?.optimizationAllowed !== false;
+const showCodexNudge =
+shouldShowCodexNudge(codexConnector, pricingStatus, codexNudgeDismissed, localOnlyMode);
               if (!showCodexNudge || !codexConnector) {
                 return null;
               }
