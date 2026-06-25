@@ -64,6 +64,42 @@ export interface RepoSavingsEstimate {
   bestPack?: RepoContextPack;
 }
 
+export interface RepoAgentManifest {
+  schemaVersion: 1;
+  kind: "mac_ai_switchboard.repo_intelligence_manifest";
+  repoRoot: string;
+  generatedAt: string;
+  totals: {
+    totalFiles: number;
+    indexedFiles: number;
+    estimatedFullScanTokens: number;
+    roleCounts: Record<RepoFileRole, number>;
+  };
+  graph: {
+    available: boolean;
+    topDirectories: RepoGraphNode[];
+    topLanguages: RepoGraphNode[];
+    entrypointCount: number;
+    likelyTestCount: number;
+    configHubCount: number;
+  };
+  packs: Array<{
+    id: string;
+    title: string;
+    purpose: string;
+    fileCount: number;
+    estimatedTokens: number;
+    estimatedTokensAvoided: number;
+    savingsVsFullScanPct: number;
+    command: string;
+  }>;
+  safety: {
+    readOnly: true;
+    excludesSecretLikePaths: true;
+    modifiesRepository: false;
+  };
+}
+
 const generatedPathPatterns = [
   /(^|\/)dist\//,
   /(^|\/)build\//,
@@ -286,8 +322,8 @@ export function formatRepoContextPackMarkdown(summary: RepoIntelligenceSummary):
 }
 
 export function formatSingleRepoContextPackMarkdown(
-  summary: RepoIntelligenceSummary,
-  pack: RepoContextPack,
+summary: RepoIntelligenceSummary,
+pack: RepoContextPack,
 ): string {
   const title = summary.repoRoot
     ? `# ${pack.title}: ${summary.repoRoot}`
@@ -315,7 +351,57 @@ export function formatSingleRepoContextPackMarkdown(
   ]
     .filter((line) => line !== null)
     .join("\n")
-    .trim();
+.trim();
+}
+
+export function buildRepoAgentManifest(
+  summary: RepoIntelligenceSummary,
+  generatedAt = new Date().toISOString(),
+): RepoAgentManifest {
+  const repoRoot = summary.repoRoot ?? "";
+  const fullScanTokens = summary.estimatedFullScanTokens;
+  return {
+    schemaVersion: 1,
+    kind: "mac_ai_switchboard.repo_intelligence_manifest",
+    repoRoot,
+    generatedAt,
+    totals: {
+      totalFiles: summary.totalFiles,
+      indexedFiles: summary.indexedFiles,
+      estimatedFullScanTokens: fullScanTokens,
+      roleCounts: summary.roleCounts,
+    },
+    graph: {
+      available: Boolean(summary.graph),
+      topDirectories: summary.graph?.topDirectories ?? [],
+      topLanguages: summary.graph?.topLanguages ?? [],
+      entrypointCount: summary.graph?.entrypoints.length ?? 0,
+      likelyTestCount: summary.graph?.likelyTests.length ?? 0,
+      configHubCount: summary.graph?.configHubs.length ?? 0,
+    },
+    packs: summary.packs.map((pack) => ({
+      id: pack.id,
+      title: pack.title,
+      purpose: pack.purpose,
+      fileCount: pack.files.length,
+      estimatedTokens: pack.estimatedTokens,
+      estimatedTokensAvoided: Math.max(0, fullScanTokens - pack.estimatedTokens),
+      savingsVsFullScanPct: pack.savingsVsFullScanPct,
+      command: `npm run repo:intelligence -- ${JSON.stringify(repoRoot || ".")} --pack ${pack.id} --format markdown`,
+    })),
+    safety: {
+      readOnly: true,
+      excludesSecretLikePaths: true,
+      modifiesRepository: false,
+    },
+  };
+}
+
+export function formatRepoAgentManifestJson(
+  summary: RepoIntelligenceSummary,
+  generatedAt?: string,
+): string {
+  return `${JSON.stringify(buildRepoAgentManifest(summary, generatedAt), null, 2)}\n`;
 }
 
 export function estimateRepoIntelligenceSavings(

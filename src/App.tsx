@@ -65,6 +65,7 @@ import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
 import {
   buildRepoIntelligenceSummary,
   estimateRepoIntelligenceSavings,
+  formatRepoAgentManifestJson,
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
   type RepoContextPack,
@@ -1182,9 +1183,9 @@ function RepoIntelligencePreview() {
     }
   }
 
-  async function copyContextPack() {
-    try {
-      if (!navigator.clipboard) {
+async function copyContextPack() {
+  try {
+    if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
       }
       await navigator.clipboard.writeText(formatRepoContextPackMarkdown(summary));
@@ -1192,11 +1193,25 @@ function RepoIntelligencePreview() {
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
       setCopyNotice("Copy failed. Select pack details manually.");
-      window.setTimeout(() => setCopyNotice(null), 3000);
-    }
+    window.setTimeout(() => setCopyNotice(null), 3000);
   }
+}
 
-  async function copySingleContextPack(pack: RepoContextPack) {
+async function copyAgentManifest() {
+  try {
+    if (!navigator.clipboard) {
+      throw new Error("Clipboard API unavailable");
+    }
+    await navigator.clipboard.writeText(formatRepoAgentManifestJson(summary));
+    setCopyNotice("Agent manifest copied.");
+    window.setTimeout(() => setCopyNotice(null), 2000);
+  } catch {
+    setCopyNotice("Copy failed. Select manifest manually.");
+    window.setTimeout(() => setCopyNotice(null), 3000);
+  }
+}
+
+async function copySingleContextPack(pack: RepoContextPack) {
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
@@ -1245,6 +1260,14 @@ function RepoIntelligencePreview() {
               type="button"
             >
               Copy pack
+            </button>
+            <button
+              className="addon-card__action"
+              disabled={indexing}
+              onClick={() => void copyAgentManifest()}
+              type="button"
+            >
+              Copy agent manifest
             </button>
           </>
         ) : null}

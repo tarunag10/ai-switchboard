@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildRepoIntelligenceSummary,
+  buildRepoAgentManifest,
   classifyRepoFile,
   estimateRepoIntelligenceSavings,
   estimateRepoTokens,
+  formatRepoAgentManifestJson,
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
   isSecretLikeRepoPath,
@@ -127,11 +129,42 @@ describe("repoIntelligence", () => {
     expect(markdown).toContain("Estimated tokens avoided");
     expect(markdown).toContain("## Repo Graph Summary");
     expect(markdown).toContain("## Files");
-    expect(markdown).toContain("src/App.tsx");
-    expect(markdown).not.toContain("## Verification Pack");
-  });
+  expect(markdown).toContain("src/App.tsx");
+  expect(markdown).not.toContain("## Verification Pack");
+});
 
-  it("calculates best-pack and all-pack token savings", () => {
+it("formats an agent-readable manifest for external coding tools", () => {
+  const summary = buildRepoIntelligenceSummary([
+    { path: "src/App.tsx", bytes: 4000 },
+    { path: "src/App.test.tsx", bytes: 2000 },
+    { path: "docs/install.md", bytes: 1200 },
+    { path: "package.json", bytes: 800 },
+    { path: ".env.local", bytes: 300 },
+  ]);
+  summary.repoRoot = "/Users/me/app";
+  const manifest = buildRepoAgentManifest(summary, "2026-06-25T10:00:00Z");
+  expect(manifest.kind).toBe("mac_ai_switchboard.repo_intelligence_manifest");
+  expect(manifest.schemaVersion).toBe(1);
+  expect(manifest.generatedAt).toBe("2026-06-25T10:00:00Z");
+  expect(manifest.safety).toEqual({
+    readOnly: true,
+    excludesSecretLikePaths: true,
+    modifiesRepository: false,
+  });
+  expect(manifest.packs.map((pack) => pack.id)).toEqual([
+    "implementation",
+    "verification",
+    "handoff",
+  ]);
+  expect(manifest.packs[0].command).toContain("--pack implementation --format markdown");
+  expect(manifest.graph.available).toBe(true);
+
+  const parsed = JSON.parse(formatRepoAgentManifestJson(summary, "2026-06-25T10:00:00Z"));
+  expect(parsed.packs[0].estimatedTokensAvoided).toBeGreaterThan(0);
+  expect(JSON.stringify(parsed)).not.toContain(".env.local");
+});
+
+it("calculates best-pack and all-pack token savings", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },
       { path: "src/App.test.tsx", bytes: 2000 },
