@@ -10,16 +10,15 @@ describe("planned add-ons", () => {
       name: "Repo Intelligence",
       statusLabel: "Planned",
     });
-    expect(repoIntelligence?.description).toContain("Future local repo graph");
-    expect(repoIntelligence?.description).toContain("smaller, safer edits");
-    expect(repoIntelligence?.bullets.join(" ")).toContain("Not fully added");
+    expect(repoIntelligence?.description).toContain("Local repo graph");
+    expect(repoIntelligence?.description).toContain("context-pack foundation");
+    expect(repoIntelligence?.bullets.join(" ")).toContain("Foundation added");
+    expect(repoIntelligence?.bullets.join(" ")).toContain("Not complete yet");
     expect(repoIntelligence?.bullets.join(" ")).toContain("Graphy-style");
     expect(repoIntelligence?.bullets.join(" ")).toContain("tree-sitter");
     expect(repoIntelligence?.bullets.join(" ")).toContain("repomix-style");
     expect(repoIntelligence?.bullets.join(" ")).toContain("MCP repo-memory");
-    expect(repoIntelligence?.bullets.join(" ")).toContain(
-      "graph context layer",
-    );
+    expect(repoIntelligence?.bullets.join(" ")).toContain("persistent index");
     expect(repoIntelligence?.bullets.join(" ")).toContain("Local-first");
   });
 
