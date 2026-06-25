@@ -27,25 +27,23 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
       />,
     );
 
- expect(screen.getByText("Manual step")).toBeInTheDocument();
- expect(screen.getByText("0 automatic")).toBeInTheDocument();
- expect(screen.getByText("1 manual")).toBeInTheDocument();
- expect(
- screen.getByText(
-        "No automatic repair available yet. Follow issue guidance, then re-run Doctor.",
+    expect(screen.getByText("Manual step")).toBeInTheDocument();
+    expect(screen.getByText("0 automatic")).toBeInTheDocument();
+    expect(screen.getByText("1 manual")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "No automatic repair is available yet. Follow the issue guidance, then re-run Doctor.",
       ),
     ).toBeInTheDocument();
-  expect(
-    screen.queryByRole("button", { name: "Repair all" }),
-  ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Repair all" })).not.toBeInTheDocument();
   });
 
-  it("gives specific manual guidance for planned connectors and repo intelligence", () => {
+  it("separates manual connector guidance from automatic Repo Intelligence cleanup", () => {
     render(
       <SwitchboardDoctorPanel
         report={{
           status: "warning",
-          summary: "Manual setup required.",
+          summary: "Mixed setup required.",
           issues: [
             {
               id: "planned_connectors_detected",
@@ -56,17 +54,17 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
             },
             {
               id: "repo_intelligence_repo_missing",
-              title: "Repo Intelligence index points to missing folder",
+              title: "Repo Intelligence index points to a missing folder",
               body: "The last indexed path is gone.",
               severity: "warning",
-              repairAction: null,
+              repairAction: "clear_repo_intelligence_index",
             },
             {
               id: "repo_intelligence_stale",
               title: "Repo Intelligence index is stale",
               body: "The last index is more than 7 days old.",
               severity: "warning",
-              repairAction: null,
+              repairAction: "clear_repo_intelligence_index",
             },
             {
               id: "headroom_paused",
@@ -84,31 +82,27 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
       />,
     );
 
- expect(screen.getByText("0 automatic")).toBeInTheDocument();
- expect(screen.getByText("4 manual")).toBeInTheDocument();
- expect(
- screen.getByText(
+    expect(screen.getByText("2 automatic")).toBeInTheDocument();
+    expect(screen.getByText("2 manual")).toBeInTheDocument();
+    expect(
+      screen.getByText(
         "Open Settings, review each planned connector guide, and keep routing manual until backup, restore, and Off mode cleanup are available.",
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Open Addons, index an available local repo again, or clear the saved Repo Intelligence index if you no longer need it.",
+      screen.getAllByText(
+        "Clears the saved Repo Intelligence summary so a stale or missing repo path no longer appears in Doctor. Re-index from Addons when ready.",
       ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Open Addons and re-index this repo before copying packs to another agent.",
-      ),
-    ).toBeInTheDocument();
+    ).toHaveLength(2);
     expect(
       screen.getByText(
         "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.",
       ),
     ).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Clear index" })).toHaveLength(2);
   });
 
-  it("warns when repair all will leave manual follow-up", () => {
+  it("warns repair all will leave manual follow-up", () => {
     render(
       <SwitchboardDoctorPanel
         report={{
@@ -140,13 +134,11 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
 
     expect(screen.getByText("1 automatic")).toBeInTheDocument();
     expect(screen.getByText("1 manual")).toBeInTheDocument();
-    expect(
-      screen.getByText("Repair all will leave manual steps visible."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Repair all will leave manual steps visible.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Repair all" })).toBeInTheDocument();
   });
 
-  it("labels repairable issues as automatic", () => {
+  it("labels repairable issues automatic", () => {
     render(
       <SwitchboardDoctorPanel
         report={{
@@ -170,8 +162,6 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     );
 
     expect(screen.getByText("Auto repair")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Install RTK" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Install RTK" })).toBeInTheDocument();
   });
 });

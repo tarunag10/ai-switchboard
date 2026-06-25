@@ -15,6 +15,8 @@ export function doctorRepairLabel(action: string): string {
       return "Repair RTK";
     case "repair_rtk_runtime":
       return "Install RTK";
+    case "clear_repo_intelligence_index":
+      return "Clear index";
     default:
       return "Repair";
   }
@@ -35,6 +37,8 @@ export function doctorRepairHint(action: string): string {
       return "Restores RTK PATH and hook wiring without reinstalling the binary.";
     case "repair_rtk_runtime":
       return "Installs or enables RTK in managed storage for local shell-output compression.";
+    case "clear_repo_intelligence_index":
+      return "Clears the saved Repo Intelligence summary so a stale or missing repo path no longer appears in Doctor. Re-index from Addons when ready.";
     default:
       return "Runs the safest available repair for this issue.";
   }
@@ -51,13 +55,15 @@ export function doctorIssueActionKind(
 }
 
 export function doctorIssueActionLabel(action: string | null | undefined): string {
-  return doctorIssueActionKind(action) === "automatic" ? "Auto repair" : "Manual step";
+  return doctorIssueActionKind(action) === "automatic"
+    ? "Auto repair"
+    : "Manual step";
 }
 
 export function doctorIssueActionHint(action: string | null | undefined): string {
   return doctorIssueActionKind(action) === "automatic"
     ? doctorRepairHint(action as string)
-    : "No automatic repair available yet. Follow issue guidance, then re-run Doctor.";
+    : "No automatic repair is available yet. Follow the issue guidance, then re-run Doctor.";
 }
 
 export function doctorIssueGuidance(issue: DoctorIssue): string {
@@ -69,9 +75,9 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
     case "planned_connectors_detected":
       return "Open Settings, review each planned connector guide, and keep routing manual until backup, restore, and Off mode cleanup are available.";
     case "repo_intelligence_repo_missing":
-      return "Open Addons, index an available local repo again, or clear the saved Repo Intelligence index if you no longer need it.";
+      return "Clear the saved Repo Intelligence index, then open Addons and index an available local repo when ready.";
     case "repo_intelligence_stale":
-      return "Open Addons and re-index this repo before copying packs to another agent.";
+      return "Clear the stale saved Repo Intelligence index, then open Addons and re-index the repo before copying packs into another agent.";
     case "headroom_paused":
       return "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.";
     default:

@@ -118,12 +118,12 @@ expect(screen.getByText("Codex is bypassing Headroom")).toBeInTheDocument();
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Compact the Codex conversation or switch to RTK only, then reset the Codex bypass when you want Headroom routing again.",
+        "Compact the Codex conversation, switch to RTK only for parallel heavy goals, then reset the Codex bypass when you want Headroom routing again.",
       ),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Repair Codex setup to re-apply the managed provider block, then choose a Codex-supported ChatGPT model before retrying. This also refreshes the localhost proxy URL with backups.",
+        "Repair Codex setup to re-apply the managed provider block, then choose a Codex-supported ChatGPT model before retrying.",
       ),
     ).toBeInTheDocument();
     expect(

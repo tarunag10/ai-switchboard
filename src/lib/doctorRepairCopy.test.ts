@@ -14,6 +14,7 @@ describe("doctor repair copy", () => {
     ["repair_client_setups", "Repair clients"],
     ["repair_rtk_integrations", "Repair RTK"],
     ["repair_rtk_runtime", "Install RTK"],
+    ["clear_repo_intelligence_index", "Clear index"],
     ["unknown", "Repair"],
   ])("labels %s", (action, label) => {
     expect(doctorRepairLabel(action)).toBe(label);
@@ -28,7 +29,7 @@ describe("doctor repair copy", () => {
     );
   });
 
-  it("describes runtime and RTK repair actions", () => {
+  it("describes runtime RTK and Repo Intelligence repair actions", () => {
     expect(doctorRepairHint("repair_runtime")).toContain(
       "refreshes switchboard status",
     );
@@ -38,10 +39,14 @@ describe("doctor repair copy", () => {
     expect(doctorRepairHint("repair_rtk_runtime")).toContain(
       "local shell-output compression",
     );
+    expect(doctorRepairHint("clear_repo_intelligence_index")).toContain(
+      "saved Repo Intelligence summary",
+    );
   });
 
-  it("detects repairable issues from action presence", () => {
+  it("detects repairable issues by action presence", () => {
     expect(canRepairIssue("repair_runtime")).toBe(true);
+    expect(canRepairIssue("clear_repo_intelligence_index")).toBe(true);
     expect(canRepairIssue("")).toBe(false);
     expect(canRepairIssue(null)).toBe(false);
     expect(canRepairIssue(undefined)).toBe(false);

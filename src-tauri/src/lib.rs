@@ -2121,22 +2121,22 @@ issues.push(crate::models::DoctorIssue {
 id: "repo_intelligence_repo_missing".to_string(),
 title: "Repo Intelligence index points to a missing folder".to_string(),
 body: format!(
-"The last indexed repo path is no longer available: {}. Re-index an available local repository from the Repo Intelligence add-on card.",
+"The last indexed repo path is no longer available: {}. Repair will clear this saved index; then re-index an available local repository from the Repo Intelligence add-on card.",
 summary.repo_root
 ),
 severity: crate::models::DoctorSeverity::Warning,
-repair_action: None,
+repair_action: Some("clear_repo_intelligence_index".to_string()),
 });
 } else if stale {
 issues.push(crate::models::DoctorIssue {
 id: "repo_intelligence_stale".to_string(),
 title: "Repo Intelligence index is stale".to_string(),
 body: format!(
-"The last Repo Intelligence index for {} is more than 7 days old. Re-index it before relying on context packs for agent handoff.",
+"The last Repo Intelligence index for {} is more than 7 days old. Repair will clear the stale saved index; then re-index it before relying on context packs for agent handoff.",
 summary.repo_root
 ),
 severity: crate::models::DoctorSeverity::Warning,
-repair_action: None,
+repair_action: Some("clear_repo_intelligence_index".to_string()),
 });
 }
 }
@@ -2343,6 +2343,12 @@ state
 repair_rtk_integrations(state)
 }
 
+fn clear_repo_intelligence_index() -> Result<(), String> {
+repo_intelligence::clear_latest_summary()
+.map(|_| ())
+.map_err(|err| err.to_string())
+}
+
 #[tauri::command]
 async fn run_doctor_repair(
 state: State<'_, AppState>,
@@ -2376,6 +2382,10 @@ Ok(build_doctor_report(&state))
 repair_rtk_runtime(&state)?;
 Ok(build_doctor_report(&state))
 }
+"clear_repo_intelligence_index" => {
+clear_repo_intelligence_index()?;
+Ok(build_doctor_report(&state))
+}
 "repair_all" => {
 let report = build_doctor_report(&state);
 for issue in report.issues {
@@ -2391,6 +2401,7 @@ Some("repair_client_setups") => repair_client_setups(&state)?,
 Some("repair_codex_setup") => repair_codex_setup(&state)?,
 Some("repair_rtk_integrations") => repair_rtk_integrations(&state)?,
 Some("repair_rtk_runtime") => repair_rtk_runtime(&state)?,
+Some("clear_repo_intelligence_index") => clear_repo_intelligence_index()?,
 _ => {}
 }
 }

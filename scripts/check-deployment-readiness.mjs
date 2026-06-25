@@ -188,9 +188,9 @@ const requiredSourceSignals = {
     "Repair all will leave manual steps visible",
     "1 automatic",
     "1 manual",
-"gives specific manual guidance for planned connectors and repo intelligence",
+"separates manual connector guidance from automatic Repo Intelligence cleanup",
 "Open Settings, review each planned connector guide",
-"Open Addons, index an available local repo again",
+"saved Repo Intelligence summary",
 ],
 "src-tauri/src/models.rs": [
     "RepoGraphSummary",
