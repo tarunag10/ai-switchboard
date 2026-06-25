@@ -2506,6 +2506,33 @@ color: var(--text-primary);
   line-height: 1.35;
 }
 
+.switchboard-panel__mode-notes {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.switchboard-panel__mode-notes li {
+  position: relative;
+  padding-left: 13px;
+  color: var(--text-secondary);
+  font-size: var(--text-xxs);
+  line-height: 1.35;
+}
+
+.switchboard-panel__mode-notes li::before {
+  position: absolute;
+  top: 0.52em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  content: "";
+}
+
 .switchboard-panel__mode {
   display: inline-flex;
   align-items: center;

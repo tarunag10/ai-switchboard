@@ -5,6 +5,7 @@ import {
   switchboardAttentionCopy,
   switchboardModeEffect,
   switchboardModeLabel,
+  switchboardModeSafetyNotes,
   switchboardModeSummary,
 } from "./switchboardDisplay";
 import type {
@@ -87,6 +88,13 @@ describe("switchboardDisplay", () => {
     expect(switchboardModeEffect("off")).toBe(
       "Removes routing hooks and leaves client traffic and shell commands unmodified.",
     );
+  });
+
+  it("explains off mode safety without deleting local repo intelligence state", () => {
+    expect(switchboardModeSafetyNotes("off")).toEqual([
+      "Routing hooks and RTK shell integration are disabled for normal client behavior.",
+      "Repo Intelligence summaries remain local until cleared from Addons.",
+    ]);
   });
 
   it("explains requested/effective mode mismatches", () => {

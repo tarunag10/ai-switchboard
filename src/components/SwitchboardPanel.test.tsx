@@ -64,6 +64,27 @@ describe("SwitchboardPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows off mode safety notes for routing and local metadata", () => {
+    renderPanel({
+      mode: "off",
+      summary: "No optimization layer active right now.",
+      proxyStatus: "Stopped",
+      headroomDetail: "Client traffic direct",
+      rtkStatus: "Disabled",
+      rtkDetail: "Shell output unchanged",
+    });
+
+    expect(screen.getByLabelText("Off safety notes")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Routing hooks and RTK shell integration are disabled for normal client behavior.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Repo Intelligence summaries remain local until cleared from Addons."),
+    ).toBeInTheDocument();
+  });
+
   it("hides Codex parallel-goal guidance outside Headroom routed Codex modes", () => {
     renderPanel({
       mode: "rtk",

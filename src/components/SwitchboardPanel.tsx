@@ -15,6 +15,7 @@ import { switchboardModeDiagnostic } from "../lib/switchboardDiagnostics";
 import {
   switchboardModeEffect,
   switchboardModeLabel,
+  switchboardModeSafetyNotes,
 } from "../lib/switchboardDisplay";
 import type { SwitchboardMode } from "../lib/types";
 
@@ -74,6 +75,7 @@ export function SwitchboardPanel({
   );
   const modeLabel = modeDiagnostic.requestedLabel;
   const modeEffect = switchboardModeEffect(mode);
+  const modeSafetyNotes = switchboardModeSafetyNotes(mode);
   const setupLabel = localOnlySetupLabel(localOnly);
   const remoteCopy = remoteServicesCopy(remoteServicesEnabled);
   const codexGuidance = codexConcurrencyGuidance(mode, headroomDetail);
@@ -133,7 +135,12 @@ export function SwitchboardPanel({
           );
         })}
       </div>
-      <p className="switchboard-panel__mode-effect">{modeEffect}</p>
+        <p className="switchboard-panel__mode-effect">{modeEffect}</p>
+        <ul className="switchboard-panel__mode-notes" aria-label={`${modeLabel} safety notes`}>
+          {modeSafetyNotes.map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
       {codexGuidance ? (
         <div className="switchboard-panel__recommendation">
           <div>

@@ -46,6 +46,32 @@ export function switchboardModeEffect(mode: SwitchboardMode): string {
   }
 }
 
+export function switchboardModeSafetyNotes(mode: SwitchboardMode): string[] {
+  switch (mode) {
+    case "full":
+      return [
+        "Client routing and RTK shell compression are both managed by Mac AI Switchboard.",
+        "Use Doctor if a supported client is installed but not verified.",
+      ];
+    case "headroom":
+      return [
+        "Client routing is managed, but shell output is not rewritten by RTK.",
+        "Use RTK only if several active Codex goals are putting pressure on compression.",
+      ];
+    case "rtk":
+      return [
+        "Coding clients bypass Headroom while RTK can still compact command output.",
+        "Return to Full optimization after compacting long Codex conversations.",
+      ];
+    case "off":
+    default:
+      return [
+        "Routing hooks and RTK shell integration are disabled for normal client behavior.",
+        "Repo Intelligence summaries remain local until cleared from Addons.",
+      ];
+  }
+}
+
 export function switchboardAttentionCopy(
   desiredMode: SwitchboardMode,
   effectiveMode: SwitchboardMode,
