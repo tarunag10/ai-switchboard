@@ -88,6 +88,7 @@ import {
   buildMonthlySavingsChartData,
   buildMonthlySavingsWindow,
   compactNumber,
+  connectorControlState,
   connectorDashboardStatus,
   currency,
   currencyExact,
@@ -2541,27 +2542,11 @@ void refreshDoctorReport();
   }
 
   function getConnectorUnavailableReason(connector: ClientConnectorStatus) {
-    if (canConfigureConnectorWithoutDetection(connector)) {
-      return null;
-    }
-    return (
-      connectorUnavailableReasons[connector.clientId] ??
-      "Connector is unavailable because this client is not detected on this machine."
-    );
+    return connectorControlState(connector).reason;
   }
 
   function canConfigureConnectorWithoutDetection(connector: ClientConnectorStatus) {
-    if (connector.supportStatus === "planned") {
-      return false;
-    }
-    // Codex configuration is written to ~/.codex/config.toml, which both the CLI
-    // and the GUI app read, so the toggle should be usable even when the CLI
-    // binary isn't on the app's PATH (same rationale as claude_code).
-    return (
-      connector.installed ||
-      connector.clientId === "claude_code" ||
-      connector.clientId === "codex"
-    );
+    return !connectorControlState(connector).disabled;
   }
 
   function getConnectorSupportWarning(connector: ClientConnectorStatus) {
@@ -4010,7 +3995,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
                         void toggleConnector(connector, !connector.enabled)
                       }
                       role="switch"
-                      title={unavailableReason ?? undefined}
+                                title={unavailableReason ?? undefined}
                       type="button"
                     >
                       <span className="connector-switch__thumb" />
@@ -5877,10 +5862,10 @@ onRepair={(action) => void handleDoctorRepair(action)}
                         : connector.clientId === "codex"
                           ? "Codex connection"
                           : connector.name;
+                    const controlState = connectorControlState(connector);
                     const unavailableReason = getConnectorUnavailableReason(connector);
                     const detectionWarning = getConnectorDetectionWarning(connector);
-                    const toggleDisabled =
-                      connectorsBusy || !canConfigureConnectorWithoutDetection(connector);
+                    const toggleDisabled = connectorsBusy || controlState.disabled;
                     return (
                       <article className="connector-item" key={connector.clientId}>
                         <div>
@@ -5889,6 +5874,11 @@ onRepair={(action) => void handleDoctorRepair(action)}
                               {renderConnectorLogo(connector.clientId)}
                             </span>
                             {connectorLabel}
+                            {connector.supportStatus === "planned" ? (
+                              <span className="connector-item__badge connector-item__badge--planned">
+                                Planned
+                              </span>
+                            ) : null}
                             <button
                               className="connector-help"
                               onClick={() =>
@@ -5930,7 +5920,7 @@ onRepair={(action) => void handleDoctorRepair(action)}
                               void toggleConnector(connector, !connector.enabled)
                             }
                             role="switch"
-                            title={unavailableReason ?? undefined}
+                            title={controlState.reason ?? unavailableReason ?? undefined}
                             type="button"
                           >
                             <span className="connector-switch__thumb" />

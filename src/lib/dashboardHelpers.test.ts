@@ -6,6 +6,7 @@ import {
   buildMonthlySavingsChartData,
   buildMonthlySavingsWindow,
   compactNumber,
+  connectorControlState,
   connectorDashboardStatus,
   currency,
   currencyExact,
@@ -199,6 +200,48 @@ describe("dashboard helpers", () => {
         { clientId: "claude_code", name: "Claude Code", installed: true, enabled: false, verified: false }
       ])
     ).toBe(false);
+  });
+
+  it("disables planned connector controls with RTK-only guidance", () => {
+    expect(
+      connectorControlState({
+        clientId: "gemini_cli",
+        name: "Gemini CLI",
+        supportStatus: "planned",
+        installed: true,
+        enabled: false,
+        verified: false
+      })
+    ).toEqual({
+      disabled: true,
+      reason:
+        "Gemini CLI is detected, but reversible routing support is planned for a later release. Use RTK-only mode for command-output savings today."
+    });
+
+    expect(
+      connectorControlState({
+        clientId: "opencode",
+        name: "OpenCode",
+        supportStatus: "planned",
+        installed: false,
+        enabled: false,
+        verified: false
+      })
+    ).toEqual({
+      disabled: true,
+      reason:
+        "OpenCode support is planned for a later release. Use RTK-only mode for command-output savings today."
+    });
+
+    expect(
+      connectorControlState({
+        clientId: "codex",
+        name: "Codex",
+        installed: false,
+        enabled: false,
+        verified: false
+      })
+    ).toEqual({ disabled: false, reason: null });
   });
 
   it("derives a dashboard status label/tone per connector state", () => {

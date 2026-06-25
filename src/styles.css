@@ -4232,6 +4232,21 @@ details[open] .optimize-minimal__details summary::after {
   line-height: 1.3;
 }
 
+.connector-item__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: var(--text-xxs);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.connector-item__badge--planned {
+  background: var(--warning-tint);
+  color: var(--warning);
+}
+
 .callout-banner__connectors {
   display: flex;
   flex-direction: row;

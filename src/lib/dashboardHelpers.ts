@@ -400,6 +400,38 @@ export function hasEnabledConnector(connectors: ClientConnectorStatus[]) {
   return getEnabledSupportedConnectors(connectors).length > 0;
 }
 
+export function connectorControlState(connector: ClientConnectorStatus): {
+  disabled: boolean;
+  reason: string | null;
+} {
+  if (connector.supportStatus === "planned") {
+    const releaseCopy = connector.installed
+      ? "is detected, but reversible routing support is planned for a later release"
+      : "support is planned for a later release";
+    return {
+      disabled: true,
+      reason:
+        connector.name +
+        " " +
+        releaseCopy +
+        ". Use RTK-only mode for command-output savings today."
+    };
+  }
+
+  if (
+    connector.installed ||
+    connector.clientId === "claude_code" ||
+    connector.clientId === "codex"
+  ) {
+    return { disabled: false, reason: null };
+  }
+
+  return {
+    disabled: true,
+    reason: "Connector unavailable because the client was not detected on this machine."
+  };
+}
+
 export type ConnectorDashboardTone = "active" | "pending" | "idle";
 
 export function connectorDashboardStatus(connector: ClientConnectorStatus): {
