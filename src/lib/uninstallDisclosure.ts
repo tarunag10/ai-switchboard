@@ -10,12 +10,20 @@ export const uninstallDisclosureItems: UninstallDisclosureItem[] = [
   {
     id: "client-hooks",
     text: "Remove managed routing hooks and environment changes from Claude Code and Codex config.",
-    paths: ["~/.claude/settings.json", "~/.claude/settings.local.json", "~/.codex/config.toml"],
+    paths: [
+      "~/.claude/settings.json",
+      "~/.claude/settings.local.json",
+      "~/.codex/config.toml",
+    ],
   },
   {
     id: "managed-hooks",
     text: "Delete managed hook scripts and shell-profile blocks created by the app.",
-    paths: ["~/.claude/hooks/headroom-rtk-rewrite.sh", "~/.zshrc", "~/.zprofile"],
+    paths: [
+      "~/.claude/hooks/headroom-rtk-rewrite.sh",
+      "~/.zshrc",
+      "~/.zprofile",
+    ],
   },
   {
     id: "managed-storage",
@@ -30,7 +38,10 @@ export const uninstallDisclosureItems: UninstallDisclosureItem[] = [
   {
     id: "app-state",
     text: "Delete app preferences, caches, logs, and known Keychain entries.",
-    paths: ["~/Library/Preferences/com.extraheadroom.headroom*", "~/Library/Caches/com.extraheadroom.headroom"],
+    paths: [
+      "~/Library/Preferences/com.extraheadroom.headroom*",
+      "~/Library/Caches/com.extraheadroom.headroom",
+    ],
   },
   {
     id: "plugins-backups",
@@ -40,4 +51,4 @@ export const uninstallDisclosureItems: UninstallDisclosureItem[] = [
 ];
 
 export const uninstallDisclosureFooter =
-  "You can reinstall later by launching Mac AI Switchboard again. Off mode is safer when you only want to stop routing without deleting runtime files.";
+  "You can reinstall later by launching Mac AI Switchboard again. Use Off mode instead if you only want to stop routing without deleting runtime files.";

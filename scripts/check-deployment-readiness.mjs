@@ -102,6 +102,15 @@ const requiredSourceSignals = {
   "src/lib/bootstrapSentry.test.ts": [
     "does not report bootstrap failures in local-only mode",
   ],
+  "src/lib/uninstallDisclosure.ts": [
+    "Remove managed routing hooks and environment changes",
+    "Delete managed hook scripts and shell-profile blocks",
+    "Use Off mode instead if you only want to stop routing without deleting runtime files",
+  ],
+  "src/lib/uninstallDisclosure.test.ts": [
+    "lists the reversible local footprint removed by uninstall",
+    "keeps stable ids for modal rendering",
+  ],
 };
 
 const workflowSignals = {
@@ -162,6 +171,12 @@ const forbiddenUserCopy = {
     "currently configured use Headroom",
     "return connect it",
     "RTK required for requested",
+  ],
+  "src/lib/uninstallDisclosure.ts": [
+    "hooks environment changes",
+    "scripts shell-profile blocks",
+    "backup files created next edited configs",
+    "Off mode is safer you only want",
   ],
 };
 
