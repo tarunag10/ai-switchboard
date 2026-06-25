@@ -234,6 +234,37 @@ export function formatRepoContextPackMarkdown(summary: RepoIntelligenceSummary):
   return [...overview, ...packSections].join("\n\n").trim();
 }
 
+export function formatSingleRepoContextPackMarkdown(
+  summary: RepoIntelligenceSummary,
+  pack: RepoContextPack,
+): string {
+  const title = summary.repoRoot
+    ? `# ${pack.title}: ${summary.repoRoot}`
+    : `# ${pack.title}`;
+  const indexedAt = summary.indexedAt ? `Indexed at: ${summary.indexedAt}` : null;
+  const files = pack.files.slice(0, 40).map(
+    (file) =>
+      `- ${file.path} (${file.role}, ${file.language}, ~${file.estimatedTokens.toLocaleString()} tokens)`,
+  );
+
+  return [
+    title,
+    indexedAt,
+    "",
+    pack.purpose,
+    `Estimated full scan tokens: ${summary.estimatedFullScanTokens.toLocaleString()}`,
+    `Estimated pack tokens: ${pack.estimatedTokens.toLocaleString()}`,
+    `Estimated tokens avoided: ${Math.max(0, summary.estimatedFullScanTokens - pack.estimatedTokens).toLocaleString()}`,
+    `Estimated savings vs full scan: ${pack.savingsVsFullScanPct.toFixed(1)}%`,
+    "",
+    "## Files",
+    ...files,
+  ]
+    .filter((line) => line !== null)
+    .join("\n")
+    .trim();
+}
+
 export function estimateRepoIntelligenceSavings(
   summary: RepoIntelligenceSummary,
 ): RepoSavingsEstimate {

@@ -178,6 +178,7 @@ const requiredSourceSignals = {
     "Planned connectors are visible but manual",
     "copyable manual setup guide",
     "copy bounded context pack",
+ "copy individual task pack",
     "Installed app present",
     "dist/smoke-preflight-summary.md",
     "Required Installed-App Smoke Areas",

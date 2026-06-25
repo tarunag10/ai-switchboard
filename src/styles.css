@@ -7085,6 +7085,23 @@ font-size: var(--text-xxs);
 font-weight: 700;
 }
 
+.repo-intelligence-pack__copy {
+justify-self: start;
+min-height: 28px;
+padding: 5px 8px;
+border: 1px solid var(--border-subtle);
+border-radius: 8px;
+background: var(--surface-overlay);
+color: var(--text-primary);
+font-size: var(--text-xxs);
+font-weight: 800;
+cursor: pointer;
+}
+
+.repo-intelligence-pack__copy:hover {
+background: var(--surface-hover);
+}
+
 @media (max-width: 760px) {
 .repo-intelligence-preview__controls {
 grid-template-columns: 1fr;

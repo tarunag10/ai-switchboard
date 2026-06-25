@@ -66,6 +66,8 @@ import {
   buildRepoIntelligenceSummary,
   estimateRepoIntelligenceSavings,
   formatRepoContextPackMarkdown,
+  formatSingleRepoContextPackMarkdown,
+  type RepoContextPack,
   type RepoIntelligenceSummary,
 } from "./lib/repoIntelligence";
 import {
@@ -1189,6 +1191,20 @@ function RepoIntelligencePreview() {
     }
   }
 
+  async function copySingleContextPack(pack: RepoContextPack) {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(formatSingleRepoContextPackMarkdown(summary, pack));
+      setCopyNotice(`${pack.title} copied.`);
+      window.setTimeout(() => setCopyNotice(null), 2000);
+    } catch {
+      setCopyNotice("Copy failed. Select pack details manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
+
   return (
     <div className="repo-intelligence-preview" aria-label="Repo Intelligence context pack preview">
       <div className="repo-intelligence-preview__topline">
@@ -1276,11 +1292,20 @@ function RepoIntelligencePreview() {
               <strong>{pack.savingsVsFullScanPct.toFixed(1)}%</strong>
             </div>
             <p>{pack.purpose}</p>
-            <span className="repo-intelligence-pack__meta">
-              {pack.files.length} files &middot; about{" "}
-              {pack.estimatedTokens.toLocaleString()} tokens
-            </span>
-          </article>
+          <span className="repo-intelligence-pack__meta">
+            {pack.files.length} files &middot; about{" "}
+            {pack.estimatedTokens.toLocaleString()} tokens
+          </span>
+          {!isPreview ? (
+            <button
+              className="repo-intelligence-pack__copy"
+              onClick={() => void copySingleContextPack(pack)}
+              type="button"
+            >
+              Copy this pack
+            </button>
+          ) : null}
+        </article>
         ))}
       </div>
     </div>

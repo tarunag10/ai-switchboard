@@ -6,6 +6,7 @@ import {
   estimateRepoIntelligenceSavings,
   estimateRepoTokens,
   formatRepoContextPackMarkdown,
+  formatSingleRepoContextPackMarkdown,
 } from "./repoIntelligence";
 
 describe("repoIntelligence", () => {
@@ -60,6 +61,26 @@ describe("repoIntelligence", () => {
     expect(markdown).toContain("## Implementation Pack");
   expect(markdown).toContain("src/App.tsx");
   expect(markdown).toContain("Estimated savings vs full scan");
+  });
+
+  it("formats a single task-specific context pack", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+
+    const markdown = formatSingleRepoContextPackMarkdown(summary, summary.packs[0]);
+
+    expect(markdown).toContain("# Implementation Pack: /Users/me/app");
+    expect(markdown).toContain("Indexed at: 2026-06-25T10:00:00Z");
+    expect(markdown).toContain("Estimated tokens avoided");
+    expect(markdown).toContain("## Files");
+    expect(markdown).toContain("src/App.tsx");
+    expect(markdown).not.toContain("## Verification Pack");
   });
 
   it("calculates best-pack and all-pack token savings", () => {
