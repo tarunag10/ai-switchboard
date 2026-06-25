@@ -1,4 +1,7 @@
-import { switchboardModeLabel } from "../lib/switchboardDisplay";
+import {
+  switchboardModeEffect,
+  switchboardModeLabel,
+} from "../lib/switchboardDisplay";
 import type { SwitchboardMode } from "../lib/types";
 
 interface SwitchboardPanelProps {
@@ -11,44 +14,48 @@ interface SwitchboardPanelProps {
   headroomDetail: string;
   rtkStatus: string;
   rtkDetail: string;
-remoteServicesEnabled: boolean;
-paused: boolean;
-resuming: boolean;
-modeBusy: SwitchboardMode | null;
-modeError: string | null;
-onSetMode: (mode: SwitchboardMode) => void;
-onResume: () => void;
-onManageClients: () => void;
-onManageRtk: () => void;
+  remoteServicesEnabled: boolean;
+  paused: boolean;
+  resuming: boolean;
+  modeBusy: SwitchboardMode | null;
+  modeError: string | null;
+  onSetMode: (mode: SwitchboardMode) => void;
+  onResume: () => void;
+  onManageClients: () => void;
+  onManageRtk: () => void;
 }
 
 const SWITCHBOARD_MODES: SwitchboardMode[] = ["full", "headroom", "rtk", "off"];
 
 export function SwitchboardPanel({
-mode,
-effectiveMode,
-needsAttention,
-summary,
-localOnly,
+  mode,
+  effectiveMode,
+  needsAttention,
+  summary,
+  localOnly,
   proxyStatus,
   headroomDetail,
   rtkStatus,
   rtkDetail,
-remoteServicesEnabled,
-paused,
-resuming,
-modeBusy,
-modeError,
-onSetMode,
-onResume,
-onManageClients,
-onManageRtk
+  remoteServicesEnabled,
+  paused,
+  resuming,
+  modeBusy,
+  modeError,
+  onSetMode,
+  onResume,
+  onManageClients,
+  onManageRtk,
 }: SwitchboardPanelProps) {
   const modeLabel = switchboardModeLabel(mode);
   const effectiveModeLabel = switchboardModeLabel(effectiveMode ?? mode);
+  const modeEffect = switchboardModeEffect(mode);
 
   return (
-    <section className="switchboard-panel" aria-label="Local switchboard status">
+    <section
+      className="switchboard-panel"
+      aria-label="Local switchboard status"
+    >
       <div className="switchboard-panel__head">
         <div>
           <p className="switchboard-panel__eyebrow">
@@ -56,32 +63,47 @@ onManageRtk
           </p>
           <h2>{modeLabel}</h2>
         </div>
-        <span className={`switchboard-panel__badge switchboard-panel__badge--${mode}`}>
+        <span
+          className={`switchboard-panel__badge switchboard-panel__badge--${mode}`}
+        >
           {modeLabel}
         </span>
-</div>
-<p className="switchboard-panel__copy">{summary}</p>
-{needsAttention ? (
-<p className="switchboard-panel__attention">
-Active now: {effectiveModeLabel}
-</p>
-) : null}
-<div className="switchboard-panel__modes" role="group" aria-label="Switch optimization mode">
-{SWITCHBOARD_MODES.map((option) => (
-<button
-key={option}
-type="button"
-className={`switchboard-panel__mode${option === mode ? " is-active" : ""}`}
-onClick={() => onSetMode(option)}
-disabled={modeBusy !== null}
-aria-pressed={option === mode}
->
-{modeBusy === option ? "Applying" : switchboardModeLabel(option)}
-</button>
-))}
-</div>
-{modeError ? <p className="switchboard-panel__error">{modeError}</p> : null}
-<div className="switchboard-panel__grid">
+      </div>
+      <p className="switchboard-panel__copy">{summary}</p>
+      {needsAttention ? (
+        <p className="switchboard-panel__attention">
+          Active now: {effectiveModeLabel}
+        </p>
+      ) : null}
+      <div
+        className="switchboard-panel__modes"
+        role="group"
+        aria-label="Switch optimization mode"
+      >
+        {SWITCHBOARD_MODES.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className={`switchboard-panel__mode${option === mode ? " is-active" : ""}`}
+            onClick={() => onSetMode(option)}
+            disabled={modeBusy !== null}
+            aria-pressed={option === mode}
+            aria-label={
+              modeBusy === option
+                ? `Applying ${switchboardModeLabel(option)}`
+                : `${switchboardModeLabel(option)}: ${switchboardModeEffect(option)}`
+            }
+            title={switchboardModeEffect(option)}
+          >
+            {modeBusy === option ? "Applying" : switchboardModeLabel(option)}
+          </button>
+        ))}
+      </div>
+      <p className="switchboard-panel__mode-effect">{modeEffect}</p>
+      {modeError ? (
+        <p className="switchboard-panel__error">{modeError}</p>
+      ) : null}
+      <div className="switchboard-panel__grid">
         <div className="switchboard-panel__item">
           <span className="switchboard-panel__label">Headroom proxy</span>
           <strong>{proxyStatus}</strong>
@@ -113,10 +135,18 @@ aria-pressed={option === mode}
             {resuming ? "Restarting…" : "Resume Headroom"}
           </button>
         ) : null}
-        <button type="button" className="switchboard-panel__action" onClick={onManageClients}>
+        <button
+          type="button"
+          className="switchboard-panel__action"
+          onClick={onManageClients}
+        >
           Manage clients
         </button>
-        <button type="button" className="switchboard-panel__action" onClick={onManageRtk}>
+        <button
+          type="button"
+          className="switchboard-panel__action"
+          onClick={onManageRtk}
+        >
           Manage RTK
         </button>
       </div>

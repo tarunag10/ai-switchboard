@@ -2,12 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import {
   deriveSwitchboardMode,
+  switchboardModeEffect,
   switchboardModeLabel,
-  switchboardModeSummary
+  switchboardModeSummary,
 } from "./switchboardDisplay";
-import type { ClientConnectorStatus, RuntimeStatus, SwitchboardMode } from "./types";
+import type {
+  ClientConnectorStatus,
+  RuntimeStatus,
+  SwitchboardMode,
+} from "./types";
 
-function connector(overrides: Partial<ClientConnectorStatus> = {}): ClientConnectorStatus {
+function connector(
+  overrides: Partial<ClientConnectorStatus> = {},
+): ClientConnectorStatus {
   return {
     clientId: "codex",
     name: "Codex",
@@ -15,7 +22,7 @@ function connector(overrides: Partial<ClientConnectorStatus> = {}): ClientConnec
     enabled: true,
     verified: true,
     lastConfiguredAt: null,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -47,9 +54,9 @@ function runtime(overrides: Partial<RuntimeStatus> = {}): RuntimeStatus {
       hookConfigured: true,
       totalCommands: 10,
       totalSaved: 1000,
-      avgSavingsPct: 80
+      avgSavingsPct: 80,
     },
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -58,10 +65,11 @@ describe("switchboardDisplay", () => {
     ["off", "Off"],
     ["rtk", "RTK only"],
     ["headroom", "Headroom only"],
-    ["full", "Full optimization"]
+    ["full", "Full optimization"],
   ])("labels %s mode", (mode, label) => {
     expect(switchboardModeLabel(mode)).toBe(label);
     expect(switchboardModeSummary(mode).length).toBeGreaterThan(10);
+    expect(switchboardModeEffect(mode).length).toBeGreaterThan(10);
   });
 
   it("derives full mode when Headroom and RTK are both active", () => {
@@ -70,9 +78,10 @@ describe("switchboardDisplay", () => {
 
   it("derives headroom-only mode when RTK is disabled", () => {
     expect(
-      deriveSwitchboardMode(runtime({ rtk: { ...runtime().rtk, enabled: false } }), [
-        connector()
-      ])
+      deriveSwitchboardMode(
+        runtime({ rtk: { ...runtime().rtk, enabled: false } }),
+        [connector()],
+      ),
     ).toBe("headroom");
   });
 
@@ -81,13 +90,17 @@ describe("switchboardDisplay", () => {
   });
 
   it("derives off when runtime is paused even with an enabled client", () => {
-    expect(deriveSwitchboardMode(runtime({ paused: true }), [connector()])).toBe("rtk");
+    expect(
+      deriveSwitchboardMode(runtime({ paused: true }), [connector()]),
+    ).toBe("rtk");
   });
 
   it("derives off when neither Headroom nor RTK is active", () => {
     expect(
-      deriveSwitchboardMode(runtime({ rtk: { ...runtime().rtk, enabled: false } }), [])
+      deriveSwitchboardMode(
+        runtime({ rtk: { ...runtime().rtk, enabled: false } }),
+        [],
+      ),
     ).toBe("off");
   });
 });
-

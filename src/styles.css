@@ -2159,11 +2159,18 @@ color: var(--text-primary);
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   padding: 3px;
   border: 1px solid var(--border-default);
   border-radius: 8px;
   background: var(--surface-sunken);
+}
+
+.switchboard-panel__mode-effect {
+  margin: 0 0 10px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.35;
 }
 
 .switchboard-panel__mode {
