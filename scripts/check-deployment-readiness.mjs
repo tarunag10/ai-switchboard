@@ -21,6 +21,7 @@ const requiredScripts = {
     '"build:mac:dmg"',
 '"release:check"',
 '"release:env"',
+    '"release:env:json"',
 '"smoke:preflight"',
     '"check:colors"',
     '"check:governance"',
@@ -239,6 +240,13 @@ const requiredSourceSignals = {
 "secretPathPatterns",
 "Available packs",
 ],
+  "scripts/check-release-env.mjs": [
+    "jsonOutput",
+    "--json",
+    "ok: blockers.length === 0",
+    "blockers",
+    "warnings",
+  ],
 };
 
 const workflowSignals = {

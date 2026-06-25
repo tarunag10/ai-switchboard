@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const strict = process.argv.includes("--strict");
+const jsonOutput = process.argv.includes("--json");
 
 const requiredCommands = [
   {
@@ -137,7 +138,20 @@ const warnings = missingRecommendedEnv.map((entry) => ({
   hint: entry.hint,
 }));
 
-if (blockers.length === 0) {
+if (jsonOutput) {
+  console.log(
+    JSON.stringify(
+      {
+        ok: blockers.length === 0,
+        strict,
+        blockers,
+        warnings,
+      },
+      null,
+      2,
+    ),
+  );
+} else if (blockers.length === 0) {
   console.log("Release environment preflight passed.");
 } else {
   console.log(
@@ -151,7 +165,7 @@ if (blockers.length === 0) {
   }
 }
 
-if (warnings.length > 0) {
+if (!jsonOutput && warnings.length > 0) {
   console.log("Recommended release settings:");
   for (const warning of warnings) {
     console.log(`- ${warning.label}`);
