@@ -8,6 +8,7 @@ const requiredFiles = [
   "docs/codex-compression-troubleshooting.md",
   "scripts/build-macos-dmg.sh",
   "scripts/verify-release.sh",
+  "scripts/check-deployment-readiness.mjs",
   ".github/workflows/release-macos.yml",
   ".github/workflows/release-macos-staging.yml",
 ];
@@ -56,6 +57,8 @@ const requiredDocSignals = {
     "release-macos.yml",
     "release-macos-staging.yml",
     "staging-rolling",
+    "latest.json",
+    "GitHub Releases",
   ],
   "docs/beta-smoke-test.md": [
     "Local-only",
@@ -103,14 +106,49 @@ const requiredSourceSignals = {
 
 const workflowSignals = {
   ".github/workflows/release-macos.yml": [
+    "branches:",
+    "- main",
     "HEADROOM_UPDATER_PUBLIC_KEY",
+    "HEADROOM_UPDATER_ENDPOINTS",
+    "HEADROOM_UPDATER_STAGING_ENDPOINTS",
     "TAURI_SIGNING_PRIVATE_KEY",
     "APPLE_SIGNING_IDENTITY",
+    "HEADROOM_ACCOUNT_API_BASE_URL",
+    "npm ci",
+    "Run release checks",
+    "./scripts/verify-release.sh",
+    "tauri-apps/tauri-action",
+    "latest.json",
+    "releases/latest/download/latest.json",
   ],
   ".github/workflows/release-macos-staging.yml": [
+    "branches:",
+    "- staging",
     "staging-rolling",
     "HEADROOM_UPDATER_PUBLIC_KEY",
+    "HEADROOM_UPDATER_ENDPOINTS",
+    "HEADROOM_UPDATER_STAGING_ENDPOINTS",
     "TAURI_SIGNING_PRIVATE_KEY",
+    "APPLE_SIGNING_IDENTITY",
+    "HEADROOM_ACCOUNT_API_BASE_URL",
+    "npm ci",
+    "Run release checks",
+    "./scripts/verify-release.sh",
+    "tauri-apps/tauri-action",
+    "latest.json",
+    "releases/download/staging-rolling/latest.json",
+  ],
+};
+
+const dmgScriptSignals = {
+  "scripts/build-macos-dmg.sh": [
+    "require_env APPLE_SIGNING_IDENTITY",
+    "require_env TAURI_SIGNING_PRIVATE_KEY",
+    "require_env TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
+    "prepare_notarization",
+    "npx tauri build --bundles dmg --ci",
+    "Mac-AI-Switchboard_",
+    "rename_built_dmg",
   ],
 };
 
@@ -181,6 +219,16 @@ for (const [path, signals] of Object.entries(workflowSignals)) {
   for (const signal of signals) {
     if (!body.includes(signal)) {
       failures.push(`${path} missing release workflow signal: ${signal}`);
+    }
+  }
+}
+
+for (const [path, signals] of Object.entries(dmgScriptSignals)) {
+  if (!requireFile(path)) continue;
+  const body = read(path);
+  for (const signal of signals) {
+    if (!body.includes(signal)) {
+      failures.push(`${path} missing DMG build signal: ${signal}`);
     }
   }
 }
