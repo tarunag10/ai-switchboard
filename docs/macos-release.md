@@ -29,6 +29,7 @@ npm run build:mac:dmg
 
 This produces a signed `Mac-AI-Switchboard_<version>.dmg` in `src-tauri/target/release/bundle/dmg/`.
 Run `npm run release:env` before publishing from a local Mac. It checks Node/npm, Rust/cargo/rustup, Xcode command-line tools, signing/notarization environment variables, and updater settings before the heavier release gate starts. Use `node scripts/check-release-env.mjs --json` or `npm --silent run release:env:json` when automation needs structured `ok`, `blockers`, and `warnings` output.
+Run `npm run release:report` when you want a durable handoff artifact before packaging. It writes `dist/release-readiness-report.md` and `dist/release-readiness-report.json` with environment blockers, warnings, installed-app smoke status, and next steps.
 Run `npm run release:check` before publishing. The release gate runs release environment preflight, semantic color checks, a production frontend build, frontend coverage, Rust formatting, and desktop tests.
 Run `npm run smoke:preflight` before handing a DMG to a tester; it confirms the installed-app smoke checklist covers Switchboard modes, Doctor, planned connectors, pause/resume, and Codex optimization.
 

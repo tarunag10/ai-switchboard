@@ -6,6 +6,7 @@ const installDoc = "docs/install.md";
 const releaseDoc = "docs/macos-release.md";
 const appPath = "/Applications/Mac AI Switchboard.app";
 const summaryPath = "dist/smoke-preflight-summary.md";
+const releaseReportPath = "dist/release-readiness-report.md";
 
 const requiredSignals = {
   [betaSmokeDoc]: [
@@ -65,6 +66,7 @@ Generated: ${generatedAt}
 - Installed app present: ${installed ? "yes" : "no"} (${appPath})
 - Installed-app checklist: ${betaSmokeDoc}
 - Release instructions: ${releaseDoc}
+- Release readiness report: ${releaseReportPath}
 
 ## Required Installed-App Smoke Areas
 
@@ -75,7 +77,7 @@ Generated: ${generatedAt}
 - Local-first behavior: remote services gated, Off mode reversible cleanup
 - Codex resilience: compression refusal reset and model/provider repair
 
-Next step: install the DMG, open ${appPath}, then run ${betaSmokeDoc}.
+Next step: run npm run release:report, install the DMG, open ${appPath}, then run ${betaSmokeDoc}.
 `;
 
 fs.mkdirSync(path.dirname(summaryPath), { recursive: true });
@@ -84,4 +86,4 @@ fs.writeFileSync(summaryPath, summary);
 console.log("Smoke preflight passed.");
 console.log(`Installed app present: ${installed ? "yes" : "no"} (${appPath})`);
 console.log(`Summary written: ${summaryPath}`);
-console.log(`Next: install the DMG, then run ${betaSmokeDoc} on the installed app.`);
+console.log(`Next: run npm run release:report, install the DMG, then run ${betaSmokeDoc} on the installed app.`);

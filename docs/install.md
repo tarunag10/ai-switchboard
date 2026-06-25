@@ -41,6 +41,7 @@ npm install
 npm run build:mac:dmg
 ```
 
+Run `npm run release:report` before sharing a build to generate `dist/release-readiness-report.md` with remaining blockers, warnings, and installed-app smoke status.
 The script validates signing/notarization environment variables and writes `Mac-AI-Switchboard_<version>.dmg` under `src-tauri/target/release/bundle/dmg/`. See [macOS release docs](macos-release.md) for the required secrets and release workflow.
 
 ## First-Run Footprint
