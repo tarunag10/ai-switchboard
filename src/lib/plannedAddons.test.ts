@@ -12,7 +12,9 @@ describe("planned add-ons", () => {
     });
     expect(repoIntelligence?.description).toContain("Future local repo graph");
     expect(repoIntelligence?.description).toContain("smaller, safer edits");
+    expect(repoIntelligence?.bullets.join(" ")).toContain("Not fully added");
     expect(repoIntelligence?.bullets.join(" ")).toContain("Graphy-style");
+    expect(repoIntelligence?.bullets.join(" ")).toContain("graph context layer");
     expect(repoIntelligence?.bullets.join(" ")).toContain("Local-first");
   });
 

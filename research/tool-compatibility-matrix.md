@@ -9,6 +9,7 @@ This file is the starting point for the v1 research gate. Headroom only ships ad
 | claw-compactor | Prompt optimization | Python | Promising | Optional managed install | Medium | Research | Include only if adapter IO is stable enough for reliable orchestration. |
 | rtk | Token optimization | Rust binary | Strong | Managed binary install + Claude hook setup | Core dependency | Include | Install by default so Claude Code bash commands are auto-rewritten through RTK. |
 | claude-cognitive | Workflow enhancement | Outside v1 policy | Weak | Manual external setup | Medium | Defer | Deferred because it breaks the Python-only boundary and assumes user profile edits. |
+| Repo Intelligence / Graphy-style code graph | Repo context optimization | TBD local index | Strong if fully local | Managed indexer + UI workflow | Research | Research | Not fully added yet. Needs graph builder, bounded context-pack API, local storage, UI controls, and tests before inclusion. |
 
 ## Research checklist
 

@@ -30,6 +30,12 @@ The app is **local-first**, not offline-only. Claude/OpenAI model calls still go
 | MarkItDown | Document-to-Markdown preprocessing | Add-on |
 | Repo Intelligence | Future local Graphy-style code graph, symbol index, and repo memory layer | Planned |
 
+## Recommended Future Integrations
+
+- **Repo Intelligence / Graphy-style repo graph:** planned, not fully added yet. The app does not currently ship a complete Graphy-style integration, graph builder, token-saving graph context layer, or UI workflow. The recommended path is a local read-only repo index, bounded context-pack API, visible UI workflow, and tests proving no remote graph service or project-file mutation. See [docs/repo-intelligence-plan.md](docs/repo-intelligence-plan.md).
+- **Gemini CLI and OpenCode routing:** detected and labeled as planned today. Next step is reversible local config adapters with the same backup/off-mode behavior as Claude Code and Codex.
+- **Add-on hardening:** RTK, Ponytail, and MarkItDown are installable add-ons today; next work should add deeper health checks, smoke-test actions, and clearer savings attribution per add-on.
+
 ## Local-First Defaults
 
 For a personal build, create `.env` with:

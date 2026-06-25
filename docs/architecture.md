@@ -26,3 +26,7 @@ The packaged app identity is `Mac AI Switchboard`, but runtime storage intention
 - Managed tools may be Python-based or standalone binaries when Headroom owns the install path.
 - Client configuration changes require explicit user consent and rollback support.
 - Repo Intelligence is planned as a local-first Graphy-style code graph, symbol index, and repo memory layer. First implementation should be read-only context planning; any write or auto-repair action must remain explicit.
+
+## Repo Intelligence recommendation
+
+Repo Intelligence is intentionally planned rather than shipped. The current app does not yet include a complete Graphy-style integration, graph builder, token-saving graph context layer, or UI workflow. Build it as a read-only local graph first: index symbols/imports/routes/tests into managed storage, expose bounded context packs through a local command/API, and only later add explicit write or repair actions. See [Repo Intelligence Plan](repo-intelligence-plan.md).

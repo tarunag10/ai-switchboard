@@ -14,7 +14,8 @@ export const plannedAddons: PlannedAddon[] = [
     description:
       "Future local repo graph and memory layer for symbols, imports, routes, call paths, and repeated context lookups. It should reduce repeated file reads and help agents choose smaller, safer edits before spending tokens.",
     bullets: [
-      "Future adapter targets include Graphy-style code graphs, CodeGraph-style indexes, MCP repo memory.",
+      "Not fully added yet: no complete Graphy-style integration, graph builder, token-saving graph context layer, or UI workflow exists today.",
+      "Recommended targets include Graphy-style code graphs, CodeGraph-style indexes, tree-sitter parsers, and MCP repo memory.",
       "Local-first index stored on Mac, with no remote service requirement.",
       "Read-only planning mode first; write or auto-repair actions stay explicit.",
     ],
