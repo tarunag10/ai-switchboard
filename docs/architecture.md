@@ -31,7 +31,7 @@ The packaged app identity is `Mac AI Switchboard`, but runtime storage intention
 
 Repo Intelligence exists to reduce repeated agent discovery work before large coding sessions. The current implementation has three local surfaces:
 
-- CLI: `npm run repo:intelligence -- <repo-path>` prints file roles, rough token estimates, and implementation, verification, and handoff packs.
+- CLI: `npm run repo:intelligence -- <repo-path>` prints file roles, rough token estimates, and implementation, verification, and handoff packs. `--manifest` emits an agent-readable JSON contract with pack ids, commands, graph availability, estimated token savings, and read-only safety flags.
   Agents can request one task-specific Markdown pack with `npm run repo:intelligence -- <repo-path> --pack implementation --format markdown`.
   Default packs exclude secret-like paths such as `.env*`, private-key folders, `.pem`, `.p8`, `.p12`, and certificate files.
 - App UI: the Repo Intelligence add-on card accepts a local repo path, runs the read-only backend indexer, shows compact context packs, supports combined and individual pack copy, reloads the latest summary on launch, and can clear the saved summary.

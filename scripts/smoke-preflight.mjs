@@ -24,7 +24,12 @@ const requiredSignals = {
     "Off mode",
     "Codex Compression Troubleshooting",
   ],
-  [releaseDoc]: [
+  "scripts/repo-intelligence.mjs": [
+    "--manifest",
+    "mac_ai_switchboard.repo_intelligence_manifest",
+    "excludesSecretLikePaths",
+  ],
+ [releaseDoc]: [
     "npm run release:check",
     "Mac-AI-Switchboard_",
     "notarization",

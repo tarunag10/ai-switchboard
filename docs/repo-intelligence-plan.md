@@ -30,7 +30,7 @@ The goal is to make Mac AI Switchboard useful before an agent burns tokens readi
    - Show generated context packs in app so users can see what an agent received.
    - Add re-index, pause, and remove-index controls.
 4. **Agent integrations**
-   - Expose context packs through local CLI/MCP-style commands that Claude Code, Codex, Gemini CLI, OpenCode, and similar tools can call.
+   - Expose context packs through local CLI/MCP-style commands that Claude Code, Codex, Gemini CLI, OpenCode, and similar tools can call. Current CLI contract includes `npm run repo:intelligence -- <repo> --manifest` for pack discovery and `--pack <id> --format markdown` for task-specific handoff.
    - Keep first version read-only. Any write, refactor, or auto-repair action must require explicit user action.
  - Reuse the planned connector readiness contract for Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, and Goose: identify config surfaces, document manual-safe workflows, and block automation behind backup/restore/off-mode gates.
    - Reuse Switchboard on/off behavior: disabling the feature stops indexing and removes routing/hooks without deleting the user's repo.

@@ -61,6 +61,7 @@ function parseArgs(argv) {
     packId: null,
     format: "json",
     listPacks: false,
+    manifest: false,
   };
   const positional = [];
 
@@ -78,6 +79,8 @@ function parseArgs(argv) {
       options.format = arg.slice("--format=".length);
     } else if (arg === "--list-packs") {
       options.listPacks = true;
+    } else if (arg === "--manifest") {
+      options.manifest = true;
     } else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -100,10 +103,12 @@ Options:
   --pack <id>          Print one context pack: implementation, verification, handoff
   --format <format>   json or markdown
   --list-packs        Print available pack ids
+  --manifest          Print agent-readable pack manifest JSON
   --help              Show this help
 
 Examples:
   npm run repo:intelligence -- .
+  npm run repo:intelligence -- . --manifest
   npm run repo:intelligence -- . --pack implementation --format markdown`);
 }
 
@@ -330,6 +335,48 @@ function formatSinglePackMarkdown(summary, selectedPack) {
   ].join("\n");
 }
 
+function buildAgentManifest(summary) {
+  const fullScanTokens = summary.estimatedFullScanTokens;
+  return {
+    schemaVersion: 1,
+    kind: "mac_ai_switchboard.repo_intelligence_manifest",
+    repoRoot: summary.repoRoot,
+    generatedAt: new Date().toISOString(),
+    totals: {
+      totalFiles: summary.totalFiles,
+      indexedFiles: summary.indexedFiles,
+      estimatedFullScanTokens: fullScanTokens,
+      roleCounts: summary.roleCounts,
+    },
+    graph: {
+      available: Boolean(summary.graph),
+      topDirectories: summary.graph?.topDirectories ?? [],
+      topLanguages: summary.graph?.topLanguages ?? [],
+      entrypointCount: summary.graph?.entrypoints.length ?? 0,
+      likelyTestCount: summary.graph?.likelyTests.length ?? 0,
+      configHubCount: summary.graph?.configHubs.length ?? 0,
+    },
+    packs: summary.packs.map((contextPack) => ({
+      id: contextPack.id,
+      title: contextPack.title,
+      purpose: contextPack.purpose,
+      fileCount: contextPack.files.length,
+      estimatedTokens: contextPack.estimatedTokens,
+      estimatedTokensAvoided: Math.max(
+        0,
+        fullScanTokens - contextPack.estimatedTokens,
+      ),
+      savingsVsFullScanPct: contextPack.savingsVsFullScanPct,
+      command: `npm run repo:intelligence -- ${JSON.stringify(summary.repoRoot)} --pack ${contextPack.id} --format markdown`,
+    })),
+    safety: {
+      readOnly: true,
+      excludesSecretLikePaths: true,
+      modifiesRepository: false,
+    },
+  };
+}
+
 const options = parseArgs(process.argv.slice(2));
 
 if (!fs.existsSync(options.repoRoot) || !fs.statSync(options.repoRoot).isDirectory()) {
@@ -346,6 +393,11 @@ const summary = buildSummary(options.repoRoot);
 
 if (options.listPacks) {
   console.log(summary.packs.map((contextPack) => contextPack.id).join("\n"));
+  process.exit(0);
+}
+
+if (options.manifest) {
+  console.log(JSON.stringify(buildAgentManifest(summary), null, 2));
   process.exit(0);
 }
 

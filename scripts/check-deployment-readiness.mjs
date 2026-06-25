@@ -56,7 +56,7 @@ const requiredDocSignals = {
  "Read-only local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI",
  "Read-only foundation",
  "the app now ships a read-only foundation",
- "Remaining work is the full Graphy-style symbol graph",
+    "CLI now exposes an agent-readable `--manifest`",
  "Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose",
  ],
  "docs/install.md": [
@@ -238,6 +238,9 @@ const requiredSourceSignals = {
 "scripts/repo-intelligence.mjs": [
 "--pack <id>",
 "--format <format>",
+"--manifest",
+"mac_ai_switchboard.repo_intelligence_manifest",
+"excludesSecretLikePaths",
 "formatSinglePackMarkdown",
 "secretPathPatterns",
 "Available packs",
