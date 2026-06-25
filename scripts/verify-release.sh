@@ -8,6 +8,9 @@ cd "${REPO_ROOT}"
 echo "Checking deployment readiness..."
 npm run check:deployment
 
+echo "Checking installed-app smoke preflight..."
+npm run smoke:preflight
+
 echo "Checking semantic color tokens..."
 npm run check:colors
 

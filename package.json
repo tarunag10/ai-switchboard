@@ -15,6 +15,7 @@
     "test:desktop": "cargo test --manifest-path src-tauri/Cargo.toml",
     "test:all": "npm run test:frontend && npm run test:desktop",
     "release:check": "./scripts/verify-release.sh",
+    "smoke:preflight": "node scripts/smoke-preflight.mjs",
     "check:colors": "./scripts/check-colors.sh",
     "check:governance": "node scripts/check-governance-docs.mjs",
     "check:deployment": "node scripts/check-deployment-readiness.mjs"

@@ -9,6 +9,7 @@ const requiredFiles = [
   "scripts/build-macos-dmg.sh",
   "scripts/verify-release.sh",
   "scripts/check-deployment-readiness.mjs",
+  "scripts/smoke-preflight.mjs",
   ".github/workflows/release-macos.yml",
   ".github/workflows/release-macos-staging.yml",
 ];
@@ -17,12 +18,14 @@ const requiredScripts = {
   "package.json": [
     '"build:mac:dmg"',
     '"release:check"',
+    '"smoke:preflight"',
     '"check:colors"',
     '"check:governance"',
     '"check:deployment"',
   ],
   "scripts/verify-release.sh": [
     "npm run check:deployment",
+    "npm run smoke:preflight",
     "npm run check:colors",
     "npm run check:governance",
     "npm run build",
@@ -59,6 +62,7 @@ const requiredDocSignals = {
     "staging-rolling",
     "latest.json",
     "GitHub Releases",
+    "npm run smoke:preflight",
   ],
   "docs/beta-smoke-test.md": [
     "Local-only",
@@ -119,6 +123,12 @@ const requiredSourceSignals = {
     "ClientConnectorSupportStatus::Planned",
     "ClientConnectorSupportStatus::Managed",
     "automatic routing is disabled until backup, restore, and off-mode cleanup are implemented",
+  ],
+  "scripts/smoke-preflight.mjs": [
+    "Planned connectors are visible but manual",
+    "copyable manual setup guide",
+    "Installed app present",
+    "docs/beta-smoke-test.md",
   ],
 };
 
