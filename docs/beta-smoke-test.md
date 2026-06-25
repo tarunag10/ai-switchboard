@@ -75,6 +75,14 @@ Open Settings and inspect the coding tool connector list.
 
 Expect: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, and Goose all appear when detected or known to the connector registry. Each planned connector shows a **Planned** badge, setup phase, category, copyable manual setup guide, and disabled switch. Doctor may show **Planned coding tools detected**, but it must be a manual step with no **Repair all** action for those tools. Launcher auto-setup and proxy verification should include only managed connectors such as Claude Code and Codex.
 
+### S9. Repo Intelligence index health
+
+Open Addons, enter a local repo path in the Repo Intelligence card, and click **Index**.
+
+Expect: the card shows indexed signals, context packs, the repo path, and indexed timestamp. Restart the app and return to Addons.
+
+Expect: the latest Repo Intelligence summary reloads from managed app storage. If the indexed repo folder is moved or deleted, Doctor shows a manual warning to re-index an available local repo and does not offer **Repair all** for that issue.
+
 ## Checks (Claude Code pass)
 
 Run these from a Claude Code session and report PASS / FAIL with the observed value. Checks 1, 5, 8, 9, and 10 are client-agnostic — run them once in either client. Codex has very different wiring (no RTK, no `~/.claude/settings.json`, pay-per-token), so its equivalents of checks 6 and 7 live in the **Codex pass** below; run that whole section from a Codex session.

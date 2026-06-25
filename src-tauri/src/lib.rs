@@ -28,7 +28,7 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-use chrono::{Local, Utc};
+use chrono::{DateTime, Local, Utc};
 use serde::Serialize;
 use serde_json::{json, Value};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
@@ -2103,7 +2103,43 @@ repair_action,
 });
 }
 
-if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Rtk)
+if let Ok(Some(summary)) = repo_intelligence::load_latest_summary() {
+let repo_missing = !Path::new(&summary.repo_root).is_dir();
+let stale = DateTime::parse_from_rfc3339(&summary.indexed_at)
+.map(|indexed_at| {
+Utc::now()
+.signed_duration_since(indexed_at.with_timezone(&Utc))
+.num_days()
+>= 7
+})
+.unwrap_or(false);
+
+if repo_missing {
+issues.push(crate::models::DoctorIssue {
+id: "repo_intelligence_repo_missing".to_string(),
+title: "Repo Intelligence index points to a missing folder".to_string(),
+body: format!(
+"The last indexed repo path is no longer available: {}. Re-index an available local repository from the Repo Intelligence add-on card.",
+summary.repo_root
+),
+severity: crate::models::DoctorSeverity::Warning,
+repair_action: None,
+});
+} else if stale {
+issues.push(crate::models::DoctorIssue {
+id: "repo_intelligence_stale".to_string(),
+title: "Repo Intelligence index is stale".to_string(),
+body: format!(
+"The last Repo Intelligence index for {} is more than 7 days old. Re-index it before relying on context packs for agent handoff.",
+summary.repo_root
+),
+severity: crate::models::DoctorSeverity::Warning,
+repair_action: None,
+});
+}
+}
+
+    if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Rtk)
 && (!runtime.rtk.installed || !runtime.rtk.enabled)
 {
 issues.push(crate::models::DoctorIssue {
