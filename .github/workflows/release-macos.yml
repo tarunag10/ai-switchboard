@@ -23,8 +23,8 @@ jobs:
     timeout-minutes: 45
 
     env:
-      HEADROOM_UPDATER_ENDPOINTS: '["https://github.com/gglucass/headroom-desktop/releases/latest/download/latest.json"]'
-      HEADROOM_UPDATER_STAGING_ENDPOINTS: '["https://github.com/gglucass/headroom-desktop/releases/download/staging-rolling/latest.json"]'
+      HEADROOM_UPDATER_ENDPOINTS: '["https://github.com/tarunag10/mac-ai-switchboard/releases/latest/download/latest.json"]'
+      HEADROOM_UPDATER_STAGING_ENDPOINTS: '["https://github.com/tarunag10/mac-ai-switchboard/releases/download/staging-rolling/latest.json"]'
       HEADROOM_UPDATER_PUBLIC_KEY: ${{ vars.HEADROOM_UPDATER_PUBLIC_KEY }}
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -284,7 +284,7 @@ jobs:
         with:
           projectPath: .
           tagName: v__VERSION__
-          releaseName: Headroom v__VERSION__
+          releaseName: Mac AI Switchboard v__VERSION__
           releaseBody: ${{ steps.release_notes.outputs.body }}
           generateReleaseNotes: false
           releaseDraft: false
@@ -306,7 +306,7 @@ jobs:
           gh release delete staging-rolling --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
           gh release create staging-rolling \
             --repo "$GITHUB_REPOSITORY" \
-            --title "Headroom staging (rolling)" \
+            --title "Mac AI Switchboard staging (rolling)" \
             --notes "Rolling pointer to the latest build. Current: ${STABLE_TAG} (stable)." \
             --prerelease \
             --target "$GITHUB_SHA" \

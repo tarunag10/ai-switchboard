@@ -119,7 +119,7 @@ rename_built_dmg() {
     exit 1
   fi
 
-  local desired_path="${bundle_dir}/Headroom_${version}.dmg"
+  local desired_path="${bundle_dir}/Mac-AI-Switchboard_${version}.dmg"
   local source_path=""
 
   for candidate in "${dmgs[@]}"; do
