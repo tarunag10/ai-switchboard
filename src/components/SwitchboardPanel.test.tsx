@@ -54,7 +54,18 @@ screen.getByText(
     expect(screen.getByText("Running several Codex goals?")).toBeInTheDocument();
     expect(
     screen.getByText(
-      "Use RTK only for multiple heavy active Codex chats or goals; keep Full optimization for one main Codex session after compacting context.",
+      "Use RTK only for multiple heavy active Codex chats or goals. Keep Full optimization for one main Codex session after compacting context.",
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByLabelText("Codex multiple-goal prevention steps"),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText("Switch to RTK only before opening several active Codex chats."),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "If Codex was bypassed after a 413 compression_refused error, run Doctor to reset the bypass.",
     ),
   ).toBeInTheDocument();
   expect(
