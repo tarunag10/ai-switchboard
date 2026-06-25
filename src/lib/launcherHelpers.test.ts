@@ -92,7 +92,7 @@ describe("launcher helpers", () => {
 
   it("builds initial proxy verification rows from enabled installed Claude connectors", () => {
     const rows = buildInitialProxyVerificationRows([
-      { clientId: "cursor", name: "Cursor", installed: true, enabled: true, verified: false },
+      { clientId: "cursor", name: "Cursor", supportStatus: "planned", installed: true, enabled: true, verified: false },
       {
         clientId: "claude_code",
         name: "Claude Code",

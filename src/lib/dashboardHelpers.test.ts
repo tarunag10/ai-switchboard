@@ -160,10 +160,10 @@ describe("dashboard helpers", () => {
     const connectors: ClientConnectorStatus[] = [
       { clientId: "zed", name: "Zed", installed: false, enabled: false, verified: false },
       { clientId: "claude_code", name: "Claude Code", installed: true, enabled: true, verified: true },
-      { clientId: "cursor", name: "Cursor", installed: true, enabled: false, verified: false }
+      { clientId: "cursor", name: "Cursor", supportStatus: "planned", installed: true, enabled: false, verified: false }
     ];
 
-    expect(aggregateClientConnectors(connectors)).toEqual([connectors[1]]);
+    expect(aggregateClientConnectors(connectors)).toEqual([connectors[1], connectors[2]]);
     expect(sortClientConnectors(connectors).map((connector) => connector.clientId)).toEqual([
       "claude_code",
       "cursor",
@@ -177,12 +177,27 @@ describe("dashboard helpers", () => {
       { clientId: "claude_code", name: "Claude Code", installed: true, enabled: true, verified: true },
       { clientId: "gemini_cli", name: "Gemini CLI", supportStatus: "planned", installed: true, enabled: false, verified: false },
       { clientId: "opencode", name: "OpenCode", supportStatus: "planned", installed: false, enabled: false, verified: false },
-      { clientId: "cursor", name: "Cursor", installed: true, enabled: false, verified: false }
+      { clientId: "cursor", name: "Cursor", supportStatus: "planned", installed: true, enabled: false, verified: false },
+      { clientId: "grok_cli", name: "Grok / xAI CLI", supportStatus: "planned", installed: false, enabled: false, verified: false },
+      { clientId: "aider", name: "Aider", supportStatus: "planned", installed: true, enabled: false, verified: false },
+      { clientId: "continue", name: "Continue", supportStatus: "planned", installed: false, enabled: false, verified: false },
+      { clientId: "goose", name: "Goose", supportStatus: "planned", installed: true, enabled: false, verified: false },
+      { clientId: "zed", name: "Zed", installed: true, enabled: false, verified: false }
     ];
 
     expect(
       aggregateClientConnectors(connectors).map((connector) => connector.clientId).sort()
-    ).toEqual(["claude_code", "codex", "gemini_cli", "opencode"]);
+    ).toEqual([
+      "aider",
+      "claude_code",
+      "codex",
+      "continue",
+      "cursor",
+      "gemini_cli",
+      "goose",
+      "grok_cli",
+      "opencode",
+    ]);
   });
 
   it("reports enabled supported connectors regardless of which tool", () => {
@@ -190,7 +205,7 @@ describe("dashboard helpers", () => {
       { clientId: "claude_code", name: "Claude Code", installed: true, enabled: false, verified: false },
       { clientId: "codex", name: "Codex", installed: true, enabled: true, verified: true },
       { clientId: "gemini_cli", name: "Gemini CLI", supportStatus: "planned", installed: true, enabled: true, verified: false },
-      { clientId: "cursor", name: "Cursor", installed: true, enabled: true, verified: true }
+      { clientId: "cursor", name: "Cursor", supportStatus: "planned", installed: true, enabled: true, verified: true }
     ];
 
     expect(getEnabledSupportedConnectors(connectors).map((c) => c.clientId)).toEqual(["codex"]);

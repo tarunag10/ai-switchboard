@@ -1,3 +1,4 @@
+import { plannedConnectors } from "./plannedConnectors";
 import type {
   ClientConnectorStatus,
   DailySavingsPoint,
@@ -368,8 +369,7 @@ export function formatLearnStatus(project: {
 const KNOWN_CONNECTOR_IDS = new Set([
   "claude_code",
   "codex",
-  "gemini_cli",
-  "opencode",
+  ...plannedConnectors.map((connector) => connector.id),
 ]);
 
 export function aggregateClientConnectors(connectors: ClientConnectorStatus[]) {

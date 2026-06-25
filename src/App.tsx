@@ -263,7 +263,17 @@ const connectorSetupDetails: Record<string, string> = {
   gemini_cli:
     "Gemini CLI is tracked as a planned adapter. Until its reversible config path is implemented, use RTK-only mode for command-output savings.",
   opencode:
-    "OpenCode is tracked as a planned adapter. Until its reversible config path is implemented, use RTK-only mode for command-output savings."
+    "OpenCode is tracked as a planned adapter. Until its reversible config path is implemented, use RTK-only mode for command-output savings.",
+  cursor:
+    "Cursor is tracked as a planned editor connector. Guided setup is shown first because Cursor settings and account behavior can vary by release channel.",
+  grok_cli:
+    "Grok / xAI CLI is tracked as a planned provider connector. Mac AI Switchboard will keep model and account compatibility visible before routing it.",
+  aider:
+    "Aider is tracked as a planned agent connector. RTK-only mode can already reduce noisy shell output while provider wrapping is built.",
+  continue:
+    "Continue is tracked as a planned editor connector. Guided setup stays manual until provider config backup and restore coverage is ready.",
+  goose:
+    "Goose is tracked as a planned agent connector. Local provider and MCP handoff support will be added after reversible setup coverage."
 };
 
 const connectorSupportWarnings: Record<string, string> = {};
@@ -274,7 +284,12 @@ const connectorUnavailableReasons: Record<string, string> = {
   codex:
     "Codex was not detected. Install the Codex CLI and restart Headroom.",
   gemini_cli: "Gemini CLI adapter is planned but not configurable yet.",
-  opencode: "OpenCode adapter is planned but not configurable yet."
+  opencode: "OpenCode adapter is planned but not configurable yet.",
+  cursor: "Cursor adapter is planned but not configurable yet.",
+  grok_cli: "Grok / xAI CLI adapter is planned but not configurable yet.",
+  aider: "Aider adapter is planned but not configurable yet.",
+  continue: "Continue adapter is planned but not configurable yet.",
+  goose: "Goose adapter is planned but not configurable yet."
 };
 
 const launcherConnectorFallback: ClientConnectorStatus[] = [
@@ -4122,9 +4137,13 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           <div className="connector-list">
             {availableConnectors.map((connector) => {
               const unavailableReason = getConnectorUnavailableReason(connector);
-              const detectionWarning = getConnectorDetectionWarning(connector);
-              const supportWarning = getConnectorSupportWarning(connector);
-              const needsRestart = connector.enabled && !connector.verified;
+                  const detectionWarning = getConnectorDetectionWarning(connector);
+                  const supportWarning = getConnectorSupportWarning(connector);
+                  const needsRestart = connector.enabled && !connector.verified;
+                  const plannedConnector =
+                    connector.supportStatus === "planned"
+                      ? getPlannedConnector(connector.clientId)
+                      : null;
               return (
                 <article className="connector-item" key={connector.clientId}>
                   <div>
@@ -4164,7 +4183,8 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
                     </h3>
                     {openConnectorHelpId === connector.clientId ? (
                       <p className="connector-tooltip">
-                        {connectorSetupDetails[connector.clientId] ??
+                        {plannedConnector?.notes ??
+                          connectorSetupDetails[connector.clientId] ??
                           "Headroom applies local connector configuration."}
                       </p>
                     ) : null}
@@ -6107,7 +6127,8 @@ onRepair={(action) => void handleDoctorRepair(action)}
                           </h3>
                           {openConnectorHelpId === connector.clientId ? (
                             <p className="connector-tooltip">
-                          {connectorSetupDetails[connector.clientId] ??
+                          {plannedConnector?.notes ??
+                            connectorSetupDetails[connector.clientId] ??
                             "Headroom applies local connector configuration."}
                         </p>
                       ) : null}

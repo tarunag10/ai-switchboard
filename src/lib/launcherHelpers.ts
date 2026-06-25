@@ -1,4 +1,7 @@
-import { aggregateClientConnectors } from "./dashboardHelpers";
+import {
+  aggregateClientConnectors,
+  getEnabledSupportedConnectors,
+} from "./dashboardHelpers";
 import type { ClientConnectorStatus, LaunchExperience } from "./types";
 
 export const EMAIL_ADDRESS_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -70,7 +73,7 @@ export function getLauncherAutoConfigureDecision(
   connectors: ClientConnectorStatus[]
 ): LauncherAutoConfigureDecision {
   const installed = aggregateClientConnectors(connectors).filter(
-    (connector) => connector.installed
+    (connector) => connector.installed && (connector.supportStatus ?? "managed") === "managed"
   );
   if (installed.length === 0) {
     return "show_client_setup";
@@ -110,7 +113,12 @@ export function nextAutoConfigureStep(
   }
   if (decision === "apply_client_setup") {
     const clientIds = aggregateClientConnectors(connectors)
-      .filter((connector) => connector.installed && !connector.enabled)
+      .filter(
+        (connector) =>
+          connector.installed &&
+          !connector.enabled &&
+          (connector.supportStatus ?? "managed") === "managed"
+      )
       .map((connector) => connector.clientId);
     if (clientIds.length === 0) {
       // No connector to apply against — fall back to manual setup.
@@ -137,8 +145,8 @@ export function nextAutoConfigureStepAfterApply(
 export function buildInitialProxyVerificationRows(
   connectors: ClientConnectorStatus[]
 ): ProxyVerificationRowState[] {
-  return aggregateClientConnectors(connectors)
-    .filter((connector) => connector.enabled && connector.installed)
+  return getEnabledSupportedConnectors(connectors)
+    .filter((connector) => connector.installed)
     .sort((left, right) => left.name.localeCompare(right.name))
     .map((connector) => ({
       clientId: connector.clientId,
