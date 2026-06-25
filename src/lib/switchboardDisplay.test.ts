@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   deriveSwitchboardMode,
+  switchboardAttentionCopy,
   switchboardModeEffect,
   switchboardModeLabel,
   switchboardModeSummary,
@@ -70,6 +71,38 @@ describe("switchboardDisplay", () => {
     expect(switchboardModeLabel(mode)).toBe(label);
     expect(switchboardModeSummary(mode).length).toBeGreaterThan(10);
     expect(switchboardModeEffect(mode).length).toBeGreaterThan(10);
+  });
+
+
+  it("describes switchboard mode effects clearly", () => {
+    expect(switchboardModeSummary("full")).toBe(
+      "Headroom proxy routing and RTK command compression are both active.",
+    );
+    expect(switchboardModeEffect("full")).toBe(
+      "Routes supported clients through Headroom and compresses shell output with RTK.",
+    );
+    expect(switchboardModeEffect("rtk")).toBe(
+      "Keeps client traffic direct and compresses shell output with RTK.",
+    );
+    expect(switchboardModeEffect("off")).toBe(
+      "Removes routing hooks and leaves client traffic and shell commands unmodified.",
+    );
+  });
+
+  it("explains requested/effective mode mismatches", () => {
+    expect(switchboardAttentionCopy("full", "rtk")).toBe(
+      "Active now: RTK only. Connect a supported client or repair Headroom routing in Doctor.",
+    );
+    expect(switchboardAttentionCopy("full", "off")).toBe(
+      "Active now: Off. Run Doctor to restore Headroom and RTK together.",
+    );
+    expect(switchboardAttentionCopy("rtk", "off")).toBe(
+      "Active now: Off. Install or enable RTK from Doctor or Addons.",
+    );
+    expect(switchboardAttentionCopy("off", "full")).toBe(
+      "Active now: Full optimization. Use Doctor if local routing hooks need cleanup.",
+    );
+    expect(switchboardAttentionCopy("headroom", "headroom")).toBe("");
   });
 
   it("derives full mode when Headroom and RTK are both active", () => {

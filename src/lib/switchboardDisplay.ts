@@ -25,7 +25,7 @@ export function switchboardModeSummary(mode: SwitchboardMode): string {
     case "headroom":
       return "LLM traffic is routed through Headroom. RTK command compression is off.";
     case "rtk":
-      return "RTK command compression is active. No coding client is routed through Headroom.";
+      return "RTK command compression is active. Coding clients are not routed through Headroom.";
     case "off":
     default:
       return "No optimization layer is active right now.";
@@ -42,7 +42,30 @@ export function switchboardModeEffect(mode: SwitchboardMode): string {
       return "Keeps client traffic direct and compresses shell output with RTK.";
     case "off":
     default:
-      return "Leaves client traffic and shell commands unmodified.";
+      return "Removes routing hooks and leaves client traffic and shell commands unmodified.";
+  }
+}
+
+export function switchboardAttentionCopy(
+  desiredMode: SwitchboardMode,
+  effectiveMode: SwitchboardMode,
+): string {
+  if (desiredMode === effectiveMode) {
+    return "";
+  }
+  const effectiveModeLabel = switchboardModeLabel(effectiveMode);
+  switch (desiredMode) {
+    case "full":
+      return effectiveMode === "rtk"
+        ? `Active now: ${effectiveModeLabel}. Connect a supported client or repair Headroom routing in Doctor.`
+        : `Active now: ${effectiveModeLabel}. Run Doctor to restore Headroom and RTK together.`;
+    case "headroom":
+      return `Active now: ${effectiveModeLabel}. Connect a supported client or repair Headroom routing in Doctor.`;
+    case "rtk":
+      return `Active now: ${effectiveModeLabel}. Install or enable RTK from Doctor or Addons.`;
+    case "off":
+    default:
+      return `Active now: ${effectiveModeLabel}. Use Doctor if local routing hooks need cleanup.`;
   }
 }
 
@@ -50,8 +73,7 @@ export function deriveSwitchboardMode(
   runtime: RuntimeStatus | null,
   enabledClients: ClientConnectorStatus[],
 ): SwitchboardMode {
-  const rtkEnabled =
-    runtime?.rtk.installed === true && runtime.rtk.enabled === true;
+  const rtkEnabled = runtime?.rtk.installed === true && runtime.rtk.enabled === true;
   const headroomEnabled =
     runtime?.running === true &&
     runtime.proxyReachable === true &&

@@ -118,6 +118,6 @@ describe("SwitchboardPanel", () => {
     expect(
       screen.getByRole("heading", { name: "Full optimization" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Active now: RTK only. Run Doctor to repair.")).toBeInTheDocument();
+    expect(screen.getByText("Active now: RTK only. Connect a supported client or repair Headroom routing in Doctor.")).toBeInTheDocument();
   });
 });

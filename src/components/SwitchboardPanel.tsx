@@ -1,4 +1,5 @@
 import {
+  switchboardAttentionCopy,
   switchboardModeEffect,
   switchboardModeLabel,
 } from "../lib/switchboardDisplay";
@@ -50,6 +51,9 @@ export function SwitchboardPanel({
   const modeLabel = switchboardModeLabel(mode);
   const effectiveModeLabel = switchboardModeLabel(effectiveMode ?? mode);
   const modeEffect = switchboardModeEffect(mode);
+  const attentionCopy = needsAttention
+    ? switchboardAttentionCopy(mode, effectiveMode ?? mode)
+    : "";
 
   return (
     <section
@@ -72,7 +76,7 @@ export function SwitchboardPanel({
       <p className="switchboard-panel__copy">{summary}</p>
       {needsAttention ? (
         <p className="switchboard-panel__attention">
-          Active now: {effectiveModeLabel}. Run Doctor to repair.
+          {attentionCopy || `Active now: ${effectiveModeLabel}. Run Doctor to repair.`}
         </p>
       ) : null}
       <div
