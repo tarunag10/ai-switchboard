@@ -1971,6 +1971,25 @@ let connectors = client_adapters::list_client_connectors(&state.cached_clients()
 let enabled_clients = connectors.iter().filter(|client| client.enabled).count();
 let installed_clients = connectors.iter().filter(|client| client.installed).count();
 
+if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
+&& runtime.installed
+&& (!runtime.running || !runtime.proxy_reachable || runtime.auto_paused)
+{
+issues.push(crate::models::DoctorIssue {
+id: "headroom_runtime_unreachable".to_string(),
+title: "Headroom runtime is not reachable".to_string(),
+body: runtime
+.startup_error_hint
+.clone()
+.or_else(|| runtime.startup_error.clone())
+.unwrap_or_else(|| {
+"The local proxy is not answering. Repair will restart the Headroom runtime and refresh switchboard status.".to_string()
+}),
+severity: crate::models::DoctorSeverity::Error,
+repair_action: Some("repair_runtime".to_string()),
+});
+}
+
 if codex_direct_bypass && matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom) {
 issues.push(crate::models::DoctorIssue {
 id: "codex_direct_bypass".to_string(),
@@ -2061,6 +2080,44 @@ async fn get_doctor_report(state: State<'_, AppState>) -> crate::models::DoctorR
 build_doctor_report(&state)
 }
 
+fn repair_runtime(state: &AppState) -> Result<(), String> {
+state.stop_headroom();
+state.set_runtime_auto_paused(false);
+state.resume_runtime().map_err(|err| err.to_string())?;
+state.invalidate_runtime_status_cache();
+Ok(())
+}
+
+fn repair_client_setups(state: &AppState) -> Result<(), String> {
+state
+.codex_bypass
+.store(false, std::sync::atomic::Ordering::Release);
+state.resume_runtime().map_err(|err| err.to_string())?;
+let connectors =
+client_adapters::list_client_connectors(&state.cached_clients()).map_err(|err| err.to_string())?;
+let mut repaired = 0usize;
+for connector in connectors.iter().filter(|connector| connector.installed) {
+client_adapters::apply_client_setup(&connector.client_id).map_err(|err| err.to_string())?;
+repaired += 1;
+}
+if repaired == 0 {
+return Err("no installed supported clients found to repair".to_string());
+}
+state.invalidate_runtime_status_cache();
+Ok(())
+}
+
+fn repair_rtk_integrations(state: &AppState) -> Result<(), String> {
+client_adapters::set_rtk_enabled(
+true,
+&state.tool_manager.rtk_entrypoint(),
+&state.tool_manager.managed_python(),
+)
+.map_err(|err| err.to_string())?;
+state.invalidate_runtime_status_cache();
+Ok(())
+}
+
 #[tauri::command]
 async fn run_doctor_repair(
 state: State<'_, AppState>,
@@ -2074,32 +2131,34 @@ state
 state.invalidate_runtime_status_cache();
 Ok(build_doctor_report(&state))
 }
+"repair_runtime" => {
+repair_runtime(&state)?;
+Ok(build_doctor_report(&state))
+}
 "repair_client_setups" => {
-state
-.codex_bypass
-.store(false, std::sync::atomic::Ordering::Release);
-state.resume_runtime().map_err(|err| err.to_string())?;
-let connectors = client_adapters::list_client_connectors(&state.cached_clients())
-.map_err(|err| err.to_string())?;
-let mut repaired = 0usize;
-for connector in connectors.iter().filter(|connector| connector.installed) {
-client_adapters::apply_client_setup(&connector.client_id).map_err(|err| err.to_string())?;
-repaired += 1;
-}
-if repaired == 0 {
-return Err("no installed supported clients found to repair".to_string());
-}
-state.invalidate_runtime_status_cache();
+repair_client_setups(&state)?;
 Ok(build_doctor_report(&state))
 }
 "repair_rtk_integrations" => {
-client_adapters::set_rtk_enabled(
-true,
-&state.tool_manager.rtk_entrypoint(),
-&state.tool_manager.managed_python(),
-)
-.map_err(|err| err.to_string())?;
+repair_rtk_integrations(&state)?;
+Ok(build_doctor_report(&state))
+}
+"repair_all" => {
+let report = build_doctor_report(&state);
+for issue in report.issues {
+match issue.repair_action.as_deref() {
+Some("reset_codex_bypass") => {
+state
+.codex_bypass
+.store(false, std::sync::atomic::Ordering::Release);
 state.invalidate_runtime_status_cache();
+}
+Some("repair_runtime") => repair_runtime(&state)?,
+Some("repair_client_setups") => repair_client_setups(&state)?,
+Some("repair_rtk_integrations") => repair_rtk_integrations(&state)?,
+_ => {}
+}
+}
 Ok(build_doctor_report(&state))
 }
 other => Err(format!("unknown doctor repair action: {other}")),

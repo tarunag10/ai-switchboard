@@ -2321,6 +2321,24 @@ color: var(--text-primary);
   gap: 8px;
 }
 
+.switchboard-doctor__repair-all {
+  margin: 0 0 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--text-inverse);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 800;
+  line-height: 1;
+  padding: 8px 10px;
+}
+
+.switchboard-doctor__repair-all:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .switchboard-doctor__issue {
   display: flex;
   align-items: flex-start;

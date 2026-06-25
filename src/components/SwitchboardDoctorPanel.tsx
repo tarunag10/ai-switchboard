@@ -13,6 +13,8 @@ function issueTone(issue: DoctorIssue): string {
 
 function repairLabel(action: string): string {
   switch (action) {
+    case "repair_runtime":
+      return "Restart Headroom";
     case "reset_codex_bypass":
       return "Reset Codex";
     case "repair_client_setups":
@@ -33,6 +35,7 @@ export function SwitchboardDoctorPanel({
   if (!report || (report.status === "ok" && report.issues.length === 0)) {
     return null;
   }
+  const canRepair = report.issues.some((issue) => !!issue.repairAction);
 
   return (
     <section className="switchboard-doctor" aria-label="Switchboard doctor">
@@ -46,6 +49,16 @@ export function SwitchboardDoctorPanel({
         </span>
       </div>
       <p className="switchboard-doctor__summary">{report.summary}</p>
+      {canRepair ? (
+        <button
+          type="button"
+          className="switchboard-doctor__repair-all"
+          disabled={busyAction !== null}
+          onClick={() => onRepair("repair_all")}
+        >
+          {busyAction === "repair_all" ? "Repairing all" : "Repair all"}
+        </button>
+      ) : null}
       <div className="switchboard-doctor__issues">
         {report.issues.map((issue) => (
           <article
