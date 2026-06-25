@@ -4576,6 +4576,48 @@ details[open] .optimize-minimal__details summary::after {
   color: var(--warning);
 }
 
+.connector-plan {
+  margin-top: 7px;
+  display: grid;
+  gap: 5px;
+  max-width: 58ch;
+}
+
+.connector-plan__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.connector-plan__meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.connector-plan__target,
+.connector-plan__next {
+  font-size: var(--text-xs) !important;
+  line-height: 1.35;
+}
+
+.connector-plan__target {
+  color: var(--text-muted) !important;
+}
+
+.connector-plan__next {
+  color: var(--text-strong) !important;
+}
+
 .callout-banner__connectors {
   display: flex;
   flex-direction: row;

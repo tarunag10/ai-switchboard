@@ -62,6 +62,7 @@ maybeFireUrgentRuntimeNotification,
 } from "./lib/urgentNotifications";
 import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
 import {
+  getPlannedConnector,
   plannedConnectors,
   type PlannedConnector
 } from "./lib/plannedConnectors";
@@ -2715,12 +2716,31 @@ void refreshDoctorReport();
     return connectorSupportWarnings[connector.clientId] ?? null;
   }
 
-  function getConnectorDetectionWarning(connector: ClientConnectorStatus) {
-    if (connector.installed) {
-      return null;
-    }
-    return connectorUnavailableReasons[connector.clientId] ?? null;
+function getConnectorDetectionWarning(connector: ClientConnectorStatus) {
+  if (connector.installed) {
+    return null;
   }
+  return connectorUnavailableReasons[connector.clientId] ?? null;
+}
+
+function getPlannedConnectorNextStep(
+  connector: ClientConnectorStatus,
+  plannedConnector: PlannedConnector
+) {
+  if (!connector.installed) {
+    return "Install the tool first, then Mac AI Switchboard will detect it here.";
+  }
+
+  if (plannedConnector.setupPhase === "Detect") {
+    return "Detected. Keep using RTK-only mode while a reversible routing adapter is researched.";
+  }
+
+  if (plannedConnector.setupPhase === "Guide") {
+    return "Detected. Guided setup is next so account-specific provider settings stay under your control.";
+  }
+
+  return "Detected. Automatic setup waits for backup, restore, and off-mode cleanup coverage.";
+}
 
   function applyAppUpdatePatch(patch: AppUpdateStatePatch) {
     if (Object.prototype.hasOwnProperty.call(patch, "config")) {
@@ -4122,7 +4142,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
                         aria-label={`Show setup details for ${connector.name}`}
                         aria-expanded={openConnectorHelpId === connector.clientId}
                       >
-                        i
+                        <Info size={11} weight="bold" />
                       </button>
                     </h3>
                     {openConnectorHelpId === connector.clientId ? (
@@ -6031,22 +6051,26 @@ onRepair={(action) => void handleDoctorRepair(action)}
                           ? "Codex connection"
                           : connector.name;
                     const controlState = connectorControlState(connector);
-                    const unavailableReason = getConnectorUnavailableReason(connector);
-                    const detectionWarning = getConnectorDetectionWarning(connector);
-                    const toggleDisabled = connectorsBusy || controlState.disabled;
-                    return (
-                      <article className="connector-item" key={connector.clientId}>
-                        <div>
+                  const unavailableReason = getConnectorUnavailableReason(connector);
+                  const detectionWarning = getConnectorDetectionWarning(connector);
+                  const toggleDisabled = connectorsBusy || controlState.disabled;
+                  const plannedConnector =
+                    connector.supportStatus === "planned"
+                      ? getPlannedConnector(connector.clientId)
+                      : null;
+                  return (
+                    <article className="connector-item" key={connector.clientId}>
+                      <div>
                           <h3>
                             <span className="client-logo" aria-hidden="true">
                               {renderConnectorLogo(connector.clientId)}
                             </span>
                             {connectorLabel}
-                            {connector.supportStatus === "planned" ? (
-                              <span className="connector-item__badge connector-item__badge--planned">
-                                Planned
-                              </span>
-                            ) : null}
+                        {connector.supportStatus === "planned" ? (
+                          <span className="connector-item__badge connector-item__badge--planned">
+                            Planned
+                          </span>
+                        ) : null}
                             <button
                               className="connector-help"
                               onClick={() =>
@@ -6063,13 +6087,30 @@ onRepair={(action) => void handleDoctorRepair(action)}
                           </h3>
                           {openConnectorHelpId === connector.clientId ? (
                             <p className="connector-tooltip">
-                              {connectorSetupDetails[connector.clientId] ??
-                                "Headroom applies local connector configuration."}
-                            </p>
-                          ) : null}
-                          {connector.enabled && !connector.verified && connector.installed ? (
-                            <p className="connector-item__restart">
-                              Restart {connector.name} to start routing through Headroom.
+                          {connectorSetupDetails[connector.clientId] ??
+                            "Headroom applies local connector configuration."}
+                        </p>
+                      ) : null}
+                      {plannedConnector ? (
+                        <div className="connector-plan">
+                          <div className="connector-plan__meta">
+                            <span>{plannedConnector.setupPhase}</span>
+                            <span>{plannedConnector.category}</span>
+                          </div>
+                          <p className="connector-plan__target">
+                            {plannedConnector.integrationTarget}
+                          </p>
+                          <p className="connector-plan__next">
+                            {getPlannedConnectorNextStep(
+                              connector,
+                              plannedConnector
+                            )}
+                          </p>
+                        </div>
+                      ) : null}
+                      {connector.enabled && !connector.verified && connector.installed ? (
+                        <p className="connector-item__restart">
+                          Restart {connector.name} to start routing through Headroom.
                             </p>
                           ) : null}
                           {(detectionWarning ?? unavailableReason) ? (
