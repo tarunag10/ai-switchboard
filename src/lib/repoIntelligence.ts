@@ -37,6 +37,17 @@ export interface RepoIntelligenceSummary {
   packs: RepoContextPack[];
 }
 
+export interface RepoSavingsEstimate {
+  fullScanTokens: number;
+  bestPackTokens: number;
+  bestPackTokensAvoided: number;
+  bestPackSavingsPct: number;
+  allPacksTokens: number;
+  allPacksTokensAvoided: number;
+  allPacksSavingsPct: number;
+  bestPack?: RepoContextPack;
+}
+
 const generatedPathPatterns = [
   /(^|\/)dist\//,
   /(^|\/)build\//,
@@ -221,6 +232,43 @@ export function formatRepoContextPackMarkdown(summary: RepoIntelligenceSummary):
   });
 
   return [...overview, ...packSections].join("\n\n").trim();
+}
+
+export function estimateRepoIntelligenceSavings(
+  summary: RepoIntelligenceSummary,
+): RepoSavingsEstimate {
+  const fullScanTokens = Math.max(0, summary.estimatedFullScanTokens);
+  const sortedPacks = [...summary.packs].sort(
+    (a, b) =>
+      b.savingsVsFullScanPct - a.savingsVsFullScanPct ||
+      a.estimatedTokens - b.estimatedTokens ||
+      a.title.localeCompare(b.title),
+  );
+  const bestPack = sortedPacks[0];
+  const bestPackTokens = bestPack?.estimatedTokens ?? 0;
+  const allPacksTokens = summary.packs.reduce(
+    (sum, pack) => sum + pack.estimatedTokens,
+    0,
+  );
+  const bestPackTokensAvoided = Math.max(0, fullScanTokens - bestPackTokens);
+  const allPacksTokensAvoided = Math.max(0, fullScanTokens - allPacksTokens);
+
+  return {
+    fullScanTokens,
+    bestPackTokens,
+    bestPackTokensAvoided,
+    bestPackSavingsPct:
+      fullScanTokens > 0
+        ? Math.round((bestPackTokensAvoided / fullScanTokens) * 1000) / 10
+        : 0,
+    allPacksTokens,
+    allPacksTokensAvoided,
+    allPacksSavingsPct:
+      fullScanTokens > 0
+        ? Math.round((allPacksTokensAvoided / fullScanTokens) * 1000) / 10
+        : 0,
+    bestPack,
+  };
 }
 
 function buildContextPack(

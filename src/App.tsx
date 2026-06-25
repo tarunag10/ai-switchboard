@@ -64,6 +64,7 @@ maybeFireUrgentRuntimeNotification,
 import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
 import {
   buildRepoIntelligenceSummary,
+  estimateRepoIntelligenceSavings,
   formatRepoContextPackMarkdown,
   type RepoIntelligenceSummary,
 } from "./lib/repoIntelligence";
@@ -1119,6 +1120,7 @@ function RepoIntelligencePreview() {
   const [indexError, setIndexError] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const isPreview = summary === repoIntelligencePreview;
+  const savingsEstimate = estimateRepoIntelligenceSavings(summary);
 
   useEffect(() => {
     let cancelled = false;
@@ -1246,6 +1248,26 @@ function RepoIntelligencePreview() {
       ) : null}
       {copyNotice ? <p className="repo-intelligence-preview__path">{copyNotice}</p> : null}
       {indexError ? <p className="install-progress__error">{indexError}</p> : null}
+      <div className="repo-intelligence-savings" aria-label="Repo Intelligence savings calculator">
+        <div>
+          <span>Full scan</span>
+          <strong>{savingsEstimate.fullScanTokens.toLocaleString()}</strong>
+          <em>tokens estimated</em>
+        </div>
+        <div>
+          <span>Best pack saved</span>
+          <strong>{savingsEstimate.bestPackTokensAvoided.toLocaleString()}</strong>
+          <em>
+            {savingsEstimate.bestPack?.title ?? "Context pack"} ·{" "}
+            {savingsEstimate.bestPackSavingsPct.toFixed(1)}%
+          </em>
+        </div>
+        <div>
+          <span>All packs saved</span>
+          <strong>{savingsEstimate.allPacksTokensAvoided.toLocaleString()}</strong>
+          <em>{savingsEstimate.allPacksSavingsPct.toFixed(1)}% vs full scan</em>
+        </div>
+      </div>
       <div className="repo-intelligence-preview__grid">
         {summary.packs.map((pack) => (
           <article className="repo-intelligence-pack" key={pack.id}>

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRepoIntelligenceSummary,
   classifyRepoFile,
+  estimateRepoIntelligenceSavings,
   estimateRepoTokens,
   formatRepoContextPackMarkdown,
 } from "./repoIntelligence";
@@ -57,7 +58,50 @@ describe("repoIntelligence", () => {
     expect(markdown).toContain("# Repo Intelligence Context Pack: /Users/me/app");
     expect(markdown).toContain("Indexed at: 2026-06-25T10:00:00Z");
     expect(markdown).toContain("## Implementation Pack");
-    expect(markdown).toContain("src/App.tsx");
-    expect(markdown).toContain("Estimated savings vs full scan");
+  expect(markdown).toContain("src/App.tsx");
+  expect(markdown).toContain("Estimated savings vs full scan");
+  });
+
+  it("calculates best-pack and all-pack token savings", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "src/lib/types.ts", bytes: 1000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+    ]);
+
+    const estimate = estimateRepoIntelligenceSavings(summary);
+
+    expect(estimate.fullScanTokens).toBe(summary.estimatedFullScanTokens);
+    expect(estimate.bestPack?.id).toBe("handoff");
+    expect(estimate.bestPackTokensAvoided).toBeGreaterThan(0);
+    expect(estimate.bestPackSavingsPct).toBeGreaterThan(estimate.allPacksSavingsPct);
+    expect(estimate.allPacksTokensAvoided).toBeGreaterThanOrEqual(0);
+  });
+
+  it("returns zero savings for an empty repo index", () => {
+    const estimate = estimateRepoIntelligenceSavings({
+      totalFiles: 0,
+      indexedFiles: 0,
+      estimatedFullScanTokens: 0,
+      roleCounts: {
+        source: 0,
+        test: 0,
+        config: 0,
+        docs: 0,
+        asset: 0,
+        lockfile: 0,
+        generated: 0,
+        unknown: 0,
+      },
+      packs: [],
+    });
+
+    expect(estimate.bestPack).toBeUndefined();
+    expect(estimate.bestPackTokensAvoided).toBe(0);
+    expect(estimate.bestPackSavingsPct).toBe(0);
+    expect(estimate.allPacksTokensAvoided).toBe(0);
+    expect(estimate.allPacksSavingsPct).toBe(0);
   });
 });
