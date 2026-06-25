@@ -25,6 +25,17 @@ const IGNORED_DIRS: [&str; 12] = [
     "__pycache__",
     ".pytest_cache",
 ];
+const SECRET_FILE_NAMES: [&str; 7] = [
+    ".env",
+    ".env.local",
+    ".env.production",
+    ".npmrc",
+    ".pypirc",
+    "id_rsa",
+    "id_ed25519",
+];
+const SECRET_EXTENSIONS: [&str; 6] = [".pem", ".p8", ".p12", ".key", ".crt", ".cer"];
+const SECRET_PATH_SEGMENTS: [&str; 4] = ["secrets", ".secrets", "private_keys", ".private_keys"];
 
 pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary> {
     let repo_root = normalize_repo_root(path.as_ref())?;
@@ -215,7 +226,10 @@ fn classify_file(path: &str, bytes: u64) -> RepoFileSignal {
         .map(|extension| format!(".{}", extension.to_lowercase()))
         .unwrap_or_default();
     let mut reasons = Vec::new();
-    let role = if bytes > MAX_INDEXED_FILE_BYTES {
+    let role = if is_secret_like_path(path, name, &extension) {
+        reasons.push("secret-like path excluded from default packs".to_string());
+        RepoFileRole::Generated
+    } else if bytes > MAX_INDEXED_FILE_BYTES {
         reasons.push("large file skipped from default packs".to_string());
         RepoFileRole::Generated
     } else if lockfile_name(name) {
@@ -304,6 +318,25 @@ fn lockfile_name(name: &str) -> bool {
     )
 }
 
+fn is_secret_like_path(path: &str, name: &str, extension: &str) -> bool {
+    let normalized = path.replace('\\', "/");
+    let lower_path = normalized.to_lowercase();
+    let lower_name = name.to_lowercase();
+
+    SECRET_FILE_NAMES
+        .iter()
+        .any(|secret_name| lower_name == *secret_name)
+        || SECRET_EXTENSIONS
+            .iter()
+            .any(|secret_extension| extension == *secret_extension)
+        || lower_name.starts_with("authkey_") && extension == ".p8"
+        || lower_path.split('/').any(|segment| {
+            SECRET_PATH_SEGMENTS
+                .iter()
+                .any(|secret_segment| segment == *secret_segment)
+        })
+}
+
 fn language_for_extension(extension: &str) -> &'static str {
     match extension {
         ".css" => "CSS",
@@ -362,6 +395,33 @@ mod tests {
             classify_file("dist/assets/index.js", MAX_INDEXED_FILE_BYTES + 1).role,
             RepoFileRole::Generated
         ));
+    }
+
+    #[test]
+    fn excludes_secret_like_paths_from_default_packs() {
+        for path in [
+            ".env",
+            ".env.local",
+            ".npmrc",
+            ".secrets/app.json",
+            "secrets/prod.toml",
+            "private_keys/app.pem",
+            "authkey_ABC123.p8",
+            "certs/distribution.p12",
+            "keys/service-account.key",
+            "certs/root.crt",
+        ] {
+            let signal = classify_file(path, 100);
+
+            assert!(matches!(signal.role, RepoFileRole::Generated), "{path}");
+            assert!(!signal.include_by_default, "{path}");
+            assert!(
+                signal
+                    .reasons
+                    .contains(&"secret-like path excluded from default packs".to_string()),
+                "{path}"
+            );
+        }
     }
 
     #[test]
