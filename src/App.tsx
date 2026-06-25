@@ -62,6 +62,7 @@ maybeFireUrgentPricingNotifications,
 maybeFireUrgentRuntimeNotification,
 } from "./lib/urgentNotifications";
 import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
+import { buildRepoIntelligenceSummary } from "./lib/repoIntelligence";
 import {
   getPlannedConnector,
   getPlannedConnectorSetupGuide,
@@ -1062,6 +1063,7 @@ function AddonCard({
 
 function PlannedAddonCard({ addon }: { addon: PlannedAddon }) {
   const showConnectorRoadmap = addon.id === "agent_connectors";
+  const showRepoIntelligencePreview = addon.id === "repo_intelligence";
 
   return (
     <li className="addon-card addon-card--planned">
@@ -1081,6 +1083,7 @@ function PlannedAddonCard({ addon }: { addon: PlannedAddon }) {
         {showConnectorRoadmap ? (
           <PlannedConnectorRoadmap connectors={plannedConnectors} />
         ) : null}
+        {showRepoIntelligencePreview ? <RepoIntelligencePreview /> : null}
       </div>
       <div className="addon-card__actions">
         <button type="button" className="addon-card__action" disabled>
@@ -1088,6 +1091,46 @@ function PlannedAddonCard({ addon }: { addon: PlannedAddon }) {
         </button>
       </div>
     </li>
+  );
+}
+
+const repoIntelligencePreview = buildRepoIntelligenceSummary([
+  { path: "src/App.tsx", bytes: 184_000 },
+  { path: "src/lib/dashboardHelpers.ts", bytes: 28_000 },
+  { path: "src/lib/repoIntelligence.ts", bytes: 7_400 },
+  { path: "src-tauri/src/client_adapters.rs", bytes: 190_000 },
+  { path: "src-tauri/src/lib.rs", bytes: 310_000 },
+  { path: "src/lib/repoIntelligence.test.ts", bytes: 2_300 },
+  { path: "src/lib/dashboardHelpers.test.ts", bytes: 18_000 },
+  { path: "docs/repo-intelligence-plan.md", bytes: 4_800 },
+  { path: "docs/beta-smoke-test.md", bytes: 9_200 },
+  { path: "package.json", bytes: 1_900 },
+  { path: "dist/assets/index.js", bytes: 767_000 },
+]);
+
+function RepoIntelligencePreview() {
+  return (
+    <div className="repo-intelligence-preview" aria-label="Repo Intelligence context pack preview">
+      <div className="repo-intelligence-preview__topline">
+        <span>Read-only context packs</span>
+        <strong>{repoIntelligencePreview.indexedFiles} indexed signals</strong>
+      </div>
+      <div className="repo-intelligence-preview__grid">
+        {repoIntelligencePreview.packs.map((pack) => (
+          <article className="repo-intelligence-pack" key={pack.id}>
+            <div className="repo-intelligence-pack__heading">
+              <span>{pack.title}</span>
+              <strong>{pack.savingsVsFullScanPct.toFixed(1)}%</strong>
+            </div>
+            <p>{pack.purpose}</p>
+            <span className="repo-intelligence-pack__meta">
+              {pack.files.length} files &middot; about{" "}
+              {pack.estimatedTokens.toLocaleString()} tokens
+            </span>
+          </article>
+        ))}
+      </div>
+    </div>
   );
 }
 

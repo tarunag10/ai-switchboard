@@ -6932,13 +6932,97 @@ html.window-hiding {
 }
 
 .addon-card__action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+opacity: 0.5;
+cursor: not-allowed;
+}
+
+.repo-intelligence-preview {
+display: grid;
+gap: 10px;
+margin-top: 12px;
+padding: 12px;
+border: 1px solid var(--border-subtle);
+border-radius: 12px;
+background: var(--surface-sunken);
+}
+
+.repo-intelligence-preview__topline {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 12px;
+color: var(--text-muted);
+font-size: var(--text-xxs);
+font-weight: 800;
+letter-spacing: 0;
+text-transform: uppercase;
+}
+
+.repo-intelligence-preview__topline strong {
+color: var(--text-primary);
+font-size: var(--text-xs);
+text-transform: none;
+}
+
+.repo-intelligence-preview__grid {
+display: grid;
+grid-template-columns: repeat(3, minmax(0, 1fr));
+gap: 8px;
+}
+
+.repo-intelligence-pack {
+display: grid;
+gap: 6px;
+min-width: 0;
+padding: 10px;
+border: 1px solid var(--border-subtle);
+border-radius: 8px;
+background: var(--surface-raised);
+}
+
+.repo-intelligence-pack__heading {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 8px;
+min-width: 0;
+font-size: var(--text-xs);
+font-weight: 800;
+color: var(--text-primary);
+}
+
+.repo-intelligence-pack__heading span {
+min-width: 0;
+overflow-wrap: anywhere;
+}
+
+.repo-intelligence-pack__heading strong {
+color: var(--success);
+font-size: var(--text-sm);
+}
+
+.repo-intelligence-pack p {
+margin: 0;
+color: var(--text-muted);
+font-size: var(--text-xs);
+line-height: 1.35;
+}
+
+.repo-intelligence-pack__meta {
+color: var(--text-secondary);
+font-size: var(--text-xxs);
+font-weight: 700;
+}
+
+@media (max-width: 760px) {
+.repo-intelligence-preview__grid {
+grid-template-columns: 1fr;
+}
 }
 
 .planned-connectors {
-  display: grid;
-  gap: 10px;
+display: grid;
+gap: 10px;
   margin-top: 12px;
   padding: 12px;
   border: 1px solid var(--border-subtle);
