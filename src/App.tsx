@@ -147,6 +147,7 @@ import { ActivityFeed } from "./components/ActivityFeed";
 import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
 import { TermsGate } from "./components/TermsGate";
+import { SwitchboardPanel } from "./components/SwitchboardPanel";
 import type {
   AppUpdateConfiguration,
   AvailableAppUpdate,
@@ -4309,6 +4310,16 @@ export default function App() {
       ? "Enabled"
       : "Installed, off"
     : "Not installed";
+  const switchboardProxyStatus =
+    runtimeStatus?.running && runtimeStatus.proxyReachable
+      ? "Running"
+      : runtimeStatus?.paused
+        ? "Paused"
+        : "Offline";
+  const switchboardRtkDetail =
+    rtkAvgSavingsPct !== null
+      ? `${percent1(rtkAvgSavingsPct)}% average savings`
+      : "Shell output compression";
   const switchboardHeadroomLabel =
     (switchboardState?.enabledClients ?? enabledSwitchboardConnectors).length > 0
       ? (switchboardState?.enabledClients ?? enabledSwitchboardConnectors)
@@ -4766,77 +4777,21 @@ export default function App() {
               );
             })()}
 
-            <section className="switchboard-panel" aria-label="Local switchboard status">
-              <div className="switchboard-panel__head">
-                <div>
-                  <p className="switchboard-panel__eyebrow">
-                    {switchboardLocalOnly ? "Local-only Mac setup" : "Headroom cloud setup"}
-                  </p>
-                  <h2>{switchboardModeLabel(switchboardMode)}</h2>
-                </div>
-                <span className={`switchboard-panel__badge switchboard-panel__badge--${switchboardMode}`}>
-                  {switchboardModeLabel(switchboardMode)}
-                </span>
-              </div>
-              <p className="switchboard-panel__copy">{switchboardModeCopy}</p>
-              <div className="switchboard-panel__grid">
-                <div className="switchboard-panel__item">
-                  <span className="switchboard-panel__label">Headroom proxy</span>
-                  <strong>
-                    {runtimeStatus?.running && runtimeStatus.proxyReachable
-                      ? "Running"
-                      : runtimeStatus?.paused
-                        ? "Paused"
-                        : "Offline"}
-                  </strong>
-                  <small>{switchboardHeadroomLabel}</small>
-                </div>
-                <div className="switchboard-panel__item">
-                  <span className="switchboard-panel__label">RTK</span>
-                  <strong>{switchboardRtkLabel}</strong>
-                  <small>
-                    {rtkAvgSavingsPct !== null
-                      ? `${percent1(rtkAvgSavingsPct)}% average savings`
-                      : "Shell output compression"}
-                  </small>
-                </div>
-                <div className="switchboard-panel__item">
-                  <span className="switchboard-panel__label">Remote services</span>
-                  <strong>{switchboardRemoteServicesEnabled ? "Available" : "Off"}</strong>
-                  <small>
-                    {switchboardRemoteServicesEnabled
-                      ? "Account features enabled"
-                      : "No pricing, trial, Clarity, or Sentry calls"}
-                  </small>
-                </div>
-              </div>
-              <div className="switchboard-panel__actions">
-                {runtimeStatus?.paused ? (
-                  <button
-                    type="button"
-                    className="switchboard-panel__action switchboard-panel__action--primary"
-                    onClick={() => void handleResumeRuntime()}
-                    disabled={resuming}
-                  >
-                    {resuming ? "Restarting…" : "Resume Headroom"}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="switchboard-panel__action"
-                  onClick={() => setActiveView("settings")}
-                >
-                  Manage clients
-                </button>
-                <button
-                  type="button"
-                  className="switchboard-panel__action"
-                  onClick={() => setActiveView("addons")}
-                >
-                  Manage RTK
-                </button>
-              </div>
-            </section>
+            <SwitchboardPanel
+              mode={switchboardMode}
+              summary={switchboardModeCopy}
+              localOnly={switchboardLocalOnly}
+              proxyStatus={switchboardProxyStatus}
+              headroomDetail={switchboardHeadroomLabel}
+              rtkStatus={switchboardRtkLabel}
+              rtkDetail={switchboardRtkDetail}
+              remoteServicesEnabled={switchboardRemoteServicesEnabled}
+              paused={runtimeStatus?.paused === true}
+              resuming={resuming}
+              onResume={() => void handleResumeRuntime()}
+              onManageClients={() => setActiveView("settings")}
+              onManageRtk={() => setActiveView("addons")}
+            />
 
             <section className="stat-grid stat-grid--2col">
               <article
