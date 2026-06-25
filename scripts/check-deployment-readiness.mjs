@@ -111,6 +111,12 @@ const requiredSourceSignals = {
     "lists the reversible local footprint removed by uninstall",
     "keeps stable ids for modal rendering",
   ],
+  "src-tauri/src/lib.rs": [
+    "planned_connectors_detected",
+    "ClientConnectorSupportStatus::Planned",
+    "ClientConnectorSupportStatus::Managed",
+    "automatic routing is disabled until backup, restore, and off-mode cleanup are implemented",
+  ],
 };
 
 const workflowSignals = {

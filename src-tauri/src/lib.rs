@@ -2001,6 +2001,17 @@ let connectors = client_adapters::list_client_connectors(&state.cached_clients()
     let installed_clients = managed_connectors
         .filter(|client| client.installed)
         .count();
+    let planned_installed = connectors
+        .iter()
+        .filter(|client| {
+            client.installed
+                && matches!(
+                    client.support_status,
+                    crate::models::ClientConnectorSupportStatus::Planned
+                )
+        })
+        .map(|client| client.name.clone())
+        .collect::<Vec<_>>();
 
 if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
 && runtime.installed
@@ -2034,9 +2045,9 @@ repair_action: Some("reset_codex_bypass".to_string()),
 let codex_connector_enabled = connectors
 .iter()
 .any(|client| client.client_id == "codex" && client.enabled);
-if codex_connector_enabled
-&& matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
-&& !client_adapters::codex_provider_block_matches().unwrap_or(false)
+    if codex_connector_enabled
+        && matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
+        && !client_adapters::codex_provider_block_matches().unwrap_or(false)
 {
 issues.push(crate::models::DoctorIssue {
 id: "codex_provider_mismatch".to_string(),
@@ -2044,11 +2055,24 @@ title: "Codex routing config needs repair".to_string(),
 body: "Codex is marked as connected, but its model provider or proxy URL no longer matches the managed Headroom setup. This can cause empty or unsupported-model errors. Repair will re-apply the reversible Codex setup.".to_string(),
 severity: crate::models::DoctorSeverity::Warning,
 repair_action: Some("repair_codex_setup".to_string()),
-});
-}
+        });
+    }
 
-if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom) && enabled_clients == 0 {
-let repair_action = if installed_clients > 0 {
+    if !planned_installed.is_empty() {
+        issues.push(crate::models::DoctorIssue {
+            id: "planned_connectors_detected".to_string(),
+            title: "Planned coding tools detected".to_string(),
+            body: format!(
+                "{} detected. Mac AI Switchboard shows guided setup commands for these tools, but automatic routing is disabled until backup, restore, and off-mode cleanup are implemented.",
+                planned_installed.join(", ")
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: None,
+        });
+    }
+
+    if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom) && enabled_clients == 0 {
+        let repair_action = if installed_clients > 0 {
 Some("repair_client_setups".to_string())
 } else {
 None
@@ -2156,13 +2180,20 @@ state
 .codex_bypass
 .store(false, std::sync::atomic::Ordering::Release);
 state.resume_runtime().map_err(|err| err.to_string())?;
-let connectors =
-client_adapters::list_client_connectors(&state.cached_clients()).map_err(|err| err.to_string())?;
-let mut repaired = 0usize;
-for connector in connectors.iter().filter(|connector| connector.installed) {
-client_adapters::apply_client_setup(&connector.client_id).map_err(|err| err.to_string())?;
-repaired += 1;
-}
+    let connectors =
+        client_adapters::list_client_connectors(&state.cached_clients()).map_err(|err| err.to_string())?;
+    let managed_installed = connectors.iter().filter(|connector| {
+        connector.installed
+            && matches!(
+                connector.support_status,
+                crate::models::ClientConnectorSupportStatus::Managed
+            )
+    });
+    let mut repaired = 0usize;
+    for connector in managed_installed {
+        client_adapters::apply_client_setup(&connector.client_id).map_err(|err| err.to_string())?;
+        repaired += 1;
+    }
 if repaired == 0 {
 return Err("no installed supported clients found to repair".to_string());
 }
