@@ -26,6 +26,21 @@ export interface RepoContextPack {
   savingsVsFullScanPct: number;
 }
 
+export interface RepoGraphNode {
+  label: string;
+  count: number;
+  estimatedTokens: number;
+  examples: string[];
+}
+
+export interface RepoGraphSummary {
+  topDirectories: RepoGraphNode[];
+  topLanguages: RepoGraphNode[];
+  entrypoints: RepoFileSignal[];
+  likelyTests: RepoFileSignal[];
+  configHubs: RepoFileSignal[];
+}
+
 export interface RepoIntelligenceSummary {
   indexedAt?: string;
   repoRoot?: string;
@@ -34,6 +49,7 @@ export interface RepoIntelligenceSummary {
   skippedFiles?: number;
   estimatedFullScanTokens: number;
   roleCounts: Record<RepoFileRole, number>;
+  graph?: RepoGraphSummary;
   packs: RepoContextPack[];
 }
 
@@ -198,6 +214,7 @@ export function buildRepoIntelligenceSummary(
     } satisfies Record<RepoFileRole, number>,
   );
 
+  const graph = buildRepoGraphSummary(indexed);
   const packs = [
     buildContextPack(
       "implementation",
@@ -227,6 +244,7 @@ export function buildRepoIntelligenceSummary(
     indexedFiles: indexed.length,
     estimatedFullScanTokens,
     roleCounts,
+    graph,
     packs,
   };
 }
@@ -245,6 +263,7 @@ export function formatRepoContextPackMarkdown(summary: RepoIntelligenceSummary):
     `Estimated full scan tokens: ${summary.estimatedFullScanTokens.toLocaleString()}`,
     "",
   ].filter(Boolean);
+  const graphSection = formatRepoGraphMarkdown(summary.graph);
 
   const packSections = summary.packs.map((pack) => {
     const files = pack.files
@@ -263,7 +282,7 @@ export function formatRepoContextPackMarkdown(summary: RepoIntelligenceSummary):
     ].join("\n");
   });
 
-  return [...overview, ...packSections].join("\n\n").trim();
+  return [...overview, graphSection, ...packSections].filter(Boolean).join("\n\n").trim();
 }
 
 export function formatSingleRepoContextPackMarkdown(
@@ -288,6 +307,8 @@ export function formatSingleRepoContextPackMarkdown(
     `Estimated pack tokens: ${pack.estimatedTokens.toLocaleString()}`,
     `Estimated tokens avoided: ${Math.max(0, summary.estimatedFullScanTokens - pack.estimatedTokens).toLocaleString()}`,
     `Estimated savings vs full scan: ${pack.savingsVsFullScanPct.toFixed(1)}%`,
+    "",
+    formatRepoGraphMarkdown(summary.graph),
     "",
     "## Files",
     ...files,
@@ -334,6 +355,47 @@ export function estimateRepoIntelligenceSavings(
   };
 }
 
+function formatRepoGraphMarkdown(graph: RepoGraphSummary | undefined): string {
+  if (!graph) {
+    return "";
+  }
+
+  const lines = ["## Repo Graph Summary"];
+  const directories = graph.topDirectories
+    .map((node) => `- ${node.label}: ${node.count} files, ~${node.estimatedTokens.toLocaleString()} tokens`)
+    .slice(0, 6);
+  const languages = graph.topLanguages
+    .map((node) => `- ${node.label}: ${node.count} files`)
+    .slice(0, 6);
+  const entrypoints = graph.entrypoints
+    .map((file) => `- ${file.path} (${file.language})`)
+    .slice(0, 8);
+  const tests = graph.likelyTests
+    .map((file) => `- ${file.path}`)
+    .slice(0, 8);
+  const config = graph.configHubs
+    .map((file) => `- ${file.path}`)
+    .slice(0, 8);
+
+  if (directories.length) {
+    lines.push("", "Top directories", ...directories);
+  }
+  if (languages.length) {
+    lines.push("", "Top languages", ...languages);
+  }
+  if (entrypoints.length) {
+    lines.push("", "Likely entrypoints", ...entrypoints);
+  }
+  if (tests.length) {
+    lines.push("", "Likely tests", ...tests);
+  }
+  if (config.length) {
+    lines.push("", "Config hubs", ...config);
+  }
+
+  return lines.join("\n");
+}
+
 function buildContextPack(
   id: string,
   title: string,
@@ -358,4 +420,91 @@ function buildContextPack(
     estimatedTokens,
     savingsVsFullScanPct,
   };
+}
+
+function buildRepoGraphSummary(files: RepoFileSignal[]): RepoGraphSummary {
+  const included = files.filter((file) => file.includeByDefault);
+  const sourceAndConfig = included.filter(
+    (file) => file.role === "source" || file.role === "config",
+  );
+
+  return {
+    topDirectories: summarizeGraphNodes(
+      included,
+      (file) => topDirectory(file.path),
+      6,
+    ),
+    topLanguages: summarizeGraphNodes(
+      included.filter((file) => file.language !== "Unknown"),
+      (file) => file.language,
+      6,
+    ),
+    entrypoints: sourceAndConfig.filter(isLikelyEntrypoint).slice(0, 12),
+    likelyTests: included.filter((file) => file.role === "test").slice(0, 12),
+    configHubs: included.filter((file) => file.role === "config").slice(0, 12),
+  };
+}
+
+function summarizeGraphNodes(
+  files: RepoFileSignal[],
+  labelForFile: (file: RepoFileSignal) => string,
+  limit: number,
+): RepoGraphNode[] {
+  const nodes = new Map<string, RepoGraphNode>();
+
+  for (const file of files) {
+    const label = labelForFile(file);
+    const node =
+      nodes.get(label) ??
+      ({
+        label,
+        count: 0,
+        estimatedTokens: 0,
+        examples: [],
+      } satisfies RepoGraphNode);
+
+    node.count += 1;
+    node.estimatedTokens += file.estimatedTokens;
+    if (node.examples.length < 4) {
+      node.examples.push(file.path);
+    }
+    nodes.set(label, node);
+  }
+
+  return [...nodes.values()]
+    .sort(
+      (a, b) =>
+        b.count - a.count ||
+        b.estimatedTokens - a.estimatedTokens ||
+        a.label.localeCompare(b.label),
+    )
+    .slice(0, limit);
+}
+
+function topDirectory(filePath: string): string {
+  const [first, second] = filePath.split("/");
+  if (!second) {
+    return ".";
+  }
+  return first;
+}
+
+function isLikelyEntrypoint(file: RepoFileSignal): boolean {
+  const normalized = file.path.toLowerCase();
+  const name = normalized.split("/").pop() ?? normalized;
+
+  return (
+    file.role === "source" &&
+    (name === "main.ts" ||
+      name === "main.tsx" ||
+      name === "main.js" ||
+      name === "index.ts" ||
+      name === "index.tsx" ||
+      name === "index.js" ||
+      name === "app.tsx" ||
+      name === "app.ts" ||
+      name === "lib.rs" ||
+      name === "main.rs" ||
+      normalized.endsWith("/src-tauri/src/lib.rs"))
+  );
 }

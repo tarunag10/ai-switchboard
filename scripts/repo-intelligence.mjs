@@ -178,6 +178,93 @@ function pack(id, title, purpose, files, estimatedFullScanTokens) {
   };
 }
 
+function buildGraphSummary(files) {
+  const included = files.filter((file) => file.includeByDefault);
+  const sourceAndConfig = included.filter(
+    (file) => file.role === "source" || file.role === "config",
+  );
+  return {
+    topDirectories: summarizeGraphNodes(included, (file) => topDirectory(file.path), 6),
+    topLanguages: summarizeGraphNodes(
+      included.filter((file) => file.language !== "Unknown"),
+      (file) => file.language,
+      6,
+    ),
+    entrypoints: sourceAndConfig.filter(isLikelyEntrypoint).slice(0, 12),
+    likelyTests: included.filter((file) => file.role === "test").slice(0, 12),
+    configHubs: included.filter((file) => file.role === "config").slice(0, 12),
+  };
+}
+
+function summarizeGraphNodes(files, labelForFile, limit) {
+  const nodes = new Map();
+  for (const file of files) {
+    const label = labelForFile(file);
+    const node = nodes.get(label) ?? {
+      label,
+      count: 0,
+      estimatedTokens: 0,
+      examples: [],
+    };
+    node.count += 1;
+    node.estimatedTokens += file.estimatedTokens;
+    if (node.examples.length < 4) node.examples.push(file.path);
+    nodes.set(label, node);
+  }
+  return [...nodes.values()]
+    .sort(
+      (a, b) =>
+        b.count - a.count ||
+        b.estimatedTokens - a.estimatedTokens ||
+        a.label.localeCompare(b.label),
+    )
+    .slice(0, limit);
+}
+
+function topDirectory(filePath) {
+  const [first, second] = filePath.split("/");
+  return second ? first : ".";
+}
+
+function isLikelyEntrypoint(file) {
+  const normalized = file.path.toLowerCase();
+  const name = normalized.split("/").pop() ?? normalized;
+  return (
+    file.role === "source" &&
+    [
+      "main.ts",
+      "main.tsx",
+      "main.js",
+      "index.ts",
+      "index.tsx",
+      "index.js",
+      "app.tsx",
+      "app.ts",
+      "lib.rs",
+      "main.rs",
+    ].includes(name)
+  );
+}
+
+function formatGraphMarkdown(graph) {
+  if (!graph) return "";
+  const lines = ["## Repo Graph Summary"];
+  const directories = graph.topDirectories.map(
+    (node) => "- " + node.label + ": " + node.count + " files, ~" + node.estimatedTokens.toLocaleString() + " tokens",
+  );
+  const languages = graph.topLanguages.map((node) => "- " + node.label + ": " + node.count + " files");
+  const entrypoints = graph.entrypoints.map((file) => "- " + file.path + " (" + file.language + ")");
+  const tests = graph.likelyTests.map((file) => "- " + file.path);
+  const config = graph.configHubs.map((file) => "- " + file.path);
+
+  if (directories.length) lines.push("", "Top directories", ...directories);
+  if (languages.length) lines.push("", "Top languages", ...languages);
+  if (entrypoints.length) lines.push("", "Likely entrypoints", ...entrypoints);
+  if (tests.length) lines.push("", "Likely tests", ...tests);
+  if (config.length) lines.push("", "Config hubs", ...config);
+  return lines.join("\n");
+}
+
 function buildSummary(repoRoot) {
   const files = walk(repoRoot);
   const signals = files.map((file) => classify(file.path, file.bytes));
@@ -194,6 +281,7 @@ function buildSummary(repoRoot) {
     indexedFiles: indexable.length,
     estimatedFullScanTokens,
     roleCounts,
+    graph: buildGraphSummary(indexable),
     packs: [
       pack(
         "implementation",
@@ -234,6 +322,8 @@ function formatSinglePackMarkdown(summary, selectedPack) {
     `Estimated pack tokens: ${selectedPack.estimatedTokens.toLocaleString()}`,
     `Estimated tokens avoided: ${Math.max(0, summary.estimatedFullScanTokens - selectedPack.estimatedTokens).toLocaleString()}`,
     `Estimated savings vs full scan: ${selectedPack.savingsVsFullScanPct.toFixed(1)}%`,
+    "",
+    formatGraphMarkdown(summary.graph),
     "",
     "## Files",
     ...files,

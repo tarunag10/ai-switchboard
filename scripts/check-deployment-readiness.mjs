@@ -187,14 +187,19 @@ const requiredSourceSignals = {
 "Open Addons, index an available local repo again",
 ],
 "src/lib/repoIntelligence.ts": [
-"formatRepoContextPackMarkdown",
-"isSecretLikeRepoPath",
-"Repo Intelligence Context Pack",
+    "formatRepoContextPackMarkdown",
+    "isSecretLikeRepoPath",
+    "Repo Intelligence Context Pack",
+    "RepoGraphSummary",
+    "buildRepoGraphSummary",
+    "Repo Graph Summary",
     "Estimated savings vs full scan",
   ],
   "src/lib/repoIntelligence.test.ts": [
     "formats bounded context packs for agent handoff",
+    "builds a bounded repo graph summary for agent context",
     "Repo Intelligence Context Pack",
+    "Repo Graph Summary",
   ],
   "scripts/smoke-preflight.mjs": [
     "Planned connectors are visible but manual",
