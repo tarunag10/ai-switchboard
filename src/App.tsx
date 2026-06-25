@@ -164,6 +164,7 @@ import type {
   RuntimeStatus,
   RuntimeUpgradeFailure,
   RuntimeUpgradeProgress,
+  SwitchboardState,
 } from "./lib/types";
 
 interface NavItem {
@@ -1110,6 +1111,7 @@ export default function App() {
   const [contactSubmitBusy, setContactSubmitBusy] = useState(false);
   const [contactSubmitError, setContactSubmitError] = useState<string | null>(null);
   const [contactSubmitSuccess, setContactSubmitSuccess] = useState<string | null>(null);
+  const [switchboardState, setSwitchboardState] = useState<SwitchboardState | null>(null);
   const localOnlyMode = localOnlyModeEnabled();
   const appSemver = appUpdateConfig?.currentVersion ?? packageJson.version;
   const bootstrapFailureSignatureRef = useRef("");
@@ -1124,6 +1126,7 @@ export default function App() {
   const dashboardSignatureRef = useRef(serializeState(mockDashboard));
   const connectorsSignatureRef = useRef(serializeState([] as ClientConnectorStatus[]));
   const runtimeStatusSignatureRef = useRef(serializeState(null as RuntimeStatus | null));
+  const switchboardSignatureRef = useRef(serializeState(null as SwitchboardState | null));
   const claudeProjectsSignatureRef = useRef(serializeState([] as ClaudeCodeProject[]));
   const upgradePlansState = getUpgradePlans(
     pricingAudience,
@@ -1186,6 +1189,10 @@ export default function App() {
   }, [runtimeStatus]);
 
   useEffect(() => {
+    switchboardSignatureRef.current = serializeState(switchboardState);
+  }, [switchboardState]);
+
+  useEffect(() => {
     claudeProjectsSignatureRef.current = serializeState(claudeProjects);
   }, [claudeProjects]);
 
@@ -1214,6 +1221,15 @@ export default function App() {
     }
     runtimeStatusSignatureRef.current = nextSignature;
     setRuntimeStatus(next);
+  }
+
+  function applySwitchboardStateIfChanged(next: SwitchboardState | null) {
+    const nextSignature = serializeState(next);
+    if (switchboardSignatureRef.current === nextSignature) {
+      return;
+    }
+    switchboardSignatureRef.current = nextSignature;
+    setSwitchboardState(next);
   }
 
   function applyClaudeProjectsIfChanged(next: ClaudeCodeProject[]) {
@@ -1390,8 +1406,9 @@ export default function App() {
       }
 
       updateStartup("runtime", 80, "Preparing Headroom runtime…");
-      const [runtimeResult, pricingResult] = await Promise.all([
+      const [runtimeResult, switchboardResult, pricingResult] = await Promise.all([
         invoke<RuntimeStatus>("get_runtime_status").catch(() => null),
+        invoke<SwitchboardState>("get_switchboard_state").catch(() => null),
         localOnlyMode
           ? Promise.resolve(null)
           : invoke<HeadroomPricingStatus>("get_headroom_pricing_status").catch(() => null),
@@ -1402,6 +1419,9 @@ export default function App() {
       }
       if (runtimeResult) {
         applyRuntimeStatusIfChanged(runtimeResult);
+      }
+      if (switchboardResult) {
+        applySwitchboardStateIfChanged(switchboardResult);
       }
       if (pricingResult) {
         setPricingStatus(pricingResult);
@@ -1815,6 +1835,17 @@ export default function App() {
   }, [appUpdateConfig, startupReady, windowLabel]);
 
   useEffect(() => {
+    if (windowLabel !== "main" || !trayWindowFocused) {
+      return;
+    }
+    void refreshSwitchboardState();
+    const interval = window.setInterval(() => {
+      void refreshSwitchboardState();
+    }, 5_000);
+    return () => window.clearInterval(interval);
+  }, [trayWindowFocused, windowLabel]);
+
+  useEffect(() => {
     appUpdateKnownVersionRef.current = appUpdateAvailable?.version ?? null;
   }, [appUpdateAvailable?.version]);
 
@@ -1864,7 +1895,7 @@ export default function App() {
     setAddonResult(null);
     try {
       await invoke<boolean>("set_rtk_enabled", { enabled: nextEnabled });
-      await refreshRuntimeStatus();
+      await refreshSwitchboardState();
       const message = nextEnabled ? undefined : copy?.disabled;
       if (message) {
         setAddonResult({ id: "rtk", message });
@@ -2617,6 +2648,17 @@ export default function App() {
       setConnectorsError(
         error instanceof Error ? error.message : "Could not load connector status."
       );
+    }
+  }
+
+  async function refreshSwitchboardState() {
+    try {
+      const state = await invoke<SwitchboardState>("get_switchboard_state");
+      applySwitchboardStateIfChanged(state);
+      applyRuntimeStatusIfChanged(state.runtime);
+      applyConnectorsIfChanged(state.clients);
+    } catch {
+      applySwitchboardStateIfChanged(null);
     }
   }
 
@@ -4268,30 +4310,37 @@ export default function App() {
   const rtkSwitchboardEnabled = runtimeStatus?.rtk.installed === true && runtimeStatus.rtk.enabled === true;
   const headroomSwitchboardEnabled =
     runtimeHealthy && enabledSwitchboardConnectors.length > 0 && runtimeStatus?.paused !== true;
-  const switchboardMode: SwitchboardMode = headroomSwitchboardEnabled
+  const derivedSwitchboardMode: SwitchboardMode = headroomSwitchboardEnabled
     ? rtkSwitchboardEnabled
       ? "full"
       : "headroom"
     : rtkSwitchboardEnabled
       ? "rtk"
       : "off";
+  const switchboardMode = switchboardState?.mode ?? derivedSwitchboardMode;
   const switchboardModeCopy =
-    switchboardMode === "full"
+    switchboardState?.summary ??
+    (switchboardMode === "full"
       ? "Headroom proxy routing and RTK command compression are both active."
       : switchboardMode === "headroom"
         ? "LLM traffic is routed through Headroom. RTK command compression is off."
         : switchboardMode === "rtk"
           ? "RTK command compression is active. No coding client is routed through Headroom."
-          : "No optimization layer is active right now.";
+          : "No optimization layer is active right now.");
   const switchboardRtkLabel = runtimeStatus?.rtk.installed
     ? runtimeStatus.rtk.enabled
       ? "Enabled"
       : "Installed, off"
     : "Not installed";
   const switchboardHeadroomLabel =
-    enabledSwitchboardConnectors.length > 0
-      ? enabledSwitchboardConnectors.map((connector) => connector.name).join(", ")
+    (switchboardState?.enabledClients ?? enabledSwitchboardConnectors).length > 0
+      ? (switchboardState?.enabledClients ?? enabledSwitchboardConnectors)
+          .map((connector) => connector.name)
+          .join(", ")
       : "No clients enabled";
+  const switchboardLocalOnly = switchboardState?.localOnly ?? localOnlyMode;
+  const switchboardRemoteServicesEnabled =
+    switchboardState?.remoteServicesEnabled ?? !switchboardLocalOnly;
   const sortedClaudeProjects = [...claudeProjects].sort((left, right) => {
     const leftTime = Date.parse(left.lastWorkedAt);
     const rightTime = Date.parse(right.lastWorkedAt);
@@ -4744,7 +4793,7 @@ export default function App() {
               <div className="switchboard-panel__head">
                 <div>
                   <p className="switchboard-panel__eyebrow">
-                    {localOnlyMode ? "Local-only Mac setup" : "Headroom cloud setup"}
+                    {switchboardLocalOnly ? "Local-only Mac setup" : "Headroom cloud setup"}
                   </p>
                   <h2>{switchboardModeLabel(switchboardMode)}</h2>
                 </div>
@@ -4776,8 +4825,12 @@ export default function App() {
                 </div>
                 <div className="switchboard-panel__item">
                   <span className="switchboard-panel__label">Remote services</span>
-                  <strong>{localOnlyMode ? "Off" : "Available"}</strong>
-                  <small>{localOnlyMode ? "No pricing, trial, Clarity, or Sentry calls" : "Account features enabled"}</small>
+                  <strong>{switchboardRemoteServicesEnabled ? "Available" : "Off"}</strong>
+                  <small>
+                    {switchboardRemoteServicesEnabled
+                      ? "Account features enabled"
+                      : "No pricing, trial, Clarity, or Sentry calls"}
+                  </small>
                 </div>
               </div>
               <div className="switchboard-panel__actions">

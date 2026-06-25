@@ -291,6 +291,29 @@ pub struct RuntimeStatus {
     pub rtk: RtkRuntimeStatus,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SwitchboardMode {
+    Off,
+    Rtk,
+    Headroom,
+    Full,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwitchboardState {
+    pub mode: SwitchboardMode,
+    pub local_only: bool,
+    pub remote_services_enabled: bool,
+    pub runtime: RuntimeStatus,
+    pub clients: Vec<ClientConnectorStatus>,
+    pub enabled_clients: Vec<ClientConnectorStatus>,
+    pub rtk_enabled: bool,
+    pub headroom_enabled: bool,
+    pub summary: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeUpgradeProgress {
