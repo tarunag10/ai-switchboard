@@ -80,6 +80,19 @@ const workflowSignals = {
   ],
 };
 
+const forbiddenUserCopy = {
+  "src-tauri/src/lib.rs": [
+    "The local proxy not answering",
+    "compression oversized Codex",
+    "Codex temporarily going direct",
+    "This cause model errors",
+    "empty unsupported model",
+    "currently configured use Headroom",
+    "return connect it",
+    "RTK required for requested",
+  ],
+};
+
 const failures = [];
 
 function read(path) {
@@ -124,6 +137,16 @@ for (const [path, signals] of Object.entries(workflowSignals)) {
   for (const signal of signals) {
     if (!body.includes(signal)) {
       failures.push(`${path} missing release workflow signal: ${signal}`);
+    }
+  }
+}
+
+for (const [path, phrases] of Object.entries(forbiddenUserCopy)) {
+  if (!requireFile(path)) continue;
+  const body = read(path);
+  for (const phrase of phrases) {
+    if (body.includes(phrase)) {
+      failures.push(`${path} contains rough user-facing copy: ${phrase}`);
     }
   }
 }

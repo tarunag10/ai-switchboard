@@ -2041,7 +2041,7 @@ if codex_connector_enabled
 issues.push(crate::models::DoctorIssue {
 id: "codex_provider_mismatch".to_string(),
 title: "Codex routing config needs repair".to_string(),
-body: "Codex is marked as connected, but its model provider or proxy URL no longer matches the managed Headroom setup. This can cause model errors such as an empty or unsupported model. Repair will re-apply the reversible Codex setup.".to_string(),
+body: "Codex is marked as connected, but its model provider or proxy URL no longer matches the managed Headroom setup. This can cause empty or unsupported-model errors. Repair will re-apply the reversible Codex setup.".to_string(),
 severity: crate::models::DoctorSeverity::Warning,
 repair_action: Some("repair_codex_setup".to_string()),
 });
