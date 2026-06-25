@@ -92,6 +92,8 @@ const requiredDocSignals = {
     "Oversized Codex compression refusal",
     "Codex model/provider mismatch",
     "Planned connectors are visible but manual",
+    "backend detection evidence",
+    "RTK only or Repo packs",
     "copyable manual setup guide",
     "Launcher auto-setup and proxy verification should include only managed connectors",
     "Mac AI Switchboard.app",
@@ -247,6 +249,9 @@ const requiredSourceSignals = {
   ],
   "scripts/smoke-preflight.mjs": [
     "Planned connectors are visible but manual",
+    "backend detection evidence",
+    "planned connector manual warnings with detection evidence",
+    "safe RTK-only or Repo Intelligence pack guidance",
     "copyable manual setup guide",
     "copy bounded context pack",
  "copy individual task pack",

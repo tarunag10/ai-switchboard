@@ -14,6 +14,8 @@ const requiredSignals = {
     "local footprint matrix",
     "Doctor triage shows automatic and manual counts",
     "Planned connectors are visible but manual",
+    "backend detection evidence",
+    "RTK only or Repo packs",
     "Repair all will leave manual steps visible",
     "copyable manual setup guide",
     "Copy agent manifest",
@@ -83,8 +85,8 @@ Generated: ${generatedAt}
 ## Required Installed-App Smoke Areas
 
 - Switchboard modes: Full optimization, Headroom only, RTK only, Off
-- Doctor repairs: runtime, Codex setup, RTK, planned connector manual warnings, and Repo Intelligence stale/missing-index warnings
-- Planned connectors: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose
+- Doctor repairs: runtime, Codex setup, RTK, planned connector manual warnings with detection evidence, and Repo Intelligence stale/missing-index warnings
+- Planned connectors: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose; each stays disabled and manual with safe RTK-only or Repo Intelligence pack guidance
 - Repo Intelligence: local repo index, persisted latest summary, copy bounded context pack, copy individual task pack, clear saved index, context-pack preview, per-pack copy
 - Local-first behavior: remote services gated, Off mode reversible cleanup
 - Codex resilience: compression refusal reset and model/provider repair
