@@ -98,6 +98,8 @@ const requiredDocSignals = {
     "Pause / resume",
     "Codex traffic is actively optimized",
     "Copy pack",
+    "Clear index",
+    "Re-indexing remains a deliberate Addons action",
     "bounded Markdown context pack",
   ],
   "docs/codex-compression-troubleshooting.md": [

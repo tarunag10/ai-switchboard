@@ -17,6 +17,8 @@ const requiredSignals = {
     "Repair all will leave manual steps visible",
     "copyable manual setup guide",
     "Copy agent manifest",
+    "Clear index",
+    "Re-indexing remains a deliberate Addons action",
     "Release readiness visible in Settings",
     "Launcher auto-setup and proxy verification should include only managed connectors",
     "Codex traffic is actively optimized",

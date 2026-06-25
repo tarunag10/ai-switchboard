@@ -81,7 +81,7 @@ Open Addons, enter a local repo path in the Repo Intelligence card, and click **
 
 Expect: the card shows indexed signals, context packs, the repo path, and indexed timestamp. Restart the app and return to Addons.
 
-Expect: the latest Repo Intelligence summary reloads from managed app storage. If the indexed repo folder is moved or deleted, Doctor shows a manual warning to re-index an available local repo and does not offer **Repair all** for that issue.
+Expect: latest Repo Intelligence summary reloads from managed app storage. If the indexed repo folder is moved or deleted, Doctor shows **Clear index** as an automatic cleanup for the stale or missing saved summary. **Repair all** may clear that saved summary, but it must not guess a replacement repo path or mutate the repo. Re-indexing remains a deliberate Addons action.
 
 Click **Copy pack**.
 
@@ -93,7 +93,7 @@ Expect: JSON manifest is copied for external coding agents. It includes `mac_ai_
 
 Click **Clear** in the Repo Intelligence card.
 
-Expect: the card returns to the read-only preview state, the saved repo path disappears, and Doctor no longer reports stale or missing Repo Intelligence index warnings.
+Expect: card returns to the read-only preview state, the saved repo path disappears, and Doctor no longer reports stale or missing Repo Intelligence index warnings.
 
 ### S10. Release readiness visible in Settings
 
