@@ -14,11 +14,12 @@ describe("planned add-ons", () => {
     expect(repoIntelligence?.description).toContain("context-pack foundation");
     expect(repoIntelligence?.bullets.join(" ")).toContain("Foundation added");
     expect(repoIntelligence?.bullets.join(" ")).toContain("Not complete yet");
+    expect(repoIntelligence?.bullets.join(" ")).toContain("dependency hubs exist");
     expect(repoIntelligence?.bullets.join(" ")).toContain("Graphy-style");
     expect(repoIntelligence?.bullets.join(" ")).toContain("tree-sitter");
     expect(repoIntelligence?.bullets.join(" ")).toContain("repomix-style");
     expect(repoIntelligence?.bullets.join(" ")).toContain("MCP repo-memory");
-    expect(repoIntelligence?.bullets.join(" ")).toContain("persistent index");
+    expect(repoIntelligence?.bullets.join(" ")).toContain("persistent parser index");
     expect(repoIntelligence?.bullets.join(" ")).toContain("Local-first");
   });
 

@@ -115,7 +115,7 @@ const requiredDocSignals = {
     "--pack implementation --format markdown",
     "Default packs exclude secret-like paths",
     "User repositories are not modified",
-    "does not yet provide a full Graphy-style symbol graph",
+    "now surfaces dependency hubs",
   ],
 };
 

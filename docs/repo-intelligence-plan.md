@@ -1,12 +1,12 @@
 # Repo Intelligence Plan
 
-Repo Intelligence is underway, not complete. The app now has a read-only foundation for local file classification, rough token estimation, bounded implementation, verification, and handoff context packs. It does not yet have a complete Graphy-style symbol graph, call graph, dependency graph, or agent-facing context-pack API.
+Repo Intelligence is underway, not complete. The app now has a read-only foundation for local file classification, rough token estimation, bounded implementation, verification, and handoff context packs. It now has dependency hubs in the local graph summary, but it does not yet have a complete Graphy-style symbol graph, import graph, call graph, or agent-facing local API.
 
 The goal is to make Mac AI Switchboard useful before an agent burns tokens reading the same files repeatedly: build a local repo graph, turn it into small task-specific context packs, and expose those packs to Claude Code, Codex, Gemini CLI, OpenCode, and future local agents without sending repository contents to a remote graph service.
 
 ## Recommended Tools To Evaluate
 
-- **Graphy-style repo graph:** symbol dependency graph view for files, imports, call paths, and test relationships.
+- **Graphy-style repo graph:** symbol/import/call graph view for files, call paths, dependency hubs, and test relationships.
 - **tree-sitter parsers:** local language-aware extraction for TypeScript, JavaScript, Python, Rust, Swift, Markdown, and shell scripts.
 - **Dependency call-graph analyzers:** language-specific helpers such as TypeScript compiler APIs, Rust metadata, Python AST/import scanners, and package manifest readers.
 - **repomix-style repo packaging:** bounded, ignore-aware repo summaries for agent context handoff.
