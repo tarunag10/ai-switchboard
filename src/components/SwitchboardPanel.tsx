@@ -72,7 +72,7 @@ export function SwitchboardPanel({
       <p className="switchboard-panel__copy">{summary}</p>
       {needsAttention ? (
         <p className="switchboard-panel__attention">
-          Active now: {effectiveModeLabel}
+          Active now: {effectiveModeLabel}. Run Doctor to repair.
         </p>
       ) : null}
       <div
