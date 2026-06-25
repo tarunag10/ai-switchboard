@@ -14,6 +14,7 @@ mod models;
 mod port_conflict;
 mod pricing;
 mod proxy_intercept;
+mod repo_intelligence;
 mod state;
 mod storage;
 mod tool_manager;
@@ -45,8 +46,8 @@ use crate::models::{
     ClaudeCodeProject, ClaudeUsage, ClientConnectorStatus, ClientSetupResult,
     ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
     HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
-    HeadroomSubscriptionTier, RuntimeStatus, RuntimeUpgradeProgress, SwitchboardMode,
-    SwitchboardState,
+    HeadroomSubscriptionTier, RepoIntelligenceSummary, RuntimeStatus, RuntimeUpgradeProgress,
+    SwitchboardMode, SwitchboardState,
     TransformationFeedResponse,
 };
 use crate::state::AppState;
@@ -241,6 +242,11 @@ fn check_zero_spend_anomaly(dashboard: &DashboardState) {
         ),
         sentry::Level::Warning,
     );
+}
+
+#[tauri::command]
+fn build_repo_intelligence_summary(repo_path: String) -> Result<RepoIntelligenceSummary, String> {
+    repo_intelligence::summarize_repo(repo_path).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -3772,6 +3778,7 @@ pub fn run() {
         .manage(PendingAppUpdate(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             get_dashboard_state,
+            build_repo_intelligence_summary,
             get_app_update_configuration,
             check_for_app_update,
             install_app_update,

@@ -62,7 +62,10 @@ maybeFireUrgentPricingNotifications,
 maybeFireUrgentRuntimeNotification,
 } from "./lib/urgentNotifications";
 import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
-import { buildRepoIntelligenceSummary } from "./lib/repoIntelligence";
+import {
+  buildRepoIntelligenceSummary,
+  type RepoIntelligenceSummary,
+} from "./lib/repoIntelligence";
 import {
   getPlannedConnector,
   getPlannedConnectorSetupGuide,
@@ -1109,14 +1112,67 @@ const repoIntelligencePreview = buildRepoIntelligenceSummary([
 ]);
 
 function RepoIntelligencePreview() {
+  const [repoPath, setRepoPath] = useState("");
+  const [summary, setSummary] = useState<RepoIntelligenceSummary>(repoIntelligencePreview);
+  const [indexing, setIndexing] = useState(false);
+  const [indexError, setIndexError] = useState<string | null>(null);
+  const isPreview = summary === repoIntelligencePreview;
+
+  async function runRepoIndex() {
+    const trimmedPath = repoPath.trim();
+    if (!trimmedPath) {
+      setIndexError("Enter a local repository folder path first.");
+      return;
+    }
+    setIndexing(true);
+    setIndexError(null);
+    try {
+      const next = await invoke<RepoIntelligenceSummary>("build_repo_intelligence_summary", {
+        repoPath: trimmedPath,
+      });
+      setSummary(next);
+    } catch (error) {
+      setIndexError(
+        error instanceof Error ? error.message : "Repo Intelligence could not index that folder.",
+      );
+    } finally {
+      setIndexing(false);
+    }
+  }
+
   return (
     <div className="repo-intelligence-preview" aria-label="Repo Intelligence context pack preview">
       <div className="repo-intelligence-preview__topline">
-        <span>Read-only context packs</span>
-        <strong>{repoIntelligencePreview.indexedFiles} indexed signals</strong>
+        <span>{isPreview ? "Read-only context packs" : "Local index result"}</span>
+        <strong>
+          {summary.indexedFiles} indexed signals
+          {summary.skippedFiles ? `, ${summary.skippedFiles} skipped` : ""}
+        </strong>
       </div>
+      <div className="repo-intelligence-preview__controls">
+        <input
+          aria-label="Repository folder path"
+          className="repo-intelligence-preview__input"
+          onChange={(event) => setRepoPath(event.target.value)}
+          placeholder="~/Developer/my-repo"
+          type="text"
+          value={repoPath}
+        />
+        <button
+          className="addon-card__action addon-card__action--primary"
+          disabled={indexing}
+          onClick={() => void runRepoIndex()}
+          type="button"
+        >
+          {indexing ? "Indexing..." : "Index"}
+        </button>
+      </div>
+      {summary.repoRoot ? (
+        <p className="repo-intelligence-preview__path">{summary.repoRoot}</p>
+      ) : null}
+      {indexError ? <p className="install-progress__error">{indexError}</p> : null}
       <div className="repo-intelligence-preview__grid">
-        {repoIntelligencePreview.packs.map((pack) => (
+        {summary.packs.map((pack) => (
           <article className="repo-intelligence-pack" key={pack.id}>
             <div className="repo-intelligence-pack__heading">
               <span>{pack.title}</span>

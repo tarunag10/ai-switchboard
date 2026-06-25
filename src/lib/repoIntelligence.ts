@@ -27,8 +27,10 @@ export interface RepoContextPack {
 }
 
 export interface RepoIntelligenceSummary {
+  repoRoot?: string;
   totalFiles: number;
   indexedFiles: number;
+  skippedFiles?: number;
   estimatedFullScanTokens: number;
   roleCounts: Record<RepoFileRole, number>;
   packs: RepoContextPack[];

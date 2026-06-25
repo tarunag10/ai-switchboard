@@ -90,6 +90,53 @@ pub struct DailyInsight {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum RepoFileRole {
+    Source,
+    Test,
+    Config,
+    Docs,
+    Asset,
+    Lockfile,
+    Generated,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoFileSignal {
+    pub path: String,
+    pub role: RepoFileRole,
+    pub language: String,
+    pub estimated_tokens: u64,
+    pub include_by_default: bool,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoContextPack {
+    pub id: String,
+    pub title: String,
+    pub purpose: String,
+    pub files: Vec<RepoFileSignal>,
+    pub estimated_tokens: u64,
+    pub savings_vs_full_scan_pct: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoIntelligenceSummary {
+    pub repo_root: String,
+    pub total_files: u64,
+    pub indexed_files: u64,
+    pub skipped_files: u64,
+    pub estimated_full_scan_tokens: u64,
+    pub role_counts: std::collections::BTreeMap<String, u64>,
+    pub packs: Vec<RepoContextPack>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ClientHealth {
     Healthy,
     Attention,
