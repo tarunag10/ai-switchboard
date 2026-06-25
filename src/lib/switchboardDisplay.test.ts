@@ -4,6 +4,7 @@ import {
   deriveSwitchboardMode,
   switchboardAttentionCopy,
   switchboardModeEffect,
+  switchboardModeFootprint,
   switchboardModeLabel,
   switchboardModeSafetyNotes,
   switchboardModeSummary,
@@ -90,14 +91,30 @@ describe("switchboardDisplay", () => {
     );
   });
 
-  it("explains off mode safety without deleting local repo intelligence state", () => {
+it("explains off mode safety without deleting local repo intelligence state", () => {
     expect(switchboardModeSafetyNotes("off")).toEqual([
       "Routing hooks and RTK shell integration are disabled for normal client behavior.",
       "Repo Intelligence summaries remain local until cleared from Addons.",
     ]);
-  });
+});
 
-  it("explains requested/effective mode mismatches", () => {
+it("describes each mode local footprint", () => {
+  expect(switchboardModeFootprint("full")).toEqual([
+    { label: "Client routing", state: "on", detail: "Managed through Headroom" },
+    { label: "Shell output", state: "on", detail: "RTK compacts noisy commands" },
+    { label: "Repo packs", state: "local", detail: "Local copy/export only" },
+  ]);
+  expect(switchboardModeFootprint("rtk").map((item) => item.state)).toEqual([
+    "off",
+    "on",
+    "local",
+  ]);
+  expect(switchboardModeFootprint("off").map((item) => item.detail)).toContain(
+    "Saved locally until cleared",
+  );
+});
+
+it("explains requested/effective mode mismatches", () => {
     expect(switchboardAttentionCopy("full", "rtk")).toBe(
       "Active now: RTK only. Connect a supported client or repair Headroom routing in Doctor.",
     );

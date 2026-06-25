@@ -38,10 +38,16 @@ describe("SwitchboardPanel", () => {
       screen.getByRole("heading", { name: "Full optimization" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Local-only Mac setup")).toBeInTheDocument();
-    expect(screen.getByText("Codex, Claude Code")).toBeInTheDocument();
-    expect(screen.getByText("82.5% average savings")).toBeInTheDocument();
-    expect(
-      screen.getByText(
+expect(screen.getByText("Codex, Claude Code")).toBeInTheDocument();
+expect(screen.getByText("82.5% average savings")).toBeInTheDocument();
+expect(screen.getByLabelText("Full optimization local footprint")).toBeInTheDocument();
+expect(screen.getByText("Client routing")).toBeInTheDocument();
+expect(screen.getByText("Shell output")).toBeInTheDocument();
+expect(screen.getByText("Repo packs")).toBeInTheDocument();
+expect(screen.getByText("Managed through Headroom")).toBeInTheDocument();
+expect(screen.getByText("RTK compacts noisy commands")).toBeInTheDocument();
+expect(
+screen.getByText(
         "Routes supported clients through Headroom and compresses shell output with RTK.",
       ),
     ).toBeInTheDocument();

@@ -72,6 +72,44 @@ export function switchboardModeSafetyNotes(mode: SwitchboardMode): string[] {
   }
 }
 
+export interface SwitchboardModeFootprint {
+  label: string;
+  state: "on" | "off" | "local";
+  detail: string;
+}
+
+export function switchboardModeFootprint(
+  mode: SwitchboardMode,
+): SwitchboardModeFootprint[] {
+  switch (mode) {
+    case "full":
+      return [
+        { label: "Client routing", state: "on", detail: "Managed through Headroom" },
+        { label: "Shell output", state: "on", detail: "RTK compacts noisy commands" },
+        { label: "Repo packs", state: "local", detail: "Local copy/export only" },
+      ];
+    case "headroom":
+      return [
+        { label: "Client routing", state: "on", detail: "Managed through Headroom" },
+        { label: "Shell output", state: "off", detail: "RTK hooks disabled" },
+        { label: "Repo packs", state: "local", detail: "Local copy/export only" },
+      ];
+    case "rtk":
+      return [
+        { label: "Client routing", state: "off", detail: "Clients use provider directly" },
+        { label: "Shell output", state: "on", detail: "RTK compacts noisy commands" },
+        { label: "Repo packs", state: "local", detail: "Local copy/export only" },
+      ];
+    case "off":
+    default:
+      return [
+        { label: "Client routing", state: "off", detail: "Managed routing removed" },
+        { label: "Shell output", state: "off", detail: "RTK hooks disabled" },
+        { label: "Repo packs", state: "local", detail: "Saved locally until cleared" },
+      ];
+  }
+}
+
 export function switchboardAttentionCopy(
   desiredMode: SwitchboardMode,
   effectiveMode: SwitchboardMode,

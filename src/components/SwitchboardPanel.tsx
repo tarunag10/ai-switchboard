@@ -14,6 +14,7 @@ import {
 import { switchboardModeDiagnostic } from "../lib/switchboardDiagnostics";
 import {
   switchboardModeEffect,
+  switchboardModeFootprint,
   switchboardModeLabel,
   switchboardModeSafetyNotes,
 } from "../lib/switchboardDisplay";
@@ -74,9 +75,10 @@ export function SwitchboardPanel({
     needsAttention,
   );
   const modeLabel = modeDiagnostic.requestedLabel;
-  const modeEffect = switchboardModeEffect(mode);
-  const modeSafetyNotes = switchboardModeSafetyNotes(mode);
-  const setupLabel = localOnlySetupLabel(localOnly);
+ const modeEffect = switchboardModeEffect(mode);
+ const modeSafetyNotes = switchboardModeSafetyNotes(mode);
+ const modeFootprint = switchboardModeFootprint(mode);
+ const setupLabel = localOnlySetupLabel(localOnly);
   const remoteCopy = remoteServicesCopy(remoteServicesEnabled);
   const codexGuidance = codexConcurrencyGuidance(mode, headroomDetail);
 
@@ -136,12 +138,23 @@ export function SwitchboardPanel({
         })}
       </div>
         <p className="switchboard-panel__mode-effect">{modeEffect}</p>
-        <ul className="switchboard-panel__mode-notes" aria-label={`${modeLabel} safety notes`}>
-          {modeSafetyNotes.map((note) => (
-            <li key={note}>{note}</li>
-          ))}
-        </ul>
-      {codexGuidance ? (
+<ul className="switchboard-panel__mode-notes" aria-label={`${modeLabel} safety notes`}>
+{modeSafetyNotes.map((note) => (
+<li key={note}>{note}</li>
+))}
+</ul>
+<div className="switchboard-panel__footprint" aria-label={`${modeLabel} local footprint`}>
+{modeFootprint.map((item) => (
+<div className="switchboard-panel__footprint-item" key={item.label}>
+<span className="switchboard-panel__footprint-label">{item.label}</span>
+<strong className={`switchboard-panel__footprint-state switchboard-panel__footprint-state--${item.state}`}>
+{item.state === "on" ? "On" : item.state === "off" ? "Off" : "Local"}
+</strong>
+<small>{item.detail}</small>
+</div>
+))}
+</div>
+{codexGuidance ? (
         <div className="switchboard-panel__recommendation">
           <div>
             <strong>{codexGuidance.title}</strong>
