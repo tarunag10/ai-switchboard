@@ -59,6 +59,7 @@ import {
   maybeFireUrgentPricingNotifications,
   maybeFireUrgentRuntimeNotification,
 } from "./lib/urgentNotifications";
+import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
 import {
   describeInvokeError,
   getNextLowerUpgradePlanId,
@@ -931,23 +932,21 @@ function AddonCard({
   );
 }
 
-function PlannedAddonCard() {
+function PlannedAddonCard({ addon }: { addon: PlannedAddon }) {
   return (
     <li className="addon-card addon-card--planned">
       <div className="addon-card__body">
         <div className="addon-card__heading">
-          <span className="addon-card__name">Repo Intelligence</span>
-          <span className="addon-card__badge addon-card__badge--planned">Planned</span>
+          <span className="addon-card__name">{addon.name}</span>
+          <span className="addon-card__badge addon-card__badge--planned">
+            {addon.statusLabel}
+          </span>
         </div>
-        <p className="addon-card__description">
-          Local code graph and repository memory layer for symbol, import, route, and
-          call-path context. This should reduce repeated file reads and help agents pick
-          smaller, safer edits before spending tokens.
-        </p>
+        <p className="addon-card__description">{addon.description}</p>
         <ul className="addon-card__bullets">
-          <li>Future adapters for Graphify, CodeGraph-style indexes, and MCP repo memory.</li>
-          <li>Local-first index stored on this Mac, with no remote service requirement.</li>
-          <li>Read-only planning mode first; write or auto-repair actions stay explicit.</li>
+          {addon.bullets.map((bullet) => (
+            <li key={bullet}>{bullet}</li>
+          ))}
         </ul>
       </div>
       <div className="addon-card__actions">
@@ -5465,7 +5464,9 @@ onRepair={(action) => void handleDoctorRepair(action)}
                     />
                   );
                 })}
-              <PlannedAddonCard />
+              {plannedAddons.map((addon) => (
+                <PlannedAddonCard key={addon.id} addon={addon} />
+              ))}
             </ul>
           </section>
         </div>

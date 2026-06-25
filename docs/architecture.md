@@ -25,3 +25,4 @@ The packaged app identity is `Mac AI Switchboard`, but runtime storage intention
 - `vitals` is included as the primary scanner.
 - Managed tools may be Python-based or standalone binaries when Headroom owns the install path.
 - Client configuration changes require explicit user consent and rollback support.
+- Repo Intelligence is planned as a local-first Graphy-style code graph, symbol index, and repo memory layer. First implementation should be read-only context planning; any write or auto-repair action must remain explicit.

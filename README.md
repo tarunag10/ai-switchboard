@@ -28,7 +28,7 @@ The app is **local-first**, not offline-only. Claude/OpenAI model calls still go
 | OpenCode | Detected in the switchboard; reversible routing adapter pending | Planned |
 | Ponytail | Agent behavior nudge toward smaller changes | Add-on |
 | MarkItDown | Document-to-Markdown preprocessing | Add-on |
-| Repo graph tools | Future local code-intelligence layer | Planned |
+| Repo Intelligence | Future local Graphy-style code graph, symbol index, and repo memory layer | Planned |
 
 ## Local-First Defaults
 
