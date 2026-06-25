@@ -140,6 +140,8 @@ pub struct RepoGraphSummary {
     pub entrypoints: Vec<RepoFileSignal>,
     pub likely_tests: Vec<RepoFileSignal>,
     pub config_hubs: Vec<RepoFileSignal>,
+    #[serde(default)]
+    pub dependency_hubs: Vec<RepoFileSignal>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

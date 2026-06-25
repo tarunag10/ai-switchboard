@@ -353,6 +353,12 @@ fn build_repo_graph_summary(files: &[RepoFileSignal]) -> RepoGraphSummary {
             .take(12)
             .cloned()
             .collect(),
+        dependency_hubs: files
+            .iter()
+            .filter(|signal| is_dependency_hub(signal))
+            .take(12)
+            .cloned()
+            .collect(),
     }
 }
 
@@ -425,6 +431,26 @@ fn lockfile_name(name: &str) -> bool {
         name,
         "Cargo.lock" | "package-lock.json" | "pnpm-lock.yaml" | "yarn.lock" | "bun.lockb"
     )
+}
+
+fn is_dependency_hub(file: &RepoFileSignal) -> bool {
+    let name = file
+        .path
+        .rsplit('/')
+        .next()
+        .unwrap_or(file.path.as_str())
+        .to_lowercase();
+    matches!(file.role, RepoFileRole::Lockfile)
+        || matches!(
+            name.as_str(),
+            "package.json"
+                | "pyproject.toml"
+                | "requirements.txt"
+                | "cargo.toml"
+                | "go.mod"
+                | "gemfile"
+                | "podfile"
+        )
 }
 
 fn is_secret_like_path(path: &str, name: &str, extension: &str) -> bool {
@@ -542,6 +568,7 @@ mod tests {
             classify_file("src-tauri/src/lib.rs", 5000),
             classify_file("scripts/release.mjs", 1200),
             classify_file("package.json", 800),
+            classify_file("package-lock.json", 1600),
             classify_file(".env.local", 200),
         ];
         let graph = build_repo_graph_summary(&files);
@@ -561,6 +588,14 @@ mod tests {
             .config_hubs
             .iter()
             .any(|file| file.path == ".env.local"));
+        assert!(graph
+            .dependency_hubs
+            .iter()
+            .any(|file| file.path == "package.json"));
+        assert!(graph
+            .dependency_hubs
+            .iter()
+            .any(|file| file.path == "package-lock.json"));
     }
 
     #[test]

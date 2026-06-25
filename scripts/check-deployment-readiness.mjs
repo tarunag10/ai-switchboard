@@ -198,12 +198,15 @@ const requiredSourceSignals = {
     "RepoGraphSummary",
     "RepoGraphNode",
     "pub graph: Option<RepoGraphSummary>",
+    "pub dependency_hubs",
   ],
   "src-tauri/src/repo_intelligence.rs": [
     "build_repo_graph_summary",
     "builds_repo_graph_summary_for_agent_context",
     "top_directories",
     "config_hubs",
+    "dependency_hubs",
+    "is_dependency_hub",
   ],
   "src/App.tsx": [
     "Copy agent manifest",
