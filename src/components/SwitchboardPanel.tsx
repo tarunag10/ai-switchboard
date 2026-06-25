@@ -2,8 +2,8 @@ import {
   localOnlySetupLabel,
   remoteServicesCopy,
 } from "../lib/remoteServices";
+import { switchboardModeDiagnostic } from "../lib/switchboardDiagnostics";
 import {
-  switchboardAttentionCopy,
   switchboardModeEffect,
   switchboardModeLabel,
 } from "../lib/switchboardDisplay";
@@ -52,12 +52,13 @@ export function SwitchboardPanel({
   onManageClients,
   onManageRtk,
 }: SwitchboardPanelProps) {
-  const modeLabel = switchboardModeLabel(mode);
-  const effectiveModeLabel = switchboardModeLabel(effectiveMode ?? mode);
+  const modeDiagnostic = switchboardModeDiagnostic(
+    mode,
+    effectiveMode,
+    needsAttention,
+  );
+  const modeLabel = modeDiagnostic.requestedLabel;
   const modeEffect = switchboardModeEffect(mode);
-  const attentionCopy = needsAttention
-    ? switchboardAttentionCopy(mode, effectiveMode ?? mode)
-    : "";
   const setupLabel = localOnlySetupLabel(localOnly);
   const remoteCopy = remoteServicesCopy(remoteServicesEnabled);
 
@@ -82,7 +83,7 @@ export function SwitchboardPanel({
       <p className="switchboard-panel__copy">{summary}</p>
       {needsAttention ? (
         <p className="switchboard-panel__attention">
-          {attentionCopy || `Active now: ${effectiveModeLabel}. Run Doctor to repair.`}
+          {modeDiagnostic.attentionCopy}
         </p>
       ) : null}
       <div
