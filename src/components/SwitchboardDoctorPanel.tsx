@@ -1,6 +1,8 @@
 import {
   canRepairIssue,
-  doctorRepairHint,
+  doctorIssueActionHint,
+  doctorIssueActionKind,
+  doctorIssueActionLabel,
   doctorRepairLabel,
 } from "../lib/doctorRepairCopy";
 import type { DoctorIssue, DoctorReport } from "../lib/types";
@@ -70,25 +72,31 @@ export function SwitchboardDoctorPanel({
         <p className="switchboard-doctor__success">{successMessage}</p>
       ) : null}
 
-      <div className="switchboard-doctor__issues">
-        {report.issues.map((issue) => {
-          const repairAction = issue.repairAction ?? null;
-          const repairable = canRepairIssue(repairAction);
+<div className="switchboard-doctor__issues">
+{report.issues.map((issue) => {
+const repairAction = issue.repairAction ?? null;
+const repairable = canRepairIssue(repairAction);
+const actionKind = doctorIssueActionKind(repairAction);
 
-          return (
-            <article
-              key={issue.id}
-              className={`switchboard-doctor__issue switchboard-doctor__issue--${issueTone(issue)}`}
-            >
-              <div>
-                <strong>{issue.title}</strong>
-                <p>{issue.body}</p>
-                {repairable ? (
-                  <p className="switchboard-doctor__hint">
-                    {doctorRepairHint(repairAction as string)}
-                  </p>
-                ) : null}
-              </div>
+return (
+<article
+key={issue.id}
+className={`switchboard-doctor__issue switchboard-doctor__issue--${issueTone(issue)} switchboard-doctor__issue--${actionKind}`}
+>
+<div>
+<div className="switchboard-doctor__issue-title">
+<strong>{issue.title}</strong>
+<span
+className={`switchboard-doctor__action-kind switchboard-doctor__action-kind--${actionKind}`}
+>
+{doctorIssueActionLabel(repairAction)}
+</span>
+</div>
+<p>{issue.body}</p>
+<p className="switchboard-doctor__hint">
+{doctorIssueActionHint(repairAction)}
+</p>
+</div>
               {repairable ? (
                 <button
                   type="button"

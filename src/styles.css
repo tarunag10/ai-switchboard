@@ -2739,15 +2739,44 @@ color: var(--text-primary);
 }
 
 .switchboard-doctor__issue strong {
-  display: block;
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-  line-height: 1.25;
+display: block;
+color: var(--text-primary);
+font-size: var(--text-sm);
+line-height: 1.25;
+}
+
+.switchboard-doctor__issue-title {
+display: flex;
+align-items: flex-start;
+justify-content: space-between;
+gap: 8px;
+}
+
+.switchboard-doctor__action-kind {
+flex: 0 0 auto;
+padding: 4px 7px;
+border: 1px solid var(--border-subtle);
+border-radius: 999px;
+background: var(--surface-sunken);
+color: var(--text-secondary);
+font-size: var(--text-xxs);
+font-weight: 800;
+line-height: 1;
+}
+
+.switchboard-doctor__action-kind--automatic {
+background: var(--accent-tint);
+color: var(--accent-strong);
+}
+
+.switchboard-doctor__action-kind--manual {
+background: var(--warning-tint);
+color: var(--warning);
 }
 
 .switchboard-doctor__issue p {
-  margin: 3px 0 0;
-  color: var(--text-secondary);
+margin: 3px 0 0;
+color: var(--text-secondary);
   font-size: var(--text-xs);
   line-height: 1.35;
 }

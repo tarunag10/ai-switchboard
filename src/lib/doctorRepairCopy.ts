@@ -42,3 +42,25 @@ export function doctorRepairHint(action: string): string {
 export function canRepairIssue(action: string | null | undefined): boolean {
   return typeof action === "string" && action.length > 0;
 }
+
+export function doctorIssueActionKind(
+  action: string | null | undefined,
+): "automatic" | "manual" {
+  return canRepairIssue(action) ? "automatic" : "manual";
+}
+
+export function doctorIssueActionLabel(
+  action: string | null | undefined,
+): string {
+  return doctorIssueActionKind(action) === "automatic"
+    ? "Auto repair"
+    : "Manual step";
+}
+
+export function doctorIssueActionHint(
+  action: string | null | undefined,
+): string {
+  return doctorIssueActionKind(action) === "automatic"
+    ? doctorRepairHint(action as string)
+    : "No automatic repair is available yet. Follow the issue guidance, then re-run Doctor.";
+}
