@@ -318,6 +318,8 @@ pub struct ClientConnectorStatus {
     pub setup_hint: String,
     pub category: String,
     pub detection_sources: Vec<String>,
+    #[serde(default)]
+    pub detection_evidence: Vec<String>,
     pub config_locations: Vec<String>,
     pub installed: bool,
     pub enabled: bool,

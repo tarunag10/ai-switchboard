@@ -6515,22 +6515,29 @@ onRepair={(action) => void handleDoctorRepair(action)}
                           <p className="connector-plan__target">
                             {plannedConnector.integrationTarget}
                           </p>
-                          {connector.detectionSources?.length ||
-                          connector.configLocations?.length ? (
-                            <div className="connector-plan__backend">
-                              <strong>Backend checks</strong>
-                              {connector.detectionSources?.length ? (
-                                <span>
-                                  Detects {connector.detectionSources.slice(0, 3).join(", ")}
+                      {connector.detectionSources?.length ||
+                      connector.configLocations?.length ||
+                      connector.detectionEvidence?.length ? (
+                        <div className="connector-plan__backend">
+                          <strong>Backend checks</strong>
+                          {connector.detectionSources?.length ? (
+                            <span>
+                              Detects {connector.detectionSources.slice(0, 3).join(", ")}
                                 </span>
                               ) : null}
                               {connector.configLocations?.length ? (
                                 <span>
-                                  Watches {connector.configLocations.slice(0, 2).join(", ")}
-                                </span>
-                              ) : null}
-                            </div>
+                              Watches {connector.configLocations.slice(0, 2).join(", ")}
+                            </span>
                           ) : null}
+                          {connector.detectionEvidence?.length ? (
+                            <span>
+                              Evidence{" "}
+                              {connector.detectionEvidence.slice(0, 2).join(" · ")}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                           <div className="connector-plan__capabilities">
                             {plannedConnector.capabilityRows.map((capability) => (
                               <div

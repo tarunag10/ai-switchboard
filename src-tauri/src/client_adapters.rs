@@ -521,6 +521,11 @@ pub fn list_client_connectors(
                 setup_hint: "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.".to_string(),
                 category: "managed".to_string(),
                 detection_sources: vec!["App state and local config".to_string()],
+                detection_evidence: detected_clients
+                    .iter()
+                    .find(|client| client.id == spec.id)
+                    .map(|client| client.notes.clone())
+                    .unwrap_or_default(),
                 config_locations: managed_connector_config_locations(spec.id),
                 installed,
                 enabled,
@@ -531,9 +536,10 @@ pub fn list_client_connectors(
         .collect::<Vec<_>>();
 
     connectors.extend(PLANNED_CLIENT_SPECS.iter().map(|spec| {
-        let installed = detected_clients
+        let detected_client = detected_clients
             .iter()
-            .find(|client| client.id == spec.id)
+            .find(|client| client.id == spec.id);
+        let installed = detected_client
             .map(|client| client.installed)
             .unwrap_or(false);
 
@@ -546,12 +552,15 @@ pub fn list_client_connectors(
                 category: spec.category.to_string(),
                 detection_sources: spec
                     .detection_sources
-                    .iter()
-                    .map(|source| source.to_string())
-                    .collect(),
-                config_locations: spec
-                    .config_locations
-                    .iter()
+                .iter()
+                .map(|source| source.to_string())
+                .collect(),
+            detection_evidence: detected_client
+                .map(|client| client.notes.clone())
+                .unwrap_or_else(|| vec!["Not checked yet.".to_string()]),
+            config_locations: spec
+                .config_locations
+                .iter()
                     .map(|location| location.to_string())
                     .collect(),
                 installed,
@@ -3426,7 +3435,7 @@ mod tests {
                 installed: true,
                 configured: false,
                 health: ClientHealth::Attention,
-                notes: vec![],
+                notes: vec!["Detected at /opt/homebrew/bin/gemini".into()],
             },
             ClientStatus {
                 id: "aider".into(),
@@ -3434,7 +3443,7 @@ mod tests {
                 installed: true,
                 configured: false,
                 health: ClientHealth::Attention,
-                notes: vec![],
+                notes: vec!["Detected data at ~/.aider.conf.yml.".into()],
             },
         ];
 
@@ -3452,6 +3461,7 @@ mod tests {
             assert_eq!(connector.last_configured_at, None);
             assert!(!connector.category.is_empty());
             assert!(!connector.detection_sources.is_empty());
+            assert!(!connector.detection_evidence.is_empty());
             assert!(!connector.config_locations.is_empty());
         }
 
@@ -3459,11 +3469,17 @@ mod tests {
             connector.client_id == "gemini_cli"
                 && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Detected at /opt/homebrew/bin/gemini".to_string())
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "aider"
                 && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Detected data at ~/.aider.conf.yml.".to_string())
         }));
     }
 

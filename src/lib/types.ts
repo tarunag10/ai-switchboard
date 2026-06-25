@@ -168,6 +168,7 @@ export interface ClientConnectorStatus {
   setupHint?: string;
   category?: string;
   detectionSources?: string[];
+  detectionEvidence?: string[];
   configLocations?: string[];
   installed: boolean;
   enabled: boolean;

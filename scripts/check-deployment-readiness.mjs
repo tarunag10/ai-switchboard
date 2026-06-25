@@ -166,11 +166,13 @@ const requiredSourceSignals = {
     "setup_phase",
     "setup_hint",
     "detection_sources",
+    "detection_evidence",
     "config_locations",
   ],
   "src-tauri/src/client_adapters.rs": [
     "struct PlannedClientSpec",
     "detection_sources",
+    "detection_evidence",
     "config_locations",
     "planned_connector_registry_includes_backend_detection_metadata",
     "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.",
@@ -211,6 +213,8 @@ const requiredSourceSignals = {
   "src/App.tsx": [
     "Copy agent manifest",
     "releaseReadinessGroups",
+    "detectionEvidence",
+    "Evidence",
     "Release readiness",
     "repo-intelligence-graph",
     "Repo Intelligence graph summary",
