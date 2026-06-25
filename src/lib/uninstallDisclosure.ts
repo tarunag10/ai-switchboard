@@ -27,8 +27,15 @@ export const uninstallDisclosureItems: UninstallDisclosureItem[] = [
   },
   {
     id: "managed-storage",
-    text: "Delete managed runtime storage, logs, caches, receipts, setup state, and legacy runtime folders.",
+    text: "Delete managed runtime storage, logs, caches, receipts, setup state, Repo Intelligence summaries, and legacy runtime folders.",
     paths: ["~/Library/Application Support/Headroom", "~/.headroom"],
+  },
+  {
+    id: "repo-intelligence",
+    text: "Remove saved Repo Intelligence local index metadata. User repositories are not modified.",
+    paths: [
+      "~/Library/Application Support/Headroom/config/repo-intelligence-latest.json",
+    ],
   },
   {
     id: "login-item",

@@ -21,6 +21,9 @@ describe("uninstallDisclosure", () => {
     expect(allCopy).toContain("Claude Code");
     expect(allCopy).toContain("Codex");
     expect(allCopy).toContain("~/Library/Application Support/Headroom");
+    expect(allCopy).toContain("Repo Intelligence");
+    expect(allCopy).toContain("repo-intelligence-latest.json");
+    expect(allCopy).toContain("User repositories are not modified");
     expect(allCopy).toContain("~/.headroom");
     expect(allCopy).toContain("~/Library/LaunchAgents/");
     expect(allCopy).toContain("Keychain");
@@ -33,6 +36,7 @@ describe("uninstallDisclosure", () => {
       "client-hooks",
       "managed-hooks",
       "managed-storage",
+      "repo-intelligence",
       "login-item",
       "app-state",
       "plugins-backups",

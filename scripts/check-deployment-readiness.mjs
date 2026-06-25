@@ -112,6 +112,8 @@ const requiredSourceSignals = {
   "src/lib/uninstallDisclosure.ts": [
     "Remove managed routing hooks and environment changes",
     "Delete managed hook scripts and shell-profile blocks",
+    "repo-intelligence-latest.json",
+    "User repositories are not modified",
     "Use Off mode instead if you only want to stop routing without deleting runtime files",
   ],
   "src/lib/uninstallDisclosure.test.ts": [
