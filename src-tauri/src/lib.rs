@@ -2020,6 +2020,22 @@ repair_action: Some("reset_codex_bypass".to_string()),
 });
 }
 
+let codex_connector_enabled = connectors
+.iter()
+.any(|client| client.client_id == "codex" && client.enabled);
+if codex_connector_enabled
+&& matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
+&& !client_adapters::codex_provider_block_matches().unwrap_or(false)
+{
+issues.push(crate::models::DoctorIssue {
+id: "codex_provider_mismatch".to_string(),
+title: "Codex routing config needs repair".to_string(),
+body: "Codex is marked as connected, but its model provider or proxy URL no longer matches the managed Headroom setup. This can cause model errors such as an empty or unsupported model. Repair will re-apply the reversible Codex setup.".to_string(),
+severity: crate::models::DoctorSeverity::Warning,
+repair_action: Some("repair_codex_setup".to_string()),
+});
+}
+
 if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom) && enabled_clients == 0 {
 let repair_action = if installed_clients > 0 {
 Some("repair_client_setups".to_string())
@@ -2143,6 +2159,16 @@ state.invalidate_runtime_status_cache();
 Ok(())
 }
 
+fn repair_codex_setup(state: &AppState) -> Result<(), String> {
+state
+.codex_bypass
+.store(false, std::sync::atomic::Ordering::Release);
+state.resume_runtime().map_err(|err| err.to_string())?;
+client_adapters::apply_client_setup("codex").map_err(|err| err.to_string())?;
+state.invalidate_runtime_status_cache();
+Ok(())
+}
+
 fn repair_rtk_integrations(state: &AppState) -> Result<(), String> {
 client_adapters::set_rtk_enabled(
 true,
@@ -2185,6 +2211,10 @@ Ok(build_doctor_report(&state))
 repair_client_setups(&state)?;
 Ok(build_doctor_report(&state))
 }
+"repair_codex_setup" => {
+repair_codex_setup(&state)?;
+Ok(build_doctor_report(&state))
+}
 "repair_rtk_integrations" => {
 repair_rtk_integrations(&state)?;
 Ok(build_doctor_report(&state))
@@ -2205,6 +2235,7 @@ state.invalidate_runtime_status_cache();
 }
 Some("repair_runtime") => repair_runtime(&state)?,
 Some("repair_client_setups") => repair_client_setups(&state)?,
+Some("repair_codex_setup") => repair_codex_setup(&state)?,
 Some("repair_rtk_integrations") => repair_rtk_integrations(&state)?,
 Some("repair_rtk_runtime") => repair_rtk_runtime(&state)?,
 _ => {}

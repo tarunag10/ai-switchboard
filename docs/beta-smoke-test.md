@@ -8,6 +8,65 @@ After installing a new beta (`-rc.N`) build, paste this file into Claude Code an
 2. Confirm the tray icon appears in the menu bar.
 3. Open the dashboard window once (so the proxy is fully booted).
 
+## Switchboard checks
+
+Run these from the tray Home view before the client-specific passes. These checks verify the local-first Mac AI Switchboard layer, not only the underlying Headroom proxy.
+
+### S1. Local-only shell is focused on Mac controls
+
+With `HEADROOM_LOCAL_ONLY=1` and `VITE_HEADROOM_LOCAL_ONLY=1`, open the tray window.
+
+Expect: Home shows the Switchboard panel and Doctor area. Cloud upgrade/auth prompts are not reachable from navigation or notification clicks; remote services show as Off.
+
+### S2. Mode buttons explain their effect
+
+Click each mode button without leaving Home:
+
+- Full optimization
+- Headroom only
+- RTK only
+- Off
+
+Expect: the mode effect line changes to describe exactly what will be routed or left alone. The selected mode badge matches the requested mode.
+
+### S3. Requested mode vs active mode is honest
+
+Create a degraded setup by requesting Full optimization while either RTK or client routing is missing. The easiest safe path is to uninstall or disable RTK from Addons, then request Full optimization.
+
+Expect: Switchboard still shows the requested mode, but the attention line reports the active mode and says to run Doctor. Doctor lists the missing dependency instead of leaving the mode change looking stuck.
+
+### S4. Doctor repairs missing RTK
+
+From the degraded state in S3, run the RTK Doctor repair.
+
+Expect: Doctor offers **Install RTK** when RTK is missing or disabled. After repair, RTK is installed/enabled, the Doctor issue clears or changes to a more specific RTK integration issue, and the Switchboard refreshes within a few seconds.
+
+### S5. Off mode is a clean pass-through
+
+Switch to Off.
+
+Expect: client routing hooks are removed, RTK integration is disabled, Headroom stops intercepting, and the Switchboard active mode becomes Off after refresh. Supported clients should behave as they did before Headroom.
+
+### S6. Oversized Codex compression refusal is recoverable
+
+If Codex hits:
+
+```text
+unexpected status 413 Payload Too Large: compression_refused
+```
+
+Expect: Codex temporarily bypasses Headroom so work can continue. After compacting context or switching to RTK only, Doctor shows the Codex bypass issue and **Reset Codex** routes Codex through Headroom again.
+
+### S7. Codex model/provider mismatch is repairable
+
+If Codex hits:
+
+```text
+The '' model is not supported when using Codex with a ChatGPT account.
+```
+
+Expect: this is treated as a Codex routing/config problem, not as an RTK compression problem. Doctor should flag Codex routing config if the managed provider block or proxy URL is stale, and **Repair Codex** should re-apply the reversible Codex setup.
+
 ## Checks (Claude Code pass)
 
 Run these from a Claude Code session and report PASS / FAIL with the observed value. Checks 1, 5, 8, 9, and 10 are client-agnostic — run them once in either client. Codex has very different wiring (no RTK, no `~/.claude/settings.json`, pay-per-token), so its equivalents of checks 6 and 7 live in the **Codex pass** below; run that whole section from a Codex session.

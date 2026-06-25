@@ -23,6 +23,13 @@ const warningReport: DoctorReport = {
       repairAction: "reset_codex_bypass",
     },
     {
+      id: "codex_provider_mismatch",
+      title: "Codex routing config needs repair",
+      body: "Repair will re-apply the reversible Codex setup.",
+      severity: "warning",
+      repairAction: "repair_codex_setup",
+    },
+    {
       id: "no_headroom_clients",
       title: "No clients are routed through Headroom",
       body: "Repair will re-apply reversible client setup.",
@@ -95,6 +102,9 @@ describe("SwitchboardDoctorPanel", () => {
       screen.getByRole("heading", { name: "Needs attention" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Codex is bypassing Headroom")).toBeInTheDocument();
+    expect(
+      screen.getByText("Codex routing config needs repair"),
+    ).toBeInTheDocument();
 
     expect(
       screen.getByRole("button", { name: "Repair all" }),
@@ -106,6 +116,9 @@ describe("SwitchboardDoctorPanel", () => {
       screen.getByRole("button", { name: "Repair clients" }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole("button", { name: "Repair Codex" }),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("button", { name: "Install RTK" }),
     ).toBeInTheDocument();
     expect(
@@ -114,6 +127,8 @@ describe("SwitchboardDoctorPanel", () => {
 
     await user.click(screen.getByRole("button", { name: "Reset Codex" }));
     expect(onRepair).toHaveBeenCalledWith("reset_codex_bypass");
+    await user.click(screen.getByRole("button", { name: "Repair Codex" }));
+    expect(onRepair).toHaveBeenCalledWith("repair_codex_setup");
     await user.click(screen.getByRole("button", { name: "Install RTK" }));
     expect(onRepair).toHaveBeenCalledWith("repair_rtk_runtime");
     await user.click(screen.getByRole("button", { name: "Repair all" }));

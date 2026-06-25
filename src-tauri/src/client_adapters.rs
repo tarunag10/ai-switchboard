@@ -1893,7 +1893,7 @@ fn strip_codex_managed_toml(content: &str) -> String {
         CODEX_TABLE_BLOCK_ID,
     );
     let openai_orphan_prefix = "openai_base_url = \"http://127.0.0.1:";
-    without_blocks
+    strip_legacy_codex_headroom_provider_table(&without_blocks)
         .lines()
         .filter(|line| {
             let trimmed = line.trim();
@@ -1902,6 +1902,25 @@ fn strip_codex_managed_toml(content: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+fn strip_legacy_codex_headroom_provider_table(content: &str) -> String {
+    let mut out = Vec::new();
+    let mut dropping = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == "[model_providers.headroom]" {
+            dropping = true;
+            continue;
+        }
+        if dropping && trimmed.starts_with('[') && trimmed.ends_with(']') {
+            dropping = false;
+        }
+        if !dropping {
+            out.push(line);
+        }
+    }
+    out.join("\n")
 }
 
 /// Pure-text removal of a single `# >>> headroom:<id> >>> ... <<<` block.
@@ -1969,7 +1988,7 @@ fn configure_codex_provider_block() -> Result<(Vec<String>, Vec<String>)> {
     Ok((vec![path.display().to_string()], backup_files))
 }
 
-fn codex_provider_block_matches() -> Result<bool> {
+pub fn codex_provider_block_matches() -> Result<bool> {
     let path = codex_config_toml_path();
     if !path.exists() {
         return Ok(false);
@@ -4449,7 +4468,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
-    fn apply_codex_omits_requires_openai_auth_for_api_key_users() {
+fn apply_codex_omits_requires_openai_auth_for_api_key_users() {
         let home = TestHome::new();
         fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
         let codex_dir = home.path().join(".codex");
@@ -4465,12 +4484,64 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(
             !toml.contains("requires_openai_auth"),
             "API-key users must not be forced into an OpenAI OAuth login (#406), got:\n{toml}"
-        );
-    }
+);
+}
 
-    #[test]
-    #[serial_test::serial]
-    fn apply_codex_keeps_root_keys_at_root_scope_when_config_ends_in_a_table() {
+#[test]
+#[serial_test::serial]
+fn apply_codex_replaces_unmarked_legacy_headroom_provider_table() {
+let home = TestHome::new();
+fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
+let codex_dir = home.path().join(".codex");
+fs::create_dir_all(&codex_dir).unwrap();
+fs::write(
+codex_dir.join("config.toml"),
+"model_provider = \"headroom\"\n\
+model = \"gpt-5.5\"\n\n\
+[model_providers.headroom]\n\
+name = \"OpenAI via old Headroom proxy\"\n\
+base_url = \"http://127.0.0.1:8787/v1\"\n\
+supports_websockets = true\n\n\
+[features]\n\
+js_repl = false\n",
+)
+.unwrap();
+
+super::apply_client_setup("codex").expect("apply_client_setup repairs stale provider");
+let toml = fs::read_to_string(codex_dir.join("config.toml")).unwrap();
+let parsed: toml::Value = toml.parse().expect("repaired config parses");
+
+assert_eq!(
+toml.matches("[model_providers.headroom]").count(),
+1,
+"stale provider table should be replaced, got:\n{toml}"
+);
+assert!(
+!toml.contains("127.0.0.1:8787"),
+"stale proxy port should be removed, got:\n{toml}"
+);
+assert_eq!(
+parsed
+.get("model_providers")
+.and_then(|providers| providers.get("headroom"))
+.and_then(|headroom| headroom.get("base_url"))
+.and_then(|value| value.as_str()),
+Some(super::HEADROOM_OPENAI_BASE_URL),
+"managed provider should point at current Headroom proxy, got:\n{toml}"
+);
+assert_eq!(
+parsed
+.get("features")
+.and_then(|features| features.get("js_repl"))
+.and_then(|value| value.as_bool()),
+Some(false),
+"unrelated user tables should be preserved, got:\n{toml}"
+);
+}
+
+#[test]
+#[serial_test::serial]
+fn apply_codex_keeps_root_keys_at_root_scope_when_config_ends_in_a_table() {
         // Regression for the `invalid type: string "headroom", expected a
         // boolean in features` error: a config whose last table is `[features]`
         // (boolean-only values) used to absorb the appended root keys.

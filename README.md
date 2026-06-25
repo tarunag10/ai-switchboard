@@ -66,6 +66,14 @@ unexpected status 413 Payload Too Large: compression_refused
 
 the app lets Codex bypass Headroom temporarily so work can continue. After compacting the conversation or switching to RTK-only, use Doctor to reset the bypass and route through Headroom again.
 
+If Codex instead reports:
+
+```text
+The '' model is not supported when using Codex with a ChatGPT account.
+```
+
+that is a Codex model/provider configuration problem, not RTK compression. Doctor checks whether Codex still points at the managed Headroom provider and can re-apply the reversible Codex setup if stale config points at an old proxy URL or provider block.
+
 ## Upstream Foundation
 
 This project started from the MIT-licensed Headroom Desktop shell. The current work keeps the useful Tauri/Rust + React + managed-runtime foundation while moving the product toward a standalone local Mac AI work switchboard.

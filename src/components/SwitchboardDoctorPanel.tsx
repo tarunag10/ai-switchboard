@@ -18,6 +18,8 @@ function repairLabel(action: string): string {
       return "Restart Headroom";
     case "reset_codex_bypass":
       return "Reset Codex";
+    case "repair_codex_setup":
+      return "Repair Codex";
     case "repair_client_setups":
       return "Repair clients";
     case "repair_rtk_integrations":
