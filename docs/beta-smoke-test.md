@@ -69,6 +69,12 @@ The '' model is not supported when using Codex with a ChatGPT account.
 
 Expect: this is treated as a Codex routing/config problem, not as an RTK compression problem. Doctor should flag Codex routing config if the managed provider block or proxy URL is stale, and **Repair Codex** should re-apply the reversible Codex setup.
 
+### S8. Planned connectors are visible but manual
+
+Open Settings and inspect the coding tool connector list.
+
+Expect: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, and Goose all appear when detected or known to the connector registry. Each planned connector shows a **Planned** badge, setup phase, category, copyable manual setup guide, and disabled switch. Doctor may show **Planned coding tools detected**, but it must be a manual step with no **Repair all** action for those tools. Launcher auto-setup and proxy verification should include only managed connectors such as Claude Code and Codex.
+
 ## Checks (Claude Code pass)
 
 Run these from a Claude Code session and report PASS / FAIL with the observed value. Checks 1, 5, 8, 9, and 10 are client-agnostic — run them once in either client. Codex has very different wiring (no RTK, no `~/.claude/settings.json`, pay-per-token), so its equivalents of checks 6 and 7 live in the **Codex pass** below; run that whole section from a Codex session.
