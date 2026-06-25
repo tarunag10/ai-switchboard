@@ -138,6 +138,11 @@ import {
 } from "./lib/trayHelpers";
 import { trackAnalyticsEvent, trackInstallMilestoneOnce } from "./lib/analytics";
 import { localOnlyModeEnabled } from "./lib/localMode";
+import {
+  deriveSwitchboardMode,
+  switchboardModeLabel,
+  switchboardModeSummary
+} from "./lib/switchboardDisplay";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
@@ -164,6 +169,7 @@ import type {
   RuntimeStatus,
   RuntimeUpgradeFailure,
   RuntimeUpgradeProgress,
+  SwitchboardMode,
   SwitchboardState,
 } from "./lib/types";
 
@@ -317,22 +323,6 @@ type StartupPhase = "window" | "dashboard" | "bootstrap" | "runtime" | "ready";
 const authCodeExpiryFallbackSeconds = 900;
 const APP_UPDATE_BACKGROUND_INITIAL_DELAY_MS = 12_000;
 const APP_UPDATE_BACKGROUND_CHECK_INTERVAL_MS = 60 * 60 * 1000;
-
-type SwitchboardMode = "off" | "rtk" | "headroom" | "full";
-
-function switchboardModeLabel(mode: SwitchboardMode): string {
-  switch (mode) {
-    case "full":
-      return "Full optimization";
-    case "headroom":
-      return "Headroom only";
-    case "rtk":
-      return "RTK only";
-    case "off":
-    default:
-      return "Off";
-  }
-}
 
 async function loadDashboard(): Promise<DashboardState> {
   try {
@@ -4307,26 +4297,13 @@ export default function App() {
   const tierMismatch = localOnlyMode ? null : pricingStatus?.tierMismatch ?? null;
   const switchboardConnectors = sortClientConnectors(aggregateClientConnectors(connectors));
   const enabledSwitchboardConnectors = switchboardConnectors.filter((connector) => connector.enabled);
-  const rtkSwitchboardEnabled = runtimeStatus?.rtk.installed === true && runtimeStatus.rtk.enabled === true;
-  const headroomSwitchboardEnabled =
-    runtimeHealthy && enabledSwitchboardConnectors.length > 0 && runtimeStatus?.paused !== true;
-  const derivedSwitchboardMode: SwitchboardMode = headroomSwitchboardEnabled
-    ? rtkSwitchboardEnabled
-      ? "full"
-      : "headroom"
-    : rtkSwitchboardEnabled
-      ? "rtk"
-      : "off";
+  const derivedSwitchboardMode: SwitchboardMode = deriveSwitchboardMode(
+    runtimeStatus,
+    enabledSwitchboardConnectors
+  );
   const switchboardMode = switchboardState?.mode ?? derivedSwitchboardMode;
   const switchboardModeCopy =
-    switchboardState?.summary ??
-    (switchboardMode === "full"
-      ? "Headroom proxy routing and RTK command compression are both active."
-      : switchboardMode === "headroom"
-        ? "LLM traffic is routed through Headroom. RTK command compression is off."
-        : switchboardMode === "rtk"
-          ? "RTK command compression is active. No coding client is routed through Headroom."
-          : "No optimization layer is active right now.");
+    switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
   const switchboardRtkLabel = runtimeStatus?.rtk.installed
     ? runtimeStatus.rtk.enabled
       ? "Enabled"
