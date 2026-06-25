@@ -178,6 +178,20 @@ const forbiddenUserCopy = {
     "backup files created next edited configs",
     "Off mode is safer you only want",
   ],
+  "src/lib/plannedAddons.ts": [
+    "memory layer symbols",
+    "reads help agents",
+    "when tool stable config surface",
+    "consistent Claude Code Codex",
+    "RTK future Repo Intelligence",
+  ],
+  "src/lib/plannedConnectors.ts": [
+    "only provider configuration supports",
+    "after stable local CLI surface",
+    "Track separately generic",
+    "Local config adapter explicit backup restore",
+    "Switchboard has stable connector capability model",
+  ],
 };
 
 const failures = [];

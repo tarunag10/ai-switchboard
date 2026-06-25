@@ -16,7 +16,7 @@ export const plannedAddons: PlannedAddon[] = [
     bullets: [
       "Not fully added yet: no complete Graphy-style integration, graph builder, token-saving graph context layer, or UI workflow exists today.",
       "Recommended targets include Graphy-style code graphs, tree-sitter parsers, dependency/call-graph analyzers, repomix-style repo packaging, and MCP repo-memory adapters.",
-      "Local-first index stored on Mac, with no remote service requirement.",
+      "Local-first index stored on the Mac, with no remote service requirement.",
       "Read-only planning mode first; write and auto-repair actions stay explicit.",
     ],
   },
@@ -27,10 +27,10 @@ export const plannedAddons: PlannedAddon[] = [
     description:
       "Future connector layer for popular coding CLIs and editor agents beyond Claude Code and Codex, including Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, and Goose.",
     bullets: [
-      "Start with read-only detection so the switchboard can show installed tools without editing configs.",
-      "Add reversible local provider/base-url adapters only when a tool has a stable config surface.",
+      "Start with read-only detection so Switchboard can show installed tools without editing configs.",
+      "Add reversible local provider/base-url adapters only when each tool has a stable config surface.",
       "Keep off-mode cleanup, backups, and Doctor repair actions consistent with Claude Code and Codex.",
-      "Expose RTK and future Repo Intelligence context packs to agent-style tools where direct Headroom routing is not supported.",
+      "Expose RTK and future Repo Intelligence context packs for agent-style tools where direct Headroom routing is not supported.",
     ],
   },
 ];

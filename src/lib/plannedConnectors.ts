@@ -60,7 +60,7 @@ export const plannedConnectors: PlannedConnector[] = [
     integrationTarget:
       "Local environment/provider wrapper plus Repo Intelligence context packs.",
     notes:
-      "Good fit for RTK future repo graph context because it is frequently used inside long coding sessions.",
+      "Good fit for RTK and future repo graph context because it is frequently used inside long coding sessions.",
   },
   {
     id: "continue",
