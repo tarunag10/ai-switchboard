@@ -10,7 +10,7 @@ describe("planned add-ons", () => {
       name: "Repo Intelligence",
       statusLabel: "Planned",
     });
-    expect(repoIntelligence?.description).toContain("Local repo graph");
+    expect(repoIntelligence?.description).toContain("Future local repo graph");
     expect(repoIntelligence?.description).toContain("smaller, safer edits");
     expect(repoIntelligence?.bullets.join(" ")).toContain("Graphy-style");
     expect(repoIntelligence?.bullets.join(" ")).toContain("Local-first");

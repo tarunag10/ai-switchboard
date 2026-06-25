@@ -206,17 +206,17 @@ interface AddonCopy {
 const addonCopy: Record<string, AddonCopy> = {
   rtk: {
     whatItDoes:
-      "Installing downloads the RTK binary into Headroom's managed runtime, adds it to your shell PATH, and turns on the bash auto-rewrite hook. Shell commands your agent runs are routed through RTK, which compacts their output so it costs far fewer tokens. Removed cleanly when you uninstall it or Headroom.",
+      "RTK installs into the managed runtime, adds itself to the shell PATH, and enables the bash auto-rewrite hook. Agent shell commands route through RTK so noisy output is compacted before it spends tokens.",
     installing: "Downloading RTK and registering the bash hook...",
     uninstalling: "Removing RTK, its PATH entry, and the bash hook...",
     uninstalled: "RTK removed. Shell commands run normally, without output rewriting.",
     enabling: "Enabling RTK and registering the bash hook...",
     disabling: "Disabling RTK and removing the bash hook...",
-    disabled: "RTK is off but still installed. Re-enable any time without re-downloading."
+    disabled: "RTK is off but still installed. Re-enable it later without re-downloading."
   },
   markitdown: {
     whatItDoes:
-      "Installing adds the MarkItDown converter to Headroom's managed Python runtime and registers a document Read hook. Nothing is installed system-wide - it all lives under Headroom's app data and is removed when you uninstall Headroom.",
+      "MarkItDown installs into the managed Python runtime and registers a document Read hook. Documents can be converted to Markdown before an agent reads them, without installing anything system-wide.",
     installing: "Installing MarkItDown and registering the Read hook...",
     uninstalling: "Removing MarkItDown and its Read hook...",
     uninstalled: "MarkItDown removed. Your agent reads documents in their original format again.",
@@ -226,14 +226,14 @@ const addonCopy: Record<string, AddonCopy> = {
   },
   ponytail: {
     whatItDoes:
-      "Installing registers the Ponytail marketplace and plugin in Claude Code and/or Codex (whichever CLIs are on your PATH). It nudges the agent to write the least code possible. Removed from the plugin registry when you uninstall it or Headroom.",
-    installing: "Registering the Ponytail plugin with your agent...",
-    uninstalling: "Removing the Ponytail plugin...",
+      "Ponytail registers its marketplace plugin in Claude Code and/or Codex when those CLIs are on PATH. It nudges agents toward smaller, simpler edits and can run an over-engineering audit.",
+    installing: "Registering Ponytail in available coding clients...",
+    uninstalling: "Removing Ponytail from registered coding clients...",
     uninstalled: "Ponytail removed. Your agent writes code without the Ponytail nudge.",
-    installed: "Ponytail installed. Run /ponytail-audit in your agent to scan this codebase for over-engineering.",
+    installed: "Ponytail installed. Run /ponytail-audit in an agent to scan this codebase for over-engineering.",
     enabling: "Enabling Ponytail...",
     disabling: "Disabling Ponytail...",
-    disabled: "Ponytail is off. It stays installed but no longer nudges the agent."
+    disabled: "Ponytail is off. It stays installed but no longer nudges agents."
   }
 };
 
@@ -5361,7 +5361,7 @@ onRepair={(action) => void handleDoctorRepair(action)}
             <header className="addons__header">
               <h1>Addons</h1>
               <p className="addons__subtitle">
-                Additional tools that reduce token usage. Install to enable.
+                Installable local add-ons reduce token use and keep document/context prep under your control.
               </p>
             </header>
             {addonError ? <p className="addons__error">{addonError}</p> : null}
