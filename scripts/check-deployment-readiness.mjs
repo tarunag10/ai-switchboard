@@ -266,6 +266,15 @@ const requiredSourceSignals = {
     "blockers",
     "warnings",
   ],
+  "scripts/release-readiness-report.mjs": [
+    "backendValidation",
+    "buildBackendValidation",
+    "installedSmoke",
+    "buildInstalledSmoke",
+    "npm run fmt:desktop",
+    "npm run test:desktop",
+    "Backend validation pending",
+  ],
 };
 
 const workflowSignals = {
