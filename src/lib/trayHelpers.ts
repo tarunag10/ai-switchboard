@@ -1,4 +1,8 @@
-import type { ActivityFeedResponse, ClientConnectorStatus, HeadroomPricingStatus } from "./types";
+import type {
+  ActivityFeedResponse,
+  ClientConnectorStatus,
+  HeadroomPricingStatus,
+} from "./types";
 
 /// All views the tray window can land on. Kept here (rather than in App.tsx)
 /// so helpers and tests can import the union without pulling in App.tsx's
@@ -39,27 +43,38 @@ export function notificationActionView(action: string | null): TrayView | null {
 /// two polls in a row (the common case between compressions). Each tile
 /// contributes a stable id for its slot — `null` when absent — so any slot
 /// flip shows up in the signature.
-export function safeTrayViewForMode(view: TrayView, localOnly: boolean): TrayView {
-if (!localOnly) {
-return view;
+export function safeTrayViewForMode(
+  view: TrayView,
+  localOnly: boolean,
+): TrayView {
+  if (!localOnly) {
+    return view;
+  }
+  return view === "upgrade" || view === "upgradeAuth" ? "home" : view;
 }
-return view === "upgrade" || view === "upgradeAuth" ? "home" : view;
+
+export function safeNotificationActionView(
+  action: string | null,
+  localOnly: boolean,
+): TrayView | null {
+  const view = notificationActionView(action);
+  return view ? safeTrayViewForMode(view, localOnly) : null;
 }
 
 export function shouldShowCodexNudge(
-connector: ClientConnectorStatus | null | undefined,
-pricingStatus: HeadroomPricingStatus | null,
-dismissed: boolean,
-localOnly: boolean
+  connector: ClientConnectorStatus | null | undefined,
+  pricingStatus: HeadroomPricingStatus | null,
+  dismissed: boolean,
+  localOnly: boolean,
 ): boolean {
-if (localOnly || dismissed || !connector) {
-return false;
-}
-return (
-connector.installed &&
-!connector.enabled &&
-pricingStatus?.optimizationAllowed !== false
-);
+  if (localOnly || dismissed || !connector) {
+    return false;
+  }
+  return (
+    connector.installed &&
+    !connector.enabled &&
+    pricingStatus?.optimizationAllowed !== false
+  );
 }
 
 export function activityFeedSignature(feed: ActivityFeedResponse): string {
@@ -70,12 +85,16 @@ export function activityFeedSignature(feed: ActivityFeedResponse): string {
       ? `t:${tiles.transformation.requestId ?? tiles.transformation.timestamp ?? ""}`
       : "t:-",
     tiles.record ? `r:${tiles.record.observedAt}` : "r:-",
-    tiles.rtkToday ? `b:${tiles.rtkToday.date}:${tiles.rtkToday.savedTokens}` : "b:-",
-    tiles.learningsMilestone ? `l:${tiles.learningsMilestone.observedAt}` : "l:-",
+    tiles.rtkToday
+      ? `b:${tiles.rtkToday.date}:${tiles.rtkToday.savedTokens}`
+      : "b:-",
+    tiles.learningsMilestone
+      ? `l:${tiles.learningsMilestone.observedAt}`
+      : "l:-",
     tiles.weeklyRecap ? `wr:${tiles.weeklyRecap.weekStart}` : "wr:-",
     tiles.trainSuggestion
       ? `ts:${tiles.trainSuggestion.projectPath}:${tiles.trainSuggestion.observedAt}`
-      : "ts:-"
+      : "ts:-",
   ];
   return parts.join("|");
 }

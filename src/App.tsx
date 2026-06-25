@@ -132,7 +132,7 @@ import {
 } from "./lib/pricing";
 import {
 activityFeedSignature,
-notificationActionView,
+safeNotificationActionView,
 safeTrayViewForMode,
 serializeState,
 shouldShowCodexNudge,
@@ -1279,9 +1279,9 @@ const localOnlyMode = localOnlyModeEnabled();
           setShowAppUpdateDialog(true);
           return;
         }
-        const view = notificationActionView(action);
+const view = safeNotificationActionView(action, localOnlyMode);
 if (view) {
-setActiveView(safeTrayViewForMode(view, localOnlyMode));
+setActiveView(view);
 }
       }
     );

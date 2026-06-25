@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { activityFeedSignature, notificationActionView, safeTrayViewForMode, shouldShowCodexNudge } from "./trayHelpers";
-import type { ActivityFeedResponse, ClientConnectorStatus, HeadroomPricingStatus } from "./types";
+import {
+  activityFeedSignature,
+  notificationActionView,
+  safeNotificationActionView,
+  safeTrayViewForMode,
+  shouldShowCodexNudge,
+} from "./trayHelpers";
+import type {
+  ActivityFeedResponse,
+  ClientConnectorStatus,
+  HeadroomPricingStatus,
+} from "./types";
 
 const emptySnapshot: ActivityFeedResponse = {
   proxyReachable: true,
@@ -11,8 +21,8 @@ const emptySnapshot: ActivityFeedResponse = {
     rtkToday: null,
     learningsMilestone: null,
     weeklyRecap: null,
-    trainSuggestion: null
-  }
+    trainSuggestion: null,
+  },
 };
 
 const codexConnector: ClientConnectorStatus = {
@@ -21,7 +31,7 @@ const codexConnector: ClientConnectorStatus = {
   installed: true,
   enabled: false,
   verified: false,
-  lastConfiguredAt: null
+  lastConfiguredAt: null,
 };
 
 function pricing(optimizationAllowed: boolean): HeadroomPricingStatus {
@@ -70,21 +80,49 @@ describe("safeTrayViewForMode", () => {
   });
 });
 
+describe("safeNotificationActionView", () => {
+  it("redirects auth notification actions to home in local-only mode", () => {
+    expect(safeNotificationActionView("signin", true)).toBe("home");
+    expect(safeNotificationActionView("signup", true)).toBe("home");
+    expect(safeNotificationActionView("billing", true)).toBe("home");
+  });
+
+  it("keeps local notification actions in local-only mode", () => {
+    expect(safeNotificationActionView("runtime", true)).toBe("settings");
+    expect(safeNotificationActionView("activity", true)).toBe("notifications");
+  });
+
+  it("keeps auth notification actions when remote services are enabled", () => {
+    expect(safeNotificationActionView("signin", false)).toBe("upgradeAuth");
+  });
+});
+
 describe("shouldShowCodexNudge", () => {
   it("hides Codex nudge in local-only mode", () => {
     expect(shouldShowCodexNudge(codexConnector, null, false, true)).toBe(false);
   });
 
   it("shows Codex nudge for installed disabled Codex when remote pricing allows it", () => {
-    expect(shouldShowCodexNudge(codexConnector, pricing(true), false, false)).toBe(true);
+    expect(
+      shouldShowCodexNudge(codexConnector, pricing(true), false, false),
+    ).toBe(true);
   });
 
   it("hides Codex nudge when dismissed, gated, missing, or already enabled", () => {
-    expect(shouldShowCodexNudge(codexConnector, pricing(true), true, false)).toBe(false);
-    expect(shouldShowCodexNudge(codexConnector, pricing(false), false, false)).toBe(false);
+    expect(
+      shouldShowCodexNudge(codexConnector, pricing(true), true, false),
+    ).toBe(false);
+    expect(
+      shouldShowCodexNudge(codexConnector, pricing(false), false, false),
+    ).toBe(false);
     expect(shouldShowCodexNudge(null, pricing(true), false, false)).toBe(false);
     expect(
-      shouldShowCodexNudge({ ...codexConnector, enabled: true }, pricing(true), false, false)
+      shouldShowCodexNudge(
+        { ...codexConnector, enabled: true },
+        pricing(true),
+        false,
+        false,
+      ),
     ).toBe(false);
   });
 });
@@ -98,7 +136,7 @@ describe("activityFeedSignature", () => {
   it("differentiates proxyReachable false from proxyReachable true", () => {
     const offline = activityFeedSignature({
       ...emptySnapshot,
-      proxyReachable: false
+      proxyReachable: false,
     });
     const online = activityFeedSignature(emptySnapshot);
     expect(offline).not.toBe(online);
@@ -124,9 +162,9 @@ describe("activityFeedSignature", () => {
           transforms: [],
           requestMessages: null,
           responseText: null,
-          compressedMessages: null
-        } as never
-      }
+          compressedMessages: null,
+        } as never,
+      },
     });
     expect(baseline).not.toBe(withTransform);
     expect(withTransform).toContain("t:req-123");
@@ -149,9 +187,9 @@ describe("activityFeedSignature", () => {
           transforms: [],
           requestMessages: null,
           responseText: null,
-          compressedMessages: null
-        } as never
-      }
+          compressedMessages: null,
+        } as never,
+      },
     });
     expect(sig).toContain("t:2026-04-25T12:00:00Z");
   });
@@ -167,9 +205,9 @@ describe("activityFeedSignature", () => {
         weeklyRecap: { weekStart: "2026-04-20" } as never,
         trainSuggestion: {
           projectPath: "/Users/x/proj",
-          observedAt: "2026-04-25T09:00:00Z"
-        } as never
-      }
+          observedAt: "2026-04-25T09:00:00Z",
+        } as never,
+      },
     });
     expect(sig).toContain("r:2026-04-25T11:00:00Z");
     expect(sig).toContain("b:2026-04-25:1234");
@@ -177,5 +215,4 @@ describe("activityFeedSignature", () => {
     expect(sig).toContain("wr:2026-04-20");
     expect(sig).toContain("ts:/Users/x/proj:2026-04-25T09:00:00Z");
   });
-
 });
