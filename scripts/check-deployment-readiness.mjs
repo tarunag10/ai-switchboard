@@ -45,7 +45,14 @@ const requiredDocSignals = {
     "# Optional: app updater configuration for signed release builds",
     "# Optional: local signed macOS DMG builds",
   ],
-  "docs/install.md": [
+  "README.md": [
+ "Read-only local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI",
+ "Read-only foundation",
+ "the app now ships a read-only foundation",
+ "Remaining work is the full Graphy-style symbol graph",
+ "Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose",
+ ],
+ "docs/install.md": [
     "Mac-AI-Switchboard_<version>.dmg",
     "Applications",
     "local-first, not offline-only",

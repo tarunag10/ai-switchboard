@@ -5,47 +5,45 @@
 [![Repository](https://img.shields.io/badge/GitHub-tarunag10%2Fmac--ai--switchboard-blue?style=for-the-badge&logo=github)](https://github.com/tarunag10/mac-ai-switchboard)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
-## License, Branding, and Contributions
+## License, Branding, Contributions
 
-The source code is MIT-licensed. Official app names, icons, signing identities, update endpoints, release artifacts, and distribution channels are not licensed for reuse; forks should rename the app and use their own bundle identifier, signing identity, and update channel. See [TRADEMARKS.md](TRADEMARKS.md), [NOTICE](NOTICE), [CONTRIBUTING.md](CONTRIBUTING.md), and [SECURITY.md](SECURITY.md).
+The source code is MIT-licensed. Official app names, icons, signing identities, update endpoints, release artifacts, and distribution channels are not licensed for reuse. Forks should rename the app and use their own bundle identifier, signing identity, and update channel. See [TRADEMARKS.md](TRADEMARKS.md), [NOTICE](NOTICE), [CONTRIBUTING.md](CONTRIBUTING.md), and [SECURITY.md](SECURITY.md).
 
-Mac AI Switchboard is a personal, open-source wrapper around the Headroom Desktop shell reshaped into a privacy-first Mac utility. The goal is an on/off control panel for local coding-agent optimization:
+Mac AI Switchboard is a personal, open-source wrapper around the Headroom Desktop shell, reshaped into a privacy-first Mac utility. The goal is an on/off control panel for local coding-agent optimization:
 
 - **Full optimization:** Headroom proxy routing plus RTK command-output compression.
 - **Headroom only:** route supported clients through the local Headroom proxy.
 - **RTK only:** keep command-output compression without routing LLM traffic through Headroom.
 - **Off:** remove local routing hooks and leave coding clients behaving normally.
 
-The app is **local-first**, not offline-only. Claude/OpenAI model calls still go to the normal remote APIs; switchboard state, routing, reversible client config edits, RTK hooks, Doctor/repair workflows, and telemetry defaults live on your Mac.
+The app is **local-first**, not offline-only. Claude/OpenAI model calls still go to the normal remote APIs; switchboard state, routing, reversible client config edits, RTK hooks, Doctor/repair workflows, telemetry defaults, and Repo Intelligence metadata live on your Mac.
 
-> Current status: active productization branch. The standalone repository is public, but release artifacts are not published yet. Build from source for now.
-
-For installation paths, first-run footprint, DMG expectations, and uninstall behavior, see [docs/install.md](docs/install.md).
+> Current status: active productization branch. The standalone repository is public, but release artifacts are not published yet. Build from source for now. For installation paths, first-run footprint, DMG expectations, and uninstall behavior, see [docs/install.md](docs/install.md).
 
 ## Supported Local Tools
 
-| Tool              | Role                                                                     | Status        |
-| ----------------- | ------------------------------------------------------------------------ | ------------- |
-| Headroom          | Local prompt/context optimization proxy                                  | Core runtime  |
-| RTK               | Token-optimized command output for shells and agents                     | Add-on / mode |
-| Claude Code       | Local client routing and RTK hook target                                 | Supported     |
-| Codex             | Local provider/base-url routing target                                   | Supported     |
-| Gemini CLI        | Detected in the switchboard; reversible routing adapter pending          | Planned       |
-| OpenCode          | Detected in the switchboard; reversible routing adapter pending          | Planned       |
-| Cursor            | Editor/agent config detection and guided routing adapter pending         | Planned       |
-| Grok / xAI CLI    | Provider/base-url adapter pending once stable CLI surface is identified  | Planned       |
-| Aider             | Agent wrapper plus RTK and Repo Intelligence context handoff pending     | Planned       |
-| Continue          | Editor-agent config adapter with explicit backup/restore pending         | Planned       |
-| Goose             | Agent provider adapter and MCP/repo-intelligence handoff pending         | Planned       |
-| Ponytail          | Agent behavior nudge toward smaller changes                              | Add-on        |
-| MarkItDown        | Document-to-Markdown preprocessing                                       | Add-on        |
-| Repo Intelligence | Future local Graphy-style code graph, symbol index, repo memory layer    | Planned       |
+| Tool | Role | Status |
+| --- | --- | --- |
+| Headroom | Local prompt/context optimization proxy | Core runtime |
+| RTK | Token-optimized command output for shells and agents | Add-on / mode |
+| Claude Code | Local client routing and RTK hook target | Supported |
+| Codex | Local provider/base-url routing target | Supported |
+| Gemini CLI | Detected in the switchboard; reversible routing adapter pending | Planned |
+| OpenCode | Detected in the switchboard; reversible routing adapter pending | Planned |
+| Cursor | Editor/agent config detection and guided routing adapter pending | Planned |
+| Grok / xAI CLI | Provider/base-url adapter pending once a stable CLI surface is identified | Planned |
+| Aider | Detected in the switchboard; reversible routing adapter pending | Planned |
+| Continue | Detected in the switchboard; reversible routing adapter pending | Planned |
+| Goose | Agent provider adapter and Repo Intelligence handoff pending | Planned |
+| Ponytail | Agent behavior nudge toward smaller changes | Add-on |
+| MarkItDown | Document-to-Markdown preprocessing | Add-on |
+| Repo Intelligence | Read-only local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI | Read-only foundation |
 
 ## Recommended Future Integrations
 
-- **Repo Intelligence / Graphy-style repo graph:** planned, not fully added yet. The app does not currently ship a complete Graphy-style integration, graph builder, token-saving graph context layer, or UI workflow. Recommended path: local read-only repo index, tree-sitter-backed symbol extraction, dependency/call-graph analysis, repomix-style bounded repo packs, MCP repo-memory adapter, visible UI workflow, and tests proving no remote graph service or project-file mutation. See [docs/repo-intelligence-plan.md](docs/repo-intelligence-plan.md).
+- **Repo Intelligence / Graphy-style repo graph:** the app now ships a read-only foundation: local indexing, file classification, rough token estimates, bounded context packs, persisted latest summary, Doctor stale/missing-index warnings, clear saved index, and copyable handoff packs. Remaining work is the full Graphy-style symbol graph, import/dependency graph, call graph, test relationship graph, and local CLI/MCP context-pack API. See [docs/repo-intelligence-plan.md](docs/repo-intelligence-plan.md).
 - **Agent connector expansion:** Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, and similar coding agents are planned as local-first connectors. Build order should be detection first, guided setup second, reversible config adapters third, then Doctor repair/off-mode cleanup once each tool has a stable config surface.
-- **Add-on hardening:** RTK, Ponytail, and MarkItDown are installable add-ons today; next work should add deeper health checks, smoke-test actions, and clearer savings attribution per add-on.
+- **Add-on hardening:** RTK, Ponytail, and MarkItDown are installable add-ons today. Next work should add deeper health checks, smoke-test actions, and clearer savings attribution per add-on.
 
 ## Local-First Defaults
 
@@ -57,33 +55,33 @@ VITE_HEADROOM_LOCAL_ONLY="1"
 VITE_HEADROOM_REMOTE_TELEMETRY="0"
 ```
 
-In local-only mode the app hides cloud upgrade/auth surfaces, disables Clarity/Sentry/Aptabase unless explicitly re-enabled, and keeps the Home view focused on Mac-side switchboard controls and Doctor repairs.
+In local-only mode, the app hides cloud upgrade/auth surfaces, disables Clarity/Sentry/Aptabase unless explicitly re-enabled, and keeps the Home view focused on Mac-side switchboard controls and Doctor repairs.
 
-## Using The Switchboard
+## Using Switchboard
 
-The Home view is the control surface for the Mac-side optimization stack:
+The Home view is the Mac-side optimization control surface:
 
-| Mode              | What It Does                                                                                    | Typical Use                                                                      |
-| ----------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Full optimization | Routes supported clients through Headroom and enables RTK shell-output compression.             | Daily coding-agent work when you want the full local optimization layer.         |
-| Headroom only     | Routes supported clients through the local Headroom proxy while leaving shell output unchanged. | LLM prompt/context optimization without shell command rewriting.                 |
-| RTK only          | Keeps LLM traffic direct and enables RTK shell-output compression.                              | When a client should bypass Headroom, or after an oversized compression refusal. |
-| Off               | Removes local routing hooks and disables RTK integration.                                       | Clean pass-through mode before debugging client config or comparing behavior.    |
+| Mode | What It Does | Typical Use |
+| --- | --- | --- |
+| Full optimization | Routes supported clients through Headroom and enables RTK shell-output compression. | Daily coding-agent work when you want the full local optimization layer. |
+| Headroom only | Routes supported clients through the local Headroom proxy while leaving shell output unchanged. | LLM prompt/context optimization without shell command rewriting. |
+| RTK only | Keeps LLM traffic direct and enables RTK shell-output compression. | When a client should bypass Headroom, or when an oversized request hits compression refusal. |
+| Off | Removes local routing hooks and disables RTK integration. | Clean pass-through mode before debugging client config or comparing behavior. |
 
-The app separates **requested mode** from **active mode**. If a mode is requested but a dependency is missing, the Switchboard shows what is actually active and points you to Doctor. Doctor can currently repair:
+The app separates **requested mode** from **active mode**. If a mode is requested but a dependency is missing, Switchboard shows what is actually active and points you to Doctor. Doctor currently repairs:
 
 - Headroom runtime reachability.
 - Reversible client setup for supported installed tools.
 - RTK install/enablement and RTK shell integration.
 - Codex direct-bypass state after Headroom returns a `413 compression_refused` response for an oversized request.
 
-For the real-world Codex error:
+For a real-world Codex error:
 
 ```text
 unexpected status 413 Payload Too Large: compression_refused
 ```
 
-The app lets Codex bypass Headroom temporarily so work can continue. After compacting the conversation or switching to **RTK only**, use Doctor to reset the bypass and route through Headroom again. If this happens when more than 2-3 active Codex chats or goals are open, see [Codex Compression Troubleshooting](docs/codex-compression-troubleshooting.md).
+The app lets Codex bypass Headroom temporarily so work can continue. After compacting the conversation or switching to **RTK only**, use Doctor to reset the bypass and route through Headroom again. If this happens with more than 2-3 active Codex chats or goals are open, see [Codex Compression Troubleshooting](docs/codex-compression-troubleshooting.md).
 
 If Codex instead reports:
 
@@ -91,7 +89,7 @@ If Codex instead reports:
 The '' model is not supported when using Codex with a ChatGPT account.
 ```
 
-That is a Codex model/provider configuration problem, not the usual Headroom `413` compression path. Doctor can re-apply the managed Codex provider block and localhost proxy URL with backups; after that, choose a Codex-supported ChatGPT model before retrying.
+That is a Codex model/provider configuration problem, not the usual Headroom `413` compression path. Doctor can re-apply the managed Codex provider block, localhost proxy URL, and backups; after that, choose a Codex-supported ChatGPT model before retrying.
 
 ## Upstream Foundation
 
