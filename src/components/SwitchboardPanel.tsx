@@ -114,11 +114,14 @@ export function SwitchboardPanel({
       </div>
       <p className="switchboard-panel__mode-effect">{modeEffect}</p>
       {codexGuidance ? (
-        <p className="switchboard-panel__attention">
-          <strong>{codexGuidance.title}</strong> {codexGuidance.body}
+        <div className="switchboard-panel__recommendation">
+          <div>
+            <strong>{codexGuidance.title}</strong>
+            <p>{codexGuidance.body}</p>
+          </div>
           <button
             type="button"
-            className="switchboard-panel__inline-action"
+            className="switchboard-panel__recommendation-action"
             disabled={modeBusy !== null}
             onClick={() => onSetMode(codexGuidance.recommendedMode)}
           >
@@ -126,7 +129,7 @@ export function SwitchboardPanel({
               ? "Applying"
               : codexGuidance.actionLabel}
           </button>
-        </p>
+        </div>
       ) : null}
       {modeError ? (
         <p className="switchboard-panel__error">{modeError}</p>
