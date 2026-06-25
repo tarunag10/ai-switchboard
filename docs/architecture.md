@@ -49,4 +49,4 @@ User repositories are not modified.
 - Add a proper repo picker and richer index status UI.
 - Expose read-only context packs through a local CLI/MCP-style surface for Claude Code, Codex, Gemini CLI, OpenCode, Aider, Goose, and similar tools.
 - Add explicit cleanup/off-mode behavior for any future Repo Intelligence hooks.
-- Add Rust validation to CI and local release gates once the build environment consistently has `cargo`.
+- Keep Rust formatting and desktop tests in release/CI gates; local shells without `cargo` must rely on CI for backend validation.

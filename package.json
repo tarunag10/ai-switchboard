@@ -13,6 +13,7 @@
     "test:frontend": "vitest run",
     "test:coverage": "vitest run --coverage.enabled --coverage.provider=v8",
     "test:desktop": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "fmt:desktop": "cargo fmt --manifest-path src-tauri/Cargo.toml --check",
     "test:all": "npm run test:frontend && npm run test:desktop",
     "release:check": "./scripts/verify-release.sh",
     "smoke:preflight": "node scripts/smoke-preflight.mjs",

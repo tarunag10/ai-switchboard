@@ -22,6 +22,7 @@ const requiredScripts = {
     '"check:colors"',
     '"check:governance"',
     '"check:deployment"',
+    '"fmt:desktop"',
   ],
   "scripts/verify-release.sh": [
     "npm run check:deployment",
@@ -30,6 +31,7 @@ const requiredScripts = {
     "npm run check:governance",
     "npm run build",
     "npm run test:coverage",
+    "npm run fmt:desktop",
     "npm run test:desktop",
   ],
 };

@@ -23,6 +23,9 @@ npm run build
 echo "Running frontend coverage..."
 npm run test:coverage
 
+echo "Checking Rust formatting..."
+npm run fmt:desktop
+
 echo "Running desktop tests..."
 # Prefer nextest: its slow-timeout/terminate-after (.config/nextest.toml) kills a
 # hung test in minutes instead of letting it stall the whole release job. Fall
