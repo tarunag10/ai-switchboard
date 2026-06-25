@@ -11,6 +11,7 @@ use serde_json::Value;
 
 use crate::models::{
     ClientConnectorStatus, ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus,
+    SwitchboardMode,
 };
 use crate::storage::{app_data_dir, config_file};
 
@@ -924,7 +925,19 @@ struct ClientSetupState {
     /// User opted RTK out via the tool status toggle. When true, bootstrap and
     /// client setup skip re-adding the RTK PATH export and Claude Code hook.
     #[serde(default)]
-    rtk_disabled: bool,
+rtk_disabled: bool,
+    #[serde(default)]
+    switchboard_mode: Option<SwitchboardMode>,
+}
+
+pub fn load_switchboard_mode() -> Option<SwitchboardMode> {
+    load_setup_state().switchboard_mode
+}
+
+pub fn write_switchboard_mode(mode: SwitchboardMode) -> Result<()> {
+    let mut state = load_setup_state();
+    state.switchboard_mode = Some(mode);
+    write_setup_state(&state)
 }
 
 fn is_configured(state: &ClientSetupState, client_id: &str) -> bool {
@@ -3024,7 +3037,8 @@ mod tests {
                 ("codex".into(), vec!["/Users/test/.bash_profile".into()]),
                 ("claude_code".into(), vec!["/Users/test/.bashrc".into()]),
             ]),
-            rtk_disabled: false,
+        rtk_disabled: false,
+        switchboard_mode: Some(SwitchboardMode::Full),
         };
 
         let normalized = normalize_setup_state(state);
@@ -3034,8 +3048,9 @@ mod tests {
         assert!(normalized.configured_clients.contains_key("codex_cli"));
         assert!(!normalized.configured_clients.contains_key("codex_gui"));
 
-        assert!(normalized.remembered_clients.contains_key("claude_code"));
-        assert!(normalized.remembered_clients.contains_key("codex"));
+    assert!(normalized.remembered_clients.contains_key("claude_code"));
+    assert!(normalized.remembered_clients.contains_key("codex"));
+    assert_eq!(normalized.switchboard_mode, Some(SwitchboardMode::Full));
 
         assert!(normalized.managed_shell_files.contains_key("claude_code"));
         assert!(normalized.managed_shell_files.contains_key("codex_cli"));
