@@ -257,13 +257,13 @@ const addonCopy: Record<string, AddonCopy> = {
 
 const connectorSetupDetails: Record<string, string> = {
   claude_code:
-    "Headroom injects ANTHROPIC_BASE_URL into shell profiles and ~/.claude/settings.json so Claude Code connects through Headroom. Token-saving add-ons like RTK are optional: install them from the add-ons list, and Headroom wires up the PATH entry and auto-rewrite hook only then.",
+    "Headroom injects ANTHROPIC_BASE_URL into shell profiles and ~/.claude/settings.json so Claude Code connects through Headroom. Token-saving add-ons like RTK are optional.",
   codex:
-    "Headroom writes a managed provider block to ~/.codex/config.toml and exports OPENAI_BASE_URL in your shell profiles so Codex connects through Headroom.",
+    "Headroom writes a managed provider block to ~/.codex/config.toml and exports OPENAI_BASE_URL in shell profiles so Codex connects through Headroom.",
   gemini_cli:
-    "Gemini CLI is tracked as a planned adapter. Until its reversible config path is implemented, use RTK-only mode for command-output savings.",
+    "Gemini CLI is tracked as a planned adapter. Until its reversible config path is implemented, use RTK-only mode for command output savings.",
   opencode:
-    "OpenCode is tracked as a planned adapter. Until its reversible config path is implemented, use RTK-only mode for command-output savings.",
+    "OpenCode is tracked as a planned adapter. Until its reversible config path is implemented, use RTK-only mode for command output savings.",
   cursor:
     "Cursor is tracked as a planned editor connector. Guided setup is shown first because Cursor settings and account behavior can vary by release channel.",
   grok_cli:

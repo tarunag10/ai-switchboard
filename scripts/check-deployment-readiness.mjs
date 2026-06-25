@@ -198,6 +198,13 @@ const forbiddenUserCopy = {
     "Local config adapter explicit backup restore",
     "Switchboard has stable connector capability model",
   ],
+  "src/App.tsx": [
+    "RTK are optional: install them",
+    "in your shell profiles",
+    "tracked planned adapter",
+    "command-output savings.",
+    "provider config backup restore",
+  ],
 };
 
 const failures = [];
