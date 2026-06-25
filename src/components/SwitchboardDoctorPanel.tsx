@@ -1,0 +1,62 @@
+import type { DoctorIssue, DoctorReport } from "../lib/types";
+
+interface SwitchboardDoctorPanelProps {
+  report: DoctorReport | null;
+  busyAction: string | null;
+  error: string | null;
+  onRepair: (action: string) => void;
+}
+
+function issueTone(issue: DoctorIssue): string {
+  return issue.severity === "error" ? "error" : "warning";
+}
+
+export function SwitchboardDoctorPanel({
+  report,
+  busyAction,
+  error,
+  onRepair
+}: SwitchboardDoctorPanelProps) {
+  if (!report || (report.status === "ok" && report.issues.length === 0)) {
+    return null;
+  }
+
+  return (
+    <section className="switchboard-doctor" aria-label="Switchboard doctor">
+      <div className="switchboard-doctor__head">
+        <div>
+          <p className="switchboard-doctor__eyebrow">Doctor</p>
+          <h2>Needs attention</h2>
+        </div>
+        <span className={`switchboard-doctor__badge switchboard-doctor__badge--${report.status}`}>
+          {report.status}
+        </span>
+      </div>
+      <p className="switchboard-doctor__summary">{report.summary}</p>
+      <div className="switchboard-doctor__issues">
+        {report.issues.map((issue) => (
+          <article
+            key={issue.id}
+            className={`switchboard-doctor__issue switchboard-doctor__issue--${issueTone(issue)}`}
+          >
+            <div>
+              <strong>{issue.title}</strong>
+              <p>{issue.body}</p>
+            </div>
+            {issue.repairAction ? (
+              <button
+                type="button"
+                className="switchboard-doctor__repair"
+                disabled={busyAction !== null}
+                onClick={() => onRepair(issue.repairAction as string)}
+              >
+                {busyAction === issue.repairAction ? "Repairing" : "Repair"}
+              </button>
+            ) : null}
+          </article>
+        ))}
+      </div>
+      {error ? <p className="switchboard-doctor__error">{error}</p> : null}
+    </section>
+  );
+}

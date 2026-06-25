@@ -217,6 +217,22 @@ export interface SwitchboardState {
   summary: string;
 }
 
+export type DoctorSeverity = "ok" | "warning" | "error";
+
+export interface DoctorIssue {
+  id: string;
+  title: string;
+  body: string;
+  severity: DoctorSeverity;
+  repairAction?: string | null;
+}
+
+export interface DoctorReport {
+  status: DoctorSeverity;
+  summary: string;
+  issues: DoctorIssue[];
+}
+
 export interface RuntimeUpgradeProgress {
   running: boolean;
   complete: boolean;

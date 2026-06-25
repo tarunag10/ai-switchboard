@@ -148,6 +148,7 @@ import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
 import { TermsGate } from "./components/TermsGate";
 import { SwitchboardPanel } from "./components/SwitchboardPanel";
+import { SwitchboardDoctorPanel } from "./components/SwitchboardDoctorPanel";
 import type {
   AppUpdateConfiguration,
   AvailableAppUpdate,
@@ -159,8 +160,9 @@ import type {
   ClientConnectorStatus,
   ClientSetupResult,
   DailySavingsPoint,
-  DashboardState,
-  HeadroomLearnPrereqStatus,
+DashboardState,
+DoctorReport,
+HeadroomLearnPrereqStatus,
   HeadroomLearnStatus,
   HeadroomSubscriptionTier,
   ActivityFeedResponse,
@@ -1105,6 +1107,9 @@ const [contactSubmitSuccess, setContactSubmitSuccess] = useState<string | null>(
 const [switchboardState, setSwitchboardState] = useState<SwitchboardState | null>(null);
 const [switchboardModeBusy, setSwitchboardModeBusy] = useState<SwitchboardMode | null>(null);
 const [switchboardModeError, setSwitchboardModeError] = useState<string | null>(null);
+const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
+const [doctorRepairBusy, setDoctorRepairBusy] = useState<string | null>(null);
+const [doctorRepairError, setDoctorRepairError] = useState<string | null>(null);
 const localOnlyMode = localOnlyModeEnabled();
   const appSemver = appUpdateConfig?.currentVersion ?? packageJson.version;
   const bootstrapFailureSignatureRef = useRef("");
@@ -1399,12 +1404,13 @@ const localOnlyMode = localOnlyModeEnabled();
       }
 
       updateStartup("runtime", 80, "Preparing Headroom runtime…");
-      const [runtimeResult, switchboardResult, pricingResult] = await Promise.all([
-        invoke<RuntimeStatus>("get_runtime_status").catch(() => null),
-        invoke<SwitchboardState>("get_switchboard_state").catch(() => null),
-        localOnlyMode
-          ? Promise.resolve(null)
-          : invoke<HeadroomPricingStatus>("get_headroom_pricing_status").catch(() => null),
+const [runtimeResult, switchboardResult, doctorResult, pricingResult] = await Promise.all([
+invoke<RuntimeStatus>("get_runtime_status").catch(() => null),
+invoke<SwitchboardState>("get_switchboard_state").catch(() => null),
+invoke<DoctorReport>("get_doctor_report").catch(() => null),
+localOnlyMode
+? Promise.resolve(null)
+: invoke<HeadroomPricingStatus>("get_headroom_pricing_status").catch(() => null),
         refreshConnectors(),
       ]);
       if (!active) {
@@ -1413,10 +1419,13 @@ const localOnlyMode = localOnlyModeEnabled();
       if (runtimeResult) {
         applyRuntimeStatusIfChanged(runtimeResult);
       }
-      if (switchboardResult) {
-        applySwitchboardStateIfChanged(switchboardResult);
-      }
-      if (pricingResult) {
+if (switchboardResult) {
+applySwitchboardStateIfChanged(switchboardResult);
+}
+if (doctorResult) {
+setDoctorReport(doctorResult);
+}
+if (pricingResult) {
         setPricingStatus(pricingResult);
       }
 
@@ -1831,10 +1840,12 @@ const localOnlyMode = localOnlyModeEnabled();
     if (windowLabel !== "main" || !trayWindowFocused) {
       return;
     }
-    void refreshSwitchboardState();
-    const interval = window.setInterval(() => {
-      void refreshSwitchboardState();
-    }, 5_000);
+void refreshSwitchboardState();
+void refreshDoctorReport();
+const interval = window.setInterval(() => {
+void refreshSwitchboardState();
+void refreshDoctorReport();
+}, 5_000);
     return () => window.clearInterval(interval);
   }, [trayWindowFocused, windowLabel]);
 
@@ -2655,6 +2666,15 @@ applySwitchboardStateIfChanged(null);
 }
 }
 
+async function refreshDoctorReport() {
+try {
+const report = await invoke<DoctorReport>("get_doctor_report");
+setDoctorReport(report);
+} catch {
+setDoctorReport(null);
+}
+}
+
 async function handleSetSwitchboardMode(mode: SwitchboardMode) {
 if (switchboardModeBusy !== null) {
 return;
@@ -2666,12 +2686,30 @@ const state = await invoke<SwitchboardState>("set_switchboard_mode", { mode });
 applySwitchboardStateIfChanged(state);
 applyRuntimeStatusIfChanged(state.runtime);
 applyConnectorsIfChanged(state.clients);
+await refreshDoctorReport();
 } catch (error) {
 setSwitchboardModeError(
 error instanceof Error ? error.message : "Could not switch optimization mode."
 );
 } finally {
 setSwitchboardModeBusy(null);
+}
+}
+
+async function handleDoctorRepair(action: string) {
+if (doctorRepairBusy !== null) {
+return;
+}
+setDoctorRepairBusy(action);
+setDoctorRepairError(null);
+try {
+const report = await invoke<DoctorReport>("run_doctor_repair", { action });
+setDoctorReport(report);
+await refreshSwitchboardState();
+} catch (error) {
+setDoctorRepairError(error instanceof Error ? error.message : "Could not run repair.");
+} finally {
+setDoctorRepairBusy(null);
 }
 }
 
@@ -2694,9 +2732,10 @@ async function refreshRuntimeStatus() {
     setResuming(true);
     setResumeError(null);
     try {
-      await invoke("force_restart_headroom");
-      await refreshRuntimeStatus();
-    } catch (error) {
+await invoke("force_restart_headroom");
+await refreshRuntimeStatus();
+await refreshDoctorReport();
+} catch (error) {
       setResumeError(
         error instanceof Error ? error.message : "Could not restart Headroom."
       );
@@ -4818,7 +4857,14 @@ onManageClients={() => setActiveView("settings")}
 onManageRtk={() => setActiveView("addons")}
 />
 
-            <section className="stat-grid stat-grid--2col">
+<SwitchboardDoctorPanel
+report={doctorReport}
+busyAction={doctorRepairBusy}
+error={doctorRepairError}
+onRepair={(action) => void handleDoctorRepair(action)}
+/>
+
+<section className="stat-grid stat-grid--2col">
               <article
                 className={`soft-card stat-card stat-card--clickable${chartMode === "usd" ? " is-active" : ""}`}
                 onClick={() => setChartMode("usd")}

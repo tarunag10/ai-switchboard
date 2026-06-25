@@ -314,6 +314,32 @@ pub struct SwitchboardState {
     pub summary: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum DoctorSeverity {
+    Ok,
+    Warning,
+    Error,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DoctorIssue {
+    pub id: String,
+    pub title: String,
+    pub body: String,
+    pub severity: DoctorSeverity,
+    pub repair_action: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DoctorReport {
+    pub status: DoctorSeverity,
+    pub summary: String,
+    pub issues: Vec<DoctorIssue>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeUpgradeProgress {

@@ -1950,6 +1950,98 @@ async fn get_switchboard_state(state: State<'_, AppState>) -> Result<Switchboard
 build_switchboard_state(&state)
 }
 
+fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
+let runtime = state.runtime_status();
+let codex_direct_bypass = state
+.codex_bypass
+.load(std::sync::atomic::Ordering::Acquire);
+let desired_mode = client_adapters::load_switchboard_mode().unwrap_or_else(|| {
+if runtime.rtk.installed && runtime.rtk.enabled && runtime.running && runtime.proxy_reachable {
+SwitchboardMode::Full
+} else if runtime.running && runtime.proxy_reachable {
+SwitchboardMode::Headroom
+} else if runtime.rtk.installed && runtime.rtk.enabled {
+SwitchboardMode::Rtk
+} else {
+SwitchboardMode::Off
+}
+});
+let mut issues = Vec::new();
+
+if codex_direct_bypass && matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom) {
+issues.push(crate::models::DoctorIssue {
+id: "codex_direct_bypass".to_string(),
+title: "Codex is bypassing Headroom".to_string(),
+body: "Headroom refused compression for an oversized Codex request, so Codex is temporarily going direct. Compact the conversation context, then reset this bypass to route Codex through Headroom again.".to_string(),
+severity: crate::models::DoctorSeverity::Warning,
+repair_action: Some("reset_codex_bypass".to_string()),
+});
+}
+
+if runtime.paused
+&& !runtime.auto_paused
+&& matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
+{
+issues.push(crate::models::DoctorIssue {
+id: "headroom_paused".to_string(),
+title: "Headroom is paused".to_string(),
+body: "The proxy is intentionally off. Use Full optimization or Headroom only to restart routing through Headroom.".to_string(),
+severity: crate::models::DoctorSeverity::Warning,
+repair_action: None,
+});
+}
+
+let status = if issues
+.iter()
+.any(|issue| matches!(issue.severity, crate::models::DoctorSeverity::Error))
+{
+crate::models::DoctorSeverity::Error
+} else if issues.is_empty() {
+crate::models::DoctorSeverity::Ok
+} else {
+crate::models::DoctorSeverity::Warning
+};
+
+let summary = match status {
+crate::models::DoctorSeverity::Ok => {
+"No switchboard issues detected. Headroom and RTK look ready for normal use."
+}
+crate::models::DoctorSeverity::Warning => {
+"Doctor found switchboard items that may need attention."
+}
+crate::models::DoctorSeverity::Error => "Doctor found a blocking switchboard issue.",
+}
+.to_string();
+
+crate::models::DoctorReport {
+status,
+summary,
+issues,
+}
+}
+
+#[tauri::command]
+async fn get_doctor_report(state: State<'_, AppState>) -> crate::models::DoctorReport {
+build_doctor_report(&state)
+}
+
+#[tauri::command]
+async fn run_doctor_repair(
+state: State<'_, AppState>,
+action: String,
+) -> Result<crate::models::DoctorReport, String> {
+match action.as_str() {
+"reset_codex_bypass" => {
+state
+.codex_bypass
+.store(false, std::sync::atomic::Ordering::Release);
+state.invalidate_runtime_status_cache();
+Ok(build_doctor_report(&state))
+}
+other => Err(format!("unknown doctor repair action: {other}")),
+}
+}
+
 #[tauri::command]
 async fn set_switchboard_mode(
 app: AppHandle,
@@ -3451,6 +3543,8 @@ pub fn run() {
             dismiss_runtime_upgrade_failure,
 get_runtime_status,
 get_switchboard_state,
+get_doctor_report,
+run_doctor_repair,
 set_switchboard_mode,
 get_headroom_logs,
             get_headroom_request_count,
