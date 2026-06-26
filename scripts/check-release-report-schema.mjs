@@ -3,7 +3,10 @@ import fs from "node:fs";
 const reportPath = "dist/release-readiness-report.json";
 const requiredReleaseReportPaths = [
   "backendValidation.requiredCommands",
+  "staticSmokePreflight.smokeSummaryPresent",
+  "staticSmokePreflight.requiredCommand",
   "installedSmoke.smokeSummaryPresent",
+  "shareableDmgGate.staticSmokePreflightReady",
   "shareableDmgGate.updaterFeedReady",
   "releaseEnv.blockers",
   "releaseEnv.warnings",
@@ -92,6 +95,15 @@ for (const command of backendValidation.requiredCommands) {
   }
 }
 
+requireObject(report, "staticSmokePreflight");
+requireBooleanFields(report, "staticSmokePreflight", [
+  "ready",
+  "smokeSummaryPresent",
+]);
+requireType(report, "staticSmokePreflight.smokeSummaryPath", "string");
+requireType(report, "staticSmokePreflight.requiredCommand", "string");
+requireType(report, "staticSmokePreflight.message", "string");
+
 requireObject(report, "installedSmoke");
 requireBooleanFields(report, "installedSmoke", [
   "ready",
@@ -109,6 +121,7 @@ requireBooleanFields(report, "shareableDmgGate", [
   "backendValidationReady",
   "signedAndNotarized",
   "updaterFeedReady",
+  "staticSmokePreflightReady",
   "installedAppSmokeReady",
 ]);
 requireType(report, "shareableDmgGate.message", "string");

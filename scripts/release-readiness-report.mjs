@@ -90,23 +90,40 @@ function buildInstalledSmoke(installedAppPresent, smokeSummary) {
     smokeSummaryPresent: smokeSummary.present,
     generatedLine: smokeSummary.generatedLine,
     message: ready
-      ? "Installed app and smoke summary are present. Review smoke evidence before publishing."
+      ? "Installed app smoke summary is present. Review smoke evidence before publishing."
       : "Install the signed DMG into /Applications and run the beta smoke checklist before publishing.",
   };
 }
 
-function buildShareableDmgGate(releaseEnv, backendValidation, installedSmoke) {
+function buildStaticSmokePreflight(smokeSummary) {
+  const ready = smokeSummary.present;
+
+  return {
+    ready,
+    smokeSummaryPath,
+    smokeSummaryPresent: smokeSummary.present,
+    generatedLine: smokeSummary.generatedLine,
+    requiredCommand: "npm run smoke:preflight",
+    message: ready
+      ? "Static smoke preflight summary present. Keep it with release evidence."
+      : "Run npm run smoke:preflight before handing a DMG to a tester.",
+  };
+}
+
+function buildShareableDmgGate(releaseEnv, backendValidation, staticSmokePreflight, installedSmoke) {
   const environmentClear = releaseEnv.blockers.length === 0;
   const signedAndNotarized = environmentClear;
   const updaterFeedReady = !releaseEnv.warnings.some((warning) =>
     /HEADROOM_UPDATER_PUBLIC_KEY|HEADROOM_UPDATER_ENDPOINTS/.test(warning.label),
   );
+  const staticSmokePreflightReady = staticSmokePreflight.ready;
   const installedAppSmokeReady = installedSmoke.ready;
   const ready =
     environmentClear &&
     signedAndNotarized &&
     updaterFeedReady &&
     backendValidation.ready &&
+    staticSmokePreflightReady &&
     installedAppSmokeReady;
 
   return {
@@ -115,6 +132,7 @@ function buildShareableDmgGate(releaseEnv, backendValidation, installedSmoke) {
     backendValidationReady: backendValidation.ready,
     signedAndNotarized,
     updaterFeedReady,
+    staticSmokePreflightReady,
     installedAppSmokeReady,
     message: ready
       ? "All shareable DMG gates are clear."
@@ -126,15 +144,17 @@ const releaseEnv = runReleaseEnv();
 const smokeSummary = readSmokeSummaryStatus();
 const installedAppPresent = fs.existsSync(appPath);
 const backendValidation = buildBackendValidation(releaseEnv);
+const staticSmokePreflight = buildStaticSmokePreflight(smokeSummary);
 const installedSmoke = buildInstalledSmoke(installedAppPresent, smokeSummary);
 const shareableDmgGate = buildShareableDmgGate(
   releaseEnv,
   backendValidation,
+  staticSmokePreflight,
   installedSmoke,
 );
 const generatedAt = new Date().toISOString();
 const status =
-  releaseEnv.ok && backendValidation.ready && installedSmoke.ready && shareableDmgGate.ready
+  releaseEnv.ok && backendValidation.ready && staticSmokePreflight.ready && installedSmoke.ready && shareableDmgGate.ready
     ? "ready"
     : "blocked";
 
@@ -145,6 +165,7 @@ const payload = {
   appPath,
   smokeSummary,
   backendValidation,
+  staticSmokePreflight,
   installedSmoke,
   shareableDmgGate,
   releaseEnv,
@@ -172,6 +193,13 @@ ${listItems(releaseEnv.warnings, "None. Recommended release settings are present
 - Required commands: ${backendValidation.requiredCommands.join(", ")}
 - ${backendValidation.message}
 
+## Static Smoke Preflight
+
+- Preflight summary present: ${staticSmokePreflight.smokeSummaryPresent ? "yes" : "no"} (${staticSmokePreflight.smokeSummaryPath})
+${staticSmokePreflight.generatedLine ? `- ${staticSmokePreflight.generatedLine}` : "- Smoke preflight summary has not been generated in this checkout."}
+- Required command: ${staticSmokePreflight.requiredCommand}
+- ${staticSmokePreflight.message}
+
 ## Installed App Smoke
 
 - Installed app present: ${installedSmoke.installedAppPresent ? "yes" : "no"} (${installedSmoke.appPath})
@@ -185,6 +213,7 @@ ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Smoke 
 - Rust backend validation ready: ${shareableDmgGate.backendValidationReady ? "yes" : "no"}
 - Signed and notarized: ${shareableDmgGate.signedAndNotarized ? "yes" : "no"}
 - Updater feed ready: ${shareableDmgGate.updaterFeedReady ? "yes" : "no"}
+- Static smoke preflight ready: ${shareableDmgGate.staticSmokePreflightReady ? "yes" : "no"}
 - Installed-app smoke ready: ${shareableDmgGate.installedAppSmokeReady ? "yes" : "no"}
 - ${shareableDmgGate.message}
 
