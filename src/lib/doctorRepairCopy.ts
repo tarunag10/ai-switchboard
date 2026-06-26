@@ -72,6 +72,8 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
   }
 
   switch (issue.id) {
+case "switchboard_mode_degraded":
+return "Requested mode and active mode differ. Review automatic repairs below, then keep manual connector or install steps visible until requested mode becomes active.";
     case "planned_connectors_detected":
       return "Open Settings, review detected evidence and each planned connector guide. Use RTK-only mode or Repo Intelligence packs; keep provider routing manual until backup, restore, and Off mode cleanup are available.";
     case "repo_intelligence_repo_missing":

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   canRepairIssue,
+  doctorIssueGuidance,
   doctorRepairHint,
   doctorRepairLabel,
 } from "./doctorRepairCopy";
@@ -51,4 +52,16 @@ describe("doctor repair copy", () => {
     expect(canRepairIssue(null)).toBe(false);
     expect(canRepairIssue(undefined)).toBe(false);
   });
+
+ it("guides manual degraded mode issues without repair action", () => {
+ expect(
+ doctorIssueGuidance({
+ id: "switchboard_mode_degraded",
+ title: "Requested optimization is degraded",
+ body: "Full optimization is requested, but RTK only is active.",
+ severity: "warning",
+ repairAction: null,
+ }),
+ ).toContain("Requested mode and active mode differ");
+ });
 });

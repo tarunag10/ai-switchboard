@@ -2030,9 +2030,32 @@ let connectors = client_adapters::list_client_connectors(&state.cached_clients()
         })
         .cloned()
         .collect::<Vec<_>>();
+    let rtk_ready = runtime.rtk.installed && runtime.rtk.enabled;
+    let headroom_ready =
+        runtime.running && runtime.proxy_reachable && !runtime.paused && enabled_clients > 0;
+    let inferred_mode = match (headroom_ready, rtk_ready) {
+        (true, true) => SwitchboardMode::Full,
+        (true, false) => SwitchboardMode::Headroom,
+        (false, true) => SwitchboardMode::Rtk,
+        (false, false) => SwitchboardMode::Off,
+    };
 
-if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
-&& runtime.installed
+    if desired_mode != inferred_mode {
+        issues.push(crate::models::DoctorIssue {
+            id: "switchboard_mode_degraded".to_string(),
+            title: "Requested optimization is degraded".to_string(),
+            body: format!(
+                "{} is requested, but {} is active. Doctor lists missing local pieces below; repair automatic items, then keep manual connector steps visible.",
+                switchboard_mode_label(&desired_mode),
+                switchboard_mode_label(&inferred_mode)
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: None,
+        });
+    }
+
+    if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
+        && runtime.installed
 && (!runtime.running || !runtime.proxy_reachable || runtime.auto_paused)
 {
 issues.push(crate::models::DoctorIssue {
