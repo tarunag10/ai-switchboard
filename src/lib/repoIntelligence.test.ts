@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRepoIntelligenceSummary,
   buildRepoAgentManifest,
+  buildRepoAgentHandoffPayload,
   classifyRepoFile,
   estimateRepoIntelligenceSavings,
   estimateRepoTokens,
@@ -194,6 +195,40 @@ expect(manifest.graph.importEdges[0]).toEqual(expect.objectContaining({ from: ex
   const parsed = JSON.parse(formatRepoAgentManifestJson(summary, "2026-06-25T10:00:00Z"));
   expect(parsed.packs[0].estimatedTokensAvoided).toBeGreaterThan(0);
     expect(JSON.stringify(parsed)).not.toContain(".env.local");
+  });
+
+  it("builds machine-readable agent handoff payloads", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+      { path: ".env.local", bytes: 300 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+
+    const payload = buildRepoAgentHandoffPayload(summary, "gemini");
+
+    expect(payload.kind).toBe("mac_ai_switchboard.repo_agent_handoff");
+    expect(payload.schemaVersion).toBe(1);
+    expect(payload.repoRoot).toBe("/Users/me/app");
+    expect(payload.agent).toEqual(expect.objectContaining({
+      id: "gemini",
+      label: "Gemini CLI",
+      toolKind: "cli",
+    }));
+    expect(payload.pack.id).toBe("implementation");
+    expect(payload.pack.estimatedTokensAvoided).toBeGreaterThan(0);
+    expect(payload.pack.files.map((file) => file.path)).toContain("src/App.tsx");
+    expect(payload.pack.files.map((file) => file.path)).not.toContain(".env.local");
+    expect(payload.graph.available).toBe(true);
+    expect(payload.graph.dependencyHubs.map((file) => file.path)).toContain("package.json");
+    expect(payload.safety).toEqual({
+      readOnly: true,
+      excludesSecretLikePaths: true,
+      modifiesRepository: false,
+      manualProviderRouting: true,
+    });
   });
 
   it("formats agent-specific bounded handoffs for popular coding tools", () => {

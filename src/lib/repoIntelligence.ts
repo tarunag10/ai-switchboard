@@ -128,6 +128,45 @@ export interface RepoAgentManifest {
   };
 }
 
+export interface RepoAgentHandoffPayload {
+  schemaVersion: 1;
+  kind: "mac_ai_switchboard.repo_agent_handoff";
+  repoRoot: string;
+  agent: {
+    id: RepoAgentHandoffTarget;
+    label: string;
+    toolKind: RepoAgentHandoffProfile["toolKind"];
+    guidance: string;
+  };
+  pack: {
+    id: RepoContextPack["id"];
+    title: string;
+    purpose: string;
+    estimatedTokens: number;
+    estimatedTokensAvoided: number;
+    savingsVsFullScanPct: number;
+    files: Array<{
+      path: string;
+      role: RepoFileRole;
+      language: string;
+      estimatedTokens: number;
+      reasons: string[];
+    }>;
+  };
+  graph: {
+    available: boolean;
+    dependencyHubs: RepoFileSignal[];
+    importEdges: RepoGraphEdge[];
+    reverseDependencyHubs: RepoGraphNode[];
+  };
+  safety: {
+    readOnly: true;
+    excludesSecretLikePaths: true;
+    modifiesRepository: false;
+    manualProviderRouting: true;
+  };
+}
+
 export type RepoAgentHandoffTarget =
   | "claude"
   | "codex"
@@ -589,6 +628,68 @@ export function formatRepoAgentManifestJson(
   generatedAt?: string,
 ): string {
   return `${JSON.stringify(buildRepoAgentManifest(summary, generatedAt), null, 2)}\n`;
+}
+
+export function buildRepoAgentHandoffPayload(
+  summary: RepoIntelligenceSummary,
+  target: RepoAgentHandoffTarget,
+  packId?: string,
+): RepoAgentHandoffPayload {
+  const profile = repoAgentHandoffProfiles.find((candidate) => candidate.id === target);
+  if (!profile) {
+    throw new Error(`Unknown agent handoff target: ${target}`);
+  }
+
+  const selectedPack =
+    summary.packs.find((pack) => pack.id === (packId ?? profile.defaultPackId)) ??
+    summary.packs.find((pack) => pack.id === profile.defaultPackId) ??
+    summary.packs[0];
+
+  if (!selectedPack) {
+    throw new Error("No repo intelligence packs available.");
+  }
+
+  return {
+    schemaVersion: 1,
+    kind: "mac_ai_switchboard.repo_agent_handoff",
+    repoRoot: summary.repoRoot ?? "",
+    agent: {
+      id: profile.id,
+      label: profile.label,
+      toolKind: profile.toolKind,
+      guidance: profile.guidance,
+    },
+    pack: {
+      id: selectedPack.id,
+      title: selectedPack.title,
+      purpose: selectedPack.purpose,
+      estimatedTokens: selectedPack.estimatedTokens,
+      estimatedTokensAvoided: Math.max(
+        0,
+        summary.estimatedFullScanTokens - selectedPack.estimatedTokens,
+      ),
+      savingsVsFullScanPct: selectedPack.savingsVsFullScanPct,
+      files: selectedPack.files.map((file) => ({
+        path: file.path,
+        role: file.role,
+        language: file.language,
+        estimatedTokens: file.estimatedTokens,
+        reasons: [...file.reasons],
+      })),
+    },
+    graph: {
+      available: Boolean(summary.graph),
+      dependencyHubs: summary.graph?.dependencyHubs ?? [],
+      importEdges: summary.graph?.importEdges ?? [],
+      reverseDependencyHubs: summary.graph?.reverseDependencyHubs ?? [],
+    },
+    safety: {
+      readOnly: true,
+      excludesSecretLikePaths: true,
+      modifiesRepository: false,
+      manualProviderRouting: true,
+    },
+  };
 }
 
 export function formatRepoAgentHandoffMarkdown(
