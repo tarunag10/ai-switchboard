@@ -8,6 +8,15 @@ const smokeSummaryPath = "dist/smoke-preflight-summary.md";
 const installedSmokeSummaryPath = "dist/installed-smoke-summary.md";
 const appPath = "/Applications/Mac AI Switchboard.app";
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
+const staticSmokeRequiredEvidence = [
+  "Switchboard modes",
+  "Doctor automatic and manual triage",
+  "Planned connector automation gates",
+  "Planned connector manual workflow",
+  "Repo Intelligence context packs",
+  "Per-tool agent handoffs",
+  "Installed app metadata check",
+];
 
 function runReleaseEnv() {
   const result = spawnSync(
@@ -115,6 +124,7 @@ function buildStaticSmokePreflight(smokeSummary) {
     smokeSummaryPresent: smokeSummary.present,
     generatedLine: smokeSummary.generatedLine,
     requiredCommand: "npm run smoke:preflight",
+    requiredEvidence: staticSmokeRequiredEvidence,
     message: ready
       ? "Static smoke preflight summary present. Keep it with release evidence."
       : "Run npm run smoke:preflight before handing a DMG to a tester.",
@@ -213,6 +223,7 @@ ${listItems(releaseEnv.warnings, "None. Recommended release settings are present
 - Preflight summary present: ${staticSmokePreflight.smokeSummaryPresent ? "yes" : "no"} (${staticSmokePreflight.smokeSummaryPath})
 ${staticSmokePreflight.generatedLine ? `- ${staticSmokePreflight.generatedLine}` : "- Smoke preflight summary has not been generated in this checkout."}
 - Required command: ${staticSmokePreflight.requiredCommand}
+- Required evidence: ${staticSmokePreflight.requiredEvidence.join(", ")}
 - ${staticSmokePreflight.message}
 
 ## Installed App Smoke

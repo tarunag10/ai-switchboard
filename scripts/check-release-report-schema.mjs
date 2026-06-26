@@ -6,6 +6,7 @@ const requiredReleaseReportPaths = [
   "backendValidation.unblockCommands",
   "staticSmokePreflight.smokeSummaryPresent",
   "staticSmokePreflight.requiredCommand",
+  "staticSmokePreflight.requiredEvidence",
   "installedSmokeSummary.present",
   "installedSmoke.smokeSummaryPresent",
   "shareableDmgGate.staticSmokePreflightReady",
@@ -108,6 +109,18 @@ requireBooleanFields(report, "staticSmokePreflight", [
 ]);
 requireType(report, "staticSmokePreflight.smokeSummaryPath", "string");
 requireType(report, "staticSmokePreflight.requiredCommand", "string");
+const requiredEvidence = requireArray(report, "staticSmokePreflight.requiredEvidence");
+for (const item of requiredEvidence) {
+  if (typeof item !== "string" || item.length === 0) {
+    fail("staticSmokePreflight.requiredEvidence entries must be non-empty strings");
+  }
+}
+if (!requiredEvidence.includes("Planned connector automation gates")) {
+  fail("staticSmokePreflight.requiredEvidence must include planned connector automation gates");
+}
+if (!requiredEvidence.includes("Planned connector manual workflow")) {
+  fail("staticSmokePreflight.requiredEvidence must include planned connector manual workflow");
+}
 requireType(report, "staticSmokePreflight.message", "string");
 
 requireObject(report, "installedSmokeSummary");

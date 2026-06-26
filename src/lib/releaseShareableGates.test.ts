@@ -20,8 +20,9 @@ describe("shareable DMG gates", () => {
     expect(gateCopy).toContain("release:report");
     expect(gateCopy).toContain("cargo");
     expect(gateCopy).toContain("notarization");
-    expect(gateCopy).toContain("HEADROOM_UPDATER_ENDPOINTS");
-    expect(gateCopy).toContain("smoke-preflight-summary.md");
-    expect(gateCopy).toContain("/Applications/Mac AI Switchboard.app");
+  expect(gateCopy).toContain("HEADROOM_UPDATER_ENDPOINTS");
+  expect(gateCopy).toContain("smoke-preflight-summary.md");
+  expect(gateCopy).toContain("planned connector safety evidence");
+  expect(gateCopy).toContain("/Applications/Mac AI Switchboard.app");
   });
 });
