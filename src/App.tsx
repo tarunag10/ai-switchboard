@@ -1137,6 +1137,30 @@ function PlannedAddonCard({
             <li key={bullet}>{bullet}</li>
           ))}
         </ul>
+        <div className="addon-card__evidence-grid">
+          <section>
+            <h4>Health checks</h4>
+            <ul>
+              {addon.healthChecks.map((check) => (
+                <li key={check}>{check}</li>
+              ))}
+            </ul>
+          </section>
+          <section>
+            <h4>Savings sources</h4>
+            <ul>
+              {addon.savingsSources.map((source) => (
+                <li key={source}>{source}</li>
+              ))}
+            </ul>
+          </section>
+        </div>
+        {addon.verificationCommand ? (
+          <p className="addon-card__verification">
+            <Terminal size={13} weight="duotone" />
+            <code>{addon.verificationCommand}</code>
+          </p>
+        ) : null}
         {showConnectorRoadmap ? (
           <PlannedConnectorRoadmap connectors={plannedConnectors} />
         ) : null}

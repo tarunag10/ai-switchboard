@@ -7253,6 +7253,57 @@ html.window-hiding {
   color: var(--text-secondary);
 }
 
+.addon-card__evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.addon-card__evidence-grid section {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+
+.addon-card__evidence-grid h4 {
+  margin: 0 0 6px;
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  font-weight: 800;
+}
+
+.addon-card__evidence-grid ul {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 14px;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+.addon-card__verification {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin: 10px 0 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.addon-card__verification code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .addon-card__progress {
   margin: 8px 0 0;
   font-size: var(--text-xs);
