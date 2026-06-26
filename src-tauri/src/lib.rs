@@ -808,6 +808,7 @@ fn start_bootstrap(app: AppHandle) -> Result<(), String> {
     let app_handle = app.clone();
     std::thread::spawn(move || {
         let state: tauri::State<'_, AppState> = app_handle.state();
+        let wants_headroom = saved_switchboard_mode_wants_headroom();
 
         if !already_installed {
             let result = state.tool_manager.bootstrap_all_with_progress(|step| {
@@ -827,12 +828,28 @@ fn start_bootstrap(app: AppHandle) -> Result<(), String> {
                 return;
             }
 
-            if let Err(err) = client_adapters::ensure_rtk_integrations(
-                &state.tool_manager.rtk_entrypoint(),
-                &state.tool_manager.managed_python(),
-            ) {
-                log::warn!("RTK integrations failed after start_bootstrap thread: {err:#}");
+            if saved_switchboard_mode_wants_rtk() {
+                if let Err(err) = client_adapters::ensure_rtk_integrations(
+                    &state.tool_manager.rtk_entrypoint(),
+                    &state.tool_manager.managed_python(),
+                ) {
+                    log::warn!("RTK integrations failed after start_bootstrap thread: {err:#}");
+                }
             }
+        }
+
+        if !wants_headroom {
+            state.stop_headroom();
+            state.set_runtime_paused(true);
+            state.set_runtime_auto_paused(false);
+            state.mark_bootstrap_complete();
+            emit_bootstrap_progress(&app_handle, &state);
+            analytics::track_event(
+                &app_handle,
+                "bootstrap_completed",
+                Some(json!({ "headroom_started": false })),
+            );
+            return;
         }
 
         // Show "Starting Headroom" in the install loader while we wait for the
@@ -1914,6 +1931,20 @@ fn switchboard_mode_label(mode: &SwitchboardMode) -> &'static str {
         SwitchboardMode::Headroom => "Headroom only",
         SwitchboardMode::Full => "Full optimization",
     }
+}
+
+fn saved_switchboard_mode_wants_headroom() -> bool {
+    matches!(
+        client_adapters::load_switchboard_mode(),
+        Some(SwitchboardMode::Headroom | SwitchboardMode::Full) | None
+    )
+}
+
+fn saved_switchboard_mode_wants_rtk() -> bool {
+    matches!(
+        client_adapters::load_switchboard_mode(),
+        Some(SwitchboardMode::Rtk | SwitchboardMode::Full) | None
+    )
 }
 
 fn infer_switchboard_mode(
@@ -3886,19 +3917,22 @@ pub fn run() {
                 })
                 .expect("spawn identity pusher");
 
-            // Start the intercept layer before anything else touches port 6767.
-            proxy_intercept::spawn(
-                std::sync::Arc::clone(&state.claude_bearer_token),
-                std::sync::Arc::clone(&state.codex_rate_limits),
-                std::sync::Arc::clone(&state.codex_plan_tier),
-                std::sync::Arc::clone(&state.proxy_bypass),
-                std::sync::Arc::clone(&state.codex_bypass),
-                fresh_bearer_tx,
-            );
+            let wants_headroom = saved_switchboard_mode_wants_headroom();
+            if wants_headroom {
+                // Start the intercept layer before anything else touches port 6767.
+                proxy_intercept::spawn(
+                    std::sync::Arc::clone(&state.claude_bearer_token),
+                    std::sync::Arc::clone(&state.codex_rate_limits),
+                    std::sync::Arc::clone(&state.codex_plan_tier),
+                    std::sync::Arc::clone(&state.proxy_bypass),
+                    std::sync::Arc::clone(&state.codex_bypass),
+                    fresh_bearer_tx,
+                );
+            }
             if state.should_present_on_launch() && !launched_from_autostart {
                 let _ = show_launcher_window(app.handle());
             }
-            if state.tool_manager.python_runtime_installed() {
+            if wants_headroom && state.tool_manager.python_runtime_installed() {
                 state.set_runtime_starting(true);
             }
             // Strip noisy traffic_learner error_recovery patterns before the
@@ -3910,20 +3944,22 @@ pub fn run() {
                 let state: tauri::State<'_, AppState> = app_handle.state();
                 state.warm_runtime_on_launch(&app_handle);
             });
-            // Restore previously connected client integrations in the background.
-            std::thread::spawn(|| {
-                client_adapters::restore_client_setups();
-                // restore_client_setups only retags Codex threads back to the
-                // headroom provider for clients in `remembered_clients`, which a
-                // plain Cmd-Q / dock quit / app-update restart never populates
-                // (only pause and the Settings "Quit" do). Those exit paths still
-                // run the quit-time headroom->openai retag, so without this the
-                // Codex history menu stays empty after an update restart. Mirror
-                // the quit retag whenever Codex is still configured.
-                if client_adapters::is_codex_enabled() {
-                    client_adapters::retag_codex_threads_to_headroom();
-                }
-            });
+            if wants_headroom {
+                // Restore previously connected client integrations in the background.
+                std::thread::spawn(|| {
+                    client_adapters::restore_client_setups();
+                    // restore_client_setups only retags Codex threads back to the
+                    // headroom provider for clients in `remembered_clients`, which a
+                    // plain Cmd-Q / dock quit / app-update restart never populates
+                    // (only pause and the Settings "Quit" do). Those exit paths still
+                    // run the quit-time headroom->openai retag, so without this the
+                    // Codex history menu stays empty after an update restart. Mirror
+                    // the quit retag whenever Codex is still configured.
+                    if client_adapters::is_codex_enabled() {
+                        client_adapters::retag_codex_threads_to_headroom();
+                    }
+                });
+            }
 
             // headroom:// deep link — Polar's checkout success page redirects
             // here. Triggers an immediate pricing refresh so the gate releases

@@ -26,7 +26,7 @@ use crate::models::{
     CodexAccountProfile, CodexRateLimitSnapshot, DailyInsight, DailySavingsPoint, DashboardState,
     HeadroomLearnPrereqStatus, HeadroomLearnStatus, HourlySavingsPoint, LaunchExperience,
     RtkRuntimeStatus, RuntimeStatus, RuntimeUpgradeFailure, RuntimeUpgradeProgress,
-    TransformationFeedEvent, UpgradeFailurePhase, UsageEvent,
+    SwitchboardMode, TransformationFeedEvent, UpgradeFailurePhase, UsageEvent,
 };
 use crate::pricing;
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs, telemetry_file};
@@ -664,6 +664,22 @@ impl AppState {
             return;
         }
 
+        let saved_mode = crate::client_adapters::load_switchboard_mode();
+        let wants_headroom = matches!(
+            saved_mode,
+            Some(SwitchboardMode::Headroom | SwitchboardMode::Full) | None
+        );
+        let wants_rtk = matches!(
+            saved_mode,
+            Some(SwitchboardMode::Rtk | SwitchboardMode::Full) | None
+        );
+
+        if !wants_headroom {
+            self.stop_headroom();
+            self.set_runtime_paused(true);
+            self.set_runtime_auto_paused(false);
+        }
+
         self.set_runtime_starting(true);
         self.enforce_pricing_gate();
         self.stop_python_if_gated();
@@ -679,11 +695,13 @@ impl AppState {
             Err(err) => log::warn!("rtk version check on launch failed: {err}"),
         }
 
-        if let Err(err) = ensure_rtk_integrations(
-            &self.tool_manager.rtk_entrypoint(),
-            &self.tool_manager.managed_python(),
-        ) {
-            log::warn!("RTK integrations failed during warm_runtime_on_launch: {err:#}");
+        if wants_rtk {
+            if let Err(err) = ensure_rtk_integrations(
+                &self.tool_manager.rtk_entrypoint(),
+                &self.tool_manager.managed_python(),
+            ) {
+                log::warn!("RTK integrations failed during warm_runtime_on_launch: {err:#}");
+            }
         }
 
         // App-version-triggered atomic runtime upgrade. Replaces the old
@@ -708,11 +726,17 @@ impl AppState {
 
         // Independent of the upgrade: if MCP is not configured (e.g. it failed
         // during a prior install), retry it now.
-        if let Err(err) = self.tool_manager.ensure_mcp_configured() {
-            // install_headroom_mcp captures rich structured data to Sentry
-            // at the failure site; log to file only to avoid a duplicate
-            // (and stripped) Sentry event from the FileLogger forwarder.
-            log::info!("headroom MCP configuration failed: {err:#}");
+        if wants_headroom {
+            if let Err(err) = self.tool_manager.ensure_mcp_configured() {
+                // install_headroom_mcp captures rich structured data to Sentry
+                // at the failure site; log to file only to avoid a duplicate
+                // (and stripped) Sentry event from the FileLogger forwarder.
+                log::info!("headroom MCP configuration failed: {err:#}");
+            }
+        } else {
+            self.set_runtime_starting(false);
+            self.invalidate_runtime_status_cache();
+            return;
         }
 
         // Seed the output-shaper savings baseline BEFORE starting the proxy.
