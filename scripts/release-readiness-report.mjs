@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -6,6 +7,7 @@ const reportPath = "dist/release-readiness-report.md";
 const jsonPath = "dist/release-readiness-report.json";
 const smokeSummaryPath = "dist/smoke-preflight-summary.md";
 const installedSmokeSummaryPath = "dist/installed-smoke-summary.md";
+const betaSmokeDoc = "docs/beta-smoke-test.md";
 const appPath = "/Applications/Mac AI Switchboard.app";
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
 const staticSmokeRequiredEvidence = [
@@ -53,29 +55,48 @@ function listItems(items, emptyCopy) {
     return `- ${emptyCopy}`;
   }
 
-  return items
-    .map((item) => `- ${item.label}\n  ${item.hint}`)
-    .join("\n");
+  return items.map((item) => `- ${item.label}\n  ${item.hint}`).join("\n");
 }
 
 function readSummaryStatus(summaryPath) {
   if (!fs.existsSync(summaryPath)) {
+    return {
+      present: false,
+      generatedLine: null,
+      body: "",
+    };
+  }
+
+  const body = fs.readFileSync(summaryPath, "utf8");
+  const firstGeneratedLine =
+    body.split("\n").find((line) => line.startsWith("Generated: ")) ?? null;
+
   return {
-    present: false,
-    generatedLine: null,
-    body: "",
+    present: true,
+    generatedLine: firstGeneratedLine,
+    body,
   };
 }
 
-const body = fs.readFileSync(summaryPath, "utf8");
-const firstGeneratedLine =
-  body.split("\n").find((line) => line.startsWith("Generated: ")) ?? null;
+function currentFileSha256(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
 
-return {
-  present: true,
-  generatedLine: firstGeneratedLine,
-  body,
-};
+  return crypto
+    .createHash("sha256")
+    .update(fs.readFileSync(filePath))
+    .digest("hex");
+}
+
+function extractChecklistSha256(body) {
+  return (
+    body
+      .split("\n")
+      .find((line) => line.startsWith("- Installed-app checklist SHA-256: "))
+      ?.replace("- Installed-app checklist SHA-256: ", "")
+      .trim() || null
+  );
 }
 
 function hasBlocker(releaseEnv, pattern) {
@@ -105,12 +126,27 @@ function buildBackendValidation(releaseEnv) {
   };
 }
 
-function buildInstalledSmoke(installedAppPresent, bundleMetadataPresent, installedSmokeSummary) {
- const missingEvidence = installedSmokeRequiredEvidence.filter(
- (item) => !installedSmokeSummary.body.includes(item),
- );
- const evidenceReady = installedSmokeSummary.present && missingEvidence.length === 0;
- const ready = installedAppPresent && bundleMetadataPresent && evidenceReady;
+function buildInstalledSmoke(
+  installedAppPresent,
+  bundleMetadataPresent,
+  installedSmokeSummary,
+) {
+  const missingEvidence = installedSmokeRequiredEvidence.filter(
+    (item) => !installedSmokeSummary.body.includes(item),
+  );
+  const currentChecklistSha256 = currentFileSha256(betaSmokeDoc);
+  const recordedChecklistSha256 = extractChecklistSha256(
+    installedSmokeSummary.body,
+  );
+  const checklistSha256Matches =
+    installedSmokeSummary.present &&
+    Boolean(recordedChecklistSha256) &&
+    recordedChecklistSha256 === currentChecklistSha256;
+  const evidenceReady =
+    installedSmokeSummary.present &&
+    missingEvidence.length === 0 &&
+    checklistSha256Matches;
+  const ready = installedAppPresent && bundleMetadataPresent && evidenceReady;
 
   return {
     ready,
@@ -118,15 +154,19 @@ function buildInstalledSmoke(installedAppPresent, bundleMetadataPresent, install
     bundleMetadataPresent,
     appPath,
     appInfoPlistPath,
- smokeSummaryPath: installedSmokeSummaryPath,
- smokeSummaryPresent: installedSmokeSummary.present,
- generatedLine: installedSmokeSummary.generatedLine,
- requiredEvidence: installedSmokeRequiredEvidence,
- missingEvidence,
- evidenceReady,
- message: ready
-      ? "Installed-app smoke summary includes every required evidence area."
-      : "Install the signed DMG into /Applications, run docs/beta-smoke-test.md, then run npm run smoke:installed -- --confirm with every required evidence area.",
+    smokeSummaryPath: installedSmokeSummaryPath,
+    smokeSummaryPresent: installedSmokeSummary.present,
+    generatedLine: installedSmokeSummary.generatedLine,
+    betaSmokeDoc,
+    currentChecklistSha256,
+    recordedChecklistSha256,
+    checklistSha256Matches,
+    requiredEvidence: installedSmokeRequiredEvidence,
+    missingEvidence,
+    evidenceReady,
+    message: ready
+      ? "Installed-app smoke summary includes required evidence and matches the current checklist."
+      : "Install signed DMG into /Applications, run docs/beta-smoke-test.md, run npm run smoke:installed -- --confirm with required evidence from the current checklist.",
   };
 }
 
@@ -146,11 +186,18 @@ function buildStaticSmokePreflight(smokeSummary) {
   };
 }
 
-function buildShareableDmgGate(releaseEnv, backendValidation, staticSmokePreflight, installedSmoke) {
+function buildShareableDmgGate(
+  releaseEnv,
+  backendValidation,
+  staticSmokePreflight,
+  installedSmoke,
+) {
   const environmentClear = releaseEnv.blockers.length === 0;
   const signedAndNotarized = environmentClear;
   const updaterFeedReady = !releaseEnv.warnings.some((warning) =>
-    /HEADROOM_UPDATER_PUBLIC_KEY|HEADROOM_UPDATER_ENDPOINTS/.test(warning.label),
+    /HEADROOM_UPDATER_PUBLIC_KEY|HEADROOM_UPDATER_ENDPOINTS/.test(
+      warning.label,
+    ),
   );
   const staticSmokePreflightReady = staticSmokePreflight.ready;
   const installedAppSmokeReady = installedSmoke.ready;
@@ -183,7 +230,11 @@ const installedAppPresent = fs.existsSync(appPath);
 const bundleMetadataPresent = fs.existsSync(appInfoPlistPath);
 const backendValidation = buildBackendValidation(releaseEnv);
 const staticSmokePreflight = buildStaticSmokePreflight(smokeSummary);
-const installedSmoke = buildInstalledSmoke(installedAppPresent, bundleMetadataPresent, installedSmokeSummary);
+const installedSmoke = buildInstalledSmoke(
+  installedAppPresent,
+  bundleMetadataPresent,
+  installedSmokeSummary,
+);
 const shareableDmgGate = buildShareableDmgGate(
   releaseEnv,
   backendValidation,
@@ -192,7 +243,11 @@ const shareableDmgGate = buildShareableDmgGate(
 );
 const generatedAt = new Date().toISOString();
 const status =
-  releaseEnv.ok && backendValidation.ready && staticSmokePreflight.ready && installedSmoke.ready && shareableDmgGate.ready
+  releaseEnv.ok &&
+  backendValidation.ready &&
+  staticSmokePreflight.ready &&
+  installedSmoke.ready &&
+  shareableDmgGate.ready
     ? "ready"
     : "blocked";
 
@@ -247,6 +302,10 @@ ${staticSmokePreflight.generatedLine ? `- ${staticSmokePreflight.generatedLine}`
 - Installed app metadata present: ${installedSmoke.bundleMetadataPresent ? "yes" : "no"} (${installedSmoke.appInfoPlistPath})
 - Installed smoke summary present: ${installedSmoke.smokeSummaryPresent ? "yes" : "no"} (${installedSmoke.smokeSummaryPath})
 ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Installed smoke summary has not been generated in this checkout."}
+- Installed-app checklist: ${installedSmoke.betaSmokeDoc}
+- Installed-app checklist hash matches current checklist: ${installedSmoke.checklistSha256Matches ? "yes" : "no"}
+- Recorded checklist SHA-256: ${installedSmoke.recordedChecklistSha256 ?? "missing"}
+- Current checklist SHA-256: ${installedSmoke.currentChecklistSha256 ?? "missing"}
 - Required evidence: ${installedSmoke.requiredEvidence.join(", ")}
 - Missing evidence: ${installedSmoke.missingEvidence.length ? installedSmoke.missingEvidence.join(", ") : "none"}
 - Installed smoke evidence ready: ${installedSmoke.evidenceReady ? "yes" : "no"}
@@ -285,7 +344,9 @@ fs.writeFileSync(jsonPath, `${JSON.stringify(payload, null, 2)}\n`);
 console.log(`Release readiness status: ${status}`);
 console.log(`Report written: ${reportPath}`);
 console.log(`JSON written: ${jsonPath}`);
-console.log(`Shareable DMG gate: ${shareableDmgGate.ready ? "ready" : "blocked"}`);
+console.log(
+  `Shareable DMG gate: ${shareableDmgGate.ready ? "ready" : "blocked"}`,
+);
 
 if (releaseEnv.blockers.length > 0) {
   console.log(`Blockers: ${releaseEnv.blockers.length}`);

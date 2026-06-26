@@ -12,6 +12,7 @@ const requiredReleaseReportPaths = [
   "installedSmoke.requiredEvidence",
   "installedSmoke.missingEvidence",
   "installedSmoke.evidenceReady",
+  "installedSmoke.checklistSha256Matches",
   "shareableDmgGate.staticSmokePreflightReady",
   "shareableDmgGate.updaterFeedReady",
   "releaseEnv.blockers",
@@ -28,7 +29,9 @@ function isObject(value) {
 }
 
 function requireObject(root, path) {
-  const value = path.split(".").reduce((current, part) => current?.[part], root);
+  const value = path
+    .split(".")
+    .reduce((current, part) => current?.[part], root);
   if (!isObject(value)) {
     fail(`${path} must be an object`);
   }
@@ -36,7 +39,9 @@ function requireObject(root, path) {
 }
 
 function requireArray(root, path) {
-  const value = path.split(".").reduce((current, part) => current?.[part], root);
+  const value = path
+    .split(".")
+    .reduce((current, part) => current?.[part], root);
   if (!Array.isArray(value)) {
     fail(`${path} must be an array`);
   }
@@ -44,7 +49,9 @@ function requireArray(root, path) {
 }
 
 function requireType(root, path, type) {
-  const value = path.split(".").reduce((current, part) => current?.[part], root);
+  const value = path
+    .split(".")
+    .reduce((current, part) => current?.[part], root);
   if (typeof value !== type) {
     fail(`${path} must be ${type}`);
   }
@@ -59,7 +66,9 @@ function requireBooleanFields(root, prefix, fields) {
 
 function hasPath(root, path) {
   return path.split(".").every((part, index, parts) => {
-    const parent = parts.slice(0, index).reduce((current, key) => current?.[key], root);
+    const parent = parts
+      .slice(0, index)
+      .reduce((current, key) => current?.[key], root);
     return isObject(parent) || Array.isArray(parent) ? part in parent : false;
   });
 }
@@ -112,17 +121,26 @@ requireBooleanFields(report, "staticSmokePreflight", [
 ]);
 requireType(report, "staticSmokePreflight.smokeSummaryPath", "string");
 requireType(report, "staticSmokePreflight.requiredCommand", "string");
-const requiredEvidence = requireArray(report, "staticSmokePreflight.requiredEvidence");
+const requiredEvidence = requireArray(
+  report,
+  "staticSmokePreflight.requiredEvidence",
+);
 for (const item of requiredEvidence) {
   if (typeof item !== "string" || item.length === 0) {
-    fail("staticSmokePreflight.requiredEvidence entries must be non-empty strings");
+    fail(
+      "staticSmokePreflight.requiredEvidence entries must be non-empty strings",
+    );
   }
 }
 if (!requiredEvidence.includes("Planned connector automation gates")) {
-  fail("staticSmokePreflight.requiredEvidence must include planned connector automation gates");
+  fail(
+    "staticSmokePreflight.requiredEvidence must include planned connector automation gates",
+  );
 }
 if (!requiredEvidence.includes("Planned connector manual workflow")) {
-  fail("staticSmokePreflight.requiredEvidence must include planned connector manual workflow");
+  fail(
+    "staticSmokePreflight.requiredEvidence must include planned connector manual workflow",
+  );
 }
 requireType(report, "staticSmokePreflight.message", "string");
 
@@ -136,13 +154,38 @@ requireBooleanFields(report, "installedSmoke", [
   "bundleMetadataPresent",
   "smokeSummaryPresent",
   "evidenceReady",
+  "checklistSha256Matches",
 ]);
 requireType(report, "installedSmoke.appPath", "string");
 requireType(report, "installedSmoke.appInfoPlistPath", "string");
 requireType(report, "installedSmoke.smokeSummaryPath", "string");
-const installedRequiredEvidence = requireArray(report, "installedSmoke.requiredEvidence");
-const installedMissingEvidence = requireArray(report, "installedSmoke.missingEvidence");
-for (const item of [...installedRequiredEvidence, ...installedMissingEvidence]) {
+requireType(report, "installedSmoke.betaSmokeDoc", "string");
+const currentChecklistSha256 = report.installedSmoke.currentChecklistSha256;
+if (
+  currentChecklistSha256 !== null &&
+  typeof currentChecklistSha256 !== "string"
+) {
+  fail("installedSmoke.currentChecklistSha256 must be string or null");
+}
+const recordedChecklistSha256 = report.installedSmoke.recordedChecklistSha256;
+if (
+  recordedChecklistSha256 !== null &&
+  typeof recordedChecklistSha256 !== "string"
+) {
+  fail("installedSmoke.recordedChecklistSha256 must be string or null");
+}
+const installedRequiredEvidence = requireArray(
+  report,
+  "installedSmoke.requiredEvidence",
+);
+const installedMissingEvidence = requireArray(
+  report,
+  "installedSmoke.missingEvidence",
+);
+for (const item of [
+  ...installedRequiredEvidence,
+  ...installedMissingEvidence,
+]) {
   if (typeof item !== "string" || item.length === 0) {
     fail("installedSmoke evidence arrays must contain non-empty strings");
   }
@@ -181,7 +224,11 @@ for (const [collectionName, items] of [
   ["releaseEnv.warnings", warnings],
 ]) {
   for (const item of items) {
-    if (!isObject(item) || typeof item.label !== "string" || typeof item.hint !== "string") {
+    if (
+      !isObject(item) ||
+      typeof item.label !== "string" ||
+      typeof item.hint !== "string"
+    ) {
       fail(`${collectionName} entries must include label and hint strings`);
     }
   }
