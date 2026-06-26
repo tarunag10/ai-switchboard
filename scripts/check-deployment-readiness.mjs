@@ -226,6 +226,8 @@ const requiredSourceSignals = {
     "Agent recipes",
     "Copy recipe pack",
     "releaseReadinessGroups",
+    "releaseShareableGates",
+    "Shareable DMG gates",
     "detectionEvidence",
     "Evidence",
     "Release readiness",

@@ -4637,6 +4637,34 @@ details[open] .optimize-minimal__details summary::after {
   font-weight: 800;
 }
 
+.release-readiness-card__gates {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.release-readiness-card__gate {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+
+.release-readiness-card__gate strong {
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  line-height: 1.25;
+}
+
+.release-readiness-card__gate span {
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  line-height: 1.35;
+}
+
 .release-readiness-card__grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -5387,6 +5415,7 @@ html.window-hiding {
   .intro-shell__content,
   .home-grid,
   .tool-stats,
+  .release-readiness-card__gates,
   .release-readiness-card__grid {
     grid-template-columns: 1fr;
   }

@@ -83,6 +83,7 @@ import {
   releaseReadinessCommand,
   releaseReadinessGroups,
   releaseReadinessItemCount,
+  releaseShareableGates,
 } from "./lib/releaseReadiness";
 import {
 describeInvokeError,
@@ -6822,11 +6823,19 @@ onRepair={(action) => void handleDoctorRepair(action)}
       Copy report command
     </button>
   </div>
-  <div className="release-readiness-card__command">
-    <Terminal size={15} weight="duotone" />
-    <code>{releaseReadinessCommand}</code>
-  </div>
-  <div className="release-readiness-card__grid">
+<div className="release-readiness-card__command">
+<Terminal size={15} weight="duotone" />
+<code>{releaseReadinessCommand}</code>
+</div>
+<div className="release-readiness-card__gates" aria-label="Shareable DMG gates">
+{releaseShareableGates.map((gate) => (
+<div className="release-readiness-card__gate" key={gate.id}>
+<strong>{gate.label}</strong>
+<span>{gate.detail}</span>
+</div>
+))}
+</div>
+<div className="release-readiness-card__grid">
     {releaseReadinessGroups.map((group) => (
       <section className="release-readiness-card__group" key={group.id}>
         <h4>{group.title}</h4>

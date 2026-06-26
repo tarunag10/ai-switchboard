@@ -10,7 +10,36 @@ export interface ReleaseReadinessGroup {
   items: ReleaseReadinessItem[];
 }
 
+export interface ReleaseShareableGate {
+  id: string;
+  label: string;
+  detail: string;
+}
+
 export const releaseReadinessCommand = "npm run release:report";
+
+export const releaseShareableGates: ReleaseShareableGate[] = [
+  {
+    id: "environment-clear",
+    label: "Environment clear",
+    detail: "release:report has no environment blockers.",
+  },
+  {
+    id: "backend-validation",
+    label: "Backend validation",
+    detail: "cargo and rustup are available so desktop checks can run.",
+  },
+  {
+    id: "signed-notarized",
+    label: "Signed and notarized",
+    detail: "Developer ID, updater signing, and notarization credentials are configured.",
+  },
+  {
+    id: "installed-smoke",
+    label: "Installed smoke",
+    detail: "/Applications/Mac AI Switchboard.app passes beta smoke.",
+  },
+];
 
 export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
   {
