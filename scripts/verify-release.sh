@@ -11,6 +11,9 @@ npm run check:deployment
 echo "Checking release environment..."
 node scripts/check-release-env.mjs --strict
 
+echo "Checking release environment placeholder guard..."
+npm run release:env:selftest
+
 echo "Checking installed-app smoke preflight..."
 npm run smoke:preflight
 
