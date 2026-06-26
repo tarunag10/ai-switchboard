@@ -296,7 +296,15 @@ const connectorSetupDetails: Record<string, string> = {
   continue:
     "Continue is tracked as a planned editor connector. Guided setup stays manual until provider config backup and restore coverage is ready.",
   goose:
-    "Goose is tracked as a planned agent connector. Local provider and MCP handoff support will be added after reversible setup coverage."
+    "Goose is tracked as a planned agent connector. Local provider and MCP handoff support will be added after reversible setup coverage.",
+  qwen_code:
+    "Qwen Code is tracked as a planned CLI connector. Use Repo Intelligence packs today while provider routing waits for model and account guardrails.",
+  amazon_q:
+    "Amazon Q Developer CLI is tracked as a planned CLI connector. Verification packs are safe today; AWS credential and profile state stay outside managed setup.",
+  windsurf:
+    "Windsurf is tracked as a planned editor connector. Paste Repo Intelligence handoffs manually until settings backup and restore support lands.",
+  zed_ai:
+    "Zed AI is tracked as a planned editor connector. Keep provider settings manual while Switchboard adds lossless settings detection and restore."
 };
 
 const connectorSupportWarnings: Record<string, string> = {};
@@ -312,7 +320,11 @@ const connectorUnavailableReasons: Record<string, string> = {
   grok_cli: "Grok / xAI CLI adapter is planned but not configurable yet.",
   aider: "Aider adapter is planned but not configurable yet.",
   continue: "Continue adapter is planned but not configurable yet.",
-  goose: "Goose adapter is planned but not configurable yet."
+  goose: "Goose adapter is planned but not configurable yet.",
+  qwen_code: "Qwen Code adapter is planned but not configurable yet.",
+  amazon_q: "Amazon Q Developer CLI adapter is planned but not configurable yet.",
+  windsurf: "Windsurf adapter is planned but not configurable yet.",
+  zed_ai: "Zed AI adapter is planned but not configurable yet."
 };
 
 const launcherConnectorFallback: ClientConnectorStatus[] = [

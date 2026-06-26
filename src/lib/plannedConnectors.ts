@@ -48,7 +48,11 @@ export const plannedConnectors: PlannedConnector[] = [
     integrationTarget: "Reversible local config base-url routing adapter.",
     notes:
       "Detect installed CLI first, then add Headroom routing only when provider configuration supports local proxy.",
-    capabilityBadges: ["CLI detection", "RTK-safe today", "Provider routing pending"],
+    capabilityBadges: [
+      "CLI detection",
+      "RTK-safe today",
+      "Provider routing pending",
+    ],
     supportedModes: ["RTK only", "Off"],
     safeToday:
       "Detect binary and use RTK around verbose Gemini shell runs; provider routing remains manual.",
@@ -58,7 +62,8 @@ export const plannedConnectors: PlannedConnector[] = [
       {
         label: "Detection",
         state: "Available now",
-        detail: "Switchboard can surface the installed Gemini CLI without editing files.",
+        detail:
+          "Switchboard can surface the installed Gemini CLI without editing files.",
       },
       {
         label: "Token-saving shell output",
@@ -68,10 +73,15 @@ export const plannedConnectors: PlannedConnector[] = [
       {
         label: "Provider routing",
         state: "Planned",
-        detail: "Automatic base-url routing waits for backed-up Gemini config support.",
+        detail:
+          "Automatic base-url routing waits for backed-up Gemini config support.",
       },
     ],
-    configSurfaces: ["Gemini CLI binary", "provider settings", "shell environment"],
+    configSurfaces: [
+      "Gemini CLI binary",
+      "provider settings",
+      "shell environment",
+    ],
     automationGates: [
       "Detect a stable Gemini config file or documented provider flag.",
       "Back up and restore provider settings before enabling setup.",
@@ -89,10 +99,15 @@ export const plannedConnectors: PlannedConnector[] = [
     category: "cli",
     statusLabel: "Planned",
     setupPhase: "Adapt",
-    integrationTarget: "Reversible provider config adapter plus RTK shell-output support.",
+    integrationTarget:
+      "Reversible provider config adapter plus RTK shell-output support.",
     notes:
       "Keep off-mode cleanup symmetric with Claude Code and Codex before enabling automatic setup.",
-    capabilityBadges: ["CLI detection", "RTK-safe today", "Backup/restore pending"],
+    capabilityBadges: [
+      "CLI detection",
+      "RTK-safe today",
+      "Backup/restore pending",
+    ],
     supportedModes: ["RTK only", "Off"],
     safeToday:
       "Detect binary and compact command output while provider config handling stays untouched.",
@@ -107,12 +122,14 @@ export const plannedConnectors: PlannedConnector[] = [
       {
         label: "Token-saving shell output",
         state: "Available now",
-        detail: "RTK can compact command output while OpenCode adapter work continues.",
+        detail:
+          "RTK can compact command output while OpenCode adapter work continues.",
       },
       {
         label: "Config edits",
         state: "Planned",
-        detail: "Automatic setup is gated on backup, restore, and Off mode cleanup.",
+        detail:
+          "Automatic setup is gated on backup, restore, and Off mode cleanup.",
       },
     ],
     configSurfaces: ["OpenCode binary", "provider config", "shell environment"],
@@ -137,7 +154,11 @@ export const plannedConnectors: PlannedConnector[] = [
       "Editor settings/profile detection with opt-in local proxy routing where supported.",
     notes:
       "Treat as guided setup first because Cursor settings and extension behavior can vary by account release channel.",
-    capabilityBadges: ["App detection", "Guided setup", "Settings backup pending"],
+    capabilityBadges: [
+      "App detection",
+      "Guided setup",
+      "Settings backup pending",
+    ],
     supportedModes: ["Repo packs", "Guided setup", "Off"],
     safeToday:
       "Show Cursor as a guided editor target and let users copy Repo Intelligence packs into sessions.",
@@ -152,12 +173,14 @@ export const plannedConnectors: PlannedConnector[] = [
       {
         label: "Manual setup",
         state: "Manual today",
-        detail: "Open Cursor settings and review model/provider routing manually.",
+        detail:
+          "Open Cursor settings and review model/provider routing manually.",
       },
       {
         label: "Settings adapter",
         state: "Planned",
-        detail: "Automatic edits wait for profile-aware backups and restore tests.",
+        detail:
+          "Automatic edits wait for profile-aware backups and restore tests.",
       },
     ],
     configSurfaces: ["Cursor app bundle", "user settings", "profile settings"],
@@ -178,10 +201,15 @@ export const plannedConnectors: PlannedConnector[] = [
     category: "cli",
     statusLabel: "Planned",
     setupPhase: "Detect",
-    integrationTarget: "Provider/base-url adapter once a stable local CLI surface is identified.",
+    integrationTarget:
+      "Provider/base-url adapter once a stable local CLI surface is identified.",
     notes:
       "Track separately from generic OpenAI-compatible clients so account/model constraints stay visible in Doctor.",
-    capabilityBadges: ["CLI detection", "Model guardrails pending", "Provider routing pending"],
+    capabilityBadges: [
+      "CLI detection",
+      "Model guardrails pending",
+      "Provider routing pending",
+    ],
     supportedModes: ["RTK only", "Off"],
     safeToday:
       "Detect grok or xai commands and keep model/provider choices visible instead of auto-routing.",
@@ -196,15 +224,21 @@ export const plannedConnectors: PlannedConnector[] = [
       {
         label: "Model guardrails",
         state: "Planned",
-        detail: "Doctor should prevent unsupported model/account combinations before routing.",
+        detail:
+          "Doctor should prevent unsupported model/account combinations before routing.",
       },
       {
         label: "Provider routing",
         state: "Planned",
-        detail: "Automatic setup waits for a stable OpenAI-compatible local config surface.",
+        detail:
+          "Automatic setup waits for a stable OpenAI-compatible local config surface.",
       },
     ],
-    configSurfaces: ["grok or xai binary", "provider/model flags", "shell environment"],
+    configSurfaces: [
+      "grok or xai binary",
+      "provider/model flags",
+      "shell environment",
+    ],
     automationGates: [
       "Detect a stable xAI CLI surface.",
       "Add Doctor guardrails for unsupported model/account combinations.",
@@ -222,7 +256,8 @@ export const plannedConnectors: PlannedConnector[] = [
     category: "agent",
     statusLabel: "Planned",
     setupPhase: "Adapt",
-    integrationTarget: "Local environment/provider wrapper plus Repo Intelligence context packs.",
+    integrationTarget:
+      "Local environment/provider wrapper plus Repo Intelligence context packs.",
     notes:
       "Good fit for RTK and future repo graph context because it is frequently used inside long coding sessions.",
     capabilityBadges: ["CLI detection", "RTK-safe today", "Repo packs planned"],
@@ -240,15 +275,21 @@ export const plannedConnectors: PlannedConnector[] = [
       {
         label: "Repo context",
         state: "Manual today",
-        detail: "Use Repo Intelligence context packs alongside Aider prompts today.",
+        detail:
+          "Use Repo Intelligence context packs alongside Aider prompts today.",
       },
       {
         label: "Provider wrapper",
         state: "Planned",
-        detail: "Automatic provider environment wrapping waits for reversible setup state.",
+        detail:
+          "Automatic provider environment wrapping waits for reversible setup state.",
       },
     ],
-    configSurfaces: ["Aider binary", "provider environment", "repo context files"],
+    configSurfaces: [
+      "Aider binary",
+      "provider environment",
+      "repo context files",
+    ],
     automationGates: [
       "Detect provider configuration without exposing secrets.",
       "Route through a reversible environment wrapper first.",
@@ -269,7 +310,11 @@ export const plannedConnectors: PlannedConnector[] = [
     integrationTarget: "Local config adapter with explicit backup and restore.",
     notes:
       "Start with read-only detection and guided setup because Continue configs often contain multiple providers.",
-    capabilityBadges: ["Config detection", "Guided setup", "Backup/restore pending"],
+    capabilityBadges: [
+      "Config detection",
+      "Guided setup",
+      "Backup/restore pending",
+    ],
     supportedModes: ["Repo packs", "Guided setup", "Off"],
     safeToday:
       "Guide users to review Continue provider config and copy Repo Intelligence packs manually.",
@@ -284,15 +329,21 @@ export const plannedConnectors: PlannedConnector[] = [
       {
         label: "Manual setup",
         state: "Manual today",
-        detail: "Review configured providers before choosing any local proxy route.",
+        detail:
+          "Review configured providers before choosing any local proxy route.",
       },
       {
         label: "Config adapter",
         state: "Planned",
-        detail: "Automatic edits wait for multi-provider backup and restore coverage.",
+        detail:
+          "Automatic edits wait for multi-provider backup and restore coverage.",
       },
     ],
-    configSurfaces: ["Continue config folder", "provider list", "editor integration"],
+    configSurfaces: [
+      "Continue config folder",
+      "provider list",
+      "editor integration",
+    ],
     automationGates: [
       "Parse multi-provider configs without dropping unknown fields.",
       "Back up the exact config before provider routing changes.",
@@ -310,10 +361,15 @@ export const plannedConnectors: PlannedConnector[] = [
     category: "agent",
     statusLabel: "Planned",
     setupPhase: "Adapt",
-    integrationTarget: "Local provider adapter and MCP/Repo Intelligence handoff.",
+    integrationTarget:
+      "Local provider adapter and MCP/Repo Intelligence handoff.",
     notes:
       "Useful target once Switchboard has a stable connector capability model for agent-style tools.",
-    capabilityBadges: ["CLI detection", "MCP handoff planned", "Repo packs planned"],
+    capabilityBadges: [
+      "CLI detection",
+      "MCP handoff planned",
+      "Repo packs planned",
+    ],
     supportedModes: ["RTK only", "Repo packs", "Off"],
     safeToday:
       "Detect Goose and copy Repo Intelligence packs into sessions while MCP handoff remains planned.",
@@ -328,12 +384,14 @@ export const plannedConnectors: PlannedConnector[] = [
       {
         label: "Repo context",
         state: "Manual today",
-        detail: "Copy Repo Intelligence packs into Goose sessions while adapter work lands.",
+        detail:
+          "Copy Repo Intelligence packs into Goose sessions while adapter work lands.",
       },
       {
         label: "MCP handoff",
         state: "Planned",
-        detail: "Automatic MCP and provider handoff waits for tested connector state.",
+        detail:
+          "Automatic MCP and provider handoff waits for tested connector state.",
       },
     ],
     configSurfaces: ["Goose binary", "provider config", "MCP handoff"],
@@ -346,6 +404,226 @@ export const plannedConnectors: PlannedConnector[] = [
       "Confirm Goose is installed.",
       "Copy Repo Intelligence packs into Goose sessions today.",
       "Wait for managed MCP handoff before enabling automatic provider setup.",
+    ],
+  },
+  {
+    id: "qwen_code",
+    name: "Qwen Code",
+    category: "cli",
+    statusLabel: "Planned",
+    setupPhase: "Guide",
+    integrationTarget:
+      "CLI detection plus read-only Repo Intelligence handoff before reversible provider routing.",
+    notes:
+      "Treat as provider/account-sensitive coding CLI until model account compatibility can be checked without editing config.",
+    capabilityBadges: [
+      "CLI detection",
+      "Repo packs today",
+      "Provider routing pending",
+    ],
+    supportedModes: ["RTK only", "Repo packs", "Off"],
+    safeToday:
+      "Detect local Qwen Code command copy bounded Repo Intelligence packs into sessions.",
+    firstAutomation:
+      "Add read-only provider/model probe reversible environment wrapper before routing through Headroom.",
+    capabilityRows: [
+      {
+        label: "Detection",
+        state: "Available now",
+        detail: "Switchboard can check qwen-code or qwen commands.",
+      },
+      {
+        label: "Repo context",
+        state: "Manual today",
+        detail:
+          "Use Repo Intelligence implementation packs with Qwen Code today.",
+      },
+      {
+        label: "Provider routing",
+        state: "Planned",
+        detail:
+          "Automatic routing waits model/account guardrails restore coverage.",
+      },
+    ],
+    configSurfaces: [
+      "Qwen Code binary",
+      "provider/model settings",
+      "shell environment",
+    ],
+    automationGates: [
+      "Detect stable Qwen Code command provider surface.",
+      "Validate model/account compatibility before routing.",
+      "Verify Off mode removes local proxy routing without touching account state.",
+    ],
+    manualWorkflow: [
+      "Confirm Qwen Code installed.",
+      "Copy Repo Intelligence implementation packs into Qwen Code sessions.",
+      "Keep provider routing manual until Doctor can verify compatibility.",
+    ],
+  },
+  {
+    id: "amazon_q",
+    name: "Amazon Q Developer CLI",
+    category: "cli",
+    statusLabel: "Planned",
+    setupPhase: "Detect",
+    integrationTarget:
+      "Local CLI detection verification-pack handoff without changing AWS or provider state.",
+    notes:
+      "Keep AWS account credentials profile state outside managed switchboard storage.",
+    capabilityBadges: [
+      "CLI detection",
+      "Repo packs today",
+      "Credential-safe pending",
+    ],
+    supportedModes: ["RTK only", "Repo packs", "Off"],
+    safeToday:
+      "Detect Amazon Q CLI use verification packs build/test questions.",
+    firstAutomation:
+      "Add read-only provider status detection that never reads or stores AWS secrets.",
+    capabilityRows: [
+      {
+        label: "Detection",
+        state: "Available now",
+        detail: "Switchboard can check whether q present on PATH.",
+      },
+      {
+        label: "Repo context",
+        state: "Manual today",
+        detail:
+          "Use Repo Intelligence verification packs Amazon Q Developer CLI.",
+      },
+      {
+        label: "Credential guardrails",
+        state: "Planned",
+        detail:
+          "Automatic setup waits AWS profile-safe detection restore policy.",
+      },
+    ],
+    configSurfaces: [
+      "Amazon Q CLI binary",
+      "AWS profile state",
+      "shell environment",
+    ],
+    automationGates: [
+      "Detect q command without reading credentials.",
+      "Keep AWS profile SSO state outside app storage.",
+      "Prove Off mode does not alter AWS config or credentials.",
+    ],
+    manualWorkflow: [
+      "Confirm Amazon Q Developer CLI is installed.",
+      "Use Repo Intelligence verification packs build test work.",
+      "Do not route provider traffic automatically until credential guardrails ship.",
+    ],
+  },
+  {
+    id: "windsurf",
+    name: "Windsurf",
+    category: "editor",
+    statusLabel: "Planned",
+    setupPhase: "Guide",
+    integrationTarget:
+      "Editor detection copyable Repo Intelligence handoff before settings adapter.",
+    notes:
+      "Start guided editor settings account surfaces vary by release channel.",
+    capabilityBadges: [
+      "App detection",
+      "Repo packs today",
+      "Settings backup pending",
+    ],
+    supportedModes: ["Repo packs", "Guided setup", "Off"],
+    safeToday:
+      "Open Windsurf paste Repo Intelligence handoff packs into assistant manually.",
+    firstAutomation:
+      "Add settings discovery dry-run profile-aware backup before any provider edits.",
+    capabilityRows: [
+      {
+        label: "App detection",
+        state: "Available now",
+        detail: "Switchboard can guide users toward Windsurf app surface.",
+      },
+      {
+        label: "Repo context",
+        state: "Manual today",
+        detail:
+          "Use handoff packs in Windsurf assistant without writing settings.",
+      },
+      {
+        label: "Settings adapter",
+        state: "Planned",
+        detail:
+          "Automatic edits wait settings backup restore Off mode cleanup.",
+      },
+    ],
+    configSurfaces: [
+      "Windsurf app bundle",
+      "user settings",
+      "profile settings",
+    ],
+    automationGates: [
+      "Detect active Windsurf settings location before reading.",
+      "Back up settings without touching account secrets.",
+      "Verify Off mode restores exact prior settings.",
+    ],
+    manualWorkflow: [
+      "Open Windsurf manually.",
+      "Paste Repo Intelligence handoff packs into assistant.",
+      "Wait settings backup restore coverage before automatic routing.",
+    ],
+  },
+  {
+    id: "zed_ai",
+    name: "Zed AI",
+    category: "editor",
+    statusLabel: "Planned",
+    setupPhase: "Guide",
+    integrationTarget:
+      "Editor detection read-only context handoff before provider settings support.",
+    notes:
+      "Keep provider/account selection manual until Zed settings parsing restore lossless.",
+    capabilityBadges: [
+      "App detection",
+      "Repo packs today",
+      "Settings backup pending",
+    ],
+    supportedModes: ["Repo packs", "Guided setup", "Off"],
+    safeToday:
+      "Open Zed paste bounded Repo Intelligence handoffs into assistant manually.",
+    firstAutomation:
+      "Parse Zed assistant settings read-only show dry-run diff before edits.",
+    capabilityRows: [
+      {
+        label: "App detection",
+        state: "Available now",
+        detail: "Switchboard can guide users toward Zed app surface.",
+      },
+      {
+        label: "Repo context",
+        state: "Manual today",
+        detail:
+          "Use Repo Intelligence handoff packs in Zed AI without config writes.",
+      },
+      {
+        label: "Settings adapter",
+        state: "Planned",
+        detail:
+          "Automatic routing waits lossless settings parse restore coverage.",
+      },
+    ],
+    configSurfaces: [
+      "Zed app bundle",
+      "assistant settings",
+      "provider settings",
+    ],
+    automationGates: [
+      "Detect Zed assistant settings without guessing paths.",
+      "Back up provider settings before any local proxy route.",
+      "Verify Off mode restores exact previous assistant settings.",
+    ],
+    manualWorkflow: [
+      "Open Zed manually.",
+      "Paste Repo Intelligence handoff packs into Zed AI.",
+      "Keep model/provider settings manual until restore checks ship.",
     ],
   },
 ];
@@ -444,8 +722,36 @@ export function getPlannedConnectorSetupGuide(
         notes:
           "Confirms Goose is present before local provider and MCP handoff support is enabled.",
       };
+    case "qwen_code":
+      return {
+        label: "Check Qwen Code",
+        command: "command -v qwen-code || command -v qwen",
+        notes:
+          "Confirms Qwen Code is present. Keep provider routing manual until model and account guardrails are explicit.",
+      };
+    case "amazon_q":
+      return {
+        label: "Check Amazon Q Developer CLI",
+        command: "command -v q && q --version",
+        notes:
+          "Confirms the CLI is present without reading AWS credentials or changing profile state.",
+      };
+    case "windsurf":
+      return {
+        label: "Open Windsurf",
+        command: "open -a Windsurf",
+        notes:
+          "Open Windsurf and paste Repo Intelligence handoffs manually. Automatic settings edits wait backup and restore coverage.",
+      };
+    case "zed_ai":
+      return {
+        label: "Open Zed",
+        command: "open -a Zed",
+        notes:
+          "Open Zed and paste Repo Intelligence handoffs manually. Provider settings remain manual until restore checks ship.",
+      };
     default:
-    return null;
+      return null;
   }
 }
 
@@ -458,11 +764,7 @@ export function getPlannedConnectorSetupChecklistScript() {
       if (!guide) {
         return [];
       }
-      return [
-        "",
-        `echo "== ${connector.name} =="`,
-        `${guide.command} || true`,
-      ];
+      return ["", `echo "== ${connector.name} =="`, `${guide.command} || true`];
     }),
   ];
 

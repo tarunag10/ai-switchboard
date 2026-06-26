@@ -20,6 +20,15 @@ describe("planned connector mode readiness", () => {
       .filter((connector) => connector.supportedModes.includes("Repo packs"))
       .map((connector) => connector.id);
 
-    expect(repoPackTools).toEqual(["cursor", "aider", "continue", "goose"]);
+    expect(repoPackTools).toEqual([
+      "cursor",
+      "aider",
+      "continue",
+      "goose",
+      "qwen_code",
+      "amazon_q",
+      "windsurf",
+      "zed_ai",
+    ]);
   });
 });

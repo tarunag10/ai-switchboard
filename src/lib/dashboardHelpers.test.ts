@@ -23,12 +23,12 @@ import {
   mergeProviderSavingsForDisplay,
   percent1,
   sortClientConnectors,
-  summarizePlannedConnectorReadiness
+  summarizePlannedConnectorReadiness,
 } from "./dashboardHelpers";
 import type {
   ClientConnectorStatus,
   DailySavingsPoint,
-  HourlySavingsPoint
+  HourlySavingsPoint,
 } from "./types";
 
 describe("dashboard helpers", () => {
@@ -51,8 +51,8 @@ describe("dashboard helpers", () => {
         estimatedSavingsUsd: 2.5,
         estimatedTokensSaved: 250,
         actualCostUsd: 1.5,
-        totalTokensSent: 1000
-      }
+        totalTokensSent: 1000,
+      },
     ];
 
     const month = new Date(2024, 1, 18);
@@ -64,7 +64,7 @@ describe("dashboard helpers", () => {
       estimatedSavingsUsd: 0,
       estimatedTokensSaved: 0,
       actualCostUsd: 0,
-      totalTokensSent: 0
+      totalTokensSent: 0,
     });
     expect(windowed[1]).toEqual(data[0]);
     expect(windowed[28].date).toBe("2024-02-29");
@@ -84,10 +84,10 @@ describe("dashboard helpers", () => {
             estimatedSavingsUsd: 1.25,
             estimatedTokensSaved: 125,
             actualCostUsd: 0.75,
-            totalTokensSent: 500
-          }
-        ]
-      }
+            totalTokensSent: 500,
+          },
+        ],
+      },
     ];
 
     const windowed = buildHourlySavingsWindow(data, new Date(2024, 2, 5, 12));
@@ -103,7 +103,7 @@ describe("dashboard helpers", () => {
       actualCostUsd: 0.75,
       totalTokensSent: 500,
       totalCostBeforeOptimization: 2,
-      totalTokensBeforeOptimization: 625
+      totalTokensBeforeOptimization: 625,
     });
     // Per-provider breakdown carries through; padded hours default to empty.
     expect(chartData[4].byProvider).toEqual(data[0].byProvider);
@@ -117,15 +117,15 @@ describe("dashboard helpers", () => {
         estimatedSavingsUsd: 1,
         estimatedTokensSaved: 100,
         actualCostUsd: 3,
-        totalTokensSent: 1000
+        totalTokensSent: 1000,
       },
       {
         date: "2024-03-01",
         estimatedSavingsUsd: 2,
         estimatedTokensSaved: 200,
         actualCostUsd: 4,
-        totalTokensSent: 2000
-      }
+        totalTokensSent: 2000,
+      },
     ];
     const hourlyData: HourlySavingsPoint[] = [
       {
@@ -134,8 +134,8 @@ describe("dashboard helpers", () => {
         estimatedTokensSaved: 50,
         actualCostUsd: 1,
         totalTokensSent: 300,
-        byProvider: []
-      }
+        byProvider: [],
+      },
     ];
 
     const chartData = buildMonthlySavingsChartData(dailyData);
@@ -143,10 +143,14 @@ describe("dashboard helpers", () => {
     expect(chartData[0]).toMatchObject({
       bucketKey: "2024-01-30",
       totalCostBeforeOptimization: 4,
-      totalTokensBeforeOptimization: 1100
+      totalTokensBeforeOptimization: 1100,
     });
-    expect(formatDayKey(earliestSavingsMonth(dailyData) as Date)).toBe("2024-01-01");
-    expect(formatDayKey(earliestHourlyDay(hourlyData) as Date)).toBe("2024-02-14");
+    expect(formatDayKey(earliestSavingsMonth(dailyData) as Date)).toBe(
+      "2024-01-01",
+    );
+    expect(formatDayKey(earliestHourlyDay(hourlyData) as Date)).toBe(
+      "2024-02-14",
+    );
   });
 
   it("formats chart ticks predictably", () => {
@@ -160,35 +164,124 @@ describe("dashboard helpers", () => {
 
   it("filters and sorts client connectors", () => {
     const connectors: ClientConnectorStatus[] = [
-      { clientId: "zed", name: "Zed", installed: false, enabled: false, verified: false },
-      { clientId: "claude_code", name: "Claude Code", installed: true, enabled: true, verified: true },
-      { clientId: "cursor", name: "Cursor", supportStatus: "planned", installed: true, enabled: false, verified: false }
+      {
+        clientId: "zed",
+        name: "Zed",
+        installed: false,
+        enabled: false,
+        verified: false,
+      },
+      {
+        clientId: "claude_code",
+        name: "Claude Code",
+        installed: true,
+        enabled: true,
+        verified: true,
+      },
+      {
+        clientId: "cursor",
+        name: "Cursor",
+        supportStatus: "planned",
+        installed: true,
+        enabled: false,
+        verified: false,
+      },
     ];
 
-    expect(aggregateClientConnectors(connectors)).toEqual([connectors[1], connectors[2]]);
-    expect(sortClientConnectors(connectors).map((connector) => connector.clientId)).toEqual([
-      "claude_code",
-      "cursor",
-      "zed"
+    expect(aggregateClientConnectors(connectors)).toEqual([
+      connectors[1],
+      connectors[2],
     ]);
+    expect(
+      sortClientConnectors(connectors).map((connector) => connector.clientId),
+    ).toEqual(["claude_code", "cursor", "zed"]);
   });
 
   it("keeps managed and planned switchboard connectors visible", () => {
     const connectors: ClientConnectorStatus[] = [
-      { clientId: "codex", name: "Codex", installed: true, enabled: false, verified: false },
-      { clientId: "claude_code", name: "Claude Code", installed: true, enabled: true, verified: true },
-      { clientId: "gemini_cli", name: "Gemini CLI", supportStatus: "planned", installed: true, enabled: false, verified: false },
-      { clientId: "opencode", name: "OpenCode", supportStatus: "planned", installed: false, enabled: false, verified: false },
-      { clientId: "cursor", name: "Cursor", supportStatus: "planned", installed: true, enabled: false, verified: false },
-      { clientId: "grok_cli", name: "Grok / xAI CLI", supportStatus: "planned", installed: false, enabled: false, verified: false },
-      { clientId: "aider", name: "Aider", supportStatus: "planned", installed: true, enabled: false, verified: false },
-      { clientId: "continue", name: "Continue", supportStatus: "planned", installed: false, enabled: false, verified: false },
-      { clientId: "goose", name: "Goose", supportStatus: "planned", installed: true, enabled: false, verified: false },
-      { clientId: "zed", name: "Zed", installed: true, enabled: false, verified: false }
+      {
+        clientId: "codex",
+        name: "Codex",
+        installed: true,
+        enabled: false,
+        verified: false,
+      },
+      {
+        clientId: "claude_code",
+        name: "Claude Code",
+        installed: true,
+        enabled: true,
+        verified: true,
+      },
+      {
+        clientId: "gemini_cli",
+        name: "Gemini CLI",
+        supportStatus: "planned",
+        installed: true,
+        enabled: false,
+        verified: false,
+      },
+      {
+        clientId: "opencode",
+        name: "OpenCode",
+        supportStatus: "planned",
+        installed: false,
+        enabled: false,
+        verified: false,
+      },
+      {
+        clientId: "cursor",
+        name: "Cursor",
+        supportStatus: "planned",
+        installed: true,
+        enabled: false,
+        verified: false,
+      },
+      {
+        clientId: "grok_cli",
+        name: "Grok / xAI CLI",
+        supportStatus: "planned",
+        installed: false,
+        enabled: false,
+        verified: false,
+      },
+      {
+        clientId: "aider",
+        name: "Aider",
+        supportStatus: "planned",
+        installed: true,
+        enabled: false,
+        verified: false,
+      },
+      {
+        clientId: "continue",
+        name: "Continue",
+        supportStatus: "planned",
+        installed: false,
+        enabled: false,
+        verified: false,
+      },
+      {
+        clientId: "goose",
+        name: "Goose",
+        supportStatus: "planned",
+        installed: true,
+        enabled: false,
+        verified: false,
+      },
+      {
+        clientId: "zed",
+        name: "Zed",
+        installed: true,
+        enabled: false,
+        verified: false,
+      },
     ];
 
     expect(
-      aggregateClientConnectors(connectors).map((connector) => connector.clientId).sort()
+      aggregateClientConnectors(connectors)
+        .map((connector) => connector.clientId)
+        .sort(),
     ).toEqual([
       "aider",
       "claude_code",
@@ -204,21 +297,63 @@ describe("dashboard helpers", () => {
 
   it("reports enabled supported connectors regardless of which tool", () => {
     const connectors: ClientConnectorStatus[] = [
-      { clientId: "claude_code", name: "Claude Code", installed: true, enabled: false, verified: false },
-      { clientId: "codex", name: "Codex", installed: true, enabled: true, verified: true },
-      { clientId: "gemini_cli", name: "Gemini CLI", supportStatus: "planned", installed: true, enabled: true, verified: false },
-      { clientId: "cursor", name: "Cursor", supportStatus: "planned", setupPhase: "guide", installed: true, enabled: true, verified: true },
-      { clientId: "goose", name: "Goose", setupPhase: "adapt", installed: true, enabled: true, verified: true }
+      {
+        clientId: "claude_code",
+        name: "Claude Code",
+        installed: true,
+        enabled: false,
+        verified: false,
+      },
+      {
+        clientId: "codex",
+        name: "Codex",
+        installed: true,
+        enabled: true,
+        verified: true,
+      },
+      {
+        clientId: "gemini_cli",
+        name: "Gemini CLI",
+        supportStatus: "planned",
+        installed: true,
+        enabled: true,
+        verified: false,
+      },
+      {
+        clientId: "cursor",
+        name: "Cursor",
+        supportStatus: "planned",
+        setupPhase: "guide",
+        installed: true,
+        enabled: true,
+        verified: true,
+      },
+      {
+        clientId: "goose",
+        name: "Goose",
+        setupPhase: "adapt",
+        installed: true,
+        enabled: true,
+        verified: true,
+      },
     ];
 
-    expect(getEnabledSupportedConnectors(connectors).map((c) => c.clientId)).toEqual(["codex"]);
+    expect(
+      getEnabledSupportedConnectors(connectors).map((c) => c.clientId),
+    ).toEqual(["codex"]);
     expect(connectorSupportsAutomaticSetup(connectors[1])).toBe(true);
     expect(connectorSupportsAutomaticSetup(connectors[4])).toBe(false);
     expect(hasEnabledConnector(connectors)).toBe(true);
     expect(
       hasEnabledConnector([
-        { clientId: "claude_code", name: "Claude Code", installed: true, enabled: false, verified: false }
-      ])
+        {
+          clientId: "claude_code",
+          name: "Claude Code",
+          installed: true,
+          enabled: false,
+          verified: false,
+        },
+      ]),
     ).toBe(false);
   });
 
@@ -228,15 +363,16 @@ describe("dashboard helpers", () => {
         clientId: "gemini_cli",
         name: "Gemini CLI",
         supportStatus: "planned",
-        setupHint: "Manual guide only. Reversible Gemini provider routing is planned.",
+        setupHint:
+          "Manual guide only. Reversible Gemini provider routing is planned.",
         installed: true,
         enabled: false,
-        verified: false
-      })
+        verified: false,
+      }),
     ).toEqual({
       disabled: true,
       reason:
-        "Gemini CLI is detected, but automatic routing is not available yet. Manual guide only. Reversible Gemini provider routing is planned."
+        "Gemini CLI is detected, but automatic routing is not available yet. Manual guide only. Reversible Gemini provider routing is planned.",
     });
 
     expect(
@@ -246,12 +382,12 @@ describe("dashboard helpers", () => {
         supportStatus: "planned",
         installed: false,
         enabled: false,
-        verified: false
-      })
+        verified: false,
+      }),
     ).toEqual({
       disabled: true,
       reason:
-        "OpenCode support is planned for a later release. Use RTK-only mode for command output savings today."
+        "OpenCode support is planned for a later release. Use RTK-only mode for command output savings today.",
     });
 
     expect(
@@ -260,32 +396,78 @@ describe("dashboard helpers", () => {
         name: "Codex",
         installed: false,
         enabled: false,
-        verified: false
-      })
+        verified: false,
+      }),
     ).toEqual({ disabled: false, reason: null });
   });
 
   it("derives a dashboard status label/tone per connector state", () => {
     expect(
-      connectorDashboardStatus({ clientId: "codex", name: "Codex", installed: false, enabled: false, verified: false })
+      connectorDashboardStatus({
+        clientId: "codex",
+        name: "Codex",
+        installed: false,
+        enabled: false,
+        verified: false,
+      }),
     ).toEqual({ label: "Not installed", tone: "idle" });
     expect(
-      connectorDashboardStatus({ clientId: "codex", name: "Codex", installed: true, enabled: false, verified: false })
+      connectorDashboardStatus({
+        clientId: "codex",
+        name: "Codex",
+        installed: true,
+        enabled: false,
+        verified: false,
+      }),
     ).toEqual({ label: "Off", tone: "idle" });
     expect(
-      connectorDashboardStatus({ clientId: "codex", name: "Codex", installed: true, enabled: true, verified: false })
+      connectorDashboardStatus({
+        clientId: "codex",
+        name: "Codex",
+        installed: true,
+        enabled: true,
+        verified: false,
+      }),
     ).toEqual({ label: "Verifying", tone: "pending" });
     expect(
-      connectorDashboardStatus({ clientId: "codex", name: "Codex", installed: true, enabled: true, verified: true })
+      connectorDashboardStatus({
+        clientId: "codex",
+        name: "Codex",
+        installed: true,
+        enabled: true,
+        verified: true,
+      }),
     ).toEqual({ label: "Active", tone: "active" });
     expect(
-      connectorDashboardStatus({ clientId: "gemini_cli", name: "Gemini CLI", supportStatus: "planned", installed: true, enabled: false, verified: false })
+      connectorDashboardStatus({
+        clientId: "gemini_cli",
+        name: "Gemini CLI",
+        supportStatus: "planned",
+        installed: true,
+        enabled: false,
+        verified: false,
+      }),
     ).toEqual({ label: "Planned", tone: "pending" });
     expect(
-      connectorDashboardStatus({ clientId: "cursor", name: "Cursor", supportStatus: "planned", setupPhase: "guide", installed: true, enabled: false, verified: false })
+      connectorDashboardStatus({
+        clientId: "cursor",
+        name: "Cursor",
+        supportStatus: "planned",
+        setupPhase: "guide",
+        installed: true,
+        enabled: false,
+        verified: false,
+      }),
     ).toEqual({ label: "guide", tone: "pending" });
     expect(
-      connectorDashboardStatus({ clientId: "opencode", name: "OpenCode", supportStatus: "planned", installed: false, enabled: false, verified: false })
+      connectorDashboardStatus({
+        clientId: "opencode",
+        name: "OpenCode",
+        supportStatus: "planned",
+        installed: false,
+        enabled: false,
+        verified: false,
+      }),
     ).toEqual({ label: "Coming soon", tone: "idle" });
   });
 
@@ -297,9 +479,15 @@ describe("dashboard helpers", () => {
     expect(formatDateTime("not-a-date")).toBe("Unknown");
     expect(formatLearnStatus({ lastLearnRanAt: null })).toBe("never scan");
     expect(formatLearnStatus({ lastLearnRanAt: "invalid" })).toBe("never scan");
-    expect(formatLearnStatus({ lastLearnRanAt: "2026-03-27T08:00:00Z" })).toBe("last scan: today");
-    expect(formatLearnStatus({ lastLearnRanAt: "2026-03-26T08:00:00Z" })).toBe("last scan: yesterday");
-    expect(formatLearnStatus({ lastLearnRanAt: "2026-03-22T08:00:00Z" })).toBe("last scan: 5 days ago");
+    expect(formatLearnStatus({ lastLearnRanAt: "2026-03-27T08:00:00Z" })).toBe(
+      "last scan: today",
+    );
+    expect(formatLearnStatus({ lastLearnRanAt: "2026-03-26T08:00:00Z" })).toBe(
+      "last scan: yesterday",
+    );
+    expect(formatLearnStatus({ lastLearnRanAt: "2026-03-22T08:00:00Z" })).toBe(
+      "last scan: 5 days ago",
+    );
   });
 });
 
@@ -311,22 +499,22 @@ describe("mergeProviderSavingsForDisplay", () => {
         estimatedSavingsUsd: 0.04,
         estimatedTokensSaved: 40,
         actualCostUsd: 0.16,
-        totalTokensSent: 80
+        totalTokensSent: 80,
       },
       {
         provider: "anthropic",
         estimatedSavingsUsd: 0.1,
         estimatedTokensSaved: 100,
         actualCostUsd: 0.24,
-        totalTokensSent: 120
+        totalTokensSent: 120,
       },
       {
         provider: "unknown",
         estimatedSavingsUsd: 0.01,
         estimatedTokensSaved: 15,
         actualCostUsd: 0.03,
-        totalTokensSent: 20
-      }
+        totalTokensSent: 20,
+      },
     ]);
 
     expect(merged).toEqual([
@@ -335,15 +523,15 @@ describe("mergeProviderSavingsForDisplay", () => {
         estimatedSavingsUsd: 0.1 + 0.01,
         estimatedTokensSaved: 115,
         actualCostUsd: 0.24 + 0.03,
-        totalTokensSent: 140
+        totalTokensSent: 140,
       },
       {
         label: "Codex",
         estimatedSavingsUsd: 0.04,
         estimatedTokensSaved: 40,
         actualCostUsd: 0.16,
-        totalTokensSent: 80
-      }
+        totalTokensSent: 80,
+      },
     ]);
   });
 
@@ -354,8 +542,8 @@ describe("mergeProviderSavingsForDisplay", () => {
         estimatedSavingsUsd: 0.1,
         estimatedTokensSaved: 100,
         actualCostUsd: 0.24,
-        totalTokensSent: 120
-      }
+        totalTokensSent: 120,
+      },
     ]);
 
     expect(merged).toHaveLength(1);
@@ -368,24 +556,51 @@ describe("mergeProviderSavingsForDisplay", () => {
 
   it("summarizes planned connector readiness without enabling automation", () => {
     const connectors: ClientConnectorStatus[] = [
-      { clientId: "claude_code", name: "Claude Code", installed: true, enabled: true, verified: true },
-      { clientId: "gemini_cli", name: "Gemini CLI", supportStatus: "planned", installed: true, enabled: false, verified: false },
-      { clientId: "opencode", name: "OpenCode", supportStatus: "planned", installed: false, enabled: false, verified: false },
-      { clientId: "cursor", name: "Cursor", supportStatus: "planned", installed: true, enabled: false, verified: false }
+      {
+        clientId: "claude_code",
+        name: "Claude Code",
+        installed: true,
+        enabled: true,
+        verified: true,
+      },
+      {
+        clientId: "gemini_cli",
+        name: "Gemini CLI",
+        supportStatus: "planned",
+        installed: true,
+        enabled: false,
+        verified: false,
+      },
+      {
+        clientId: "opencode",
+        name: "OpenCode",
+        supportStatus: "planned",
+        installed: false,
+        enabled: false,
+        verified: false,
+      },
+      {
+        clientId: "cursor",
+        name: "Cursor",
+        supportStatus: "planned",
+        installed: true,
+        enabled: false,
+        verified: false,
+      },
     ];
 
     expect(summarizePlannedConnectorReadiness(connectors)).toEqual({
       detectedCount: 2,
       manualOnlyCount: 3,
       notDetectedCount: 1,
-      safeTodayCount: 9,
-      plannedCapabilityCount: 8,
-      automationGateCount: 21,
+      safeTodayCount: 13,
+      plannedCapabilityCount: 12,
+      automationGateCount: 33,
       detectedNames: ["Gemini CLI", "Cursor"],
       notDetectedNames: ["OpenCode"],
       headline: "2 planned tools detected locally",
       detail:
-        "Gemini CLI, Cursor are read-only today. Not found: OpenCode. 9 safe capabilities are available now; 8 remain gated behind 21 backup, restore, and Off mode checks. Automatic routing stays locked until backup, restore, and Off mode cleanup ship."
+        "Gemini CLI, Cursor are read-only today. Not found: OpenCode. 13 safe capabilities are available now; 12 remain gated behind 33 backup, restore, and Off mode checks. Automatic routing stays locked until backup, restore, and Off mode cleanup ship.",
     });
   });
 });
