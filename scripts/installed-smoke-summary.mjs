@@ -16,13 +16,17 @@ const preflightPresent = fs.existsSync(preflightSummaryPath);
 
 if (!appPresent) {
   console.error(`Installed app missing: ${appPath}`);
-  console.error("Install the signed DMG, run docs/beta-smoke-test.md, then rerun npm run smoke:installed -- --confirm.");
+  console.error(
+    "Install the signed DMG, run docs/beta-smoke-test.md, then rerun npm run smoke:installed -- --confirm.",
+  );
   process.exit(1);
 }
 
 if (!bundleMetadataPresent) {
   console.error(`Installed app metadata missing: ${appInfoPlistPath}`);
-  console.error("Install the signed DMG by dragging Mac AI Switchboard.app into /Applications, then rerun npm run smoke:installed -- --confirm.");
+  console.error(
+    "Install the signed DMG by dragging Mac AI Switchboard.app into /Applications, then rerun npm run smoke:installed -- --confirm.",
+  );
   process.exit(1);
 }
 
@@ -34,12 +38,22 @@ if (!preflightPresent) {
 
 if (!confirmed) {
   console.error("Installed-app smoke confirmation missing.");
-  console.error("After docs/beta-smoke-test.md passes on /Applications/Mac AI Switchboard.app, rerun: npm run smoke:installed -- --confirm");
+  console.error(
+    "After docs/beta-smoke-test.md passes on /Applications/Mac AI Switchboard.app, rerun: npm run smoke:installed -- --confirm",
+  );
   console.error("Automation may set MAC_AI_SWITCHBOARD_INSTALLED_SMOKE_PASSED=1 instead.");
   process.exit(1);
 }
 
 const generatedAt = new Date().toISOString();
+const evidenceAreas = [
+  "Switchboard modes and degraded-mode Doctor guidance",
+  "Doctor automatic/manual triage and repair actions",
+  "Planned connector automation gates and manual workflow",
+  "Repo Intelligence recipes and local context packs",
+  "Per-tool agent handoffs",
+  "Codex compression recovery",
+];
 const summary = `# Installed App Smoke Summary
 
 Generated: ${generatedAt}
@@ -50,6 +64,10 @@ Generated: ${generatedAt}
 - Installed-app checklist: ${betaSmokeDoc}
 - Confirmation: explicit tester confirmation received
 - Result: tester confirmed beta smoke checklist passed on the installed app.
+
+## Confirmed Evidence Areas
+
+${evidenceAreas.map((area) => `- ${area}`).join("\n")}
 
 Keep this file with dist/release-readiness-report.md before sharing a public DMG.
 `;

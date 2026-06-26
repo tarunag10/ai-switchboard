@@ -77,7 +77,9 @@ const requiredDocSignals = {
     "HEADROOM_UPDATER_ENDPOINTS",
     "dist/smoke-preflight-summary.md",
     "installed app",
-    "planned connector evidence",
+    "degraded-mode Doctor guidance",
+    "planned connector automation gates",
+    "manual workflow",
     "Repo Intelligence recipes",
     "per-tool agent handoffs",
     "413 Payload Too Large",
@@ -100,6 +102,8 @@ const requiredDocSignals = {
     "Rust formatting",
     "a production frontend build",
     "handing a DMG to a tester",
+    "degraded-mode Doctor guidance",
+    "planned connector automation gates and manual workflow",
     "Repo Intelligence agent handoffs",
   ],
   "docs/beta-smoke-test.md": [
@@ -416,6 +420,11 @@ const requiredSourceSignals = {
     "Contents",
     "Info.plist",
     "Installed app metadata present",
+    "Confirmed Evidence Areas",
+    "Switchboard modes and degraded-mode Doctor guidance",
+    "Planned connector automation gates and manual workflow",
+    "Per-tool agent handoffs",
+    "Codex compression recovery",
   ],
 };
 
