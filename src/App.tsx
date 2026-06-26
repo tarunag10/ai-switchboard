@@ -7071,12 +7071,13 @@ onRepair={(action) => void handleDoctorRepair(action)}
         <h4>{group.title}</h4>
         <ul>
           {group.items.map((item) => (
-            <li key={item.id}>
-              <strong>{item.label}</strong>
-              <span>{item.detail}</span>
-            </li>
-          ))}
-        </ul>
+                  <li key={item.id}>
+                    <strong>{item.label}</strong>
+                    <span>{item.detail}</span>
+                    {item.command ? <code>{item.command}</code> : null}
+                  </li>
+                ))}
+              </ul>
       </section>
     ))}
   </div>

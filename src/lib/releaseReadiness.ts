@@ -2,6 +2,7 @@ export interface ReleaseReadinessItem {
   id: string;
   label: string;
   detail: string;
+  command?: string;
 }
 
 export interface ReleaseReadinessGroup {
@@ -64,18 +65,23 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         label: "Rust toolchain",
         detail:
           "cargo and rustup must be available so release:report can prove backend validation is runnable.",
+        command:
+          "rustup --version && cargo --version && rustup target add aarch64-apple-darwin x86_64-apple-darwin",
       },
       {
         id: "xcode",
         label: "Apple tools",
         detail:
           "xcodebuild, codesign, and xcrun are required for signed macOS packaging.",
+        command: "xcodebuild -version && codesign --version && xcrun --version",
       },
       {
         id: "account-api",
         label: "Account API URL",
         detail:
           "HEADROOM_ACCOUNT_API_BASE_URL must point to the packaged sign-in account service.",
+        command:
+          "export HEADROOM_ACCOUNT_API_BASE_URL=https://your-account-api.example.com/api/v1",
       },
     ],
   },
@@ -87,19 +93,24 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         id: "developer-id",
         label: "Developer ID",
         detail:
-          "APPLE_SIGNING_IDENTITY must identify a Developer ID Application certificate.",
+          "APPLE_SIGNING_IDENTITY must identify the Developer ID Application certificate.",
+        command: "security find-identity -v -p codesigning",
       },
       {
         id: "updater-key",
         label: "Updater signing key",
         detail:
           "TAURI_SIGNING_PRIVATE_KEY and password must be present for update metadata.",
+        command:
+          "export TAURI_SIGNING_PRIVATE_KEY=... TAURI_SIGNING_PRIVATE_KEY_PASSWORD=...",
       },
       {
         id: "notarization",
         label: "Notarization",
         detail:
           "Use App Store Connect API credentials or Apple ID credentials before publishing.",
+        command:
+          "export APPLE_API_ISSUER=... APPLE_API_KEY=... APPLE_API_KEY_PATH=...",
       },
     ],
   },
@@ -111,24 +122,28 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         id: "static-preflight",
         label: "Run smoke preflight",
         detail:
-          "Run npm run smoke:preflight and keep dist/smoke-preflight-summary.md release evidence, including planned connector automation gates and manual workflow.",
+          "Run npm run smoke:preflight and keep dist/smoke-preflight-summary.md as release evidence, including planned connector automation gates and manual workflow.",
+        command: "npm run smoke:preflight",
       },
       {
         id: "dmg-install",
         label: "Install signed DMG",
         detail:
-          "Install the signed notarized DMG into /Applications before the final smoke run.",
+          "Install the signed and notarized DMG into /Applications before the final smoke run.",
+        command: "npm run build:mac:dmg",
       },
       {
         id: "beta-smoke",
         label: "Run beta smoke test",
         detail:
           "Follow docs/beta-smoke-test.md against the installed app, including planned connector evidence, automation gates, manual workflow, Repo Intelligence recipes, and per-tool agent handoffs; then run npm run smoke:installed to write dist/installed-smoke-summary.md.",
+        command: "open docs/beta-smoke-test.md",
       },
       {
         id: "release-report",
         label: "Archive readiness report",
         detail: "Keep dist/release-readiness-report.md with release artifacts for handoff.",
+        command: "npm run release:ready -- --strict",
       },
     ],
   },

@@ -4758,6 +4758,21 @@ details[open] .optimize-minimal__details summary::after {
   line-height: 1.35;
 }
 
+.release-readiness-card__group code {
+  overflow-wrap: anywhere;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 2px;
+  padding: 4px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .runtime-log {
   margin: 8px 0 0;
   padding: 8px 10px;
