@@ -186,6 +186,7 @@ function parseArgs(argv) {
     packId: null,
     agent: null,
     format: "json",
+    formatProvided: false,
     listPacks: false,
     listAgents: false,
     manifest: false,
@@ -206,9 +207,11 @@ function parseArgs(argv) {
       options.agent = arg.slice("--agent=".length);
     } else if (arg === "--format") {
       options.format = argv[index + 1] ?? "json";
+      options.formatProvided = true;
       index += 1;
     } else if (arg.startsWith("--format=")) {
       options.format = arg.slice("--format=".length);
+      options.formatProvided = true;
     } else if (arg === "--list-packs") {
       options.listPacks = true;
     } else if (arg === "--list-agents") {
@@ -247,7 +250,8 @@ Examples:
   npm run repo:intelligence -- . --manifest
   npm run repo:intelligence -- . --list-agents
   npm run repo:intelligence -- . --pack implementation --format markdown
-  npm run repo:intelligence -- . --agent codex`);
+  npm run repo:intelligence -- . --agent codex --format markdown
+  npm run repo:intelligence -- . --agent gemini --format json`);
 }
 
 function walk(repoRoot, dir = repoRoot, files = []) {
@@ -626,6 +630,70 @@ function formatAgentHandoffMarkdown(summary, agentId, requestedPackId) {
   ].join("\n");
 }
 
+function buildAgentHandoffPayload(summary, agentId, requestedPackId) {
+  const profile = agentHandoffProfiles.find((candidate) => candidate.id === agentId);
+  if (!profile) {
+    throw new Error(
+      `Unknown agent: ${agentId}. Available agents: ${agentHandoffProfiles
+        .map((candidate) => candidate.id)
+        .join(", ")}`,
+    );
+  }
+
+  const selectedPack =
+    summary.packs.find(
+      (contextPack) => contextPack.id === (requestedPackId ?? profile.defaultPackId),
+    ) ??
+    summary.packs.find((contextPack) => contextPack.id === profile.defaultPackId) ??
+    summary.packs[0];
+
+  if (!selectedPack) {
+    throw new Error("No repo intelligence packs available.");
+  }
+
+  return {
+    schemaVersion: 1,
+    kind: "mac_ai_switchboard.repo_agent_handoff",
+    repoRoot: summary.repoRoot,
+    agent: {
+      id: profile.id,
+      label: profile.label,
+      toolKind: profile.toolKind,
+      guidance: profile.guidance,
+    },
+    pack: {
+      id: selectedPack.id,
+      title: selectedPack.title,
+      purpose: selectedPack.purpose,
+      estimatedTokens: selectedPack.estimatedTokens,
+      estimatedTokensAvoided: Math.max(
+        0,
+        summary.estimatedFullScanTokens - selectedPack.estimatedTokens,
+      ),
+      savingsVsFullScanPct: selectedPack.savingsVsFullScanPct,
+      files: selectedPack.files.map((file) => ({
+        path: file.path,
+        role: file.role,
+        language: file.language,
+        estimatedTokens: file.estimatedTokens,
+        reasons: file.reasons,
+      })),
+    },
+    graph: {
+      available: Boolean(summary.graph),
+      dependencyHubs: summary.graph?.dependencyHubs ?? [],
+      importEdges: summary.graph?.importEdges ?? [],
+      reverseDependencyHubs: summary.graph?.reverseDependencyHubs ?? [],
+    },
+    safety: {
+      readOnly: true,
+      excludesSecretLikePaths: true,
+      modifiesRepository: false,
+      manualProviderRouting: true,
+    },
+  };
+}
+
 function buildAgentManifest(summary) {
   const fullScanTokens = summary.estimatedFullScanTokens;
   return {
@@ -707,7 +775,17 @@ if (options.manifest) {
 
 if (options.agent) {
   try {
-    console.log(formatAgentHandoffMarkdown(summary, options.agent, options.packId));
+    if (options.formatProvided && options.format === "json") {
+      console.log(
+        JSON.stringify(
+          buildAgentHandoffPayload(summary, options.agent, options.packId),
+          null,
+          2,
+        ),
+      );
+    } else {
+      console.log(formatAgentHandoffMarkdown(summary, options.agent, options.packId));
+    }
   } catch (error) {
     console.error(error.message);
     process.exit(1);
