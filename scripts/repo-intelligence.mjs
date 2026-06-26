@@ -82,10 +82,63 @@ const repoAgentRecipeTemplates = [
   },
 ];
 
+const agentHandoffProfiles = [
+  {
+    id: "gemini",
+    label: "Gemini CLI",
+    toolKind: "cli",
+    defaultPackId: "implementation",
+    guidance: "Paste this before the task. Keep provider routing manual.",
+  },
+  {
+    id: "opencode",
+    label: "OpenCode",
+    toolKind: "cli",
+    defaultPackId: "implementation",
+    guidance: "Paste this into the session as bounded repo context before editing.",
+  },
+  {
+    id: "aider",
+    label: "Aider",
+    toolKind: "cli",
+    defaultPackId: "implementation",
+    guidance: "Use this to choose files intentionally before adding them to an Aider chat.",
+  },
+  {
+    id: "goose",
+    label: "Goose",
+    toolKind: "cli",
+    defaultPackId: "verification",
+    guidance: "Use this for test, build, and release-check tasks with minimal context.",
+  },
+  {
+    id: "cursor",
+    label: "Cursor",
+    toolKind: "editor",
+    defaultPackId: "handoff",
+    guidance: "Paste into the editor assistant as read-only project context.",
+  },
+  {
+    id: "continue",
+    label: "Continue",
+    toolKind: "editor",
+    defaultPackId: "handoff",
+    guidance: "Paste into Continue chat as read-only context; do not auto-write config.",
+  },
+  {
+    id: "grok",
+    label: "Grok / xAI CLI",
+    toolKind: "chat",
+    defaultPackId: "implementation",
+    guidance: "Use this as compact task context where local CLI integration remains manual.",
+  },
+];
+
 function parseArgs(argv) {
   const options = {
     repoRoot: process.cwd(),
     packId: null,
+    agent: null,
     format: "json",
     listPacks: false,
     manifest: false,
@@ -99,6 +152,11 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg.startsWith("--pack=")) {
       options.packId = arg.slice("--pack=".length);
+    } else if (arg === "--agent") {
+      options.agent = argv[index + 1] ?? null;
+      index += 1;
+    } else if (arg.startsWith("--agent=")) {
+      options.agent = arg.slice("--agent=".length);
     } else if (arg === "--format") {
       options.format = argv[index + 1] ?? "json";
       index += 1;
@@ -128,6 +186,7 @@ function printHelp() {
 
 Options:
   --pack <id>          Print one context pack: implementation, verification, handoff
+  --agent <id>         Print agent handoff: gemini, opencode, aider, goose, cursor, continue, grok
   --format <format>   json or markdown
   --list-packs        Print available pack ids
   --manifest          Print agent-readable pack manifest JSON
@@ -136,7 +195,8 @@ Options:
 Examples:
   npm run repo:intelligence -- .
   npm run repo:intelligence -- . --manifest
-  npm run repo:intelligence -- . --pack implementation --format markdown`);
+  npm run repo:intelligence -- . --pack implementation --format markdown
+  npm run repo:intelligence -- . --agent gemini`);
 }
 
 function walk(repoRoot, dir = repoRoot, files = []) {
@@ -362,6 +422,48 @@ function formatSinglePackMarkdown(summary, selectedPack) {
   ].join("\n");
 }
 
+function formatAgentHandoffMarkdown(summary, agentId, requestedPackId) {
+  const profile = agentHandoffProfiles.find((candidate) => candidate.id === agentId);
+  if (!profile) {
+    throw new Error(
+      `Unknown agent: ${agentId}. Available agents: ${agentHandoffProfiles
+        .map((candidate) => candidate.id)
+        .join(", ")}`,
+    );
+  }
+
+  const selectedPack =
+    summary.packs.find(
+      (contextPack) => contextPack.id === (requestedPackId ?? profile.defaultPackId),
+    ) ??
+    summary.packs.find((contextPack) => contextPack.id === profile.defaultPackId) ??
+    summary.packs[0];
+
+  if (!selectedPack) {
+    throw new Error("No repo intelligence packs are available.");
+  }
+
+  return [
+    `# ${profile.label} Handoff`,
+    "",
+    `Repository: ${summary.repoRoot}`,
+    `Tool kind: ${profile.toolKind}`,
+    `Selected pack: ${selectedPack.title}`,
+    `Estimated context tokens: ${selectedPack.estimatedTokens.toLocaleString()}`,
+    `Estimated tokens avoided: ${Math.max(
+      0,
+      summary.estimatedFullScanTokens - selectedPack.estimatedTokens,
+    ).toLocaleString()}`,
+    "",
+    "## Use",
+    profile.guidance,
+    "Treat this as read-only planning context unless the user explicitly asks for edits.",
+    "Secret-like paths and generated folders are excluded from this handoff.",
+    "",
+    formatSinglePackMarkdown(summary, selectedPack),
+  ].join("\n");
+}
+
 function buildAgentManifest(summary) {
   const fullScanTokens = summary.estimatedFullScanTokens;
   return {
@@ -429,6 +531,16 @@ if (options.listPacks) {
 
 if (options.manifest) {
   console.log(JSON.stringify(buildAgentManifest(summary), null, 2));
+  process.exit(0);
+}
+
+if (options.agent) {
+  try {
+    console.log(formatAgentHandoffMarkdown(summary, options.agent, options.packId));
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
   process.exit(0);
 }
 
