@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildSavingsCalculatorBreakdown,
   buildSavingsCalculatorSummary,
   type SavingsCalculatorScope,
 } from "./savingsCalculator";
@@ -89,7 +90,84 @@ describe("savings calculator", () => {
       "overall",
     );
 
-    expect(summary.savingsPct).toBeNull();
-    expect(summary.beforeTokens).toBe(0);
+  expect(summary.savingsPct).toBeNull();
+  expect(summary.beforeTokens).toBe(0);
+});
+
+it("breaks down overall savings by runtime, RTK, and repo context", () => {
+  const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "overall", {
+    runtimeStatus: {
+      platform: "darwin",
+      supportTier: "supported",
+      installed: true,
+      running: true,
+      starting: false,
+      paused: false,
+      autoPaused: false,
+      proxyReachable: true,
+      headroomLearnSupported: true,
+      rtk: {
+        installed: true,
+        enabled: true,
+        pathConfigured: true,
+        hookConfigured: true,
+        totalCommands: 12,
+        totalSaved: 900,
+        avgSavingsPct: 72,
+      },
+    },
+    repoSavings: {
+      fullScanTokens: 10_000,
+      bestPackTokens: 2_000,
+      bestPackTokensAvoided: 8_000,
+      bestPackSavingsPct: 80,
+      allPacksTokens: 4_000,
+      allPacksTokensAvoided: 6_000,
+      allPacksSavingsPct: 60,
+      bestPack: {
+        id: "implementation",
+        title: "Implementation Pack",
+        purpose: "Feature work",
+        estimatedTokens: 2_000,
+        savingsVsFullScanPct: 80,
+        files: [],
+      },
+    },
   });
+
+  expect(rows.map((row) => row.id)).toEqual([
+    "headroom",
+    "rtk",
+    "repo_intelligence",
+  ]);
+  expect(rows[0].savedUsd).toBe(4.5);
+  expect(rows[1].savedTokens).toBe(900);
+  expect(rows[2].detail).toContain("Implementation Pack");
+});
+
+it("does not show lifetime RTK totals in the session breakdown", () => {
+  const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "session", {
+    runtimeStatus: {
+      platform: "darwin",
+      supportTier: "supported",
+      installed: true,
+      running: true,
+      starting: false,
+      paused: false,
+      autoPaused: false,
+      proxyReachable: true,
+      headroomLearnSupported: true,
+      rtk: {
+        installed: true,
+        enabled: true,
+        pathConfigured: true,
+        hookConfigured: true,
+        totalCommands: 12,
+        totalSaved: 900,
+      },
+    },
+  });
+
+  expect(rows.map((row) => row.id)).toEqual(["headroom"]);
+});
 });

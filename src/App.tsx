@@ -74,6 +74,7 @@ import {
   type RepoContextPack,
   type RepoAgentHandoffTarget,
   type RepoIntelligenceSummary,
+  type RepoSavingsEstimate,
 } from "./lib/repoIntelligence";
 import {
 getPlannedConnector,
@@ -182,6 +183,7 @@ import {
   switchboardModeSummary
 } from "./lib/switchboardDisplay";
 import {
+  buildSavingsCalculatorBreakdown,
   buildSavingsCalculatorSummary,
   type SavingsCalculatorScope
 } from "./lib/savingsCalculator";
@@ -580,16 +582,24 @@ function OutputReductionChip({ reduction }: { reduction: OutputReduction }) {
 }
 
 function SavingsCalculatorCard({
-  dashboard,
-  scope,
-  onScopeChange
+dashboard,
+repoSavings,
+runtimeStatus,
+scope,
+onScopeChange
 }: {
-  dashboard: DashboardState;
-  scope: SavingsCalculatorScope;
-  onScopeChange: (scope: SavingsCalculatorScope) => void;
+dashboard: DashboardState;
+repoSavings?: RepoSavingsEstimate | null;
+runtimeStatus?: RuntimeStatus | null;
+scope: SavingsCalculatorScope;
+onScopeChange: (scope: SavingsCalculatorScope) => void;
 }) {
-  const summary = buildSavingsCalculatorSummary(dashboard, scope);
-  const savedLabel = compactNumber(summary.savedTokens);
+const summary = buildSavingsCalculatorSummary(dashboard, scope);
+const breakdownRows = buildSavingsCalculatorBreakdown(dashboard, scope, {
+repoSavings,
+runtimeStatus,
+});
+const savedLabel = compactNumber(summary.savedTokens);
   const sentLabel = compactNumber(summary.sentTokens);
   const beforeLabel = compactNumber(summary.beforeTokens);
   const conservativeUsdLabel = currencyExact(summary.conservativeSavedUsd);
@@ -675,6 +685,22 @@ function SavingsCalculatorCard({
           will update automatically.
         </p>
       ) : null}
+      <div className="savings-calculator__breakdown" aria-label="Savings source breakdown">
+        {breakdownRows.map((row) => (
+          <div className="savings-calculator__breakdown-row" key={row.id}>
+            <div>
+              <strong>{row.label}</strong>
+              <span>{row.detail}</span>
+            </div>
+            <div className="savings-calculator__breakdown-value">
+              <strong>{compactNumber(row.savedTokens)}</strong>
+              <span>
+                {row.savedUsd === null ? "tokens" : `${currencyExact(row.savedUsd)} estimate`}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
     </article>
   );
 }
@@ -1086,7 +1112,13 @@ function AddonCard({
   );
 }
 
-function PlannedAddonCard({ addon }: { addon: PlannedAddon }) {
+function PlannedAddonCard({
+  addon,
+  onRepoIntelligenceSummaryChange,
+}: {
+  addon: PlannedAddon;
+  onRepoIntelligenceSummaryChange?: (summary: RepoIntelligenceSummary) => void;
+}) {
   const showConnectorRoadmap = addon.id === "agent_connectors";
   const showRepoIntelligencePreview = addon.id === "repo_intelligence";
 
@@ -1108,7 +1140,11 @@ function PlannedAddonCard({ addon }: { addon: PlannedAddon }) {
         {showConnectorRoadmap ? (
           <PlannedConnectorRoadmap connectors={plannedConnectors} />
         ) : null}
-        {showRepoIntelligencePreview ? <RepoIntelligencePreview /> : null}
+      {showRepoIntelligencePreview ? (
+        <RepoIntelligencePreview
+          onSummaryChange={onRepoIntelligenceSummaryChange}
+        />
+      ) : null}
       </div>
       <div className="addon-card__actions">
         <button type="button" className="addon-card__action" disabled>
@@ -1133,7 +1169,11 @@ const repoIntelligencePreview = buildRepoIntelligenceSummary([
   { path: "dist/assets/index.js", bytes: 767_000 },
 ]);
 
-function RepoIntelligencePreview() {
+function RepoIntelligencePreview({
+  onSummaryChange,
+}: {
+  onSummaryChange?: (summary: RepoIntelligenceSummary) => void;
+}) {
   const [repoPath, setRepoPath] = useState("");
   const [summary, setSummary] = useState<RepoIntelligenceSummary>(repoIntelligencePreview);
   const [indexing, setIndexing] = useState(false);
@@ -1150,6 +1190,7 @@ function RepoIntelligencePreview() {
         if (!cancelled && latest) {
           setSummary(latest);
           setRepoPath(latest.repoRoot ?? "");
+          onSummaryChange?.(latest);
         }
       })
       .catch(() => undefined);
@@ -1171,6 +1212,7 @@ function RepoIntelligencePreview() {
         repoPath: trimmedPath,
       });
       setSummary(next);
+      onSummaryChange?.(next);
     } catch (error) {
       setIndexError(
         error instanceof Error ? error.message : "Repo Intelligence could not index that folder.",
@@ -1187,6 +1229,7 @@ function RepoIntelligencePreview() {
       await invoke<boolean>("clear_repo_intelligence_summary");
       setSummary(repoIntelligencePreview);
       setRepoPath("");
+      onSummaryChange?.(repoIntelligencePreview);
     } catch (error) {
       setIndexError(
         error instanceof Error ? error.message : "Repo Intelligence could not clear the saved index.",
@@ -1696,10 +1739,15 @@ const [connectorsBusy, setConnectorsBusy] = useState(false);
   const [chartMode, setChartMode] = useState<SavingsChartMode>("usd");
   const [savingsCalculatorScope, setSavingsCalculatorScope] =
     useState<SavingsCalculatorScope>("session");
+  const [latestRepoIntelligenceSummary, setLatestRepoIntelligenceSummary] =
+    useState<RepoIntelligenceSummary>(repoIntelligencePreview);
   // Safety net: if native history never loads (backend unreachable), reveal the
   // chart anyway after this delay rather than spinning forever.
   const [historyLoadTimedOut, setHistoryLoadTimedOut] = useState(false);
   const [showSavingsInfo, setShowSavingsInfo] = useState(false);
+  const savingsCalculatorRepoEstimate = estimateRepoIntelligenceSavings(
+    latestRepoIntelligenceSummary,
+  );
   const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(null);
   const [autostartBusy, setAutostartBusy] = useState(false);
   const [rtkBusy, setRtkBusy] = useState(false);
@@ -5586,6 +5634,8 @@ onRepair={(action) => void handleDoctorRepair(action)}
 
 <SavingsCalculatorCard
   dashboard={dashboard}
+  repoSavings={savingsCalculatorRepoEstimate}
+  runtimeStatus={runtimeStatus}
   scope={savingsCalculatorScope}
   onScopeChange={setSavingsCalculatorScope}
 />
@@ -6098,7 +6148,11 @@ onRepair={(action) => void handleDoctorRepair(action)}
                   );
                 })}
               {plannedAddons.map((addon) => (
-                <PlannedAddonCard key={addon.id} addon={addon} />
+                <PlannedAddonCard
+                  key={addon.id}
+                  addon={addon}
+                  onRepoIntelligenceSummaryChange={setLatestRepoIntelligenceSummary}
+                />
               ))}
             </ul>
           </section>

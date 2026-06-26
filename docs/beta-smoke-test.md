@@ -139,7 +139,7 @@ ls ~/Library/Application\ Support/Headroom/headroom/logs/ | grep -E 'no-memory-t
 If enabled, have Claude call `mcp__headroom__headroom_retrieve` with any small query and expect a tool result (not "No such tool available").
 
 ### 5. Tray → Dashboard renders
-Click the tray icon, open the dashboard. Expect savings chart and per-client stats render without a blank/error state.
+Click the tray icon, open the dashboard. Expect savings chart, per-client stats, and the Savings calculator to render without a blank/error state. Toggle Session / Overall and confirm the source breakdown names Headroom, Repo Intelligence, and RTK when those data sources are available.
 
 ### 6. Pause / resume cleanly strips and restores interception
 In Settings, toggle Pause then Resume. After Pause, `cat ~/.claude/settings.json | grep -c headroom-rtk-rewrite` should return `0`; after Resume it should return `1`. This verifies the Claude Code config only — Pause clears *all* clients, so check C4 in the Codex pass confirms Codex's config is stripped and restored too.
