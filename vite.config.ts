@@ -4,6 +4,20 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [react()],
   clearScreen: false,
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: true,
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("recharts")) return "charts";
+          if (id.includes("@sentry") || id.includes("@tauri-apps")) return "platform";
+          if (id.includes("react") || id.includes("scheduler")) return "react-vendor";
+          return "vendor";
+        }
+      }
+    }
+  },
   test: {
     environment: "jsdom",
     setupFiles: ["src/test/setup.ts"],
