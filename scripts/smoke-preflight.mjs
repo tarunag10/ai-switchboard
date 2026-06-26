@@ -19,6 +19,8 @@ const requiredSignals = {
     "Repair all will leave manual steps visible",
     "copyable manual setup guide",
     "Copy agent manifest",
+    "Agent handoffs",
+    "ready-to-paste bounded handoff",
     "Clear index",
     "Re-indexing remains a deliberate Addons action",
     "Release readiness visible in Settings",
@@ -35,7 +37,9 @@ const requiredSignals = {
   ],
   "scripts/repo-intelligence.mjs": [
     "--manifest",
+    "--agent <id>",
     "mac_ai_switchboard.repo_intelligence_manifest",
+    "formatAgentHandoffMarkdown",
     "excludesSecretLikePaths",
   ],
  [releaseDoc]: [
@@ -87,7 +91,7 @@ Generated: ${generatedAt}
 - Switchboard modes: Full optimization, Headroom only, RTK only, Off
 - Doctor repairs: runtime, Codex setup, RTK, planned connector manual warnings with detection evidence, and Repo Intelligence stale/missing-index warnings
 - Planned connectors: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose; each stays disabled and manual with safe RTK-only or Repo Intelligence pack guidance
-- Repo Intelligence: local repo index, persisted latest summary, copy bounded context pack, copy individual task pack, clear saved index, context-pack preview, per-pack copy
+- Repo Intelligence: local repo index, persisted latest summary, copy bounded context pack, copy individual task pack, copy agent manifest, copy per-tool agent handoffs, clear saved index, context-pack preview, per-pack copy
 - Local-first behavior: remote services gated, Off mode reversible cleanup
 - Codex resilience: compression refusal reset and model/provider repair
 
