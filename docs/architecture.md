@@ -49,6 +49,6 @@ User repositories are not modified.
 
 - Persist file hashes, parser versions, symbols, imports, routes, package scripts, likely tests, and freshness metadata.
 - Add a proper repo picker and richer index status UI.
-- Expose read-only context packs through a local CLI/MCP-style surface for Claude Code, Codex, Gemini CLI, OpenCode, Aider, Goose, and similar tools.
+- Expose read-only context packs through a local CLI/MCP-style surface for Claude Code, Codex, Gemini CLI, OpenCode, Aider, Goose, Qwen Code, Amazon Q Developer CLI, Cursor, Continue, Windsurf, Zed AI, and similar tools.
 - Add explicit cleanup/off-mode behavior for any future Repo Intelligence hooks.
 - Keep Rust formatting and desktop tests in release/CI gates; local shells without `cargo` must rely on CI for backend validation.

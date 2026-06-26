@@ -64,7 +64,7 @@ struct PlannedClientSpec {
     manual_workflow: &'static [&'static str],
 }
 
-const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 7] = [
+const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
     PlannedClientSpec {
         id: "gemini_cli",
         name: "Gemini CLI",
@@ -198,6 +198,91 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 7] = [
             "Wait for managed MCP handoff before enabling automatic provider setup.",
         ],
     },
+    PlannedClientSpec {
+        id: "qwen_code",
+        name: "Qwen Code",
+        category: "cli",
+        setup_phase: "detect",
+        setup_hint: "Detection only. Keep provider routing manual until Qwen config and account behavior are verified.",
+        detection_sources: &["PATH: qwen", "PATH: qwen-code", "~/.qwen", "~/.config/qwen"],
+        config_locations: &["~/.qwen", "~/.config/qwen"],
+        automation_gates: &[
+            "Detect a stable Qwen Code CLI surface.",
+            "Document provider/account compatibility before routing.",
+            "Verify Off mode leaves credentials and account state untouched.",
+        ],
+        manual_workflow: &[
+            "Confirm Qwen Code is installed locally.",
+            "Paste Repo Intelligence implementation packs into long sessions.",
+            "Use RTK-only mode for noisy shell output until adapter support is built.",
+        ],
+    },
+    PlannedClientSpec {
+        id: "amazon_q",
+        name: "Amazon Q Developer CLI",
+        category: "cli",
+        setup_phase: "detect",
+        setup_hint: "Detection only. Amazon Q account and workspace state stay outside managed setup.",
+        detection_sources: &["PATH: q", "~/.aws/amazonq", "~/.config/amazon-q"],
+        config_locations: &["~/.aws/amazonq", "~/.config/amazon-q"],
+        automation_gates: &[
+            "Detect Amazon Q CLI without reading account credentials.",
+            "Keep AWS profile and SSO state outside Switchboard storage.",
+            "Verify Off mode does not alter AWS or Amazon Q configuration.",
+        ],
+        manual_workflow: &[
+            "Confirm Amazon Q Developer CLI is installed.",
+            "Use Repo Intelligence verification packs for build and test questions.",
+            "Keep provider and workspace selection manual.",
+        ],
+    },
+    PlannedClientSpec {
+        id: "windsurf",
+        name: "Windsurf",
+        category: "editor",
+        setup_phase: "guide",
+        setup_hint: "Manual guide only. Editor provider configs need backup and restore coverage before writes.",
+        detection_sources: &[
+            "PATH: windsurf",
+            "~/Library/Application Support/Windsurf",
+            "/Applications/Windsurf.app",
+        ],
+        config_locations: &["~/Library/Application Support/Windsurf"],
+        automation_gates: &[
+            "Identify provider config format without dropping unknown fields.",
+            "Back up editor settings before any routing change.",
+            "Verify Off mode restores the exact prior editor provider state.",
+        ],
+        manual_workflow: &[
+            "Open Windsurf and keep provider setup manual.",
+            "Paste handoff packs as read-only project context.",
+            "Use Switchboard only for local RTK and Repo Intelligence support today.",
+        ],
+    },
+    PlannedClientSpec {
+        id: "zed_ai",
+        name: "Zed AI",
+        category: "editor",
+        setup_phase: "guide",
+        setup_hint: "Manual guide only. Zed assistant settings require explicit backup/restore support first.",
+        detection_sources: &[
+            "PATH: zed",
+            "~/.config/zed",
+            "~/Library/Application Support/Zed",
+            "/Applications/Zed.app",
+        ],
+        config_locations: &["~/.config/zed", "~/Library/Application Support/Zed"],
+        automation_gates: &[
+            "Parse Zed assistant settings without losing user options.",
+            "Back up exact settings before managed provider routing.",
+            "Verify Off mode removes only Switchboard-owned changes.",
+        ],
+        manual_workflow: &[
+            "Open Zed assistant settings manually.",
+            "Paste Repo Intelligence handoff packs into AI chat.",
+            "Keep model/provider choice manual until Doctor can verify it safely.",
+        ],
+    },
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -220,6 +305,10 @@ pub fn detect_clients() -> Vec<ClientStatus> {
         detect_aider_client(),
         detect_continue_client(),
         detect_goose_client(),
+        detect_qwen_code_client(),
+        detect_amazon_q_client(),
+        detect_windsurf_client(),
+        detect_zed_ai_client(),
     ]
 }
 
@@ -3255,6 +3344,65 @@ fn detect_goose_client() -> ClientStatus {
         &["goose"],
         &[home_dir().join(".config").join("goose")],
         "Detected, but Headroom adapter not implemented yet. use RTK-only mode until provider routing is reversible.",
+    )
+}
+
+fn detect_qwen_code_client() -> ClientStatus {
+    detect_planned_client(
+        "qwen_code",
+        "Qwen Code",
+        &["qwen", "qwen-code"],
+        &[
+            home_dir().join(".qwen"),
+            home_dir().join(".config").join("qwen"),
+        ],
+        "Detected, but Headroom adapter is not implemented yet. Use copy-only Repo Intelligence handoffs and RTK-only shell savings.",
+    )
+}
+
+fn detect_amazon_q_client() -> ClientStatus {
+    detect_planned_client(
+        "amazon_q",
+        "Amazon Q Developer CLI",
+        &["q"],
+        &[
+            home_dir().join(".aws").join("amazonq"),
+            home_dir().join(".config").join("amazon-q"),
+        ],
+        "Detected, but Headroom adapter is not implemented yet. Keep AWS and Amazon Q account state manual.",
+    )
+}
+
+fn detect_windsurf_client() -> ClientStatus {
+    detect_planned_client(
+        "windsurf",
+        "Windsurf",
+        &["windsurf"],
+        &[
+            home_dir()
+                .join("Library")
+                .join("Application Support")
+                .join("Windsurf"),
+            PathBuf::from("/Applications/Windsurf.app"),
+        ],
+        "Detected, but Headroom adapter is not implemented yet. Use guided setup and copy-only handoff packs.",
+    )
+}
+
+fn detect_zed_ai_client() -> ClientStatus {
+    detect_planned_client(
+        "zed_ai",
+        "Zed AI",
+        &["zed"],
+        &[
+            home_dir().join(".config").join("zed"),
+            home_dir()
+                .join("Library")
+                .join("Application Support")
+                .join("Zed"),
+            PathBuf::from("/Applications/Zed.app"),
+        ],
+        "Detected, but Headroom adapter is not implemented yet. Keep Zed assistant settings manual and use copy-only handoffs.",
     )
 }
 

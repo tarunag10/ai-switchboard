@@ -2,7 +2,7 @@
 
 Repo Intelligence is underway, not complete. The app now has a read-only foundation for local file classification, rough token estimation, bounded implementation, verification, and handoff context packs. It now has dependency hubs in the local graph summary, but it does not yet have a complete Graphy-style symbol graph, import graph, call graph, or agent-facing local API.
 
-The goal is to make Mac AI Switchboard useful before an agent burns tokens reading the same files repeatedly: build a local repo graph, turn it into small task-specific context packs, and expose those packs to Claude Code, Codex, Gemini CLI, OpenCode, and future local agents without sending repository contents to a remote graph service.
+The goal is to make Mac AI Switchboard useful before an agent burns tokens reading the same files repeatedly: build a local repo graph, turn it into small task-specific context packs, and expose those packs to Claude Code, Codex, Gemini CLI, OpenCode, Qwen Code, Amazon Q Developer CLI, Cursor, Continue, Windsurf, Zed AI, and future local agents without sending repository contents to a remote graph service.
 
 ## Recommended Tools To Evaluate
 
@@ -30,9 +30,9 @@ The goal is to make Mac AI Switchboard useful before an agent burns tokens readi
    - Show generated context packs in app so users can see what an agent received.
    - Add re-index, pause, and remove-index controls.
 4. **Agent integrations**
-   - Expose context packs through local CLI/MCP-style commands that Claude Code, Codex, Gemini CLI, OpenCode, and similar tools can call. Current CLI contract includes `npm run repo:intelligence -- <repo> --manifest` for pack discovery, read-only `agentRecipes` for Claude Code, Codex, Gemini CLI, OpenCode, Aider, Goose, Cursor, and Continue, `--pack <id> --format markdown` for task-specific handoff, and `--agent <claude|codex|gemini|opencode|aider|goose|cursor|continue|grok>` for ready-to-paste bounded tool handoffs.
+   - Expose context packs through local CLI/MCP-style commands that Claude Code, Codex, Gemini CLI, OpenCode, and similar tools can call. Current CLI contract includes `npm run repo:intelligence -- <repo> --manifest` for pack discovery, read-only `agentRecipes` for Claude Code, Codex, Gemini CLI, OpenCode, Aider, Goose, Qwen Code, Amazon Q Developer CLI, Cursor, Continue, Windsurf, and Zed AI, `--pack <id> --format markdown` for task-specific handoff, and `--agent <claude|codex|gemini|opencode|aider|goose|cursor|continue|grok|qwen|amazonq|windsurf|zed>` for ready-to-paste bounded tool handoffs.
    - Keep first version read-only. Any write, refactor, or auto-repair action must require explicit user action.
- - Reuse the planned connector readiness contract for Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, and Goose: identify config surfaces, document manual-safe workflows, and block automation behind backup/restore/off-mode gates.
+ - Reuse the planned connector readiness contract for Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI: identify config surfaces, document manual-safe workflows, and block automation behind backup/restore/off-mode gates.
    - Reuse Switchboard on/off behavior: disabling the feature stops indexing and removes routing/hooks without deleting the user's repo.
 5. **Doctor repair support**
    - Check parser availability, index freshness, storage permissions, ignored path handling, and local API reachability.

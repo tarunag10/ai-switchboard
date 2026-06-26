@@ -59,7 +59,7 @@ const repoAgentRecipeTemplates = [
   {
     id: "cli_implementation",
     label: "CLI implementation handoff",
-    tools: ["Claude Code", "Gemini CLI", "OpenCode", "Aider", "Goose"],
+tools: ["Claude Code", "Gemini CLI", "OpenCode", "Aider", "Goose", "Qwen Code"],
     packIds: ["implementation"],
     instruction:
       "Copy the implementation pack into the CLI agent before asking for feature or bug-fix work.",
@@ -67,7 +67,7 @@ const repoAgentRecipeTemplates = [
   {
     id: "cli_verification",
     label: "CLI verification handoff",
-    tools: ["Codex", "Gemini CLI", "OpenCode", "Aider", "Goose"],
+tools: ["Codex", "Gemini CLI", "OpenCode", "Aider", "Goose", "Amazon Q Developer CLI"],
     packIds: ["verification"],
     instruction:
       "Copy the verification pack into the CLI agent before asking for test, build, or release checks.",
@@ -75,7 +75,7 @@ const repoAgentRecipeTemplates = [
   {
     id: "editor_context",
     label: "Editor assistant context",
-    tools: ["Cursor", "Continue"],
+tools: ["Cursor", "Continue", "Windsurf", "Zed AI"],
     packIds: ["implementation", "handoff"],
     instruction:
       "Use these packs as read-only context in editor assistants while provider routing remains manual.",
@@ -141,12 +141,42 @@ const agentHandoffProfiles = [
     defaultPackId: "handoff",
     guidance: "Paste into Continue chat as read-only context; do not auto-write config.",
   },
-  {
+{
     id: "grok",
     label: "Grok / xAI CLI",
     toolKind: "chat",
     defaultPackId: "implementation",
     guidance: "Use this as compact task context where local CLI integration remains manual.",
+  },
+  {
+    id: "qwen",
+    label: "Qwen Code",
+    toolKind: "cli",
+    defaultPackId: "implementation",
+    guidance: "Paste into Qwen Code as bounded repo context; keep provider and account routing manual.",
+  },
+  {
+    id: "amazonq",
+    label: "Amazon Q Developer CLI",
+    toolKind: "cli",
+    defaultPackId: "verification",
+    guidance:
+      "Paste verification packs for build, test, and AWS-adjacent repo questions without exposing account state.",
+  },
+  {
+    id: "windsurf",
+    label: "Windsurf",
+    toolKind: "editor",
+    defaultPackId: "handoff",
+    guidance:
+      "Paste into Windsurf chat as read-only project context; do not auto-write editor provider settings.",
+  },
+  {
+    id: "zed",
+    label: "Zed AI",
+    toolKind: "editor",
+    defaultPackId: "handoff",
+    guidance: "Paste into Zed assistant as read-only context while model/provider selection stays manual.",
   },
 ];
 
@@ -202,7 +232,7 @@ function printHelp() {
 
 Options:
   --pack <id>          Print one context pack: implementation, verification, handoff
-  --agent <id>         Print agent handoff: claude, codex, gemini, opencode, aider, goose, cursor, continue, grok
+  --agent <id>         Print agent handoff: claude, codex, gemini, opencode, aider, goose, cursor, continue, grok, qwen, amazonq, windsurf, zed
   --format <format>   json or markdown
   --list-packs        Print available pack ids
   --manifest          Print agent-readable pack manifest JSON

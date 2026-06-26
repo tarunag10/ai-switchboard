@@ -73,7 +73,7 @@ Expect: this is treated as a Codex routing/config problem, not as an RTK compres
 
 Open Settings and inspect the coding tool connector list.
 
-Expect: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, and Goose all appear when detected or known to the connector registry. Each planned connector shows a **Planned** badge, setup phase, category, safe mode chips such as RTK only or Repo packs, backend detection evidence, copyable manual setup guide, and disabled switch. Cards explain what is safe today and the first automation step before config writes. Doctor may show **Planned coding tools detected**, but it must be a manual step with no **Repair all** action for those tools. If a report mixes repairable and manual items, Doctor says **Repair all will leave manual steps visible.** Launcher auto-setup and proxy verification should include only managed connectors such as Claude Code and Codex.
+Expect: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI all appear when detected or known to the connector registry. Each planned connector shows a **Planned** badge, setup phase, category, safe mode chips such as RTK only or Repo packs, backend detection evidence, copyable manual setup guide, and disabled switch. Cards explain what is safe today and the first automation step before config writes. Doctor may show **Planned coding tools detected**, but it must be a manual step with no **Repair all** action for those tools. If a report mixes repairable and manual items, Doctor says **Repair all will leave manual steps visible.** Launcher auto-setup and proxy verification should include only managed connectors such as Claude Code and Codex.
 
 Expect: planned connector cards and Doctor evidence include **Automation gates** and **Manual workflow** before any future config-writing support is allowed.
 
@@ -93,7 +93,7 @@ Click **Copy agent manifest**.
 
 Expect: JSON manifest is copied for external coding agents. It includes `mac_ai_switchboard.repo_intelligence_manifest`, implementation/verification/handoff pack ids, per-pack commands, token savings, and read-only safety flags.
 
-In **Agent handoffs**, expect grouped sections for Primary agents, CLI agents, Editor agents, and Chat agents. Claude Code and Codex should appear in Primary agents. Click **Claude Code**, **Codex**, **Gemini CLI**, **Cursor**, and one more target such as **Aider** or **Goose**.
+In **Agent handoffs**, expect grouped sections for Primary agents, CLI agents, Editor agents, and Chat agents. Claude Code and Codex should appear in Primary agents. Click **Claude Code**, **Codex**, **Gemini CLI**, **Cursor**, and newer targets such as **Qwen Code**, **Amazon Q Developer CLI**, **Windsurf**, or **Zed AI**.
 
 Expect: each button copies a ready-to-paste bounded handoff for that tool, selects the expected implementation, verification, or handoff pack, includes token savings and graph summary, and does not write third-party config.
 
