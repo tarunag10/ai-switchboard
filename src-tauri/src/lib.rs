@@ -1915,24 +1915,34 @@ fn switchboard_mode_label(mode: &SwitchboardMode) -> &'static str {
     }
 }
 
+fn infer_switchboard_mode(
+    runtime: &RuntimeStatus,
+    enabled_client_count: usize,
+) -> (SwitchboardMode, bool, bool) {
+    let rtk_enabled = runtime.rtk.installed && runtime.rtk.enabled;
+    let headroom_enabled =
+        runtime.running && runtime.proxy_reachable && !runtime.paused && enabled_client_count > 0;
+    let mode = match (headroom_enabled, rtk_enabled) {
+        (true, true) => SwitchboardMode::Full,
+        (true, false) => SwitchboardMode::Headroom,
+        (false, true) => SwitchboardMode::Rtk,
+        (false, false) => SwitchboardMode::Off,
+    };
+
+    (mode, rtk_enabled, headroom_enabled)
+}
+
 fn build_switchboard_state(state: &AppState) -> Result<SwitchboardState, String> {
-let runtime = state.runtime_status();
-let clients = client_adapters::list_client_connectors(&state.cached_clients())
-.map_err(|err| err.to_string())?;
+    let runtime = state.runtime_status();
+    let clients = client_adapters::list_client_connectors(&state.cached_clients())
+        .map_err(|err| err.to_string())?;
     let enabled_clients: Vec<ClientConnectorStatus> = clients
         .iter()
         .filter(|client| client.enabled)
         .cloned()
         .collect();
-    let rtk_enabled = runtime.rtk.installed && runtime.rtk.enabled;
-    let headroom_enabled =
-        runtime.running && runtime.proxy_reachable && !runtime.paused && !enabled_clients.is_empty();
-let inferred_mode = match (headroom_enabled, rtk_enabled) {
-(true, true) => SwitchboardMode::Full,
-(true, false) => SwitchboardMode::Headroom,
-(false, true) => SwitchboardMode::Rtk,
-(false, false) => SwitchboardMode::Off,
-};
+    let (inferred_mode, rtk_enabled, headroom_enabled) =
+        infer_switchboard_mode(&runtime, enabled_clients.len());
 let desired_mode = client_adapters::load_switchboard_mode().unwrap_or(inferred_mode.clone());
 let effective_mode = inferred_mode;
 let needs_attention = desired_mode != effective_mode;
@@ -1989,23 +1999,12 @@ build_switchboard_state(&state)
 }
 
 fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
-let runtime = state.runtime_status();
-let codex_direct_bypass = state
-.codex_bypass
-.load(std::sync::atomic::Ordering::Acquire);
-let desired_mode = client_adapters::load_switchboard_mode().unwrap_or_else(|| {
-if runtime.rtk.installed && runtime.rtk.enabled && runtime.running && runtime.proxy_reachable {
-SwitchboardMode::Full
-} else if runtime.running && runtime.proxy_reachable {
-SwitchboardMode::Headroom
-} else if runtime.rtk.installed && runtime.rtk.enabled {
-SwitchboardMode::Rtk
-} else {
-SwitchboardMode::Off
-}
-});
-let mut issues = Vec::new();
-let connectors = client_adapters::list_client_connectors(&state.cached_clients()).unwrap_or_default();
+    let runtime = state.runtime_status();
+    let codex_direct_bypass = state
+        .codex_bypass
+        .load(std::sync::atomic::Ordering::Acquire);
+    let mut issues = Vec::new();
+    let connectors = client_adapters::list_client_connectors(&state.cached_clients()).unwrap_or_default();
     let managed_connectors = connectors.iter().filter(|client| {
         matches!(
             client.support_status,
@@ -2030,15 +2029,9 @@ let connectors = client_adapters::list_client_connectors(&state.cached_clients()
         })
         .cloned()
         .collect::<Vec<_>>();
-    let rtk_ready = runtime.rtk.installed && runtime.rtk.enabled;
-    let headroom_ready =
-        runtime.running && runtime.proxy_reachable && !runtime.paused && enabled_clients > 0;
-    let inferred_mode = match (headroom_ready, rtk_ready) {
-        (true, true) => SwitchboardMode::Full,
-        (true, false) => SwitchboardMode::Headroom,
-        (false, true) => SwitchboardMode::Rtk,
-        (false, false) => SwitchboardMode::Off,
-    };
+    let (inferred_mode, _rtk_ready, _headroom_ready) =
+        infer_switchboard_mode(&runtime, enabled_clients);
+    let desired_mode = client_adapters::load_switchboard_mode().unwrap_or(inferred_mode.clone());
 
     if desired_mode != inferred_mode {
         issues.push(crate::models::DoctorIssue {

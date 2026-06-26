@@ -178,6 +178,9 @@ const requiredSourceSignals = {
     "keeps stable ids for modal rendering",
   ],
   "src-tauri/src/lib.rs": [
+    "infer_switchboard_mode",
+    "infer_switchboard_mode(&runtime, enabled_clients.len())",
+    "infer_switchboard_mode(&runtime, enabled_clients)",
     "planned_connectors_detected",
     "ClientConnectorSupportStatus::Planned",
     "ClientConnectorSupportStatus::Managed",
