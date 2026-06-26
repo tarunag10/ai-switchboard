@@ -15,6 +15,7 @@ const requiredFiles = [
   "scripts/smoke-preflight.mjs",
   "scripts/installed-smoke-summary.mjs",
   "scripts/repo-intelligence.mjs",
+  ".github/workflows/rust-tauri.yml",
   ".github/workflows/release-macos.yml",
   ".github/workflows/release-macos-staging.yml",
 ];
@@ -350,6 +351,13 @@ const requiredSourceSignals = {
     "shareableDmgGate.updaterFeedReady",
     "releaseEnv.blockers",
     "releaseEnv.warnings",
+  ],
+  ".github/workflows/rust-tauri.yml": [
+    "Rust Tauri Validation",
+    "tarun/local-switchboard",
+    "npm run fmt:desktop",
+    "cargo nextest run --manifest-path src-tauri/Cargo.toml",
+    "libwebkit2gtk-4.1-dev",
   ],
   "scripts/installed-smoke-summary.mjs": [
     "dist/installed-smoke-summary.md",
