@@ -7560,6 +7560,61 @@ cursor: pointer;
   background: var(--surface-sunken);
 }
 
+.repo-intelligence-handoffs {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+
+.repo-intelligence-handoffs__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 6px;
+}
+
+.repo-intelligence-handoff {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  min-height: 54px;
+  padding: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.repo-intelligence-handoff:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.repo-intelligence-handoff:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.repo-intelligence-handoff strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repo-intelligence-handoff span {
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
 .repo-intelligence-recipes__heading {
   display: flex;
   align-items: center;
@@ -7651,6 +7706,10 @@ grid-template-columns: 1fr;
 
   .repo-intelligence-recipes__list {
     grid-template-columns: 1fr;
+  }
+
+  .repo-intelligence-handoffs__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

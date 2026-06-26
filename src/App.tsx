@@ -66,10 +66,13 @@ import {
   buildRepoAgentManifest,
   buildRepoIntelligenceSummary,
   estimateRepoIntelligenceSavings,
+  formatRepoAgentHandoffMarkdown,
   formatRepoAgentManifestJson,
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
+  repoAgentHandoffProfiles,
   type RepoContextPack,
+  type RepoAgentHandoffTarget,
   type RepoIntelligenceSummary,
 } from "./lib/repoIntelligence";
 import {
@@ -1255,6 +1258,20 @@ async function copyAgentManifest() {
     }
   }
 
+  async function copyAgentHandoff(target: RepoAgentHandoffTarget, label: string) {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(formatRepoAgentHandoffMarkdown(summary, target));
+      setCopyNotice(`${label} handoff copied.`);
+      window.setTimeout(() => setCopyNotice(null), 2000);
+    } catch {
+      setCopyNotice("Copy failed. Select handoff details manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
+
   return (
     <div className="repo-intelligence-preview" aria-label="Repo Intelligence context pack preview">
       <div className="repo-intelligence-preview__topline">
@@ -1395,6 +1412,27 @@ async function copyAgentManifest() {
           ) : null}
         </article>
         ))}
+      </div>
+
+      <div className="repo-intelligence-handoffs" aria-label="Agent-specific handoffs">
+        <div className="repo-intelligence-recipes__heading">
+          <span>Agent handoffs</span>
+          <strong>Ready to paste</strong>
+        </div>
+        <div className="repo-intelligence-handoffs__grid">
+          {repoAgentHandoffProfiles.map((profile) => (
+            <button
+              className="repo-intelligence-handoff"
+              disabled={isPreview}
+              key={profile.id}
+              onClick={() => void copyAgentHandoff(profile.id, profile.label)}
+              type="button"
+            >
+              <strong>{profile.label}</strong>
+              <span>{profile.defaultPackId} pack</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="repo-intelligence-recipes" aria-label="Agent handoff recipes">
