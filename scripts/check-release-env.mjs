@@ -70,7 +70,9 @@ const recommendedReleaseEnv = [
 ];
 
 function hasCommand(command) {
-  const pathEntries = (process.env.PATH ?? "").split(path.delimiter).filter(Boolean);
+  const pathEntries = (process.env.PATH ?? "")
+    .split(path.delimiter)
+    .filter(Boolean);
   return pathEntries.some((entry) => {
     try {
       fs.accessSync(path.join(entry, command), fs.constants.X_OK);
@@ -85,13 +87,37 @@ function hasEnv(name) {
   return Boolean(process.env[name]?.trim());
 }
 
+function envValue(name) {
+  return (process.env[name] ?? "").trim();
+}
+
+function isPlaceholderEnvValue(value) {
+  if (!value) {
+    return false;
+  }
+  return (
+    /^REPLACE_WITH_/i.test(value) ||
+    /^your[-_]/i.test(value) ||
+    value.includes("your-") ||
+    value.startsWith("/absolute/path/")
+  );
+}
+
+function hasUsableEnv(name) {
+  const value = envValue(name);
+  return Boolean(value) && !isPlaceholderEnvValue(value);
+}
+
 function hasNotarizationMode() {
   const apiMode =
-    hasEnv("APPLE_API_ISSUER") &&
-    hasEnv("APPLE_API_KEY") &&
-    (hasEnv("APPLE_API_KEY_PATH") || hasEnv("APPLE_API_PRIVATE_KEY_P8"));
+    hasUsableEnv("APPLE_API_ISSUER") &&
+    hasUsableEnv("APPLE_API_KEY") &&
+    (hasUsableEnv("APPLE_API_KEY_PATH") ||
+      hasUsableEnv("APPLE_API_PRIVATE_KEY_P8"));
   const appleIdMode =
-    hasEnv("APPLE_ID") && hasEnv("APPLE_PASSWORD") && hasEnv("APPLE_TEAM_ID");
+    hasUsableEnv("APPLE_ID") &&
+    hasUsableEnv("APPLE_PASSWORD") &&
+    hasUsableEnv("APPLE_TEAM_ID");
   return apiMode || appleIdMode;
 }
 
@@ -99,9 +125,19 @@ function repoFileExists(path) {
   return fs.existsSync(path);
 }
 
-const missingCommands = requiredCommands.filter((entry) => !hasCommand(entry.name));
+const missingCommands = requiredCommands.filter(
+  (entry) => !hasCommand(entry.name),
+);
 const missingEnv = requiredReleaseEnv.filter((entry) => !hasEnv(entry.name));
-const missingRecommendedEnv = recommendedReleaseEnv.filter((entry) => !hasEnv(entry.name));
+const placeholderEnv = requiredReleaseEnv.filter((entry) =>
+  isPlaceholderEnvValue(envValue(entry.name)),
+);
+const missingRecommendedEnv = recommendedReleaseEnv.filter(
+  (entry) => !hasEnv(entry.name),
+);
+const placeholderRecommendedEnv = recommendedReleaseEnv.filter((entry) =>
+  isPlaceholderEnvValue(envValue(entry.name)),
+);
 const missingFiles = [
   "src-tauri/tauri.conf.json",
   "src-tauri/Cargo.toml",
@@ -122,21 +158,31 @@ const blockers = [
     label: `missing environment: ${entry.name}`,
     hint: entry.hint,
   })),
+  ...placeholderEnv.map((entry) => ({
+    label: `placeholder environment: ${entry.name}`,
+    hint: `${entry.hint} Replace the template value before building a DMG.`,
+  })),
   ...(notarizationConfigured
     ? []
     : [
         {
           label: "missing notarization credentials",
-          hint:
-            "Set App Store Connect API credentials or APPLE_ID, APPLE_PASSWORD, and APPLE_TEAM_ID.",
+          hint: "Set App Store Connect API credentials or APPLE_ID, APPLE_PASSWORD, and APPLE_TEAM_ID.",
         },
       ]),
 ];
 
-const warnings = missingRecommendedEnv.map((entry) => ({
-  label: `recommended environment missing: ${entry.name}`,
-  hint: entry.hint,
-}));
+const warnings = missingRecommendedEnv
+  .map((entry) => ({
+    label: `recommended environment missing: ${entry.name}`,
+    hint: entry.hint,
+  }))
+  .concat(
+    placeholderRecommendedEnv.map((entry) => ({
+      label: `recommended environment is placeholder: ${entry.name}`,
+      hint: `${entry.hint} Replace the template value for updater-enabled builds.`,
+    })),
+  );
 
 if (jsonOutput) {
   console.log(
