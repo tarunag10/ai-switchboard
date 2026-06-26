@@ -17,6 +17,9 @@ npm run release:env:selftest
 echo "Checking installed-app smoke preflight..."
 npm run smoke:preflight
 
+echo "Checking planned connector registry parity..."
+npm run check:connectors
+
 echo "Checking semantic color tokens..."
 npm run check:colors
 
