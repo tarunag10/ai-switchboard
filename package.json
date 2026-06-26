@@ -20,6 +20,8 @@
     "release:env:json": "node scripts/check-release-env.mjs --json",
     "release:report": "node scripts/release-readiness-report.mjs",
     "release:report:check": "node scripts/check-release-report-schema.mjs",
+    "release:ready": "node scripts/check-release-readiness.mjs",
+    "release:ready:strict": "node scripts/check-release-readiness.mjs --strict",
     "smoke:preflight": "node scripts/smoke-preflight.mjs",
     "smoke:installed": "node scripts/installed-smoke-summary.mjs",
     "repo:intelligence": "node scripts/repo-intelligence.mjs",

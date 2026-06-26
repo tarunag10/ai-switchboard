@@ -8,7 +8,7 @@ import {
 
 describe("release readiness checklist", () => {
   it("points users at the durable release report command", () => {
-    expect(releaseReadinessCommand).toBe("npm run release:report");
+    expect(releaseReadinessCommand).toBe("npm run release:ready");
   });
 
   it("covers environment, signing, static preflight, and installed-app smoke gates", () => {

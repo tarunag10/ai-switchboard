@@ -16,7 +16,7 @@ export interface ReleaseShareableGate {
   detail: string;
 }
 
-export const releaseReadinessCommand = "npm run release:report";
+export const releaseReadinessCommand = "npm run release:ready";
 
 export const releaseShareableGates: ReleaseShareableGate[] = [
   {

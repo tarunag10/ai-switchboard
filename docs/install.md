@@ -41,14 +41,14 @@ npm install
 npm run build:mac:dmg
 ```
 
-Run `npm run release:report` before sharing a build to generate `dist/release-readiness-report.md` with remaining blockers, warnings, and installed-app smoke status.
+Run `npm run release:ready` before sharing a build. It runs `release:report`, validates the report schema, and prints concrete remaining blockers, warnings, and installed-app smoke actions.
 The script validates signing/notarization environment variables and writes `Mac-AI-Switchboard_<version>.dmg` under `src-tauri/target/release/bundle/dmg/`. See [macOS release docs](macos-release.md) for the required secrets and release workflow.
 
 ## Shareable Build Checklist
 
 Do not share a public DMG until all five gates are true:
 
-1. `npm run release:report` reports no environment blockers and shows Rust backend validation ready.
+1. `npm run release:ready -- --strict` reports no environment blockers and shows Rust backend validation ready.
 2. The DMG is signed and notarized with Developer ID, updater signing, `HEADROOM_UPDATER_PUBLIC_KEY`, and `HEADROOM_UPDATER_ENDPOINTS` configured.
 3. `npm run smoke:preflight` passes and writes `dist/smoke-preflight-summary.md`.
 4. The DMG is installed as `/Applications/Mac AI Switchboard.app`, with `Contents/Info.plist` present inside the app bundle.

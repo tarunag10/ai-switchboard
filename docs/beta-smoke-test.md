@@ -105,9 +105,9 @@ Expect: card returns to the read-only preview state, the saved repo path disappe
 
 Open Settings and find **Release readiness**.
 
-Expect: card shows **Shareable DMG gates** plus 10 checks across Environment, Signing, and Smoke Evidence. **Copy report command** copies `npm run release:report`. The card should not claim the app is releasable until environment, backend validation, signing/notarization, static smoke preflight, and installed-app smoke gates are complete.
+Expect: card shows **Shareable DMG gates** plus 10 checks across Environment, Signing, and Smoke Evidence. **Copy report command** copies `npm run release:ready`. The card should not claim the app is releasable until environment, backend validation, signing/notarization, static smoke preflight, and installed-app smoke gates are complete.
 
-After the beta smoke checklist passes, run `npm run smoke:installed -- --confirm` from the repo. Expect: `dist/installed-smoke-summary.md` records the installed-app smoke evidence for `npm run release:report`.
+After the beta smoke checklist passes, run `npm run smoke:installed -- --confirm` from the repo. Expect: `dist/installed-smoke-summary.md` records the installed-app smoke evidence consumed by `npm run release:ready`.
 
 ## Checks (Claude Code pass)
 

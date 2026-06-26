@@ -112,7 +112,7 @@ Generated: ${generatedAt}
 - Local-first behavior: remote services gated, Off mode reversible cleanup
 - Codex resilience: compression refusal reset and model/provider repair
 
-Next step: run npm run release:report, install DMG, confirm ${appPath}/Contents/Info.plist exists, run ${betaSmokeDoc}, then run npm run smoke:installed -- --confirm.
+Next step: run npm run release:ready, install DMG, confirm ${appPath}/Contents/Info.plist exists, run ${betaSmokeDoc}, then run npm run smoke:installed -- --confirm.
 `;
 
 fs.mkdirSync(path.dirname(summaryPath), { recursive: true });
@@ -121,4 +121,4 @@ fs.writeFileSync(summaryPath, summary);
 console.log("Smoke preflight passed.");
 console.log(`Installed app present: ${installed ? "yes" : "no"} (${appPath})`);
 console.log(`Summary written: ${summaryPath}`);
-console.log(`Next: run npm run release:report, install DMG, run ${betaSmokeDoc}, then run npm run smoke:installed -- --confirm.`);
+console.log(`Next: run npm run release:ready, install DMG, run ${betaSmokeDoc}, then run npm run smoke:installed -- --confirm.`);
