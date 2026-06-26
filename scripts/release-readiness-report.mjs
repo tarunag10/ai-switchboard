@@ -74,6 +74,13 @@ function buildBackendValidation(releaseEnv) {
     cargoAvailable,
     rustupAvailable,
     requiredCommands: ["npm run fmt:desktop", "npm run test:desktop"],
+    unblockCommands: [
+      "rustup --version",
+      "cargo --version",
+      "rustup target add aarch64-apple-darwin x86_64-apple-darwin",
+      "npm run fmt:desktop",
+      "npm run test:desktop",
+    ],
     message: ready
       ? "Rust toolchain present. Run desktop formatting and tests before release."
       : "Rust validation cannot run here until cargo and rustup are available.",
@@ -194,6 +201,7 @@ ${listItems(releaseEnv.warnings, "None. Recommended release settings are present
 - cargo available: ${backendValidation.cargoAvailable ? "yes" : "no"}
 - rustup available: ${backendValidation.rustupAvailable ? "yes" : "no"}
 - Required commands: ${backendValidation.requiredCommands.join(", ")}
+- Rust unblock commands: ${backendValidation.unblockCommands.join(" -> ")}
 - ${backendValidation.message}
 
 ## Static Smoke Preflight

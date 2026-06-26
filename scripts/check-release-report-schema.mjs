@@ -3,6 +3,7 @@ import fs from "node:fs";
 const reportPath = "dist/release-readiness-report.json";
 const requiredReleaseReportPaths = [
   "backendValidation.requiredCommands",
+  "backendValidation.unblockCommands",
   "staticSmokePreflight.smokeSummaryPresent",
   "staticSmokePreflight.requiredCommand",
   "installedSmokeSummary.present",
@@ -88,11 +89,15 @@ requireBooleanFields(report, "backendValidation", [
   "rustupAvailable",
 ]);
 requireArray(report, "backendValidation.requiredCommands");
+requireArray(report, "backendValidation.unblockCommands");
 requireType(report, "backendValidation.message", "string");
 
-for (const command of backendValidation.requiredCommands) {
+for (const command of [
+  ...backendValidation.requiredCommands,
+  ...backendValidation.unblockCommands,
+]) {
   if (typeof command !== "string" || command.length === 0) {
-    fail("backendValidation.requiredCommands must contain non-empty strings");
+    fail("backendValidation command arrays must contain non-empty strings");
   }
 }
 
