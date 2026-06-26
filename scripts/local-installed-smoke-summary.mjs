@@ -5,8 +5,10 @@ import path from "node:path";
 
 const appPath = "/Applications/Mac AI Switchboard.app";
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
-const dmgPath =
-  "dist/release-artifacts/Mac-AI-Switchboard_0.5.1-local-unsigned-aarch64.dmg";
+const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+const arch = process.arch === "arm64" ? "aarch64" : process.arch;
+const dmgPath = `dist/release-artifacts/Mac-AI-Switchboard_${packageJson.version}-local-unsigned-${arch}.dmg`;
+const rawDmgPath = `src-tauri/target/release/bundle/dmg/Mac AI Switchboard_${packageJson.version}_${arch}.dmg`;
 const summaryPath = "dist/local-installed-smoke-summary.md";
 const jsonPath = "dist/local-installed-smoke-summary.json";
 
@@ -35,6 +37,12 @@ function plistValue(key) {
 function sha256(filePath) {
   if (!fs.existsSync(filePath)) return null;
   return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
+}
+
+if (!fs.existsSync(dmgPath) && fs.existsSync(rawDmgPath)) {
+  fs.mkdirSync(path.dirname(dmgPath), { recursive: true });
+  fs.copyFileSync(rawDmgPath, dmgPath);
+  fs.writeFileSync(`${dmgPath}.sha256`, `${sha256(dmgPath)}  ${dmgPath}\n`);
 }
 
 const generatedAt = new Date().toISOString();

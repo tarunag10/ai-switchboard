@@ -5,9 +5,10 @@ const requiredFiles = [
   "docs/install.md",
   "docs/macos-release.md",
   "docs/beta-smoke-test.md",
-  "docs/codex-compression-troubleshooting.md",
-  "scripts/build-macos-dmg.sh",
-  "scripts/verify-release.sh",
+"docs/codex-compression-troubleshooting.md",
+"scripts/build-macos-dmg.sh",
+"scripts/build-install-local-dmg.sh",
+"scripts/verify-release.sh",
   "scripts/check-release-env.mjs",
   "scripts/check-release-env-selftest.mjs",
   "scripts/check-release-readiness.mjs",
@@ -25,8 +26,9 @@ const requiredFiles = [
 ];
 
 const requiredScripts = {
-  "package.json": [
-    '"build:mac:dmg"',
+"package.json": [
+'"build:mac:dmg"',
+'"build:mac:local-install"',
 '"release:check"',
     '"release:env"',
     '"release:env:json"',
@@ -520,15 +522,25 @@ const workflowSignals = {
 };
 
 const dmgScriptSignals = {
-  "scripts/build-macos-dmg.sh": [
+"scripts/build-macos-dmg.sh": [
     "require_env APPLE_SIGNING_IDENTITY",
     "require_env TAURI_SIGNING_PRIVATE_KEY",
     "require_env TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
     "prepare_notarization",
     "npx tauri build --bundles dmg --ci",
     "Mac-AI-Switchboard_",
-    "rename_built_dmg",
-  ],
+"rename_built_dmg",
+],
+"scripts/build-install-local-dmg.sh": [
+"npx tauri build --bundles dmg --ci",
+"dist/release-artifacts",
+"Mac-AI-Switchboard_",
+"local-unsigned",
+"hdiutil verify",
+"ditto",
+"codesign --force --deep --sign -",
+"npm run smoke:installed:local",
+],
 };
 
 const forbiddenUserCopy = {

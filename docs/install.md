@@ -76,6 +76,6 @@ If Codex hits a large-request issue such as `413 Payload Too Large: compression_
 
 ## Local Unsigned Test Build
 
-For a local Mac-only test build, `npx tauri build --bundles dmg --ci` can produce an unsigned/ad-hoc DMG without Apple release secrets. After copying the app into `/Applications`, run `npm run smoke:installed:local` to record `dist/local-installed-smoke-summary.md`. This local summary checks the installed bundle, version, running process, DMG checksum, `hdiutil verify`, local code-sign status, and Gatekeeper assessment. It is not release-gate evidence and does not replace `npm run smoke:installed -- --confirm` for signed/notarized builds.
+For a local Mac-only test build, run `npm run build:mac:local-install`. It builds an unsigned/ad-hoc DMG without Apple release secrets, copies it to `dist/release-artifacts`, installs `/Applications/Mac AI Switchboard.app`, ad-hoc signs the installed bundle for local execution, and runs `npm run smoke:installed:local`. The local summary checks the installed bundle, version, running process, DMG checksum, `hdiutil verify`, local code-sign status, and Gatekeeper assessment. It is not release-gate evidence and does not replace `npm run smoke:installed -- --confirm` for signed/notarized builds.
 
 If Codex reports `The '' model is not supported when using Codex with a ChatGPT account`, treat it as a Codex model/provider configuration issue rather than a Headroom compression issue. Use Doctor to repair the Codex provider block, then choose a Codex-supported ChatGPT model before retrying.
