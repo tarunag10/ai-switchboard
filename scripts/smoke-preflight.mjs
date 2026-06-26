@@ -51,6 +51,7 @@ const requiredSignals = {
   "scripts/repo-intelligence.mjs": [
     "--manifest",
     "--agent <id>",
+    "--list-agents",
     "mac_ai_switchboard.repo_intelligence_manifest",
     "formatAgentHandoffMarkdown",
     "excludesSecretLikePaths",

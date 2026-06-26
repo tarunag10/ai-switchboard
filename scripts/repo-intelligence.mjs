@@ -187,6 +187,7 @@ function parseArgs(argv) {
     agent: null,
     format: "json",
     listPacks: false,
+    listAgents: false,
     manifest: false,
   };
   const positional = [];
@@ -210,6 +211,8 @@ function parseArgs(argv) {
       options.format = arg.slice("--format=".length);
     } else if (arg === "--list-packs") {
       options.listPacks = true;
+    } else if (arg === "--list-agents") {
+      options.listAgents = true;
     } else if (arg === "--manifest") {
       options.manifest = true;
     } else if (arg === "--help" || arg === "-h") {
@@ -235,12 +238,14 @@ Options:
   --agent <id>         Print agent handoff: claude, codex, gemini, opencode, aider, goose, cursor, continue, grok, qwen, amazonq, windsurf, zed
   --format <format>   json or markdown
   --list-packs        Print available pack ids
+  --list-agents       Print available agent handoff ids
   --manifest          Print agent-readable pack manifest JSON
   --help              Show this help
 
 Examples:
   npm run repo:intelligence -- .
   npm run repo:intelligence -- . --manifest
+  npm run repo:intelligence -- . --list-agents
   npm run repo:intelligence -- . --pack implementation --format markdown
   npm run repo:intelligence -- . --agent codex`);
 }
@@ -687,6 +692,11 @@ const summary = buildSummary(options.repoRoot);
 
 if (options.listPacks) {
   console.log(summary.packs.map((contextPack) => contextPack.id).join("\n"));
+  process.exit(0);
+}
+
+if (options.listAgents) {
+  console.log(agentHandoffProfiles.map((profile) => profile.id).join("\n"));
   process.exit(0);
 }
 

@@ -358,6 +358,7 @@ const requiredSourceSignals = {
     "--pack <id>",
     "--agent <id>",
     "--format <format>",
+    "--list-agents",
     "--manifest",
     "mac_ai_switchboard.repo_intelligence_manifest",
 "excludesSecretLikePaths",
