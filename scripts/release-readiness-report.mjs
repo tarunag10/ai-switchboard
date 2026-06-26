@@ -95,14 +95,41 @@ function buildInstalledSmoke(installedAppPresent, smokeSummary) {
   };
 }
 
+function buildShareableDmgGate(releaseEnv, backendValidation, installedSmoke) {
+  const environmentClear = releaseEnv.blockers.length === 0;
+  const signedAndNotarized = environmentClear;
+  const installedAppSmokeReady = installedSmoke.ready;
+  const ready =
+    environmentClear &&
+    signedAndNotarized &&
+    backendValidation.ready &&
+    installedAppSmokeReady;
+
+  return {
+    ready,
+    environmentClear,
+    backendValidationReady: backendValidation.ready,
+    signedAndNotarized,
+    installedAppSmokeReady,
+    message: ready
+      ? "All shareable DMG gates are clear."
+      : "Do not share a public DMG until every gate is clear.",
+  };
+}
+
 const releaseEnv = runReleaseEnv();
 const smokeSummary = readSmokeSummaryStatus();
 const installedAppPresent = fs.existsSync(appPath);
 const backendValidation = buildBackendValidation(releaseEnv);
 const installedSmoke = buildInstalledSmoke(installedAppPresent, smokeSummary);
+const shareableDmgGate = buildShareableDmgGate(
+  releaseEnv,
+  backendValidation,
+  installedSmoke,
+);
 const generatedAt = new Date().toISOString();
 const status =
-  releaseEnv.ok && backendValidation.ready && installedSmoke.ready
+  releaseEnv.ok && backendValidation.ready && installedSmoke.ready && shareableDmgGate.ready
     ? "ready"
     : "blocked";
 
@@ -114,6 +141,7 @@ const payload = {
   smokeSummary,
   backendValidation,
   installedSmoke,
+  shareableDmgGate,
   releaseEnv,
 };
 
@@ -146,6 +174,14 @@ ${listItems(releaseEnv.warnings, "None. Recommended release settings are present
 ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Smoke summary has not been generated in this checkout."}
 - ${installedSmoke.message}
 
+## Shareable DMG Gates
+
+- Environment clear: ${shareableDmgGate.environmentClear ? "yes" : "no"}
+- Rust backend validation ready: ${shareableDmgGate.backendValidationReady ? "yes" : "no"}
+- Signed and notarized: ${shareableDmgGate.signedAndNotarized ? "yes" : "no"}
+- Installed-app smoke ready: ${shareableDmgGate.installedAppSmokeReady ? "yes" : "no"}
+- ${shareableDmgGate.message}
+
 ## Next Steps
 
 ${
@@ -169,6 +205,7 @@ fs.writeFileSync(jsonPath, `${JSON.stringify(payload, null, 2)}\n`);
 console.log(`Release readiness status: ${status}`);
 console.log(`Report written: ${reportPath}`);
 console.log(`JSON written: ${jsonPath}`);
+console.log(`Shareable DMG gate: ${shareableDmgGate.ready ? "ready" : "blocked"}`);
 
 if (releaseEnv.blockers.length > 0) {
   console.log(`Blockers: ${releaseEnv.blockers.length}`);
