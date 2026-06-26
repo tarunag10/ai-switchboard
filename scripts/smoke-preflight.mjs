@@ -24,12 +24,16 @@ const requiredSignals = {
     "Clear index",
     "Re-indexing remains a deliberate Addons action",
     "Release readiness visible in Settings",
+"npm run smoke:installed -- --confirm",
+"Contents/Info.plist",
     "Launcher auto-setup and proxy verification should include only managed connectors",
     "Codex traffic is actively optimized",
     "Pause / resume",
   ],
   [installDoc]: [
     "Mac-AI-Switchboard_<version>.dmg",
+"Contents/Info.plist",
+"npm run smoke:installed -- --confirm",
     "Full optimization",
     "RTK only",
     "Off mode",
@@ -46,8 +50,16 @@ const requiredSignals = {
     "npm run release:check",
     "Mac-AI-Switchboard_",
     "notarization",
+"npm run smoke:installed -- --confirm",
     "staging-rolling",
   ],
+"scripts/installed-smoke-summary.mjs": [
+"--confirm",
+"MAC_AI_SWITCHBOARD_INSTALLED_SMOKE_PASSED",
+"explicit tester confirmation received",
+"Contents",
+"Info.plist",
+],
 };
 
 const failures = [];
@@ -85,6 +97,7 @@ Generated: ${generatedAt}
 - Installed-app checklist: ${betaSmokeDoc}
 - Release instructions: ${releaseDoc}
 - Release readiness report: ${releaseReportPath}
+- Installed smoke evidence command: npm run smoke:installed -- --confirm
 
 ## Required Installed-App Smoke Areas
 
@@ -95,7 +108,7 @@ Generated: ${generatedAt}
 - Local-first behavior: remote services gated, Off mode reversible cleanup
 - Codex resilience: compression refusal reset and model/provider repair
 
-Next step: run npm run release:report, install the DMG, open ${appPath}, then run ${betaSmokeDoc}.
+Next step: run npm run release:report, install DMG, confirm ${appPath}/Contents/Info.plist exists, run ${betaSmokeDoc}, then run npm run smoke:installed -- --confirm.
 `;
 
 fs.mkdirSync(path.dirname(summaryPath), { recursive: true });
@@ -104,4 +117,4 @@ fs.writeFileSync(summaryPath, summary);
 console.log("Smoke preflight passed.");
 console.log(`Installed app present: ${installed ? "yes" : "no"} (${appPath})`);
 console.log(`Summary written: ${summaryPath}`);
-console.log(`Next: run npm run release:report, install the DMG, then run ${betaSmokeDoc} on the installed app.`);
+console.log(`Next: run npm run release:report, install DMG, run ${betaSmokeDoc}, then run npm run smoke:installed -- --confirm.`);
