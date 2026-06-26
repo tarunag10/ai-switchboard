@@ -19,6 +19,7 @@
     "release:env": "node scripts/check-release-env.mjs",
     "release:env:json": "node scripts/check-release-env.mjs --json",
     "release:report": "node scripts/release-readiness-report.mjs",
+    "release:report:check": "node scripts/check-release-report-schema.mjs",
     "smoke:preflight": "node scripts/smoke-preflight.mjs",
     "repo:intelligence": "node scripts/repo-intelligence.mjs",
     "check:colors": "./scripts/check-colors.sh",

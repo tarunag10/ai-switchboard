@@ -10,6 +10,7 @@ const requiredFiles = [
 "scripts/verify-release.sh",
   "scripts/check-release-env.mjs",
   "scripts/release-readiness-report.mjs",
+  "scripts/check-release-report-schema.mjs",
   "scripts/check-deployment-readiness.mjs",
   "scripts/smoke-preflight.mjs",
  "scripts/repo-intelligence.mjs",
@@ -24,6 +25,7 @@ const requiredScripts = {
     '"release:env"',
     '"release:env:json"',
     '"release:report"',
+    '"release:report:check"',
     '"smoke:preflight"',
     '"check:colors"',
     '"check:governance"',
@@ -314,6 +316,14 @@ const requiredSourceSignals = {
     "npm run fmt:desktop",
     "npm run test:desktop",
     "Backend validation pending",
+  ],
+  "scripts/check-release-report-schema.mjs": [
+    "dist/release-readiness-report.json",
+    "backendValidation.requiredCommands",
+    "installedSmoke.smokeSummaryPresent",
+    "shareableDmgGate.updaterFeedReady",
+    "releaseEnv.blockers",
+    "releaseEnv.warnings",
   ],
 };
 
