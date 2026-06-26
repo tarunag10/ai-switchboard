@@ -72,8 +72,11 @@ const requiredDocSignals = {
     "Rust backend validation ready",
     "HEADROOM_UPDATER_PUBLIC_KEY",
     "HEADROOM_UPDATER_ENDPOINTS",
+    "dist/smoke-preflight-summary.md",
+    "installed app",
     "planned connector evidence",
     "Repo Intelligence recipes",
+    "per-tool agent handoffs",
     "413 Payload Too Large",
   ],
 "docs/macos-release.md": [
@@ -94,6 +97,7 @@ const requiredDocSignals = {
     "Rust formatting",
     "a production frontend build",
     "handing a DMG to a tester",
+    "Repo Intelligence agent handoffs",
   ],
   "docs/beta-smoke-test.md": [
     "Local-only",
