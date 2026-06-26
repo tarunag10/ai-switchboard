@@ -117,9 +117,11 @@ requireObject(report, "installedSmoke");
 requireBooleanFields(report, "installedSmoke", [
   "ready",
   "installedAppPresent",
+  "bundleMetadataPresent",
   "smokeSummaryPresent",
 ]);
 requireType(report, "installedSmoke.appPath", "string");
+requireType(report, "installedSmoke.appInfoPlistPath", "string");
 requireType(report, "installedSmoke.smokeSummaryPath", "string");
 requireType(report, "installedSmoke.message", "string");
 

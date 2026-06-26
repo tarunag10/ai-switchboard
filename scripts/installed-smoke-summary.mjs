@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const appPath = "/Applications/Mac AI Switchboard.app";
+const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
 const betaSmokeDoc = "docs/beta-smoke-test.md";
 const preflightSummaryPath = "dist/smoke-preflight-summary.md";
 const installedSummaryPath = "dist/installed-smoke-summary.md";
@@ -10,11 +11,18 @@ const confirmed =
   process.env.MAC_AI_SWITCHBOARD_INSTALLED_SMOKE_PASSED === "1";
 
 const appPresent = fs.existsSync(appPath);
+const bundleMetadataPresent = fs.existsSync(appInfoPlistPath);
 const preflightPresent = fs.existsSync(preflightSummaryPath);
 
 if (!appPresent) {
   console.error(`Installed app missing: ${appPath}`);
   console.error("Install the signed DMG, run docs/beta-smoke-test.md, then rerun npm run smoke:installed -- --confirm.");
+  process.exit(1);
+}
+
+if (!bundleMetadataPresent) {
+  console.error(`Installed app metadata missing: ${appInfoPlistPath}`);
+  console.error("Install the signed DMG by dragging Mac AI Switchboard.app into /Applications, then rerun npm run smoke:installed -- --confirm.");
   process.exit(1);
 }
 
@@ -37,6 +45,7 @@ const summary = `# Installed App Smoke Summary
 Generated: ${generatedAt}
 
 - Installed app present: yes (${appPath})
+- Installed app metadata present: yes (${appInfoPlistPath})
 - Static preflight summary: ${preflightSummaryPath}
 - Installed-app checklist: ${betaSmokeDoc}
 - Confirmation: explicit tester confirmation received

@@ -367,6 +367,9 @@ const requiredSourceSignals = {
     "--confirm",
     "MAC_AI_SWITCHBOARD_INSTALLED_SMOKE_PASSED",
     "explicit tester confirmation received",
+    "Contents",
+    "Info.plist",
+    "Installed app metadata present",
   ],
 };
 

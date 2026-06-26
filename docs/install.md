@@ -51,7 +51,7 @@ Do not share a public DMG until all five gates are true:
 1. `npm run release:report` reports no environment blockers and shows Rust backend validation ready.
 2. The DMG is signed and notarized with Developer ID, updater signing, `HEADROOM_UPDATER_PUBLIC_KEY`, and `HEADROOM_UPDATER_ENDPOINTS` configured.
 3. `npm run smoke:preflight` passes and writes `dist/smoke-preflight-summary.md`.
-4. The DMG is installed as `/Applications/Mac AI Switchboard.app`.
+4. The DMG is installed as `/Applications/Mac AI Switchboard.app`, with `Contents/Info.plist` present inside the app bundle.
 5. `docs/beta-smoke-test.md` has been run against the installed app, then `npm run smoke:installed -- --confirm` records `dist/installed-smoke-summary.md`, including Switchboard modes, Doctor, planned connector evidence, Repo Intelligence recipes, per-tool agent handoffs, and Codex compression recovery.
 
 ## First-Run Footprint

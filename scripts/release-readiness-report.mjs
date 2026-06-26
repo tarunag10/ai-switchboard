@@ -7,6 +7,7 @@ const jsonPath = "dist/release-readiness-report.json";
 const smokeSummaryPath = "dist/smoke-preflight-summary.md";
 const installedSmokeSummaryPath = "dist/installed-smoke-summary.md";
 const appPath = "/Applications/Mac AI Switchboard.app";
+const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
 
 function runReleaseEnv() {
   const result = spawnSync(
@@ -87,13 +88,15 @@ function buildBackendValidation(releaseEnv) {
   };
 }
 
-function buildInstalledSmoke(installedAppPresent, installedSmokeSummary) {
-  const ready = installedAppPresent && installedSmokeSummary.present;
+function buildInstalledSmoke(installedAppPresent, bundleMetadataPresent, installedSmokeSummary) {
+  const ready = installedAppPresent && bundleMetadataPresent && installedSmokeSummary.present;
 
   return {
     ready,
     installedAppPresent,
+    bundleMetadataPresent,
     appPath,
+    appInfoPlistPath,
     smokeSummaryPath: installedSmokeSummaryPath,
     smokeSummaryPresent: installedSmokeSummary.present,
     generatedLine: installedSmokeSummary.generatedLine,
@@ -152,9 +155,10 @@ const releaseEnv = runReleaseEnv();
 const smokeSummary = readSummaryStatus(smokeSummaryPath);
 const installedSmokeSummary = readSummaryStatus(installedSmokeSummaryPath);
 const installedAppPresent = fs.existsSync(appPath);
+const bundleMetadataPresent = fs.existsSync(appInfoPlistPath);
 const backendValidation = buildBackendValidation(releaseEnv);
 const staticSmokePreflight = buildStaticSmokePreflight(smokeSummary);
-const installedSmoke = buildInstalledSmoke(installedAppPresent, installedSmokeSummary);
+const installedSmoke = buildInstalledSmoke(installedAppPresent, bundleMetadataPresent, installedSmokeSummary);
 const shareableDmgGate = buildShareableDmgGate(
   releaseEnv,
   backendValidation,
@@ -214,6 +218,7 @@ ${staticSmokePreflight.generatedLine ? `- ${staticSmokePreflight.generatedLine}`
 ## Installed App Smoke
 
 - Installed app present: ${installedSmoke.installedAppPresent ? "yes" : "no"} (${installedSmoke.appPath})
+- Installed app metadata present: ${installedSmoke.bundleMetadataPresent ? "yes" : "no"} (${installedSmoke.appInfoPlistPath})
 - Installed smoke summary present: ${installedSmoke.smokeSummaryPresent ? "yes" : "no"} (${installedSmoke.smokeSummaryPath})
 ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Installed smoke summary has not been generated in this checkout."}
 - ${installedSmoke.message}
