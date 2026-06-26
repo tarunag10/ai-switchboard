@@ -79,13 +79,13 @@ describe("SwitchboardDoctorPanel", () => {
       />,
     );
 
-  expect(screen.getByRole("heading", { name: "Ready" })).toBeInTheDocument();
-  expect(screen.getByLabelText("Switchboard Doctor")).toHaveClass(
-    "switchboard-doctor--ok",
-  );
-  expect(
-    screen.getByText("Repair complete. Switchboard looks ready."),
-  ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ready" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Switchboard Doctor")).toHaveClass(
+      "switchboard-doctor--ok",
+    );
+    expect(
+      screen.getByText("Repair complete. Switchboard looks ready."),
+    ).toBeInTheDocument();
   });
 
   it("renders issues and runs repair actions", async () => {
@@ -101,18 +101,18 @@ describe("SwitchboardDoctorPanel", () => {
       />,
     );
 
-  expect(
-    screen.getByRole("heading", { name: "Needs attention" }),
-  ).toBeInTheDocument();
-expect(screen.getByLabelText("Switchboard Doctor")).toHaveClass(
-"switchboard-doctor--warning",
-);
-expect(screen.getByText("6 automatic")).toBeInTheDocument();
-expect(screen.getByText("0 manual")).toBeInTheDocument();
-expect(
-  screen.queryByText("Repair all will leave manual steps visible."),
-).not.toBeInTheDocument();
-expect(screen.getByText("Codex is bypassing Headroom")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Needs attention" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Switchboard Doctor")).toHaveClass(
+      "switchboard-doctor--warning",
+    );
+    expect(screen.getByText("6 automatic")).toBeInTheDocument();
+    expect(screen.getByText("0 manual")).toBeInTheDocument();
+    expect(
+      screen.queryByText("Repair all will leave manual steps visible."),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Codex is bypassing Headroom")).toBeInTheDocument();
     expect(
       screen.getByText("Codex routing config needs repair"),
     ).toBeInTheDocument();
@@ -181,5 +181,37 @@ expect(screen.getByText("Codex is bypassing Headroom")).toBeInTheDocument();
       screen.getByRole("button", { name: "Repairing all" }),
     ).toBeDisabled();
     expect(screen.getByText("Could not repair.")).toBeInTheDocument();
+  });
+
+  it("copies a shareable Doctor report", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(
+      <SwitchboardDoctorPanel
+        report={warningReport}
+        busyAction={null}
+        error={null}
+        successMessage={null}
+        onRepair={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Copy report" }));
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).toContain(
+      "Mac AI Switchboard Doctor report",
+    );
+    expect(writeText.mock.calls[0][0]).toContain(
+      "Action: automatic / Reset Codex",
+    );
+    expect(
+      screen.getByRole("button", { name: "Copied report." }),
+    ).toBeInTheDocument();
   });
 });

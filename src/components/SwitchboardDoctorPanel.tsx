@@ -1,9 +1,12 @@
+import { Copy } from "@phosphor-icons/react";
+import { useState } from "react";
 import {
   canRepairIssue,
   doctorIssueActionKind,
   doctorIssueActionLabel,
   doctorIssueGuidance,
   doctorRepairLabel,
+  formatDoctorReportShareText,
 } from "../lib/doctorRepairCopy";
 import type { DoctorIssue, DoctorReport } from "../lib/types";
 
@@ -33,14 +36,29 @@ export function SwitchboardDoctorPanel({
     return null;
   }
 
- const canRepair = report.issues.some((issue) =>
- canRepairIssue(issue.repairAction),
- );
- const repairableCount = report.issues.filter((issue) =>
- canRepairIssue(issue.repairAction),
- ).length;
- const manualCount = Math.max(0, report.issues.length - repairableCount);
- const title = report.status === "ok" ? "Ready" : "Needs attention";
+  const canRepair = report.issues.some((issue) =>
+    canRepairIssue(issue.repairAction),
+  );
+  const repairableCount = report.issues.filter((issue) =>
+    canRepairIssue(issue.repairAction),
+  ).length;
+  const manualCount = Math.max(0, report.issues.length - repairableCount);
+  const title = report.status === "ok" ? "Ready" : "Needs attention";
+  const doctorReport = report;
+
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
+
+  async function copyDoctorReport() {
+    if (!navigator.clipboard) {
+      setCopyNotice("Clipboard unavailable.");
+      return;
+    }
+
+    await navigator.clipboard.writeText(
+      formatDoctorReportShareText(doctorReport),
+    );
+    setCopyNotice("Copied report.");
+  }
 
   return (
     <section
@@ -58,6 +76,15 @@ export function SwitchboardDoctorPanel({
           >
             {report.status}
           </span>
+          <button
+            type="button"
+            className="switchboard-doctor__copy"
+            onClick={copyDoctorReport}
+            title="Copy Doctor report"
+          >
+            <Copy aria-hidden="true" weight="bold" />
+            <span>{copyNotice ?? "Copy report"}</span>
+          </button>
           {canRepair ? (
             <button
               type="button"
@@ -69,48 +96,51 @@ export function SwitchboardDoctorPanel({
             </button>
           ) : null}
         </div>
- </div>
- <p className="switchboard-doctor__summary">{report.summary}</p>
+      </div>
+      <p className="switchboard-doctor__summary">{report.summary}</p>
 
- {report.issues.length > 0 ? (
- <div className="switchboard-doctor__triage" aria-label="Doctor triage summary">
- <span>{repairableCount} automatic</span>
- <span>{manualCount} manual</span>
- {canRepair && manualCount > 0 ? (
- <strong>Repair all will leave manual steps visible.</strong>
- ) : null}
- </div>
- ) : null}
+      {report.issues.length > 0 ? (
+        <div
+          className="switchboard-doctor__triage"
+          aria-label="Doctor triage summary"
+        >
+          <span>{repairableCount} automatic</span>
+          <span>{manualCount} manual</span>
+          {canRepair && manualCount > 0 ? (
+            <strong>Repair all will leave manual steps visible.</strong>
+          ) : null}
+        </div>
+      ) : null}
 
- {successMessage ? (
+      {successMessage ? (
         <p className="switchboard-doctor__success">{successMessage}</p>
       ) : null}
 
-<div className="switchboard-doctor__issues">
-{report.issues.map((issue) => {
-const repairAction = issue.repairAction ?? null;
-const repairable = canRepairIssue(repairAction);
-const actionKind = doctorIssueActionKind(repairAction);
+      <div className="switchboard-doctor__issues">
+        {report.issues.map((issue) => {
+          const repairAction = issue.repairAction ?? null;
+          const repairable = canRepairIssue(repairAction);
+          const actionKind = doctorIssueActionKind(repairAction);
 
-return (
-<article
-key={issue.id}
-className={`switchboard-doctor__issue switchboard-doctor__issue--${issueTone(issue)} switchboard-doctor__issue--${actionKind}`}
->
-<div>
-<div className="switchboard-doctor__issue-title">
-<strong>{issue.title}</strong>
-<span
-className={`switchboard-doctor__action-kind switchboard-doctor__action-kind--${actionKind}`}
->
-{doctorIssueActionLabel(repairAction)}
-</span>
-</div>
-<p>{issue.body}</p>
-<p className="switchboard-doctor__hint">
-                {doctorIssueGuidance(issue)}
-</p>
-</div>
+          return (
+            <article
+              key={issue.id}
+              className={`switchboard-doctor__issue switchboard-doctor__issue--${issueTone(issue)} switchboard-doctor__issue--${actionKind}`}
+            >
+              <div>
+                <div className="switchboard-doctor__issue-title">
+                  <strong>{issue.title}</strong>
+                  <span
+                    className={`switchboard-doctor__action-kind switchboard-doctor__action-kind--${actionKind}`}
+                  >
+                    {doctorIssueActionLabel(repairAction)}
+                  </span>
+                </div>
+                <p>{issue.body}</p>
+                <p className="switchboard-doctor__hint">
+                  {doctorIssueGuidance(issue)}
+                </p>
+              </div>
               {repairable ? (
                 <button
                   type="button"

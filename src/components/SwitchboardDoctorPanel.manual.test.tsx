@@ -35,7 +35,9 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
         "No automatic repair is available yet. Follow the issue guidance, then re-run Doctor.",
       ),
     ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Repair all" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Repair all" }),
+    ).not.toBeInTheDocument();
   });
 
   it("separates manual connector guidance from automatic Repo Intelligence cleanup", () => {
@@ -99,7 +101,9 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
         "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Clear index" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Clear index" })).toHaveLength(
+      2,
+    );
   });
 
   it("warns repair all will leave manual follow-up", () => {
@@ -134,8 +138,12 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
 
     expect(screen.getByText("1 automatic")).toBeInTheDocument();
     expect(screen.getByText("1 manual")).toBeInTheDocument();
-    expect(screen.getByText("Repair all will leave manual steps visible.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Repair all" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Repair all will leave manual steps visible."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Repair all" }),
+    ).toBeInTheDocument();
   });
 
   it("labels repairable issues automatic", () => {
@@ -162,6 +170,8 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     );
 
     expect(screen.getByText("Auto repair")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Install RTK" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Install RTK" }),
+    ).toBeInTheDocument();
   });
 });

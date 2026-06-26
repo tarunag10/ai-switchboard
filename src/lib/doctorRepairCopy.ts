@@ -1,5 +1,5 @@
 import { codexDoctorHint } from "./codexErrorGuidance";
-import type { DoctorIssue } from "./types";
+import type { DoctorIssue, DoctorReport } from "./types";
 
 export function doctorRepairLabel(action: string): string {
   switch (action) {
@@ -54,13 +54,17 @@ export function doctorIssueActionKind(
   return canRepairIssue(action) ? "automatic" : "manual";
 }
 
-export function doctorIssueActionLabel(action: string | null | undefined): string {
+export function doctorIssueActionLabel(
+  action: string | null | undefined,
+): string {
   return doctorIssueActionKind(action) === "automatic"
     ? "Auto repair"
     : "Manual step";
 }
 
-export function doctorIssueActionHint(action: string | null | undefined): string {
+export function doctorIssueActionHint(
+  action: string | null | undefined,
+): string {
   return doctorIssueActionKind(action) === "automatic"
     ? doctorRepairHint(action as string)
     : "No automatic repair is available yet. Follow the issue guidance, then re-run Doctor.";
@@ -85,4 +89,39 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
     default:
       return doctorIssueActionHint(issue.repairAction);
   }
+}
+
+export function formatDoctorReportShareText(report: DoctorReport): string {
+  const lines = [
+    "Mac AI Switchboard Doctor report",
+    `Status: ${report.status}`,
+    `Summary: ${report.summary}`,
+    `Issues: ${report.issues.length}`,
+  ];
+
+  if (report.issues.length === 0) {
+    return [...lines, "No Doctor issues found."].join("\n");
+  }
+
+  return [
+    ...lines,
+    "",
+    ...report.issues.flatMap((issue, index) => {
+      const actionKind = doctorIssueActionKind(issue.repairAction);
+      const repairLabel = canRepairIssue(issue.repairAction)
+        ? doctorRepairLabel(issue.repairAction as string)
+        : "Manual step";
+
+      return [
+        `${index + 1}. ${issue.title}`,
+        `Severity: ${issue.severity}`,
+        `Action: ${actionKind} / ${repairLabel}`,
+        `Body: ${issue.body}`,
+        `Guidance: ${doctorIssueGuidance(issue)}`,
+        "",
+      ];
+    }),
+  ]
+    .join("\n")
+    .trimEnd();
 }

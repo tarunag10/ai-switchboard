@@ -5,6 +5,7 @@ import {
   doctorIssueGuidance,
   doctorRepairHint,
   doctorRepairLabel,
+  formatDoctorReportShareText,
 } from "./doctorRepairCopy";
 
 describe("doctor repair copy", () => {
@@ -53,24 +54,63 @@ describe("doctor repair copy", () => {
     expect(canRepairIssue(undefined)).toBe(false);
   });
 
- it("guides manual degraded mode issues without repair action", () => {
- expect(
- doctorIssueGuidance({
- id: "switchboard_mode_degraded",
- title: "Requested optimization is degraded",
- body: "Full optimization is requested, but RTK only is active.",
- severity: "warning",
- repairAction: null,
-    }),
-  ).toContain("Requested mode and active mode differ");
-  expect(
-    doctorIssueGuidance({
-      id: "switchboard_mode_degraded",
-      title: "Requested optimization is degraded",
-      body: "Full optimization is requested, but RTK only is active.",
-      severity: "warning",
-      repairAction: null,
-    }),
-  ).toContain("re-run Doctor until requested mode becomes active");
-});
+  it("guides manual degraded mode issues without repair action", () => {
+    expect(
+      doctorIssueGuidance({
+        id: "switchboard_mode_degraded",
+        title: "Requested optimization is degraded",
+        body: "Full optimization is requested, but RTK only is active.",
+        severity: "warning",
+        repairAction: null,
+      }),
+    ).toContain("Requested mode and active mode differ");
+    expect(
+      doctorIssueGuidance({
+        id: "switchboard_mode_degraded",
+        title: "Requested optimization is degraded",
+        body: "Full optimization is requested, but RTK only is active.",
+        severity: "warning",
+        repairAction: null,
+      }),
+    ).toContain("re-run Doctor until requested mode becomes active");
+  });
+
+  it("formats healthy Doctor report for sharing", () => {
+    expect(
+      formatDoctorReportShareText({
+        status: "ok",
+        summary: "No issues.",
+        issues: [],
+      }),
+    ).toContain("No Doctor issues found.");
+  });
+
+  it("formats mixed automatic and manual Doctor report for sharing", () => {
+    const text = formatDoctorReportShareText({
+      status: "warning",
+      summary: "Mixed setup required.",
+      issues: [
+        {
+          id: "rtk_not_active",
+          title: "RTK is not active",
+          body: "Repair will install RTK.",
+          severity: "warning",
+          repairAction: "repair_rtk_runtime",
+        },
+        {
+          id: "planned_connectors_detected",
+          title: "Planned coding tools detected",
+          body: "Gemini CLI detected.",
+          severity: "warning",
+          repairAction: null,
+        },
+      ],
+    });
+
+    expect(text).toContain("Mac AI Switchboard Doctor report");
+    expect(text).toContain("Status: warning");
+    expect(text).toContain("Action: automatic / Install RTK");
+    expect(text).toContain("Action: manual / Manual step");
+    expect(text).toContain("Use RTK-only mode or Repo Intelligence packs");
+  });
 });
