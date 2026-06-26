@@ -6626,11 +6626,19 @@ onRepair={(action) => void handleDoctorRepair(action)}
                         <strong>{plannedConnectorReadiness.manualOnlyCount}</strong>
                         manual
                       </span>
-                      <span>
-                        <strong>{plannedConnectorReadiness.notDetectedCount}</strong>
-                        missing
-                      </span>
-                    </div>
+                        <span>
+                          <strong>{plannedConnectorReadiness.notDetectedCount}</strong>
+                          missing
+                        </span>
+                        <span>
+                          <strong>{plannedConnectorReadiness.safeTodayCount}</strong>
+                          safe now
+                        </span>
+                        <span>
+                          <strong>{plannedConnectorReadiness.automationGateCount}</strong>
+                          gates
+                        </span>
+                      </div>
                     <button
                       type="button"
                       className="connector-readiness__copy"

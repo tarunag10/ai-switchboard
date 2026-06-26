@@ -5,6 +5,7 @@ import {
   getPlannedConnectorSetupChecklistScript,
   getPlannedConnectorSetupGuide,
   plannedConnectors,
+  summarizePlannedConnectorSupport,
 } from "./plannedConnectors";
 
 describe("planned connectors", () => {
@@ -42,6 +43,23 @@ describe("planned connectors", () => {
     expect(badges).toContain("Backup/restore pending");
     expect(badges).toContain("Repo packs planned");
     expect(badges).toContain("Provider routing pending");
+  });
+
+  it("summarizes safe today and gated planned capabilities", () => {
+    const summary = summarizePlannedConnectorSupport();
+
+    expect(summary.connectorCount).toBe(plannedConnectors.length);
+    expect(summary.safeTodayCount).toBeGreaterThanOrEqual(plannedConnectors.length);
+    expect(summary.manualTodayCount).toBeGreaterThan(0);
+    expect(summary.plannedCount).toBeGreaterThanOrEqual(plannedConnectors.length);
+    expect(summary.automationGateCount).toBe(
+      plannedConnectors.reduce(
+        (total, connector) => total + connector.automationGates.length,
+        0,
+      ),
+    );
+    expect(summary.safeTodayLabels.join(" ")).toContain("Gemini CLI");
+    expect(summary.plannedLabels.join(" ")).toContain("Provider");
   });
 
   it("defines safe automation contracts for every future connector", () => {

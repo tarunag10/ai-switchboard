@@ -1,4 +1,7 @@
-import { plannedConnectors } from "./plannedConnectors";
+import {
+  plannedConnectors,
+  summarizePlannedConnectorSupport,
+} from "./plannedConnectors";
 import type {
   ClientConnectorStatus,
   DailySavingsPoint,
@@ -391,6 +394,9 @@ export interface PlannedConnectorReadinessSummary {
   detectedCount: number;
   manualOnlyCount: number;
   notDetectedCount: number;
+  safeTodayCount: number;
+  plannedCapabilityCount: number;
+  automationGateCount: number;
   detectedNames: string[];
   notDetectedNames: string[];
   headline: string;
@@ -408,6 +414,7 @@ export function summarizePlannedConnectorReadiness(
 
   const detectedNames = detected.map((connector) => connector.name);
   const notDetectedNames = notDetected.map((connector) => connector.name);
+  const supportSummary = summarizePlannedConnectorSupport();
   const detectedCopy =
     detectedNames.length > 0 ? detectedNames.join(", ") : "No planned tools";
   const notDetectedCopy =
@@ -419,13 +426,20 @@ export function summarizePlannedConnectorReadiness(
     detectedCount: detected.length,
     manualOnlyCount: planned.length,
     notDetectedCount: notDetected.length,
+    safeTodayCount: supportSummary.safeTodayCount,
+    plannedCapabilityCount: supportSummary.plannedCount,
+    automationGateCount: supportSummary.automationGateCount,
     detectedNames,
     notDetectedNames,
     headline:
       detected.length > 0
         ? `${detected.length} planned tool${detected.length === 1 ? "" : "s"} detected locally`
         : "No planned coding tools detected yet",
-    detail: `${detectedCopy} are read-only today. Not found: ${notDetectedCopy}. Automatic routing stays locked until backup, restore, and Off mode cleanup ship.`
+    detail:
+      `${detectedCopy} are read-only today. Not found: ${notDetectedCopy}. ` +
+      `${supportSummary.safeTodayCount} safe capabilities are available now; ` +
+      `${supportSummary.plannedCount} remain gated behind ${supportSummary.automationGateCount} backup, restore, and Off mode checks. ` +
+      "Automatic routing stays locked until backup, restore, and Off mode cleanup ship."
   };
 }
 

@@ -22,6 +22,16 @@ export interface PlannedConnectorCapability {
   detail: string;
 }
 
+export interface PlannedConnectorSupportSummary {
+  connectorCount: number;
+  safeTodayCount: number;
+  manualTodayCount: number;
+  plannedCount: number;
+  automationGateCount: number;
+  safeTodayLabels: string[];
+  plannedLabels: string[];
+}
+
 export interface PlannedConnectorSetupGuide {
   label: string;
   command: string;
@@ -342,6 +352,43 @@ export const plannedConnectors: PlannedConnector[] = [
 
 export function getPlannedConnector(id: string) {
   return plannedConnectors.find((connector) => connector.id === id) ?? null;
+}
+
+export function summarizePlannedConnectorSupport(
+  connectors: PlannedConnector[] = plannedConnectors,
+): PlannedConnectorSupportSummary {
+  const capabilityRows = connectors.flatMap((connector) =>
+    connector.capabilityRows.map((capability) => ({
+      connectorName: connector.name,
+      ...capability,
+    })),
+  );
+  const safeToday = capabilityRows.filter(
+    (capability) => capability.state === "Available now",
+  );
+  const manualToday = capabilityRows.filter(
+    (capability) => capability.state === "Manual today",
+  );
+  const planned = capabilityRows.filter(
+    (capability) => capability.state === "Planned",
+  );
+
+  return {
+    connectorCount: connectors.length,
+    safeTodayCount: safeToday.length,
+    manualTodayCount: manualToday.length,
+    plannedCount: planned.length,
+    automationGateCount: connectors.reduce(
+      (total, connector) => total + connector.automationGates.length,
+      0,
+    ),
+    safeTodayLabels: safeToday.map(
+      (capability) => `${capability.connectorName}: ${capability.label}`,
+    ),
+    plannedLabels: planned.map(
+      (capability) => `${capability.connectorName}: ${capability.label}`,
+    ),
+  };
 }
 
 export function getPlannedConnectorSetupGuide(

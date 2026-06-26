@@ -378,11 +378,14 @@ describe("mergeProviderSavingsForDisplay", () => {
       detectedCount: 2,
       manualOnlyCount: 3,
       notDetectedCount: 1,
+      safeTodayCount: 9,
+      plannedCapabilityCount: 8,
+      automationGateCount: 21,
       detectedNames: ["Gemini CLI", "Cursor"],
       notDetectedNames: ["OpenCode"],
       headline: "2 planned tools detected locally",
       detail:
-        "Gemini CLI, Cursor are read-only today. Not found: OpenCode. Automatic routing stays locked until backup, restore, and Off mode cleanup ship."
+        "Gemini CLI, Cursor are read-only today. Not found: OpenCode. 9 safe capabilities are available now; 8 remain gated behind 21 backup, restore, and Off mode checks. Automatic routing stays locked until backup, restore, and Off mode cleanup ship."
     });
   });
 });
