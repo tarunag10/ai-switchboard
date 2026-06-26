@@ -4639,7 +4639,7 @@ details[open] .optimize-minimal__details summary::after {
 
 .release-readiness-card__gates {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 8px;
 }
 

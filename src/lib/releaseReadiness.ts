@@ -35,6 +35,11 @@ export const releaseShareableGates: ReleaseShareableGate[] = [
     detail: "Developer ID, updater signing, and notarization credentials are configured.",
   },
   {
+    id: "updater-feed",
+    label: "Updater feed",
+    detail: "HEADROOM_UPDATER_PUBLIC_KEY and HEADROOM_UPDATER_ENDPOINTS are set.",
+  },
+  {
     id: "installed-smoke",
     label: "Installed smoke",
     detail: "/Applications/Mac AI Switchboard.app passes beta smoke.",

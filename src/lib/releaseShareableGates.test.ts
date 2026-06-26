@@ -8,6 +8,7 @@ describe("shareable DMG gates", () => {
       "environment-clear",
       "backend-validation",
       "signed-notarized",
+      "updater-feed",
       "installed-smoke",
     ]);
 
@@ -18,6 +19,7 @@ describe("shareable DMG gates", () => {
     expect(gateCopy).toContain("release:report");
     expect(gateCopy).toContain("cargo");
     expect(gateCopy).toContain("notarization");
+    expect(gateCopy).toContain("HEADROOM_UPDATER_ENDPOINTS");
     expect(gateCopy).toContain("/Applications/Mac AI Switchboard.app");
   });
 });

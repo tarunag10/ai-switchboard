@@ -98,10 +98,14 @@ function buildInstalledSmoke(installedAppPresent, smokeSummary) {
 function buildShareableDmgGate(releaseEnv, backendValidation, installedSmoke) {
   const environmentClear = releaseEnv.blockers.length === 0;
   const signedAndNotarized = environmentClear;
+  const updaterFeedReady = !releaseEnv.warnings.some((warning) =>
+    /HEADROOM_UPDATER_PUBLIC_KEY|HEADROOM_UPDATER_ENDPOINTS/.test(warning.label),
+  );
   const installedAppSmokeReady = installedSmoke.ready;
   const ready =
     environmentClear &&
     signedAndNotarized &&
+    updaterFeedReady &&
     backendValidation.ready &&
     installedAppSmokeReady;
 
@@ -110,6 +114,7 @@ function buildShareableDmgGate(releaseEnv, backendValidation, installedSmoke) {
     environmentClear,
     backendValidationReady: backendValidation.ready,
     signedAndNotarized,
+    updaterFeedReady,
     installedAppSmokeReady,
     message: ready
       ? "All shareable DMG gates are clear."
@@ -179,6 +184,7 @@ ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Smoke 
 - Environment clear: ${shareableDmgGate.environmentClear ? "yes" : "no"}
 - Rust backend validation ready: ${shareableDmgGate.backendValidationReady ? "yes" : "no"}
 - Signed and notarized: ${shareableDmgGate.signedAndNotarized ? "yes" : "no"}
+- Updater feed ready: ${shareableDmgGate.updaterFeedReady ? "yes" : "no"}
 - Installed-app smoke ready: ${shareableDmgGate.installedAppSmokeReady ? "yes" : "no"}
 - ${shareableDmgGate.message}
 

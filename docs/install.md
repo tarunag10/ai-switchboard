@@ -46,10 +46,10 @@ The script validates signing/notarization environment variables and writes `Mac-
 
 ## Shareable Build Checklist
 
-Do not share a public DMG until all four gates are true:
+Do not share a public DMG until all five gates are true:
 
 1. `npm run release:report` reports no environment blockers and shows Rust backend validation ready.
-2. The DMG is signed and notarized with Developer ID and updater signing configured.
+2. The DMG is signed and notarized with Developer ID, updater signing, `HEADROOM_UPDATER_PUBLIC_KEY`, and `HEADROOM_UPDATER_ENDPOINTS` configured.
 3. The DMG has been installed as `/Applications/Mac AI Switchboard.app`.
 4. `npm run smoke:preflight` passes and `docs/beta-smoke-test.md` has been run against the installed app, including Switchboard modes, Doctor, planned connector evidence, Repo Intelligence recipes, and Codex compression recovery.
 
