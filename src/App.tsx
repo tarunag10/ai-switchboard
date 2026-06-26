@@ -1499,6 +1499,45 @@ async function copyAgentManifest() {
             <span>Likely tests</span>
             <strong>{summary.graph.likelyTests.length}</strong>
           </div>
+          <div>
+            <span>Dependency hubs</span>
+            <strong>{summary.graph.dependencyHubs?.length ?? 0}</strong>
+            <em>
+              {summary.graph.dependencyHubs
+                ?.slice(0, 2)
+                .map((file) => file.path)
+                .join(", ") || "No hub files yet"}
+            </em>
+          </div>
+          <div>
+            <span>Import edges</span>
+            <strong>{summary.graph.importEdges?.length ?? 0}</strong>
+            <em>
+              {summary.graph.importEdges
+                ?.slice(0, 2)
+                .map((edge) => `${edge.from} -> ${edge.to}`)
+                .join(", ") || "No path links yet"}
+            </em>
+          </div>
+          <div>
+            <span>Reverse hubs</span>
+            <strong>{summary.graph.reverseDependencyHubs?.length ?? 0}</strong>
+            <em>
+              {summary.graph.reverseDependencyHubs
+                ?.slice(0, 2)
+                .map((node) => `${node.label} (${node.count})`)
+                .join(", ") || "No reverse hubs yet"}
+            </em>
+          </div>
+          <div className="repo-intelligence-graph__wide">
+            <span>Agent graph signal</span>
+            <strong>
+              {`${summary.graph.dependencyHubs?.length ?? 0} hubs · ${
+                summary.graph.importEdges?.length ?? 0
+              } edges · ${summary.graph.reverseDependencyHubs?.length ?? 0} reverse hubs`}
+            </strong>
+            <em>Copied into manifests and handoffs without file contents.</em>
+          </div>
         </div>
       ) : null}
       <div className="repo-intelligence-preview__grid">

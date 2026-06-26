@@ -81,7 +81,7 @@ Expect: planned connector cards and Doctor evidence include **Automation gates**
 
 Open Addons, enter a local repo path in the Repo Intelligence card, and click **Index**.
 
-Expect: the card shows indexed signals, context packs, the repo path, and indexed timestamp. Restart the app and return to Addons.
+Expect: the card shows indexed signals, context packs, the repo path, indexed timestamp, and a graph summary with top directories, languages, entrypoints, likely tests, dependency hubs, import edges, reverse hubs, and the combined agent graph signal. Restart the app and return to Addons.
 
 Expect: latest Repo Intelligence summary reloads from managed app storage. If the indexed repo folder is moved or deleted, Doctor shows **Clear index** as an automatic cleanup for the stale or missing saved summary. **Repair all** may clear that saved summary, but it must not guess a replacement repo path or mutate the repo. Re-indexing remains a deliberate Addons action.
 
