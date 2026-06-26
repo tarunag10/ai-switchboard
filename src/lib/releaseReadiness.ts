@@ -39,6 +39,11 @@ export const releaseShareableGates: ReleaseShareableGate[] = [
     label: "Updater feed",
     detail: "HEADROOM_UPDATER_PUBLIC_KEY and HEADROOM_UPDATER_ENDPOINTS are set.",
   },
+{
+id: "static-smoke-preflight",
+label: "Static smoke preflight",
+detail: "smoke:preflight passes and writes dist/smoke-preflight-summary.md.",
+},
   {
     id: "installed-smoke",
     label: "Installed smoke",
@@ -91,8 +96,13 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
   },
   {
     id: "smoke",
-    title: "Installed App Smoke",
+    title: "Smoke Evidence",
     items: [
+{
+id: "static-preflight",
+label: "Run smoke preflight",
+detail: "Run npm run smoke:preflight and keep dist/smoke-preflight-summary.md with release evidence.",
+},
     {
       id: "dmg-install",
       label: "Install signed DMG",
@@ -101,7 +111,7 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
     {
       id: "beta-smoke",
       label: "Run beta smoke test",
-      detail: "Run smoke:preflight, then follow docs/beta-smoke-test.md against installed app including planned connector evidence and Repo Intelligence recipes.",
+detail: "Follow docs/beta-smoke-test.md against installed app including planned connector evidence, Repo Intelligence recipes, and per-tool agent handoffs.",
     },
       {
         id: "release-report",
