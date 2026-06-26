@@ -159,6 +159,14 @@ export function SwitchboardPanel({
           <div>
             <strong>{codexGuidance.title}</strong>
             <p>{codexGuidance.body}</p>
+            <div
+              className="switchboard-panel__recommendation-policies"
+              aria-label="Codex parallel-session policy"
+            >
+              {codexGuidance.policies.map((policy) => (
+                <span key={policy}>{policy}</span>
+              ))}
+            </div>
             <ul
               className="switchboard-panel__recommendation-steps"
               aria-label="Codex multiple-goal prevention steps"

@@ -3,6 +3,7 @@ import type { SwitchboardMode } from "./types";
 export interface CodexConcurrencyGuidance {
   title: string;
   body: string;
+  policies: string[];
   steps: string[];
   recommendedMode: SwitchboardMode;
   actionLabel: string;
@@ -21,11 +22,18 @@ export function codexConcurrencyGuidance(
 
   return {
     title: "Running several Codex goals?",
-    body: "Use RTK only for multiple heavy active Codex chats or goals. Keep Full optimization for one main Codex session after compacting context.",
+    body: "Headroom compression is best for one main Codex session. Use RTK only before running several heavy active Codex chats or goals so large requests do not stall behind compression.",
+    policies: [
+      "Full: one main Codex session",
+      "RTK only: 2+ heavy sessions",
+      "After 413: compact, then reset Codex in Doctor",
+      "Unsupported model: Repair Codex setup",
+    ],
     steps: [
-      "Switch to RTK only before opening several active Codex chats.",
+      "Switch to RTK only before opening several active Codex chats or goals.",
       "Compact or close stale Codex conversations before turning Headroom routing back on.",
       "If Codex was bypassed after a 413 compression_refused error, run Doctor to reset the bypass.",
+      "If Codex says the model is unsupported with a ChatGPT account, use Doctor's Repair Codex action instead.",
     ],
     recommendedMode: "rtk",
     actionLabel: "Switch to RTK only",

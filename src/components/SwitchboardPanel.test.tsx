@@ -53,21 +53,34 @@ screen.getByText(
     ).toBeInTheDocument();
     expect(screen.getByText("Running several Codex goals?")).toBeInTheDocument();
     expect(
-    screen.getByText(
-      "Use RTK only for multiple heavy active Codex chats or goals. Keep Full optimization for one main Codex session after compacting context.",
-    ),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByLabelText("Codex multiple-goal prevention steps"),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText("Switch to RTK only before opening several active Codex chats."),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText(
-      "If Codex was bypassed after a 413 compression_refused error, run Doctor to reset the bypass.",
-    ),
-  ).toBeInTheDocument();
+      screen.getByText(
+        "Headroom compression is best for one main Codex session. Use RTK only before running several heavy active Codex chats or goals so large requests do not stall behind compression.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Codex parallel-session policy")).toBeInTheDocument();
+    expect(screen.getByText("Full: one main Codex session")).toBeInTheDocument();
+    expect(screen.getByText("RTK only: 2+ heavy sessions")).toBeInTheDocument();
+    expect(
+      screen.getByText("Unsupported model: Repair Codex setup"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Codex multiple-goal prevention steps"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Switch to RTK only before opening several active Codex chats or goals.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "If Codex was bypassed after a 413 compression_refused error, run Doctor to reset the bypass.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "If Codex says the model is unsupported with a ChatGPT account, use Doctor's Repair Codex action instead.",
+      ),
+    ).toBeInTheDocument();
   expect(
     screen.getByRole("button", {
       name: /Full optimization: Routes supported clients through Headroom/,

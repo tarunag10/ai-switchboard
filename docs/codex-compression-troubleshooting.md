@@ -41,6 +41,8 @@ The model error is a Codex model/provider configuration issue. Use Doctor to rep
 4. Avoid running multiple noisy build/test/log-heavy tasks through Headroom at the same time.
 5. Keep Doctor visible after mode changes; it shows whether Codex is temporarily bypassing Headroom and whether routing can be reset.
 
+Switchboard should warn before failure: **Full: one main Codex session**, **RTK only: 2+ heavy sessions**, **After 413: compact, then reset Codex in Doctor**, and **Unsupported model: Repair Codex setup**. Use **Switch to RTK only** before opening several heavy active Codex chats or goals.
+
 ## Recommended App Behavior
 
 Mac AI Switchboard should keep these behaviors explicit:

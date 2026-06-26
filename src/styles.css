@@ -2470,6 +2470,26 @@ color: var(--text-primary);
   line-height: 1.35;
 }
 
+.switchboard-panel__recommendation-policies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.switchboard-panel__recommendation-policies span {
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
 .switchboard-panel__recommendation-steps {
   display: grid;
   gap: 3px;

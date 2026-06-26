@@ -31,6 +31,8 @@ Click each mode button without leaving Home:
 
 Expect: the mode effect line changes to describe exactly what will be routed or left alone. The selected mode badge matches the requested mode. The local footprint matrix changes with each mode and shows **Client routing**, **Shell output**, and **Repo packs** as On, Off, or Local.
 
+If Codex is one of the routed Headroom clients in Full optimization or Headroom only, expect the Switchboard panel to show **Running several Codex goals?** with policy chips for **Full: one main Codex session**, **RTK only: 2+ heavy sessions**, **After 413: compact, then reset Codex in Doctor**, and **Unsupported model: Repair Codex setup**. The **Switch to RTK only** action should request RTK only mode.
+
 ### S3. Requested mode vs active mode is honest
 
 Create a degraded setup by requesting Full optimization while either RTK or client routing is missing. The easiest safe path is to uninstall or disable RTK from Addons, then request Full optimization.
