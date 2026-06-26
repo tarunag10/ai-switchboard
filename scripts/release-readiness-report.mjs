@@ -13,6 +13,7 @@ const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
 const staticSmokeRequiredEvidence = [
   "Switchboard modes",
   "Doctor automatic and manual triage",
+  "Doctor copyable report",
   "Planned connector automation gates",
   "Planned connector manual workflow",
   "Repo Intelligence context packs",
@@ -22,6 +23,7 @@ const staticSmokeRequiredEvidence = [
 const installedSmokeRequiredEvidence = [
   "Switchboard modes and degraded-mode Doctor guidance",
   "Doctor automatic/manual triage and repair actions",
+  "Doctor copyable report",
   "Planned connector automation gates and manual workflow",
   "Repo Intelligence recipes and local context packs",
   "Per-tool agent handoffs",

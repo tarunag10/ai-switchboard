@@ -58,6 +58,7 @@ const betaSmokeChecklistSha256 = crypto
 const evidenceAreas = [
   "Switchboard modes and degraded-mode Doctor guidance",
   "Doctor automatic/manual triage and repair actions",
+  "Doctor copyable report",
   "Planned connector automation gates and manual workflow",
   "Repo Intelligence recipes and local context packs",
   "Per-tool agent handoffs",
