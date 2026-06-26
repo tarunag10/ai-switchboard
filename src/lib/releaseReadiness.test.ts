@@ -28,6 +28,10 @@ describe("release readiness checklist", () => {
     expect(allCopy).toMatch(/Developer ID/i);
     expect(allCopy).toMatch(/notarization|App Store Connect/i);
     expect(allCopy).toMatch(/signed DMG/i);
+    expect(allCopy).toMatch(/notarized DMG/i);
+    expect(allCopy).toMatch(/smoke:preflight/i);
+    expect(allCopy).toMatch(/planned connector evidence/i);
+    expect(allCopy).toMatch(/Repo Intelligence recipes/i);
     expect(allCopy).toMatch(/beta-smoke-test\.md/i);
   });
 

@@ -17,10 +17,10 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
     id: "environment",
     title: "Environment",
     items: [
-      {
-        id: "rust",
-        label: "Rust toolchain",
-        detail: "cargo and rustup must be available for Tauri tests, formatting, and DMG builds.",
+    {
+      id: "rust",
+      label: "Rust toolchain",
+      detail: "cargo and rustup must be available so release:report can prove backend validation is runnable.",
       },
       {
         id: "xcode",
@@ -59,16 +59,16 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
     id: "smoke",
     title: "Installed App Smoke",
     items: [
-      {
-        id: "dmg-install",
-        label: "Install signed DMG",
-        detail: "Install the built DMG into /Applications before the final smoke run.",
-      },
-      {
-        id: "beta-smoke",
-        label: "Run beta smoke test",
-        detail: "Follow docs/beta-smoke-test.md against the installed app, including Switchboard, Doctor, and planned connectors.",
-      },
+    {
+      id: "dmg-install",
+      label: "Install signed DMG",
+      detail: "Install the signed and notarized DMG into /Applications before the final smoke run.",
+    },
+    {
+      id: "beta-smoke",
+      label: "Run beta smoke test",
+      detail: "Run smoke:preflight, then follow docs/beta-smoke-test.md against installed app including planned connector evidence and Repo Intelligence recipes.",
+    },
       {
         id: "release-report",
         label: "Archive readiness report",
