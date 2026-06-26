@@ -99,7 +99,7 @@ Expect: card returns to the read-only preview state, the saved repo path disappe
 
 Open Settings and find **Release readiness**.
 
-Expect: card shows 9 checks across Environment, Signing, and Installed App Smoke. **Copy report command** copies `npm run release:report`. The card should not claim the app is releasable until signing/notarization variables and installed-app smoke are complete.
+Expect: card shows **Shareable DMG gates** plus 9 checks across Environment, Signing, and Installed App Smoke. **Copy report command** copies `npm run release:report`. The card should not claim the app is releasable until environment, backend validation, signing/notarization, and installed-app smoke gates are complete.
 
 ## Checks (Claude Code pass)
 
