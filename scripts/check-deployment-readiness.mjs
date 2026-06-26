@@ -228,11 +228,13 @@ const requiredSourceSignals = {
     "Manual",
   ],
   "src/lib/doctorRepairCopy.ts": [
-"doctorIssueGuidance",
-"planned_connectors_detected",
-"repo_intelligence_repo_missing",
-"headroom_paused",
-],
+    "doctorIssueGuidance",
+    "switchboard_mode_degraded",
+    "re-run Doctor until requested mode becomes active",
+    "planned_connectors_detected",
+    "repo_intelligence_repo_missing",
+    "headroom_paused",
+  ],
 "src/components/SwitchboardDoctorPanel.manual.test.tsx": [
     "Repair all will leave manual steps visible",
     "1 automatic",

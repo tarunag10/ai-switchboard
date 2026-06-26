@@ -61,7 +61,16 @@ describe("doctor repair copy", () => {
  body: "Full optimization is requested, but RTK only is active.",
  severity: "warning",
  repairAction: null,
- }),
- ).toContain("Requested mode and active mode differ");
- });
+    }),
+  ).toContain("Requested mode and active mode differ");
+  expect(
+    doctorIssueGuidance({
+      id: "switchboard_mode_degraded",
+      title: "Requested optimization is degraded",
+      body: "Full optimization is requested, but RTK only is active.",
+      severity: "warning",
+      repairAction: null,
+    }),
+  ).toContain("re-run Doctor until requested mode becomes active");
+});
 });
