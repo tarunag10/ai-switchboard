@@ -5,6 +5,7 @@ import path from "node:path";
 const reportPath = "dist/release-readiness-report.md";
 const jsonPath = "dist/release-readiness-report.json";
 const smokeSummaryPath = "dist/smoke-preflight-summary.md";
+const installedSmokeSummaryPath = "dist/installed-smoke-summary.md";
 const appPath = "/Applications/Mac AI Switchboard.app";
 
 function runReleaseEnv() {
@@ -39,8 +40,8 @@ function listItems(items, emptyCopy) {
     .join("\n");
 }
 
-function readSmokeSummaryStatus() {
-  if (!fs.existsSync(smokeSummaryPath)) {
+function readSummaryStatus(summaryPath) {
+  if (!fs.existsSync(summaryPath)) {
     return {
       present: false,
       generatedLine: null,
@@ -49,7 +50,7 @@ function readSmokeSummaryStatus() {
 
   const firstGeneratedLine =
     fs
-      .readFileSync(smokeSummaryPath, "utf8")
+    .readFileSync(summaryPath, "utf8")
       .split("\n")
       .find((line) => line.startsWith("Generated: ")) ?? null;
 
@@ -79,19 +80,19 @@ function buildBackendValidation(releaseEnv) {
   };
 }
 
-function buildInstalledSmoke(installedAppPresent, smokeSummary) {
-  const ready = installedAppPresent && smokeSummary.present;
+function buildInstalledSmoke(installedAppPresent, installedSmokeSummary) {
+  const ready = installedAppPresent && installedSmokeSummary.present;
 
   return {
     ready,
     installedAppPresent,
     appPath,
-    smokeSummaryPath,
-    smokeSummaryPresent: smokeSummary.present,
-    generatedLine: smokeSummary.generatedLine,
+    smokeSummaryPath: installedSmokeSummaryPath,
+    smokeSummaryPresent: installedSmokeSummary.present,
+    generatedLine: installedSmokeSummary.generatedLine,
     message: ready
-      ? "Installed app smoke summary is present. Review smoke evidence before publishing."
-      : "Install the signed DMG into /Applications and run the beta smoke checklist before publishing.",
+      ? "Installed-app smoke summary is present. Review smoke evidence before publishing."
+      : "Install the signed DMG into /Applications, run docs/beta-smoke-test.md, then run npm run smoke:installed.",
   };
 }
 
@@ -141,11 +142,12 @@ function buildShareableDmgGate(releaseEnv, backendValidation, staticSmokePreflig
 }
 
 const releaseEnv = runReleaseEnv();
-const smokeSummary = readSmokeSummaryStatus();
+const smokeSummary = readSummaryStatus(smokeSummaryPath);
+const installedSmokeSummary = readSummaryStatus(installedSmokeSummaryPath);
 const installedAppPresent = fs.existsSync(appPath);
 const backendValidation = buildBackendValidation(releaseEnv);
 const staticSmokePreflight = buildStaticSmokePreflight(smokeSummary);
-const installedSmoke = buildInstalledSmoke(installedAppPresent, smokeSummary);
+const installedSmoke = buildInstalledSmoke(installedAppPresent, installedSmokeSummary);
 const shareableDmgGate = buildShareableDmgGate(
   releaseEnv,
   backendValidation,
@@ -164,6 +166,7 @@ const payload = {
   installedAppPresent,
   appPath,
   smokeSummary,
+  installedSmokeSummary,
   backendValidation,
   staticSmokePreflight,
   installedSmoke,
@@ -203,8 +206,8 @@ ${staticSmokePreflight.generatedLine ? `- ${staticSmokePreflight.generatedLine}`
 ## Installed App Smoke
 
 - Installed app present: ${installedSmoke.installedAppPresent ? "yes" : "no"} (${installedSmoke.appPath})
-- Smoke summary present: ${installedSmoke.smokeSummaryPresent ? "yes" : "no"} (${installedSmoke.smokeSummaryPath})
-${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Smoke summary has not been generated in this checkout."}
+- Installed smoke summary present: ${installedSmoke.smokeSummaryPresent ? "yes" : "no"} (${installedSmoke.smokeSummaryPath})
+${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Installed smoke summary has not been generated in this checkout."}
 - ${installedSmoke.message}
 
 ## Shareable DMG Gates
@@ -227,7 +230,7 @@ ${
 ${
   installedAppPresent
     ? "- Run `docs/beta-smoke-test.md` against the installed app."
-    : "- Build and install the signed DMG, then run `docs/beta-smoke-test.md`."
+    : "- Build and install the signed DMG, run `docs/beta-smoke-test.md`, then run `npm run smoke:installed`."
 }
 ${backendValidation.ready ? "- Run `npm run fmt:desktop` and `npm run test:desktop` on release Mac." : "- Install Rust with rustup so `npm run fmt:desktop` and `npm run test:desktop` can run."}
 - Before publishing, run \`npm run release:check\`.

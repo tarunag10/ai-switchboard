@@ -32,7 +32,7 @@ Run `npm run release:env` before publishing from a local Mac. It checks Node/npm
 Run `npm run release:report` when you want a durable handoff artifact before packaging. It writes `dist/release-readiness-report.md` and `dist/release-readiness-report.json` with environment blockers, warnings, Rust backend validation status, installed-app smoke status, and next steps.
 Run `npm run release:check` before publishing. The release gate runs release environment preflight, semantic color checks, a production frontend build, frontend coverage, Rust formatting, and desktop tests.
 Run `npm run smoke:preflight` before handing a DMG to a tester; it confirms the installed-app smoke checklist covers Switchboard modes, Doctor, planned connectors, pause/resume, Repo Intelligence agent handoffs, and Codex optimization.
-Treat the build as blocked until `release:report` is clear, the DMG is signed/notarized, `/Applications/Mac AI Switchboard.app` exists from the DMG install, and the beta smoke checklist has been run on that installed app.
+Treat the build as blocked until `release:report` is clear, the DMG is signed/notarized, `/Applications/Mac AI Switchboard.app` exists from the DMG install, the beta smoke checklist has been run on that installed app, and `npm run smoke:installed` has written `dist/installed-smoke-summary.md`.
 
 If you want a universal build, install both Rust macOS targets first and then run:
 

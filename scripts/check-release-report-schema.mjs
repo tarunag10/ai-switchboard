@@ -5,6 +5,7 @@ const requiredReleaseReportPaths = [
   "backendValidation.requiredCommands",
   "staticSmokePreflight.smokeSummaryPresent",
   "staticSmokePreflight.requiredCommand",
+  "installedSmokeSummary.present",
   "installedSmoke.smokeSummaryPresent",
   "shareableDmgGate.staticSmokePreflightReady",
   "shareableDmgGate.updaterFeedReady",
@@ -103,6 +104,9 @@ requireBooleanFields(report, "staticSmokePreflight", [
 requireType(report, "staticSmokePreflight.smokeSummaryPath", "string");
 requireType(report, "staticSmokePreflight.requiredCommand", "string");
 requireType(report, "staticSmokePreflight.message", "string");
+
+requireObject(report, "installedSmokeSummary");
+requireBooleanFields(report, "installedSmokeSummary", ["present"]);
 
 requireObject(report, "installedSmoke");
 requireBooleanFields(report, "installedSmoke", [
