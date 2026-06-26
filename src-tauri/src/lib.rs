@@ -2257,6 +2257,16 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
         .flat_map(|client| client.detection_evidence.iter().map(String::as_str))
         .take(3)
         .collect::<Vec<_>>();
+    let gates = connectors
+        .iter()
+        .flat_map(|client| client.automation_gates.iter().map(String::as_str))
+        .take(3)
+        .collect::<Vec<_>>();
+    let manual_workflow = connectors
+        .iter()
+        .flat_map(|client| client.manual_workflow.iter().map(String::as_str))
+        .take(3)
+        .collect::<Vec<_>>();
 
     let mut parts = vec![format!(
         "{names} detected. Mac AI Switchboard can identify these tools but keeps routing manual until backup, restore, and Off mode cleanup are implemented."
@@ -2271,6 +2281,12 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
     }
     if !evidence.is_empty() {
         parts.push(format!("Detection evidence: {}.", evidence.join(" | ")));
+    }
+    if !gates.is_empty() {
+        parts.push(format!("Automation gates: {}.", gates.join(" | ")));
+    }
+    if !manual_workflow.is_empty() {
+        parts.push(format!("Manual workflow: {}.", manual_workflow.join(" | ")));
     }
     parts.push(
         "Safe today: use RTK-only mode or Repo Intelligence packs; do not enable automatic provider routing yet."
@@ -2293,11 +2309,15 @@ mod doctor_tests {
             setup_phase: "guide".to_string(),
             setup_hint: "Manual guide only.".to_string(),
             category: "cli".to_string(),
-            detection_sources: vec!["PATH: gemini".to_string(), "~/.gemini".to_string()],
-            detection_evidence: vec!["Detected at /opt/homebrew/bin/gemini".to_string()],
-            config_locations: vec!["~/.gemini".to_string()],
-            installed: true,
-            enabled: false,
+        detection_sources: vec!["PATH: gemini".to_string(), "~/.gemini".to_string()],
+        detection_evidence: vec!["Detected at /opt/homebrew/bin/gemini".to_string()],
+        config_locations: vec!["~/.gemini".to_string()],
+        automation_gates: vec![
+            "Back up provider settings before any routing change.".to_string(),
+        ],
+        manual_workflow: vec!["Use RTK-only mode for noisy output.".to_string()],
+        installed: true,
+        enabled: false,
             verified: false,
             last_configured_at: None,
         }]);
@@ -2306,6 +2326,8 @@ mod doctor_tests {
         assert!(body.contains("Backend checks: PATH: gemini, ~/.gemini."));
         assert!(body.contains("Config locations watched: ~/.gemini."));
         assert!(body.contains("Detection evidence: Detected at /opt/homebrew/bin/gemini."));
+        assert!(body.contains("Automation gates: Back up provider settings"));
+        assert!(body.contains("Manual workflow: Use RTK-only mode"));
         assert!(body.contains("Safe today: use RTK-only mode or Repo Intelligence packs"));
         assert!(body.contains("keeps routing manual"));
     }

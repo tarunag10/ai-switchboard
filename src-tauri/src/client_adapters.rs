@@ -60,6 +60,8 @@ struct PlannedClientSpec {
     setup_hint: &'static str,
     detection_sources: &'static [&'static str],
     config_locations: &'static [&'static str],
+    automation_gates: &'static [&'static str],
+    manual_workflow: &'static [&'static str],
 }
 
 const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 7] = [
@@ -71,6 +73,16 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 7] = [
         setup_hint: "Manual guide only. Reversible Gemini provider routing is planned once config support is verified.",
         detection_sources: &["PATH: gemini", "~/.gemini", "~/.config/gemini"],
         config_locations: &["~/.gemini", "~/.config/gemini"],
+        automation_gates: &[
+            "Detect stable Gemini provider config or documented local proxy flag.",
+            "Back up provider settings before any routing change.",
+            "Verify Off mode restores Gemini without changing account state.",
+        ],
+        manual_workflow: &[
+            "Confirm Gemini CLI is installed.",
+            "Use RTK-only mode for noisy Gemini shell output.",
+            "Keep provider routing manual until Doctor can verify model/account compatibility.",
+        ],
     },
     PlannedClientSpec {
         id: "opencode",
@@ -80,6 +92,16 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 7] = [
         setup_hint: "Manual guide only. Automatic setup waits for backed-up provider config edits and Off mode cleanup.",
         detection_sources: &["PATH: opencode", "PATH: open-code", "~/.opencode", "~/.config/opencode"],
         config_locations: &["~/.opencode", "~/.config/opencode"],
+        automation_gates: &[
+            "Identify active OpenCode provider config path without guessing.",
+            "Create timestamped backups before provider edits.",
+            "Prove Off mode restores the exact previous provider config.",
+        ],
+        manual_workflow: &[
+            "Confirm OpenCode is installed.",
+            "Run OpenCode commands through RTK when output is noisy.",
+            "Leave provider config edits manual until restore checks ship.",
+        ],
     },
     PlannedClientSpec {
         id: "cursor",
@@ -89,6 +111,16 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 7] = [
         setup_hint: "Manual guide only. Cursor routing stays opt-in until account-specific settings are safely detected.",
         detection_sources: &["PATH: cursor", "/Applications/Cursor.app", "~/Library/Application Support/Cursor"],
         config_locations: &["~/Library/Application Support/Cursor"],
+        automation_gates: &[
+            "Detect active Cursor profile before reading settings.",
+            "Back up settings without touching extension-managed secrets.",
+            "Keep account-specific model choices visible before routing.",
+        ],
+        manual_workflow: &[
+            "Open Cursor settings.",
+            "Review provider and model settings manually.",
+            "Use Repo Intelligence packs as copyable context until editor handoff is stable.",
+        ],
     },
     PlannedClientSpec {
         id: "grok_cli",
@@ -98,6 +130,16 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 7] = [
         setup_hint: "Detection only. Stable Grok / xAI CLI provider behavior must be confirmed before routing.",
         detection_sources: &["PATH: grok", "PATH: xai", "~/.config/xai"],
         config_locations: &["~/.config/xai"],
+        automation_gates: &[
+            "Detect stable xAI CLI surface.",
+            "Add Doctor guardrails for unsupported model/account combinations.",
+            "Keep API key account state outside managed app storage.",
+        ],
+        manual_workflow: &[
+            "Confirm whether grok or xai exists locally.",
+            "Use RTK-only mode for command output savings.",
+            "Keep model selection manual until compatibility checks are explicit.",
+        ],
     },
     PlannedClientSpec {
         id: "aider",
@@ -107,6 +149,16 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 7] = [
         setup_hint: "Manual guide only. RTK-only mode is available while provider wrapping and repo context support are built.",
         detection_sources: &["PATH: aider", "~/.aider.conf.yml", "~/.config/aider"],
         config_locations: &["~/.aider.conf.yml", "~/.config/aider"],
+        automation_gates: &[
+            "Detect provider configuration without exposing secrets.",
+            "Route through a reversible environment wrapper first.",
+            "Expose Repo Intelligence packs without writing into the repo by default.",
+        ],
+        manual_workflow: &[
+            "Confirm Aider is installed.",
+            "Copy implementation or handoff packs into long Aider sessions.",
+            "Use RTK-only mode for noisy verification commands.",
+        ],
     },
     PlannedClientSpec {
         id: "continue",
@@ -116,6 +168,16 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 7] = [
         setup_hint: "Manual guide only. Continue provider configs require explicit backup and restore coverage first.",
         detection_sources: &["~/.continue", "~/Library/Application Support/Continue"],
         config_locations: &["~/.continue", "~/Library/Application Support/Continue"],
+        automation_gates: &[
+            "Parse multi-provider configs without dropping unknown fields.",
+            "Back up exact config before provider routing changes.",
+            "Offer guided setup before automatic edits.",
+        ],
+        manual_workflow: &[
+            "Open Continue config folder.",
+            "Review configured providers manually.",
+            "Use Repo Intelligence packs beside Continue until every provider entry is preserved.",
+        ],
     },
     PlannedClientSpec {
         id: "goose",
@@ -125,6 +187,16 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 7] = [
         setup_hint: "Manual guide only. Provider routing and MCP handoff support are planned after reversible setup coverage.",
         detection_sources: &["PATH: goose", "~/.config/goose"],
         config_locations: &["~/.config/goose"],
+        automation_gates: &[
+            "Detect Goose provider configuration safely.",
+            "Confirm MCP handoff shape before adding managed setup.",
+            "Verify Off mode removes local provider routing and leaves MCP config intact.",
+        ],
+        manual_workflow: &[
+            "Confirm Goose is installed.",
+            "Copy Repo Intelligence packs into Goose sessions today.",
+            "Wait for managed MCP handoff before enabling automatic provider setup.",
+        ],
     },
 ];
 
@@ -527,6 +599,16 @@ pub fn list_client_connectors(
                     .map(|client| client.notes.clone())
                     .unwrap_or_default(),
                 config_locations: managed_connector_config_locations(spec.id),
+                automation_gates: vec![
+                    "Timestamped backups are created before managed config edits.".to_string(),
+                    "Verification confirms the connector routes through Headroom.".to_string(),
+                    "Off mode removes managed routing blocks and preserves user config.".to_string(),
+                ],
+                manual_workflow: vec![
+                    "Toggle the connector on from Settings.".to_string(),
+                    "Use Doctor repair if verification reports a drifted config.".to_string(),
+                    "Switch to Off mode to remove managed routing.".to_string(),
+                ],
                 installed,
                 enabled,
                 verified,
@@ -561,10 +643,20 @@ pub fn list_client_connectors(
             config_locations: spec
                 .config_locations
                 .iter()
-                    .map(|location| location.to_string())
-                    .collect(),
-                installed,
-                enabled: false,
+                .map(|location| location.to_string())
+                .collect(),
+            automation_gates: spec
+                .automation_gates
+                .iter()
+                .map(|gate| gate.to_string())
+                .collect(),
+            manual_workflow: spec
+                .manual_workflow
+                .iter()
+                .map(|step| step.to_string())
+                .collect(),
+            installed,
+            enabled: false,
             verified: false,
             last_configured_at: None,
         }

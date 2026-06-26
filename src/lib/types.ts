@@ -170,6 +170,8 @@ export interface ClientConnectorStatus {
   detectionSources?: string[];
   detectionEvidence?: string[];
   configLocations?: string[];
+  automationGates?: string[];
+  manualWorkflow?: string[];
   installed: boolean;
   enabled: boolean;
   verified: boolean;

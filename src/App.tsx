@@ -6720,11 +6720,13 @@ onRepair={(action) => void handleDoctorRepair(action)}
                           <p className="connector-plan__target">
                             {plannedConnector.integrationTarget}
                           </p>
-                      {connector.detectionSources?.length ||
-                      connector.configLocations?.length ||
-                      connector.detectionEvidence?.length ? (
-                        <div className="connector-plan__backend">
-                          <strong>Backend checks</strong>
+                        {connector.detectionSources?.length ||
+                        connector.configLocations?.length ||
+                        connector.detectionEvidence?.length ||
+                        connector.automationGates?.length ||
+                        connector.manualWorkflow?.length ? (
+                          <div className="connector-plan__backend">
+                            <strong>Backend checks</strong>
                           {connector.detectionSources?.length ? (
                             <span>
                               Detects {connector.detectionSources.slice(0, 3).join(", ")}
@@ -6735,14 +6737,24 @@ onRepair={(action) => void handleDoctorRepair(action)}
                               Watches {connector.configLocations.slice(0, 2).join(", ")}
                             </span>
                           ) : null}
-                          {connector.detectionEvidence?.length ? (
-                            <span>
-                              Evidence{" "}
-                              {connector.detectionEvidence.slice(0, 2).join(" · ")}
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : null}
+                            {connector.detectionEvidence?.length ? (
+                              <span>
+                                Evidence{" "}
+                                {connector.detectionEvidence.slice(0, 2).join(" · ")}
+                              </span>
+                            ) : null}
+                            {connector.automationGates?.length ? (
+                              <span>
+                                Gates {connector.automationGates.slice(0, 2).join(" · ")}
+                              </span>
+                            ) : null}
+                            {connector.manualWorkflow?.length ? (
+                              <span>
+                                Manual {connector.manualWorkflow.slice(0, 2).join(" · ")}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : null}
                           <div className="connector-plan__capabilities">
                             {plannedConnector.capabilityRows.map((capability) => (
                               <div
