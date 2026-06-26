@@ -17,6 +17,14 @@ const staticSmokeRequiredEvidence = [
   "Per-tool agent handoffs",
   "Installed app metadata check",
 ];
+const installedSmokeRequiredEvidence = [
+  "Switchboard modes and degraded-mode Doctor guidance",
+  "Doctor automatic/manual triage and repair actions",
+  "Planned connector automation gates and manual workflow",
+  "Repo Intelligence recipes and local context packs",
+  "Per-tool agent handoffs",
+  "Codex compression recovery",
+];
 
 function runReleaseEnv() {
   const result = spawnSync(
@@ -52,22 +60,22 @@ function listItems(items, emptyCopy) {
 
 function readSummaryStatus(summaryPath) {
   if (!fs.existsSync(summaryPath)) {
-    return {
-      present: false,
-      generatedLine: null,
-    };
-  }
-
-  const firstGeneratedLine =
-    fs
-    .readFileSync(summaryPath, "utf8")
-      .split("\n")
-      .find((line) => line.startsWith("Generated: ")) ?? null;
-
   return {
-    present: true,
-    generatedLine: firstGeneratedLine,
+    present: false,
+    generatedLine: null,
+    body: "",
   };
+}
+
+const body = fs.readFileSync(summaryPath, "utf8");
+const firstGeneratedLine =
+  body.split("\n").find((line) => line.startsWith("Generated: ")) ?? null;
+
+return {
+  present: true,
+  generatedLine: firstGeneratedLine,
+  body,
+};
 }
 
 function hasBlocker(releaseEnv, pattern) {
@@ -98,7 +106,11 @@ function buildBackendValidation(releaseEnv) {
 }
 
 function buildInstalledSmoke(installedAppPresent, bundleMetadataPresent, installedSmokeSummary) {
-  const ready = installedAppPresent && bundleMetadataPresent && installedSmokeSummary.present;
+ const missingEvidence = installedSmokeRequiredEvidence.filter(
+ (item) => !installedSmokeSummary.body.includes(item),
+ );
+ const evidenceReady = installedSmokeSummary.present && missingEvidence.length === 0;
+ const ready = installedAppPresent && bundleMetadataPresent && evidenceReady;
 
   return {
     ready,
@@ -106,12 +118,15 @@ function buildInstalledSmoke(installedAppPresent, bundleMetadataPresent, install
     bundleMetadataPresent,
     appPath,
     appInfoPlistPath,
-    smokeSummaryPath: installedSmokeSummaryPath,
-    smokeSummaryPresent: installedSmokeSummary.present,
-    generatedLine: installedSmokeSummary.generatedLine,
-    message: ready
-      ? "Installed-app smoke summary is present. Review smoke evidence before publishing."
-      : "Install the signed DMG into /Applications, run docs/beta-smoke-test.md, then run npm run smoke:installed -- --confirm.",
+ smokeSummaryPath: installedSmokeSummaryPath,
+ smokeSummaryPresent: installedSmokeSummary.present,
+ generatedLine: installedSmokeSummary.generatedLine,
+ requiredEvidence: installedSmokeRequiredEvidence,
+ missingEvidence,
+ evidenceReady,
+ message: ready
+      ? "Installed-app smoke summary includes every required evidence area."
+      : "Install the signed DMG into /Applications, run docs/beta-smoke-test.md, then run npm run smoke:installed -- --confirm with every required evidence area.",
   };
 }
 
@@ -232,6 +247,9 @@ ${staticSmokePreflight.generatedLine ? `- ${staticSmokePreflight.generatedLine}`
 - Installed app metadata present: ${installedSmoke.bundleMetadataPresent ? "yes" : "no"} (${installedSmoke.appInfoPlistPath})
 - Installed smoke summary present: ${installedSmoke.smokeSummaryPresent ? "yes" : "no"} (${installedSmoke.smokeSummaryPath})
 ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Installed smoke summary has not been generated in this checkout."}
+- Required evidence: ${installedSmoke.requiredEvidence.join(", ")}
+- Missing evidence: ${installedSmoke.missingEvidence.length ? installedSmoke.missingEvidence.join(", ") : "none"}
+- Installed smoke evidence ready: ${installedSmoke.evidenceReady ? "yes" : "no"}
 - ${installedSmoke.message}
 
 ## Shareable DMG Gates

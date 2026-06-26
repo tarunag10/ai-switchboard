@@ -9,6 +9,9 @@ const requiredReleaseReportPaths = [
   "staticSmokePreflight.requiredEvidence",
   "installedSmokeSummary.present",
   "installedSmoke.smokeSummaryPresent",
+  "installedSmoke.requiredEvidence",
+  "installedSmoke.missingEvidence",
+  "installedSmoke.evidenceReady",
   "shareableDmgGate.staticSmokePreflightReady",
   "shareableDmgGate.updaterFeedReady",
   "releaseEnv.blockers",
@@ -132,10 +135,27 @@ requireBooleanFields(report, "installedSmoke", [
   "installedAppPresent",
   "bundleMetadataPresent",
   "smokeSummaryPresent",
+  "evidenceReady",
 ]);
 requireType(report, "installedSmoke.appPath", "string");
 requireType(report, "installedSmoke.appInfoPlistPath", "string");
 requireType(report, "installedSmoke.smokeSummaryPath", "string");
+const installedRequiredEvidence = requireArray(report, "installedSmoke.requiredEvidence");
+const installedMissingEvidence = requireArray(report, "installedSmoke.missingEvidence");
+for (const item of [...installedRequiredEvidence, ...installedMissingEvidence]) {
+  if (typeof item !== "string" || item.length === 0) {
+    fail("installedSmoke evidence arrays must contain non-empty strings");
+  }
+}
+for (const requiredItem of [
+  "Switchboard modes and degraded-mode Doctor guidance",
+  "Planned connector automation gates and manual workflow",
+  "Codex compression recovery",
+]) {
+  if (!installedRequiredEvidence.includes(requiredItem)) {
+    fail(`installedSmoke.requiredEvidence must include ${requiredItem}`);
+  }
+}
 requireType(report, "installedSmoke.message", "string");
 
 requireObject(report, "shareableDmgGate");
