@@ -38,27 +38,35 @@ describe("SwitchboardPanel", () => {
       screen.getByRole("heading", { name: "Full optimization" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Local-only Mac setup")).toBeInTheDocument();
-expect(screen.getByText("Codex, Claude Code")).toBeInTheDocument();
-expect(screen.getByText("82.5% average savings")).toBeInTheDocument();
-expect(screen.getByLabelText("Full optimization local footprint")).toBeInTheDocument();
-expect(screen.getByText("Client routing")).toBeInTheDocument();
-expect(screen.getByText("Shell output")).toBeInTheDocument();
-expect(screen.getByText("Repo packs")).toBeInTheDocument();
-expect(screen.getByText("Managed through Headroom")).toBeInTheDocument();
-expect(screen.getByText("RTK compacts noisy commands")).toBeInTheDocument();
-expect(
-screen.getByText(
+    expect(screen.getByText("Codex, Claude Code")).toBeInTheDocument();
+    expect(screen.getByText("82.5% average savings")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Full optimization local footprint"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Client routing")).toBeInTheDocument();
+    expect(screen.getByText("Shell output")).toBeInTheDocument();
+    expect(screen.getByText("Repo packs")).toBeInTheDocument();
+    expect(screen.getByText("Managed through Headroom")).toBeInTheDocument();
+    expect(screen.getByText("RTK compacts noisy commands")).toBeInTheDocument();
+    expect(
+      screen.getByText(
         "Routes supported clients through Headroom and compresses shell output with RTK.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("Running several Codex goals?")).toBeInTheDocument();
+    expect(
+      screen.getByText("Running several Codex goals?"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
         "Headroom compression is best for one main Codex session. Use RTK only before running several heavy active Codex chats or goals so large requests do not stall behind compression.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Codex parallel-session policy")).toBeInTheDocument();
-    expect(screen.getByText("Full: one main Codex session")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Codex parallel-session policy"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Full: one main Codex session"),
+    ).toBeInTheDocument();
     expect(screen.getByText("RTK only: 2+ heavy sessions")).toBeInTheDocument();
     expect(
       screen.getByText("Unsupported model: Repair Codex setup"),
@@ -81,16 +89,20 @@ screen.getByText(
         "If Codex says the model is unsupported with a ChatGPT account, use Doctor's Repair Codex action instead.",
       ),
     ).toBeInTheDocument();
-  expect(
-    screen.getByRole("button", {
-      name: /Full optimization: Routes supported clients through Headroom/,
-    }).querySelector("svg"),
-  ).not.toBeNull();
-  expect(
-    screen.getByRole("button", { name: "Switch to RTK only" }),
-  ).toBeInTheDocument();
     expect(
-      screen.getByText("No pricing, trial, Clarity, Sentry, or Aptabase calls."),
+      screen
+        .getByRole("button", {
+          name: /Full optimization: Routes supported clients through Headroom/,
+        })
+        .querySelector("svg"),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Switch to RTK only" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "No pricing, trial, Clarity, Sentry, or Aptabase calls.",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -111,7 +123,9 @@ screen.getByText(
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Repo Intelligence summaries remain local until cleared from Addons."),
+      screen.getByText(
+        "Repo Intelligence summaries remain local until cleared from Addons.",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -121,24 +135,28 @@ screen.getByText(
       headroomDetail: "Codex, Claude Code",
     });
 
-  expect(screen.queryByText("Running several Codex goals?")).not.toBeInTheDocument();
-});
+    expect(
+      screen.queryByText("Running several Codex goals?"),
+    ).not.toBeInTheDocument();
+  });
 
-it("switches to RTK only from Codex parallel-goal guidance", async () => {
-  const user = userEvent.setup();
-  const onSetMode = vi.fn();
-  renderPanel({ onSetMode });
+  it("switches to RTK only from Codex parallel-goal guidance", async () => {
+    const user = userEvent.setup();
+    const onSetMode = vi.fn();
+    renderPanel({ onSetMode });
 
-  await user.click(screen.getByRole("button", { name: "Switch to RTK only" }));
+    await user.click(
+      screen.getByRole("button", { name: "Switch to RTK only" }),
+    );
 
-  expect(onSetMode).toHaveBeenCalledWith("rtk");
-});
+    expect(onSetMode).toHaveBeenCalledWith("rtk");
+  });
 
-it("disables Codex parallel-goal action while applying RTK mode", () => {
-  renderPanel({ modeBusy: "rtk" });
+  it("disables Codex parallel-goal action while applying RTK mode", () => {
+    renderPanel({ modeBusy: "rtk" });
 
-  expect(screen.getByRole("button", { name: "Applying" })).toBeDisabled();
-});
+    expect(screen.getByRole("button", { name: "Applying" })).toBeDisabled();
+  });
 
   it("renders cloud availability when remote services are enabled", () => {
     renderPanel({
@@ -152,7 +170,9 @@ it("disables Codex parallel-goal action while applying RTK mode", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Headroom cloud setup")).toBeInTheDocument();
     expect(
-      screen.getByText("Account features and optional remote telemetry are enabled."),
+      screen.getByText(
+        "Account features and optional remote telemetry are enabled.",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -210,6 +230,41 @@ it("disables Codex parallel-goal action while applying RTK mode", () => {
     expect(
       screen.getByRole("heading", { name: "Full optimization" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Active now: RTK only. Connect a supported client or repair Headroom routing in Doctor.")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Active now: RTK only. Connect a supported client or repair Headroom routing in Doctor.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("copies a shareable switchboard state", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    renderPanel({
+      mode: "full",
+      effectiveMode: "rtk",
+      needsAttention: true,
+      summary: "Full optimization requested, RTK only active.",
+    });
+
+    await user.click(screen.getByRole("button", { name: "Copy state" }));
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).toContain(
+      "Mac AI Switchboard mode state",
+    );
+    expect(writeText.mock.calls[0][0]).toContain(
+      "Requested mode: Full optimization",
+    );
+    expect(writeText.mock.calls[0][0]).toContain("Active mode: RTK only");
+    expect(writeText.mock.calls[0][0]).toContain("Client routing: on");
+    expect(
+      screen.getByRole("button", { name: "Copied state." }),
+    ).toBeInTheDocument();
   });
 });

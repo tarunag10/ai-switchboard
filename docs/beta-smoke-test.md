@@ -29,7 +29,7 @@ Click each mode button without leaving Home:
 - RTK only
 - Off
 
-Expect: the mode effect line changes to describe exactly what will be routed or left alone. The selected mode badge matches the requested mode. The local footprint matrix changes with each mode and shows **Client routing**, **Shell output**, and **Repo packs** as On, Off, or Local.
+Expect: the mode effect line changes to describe exactly what will be routed or left alone. The selected mode badge matches the requested mode. The local footprint matrix changes with each mode and shows **Client routing**, **Shell output**, and **Repo packs** as On, Off, or Local. Click **Copy state** and confirm the clipboard includes requested mode, active mode, attention state, effect, safety notes, and local footprint.
 
 If Codex is one of the routed Headroom clients in Full optimization or Headroom only, expect the Switchboard panel to show **Running several Codex goals?** with policy chips for **Full: one main Codex session**, **RTK only: 2+ heavy sessions**, **After 413: compact, then reset Codex in Doctor**, and **Unsupported model: Repair Codex setup**. The **Switch to RTK only** action should request RTK only mode.
 

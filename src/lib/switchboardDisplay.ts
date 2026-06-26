@@ -84,28 +84,68 @@ export function switchboardModeFootprint(
   switch (mode) {
     case "full":
       return [
-        { label: "Client routing", state: "on", detail: "Managed through Headroom" },
-        { label: "Shell output", state: "on", detail: "RTK compacts noisy commands" },
-        { label: "Repo packs", state: "local", detail: "Local copy/export only" },
+        {
+          label: "Client routing",
+          state: "on",
+          detail: "Managed through Headroom",
+        },
+        {
+          label: "Shell output",
+          state: "on",
+          detail: "RTK compacts noisy commands",
+        },
+        {
+          label: "Repo packs",
+          state: "local",
+          detail: "Local copy/export only",
+        },
       ];
     case "headroom":
       return [
-        { label: "Client routing", state: "on", detail: "Managed through Headroom" },
+        {
+          label: "Client routing",
+          state: "on",
+          detail: "Managed through Headroom",
+        },
         { label: "Shell output", state: "off", detail: "RTK hooks disabled" },
-        { label: "Repo packs", state: "local", detail: "Local copy/export only" },
+        {
+          label: "Repo packs",
+          state: "local",
+          detail: "Local copy/export only",
+        },
       ];
     case "rtk":
       return [
-        { label: "Client routing", state: "off", detail: "Clients use provider directly" },
-        { label: "Shell output", state: "on", detail: "RTK compacts noisy commands" },
-        { label: "Repo packs", state: "local", detail: "Local copy/export only" },
+        {
+          label: "Client routing",
+          state: "off",
+          detail: "Clients use provider directly",
+        },
+        {
+          label: "Shell output",
+          state: "on",
+          detail: "RTK compacts noisy commands",
+        },
+        {
+          label: "Repo packs",
+          state: "local",
+          detail: "Local copy/export only",
+        },
       ];
     case "off":
     default:
       return [
-        { label: "Client routing", state: "off", detail: "Managed routing removed" },
+        {
+          label: "Client routing",
+          state: "off",
+          detail: "Managed routing removed",
+        },
         { label: "Shell output", state: "off", detail: "RTK hooks disabled" },
-        { label: "Repo packs", state: "local", detail: "Saved locally until cleared" },
+        {
+          label: "Repo packs",
+          state: "local",
+          detail: "Saved locally until cleared",
+        },
       ];
   }
 }
@@ -137,7 +177,8 @@ export function deriveSwitchboardMode(
   runtime: RuntimeStatus | null,
   enabledClients: ClientConnectorStatus[],
 ): SwitchboardMode {
-  const rtkEnabled = runtime?.rtk.installed === true && runtime.rtk.enabled === true;
+  const rtkEnabled =
+    runtime?.rtk.installed === true && runtime.rtk.enabled === true;
   const headroomEnabled =
     runtime?.running === true &&
     runtime.proxyReachable === true &&
@@ -154,4 +195,40 @@ export function deriveSwitchboardMode(
     return "rtk";
   }
   return "off";
+}
+
+export function formatSwitchboardModeShareText({
+  requestedMode,
+  effectiveMode,
+  needsAttention,
+  summary,
+}: {
+  requestedMode: SwitchboardMode;
+  effectiveMode?: SwitchboardMode;
+  needsAttention?: boolean;
+  summary: string;
+}): string {
+  const activeMode = effectiveMode ?? requestedMode;
+  const requestedLabel = switchboardModeLabel(requestedMode);
+  const activeLabel = switchboardModeLabel(activeMode);
+  const attentionCopy = needsAttention
+    ? switchboardAttentionCopy(requestedMode, activeMode)
+    : "";
+  const footprint = switchboardModeFootprint(requestedMode).map(
+    (item) => `- ${item.label}: ${item.state} (${item.detail})`,
+  );
+
+  return [
+    "Mac AI Switchboard mode state",
+    `Requested mode: ${requestedLabel}`,
+    `Active mode: ${activeLabel}`,
+    `Needs attention: ${needsAttention ? "yes" : "no"}`,
+    `Summary: ${summary}`,
+    ...(attentionCopy ? [`Attention: ${attentionCopy}`] : []),
+    `Effect: ${switchboardModeEffect(requestedMode)}`,
+    "Safety notes:",
+    ...switchboardModeSafetyNotes(requestedMode).map((note) => `- ${note}`),
+    "Local footprint:",
+    ...footprint,
+  ].join("\n");
 }

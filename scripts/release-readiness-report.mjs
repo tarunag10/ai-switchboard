@@ -12,6 +12,7 @@ const appPath = "/Applications/Mac AI Switchboard.app";
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
 const staticSmokeRequiredEvidence = [
   "Switchboard modes",
+  "Switchboard copyable state",
   "Doctor automatic and manual triage",
   "Doctor copyable report",
   "Planned connector automation gates",
@@ -22,6 +23,7 @@ const staticSmokeRequiredEvidence = [
 ];
 const installedSmokeRequiredEvidence = [
   "Switchboard modes and degraded-mode Doctor guidance",
+  "Switchboard copyable state",
   "Doctor automatic/manual triage and repair actions",
   "Doctor copyable report",
   "Planned connector automation gates and manual workflow",

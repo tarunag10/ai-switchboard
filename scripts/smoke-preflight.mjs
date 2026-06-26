@@ -11,6 +11,7 @@ const releaseReportPath = "dist/release-readiness-report.md";
 const requiredSignals = {
   [betaSmokeDoc]: [
     "Switchboard checks",
+    "Copy state",
     "local footprint matrix",
     "Doctor triage shows automatic and manual counts",
     "Copy report",

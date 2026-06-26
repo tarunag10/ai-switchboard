@@ -192,6 +192,7 @@ for (const item of [
 }
 for (const requiredItem of [
   "Switchboard modes and degraded-mode Doctor guidance",
+  "Switchboard copyable state",
   "Doctor copyable report",
   "Planned connector automation gates and manual workflow",
   "Codex compression recovery",

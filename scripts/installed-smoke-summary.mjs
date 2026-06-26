@@ -57,6 +57,7 @@ const betaSmokeChecklistSha256 = crypto
   .digest("hex");
 const evidenceAreas = [
   "Switchboard modes and degraded-mode Doctor guidance",
+  "Switchboard copyable state",
   "Doctor automatic/manual triage and repair actions",
   "Doctor copyable report",
   "Planned connector automation gates and manual workflow",

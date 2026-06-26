@@ -1,5 +1,7 @@
+import { useState } from "react";
 import {
   Brain,
+  Copy,
   Power,
   Sparkle,
   Terminal,
@@ -7,12 +9,10 @@ import {
 } from "@phosphor-icons/react";
 
 import { codexConcurrencyGuidance } from "../lib/codexConcurrencyGuidance";
-import {
-  localOnlySetupLabel,
-  remoteServicesCopy,
-} from "../lib/remoteServices";
+import { localOnlySetupLabel, remoteServicesCopy } from "../lib/remoteServices";
 import { switchboardModeDiagnostic } from "../lib/switchboardDiagnostics";
 import {
+  formatSwitchboardModeShareText,
   switchboardModeEffect,
   switchboardModeFootprint,
   switchboardModeLabel,
@@ -75,12 +75,31 @@ export function SwitchboardPanel({
     needsAttention,
   );
   const modeLabel = modeDiagnostic.requestedLabel;
- const modeEffect = switchboardModeEffect(mode);
- const modeSafetyNotes = switchboardModeSafetyNotes(mode);
- const modeFootprint = switchboardModeFootprint(mode);
- const setupLabel = localOnlySetupLabel(localOnly);
+  const modeEffect = switchboardModeEffect(mode);
+  const modeSafetyNotes = switchboardModeSafetyNotes(mode);
+  const modeFootprint = switchboardModeFootprint(mode);
+  const setupLabel = localOnlySetupLabel(localOnly);
   const remoteCopy = remoteServicesCopy(remoteServicesEnabled);
   const codexGuidance = codexConcurrencyGuidance(mode, headroomDetail);
+
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
+
+  async function copySwitchboardState() {
+    if (!navigator.clipboard) {
+      setCopyNotice("Clipboard unavailable.");
+      return;
+    }
+
+    await navigator.clipboard.writeText(
+      formatSwitchboardModeShareText({
+        requestedMode: mode,
+        effectiveMode,
+        needsAttention,
+        summary,
+      }),
+    );
+    setCopyNotice("Copied state.");
+  }
 
   return (
     <section
@@ -89,16 +108,25 @@ export function SwitchboardPanel({
     >
       <div className="switchboard-panel__head">
         <div>
-          <p className="switchboard-panel__eyebrow">
-            {setupLabel}
-          </p>
+          <p className="switchboard-panel__eyebrow">{setupLabel}</p>
           <h2>{modeLabel}</h2>
         </div>
-        <span
-          className={`switchboard-panel__badge switchboard-panel__badge--${mode}`}
-        >
-          {modeLabel}
-        </span>
+        <div className="switchboard-panel__head-actions">
+          <button
+            type="button"
+            className="switchboard-panel__copy-state"
+            onClick={copySwitchboardState}
+            title="Copy switchboard state"
+          >
+            <Copy aria-hidden="true" weight="bold" />
+            <span>{copyNotice ?? "Copy state"}</span>
+          </button>
+          <span
+            className={`switchboard-panel__badge switchboard-panel__badge--${mode}`}
+          >
+            {modeLabel}
+          </span>
+        </div>
       </div>
       <p className="switchboard-panel__copy">{summary}</p>
       {needsAttention ? (
@@ -131,30 +159,46 @@ export function SwitchboardPanel({
             >
               <ModeIcon aria-hidden weight="duotone" />
               <span>
-                {modeBusy === option ? "Applying" : switchboardModeLabel(option)}
+                {modeBusy === option
+                  ? "Applying"
+                  : switchboardModeLabel(option)}
               </span>
             </button>
           );
         })}
       </div>
-        <p className="switchboard-panel__mode-effect">{modeEffect}</p>
-<ul className="switchboard-panel__mode-notes" aria-label={`${modeLabel} safety notes`}>
-{modeSafetyNotes.map((note) => (
-<li key={note}>{note}</li>
-))}
-</ul>
-<div className="switchboard-panel__footprint" aria-label={`${modeLabel} local footprint`}>
-{modeFootprint.map((item) => (
-<div className="switchboard-panel__footprint-item" key={item.label}>
-<span className="switchboard-panel__footprint-label">{item.label}</span>
-<strong className={`switchboard-panel__footprint-state switchboard-panel__footprint-state--${item.state}`}>
-{item.state === "on" ? "On" : item.state === "off" ? "Off" : "Local"}
-</strong>
-<small>{item.detail}</small>
-</div>
-))}
-</div>
-{codexGuidance ? (
+      <p className="switchboard-panel__mode-effect">{modeEffect}</p>
+      <ul
+        className="switchboard-panel__mode-notes"
+        aria-label={`${modeLabel} safety notes`}
+      >
+        {modeSafetyNotes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
+      <div
+        className="switchboard-panel__footprint"
+        aria-label={`${modeLabel} local footprint`}
+      >
+        {modeFootprint.map((item) => (
+          <div className="switchboard-panel__footprint-item" key={item.label}>
+            <span className="switchboard-panel__footprint-label">
+              {item.label}
+            </span>
+            <strong
+              className={`switchboard-panel__footprint-state switchboard-panel__footprint-state--${item.state}`}
+            >
+              {item.state === "on"
+                ? "On"
+                : item.state === "off"
+                  ? "Off"
+                  : "Local"}
+            </strong>
+            <small>{item.detail}</small>
+          </div>
+        ))}
+      </div>
+      {codexGuidance ? (
         <div className="switchboard-panel__recommendation">
           <div>
             <strong>{codexGuidance.title}</strong>
@@ -204,8 +248,8 @@ export function SwitchboardPanel({
         </div>
         <div className="switchboard-panel__item">
           <span className="switchboard-panel__label">Remote services</span>
-            <strong>{remoteCopy.label}</strong>
-            <small>{remoteCopy.detail}</small>
+          <strong>{remoteCopy.label}</strong>
+          <small>{remoteCopy.detail}</small>
         </div>
       </div>
       <div className="switchboard-panel__actions">

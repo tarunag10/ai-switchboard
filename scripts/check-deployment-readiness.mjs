@@ -455,6 +455,7 @@ const requiredSourceSignals = {
     "Installed app metadata present",
     "Confirmed Evidence Areas",
     "Switchboard modes and degraded-mode Doctor guidance",
+    "Switchboard copyable state",
     "Doctor copyable report",
     "Planned connector automation gates and manual workflow",
     "Per-tool agent handoffs",
