@@ -111,6 +111,8 @@ export interface RepoAgentManifest {
 }
 
 export type RepoAgentHandoffTarget =
+  | "claude"
+  | "codex"
   | "gemini"
   | "opencode"
   | "aider"
@@ -128,6 +130,22 @@ export interface RepoAgentHandoffProfile {
 }
 
 export const repoAgentHandoffProfiles: RepoAgentHandoffProfile[] = [
+  {
+    id: "claude",
+    label: "Claude Code",
+    toolKind: "cli",
+    defaultPackId: "implementation",
+    guidance:
+      "Paste before task in Claude Code when you want bounded repo context without re-scanning the whole tree.",
+  },
+  {
+    id: "codex",
+    label: "Codex",
+    toolKind: "cli",
+    defaultPackId: "verification",
+    guidance:
+      "Paste before Codex verification or implementation work to avoid repeated broad repo discovery.",
+  },
   {
     id: "gemini",
     label: "Gemini CLI",
@@ -183,7 +201,7 @@ const repoAgentRecipeTemplates = [
   {
     id: "cli_implementation",
     label: "CLI implementation handoff",
-    tools: ["Gemini CLI", "OpenCode", "Aider", "Goose"],
+    tools: ["Claude Code", "Gemini CLI", "OpenCode", "Aider", "Goose"],
     packIds: ["implementation"],
     instruction:
       "Copy the implementation pack into the CLI agent before asking for feature or bug-fix work.",
@@ -191,7 +209,7 @@ const repoAgentRecipeTemplates = [
   {
     id: "cli_verification",
     label: "CLI verification handoff",
-    tools: ["Gemini CLI", "OpenCode", "Aider", "Goose"],
+    tools: ["Codex", "Gemini CLI", "OpenCode", "Aider", "Goose"],
     packIds: ["verification"],
     instruction:
       "Copy the verification pack into the CLI agent before asking for test, build, or release checks.",

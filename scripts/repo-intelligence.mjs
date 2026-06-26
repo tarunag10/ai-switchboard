@@ -59,7 +59,7 @@ const repoAgentRecipeTemplates = [
   {
     id: "cli_implementation",
     label: "CLI implementation handoff",
-    tools: ["Gemini CLI", "OpenCode", "Aider", "Goose"],
+    tools: ["Claude Code", "Gemini CLI", "OpenCode", "Aider", "Goose"],
     packIds: ["implementation"],
     instruction:
       "Copy the implementation pack into the CLI agent before asking for feature or bug-fix work.",
@@ -67,7 +67,7 @@ const repoAgentRecipeTemplates = [
   {
     id: "cli_verification",
     label: "CLI verification handoff",
-    tools: ["Gemini CLI", "OpenCode", "Aider", "Goose"],
+    tools: ["Codex", "Gemini CLI", "OpenCode", "Aider", "Goose"],
     packIds: ["verification"],
     instruction:
       "Copy the verification pack into the CLI agent before asking for test, build, or release checks.",
@@ -83,6 +83,22 @@ const repoAgentRecipeTemplates = [
 ];
 
 const agentHandoffProfiles = [
+  {
+    id: "claude",
+    label: "Claude Code",
+    toolKind: "cli",
+    defaultPackId: "implementation",
+    guidance:
+      "Paste before task in Claude Code when you want bounded repo context without re-scanning the whole tree.",
+  },
+  {
+    id: "codex",
+    label: "Codex",
+    toolKind: "cli",
+    defaultPackId: "verification",
+    guidance:
+      "Paste before Codex verification or implementation work to avoid repeated broad repo discovery.",
+  },
   {
     id: "gemini",
     label: "Gemini CLI",
@@ -186,7 +202,7 @@ function printHelp() {
 
 Options:
   --pack <id>          Print one context pack: implementation, verification, handoff
-  --agent <id>         Print agent handoff: gemini, opencode, aider, goose, cursor, continue, grok
+  --agent <id>         Print agent handoff: claude, codex, gemini, opencode, aider, goose, cursor, continue, grok
   --format <format>   json or markdown
   --list-packs        Print available pack ids
   --manifest          Print agent-readable pack manifest JSON
@@ -196,7 +212,7 @@ Examples:
   npm run repo:intelligence -- .
   npm run repo:intelligence -- . --manifest
   npm run repo:intelligence -- . --pack implementation --format markdown
-  npm run repo:intelligence -- . --agent gemini`);
+  npm run repo:intelligence -- . --agent codex`);
 }
 
 function walk(repoRoot, dir = repoRoot, files = []) {

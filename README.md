@@ -34,7 +34,7 @@ The app is **local-first**, not offline-only. Claude/OpenAI model calls still go
 | Grok / xAI CLI | Provider/base-url adapter pending once a stable CLI surface is identified | Planned |
 | Aider | Detected in the switchboard; reversible routing adapter pending | Planned |
 | Continue | Detected in the switchboard; reversible routing adapter pending | Planned |
-| Goose | Agent provider adapter and Repo Intelligence handoff pending | Planned |
+| Goose | Agent provider adapter pending; Repo Intelligence handoff available | Planned |
 | Ponytail | Agent behavior nudge toward smaller changes | Add-on |
 | MarkItDown | Document-to-Markdown preprocessing | Add-on |
 | Repo Intelligence | Read-only local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI | Read-only foundation |

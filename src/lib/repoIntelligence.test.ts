@@ -171,6 +171,8 @@ expect(markdown).toContain("## Implementation Pack");
     "cli_verification",
     "editor_context",
   ]);
+  expect(manifest.agentRecipes[0].tools).toContain("Claude Code");
+  expect(manifest.agentRecipes[1].tools).toContain("Codex");
   expect(manifest.agentRecipes[0].tools).toContain("Gemini CLI");
   expect(manifest.agentRecipes[0].tools).toContain("Aider");
   expect(manifest.agentRecipes[2].tools).toContain("Cursor");
@@ -193,6 +195,16 @@ expect(manifest.graph.dependencyHubCount).toBe(1);
       { path: ".env.local", bytes: 300 },
     ]);
     summary.repoRoot = "/Users/me/app";
+
+    const claude = formatRepoAgentHandoffMarkdown(summary, "claude");
+    expect(claude).toContain("# Claude Code Handoff");
+    expect(claude).toContain("Selected pack: Implementation Pack");
+    expect(claude).toContain("bounded repo context");
+
+    const codex = formatRepoAgentHandoffMarkdown(summary, "codex");
+    expect(codex).toContain("# Codex Handoff");
+    expect(codex).toContain("Selected pack: Verification Pack");
+    expect(codex).toContain("repeated broad repo discovery");
 
     const gemini = formatRepoAgentHandoffMarkdown(summary, "gemini");
     expect(gemini).toContain("# Gemini CLI Handoff");

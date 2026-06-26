@@ -304,6 +304,8 @@ const requiredSourceSignals = {
     "agentRecipes",
     "agentHandoffProfiles",
     "formatAgentHandoffMarkdown",
+    "Claude Code",
+    "Codex",
     "Gemini CLI",
     "Grok / xAI CLI",
     "provider routing remains manual",
