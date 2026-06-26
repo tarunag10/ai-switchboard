@@ -55,6 +55,33 @@ const secretPathPatterns = [
   /\.(pem|p8|p12|key|crt|cer)$/i,
 ];
 
+const repoAgentRecipeTemplates = [
+  {
+    id: "cli_implementation",
+    label: "CLI implementation handoff",
+    tools: ["Gemini CLI", "OpenCode", "Aider", "Goose"],
+    packIds: ["implementation"],
+    instruction:
+      "Copy the implementation pack into the CLI agent before asking for feature or bug-fix work.",
+  },
+  {
+    id: "cli_verification",
+    label: "CLI verification handoff",
+    tools: ["Gemini CLI", "OpenCode", "Aider", "Goose"],
+    packIds: ["verification"],
+    instruction:
+      "Copy the verification pack into the CLI agent before asking for test, build, or release checks.",
+  },
+  {
+    id: "editor_context",
+    label: "Editor assistant context",
+    tools: ["Cursor", "Continue"],
+    packIds: ["implementation", "handoff"],
+    instruction:
+      "Use these packs as read-only context in editor assistants while provider routing remains manual.",
+  },
+];
+
 function parseArgs(argv) {
   const options = {
     repoRoot: process.cwd(),
@@ -368,6 +395,10 @@ function buildAgentManifest(summary) {
       ),
       savingsVsFullScanPct: contextPack.savingsVsFullScanPct,
       command: `npm run repo:intelligence -- ${JSON.stringify(summary.repoRoot)} --pack ${contextPack.id} --format markdown`,
+    })),
+    agentRecipes: repoAgentRecipeTemplates.map((recipe) => ({
+      ...recipe,
+      command: `npm run repo:intelligence -- ${JSON.stringify(summary.repoRoot)} --pack ${recipe.packIds[0]} --format markdown`,
     })),
     safety: {
       readOnly: true,

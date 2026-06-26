@@ -165,7 +165,17 @@ it("formats an agent-readable manifest for external coding tools", () => {
     "handoff",
   ]);
   expect(manifest.packs[0].command).toContain("--pack implementation --format markdown");
-expect(manifest.graph.available).toBe(true);
+  expect(manifest.agentRecipes.map((recipe) => recipe.id)).toEqual([
+    "cli_implementation",
+    "cli_verification",
+    "editor_context",
+  ]);
+  expect(manifest.agentRecipes[0].tools).toContain("Gemini CLI");
+  expect(manifest.agentRecipes[0].tools).toContain("Aider");
+  expect(manifest.agentRecipes[2].tools).toContain("Cursor");
+  expect(manifest.agentRecipes[2].instruction).toContain("provider routing remains manual");
+  expect(manifest.agentRecipes[0].command).toContain("--pack implementation --format markdown");
+  expect(manifest.graph.available).toBe(true);
 expect(manifest.graph.dependencyHubCount).toBe(1);
 
   const parsed = JSON.parse(formatRepoAgentManifestJson(summary, "2026-06-25T10:00:00Z"));
