@@ -1189,8 +1189,7 @@ fn evaluate_pricing_status_with_mismatch(
                     "Headroom subscription active. Optimization stays fully enabled.".into();
             }
         } else if account.trial_active {
-            gate_message =
-                "Your Headroom trial is active with unlimited optimization.".into();
+            gate_message = "Your Headroom trial is active with unlimited optimization.".into();
         } else {
             match claude.plan_tier {
                 ClaudePlanTier::Free => {

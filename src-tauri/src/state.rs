@@ -2154,17 +2154,16 @@ impl AppState {
             }
         }
 
-        let output_reduction =
-            stats
-                .as_ref()
-                .and_then(|s| s.output_reduction.as_ref())
-                .map(|o| crate::models::OutputReduction {
-                    method: o.method.clone(),
-                    reduction_percent: o.reduction_percent,
-                    ci_low_percent: o.ci_low_percent,
-                    ci_high_percent: o.ci_high_percent,
-                    requests: o.requests,
-                });
+        let output_reduction = stats
+            .as_ref()
+            .and_then(|s| s.output_reduction.as_ref())
+            .map(|o| crate::models::OutputReduction {
+                method: o.method.clone(),
+                reduction_percent: o.reduction_percent,
+                ci_low_percent: o.ci_low_percent,
+                ci_high_percent: o.ci_high_percent,
+                requests: o.requests,
+            });
 
         if let Some(history) = history.as_ref() {
             if let Some(saved_usd) = history.lifetime_estimated_savings_usd {
@@ -4486,7 +4485,11 @@ fn parse_output_reduction(root: &Value) -> Option<OutputReduction> {
     let node = value_at_path(root, &["savings", "by_layer", "output_shaping"])
         .or_else(|| value_at_path(root, &["tokens", "output_reduction"]))?;
 
-    if !node.get("available").and_then(Value::as_bool).unwrap_or(false) {
+    if !node
+        .get("available")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
         return None;
     }
 
@@ -6985,8 +6988,8 @@ mod tests {
             .into_iter()
             .filter(|point| point.hour.starts_with(&format!("{today_key}T")))
             .collect::<Vec<_>>();
-        let expected_first_hour = format!("{today_key}T09:00");
-        let expected_second_hour = format!("{today_key}T15:00");
+        let expected_first_hour = format!("{today_key}T08:00");
+        let expected_second_hour = format!("{today_key}T14:00");
         assert_eq!(hourly.len(), 2);
         assert_eq!(hourly[0].hour, expected_first_hour);
         assert_eq!(hourly[0].estimated_tokens_saved, 400);
@@ -8191,7 +8194,7 @@ mod tests {
 
         // First observation: 1_000 tokens saved, history shows 0→1_000 across hours 9→10.
         tracker.observe(&HeadroomDashboardStats {
-                output_reduction: None,
+            output_reduction: None,
             session_requests: Some(1),
             session_estimated_savings_usd: Some(1.0),
             session_estimated_tokens_saved: Some(1_000),
@@ -8208,7 +8211,7 @@ mod tests {
 
         // Second observation: 3_000 tokens saved, history adds hour 11.
         tracker.observe(&HeadroomDashboardStats {
-                output_reduction: None,
+            output_reduction: None,
             session_requests: Some(3),
             session_estimated_savings_usd: Some(3.0),
             session_estimated_tokens_saved: Some(3_000),

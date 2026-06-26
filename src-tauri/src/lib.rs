@@ -47,8 +47,7 @@ use crate::models::{
     ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
     HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
     HeadroomSubscriptionTier, RepoIntelligenceSummary, RuntimeStatus, RuntimeUpgradeProgress,
-    SwitchboardMode, SwitchboardState,
-    TransformationFeedResponse,
+    SwitchboardMode, SwitchboardState, TransformationFeedResponse,
 };
 use crate::state::AppState;
 
@@ -659,7 +658,9 @@ async fn install_addon(state: State<'_, AppState>, id: String) -> Result<Dashboa
                 &state.tool_manager.markitdown_shim_path(),
                 &state.tool_manager.managed_python(),
             )
-            .map_err(|err| format!("markitdown installed but enabling integration failed: {err:#}"))?;
+            .map_err(|err| {
+                format!("markitdown installed but enabling integration failed: {err:#}")
+            })?;
             Ok(state.dashboard())
         }
         "rtk" => {
@@ -1943,59 +1944,62 @@ fn build_switchboard_state(state: &AppState) -> Result<SwitchboardState, String>
         .collect();
     let (inferred_mode, rtk_enabled, headroom_enabled) =
         infer_switchboard_mode(&runtime, enabled_clients.len());
-let desired_mode = client_adapters::load_switchboard_mode().unwrap_or(inferred_mode.clone());
-let effective_mode = inferred_mode;
-let needs_attention = desired_mode != effective_mode;
-let codex_direct_bypass = state
-.codex_bypass
-.load(std::sync::atomic::Ordering::Acquire);
-let summary = if needs_attention {
-format!(
+    let desired_mode = client_adapters::load_switchboard_mode().unwrap_or(inferred_mode.clone());
+    let effective_mode = inferred_mode;
+    let needs_attention = desired_mode != effective_mode;
+    let codex_direct_bypass = state
+        .codex_bypass
+        .load(std::sync::atomic::Ordering::Acquire);
+    let summary = if needs_attention {
+        format!(
 "{} requested, but {} is currently active. Run Doctor to repair the missing local pieces.",
 switchboard_mode_label(&desired_mode),
 switchboard_mode_label(&effective_mode)
 )
-} else if codex_direct_bypass
-&& matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
-{
-"Codex is temporarily bypassing Headroom after an oversized compression refusal. Compact context or switch to RTK only, then re-enable Headroom."
+    } else if codex_direct_bypass
+        && matches!(
+            desired_mode,
+            SwitchboardMode::Full | SwitchboardMode::Headroom
+        )
+    {
+        "Codex is temporarily bypassing Headroom after an oversized compression refusal. Compact context or switch to RTK only, then re-enable Headroom."
 .to_string()
-} else {
-match desired_mode {
-SwitchboardMode::Full => {
-"Headroom proxy routing and RTK command compression are both active."
-}
-        SwitchboardMode::Headroom => {
-            "LLM traffic is routed through Headroom. RTK command compression is off."
+    } else {
+        match desired_mode {
+            SwitchboardMode::Full => {
+                "Headroom proxy routing and RTK command compression are both active."
+            }
+            SwitchboardMode::Headroom => {
+                "LLM traffic is routed through Headroom. RTK command compression is off."
+            }
+            SwitchboardMode::Rtk => {
+                "RTK command compression is active. No coding client is routed through Headroom."
+            }
+            SwitchboardMode::Off => "No optimization layer is active right now.",
         }
-        SwitchboardMode::Rtk => {
-            "RTK command compression is active. No coding client is routed through Headroom."
-        }
-SwitchboardMode::Off => "No optimization layer is active right now.",
-}
-.to_string()
-};
+        .to_string()
+    };
     let local_only = local_mode::enabled();
 
-Ok(SwitchboardState {
-mode: desired_mode.clone(),
-desired_mode,
-effective_mode,
-needs_attention,
-local_only,
-remote_services_enabled: !local_only,
-runtime,
-clients,
-enabled_clients,
-rtk_enabled,
-headroom_enabled,
-summary,
-})
+    Ok(SwitchboardState {
+        mode: desired_mode.clone(),
+        desired_mode,
+        effective_mode,
+        needs_attention,
+        local_only,
+        remote_services_enabled: !local_only,
+        runtime,
+        clients,
+        enabled_clients,
+        rtk_enabled,
+        headroom_enabled,
+        summary,
+    })
 }
 
 #[tauri::command]
 async fn get_switchboard_state(state: State<'_, AppState>) -> Result<SwitchboardState, String> {
-build_switchboard_state(&state)
+    build_switchboard_state(&state)
 }
 
 fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
@@ -2004,7 +2008,8 @@ fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
         .codex_bypass
         .load(std::sync::atomic::Ordering::Acquire);
     let mut issues = Vec::new();
-    let connectors = client_adapters::list_client_connectors(&state.cached_clients()).unwrap_or_default();
+    let connectors =
+        client_adapters::list_client_connectors(&state.cached_clients()).unwrap_or_default();
     let managed_connectors = connectors.iter().filter(|client| {
         matches!(
             client.support_status,
@@ -2015,9 +2020,7 @@ fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
         .clone()
         .filter(|client| client.enabled)
         .count();
-    let installed_clients = managed_connectors
-        .filter(|client| client.installed)
-        .count();
+    let installed_clients = managed_connectors.filter(|client| client.installed).count();
     let planned_installed = connectors
         .iter()
         .filter(|client| {
@@ -2047,11 +2050,13 @@ fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
         });
     }
 
-    if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
-        && runtime.installed
-&& (!runtime.running || !runtime.proxy_reachable || runtime.auto_paused)
-{
-issues.push(crate::models::DoctorIssue {
+    if matches!(
+        desired_mode,
+        SwitchboardMode::Full | SwitchboardMode::Headroom
+    ) && runtime.installed
+        && (!runtime.running || !runtime.proxy_reachable || runtime.auto_paused)
+    {
+        issues.push(crate::models::DoctorIssue {
 id: "headroom_runtime_unreachable".to_string(),
 title: "Headroom runtime is not reachable".to_string(),
 body: runtime
@@ -2064,26 +2069,34 @@ body: runtime
 severity: crate::models::DoctorSeverity::Error,
 repair_action: Some("repair_runtime".to_string()),
 });
-}
+    }
 
-if codex_direct_bypass && matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom) {
-issues.push(crate::models::DoctorIssue {
+    if codex_direct_bypass
+        && matches!(
+            desired_mode,
+            SwitchboardMode::Full | SwitchboardMode::Headroom
+        )
+    {
+        issues.push(crate::models::DoctorIssue {
 id: "codex_direct_bypass".to_string(),
 title: "Codex is bypassing Headroom".to_string(),
 body: "Headroom refused compression for an oversized Codex request, so Codex is temporarily going direct. Compact the conversation context, then reset this bypass to route Codex through Headroom again.".to_string(),
 severity: crate::models::DoctorSeverity::Warning,
 repair_action: Some("reset_codex_bypass".to_string()),
 });
-}
+    }
 
-let codex_connector_enabled = connectors
-.iter()
-.any(|client| client.client_id == "codex" && client.enabled);
+    let codex_connector_enabled = connectors
+        .iter()
+        .any(|client| client.client_id == "codex" && client.enabled);
     if codex_connector_enabled
-        && matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
+        && matches!(
+            desired_mode,
+            SwitchboardMode::Full | SwitchboardMode::Headroom
+        )
         && !client_adapters::codex_provider_block_matches().unwrap_or(false)
-{
-issues.push(crate::models::DoctorIssue {
+    {
+        issues.push(crate::models::DoctorIssue {
 id: "codex_provider_mismatch".to_string(),
 title: "Codex routing config needs repair".to_string(),
 body: "Codex is marked as connected, but its model provider or proxy URL no longer matches the managed Headroom setup. This can cause empty or unsupported-model errors. Repair will re-apply the reversible Codex setup.".to_string(),
@@ -2102,13 +2115,17 @@ repair_action: Some("repair_codex_setup".to_string()),
         });
     }
 
-    if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom) && enabled_clients == 0 {
+    if matches!(
+        desired_mode,
+        SwitchboardMode::Full | SwitchboardMode::Headroom
+    ) && enabled_clients == 0
+    {
         let repair_action = if installed_clients > 0 {
-Some("repair_client_setups".to_string())
-} else {
-None
-};
-issues.push(crate::models::DoctorIssue {
+            Some("repair_client_setups".to_string())
+        } else {
+            None
+        };
+        issues.push(crate::models::DoctorIssue {
 id: "no_headroom_clients".to_string(),
 title: "No clients are routed through Headroom".to_string(),
 body: if installed_clients > 0 {
@@ -2119,21 +2136,21 @@ body: if installed_clients > 0 {
 severity: crate::models::DoctorSeverity::Warning,
 repair_action,
 });
-}
+    }
 
-if let Ok(Some(summary)) = repo_intelligence::load_latest_summary() {
-let repo_missing = !Path::new(&summary.repo_root).is_dir();
-let stale = DateTime::parse_from_rfc3339(&summary.indexed_at)
-.map(|indexed_at| {
-Utc::now()
-.signed_duration_since(indexed_at.with_timezone(&Utc))
-.num_days()
->= 7
-})
-.unwrap_or(false);
+    if let Ok(Some(summary)) = repo_intelligence::load_latest_summary() {
+        let repo_missing = !Path::new(&summary.repo_root).is_dir();
+        let stale = DateTime::parse_from_rfc3339(&summary.indexed_at)
+            .map(|indexed_at| {
+                Utc::now()
+                    .signed_duration_since(indexed_at.with_timezone(&Utc))
+                    .num_days()
+                    >= 7
+            })
+            .unwrap_or(false);
 
-if repo_missing {
-issues.push(crate::models::DoctorIssue {
+        if repo_missing {
+            issues.push(crate::models::DoctorIssue {
 id: "repo_intelligence_repo_missing".to_string(),
 title: "Repo Intelligence index points to a missing folder".to_string(),
 body: format!(
@@ -2143,8 +2160,8 @@ summary.repo_root
 severity: crate::models::DoctorSeverity::Warning,
 repair_action: Some("clear_repo_intelligence_index".to_string()),
 });
-} else if stale {
-issues.push(crate::models::DoctorIssue {
+        } else if stale {
+            issues.push(crate::models::DoctorIssue {
 id: "repo_intelligence_stale".to_string(),
 title: "Repo Intelligence index is stale".to_string(),
 body: format!(
@@ -2154,13 +2171,13 @@ summary.repo_root
 severity: crate::models::DoctorSeverity::Warning,
 repair_action: Some("clear_repo_intelligence_index".to_string()),
 });
-}
-}
+        }
+    }
 
     if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Rtk)
-&& (!runtime.rtk.installed || !runtime.rtk.enabled)
-{
-issues.push(crate::models::DoctorIssue {
+        && (!runtime.rtk.installed || !runtime.rtk.enabled)
+    {
+        issues.push(crate::models::DoctorIssue {
 id: "rtk_not_active".to_string(),
 title: "RTK is not active".to_string(),
 body: if runtime.rtk.installed {
@@ -2171,56 +2188,59 @@ body: if runtime.rtk.installed {
 severity: crate::models::DoctorSeverity::Warning,
 repair_action: Some("repair_rtk_runtime".to_string()),
 });
-}
+    }
 
-if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Rtk)
-&& runtime.rtk.installed
-&& runtime.rtk.enabled
-&& (!runtime.rtk.path_configured || !runtime.rtk.hook_configured)
-{
-issues.push(crate::models::DoctorIssue {
+    if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Rtk)
+        && runtime.rtk.installed
+        && runtime.rtk.enabled
+        && (!runtime.rtk.path_configured || !runtime.rtk.hook_configured)
+    {
+        issues.push(crate::models::DoctorIssue {
 id: "rtk_integration_incomplete".to_string(),
 title: "RTK integration is incomplete".to_string(),
 body: "RTK is enabled, but its shell PATH export or Claude Code hook is missing. Repair will re-apply the local RTK integration.".to_string(),
 severity: crate::models::DoctorSeverity::Warning,
 repair_action: Some("repair_rtk_integrations".to_string()),
 });
-}
+    }
 
-if runtime.paused
-&& !runtime.auto_paused
-&& matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Headroom)
-{
-issues.push(crate::models::DoctorIssue {
+    if runtime.paused
+        && !runtime.auto_paused
+        && matches!(
+            desired_mode,
+            SwitchboardMode::Full | SwitchboardMode::Headroom
+        )
+    {
+        issues.push(crate::models::DoctorIssue {
 id: "headroom_paused".to_string(),
 title: "Headroom is paused".to_string(),
 body: "The proxy is intentionally off. Use Full optimization or Headroom only to restart routing through Headroom.".to_string(),
 severity: crate::models::DoctorSeverity::Warning,
 repair_action: None,
 });
-}
+    }
 
-let status = if issues
-.iter()
-.any(|issue| matches!(issue.severity, crate::models::DoctorSeverity::Error))
-{
-crate::models::DoctorSeverity::Error
-} else if issues.is_empty() {
-crate::models::DoctorSeverity::Ok
-} else {
-crate::models::DoctorSeverity::Warning
-};
+    let status = if issues
+        .iter()
+        .any(|issue| matches!(issue.severity, crate::models::DoctorSeverity::Error))
+    {
+        crate::models::DoctorSeverity::Error
+    } else if issues.is_empty() {
+        crate::models::DoctorSeverity::Ok
+    } else {
+        crate::models::DoctorSeverity::Warning
+    };
 
-let summary = match status {
-crate::models::DoctorSeverity::Ok => {
-"No switchboard issues detected. Headroom and RTK look ready for normal use."
-}
-crate::models::DoctorSeverity::Warning => {
-"Doctor found switchboard items that may need attention."
-}
-crate::models::DoctorSeverity::Error => "Doctor found a blocking switchboard issue.",
-}
-.to_string();
+    let summary = match status {
+        crate::models::DoctorSeverity::Ok => {
+            "No switchboard issues detected. Headroom and RTK look ready for normal use."
+        }
+        crate::models::DoctorSeverity::Warning => {
+            "Doctor found switchboard items that may need attention."
+        }
+        crate::models::DoctorSeverity::Error => "Doctor found a blocking switchboard issue.",
+    }
+    .to_string();
 
     crate::models::DoctorReport {
         status,
@@ -2270,7 +2290,10 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
     }
 
     if !locations.is_empty() {
-        parts.push(format!("Config locations watched: {}.", locations.join(", ")));
+        parts.push(format!(
+            "Config locations watched: {}.",
+            locations.join(", ")
+        ));
     }
     if !evidence.is_empty() {
         parts.push(format!("Detection evidence: {}.", evidence.join(" | ")));
@@ -2302,15 +2325,15 @@ mod doctor_tests {
             setup_phase: "guide".to_string(),
             setup_hint: "Manual guide only.".to_string(),
             category: "cli".to_string(),
-        detection_sources: vec!["PATH: gemini".to_string(), "~/.gemini".to_string()],
-        detection_evidence: vec!["Detected at /opt/homebrew/bin/gemini".to_string()],
-        config_locations: vec!["~/.gemini".to_string()],
-        automation_gates: vec![
-            "Back up provider settings before any routing change.".to_string(),
-        ],
-        manual_workflow: vec!["Use RTK-only mode for noisy output.".to_string()],
-        installed: true,
-        enabled: false,
+            detection_sources: vec!["PATH: gemini".to_string(), "~/.gemini".to_string()],
+            detection_evidence: vec!["Detected at /opt/homebrew/bin/gemini".to_string()],
+            config_locations: vec!["~/.gemini".to_string()],
+            automation_gates: vec![
+                "Back up provider settings before any routing change.".to_string()
+            ],
+            manual_workflow: vec!["Use RTK-only mode for noisy output.".to_string()],
+            installed: true,
+            enabled: false,
             verified: false,
             last_configured_at: None,
         }]);
@@ -2327,25 +2350,25 @@ mod doctor_tests {
 }
 
 #[tauri::command]
-async fn get_doctor_report(state: State<'_, AppState>) -> crate::models::DoctorReport {
-build_doctor_report(&state)
+fn get_doctor_report(state: State<'_, AppState>) -> crate::models::DoctorReport {
+    build_doctor_report(&state)
 }
 
 fn repair_runtime(state: &AppState) -> Result<(), String> {
-state.stop_headroom();
-state.set_runtime_auto_paused(false);
-state.resume_runtime().map_err(|err| err.to_string())?;
-state.invalidate_runtime_status_cache();
-Ok(())
+    state.stop_headroom();
+    state.set_runtime_auto_paused(false);
+    state.resume_runtime().map_err(|err| err.to_string())?;
+    state.invalidate_runtime_status_cache();
+    Ok(())
 }
 
 fn repair_client_setups(state: &AppState) -> Result<(), String> {
-state
-.codex_bypass
-.store(false, std::sync::atomic::Ordering::Release);
-state.resume_runtime().map_err(|err| err.to_string())?;
-    let connectors =
-        client_adapters::list_client_connectors(&state.cached_clients()).map_err(|err| err.to_string())?;
+    state
+        .codex_bypass
+        .store(false, std::sync::atomic::Ordering::Release);
+    state.resume_runtime().map_err(|err| err.to_string())?;
+    let connectors = client_adapters::list_client_connectors(&state.cached_clients())
+        .map_err(|err| err.to_string())?;
     let managed_installed = connectors.iter().filter(|connector| {
         connector.installed
             && matches!(
@@ -2358,181 +2381,185 @@ state.resume_runtime().map_err(|err| err.to_string())?;
         client_adapters::apply_client_setup(&connector.client_id).map_err(|err| err.to_string())?;
         repaired += 1;
     }
-if repaired == 0 {
-return Err("no installed supported clients found to repair".to_string());
-}
-state.invalidate_runtime_status_cache();
-Ok(())
+    if repaired == 0 {
+        return Err("no installed supported clients found to repair".to_string());
+    }
+    state.invalidate_runtime_status_cache();
+    Ok(())
 }
 
 fn repair_codex_setup(state: &AppState) -> Result<(), String> {
-state
-.codex_bypass
-.store(false, std::sync::atomic::Ordering::Release);
-state.resume_runtime().map_err(|err| err.to_string())?;
-client_adapters::apply_client_setup("codex").map_err(|err| err.to_string())?;
-state.invalidate_runtime_status_cache();
-Ok(())
+    state
+        .codex_bypass
+        .store(false, std::sync::atomic::Ordering::Release);
+    state.resume_runtime().map_err(|err| err.to_string())?;
+    client_adapters::apply_client_setup("codex").map_err(|err| err.to_string())?;
+    state.invalidate_runtime_status_cache();
+    Ok(())
 }
 
 fn repair_rtk_integrations(state: &AppState) -> Result<(), String> {
-client_adapters::set_rtk_enabled(
-true,
-&state.tool_manager.rtk_entrypoint(),
-&state.tool_manager.managed_python(),
-)
-.map_err(|err| err.to_string())?;
-state.invalidate_runtime_status_cache();
-Ok(())
+    client_adapters::set_rtk_enabled(
+        true,
+        &state.tool_manager.rtk_entrypoint(),
+        &state.tool_manager.managed_python(),
+    )
+    .map_err(|err| err.to_string())?;
+    state.invalidate_runtime_status_cache();
+    Ok(())
 }
 
 fn repair_rtk_runtime(state: &AppState) -> Result<(), String> {
-if !state.tool_manager.rtk_installed() {
-state
-.tool_manager
-.install_rtk()
-.map_err(|err| err.to_string())?;
-}
-repair_rtk_integrations(state)
+    if !state.tool_manager.rtk_installed() {
+        state
+            .tool_manager
+            .install_rtk()
+            .map_err(|err| err.to_string())?;
+    }
+    repair_rtk_integrations(state)
 }
 
 fn clear_repo_intelligence_index() -> Result<(), String> {
-repo_intelligence::clear_latest_summary()
-.map(|_| ())
-.map_err(|err| err.to_string())
+    repo_intelligence::clear_latest_summary()
+        .map(|_| ())
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
 async fn run_doctor_repair(
-state: State<'_, AppState>,
-action: String,
+    state: State<'_, AppState>,
+    action: String,
 ) -> Result<crate::models::DoctorReport, String> {
-match action.as_str() {
-"reset_codex_bypass" => {
-state
-.codex_bypass
-.store(false, std::sync::atomic::Ordering::Release);
-state.invalidate_runtime_status_cache();
-Ok(build_doctor_report(&state))
-}
-"repair_runtime" => {
-repair_runtime(&state)?;
-Ok(build_doctor_report(&state))
-}
-"repair_client_setups" => {
-repair_client_setups(&state)?;
-Ok(build_doctor_report(&state))
-}
-"repair_codex_setup" => {
-repair_codex_setup(&state)?;
-Ok(build_doctor_report(&state))
-}
-"repair_rtk_integrations" => {
-repair_rtk_integrations(&state)?;
-Ok(build_doctor_report(&state))
-}
-"repair_rtk_runtime" => {
-repair_rtk_runtime(&state)?;
-Ok(build_doctor_report(&state))
-}
-"clear_repo_intelligence_index" => {
-clear_repo_intelligence_index()?;
-Ok(build_doctor_report(&state))
-}
-"repair_all" => {
-let report = build_doctor_report(&state);
-for issue in report.issues {
-match issue.repair_action.as_deref() {
-Some("reset_codex_bypass") => {
-state
-.codex_bypass
-.store(false, std::sync::atomic::Ordering::Release);
-state.invalidate_runtime_status_cache();
-}
-Some("repair_runtime") => repair_runtime(&state)?,
-Some("repair_client_setups") => repair_client_setups(&state)?,
-Some("repair_codex_setup") => repair_codex_setup(&state)?,
-Some("repair_rtk_integrations") => repair_rtk_integrations(&state)?,
-Some("repair_rtk_runtime") => repair_rtk_runtime(&state)?,
-Some("clear_repo_intelligence_index") => clear_repo_intelligence_index()?,
-_ => {}
-}
-}
-Ok(build_doctor_report(&state))
-}
-other => Err(format!("unknown doctor repair action: {other}")),
-}
+    match action.as_str() {
+        "reset_codex_bypass" => {
+            state
+                .codex_bypass
+                .store(false, std::sync::atomic::Ordering::Release);
+            state.invalidate_runtime_status_cache();
+            Ok(build_doctor_report(&state))
+        }
+        "repair_runtime" => {
+            repair_runtime(&state)?;
+            Ok(build_doctor_report(&state))
+        }
+        "repair_client_setups" => {
+            repair_client_setups(&state)?;
+            Ok(build_doctor_report(&state))
+        }
+        "repair_codex_setup" => {
+            repair_codex_setup(&state)?;
+            Ok(build_doctor_report(&state))
+        }
+        "repair_rtk_integrations" => {
+            repair_rtk_integrations(&state)?;
+            Ok(build_doctor_report(&state))
+        }
+        "repair_rtk_runtime" => {
+            repair_rtk_runtime(&state)?;
+            Ok(build_doctor_report(&state))
+        }
+        "clear_repo_intelligence_index" => {
+            clear_repo_intelligence_index()?;
+            Ok(build_doctor_report(&state))
+        }
+        "repair_all" => {
+            let report = build_doctor_report(&state);
+            for issue in report.issues {
+                match issue.repair_action.as_deref() {
+                    Some("reset_codex_bypass") => {
+                        state
+                            .codex_bypass
+                            .store(false, std::sync::atomic::Ordering::Release);
+                        state.invalidate_runtime_status_cache();
+                    }
+                    Some("repair_runtime") => repair_runtime(&state)?,
+                    Some("repair_client_setups") => repair_client_setups(&state)?,
+                    Some("repair_codex_setup") => repair_codex_setup(&state)?,
+                    Some("repair_rtk_integrations") => repair_rtk_integrations(&state)?,
+                    Some("repair_rtk_runtime") => repair_rtk_runtime(&state)?,
+                    Some("clear_repo_intelligence_index") => clear_repo_intelligence_index()?,
+                    _ => {}
+                }
+            }
+            Ok(build_doctor_report(&state))
+        }
+        other => Err(format!("unknown doctor repair action: {other}")),
+    }
 }
 
 #[tauri::command]
 async fn set_switchboard_mode(
-app: AppHandle,
-mode: SwitchboardMode,
+    app: AppHandle,
+    mode: SwitchboardMode,
 ) -> Result<SwitchboardState, String> {
-let state: tauri::State<'_, AppState> = app.state();
-client_adapters::write_switchboard_mode(mode.clone()).map_err(|err| err.to_string())?;
+    let state: tauri::State<'_, AppState> = app.state();
+    client_adapters::write_switchboard_mode(mode.clone()).map_err(|err| err.to_string())?;
 
-match mode {
-SwitchboardMode::Off => {
-client_adapters::set_rtk_enabled(
-false,
-&state.tool_manager.rtk_entrypoint(),
-&state.tool_manager.managed_python(),
-)
-.map_err(|err| err.to_string())?;
-state.set_runtime_paused(true);
-state.set_runtime_auto_paused(false);
-state.codex_bypass
-.store(true, std::sync::atomic::Ordering::Release);
-state.stop_headroom();
-client_adapters::clear_client_setups().map_err(|err| err.to_string())?;
-analytics::track_event(&app, "switchboard_mode_off", None);
-}
-SwitchboardMode::Rtk => {
-client_adapters::set_rtk_enabled(
-true,
-&state.tool_manager.rtk_entrypoint(),
-&state.tool_manager.managed_python(),
-)
-.map_err(|err| err.to_string())?;
-state.set_runtime_paused(true);
-state.set_runtime_auto_paused(false);
-state.codex_bypass
-.store(true, std::sync::atomic::Ordering::Release);
-state.stop_headroom();
-client_adapters::clear_client_setups().map_err(|err| err.to_string())?;
-analytics::track_event(&app, "switchboard_mode_rtk", None);
-}
-SwitchboardMode::Headroom => {
-client_adapters::set_rtk_enabled(
-false,
-&state.tool_manager.rtk_entrypoint(),
-&state.tool_manager.managed_python(),
-)
-.map_err(|err| err.to_string())?;
-state.codex_bypass
-.store(false, std::sync::atomic::Ordering::Release);
-state.resume_runtime().map_err(|err| err.to_string())?;
-client_adapters::restore_client_setups();
-analytics::track_event(&app, "switchboard_mode_headroom", None);
-}
-SwitchboardMode::Full => {
-client_adapters::set_rtk_enabled(
-true,
-&state.tool_manager.rtk_entrypoint(),
-&state.tool_manager.managed_python(),
-)
-.map_err(|err| err.to_string())?;
-state.codex_bypass
-.store(false, std::sync::atomic::Ordering::Release);
-state.resume_runtime().map_err(|err| err.to_string())?;
-client_adapters::restore_client_setups();
-analytics::track_event(&app, "switchboard_mode_full", None);
-}
-}
+    match mode {
+        SwitchboardMode::Off => {
+            client_adapters::set_rtk_enabled(
+                false,
+                &state.tool_manager.rtk_entrypoint(),
+                &state.tool_manager.managed_python(),
+            )
+            .map_err(|err| err.to_string())?;
+            state.set_runtime_paused(true);
+            state.set_runtime_auto_paused(false);
+            state
+                .codex_bypass
+                .store(true, std::sync::atomic::Ordering::Release);
+            state.stop_headroom();
+            client_adapters::clear_client_setups().map_err(|err| err.to_string())?;
+            analytics::track_event(&app, "switchboard_mode_off", None);
+        }
+        SwitchboardMode::Rtk => {
+            client_adapters::set_rtk_enabled(
+                true,
+                &state.tool_manager.rtk_entrypoint(),
+                &state.tool_manager.managed_python(),
+            )
+            .map_err(|err| err.to_string())?;
+            state.set_runtime_paused(true);
+            state.set_runtime_auto_paused(false);
+            state
+                .codex_bypass
+                .store(true, std::sync::atomic::Ordering::Release);
+            state.stop_headroom();
+            client_adapters::clear_client_setups().map_err(|err| err.to_string())?;
+            analytics::track_event(&app, "switchboard_mode_rtk", None);
+        }
+        SwitchboardMode::Headroom => {
+            client_adapters::set_rtk_enabled(
+                false,
+                &state.tool_manager.rtk_entrypoint(),
+                &state.tool_manager.managed_python(),
+            )
+            .map_err(|err| err.to_string())?;
+            state
+                .codex_bypass
+                .store(false, std::sync::atomic::Ordering::Release);
+            state.resume_runtime().map_err(|err| err.to_string())?;
+            client_adapters::restore_client_setups();
+            analytics::track_event(&app, "switchboard_mode_headroom", None);
+        }
+        SwitchboardMode::Full => {
+            client_adapters::set_rtk_enabled(
+                true,
+                &state.tool_manager.rtk_entrypoint(),
+                &state.tool_manager.managed_python(),
+            )
+            .map_err(|err| err.to_string())?;
+            state
+                .codex_bypass
+                .store(false, std::sync::atomic::Ordering::Release);
+            state.resume_runtime().map_err(|err| err.to_string())?;
+            client_adapters::restore_client_setups();
+            analytics::track_event(&app, "switchboard_mode_full", None);
+        }
+    }
 
-state.invalidate_runtime_status_cache();
-build_switchboard_state(&state)
+    state.invalidate_runtime_status_cache();
+    build_switchboard_state(&state)
 }
 
 /// Debug-only: force the proxy intercept's bypass flag on/off so a developer
@@ -2724,7 +2751,9 @@ async fn get_tool_logs(
 }
 
 #[tauri::command]
-async fn get_claude_code_projects(state: State<'_, AppState>) -> Result<Vec<ClaudeCodeProject>, String> {
+async fn get_claude_code_projects(
+    state: State<'_, AppState>,
+) -> Result<Vec<ClaudeCodeProject>, String> {
     state
         .list_claude_code_projects()
         .map_err(|err| err.to_string())
@@ -3099,7 +3128,9 @@ async fn delete_live_learning(state: State<'_, AppState>, memory_id: String) -> 
 }
 
 #[tauri::command]
-async fn list_applied_patterns(project_path: String) -> Result<crate::models::AppliedPatterns, String> {
+async fn list_applied_patterns(
+    project_path: String,
+) -> Result<crate::models::AppliedPatterns, String> {
     Ok(read_applied_patterns_for_project(&project_path))
 }
 
@@ -3441,7 +3472,10 @@ fn validate_contact_request_url(raw: &str) -> Option<reqwest::Url> {
 }
 
 #[tauri::command]
-async fn apply_client_setup(app: AppHandle, client_id: String) -> Result<ClientSetupResult, String> {
+async fn apply_client_setup(
+    app: AppHandle,
+    client_id: String,
+) -> Result<ClientSetupResult, String> {
     // Two recovery paths land on the tray-banner "Re-enable" button:
     //   1. Watchdog give-up — pauses the runtime and clears client setups.
     //   2. Pricing gate (grace expiry, weekly cap) — sets `proxy_bypass` and
@@ -3518,7 +3552,9 @@ async fn verify_client_setup(client_id: String) -> Result<ClientSetupVerificatio
 }
 
 #[tauri::command]
-async fn get_client_connectors(state: State<'_, AppState>) -> Result<Vec<ClientConnectorStatus>, String> {
+async fn get_client_connectors(
+    state: State<'_, AppState>,
+) -> Result<Vec<ClientConnectorStatus>, String> {
     client_adapters::list_client_connectors(&state.cached_clients()).map_err(|err| err.to_string())
 }
 
@@ -3966,12 +4002,12 @@ pub fn run() {
             retry_runtime_upgrade,
             retry_runtime_upgrade_with_rebuild,
             dismiss_runtime_upgrade_failure,
-get_runtime_status,
-get_switchboard_state,
-get_doctor_report,
-run_doctor_repair,
-set_switchboard_mode,
-get_headroom_logs,
+            get_runtime_status,
+            get_switchboard_state,
+            get_doctor_report,
+            run_doctor_repair,
+            set_switchboard_mode,
+            get_headroom_logs,
             get_headroom_request_count,
             get_headroom_request_counts_by_agent,
             get_rtk_activity,
@@ -5861,14 +5897,13 @@ mod tests {
         build_watchdog_give_up_report, check_headroom_learn_prereqs, classify_bootstrap_failure,
         classify_upgrade_error, compute_tray_window_position, count_memories_created_today,
         cpu_rate_indicates_burn, debounced_tray_runtime_visual, delete_applied_pattern,
-        empty_live_learnings_for_projects,
-        extract_llm_failure_warnings, fetch_transformations_feed_from, install_pending_update,
-        is_disk_full_signal, is_endpoint_protection_signal, is_network_download_signal,
-        is_port_conflict_failure, is_prerelease_version, lifetime_token_milestone_kind,
-        noop_app_update_progress_emitter, parse_live_learnings,
-        parse_request_count_from_stats_body, parse_request_counts_by_agent,
-        parse_updater_endpoint_list, pattern_matches_project,
-        physical_rect_from_rect, read_applied_patterns_for_project, readyz_failed_checks_csv,
+        empty_live_learnings_for_projects, extract_llm_failure_warnings,
+        fetch_transformations_feed_from, install_pending_update, is_disk_full_signal,
+        is_endpoint_protection_signal, is_network_download_signal, is_port_conflict_failure,
+        is_prerelease_version, lifetime_token_milestone_kind, noop_app_update_progress_emitter,
+        parse_live_learnings, parse_request_count_from_stats_body, parse_request_counts_by_agent,
+        parse_updater_endpoint_list, pattern_matches_project, physical_rect_from_rect,
+        read_applied_patterns_for_project, readyz_failed_checks_csv,
         readyz_failure_has_core_unhealthy, readyz_failure_is_upstream_only,
         resolve_release_updater_config, select_updater_endpoints, store_checked_update,
         watchdog_should_be_up, zero_spend_affected_days, AppUpdateProgress,

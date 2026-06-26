@@ -7,8 +7,7 @@ use chrono::Utc;
 
 use crate::models::{
     RepoContextPack, RepoFileRole, RepoFileSignal, RepoGraphEdge, RepoGraphEdgeKind, RepoGraphNode,
-    RepoGraphSummary,
-    RepoIntelligenceSummary,
+    RepoGraphSummary, RepoIntelligenceSummary,
 };
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs};
 
@@ -62,7 +61,9 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
         .sum::<u64>();
     let mut role_counts = BTreeMap::new();
     for signal in &signals {
-        *role_counts.entry(role_key(&signal.role).to_string()).or_insert(0) += 1;
+        *role_counts
+            .entry(role_key(&signal.role).to_string())
+            .or_insert(0) += 1;
     }
 
     let graph = build_repo_graph_summary(&indexed);
@@ -157,7 +158,10 @@ fn normalize_repo_root(path: &Path) -> Result<PathBuf> {
         .canonicalize()
         .with_context(|| format!("repo path not found: {}", expanded.display()))?;
     if !canonical.is_dir() {
-        return Err(anyhow!("repo path must be a directory: {}", canonical.display()));
+        return Err(anyhow!(
+            "repo path must be a directory: {}",
+            canonical.display()
+        ));
     }
     Ok(canonical)
 }
@@ -430,10 +434,9 @@ fn push_graph_edge(edges: &mut Vec<RepoGraphEdge>, edge: RepoGraphEdge) {
     if edge.from == edge.to || edges.len() >= 24 {
         return;
     }
-    if edges
-        .iter()
-        .any(|existing| existing.from == edge.from && existing.to == edge.to && existing.kind == edge.kind)
-    {
+    if edges.iter().any(|existing| {
+        existing.from == edge.from && existing.to == edge.to && existing.kind == edge.kind
+    }) {
         return;
     }
     edges.push(edge);
@@ -446,12 +449,14 @@ fn build_reverse_dependency_hubs(
     let mut inbound: BTreeMap<String, RepoGraphNode> = BTreeMap::new();
     for edge in edges {
         let target = files.iter().find(|file| file.path == edge.to);
-        let node = inbound.entry(edge.to.clone()).or_insert_with(|| RepoGraphNode {
-            label: edge.to.clone(),
-            count: 0,
-            estimated_tokens: target.map(|file| file.estimated_tokens).unwrap_or(0),
-            examples: Vec::new(),
-        });
+        let node = inbound
+            .entry(edge.to.clone())
+            .or_insert_with(|| RepoGraphNode {
+                label: edge.to.clone(),
+                count: 0,
+                estimated_tokens: target.map(|file| file.estimated_tokens).unwrap_or(0),
+                examples: Vec::new(),
+            });
         node.count += 1;
         if node.examples.len() < 4 {
             node.examples.push(edge.from.clone());
@@ -487,7 +492,14 @@ fn test_target_candidates(path: &str) -> Vec<String> {
     else {
         return Vec::new();
     };
-    let mut extensions = vec![extension, ".tsx".into(), ".ts".into(), ".jsx".into(), ".js".into(), ".rs".into()];
+    let mut extensions = vec![
+        extension,
+        ".tsx".into(),
+        ".ts".into(),
+        ".jsx".into(),
+        ".js".into(),
+        ".rs".into(),
+    ];
     extensions.sort();
     extensions.dedup();
     extensions
@@ -521,7 +533,10 @@ fn find_nearest_dependency_hub(
     })
 }
 
-fn nearest_scoped_file(file: &RepoFileSignal, candidates: &[RepoFileSignal]) -> Option<RepoFileSignal> {
+fn nearest_scoped_file(
+    file: &RepoFileSignal,
+    candidates: &[RepoFileSignal],
+) -> Option<RepoFileSignal> {
     candidates
         .iter()
         .filter(|candidate| candidate.path != file.path)
@@ -532,7 +547,12 @@ fn nearest_scoped_file(file: &RepoFileSignal, candidates: &[RepoFileSignal]) -> 
         .min_by(|(left, left_score), (right, right_score)| {
             right_score
                 .cmp(left_score)
-                .then_with(|| left.path.split('/').count().cmp(&right.path.split('/').count()))
+                .then_with(|| {
+                    left.path
+                        .split('/')
+                        .count()
+                        .cmp(&right.path.split('/').count())
+                })
                 .then_with(|| left.path.cmp(&right.path))
         })
         .map(|(candidate, _)| candidate.clone())
@@ -556,8 +576,11 @@ fn extension_for_path(path: &str) -> String {
         .unwrap_or_default()
 }
 
-
-fn summarize_graph_nodes<F>(files: &[RepoFileSignal], label_for_file: F, limit: usize) -> Vec<RepoGraphNode>
+fn summarize_graph_nodes<F>(
+    files: &[RepoFileSignal],
+    label_for_file: F,
+    limit: usize,
+) -> Vec<RepoGraphNode>
 where
     F: Fn(&RepoFileSignal) -> String,
 {
@@ -770,7 +793,10 @@ mod tests {
 
         assert_eq!(graph.top_directories[0].label, "src");
         assert!(graph.top_languages.iter().any(|node| node.label == "React"));
-        assert!(graph.entrypoints.iter().any(|file| file.path == "src/main.tsx"));
+        assert!(graph
+            .entrypoints
+            .iter()
+            .any(|file| file.path == "src/main.tsx"));
         assert!(graph
             .likely_tests
             .iter()

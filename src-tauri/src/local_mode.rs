@@ -14,4 +14,3 @@ fn is_truthy(value: &str) -> bool {
         "1" | "true" | "yes" | "on"
     )
 }
-

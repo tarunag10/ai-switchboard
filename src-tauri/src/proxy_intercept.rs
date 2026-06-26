@@ -322,9 +322,9 @@ async fn handle(
     // only) never fires for it — this proxy is the only component left in the
     // response path that sees those headers. Every other client (Claude) keeps
     // the untouched zero-copy splice.
-if is_codex {
-splice_with_codex_capture(client, backend, &codex_slot, &codex_bypass).await;
-} else {
+    if is_codex {
+        splice_with_codex_capture(client, backend, &codex_slot, &codex_bypass).await;
+    } else {
         let _ = tokio::io::copy_bidirectional(&mut client, &mut backend).await;
     }
 }
@@ -336,10 +336,10 @@ splice_with_codex_capture(client, backend, &codex_slot, &codex_bypass).await;
 /// read error before the head completes, whatever was read is still forwarded,
 /// so the response is never corrupted.
 async fn splice_with_codex_capture(
-mut client: TcpStream,
-mut backend: TcpStream,
-codex_slot: &CodexRateLimitSlot,
-codex_bypass: &BypassFlag,
+    mut client: TcpStream,
+    mut backend: TcpStream,
+    codex_slot: &CodexRateLimitSlot,
+    codex_bypass: &BypassFlag,
 ) {
     let (mut client_rd, mut client_wr) = client.split();
     let (mut backend_rd, mut backend_wr) = backend.split();
@@ -359,17 +359,17 @@ codex_bypass: &BypassFlag,
         )
         .await;
 
-if matches!(read_head, Ok(Ok(()))) {
-if let Some(snapshot) = parse_codex_rate_limit_headers(&head) {
-*codex_slot.lock() = Some(snapshot);
-}
-if is_headroom_compression_refusal_response(&head) {
-log::warn!(
+        if matches!(read_head, Ok(Ok(()))) {
+            if let Some(snapshot) = parse_codex_rate_limit_headers(&head) {
+                *codex_slot.lock() = Some(snapshot);
+            }
+            if is_headroom_compression_refusal_response(&head) {
+                log::warn!(
 "Headroom refused Codex compression for an oversized request; enabling Codex direct bypass for subsequent requests"
 );
-codex_bypass.store(true, Ordering::Release);
-}
-}
+                codex_bypass.store(true, Ordering::Release);
+            }
+        }
 
         // Forward the head bytes we read (full head on success, partial on
         // timeout/EOF — `read_http_headers` may also include leading body bytes
@@ -385,14 +385,14 @@ codex_bypass.store(true, Ordering::Release);
 }
 
 fn is_headroom_compression_refusal_response(head: &[u8]) -> bool {
-let Ok(text) = std::str::from_utf8(head) else {
-return false;
-};
-let lower = text.to_ascii_lowercase();
-lower.starts_with("http/1.1 413")
-&& lower.contains("compression_refused")
-&& lower.contains("headroom:")
-&& lower.contains("compression timeout")
+    let Ok(text) = std::str::from_utf8(head) else {
+        return false;
+    };
+    let lower = text.to_ascii_lowercase();
+    lower.starts_with("http/1.1 413")
+        && lower.contains("compression_refused")
+        && lower.contains("headroom:")
+        && lower.contains("compression timeout")
 }
 
 /// Parse the `x-codex-*` rate-limit headers out of a raw HTTP response head
@@ -1101,8 +1101,9 @@ mod tests {
     use super::{
         bearer_value_changed, codex_snapshot_from_usage_payload, codex_window_label,
         decode_codex_plan_tier, extract_bearer, extract_header_value, find_header_end,
-        is_hop_by_hop_request_header, is_hop_by_hop_response_header, is_local_proxy_path,
-        is_openai_path, parse_codex_rate_limit_headers, parse_request_head, read_http_headers,
+        is_headroom_compression_refusal_response, is_hop_by_hop_request_header,
+        is_hop_by_hop_response_header, is_local_proxy_path, is_openai_path,
+        parse_codex_rate_limit_headers, parse_request_head, read_http_headers,
         request_is_loopback_safe, run, stamp_codex_client_header, BypassFlag, SharedToken,
     };
     use crate::backend_port;

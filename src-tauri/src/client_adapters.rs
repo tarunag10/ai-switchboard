@@ -707,22 +707,20 @@ pub fn list_client_connectors(
         .collect::<Vec<_>>();
 
     connectors.extend(PLANNED_CLIENT_SPECS.iter().map(|spec| {
-        let detected_client = detected_clients
-            .iter()
-            .find(|client| client.id == spec.id);
+        let detected_client = detected_clients.iter().find(|client| client.id == spec.id);
         let installed = detected_client
             .map(|client| client.installed)
             .unwrap_or(false);
 
-            ClientConnectorStatus {
-                client_id: spec.id.to_string(),
-                name: spec.name.to_string(),
-                support_status: ClientConnectorSupportStatus::Planned,
-                setup_phase: spec.setup_phase.to_string(),
-                setup_hint: spec.setup_hint.to_string(),
-                category: spec.category.to_string(),
-                detection_sources: spec
-                    .detection_sources
+        ClientConnectorStatus {
+            client_id: spec.id.to_string(),
+            name: spec.name.to_string(),
+            support_status: ClientConnectorSupportStatus::Planned,
+            setup_phase: spec.setup_phase.to_string(),
+            setup_hint: spec.setup_hint.to_string(),
+            category: spec.category.to_string(),
+            detection_sources: spec
+                .detection_sources
                 .iter()
                 .map(|source| source.to_string())
                 .collect(),
@@ -1063,8 +1061,11 @@ fn remove_pre_tool_use_markers(settings_path: &Path, markers: &[&str]) -> Result
         .and_then(|value| value.as_array_mut())
     {
         let before = pre_tool_use.len();
-        pre_tool_use
-            .retain(|entry| !markers.iter().any(|marker| entry_contains_hook(entry, marker)));
+        pre_tool_use.retain(|entry| {
+            !markers
+                .iter()
+                .any(|marker| entry_contains_hook(entry, marker))
+        });
         if pre_tool_use.len() != before {
             changed = true;
         }
@@ -1249,7 +1250,7 @@ struct ClientSetupState {
     /// User opted RTK out via the tool status toggle. When true, bootstrap and
     /// client setup skip re-adding the RTK PATH export and Claude Code hook.
     #[serde(default)]
-rtk_disabled: bool,
+    rtk_disabled: bool,
     #[serde(default)]
     switchboard_mode: Option<SwitchboardMode>,
 }
@@ -2041,7 +2042,10 @@ fn codex_sqlite_store_expected() -> bool {
 /// Anything else -> `None`.
 fn codex_store_version(path: &Path) -> Option<u32> {
     let name = path.file_name()?.to_str()?;
-    name.strip_prefix("state_")?.strip_suffix(".sqlite")?.parse().ok()
+    name.strip_prefix("state_")?
+        .strip_suffix(".sqlite")?
+        .parse()
+        .ok()
 }
 
 /// Discover every `state_<N>.sqlite` store under the known Codex dirs, with the
@@ -3557,18 +3561,19 @@ mod tests {
 
     use serde_json::json;
 
-    use crate::models::{ClientConnectorSupportStatus, ClientHealth, ClientStatus};
+    use crate::models::{
+        ClientConnectorSupportStatus, ClientHealth, ClientStatus, SwitchboardMode,
+    };
 
     use super::{
-        build_headroom_markitdown_hook, build_markitdown_codex_nudge, build_markitdown_office_nudge,
-        build_headroom_rtk_hook, claude_code_user_state_exists,
-        claude_hook_present_in_value, remove_pre_tool_use_markers,
-        default_shell_targets_for_family, entry_contains_hook, find_on_path_entries,
-        list_client_connectors, normalize_setup_state, normalized_setup_id, nvm_binary_candidates,
-        parse_json_object, codex_home, codex_sqlite_store_expected, codex_store_version,
-        discover_codex_state_dbs, remove_managed_block,
-        retag_codex_thread_providers, retag_codex_threads_to_headroom, retag_one_codex_db,
-        serialize_paths, shell_block_contains_in_files,
+        build_headroom_markitdown_hook, build_headroom_rtk_hook, build_markitdown_codex_nudge,
+        build_markitdown_office_nudge, claude_code_user_state_exists, claude_hook_present_in_value,
+        codex_home, codex_sqlite_store_expected, codex_store_version,
+        default_shell_targets_for_family, discover_codex_state_dbs, entry_contains_hook,
+        find_on_path_entries, list_client_connectors, normalize_setup_state, normalized_setup_id,
+        nvm_binary_candidates, parse_json_object, remove_managed_block,
+        remove_pre_tool_use_markers, retag_codex_thread_providers, retag_codex_threads_to_headroom,
+        retag_one_codex_db, serialize_paths, shell_block_contains_in_files,
         shell_block_contains_text_in_files, shell_double_quote, strip_headroom_hook_from_settings,
         upsert_managed_block, write_file_if_changed, ClientSetupState, ShellFamily,
         PLANNED_CLIENT_SPECS,
@@ -3596,8 +3601,8 @@ mod tests {
                 ("codex".into(), vec!["/Users/test/.bash_profile".into()]),
                 ("claude_code".into(), vec!["/Users/test/.bashrc".into()]),
             ]),
-        rtk_disabled: false,
-        switchboard_mode: Some(SwitchboardMode::Full),
+            rtk_disabled: false,
+            switchboard_mode: Some(SwitchboardMode::Full),
         };
 
         let normalized = normalize_setup_state(state);
@@ -3607,9 +3612,9 @@ mod tests {
         assert!(normalized.configured_clients.contains_key("codex_cli"));
         assert!(!normalized.configured_clients.contains_key("codex_gui"));
 
-    assert!(normalized.remembered_clients.contains_key("claude_code"));
-    assert!(normalized.remembered_clients.contains_key("codex"));
-    assert_eq!(normalized.switchboard_mode, Some(SwitchboardMode::Full));
+        assert!(normalized.remembered_clients.contains_key("claude_code"));
+        assert!(normalized.remembered_clients.contains_key("codex"));
+        assert_eq!(normalized.switchboard_mode, Some(SwitchboardMode::Full));
 
         assert!(normalized.managed_shell_files.contains_key("claude_code"));
         assert!(normalized.managed_shell_files.contains_key("codex_cli"));
@@ -3632,12 +3637,16 @@ mod tests {
             ids,
             BTreeSet::from([
                 "aider",
+                "amazon_q",
                 "continue",
                 "cursor",
                 "gemini_cli",
                 "goose",
                 "grok_cli",
                 "opencode",
+                "qwen_code",
+                "windsurf",
+                "zed_ai",
             ])
         );
     }
@@ -3846,8 +3855,8 @@ mod tests {
         )
         .expect("write settings");
 
-        let changed =
-            remove_pre_tool_use_markers(&settings, &["headroom-markitdown-read.sh"]).expect("strip");
+        let changed = remove_pre_tool_use_markers(&settings, &["headroom-markitdown-read.sh"])
+            .expect("strip");
         assert!(changed);
 
         let after: serde_json::Value =
@@ -4807,7 +4816,10 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             "RTK binary must be absent for this test"
         );
         let state = super::load_setup_state();
-        assert!(!state.rtk_disabled, "rtk_disabled stays false when untoggled");
+        assert!(
+            !state.rtk_disabled,
+            "rtk_disabled stays false when untoggled"
+        );
 
         let verification =
             super::verify_client_setup("claude_code").expect("verify_client_setup succeeds");
@@ -4851,7 +4863,10 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
         let agents = home.path().join(".codex").join("AGENTS.md");
         let body = fs::read_to_string(&agents).expect("AGENTS.md written");
-        assert!(body.contains("Headroom RTK"), "nudge heading present: {body}");
+        assert!(
+            body.contains("Headroom RTK"),
+            "nudge heading present: {body}"
+        );
         assert!(
             body.contains(&rtk.display().to_string()),
             "nudge references the managed rtk path: {body}"
@@ -5110,7 +5125,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
-fn apply_codex_omits_requires_openai_auth_for_api_key_users() {
+    fn apply_codex_omits_requires_openai_auth_for_api_key_users() {
         let home = TestHome::new();
         fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
         let codex_dir = home.path().join(".codex");
@@ -5126,19 +5141,19 @@ fn apply_codex_omits_requires_openai_auth_for_api_key_users() {
         assert!(
             !toml.contains("requires_openai_auth"),
             "API-key users must not be forced into an OpenAI OAuth login (#406), got:\n{toml}"
-);
-}
+        );
+    }
 
-#[test]
-#[serial_test::serial]
-fn apply_codex_replaces_unmarked_legacy_headroom_provider_table() {
-let home = TestHome::new();
-fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
-let codex_dir = home.path().join(".codex");
-fs::create_dir_all(&codex_dir).unwrap();
-fs::write(
-codex_dir.join("config.toml"),
-"model_provider = \"headroom\"\n\
+    #[test]
+    #[serial_test::serial]
+    fn apply_codex_replaces_unmarked_legacy_headroom_provider_table() {
+        let home = TestHome::new();
+        fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
+        let codex_dir = home.path().join(".codex");
+        fs::create_dir_all(&codex_dir).unwrap();
+        fs::write(
+            codex_dir.join("config.toml"),
+            "model_provider = \"headroom\"\n\
 model = \"gpt-5.5\"\n\n\
 [model_providers.headroom]\n\
 name = \"OpenAI via old Headroom proxy\"\n\
@@ -5146,44 +5161,44 @@ base_url = \"http://127.0.0.1:8787/v1\"\n\
 supports_websockets = true\n\n\
 [features]\n\
 js_repl = false\n",
-)
-.unwrap();
+        )
+        .unwrap();
 
-super::apply_client_setup("codex").expect("apply_client_setup repairs stale provider");
-let toml = fs::read_to_string(codex_dir.join("config.toml")).unwrap();
-let parsed: toml::Value = toml.parse().expect("repaired config parses");
+        super::apply_client_setup("codex").expect("apply_client_setup repairs stale provider");
+        let toml = fs::read_to_string(codex_dir.join("config.toml")).unwrap();
+        let parsed: toml::Value = toml.parse().expect("repaired config parses");
 
-assert_eq!(
-toml.matches("[model_providers.headroom]").count(),
-1,
-"stale provider table should be replaced, got:\n{toml}"
-);
-assert!(
-!toml.contains("127.0.0.1:8787"),
-"stale proxy port should be removed, got:\n{toml}"
-);
-assert_eq!(
-parsed
-.get("model_providers")
-.and_then(|providers| providers.get("headroom"))
-.and_then(|headroom| headroom.get("base_url"))
-.and_then(|value| value.as_str()),
-Some(super::HEADROOM_OPENAI_BASE_URL),
-"managed provider should point at current Headroom proxy, got:\n{toml}"
-);
-assert_eq!(
-parsed
-.get("features")
-.and_then(|features| features.get("js_repl"))
-.and_then(|value| value.as_bool()),
-Some(false),
-"unrelated user tables should be preserved, got:\n{toml}"
-);
-}
+        assert_eq!(
+            toml.matches("[model_providers.headroom]").count(),
+            1,
+            "stale provider table should be replaced, got:\n{toml}"
+        );
+        assert!(
+            !toml.contains("127.0.0.1:8787"),
+            "stale proxy port should be removed, got:\n{toml}"
+        );
+        assert_eq!(
+            parsed
+                .get("model_providers")
+                .and_then(|providers| providers.get("headroom"))
+                .and_then(|headroom| headroom.get("base_url"))
+                .and_then(|value| value.as_str()),
+            Some(super::HEADROOM_OPENAI_BASE_URL),
+            "managed provider should point at current Headroom proxy, got:\n{toml}"
+        );
+        assert_eq!(
+            parsed
+                .get("features")
+                .and_then(|features| features.get("js_repl"))
+                .and_then(|value| value.as_bool()),
+            Some(false),
+            "unrelated user tables should be preserved, got:\n{toml}"
+        );
+    }
 
-#[test]
-#[serial_test::serial]
-fn apply_codex_keeps_root_keys_at_root_scope_when_config_ends_in_a_table() {
+    #[test]
+    #[serial_test::serial]
+    fn apply_codex_keeps_root_keys_at_root_scope_when_config_ends_in_a_table() {
         // Regression for the `invalid type: string "headroom", expected a
         // boolean in features` error: a config whose last table is `[features]`
         // (boolean-only values) used to absorb the appended root keys.
@@ -5493,7 +5508,10 @@ fn apply_codex_keeps_root_keys_at_root_scope_when_config_ends_in_a_table() {
     #[test]
     fn codex_store_version_parses_state_filename() {
         assert_eq!(codex_store_version(Path::new("/x/state_5.sqlite")), Some(5));
-        assert_eq!(codex_store_version(Path::new("/x/state_42.sqlite")), Some(42));
+        assert_eq!(
+            codex_store_version(Path::new("/x/state_42.sqlite")),
+            Some(42)
+        );
         assert_eq!(codex_store_version(Path::new("/x/config.toml")), None);
         assert_eq!(codex_store_version(Path::new("/x/state_.sqlite")), None);
         assert_eq!(codex_store_version(Path::new("/x/state_x.sqlite")), None);

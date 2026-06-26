@@ -3418,7 +3418,8 @@ impl ToolManager {
     }
 
     pub fn markitdown_installed(&self) -> bool {
-        self.runtime.tools_dir.join("markitdown.json").exists() && self.markitdown_entrypoint().exists()
+        self.runtime.tools_dir.join("markitdown.json").exists()
+            && self.markitdown_entrypoint().exists()
     }
 
     pub fn install_markitdown(&self) -> Result<()> {
@@ -3557,12 +3558,19 @@ impl ToolManager {
             }
         }
         if !installed_any {
-            bail!("installing the ponytail plugin failed: {}", errors.join("; "));
+            bail!(
+                "installing the ponytail plugin failed: {}",
+                errors.join("; ")
+            );
         }
         if !errors.is_empty() {
-            log::warn!("ponytail installed for some hosts but not all: {}", errors.join("; "));
+            log::warn!(
+                "ponytail installed for some hosts but not all: {}",
+                errors.join("; ")
+            );
         }
-        let version = installed_ponytail_version().unwrap_or_else(|| PONYTAIL_DISPLAY_VERSION.into());
+        let version =
+            installed_ponytail_version().unwrap_or_else(|| PONYTAIL_DISPLAY_VERSION.into());
         self.write_tool_receipt("ponytail", json!({ "version": version, "enabled": true }))?;
         Ok(())
     }
@@ -3595,8 +3603,12 @@ impl ToolManager {
         if !changed_any && !errors.is_empty() {
             bail!("toggling ponytail failed: {}", errors.join("; "));
         }
-        let version = installed_ponytail_version().unwrap_or_else(|| PONYTAIL_DISPLAY_VERSION.into());
-        self.write_tool_receipt("ponytail", json!({ "version": version, "enabled": enabled }))?;
+        let version =
+            installed_ponytail_version().unwrap_or_else(|| PONYTAIL_DISPLAY_VERSION.into());
+        self.write_tool_receipt(
+            "ponytail",
+            json!({ "version": version, "enabled": enabled }),
+        )?;
         Ok(())
     }
 
@@ -3752,7 +3764,10 @@ fn codex_ponytail_present() -> bool {
 
 fn installed_ponytail_version() -> Option<String> {
     let plugins = ponytail_installed_plugins()?;
-    let installs = plugins.get("plugins")?.get(PONYTAIL_PLUGIN_REF)?.as_array()?;
+    let installs = plugins
+        .get("plugins")?
+        .get(PONYTAIL_PLUGIN_REF)?
+        .as_array()?;
     installs
         .first()?
         .get("version")?
@@ -5451,9 +5466,9 @@ mod tests {
         extract_required_pydantic_core_version, format_all_foreign_bail,
         format_already_running_bail, headroom_entrypoint_startup_args,
         headroom_python_startup_args, looks_like_corrupt_venv_error, parse_major_minor_patch,
-        parse_pid_from_lsof_detail, probe_backend_readyz_ok, proxy_argv_contains_expected_flags,
-        path_with_binary_dir, read_headroom_learn_metadata_from_path, receipt_requires_atomic_rebuild,
-        reclaim_orphan_proxy, redact_sensitive,
+        parse_pid_from_lsof_detail, path_with_binary_dir, probe_backend_readyz_ok,
+        proxy_argv_contains_expected_flags, read_headroom_learn_metadata_from_path,
+        receipt_requires_atomic_rebuild, reclaim_orphan_proxy, redact_sensitive,
         requirements_lock_sha, rtk_distribution_artifact, run_command, sanitize_log_variant,
         sha256_bytes, summarize_kompress_prefetch_failure, verify_sha256_file, wait_for_port_free,
         CommandFailure, HeadroomRelease, ManagedRuntime, PipOutputCapture, ToolManager,
@@ -7387,7 +7402,10 @@ after
         let _ = fs::remove_dir_all(&root);
 
         install.expect("install_ponytail should succeed");
-        assert!(installed, "ponytail_installed() should be true after install");
+        assert!(
+            installed,
+            "ponytail_installed() should be true after install"
+        );
         smoke_while_installed.expect("smoke_test_ponytail should pass while installed");
         uninstall.expect("uninstall_ponytail should succeed");
         assert!(gone, "ponytail_installed() should be false after uninstall");
