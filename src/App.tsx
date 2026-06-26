@@ -185,6 +185,7 @@ import {
 import {
   buildSavingsCalculatorBreakdown,
   buildSavingsCalculatorSummary,
+  formatSavingsCalculatorShareText,
   type SavingsCalculatorScope
 } from "./lib/savingsCalculator";
 import { ActivityFeed } from "./components/ActivityFeed";
@@ -621,6 +622,20 @@ const savedLabel = compactNumber(summary.savedTokens);
       ? "Waiting for usage"
       : `${percent1(summary.savingsPct)}%`;
 
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
+
+  async function copySavingsSummary() {
+    if (!navigator.clipboard) {
+      setCopyNotice("Clipboard unavailable.");
+      return;
+    }
+
+    await navigator.clipboard.writeText(
+      formatSavingsCalculatorShareText(summary, breakdownRows),
+    );
+    setCopyNotice("Copied summary.");
+  }
+
   return (
     <article className="soft-card savings-calculator">
       <header className="savings-calculator__header">
@@ -651,6 +666,16 @@ const savedLabel = compactNumber(summary.savedTokens);
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          className="savings-calculator__copy"
+          onClick={copySavingsSummary}
+          disabled={!hasUsage}
+          title="Copy savings summary"
+        >
+          <Copy aria-hidden="true" weight="bold" />
+          <span>{copyNotice ?? "Copy"}</span>
+        </button>
       </header>
       <div className="savings-calculator__body">
         <div className="savings-calculator__hero">

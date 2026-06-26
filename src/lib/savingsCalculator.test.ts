@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSavingsCalculatorBreakdown,
   buildSavingsCalculatorSummary,
+  formatSavingsCalculatorShareText,
   type SavingsCalculatorScope,
 } from "./savingsCalculator";
 import type { DashboardState } from "./types";
@@ -68,7 +69,9 @@ describe("savings calculator", () => {
       expect(summary.scope).toBe(scope);
       expect(summary.savedTokens).toBe(scope === "session" ? 300 : 2_000);
       expect(summary.savedUsd).toBe(scope === "session" ? 0.75 : 4.5);
-      expect(summary.conservativeSavedUsd).toBe(scope === "session" ? 0.375 : 2.25);
+      expect(summary.conservativeSavedUsd).toBe(
+        scope === "session" ? 0.375 : 2.25,
+      );
       expect(summary.requests).toBe(scope === "session" ? 2 : 10);
       expect(summary.savingsPct).toBe(20);
     },
@@ -90,84 +93,153 @@ describe("savings calculator", () => {
       "overall",
     );
 
-  expect(summary.savingsPct).toBeNull();
-  expect(summary.beforeTokens).toBe(0);
-});
-
-it("breaks down overall savings by runtime, RTK, and repo context", () => {
-  const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "overall", {
-    runtimeStatus: {
-      platform: "darwin",
-      supportTier: "supported",
-      installed: true,
-      running: true,
-      starting: false,
-      paused: false,
-      autoPaused: false,
-      proxyReachable: true,
-      headroomLearnSupported: true,
-      rtk: {
-        installed: true,
-        enabled: true,
-        pathConfigured: true,
-        hookConfigured: true,
-        totalCommands: 12,
-        totalSaved: 900,
-        avgSavingsPct: 72,
-      },
-    },
-    repoSavings: {
-      fullScanTokens: 10_000,
-      bestPackTokens: 2_000,
-      bestPackTokensAvoided: 8_000,
-      bestPackSavingsPct: 80,
-      allPacksTokens: 4_000,
-      allPacksTokensAvoided: 6_000,
-      allPacksSavingsPct: 60,
-      bestPack: {
-        id: "implementation",
-        title: "Implementation Pack",
-        purpose: "Feature work",
-        estimatedTokens: 2_000,
-        savingsVsFullScanPct: 80,
-        files: [],
-      },
-    },
+    expect(summary.savingsPct).toBeNull();
+    expect(summary.beforeTokens).toBe(0);
   });
 
-  expect(rows.map((row) => row.id)).toEqual([
-    "headroom",
-    "rtk",
-    "repo_intelligence",
-  ]);
-  expect(rows[0].savedUsd).toBe(4.5);
-  expect(rows[1].savedTokens).toBe(900);
-  expect(rows[2].detail).toContain("Implementation Pack");
-});
-
-it("does not show lifetime RTK totals in the session breakdown", () => {
-  const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "session", {
-    runtimeStatus: {
-      platform: "darwin",
-      supportTier: "supported",
-      installed: true,
-      running: true,
-      starting: false,
-      paused: false,
-      autoPaused: false,
-      proxyReachable: true,
-      headroomLearnSupported: true,
-      rtk: {
-        installed: true,
-        enabled: true,
-        pathConfigured: true,
-        hookConfigured: true,
-        totalCommands: 12,
-        totalSaved: 900,
+  it("breaks down overall savings by runtime, RTK, and repo context", () => {
+    const rows = buildSavingsCalculatorBreakdown(
+      dashboardFixture(),
+      "overall",
+      {
+        runtimeStatus: {
+          platform: "darwin",
+          supportTier: "supported",
+          installed: true,
+          running: true,
+          starting: false,
+          paused: false,
+          autoPaused: false,
+          proxyReachable: true,
+          headroomLearnSupported: true,
+          rtk: {
+            installed: true,
+            enabled: true,
+            pathConfigured: true,
+            hookConfigured: true,
+            totalCommands: 12,
+            totalSaved: 900,
+            avgSavingsPct: 72,
+          },
+        },
+        repoSavings: {
+          fullScanTokens: 10_000,
+          bestPackTokens: 2_000,
+          bestPackTokensAvoided: 8_000,
+          bestPackSavingsPct: 80,
+          allPacksTokens: 4_000,
+          allPacksTokensAvoided: 6_000,
+          allPacksSavingsPct: 60,
+          bestPack: {
+            id: "implementation",
+            title: "Implementation Pack",
+            purpose: "Feature work",
+            estimatedTokens: 2_000,
+            savingsVsFullScanPct: 80,
+            files: [],
+          },
+        },
       },
-    },
+    );
+
+    expect(rows.map((row) => row.id)).toEqual([
+      "headroom",
+      "rtk",
+      "repo_intelligence",
+    ]);
+    expect(rows[0].savedUsd).toBe(4.5);
+    expect(rows[1].savedTokens).toBe(900);
+    expect(rows[2].detail).toContain("Implementation Pack");
   });
 
-  expect(rows.map((row) => row.id)).toEqual(["headroom"]);
-});
+  it("does not show lifetime RTK totals in the session breakdown", () => {
+    const rows = buildSavingsCalculatorBreakdown(
+      dashboardFixture(),
+      "session",
+      {
+        runtimeStatus: {
+          platform: "darwin",
+          supportTier: "supported",
+          installed: true,
+          running: true,
+          starting: false,
+          paused: false,
+          autoPaused: false,
+          proxyReachable: true,
+          headroomLearnSupported: true,
+          rtk: {
+            installed: true,
+            enabled: true,
+            pathConfigured: true,
+            hookConfigured: true,
+            totalCommands: 12,
+            totalSaved: 900,
+          },
+        },
+      },
+    );
+
+    expect(rows.map((row) => row.id)).toEqual(["headroom"]);
+  });
+
+  it("formats a copyable session savings summary", () => {
+    const dashboard = dashboardFixture();
+    const summary = buildSavingsCalculatorSummary(dashboard, "session");
+    const rows = buildSavingsCalculatorBreakdown(dashboard, "session");
+    const text = formatSavingsCalculatorShareText(summary, rows);
+
+    expect(text).toContain("Mac AI Switchboard savings (current app session)");
+    expect(text).toContain("Saved: 300 tokens / $0.75");
+    expect(text).toContain("- Headroom: 300 tokens / $0.75");
+  });
+
+  it("formats a copyable overall savings summary with local sources", () => {
+    const dashboard = dashboardFixture();
+    const summary = buildSavingsCalculatorSummary(dashboard, "overall");
+    const rows = buildSavingsCalculatorBreakdown(dashboard, "overall", {
+      runtimeStatus: {
+        platform: "darwin",
+        supportTier: "supported",
+        installed: true,
+        running: true,
+        starting: false,
+        paused: false,
+        autoPaused: false,
+        proxyReachable: true,
+        headroomLearnSupported: true,
+        rtk: {
+          installed: true,
+          enabled: true,
+          pathConfigured: true,
+          hookConfigured: true,
+          totalCommands: 12,
+          totalSaved: 900,
+          avgSavingsPct: 72,
+        },
+      },
+      repoSavings: {
+        fullScanTokens: 10_000,
+        bestPackTokens: 2_500,
+        bestPackTokensAvoided: 7_500,
+        bestPackSavingsPct: 75,
+        allPacksTokens: 4_000,
+        allPacksTokensAvoided: 6_000,
+        allPacksSavingsPct: 60,
+        bestPack: {
+          id: "implementation",
+          title: "Implementation pack",
+          purpose: "Build next slice",
+          estimatedTokens: 2_500,
+          savingsVsFullScanPct: 75,
+          files: [],
+        },
+      },
+    });
+    const text = formatSavingsCalculatorShareText(summary, rows);
+
+    expect(text).toContain("Mac AI Switchboard savings (overall history)");
+    expect(text).toContain("Saved: 2,000 tokens / $4.50");
+    expect(text).toContain("- RTK: 900 tokens");
+    expect(text).toContain("- Repo Intelligence: 7,500 tokens");
+  });
 });

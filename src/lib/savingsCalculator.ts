@@ -35,6 +35,30 @@ export interface SavingsCalculatorBreakdownOptions {
   repoSavings?: RepoSavingsEstimate | null;
 }
 
+function formatUsd(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatTokens(value: number) {
+  return new Intl.NumberFormat("en-US").format(Math.round(value));
+}
+
+function formatPercent(value: number | null) {
+  if (value === null) {
+    return "waiting for usage";
+  }
+
+  return `${new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value)}%`;
+}
+
 export function buildSavingsCalculatorSummary(
   dashboard: DashboardState,
   scope: SavingsCalculatorScope,
@@ -111,7 +135,10 @@ export function buildSavingsCalculatorBreakdown(
   ];
 
   const rtkSaved = Math.max(0, options.runtimeStatus?.rtk.totalSaved ?? 0);
-  const rtkCommands = Math.max(0, options.runtimeStatus?.rtk.totalCommands ?? 0);
+  const rtkCommands = Math.max(
+    0,
+    options.runtimeStatus?.rtk.totalCommands ?? 0,
+  );
   if (scope === "overall" && rtkSaved > 0) {
     rows.push({
       id: "rtk",
@@ -126,7 +153,10 @@ export function buildSavingsCalculatorBreakdown(
     });
   }
 
-  const repoSaved = Math.max(0, options.repoSavings?.bestPackTokensAvoided ?? 0);
+  const repoSaved = Math.max(
+    0,
+    options.repoSavings?.bestPackTokensAvoided ?? 0,
+  );
   if (repoSaved > 0) {
     rows.push({
       id: "repo_intelligence",
@@ -139,4 +169,28 @@ export function buildSavingsCalculatorBreakdown(
   }
 
   return rows;
+}
+
+export function formatSavingsCalculatorShareText(
+  summary: SavingsCalculatorSummary,
+  rows: SavingsCalculatorBreakdownRow[],
+) {
+  const scopeLabel =
+    summary.scope === "session" ? "current app session" : "overall history";
+  const sourceLines = rows.map((row) => {
+    const usdPart =
+      row.savedUsd === null ? "" : ` / ${formatUsd(row.savedUsd)}`;
+    return `- ${row.label}: ${formatTokens(row.savedTokens)} tokens${usdPart}`;
+  });
+
+  return [
+    `Mac AI Switchboard savings (${scopeLabel})`,
+    `Saved: ${formatTokens(summary.savedTokens)} tokens / ${formatUsd(summary.savedUsd)}`,
+    `Requests: ${formatTokens(summary.requests)}`,
+    `Reduction: ${formatPercent(summary.savingsPct)}`,
+    `Likely at least: ${formatUsd(summary.conservativeSavedUsd)}`,
+    `Equation: before ${formatTokens(summary.beforeTokens)} - sent ${formatTokens(summary.sentTokens)} = saved ${formatTokens(summary.savedTokens)}`,
+    "Sources:",
+    ...(sourceLines.length > 0 ? sourceLines : ["- Waiting for usage"]),
+  ].join("\n");
 }
