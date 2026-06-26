@@ -7,6 +7,7 @@ import {
   estimateRepoIntelligenceSavings,
   estimateRepoTokens,
   formatRepoAgentManifestJson,
+  formatRepoAgentHandoffMarkdown,
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
   isSecretLikeRepoPath,
@@ -140,7 +141,7 @@ expect(markdown).toContain("## Implementation Pack");
   expect(markdown).not.toContain("## Verification Pack");
 });
 
-it("formats an agent-readable manifest for external coding tools", () => {
+  it("formats an agent-readable manifest for external coding tools", () => {
   const summary = buildRepoIntelligenceSummary([
     { path: "src/App.tsx", bytes: 4000 },
     { path: "src/App.test.tsx", bytes: 2000 },
@@ -180,8 +181,31 @@ expect(manifest.graph.dependencyHubCount).toBe(1);
 
   const parsed = JSON.parse(formatRepoAgentManifestJson(summary, "2026-06-25T10:00:00Z"));
   expect(parsed.packs[0].estimatedTokensAvoided).toBeGreaterThan(0);
-  expect(JSON.stringify(parsed)).not.toContain(".env.local");
-});
+    expect(JSON.stringify(parsed)).not.toContain(".env.local");
+  });
+
+  it("formats agent-specific bounded handoffs for popular coding tools", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+      { path: ".env.local", bytes: 300 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+
+    const gemini = formatRepoAgentHandoffMarkdown(summary, "gemini");
+    expect(gemini).toContain("# Gemini CLI Handoff");
+    expect(gemini).toContain("Selected pack: Implementation Pack");
+    expect(gemini).toContain("Secret-like paths");
+    expect(gemini).toContain("src/App.tsx");
+    expect(gemini).not.toContain(".env.local");
+
+    const cursor = formatRepoAgentHandoffMarkdown(summary, "cursor");
+    expect(cursor).toContain("# Cursor Handoff");
+    expect(cursor).toContain("Selected pack: Handoff Pack");
+    expect(cursor).toContain("docs/install.md");
+  });
 
 it("calculates best-pack and all-pack token savings", () => {
     const summary = buildRepoIntelligenceSummary([

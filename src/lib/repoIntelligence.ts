@@ -110,6 +110,75 @@ export interface RepoAgentManifest {
   };
 }
 
+export type RepoAgentHandoffTarget =
+  | "gemini"
+  | "opencode"
+  | "aider"
+  | "goose"
+  | "cursor"
+  | "continue"
+  | "grok";
+
+export interface RepoAgentHandoffProfile {
+  id: RepoAgentHandoffTarget;
+  label: string;
+  toolKind: "cli" | "editor" | "chat";
+  defaultPackId: "implementation" | "verification" | "handoff";
+  guidance: string;
+}
+
+export const repoAgentHandoffProfiles: RepoAgentHandoffProfile[] = [
+  {
+    id: "gemini",
+    label: "Gemini CLI",
+    toolKind: "cli",
+    defaultPackId: "implementation",
+    guidance: "Paste this before the task. Keep provider routing manual.",
+  },
+  {
+    id: "opencode",
+    label: "OpenCode",
+    toolKind: "cli",
+    defaultPackId: "implementation",
+    guidance: "Paste this into the session as bounded repo context before editing.",
+  },
+  {
+    id: "aider",
+    label: "Aider",
+    toolKind: "cli",
+    defaultPackId: "implementation",
+    guidance: "Use this to choose files intentionally before adding them to an Aider chat.",
+  },
+  {
+    id: "goose",
+    label: "Goose",
+    toolKind: "cli",
+    defaultPackId: "verification",
+    guidance: "Use this for test, build, and release-check tasks with minimal context.",
+  },
+  {
+    id: "cursor",
+    label: "Cursor",
+    toolKind: "editor",
+    defaultPackId: "handoff",
+    guidance: "Paste into the editor assistant as read-only project context.",
+  },
+  {
+    id: "continue",
+    label: "Continue",
+    toolKind: "editor",
+    defaultPackId: "handoff",
+    guidance: "Paste into Continue chat as read-only context; do not auto-write config.",
+  },
+  {
+    id: "grok",
+    label: "Grok / xAI CLI",
+    toolKind: "chat",
+    defaultPackId: "implementation",
+    guidance: "Use this as compact task context where local CLI integration remains manual.",
+  },
+];
+
 const repoAgentRecipeTemplates = [
   {
     id: "cli_implementation",
@@ -446,6 +515,49 @@ export function formatRepoAgentManifestJson(
   generatedAt?: string,
 ): string {
   return `${JSON.stringify(buildRepoAgentManifest(summary, generatedAt), null, 2)}\n`;
+}
+
+export function formatRepoAgentHandoffMarkdown(
+  summary: RepoIntelligenceSummary,
+  target: RepoAgentHandoffTarget,
+  packId?: string,
+): string {
+  const profile = repoAgentHandoffProfiles.find((candidate) => candidate.id === target);
+  if (!profile) {
+    throw new Error(`Unknown agent handoff target: ${target}`);
+  }
+
+  const selectedPack =
+    summary.packs.find((pack) => pack.id === (packId ?? profile.defaultPackId)) ??
+    summary.packs.find((pack) => pack.id === profile.defaultPackId) ??
+    summary.packs[0];
+
+  if (!selectedPack) {
+    throw new Error("No repo intelligence packs are available.");
+  }
+
+  const repoLabel = summary.repoRoot ?? "current repository";
+  const packMarkdown = formatSingleRepoContextPackMarkdown(summary, selectedPack);
+
+  return [
+    `# ${profile.label} Handoff`,
+    "",
+    `Repository: ${repoLabel}`,
+    `Tool kind: ${profile.toolKind}`,
+    `Selected pack: ${selectedPack.title}`,
+    `Estimated context tokens: ${selectedPack.estimatedTokens.toLocaleString()}`,
+    `Estimated tokens avoided: ${Math.max(
+      0,
+      summary.estimatedFullScanTokens - selectedPack.estimatedTokens,
+    ).toLocaleString()}`,
+    "",
+    "## Use",
+    profile.guidance,
+    "Treat this as read-only planning context unless the user explicitly asks for edits.",
+    "Secret-like paths and generated folders are excluded from this handoff.",
+    "",
+    packMarkdown,
+  ].join("\n");
 }
 
 export function estimateRepoIntelligenceSavings(
