@@ -6,7 +6,8 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 
 use crate::models::{
-    RepoContextPack, RepoFileRole, RepoFileSignal, RepoGraphNode, RepoGraphSummary,
+    RepoContextPack, RepoFileRole, RepoFileSignal, RepoGraphEdge, RepoGraphEdgeKind, RepoGraphNode,
+    RepoGraphSummary,
     RepoIntelligenceSummary,
 };
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs};
@@ -323,6 +324,7 @@ fn build_repo_graph_summary(files: &[RepoFileSignal]) -> RepoGraphSummary {
         .filter(|signal| matches!(signal.role, RepoFileRole::Source | RepoFileRole::Config))
         .cloned()
         .collect::<Vec<_>>();
+    let import_edges = build_repo_graph_edges(&included);
 
     RepoGraphSummary {
         top_directories: summarize_graph_nodes(&included, top_directory, 6),
@@ -359,8 +361,201 @@ fn build_repo_graph_summary(files: &[RepoFileSignal]) -> RepoGraphSummary {
             .take(12)
             .cloned()
             .collect(),
+        reverse_dependency_hubs: build_reverse_dependency_hubs(&included, &import_edges),
+        import_edges,
     }
 }
+
+fn build_repo_graph_edges(files: &[RepoFileSignal]) -> Vec<RepoGraphEdge> {
+    let dependency_hubs = files
+        .iter()
+        .filter(|signal| is_dependency_hub(signal))
+        .cloned()
+        .collect::<Vec<_>>();
+    let config_hubs = files
+        .iter()
+        .filter(|signal| matches!(signal.role, RepoFileRole::Config))
+        .cloned()
+        .collect::<Vec<_>>();
+    let mut edges = Vec::new();
+
+    for file in files {
+        if matches!(file.role, RepoFileRole::Test) {
+            if let Some(target) = find_test_target(file, files) {
+                push_graph_edge(
+                    &mut edges,
+                    RepoGraphEdge {
+                        from: file.path.clone(),
+                        to: target.path.clone(),
+                        kind: RepoGraphEdgeKind::TestToSource,
+                        reason: "test filename matches source module".into(),
+                    },
+                );
+            }
+        }
+
+        if is_likely_entrypoint(file) {
+            if let Some(config) = find_nearest_config_hub(file, &config_hubs) {
+                push_graph_edge(
+                    &mut edges,
+                    RepoGraphEdge {
+                        from: file.path.clone(),
+                        to: config.path.clone(),
+                        kind: RepoGraphEdgeKind::EntrypointToConfig,
+                        reason: "entrypoint shares closest config surface".into(),
+                    },
+                );
+            }
+        }
+
+        if matches!(file.role, RepoFileRole::Source) {
+            if let Some(dependency_hub) = find_nearest_dependency_hub(file, &dependency_hubs) {
+                push_graph_edge(
+                    &mut edges,
+                    RepoGraphEdge {
+                        from: file.path.clone(),
+                        to: dependency_hub.path.clone(),
+                        kind: RepoGraphEdgeKind::SourceToDependencyHub,
+                        reason: "source file belongs to dependency hub scope".into(),
+                    },
+                );
+            }
+        }
+    }
+
+    edges
+}
+
+fn push_graph_edge(edges: &mut Vec<RepoGraphEdge>, edge: RepoGraphEdge) {
+    if edge.from == edge.to || edges.len() >= 24 {
+        return;
+    }
+    if edges
+        .iter()
+        .any(|existing| existing.from == edge.from && existing.to == edge.to && existing.kind == edge.kind)
+    {
+        return;
+    }
+    edges.push(edge);
+}
+
+fn build_reverse_dependency_hubs(
+    files: &[RepoFileSignal],
+    edges: &[RepoGraphEdge],
+) -> Vec<RepoGraphNode> {
+    let mut inbound: BTreeMap<String, RepoGraphNode> = BTreeMap::new();
+    for edge in edges {
+        let target = files.iter().find(|file| file.path == edge.to);
+        let node = inbound.entry(edge.to.clone()).or_insert_with(|| RepoGraphNode {
+            label: edge.to.clone(),
+            count: 0,
+            estimated_tokens: target.map(|file| file.estimated_tokens).unwrap_or(0),
+            examples: Vec::new(),
+        });
+        node.count += 1;
+        if node.examples.len() < 4 {
+            node.examples.push(edge.from.clone());
+        }
+    }
+
+    let mut nodes = inbound.into_values().collect::<Vec<_>>();
+    nodes.sort_by(|a, b| {
+        b.count
+            .cmp(&a.count)
+            .then_with(|| b.estimated_tokens.cmp(&a.estimated_tokens))
+            .then_with(|| a.label.cmp(&b.label))
+    });
+    nodes.truncate(12);
+    nodes
+}
+
+fn find_test_target(file: &RepoFileSignal, files: &[RepoFileSignal]) -> Option<RepoFileSignal> {
+    test_target_candidates(&file.path)
+        .into_iter()
+        .find_map(|candidate| files.iter().find(|file| file.path == candidate).cloned())
+}
+
+fn test_target_candidates(path: &str) -> Vec<String> {
+    let extension = extension_for_path(path);
+    let base = extension
+        .strip_prefix('.')
+        .and_then(|_| path.strip_suffix(&extension))
+        .unwrap_or(path);
+    let Some(base) = base
+        .strip_suffix(".test")
+        .or_else(|| base.strip_suffix(".spec"))
+    else {
+        return Vec::new();
+    };
+    let mut extensions = vec![extension, ".tsx".into(), ".ts".into(), ".jsx".into(), ".js".into(), ".rs".into()];
+    extensions.sort();
+    extensions.dedup();
+    extensions
+        .into_iter()
+        .filter(|extension| !extension.is_empty())
+        .map(|extension| format!("{base}{extension}"))
+        .collect()
+}
+
+fn find_nearest_config_hub(
+    file: &RepoFileSignal,
+    config_hubs: &[RepoFileSignal],
+) -> Option<RepoFileSignal> {
+    nearest_scoped_file(file, config_hubs).or_else(|| {
+        config_hubs
+            .iter()
+            .find(|candidate| !candidate.path.contains('/'))
+            .cloned()
+    })
+}
+
+fn find_nearest_dependency_hub(
+    file: &RepoFileSignal,
+    dependency_hubs: &[RepoFileSignal],
+) -> Option<RepoFileSignal> {
+    nearest_scoped_file(file, dependency_hubs).or_else(|| {
+        dependency_hubs
+            .iter()
+            .find(|candidate| !candidate.path.contains('/'))
+            .cloned()
+    })
+}
+
+fn nearest_scoped_file(file: &RepoFileSignal, candidates: &[RepoFileSignal]) -> Option<RepoFileSignal> {
+    candidates
+        .iter()
+        .filter(|candidate| candidate.path != file.path)
+        .filter_map(|candidate| {
+            let score = shared_path_prefix_score(&file.path, &candidate.path);
+            (score > 0).then_some((candidate, score))
+        })
+        .min_by(|(left, left_score), (right, right_score)| {
+            right_score
+                .cmp(left_score)
+                .then_with(|| left.path.split('/').count().cmp(&right.path.split('/').count()))
+                .then_with(|| left.path.cmp(&right.path))
+        })
+        .map(|(candidate, _)| candidate.clone())
+}
+
+fn shared_path_prefix_score(left: &str, right: &str) -> usize {
+    if !right.contains('/') && left.contains('/') {
+        return 1;
+    }
+    left.split('/')
+        .zip(right.split('/'))
+        .take_while(|(left, right)| left == right)
+        .count()
+}
+
+fn extension_for_path(path: &str) -> String {
+    Path::new(path)
+        .extension()
+        .and_then(OsStr::to_str)
+        .map(|extension| format!(".{extension}"))
+        .unwrap_or_default()
+}
+
 
 fn summarize_graph_nodes<F>(files: &[RepoFileSignal], label_for_file: F, limit: usize) -> Vec<RepoGraphNode>
 where
@@ -596,6 +791,20 @@ mod tests {
             .dependency_hubs
             .iter()
             .any(|file| file.path == "package-lock.json"));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/App.test.tsx"
+                && edge.to == "src/App.tsx"
+                && matches!(edge.kind, RepoGraphEdgeKind::TestToSource)
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/main.tsx"
+                && edge.to == "package.json"
+                && matches!(edge.kind, RepoGraphEdgeKind::EntrypointToConfig)
+        }));
+        assert!(graph
+            .reverse_dependency_hubs
+            .iter()
+            .any(|node| node.label == "package.json"));
     }
 
     #[test]

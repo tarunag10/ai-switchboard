@@ -321,6 +321,7 @@ function buildGraphSummary(files) {
   const sourceAndConfig = included.filter(
     (file) => file.role === "source" || file.role === "config",
   );
+  const importEdges = buildGraphEdges(included);
   return {
     topDirectories: summarizeGraphNodes(included, (file) => topDirectory(file.path), 6),
     topLanguages: summarizeGraphNodes(
@@ -331,8 +332,98 @@ function buildGraphSummary(files) {
     entrypoints: sourceAndConfig.filter(isLikelyEntrypoint).slice(0, 12),
     likelyTests: included.filter((file) => file.role === "test").slice(0, 12),
     configHubs: included.filter((file) => file.role === "config").slice(0, 12),
+    dependencyHubs: files.filter(isDependencyHub).slice(0, 12),
+    importEdges,
+    reverseDependencyHubs: buildReverseDependencyHubs(included, importEdges),
   };
 }
+
+function buildGraphEdges(files) {
+  const byPath = new Map(files.map((file) => [file.path, file]));
+  const dependencyHubs = files.filter(isDependencyHub);
+  const configHubs = files.filter((file) => file.role === "config");
+  const edges = [];
+  const pushEdge = (edge) => {
+    if (edge.from === edge.to || edges.length >= 24) return;
+    if (edges.some((existing) => existing.from === edge.from && existing.to === edge.to && existing.kind === edge.kind)) return;
+    edges.push(edge);
+  };
+  for (const file of files) {
+    if (file.role === "test") {
+      const target = findTestTarget(file, byPath);
+      if (target) pushEdge({ from: file.path, to: target.path, kind: "test_to_source", reason: "test filename matches source module" });
+    }
+    if (isLikelyEntrypoint(file)) {
+      const config = findNearestConfigHub(file, configHubs);
+      if (config) pushEdge({ from: file.path, to: config.path, kind: "entrypoint_to_config", reason: "entrypoint shares closest config surface" });
+    }
+    if (file.role === "source") {
+      const dependencyHub = findNearestDependencyHub(file, dependencyHubs);
+      if (dependencyHub) pushEdge({ from: file.path, to: dependencyHub.path, kind: "source_to_dependency_hub", reason: "source file belongs to dependency hub scope" });
+    }
+  }
+  return edges;
+}
+
+function buildReverseDependencyHubs(files, edges) {
+  const byPath = new Map(files.map((file) => [file.path, file]));
+  const inbound = new Map();
+  for (const edge of edges) {
+    const target = byPath.get(edge.to);
+    const node = inbound.get(edge.to) ?? { label: edge.to, count: 0, estimatedTokens: target?.estimatedTokens ?? 0, examples: [] };
+    node.count += 1;
+    if (node.examples.length < 4) node.examples.push(edge.from);
+    inbound.set(edge.to, node);
+  }
+  return [...inbound.values()]
+    .sort((a, b) => b.count - a.count || b.estimatedTokens - a.estimatedTokens || a.label.localeCompare(b.label))
+    .slice(0, 12);
+}
+
+function findTestTarget(testFile, byPath) {
+  return testTargetCandidates(testFile.path).map((candidate) => byPath.get(candidate)).find(Boolean);
+}
+
+function testTargetCandidates(filePath) {
+  const extension = extensionForPath(filePath);
+  const withoutExtension = extension ? filePath.slice(0, -extension.length) : filePath;
+  const base = withoutExtension.replace(/\.(test|spec)$/i, "");
+  if (base === withoutExtension) return [];
+  const extensions = [extension, ".tsx", ".ts", ".jsx", ".js", ".rs"].filter(Boolean);
+  return [...new Set(extensions.map((candidateExtension) => `${base}${candidateExtension}`))];
+}
+
+function findNearestConfigHub(file, configHubs) {
+  return nearestScopedFile(file, configHubs) ?? configHubs.find((candidate) => !candidate.path.includes("/"));
+}
+
+function findNearestDependencyHub(file, dependencyHubs) {
+  return nearestScopedFile(file, dependencyHubs) ?? dependencyHubs.find((candidate) => !candidate.path.includes("/"));
+}
+
+function nearestScopedFile(file, candidates) {
+  return candidates
+    .filter((candidate) => candidate.path !== file.path)
+    .map((candidate) => ({ candidate, score: sharedPathPrefixScore(file.path, candidate.path) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score || a.candidate.path.split("/").length - b.candidate.path.split("/").length || a.candidate.path.localeCompare(b.candidate.path))[0]?.candidate;
+}
+
+function sharedPathPrefixScore(left, right) {
+  const leftParts = left.split("/");
+  const rightParts = right.split("/");
+  let score = 0;
+  while (leftParts[score] && leftParts[score] === rightParts[score]) score += 1;
+  if (!right.includes("/") && leftParts.length > 1) return 1;
+  return score;
+}
+
+function extensionForPath(filePath) {
+  const name = filePath.split("/").pop() ?? filePath;
+  const dot = name.lastIndexOf(".");
+  return dot >= 0 ? name.slice(dot) : "";
+}
+
 
 function summarizeGraphNodes(files, labelForFile, limit) {
   const nodes = new Map();
@@ -364,6 +455,21 @@ function topDirectory(filePath) {
   return second ? first : ".";
 }
 
+function isDependencyHub(file) {
+  const name = file.path.split("/").pop()?.toLowerCase() ?? file.path.toLowerCase();
+  return (
+    file.role === "lockfile" ||
+    name === "package.json" ||
+    name === "pyproject.toml" ||
+    name === "requirements.txt" ||
+    name === "cargo.toml" ||
+    name === "go.mod" ||
+    name === "gemfile" ||
+    name === "podfile"
+  );
+}
+
+
 function isLikelyEntrypoint(file) {
   const normalized = file.path.toLowerCase();
   const name = normalized.split("/").pop() ?? normalized;
@@ -394,12 +500,17 @@ function formatGraphMarkdown(graph) {
   const entrypoints = graph.entrypoints.map((file) => "- " + file.path + " (" + file.language + ")");
   const tests = graph.likelyTests.map((file) => "- " + file.path);
   const config = graph.configHubs.map((file) => "- " + file.path);
-
+  const dependencies = (graph.dependencyHubs ?? []).map((file) => "- " + file.path);
+  const importEdges = (graph.importEdges ?? []).map((edge) => "- " + edge.from + " -> " + edge.to + " (" + edge.kind + ": " + edge.reason + ")");
+  const reverseDependencyHubs = (graph.reverseDependencyHubs ?? []).map((node) => "- " + node.label + ": " + node.count + " inbound links");
   if (directories.length) lines.push("", "Top directories", ...directories);
   if (languages.length) lines.push("", "Top languages", ...languages);
   if (entrypoints.length) lines.push("", "Likely entrypoints", ...entrypoints);
   if (tests.length) lines.push("", "Likely tests", ...tests);
   if (config.length) lines.push("", "Config hubs", ...config);
+  if (dependencies.length) lines.push("", "Dependency hubs", ...dependencies);
+  if (importEdges.length) lines.push("", "Import and dependency edges", ...importEdges.slice(0, 8));
+  if (reverseDependencyHubs.length) lines.push("", "Reverse dependency hubs", ...reverseDependencyHubs.slice(0, 8));
   return lines.join("\n");
 }
 
@@ -530,8 +641,12 @@ function buildAgentManifest(summary) {
       entrypointCount: summary.graph?.entrypoints.length ?? 0,
       likelyTestCount: summary.graph?.likelyTests.length ?? 0,
       configHubCount: summary.graph?.configHubs.length ?? 0,
-    },
-    packs: summary.packs.map((contextPack) => ({
+      dependencyHubCount: summary.graph?.dependencyHubs?.length ?? 0,
+      importEdgeCount: summary.graph?.importEdges?.length ?? 0,
+      reverseDependencyHubCount: summary.graph?.reverseDependencyHubs?.length ?? 0,
+      importEdges: summary.graph?.importEdges ?? [],
+      reverseDependencyHubs: summary.graph?.reverseDependencyHubs ?? [],
+    },    packs: summary.packs.map((contextPack) => ({
       id: contextPack.id,
       title: contextPack.title,
       purpose: contextPack.purpose,

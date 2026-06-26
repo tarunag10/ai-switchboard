@@ -93,6 +93,11 @@ expect(summary.graph?.configHubs.map((file) => file.path)).not.toContain(".env.l
 expect(summary.graph?.dependencyHubs?.map((file) => file.path)).toEqual([
 "package.json",
 ]);
+expect(summary.graph?.importEdges).toEqual(expect.arrayContaining([
+expect.objectContaining({ from: "src/App.test.tsx", to: "src/App.tsx", kind: "test_to_source" }),
+expect.objectContaining({ from: "src/main.tsx", to: "package.json", kind: "entrypoint_to_config" }),
+]));
+expect(summary.graph?.reverseDependencyHubs?.map((node) => node.label)).toContain("package.json");
 });
 
   it("formats bounded context packs for agent handoff", () => {
@@ -114,6 +119,8 @@ expect(summary.graph?.dependencyHubs?.map((file) => file.path)).toEqual([
 expect(markdown).toContain("Top directories");
 expect(markdown).toContain("Likely tests");
 expect(markdown).toContain("Dependency hubs");
+expect(markdown).toContain("Import and dependency edges");
+expect(markdown).toContain("Reverse dependency hubs");
 expect(markdown).toContain("- package.json");
 expect(markdown).toContain("## Implementation Pack");
     expect(markdown).toContain("src/App.tsx");
@@ -180,6 +187,9 @@ expect(markdown).toContain("## Implementation Pack");
   expect(manifest.agentRecipes[0].command).toContain("--pack implementation --format markdown");
   expect(manifest.graph.available).toBe(true);
 expect(manifest.graph.dependencyHubCount).toBe(1);
+expect(manifest.graph.importEdgeCount).toBeGreaterThan(0);
+expect(manifest.graph.reverseDependencyHubCount).toBeGreaterThan(0);
+expect(manifest.graph.importEdges[0]).toEqual(expect.objectContaining({ from: expect.any(String), to: expect.any(String) }));
 
   const parsed = JSON.parse(formatRepoAgentManifestJson(summary, "2026-06-25T10:00:00Z"));
   expect(parsed.packs[0].estimatedTokensAvoided).toBeGreaterThan(0);

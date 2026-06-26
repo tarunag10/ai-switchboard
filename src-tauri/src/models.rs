@@ -132,6 +132,23 @@ pub struct RepoGraphNode {
     pub examples: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RepoGraphEdgeKind {
+    TestToSource,
+    EntrypointToConfig,
+    SourceToDependencyHub,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoGraphEdge {
+    pub from: String,
+    pub to: String,
+    pub kind: RepoGraphEdgeKind,
+    pub reason: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RepoGraphSummary {
@@ -142,6 +159,10 @@ pub struct RepoGraphSummary {
     pub config_hubs: Vec<RepoFileSignal>,
     #[serde(default)]
     pub dependency_hubs: Vec<RepoFileSignal>,
+    #[serde(default)]
+    pub import_edges: Vec<RepoGraphEdge>,
+    #[serde(default)]
+    pub reverse_dependency_hubs: Vec<RepoGraphNode>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

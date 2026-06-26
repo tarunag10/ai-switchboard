@@ -146,7 +146,8 @@ const requiredDocSignals = {
     "--pack implementation --format markdown",
     "Default packs exclude secret-like paths",
     "User repositories are not modified",
-    "now surfaces dependency hubs",
+    "path-based import/dependency edges",
+ "reverse dependency hubs",
   ],
 };
 
