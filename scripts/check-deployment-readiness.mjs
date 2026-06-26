@@ -216,6 +216,9 @@ const requiredSourceSignals = {
   ],
   "src/App.tsx": [
     "Copy agent manifest",
+    "repo-intelligence-recipes",
+    "Agent recipes",
+    "Copy recipe pack",
     "releaseReadinessGroups",
     "detectionEvidence",
     "Evidence",

@@ -63,6 +63,7 @@ maybeFireUrgentRuntimeNotification,
 } from "./lib/urgentNotifications";
 import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
 import {
+  buildRepoAgentManifest,
   buildRepoIntelligenceSummary,
   estimateRepoIntelligenceSavings,
   formatRepoAgentManifestJson,
@@ -1136,6 +1137,7 @@ function RepoIntelligencePreview() {
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const isPreview = summary === repoIntelligencePreview;
   const savingsEstimate = estimateRepoIntelligenceSavings(summary);
+  const agentManifest = buildRepoAgentManifest(summary);
 
   useEffect(() => {
     let cancelled = false;
@@ -1218,13 +1220,33 @@ async function copyAgentManifest() {
   }
 }
 
-async function copySingleContextPack(pack: RepoContextPack) {
+  async function copySingleContextPack(pack: RepoContextPack) {
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
       }
       await navigator.clipboard.writeText(formatSingleRepoContextPackMarkdown(summary, pack));
       setCopyNotice(`${pack.title} copied.`);
+      window.setTimeout(() => setCopyNotice(null), 2000);
+    } catch {
+      setCopyNotice("Copy failed. Select pack details manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
+
+  async function copyAgentRecipePack(packId: string, label: string) {
+    const pack = summary.packs.find((contextPack) => contextPack.id === packId);
+    if (!pack) {
+      setCopyNotice("Recipe pack unavailable. Re-index this repo.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(formatSingleRepoContextPackMarkdown(summary, pack));
+      setCopyNotice(`${label} copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
       setCopyNotice("Copy failed. Select pack details manually.");
@@ -1372,6 +1394,33 @@ async function copySingleContextPack(pack: RepoContextPack) {
           ) : null}
         </article>
         ))}
+      </div>
+
+      <div className="repo-intelligence-recipes" aria-label="Agent handoff recipes">
+        <div className="repo-intelligence-recipes__heading">
+          <span>Agent recipes</span>
+          <strong>Read-only handoff</strong>
+        </div>
+        <div className="repo-intelligence-recipes__list">
+          {agentManifest.agentRecipes.map((recipe) => (
+            <article className="repo-intelligence-recipe" key={recipe.id}>
+              <div>
+                <strong>{recipe.label}</strong>
+                <span>{recipe.tools.join(", ")}</span>
+              </div>
+              <p>{recipe.instruction}</p>
+              {!isPreview ? (
+                <button
+                  className="repo-intelligence-pack__copy"
+                  onClick={() => void copyAgentRecipePack(recipe.packIds[0], recipe.label)}
+                  type="button"
+                >
+                  Copy recipe pack
+                </button>
+              ) : null}
+            </article>
+          ))}
+        </div>
       </div>
     </div>
   );
