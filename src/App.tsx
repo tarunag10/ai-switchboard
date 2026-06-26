@@ -1169,6 +1169,51 @@ const repoIntelligencePreview = buildRepoIntelligenceSummary([
   { path: "dist/assets/index.js", bytes: 767_000 },
 ]);
 
+const primaryRepoAgentIds = new Set<RepoAgentHandoffTarget>(["claude", "codex"]);
+
+function repoAgentGroupLabel(profile: (typeof repoAgentHandoffProfiles)[number]) {
+  if (primaryRepoAgentIds.has(profile.id)) {
+    return "Primary agents";
+  }
+  switch (profile.toolKind) {
+    case "cli":
+      return "CLI agents";
+    case "editor":
+      return "Editor agents";
+    case "chat":
+      return "Chat agents";
+  }
+}
+
+function repoAgentPackLabel(packId: string) {
+  switch (packId) {
+    case "implementation":
+      return "Implementation pack";
+    case "verification":
+      return "Verification pack";
+    case "handoff":
+      return "Handoff pack";
+    default:
+      return `${packId} pack`;
+  }
+}
+
+const repoAgentHandoffGroups = repoAgentHandoffProfiles.reduce<
+  Array<{
+    label: string;
+    profiles: typeof repoAgentHandoffProfiles;
+  }>
+>((groups, profile) => {
+  const label = repoAgentGroupLabel(profile);
+  const group = groups.find((candidate) => candidate.label === label);
+  if (group) {
+    group.profiles.push(profile);
+  } else {
+    groups.push({ label, profiles: [profile] });
+  }
+  return groups;
+}, []);
+
 function RepoIntelligencePreview({
   onSummaryChange,
 }: {
@@ -1462,20 +1507,30 @@ async function copyAgentManifest() {
           <span>Agent handoffs</span>
           <strong>Ready to paste</strong>
         </div>
-        <div className="repo-intelligence-handoffs__grid">
-          {repoAgentHandoffProfiles.map((profile) => (
-            <button
-              className="repo-intelligence-handoff"
-              disabled={isPreview}
-              key={profile.id}
-              onClick={() => void copyAgentHandoff(profile.id, profile.label)}
-              type="button"
-            >
-              <strong>{profile.label}</strong>
-              <span>{profile.defaultPackId} pack</span>
-            </button>
-          ))}
-        </div>
+<div className="repo-intelligence-handoffs__grid">
+{repoAgentHandoffGroups.map((group) => (
+<section className="repo-intelligence-handoff-group" key={group.label}>
+<div className="repo-intelligence-handoff-group__label">
+<span>{group.label}</span>
+</div>
+<div className="repo-intelligence-handoff-group__buttons">
+{group.profiles.map((profile) => (
+<button
+className="repo-intelligence-handoff"
+disabled={isPreview}
+key={profile.id}
+onClick={() => void copyAgentHandoff(profile.id, profile.label)}
+type="button"
+>
+<strong>{profile.label}</strong>
+<span>{repoAgentPackLabel(profile.defaultPackId)}</span>
+<em>{profile.guidance}</em>
+</button>
+))}
+</div>
+</section>
+))}
+</div>
       </div>
 
       <div className="repo-intelligence-recipes" aria-label="Agent handoff recipes">
