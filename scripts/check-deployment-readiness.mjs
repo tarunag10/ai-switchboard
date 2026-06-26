@@ -364,6 +364,9 @@ const requiredSourceSignals = {
     "/Applications/Mac AI Switchboard.app",
     "docs/beta-smoke-test.md",
     "npm run smoke:installed",
+    "--confirm",
+    "MAC_AI_SWITCHBOARD_INSTALLED_SMOKE_PASSED",
+    "explicit tester confirmation received",
   ],
 };
 

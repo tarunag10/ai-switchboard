@@ -99,7 +99,7 @@ function buildInstalledSmoke(installedAppPresent, installedSmokeSummary) {
     generatedLine: installedSmokeSummary.generatedLine,
     message: ready
       ? "Installed-app smoke summary is present. Review smoke evidence before publishing."
-      : "Install the signed DMG into /Applications, run docs/beta-smoke-test.md, then run npm run smoke:installed.",
+      : "Install the signed DMG into /Applications, run docs/beta-smoke-test.md, then run npm run smoke:installed -- --confirm.",
   };
 }
 
@@ -238,7 +238,7 @@ ${
 ${
   installedAppPresent
     ? "- Run `docs/beta-smoke-test.md` against the installed app."
-    : "- Build and install the signed DMG, run `docs/beta-smoke-test.md`, then run `npm run smoke:installed`."
+    : "- Build and install the signed DMG, run `docs/beta-smoke-test.md`, then run `npm run smoke:installed -- --confirm`."
 }
 ${backendValidation.ready ? "- Run `npm run fmt:desktop` and `npm run test:desktop` on release Mac." : "- Install Rust with rustup so `npm run fmt:desktop` and `npm run test:desktop` can run."}
 - Before publishing, run \`npm run release:check\`.
