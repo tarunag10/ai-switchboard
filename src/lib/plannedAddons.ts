@@ -62,6 +62,79 @@ export const plannedAddons: PlannedAddon[] = [
     ],
     verificationCommand: "npm run smoke:preflight",
   },
+
+{
+id: "rtk_hardening",
+name: "RTK Hardening",
+statusLabel: "Ready to harden",
+description:
+"Token-optimized command-output layer for shell-heavy agents, with stronger health checks, activity evidence, and per-session savings attribution.",
+bullets: [
+"Keep RTK install, enable, disable, and uninstall flows reversible through Doctor and Off mode.",
+"Surface shell-profile hook status, managed binary path, and recent activity evidence before claiming RTK savings.",
+"Treat RTK as the safe fallback for several active Codex goals when Headroom compression risk is high.",
+],
+healthChecks: [
+"RTK binary is installed in managed app storage and appears on the expected shell path.",
+"Shell profile contains only Switchboard-owned managed RTK blocks.",
+"Recent RTK activity can be loaded from the Addons card without exposing command secrets.",
+"Doctor offers Install RTK when Full optimization is degraded by missing command-output compression.",
+],
+savingsSources: [
+"Command output summarized before it reaches Claude Code or terminal-driven agents.",
+"Savings calculator source breakdown attributes RTK separately from Headroom and Repo Intelligence.",
+"RTK only mode keeps shell-output savings while bypassing Headroom request routing.",
+],
+verificationCommand: "npm run smoke:preflight",
+},
+
+{
+id: "ponytail_hardening",
+name: "Ponytail Hardening",
+statusLabel: "Ready to harden",
+description:
+"Agent behavior nudge for smaller, more focused implementation slices, tracked as a local add-on instead of hidden prompt drift.",
+bullets: [
+"Keep Ponytail opt-in so users can choose smaller-change nudges per workflow.",
+"Show whether local Ponytail guidance is installed, enabled, and scoped to supported clients.",
+"Measure benefit through smaller context packs, fewer broad rewrites, and easier verification handoffs.",
+],
+healthChecks: [
+"Managed Ponytail guidance exists only in Switchboard-owned config blocks.",
+"Disable and Off mode remove Ponytail guidance without touching user-authored instructions.",
+"Doctor keeps Ponytail failures separate from required Headroom runtime failures.",
+],
+savingsSources: [
+"Smaller implementation slices reduce repeated broad file reads.",
+"Fewer unrelated rewrites lower verification and review context.",
+"Repo Intelligence handoffs can pair with Ponytail to keep agent work bounded.",
+],
+verificationCommand: "npm run test:frontend -- src/lib/plannedAddons.test.ts --pool=threads",
+},
+
+{
+id: "markitdown_hardening",
+name: "MarkItDown Hardening",
+statusLabel: "Ready to harden",
+description:
+"Local document-to-Markdown preprocessing add-on for PDFs, Office files, and reference docs before sending compact context to coding agents.",
+bullets: [
+"Keep document conversion local-first and opt-in from Addons.",
+"Add smoke evidence for importable MarkItDown runtime dependencies before exposing conversion workflows.",
+"Attribute savings to smaller Markdown extracts instead of repeatedly attaching bulky source documents.",
+],
+healthChecks: [
+"MarkItDown imports inside the managed runtime after install or upgrade.",
+"Conversion failures stay warn-only and never block core Headroom runtime boot.",
+"Converted outputs exclude private source files unless user explicitly copies them.",
+],
+savingsSources: [
+"Markdown extracts avoid repeated binary document uploads.",
+"Prepared reference snippets pair with Repo Intelligence packs for smaller task context.",
+"Document preprocessing savings remain separate from RTK shell-output and Headroom compression savings.",
+],
+verificationCommand: "npm run smoke:preflight",
+},
 ];
 
 export function getPlannedAddon(id: string) {

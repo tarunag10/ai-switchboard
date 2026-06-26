@@ -30,13 +30,44 @@ expect(repoIntelligence?.verificationCommand).toBe("npm run repo:intelligence --
   });
 
   it("keeps planned add-on ids stable for UI rendering", () => {
-    expect(plannedAddons.map((addon) => addon.id)).toEqual([
-      "repo_intelligence",
-      "agent_connectors",
-    ]);
-  });
+expect(plannedAddons.map((addon) => addon.id)).toEqual([
+"repo_intelligence",
+"agent_connectors",
+"rtk_hardening",
+"ponytail_hardening",
+"markitdown_hardening",
+]);
+});
 
-  it("tracks popular planned coding-agent connectors", () => {
+it("tracks hardening plans for existing token-saving add-ons", () => {
+const rtk = getPlannedAddon("rtk_hardening");
+const ponytail = getPlannedAddon("ponytail_hardening");
+const markitdown = getPlannedAddon("markitdown_hardening");
+
+expect(rtk).toMatchObject({
+name: "RTK Hardening",
+statusLabel: "Ready to harden",
+});
+expect(rtk?.healthChecks.join(" ")).toContain("shell path");
+expect(rtk?.savingsSources.join(" ")).toContain("Savings calculator");
+expect(rtk?.savingsSources.join(" ")).toContain("RTK only mode");
+
+expect(ponytail).toMatchObject({
+name: "Ponytail Hardening",
+statusLabel: "Ready to harden",
+});
+expect(ponytail?.healthChecks.join(" ")).toContain("Switchboard-owned config blocks");
+expect(ponytail?.savingsSources.join(" ")).toContain("Smaller implementation slices");
+
+expect(markitdown).toMatchObject({
+name: "MarkItDown Hardening",
+statusLabel: "Ready to harden",
+});
+expect(markitdown?.healthChecks.join(" ")).toContain("managed runtime");
+expect(markitdown?.savingsSources.join(" ")).toContain("Markdown extracts");
+});
+
+it("tracks popular planned coding-agent connectors", () => {
     const connectors = getPlannedAddon("agent_connectors");
 
     expect(connectors).toMatchObject({
