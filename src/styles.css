@@ -7825,25 +7825,24 @@ gap: 6px;
 
 .repo-intelligence-handoff {
 display: grid;
+gap: 7px;
+min-width: 0;
+padding: 8px;
+border: 1px solid var(--border-subtle);
+border-radius: 8px;
+background: var(--surface-raised);
+color: var(--text-primary);
+text-align: left;
+}
+
+.repo-intelligence-handoff:hover {
+background: var(--surface-hover);
+}
+
+.repo-intelligence-handoff > div:first-child {
+display: grid;
 gap: 3px;
 min-width: 0;
-min-height: 74px;
-  padding: 8px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background: var(--surface-raised);
-  color: var(--text-primary);
-  text-align: left;
-  cursor: pointer;
-}
-
-.repo-intelligence-handoff:hover:not(:disabled) {
-  background: var(--surface-hover);
-}
-
-.repo-intelligence-handoff:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 
 .repo-intelligence-handoff strong {
@@ -7872,6 +7871,33 @@ font-style: normal;
 line-height: 1.25;
 -webkit-box-orient: vertical;
 -webkit-line-clamp: 2;
+}
+
+.repo-intelligence-handoff__actions {
+display: grid;
+grid-template-columns: repeat(2, minmax(0, 1fr));
+gap: 6px;
+}
+
+.repo-intelligence-handoff__actions button {
+min-height: 26px;
+padding: 4px 6px;
+border: 1px solid var(--border-subtle);
+border-radius: 7px;
+background: var(--surface-overlay);
+color: var(--text-primary);
+font-size: var(--text-xxs);
+font-weight: 800;
+cursor: pointer;
+}
+
+.repo-intelligence-handoff__actions button:hover:not(:disabled) {
+background: var(--surface-hover);
+}
+
+.repo-intelligence-handoff__actions button:disabled {
+opacity: 0.55;
+cursor: not-allowed;
 }
 
 .repo-intelligence-recipes__heading {

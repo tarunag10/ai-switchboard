@@ -63,8 +63,9 @@ maybeFireUrgentRuntimeNotification,
 } from "./lib/urgentNotifications";
 import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
 import {
+  buildRepoAgentHandoffPayload,
   buildRepoAgentManifest,
-  buildRepoIntelligenceSummary,
+buildRepoIntelligenceSummary,
   estimateRepoIntelligenceSavings,
   formatRepoAgentHandoffMarkdown,
   formatRepoAgentManifestJson,
@@ -1407,21 +1408,37 @@ async function copyAgentManifest() {
     }
   }
 
-  async function copyAgentHandoff(target: RepoAgentHandoffTarget, label: string) {
-    try {
-      if (!navigator.clipboard) {
-        throw new Error("Clipboard API unavailable");
+async function copyAgentHandoff(target: RepoAgentHandoffTarget, label: string) {
+try {
+if (!navigator.clipboard) {
+throw new Error("Clipboard API unavailable");
       }
       await navigator.clipboard.writeText(formatRepoAgentHandoffMarkdown(summary, target));
       setCopyNotice(`${label} handoff copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select handoff details manually.");
-      window.setTimeout(() => setCopyNotice(null), 3000);
-    }
-  }
+setCopyNotice("Copy failed. Select handoff details manually.");
+window.setTimeout(() => setCopyNotice(null), 3000);
+}
+}
 
-  return (
+async function copyAgentHandoffJson(target: RepoAgentHandoffTarget, label: string) {
+try {
+if (!navigator.clipboard) {
+throw new Error("Clipboard API unavailable");
+}
+await navigator.clipboard.writeText(
+JSON.stringify(buildRepoAgentHandoffPayload(summary, target), null, 2),
+);
+setCopyNotice(`${label} JSON handoff copied.`);
+window.setTimeout(() => setCopyNotice(null), 2000);
+} catch {
+setCopyNotice("Copy failed. Select JSON handoff manually.");
+window.setTimeout(() => setCopyNotice(null), 3000);
+}
+}
+
+return (
     <div className="repo-intelligence-preview" aria-label="Repo Intelligence context pack preview">
       <div className="repo-intelligence-preview__topline">
         <span>{isPreview ? "Read-only context packs" : "Local index result"}</span>
@@ -1615,17 +1632,29 @@ async function copyAgentManifest() {
 </div>
 <div className="repo-intelligence-handoff-group__buttons">
 {group.profiles.map((profile) => (
-<button
-className="repo-intelligence-handoff"
-disabled={isPreview}
-key={profile.id}
-onClick={() => void copyAgentHandoff(profile.id, profile.label)}
-type="button"
->
+<div className="repo-intelligence-handoff" key={profile.id}>
+<div>
 <strong>{profile.label}</strong>
 <span>{repoAgentPackLabel(profile.defaultPackId)}</span>
 <em>{profile.guidance}</em>
+</div>
+<div className="repo-intelligence-handoff__actions">
+<button
+disabled={isPreview}
+onClick={() => void copyAgentHandoff(profile.id, profile.label)}
+type="button"
+>
+Markdown
 </button>
+<button
+disabled={isPreview}
+onClick={() => void copyAgentHandoffJson(profile.id, profile.label)}
+type="button"
+>
+JSON
+</button>
+</div>
+</div>
 ))}
 </div>
 </section>

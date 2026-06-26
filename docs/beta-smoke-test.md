@@ -97,7 +97,7 @@ Expect: JSON manifest is copied for external coding agents. It includes `mac_ai_
 
 In **Agent handoffs**, expect grouped sections for Primary agents, CLI agents, Editor agents, and Chat agents. Claude Code and Codex should appear in Primary agents. Click **Claude Code**, **Codex**, **Gemini CLI**, **Cursor**, and newer targets such as **Qwen Code**, **Amazon Q Developer CLI**, **Windsurf**, or **Zed AI**.
 
-Expect: each button copies a ready-to-paste bounded handoff for that tool, selects the expected implementation, verification, or handoff pack, includes token savings and graph summary, and does not write third-party config.
+Expect: Markdown action copies a ready-to-paste bounded handoff for that tool, selects the expected implementation, verification, or handoff pack, includes token savings and graph summary, and does not write third-party config. JSON action copies a `mac_ai_switchboard.repo_agent_handoff` payload with agent id, selected pack, file list, graph hints, token savings, and read-only safety flags.
 
 Click **Clear** in the Repo Intelligence card.
 
