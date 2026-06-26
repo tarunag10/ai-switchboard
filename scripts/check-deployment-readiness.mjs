@@ -105,6 +105,9 @@ const requiredDocSignals = {
   "docs/beta-smoke-test.md": [
     "Local-only",
     "Mode buttons",
+    "Requested mode vs active mode is honest",
+    "degraded-mode guidance",
+    "re-run Doctor until requested mode becomes active",
     "Doctor repairs missing RTK",
     "Oversized Codex compression refusal",
     "Codex model/provider mismatch",

@@ -35,7 +35,7 @@ Expect: the mode effect line changes to describe exactly what will be routed or 
 
 Create a degraded setup by requesting Full optimization while either RTK or client routing is missing. The easiest safe path is to uninstall or disable RTK from Addons, then request Full optimization.
 
-Expect: Switchboard still shows the requested mode, but the attention line reports the active mode and says to run Doctor. Doctor lists the missing dependency instead of leaving the mode change looking stuck.
+Expect: Switchboard still shows the requested mode, but the attention line reports the active mode and says to run Doctor. Doctor lists the missing dependency instead of leaving the mode change looking stuck, and degraded-mode guidance says to run automatic repairs, complete remaining manual connector steps, then re-run Doctor until requested mode becomes active.
 
 ### S4. Doctor repairs missing RTK
 

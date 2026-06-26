@@ -13,6 +13,8 @@ const requiredSignals = {
     "Switchboard checks",
     "local footprint matrix",
     "Doctor triage shows automatic and manual counts",
+    "degraded-mode guidance",
+    "re-run Doctor until requested mode becomes active",
     "Planned connectors are visible but manual",
 "backend detection evidence",
 "Automation gates",
