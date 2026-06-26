@@ -47,7 +47,7 @@ detail: "smoke:preflight passes and writes dist/smoke-preflight-summary.md.",
   {
     id: "installed-smoke",
     label: "Installed smoke",
-    detail: "/Applications/Mac AI Switchboard.app passes beta smoke.",
+    detail: "/Applications/Mac AI Switchboard.app exists, beta smoke passes, and npm run smoke:installed writes dist/installed-smoke-summary.md.",
   },
 ];
 
@@ -111,7 +111,7 @@ detail: "Run npm run smoke:preflight and keep dist/smoke-preflight-summary.md wi
     {
       id: "beta-smoke",
       label: "Run beta smoke test",
-detail: "Follow docs/beta-smoke-test.md against installed app including planned connector evidence, Repo Intelligence recipes, and per-tool agent handoffs.",
+detail: "Follow docs/beta-smoke-test.md against the installed app, including planned connector evidence, Repo Intelligence recipes, and per-tool agent handoffs; then run npm run smoke:installed to write dist/installed-smoke-summary.md.",
     },
       {
         id: "release-report",
