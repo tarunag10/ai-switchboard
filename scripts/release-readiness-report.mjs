@@ -13,25 +13,26 @@ const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
 const staticSmokeRequiredEvidence = [
   "Switchboard modes",
   "Switchboard copyable state",
-  "Doctor automatic and manual triage",
+  "Doctor automatic manual triage",
   "Doctor copyable report",
   "Planned connector automation gates",
   "Planned connector manual workflow",
   "Repo Intelligence context packs",
+  "Savings calculator copyable summary",
   "Per-tool agent handoffs",
   "Installed app metadata check",
 ];
 const installedSmokeRequiredEvidence = [
   "Switchboard modes and degraded-mode Doctor guidance",
   "Switchboard copyable state",
-  "Doctor automatic/manual triage and repair actions",
+  "Doctor automatic/manual triage repair actions",
   "Doctor copyable report",
   "Planned connector automation gates and manual workflow",
   "Repo Intelligence recipes and local context packs",
+  "Savings calculator copyable summary",
   "Per-tool agent handoffs",
   "Codex compression recovery",
 ];
-
 function runReleaseEnv() {
   const result = spawnSync(
     process.execPath,

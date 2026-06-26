@@ -33,9 +33,12 @@ const requiredSignals = {
 "npm run smoke:installed -- --confirm",
 "Contents/Info.plist",
     "Launcher auto-setup and proxy verification should include only managed connectors",
-    "Codex traffic is actively optimized",
-    "Pause / resume",
-  ],
+"Codex traffic is actively optimized",
+"Pause / resume",
+"Savings calculator",
+"saved tokens",
+"estimated dollars",
+],
   [installDoc]: [
     "Mac-AI-Switchboard_<version>.dmg",
 "Contents/Info.plist",
@@ -111,6 +114,7 @@ Generated: ${generatedAt}
 - Doctor repairs: runtime, Codex setup, RTK, planned connector manual warnings with detection evidence, and Repo Intelligence stale/missing-index warnings
 - Planned connectors: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose; each stays disabled and manual with safe RTK-only or Repo Intelligence pack guidance
 - Repo Intelligence: local repo index, persisted latest summary, copy bounded context pack, copy individual task pack, copy agent manifest, copy per-tool agent handoffs, clear saved index, context-pack preview, per-pack copy
+- Savings calculator: Session / Overall scopes, copyable summary, saved tokens, estimated dollars, reduction, equation, source breakdown
 - Local-first behavior: remote services gated, Off mode reversible cleanup
 - Codex resilience: compression refusal reset and model/provider repair
 

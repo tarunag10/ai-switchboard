@@ -194,6 +194,7 @@ for (const requiredItem of [
   "Switchboard modes and degraded-mode Doctor guidance",
   "Switchboard copyable state",
   "Doctor copyable report",
+  "Savings calculator copyable summary",
   "Planned connector automation gates and manual workflow",
   "Codex compression recovery",
 ]) {
