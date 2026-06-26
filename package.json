@@ -25,6 +25,7 @@
     "release:ready:strict": "node scripts/check-release-readiness.mjs --strict",
     "smoke:preflight": "node scripts/smoke-preflight.mjs",
     "smoke:installed": "node scripts/installed-smoke-summary.mjs",
+    "smoke:installed:local": "node scripts/local-installed-smoke-summary.mjs",
     "repo:intelligence": "node scripts/repo-intelligence.mjs",
     "check:connectors": "node scripts/check-planned-connectors.mjs",
     "check:colors": "./scripts/check-colors.sh",

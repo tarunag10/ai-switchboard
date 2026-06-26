@@ -38,6 +38,8 @@ Run `npm run release:check` before publishing. The release gate runs release env
 Run `npm run smoke:preflight` before handing a DMG to a tester; it confirms the installed-app smoke checklist covers Switchboard modes, degraded-mode Doctor guidance, planned connector automation gates and manual workflow, pause/resume, Repo Intelligence agent handoffs, Savings calculator copyable summary, and Codex optimization.
 Treat the build as blocked until `npm run release:ready -- --strict` is clear, the DMG is signed/notarized, `/Applications/Mac AI Switchboard.app/Contents/Info.plist` exists from the DMG install, the beta smoke checklist has been run on that installed app, and `npm run smoke:installed -- --confirm` has written `dist/installed-smoke-summary.md`. The installed smoke summary records the SHA-256 of `docs/beta-smoke-test.md`; rerun installed smoke whenever the checklist changes so release readiness does not accept stale evidence.
 
+For local unsigned/ad-hoc testing only, use `npm run smoke:installed:local` after installing a local DMG. It writes `dist/local-installed-smoke-summary.md` and JSON metadata for the bundle, checksum, local code signature, Gatekeeper status, and running process. Do not use that local summary as public release evidence.
+
 If you want a universal build, install both Rust macOS targets first and then run:
 
 ```bash
