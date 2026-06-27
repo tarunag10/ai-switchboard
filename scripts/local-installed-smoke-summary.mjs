@@ -6,6 +6,7 @@ import path from "node:path";
 const appPath = "/Applications/Mac AI Switchboard.app";
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
 const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+const tauriConfig = JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8"));
 const arch = process.arch === "arm64" ? "aarch64" : process.arch;
 const dmgPath = `dist/release-artifacts/Mac-AI-Switchboard_${packageJson.version}-local-unsigned-${arch}.dmg`;
 const rawDmgPath = `src-tauri/target/release/bundle/dmg/Mac AI Switchboard_${packageJson.version}_${arch}.dmg`;
@@ -51,6 +52,12 @@ const metadataPresent = fs.existsSync(appInfoPlistPath);
 const dmgPresent = fs.existsSync(dmgPath);
 const bundleIdentifier = metadataPresent ? plistValue("CFBundleIdentifier") : null;
 const version = metadataPresent ? plistValue("CFBundleShortVersionString") : null;
+const displayName = metadataPresent ? plistValue("CFBundleDisplayName") : null;
+const bundleName = metadataPresent ? plistValue("CFBundleName") : null;
+const metadataMatches =
+  bundleIdentifier === tauriConfig.identifier &&
+  version === packageJson.version &&
+  (displayName === tauriConfig.productName || bundleName === tauriConfig.productName);
 const dmgSha256 = sha256(dmgPath);
 const dmgVerify = dmgPresent ? run("hdiutil", ["verify", dmgPath]) : null;
 const codesignVerify = appPresent
@@ -71,6 +78,9 @@ const payload = {
     metadataPresent,
     bundleIdentifier,
     version,
+    displayName,
+    bundleName,
+    metadataMatches,
     running: running.ok,
     runningProcess: running.stdout || null,
   },
@@ -99,6 +109,9 @@ Generated: ${generatedAt}
 - App metadata present: ${metadataPresent ? "yes" : "no"} (${appInfoPlistPath})
 - Bundle identifier: ${bundleIdentifier ?? "unknown"}
 - Version: ${version ?? "unknown"}
+- Display name: ${displayName ?? "unknown"}
+- Bundle name: ${bundleName ?? "unknown"}
+- Metadata matches repo config: ${metadataMatches ? "yes" : "no"}
 - Running process: ${running.ok ? "yes" : "no"}
 - Local DMG present: ${dmgPresent ? "yes" : "no"} (${dmgPath})
 - Local DMG SHA-256: ${dmgSha256 ?? "missing"}
@@ -113,7 +126,7 @@ fs.mkdirSync(path.dirname(summaryPath), { recursive: true });
 fs.writeFileSync(summaryPath, summary);
 fs.writeFileSync(jsonPath, `${JSON.stringify(payload, null, 2)}\n`);
 
-if (!appPresent || !metadataPresent || !dmgPresent || !dmgVerify?.ok) {
+if (!appPresent || !metadataPresent || !metadataMatches || !dmgPresent || !dmgVerify?.ok) {
   console.error("Local installed smoke summary recorded with missing required local evidence.");
   console.error(`Summary written: ${summaryPath}`);
   process.exit(1);
