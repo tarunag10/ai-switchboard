@@ -187,17 +187,24 @@ const requiredSourceSignals = {
   "src/lib/bootstrapSentry.test.ts": [
     "does not report bootstrap failures in local-only mode",
   ],
-  "src/lib/uninstallDisclosure.ts": [
-    "Remove managed routing hooks and environment changes",
-    "Delete managed hook scripts and shell-profile blocks",
-    "repo-intelligence-latest.json",
-    "User repositories are not modified",
-    "Use Off mode instead if you only want to stop routing without deleting runtime files",
-  ],
-  "src/lib/uninstallDisclosure.test.ts": [
-    "lists the reversible local footprint removed by uninstall",
-    "keeps stable ids for modal rendering",
-  ],
+"src/lib/managedChanges.ts": [
+"Remove managed routing hooks",
+"Delete managed hook scripts",
+"repo-intelligence-latest.json",
+"User repositories are not modified",
+"headroom:client-routing",
+"*.headroom.bak",
+],
+"src/lib/managedChanges.test.ts": [
+"tracks marker, backup, and verification evidence",
+"covers reversible config storage footprint",
+],
+"src/lib/uninstallDisclosure.ts": [
+"Use Off mode instead if you only want to stop routing without deleting runtime files",
+],
+"src/lib/uninstallDisclosure.test.ts": [
+"keeps stable ids for modal rendering",
+],
   "src-tauri/src/lib.rs": [
     "infer_switchboard_mode",
     "infer_switchboard_mode(&runtime, enabled_clients.len())",

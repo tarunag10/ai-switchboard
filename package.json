@@ -29,6 +29,7 @@
     "smoke:installed:local": "node scripts/local-installed-smoke-summary.mjs",
     "repo:intelligence": "node scripts/repo-intelligence.mjs",
     "check:connectors": "node scripts/check-planned-connectors.mjs",
+    "check:branding": "node scripts/check-branding-assets.mjs",
     "check:colors": "./scripts/check-colors.sh",
     "check:governance": "node scripts/check-governance-docs.mjs",
     "check:deployment": "node scripts/check-deployment-readiness.mjs"
