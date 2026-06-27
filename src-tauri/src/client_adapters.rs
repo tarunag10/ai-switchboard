@@ -3832,16 +3832,45 @@ fn detect_qwen_code_client() -> ClientStatus {
 }
 
 fn detect_amazon_q_client() -> ClientStatus {
-    detect_planned_client(
-        "amazon_q",
-        "Amazon Q Developer CLI",
-        &["q"],
-        &[
-            home_dir().join(".aws").join("amazonq"),
-            home_dir().join(".config").join("amazon-q"),
-        ],
-        "Detected, but Headroom adapter is not implemented yet. Keep AWS and Amazon Q account state manual.",
-    )
+    let executable = common_cli_candidate_paths(&["q"])
+        .into_iter()
+        .find(|path| path.exists())
+        .or_else(|| find_on_path(&["q"]));
+    let config_candidates = [
+        home_dir().join(".aws").join("amazonq"),
+        home_dir().join(".config").join("amazon-q"),
+    ];
+    let report = planned_cli_compatibility_report(
+        "Amazon Q",
+        executable.clone(),
+        &config_candidates,
+        "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+    );
+    let installed = executable.is_some() || !report.config_surfaces.is_empty();
+    let mut notes = if installed {
+        planned_cli_compatibility_evidence(&report)
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter is not implemented yet. Keep AWS and Amazon Q account state manual."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "amazon_q".into(),
+        name: "Amazon Q Developer CLI".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_windsurf_client() -> ClientStatus {
@@ -4248,6 +4277,19 @@ mod tests {
                     "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.".into(),
                 ],
             },
+            ClientStatus {
+                id: "amazon_q".into(),
+                name: "Amazon Q Developer CLI".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Amazon Q binary: /opt/homebrew/bin/q".into(),
+                    "Amazon Q version: q 1.11.0".into(),
+                    "Amazon Q config surface: /Users/test/.aws/amazonq".into(),
+                    "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
         ];
 
         let connectors = list_client_connectors(&detected_clients).expect("list connectors");
@@ -4372,6 +4414,17 @@ mod tests {
                 && connector
                     .detection_evidence
                     .contains(&"Qwen Code version: qwen-code 0.9.0".to_string())
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "amazon_q"
+                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Amazon Q binary: /opt/homebrew/bin/q".to_string())
+                && connector
+                    .detection_evidence
+                    .contains(&"Amazon Q version: q 1.11.0".to_string())
         }));
     }
 
@@ -4508,6 +4561,29 @@ mod tests {
         assert!(evidence.contains("Qwen Code version: qwen-code 0.9.0"));
         assert!(evidence.contains("Qwen Code config surface: /Users/test/.qwen"));
         assert!(evidence.contains("model/account guardrails"));
+        assert!(evidence.contains("backup"));
+        assert!(evidence.contains("verify"));
+        assert!(evidence.contains("rollback"));
+        assert!(evidence.contains("Off mode cleanup"));
+    }
+
+    #[test]
+    fn amazon_q_compatibility_evidence_reports_account_guardrail_blocker() {
+        let report = super::PlannedCliCompatibilityReport {
+            label: "Amazon Q",
+            binary_path: Some(PathBuf::from("/opt/homebrew/bin/q")),
+            version: Some("q 1.11.0".to_string()),
+            config_surfaces: vec![PathBuf::from("/Users/test/.aws/amazonq")],
+            routing_blocker:
+                "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+        };
+
+        let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
+
+        assert!(evidence.contains("Amazon Q binary: /opt/homebrew/bin/q"));
+        assert!(evidence.contains("Amazon Q version: q 1.11.0"));
+        assert!(evidence.contains("Amazon Q config surface: /Users/test/.aws/amazonq"));
+        assert!(evidence.contains("AWS/account guardrails"));
         assert!(evidence.contains("backup"));
         assert!(evidence.contains("verify"));
         assert!(evidence.contains("rollback"));

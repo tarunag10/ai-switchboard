@@ -545,6 +545,13 @@ const compatibilityReports: Partial<
     }
   >
 > = {
+  amazon_q: {
+    label: "Amazon Q",
+    primaryPathLabel: "Binary",
+    pathPrefix: "Amazon Q binary:",
+    versionPrefix: "Amazon Q version:",
+    configPrefix: "Amazon Q config surface:"
+  },
   aider: {
     label: "Aider",
     primaryPathLabel: "Binary",

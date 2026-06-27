@@ -640,16 +640,46 @@ describe("dashboard helpers", () => {
     });
   });
 
+  it("formats Amazon Q compatibility evidence for planned connector UI", () => {
+    const report = connectorCompatibilityReport({
+      clientId: "amazon_q",
+      name: "Amazon Q Developer CLI",
+      supportStatus: "planned",
+      setupPhase: "detect",
+      detectionEvidence: [
+        "Amazon Q binary: /opt/homebrew/bin/q",
+        "Amazon Q version: q 1.11.0",
+        "Amazon Q config surface: /Users/test/.aws/amazonq",
+        "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+        "Detected, but Headroom adapter is not implemented yet.",
+      ],
+      installed: true,
+      enabled: false,
+      verified: false,
+    });
+
+    expect(report).toEqual({
+      title: "Amazon Q compatibility report",
+      primaryPathLabel: "Binary",
+      binaryPath: "/opt/homebrew/bin/q",
+      version: "q 1.11.0",
+      configSurface: "/Users/test/.aws/amazonq",
+      routingBlocker:
+        "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+      otherEvidence: ["Detected, but Headroom adapter is not implemented yet."],
+    });
+  });
+
   it("omits compatibility report for connectors without structured evidence", () => {
     expect(
       connectorCompatibilityReport({
-        clientId: "amazon_q",
-        name: "Amazon Q Developer CLI",
+        clientId: "windsurf",
+        name: "Windsurf",
         supportStatus: "planned",
         installed: true,
         enabled: false,
         verified: false,
-        detectionEvidence: ["Detected data at /Users/test/.aws/amazonq."],
+        detectionEvidence: ["Detected data at /Users/test/Library/Application Support/Windsurf."],
       }),
     ).toBeNull();
   });
