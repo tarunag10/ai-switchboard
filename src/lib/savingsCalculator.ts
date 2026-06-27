@@ -5,9 +5,7 @@ import type { RepoSavingsEstimate } from "./repoIntelligence";
 export type SavingsCalculatorScope = "session" | "overall";
 
 export type SavingsCalculatorBreakdownKind =
-  | "runtime"
-  | "command_output"
-  | "repo_context";
+  "runtime" | "command_output" | "repo_context";
 export type SavingsCalculatorConfidence = "measured" | "estimated" | "inferred";
 
 export interface SavingsCalculatorSummary {
@@ -35,6 +33,11 @@ export interface SavingsCalculatorBreakdownRow {
 export interface SavingsCalculatorBreakdownOptions {
   runtimeStatus?: RuntimeStatus | null;
   repoSavings?: RepoSavingsEstimate | null;
+}
+
+export interface SavingsLedgerRow extends SavingsCalculatorBreakdownRow {
+  scope: SavingsCalculatorScope;
+  recordedAt: string;
 }
 
 function formatUsd(value: number) {
@@ -174,6 +177,21 @@ export function buildSavingsCalculatorBreakdown(
   }
 
   return rows;
+}
+
+export function buildSavingsLedgerRows(
+  dashboard: DashboardState,
+  scope: SavingsCalculatorScope,
+  recordedAt: string,
+  options: SavingsCalculatorBreakdownOptions = {},
+): SavingsLedgerRow[] {
+  return buildSavingsCalculatorBreakdown(dashboard, scope, options).map(
+    (row) => ({
+      ...row,
+      scope,
+      recordedAt,
+    }),
+  );
 }
 
 export function formatSavingsCalculatorShareText(
