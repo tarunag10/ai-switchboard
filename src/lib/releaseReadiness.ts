@@ -38,6 +38,7 @@ export interface ReleaseReadinessReportSnapshot {
   staticSmokePreflight?: {
     ready?: boolean;
     message?: string;
+    requiredEvidence?: string[];
   };
   installedSmoke?: {
     ready?: boolean;
@@ -133,6 +134,15 @@ export const releaseReadinessStatusRows: ReleaseReadinessStatusRow[] = [
     source: "HEADROOM_UPDATER_PUBLIC_KEY + HEADROOM_UPDATER_ENDPOINTS",
     detail:
       "Updater public key and feed endpoints must be configured for release builds.",
+  },
+  {
+    id: "connector-config-plan",
+    label: "Connector config plan",
+    statusLabel: "Evidence required",
+    tone: "blocked",
+    source: "npm run smoke:preflight",
+    detail:
+      "Planned connector smoke evidence must include the gated config creation plan before any future config writes.",
   },
   {
     id: "final-gate",
@@ -319,6 +329,10 @@ export function releaseReadinessRowsFromReport(
   const signingReady = report.shareableDmgGate?.signedAndNotarized === true;
   const notarizationReady = signingReady;
   const updaterReady = report.shareableDmgGate?.updaterFeedReady === true;
+  const connectorConfigPlanReady =
+    report.staticSmokePreflight?.requiredEvidence?.includes(
+      "Planned connector config creation plan",
+    ) === true;
   const finalReady = report.status === "ready" && report.shareableDmgGate?.ready === true;
   const missingEvidence = report.installedSmoke?.missingEvidence ?? [];
   const releaseBlockers = report.releaseEnv?.blockers ?? [];
@@ -386,6 +400,14 @@ export function releaseReadinessRowsFromReport(
     },
     {
       ...releaseReadinessStatusRows[7],
+      statusLabel: statusLabel(connectorConfigPlanReady),
+      tone: statusTone(connectorConfigPlanReady),
+      detail: connectorConfigPlanReady
+        ? "Static smoke evidence includes the planned connector config creation plan."
+        : "Static smoke evidence must include the planned connector config creation plan.",
+    },
+    {
+      ...releaseReadinessStatusRows[8],
       statusLabel: finalReady ? "Ready" : "Blocked",
       tone: statusTone(finalReady),
       detail:

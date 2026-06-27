@@ -80,12 +80,13 @@ describe("release readiness checklist", () => {
       "signing-env",
       "notarization-env",
       "updater-config",
+      "connector-config-plan",
       "final-gate",
     ]);
 
     expect(releaseReadinessStatusCounts()).toEqual({
       ready: 1,
-      blocked: 6,
+      blocked: 7,
       "local-only": 1,
     });
 
@@ -100,6 +101,8 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("Developer ID");
     expect(copy).toContain("notarization credentials");
     expect(copy).toContain("HEADROOM_UPDATER_PUBLIC_KEY");
+    expect(copy).toMatch(/planned connector smoke evidence/i);
+    expect(copy).toMatch(/gated config creation plan/i);
     expect(copy).toContain("npm run release:ready -- --strict");
     expect(copy).toContain("local install evidence");
     expect(copy).toContain("does not prove signed release readiness");
@@ -110,6 +113,10 @@ describe("release readiness checklist", () => {
     const rows = releaseReadinessRowsFromReport({
       status: "ready",
       backendValidation: { ready: true },
+      staticSmokePreflight: {
+        ready: true,
+        requiredEvidence: ["Planned connector config creation plan"],
+      },
       installedSmoke: {
         installedAppPresent: true,
         evidenceReady: true,
@@ -131,10 +138,13 @@ describe("release readiness checklist", () => {
     });
 
     expect(releaseReadinessStatusCounts(rows)).toEqual({
-      ready: 7,
+      ready: 8,
       blocked: 0,
       "local-only": 1,
     });
+    expect(rows.find((row) => row.id === "connector-config-plan")?.detail).toContain(
+      "includes the planned connector config creation plan",
+    );
     expect(rows.find((row) => row.id === "final-gate")?.detail).toBe(
       "Shareable DMG is ready.",
     );
@@ -144,6 +154,7 @@ describe("release readiness checklist", () => {
     const rows = releaseReadinessRowsFromReport({
       status: "blocked",
       backendValidation: { ready: false },
+      staticSmokePreflight: { ready: false, requiredEvidence: [] },
       installedSmoke: {
         installedAppPresent: false,
         evidenceReady: false,
@@ -166,7 +177,7 @@ describe("release readiness checklist", () => {
 
     expect(releaseReadinessStatusCounts(rows)).toEqual({
       ready: 0,
-      blocked: 7,
+      blocked: 8,
       "local-only": 1,
     });
     expect(rows.find((row) => row.id === "installed-smoke")?.detail).toContain(
@@ -177,6 +188,9 @@ describe("release readiness checklist", () => {
     );
     expect(rows.find((row) => row.id === "local-dmg")?.detail).toContain(
       "does not prove signed release readiness",
+    );
+    expect(rows.find((row) => row.id === "connector-config-plan")?.detail).toContain(
+      "must include the planned connector config creation plan",
     );
   });
 
