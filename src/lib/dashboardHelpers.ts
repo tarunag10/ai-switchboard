@@ -532,31 +532,37 @@ function evidenceValue(evidence: string, prefix: string) {
   return evidence.startsWith(prefix) ? evidence.slice(prefix.length).trim() : null;
 }
 
+const compatibilityLabels: Partial<Record<string, string>> = {
+  gemini_cli: "Gemini",
+  opencode: "OpenCode"
+};
+
 export function connectorCompatibilityReport(
   connector: ClientConnectorStatus
 ): ConnectorCompatibilityReport | null {
-  if (connector.clientId !== "gemini_cli") {
+  const label = compatibilityLabels[connector.clientId];
+  if (!label) {
     return null;
   }
 
   const evidence = connector.detectionEvidence ?? [];
   const binaryPath =
-    evidence.map((item) => evidenceValue(item, "Gemini binary:")).find(Boolean) ??
+    evidence.map((item) => evidenceValue(item, `${label} binary:`)).find(Boolean) ??
     null;
   const version =
-    evidence.map((item) => evidenceValue(item, "Gemini version:")).find(Boolean) ??
+    evidence.map((item) => evidenceValue(item, `${label} version:`)).find(Boolean) ??
     null;
   const configSurface =
     evidence
-      .map((item) => evidenceValue(item, "Gemini config surface:"))
+      .map((item) => evidenceValue(item, `${label} config surface:`))
       .find(Boolean) ?? null;
   const routingBlocker =
     evidence.find((item) => item.startsWith("Provider routing blocked")) ?? null;
   const knownEvidence = new Set(
     [
-      binaryPath ? `Gemini binary: ${binaryPath}` : null,
-      version ? `Gemini version: ${version}` : null,
-      configSurface ? `Gemini config surface: ${configSurface}` : null,
+      binaryPath ? `${label} binary: ${binaryPath}` : null,
+      version ? `${label} version: ${version}` : null,
+      configSurface ? `${label} config surface: ${configSurface}` : null,
       routingBlocker
     ].filter((item): item is string => item !== null)
   );
@@ -567,7 +573,7 @@ export function connectorCompatibilityReport(
   }
 
   return {
-    title: "Gemini compatibility report",
+    title: `${label} compatibility report`,
     binaryPath,
     version,
     configSurface,

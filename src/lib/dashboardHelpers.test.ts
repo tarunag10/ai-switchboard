@@ -431,16 +431,45 @@ describe("dashboard helpers", () => {
     });
   });
 
+  it("formats OpenCode compatibility evidence for planned connector UI", () => {
+    const report = connectorCompatibilityReport({
+      clientId: "opencode",
+      name: "OpenCode",
+      supportStatus: "planned",
+      setupPhase: "adapt",
+      detectionEvidence: [
+        "OpenCode binary: /opt/homebrew/bin/opencode",
+        "OpenCode version: opencode 1.0.0",
+        "OpenCode config surface: /Users/test/.config/opencode",
+        "Provider routing blocked until active config path, backup, verify, rollback, and Off mode cleanup exist.",
+        "Detected, but the Headroom adapter is not implemented yet.",
+      ],
+      installed: true,
+      enabled: false,
+      verified: false,
+    });
+
+    expect(report).toEqual({
+      title: "OpenCode compatibility report",
+      binaryPath: "/opt/homebrew/bin/opencode",
+      version: "opencode 1.0.0",
+      configSurface: "/Users/test/.config/opencode",
+      routingBlocker:
+        "Provider routing blocked until active config path, backup, verify, rollback, and Off mode cleanup exist.",
+      otherEvidence: ["Detected, but the Headroom adapter is not implemented yet."],
+    });
+  });
+
   it("omits compatibility report for connectors without structured evidence", () => {
     expect(
       connectorCompatibilityReport({
-        clientId: "opencode",
-        name: "OpenCode",
+        clientId: "aider",
+        name: "Aider",
         supportStatus: "planned",
         installed: true,
         enabled: false,
         verified: false,
-        detectionEvidence: ["Detected at /opt/homebrew/bin/opencode"],
+        detectionEvidence: ["Detected at /opt/homebrew/bin/aider"],
       }),
     ).toBeNull();
   });

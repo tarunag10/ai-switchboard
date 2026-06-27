@@ -3375,7 +3375,8 @@ fn codex_user_state_exists() -> bool {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct GeminiCompatibilityReport {
+struct PlannedCliCompatibilityReport {
+    label: &'static str,
     binary_path: Option<PathBuf>,
     version: Option<String>,
     config_surfaces: Vec<PathBuf>,
@@ -3400,11 +3401,12 @@ fn read_cli_version(path: &Path) -> Option<String> {
     }
 }
 
-fn gemini_compatibility_report(binary_path: Option<PathBuf>) -> GeminiCompatibilityReport {
-    let config_candidates = [
-        home_dir().join(".gemini"),
-        home_dir().join(".config").join("gemini"),
-    ];
+fn planned_cli_compatibility_report(
+    label: &'static str,
+    binary_path: Option<PathBuf>,
+    config_candidates: &[PathBuf],
+    routing_blocker: &'static str,
+) -> PlannedCliCompatibilityReport {
     let config_surfaces = config_candidates
         .iter()
         .filter(|path| path.exists())
@@ -3412,29 +3414,33 @@ fn gemini_compatibility_report(binary_path: Option<PathBuf>) -> GeminiCompatibil
         .collect::<Vec<_>>();
     let version = binary_path.as_deref().and_then(read_cli_version);
 
-    GeminiCompatibilityReport {
+    PlannedCliCompatibilityReport {
+        label,
         binary_path,
         version,
         config_surfaces,
-        routing_blocker:
-            "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.",
+        routing_blocker,
     }
 }
 
-fn gemini_compatibility_evidence(report: &GeminiCompatibilityReport) -> Vec<String> {
+fn planned_cli_compatibility_evidence(report: &PlannedCliCompatibilityReport) -> Vec<String> {
     let mut evidence = Vec::new();
     if let Some(path) = &report.binary_path {
-        evidence.push(format!("Gemini binary: {}", path.display()));
+        evidence.push(format!("{} binary: {}", report.label, path.display()));
     }
     evidence.push(match &report.version {
-        Some(version) => format!("Gemini version: {version}"),
-        None => "Gemini version: unavailable from --version.".to_string(),
+        Some(version) => format!("{} version: {version}", report.label),
+        None => format!("{} version: unavailable from --version.", report.label),
     });
     if report.config_surfaces.is_empty() {
-        evidence.push("Gemini config surface: none detected yet.".to_string());
+        evidence.push(format!(
+            "{} config surface: none detected yet.",
+            report.label
+        ));
     } else {
         evidence.push(format!(
-            "Gemini config surface: {}",
+            "{} config surface: {}",
+            report.label,
             report
                 .config_surfaces
                 .iter()
@@ -3454,10 +3460,19 @@ fn detect_gemini_cli_client() -> ClientStatus {
         .into_iter()
         .find(|path| path.exists())
         .or_else(|| find_on_path(&["gemini"]));
-    let report = gemini_compatibility_report(executable.clone());
+    let config_candidates = [
+        home_dir().join(".gemini"),
+        home_dir().join(".config").join("gemini"),
+    ];
+    let report = planned_cli_compatibility_report(
+        "Gemini",
+        executable.clone(),
+        &config_candidates,
+        "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.",
+    );
     let installed = executable.is_some() || !report.config_surfaces.is_empty();
     let mut notes = if installed {
-        gemini_compatibility_evidence(&report)
+        planned_cli_compatibility_evidence(&report)
     } else {
         vec!["Not detected on machine yet.".into()]
     };
@@ -3494,16 +3509,45 @@ fn append_gemini_manual_routing_note(status: &mut ClientStatus) {
 }
 
 fn detect_opencode_client() -> ClientStatus {
-    detect_planned_client(
-        "opencode",
+    let executable = common_cli_candidate_paths(&["opencode", "open-code"])
+        .into_iter()
+        .find(|path| path.exists())
+        .or_else(|| find_on_path(&["opencode", "open-code"]));
+    let config_candidates = [
+        home_dir().join(".opencode"),
+        home_dir().join(".config").join("opencode"),
+    ];
+    let report = planned_cli_compatibility_report(
         "OpenCode",
-        &["opencode", "open-code"],
-        &[
-            home_dir().join(".opencode"),
-            home_dir().join(".config").join("opencode"),
-        ],
-        "Detected, but the Headroom adapter is not implemented yet. For now use RTK-only mode for shell-output savings.",
-    )
+        executable.clone(),
+        &config_candidates,
+        "Provider routing blocked until active config path, backup, verify, rollback, and Off mode cleanup exist.",
+    );
+    let installed = executable.is_some() || !report.config_surfaces.is_empty();
+    let mut notes = if installed {
+        planned_cli_compatibility_evidence(&report)
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but the Headroom adapter is not implemented yet. For now use RTK-only mode for shell-output savings."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "opencode".into(),
+        name: "OpenCode".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_cursor_client() -> ClientStatus {
@@ -3910,6 +3954,19 @@ mod tests {
             ],
         },
             ClientStatus {
+                id: "opencode".into(),
+                name: "OpenCode".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "OpenCode binary: /opt/homebrew/bin/opencode".into(),
+                    "OpenCode version: opencode 1.0.0".into(),
+                    "OpenCode config surface: /Users/test/.config/opencode".into(),
+                    "Provider routing blocked until active config path, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
+            ClientStatus {
                 id: "aider".into(),
                 name: "Aider".into(),
                 installed: true,
@@ -3964,6 +4021,17 @@ mod tests {
                     .contains(&"Gemini version: gemini 0.2.1".to_string())
         }));
         assert!(connectors.iter().any(|connector| {
+            connector.client_id == "opencode"
+                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"OpenCode binary: /opt/homebrew/bin/opencode".to_string())
+                && connector
+                    .detection_evidence
+                    .contains(&"OpenCode version: opencode 1.0.0".to_string())
+        }));
+        assert!(connectors.iter().any(|connector| {
             connector.client_id == "aider"
                 && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
@@ -3975,7 +4043,8 @@ mod tests {
 
     #[test]
     fn gemini_compatibility_evidence_reports_version_config_and_blocked_routing() {
-        let report = super::GeminiCompatibilityReport {
+        let report = super::PlannedCliCompatibilityReport {
+            label: "Gemini",
             binary_path: Some(PathBuf::from("/opt/homebrew/bin/gemini")),
             version: Some("gemini 0.2.1".to_string()),
             config_surfaces: vec![PathBuf::from("/Users/test/.gemini")],
@@ -3983,12 +4052,36 @@ mod tests {
                 "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.",
         };
 
-        let evidence = super::gemini_compatibility_evidence(&report).join(" ");
+        let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
 
         assert!(evidence.contains("Gemini binary: /opt/homebrew/bin/gemini"));
         assert!(evidence.contains("Gemini version: gemini 0.2.1"));
         assert!(evidence.contains("Gemini config surface: /Users/test/.gemini"));
         assert!(evidence.contains("Provider routing blocked"));
+        assert!(evidence.contains("backup"));
+        assert!(evidence.contains("verify"));
+        assert!(evidence.contains("rollback"));
+        assert!(evidence.contains("Off mode cleanup"));
+    }
+
+    #[test]
+    fn opencode_compatibility_evidence_reports_version_config_and_blocked_routing() {
+        let report = super::PlannedCliCompatibilityReport {
+            label: "OpenCode",
+            binary_path: Some(PathBuf::from("/opt/homebrew/bin/opencode")),
+            version: Some("opencode 1.0.0".to_string()),
+            config_surfaces: vec![PathBuf::from("/Users/test/.config/opencode")],
+            routing_blocker:
+                "Provider routing blocked until active config path, backup, verify, rollback, and Off mode cleanup exist.",
+        };
+
+        let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
+
+        assert!(evidence.contains("OpenCode binary: /opt/homebrew/bin/opencode"));
+        assert!(evidence.contains("OpenCode version: opencode 1.0.0"));
+        assert!(evidence.contains("OpenCode config surface: /Users/test/.config/opencode"));
+        assert!(evidence.contains("Provider routing blocked"));
+        assert!(evidence.contains("active config path"));
         assert!(evidence.contains("backup"));
         assert!(evidence.contains("verify"));
         assert!(evidence.contains("rollback"));
