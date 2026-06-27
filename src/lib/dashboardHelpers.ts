@@ -521,6 +521,7 @@ export function connectorSupportsAutomaticSetup(
 
 export interface ConnectorCompatibilityReport {
   title: string;
+  primaryPathLabel: string;
   binaryPath: string | null;
   version: string | null;
   configSurface: string | null;
@@ -532,38 +533,79 @@ function evidenceValue(evidence: string, prefix: string) {
   return evidence.startsWith(prefix) ? evidence.slice(prefix.length).trim() : null;
 }
 
-const compatibilityLabels: Partial<Record<string, string>> = {
-  gemini_cli: "Gemini",
-  grok_cli: "Grok / xAI",
-  opencode: "OpenCode"
+const compatibilityReports: Partial<
+  Record<
+    string,
+    {
+      label: string;
+      primaryPathLabel: string;
+      pathPrefix: string;
+      versionPrefix: string | null;
+      configPrefix: string;
+    }
+  >
+> = {
+  cursor: {
+    label: "Cursor",
+    primaryPathLabel: "App",
+    pathPrefix: "Cursor app:",
+    versionPrefix: null,
+    configPrefix: "Cursor profile settings:"
+  },
+  gemini_cli: {
+    label: "Gemini",
+    primaryPathLabel: "Binary",
+    pathPrefix: "Gemini binary:",
+    versionPrefix: "Gemini version:",
+    configPrefix: "Gemini config surface:"
+  },
+  grok_cli: {
+    label: "Grok / xAI",
+    primaryPathLabel: "Binary",
+    pathPrefix: "Grok / xAI binary:",
+    versionPrefix: "Grok / xAI version:",
+    configPrefix: "Grok / xAI config surface:"
+  },
+  opencode: {
+    label: "OpenCode",
+    primaryPathLabel: "Binary",
+    pathPrefix: "OpenCode binary:",
+    versionPrefix: "OpenCode version:",
+    configPrefix: "OpenCode config surface:"
+  }
 };
 
 export function connectorCompatibilityReport(
   connector: ClientConnectorStatus
 ): ConnectorCompatibilityReport | null {
-  const label = compatibilityLabels[connector.clientId];
-  if (!label) {
+  const reportConfig = compatibilityReports[connector.clientId];
+  if (!reportConfig) {
     return null;
   }
 
   const evidence = connector.detectionEvidence ?? [];
   const binaryPath =
-    evidence.map((item) => evidenceValue(item, `${label} binary:`)).find(Boolean) ??
+    evidence.map((item) => evidenceValue(item, reportConfig.pathPrefix)).find(Boolean) ??
     null;
-  const version =
-    evidence.map((item) => evidenceValue(item, `${label} version:`)).find(Boolean) ??
-    null;
+  const version = reportConfig.versionPrefix
+    ? evidence.map((item) => evidenceValue(item, reportConfig.versionPrefix!)).find(Boolean) ??
+      null
+    : null;
   const configSurface =
     evidence
-      .map((item) => evidenceValue(item, `${label} config surface:`))
+      .map((item) => evidenceValue(item, reportConfig.configPrefix))
       .find(Boolean) ?? null;
   const routingBlocker =
-    evidence.find((item) => item.startsWith("Provider routing blocked")) ?? null;
+    evidence.find(
+      (item) =>
+        item.startsWith("Provider routing blocked") ||
+        item.startsWith("Settings routing blocked")
+    ) ?? null;
   const knownEvidence = new Set(
     [
-      binaryPath ? `${label} binary: ${binaryPath}` : null,
-      version ? `${label} version: ${version}` : null,
-      configSurface ? `${label} config surface: ${configSurface}` : null,
+      binaryPath ? `${reportConfig.pathPrefix} ${binaryPath}` : null,
+      version && reportConfig.versionPrefix ? `${reportConfig.versionPrefix} ${version}` : null,
+      configSurface ? `${reportConfig.configPrefix} ${configSurface}` : null,
       routingBlocker
     ].filter((item): item is string => item !== null)
   );
@@ -574,7 +616,8 @@ export function connectorCompatibilityReport(
   }
 
   return {
-    title: `${label} compatibility report`,
+    title: `${reportConfig.label} compatibility report`,
+    primaryPathLabel: reportConfig.primaryPathLabel,
     binaryPath,
     version,
     configSurface,

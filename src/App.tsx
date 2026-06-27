@@ -8536,7 +8536,8 @@ export default function App() {
                                 <strong>{compatibilityReport.title}</strong>
                                 {compatibilityReport.binaryPath ? (
                                   <span>
-                                    Binary {compatibilityReport.binaryPath}
+                                    {compatibilityReport.primaryPathLabel}{" "}
+                                    {compatibilityReport.binaryPath}
                                   </span>
                                 ) : null}
                                 {compatibilityReport.version ? (

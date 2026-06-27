@@ -3551,19 +3551,64 @@ fn detect_opencode_client() -> ClientStatus {
 }
 
 fn detect_cursor_client() -> ClientStatus {
-    detect_planned_client(
-        "cursor",
-        "Cursor",
-        &["cursor"],
-        &[
-            home_dir()
-                .join("Library")
-                .join("Application Support")
-                .join("Cursor"),
-            PathBuf::from("/Applications/Cursor.app"),
-        ],
-        "Detected, but Headroom adapter not implemented yet. use guided setup until Cursor routing is verified.",
-    )
+    let app_path = PathBuf::from("/Applications/Cursor.app");
+    let command_path = find_on_path(&["cursor"]);
+    let profile_candidates = [home_dir()
+        .join("Library")
+        .join("Application Support")
+        .join("Cursor")];
+    let profile_surfaces = profile_candidates
+        .iter()
+        .filter(|path| path.exists())
+        .cloned()
+        .collect::<Vec<_>>();
+    let installed = app_path.exists() || command_path.is_some() || !profile_surfaces.is_empty();
+    let mut notes = if installed {
+        let mut evidence = Vec::new();
+        if app_path.exists() {
+            evidence.push(format!("Cursor app: {}", app_path.display()));
+        } else if let Some(path) = command_path {
+            evidence.push(format!("Cursor app: command {}", path.display()));
+        }
+        if profile_surfaces.is_empty() {
+            evidence.push("Cursor profile settings: none detected yet.".into());
+        } else {
+            evidence.push(format!(
+                "Cursor profile settings: {}",
+                profile_surfaces
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        evidence.push(
+            "Settings routing blocked until active profile detection, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                .into(),
+        );
+        evidence
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter not implemented yet. use guided setup until Cursor routing is verified."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "cursor".into(),
+        name: "Cursor".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_grok_cli_client() -> ClientStatus {
@@ -4009,6 +4054,18 @@ mod tests {
                 ],
             },
             ClientStatus {
+                id: "cursor".into(),
+                name: "Cursor".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Cursor app: /Applications/Cursor.app".into(),
+                    "Cursor profile settings: /Users/test/Library/Application Support/Cursor".into(),
+                    "Settings routing blocked until active profile detection, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
+            ClientStatus {
                 id: "aider".into(),
                 name: "Aider".into(),
                 installed: true,
@@ -4083,6 +4140,18 @@ mod tests {
                 && connector
                     .detection_evidence
                     .contains(&"Grok / xAI version: xai 0.4.0".to_string())
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "cursor"
+                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Cursor app: /Applications/Cursor.app".to_string())
+                && connector.detection_evidence.contains(
+                    &"Settings routing blocked until active profile detection, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                        .to_string()
+                )
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "aider"

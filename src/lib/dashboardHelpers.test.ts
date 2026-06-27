@@ -422,6 +422,7 @@ describe("dashboard helpers", () => {
 
     expect(report).toEqual({
       title: "Gemini compatibility report",
+      primaryPathLabel: "Binary",
       binaryPath: "/opt/homebrew/bin/gemini",
       version: "gemini 0.2.1",
       configSurface: "/Users/test/.gemini",
@@ -451,6 +452,7 @@ describe("dashboard helpers", () => {
 
     expect(report).toEqual({
       title: "OpenCode compatibility report",
+      primaryPathLabel: "Binary",
       binaryPath: "/opt/homebrew/bin/opencode",
       version: "opencode 1.0.0",
       configSurface: "/Users/test/.config/opencode",
@@ -480,11 +482,41 @@ describe("dashboard helpers", () => {
 
     expect(report).toEqual({
       title: "Grok / xAI compatibility report",
+      primaryPathLabel: "Binary",
       binaryPath: "/opt/homebrew/bin/xai",
       version: "xai 0.4.0",
       configSurface: "/Users/test/.config/xai",
       routingBlocker:
         "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+      otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
+    });
+  });
+
+  it("formats Cursor profile evidence for planned connector UI", () => {
+    const report = connectorCompatibilityReport({
+      clientId: "cursor",
+      name: "Cursor",
+      supportStatus: "planned",
+      setupPhase: "guide",
+      detectionEvidence: [
+        "Cursor app: /Applications/Cursor.app",
+        "Cursor profile settings: /Users/test/Library/Application Support/Cursor",
+        "Settings routing blocked until active profile detection, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
+        "Detected, but Headroom adapter not implemented yet.",
+      ],
+      installed: true,
+      enabled: false,
+      verified: false,
+    });
+
+    expect(report).toEqual({
+      title: "Cursor compatibility report",
+      primaryPathLabel: "App",
+      binaryPath: "/Applications/Cursor.app",
+      version: null,
+      configSurface: "/Users/test/Library/Application Support/Cursor",
+      routingBlocker:
+        "Settings routing blocked until active profile detection, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
       otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
     });
   });
