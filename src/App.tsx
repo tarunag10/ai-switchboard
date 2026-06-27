@@ -64,6 +64,7 @@ import {
 } from "./lib/urgentNotifications";
 import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
 import {
+  buildAgentSessionPreparation,
   buildRepoAgentHandoffPayload,
   buildRepoAgentManifest,
   buildRepoIntelligenceSummary,
@@ -74,6 +75,7 @@ import {
   formatSingleRepoContextPackMarkdown,
   getRepoIndexFreshness,
   repoAgentHandoffProfiles,
+  type AgentSessionTaskType,
   type RepoContextPack,
   type RepoAgentHandoffTarget,
   type RepoIntelligenceSummary,
@@ -1435,11 +1437,19 @@ const repoAgentHandoffGroups = repoAgentHandoffProfiles.reduce<
 }, []);
 
 function RepoIntelligencePreview({
+  headroomHealthy = false,
   onSummaryChange,
+  rtkHealthy = false,
 }: {
+  headroomHealthy?: boolean;
   onSummaryChange?: (summary: RepoIntelligenceSummary) => void;
+  rtkHealthy?: boolean;
 }) {
   const [repoPath, setRepoPath] = useState("");
+  const [selectedAgent, setSelectedAgent] =
+    useState<RepoAgentHandoffTarget>("codex");
+  const [selectedTaskType, setSelectedTaskType] =
+    useState<AgentSessionTaskType>("verification");
   const [summary, setSummary] = useState<RepoIntelligenceSummary>(
     repoIntelligencePreview,
   );
@@ -1455,6 +1465,19 @@ function RepoIntelligencePreview({
     : null;
   const savingsEstimate = estimateRepoIntelligenceSavings(summary);
   const agentManifest = buildRepoAgentManifest(summary);
+  const selectedAgentProfile =
+    repoAgentHandoffProfiles.find((profile) => profile.id === selectedAgent) ??
+    repoAgentHandoffProfiles[0];
+  const providerRoutingSafe = primaryRepoAgentIds.has(selectedAgent);
+  const sessionPreparation = buildAgentSessionPreparation(summary, {
+    target: selectedAgentProfile.id,
+    taskType: selectedTaskType,
+    modeInputs: {
+      headroomHealthy,
+      rtkHealthy,
+      providerRoutingSafe,
+    },
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -1657,6 +1680,25 @@ function RepoIntelligencePreview({
     }
   }
 
+  async function copyPreparedAgentSession() {
+    if (!hasRealIndex || !sessionPreparation.handoffMarkdown) {
+      setCopyNotice(sessionPreparation.copyDetail);
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(sessionPreparation.handoffMarkdown);
+      setCopyNotice(`${sessionPreparation.target.label} session copied.`);
+      window.setTimeout(() => setCopyNotice(null), 2000);
+    } catch {
+      setCopyNotice("Copy failed. Select session details manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
+
   return (
     <div
       className="repo-intelligence-preview"
@@ -1741,6 +1783,83 @@ function RepoIntelligencePreview({
       {indexError ? (
         <p className="install-progress__error">{indexError}</p>
       ) : null}
+      <div
+        className="repo-intelligence-session"
+        aria-label="Start agent session"
+      >
+        <div className="repo-intelligence-session__heading">
+          <div>
+            <span>Start session</span>
+            <strong>{sessionPreparation.target.label}</strong>
+          </div>
+          <span
+            className={`repo-intelligence-session__status repo-intelligence-session__status--${sessionPreparation.copyStatus}`}
+          >
+            {sessionPreparation.copyStatus}
+          </span>
+        </div>
+        <div className="repo-intelligence-session__controls">
+          <label>
+            <span>Agent</span>
+            <select
+              value={selectedAgent}
+              onChange={(event) =>
+                setSelectedAgent(event.target.value as RepoAgentHandoffTarget)
+              }
+            >
+              {repoAgentHandoffProfiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Task</span>
+            <select
+              value={selectedTaskType}
+              onChange={(event) =>
+                setSelectedTaskType(event.target.value as AgentSessionTaskType)
+              }
+            >
+              <option value="implementation">Implementation</option>
+              <option value="verification">Verification</option>
+              <option value="handoff">Handoff</option>
+            </select>
+          </label>
+          <button
+            className="addon-card__action addon-card__action--primary"
+            disabled={!hasRealIndex || !sessionPreparation.handoffMarkdown}
+            onClick={() => void copyPreparedAgentSession()}
+            type="button"
+          >
+            Copy full handoff
+          </button>
+        </div>
+        <div className="repo-intelligence-session__summary">
+          <div>
+            <span>Pack</span>
+            <strong>{repoAgentPackLabel(sessionPreparation.packId)}</strong>
+          </div>
+          <div>
+            <span>Mode</span>
+            <strong>
+              {switchboardModeLabel(sessionPreparation.recommendedMode)}
+            </strong>
+          </div>
+          <div>
+            <span>Freshness</span>
+            <strong>{sessionPreparation.freshness.label}</strong>
+          </div>
+        </div>
+        <p className="repo-intelligence-session__detail">
+          {sessionPreparation.copyDetail} Doctor still verifies runtime and
+          connector health before any managed setup.
+        </p>
+        <p className="repo-intelligence-session__detail">
+          {sessionPreparation.recommendedModeReason}
+        </p>
+      </div>
       <div
         className="repo-intelligence-savings"
         aria-label="Repo Intelligence savings calculator"
@@ -7231,7 +7350,16 @@ export default function App() {
               <span className="repo-intelligence-view__badge">Local only</span>
             </header>
             <RepoIntelligencePreview
+              headroomHealthy={
+                runtimeStatus?.proxyReachable === true &&
+                runtimeStatus.running === true &&
+                runtimeStatus.paused === false
+              }
               onSummaryChange={setLatestRepoIntelligenceSummary}
+              rtkHealthy={
+                runtimeStatus?.rtk.installed === true &&
+                runtimeStatus.rtk.enabled === true
+              }
             />
           </section>
         </div>
