@@ -78,7 +78,7 @@ Do not share a public DMG until all gates are true:
 5. `npm run smoke:preflight` passes and writes `dist/smoke-preflight-summary.md`.
 6. The DMG is installed as `/Applications/Mac AI Switchboard.app`, with `Contents/Info.plist` present inside the app bundle.
 7. `docs/beta-smoke-test.md` is run against the installed app.
-8. `npm run smoke:installed -- --confirm` records `dist/installed-smoke-summary.md`, including Switchboard modes, degraded-mode Doctor guidance, planned connector automation gates, manual workflow, Repo Intelligence recipes, Savings calculator copyable summary, per-tool agent handoffs, and Codex compression recovery.
+8. `npm run smoke:installed -- --confirm` records `dist/installed-smoke-summary.md`, including Switchboard modes, degraded-mode Doctor guidance, planned connector automation gates, manual workflow, config creation plan, Repo Intelligence recipes, Savings calculator copyable summary, per-tool agent handoffs, and Codex compression recovery.
 
 ## First-Run Footprint
 

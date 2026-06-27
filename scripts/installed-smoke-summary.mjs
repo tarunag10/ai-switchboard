@@ -60,7 +60,7 @@ const evidenceAreas = [
   "Switchboard copyable state",
   "Doctor automatic/manual triage and repair actions",
   "Doctor copyable report",
-  "Planned connector automation gates and manual workflow",
+  "Planned connector automation gates, manual workflow, and config creation plan",
   "Repo Intelligence recipes and local context packs",
   "Savings calculator copyable summary",
   "Per-tool agent handoffs",

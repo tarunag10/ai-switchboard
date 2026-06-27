@@ -77,7 +77,7 @@ Open Settings and inspect the coding tool connector list.
 
 Expect: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI all appear when detected or known to the connector registry. Each planned connector shows a **Planned** badge, setup phase, category, safe mode chips such as RTK only or Repo packs, backend detection evidence, copyable manual setup guide, and disabled switch. Gemini CLI shows a compatibility report with binary, version, config surface, and routing-blocker evidence when detected. Cards explain what is safe today and the first automation step before config writes. Doctor may show **Planned coding tools detected**, but it must be a manual step with no **Repair all** action for those tools. If a report mixes repairable and manual items, Doctor says **Repair all will leave manual steps visible.** Launcher auto-setup and proxy verification should include only managed connectors such as Claude Code and Codex.
 
-Expect: planned connector cards and Doctor evidence include **Automation gates** and **Manual workflow** before any future config-writing support is allowed.
+Expect: planned connector cards and Doctor evidence include **Automation gates**, **Manual workflow**, and **Config creation plan** before any future config-writing support is allowed.
 
 ### S9. Repo Intelligence index health
 

@@ -142,6 +142,11 @@ if (!requiredEvidence.includes("Planned connector manual workflow")) {
     "staticSmokePreflight.requiredEvidence must include planned connector manual workflow",
   );
 }
+if (!requiredEvidence.includes("Planned connector config creation plan")) {
+  fail(
+    "staticSmokePreflight.requiredEvidence must include planned connector config creation plan",
+  );
+}
 requireType(report, "staticSmokePreflight.message", "string");
 
 requireObject(report, "installedSmokeSummary");
@@ -195,7 +200,7 @@ for (const requiredItem of [
   "Switchboard copyable state",
   "Doctor copyable report",
   "Savings calculator copyable summary",
-  "Planned connector automation gates and manual workflow",
+  "Planned connector automation gates, manual workflow, and config creation plan",
   "Codex compression recovery",
 ]) {
   if (!installedRequiredEvidence.includes(requiredItem)) {
