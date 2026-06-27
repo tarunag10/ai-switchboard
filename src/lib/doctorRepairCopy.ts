@@ -198,6 +198,8 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
       return "Clear the saved Repo Intelligence index, then open Addons and index an available local repo when ready.";
     case "repo_intelligence_stale":
       return "Clear the stale saved Repo Intelligence index, then open Addons and re-index the repo before copying packs into another agent.";
+    case "repo_intelligence_storage_corrupt":
+      return "Clear the unreadable Repo Intelligence index, then open Addons and re-index a local repo before copying packs into another agent.";
     case "headroom_paused":
       return "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.";
     case "off_mode_not_clean":

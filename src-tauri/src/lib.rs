@@ -2369,19 +2369,20 @@ repair_action,
 });
     }
 
-    if let Ok(Some(summary)) = repo_intelligence::load_latest_summary() {
-        let repo_missing = !Path::new(&summary.repo_root).is_dir();
-        let stale = DateTime::parse_from_rfc3339(&summary.indexed_at)
-            .map(|indexed_at| {
-                Utc::now()
-                    .signed_duration_since(indexed_at.with_timezone(&Utc))
-                    .num_days()
-                    >= 7
-            })
-            .unwrap_or(false);
+    match repo_intelligence::load_latest_summary() {
+        Ok(Some(summary)) => {
+            let repo_missing = !Path::new(&summary.repo_root).is_dir();
+            let stale = DateTime::parse_from_rfc3339(&summary.indexed_at)
+                .map(|indexed_at| {
+                    Utc::now()
+                        .signed_duration_since(indexed_at.with_timezone(&Utc))
+                        .num_days()
+                        >= 7
+                })
+                .unwrap_or(false);
 
-        if repo_missing {
-            issues.push(crate::models::DoctorIssue {
+            if repo_missing {
+                issues.push(crate::models::DoctorIssue {
 id: "repo_intelligence_repo_missing".to_string(),
 title: "Repo Intelligence index points to a missing folder".to_string(),
 body: format!(
@@ -2391,8 +2392,8 @@ summary.repo_root
 severity: crate::models::DoctorSeverity::Warning,
 repair_action: Some("clear_repo_intelligence_index".to_string()),
 });
-        } else if stale {
-            issues.push(crate::models::DoctorIssue {
+            } else if stale {
+                issues.push(crate::models::DoctorIssue {
 id: "repo_intelligence_stale".to_string(),
 title: "Repo Intelligence index is stale".to_string(),
 body: format!(
@@ -2402,7 +2403,18 @@ summary.repo_root
 severity: crate::models::DoctorSeverity::Warning,
 repair_action: Some("clear_repo_intelligence_index".to_string()),
 });
+            }
         }
+        Ok(None) => {}
+        Err(err) => issues.push(crate::models::DoctorIssue {
+            id: "repo_intelligence_storage_corrupt".to_string(),
+            title: "Repo Intelligence index cannot be read".to_string(),
+            body: format!(
+                "The saved Repo Intelligence index could not be parsed or read: {err}. Repair will clear the saved index; then re-index a local repository before copying packs or agent handoffs."
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("clear_repo_intelligence_index".to_string()),
+        }),
     }
 
     if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Rtk)

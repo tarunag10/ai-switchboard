@@ -96,6 +96,18 @@ describe("doctor repair copy", () => {
     ).toContain("re-run Doctor until requested mode becomes active");
   });
 
+  it("guides corrupt Repo Intelligence storage recovery", () => {
+    expect(
+      doctorIssueGuidance({
+        id: "repo_intelligence_storage_corrupt",
+        title: "Repo Intelligence index cannot be read",
+        body: "The saved Repo Intelligence index could not be parsed.",
+        severity: "warning",
+        repairAction: null,
+      }),
+    ).toContain("Clear the unreadable Repo Intelligence index");
+  });
+
   it("formats healthy Doctor report for sharing", () => {
     expect(
       formatDoctorReportShareText({

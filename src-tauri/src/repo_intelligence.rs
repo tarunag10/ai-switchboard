@@ -2453,4 +2453,34 @@ mod tests {
         let error = build_agent_handoff_response(&summary, "unknown", None).unwrap_err();
         assert!(error.to_string().contains("unknown repo handoff agent"));
     }
+
+    #[test]
+    fn corrupt_saved_index_is_reported_for_doctor_repair() {
+        let previous_xdg = std::env::var_os("XDG_DATA_HOME");
+        let previous_home = std::env::var_os("HOME");
+        let scratch = tempfile::tempdir().expect("scratch");
+        std::env::set_var("XDG_DATA_HOME", scratch.path());
+        std::env::set_var("HOME", scratch.path());
+
+        let result = (|| {
+            let path = latest_summary_path();
+            let parent = path.parent().expect("summary parent");
+            std::fs::create_dir_all(parent).expect("create config dir");
+            std::fs::write(&path, b"{not valid json").expect("write corrupt summary");
+            load_latest_summary().expect_err("corrupt summary should error")
+        })();
+
+        match previous_xdg {
+            Some(value) => std::env::set_var("XDG_DATA_HOME", value),
+            None => std::env::remove_var("XDG_DATA_HOME"),
+        }
+        match previous_home {
+            Some(value) => std::env::set_var("HOME", value),
+            None => std::env::remove_var("HOME"),
+        }
+
+        assert!(result
+            .to_string()
+            .contains("parsing repo intelligence summary"));
+    }
 }
