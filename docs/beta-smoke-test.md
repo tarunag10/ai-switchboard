@@ -195,9 +195,9 @@ curl -sS -o /dev/null -w '%{http_code}\n' "http://127.0.0.1:6767/livez"
 ```
 Expect: at least one `127.0.0.1:67XX` line in the 6768-6790 range, and the curl returns `200`.
 
-Then, force a fallback. Quit Headroom, hold 6768 with a Python blocker (`nc -l` exits after one connection, so the proxy's first probe frees the port before fallback can trigger), relaunch, and confirm the proxy comes up on a different port. The proxy on a fallback port boots cold (memory tools / model load), so poll `/livez` for up to 90s instead of a fixed sleep:
+Then, force a fallback. Quit Mac AI Switchboard, hold 6768 with a Python blocker (`nc -l` exits after one connection, so the proxy's first probe frees the port before fallback can trigger), relaunch, and confirm the proxy comes up on a different port. The proxy on a fallback port boots cold (memory tools / model load), so poll `/livez` for up to 90s instead of a fixed sleep:
 ```bash
-osascript -e 'quit app "Headroom"' 2>/dev/null; sleep 2
+osascript -e 'quit app "Mac AI Switchboard"' 2>/dev/null; sleep 2
 python3 -c "import socket,time; s=socket.socket(); s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1); s.bind(('127.0.0.1',6768)); s.listen(16); time.sleep(180)" &
 BLOCK_PID=$!
 sleep 1

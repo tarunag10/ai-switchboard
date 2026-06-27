@@ -346,7 +346,7 @@ describe("maybeFireStaleAppUpdateNotification", () => {
     );
 
     expect(invokeFn).toHaveBeenCalledWith("show_notification", {
-      title: "Headroom update waiting",
+      title: "Mac AI Switchboard update waiting",
       body: expect.stringContaining("0.3.0"),
       action: "update",
     });

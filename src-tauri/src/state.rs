@@ -903,7 +903,7 @@ impl AppState {
             p.complete = false;
             p.failed = false;
             p.current_step = "Preparing update".into();
-            p.message = "Wrapping up the Headroom update.".into();
+            p.message = "Wrapping up the Headroom engine update.".into();
             p.overall_percent = 0;
             p.from_version = previous_app_version.clone();
             p.to_version = Some(current_app_version.clone());
@@ -976,16 +976,16 @@ impl AppState {
                 let hint = crate::classify_upgrade_error(&error);
                 let fallback_hint = match maintenance_kind {
                     RuntimeMaintenanceKind::Upgrade if restored && restarted => {
-                        Some("Restarted Headroom with the previous runtime.".into())
+                        Some("Restarted the Headroom engine with the previous runtime.".into())
                     }
                     RuntimeMaintenanceKind::Upgrade if restored => {
-                        Some("Restored the previous runtime, but Headroom still needs a manual restart.".into())
+                        Some("Restored the previous runtime, but the Headroom engine still needs a manual restart.".into())
                     }
                     RuntimeMaintenanceKind::Upgrade => {
-                        Some("Headroom update failed and the previous runtime could not be restored automatically.".into())
+                        Some("Headroom engine update failed and the previous runtime could not be restored automatically.".into())
                     }
                     RuntimeMaintenanceKind::RequirementsRepair if restarted => {
-                        Some("Restarted Headroom with the existing runtime.".into())
+                        Some("Restarted the Headroom engine with the existing runtime.".into())
                     }
                     RuntimeMaintenanceKind::RequirementsRepair => {
                         Some("Dependency repair failed and Headroom could not be restarted automatically.".into())
@@ -1037,19 +1037,19 @@ impl AppState {
                     p.current_step = "Install failed".into();
                     p.message = match maintenance_kind {
                         RuntimeMaintenanceKind::Upgrade if restored && restarted => {
-                            "Headroom update couldn't install. The previous runtime was restored and restarted.".into()
+                            "Headroom engine update couldn't install. The previous runtime was restored and restarted.".into()
                         }
                         RuntimeMaintenanceKind::Upgrade if restored => {
-                            "Headroom update couldn't install. The previous runtime was restored, but it still needs a restart.".into()
+                            "Headroom engine update couldn't install. The previous runtime was restored, but it still needs a restart.".into()
                         }
                         RuntimeMaintenanceKind::Upgrade => {
-                            "Headroom update couldn't install, and the previous runtime could not be restored automatically.".into()
+                            "Headroom engine update couldn't install, and the previous runtime could not be restored automatically.".into()
                         }
                         RuntimeMaintenanceKind::RequirementsRepair if restarted => {
-                            "Headroom dependency repair failed. Restarted Headroom with the existing runtime.".into()
+                            "Headroom engine dependency repair failed. Restarted the engine with the existing runtime.".into()
                         }
                         RuntimeMaintenanceKind::RequirementsRepair => {
-                            "Headroom dependency repair failed, and Headroom could not be restarted automatically.".into()
+                            "Headroom engine dependency repair failed, and the engine could not be restarted automatically.".into()
                         }
                     };
                     p.overall_percent = 100;
@@ -1155,10 +1155,12 @@ impl AppState {
                 p.current_step = "Done".into();
                 p.message = match maintenance_kind {
                     RuntimeMaintenanceKind::Upgrade => {
-                        format!("Headroom updated to {}.", current_app_version)
+                        format!(
+                            "Headroom engine updated for Mac AI Switchboard {current_app_version}."
+                        )
                     }
                     RuntimeMaintenanceKind::RequirementsRepair => {
-                        "Headroom runtime repair completed.".into()
+                        "Headroom engine repair completed.".into()
                     }
                 };
                 p.overall_percent = 100;
@@ -2559,8 +2561,10 @@ impl AppState {
             running: true,
             complete: false,
             failed: false,
-            current_step: "Starting Headroom".into(),
-            message: "Starting Headroom for the first time (this can take ~1-2 minutes)…".into(),
+            current_step: "Starting Headroom engine".into(),
+            message:
+                "Starting the Headroom engine for the first time (this can take ~1-2 minutes)…"
+                    .into(),
             current_step_eta_seconds: 45,
             overall_percent: 95,
         };
@@ -5409,7 +5413,7 @@ pub(crate) fn classify_startup_error(raw: &str) -> Option<String> {
     if raw.contains("exited with status") && raw.contains("before opening port") {
         return Some(
             "The Headroom Python runtime crashed at startup. \
-             Open Headroom logs from Settings to see the traceback, \
+             Open engine logs from Settings to see the traceback, \
              or reinstall the runtime from Settings > Advanced."
                 .into(),
         );
@@ -5568,7 +5572,7 @@ fn bootstrap_complete_state() -> BootstrapProgress {
         complete: true,
         failed: false,
         current_step: "Install complete".into(),
-        message: "Headroom is ready.".into(),
+        message: "Mac AI Switchboard is ready.".into(),
         current_step_eta_seconds: 0,
         overall_percent: 100,
     }

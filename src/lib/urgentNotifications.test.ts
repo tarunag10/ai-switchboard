@@ -152,7 +152,7 @@ describe("maybeFireUrgentPricingNotifications", () => {
     );
 
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Headroom needs you to sign in",
+      title: "Mac AI Switchboard needs you to sign in",
       body: "Sign in required.",
       action: "signin",
     });
@@ -167,8 +167,8 @@ describe("maybeFireUrgentPricingNotifications", () => {
     );
 
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Headroom needs you to sign in",
-      body: "Sign in to Headroom to keep optimization running.",
+      title: "Mac AI Switchboard needs you to sign in",
+      body: "Sign in to Mac AI Switchboard to keep optimization running.",
       action: "signin",
     });
   });
@@ -185,7 +185,7 @@ describe("maybeFireUrgentPricingNotifications", () => {
     );
 
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Headroom optimization is off",
+      title: "Headroom engine optimization is off",
       body: "Plan does not allow optimization.",
       action: "billing",
     });
@@ -322,14 +322,17 @@ describe("maybeFireUrgentPricingNotifications", () => {
         optimizationAllowed: false,
         shouldNudge: true,
         nudgeLevel: 3,
-        gateMessage: "Headroom is paused.",
+        gateMessage: "The Headroom engine is paused.",
       })
     );
 
     expect(invokeMock).toHaveBeenCalledTimes(1);
     expect(invokeMock).toHaveBeenCalledWith(
       "show_notification",
-      expect.objectContaining({ action: "billing", title: "Headroom optimization is off" })
+      expect.objectContaining({
+        action: "billing",
+        title: "Headroom engine optimization is off",
+      })
     );
   });
 
@@ -354,8 +357,8 @@ describe("maybeFireUrgentPricingNotifications", () => {
 
     expect(invokeMock).toHaveBeenCalledTimes(1);
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Headroom is ready when you are",
-      body: "You're on the free plan. Upgrade to keep Headroom optimizing every prompt.",
+      title: "Mac AI Switchboard is ready when you are",
+      body: "You're on the free plan. Upgrade to keep the Headroom engine optimizing every prompt.",
       action: "billing",
     });
   });
@@ -428,14 +431,14 @@ describe("maybeFireUrgentPricingNotifications", () => {
         codex: makeCodex({
           optimizationAllowed: false,
           gateMessage:
-            "Headroom is paused because you've reached 50.0% of weekly Codex usage.",
+            "The Headroom engine is paused because you've reached 50.0% of weekly Codex usage.",
         }),
       })
     );
 
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Headroom optimization is off",
-      body: "Headroom is paused because you've reached 50.0% of weekly Codex usage.",
+      title: "Headroom engine optimization is off",
+      body: "The Headroom engine is paused because you've reached 50.0% of weekly Codex usage.",
       action: "billing",
     });
   });
@@ -543,8 +546,8 @@ describe("maybeFireUrgentRuntimeNotification", () => {
     );
 
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Headroom stopped running",
-      body: "Headroom isn't running. Open the tray to restart it.",
+      title: "Mac AI Switchboard engine stopped running",
+      body: "The Headroom engine isn't running. Open Mac AI Switchboard to restart it.",
       action: "runtime",
     });
   });
@@ -558,8 +561,8 @@ describe("maybeFireUrgentRuntimeNotification", () => {
     );
 
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Headroom stopped running",
-      body: "Headroom isn't running: port 6767 busy",
+      title: "Mac AI Switchboard engine stopped running",
+      body: "The Headroom engine isn't running: port 6767 busy",
       action: "runtime",
     });
   });
@@ -577,8 +580,8 @@ describe("maybeFireUrgentRuntimeNotification", () => {
     );
 
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Headroom stopped running",
-      body: "Headroom isn't running. Wait a moment and click Retry.",
+      title: "Mac AI Switchboard engine stopped running",
+      body: "The Headroom engine isn't running. Wait a moment and click Retry.",
       action: "runtime",
     });
   });

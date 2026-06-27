@@ -1765,7 +1765,7 @@ function PlannedConnectorRoadmap({
 }
 
 function buildUpgradeIssueMailto(failure: RuntimeUpgradeFailure): string {
-  const subject = `Headroom update issue (${failure.targetHeadroomVersion}, ${failure.failurePhase})`;
+  const subject = `Mac AI Switchboard engine update issue (${failure.targetHeadroomVersion}, ${failure.failurePhase})`;
   const diagnosticLines = [
     `App version: ${failure.appVersion}`,
     `Target Headroom: ${failure.targetHeadroomVersion}`,
@@ -4386,8 +4386,8 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           <div className="modal-card runtime-upgrade-modal">
             <h3>
               {runtimeUpgradeProgress.toVersion
-                ? `Finishing Headroom update to ${runtimeUpgradeProgress.toVersion}…`
-                : "Finishing Headroom update…"}
+                ? `Finishing Headroom engine update to ${runtimeUpgradeProgress.toVersion}…`
+                : "Finishing Headroom engine update…"}
             </h3>
             <p className="runtime-upgrade-modal__sub">
               {runtimeUpgradeProgress.fromVersion
@@ -4418,7 +4418,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
             <strong>
               {upgradeFailure.failurePhase === "boot_validation"
                 ? `headroom-ai ${upgradeFailure.targetHeadroomVersion} installed but didn't start.`
-                : "Headroom update didn't finish."}
+                : "Headroom engine update didn't finish."}
             </strong>
             <span>
               {upgradeFailure.errorHint ??
@@ -4524,12 +4524,12 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           <>
             <h1>
               {runtimeUpgradeProgress.toVersion
-                ? `Finishing Headroom ${runtimeUpgradeProgress.toVersion} update…`
-                : "Finishing Headroom update…"}
+                ? `Finishing Headroom engine ${runtimeUpgradeProgress.toVersion} update…`
+                : "Finishing Headroom engine update…"}
             </h1>
             <p className="launcher-install-notice">
               {runtimeUpgradeProgress.message ||
-                "Wrapping up the Headroom update."}
+                "Wrapping up the Headroom engine update."}
             </p>
             <div className="install-progress-shell">
               <div className="install-progress" aria-live="polite">
@@ -4833,7 +4833,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
                       <p className="connector-tooltip">
                         {plannedConnector?.notes ??
                           connectorSetupDetails[connector.clientId] ??
-                          "Headroom applies local connector configuration."}
+                          "Mac AI Switchboard applies local connector configuration."}
                       </p>
                     ) : null}
                     {openConnectorWarningId === connector.clientId && supportWarning ? (
@@ -5146,9 +5146,9 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
 
   const calloutBanner = (() => {
     if (!runtimeStatus) {
-      return {
-        tone: "disconnected",
-        title: "Headroom status is unavailable."
+        return {
+          tone: "disconnected",
+        title: "Headroom engine status is unavailable."
       } as const;
     }
 
@@ -5156,12 +5156,12 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       if (runtimeStatus.autoPaused) {
         return {
           tone: "auto-paused",
-          title: "Headroom stopped unexpectedly. Traffic is passing through unoptimized."
+          title: "The Headroom engine stopped unexpectedly. Traffic is passing through unoptimized."
         } as const;
       }
       return {
         tone: "paused",
-        title: "Headroom is paused."
+        title: "The Headroom engine is paused."
       } as const;
     }
 
@@ -6833,7 +6833,7 @@ onRepair={(action) => void handleDoctorRepair(action)}
                             <p className="connector-tooltip">
                         {connectorSetupHint ??
                           connectorSetupDetails[connector.clientId] ??
-                          "Headroom applies local connector configuration."}
+                          "Mac AI Switchboard applies local connector configuration."}
                         </p>
                       ) : null}
                       {plannedConnector ? (
@@ -6984,7 +6984,7 @@ onRepair={(action) => void handleDoctorRepair(action)}
                 <div className="runtime-status">
                   <div className="runtime-status__topline">
                     <span className="runtime-status__section-title">
-                      Headroom app ({appSemver})
+                      Mac AI Switchboard app ({appSemver})
                       {appUpdateConfig?.betaChannelEnabled ? (
                         <span className="runtime-status__channel-pill">beta channel</span>
                       ) : null}
@@ -7208,7 +7208,7 @@ onRepair={(action) => void handleDoctorRepair(action)}
                 onClick={() => void invoke("quit_headroom")}
                 type="button"
               >
-                Quit Headroom
+                Quit Mac AI Switchboard
               </button>
             </section>
           </div>

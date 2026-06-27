@@ -70,7 +70,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
             },
             {
               id: "headroom_paused",
-              title: "Headroom is paused",
+              title: "Headroom engine is paused",
               body: "The proxy is intentionally off.",
               severity: "warning",
               repairAction: null,

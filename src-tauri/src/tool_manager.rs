@@ -1745,7 +1745,7 @@ impl ToolManager {
 
         progress(BootstrapStepUpdate {
             step: "Downloading update",
-            message: "Fetching Headroom update bundle.".into(),
+            message: "Fetching Headroom engine update bundle.".into(),
             eta_seconds: 15,
             percent: 40,
         });
@@ -1814,7 +1814,7 @@ impl ToolManager {
 
         progress(BootstrapStepUpdate {
             step: "Applying update",
-            message: "Applying the Headroom update.".into(),
+            message: "Applying the Headroom engine update.".into(),
             eta_seconds: 15,
             percent: 80,
         });
@@ -2678,7 +2678,7 @@ impl ToolManager {
 
         progress(BootstrapStepUpdate {
             step: "Downloading update",
-            message: "Fetching Headroom update bundle.".into(),
+            message: "Fetching Headroom engine update bundle.".into(),
             eta_seconds: 10,
             percent: 60,
         });

@@ -639,7 +639,7 @@ fn codex_plan_gate(weekly_used_percent: Option<f64>, gate_enabled: bool) -> Code
             nudge_level: 0,
             gate_reason: Some(PricingGateReason::CodexWeeklyUsageLimitReached),
             gate_message: format!(
-                "Headroom is paused because you've reached {weekly_usage:.1}% of weekly Codex usage. Upgrade to raise your limit."
+                "The Headroom engine is paused because you've reached {weekly_usage:.1}% of weekly Codex usage. Upgrade to raise your limit."
             ),
         };
     }
@@ -1415,7 +1415,7 @@ fn paid_plan_gate(
             optimization_allowed = false;
             gate_reason = Some(PricingGateReason::WeeklyUsageLimitReached);
             gate_message = format!(
-                "Headroom is paused because you've reached {:.1}% of weekly Claude usage. Upgrade to raise your limit.",
+                "The Headroom engine is paused because you've reached {:.1}% of weekly Claude usage. Upgrade to raise your limit.",
                 weekly_usage
             );
         } else {

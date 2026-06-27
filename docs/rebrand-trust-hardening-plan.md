@@ -28,8 +28,8 @@ Replace visible upstream identity where it describes the app rather than the run
 
 Tasks:
 
-- Replace tray menu labels such as "Show Headroom", "Quit Headroom", and Headroom-only tooltips with Mac AI Switchboard wording.
-- Replace update banners that say "Headroom update" when they mean desktop app update.
+- Replace legacy tray menu labels that name Headroom as the app with Mac AI Switchboard wording.
+- Replace update banners that name Headroom when they mean the desktop app update.
 - Replace onboarding copy that says users are launching Headroom when they are launching Mac AI Switchboard.
 - Replace support/contact copy that points to upstream support addresses unless those services are intentionally still used.
 - Keep labels such as "Headroom engine", "Headroom proxy", and `headroom-ai` where they refer to the underlying optimizer.
@@ -39,7 +39,7 @@ Acceptance checks:
 
 - A user can open the app without seeing upstream Headroom as the app name.
 - A user can still understand that Headroom is the optional optimization engine.
-- `rg -n "Quit Headroom|Show Headroom|Open Headroom|Headroom app" src src-tauri docs` has no app-identity leftovers.
+- App-identity grep checks across `src`, `src-tauri`, and `docs` have no legacy tray/update/app-name leftovers.
 - Existing runtime diagnostics still mention Headroom where technically accurate.
 
 Suggested commit:

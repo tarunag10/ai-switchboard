@@ -572,19 +572,19 @@ fn show_app_update_notification(app: AppHandle, version: String) -> Result<(), S
 fn app_update_notification_body(version: &str) -> String {
     let trimmed = version.trim();
     let lead = if trimmed.is_empty() {
-        "A Headroom update is ready to install.".to_string()
+        "A Mac AI Switchboard update is ready to install.".to_string()
     } else {
-        format!("Headroom {trimmed} is ready to install.")
+        format!("Mac AI Switchboard {trimmed} is ready to install.")
     };
 
-    format!("{lead} Open Headroom to review the release and install it.")
+    format!("{lead} Open Mac AI Switchboard to review the release and install it.")
 }
 
 fn show_app_update_notification_impl(app: &AppHandle, version: &str) -> Result<(), String> {
     let body = app_update_notification_body(version);
     show_notification_impl(
         app,
-        "Headroom Update Available",
+        "Mac AI Switchboard Update Available",
         &body,
         Some("update".into()),
     )
@@ -2243,12 +2243,12 @@ repair_action: Some("repair_rtk_integrations".to_string()),
         )
     {
         issues.push(crate::models::DoctorIssue {
-id: "headroom_paused".to_string(),
-title: "Headroom is paused".to_string(),
-body: "The proxy is intentionally off. Use Full optimization or Headroom only to restart routing through Headroom.".to_string(),
-severity: crate::models::DoctorSeverity::Warning,
-repair_action: None,
-});
+	id: "headroom_paused".to_string(),
+	title: "Headroom engine is paused".to_string(),
+	body: "The proxy is intentionally off. Use Full optimization or Headroom only to restart routing through the Headroom engine.".to_string(),
+	severity: crate::models::DoctorSeverity::Warning,
+	repair_action: None,
+	});
     }
 
     let status = if issues
@@ -4760,15 +4760,17 @@ fn execute_headroom_learn_run(
 }
 
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
-    let show = tauri::menu::MenuItem::with_id(app, "show", "Show Headroom", true, None::<&str>)?;
-    let quit = tauri::menu::MenuItem::with_id(app, "quit", "Quit Headroom", true, None::<&str>)?;
+    let show =
+        tauri::menu::MenuItem::with_id(app, "show", "Show Mac AI Switchboard", true, None::<&str>)?;
+    let quit =
+        tauri::menu::MenuItem::with_id(app, "quit", "Quit Mac AI Switchboard", true, None::<&str>)?;
     let separator = tauri::menu::PredefinedMenuItem::separator(app)?;
     let menu = tauri::menu::Menu::with_items(app, &[&show, &separator, &quit])?;
     let popup_menu = menu.clone();
     let mut tray_builder = tauri::tray::TrayIconBuilder::with_id("headroom-tray")
         .menu(&menu)
         .icon_as_template(false)
-        .tooltip("Headroom")
+        .tooltip("Mac AI Switchboard")
         .show_menu_on_left_click(false)
         .on_tray_icon_event(move |tray, event| {
             if let TrayIconEvent::Click {
@@ -4928,18 +4930,18 @@ fn spawn_tray_runtime_icon_updater(app: AppHandle) {
 
             if let Some(tray) = app.tray_by_id("headroom-tray") {
                 let tooltip = match visual {
-                    TrayRuntimeVisual::Booting => "Headroom — starting",
-                    TrayRuntimeVisual::Running => "Headroom — active",
+                    TrayRuntimeVisual::Booting => "Mac AI Switchboard — starting engine",
+                    TrayRuntimeVisual::Running => "Mac AI Switchboard — engine active",
                     TrayRuntimeVisual::Paused => {
-                        "Headroom — paused (Claude Code or Codex running normally)"
+                        "Mac AI Switchboard — engine paused (Claude Code or Codex running normally)"
                     }
                     TrayRuntimeVisual::Unhealthy => {
-                        "Headroom — proxy unreachable, attempting restart"
+                        "Mac AI Switchboard — engine unreachable, attempting restart"
                     }
                     TrayRuntimeVisual::Disconnected => {
-                        "Headroom — Claude Code or Codex not connected"
+                        "Mac AI Switchboard — Claude Code or Codex not connected"
                     }
-                    TrayRuntimeVisual::Off => "Headroom — off",
+                    TrayRuntimeVisual::Off => "Mac AI Switchboard — off",
                 };
 
                 let mut icon_changed = false;
@@ -5404,8 +5406,8 @@ fn spawn_proxy_watchdog(app: AppHandle) {
                 analytics::track_event(&app, "runtime_auto_paused", None);
                 let _ = show_notification_impl(
                     &app,
-                    "Headroom paused",
-                    "Headroom couldn't restart its proxy. Requests are passing through unmodified — it'll keep retrying automatically, or open Headroom and hit Resume.",
+                    "Mac AI Switchboard paused the engine",
+                    "The Headroom engine could not restart its proxy. Requests are passing through unmodified — Mac AI Switchboard will keep retrying automatically, or open the app and hit Resume.",
                     Some("connectors".into()),
                 );
                 // Arm the self-heal: first retry after 30s, backing off on
@@ -6331,11 +6333,11 @@ mod tests {
     fn app_update_notification_body_mentions_the_target_version() {
         assert_eq!(
             app_update_notification_body("0.3.0"),
-            "Headroom 0.3.0 is ready to install. Open Headroom to review the release and install it."
+            "Mac AI Switchboard 0.3.0 is ready to install. Open Mac AI Switchboard to review the release and install it."
         );
         assert_eq!(
             app_update_notification_body("   "),
-            "A Headroom update is ready to install. Open Headroom to review the release and install it."
+            "A Mac AI Switchboard update is ready to install. Open Mac AI Switchboard to review the release and install it."
         );
     }
 

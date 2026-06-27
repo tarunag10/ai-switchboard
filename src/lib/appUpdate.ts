@@ -150,10 +150,10 @@ export async function maybeFireStaleAppUpdateNotification(
 
   try {
     await invokeFn("show_notification", {
-      title: "Headroom update waiting",
-      body: `Headroom ${availableUpdate.version} has been out for ${Math.floor(
+      title: "Mac AI Switchboard update waiting",
+      body: `Mac AI Switchboard ${availableUpdate.version} has been out for ${Math.floor(
         ageDays
-      )} days. Open Headroom to install it.`,
+      )} days. Open Mac AI Switchboard to install it.`,
       action: "update",
     });
     localStorage.setItem(STALE_UPDATE_NOTIFIED_KEY, availableUpdate.version);

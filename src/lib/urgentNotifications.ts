@@ -10,9 +10,9 @@ const RUNTIME_DOWN_KEY = "headroom_urgent_runtime_down_date";
 // no threshold is crossed, a generic reminder. One key keeps the two mutually
 // exclusive so a gated free user gets at most one upgrade nudge per ~24h.
 const DAILY_NUDGE_KEY = "headroom_urgent_nudge_date";
-const NUDGE_REMINDER_TITLE = "Headroom is ready when you are";
+const NUDGE_REMINDER_TITLE = "Mac AI Switchboard is ready when you are";
 const NUDGE_REMINDER_BODY =
-  "You're on the free plan. Upgrade to keep Headroom optimizing every prompt.";
+  "You're on the free plan. Upgrade to keep the Headroom engine optimizing every prompt.";
 
 // Codex uses a storage key distinct from the Claude gate so a Claude
 // notification firing in the same window can't suppress the Codex one.
@@ -39,9 +39,9 @@ export async function maybeFireUrgentPricingNotifications(
   if (status.needsAuthentication) {
     await fireOncePerDay(
       NEEDS_AUTH_KEY,
-      "Headroom needs you to sign in",
+      "Mac AI Switchboard needs you to sign in",
       status.gateMessage ||
-        "Sign in to Headroom to keep optimization running.",
+        "Sign in to Mac AI Switchboard to keep optimization running.",
       "signin"
     );
     return;
@@ -50,9 +50,9 @@ export async function maybeFireUrgentPricingNotifications(
   if (!status.optimizationAllowed) {
     await fireOncePerDay(
       OPTIMIZATION_BLOCKED_KEY,
-      "Headroom optimization is off",
+      "Headroom engine optimization is off",
       status.gateMessage ||
-        "Your current plan has optimization disabled. Open Headroom to review.",
+        "Your current plan has optimization disabled. Open Mac AI Switchboard to review.",
       "billing"
     );
     return;
@@ -62,9 +62,9 @@ export async function maybeFireUrgentPricingNotifications(
   if (codex && !codex.optimizationAllowed) {
     await fireOncePerDay(
       CODEX_OPTIMIZATION_BLOCKED_KEY,
-      "Headroom optimization is off",
+      "Headroom engine optimization is off",
       codex.gateMessage ||
-        "Codex optimization is paused. Open Headroom to review.",
+        "Codex optimization is paused. Open Mac AI Switchboard to review.",
       "billing"
     );
     return;
@@ -106,7 +106,7 @@ function pickUsageNudge(
       title: CODEX_NUDGE_TITLES[codexLevel] ?? "Heads up: weekly Codex usage rising",
       body:
         codex!.gateMessage ||
-        "Headroom will pause Codex optimization at your weekly cap. Upgrade to keep going.",
+        "The Headroom engine will pause Codex optimization at your weekly cap. Upgrade to keep going.",
     };
   }
 
@@ -114,7 +114,7 @@ function pickUsageNudge(
     title: NUDGE_TITLES[claudeLevel] ?? "Heads up: weekly Claude usage rising",
     body:
       status.gateMessage ||
-      "Headroom will pause optimization at your weekly usage cap. Upgrade to keep going.",
+      "The Headroom engine will pause optimization at your weekly usage cap. Upgrade to keep going.",
   };
 }
 
@@ -141,14 +141,14 @@ export async function maybeFireUrgentRuntimeNotification(
   if (!runtimeDown) return;
 
   const body = runtime.startupErrorHint
-    ? `Headroom isn't running. ${runtime.startupErrorHint}`
+    ? `The Headroom engine isn't running. ${runtime.startupErrorHint}`
     : runtime.startupError
-    ? `Headroom isn't running: ${runtime.startupError}`
-    : "Headroom isn't running. Open the tray to restart it.";
+    ? `The Headroom engine isn't running: ${runtime.startupError}`
+    : "The Headroom engine isn't running. Open Mac AI Switchboard to restart it.";
 
   await fireOncePerDay(
     RUNTIME_DOWN_KEY,
-    "Headroom stopped running",
+    "Mac AI Switchboard engine stopped running",
     body,
     "runtime"
   );
