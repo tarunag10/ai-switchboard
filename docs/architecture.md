@@ -27,6 +27,16 @@ The packaged app identity is `Mac AI Switchboard`, but runtime storage intention
 - Planned connectors are visible and guided, but automatic setup stays disabled until backup, restore, and off-mode cleanup are implemented per tool. Each planned connector carries a readiness contract: config surfaces the app may inspect, safe Switchboard modes available today, automation gates that must pass before writes are allowed, the current manual workflow, and the first safe automation step.
 - Repo Intelligence is read-only in the current app: it scans local repo metadata, estimates tokens, builds bounded context packs, persists the latest summary in managed app storage, exposes Doctor warnings for stale or missing indexes, and lets users clear the saved index. It now surfaces dependency hubs, path-based import/dependency edges, content-derived import references, lightweight call references, reverse dependency hubs, and a bounded symbol graph alongside directories, languages, entrypoints, tests, and config hubs. It does not yet provide a full AST call graph or agent-facing local API.
 
+## Planned Connector Architecture
+
+Planned connectors are intentionally split into three layers:
+
+- Backend detection in `src-tauri/src/client_adapters.rs` looks for local binaries and known config surfaces without writing files.
+- Frontend contract data in `src/lib/plannedConnectors.ts` explains setup phase, safe modes, readiness stages, automation gates, safety badges, and rollback strategy.
+- Doctor and Settings render those contracts as manual evidence until a connector has dry-run diff, backup, apply, verify, rollback, and Off cleanup coverage.
+
+Gemini CLI is the first detection-only connector slice. The backend reports the Gemini binary path, `gemini --version` output when available, detected `~/.gemini` or `~/.config/gemini` surfaces, and an explicit routing blocker. Settings turns that evidence into a compatibility report, and Doctor keeps the issue manual. Gemini remains `planned` and `guide`; Mac AI Switchboard must not write Gemini provider config or route Gemini traffic until model/account compatibility can be verified locally and every readiness stage is implemented.
+
 ## Repo Intelligence
 
 Repo Intelligence exists to reduce repeated agent discovery work before large coding sessions. The current implementation has three local surfaces:
