@@ -180,7 +180,12 @@ import {
   trackInstallMilestoneOnce,
 } from "./lib/analytics";
 import { localOnlyModeEnabled } from "./lib/localMode";
-import { managedChangeRecords } from "./lib/managedChanges";
+import {
+  buildManagedConfigDiffPreview,
+  formatManagedConfigDiffPreview,
+  managedChangeRecords,
+  type ManagedChangeRecord,
+} from "./lib/managedChanges";
 import {
   uninstallDisclosureFooter,
   uninstallDisclosureItems,
@@ -1469,6 +1474,19 @@ const repoAgentHandoffGroups = repoAgentHandoffProfiles.reduce<
   return groups;
 }, []);
 
+function sampleManagedBlock(record: ManagedChangeRecord) {
+  return [
+    `# >>> ${record.markerId} >>>`,
+    `# Managed by Mac AI Switchboard for ${record.owner}.`,
+    "# Actual write paths fill this block from the connector adapter dry-run.",
+    `# <<< ${record.markerId} <<<`,
+  ].join("\n");
+}
+
+function firstManagedConfigTarget(record: ManagedChangeRecord) {
+  return record.paths[0] ?? "~/.config/mac-ai-switchboard-managed";
+}
+
 function RepoIntelligencePreview({
   headroomHealthy = false,
   onSummaryChange,
@@ -2404,6 +2422,9 @@ export default function App() {
     useState<SavingsCalculatorScope>("session");
   const [latestRepoIntelligenceSummary, setLatestRepoIntelligenceSummary] =
     useState<RepoIntelligenceSummary>(repoIntelligencePreview);
+  const [rollbackCopyNotice, setRollbackCopyNotice] = useState<string | null>(
+    null,
+  );
   // Safety net: if native history never loads (backend unreachable), reveal the
   // chart anyway after this delay rather than spinning forever.
   const [historyLoadTimedOut, setHistoryLoadTimedOut] = useState(false);
@@ -5380,6 +5401,33 @@ export default function App() {
         ) : null}
       </LauncherShell>
     );
+  }
+
+  async function copyManagedDiffPreview(record: ManagedChangeRecord) {
+    if (!record.backupPath) {
+      setRollbackCopyNotice("No config diff required for that record.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+      return;
+    }
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      const preview = buildManagedConfigDiffPreview({
+        record,
+        targetPath: firstManagedConfigTarget(record),
+        currentManagedBlock: null,
+        proposedManagedBlock: sampleManagedBlock(record),
+      });
+      await navigator.clipboard.writeText(
+        formatManagedConfigDiffPreview(preview),
+      );
+      setRollbackCopyNotice(`${record.owner} dry-run copied.`);
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+    } catch {
+      setRollbackCopyNotice("Copy failed. Review the rollback row manually.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    }
   }
 
   if (windowLabel === "launcher" && launcherStage === "install") {
@@ -8618,6 +8666,20 @@ export default function App() {
                       <span>Marker: {record.markerId}</span>
                       <span>Backup: {record.backupPath ?? "not required"}</span>
                       <span>{record.lastVerifiedLabel}</span>
+                      {record.backupPath ? (
+                        <div className="rollback-center-card__diff">
+                          <span>
+                            Dry-run target: {firstManagedConfigTarget(record)}
+                          </span>
+                          <button
+                            className="secondary-button secondary-button--small"
+                            onClick={() => void copyManagedDiffPreview(record)}
+                            type="button"
+                          >
+                            Copy dry-run diff
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                     <span className="rollback-center-card__kind">
                       {record.kind.replace(/_/g, " ")}
@@ -8625,6 +8687,11 @@ export default function App() {
                   </div>
                 ))}
               </div>
+              {rollbackCopyNotice ? (
+                <p className="rollback-center-card__notice">
+                  {rollbackCopyNotice}
+                </p>
+              ) : null}
             </article>
 
             <article className="soft-card panel-card">
