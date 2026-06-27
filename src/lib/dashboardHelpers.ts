@@ -559,6 +559,13 @@ const compatibilityReports: Partial<
     versionPrefix: null,
     configPrefix: "Cursor profile settings:"
   },
+  continue: {
+    label: "Continue",
+    primaryPathLabel: "Command",
+    pathPrefix: "Continue command:",
+    versionPrefix: null,
+    configPrefix: "Continue config folder:"
+  },
   gemini_cli: {
     label: "Gemini",
     primaryPathLabel: "Binary",

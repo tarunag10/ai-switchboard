@@ -3693,16 +3693,61 @@ fn detect_aider_client() -> ClientStatus {
 }
 
 fn detect_continue_client() -> ClientStatus {
-    detect_planned_client(
-        "continue",
-        "Continue",
-        &["continue"],
-        &[
-            home_dir().join(".continue"),
-            home_dir().join(".config").join("continue"),
-        ],
-        "Detected, but Headroom adapter not implemented yet. guided setup is safest because provider configs can vary.",
-    )
+    let command_path = find_on_path(&["continue"]);
+    let config_candidates = [
+        home_dir().join(".continue"),
+        home_dir().join(".config").join("continue"),
+    ];
+    let config_surfaces = config_candidates
+        .iter()
+        .filter(|path| path.exists())
+        .cloned()
+        .collect::<Vec<_>>();
+    let installed = command_path.is_some() || !config_surfaces.is_empty();
+    let mut notes = if installed {
+        let mut evidence = Vec::new();
+        if let Some(path) = command_path {
+            evidence.push(format!("Continue command: {}", path.display()));
+        }
+        if config_surfaces.is_empty() {
+            evidence.push("Continue config folder: none detected yet.".into());
+        } else {
+            evidence.push(format!(
+                "Continue config folder: {}",
+                config_surfaces
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        evidence.push(
+            "Settings routing blocked until multi-provider parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                .into(),
+        );
+        evidence
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter not implemented yet. guided setup is safest because provider configs can vary."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "continue".into(),
+        name: "Continue".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_goose_client() -> ClientStatus {
@@ -4107,6 +4152,18 @@ mod tests {
                     "Provider routing blocked until reversible environment wrapper, backup, verify, rollback, and Off mode cleanup exist.".into(),
                 ],
             },
+            ClientStatus {
+                id: "continue".into(),
+                name: "Continue".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Continue command: /opt/homebrew/bin/continue".into(),
+                    "Continue config folder: /Users/test/.continue".into(),
+                    "Settings routing blocked until multi-provider parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
         ];
 
         let connectors = list_client_connectors(&detected_clients).expect("list connectors");
@@ -4197,6 +4254,18 @@ mod tests {
                 && connector
                     .detection_evidence
                     .contains(&"Aider version: aider 0.84.0".to_string())
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "continue"
+                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Continue command: /opt/homebrew/bin/continue".to_string())
+                && connector.detection_evidence.contains(
+                    &"Settings routing blocked until multi-provider parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                        .to_string()
+                )
         }));
     }
 

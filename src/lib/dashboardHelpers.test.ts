@@ -551,16 +551,45 @@ describe("dashboard helpers", () => {
     });
   });
 
+  it("formats Continue config-folder evidence for planned connector UI", () => {
+    const report = connectorCompatibilityReport({
+      clientId: "continue",
+      name: "Continue",
+      supportStatus: "planned",
+      setupPhase: "guide",
+      detectionEvidence: [
+        "Continue command: /opt/homebrew/bin/continue",
+        "Continue config folder: /Users/test/.continue",
+        "Settings routing blocked until multi-provider parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
+        "Detected, but Headroom adapter not implemented yet.",
+      ],
+      installed: true,
+      enabled: false,
+      verified: false,
+    });
+
+    expect(report).toEqual({
+      title: "Continue compatibility report",
+      primaryPathLabel: "Command",
+      binaryPath: "/opt/homebrew/bin/continue",
+      version: null,
+      configSurface: "/Users/test/.continue",
+      routingBlocker:
+        "Settings routing blocked until multi-provider parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
+      otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
+    });
+  });
+
   it("omits compatibility report for connectors without structured evidence", () => {
     expect(
       connectorCompatibilityReport({
-        clientId: "continue",
-        name: "Continue",
+        clientId: "goose",
+        name: "Goose",
         supportStatus: "planned",
         installed: true,
         enabled: false,
         verified: false,
-        detectionEvidence: ["Detected data at /Users/test/.continue."],
+        detectionEvidence: ["Detected data at /Users/test/.config/goose."],
       }),
     ).toBeNull();
   });
