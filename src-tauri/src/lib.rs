@@ -1964,6 +1964,42 @@ fn infer_switchboard_mode(
     (mode, rtk_enabled, headroom_enabled)
 }
 
+fn off_mode_violations(runtime: &RuntimeStatus, enabled_client_count: usize) -> Vec<&'static str> {
+    let mut violations = Vec::new();
+    if runtime.running || runtime.proxy_reachable {
+        violations.push("Headroom engine is still reachable");
+    }
+    if enabled_client_count > 0 {
+        violations.push("managed clients are still routed");
+    }
+    if runtime.rtk.installed && runtime.rtk.enabled {
+        violations.push("RTK is still enabled");
+    }
+    violations
+}
+
+fn push_off_mode_doctor_issue(
+    issues: &mut Vec<crate::models::DoctorIssue>,
+    runtime: &RuntimeStatus,
+    enabled_client_count: usize,
+) {
+    let violations = off_mode_violations(runtime, enabled_client_count);
+    if violations.is_empty() {
+        return;
+    }
+
+    issues.push(crate::models::DoctorIssue {
+        id: "off_mode_not_clean".to_string(),
+        title: "Off mode still has active routing evidence".to_string(),
+        body: format!(
+            "Off mode requested, but {}. Disable routing or restart affected shells, then run Doctor again.",
+            violations.join(", ")
+        ),
+        severity: crate::models::DoctorSeverity::Warning,
+        repair_action: None,
+    });
+}
+
 fn build_switchboard_state(state: &AppState) -> Result<SwitchboardState, String> {
     let runtime = state.runtime_status();
     let clients = client_adapters::list_client_connectors(&state.cached_clients())
@@ -2066,6 +2102,10 @@ fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
     let (inferred_mode, _rtk_ready, _headroom_ready) =
         infer_switchboard_mode(&runtime, enabled_clients);
     let desired_mode = client_adapters::load_switchboard_mode().unwrap_or(inferred_mode.clone());
+
+    if matches!(desired_mode, SwitchboardMode::Off) {
+        push_off_mode_doctor_issue(&mut issues, &runtime, enabled_clients);
+    }
 
     if desired_mode != inferred_mode {
         issues.push(crate::models::DoctorIssue {
@@ -2377,6 +2417,70 @@ mod doctor_tests {
         assert!(body.contains("Manual workflow: Use RTK-only mode"));
         assert!(body.contains("Safe today: use RTK-only mode or Repo Intelligence packs"));
         assert!(body.contains("keeps routing manual"));
+    }
+
+    fn test_runtime_status(
+        running: bool,
+        proxy_reachable: bool,
+        rtk_enabled: bool,
+    ) -> RuntimeStatus {
+        RuntimeStatus {
+            platform: "macos".to_string(),
+            support_tier: "full".to_string(),
+            installed: true,
+            running,
+            starting: false,
+            paused: false,
+            auto_paused: false,
+            proxy_reachable,
+            headroom_pid: if running { Some(42) } else { None },
+            mcp_configured: None,
+            mcp_error: None,
+            ml_installed: None,
+            kompress_enabled: None,
+            headroom_learn_supported: true,
+            headroom_learn_disabled_reason: None,
+            startup_error: None,
+            startup_error_hint: None,
+            runtime_upgrade_failure: None,
+            rtk: crate::models::RtkRuntimeStatus {
+                installed: rtk_enabled,
+                enabled: rtk_enabled,
+                version: None,
+                path_configured: false,
+                hook_configured: false,
+                total_commands: None,
+                total_saved: None,
+                avg_savings_pct: None,
+            },
+        }
+    }
+
+    #[test]
+    fn off_mode_violations_empty_when_runtime_clients_and_rtk_are_off() {
+        let runtime = test_runtime_status(false, false, false);
+        assert!(off_mode_violations(&runtime, 0).is_empty());
+    }
+
+    #[test]
+    fn off_mode_doctor_issue_lists_active_routing_evidence() {
+        let runtime = test_runtime_status(true, true, true);
+        let mut issues = Vec::new();
+
+        push_off_mode_doctor_issue(&mut issues, &runtime, 2);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].id, "off_mode_not_clean");
+        assert!(issues[0]
+            .body
+            .contains("Headroom engine is still reachable"));
+        assert!(issues[0].body.contains("managed clients are still routed"));
+        assert!(issues[0].body.contains("RTK is still enabled"));
+        assert!(matches!(
+            issues[0].severity,
+            crate::models::DoctorSeverity::Warning
+        ));
+        assert!(issues[0].repair_action.is_none());
     }
 }
 
