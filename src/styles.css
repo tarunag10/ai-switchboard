@@ -4556,6 +4556,41 @@ details[open] .optimize-minimal__details summary::after {
   line-height: 1.4;
 }
 
+.rollback-center-card__list {
+  display: grid;
+  gap: 8px;
+}
+
+.rollback-center-card__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-muted);
+}
+
+.rollback-center-card__item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.rollback-center-card__item strong,
+.rollback-center-card__item span {
+  display: block;
+}
+
+.rollback-center-card__item span {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.rollback-center-card__kind {
+  flex: 0 0 auto;
+  text-transform: capitalize;
+}
+
 .contact-link {
   display: block;
   text-align: center;

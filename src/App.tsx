@@ -173,6 +173,7 @@ type TrayView
 } from "./lib/trayHelpers";
 import { trackAnalyticsEvent, trackInstallMilestoneOnce } from "./lib/analytics";
 import { localOnlyModeEnabled } from "./lib/localMode";
+import { managedChangeRecords } from "./lib/managedChanges";
 import {
   uninstallDisclosureFooter,
   uninstallDisclosureItems,
@@ -7172,12 +7173,32 @@ onRepair={(action) => void handleDoctorRepair(action)}
                       <span className="connector-switch__thumb" />
                     </button>
                   </div>
-                </div>
-              </article>
+</div>
+</article>
 
-              <article className="soft-card panel-card">
-                <div className="panel-card__header">
-                  <div>
+<article className="soft-card panel-card rollback-center-card">
+  <div className="panel-card__header">
+    <div>
+      <h3>Rollback Center</h3>
+      <p>Managed local changes Mac AI Switchboard can disclose or undo.</p>
+    </div>
+  </div>
+  <div className="rollback-center-card__list">
+    {managedChangeRecords.map((record) => (
+      <div className="rollback-center-card__item" key={record.id}>
+        <div>
+          <strong>{record.owner}</strong>
+          <span>{record.rollback}</span>
+        </div>
+        <span className="rollback-center-card__kind">{record.kind.replace(/_/g, " ")}</span>
+      </div>
+    ))}
+  </div>
+</article>
+
+<article className="soft-card panel-card">
+<div className="panel-card__header">
+<div>
                     <h3>Uninstall</h3>
                   </div>
                 </div>
