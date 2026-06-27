@@ -21,6 +21,7 @@ import {
   CurrencyDollar,
   Info,
   EnvelopeSimple,
+  FirstAidKit,
   GearSix,
   House,
   Key,
@@ -244,6 +245,8 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: "home", label: "Home", icon: House },
+  { id: "usage", label: "Usage", icon: Calculator },
+  { id: "doctor", label: "Doctor", icon: FirstAidKit },
   { id: "optimization", label: "Optimize", icon: Sliders },
   { id: "notifications", label: "Activity", icon: Bell },
   { id: "repoIntelligence", label: "Repo Intelligence", icon: Brain },
@@ -6617,6 +6620,128 @@ export default function App() {
               <p className="loading-copy">Loading savings history…</p>
             </div>
           )}
+        </div>
+
+        <div className="tray-content" hidden={activeView !== "usage"}>
+          <section className="repo-intelligence-view">
+            <header className="repo-intelligence-view__header">
+              <div>
+                <h1>Usage and Savings</h1>
+                <p className="repo-intelligence-view__subtitle">
+                  Review token savings, estimated cost savings, source
+                  breakdowns, and copyable savings summaries.
+                </p>
+              </div>
+              <span className="repo-intelligence-view__badge">Menu bar</span>
+            </header>
+            <section className="stat-grid stat-grid--2col">
+              <article
+                className={`soft-card stat-card stat-card--clickable${chartMode === "usd" ? " is-active" : ""}`}
+                onClick={() => setChartMode("usd")}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && setChartMode("usd")}
+              >
+                <span className="stat-card__label">
+                  <CurrencyCircleDollar
+                    aria-hidden="true"
+                    className="stat-card__icon"
+                    size={15}
+                    weight="bold"
+                  />
+                  Total costs saved (estimate)
+                  <button
+                    className="stat-card__info-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSavingsInfo(true);
+                    }}
+                    type="button"
+                    aria-label="How savings are calculated"
+                  >
+                    <Info size={13} weight="bold" />
+                  </button>
+                </span>
+                <strong className="stat-value--green">
+                  {currency(dashboard.lifetimeEstimatedSavingsUsd)}
+                </strong>
+              </article>
+              <article
+                className={`soft-card stat-card stat-card--clickable${chartMode === "tokens" ? " is-active" : ""}`}
+                onClick={() => setChartMode("tokens")}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && setChartMode("tokens")}
+              >
+                <span className="stat-card__label">
+                  <Cpu
+                    aria-hidden="true"
+                    className="stat-card__icon"
+                    size={15}
+                    weight="bold"
+                  />
+                  Total input tokens saved
+                </span>
+                <div className="stat-value-row">
+                  <strong className="stat-value--blue">
+                    {compactNumber(dashboard.lifetimeEstimatedTokensSaved)}
+                  </strong>
+                  {dashboard.outputReduction ? (
+                    <OutputReductionChip
+                      reduction={dashboard.outputReduction}
+                    />
+                  ) : null}
+                </div>
+              </article>
+            </section>
+
+            <SavingsCalculatorCard
+              dashboard={dashboard}
+              repoSavings={savingsCalculatorRepoEstimate}
+              runtimeStatus={runtimeStatus}
+              cavemanSavings={cavemanSavingsEstimate}
+              ponytailSavings={ponytailSavingsEstimate}
+              markitdownSavings={markitdownSavingsEstimate}
+              scope={savingsCalculatorScope}
+              onScopeChange={setSavingsCalculatorScope}
+            />
+
+            {dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
+              <DailySavingsChart
+                data={dashboard.dailySavings}
+                hourlyData={dashboard.hourlySavings}
+                resetSignal={chartResetSignal}
+                chartMode={chartMode}
+                setChartMode={setChartMode}
+              />
+            ) : (
+              <div className="savings-chart__skeleton" role="status">
+                <p className="loading-copy">Loading savings history…</p>
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="tray-content" hidden={activeView !== "doctor"}>
+          <section className="repo-intelligence-view">
+            <header className="repo-intelligence-view__header">
+              <div>
+                <h1>Doctor</h1>
+                <p className="repo-intelligence-view__subtitle">
+                  Inspect Mac AI Switchboard setup, run fixes, copy reports, and
+                  repair local routing drift.
+                </p>
+              </div>
+              <span className="repo-intelligence-view__badge">Fixes</span>
+            </header>
+            <SwitchboardDoctorPanel
+              report={doctorReport}
+              busyAction={doctorRepairBusy}
+              error={doctorRepairError}
+              successMessage={doctorRepairSuccess}
+              onRepair={(action) => void handleDoctorRepair(action)}
+            />
+          </section>
         </div>
 
         <div className="tray-content" hidden={activeView !== "optimization"}>

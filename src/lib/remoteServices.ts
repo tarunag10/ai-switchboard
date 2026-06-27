@@ -4,12 +4,7 @@ export interface RemoteServicesCopy {
 }
 
 export type RemoteServiceKind =
-  | "account"
-  | "pricing"
-  | "telemetry"
-  | "analytics"
-  | "updates"
-  | "support";
+  "account" | "pricing" | "telemetry" | "analytics" | "updates" | "support";
 
 export interface RemoteServiceDestination {
   id: string;
@@ -25,7 +20,7 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
   {
     id: "headroom_account_api",
     kind: "account",
-    label: "Headroom account API",
+    label: "Mac AI Switchboard account API",
     envVar: "HEADROOM_ACCOUNT_API_BASE_URL",
     endpointExample: "https://extraheadroom.com/api/v1",
     source: "sign-in and account profile requests",
@@ -34,7 +29,7 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
   {
     id: "headroom_pricing_api",
     kind: "pricing",
-    label: "Headroom pricing and trial API",
+    label: "Mac AI Switchboard pricing and trial API",
     envVar: "HEADROOM_ACCOUNT_API_BASE_URL",
     endpointExample: "https://extraheadroom.com/api/v1",
     source: "pricing, trial, usage, and upgrade requests",
@@ -114,15 +109,15 @@ export function remoteServicesCopy(
         "Account, pricing, update, support, and optional telemetry destinations are enabled.",
     };
   }
-  const blocked = blockedLocalOnlyDestinations()
+  const paused = blockedLocalOnlyDestinations()
     .map((destination) => destination.label)
     .join(", ");
   return {
-    label: "Off",
-    detail: `Blocked in local-only mode: ${blocked}.`,
+    label: "Local-only",
+    detail: `Mac AI Switchboard local-only mode is on. Cloud account, pricing, diagnostics, analytics, update, and support endpoints stay paused: ${paused}.`,
   };
 }
 
 export function localOnlySetupLabel(localOnly: boolean): string {
-  return localOnly ? "Local-only Mac setup" : "Headroom cloud setup";
+  return localOnly ? "Local-only Mac setup" : "Mac AI Switchboard cloud setup";
 }

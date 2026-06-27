@@ -10,9 +10,9 @@ import {
 describe("remote services copy", () => {
   it("labels local-only remote services fully off", () => {
     expect(remoteServicesCopy(false)).toEqual({
-      label: "Off",
+      label: "Local-only",
       detail:
-        "Blocked in local-only mode: Headroom account API, Headroom pricing and trial API, Sentry diagnostics, Microsoft Clarity analytics, Aptabase analytics, Tauri update feed, External support links.",
+        "Mac AI Switchboard local-only mode is on. Cloud account, pricing, diagnostics, analytics, update, and support endpoints stay paused: Mac AI Switchboard account API, Mac AI Switchboard pricing and trial API, Sentry diagnostics, Microsoft Clarity analytics, Aptabase analytics, Tauri update feed, External support links.",
     });
   });
 
@@ -56,6 +56,6 @@ describe("remote services copy", () => {
 
   it("uses explicit setup labels for local-only and cloud-capable modes", () => {
     expect(localOnlySetupLabel(true)).toBe("Local-only Mac setup");
-    expect(localOnlySetupLabel(false)).toBe("Headroom cloud setup");
+    expect(localOnlySetupLabel(false)).toBe("Mac AI Switchboard cloud setup");
   });
 });

@@ -9,6 +9,8 @@ import type {
 /// component tree.
 export type TrayView =
   | "home"
+  | "usage"
+  | "doctor"
   | "optimization"
   | "health"
   | "notifications"
