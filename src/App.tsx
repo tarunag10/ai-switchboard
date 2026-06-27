@@ -245,6 +245,7 @@ const navItems: NavItem[] = [
   { id: "home", label: "Home", icon: House },
   { id: "optimization", label: "Optimize", icon: Sliders },
   { id: "notifications", label: "Activity", icon: Bell },
+  { id: "repoIntelligence", label: "Repo Intelligence", icon: Brain },
   { id: "addons", label: "Addons", icon: PuzzlePiece },
 ];
 
@@ -1284,22 +1285,27 @@ function AddonCard({
 
 function PlannedAddonCard({
   addon,
-  onRepoIntelligenceSummaryChange,
+  onOpenRepoIntelligence,
 }: {
   addon: PlannedAddon;
-  onRepoIntelligenceSummaryChange?: (summary: RepoIntelligenceSummary) => void;
+  onOpenRepoIntelligence?: () => void;
 }) {
   const showConnectorRoadmap = addon.id === "agent_connectors";
   const showRepoIntelligencePreview = addon.id === "repo_intelligence";
+  const isRepoIntelligence = addon.id === "repo_intelligence";
+  const cardClassName = isRepoIntelligence
+    ? "addon-card addon-card--active"
+    : "addon-card addon-card--planned";
+  const badgeClassName = isRepoIntelligence
+    ? "addon-card__badge addon-card__badge--ready"
+    : "addon-card__badge addon-card__badge--planned";
 
   return (
-    <li className="addon-card addon-card--planned">
+    <li className={cardClassName}>
       <div className="addon-card__body">
         <div className="addon-card__heading">
           <span className="addon-card__name">{addon.name}</span>
-          <span className="addon-card__badge addon-card__badge--planned">
-            {addon.statusLabel}
-          </span>
+          <span className={badgeClassName}>{addon.statusLabel}</span>
         </div>
         <p className="addon-card__description">{addon.description}</p>
         <ul className="addon-card__bullets">
@@ -1335,14 +1341,25 @@ function PlannedAddonCard({
           <PlannedConnectorRoadmap connectors={plannedConnectors} />
         ) : null}
         {showRepoIntelligencePreview ? (
-          <RepoIntelligencePreview
-            onSummaryChange={onRepoIntelligenceSummaryChange}
-          />
+          <div className="repo-intelligence-addon-cta">
+            <strong>Dedicated workspace is available.</strong>
+            <span>
+              Open Repo Intelligence to index a repository and copy real local
+              packs.
+            </span>
+            <button
+              className="addon-card__action addon-card__action--primary"
+              onClick={onOpenRepoIntelligence}
+              type="button"
+            >
+              Open Repo Intelligence
+            </button>
+          </div>
         ) : null}
       </div>
       <div className="addon-card__actions">
         <button type="button" className="addon-card__action" disabled>
-          Coming soon
+          {isRepoIntelligence ? "Open from sidebar" : "Coming soon"}
         </button>
       </div>
     </li>
@@ -1426,6 +1443,10 @@ function RepoIntelligencePreview({
   const [indexError, setIndexError] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const isPreview = summary === repoIntelligencePreview;
+  const hasRealIndex = !isPreview;
+  const indexStatusLabel = hasRealIndex
+    ? "Fresh local index"
+    : "No repo indexed";
   const savingsEstimate = estimateRepoIntelligenceSavings(summary);
   const agentManifest = buildRepoAgentManifest(summary);
 
@@ -1495,6 +1516,11 @@ function RepoIntelligencePreview({
   }
 
   async function copyContextPack() {
+    if (!hasRealIndex) {
+      setCopyNotice("Index a repo before copying real context.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
@@ -1511,6 +1537,11 @@ function RepoIntelligencePreview({
   }
 
   async function copyAgentManifest() {
+    if (!hasRealIndex) {
+      setCopyNotice("Index a repo before copying a real manifest.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
@@ -1525,6 +1556,11 @@ function RepoIntelligencePreview({
   }
 
   async function copySingleContextPack(pack: RepoContextPack) {
+    if (!hasRealIndex) {
+      setCopyNotice("Index a repo before copying this pack.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
@@ -1541,6 +1577,11 @@ function RepoIntelligencePreview({
   }
 
   async function copyAgentRecipePack(packId: string, label: string) {
+    if (!hasRealIndex) {
+      setCopyNotice("Index a repo before copying recipe packs.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
     const pack = summary.packs.find((contextPack) => contextPack.id === packId);
     if (!pack) {
       setCopyNotice("Recipe pack unavailable. Re-index this repo.");
@@ -1566,6 +1607,11 @@ function RepoIntelligencePreview({
     target: RepoAgentHandoffTarget,
     label: string,
   ) {
+    if (!hasRealIndex) {
+      setCopyNotice("Index a repo before copying agent handoffs.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
@@ -1585,6 +1631,11 @@ function RepoIntelligencePreview({
     target: RepoAgentHandoffTarget,
     label: string,
   ) {
+    if (!hasRealIndex) {
+      setCopyNotice("Index a repo before copying agent handoffs.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
@@ -1606,9 +1657,7 @@ function RepoIntelligencePreview({
       aria-label="Repo Intelligence context pack preview"
     >
       <div className="repo-intelligence-preview__topline">
-        <span>
-          {isPreview ? "Read-only context packs" : "Local index result"}
-        </span>
+        <span>{indexStatusLabel}</span>
         <strong>
           {summary.indexedFiles} indexed signals
           {summary.skippedFiles ? `, ${summary.skippedFiles} skipped` : ""}
@@ -7027,6 +7076,27 @@ export default function App() {
           />
         </div>
 
+        <div
+          className="tray-content tray-content--repo-intelligence"
+          hidden={activeView !== "repoIntelligence"}
+        >
+          <section className="repo-intelligence-view">
+            <header className="repo-intelligence-view__header">
+              <div>
+                <h1>Repo Intelligence</h1>
+                <p className="repo-intelligence-view__subtitle">
+                  Index a local repository, review graph signals, and copy
+                  bounded context packs for coding agents.
+                </p>
+              </div>
+              <span className="repo-intelligence-view__badge">Local only</span>
+            </header>
+            <RepoIntelligencePreview
+              onSummaryChange={setLatestRepoIntelligenceSummary}
+            />
+          </section>
+        </div>
+
         <div className="tray-content" hidden={activeView !== "addons"}>
           <section className="addons">
             <header className="addons__header">
@@ -7212,8 +7282,8 @@ export default function App() {
                 <PlannedAddonCard
                   key={addon.id}
                   addon={addon}
-                  onRepoIntelligenceSummaryChange={
-                    setLatestRepoIntelligenceSummary
+                  onOpenRepoIntelligence={() =>
+                    setActiveView("repoIntelligence")
                   }
                 />
               ))}

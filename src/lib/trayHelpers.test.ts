@@ -71,6 +71,9 @@ describe("safeTrayViewForMode", () => {
   it("keeps local utility views in local-only mode", () => {
     expect(safeTrayViewForMode("home", true)).toBe("home");
     expect(safeTrayViewForMode("optimization", true)).toBe("optimization");
+    expect(safeTrayViewForMode("repoIntelligence", true)).toBe(
+      "repoIntelligence",
+    );
     expect(safeTrayViewForMode("settings", true)).toBe("settings");
   });
 

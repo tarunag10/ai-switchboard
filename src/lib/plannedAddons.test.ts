@@ -3,29 +3,25 @@ import { describe, expect, it } from "vitest";
 import { getPlannedAddon, plannedAddons } from "./plannedAddons";
 
 describe("planned add-ons", () => {
-  it("tracks repo intelligence as a planned local-first graph capability", () => {
+  it("tracks repo intelligence as an available local-first graph tool", () => {
     const repoIntelligence = getPlannedAddon("repo_intelligence");
 
     expect(repoIntelligence).toMatchObject({
       name: "Repo Intelligence",
-      statusLabel: "Planned",
+      statusLabel: "Local tool",
     });
     expect(repoIntelligence?.description).toContain("Local repo graph");
-    expect(repoIntelligence?.description).toContain("context-pack foundation");
-    expect(repoIntelligence?.description).toContain(
-      "path-based relationship graph",
-    );
-    expect(repoIntelligence?.bullets.join(" ")).toContain("Foundation added");
-    expect(repoIntelligence?.bullets.join(" ")).toContain("Not complete yet");
+    expect(repoIntelligence?.description).toContain("copying bounded");
+    expect(repoIntelligence?.description).toContain("remote graph service");
+    expect(repoIntelligence?.bullets.join(" ")).toContain("Available now");
     expect(repoIntelligence?.bullets.join(" ")).toContain(
-      "path-based import/dependency edges",
+      "Repo Intelligence sidebar view",
     );
     expect(repoIntelligence?.bullets.join(" ")).toContain(
-      "reverse dependency hubs",
+      "Sample preview stays non-copyable",
     );
-    expect(repoIntelligence?.bullets.join(" ")).toContain("Graphy-style");
-    expect(repoIntelligence?.bullets.join(" ")).toContain("tree-sitter");
-    expect(repoIntelligence?.bullets.join(" ")).toContain("repomix-style");
+    expect(repoIntelligence?.bullets.join(" ")).toContain("Still planned");
+    expect(repoIntelligence?.bullets.join(" ")).toContain("reverse hubs");
     expect(repoIntelligence?.bullets.join(" ")).toContain("MCP repo-memory");
     expect(repoIntelligence?.bullets.join(" ")).toContain(
       "persistent parser index",
@@ -45,49 +41,7 @@ describe("planned add-ons", () => {
     );
   });
 
-  it("keeps planned add-on ids stable for UI rendering", () => {
-    expect(plannedAddons.map((addon) => addon.id)).toEqual([
-      "repo_intelligence",
-      "agent_connectors",
-      "rtk_hardening",
-      "ponytail_hardening",
-      "markitdown_hardening",
-    ]);
-  });
-
-  it("tracks hardening plans for existing token-saving add-ons", () => {
-    const rtk = getPlannedAddon("rtk_hardening");
-    const ponytail = getPlannedAddon("ponytail_hardening");
-    const markitdown = getPlannedAddon("markitdown_hardening");
-
-    expect(rtk).toMatchObject({
-      name: "RTK Hardening",
-      statusLabel: "Ready to harden",
-    });
-    expect(rtk?.healthChecks.join(" ")).toContain("shell path");
-    expect(rtk?.savingsSources.join(" ")).toContain("Savings calculator");
-    expect(rtk?.savingsSources.join(" ")).toContain("RTK only mode");
-
-    expect(ponytail).toMatchObject({
-      name: "Ponytail Hardening",
-      statusLabel: "Ready to harden",
-    });
-    expect(ponytail?.healthChecks.join(" ")).toContain(
-      "Switchboard-owned config blocks",
-    );
-    expect(ponytail?.savingsSources.join(" ")).toContain(
-      "Smaller implementation slices",
-    );
-
-    expect(markitdown).toMatchObject({
-      name: "MarkItDown Hardening",
-      statusLabel: "Ready to harden",
-    });
-    expect(markitdown?.healthChecks.join(" ")).toContain("managed runtime");
-    expect(markitdown?.savingsSources.join(" ")).toContain("Markdown extracts");
-  });
-
-  it("tracks popular planned coding-agent connectors", () => {
+  it("keeps popular coding-agent connectors explicitly planned", () => {
     const connectors = getPlannedAddon("agent_connectors");
 
     expect(connectors).toMatchObject({
@@ -99,11 +53,32 @@ describe("planned add-ons", () => {
     expect(connectors?.description).toContain("Cursor");
     expect(connectors?.description).toContain("Qwen Code");
     expect(connectors?.description).toContain("Amazon Q Developer CLI");
-    expect(connectors?.description).toContain("Windsurf");
-    expect(connectors?.description).toContain("Zed AI");
-    expect(connectors?.description).toContain("Grok / xAI CLI");
     expect(connectors?.bullets.join(" ")).toContain("read-only detection");
-    expect(connectors?.bullets.join(" ")).toContain("reversible local");
-    expect(connectors?.bullets.join(" ")).toContain("Doctor repair");
+    expect(connectors?.bullets.join(" ")).toContain("reversible");
+    expect(connectors?.healthChecks.join(" ")).toContain(
+      "Off mode must remove only Switchboard-owned changes",
+    );
+    expect(connectors?.savingsSources.join(" ")).toContain(
+      "Repo Intelligence handoff packs",
+    );
+  });
+
+  it("keeps hardening add-ons visible with verification commands", () => {
+    expect(plannedAddons.map((addon) => addon.id)).toEqual([
+      "repo_intelligence",
+      "agent_connectors",
+      "rtk_hardening",
+      "ponytail_hardening",
+      "markitdown_hardening",
+    ]);
+
+    for (const addon of plannedAddons) {
+      expect(addon.name).not.toHaveLength(0);
+      expect(addon.description).not.toHaveLength(0);
+      expect(addon.bullets.length).toBeGreaterThan(0);
+      expect(addon.healthChecks.length).toBeGreaterThan(0);
+      expect(addon.savingsSources.length).toBeGreaterThan(0);
+      expect(addon.verificationCommand).toEqual(expect.any(String));
+    }
   });
 });

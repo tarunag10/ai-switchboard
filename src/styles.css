@@ -7732,6 +7732,11 @@ html.window-hiding {
   color: var(--warning);
 }
 
+.addon-card__badge--ready {
+  background: var(--success-tint);
+  color: var(--success);
+}
+
 .addon-card__description {
   font-size: var(--text-sm);
   color: var(--text-secondary);
@@ -7849,6 +7854,67 @@ html.window-hiding {
 .addon-card__action:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.repo-intelligence-view {
+  display: grid;
+  gap: 14px;
+}
+
+.repo-intelligence-view__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.repo-intelligence-view__header h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-xl);
+  line-height: 1.15;
+}
+
+.repo-intelligence-view__subtitle {
+  max-width: 680px;
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+.repo-intelligence-view__badge {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: var(--success-tint);
+  color: var(--success);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.repo-intelligence-addon-cta {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+
+.repo-intelligence-addon-cta strong {
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+}
+
+.repo-intelligence-addon-cta span {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1.35;
 }
 
 .repo-intelligence-preview {

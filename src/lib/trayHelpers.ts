@@ -12,6 +12,7 @@ export type TrayView =
   | "optimization"
   | "health"
   | "notifications"
+  | "repoIntelligence"
   | "addons"
   | "upgrade"
   | "upgradeAuth"
