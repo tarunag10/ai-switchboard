@@ -3793,7 +3793,7 @@ mod tests {
         retag_one_codex_db, serialize_paths, shell_block_contains_in_files,
         shell_block_contains_text_in_files, shell_double_quote, strip_headroom_hook_from_settings,
         upsert_managed_block, write_file_if_changed, ClientSetupState, ShellFamily,
-        PLANNED_CLIENT_SPECS,
+        PLANNED_CLIENT_SPECS, PLANNED_CONFIG_CREATION_STEPS,
     };
     use rusqlite::Connection;
 
@@ -3935,7 +3935,22 @@ mod tests {
             assert!(!connector.detection_sources.is_empty());
             assert!(!connector.detection_evidence.is_empty());
             assert!(!connector.config_locations.is_empty());
+            assert_eq!(
+                connector.config_creation_steps,
+                PLANNED_CONFIG_CREATION_STEPS
+                    .iter()
+                    .map(|step| step.to_string())
+                    .collect::<Vec<_>>()
+            );
         }
+
+        let managed = connectors
+            .iter()
+            .filter(|connector| connector.support_status == ClientConnectorSupportStatus::Managed)
+            .collect::<Vec<_>>();
+        assert!(managed
+            .iter()
+            .all(|connector| connector.config_creation_steps.is_empty()));
 
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "gemini_cli"
