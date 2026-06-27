@@ -9087,6 +9087,39 @@ html.window-hiding {
   line-height: 1.25;
 }
 
+.planned-connectors__config-plan {
+  display: grid;
+  gap: 5px;
+  padding: 7px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.planned-connectors__config-plan > span {
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.planned-connectors__config-plan div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.planned-connectors__config-plan strong {
+  padding: 3px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
 .planned-connectors__stage-row {
   display: flex;
   flex-wrap: wrap;

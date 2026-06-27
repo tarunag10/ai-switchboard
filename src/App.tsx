@@ -83,6 +83,7 @@ import {
 } from "./lib/repoIntelligence";
 import {
   getPlannedConnector,
+  getPlannedConnectorConfigCreationPlan,
   getPlannedConnectorReadinessBadges,
   getPlannedConnectorReadinessContract,
   getPlannedConnectorSetupChecklistScript,
@@ -2266,6 +2267,7 @@ function PlannedConnectorRoadmap({
         {connectors.map((connector) => {
           const readiness = getPlannedConnectorReadinessContract(connector);
           const readinessBadges = getPlannedConnectorReadinessBadges(connector);
+          const configPlan = getPlannedConnectorConfigCreationPlan(connector);
           return (
           <li className="planned-connectors__item" key={connector.id}>
             <div className="planned-connectors__item-head">
@@ -2312,6 +2314,18 @@ function PlannedConnectorRoadmap({
                     (stage) => stage.id === readiness.nextBlockedStage,
                   )?.label ?? "Automation ready"}
                 </strong>
+              </div>
+            </div>
+            <div
+              className="planned-connectors__config-plan"
+              aria-label={`${connector.name} config creation plan`}
+              title={configPlan.safetyNote}
+            >
+              <span>Config creation</span>
+              <div>
+                {configPlan.steps.slice(0, 4).map((step) => (
+                  <strong key={step.id}>{step.label}</strong>
+                ))}
               </div>
             </div>
             <div
