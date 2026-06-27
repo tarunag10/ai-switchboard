@@ -6992,6 +6992,18 @@ mod tests {
         let (y0, m0, d0, h0) = to_utc_components(8);
         let (y1, m1, d1, h1) = to_utc_components(9);
         let (y2, m2, d2, h2) = to_utc_components(15);
+        let expected_first_hour = super::local_hour_key(
+            Utc.with_ymd_and_hms(y1, m1, d1, h1, 0, 0)
+                .single()
+                .expect("valid timestamp")
+                .with_timezone(&Local),
+        );
+        let expected_second_hour = super::local_hour_key(
+            Utc.with_ymd_and_hms(y2, m2, d2, h2, 0, 0)
+                .single()
+                .expect("valid timestamp")
+                .with_timezone(&Local),
+        );
 
         tracker
             .observe(&HeadroomDashboardStats {
@@ -7016,8 +7028,6 @@ mod tests {
             .into_iter()
             .filter(|point| point.hour.starts_with(&format!("{today_key}T")))
             .collect::<Vec<_>>();
-        let expected_first_hour = format!("{today_key}T08:00");
-        let expected_second_hour = format!("{today_key}T14:00");
         assert_eq!(hourly.len(), 2);
         assert_eq!(hourly[0].hour, expected_first_hour);
         assert_eq!(hourly[0].estimated_tokens_saved, 400);
