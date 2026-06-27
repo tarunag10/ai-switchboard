@@ -2,6 +2,8 @@
 import fs from "node:fs";
 import path from "node:path";
 
+const INDEXER_VERSION = "path-graph-v2";
+
 const ignoredSegments = new Set([
   ".git",
   "node_modules",
@@ -535,6 +537,7 @@ function buildSummary(repoRoot) {
 
   return {
     repoRoot,
+    indexerVersion: INDEXER_VERSION,
     totalFiles: signals.length,
     indexedFiles: indexable.length,
     estimatedFullScanTokens,
@@ -704,6 +707,7 @@ function buildAgentManifest(summary) {
     totals: {
       totalFiles: summary.totalFiles,
       indexedFiles: summary.indexedFiles,
+      indexerVersion: summary.indexerVersion ?? "unknown",
       estimatedFullScanTokens: fullScanTokens,
       roleCounts: summary.roleCounts,
     },

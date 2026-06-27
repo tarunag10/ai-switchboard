@@ -59,6 +59,7 @@ export interface RepoGraphSummary {
 export interface RepoIntelligenceSummary {
   indexedAt?: string;
   repoRoot?: string;
+  indexerVersion?: string;
   totalFiles: number;
   indexedFiles: number;
   skippedFiles?: number;
@@ -87,6 +88,7 @@ export interface RepoAgentManifest {
   totals: {
     totalFiles: number;
     indexedFiles: number;
+    indexerVersion: string;
     estimatedFullScanTokens: number;
     roleCounts: Record<RepoFileRole, number>;
   };
@@ -325,6 +327,7 @@ const generatedPathPatterns = [
   /(^|\/)\.turbo\//,
   /(^|\/)vendor\//,
 ];
+export const repoIntelligenceIndexerVersion = "path-graph-v2";
 
 const lockfileNames = new Set([
   "Cargo.lock",
@@ -493,6 +496,7 @@ export function buildRepoIntelligenceSummary(
   return {
     totalFiles: signals.length,
     indexedFiles: indexed.length,
+    indexerVersion: repoIntelligenceIndexerVersion,
     estimatedFullScanTokens,
     roleCounts,
     graph,
@@ -583,6 +587,7 @@ export function buildRepoAgentManifest(
     totals: {
       totalFiles: summary.totalFiles,
       indexedFiles: summary.indexedFiles,
+      indexerVersion: summary.indexerVersion ?? "unknown",
       estimatedFullScanTokens: fullScanTokens,
       roleCounts: summary.roleCounts,
     },

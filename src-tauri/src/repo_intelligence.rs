@@ -14,6 +14,7 @@ use crate::storage::{app_data_dir, config_file, ensure_data_dirs};
 const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
+const INDEXER_VERSION: &str = "path-graph-v2";
 const IGNORED_DIRS: [&str; 12] = [
     ".git",
     "node_modules",
@@ -106,6 +107,7 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
     Ok(RepoIntelligenceSummary {
         indexed_at: Utc::now().to_rfc3339(),
         repo_root: repo_root.display().to_string(),
+        indexer_version: Some(INDEXER_VERSION.to_string()),
         total_files,
         indexed_files: indexed.len() as u64,
         skipped_files: signals.len().saturating_sub(indexed.len()) as u64,

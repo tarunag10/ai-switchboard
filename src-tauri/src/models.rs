@@ -170,6 +170,8 @@ pub struct RepoGraphSummary {
 pub struct RepoIntelligenceSummary {
     pub indexed_at: String,
     pub repo_root: String,
+    #[serde(default)]
+    pub indexer_version: Option<String>,
     pub total_files: u64,
     pub indexed_files: u64,
     pub skipped_files: u64,

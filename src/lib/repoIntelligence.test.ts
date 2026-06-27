@@ -66,6 +66,7 @@ describe("repoIntelligence", () => {
 
     expect(summary.totalFiles).toBe(6);
     expect(summary.indexedFiles).toBe(5);
+    expect(summary.indexerVersion).toBe("path-graph-v2");
     expect(summary.roleCounts.generated).toBe(1);
     expect(summary.packs).toHaveLength(3);
     expect(summary.packs[0].id).toBe("implementation");
@@ -162,8 +163,9 @@ expect(markdown).toContain("## Implementation Pack");
   const manifest = buildRepoAgentManifest(summary, "2026-06-25T10:00:00Z");
   expect(manifest.kind).toBe("mac_ai_switchboard.repo_intelligence_manifest");
   expect(manifest.schemaVersion).toBe(1);
-  expect(manifest.generatedAt).toBe("2026-06-25T10:00:00Z");
-  expect(manifest.safety).toEqual({
+    expect(manifest.generatedAt).toBe("2026-06-25T10:00:00Z");
+    expect(manifest.totals.indexerVersion).toBe("path-graph-v2");
+    expect(manifest.safety).toEqual({
     readOnly: true,
     excludesSecretLikePaths: true,
     modifiesRepository: false,
