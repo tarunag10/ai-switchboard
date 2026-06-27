@@ -17,7 +17,92 @@ export interface ReleaseShareableGate {
   detail: string;
 }
 
+export type ReleaseReadinessStatusTone = "ready" | "blocked" | "local-only";
+
+export interface ReleaseReadinessStatusRow {
+  id: string;
+  label: string;
+  statusLabel: string;
+  tone: ReleaseReadinessStatusTone;
+  source: string;
+  detail: string;
+}
+
 export const releaseReadinessCommand = "npm run release:ready";
+
+export const releaseReadinessStatusRows: ReleaseReadinessStatusRow[] = [
+  {
+    id: "frontend-build",
+    label: "Frontend build",
+    statusLabel: "Scripted",
+    tone: "ready",
+    source: "npm run build",
+    detail: "TypeScript and Vite production build are the frontend gate.",
+  },
+  {
+    id: "desktop-tests",
+    label: "Desktop tests",
+    statusLabel: "Required",
+    tone: "blocked",
+    source: "npm run fmt:desktop && npm run test:desktop",
+    detail:
+      "Rust formatting and desktop tests must run locally or in CI before public release.",
+  },
+  {
+    id: "local-dmg",
+    label: "Local DMG",
+    statusLabel: "Local only",
+    tone: "local-only",
+    source: "npm run build:mac:local-install",
+    detail:
+      "Ad-hoc local install evidence is useful for testing but does not prove signed release readiness.",
+  },
+  {
+    id: "installed-smoke",
+    label: "Installed smoke",
+    statusLabel: "Evidence required",
+    tone: "blocked",
+    source: "npm run smoke:installed -- --confirm",
+    detail:
+      "Installed-app smoke evidence must be recorded after running the beta checklist against the installed app.",
+  },
+  {
+    id: "signing-env",
+    label: "Signing environment",
+    statusLabel: "Blocked until secrets",
+    tone: "blocked",
+    source: "npm run release:env",
+    detail:
+      "Developer ID and updater signing secrets are release blockers when missing, not app failures.",
+  },
+  {
+    id: "notarization-env",
+    label: "Notarization",
+    statusLabel: "Blocked until credentials",
+    tone: "blocked",
+    source: "npm run release:env",
+    detail:
+      "Apple notarization credentials are required before sharing a public signed DMG.",
+  },
+  {
+    id: "updater-config",
+    label: "Updater configuration",
+    statusLabel: "Blocked until feed",
+    tone: "blocked",
+    source: "HEADROOM_UPDATER_PUBLIC_KEY + HEADROOM_UPDATER_ENDPOINTS",
+    detail:
+      "Updater public key and feed endpoints must be configured for release builds.",
+  },
+  {
+    id: "final-gate",
+    label: "Final release gate",
+    statusLabel: "Run report",
+    tone: "blocked",
+    source: "npm run release:ready -- --strict",
+    detail:
+      "The strict release readiness report is the source of truth before sharing a DMG.",
+  },
+];
 
 export const releaseShareableGates: ReleaseShareableGate[] = [
   {
@@ -153,5 +238,20 @@ export function releaseReadinessItemCount() {
   return releaseReadinessGroups.reduce(
     (count, group) => count + group.items.length,
     0,
+  );
+}
+
+export function releaseReadinessStatusCounts(
+  rows: ReleaseReadinessStatusRow[] = releaseReadinessStatusRows,
+) {
+  return rows.reduce(
+    (counts, row) => ({
+      ...counts,
+      [row.tone]: counts[row.tone] + 1,
+    }),
+    { ready: 0, blocked: 0, "local-only": 0 } satisfies Record<
+      ReleaseReadinessStatusTone,
+      number
+    >,
   );
 }

@@ -94,6 +94,8 @@ import {
   releaseReadinessCommand,
   releaseReadinessGroups,
   releaseReadinessItemCount,
+  releaseReadinessStatusCounts,
+  releaseReadinessStatusRows,
   releaseShareableGates,
 } from "./lib/releaseReadiness";
 import {
@@ -2420,6 +2422,7 @@ export default function App() {
   const [releaseReadinessCopyNotice, setReleaseReadinessCopyNotice] = useState<
     string | null
   >(null);
+  const releaseReadinessCounts = releaseReadinessStatusCounts();
   const [connectorsBusy, setConnectorsBusy] = useState(false);
   const [connectorPhase, setConnectorPhase] = useState<
     "disabled" | "verifying" | "healthy"
@@ -8796,6 +8799,42 @@ export default function App() {
               <div className="release-readiness-card__command">
                 <Terminal size={15} weight="duotone" />
                 <code>{releaseReadinessCommand}</code>
+              </div>
+              <div
+                className="release-readiness-card__summary"
+                aria-label="Release readiness status summary"
+              >
+                <span>
+                  <strong>{releaseReadinessCounts.ready}</strong> scripted
+                </span>
+                <span>
+                  <strong>{releaseReadinessCounts.blocked}</strong> blocked
+                </span>
+                <span>
+                  <strong>{releaseReadinessCounts["local-only"]}</strong> local-only
+                </span>
+              </div>
+              <div
+                className="release-readiness-card__status-grid"
+                aria-label="Release readiness source status"
+              >
+                {releaseReadinessStatusRows.map((row) => (
+                  <div
+                    className="release-readiness-card__status-row"
+                    key={row.id}
+                  >
+                    <div>
+                      <strong>{row.label}</strong>
+                      <span>{row.detail}</span>
+                    </div>
+                    <span
+                      className={`release-readiness-card__status-badge release-readiness-card__status-badge--${row.tone}`}
+                    >
+                      {row.statusLabel}
+                    </span>
+                    <code>{row.source}</code>
+                  </div>
+                ))}
               </div>
               <div
                 className="release-readiness-card__gates"

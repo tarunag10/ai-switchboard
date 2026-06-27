@@ -4,6 +4,8 @@ import {
   releaseReadinessCommand,
   releaseReadinessGroups,
   releaseReadinessItemCount,
+  releaseReadinessStatusCounts,
+  releaseReadinessStatusRows,
 } from "./releaseReadiness";
 
 describe("release readiness checklist", () => {
@@ -65,5 +67,40 @@ describe("release readiness checklist", () => {
         expect(item.command?.length).toBeGreaterThan(10);
       }
     }
+  });
+
+  it("summarizes release dashboard status rows for every roadmap surface", () => {
+    expect(releaseReadinessStatusRows.map((row) => row.id)).toEqual([
+      "frontend-build",
+      "desktop-tests",
+      "local-dmg",
+      "installed-smoke",
+      "signing-env",
+      "notarization-env",
+      "updater-config",
+      "final-gate",
+    ]);
+
+    expect(releaseReadinessStatusCounts()).toEqual({
+      ready: 1,
+      blocked: 6,
+      "local-only": 1,
+    });
+
+    const copy = releaseReadinessStatusRows
+      .map((row) => `${row.label} ${row.statusLabel} ${row.source} ${row.detail}`)
+      .join(" ");
+
+    expect(copy).toContain("npm run build");
+    expect(copy).toContain("npm run fmt:desktop && npm run test:desktop");
+    expect(copy).toContain("npm run build:mac:local-install");
+    expect(copy).toContain("npm run smoke:installed -- --confirm");
+    expect(copy).toContain("Developer ID");
+    expect(copy).toContain("notarization credentials");
+    expect(copy).toContain("HEADROOM_UPDATER_PUBLIC_KEY");
+    expect(copy).toContain("npm run release:ready -- --strict");
+    expect(copy).toContain("local install evidence");
+    expect(copy).toContain("does not prove signed release readiness");
+    expect(copy).toContain("release blockers when missing, not app failures");
   });
 });
