@@ -521,16 +521,46 @@ describe("dashboard helpers", () => {
     });
   });
 
+  it("formats Aider compatibility evidence for planned connector UI", () => {
+    const report = connectorCompatibilityReport({
+      clientId: "aider",
+      name: "Aider",
+      supportStatus: "planned",
+      setupPhase: "adapt",
+      detectionEvidence: [
+        "Aider binary: /opt/homebrew/bin/aider",
+        "Aider version: aider 0.84.0",
+        "Aider config surface: /Users/test/.aider.conf.yml",
+        "Provider routing blocked until reversible environment wrapper, backup, verify, rollback, and Off mode cleanup exist.",
+        "Detected, but Headroom adapter not implemented yet.",
+      ],
+      installed: true,
+      enabled: false,
+      verified: false,
+    });
+
+    expect(report).toEqual({
+      title: "Aider compatibility report",
+      primaryPathLabel: "Binary",
+      binaryPath: "/opt/homebrew/bin/aider",
+      version: "aider 0.84.0",
+      configSurface: "/Users/test/.aider.conf.yml",
+      routingBlocker:
+        "Provider routing blocked until reversible environment wrapper, backup, verify, rollback, and Off mode cleanup exist.",
+      otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
+    });
+  });
+
   it("omits compatibility report for connectors without structured evidence", () => {
     expect(
       connectorCompatibilityReport({
-        clientId: "aider",
-        name: "Aider",
+        clientId: "continue",
+        name: "Continue",
         supportStatus: "planned",
         installed: true,
         enabled: false,
         verified: false,
-        detectionEvidence: ["Detected at /opt/homebrew/bin/aider"],
+        detectionEvidence: ["Detected data at /Users/test/.continue."],
       }),
     ).toBeNull();
   });

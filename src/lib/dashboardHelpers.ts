@@ -545,6 +545,13 @@ const compatibilityReports: Partial<
     }
   >
 > = {
+  aider: {
+    label: "Aider",
+    primaryPathLabel: "Binary",
+    pathPrefix: "Aider binary:",
+    versionPrefix: "Aider version:",
+    configPrefix: "Aider config surface:"
+  },
   cursor: {
     label: "Cursor",
     primaryPathLabel: "App",
