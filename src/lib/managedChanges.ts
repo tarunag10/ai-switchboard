@@ -19,6 +19,18 @@ export interface ManagedChangeRecord {
   rollback: string;
 }
 
+export interface ManagedConfigDiffPreview {
+  recordId: ManagedChangeRecord["id"];
+  owner: string;
+  targetPath: string;
+  markerId: string;
+  backupPath: string;
+  currentManagedBlock: string | null;
+  proposedManagedBlock: string;
+  rollback: string;
+  safetyNotes: string[];
+}
+
 export const managedChangeRecords: ManagedChangeRecord[] = [
   {
     id: "client-hooks",
@@ -115,3 +127,66 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
       "Remove Ponytail plugin registration and sweep managed backup files created next to edited configs.",
   },
 ];
+
+export function buildManagedConfigDiffPreview({
+  record,
+  targetPath,
+  currentManagedBlock,
+  proposedManagedBlock,
+}: {
+  record: ManagedChangeRecord;
+  targetPath: string;
+  currentManagedBlock?: string | null;
+  proposedManagedBlock: string;
+}): ManagedConfigDiffPreview {
+  if (!record.backupPath) {
+    throw new Error(`${record.id} does not require a config backup.`);
+  }
+  const trimmedPath = targetPath.trim();
+  if (!trimmedPath) {
+    throw new Error("targetPath is required for managed config diff preview.");
+  }
+  const trimmedProposedBlock = proposedManagedBlock.trim();
+  if (!trimmedProposedBlock) {
+    throw new Error("proposedManagedBlock is required.");
+  }
+
+  return {
+    recordId: record.id,
+    owner: record.owner,
+    targetPath: trimmedPath,
+    markerId: record.markerId,
+    backupPath: record.backupPath,
+    currentManagedBlock: currentManagedBlock?.trim() || null,
+    proposedManagedBlock: trimmedProposedBlock,
+    rollback: record.rollback,
+    safetyNotes: [
+      "Review this dry-run diff before applying changes.",
+      "Back up the target config before writing the proposed managed block.",
+      "Off mode must remove only Switchboard-owned marked changes.",
+    ],
+  };
+}
+
+export function formatManagedConfigDiffPreview(
+  preview: ManagedConfigDiffPreview,
+): string {
+  return [
+    `Managed config diff: ${preview.owner}`,
+    `Target: ${preview.targetPath}`,
+    `Marker: ${preview.markerId}`,
+    `Backup: ${preview.backupPath}`,
+    "",
+    "Current managed block:",
+    preview.currentManagedBlock ?? "(none detected)",
+    "",
+    "Proposed managed block:",
+    preview.proposedManagedBlock,
+    "",
+    "Rollback:",
+    preview.rollback,
+    "",
+    "Safety:",
+    ...preview.safetyNotes.map((note) => `- ${note}`),
+  ].join("\n");
+}
