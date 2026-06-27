@@ -8,6 +8,10 @@ This repository is under active productization. Until the first tagged release, 
 
 Please report security issues privately before opening a public issue.
 
+Use GitHub private vulnerability reporting if it is enabled for this repository.
+If it is not enabled, contact the maintainer through a private channel before
+sharing technical details publicly.
+
 Include:
 
 - Affected commit or release.
@@ -16,6 +20,9 @@ Include:
 - Exact client involved, such as Codex, Claude Code, Gemini CLI, OpenCode, Cursor, or another connector.
 - Steps to reproduce.
 - Relevant logs with secrets removed.
+
+Do not submit security fixes from forks that expose exploit details, secrets, or
+private infrastructure in public CI logs. Coordinate with the maintainer first.
 
 ## Areas of Interest
 
