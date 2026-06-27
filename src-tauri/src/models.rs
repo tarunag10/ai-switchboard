@@ -157,6 +157,27 @@ pub struct RepoContextPackResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RepoIndexFreshnessStatus {
+    None,
+    Fresh,
+    UnchangedCache,
+    ChangedCache,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoIndexFreshnessResponse {
+    pub repo_root: Option<String>,
+    pub indexed_at: Option<String>,
+    pub status: RepoIndexFreshnessStatus,
+    pub label: String,
+    pub detail: String,
+    pub safety: RepoContextPackSafety,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RepoGraphNode {
     pub label: String,
@@ -227,6 +248,37 @@ pub struct RepoDependentsResponse {
     pub limit: usize,
     pub edges: Vec<RepoGraphEdge>,
     pub safety: RepoContextPackSafety,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoAgentHandoffAgent {
+    pub id: String,
+    pub label: String,
+    pub tool_kind: String,
+    pub guidance: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoAgentHandoffSafety {
+    pub read_only: bool,
+    pub excludes_secret_like_paths: bool,
+    pub modifies_repository: bool,
+    pub manual_provider_routing: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoAgentHandoffResponse {
+    pub schema_version: u64,
+    pub kind: String,
+    pub repo_root: String,
+    pub indexed_at: String,
+    pub agent: RepoAgentHandoffAgent,
+    pub pack: RepoContextPack,
+    pub graph_brief: RepoContextPackGraphBrief,
+    pub safety: RepoAgentHandoffSafety,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

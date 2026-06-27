@@ -46,10 +46,10 @@ use crate::models::{
     ClaudeCodeProject, ClaudeUsage, ClientConnectorStatus, ClientSetupResult,
     ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
     HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
-    HeadroomSubscriptionTier, RepoContextPackResponse, RepoDependentsResponse,
-    RepoIntelligenceManifestResponse, RepoIntelligenceSummary, RepoSymbolSearchResponse,
-    RuntimeStatus, RuntimeUpgradeProgress, SavingsMode, SwitchboardMode, SwitchboardState,
-    TransformationFeedResponse,
+    HeadroomSubscriptionTier, RepoAgentHandoffResponse, RepoContextPackResponse,
+    RepoDependentsResponse, RepoIndexFreshnessResponse, RepoIntelligenceManifestResponse,
+    RepoIntelligenceSummary, RepoSymbolSearchResponse, RuntimeStatus, RuntimeUpgradeProgress,
+    SavingsMode, SwitchboardMode, SwitchboardState, TransformationFeedResponse,
 };
 use crate::state::AppState;
 
@@ -292,6 +292,35 @@ fn get_repo_intelligence_dependents(
 #[tauri::command]
 fn get_repo_intelligence_manifest() -> Result<Option<RepoIntelligenceManifestResponse>, String> {
     repo_intelligence::latest_manifest().map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn get_repo_manifest() -> Result<Option<RepoIntelligenceManifestResponse>, String> {
+    repo_intelligence::latest_manifest().map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn get_repo_pack(pack_id: Option<String>) -> Result<Option<RepoContextPackResponse>, String> {
+    repo_intelligence::latest_context_pack(pack_id.as_deref()).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn get_agent_handoff(
+    agent_id: String,
+    task_type: Option<String>,
+) -> Result<Option<RepoAgentHandoffResponse>, String> {
+    repo_intelligence::latest_agent_handoff(&agent_id, task_type.as_deref())
+        .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn get_index_freshness() -> Result<RepoIndexFreshnessResponse, String> {
+    repo_intelligence::latest_index_freshness().map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn clear_repo_index() -> Result<bool, String> {
+    repo_intelligence::clear_latest_summary().map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -4368,6 +4397,11 @@ pub fn run() {
             get_repo_intelligence_dependents,
             get_repo_intelligence_manifest,
             clear_repo_intelligence_summary,
+            get_repo_manifest,
+            get_repo_pack,
+            get_agent_handoff,
+            get_index_freshness,
+            clear_repo_index,
             get_app_update_configuration,
             load_release_readiness_report,
             check_for_app_update,

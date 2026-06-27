@@ -9,9 +9,11 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 
 use crate::models::{
-    RepoContextPack, RepoContextPackGraphBrief, RepoContextPackResponse, RepoContextPackSafety,
+    RepoAgentHandoffAgent, RepoAgentHandoffResponse, RepoAgentHandoffSafety, RepoContextPack,
+    RepoContextPackGraphBrief, RepoContextPackResponse, RepoContextPackSafety,
     RepoDependentsResponse, RepoFileIndexEntry, RepoFileRole, RepoFileSignal, RepoGraphEdge,
-    RepoGraphEdgeKind, RepoGraphInputEntry, RepoGraphNode, RepoGraphSummary, RepoIndexMetadata,
+    RepoGraphEdgeKind, RepoGraphInputEntry, RepoGraphNode, RepoGraphSummary,
+    RepoIndexFreshnessResponse, RepoIndexFreshnessStatus, RepoIndexMetadata,
     RepoIntelligenceManifestResponse, RepoIntelligenceSummary, RepoManifestPackSummary,
     RepoManifestQuery, RepoManifestTotals, RepoSkippedIndexEntry, RepoSymbol, RepoSymbolKind,
     RepoSymbolSearchResponse,
@@ -71,6 +73,130 @@ const SECRET_PATH_SEGMENTS: [&str; 10] = [
     ".gnupg",
     ".playwright-mcp",
     ".ssh",
+];
+
+fn repo_context_safety() -> RepoContextPackSafety {
+    RepoContextPackSafety {
+        read_only: true,
+        excludes_secret_like_paths: true,
+        modifies_repository: false,
+    }
+}
+
+struct AgentHandoffProfile {
+    id: &'static str,
+    label: &'static str,
+    tool_kind: &'static str,
+    default_pack_id: &'static str,
+    guidance: &'static str,
+    manual_provider_routing: bool,
+}
+
+const AGENT_HANDOFF_PROFILES: [AgentHandoffProfile; 13] = [
+    AgentHandoffProfile {
+        id: "claude",
+        label: "Claude Code",
+        tool_kind: "cli",
+        default_pack_id: "implementation",
+        guidance: "Paste before task in Claude Code when you want bounded repo context without re-scanning the whole tree.",
+        manual_provider_routing: false,
+    },
+    AgentHandoffProfile {
+        id: "codex",
+        label: "Codex",
+        tool_kind: "cli",
+        default_pack_id: "verification",
+        guidance: "Paste before Codex verification or implementation work to avoid repeated broad repo discovery.",
+        manual_provider_routing: false,
+    },
+    AgentHandoffProfile {
+        id: "gemini",
+        label: "Gemini CLI",
+        tool_kind: "cli",
+        default_pack_id: "implementation",
+        guidance: "Paste this before the task. Keep provider routing manual.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "opencode",
+        label: "OpenCode",
+        tool_kind: "cli",
+        default_pack_id: "implementation",
+        guidance: "Paste this into the session as bounded repo context before editing.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "aider",
+        label: "Aider",
+        tool_kind: "cli",
+        default_pack_id: "implementation",
+        guidance: "Use this to choose files intentionally before adding them to an Aider chat.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "goose",
+        label: "Goose",
+        tool_kind: "cli",
+        default_pack_id: "verification",
+        guidance: "Use this for test, build, and release-check tasks with minimal context.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "cursor",
+        label: "Cursor",
+        tool_kind: "editor",
+        default_pack_id: "handoff",
+        guidance: "Paste into the editor assistant as read-only project context.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "continue",
+        label: "Continue",
+        tool_kind: "editor",
+        default_pack_id: "handoff",
+        guidance: "Paste into Continue chat as read-only context; do not auto-write config.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "grok",
+        label: "Grok / xAI CLI",
+        tool_kind: "chat",
+        default_pack_id: "implementation",
+        guidance: "Use this as compact task context where local CLI integration remains manual.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "qwen",
+        label: "Qwen Code",
+        tool_kind: "cli",
+        default_pack_id: "implementation",
+        guidance: "Paste into Qwen Code as bounded repo context; keep provider and account routing manual.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "amazonq",
+        label: "Amazon Q Developer CLI",
+        tool_kind: "cli",
+        default_pack_id: "verification",
+        guidance: "Paste verification packs for build, test, and AWS-adjacent repo questions without exposing account state.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "windsurf",
+        label: "Windsurf",
+        tool_kind: "editor",
+        default_pack_id: "handoff",
+        guidance: "Paste into Windsurf chat as read-only project context; do not auto-write editor provider settings.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "zed",
+        label: "Zed AI",
+        tool_kind: "editor",
+        default_pack_id: "handoff",
+        guidance: "Paste into Zed assistant as read-only context while model/provider selection stays manual.",
+        manual_provider_routing: true,
+    },
 ];
 
 pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary> {
@@ -186,6 +312,62 @@ pub fn clear_latest_summary() -> Result<bool> {
     Ok(true)
 }
 
+pub fn latest_index_freshness() -> Result<RepoIndexFreshnessResponse> {
+    let summary = load_latest_summary()?;
+    Ok(build_index_freshness_response(summary.as_ref()))
+}
+
+pub fn build_index_freshness_response(
+    summary: Option<&RepoIntelligenceSummary>,
+) -> RepoIndexFreshnessResponse {
+    let Some(summary) = summary else {
+        return RepoIndexFreshnessResponse {
+            repo_root: None,
+            indexed_at: None,
+            status: RepoIndexFreshnessStatus::None,
+            label: "No repo indexed".to_string(),
+            detail: "Index a local repository to create a persistent metadata cache.".to_string(),
+            safety: repo_context_safety(),
+        };
+    };
+
+    let (status, label, detail) = match summary.index_metadata.as_ref() {
+        None => (
+            RepoIndexFreshnessStatus::Unknown,
+            "Indexed without cache metadata".to_string(),
+            "Re-index this repo to add persistent freshness metadata.".to_string(),
+        ),
+        Some(metadata) if metadata.cache_state == "unchanged" => (
+            RepoIndexFreshnessStatus::UnchangedCache,
+            "Unchanged local index".to_string(),
+            metadata
+                .previous_indexed_at
+                .as_ref()
+                .map(|previous| format!("Same cache key as {previous}."))
+                .unwrap_or_else(|| "Same cache key as the previous saved index.".to_string()),
+        ),
+        Some(metadata) if metadata.cache_state == "changed" => (
+            RepoIndexFreshnessStatus::ChangedCache,
+            "Changed local index".to_string(),
+            "Repo metadata changed since the previous saved index.".to_string(),
+        ),
+        Some(metadata) => (
+            RepoIndexFreshnessStatus::Fresh,
+            "Fresh local index".to_string(),
+            format!("Indexed with {}.", metadata.parser_version),
+        ),
+    };
+
+    RepoIndexFreshnessResponse {
+        repo_root: Some(summary.repo_root.clone()),
+        indexed_at: Some(summary.indexed_at.clone()),
+        status,
+        label,
+        detail,
+        safety: repo_context_safety(),
+    }
+}
+
 pub fn latest_context_pack(pack_id: Option<&str>) -> Result<Option<RepoContextPackResponse>> {
     let Some(summary) = load_latest_summary()? else {
         return Ok(None);
@@ -231,6 +413,84 @@ pub fn build_context_pack_response(
             read_only: true,
             excludes_secret_like_paths: true,
             modifies_repository: false,
+        },
+    })
+}
+
+pub fn latest_agent_handoff(
+    agent_id: &str,
+    task_type: Option<&str>,
+) -> Result<Option<RepoAgentHandoffResponse>> {
+    let Some(summary) = load_latest_summary()? else {
+        return Ok(None);
+    };
+    build_agent_handoff_response(&summary, agent_id, task_type).map(Some)
+}
+
+pub fn build_agent_handoff_response(
+    summary: &RepoIntelligenceSummary,
+    agent_id: &str,
+    task_type: Option<&str>,
+) -> Result<RepoAgentHandoffResponse> {
+    let profile = AGENT_HANDOFF_PROFILES
+        .iter()
+        .find(|profile| profile.id == agent_id)
+        .ok_or_else(|| anyhow!("unknown repo handoff agent: {agent_id}"))?;
+    let selected_pack_id = match task_type.unwrap_or(profile.default_pack_id) {
+        "implementation" => "implementation",
+        "verification" => "verification",
+        "handoff" => "handoff",
+        other => return Err(anyhow!("unknown repo handoff task: {other}")),
+    };
+    let pack = summary
+        .packs
+        .iter()
+        .find(|candidate| candidate.id == selected_pack_id)
+        .cloned()
+        .or_else(|| {
+            summary
+                .packs
+                .iter()
+                .find(|candidate| candidate.id == profile.default_pack_id)
+                .cloned()
+        })
+        .or_else(|| summary.packs.first().cloned())
+        .ok_or_else(|| anyhow!("no repo intelligence packs are available"))?;
+    let graph = summary.graph.as_ref();
+
+    Ok(RepoAgentHandoffResponse {
+        schema_version: 1,
+        kind: "mac_ai_switchboard.repo_agent_handoff".to_string(),
+        repo_root: summary.repo_root.clone(),
+        indexed_at: summary.indexed_at.clone(),
+        agent: RepoAgentHandoffAgent {
+            id: profile.id.to_string(),
+            label: profile.label.to_string(),
+            tool_kind: profile.tool_kind.to_string(),
+            guidance: profile.guidance.to_string(),
+        },
+        pack,
+        graph_brief: RepoContextPackGraphBrief {
+            available: graph.is_some(),
+            dependency_hub_count: graph
+                .map(|graph| graph.dependency_hubs.len())
+                .unwrap_or_default(),
+            import_edge_count: graph
+                .map(|graph| graph.import_edges.len())
+                .unwrap_or_default(),
+            reverse_dependency_hub_count: graph
+                .map(|graph| graph.reverse_dependency_hubs.len())
+                .unwrap_or_default(),
+            symbol_count: graph.map(|graph| graph.symbols.len()).unwrap_or_default(),
+            symbol_edge_count: graph
+                .map(|graph| graph.symbol_edges.len())
+                .unwrap_or_default(),
+        },
+        safety: RepoAgentHandoffSafety {
+            read_only: true,
+            excludes_secret_like_paths: true,
+            modifies_repository: false,
+            manual_provider_routing: profile.manual_provider_routing,
         },
     })
 }
@@ -409,10 +669,32 @@ pub fn build_manifest_response(
             .collect(),
         queries: vec![
             RepoManifestQuery {
+                id: "repo_manifest".to_string(),
+                description: "Read the latest saved Repo Intelligence manifest.".to_string(),
+                command: "get_repo_manifest".to_string(),
+            },
+            RepoManifestQuery {
                 id: "context_pack".to_string(),
                 description: "Read one bounded context pack from the latest saved index."
                     .to_string(),
-                command: "get_repo_intelligence_context_pack".to_string(),
+                command: "get_repo_pack".to_string(),
+            },
+            RepoManifestQuery {
+                id: "agent_handoff".to_string(),
+                description: "Read a bounded agent-specific handoff from the latest saved index."
+                    .to_string(),
+                command: "get_agent_handoff".to_string(),
+            },
+            RepoManifestQuery {
+                id: "index_freshness".to_string(),
+                description: "Read index freshness and parser metadata without rescanning."
+                    .to_string(),
+                command: "get_index_freshness".to_string(),
+            },
+            RepoManifestQuery {
+                id: "clear_repo_index".to_string(),
+                description: "Clear the saved Repo Intelligence index metadata.".to_string(),
+                command: "clear_repo_index".to_string(),
             },
             RepoManifestQuery {
                 id: "symbol_search".to_string(),
@@ -2066,7 +2348,11 @@ mod tests {
                 .map(|query| query.command.as_str())
                 .collect::<Vec<_>>(),
             vec![
-                "get_repo_intelligence_context_pack",
+                "get_repo_manifest",
+                "get_repo_pack",
+                "get_agent_handoff",
+                "get_index_freshness",
+                "clear_repo_index",
                 "search_repo_intelligence_symbols",
                 "get_repo_intelligence_dependents"
             ]
@@ -2074,5 +2360,97 @@ mod tests {
         assert!(manifest.safety.read_only);
         assert!(manifest.safety.excludes_secret_like_paths);
         assert!(!manifest.safety.modifies_repository);
+    }
+
+    #[test]
+    fn builds_index_freshness_for_empty_and_cached_indexes() {
+        let empty = build_index_freshness_response(None);
+        assert!(matches!(empty.status, RepoIndexFreshnessStatus::None));
+        assert_eq!(empty.label, "No repo indexed");
+        assert!(empty.safety.read_only);
+
+        let mut summary = RepoIntelligenceSummary {
+            indexed_at: "2026-06-27T10:00:00Z".to_string(),
+            repo_root: "/tmp/example".to_string(),
+            indexer_version: Some(INDEXER_VERSION.to_string()),
+            total_files: 1,
+            indexed_files: 1,
+            skipped_files: 0,
+            estimated_full_scan_tokens: 1,
+            role_counts: BTreeMap::new(),
+            index_metadata: Some(RepoIndexMetadata {
+                schema_version: INDEX_METADATA_SCHEMA_VERSION,
+                indexer_version: INDEXER_VERSION.to_string(),
+                parser_version: PARSER_VERSION.to_string(),
+                cache_key: "abc".to_string(),
+                cache_state: "unchanged".to_string(),
+                generated_at: "2026-06-27T10:00:00Z".to_string(),
+                previous_indexed_at: Some("2026-06-27T09:00:00Z".to_string()),
+                file_count: 1,
+                indexed_file_count: 1,
+                skipped_file_count: 0,
+                file_fingerprints: Vec::new(),
+                skipped_files: Vec::new(),
+                graph_inputs: Vec::new(),
+            }),
+            graph: None,
+            packs: Vec::new(),
+        };
+
+        let unchanged = build_index_freshness_response(Some(&summary));
+        assert!(matches!(
+            unchanged.status,
+            RepoIndexFreshnessStatus::UnchangedCache
+        ));
+        assert_eq!(unchanged.repo_root.as_deref(), Some("/tmp/example"));
+
+        summary.index_metadata.as_mut().unwrap().cache_state = "changed".to_string();
+        let changed = build_index_freshness_response(Some(&summary));
+        assert!(matches!(
+            changed.status,
+            RepoIndexFreshnessStatus::ChangedCache
+        ));
+    }
+
+    #[test]
+    fn builds_read_only_agent_handoff_from_latest_index() {
+        let root = tempfile::tempdir().expect("create repo");
+        std::fs::create_dir_all(root.path().join("src")).expect("create src");
+        std::fs::write(
+            root.path().join("src/App.tsx"),
+            "export function App() {}\n",
+        )
+        .expect("write app");
+        std::fs::write(
+            root.path().join("src/App.test.tsx"),
+            "test('app', () => {})\n",
+        )
+        .expect("write test");
+        std::fs::write(root.path().join("docs.md"), "handoff notes\n").expect("write docs");
+        std::fs::write(root.path().join(".env.local"), "SECRET=value\n").expect("write secret");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        let codex =
+            build_agent_handoff_response(&summary, "codex", Some("verification")).expect("codex");
+        assert_eq!(codex.kind, "mac_ai_switchboard.repo_agent_handoff");
+        assert_eq!(codex.agent.label, "Codex");
+        assert_eq!(codex.pack.id, "verification");
+        assert!(!codex.safety.manual_provider_routing);
+        assert!(codex.safety.read_only);
+        assert!(!codex.safety.modifies_repository);
+
+        let gemini = build_agent_handoff_response(&summary, "gemini", Some("implementation"))
+            .expect("gemini");
+        assert_eq!(gemini.agent.label, "Gemini CLI");
+        assert_eq!(gemini.pack.id, "implementation");
+        assert!(gemini.safety.manual_provider_routing);
+        assert!(!gemini
+            .pack
+            .files
+            .iter()
+            .any(|file| file.path.contains(".env.local")));
+
+        let error = build_agent_handoff_response(&summary, "unknown", None).unwrap_err();
+        assert!(error.to_string().contains("unknown repo handoff agent"));
     }
 }
