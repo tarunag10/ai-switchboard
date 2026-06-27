@@ -5,7 +5,9 @@ import {
   buildSavingsCalculatorBreakdown,
   buildSavingsCalculatorSummary,
   buildSavingsLedgerRows,
+  formatSavingsLedgerShareText,
   formatSavingsCalculatorShareText,
+  summarizeSavingsLedgerRows,
   type SavingsCalculatorScope,
 } from "./savingsCalculator";
 import type { DashboardState } from "./types";
@@ -312,6 +314,116 @@ describe("savings calculator", () => {
       "estimated",
       "measured",
     ]);
+    expect(rows.map((row) => row.source)).toEqual(["headroom_engine", "rtk"]);
+    expect(rows[0].caveat).toContain("Estimated from saved history");
+    expect(rows[1].caveat).toContain("Observed from local counters");
+  });
+
+  it("summarizes ledger confidence buckets without upgrading inferred rows", () => {
+    const rows = buildSavingsLedgerRows(
+      dashboardFixture(),
+      "overall",
+      "2026-06-27T10:00:00.000Z",
+      {
+        runtimeStatus: {
+          platform: "darwin",
+          supportTier: "supported",
+          installed: true,
+          running: true,
+          starting: false,
+          paused: false,
+          autoPaused: false,
+          proxyReachable: true,
+          headroomLearnSupported: true,
+          rtk: {
+            installed: true,
+            enabled: true,
+            pathConfigured: true,
+            hookConfigured: true,
+            totalCommands: 12,
+            totalSaved: 900,
+          },
+        },
+        repoSavings: {
+          fullScanTokens: 10_000,
+          bestPackTokens: 2_500,
+          bestPackTokensAvoided: 7_500,
+          bestPackSavingsPct: 75,
+          allPacksTokens: 4_000,
+          allPacksTokensAvoided: 6_000,
+          allPacksSavingsPct: 60,
+          bestPack: {
+            id: "implementation",
+            title: "Implementation pack",
+            purpose: "Build next slice",
+            estimatedTokens: 2_500,
+            savingsVsFullScanPct: 75,
+            files: [],
+          },
+        },
+        ponytailSavings: buildAddonSavingsEstimate(1_400, 520),
+      },
+    );
+    const summary = summarizeSavingsLedgerRows(
+      rows,
+      "overall",
+      "2026-06-27T10:00:00.000Z",
+    );
+
+    expect(rows.map((row) => row.source)).toEqual([
+      "headroom_engine",
+      "rtk",
+      "repo_intelligence",
+      "ponytail",
+    ]);
+    expect(summary).toMatchObject({
+      rowCount: 4,
+      measuredTokens: 900,
+      estimatedTokens: 2_000,
+      inferredTokens: 8_380,
+      totalTokens: 11_280,
+      estimatedUsd: 4.5,
+      measuredUsd: 0,
+    });
+  });
+
+  it("formats a copyable savings ledger with confidence caveats", () => {
+    const recordedAt = "2026-06-27T10:00:00.000Z";
+    const rows = buildSavingsLedgerRows(dashboardFixture(), "overall", recordedAt, {
+      runtimeStatus: {
+        platform: "darwin",
+        supportTier: "supported",
+        installed: true,
+        running: true,
+        starting: false,
+        paused: false,
+        autoPaused: false,
+        proxyReachable: true,
+        headroomLearnSupported: true,
+        rtk: {
+          installed: true,
+          enabled: true,
+          pathConfigured: true,
+          hookConfigured: true,
+          totalCommands: 12,
+          totalSaved: 900,
+        },
+      },
+      markitdownSavings: buildAddonSavingsEstimate(3_200, 900),
+    });
+    const text = formatSavingsLedgerShareText(rows, "overall", recordedAt);
+
+    expect(text).toContain("Mac AI Switchboard savings ledger (overall history)");
+    expect(text).toContain("Recorded: 2026-06-27T10:00:00.000Z");
+    expect(text).toContain("Measured tokens: 900 / $0.00");
+    expect(text).toContain("Estimated tokens: 2,000 / $4.50");
+    expect(text).toContain("Inferred tokens: 2,300");
+    expect(text).toContain(
+      "Confidence labels are not interchangeable: inferred rows are never reported as measured.",
+    );
+    expect(text).toContain(
+      "- markitdown: MarkItDown (inferred) saved 2,300 tokens.",
+    );
   });
 
   it("formats a copyable session savings summary", () => {

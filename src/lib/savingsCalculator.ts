@@ -12,6 +12,13 @@ export type SavingsCalculatorBreakdownKind =
   | "change_scope"
   | "doc_preprocess";
 export type SavingsCalculatorConfidence = "measured" | "estimated" | "inferred";
+export type SavingsLedgerSource =
+  | "headroom_engine"
+  | "rtk"
+  | "repo_intelligence"
+  | "caveman"
+  | "ponytail"
+  | "markitdown";
 
 export interface AddonSavingsEstimate {
   baselineTokens: number;
@@ -77,8 +84,22 @@ export interface SavingsCalculatorBreakdownOptions {
 }
 
 export interface SavingsLedgerRow extends SavingsCalculatorBreakdownRow {
+  source: SavingsLedgerSource;
   scope: SavingsCalculatorScope;
   recordedAt: string;
+  caveat: string;
+}
+
+export interface SavingsLedgerSummary {
+  scope: SavingsCalculatorScope;
+  recordedAt: string;
+  rowCount: number;
+  measuredTokens: number;
+  estimatedTokens: number;
+  inferredTokens: number;
+  totalTokens: number;
+  measuredUsd: number;
+  estimatedUsd: number;
 }
 
 function formatUsd(value: number) {
@@ -104,6 +125,21 @@ function formatPercent(value: number | null) {
     maximumFractionDigits: 1,
   }).format(value)}%`;
 }
+
+const ledgerSourceByBreakdownId: Record<string, SavingsLedgerSource> = {
+  headroom: "headroom_engine",
+  rtk: "rtk",
+  repo_intelligence: "repo_intelligence",
+  caveman: "caveman",
+  ponytail: "ponytail",
+  markitdown: "markitdown",
+};
+
+const confidenceCaveat: Record<SavingsCalculatorConfidence, string> = {
+  measured: "Observed from local counters for this source.",
+  estimated: "Estimated from saved history or cost model; not a per-request proof.",
+  inferred: "Modelled from a template, context-pack, or workflow delta.",
+};
 
 export function buildSavingsCalculatorSummary(
   dashboard: DashboardState,
@@ -274,10 +310,77 @@ export function buildSavingsLedgerRows(
   return buildSavingsCalculatorBreakdown(dashboard, scope, options).map(
     (row) => ({
       ...row,
+      source: ledgerSourceByBreakdownId[row.id] ?? "headroom_engine",
       scope,
       recordedAt,
+      caveat: confidenceCaveat[row.confidence],
     }),
   );
+}
+
+export function summarizeSavingsLedgerRows(
+  rows: SavingsLedgerRow[],
+  scope: SavingsCalculatorScope,
+  recordedAt: string,
+): SavingsLedgerSummary {
+  return rows.reduce(
+    (summary, row) => {
+      summary.rowCount += 1;
+      summary.totalTokens += row.savedTokens;
+      if (row.confidence === "measured") {
+        summary.measuredTokens += row.savedTokens;
+        summary.measuredUsd += row.savedUsd ?? 0;
+      } else if (row.confidence === "estimated") {
+        summary.estimatedTokens += row.savedTokens;
+        summary.estimatedUsd += row.savedUsd ?? 0;
+      } else {
+        summary.inferredTokens += row.savedTokens;
+      }
+      return summary;
+    },
+    {
+      scope,
+      recordedAt,
+      rowCount: 0,
+      measuredTokens: 0,
+      estimatedTokens: 0,
+      inferredTokens: 0,
+      totalTokens: 0,
+      measuredUsd: 0,
+      estimatedUsd: 0,
+    } satisfies SavingsLedgerSummary,
+  );
+}
+
+export function formatSavingsLedgerShareText(
+  rows: SavingsLedgerRow[],
+  scope: SavingsCalculatorScope,
+  recordedAt: string,
+) {
+  const summary = summarizeSavingsLedgerRows(rows, scope, recordedAt);
+  const scopeLabel =
+    scope === "session" ? "current app session" : "overall history";
+  const rowLines =
+    rows.length > 0
+      ? rows.map((row) => {
+          const usdPart =
+            row.savedUsd === null ? "" : ` / ${formatUsd(row.savedUsd)}`;
+          return `- ${row.source}: ${row.label} (${row.confidence}) saved ${formatTokens(row.savedTokens)} tokens${usdPart}. ${row.caveat}`;
+        })
+      : ["- No ledger rows yet."];
+
+  return [
+    `Mac AI Switchboard savings ledger (${scopeLabel})`,
+    `Recorded: ${recordedAt}`,
+    `Rows: ${formatTokens(summary.rowCount)}`,
+    `Total tokens: ${formatTokens(summary.totalTokens)}`,
+    `Measured tokens: ${formatTokens(summary.measuredTokens)} / ${formatUsd(summary.measuredUsd)}`,
+    `Estimated tokens: ${formatTokens(summary.estimatedTokens)} / ${formatUsd(summary.estimatedUsd)}`,
+    `Inferred tokens: ${formatTokens(summary.inferredTokens)}`,
+    "Confidence labels are not interchangeable: inferred rows are never reported as measured.",
+    "Rows:",
+    ...rowLines,
+  ].join("\n");
 }
 
 export function formatSavingsCalculatorShareText(
