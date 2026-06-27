@@ -74,6 +74,7 @@ function hasConnectorConfigPlanEvidence(
   report: ReleaseReadinessReportSnapshot,
 ) {
   return (
+    report.staticSmokePreflight?.ready === true &&
     report.staticSmokePreflight?.requiredEvidence?.includes(
       "Planned connector config creation plan",
     ) === true

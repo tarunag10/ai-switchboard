@@ -194,6 +194,38 @@ describe("release readiness checklist", () => {
     );
   });
 
+  it("does not mark connector config-plan evidence ready before smoke preflight is ready", () => {
+    const rows = releaseReadinessRowsFromReport({
+      status: "blocked",
+      backendValidation: { ready: true },
+      staticSmokePreflight: {
+        ready: false,
+        requiredEvidence: ["Planned connector config creation plan"],
+      },
+      installedSmoke: {
+        installedAppPresent: true,
+        evidenceReady: false,
+        missingEvidence: [],
+      },
+      shareableDmgGate: {
+        ready: false,
+        signedAndNotarized: true,
+        updaterFeedReady: true,
+        staticSmokePreflightReady: false,
+        installedAppSmokeReady: false,
+      },
+      releaseEnv: {
+        ok: true,
+        blockers: [],
+        warnings: [],
+      },
+    });
+
+    const row = rows.find((item) => item.id === "connector-config-plan");
+    expect(row?.tone).toBe("blocked");
+    expect(row?.statusLabel).toBe("Blocked");
+  });
+
   it("formats a copyable release report snapshot from report JSON", () => {
     const snapshot = formatReleaseReadinessReportSnapshot(
       {
