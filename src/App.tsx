@@ -83,6 +83,7 @@ import {
 } from "./lib/repoIntelligence";
 import {
   getPlannedConnector,
+  getPlannedConnectorReadinessContract,
   getPlannedConnectorSetupChecklistScript,
   getPlannedConnectorSetupGuide,
   plannedConnectors,
@@ -2256,7 +2257,9 @@ function PlannedConnectorRoadmap({
         <span>Doctor-backed cleanup</span>
       </div>
       <ul className="planned-connectors__list">
-        {connectors.map((connector) => (
+        {connectors.map((connector) => {
+          const readiness = getPlannedConnectorReadinessContract(connector);
+          return (
           <li className="planned-connectors__item" key={connector.id}>
             <div className="planned-connectors__item-head">
               <strong>{connector.name}</strong>
@@ -2282,9 +2285,27 @@ function PlannedConnectorRoadmap({
                 <strong>{connector.configSurfaces[0]}</strong>
               </div>
               <div>
-                <span>Automation gate</span>
-                <strong>{connector.automationGates[0]}</strong>
+                <span>Next gate</span>
+                <strong>
+                  {readiness.stages.find(
+                    (stage) => stage.id === readiness.nextBlockedStage,
+                  )?.label ?? "Automation ready"}
+                </strong>
               </div>
+            </div>
+            <div
+              className="planned-connectors__stage-row"
+              aria-label={`${connector.name} readiness stages`}
+            >
+              {readiness.stages.slice(0, 4).map((stage) => (
+                <span
+                  className={`planned-connectors__stage planned-connectors__stage--${stage.state}`}
+                  key={stage.id}
+                  title={stage.evidence}
+                >
+                  {stage.label}
+                </span>
+              ))}
             </div>
             <p className="planned-connectors__manual">
               Today: {connector.safeToday}
@@ -2297,7 +2318,8 @@ function PlannedConnectorRoadmap({
               <span>{connector.statusLabel}</span>
             </div>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </div>
   );
@@ -8297,6 +8319,9 @@ export default function App() {
                   const plannedSetupGuide = plannedConnector
                     ? getPlannedConnectorSetupGuide(plannedConnector.id)
                     : null;
+                  const plannedReadiness = plannedConnector
+                    ? getPlannedConnectorReadinessContract(plannedConnector)
+                    : null;
                   const connectorSetupPhase =
                     connector.setupPhase ??
                     plannedConnector?.setupPhase ??
@@ -8356,6 +8381,35 @@ export default function App() {
                             <p className="connector-plan__target">
                               {plannedConnector.integrationTarget}
                             </p>
+                            {plannedReadiness ? (
+                              <div className="connector-plan__readiness">
+                                <div>
+                                  <strong>Readiness contract</strong>
+                                  <span>
+                                    Next gate:{" "}
+                                    {plannedReadiness.stages.find(
+                                      (stage) =>
+                                        stage.id ===
+                                        plannedReadiness.nextBlockedStage,
+                                    )?.label ?? "Automation ready"}
+                                  </span>
+                                </div>
+                                <div
+                                  className="connector-plan__stage-row"
+                                  aria-label={`${connector.name} readiness contract`}
+                                >
+                                  {plannedReadiness.stages.map((stage) => (
+                                    <span
+                                      className={`connector-plan__stage connector-plan__stage--${stage.state}`}
+                                      key={stage.id}
+                                      title={stage.evidence}
+                                    >
+                                      {stage.label}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
                             {connector.detectionSources?.length ||
                             connector.configLocations?.length ||
                             connector.detectionEvidence?.length ||
