@@ -518,3 +518,60 @@ export function connectorSupportsAutomaticSetup(
     (connector.supportStatus ?? "managed") === "managed"
   );
 }
+
+export interface ConnectorCompatibilityReport {
+  title: string;
+  binaryPath: string | null;
+  version: string | null;
+  configSurface: string | null;
+  routingBlocker: string | null;
+  otherEvidence: string[];
+}
+
+function evidenceValue(evidence: string, prefix: string) {
+  return evidence.startsWith(prefix) ? evidence.slice(prefix.length).trim() : null;
+}
+
+export function connectorCompatibilityReport(
+  connector: ClientConnectorStatus
+): ConnectorCompatibilityReport | null {
+  if (connector.clientId !== "gemini_cli") {
+    return null;
+  }
+
+  const evidence = connector.detectionEvidence ?? [];
+  const binaryPath =
+    evidence.map((item) => evidenceValue(item, "Gemini binary:")).find(Boolean) ??
+    null;
+  const version =
+    evidence.map((item) => evidenceValue(item, "Gemini version:")).find(Boolean) ??
+    null;
+  const configSurface =
+    evidence
+      .map((item) => evidenceValue(item, "Gemini config surface:"))
+      .find(Boolean) ?? null;
+  const routingBlocker =
+    evidence.find((item) => item.startsWith("Provider routing blocked")) ?? null;
+  const knownEvidence = new Set(
+    [
+      binaryPath ? `Gemini binary: ${binaryPath}` : null,
+      version ? `Gemini version: ${version}` : null,
+      configSurface ? `Gemini config surface: ${configSurface}` : null,
+      routingBlocker
+    ].filter((item): item is string => item !== null)
+  );
+  const otherEvidence = evidence.filter((item) => !knownEvidence.has(item));
+
+  if (!binaryPath && !version && !configSurface && !routingBlocker) {
+    return null;
+  }
+
+  return {
+    title: "Gemini compatibility report",
+    binaryPath,
+    version,
+    configSurface,
+    routingBlocker,
+    otherEvidence
+  };
+}

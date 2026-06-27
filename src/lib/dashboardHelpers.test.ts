@@ -7,6 +7,7 @@ import {
   buildMonthlySavingsWindow,
   compactNumber,
   connectorControlState,
+  connectorCompatibilityReport,
   connectorDashboardStatus,
   connectorSupportsAutomaticSetup,
   currency,
@@ -399,6 +400,49 @@ describe("dashboard helpers", () => {
         verified: false,
       }),
     ).toEqual({ disabled: false, reason: null });
+  });
+
+  it("formats Gemini compatibility evidence for planned connector UI", () => {
+    const report = connectorCompatibilityReport({
+      clientId: "gemini_cli",
+      name: "Gemini CLI",
+      supportStatus: "planned",
+      setupPhase: "guide",
+      detectionEvidence: [
+        "Gemini binary: /opt/homebrew/bin/gemini",
+        "Gemini version: gemini 0.2.1",
+        "Gemini config surface: /Users/test/.gemini",
+        "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.",
+        "Detected, but the Headroom adapter is not implemented yet.",
+      ],
+      installed: true,
+      enabled: false,
+      verified: false,
+    });
+
+    expect(report).toEqual({
+      title: "Gemini compatibility report",
+      binaryPath: "/opt/homebrew/bin/gemini",
+      version: "gemini 0.2.1",
+      configSurface: "/Users/test/.gemini",
+      routingBlocker:
+        "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.",
+      otherEvidence: ["Detected, but the Headroom adapter is not implemented yet."],
+    });
+  });
+
+  it("omits compatibility report for connectors without structured evidence", () => {
+    expect(
+      connectorCompatibilityReport({
+        clientId: "opencode",
+        name: "OpenCode",
+        supportStatus: "planned",
+        installed: true,
+        enabled: false,
+        verified: false,
+        detectionEvidence: ["Detected at /opt/homebrew/bin/opencode"],
+      }),
+    ).toBeNull();
   });
 
   it("derives a dashboard status label/tone per connector state", () => {

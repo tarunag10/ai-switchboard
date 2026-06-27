@@ -125,6 +125,7 @@ import {
   buildMonthlySavingsWindow,
   compactNumber,
   connectorControlState,
+  connectorCompatibilityReport,
   connectorDashboardStatus,
   currency,
   currencyExact,
@@ -8347,6 +8348,8 @@ export default function App() {
                     null;
                   const connectorSetupHint =
                     connector.setupHint ?? plannedConnector?.notes ?? null;
+                  const compatibilityReport =
+                    connectorCompatibilityReport(connector);
                   return (
                     <article
                       className="connector-item"
@@ -8443,6 +8446,32 @@ export default function App() {
                                     {badge.label}
                                   </span>
                                 ))}
+                              </div>
+                            ) : null}
+                            {compatibilityReport ? (
+                              <div className="connector-plan__compatibility">
+                                <strong>{compatibilityReport.title}</strong>
+                                {compatibilityReport.binaryPath ? (
+                                  <span>
+                                    Binary {compatibilityReport.binaryPath}
+                                  </span>
+                                ) : null}
+                                {compatibilityReport.version ? (
+                                  <span>
+                                    Version {compatibilityReport.version}
+                                  </span>
+                                ) : null}
+                                {compatibilityReport.configSurface ? (
+                                  <span>
+                                    Config {compatibilityReport.configSurface}
+                                  </span>
+                                ) : null}
+                                {compatibilityReport.routingBlocker ? (
+                                  <span>
+                                    Blocked{" "}
+                                    {compatibilityReport.routingBlocker}
+                                  </span>
+                                ) : null}
                               </div>
                             ) : null}
                             {connector.detectionSources?.length ||
