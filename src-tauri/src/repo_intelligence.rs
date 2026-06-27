@@ -10,8 +10,8 @@ use chrono::Utc;
 
 use crate::models::{
     RepoContextPack, RepoContextPackGraphBrief, RepoContextPackResponse, RepoContextPackSafety,
-    RepoFileIndexEntry, RepoFileRole, RepoFileSignal, RepoGraphEdge, RepoGraphEdgeKind,
-    RepoGraphInputEntry, RepoGraphNode, RepoGraphSummary, RepoIndexMetadata,
+    RepoDependentsResponse, RepoFileIndexEntry, RepoFileRole, RepoFileSignal, RepoGraphEdge,
+    RepoGraphEdgeKind, RepoGraphInputEntry, RepoGraphNode, RepoGraphSummary, RepoIndexMetadata,
     RepoIntelligenceSummary, RepoSkippedIndexEntry, RepoSymbol, RepoSymbolKind,
     RepoSymbolSearchResponse,
 };
@@ -25,6 +25,8 @@ const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
 const PARSER_VERSION: &str = "metadata-fingerprint-v1";
 const DEFAULT_SYMBOL_SEARCH_LIMIT: usize = 25;
 const MAX_SYMBOL_SEARCH_LIMIT: usize = 100;
+const DEFAULT_DEPENDENTS_LIMIT: usize = 25;
+const MAX_DEPENDENTS_LIMIT: usize = 100;
 const IGNORED_DIRS: [&str; 12] = [
     ".git",
     "node_modules",
@@ -291,6 +293,61 @@ pub fn build_symbol_search_response(
             modifies_repository: false,
         },
     }
+}
+
+pub fn latest_dependents_search(
+    target: &str,
+    limit: Option<usize>,
+) -> Result<Option<RepoDependentsResponse>> {
+    let Some(summary) = load_latest_summary()? else {
+        return Ok(None);
+    };
+    build_dependents_response(&summary, target, limit).map(Some)
+}
+
+pub fn build_dependents_response(
+    summary: &RepoIntelligenceSummary,
+    target: &str,
+    limit: Option<usize>,
+) -> Result<RepoDependentsResponse> {
+    let normalized_target = target.trim();
+    if normalized_target.is_empty() {
+        return Err(anyhow!("repo dependents target is required"));
+    }
+    let target_lower = normalized_target.to_lowercase();
+    let clamped_limit = limit
+        .unwrap_or(DEFAULT_DEPENDENTS_LIMIT)
+        .clamp(1, MAX_DEPENDENTS_LIMIT);
+    let edges = summary
+        .graph
+        .as_ref()
+        .map(|graph| {
+            graph
+                .import_edges
+                .iter()
+                .chain(graph.symbol_edges.iter())
+                .filter(|edge| {
+                    edge.to.to_lowercase().contains(&target_lower)
+                        || edge.from.to_lowercase().contains(&target_lower)
+                })
+                .take(clamped_limit)
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    Ok(RepoDependentsResponse {
+        repo_root: summary.repo_root.clone(),
+        indexed_at: summary.indexed_at.clone(),
+        target: normalized_target.to_string(),
+        limit: clamped_limit,
+        edges,
+        safety: RepoContextPackSafety {
+            read_only: true,
+            excludes_secret_like_paths: true,
+            modifies_repository: false,
+        },
+    })
 }
 
 fn latest_summary_path() -> PathBuf {
@@ -1813,5 +1870,69 @@ mod tests {
         let clamped = build_symbol_search_response(&summary, None, Some(500));
         assert_eq!(clamped.limit, MAX_SYMBOL_SEARCH_LIMIT);
         assert_eq!(clamped.symbols.len(), 3);
+    }
+
+    #[test]
+    fn finds_dependents_across_import_and_symbol_edges() {
+        let summary = RepoIntelligenceSummary {
+            indexed_at: "2026-06-27T12:00:00Z".to_string(),
+            repo_root: "/tmp/example".to_string(),
+            indexer_version: Some(INDEXER_VERSION.to_string()),
+            total_files: 3,
+            indexed_files: 3,
+            skipped_files: 0,
+            estimated_full_scan_tokens: 100,
+            role_counts: BTreeMap::new(),
+            index_metadata: None,
+            graph: Some(RepoGraphSummary {
+                top_directories: Vec::new(),
+                top_languages: Vec::new(),
+                entrypoints: Vec::new(),
+                likely_tests: Vec::new(),
+                config_hubs: Vec::new(),
+                dependency_hubs: Vec::new(),
+                import_edges: vec![
+                    RepoGraphEdge {
+                        from: "src/App.test.tsx".to_string(),
+                        to: "src/App.tsx".to_string(),
+                        kind: RepoGraphEdgeKind::TestToSource,
+                        reason: "test filename matches source module".to_string(),
+                    },
+                    RepoGraphEdge {
+                        from: "src/main.tsx".to_string(),
+                        to: "package.json".to_string(),
+                        kind: RepoGraphEdgeKind::EntrypointToConfig,
+                        reason: "entrypoint shares closest config surface".to_string(),
+                    },
+                ],
+                reverse_dependency_hubs: Vec::new(),
+                symbols: Vec::new(),
+                symbol_edges: vec![RepoGraphEdge {
+                    from: "src/App.tsx".to_string(),
+                    to: "src/lib/helper.ts#helper".to_string(),
+                    kind: RepoGraphEdgeKind::CallReference,
+                    reason: "references symbol helper".to_string(),
+                }],
+            }),
+            packs: Vec::new(),
+        };
+
+        let response = build_dependents_response(&summary, "app", Some(1)).expect("dependents");
+        assert_eq!(response.target, "app");
+        assert_eq!(response.limit, 1);
+        assert_eq!(response.edges.len(), 1);
+        assert_eq!(response.edges[0].from, "src/App.test.tsx");
+        assert!(response.safety.read_only);
+        assert!(!response.safety.modifies_repository);
+
+        let helper = build_dependents_response(&summary, "helper", Some(10)).expect("helper");
+        assert_eq!(helper.edges.len(), 1);
+        assert_eq!(helper.edges[0].kind, RepoGraphEdgeKind::CallReference);
+
+        let clamped = build_dependents_response(&summary, "src", Some(500)).expect("clamped");
+        assert_eq!(clamped.limit, MAX_DEPENDENTS_LIMIT);
+
+        let error = build_dependents_response(&summary, "   ", None).unwrap_err();
+        assert!(error.to_string().contains("target is required"));
     }
 }

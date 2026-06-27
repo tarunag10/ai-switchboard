@@ -220,6 +220,17 @@ pub struct RepoSymbolSearchResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RepoDependentsResponse {
+    pub repo_root: String,
+    pub indexed_at: String,
+    pub target: String,
+    pub limit: usize,
+    pub edges: Vec<RepoGraphEdge>,
+    pub safety: RepoContextPackSafety,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepoGraphSummary {
     pub top_directories: Vec<RepoGraphNode>,
     pub top_languages: Vec<RepoGraphNode>,
