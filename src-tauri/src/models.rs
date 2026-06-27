@@ -231,6 +231,49 @@ pub struct RepoDependentsResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RepoManifestPackSummary {
+    pub id: String,
+    pub title: String,
+    pub purpose: String,
+    pub file_count: usize,
+    pub estimated_tokens: u64,
+    pub savings_vs_full_scan_pct: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoManifestQuery {
+    pub id: String,
+    pub description: String,
+    pub command: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoManifestTotals {
+    pub total_files: u64,
+    pub indexed_files: u64,
+    pub skipped_files: u64,
+    pub estimated_full_scan_tokens: u64,
+    pub indexer_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoIntelligenceManifestResponse {
+    pub schema_version: u64,
+    pub kind: String,
+    pub repo_root: String,
+    pub indexed_at: String,
+    pub totals: RepoManifestTotals,
+    pub graph_brief: RepoContextPackGraphBrief,
+    pub packs: Vec<RepoManifestPackSummary>,
+    pub queries: Vec<RepoManifestQuery>,
+    pub safety: RepoContextPackSafety,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepoGraphSummary {
     pub top_directories: Vec<RepoGraphNode>,
     pub top_languages: Vec<RepoGraphNode>,

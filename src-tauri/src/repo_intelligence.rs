@@ -12,7 +12,8 @@ use crate::models::{
     RepoContextPack, RepoContextPackGraphBrief, RepoContextPackResponse, RepoContextPackSafety,
     RepoDependentsResponse, RepoFileIndexEntry, RepoFileRole, RepoFileSignal, RepoGraphEdge,
     RepoGraphEdgeKind, RepoGraphInputEntry, RepoGraphNode, RepoGraphSummary, RepoIndexMetadata,
-    RepoIntelligenceSummary, RepoSkippedIndexEntry, RepoSymbol, RepoSymbolKind,
+    RepoIntelligenceManifestResponse, RepoIntelligenceSummary, RepoManifestPackSummary,
+    RepoManifestQuery, RepoManifestTotals, RepoSkippedIndexEntry, RepoSymbol, RepoSymbolKind,
     RepoSymbolSearchResponse,
 };
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs};
@@ -348,6 +349,90 @@ pub fn build_dependents_response(
             modifies_repository: false,
         },
     })
+}
+
+pub fn latest_manifest() -> Result<Option<RepoIntelligenceManifestResponse>> {
+    let Some(summary) = load_latest_summary()? else {
+        return Ok(None);
+    };
+    Ok(Some(build_manifest_response(&summary)))
+}
+
+pub fn build_manifest_response(
+    summary: &RepoIntelligenceSummary,
+) -> RepoIntelligenceManifestResponse {
+    let graph = summary.graph.as_ref();
+    let repo_root = summary.repo_root.clone();
+
+    RepoIntelligenceManifestResponse {
+        schema_version: 1,
+        kind: "mac_ai_switchboard.repo_intelligence_manifest".to_string(),
+        repo_root: repo_root.clone(),
+        indexed_at: summary.indexed_at.clone(),
+        totals: RepoManifestTotals {
+            total_files: summary.total_files,
+            indexed_files: summary.indexed_files,
+            skipped_files: summary.skipped_files,
+            estimated_full_scan_tokens: summary.estimated_full_scan_tokens,
+            indexer_version: summary
+                .indexer_version
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string()),
+        },
+        graph_brief: RepoContextPackGraphBrief {
+            available: graph.is_some(),
+            dependency_hub_count: graph
+                .map(|graph| graph.dependency_hubs.len())
+                .unwrap_or_default(),
+            import_edge_count: graph
+                .map(|graph| graph.import_edges.len())
+                .unwrap_or_default(),
+            reverse_dependency_hub_count: graph
+                .map(|graph| graph.reverse_dependency_hubs.len())
+                .unwrap_or_default(),
+            symbol_count: graph.map(|graph| graph.symbols.len()).unwrap_or_default(),
+            symbol_edge_count: graph
+                .map(|graph| graph.symbol_edges.len())
+                .unwrap_or_default(),
+        },
+        packs: summary
+            .packs
+            .iter()
+            .map(|pack| RepoManifestPackSummary {
+                id: pack.id.clone(),
+                title: pack.title.clone(),
+                purpose: pack.purpose.clone(),
+                file_count: pack.files.len(),
+                estimated_tokens: pack.estimated_tokens,
+                savings_vs_full_scan_pct: pack.savings_vs_full_scan_pct,
+            })
+            .collect(),
+        queries: vec![
+            RepoManifestQuery {
+                id: "context_pack".to_string(),
+                description: "Read one bounded context pack from the latest saved index."
+                    .to_string(),
+                command: "get_repo_intelligence_context_pack".to_string(),
+            },
+            RepoManifestQuery {
+                id: "symbol_search".to_string(),
+                description: "Search symbols in the latest saved index without rescanning."
+                    .to_string(),
+                command: "search_repo_intelligence_symbols".to_string(),
+            },
+            RepoManifestQuery {
+                id: "dependents".to_string(),
+                description: "Find import and symbol edges related to a target path or symbol."
+                    .to_string(),
+                command: "get_repo_intelligence_dependents".to_string(),
+            },
+        ],
+        safety: RepoContextPackSafety {
+            read_only: true,
+            excludes_secret_like_paths: true,
+            modifies_repository: false,
+        },
+    }
 }
 
 fn latest_summary_path() -> PathBuf {
@@ -1934,5 +2019,60 @@ mod tests {
 
         let error = build_dependents_response(&summary, "   ", None).unwrap_err();
         assert!(error.to_string().contains("target is required"));
+    }
+
+    #[test]
+    fn builds_read_only_manifest_for_latest_index_queries() {
+        let root = tempfile::tempdir().expect("create repo");
+        std::fs::create_dir_all(root.path().join("src")).expect("create src");
+        std::fs::write(
+            root.path().join("src/App.tsx"),
+            "import { helper } from './helper';\nexport function App() { helper(); }\n",
+        )
+        .expect("write app");
+        std::fs::write(
+            root.path().join("src/helper.ts"),
+            "export function helper() {}\n",
+        )
+        .expect("write helper");
+        std::fs::write(root.path().join("package.json"), "{}\n").expect("write package");
+        std::fs::write(root.path().join(".env.local"), "SECRET=value\n").expect("write secret");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        let manifest = build_manifest_response(&summary);
+
+        assert_eq!(
+            manifest.kind,
+            "mac_ai_switchboard.repo_intelligence_manifest"
+        );
+        assert_eq!(manifest.schema_version, 1);
+        assert_eq!(manifest.repo_root, summary.repo_root);
+        assert_eq!(manifest.totals.indexer_version, INDEXER_VERSION);
+        assert_eq!(manifest.totals.total_files, 4);
+        assert!(manifest.graph_brief.available);
+        assert!(manifest.graph_brief.symbol_count > 0);
+        assert_eq!(
+            manifest
+                .packs
+                .iter()
+                .map(|pack| pack.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["implementation", "verification", "handoff"]
+        );
+        assert_eq!(
+            manifest
+                .queries
+                .iter()
+                .map(|query| query.command.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "get_repo_intelligence_context_pack",
+                "search_repo_intelligence_symbols",
+                "get_repo_intelligence_dependents"
+            ]
+        );
+        assert!(manifest.safety.read_only);
+        assert!(manifest.safety.excludes_secret_like_paths);
+        assert!(!manifest.safety.modifies_repository);
     }
 }
