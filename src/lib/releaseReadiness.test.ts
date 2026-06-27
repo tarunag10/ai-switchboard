@@ -4,6 +4,7 @@ import {
   releaseReadinessCommand,
   releaseReadinessGroups,
   releaseReadinessItemCount,
+  releaseReadinessRowsFromReport,
   releaseReadinessStatusCounts,
   releaseReadinessStatusRows,
 } from "./releaseReadiness";
@@ -102,5 +103,79 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("local install evidence");
     expect(copy).toContain("does not prove signed release readiness");
     expect(copy).toContain("release blockers when missing, not app failures");
+  });
+
+  it("derives ready release dashboard rows from release report JSON", () => {
+    const rows = releaseReadinessRowsFromReport({
+      status: "ready",
+      backendValidation: { ready: true },
+      installedSmoke: {
+        installedAppPresent: true,
+        evidenceReady: true,
+        missingEvidence: [],
+      },
+      shareableDmgGate: {
+        ready: true,
+        signedAndNotarized: true,
+        updaterFeedReady: true,
+        staticSmokePreflightReady: true,
+        installedAppSmokeReady: true,
+        message: "Shareable DMG is ready.",
+      },
+      releaseEnv: {
+        ok: true,
+        blockers: [],
+        warnings: [],
+      },
+    });
+
+    expect(releaseReadinessStatusCounts(rows)).toEqual({
+      ready: 7,
+      blocked: 0,
+      "local-only": 1,
+    });
+    expect(rows.find((row) => row.id === "final-gate")?.detail).toBe(
+      "Shareable DMG is ready.",
+    );
+  });
+
+  it("derives blocked and missing-artifact rows from release report JSON", () => {
+    const rows = releaseReadinessRowsFromReport({
+      status: "blocked",
+      backendValidation: { ready: false },
+      installedSmoke: {
+        installedAppPresent: false,
+        evidenceReady: false,
+        missingEvidence: ["planned connector evidence", "installed smoke summary"],
+      },
+      shareableDmgGate: {
+        ready: false,
+        signedAndNotarized: false,
+        updaterFeedReady: false,
+        staticSmokePreflightReady: false,
+        installedAppSmokeReady: false,
+        message: "Shareable DMG is blocked.",
+      },
+      releaseEnv: {
+        ok: false,
+        blockers: [{ label: "missing environment: APPLE_SIGNING_IDENTITY" }],
+        warnings: [],
+      },
+    });
+
+    expect(releaseReadinessStatusCounts(rows)).toEqual({
+      ready: 0,
+      blocked: 7,
+      "local-only": 1,
+    });
+    expect(rows.find((row) => row.id === "installed-smoke")?.detail).toContain(
+      "planned connector evidence",
+    );
+    expect(rows.find((row) => row.id === "signing-env")?.detail).toContain(
+      "APPLE_SIGNING_IDENTITY",
+    );
+    expect(rows.find((row) => row.id === "local-dmg")?.detail).toContain(
+      "does not prove signed release readiness",
+    );
   });
 });

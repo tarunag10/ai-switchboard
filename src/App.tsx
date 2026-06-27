@@ -94,8 +94,8 @@ import {
   releaseReadinessCommand,
   releaseReadinessGroups,
   releaseReadinessItemCount,
+  releaseReadinessRowsFromReport,
   releaseReadinessStatusCounts,
-  releaseReadinessStatusRows,
   releaseShareableGates,
 } from "./lib/releaseReadiness";
 import {
@@ -2422,7 +2422,9 @@ export default function App() {
   const [releaseReadinessCopyNotice, setReleaseReadinessCopyNotice] = useState<
     string | null
   >(null);
-  const releaseReadinessCounts = releaseReadinessStatusCounts();
+  const releaseReadinessRows = releaseReadinessRowsFromReport(null);
+  const releaseReadinessCounts =
+    releaseReadinessStatusCounts(releaseReadinessRows);
   const [connectorsBusy, setConnectorsBusy] = useState(false);
   const [connectorPhase, setConnectorPhase] = useState<
     "disabled" | "verifying" | "healthy"
@@ -8818,7 +8820,7 @@ export default function App() {
                 className="release-readiness-card__status-grid"
                 aria-label="Release readiness source status"
               >
-                {releaseReadinessStatusRows.map((row) => (
+                {releaseReadinessRows.map((row) => (
                   <div
                     className="release-readiness-card__status-row"
                     key={row.id}

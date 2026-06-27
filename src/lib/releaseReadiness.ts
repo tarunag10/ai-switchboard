@@ -28,6 +28,31 @@ export interface ReleaseReadinessStatusRow {
   detail: string;
 }
 
+export interface ReleaseReadinessReportSnapshot {
+  status: "ready" | "blocked" | string;
+  backendValidation?: {
+    ready?: boolean;
+  };
+  installedSmoke?: {
+    installedAppPresent?: boolean;
+    evidenceReady?: boolean;
+    missingEvidence?: string[];
+  };
+  shareableDmgGate?: {
+    ready?: boolean;
+    signedAndNotarized?: boolean;
+    updaterFeedReady?: boolean;
+    staticSmokePreflightReady?: boolean;
+    installedAppSmokeReady?: boolean;
+    message?: string;
+  };
+  releaseEnv?: {
+    ok?: boolean;
+    blockers?: Array<{ label?: string }>;
+    warnings?: Array<{ label?: string }>;
+  };
+}
+
 export const releaseReadinessCommand = "npm run release:ready";
 
 export const releaseReadinessStatusRows: ReleaseReadinessStatusRow[] = [
@@ -254,4 +279,102 @@ export function releaseReadinessStatusCounts(
       number
     >,
   );
+}
+
+function statusTone(ready: boolean): ReleaseReadinessStatusTone {
+  return ready ? "ready" : "blocked";
+}
+
+function statusLabel(ready: boolean) {
+  return ready ? "Ready" : "Blocked";
+}
+
+export function releaseReadinessRowsFromReport(
+  report: ReleaseReadinessReportSnapshot | null | undefined,
+): ReleaseReadinessStatusRow[] {
+  if (!report) {
+    return releaseReadinessStatusRows;
+  }
+
+  const frontendReady = report.shareableDmgGate?.staticSmokePreflightReady === true;
+  const desktopReady = report.backendValidation?.ready === true;
+  const installedAppPresent = report.installedSmoke?.installedAppPresent === true;
+  const installedSmokeReady = report.installedSmoke?.evidenceReady === true;
+  const signingReady = report.shareableDmgGate?.signedAndNotarized === true;
+  const notarizationReady = signingReady;
+  const updaterReady = report.shareableDmgGate?.updaterFeedReady === true;
+  const finalReady = report.status === "ready" && report.shareableDmgGate?.ready === true;
+  const missingEvidence = report.installedSmoke?.missingEvidence ?? [];
+  const releaseBlockers = report.releaseEnv?.blockers ?? [];
+
+  return [
+    {
+      ...releaseReadinessStatusRows[0],
+      statusLabel: statusLabel(frontendReady),
+      tone: statusTone(frontendReady),
+      detail: frontendReady
+        ? "Static smoke preflight is ready in the release report."
+        : "Run the frontend build and smoke preflight before publishing.",
+    },
+    {
+      ...releaseReadinessStatusRows[1],
+      statusLabel: statusLabel(desktopReady),
+      tone: statusTone(desktopReady),
+      detail: desktopReady
+        ? "Rust formatting and desktop validation are runnable for this release."
+        : "Rust backend validation is still blocked in the release report.",
+    },
+    {
+      ...releaseReadinessStatusRows[2],
+      statusLabel: installedAppPresent ? "Installed locally" : "Local only",
+      tone: "local-only",
+      detail: installedAppPresent
+        ? "A local installed app exists, but local evidence is separate from signed release readiness."
+        : releaseReadinessStatusRows[2].detail,
+    },
+    {
+      ...releaseReadinessStatusRows[3],
+      statusLabel: statusLabel(installedSmokeReady),
+      tone: statusTone(installedSmokeReady),
+      detail: installedSmokeReady
+        ? "Installed-app smoke evidence is complete for the current checklist."
+        : `Installed smoke evidence missing: ${
+            missingEvidence.length ? missingEvidence.join(", ") : "installed smoke summary"
+          }.`,
+    },
+    {
+      ...releaseReadinessStatusRows[4],
+      statusLabel: statusLabel(signingReady),
+      tone: statusTone(signingReady),
+      detail: signingReady
+        ? "Signing and updater secrets are present according to the release report."
+        : `Signing remains blocked${
+            releaseBlockers.length ? `: ${releaseBlockers[0].label ?? "release blocker"}` : "."
+          }`,
+    },
+    {
+      ...releaseReadinessStatusRows[5],
+      statusLabel: statusLabel(notarizationReady),
+      tone: statusTone(notarizationReady),
+      detail: notarizationReady
+        ? "Notarization credentials are ready for signed release."
+        : "Notarization credentials are still missing or unproven.",
+    },
+    {
+      ...releaseReadinessStatusRows[6],
+      statusLabel: statusLabel(updaterReady),
+      tone: statusTone(updaterReady),
+      detail: updaterReady
+        ? "Updater public key and feed endpoint are configured."
+        : "Updater feed configuration is missing or incomplete.",
+    },
+    {
+      ...releaseReadinessStatusRows[7],
+      statusLabel: finalReady ? "Ready" : "Blocked",
+      tone: statusTone(finalReady),
+      detail:
+        report.shareableDmgGate?.message ??
+        "The strict release readiness report is still the source of truth.",
+    },
+  ];
 }
