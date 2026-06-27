@@ -1,6 +1,7 @@
 import fs from "node:fs";
 
 const reportPath = "dist/release-readiness-report.json";
+const markdownReportPath = "dist/release-readiness-report.md";
 const requiredReleaseReportPaths = [
   "backendValidation.requiredCommands",
   "backendValidation.unblockCommands",
@@ -77,6 +78,10 @@ if (!fs.existsSync(reportPath)) {
   fail(`${reportPath} is missing; run npm run release:report first`);
   process.exit();
 }
+if (!fs.existsSync(markdownReportPath)) {
+  fail(`${markdownReportPath} is missing; run npm run release:report first`);
+  process.exit();
+}
 
 let report;
 try {
@@ -84,6 +89,10 @@ try {
 } catch (error) {
   fail(`${reportPath} is not valid JSON: ${error.message}`);
   process.exit();
+}
+const markdownReport = fs.readFileSync(markdownReportPath, "utf8");
+if (!markdownReport.includes("Planned connector config creation plan")) {
+  fail(`${markdownReportPath} must include planned connector config creation plan evidence`);
 }
 
 requireType(report, "status", "string");

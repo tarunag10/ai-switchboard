@@ -457,6 +457,7 @@ const requiredSourceSignals = {
   ],
   "scripts/check-release-report-schema.mjs": [
     "dist/release-readiness-report.json",
+    "dist/release-readiness-report.md",
     "backendValidation.requiredCommands",
     "backendValidation.unblockCommands",
     "staticSmokePreflight.smokeSummaryPresent",
