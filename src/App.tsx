@@ -187,6 +187,12 @@ import {
   type ManagedChangeRecord,
 } from "./lib/managedChanges";
 import {
+  doctorTimelineKindLabel,
+  formatDoctorTimelineShareText,
+  sortDoctorTimelineEvents,
+  type DoctorTimelineEvent,
+} from "./lib/doctorRepairCopy";
+import {
   uninstallDisclosureFooter,
   uninstallDisclosureItems,
   uninstallDisclosureTitle,
@@ -1485,6 +1491,90 @@ function sampleManagedBlock(record: ManagedChangeRecord) {
 
 function firstManagedConfigTarget(record: ManagedChangeRecord) {
   return record.paths[0] ?? "~/.config/mac-ai-switchboard-managed";
+}
+
+function buildDoctorTimelinePreview(
+  report: DoctorReport | null,
+  successMessage: string | null,
+): DoctorTimelineEvent[] {
+  const now = new Date().toISOString();
+  const events: DoctorTimelineEvent[] = [
+    {
+      id: "latest-report",
+      kind: "repair",
+      title: report ? `Doctor status: ${report.status}` : "Doctor report pending",
+      body: report?.summary ?? "Run Doctor to capture local setup evidence.",
+      occurredAt: now,
+      status: report?.status ?? "warning",
+      actor: "doctor",
+      target: "switchboard setup",
+    },
+  ];
+
+  if (successMessage) {
+    events.push({
+      id: "latest-repair-success",
+      kind: "repair",
+      title: "Latest repair completed",
+      body: successMessage,
+      occurredAt: now,
+      status: "ok",
+      actor: "doctor",
+      target: "automatic repair",
+    });
+  }
+
+  return sortDoctorTimelineEvents(events);
+}
+
+function DoctorTimelineCard({
+  events,
+}: {
+  events: DoctorTimelineEvent[];
+}) {
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
+
+  async function copyTimeline() {
+    if (!navigator.clipboard) {
+      setCopyNotice("Clipboard unavailable.");
+      return;
+    }
+    await navigator.clipboard.writeText(formatDoctorTimelineShareText(events));
+    setCopyNotice("Copied timeline.");
+    window.setTimeout(() => setCopyNotice(null), 2500);
+  }
+
+  return (
+    <article className="soft-card doctor-timeline">
+      <div className="doctor-timeline__head">
+        <div>
+          <span>Doctor timeline</span>
+          <strong>{events.length} event{events.length === 1 ? "" : "s"}</strong>
+        </div>
+        <button
+          className="secondary-button secondary-button--small"
+          onClick={() => void copyTimeline()}
+          type="button"
+        >
+          {copyNotice ?? "Copy timeline"}
+        </button>
+      </div>
+      <div className="doctor-timeline__list">
+        {events.map((event) => (
+          <div className="doctor-timeline__event" key={event.id}>
+            <div>
+              <strong>{event.title}</strong>
+              <span>{event.body}</span>
+            </div>
+            <div>
+              <span>{doctorTimelineKindLabel(event.kind)}</span>
+              <span>{event.status}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
 }
 
 function RepoIntelligencePreview({
@@ -6940,6 +7030,12 @@ export default function App() {
               error={doctorRepairError}
               successMessage={doctorRepairSuccess}
               onRepair={(action) => void handleDoctorRepair(action)}
+            />
+            <DoctorTimelineCard
+              events={buildDoctorTimelinePreview(
+                doctorReport,
+                doctorRepairSuccess,
+              )}
             />
           </section>
         </div>
