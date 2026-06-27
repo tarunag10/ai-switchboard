@@ -37,9 +37,14 @@ describe("SwitchboardPanel", () => {
     expect(
       screen.getByRole("heading", { name: "Full optimization" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Local-only Mac setup")).toBeInTheDocument();
-    expect(screen.getByText("Codex, Claude Code")).toBeInTheDocument();
-    expect(screen.getByText("82.5% average savings")).toBeInTheDocument();
+expect(screen.getByText("Local-only Mac setup")).toBeInTheDocument();
+expect(screen.getByLabelText("Mode Inspector")).toBeInTheDocument();
+expect(screen.getByText("Requested")).toBeInTheDocument();
+expect(screen.getByText("Active")).toBeInTheDocument();
+expect(screen.getByText("Headroom engine")).toBeInTheDocument();
+expect(screen.getByText("RTK hook")).toBeInTheDocument();
+expect(screen.getAllByText("Codex, Claude Code").length).toBeGreaterThan(0);
+expect(screen.getAllByText("82.5% average savings").length).toBeGreaterThan(0);
     expect(
       screen.getByLabelText("Full optimization local footprint"),
     ).toBeInTheDocument();
@@ -99,11 +104,9 @@ describe("SwitchboardPanel", () => {
     expect(
       screen.getByRole("button", { name: "Switch to RTK only" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "No pricing, trial, Clarity, Sentry, or Aptabase calls.",
-      ),
-    ).toBeInTheDocument();
+expect(
+screen.getAllByText(/Blocked in local-only mode/)[0],
+).toBeInTheDocument();
   });
 
   it("shows off mode safety notes for routing and local metadata", () => {
@@ -169,11 +172,11 @@ describe("SwitchboardPanel", () => {
       screen.getByRole("heading", { name: "Headroom only" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Headroom cloud setup")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Account features and optional remote telemetry are enabled.",
-      ),
-    ).toBeInTheDocument();
+expect(
+screen.getAllByText(
+/Account, pricing, update, support, and optional telemetry/,
+)[0],
+).toBeInTheDocument();
   });
 
   it("shows and disables resume action while resuming", () => {

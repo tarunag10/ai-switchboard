@@ -75,6 +75,7 @@ export function SwitchboardPanel({
     needsAttention,
   );
   const modeLabel = modeDiagnostic.requestedLabel;
+  const activeModeLabel = switchboardModeLabel(effectiveMode ?? mode);
   const modeEffect = switchboardModeEffect(mode);
   const modeSafetyNotes = switchboardModeSafetyNotes(mode);
   const modeFootprint = switchboardModeFootprint(mode);
@@ -175,9 +176,34 @@ export function SwitchboardPanel({
         {modeSafetyNotes.map((note) => (
           <li key={note}>{note}</li>
         ))}
-      </ul>
-      <div
-        className="switchboard-panel__footprint"
+</ul>
+<div className="switchboard-panel__inspector" aria-label="Mode Inspector">
+  <div>
+    <span>Requested</span>
+    <strong>{modeLabel}</strong>
+  </div>
+  <div>
+    <span>Active</span>
+    <strong>{activeModeLabel}</strong>
+  </div>
+  <div>
+    <span>Headroom engine</span>
+    <strong>{proxyStatus}</strong>
+    <small>{headroomDetail}</small>
+  </div>
+  <div>
+    <span>RTK hook</span>
+    <strong>{rtkStatus}</strong>
+    <small>{rtkDetail}</small>
+  </div>
+  <div>
+    <span>Remote services</span>
+    <strong>{remoteCopy.label}</strong>
+    <small>{remoteCopy.detail}</small>
+  </div>
+</div>
+<div
+className="switchboard-panel__footprint"
         aria-label={`${modeLabel} local footprint`}
       >
         {modeFootprint.map((item) => (
