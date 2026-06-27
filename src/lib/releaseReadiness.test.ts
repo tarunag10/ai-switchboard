@@ -195,7 +195,7 @@ describe("release readiness checklist", () => {
   });
 
   it("does not mark connector config-plan evidence ready before smoke preflight is ready", () => {
-    const rows = releaseReadinessRowsFromReport({
+    const report = {
       status: "blocked",
       backendValidation: { ready: true },
       staticSmokePreflight: {
@@ -219,11 +219,17 @@ describe("release readiness checklist", () => {
         blockers: [],
         warnings: [],
       },
-    });
+    };
+    const rows = releaseReadinessRowsFromReport(report);
+    const snapshot = formatReleaseReadinessReportSnapshot(
+      report,
+      "dist/release-readiness-report.json",
+    );
 
     const row = rows.find((item) => item.id === "connector-config-plan");
     expect(row?.tone).toBe("blocked");
     expect(row?.statusLabel).toBe("Blocked");
+    expect(snapshot).toContain("Connector config plan evidence: no");
   });
 
   it("formats a copyable release report snapshot from report JSON", () => {
