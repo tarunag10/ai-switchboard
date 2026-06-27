@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildAgentSessionPreparation,
   buildRepoIntelligenceSummary,
   buildRepoAgentManifest,
   buildRepoAgentHandoffPayload,
@@ -13,6 +14,7 @@ import {
   formatSingleRepoContextPackMarkdown,
   getRepoIndexFreshness,
   isSecretLikeRepoPath,
+  recommendAgentSessionMode,
 } from "./repoIntelligence";
 
 describe("repoIntelligence", () => {
@@ -484,6 +486,138 @@ describe("repoIntelligence", () => {
     expect(cursor).toContain("# Cursor Handoff");
     expect(cursor).toContain("Selected pack: Handoff Pack");
     expect(cursor).toContain("docs/install.md");
+  });
+
+  it("recommends conservative switchboard modes for agent sessions", () => {
+    expect(
+      recommendAgentSessionMode({
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+      }),
+    ).toMatchObject({
+      mode: "full",
+      reason: "Headroom engine and RTK are healthy.",
+    });
+
+    expect(
+      recommendAgentSessionMode({
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: false,
+      }).mode,
+    ).toBe("rtk");
+
+    expect(
+      recommendAgentSessionMode({
+        headroomHealthy: true,
+        rtkHealthy: false,
+        providerRoutingSafe: false,
+      }).mode,
+    ).toBe("off");
+
+    expect(
+      recommendAgentSessionMode({
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+        cleanPassThrough: true,
+      }).mode,
+    ).toBe("off");
+  });
+
+  it("builds agent session preparation from a fresh local index", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+
+    const preparation = buildAgentSessionPreparation(summary, {
+      target: "codex",
+      taskType: "verification",
+      generatedAt: "2026-06-25T10:05:00Z",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+      },
+    });
+
+    expect(preparation.target.label).toBe("Codex");
+    expect(preparation.taskType).toBe("verification");
+    expect(preparation.packId).toBe("verification");
+    expect(preparation.copyStatus).toBe("ready");
+    expect(preparation.recommendedMode).toBe("full");
+    expect(preparation.handoffMarkdown).toContain("# Codex Handoff");
+    expect(preparation.handoffPayload?.pack.id).toBe("verification");
+    expect(preparation.manifest.generatedAt).toBe("2026-06-25T10:05:00Z");
+  });
+
+  it("warns when agent session preparation uses a changed cached index", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "package.json", bytes: 800 },
+    ]);
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+    summary.indexMetadata = {
+      ...summary.indexMetadata!,
+      cacheState: "changed",
+      previousIndexedAt: "2026-06-25T09:00:00Z",
+    };
+
+    const preparation = buildAgentSessionPreparation(summary, {
+      target: "gemini",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: false,
+      },
+    });
+
+    expect(preparation.copyStatus).toBe("warn");
+    expect(preparation.copyDetail).toContain("Changed local index");
+    expect(preparation.recommendedMode).toBe("rtk");
+    expect(preparation.handoffMarkdown).toContain("# Gemini CLI Handoff");
+  });
+
+  it("blocks agent session copying until a real repo index exists", () => {
+    const preparation = buildAgentSessionPreparation(
+      {
+        totalFiles: 0,
+        indexedFiles: 0,
+        estimatedFullScanTokens: 0,
+        roleCounts: {
+          source: 0,
+          test: 0,
+          config: 0,
+          docs: 0,
+          asset: 0,
+          lockfile: 0,
+          generated: 0,
+          unknown: 0,
+        },
+        packs: [],
+      },
+      {
+        target: "cursor",
+        modeInputs: {
+          headroomHealthy: false,
+          rtkHealthy: false,
+          providerRoutingSafe: true,
+        },
+      },
+    );
+
+    expect(preparation.copyStatus).toBe("blocked");
+    expect(preparation.copyDetail).toContain("Index a real local repo");
+    expect(preparation.recommendedMode).toBe("off");
+    expect(preparation.handoffMarkdown).toBeNull();
+    expect(preparation.handoffPayload).toBeNull();
   });
 
   it("calculates best-pack and all-pack token savings", () => {

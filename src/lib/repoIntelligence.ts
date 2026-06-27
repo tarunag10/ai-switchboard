@@ -1,3 +1,5 @@
+import type { SwitchboardMode } from "./types";
+
 export type RepoFileRole =
   | "source"
   | "test"
@@ -138,6 +140,42 @@ export interface RepoIndexFreshness {
   status: "none" | "fresh" | "unchanged_cache" | "changed_cache" | "unknown";
   label: string;
   detail: string;
+}
+
+export type AgentSessionTaskType =
+  | "implementation"
+  | "verification"
+  | "handoff";
+
+export interface AgentSessionModeInputs {
+  headroomHealthy: boolean;
+  rtkHealthy: boolean;
+  providerRoutingSafe: boolean;
+  headroomCompressionRisk?: boolean;
+  cleanPassThrough?: boolean;
+}
+
+export interface AgentSessionPreparationOptions {
+  target: RepoAgentHandoffTarget;
+  taskType?: AgentSessionTaskType;
+  modeInputs: AgentSessionModeInputs;
+  generatedAt?: string;
+}
+
+export type AgentSessionCopyStatus = "ready" | "warn" | "blocked";
+
+export interface AgentSessionPreparation {
+  target: RepoAgentHandoffProfile;
+  taskType: AgentSessionTaskType;
+  packId: string;
+  freshness: RepoIndexFreshness;
+  copyStatus: AgentSessionCopyStatus;
+  copyDetail: string;
+  recommendedMode: SwitchboardMode;
+  recommendedModeReason: string;
+  handoffMarkdown: string | null;
+  handoffPayload: RepoAgentHandoffPayload | null;
+  manifest: RepoAgentManifest;
 }
 
 export interface RepoAgentManifest {
@@ -1046,6 +1084,144 @@ export function formatRepoAgentHandoffMarkdown(
     "",
     packMarkdown,
   ].join("\n");
+}
+
+function packIdForAgentSessionTask(
+  profile: RepoAgentHandoffProfile,
+  taskType: AgentSessionTaskType,
+): RepoContextPack["id"] {
+  if (taskType === "verification") {
+    return "verification";
+  }
+  if (taskType === "handoff") {
+    return "handoff";
+  }
+  return profile.defaultPackId;
+}
+
+export function recommendAgentSessionMode({
+  headroomHealthy,
+  rtkHealthy,
+  providerRoutingSafe,
+  headroomCompressionRisk = false,
+  cleanPassThrough = false,
+}: AgentSessionModeInputs): {
+  mode: SwitchboardMode;
+  reason: string;
+} {
+  if (cleanPassThrough) {
+    return {
+      mode: "off",
+      reason: "Clean pass-through requested for debugging.",
+    };
+  }
+
+  if (!providerRoutingSafe || headroomCompressionRisk) {
+    if (rtkHealthy) {
+      return {
+        mode: "rtk",
+        reason:
+          "Provider routing is unsafe or Headroom compression risk is high; keep shell-output compression only.",
+      };
+    }
+
+    return {
+      mode: "off",
+      reason:
+        "Provider routing is unsafe and RTK is unavailable, so use clean pass-through.",
+    };
+  }
+
+  if (headroomHealthy && rtkHealthy) {
+    return {
+      mode: "full",
+      reason: "Headroom engine and RTK are healthy.",
+    };
+  }
+
+  if (headroomHealthy) {
+    return {
+      mode: "headroom",
+      reason: "Headroom engine is healthy; RTK is unavailable.",
+    };
+  }
+
+  if (rtkHealthy) {
+    return {
+      mode: "rtk",
+      reason: "RTK is healthy; Headroom engine is unavailable.",
+    };
+  }
+
+  return {
+    mode: "off",
+    reason: "No optimization dependency is currently healthy.",
+  };
+}
+
+function getAgentSessionCopyState(
+  summary: RepoIntelligenceSummary,
+  freshness: RepoIndexFreshness,
+): {
+  status: AgentSessionCopyStatus;
+  detail: string;
+} {
+  if (summary.packs.length === 0 || summary.indexedFiles === 0) {
+    return {
+      status: "blocked",
+      detail: "Index a real local repo before copying agent context.",
+    };
+  }
+
+  if (freshness.status === "changed_cache" || freshness.status === "unknown") {
+    return {
+      status: "warn",
+      detail: `${freshness.label}: refresh before relying on this handoff for current code.`,
+    };
+  }
+
+  return {
+    status: "ready",
+    detail: freshness.label,
+  };
+}
+
+export function buildAgentSessionPreparation(
+  summary: RepoIntelligenceSummary,
+  options: AgentSessionPreparationOptions,
+): AgentSessionPreparation {
+  const profile = repoAgentHandoffProfiles.find(
+    (candidate) => candidate.id === options.target,
+  );
+  if (!profile) {
+    throw new Error(`Unknown agent handoff target: ${options.target}`);
+  }
+
+  const taskType = options.taskType ?? profile.defaultPackId;
+  const packId = packIdForAgentSessionTask(profile, taskType);
+  const freshness = getRepoIndexFreshness(summary);
+  const copyState = getAgentSessionCopyState(summary, freshness);
+  const modeRecommendation = recommendAgentSessionMode(options.modeInputs);
+
+  return {
+    target: profile,
+    taskType,
+    packId,
+    freshness,
+    copyStatus: copyState.status,
+    copyDetail: copyState.detail,
+    recommendedMode: modeRecommendation.mode,
+    recommendedModeReason: modeRecommendation.reason,
+    handoffMarkdown:
+      copyState.status === "blocked"
+        ? null
+        : formatRepoAgentHandoffMarkdown(summary, profile.id, packId),
+    handoffPayload:
+      copyState.status === "blocked"
+        ? null
+        : buildRepoAgentHandoffPayload(summary, profile.id, packId),
+    manifest: buildRepoAgentManifest(summary, options.generatedAt),
+  };
 }
 
 export function estimateRepoIntelligenceSavings(
