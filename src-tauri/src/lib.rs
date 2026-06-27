@@ -2336,6 +2336,31 @@ repair_action: Some("repair_rtk_integrations".to_string()),
 });
     }
 
+    let tools = state.tool_manager.list_tools();
+    let tool_needs_repair = |id: &str| {
+        tools.iter().find(|tool| tool.id == id).is_some_and(|tool| {
+            !tool.enabled || !matches!(tool.status, crate::models::ToolStatus::Healthy)
+        })
+    };
+    if tool_needs_repair("caveman") {
+        issues.push(crate::models::DoctorIssue {
+            id: "caveman_guidance_inactive".to_string(),
+            title: "Caveman guidance is not active".to_string(),
+            body: "Caveman should keep a managed guidance block in Claude Code and Codex instruction files. Repair will recreate its local receipt and rewrite the Switchboard-owned guidance block.".to_string(),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("repair_caveman_guidance".to_string()),
+        });
+    }
+    if tool_needs_repair("ponytail") {
+        issues.push(crate::models::DoctorIssue {
+            id: "ponytail_plugin_inactive".to_string(),
+            title: "Ponytail plugin is not active".to_string(),
+            body: "Ponytail should be registered with Claude Code or Codex when its add-on is enabled. Repair will re-run the plugin install for available local hosts.".to_string(),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("repair_ponytail_plugin".to_string()),
+        });
+    }
+
     if runtime.paused
         && !runtime.auto_paused
         && matches!(
@@ -2615,6 +2640,40 @@ fn repair_rtk_runtime(state: &AppState) -> Result<(), String> {
     repair_rtk_integrations(state)
 }
 
+fn repair_caveman_guidance(state: &AppState) -> Result<(), String> {
+    if !state.tool_manager.caveman_receipt_exists() {
+        state
+            .tool_manager
+            .install_caveman()
+            .map_err(|err| err.to_string())?;
+    } else {
+        state
+            .tool_manager
+            .set_caveman_enabled(true)
+            .map_err(|err| err.to_string())?;
+    }
+    client_adapters::enable_caveman_integration(&state.tool_manager.caveman_level())
+        .map_err(|err| err.to_string())?;
+    Ok(())
+}
+
+fn repair_ponytail_plugin(state: &AppState) -> Result<(), String> {
+    if state.tool_manager.list_tools().iter().any(|tool| {
+        tool.id == "ponytail" && !matches!(tool.status, crate::models::ToolStatus::Healthy)
+    }) {
+        state
+            .tool_manager
+            .install_ponytail()
+            .map_err(|err| err.to_string())?;
+    } else {
+        state
+            .tool_manager
+            .set_ponytail_enabled(true)
+            .map_err(|err| err.to_string())?;
+    }
+    Ok(())
+}
+
 fn clear_repo_intelligence_index() -> Result<(), String> {
     repo_intelligence::clear_latest_summary()
         .map(|_| ())
@@ -2655,6 +2714,14 @@ async fn run_doctor_repair(
             repair_rtk_runtime(&state)?;
             Ok(build_doctor_report(&state))
         }
+        "repair_caveman_guidance" => {
+            repair_caveman_guidance(&state)?;
+            Ok(build_doctor_report(&state))
+        }
+        "repair_ponytail_plugin" => {
+            repair_ponytail_plugin(&state)?;
+            Ok(build_doctor_report(&state))
+        }
         "clear_repo_intelligence_index" => {
             clear_repo_intelligence_index()?;
             Ok(build_doctor_report(&state))
@@ -2674,6 +2741,8 @@ async fn run_doctor_repair(
                     Some("repair_codex_setup") => repair_codex_setup(&state)?,
                     Some("repair_rtk_integrations") => repair_rtk_integrations(&state)?,
                     Some("repair_rtk_runtime") => repair_rtk_runtime(&state)?,
+                    Some("repair_caveman_guidance") => repair_caveman_guidance(&state)?,
+                    Some("repair_ponytail_plugin") => repair_ponytail_plugin(&state)?,
                     Some("clear_repo_intelligence_index") => clear_repo_intelligence_index()?,
                     _ => {}
                 }

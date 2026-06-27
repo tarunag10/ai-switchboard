@@ -17,6 +17,10 @@ export function doctorRepairLabel(action: string): string {
       return "Repair RTK";
     case "repair_rtk_runtime":
       return "Install RTK";
+    case "repair_caveman_guidance":
+      return "Repair Caveman";
+    case "repair_ponytail_plugin":
+      return "Repair Ponytail";
     case "clear_repo_intelligence_index":
       return "Clear index";
     default:
@@ -41,6 +45,10 @@ export function doctorRepairHint(action: string): string {
       return "Restores RTK PATH and hook wiring without reinstalling the binary.";
     case "repair_rtk_runtime":
       return "Installs or enables RTK in managed storage for local shell-output compression.";
+    case "repair_caveman_guidance":
+      return "Recreates the Caveman receipt and rewrites the managed guidance block for configured Claude Code and Codex instruction files.";
+    case "repair_ponytail_plugin":
+      return "Re-registers the Ponytail plugin with available Claude Code and Codex hosts.";
     case "clear_repo_intelligence_index":
       return "Clears the saved Repo Intelligence summary so a stale or missing repo path no longer appears in Doctor. Re-index from Addons when ready.";
     default:
