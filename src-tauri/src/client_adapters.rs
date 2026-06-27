@@ -3874,19 +3874,64 @@ fn detect_amazon_q_client() -> ClientStatus {
 }
 
 fn detect_windsurf_client() -> ClientStatus {
-    detect_planned_client(
-        "windsurf",
-        "Windsurf",
-        &["windsurf"],
-        &[
-            home_dir()
-                .join("Library")
-                .join("Application Support")
-                .join("Windsurf"),
-            PathBuf::from("/Applications/Windsurf.app"),
-        ],
-        "Detected, but Headroom adapter is not implemented yet. Use guided setup and copy-only handoff packs.",
-    )
+    let app_path = PathBuf::from("/Applications/Windsurf.app");
+    let command_path = find_on_path(&["windsurf"]);
+    let settings_candidates = [home_dir()
+        .join("Library")
+        .join("Application Support")
+        .join("Windsurf")];
+    let settings_surfaces = settings_candidates
+        .iter()
+        .filter(|path| path.exists())
+        .cloned()
+        .collect::<Vec<_>>();
+    let installed = app_path.exists() || command_path.is_some() || !settings_surfaces.is_empty();
+    let mut notes = if installed {
+        let mut evidence = Vec::new();
+        if app_path.exists() {
+            evidence.push(format!("Windsurf app: {}", app_path.display()));
+        } else if let Some(path) = command_path {
+            evidence.push(format!("Windsurf app: command {}", path.display()));
+        }
+        if settings_surfaces.is_empty() {
+            evidence.push("Windsurf settings: none detected yet.".into());
+        } else {
+            evidence.push(format!(
+                "Windsurf settings: {}",
+                settings_surfaces
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        evidence.push(
+            "Settings routing blocked until profile-aware discovery, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                .into(),
+        );
+        evidence
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter is not implemented yet. Use guided setup and copy-only handoff packs."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "windsurf".into(),
+        name: "Windsurf".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_zed_ai_client() -> ClientStatus {
@@ -4290,6 +4335,19 @@ mod tests {
                     "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.".into(),
                 ],
             },
+            ClientStatus {
+                id: "windsurf".into(),
+                name: "Windsurf".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Windsurf app: /Applications/Windsurf.app".into(),
+                    "Windsurf settings: /Users/test/Library/Application Support/Windsurf"
+                        .into(),
+                    "Settings routing blocked until profile-aware discovery, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
         ];
 
         let connectors = list_client_connectors(&detected_clients).expect("list connectors");
@@ -4425,6 +4483,18 @@ mod tests {
                 && connector
                     .detection_evidence
                     .contains(&"Amazon Q version: q 1.11.0".to_string())
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "windsurf"
+                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Windsurf app: /Applications/Windsurf.app".to_string())
+                && connector.detection_evidence.contains(
+                    &"Settings routing blocked until profile-aware discovery, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                        .to_string()
+                )
         }));
     }
 

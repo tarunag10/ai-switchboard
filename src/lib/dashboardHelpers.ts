@@ -607,6 +607,13 @@ const compatibilityReports: Partial<
     pathPrefix: "Qwen Code binary:",
     versionPrefix: "Qwen Code version:",
     configPrefix: "Qwen Code config surface:"
+  },
+  windsurf: {
+    label: "Windsurf",
+    primaryPathLabel: "App",
+    pathPrefix: "Windsurf app:",
+    versionPrefix: null,
+    configPrefix: "Windsurf settings:"
   }
 };
 

@@ -670,16 +670,45 @@ describe("dashboard helpers", () => {
     });
   });
 
+  it("formats Windsurf settings evidence for planned connector UI", () => {
+    const report = connectorCompatibilityReport({
+      clientId: "windsurf",
+      name: "Windsurf",
+      supportStatus: "planned",
+      setupPhase: "guide",
+      detectionEvidence: [
+        "Windsurf app: /Applications/Windsurf.app",
+        "Windsurf settings: /Users/test/Library/Application Support/Windsurf",
+        "Settings routing blocked until profile-aware discovery, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
+        "Detected, but Headroom adapter is not implemented yet.",
+      ],
+      installed: true,
+      enabled: false,
+      verified: false,
+    });
+
+    expect(report).toEqual({
+      title: "Windsurf compatibility report",
+      primaryPathLabel: "App",
+      binaryPath: "/Applications/Windsurf.app",
+      version: null,
+      configSurface: "/Users/test/Library/Application Support/Windsurf",
+      routingBlocker:
+        "Settings routing blocked until profile-aware discovery, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
+      otherEvidence: ["Detected, but Headroom adapter is not implemented yet."],
+    });
+  });
+
   it("omits compatibility report for connectors without structured evidence", () => {
     expect(
       connectorCompatibilityReport({
-        clientId: "windsurf",
-        name: "Windsurf",
+        clientId: "zed_ai",
+        name: "Zed AI",
         supportStatus: "planned",
         installed: true,
         enabled: false,
         verified: false,
-        detectionEvidence: ["Detected data at /Users/test/Library/Application Support/Windsurf."],
+        detectionEvidence: ["Detected data at /Users/test/.config/zed."],
       }),
     ).toBeNull();
   });
