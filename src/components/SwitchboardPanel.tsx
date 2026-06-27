@@ -18,7 +18,7 @@ import {
   switchboardModeLabel,
   switchboardModeSafetyNotes,
 } from "../lib/switchboardDisplay";
-import type { SwitchboardMode } from "../lib/types";
+import type { SavingsMode, SwitchboardMode } from "../lib/types";
 
 interface SwitchboardPanelProps {
   mode: SwitchboardMode;
@@ -31,11 +31,14 @@ interface SwitchboardPanelProps {
   rtkStatus: string;
   rtkDetail: string;
   remoteServicesEnabled: boolean;
+  savingsMode: SavingsMode;
+  savingsModeBusy: SavingsMode | null;
   paused: boolean;
   resuming: boolean;
   modeBusy: SwitchboardMode | null;
   modeError: string | null;
   onSetMode: (mode: SwitchboardMode) => void;
+  onSetSavingsMode: (mode: SavingsMode) => void;
   onResume: () => void;
   onManageClients: () => void;
   onManageRtk: () => void;
@@ -60,11 +63,14 @@ export function SwitchboardPanel({
   rtkStatus,
   rtkDetail,
   remoteServicesEnabled,
+  savingsMode,
+  savingsModeBusy,
   paused,
   resuming,
   modeBusy,
   modeError,
   onSetMode,
+  onSetSavingsMode,
   onResume,
   onManageClients,
   onManageRtk,
@@ -82,6 +88,10 @@ export function SwitchboardPanel({
   const setupLabel = localOnlySetupLabel(localOnly);
   const remoteCopy = remoteServicesCopy(remoteServicesEnabled);
   const codexGuidance = codexConcurrencyGuidance(mode, headroomDetail);
+  const savingsModeCopy =
+    savingsMode === "aggressive"
+      ? "Lower thresholds and stronger compression for noisy context."
+      : "Preserves cache-friendly context with conservative compression.";
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
 
@@ -169,6 +179,38 @@ export function SwitchboardPanel({
         })}
       </div>
       <p className="switchboard-panel__mode-effect">{modeEffect}</p>
+      <div className="switchboard-panel__savings-mode">
+        <div>
+          <span>Savings profile</span>
+          <strong>
+            {savingsMode === "aggressive" ? "Aggressive" : "Balanced"}
+          </strong>
+          <small>{savingsModeCopy}</small>
+        </div>
+        <div
+          className="switchboard-panel__savings-options"
+          role="group"
+          aria-label="Savings profile"
+        >
+          {(["balanced", "aggressive"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              className={`switchboard-panel__savings-option${
+                option === savingsMode ? " is-active" : ""
+              }`}
+              disabled={savingsModeBusy !== null || option === savingsMode}
+              onClick={() => onSetSavingsMode(option)}
+            >
+              {savingsModeBusy === option
+                ? "Applying"
+                : option === "aggressive"
+                  ? "Aggressive"
+                  : "Balanced"}
+            </button>
+          ))}
+        </div>
+      </div>
       <ul
         className="switchboard-panel__mode-notes"
         aria-label={`${modeLabel} safety notes`}

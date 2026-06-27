@@ -442,12 +442,20 @@ pub enum SwitchboardMode {
     Full,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SavingsMode {
+    Balanced,
+    Aggressive,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SwitchboardState {
     pub mode: SwitchboardMode,
     pub desired_mode: SwitchboardMode,
     pub effective_mode: SwitchboardMode,
+    pub savings_mode: SavingsMode,
     pub needs_attention: bool,
     pub local_only: bool,
     pub remote_services_enabled: bool,

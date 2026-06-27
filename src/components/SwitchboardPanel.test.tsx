@@ -17,11 +17,14 @@ function renderPanel(
     rtkStatus: "Enabled",
     rtkDetail: "82.5% average savings",
     remoteServicesEnabled: false,
+    savingsMode: "balanced",
+    savingsModeBusy: null,
     paused: false,
     resuming: false,
     modeBusy: null,
     modeError: null,
     onSetMode: vi.fn(),
+    onSetSavingsMode: vi.fn(),
     onResume: vi.fn(),
     onManageClients: vi.fn(),
     onManageRtk: vi.fn(),
@@ -45,6 +48,11 @@ expect(screen.getByText("Headroom engine")).toBeInTheDocument();
 expect(screen.getByText("RTK hook")).toBeInTheDocument();
 expect(screen.getAllByText("Codex, Claude Code").length).toBeGreaterThan(0);
 expect(screen.getAllByText("82.5% average savings").length).toBeGreaterThan(0);
+    expect(screen.getByText("Savings profile")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Balanced" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Aggressive" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByLabelText("Full optimization local footprint"),
     ).toBeInTheDocument();
@@ -153,6 +161,16 @@ screen.getAllByText(/Blocked in local-only mode/)[0],
     );
 
     expect(onSetMode).toHaveBeenCalledWith("rtk");
+  });
+
+  it("switches the savings profile", async () => {
+    const user = userEvent.setup();
+    const onSetSavingsMode = vi.fn();
+    renderPanel({ onSetSavingsMode });
+
+    await user.click(screen.getByRole("button", { name: "Aggressive" }));
+
+    expect(onSetSavingsMode).toHaveBeenCalledWith("aggressive");
   });
 
   it("disables Codex parallel-goal action while applying RTK mode", () => {

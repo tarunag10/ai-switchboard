@@ -19,7 +19,7 @@ use sha2::{Digest, Sha256};
 use tar::Archive;
 
 use crate::backend_port::{self, AllForeign, SelectedFallback};
-use crate::models::{ManagedTool, RtkTodayStats, ToolStatus};
+use crate::models::{ManagedTool, RtkTodayStats, SavingsMode, ToolStatus};
 
 /// Pinned headroom-ai version. Upgrade logic is disabled; this exact version
 /// will be installed if the currently-installed version differs.
@@ -785,9 +785,10 @@ impl ToolManager {
             // proxy ends up trying to bind the foreign-held port.
             // Use the console_scripts entrypoint when available to avoid the Python
             // -m double-import RuntimeWarning. Fall back to -m if missing.
+            let savings_mode = crate::client_adapters::load_savings_mode();
             let startup_variants: Vec<(PathBuf, Vec<String>)> = if entrypoint.exists() {
                 vec![
-                    (entrypoint, headroom_entrypoint_startup_args()),
+                    (entrypoint, headroom_entrypoint_startup_args(&savings_mode)),
                     (python.clone(), headroom_python_startup_args()),
                 ]
             } else {
@@ -810,7 +811,8 @@ impl ToolManager {
                 // Wrap with `nice` so headroom yields CPU to foreground apps
                 // (Claude Code, terminal, etc.) when the machine is contended.
                 // On idle systems headroom still runs at full speed.
-                let mut child = Command::new("/usr/bin/nice")
+                let mut command = Command::new("/usr/bin/nice");
+                command
                     .arg("-n")
                     .arg("5")
                     .arg(executable)
@@ -877,7 +879,9 @@ impl ToolManager {
                     // steering uniform/predictable across users while the seeded
                     // baseline still feeds the /stats savings estimate. Level 2 =
                     // skip pre/postamble, don't restate in-context code/tool output.
-                    .env("HEADROOM_VERBOSITY_LEVEL", "2")
+                    .env("HEADROOM_VERBOSITY_LEVEL", "2");
+                apply_savings_mode_env(&mut command, &savings_mode);
+                let mut child = command
                     .stdin(Stdio::null())
                     .stdout(Stdio::from(
                         log_file
@@ -4264,7 +4268,7 @@ fn headroom_python_startup_args() -> Vec<String> {
     ]
 }
 
-fn headroom_entrypoint_startup_args() -> Vec<String> {
+fn headroom_entrypoint_startup_args(savings_mode: &SavingsMode) -> Vec<String> {
     // HTTP/2 on the entrypoint is controlled via the HEADROOM_HTTP2 env var
     // (set to "false" in the spawn env). Older bundled runtimes ignored this var
     // and ran HTTP/2 unconditionally, which surfaced as SSLV3_ALERT_BAD_RECORD_MAC
@@ -4277,22 +4281,52 @@ fn headroom_entrypoint_startup_args() -> Vec<String> {
         headroom_proxy_port(),
         "--log-messages".to_string(),
     ];
+    if matches!(savings_mode, SavingsMode::Aggressive) {
+        args.push("--intercept-tool-results".to_string());
+    }
     args.extend(headroom_learn_startup_args());
     args
+}
+
+fn apply_savings_mode_env(command: &mut Command, savings_mode: &SavingsMode) {
+    command.env(
+        "HEADROOM_SAVINGS_PROFILE",
+        match savings_mode {
+            SavingsMode::Balanced => "balanced",
+            SavingsMode::Aggressive => "aggressive",
+        },
+    );
+    if matches!(savings_mode, SavingsMode::Aggressive) {
+        command
+            .env("HEADROOM_TARGET_RATIO", "0.45")
+            .env("HEADROOM_MIN_TOKENS", "120")
+            .env("HEADROOM_SMART_CRUSHER_COMPACTION", "1")
+            .env("HEADROOM_CODE_AWARE_ENABLED", "1")
+            .env("HEADROOM_PROTECT_RECENT", "2");
+    }
 }
 
 /// Flags whose presence in the running proxy's argv we treat as proof that it
 /// was started by this build. If any of these are missing, the proxy was
 /// spawned by an older desktop (or by something else) and we restart it.
+#[allow(dead_code)]
 fn expected_proxy_arg_signature() -> Vec<&'static str> {
-    vec![
+    expected_proxy_arg_signature_for(&crate::client_adapters::load_savings_mode())
+}
+
+fn expected_proxy_arg_signature_for(savings_mode: &SavingsMode) -> Vec<&'static str> {
+    let mut flags = vec![
         "--port",
         "--log-messages",
         "--learn",
         "--no-memory-tools",
         "--no-memory-context",
         "--memory-db-path",
-    ]
+    ];
+    if matches!(savings_mode, SavingsMode::Aggressive) {
+        flags.push("--intercept-tool-results");
+    }
+    flags
 }
 
 /// Returns the full command line of whatever process is currently listening on
@@ -4312,7 +4346,11 @@ pub fn running_proxy_matches_expected_args() -> bool {
 }
 
 fn proxy_argv_contains_expected_flags(argv: &str) -> bool {
-    expected_proxy_arg_signature()
+    proxy_argv_contains_expected_flags_for(argv, &crate::client_adapters::load_savings_mode())
+}
+
+fn proxy_argv_contains_expected_flags_for(argv: &str, savings_mode: &SavingsMode) -> bool {
+    expected_proxy_arg_signature_for(savings_mode)
         .iter()
         .all(|flag| argv_contains_flag(argv, flag))
 }
@@ -5602,7 +5640,7 @@ mod tests {
         format_already_running_bail, headroom_entrypoint_startup_args,
         headroom_python_startup_args, looks_like_corrupt_venv_error, parse_major_minor_patch,
         parse_pid_from_lsof_detail, path_with_binary_dir, probe_backend_readyz_ok,
-        proxy_argv_contains_expected_flags, read_headroom_learn_metadata_from_path,
+        proxy_argv_contains_expected_flags_for, read_headroom_learn_metadata_from_path,
         receipt_requires_atomic_rebuild, reclaim_orphan_proxy, redact_sensitive,
         requirements_lock_sha, rtk_distribution_artifact, run_command, sanitize_log_variant,
         sha256_bytes, summarize_kompress_prefetch_failure, verify_sha256_file, wait_for_port_free,
@@ -5610,6 +5648,7 @@ mod tests {
         PipOutputCapture, ToolManager, UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION, RTK_VERSION,
     };
     use crate::backend_port;
+    use crate::models::SavingsMode;
     use crate::port_conflict;
     use std::net::TcpListener;
 
@@ -6139,7 +6178,10 @@ mod tests {
     fn proxy_argv_matches_when_all_expected_flags_present() {
         let argv = "/usr/bin/nice -n 5 /Users/x/headroom proxy --port 6768 --log-messages \
                     --learn --no-memory-tools --no-memory-context --memory-db-path /tmp/m.db";
-        assert!(proxy_argv_contains_expected_flags(argv));
+        assert!(proxy_argv_contains_expected_flags_for(
+            argv,
+            &SavingsMode::Balanced
+        ));
     }
 
     #[test]
@@ -6147,14 +6189,20 @@ mod tests {
         // The exact orphan-from-old-build case: a v0.2.x proxy still running
         // with just `proxy --port 6768`.
         let argv = "/Users/x/headroom proxy --port 6768";
-        assert!(!proxy_argv_contains_expected_flags(argv));
+        assert!(!proxy_argv_contains_expected_flags_for(
+            argv,
+            &SavingsMode::Balanced
+        ));
     }
 
     #[test]
     fn proxy_argv_mismatch_when_learn_missing() {
         let argv = "headroom proxy --port 6768 --log-messages --no-memory-tools \
                     --no-memory-context --memory-db-path /tmp/m.db";
-        assert!(!proxy_argv_contains_expected_flags(argv));
+        assert!(!proxy_argv_contains_expected_flags_for(
+            argv,
+            &SavingsMode::Balanced
+        ));
     }
 
     #[test]
@@ -6163,7 +6211,10 @@ mod tests {
         // ensures we don't false-positive on it.
         let argv = "headroom proxy --port 6768 --log-messages --no-learn \
                     --no-memory-tools --no-memory-context --memory-db-path /tmp/m.db";
-        assert!(!proxy_argv_contains_expected_flags(argv));
+        assert!(!proxy_argv_contains_expected_flags_for(
+            argv,
+            &SavingsMode::Balanced
+        ));
     }
 
     #[test]
@@ -6171,7 +6222,28 @@ mod tests {
         let argv = "/Users/x/venv/bin/python3 -m headroom.proxy.server --port 6768 \
                     --no-http2 --log-messages --learn --no-memory-tools --no-memory-context \
                     --memory-db-path /tmp/m.db";
-        assert!(proxy_argv_contains_expected_flags(argv));
+        assert!(proxy_argv_contains_expected_flags_for(
+            argv,
+            &SavingsMode::Balanced
+        ));
+    }
+
+    #[test]
+    fn aggressive_proxy_argv_requires_tool_result_interception() {
+        let balanced_argv = "headroom proxy --port 6768 --log-messages --learn \
+                             --no-memory-tools --no-memory-context --memory-db-path /tmp/m.db";
+        let aggressive_argv = "headroom proxy --port 6768 --log-messages \
+                               --intercept-tool-results --learn --no-memory-tools \
+                               --no-memory-context --memory-db-path /tmp/m.db";
+
+        assert!(!proxy_argv_contains_expected_flags_for(
+            balanced_argv,
+            &SavingsMode::Aggressive
+        ));
+        assert!(proxy_argv_contains_expected_flags_for(
+            aggressive_argv,
+            &SavingsMode::Aggressive
+        ));
     }
 
     #[test]
@@ -6393,7 +6465,7 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
     fn managed_headroom_startup_uses_supported_proxy_args() {
         backend_port::reset_for_tests();
         let default_port = backend_port::DEFAULT_BACKEND_PORT.to_string();
-        let entrypoint_args = headroom_entrypoint_startup_args();
+        let entrypoint_args = headroom_entrypoint_startup_args(&SavingsMode::Balanced);
         assert!(entrypoint_args.starts_with(&[
             "proxy".to_string(),
             "--port".to_string(),
@@ -6427,6 +6499,15 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
         backend_port::reset_for_tests();
     }
 
+    #[test]
+    fn aggressive_startup_args_enable_tool_result_interception() {
+        let balanced_args = headroom_entrypoint_startup_args(&SavingsMode::Balanced);
+        let aggressive_args = headroom_entrypoint_startup_args(&SavingsMode::Aggressive);
+
+        assert!(!balanced_args.contains(&"--intercept-tool-results".to_string()));
+        assert!(aggressive_args.contains(&"--intercept-tool-results".to_string()));
+    }
+
     /// Regression: `start_headroom_background` previously built `startup_variants`
     /// before pre-flight ran, so when fallback called `backend_port::set(6769)`
     /// the variants still spawned with `--port 6768` and both failed with
@@ -6438,7 +6519,7 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
         backend_port::reset_for_tests();
         backend_port::set(6770);
 
-        let entrypoint_args = headroom_entrypoint_startup_args();
+        let entrypoint_args = headroom_entrypoint_startup_args(&SavingsMode::Balanced);
         let port_idx = entrypoint_args
             .iter()
             .position(|a| a == "--port")

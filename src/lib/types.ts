@@ -215,11 +215,13 @@ export interface RuntimeStatus {
 }
 
 export type SwitchboardMode = "off" | "rtk" | "headroom" | "full";
+export type SavingsMode = "balanced" | "aggressive";
 
 export interface SwitchboardState {
   mode: SwitchboardMode;
   desiredMode?: SwitchboardMode;
   effectiveMode?: SwitchboardMode;
+  savingsMode: SavingsMode;
   needsAttention?: boolean;
   localOnly: boolean;
   remoteServicesEnabled: boolean;

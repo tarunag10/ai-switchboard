@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use crate::models::{
     ClientConnectorStatus, ClientConnectorSupportStatus, ClientHealth, ClientSetupResult,
-    ClientSetupVerification, ClientStatus, SwitchboardMode,
+    ClientSetupVerification, ClientStatus, SavingsMode, SwitchboardMode,
 };
 use crate::storage::{app_data_dir, config_file};
 
@@ -1266,6 +1266,8 @@ struct ClientSetupState {
     rtk_disabled: bool,
     #[serde(default)]
     switchboard_mode: Option<SwitchboardMode>,
+    #[serde(default)]
+    savings_mode: Option<SavingsMode>,
 }
 
 pub fn load_switchboard_mode() -> Option<SwitchboardMode> {
@@ -1275,6 +1277,18 @@ pub fn load_switchboard_mode() -> Option<SwitchboardMode> {
 pub fn write_switchboard_mode(mode: SwitchboardMode) -> Result<()> {
     let mut state = load_setup_state();
     state.switchboard_mode = Some(mode);
+    write_setup_state(&state)
+}
+
+pub fn load_savings_mode() -> SavingsMode {
+    load_setup_state()
+        .savings_mode
+        .unwrap_or(SavingsMode::Balanced)
+}
+
+pub fn write_savings_mode(mode: SavingsMode) -> Result<()> {
+    let mut state = load_setup_state();
+    state.savings_mode = Some(mode);
     write_setup_state(&state)
 }
 
@@ -3688,6 +3702,7 @@ mod tests {
             ]),
             rtk_disabled: false,
             switchboard_mode: Some(SwitchboardMode::Full),
+            savings_mode: None,
         };
 
         let normalized = normalize_setup_state(state);
@@ -4767,6 +4782,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             remembered_shell_files: BTreeMap::new(),
             rtk_disabled: false,
             switchboard_mode: None,
+            savings_mode: None,
         })
         .expect("write setup state");
     }

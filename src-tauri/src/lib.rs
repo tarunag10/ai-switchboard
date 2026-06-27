@@ -47,7 +47,7 @@ use crate::models::{
     ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
     HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
     HeadroomSubscriptionTier, RepoIntelligenceSummary, RuntimeStatus, RuntimeUpgradeProgress,
-    SwitchboardMode, SwitchboardState, TransformationFeedResponse,
+    SavingsMode, SwitchboardMode, SwitchboardState, TransformationFeedResponse,
 };
 use crate::state::AppState;
 
@@ -2073,6 +2073,7 @@ fn build_switchboard_state(state: &AppState) -> Result<SwitchboardState, String>
     let (inferred_mode, rtk_enabled, headroom_enabled) =
         infer_switchboard_mode(&runtime, enabled_clients.len());
     let desired_mode = client_adapters::load_switchboard_mode().unwrap_or(inferred_mode.clone());
+    let savings_mode = client_adapters::load_savings_mode();
     let effective_mode = inferred_mode;
     let needs_attention = desired_mode != effective_mode;
     let codex_direct_bypass = state
@@ -2113,6 +2114,7 @@ switchboard_mode_label(&effective_mode)
         mode: desired_mode.clone(),
         desired_mode,
         effective_mode,
+        savings_mode,
         needs_attention,
         local_only,
         remote_services_enabled: !local_only,
@@ -2825,6 +2827,22 @@ async fn set_switchboard_mode(
     }
 
     state.invalidate_runtime_status_cache();
+    build_switchboard_state(&state)
+}
+
+#[tauri::command]
+async fn set_savings_mode(app: AppHandle, mode: SavingsMode) -> Result<SwitchboardState, String> {
+    let state: tauri::State<'_, AppState> = app.state();
+    client_adapters::write_savings_mode(mode.clone()).map_err(|err| err.to_string())?;
+    if !state.runtime_status().paused {
+        repair_runtime(&state)?;
+    }
+    state.invalidate_runtime_status_cache();
+    analytics::track_event(
+        &app,
+        "switchboard_savings_mode_changed",
+        Some(json!({ "mode": format!("{mode:?}").to_ascii_lowercase() })),
+    );
     build_switchboard_state(&state)
 }
 
@@ -4280,6 +4298,7 @@ pub fn run() {
             get_doctor_report,
             run_doctor_repair,
             set_switchboard_mode,
+            set_savings_mode,
             get_headroom_logs,
             get_headroom_request_count,
             get_headroom_request_counts_by_agent,

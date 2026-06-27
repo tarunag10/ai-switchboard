@@ -2619,6 +2619,65 @@ select {
   line-height: 1.35;
 }
 
+.switchboard-panel__savings-mode {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 10px;
+  padding: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.switchboard-panel__savings-mode span,
+.switchboard-panel__savings-mode small {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  line-height: 1.35;
+}
+
+.switchboard-panel__savings-mode strong {
+  display: block;
+  margin: 1px 0;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.switchboard-panel__savings-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(86px, 1fr));
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+
+.switchboard-panel__savings-option {
+  min-height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.switchboard-panel__savings-option.is-active {
+  background: var(--surface-default);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-subtle);
+}
+
+.switchboard-panel__savings-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
 .switchboard-panel__mode-notes {
   display: grid;
   gap: 4px;

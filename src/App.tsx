@@ -230,6 +230,7 @@ import type {
   RuntimeStatus,
   RuntimeUpgradeFailure,
   RuntimeUpgradeProgress,
+  SavingsMode,
   SwitchboardMode,
   SwitchboardState,
 } from "./lib/types";
@@ -2253,6 +2254,9 @@ export default function App() {
     useState<SwitchboardState | null>(null);
   const [switchboardModeBusy, setSwitchboardModeBusy] =
     useState<SwitchboardMode | null>(null);
+  const [savingsModeBusy, setSavingsModeBusy] = useState<SavingsMode | null>(
+    null,
+  );
   const [switchboardModeError, setSwitchboardModeError] = useState<
     string | null
   >(null);
@@ -3958,6 +3962,34 @@ export default function App() {
       ]);
     } finally {
       setSwitchboardModeBusy(null);
+    }
+  }
+
+  async function handleSetSavingsMode(mode: SavingsMode) {
+    if (savingsModeBusy !== null) {
+      return;
+    }
+    setSavingsModeBusy(mode);
+    setSwitchboardModeError(null);
+    setDoctorRepairSuccess(null);
+    try {
+      const state = await invoke<SwitchboardState>("set_savings_mode", {
+        mode,
+      });
+      applySwitchboardStateIfChanged(state);
+      applyRuntimeStatusIfChanged(state.runtime);
+      applyConnectorsIfChanged(state.clients);
+      await refreshDoctorReport();
+    } catch (error) {
+      setSwitchboardModeError(
+        `${error instanceof Error ? error.message : "Could not change savings profile."} Switchboard and Doctor have been refreshed.`,
+      );
+      await Promise.allSettled([
+        refreshSwitchboardState(),
+        refreshDoctorReport(),
+      ]);
+    } finally {
+      setSavingsModeBusy(null);
     }
   }
 
@@ -5868,6 +5900,7 @@ export default function App() {
     switchboardMode !== switchboardEffectiveMode;
   const switchboardModeCopy =
     switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
+  const savingsMode = switchboardState?.savingsMode ?? "balanced";
   const switchboardRtkLabel = runtimeStatus?.rtk.installed
     ? runtimeStatus.rtk.enabled
       ? "Enabled"
@@ -6417,11 +6450,14 @@ export default function App() {
             rtkStatus={switchboardRtkLabel}
             rtkDetail={switchboardRtkDetail}
             remoteServicesEnabled={switchboardRemoteServicesEnabled}
+            savingsMode={savingsMode}
+            savingsModeBusy={savingsModeBusy}
             paused={runtimeStatus?.paused === true}
             resuming={resuming}
             modeBusy={switchboardModeBusy}
             modeError={switchboardModeError}
             onSetMode={(mode) => void handleSetSwitchboardMode(mode)}
+            onSetSavingsMode={(mode) => void handleSetSavingsMode(mode)}
             onResume={() => void handleResumeRuntime()}
             onManageClients={() => setActiveView("settings")}
             onManageRtk={() => setActiveView("addons")}
