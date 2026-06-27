@@ -16,6 +16,8 @@ export interface RemoteServiceDestination {
   kind: RemoteServiceKind;
   label: string;
   envVar?: string;
+  endpointExample: string;
+  source: string;
   localOnlyAllowed: boolean;
 }
 
@@ -25,6 +27,8 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     kind: "account",
     label: "Headroom account API",
     envVar: "HEADROOM_ACCOUNT_API_BASE_URL",
+    endpointExample: "https://extraheadroom.com/api/v1",
+    source: "sign-in and account profile requests",
     localOnlyAllowed: false,
   },
   {
@@ -32,6 +36,8 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     kind: "pricing",
     label: "Headroom pricing and trial API",
     envVar: "HEADROOM_ACCOUNT_API_BASE_URL",
+    endpointExample: "https://extraheadroom.com/api/v1",
+    source: "pricing, trial, usage, and upgrade requests",
     localOnlyAllowed: false,
   },
   {
@@ -39,6 +45,8 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     kind: "telemetry",
     label: "Sentry diagnostics",
     envVar: "SENTRY_DSN",
+    endpointExample: "configured DSN host",
+    source: "error and crash diagnostics",
     localOnlyAllowed: false,
   },
   {
@@ -46,13 +54,17 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     kind: "analytics",
     label: "Microsoft Clarity analytics",
     envVar: "VITE_CLARITY_PROJECT_ID",
+    endpointExample: "https://www.clarity.ms",
+    source: "optional product analytics",
     localOnlyAllowed: false,
   },
   {
     id: "aptabase",
     kind: "analytics",
     label: "Aptabase analytics",
-    envVar: "APTABASE_APP_KEY",
+    envVar: "HEADROOM_APTABASE_APP_KEY",
+    endpointExample: "https://app.aptabase.com",
+    source: "optional product analytics",
     localOnlyAllowed: false,
   },
   {
@@ -60,12 +72,17 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     kind: "updates",
     label: "Tauri update feed",
     envVar: "HEADROOM_UPDATER_ENDPOINTS",
+    endpointExample:
+      "https://github.com/tarunag10/mac-ai-switchboard/releases/latest/download/latest.json",
+    source: "signed app update checks",
     localOnlyAllowed: false,
   },
   {
     id: "support_links",
     kind: "support",
     label: "External support links",
+    endpointExample: "mailto:support@extraheadroom.com",
+    source: "user-opened support links",
     localOnlyAllowed: false,
   },
 ];
@@ -74,6 +91,17 @@ export function blockedLocalOnlyDestinations(): RemoteServiceDestination[] {
   return remoteServiceDestinations.filter(
     (destination) => !destination.localOnlyAllowed,
   );
+}
+
+export function allowedRemoteDestinations(
+  localOnly: boolean,
+): RemoteServiceDestination[] {
+  if (localOnly) {
+    return remoteServiceDestinations.filter(
+      (destination) => destination.localOnlyAllowed,
+    );
+  }
+  return remoteServiceDestinations;
 }
 
 export function remoteServicesCopy(

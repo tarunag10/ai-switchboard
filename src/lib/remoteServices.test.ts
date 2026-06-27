@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  allowedRemoteDestinations,
   blockedLocalOnlyDestinations,
   localOnlySetupLabel,
   remoteServiceDestinations,
@@ -23,7 +24,7 @@ describe("remote services copy", () => {
     });
   });
 
-  it("keeps the local-only blocked destination registry explicit", () => {
+  it("keeps local-only blocked destination registry explicit", () => {
     expect(remoteServiceDestinations.map((destination) => destination.id)).toEqual([
       "headroom_account_api",
       "headroom_pricing_api",
@@ -36,6 +37,21 @@ describe("remote services copy", () => {
     expect(blockedLocalOnlyDestinations()).toHaveLength(
       remoteServiceDestinations.length,
     );
+    expect(allowedRemoteDestinations(true)).toEqual([]);
+  });
+
+  it("documents env and endpoint evidence for every remote destination", () => {
+    expect(
+      remoteServiceDestinations.every(
+        (destination) =>
+          destination.endpointExample.length > 0 && destination.source.length > 0,
+      ),
+    ).toBe(true);
+    expect(
+      remoteServiceDestinations
+        .filter((destination) => destination.kind !== "support")
+        .every((destination) => Boolean(destination.envVar)),
+    ).toBe(true);
   });
 
   it("uses explicit setup labels for local-only and cloud-capable modes", () => {
