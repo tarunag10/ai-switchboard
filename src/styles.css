@@ -3530,6 +3530,77 @@ select {
   font-size: var(--text-md);
 }
 
+.savings-calculator__ledger {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-overlay);
+}
+
+.savings-calculator__ledger-head,
+.savings-calculator__ledger-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.savings-calculator__ledger-head span {
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.savings-calculator__ledger-head strong {
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+}
+
+.savings-calculator__ledger-list {
+  display: grid;
+  gap: 6px;
+}
+
+.savings-calculator__ledger-row {
+  padding: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+
+.savings-calculator__ledger-row div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.savings-calculator__ledger-row div:last-child {
+  text-align: right;
+}
+
+.savings-calculator__ledger-row strong,
+.savings-calculator__ledger-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.savings-calculator__ledger-row strong {
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+}
+
+.savings-calculator__ledger-row span {
+  color: var(--text-secondary);
+  font-size: var(--text-xxs);
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
 .savings-calculator__empty {
   color: var(--text-secondary);
   font-size: var(--text-xs);
@@ -3552,11 +3623,13 @@ select {
 
   .savings-calculator__metrics,
   .savings-calculator__equation,
-  .savings-calculator__breakdown-row {
+  .savings-calculator__breakdown-row,
+  .savings-calculator__ledger-row {
     grid-template-columns: 1fr;
   }
 
-  .savings-calculator__breakdown-value {
+  .savings-calculator__breakdown-value,
+  .savings-calculator__ledger-row div:last-child {
     text-align: left;
   }
 

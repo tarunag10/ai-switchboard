@@ -194,6 +194,7 @@ import {
 import {
   buildAddonSavingsEstimate,
   buildSavingsCalculatorBreakdown,
+  buildSavingsLedgerRows,
   buildSavingsCalculatorSummary,
   formatSavingsCalculatorShareText,
   CAVEMAN_TEMPLATE_BASELINE_TOKENS,
@@ -673,6 +674,18 @@ function SavingsCalculatorCard({
     ponytailSavings,
     markitdownSavings,
   });
+  const ledgerRows = buildSavingsLedgerRows(
+    dashboard,
+    scope,
+    new Date().toISOString(),
+    {
+      repoSavings,
+      runtimeStatus,
+      cavemanSavings,
+      ponytailSavings,
+      markitdownSavings,
+    },
+  );
   const savedLabel = compactNumber(summary.savedTokens);
   const sentLabel = compactNumber(summary.sentTokens);
   const beforeLabel = compactNumber(summary.beforeTokens);
@@ -808,6 +821,26 @@ function SavingsCalculatorCard({
             </div>
           </div>
         ))}
+      </div>
+      <div className="savings-calculator__ledger" aria-label="Savings ledger">
+        <div className="savings-calculator__ledger-head">
+          <span>Ledger</span>
+          <strong>{scope === "session" ? "Session" : "Overall"}</strong>
+        </div>
+        <div className="savings-calculator__ledger-list">
+          {ledgerRows.map((row) => (
+            <div className="savings-calculator__ledger-row" key={row.id}>
+              <div>
+                <strong>{row.label}</strong>
+                <span>{row.confidence}</span>
+              </div>
+              <div>
+                <strong>{compactNumber(row.savedTokens)}</strong>
+                <span>{formatDateTime(row.recordedAt)}</span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </article>
   );
