@@ -70,6 +70,40 @@ function extractFrontendConnectors(source) {
   return connectors;
 }
 
+function validateConfigCreationPlanContract(source) {
+  const errors = [];
+  const functionBody = source.match(
+    /export function getPlannedConnectorConfigCreationPlan\([\s\S]*?\n}\n\nexport function getPlannedConnectorConfigCreationPlans/,
+  )?.[0];
+
+  if (!functionBody) {
+    return ["missing getPlannedConnectorConfigCreationPlan export"];
+  }
+
+  for (const stepId of [
+    "detect",
+    "dryRunDiff",
+    "backup",
+    "apply",
+    "verify",
+    "rollback",
+    "offCleanup",
+  ]) {
+    if (!functionBody.includes(`id: "${stepId}"`)) {
+      errors.push(`config creation plan missing ${stepId} step`);
+    }
+  }
+
+  if (!functionBody.includes("automationEnabled: false")) {
+    errors.push("config creation plan must keep automation disabled by default");
+  }
+  if (!source.includes("formatPlannedConnectorConfigCreationPlansMarkdown")) {
+    errors.push("config creation plans must have copyable markdown formatter");
+  }
+
+  return errors;
+}
+
 function extractBackendConnectors(source) {
   const registry = extractArrayBody(
     source,
@@ -103,7 +137,8 @@ function difference(left, right) {
   return left.filter((item) => !rightSet.has(item));
 }
 
-const frontendConnectors = extractFrontendConnectors(readFile(frontendPath));
+const frontendSource = readFile(frontendPath);
+const frontendConnectors = extractFrontendConnectors(frontendSource);
 const backendConnectors = extractBackendConnectors(readFile(backendPath));
 const frontendIds = uniqueSorted([...frontendConnectors.keys()]);
 const backendIds = uniqueSorted([...backendConnectors.keys()]);
@@ -128,6 +163,7 @@ if (frontendIds.length === 0) {
 }
 
 const metadataErrors = [];
+metadataErrors.push(...validateConfigCreationPlanContract(frontendSource));
 for (const id of frontendIds) {
   const frontend = frontendConnectors.get(id);
   const backend = backendConnectors.get(id);
