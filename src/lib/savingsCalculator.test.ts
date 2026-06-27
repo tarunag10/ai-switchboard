@@ -142,12 +142,17 @@ describe("savings calculator", () => {
       },
     );
 
-    expect(rows.map((row) => row.id)).toEqual([
-      "headroom",
-      "rtk",
-      "repo_intelligence",
-    ]);
-    expect(rows[0].savedUsd).toBe(4.5);
+  expect(rows.map((row) => row.id)).toEqual([
+    "headroom",
+    "rtk",
+    "repo_intelligence",
+  ]);
+  expect(rows.map((row) => row.confidence)).toEqual([
+    "estimated",
+    "measured",
+    "inferred",
+  ]);
+  expect(rows[0].savedUsd).toBe(4.5);
     expect(rows[1].savedTokens).toBe(900);
     expect(rows[2].detail).toContain("Implementation Pack");
   });
@@ -188,9 +193,9 @@ describe("savings calculator", () => {
     const rows = buildSavingsCalculatorBreakdown(dashboard, "session");
     const text = formatSavingsCalculatorShareText(summary, rows);
 
-    expect(text).toContain("Mac AI Switchboard savings (current app session)");
-    expect(text).toContain("Saved: 300 tokens / $0.75");
-    expect(text).toContain("- Headroom: 300 tokens / $0.75");
+  expect(text).toContain("Mac AI Switchboard savings (current app session)");
+  expect(text).toContain("Saved: 300 tokens / $0.75");
+  expect(text).toContain("- Headroom (measured): 300 tokens / $0.75");
   });
 
   it("formats a copyable overall savings summary with local sources", () => {
@@ -237,9 +242,10 @@ describe("savings calculator", () => {
     });
     const text = formatSavingsCalculatorShareText(summary, rows);
 
-    expect(text).toContain("Mac AI Switchboard savings (overall history)");
-    expect(text).toContain("Saved: 2,000 tokens / $4.50");
-    expect(text).toContain("- RTK: 900 tokens");
-    expect(text).toContain("- Repo Intelligence: 7,500 tokens");
+  expect(text).toContain("Mac AI Switchboard savings (overall history)");
+  expect(text).toContain("Saved: 2,000 tokens / $4.50");
+  expect(text).toContain("- Headroom (estimated): 2,000 tokens / $4.50");
+  expect(text).toContain("- RTK (measured): 900 tokens");
+  expect(text).toContain("- Repo Intelligence (inferred): 7,500 tokens");
   });
 });

@@ -8,6 +8,7 @@ export type SavingsCalculatorBreakdownKind =
   | "runtime"
   | "command_output"
   | "repo_context";
+export type SavingsCalculatorConfidence = "measured" | "estimated" | "inferred";
 
 export interface SavingsCalculatorSummary {
   scope: SavingsCalculatorScope;
@@ -25,6 +26,7 @@ export interface SavingsCalculatorBreakdownRow {
   id: string;
   label: string;
   kind: SavingsCalculatorBreakdownKind;
+  confidence: SavingsCalculatorConfidence;
   savedTokens: number;
   savedUsd: number | null;
   detail: string;
@@ -125,6 +127,7 @@ export function buildSavingsCalculatorBreakdown(
       id: "headroom",
       label: "Headroom",
       kind: "runtime",
+      confidence: scope === "session" ? "measured" : "estimated",
       savedTokens: summary.savedTokens,
       savedUsd: summary.savedUsd,
       detail:
@@ -144,6 +147,7 @@ export function buildSavingsCalculatorBreakdown(
       id: "rtk",
       label: "RTK",
       kind: "command_output",
+      confidence: "measured",
       savedTokens: rtkSaved,
       savedUsd: null,
       detail:
@@ -162,6 +166,7 @@ export function buildSavingsCalculatorBreakdown(
       id: "repo_intelligence",
       label: "Repo Intelligence",
       kind: "repo_context",
+      confidence: "inferred",
       savedTokens: repoSaved,
       savedUsd: null,
       detail: `${options.repoSavings?.bestPack?.title ?? "Best context pack"} avoids a broad full-repo scan before agent work.`,
@@ -180,7 +185,7 @@ export function formatSavingsCalculatorShareText(
   const sourceLines = rows.map((row) => {
     const usdPart =
       row.savedUsd === null ? "" : ` / ${formatUsd(row.savedUsd)}`;
-    return `- ${row.label}: ${formatTokens(row.savedTokens)} tokens${usdPart}`;
+    return `- ${row.label} (${row.confidence}): ${formatTokens(row.savedTokens)} tokens${usdPart}`;
   });
 
   return [

@@ -728,7 +728,7 @@ const savedLabel = compactNumber(summary.savedTokens);
           <div className="savings-calculator__breakdown-row" key={row.id}>
             <div>
               <strong>{row.label}</strong>
-              <span>{row.detail}</span>
+                              <span>{row.detail} Source: {row.confidence}.</span>
             </div>
             <div className="savings-calculator__breakdown-value">
               <strong>{compactNumber(row.savedTokens)}</strong>
