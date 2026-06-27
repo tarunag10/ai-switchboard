@@ -73,11 +73,12 @@ Do not share a public DMG until all gates are true:
 
 1. `npm run release:ready -- --strict` reports no environment blockers.
 2. The DMG is signed and notarized with Developer ID credentials.
-3. Updater signing is configured with `HEADROOM_UPDATER_PUBLIC_KEY` and `HEADROOM_UPDATER_ENDPOINTS`.
-4. `npm run smoke:preflight` passes and writes `dist/smoke-preflight-summary.md`.
-5. The DMG is installed as `/Applications/Mac AI Switchboard.app`, with `Contents/Info.plist` present inside the app bundle.
-6. `docs/beta-smoke-test.md` is run against the installed app.
-7. `npm run smoke:installed -- --confirm` records `dist/installed-smoke-summary.md`, including Switchboard modes, degraded-mode Doctor guidance, planned connector automation gates, manual workflow, Repo Intelligence recipes, Savings calculator copyable summary, per-tool agent handoffs, and Codex compression recovery.
+3. Rust backend validation ready: `npm run fmt:desktop` and `npm run test:desktop` pass locally or in CI for the release commit.
+4. Updater signing is configured with `HEADROOM_UPDATER_PUBLIC_KEY` and `HEADROOM_UPDATER_ENDPOINTS`.
+5. `npm run smoke:preflight` passes and writes `dist/smoke-preflight-summary.md`.
+6. The DMG is installed as `/Applications/Mac AI Switchboard.app`, with `Contents/Info.plist` present inside the app bundle.
+7. `docs/beta-smoke-test.md` is run against the installed app.
+8. `npm run smoke:installed -- --confirm` records `dist/installed-smoke-summary.md`, including Switchboard modes, degraded-mode Doctor guidance, planned connector automation gates, manual workflow, Repo Intelligence recipes, Savings calculator copyable summary, per-tool agent handoffs, and Codex compression recovery.
 
 ## First-Run Footprint
 
@@ -91,6 +92,6 @@ Mac AI Switchboard may write:
 
 Managed edits are fenced and reversible. Use **Off** mode or Doctor repair flows to remove routing hooks and return clients to direct provider behavior.
 
-For oversized Codex payload failures, see [Codex Compression Troubleshooting](codex-compression-troubleshooting.md).
+For oversized Codex payload failures such as `413 Payload Too Large`, see [Codex Compression Troubleshooting](codex-compression-troubleshooting.md).
 
 If Codex reports `The '' model is not supported when using Codex with a ChatGPT account`, treat it as a Codex model/provider configuration issue rather than a Headroom compression issue. Use Doctor to repair the Codex provider block, then choose a Codex-supported ChatGPT model before retrying.

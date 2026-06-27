@@ -266,7 +266,7 @@ const requiredSourceSignals = {
     "1 automatic",
     "1 manual",
     "separates manual connector guidance from automatic Repo Intelligence cleanup",
-    "Open Settings, review detected evidence and each planned connector guide",
+    "review each planned connector's detection evidence",
     "saved Repo Intelligence summary",
   ],
   "src/lib/releaseReadiness.ts": [
@@ -370,6 +370,8 @@ const requiredSourceSignals = {
     "backend detection evidence",
     "planned connector manual warnings with detection evidence",
     "safe RTK-only or Repo Intelligence pack guidance",
+    "Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI",
+    "Gemini shows binary/version/config compatibility evidence",
     "copyable manual setup guide",
     "copy bounded context pack",
     "copy individual task pack",
