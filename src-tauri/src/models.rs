@@ -128,6 +128,36 @@ pub struct RepoContextPack {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RepoContextPackGraphBrief {
+    pub available: bool,
+    pub dependency_hub_count: usize,
+    pub import_edge_count: usize,
+    pub reverse_dependency_hub_count: usize,
+    pub symbol_count: usize,
+    pub symbol_edge_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoContextPackSafety {
+    pub read_only: bool,
+    pub excludes_secret_like_paths: bool,
+    pub modifies_repository: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoContextPackResponse {
+    pub repo_root: String,
+    pub indexed_at: String,
+    pub pack: RepoContextPack,
+    pub index_metadata: Option<RepoIndexMetadata>,
+    pub graph_brief: RepoContextPackGraphBrief,
+    pub safety: RepoContextPackSafety,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepoGraphNode {
     pub label: String,
     pub count: u64,

@@ -9,8 +9,9 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 
 use crate::models::{
-    RepoContextPack, RepoFileIndexEntry, RepoFileRole, RepoFileSignal, RepoGraphEdge,
-    RepoGraphEdgeKind, RepoGraphInputEntry, RepoGraphNode, RepoGraphSummary, RepoIndexMetadata,
+    RepoContextPack, RepoContextPackGraphBrief, RepoContextPackResponse, RepoContextPackSafety,
+    RepoFileIndexEntry, RepoFileRole, RepoFileSignal, RepoGraphEdge, RepoGraphEdgeKind,
+    RepoGraphInputEntry, RepoGraphNode, RepoGraphSummary, RepoIndexMetadata,
     RepoIntelligenceSummary, RepoSkippedIndexEntry, RepoSymbol, RepoSymbolKind,
 };
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs};
@@ -177,6 +178,55 @@ pub fn clear_latest_summary() -> Result<bool> {
     std::fs::remove_file(&path)
         .with_context(|| format!("removing repo intelligence summary {}", path.display()))?;
     Ok(true)
+}
+
+pub fn latest_context_pack(pack_id: Option<&str>) -> Result<Option<RepoContextPackResponse>> {
+    let Some(summary) = load_latest_summary()? else {
+        return Ok(None);
+    };
+    build_context_pack_response(&summary, pack_id).map(Some)
+}
+
+pub fn build_context_pack_response(
+    summary: &RepoIntelligenceSummary,
+    pack_id: Option<&str>,
+) -> Result<RepoContextPackResponse> {
+    let selected_pack_id = pack_id.unwrap_or("implementation");
+    let pack = summary
+        .packs
+        .iter()
+        .find(|candidate| candidate.id == selected_pack_id)
+        .cloned()
+        .ok_or_else(|| anyhow!("repo intelligence pack not found: {selected_pack_id}"))?;
+    let graph = summary.graph.as_ref();
+
+    Ok(RepoContextPackResponse {
+        repo_root: summary.repo_root.clone(),
+        indexed_at: summary.indexed_at.clone(),
+        pack,
+        index_metadata: summary.index_metadata.clone(),
+        graph_brief: RepoContextPackGraphBrief {
+            available: graph.is_some(),
+            dependency_hub_count: graph
+                .map(|graph| graph.dependency_hubs.len())
+                .unwrap_or_default(),
+            import_edge_count: graph
+                .map(|graph| graph.import_edges.len())
+                .unwrap_or_default(),
+            reverse_dependency_hub_count: graph
+                .map(|graph| graph.reverse_dependency_hubs.len())
+                .unwrap_or_default(),
+            symbol_count: graph.map(|graph| graph.symbols.len()).unwrap_or_default(),
+            symbol_edge_count: graph
+                .map(|graph| graph.symbol_edges.len())
+                .unwrap_or_default(),
+        },
+        safety: RepoContextPackSafety {
+            read_only: true,
+            excludes_secret_like_paths: true,
+            modifies_repository: false,
+        },
+    })
 }
 
 fn latest_summary_path() -> PathBuf {
@@ -1561,5 +1611,78 @@ mod tests {
         assert_eq!(pack.files[0].path, "src/small.ts");
         assert_eq!(pack.estimated_tokens, 320);
         assert!(pack.savings_vs_full_scan_pct > 60.0);
+    }
+
+    #[test]
+    fn builds_read_only_context_pack_response_from_summary() {
+        let root = tempfile::tempdir().expect("create repo");
+        std::fs::create_dir_all(root.path().join("src")).expect("create src");
+        std::fs::write(
+            root.path().join("src/App.tsx"),
+            "export function App() {}\n",
+        )
+        .expect("write source");
+        std::fs::write(
+            root.path().join("src/App.test.tsx"),
+            "test('app', () => {})\n",
+        )
+        .expect("write test");
+        std::fs::write(root.path().join(".env.local"), "SECRET=value\n").expect("write secret");
+        std::fs::write(root.path().join("package.json"), "{}\n").expect("write package");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        let response = build_context_pack_response(&summary, None).expect("context pack");
+
+        assert_eq!(response.pack.id, "implementation");
+        assert!(response.graph_brief.available);
+        assert!(response.graph_brief.symbol_count > 0);
+        assert!(response.safety.read_only);
+        assert!(response.safety.excludes_secret_like_paths);
+        assert!(!response.safety.modifies_repository);
+        assert!(!response
+            .pack
+            .files
+            .iter()
+            .any(|file| file.path == ".env.local"));
+    }
+
+    #[test]
+    fn selects_requested_context_pack_or_errors() {
+        let summary = RepoIntelligenceSummary {
+            indexed_at: "2026-06-27T12:00:00Z".to_string(),
+            repo_root: "/tmp/example".to_string(),
+            indexer_version: Some(INDEXER_VERSION.to_string()),
+            total_files: 1,
+            indexed_files: 1,
+            skipped_files: 0,
+            estimated_full_scan_tokens: 100,
+            role_counts: BTreeMap::new(),
+            index_metadata: None,
+            graph: None,
+            packs: vec![
+                build_context_pack(
+                    "implementation",
+                    "Implementation Pack",
+                    "Source files likely needed for feature work.",
+                    vec![classify_file("src/App.tsx", 100)],
+                    100,
+                ),
+                build_context_pack(
+                    "verification",
+                    "Verification Pack",
+                    "Tests and config likely needed before committing.",
+                    vec![classify_file("src/App.test.tsx", 100)],
+                    100,
+                ),
+            ],
+        };
+
+        let verification =
+            build_context_pack_response(&summary, Some("verification")).expect("verification pack");
+        assert_eq!(verification.pack.id, "verification");
+        assert!(!verification.graph_brief.available);
+
+        let error = build_context_pack_response(&summary, Some("missing")).unwrap_err();
+        assert!(error.to_string().contains("pack not found"));
     }
 }
