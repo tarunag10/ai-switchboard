@@ -95,6 +95,10 @@ Click **Copy agent manifest**.
 
 Expect: JSON manifest is copied for external coding agents. It includes `mac_ai_switchboard.repo_intelligence_manifest`, implementation/verification/handoff pack ids, per-pack commands, token savings, and read-only safety flags.
 
+In **Start session**, choose an agent and task, then click **Copy full handoff**.
+
+Expect: the copied session handoff matches the selected task pack, shows freshness and recommended mode, and keeps provider routing manual for planned connectors. CLI parity is `npm run repo:intelligence -- <repo> --session --agent codex --task verification --headroom-healthy --rtk-healthy --format markdown`; JSON output uses `mac_ai_switchboard.agent_session_preparation`.
+
 In **Agent handoffs**, expect grouped sections for Primary agents, CLI agents, Editor agents, and Chat agents. Claude Code and Codex should appear in Primary agents. Click **Claude Code**, **Codex**, **Gemini CLI**, **Cursor**, and newer targets such as **Qwen Code**, **Amazon Q Developer CLI**, **Windsurf**, or **Zed AI**.
 
 Expect: Markdown action copies a ready-to-paste bounded handoff for that tool, selects the expected implementation, verification, or handoff pack, includes token savings and graph summary, and does not write third-party config. JSON action copies a `mac_ai_switchboard.repo_agent_handoff` payload with agent id, selected pack, file list, graph hints, token savings, and read-only safety flags.

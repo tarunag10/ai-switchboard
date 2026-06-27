@@ -217,17 +217,31 @@ const agentHandoffProfiles = [
   },
 ];
 
+const primaryRepoAgentIds = new Set(["claude", "codex"]);
+const agentSessionTaskTypes = new Set([
+  "implementation",
+  "verification",
+  "handoff",
+]);
+
 function parseArgs(argv) {
   const options = {
     repoRoot: process.cwd(),
     packId: null,
     agent: null,
+    session: false,
+    taskType: null,
     format: "json",
     formatProvided: false,
     listPacks: false,
     listAgents: false,
     manifest: false,
     mcpServe: false,
+    headroomHealthy: false,
+    rtkHealthy: false,
+    providerRoutingSafe: null,
+    headroomCompressionRisk: false,
+    cleanPassThrough: false,
   };
   const positional = [];
 
@@ -243,6 +257,25 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg.startsWith("--agent=")) {
       options.agent = arg.slice("--agent=".length);
+    } else if (arg === "--session") {
+      options.session = true;
+    } else if (arg === "--task") {
+      options.taskType = argv[index + 1] ?? null;
+      index += 1;
+    } else if (arg.startsWith("--task=")) {
+      options.taskType = arg.slice("--task=".length);
+    } else if (arg === "--headroom-healthy") {
+      options.headroomHealthy = true;
+    } else if (arg === "--rtk-healthy") {
+      options.rtkHealthy = true;
+    } else if (arg === "--provider-routing-safe") {
+      options.providerRoutingSafe = true;
+    } else if (arg === "--provider-routing-unsafe") {
+      options.providerRoutingSafe = false;
+    } else if (arg === "--headroom-risk") {
+      options.headroomCompressionRisk = true;
+    } else if (arg === "--clean-pass-through") {
+      options.cleanPassThrough = true;
     } else if (arg === "--format") {
       options.format = argv[index + 1] ?? "json";
       options.formatProvided = true;
@@ -279,6 +312,14 @@ function printHelp() {
 Options:
   --pack <id>          Print one context pack: implementation, verification, handoff
   --agent <id>         Print agent handoff: claude, codex, gemini, opencode, aider, goose, cursor, continue, grok, qwen, amazonq, windsurf, zed
+  --session            Print Start Agent Session preparation for --agent
+  --task <type>        Session task: implementation, verification, handoff
+  --headroom-healthy   Mark Headroom engine healthy for mode recommendation
+  --rtk-healthy        Mark RTK healthy for mode recommendation
+  --provider-routing-safe|--provider-routing-unsafe
+                       Override provider-routing safety for mode recommendation
+  --headroom-risk      Prefer RTK when Headroom compression is risky
+  --clean-pass-through Prefer Off for clean debugging
   --format <format>   json or markdown
   --list-packs        Print available pack ids
   --list-agents       Print available agent handoff ids
@@ -291,6 +332,7 @@ Examples:
   npm run repo:intelligence -- . --list-agents
   npm run repo:intelligence -- . --pack implementation --format markdown
   npm run repo:intelligence -- . --agent codex --format markdown
+  npm run repo:intelligence -- . --session --agent codex --task verification --headroom-healthy --rtk-healthy --format markdown
   npm run repo:intelligence -- . --agent gemini --format json`);
 }
 
@@ -926,6 +968,29 @@ function formatGraphMarkdown(graph) {
       edge.reason +
       ")",
   );
+  const symbols = (graph.symbols ?? []).map(
+    (symbol) =>
+      "- " +
+      symbol.name +
+      " (" +
+      symbol.kind +
+      ") in " +
+      symbol.file +
+      ":" +
+      symbol.line,
+  );
+  const symbolEdges = (graph.symbolEdges ?? []).map(
+    (edge) =>
+      "- " +
+      edge.from +
+      " -> " +
+      edge.to +
+      " (" +
+      edge.kind +
+      ": " +
+      edge.reason +
+      ")",
+  );
   const reverseDependencyHubs = (graph.reverseDependencyHubs ?? []).map(
     (node) => "- " + node.label + ": " + node.count + " inbound links",
   );
@@ -1060,6 +1125,7 @@ function buildSummary(repoRoot) {
 
   return {
     repoRoot,
+    indexedAt: indexMetadata.generatedAt,
     indexerVersion: INDEXER_VERSION,
     totalFiles: signals.length,
     indexedFiles: indexable.length,
@@ -1238,6 +1304,217 @@ function buildAgentHandoffPayload(summary, agentId, requestedPackId) {
       manualProviderRouting: true,
     },
   };
+}
+
+function packIdForTask(profile, taskType) {
+  if (taskType === "implementation") return "implementation";
+  if (taskType === "verification") return "verification";
+  if (taskType === "handoff") return "handoff";
+  return profile.defaultPackId;
+}
+
+function getIndexFreshness(summary) {
+  if (!summary.indexedAt) {
+    return {
+      status: "none",
+      label: "No repo indexed",
+      detail: "Index a local repository to create a persistent metadata cache.",
+    };
+  }
+  const metadata = summary.indexMetadata;
+  if (!metadata) {
+    return {
+      status: "unknown",
+      label: "Indexed without cache metadata",
+      detail: "Re-index this repo to add persistent freshness metadata.",
+    };
+  }
+  if (metadata.cacheState === "unchanged") {
+    return {
+      status: "unchanged_cache",
+      label: "Unchanged local index",
+      detail: metadata.previousIndexedAt
+        ? `Same cache key as ${new Date(metadata.previousIndexedAt).toLocaleString()}.`
+        : "Same cache key as the previous saved index.",
+    };
+  }
+  if (metadata.cacheState === "changed") {
+    return {
+      status: "changed_cache",
+      label: "Changed local index",
+      detail: "Repo metadata changed since the previous saved index.",
+    };
+  }
+  return {
+    status: "fresh",
+    label: "Fresh local index",
+    detail: `Indexed with ${metadata.parserVersion}.`,
+  };
+}
+
+function recommendSessionMode({
+  headroomHealthy,
+  rtkHealthy,
+  providerRoutingSafe,
+  headroomCompressionRisk,
+  cleanPassThrough,
+}) {
+  if (cleanPassThrough) {
+    return {
+      mode: "off",
+      reason: "Clean pass-through/debugging was requested.",
+    };
+  }
+  if (headroomHealthy && rtkHealthy && providerRoutingSafe) {
+    return {
+      mode: "full",
+      reason: "Headroom engine and RTK are healthy.",
+    };
+  }
+  if (headroomHealthy && !rtkHealthy && providerRoutingSafe) {
+    return {
+      mode: "headroom",
+      reason: "Headroom engine is healthy; RTK is unavailable.",
+    };
+  }
+  if (rtkHealthy && (!providerRoutingSafe || headroomCompressionRisk)) {
+    return {
+      mode: "rtk",
+      reason:
+        "RTK is healthy while provider routing is unsafe or Headroom compression is risky.",
+    };
+  }
+  if (rtkHealthy) {
+    return {
+      mode: "rtk",
+      reason: "RTK is healthy; Headroom engine is unavailable.",
+    };
+  }
+  return {
+    mode: "off",
+    reason: "No optimization dependency is currently healthy.",
+  };
+}
+
+function getSessionCopyState(summary, freshness) {
+  if (summary.packs.length === 0 || summary.indexedFiles === 0) {
+    return {
+      status: "blocked",
+      detail: "Index a real local repo before copying agent context.",
+    };
+  }
+  if (freshness.status === "changed_cache" || freshness.status === "unknown") {
+    return {
+      status: "warn",
+      detail: `${freshness.label}: refresh before relying on this handoff for current code.`,
+    };
+  }
+  return {
+    status: "ready",
+    detail: freshness.label,
+  };
+}
+
+function buildAgentSessionPreparation(summary, options) {
+  const agentId = options.agent ?? "codex";
+  const profile = agentHandoffProfiles.find(
+    (candidate) => candidate.id === agentId,
+  );
+  if (!profile) {
+    throw new Error(
+      `Unknown agent: ${agentId}. Available agents: ${agentHandoffProfiles
+        .map((candidate) => candidate.id)
+        .join(", ")}`,
+    );
+  }
+  const taskType = options.taskType ?? profile.defaultPackId;
+  if (!agentSessionTaskTypes.has(taskType)) {
+    throw new Error(
+      `Unknown task: ${taskType}. Available tasks: ${[
+        ...agentSessionTaskTypes,
+      ].join(", ")}`,
+    );
+  }
+  const packId = packIdForTask(profile, taskType);
+  const providerRoutingSafe =
+    options.providerRoutingSafe ?? primaryRepoAgentIds.has(profile.id);
+  const freshness = getIndexFreshness(summary);
+  const copyState = getSessionCopyState(summary, freshness);
+  const modeRecommendation = recommendSessionMode({
+    headroomHealthy: options.headroomHealthy,
+    rtkHealthy: options.rtkHealthy,
+    providerRoutingSafe,
+    headroomCompressionRisk: options.headroomCompressionRisk,
+    cleanPassThrough: options.cleanPassThrough,
+  });
+  return {
+    schemaVersion: 1,
+    kind: "mac_ai_switchboard.agent_session_preparation",
+    repoRoot: summary.repoRoot,
+    target: {
+      id: profile.id,
+      label: profile.label,
+      toolKind: profile.toolKind,
+      guidance: profile.guidance,
+    },
+    taskType,
+    packId,
+    freshness,
+    copyStatus: copyState.status,
+    copyDetail: copyState.detail,
+    recommendedMode: modeRecommendation.mode,
+    recommendedModeReason: modeRecommendation.reason,
+    safety: {
+      readOnly: true,
+      excludesSecretLikePaths: true,
+      modifiesRepository: false,
+      manualProviderRouting: !providerRoutingSafe,
+    },
+    handoff:
+      copyState.status === "blocked"
+        ? null
+        : buildAgentHandoffPayload(summary, profile.id, packId),
+    handoffMarkdown:
+      copyState.status === "blocked"
+        ? null
+        : formatAgentHandoffMarkdown(summary, profile.id, packId),
+    manifest: buildAgentManifest(summary),
+  };
+}
+
+function formatAgentSessionMarkdown(preparation) {
+  const lines = [
+    `# Start Agent Session: ${preparation.target.label}`,
+    "",
+    `Repository: ${preparation.repoRoot}`,
+    `Task: ${preparation.taskType}`,
+    `Selected pack: ${preparation.packId}`,
+    `Copy status: ${preparation.copyStatus}`,
+    `Freshness: ${preparation.freshness.label}`,
+    `Recommended mode: ${preparation.recommendedMode}`,
+    `Mode reason: ${preparation.recommendedModeReason}`,
+    "",
+    "## Safety",
+    `- Read-only: ${preparation.safety.readOnly ? "yes" : "no"}`,
+    `- Secret-like paths excluded: ${
+      preparation.safety.excludesSecretLikePaths ? "yes" : "no"
+    }`,
+    `- Repository modified: ${
+      preparation.safety.modifiesRepository ? "yes" : "no"
+    }`,
+    `- Provider routing manual: ${
+      preparation.safety.manualProviderRouting ? "yes" : "no"
+    }`,
+    "",
+    "## Detail",
+    preparation.copyDetail,
+  ];
+
+  if (preparation.handoffMarkdown) {
+    lines.push("", "## Handoff", preparation.handoffMarkdown);
+  }
+
+  return lines.join("\n");
 }
 
 function buildAgentManifest(summary) {
@@ -1444,6 +1721,18 @@ if (options.mcpServe) {
   }
   if (options.manifest) {
     console.log(JSON.stringify(buildAgentManifest(summary), null, 2));
+    process.exit(0);
+  }
+  if (options.session) {
+    try {
+      const preparation = buildAgentSessionPreparation(summary, options);
+      if (options.format === "markdown")
+        console.log(formatAgentSessionMarkdown(preparation));
+      else console.log(JSON.stringify(preparation, null, 2));
+    } catch (error) {
+      console.error(error.message);
+      process.exit(1);
+    }
     process.exit(0);
   }
   if (options.agent) {
