@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   getPlannedConnector,
+  getPlannedConnectorConfigCreationPlan,
+  getPlannedConnectorConfigCreationPlans,
   getPlannedConnectorReadinessBadges,
   getPlannedConnectorReadinessContract,
   getPlannedConnectorReadinessContracts,
@@ -271,5 +273,54 @@ describe("planned connectors", () => {
       expect(markdown).toContain("Provider/base-url semantics");
       expect(markdown).toContain("Rollback strategy");
     }
+  });
+
+  it("defines config-creation plans for every connector before enabling writes", () => {
+    const plans = getPlannedConnectorConfigCreationPlans();
+
+    expect(plans.map((plan) => plan.connectorId)).toEqual(
+      plannedConnectors.map((connector) => connector.id),
+    );
+    for (const plan of plans) {
+      expect(plan.automationEnabled).toBe(false);
+      expect(plan.safetyNote).toMatch(/gated/i);
+      expect(plan.steps.map((step) => step.id)).toEqual([
+        "detect",
+        "dryRunDiff",
+        "backup",
+        "apply",
+        "verify",
+        "rollback",
+        "offCleanup",
+      ]);
+      expect(plan.steps.map((step) => `${step.label} ${step.detail}`).join(" ")).toMatch(
+        /detect|dry-run|backup|provider|Doctor|rollback|Off mode/i,
+      );
+    }
+  });
+
+  it("carries OpenCode, Grok, and Cursor config-creation details explicitly", () => {
+    const opencode = getPlannedConnectorConfigCreationPlan(
+      getPlannedConnector("opencode")!,
+    );
+    const grok = getPlannedConnectorConfigCreationPlan(
+      getPlannedConnector("grok_cli")!,
+    );
+    const cursor = getPlannedConnectorConfigCreationPlan(
+      getPlannedConnector("cursor")!,
+    );
+
+    expect(opencode.steps.find((step) => step.id === "detect")?.detail).toMatch(
+      /opencode/i,
+    );
+    expect(opencode.steps.find((step) => step.id === "backup")?.detail).toMatch(
+      /backup|restore point/i,
+    );
+    expect(grok.steps.find((step) => step.id === "verify")?.detail).toMatch(
+      /model|account/i,
+    );
+    expect(cursor.steps.find((step) => step.id === "rollback")?.detail).toMatch(
+      /profile settings backup/i,
+    );
   });
 });

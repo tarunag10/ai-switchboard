@@ -83,6 +83,27 @@ export interface PlannedConnectorSafetyDossier {
   rollbackStrategy: string;
 }
 
+export interface PlannedConnectorConfigCreationStep {
+  id:
+    | "detect"
+    | "dryRunDiff"
+    | "backup"
+    | "apply"
+    | "verify"
+    | "rollback"
+    | "offCleanup";
+  label: string;
+  detail: string;
+}
+
+export interface PlannedConnectorConfigCreationPlan {
+  connectorId: string;
+  connectorName: string;
+  automationEnabled: boolean;
+  safetyNote: string;
+  steps: PlannedConnectorConfigCreationStep[];
+}
+
 export const plannedConnectorReadinessStageOrder: PlannedConnectorReadinessStageId[] =
   [
     "detected",
@@ -848,6 +869,71 @@ export function formatPlannedConnectorSafetyDossierMarkdown(
     `- Account caveat: ${dossier.accountCaveat}`,
     `- Rollback strategy: ${dossier.rollbackStrategy}`,
   ].join("\n");
+}
+
+export function getPlannedConnectorConfigCreationPlan(
+  connector: PlannedConnector,
+): PlannedConnectorConfigCreationPlan {
+  const dossier = getPlannedConnectorSafetyDossier(connector.id);
+  if (!dossier) {
+    throw new Error(`Missing safety dossier for ${connector.id}.`);
+  }
+
+  const steps: PlannedConnectorConfigCreationStep[] = [
+    {
+      id: "detect",
+      label: "Detect config surface",
+      detail: dossier.configPathStrategy,
+    },
+    {
+      id: "dryRunDiff",
+      label: "Show dry-run diff",
+      detail:
+        "Preview the exact local proxy/provider change before any file, profile, or environment edit.",
+    },
+    {
+      id: "backup",
+      label: "Create backup",
+      detail:
+        "Write a timestamped backup beside the edited config or record an environment-wrapper restore point.",
+    },
+    {
+      id: "apply",
+      label: "Apply with consent",
+      detail: dossier.providerSemantics,
+    },
+    {
+      id: "verify",
+      label: "Verify in Doctor",
+      detail: dossier.accountCaveat,
+    },
+    {
+      id: "rollback",
+      label: "Rollback safely",
+      detail: dossier.rollbackStrategy,
+    },
+    {
+      id: "offCleanup",
+      label: "Clean up in Off mode",
+      detail:
+        "Off mode removes only Switchboard-managed routing and leaves unrelated user config untouched.",
+    },
+  ];
+
+  return {
+    connectorId: connector.id,
+    connectorName: connector.name,
+    automationEnabled: false,
+    safetyNote:
+      "Config creation remains gated until every step has tests and Doctor evidence.",
+    steps,
+  };
+}
+
+export function getPlannedConnectorConfigCreationPlans(
+  connectors: PlannedConnector[] = plannedConnectors,
+) {
+  return connectors.map(getPlannedConnectorConfigCreationPlan);
 }
 
 export function summarizePlannedConnectorSupport(

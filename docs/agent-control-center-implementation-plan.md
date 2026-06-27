@@ -4,6 +4,13 @@ This plan turns Mac AI Switchboard into a local-first agent control center: pick
 
 The work should ship in small slices. Each slice must leave the app usable, keep config changes reversible, and preserve the boundary between local ad-hoc evidence and public signed release readiness.
 
+## Current Connector Checkpoint
+
+- Gemini has the deepest current implementation path.
+- OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed already exist in the planned connector registry with config surfaces, manual guides, automation gates, and rollback dossiers.
+- Each planned connector must get config-creation work like Gemini, gated behind detection, dry-run diff, backup, verify, rollback, and Off cleanup.
+- Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
+
 ## Product Goals
 
 - Make Repo Intelligence the primary workflow before starting Codex, Claude Code, Gemini CLI, Cursor, Aider, OpenCode, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI, or similar tools.
