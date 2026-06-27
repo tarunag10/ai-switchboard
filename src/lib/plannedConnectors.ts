@@ -939,8 +939,13 @@ export function getPlannedConnectorConfigCreationPlans(
 export function formatPlannedConnectorConfigCreationPlansMarkdown(
   connectors: PlannedConnector[] = plannedConnectors,
 ) {
+  const title =
+    connectors.length === 1
+      ? "# Mac AI Switchboard Connector Config Creation Plan"
+      : "# Mac AI Switchboard Connector Config Creation Plans";
+
   return [
-    "# Mac AI Switchboard Connector Config Creation Plans",
+    title,
     "",
     "Automation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested.",
     "",

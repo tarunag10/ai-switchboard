@@ -8630,6 +8630,21 @@ export default function App() {
                                 >
                                   <Copy size={13} weight="bold" />
                                 </button>
+                                <button
+                                  type="button"
+                                  className="connector-plan__copy"
+                                  onClick={() =>
+                                    void copyPlannedConnectorCommand(
+                                      formatPlannedConnectorConfigCreationPlansMarkdown(
+                                        [plannedConnector],
+                                      ),
+                                      `${connector.name} config plan`,
+                                    )
+                                  }
+                                  aria-label={`Copy ${connector.name} config creation plan`}
+                                >
+                                  <Copy size={13} weight="duotone" />
+                                </button>
                               </div>
                             ) : null}
                             {plannedSetupGuide ? (

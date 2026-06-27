@@ -344,4 +344,18 @@ describe("planned connectors", () => {
     expect(markdown).toContain("Rollback safely");
     expect(markdown).toContain("Off mode removes only Switchboard-managed");
   });
+
+  it("formats a single connector config-creation plan for card-level copy", () => {
+    const markdown = formatPlannedConnectorConfigCreationPlansMarkdown([
+      getPlannedConnector("opencode")!,
+    ]);
+
+    expect(markdown).toContain(
+      "# Mac AI Switchboard Connector Config Creation Plan",
+    );
+    expect(markdown).not.toContain("## Grok / xAI CLI");
+    expect(markdown).toContain("## OpenCode");
+    expect(markdown).toContain("Automation enabled: no");
+    expect(markdown).toContain("Show dry-run diff");
+  });
 });

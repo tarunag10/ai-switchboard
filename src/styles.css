@@ -5788,7 +5788,7 @@ details[open] .optimize-minimal__details summary::after {
 
 .connector-plan__guide {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 28px;
+  grid-template-columns: minmax(0, 1fr) 28px 28px;
   align-items: center;
   gap: 8px;
   padding: 8px;
