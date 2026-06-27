@@ -533,7 +533,7 @@ function evidenceValue(evidence: string, prefix: string) {
   return evidence.startsWith(prefix) ? evidence.slice(prefix.length).trim() : null;
 }
 
-const compatibilityReports: Partial<
+export const plannedConnectorCompatibilityReportConfigs: Partial<
   Record<
     string,
     {
@@ -627,7 +627,8 @@ const compatibilityReports: Partial<
 export function connectorCompatibilityReport(
   connector: ClientConnectorStatus
 ): ConnectorCompatibilityReport | null {
-  const reportConfig = compatibilityReports[connector.clientId];
+  const reportConfig =
+    plannedConnectorCompatibilityReportConfigs[connector.clientId];
   if (!reportConfig) {
     return null;
   }

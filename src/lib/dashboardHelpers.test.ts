@@ -23,9 +23,11 @@ import {
   hourOfDayTickFormatter,
   mergeProviderSavingsForDisplay,
   percent1,
+  plannedConnectorCompatibilityReportConfigs,
   sortClientConnectors,
   summarizePlannedConnectorReadiness,
 } from "./dashboardHelpers";
+import { plannedConnectors } from "./plannedConnectors";
 import type {
   ClientConnectorStatus,
   DailySavingsPoint,
@@ -400,6 +402,12 @@ describe("dashboard helpers", () => {
         verified: false,
       }),
     ).toEqual({ disabled: false, reason: null });
+  });
+
+  it("keeps compatibility report config coverage for every planned connector", () => {
+    expect(
+      Object.keys(plannedConnectorCompatibilityReportConfigs).sort(),
+    ).toEqual(plannedConnectors.map((connector) => connector.id).sort());
   });
 
   it("formats Gemini compatibility evidence for planned connector UI", () => {
