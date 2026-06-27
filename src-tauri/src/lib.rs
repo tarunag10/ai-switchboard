@@ -55,9 +55,6 @@ const UPDATER_PUBLIC_KEY: Option<&str> = option_env!("HEADROOM_UPDATER_PUBLIC_KE
 const UPDATER_ENDPOINTS: Option<&str> = option_env!("HEADROOM_UPDATER_ENDPOINTS");
 const UPDATER_STAGING_ENDPOINTS: Option<&str> = option_env!("HEADROOM_UPDATER_STAGING_ENDPOINTS");
 const SENTRY_DSN: Option<&str> = option_env!("HEADROOM_SENTRY_DSN");
-const DEFAULT_UPDATER_PUBLIC_KEY: &str = "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk3QkUyNEU0MjVBMkRDM0MKUldRODNLSWw1Q1MrbC93MitlYTVoUXViSXJQNGVQWDdBRXA0Qkl4WGtpSEttNm5YTDB3QWtncEoK";
-const DEFAULT_UPDATER_ENDPOINT: &str =
-    "https://github.com/gglucass/headroom-desktop/releases/latest/download/latest.json";
 const BETA_CHANNEL_ENV: &str = "HEADROOM_BETA_CHANNEL";
 const BETA_CHANNEL_SENTINEL: &str = "beta_channel";
 const AUTOSTART_LAUNCH_ARG: &str = "--autostart";
@@ -4370,7 +4367,7 @@ fn resolve_release_updater_config(
     configured_pubkey: Option<&str>,
     configured_stable: Option<&str>,
     configured_staging: Option<&str>,
-    debug_assertions: bool,
+    _debug_assertions: bool,
 ) -> Result<Option<ReleaseUpdaterConfig>, String> {
     let configured_pubkey = configured_pubkey
         .map(str::trim)
@@ -4398,14 +4395,7 @@ fn resolve_release_updater_config(
             "HEADROOM_UPDATER_ENDPOINTS is configured, but HEADROOM_UPDATER_PUBLIC_KEY is missing."
                 .to_string(),
         ),
-        (None, None) => {
-            if debug_assertions {
-                Ok(None)
-            } else {
-                build_release_updater_config(DEFAULT_UPDATER_PUBLIC_KEY, DEFAULT_UPDATER_ENDPOINT)
-                    .map(Some)
-            }
-        }
+        (None, None) => Ok(None),
     }
 }
 
@@ -6118,13 +6108,14 @@ mod tests {
         watchdog_should_be_up, zero_spend_affected_days, AppUpdateProgress,
         AppUpdateProgressEmitter, AvailableAppUpdate, BootstrapFailureKind, DailySavingsPoint,
         HeadroomLearnPrereqStatus, InstallPendingUpdateFuture, InstallableAppUpdate, LearnAgent,
-        MonitorBounds, PhysicalRect, QuitSource, TrayRuntimeVisual, DEFAULT_UPDATER_ENDPOINT,
-        DEFAULT_UPDATER_PUBLIC_KEY,
+        MonitorBounds, PhysicalRect, QuitSource, TrayRuntimeVisual,
     };
     use parking_lot::Mutex;
     use serde_json::json;
     use std::sync::Arc;
     use tauri::{LogicalPosition, LogicalSize, PhysicalSize, Position, Rect, Size};
+
+    const TEST_UPDATER_PUBLIC_KEY: &str = "test-updater-public-key";
 
     struct FakePendingUpdate {
         metadata: AvailableAppUpdate,
@@ -6370,7 +6361,7 @@ mod tests {
         let config = resolve_release_updater_config(
             "0.3.0",
             false,
-            Some(DEFAULT_UPDATER_PUBLIC_KEY),
+            Some(TEST_UPDATER_PUBLIC_KEY),
             Some("https://stable.example.com/latest.json"),
             Some("https://staging.example.com/latest.json"),
             false,
@@ -6390,7 +6381,7 @@ mod tests {
         let config = resolve_release_updater_config(
             "0.3.0",
             true,
-            Some(DEFAULT_UPDATER_PUBLIC_KEY),
+            Some(TEST_UPDATER_PUBLIC_KEY),
             Some("https://stable.example.com/latest.json"),
             Some("https://staging.example.com/latest.json"),
             false,
@@ -6409,7 +6400,7 @@ mod tests {
         let config = resolve_release_updater_config(
             "0.3.1-rc.2",
             false,
-            Some(DEFAULT_UPDATER_PUBLIC_KEY),
+            Some(TEST_UPDATER_PUBLIC_KEY),
             Some("https://stable.example.com/latest.json"),
             Some("https://staging.example.com/latest.json"),
             false,
@@ -6428,7 +6419,7 @@ mod tests {
         let config = resolve_release_updater_config(
             "0.3.0",
             true,
-            Some(DEFAULT_UPDATER_PUBLIC_KEY),
+            Some(TEST_UPDATER_PUBLIC_KEY),
             Some("https://stable.example.com/latest.json"),
             None,
             false,
@@ -6443,12 +6434,11 @@ mod tests {
     }
 
     #[test]
-    fn resolve_release_updater_config_returns_default_feed_when_nothing_configured_in_release() {
+    fn resolve_release_updater_config_disables_updates_when_unconfigured_in_release() {
         let config = resolve_release_updater_config("0.3.0", false, None, None, None, false)
-            .expect("config")
-            .expect("Some(config)");
+            .expect("config");
 
-        assert_eq!(config.endpoints[0].as_str(), DEFAULT_UPDATER_ENDPOINT);
+        assert!(config.is_none());
     }
 
     #[test]
@@ -6477,7 +6467,7 @@ mod tests {
         let err = resolve_release_updater_config(
             "0.3.0",
             false,
-            Some(DEFAULT_UPDATER_PUBLIC_KEY),
+            Some(TEST_UPDATER_PUBLIC_KEY),
             None,
             None,
             false,
@@ -6487,16 +6477,18 @@ mod tests {
     }
 
     #[test]
-    fn updater_release_config_accepts_official_default_feed() {
-        let config =
-            build_release_updater_config(DEFAULT_UPDATER_PUBLIC_KEY, DEFAULT_UPDATER_ENDPOINT)
-                .expect("official updater config");
+    fn updater_release_config_accepts_explicit_feed() {
+        let config = build_release_updater_config(
+            TEST_UPDATER_PUBLIC_KEY,
+            "https://updates.example.com/latest.json",
+        )
+        .expect("explicit updater config");
 
-        assert_eq!(config.pubkey, DEFAULT_UPDATER_PUBLIC_KEY);
+        assert_eq!(config.pubkey, TEST_UPDATER_PUBLIC_KEY);
         assert_eq!(config.endpoints.len(), 1);
         assert_eq!(
             config.endpoints[0].as_str(),
-            "https://github.com/gglucass/headroom-desktop/releases/latest/download/latest.json"
+            "https://updates.example.com/latest.json"
         );
     }
 
