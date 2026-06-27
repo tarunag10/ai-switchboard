@@ -87,9 +87,13 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.getByText("2 automatic")).toBeInTheDocument();
     expect(screen.getByText("2 manual")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Open Settings, review detected evidence and each planned connector guide. Use RTK-only mode or Repo Intelligence packs; keep provider routing manual until backup, restore, and Off mode cleanup are available.",
-      ),
+      screen.getByText(/review each planned connector's detection evidence/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/next automation gate is backup implemented/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Manual only, Automation gated/i),
     ).toBeInTheDocument();
     expect(
       screen.getAllByText(

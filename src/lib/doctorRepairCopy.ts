@@ -1,4 +1,9 @@
 import { codexDoctorHint } from "./codexErrorGuidance";
+import {
+  getPlannedConnectorReadinessBadges,
+  getPlannedConnectorReadinessContract,
+  plannedConnectors,
+} from "./plannedConnectors";
 import type { DoctorIssue, DoctorReport } from "./types";
 
 export type DoctorTimelineEventKind =
@@ -156,6 +161,29 @@ export function doctorIssueActionHint(
     : "No automatic repair is available yet. Follow the issue guidance, then re-run Doctor.";
 }
 
+export function plannedConnectorDoctorGuidance(): string {
+  const firstBlockedStage =
+    plannedConnectors
+      .map((connector) =>
+        getPlannedConnectorReadinessContract(connector).stages.find(
+          (stage) => stage.state === "blocked",
+        ),
+      )
+      .find(Boolean)?.label ?? "backup coverage";
+  const badgeLabels = new Set(
+    plannedConnectors.flatMap((connector) =>
+      getPlannedConnectorReadinessBadges(connector).map((badge) => badge.label),
+    ),
+  );
+
+  return [
+    "Open Settings and review each planned connector's detection evidence, readiness stages, safety badges, and manual guide.",
+    `Doctor keeps these as manual steps because the next automation gate is ${firstBlockedStage.toLowerCase()}.`,
+    `Look for ${Array.from(badgeLabels).join(", ")} before choosing a workflow.`,
+    "Use RTK-only mode or Repo Intelligence packs; keep provider routing manual until backup, verify, rollback, and Off mode cleanup are available.",
+  ].join(" ");
+}
+
 export function doctorIssueGuidance(issue: DoctorIssue): string {
   if (doctorIssueActionKind(issue.repairAction) === "automatic") {
     return doctorRepairHint(issue.repairAction as string);
@@ -165,7 +193,7 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
     case "switchboard_mode_degraded":
       return "Requested mode and active mode differ. Run automatic repairs for runtime, client, or RTK issues below, complete any manual connector steps that remain, then re-run Doctor until requested mode becomes active.";
     case "planned_connectors_detected":
-      return "Open Settings, review detected evidence and each planned connector guide. Use RTK-only mode or Repo Intelligence packs; keep provider routing manual until backup, restore, and Off mode cleanup are available.";
+      return plannedConnectorDoctorGuidance();
     case "repo_intelligence_repo_missing":
       return "Clear the saved Repo Intelligence index, then open Addons and index an available local repo when ready.";
     case "repo_intelligence_stale":

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   canRepairIssue,
   doctorIssueGuidance,
+  plannedConnectorDoctorGuidance,
   doctorRepairHint,
   doctorRepairLabel,
   doctorTimelineKindLabel,
@@ -131,7 +132,21 @@ describe("doctor repair copy", () => {
     expect(text).toContain("Status: warning");
     expect(text).toContain("Action: automatic / Install RTK");
     expect(text).toContain("Action: manual / Manual step");
-    expect(text).toContain("Use RTK-only mode or Repo Intelligence packs");
+    expect(text).toContain("next automation gate is backup implemented");
+    expect(text).toContain("Automation gated");
+  });
+
+  it("explains why planned connectors stay manual in Doctor", () => {
+    const guidance = plannedConnectorDoctorGuidance();
+
+    expect(guidance).toContain("detection evidence");
+    expect(guidance).toContain("readiness stages");
+    expect(guidance).toContain("safety badges");
+    expect(guidance).toContain("next automation gate is backup implemented");
+    expect(guidance).toContain("Manual only");
+    expect(guidance).toContain("Automation gated");
+    expect(guidance).toContain("Unsupported account/model");
+    expect(guidance).toContain("backup, verify, rollback, and Off mode cleanup");
   });
 
   it("labels and sorts Doctor timeline events newest first", () => {
