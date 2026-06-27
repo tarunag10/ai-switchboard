@@ -699,18 +699,33 @@ describe("dashboard helpers", () => {
     });
   });
 
-  it("omits compatibility report for connectors without structured evidence", () => {
-    expect(
-      connectorCompatibilityReport({
-        clientId: "zed_ai",
-        name: "Zed AI",
-        supportStatus: "planned",
-        installed: true,
-        enabled: false,
-        verified: false,
-        detectionEvidence: ["Detected data at /Users/test/.config/zed."],
-      }),
-    ).toBeNull();
+  it("formats Zed settings evidence for planned connector UI", () => {
+    const report = connectorCompatibilityReport({
+      clientId: "zed_ai",
+      name: "Zed AI",
+      supportStatus: "planned",
+      setupPhase: "guide",
+      detectionEvidence: [
+        "Zed app: /Applications/Zed.app",
+        "Zed assistant settings: /Users/test/.config/zed",
+        "Settings routing blocked until lossless settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
+        "Detected, but Headroom adapter is not implemented yet.",
+      ],
+      installed: true,
+      enabled: false,
+      verified: false,
+    });
+
+    expect(report).toEqual({
+      title: "Zed AI compatibility report",
+      primaryPathLabel: "App",
+      binaryPath: "/Applications/Zed.app",
+      version: null,
+      configSurface: "/Users/test/.config/zed",
+      routingBlocker:
+        "Settings routing blocked until lossless settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
+      otherEvidence: ["Detected, but Headroom adapter is not implemented yet."],
+    });
   });
 
   it("derives a dashboard status label/tone per connector state", () => {

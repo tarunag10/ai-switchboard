@@ -3935,20 +3935,67 @@ fn detect_windsurf_client() -> ClientStatus {
 }
 
 fn detect_zed_ai_client() -> ClientStatus {
-    detect_planned_client(
-        "zed_ai",
-        "Zed AI",
-        &["zed"],
-        &[
-            home_dir().join(".config").join("zed"),
-            home_dir()
-                .join("Library")
-                .join("Application Support")
-                .join("Zed"),
-            PathBuf::from("/Applications/Zed.app"),
-        ],
-        "Detected, but Headroom adapter is not implemented yet. Keep Zed assistant settings manual and use copy-only handoffs.",
-    )
+    let app_path = PathBuf::from("/Applications/Zed.app");
+    let command_path = find_on_path(&["zed"]);
+    let settings_candidates = [
+        home_dir().join(".config").join("zed"),
+        home_dir()
+            .join("Library")
+            .join("Application Support")
+            .join("Zed"),
+    ];
+    let settings_surfaces = settings_candidates
+        .iter()
+        .filter(|path| path.exists())
+        .cloned()
+        .collect::<Vec<_>>();
+    let installed = app_path.exists() || command_path.is_some() || !settings_surfaces.is_empty();
+    let mut notes = if installed {
+        let mut evidence = Vec::new();
+        if app_path.exists() {
+            evidence.push(format!("Zed app: {}", app_path.display()));
+        } else if let Some(path) = command_path {
+            evidence.push(format!("Zed app: command {}", path.display()));
+        }
+        if settings_surfaces.is_empty() {
+            evidence.push("Zed assistant settings: none detected yet.".into());
+        } else {
+            evidence.push(format!(
+                "Zed assistant settings: {}",
+                settings_surfaces
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        evidence.push(
+            "Settings routing blocked until lossless settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                .into(),
+        );
+        evidence
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter is not implemented yet. Keep Zed assistant settings manual and use copy-only handoffs."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "zed_ai".into(),
+        name: "Zed AI".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_planned_client(
@@ -4348,6 +4395,18 @@ mod tests {
                     "Settings routing blocked until profile-aware discovery, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
                 ],
             },
+            ClientStatus {
+                id: "zed_ai".into(),
+                name: "Zed AI".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Zed app: /Applications/Zed.app".into(),
+                    "Zed assistant settings: /Users/test/.config/zed".into(),
+                    "Settings routing blocked until lossless settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
         ];
 
         let connectors = list_client_connectors(&detected_clients).expect("list connectors");
@@ -4493,6 +4552,18 @@ mod tests {
                     .contains(&"Windsurf app: /Applications/Windsurf.app".to_string())
                 && connector.detection_evidence.contains(
                     &"Settings routing blocked until profile-aware discovery, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                        .to_string()
+                )
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "zed_ai"
+                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Zed app: /Applications/Zed.app".to_string())
+                && connector.detection_evidence.contains(
+                    &"Settings routing blocked until lossless settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
                         .to_string()
                 )
         }));

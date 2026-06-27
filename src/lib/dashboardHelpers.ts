@@ -614,6 +614,13 @@ const compatibilityReports: Partial<
     pathPrefix: "Windsurf app:",
     versionPrefix: null,
     configPrefix: "Windsurf settings:"
+  },
+  zed_ai: {
+    label: "Zed AI",
+    primaryPathLabel: "App",
+    pathPrefix: "Zed app:",
+    versionPrefix: null,
+    configPrefix: "Zed assistant settings:"
   }
 };
 
