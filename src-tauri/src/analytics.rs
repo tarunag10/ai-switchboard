@@ -428,6 +428,7 @@ fn new_session_id() -> String {
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+    use serial_test::serial;
 
     use super::{new_session_id, sanitize_properties, AnalyticsConfig};
 
@@ -460,7 +461,9 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn analytics_config_parses_supported_regions() {
+        std::env::set_var("HEADROOM_REMOTE_SERVICES", "1");
         std::env::set_var("HEADROOM_APTABASE_APP_KEY", "A-EU-123");
         let config = AnalyticsConfig::from_env().expect("valid config");
         assert_eq!(
@@ -468,6 +471,7 @@ mod tests {
             "https://eu.aptabase.com/api/v0/events"
         );
         std::env::remove_var("HEADROOM_APTABASE_APP_KEY");
+        std::env::remove_var("HEADROOM_REMOTE_SERVICES");
     }
 
     #[test]
