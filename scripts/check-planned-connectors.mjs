@@ -1,6 +1,7 @@
 import fs from "node:fs";
 
 const frontendPath = "src/lib/plannedConnectors.ts";
+const appPath = "src/App.tsx";
 const backendPath = "src-tauri/src/client_adapters.rs";
 
 function readFile(path) {
@@ -165,6 +166,7 @@ function difference(left, right) {
 }
 
 const frontendSource = readFile(frontendPath);
+const appSource = readFile(appPath);
 const backendSource = readFile(backendPath);
 const frontendConnectors = extractFrontendConnectors(frontendSource);
 const backendConnectors = extractBackendConnectors(backendSource);
@@ -193,6 +195,12 @@ if (frontendIds.length === 0) {
 const metadataErrors = [];
 metadataErrors.push(...validateConfigCreationPlanContract(frontendSource));
 metadataErrors.push(...validateBackendConfigCreationPlanContract(backendSource));
+if (!appSource.includes("configPlan.steps.map((step) =>")) {
+  metadataErrors.push("planned connector UI must render every config creation step");
+}
+if (appSource.includes("configPlan.steps.slice(")) {
+  metadataErrors.push("planned connector UI must not truncate config creation steps");
+}
 for (const id of frontendIds) {
   const frontend = frontendConnectors.get(id);
   const backend = backendConnectors.get(id);

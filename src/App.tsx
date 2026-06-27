@@ -2324,8 +2324,10 @@ function PlannedConnectorRoadmap({
             >
               <span>Config creation</span>
               <div>
-                {configPlan.steps.slice(0, 4).map((step) => (
-                  <strong key={step.id}>{step.label}</strong>
+                {configPlan.steps.map((step) => (
+                  <strong key={step.id} title={step.detail}>
+                    {step.label}
+                  </strong>
                 ))}
               </div>
             </div>
