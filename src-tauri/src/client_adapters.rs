@@ -3363,7 +3363,7 @@ fn codex_user_state_exists() -> bool {
 /// install locations first, then a PATH lookup. Used as the Headroom Learn
 /// analysis backend (`codex exec`) for Codex sessions.
 fn detect_gemini_cli_client() -> ClientStatus {
-    detect_planned_client(
+    let mut status = detect_planned_client(
         "gemini_cli",
         "Gemini CLI",
         &["gemini"],
@@ -3372,7 +3372,18 @@ fn detect_gemini_cli_client() -> ClientStatus {
             home_dir().join(".config").join("gemini"),
         ],
         "Detected, but the Headroom adapter is not implemented yet. For now use RTK-only mode for shell-output savings.",
-    )
+    );
+    append_gemini_manual_routing_note(&mut status);
+    status
+}
+
+fn append_gemini_manual_routing_note(status: &mut ClientStatus) {
+    if status.installed {
+        status.notes.push(
+            "Gemini provider routing remains manual until Doctor can verify a stable config surface, backup, restore, and Off mode cleanup."
+                .into(),
+        );
+    }
 }
 
 fn detect_opencode_client() -> ClientStatus {
@@ -3830,6 +3841,27 @@ mod tests {
                     .detection_evidence
                     .contains(&"Detected data at ~/.aider.conf.yml.".to_string())
         }));
+    }
+
+    #[test]
+    fn gemini_detection_keeps_provider_routing_manual_until_safety_gates_exist() {
+        let mut status = ClientStatus {
+            id: "gemini_cli".into(),
+            name: "Gemini CLI".into(),
+            installed: true,
+            configured: false,
+            health: ClientHealth::Attention,
+            notes: vec!["Detected at /opt/homebrew/bin/gemini".into()],
+        };
+
+        super::append_gemini_manual_routing_note(&mut status);
+
+        let notes = status.notes.join(" ");
+        assert!(notes.contains("provider routing remains manual"));
+        assert!(notes.contains("stable config surface"));
+        assert!(notes.contains("backup"));
+        assert!(notes.contains("restore"));
+        assert!(notes.contains("Off mode cleanup"));
     }
 
     #[test]
