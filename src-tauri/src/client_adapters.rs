@@ -3751,13 +3751,42 @@ fn detect_continue_client() -> ClientStatus {
 }
 
 fn detect_goose_client() -> ClientStatus {
-    detect_planned_client(
-        "goose",
+    let executable = common_cli_candidate_paths(&["goose"])
+        .into_iter()
+        .find(|path| path.exists())
+        .or_else(|| find_on_path(&["goose"]));
+    let config_candidates = [home_dir().join(".config").join("goose")];
+    let report = planned_cli_compatibility_report(
         "Goose",
-        &["goose"],
-        &[home_dir().join(".config").join("goose")],
-        "Detected, but Headroom adapter not implemented yet. use RTK-only mode until provider routing is reversible.",
-    )
+        executable.clone(),
+        &config_candidates,
+        "Provider routing blocked until MCP handoff shape, backup, verify, rollback, and Off mode cleanup exist.",
+    );
+    let installed = executable.is_some() || !report.config_surfaces.is_empty();
+    let mut notes = if installed {
+        planned_cli_compatibility_evidence(&report)
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter not implemented yet. use RTK-only mode until provider routing is reversible."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "goose".into(),
+        name: "Goose".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_qwen_code_client() -> ClientStatus {
@@ -4164,6 +4193,19 @@ mod tests {
                     "Settings routing blocked until multi-provider parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
                 ],
             },
+            ClientStatus {
+                id: "goose".into(),
+                name: "Goose".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Goose binary: /opt/homebrew/bin/goose".into(),
+                    "Goose version: goose 1.2.0".into(),
+                    "Goose config surface: /Users/test/.config/goose".into(),
+                    "Provider routing blocked until MCP handoff shape, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
         ];
 
         let connectors = list_client_connectors(&detected_clients).expect("list connectors");
@@ -4267,6 +4309,17 @@ mod tests {
                         .to_string()
                 )
         }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "goose"
+                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Goose binary: /opt/homebrew/bin/goose".to_string())
+                && connector
+                    .detection_evidence
+                    .contains(&"Goose version: goose 1.2.0".to_string())
+        }));
     }
 
     #[test]
@@ -4356,6 +4409,29 @@ mod tests {
         assert!(evidence.contains("Aider version: aider 0.84.0"));
         assert!(evidence.contains("Aider config surface: /Users/test/.aider.conf.yml"));
         assert!(evidence.contains("reversible environment wrapper"));
+        assert!(evidence.contains("backup"));
+        assert!(evidence.contains("verify"));
+        assert!(evidence.contains("rollback"));
+        assert!(evidence.contains("Off mode cleanup"));
+    }
+
+    #[test]
+    fn goose_compatibility_evidence_reports_mcp_handoff_blocker() {
+        let report = super::PlannedCliCompatibilityReport {
+            label: "Goose",
+            binary_path: Some(PathBuf::from("/opt/homebrew/bin/goose")),
+            version: Some("goose 1.2.0".to_string()),
+            config_surfaces: vec![PathBuf::from("/Users/test/.config/goose")],
+            routing_blocker:
+                "Provider routing blocked until MCP handoff shape, backup, verify, rollback, and Off mode cleanup exist.",
+        };
+
+        let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
+
+        assert!(evidence.contains("Goose binary: /opt/homebrew/bin/goose"));
+        assert!(evidence.contains("Goose version: goose 1.2.0"));
+        assert!(evidence.contains("Goose config surface: /Users/test/.config/goose"));
+        assert!(evidence.contains("MCP handoff shape"));
         assert!(evidence.contains("backup"));
         assert!(evidence.contains("verify"));
         assert!(evidence.contains("rollback"));

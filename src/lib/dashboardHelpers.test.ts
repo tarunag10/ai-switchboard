@@ -580,16 +580,46 @@ describe("dashboard helpers", () => {
     });
   });
 
+  it("formats Goose compatibility evidence for planned connector UI", () => {
+    const report = connectorCompatibilityReport({
+      clientId: "goose",
+      name: "Goose",
+      supportStatus: "planned",
+      setupPhase: "adapt",
+      detectionEvidence: [
+        "Goose binary: /opt/homebrew/bin/goose",
+        "Goose version: goose 1.2.0",
+        "Goose config surface: /Users/test/.config/goose",
+        "Provider routing blocked until MCP handoff shape, backup, verify, rollback, and Off mode cleanup exist.",
+        "Detected, but Headroom adapter not implemented yet.",
+      ],
+      installed: true,
+      enabled: false,
+      verified: false,
+    });
+
+    expect(report).toEqual({
+      title: "Goose compatibility report",
+      primaryPathLabel: "Binary",
+      binaryPath: "/opt/homebrew/bin/goose",
+      version: "goose 1.2.0",
+      configSurface: "/Users/test/.config/goose",
+      routingBlocker:
+        "Provider routing blocked until MCP handoff shape, backup, verify, rollback, and Off mode cleanup exist.",
+      otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
+    });
+  });
+
   it("omits compatibility report for connectors without structured evidence", () => {
     expect(
       connectorCompatibilityReport({
-        clientId: "goose",
-        name: "Goose",
+        clientId: "qwen_code",
+        name: "Qwen Code",
         supportStatus: "planned",
         installed: true,
         enabled: false,
         verified: false,
-        detectionEvidence: ["Detected data at /Users/test/.config/goose."],
+        detectionEvidence: ["Detected data at /Users/test/.qwen."],
       }),
     ).toBeNull();
   });

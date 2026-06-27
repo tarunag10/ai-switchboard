@@ -573,6 +573,13 @@ const compatibilityReports: Partial<
     versionPrefix: "Gemini version:",
     configPrefix: "Gemini config surface:"
   },
+  goose: {
+    label: "Goose",
+    primaryPathLabel: "Binary",
+    pathPrefix: "Goose binary:",
+    versionPrefix: "Goose version:",
+    configPrefix: "Goose config surface:"
+  },
   grok_cli: {
     label: "Grok / xAI",
     primaryPathLabel: "Binary",
