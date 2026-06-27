@@ -3359,20 +3359,112 @@ fn codex_user_state_exists() -> bool {
         || codex_root.join("sessions").exists()
 }
 
-/// Locate the Codex CLI binary the same way [`detect_codex_client`] does: known
-/// install locations first, then a PATH lookup. Used as the Headroom Learn
-/// analysis backend (`codex exec`) for Codex sessions.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GeminiCompatibilityReport {
+    binary_path: Option<PathBuf>,
+    version: Option<String>,
+    config_surfaces: Vec<PathBuf>,
+    routing_blocker: &'static str,
+}
+
+fn read_cli_version(path: &Path) -> Option<String> {
+    let output = Command::new(path).arg("--version").output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let version = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if version.is_empty() {
+        None
+    } else {
+        Some(version)
+    }
+}
+
+fn gemini_compatibility_report(binary_path: Option<PathBuf>) -> GeminiCompatibilityReport {
+    let config_candidates = [
+        home_dir().join(".gemini"),
+        home_dir().join(".config").join("gemini"),
+    ];
+    let config_surfaces = config_candidates
+        .iter()
+        .filter(|path| path.exists())
+        .cloned()
+        .collect::<Vec<_>>();
+    let version = binary_path.as_deref().and_then(read_cli_version);
+
+    GeminiCompatibilityReport {
+        binary_path,
+        version,
+        config_surfaces,
+        routing_blocker:
+            "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.",
+    }
+}
+
+fn gemini_compatibility_evidence(report: &GeminiCompatibilityReport) -> Vec<String> {
+    let mut evidence = Vec::new();
+    if let Some(path) = &report.binary_path {
+        evidence.push(format!("Gemini binary: {}", path.display()));
+    }
+    evidence.push(match &report.version {
+        Some(version) => format!("Gemini version: {version}"),
+        None => "Gemini version: unavailable from --version.".to_string(),
+    });
+    if report.config_surfaces.is_empty() {
+        evidence.push("Gemini config surface: none detected yet.".to_string());
+    } else {
+        evidence.push(format!(
+            "Gemini config surface: {}",
+            report
+                .config_surfaces
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    evidence.push(report.routing_blocker.to_string());
+    evidence
+}
+
+/// Detect Gemini CLI without mutating config. The compatibility report is
+/// surfaced as planned-connector evidence while routing remains manual.
 fn detect_gemini_cli_client() -> ClientStatus {
-    let mut status = detect_planned_client(
-        "gemini_cli",
-        "Gemini CLI",
-        &["gemini"],
-        &[
-            home_dir().join(".gemini"),
-            home_dir().join(".config").join("gemini"),
-        ],
-        "Detected, but the Headroom adapter is not implemented yet. For now use RTK-only mode for shell-output savings.",
-    );
+    let executable = common_cli_candidate_paths(&["gemini"])
+        .into_iter()
+        .find(|path| path.exists())
+        .or_else(|| find_on_path(&["gemini"]));
+    let report = gemini_compatibility_report(executable.clone());
+    let installed = executable.is_some() || !report.config_surfaces.is_empty();
+    let mut notes = if installed {
+        gemini_compatibility_evidence(&report)
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but the Headroom adapter is not implemented yet. For now use RTK-only mode for shell-output savings."
+                .into(),
+        );
+    }
+
+    let mut status = ClientStatus {
+        id: "gemini_cli".into(),
+        name: "Gemini CLI".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    };
     append_gemini_manual_routing_note(&mut status);
     status
 }
@@ -3789,14 +3881,19 @@ mod tests {
     #[test]
     fn planned_connectors_are_detected_but_not_enabled_or_verified() {
         let detected_clients = vec![
-            ClientStatus {
-                id: "gemini_cli".into(),
-                name: "Gemini CLI".into(),
-                installed: true,
-                configured: false,
-                health: ClientHealth::Attention,
-                notes: vec!["Detected at /opt/homebrew/bin/gemini".into()],
-            },
+        ClientStatus {
+            id: "gemini_cli".into(),
+            name: "Gemini CLI".into(),
+            installed: true,
+            configured: false,
+            health: ClientHealth::Attention,
+            notes: vec![
+                "Gemini binary: /opt/homebrew/bin/gemini".into(),
+                "Gemini version: gemini 0.2.1".into(),
+                "Gemini config surface: /Users/test/.gemini".into(),
+                "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.".into(),
+            ],
+        },
             ClientStatus {
                 id: "aider".into(),
                 name: "Aider".into(),
@@ -3831,7 +3928,10 @@ mod tests {
                 && connector.installed
                 && connector
                     .detection_evidence
-                    .contains(&"Detected at /opt/homebrew/bin/gemini".to_string())
+                    .contains(&"Gemini binary: /opt/homebrew/bin/gemini".to_string())
+                && connector
+                    .detection_evidence
+                    .contains(&"Gemini version: gemini 0.2.1".to_string())
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "aider"
@@ -3841,6 +3941,28 @@ mod tests {
                     .detection_evidence
                     .contains(&"Detected data at ~/.aider.conf.yml.".to_string())
         }));
+    }
+
+    #[test]
+    fn gemini_compatibility_evidence_reports_version_config_and_blocked_routing() {
+        let report = super::GeminiCompatibilityReport {
+            binary_path: Some(PathBuf::from("/opt/homebrew/bin/gemini")),
+            version: Some("gemini 0.2.1".to_string()),
+            config_surfaces: vec![PathBuf::from("/Users/test/.gemini")],
+            routing_blocker:
+                "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.",
+        };
+
+        let evidence = super::gemini_compatibility_evidence(&report).join(" ");
+
+        assert!(evidence.contains("Gemini binary: /opt/homebrew/bin/gemini"));
+        assert!(evidence.contains("Gemini version: gemini 0.2.1"));
+        assert!(evidence.contains("Gemini config surface: /Users/test/.gemini"));
+        assert!(evidence.contains("Provider routing blocked"));
+        assert!(evidence.contains("backup"));
+        assert!(evidence.contains("verify"));
+        assert!(evidence.contains("rollback"));
+        assert!(evidence.contains("Off mode cleanup"));
     }
 
     #[test]
