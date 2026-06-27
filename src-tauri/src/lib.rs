@@ -46,9 +46,9 @@ use crate::models::{
     ClaudeCodeProject, ClaudeUsage, ClientConnectorStatus, ClientSetupResult,
     ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
     HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
-    HeadroomSubscriptionTier, RepoContextPackResponse, RepoIntelligenceSummary, RuntimeStatus,
-    RuntimeUpgradeProgress, SavingsMode, SwitchboardMode, SwitchboardState,
-    TransformationFeedResponse,
+    HeadroomSubscriptionTier, RepoContextPackResponse, RepoIntelligenceSummary,
+    RepoSymbolSearchResponse, RuntimeStatus, RuntimeUpgradeProgress, SavingsMode, SwitchboardMode,
+    SwitchboardState, TransformationFeedResponse,
 };
 use crate::state::AppState;
 
@@ -263,6 +263,14 @@ fn get_repo_intelligence_context_pack(
     pack_id: Option<String>,
 ) -> Result<Option<RepoContextPackResponse>, String> {
     repo_intelligence::latest_context_pack(pack_id.as_deref()).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn search_repo_intelligence_symbols(
+    query: Option<String>,
+    limit: Option<usize>,
+) -> Result<Option<RepoSymbolSearchResponse>, String> {
+    repo_intelligence::latest_symbol_search(query.as_deref(), limit).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -4283,6 +4291,7 @@ pub fn run() {
             build_repo_intelligence_summary,
             get_latest_repo_intelligence_summary,
             get_repo_intelligence_context_pack,
+            search_repo_intelligence_symbols,
             clear_repo_intelligence_summary,
             get_app_update_configuration,
             check_for_app_update,

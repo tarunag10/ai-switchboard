@@ -13,6 +13,7 @@ use crate::models::{
     RepoFileIndexEntry, RepoFileRole, RepoFileSignal, RepoGraphEdge, RepoGraphEdgeKind,
     RepoGraphInputEntry, RepoGraphNode, RepoGraphSummary, RepoIndexMetadata,
     RepoIntelligenceSummary, RepoSkippedIndexEntry, RepoSymbol, RepoSymbolKind,
+    RepoSymbolSearchResponse,
 };
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs};
 
@@ -22,6 +23,8 @@ const MAX_PACK_FILES: usize = 40;
 const INDEXER_VERSION: &str = "path-graph-v2";
 const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
 const PARSER_VERSION: &str = "metadata-fingerprint-v1";
+const DEFAULT_SYMBOL_SEARCH_LIMIT: usize = 25;
+const MAX_SYMBOL_SEARCH_LIMIT: usize = 100;
 const IGNORED_DIRS: [&str; 12] = [
     ".git",
     "node_modules",
@@ -227,6 +230,67 @@ pub fn build_context_pack_response(
             modifies_repository: false,
         },
     })
+}
+
+pub fn latest_symbol_search(
+    query: Option<&str>,
+    limit: Option<usize>,
+) -> Result<Option<RepoSymbolSearchResponse>> {
+    let Some(summary) = load_latest_summary()? else {
+        return Ok(None);
+    };
+    Ok(Some(build_symbol_search_response(&summary, query, limit)))
+}
+
+pub fn build_symbol_search_response(
+    summary: &RepoIntelligenceSummary,
+    query: Option<&str>,
+    limit: Option<usize>,
+) -> RepoSymbolSearchResponse {
+    let clamped_limit = limit
+        .unwrap_or(DEFAULT_SYMBOL_SEARCH_LIMIT)
+        .clamp(1, MAX_SYMBOL_SEARCH_LIMIT);
+    let normalized_query = query
+        .map(str::trim)
+        .filter(|candidate| !candidate.is_empty())
+        .map(str::to_string);
+    let query_lower = normalized_query.as_deref().map(str::to_lowercase);
+    let symbols = summary
+        .graph
+        .as_ref()
+        .map(|graph| {
+            graph
+                .symbols
+                .iter()
+                .filter(|symbol| {
+                    query_lower.as_ref().map_or(true, |needle| {
+                        symbol.name.to_lowercase().contains(needle)
+                            || symbol.file.to_lowercase().contains(needle)
+                            || symbol
+                                .parent
+                                .as_deref()
+                                .map(|parent| parent.to_lowercase().contains(needle))
+                                .unwrap_or(false)
+                    })
+                })
+                .take(clamped_limit)
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    RepoSymbolSearchResponse {
+        repo_root: summary.repo_root.clone(),
+        indexed_at: summary.indexed_at.clone(),
+        query: normalized_query,
+        limit: clamped_limit,
+        symbols,
+        safety: RepoContextPackSafety {
+            read_only: true,
+            excludes_secret_like_paths: true,
+            modifies_repository: false,
+        },
+    }
 }
 
 fn latest_summary_path() -> PathBuf {
@@ -1684,5 +1748,70 @@ mod tests {
 
         let error = build_context_pack_response(&summary, Some("missing")).unwrap_err();
         assert!(error.to_string().contains("pack not found"));
+    }
+
+    #[test]
+    fn searches_symbols_case_insensitively_and_bounds_results() {
+        let summary = RepoIntelligenceSummary {
+            indexed_at: "2026-06-27T12:00:00Z".to_string(),
+            repo_root: "/tmp/example".to_string(),
+            indexer_version: Some(INDEXER_VERSION.to_string()),
+            total_files: 2,
+            indexed_files: 2,
+            skipped_files: 0,
+            estimated_full_scan_tokens: 100,
+            role_counts: BTreeMap::new(),
+            index_metadata: None,
+            graph: Some(RepoGraphSummary {
+                top_directories: Vec::new(),
+                top_languages: Vec::new(),
+                entrypoints: Vec::new(),
+                likely_tests: Vec::new(),
+                config_hubs: Vec::new(),
+                dependency_hubs: Vec::new(),
+                import_edges: Vec::new(),
+                reverse_dependency_hubs: Vec::new(),
+                symbols: vec![
+                    RepoSymbol {
+                        name: "App".to_string(),
+                        kind: RepoSymbolKind::Function,
+                        file: "src/App.tsx".to_string(),
+                        line: 1,
+                        parent: None,
+                    },
+                    RepoSymbol {
+                        name: "ApplicationState".to_string(),
+                        kind: RepoSymbolKind::Struct,
+                        file: "src-tauri/src/state.rs".to_string(),
+                        line: 20,
+                        parent: None,
+                    },
+                    RepoSymbol {
+                        name: "render".to_string(),
+                        kind: RepoSymbolKind::Function,
+                        file: "src/main.tsx".to_string(),
+                        line: 3,
+                        parent: Some("App".to_string()),
+                    },
+                ],
+                symbol_edges: Vec::new(),
+            }),
+            packs: Vec::new(),
+        };
+
+        let app = build_symbol_search_response(&summary, Some("app"), Some(1));
+        assert_eq!(app.query.as_deref(), Some("app"));
+        assert_eq!(app.limit, 1);
+        assert_eq!(app.symbols.len(), 1);
+        assert_eq!(app.symbols[0].name, "App");
+        assert!(app.safety.read_only);
+        assert!(!app.safety.modifies_repository);
+
+        let by_parent = build_symbol_search_response(&summary, Some("APP"), Some(10));
+        assert_eq!(by_parent.symbols.len(), 3);
+
+        let clamped = build_symbol_search_response(&summary, None, Some(500));
+        assert_eq!(clamped.limit, MAX_SYMBOL_SEARCH_LIMIT);
+        assert_eq!(clamped.symbols.len(), 3);
     }
 }
