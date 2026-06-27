@@ -5,7 +5,10 @@ import {
   doctorIssueGuidance,
   doctorRepairHint,
   doctorRepairLabel,
+  doctorTimelineKindLabel,
+  formatDoctorTimelineShareText,
   formatDoctorReportShareText,
+  sortDoctorTimelineEvents,
 } from "./doctorRepairCopy";
 
 describe("doctor repair copy", () => {
@@ -129,5 +132,72 @@ describe("doctor repair copy", () => {
     expect(text).toContain("Action: automatic / Install RTK");
     expect(text).toContain("Action: manual / Manual step");
     expect(text).toContain("Use RTK-only mode or Repo Intelligence packs");
+  });
+
+  it("labels and sorts Doctor timeline events newest first", () => {
+    const events = sortDoctorTimelineEvents([
+      {
+        id: "older",
+        kind: "backup",
+        title: "Created Codex backup",
+        body: "Backed up managed config before repair.",
+        occurredAt: "2026-06-27T09:00:00.000Z",
+        status: "ok",
+        actor: "doctor",
+        target: "~/.codex/config.toml",
+      },
+      {
+        id: "newer",
+        kind: "failed_repair",
+        title: "RTK repair failed",
+        body: "RTK binary was unavailable.",
+        occurredAt: "2026-06-27T10:00:00.000Z",
+        status: "error",
+        actor: "doctor",
+        target: "rtk",
+      },
+    ]);
+
+    expect(doctorTimelineKindLabel("failed_repair")).toBe("Failed repair");
+    expect(doctorTimelineKindLabel("index_refresh")).toBe("Index refresh");
+    expect(events.map((event) => event.id)).toEqual(["newer", "older"]);
+  });
+
+  it("formats Doctor timeline events for support sharing", () => {
+    const text = formatDoctorTimelineShareText([
+      {
+        id: "repair-1",
+        kind: "repair",
+        title: "Repaired RTK integration",
+        body: "Restored shell hook wiring.",
+        occurredAt: "2026-06-27T10:00:00.000Z",
+        status: "ok",
+        actor: "doctor",
+        target: "~/.zshrc",
+      },
+      {
+        id: "rollback-1",
+        kind: "rollback",
+        title: "Rolled back Codex routing",
+        body: "Removed managed provider block.",
+        occurredAt: "2026-06-27T10:05:00.000Z",
+        status: "warning",
+        actor: "user",
+        target: "~/.codex/config.toml",
+      },
+    ]);
+
+    expect(text).toContain("Mac AI Switchboard Doctor timeline");
+    expect(text).toContain("Events: 2");
+    expect(text).toContain("1. Rolled back Codex routing");
+    expect(text).toContain("Kind: Rollback");
+    expect(text).toContain("Actor: user");
+    expect(text).toContain("Target: ~/.codex/config.toml");
+  });
+
+  it("formats an empty Doctor timeline", () => {
+    expect(formatDoctorTimelineShareText([])).toContain(
+      "No Doctor timeline events recorded.",
+    );
   });
 });

@@ -1,6 +1,28 @@
 import { codexDoctorHint } from "./codexErrorGuidance";
 import type { DoctorIssue, DoctorReport } from "./types";
 
+export type DoctorTimelineEventKind =
+  | "install"
+  | "enable"
+  | "disable"
+  | "repair"
+  | "backup"
+  | "rollback"
+  | "failed_repair"
+  | "index_refresh"
+  | "connector_setup";
+
+export interface DoctorTimelineEvent {
+  id: string;
+  kind: DoctorTimelineEventKind;
+  title: string;
+  body: string;
+  occurredAt: string;
+  status: "ok" | "warning" | "error";
+  actor: "switchboard" | "doctor" | "user";
+  target?: string | null;
+}
+
 export function doctorRepairLabel(action: string): string {
   switch (action) {
     case "verify_off_mode":
@@ -26,6 +48,58 @@ export function doctorRepairLabel(action: string): string {
     default:
       return "Repair";
   }
+}
+
+export function doctorTimelineKindLabel(kind: DoctorTimelineEventKind): string {
+  switch (kind) {
+    case "failed_repair":
+      return "Failed repair";
+    case "index_refresh":
+      return "Index refresh";
+    case "connector_setup":
+      return "Connector setup";
+    default:
+      return kind.replace(/_/g, " ").replace(/^\w/, (match) =>
+        match.toUpperCase(),
+      );
+  }
+}
+
+export function sortDoctorTimelineEvents(
+  events: DoctorTimelineEvent[],
+): DoctorTimelineEvent[] {
+  return [...events].sort((left, right) => {
+    const timeDelta =
+      Date.parse(right.occurredAt) - Date.parse(left.occurredAt);
+    return timeDelta || left.title.localeCompare(right.title);
+  });
+}
+
+export function formatDoctorTimelineShareText(
+  events: DoctorTimelineEvent[],
+): string {
+  const sorted = sortDoctorTimelineEvents(events);
+  if (sorted.length === 0) {
+    return "Mac AI Switchboard Doctor timeline\nNo Doctor timeline events recorded.";
+  }
+
+  return [
+    "Mac AI Switchboard Doctor timeline",
+    `Events: ${sorted.length}`,
+    "",
+    ...sorted.flatMap((event, index) => [
+      `${index + 1}. ${event.title}`,
+      `Kind: ${doctorTimelineKindLabel(event.kind)}`,
+      `Status: ${event.status}`,
+      `Actor: ${event.actor}`,
+      `When: ${event.occurredAt}`,
+      `Target: ${event.target ?? "not recorded"}`,
+      `Body: ${event.body}`,
+      "",
+    ]),
+  ]
+    .join("\n")
+    .trimEnd();
 }
 
 export function doctorRepairHint(action: string): string {
