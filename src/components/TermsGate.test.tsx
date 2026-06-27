@@ -13,7 +13,6 @@ function renderGate(overrides: Partial<React.ComponentProps<typeof TermsGate>> =
   const onAccepted = overrides.onAccepted ?? vi.fn();
   const props: React.ComponentProps<typeof TermsGate> = {
     requiredVersion: 3,
-    termsUrl: "https://headroom.ai/terms",
     onAccepted,
     ...overrides
   };
@@ -53,12 +52,16 @@ describe("TermsGate", () => {
     expect(onAccepted).toHaveBeenCalledTimes(1);
   });
 
-  it("opens the Terms URL in the browser via open_external_link", async () => {
-    renderGate({ termsUrl: "https://headroom.ai/legal/terms" });
-    await userEvent.click(screen.getByRole("button", { name: "Read the full Terms" }));
-    expect(invokeMock).toHaveBeenCalledWith("open_external_link", {
-      url: "https://headroom.ai/legal/terms"
-    });
+  it("renders bundled Mac AI Switchboard terms without opening an external URL", () => {
+    renderGate();
+    expect(
+      screen.getByRole("heading", { name: "Mac AI Switchboard Terms of Use" })
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Terms of Use summary")).toBeInTheDocument();
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "open_external_link",
+      expect.anything()
+    );
   });
 
   it("shows a saving state and blocks repeat clicks while persistence is in flight", async () => {

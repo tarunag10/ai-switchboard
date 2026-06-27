@@ -1,6 +1,6 @@
 import type { MouseEvent, ReactNode } from "react";
 
-import headroomLogo from "../assets/headroom-logo.svg";
+import macAiSwitchboardLogo from "../assets/mac-ai-switchboard-logo.png";
 
 export interface LauncherShellProps {
   shellClassName: string;
@@ -27,13 +27,13 @@ export function LauncherShell({
     <main className="app-shell app-shell--launcher">
       <section className={shellClassName} onMouseDown={onMouseDown}>
         <div className="hero__badge hero__badge--launcher">
-          <img src={headroomLogo} alt="" aria-hidden="true" />
+          <img src={macAiSwitchboardLogo} alt="" aria-hidden="true" />
           <span>v{version}</span>
         </div>
         {showSpinner && (
           <img
             className={spinnerClassName}
-            src={headroomLogo}
+            src={macAiSwitchboardLogo}
             alt=""
             aria-hidden="true"
           />

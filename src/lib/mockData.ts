@@ -44,7 +44,7 @@ export const mockDashboard: DashboardState = {
   insights: [],
   // Mock represents an already-accepted user so the terms gate never flashes
   // over the initial mock state before the real dashboard loads.
-  requiredTermsVersion: 1,
-  acceptedTermsVersion: 1,
-  termsUrl: "https://extraheadroom.com/terms"
+  requiredTermsVersion: 2,
+  acceptedTermsVersion: 2,
+  termsUrl: ""
 };

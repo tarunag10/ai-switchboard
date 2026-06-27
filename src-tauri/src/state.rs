@@ -40,13 +40,13 @@ use crate::tool_manager::{
 pub const MAX_UPGRADE_AUTO_RETRIES: u32 = 2;
 
 /// Current Terms-of-Service version the user must have accepted to use the app.
-/// BUMP THIS whenever the terms on extraheadroom.com/terms change: a release
+/// BUMP THIS whenever the bundled Mac AI Switchboard Terms of Use change: a release
 /// shipping a higher value forces every user to re-accept on first launch,
 /// because their locally-stored `accepted_terms_version` will be lower.
-pub const REQUIRED_TERMS_VERSION: u32 = 1;
+pub const REQUIRED_TERMS_VERSION: u32 = 2;
 
-/// Canonical Terms-of-Service URL opened from the acceptance gate.
-pub const TERMS_URL: &str = "https://extraheadroom.com/terms";
+/// Deprecated dashboard field retained for older frontends; Terms are bundled in-app.
+pub const TERMS_URL: &str = "";
 
 /// Absolute maximum time we'll wait for the new proxy to come up during
 /// boot validation, regardless of observed activity. Bounded so an

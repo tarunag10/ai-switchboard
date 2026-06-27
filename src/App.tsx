@@ -42,7 +42,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import headroomLogo from "./assets/headroom-logo.svg";
+import macAiSwitchboardLogo from "./assets/mac-ai-switchboard-logo.png";
 import packageJson from "../package.json";
 import {
   formatAppUpdateProgressCopy,
@@ -4335,7 +4335,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
   }
 
   // Block every window (launcher and main) until the user accepts the current
-  // Terms of Service. New installs hit this in the launcher; updating users —
+  // Terms of Use. New installs hit this in the launcher; updating users —
   // who may never see the launcher — hit it in the main window. Bumping the
   // backend's REQUIRED_TERMS_VERSION re-triggers it on the next launch.
   if (
@@ -4347,7 +4347,6 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     return (
       <TermsGate
         requiredVersion={dashboard.requiredTermsVersion}
-        termsUrl={dashboard.termsUrl}
         onAccepted={() =>
           setDashboard((prev) => ({
             ...prev,
@@ -5494,11 +5493,8 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
             </button>
           </div>
           <p className="pricing-auth-card__legal">
-            {"By signing in, you agree to our "}
-            <button className="link-button" onClick={() => void invoke("open_external_link", { url: "https://extraheadroom.com/terms" })} type="button">Terms of Service</button>
-            {" and "}
-            <button className="link-button" onClick={() => void invoke("open_external_link", { url: "https://extraheadroom.com/privacy" })} type="button">Privacy Policy</button>
-            {"."}
+            By signing in, you agree to the Mac AI Switchboard Terms of Use
+            shown at launch.
           </p>
         </>
       ) : (
@@ -5574,7 +5570,7 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
       {upgradeOverlay}
       <aside className="tray-sidebar">
         <div className="tray-sidebar__logo">
-          <img src={headroomLogo} alt="Headroom" />
+          <img src={macAiSwitchboardLogo} alt="Mac AI Switchboard" />
         </div>
         <nav className="tray-nav" aria-label="Tray navigation">
           {navItems.map((item) => (
