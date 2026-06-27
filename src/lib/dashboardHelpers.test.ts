@@ -610,16 +610,46 @@ describe("dashboard helpers", () => {
     });
   });
 
+  it("formats Qwen Code compatibility evidence for planned connector UI", () => {
+    const report = connectorCompatibilityReport({
+      clientId: "qwen_code",
+      name: "Qwen Code",
+      supportStatus: "planned",
+      setupPhase: "guide",
+      detectionEvidence: [
+        "Qwen Code binary: /opt/homebrew/bin/qwen-code",
+        "Qwen Code version: qwen-code 0.9.0",
+        "Qwen Code config surface: /Users/test/.qwen",
+        "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+        "Detected, but Headroom adapter is not implemented yet.",
+      ],
+      installed: true,
+      enabled: false,
+      verified: false,
+    });
+
+    expect(report).toEqual({
+      title: "Qwen Code compatibility report",
+      primaryPathLabel: "Binary",
+      binaryPath: "/opt/homebrew/bin/qwen-code",
+      version: "qwen-code 0.9.0",
+      configSurface: "/Users/test/.qwen",
+      routingBlocker:
+        "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+      otherEvidence: ["Detected, but Headroom adapter is not implemented yet."],
+    });
+  });
+
   it("omits compatibility report for connectors without structured evidence", () => {
     expect(
       connectorCompatibilityReport({
-        clientId: "qwen_code",
-        name: "Qwen Code",
+        clientId: "amazon_q",
+        name: "Amazon Q Developer CLI",
         supportStatus: "planned",
         installed: true,
         enabled: false,
         verified: false,
-        detectionEvidence: ["Detected data at /Users/test/.qwen."],
+        detectionEvidence: ["Detected data at /Users/test/.aws/amazonq."],
       }),
     ).toBeNull();
   });

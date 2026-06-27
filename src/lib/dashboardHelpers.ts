@@ -593,6 +593,13 @@ const compatibilityReports: Partial<
     pathPrefix: "OpenCode binary:",
     versionPrefix: "OpenCode version:",
     configPrefix: "OpenCode config surface:"
+  },
+  qwen_code: {
+    label: "Qwen Code",
+    primaryPathLabel: "Binary",
+    pathPrefix: "Qwen Code binary:",
+    versionPrefix: "Qwen Code version:",
+    configPrefix: "Qwen Code config surface:"
   }
 };
 
