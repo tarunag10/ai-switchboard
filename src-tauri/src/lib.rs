@@ -1996,7 +1996,7 @@ fn push_off_mode_doctor_issue(
             violations.join(", ")
         ),
         severity: crate::models::DoctorSeverity::Warning,
-        repair_action: None,
+        repair_action: Some("verify_off_mode".to_string()),
     });
 }
 
@@ -2480,7 +2480,7 @@ mod doctor_tests {
             issues[0].severity,
             crate::models::DoctorSeverity::Warning
         ));
-        assert!(issues[0].repair_action.is_none());
+        assert_eq!(issues[0].repair_action.as_deref(), Some("verify_off_mode"));
     }
 }
 
@@ -2566,6 +2566,7 @@ async fn run_doctor_repair(
     action: String,
 ) -> Result<crate::models::DoctorReport, String> {
     match action.as_str() {
+        "verify_off_mode" => Ok(build_doctor_report(&state)),
         "reset_codex_bypass" => {
             state
                 .codex_bypass

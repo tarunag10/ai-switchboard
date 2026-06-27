@@ -17,6 +17,7 @@ describe("doctor repair copy", () => {
     ["repair_rtk_integrations", "Repair RTK"],
     ["repair_rtk_runtime", "Install RTK"],
     ["clear_repo_intelligence_index", "Clear index"],
+    ["verify_off_mode", "Verify Off"],
     ["unknown", "Repair"],
   ])("labels %s", (action, label) => {
     expect(doctorRepairLabel(action)).toBe(label);
@@ -44,14 +45,30 @@ describe("doctor repair copy", () => {
     expect(doctorRepairHint("clear_repo_intelligence_index")).toContain(
       "saved Repo Intelligence summary",
     );
+    expect(doctorRepairHint("verify_off_mode")).toContain(
+      "without changing local routing",
+    );
   });
 
   it("detects repairable issues by action presence", () => {
     expect(canRepairIssue("repair_runtime")).toBe(true);
     expect(canRepairIssue("clear_repo_intelligence_index")).toBe(true);
+    expect(canRepairIssue("verify_off_mode")).toBe(true);
     expect(canRepairIssue("")).toBe(false);
     expect(canRepairIssue(null)).toBe(false);
     expect(canRepairIssue(undefined)).toBe(false);
+  });
+
+  it("guides Off mode verification without promising repair", () => {
+    expect(
+      doctorIssueGuidance({
+        id: "off_mode_not_clean",
+        title: "Off mode still has active routing evidence",
+        body: "Off mode requested, but Headroom engine is still reachable.",
+        severity: "warning",
+        repairAction: "verify_off_mode",
+      }),
+    ).toContain("Doctor will re-check active engine");
   });
 
   it("guides manual degraded mode issues without repair action", () => {

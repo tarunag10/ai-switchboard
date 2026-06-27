@@ -3,6 +3,8 @@ import type { DoctorIssue, DoctorReport } from "./types";
 
 export function doctorRepairLabel(action: string): string {
   switch (action) {
+    case "verify_off_mode":
+      return "Verify Off";
     case "repair_runtime":
       return "Restart Headroom";
     case "reset_codex_bypass":
@@ -29,6 +31,8 @@ export function doctorRepairHint(action: string): string {
   }
 
   switch (action) {
+    case "verify_off_mode":
+      return "Doctor will re-check active engine, client, and RTK evidence without changing local routing.";
     case "repair_runtime":
       return "Restarts the local Headroom engine and refreshes switchboard status.";
     case "repair_client_setups":
@@ -86,6 +90,8 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
       return "Clear the stale saved Repo Intelligence index, then open Addons and re-index the repo before copying packs into another agent.";
     case "headroom_paused":
       return "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.";
+    case "off_mode_not_clean":
+      return "Run Verify Off after disabling routing or restarting affected shells; Doctor will re-check active engine, client, and RTK evidence.";
     default:
       return doctorIssueActionHint(issue.repairAction);
   }

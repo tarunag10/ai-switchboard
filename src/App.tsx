@@ -3565,13 +3565,15 @@ setDoctorRepairBusy(action);
 setDoctorRepairError(null);
 setDoctorRepairSuccess(null);
 try {
-const report = await invoke<DoctorReport>("run_doctor_repair", { action });
-setDoctorReport(report);
-setDoctorRepairSuccess(
-report.status === "ok" && report.issues.length === 0
-? "Repair complete. Switchboard looks ready."
-: "Repair finished. Review the remaining Doctor items."
-);
+      const report = await invoke<DoctorReport>("run_doctor_repair", { action });
+      setDoctorReport(report);
+      setDoctorRepairSuccess(
+        action === "verify_off_mode"
+          ? "Off mode verification refreshed."
+          : report.status === "ok" && report.issues.length === 0
+          ? "Repair complete. Switchboard looks ready."
+          : "Repair finished. Review the remaining Doctor items."
+      );
 await refreshSwitchboardState();
 } catch (error) {
 setDoctorRepairError(error instanceof Error ? error.message : "Could not run repair.");
