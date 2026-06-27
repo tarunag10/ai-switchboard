@@ -208,6 +208,15 @@ Deliverables:
 - Add dry-run diff, backup, apply, verify, rollback, and Off cleanup only after config surface is proven.
 - Keep provider routing manual if model/account compatibility cannot be verified locally.
 
+Connector config track:
+
+- Gemini CLI is the first full pattern: detect, report compatibility, then add safe config creation only after the provider surface is proven.
+- OpenCode follows the same path for provider config: detect `opencode`, find the active config path, preview the local proxy entry, back up, apply, verify, rollback, and clean up in Off mode.
+- Grok / xAI CLI follows the same path after `grok` or `xai` detection, with model/account guardrails before any base-url or provider config is offered.
+- Cursor follows a profile-aware editor path: detect the app/profile settings, show a dry-run settings diff, back up profile settings, apply only user-approved routing, verify, rollback, and clean up in Off mode.
+- Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI get matching config-creation plans in their connector dossiers before any adapter is promoted from planned to supported.
+- No connector may create or modify config until its manifest has config paths, account caveats, rollback strategy, Doctor verification, and fixture-home restore tests.
+
 Implementation areas:
 
 - `src/lib/plannedConnectors.ts`
@@ -221,6 +230,7 @@ Acceptance gates:
 - Detection never mutates config.
 - Automation is disabled until all safety gates pass.
 - Doctor explains each blocked automation gate.
+- OpenCode, Grok/xAI, Cursor, and every other planned connector have an explicit config-creation dossier before implementation starts.
 - `npm run check:connectors` verifies the manifest contract.
 
 Suggested commit:

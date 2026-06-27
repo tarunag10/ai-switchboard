@@ -97,6 +97,7 @@ import {
   releaseReadinessRowsFromReport,
   releaseReadinessStatusCounts,
   releaseShareableGates,
+  type ReleaseReadinessReportSnapshot,
 } from "./lib/releaseReadiness";
 import {
   describeInvokeError,
@@ -2376,6 +2377,11 @@ interface ProxyVerificationRow {
   message: string;
 }
 
+interface ReleaseReadinessReportPayload {
+  reportPath: string;
+  report: ReleaseReadinessReportSnapshot | null;
+}
+
 export default function App() {
   const [dashboard, setDashboard] = useState<DashboardState>(mockDashboard);
   const [addonBusyId, setAddonBusyId] = useState<string | null>(null);
@@ -2422,7 +2428,11 @@ export default function App() {
   const [releaseReadinessCopyNotice, setReleaseReadinessCopyNotice] = useState<
     string | null
   >(null);
-  const releaseReadinessRows = releaseReadinessRowsFromReport(null);
+  const [releaseReadinessReport, setReleaseReadinessReport] =
+    useState<ReleaseReadinessReportPayload | null>(null);
+  const releaseReadinessRows = releaseReadinessRowsFromReport(
+    releaseReadinessReport?.report,
+  );
   const releaseReadinessCounts =
     releaseReadinessStatusCounts(releaseReadinessRows);
   const [connectorsBusy, setConnectorsBusy] = useState(false);
@@ -2704,6 +2714,12 @@ export default function App() {
   useEffect(() => {
     const timer = window.setTimeout(() => setHistoryLoadTimedOut(true), 20000);
     return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    void invoke<ReleaseReadinessReportPayload>("load_release_readiness_report")
+      .then(setReleaseReadinessReport)
+      .catch(() => setReleaseReadinessReport(null));
   }, []);
 
   useEffect(() => {
@@ -8802,6 +8818,11 @@ export default function App() {
                 <Terminal size={15} weight="duotone" />
                 <code>{releaseReadinessCommand}</code>
               </div>
+              <p className="release-readiness-card__source">
+                {releaseReadinessReport?.report
+                  ? `Loaded report: ${releaseReadinessReport.reportPath}`
+                  : "Using checklist defaults until dist/release-readiness-report.json exists."}
+              </p>
               <div
                 className="release-readiness-card__summary"
                 aria-label="Release readiness status summary"

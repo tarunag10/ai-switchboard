@@ -177,6 +177,13 @@ struct AvailableAppUpdate {
     notes: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct ReleaseReadinessReportPayload {
+    report_path: String,
+    report: Option<Value>,
+}
+
 static ZERO_SPEND_ALERT_FIRED: AtomicBool = AtomicBool::new(false);
 
 // Set when the watchdog has captured a Sentry event for the current "down
@@ -351,6 +358,37 @@ fn get_app_update_configuration(app: AppHandle) -> AppUpdateConfiguration {
             }
         }
     }
+}
+
+fn load_release_readiness_report_from(
+    path: &Path,
+) -> Result<ReleaseReadinessReportPayload, String> {
+    let report_path = path.to_string_lossy().into_owned();
+    match std::fs::read_to_string(path) {
+        Ok(raw) => {
+            let report = serde_json::from_str(&raw)
+                .map_err(|err| format!("release readiness report is invalid JSON: {err}"))?;
+            Ok(ReleaseReadinessReportPayload {
+                report_path,
+                report: Some(report),
+            })
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            Ok(ReleaseReadinessReportPayload {
+                report_path,
+                report: None,
+            })
+        }
+        Err(err) => Err(format!("failed to read release readiness report: {err}")),
+    }
+}
+
+#[tauri::command]
+fn load_release_readiness_report() -> Result<ReleaseReadinessReportPayload, String> {
+    let path = std::env::current_dir()
+        .map_err(|err| err.to_string())?
+        .join("dist/release-readiness-report.json");
+    load_release_readiness_report_from(&path)
 }
 
 #[tauri::command]
@@ -4310,6 +4348,7 @@ pub fn run() {
             get_repo_intelligence_manifest,
             clear_repo_intelligence_summary,
             get_app_update_configuration,
+            load_release_readiness_report,
             check_for_app_update,
             install_app_update,
             restart_app,
@@ -6221,8 +6260,9 @@ mod tests {
         empty_live_learnings_for_projects, extract_llm_failure_warnings,
         fetch_transformations_feed_from, install_pending_update, is_disk_full_signal,
         is_endpoint_protection_signal, is_network_download_signal, is_port_conflict_failure,
-        is_prerelease_version, lifetime_token_milestone_kind, noop_app_update_progress_emitter,
-        parse_live_learnings, parse_request_count_from_stats_body, parse_request_counts_by_agent,
+        is_prerelease_version, lifetime_token_milestone_kind, load_release_readiness_report_from,
+        noop_app_update_progress_emitter, parse_live_learnings,
+        parse_request_count_from_stats_body, parse_request_counts_by_agent,
         parse_updater_endpoint_list, pattern_matches_project, physical_rect_from_rect,
         read_applied_patterns_for_project, readyz_failed_checks_csv,
         readyz_failure_has_core_unhealthy, readyz_failure_is_upstream_only,
@@ -6233,7 +6273,7 @@ mod tests {
         MonitorBounds, PhysicalRect, QuitSource, TrayRuntimeVisual,
     };
     use parking_lot::Mutex;
-    use serde_json::json;
+    use serde_json::{json, Value};
     use std::sync::Arc;
     use tauri::{LogicalPosition, LogicalSize, PhysicalSize, Position, Rect, Size};
 
@@ -8001,5 +8041,42 @@ Some unrelated content.
             hint.contains("endpoint protection"),
             "expected EDR hint, got: {hint}"
         );
+    }
+
+    #[test]
+    fn load_release_readiness_report_reads_json_when_present() {
+        let path = std::env::temp_dir().join(format!(
+            "mac-ai-switchboard-release-readiness-{}.json",
+            std::process::id()
+        ));
+        std::fs::write(&path, r#"{"status":"blocked"}"#).unwrap();
+
+        let payload = load_release_readiness_report_from(&path).unwrap();
+
+        assert_eq!(payload.report_path, path.to_string_lossy());
+        assert_eq!(
+            payload
+                .report
+                .unwrap()
+                .get("status")
+                .and_then(Value::as_str),
+            Some("blocked")
+        );
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn load_release_readiness_report_tolerates_missing_file() {
+        let path = std::env::temp_dir().join(format!(
+            "mac-ai-switchboard-missing-release-readiness-{}.json",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+
+        let payload = load_release_readiness_report_from(&path).unwrap();
+
+        assert_eq!(payload.report_path, path.to_string_lossy());
+        assert!(payload.report.is_none());
     }
 }

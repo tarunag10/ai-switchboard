@@ -5145,6 +5145,13 @@ details[open] .optimize-minimal__details summary::after {
   font-weight: 800;
 }
 
+.release-readiness-card__source {
+  margin: -2px 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+}
+
 .release-readiness-card__summary {
   display: flex;
   flex-wrap: wrap;
