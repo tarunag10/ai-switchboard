@@ -299,6 +299,7 @@ export function formatSavingsCalculatorShareText(
     `Reduction: ${formatPercent(summary.savingsPct)}`,
     `Likely at least: ${formatUsd(summary.conservativeSavedUsd)}`,
     `Equation: before ${formatTokens(summary.beforeTokens)} - sent ${formatTokens(summary.sentTokens)} = saved ${formatTokens(summary.savedTokens)}`,
+    "Confidence: measured = observed local counters; estimated = saved history or cost estimate; inferred = modelled template or context-pack delta.",
     "Sources:",
     ...(sourceLines.length > 0 ? sourceLines : ["- Waiting for usage"]),
   ].join("\n");

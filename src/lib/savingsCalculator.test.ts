@@ -322,6 +322,9 @@ describe("savings calculator", () => {
 
     expect(text).toContain("Mac AI Switchboard savings (current app session)");
     expect(text).toContain("Saved: 300 tokens / $0.75");
+    expect(text).toContain(
+      "Confidence: measured = observed local counters; estimated = saved history or cost estimate; inferred = modelled template or context-pack delta.",
+    );
     expect(text).toContain("- Headroom (measured): 300 tokens / $0.75");
   });
 
@@ -374,6 +377,7 @@ describe("savings calculator", () => {
 
     expect(text).toContain("Mac AI Switchboard savings (overall history)");
     expect(text).toContain("Saved: 2,000 tokens / $4.50");
+    expect(text).toContain("Confidence: measured = observed local counters");
     expect(text).toContain("- Headroom (estimated): 2,000 tokens / $4.50");
     expect(text).toContain("- RTK (measured): 900 tokens");
     expect(text).toContain("- Repo Intelligence (inferred): 7,500 tokens");
