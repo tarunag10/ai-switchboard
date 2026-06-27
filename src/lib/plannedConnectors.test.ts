@@ -5,8 +5,11 @@ import {
   getPlannedConnectorReadinessBadges,
   getPlannedConnectorReadinessContract,
   getPlannedConnectorReadinessContracts,
+  getPlannedConnectorSafetyDossier,
+  getPlannedConnectorSafetyDossiers,
   getPlannedConnectorSetupChecklistScript,
   getPlannedConnectorSetupGuide,
+  formatPlannedConnectorSafetyDossierMarkdown,
   plannedConnectorReadinessStageOrder,
   plannedConnectors,
   summarizePlannedConnectorSupport,
@@ -238,5 +241,35 @@ describe("planned connectors", () => {
         (badge) => badge.label,
       ),
     ).toContain("Unsupported account/model");
+  });
+
+  it("documents config, provider, account, and rollback strategy per connector", () => {
+    const dossiers = getPlannedConnectorSafetyDossiers();
+
+    expect(dossiers.map((dossier) => dossier.connectorId)).toEqual(
+      plannedConnectors.map((connector) => connector.id),
+    );
+    for (const connector of plannedConnectors) {
+      const dossier = getPlannedConnectorSafetyDossier(connector.id);
+
+      expect(dossier).toBeTruthy();
+      expect(dossier?.configPathStrategy).toMatch(
+        /detect|PATH|config|settings|profile|app/i,
+      );
+      expect(dossier?.providerSemantics).toMatch(
+        /provider|base-url|routing|handoff|proxy/i,
+      );
+      expect(dossier?.accountCaveat).toMatch(
+        /account|credential|credentials|profile|secrets?|model|AWS|SSO/i,
+      );
+      expect(dossier?.rollbackStrategy).toMatch(
+        /restore|remove|rollback|backup|unchanged|preserving/i,
+      );
+
+      const markdown = formatPlannedConnectorSafetyDossierMarkdown(connector);
+      expect(markdown).toContain(`## ${connector.name}`);
+      expect(markdown).toContain("Provider/base-url semantics");
+      expect(markdown).toContain("Rollback strategy");
+    }
   });
 });

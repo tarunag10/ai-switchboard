@@ -75,6 +75,14 @@ export interface PlannedConnectorReadinessBadge {
   detail: string;
 }
 
+export interface PlannedConnectorSafetyDossier {
+  connectorId: string;
+  configPathStrategy: string;
+  providerSemantics: string;
+  accountCaveat: string;
+  rollbackStrategy: string;
+}
+
 export const plannedConnectorReadinessStageOrder: PlannedConnectorReadinessStageId[] =
   [
     "detected",
@@ -676,8 +684,170 @@ export const plannedConnectors: PlannedConnector[] = [
   },
 ];
 
+const plannedConnectorSafetyDossiers: Record<
+  string,
+  PlannedConnectorSafetyDossier
+> = {
+  gemini_cli: {
+    connectorId: "gemini_cli",
+    configPathStrategy:
+      "Detect PATH: gemini first, then probe documented provider settings or shell flags read-only.",
+    providerSemantics:
+      "Treat base-url routing as provider-specific until Gemini CLI exposes a stable local proxy surface.",
+    accountCaveat:
+      "Model and account compatibility must be reported before routing; no account tokens are stored.",
+    rollbackStrategy:
+      "Restore the previous provider settings or remove only Switchboard-managed shell routing.",
+  },
+  opencode: {
+    connectorId: "opencode",
+    configPathStrategy:
+      "Detect PATH: opencode, then identify the active provider config path before any write.",
+    providerSemantics:
+      "Provider config may be file-based or environment-based, so setup starts with a dry-run diff.",
+    accountCaveat:
+      "Secrets stay in the user's existing provider store and must not be copied into Switchboard state.",
+    rollbackStrategy:
+      "Restore the timestamped provider-config backup and clear managed environment overrides.",
+  },
+  cursor: {
+    connectorId: "cursor",
+    configPathStrategy:
+      "Find the active Cursor app/profile settings surface before reading user settings.",
+    providerSemantics:
+      "Editor routing depends on profile and release-channel settings, not a single global base URL.",
+    accountCaveat:
+      "Account-specific model choices remain user-controlled until Doctor can explain compatibility.",
+    rollbackStrategy:
+      "Restore the exact profile settings backup without touching extension-managed secrets.",
+  },
+  grok_cli: {
+    connectorId: "grok_cli",
+    configPathStrategy:
+      "Detect PATH: grok or PATH: xai and avoid guessing hidden provider files.",
+    providerSemantics:
+      "Only offer OpenAI-compatible routing after a stable xAI CLI provider surface is detected.",
+    accountCaveat:
+      "Unsupported model/account combinations require Doctor guardrails before setup is offered.",
+    rollbackStrategy:
+      "Remove managed shell routing and leave API key/account state outside app storage.",
+  },
+  aider: {
+    connectorId: "aider",
+    configPathStrategy:
+      "Detect PATH: aider and prefer a one-launch environment wrapper over saved config edits.",
+    providerSemantics:
+      "Provider routing should be scoped to a reversible environment wrapper before persistent config support.",
+    accountCaveat:
+      "Existing provider secrets remain in the user's shell or provider config and are never copied.",
+    rollbackStrategy:
+      "Drop the wrapper environment and leave the user's Aider/provider files unchanged.",
+  },
+  continue: {
+    connectorId: "continue",
+    configPathStrategy:
+      "Open or parse the Continue config folder only after preserving unknown provider fields.",
+    providerSemantics:
+      "Continue may contain multiple providers, so local routing must preserve every non-managed entry.",
+    accountCaveat:
+      "Provider credentials and account selections stay visible and user-owned during guided setup.",
+    rollbackStrategy:
+      "Restore the exact config backup or remove only the marked Switchboard provider entry.",
+  },
+  goose: {
+    connectorId: "goose",
+    configPathStrategy:
+      "Detect PATH: goose and inspect Goose provider/MCP surfaces read-only before handoff.",
+    providerSemantics:
+      "Separate provider routing from MCP handoff so Repo Intelligence can stay read-only.",
+    accountCaveat:
+      "Provider account state remains outside Switchboard until compatibility checks are explicit.",
+    rollbackStrategy:
+      "Remove managed provider routing while preserving unrelated Goose MCP configuration.",
+  },
+  qwen_code: {
+    connectorId: "qwen_code",
+    configPathStrategy:
+      "Detect PATH: qwen-code or PATH: qwen, then probe provider/model settings read-only.",
+    providerSemantics:
+      "Use Repo Intelligence handoff first; route provider traffic only after model guardrails exist.",
+    accountCaveat:
+      "Qwen account and model compatibility must be verified without editing config.",
+    rollbackStrategy:
+      "Remove managed shell routing and restore provider settings from the exact backup.",
+  },
+  amazon_q: {
+    connectorId: "amazon_q",
+    configPathStrategy:
+      "Detect PATH: q and avoid reading AWS credentials, SSO caches, or profile secrets.",
+    providerSemantics:
+      "Treat Amazon Q as credential-sensitive; handoff packs are safe before provider routing.",
+    accountCaveat:
+      "AWS profile, SSO, and credential state must remain outside Switchboard storage.",
+    rollbackStrategy:
+      "Remove managed routing without modifying AWS config, credentials, SSO cache, or profiles.",
+  },
+  windsurf: {
+    connectorId: "windsurf",
+    configPathStrategy:
+      "Detect the Windsurf app and active settings location before showing any write plan.",
+    providerSemantics:
+      "Editor/provider behavior can vary by profile, so base-url changes require a dry-run diff.",
+    accountCaveat:
+      "Account and model settings stay manual until the adapter preserves unknown fields.",
+    rollbackStrategy:
+      "Restore the active settings backup and remove only Switchboard-managed provider entries.",
+  },
+  zed_ai: {
+    connectorId: "zed_ai",
+    configPathStrategy:
+      "Detect the Zed app and assistant settings before parsing provider entries.",
+    providerSemantics:
+      "Provider routing must preserve Zed assistant settings and any non-managed providers.",
+    accountCaveat:
+      "Provider/account selection stays manual until lossless settings parsing is proven.",
+    rollbackStrategy:
+      "Restore assistant/provider settings from backup and remove managed local proxy entries.",
+  },
+};
+
 export function getPlannedConnector(id: string) {
   return plannedConnectors.find((connector) => connector.id === id) ?? null;
+}
+
+export function getPlannedConnectorSafetyDossier(
+  id: string,
+): PlannedConnectorSafetyDossier | null {
+  return plannedConnectorSafetyDossiers[id] ?? null;
+}
+
+export function getPlannedConnectorSafetyDossiers(
+  connectors: PlannedConnector[] = plannedConnectors,
+) {
+  return connectors.map((connector) => {
+    const dossier = getPlannedConnectorSafetyDossier(connector.id);
+    if (!dossier) {
+      throw new Error(`Missing safety dossier for ${connector.id}.`);
+    }
+    return dossier;
+  });
+}
+
+export function formatPlannedConnectorSafetyDossierMarkdown(
+  connector: PlannedConnector,
+) {
+  const dossier = getPlannedConnectorSafetyDossier(connector.id);
+  if (!dossier) {
+    return "";
+  }
+
+  return [
+    `## ${connector.name}`,
+    `- Config paths: ${dossier.configPathStrategy}`,
+    `- Provider/base-url semantics: ${dossier.providerSemantics}`,
+    `- Account caveat: ${dossier.accountCaveat}`,
+    `- Rollback strategy: ${dossier.rollbackStrategy}`,
+  ].join("\n");
 }
 
 export function summarizePlannedConnectorSupport(
