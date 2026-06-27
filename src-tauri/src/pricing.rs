@@ -16,7 +16,8 @@ use crate::models::{
 use crate::state::AppState;
 use crate::storage::{app_data_dir, config_file};
 
-const HEADROOM_ACCOUNT_KEYCHAIN_SERVICE: &str = "com.extraheadroom.headroom.account";
+const HEADROOM_ACCOUNT_KEYCHAIN_SERVICE: &str = "com.tarunagarwal.mac-ai-switchboard.account";
+const LEGACY_HEADROOM_ACCOUNT_KEYCHAIN_SERVICE: &str = "com.extraheadroom.headroom.account";
 const HEADROOM_ACCOUNT_SESSION_ACCOUNT: &str = "session-token";
 #[cfg(debug_assertions)]
 const DEFAULT_ACCOUNT_API_BASE_URL: &str = "http://127.0.0.1:3000/api/v1";
@@ -2138,8 +2139,9 @@ fn local_state_path() -> PathBuf {
 }
 
 fn read_session_token() -> Result<Option<String>, String> {
-    keychain::read_secret(
+    keychain::read_migrated_secret(
         HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
+        LEGACY_HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
         HEADROOM_ACCOUNT_SESSION_ACCOUNT,
     )
     .map(|value| value.and_then(non_empty_string))

@@ -7,7 +7,8 @@ use sha2::{Digest, Sha256};
 
 use crate::keychain;
 
-const DEVICE_KEYCHAIN_SERVICE: &str = "com.extraheadroom.headroom.device";
+const DEVICE_KEYCHAIN_SERVICE: &str = "com.tarunagarwal.mac-ai-switchboard.device";
+const LEGACY_DEVICE_KEYCHAIN_SERVICE: &str = "com.extraheadroom.headroom.device";
 const MACHINE_ID_DIGEST_ACCOUNT: &str = "machine-id-digest";
 
 static CACHED: Mutex<Option<DeviceIdentity>> = Mutex::new(None);
@@ -34,9 +35,11 @@ pub fn current() -> DeviceIdentity {
 }
 
 fn load_or_compute_machine_id_digest() -> String {
-    if let Ok(Some(cached)) =
-        keychain::read_secret(DEVICE_KEYCHAIN_SERVICE, MACHINE_ID_DIGEST_ACCOUNT)
-    {
+    if let Ok(Some(cached)) = keychain::read_migrated_secret(
+        DEVICE_KEYCHAIN_SERVICE,
+        LEGACY_DEVICE_KEYCHAIN_SERVICE,
+        MACHINE_ID_DIGEST_ACCOUNT,
+    ) {
         let trimmed = cached.trim();
         if !trimmed.is_empty() {
             return trimmed.to_string();

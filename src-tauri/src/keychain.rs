@@ -304,6 +304,22 @@ pub fn delete_secret(service: &str, account: &str) -> Result<(), String> {
     platform::delete_secret(service, account)
 }
 
+pub fn read_migrated_secret(
+    service: &str,
+    legacy_service: &str,
+    account: &str,
+) -> Result<Option<String>, String> {
+    if let Some(value) = read_secret(service, account)? {
+        return Ok(Some(value));
+    }
+    let Some(value) = read_secret(legacy_service, account)? else {
+        return Ok(None);
+    };
+    write_secret(service, account, &value)?;
+    let _ = delete_secret(legacy_service, account);
+    Ok(Some(value))
+}
+
 #[cfg(all(test, debug_assertions))]
 mod tests {
     use std::ffi::OsString;
@@ -391,5 +407,26 @@ mod tests {
         super::write_secret("test-svc", "acct-c", "second").expect("second write");
         let value = super::read_secret("test-svc", "acct-c").expect("read");
         assert_eq!(value.as_deref(), Some("second"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn read_migrated_secret_moves_legacy_value() {
+        let _home = TestHome::new();
+        super::write_secret("legacy-svc", "acct-d", "legacy").expect("legacy write");
+
+        let value =
+            super::read_migrated_secret("new-svc", "legacy-svc", "acct-d").expect("migrate");
+
+        assert_eq!(value.as_deref(), Some("legacy"));
+        assert_eq!(
+            super::read_secret("new-svc", "acct-d")
+                .expect("new read")
+                .as_deref(),
+            Some("legacy")
+        );
+        assert!(super::read_secret("legacy-svc", "acct-d")
+            .expect("legacy read")
+            .is_none());
     }
 }

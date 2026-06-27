@@ -242,10 +242,10 @@ If the fallback is missing, check `~/Library/Application Support/Headroom/headro
 
 ### 10. Auth / pricing state is intact
 
-The session token lives in the macOS keychain under service `com.extraheadroom.headroom.account`, account `session-token`; the local pricing state lives next to `activity-facts.json`.
+The session token lives in the macOS keychain under service `com.tarunagarwal.mac-ai-switchboard.account`, account `session-token`; older `com.extraheadroom.headroom.account` entries are migrated on first read. The local pricing state lives next to `activity-facts.json`.
 
 ```bash
-security find-generic-password -s com.extraheadroom.headroom.account -a session-token >/dev/null 2>&1 && echo 'signed in' || echo 'not signed in'
+security find-generic-password -s com.tarunagarwal.mac-ai-switchboard.account -a session-token >/dev/null 2>&1 && echo 'signed in' || echo 'not signed in'
 test -f ~/Library/Application\ Support/Headroom/config/headroom-pricing-state.json && jq -e '.first_seen_at' ~/Library/Application\ Support/Headroom/config/headroom-pricing-state.json
 ```
 

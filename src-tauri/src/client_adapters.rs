@@ -1219,6 +1219,14 @@ fn remove_macos_bundle_dirs() -> Vec<String> {
 /// captured alongside services because macOS keychain queries require both.
 fn remove_known_keychain_entries() {
     const ENTRIES: &[(&str, &str)] = &[
+        (
+            "com.tarunagarwal.mac-ai-switchboard.account",
+            "session-token",
+        ),
+        (
+            "com.tarunagarwal.mac-ai-switchboard.device",
+            "machine-id-digest",
+        ),
         ("com.extraheadroom.headroom.account", "session-token"),
         ("com.extraheadroom.headroom.device", "machine-id-digest"),
         ("com.extraheadroom.headroom.headroom-learn", "openai"),
