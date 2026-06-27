@@ -1,12 +1,12 @@
 # Repo Intelligence Plan
 
-Repo Intelligence is underway, not complete. The app now has a read-only foundation for local file classification, rough token estimation, bounded implementation, verification, and handoff context packs. It now includes dependency hubs, path-based import/dependency edges, reverse dependency hubs, and a bounded symbol graph in the local graph summary, but it does not yet complete a full call graph or agent-facing local API.
+Repo Intelligence is underway, not complete. The app now has a read-only foundation for local file classification, rough token estimation, bounded implementation, verification, and handoff context packs. It now includes dependency hubs, path-based import/dependency edges, content-derived import references, lightweight call references, reverse dependency hubs, and a bounded symbol graph in the local graph summary, but it does not yet complete a full AST call graph or agent-facing local API.
 
 The goal is to make Mac AI Switchboard useful before an agent burns tokens reading the same files repeatedly: build a local repo graph, turn it into small task-specific context packs, and expose those packs to Claude Code, Codex, Gemini CLI, OpenCode, Qwen Code, Amazon Q Developer CLI, Cursor, Continue, Windsurf, Zed AI, and future local agents without sending repository contents to a remote graph service.
 
 ## Recommended Tools To Evaluate
 
-- **Graphy-style repo graph:** Symbol/call graph view for files, call paths, dependency hubs, and richer test relationships. Current implementation already includes bounded path-based dependency edges, reverse dependency hubs, and symbol extraction for TypeScript, JavaScript, Rust, and Python source.
+- **Graphy-style repo graph:** Symbol/call graph view for files, call paths, dependency hubs, and richer test relationships. Current implementation already includes bounded path-based dependency edges, content-derived import references, lightweight call references, reverse dependency hubs, and symbol extraction for TypeScript, JavaScript, Rust, and Python source.
 - **tree-sitter parsers:** local language-aware extraction for TypeScript, JavaScript, Python, Rust, Swift, Markdown, and shell scripts.
 - **Dependency call-graph analyzers:** language-specific helpers such as TypeScript compiler APIs, Rust metadata, Python AST/import scanners, and package manifest readers.
 - **repomix-style repo packaging:** bounded, ignore-aware repo summaries for agent context handoff.

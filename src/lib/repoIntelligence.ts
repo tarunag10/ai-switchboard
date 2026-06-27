@@ -37,7 +37,9 @@ export type RepoGraphEdgeKind =
   | "test_to_source"
   | "entrypoint_to_config"
   | "source_to_dependency_hub"
-  | "symbol_reference";
+  | "symbol_reference"
+  | "import_reference"
+  | "call_reference";
 
 export interface RepoGraphEdge {
   from: string;
@@ -70,6 +72,43 @@ export interface RepoGraphSummary {
   symbolEdges?: RepoGraphEdge[];
 }
 
+export interface RepoFileIndexEntry {
+  path: string;
+  bytes: number;
+  modifiedUnixMs: number;
+  fingerprint: string;
+}
+
+export interface RepoSkippedIndexEntry {
+  path: string;
+  role: RepoFileRole;
+  reasons: string[];
+}
+
+export interface RepoGraphInputEntry {
+  path: string;
+  role: RepoFileRole;
+  language: string;
+  bytes: number;
+  fingerprint: string;
+}
+
+export interface RepoIndexMetadata {
+  schemaVersion: number;
+  indexerVersion: string;
+  parserVersion: string;
+  cacheKey: string;
+  cacheState: "new" | "unchanged" | "changed";
+  generatedAt: string;
+  previousIndexedAt?: string | null;
+  fileCount: number;
+  indexedFileCount: number;
+  skippedFileCount: number;
+  fileFingerprints: RepoFileIndexEntry[];
+  skippedFiles: RepoSkippedIndexEntry[];
+  graphInputs: RepoGraphInputEntry[];
+}
+
 export interface RepoIntelligenceSummary {
   indexedAt?: string;
   repoRoot?: string;
@@ -79,6 +118,7 @@ export interface RepoIntelligenceSummary {
   skippedFiles?: number;
   estimatedFullScanTokens: number;
   roleCounts: Record<RepoFileRole, number>;
+  indexMetadata?: RepoIndexMetadata | null;
   graph?: RepoGraphSummary;
   packs: RepoContextPack[];
 }
@@ -94,6 +134,12 @@ export interface RepoSavingsEstimate {
   bestPack?: RepoContextPack;
 }
 
+export interface RepoIndexFreshness {
+  status: "none" | "fresh" | "unchanged_cache" | "changed_cache" | "unknown";
+  label: string;
+  detail: string;
+}
+
 export interface RepoAgentManifest {
   schemaVersion: 1;
   kind: "mac_ai_switchboard.repo_intelligence_manifest";
@@ -105,6 +151,7 @@ export interface RepoAgentManifest {
     indexerVersion: string;
     estimatedFullScanTokens: number;
     roleCounts: Record<RepoFileRole, number>;
+    indexMetadata?: RepoIndexMetadata | null;
   };
   graph: {
     available: boolean;
@@ -145,6 +192,50 @@ export interface RepoAgentManifest {
     readOnly: true;
     excludesSecretLikePaths: true;
     modifiesRepository: false;
+  };
+}
+
+export function getRepoIndexFreshness(
+  summary: Pick<
+    RepoIntelligenceSummary,
+    "indexedAt" | "indexMetadata" | "indexerVersion"
+  >,
+): RepoIndexFreshness {
+  if (!summary.indexedAt) {
+    return {
+      status: "none",
+      label: "No repo indexed",
+      detail: "Index a local repository to create a persistent metadata cache.",
+    };
+  }
+  const metadata = summary.indexMetadata;
+  if (!metadata) {
+    return {
+      status: "unknown",
+      label: "Indexed without cache metadata",
+      detail: "Re-index this repo to add persistent freshness metadata.",
+    };
+  }
+  if (metadata.cacheState === "unchanged") {
+    return {
+      status: "unchanged_cache",
+      label: "Unchanged local index",
+      detail: metadata.previousIndexedAt
+        ? `Same cache key as ${new Date(metadata.previousIndexedAt).toLocaleString()}.`
+        : "Same cache key as the previous saved index.",
+    };
+  }
+  if (metadata.cacheState === "changed") {
+    return {
+      status: "changed_cache",
+      label: "Changed local index",
+      detail: "Repo metadata changed since the previous saved index.",
+    };
+  }
+  return {
+    status: "fresh",
+    label: "Fresh local index",
+    detail: `Indexed with ${metadata.parserVersion}.`,
   };
 }
 
@@ -381,8 +472,14 @@ const secretFileNames = new Set([
   ".env",
   ".env.local",
   ".env.production",
+  ".envrc",
+  ".git-credentials",
+  ".netrc",
+  "settings.local.json",
+  "credentials.toml",
   ".npmrc",
   ".pypirc",
+  "headroom_memory.db",
   "id_rsa",
   "id_ed25519",
 ]);
@@ -391,7 +488,15 @@ const secretPathPatterns = [
   /(^|\/)secrets?\//,
   /(^|\/)private_keys?\//,
   /(^|\/)\.private_keys?\//,
+  /(^|\/)\.aws\//,
+  /(^|\/)\.azure\//,
+  /(^|\/)\.cargo\/credentials(?:\.toml)?$/i,
+  /(^|\/)\.config\/gh\//,
+  /(^|\/)\.gnupg\//,
+  /(^|\/)\.ssh\//,
+  /(^|\/)\.playwright-mcp\//,
   /(^|\/)authkey_[^/]+\.p8$/i,
+  /\.(db|sqlite|sqlite3|log)$/i,
   /\.(pem|p8|p12|key|crt|cer)$/i,
 ];
 
@@ -500,7 +605,7 @@ export function classifyRepoFile(path: string, bytes = 0): RepoFileSignal {
 }
 
 export function buildRepoIntelligenceSummary(
-  files: Array<{ path: string; bytes?: number }>,
+  files: Array<{ path: string; bytes?: number; content?: string }>,
 ): RepoIntelligenceSummary {
   const signals = files.map((file) =>
     classifyRepoFile(file.path, file.bytes ?? 0),
@@ -527,7 +632,12 @@ export function buildRepoIntelligenceSummary(
     } satisfies Record<RepoFileRole, number>,
   );
 
-  const graph = buildRepoGraphSummary(indexed);
+  const contentByPath = new Map(
+    files
+      .filter((file) => typeof file.content === "string")
+      .map((file) => [file.path.replace(/\\/g, "/"), file.content ?? ""]),
+  );
+  const graph = buildRepoGraphSummary(indexed, contentByPath);
   const packs = [
     buildContextPack(
       "implementation",
@@ -558,15 +668,115 @@ export function buildRepoIntelligenceSummary(
     ),
   ];
 
+  const indexMetadata = buildRepoIndexMetadata(files, signals);
   return {
     totalFiles: signals.length,
     indexedFiles: indexed.length,
     indexerVersion: repoIntelligenceIndexerVersion,
     estimatedFullScanTokens,
     roleCounts,
+    indexMetadata,
     graph,
     packs,
   };
+}
+
+function buildRepoIndexMetadata(
+  files: Array<{ path: string; bytes?: number; content?: string }>,
+  signals: RepoFileSignal[],
+): RepoIndexMetadata {
+  const includeByPath = new Map(
+    signals.map((signal) => [signal.path, signal.includeByDefault]),
+  );
+  const fileFingerprints = files
+    .map((file) => {
+      const normalizedPath = file.path.replace(/\\/g, "/");
+      const bytes = file.bytes ?? 0;
+      const contentHash =
+        typeof file.content === "string" ? hashString(file.content) : "";
+      return {
+        path: normalizedPath,
+        bytes,
+        modifiedUnixMs: 0,
+        fingerprint: hashString(`${normalizedPath}:${bytes}:${contentHash}`),
+      };
+    })
+    .filter((entry) => includeByPath.get(entry.path) === true)
+    .sort((a, b) => a.path.localeCompare(b.path));
+  const fingerprintByPath = new Map(
+    fileFingerprints.map((entry) => [entry.path, entry]),
+  );
+  const skippedFiles = signals
+    .filter((signal) => !signal.includeByDefault)
+    .map((signal) => ({
+      path: signal.reasons.includes("secret-like path excluded")
+        ? "<secret-like path>"
+        : signal.path,
+      role: signal.role,
+      reasons: signal.reasons.length
+        ? signal.reasons
+        : ["not included in default repo index"],
+    }))
+    .sort((a, b) => a.path.localeCompare(b.path));
+  const graphInputs = signals
+    .filter(
+      (signal) =>
+        signal.includeByDefault &&
+        (signal.role === "source" ||
+          signal.role === "test" ||
+          signal.role === "config"),
+    )
+    .map((signal) => {
+      const fingerprint = fingerprintByPath.get(signal.path);
+      return {
+        path: signal.path,
+        role: signal.role,
+        language: signal.language,
+        bytes: fingerprint?.bytes ?? 0,
+        fingerprint: fingerprint?.fingerprint ?? "",
+      };
+    })
+    .sort((a, b) => a.path.localeCompare(b.path));
+  const cacheKey = hashString(
+    [
+      "1",
+      repoIntelligenceIndexerVersion,
+      "metadata-fingerprint-v1",
+      ...fileFingerprints.map(
+        (entry) => `${entry.path}:${entry.bytes}:${entry.fingerprint}`,
+      ),
+      ...graphInputs.map(
+        (entry) => `graph:${entry.path}:${entry.role}:${entry.fingerprint}`,
+      ),
+    ].join("|"),
+  );
+
+  return {
+    schemaVersion: 1,
+    indexerVersion: repoIntelligenceIndexerVersion,
+    parserVersion: "metadata-fingerprint-v1",
+    cacheKey,
+    cacheState: "new",
+    generatedAt: new Date().toISOString(),
+    previousIndexedAt: null,
+    fileCount: files.length,
+    indexedFileCount: signals.filter((signal) => signal.includeByDefault)
+      .length,
+    skippedFileCount: signals.filter((signal) => !signal.includeByDefault)
+      .length,
+    fileFingerprints,
+    skippedFiles,
+    graphInputs,
+  };
+}
+
+function hashString(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 export function formatRepoContextPackMarkdown(
@@ -666,6 +876,7 @@ export function buildRepoAgentManifest(
       indexerVersion: summary.indexerVersion ?? "unknown",
       estimatedFullScanTokens: fullScanTokens,
       roleCounts: summary.roleCounts,
+      indexMetadata: summary.indexMetadata ?? null,
     },
     graph: {
       available: Boolean(summary.graph),
@@ -987,14 +1198,23 @@ function buildContextPack(
   };
 }
 
-function buildRepoGraphSummary(files: RepoFileSignal[]): RepoGraphSummary {
+function buildRepoGraphSummary(
+  files: RepoFileSignal[],
+  contentByPath = new Map<string, string>(),
+): RepoGraphSummary {
   const included = files.filter((file) => file.includeByDefault);
   const sourceAndConfig = included.filter(
     (file) => file.role === "source" || file.role === "config",
   );
-  const importEdges = buildRepoGraphEdges(included);
+  const importEdges = [
+    ...buildRepoGraphEdges(included),
+    ...buildImportReferenceEdges(included, contentByPath),
+  ];
   const symbols = buildRepoSymbols(included);
-  const symbolEdges = buildSymbolEdges(included, symbols);
+  const symbolEdges = [
+    ...buildSymbolEdges(included, symbols),
+    ...buildCallReferenceEdges(included, symbols, contentByPath),
+  ];
   return {
     topDirectories: summarizeGraphNodes(
       included,
@@ -1075,6 +1295,148 @@ function buildSymbolEdges(
     }
   }
   return edges;
+}
+
+function buildImportReferenceEdges(
+  files: RepoFileSignal[],
+  contentByPath: Map<string, string>,
+): RepoGraphEdge[] {
+  const sourceFiles = files.filter(
+    (file) => file.role === "source" || file.role === "test",
+  );
+  const byPath = new Map(files.map((file) => [file.path, file]));
+  const edges: RepoGraphEdge[] = [];
+
+  for (const file of sourceFiles) {
+    const content = contentByPath.get(file.path);
+    if (!content) continue;
+
+    for (const specifier of extractImportSpecifiers(content)) {
+      if (!specifier.startsWith(".")) continue;
+      const target = resolveImportSpecifier(file.path, specifier, byPath);
+      if (!target) continue;
+      pushUniqueGraphEdge(edges, {
+        from: file.path,
+        to: target.path,
+        kind: "import_reference",
+        reason: `source imports ${specifier}`,
+      });
+      if (edges.length >= 80) return edges;
+    }
+  }
+
+  return edges;
+}
+
+function buildCallReferenceEdges(
+  files: RepoFileSignal[],
+  symbols: RepoSymbol[],
+  contentByPath: Map<string, string>,
+): RepoGraphEdge[] {
+  const sourceFiles = files.filter(
+    (file) => file.role === "source" || file.role === "test",
+  );
+  const callableSymbols = symbols.filter(
+    (symbol) => symbol.kind === "function" || symbol.kind === "const",
+  );
+  const edges: RepoGraphEdge[] = [];
+
+  for (const file of sourceFiles) {
+    const content = contentByPath.get(file.path);
+    if (!content) continue;
+    for (const symbol of callableSymbols.slice(0, 120)) {
+      if (file.path === symbol.file) continue;
+      if (!new RegExp(`\\b${escapeRegExp(symbol.name)}\\s*\\(`).test(content)) {
+        continue;
+      }
+      pushUniqueGraphEdge(edges, {
+        from: file.path,
+        to: `${symbol.file}#${symbol.name}`,
+        kind: "call_reference",
+        reason: "source text references callable symbol",
+      });
+      if (edges.length >= 80) return edges;
+    }
+  }
+
+  return edges;
+}
+
+function extractImportSpecifiers(content: string): string[] {
+  const specifiers: string[] = [];
+  const patterns = [
+    /\bimport\s+(?:type\s+)?(?:[^"']+\s+from\s+)?["']([^"']+)["']/g,
+    /\bexport\s+(?:type\s+)?[^"']+\s+from\s+["']([^"']+)["']/g,
+    /\brequire\(\s*["']([^"']+)["']\s*\)/g,
+    /\buse\s+crate::([A-Za-z0-9_:]+)/g,
+    /\bmod\s+([A-Za-z0-9_]+)\s*;/g,
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of content.matchAll(pattern)) {
+      if (match[1]) specifiers.push(match[1]);
+    }
+  }
+
+  return specifiers;
+}
+
+function resolveImportSpecifier(
+  fromPath: string,
+  specifier: string,
+  byPath: Map<string, RepoFileSignal>,
+): RepoFileSignal | null {
+  const fromDir = fromPath.split("/").slice(0, -1).join("/");
+  const normalized = normalizeRepoPath(`${fromDir}/${specifier}`);
+  const candidates = [
+    normalized,
+    `${normalized}.ts`,
+    `${normalized}.tsx`,
+    `${normalized}.js`,
+    `${normalized}.jsx`,
+    `${normalized}.mjs`,
+    `${normalized}.rs`,
+    `${normalized}/index.ts`,
+    `${normalized}/index.tsx`,
+    `${normalized}/index.js`,
+  ];
+  for (const candidate of candidates) {
+    const target = byPath.get(candidate);
+    if (target) return target;
+  }
+  return null;
+}
+
+function normalizeRepoPath(path: string): string {
+  const parts: string[] = [];
+  for (const part of path.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      parts.pop();
+      continue;
+    }
+    parts.push(part);
+  }
+  return parts.join("/");
+}
+
+function pushUniqueGraphEdge(edges: RepoGraphEdge[], edge: RepoGraphEdge) {
+  if (edge.from === edge.to) return;
+  if (
+    edges.some(
+      (existing) =>
+        existing.from === edge.from &&
+        existing.to === edge.to &&
+        existing.kind === edge.kind,
+    )
+  ) {
+    return;
+  }
+  edges.push(edge);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function buildRepoGraphEdges(files: RepoFileSignal[]): RepoGraphEdge[] {

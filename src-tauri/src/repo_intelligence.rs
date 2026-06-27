@@ -1,13 +1,17 @@
-use std::collections::BTreeMap;
+use std::collections::{hash_map::DefaultHasher, BTreeMap};
 use std::ffi::OsStr;
+use std::hash::{Hash, Hasher};
+use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::time::UNIX_EPOCH;
 
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 
 use crate::models::{
-    RepoContextPack, RepoFileRole, RepoFileSignal, RepoGraphEdge, RepoGraphEdgeKind, RepoGraphNode,
-    RepoGraphSummary, RepoIntelligenceSummary, RepoSymbol, RepoSymbolKind,
+    RepoContextPack, RepoFileIndexEntry, RepoFileRole, RepoFileSignal, RepoGraphEdge,
+    RepoGraphEdgeKind, RepoGraphInputEntry, RepoGraphNode, RepoGraphSummary, RepoIndexMetadata,
+    RepoIntelligenceSummary, RepoSkippedIndexEntry, RepoSymbol, RepoSymbolKind,
 };
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs};
 
@@ -15,6 +19,8 @@ const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
 const INDEXER_VERSION: &str = "path-graph-v2";
+const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
+const PARSER_VERSION: &str = "metadata-fingerprint-v1";
 const IGNORED_DIRS: [&str; 12] = [
     ".git",
     "node_modules",
@@ -29,26 +35,46 @@ const IGNORED_DIRS: [&str; 12] = [
     "__pycache__",
     ".pytest_cache",
 ];
-const SECRET_FILE_NAMES: [&str; 7] = [
+const SECRET_FILE_NAMES: [&str; 13] = [
     ".env",
     ".env.local",
     ".env.production",
+    ".envrc",
+    ".git-credentials",
+    ".netrc",
+    "settings.local.json",
+    "credentials.toml",
     ".npmrc",
     ".pypirc",
+    "headroom_memory.db",
     "id_rsa",
     "id_ed25519",
 ];
-const SECRET_EXTENSIONS: [&str; 6] = [".pem", ".p8", ".p12", ".key", ".crt", ".cer"];
-const SECRET_PATH_SEGMENTS: [&str; 4] = ["secrets", ".secrets", "private_keys", ".private_keys"];
+const SECRET_EXTENSIONS: [&str; 10] = [
+    ".pem", ".p8", ".p12", ".key", ".crt", ".cer", ".db", ".sqlite", ".sqlite3", ".log",
+];
+const SECRET_PATH_SEGMENTS: [&str; 10] = [
+    "secrets",
+    ".secrets",
+    "private_keys",
+    ".private_keys",
+    ".aws",
+    ".azure",
+    ".config/gh",
+    ".gnupg",
+    ".playwright-mcp",
+    ".ssh",
+];
 
 pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary> {
     let repo_root = normalize_repo_root(path.as_ref())?;
+    let previous_summary = load_latest_summary().ok().flatten();
     let mut files = Vec::new();
     walk_repo(&repo_root, &repo_root, &mut files)?;
 
     let total_files = files.len() as u64;
     let signals: Vec<RepoFileSignal> = files
-        .into_iter()
+        .iter()
         .map(|file| classify_file(&file.relative_path, file.bytes))
         .collect();
     let indexed: Vec<RepoFileSignal> = signals
@@ -68,6 +94,8 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
     }
 
     let graph = build_repo_graph_summary(&repo_root, &indexed);
+    let index_metadata =
+        build_index_metadata(&repo_root, &files, &signals, previous_summary.as_ref());
     let packs = vec![
         build_context_pack(
             "implementation",
@@ -113,6 +141,7 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
         skipped_files: signals.len().saturating_sub(indexed.len()) as u64,
         estimated_full_scan_tokens,
         role_counts,
+        index_metadata: Some(index_metadata),
         graph: Some(graph),
         packs,
     })
@@ -185,6 +214,8 @@ fn expand_home(path: &Path) -> PathBuf {
 struct RepoFile {
     relative_path: String,
     bytes: u64,
+    modified_unix_ms: u64,
+    fingerprint: String,
 }
 
 fn walk_repo(root: &Path, dir: &Path, files: &mut Vec<RepoFile>) -> Result<()> {
@@ -215,6 +246,8 @@ fn walk_repo(root: &Path, dir: &Path, files: &mut Vec<RepoFile>) -> Result<()> {
             files.push(RepoFile {
                 relative_path,
                 bytes: metadata.len(),
+                modified_unix_ms: metadata_modified_unix_ms(&metadata),
+                fingerprint: fingerprint_file_metadata(&path, &metadata),
             });
         }
     }
@@ -227,6 +260,182 @@ fn should_skip_dir(name: &OsStr) -> bool {
         return true;
     };
     IGNORED_DIRS.iter().any(|ignored| ignored == &name)
+}
+
+fn metadata_modified_unix_ms(metadata: &std::fs::Metadata) -> u64 {
+    metadata
+        .modified()
+        .ok()
+        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or(0)
+}
+
+fn fingerprint_file_metadata(path: &Path, metadata: &std::fs::Metadata) -> String {
+    let mut hasher = DefaultHasher::new();
+    path.to_string_lossy().hash(&mut hasher);
+    metadata.len().hash(&mut hasher);
+    metadata_modified_unix_ms(metadata).hash(&mut hasher);
+    if let Ok(mut file) = std::fs::File::open(path) {
+        let mut buffer = [0_u8; 8192];
+        loop {
+            match file.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(read) => buffer[..read].hash(&mut hasher),
+                Err(_) => break,
+            }
+        }
+    }
+    format!("{:016x}", hasher.finish())
+}
+
+fn build_index_metadata(
+    repo_root: &Path,
+    files: &[RepoFile],
+    signals: &[RepoFileSignal],
+    previous_summary: Option<&RepoIntelligenceSummary>,
+) -> RepoIndexMetadata {
+    let include_by_path = signals
+        .iter()
+        .map(|signal| (signal.path.as_str(), signal.include_by_default))
+        .collect::<BTreeMap<_, _>>();
+    let mut file_fingerprints = files
+        .iter()
+        .filter(|file| {
+            include_by_path
+                .get(file.relative_path.as_str())
+                .copied()
+                .unwrap_or(false)
+        })
+        .map(|file| RepoFileIndexEntry {
+            path: file.relative_path.clone(),
+            bytes: file.bytes,
+            modified_unix_ms: file.modified_unix_ms,
+            fingerprint: file.fingerprint.clone(),
+        })
+        .collect::<Vec<_>>();
+    file_fingerprints.sort_by(|a, b| a.path.cmp(&b.path));
+    let fingerprint_by_path = file_fingerprints
+        .iter()
+        .map(|entry| (entry.path.as_str(), entry))
+        .collect::<BTreeMap<_, _>>();
+    let mut skipped_files = signals
+        .iter()
+        .filter(|signal| !signal.include_by_default)
+        .map(|signal| RepoSkippedIndexEntry {
+            path: if signal
+                .reasons
+                .iter()
+                .any(|reason| reason == "secret-like path excluded default packs")
+            {
+                "<secret-like path>".to_string()
+            } else {
+                signal.path.clone()
+            },
+            role: signal.role.clone(),
+            reasons: if signal.reasons.is_empty() {
+                vec!["not included in default repo index".to_string()]
+            } else {
+                signal.reasons.clone()
+            },
+        })
+        .collect::<Vec<_>>();
+    skipped_files.sort_by(|a, b| a.path.cmp(&b.path));
+    let mut graph_inputs = signals
+        .iter()
+        .filter(|signal| {
+            signal.include_by_default
+                && matches!(
+                    signal.role,
+                    RepoFileRole::Source | RepoFileRole::Test | RepoFileRole::Config
+                )
+        })
+        .map(|signal| {
+            let fingerprint = fingerprint_by_path.get(signal.path.as_str());
+            RepoGraphInputEntry {
+                path: signal.path.clone(),
+                role: signal.role.clone(),
+                language: signal.language.clone(),
+                bytes: fingerprint.map(|entry| entry.bytes).unwrap_or(0),
+                fingerprint: fingerprint
+                    .map(|entry| entry.fingerprint.clone())
+                    .unwrap_or_default(),
+            }
+        })
+        .collect::<Vec<_>>();
+    graph_inputs.sort_by(|a, b| a.path.cmp(&b.path));
+
+    let cache_key = build_cache_key(repo_root, &file_fingerprints, &graph_inputs);
+    let previous_metadata = previous_summary.and_then(|summary| {
+        if summary.repo_root == repo_root.to_string_lossy() {
+            summary.index_metadata.as_ref()
+        } else {
+            None
+        }
+    });
+    let cache_state = previous_metadata
+        .map(|metadata| {
+            if metadata.cache_key == cache_key
+                && metadata.indexer_version == INDEXER_VERSION
+                && metadata.parser_version == PARSER_VERSION
+            {
+                "unchanged"
+            } else {
+                "changed"
+            }
+        })
+        .unwrap_or("new")
+        .to_string();
+
+    RepoIndexMetadata {
+        schema_version: INDEX_METADATA_SCHEMA_VERSION,
+        indexer_version: INDEXER_VERSION.to_string(),
+        parser_version: PARSER_VERSION.to_string(),
+        cache_key,
+        cache_state,
+        generated_at: Utc::now().to_rfc3339(),
+        previous_indexed_at: previous_summary
+            .filter(|summary| summary.repo_root == repo_root.to_string_lossy())
+            .map(|summary| summary.indexed_at.clone()),
+        file_count: files.len() as u64,
+        indexed_file_count: signals
+            .iter()
+            .filter(|signal| signal.include_by_default)
+            .count() as u64,
+        skipped_file_count: signals
+            .iter()
+            .filter(|signal| !signal.include_by_default)
+            .count() as u64,
+        file_fingerprints,
+        skipped_files,
+        graph_inputs,
+    }
+}
+
+fn build_cache_key(
+    repo_root: &Path,
+    file_fingerprints: &[RepoFileIndexEntry],
+    graph_inputs: &[RepoGraphInputEntry],
+) -> String {
+    let mut hasher = DefaultHasher::new();
+    INDEX_METADATA_SCHEMA_VERSION.hash(&mut hasher);
+    INDEXER_VERSION.hash(&mut hasher);
+    PARSER_VERSION.hash(&mut hasher);
+    repo_root.to_string_lossy().hash(&mut hasher);
+    for entry in file_fingerprints {
+        entry.path.hash(&mut hasher);
+        entry.bytes.hash(&mut hasher);
+        entry.modified_unix_ms.hash(&mut hasher);
+        entry.fingerprint.hash(&mut hasher);
+    }
+    for entry in graph_inputs {
+        entry.path.hash(&mut hasher);
+        entry.role.hash(&mut hasher);
+        entry.language.hash(&mut hasher);
+        entry.bytes.hash(&mut hasher);
+        entry.fingerprint.hash(&mut hasher);
+    }
+    format!("{:016x}", hasher.finish())
 }
 
 fn classify_file(path: &str, bytes: u64) -> RepoFileSignal {
@@ -330,9 +539,11 @@ fn build_repo_graph_summary(repo_root: &Path, files: &[RepoFileSignal]) -> RepoG
         .filter(|signal| matches!(signal.role, RepoFileRole::Source | RepoFileRole::Config))
         .cloned()
         .collect::<Vec<_>>();
-    let import_edges = build_repo_graph_edges(&included);
+    let mut import_edges = build_repo_graph_edges(&included);
+    import_edges.extend(build_import_reference_edges(repo_root, &included));
     let symbols = build_repo_symbols(repo_root, &included);
-    let symbol_edges = build_symbol_edges(&included, &symbols);
+    let mut symbol_edges = build_symbol_edges(&included, &symbols);
+    symbol_edges.extend(build_call_reference_edges(repo_root, &included, &symbols));
 
     RepoGraphSummary {
         top_directories: summarize_graph_nodes(&included, top_directory, 6),
@@ -520,6 +731,193 @@ fn build_symbol_edges(files: &[RepoFileSignal], symbols: &[RepoSymbol]) -> Vec<R
         }
     }
     edges
+}
+
+fn build_import_reference_edges(repo_root: &Path, files: &[RepoFileSignal]) -> Vec<RepoGraphEdge> {
+    let mut edges = Vec::new();
+    for file in files.iter().filter(|file| {
+        matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
+            && matches!(
+                file.language.as_str(),
+                "TypeScript" | "JavaScript" | "React" | "Rust"
+            )
+    }) {
+        let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
+            continue;
+        };
+        for specifier in extract_import_specifiers(&content, &file.language) {
+            if !specifier.starts_with('.') {
+                continue;
+            }
+            let Some(target) = resolve_import_specifier(&file.path, &specifier, files) else {
+                continue;
+            };
+            push_unbounded_graph_edge(
+                &mut edges,
+                RepoGraphEdge {
+                    from: file.path.clone(),
+                    to: target.path.clone(),
+                    kind: RepoGraphEdgeKind::ImportReference,
+                    reason: format!("source imports {specifier}"),
+                },
+                80,
+            );
+            if edges.len() >= 80 {
+                return edges;
+            }
+        }
+    }
+    edges
+}
+
+fn build_call_reference_edges(
+    repo_root: &Path,
+    files: &[RepoFileSignal],
+    symbols: &[RepoSymbol],
+) -> Vec<RepoGraphEdge> {
+    let callable_symbols = symbols
+        .iter()
+        .filter(|symbol| {
+            matches!(
+                symbol.kind,
+                RepoSymbolKind::Function | RepoSymbolKind::Const
+            )
+        })
+        .take(120)
+        .collect::<Vec<_>>();
+    let mut edges = Vec::new();
+    for file in files.iter().filter(|file| {
+        matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
+            && matches!(
+                file.language.as_str(),
+                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python"
+            )
+    }) {
+        let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
+            continue;
+        };
+        for symbol in &callable_symbols {
+            if file.path == symbol.file {
+                continue;
+            }
+            if !contains_call_reference(&content, &symbol.name) {
+                continue;
+            }
+            push_unbounded_graph_edge(
+                &mut edges,
+                RepoGraphEdge {
+                    from: file.path.clone(),
+                    to: format!("{}#{}", symbol.file, symbol.name),
+                    kind: RepoGraphEdgeKind::CallReference,
+                    reason: "source text references callable symbol".into(),
+                },
+                80,
+            );
+            if edges.len() >= 80 {
+                return edges;
+            }
+        }
+    }
+    edges
+}
+
+fn extract_import_specifiers(content: &str, language: &str) -> Vec<String> {
+    let mut specifiers = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if matches!(language, "TypeScript" | "JavaScript" | "React") {
+            if let Some(specifier) = quoted_import_specifier(trimmed) {
+                specifiers.push(specifier);
+            }
+        }
+        if language == "Rust" {
+            if let Some(module) = trimmed
+                .strip_prefix("mod ")
+                .and_then(|rest| rest.strip_suffix(';'))
+            {
+                specifiers.push(format!("./{}", module.trim()));
+            }
+        }
+    }
+    specifiers
+}
+
+fn quoted_import_specifier(line: &str) -> Option<String> {
+    if !(line.starts_with("import ") || line.starts_with("export ") || line.contains("require(")) {
+        return None;
+    }
+    for quote in ['"', '\''] {
+        let Some(start) = line.rfind(quote) else {
+            continue;
+        };
+        let before = &line[..start];
+        let Some(second) = before.rfind(quote) else {
+            continue;
+        };
+        let value = before[second + 1..].trim();
+        if !value.is_empty() {
+            return Some(value.to_string());
+        }
+    }
+    None
+}
+
+fn resolve_import_specifier<'a>(
+    from_path: &str,
+    specifier: &str,
+    files: &'a [RepoFileSignal],
+) -> Option<&'a RepoFileSignal> {
+    let base_dir = from_path.rsplit_once('/').map(|(dir, _)| dir).unwrap_or("");
+    let normalized = normalize_repo_path(&format!("{base_dir}/{specifier}"));
+    let candidates = [
+        normalized.clone(),
+        format!("{normalized}.ts"),
+        format!("{normalized}.tsx"),
+        format!("{normalized}.js"),
+        format!("{normalized}.jsx"),
+        format!("{normalized}.mjs"),
+        format!("{normalized}.rs"),
+        format!("{normalized}/index.ts"),
+        format!("{normalized}/index.tsx"),
+        format!("{normalized}/index.js"),
+    ];
+    candidates
+        .iter()
+        .find_map(|candidate| files.iter().find(|file| file.path == *candidate))
+}
+
+fn normalize_repo_path(path: &str) -> String {
+    let mut parts: Vec<&str> = Vec::new();
+    for part in path.split('/') {
+        if part.is_empty() || part == "." {
+            continue;
+        }
+        if part == ".." {
+            parts.pop();
+            continue;
+        }
+        parts.push(part);
+    }
+    parts.join("/")
+}
+
+fn contains_call_reference(content: &str, symbol_name: &str) -> bool {
+    let needle = format!("{symbol_name}(");
+    content.contains(&needle)
+        || content.contains(&format!("{symbol_name} ("))
+        || content.contains(&format!(".{needle}"))
+}
+
+fn push_unbounded_graph_edge(edges: &mut Vec<RepoGraphEdge>, edge: RepoGraphEdge, limit: usize) {
+    if edge.from == edge.to || edges.len() >= limit {
+        return;
+    }
+    if edges.iter().any(|existing| {
+        existing.from == edge.from && existing.to == edge.to && existing.kind == edge.kind
+    }) {
+        return;
+    }
+    edges.push(edge);
 }
 
 fn build_repo_graph_edges(files: &[RepoFileSignal]) -> Vec<RepoGraphEdge> {
@@ -834,6 +1232,12 @@ fn is_secret_like_path(path: &str, name: &str, extension: &str) -> bool {
         || SECRET_EXTENSIONS
             .iter()
             .any(|secret_extension| extension == *secret_extension)
+        || lower_path == ".cargo/credentials"
+        || lower_path == ".cargo/credentials.toml"
+        || lower_path.ends_with("/.cargo/credentials")
+        || lower_path.ends_with("/.cargo/credentials.toml")
+        || lower_path == ".config/gh/hosts.yml"
+        || lower_path.contains("/.config/gh/")
         || lower_name.starts_with("authkey_") && extension == ".p8"
         || lower_path.split('/').any(|segment| {
             SECRET_PATH_SEGMENTS
@@ -907,7 +1311,17 @@ mod tests {
         for path in [
             ".env",
             ".env.local",
+            ".envrc",
+            ".git-credentials",
+            ".netrc",
             ".npmrc",
+            ".cargo/credentials.toml",
+            ".config/gh/hosts.yml",
+            ".ssh/config",
+            ".aws/credentials",
+            ".claude/settings.local.json",
+            ".playwright-mcp/console.log",
+            "headroom_memory.db",
             ".secrets/app.json",
             "secrets/prod.toml",
             "private_keys/app.pem",
@@ -991,10 +1405,12 @@ mod tests {
         let src = root.path().join("src");
         std::fs::create_dir_all(&src).expect("create src");
         std::fs::write(
-            src.join("App.tsx"),
-            "export function App() { return null; }\nexport class ViewModel {}\n",
-        )
-        .expect("write tsx");
+        src.join("App.tsx"),
+        "import { helper } from './helper';\nexport function App() { helper(); return null; }\nexport class ViewModel {}\n",
+    )
+    .expect("write tsx");
+        std::fs::write(src.join("helper.ts"), "export function helper() {}\n")
+            .expect("write helper");
         std::fs::write(
             src.join("lib.rs"),
             "pub struct RuntimeState {}\npub fn run_app() {}\n",
@@ -1011,6 +1427,121 @@ mod tests {
             .symbols
             .iter()
             .any(|symbol| symbol.name == "RuntimeState" && symbol.file == "src/lib.rs"));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/App.tsx"
+                && edge.to == "src/helper.ts"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+        }));
+        assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/App.tsx"
+                && edge.to == "src/helper.ts#helper"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
+    }
+
+    #[test]
+    fn builds_persistent_index_metadata_cache_states() {
+        let root = tempfile::tempdir().expect("create repo");
+        let files = vec![
+            RepoFile {
+                relative_path: "src/App.tsx".to_string(),
+                bytes: 400,
+                modified_unix_ms: 10,
+                fingerprint: "app".to_string(),
+            },
+            RepoFile {
+                relative_path: "package.json".to_string(),
+                bytes: 80,
+                modified_unix_ms: 5,
+                fingerprint: "pkg".to_string(),
+            },
+            RepoFile {
+                relative_path: "assets/logo.png".to_string(),
+                bytes: 1_200,
+                modified_unix_ms: 4,
+                fingerprint: "bundle".to_string(),
+            },
+        ];
+        let signals = files
+            .iter()
+            .map(|file| classify_file(&file.relative_path, file.bytes))
+            .collect::<Vec<_>>();
+
+        let first = build_index_metadata(root.path(), &files, &signals, None);
+        assert_eq!(first.cache_state, "new");
+        assert_eq!(first.file_count, 3);
+        assert_eq!(first.indexed_file_count, 2);
+        assert_eq!(first.skipped_file_count, 1);
+        assert_eq!(
+            first
+                .file_fingerprints
+                .iter()
+                .map(|entry| entry.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["package.json", "src/App.tsx"]
+        );
+        assert_eq!(
+            first
+                .skipped_files
+                .iter()
+                .map(|entry| entry.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["assets/logo.png"]
+        );
+        assert!(first.skipped_files[0]
+            .reasons
+            .contains(&"static asset".to_string()));
+        assert_eq!(
+            first
+                .graph_inputs
+                .iter()
+                .map(|entry| entry.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["package.json", "src/App.tsx"]
+        );
+
+        let previous = RepoIntelligenceSummary {
+            indexed_at: "2026-06-27T12:00:00Z".to_string(),
+            repo_root: root.path().to_string_lossy().to_string(),
+            indexer_version: Some(INDEXER_VERSION.to_string()),
+            total_files: 3,
+            indexed_files: 2,
+            skipped_files: 1,
+            estimated_full_scan_tokens: 120,
+            role_counts: BTreeMap::new(),
+            index_metadata: Some(first.clone()),
+            graph: None,
+            packs: Vec::new(),
+        };
+
+        let unchanged = build_index_metadata(root.path(), &files, &signals, Some(&previous));
+        assert_eq!(unchanged.cache_state, "unchanged");
+        assert_eq!(
+            unchanged.previous_indexed_at.as_deref(),
+            Some("2026-06-27T12:00:00Z")
+        );
+
+        let mut changed_files = files;
+        changed_files[0].bytes = 401;
+        changed_files[0].fingerprint = "app-changed".to_string();
+        let changed = build_index_metadata(root.path(), &changed_files, &signals, Some(&previous));
+        assert_eq!(changed.cache_state, "changed");
+    }
+
+    #[test]
+    fn file_fingerprint_changes_when_same_size_content_changes() {
+        let root = tempfile::tempdir().expect("create repo");
+        let path = root.path().join("src.ts");
+        std::fs::write(&path, "alpha").expect("write file");
+        let first_metadata = std::fs::metadata(&path).expect("first metadata");
+        let first = fingerprint_file_metadata(&path, &first_metadata);
+
+        std::fs::write(&path, "bravo").expect("rewrite same size file");
+        let second_metadata = std::fs::metadata(&path).expect("second metadata");
+        let second = fingerprint_file_metadata(&path, &second_metadata);
+
+        assert_eq!(first_metadata.len(), second_metadata.len());
+        assert_ne!(first, second);
     }
 
     #[test]

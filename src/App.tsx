@@ -71,6 +71,7 @@ import {
   formatRepoAgentManifestJson,
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
+  getRepoIndexFreshness,
   repoAgentHandoffProfiles,
   type RepoContextPack,
   type RepoAgentHandoffTarget,
@@ -1444,9 +1445,11 @@ function RepoIntelligencePreview({
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const isPreview = summary === repoIntelligencePreview;
   const hasRealIndex = !isPreview;
-  const indexStatusLabel = hasRealIndex
-    ? "Fresh local index"
-    : "No repo indexed";
+  const indexFreshness = getRepoIndexFreshness(summary);
+  const indexStatusLabel = indexFreshness.label;
+  const cacheStateLabel = summary.indexMetadata
+    ? `${summary.indexMetadata.cacheState} cache · ${summary.indexMetadata.fileFingerprints.length.toLocaleString()} fingerprints · ${(summary.indexMetadata.skippedFiles?.length ?? summary.indexMetadata.skippedFileCount).toLocaleString()} skipped reasons · ${(summary.indexMetadata.graphInputs?.length ?? 0).toLocaleString()} graph inputs · ${summary.indexMetadata.parserVersion}`
+    : null;
   const savingsEstimate = estimateRepoIntelligenceSavings(summary);
   const agentManifest = buildRepoAgentManifest(summary);
 
@@ -1717,6 +1720,16 @@ function RepoIntelligencePreview({
       {summary.indexedAt ? (
         <p className="repo-intelligence-preview__path">
           Indexed {new Date(summary.indexedAt).toLocaleString()}
+        </p>
+      ) : null}
+      {hasRealIndex ? (
+        <p className="repo-intelligence-preview__path">
+          {indexFreshness.detail}
+        </p>
+      ) : null}
+      {cacheStateLabel ? (
+        <p className="repo-intelligence-preview__path">
+          Index cache: {cacheStateLabel}
         </p>
       ) : null}
       {copyNotice ? (
@@ -5877,7 +5890,8 @@ export default function App() {
       if (connectorPhase === "disabled") {
         return {
           tone: "disabled",
-          title: "No coding tools connected — Headroom isn't reducing costs.",
+          title:
+            "No coding tools connected — Mac AI Switchboard isn't reducing token use.",
         } as const;
       }
       if (connectorPhase === "verifying") {
@@ -5890,12 +5904,12 @@ export default function App() {
       if (kompressWarming) {
         return {
           tone: "healthy",
-          title: "Headroom is running while finishing setup.",
+          title: "Mac AI Switchboard is running while finishing setup.",
         } as const;
       }
       return {
         tone: "healthy",
-        title: "Headroom is running and trimming prompt bloat.",
+        title: "Mac AI Switchboard is running and trimming prompt bloat.",
       } as const;
     }
 
@@ -5907,11 +5921,11 @@ export default function App() {
       tone: disconnected ? "disconnected" : "degraded",
       title: disconnected
         ? runtimeIssues.length > 0
-          ? `Headroom is not hooked up right now: ${runtimeIssues.join(", ")}.`
-          : "Headroom is not hooked up right now."
+          ? `Mac AI Switchboard is not hooked up right now: ${runtimeIssues.join(", ")}.`
+          : "Mac AI Switchboard is not hooked up right now."
         : runtimeIssues.length > 0
-          ? `Headroom needs attention: ${runtimeIssues.join(", ")}.`
-          : "Headroom is running, but something needs attention.",
+          ? `Mac AI Switchboard needs attention: ${runtimeIssues.join(", ")}.`
+          : "Mac AI Switchboard is running, but something needs attention.",
     } as const;
   })();
 
@@ -5924,9 +5938,9 @@ export default function App() {
             return calloutBanner.title;
           }
           if (calloutBanner.tone === "disconnected") {
-            return `Headroom is not hooked up right now: ${primaryIssue}.`;
+            return `Mac AI Switchboard is not hooked up right now: ${primaryIssue}.`;
           }
-          return `Headroom needs attention: ${primaryIssue}.`;
+          return `Mac AI Switchboard needs attention: ${primaryIssue}.`;
         })();
   const tierMismatch = localOnlyMode
     ? null

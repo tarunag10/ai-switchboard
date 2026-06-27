@@ -11,6 +11,7 @@ import {
   formatRepoAgentHandoffMarkdown,
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
+  getRepoIndexFreshness,
   isSecretLikeRepoPath,
 } from "./repoIntelligence";
 
@@ -32,10 +33,20 @@ describe("repoIntelligence", () => {
 
   it("excludes secret-like paths from default context packs", () => {
     expect(isSecretLikeRepoPath(".env.local")).toBe(true);
+    expect(isSecretLikeRepoPath(".envrc")).toBe(true);
+    expect(isSecretLikeRepoPath(".git-credentials")).toBe(true);
+    expect(isSecretLikeRepoPath(".netrc")).toBe(true);
+    expect(isSecretLikeRepoPath(".cargo/credentials.toml")).toBe(true);
+    expect(isSecretLikeRepoPath(".config/gh/hosts.yml")).toBe(true);
+    expect(isSecretLikeRepoPath(".ssh/config")).toBe(true);
+    expect(isSecretLikeRepoPath(".aws/credentials")).toBe(true);
     expect(isSecretLikeRepoPath(".private_keys/AuthKey_ABC123XYZ.p8")).toBe(
       true,
     );
     expect(isSecretLikeRepoPath("config/service-account.pem")).toBe(true);
+    expect(isSecretLikeRepoPath(".claude/settings.local.json")).toBe(true);
+    expect(isSecretLikeRepoPath(".playwright-mcp/console.log")).toBe(true);
+    expect(isSecretLikeRepoPath("headroom_memory.db")).toBe(true);
 
     const envFile = classifyRepoFile(".env.local", 100);
     expect(envFile.role).toBe("config");
@@ -45,7 +56,17 @@ describe("repoIntelligence", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },
       { path: ".env.local", bytes: 400 },
+      { path: ".envrc", bytes: 80 },
+      { path: ".git-credentials", bytes: 90 },
+      { path: ".netrc", bytes: 90 },
+      { path: ".cargo/credentials.toml", bytes: 90 },
+      { path: ".config/gh/hosts.yml", bytes: 90 },
+      { path: ".ssh/config", bytes: 90 },
+      { path: ".aws/credentials", bytes: 90 },
       { path: ".private_keys/AuthKey_ABC123XYZ.p8", bytes: 800 },
+      { path: ".claude/settings.local.json", bytes: 120 },
+      { path: ".playwright-mcp/console.log", bytes: 900 },
+      { path: "headroom_memory.db", bytes: 9000 },
     ]);
     const packedPaths = summary.packs.flatMap((pack) =>
       pack.files.map((file) => file.path),
@@ -53,7 +74,20 @@ describe("repoIntelligence", () => {
 
     expect(packedPaths).toContain("src/App.tsx");
     expect(packedPaths).not.toContain(".env.local");
+    expect(packedPaths).not.toContain(".envrc");
+    expect(packedPaths).not.toContain(".git-credentials");
+    expect(packedPaths).not.toContain(".netrc");
+    expect(packedPaths).not.toContain(".cargo/credentials.toml");
+    expect(packedPaths).not.toContain(".config/gh/hosts.yml");
+    expect(packedPaths).not.toContain(".ssh/config");
+    expect(packedPaths).not.toContain(".aws/credentials");
     expect(packedPaths).not.toContain(".private_keys/AuthKey_ABC123XYZ.p8");
+    expect(packedPaths).not.toContain(".claude/settings.local.json");
+    expect(packedPaths).not.toContain(".playwright-mcp/console.log");
+    expect(packedPaths).not.toContain("headroom_memory.db");
+    expect(
+      summary.indexMetadata?.fileFingerprints.map((entry) => entry.path),
+    ).toEqual(["src/App.tsx"]);
   });
 
   it("builds bounded context packs with savings estimates", () => {
@@ -70,6 +104,44 @@ describe("repoIntelligence", () => {
     expect(summary.indexedFiles).toBe(5);
     expect(summary.indexerVersion).toBe("path-graph-v2");
     expect(summary.roleCounts.generated).toBe(1);
+    expect(summary.indexMetadata).toMatchObject({
+      schemaVersion: 1,
+      indexerVersion: "path-graph-v2",
+      parserVersion: "metadata-fingerprint-v1",
+      cacheState: "new",
+      fileCount: 6,
+      indexedFileCount: 5,
+      skippedFileCount: 1,
+    });
+    expect(summary.indexMetadata?.cacheKey).toEqual(expect.any(String));
+    expect(summary.indexMetadata?.fileFingerprints).toHaveLength(5);
+    expect(summary.indexMetadata?.fileFingerprints[0]).toEqual(
+      expect.objectContaining({
+        path: expect.any(String),
+        fingerprint: expect.any(String),
+      }),
+    );
+    expect(summary.indexMetadata?.skippedFiles).toEqual([
+      expect.objectContaining({
+        path: "dist/bundle.js",
+        role: "generated",
+        reasons: expect.arrayContaining(["generated or dependency output"]),
+      }),
+    ]);
+    expect(summary.indexMetadata?.graphInputs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "src/App.tsx",
+          role: "source",
+          fingerprint: expect.any(String),
+        }),
+        expect.objectContaining({
+          path: "package.json",
+          role: "config",
+          fingerprint: expect.any(String),
+        }),
+      ]),
+    );
     expect(summary.packs).toHaveLength(3);
     expect(summary.packs[0].id).toBe("implementation");
     expect(summary.packs[0].files.map((file) => file.path)).toContain(
@@ -78,11 +150,60 @@ describe("repoIntelligence", () => {
     expect(summary.packs[0].savingsVsFullScanPct).toBeGreaterThan(50);
   });
 
+  it("derives index freshness copy from persistent metadata", () => {
+    expect(getRepoIndexFreshness({}).status).toBe("none");
+    expect(
+      getRepoIndexFreshness({
+        indexedAt: "2026-06-27T10:00:00Z",
+      }).status,
+    ).toBe("unknown");
+
+    const baseMetadata = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "package.json", bytes: 800 },
+    ]).indexMetadata;
+
+    expect(
+      getRepoIndexFreshness({
+        indexedAt: "2026-06-27T10:00:00Z",
+        indexMetadata: baseMetadata,
+      }),
+    ).toMatchObject({ status: "fresh", label: "Fresh local index" });
+    expect(
+      getRepoIndexFreshness({
+        indexedAt: "2026-06-27T10:00:00Z",
+        indexMetadata: {
+          ...baseMetadata!,
+          cacheState: "unchanged",
+          previousIndexedAt: "2026-06-27T09:00:00Z",
+        },
+      }),
+    ).toMatchObject({
+      status: "unchanged_cache",
+      label: "Unchanged local index",
+    });
+    expect(
+      getRepoIndexFreshness({
+        indexedAt: "2026-06-27T10:00:00Z",
+        indexMetadata: { ...baseMetadata!, cacheState: "changed" },
+      }),
+    ).toMatchObject({ status: "changed_cache", label: "Changed local index" });
+  });
+
   it("builds a bounded repo graph summary for agent context", () => {
     const summary = buildRepoIntelligenceSummary([
-      { path: "src/App.tsx", bytes: 4000 },
-      { path: "src/main.tsx", bytes: 1400 },
+      {
+        path: "src/App.tsx",
+        bytes: 4000,
+        content: 'import { helper } from "./lib/helper";\nhelper();',
+      },
+      { path: "src/main.tsx", bytes: 1400, content: 'import "./App";' },
       { path: "src/App.test.tsx", bytes: 2000 },
+      {
+        path: "src/lib/helper.ts",
+        bytes: 900,
+        content: "export function helper() { return true; }",
+      },
       { path: "src-tauri/src/lib.rs", bytes: 5000 },
       { path: "scripts/release.mjs", bytes: 1200 },
       { path: "package.json", bytes: 800 },
@@ -121,6 +242,11 @@ describe("repoIntelligence", () => {
           to: "package.json",
           kind: "entrypoint_to_config",
         }),
+        expect.objectContaining({
+          from: "src/App.tsx",
+          to: "src/lib/helper.ts",
+          kind: "import_reference",
+        }),
       ]),
     );
     expect(
@@ -134,6 +260,11 @@ describe("repoIntelligence", () => {
         expect.objectContaining({
           kind: "symbol_reference",
           to: "src/App.tsx#App",
+        }),
+        expect.objectContaining({
+          from: "src/App.tsx",
+          to: "src/lib/helper.ts#helper",
+          kind: "call_reference",
         }),
       ]),
     );
@@ -208,6 +339,23 @@ describe("repoIntelligence", () => {
     expect(manifest.schemaVersion).toBe(1);
     expect(manifest.generatedAt).toBe("2026-06-25T10:00:00Z");
     expect(manifest.totals.indexerVersion).toBe("path-graph-v2");
+    expect(manifest.totals.indexMetadata?.cacheState).toBe("new");
+    expect(manifest.totals.indexMetadata?.fileFingerprints.length).toBe(4);
+    expect(manifest.totals.indexMetadata?.skippedFiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "<secret-like path>",
+          reasons: expect.arrayContaining(["secret-like path excluded"]),
+        }),
+        expect.objectContaining({ path: "package-lock.json" }),
+      ]),
+    );
+    expect(manifest.totals.indexMetadata?.graphInputs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "src/App.tsx", role: "source" }),
+        expect.objectContaining({ path: "package.json", role: "config" }),
+      ]),
+    );
     expect(manifest.safety).toEqual({
       readOnly: true,
       excludesSecretLikePaths: true,

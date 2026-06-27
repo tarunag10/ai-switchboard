@@ -17,10 +17,10 @@ export const plannedAddons: PlannedAddon[] = [
     description:
       "Local repo graph memory layer for indexing a repository, estimating context tokens, and copying bounded implementation, verification, handoff, and agent-specific packs without sending repo contents to a remote graph service.",
     bullets: [
-      "Available now: local file classification, token estimates, dependency hubs, path-based edges, reverse hubs, symbol summaries, and bounded context packs.",
+      "Available now: local file classification, token estimates, dependency hubs, path-based edges, import references, call references, reverse hubs, symbol summaries, and bounded context packs.",
       "Open the Repo Intelligence sidebar view to index a repo, review graph and savings signals, then copy Markdown or JSON handoffs.",
       "Sample preview stays non-copyable until a real local index exists, so users do not paste demo context into agents.",
-      "Still planned: richer AST-backed parsing, full call graph, persistent parser index, and app-managed MCP repo-memory service.",
+      "Still planned: deeper AST-backed parsing, full call graph, persistent parser index, and app-managed MCP repo-memory service.",
       "Local-first index stored on Mac, with secret-like paths, generated outputs, and vendor folders excluded from default packs.",
       "Read-only by default; write or auto-repair actions remain explicit user actions.",
     ],
@@ -28,7 +28,7 @@ export const plannedAddons: PlannedAddon[] = [
       "Local index exists can be cleared without touching repository.",
       "Secret-like paths generated folders excluded context packs.",
       "Manifest includes implementation, verification, handoff packs estimated tokens avoided.",
-      "Graph summary includes dependency hubs, path-based edges, reverse dependency hubs.",
+      "Graph summary includes dependency hubs, path-based edges, import references, call references, and reverse dependency hubs.",
     ],
     savingsSources: [
       "Avoided full-repo scans by copying bounded context packs.",

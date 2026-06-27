@@ -91,7 +91,7 @@ pub struct DailyInsight {
     pub related_workspace: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RepoFileRole {
     Source,
@@ -142,6 +142,8 @@ pub enum RepoGraphEdgeKind {
     EntrypointToConfig,
     SourceToDependencyHub,
     SymbolReference,
+    ImportReference,
+    CallReference,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -197,6 +199,53 @@ pub struct RepoGraphSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RepoFileIndexEntry {
+    pub path: String,
+    pub bytes: u64,
+    pub modified_unix_ms: u64,
+    pub fingerprint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoSkippedIndexEntry {
+    pub path: String,
+    pub role: RepoFileRole,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoGraphInputEntry {
+    pub path: String,
+    pub role: RepoFileRole,
+    pub language: String,
+    pub bytes: u64,
+    pub fingerprint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoIndexMetadata {
+    pub schema_version: u64,
+    pub indexer_version: String,
+    pub parser_version: String,
+    pub cache_key: String,
+    pub cache_state: String,
+    pub generated_at: String,
+    pub previous_indexed_at: Option<String>,
+    pub file_count: u64,
+    pub indexed_file_count: u64,
+    pub skipped_file_count: u64,
+    pub file_fingerprints: Vec<RepoFileIndexEntry>,
+    #[serde(default)]
+    pub skipped_files: Vec<RepoSkippedIndexEntry>,
+    #[serde(default)]
+    pub graph_inputs: Vec<RepoGraphInputEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepoIntelligenceSummary {
     pub indexed_at: String,
     pub repo_root: String,
@@ -207,6 +256,8 @@ pub struct RepoIntelligenceSummary {
     pub skipped_files: u64,
     pub estimated_full_scan_tokens: u64,
     pub role_counts: std::collections::BTreeMap<String, u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index_metadata: Option<RepoIndexMetadata>,
     pub graph: Option<RepoGraphSummary>,
     pub packs: Vec<RepoContextPack>,
 }

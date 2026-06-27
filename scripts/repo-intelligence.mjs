@@ -43,8 +43,14 @@ const secretFileNames = new Set([
   ".env",
   ".env.local",
   ".env.production",
+  ".envrc",
+  ".git-credentials",
+  ".netrc",
+  "settings.local.json",
+  "credentials.toml",
   ".npmrc",
   ".pypirc",
+  "headroom_memory.db",
   "id_rsa",
   "id_ed25519",
 ]);
@@ -53,7 +59,15 @@ const secretPathPatterns = [
   /(^|\/)secrets?\//,
   /(^|\/)private_keys?\//,
   /(^|\/)\.private_keys?\//,
+  /(^|\/)\.aws\//,
+  /(^|\/)\.azure\//,
+  /(^|\/)\.cargo\/credentials(?:\.toml)?$/i,
+  /(^|\/)\.config\/gh\//,
+  /(^|\/)\.gnupg\//,
+  /(^|\/)\.ssh\//,
+  /(^|\/)\.playwright-mcp\//,
   /(^|\/)authkey_[^/]+\.p8$/i,
+  /\.(db|sqlite|sqlite3|log)$/i,
   /\.(pem|p8|p12|key|crt|cer)$/i,
 ];
 
@@ -317,36 +331,53 @@ function classify(filePath, bytes) {
   const name = filePath.split("/").pop() ?? filePath;
   const lower = filePath.toLowerCase();
   const extension = path.extname(name).toLowerCase();
+  const reasons = [];
   let role = "unknown";
 
-  if (lockfileNames.has(name)) role = "lockfile";
-  else if (
+  if (lockfileNames.has(name)) {
+    role = "lockfile";
+    reasons.push("package lockfile");
+  } else if (
     lower.includes(".test.") ||
     lower.includes(".spec.") ||
     lower.includes("/tests/")
-  )
+  ) {
     role = "test";
-  else if (lower.startsWith("docs/") || extension === ".md") role = "docs";
-  else if ([".json", ".toml", ".yaml", ".yml", ".sh"].includes(extension))
+    reasons.push("test path");
+  } else if (lower.startsWith("docs/") || extension === ".md") {
+    role = "docs";
+    reasons.push("documentation");
+  } else if ([".json", ".toml", ".yaml", ".yml", ".sh"].includes(extension)) {
     role = "config";
-  else if (
+    reasons.push("configuration or script");
+  } else if (
     [".ts", ".tsx", ".js", ".jsx", ".rs", ".css", ".html"].includes(extension)
-  )
+  ) {
     role = "source";
-  else if (
+    reasons.push("source extension");
+  } else if (
     [".svg", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp"].includes(
       extension,
     )
-  )
+  ) {
     role = "asset";
+    reasons.push("asset file");
+  }
+
+  const secretLike = isSecretLikePath(filePath);
+  if (secretLike) {
+    reasons.push("secret-like path excluded");
+  }
+  const includeByDefault =
+    role !== "asset" && role !== "lockfile" && !secretLike;
 
   return {
     path: filePath,
     role,
     language: languageByExtension[extension] ?? "Unknown",
     estimatedTokens: estimateTokens(bytes),
-    includeByDefault:
-      role !== "asset" && role !== "lockfile" && !isSecretLikePath(filePath),
+    includeByDefault,
+    reasons,
   };
 }
 
@@ -385,9 +416,15 @@ function buildGraphSummary(repoRoot, files) {
   const sourceAndConfig = included.filter(
     (file) => file.role === "source" || file.role === "config",
   );
-  const importEdges = buildGraphEdges(included);
+  const importEdges = [
+    ...buildGraphEdges(included),
+    ...buildImportReferenceEdges(repoRoot, included),
+  ];
   const symbols = buildRepoSymbols(repoRoot, included);
-  const symbolEdges = buildSymbolEdges(included, symbols);
+  const symbolEdges = [
+    ...buildSymbolEdges(included, symbols),
+    ...buildCallReferenceEdges(repoRoot, included, symbols),
+  ];
   return {
     topDirectories: summarizeGraphNodes(
       included,
@@ -510,6 +547,135 @@ function buildSymbolEdges(files, symbols) {
     }
   }
   return edges;
+}
+
+function buildImportReferenceEdges(repoRoot, files) {
+  const byPath = new Map(files.map((file) => [file.path, file]));
+  const edges = [];
+  for (const file of files.filter(
+    (candidate) => candidate.role === "source" || candidate.role === "test",
+  )) {
+    let content = "";
+    try {
+      content = fs.readFileSync(path.join(repoRoot, file.path), "utf8");
+    } catch {
+      continue;
+    }
+    for (const specifier of extractImportSpecifiers(content)) {
+      if (!specifier.startsWith(".")) continue;
+      const target = resolveImportSpecifier(file.path, specifier, byPath);
+      if (!target) continue;
+      pushUniqueGraphEdge(edges, {
+        from: file.path,
+        to: target.path,
+        kind: "import_reference",
+        reason: `source imports ${specifier}`,
+      });
+      if (edges.length >= 80) return edges;
+    }
+  }
+  return edges;
+}
+
+function buildCallReferenceEdges(repoRoot, files, symbols) {
+  const callableSymbols = symbols
+    .filter((symbol) => symbol.kind === "function" || symbol.kind === "const")
+    .slice(0, 120);
+  const edges = [];
+  for (const file of files.filter(
+    (candidate) => candidate.role === "source" || candidate.role === "test",
+  )) {
+    let content = "";
+    try {
+      content = fs.readFileSync(path.join(repoRoot, file.path), "utf8");
+    } catch {
+      continue;
+    }
+    for (const symbol of callableSymbols) {
+      if (file.path === symbol.file) continue;
+      if (!new RegExp(`\\b${escapeRegExp(symbol.name)}\\s*\\(`).test(content)) {
+        continue;
+      }
+      pushUniqueGraphEdge(edges, {
+        from: file.path,
+        to: `${symbol.file}#${symbol.name}`,
+        kind: "call_reference",
+        reason: "source text references callable symbol",
+      });
+      if (edges.length >= 80) return edges;
+    }
+  }
+  return edges;
+}
+
+function extractImportSpecifiers(content) {
+  const specifiers = [];
+  const patterns = [
+    /\bimport\s+(?:type\s+)?(?:[^"']+\s+from\s+)?["']([^"']+)["']/g,
+    /\bexport\s+(?:type\s+)?[^"']+\s+from\s+["']([^"']+)["']/g,
+    /\brequire\(\s*["']([^"']+)["']\s*\)/g,
+    /\bmod\s+([A-Za-z0-9_]+)\s*;/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of content.matchAll(pattern)) {
+      if (match[1]) specifiers.push(match[1]);
+    }
+  }
+  return specifiers;
+}
+
+function resolveImportSpecifier(fromPath, specifier, byPath) {
+  const fromDir = fromPath.split("/").slice(0, -1).join("/");
+  const normalized = normalizeRepoPath(`${fromDir}/${specifier}`);
+  const candidates = [
+    normalized,
+    `${normalized}.ts`,
+    `${normalized}.tsx`,
+    `${normalized}.js`,
+    `${normalized}.jsx`,
+    `${normalized}.mjs`,
+    `${normalized}.rs`,
+    `${normalized}/index.ts`,
+    `${normalized}/index.tsx`,
+    `${normalized}/index.js`,
+  ];
+  for (const candidate of candidates) {
+    const target = byPath.get(candidate);
+    if (target) return target;
+  }
+  return null;
+}
+
+function normalizeRepoPath(filePath) {
+  const parts = [];
+  for (const part of filePath.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      parts.pop();
+      continue;
+    }
+    parts.push(part);
+  }
+  return parts.join("/");
+}
+
+function pushUniqueGraphEdge(edges, edge) {
+  if (edge.from === edge.to) return;
+  if (
+    edges.some(
+      (existing) =>
+        existing.from === edge.from &&
+        existing.to === edge.to &&
+        existing.kind === edge.kind,
+    )
+  ) {
+    return;
+  }
+  edges.push(edge);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function buildGraphEdges(files) {
@@ -783,6 +949,101 @@ function formatGraphMarkdown(graph) {
   return lines.join("\n");
 }
 
+function buildIndexMetadata(repoRoot, files, signals) {
+  const includeByPath = new Map(
+    signals.map((signal) => [signal.path, signal.includeByDefault]),
+  );
+  const signalByPath = new Map(signals.map((signal) => [signal.path, signal]));
+  const fileFingerprints = files
+    .filter((file) => includeByPath.get(file.path) === true)
+    .map((file) => ({
+      path: file.path,
+      bytes: file.bytes,
+      modifiedUnixMs: 0,
+      fingerprint: hashString(file.path + ":" + file.bytes),
+    }))
+    .sort((a, b) => a.path.localeCompare(b.path));
+  const fingerprintByPath = new Map(
+    fileFingerprints.map((entry) => [entry.path, entry]),
+  );
+  const skippedFiles = signals
+    .filter((signal) => !signal.includeByDefault)
+    .map((signal) => ({
+      path: signal.reasons?.includes("secret-like path excluded")
+        ? "<secret-like path>"
+        : signal.path,
+      role: signal.role,
+      reasons: signal.reasons?.length
+        ? signal.reasons
+        : ["not included in default repo index"],
+    }))
+    .sort((a, b) => a.path.localeCompare(b.path));
+  const graphInputs = files
+    .filter((file) => includeByPath.get(file.path) === true)
+    .map((file) => {
+      const signal = signalByPath.get(file.path);
+      const fingerprint = fingerprintByPath.get(file.path);
+      return signal && fingerprint
+        ? {
+            path: file.path,
+            role: signal.role,
+            language: signal.language,
+            bytes: fingerprint.bytes,
+            fingerprint: fingerprint.fingerprint,
+          }
+        : null;
+    })
+    .filter(
+      (entry) =>
+        entry &&
+        (entry.role === "source" ||
+          entry.role === "test" ||
+          entry.role === "config"),
+    )
+    .sort((a, b) => a.path.localeCompare(b.path));
+  const cacheKey = hashString(
+    [
+      "1",
+      INDEXER_VERSION,
+      "metadata-fingerprint-v1",
+      repoRoot,
+      ...fileFingerprints.map(
+        (entry) => entry.path + ":" + entry.bytes + ":" + entry.fingerprint,
+      ),
+      ...graphInputs.map(
+        (entry) =>
+          "graph:" + entry.path + ":" + entry.role + ":" + entry.fingerprint,
+      ),
+    ].join("|"),
+  );
+  return {
+    schemaVersion: 1,
+    indexerVersion: INDEXER_VERSION,
+    parserVersion: "metadata-fingerprint-v1",
+    cacheKey,
+    cacheState: "new",
+    generatedAt: new Date().toISOString(),
+    previousIndexedAt: null,
+    fileCount: files.length,
+    indexedFileCount: signals.filter((signal) => signal.includeByDefault)
+      .length,
+    skippedFileCount: signals.filter((signal) => !signal.includeByDefault)
+      .length,
+    fileFingerprints,
+    skippedFiles,
+    graphInputs,
+  };
+}
+
+function hashString(value) {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
 function buildSummary(repoRoot) {
   const files = walk(repoRoot);
   const signals = files.map((file) => classify(file.path, file.bytes));
@@ -795,14 +1056,17 @@ function buildSummary(repoRoot) {
     counts[file.role] = (counts[file.role] ?? 0) + 1;
     return counts;
   }, {});
+  const indexMetadata = buildIndexMetadata(repoRoot, files, signals);
 
   return {
     repoRoot,
     indexerVersion: INDEXER_VERSION,
     totalFiles: signals.length,
     indexedFiles: indexable.length,
+    skippedFiles: signals.length - indexable.length,
     estimatedFullScanTokens,
     roleCounts,
+    indexMetadata,
     graph: buildGraphSummary(repoRoot, indexable),
     packs: [
       pack(
@@ -989,6 +1253,7 @@ function buildAgentManifest(summary) {
       indexerVersion: summary.indexerVersion ?? "unknown",
       estimatedFullScanTokens: fullScanTokens,
       roleCounts: summary.roleCounts,
+      indexMetadata: summary.indexMetadata ?? null,
     },
     graph: {
       available: Boolean(summary.graph),
