@@ -32,16 +32,18 @@ expect(repoIntelligence?.verificationCommand).toBe("npm run repo:intelligence --
   it("keeps planned add-on ids stable for UI rendering", () => {
 expect(plannedAddons.map((addon) => addon.id)).toEqual([
 "repo_intelligence",
-"agent_connectors",
-"rtk_hardening",
-"ponytail_hardening",
-"markitdown_hardening",
+      "agent_connectors",
+      "rtk_hardening",
+      "ponytail_hardening",
+      "caveman_hardening",
+      "markitdown_hardening",
 ]);
 });
 
 it("tracks hardening plans for existing token-saving add-ons", () => {
 const rtk = getPlannedAddon("rtk_hardening");
 const ponytail = getPlannedAddon("ponytail_hardening");
+const caveman = getPlannedAddon("caveman_hardening");
 const markitdown = getPlannedAddon("markitdown_hardening");
 
 expect(rtk).toMatchObject({
@@ -58,6 +60,14 @@ statusLabel: "Ready to harden",
 });
 expect(ponytail?.healthChecks.join(" ")).toContain("Switchboard-owned config blocks");
 expect(ponytail?.savingsSources.join(" ")).toContain("Smaller implementation slices");
+
+expect(caveman).toMatchObject({
+name: "Caveman Hardening",
+statusLabel: "Planned",
+});
+expect(caveman?.bullets.join(" ")).toContain("opt-in");
+expect(caveman?.healthChecks.join(" ")).toContain("measured, estimated, or inferred");
+expect(caveman?.savingsSources.join(" ")).toContain("Shorter agent summaries");
 
 expect(markitdown).toMatchObject({
 name: "MarkItDown Hardening",
