@@ -38,6 +38,42 @@ export interface PlannedConnectorSetupGuide {
   notes: string;
 }
 
+export type PlannedConnectorReadinessStageId =
+  | "detected"
+  | "manualGuide"
+  | "backupImplemented"
+  | "applyImplemented"
+  | "verifyImplemented"
+  | "rollbackImplemented"
+  | "offCleanupImplemented";
+
+export interface PlannedConnectorReadinessStage {
+  id: PlannedConnectorReadinessStageId;
+  label: string;
+  state: "ready" | "blocked";
+  evidence: string;
+}
+
+export interface PlannedConnectorReadinessContract {
+  connectorId: string;
+  connectorName: string;
+  setupPhase: PlannedConnector["setupPhase"];
+  automationEnabled: boolean;
+  nextBlockedStage: PlannedConnectorReadinessStageId | null;
+  stages: PlannedConnectorReadinessStage[];
+}
+
+export const plannedConnectorReadinessStageOrder: PlannedConnectorReadinessStageId[] =
+  [
+    "detected",
+    "manualGuide",
+    "backupImplemented",
+    "applyImplemented",
+    "verifyImplemented",
+    "rollbackImplemented",
+    "offCleanupImplemented",
+  ];
+
 export const plannedConnectors: PlannedConnector[] = [
   {
     id: "gemini_cli",
@@ -753,6 +789,94 @@ export function getPlannedConnectorSetupGuide(
     default:
       return null;
   }
+}
+
+function readinessStage(
+  id: PlannedConnectorReadinessStageId,
+  label: string,
+  state: PlannedConnectorReadinessStage["state"],
+  evidence: string,
+): PlannedConnectorReadinessStage {
+  return { id, label, state, evidence };
+}
+
+export function getPlannedConnectorReadinessContract(
+  connector: PlannedConnector,
+): PlannedConnectorReadinessContract {
+  const setupGuide = getPlannedConnectorSetupGuide(connector.id);
+  const hasDetection = connector.capabilityRows.some(
+    (capability) =>
+      capability.label.toLowerCase().includes("detection") &&
+      capability.state === "Available now",
+  );
+  const hasManualGuide =
+    connector.manualWorkflow.length >= 3 && setupGuide !== null;
+
+  const stages: PlannedConnectorReadinessStage[] = [
+    readinessStage(
+      "detected",
+      "Detected",
+      hasDetection ? "ready" : "blocked",
+      hasDetection
+        ? "Read-only detection is available now."
+        : "Add read-only detection before any setup path.",
+    ),
+    readinessStage(
+      "manualGuide",
+      "Manual Guide",
+      hasManualGuide ? "ready" : "blocked",
+      hasManualGuide
+        ? setupGuide.notes
+        : "Add a manual setup guide before automation is offered.",
+    ),
+    readinessStage(
+      "backupImplemented",
+      "Backup Implemented",
+      "blocked",
+      "No planned connector can write config until exact backup coverage exists.",
+    ),
+    readinessStage(
+      "applyImplemented",
+      "Apply Implemented",
+      "blocked",
+      "Automatic setup is disabled until a reversible apply path exists.",
+    ),
+    readinessStage(
+      "verifyImplemented",
+      "Verify Implemented",
+      "blocked",
+      "Doctor verification must prove the connector state after setup.",
+    ),
+    readinessStage(
+      "rollbackImplemented",
+      "Rollback Implemented",
+      "blocked",
+      "Rollback must restore previous config without touching unrelated settings.",
+    ),
+    readinessStage(
+      "offCleanupImplemented",
+      "Off Cleanup Implemented",
+      "blocked",
+      "Off mode cleanup must remove managed routing before automation is enabled.",
+    ),
+  ];
+  const nextBlockedStage =
+    stages.find((stage) => stage.state === "blocked")?.id ?? null;
+
+  return {
+    connectorId: connector.id,
+    connectorName: connector.name,
+    setupPhase: connector.setupPhase,
+    automationEnabled: nextBlockedStage === null,
+    nextBlockedStage,
+    stages,
+  };
+}
+
+export function getPlannedConnectorReadinessContracts(
+  connectors: PlannedConnector[] = plannedConnectors,
+) {
+  return connectors.map(getPlannedConnectorReadinessContract);
 }
 
 export function getPlannedConnectorSetupChecklistScript() {

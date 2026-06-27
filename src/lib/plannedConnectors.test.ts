@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   getPlannedConnector,
+  getPlannedConnectorReadinessContract,
+  getPlannedConnectorReadinessContracts,
   getPlannedConnectorSetupChecklistScript,
   getPlannedConnectorSetupGuide,
+  plannedConnectorReadinessStageOrder,
   plannedConnectors,
   summarizePlannedConnectorSupport,
 } from "./plannedConnectors";
@@ -159,5 +162,53 @@ describe("planned connectors", () => {
         getPlannedConnectorSetupGuide(connector.id)?.command,
       );
     }
+  });
+
+  it("defines a staged readiness contract before connector automation", () => {
+    const contracts = getPlannedConnectorReadinessContracts();
+
+    expect(contracts).toHaveLength(plannedConnectors.length);
+    for (const contract of contracts) {
+      expect(contract.stages.map((stage) => stage.id)).toEqual(
+        plannedConnectorReadinessStageOrder,
+      );
+      expect(contract.automationEnabled).toBe(false);
+      expect(contract.nextBlockedStage).toBe("backupImplemented");
+      expect(
+        contract.stages.filter((stage) => stage.state === "ready").map(
+          (stage) => stage.id,
+        ),
+      ).toEqual(["detected", "manualGuide"]);
+      expect(
+        contract.stages.filter((stage) => stage.state === "blocked").map(
+          (stage) => stage.id,
+        ),
+      ).toEqual([
+        "backupImplemented",
+        "applyImplemented",
+        "verifyImplemented",
+        "rollbackImplemented",
+        "offCleanupImplemented",
+      ]);
+    }
+  });
+
+  it("keeps readiness evidence tied to the connector metadata", () => {
+    const qwen = plannedConnectors.find(
+      (connector) => connector.id === "qwen_code",
+    );
+    expect(qwen).toBeTruthy();
+
+    const contract = getPlannedConnectorReadinessContract(qwen!);
+
+    expect(contract.connectorName).toBe("Qwen Code");
+    expect(contract.setupPhase).toBe("Guide");
+    expect(
+      contract.stages.find((stage) => stage.id === "manualGuide")?.evidence,
+    ).toMatch(/provider routing manual/i);
+    expect(
+      contract.stages.find((stage) => stage.id === "offCleanupImplemented")
+        ?.evidence,
+    ).toMatch(/Off mode cleanup/i);
   });
 });
