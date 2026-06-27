@@ -4194,6 +4194,27 @@ export default function App() {
     return "Detected. Automatic setup waits for backup, restore, and off-mode cleanup coverage.";
   }
 
+  function formatBackendConnectorConfigPlan(
+    connector: ClientConnectorStatus,
+    plannedConnector: PlannedConnector,
+  ) {
+    const steps = connector.configCreationSteps ?? [];
+    if (steps.length === 0) {
+      return formatPlannedConnectorConfigCreationPlansMarkdown([
+        plannedConnector,
+      ]);
+    }
+
+    return [
+      "# Mac AI Switchboard Connector Config Creation Plan",
+      "",
+      `## ${connector.name}`,
+      "- Automation enabled: no",
+      "- Safety note: Backend metadata keeps config creation gated until every step has tests and Doctor evidence.",
+      ...steps.map((step) => `- ${step}`),
+    ].join("\n");
+  }
+
   function applyAppUpdatePatch(patch: AppUpdateStatePatch) {
     if (Object.prototype.hasOwnProperty.call(patch, "config")) {
       setAppUpdateConfig(patch.config ?? null);
@@ -8538,7 +8559,8 @@ export default function App() {
                             connector.configLocations?.length ||
                             connector.detectionEvidence?.length ||
                             connector.automationGates?.length ||
-                            connector.manualWorkflow?.length ? (
+                            connector.manualWorkflow?.length ||
+                            connector.configCreationSteps?.length ? (
                               <div className="connector-plan__backend">
                                 <strong>Backend checks</strong>
                                 {connector.detectionSources?.length ? (
@@ -8579,6 +8601,14 @@ export default function App() {
                                     {connector.manualWorkflow
                                       .slice(0, 2)
                                       .join(" · ")}
+                                  </span>
+                                ) : null}
+                                {connector.configCreationSteps?.length ? (
+                                  <span>
+                                    Config plan{" "}
+                                    {connector.configCreationSteps
+                                      .slice(0, 4)
+                                      .join(" -> ")}
                                   </span>
                                 ) : null}
                               </div>
@@ -8635,8 +8665,9 @@ export default function App() {
                                   className="connector-plan__copy"
                                   onClick={() =>
                                     void copyPlannedConnectorCommand(
-                                      formatPlannedConnectorConfigCreationPlansMarkdown(
-                                        [plannedConnector],
+                                      formatBackendConnectorConfigPlan(
+                                        connector,
+                                        plannedConnector,
                                       ),
                                       `${connector.name} config plan`,
                                     )
