@@ -12,3 +12,5 @@ Follow `SECURITY.md` and contact the maintainer privately. Do not paste secrets,
 tokens, signing credentials, private endpoints, logs with credentials, or exploit
 details here.
 
+For non-sensitive install or Doctor issues, use the bug report template and keep
+logs redacted.

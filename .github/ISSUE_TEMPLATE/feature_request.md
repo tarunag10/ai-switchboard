@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest a local-first improvement
+about: Suggest a local-first Mac AI Switchboard improvement
 title: "[Feature]: "
 labels: enhancement
 assignees: ""
@@ -14,14 +14,23 @@ What user problem should this solve?
 
 What should the app do?
 
+## Affected Area
+
+- Switchboard modes:
+- Headroom:
+- RTK:
+- MarkItDown:
+- Ponytail:
+- Repo Intelligence:
+- Planned connector:
+- Packaging/release:
+
 ## Local-First Impact
 
-- Does this require a remote service, account, pricing API, telemetry, or update
-  channel change?
+- Does this require a remote service, account, pricing API, telemetry, or update channel change?
 - What local files or client configs would it read or edit?
 - How would the user turn it off or repair it?
 
 ## Alternatives
 
 What simpler or safer alternatives did you consider?
-
