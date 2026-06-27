@@ -202,8 +202,8 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         id: "qwen_code",
         name: "Qwen Code",
         category: "cli",
-        setup_phase: "detect",
-        setup_hint: "Detection only. Keep provider routing manual until Qwen config and account behavior are verified.",
+        setup_phase: "guide",
+        setup_hint: "Manual guide only. Use CLI detection and Repo Intelligence handoff before reversible provider routing.",
         detection_sources: &["PATH: qwen", "PATH: qwen-code", "~/.qwen", "~/.config/qwen"],
         config_locations: &["~/.qwen", "~/.config/qwen"],
         automation_gates: &[
