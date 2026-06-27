@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getPlannedConnector,
+  getPlannedConnectorReadinessBadges,
   getPlannedConnectorReadinessContract,
   getPlannedConnectorReadinessContracts,
   getPlannedConnectorSetupChecklistScript,
@@ -210,5 +211,32 @@ describe("planned connectors", () => {
       contract.stages.find((stage) => stage.id === "offCleanupImplemented")
         ?.evidence,
     ).toMatch(/Off mode cleanup/i);
+  });
+
+  it("derives roadmap readiness badges without enabling planned automation", () => {
+    for (const connector of plannedConnectors) {
+      const badges = getPlannedConnectorReadinessBadges(connector);
+      const badgeLabels = badges.map((badge) => badge.label);
+
+      expect(badgeLabels).toContain("Automation gated");
+      expect(badgeLabels).not.toContain("Verified automation");
+      expect(badges.every((badge) => badge.detail.length > 30)).toBe(true);
+    }
+
+    expect(
+      getPlannedConnectorReadinessBadges(getPlannedConnector("cursor")!).map(
+        (badge) => badge.label,
+      ),
+    ).toContain("Manual only");
+    expect(
+      getPlannedConnectorReadinessBadges(getPlannedConnector("amazon_q")!).map(
+        (badge) => badge.label,
+      ),
+    ).toContain("Unsupported account/model");
+    expect(
+      getPlannedConnectorReadinessBadges(getPlannedConnector("grok_cli")!).map(
+        (badge) => badge.label,
+      ),
+    ).toContain("Unsupported account/model");
   });
 });

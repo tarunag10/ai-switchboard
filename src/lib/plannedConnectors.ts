@@ -63,6 +63,18 @@ export interface PlannedConnectorReadinessContract {
   stages: PlannedConnectorReadinessStage[];
 }
 
+export type PlannedConnectorReadinessBadgeKind =
+  | "manual-only"
+  | "automation-gated"
+  | "verified-automation"
+  | "unsupported-account-model";
+
+export interface PlannedConnectorReadinessBadge {
+  kind: PlannedConnectorReadinessBadgeKind;
+  label: string;
+  detail: string;
+}
+
 export const plannedConnectorReadinessStageOrder: PlannedConnectorReadinessStageId[] =
   [
     "detected",
@@ -877,6 +889,70 @@ export function getPlannedConnectorReadinessContracts(
   connectors: PlannedConnector[] = plannedConnectors,
 ) {
   return connectors.map(getPlannedConnectorReadinessContract);
+}
+
+export function getPlannedConnectorReadinessBadges(
+  connector: PlannedConnector,
+): PlannedConnectorReadinessBadge[] {
+  const readiness = getPlannedConnectorReadinessContract(connector);
+  const notes = [
+    connector.notes,
+    connector.safeToday,
+    connector.firstAutomation,
+    ...connector.configSurfaces,
+    ...connector.automationGates,
+    ...connector.manualWorkflow,
+  ].join(" ");
+  const hasAccountOrModelCaveat =
+    /\b(account|model|credential|credentials|profile|AWS|SSO|secrets?)\b/i.test(
+      notes,
+    );
+
+  const badges: PlannedConnectorReadinessBadge[] = [];
+  if (
+    connector.setupPhase === "Detect" ||
+    connector.setupPhase === "Guide" ||
+    connector.supportedModes.includes("Guided setup") ||
+    connector.supportedModes.includes("Repo packs")
+  ) {
+    badges.push({
+      kind: "manual-only",
+      label: "Manual only",
+      detail:
+        "Safe today through detection, guided setup, RTK, or Repo Intelligence handoff without config writes.",
+    });
+  }
+
+  if (!readiness.automationEnabled) {
+    const nextStage = readiness.stages.find(
+      (stage) => stage.id === readiness.nextBlockedStage,
+    );
+    badges.push({
+      kind: "automation-gated",
+      label: "Automation gated",
+      detail: nextStage
+        ? `Blocked until ${nextStage.label.toLowerCase()} is implemented.`
+        : "Blocked until every readiness stage is implemented.",
+    });
+  } else {
+    badges.push({
+      kind: "verified-automation",
+      label: "Verified automation",
+      detail:
+        "Backup, apply, verify, rollback, and Off cleanup coverage are complete.",
+    });
+  }
+
+  if (hasAccountOrModelCaveat) {
+    badges.push({
+      kind: "unsupported-account-model",
+      label: "Unsupported account/model",
+      detail:
+        "Account, credential, profile, or model compatibility needs Doctor guardrails before routing.",
+    });
+  }
+
+  return badges;
 }
 
 export function getPlannedConnectorSetupChecklistScript() {

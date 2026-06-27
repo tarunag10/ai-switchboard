@@ -83,6 +83,7 @@ import {
 } from "./lib/repoIntelligence";
 import {
   getPlannedConnector,
+  getPlannedConnectorReadinessBadges,
   getPlannedConnectorReadinessContract,
   getPlannedConnectorSetupChecklistScript,
   getPlannedConnectorSetupGuide,
@@ -2259,6 +2260,7 @@ function PlannedConnectorRoadmap({
       <ul className="planned-connectors__list">
         {connectors.map((connector) => {
           const readiness = getPlannedConnectorReadinessContract(connector);
+          const readinessBadges = getPlannedConnectorReadinessBadges(connector);
           return (
           <li className="planned-connectors__item" key={connector.id}>
             <div className="planned-connectors__item-head">
@@ -2269,6 +2271,20 @@ function PlannedConnectorRoadmap({
             <div className="planned-connectors__capabilities">
               {connector.capabilityBadges.map((badge) => (
                 <span key={badge}>{badge}</span>
+              ))}
+            </div>
+            <div
+              className="planned-connectors__badges"
+              aria-label={`${connector.name} safety badges`}
+            >
+              {readinessBadges.map((badge) => (
+                <span
+                  className={`planned-connectors__badge planned-connectors__badge--${badge.kind}`}
+                  key={badge.kind}
+                  title={badge.detail}
+                >
+                  {badge.label}
+                </span>
               ))}
             </div>
             <div
@@ -8322,6 +8338,9 @@ export default function App() {
                   const plannedReadiness = plannedConnector
                     ? getPlannedConnectorReadinessContract(plannedConnector)
                     : null;
+                  const plannedReadinessBadges = plannedConnector
+                    ? getPlannedConnectorReadinessBadges(plannedConnector)
+                    : [];
                   const connectorSetupPhase =
                     connector.setupPhase ??
                     plannedConnector?.setupPhase ??
@@ -8408,6 +8427,22 @@ export default function App() {
                                     </span>
                                   ))}
                                 </div>
+                              </div>
+                            ) : null}
+                            {plannedReadinessBadges.length ? (
+                              <div
+                                className="connector-plan__badges"
+                                aria-label={`${connector.name} safety badges`}
+                              >
+                                {plannedReadinessBadges.map((badge) => (
+                                  <span
+                                    className={`connector-plan__badge connector-plan__badge--${badge.kind}`}
+                                    key={badge.kind}
+                                    title={badge.detail}
+                                  >
+                                    {badge.label}
+                                  </span>
+                                ))}
                               </div>
                             ) : null}
                             {connector.detectionSources?.length ||
