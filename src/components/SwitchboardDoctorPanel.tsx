@@ -29,10 +29,7 @@ export function SwitchboardDoctorPanel({
   successMessage,
   onRepair,
 }: SwitchboardDoctorPanelProps) {
-  if (
-    !report ||
-    (report.status === "ok" && report.issues.length === 0 && !successMessage)
-  ) {
+  if (!report) {
     return null;
   }
 

@@ -54,8 +54,8 @@ const warningReport: DoctorReport = {
 };
 
 describe("SwitchboardDoctorPanel", () => {
-  it("hides when the report is healthy", () => {
-    const { container } = render(
+  it("shows when the report is healthy", () => {
+    render(
       <SwitchboardDoctorPanel
         report={{ status: "ok", summary: "No issues.", issues: [] }}
         busyAction={null}
@@ -65,7 +65,11 @@ describe("SwitchboardDoctorPanel", () => {
       />,
     );
 
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByLabelText("Switchboard Doctor")).toHaveClass(
+      "switchboard-doctor--ok",
+    );
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(screen.getByText("No issues.")).toBeInTheDocument();
   });
 
   it("shows successful repair message when report is healthy", () => {
