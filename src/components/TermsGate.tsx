@@ -1,19 +1,23 @@
 import { useState } from "react";
-
 import { invoke } from "@tauri-apps/api/core";
-
 import macAiSwitchboardLogo from "../assets/mac-ai-switchboard-logo.png";
+import {
+  privacyNoticeParagraphs,
+  privacyNoticeTitle,
+  termsOfUseParagraphs,
+  termsOfUseTitle,
+} from "../lib/legalText";
 
 export interface TermsGateProps {
-  /// The terms version the user is accepting (DashboardState.requiredTermsVersion).
+  /// terms version user is accepting (DashboardState.requiredTermsVersion).
   requiredVersion: number;
   /// Called after acceptance is persisted so the host can drop the gate.
   onAccepted: () => void;
 }
 
-/// Full-window blocking gate shown until the user accepts the current Terms of
-/// Service. Rendered in both the launcher and the main window, so new installs
-/// and updating users alike must accept before reaching any other UI.
+/// Full-window blocking gate shown until the user accepts the current legal
+/// notices. Rendered in both launcher and main windows so new installs and
+/// updating users must accept before any other UI.
 export function TermsGate({ requiredVersion, onAccepted }: TermsGateProps) {
   const [checked, setChecked] = useState(false);
   const [accepting, setAccepting] = useState(false);
@@ -27,8 +31,7 @@ export function TermsGate({ requiredVersion, onAccepted }: TermsGateProps) {
       await invoke("accept_terms", { version: requiredVersion });
       onAccepted();
     } catch {
-      // Local acceptance failing is unexpected; re-enable the button so the
-      // user can retry rather than getting stuck behind the gate.
+      // Local acceptance failing is unexpected; re-enable retry rather than trapping the user.
       setAccepting(false);
     }
   }
@@ -48,40 +51,36 @@ export function TermsGate({ requiredVersion, onAccepted }: TermsGateProps) {
           aria-hidden="true"
         />
         <h1 id="terms-gate-title" className="terms-gate__title">
-          Mac AI Switchboard Terms of Use
+          {termsOfUseTitle}
         </h1>
         <p className="terms-gate__copy">
-          Please review and accept these Terms of Use to continue using Mac AI
-          Switchboard.
+          Please review and accept the bundled legal notices to continue using
+          Mac AI Switchboard.
         </p>
-        <div className="terms-gate__terms" aria-label="Terms of Use summary">
-          <p>
-            Mac AI Switchboard is a local desktop utility for managing AI tool
-            routing, helper runtimes, shell-output compression, and related
-            workflow automation on this Mac.
-          </p>
-          <p>
-            You are responsible for the tools, accounts, API keys, prompts,
-            outputs, and local files you connect to the app. Review generated or
-            transformed content before relying on it.
-          </p>
-          <p>
-            The app is provided as-is, without warranties. It may configure
-            local development tools and network endpoints at your request; you
-            can disable those integrations or uninstall the app at any time.
-          </p>
-          <p>
-            Do not use the app for unlawful activity or to bypass third-party
-            service terms. Continued use means you accept these Terms of Use.
-          </p>
+        <div className="terms-gate__terms" aria-label="Legal notices">
+          <section aria-labelledby="terms-gate-terms-title">
+            <h2 id="terms-gate-terms-title">{termsOfUseTitle}</h2>
+            {termsOfUseParagraphs.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+          </section>
+          <section aria-labelledby="terms-gate-privacy-title">
+            <h2 id="terms-gate-privacy-title">{privacyNoticeTitle}</h2>
+            {privacyNoticeParagraphs.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+          </section>
         </div>
         <label className="terms-gate__consent">
           <input
             type="checkbox"
             checked={checked}
-            onChange={(event) => setChecked(event.target.checked)}
+            onChange={(event) => setChecked(event.currentTarget.checked)}
           />
-          <span>I have read and accept the Mac AI Switchboard Terms of Use.</span>
+          <span>
+            I have read and accept the Mac AI Switchboard Terms of Use and
+            Privacy Notice.
+          </span>
         </label>
         <button
           type="button"
@@ -89,7 +88,7 @@ export function TermsGate({ requiredVersion, onAccepted }: TermsGateProps) {
           disabled={!checked || accepting}
           onClick={() => void handleAccept()}
         >
-          {accepting ? "Saving…" : "Accept & Continue"}
+          {accepting ? "Saving..." : "Accept & Continue"}
         </button>
       </div>
     </div>

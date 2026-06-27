@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 const invokeMock = vi.fn();
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: (...args: unknown[]) => invokeMock(...args)
+  invoke: (...args: unknown[]) => invokeMock(...args),
 }));
 
 import { TermsGate } from "./TermsGate";
@@ -14,7 +14,7 @@ function renderGate(overrides: Partial<React.ComponentProps<typeof TermsGate>> =
   const props: React.ComponentProps<typeof TermsGate> = {
     requiredVersion: 3,
     onAccepted,
-    ...overrides
+    ...overrides,
   };
   render(<TermsGate {...props} />);
   return { onAccepted };
@@ -26,7 +26,7 @@ describe("TermsGate", () => {
     invokeMock.mockResolvedValue(undefined);
   });
 
-  it("disables Accept until the consent box is checked", async () => {
+  it("disables Accept until consent box is checked", async () => {
     renderGate();
     const accept = screen.getByRole("button", { name: "Accept & Continue" });
     expect(accept).toBeDisabled();
@@ -35,10 +35,8 @@ describe("TermsGate", () => {
     expect(accept).toBeEnabled();
   });
 
-  it("does not invoke accept_terms while the box is unchecked", async () => {
+  it("does not invoke accept_terms while box is unchecked", async () => {
     renderGate();
-    // The button is disabled, but assert the handler itself is a no-op even if
-    // a click slips through, so the guard isn't purely CSS.
     await userEvent.click(screen.getByRole("button", { name: "Accept & Continue" }));
     expect(invokeMock).not.toHaveBeenCalledWith("accept_terms", expect.anything());
   });
@@ -49,30 +47,15 @@ describe("TermsGate", () => {
     await userEvent.click(screen.getByRole("button", { name: "Accept & Continue" }));
 
     expect(invokeMock).toHaveBeenCalledWith("accept_terms", { version: 5 });
-    expect(onAccepted).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledTimes(1));
   });
 
-  it("renders bundled Mac AI Switchboard terms without opening an external URL", () => {
-    renderGate();
-    expect(
-      screen.getByRole("heading", { name: "Mac AI Switchboard Terms of Use" })
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("Terms of Use summary")).toBeInTheDocument();
-    expect(invokeMock).not.toHaveBeenCalledWith(
-      "open_external_link",
-      expect.anything()
-    );
-  });
-
-  it("shows a saving state and blocks repeat clicks while persistence is in flight", async () => {
+  it("does not double-submit while acceptance is pending", async () => {
     let resolveAccept: () => void = () => {};
-    invokeMock.mockImplementation((command: string) => {
-      if (command === "accept_terms") {
-        return new Promise<void>((resolve) => {
-          resolveAccept = resolve;
-        });
-      }
-      return Promise.resolve();
+    invokeMock.mockImplementationOnce(() => {
+      return new Promise<void>((resolve) => {
+        resolveAccept = resolve;
+      });
     });
     const { onAccepted } = renderGate();
     await userEvent.click(screen.getByRole("checkbox"));
@@ -80,7 +63,7 @@ describe("TermsGate", () => {
     const accept = screen.getByRole("button", { name: "Accept & Continue" });
     await userEvent.click(accept);
 
-    const saving = screen.getByRole("button", { name: "Saving…" });
+    const saving = screen.getByRole("button", { name: "Saving..." });
     expect(saving).toBeDisabled();
     await userEvent.click(saving);
     const acceptCalls = invokeMock.mock.calls.filter(([cmd]) => cmd === "accept_terms");
@@ -100,5 +83,25 @@ describe("TermsGate", () => {
     await vi.waitFor(() =>
       expect(screen.getByRole("button", { name: "Accept & Continue" })).toBeEnabled()
     );
+  });
+
+  it("renders bundled legal notices without upstream links", () => {
+    renderGate();
+
+    expect(screen.getByLabelText("Legal notices")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Mac AI Switchboard Terms of Use",
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Mac AI Switchboard Privacy Notice" })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Local-only mode should avoid/i)).toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Terms of Use and Privacy Notice/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/extraheadroom\.com/i)).not.toBeInTheDocument();
   });
 });
