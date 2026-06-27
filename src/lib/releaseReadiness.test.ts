@@ -200,7 +200,10 @@ describe("release readiness checklist", () => {
         generatedAt: "2026-06-28T00:00:00.000Z",
         status: "blocked",
         backendValidation: { ready: true },
-        staticSmokePreflight: { ready: true },
+        staticSmokePreflight: {
+          ready: true,
+          requiredEvidence: ["Planned connector config creation plan"],
+        },
         installedSmoke: {
           ready: false,
           installedAppPresent: true,
@@ -228,6 +231,7 @@ describe("release readiness checklist", () => {
     expect(snapshot).toContain("Source: dist/release-readiness-report.json");
     expect(snapshot).toContain("Status: blocked");
     expect(snapshot).toContain("Installed app present: yes");
+    expect(snapshot).toContain("Connector config plan evidence: yes");
     expect(snapshot).toContain("Signed and notarized: no");
     expect(snapshot).toContain("missing environment: APPLE_SIGNING_IDENTITY");
     expect(snapshot).toContain("Codex compression recovery");

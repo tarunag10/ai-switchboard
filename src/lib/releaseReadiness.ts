@@ -70,6 +70,16 @@ function labels(items: Array<{ label?: string }> | undefined) {
   return items?.map((item) => item.label).filter(Boolean).join(", ") || "none";
 }
 
+function hasConnectorConfigPlanEvidence(
+  report: ReleaseReadinessReportSnapshot,
+) {
+  return (
+    report.staticSmokePreflight?.requiredEvidence?.includes(
+      "Planned connector config creation plan",
+    ) === true
+  );
+}
+
 export const releaseReadinessCommand = "npm run release:ready";
 
 export const releaseReadinessStatusRows: ReleaseReadinessStatusRow[] = [
@@ -329,10 +339,7 @@ export function releaseReadinessRowsFromReport(
   const signingReady = report.shareableDmgGate?.signedAndNotarized === true;
   const notarizationReady = signingReady;
   const updaterReady = report.shareableDmgGate?.updaterFeedReady === true;
-  const connectorConfigPlanReady =
-    report.staticSmokePreflight?.requiredEvidence?.includes(
-      "Planned connector config creation plan",
-    ) === true;
+  const connectorConfigPlanReady = hasConnectorConfigPlanEvidence(report);
   const finalReady = report.status === "ready" && report.shareableDmgGate?.ready === true;
   const missingEvidence = report.installedSmoke?.missingEvidence ?? [];
   const releaseBlockers = report.releaseEnv?.blockers ?? [];
@@ -431,6 +438,7 @@ export function formatReleaseReadinessReportSnapshot(
     "## Gates",
     `- Backend validation ready: ${yesNo(report.backendValidation?.ready)}`,
     `- Static smoke preflight ready: ${yesNo(report.staticSmokePreflight?.ready)}`,
+    `- Connector config plan evidence: ${yesNo(hasConnectorConfigPlanEvidence(report))}`,
     `- Installed app present: ${yesNo(report.installedSmoke?.installedAppPresent)}`,
     `- Installed smoke ready: ${yesNo(report.installedSmoke?.ready ?? report.installedSmoke?.evidenceReady)}`,
     `- Signed and notarized: ${yesNo(report.shareableDmgGate?.signedAndNotarized)}`,
