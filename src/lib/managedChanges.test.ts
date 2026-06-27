@@ -17,12 +17,29 @@ describe("managedChangeRecords", () => {
     ).toBe(true);
   });
 
-  it("covers the reversible config and storage footprint", () => {
+  it("tracks marker, backup, and verification evidence for every managed change", () => {
+    expect(managedChangeRecords.every((record) => record.markerId.length > 0)).toBe(
+      true,
+    );
+    expect(
+      managedChangeRecords.every((record) => record.lastVerifiedLabel.length > 0),
+    ).toBe(true);
+    expect(
+      managedChangeRecords
+        .filter((record) => record.kind === "client_config" || record.kind === "shell_hook")
+        .every((record) => record.backupPath?.includes("*.headroom.bak")),
+    ).toBe(true);
+  });
+
+  it("covers reversible config storage footprint", () => {
     const allCopy = managedChangeRecords
       .flatMap((record) => [
         record.owner,
         record.text,
         record.rollback,
+        record.markerId,
+        record.backupPath ?? "",
+        record.lastVerifiedLabel,
         ...record.paths,
       ])
       .join(" ");
@@ -35,5 +52,7 @@ describe("managedChangeRecords", () => {
     expect(allCopy).toContain("~/Library/LaunchAgents/");
     expect(allCopy).toContain("Keychain");
     expect(allCopy).toContain("Ponytail");
+    expect(allCopy).toContain("headroom:client-routing");
+    expect(allCopy).toContain("*.headroom.bak");
   });
 });

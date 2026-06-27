@@ -7186,10 +7186,13 @@ onRepair={(action) => void handleDoctorRepair(action)}
   <div className="rollback-center-card__list">
     {managedChangeRecords.map((record) => (
       <div className="rollback-center-card__item" key={record.id}>
-        <div>
-          <strong>{record.owner}</strong>
-          <span>{record.rollback}</span>
-        </div>
+<div>
+<strong>{record.owner}</strong>
+<span>{record.rollback}</span>
+<span>Marker: {record.markerId}</span>
+<span>Backup: {record.backupPath ?? "not required"}</span>
+<span>{record.lastVerifiedLabel}</span>
+</div>
         <span className="rollback-center-card__kind">{record.kind.replace(/_/g, " ")}</span>
       </div>
     ))}

@@ -13,6 +13,9 @@ export interface ManagedChangeRecord {
   owner: string;
   text: string;
   paths: string[];
+  markerId: string;
+  backupPath: string | null;
+  lastVerifiedLabel: string;
   rollback: string;
 }
 
@@ -27,7 +30,11 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
       "~/.claude/settings.local.json",
       "~/.codex/config.toml",
     ],
-    rollback: "Remove managed routing hooks and environment changes from Claude Code and Codex config.",
+    markerId: "headroom:client-routing",
+    backupPath: "next to edited client config as *.headroom.bak",
+    lastVerifiedLabel: "Verified by Doctor connector checks",
+    rollback:
+      "Remove managed routing hooks and environment changes from Claude Code and Codex config.",
   },
   {
     id: "managed-hooks",
@@ -39,6 +46,9 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
       "~/.zshrc",
       "~/.zprofile",
     ],
+    markerId: "headroom:rtk",
+    backupPath: "next to edited shell profile as *.headroom.bak",
+    lastVerifiedLabel: "Verified by RTK path and hook checks",
     rollback: "Delete managed hook scripts and shell-profile blocks created by the app.",
   },
   {
@@ -47,7 +57,11 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     owner: "Mac AI Switchboard runtime",
     text: "Managed runtime storage, logs, caches, receipts, setup state, and legacy runtime folders.",
     paths: ["~/Library/Application Support/Headroom", "~/.headroom"],
-    rollback: "Delete managed runtime storage, logs, caches, receipts, setup state, Repo Intelligence summaries, and legacy runtime folders.",
+    markerId: "managed storage path",
+    backupPath: null,
+    lastVerifiedLabel: "Verified by release and uninstall checks",
+    rollback:
+      "Delete managed runtime storage, logs, caches, receipts, setup state, Repo Intelligence summaries, and legacy runtime folders.",
   },
   {
     id: "repo-intelligence",
@@ -57,7 +71,11 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     paths: [
       "~/Library/Application Support/Headroom/config/repo-intelligence-latest.json",
     ],
-    rollback: "Remove saved Repo Intelligence local index metadata. User repositories are not modified.",
+    markerId: "repo-intelligence-latest.json",
+    backupPath: null,
+    lastVerifiedLabel: "Verified when latest summary loads",
+    rollback:
+      "Remove saved Repo Intelligence local index metadata. User repositories are not modified.",
   },
   {
     id: "login-item",
@@ -65,6 +83,9 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     owner: "Launch at login",
     text: "App-managed LaunchAgent files and launch-at-login state.",
     paths: ["~/Library/LaunchAgents/"],
+    markerId: "com.extraheadroom.headroom",
+    backupPath: null,
+    lastVerifiedLabel: "Verified by autostart status check",
     rollback: "Disable launch-at-login and remove app-managed LaunchAgent files.",
   },
   {
@@ -76,6 +97,9 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
       "~/Library/Preferences/com.extraheadroom.headroom*",
       "~/Library/Caches/com.extraheadroom.headroom",
     ],
+    markerId: "com.extraheadroom.headroom",
+    backupPath: null,
+    lastVerifiedLabel: "Verified by uninstall disclosure",
     rollback: "Delete app preferences, caches, logs, and known Keychain entries.",
   },
   {
@@ -84,6 +108,10 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     owner: "Add-ons",
     text: "Ponytail plugin registration and managed backup files created next to edited configs.",
     paths: [],
-    rollback: "Remove Ponytail plugin registration and sweep managed backup files created next to edited configs.",
+    markerId: "headroom:addon",
+    backupPath: "next to edited add-on config as *.headroom.bak",
+    lastVerifiedLabel: "Verified by add-on health checks",
+    rollback:
+      "Remove Ponytail plugin registration and sweep managed backup files created next to edited configs.",
   },
 ];
