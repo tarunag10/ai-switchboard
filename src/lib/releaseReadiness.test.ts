@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatReleaseReadinessReportSnapshot,
   releaseReadinessCommand,
   releaseReadinessGroups,
   releaseReadinessItemCount,
@@ -176,6 +177,48 @@ describe("release readiness checklist", () => {
     );
     expect(rows.find((row) => row.id === "local-dmg")?.detail).toContain(
       "does not prove signed release readiness",
+    );
+  });
+
+  it("formats a copyable release report snapshot from report JSON", () => {
+    const snapshot = formatReleaseReadinessReportSnapshot(
+      {
+        generatedAt: "2026-06-28T00:00:00.000Z",
+        status: "blocked",
+        backendValidation: { ready: true },
+        staticSmokePreflight: { ready: true },
+        installedSmoke: {
+          ready: false,
+          installedAppPresent: true,
+          evidenceReady: false,
+          missingEvidence: ["Codex compression recovery"],
+        },
+        shareableDmgGate: {
+          ready: false,
+          signedAndNotarized: false,
+          updaterFeedReady: false,
+          staticSmokePreflightReady: true,
+          installedAppSmokeReady: false,
+          message: "Do not share a public DMG until every gate is clear.",
+        },
+        releaseEnv: {
+          ok: false,
+          blockers: [{ label: "missing environment: APPLE_SIGNING_IDENTITY" }],
+          warnings: [{ label: "missing HEADROOM_UPDATER_PUBLIC_KEY" }],
+        },
+      },
+      "dist/release-readiness-report.json",
+    );
+
+    expect(snapshot).toContain("# Mac AI Switchboard Release Readiness");
+    expect(snapshot).toContain("Source: dist/release-readiness-report.json");
+    expect(snapshot).toContain("Status: blocked");
+    expect(snapshot).toContain("Installed app present: yes");
+    expect(snapshot).toContain("Signed and notarized: no");
+    expect(snapshot).toContain("missing environment: APPLE_SIGNING_IDENTITY");
+    expect(snapshot).toContain("Codex compression recovery");
+    expect(snapshot).toContain(
+      "Do not share a public DMG until every gate is clear.",
     );
   });
 });

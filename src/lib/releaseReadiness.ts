@@ -29,14 +29,22 @@ export interface ReleaseReadinessStatusRow {
 }
 
 export interface ReleaseReadinessReportSnapshot {
+  generatedAt?: string;
   status: "ready" | "blocked" | string;
   backendValidation?: {
     ready?: boolean;
+    message?: string;
+  };
+  staticSmokePreflight?: {
+    ready?: boolean;
+    message?: string;
   };
   installedSmoke?: {
+    ready?: boolean;
     installedAppPresent?: boolean;
     evidenceReady?: boolean;
     missingEvidence?: string[];
+    message?: string;
   };
   shareableDmgGate?: {
     ready?: boolean;
@@ -51,6 +59,14 @@ export interface ReleaseReadinessReportSnapshot {
     blockers?: Array<{ label?: string }>;
     warnings?: Array<{ label?: string }>;
   };
+}
+
+function yesNo(value: boolean | undefined) {
+  return value === true ? "yes" : "no";
+}
+
+function labels(items: Array<{ label?: string }> | undefined) {
+  return items?.map((item) => item.label).filter(Boolean).join(", ") || "none";
 }
 
 export const releaseReadinessCommand = "npm run release:ready";
@@ -377,4 +393,37 @@ export function releaseReadinessRowsFromReport(
         "The strict release readiness report is still the source of truth.",
     },
   ];
+}
+
+export function formatReleaseReadinessReportSnapshot(
+  report: ReleaseReadinessReportSnapshot,
+  reportPath: string,
+) {
+  return [
+    "# Mac AI Switchboard Release Readiness",
+    "",
+    `Source: ${reportPath}`,
+    `Generated: ${report.generatedAt ?? "unknown"}`,
+    `Status: ${report.status}`,
+    "",
+    "## Gates",
+    `- Backend validation ready: ${yesNo(report.backendValidation?.ready)}`,
+    `- Static smoke preflight ready: ${yesNo(report.staticSmokePreflight?.ready)}`,
+    `- Installed app present: ${yesNo(report.installedSmoke?.installedAppPresent)}`,
+    `- Installed smoke ready: ${yesNo(report.installedSmoke?.ready ?? report.installedSmoke?.evidenceReady)}`,
+    `- Signed and notarized: ${yesNo(report.shareableDmgGate?.signedAndNotarized)}`,
+    `- Updater feed ready: ${yesNo(report.shareableDmgGate?.updaterFeedReady)}`,
+    `- Shareable DMG ready: ${yesNo(report.shareableDmgGate?.ready)}`,
+    "",
+    "## Blockers",
+    `- Environment blockers: ${labels(report.releaseEnv?.blockers)}`,
+    `- Environment warnings: ${labels(report.releaseEnv?.warnings)}`,
+    `- Missing installed smoke evidence: ${
+      report.installedSmoke?.missingEvidence?.join(", ") || "none"
+    }`,
+    "",
+    "## Next Step",
+    report.shareableDmgGate?.message ??
+      "Run npm run release:ready -- --strict before sharing a DMG.",
+  ].join("\n");
 }

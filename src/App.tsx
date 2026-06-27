@@ -92,6 +92,7 @@ import {
 } from "./lib/plannedConnectors";
 import {
   releaseReadinessCommand,
+  formatReleaseReadinessReportSnapshot,
   releaseReadinessGroups,
   releaseReadinessItemCount,
   releaseReadinessRowsFromReport,
@@ -4542,16 +4543,26 @@ export default function App() {
     }
   }
 
-  async function copyReleaseReadinessCommand() {
+  async function copyReleaseReadinessReport() {
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
       }
-      await navigator.clipboard.writeText(releaseReadinessCommand);
-      setReleaseReadinessCopyNotice("Release report command copied.");
+      if (releaseReadinessReport?.report) {
+        await navigator.clipboard.writeText(
+          formatReleaseReadinessReportSnapshot(
+            releaseReadinessReport.report,
+            releaseReadinessReport.reportPath,
+          ),
+        );
+        setReleaseReadinessCopyNotice("Release report snapshot copied.");
+      } else {
+        await navigator.clipboard.writeText(releaseReadinessCommand);
+        setReleaseReadinessCopyNotice("Release report command copied.");
+      }
       window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2000);
     } catch {
-      setReleaseReadinessCopyNotice("Copy failed. Select command manually.");
+      setReleaseReadinessCopyNotice("Copy failed. Select release text manually.");
       window.setTimeout(() => setReleaseReadinessCopyNotice(null), 3000);
     }
   }
@@ -8807,11 +8818,13 @@ export default function App() {
                 </div>
                 <button
                   className="secondary-button secondary-button--small"
-                  onClick={() => void copyReleaseReadinessCommand()}
+                  onClick={() => void copyReleaseReadinessReport()}
                   type="button"
                 >
                   <Copy size={14} weight="bold" />
-                  Copy report command
+                  {releaseReadinessReport?.report
+                    ? "Copy report snapshot"
+                    : "Copy report command"}
                 </button>
               </div>
               <div className="release-readiness-card__command">
