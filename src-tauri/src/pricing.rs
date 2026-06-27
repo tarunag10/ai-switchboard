@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::device;
 use crate::keychain;
+use crate::local_mode;
 use crate::models::{
     headroom_tier_for_claude_plan, headroom_tier_for_codex_plan, BillingPeriod,
     ClaudeAccountProfile, ClaudeAuthMethod, ClaudePlanTier, ClaudeUsage, ClaudeUsageWindow,
@@ -193,6 +194,10 @@ impl IdentityPayload {
 /// `grace/start` via `IdentityPayload::for_state`. Silent on failure — offline
 /// is fine, the next identity push will carry it.
 pub fn push_terms_acceptance(state: &AppState, version: u32) {
+    if local_mode::enabled() {
+        return;
+    }
+
     let mut identity = IdentityPayload::for_state(state);
     identity.accepted_terms_version = Some(version);
     let _ = fetch_grace_start(&identity);
@@ -489,6 +494,10 @@ enum RemoteAccountSyncError {
 }
 
 pub fn get_pricing_status(state: &AppState) -> Result<HeadroomPricingStatus, String> {
+    if local_mode::enabled() {
+        return Ok(free_local_pricing_status(state));
+    }
+
     let local_state = reconcile_local_state_with_server(state)?;
     let local_grace_ends_at = local_state.first_seen_at + Duration::hours(LOCAL_GRACE_PERIOD_HOURS);
     let local_grace_active = Utc::now() < local_grace_ends_at;
@@ -530,6 +539,35 @@ pub fn get_pricing_status(state: &AppState) -> Result<HeadroomPricingStatus, Str
     );
     status.codex = fetch_codex_usage(state, status.account.as_ref());
     Ok(status)
+}
+
+fn free_local_pricing_status(state: &AppState) -> HeadroomPricingStatus {
+    let now = Utc::now();
+    HeadroomPricingStatus {
+        authenticated: false,
+        local_grace_started_at: now,
+        local_grace_ends_at: now,
+        local_grace_active: true,
+        account_sync_error: None,
+        needs_authentication: false,
+        optimization_allowed: true,
+        should_nudge: false,
+        nudge_level: 0,
+        gate_reason: None,
+        gate_message: "Mac AI Switchboard is free. No account or subscription is required.".into(),
+        nudge_threshold_percent: None,
+        effective_nudge_thresholds_percent: None,
+        disable_threshold_percent: None,
+        effective_disable_threshold_percent: None,
+        recommended_subscription_tier: None,
+        tier_mismatch: None,
+        claude: detect_claude_profile(state),
+        codex: None,
+        account: None,
+        launch_discount_active: false,
+        active_percent_off: 0,
+        pricing_cohorts: Vec::new(),
+    }
 }
 
 /// Weekly (secondary-window) utilization (%) at which the Codex gate pauses
@@ -885,6 +923,10 @@ pub(crate) fn activate_account_with_base_url(
 /// the feedback email for users who were below the threshold at sign-up.
 /// Silently no-ops if the user is not signed in or the request fails.
 pub fn report_milestone(milestone_tokens_saved: u64) {
+    if local_mode::enabled() {
+        return;
+    }
+
     let token = match read_session_token() {
         Ok(Some(t)) => t,
         _ => return,

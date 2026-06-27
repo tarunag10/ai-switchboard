@@ -38,6 +38,7 @@ function installThrowingStorage() {
 describe("analytics helpers", () => {
   beforeEach(() => {
     vi.stubEnv("VITE_HEADROOM_LOCAL_ONLY", "0");
+    vi.stubEnv("VITE_HEADROOM_REMOTE_SERVICES", "1");
     vi.stubEnv("VITE_HEADROOM_REMOTE_TELEMETRY", "1");
   });
 

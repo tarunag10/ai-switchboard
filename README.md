@@ -260,7 +260,9 @@ npm install
 npm run tauri dev
 ```
 
-For a local-first personal build, create `.env` with remote telemetry disabled:
+Mac AI Switchboard is a free local-first app. Remote account, pricing, and
+telemetry services are off by default. For an explicit local build, create
+`.env` with:
 
 ```bash
 HEADROOM_LOCAL_ONLY="1"
@@ -268,10 +270,10 @@ VITE_HEADROOM_LOCAL_ONLY="1"
 VITE_HEADROOM_REMOTE_TELEMETRY="0"
 ```
 
-For the live auth and pricing flow, add the public-service configuration:
+Only set remote-service keys if you operate your own forked service. Public
+builds in this repo should not require sign-in, checkout, or a pricing API:
 
 ```bash
-HEADROOM_ACCOUNT_API_BASE_URL="https://extraheadroom.com/api/v1"
 HEADROOM_APTABASE_APP_KEY="REPLACE_WITH_APTABASE_APP_KEY"
 VITE_SENTRY_DSN="REPLACE_WITH_SENTRY_DSN"
 VITE_CLARITY_PROJECT_ID="REPLACE_WITH_CLARITY_PROJECT_ID"

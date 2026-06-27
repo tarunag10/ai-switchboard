@@ -21,7 +21,6 @@ export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="your-updater-key-password"
 export APPLE_API_ISSUER="your-app-store-connect-issuer-id"
 export APPLE_API_KEY="your-app-store-connect-key-id"
 export APPLE_API_KEY_PATH="$HOME/.private_keys/AuthKey_ABC123XYZ.p8"
-export HEADROOM_ACCOUNT_API_BASE_URL="https://extraheadroom.com/api/v1"
 export HEADROOM_UPDATER_PUBLIC_KEY="$(cat .secrets/tauri-updater/public.key)"
 export HEADROOM_UPDATER_ENDPOINTS='["https://github.com/tarunag10/mac-ai-switchboard/releases/latest/download/latest.json"]'
 npm run build:mac:dmg
@@ -75,8 +74,6 @@ These values are compiled into the release build. If they are missing, Headroom 
 
 Required for a signed local DMG in this repo:
 
-- `HEADROOM_ACCOUNT_API_BASE_URL`
-  The deployed Headroom account API base URL, for example `https://extraheadroom.com/api/v1`. Release builds now fail fast if this is missing so packaged sign-in cannot silently point at localhost.
 - `APPLE_SIGNING_IDENTITY`
   Your Developer ID Application certificate name from Keychain Access, for example `Developer ID Application: Your Name (TEAMID)`.
 - `TAURI_SIGNING_PRIVATE_KEY`

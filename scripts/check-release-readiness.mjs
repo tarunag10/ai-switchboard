@@ -34,13 +34,6 @@ function actionForBlocker(blocker) {
       detail: "Then rerun npm run release:ready.",
     };
   }
-  if (/missing environment: HEADROOM_ACCOUNT_API_BASE_URL/.test(blocker.label)) {
-    return {
-      label: "Set account API URL",
-      command: "export HEADROOM_ACCOUNT_API_BASE_URL=https://your-account-api.example.com/api/v1",
-      detail: "Use the deployed account API, not localhost, before packaging.",
-    };
-  }
   if (/missing environment: APPLE_SIGNING_IDENTITY/.test(blocker.label)) {
     return {
       label: "Set Developer ID identity",

@@ -48,7 +48,6 @@ function assertNoLabelContaining(labels, fragment) {
 }
 
 const placeholderResult = runReleaseEnv({
-  HEADROOM_ACCOUNT_API_BASE_URL: "REPLACE_WITH_ACCOUNT_API_URL",
   APPLE_SIGNING_IDENTITY: "your-developer-id-application",
   TAURI_SIGNING_PRIVATE_KEY: "/absolute/path/to/private.key",
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: "your-updater-password",
@@ -62,10 +61,6 @@ const placeholderResult = runReleaseEnv({
 assert.equal(placeholderResult.ok, false);
 
 const placeholderBlockers = labelsFor(placeholderResult.blockers);
-assertHasLabel(
-  placeholderBlockers,
-  "placeholder environment: HEADROOM_ACCOUNT_API_BASE_URL",
-);
 assertHasLabel(placeholderBlockers, "placeholder environment: APPLE_SIGNING_IDENTITY");
 assertHasLabel(
   placeholderBlockers,
@@ -88,7 +83,6 @@ assertNoLabelContaining(
 );
 
 const validLookingResult = runReleaseEnv({
-  HEADROOM_ACCOUNT_API_BASE_URL: "https://accounts.example.com",
   APPLE_SIGNING_IDENTITY: "Developer ID Application: Example Inc (ABCDE12345)",
   TAURI_SIGNING_PRIVATE_KEY:
     "-----BEGIN PRIVATE KEY-----\\nexample\\n-----END PRIVATE KEY-----",

@@ -41,10 +41,6 @@ const requiredCommands = [
 
 const requiredReleaseEnv = [
   {
-    name: "HEADROOM_ACCOUNT_API_BASE_URL",
-    hint: "Set the deployed account API base URL for packaged sign-in.",
-  },
-  {
     name: "APPLE_SIGNING_IDENTITY",
     hint: "Set your Developer ID Application certificate name.",
   },

@@ -240,16 +240,15 @@ Expect: `livez=200`, a `127.0.0.1:67XX` line where `XX` is NOT `68` (the fallbac
 
 If the fallback is missing, check `~/Library/Application Support/Headroom/headroom/logs/` for a `[backend_port]` warning line that names the occupant and the chosen fallback port.
 
-### 10. Auth / pricing state is intact
+### 10. Free local mode has no account gate
 
-The session token lives in the macOS keychain under service `com.tarunagarwal.mac-ai-switchboard.account`, account `session-token`; older `com.extraheadroom.headroom.account` entries are migrated on first read. The local pricing state lives next to `activity-facts.json`.
+Mac AI Switchboard is free. The app should not require sign-in, checkout, or a pricing API before optimization works.
 
 ```bash
-security find-generic-password -s com.tarunagarwal.mac-ai-switchboard.account -a session-token >/dev/null 2>&1 && echo 'signed in' || echo 'not signed in'
-test -f ~/Library/Application\ Support/Headroom/config/headroom-pricing-state.json && jq -e '.first_seen_at' ~/Library/Application\ Support/Headroom/config/headroom-pricing-state.json
+defaults read /Applications/Mac\ AI\ Switchboard.app/Contents/Info.plist CFBundleIdentifier
 ```
 
-Expect: if the build is supposed to be signed in, line 1 reports `signed in`; line 2 prints a non-null `first_seen_at` timestamp. A signed-in build that flips to `not signed in` after relaunch is a regression — keychain access is broken or the token was wiped.
+Expect: `com.tarunagarwal.mac-ai-switchboard`. The UI should not show Upgrade, trial-expired, checkout, or sign-in-required copy.
 
 ## Codex checks (Codex pass)
 
