@@ -936,6 +936,26 @@ export function getPlannedConnectorConfigCreationPlans(
   return connectors.map(getPlannedConnectorConfigCreationPlan);
 }
 
+export function formatPlannedConnectorConfigCreationPlansMarkdown(
+  connectors: PlannedConnector[] = plannedConnectors,
+) {
+  return [
+    "# Mac AI Switchboard Connector Config Creation Plans",
+    "",
+    "Automation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested.",
+    "",
+    ...getPlannedConnectorConfigCreationPlans(connectors).flatMap((plan) => [
+      `## ${plan.connectorName}`,
+      `- Automation enabled: ${plan.automationEnabled ? "yes" : "no"}`,
+      `- Safety note: ${plan.safetyNote}`,
+      ...plan.steps.map((step) => `- ${step.label}: ${step.detail}`),
+      "",
+    ]),
+  ]
+    .join("\n")
+    .trimEnd();
+}
+
 export function summarizePlannedConnectorSupport(
   connectors: PlannedConnector[] = plannedConnectors,
 ): PlannedConnectorSupportSummary {

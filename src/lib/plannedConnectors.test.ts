@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatPlannedConnectorConfigCreationPlansMarkdown,
   getPlannedConnector,
   getPlannedConnectorConfigCreationPlan,
   getPlannedConnectorConfigCreationPlans,
@@ -322,5 +323,25 @@ describe("planned connectors", () => {
     expect(cursor.steps.find((step) => step.id === "rollback")?.detail).toMatch(
       /profile settings backup/i,
     );
+  });
+
+  it("formats copyable config-creation plans for handoff", () => {
+    const markdown = formatPlannedConnectorConfigCreationPlansMarkdown([
+      getPlannedConnector("opencode")!,
+      getPlannedConnector("grok_cli")!,
+      getPlannedConnector("cursor")!,
+    ]);
+
+    expect(markdown).toContain(
+      "# Mac AI Switchboard Connector Config Creation Plans",
+    );
+    expect(markdown).toContain("Automation stays disabled");
+    expect(markdown).toContain("## OpenCode");
+    expect(markdown).toContain("Detect config surface: Detect PATH: opencode");
+    expect(markdown).toContain("## Grok / xAI CLI");
+    expect(markdown).toContain("Doctor guardrails");
+    expect(markdown).toContain("## Cursor");
+    expect(markdown).toContain("Rollback safely");
+    expect(markdown).toContain("Off mode removes only Switchboard-managed");
   });
 });

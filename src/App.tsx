@@ -82,6 +82,7 @@ import {
   type RepoSavingsEstimate,
 } from "./lib/repoIntelligence";
 import {
+  formatPlannedConnectorConfigCreationPlansMarkdown,
   getPlannedConnector,
   getPlannedConnectorConfigCreationPlan,
   getPlannedConnectorReadinessBadges,
@@ -4547,7 +4548,7 @@ export default function App() {
         throw new Error("Clipboard API unavailable");
       }
       await navigator.clipboard.writeText(command);
-      setPlannedConnectorCopyNotice(`${connectorName} command copied.`);
+      setPlannedConnectorCopyNotice(`${connectorName} copied.`);
       window.setTimeout(() => setPlannedConnectorCopyNotice(null), 2000);
     } catch {
       setPlannedConnectorCopyNotice(
@@ -8355,6 +8356,19 @@ export default function App() {
                   >
                     <Copy size={13} weight="bold" />
                     Copy checks
+                  </button>
+                  <button
+                    type="button"
+                    className="connector-readiness__copy"
+                    onClick={() =>
+                      void copyPlannedConnectorCommand(
+                        formatPlannedConnectorConfigCreationPlansMarkdown(),
+                        "Connector config plans",
+                      )
+                    }
+                  >
+                    <Copy size={13} weight="bold" />
+                    Copy config plans
                   </button>
                 </div>
               </div>
