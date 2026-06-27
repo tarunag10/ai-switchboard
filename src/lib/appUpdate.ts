@@ -54,7 +54,13 @@ export function getBlockedAppUpdateCheckPatch(
   }
 
   if (!config.enabled) {
-    return background ? {} : { statusCopy: "Update checks are not configured in this build yet." };
+    return background
+      ? { availableUpdate: null, readyToRestart: false }
+      : {
+          availableUpdate: null,
+          readyToRestart: false,
+          statusCopy: "Update checks are not configured in this build yet.",
+        };
   }
 
   return null;

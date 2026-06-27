@@ -81,7 +81,16 @@ describe("app update helpers", () => {
 
   it("returns a visible manual-check message when updates are disabled", () => {
     expect(getBlockedAppUpdateCheckPatch(disabledConfig)).toEqual({
+      availableUpdate: null,
+      readyToRestart: false,
       statusCopy: "Update checks are not configured in this build yet.",
+    });
+  });
+
+  it("clears stale available updates during disabled background checks", () => {
+    expect(getBlockedAppUpdateCheckPatch(disabledConfig, true)).toEqual({
+      availableUpdate: null,
+      readyToRestart: false,
     });
   });
 
