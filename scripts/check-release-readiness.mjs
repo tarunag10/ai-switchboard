@@ -88,6 +88,7 @@ function installedSmokeActions(report) {
   return actions;
 }
 
+run("npm", ["run", "check:branding"]);
 run("npm", ["run", "release:report"]);
 run("npm", ["run", "release:report:check"]);
 

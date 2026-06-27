@@ -40,7 +40,8 @@ const requiredScripts = {
 '"smoke:preflight"',
 '"smoke:installed"',
 '"smoke:installed:local"',
-'"check:connectors"',
+    '"check:connectors"',
+    '"check:branding"',
     '"check:colors"',
     '"check:governance"',
     '"check:deployment"',
@@ -426,6 +427,7 @@ const requiredSourceSignals = {
     "Backend validation pending",
   ],
   "scripts/check-release-readiness.mjs": [
+    "check:branding",
     "release:report",
     "release:report:check",
     "--strict",
