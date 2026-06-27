@@ -460,6 +460,35 @@ describe("dashboard helpers", () => {
     });
   });
 
+  it("formats Grok/xAI compatibility evidence for planned connector UI", () => {
+    const report = connectorCompatibilityReport({
+      clientId: "grok_cli",
+      name: "Grok / xAI CLI",
+      supportStatus: "planned",
+      setupPhase: "detect",
+      detectionEvidence: [
+        "Grok / xAI binary: /opt/homebrew/bin/xai",
+        "Grok / xAI version: xai 0.4.0",
+        "Grok / xAI config surface: /Users/test/.config/xai",
+        "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+        "Detected, but Headroom adapter not implemented yet.",
+      ],
+      installed: true,
+      enabled: false,
+      verified: false,
+    });
+
+    expect(report).toEqual({
+      title: "Grok / xAI compatibility report",
+      binaryPath: "/opt/homebrew/bin/xai",
+      version: "xai 0.4.0",
+      configSurface: "/Users/test/.config/xai",
+      routingBlocker:
+        "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+      otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
+    });
+  });
+
   it("omits compatibility report for connectors without structured evidence", () => {
     expect(
       connectorCompatibilityReport({

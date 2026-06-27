@@ -3567,13 +3567,42 @@ fn detect_cursor_client() -> ClientStatus {
 }
 
 fn detect_grok_cli_client() -> ClientStatus {
-    detect_planned_client(
-        "grok_cli",
-        "Grok / xAI CLI",
-        &["grok", "xai"],
-        &[home_dir().join(".config").join("xai")],
-        "Detected, but Headroom adapter not implemented yet. keep provider/model compatibility visible in Doctor.",
-    )
+    let executable = common_cli_candidate_paths(&["grok", "xai"])
+        .into_iter()
+        .find(|path| path.exists())
+        .or_else(|| find_on_path(&["grok", "xai"]));
+    let config_candidates = [home_dir().join(".config").join("xai")];
+    let report = planned_cli_compatibility_report(
+        "Grok / xAI",
+        executable.clone(),
+        &config_candidates,
+        "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+    );
+    let installed = executable.is_some() || !report.config_surfaces.is_empty();
+    let mut notes = if installed {
+        planned_cli_compatibility_evidence(&report)
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter not implemented yet. keep provider/model compatibility visible in Doctor."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "grok_cli".into(),
+        name: "Grok / xAI CLI".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_aider_client() -> ClientStatus {
@@ -3967,6 +3996,19 @@ mod tests {
                 ],
             },
             ClientStatus {
+                id: "grok_cli".into(),
+                name: "Grok / xAI CLI".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Grok / xAI binary: /opt/homebrew/bin/xai".into(),
+                    "Grok / xAI version: xai 0.4.0".into(),
+                    "Grok / xAI config surface: /Users/test/.config/xai".into(),
+                    "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
+            ClientStatus {
                 id: "aider".into(),
                 name: "Aider".into(),
                 installed: true,
@@ -4032,6 +4074,17 @@ mod tests {
                     .contains(&"OpenCode version: opencode 1.0.0".to_string())
         }));
         assert!(connectors.iter().any(|connector| {
+            connector.client_id == "grok_cli"
+                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Grok / xAI binary: /opt/homebrew/bin/xai".to_string())
+                && connector
+                    .detection_evidence
+                    .contains(&"Grok / xAI version: xai 0.4.0".to_string())
+        }));
+        assert!(connectors.iter().any(|connector| {
             connector.client_id == "aider"
                 && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
@@ -4082,6 +4135,29 @@ mod tests {
         assert!(evidence.contains("OpenCode config surface: /Users/test/.config/opencode"));
         assert!(evidence.contains("Provider routing blocked"));
         assert!(evidence.contains("active config path"));
+        assert!(evidence.contains("backup"));
+        assert!(evidence.contains("verify"));
+        assert!(evidence.contains("rollback"));
+        assert!(evidence.contains("Off mode cleanup"));
+    }
+
+    #[test]
+    fn grok_compatibility_evidence_reports_model_account_blocker() {
+        let report = super::PlannedCliCompatibilityReport {
+            label: "Grok / xAI",
+            binary_path: Some(PathBuf::from("/opt/homebrew/bin/xai")),
+            version: Some("xai 0.4.0".to_string()),
+            config_surfaces: vec![PathBuf::from("/Users/test/.config/xai")],
+            routing_blocker:
+                "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+        };
+
+        let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
+
+        assert!(evidence.contains("Grok / xAI binary: /opt/homebrew/bin/xai"));
+        assert!(evidence.contains("Grok / xAI version: xai 0.4.0"));
+        assert!(evidence.contains("Grok / xAI config surface: /Users/test/.config/xai"));
+        assert!(evidence.contains("model/account guardrails"));
         assert!(evidence.contains("backup"));
         assert!(evidence.contains("verify"));
         assert!(evidence.contains("rollback"));

@@ -534,6 +534,7 @@ function evidenceValue(evidence: string, prefix: string) {
 
 const compatibilityLabels: Partial<Record<string, string>> = {
   gemini_cli: "Gemini",
+  grok_cli: "Grok / xAI",
   opencode: "OpenCode"
 };
 
