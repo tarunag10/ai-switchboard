@@ -2507,6 +2507,11 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
         .flat_map(|client| client.manual_workflow.iter().map(String::as_str))
         .take(3)
         .collect::<Vec<_>>();
+    let config_steps = connectors
+        .iter()
+        .flat_map(|client| client.config_creation_steps.iter().map(String::as_str))
+        .take(7)
+        .collect::<Vec<_>>();
 
     let mut parts = vec![format!(
         "{names} detected. Mac AI Switchboard can identify these tools but keeps routing manual until backup, restore, and Off mode cleanup are implemented."
@@ -2530,6 +2535,12 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
     }
     if !manual_workflow.is_empty() {
         parts.push(format!("Manual workflow: {}.", manual_workflow.join(" | ")));
+    }
+    if !config_steps.is_empty() {
+        parts.push(format!(
+            "Config creation plan: {}.",
+            config_steps.join(" -> ")
+        ));
     }
     parts.push(
         "Safe today: use RTK-only mode or Repo Intelligence packs; do not enable automatic provider routing yet."
@@ -2559,6 +2570,15 @@ mod doctor_tests {
                 "Back up provider settings before any routing change.".to_string()
             ],
             manual_workflow: vec!["Use RTK-only mode for noisy output.".to_string()],
+            config_creation_steps: vec![
+                "Detect config surface".to_string(),
+                "Show dry-run diff".to_string(),
+                "Create backup".to_string(),
+                "Apply with consent".to_string(),
+                "Verify in Doctor".to_string(),
+                "Rollback safely".to_string(),
+                "Clean up in Off mode".to_string(),
+            ],
             installed: true,
             enabled: false,
             verified: false,
@@ -2571,6 +2591,7 @@ mod doctor_tests {
         assert!(body.contains("Detection evidence: Detected at /opt/homebrew/bin/gemini."));
         assert!(body.contains("Automation gates: Back up provider settings"));
         assert!(body.contains("Manual workflow: Use RTK-only mode"));
+        assert!(body.contains("Config creation plan: Detect config surface -> Show dry-run diff"));
         assert!(body.contains("Safe today: use RTK-only mode or Repo Intelligence packs"));
         assert!(body.contains("keeps routing manual"));
     }

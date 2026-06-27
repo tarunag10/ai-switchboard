@@ -64,6 +64,16 @@ struct PlannedClientSpec {
     manual_workflow: &'static [&'static str],
 }
 
+const PLANNED_CONFIG_CREATION_STEPS: [&str; 7] = [
+    "Detect config surface",
+    "Show dry-run diff",
+    "Create backup",
+    "Apply with consent",
+    "Verify in Doctor",
+    "Rollback safely",
+    "Clean up in Off mode",
+];
+
 const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
     PlannedClientSpec {
         id: "gemini_cli",
@@ -698,6 +708,7 @@ pub fn list_client_connectors(
                     "Use Doctor repair if verification reports a drifted config.".to_string(),
                     "Switch to Off mode to remove managed routing.".to_string(),
                 ],
+                config_creation_steps: Vec::new(),
                 installed,
                 enabled,
                 verified,
@@ -739,6 +750,10 @@ pub fn list_client_connectors(
                 .collect(),
             manual_workflow: spec
                 .manual_workflow
+                .iter()
+                .map(|step| step.to_string())
+                .collect(),
+            config_creation_steps: PLANNED_CONFIG_CREATION_STEPS
                 .iter()
                 .map(|step| step.to_string())
                 .collect(),

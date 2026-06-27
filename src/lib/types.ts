@@ -174,6 +174,7 @@ export interface ClientConnectorStatus {
   configLocations?: string[];
   automationGates?: string[];
   manualWorkflow?: string[];
+  configCreationSteps?: string[];
   installed: boolean;
   enabled: boolean;
   verified: boolean;

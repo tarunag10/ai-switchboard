@@ -104,6 +104,33 @@ function validateConfigCreationPlanContract(source) {
   return errors;
 }
 
+function validateBackendConfigCreationPlanContract(source) {
+  const errors = [];
+  const constantBody = source.match(
+    /const PLANNED_CONFIG_CREATION_STEPS:\s*\[&str;\s*7\]\s*=\s*\[([\s\S]*?)\];/,
+  )?.[1];
+  if (!constantBody) {
+    return ["missing PLANNED_CONFIG_CREATION_STEPS backend contract"];
+  }
+  for (const label of [
+    "Detect config surface",
+    "Show dry-run diff",
+    "Create backup",
+    "Apply with consent",
+    "Verify in Doctor",
+    "Rollback safely",
+    "Clean up in Off mode",
+  ]) {
+    if (!constantBody.includes(`"${label}"`)) {
+      errors.push(`backend config creation plan missing "${label}"`);
+    }
+  }
+  if (!source.includes("config_creation_steps: PLANNED_CONFIG_CREATION_STEPS")) {
+    errors.push("planned backend connectors must expose config_creation_steps");
+  }
+  return errors;
+}
+
 function extractBackendConnectors(source) {
   const registry = extractArrayBody(
     source,
@@ -138,8 +165,9 @@ function difference(left, right) {
 }
 
 const frontendSource = readFile(frontendPath);
+const backendSource = readFile(backendPath);
 const frontendConnectors = extractFrontendConnectors(frontendSource);
-const backendConnectors = extractBackendConnectors(readFile(backendPath));
+const backendConnectors = extractBackendConnectors(backendSource);
 const frontendIds = uniqueSorted([...frontendConnectors.keys()]);
 const backendIds = uniqueSorted([...backendConnectors.keys()]);
 
@@ -164,6 +192,7 @@ if (frontendIds.length === 0) {
 
 const metadataErrors = [];
 metadataErrors.push(...validateConfigCreationPlanContract(frontendSource));
+metadataErrors.push(...validateBackendConfigCreationPlanContract(backendSource));
 for (const id of frontendIds) {
   const frontend = frontendConnectors.get(id);
   const backend = backendConnectors.get(id);

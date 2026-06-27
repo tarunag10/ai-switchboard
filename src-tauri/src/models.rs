@@ -524,6 +524,8 @@ pub struct ClientConnectorStatus {
     pub automation_gates: Vec<String>,
     #[serde(default)]
     pub manual_workflow: Vec<String>,
+    #[serde(default)]
+    pub config_creation_steps: Vec<String>,
     pub installed: bool,
     pub enabled: bool,
     pub verified: bool,
