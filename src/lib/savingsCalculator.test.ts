@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildAddonSavingsEstimate,
   buildSavingsCalculatorBreakdown,
   buildSavingsCalculatorSummary,
   buildSavingsLedgerRows,
@@ -156,6 +157,92 @@ describe("savings calculator", () => {
     expect(rows[0].savedUsd).toBe(4.5);
     expect(rows[1].savedTokens).toBe(900);
     expect(rows[2].detail).toContain("Implementation Pack");
+    expect(rows[2].detail).toContain("graph summary");
+  });
+
+  it("appends inferred add-on rows when their estimates avoid tokens", () => {
+    const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "overall", {
+      runtimeStatus: {
+        platform: "darwin",
+        supportTier: "supported",
+        installed: true,
+        running: true,
+        starting: false,
+        paused: false,
+        autoPaused: false,
+        proxyReachable: true,
+        headroomLearnSupported: true,
+        rtk: {
+          installed: true,
+          enabled: true,
+          pathConfigured: true,
+          hookConfigured: true,
+          totalCommands: 12,
+          totalSaved: 900,
+          avgSavingsPct: 72,
+        },
+      },
+      repoSavings: {
+        fullScanTokens: 10_000,
+        bestPackTokens: 2_000,
+        bestPackTokensAvoided: 8_000,
+        bestPackSavingsPct: 80,
+        allPacksTokens: 4_000,
+        allPacksTokensAvoided: 6_000,
+        allPacksSavingsPct: 60,
+        bestPack: {
+          id: "implementation",
+          title: "Implementation Pack",
+          purpose: "Feature work",
+          estimatedTokens: 2_000,
+          savingsVsFullScanPct: 80,
+          files: [],
+        },
+      },
+      cavemanSavings: buildAddonSavingsEstimate(480, 180),
+      ponytailSavings: buildAddonSavingsEstimate(1_400, 520),
+      markitdownSavings: buildAddonSavingsEstimate(3_200, 900),
+    });
+
+    expect(rows.map((row) => row.id)).toEqual([
+      "headroom",
+      "rtk",
+      "repo_intelligence",
+      "caveman",
+      "ponytail",
+      "markitdown",
+    ]);
+    const addonRows = rows.filter((row) =>
+      ["caveman", "ponytail", "markitdown"].includes(row.id),
+    );
+    expect(addonRows.map((row) => row.confidence)).toEqual([
+      "inferred",
+      "inferred",
+      "inferred",
+    ]);
+    expect(addonRows.map((row) => row.savedUsd)).toEqual([null, null, null]);
+    expect(addonRows.map((row) => row.savedTokens)).toEqual([300, 880, 2_300]);
+  });
+
+  it("omits add-on rows when the estimate is missing or avoids no tokens", () => {
+    const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "overall", {
+      cavemanSavings: buildAddonSavingsEstimate(200, 200),
+      ponytailSavings: null,
+    });
+
+    expect(rows.map((row) => row.id)).toEqual(["headroom"]);
+  });
+
+  it("derives add-on estimates defensively", () => {
+    expect(buildAddonSavingsEstimate(500, 200)).toMatchObject({
+      tokensAvoided: 300,
+      savingsPct: 60,
+    });
+    expect(buildAddonSavingsEstimate(100, 400)).toMatchObject({
+      tokensAvoided: 0,
+      savingsPct: 0,
+    });
+    expect(buildAddonSavingsEstimate(0, 0).savingsPct).toBe(0);
   });
 
   it("does not show lifetime RTK totals in the session breakdown", () => {
@@ -279,6 +366,9 @@ describe("savings calculator", () => {
           files: [],
         },
       },
+      cavemanSavings: buildAddonSavingsEstimate(480, 180),
+      ponytailSavings: buildAddonSavingsEstimate(1_400, 520),
+      markitdownSavings: buildAddonSavingsEstimate(3_200, 900),
     });
     const text = formatSavingsCalculatorShareText(summary, rows);
 
@@ -287,5 +377,8 @@ describe("savings calculator", () => {
     expect(text).toContain("- Headroom (estimated): 2,000 tokens / $4.50");
     expect(text).toContain("- RTK (measured): 900 tokens");
     expect(text).toContain("- Repo Intelligence (inferred): 7,500 tokens");
+    expect(text).toContain("- Caveman (inferred): 300 tokens");
+    expect(text).toContain("- Ponytail (inferred): 880 tokens");
+    expect(text).toContain("- MarkItDown (inferred): 2,300 tokens");
   });
 });

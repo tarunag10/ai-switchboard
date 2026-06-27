@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -23,6 +24,8 @@ pub struct ManagedTool {
     pub source_url: String,
     pub version: String,
     pub checksum: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -138,6 +141,7 @@ pub enum RepoGraphEdgeKind {
     TestToSource,
     EntrypointToConfig,
     SourceToDependencyHub,
+    SymbolReference,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -147,6 +151,28 @@ pub struct RepoGraphEdge {
     pub to: String,
     pub kind: RepoGraphEdgeKind,
     pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RepoSymbolKind {
+    Function,
+    Class,
+    Struct,
+    Enum,
+    Trait,
+    Const,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoSymbol {
+    pub name: String,
+    pub kind: RepoSymbolKind,
+    pub file: String,
+    pub line: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -163,6 +189,10 @@ pub struct RepoGraphSummary {
     pub import_edges: Vec<RepoGraphEdge>,
     #[serde(default)]
     pub reverse_dependency_hubs: Vec<RepoGraphNode>,
+    #[serde(default)]
+    pub symbols: Vec<RepoSymbol>,
+    #[serde(default)]
+    pub symbol_edges: Vec<RepoGraphEdge>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

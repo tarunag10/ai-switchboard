@@ -923,6 +923,11 @@ pub fn perform_full_cleanup() -> Vec<String> {
         log::warn!("cleanup: removing rtk AGENTS.md block failed: {err}");
     }
 
+    // Drop the managed Caveman guidance blocks from both client instruction files.
+    if let Err(err) = disable_caveman_integration() {
+        log::warn!("cleanup: removing caveman managed blocks failed: {err}");
+    }
+
     // Also wipe the per-client setup-state file so a reinstall starts clean.
     let setup_state = setup_state_path();
     if setup_state.exists() {
@@ -1590,6 +1595,78 @@ pub fn disable_markitdown_integration(markitdown_shim: &Path) -> Result<bool> {
     changed |= remove_managed_block(&markitdown_claude_md_path(), "markitdown_office")?;
     changed |= set_markitdown_bash_permission(markitdown_shim, false)?;
     changed |= remove_managed_block(&markitdown_codex_agents_path(), "markitdown")?;
+    Ok(changed)
+}
+
+fn caveman_claude_md_path() -> PathBuf {
+    home_dir().join(".claude").join("CLAUDE.md")
+}
+
+fn caveman_codex_agents_path() -> PathBuf {
+    codex_home().join("AGENTS.md")
+}
+
+/// Terse-output guidance body keyed by level. Scoped is the conservative
+/// default: terse only where short output is safe, never hiding required
+/// legal, safety, or debugging detail. Aggressive asks for terseness broadly.
+fn build_caveman_nudge(level: &str) -> String {
+    if level == "aggressive" {
+        "## Terse output (Switchboard Caveman, aggressive)\n\
+         Default to terse output everywhere. Lead with the answer or result; cut\n\
+         preamble, restated questions, and summaries of what you just did. Prefer\n\
+         fragments and short synonyms. Still include any legal, safety, or\n\
+         debugging detail the task actually requires -- brevity never overrides\n\
+         correctness or required disclosure."
+            .to_string()
+    } else {
+        "## Terse output (Switchboard Caveman, scoped)\n\
+         For command summaries, PR notes, and handoffs, keep output terse: lead\n\
+         with the result and drop preamble and self-summaries. Do NOT shorten\n\
+         legal, safety, or debugging content -- keep those complete even when the\n\
+         surrounding prose is terse."
+            .to_string()
+    }
+}
+
+/// Enables the Caveman addon: writes a Switchboard-owned managed guidance block
+/// into the instruction file of each configured coding client (Claude Code's
+/// `~/.claude/CLAUDE.md`, Codex's `~/.codex/AGENTS.md`). Pure guidance -- no
+/// hook, runtime, or permission. Idempotent and safe to re-run.
+pub fn enable_caveman_integration(level: &str) -> Result<(Vec<String>, Vec<String>)> {
+    let mut changed_files = Vec::new();
+    let mut backup_files = Vec::new();
+    let body = build_caveman_nudge(level);
+
+    if is_claude_code_enabled() {
+        let claude_md = caveman_claude_md_path();
+        let (md_changed, md_backup) = upsert_managed_block(&claude_md, "caveman", &body)?;
+        if md_changed {
+            changed_files.push(claude_md.display().to_string());
+        }
+        if let Some(path) = md_backup {
+            backup_files.push(path.display().to_string());
+        }
+    }
+
+    if is_codex_enabled() {
+        let agents = caveman_codex_agents_path();
+        let (codex_changed, codex_backup) = upsert_managed_block(&agents, "caveman", &body)?;
+        if codex_changed {
+            changed_files.push(agents.display().to_string());
+        }
+        if let Some(path) = codex_backup {
+            backup_files.push(path.display().to_string());
+        }
+    }
+
+    Ok((changed_files, backup_files))
+}
+
+/// Removes the managed Caveman block from every client instruction file. Runs
+/// unconditionally so a later-disconnected client is still scrubbed.
+pub fn disable_caveman_integration() -> Result<bool> {
+    let mut changed = remove_managed_block(&caveman_claude_md_path(), "caveman")?;
+    changed |= remove_managed_block(&caveman_codex_agents_path(), "caveman")?;
     Ok(changed)
 }
 
@@ -4669,6 +4746,75 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
     fn read_settings_json(path: &Path) -> serde_json::Value {
         let raw = fs::read_to_string(path).expect("read settings.json");
         serde_json::from_str(&raw).expect("parse settings.json")
+    }
+
+    fn seed_caveman_clients_configured() {
+        super::write_setup_state(&ClientSetupState {
+            configured_clients: BTreeMap::from([
+                ("claude_code".into(), "2026-06-27T00:00:00Z".into()),
+                ("codex_cli".into(), "2026-06-27T00:00:01Z".into()),
+            ]),
+            remembered_clients: BTreeMap::new(),
+            managed_shell_files: BTreeMap::new(),
+            remembered_shell_files: BTreeMap::new(),
+            rtk_disabled: false,
+            switchboard_mode: None,
+        })
+        .expect("write setup state");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn caveman_block_round_trips_for_configured_clients() {
+        let home = TestHome::new();
+        seed_caveman_clients_configured();
+
+        super::enable_caveman_integration("scoped").expect("enable caveman");
+
+        let claude =
+            fs::read_to_string(home.path().join(".claude").join("CLAUDE.md")).expect("read claude");
+        let codex =
+            fs::read_to_string(home.path().join(".codex").join("AGENTS.md")).expect("read codex");
+        assert!(claude.contains("headroom:caveman"));
+        assert!(claude.contains("Switchboard Caveman, scoped"));
+        assert!(codex.contains("headroom:caveman"));
+        assert!(codex.contains("Switchboard Caveman, scoped"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn caveman_level_switch_rewrites_managed_body() {
+        let home = TestHome::new();
+        seed_caveman_clients_configured();
+
+        super::enable_caveman_integration("scoped").expect("enable scoped");
+        super::enable_caveman_integration("aggressive").expect("enable aggressive");
+
+        let agents =
+            fs::read_to_string(home.path().join(".codex").join("AGENTS.md")).expect("read codex");
+        assert!(agents.contains("Switchboard Caveman, aggressive"));
+        assert!(!agents.contains("Switchboard Caveman, scoped"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn caveman_disable_and_full_cleanup_remove_managed_blocks() {
+        let home = TestHome::new();
+        seed_caveman_clients_configured();
+
+        super::enable_caveman_integration("scoped").expect("enable caveman");
+        assert!(super::disable_caveman_integration().expect("disable caveman"));
+        let claude_path = home.path().join(".claude").join("CLAUDE.md");
+        assert!(!fs::read_to_string(&claude_path)
+            .expect("read claude")
+            .contains("headroom:caveman"));
+
+        super::enable_caveman_integration("scoped").expect("enable again");
+        super::perform_full_cleanup();
+        let codex_path = home.path().join(".codex").join("AGENTS.md");
+        assert!(!fs::read_to_string(codex_path)
+            .expect("read codex")
+            .contains("headroom:caveman"));
     }
 
     #[test]

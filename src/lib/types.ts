@@ -1,4 +1,5 @@
-export type ToolStatus = "not_installed" | "installing" | "healthy" | "degraded";
+export type ToolStatus =
+  "not_installed" | "installing" | "healthy" | "degraded";
 
 export interface ManagedTool {
   id: string;
@@ -11,6 +12,7 @@ export interface ManagedTool {
   sourceUrl: string;
   version: string;
   checksum?: string | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface PipelineStageMetric {
@@ -327,7 +329,8 @@ export interface HeadroomLearnPrereqStatus {
 // displayable text in `ActivityFeed.tsx`.
 export interface TransformationRequestMessage {
   role?: string;
-  content?: string | Array<{ type?: string; text?: string; [k: string]: unknown }>;
+  content?:
+    string | Array<{ type?: string; text?: string; [k: string]: unknown }>;
   [k: string]: unknown;
 }
 

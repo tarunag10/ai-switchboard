@@ -5,8 +5,46 @@ import type { RepoSavingsEstimate } from "./repoIntelligence";
 export type SavingsCalculatorScope = "session" | "overall";
 
 export type SavingsCalculatorBreakdownKind =
-  "runtime" | "command_output" | "repo_context";
+  | "runtime"
+  | "command_output"
+  | "repo_context"
+  | "terse_output"
+  | "change_scope"
+  | "doc_preprocess";
 export type SavingsCalculatorConfidence = "measured" | "estimated" | "inferred";
+
+export interface AddonSavingsEstimate {
+  baselineTokens: number;
+  optimizedTokens: number;
+  tokensAvoided: number;
+  savingsPct: number;
+}
+
+export function buildAddonSavingsEstimate(
+  baselineTokens: number,
+  optimizedTokens: number,
+): AddonSavingsEstimate {
+  const baseline = Math.max(0, baselineTokens);
+  const optimized = Math.max(0, optimizedTokens);
+  const tokensAvoided = Math.max(0, baseline - optimized);
+  const savingsPct = baseline > 0 ? (tokensAvoided / baseline) * 100 : 0;
+
+  return {
+    baselineTokens: baseline,
+    optimizedTokens: optimized,
+    tokensAvoided,
+    savingsPct,
+  };
+}
+
+// Canonical verbose-vs-optimized handoff templates. Deltas are static and
+// auditable here until a runtime measurement source exists for each add-on.
+export const CAVEMAN_TEMPLATE_BASELINE_TOKENS = 480;
+export const CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS = 180;
+export const PONYTAIL_TEMPLATE_BASELINE_TOKENS = 1_400;
+export const PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS = 520;
+export const MARKITDOWN_TEMPLATE_BASELINE_TOKENS = 3_200;
+export const MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS = 900;
 
 export interface SavingsCalculatorSummary {
   scope: SavingsCalculatorScope;
@@ -33,6 +71,9 @@ export interface SavingsCalculatorBreakdownRow {
 export interface SavingsCalculatorBreakdownOptions {
   runtimeStatus?: RuntimeStatus | null;
   repoSavings?: RepoSavingsEstimate | null;
+  cavemanSavings?: AddonSavingsEstimate | null;
+  ponytailSavings?: AddonSavingsEstimate | null;
+  markitdownSavings?: AddonSavingsEstimate | null;
 }
 
 export interface SavingsLedgerRow extends SavingsCalculatorBreakdownRow {
@@ -172,7 +213,52 @@ export function buildSavingsCalculatorBreakdown(
       confidence: "inferred",
       savedTokens: repoSaved,
       savedUsd: null,
-      detail: `${options.repoSavings?.bestPack?.title ?? "Best context pack"} avoids a broad full-repo scan before agent work.`,
+      detail: `${options.repoSavings?.bestPack?.title ?? "Best context pack"} avoids a broad full-repo scan; graph summary points agents at hubs, entrypoints, and tests.`,
+    });
+  }
+
+  const cavemanSaved = Math.max(0, options.cavemanSavings?.tokensAvoided ?? 0);
+  if (cavemanSaved > 0) {
+    rows.push({
+      id: "caveman",
+      label: "Caveman",
+      kind: "terse_output",
+      confidence: "inferred",
+      savedTokens: cavemanSaved,
+      savedUsd: null,
+      detail:
+        "Terse handoff template vs a verbose baseline (inferred, not yet runtime-measured).",
+    });
+  }
+
+  const ponytailSaved = Math.max(0, options.ponytailSavings?.tokensAvoided ?? 0);
+  if (ponytailSaved > 0) {
+    rows.push({
+      id: "ponytail",
+      label: "Ponytail",
+      kind: "change_scope",
+      confidence: "inferred",
+      savedTokens: ponytailSaved,
+      savedUsd: null,
+      detail:
+        "Smaller change slices avoid broad re-reads vs an unbounded rewrite baseline.",
+    });
+  }
+
+  const markitdownSaved = Math.max(
+    0,
+    options.markitdownSavings?.tokensAvoided ?? 0,
+  );
+  if (markitdownSaved > 0) {
+    rows.push({
+      id: "markitdown",
+      label: "MarkItDown",
+      kind: "doc_preprocess",
+      confidence: "inferred",
+      savedTokens: markitdownSaved,
+      savedUsd: null,
+      detail:
+        "Markdown extract vs re-attaching the full source document each turn.",
     });
   }
 

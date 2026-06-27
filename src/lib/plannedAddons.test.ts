@@ -12,72 +12,82 @@ describe("planned add-ons", () => {
     });
     expect(repoIntelligence?.description).toContain("Local repo graph");
     expect(repoIntelligence?.description).toContain("context-pack foundation");
-expect(repoIntelligence?.description).toContain("path-based relationship graph");
+    expect(repoIntelligence?.description).toContain(
+      "path-based relationship graph",
+    );
     expect(repoIntelligence?.bullets.join(" ")).toContain("Foundation added");
     expect(repoIntelligence?.bullets.join(" ")).toContain("Not complete yet");
-    expect(repoIntelligence?.bullets.join(" ")).toContain("path-based import/dependency edges");
-expect(repoIntelligence?.bullets.join(" ")).toContain("reverse dependency hubs");
+    expect(repoIntelligence?.bullets.join(" ")).toContain(
+      "path-based import/dependency edges",
+    );
+    expect(repoIntelligence?.bullets.join(" ")).toContain(
+      "reverse dependency hubs",
+    );
     expect(repoIntelligence?.bullets.join(" ")).toContain("Graphy-style");
     expect(repoIntelligence?.bullets.join(" ")).toContain("tree-sitter");
     expect(repoIntelligence?.bullets.join(" ")).toContain("repomix-style");
     expect(repoIntelligence?.bullets.join(" ")).toContain("MCP repo-memory");
-    expect(repoIntelligence?.bullets.join(" ")).toContain("persistent parser index");
+    expect(repoIntelligence?.bullets.join(" ")).toContain(
+      "persistent parser index",
+    );
     expect(repoIntelligence?.bullets.join(" ")).toContain("Local-first");
-expect(repoIntelligence?.healthChecks.join(" ")).toContain("Secret-like paths");
-expect(repoIntelligence?.healthChecks.join(" ")).toContain("reverse dependency hubs");
-expect(repoIntelligence?.savingsSources.join(" ")).toContain("bounded context packs");
-expect(repoIntelligence?.verificationCommand).toBe("npm run repo:intelligence -- . --manifest");
+    expect(repoIntelligence?.healthChecks.join(" ")).toContain(
+      "Secret-like paths",
+    );
+    expect(repoIntelligence?.healthChecks.join(" ")).toContain(
+      "reverse dependency hubs",
+    );
+    expect(repoIntelligence?.savingsSources.join(" ")).toContain(
+      "bounded context packs",
+    );
+    expect(repoIntelligence?.verificationCommand).toBe(
+      "npm run repo:intelligence -- . --manifest",
+    );
   });
 
   it("keeps planned add-on ids stable for UI rendering", () => {
-expect(plannedAddons.map((addon) => addon.id)).toEqual([
-"repo_intelligence",
+    expect(plannedAddons.map((addon) => addon.id)).toEqual([
+      "repo_intelligence",
       "agent_connectors",
       "rtk_hardening",
       "ponytail_hardening",
-      "caveman_hardening",
       "markitdown_hardening",
-]);
-});
+    ]);
+  });
 
-it("tracks hardening plans for existing token-saving add-ons", () => {
-const rtk = getPlannedAddon("rtk_hardening");
-const ponytail = getPlannedAddon("ponytail_hardening");
-const caveman = getPlannedAddon("caveman_hardening");
-const markitdown = getPlannedAddon("markitdown_hardening");
+  it("tracks hardening plans for existing token-saving add-ons", () => {
+    const rtk = getPlannedAddon("rtk_hardening");
+    const ponytail = getPlannedAddon("ponytail_hardening");
+    const markitdown = getPlannedAddon("markitdown_hardening");
 
-expect(rtk).toMatchObject({
-name: "RTK Hardening",
-statusLabel: "Ready to harden",
-});
-expect(rtk?.healthChecks.join(" ")).toContain("shell path");
-expect(rtk?.savingsSources.join(" ")).toContain("Savings calculator");
-expect(rtk?.savingsSources.join(" ")).toContain("RTK only mode");
+    expect(rtk).toMatchObject({
+      name: "RTK Hardening",
+      statusLabel: "Ready to harden",
+    });
+    expect(rtk?.healthChecks.join(" ")).toContain("shell path");
+    expect(rtk?.savingsSources.join(" ")).toContain("Savings calculator");
+    expect(rtk?.savingsSources.join(" ")).toContain("RTK only mode");
 
-expect(ponytail).toMatchObject({
-name: "Ponytail Hardening",
-statusLabel: "Ready to harden",
-});
-expect(ponytail?.healthChecks.join(" ")).toContain("Switchboard-owned config blocks");
-expect(ponytail?.savingsSources.join(" ")).toContain("Smaller implementation slices");
+    expect(ponytail).toMatchObject({
+      name: "Ponytail Hardening",
+      statusLabel: "Ready to harden",
+    });
+    expect(ponytail?.healthChecks.join(" ")).toContain(
+      "Switchboard-owned config blocks",
+    );
+    expect(ponytail?.savingsSources.join(" ")).toContain(
+      "Smaller implementation slices",
+    );
 
-expect(caveman).toMatchObject({
-name: "Caveman Hardening",
-statusLabel: "Planned",
-});
-expect(caveman?.bullets.join(" ")).toContain("opt-in");
-expect(caveman?.healthChecks.join(" ")).toContain("measured, estimated, or inferred");
-expect(caveman?.savingsSources.join(" ")).toContain("Shorter agent summaries");
+    expect(markitdown).toMatchObject({
+      name: "MarkItDown Hardening",
+      statusLabel: "Ready to harden",
+    });
+    expect(markitdown?.healthChecks.join(" ")).toContain("managed runtime");
+    expect(markitdown?.savingsSources.join(" ")).toContain("Markdown extracts");
+  });
 
-expect(markitdown).toMatchObject({
-name: "MarkItDown Hardening",
-statusLabel: "Ready to harden",
-});
-expect(markitdown?.healthChecks.join(" ")).toContain("managed runtime");
-expect(markitdown?.savingsSources.join(" ")).toContain("Markdown extracts");
-});
-
-it("tracks popular planned coding-agent connectors", () => {
+  it("tracks popular planned coding-agent connectors", () => {
     const connectors = getPlannedAddon("agent_connectors");
 
     expect(connectors).toMatchObject({
@@ -88,10 +98,10 @@ it("tracks popular planned coding-agent connectors", () => {
     expect(connectors?.description).toContain("OpenCode");
     expect(connectors?.description).toContain("Cursor");
     expect(connectors?.description).toContain("Qwen Code");
-expect(connectors?.description).toContain("Amazon Q Developer CLI");
-expect(connectors?.description).toContain("Windsurf");
-expect(connectors?.description).toContain("Zed AI");
-expect(connectors?.description).toContain("Grok / xAI CLI");
+    expect(connectors?.description).toContain("Amazon Q Developer CLI");
+    expect(connectors?.description).toContain("Windsurf");
+    expect(connectors?.description).toContain("Zed AI");
+    expect(connectors?.description).toContain("Grok / xAI CLI");
     expect(connectors?.bullets.join(" ")).toContain("read-only detection");
     expect(connectors?.bullets.join(" ")).toContain("reversible local");
     expect(connectors?.bullets.join(" ")).toContain("Doctor repair");

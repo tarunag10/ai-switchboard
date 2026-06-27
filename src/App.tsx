@@ -7,7 +7,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
   type ReactElement,
-  type ReactNode
+  type ReactNode,
 } from "react";
 import {
   ArrowClockwise,
@@ -40,7 +40,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
 } from "recharts";
 import macAiSwitchboardLogo from "./assets/mac-ai-switchboard-logo.png";
 import packageJson from "../package.json";
@@ -58,14 +58,14 @@ import {
 } from "./lib/appUpdate";
 import { maybeFireTrialNotifications } from "./lib/trialNotifications";
 import {
-maybeFireUrgentPricingNotifications,
-maybeFireUrgentRuntimeNotification,
+  maybeFireUrgentPricingNotifications,
+  maybeFireUrgentRuntimeNotification,
 } from "./lib/urgentNotifications";
 import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
 import {
   buildRepoAgentHandoffPayload,
   buildRepoAgentManifest,
-buildRepoIntelligenceSummary,
+  buildRepoIntelligenceSummary,
   estimateRepoIntelligenceSavings,
   formatRepoAgentHandoffMarkdown,
   formatRepoAgentManifestJson,
@@ -78,11 +78,11 @@ buildRepoIntelligenceSummary,
   type RepoSavingsEstimate,
 } from "./lib/repoIntelligence";
 import {
-getPlannedConnector,
-getPlannedConnectorSetupChecklistScript,
-getPlannedConnectorSetupGuide,
-plannedConnectors,
-type PlannedConnector
+  getPlannedConnector,
+  getPlannedConnectorSetupChecklistScript,
+  getPlannedConnectorSetupGuide,
+  plannedConnectors,
+  type PlannedConnector,
 } from "./lib/plannedConnectors";
 import {
   releaseReadinessCommand,
@@ -91,7 +91,7 @@ import {
   releaseShareableGates,
 } from "./lib/releaseReadiness";
 import {
-describeInvokeError,
+  describeInvokeError,
   getNextLowerUpgradePlanId,
   getPlanRenewalPriceLabel,
   getUpgradePlans,
@@ -101,13 +101,13 @@ describeInvokeError,
   upgradePlanIntentLabel,
   type BillingPeriod,
   type PricingAudience,
-  type UpgradePlanId
+  type UpgradePlanId,
 } from "./lib/appHelpers";
 import {
   bootstrapFailureSignature,
   buildBootstrapFailureReport,
   buildBootstrapInvokeFailureReport,
-  reportBootstrapFailure
+  reportBootstrapFailure,
 } from "./lib/bootstrapSentry";
 import {
   aggregateClientConnectors,
@@ -139,7 +139,7 @@ import {
   startOfDay,
   startOfMonth,
   summarizePlannedConnectorReadiness,
-  type SavingsChartDatum
+  type SavingsChartDatum,
 } from "./lib/dashboardHelpers";
 import {
   buildInitialProxyVerificationRows,
@@ -151,7 +151,7 @@ import {
   needsTermsAcceptance,
   nextAutoConfigureStep,
   nextAutoConfigureStepAfterApply,
-  type LauncherStage
+  type LauncherStage,
 } from "./lib/launcherHelpers";
 import { mockDashboard } from "./lib/mockData";
 import {
@@ -161,34 +161,45 @@ import {
   formatRemainingDays,
   readCachedPricing,
   subscriptionTierLabel,
-  writeCachedPricing
+  writeCachedPricing,
 } from "./lib/pricing";
 import {
-activityFeedSignature,
-safeNotificationActionView,
-safeTrayViewForMode,
-serializeState,
-shouldShowCodexNudge,
-type TrayView
+  activityFeedSignature,
+  safeNotificationActionView,
+  safeTrayViewForMode,
+  serializeState,
+  shouldShowCodexNudge,
+  type TrayView,
 } from "./lib/trayHelpers";
-import { trackAnalyticsEvent, trackInstallMilestoneOnce } from "./lib/analytics";
+import {
+  trackAnalyticsEvent,
+  trackInstallMilestoneOnce,
+} from "./lib/analytics";
 import { localOnlyModeEnabled } from "./lib/localMode";
 import { managedChangeRecords } from "./lib/managedChanges";
 import {
   uninstallDisclosureFooter,
   uninstallDisclosureItems,
-  uninstallDisclosureTitle
+  uninstallDisclosureTitle,
 } from "./lib/uninstallDisclosure";
 import {
   deriveSwitchboardMode,
   switchboardModeLabel,
-  switchboardModeSummary
+  switchboardModeSummary,
 } from "./lib/switchboardDisplay";
 import {
+  buildAddonSavingsEstimate,
   buildSavingsCalculatorBreakdown,
   buildSavingsCalculatorSummary,
   formatSavingsCalculatorShareText,
-  type SavingsCalculatorScope
+  CAVEMAN_TEMPLATE_BASELINE_TOKENS,
+  CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
+  PONYTAIL_TEMPLATE_BASELINE_TOKENS,
+  PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS,
+  MARKITDOWN_TEMPLATE_BASELINE_TOKENS,
+  MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS,
+  type AddonSavingsEstimate,
+  type SavingsCalculatorScope,
 } from "./lib/savingsCalculator";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { LauncherShell } from "./components/LauncherShell";
@@ -207,9 +218,9 @@ import type {
   ClientConnectorStatus,
   ClientSetupResult,
   DailySavingsPoint,
-DashboardState,
-DoctorReport,
-HeadroomLearnPrereqStatus,
+  DashboardState,
+  DoctorReport,
+  HeadroomLearnPrereqStatus,
   HeadroomLearnStatus,
   HeadroomSubscriptionTier,
   ActivityFeedResponse,
@@ -253,32 +264,51 @@ const addonCopy: Record<string, AddonCopy> = {
       "RTK installs into the managed runtime, adds itself to the shell PATH, and enables the bash auto-rewrite hook. Agent shell commands route through RTK so noisy output is compacted before it spends tokens.",
     installing: "Downloading RTK and registering the bash hook...",
     uninstalling: "Removing RTK, its PATH entry, and the bash hook...",
-    uninstalled: "RTK removed. Shell commands run normally, without output rewriting.",
+    uninstalled:
+      "RTK removed. Shell commands run normally, without output rewriting.",
     enabling: "Enabling RTK and registering the bash hook...",
     disabling: "Disabling RTK and removing the bash hook...",
-    disabled: "RTK is off but still installed. Re-enable it later without re-downloading."
+    disabled:
+      "RTK is off but still installed. Re-enable it later without re-downloading.",
   },
   markitdown: {
     whatItDoes:
       "MarkItDown installs into the managed Python runtime and registers a document Read hook. Documents can be converted to Markdown before an agent reads them, without installing anything system-wide.",
     installing: "Installing MarkItDown and registering the Read hook...",
     uninstalling: "Removing MarkItDown and its Read hook...",
-    uninstalled: "MarkItDown removed. Your agent reads documents in their original format again.",
+    uninstalled:
+      "MarkItDown removed. Your agent reads documents in their original format again.",
     enabling: "Enabling MarkItDown...",
     disabling: "Disabling MarkItDown...",
-    disabled: "MarkItDown is off. It stays installed but no longer converts documents."
+    disabled:
+      "MarkItDown is off. It stays installed but no longer converts documents.",
+  },
+  caveman: {
+    whatItDoes:
+      "Caveman writes Switchboard-managed instruction blocks into Claude Code and Codex. It nudges agents toward terse output without hiding legal, safety, or debugging detail.",
+    installing: "Writing Caveman guidance blocks...",
+    uninstalling: "Removing Caveman guidance blocks...",
+    installed:
+      "Caveman installed. Pick scoped or aggressive terse mode any time.",
+    uninstalled: "Caveman removed. Managed terse-output blocks were deleted.",
+    enabling: "Enabling Caveman guidance...",
+    disabling: "Disabling Caveman guidance...",
+    disabled: "Caveman is off. Re-enable it later without recreating settings.",
   },
   ponytail: {
     whatItDoes:
       "Ponytail registers its marketplace plugin in Claude Code and/or Codex when those CLIs are on PATH. It nudges agents toward smaller, simpler edits and can run an over-engineering audit.",
     installing: "Registering Ponytail in available coding clients...",
     uninstalling: "Removing Ponytail from registered coding clients...",
-    uninstalled: "Ponytail removed. Your agent writes code without the Ponytail nudge.",
-    installed: "Ponytail installed. Run /ponytail-audit in an agent to scan this codebase for over-engineering.",
+    uninstalled:
+      "Ponytail removed. Your agent writes code without the Ponytail nudge.",
+    installed:
+      "Ponytail installed. Run /ponytail-audit in an agent to scan this codebase for over-engineering.",
     enabling: "Enabling Ponytail...",
     disabling: "Disabling Ponytail...",
-    disabled: "Ponytail is off. It stays installed but no longer nudges agents."
-  }
+    disabled:
+      "Ponytail is off. It stays installed but no longer nudges agents.",
+  },
 };
 
 const connectorSetupDetails: Record<string, string> = {
@@ -307,7 +337,7 @@ const connectorSetupDetails: Record<string, string> = {
   windsurf:
     "Windsurf is tracked as a planned editor connector. Paste Repo Intelligence handoffs manually until settings backup and restore support lands.",
   zed_ai:
-    "Zed AI is tracked as a planned editor connector. Keep provider settings manual while Switchboard adds lossless settings detection and restore."
+    "Zed AI is tracked as a planned editor connector. Keep provider settings manual while Switchboard adds lossless settings detection and restore.",
 };
 
 const connectorSupportWarnings: Record<string, string> = {};
@@ -315,8 +345,7 @@ const connectorSupportWarnings: Record<string, string> = {};
 const connectorUnavailableReasons: Record<string, string> = {
   claude_code:
     "Claude Code was not detected. Install Claude Code and restart Headroom.",
-  codex:
-    "Codex was not detected. Install the Codex CLI and restart Headroom.",
+  codex: "Codex was not detected. Install the Codex CLI and restart Headroom.",
   gemini_cli: "Gemini CLI adapter is planned but not configurable yet.",
   opencode: "OpenCode adapter is planned but not configurable yet.",
   cursor: "Cursor adapter is planned but not configurable yet.",
@@ -325,9 +354,10 @@ const connectorUnavailableReasons: Record<string, string> = {
   continue: "Continue adapter is planned but not configurable yet.",
   goose: "Goose adapter is planned but not configurable yet.",
   qwen_code: "Qwen Code adapter is planned but not configurable yet.",
-  amazon_q: "Amazon Q Developer CLI adapter is planned but not configurable yet.",
+  amazon_q:
+    "Amazon Q Developer CLI adapter is planned but not configurable yet.",
   windsurf: "Windsurf adapter is planned but not configurable yet.",
-  zed_ai: "Zed AI adapter is planned but not configurable yet."
+  zed_ai: "Zed AI adapter is planned but not configurable yet.",
 };
 
 const launcherConnectorFallback: ClientConnectorStatus[] = [
@@ -336,15 +366,15 @@ const launcherConnectorFallback: ClientConnectorStatus[] = [
     name: "Claude Code",
     installed: false,
     enabled: false,
-    verified: false
+    verified: false,
   },
   {
     clientId: "codex",
     name: "Codex",
     installed: false,
     enabled: false,
-    verified: false
-  }
+    verified: false,
+  },
 ];
 
 const idleBootstrapProgress: BootstrapProgress = {
@@ -354,7 +384,7 @@ const idleBootstrapProgress: BootstrapProgress = {
   currentStep: "Idle",
   message: "Installer has not started.",
   currentStepEtaSeconds: 0,
-  overallPercent: 0
+  overallPercent: 0,
 };
 
 const idleRuntimeUpgradeProgress: RuntimeUpgradeProgress = {
@@ -365,7 +395,7 @@ const idleRuntimeUpgradeProgress: RuntimeUpgradeProgress = {
   message: "",
   overallPercent: 0,
   fromVersion: null,
-  toVersion: null
+  toVersion: null,
 };
 
 const MAX_UPGRADE_AUTO_RETRIES = 2;
@@ -374,7 +404,7 @@ const idleHeadroomLearnStatus: HeadroomLearnStatus = {
   running: false,
   progressPercent: 0,
   summary: "Select a project to run headroom learn.",
-  outputTail: []
+  outputTail: [],
 };
 
 const idleHeadroomLearnPrereqStatus: HeadroomLearnPrereqStatus = {
@@ -382,23 +412,23 @@ const idleHeadroomLearnPrereqStatus: HeadroomLearnPrereqStatus = {
   claudeCliPath: null,
   codexCliAvailable: false,
   codexCliPath: null,
-  codexLoggedIn: false
+  codexLoggedIn: false,
 };
 
-const CLAUDE_CODE_INSTALL_DOCS_URL = "https://docs.claude.com/en/docs/claude-code/setup";
-const CLAUDE_CODE_INSTALL_CURL_CMD = "curl -fsSL https://claude.ai/install.sh | bash";
+const CLAUDE_CODE_INSTALL_DOCS_URL =
+  "https://docs.claude.com/en/docs/claude-code/setup";
+const CLAUDE_CODE_INSTALL_CURL_CMD =
+  "curl -fsSL https://claude.ai/install.sh | bash";
 const CODEX_CLI_INSTALL_CMD = "npm install -g @openai/codex";
 const CODEX_CLI_LOGIN_CMD = "codex login";
 const CODEX_INSTALL_DOCS_URL = "https://developers.openai.com/codex/cli";
 const CODEX_INSTALL_NPM_CMD = "npm i -g @openai/codex";
 
-const SALES_CONTACT_URL = (
-  import.meta.env.VITE_HEADROOM_SALES_CONTACT_URL ??
-  ""
-).trim() || "mailto:hello@example.com";
+const SALES_CONTACT_URL =
+  (import.meta.env.VITE_HEADROOM_SALES_CONTACT_URL ?? "").trim() ||
+  "mailto:hello@example.com";
 const CONTACT_FORM_URL = (
-  import.meta.env.VITE_HEADROOM_CONTACT_FORM_URL ??
-  ""
+  import.meta.env.VITE_HEADROOM_CONTACT_FORM_URL ?? ""
 ).trim();
 
 type StartupPhase = "window" | "dashboard" | "bootstrap" | "runtime" | "ready";
@@ -418,7 +448,7 @@ async function loadDashboard(): Promise<DashboardState> {
 function SavingsChartTooltip({
   active,
   payload,
-  chartMode
+  chartMode,
 }: {
   active?: boolean;
   payload?: ReadonlyArray<{ payload?: SavingsChartDatum }>;
@@ -429,80 +459,84 @@ function SavingsChartTooltip({
     return null;
   }
 
-  const providerSavings = mergeProviderSavingsForDisplay(point.byProvider ?? []);
+  const providerSavings = mergeProviderSavingsForDisplay(
+    point.byProvider ?? [],
+  );
 
   return (
     <div className="savings-chart__tooltip">
       <strong>{point.bucketLabel}</strong>
-      {providerSavings.length > 0
-        ? // Hourly buckets carry per-provider attribution: show Saved/Spent per
-          // connector instead of the bucket total (which would be redundant).
-          providerSavings.map((provider) => (
-            <div className="savings-chart__tooltip-group" key={provider.label}>
-              <span className="savings-chart__tooltip-label">{provider.label}</span>
-              <span className="savings-chart__tooltip-item">
-                <i
-                  aria-hidden="true"
-                  className={`savings-chart__tooltip-dot savings-chart__tooltip-dot--${
-                    chartMode === "usd" ? "saved-usd" : "saved-tokens"
-                  }`}
-                />
-                {chartMode === "usd"
-                  ? `Saved ${currencyExact(provider.estimatedSavingsUsd)}`
-                  : `Saved ${compactNumber(provider.estimatedTokensSaved)} tokens`}
-              </span>
-              <span className="savings-chart__tooltip-item">
-                <i
-                  aria-hidden="true"
-                  className={`savings-chart__tooltip-dot savings-chart__tooltip-dot--${
-                    chartMode === "usd" ? "actual-usd" : "actual-tokens"
-                  }`}
-                />
-                {chartMode === "usd"
-                  ? `Spent ${currencyExact(provider.actualCostUsd)}`
-                  : `Spent ${compactNumber(provider.totalTokensSent)} tokens`}
-              </span>
-            </div>
-          ))
-        : // Monthly buckets (and pre-attribution hourly buckets) have no provider
-          // dimension: fall back to the aggregate bucket total.
-        chartMode === "usd" ? (
-          <div className="savings-chart__tooltip-group">
-            <span className="savings-chart__tooltip-label">Dollars</span>
-            <span className="savings-chart__tooltip-item">
-              <i
-                aria-hidden="true"
-                className="savings-chart__tooltip-dot savings-chart__tooltip-dot--saved-usd"
-              />
-              Saved {currencyExact(point.estimatedSavingsUsd)}
+      {providerSavings.length > 0 ? (
+        // Hourly buckets carry per-provider attribution: show Saved/Spent per
+        // connector instead of the bucket total (which would be redundant).
+        providerSavings.map((provider) => (
+          <div className="savings-chart__tooltip-group" key={provider.label}>
+            <span className="savings-chart__tooltip-label">
+              {provider.label}
             </span>
             <span className="savings-chart__tooltip-item">
               <i
                 aria-hidden="true"
-                className="savings-chart__tooltip-dot savings-chart__tooltip-dot--actual-usd"
+                className={`savings-chart__tooltip-dot savings-chart__tooltip-dot--${
+                  chartMode === "usd" ? "saved-usd" : "saved-tokens"
+                }`}
               />
-              Spent {currencyExact(point.actualCostUsd)}
+              {chartMode === "usd"
+                ? `Saved ${currencyExact(provider.estimatedSavingsUsd)}`
+                : `Saved ${compactNumber(provider.estimatedTokensSaved)} tokens`}
+            </span>
+            <span className="savings-chart__tooltip-item">
+              <i
+                aria-hidden="true"
+                className={`savings-chart__tooltip-dot savings-chart__tooltip-dot--${
+                  chartMode === "usd" ? "actual-usd" : "actual-tokens"
+                }`}
+              />
+              {chartMode === "usd"
+                ? `Spent ${currencyExact(provider.actualCostUsd)}`
+                : `Spent ${compactNumber(provider.totalTokensSent)} tokens`}
             </span>
           </div>
-        ) : (
-          <div className="savings-chart__tooltip-group">
-            <span className="savings-chart__tooltip-label">Tokens</span>
-            <span className="savings-chart__tooltip-item">
-              <i
-                aria-hidden="true"
-                className="savings-chart__tooltip-dot savings-chart__tooltip-dot--saved-tokens"
-              />
-              Saved {compactNumber(point.estimatedTokensSaved)} tokens
-            </span>
-            <span className="savings-chart__tooltip-item">
-              <i
-                aria-hidden="true"
-                className="savings-chart__tooltip-dot savings-chart__tooltip-dot--actual-tokens"
-              />
-              Spent {compactNumber(point.totalTokensSent)} tokens
-            </span>
-          </div>
-        )}
+        ))
+      ) : // Monthly buckets (and pre-attribution hourly buckets) have no provider
+      // dimension: fall back to the aggregate bucket total.
+      chartMode === "usd" ? (
+        <div className="savings-chart__tooltip-group">
+          <span className="savings-chart__tooltip-label">Dollars</span>
+          <span className="savings-chart__tooltip-item">
+            <i
+              aria-hidden="true"
+              className="savings-chart__tooltip-dot savings-chart__tooltip-dot--saved-usd"
+            />
+            Saved {currencyExact(point.estimatedSavingsUsd)}
+          </span>
+          <span className="savings-chart__tooltip-item">
+            <i
+              aria-hidden="true"
+              className="savings-chart__tooltip-dot savings-chart__tooltip-dot--actual-usd"
+            />
+            Spent {currencyExact(point.actualCostUsd)}
+          </span>
+        </div>
+      ) : (
+        <div className="savings-chart__tooltip-group">
+          <span className="savings-chart__tooltip-label">Tokens</span>
+          <span className="savings-chart__tooltip-item">
+            <i
+              aria-hidden="true"
+              className="savings-chart__tooltip-dot savings-chart__tooltip-dot--saved-tokens"
+            />
+            Saved {compactNumber(point.estimatedTokensSaved)} tokens
+          </span>
+          <span className="savings-chart__tooltip-item">
+            <i
+              aria-hidden="true"
+              className="savings-chart__tooltip-dot savings-chart__tooltip-dot--actual-tokens"
+            />
+            Spent {compactNumber(point.totalTokensSent)} tokens
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -532,7 +566,8 @@ function OutputReductionChip({ reduction }: { reduction: OutputReduction }) {
   useEffect(() => {
     if (!open) return;
     const onDown = (e: Event) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     };
     const onKey = (e: Event) => {
       if ((e as KeyboardEvent).key === "Escape") setOpen(false);
@@ -569,15 +604,22 @@ function OutputReductionChip({ reduction }: { reduction: OutputReduction }) {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="output-chip__pop-head">
-            <span className="output-chip__pop-title">Output token reduction</span>
-            <span className="output-chip__pop-badge">{isMeasured ? "measured" : "estimated"}</span>
+            <span className="output-chip__pop-title">
+              Output token reduction
+            </span>
+            <span className="output-chip__pop-badge">
+              {isMeasured ? "measured" : "estimated"}
+            </span>
           </div>
-          <div className="output-chip__pop-value">{percent1(reduction.reductionPercent)}%</div>
+          <div className="output-chip__pop-value">
+            {percent1(reduction.reductionPercent)}%
+          </div>
           <dl className="output-chip__pop-stats">
             <div>
               <dt>95% CI</dt>
               <dd>
-                {percent1(reduction.ciLowPercent)}–{percent1(reduction.ciHighPercent)}%
+                {percent1(reduction.ciLowPercent)}–
+                {percent1(reduction.ciHighPercent)}%
               </dd>
             </div>
             <div>
@@ -597,24 +639,33 @@ function OutputReductionChip({ reduction }: { reduction: OutputReduction }) {
 }
 
 function SavingsCalculatorCard({
-dashboard,
-repoSavings,
-runtimeStatus,
-scope,
-onScopeChange
+  dashboard,
+  repoSavings,
+  runtimeStatus,
+  cavemanSavings,
+  ponytailSavings,
+  markitdownSavings,
+  scope,
+  onScopeChange,
 }: {
-dashboard: DashboardState;
-repoSavings?: RepoSavingsEstimate | null;
-runtimeStatus?: RuntimeStatus | null;
-scope: SavingsCalculatorScope;
-onScopeChange: (scope: SavingsCalculatorScope) => void;
+  dashboard: DashboardState;
+  repoSavings?: RepoSavingsEstimate | null;
+  runtimeStatus?: RuntimeStatus | null;
+  cavemanSavings?: AddonSavingsEstimate | null;
+  ponytailSavings?: AddonSavingsEstimate | null;
+  markitdownSavings?: AddonSavingsEstimate | null;
+  scope: SavingsCalculatorScope;
+  onScopeChange: (scope: SavingsCalculatorScope) => void;
 }) {
-const summary = buildSavingsCalculatorSummary(dashboard, scope);
-const breakdownRows = buildSavingsCalculatorBreakdown(dashboard, scope, {
-repoSavings,
-runtimeStatus,
-});
-const savedLabel = compactNumber(summary.savedTokens);
+  const summary = buildSavingsCalculatorSummary(dashboard, scope);
+  const breakdownRows = buildSavingsCalculatorBreakdown(dashboard, scope, {
+    repoSavings,
+    runtimeStatus,
+    cavemanSavings,
+    ponytailSavings,
+    markitdownSavings,
+  });
+  const savedLabel = compactNumber(summary.savedTokens);
   const sentLabel = compactNumber(summary.sentTokens);
   const beforeLabel = compactNumber(summary.beforeTokens);
   const conservativeUsdLabel = currencyExact(summary.conservativeSavedUsd);
@@ -705,7 +756,10 @@ const savedLabel = compactNumber(summary.savedTokens);
           </div>
         </dl>
       </div>
-      <div className="savings-calculator__equation" aria-label="Savings equation">
+      <div
+        className="savings-calculator__equation"
+        aria-label="Savings equation"
+      >
         <span>
           Before <strong>{beforeLabel}</strong>
         </span>
@@ -724,17 +778,24 @@ const savedLabel = compactNumber(summary.savedTokens);
           will update automatically.
         </p>
       ) : null}
-      <div className="savings-calculator__breakdown" aria-label="Savings source breakdown">
+      <div
+        className="savings-calculator__breakdown"
+        aria-label="Savings source breakdown"
+      >
         {breakdownRows.map((row) => (
           <div className="savings-calculator__breakdown-row" key={row.id}>
             <div>
               <strong>{row.label}</strong>
-                              <span>{row.detail} Source: {row.confidence}.</span>
+              <span>
+                {row.detail} Source: {row.confidence}.
+              </span>
             </div>
             <div className="savings-calculator__breakdown-value">
               <strong>{compactNumber(row.savedTokens)}</strong>
               <span>
-                {row.savedUsd === null ? "tokens" : `${currencyExact(row.savedUsd)} estimate`}
+                {row.savedUsd === null
+                  ? "tokens"
+                  : `${currencyExact(row.savedUsd)} estimate`}
               </span>
             </div>
           </div>
@@ -749,7 +810,7 @@ function DailySavingsChart({
   hourlyData,
   resetSignal,
   chartMode,
-  setChartMode
+  setChartMode,
 }: {
   data: DailySavingsPoint[];
   hourlyData: HourlySavingsPoint[];
@@ -775,14 +836,25 @@ function DailySavingsChart({
   }, []);
   const firstSavingsMonth = earliestSavingsMonth(data);
   const firstHourlyDay = earliestHourlyDay(hourlyData);
-  const monthlyData = buildMonthlySavingsChartData(buildMonthlySavingsWindow(data, visibleMonth));
-  const hourlyChartData = buildHourlySavingsChartData(buildHourlySavingsWindow(hourlyData, visibleDay));
+  const monthlyData = buildMonthlySavingsChartData(
+    buildMonthlySavingsWindow(data, visibleMonth),
+  );
+  const hourlyChartData = buildHourlySavingsChartData(
+    buildHourlySavingsWindow(hourlyData, visibleDay),
+  );
   const chartData = view === "month" ? monthlyData : hourlyChartData;
-  const canViewPreviousMonth = firstSavingsMonth ? visibleMonth > firstSavingsMonth : false;
+  const canViewPreviousMonth = firstSavingsMonth
+    ? visibleMonth > firstSavingsMonth
+    : false;
   const canViewNextMonth = visibleMonth < currentMonth;
-  const canViewPreviousDay = firstHourlyDay ? visibleDay > firstHourlyDay : false;
+  const canViewPreviousDay = firstHourlyDay
+    ? visibleDay > firstHourlyDay
+    : false;
   const canViewNextDay = visibleDay < today;
-  const label = view === "month" ? formatMonthLabel(visibleMonth) : formatSelectedDayLabel(visibleDay);
+  const label =
+    view === "month"
+      ? formatMonthLabel(visibleMonth)
+      : formatSelectedDayLabel(visibleDay);
 
   useEffect(() => {
     const now = new Date();
@@ -793,7 +865,11 @@ function DailySavingsChart({
   return (
     <div className="savings-chart">
       <section
-        aria-label={view === "month" ? `Monthly history for ${label}` : `Hourly history for ${label}`}
+        aria-label={
+          view === "month"
+            ? `Monthly history for ${label}`
+            : `Hourly history for ${label}`
+        }
         className="savings-chart__panel"
       >
         <div className="savings-chart__panel-header">
@@ -835,7 +911,9 @@ function DailySavingsChart({
             </div>
             <button
               className="savings-chart__nav-button"
-              disabled={view === "month" ? !canViewPreviousMonth : !canViewPreviousDay}
+              disabled={
+                view === "month" ? !canViewPreviousMonth : !canViewPreviousDay
+              }
               onClick={() =>
                 view === "month"
                   ? setVisibleMonth((current) => addMonths(current, -1))
@@ -867,12 +945,22 @@ function DailySavingsChart({
                 ? currency(
                     Math.max(
                       0,
-                      view === "day" && visibleDay >= today && savingsTodayUsd !== null
+                      view === "day" &&
+                        visibleDay >= today &&
+                        savingsTodayUsd !== null
                         ? savingsTodayUsd
-                        : chartData.reduce((s, d) => s + d.estimatedSavingsUsd, 0)
-                    )
+                        : chartData.reduce(
+                            (s, d) => s + d.estimatedSavingsUsd,
+                            0,
+                          ),
+                    ),
                   )
-                : compactNumber(Math.max(0, chartData.reduce((s, d) => s + d.estimatedTokensSaved, 0)))}
+                : compactNumber(
+                    Math.max(
+                      0,
+                      chartData.reduce((s, d) => s + d.estimatedTokensSaved, 0),
+                    ),
+                  )}
             </span>
             <span className="savings-chart__overlay-label">
               {view === "day" ? "saved today" : "saved this month"}
@@ -886,36 +974,73 @@ function DailySavingsChart({
               margin={{ top: 64, right: 2, left: 2, bottom: 0 }}
             >
               <defs>
-                <linearGradient id="actualUsdGradient" x1="0" x2="0" y1="0" y2="1">
+                <linearGradient
+                  id="actualUsdGradient"
+                  x1="0"
+                  x2="0"
+                  y1="0"
+                  y2="1"
+                >
                   <stop offset="0%" stopColor="#c96a30" />
                   <stop offset="100%" stopColor="#ED834E" />
                 </linearGradient>
-                <linearGradient id="savingsUsdGradient" x1="0" x2="0" y1="0" y2="1">
+                <linearGradient
+                  id="savingsUsdGradient"
+                  x1="0"
+                  x2="0"
+                  y1="0"
+                  y2="1"
+                >
                   <stop offset="0%" stopColor="#3a7f74" />
                   <stop offset="100%" stopColor="#4F9E91" />
                 </linearGradient>
-                <linearGradient id="actualTokensGradient" x1="0" x2="0" y1="0" y2="1">
+                <linearGradient
+                  id="actualTokensGradient"
+                  x1="0"
+                  x2="0"
+                  y1="0"
+                  y2="1"
+                >
                   <stop offset="0%" stopColor="#c96a30" />
                   <stop offset="100%" stopColor="#ED834E" />
                 </linearGradient>
-                <linearGradient id="savingsTokensGradient" x1="0" x2="0" y1="0" y2="1">
+                <linearGradient
+                  id="savingsTokensGradient"
+                  x1="0"
+                  x2="0"
+                  y1="0"
+                  y2="1"
+                >
                   <stop offset="0%" stopColor="#d4b832" stopOpacity="0.35" />
                   <stop offset="100%" stopColor="#EBCC6E" stopOpacity="0.25" />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="rgba(36, 31, 29, 0.06)" strokeDasharray="2 8" vertical={false} />
+              <CartesianGrid
+                stroke="rgba(36, 31, 29, 0.06)"
+                strokeDasharray="2 8"
+                vertical={false}
+              />
               <XAxis
                 axisLine={false}
                 dataKey="bucketKey"
                 interval={0}
                 minTickGap={view === "month" ? 8 : 8}
-                tickFormatter={view === "month" ? dayOfMonthTickFormatter : hourOfDayTickFormatter}
+                tickFormatter={
+                  view === "month"
+                    ? dayOfMonthTickFormatter
+                    : hourOfDayTickFormatter
+                }
                 tick={{ fill: "#7a7169", fontSize: 10 }}
                 tickLine={false}
               />
               <YAxis hide yAxisId="usd" />
               <YAxis hide yAxisId="tokens" />
-              <Tooltip content={(props) => <SavingsChartTooltip {...props} chartMode={chartMode} />} cursor={{ fill: "rgba(36, 31, 29, 0.05)" }} />
+              <Tooltip
+                content={(props) => (
+                  <SavingsChartTooltip {...props} chartMode={chartMode} />
+                )}
+                cursor={{ fill: "rgba(36, 31, 29, 0.05)" }}
+              />
               {chartMode === "usd" && (
                 <>
                   <Bar
@@ -978,13 +1103,12 @@ function DailySavingsChart({
   );
 }
 
-
 function renderConnectorLogo(clientId: string) {
   return <Sparkle className="client-logo__glyph" size={20} weight="duotone" />;
 }
 
 function AddonClientChips({
-  connectors
+  connectors,
 }: {
   connectors: ClientConnectorStatus[];
 }) {
@@ -1040,7 +1164,7 @@ function AddonCard({
   onInstall,
   onToggleEnabled,
   onUninstall,
-  children
+  children,
 }: {
   name: string;
   version?: string | null;
@@ -1070,7 +1194,9 @@ function AddonCard({
         <div className="addon-card__heading">
           <span className="addon-card__name">{name}</span>
           {installed && version ? (
-            <span className="addon-card__version">{formatAddonVersion(version)}</span>
+            <span className="addon-card__version">
+              {formatAddonVersion(version)}
+            </span>
           ) : null}
           {copy ? (
             <button
@@ -1096,7 +1222,11 @@ function AddonCard({
         ) : null}
         <p className="addon-card__description">{description}</p>
         {showClients ? <AddonClientChips connectors={connectors} /> : null}
-        <button type="button" className="addon-card__link" onClick={onOpenSource}>
+        <button
+          type="button"
+          className="addon-card__link"
+          onClick={onOpenSource}
+        >
           {sourceUrl}
         </button>
         {busy && busyLabel ? (
@@ -1203,11 +1333,11 @@ function PlannedAddonCard({
         {showConnectorRoadmap ? (
           <PlannedConnectorRoadmap connectors={plannedConnectors} />
         ) : null}
-      {showRepoIntelligencePreview ? (
-        <RepoIntelligencePreview
-          onSummaryChange={onRepoIntelligenceSummaryChange}
-        />
-      ) : null}
+        {showRepoIntelligencePreview ? (
+          <RepoIntelligencePreview
+            onSummaryChange={onRepoIntelligenceSummaryChange}
+          />
+        ) : null}
       </div>
       <div className="addon-card__actions">
         <button type="button" className="addon-card__action" disabled>
@@ -1232,9 +1362,14 @@ const repoIntelligencePreview = buildRepoIntelligenceSummary([
   { path: "dist/assets/index.js", bytes: 767_000 },
 ]);
 
-const primaryRepoAgentIds = new Set<RepoAgentHandoffTarget>(["claude", "codex"]);
+const primaryRepoAgentIds = new Set<RepoAgentHandoffTarget>([
+  "claude",
+  "codex",
+]);
 
-function repoAgentGroupLabel(profile: (typeof repoAgentHandoffProfiles)[number]) {
+function repoAgentGroupLabel(
+  profile: (typeof repoAgentHandoffProfiles)[number],
+) {
   if (primaryRepoAgentIds.has(profile.id)) {
     return "Primary agents";
   }
@@ -1283,7 +1418,9 @@ function RepoIntelligencePreview({
   onSummaryChange?: (summary: RepoIntelligenceSummary) => void;
 }) {
   const [repoPath, setRepoPath] = useState("");
-  const [summary, setSummary] = useState<RepoIntelligenceSummary>(repoIntelligencePreview);
+  const [summary, setSummary] = useState<RepoIntelligenceSummary>(
+    repoIntelligencePreview,
+  );
   const [indexing, setIndexing] = useState(false);
   const [indexError, setIndexError] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
@@ -1293,7 +1430,9 @@ function RepoIntelligencePreview({
 
   useEffect(() => {
     let cancelled = false;
-    invoke<RepoIntelligenceSummary | null>("get_latest_repo_intelligence_summary")
+    invoke<RepoIntelligenceSummary | null>(
+      "get_latest_repo_intelligence_summary",
+    )
       .then((latest) => {
         if (!cancelled && latest) {
           setSummary(latest);
@@ -1316,14 +1455,19 @@ function RepoIntelligencePreview({
     setIndexing(true);
     setIndexError(null);
     try {
-      const next = await invoke<RepoIntelligenceSummary>("build_repo_intelligence_summary", {
-        repoPath: trimmedPath,
-      });
+      const next = await invoke<RepoIntelligenceSummary>(
+        "build_repo_intelligence_summary",
+        {
+          repoPath: trimmedPath,
+        },
+      );
       setSummary(next);
       onSummaryChange?.(next);
     } catch (error) {
       setIndexError(
-        error instanceof Error ? error.message : "Repo Intelligence could not index that folder.",
+        error instanceof Error
+          ? error.message
+          : "Repo Intelligence could not index that folder.",
       );
     } finally {
       setIndexing(false);
@@ -1340,47 +1484,53 @@ function RepoIntelligencePreview({
       onSummaryChange?.(repoIntelligencePreview);
     } catch (error) {
       setIndexError(
-        error instanceof Error ? error.message : "Repo Intelligence could not clear the saved index.",
+        error instanceof Error
+          ? error.message
+          : "Repo Intelligence could not clear the saved index.",
       );
     } finally {
       setIndexing(false);
     }
   }
 
-async function copyContextPack() {
-  try {
-    if (!navigator.clipboard) {
+  async function copyContextPack() {
+    try {
+      if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
       }
-      await navigator.clipboard.writeText(formatRepoContextPackMarkdown(summary));
+      await navigator.clipboard.writeText(
+        formatRepoContextPackMarkdown(summary),
+      );
       setCopyNotice("Context pack copied.");
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
       setCopyNotice("Copy failed. Select pack details manually.");
-    window.setTimeout(() => setCopyNotice(null), 3000);
-  }
-}
-
-async function copyAgentManifest() {
-  try {
-    if (!navigator.clipboard) {
-      throw new Error("Clipboard API unavailable");
+      window.setTimeout(() => setCopyNotice(null), 3000);
     }
-    await navigator.clipboard.writeText(formatRepoAgentManifestJson(summary));
-    setCopyNotice("Agent manifest copied.");
-    window.setTimeout(() => setCopyNotice(null), 2000);
-  } catch {
-    setCopyNotice("Copy failed. Select manifest manually.");
-    window.setTimeout(() => setCopyNotice(null), 3000);
   }
-}
+
+  async function copyAgentManifest() {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(formatRepoAgentManifestJson(summary));
+      setCopyNotice("Agent manifest copied.");
+      window.setTimeout(() => setCopyNotice(null), 2000);
+    } catch {
+      setCopyNotice("Copy failed. Select manifest manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
 
   async function copySingleContextPack(pack: RepoContextPack) {
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
       }
-      await navigator.clipboard.writeText(formatSingleRepoContextPackMarkdown(summary, pack));
+      await navigator.clipboard.writeText(
+        formatSingleRepoContextPackMarkdown(summary, pack),
+      );
       setCopyNotice(`${pack.title} copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
@@ -1400,7 +1550,9 @@ async function copyAgentManifest() {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
       }
-      await navigator.clipboard.writeText(formatSingleRepoContextPackMarkdown(summary, pack));
+      await navigator.clipboard.writeText(
+        formatSingleRepoContextPackMarkdown(summary, pack),
+      );
       setCopyNotice(`${label} copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
@@ -1409,40 +1561,53 @@ async function copyAgentManifest() {
     }
   }
 
-async function copyAgentHandoff(target: RepoAgentHandoffTarget, label: string) {
-try {
-if (!navigator.clipboard) {
-throw new Error("Clipboard API unavailable");
+  async function copyAgentHandoff(
+    target: RepoAgentHandoffTarget,
+    label: string,
+  ) {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
       }
-      await navigator.clipboard.writeText(formatRepoAgentHandoffMarkdown(summary, target));
+      await navigator.clipboard.writeText(
+        formatRepoAgentHandoffMarkdown(summary, target),
+      );
       setCopyNotice(`${label} handoff copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-setCopyNotice("Copy failed. Select handoff details manually.");
-window.setTimeout(() => setCopyNotice(null), 3000);
-}
-}
+      setCopyNotice("Copy failed. Select handoff details manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
 
-async function copyAgentHandoffJson(target: RepoAgentHandoffTarget, label: string) {
-try {
-if (!navigator.clipboard) {
-throw new Error("Clipboard API unavailable");
-}
-await navigator.clipboard.writeText(
-JSON.stringify(buildRepoAgentHandoffPayload(summary, target), null, 2),
-);
-setCopyNotice(`${label} JSON handoff copied.`);
-window.setTimeout(() => setCopyNotice(null), 2000);
-} catch {
-setCopyNotice("Copy failed. Select JSON handoff manually.");
-window.setTimeout(() => setCopyNotice(null), 3000);
-}
-}
+  async function copyAgentHandoffJson(
+    target: RepoAgentHandoffTarget,
+    label: string,
+  ) {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(
+        JSON.stringify(buildRepoAgentHandoffPayload(summary, target), null, 2),
+      );
+      setCopyNotice(`${label} JSON handoff copied.`);
+      window.setTimeout(() => setCopyNotice(null), 2000);
+    } catch {
+      setCopyNotice("Copy failed. Select JSON handoff manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
 
-return (
-    <div className="repo-intelligence-preview" aria-label="Repo Intelligence context pack preview">
+  return (
+    <div
+      className="repo-intelligence-preview"
+      aria-label="Repo Intelligence context pack preview"
+    >
       <div className="repo-intelligence-preview__topline">
-        <span>{isPreview ? "Read-only context packs" : "Local index result"}</span>
+        <span>
+          {isPreview ? "Read-only context packs" : "Local index result"}
+        </span>
         <strong>
           {summary.indexedFiles} indexed signals
           {summary.skippedFiles ? `, ${summary.skippedFiles} skipped` : ""}
@@ -1504,9 +1669,16 @@ return (
           Indexed {new Date(summary.indexedAt).toLocaleString()}
         </p>
       ) : null}
-      {copyNotice ? <p className="repo-intelligence-preview__path">{copyNotice}</p> : null}
-      {indexError ? <p className="install-progress__error">{indexError}</p> : null}
-      <div className="repo-intelligence-savings" aria-label="Repo Intelligence savings calculator">
+      {copyNotice ? (
+        <p className="repo-intelligence-preview__path">{copyNotice}</p>
+      ) : null}
+      {indexError ? (
+        <p className="install-progress__error">{indexError}</p>
+      ) : null}
+      <div
+        className="repo-intelligence-savings"
+        aria-label="Repo Intelligence savings calculator"
+      >
         <div>
           <span>Full scan</span>
           <strong>{savingsEstimate.fullScanTokens.toLocaleString()}</strong>
@@ -1514,7 +1686,9 @@ return (
         </div>
         <div>
           <span>Best pack saved</span>
-          <strong>{savingsEstimate.bestPackTokensAvoided.toLocaleString()}</strong>
+          <strong>
+            {savingsEstimate.bestPackTokensAvoided.toLocaleString()}
+          </strong>
           <em>
             {savingsEstimate.bestPack?.title ?? "Context pack"} ·{" "}
             {savingsEstimate.bestPackSavingsPct.toFixed(1)}%
@@ -1522,12 +1696,17 @@ return (
         </div>
         <div>
           <span>All packs saved</span>
-          <strong>{savingsEstimate.allPacksTokensAvoided.toLocaleString()}</strong>
+          <strong>
+            {savingsEstimate.allPacksTokensAvoided.toLocaleString()}
+          </strong>
           <em>{savingsEstimate.allPacksSavingsPct.toFixed(1)}% vs full scan</em>
         </div>
       </div>
       {summary.graph ? (
-        <div className="repo-intelligence-graph" aria-label="Repo Intelligence graph summary">
+        <div
+          className="repo-intelligence-graph"
+          aria-label="Repo Intelligence graph summary"
+        >
           <div>
             <span>Top directories</span>
             <strong>
@@ -1584,12 +1763,24 @@ return (
                 .join(", ") || "No reverse hubs yet"}
             </em>
           </div>
+          <div>
+            <span>Symbols</span>
+            <strong>{summary.graph.symbols?.length ?? 0}</strong>
+            <em>
+              {summary.graph.symbols
+                ?.slice(0, 3)
+                .map((symbol) => `${symbol.name} (${symbol.kind})`)
+                .join(", ") || "No symbols yet"}
+            </em>
+          </div>
           <div className="repo-intelligence-graph__wide">
             <span>Agent graph signal</span>
             <strong>
               {`${summary.graph.dependencyHubs?.length ?? 0} hubs · ${
                 summary.graph.importEdges?.length ?? 0
-              } edges · ${summary.graph.reverseDependencyHubs?.length ?? 0} reverse hubs`}
+              } edges · ${summary.graph.reverseDependencyHubs?.length ?? 0} reverse hubs · ${
+                summary.graph.symbols?.length ?? 0
+              } symbols`}
             </strong>
             <em>Copied into manifests and handoffs without file contents.</em>
           </div>
@@ -1603,67 +1794,80 @@ return (
               <strong>{pack.savingsVsFullScanPct.toFixed(1)}%</strong>
             </div>
             <p>{pack.purpose}</p>
-          <span className="repo-intelligence-pack__meta">
-            {pack.files.length} files &middot; about{" "}
-            {pack.estimatedTokens.toLocaleString()} tokens
-          </span>
-          {!isPreview ? (
-            <button
-              className="repo-intelligence-pack__copy"
-              onClick={() => void copySingleContextPack(pack)}
-              type="button"
-            >
-              Copy this pack
-            </button>
-          ) : null}
-        </article>
+            <span className="repo-intelligence-pack__meta">
+              {pack.files.length} files &middot; about{" "}
+              {pack.estimatedTokens.toLocaleString()} tokens
+            </span>
+            {!isPreview ? (
+              <button
+                className="repo-intelligence-pack__copy"
+                onClick={() => void copySingleContextPack(pack)}
+                type="button"
+              >
+                Copy this pack
+              </button>
+            ) : null}
+          </article>
         ))}
       </div>
 
-      <div className="repo-intelligence-handoffs" aria-label="Agent-specific handoffs">
+      <div
+        className="repo-intelligence-handoffs"
+        aria-label="Agent-specific handoffs"
+      >
         <div className="repo-intelligence-recipes__heading">
           <span>Agent handoffs</span>
           <strong>Ready to paste</strong>
         </div>
-<div className="repo-intelligence-handoffs__grid">
-{repoAgentHandoffGroups.map((group) => (
-<section className="repo-intelligence-handoff-group" key={group.label}>
-<div className="repo-intelligence-handoff-group__label">
-<span>{group.label}</span>
-</div>
-<div className="repo-intelligence-handoff-group__buttons">
-{group.profiles.map((profile) => (
-<div className="repo-intelligence-handoff" key={profile.id}>
-<div>
-<strong>{profile.label}</strong>
-<span>{repoAgentPackLabel(profile.defaultPackId)}</span>
-<em>{profile.guidance}</em>
-</div>
-<div className="repo-intelligence-handoff__actions">
-<button
-disabled={isPreview}
-onClick={() => void copyAgentHandoff(profile.id, profile.label)}
-type="button"
->
-Markdown
-</button>
-<button
-disabled={isPreview}
-onClick={() => void copyAgentHandoffJson(profile.id, profile.label)}
-type="button"
->
-JSON
-</button>
-</div>
-</div>
-))}
-</div>
-</section>
-))}
-</div>
+        <div className="repo-intelligence-handoffs__grid">
+          {repoAgentHandoffGroups.map((group) => (
+            <section
+              className="repo-intelligence-handoff-group"
+              key={group.label}
+            >
+              <div className="repo-intelligence-handoff-group__label">
+                <span>{group.label}</span>
+              </div>
+              <div className="repo-intelligence-handoff-group__buttons">
+                {group.profiles.map((profile) => (
+                  <div className="repo-intelligence-handoff" key={profile.id}>
+                    <div>
+                      <strong>{profile.label}</strong>
+                      <span>{repoAgentPackLabel(profile.defaultPackId)}</span>
+                      <em>{profile.guidance}</em>
+                    </div>
+                    <div className="repo-intelligence-handoff__actions">
+                      <button
+                        disabled={isPreview}
+                        onClick={() =>
+                          void copyAgentHandoff(profile.id, profile.label)
+                        }
+                        type="button"
+                      >
+                        Markdown
+                      </button>
+                      <button
+                        disabled={isPreview}
+                        onClick={() =>
+                          void copyAgentHandoffJson(profile.id, profile.label)
+                        }
+                        type="button"
+                      >
+                        JSON
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
 
-      <div className="repo-intelligence-recipes" aria-label="Agent handoff recipes">
+      <div
+        className="repo-intelligence-recipes"
+        aria-label="Agent handoff recipes"
+      >
         <div className="repo-intelligence-recipes__heading">
           <span>Agent recipes</span>
           <strong>Read-only handoff</strong>
@@ -1679,7 +1883,9 @@ JSON
               {!isPreview ? (
                 <button
                   className="repo-intelligence-pack__copy"
-                  onClick={() => void copyAgentRecipePack(recipe.packIds[0], recipe.label)}
+                  onClick={() =>
+                    void copyAgentRecipePack(recipe.packIds[0], recipe.label)
+                  }
                   type="button"
                 >
                   Copy recipe pack
@@ -1705,7 +1911,7 @@ function connectorCategoryLabel(category: PlannedConnector["category"]) {
 }
 
 function PlannedConnectorRoadmap({
-  connectors
+  connectors,
 }: {
   connectors: PlannedConnector[];
 }) {
@@ -1715,7 +1921,10 @@ function PlannedConnectorRoadmap({
         <span>Expansion path</span>
         <strong>Detect first, adapt only when reversible.</strong>
       </div>
-      <div className="planned-connectors__steps" aria-label="Connector setup phases">
+      <div
+        className="planned-connectors__steps"
+        aria-label="Connector setup phases"
+      >
         <span>Read-only detection</span>
         <span>Guided setup</span>
         <span>Doctor-backed cleanup</span>
@@ -1733,7 +1942,10 @@ function PlannedConnectorRoadmap({
                 <span key={badge}>{badge}</span>
               ))}
             </div>
-            <div className="planned-connectors__modes" aria-label={`${connector.name} supported modes`}>
+            <div
+              className="planned-connectors__modes"
+              aria-label={`${connector.name} supported modes`}
+            >
               {connector.supportedModes.map((mode) => (
                 <span key={mode}>{mode}</span>
               ))}
@@ -1742,9 +1954,9 @@ function PlannedConnectorRoadmap({
               <div>
                 <span>Config surface</span>
                 <strong>{connector.configSurfaces[0]}</strong>
-            </div>
-            <div>
-              <span>Automation gate</span>
+              </div>
+              <div>
+                <span>Automation gate</span>
                 <strong>{connector.automationGates[0]}</strong>
               </div>
             </div>
@@ -1756,8 +1968,8 @@ function PlannedConnectorRoadmap({
             </p>
             <div className="planned-connectors__meta">
               <span>{connector.setupPhase}</span>
-            <span>{connector.statusLabel}</span>
-          </div>
+              <span>{connector.statusLabel}</span>
+            </div>
           </li>
         ))}
       </ul>
@@ -1797,27 +2009,33 @@ interface ProxyVerificationRow {
   message: string;
 }
 
-
 export default function App() {
   const [dashboard, setDashboard] = useState<DashboardState>(mockDashboard);
   const [addonBusyId, setAddonBusyId] = useState<string | null>(null);
   const [addonBusyLabel, setAddonBusyLabel] = useState<string | null>(null);
   const [addonInfoId, setAddonInfoId] = useState<string | null>(null);
-  const [addonResult, setAddonResult] = useState<{ id: string; message: string } | null>(null);
+  const [addonResult, setAddonResult] = useState<{
+    id: string;
+    message: string;
+  } | null>(null);
   const [addonError, setAddonError] = useState<string | null>(null);
   const [bootstrapping, setBootstrapping] = useState(false);
-  const [bootstrapProgress, setBootstrapProgress] =
-    useState<BootstrapProgress>(idleBootstrapProgress);
+  const [bootstrapProgress, setBootstrapProgress] = useState<BootstrapProgress>(
+    idleBootstrapProgress,
+  );
   const [runtimeUpgradeProgress, setRuntimeUpgradeProgress] =
     useState<RuntimeUpgradeProgress>(idleRuntimeUpgradeProgress);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
-  const [windowLabel, setWindowLabel] = useState<"main" | "launcher" | null>(null);
+  const [windowLabel, setWindowLabel] = useState<"main" | "launcher" | null>(
+    null,
+  );
   const [startupPhase, setStartupPhase] = useState<StartupPhase>("window");
   const [startupPercent, setStartupPercent] = useState(10);
   const [startupCopy, setStartupCopy] = useState("Opening launch window…");
   const [startupReady, setStartupReady] = useState(false);
   const [activeView, setActiveView] = useState<TrayView>("home");
-  const [pricingAudience, setPricingAudience] = useState<PricingAudience>("individual");
+  const [pricingAudience, setPricingAudience] =
+    useState<PricingAudience>("individual");
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("annual");
   // Launcher stage is a single source of truth for which onboarding screen
   // is showing. Only one screen can be active at a time; transitions go
@@ -1825,33 +2043,58 @@ export default function App() {
   // flags cannot bypass the install step's readiness gate.
   const [launcherStage, setLauncherStage] = useState<LauncherStage>("install");
   const [connectors, setConnectors] = useState<ClientConnectorStatus[]>([]);
-  const [openConnectorHelpId, setOpenConnectorHelpId] = useState<string | null>(null);
-const [openConnectorWarningId, setOpenConnectorWarningId] = useState<string | null>(null);
-const [plannedConnectorCopyNotice, setPlannedConnectorCopyNotice] = useState<string | null>(null);
-const [releaseReadinessCopyNotice, setReleaseReadinessCopyNotice] = useState<string | null>(null);
-const [connectorsBusy, setConnectorsBusy] = useState(false);
-  const [connectorPhase, setConnectorPhase] = useState<"disabled" | "verifying" | "healthy">("healthy");
+  const [openConnectorHelpId, setOpenConnectorHelpId] = useState<string | null>(
+    null,
+  );
+  const [openConnectorWarningId, setOpenConnectorWarningId] = useState<
+    string | null
+  >(null);
+  const [plannedConnectorCopyNotice, setPlannedConnectorCopyNotice] = useState<
+    string | null
+  >(null);
+  const [releaseReadinessCopyNotice, setReleaseReadinessCopyNotice] = useState<
+    string | null
+  >(null);
+  const [connectorsBusy, setConnectorsBusy] = useState(false);
+  const [connectorPhase, setConnectorPhase] = useState<
+    "disabled" | "verifying" | "healthy"
+  >("healthy");
   const [connectorsError, setConnectorsError] = useState<string | null>(null);
   const [codexNudgeDismissed, setCodexNudgeDismissed] = useState(() => {
     try {
-      return window.localStorage.getItem("headroom:codexNudgeDismissed") === "1";
+      return (
+        window.localStorage.getItem("headroom:codexNudgeDismissed") === "1"
+      );
     } catch {
       return false;
     }
   });
-  const [proxyVerificationRows, setProxyVerificationRows] = useState<ProxyVerificationRow[]>([]);
-  const [proxyVerificationHint, setProxyVerificationHint] = useState<string | null>(null);
-  const proxyVerificationRequestAnchorRef = useRef<Record<string, number> | null>(null);
-  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
+  const [proxyVerificationRows, setProxyVerificationRows] = useState<
+    ProxyVerificationRow[]
+  >([]);
+  const [proxyVerificationHint, setProxyVerificationHint] = useState<
+    string | null
+  >(null);
+  const proxyVerificationRequestAnchorRef = useRef<Record<
+    string,
+    number
+  > | null>(null);
+  const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(
+    null,
+  );
   const [resuming, setResuming] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
-  const [appUpdateConfig, setAppUpdateConfig] = useState<AppUpdateConfiguration | null>(null);
-  const [appUpdateAvailable, setAppUpdateAvailable] = useState<AvailableAppUpdate | null>(null);
+  const [appUpdateConfig, setAppUpdateConfig] =
+    useState<AppUpdateConfiguration | null>(null);
+  const [appUpdateAvailable, setAppUpdateAvailable] =
+    useState<AvailableAppUpdate | null>(null);
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
   const [appUpdateInstallBusy, setAppUpdateInstallBusy] = useState(false);
   const [appUpdateReadyToRestart, setAppUpdateReadyToRestart] = useState(false);
   const [showAppUpdateDialog, setShowAppUpdateDialog] = useState(false);
-  const [appUpdateStatusCopy, setAppUpdateStatusCopy] = useState<string | null>(null);
+  const [appUpdateStatusCopy, setAppUpdateStatusCopy] = useState<string | null>(
+    null,
+  );
   const [showHeadroomDetails, setShowHeadroomDetails] = useState(false);
   const [headroomLogLines, setHeadroomLogLines] = useState<string[]>([]);
   const headroomLogRef = useRef<HTMLPreElement | null>(null);
@@ -1860,14 +2103,19 @@ const [connectorsBusy, setConnectorsBusy] = useState(false);
   const rtkActivityRef = useRef<HTMLPreElement | null>(null);
   const [claudeProjects, setClaudeProjects] = useState<ClaudeCodeProject[]>([]);
   const [claudeProjectsBusy, setClaudeProjectsBusy] = useState(false);
-  const [claudeProjectsError, setClaudeProjectsError] = useState<string | null>(null);
+  const [claudeProjectsError, setClaudeProjectsError] = useState<string | null>(
+    null,
+  );
   const [showAllClaudeProjects, setShowAllClaudeProjects] = useState(false);
-  const [selectedClaudeProjectPath, setSelectedClaudeProjectPath] = useState<string | null>(null);
+  const [selectedClaudeProjectPath, setSelectedClaudeProjectPath] = useState<
+    string | null
+  >(null);
   const [headroomLearnStatus, setHeadroomLearnStatus] =
     useState<HeadroomLearnStatus>(idleHeadroomLearnStatus);
   const [optimizeAppliedByProject, setOptimizeAppliedByProject] =
     useState<Record<string, AppliedPatterns> | null>(null);
-  const [optimizeAppliedRefreshTick, setOptimizeAppliedRefreshTick] = useState(0);
+  const [optimizeAppliedRefreshTick, setOptimizeAppliedRefreshTick] =
+    useState(0);
   const previousHeadroomLearnRunningRef = useRef(false);
   const [headroomLearnBusy, setHeadroomLearnBusy] = useState(false);
   const [headroomLearnPrereq, setHeadroomLearnPrereq] =
@@ -1879,9 +2127,9 @@ const [connectorsBusy, setConnectorsBusy] = useState(false);
       rtkToday: null,
       learningsMilestone: null,
       weeklyRecap: null,
-      trainSuggestion: null
+      trainSuggestion: null,
     },
-    proxyReachable: false
+    proxyReachable: false,
   });
   // Flipped true after the first activity feed fetch attempt resolves (success
   // OR failure). Before this the feed holds a placeholder value whose
@@ -1895,26 +2143,38 @@ const [connectorsBusy, setConnectorsBusy] = useState(false);
   // at least once this session. The tray-focus pre-warm is gated on this so
   // users who stay on Home don't pay its IPC/subprocess cost on every focus.
   const [heavyTabEverOpened, setHeavyTabEverOpened] = useState(false);
-  const [activityFeedError, setActivityFeedError] = useState<string | null>(null);
-  const [pricingStatus, setPricingStatus] = useState<HeadroomPricingStatus | null>(null);
+  const [activityFeedError, setActivityFeedError] = useState<string | null>(
+    null,
+  );
+  const [pricingStatus, setPricingStatus] =
+    useState<HeadroomPricingStatus | null>(null);
   const [cachedPricing] = useState<CachedPricing>(() => readCachedPricing());
   const [pricingBusy, setPricingBusy] = useState(false);
   const [pricingError, setPricingError] = useState<string | null>(null);
   const pricingRefreshInFlightRef = useRef(false);
   const [authEmail, setAuthEmail] = useState("");
   const [authCode, setAuthCode] = useState("");
-  const [authCodeRequestedFor, setAuthCodeRequestedFor] = useState<string | null>(null);
-  const [authCodeExpirySeconds, setAuthCodeExpirySeconds] = useState(authCodeExpiryFallbackSeconds);
+  const [authCodeRequestedFor, setAuthCodeRequestedFor] = useState<
+    string | null
+  >(null);
+  const [authCodeExpirySeconds, setAuthCodeExpirySeconds] = useState(
+    authCodeExpiryFallbackSeconds,
+  );
   const [authRequestBusy, setAuthRequestBusy] = useState(false);
   const [authVerifyBusy, setAuthVerifyBusy] = useState(false);
   const [authFlowError, setAuthFlowError] = useState<string | null>(null);
   const [authFlowSuccess, setAuthFlowSuccess] = useState<string | null>(null);
-  const [pendingUpgradePlanId, setPendingUpgradePlanId] = useState<UpgradePlanId | null>(null);
+  const [pendingUpgradePlanId, setPendingUpgradePlanId] =
+    useState<UpgradePlanId | null>(null);
   const [showAllUpgradePlans, setShowAllUpgradePlans] = useState(false);
-  const [checkoutPollingDeadline, setCheckoutPollingDeadline] = useState<number | null>(null);
+  const [checkoutPollingDeadline, setCheckoutPollingDeadline] = useState<
+    number | null
+  >(null);
   const desktopActivationSentRef = useRef(false);
   const autoDisabledByGateRef = useRef<Set<string>>(new Set());
-  const [learnInstallCopyNotice, setLearnInstallCopyNotice] = useState<string | null>(null);
+  const [learnInstallCopyNotice, setLearnInstallCopyNotice] = useState<
+    string | null
+  >(null);
 
   const [stepSignature, setStepSignature] = useState("");
   const [stepStartedAtMs, setStepStartedAtMs] = useState<number | null>(null);
@@ -1933,14 +2193,44 @@ const [connectorsBusy, setConnectorsBusy] = useState(false);
   const savingsCalculatorRepoEstimate = estimateRepoIntelligenceSavings(
     latestRepoIntelligenceSummary,
   );
-  const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(null);
+  const cavemanTool =
+    dashboard.tools.find((tool) => tool.id === "caveman") ?? null;
+  const cavemanToolEnabled = cavemanTool?.enabled ?? false;
+  const cavemanSavingsEstimate = cavemanToolEnabled
+    ? buildAddonSavingsEstimate(
+        CAVEMAN_TEMPLATE_BASELINE_TOKENS,
+        CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
+      )
+    : null;
+  const ponytailToolEnabled =
+    dashboard.tools.find((tool) => tool.id === "ponytail")?.enabled ?? false;
+  const ponytailSavingsEstimate = ponytailToolEnabled
+    ? buildAddonSavingsEstimate(
+        PONYTAIL_TEMPLATE_BASELINE_TOKENS,
+        PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS,
+      )
+    : null;
+  const markitdownToolEnabled =
+    dashboard.tools.find((tool) => tool.id === "markitdown")?.enabled ?? false;
+  const markitdownSavingsEstimate = markitdownToolEnabled
+    ? buildAddonSavingsEstimate(
+        MARKITDOWN_TEMPLATE_BASELINE_TOKENS,
+        MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS,
+      )
+    : null;
+  const [autostartEnabled, setAutostartEnabled] = useState<boolean | null>(
+    null,
+  );
   const [autostartBusy, setAutostartBusy] = useState(false);
   const [rtkBusy, setRtkBusy] = useState(false);
   const [showUninstallDialog, setShowUninstallDialog] = useState(false);
   const [uninstallBusy, setUninstallBusy] = useState(false);
   const [uninstallError, setUninstallError] = useState<string | null>(null);
-  const [upgradeActionBusy, setUpgradeActionBusy] = useState<UpgradePlanId | null>(null);
-  const [upgradeActionError, setUpgradeActionError] = useState<string | null>(null);
+  const [upgradeActionBusy, setUpgradeActionBusy] =
+    useState<UpgradePlanId | null>(null);
+  const [upgradeActionError, setUpgradeActionError] = useState<string | null>(
+    null,
+  );
   const [pendingPlanChange, setPendingPlanChange] = useState<{
     fromTier: HeadroomSubscriptionTier;
     toTier: HeadroomSubscriptionTier;
@@ -1953,16 +2243,28 @@ const [connectorsBusy, setConnectorsBusy] = useState(false);
   const [contactEmail, setContactEmail] = useState("");
   const [contactMessage, setContactMessage] = useState("");
   const [contactSubmitBusy, setContactSubmitBusy] = useState(false);
-const [contactSubmitError, setContactSubmitError] = useState<string | null>(null);
-const [contactSubmitSuccess, setContactSubmitSuccess] = useState<string | null>(null);
-const [switchboardState, setSwitchboardState] = useState<SwitchboardState | null>(null);
-const [switchboardModeBusy, setSwitchboardModeBusy] = useState<SwitchboardMode | null>(null);
-const [switchboardModeError, setSwitchboardModeError] = useState<string | null>(null);
-const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
-const [doctorRepairBusy, setDoctorRepairBusy] = useState<string | null>(null);
-const [doctorRepairError, setDoctorRepairError] = useState<string | null>(null);
-const [doctorRepairSuccess, setDoctorRepairSuccess] = useState<string | null>(null);
-const localOnlyMode = localOnlyModeEnabled();
+  const [contactSubmitError, setContactSubmitError] = useState<string | null>(
+    null,
+  );
+  const [contactSubmitSuccess, setContactSubmitSuccess] = useState<
+    string | null
+  >(null);
+  const [switchboardState, setSwitchboardState] =
+    useState<SwitchboardState | null>(null);
+  const [switchboardModeBusy, setSwitchboardModeBusy] =
+    useState<SwitchboardMode | null>(null);
+  const [switchboardModeError, setSwitchboardModeError] = useState<
+    string | null
+  >(null);
+  const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
+  const [doctorRepairBusy, setDoctorRepairBusy] = useState<string | null>(null);
+  const [doctorRepairError, setDoctorRepairError] = useState<string | null>(
+    null,
+  );
+  const [doctorRepairSuccess, setDoctorRepairSuccess] = useState<string | null>(
+    null,
+  );
+  const localOnlyMode = localOnlyModeEnabled();
   const appSemver = appUpdateConfig?.currentVersion ?? packageJson.version;
   const bootstrapFailureSignatureRef = useRef("");
   const mainWindowLastBlurAtRef = useRef<number | null>(null);
@@ -1974,14 +2276,23 @@ const localOnlyMode = localOnlyModeEnabled();
   const launcherHideAnimationMs = 320;
   const trayFocusPrewarmDelayMs = 250;
   const dashboardSignatureRef = useRef(serializeState(mockDashboard));
-  const connectorsSignatureRef = useRef(serializeState([] as ClientConnectorStatus[]));
-  const runtimeStatusSignatureRef = useRef(serializeState(null as RuntimeStatus | null));
-  const switchboardSignatureRef = useRef(serializeState(null as SwitchboardState | null));
-  const claudeProjectsSignatureRef = useRef(serializeState([] as ClaudeCodeProject[]));
+  const connectorsSignatureRef = useRef(
+    serializeState([] as ClientConnectorStatus[]),
+  );
+  const runtimeStatusSignatureRef = useRef(
+    serializeState(null as RuntimeStatus | null),
+  );
+  const switchboardSignatureRef = useRef(
+    serializeState(null as SwitchboardState | null),
+  );
+  const claudeProjectsSignatureRef = useRef(
+    serializeState([] as ClaudeCodeProject[]),
+  );
   const upgradePlansState = getUpgradePlans(
     pricingAudience,
     pricingStatus?.claude.planTier ?? cachedPricing.planTier,
-    pricingStatus?.recommendedSubscriptionTier ?? cachedPricing.recommendedSubscriptionTier,
+    pricingStatus?.recommendedSubscriptionTier ??
+      cachedPricing.recommendedSubscriptionTier,
     pricingStatus?.account?.subscriptionTier ?? cachedPricing.subscriptionTier,
     pricingStatus?.account?.subscriptionActive ?? false,
     pricingStatus?.launchDiscountActive ?? false,
@@ -1994,7 +2305,7 @@ const localOnlyMode = localOnlyModeEnabled();
     pricingStatus?.account?.subscriptionDiscountDurationInMonths,
     pricingStatus?.account?.subscriptionCancelAtPeriodEnd ?? false,
     pricingStatus?.account?.subscriptionEndsAt,
-    pricingStatus?.activePercentOff ?? 0
+    pricingStatus?.activePercentOff ?? 0,
   );
   const contactEmailValid = isValidEmailAddress(contactEmail);
   const authEmailValid = isValidEmailAddress(authEmail);
@@ -2100,19 +2411,22 @@ const localOnlyMode = localOnlyModeEnabled();
           setShowAppUpdateDialog(true);
           return;
         }
-const view = safeNotificationActionView(action, localOnlyMode);
-if (view) {
-setActiveView(view);
-}
-      }
+        const view = safeNotificationActionView(action, localOnlyMode);
+        if (view) {
+          setActiveView(view);
+        }
+      },
     );
     return () => {
       void unlistenPromise.then((unlisten) => unlisten());
     };
-}, [localOnlyMode]);
+  }, [localOnlyMode]);
 
   useEffect(() => {
-    if (localOnlyMode && (activeView === "upgrade" || activeView === "upgradeAuth")) {
+    if (
+      localOnlyMode &&
+      (activeView === "upgrade" || activeView === "upgradeAuth")
+    ) {
       setActiveView("home");
     }
   }, [activeView, localOnlyMode]);
@@ -2147,18 +2461,27 @@ setActiveView(view);
     const rank: Record<string, number> = { pro: 1, max5x: 2, max20x: 3 };
     const previous = window.localStorage.getItem(STORAGE_KEY);
     // Notify on first detection and whenever the recommended tier climbs higher.
-    if (previous !== null && (rank[mismatch.recommendedTier] ?? 0) <= (rank[previous] ?? 0)) {
+    if (
+      previous !== null &&
+      (rank[mismatch.recommendedTier] ?? 0) <= (rank[previous] ?? 0)
+    ) {
       return;
     }
     const paidLabel = upgradePlanIntentLabel(mismatch.paidTier);
     const recommendedLabel = upgradePlanIntentLabel(mismatch.recommendedTier);
-    const sourceLabel = tierRecommendationSourceLabel(mismatch.recommendedSource);
+    const sourceLabel = tierRecommendationSourceLabel(
+      mismatch.recommendedSource,
+    );
     void invoke("show_notification", {
       title: "Upgrade your Headroom plan",
       body: `Your ${sourceLabel} usage needs the Headroom ${recommendedLabel} plan, above your current ${paidLabel} plan. Upgrade to keep unlimited optimization.`,
     }).catch(() => {});
     window.localStorage.setItem(STORAGE_KEY, mismatch.recommendedTier);
-  }, [localOnlyMode, pricingStatus?.tierMismatch?.recommendedTier, pricingStatus?.tierMismatch]);
+  }, [
+    localOnlyMode,
+    pricingStatus?.tierMismatch?.recommendedTier,
+    pricingStatus?.tierMismatch,
+  ]);
 
   useEffect(() => {
     const claudeConnector = getClaudeConnector(connectors);
@@ -2167,7 +2490,7 @@ setActiveView(view);
     }
     trackInstallMilestoneOnce("claude_code_detected", {
       enabled: claudeConnector.enabled,
-      verified: claudeConnector.verified
+      verified: claudeConnector.verified,
     });
   }, [connectors]);
 
@@ -2177,7 +2500,7 @@ setActiveView(view);
       return;
     }
     trackInstallMilestoneOnce("optimization_enabled", {
-      verified: claudeConnector.verified
+      verified: claudeConnector.verified,
     });
   }, [connectors]);
 
@@ -2187,7 +2510,7 @@ setActiveView(view);
     }
     trackInstallMilestoneOnce("first_optimized_request", {
       lifetime_requests: dashboard.lifetimeRequests,
-      launch_experience: dashboard.launchExperience
+      launch_experience: dashboard.launchExperience,
     });
   }, [dashboard.launchExperience, dashboard.lifetimeRequests]);
 
@@ -2200,15 +2523,24 @@ setActiveView(view);
     }
     trackInstallMilestoneOnce("first_savings_recorded", {
       lifetime_tokens_saved: dashboard.lifetimeEstimatedTokensSaved,
-      lifetime_savings_usd: Number(dashboard.lifetimeEstimatedSavingsUsd.toFixed(4))
+      lifetime_savings_usd: Number(
+        dashboard.lifetimeEstimatedSavingsUsd.toFixed(4),
+      ),
     });
-  }, [dashboard.lifetimeEstimatedSavingsUsd, dashboard.lifetimeEstimatedTokensSaved]);
+  }, [
+    dashboard.lifetimeEstimatedSavingsUsd,
+    dashboard.lifetimeEstimatedTokensSaved,
+  ]);
 
   useEffect(() => {
     let active = true;
 
     const runStartupChecks = async () => {
-      const updateStartup = (phase: StartupPhase, percent: number, message: string) => {
+      const updateStartup = (
+        phase: StartupPhase,
+        percent: number,
+        message: string,
+      ) => {
         if (!active) {
           return;
         }
@@ -2235,9 +2567,9 @@ setActiveView(view);
       applyDashboardIfChanged(dashboardResult);
 
       updateStartup("bootstrap", 58, "Checking runtime install state…");
-      const bootstrapResult = await invoke<BootstrapProgress>("get_bootstrap_progress").catch(
-        () => idleBootstrapProgress
-      );
+      const bootstrapResult = await invoke<BootstrapProgress>(
+        "get_bootstrap_progress",
+      ).catch(() => idleBootstrapProgress);
       if (!active) {
         return;
       }
@@ -2249,42 +2581,47 @@ setActiveView(view);
         label,
         bootstrapResult.complete,
         dashboardResult.bootstrapComplete,
-        dashboardResult.launchExperience
+        dashboardResult.launchExperience,
       );
       if (initialStage) {
         setLauncherStage(initialStage);
       }
 
       updateStartup("runtime", 80, "Preparing local engine…");
-const [runtimeResult, switchboardResult, doctorResult, pricingResult] = await Promise.all([
-invoke<RuntimeStatus>("get_runtime_status").catch(() => null),
-invoke<SwitchboardState>("get_switchboard_state").catch(() => null),
-invoke<DoctorReport>("get_doctor_report").catch(() => null),
-localOnlyMode
-? Promise.resolve(null)
-: invoke<HeadroomPricingStatus>("get_headroom_pricing_status").catch(() => null),
-        refreshConnectors(),
-      ]);
+      const [runtimeResult, switchboardResult, doctorResult, pricingResult] =
+        await Promise.all([
+          invoke<RuntimeStatus>("get_runtime_status").catch(() => null),
+          invoke<SwitchboardState>("get_switchboard_state").catch(() => null),
+          invoke<DoctorReport>("get_doctor_report").catch(() => null),
+          localOnlyMode
+            ? Promise.resolve(null)
+            : invoke<HeadroomPricingStatus>(
+                "get_headroom_pricing_status",
+              ).catch(() => null),
+          refreshConnectors(),
+        ]);
       if (!active) {
         return;
       }
       if (runtimeResult) {
         applyRuntimeStatusIfChanged(runtimeResult);
       }
-if (switchboardResult) {
-applySwitchboardStateIfChanged(switchboardResult);
-}
-if (doctorResult) {
-setDoctorReport(doctorResult);
-}
-if (pricingResult) {
+      if (switchboardResult) {
+        applySwitchboardStateIfChanged(switchboardResult);
+      }
+      if (doctorResult) {
+        setDoctorReport(doctorResult);
+      }
+      if (pricingResult) {
         setPricingStatus(pricingResult);
       }
 
       updateStartup(
         "ready",
         95,
-        label === "launcher" ? "Preparing launch checklist…" : "Preparing tray dashboard…"
+        label === "launcher"
+          ? "Preparing launch checklist…"
+          : "Preparing tray dashboard…",
       );
       window.setTimeout(() => {
         if (!active) {
@@ -2313,7 +2650,7 @@ if (pricingResult) {
       dashboard: 54,
       bootstrap: 76,
       runtime: 92,
-      ready: 99
+      ready: 99,
     };
     const cap = phaseCaps[startupPhase];
 
@@ -2458,7 +2795,11 @@ if (pricingResult) {
         .catch(() => {});
     }, 2500);
     return () => window.clearTimeout(timeout);
-  }, [runtimeUpgradeProgress.complete, runtimeUpgradeProgress.failed, windowLabel]);
+  }, [
+    runtimeUpgradeProgress.complete,
+    runtimeUpgradeProgress.failed,
+    windowLabel,
+  ]);
 
   useEffect(() => {
     if (windowLabel !== "launcher" || launcherStage !== "client_setup") {
@@ -2479,8 +2820,8 @@ if (pricingResult) {
           const [runtime, counts] = await Promise.all([
             invoke<RuntimeStatus>("get_runtime_status"),
             invoke<Record<string, number> | null>(
-              "get_headroom_request_counts_by_agent"
-            ).catch(() => null)
+              "get_headroom_request_counts_by_agent",
+            ).catch(() => null),
           ]);
 
           if (!active) {
@@ -2489,7 +2830,7 @@ if (pricingResult) {
 
           if (!runtime.proxyReachable || counts === null) {
             setProxyVerificationHint(
-              "Headroom proxy is not reachable yet. Start Headroom runtime, then send a test message."
+              "Headroom proxy is not reachable yet. Start Headroom runtime, then send a test message.",
             );
             return;
           }
@@ -2519,7 +2860,7 @@ if (pricingResult) {
               return now > base
                 ? { ...row, state: "verified", message: "Request received" }
                 : row;
-            })
+            }),
           );
         } catch {
           if (active) {
@@ -2550,7 +2891,6 @@ if (pricingResult) {
     setStepEtaSeedSeconds(bootstrapProgress.currentStepEtaSeconds);
     setStepBasePercent(bootstrapProgress.overallPercent);
   }, [bootstrapProgress, showInstallProgress, stepSignature]);
-
 
   useEffect(() => {
     if (!isLastScreen) return;
@@ -2654,11 +2994,7 @@ if (pricingResult) {
   }, [startupReady]);
 
   useEffect(() => {
-    if (
-      !startupReady ||
-      windowLabel !== "main" ||
-      !appUpdateConfig
-    ) {
+    if (!startupReady || windowLabel !== "main" || !appUpdateConfig) {
       return;
     }
     if (!appUpdateConfig.enabled || appUpdateConfig.configurationError) {
@@ -2679,8 +3015,14 @@ if (pricingResult) {
       });
     };
 
-    const timer = window.setTimeout(runBackgroundCheck, APP_UPDATE_BACKGROUND_INITIAL_DELAY_MS);
-    const interval = window.setInterval(runBackgroundCheck, APP_UPDATE_BACKGROUND_CHECK_INTERVAL_MS);
+    const timer = window.setTimeout(
+      runBackgroundCheck,
+      APP_UPDATE_BACKGROUND_INITIAL_DELAY_MS,
+    );
+    const interval = window.setInterval(
+      runBackgroundCheck,
+      APP_UPDATE_BACKGROUND_CHECK_INTERVAL_MS,
+    );
 
     return () => {
       window.clearTimeout(timer);
@@ -2692,12 +3034,12 @@ if (pricingResult) {
     if (windowLabel !== "main" || !trayWindowFocused) {
       return;
     }
-void refreshSwitchboardState();
-void refreshDoctorReport();
-const interval = window.setInterval(() => {
-void refreshSwitchboardState();
-void refreshDoctorReport();
-}, 5_000);
+    void refreshSwitchboardState();
+    void refreshDoctorReport();
+    const interval = window.setInterval(() => {
+      void refreshSwitchboardState();
+      void refreshDoctorReport();
+    }, 5_000);
     return () => window.clearInterval(interval);
   }, [trayWindowFocused, windowLabel]);
 
@@ -2724,7 +3066,7 @@ void refreshDoctorReport();
     void Promise.all([
       refreshConnectors(),
       refreshRuntimeStatus(),
-      appUpdateConfig ? Promise.resolve() : refreshAppUpdateConfiguration()
+      appUpdateConfig ? Promise.resolve() : refreshAppUpdateConfiguration(),
     ]);
     void invoke<boolean>("get_autostart_enabled")
       .then((enabled) => setAutostartEnabled(enabled))
@@ -2734,7 +3076,9 @@ void refreshDoctorReport();
   async function handleAutostartToggle(nextEnabled: boolean) {
     setAutostartBusy(true);
     try {
-      const enabled = await invoke<boolean>("set_autostart_enabled", { enabled: nextEnabled });
+      const enabled = await invoke<boolean>("set_autostart_enabled", {
+        enabled: nextEnabled,
+      });
       setAutostartEnabled(enabled);
     } catch (error) {
       console.error("Failed to update autostart", error);
@@ -2773,7 +3117,9 @@ void refreshDoctorReport();
       await invoke<string[]>("uninstall_and_quit");
     } catch (error) {
       setUninstallError(
-        typeof error === "string" ? error : "Uninstall failed. Please try again."
+        typeof error === "string"
+          ? error
+          : "Uninstall failed. Please try again.",
       );
       setUninstallBusy(false);
     }
@@ -2841,7 +3187,9 @@ void refreshDoctorReport();
         .then((next) => {
           if (!active) return;
           setActivityFeed((prev) =>
-            activityFeedSignature(prev) === activityFeedSignature(next) ? prev : next
+            activityFeedSignature(prev) === activityFeedSignature(next)
+              ? prev
+              : next,
           );
           setActivityFeedError(null);
         })
@@ -2871,14 +3219,18 @@ void refreshDoctorReport();
         .then((next) => {
           if (!active) return;
           setActivityFeed((prev) =>
-            activityFeedSignature(prev) === activityFeedSignature(next) ? prev : next
+            activityFeedSignature(prev) === activityFeedSignature(next)
+              ? prev
+              : next,
           );
           setActivityFeedError(null);
         })
         .catch((err) => {
           if (!active) return;
           setActivityFeedError(
-            err instanceof Error ? err.message : "Could not load activity feed."
+            err instanceof Error
+              ? err.message
+              : "Could not load activity feed.",
           );
         })
         .finally(() => {
@@ -2908,7 +3260,10 @@ void refreshDoctorReport();
     }
 
     setSelectedClaudeProjectPath((current) => {
-      if (current && claudeProjects.some((project) => project.projectPath === current)) {
+      if (
+        current &&
+        claudeProjects.some((project) => project.projectPath === current)
+      ) {
         return current;
       }
       return claudeProjects[0].projectPath;
@@ -2930,7 +3285,7 @@ void refreshDoctorReport();
     let active = true;
     const refreshLearnStatus = () => {
       void invoke<HeadroomLearnStatus>("get_headroom_learn_status", {
-        projectPath: selectedClaudeProjectPath
+        projectPath: selectedClaudeProjectPath,
       })
         .then((status) => {
           if (active) {
@@ -2942,7 +3297,7 @@ void refreshDoctorReport();
             setHeadroomLearnStatus((current) => ({
               ...current,
               running: false,
-              summary: "Could not read headroom learn status."
+              summary: "Could not read headroom learn status.",
             }));
           }
         });
@@ -2951,13 +3306,18 @@ void refreshDoctorReport();
     refreshLearnStatus();
     const interval = window.setInterval(
       refreshLearnStatus,
-      headroomLearnStatus.running ? 900 : 3200
+      headroomLearnStatus.running ? 900 : 3200,
     );
     return () => {
       active = false;
       window.clearInterval(interval);
     };
-  }, [activeView, selectedClaudeProjectPath, headroomLearnStatus.running, trayWindowFocused]);
+  }, [
+    activeView,
+    selectedClaudeProjectPath,
+    headroomLearnStatus.running,
+    trayWindowFocused,
+  ]);
 
   useEffect(() => {
     if (activeView !== "upgrade") {
@@ -2985,10 +3345,10 @@ void refreshDoctorReport();
                 ...project,
                 lastLearnRanAt: completedAt,
                 hasPersistedLearnings: true,
-                activeDaysSinceLastLearn: 0
+                activeDaysSinceLastLearn: 0,
               }
-            : project
-        )
+            : project,
+        ),
       );
     }
 
@@ -2998,7 +3358,7 @@ void refreshDoctorReport();
     headroomLearnStatus.lastRunAt,
     headroomLearnStatus.projectPath,
     headroomLearnStatus.running,
-    headroomLearnStatus.success
+    headroomLearnStatus.success,
   ]);
 
   const claudeProjectPathsKey = claudeProjects
@@ -3010,15 +3370,19 @@ void refreshDoctorReport();
     if (activeView !== "optimization") {
       return;
     }
-    const paths = claudeProjectPathsKey === "" ? [] : claudeProjectPathsKey.split("\t");
+    const paths =
+      claudeProjectPathsKey === "" ? [] : claudeProjectPathsKey.split("\t");
     if (paths.length === 0) {
       setOptimizeAppliedByProject({});
       return;
     }
     let active = true;
-    invoke<Record<string, AppliedPatterns>>("list_applied_patterns_for_projects", {
-      projectPaths: paths,
-    })
+    invoke<Record<string, AppliedPatterns>>(
+      "list_applied_patterns_for_projects",
+      {
+        projectPaths: paths,
+      },
+    )
       .then((result) => {
         if (!active) return;
         setOptimizeAppliedByProject(result);
@@ -3047,7 +3411,7 @@ void refreshDoctorReport();
   // Which agents Headroom Learn should offer, driven by the enabled connectors.
   const claudeLearnEnabled = getClaudeConnector(connectors)?.enabled ?? false;
   const codexLearnEnabled = aggregateClientConnectors(connectors).some(
-    (connector) => connector.clientId === "codex" && connector.enabled
+    (connector) => connector.clientId === "codex" && connector.enabled,
   );
   const learnBlurb =
     claudeLearnEnabled && codexLearnEnabled
@@ -3136,10 +3500,17 @@ void refreshDoctorReport();
     if (localOnlyMode) {
       return;
     }
-    if (checkoutPollingDeadline !== null && pricingStatus?.account?.subscriptionActive) {
+    if (
+      checkoutPollingDeadline !== null &&
+      pricingStatus?.account?.subscriptionActive
+    ) {
       setCheckoutPollingDeadline(null);
     }
-  }, [checkoutPollingDeadline, localOnlyMode, pricingStatus?.account?.subscriptionActive]);
+  }, [
+    checkoutPollingDeadline,
+    localOnlyMode,
+    pricingStatus?.account?.subscriptionActive,
+  ]);
 
   // When the pricing gate closes, pause optimization on every enabled
   // connector (not just Claude Code) one at a time. Each disable refreshes
@@ -3168,7 +3539,10 @@ void refreshDoctorReport();
     if (localOnlyMode) {
       return;
     }
-    if (!pricingStatus?.optimizationAllowed || autoDisabledByGateRef.current.size === 0) {
+    if (
+      !pricingStatus?.optimizationAllowed ||
+      autoDisabledByGateRef.current.size === 0
+    ) {
       return;
     }
     if (connectorsBusy) {
@@ -3176,7 +3550,8 @@ void refreshDoctorReport();
     }
     const target = aggregateClientConnectors(connectors).find(
       (connector) =>
-        autoDisabledByGateRef.current.has(connector.clientId) && !connector.enabled
+        autoDisabledByGateRef.current.has(connector.clientId) &&
+        !connector.enabled,
     );
     if (!target) {
       autoDisabledByGateRef.current.clear();
@@ -3193,7 +3568,11 @@ void refreshDoctorReport();
       runtimeStatus?.running === true &&
       runtimeStatus?.proxyReachable === true &&
       connectorPhase === "healthy";
-    if (!pricingStatus?.authenticated || !runtimeHealthyNow || desktopActivationSentRef.current) {
+    if (
+      !pricingStatus?.authenticated ||
+      !runtimeHealthyNow ||
+      desktopActivationSentRef.current
+    ) {
       return;
     }
     desktopActivationSentRef.current = true;
@@ -3202,7 +3581,13 @@ void refreshDoctorReport();
       .catch(() => {
         desktopActivationSentRef.current = false;
       });
-  }, [connectorPhase, localOnlyMode, pricingStatus?.authenticated, runtimeStatus?.proxyReachable, runtimeStatus?.running]);
+  }, [
+    connectorPhase,
+    localOnlyMode,
+    pricingStatus?.authenticated,
+    runtimeStatus?.proxyReachable,
+    runtimeStatus?.running,
+  ]);
 
   // While verifying, poll the proxy's /stats request counter and flip to
   // healthy when it ticks past the anchor we captured on the first reachable
@@ -3217,9 +3602,9 @@ void refreshDoctorReport();
     let anchor: number | null = null;
     const interval = setInterval(() => {
       void (async () => {
-        const count = await invoke<number | null>("get_headroom_request_count").catch(
-          () => null
-        );
+        const count = await invoke<number | null>(
+          "get_headroom_request_count",
+        ).catch(() => null);
         if (!active) return;
         // null = proxy unreachable. Don't anchor on transient
         // unreachable readings — a later reachable reading would otherwise
@@ -3251,7 +3636,7 @@ void refreshDoctorReport();
       currentStep: "Preparing install",
       message: "Initializing installer workflow.",
       currentStepEtaSeconds: 3,
-      overallPercent: 2
+      overallPercent: 2,
     });
     setBootstrapping(true);
     try {
@@ -3271,7 +3656,7 @@ void refreshDoctorReport();
         currentStep: failureReport.currentStep,
         message: failureReport.message,
         currentStepEtaSeconds: failureReport.currentStepEtaSeconds,
-        overallPercent: failureReport.overallPercent
+        overallPercent: failureReport.overallPercent,
       });
       setBootstrapping(false);
     } finally {
@@ -3305,7 +3690,10 @@ void refreshDoctorReport();
     }
 
     const elapsedSeconds = Math.max(0, (Date.now() - stepStartedAtMs) / 1000);
-    const eta = Math.max(8, stepEtaSeedSeconds || progress.currentStepEtaSeconds || 20);
+    const eta = Math.max(
+      8,
+      stepEtaSeedSeconds || progress.currentStepEtaSeconds || 20,
+    );
     const linear = Math.min(0.96, elapsedSeconds / eta);
 
     if (elapsedSeconds <= eta) {
@@ -3362,7 +3750,9 @@ void refreshDoctorReport();
     return connectorControlState(connector).reason;
   }
 
-  function canConfigureConnectorWithoutDetection(connector: ClientConnectorStatus) {
+  function canConfigureConnectorWithoutDetection(
+    connector: ClientConnectorStatus,
+  ) {
     return !connectorControlState(connector).disabled;
   }
 
@@ -3370,31 +3760,31 @@ void refreshDoctorReport();
     return connectorSupportWarnings[connector.clientId] ?? null;
   }
 
-function getConnectorDetectionWarning(connector: ClientConnectorStatus) {
-  if (connector.installed) {
-    return null;
-  }
-  return connectorUnavailableReasons[connector.clientId] ?? null;
-}
-
-function getPlannedConnectorNextStep(
-  connector: ClientConnectorStatus,
-  plannedConnector: PlannedConnector
-) {
-  if (!connector.installed) {
-    return "Install the tool first, then Mac AI Switchboard will detect it here.";
+  function getConnectorDetectionWarning(connector: ClientConnectorStatus) {
+    if (connector.installed) {
+      return null;
+    }
+    return connectorUnavailableReasons[connector.clientId] ?? null;
   }
 
-  if (plannedConnector.setupPhase === "Detect") {
-    return "Detected. Keep using RTK-only mode while a reversible routing adapter is researched.";
-  }
+  function getPlannedConnectorNextStep(
+    connector: ClientConnectorStatus,
+    plannedConnector: PlannedConnector,
+  ) {
+    if (!connector.installed) {
+      return "Install the tool first, then Mac AI Switchboard will detect it here.";
+    }
 
-  if (plannedConnector.setupPhase === "Guide") {
-    return "Detected. Guided setup is next so account-specific provider settings stay under your control.";
-  }
+    if (plannedConnector.setupPhase === "Detect") {
+      return "Detected. Keep using RTK-only mode while a reversible routing adapter is researched.";
+    }
 
-  return "Detected. Automatic setup waits for backup, restore, and off-mode cleanup coverage.";
-}
+    if (plannedConnector.setupPhase === "Guide") {
+      return "Detected. Guided setup is next so account-specific provider settings stay under your control.";
+    }
+
+    return "Detected. Automatic setup waits for backup, restore, and off-mode cleanup coverage.";
+  }
 
   function applyAppUpdatePatch(patch: AppUpdateStatePatch) {
     if (Object.prototype.hasOwnProperty.call(patch, "config")) {
@@ -3453,7 +3843,9 @@ function getPlannedConnectorNextStep(
       applyAppUpdatePatch(patch);
 
       if (background && patch.availableUpdate) {
-        const windowVisible = await getCurrentWindow().isVisible().catch(() => false);
+        const windowVisible = await getCurrentWindow()
+          .isVisible()
+          .catch(() => false);
         if (
           shouldNotifyAboutAvailableAppUpdate({
             background,
@@ -3490,9 +3882,11 @@ function getPlannedConnectorNextStep(
         await runAppUpdateInstall({
           availableUpdate: appUpdateAvailable,
           onProgress: (progress) => {
-            setAppUpdateStatusCopy(formatAppUpdateProgressCopy(versionForCopy, progress));
+            setAppUpdateStatusCopy(
+              formatAppUpdateProgressCopy(versionForCopy, progress),
+            );
           },
-        })
+        }),
       );
     } finally {
       setAppUpdateInstallBusy(false);
@@ -3506,91 +3900,106 @@ function getPlannedConnectorNextStep(
   async function refreshConnectors() {
     try {
       setConnectorsError(null);
-      const items = await invoke<ClientConnectorStatus[]>("get_client_connectors");
+      const items = await invoke<ClientConnectorStatus[]>(
+        "get_client_connectors",
+      );
       applyConnectorsIfChanged(items);
     } catch (error) {
       setConnectorsError(
-        error instanceof Error ? error.message : "Could not load connector status."
+        error instanceof Error
+          ? error.message
+          : "Could not load connector status.",
       );
     }
   }
 
-async function refreshSwitchboardState() {
-try {
-const state = await invoke<SwitchboardState>("get_switchboard_state");
-applySwitchboardStateIfChanged(state);
-applyRuntimeStatusIfChanged(state.runtime);
-applyConnectorsIfChanged(state.clients);
-} catch {
-applySwitchboardStateIfChanged(null);
-}
-}
+  async function refreshSwitchboardState() {
+    try {
+      const state = await invoke<SwitchboardState>("get_switchboard_state");
+      applySwitchboardStateIfChanged(state);
+      applyRuntimeStatusIfChanged(state.runtime);
+      applyConnectorsIfChanged(state.clients);
+    } catch {
+      applySwitchboardStateIfChanged(null);
+    }
+  }
 
-async function refreshDoctorReport() {
-try {
-const report = await invoke<DoctorReport>("get_doctor_report");
-setDoctorReport(report);
-} catch {
-setDoctorReport(null);
-}
-}
+  async function refreshDoctorReport() {
+    try {
+      const report = await invoke<DoctorReport>("get_doctor_report");
+      setDoctorReport(report);
+    } catch {
+      setDoctorReport(null);
+    }
+  }
 
-async function handleSetSwitchboardMode(mode: SwitchboardMode) {
-if (switchboardModeBusy !== null) {
-return;
-}
-setSwitchboardModeBusy(mode);
-setSwitchboardModeError(null);
-setDoctorRepairSuccess(null);
-try {
-const state = await invoke<SwitchboardState>("set_switchboard_mode", { mode });
-applySwitchboardStateIfChanged(state);
-applyRuntimeStatusIfChanged(state.runtime);
-applyConnectorsIfChanged(state.clients);
-await refreshDoctorReport();
-} catch (error) {
-setSwitchboardModeError(
-`${error instanceof Error ? error.message : "Could not switch optimization mode."} Switchboard and Doctor have been refreshed.`
-);
-await Promise.allSettled([refreshSwitchboardState(), refreshDoctorReport()]);
-} finally {
-setSwitchboardModeBusy(null);
-}
-}
+  async function handleSetSwitchboardMode(mode: SwitchboardMode) {
+    if (switchboardModeBusy !== null) {
+      return;
+    }
+    setSwitchboardModeBusy(mode);
+    setSwitchboardModeError(null);
+    setDoctorRepairSuccess(null);
+    try {
+      const state = await invoke<SwitchboardState>("set_switchboard_mode", {
+        mode,
+      });
+      applySwitchboardStateIfChanged(state);
+      applyRuntimeStatusIfChanged(state.runtime);
+      applyConnectorsIfChanged(state.clients);
+      await refreshDoctorReport();
+    } catch (error) {
+      setSwitchboardModeError(
+        `${error instanceof Error ? error.message : "Could not switch optimization mode."} Switchboard and Doctor have been refreshed.`,
+      );
+      await Promise.allSettled([
+        refreshSwitchboardState(),
+        refreshDoctorReport(),
+      ]);
+    } finally {
+      setSwitchboardModeBusy(null);
+    }
+  }
 
-async function handleDoctorRepair(action: string) {
-if (doctorRepairBusy !== null) {
-return;
-}
-setDoctorRepairBusy(action);
-setDoctorRepairError(null);
-setDoctorRepairSuccess(null);
-try {
-      const report = await invoke<DoctorReport>("run_doctor_repair", { action });
+  async function handleDoctorRepair(action: string) {
+    if (doctorRepairBusy !== null) {
+      return;
+    }
+    setDoctorRepairBusy(action);
+    setDoctorRepairError(null);
+    setDoctorRepairSuccess(null);
+    try {
+      const report = await invoke<DoctorReport>("run_doctor_repair", {
+        action,
+      });
       setDoctorReport(report);
       setDoctorRepairSuccess(
         action === "verify_off_mode"
           ? "Off mode verification refreshed."
           : report.status === "ok" && report.issues.length === 0
-          ? "Repair complete. Switchboard looks ready."
-          : "Repair finished. Review the remaining Doctor items."
+            ? "Repair complete. Switchboard looks ready."
+            : "Repair finished. Review the remaining Doctor items.",
       );
-await refreshSwitchboardState();
-} catch (error) {
-setDoctorRepairError(error instanceof Error ? error.message : "Could not run repair.");
-} finally {
-setDoctorRepairBusy(null);
-}
-}
+      await refreshSwitchboardState();
+    } catch (error) {
+      setDoctorRepairError(
+        error instanceof Error ? error.message : "Could not run repair.",
+      );
+    } finally {
+      setDoctorRepairBusy(null);
+    }
+  }
 
-async function refreshRuntimeStatus() {
+  async function refreshRuntimeStatus() {
     try {
       const runtime = await invoke<RuntimeStatus>("get_runtime_status");
       applyRuntimeStatusIfChanged(runtime);
       void maybeFireUrgentRuntimeNotification(runtime);
     } catch (error) {
       setConnectorsError(
-        error instanceof Error ? error.message : "Could not load runtime status."
+        error instanceof Error
+          ? error.message
+          : "Could not load runtime status.",
       );
     }
   }
@@ -3602,12 +4011,12 @@ async function refreshRuntimeStatus() {
     setResuming(true);
     setResumeError(null);
     try {
-await invoke("force_restart_headroom");
-await refreshRuntimeStatus();
-await refreshDoctorReport();
-} catch (error) {
+      await invoke("force_restart_headroom");
+      await refreshRuntimeStatus();
+      await refreshDoctorReport();
+    } catch (error) {
       setResumeError(
-        error instanceof Error ? error.message : "Could not restart Headroom."
+        error instanceof Error ? error.message : "Could not restart Headroom.",
       );
     } finally {
       setResuming(false);
@@ -3626,14 +4035,18 @@ await refreshDoctorReport();
     pricingRefreshInFlightRef.current = true;
     setPricingBusy(true);
     try {
-      const status = await invoke<HeadroomPricingStatus>("get_headroom_pricing_status");
+      const status = await invoke<HeadroomPricingStatus>(
+        "get_headroom_pricing_status",
+      );
       setPricingStatus(status);
       void maybeFireTrialNotifications(status);
       void maybeFireUrgentPricingNotifications(status);
       setPricingError(null);
     } catch (error) {
       setPricingError(
-        error instanceof Error ? error.message : "Could not load pricing status."
+        error instanceof Error
+          ? error.message
+          : "Could not load pricing status.",
       );
     } finally {
       pricingRefreshInFlightRef.current = false;
@@ -3645,11 +4058,15 @@ await refreshDoctorReport();
     setClaudeProjectsBusy(true);
     try {
       setClaudeProjectsError(null);
-      const projects = await invoke<ClaudeCodeProject[]>("get_claude_code_projects");
+      const projects = await invoke<ClaudeCodeProject[]>(
+        "get_claude_code_projects",
+      );
       applyClaudeProjectsIfChanged(projects);
     } catch (error) {
       setClaudeProjectsError(
-        error instanceof Error ? error.message : "Could not load Claude Code projects."
+        error instanceof Error
+          ? error.message
+          : "Could not load Claude Code projects.",
       );
     } finally {
       setClaudeProjectsBusy(false);
@@ -3658,9 +4075,12 @@ await refreshDoctorReport();
 
   async function refreshHeadroomLearnPrereq(force = false) {
     try {
-      const status = await invoke<HeadroomLearnPrereqStatus>("get_headroom_learn_prereq_status", {
-        force,
-      });
+      const status = await invoke<HeadroomLearnPrereqStatus>(
+        "get_headroom_learn_prereq_status",
+        {
+          force,
+        },
+      );
       setHeadroomLearnPrereq(status);
     } catch {
       setHeadroomLearnPrereq(idleHeadroomLearnPrereqStatus);
@@ -3676,50 +4096,59 @@ await refreshDoctorReport();
       setLearnInstallCopyNotice("Copied install command.");
       window.setTimeout(() => setLearnInstallCopyNotice(null), 2000);
     } catch {
-      setLearnInstallCopyNotice("Copy failed. Select the command and copy manually.");
+      setLearnInstallCopyNotice(
+        "Copy failed. Select the command and copy manually.",
+      );
       window.setTimeout(() => setLearnInstallCopyNotice(null), 3000);
     }
   }
 
-async function copyPlannedConnectorCommand(command: string, connectorName: string) {
-  try {
-    if (!navigator.clipboard) {
-      throw new Error("Clipboard API unavailable");
+  async function copyPlannedConnectorCommand(
+    command: string,
+    connectorName: string,
+  ) {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
       }
       await navigator.clipboard.writeText(command);
       setPlannedConnectorCopyNotice(`${connectorName} command copied.`);
       window.setTimeout(() => setPlannedConnectorCopyNotice(null), 2000);
     } catch {
-      setPlannedConnectorCopyNotice("Copy failed. Select the command manually.");
-    window.setTimeout(() => setPlannedConnectorCopyNotice(null), 3000);
-  }
-}
-
-async function copyReleaseReadinessCommand() {
-  try {
-    if (!navigator.clipboard) {
-      throw new Error("Clipboard API unavailable");
+      setPlannedConnectorCopyNotice(
+        "Copy failed. Select the command manually.",
+      );
+      window.setTimeout(() => setPlannedConnectorCopyNotice(null), 3000);
     }
-    await navigator.clipboard.writeText(releaseReadinessCommand);
-    setReleaseReadinessCopyNotice("Release report command copied.");
-    window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2000);
-  } catch {
-    setReleaseReadinessCopyNotice("Copy failed. Select command manually.");
-    window.setTimeout(() => setReleaseReadinessCopyNotice(null), 3000);
   }
-}
+
+  async function copyReleaseReadinessCommand() {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(releaseReadinessCommand);
+      setReleaseReadinessCopyNotice("Release report command copied.");
+      window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2000);
+    } catch {
+      setReleaseReadinessCopyNotice("Copy failed. Select command manually.");
+      window.setTimeout(() => setReleaseReadinessCopyNotice(null), 3000);
+    }
+  }
 
   async function autoConfigureConnectorsForLauncher() {
     setConnectorsBusy(true);
     setConnectorsError(null);
 
     try {
-      let latestConnectors = await invoke<ClientConnectorStatus[]>("get_client_connectors");
+      let latestConnectors = await invoke<ClientConnectorStatus[]>(
+        "get_client_connectors",
+      );
       applyConnectorsIfChanged(latestConnectors);
 
       const step = nextAutoConfigureStep(
         getLauncherAutoConfigureDecision(latestConnectors),
-        latestConnectors
+        latestConnectors,
       );
 
       if (step.kind === "show_client_setup") {
@@ -3731,11 +4160,13 @@ async function copyReleaseReadinessCommand() {
         for (const clientId of step.clientIds) {
           await invoke<ClientSetupResult>("apply_client_setup", { clientId });
         }
-        latestConnectors = await invoke<ClientConnectorStatus[]>("get_client_connectors");
+        latestConnectors = await invoke<ClientConnectorStatus[]>(
+          "get_client_connectors",
+        );
         applyConnectorsIfChanged(latestConnectors);
 
         const postApplyStep = nextAutoConfigureStepAfterApply(
-          getLauncherAutoConfigureDecision(latestConnectors)
+          getLauncherAutoConfigureDecision(latestConnectors),
         );
         if (postApplyStep.kind !== "begin_proxy_verification") {
           setLauncherStage("client_setup");
@@ -3746,7 +4177,9 @@ async function copyReleaseReadinessCommand() {
       await beginProxyVerificationStep();
     } catch (error) {
       setConnectorsError(
-        error instanceof Error ? error.message : "Could not configure your coding tools automatically."
+        error instanceof Error
+          ? error.message
+          : "Could not configure your coding tools automatically.",
       );
       setLauncherStage("client_setup");
     } finally {
@@ -3758,7 +4191,10 @@ async function copyReleaseReadinessCommand() {
     await autoConfigureConnectorsForLauncher();
   }
 
-  async function runHeadroomLearn(agent: "claude" | "codex", projectPath?: string) {
+  async function runHeadroomLearn(
+    agent: "claude" | "codex",
+    projectPath?: string,
+  ) {
     if (runtimeStatus?.headroomLearnSupported === false) {
       setHeadroomLearnStatus((current) => ({
         ...current,
@@ -3766,7 +4202,7 @@ async function copyReleaseReadinessCommand() {
         summary: "Headroom Learn is unavailable on this platform.",
         error:
           runtimeStatus.headroomLearnDisabledReason ??
-          "Headroom Learn is unavailable on this platform."
+          "Headroom Learn is unavailable on this platform.",
       }));
       return;
     }
@@ -3776,7 +4212,8 @@ async function copyReleaseReadinessCommand() {
     const displayName =
       agent === "codex"
         ? "Codex sessions"
-        : (claudeProjects.find((project) => project.projectPath === projectPath)?.displayName ??
+        : (claudeProjects.find((project) => project.projectPath === projectPath)
+            ?.displayName ??
           projectPath ??
           "");
     const startupSummary = `Running headroom learn for ${displayName}.`;
@@ -3791,15 +4228,21 @@ async function copyReleaseReadinessCommand() {
       progressPercent: Math.max(8, current.progressPercent || 0),
       summary: startupSummary,
       success: null,
-      error: null
+      error: null,
     }));
     try {
-      await invoke("start_headroom_learn", { agent, projectPath: projectPath ?? null });
+      await invoke("start_headroom_learn", {
+        agent,
+        projectPath: projectPath ?? null,
+      });
       for (const waitMs of [180, 350, 650, 900, 1200, 1800, 2400]) {
         await delay(waitMs);
-        const status = await invoke<HeadroomLearnStatus>("get_headroom_learn_status", {
-          projectPath: runKey
-        });
+        const status = await invoke<HeadroomLearnStatus>(
+          "get_headroom_learn_status",
+          {
+            projectPath: runKey,
+          },
+        );
         setHeadroomLearnStatus(status);
         if (!status.running) {
           break;
@@ -3810,19 +4253,27 @@ async function copyReleaseReadinessCommand() {
         ...current,
         running: false,
         summary: "headroom learn could not be started.",
-        error: error instanceof Error ? error.message : "Failed to start headroom learn."
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to start headroom learn.",
       }));
     } finally {
       setHeadroomLearnBusy(false);
     }
   }
 
-  async function handleRunHeadroomLearn(agent: "claude" | "codex", projectPath?: string) {
+  async function handleRunHeadroomLearn(
+    agent: "claude" | "codex",
+    projectPath?: string,
+  ) {
     if (agent === "claude" && projectPath) {
       setSelectedClaudeProjectPath(projectPath);
     }
     try {
-      const status = await invoke<HeadroomLearnPrereqStatus>("get_headroom_learn_prereq_status");
+      const status = await invoke<HeadroomLearnPrereqStatus>(
+        "get_headroom_learn_prereq_status",
+      );
       setHeadroomLearnPrereq(status);
       const ready =
         agent === "codex"
@@ -3845,7 +4296,7 @@ async function copyReleaseReadinessCommand() {
   async function runAddonAction(
     command: "install_addon" | "set_addon_enabled" | "uninstall_addon",
     id: string,
-    enabled?: boolean
+    enabled?: boolean,
   ) {
     const copy = addonCopy[id];
     const busyLabel =
@@ -3879,7 +4330,28 @@ async function copyReleaseReadinessCommand() {
       }
     } catch (error) {
       setAddonError(
-        error instanceof Error ? error.message : "The addon action could not be completed."
+        error instanceof Error
+          ? error.message
+          : "The addon action could not be completed.",
+      );
+    } finally {
+      setAddonBusyId(null);
+      setAddonBusyLabel(null);
+    }
+  }
+  async function setCavemanLevel(level: "scoped" | "aggressive") {
+    setAddonBusyId("caveman");
+    setAddonBusyLabel("Updating Caveman level...");
+    setAddonError(null);
+    setAddonResult(null);
+    try {
+      const next = await invoke<DashboardState>("set_caveman_level", { level });
+      setDashboard(next);
+    } catch (error) {
+      setAddonError(
+        error instanceof Error
+          ? error.message
+          : "The Caveman level could not be updated.",
       );
     } finally {
       setAddonBusyId(null);
@@ -3887,8 +4359,8 @@ async function copyReleaseReadinessCommand() {
     }
   }
 
-function openUpgradeAuthView(planId: UpgradePlanId | null = null) {
-setActiveView(safeTrayViewForMode("upgradeAuth", localOnlyMode));
+  function openUpgradeAuthView(planId: UpgradePlanId | null = null) {
+    setActiveView(safeTrayViewForMode("upgradeAuth", localOnlyMode));
     setPendingUpgradePlanId(planId);
     setAuthFlowError(null);
     setAuthFlowSuccess(null);
@@ -3910,14 +4382,19 @@ setActiveView(safeTrayViewForMode("upgradeAuth", localOnlyMode));
     setAuthFlowError(null);
     setAuthFlowSuccess(null);
     try {
-      const result = await invoke<HeadroomAuthCodeRequest>("request_headroom_auth_code", {
-        email: authEmail.trim()
-      });
+      const result = await invoke<HeadroomAuthCodeRequest>(
+        "request_headroom_auth_code",
+        {
+          email: authEmail.trim(),
+        },
+      );
       setAuthCodeRequestedFor(result.email);
       setAuthCodeExpirySeconds(result.expiresInSeconds);
       setAuthFlowSuccess(`We sent a sign-in code to ${result.email}.`);
     } catch (error) {
-      setAuthFlowError(describeInvokeError(error, "Could not send sign-in code."));
+      setAuthFlowError(
+        describeInvokeError(error, "Could not send sign-in code."),
+      );
     } finally {
       setAuthRequestBusy(false);
     }
@@ -3936,20 +4413,25 @@ setActiveView(safeTrayViewForMode("upgradeAuth", localOnlyMode));
     setAuthFlowError(null);
     setAuthFlowSuccess(null);
     try {
-      const status = await invoke<HeadroomPricingStatus>("verify_headroom_auth_code", {
-        email: authEmail.trim(),
-        code: authCode.trim(),
-        inviteCode: null
-      });
+      const status = await invoke<HeadroomPricingStatus>(
+        "verify_headroom_auth_code",
+        {
+          email: authEmail.trim(),
+          code: authCode.trim(),
+          inviteCode: null,
+        },
+      );
       setPricingStatus(status);
       setAuthCode("");
       setAuthCodeRequestedFor(null);
       setAuthFlowSuccess("Headroom account connected.");
       setPendingUpgradePlanId(null);
-setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
+      setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       await refreshConnectors();
     } catch (error) {
-      setAuthFlowError(describeInvokeError(error, "Could not verify sign-in code."));
+      setAuthFlowError(
+        describeInvokeError(error, "Could not verify sign-in code."),
+      );
     } finally {
       setAuthVerifyBusy(false);
     }
@@ -3960,14 +4442,18 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     setAuthFlowSuccess(null);
     try {
       await invoke("sign_out_headroom_account");
-      setPricingStatus(await invoke<HeadroomPricingStatus>("get_headroom_pricing_status"));
+      setPricingStatus(
+        await invoke<HeadroomPricingStatus>("get_headroom_pricing_status"),
+      );
       setAuthCode("");
       setAuthCodeRequestedFor(null);
       setAuthFlowSuccess("Signed out of Headroom.");
       setPendingUpgradePlanId(null);
     } catch (error) {
       setAuthFlowError(
-        error instanceof Error ? error.message : "Could not sign out of Headroom."
+        error instanceof Error
+          ? error.message
+          : "Could not sign out of Headroom.",
       );
     }
   }
@@ -3977,27 +4463,31 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       await openExternalLink(CLAUDE_CODE_INSTALL_DOCS_URL);
     } catch (error) {
       setLearnInstallCopyNotice(
-        error instanceof Error ? error.message : "Could not open the install guide."
+        error instanceof Error
+          ? error.message
+          : "Could not open the install guide.",
       );
       window.setTimeout(() => setLearnInstallCopyNotice(null), 3000);
     }
   }
 
   async function handleUpgradeAction(planId: UpgradePlanId) {
-    const activeHeadroomPlanId =
-      pricingStatus?.account?.subscriptionActive
-        ? pricingStatus.account.subscriptionTier ?? null
-        : null;
+    const activeHeadroomPlanId = pricingStatus?.account?.subscriptionActive
+      ? (pricingStatus.account.subscriptionTier ?? null)
+      : null;
     const action = (() => {
       switch (planId) {
         case "free":
           return {
-            kind: activeHeadroomPlanId ? "billing_portal" as const : "internal" as const
+            kind: activeHeadroomPlanId
+              ? ("billing_portal" as const)
+              : ("internal" as const),
           };
         case "pro":
         case "max5x":
         case "max20x": {
-          if (activeHeadroomPlanId === planId) return { kind: "internal" as const };
+          if (activeHeadroomPlanId === planId)
+            return { kind: "internal" as const };
           // Polar prorates the product swap with the existing discount applied,
           // so every plan change on an active subscription uses the PATCH path.
           if (activeHeadroomPlanId) {
@@ -4009,13 +4499,15 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           return {
             kind: "external" as const,
             url: SALES_CONTACT_URL,
-            missing: "Set VITE_HEADROOM_SALES_CONTACT_URL to enable Team sales inquiries."
+            missing:
+              "Set VITE_HEADROOM_SALES_CONTACT_URL to enable Team sales inquiries.",
           };
         case "enterprise":
           return {
             kind: "external" as const,
             url: SALES_CONTACT_URL,
-            missing: "Set VITE_HEADROOM_SALES_CONTACT_URL to enable Enterprise contact."
+            missing:
+              "Set VITE_HEADROOM_SALES_CONTACT_URL to enable Enterprise contact.",
           };
         default:
           return null;
@@ -4029,7 +4521,10 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     trackAnalyticsEvent("upgrade_button_clicked", {
       plan_id: planId,
       action_kind: action.kind,
-      email: pricingStatus?.account?.email ?? pricingStatus?.claude?.email ?? undefined,
+      email:
+        pricingStatus?.account?.email ??
+        pricingStatus?.claude?.email ??
+        undefined,
     });
 
     if (action.kind === "internal") {
@@ -4050,7 +4545,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       setPendingPlanChange({
         fromTier,
         toTier: planId as HeadroomSubscriptionTier,
-        billingPeriod
+        billingPeriod,
       });
       return;
     }
@@ -4062,7 +4557,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       try {
         const url = await invoke<string>("create_headroom_checkout_session", {
           subscriptionTier: planId,
-          billingPeriod
+          billingPeriod,
         });
         await openExternalLink(url);
         // Aggressive poll for the next 5 minutes so the moment Polar marks
@@ -4071,7 +4566,11 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
         setCheckoutPollingDeadline(Date.now() + 5 * 60_000);
       } catch (error) {
         setUpgradeActionError(
-          error instanceof Error ? error.message : typeof error === "string" ? error : "Could not start checkout."
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Could not start checkout.",
         );
       } finally {
         setUpgradeActionBusy(null);
@@ -4087,12 +4586,16 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
         // Deep-link to the user's subscription page so they land one click
         // away from "Change plan" instead of at the portal root.
         const url = await invoke<string>("get_headroom_billing_portal_url", {
-          target: "subscription"
+          target: "subscription",
         });
         await openExternalLink(url);
       } catch (error) {
         setUpgradeActionError(
-          error instanceof Error ? error.message : typeof error === "string" ? error : "Could not open billing portal."
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
+              : "Could not open billing portal.",
         );
       } finally {
         setUpgradeActionBusy(null);
@@ -4101,7 +4604,9 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     }
 
     if (!action.url) {
-      setUpgradeActionError(action.missing ?? "Could not open the selected plan link.");
+      setUpgradeActionError(
+        action.missing ?? "Could not open the selected plan link.",
+      );
       return;
     }
 
@@ -4112,7 +4617,9 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       await openExternalLink(action.url);
     } catch (error) {
       setUpgradeActionError(
-        error instanceof Error ? error.message : "Could not open the selected plan link."
+        error instanceof Error
+          ? error.message
+          : "Could not open the selected plan link.",
       );
     } finally {
       setUpgradeActionBusy(null);
@@ -4126,7 +4633,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     try {
       await invoke("change_headroom_subscription_plan", {
         subscriptionTier: pendingPlanChange.toTier,
-        billingPeriod: pendingPlanChange.billingPeriod
+        billingPeriod: pendingPlanChange.billingPeriod,
       });
       await refreshPricingStatus();
       setPendingPlanChange(null);
@@ -4137,7 +4644,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           ? error.message
           : typeof error === "string"
             ? error
-            : "Could not change subscription plan."
+            : "Could not change subscription plan.",
       );
     } finally {
       setPlanChangeBusy(false);
@@ -4163,7 +4670,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           ? error.message
           : typeof error === "string"
             ? error
-            : "Could not reactivate subscription."
+            : "Could not reactivate subscription.",
       );
     } finally {
       setReactivateBusy(false);
@@ -4173,7 +4680,10 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
   async function handleContactSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const validationError = getContactRequestValidationError(CONTACT_FORM_URL, contactEmail);
+    const validationError = getContactRequestValidationError(
+      CONTACT_FORM_URL,
+      contactEmail,
+    );
     if (validationError) {
       setContactSubmitError(validationError);
       setContactSubmitSuccess(null);
@@ -4194,10 +4704,14 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       });
       setContactEmail("");
       setContactMessage("");
-      setContactSubmitSuccess("Thanks. Check your inbox for a confirmation email.");
+      setContactSubmitSuccess(
+        "Thanks. Check your inbox for a confirmation email.",
+      );
     } catch (error) {
       setContactSubmitError(
-        error instanceof Error ? error.message : "Could not submit the contact request."
+        error instanceof Error
+          ? error.message
+          : "Could not submit the contact request.",
       );
     } finally {
       setContactSubmitBusy(false);
@@ -4222,12 +4736,17 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     proxyVerificationRequestAnchorRef.current = null;
   }
 
-  async function toggleConnector(connector: ClientConnectorStatus, nextEnabled: boolean) {
+  async function toggleConnector(
+    connector: ClientConnectorStatus,
+    nextEnabled: boolean,
+  ) {
     setConnectorsBusy(true);
     setConnectorsError(null);
     try {
       if (nextEnabled) {
-        await invoke<ClientSetupResult>("apply_client_setup", { clientId: connector.clientId });
+        await invoke<ClientSetupResult>("apply_client_setup", {
+          clientId: connector.clientId,
+        });
       } else {
         await invoke("disable_client_setup", { clientId: connector.clientId });
       }
@@ -4237,13 +4756,12 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       await refreshConnectors();
     } catch (error) {
       setConnectorsError(
-        error instanceof Error ? error.message : "Failed to update connector."
+        error instanceof Error ? error.message : "Failed to update connector.",
       );
     } finally {
       setConnectorsBusy(false);
     }
   }
-
 
   function dismissCodexNudge() {
     setCodexNudgeDismissed(true);
@@ -4263,7 +4781,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     const target = event.target as HTMLElement;
     if (
       target.closest(
-        "button, input, textarea, select, a, [role='button'], [data-no-drag]"
+        "button, input, textarea, select, a, [role='button'], [data-no-drag]",
       )
     ) {
       return;
@@ -4291,7 +4809,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
   const headroomVersion = headroomTool?.version ?? "Unknown";
   const lifetimeTotalTokensSent = dashboard.dailySavings.reduce(
     (sum, point) => sum + point.totalTokensSent,
-    0
+    0,
   );
   const lifetimeTotalTokensBeforeOptimization =
     lifetimeTotalTokensSent + dashboard.lifetimeEstimatedTokensSaved;
@@ -4303,12 +4821,12 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       : null;
   const rtkAvgSavingsPct =
     runtimeStatus?.rtk.installed && (runtimeStatus.rtk.totalCommands ?? 0) > 0
-      ? runtimeStatus.rtk.avgSavingsPct ?? 0
+      ? (runtimeStatus.rtk.avgSavingsPct ?? 0)
       : null;
   const lifetimeDataDays = new Set(
     dashboard.dailySavings
       .map((point) => point.date)
-      .filter((date) => Boolean(date))
+      .filter((date) => Boolean(date)),
   ).size;
   const lifetimeDataDaysLabel =
     lifetimeDataDays > 0
@@ -4320,9 +4838,9 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       new CustomEvent("headroom:boot-progress", {
         detail: {
           percent: startupPercent,
-          status: startupCopy
-        }
-      })
+          status: startupCopy,
+        },
+      }),
     );
   }, [startupPercent, startupCopy]);
 
@@ -4344,7 +4862,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
   if (
     needsTermsAcceptance(
       dashboard.requiredTermsVersion,
-      dashboard.acceptedTermsVersion
+      dashboard.acceptedTermsVersion,
     )
   ) {
     return (
@@ -4353,7 +4871,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
         onAccepted={() =>
           setDashboard((prev) => ({
             ...prev,
-            acceptedTermsVersion: prev.requiredTermsVersion
+            acceptedTermsVersion: prev.requiredTermsVersion,
           }))
         }
       />
@@ -4372,7 +4890,8 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
   const showUpgradeBanner =
     !runtimeUpgradeProgress.running && upgradeFailure !== null;
   const upgradeExhausted =
-    upgradeFailure !== null && upgradeFailure.attempts >= MAX_UPGRADE_AUTO_RETRIES;
+    upgradeFailure !== null &&
+    upgradeFailure.attempts >= MAX_UPGRADE_AUTO_RETRIES;
   const canDismissUpgradeFailure =
     upgradeFailure !== null &&
     upgradeFailure.rollbackRestored &&
@@ -4493,7 +5012,9 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
   // launcher instead.
   if (
     windowLabel === "launcher" &&
-    (showUpgradeModal || showUpgradeSuccess || (showUpgradeBanner && upgradeFailure))
+    (showUpgradeModal ||
+      showUpgradeSuccess ||
+      (showUpgradeBanner && upgradeFailure))
   ) {
     return (
       <LauncherShell
@@ -4539,7 +5060,9 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
                 <div className="install-progress__bar-track">
                   <div
                     className="install-progress__bar-fill"
-                    style={{ width: `${runtimeUpgradeProgress.overallPercent}%` }}
+                    style={{
+                      width: `${runtimeUpgradeProgress.overallPercent}%`,
+                    }}
                   />
                 </div>
                 <div className="install-progress__meta">
@@ -4610,12 +5133,11 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     );
   }
 
-  if (
-    windowLabel === "launcher" && launcherStage === "install"
-  ) {
+  if (windowLabel === "launcher" && launcherStage === "install") {
     const stepProgress = Math.round(getStepProgress(bootstrapProgress) * 100);
     const renderPercent = animatedOverallPercent(bootstrapProgress);
-    const installComplete = bootstrapProgress.complete || dashboard.bootstrapComplete;
+    const installComplete =
+      bootstrapProgress.complete || dashboard.bootstrapComplete;
     const statusCopy = showInstallProgress
       ? `${bootstrapProgress.message} ${
           bootstrapProgress.running && !bootstrapProgress.complete
@@ -4634,28 +5156,29 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
         showSpinner={bootstrapping}
       >
         <h1>
-            Mac AI Switchboard keeps coding-agent work lean, local, and reversible.
+          Mac AI Switchboard keeps coding-agent work lean, local, and
+          reversible.
         </h1>
         <div className="intro-shell__checklist">
           <article>
             <strong>Local-first</strong>
             <p>
-              Routing, client setup, Doctor repairs, and add-ons run on your Mac.
-              Model calls still go to your normal provider accounts.
+              Routing, client setup, Doctor repairs, and add-ons run on your
+              Mac. Model calls still go to your normal provider accounts.
             </p>
           </article>
           <article>
             <strong>Self-contained runtime</strong>
             <p>
-                  Installs Headroom helper tools into app-owned storage without
-                  changing your system Python.
+              Installs Headroom helper tools into app-owned storage without
+              changing your system Python.
             </p>
           </article>
           <article>
             <strong>Off means off</strong>
             <p>
-                  Switchboard can remove routing hooks, and Doctor can repair
-                  stale local setup if a client or proxy drifts.
+              Switchboard can remove routing hooks, and Doctor can repair stale
+              local setup if a client or proxy drifts.
             </p>
           </article>
         </div>
@@ -4663,7 +5186,10 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           <>
             {runtimeStatus?.running !== true ? (
               <>
-                    <p className="launcher-install-notice">Starting the local Headroom engine for the first time (this can take 1-2 minutes)…</p>
+                <p className="launcher-install-notice">
+                  Starting the local Headroom engine for the first time (this
+                  can take 1-2 minutes)…
+                </p>
                 <button
                   className="primary-button primary-button--large primary-button--install launcher-step1-continue"
                   disabled
@@ -4674,7 +5200,9 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
               </>
             ) : (
               <>
- <p className="launcher-install-notice">Local switchboard runtime is ready</p>
+                <p className="launcher-install-notice">
+                  Local switchboard runtime is ready
+                </p>
                 <button
                   className="primary-button primary-button--large primary-button--success launcher-step1-continue"
                   onClick={() => void handleFirstLaunchContinue()}
@@ -4689,7 +5217,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           <>
             {!bootstrapping && (
               <p className="install-pre-notice">
-                  Takes a minute or two to install the local engine.
+                Takes a minute or two to install the local engine.
               </p>
             )}
             <button
@@ -4706,25 +5234,29 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
             </button>
             {!bootstrapping && (
               <div className="install-disclosure">
-                <p className="install-disclosure__lead">Clicking Install will:</p>
+                <p className="install-disclosure__lead">
+                  Clicking Install will:
+                </p>
                 <ul className="install-disclosure__list">
                   <li>
-                        Download a self-contained Python runtime (~2 GB) to <code>~/.headroom</code>.
-                        Your system Python is untouched.
+                    Download a self-contained Python runtime (~2 GB) to{" "}
+                    <code>~/.headroom</code>. Your system Python is untouched.
                   </li>
                   <li>
-                        Ask before routing supported coding clients through the local proxy:
-                    Claude Code via <code>ANTHROPIC_BASE_URL</code> and{" "}
-                    <code>~/.claude/settings.json</code>; Codex via <code>OPENAI_BASE_URL</code>{" "}
-                        and a managed provider block in <code>~/.codex/config.toml</code>.
+                    Ask before routing supported coding clients through the
+                    local proxy: Claude Code via <code>ANTHROPIC_BASE_URL</code>{" "}
+                    and <code>~/.claude/settings.json</code>; Codex via{" "}
+                    <code>OPENAI_BASE_URL</code> and a managed provider block in{" "}
+                    <code>~/.codex/config.toml</code>.
                   </li>
                   <li>
-                    Write timestamped backups before local config edits. Off mode removes
-                        routing hooks; Doctor can re-apply or repair stale setup.
+                    Write timestamped backups before local config edits. Off
+                    mode removes routing hooks; Doctor can re-apply or repair
+                    stale setup.
                   </li>
                   <li>
-                        Keep RTK, Ponytail, MarkItDown, and future Repo Intelligence as optional
-                    add-ons you control separately.
+                    Keep RTK, Ponytail, MarkItDown, and future Repo Intelligence
+                    as optional add-ons you control separately.
                   </li>
                 </ul>
               </div>
@@ -4745,7 +5277,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
                 <span>
                   {etaCopy(
                     bootstrapProgress.currentStepEtaSeconds,
-                    bootstrapProgress
+                    bootstrapProgress,
                   )}
                 </span>
               </div>
@@ -4759,19 +5291,19 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     );
   }
 
-  if (
-    windowLabel === "launcher" && launcherStage === "client_setup"
-  ) {
+  if (windowLabel === "launcher" && launcherStage === "client_setup") {
     const launcherConnectors =
       connectors.length > 0 ? connectors : launcherConnectorFallback;
     const sortedLauncherConnectors = sortClientConnectors(launcherConnectors);
     const availableConnectors = sortedLauncherConnectors.filter((connector) =>
-      canConfigureConnectorWithoutDetection(connector)
+      canConfigureConnectorWithoutDetection(connector),
     );
     const unavailableConnectors = sortedLauncherConnectors.filter(
-      (connector) => !canConfigureConnectorWithoutDetection(connector)
+      (connector) => !canConfigureConnectorWithoutDetection(connector),
     );
-    const enabledConnectorCount = launcherConnectors.filter((connector) => connector.enabled).length;
+    const enabledConnectorCount = launcherConnectors.filter(
+      (connector) => connector.enabled,
+    ).length;
     const requireSelection = availableConnectors.length > 0;
 
     return (
@@ -4787,14 +5319,15 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           <p>Toggle each tool to automatically route it through Headroom.</p>
           <div className="connector-list">
             {availableConnectors.map((connector) => {
-              const unavailableReason = getConnectorUnavailableReason(connector);
-                  const detectionWarning = getConnectorDetectionWarning(connector);
-                  const supportWarning = getConnectorSupportWarning(connector);
-                  const needsRestart = connector.enabled && !connector.verified;
-                  const plannedConnector =
-                    connector.supportStatus === "planned"
-                      ? getPlannedConnector(connector.clientId)
-                      : null;
+              const unavailableReason =
+                getConnectorUnavailableReason(connector);
+              const detectionWarning = getConnectorDetectionWarning(connector);
+              const supportWarning = getConnectorSupportWarning(connector);
+              const needsRestart = connector.enabled && !connector.verified;
+              const plannedConnector =
+                connector.supportStatus === "planned"
+                  ? getPlannedConnector(connector.clientId)
+                  : null;
               return (
                 <article className="connector-item" key={connector.clientId}>
                   <div>
@@ -4808,12 +5341,16 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
                           className="connector-warning-help"
                           onClick={() =>
                             setOpenConnectorWarningId((current) =>
-                              current === connector.clientId ? null : connector.clientId
+                              current === connector.clientId
+                                ? null
+                                : connector.clientId,
                             )
                           }
                           type="button"
                           aria-label={`Show warning for ${connector.name}`}
-                          aria-expanded={openConnectorWarningId === connector.clientId}
+                          aria-expanded={
+                            openConnectorWarningId === connector.clientId
+                          }
                         >
                           !
                         </button>
@@ -4822,12 +5359,16 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
                         className="connector-help"
                         onClick={() =>
                           setOpenConnectorHelpId((current) =>
-                            current === connector.clientId ? null : connector.clientId
+                            current === connector.clientId
+                              ? null
+                              : connector.clientId,
                           )
                         }
                         type="button"
                         aria-label={`Show setup details for ${connector.name}`}
-                        aria-expanded={openConnectorHelpId === connector.clientId}
+                        aria-expanded={
+                          openConnectorHelpId === connector.clientId
+                        }
                       >
                         <Info size={11} weight="bold" />
                       </button>
@@ -4839,7 +5380,8 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
                           "Mac AI Switchboard applies local connector configuration."}
                       </p>
                     ) : null}
-                    {openConnectorWarningId === connector.clientId && supportWarning ? (
+                    {openConnectorWarningId === connector.clientId &&
+                    supportWarning ? (
                       <p className="connector-tooltip connector-tooltip--warning">
                         {supportWarning}
                       </p>
@@ -4865,7 +5407,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
                         void toggleConnector(connector, !connector.enabled)
                       }
                       role="switch"
-                                title={unavailableReason ?? undefined}
+                      title={unavailableReason ?? undefined}
                       type="button"
                     >
                       <span className="connector-switch__thumb" />
@@ -4877,12 +5419,18 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           </div>
           {unavailableConnectors.length > 0 ? (
             <div className="connector-list connector-list--unavailable">
-              <p className="connector-list__section-label">Not detected on this machine</p>
+              <p className="connector-list__section-label">
+                Not detected on this machine
+              </p>
               {unavailableConnectors.map((connector) => {
-                const unavailableReason = getConnectorUnavailableReason(connector);
+                const unavailableReason =
+                  getConnectorUnavailableReason(connector);
                 const supportWarning = getConnectorSupportWarning(connector);
                 return (
-                  <article className="connector-item is-unavailable" key={connector.clientId}>
+                  <article
+                    className="connector-item is-unavailable"
+                    key={connector.clientId}
+                  >
                     <div>
                       <h3>
                         <span className="client-logo" aria-hidden="true">
@@ -4894,24 +5442,31 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
                             className="connector-warning-help"
                             onClick={() =>
                               setOpenConnectorWarningId((current) =>
-                                current === connector.clientId ? null : connector.clientId
+                                current === connector.clientId
+                                  ? null
+                                  : connector.clientId,
                               )
                             }
                             type="button"
                             aria-label={`Show warning for ${connector.name}`}
-                            aria-expanded={openConnectorWarningId === connector.clientId}
+                            aria-expanded={
+                              openConnectorWarningId === connector.clientId
+                            }
                           >
                             !
                           </button>
                         ) : null}
                       </h3>
-                      {openConnectorWarningId === connector.clientId && supportWarning ? (
+                      {openConnectorWarningId === connector.clientId &&
+                      supportWarning ? (
                         <p className="connector-tooltip connector-tooltip--warning">
                           {supportWarning}
                         </p>
                       ) : null}
                       {unavailableReason ? (
-                        <p className="connector-item__reason">{unavailableReason}</p>
+                        <p className="connector-item__reason">
+                          {unavailableReason}
+                        </p>
                       ) : null}
                     </div>
                   </article>
@@ -4935,7 +5490,10 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           </button>
           <button
             className="primary-button primary-button--large primary-button--success"
-            disabled={connectorsBusy || (requireSelection && enabledConnectorCount === 0)}
+            disabled={
+              connectorsBusy ||
+              (requireSelection && enabledConnectorCount === 0)
+            }
             onClick={() => {
               void beginProxyVerificationStep();
             }}
@@ -4948,9 +5506,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     );
   }
 
-  if (
-    windowLabel === "launcher" && launcherStage === "proxy_verify"
-  ) {
+  if (windowLabel === "launcher" && launcherStage === "proxy_verify") {
     const hasEnabledApps = proxyVerificationRows.length > 0;
     const allVerified =
       hasEnabledApps &&
@@ -4965,9 +5521,11 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
         version={appSemver}
       >
         <div className="post-install__lead">
-            <h1>Test your setup</h1>
+          <h1>Test your setup</h1>
           <p>
-              Send one message in each connected tool to verify local routing. If the tool was already open, restart it first so it reloads the managed config.
+            Send one message in each connected tool to verify local routing. If
+            the tool was already open, restart it first so it reloads the
+            managed config.
           </p>
           {hasEnabledApps ? (
             <div className="connector-list">
@@ -4992,7 +5550,8 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
             </div>
           ) : (
             <p className="launcher-restart-hint">
-                  No tools are enabled yet. Go back to the previous step and enable one.
+              No tools are enabled yet. Go back to the previous step and enable
+              one.
             </p>
           )}
           {proxyVerificationHint ? (
@@ -5024,9 +5583,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     );
   }
 
-  if (
-    windowLabel === "launcher" && launcherStage === "post_install"
-  ) {
+  if (windowLabel === "launcher" && launcherStage === "post_install") {
     return (
       <LauncherShell
         shellClassName="intro-shell intro-shell--post-install"
@@ -5037,36 +5594,56 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       >
         <div className="post-install__lead">
           <h1>
-              Mac AI Switchboard is ready
+            Mac AI Switchboard is ready
             <br />
- in the menu bar
+            in the menu bar
           </h1>
           {dashboard.launchExperience === "first_run" ? (
             <p>
-                Send your first prompt from a connected tool. The switchboard will route through the local Headroom engine and track savings automatically.
+              Send your first prompt from a connected tool. The switchboard will
+              route through the local Headroom engine and track savings
+              automatically.
             </p>
           ) : (
             <>
               <p>
-                  Mac AI Switchboard will trim prompt bloat whenever you use enabled clients such as Claude Code or Codex.
+                Mac AI Switchboard will trim prompt bloat whenever you use
+                enabled clients such as Claude Code or Codex.
               </p>
               <div className="post-install__metrics">
                 <article className="soft-card stat-card">
                   <span className="stat-card__label">
-                    <CurrencyDollar aria-hidden="true" className="stat-card__icon" size={15} weight="bold" />
+                    <CurrencyDollar
+                      aria-hidden="true"
+                      className="stat-card__icon"
+                      size={15}
+                      weight="bold"
+                    />
                     Savings all-time
                   </span>
-                  <strong className="stat-value--green">{currency(dashboard.lifetimeEstimatedSavingsUsd)}</strong>
+                  <strong className="stat-value--green">
+                    {currency(dashboard.lifetimeEstimatedSavingsUsd)}
+                  </strong>
                   <p>{lifetimeDataDaysLabel}</p>
                 </article>
                 <article className="soft-card stat-card">
                   <span className="stat-card__label">
-                    <Cpu aria-hidden="true" className="stat-card__icon" size={15} weight="bold" />
+                    <Cpu
+                      aria-hidden="true"
+                      className="stat-card__icon"
+                      size={15}
+                      weight="bold"
+                    />
                     Tokens saved all-time
                   </span>
-                  <strong className="stat-value--blue">{compactNumber(dashboard.lifetimeEstimatedTokensSaved)}</strong>
+                  <strong className="stat-value--blue">
+                    {compactNumber(dashboard.lifetimeEstimatedTokensSaved)}
+                  </strong>
                   <p>
-                    Across {lifetimeDataDays > 0 ? `${lifetimeDataDays} tracked day${lifetimeDataDays === 1 ? "" : "s"}` : "all recorded usage"}
+                    Across{" "}
+                    {lifetimeDataDays > 0
+                      ? `${lifetimeDataDays} tracked day${lifetimeDataDays === 1 ? "" : "s"}`
+                      : "all recorded usage"}
                   </p>
                 </article>
               </div>
@@ -5102,10 +5679,10 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
   // This is normal setup, not a fault, so it must not surface as an issue.
   const kompressWarming = Boolean(
     runtimeStatus &&
-      runtimeStatus.running &&
-      runtimeStatus.proxyReachable &&
-      runtimeStatus.mlInstalled !== false &&
-      runtimeStatus.kompressEnabled === false
+    runtimeStatus.running &&
+    runtimeStatus.proxyReachable &&
+    runtimeStatus.mlInstalled !== false &&
+    runtimeStatus.kompressEnabled === false,
   );
 
   const runtimeIssues: string[] = [];
@@ -5116,7 +5693,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     runtimeIssues.push(
       runtimeStatus.startupErrorHint ??
         runtimeStatus.startupError ??
-        "runtime offline"
+        "runtime offline",
     );
   }
   if (runtimeStatus?.proxyReachable === false) {
@@ -5131,10 +5708,10 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
 
   const runtimeHealthy = Boolean(
     runtimeStatus &&
-      runtimeStatus.running &&
-      runtimeStatus.proxyReachable &&
-      runtimeStatus.mcpConfigured !== false &&
-      (runtimeStatus.kompressEnabled !== false || kompressWarming)
+    runtimeStatus.running &&
+    runtimeStatus.proxyReachable &&
+    runtimeStatus.mcpConfigured !== false &&
+    (runtimeStatus.kompressEnabled !== false || kompressWarming),
   );
   const platformPreviewNotice =
     runtimeStatus?.supportTier === "experimental"
@@ -5142,16 +5719,17 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
         ? "Linux is currently a preview build. Core proxy routing is supported, but Headroom Learn and secure API key storage are disabled while the platform is hardened."
         : "This platform is currently in preview."
       : null;
-  const headroomLearnSupported = runtimeStatus?.headroomLearnSupported !== false;
+  const headroomLearnSupported =
+    runtimeStatus?.headroomLearnSupported !== false;
   const headroomLearnDisabledReason =
     runtimeStatus?.headroomLearnDisabledReason ??
     "Headroom Learn is unavailable on this platform.";
 
   const calloutBanner = (() => {
     if (!runtimeStatus) {
-        return {
-          tone: "disconnected",
-        title: "Headroom engine status is unavailable."
+      return {
+        tone: "disconnected",
+        title: "Headroom engine status is unavailable.",
       } as const;
     }
 
@@ -5159,40 +5737,41 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       if (runtimeStatus.autoPaused) {
         return {
           tone: "auto-paused",
-          title: "The Headroom engine stopped unexpectedly. Traffic is passing through unoptimized."
+          title:
+            "The Headroom engine stopped unexpectedly. Traffic is passing through unoptimized.",
         } as const;
       }
       return {
         tone: "paused",
-        title: "The Headroom engine is paused."
+        title: "The Headroom engine is paused.",
       } as const;
     }
 
     if (runtimeStatus.starting) {
       return {
         tone: "starting",
-        title: "Headroom is starting up."
+        title: "Headroom is starting up.",
       } as const;
     }
 
     if (!localOnlyMode && pricingStatus?.needsAuthentication) {
       return {
         tone: "degraded",
-        title: pricingStatus.gateMessage
+        title: pricingStatus.gateMessage,
       } as const;
     }
 
     if (!localOnlyMode && pricingStatus && !pricingStatus.optimizationAllowed) {
       return {
         tone: "disabled",
-        title: pricingStatus.gateMessage
+        title: pricingStatus.gateMessage,
       } as const;
     }
 
     if (!localOnlyMode && pricingStatus?.shouldNudge) {
       return {
         tone: "starting",
-        title: pricingStatus.gateMessage
+        title: pricingStatus.gateMessage,
       } as const;
     }
 
@@ -5203,13 +5782,13 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
     if (codexUsage && codexUsage.optimizationAllowed === false) {
       return {
         tone: "disabled",
-        title: codexUsage.gateMessage
+        title: codexUsage.gateMessage,
       } as const;
     }
     if (codexUsage?.shouldNudge) {
       return {
         tone: "starting",
-        title: codexUsage.gateMessage
+        title: codexUsage.gateMessage,
       } as const;
     }
 
@@ -5217,28 +5796,32 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       if (connectorPhase === "disabled") {
         return {
           tone: "disabled",
-          title: "No coding tools connected — Headroom isn't reducing costs."
+          title: "No coding tools connected — Headroom isn't reducing costs.",
         } as const;
       }
       if (connectorPhase === "verifying") {
         return {
           tone: "starting",
-          title: "Send a message in a connected tool to verify the connection is working. You may need to restart it first."
+          title:
+            "Send a message in a connected tool to verify the connection is working. You may need to restart it first.",
         } as const;
       }
       if (kompressWarming) {
         return {
           tone: "healthy",
-          title: "Headroom is running while finishing setup."
+          title: "Headroom is running while finishing setup.",
         } as const;
       }
       return {
         tone: "healthy",
-        title: "Headroom is running and trimming prompt bloat."
+        title: "Headroom is running and trimming prompt bloat.",
       } as const;
     }
 
-    const disconnected = !runtimeStatus.installed || !runtimeStatus.running || !runtimeStatus.proxyReachable;
+    const disconnected =
+      !runtimeStatus.installed ||
+      !runtimeStatus.running ||
+      !runtimeStatus.proxyReachable;
     return {
       tone: disconnected ? "disconnected" : "degraded",
       title: disconnected
@@ -5247,7 +5830,7 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           : "Headroom is not hooked up right now."
         : runtimeIssues.length > 0
           ? `Headroom needs attention: ${runtimeIssues.join(", ")}.`
-          : "Headroom is running, but something needs attention."
+          : "Headroom is running, but something needs attention.",
     } as const;
   })();
 
@@ -5264,19 +5847,27 @@ setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
           }
           return `Headroom needs attention: ${primaryIssue}.`;
         })();
-  const tierMismatch = localOnlyMode ? null : pricingStatus?.tierMismatch ?? null;
-  const switchboardConnectors = sortClientConnectors(aggregateClientConnectors(connectors));
-  const enabledSwitchboardConnectors = switchboardConnectors.filter((connector) => connector.enabled);
+  const tierMismatch = localOnlyMode
+    ? null
+    : (pricingStatus?.tierMismatch ?? null);
+  const switchboardConnectors = sortClientConnectors(
+    aggregateClientConnectors(connectors),
+  );
+  const enabledSwitchboardConnectors = switchboardConnectors.filter(
+    (connector) => connector.enabled,
+  );
   const derivedSwitchboardMode: SwitchboardMode = deriveSwitchboardMode(
     runtimeStatus,
-    enabledSwitchboardConnectors
+    enabledSwitchboardConnectors,
   );
-const switchboardMode = switchboardState?.mode ?? derivedSwitchboardMode;
-const switchboardEffectiveMode = switchboardState?.effectiveMode ?? derivedSwitchboardMode;
-const switchboardNeedsAttention =
-switchboardState?.needsAttention ?? switchboardMode !== switchboardEffectiveMode;
-const switchboardModeCopy =
-switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
+  const switchboardMode = switchboardState?.mode ?? derivedSwitchboardMode;
+  const switchboardEffectiveMode =
+    switchboardState?.effectiveMode ?? derivedSwitchboardMode;
+  const switchboardNeedsAttention =
+    switchboardState?.needsAttention ??
+    switchboardMode !== switchboardEffectiveMode;
+  const switchboardModeCopy =
+    switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
   const switchboardRtkLabel = runtimeStatus?.rtk.installed
     ? runtimeStatus.rtk.enabled
       ? "Enabled"
@@ -5293,7 +5884,8 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
       ? `${percent1(rtkAvgSavingsPct)}% average savings`
       : "Shell output compression";
   const switchboardHeadroomLabel =
-    (switchboardState?.enabledClients ?? enabledSwitchboardConnectors).length > 0
+    (switchboardState?.enabledClients ?? enabledSwitchboardConnectors).length >
+    0
       ? (switchboardState?.enabledClients ?? enabledSwitchboardConnectors)
           .map((connector) => connector.name)
           .join(", ")
@@ -5304,11 +5896,16 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
   const sortedClaudeProjects = [...claudeProjects].sort((left, right) => {
     const leftTime = Date.parse(left.lastWorkedAt);
     const rightTime = Date.parse(right.lastWorkedAt);
-    return (Number.isNaN(rightTime) ? 0 : rightTime) - (Number.isNaN(leftTime) ? 0 : leftTime);
+    return (
+      (Number.isNaN(rightTime) ? 0 : rightTime) -
+      (Number.isNaN(leftTime) ? 0 : leftTime)
+    );
   });
   const pinnedClaudeProject =
     !showAllClaudeProjects && headroomLearnStatus.projectPath
-      ? sortedClaudeProjects.find((project) => project.projectPath === headroomLearnStatus.projectPath) ?? null
+      ? (sortedClaudeProjects.find(
+          (project) => project.projectPath === headroomLearnStatus.projectPath,
+        ) ?? null)
       : null;
   const visibleClaudeProjects = (() => {
     if (showAllClaudeProjects) {
@@ -5316,13 +5913,21 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
     }
 
     const topProjects = sortedClaudeProjects.slice(0, 3);
-    if (!pinnedClaudeProject || topProjects.some((project) => project.projectPath === pinnedClaudeProject.projectPath)) {
+    if (
+      !pinnedClaudeProject ||
+      topProjects.some(
+        (project) => project.projectPath === pinnedClaudeProject.projectPath,
+      )
+    ) {
       return topProjects;
     }
     return [...topProjects, pinnedClaudeProject];
   })();
-  const hiddenClaudeProjectsCount = sortedClaudeProjects.length - visibleClaudeProjects.length;
-  const trialDaysRemaining = formatRemainingDays(pricingStatus?.account?.trialEndsAt);
+  const hiddenClaudeProjectsCount =
+    sortedClaudeProjects.length - visibleClaudeProjects.length;
+  const trialDaysRemaining = formatRemainingDays(
+    pricingStatus?.account?.trialEndsAt,
+  );
   const localGraceHoursRemaining = (() => {
     const target = pricingStatus?.localGraceEndsAt
       ? new Date(pricingStatus.localGraceEndsAt).getTime()
@@ -5333,19 +5938,23 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
     return Math.max(0, Math.ceil((target - Date.now()) / 3_600_000));
   })();
   const weeklyLimitPercentLabel = formatPercentValue(
-    pricingStatus?.effectiveDisableThresholdPercent ?? pricingStatus?.disableThresholdPercent
+    pricingStatus?.effectiveDisableThresholdPercent ??
+      pricingStatus?.disableThresholdPercent,
   );
   const upgradeDefaultPlanId =
     pricingAudience === "individual"
       ? (pricingStatus?.recommendedSubscriptionTier ??
-          pricingStatus?.codex?.recommendedSubscriptionTier ??
-          cachedPricing.recommendedSubscriptionTier ??
-          upgradePlansState.featuredPlanId)
+        pricingStatus?.codex?.recommendedSubscriptionTier ??
+        cachedPricing.recommendedSubscriptionTier ??
+        upgradePlansState.featuredPlanId)
       : "enterprise";
-  const upgradeDefaultPlan = upgradePlansState.plans.find((plan) => plan.id === upgradeDefaultPlanId) ?? null;
+  const upgradeDefaultPlan =
+    upgradePlansState.plans.find((plan) => plan.id === upgradeDefaultPlanId) ??
+    null;
   const activeHeadroomPlanId =
-    pricingAudience === "individual" && pricingStatus?.account?.subscriptionActive
-      ? pricingStatus.account.subscriptionTier ?? null
+    pricingAudience === "individual" &&
+    pricingStatus?.account?.subscriptionActive
+      ? (pricingStatus.account.subscriptionTier ?? null)
       : null;
   const downgradePlanId = getNextLowerUpgradePlanId(activeHeadroomPlanId);
   const visibleUpgradePlans = (() => {
@@ -5353,9 +5962,18 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
       return upgradePlansState.plans;
     }
 
-    if (pricingAudience === "individual" && activeHeadroomPlanId && downgradePlanId) {
-      const visiblePlanIds = new Set<UpgradePlanId>([activeHeadroomPlanId, downgradePlanId]);
-      const activeWindowPlans = upgradePlansState.plans.filter((plan) => visiblePlanIds.has(plan.id));
+    if (
+      pricingAudience === "individual" &&
+      activeHeadroomPlanId &&
+      downgradePlanId
+    ) {
+      const visiblePlanIds = new Set<UpgradePlanId>([
+        activeHeadroomPlanId,
+        downgradePlanId,
+      ]);
+      const activeWindowPlans = upgradePlansState.plans.filter((plan) =>
+        visiblePlanIds.has(plan.id),
+      );
       if (activeWindowPlans.length === 2) {
         return activeWindowPlans;
       }
@@ -5363,7 +5981,8 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
 
     return upgradePlansState.plans.slice(0, 2);
   })();
-  const hasHiddenUpgradePlans = visibleUpgradePlans.length < upgradePlansState.plans.length;
+  const hasHiddenUpgradePlans =
+    visibleUpgradePlans.length < upgradePlansState.plans.length;
   const pendingUpgradePlanLabel = upgradePlanIntentLabel(pendingUpgradePlanId);
   const upgradeAuthMessage = pendingUpgradePlanLabel
     ? `Sign in with email to upgrade to the ${pendingUpgradePlanLabel} plan`
@@ -5380,7 +5999,9 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
       return null;
     }
     if (!pricingStatus.account) {
-      return pricingStatus.accountSyncError ? "Plan unavailable" : "Syncing plan...";
+      return pricingStatus.accountSyncError
+        ? "Plan unavailable"
+        : "Syncing plan...";
     }
     if (pricingStatus.account.subscriptionActive) {
       return subscriptionTierLabel(pricingStatus.account.subscriptionTier);
@@ -5397,22 +6018,23 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
     if (pricingBusy && !pricingStatus) {
       return {
         tone: "neutral" as const,
-        message: "Loading your Headroom access..."
+        message: "Loading your Headroom access...",
       };
     }
     if (!pricingStatus) {
       return {
         tone: "neutral" as const,
-        message: "Headroom pricing status is unavailable right now."
+        message: "Headroom pricing status is unavailable right now.",
       };
     }
     if (!pricingStatus.authenticated) {
       if (!pricingStatus.localGraceActive) {
         return {
           tone: "expired" as const,
-          message: "Your 72-hour Headroom access expired. Create an account to extend to 7 days.",
+          message:
+            "Your 72-hour Headroom access expired. Create an account to extend to 7 days.",
           actionLabel: "Sign up",
-          onAction: openUpgradeAuthView
+          onAction: openUpgradeAuthView,
         };
       }
       const hoursLabel =
@@ -5423,7 +6045,7 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
         tone: "warning" as const,
         message: `${hoursLabel} left in your 72-hour trial. Create an account to extend trial to 7 days.`,
         actionLabel: "Sign up",
-        onAction: openUpgradeAuthView
+        onAction: openUpgradeAuthView,
       };
     }
     if (!pricingStatus.account) {
@@ -5431,13 +6053,13 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
         tone: "neutral" as const,
         message:
           pricingStatus.accountSyncError ??
-          "Headroom account connected. Syncing your trial and plan details..."
+          "Headroom account connected. Syncing your trial and plan details...",
       };
     }
     if (pricingStatus.account?.subscriptionActive) {
       return {
         tone: "healthy" as const,
-        message: `${subscriptionTierLabel(pricingStatus.account.subscriptionTier)} is active. Headroom can keep optimizing without limits.`
+        message: `${subscriptionTierLabel(pricingStatus.account.subscriptionTier)} is active. Headroom can keep optimizing without limits.`,
       };
     }
     if (pricingStatus.account?.trialActive) {
@@ -5449,14 +6071,16 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
         tone: "warning" as const,
         message: `${daysLabel} of trial to go. Upgrade to continue using Headroom without limits.`,
         actionLabel: "Upgrade",
-        onAction: () => void handleUpgradeAction(upgradeDefaultPlanId)
+        onAction: () => void handleUpgradeAction(upgradeDefaultPlanId),
       };
     }
     return {
-      tone: pricingStatus.optimizationAllowed ? "warning" as const : "expired" as const,
+      tone: pricingStatus.optimizationAllowed
+        ? ("warning" as const)
+        : ("expired" as const),
       message: `Trial expired. In the free plan you can only use Headroom for ${weeklyLimitPercentLabel} of your weekly Claude Code / Codex limits. Upgrade to use Headroom without limits.`,
       actionLabel: "Upgrade",
-      onAction: () => void handleUpgradeAction(upgradeDefaultPlanId)
+      onAction: () => void handleUpgradeAction(upgradeDefaultPlanId),
     };
   })();
   const pricingAuthCard = (
@@ -5504,7 +6128,8 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
         <>
           <div className="pricing-auth-card__code-step">
             <p className="pricing-auth-card__step-copy">
-              Enter the authentication code we sent to <strong>{authCodeRequestedFor}</strong>.
+              Enter the authentication code we sent to{" "}
+              <strong>{authCodeRequestedFor}</strong>.
             </p>
             <button
               className="link-button pricing-auth-card__change-email"
@@ -5584,7 +6209,11 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
               type="button"
             >
               <span className="tray-nav__icon" aria-hidden="true">
-                <item.icon className="tray-nav__icon-svg" size={26} weight={activeView === item.id ? "fill" : "regular"} />
+                <item.icon
+                  className="tray-nav__icon-svg"
+                  size={26}
+                  weight={activeView === item.id ? "fill" : "regular"}
+                />
               </span>
               <span className="tray-nav__text">
                 <strong>{item.label}</strong>
@@ -5608,7 +6237,11 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
             type="button"
           >
             <span className="tray-nav__icon" aria-hidden="true">
-              <GearSix className="tray-nav__icon-svg" size={26} weight={activeView === "settings" ? "fill" : "regular"} />
+              <GearSix
+                className="tray-nav__icon-svg"
+                size={26}
+                weight={activeView === "settings" ? "fill" : "regular"}
+              />
             </span>
             <span className="tray-nav__text">
               <strong>Settings</strong>
@@ -5619,593 +6252,735 @@ switchboardState?.summary ?? switchboardModeSummary(switchboardMode);
 
       <section className="tray-panel">
         <div className="tray-content" hidden={activeView !== "home"}>
-            {tierMismatch ? (
-              <section className="tier-mismatch-banner" role="alert">
-                <div className="tier-mismatch-banner__body">
-                  <h2 className="tier-mismatch-banner__title">Upgrade your Headroom plan</h2>
-                  <p className="tier-mismatch-banner__message">
-                    {tierMismatch.clamped
-                      ? `Your Headroom ${upgradePlanIntentLabel(tierMismatch.paidTier)} plan no longer matches your ${tierRecommendationSourceLabel(tierMismatch.recommendedSource)} usage, which needs ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}, so weekly usage limits now apply. Upgrade to restore unlimited optimization.`
-                      : `You're on the Headroom ${upgradePlanIntentLabel(tierMismatch.paidTier)} plan but your ${tierRecommendationSourceLabel(tierMismatch.recommendedSource)} usage needs ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}. Upgrade to match.`}
+          {tierMismatch ? (
+            <section className="tier-mismatch-banner" role="alert">
+              <div className="tier-mismatch-banner__body">
+                <h2 className="tier-mismatch-banner__title">
+                  Upgrade your Headroom plan
+                </h2>
+                <p className="tier-mismatch-banner__message">
+                  {tierMismatch.clamped
+                    ? `Your Headroom ${upgradePlanIntentLabel(tierMismatch.paidTier)} plan no longer matches your ${tierRecommendationSourceLabel(tierMismatch.recommendedSource)} usage, which needs ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}, so weekly usage limits now apply. Upgrade to restore unlimited optimization.`
+                    : `You're on the Headroom ${upgradePlanIntentLabel(tierMismatch.paidTier)} plan but your ${tierRecommendationSourceLabel(tierMismatch.recommendedSource)} usage needs ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}. Upgrade to match.`}
+                </p>
+                {upgradeActionError && upgradeActionBusy === null ? (
+                  <p className="tier-mismatch-banner__error" role="status">
+                    {upgradeActionError}
                   </p>
-                  {upgradeActionError && upgradeActionBusy === null ? (
-                    <p className="tier-mismatch-banner__error" role="status">
-                      {upgradeActionError}
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="tier-mismatch-banner__action"
+                disabled={upgradeActionBusy === tierMismatch.recommendedTier}
+                onClick={() =>
+                  void handleUpgradeAction(tierMismatch.recommendedTier)
+                }
+              >
+                {upgradeActionBusy === tierMismatch.recommendedTier
+                  ? "Updating…"
+                  : `Upgrade to ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}`}
+              </button>
+            </section>
+          ) : null}
+          <section
+            className={`callout-banner callout-banner--${calloutBanner.tone}`}
+          >
+            <span
+              className={`callout-banner__dot callout-banner__dot--${calloutBanner.tone}`}
+              aria-hidden="true"
+            />
+            <div className="callout-banner__body">
+              <h1>{calloutTitle}</h1>
+              {platformPreviewNotice ? (
+                <p className="callout-banner__subtitle">
+                  {platformPreviewNotice}
+                </p>
+              ) : null}
+              {calloutBanner.tone === "healthy" &&
+                dashboard.lifetimeEstimatedTokensSaved < 1_000_000 && (
+                  <p className="callout-banner__subtitle">
+                    Now use your connected tools as normal, and check back later
+                    to see how much you are saving by using Headroom.
+                  </p>
+                )}
+              {(calloutBanner.tone === "auto-paused" ||
+                calloutBanner.tone === "paused") && (
+                <div className="callout-banner__resume">
+                  <button
+                    type="button"
+                    className="callout-banner__action"
+                    onClick={() => void handleResumeRuntime()}
+                    disabled={resuming}
+                  >
+                    {resuming ? "Restarting…" : "Resume"}
+                  </button>
+                  {resumeError ? (
+                    <p
+                      className="callout-banner__subtitle callout-banner__error"
+                      role="status"
+                    >
+                      {resumeError}
                     </p>
                   ) : null}
                 </div>
-                <button
-                  type="button"
-                  className="tier-mismatch-banner__action"
-                  disabled={upgradeActionBusy === tierMismatch.recommendedTier}
-                  onClick={() => void handleUpgradeAction(tierMismatch.recommendedTier)}
-                >
-                  {upgradeActionBusy === tierMismatch.recommendedTier
-                    ? "Updating…"
-                    : `Upgrade to ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}`}
-                </button>
-              </section>
-            ) : null}
-            <section className={`callout-banner callout-banner--${calloutBanner.tone}`}>
-              <span className={`callout-banner__dot callout-banner__dot--${calloutBanner.tone}`} aria-hidden="true" />
-              <div className="callout-banner__body">
-                <h1>{calloutTitle}</h1>
-                {platformPreviewNotice ? (
-                  <p className="callout-banner__subtitle">{platformPreviewNotice}</p>
-                ) : null}
-                {calloutBanner.tone === "healthy" && dashboard.lifetimeEstimatedTokensSaved < 1_000_000 && (
-                  <p className="callout-banner__subtitle">Now use your connected tools as normal, and check back later to see how much you are saving by using Headroom.</p>
-                )}
-                {(calloutBanner.tone === "auto-paused" || calloutBanner.tone === "paused") && (
-                  <div className="callout-banner__resume">
-                    <button
-                      type="button"
-                      className="callout-banner__action"
-                      onClick={() => void handleResumeRuntime()}
-                      disabled={resuming}
-                    >
-                      {resuming ? "Restarting…" : "Resume"}
-                    </button>
-                    {resumeError ? (
-                      <p className="callout-banner__subtitle callout-banner__error" role="status">
-                        {resumeError}
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-              </div>
-              {(() => {
-                const homeConnectors = sortClientConnectors(aggregateClientConnectors(connectors))
-                  .filter((connector) => connector.installed || connector.enabled);
-                if (homeConnectors.length === 0) {
-                  return null;
-                }
-                return (
-                  <div className="callout-banner__connectors">
-                    {homeConnectors.map((connector) => {
-                      const status = connectorDashboardStatus(connector);
-                      return (
-                        <span
-                          className="callout-banner__chip"
-                          key={connector.clientId}
-                          title={status.label}
-                        >
-                          <span
-                            className={`callout-banner__chip-dot callout-banner__chip-dot--${status.tone}`}
-                            aria-hidden="true"
-                          />
-                          <span className="callout-banner__chip-name">{connector.name}</span>
-                          <span className="visually-hidden">{status.label}</span>
-                        </span>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-            </section>
-
+              )}
+            </div>
             {(() => {
-              const codexConnector = aggregateClientConnectors(connectors).find(
-                (connector) => connector.clientId === "codex"
-              );
-const showCodexNudge =
-shouldShowCodexNudge(codexConnector, pricingStatus, codexNudgeDismissed, localOnlyMode);
-              if (!showCodexNudge || !codexConnector) {
+              const homeConnectors = sortClientConnectors(
+                aggregateClientConnectors(connectors),
+              ).filter((connector) => connector.installed || connector.enabled);
+              if (homeConnectors.length === 0) {
                 return null;
               }
               return (
-                <section className="connector-nudge" aria-label="Codex now supported">
-                  <div className="connector-nudge__body">
-                    <p className="connector-nudge__title">Headroom now supports Codex</p>
-                    <p className="connector-nudge__message">
-                      Route Codex through Headroom to trim its token costs too, the same way it
-                      already does for Claude Code.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="connector-nudge__action"
-                    disabled={connectorsBusy}
-                    onClick={() => void toggleConnector(codexConnector, true)}
-                  >
-                    Turn on Codex
-                  </button>
-                  <button
-                    type="button"
-                    className="connector-nudge__dismiss"
-                    aria-label="Dismiss Codex suggestion"
-                    onClick={dismissCodexNudge}
-                  >
-                    Dismiss
-                  </button>
-                </section>
+                <div className="callout-banner__connectors">
+                  {homeConnectors.map((connector) => {
+                    const status = connectorDashboardStatus(connector);
+                    return (
+                      <span
+                        className="callout-banner__chip"
+                        key={connector.clientId}
+                        title={status.label}
+                      >
+                        <span
+                          className={`callout-banner__chip-dot callout-banner__chip-dot--${status.tone}`}
+                          aria-hidden="true"
+                        />
+                        <span className="callout-banner__chip-name">
+                          {connector.name}
+                        </span>
+                        <span className="visually-hidden">{status.label}</span>
+                      </span>
+                    );
+                  })}
+                </div>
               );
             })()}
+          </section>
 
-<SwitchboardPanel
-mode={switchboardMode}
-effectiveMode={switchboardEffectiveMode}
-needsAttention={switchboardNeedsAttention}
-summary={switchboardModeCopy}
-              localOnly={switchboardLocalOnly}
-              proxyStatus={switchboardProxyStatus}
-              headroomDetail={switchboardHeadroomLabel}
-              rtkStatus={switchboardRtkLabel}
-              rtkDetail={switchboardRtkDetail}
-remoteServicesEnabled={switchboardRemoteServicesEnabled}
-paused={runtimeStatus?.paused === true}
-resuming={resuming}
-modeBusy={switchboardModeBusy}
-modeError={switchboardModeError}
-onSetMode={(mode) => void handleSetSwitchboardMode(mode)}
-onResume={() => void handleResumeRuntime()}
-onManageClients={() => setActiveView("settings")}
-onManageRtk={() => setActiveView("addons")}
-/>
-
-<SwitchboardDoctorPanel
-report={doctorReport}
-busyAction={doctorRepairBusy}
-error={doctorRepairError}
-successMessage={doctorRepairSuccess}
-onRepair={(action) => void handleDoctorRepair(action)}
-/>
-
-<section className="stat-grid stat-grid--2col">
-              <article
-                className={`soft-card stat-card stat-card--clickable${chartMode === "usd" ? " is-active" : ""}`}
-                onClick={() => setChartMode("usd")}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && setChartMode("usd")}
+          {(() => {
+            const codexConnector = aggregateClientConnectors(connectors).find(
+              (connector) => connector.clientId === "codex",
+            );
+            const showCodexNudge = shouldShowCodexNudge(
+              codexConnector,
+              pricingStatus,
+              codexNudgeDismissed,
+              localOnlyMode,
+            );
+            if (!showCodexNudge || !codexConnector) {
+              return null;
+            }
+            return (
+              <section
+                className="connector-nudge"
+                aria-label="Codex now supported"
               >
-                <span className="stat-card__label">
-                  <CurrencyCircleDollar aria-hidden="true" className="stat-card__icon" size={15} weight="bold"/>
-                  Total costs saved (estimate)
-                  <button
-                    className="stat-card__info-button"
-                    onClick={(e) => { e.stopPropagation(); setShowSavingsInfo(true); }}
-                    type="button"
-                    aria-label="How savings are calculated"
-                  >
-                    <Info size={13} weight="bold" />
-                  </button>
-                </span>
-                <strong className="stat-value--green">{currency(dashboard.lifetimeEstimatedSavingsUsd)}</strong>
-              </article>
-              <article
-                className={`soft-card stat-card stat-card--clickable${chartMode === "tokens" ? " is-active" : ""}`}
-                onClick={() => setChartMode("tokens")}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === "Enter" && setChartMode("tokens")}
-              >
-                <span className="stat-card__label">
-                  <Cpu aria-hidden="true" className="stat-card__icon" size={15} weight="bold"/>
-                  Total input tokens saved
-                </span>
-                <div className="stat-value-row">
-                  <strong className="stat-value--blue">
-                    {compactNumber(dashboard.lifetimeEstimatedTokensSaved)}
-                  </strong>
-                  {dashboard.outputReduction ? (
-                    <OutputReductionChip reduction={dashboard.outputReduction} />
-                  ) : null}
+                <div className="connector-nudge__body">
+                  <p className="connector-nudge__title">
+                    Headroom now supports Codex
+                  </p>
+                  <p className="connector-nudge__message">
+                    Route Codex through Headroom to trim its token costs too,
+                    the same way it already does for Claude Code.
+                  </p>
                 </div>
-</article>
-</section>
+                <button
+                  type="button"
+                  className="connector-nudge__action"
+                  disabled={connectorsBusy}
+                  onClick={() => void toggleConnector(codexConnector, true)}
+                >
+                  Turn on Codex
+                </button>
+                <button
+                  type="button"
+                  className="connector-nudge__dismiss"
+                  aria-label="Dismiss Codex suggestion"
+                  onClick={dismissCodexNudge}
+                >
+                  Dismiss
+                </button>
+              </section>
+            );
+          })()}
 
-<SavingsCalculatorCard
-  dashboard={dashboard}
-  repoSavings={savingsCalculatorRepoEstimate}
-  runtimeStatus={runtimeStatus}
-  scope={savingsCalculatorScope}
-  onScopeChange={setSavingsCalculatorScope}
-/>
+          <SwitchboardPanel
+            mode={switchboardMode}
+            effectiveMode={switchboardEffectiveMode}
+            needsAttention={switchboardNeedsAttention}
+            summary={switchboardModeCopy}
+            localOnly={switchboardLocalOnly}
+            proxyStatus={switchboardProxyStatus}
+            headroomDetail={switchboardHeadroomLabel}
+            rtkStatus={switchboardRtkLabel}
+            rtkDetail={switchboardRtkDetail}
+            remoteServicesEnabled={switchboardRemoteServicesEnabled}
+            paused={runtimeStatus?.paused === true}
+            resuming={resuming}
+            modeBusy={switchboardModeBusy}
+            modeError={switchboardModeError}
+            onSetMode={(mode) => void handleSetSwitchboardMode(mode)}
+            onResume={() => void handleResumeRuntime()}
+            onManageClients={() => setActiveView("settings")}
+            onManageRtk={() => setActiveView("addons")}
+          />
 
-{dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
-<DailySavingsChart
-                data={dashboard.dailySavings}
-                hourlyData={dashboard.hourlySavings}
-                resetSignal={chartResetSignal}
-                chartMode={chartMode}
-                setChartMode={setChartMode}
-              />
-            ) : (
-              <div className="savings-chart__skeleton" role="status">
-                <p className="loading-copy">Loading savings history…</p>
+          <SwitchboardDoctorPanel
+            report={doctorReport}
+            busyAction={doctorRepairBusy}
+            error={doctorRepairError}
+            successMessage={doctorRepairSuccess}
+            onRepair={(action) => void handleDoctorRepair(action)}
+          />
+
+          <section className="stat-grid stat-grid--2col">
+            <article
+              className={`soft-card stat-card stat-card--clickable${chartMode === "usd" ? " is-active" : ""}`}
+              onClick={() => setChartMode("usd")}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === "Enter" && setChartMode("usd")}
+            >
+              <span className="stat-card__label">
+                <CurrencyCircleDollar
+                  aria-hidden="true"
+                  className="stat-card__icon"
+                  size={15}
+                  weight="bold"
+                />
+                Total costs saved (estimate)
+                <button
+                  className="stat-card__info-button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowSavingsInfo(true);
+                  }}
+                  type="button"
+                  aria-label="How savings are calculated"
+                >
+                  <Info size={13} weight="bold" />
+                </button>
+              </span>
+              <strong className="stat-value--green">
+                {currency(dashboard.lifetimeEstimatedSavingsUsd)}
+              </strong>
+            </article>
+            <article
+              className={`soft-card stat-card stat-card--clickable${chartMode === "tokens" ? " is-active" : ""}`}
+              onClick={() => setChartMode("tokens")}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === "Enter" && setChartMode("tokens")}
+            >
+              <span className="stat-card__label">
+                <Cpu
+                  aria-hidden="true"
+                  className="stat-card__icon"
+                  size={15}
+                  weight="bold"
+                />
+                Total input tokens saved
+              </span>
+              <div className="stat-value-row">
+                <strong className="stat-value--blue">
+                  {compactNumber(dashboard.lifetimeEstimatedTokensSaved)}
+                </strong>
+                {dashboard.outputReduction ? (
+                  <OutputReductionChip reduction={dashboard.outputReduction} />
+                ) : null}
               </div>
-            )}
+            </article>
+          </section>
 
-          </div>
+          <SavingsCalculatorCard
+            dashboard={dashboard}
+            repoSavings={savingsCalculatorRepoEstimate}
+            runtimeStatus={runtimeStatus}
+            cavemanSavings={cavemanSavingsEstimate}
+            ponytailSavings={ponytailSavingsEstimate}
+            markitdownSavings={markitdownSavingsEstimate}
+            scope={savingsCalculatorScope}
+            onScopeChange={setSavingsCalculatorScope}
+          />
+
+          {dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
+            <DailySavingsChart
+              data={dashboard.dailySavings}
+              hourlyData={dashboard.hourlySavings}
+              resetSignal={chartResetSignal}
+              chartMode={chartMode}
+              setChartMode={setChartMode}
+            />
+          ) : (
+            <div className="savings-chart__skeleton" role="status">
+              <p className="loading-copy">Loading savings history…</p>
+            </div>
+          )}
+        </div>
 
         <div className="tray-content" hidden={activeView !== "optimization"}>
-            <article className="soft-card optimize-card">
-              <header className="optimize-card__head">
-                <div className="optimize-card__title-row">
-                  <span className="optimize-card__title-icon" aria-hidden="true">
-                    <Brain weight="duotone" />
-                  </span>
-                  <h1>Project learnings</h1>
-                </div>
-                <p className="optimize-card__blurb">{learnBlurb}</p>
-              </header>
-              <div className="optimize-card__body">
-                {!headroomLearnSupported ? (
-                  <div className="optimize-minimal">
-                    <p className="optimize-minimal__meta">
-                      {headroomLearnDisabledReason}
-                    </p>
-                    <p className="optimize-minimal__meta">
-                      Linux preview currently supports the core Headroom proxy,
-                      Claude Code routing, and RTK activity tracking.
-                    </p>
-                  </div>
-                ) : !claudeLearnEnabled && !codexLearnEnabled ? (
-                  <p className="loading-copy">
-                    Enable the Claude Code or Codex connector to scan sessions for learnings.
+          <article className="soft-card optimize-card">
+            <header className="optimize-card__head">
+              <div className="optimize-card__title-row">
+                <span className="optimize-card__title-icon" aria-hidden="true">
+                  <Brain weight="duotone" />
+                </span>
+                <h1>Project learnings</h1>
+              </div>
+              <p className="optimize-card__blurb">{learnBlurb}</p>
+            </header>
+            <div className="optimize-card__body">
+              {!headroomLearnSupported ? (
+                <div className="optimize-minimal">
+                  <p className="optimize-minimal__meta">
+                    {headroomLearnDisabledReason}
                   </p>
-                ) : (
-                  <div className="optimize-minimal">
-                    {claudeLearnEnabled && claudeProjectsBusy && claudeProjects.length === 0 ? (
-                      <p className="loading-copy">Loading projects…</p>
-                    ) : claudeLearnEnabled && claudeProjects.length === 0 ? (
-                      <p className="loading-copy">No Claude Code projects found in <code>~/.claude/projects</code>.</p>
-                    ) : claudeLearnEnabled ? (
-                      <>
-                    {!headroomLearnPrereq.claudeCliAvailable ? (
-                      <div className="install-prompt" role="status">
-                        <header className="install-prompt__head">
-                          <span className="install-prompt__icon" aria-hidden="true">
-                            <Terminal weight="duotone" />
-                          </span>
-                          <div className="install-prompt__head-text">
-                            <h2 className="install-prompt__title">
-                              Install the Claude Code CLI
-                            </h2>
-                            <p className="install-prompt__body">
-                              Headroom Learn uses the <code>claude</code> CLI to analyze
-                              your sessions.
-                            </p>
-                          </div>
-                        </header>
-                        <div className="install-prompt__cmd">
-                          <code className="install-prompt__cmd-text">
-                            {CLAUDE_CODE_INSTALL_CURL_CMD}
-                          </code>
-                          <button
-                            className="install-prompt__cmd-copy"
-                            type="button"
-                            onClick={() => void copyLearnInstallCommand(CLAUDE_CODE_INSTALL_CURL_CMD)}
-                          >
-                            Copy
-                          </button>
-                        </div>
-                        <div className="install-prompt__foot">
-                          <button
-                            className="install-prompt__link"
-                            type="button"
-                            onClick={() => void openLearnInstallDocsLink()}
-                          >
-                            Open install docs
-                          </button>
-                          <span className="install-prompt__foot-sep" aria-hidden="true">·</span>
-                          <button
-                            className="install-prompt__link install-prompt__link--recheck"
-                            type="button"
-                            onClick={() => void refreshHeadroomLearnPrereq(true)}
-                          >
-                            <ArrowClockwise weight="bold" size={12} aria-hidden="true" />
-                            Re-check
-                          </button>
-                          {learnInstallCopyNotice ? (
-                            <span className="install-prompt__notice">
-                              {learnInstallCopyNotice}
+                  <p className="optimize-minimal__meta">
+                    Linux preview currently supports the core Headroom proxy,
+                    Claude Code routing, and RTK activity tracking.
+                  </p>
+                </div>
+              ) : !claudeLearnEnabled && !codexLearnEnabled ? (
+                <p className="loading-copy">
+                  Enable the Claude Code or Codex connector to scan sessions for
+                  learnings.
+                </p>
+              ) : (
+                <div className="optimize-minimal">
+                  {claudeLearnEnabled &&
+                  claudeProjectsBusy &&
+                  claudeProjects.length === 0 ? (
+                    <p className="loading-copy">Loading projects…</p>
+                  ) : claudeLearnEnabled && claudeProjects.length === 0 ? (
+                    <p className="loading-copy">
+                      No Claude Code projects found in{" "}
+                      <code>~/.claude/projects</code>.
+                    </p>
+                  ) : claudeLearnEnabled ? (
+                    <>
+                      {!headroomLearnPrereq.claudeCliAvailable ? (
+                        <div className="install-prompt" role="status">
+                          <header className="install-prompt__head">
+                            <span
+                              className="install-prompt__icon"
+                              aria-hidden="true"
+                            >
+                              <Terminal weight="duotone" />
                             </span>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : null}
-                    <div className="optimize-projects">
-                      {visibleClaudeProjects.map((project) => {
-                        const isRunning =
-                          headroomLearnStatus.running &&
-                          headroomLearnStatus.projectPath === project.projectPath;
-                        const isLatestLearnProject =
-                          headroomLearnStatus.projectPath === project.projectPath;
-                        const disableLearn =
-                          !headroomLearnPrereq.claudeCliAvailable ||
-                          headroomLearnBusy ||
-                          claudeProjectsBusy ||
-                          (headroomLearnStatus.running && !isRunning);
-                        const learnMeta = formatLearnStatus(project);
-                        const refreshLabel = isRunning
-                          ? "Scanning…"
-                          : "Scan now";
-                        const projectResultTone = headroomLearnStatus.success === true
-                          ? "success"
-                          : (headroomLearnStatus.success === false || headroomLearnStatus.error)
-                              ? "failure"
-                              : "idle";
-                        const projectResultLabel = headroomLearnStatus.success === true
-                          ? "Run succeeded"
-                          : (headroomLearnStatus.success === false || headroomLearnStatus.error)
-                              ? "Last run failed"
-                              : "No completed run yet";
-                        const showInlineResult =
-                          isLatestLearnProject &&
-                          !headroomLearnStatus.running &&
-                          (
-                            headroomLearnStatus.success !== null ||
-                            Boolean(headroomLearnStatus.error) ||
-                            headroomLearnStatus.outputTail.length > 0
-                          );
-                        return (
-                          <div
-                            className={`optimize-project-row${isRunning || showInlineResult ? " optimize-project-row--active" : ""}`}
-                            key={project.id}
-                          >
-                            <div className="optimize-project-row__main">
-                              <span className="optimize-project-row__name">
-                                <strong>{project.displayName}</strong>
-                                <small>
-                                  <span className="optimize-project-row__training" aria-live="polite">
-                                    {isRunning
-                                      ? `Scanning sessions${
-                                          typeof headroomLearnStatus.elapsedSeconds === "number"
-                                            ? ` · ${headroomLearnStatus.elapsedSeconds}s`
-                                            : ""
-                                        }`
-                                      : learnMeta}
-                                    <button
-                                      type="button"
-                                      className={`optimize-project-row__refresh${isRunning ? " is-spinning" : ""}`}
-                                      onClick={() => void handleRunHeadroomLearn("claude", project.projectPath)}
-                                      disabled={disableLearn}
-                                      aria-label={refreshLabel}
-                                      title={refreshLabel}
-                                    >
-                                      <ArrowClockwise weight="bold" size={12} aria-hidden="true" />
-                                    </button>
-                                  </span>
-                                  <OptimizePanel
-                                    projectPath={project.projectPath}
-                                    refreshSignal={
-                                      isLatestLearnProject && !headroomLearnStatus.running
-                                        ? Date.parse(headroomLearnStatus.finishedAt ?? "") || 0
-                                        : 0
-                                    }
-                                    preloadedApplied={
-                                      optimizeAppliedByProject
-                                        ? optimizeAppliedByProject[project.projectPath] ?? {
-                                            claudeMd: [],
-                                            memoryMd: [],
-                                          }
-                                        : undefined
-                                    }
-                                    onAppliedMutated={() =>
-                                      setOptimizeAppliedRefreshTick((tick) => tick + 1)
-                                    }
-                                  />
-                                </small>
-                              </span>
-                              <div className="optimize-project-row__actions">
-                                {showInlineResult ? (
-                                  <span className={`optimize-project-row__status optimize-minimal__result--${projectResultTone}`}>
-                                    {projectResultLabel}
-                                  </span>
-                                ) : null}
-                              </div>
+                            <div className="install-prompt__head-text">
+                              <h2 className="install-prompt__title">
+                                Install the Claude Code CLI
+                              </h2>
+                              <p className="install-prompt__body">
+                                Headroom Learn uses the <code>claude</code> CLI
+                                to analyze your sessions.
+                              </p>
                             </div>
-                            {showInlineResult && headroomLearnStatus.error ? (
-                              <div className="optimize-project-row__result">
-                                <p className="install-progress__error">{headroomLearnStatus.error}</p>
-                              </div>
+                          </header>
+                          <div className="install-prompt__cmd">
+                            <code className="install-prompt__cmd-text">
+                              {CLAUDE_CODE_INSTALL_CURL_CMD}
+                            </code>
+                            <button
+                              className="install-prompt__cmd-copy"
+                              type="button"
+                              onClick={() =>
+                                void copyLearnInstallCommand(
+                                  CLAUDE_CODE_INSTALL_CURL_CMD,
+                                )
+                              }
+                            >
+                              Copy
+                            </button>
+                          </div>
+                          <div className="install-prompt__foot">
+                            <button
+                              className="install-prompt__link"
+                              type="button"
+                              onClick={() => void openLearnInstallDocsLink()}
+                            >
+                              Open install docs
+                            </button>
+                            <span
+                              className="install-prompt__foot-sep"
+                              aria-hidden="true"
+                            >
+                              ·
+                            </span>
+                            <button
+                              className="install-prompt__link install-prompt__link--recheck"
+                              type="button"
+                              onClick={() =>
+                                void refreshHeadroomLearnPrereq(true)
+                              }
+                            >
+                              <ArrowClockwise
+                                weight="bold"
+                                size={12}
+                                aria-hidden="true"
+                              />
+                              Re-check
+                            </button>
+                            {learnInstallCopyNotice ? (
+                              <span className="install-prompt__notice">
+                                {learnInstallCopyNotice}
+                              </span>
                             ) : null}
                           </div>
-                        );
-                      })}
-                    </div>
-                    {sortedClaudeProjects.length > 3 ? (
-                      <button
-                        className="optimize-minimal__inline-action optimize-projects__toggle"
-                        onClick={() => setShowAllClaudeProjects((current) => !current)}
-                        type="button"
-                      >
-                        {showAllClaudeProjects ? "fewer projects" : "more projects"}
-                      </button>
-                    ) : null}
-                      </>
-                    ) : null}
-                    {codexLearnEnabled
-                      ? (() => {
-                          const codexReady =
-                            headroomLearnPrereq.codexCliAvailable &&
-                            headroomLearnPrereq.codexLoggedIn;
-                          const codexRunning =
+                        </div>
+                      ) : null}
+                      <div className="optimize-projects">
+                        {visibleClaudeProjects.map((project) => {
+                          const isRunning =
                             headroomLearnStatus.running &&
-                            headroomLearnStatus.projectPath === "codex";
-                          const codexIsLatest = headroomLearnStatus.projectPath === "codex";
-                          const codexDisable =
-                            !codexReady ||
+                            headroomLearnStatus.projectPath ===
+                              project.projectPath;
+                          const isLatestLearnProject =
+                            headroomLearnStatus.projectPath ===
+                            project.projectPath;
+                          const disableLearn =
+                            !headroomLearnPrereq.claudeCliAvailable ||
                             headroomLearnBusy ||
-                            (headroomLearnStatus.running && !codexRunning);
-                          const codexShowResult =
-                            codexIsLatest &&
-                            !headroomLearnStatus.running &&
-                            (headroomLearnStatus.success !== null ||
-                              Boolean(headroomLearnStatus.error) ||
-                              headroomLearnStatus.outputTail.length > 0);
-                          const codexResultTone =
+                            claudeProjectsBusy ||
+                            (headroomLearnStatus.running && !isRunning);
+                          const learnMeta = formatLearnStatus(project);
+                          const refreshLabel = isRunning
+                            ? "Scanning…"
+                            : "Scan now";
+                          const projectResultTone =
                             headroomLearnStatus.success === true
                               ? "success"
                               : headroomLearnStatus.success === false ||
                                   headroomLearnStatus.error
                                 ? "failure"
                                 : "idle";
-                          const codexResultLabel =
+                          const projectResultLabel =
                             headroomLearnStatus.success === true
                               ? "Run succeeded"
                               : headroomLearnStatus.success === false ||
                                   headroomLearnStatus.error
                                 ? "Last run failed"
                                 : "No completed run yet";
-                          if (!codexReady) {
-                            const codexCmd = headroomLearnPrereq.codexCliAvailable
-                              ? CODEX_CLI_LOGIN_CMD
-                              : CODEX_CLI_INSTALL_CMD;
-                            return (
-                              <div className="install-prompt" role="status">
-                                <header className="install-prompt__head">
-                                  <span className="install-prompt__icon" aria-hidden="true">
-                                    <Terminal weight="duotone" />
-                                  </span>
-                                  <div className="install-prompt__head-text">
-                                    <h2 className="install-prompt__title">
-                                      {headroomLearnPrereq.codexCliAvailable
-                                        ? "Sign in to the Codex CLI"
-                                        : "Install the Codex CLI"}
-                                    </h2>
-                                    <p className="install-prompt__body">
-                                      Headroom Learn analyzes your Codex sessions with the{" "}
-                                      <code>codex</code> CLI on your ChatGPT subscription.
-                                      {headroomLearnPrereq.codexCliAvailable
-                                        ? " Sign in to continue."
-                                        : ""}
-                                    </p>
-                                  </div>
-                                </header>
-                                <div className="install-prompt__cmd">
-                                  <code className="install-prompt__cmd-text">{codexCmd}</code>
-                                  <button
-                                    className="install-prompt__cmd-copy"
-                                    type="button"
-                                    onClick={() => void copyLearnInstallCommand(codexCmd)}
-                                  >
-                                    Copy
-                                  </button>
-                                </div>
-                                <div className="install-prompt__foot">
-                                  <button
-                                    className="install-prompt__link"
-                                    type="button"
-                                    onClick={() => void openExternalLink(CODEX_INSTALL_DOCS_URL)}
-                                  >
-                                    Open install docs
-                                  </button>
-                                  <span className="install-prompt__foot-sep" aria-hidden="true">
-                                    ·
-                                  </span>
-                                  <button
-                                    className="install-prompt__link install-prompt__link--recheck"
-                                    type="button"
-                                    onClick={() => void refreshHeadroomLearnPrereq(true)}
-                                  >
-                                    <ArrowClockwise weight="bold" size={12} aria-hidden="true" />
-                                    Re-check
-                                  </button>
-                                  {learnInstallCopyNotice ? (
-                                    <span className="install-prompt__notice">
-                                      {learnInstallCopyNotice}
+                          const showInlineResult =
+                            isLatestLearnProject &&
+                            !headroomLearnStatus.running &&
+                            (headroomLearnStatus.success !== null ||
+                              Boolean(headroomLearnStatus.error) ||
+                              headroomLearnStatus.outputTail.length > 0);
+                          return (
+                            <div
+                              className={`optimize-project-row${isRunning || showInlineResult ? " optimize-project-row--active" : ""}`}
+                              key={project.id}
+                            >
+                              <div className="optimize-project-row__main">
+                                <span className="optimize-project-row__name">
+                                  <strong>{project.displayName}</strong>
+                                  <small>
+                                    <span
+                                      className="optimize-project-row__training"
+                                      aria-live="polite"
+                                    >
+                                      {isRunning
+                                        ? `Scanning sessions${
+                                            typeof headroomLearnStatus.elapsedSeconds ===
+                                            "number"
+                                              ? ` · ${headroomLearnStatus.elapsedSeconds}s`
+                                              : ""
+                                          }`
+                                        : learnMeta}
+                                      <button
+                                        type="button"
+                                        className={`optimize-project-row__refresh${isRunning ? " is-spinning" : ""}`}
+                                        onClick={() =>
+                                          void handleRunHeadroomLearn(
+                                            "claude",
+                                            project.projectPath,
+                                          )
+                                        }
+                                        disabled={disableLearn}
+                                        aria-label={refreshLabel}
+                                        title={refreshLabel}
+                                      >
+                                        <ArrowClockwise
+                                          weight="bold"
+                                          size={12}
+                                          aria-hidden="true"
+                                        />
+                                      </button>
+                                    </span>
+                                    <OptimizePanel
+                                      projectPath={project.projectPath}
+                                      refreshSignal={
+                                        isLatestLearnProject &&
+                                        !headroomLearnStatus.running
+                                          ? Date.parse(
+                                              headroomLearnStatus.finishedAt ??
+                                                "",
+                                            ) || 0
+                                          : 0
+                                      }
+                                      preloadedApplied={
+                                        optimizeAppliedByProject
+                                          ? (optimizeAppliedByProject[
+                                              project.projectPath
+                                            ] ?? {
+                                              claudeMd: [],
+                                              memoryMd: [],
+                                            })
+                                          : undefined
+                                      }
+                                      onAppliedMutated={() =>
+                                        setOptimizeAppliedRefreshTick(
+                                          (tick) => tick + 1,
+                                        )
+                                      }
+                                    />
+                                  </small>
+                                </span>
+                                <div className="optimize-project-row__actions">
+                                  {showInlineResult ? (
+                                    <span
+                                      className={`optimize-project-row__status optimize-minimal__result--${projectResultTone}`}
+                                    >
+                                      {projectResultLabel}
                                     </span>
                                   ) : null}
                                 </div>
                               </div>
-                            );
-                          }
-                          return (
-                            <div className="optimize-projects">
-                              <div
-                                className={`optimize-project-row${codexRunning || codexShowResult ? " optimize-project-row--active" : ""}`}
-                              >
-                                <div className="optimize-project-row__main">
-                                  <span className="optimize-project-row__name">
-                                    <strong>Codex sessions</strong>
-                                    <small>
-                                      <span
-                                        className="optimize-project-row__training"
-                                        aria-live="polite"
-                                      >
-                                        {codexRunning
-                                          ? `Scanning sessions${
-                                              typeof headroomLearnStatus.elapsedSeconds === "number"
-                                                ? ` · ${headroomLearnStatus.elapsedSeconds}s`
-                                                : ""
-                                            }`
-                                          : "Scans ~/.codex/sessions into AGENTS.md"}
-                                        <button
-                                          type="button"
-                                          className={`optimize-project-row__refresh${codexRunning ? " is-spinning" : ""}`}
-                                          onClick={() => void handleRunHeadroomLearn("codex")}
-                                          disabled={codexDisable}
-                                          aria-label={codexRunning ? "Scanning…" : "Scan now"}
-                                          title={codexRunning ? "Scanning…" : "Scan now"}
-                                        >
-                                          <ArrowClockwise
-                                            weight="bold"
-                                            size={12}
-                                            aria-hidden="true"
-                                          />
-                                        </button>
-                                      </span>
-                                    </small>
-                                  </span>
-                                  <div className="optimize-project-row__actions">
-                                    {codexShowResult ? (
-                                      <span
-                                        className={`optimize-project-row__status optimize-minimal__result--${codexResultTone}`}
-                                      >
-                                        {codexResultLabel}
-                                      </span>
-                                    ) : null}
-                                  </div>
+                              {showInlineResult && headroomLearnStatus.error ? (
+                                <div className="optimize-project-row__result">
+                                  <p className="install-progress__error">
+                                    {headroomLearnStatus.error}
+                                  </p>
                                 </div>
-                                {codexShowResult && headroomLearnStatus.error ? (
-                                  <div className="optimize-project-row__result">
-                                    <p className="install-progress__error">
-                                      {headroomLearnStatus.error}
-                                    </p>
-                                  </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {sortedClaudeProjects.length > 3 ? (
+                        <button
+                          className="optimize-minimal__inline-action optimize-projects__toggle"
+                          onClick={() =>
+                            setShowAllClaudeProjects((current) => !current)
+                          }
+                          type="button"
+                        >
+                          {showAllClaudeProjects
+                            ? "fewer projects"
+                            : "more projects"}
+                        </button>
+                      ) : null}
+                    </>
+                  ) : null}
+                  {codexLearnEnabled
+                    ? (() => {
+                        const codexReady =
+                          headroomLearnPrereq.codexCliAvailable &&
+                          headroomLearnPrereq.codexLoggedIn;
+                        const codexRunning =
+                          headroomLearnStatus.running &&
+                          headroomLearnStatus.projectPath === "codex";
+                        const codexIsLatest =
+                          headroomLearnStatus.projectPath === "codex";
+                        const codexDisable =
+                          !codexReady ||
+                          headroomLearnBusy ||
+                          (headroomLearnStatus.running && !codexRunning);
+                        const codexShowResult =
+                          codexIsLatest &&
+                          !headroomLearnStatus.running &&
+                          (headroomLearnStatus.success !== null ||
+                            Boolean(headroomLearnStatus.error) ||
+                            headroomLearnStatus.outputTail.length > 0);
+                        const codexResultTone =
+                          headroomLearnStatus.success === true
+                            ? "success"
+                            : headroomLearnStatus.success === false ||
+                                headroomLearnStatus.error
+                              ? "failure"
+                              : "idle";
+                        const codexResultLabel =
+                          headroomLearnStatus.success === true
+                            ? "Run succeeded"
+                            : headroomLearnStatus.success === false ||
+                                headroomLearnStatus.error
+                              ? "Last run failed"
+                              : "No completed run yet";
+                        if (!codexReady) {
+                          const codexCmd = headroomLearnPrereq.codexCliAvailable
+                            ? CODEX_CLI_LOGIN_CMD
+                            : CODEX_CLI_INSTALL_CMD;
+                          return (
+                            <div className="install-prompt" role="status">
+                              <header className="install-prompt__head">
+                                <span
+                                  className="install-prompt__icon"
+                                  aria-hidden="true"
+                                >
+                                  <Terminal weight="duotone" />
+                                </span>
+                                <div className="install-prompt__head-text">
+                                  <h2 className="install-prompt__title">
+                                    {headroomLearnPrereq.codexCliAvailable
+                                      ? "Sign in to the Codex CLI"
+                                      : "Install the Codex CLI"}
+                                  </h2>
+                                  <p className="install-prompt__body">
+                                    Headroom Learn analyzes your Codex sessions
+                                    with the <code>codex</code> CLI on your
+                                    ChatGPT subscription.
+                                    {headroomLearnPrereq.codexCliAvailable
+                                      ? " Sign in to continue."
+                                      : ""}
+                                  </p>
+                                </div>
+                              </header>
+                              <div className="install-prompt__cmd">
+                                <code className="install-prompt__cmd-text">
+                                  {codexCmd}
+                                </code>
+                                <button
+                                  className="install-prompt__cmd-copy"
+                                  type="button"
+                                  onClick={() =>
+                                    void copyLearnInstallCommand(codexCmd)
+                                  }
+                                >
+                                  Copy
+                                </button>
+                              </div>
+                              <div className="install-prompt__foot">
+                                <button
+                                  className="install-prompt__link"
+                                  type="button"
+                                  onClick={() =>
+                                    void openExternalLink(
+                                      CODEX_INSTALL_DOCS_URL,
+                                    )
+                                  }
+                                >
+                                  Open install docs
+                                </button>
+                                <span
+                                  className="install-prompt__foot-sep"
+                                  aria-hidden="true"
+                                >
+                                  ·
+                                </span>
+                                <button
+                                  className="install-prompt__link install-prompt__link--recheck"
+                                  type="button"
+                                  onClick={() =>
+                                    void refreshHeadroomLearnPrereq(true)
+                                  }
+                                >
+                                  <ArrowClockwise
+                                    weight="bold"
+                                    size={12}
+                                    aria-hidden="true"
+                                  />
+                                  Re-check
+                                </button>
+                                {learnInstallCopyNotice ? (
+                                  <span className="install-prompt__notice">
+                                    {learnInstallCopyNotice}
+                                  </span>
                                 ) : null}
                               </div>
                             </div>
                           );
-                        })()
-                      : null}
-                  </div>
-                )}
-                {claudeProjectsError ? (
-                  <p className="install-progress__error">{claudeProjectsError}</p>
-                ) : null}
-                {headroomLearnStatus.error &&
-                headroomLearnStatus.projectPath !== "codex" &&
-                !claudeProjects.some((project) => project.projectPath === headroomLearnStatus.projectPath) ? (
-                  <p className="install-progress__error">{headroomLearnStatus.error}</p>
-                ) : null}
-              </div>
-            </article>
-
-          </div>
+                        }
+                        return (
+                          <div className="optimize-projects">
+                            <div
+                              className={`optimize-project-row${codexRunning || codexShowResult ? " optimize-project-row--active" : ""}`}
+                            >
+                              <div className="optimize-project-row__main">
+                                <span className="optimize-project-row__name">
+                                  <strong>Codex sessions</strong>
+                                  <small>
+                                    <span
+                                      className="optimize-project-row__training"
+                                      aria-live="polite"
+                                    >
+                                      {codexRunning
+                                        ? `Scanning sessions${
+                                            typeof headroomLearnStatus.elapsedSeconds ===
+                                            "number"
+                                              ? ` · ${headroomLearnStatus.elapsedSeconds}s`
+                                              : ""
+                                          }`
+                                        : "Scans ~/.codex/sessions into AGENTS.md"}
+                                      <button
+                                        type="button"
+                                        className={`optimize-project-row__refresh${codexRunning ? " is-spinning" : ""}`}
+                                        onClick={() =>
+                                          void handleRunHeadroomLearn("codex")
+                                        }
+                                        disabled={codexDisable}
+                                        aria-label={
+                                          codexRunning
+                                            ? "Scanning…"
+                                            : "Scan now"
+                                        }
+                                        title={
+                                          codexRunning
+                                            ? "Scanning…"
+                                            : "Scan now"
+                                        }
+                                      >
+                                        <ArrowClockwise
+                                          weight="bold"
+                                          size={12}
+                                          aria-hidden="true"
+                                        />
+                                      </button>
+                                    </span>
+                                  </small>
+                                </span>
+                                <div className="optimize-project-row__actions">
+                                  {codexShowResult ? (
+                                    <span
+                                      className={`optimize-project-row__status optimize-minimal__result--${codexResultTone}`}
+                                    >
+                                      {codexResultLabel}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                              {codexShowResult && headroomLearnStatus.error ? (
+                                <div className="optimize-project-row__result">
+                                  <p className="install-progress__error">
+                                    {headroomLearnStatus.error}
+                                  </p>
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })()
+                    : null}
+                </div>
+              )}
+              {claudeProjectsError ? (
+                <p className="install-progress__error">{claudeProjectsError}</p>
+              ) : null}
+              {headroomLearnStatus.error &&
+              headroomLearnStatus.projectPath !== "codex" &&
+              !claudeProjects.some(
+                (project) =>
+                  project.projectPath === headroomLearnStatus.projectPath,
+              ) ? (
+                <p className="install-progress__error">
+                  {headroomLearnStatus.error}
+                </p>
+              ) : null}
+            </div>
+          </article>
+        </div>
 
         <div className="tray-content" hidden={activeView !== "notifications"}>
           <ActivityFeed
@@ -6221,7 +6996,8 @@ onRepair={(action) => void handleDoctorRepair(action)}
             <header className="addons__header">
               <h1>Addons</h1>
               <p className="addons__subtitle">
-                Installable local add-ons reduce token use and keep document/context prep under your control.
+                Installable local add-ons reduce token use and keep
+                document/context prep under your control.
               </p>
             </header>
             {addonError ? <p className="addons__error">{addonError}</p> : null}
@@ -6234,7 +7010,8 @@ onRepair={(action) => void handleDoctorRepair(action)}
                 enabled={runtimeStatus?.rtk.enabled === true}
                 description={
                   <>
-                    Token-optimizing proxy that auto-rewrites your agent's bash commands.
+                    Token-optimizing proxy that auto-rewrites your agent's bash
+                    commands.
                     {rtkAvgSavingsPct !== null
                       ? ` ${percent1(rtkAvgSavingsPct)}% avg savings.`
                       : ""}
@@ -6242,29 +7019,40 @@ onRepair={(action) => void handleDoctorRepair(action)}
                 }
                 copy={addonCopy.rtk}
                 infoOpen={addonInfoId === "rtk"}
-                onToggleInfo={() => setAddonInfoId(addonInfoId === "rtk" ? null : "rtk")}
+                onToggleInfo={() =>
+                  setAddonInfoId(addonInfoId === "rtk" ? null : "rtk")
+                }
                 busy={addonBusyId === "rtk"}
                 busyLabel={addonBusyLabel}
-                resultMessage={addonResult?.id === "rtk" ? addonResult.message : null}
+                resultMessage={
+                  addonResult?.id === "rtk" ? addonResult.message : null
+                }
                 onDismissResult={() => setAddonResult(null)}
                 sourceUrl={
-                  dashboard.tools.find((tool) => tool.id === "rtk")?.sourceUrl ??
-                  "https://github.com/rtk-ai/rtk"
+                  dashboard.tools.find((tool) => tool.id === "rtk")
+                    ?.sourceUrl ?? "https://github.com/rtk-ai/rtk"
                 }
                 onOpenSource={() =>
                   void openExternalLink(
-                    dashboard.tools.find((tool) => tool.id === "rtk")?.sourceUrl ??
-                      "https://github.com/rtk-ai/rtk"
+                    dashboard.tools.find((tool) => tool.id === "rtk")
+                      ?.sourceUrl ?? "https://github.com/rtk-ai/rtk",
                   )
                 }
                 connectors={connectors}
                 showClients={
-                  runtimeStatus?.rtk.installed === true && runtimeStatus.rtk.enabled === true
+                  runtimeStatus?.rtk.installed === true &&
+                  runtimeStatus.rtk.enabled === true
                 }
-                actionsDisabled={rtkBusy || addonBusyId === "rtk" || !runtimeStatus}
+                actionsDisabled={
+                  rtkBusy || addonBusyId === "rtk" || !runtimeStatus
+                }
                 onInstall={() => void runAddonAction("install_addon", "rtk")}
-                onToggleEnabled={() => void handleRtkToggle(!runtimeStatus?.rtk.enabled)}
-                onUninstall={() => void runAddonAction("uninstall_addon", "rtk")}
+                onToggleEnabled={() =>
+                  void handleRtkToggle(!runtimeStatus?.rtk.enabled)
+                }
+                onUninstall={() =>
+                  void runAddonAction("uninstall_addon", "rtk")
+                }
               >
                 {runtimeStatus?.rtk.installed ? (
                   <>
@@ -6276,19 +7064,28 @@ onRepair={(action) => void handleDoctorRepair(action)}
                         setShowRtkDetails(next);
                         if (next) {
                           try {
-                            const lines = await invoke<string[]>("get_rtk_activity", { maxLines: 80 });
+                            const lines = await invoke<string[]>(
+                              "get_rtk_activity",
+                              { maxLines: 80 },
+                            );
                             setRtkActivityLines(lines);
                           } catch {
-                            setRtkActivityLines(["Failed to load RTK activity."]);
+                            setRtkActivityLines([
+                              "Failed to load RTK activity.",
+                            ]);
                           }
                         }
                       }}
                     >
-                      {showRtkDetails ? "Hide RTK activity" : "Show RTK activity"}
+                      {showRtkDetails
+                        ? "Hide RTK activity"
+                        : "Show RTK activity"}
                     </button>
                     {showRtkDetails ? (
                       <pre className="runtime-log" ref={rtkActivityRef}>
-                        {rtkActivityLines.length > 0 ? rtkActivityLines.join("\n") : "No RTK activity yet."}
+                        {rtkActivityLines.length > 0
+                          ? rtkActivityLines.join("\n")
+                          : "No RTK activity yet."}
                       </pre>
                     ) : null}
                   </>
@@ -6322,32 +7119,86 @@ onRepair={(action) => void handleDoctorRepair(action)}
                       connectors={connectors}
                       showClients={installed && tool.enabled}
                       actionsDisabled={addonBusyId === tool.id}
-                      onInstall={() => void runAddonAction("install_addon", tool.id)}
-                      onToggleEnabled={() =>
-                        void runAddonAction("set_addon_enabled", tool.id, !tool.enabled)
+                      onInstall={() =>
+                        void runAddonAction("install_addon", tool.id)
                       }
-                      onUninstall={() => void runAddonAction("uninstall_addon", tool.id)}
-                    />
+                      onToggleEnabled={() =>
+                        void runAddonAction(
+                          "set_addon_enabled",
+                          tool.id,
+                          !tool.enabled,
+                        )
+                      }
+                      onUninstall={() =>
+                        void runAddonAction("uninstall_addon", tool.id)
+                      }
+                    >
+                      {tool.id === "caveman" && installed && tool.enabled
+                        ? (() => {
+                            const level =
+                              tool.metadata?.level === "aggressive"
+                                ? "aggressive"
+                                : "scoped";
+                            return (
+                              <div
+                                className="addon-card__segmented"
+                                role="group"
+                                aria-label="Caveman level"
+                              >
+                                {(["scoped", "aggressive"] as const).map(
+                                  (item) => (
+                                    <button
+                                      key={item}
+                                      type="button"
+                                      className={`addon-card__segment${
+                                        level === item ? " is-active" : ""
+                                      }`}
+                                      disabled={
+                                        addonBusyId === "caveman" ||
+                                        level === item
+                                      }
+                                      onClick={() => void setCavemanLevel(item)}
+                                    >
+                                      {item === "scoped"
+                                        ? "Scoped"
+                                        : "Aggressive"}
+                                    </button>
+                                  ),
+                                )}
+                              </div>
+                            );
+                          })()
+                        : null}
+                    </AddonCard>
                   );
                 })}
               {plannedAddons.map((addon) => (
                 <PlannedAddonCard
                   key={addon.id}
                   addon={addon}
-                  onRepoIntelligenceSummaryChange={setLatestRepoIntelligenceSummary}
+                  onRepoIntelligenceSummaryChange={
+                    setLatestRepoIntelligenceSummary
+                  }
                 />
               ))}
             </ul>
           </section>
         </div>
 
-        <div className="tray-content tray-content--upgrade" hidden={activeView !== "upgrade"}>
+        <div
+          className="tray-content tray-content--upgrade"
+          hidden={activeView !== "upgrade"}
+        >
           <section className="upgrade-hero">
             <h1>Plans based on your AI subscription</h1>
-            <div className="upgrade-toggle" aria-label="Upgrade audiences" role="tablist">
+            <div
+              className="upgrade-toggle"
+              aria-label="Upgrade audiences"
+              role="tablist"
+            >
               {[
                 { id: "individual" as const, label: "Individual" },
-                { id: "teamEnterprise" as const, label: "Team & Enterprise" }
+                { id: "teamEnterprise" as const, label: "Team & Enterprise" },
               ].map((audience) => (
                 <button
                   key={audience.id}
@@ -6365,7 +7216,11 @@ onRepair={(action) => void handleDoctorRepair(action)}
               ))}
             </div>
             {pricingAudience === "individual" ? (
-              <div className="upgrade-billing-toggle" role="group" aria-label="Billing period">
+              <div
+                className="upgrade-billing-toggle"
+                role="group"
+                aria-label="Billing period"
+              >
                 {(["annual", "monthly"] as const).map((period) => (
                   <button
                     key={period}
@@ -6374,8 +7229,15 @@ onRepair={(action) => void handleDoctorRepair(action)}
                     type="button"
                   >
                     {period === "annual" ? (
-                      <>Annual <span className="upgrade-billing-toggle__save">Save 33%</span></>
-                    ) : "Monthly"}
+                      <>
+                        Annual{" "}
+                        <span className="upgrade-billing-toggle__save">
+                          Save 33%
+                        </span>
+                      </>
+                    ) : (
+                      "Monthly"
+                    )}
                   </button>
                 ))}
               </div>
@@ -6392,10 +7254,15 @@ onRepair={(action) => void handleDoctorRepair(action)}
                     {upgradeTrialCallout.message}
                   </p>
                 </div>
-                {upgradeTrialCallout.actionLabel && upgradeTrialCallout.onAction ? (
+                {upgradeTrialCallout.actionLabel &&
+                upgradeTrialCallout.onAction ? (
                   <button
                     className="primary-button upgrade-trial-callout__button"
-                    disabled={authRequestBusy || authVerifyBusy || upgradeActionBusy !== null}
+                    disabled={
+                      authRequestBusy ||
+                      authVerifyBusy ||
+                      upgradeActionBusy !== null
+                    }
                     onClick={() => upgradeTrialCallout.onAction?.()}
                     type="button"
                   >
@@ -6409,48 +7276,72 @@ onRepair={(action) => void handleDoctorRepair(action)}
                     const cohorts = pricingStatus.pricingCohorts ?? [];
                     const active = cohorts.find((c) => c.status === "active");
                     const activeLabel = active?.label ?? "Founder";
-                    const pct = pricingStatus.activePercentOff ?? active?.percentOff ?? 0;
+                    const pct =
+                      pricingStatus.activePercentOff ?? active?.percentOff ?? 0;
                     const spotsLeft = active?.spotsLeft ?? null;
                     const capacity = active?.capacity ?? null;
-                    const totalCapacity = cohorts.reduce((sum, c) => sum + (c.capacity ?? 0), 0);
+                    const totalCapacity = cohorts.reduce(
+                      (sum, c) => sum + (c.capacity ?? 0),
+                      0,
+                    );
                     const totalFilled = cohorts.reduce((sum, c) => {
                       const cap = c.capacity ?? 0;
                       if (c.status === "sold_out") return sum + cap;
-                      if (c.status === "active") return sum + Math.max(0, cap - (c.spotsLeft ?? 0));
+                      if (c.status === "active")
+                        return sum + Math.max(0, cap - (c.spotsLeft ?? 0));
                       return sum;
                     }, 0);
                     const filledPct =
                       totalCapacity > 0
-                        ? Math.min(100, Math.round(50 + 50 * (totalFilled / totalCapacity)))
+                        ? Math.min(
+                            100,
+                            Math.round(50 + 50 * (totalFilled / totalCapacity)),
+                          )
                         : null;
-                    const next = cohorts.find((c) => c.status === "upcoming") ?? null;
+                    const next =
+                      cohorts.find((c) => c.status === "upcoming") ?? null;
                     const stepPricing = getFounderStepPricing(
                       upgradePlansState.featuredPlanId,
                       billingPeriod,
                       pct,
-                      next?.percentOff ?? 0
+                      next?.percentOff ?? 0,
                     );
                     return (
-                      <section className="founder-promo" aria-label="Founder pricing">
+                      <section
+                        className="founder-promo"
+                        aria-label="Founder pricing"
+                      >
                         <div className="founder-promo__main">
                           <p className="founder-promo__intro">
-                            <span className="founder-promo__live" aria-hidden="true" />
-                            Launch promotion active. Prices rise as {activeLabel.toLowerCase()} spots
-                            fill.
+                            <span
+                              className="founder-promo__live"
+                              aria-hidden="true"
+                            />
+                            Launch promotion active. Prices rise as{" "}
+                            {activeLabel.toLowerCase()} spots fill.
                           </p>
                           <div className="founder-promo__urgency">
                             <div className="founder-promo__count-row">
                               {spotsLeft != null ? (
                                 <>
-                                  <span className="founder-promo__count">{spotsLeft}</span>
-                                  <span className="founder-promo__count-label">{activeLabel} spots left</span>
+                                  <span className="founder-promo__count">
+                                    {spotsLeft}
+                                  </span>
+                                  <span className="founder-promo__count-label">
+                                    {activeLabel} spots left
+                                  </span>
                                 </>
                               ) : (
-                                <span className="founder-promo__count-label">{activeLabel} pricing</span>
+                                <span className="founder-promo__count-label">
+                                  {activeLabel} pricing
+                                </span>
                               )}
                             </div>
                             {filledPct != null ? (
-                              <div className="founder-promo__bar" role="presentation">
+                              <div
+                                className="founder-promo__bar"
+                                role="presentation"
+                              >
                                 <span
                                   className="founder-promo__bar-fill"
                                   style={{ width: `${filledPct}%` }}
@@ -6462,25 +7353,39 @@ onRepair={(action) => void handleDoctorRepair(action)}
                         <div className="founder-promo__offer">
                           <div className="founder-promo__steps">
                             <div className="founder-promo__step founder-promo__step--now">
-                              <span className="founder-promo__step-tag">Now</span>
-                              <span className="founder-promo__step-pct">{pct}% OFF</span>
+                              <span className="founder-promo__step-tag">
+                                Now
+                              </span>
+                              <span className="founder-promo__step-pct">
+                                {pct}% OFF
+                              </span>
                               {stepPricing ? (
-                                <span className="founder-promo__step-price">{stepPricing.now} / month</span>
+                                <span className="founder-promo__step-price">
+                                  {stepPricing.now} / month
+                                </span>
                               ) : null}
                             </div>
                             {next ? (
                               <div className="founder-promo__step founder-promo__step--next">
-                                <span className="founder-promo__step-tag">Next</span>
+                                <span className="founder-promo__step-tag">
+                                  Next
+                                </span>
                                 <span className="founder-promo__step-pct">
-                                  {next.percentOff > 0 ? `${next.percentOff}% OFF` : "Full price"}
+                                  {next.percentOff > 0
+                                    ? `${next.percentOff}% OFF`
+                                    : "Full price"}
                                 </span>
                                 {stepPricing ? (
-                                  <span className="founder-promo__step-price">{stepPricing.next} / month</span>
+                                  <span className="founder-promo__step-price">
+                                    {stepPricing.next} / month
+                                  </span>
                                 ) : null}
                               </div>
                             ) : null}
                           </div>
-                          <p className="founder-promo__lock">Your price is locked in for good.</p>
+                          <p className="founder-promo__lock">
+                            Your price is locked in for good.
+                          </p>
                         </div>
                       </section>
                     );
@@ -6495,13 +7400,15 @@ onRepair={(action) => void handleDoctorRepair(action)}
             {visibleUpgradePlans.map((plan) => {
               const isFeatured = plan.id === upgradePlansState.featuredPlanId;
               const downgradeButtonClassName =
-                plan.ctaTone === "downgrade" ? " upgrade-plan-card__button--downgrade" : "";
+                plan.ctaTone === "downgrade"
+                  ? " upgrade-plan-card__button--downgrade"
+                  : "";
               const buttonClassName =
                 plan.id === "free"
                   ? `primary-button upgrade-plan-card__button upgrade-plan-card__button--free${downgradeButtonClassName}`
                   : plan.ctaVariant === "primary"
-                  ? `primary-button upgrade-plan-card__button${downgradeButtonClassName}`
-                  : `secondary-button upgrade-plan-card__button${downgradeButtonClassName}`;
+                    ? `primary-button upgrade-plan-card__button${downgradeButtonClassName}`
+                    : `secondary-button upgrade-plan-card__button${downgradeButtonClassName}`;
 
               const isActivePlan = plan.id === activeHeadroomPlanId;
               return (
@@ -6511,28 +7418,39 @@ onRepair={(action) => void handleDoctorRepair(action)}
                 >
                   <div className="upgrade-plan-card__top">
                     <div className="upgrade-plan-card__title-block">
-                      <span className="upgrade-plan-card__icon" aria-hidden="true">
+                      <span
+                        className="upgrade-plan-card__icon"
+                        aria-hidden="true"
+                      >
                         <Sparkle weight={isFeatured ? "fill" : "duotone"} />
                       </span>
                       <div>
                         <h2>
                           {plan.name}
                           {isActivePlan ? (
-                            <span className="upgrade-plan-card__active-badge">Active</span>
+                            <span className="upgrade-plan-card__active-badge">
+                              Active
+                            </span>
                           ) : null}
                         </h2>
                         <p>{plan.tagline}</p>
                       </div>
                     </div>
                     {plan.centeredPriceLabel ? (
-                      <div className="upgrade-plan-card__price-note">{plan.centeredPriceLabel}</div>
+                      <div className="upgrade-plan-card__price-note">
+                        {plan.centeredPriceLabel}
+                      </div>
                     ) : (
                       <div className="upgrade-plan-card__price-block">
                         <div>
                           {plan.originalPrice && !activeHeadroomPlanId ? (
                             <div className="upgrade-plan-card__sale-row">
-                              <s className="upgrade-plan-card__original-price">{plan.originalPrice}</s>
-                              <span className="upgrade-plan-card__sale-badge">{pricingStatus?.activePercentOff ?? 50}% off</span>
+                              <s className="upgrade-plan-card__original-price">
+                                {plan.originalPrice}
+                              </s>
+                              <span className="upgrade-plan-card__sale-badge">
+                                {pricingStatus?.activePercentOff ?? 50}% off
+                              </span>
                             </div>
                           ) : null}
                           <strong>{plan.price}</strong>
@@ -6546,21 +7464,25 @@ onRepair={(action) => void handleDoctorRepair(action)}
                     )}
                     {plan.purchaseInfo ? (
                       <p className="upgrade-plan-card__purchase-info">
-                        {plan.purchaseInfo.cancelAtPeriodEnd && plan.purchaseInfo.endsOn
+                        {plan.purchaseInfo.cancelAtPeriodEnd &&
+                        plan.purchaseInfo.endsOn
                           ? plan.id === "free"
                             ? `Activates on ${plan.purchaseInfo.endsOn}`
                             : `Downgrades to Free on ${plan.purchaseInfo.endsOn}`
                           : isActivePlan
-                          ? plan.purchaseInfo.discountPct > 0
-                            ? `Renews ${plan.purchaseInfo.paidPerMonthLabel}/mo on ${plan.purchaseInfo.renewsOn} (${plan.purchaseInfo.discountPct}% off)`
-                            : `Renews ${plan.price}/mo on ${plan.purchaseInfo.renewsOn}`
-                          : null}
+                            ? plan.purchaseInfo.discountPct > 0
+                              ? `Renews ${plan.purchaseInfo.paidPerMonthLabel}/mo on ${plan.purchaseInfo.renewsOn} (${plan.purchaseInfo.discountPct}% off)`
+                              : `Renews ${plan.price}/mo on ${plan.purchaseInfo.renewsOn}`
+                            : null}
                       </p>
                     ) : null}
                   </div>
                   <div className="upgrade-plan-card__action">
                     {plan.id === "enterprise" ? (
-                      <form className="upgrade-plan-card__contact-form" onSubmit={(event) => void handleContactSubmit(event)}>
+                      <form
+                        className="upgrade-plan-card__contact-form"
+                        onSubmit={(event) => void handleContactSubmit(event)}
+                      >
                         <input
                           className="upgrade-plan-card__contact-input"
                           onChange={(event) => {
@@ -6607,9 +7529,12 @@ onRepair={(action) => void handleDoctorRepair(action)}
                         onClick={() => void handleReactivateSubscription()}
                         type="button"
                       >
-                        {reactivateBusy ? "Resuming..." : `Resume ${plan.name} plan`}
+                        {reactivateBusy
+                          ? "Resuming..."
+                          : `Resume ${plan.name} plan`}
                       </button>
-                    ) : plan.id === "free" && plan.purchaseInfo?.cancelAtPeriodEnd ? (
+                    ) : plan.id === "free" &&
+                      plan.purchaseInfo?.cancelAtPeriodEnd ? (
                       <button
                         className={buttonClassName}
                         disabled
@@ -6620,11 +7545,15 @@ onRepair={(action) => void handleDoctorRepair(action)}
                     ) : (
                       <button
                         className={buttonClassName}
-                        disabled={plan.disabled || upgradeActionBusy === plan.id}
+                        disabled={
+                          plan.disabled || upgradeActionBusy === plan.id
+                        }
                         onClick={() => void handleUpgradeAction(plan.id)}
                         type="button"
                       >
-                        {upgradeActionBusy === plan.id ? "Opening..." : plan.ctaLabel}
+                        {upgradeActionBusy === plan.id
+                          ? "Opening..."
+                          : plan.ctaLabel}
                       </button>
                     )}
                   </div>
@@ -6652,7 +7581,8 @@ onRepair={(action) => void handleDoctorRepair(action)}
               );
             })}
           </section>
-          {pricingAudience === "individual" && (hasHiddenUpgradePlans || showAllUpgradePlans) ? (
+          {pricingAudience === "individual" &&
+          (hasHiddenUpgradePlans || showAllUpgradePlans) ? (
             <button
               className="upgrade-plan-grid__toggle"
               onClick={() => setShowAllUpgradePlans((current) => !current)}
@@ -6670,7 +7600,10 @@ onRepair={(action) => void handleDoctorRepair(action)}
           ) : null}
         </div>
 
-        <div className="tray-content tray-content--upgrade" hidden={activeView !== "upgradeAuth"}>
+        <div
+          className="tray-content tray-content--upgrade"
+          hidden={activeView !== "upgradeAuth"}
+        >
           <section className="upgrade-auth-view">
             <div className="upgrade-auth-view__header">
               <div className="upgrade-auth-view__title-row">
@@ -6690,110 +7623,123 @@ onRepair={(action) => void handleDoctorRepair(action)}
         </div>
 
         <div className="tray-content" hidden={activeView !== "settings"}>
-            <section className="panel-stack">
-              <article className="soft-card panel-card settings-account-card">
-                <div className="settings-account-row">
-                  <p className="settings-account-copy">
-                    Headroom account:{" "}
-                    {pricingStatus?.authenticated ? (
-                      <>
-                        {accountDisplayEmail} <em>({accountPlanName})</em>
-                      </>
-                    ) : (
-                      <em>not signed in</em>
-                    )}
-                  </p>
+          <section className="panel-stack">
+            <article className="soft-card panel-card settings-account-card">
+              <div className="settings-account-row">
+                <p className="settings-account-copy">
+                  Headroom account:{" "}
                   {pricingStatus?.authenticated ? (
-                    <button
-                      className="secondary-button secondary-button--small"
-                      onClick={() => void handleSignOutHeadroomAccount()}
-                      type="button"
-                    >
-                      <SignOut size={16} weight="bold" />
-                      Sign out
-                    </button>
+                    <>
+                      {accountDisplayEmail} <em>({accountPlanName})</em>
+                    </>
                   ) : (
-                    <button
-                      className="secondary-button secondary-button--small"
-                      onClick={() => openUpgradeAuthView()}
-                      type="button"
-                    >
-                      Sign in
-                    </button>
+                    <em>not signed in</em>
                   )}
-                </div>
-                {pricingStatus?.claude?.profileFetchError ? (
-                  <p className="settings-account-notice">
-                    {pricingStatus.claude.profileFetchError}
-                  </p>
-                ) : null}
-              </article>
+                </p>
+                {pricingStatus?.authenticated ? (
+                  <button
+                    className="secondary-button secondary-button--small"
+                    onClick={() => void handleSignOutHeadroomAccount()}
+                    type="button"
+                  >
+                    <SignOut size={16} weight="bold" />
+                    Sign out
+                  </button>
+                ) : (
+                  <button
+                    className="secondary-button secondary-button--small"
+                    onClick={() => openUpgradeAuthView()}
+                    type="button"
+                  >
+                    Sign in
+                  </button>
+                )}
+              </div>
+              {pricingStatus?.claude?.profileFetchError ? (
+                <p className="settings-account-notice">
+                  {pricingStatus.claude.profileFetchError}
+                </p>
+              ) : null}
+            </article>
 
-              <article className="soft-card panel-card">
-                <div className="panel-card__header">
-                  <div />
+            <article className="soft-card panel-card">
+              <div className="panel-card__header">
+                <div />
+              </div>
+              <div className="connector-readiness">
+                <div>
+                  <span className="connector-readiness__eyebrow">
+                    Planned tool readiness
+                  </span>
+                  <strong>{plannedConnectorReadiness.headline}</strong>
+                  <p>{plannedConnectorReadiness.detail}</p>
                 </div>
-                <div className="connector-readiness">
-                  <div>
-                    <span className="connector-readiness__eyebrow">
-                      Planned tool readiness
+                <div className="connector-readiness__actions">
+                  <div
+                    className="connector-readiness__metrics"
+                    aria-label="Planned connector readiness summary"
+                  >
+                    <span>
+                      <strong>{plannedConnectorReadiness.detectedCount}</strong>
+                      detected
                     </span>
-                    <strong>{plannedConnectorReadiness.headline}</strong>
-                    <p>{plannedConnectorReadiness.detail}</p>
+                    <span>
+                      <strong>
+                        {plannedConnectorReadiness.manualOnlyCount}
+                      </strong>
+                      manual
+                    </span>
+                    <span>
+                      <strong>
+                        {plannedConnectorReadiness.notDetectedCount}
+                      </strong>
+                      missing
+                    </span>
+                    <span>
+                      <strong>
+                        {plannedConnectorReadiness.safeTodayCount}
+                      </strong>
+                      safe now
+                    </span>
+                    <span>
+                      <strong>
+                        {plannedConnectorReadiness.automationGateCount}
+                      </strong>
+                      gates
+                    </span>
                   </div>
-                  <div className="connector-readiness__actions">
-                    <div
-                      className="connector-readiness__metrics"
-                      aria-label="Planned connector readiness summary"
-                    >
-                      <span>
-                        <strong>{plannedConnectorReadiness.detectedCount}</strong>
-                        detected
-                      </span>
-                      <span>
-                        <strong>{plannedConnectorReadiness.manualOnlyCount}</strong>
-                        manual
-                      </span>
-                        <span>
-                          <strong>{plannedConnectorReadiness.notDetectedCount}</strong>
-                          missing
-                        </span>
-                        <span>
-                          <strong>{plannedConnectorReadiness.safeTodayCount}</strong>
-                          safe now
-                        </span>
-                        <span>
-                          <strong>{plannedConnectorReadiness.automationGateCount}</strong>
-                          gates
-                        </span>
-                      </div>
-                    <button
-                      type="button"
-                      className="connector-readiness__copy"
-                      onClick={() =>
-                        void copyPlannedConnectorCommand(
-                          getPlannedConnectorSetupChecklistScript(),
-                          "Planned tool checklist"
-                        )
-                      }
-                    >
-                      <Copy size={13} weight="bold" />
-                      Copy checks
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className="connector-readiness__copy"
+                    onClick={() =>
+                      void copyPlannedConnectorCommand(
+                        getPlannedConnectorSetupChecklistScript(),
+                        "Planned tool checklist",
+                      )
+                    }
+                  >
+                    <Copy size={13} weight="bold" />
+                    Copy checks
+                  </button>
                 </div>
-                <div className="connector-list">
-                  {sortClientConnectors(aggregateClientConnectors(connectors)).map((connector) => {
-                    const connectorLabel =
-                      connector.clientId === "claude_code"
-                        ? "Claude Code connection"
-                        : connector.clientId === "codex"
-                          ? "Codex connection"
-                          : connector.name;
-                    const controlState = connectorControlState(connector);
-                  const unavailableReason = getConnectorUnavailableReason(connector);
-                  const detectionWarning = getConnectorDetectionWarning(connector);
-                  const toggleDisabled = connectorsBusy || controlState.disabled;
+              </div>
+              <div className="connector-list">
+                {sortClientConnectors(
+                  aggregateClientConnectors(connectors),
+                ).map((connector) => {
+                  const connectorLabel =
+                    connector.clientId === "claude_code"
+                      ? "Claude Code connection"
+                      : connector.clientId === "codex"
+                        ? "Codex connection"
+                        : connector.name;
+                  const controlState = connectorControlState(connector);
+                  const unavailableReason =
+                    getConnectorUnavailableReason(connector);
+                  const detectionWarning =
+                    getConnectorDetectionWarning(connector);
+                  const toggleDisabled =
+                    connectorsBusy || controlState.disabled;
                   const plannedConnector =
                     connector.supportStatus === "planned"
                       ? getPlannedConnector(connector.clientId)
@@ -6802,172 +7748,207 @@ onRepair={(action) => void handleDoctorRepair(action)}
                     ? getPlannedConnectorSetupGuide(plannedConnector.id)
                     : null;
                   const connectorSetupPhase =
-                    connector.setupPhase ?? plannedConnector?.setupPhase ?? null;
+                    connector.setupPhase ??
+                    plannedConnector?.setupPhase ??
+                    null;
                   const connectorSetupHint =
                     connector.setupHint ?? plannedConnector?.notes ?? null;
                   return (
-                    <article className="connector-item" key={connector.clientId}>
+                    <article
+                      className="connector-item"
+                      key={connector.clientId}
+                    >
                       <div>
-                          <h3>
-                            <span className="client-logo" aria-hidden="true">
-                              {renderConnectorLogo(connector.clientId)}
-                            </span>
-                            {connectorLabel}
-                        {connector.supportStatus === "planned" ? (
-                          <span className="connector-item__badge connector-item__badge--planned">
-                            Planned
+                        <h3>
+                          <span className="client-logo" aria-hidden="true">
+                            {renderConnectorLogo(connector.clientId)}
                           </span>
-                        ) : null}
-                            <button
-                              className="connector-help"
-                              onClick={() =>
-                                setOpenConnectorHelpId((current) =>
-                                  current === connector.clientId ? null : connector.clientId
-                                )
-                              }
-                              type="button"
-                        aria-label={`Show setup details for ${connector.name}`}
-                        aria-expanded={openConnectorHelpId === connector.clientId}
-                      >
-                        <Info size={11} weight="bold" />
-                      </button>
-                          </h3>
-                          {openConnectorHelpId === connector.clientId ? (
-                            <p className="connector-tooltip">
-                        {connectorSetupHint ??
-                          connectorSetupDetails[connector.clientId] ??
-                          "Mac AI Switchboard applies local connector configuration."}
-                        </p>
-                      ) : null}
-                      {plannedConnector ? (
-                        <div className="connector-plan">
-                          <div className="connector-plan__meta">
-                            <span>{connectorSetupPhase}</span>
-                            <span>{connector.category ?? plannedConnector.category}</span>
-                          </div>
-                          <p className="connector-plan__target">
-                            {plannedConnector.integrationTarget}
-                          </p>
-                        {connector.detectionSources?.length ||
-                        connector.configLocations?.length ||
-                        connector.detectionEvidence?.length ||
-                        connector.automationGates?.length ||
-                        connector.manualWorkflow?.length ? (
-                          <div className="connector-plan__backend">
-                            <strong>Backend checks</strong>
-                          {connector.detectionSources?.length ? (
-                            <span>
-                              Detects {connector.detectionSources.slice(0, 3).join(", ")}
-                                </span>
-                              ) : null}
-                              {connector.configLocations?.length ? (
-                                <span>
-                              Watches {connector.configLocations.slice(0, 2).join(", ")}
+                          {connectorLabel}
+                          {connector.supportStatus === "planned" ? (
+                            <span className="connector-item__badge connector-item__badge--planned">
+                              Planned
                             </span>
                           ) : null}
-                            {connector.detectionEvidence?.length ? (
+                          <button
+                            className="connector-help"
+                            onClick={() =>
+                              setOpenConnectorHelpId((current) =>
+                                current === connector.clientId
+                                  ? null
+                                  : connector.clientId,
+                              )
+                            }
+                            type="button"
+                            aria-label={`Show setup details for ${connector.name}`}
+                            aria-expanded={
+                              openConnectorHelpId === connector.clientId
+                            }
+                          >
+                            <Info size={11} weight="bold" />
+                          </button>
+                        </h3>
+                        {openConnectorHelpId === connector.clientId ? (
+                          <p className="connector-tooltip">
+                            {connectorSetupHint ??
+                              connectorSetupDetails[connector.clientId] ??
+                              "Mac AI Switchboard applies local connector configuration."}
+                          </p>
+                        ) : null}
+                        {plannedConnector ? (
+                          <div className="connector-plan">
+                            <div className="connector-plan__meta">
+                              <span>{connectorSetupPhase}</span>
                               <span>
-                                Evidence{" "}
-                                {connector.detectionEvidence.slice(0, 2).join(" · ")}
+                                {connector.category ??
+                                  plannedConnector.category}
                               </span>
+                            </div>
+                            <p className="connector-plan__target">
+                              {plannedConnector.integrationTarget}
+                            </p>
+                            {connector.detectionSources?.length ||
+                            connector.configLocations?.length ||
+                            connector.detectionEvidence?.length ||
+                            connector.automationGates?.length ||
+                            connector.manualWorkflow?.length ? (
+                              <div className="connector-plan__backend">
+                                <strong>Backend checks</strong>
+                                {connector.detectionSources?.length ? (
+                                  <span>
+                                    Detects{" "}
+                                    {connector.detectionSources
+                                      .slice(0, 3)
+                                      .join(", ")}
+                                  </span>
+                                ) : null}
+                                {connector.configLocations?.length ? (
+                                  <span>
+                                    Watches{" "}
+                                    {connector.configLocations
+                                      .slice(0, 2)
+                                      .join(", ")}
+                                  </span>
+                                ) : null}
+                                {connector.detectionEvidence?.length ? (
+                                  <span>
+                                    Evidence{" "}
+                                    {connector.detectionEvidence
+                                      .slice(0, 2)
+                                      .join(" · ")}
+                                  </span>
+                                ) : null}
+                                {connector.automationGates?.length ? (
+                                  <span>
+                                    Gates{" "}
+                                    {connector.automationGates
+                                      .slice(0, 2)
+                                      .join(" · ")}
+                                  </span>
+                                ) : null}
+                                {connector.manualWorkflow?.length ? (
+                                  <span>
+                                    Manual{" "}
+                                    {connector.manualWorkflow
+                                      .slice(0, 2)
+                                      .join(" · ")}
+                                  </span>
+                                ) : null}
+                              </div>
                             ) : null}
-                            {connector.automationGates?.length ? (
-                              <span>
-                                Gates {connector.automationGates.slice(0, 2).join(" · ")}
-                              </span>
+                            <div className="connector-plan__capabilities">
+                              {plannedConnector.capabilityRows.map(
+                                (capability) => (
+                                  <div
+                                    className="connector-plan__capability"
+                                    key={`${plannedConnector.id}-${capability.label}`}
+                                  >
+                                    <div>
+                                      <strong>{capability.label}</strong>
+                                      <span>{capability.detail}</span>
+                                    </div>
+                                    <span
+                                      className={`connector-plan__state connector-plan__state--${capability.state
+                                        .toLowerCase()
+                                        .replace(/\s+/g, "-")}`}
+                                    >
+                                      {capability.state}
+                                    </span>
+                                  </div>
+                                ),
+                              )}
+                            </div>
+                            <p className="connector-plan__next">
+                              {getPlannedConnectorNextStep(
+                                connector,
+                                plannedConnector,
+                              )}
+                            </p>
+                            {plannedSetupGuide ? (
+                              <div className="connector-plan__guide">
+                                <div>
+                                  <strong>{plannedSetupGuide.label}</strong>
+                                  <code>{plannedSetupGuide.command}</code>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="connector-plan__copy"
+                                  onClick={() =>
+                                    void copyPlannedConnectorCommand(
+                                      plannedSetupGuide.command,
+                                      connector.name,
+                                    )
+                                  }
+                                  aria-label={`Copy ${connector.name} setup check command`}
+                                >
+                                  <Copy size={13} weight="bold" />
+                                </button>
+                              </div>
                             ) : null}
-                            {connector.manualWorkflow?.length ? (
-                              <span>
-                                Manual {connector.manualWorkflow.slice(0, 2).join(" · ")}
-                              </span>
+                            {plannedSetupGuide ? (
+                              <p className="connector-plan__note">
+                                {plannedSetupGuide.notes}
+                              </p>
                             ) : null}
                           </div>
                         ) : null}
-                          <div className="connector-plan__capabilities">
-                            {plannedConnector.capabilityRows.map((capability) => (
-                              <div
-                                className="connector-plan__capability"
-                                key={`${plannedConnector.id}-${capability.label}`}
-                              >
-                                <div>
-                                  <strong>{capability.label}</strong>
-                                  <span>{capability.detail}</span>
-                                </div>
-                                <span
-                                  className={`connector-plan__state connector-plan__state--${capability.state
-                                    .toLowerCase()
-                                    .replace(/\s+/g, "-")}`}
-                                >
-                                  {capability.state}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                          <p className="connector-plan__next">
-                            {getPlannedConnectorNextStep(
-                              connector,
-                              plannedConnector
-                            )}
+                        {connector.enabled &&
+                        !connector.verified &&
+                        connector.installed ? (
+                          <p className="connector-item__restart">
+                            Restart {connector.name} to start routing through
+                            Headroom.
                           </p>
-                          {plannedSetupGuide ? (
-                            <div className="connector-plan__guide">
-                              <div>
-                                <strong>{plannedSetupGuide.label}</strong>
-                                <code>{plannedSetupGuide.command}</code>
-                              </div>
-                              <button
-                                type="button"
-                                className="connector-plan__copy"
-                                onClick={() =>
-                                  void copyPlannedConnectorCommand(
-                                    plannedSetupGuide.command,
-                                    connector.name
-                                  )
-                                }
-                                aria-label={`Copy ${connector.name} setup check command`}
-                              >
-                                <Copy size={13} weight="bold" />
-                              </button>
-                            </div>
-                          ) : null}
-                          {plannedSetupGuide ? (
-                            <p className="connector-plan__note">
-                              {plannedSetupGuide.notes}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : null}
-                      {connector.enabled && !connector.verified && connector.installed ? (
-                        <p className="connector-item__restart">
-                          Restart {connector.name} to start routing through Headroom.
-                            </p>
-                          ) : null}
-                          {(detectionWarning ?? unavailableReason) ? (
-                            <p className="connector-item__reason">
-                              {detectionWarning ?? unavailableReason}
-                            </p>
-                          ) : null}
-                        </div>
-                        <div className="connector-item__controls">
-                          <button
-                            aria-checked={connector.enabled}
-                            aria-label={`${connector.enabled ? "Disable" : "Enable"} ${connector.name} connector`}
-                            className={`connector-switch${connector.enabled ? " is-on" : ""}`}
-                            disabled={toggleDisabled}
-                            onClick={() =>
-                              void toggleConnector(connector, !connector.enabled)
-                            }
-                            role="switch"
-                            title={controlState.reason ?? unavailableReason ?? undefined}
-                            type="button"
-                          >
-                            <span className="connector-switch__thumb" />
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
+                        ) : null}
+                        {(detectionWarning ?? unavailableReason) ? (
+                          <p className="connector-item__reason">
+                            {detectionWarning ?? unavailableReason}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="connector-item__controls">
+                        <button
+                          aria-checked={connector.enabled}
+                          aria-label={`${connector.enabled ? "Disable" : "Enable"} ${connector.name} connector`}
+                          className={`connector-switch${connector.enabled ? " is-on" : ""}`}
+                          disabled={toggleDisabled}
+                          onClick={() =>
+                            void toggleConnector(connector, !connector.enabled)
+                          }
+                          role="switch"
+                          title={
+                            controlState.reason ??
+                            unavailableReason ??
+                            undefined
+                          }
+                          type="button"
+                        >
+                          <span className="connector-switch__thumb" />
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
               {connectorsError ? (
                 <p className="install-progress__error">{connectorsError}</p>
               ) : null}
@@ -6978,49 +7959,53 @@ onRepair={(action) => void handleDoctorRepair(action)}
               ) : null}
             </article>
 
-              <article className="soft-card panel-card">
-                <div className="panel-card__header">
-                  <div>
-                    <h3>Tools status</h3>
-                  </div>
+            <article className="soft-card panel-card">
+              <div className="panel-card__header">
+                <div>
+                  <h3>Tools status</h3>
                 </div>
-                <div className="runtime-status">
-                  <div className="runtime-status__topline">
-                    <span className="runtime-status__section-title">
-                      Mac AI Switchboard app ({appSemver})
-                      {appUpdateConfig?.betaChannelEnabled ? (
-                        <span className="runtime-status__channel-pill">beta channel</span>
-                      ) : null}
-                    </span>
-                  </div>
-                  <div className="runtime-status__section-action-row">
-                    <button
-                      className="secondary-button secondary-button--small"
-                      disabled={appUpdateBusy || appUpdateInstallBusy}
-                      onClick={() => void checkForAppUpdate()}
-                      type="button"
-                    >
-                      {appUpdateBusy ? "Checking…" : "Check for updates"}
-                    </button>
-                    {appUpdateStatusCopy ? (
-                      <p className="app-update-card__summary runtime-status__summary">
-                        {appUpdateStatusCopy}
-                      </p>
+              </div>
+              <div className="runtime-status">
+                <div className="runtime-status__topline">
+                  <span className="runtime-status__section-title">
+                    Mac AI Switchboard app ({appSemver})
+                    {appUpdateConfig?.betaChannelEnabled ? (
+                      <span className="runtime-status__channel-pill">
+                        beta channel
+                      </span>
                     ) : null}
-                  </div>
-                  <div className="runtime-status__meta">
-                    <span className="runtime-status__section-title">
-                      Headroom CLI ({headroomVersion})
-                      {headroomLifetimeSavingsPct !== null ? (
-                        <span className="runtime-status__section-context">
-                          {" "}
-                          ({percent1(headroomLifetimeSavingsPct)}% all-time savings)
-                        </span>
-                      ) : null}
-                    </span>
-                  </div>
-                  <div className="runtime-status__grid runtime-status__grid--4">
-                    {([
+                  </span>
+                </div>
+                <div className="runtime-status__section-action-row">
+                  <button
+                    className="secondary-button secondary-button--small"
+                    disabled={appUpdateBusy || appUpdateInstallBusy}
+                    onClick={() => void checkForAppUpdate()}
+                    type="button"
+                  >
+                    {appUpdateBusy ? "Checking…" : "Check for updates"}
+                  </button>
+                  {appUpdateStatusCopy ? (
+                    <p className="app-update-card__summary runtime-status__summary">
+                      {appUpdateStatusCopy}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="runtime-status__meta">
+                  <span className="runtime-status__section-title">
+                    Headroom CLI ({headroomVersion})
+                    {headroomLifetimeSavingsPct !== null ? (
+                      <span className="runtime-status__section-context">
+                        {" "}
+                        ({percent1(headroomLifetimeSavingsPct)}% all-time
+                        savings)
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
+                <div className="runtime-status__grid runtime-status__grid--4">
+                  {(
+                    [
                       {
                         name: "Runtime",
                         ok: runtimeStatus?.running === true,
@@ -7051,423 +8036,496 @@ onRepair={(action) => void handleDoctorRepair(action)}
                               : null,
                         suffix: kompressWarming ? "warming up" : undefined,
                       },
-                    ] as { name: string; ok: boolean | null; suffix?: string; onClick?: () => void }[]).map((s) => {
-                      const indicatorClass =
-                        s.ok === true
-                          ? "runtime-status__indicator--ok"
-                          : s.ok === false
-                            ? "runtime-status__indicator--off"
-                            : "runtime-status__indicator--unknown";
-                      const indicatorSymbol = s.ok === true ? "✔" : s.ok === false ? "✖" : "–";
-                      return (
-                        <span
-                          key={s.name}
-                          className={`runtime-status__item${s.onClick ? " runtime-status__item--clickable" : ""}`}
-                          onClick={s.onClick}
-                          title={s.ok === null ? `${s.name} status unknown` : undefined}
-                        >
-                          <span className="runtime-status__label">{s.name}:</span>
-                          <span className={`runtime-status__indicator ${indicatorClass}`}>
-                            {indicatorSymbol}
-                          </span>
-                          {s.suffix && <span className="runtime-status__suffix">({s.suffix})</span>}
-                        </span>
-                      );
-                    })}
-                  </div>
-                  <button
-                    className="link-button runtime-status__section-action"
-                    onClick={async () => {
-                      const next = !showHeadroomDetails;
-                      setShowHeadroomDetails(next);
-                      if (next) {
-                        try {
-                          const lines = await invoke<string[]>("get_headroom_logs", { maxLines: 80 });
-                          setHeadroomLogLines(lines);
-                        } catch {
-                          setHeadroomLogLines(["Failed to load headroom logs."]);
+                    ] as {
+                      name: string;
+                      ok: boolean | null;
+                      suffix?: string;
+                      onClick?: () => void;
+                    }[]
+                  ).map((s) => {
+                    const indicatorClass =
+                      s.ok === true
+                        ? "runtime-status__indicator--ok"
+                        : s.ok === false
+                          ? "runtime-status__indicator--off"
+                          : "runtime-status__indicator--unknown";
+                    const indicatorSymbol =
+                      s.ok === true ? "✔" : s.ok === false ? "✖" : "–";
+                    return (
+                      <span
+                        key={s.name}
+                        className={`runtime-status__item${s.onClick ? " runtime-status__item--clickable" : ""}`}
+                        onClick={s.onClick}
+                        title={
+                          s.ok === null ? `${s.name} status unknown` : undefined
                         }
-                      }
-                    }}
-                    type="button"
-                  >
-                    {showHeadroomDetails ? "Hide headroom logs" : "Show headroom logs"}
-                  </button>
-                  {showHeadroomDetails ? (
-                    <pre className="runtime-log" ref={headroomLogRef}>
-                      {headroomLogLines.length > 0 ? headroomLogLines.join("\n") : "No log output yet."}
-                    </pre>
-                  ) : null}
-</div>
-</article>
-<article className="soft-card panel-card release-readiness-card">
-  <div className="panel-card__header">
-    <div>
-      <h3>Release readiness</h3>
-      <p>
-        {releaseReadinessItemCount()} checks before a signed DMG can be handed
-        to testers.
-      </p>
-    </div>
-    <button
-      className="secondary-button secondary-button--small"
-      onClick={() => void copyReleaseReadinessCommand()}
-      type="button"
-    >
-      <Copy size={14} weight="bold" />
-      Copy report command
-    </button>
-  </div>
-<div className="release-readiness-card__command">
-<Terminal size={15} weight="duotone" />
-<code>{releaseReadinessCommand}</code>
-</div>
-<div className="release-readiness-card__gates" aria-label="Shareable DMG gates">
-{releaseShareableGates.map((gate) => (
-<div className="release-readiness-card__gate" key={gate.id}>
-<strong>{gate.label}</strong>
-<span>{gate.detail}</span>
-</div>
-))}
-</div>
-<div className="release-readiness-card__grid">
-    {releaseReadinessGroups.map((group) => (
-      <section className="release-readiness-card__group" key={group.id}>
-        <h4>{group.title}</h4>
-        <ul>
-          {group.items.map((item) => (
-                  <li key={item.id}>
-                    <strong>{item.label}</strong>
-                    <span>{item.detail}</span>
-                    {item.command ? <code>{item.command}</code> : null}
-                  </li>
-                ))}
-              </ul>
-      </section>
-    ))}
-  </div>
-  {releaseReadinessCopyNotice ? (
-    <p className="connector-copy-notice">{releaseReadinessCopyNotice}</p>
-  ) : null}
-</article>
-<article className="soft-card panel-card">
-                <div className="panel-card__header">
-                  <div>
-                    <h3>Open on login</h3>
-                  </div>
-                  <div>
-                    <p>
-                      Automatically launch Headroom whenever you login or restart.
-                    </p>
-                  </div>
-                  <div className="connector-item__controls">
-                    <button
-                      aria-checked={autostartEnabled === true}
-                      aria-label={`${autostartEnabled ? "Disable" : "Enable"} open on login`}
-                      className={`connector-switch${autostartEnabled ? " is-on" : ""}`}
-                      disabled={autostartBusy || autostartEnabled === null}
-                      onClick={() => void handleAutostartToggle(!autostartEnabled)}
-                      role="switch"
-                      type="button"
-                    >
-                      <span className="connector-switch__thumb" />
-                    </button>
-                  </div>
-</div>
-</article>
-
-<article className="soft-card panel-card rollback-center-card">
-  <div className="panel-card__header">
-    <div>
-      <h3>Rollback Center</h3>
-      <p>Managed local changes Mac AI Switchboard can disclose or undo.</p>
-    </div>
-  </div>
-  <div className="rollback-center-card__list">
-    {managedChangeRecords.map((record) => (
-      <div className="rollback-center-card__item" key={record.id}>
-<div>
-<strong>{record.owner}</strong>
-<span>{record.rollback}</span>
-<span>Marker: {record.markerId}</span>
-<span>Backup: {record.backupPath ?? "not required"}</span>
-<span>{record.lastVerifiedLabel}</span>
-</div>
-        <span className="rollback-center-card__kind">{record.kind.replace(/_/g, " ")}</span>
-      </div>
-    ))}
-  </div>
-</article>
-
-<article className="soft-card panel-card">
-<div className="panel-card__header">
-<div>
-                    <h3>Uninstall</h3>
-                  </div>
+                      >
+                        <span className="runtime-status__label">{s.name}:</span>
+                        <span
+                          className={`runtime-status__indicator ${indicatorClass}`}
+                        >
+                          {indicatorSymbol}
+                        </span>
+                        {s.suffix && (
+                          <span className="runtime-status__suffix">
+                            ({s.suffix})
+                          </span>
+                        )}
+                      </span>
+                    );
+                  })}
                 </div>
-                <p>
-                  Reverses Mac AI Switchboard changes: removes routing hooks, managed runtime storage,
-                  app state, login item, known Keychain entries, and managed config blocks.
-                  Mac AI Switchboard will quit when done.
-                </p>
                 <button
-                  className="secondary-button secondary-button--small"
-                  onClick={() => {
-                    setUninstallError(null);
-                    setShowUninstallDialog(true);
+                  className="link-button runtime-status__section-action"
+                  onClick={async () => {
+                    const next = !showHeadroomDetails;
+                    setShowHeadroomDetails(next);
+                    if (next) {
+                      try {
+                        const lines = await invoke<string[]>(
+                          "get_headroom_logs",
+                          { maxLines: 80 },
+                        );
+                        setHeadroomLogLines(lines);
+                      } catch {
+                        setHeadroomLogLines(["Failed to load headroom logs."]);
+                      }
+                    }
                   }}
                   type="button"
                 >
-                  Uninstall Mac AI Switchboard
+                  {showHeadroomDetails
+                    ? "Hide headroom logs"
+                    : "Show headroom logs"}
                 </button>
-              </article>
-
-              <button
-                className="contact-link"
-                onClick={() => void invoke("open_external_link", { url: "mailto:support@extraheadroom.com" })}
-                type="button"
-              >
-                Contact us
-              </button>
-<button
-                className="quit-button"
-                onClick={() => void invoke("quit_headroom")}
-                type="button"
-              >
-                Quit Mac AI Switchboard
-              </button>
-            </section>
-          </div>
-
-          {showSavingsInfo && (
-            <div
-              className="modal-backdrop"
-              role="dialog"
-              aria-modal="true"
-              onClick={() => setShowSavingsInfo(false)}
-            >
-              <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-                <h3>How savings are calculated</h3>
-                <p>Headroom intercepts and prunes all inputs before sending them to Claude or Codex.</p>
-                <p>Savings = tokens removed &times; API token prices.</p>
-                <p>This is an optimistic estimate.</p>
-                <p>Without Headroom, when tokens are sent to Claude for the first time they would be stored in their cache. Once in the cache, whenever these same tokens are sent again Claude applies a 90% discount to their cost. In our testing, this can reduce the actual savings by at most 50%.</p>
-                <p>Even accounting for caching, you've likely saved at least <strong>{currency(dashboard.lifetimeEstimatedSavingsUsd * 0.5)}</strong>.</p>
-                <div className="modal-actions">
-                  <button
-                    className="button button--primary"
-                    onClick={() => setShowSavingsInfo(false)}
-                    type="button"
-                  >
-                    Got it
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {showUninstallDialog ? (
-            <div
-              className="modal-backdrop"
-              role="dialog"
-              aria-modal="true"
-              onClick={() => {
-                if (!uninstallBusy) {
-                  setShowUninstallDialog(false);
-                }
-              }}
-            >
-              <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-                <h3>{uninstallDisclosureTitle}</h3>
-                <p>This will:</p>
-                <ul className="api-key-guide">
-                  {uninstallDisclosureItems.map((item) => (
-                    <li key={item.id}>
-                      {item.text}
-                      {item.paths.length > 0 ? (
-                        <>
-                          {" "}
-                          {item.paths.map((path) => (
-                            <code key={path}>{path}</code>
-                          ))}
-                        </>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-                <p>{uninstallDisclosureFooter}</p>
-                {uninstallError ? (
-                  <p className="install-progress__error">{uninstallError}</p>
+                {showHeadroomDetails ? (
+                  <pre className="runtime-log" ref={headroomLogRef}>
+                    {headroomLogLines.length > 0
+                      ? headroomLogLines.join("\n")
+                      : "No log output yet."}
+                  </pre>
                 ) : null}
-                <div className="modal-actions">
+              </div>
+            </article>
+            <article className="soft-card panel-card release-readiness-card">
+              <div className="panel-card__header">
+                <div>
+                  <h3>Release readiness</h3>
+                  <p>
+                    {releaseReadinessItemCount()} checks before a signed DMG can
+                    be handed to testers.
+                  </p>
+                </div>
+                <button
+                  className="secondary-button secondary-button--small"
+                  onClick={() => void copyReleaseReadinessCommand()}
+                  type="button"
+                >
+                  <Copy size={14} weight="bold" />
+                  Copy report command
+                </button>
+              </div>
+              <div className="release-readiness-card__command">
+                <Terminal size={15} weight="duotone" />
+                <code>{releaseReadinessCommand}</code>
+              </div>
+              <div
+                className="release-readiness-card__gates"
+                aria-label="Shareable DMG gates"
+              >
+                {releaseShareableGates.map((gate) => (
+                  <div className="release-readiness-card__gate" key={gate.id}>
+                    <strong>{gate.label}</strong>
+                    <span>{gate.detail}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="release-readiness-card__grid">
+                {releaseReadinessGroups.map((group) => (
+                  <section
+                    className="release-readiness-card__group"
+                    key={group.id}
+                  >
+                    <h4>{group.title}</h4>
+                    <ul>
+                      {group.items.map((item) => (
+                        <li key={item.id}>
+                          <strong>{item.label}</strong>
+                          <span>{item.detail}</span>
+                          {item.command ? <code>{item.command}</code> : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+              {releaseReadinessCopyNotice ? (
+                <p className="connector-copy-notice">
+                  {releaseReadinessCopyNotice}
+                </p>
+              ) : null}
+            </article>
+            <article className="soft-card panel-card">
+              <div className="panel-card__header">
+                <div>
+                  <h3>Open on login</h3>
+                </div>
+                <div>
+                  <p>
+                    Automatically launch Headroom whenever you login or restart.
+                  </p>
+                </div>
+                <div className="connector-item__controls">
                   <button
-                    className="secondary-button"
-                    disabled={uninstallBusy}
-                    onClick={() => setShowUninstallDialog(false)}
+                    aria-checked={autostartEnabled === true}
+                    aria-label={`${autostartEnabled ? "Disable" : "Enable"} open on login`}
+                    className={`connector-switch${autostartEnabled ? " is-on" : ""}`}
+                    disabled={autostartBusy || autostartEnabled === null}
+                    onClick={() =>
+                      void handleAutostartToggle(!autostartEnabled)
+                    }
+                    role="switch"
                     type="button"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    className="primary-button"
-                    disabled={uninstallBusy}
-                    onClick={() => void handleUninstall()}
-                    type="button"
-                  >
-                    {uninstallBusy ? "Uninstalling…" : "Uninstall and quit"}
+                    <span className="connector-switch__thumb" />
                   </button>
                 </div>
               </div>
-            </div>
-          ) : null}
+            </article>
 
-          {pendingPlanChange ? (() => {
-            const isDowngrade = isTierDowngrade(
-              pendingPlanChange.fromTier,
-              pendingPlanChange.toTier
-            );
-            const action = isDowngrade ? "downgrade" : "upgrade";
-            const actionTitle = isDowngrade ? "Downgrade" : "Upgrade";
-            const currentPriceLabel = getPlanRenewalPriceLabel(
-              pendingPlanChange.fromTier,
-              pendingPlanChange.billingPeriod,
-              {
-                fromTier: pendingPlanChange.fromTier,
-                currentPaidCents: pricingStatus?.account?.subscriptionAmountCents
-              }
-            );
-            const newPriceLabel = getPlanRenewalPriceLabel(
-              pendingPlanChange.toTier,
-              pendingPlanChange.billingPeriod,
-              {
-                fromTier: pendingPlanChange.fromTier,
-                currentPaidCents: pricingStatus?.account?.subscriptionAmountCents
-              }
-            );
-            return (
-              <div
-                className="modal-backdrop"
-                role="dialog"
-                aria-modal="true"
-                onClick={cancelPlanChange}
+            <article className="soft-card panel-card rollback-center-card">
+              <div className="panel-card__header">
+                <div>
+                  <h3>Rollback Center</h3>
+                  <p>
+                    Managed local changes Mac AI Switchboard can disclose or
+                    undo.
+                  </p>
+                </div>
+              </div>
+              <div className="rollback-center-card__list">
+                {managedChangeRecords.map((record) => (
+                  <div className="rollback-center-card__item" key={record.id}>
+                    <div>
+                      <strong>{record.owner}</strong>
+                      <span>{record.rollback}</span>
+                      <span>Marker: {record.markerId}</span>
+                      <span>Backup: {record.backupPath ?? "not required"}</span>
+                      <span>{record.lastVerifiedLabel}</span>
+                    </div>
+                    <span className="rollback-center-card__kind">
+                      {record.kind.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="soft-card panel-card">
+              <div className="panel-card__header">
+                <div>
+                  <h3>Uninstall</h3>
+                </div>
+              </div>
+              <p>
+                Reverses Mac AI Switchboard changes: removes routing hooks,
+                managed runtime storage, app state, login item, known Keychain
+                entries, and managed config blocks. Mac AI Switchboard will quit
+                when done.
+              </p>
+              <button
+                className="secondary-button secondary-button--small"
+                onClick={() => {
+                  setUninstallError(null);
+                  setShowUninstallDialog(true);
+                }}
+                type="button"
               >
-                <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-                  <h3>Confirm your {action}</h3>
-                  <p>
-                    You'll {action} from your{" "}
-                    <strong>{currentPriceLabel}</strong>{" "}
-                    <strong>{upgradePlanIntentLabel(pendingPlanChange.fromTier)}</strong>{" "}
-                    plan to the{" "}
-                    <strong>{newPriceLabel}</strong>{" "}
-                    <strong>{upgradePlanIntentLabel(pendingPlanChange.toTier)}</strong>{" "}
-                    plan, billed{" "}
-                    {pendingPlanChange.billingPeriod === "annual" ? "annually" : "monthly"}.
-                  </p>
-                  <p>
-                    {isDowngrade
-                      ? "You'll receive a prorated credit toward your next billing cycle for the unused time on your current plan."
-                      : "You'll be charged a prorated amount today for the remaining time in your current billing period, with your existing discount applied."}
-                  </p>
-                  {pricingStatus?.account?.subscriptionRenewsAt ? (
+                Uninstall Mac AI Switchboard
+              </button>
+            </article>
+
+            <button
+              className="contact-link"
+              onClick={() =>
+                void invoke("open_external_link", {
+                  url: "mailto:support@extraheadroom.com",
+                })
+              }
+              type="button"
+            >
+              Contact us
+            </button>
+            <button
+              className="quit-button"
+              onClick={() => void invoke("quit_headroom")}
+              type="button"
+            >
+              Quit Mac AI Switchboard
+            </button>
+          </section>
+        </div>
+
+        {showSavingsInfo && (
+          <div
+            className="modal-backdrop"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => setShowSavingsInfo(false)}
+          >
+            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+              <h3>How savings are calculated</h3>
+              <p>
+                Headroom intercepts and prunes all inputs before sending them to
+                Claude or Codex.
+              </p>
+              <p>Savings = tokens removed &times; API token prices.</p>
+              <p>This is an optimistic estimate.</p>
+              <p>
+                Without Headroom, when tokens are sent to Claude for the first
+                time they would be stored in their cache. Once in the cache,
+                whenever these same tokens are sent again Claude applies a 90%
+                discount to their cost. In our testing, this can reduce the
+                actual savings by at most 50%.
+              </p>
+              <p>
+                Even accounting for caching, you've likely saved at least{" "}
+                <strong>
+                  {currency(dashboard.lifetimeEstimatedSavingsUsd * 0.5)}
+                </strong>
+                .
+              </p>
+              <div className="modal-actions">
+                <button
+                  className="button button--primary"
+                  onClick={() => setShowSavingsInfo(false)}
+                  type="button"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showUninstallDialog ? (
+          <div
+            className="modal-backdrop"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => {
+              if (!uninstallBusy) {
+                setShowUninstallDialog(false);
+              }
+            }}
+          >
+            <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+              <h3>{uninstallDisclosureTitle}</h3>
+              <p>This will:</p>
+              <ul className="api-key-guide">
+                {uninstallDisclosureItems.map((item) => (
+                  <li key={item.id}>
+                    {item.text}
+                    {item.paths.length > 0 ? (
+                      <>
+                        {" "}
+                        {item.paths.map((path) => (
+                          <code key={path}>{path}</code>
+                        ))}
+                      </>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              <p>{uninstallDisclosureFooter}</p>
+              {uninstallError ? (
+                <p className="install-progress__error">{uninstallError}</p>
+              ) : null}
+              <div className="modal-actions">
+                <button
+                  className="secondary-button"
+                  disabled={uninstallBusy}
+                  onClick={() => setShowUninstallDialog(false)}
+                  type="button"
+                >
+                  Cancel
+                </button>
+                <button
+                  className="primary-button"
+                  disabled={uninstallBusy}
+                  onClick={() => void handleUninstall()}
+                  type="button"
+                >
+                  {uninstallBusy ? "Uninstalling…" : "Uninstall and quit"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {pendingPlanChange
+          ? (() => {
+              const isDowngrade = isTierDowngrade(
+                pendingPlanChange.fromTier,
+                pendingPlanChange.toTier,
+              );
+              const action = isDowngrade ? "downgrade" : "upgrade";
+              const actionTitle = isDowngrade ? "Downgrade" : "Upgrade";
+              const currentPriceLabel = getPlanRenewalPriceLabel(
+                pendingPlanChange.fromTier,
+                pendingPlanChange.billingPeriod,
+                {
+                  fromTier: pendingPlanChange.fromTier,
+                  currentPaidCents:
+                    pricingStatus?.account?.subscriptionAmountCents,
+                },
+              );
+              const newPriceLabel = getPlanRenewalPriceLabel(
+                pendingPlanChange.toTier,
+                pendingPlanChange.billingPeriod,
+                {
+                  fromTier: pendingPlanChange.fromTier,
+                  currentPaidCents:
+                    pricingStatus?.account?.subscriptionAmountCents,
+                },
+              );
+              return (
+                <div
+                  className="modal-backdrop"
+                  role="dialog"
+                  aria-modal="true"
+                  onClick={cancelPlanChange}
+                >
+                  <div
+                    className="modal-card"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <h3>Confirm your {action}</h3>
                     <p>
-                      Your subscription will then renew on{" "}
+                      You'll {action} from your{" "}
+                      <strong>{currentPriceLabel}</strong>{" "}
                       <strong>
-                        {new Date(
-                          pricingStatus.account.subscriptionRenewsAt
-                        ).toLocaleDateString(undefined, {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric"
-                        })}
-                      </strong>
+                        {upgradePlanIntentLabel(pendingPlanChange.fromTier)}
+                      </strong>{" "}
+                      plan to the <strong>{newPriceLabel}</strong>{" "}
+                      <strong>
+                        {upgradePlanIntentLabel(pendingPlanChange.toTier)}
+                      </strong>{" "}
+                      plan, billed{" "}
+                      {pendingPlanChange.billingPeriod === "annual"
+                        ? "annually"
+                        : "monthly"}
                       .
                     </p>
-                  ) : null}
-                  {planChangeError ? (
-                    <p className="install-progress__error">{planChangeError}</p>
-                  ) : null}
-                  <div className="modal-actions">
-                    <button
-                      className="secondary-button"
-                      disabled={planChangeBusy}
-                      onClick={cancelPlanChange}
-                      type="button"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      className="primary-button"
-                      disabled={planChangeBusy}
-                      onClick={() => void confirmPlanChange()}
-                      type="button"
-                    >
-                      {planChangeBusy
-                        ? isDowngrade
-                          ? "Downgrading…"
-                          : "Upgrading…"
-                        : `Confirm ${action}`}
-                    </button>
+                    <p>
+                      {isDowngrade
+                        ? "You'll receive a prorated credit toward your next billing cycle for the unused time on your current plan."
+                        : "You'll be charged a prorated amount today for the remaining time in your current billing period, with your existing discount applied."}
+                    </p>
+                    {pricingStatus?.account?.subscriptionRenewsAt ? (
+                      <p>
+                        Your subscription will then renew on{" "}
+                        <strong>
+                          {new Date(
+                            pricingStatus.account.subscriptionRenewsAt,
+                          ).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </strong>
+                        .
+                      </p>
+                    ) : null}
+                    {planChangeError ? (
+                      <p className="install-progress__error">
+                        {planChangeError}
+                      </p>
+                    ) : null}
+                    <div className="modal-actions">
+                      <button
+                        className="secondary-button"
+                        disabled={planChangeBusy}
+                        onClick={cancelPlanChange}
+                        type="button"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="primary-button"
+                        disabled={planChangeBusy}
+                        onClick={() => void confirmPlanChange()}
+                        type="button"
+                      >
+                        {planChangeBusy
+                          ? isDowngrade
+                            ? "Downgrading…"
+                            : "Upgrading…"
+                          : `Confirm ${action}`}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })() : null}
+              );
+            })()
+          : null}
 
-          {showAppUpdateDialog && appUpdateAvailable ? (
-            <div className="modal-backdrop" role="dialog" aria-modal="true">
-              <div className="modal-card">
-                <h3>
-                  {appUpdateReadyToRestart
-                      ? `Restart to finish updating ${appUpdateAvailable.version}`
-                      : `Mac AI Switchboard ${appUpdateAvailable.version} is available`}
-                </h3>
-                <p>
-                  {appUpdateReadyToRestart
-                      ? "The new version has been installed. Restart Mac AI Switchboard when you are ready to switch over."
-                      : "Mac AI Switchboard found a new release in the background. Nothing will install until you confirm it here."}
-                </p>
-                <ul className="api-key-guide">
-                  <li>Current version: {appUpdateAvailable.currentVersion}</li>
-                  <li>New version: {appUpdateAvailable.version}</li>
-                  <li>
-                    Published: {formatDateTime(appUpdateAvailable.publishedAt ?? null)}
-                  </li>
-                </ul>
-                {appUpdateAvailable.notes && appUpdateAvailable.notes.trim() ? (
-                  <div className="release-notes">
-                    <h4>What&apos;s new</h4>
-                    <pre>{appUpdateAvailable.notes.trim()}</pre>
-                  </div>
-                ) : null}
-                <div className="modal-actions">
-                  <button
-                    className="secondary-button"
-                    disabled={appUpdateInstallBusy}
-                    onClick={() => setShowAppUpdateDialog(false)}
-                    type="button"
-                  >
-                    Later
-                  </button>
-                  <button
-                    className="primary-button"
-                    disabled={appUpdateInstallBusy}
-                    onClick={() =>
-                      appUpdateReadyToRestart
-                        ? restartIntoInstalledUpdate()
-                        : void installAvailableUpdate()
-                    }
-                    type="button"
-                  >
-                    {appUpdateInstallBusy
-                      ? "Installing…"
-                      : appUpdateReadyToRestart
-                        ? "Restart now"
-                        : `Install ${appUpdateAvailable.version}`}
-                  </button>
+        {showAppUpdateDialog && appUpdateAvailable ? (
+          <div className="modal-backdrop" role="dialog" aria-modal="true">
+            <div className="modal-card">
+              <h3>
+                {appUpdateReadyToRestart
+                  ? `Restart to finish updating ${appUpdateAvailable.version}`
+                  : `Mac AI Switchboard ${appUpdateAvailable.version} is available`}
+              </h3>
+              <p>
+                {appUpdateReadyToRestart
+                  ? "The new version has been installed. Restart Mac AI Switchboard when you are ready to switch over."
+                  : "Mac AI Switchboard found a new release in the background. Nothing will install until you confirm it here."}
+              </p>
+              <ul className="api-key-guide">
+                <li>Current version: {appUpdateAvailable.currentVersion}</li>
+                <li>New version: {appUpdateAvailable.version}</li>
+                <li>
+                  Published:{" "}
+                  {formatDateTime(appUpdateAvailable.publishedAt ?? null)}
+                </li>
+              </ul>
+              {appUpdateAvailable.notes && appUpdateAvailable.notes.trim() ? (
+                <div className="release-notes">
+                  <h4>What&apos;s new</h4>
+                  <pre>{appUpdateAvailable.notes.trim()}</pre>
                 </div>
+              ) : null}
+              <div className="modal-actions">
+                <button
+                  className="secondary-button"
+                  disabled={appUpdateInstallBusy}
+                  onClick={() => setShowAppUpdateDialog(false)}
+                  type="button"
+                >
+                  Later
+                </button>
+                <button
+                  className="primary-button"
+                  disabled={appUpdateInstallBusy}
+                  onClick={() =>
+                    appUpdateReadyToRestart
+                      ? restartIntoInstalledUpdate()
+                      : void installAvailableUpdate()
+                  }
+                  type="button"
+                >
+                  {appUpdateInstallBusy
+                    ? "Installing…"
+                    : appUpdateReadyToRestart
+                      ? "Restart now"
+                      : `Install ${appUpdateAvailable.version}`}
+                </button>
               </div>
             </div>
-          ) : null}
+          </div>
+        ) : null}
       </section>
     </main>
   );

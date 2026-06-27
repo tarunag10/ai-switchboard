@@ -27,12 +27,14 @@ describe("repoIntelligence", () => {
     expect(classifyRepoFile("docs/install.md", 100).role).toBe("docs");
     expect(classifyRepoFile("package-lock.json", 100).role).toBe("lockfile");
     expect(classifyRepoFile("dist/assets/app.js", 100).role).toBe("generated");
-  expect(classifyRepoFile("src/assets/logo.svg", 100).role).toBe("asset");
+    expect(classifyRepoFile("src/assets/logo.svg", 100).role).toBe("asset");
   });
 
   it("excludes secret-like paths from default context packs", () => {
     expect(isSecretLikeRepoPath(".env.local")).toBe(true);
-    expect(isSecretLikeRepoPath(".private_keys/AuthKey_ABC123XYZ.p8")).toBe(true);
+    expect(isSecretLikeRepoPath(".private_keys/AuthKey_ABC123XYZ.p8")).toBe(
+      true,
+    );
     expect(isSecretLikeRepoPath("config/service-account.pem")).toBe(true);
 
     const envFile = classifyRepoFile(".env.local", 100);
@@ -70,7 +72,9 @@ describe("repoIntelligence", () => {
     expect(summary.roleCounts.generated).toBe(1);
     expect(summary.packs).toHaveLength(3);
     expect(summary.packs[0].id).toBe("implementation");
-    expect(summary.packs[0].files.map((file) => file.path)).toContain("src/App.tsx");
+    expect(summary.packs[0].files.map((file) => file.path)).toContain(
+      "src/App.tsx",
+    );
     expect(summary.packs[0].savingsVsFullScanPct).toBeGreaterThan(50);
   });
 
@@ -80,51 +84,87 @@ describe("repoIntelligence", () => {
       { path: "src/main.tsx", bytes: 1400 },
       { path: "src/App.test.tsx", bytes: 2000 },
       { path: "src-tauri/src/lib.rs", bytes: 5000 },
-{ path: "scripts/release.mjs", bytes: 1200 },
-{ path: "package.json", bytes: 800 },
-{ path: "package-lock.json", bytes: 1600 },
-{ path: ".env.local", bytes: 200 },
+      { path: "scripts/release.mjs", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+      { path: "package-lock.json", bytes: 1600 },
+      { path: ".env.local", bytes: 200 },
     ]);
 
     expect(summary.graph?.topDirectories[0].label).toBe("src");
-    expect(summary.graph?.topLanguages.map((node) => node.label)).toContain("React");
-    expect(summary.graph?.entrypoints.map((file) => file.path)).toContain("src/main.tsx");
-    expect(summary.graph?.likelyTests.map((file) => file.path)).toContain("src/App.test.tsx");
-expect(summary.graph?.configHubs.map((file) => file.path)).toContain("package.json");
-expect(summary.graph?.configHubs.map((file) => file.path)).not.toContain(".env.local");
-expect(summary.graph?.dependencyHubs?.map((file) => file.path)).toEqual([
-"package.json",
-]);
-expect(summary.graph?.importEdges).toEqual(expect.arrayContaining([
-expect.objectContaining({ from: "src/App.test.tsx", to: "src/App.tsx", kind: "test_to_source" }),
-expect.objectContaining({ from: "src/main.tsx", to: "package.json", kind: "entrypoint_to_config" }),
-]));
-expect(summary.graph?.reverseDependencyHubs?.map((node) => node.label)).toContain("package.json");
-});
+    expect(summary.graph?.topLanguages.map((node) => node.label)).toContain(
+      "React",
+    );
+    expect(summary.graph?.entrypoints.map((file) => file.path)).toContain(
+      "src/main.tsx",
+    );
+    expect(summary.graph?.likelyTests.map((file) => file.path)).toContain(
+      "src/App.test.tsx",
+    );
+    expect(summary.graph?.configHubs.map((file) => file.path)).toContain(
+      "package.json",
+    );
+    expect(summary.graph?.configHubs.map((file) => file.path)).not.toContain(
+      ".env.local",
+    );
+    expect(summary.graph?.dependencyHubs?.map((file) => file.path)).toEqual([
+      "package.json",
+    ]);
+    expect(summary.graph?.importEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          from: "src/App.test.tsx",
+          to: "src/App.tsx",
+          kind: "test_to_source",
+        }),
+        expect.objectContaining({
+          from: "src/main.tsx",
+          to: "package.json",
+          kind: "entrypoint_to_config",
+        }),
+      ]),
+    );
+    expect(
+      summary.graph?.reverseDependencyHubs?.map((node) => node.label),
+    ).toContain("package.json");
+    expect(summary.graph?.symbols?.map((symbol) => symbol.name)).toContain(
+      "App",
+    );
+    expect(summary.graph?.symbolEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "symbol_reference",
+          to: "src/App.tsx#App",
+        }),
+      ]),
+    );
+  });
 
   it("formats bounded context packs for agent handoff", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },
       { path: "src/App.test.tsx", bytes: 2000 },
-{ path: "docs/install.md", bytes: 1200 },
-{ path: "package.json", bytes: 800 },
-{ path: "package-lock.json", bytes: 1600 },
-]);
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+      { path: "package-lock.json", bytes: 1600 },
+    ]);
     summary.repoRoot = "/Users/me/app";
     summary.indexedAt = "2026-06-25T10:00:00Z";
 
     const markdown = formatRepoContextPackMarkdown(summary);
 
-    expect(markdown).toContain("# Repo Intelligence Context Pack: /Users/me/app");
+    expect(markdown).toContain(
+      "# Repo Intelligence Context Pack: /Users/me/app",
+    );
     expect(markdown).toContain("Indexed at: 2026-06-25T10:00:00Z");
     expect(markdown).toContain("## Repo Graph Summary");
-expect(markdown).toContain("Top directories");
-expect(markdown).toContain("Likely tests");
-expect(markdown).toContain("Dependency hubs");
-expect(markdown).toContain("Import and dependency edges");
-expect(markdown).toContain("Reverse dependency hubs");
-expect(markdown).toContain("- package.json");
-expect(markdown).toContain("## Implementation Pack");
+    expect(markdown).toContain("Top directories");
+    expect(markdown).toContain("Likely tests");
+    expect(markdown).toContain("Dependency hubs");
+    expect(markdown).toContain("Import and dependency edges");
+    expect(markdown).toContain("Reverse dependency hubs");
+    expect(markdown).toContain("Symbols");
+    expect(markdown).toContain("- package.json");
+    expect(markdown).toContain("## Implementation Pack");
     expect(markdown).toContain("src/App.tsx");
     expect(markdown).toContain("Estimated savings vs full scan");
   });
@@ -139,63 +179,86 @@ expect(markdown).toContain("## Implementation Pack");
     summary.repoRoot = "/Users/me/app";
     summary.indexedAt = "2026-06-25T10:00:00Z";
 
-    const markdown = formatSingleRepoContextPackMarkdown(summary, summary.packs[0]);
+    const markdown = formatSingleRepoContextPackMarkdown(
+      summary,
+      summary.packs[0],
+    );
 
     expect(markdown).toContain("# Implementation Pack: /Users/me/app");
     expect(markdown).toContain("Indexed at: 2026-06-25T10:00:00Z");
     expect(markdown).toContain("Estimated tokens avoided");
     expect(markdown).toContain("## Repo Graph Summary");
     expect(markdown).toContain("## Files");
-  expect(markdown).toContain("src/App.tsx");
-  expect(markdown).not.toContain("## Verification Pack");
-});
+    expect(markdown).toContain("src/App.tsx");
+    expect(markdown).not.toContain("## Verification Pack");
+  });
 
   it("formats an agent-readable manifest for external coding tools", () => {
-  const summary = buildRepoIntelligenceSummary([
-    { path: "src/App.tsx", bytes: 4000 },
-    { path: "src/App.test.tsx", bytes: 2000 },
-{ path: "docs/install.md", bytes: 1200 },
-{ path: "package.json", bytes: 800 },
-{ path: "package-lock.json", bytes: 1600 },
-{ path: ".env.local", bytes: 300 },
-  ]);
-  summary.repoRoot = "/Users/me/app";
-  const manifest = buildRepoAgentManifest(summary, "2026-06-25T10:00:00Z");
-  expect(manifest.kind).toBe("mac_ai_switchboard.repo_intelligence_manifest");
-  expect(manifest.schemaVersion).toBe(1);
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+      { path: "package-lock.json", bytes: 1600 },
+      { path: ".env.local", bytes: 300 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+    const manifest = buildRepoAgentManifest(summary, "2026-06-25T10:00:00Z");
+    expect(manifest.kind).toBe("mac_ai_switchboard.repo_intelligence_manifest");
+    expect(manifest.schemaVersion).toBe(1);
     expect(manifest.generatedAt).toBe("2026-06-25T10:00:00Z");
     expect(manifest.totals.indexerVersion).toBe("path-graph-v2");
     expect(manifest.safety).toEqual({
-    readOnly: true,
-    excludesSecretLikePaths: true,
-    modifiesRepository: false,
-  });
-  expect(manifest.packs.map((pack) => pack.id)).toEqual([
-    "implementation",
-    "verification",
-    "handoff",
-  ]);
-  expect(manifest.packs[0].command).toContain("--pack implementation --format markdown");
-  expect(manifest.agentRecipes.map((recipe) => recipe.id)).toEqual([
-    "cli_implementation",
-    "cli_verification",
-    "editor_context",
-  ]);
-  expect(manifest.agentRecipes[0].tools).toContain("Claude Code");
-  expect(manifest.agentRecipes[1].tools).toContain("Codex");
-  expect(manifest.agentRecipes[0].tools).toContain("Gemini CLI");
-  expect(manifest.agentRecipes[0].tools).toContain("Aider");
-  expect(manifest.agentRecipes[2].tools).toContain("Cursor");
-  expect(manifest.agentRecipes[2].instruction).toContain("provider routing remains manual");
-  expect(manifest.agentRecipes[0].command).toContain("--pack implementation --format markdown");
-  expect(manifest.graph.available).toBe(true);
-expect(manifest.graph.dependencyHubCount).toBe(1);
-expect(manifest.graph.importEdgeCount).toBeGreaterThan(0);
-expect(manifest.graph.reverseDependencyHubCount).toBeGreaterThan(0);
-expect(manifest.graph.importEdges[0]).toEqual(expect.objectContaining({ from: expect.any(String), to: expect.any(String) }));
+      readOnly: true,
+      excludesSecretLikePaths: true,
+      modifiesRepository: false,
+    });
+    expect(manifest.packs.map((pack) => pack.id)).toEqual([
+      "implementation",
+      "verification",
+      "handoff",
+    ]);
+    expect(manifest.packs[0].command).toContain(
+      "--pack implementation --format markdown",
+    );
+    expect(manifest.agentRecipes.map((recipe) => recipe.id)).toEqual([
+      "cli_implementation",
+      "cli_verification",
+      "editor_context",
+    ]);
+    expect(manifest.agentRecipes[0].tools).toContain("Claude Code");
+    expect(manifest.agentRecipes[1].tools).toContain("Codex");
+    expect(manifest.agentRecipes[0].tools).toContain("Gemini CLI");
+    expect(manifest.agentRecipes[0].tools).toContain("Aider");
+    expect(manifest.agentRecipes[2].tools).toContain("Cursor");
+    expect(manifest.agentRecipes[2].instruction).toContain(
+      "provider routing remains manual",
+    );
+    expect(manifest.agentRecipes[0].command).toContain(
+      "--pack implementation --format markdown",
+    );
+    expect(manifest.graph.available).toBe(true);
+    expect(manifest.graph.dependencyHubCount).toBe(1);
+    expect(manifest.graph.symbolCount).toBeGreaterThan(0);
+    expect(manifest.graph.symbols[0]).toEqual(
+      expect.objectContaining({
+        name: expect.any(String),
+        file: expect.any(String),
+      }),
+    );
+    expect(manifest.graph.importEdgeCount).toBeGreaterThan(0);
+    expect(manifest.graph.reverseDependencyHubCount).toBeGreaterThan(0);
+    expect(manifest.graph.importEdges[0]).toEqual(
+      expect.objectContaining({
+        from: expect.any(String),
+        to: expect.any(String),
+      }),
+    );
 
-  const parsed = JSON.parse(formatRepoAgentManifestJson(summary, "2026-06-25T10:00:00Z"));
-  expect(parsed.packs[0].estimatedTokensAvoided).toBeGreaterThan(0);
+    const parsed = JSON.parse(
+      formatRepoAgentManifestJson(summary, "2026-06-25T10:00:00Z"),
+    );
+    expect(parsed.packs[0].estimatedTokensAvoided).toBeGreaterThan(0);
     expect(JSON.stringify(parsed)).not.toContain(".env.local");
   });
 
@@ -214,17 +277,26 @@ expect(manifest.graph.importEdges[0]).toEqual(expect.objectContaining({ from: ex
     expect(payload.kind).toBe("mac_ai_switchboard.repo_agent_handoff");
     expect(payload.schemaVersion).toBe(1);
     expect(payload.repoRoot).toBe("/Users/me/app");
-    expect(payload.agent).toEqual(expect.objectContaining({
-      id: "gemini",
-      label: "Gemini CLI",
-      toolKind: "cli",
-    }));
+    expect(payload.agent).toEqual(
+      expect.objectContaining({
+        id: "gemini",
+        label: "Gemini CLI",
+        toolKind: "cli",
+      }),
+    );
     expect(payload.pack.id).toBe("implementation");
     expect(payload.pack.estimatedTokensAvoided).toBeGreaterThan(0);
-    expect(payload.pack.files.map((file) => file.path)).toContain("src/App.tsx");
-    expect(payload.pack.files.map((file) => file.path)).not.toContain(".env.local");
+    expect(payload.pack.files.map((file) => file.path)).toContain(
+      "src/App.tsx",
+    );
+    expect(payload.pack.files.map((file) => file.path)).not.toContain(
+      ".env.local",
+    );
     expect(payload.graph.available).toBe(true);
-    expect(payload.graph.dependencyHubs.map((file) => file.path)).toContain("package.json");
+    expect(payload.graph.dependencyHubs.map((file) => file.path)).toContain(
+      "package.json",
+    );
+    expect(payload.graph.symbols.map((symbol) => symbol.name)).toContain("App");
     expect(payload.safety).toEqual({
       readOnly: true,
       excludesSecretLikePaths: true,
@@ -266,7 +338,7 @@ expect(manifest.graph.importEdges[0]).toEqual(expect.objectContaining({ from: ex
     expect(cursor).toContain("docs/install.md");
   });
 
-it("calculates best-pack and all-pack token savings", () => {
+  it("calculates best-pack and all-pack token savings", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },
       { path: "src/App.test.tsx", bytes: 2000 },
@@ -280,7 +352,9 @@ it("calculates best-pack and all-pack token savings", () => {
     expect(estimate.fullScanTokens).toBe(summary.estimatedFullScanTokens);
     expect(estimate.bestPack?.id).toBe("handoff");
     expect(estimate.bestPackTokensAvoided).toBeGreaterThan(0);
-    expect(estimate.bestPackSavingsPct).toBeGreaterThan(estimate.allPacksSavingsPct);
+    expect(estimate.bestPackSavingsPct).toBeGreaterThan(
+      estimate.allPacksSavingsPct,
+    );
     expect(estimate.allPacksTokensAvoided).toBeGreaterThanOrEqual(0);
   });
 

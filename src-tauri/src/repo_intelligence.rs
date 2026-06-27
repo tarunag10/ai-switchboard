@@ -7,7 +7,7 @@ use chrono::Utc;
 
 use crate::models::{
     RepoContextPack, RepoFileRole, RepoFileSignal, RepoGraphEdge, RepoGraphEdgeKind, RepoGraphNode,
-    RepoGraphSummary, RepoIntelligenceSummary,
+    RepoGraphSummary, RepoIntelligenceSummary, RepoSymbol, RepoSymbolKind,
 };
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs};
 
@@ -67,7 +67,7 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
             .or_insert(0) += 1;
     }
 
-    let graph = build_repo_graph_summary(&indexed);
+    let graph = build_repo_graph_summary(&repo_root, &indexed);
     let packs = vec![
         build_context_pack(
             "implementation",
@@ -319,7 +319,7 @@ fn build_context_pack(
     }
 }
 
-fn build_repo_graph_summary(files: &[RepoFileSignal]) -> RepoGraphSummary {
+fn build_repo_graph_summary(repo_root: &Path, files: &[RepoFileSignal]) -> RepoGraphSummary {
     let included = files
         .iter()
         .filter(|signal| signal.include_by_default)
@@ -331,6 +331,8 @@ fn build_repo_graph_summary(files: &[RepoFileSignal]) -> RepoGraphSummary {
         .cloned()
         .collect::<Vec<_>>();
     let import_edges = build_repo_graph_edges(&included);
+    let symbols = build_repo_symbols(repo_root, &included);
+    let symbol_edges = build_symbol_edges(&included, &symbols);
 
     RepoGraphSummary {
         top_directories: summarize_graph_nodes(&included, top_directory, 6),
@@ -368,8 +370,156 @@ fn build_repo_graph_summary(files: &[RepoFileSignal]) -> RepoGraphSummary {
             .cloned()
             .collect(),
         reverse_dependency_hubs: build_reverse_dependency_hubs(&included, &import_edges),
+        symbols,
+        symbol_edges,
         import_edges,
     }
+}
+
+fn build_repo_symbols(repo_root: &Path, files: &[RepoFileSignal]) -> Vec<RepoSymbol> {
+    let mut symbols = Vec::new();
+    for file in files.iter().filter(|file| {
+        matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
+            && matches!(
+                file.language.as_str(),
+                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python"
+            )
+    }) {
+        if symbols.len() >= 200 {
+            break;
+        }
+        let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
+            continue;
+        };
+        symbols.extend(extract_file_symbols(file, &content, 200 - symbols.len()));
+    }
+    symbols
+}
+
+fn extract_file_symbols(file: &RepoFileSignal, content: &str, remaining: usize) -> Vec<RepoSymbol> {
+    let mut symbols = Vec::new();
+    let mut parents: Vec<(usize, String)> = Vec::new();
+    for (index, line) in content.lines().enumerate() {
+        if symbols.len() >= remaining {
+            break;
+        }
+        let indent = line.chars().take_while(|ch| ch.is_whitespace()).count();
+        while parents
+            .last()
+            .is_some_and(|(parent_indent, _)| indent <= *parent_indent)
+        {
+            parents.pop();
+        }
+        let trimmed = line.trim_start();
+        let Some((kind, name)) = extract_symbol_from_line(&file.language, trimmed) else {
+            continue;
+        };
+        let parent = parents.last().map(|(_, parent)| parent.clone());
+        if matches!(
+            kind,
+            RepoSymbolKind::Class
+                | RepoSymbolKind::Struct
+                | RepoSymbolKind::Enum
+                | RepoSymbolKind::Trait
+        ) {
+            parents.push((indent, name.clone()));
+        }
+        symbols.push(RepoSymbol {
+            name,
+            kind,
+            file: file.path.clone(),
+            line: (index + 1) as u64,
+            parent,
+        });
+    }
+    symbols
+}
+
+fn extract_symbol_from_line(language: &str, line: &str) -> Option<(RepoSymbolKind, String)> {
+    let line = line
+        .trim_start_matches("pub ")
+        .trim_start_matches("async ")
+        .trim_start_matches("export ")
+        .trim_start_matches("default ");
+    if matches!(language, "TypeScript" | "JavaScript" | "React") {
+        if let Some(name) = symbol_name_after(line, "function ") {
+            return Some((RepoSymbolKind::Function, name));
+        }
+        if let Some(name) = symbol_name_after(line, "class ") {
+            return Some((RepoSymbolKind::Class, name));
+        }
+        if let Some(name) = symbol_name_after(line, "interface ") {
+            return Some((RepoSymbolKind::Trait, name));
+        }
+        if let Some(name) = symbol_name_after(line, "type ") {
+            return Some((RepoSymbolKind::Trait, name));
+        }
+        if let Some(name) = symbol_name_after(line, "const ") {
+            return Some((RepoSymbolKind::Const, name));
+        }
+    }
+    if language == "Rust" {
+        if let Some(name) = symbol_name_after(line, "fn ") {
+            return Some((RepoSymbolKind::Function, name));
+        }
+        if let Some(name) = symbol_name_after(line, "struct ") {
+            return Some((RepoSymbolKind::Struct, name));
+        }
+        if let Some(name) = symbol_name_after(line, "enum ") {
+            return Some((RepoSymbolKind::Enum, name));
+        }
+        if let Some(name) = symbol_name_after(line, "trait ") {
+            return Some((RepoSymbolKind::Trait, name));
+        }
+        if let Some(name) = symbol_name_after(line, "const ") {
+            return Some((RepoSymbolKind::Const, name));
+        }
+    }
+    if language == "Python" {
+        if let Some(name) = symbol_name_after(line, "def ") {
+            return Some((RepoSymbolKind::Function, name));
+        }
+        if let Some(name) = symbol_name_after(line, "class ") {
+            return Some((RepoSymbolKind::Class, name));
+        }
+    }
+    None
+}
+
+fn symbol_name_after(line: &str, prefix: &str) -> Option<String> {
+    let rest = line.strip_prefix(prefix)?;
+    let name = rest
+        .chars()
+        .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_' || *ch == '$')
+        .collect::<String>();
+    (!name.is_empty()).then_some(name)
+}
+
+fn build_symbol_edges(files: &[RepoFileSignal], symbols: &[RepoSymbol]) -> Vec<RepoGraphEdge> {
+    let mut edges = Vec::new();
+    for symbol in symbols.iter().take(80) {
+        for file in files.iter().filter(|file| file.path != symbol.file) {
+            if edges.len() >= 80 {
+                return edges;
+            }
+            if file
+                .path
+                .to_ascii_lowercase()
+                .contains(&symbol.name.to_ascii_lowercase())
+            {
+                push_graph_edge(
+                    &mut edges,
+                    RepoGraphEdge {
+                        from: file.path.clone(),
+                        to: format!("{}#{}", symbol.file, symbol.name),
+                        kind: RepoGraphEdgeKind::SymbolReference,
+                        reason: "file path references indexed symbol name".into(),
+                    },
+                );
+            }
+        }
+    }
+    edges
 }
 
 fn build_repo_graph_edges(files: &[RepoFileSignal]) -> Vec<RepoGraphEdge> {
@@ -791,7 +941,7 @@ mod tests {
             classify_file("package-lock.json", 1600),
             classify_file(".env.local", 200),
         ];
-        let graph = build_repo_graph_summary(&files);
+        let graph = build_repo_graph_summary(Path::new("."), &files);
 
         assert_eq!(graph.top_directories[0].label, "src");
         assert!(graph.top_languages.iter().any(|node| node.label == "React"));
@@ -833,6 +983,34 @@ mod tests {
             .reverse_dependency_hubs
             .iter()
             .any(|node| node.label == "package.json"));
+    }
+
+    #[test]
+    fn builds_symbol_graph_from_indexed_sources() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(
+            src.join("App.tsx"),
+            "export function App() { return null; }\nexport class ViewModel {}\n",
+        )
+        .expect("write tsx");
+        std::fs::write(
+            src.join("lib.rs"),
+            "pub struct RuntimeState {}\npub fn run_app() {}\n",
+        )
+        .expect("write rust");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        let graph = summary.graph.expect("graph");
+        assert!(graph
+            .symbols
+            .iter()
+            .any(|symbol| symbol.name == "App" && symbol.file == "src/App.tsx"));
+        assert!(graph
+            .symbols
+            .iter()
+            .any(|symbol| symbol.name == "RuntimeState" && symbol.file == "src/lib.rs"));
     }
 
     #[test]

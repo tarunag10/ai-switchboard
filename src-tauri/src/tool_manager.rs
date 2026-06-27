@@ -202,6 +202,11 @@ const PONYTAIL_MARKETPLACE: &str = "DietrichGebert/ponytail";
 const PONYTAIL_MARKETPLACE_NAME: &str = "ponytail";
 const PONYTAIL_PLUGIN_REF: &str = "ponytail@ponytail";
 const PONYTAIL_DISPLAY_VERSION: &str = "latest";
+const CAVEMAN_DISPLAY_VERSION: &str = "1";
+pub const CAVEMAN_LEVEL_SCOPED: &str = "scoped";
+pub const CAVEMAN_LEVEL_AGGRESSIVE: &str = "aggressive";
+const REPO_MEMORY_DISPLAY_VERSION: &str = "1";
+const REPO_MEMORY_MCP_NAME: &str = "repo-memory";
 const RTK_SHA256_MACOS_AARCH64: &str =
     "f223ca074a0215af002679bc1d34ca92b93e25b3e8ae16aace6e84c06e586802";
 const RTK_SHA256_MACOS_X86_64: &str =
@@ -468,6 +473,18 @@ impl ToolManager {
                 checksum: None,
                 required: false,
             },
+            ManagedToolManifest {
+                id: "caveman".into(),
+                name: "Caveman".into(),
+                description:
+                    "Managed guidance block that nudges the agent toward terse output. Writes a Switchboard-owned block into Claude Code and Codex instruction files."
+                        .into(),
+                runtime: "plugin".into(),
+                source_url: "https://github.com/mac-ai-switchboard/caveman".into(),
+                version: CAVEMAN_DISPLAY_VERSION.into(),
+                checksum: None,
+                required: false,
+            },
         ];
 
         Self {
@@ -498,6 +515,11 @@ impl ToolManager {
                     manifest.version.clone()
                 },
                 checksum: manifest.checksum.clone(),
+                metadata: if manifest.id == "caveman" {
+                    Some(json!({ "level": self.caveman_level() }))
+                } else {
+                    None
+                },
             })
             .collect()
     }
@@ -3489,6 +3511,109 @@ impl ToolManager {
         Ok(())
     }
 
+    pub fn caveman_receipt_exists(&self) -> bool {
+        self.runtime.tools_dir.join("caveman.json").exists()
+    }
+
+    /// Persisted guidance level for the managed nudge body. Defaults to scoped.
+    pub fn caveman_level(&self) -> String {
+        self.read_tool_receipt("caveman")
+            .and_then(|receipt| {
+                receipt
+                    .get("level")
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+            })
+            .unwrap_or_else(|| CAVEMAN_LEVEL_SCOPED.to_string())
+    }
+
+    /// Caveman has no external runtime: "install" just records the receipt.
+    /// The managed guidance blocks are written by `client_adapters` from lib.rs.
+    pub fn install_caveman(&self) -> Result<()> {
+        self.write_tool_receipt(
+            "caveman",
+            json!({
+                "version": CAVEMAN_DISPLAY_VERSION,
+                "enabled": true,
+                "level": CAVEMAN_LEVEL_SCOPED,
+            }),
+        )?;
+        Ok(())
+    }
+
+    pub fn set_caveman_enabled(&self, enabled: bool) -> Result<()> {
+        if !self.caveman_receipt_exists() {
+            bail!("caveman is not installed");
+        }
+        let level = self.caveman_level();
+        self.write_tool_receipt(
+            "caveman",
+            json!({
+                "version": CAVEMAN_DISPLAY_VERSION,
+                "enabled": enabled,
+                "level": level,
+            }),
+        )?;
+        Ok(())
+    }
+
+    pub fn set_caveman_level(&self, level: &str) -> Result<()> {
+        if !self.caveman_receipt_exists() {
+            bail!("caveman is not installed");
+        }
+        let normalized = if level == CAVEMAN_LEVEL_AGGRESSIVE {
+            CAVEMAN_LEVEL_AGGRESSIVE
+        } else {
+            CAVEMAN_LEVEL_SCOPED
+        };
+        let enabled = self.tool_enabled("caveman");
+        self.write_tool_receipt(
+            "caveman",
+            json!({
+                "version": CAVEMAN_DISPLAY_VERSION,
+                "enabled": enabled,
+                "level": normalized,
+            }),
+        )?;
+        Ok(())
+    }
+
+    pub fn uninstall_caveman(&self) -> Result<()> {
+        let receipt = self.runtime.tools_dir.join("caveman.json");
+        if receipt.exists() {
+            std::fs::remove_file(&receipt)
+                .with_context(|| format!("removing {}", receipt.display()))?;
+        }
+        Ok(())
+    }
+
+    pub fn install_repo_memory_mcp(&self) -> Result<()> {
+        let script = std::env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join("scripts")
+            .join("repo-intelligence.mjs");
+        write_mcp_server_to_claude_json(
+            REPO_MEMORY_MCP_NAME,
+            json!({
+                "command": "node",
+                "args": [script, "--mcp-serve"],
+                "env": { "MAC_AI_SWITCHBOARD_REPO_MEMORY_READ_ONLY": "1" },
+            }),
+        )?;
+        self.write_tool_receipt(
+            "repo-memory",
+            json!({
+                "version": REPO_MEMORY_DISPLAY_VERSION,
+                "mcp": {
+                    "configured": true,
+                    "serverName": REPO_MEMORY_MCP_NAME,
+                    "readOnly": true,
+                },
+            }),
+        )?;
+        Ok(())
+    }
+
     /// Remove the managed rtk binary and its receipt. Shell PATH and Claude Code
     /// hook teardown is handled separately by `client_adapters::set_rtk_enabled`.
     pub fn uninstall_rtk(&self) -> Result<()> {
@@ -3633,6 +3758,15 @@ impl ToolManager {
     }
 
     fn detect_status(&self, tool_id: &str) -> ToolStatus {
+        if tool_id == "caveman" {
+            // Pure receipt-backed guidance tool: presence of the receipt means
+            // installed. Managed-block drift is surfaced by Doctor, not here.
+            return if self.caveman_receipt_exists() {
+                ToolStatus::Healthy
+            } else {
+                ToolStatus::NotInstalled
+            };
+        }
         if tool_id == "ponytail" {
             let Some(receipt) = self.read_tool_receipt("ponytail") else {
                 return ToolStatus::NotInstalled;
@@ -3801,11 +3935,21 @@ fn claude_code_has_headroom_mcp_server() -> bool {
 /// Used when `claude mcp add` is unavailable (e.g. bare GUI PATH). Preserves
 /// all existing keys; only merges `mcpServers.headroom`.
 fn write_headroom_to_claude_json(entrypoint: &Path, proxy_url: &str) -> Result<()> {
+    write_mcp_server_to_claude_json(
+        "headroom",
+        json!({
+            "command": entrypoint,
+            "args": ["mcp", "serve"],
+            "env": { "HEADROOM_PROXY_URL": proxy_url },
+        }),
+    )
+}
+
+fn write_mcp_server_to_claude_json(name: &str, server: Value) -> Result<()> {
     let Some(home) = dirs::home_dir() else {
         anyhow::bail!("home directory not available");
     };
     let path = home.join(".claude.json");
-
     let mut config: Value = if path.exists() {
         std::fs::read(&path)
             .ok()
@@ -3814,24 +3958,14 @@ fn write_headroom_to_claude_json(entrypoint: &Path, proxy_url: &str) -> Result<(
     } else {
         json!({})
     };
-
     let root = config
         .as_object_mut()
-        .context("~/.claude.json root is not a JSON object")?;
-
+        .context("~/.claude.json root is not JSON object")?;
     root.entry("mcpServers")
         .or_insert_with(|| json!({}))
         .as_object_mut()
-        .context("~/.claude.json mcpServers is not a JSON object")?
-        .insert(
-            "headroom".into(),
-            json!({
-                "command": entrypoint,
-                "args": ["mcp", "serve"],
-                "env": { "HEADROOM_PROXY_URL": proxy_url },
-            }),
-        );
-
+        .context("~/.claude.json mcpServers is not JSON object")?
+        .insert(name.into(), server);
     std::fs::write(&path, serde_json::to_vec_pretty(&config)?)
         .with_context(|| format!("writing {}", path.display()))
 }
@@ -5460,6 +5594,7 @@ mod tests {
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     use chrono::Local;
+    use serde_json::{json, Value};
 
     use super::{
         bootstrap_requirements_lock_for_target, classify_kompress_prefetch_failure,
@@ -5471,8 +5606,8 @@ mod tests {
         receipt_requires_atomic_rebuild, reclaim_orphan_proxy, redact_sensitive,
         requirements_lock_sha, rtk_distribution_artifact, run_command, sanitize_log_variant,
         sha256_bytes, summarize_kompress_prefetch_failure, verify_sha256_file, wait_for_port_free,
-        CommandFailure, HeadroomRelease, ManagedRuntime, PipOutputCapture, ToolManager,
-        UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION, RTK_VERSION,
+        write_mcp_server_to_claude_json, CommandFailure, HeadroomRelease, ManagedRuntime,
+        PipOutputCapture, ToolManager, UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION, RTK_VERSION,
     };
     use crate::backend_port;
     use crate::port_conflict;
@@ -6628,6 +6763,86 @@ after
         .expect("receipt");
         let manager = ToolManager::new(runtime.clone());
         (root, runtime, manager)
+    }
+
+    struct TestHome {
+        root: PathBuf,
+        previous_home: Option<std::ffi::OsString>,
+    }
+
+    impl TestHome {
+        fn new(prefix: &str) -> Self {
+            let root = unique_temp_dir(prefix);
+            fs::create_dir_all(&root).expect("create home");
+            let previous_home = std::env::var_os("HOME");
+            std::env::set_var("HOME", &root);
+            Self {
+                root,
+                previous_home,
+            }
+        }
+    }
+
+    impl Drop for TestHome {
+        fn drop(&mut self) {
+            match self.previous_home.take() {
+                Some(home) => std::env::set_var("HOME", home),
+                None => std::env::remove_var("HOME"),
+            }
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn mcp_server_merge_preserves_existing_claude_json() {
+        let home = TestHome::new("repo-memory-mcp-home");
+        let claude_json = home.root.join(".claude.json");
+        fs::write(
+            &claude_json,
+            br#"{"theme":"dark","mcpServers":{"headroom":{"command":"headroom"}}}"#,
+        )
+        .expect("write claude json");
+
+        write_mcp_server_to_claude_json(
+            "repo-memory",
+            json!({"command":"node","args":["repo-intelligence.mjs","--mcp-serve"]}),
+        )
+        .expect("write repo memory mcp");
+
+        let value: Value =
+            serde_json::from_slice(&fs::read(&claude_json).expect("read claude json"))
+                .expect("parse claude json");
+        assert_eq!(value["theme"], "dark");
+        assert!(value["mcpServers"]["headroom"].is_object());
+        assert_eq!(value["mcpServers"]["repo-memory"]["command"], "node");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn install_repo_memory_mcp_writes_receipt_and_server() {
+        let home = TestHome::new("repo-memory-install-home");
+        let (root, runtime, manager) = seed_test_runtime("repo-memory-install");
+
+        manager
+            .install_repo_memory_mcp()
+            .expect("install repo memory mcp");
+
+        let receipt: Value = serde_json::from_slice(
+            &fs::read(runtime.tools_dir.join("repo-memory.json")).expect("read receipt"),
+        )
+        .expect("parse receipt");
+        assert_eq!(receipt["mcp"]["configured"], true);
+        assert_eq!(receipt["mcp"]["readOnly"], true);
+        let claude: Value =
+            serde_json::from_slice(&fs::read(home.root.join(".claude.json")).expect("read claude"))
+                .expect("parse claude");
+        assert_eq!(
+            claude["mcpServers"]["repo-memory"]["env"]["MAC_AI_SWITCHBOARD_REPO_MEMORY_READ_ONLY"],
+            "1"
+        );
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

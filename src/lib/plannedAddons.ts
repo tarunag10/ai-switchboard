@@ -105,31 +105,7 @@ export const plannedAddons: PlannedAddon[] = [
     savingsSources: [
       "Smaller implementation slices reduce repeated broad file reads.",
       "Fewer unrelated rewrites lower verification review context.",
-      "Repo Intelligence handoffs can pair with Ponytail to keep agent work bounded.",
-    ],
-    verificationCommand:
-      "npm run test:frontend -- src/lib/plannedAddons.test.ts --pool=threads",
-  },
-  {
-    id: "caveman_hardening",
-    name: "Caveman Hardening",
-    statusLabel: "Planned",
-    description:
-      "Optional terse-output behavior add-on for agents, tracked as a savings source only when reduced prose and handoff tokens can be labeled measured, estimated, or inferred.",
-    bullets: [
-      "Keep Caveman opt-in per workflow so terse mode never hides required legal, safety, or debugging detail.",
-      "Use it for command summaries, PR notes, and handoffs where short output is enough.",
-      "Pair with Ponytail and Repo Intelligence so agents read fewer files and write shorter explanations.",
-    ],
-    healthChecks: [
-      "Managed Caveman guidance exists only in Switchboard-owned config blocks.",
-      "Disable and Off mode remove Caveman guidance without touching user-authored instructions.",
-      "Savings rows must label terse-output reductions as measured, estimated, or inferred before claiming benefit.",
-    ],
-    savingsSources: [
-      "Shorter agent summaries reduce repeated chat context.",
-      "Terse command and PR handoffs lower copy-pasted token volume.",
-      "Inferred savings can compare verbose versus terse handoff templates before runtime measurement exists.",
+      "Savings calculator shows an inferred Ponytail row from a bounded-versus-unbounded change template delta while the add-on is enabled.",
     ],
     verificationCommand:
       "npm run test:frontend -- src/lib/plannedAddons.test.ts --pool=threads",
@@ -153,7 +129,7 @@ export const plannedAddons: PlannedAddon[] = [
     savingsSources: [
       "Markdown extracts avoid repeated binary document uploads.",
       "Prepared reference snippets pair with Repo Intelligence packs for smaller task context.",
-      "Document preprocessing savings remain separate from RTK shell-output and Headroom compression savings.",
+      "Savings calculator shows an inferred MarkItDown row from an extract-versus-full-document template delta, separate from RTK shell-output and Headroom compression savings.",
     ],
     verificationCommand: "npm run smoke:preflight",
   },

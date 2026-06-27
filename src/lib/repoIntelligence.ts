@@ -36,13 +36,25 @@ export interface RepoGraphNode {
 export type RepoGraphEdgeKind =
   | "test_to_source"
   | "entrypoint_to_config"
-  | "source_to_dependency_hub";
+  | "source_to_dependency_hub"
+  | "symbol_reference";
 
 export interface RepoGraphEdge {
   from: string;
   to: string;
   kind: RepoGraphEdgeKind;
   reason: string;
+}
+
+export type RepoSymbolKind =
+  "function" | "class" | "struct" | "enum" | "trait" | "const";
+
+export interface RepoSymbol {
+  name: string;
+  kind: RepoSymbolKind;
+  file: string;
+  line: number;
+  parent?: string | null;
 }
 
 export interface RepoGraphSummary {
@@ -54,6 +66,8 @@ export interface RepoGraphSummary {
   dependencyHubs?: RepoFileSignal[];
   importEdges?: RepoGraphEdge[];
   reverseDependencyHubs?: RepoGraphNode[];
+  symbols?: RepoSymbol[];
+  symbolEdges?: RepoGraphEdge[];
 }
 
 export interface RepoIntelligenceSummary {
@@ -100,8 +114,12 @@ export interface RepoAgentManifest {
     likelyTestCount: number;
     configHubCount: number;
     dependencyHubCount: number;
+    symbolCount: number;
+    symbolEdgeCount: number;
     importEdgeCount: number;
     reverseDependencyHubCount: number;
+    symbols: RepoSymbol[];
+    symbolEdges: RepoGraphEdge[];
     importEdges: RepoGraphEdge[];
     reverseDependencyHubs: RepoGraphNode[];
   };
@@ -158,6 +176,8 @@ export interface RepoAgentHandoffPayload {
   graph: {
     available: boolean;
     dependencyHubs: RepoFileSignal[];
+    symbols: RepoSymbol[];
+    symbolEdges: RepoGraphEdge[];
     importEdges: RepoGraphEdge[];
     reverseDependencyHubs: RepoGraphNode[];
   };
@@ -221,21 +241,24 @@ export const repoAgentHandoffProfiles: RepoAgentHandoffProfile[] = [
     label: "OpenCode",
     toolKind: "cli",
     defaultPackId: "implementation",
-    guidance: "Paste this into the session as bounded repo context before editing.",
+    guidance:
+      "Paste this into the session as bounded repo context before editing.",
   },
   {
     id: "aider",
     label: "Aider",
     toolKind: "cli",
     defaultPackId: "implementation",
-    guidance: "Use this to choose files intentionally before adding them to an Aider chat.",
+    guidance:
+      "Use this to choose files intentionally before adding them to an Aider chat.",
   },
   {
     id: "goose",
     label: "Goose",
     toolKind: "cli",
     defaultPackId: "verification",
-    guidance: "Use this for test, build, and release-check tasks with minimal context.",
+    guidance:
+      "Use this for test, build, and release-check tasks with minimal context.",
   },
   {
     id: "cursor",
@@ -249,21 +272,24 @@ export const repoAgentHandoffProfiles: RepoAgentHandoffProfile[] = [
     label: "Continue",
     toolKind: "editor",
     defaultPackId: "handoff",
-    guidance: "Paste into Continue chat as read-only context; do not auto-write config.",
+    guidance:
+      "Paste into Continue chat as read-only context; do not auto-write config.",
   },
   {
     id: "grok",
     label: "Grok / xAI CLI",
     toolKind: "chat",
     defaultPackId: "implementation",
-    guidance: "Use this as compact task context where local CLI integration remains manual.",
+    guidance:
+      "Use this as compact task context where local CLI integration remains manual.",
   },
   {
     id: "qwen",
     label: "Qwen Code",
     toolKind: "cli",
     defaultPackId: "implementation",
-    guidance: "Paste into Qwen Code as bounded repo context; keep provider and account routing manual.",
+    guidance:
+      "Paste into Qwen Code as bounded repo context; keep provider and account routing manual.",
   },
   {
     id: "amazonq",
@@ -286,7 +312,8 @@ export const repoAgentHandoffProfiles: RepoAgentHandoffProfile[] = [
     label: "Zed AI",
     toolKind: "editor",
     defaultPackId: "handoff",
-    guidance: "Paste into Zed assistant as read-only context while model/provider selection stays manual.",
+    guidance:
+      "Paste into Zed assistant as read-only context while model/provider selection stays manual.",
   },
 ];
 
@@ -294,7 +321,14 @@ const repoAgentRecipeTemplates = [
   {
     id: "cli_implementation",
     label: "CLI implementation handoff",
-tools: ["Claude Code", "Gemini CLI", "OpenCode", "Aider", "Goose", "Qwen Code"],
+    tools: [
+      "Claude Code",
+      "Gemini CLI",
+      "OpenCode",
+      "Aider",
+      "Goose",
+      "Qwen Code",
+    ],
     packIds: ["implementation"],
     instruction:
       "Copy the implementation pack into the CLI agent before asking for feature or bug-fix work.",
@@ -302,7 +336,14 @@ tools: ["Claude Code", "Gemini CLI", "OpenCode", "Aider", "Goose", "Qwen Code"],
   {
     id: "cli_verification",
     label: "CLI verification handoff",
-tools: ["Codex", "Gemini CLI", "OpenCode", "Aider", "Goose", "Amazon Q Developer CLI"],
+    tools: [
+      "Codex",
+      "Gemini CLI",
+      "OpenCode",
+      "Aider",
+      "Goose",
+      "Amazon Q Developer CLI",
+    ],
     packIds: ["verification"],
     instruction:
       "Copy the verification pack into the CLI agent before asking for test, build, or release checks.",
@@ -310,7 +351,7 @@ tools: ["Codex", "Gemini CLI", "OpenCode", "Aider", "Goose", "Amazon Q Developer
   {
     id: "editor_context",
     label: "Editor assistant context",
-tools: ["Cursor", "Continue", "Windsurf", "Zed AI"],
+    tools: ["Cursor", "Continue", "Windsurf", "Zed AI"],
     packIds: ["implementation", "handoff"],
     instruction:
       "Use these packs as read-only context in editor assistants while provider routing remains manual.",
@@ -377,7 +418,8 @@ export function estimateRepoTokens(bytes: number): number {
 
 export function isSecretLikeRepoPath(path: string): boolean {
   const normalized = path.replace(/\\/g, "/");
-  const name = normalized.split("/").pop()?.toLowerCase() ?? normalized.toLowerCase();
+  const name =
+    normalized.split("/").pop()?.toLowerCase() ?? normalized.toLowerCase();
   return (
     secretFileNames.has(name) ||
     name.startsWith(".env.") ||
@@ -400,10 +442,18 @@ export function classifyRepoFile(path: string, bytes = 0): RepoFileSignal {
   } else if (lockfileNames.has(name)) {
     role = "lockfile";
     reasons.push("package lockfile");
-  } else if (lower.includes(".test.") || lower.includes(".spec.") || lower.includes("/tests/")) {
+  } else if (
+    lower.includes(".test.") ||
+    lower.includes(".spec.") ||
+    lower.includes("/tests/")
+  ) {
     role = "test";
     reasons.push("test path");
-  } else if (lower.endsWith(".md") || lower.startsWith("docs/") || lower.includes("/docs/")) {
+  } else if (
+    lower.endsWith(".md") ||
+    lower.startsWith("docs/") ||
+    lower.includes("/docs/")
+  ) {
     role = "docs";
     reasons.push("documentation");
   } else if (
@@ -415,7 +465,11 @@ export function classifyRepoFile(path: string, bytes = 0): RepoFileSignal {
   ) {
     role = "config";
     reasons.push("configuration");
-  } else if ([".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp"].includes(extension)) {
+  } else if (
+    [".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp"].includes(
+      extension,
+    )
+  ) {
     role = "asset";
     reasons.push("static asset");
   } else if (languageByExtension[extension]) {
@@ -430,7 +484,10 @@ export function classifyRepoFile(path: string, bytes = 0): RepoFileSignal {
   }
   const includeByDefault =
     !secretLike &&
-    (role === "source" || role === "test" || role === "config" || role === "docs");
+    (role === "source" ||
+      role === "test" ||
+      role === "config" ||
+      role === "docs");
 
   return {
     path: normalized,
@@ -445,7 +502,9 @@ export function classifyRepoFile(path: string, bytes = 0): RepoFileSignal {
 export function buildRepoIntelligenceSummary(
   files: Array<{ path: string; bytes?: number }>,
 ): RepoIntelligenceSummary {
-  const signals = files.map((file) => classifyRepoFile(file.path, file.bytes ?? 0));
+  const signals = files.map((file) =>
+    classifyRepoFile(file.path, file.bytes ?? 0),
+  );
   const indexed = signals.filter((signal) => signal.includeByDefault);
   const estimatedFullScanTokens = signals.reduce(
     (sum, signal) => sum + signal.estimatedTokens,
@@ -474,21 +533,27 @@ export function buildRepoIntelligenceSummary(
       "implementation",
       "Implementation Pack",
       "Source files likely needed for feature work.",
-      indexed.filter((signal) => signal.role === "source" || signal.role === "config"),
+      indexed.filter(
+        (signal) => signal.role === "source" || signal.role === "config",
+      ),
       estimatedFullScanTokens,
     ),
     buildContextPack(
       "verification",
       "Verification Pack",
       "Tests, scripts, and config likely needed before committing.",
-      indexed.filter((signal) => signal.role === "test" || signal.role === "config"),
+      indexed.filter(
+        (signal) => signal.role === "test" || signal.role === "config",
+      ),
       estimatedFullScanTokens,
     ),
     buildContextPack(
       "handoff",
       "Handoff Pack",
       "Docs and project metadata useful for another agent or maintainer.",
-      indexed.filter((signal) => signal.role === "docs" || signal.role === "config"),
+      indexed.filter(
+        (signal) => signal.role === "docs" || signal.role === "config",
+      ),
       estimatedFullScanTokens,
     ),
   ];
@@ -504,11 +569,15 @@ export function buildRepoIntelligenceSummary(
   };
 }
 
-export function formatRepoContextPackMarkdown(summary: RepoIntelligenceSummary): string {
+export function formatRepoContextPackMarkdown(
+  summary: RepoIntelligenceSummary,
+): string {
   const title = summary.repoRoot
     ? `# Repo Intelligence Context Pack: ${summary.repoRoot}`
     : "# Repo Intelligence Context Pack";
-  const indexedAt = summary.indexedAt ? `\nIndexed at: ${summary.indexedAt}` : "";
+  const indexedAt = summary.indexedAt
+    ? `\nIndexed at: ${summary.indexedAt}`
+    : "";
   const overview = [
     title,
     indexedAt.trim(),
@@ -537,21 +606,28 @@ export function formatRepoContextPackMarkdown(summary: RepoIntelligenceSummary):
     ].join("\n");
   });
 
-  return [...overview, graphSection, ...packSections].filter(Boolean).join("\n\n").trim();
+  return [...overview, graphSection, ...packSections]
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
 }
 
 export function formatSingleRepoContextPackMarkdown(
-summary: RepoIntelligenceSummary,
-pack: RepoContextPack,
+  summary: RepoIntelligenceSummary,
+  pack: RepoContextPack,
 ): string {
   const title = summary.repoRoot
     ? `# ${pack.title}: ${summary.repoRoot}`
     : `# ${pack.title}`;
-  const indexedAt = summary.indexedAt ? `Indexed at: ${summary.indexedAt}` : null;
-  const files = pack.files.slice(0, 40).map(
-    (file) =>
-      `- ${file.path} (${file.role}, ${file.language}, ~${file.estimatedTokens.toLocaleString()} tokens)`,
-  );
+  const indexedAt = summary.indexedAt
+    ? `Indexed at: ${summary.indexedAt}`
+    : null;
+  const files = pack.files
+    .slice(0, 40)
+    .map(
+      (file) =>
+        `- ${file.path} (${file.role}, ${file.language}, ~${file.estimatedTokens.toLocaleString()} tokens)`,
+    );
 
   return [
     title,
@@ -570,7 +646,7 @@ pack: RepoContextPack,
   ]
     .filter((line) => line !== null)
     .join("\n")
-.trim();
+    .trim();
 }
 
 export function buildRepoAgentManifest(
@@ -599,8 +675,13 @@ export function buildRepoAgentManifest(
       likelyTestCount: summary.graph?.likelyTests.length ?? 0,
       configHubCount: summary.graph?.configHubs.length ?? 0,
       dependencyHubCount: summary.graph?.dependencyHubs?.length ?? 0,
+      symbolCount: summary.graph?.symbols?.length ?? 0,
+      symbolEdgeCount: summary.graph?.symbolEdges?.length ?? 0,
       importEdgeCount: summary.graph?.importEdges?.length ?? 0,
-      reverseDependencyHubCount: summary.graph?.reverseDependencyHubs?.length ?? 0,
+      reverseDependencyHubCount:
+        summary.graph?.reverseDependencyHubs?.length ?? 0,
+      symbols: summary.graph?.symbols ?? [],
+      symbolEdges: summary.graph?.symbolEdges ?? [],
       importEdges: summary.graph?.importEdges ?? [],
       reverseDependencyHubs: summary.graph?.reverseDependencyHubs ?? [],
     },
@@ -610,7 +691,10 @@ export function buildRepoAgentManifest(
       purpose: pack.purpose,
       fileCount: pack.files.length,
       estimatedTokens: pack.estimatedTokens,
-      estimatedTokensAvoided: Math.max(0, fullScanTokens - pack.estimatedTokens),
+      estimatedTokensAvoided: Math.max(
+        0,
+        fullScanTokens - pack.estimatedTokens,
+      ),
       savingsVsFullScanPct: pack.savingsVsFullScanPct,
       command: `npm run repo:intelligence -- ${JSON.stringify(repoRoot || ".")} --pack ${pack.id} --format markdown`,
     })),
@@ -640,13 +724,17 @@ export function buildRepoAgentHandoffPayload(
   target: RepoAgentHandoffTarget,
   packId?: string,
 ): RepoAgentHandoffPayload {
-  const profile = repoAgentHandoffProfiles.find((candidate) => candidate.id === target);
+  const profile = repoAgentHandoffProfiles.find(
+    (candidate) => candidate.id === target,
+  );
   if (!profile) {
     throw new Error(`Unknown agent handoff target: ${target}`);
   }
 
   const selectedPack =
-    summary.packs.find((pack) => pack.id === (packId ?? profile.defaultPackId)) ??
+    summary.packs.find(
+      (pack) => pack.id === (packId ?? profile.defaultPackId),
+    ) ??
     summary.packs.find((pack) => pack.id === profile.defaultPackId) ??
     summary.packs[0];
 
@@ -685,6 +773,8 @@ export function buildRepoAgentHandoffPayload(
     graph: {
       available: Boolean(summary.graph),
       dependencyHubs: summary.graph?.dependencyHubs ?? [],
+      symbols: summary.graph?.symbols ?? [],
+      symbolEdges: summary.graph?.symbolEdges ?? [],
       importEdges: summary.graph?.importEdges ?? [],
       reverseDependencyHubs: summary.graph?.reverseDependencyHubs ?? [],
     },
@@ -702,13 +792,17 @@ export function formatRepoAgentHandoffMarkdown(
   target: RepoAgentHandoffTarget,
   packId?: string,
 ): string {
-  const profile = repoAgentHandoffProfiles.find((candidate) => candidate.id === target);
+  const profile = repoAgentHandoffProfiles.find(
+    (candidate) => candidate.id === target,
+  );
   if (!profile) {
     throw new Error(`Unknown agent handoff target: ${target}`);
   }
 
   const selectedPack =
-    summary.packs.find((pack) => pack.id === (packId ?? profile.defaultPackId)) ??
+    summary.packs.find(
+      (pack) => pack.id === (packId ?? profile.defaultPackId),
+    ) ??
     summary.packs.find((pack) => pack.id === profile.defaultPackId) ??
     summary.packs[0];
 
@@ -717,7 +811,10 @@ export function formatRepoAgentHandoffMarkdown(
   }
 
   const repoLabel = summary.repoRoot ?? "current repository";
-  const packMarkdown = formatSingleRepoContextPackMarkdown(summary, selectedPack);
+  const packMarkdown = formatSingleRepoContextPackMarkdown(
+    summary,
+    selectedPack,
+  );
 
   return [
     `# ${profile.label} Handoff`,
@@ -784,7 +881,10 @@ function formatRepoGraphMarkdown(graph: RepoGraphSummary | undefined): string {
 
   const lines = ["## Repo Graph Summary"];
   const directories = graph.topDirectories
-    .map((node) => `- ${node.label}: ${node.count} files, ~${node.estimatedTokens.toLocaleString()} tokens`)
+    .map(
+      (node) =>
+        `- ${node.label}: ${node.count} files, ~${node.estimatedTokens.toLocaleString()} tokens`,
+    )
     .slice(0, 6);
   const languages = graph.topLanguages
     .map((node) => `- ${node.label}: ${node.count} files`)
@@ -792,17 +892,26 @@ function formatRepoGraphMarkdown(graph: RepoGraphSummary | undefined): string {
   const entrypoints = graph.entrypoints
     .map((file) => `- ${file.path} (${file.language})`)
     .slice(0, 8);
-  const tests = graph.likelyTests
-    .map((file) => `- ${file.path}`)
-    .slice(0, 8);
-  const config = graph.configHubs
-    .map((file) => `- ${file.path}`)
-    .slice(0, 8);
+  const tests = graph.likelyTests.map((file) => `- ${file.path}`).slice(0, 8);
+  const config = graph.configHubs.map((file) => `- ${file.path}`).slice(0, 8);
   const dependencies = (graph.dependencyHubs ?? [])
     .map((file) => `- ${file.path}`)
     .slice(0, 8);
   const importEdges = (graph.importEdges ?? [])
-    .map((edge) => `- ${edge.from} -> ${edge.to} (${edge.kind}: ${edge.reason})`)
+    .map(
+      (edge) => `- ${edge.from} -> ${edge.to} (${edge.kind}: ${edge.reason})`,
+    )
+    .slice(0, 8);
+  const symbols = (graph.symbols ?? [])
+    .map(
+      (symbol) =>
+        `- ${symbol.name} (${symbol.kind}) in ${symbol.file}:${symbol.line}`,
+    )
+    .slice(0, 12);
+  const symbolEdges = (graph.symbolEdges ?? [])
+    .map(
+      (edge) => `- ${edge.from} -> ${edge.to} (${edge.kind}: ${edge.reason})`,
+    )
     .slice(0, 8);
   const reverseDependencyHubs = (graph.reverseDependencyHubs ?? [])
     .map((node) => `- ${node.label}: ${node.count} inbound links`)
@@ -826,6 +935,12 @@ function formatRepoGraphMarkdown(graph: RepoGraphSummary | undefined): string {
   if (dependencies.length) {
     lines.push("", "Dependency hubs", ...dependencies);
   }
+  if (symbols.length) {
+    lines.push("", "Symbols", ...symbols);
+  }
+  if (symbolEdges.length) {
+    lines.push("", "Symbol edges", ...symbolEdges);
+  }
   if (importEdges.length) {
     lines.push("", "Import and dependency edges", ...importEdges);
   }
@@ -844,12 +959,22 @@ function buildContextPack(
   estimatedFullScanTokens: number,
 ): RepoContextPack {
   const sorted = [...files]
-    .sort((a, b) => a.estimatedTokens - b.estimatedTokens || a.path.localeCompare(b.path))
+    .sort(
+      (a, b) =>
+        a.estimatedTokens - b.estimatedTokens || a.path.localeCompare(b.path),
+    )
     .slice(0, 40);
-  const estimatedTokens = sorted.reduce((sum, signal) => sum + signal.estimatedTokens, 0);
+  const estimatedTokens = sorted.reduce(
+    (sum, signal) => sum + signal.estimatedTokens,
+    0,
+  );
   const savingsVsFullScanPct =
     estimatedFullScanTokens > 0
-      ? Math.max(0, Math.round((1 - estimatedTokens / estimatedFullScanTokens) * 1000) / 10)
+      ? Math.max(
+          0,
+          Math.round((1 - estimatedTokens / estimatedFullScanTokens) * 1000) /
+            10,
+        )
       : 0;
 
   return {
@@ -868,7 +993,8 @@ function buildRepoGraphSummary(files: RepoFileSignal[]): RepoGraphSummary {
     (file) => file.role === "source" || file.role === "config",
   );
   const importEdges = buildRepoGraphEdges(included);
-
+  const symbols = buildRepoSymbols(included);
+  const symbolEdges = buildSymbolEdges(included, symbols);
   return {
     topDirectories: summarizeGraphNodes(
       included,
@@ -886,7 +1012,69 @@ function buildRepoGraphSummary(files: RepoFileSignal[]): RepoGraphSummary {
     dependencyHubs: files.filter(isDependencyHub).slice(0, 12),
     importEdges,
     reverseDependencyHubs: buildReverseDependencyHubs(included, importEdges),
+    symbols,
+    symbolEdges,
   };
+}
+
+function buildRepoSymbols(files: RepoFileSignal[]): RepoSymbol[] {
+  const symbols: RepoSymbol[] = [];
+  for (const file of files) {
+    if (symbols.length >= 200) break;
+    if (file.role !== "source" && file.role !== "test") continue;
+    if (
+      !["TypeScript", "JavaScript", "React", "Rust", "Python"].includes(
+        file.language,
+      )
+    )
+      continue;
+    const name =
+      file.path
+        .split("/")
+        .pop()
+        ?.replace(/\.[^.]+$/, "") ?? file.path;
+    symbols.push({
+      name,
+      kind: file.language === "Rust" ? "struct" : "function",
+      file: file.path,
+      line: 1,
+      parent: null,
+    });
+  }
+  return symbols;
+}
+
+function buildSymbolEdges(
+  files: RepoFileSignal[],
+  symbols: RepoSymbol[],
+): RepoGraphEdge[] {
+  const edges: RepoGraphEdge[] = [];
+  for (const symbol of symbols.slice(0, 80)) {
+    for (const file of files) {
+      if (edges.length >= 80) return edges;
+      if (file.path === symbol.file) continue;
+      const to = `${symbol.file}#${symbol.name}`;
+      if (!file.path.toLowerCase().includes(symbol.name.toLowerCase()))
+        continue;
+      if (
+        edges.some(
+          (edge) =>
+            edge.from === file.path &&
+            edge.to === to &&
+            edge.kind === "symbol_reference",
+        )
+      ) {
+        continue;
+      }
+      edges.push({
+        from: file.path,
+        to,
+        kind: "symbol_reference",
+        reason: "file path references indexed symbol name",
+      });
+    }
+  }
+  return edges;
 }
 
 function buildRepoGraphEdges(files: RepoFileSignal[]): RepoGraphEdge[] {
@@ -983,7 +1171,6 @@ function buildReverseDependencyHubs(
     .slice(0, 12);
 }
 
-
 function findTestTarget(
   testFile: RepoFileSignal,
   byPath: Map<string, RepoFileSignal>,
@@ -999,22 +1186,34 @@ function testTargetCandidates(path: string): string[] {
   if (base === withoutExtension) {
     return [];
   }
-  const extensions = [extension, ".tsx", ".ts", ".jsx", ".js", ".rs"].filter(Boolean);
-  return [...new Set(extensions.map((candidateExtension) => `${base}${candidateExtension}`))];
+  const extensions = [extension, ".tsx", ".ts", ".jsx", ".js", ".rs"].filter(
+    Boolean,
+  );
+  return [
+    ...new Set(
+      extensions.map((candidateExtension) => `${base}${candidateExtension}`),
+    ),
+  ];
 }
 
 function findNearestConfigHub(
   file: RepoFileSignal,
   configHubs: RepoFileSignal[],
 ): RepoFileSignal | undefined {
-  return nearestScopedFile(file, configHubs) ?? configHubs.find((candidate) => !candidate.path.includes("/"));
+  return (
+    nearestScopedFile(file, configHubs) ??
+    configHubs.find((candidate) => !candidate.path.includes("/"))
+  );
 }
 
 function findNearestDependencyHub(
   file: RepoFileSignal,
   dependencyHubs: RepoFileSignal[],
 ): RepoFileSignal | undefined {
-  return nearestScopedFile(file, dependencyHubs) ?? dependencyHubs.find((candidate) => !candidate.path.includes("/"));
+  return (
+    nearestScopedFile(file, dependencyHubs) ??
+    dependencyHubs.find((candidate) => !candidate.path.includes("/"))
+  );
 }
 
 function nearestScopedFile(
@@ -1031,7 +1230,8 @@ function nearestScopedFile(
     .sort(
       (a, b) =>
         b.score - a.score ||
-        a.candidate.path.split("/").length - b.candidate.path.split("/").length ||
+        a.candidate.path.split("/").length -
+          b.candidate.path.split("/").length ||
         a.candidate.path.localeCompare(b.candidate.path),
     );
   return scoped[0]?.candidate;
@@ -1055,7 +1255,6 @@ function extensionForPath(filePath: string): string {
   const dot = name.lastIndexOf(".");
   return dot >= 0 ? name.slice(dot) : "";
 }
-
 
 function summarizeGraphNodes(
   files: RepoFileSignal[],
@@ -1102,7 +1301,8 @@ function topDirectory(filePath: string): string {
 }
 
 function isDependencyHub(file: RepoFileSignal): boolean {
-  const name = file.path.split("/").pop()?.toLowerCase() ?? file.path.toLowerCase();
+  const name =
+    file.path.split("/").pop()?.toLowerCase() ?? file.path.toLowerCase();
   return (
     file.role === "lockfile" ||
     name === "package.json" ||

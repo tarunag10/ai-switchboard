@@ -683,6 +683,17 @@ async fn install_addon(state: State<'_, AppState>, id: String) -> Result<Dashboa
                 .map_err(|err| err.to_string())?;
             Ok(state.dashboard())
         }
+        "caveman" => {
+            state
+                .tool_manager
+                .install_caveman()
+                .map_err(|err| err.to_string())?;
+            client_adapters::enable_caveman_integration(&state.tool_manager.caveman_level())
+                .map_err(|err| {
+                    format!("caveman installed but enabling guidance failed: {err:#}")
+                })?;
+            Ok(state.dashboard())
+        }
         other => Err(format!("unknown addon: {other}")),
     }
 }
@@ -719,6 +730,19 @@ async fn set_addon_enabled(
                 .tool_manager
                 .set_ponytail_enabled(enabled)
                 .map_err(|err| err.to_string())?;
+            Ok(state.dashboard())
+        }
+        "caveman" => {
+            state
+                .tool_manager
+                .set_caveman_enabled(enabled)
+                .map_err(|err| err.to_string())?;
+            if enabled {
+                client_adapters::enable_caveman_integration(&state.tool_manager.caveman_level())
+                    .map_err(|err| err.to_string())?;
+            } else {
+                client_adapters::disable_caveman_integration().map_err(|err| err.to_string())?;
+            }
             Ok(state.dashboard())
         }
         other => Err(format!("unknown addon: {other}")),
@@ -758,8 +782,48 @@ async fn uninstall_addon(state: State<'_, AppState>, id: String) -> Result<Dashb
                 .map_err(|err| err.to_string())?;
             Ok(state.dashboard())
         }
+        "caveman" => {
+            let _ = client_adapters::disable_caveman_integration();
+            state
+                .tool_manager
+                .uninstall_caveman()
+                .map_err(|err| err.to_string())?;
+            Ok(state.dashboard())
+        }
         other => Err(format!("unknown addon: {other}")),
     }
+}
+
+#[tauri::command]
+async fn set_caveman_level(
+    state: State<'_, AppState>,
+    level: String,
+) -> Result<DashboardState, String> {
+    state
+        .tool_manager
+        .set_caveman_level(&level)
+        .map_err(|err| err.to_string())?;
+    // Rewrite the managed blocks with the new level body when enabled.
+    if state.tool_manager.caveman_receipt_exists()
+        && state
+            .tool_manager
+            .list_tools()
+            .iter()
+            .any(|tool| tool.id == "caveman" && tool.enabled)
+    {
+        client_adapters::enable_caveman_integration(&state.tool_manager.caveman_level())
+            .map_err(|err| err.to_string())?;
+    }
+    Ok(state.dashboard())
+}
+
+#[tauri::command]
+fn install_repo_memory_mcp(state: State<'_, AppState>) -> Result<DashboardState, String> {
+    state
+        .tool_manager
+        .install_repo_memory_mcp()
+        .map_err(|err| err.to_string())?;
+    Ok(state.dashboard())
 }
 
 #[tauri::command]
@@ -4136,6 +4200,8 @@ pub fn run() {
             install_addon,
             set_addon_enabled,
             uninstall_addon,
+            set_caveman_level,
+            install_repo_memory_mcp,
             bootstrap_runtime,
             start_bootstrap,
             get_bootstrap_progress,

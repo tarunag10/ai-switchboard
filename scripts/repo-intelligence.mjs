@@ -61,7 +61,14 @@ const repoAgentRecipeTemplates = [
   {
     id: "cli_implementation",
     label: "CLI implementation handoff",
-tools: ["Claude Code", "Gemini CLI", "OpenCode", "Aider", "Goose", "Qwen Code"],
+    tools: [
+      "Claude Code",
+      "Gemini CLI",
+      "OpenCode",
+      "Aider",
+      "Goose",
+      "Qwen Code",
+    ],
     packIds: ["implementation"],
     instruction:
       "Copy the implementation pack into the CLI agent before asking for feature or bug-fix work.",
@@ -69,7 +76,14 @@ tools: ["Claude Code", "Gemini CLI", "OpenCode", "Aider", "Goose", "Qwen Code"],
   {
     id: "cli_verification",
     label: "CLI verification handoff",
-tools: ["Codex", "Gemini CLI", "OpenCode", "Aider", "Goose", "Amazon Q Developer CLI"],
+    tools: [
+      "Codex",
+      "Gemini CLI",
+      "OpenCode",
+      "Aider",
+      "Goose",
+      "Amazon Q Developer CLI",
+    ],
     packIds: ["verification"],
     instruction:
       "Copy the verification pack into the CLI agent before asking for test, build, or release checks.",
@@ -77,7 +91,7 @@ tools: ["Codex", "Gemini CLI", "OpenCode", "Aider", "Goose", "Amazon Q Developer
   {
     id: "editor_context",
     label: "Editor assistant context",
-tools: ["Cursor", "Continue", "Windsurf", "Zed AI"],
+    tools: ["Cursor", "Continue", "Windsurf", "Zed AI"],
     packIds: ["implementation", "handoff"],
     instruction:
       "Use these packs as read-only context in editor assistants while provider routing remains manual.",
@@ -113,21 +127,24 @@ const agentHandoffProfiles = [
     label: "OpenCode",
     toolKind: "cli",
     defaultPackId: "implementation",
-    guidance: "Paste this into the session as bounded repo context before editing.",
+    guidance:
+      "Paste this into the session as bounded repo context before editing.",
   },
   {
     id: "aider",
     label: "Aider",
     toolKind: "cli",
     defaultPackId: "implementation",
-    guidance: "Use this to choose files intentionally before adding them to an Aider chat.",
+    guidance:
+      "Use this to choose files intentionally before adding them to an Aider chat.",
   },
   {
     id: "goose",
     label: "Goose",
     toolKind: "cli",
     defaultPackId: "verification",
-    guidance: "Use this for test, build, and release-check tasks with minimal context.",
+    guidance:
+      "Use this for test, build, and release-check tasks with minimal context.",
   },
   {
     id: "cursor",
@@ -141,21 +158,24 @@ const agentHandoffProfiles = [
     label: "Continue",
     toolKind: "editor",
     defaultPackId: "handoff",
-    guidance: "Paste into Continue chat as read-only context; do not auto-write config.",
+    guidance:
+      "Paste into Continue chat as read-only context; do not auto-write config.",
   },
-{
+  {
     id: "grok",
     label: "Grok / xAI CLI",
     toolKind: "chat",
     defaultPackId: "implementation",
-    guidance: "Use this as compact task context where local CLI integration remains manual.",
+    guidance:
+      "Use this as compact task context where local CLI integration remains manual.",
   },
   {
     id: "qwen",
     label: "Qwen Code",
     toolKind: "cli",
     defaultPackId: "implementation",
-    guidance: "Paste into Qwen Code as bounded repo context; keep provider and account routing manual.",
+    guidance:
+      "Paste into Qwen Code as bounded repo context; keep provider and account routing manual.",
   },
   {
     id: "amazonq",
@@ -178,7 +198,8 @@ const agentHandoffProfiles = [
     label: "Zed AI",
     toolKind: "editor",
     defaultPackId: "handoff",
-    guidance: "Paste into Zed assistant as read-only context while model/provider selection stays manual.",
+    guidance:
+      "Paste into Zed assistant as read-only context while model/provider selection stays manual.",
   },
 ];
 
@@ -192,6 +213,7 @@ function parseArgs(argv) {
     listPacks: false,
     listAgents: false,
     manifest: false,
+    mcpServe: false,
   };
   const positional = [];
 
@@ -220,6 +242,8 @@ function parseArgs(argv) {
       options.listAgents = true;
     } else if (arg === "--manifest") {
       options.manifest = true;
+    } else if (arg === "--mcp-serve") {
+      options.mcpServe = true;
     } else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -263,7 +287,10 @@ function walk(repoRoot, dir = repoRoot, files = []) {
     if (entry.isDirectory()) {
       walk(repoRoot, absolute, files);
     } else if (entry.isFile()) {
-      const relative = path.relative(repoRoot, absolute).split(path.sep).join("/");
+      const relative = path
+        .relative(repoRoot, absolute)
+        .split(path.sep)
+        .join("/");
       const stat = fs.statSync(absolute);
       files.push({ path: relative, bytes: stat.size });
     }
@@ -277,7 +304,8 @@ function estimateTokens(bytes) {
 
 function isSecretLikePath(filePath) {
   const normalized = filePath.replace(/\\/g, "/");
-  const name = normalized.split("/").pop()?.toLowerCase() ?? normalized.toLowerCase();
+  const name =
+    normalized.split("/").pop()?.toLowerCase() ?? normalized.toLowerCase();
   return (
     secretFileNames.has(name) ||
     name.startsWith(".env.") ||
@@ -292,29 +320,54 @@ function classify(filePath, bytes) {
   let role = "unknown";
 
   if (lockfileNames.has(name)) role = "lockfile";
-  else if (lower.includes(".test.") || lower.includes(".spec.") || lower.includes("/tests/")) role = "test";
+  else if (
+    lower.includes(".test.") ||
+    lower.includes(".spec.") ||
+    lower.includes("/tests/")
+  )
+    role = "test";
   else if (lower.startsWith("docs/") || extension === ".md") role = "docs";
-  else if ([".json", ".toml", ".yaml", ".yml", ".sh"].includes(extension)) role = "config";
-  else if ([".ts", ".tsx", ".js", ".jsx", ".rs", ".css", ".html"].includes(extension)) role = "source";
-  else if ([".svg", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp"].includes(extension)) role = "asset";
+  else if ([".json", ".toml", ".yaml", ".yml", ".sh"].includes(extension))
+    role = "config";
+  else if (
+    [".ts", ".tsx", ".js", ".jsx", ".rs", ".css", ".html"].includes(extension)
+  )
+    role = "source";
+  else if (
+    [".svg", ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp"].includes(
+      extension,
+    )
+  )
+    role = "asset";
 
   return {
     path: filePath,
     role,
     language: languageByExtension[extension] ?? "Unknown",
     estimatedTokens: estimateTokens(bytes),
-    includeByDefault: role !== "asset" && role !== "lockfile" && !isSecretLikePath(filePath),
+    includeByDefault:
+      role !== "asset" && role !== "lockfile" && !isSecretLikePath(filePath),
   };
 }
 
 function pack(id, title, purpose, files, estimatedFullScanTokens) {
   const sorted = [...files]
-    .sort((a, b) => a.estimatedTokens - b.estimatedTokens || a.path.localeCompare(b.path))
+    .sort(
+      (a, b) =>
+        a.estimatedTokens - b.estimatedTokens || a.path.localeCompare(b.path),
+    )
     .slice(0, 40);
-  const estimatedTokens = sorted.reduce((sum, file) => sum + file.estimatedTokens, 0);
+  const estimatedTokens = sorted.reduce(
+    (sum, file) => sum + file.estimatedTokens,
+    0,
+  );
   const savingsVsFullScanPct =
     estimatedFullScanTokens > 0
-      ? Math.max(0, Math.round((1 - estimatedTokens / estimatedFullScanTokens) * 1000) / 10)
+      ? Math.max(
+          0,
+          Math.round((1 - estimatedTokens / estimatedFullScanTokens) * 1000) /
+            10,
+        )
       : 0;
 
   return {
@@ -327,14 +380,20 @@ function pack(id, title, purpose, files, estimatedFullScanTokens) {
   };
 }
 
-function buildGraphSummary(files) {
+function buildGraphSummary(repoRoot, files) {
   const included = files.filter((file) => file.includeByDefault);
   const sourceAndConfig = included.filter(
     (file) => file.role === "source" || file.role === "config",
   );
   const importEdges = buildGraphEdges(included);
+  const symbols = buildRepoSymbols(repoRoot, included);
+  const symbolEdges = buildSymbolEdges(included, symbols);
   return {
-    topDirectories: summarizeGraphNodes(included, (file) => topDirectory(file.path), 6),
+    topDirectories: summarizeGraphNodes(
+      included,
+      (file) => topDirectory(file.path),
+      6,
+    ),
     topLanguages: summarizeGraphNodes(
       included.filter((file) => file.language !== "Unknown"),
       (file) => file.language,
@@ -346,7 +405,111 @@ function buildGraphSummary(files) {
     dependencyHubs: files.filter(isDependencyHub).slice(0, 12),
     importEdges,
     reverseDependencyHubs: buildReverseDependencyHubs(included, importEdges),
+    symbols,
+    symbolEdges,
   };
+}
+
+function buildRepoSymbols(repoRoot, files) {
+  const symbols = [];
+  for (const file of files) {
+    if (symbols.length >= 200) break;
+    if (file.role !== "source" && file.role !== "test") continue;
+    if (
+      !["TypeScript", "JavaScript", "React", "Rust", "Python"].includes(
+        file.language,
+      )
+    )
+      continue;
+    let content = "";
+    try {
+      content = fs.readFileSync(path.join(repoRoot, file.path), "utf8");
+    } catch {
+      continue;
+    }
+    symbols.push(...extractFileSymbols(file, content, 200 - symbols.length));
+  }
+  return symbols;
+}
+
+function extractFileSymbols(file, content, remaining) {
+  const symbols = [];
+  const parents = [];
+  for (const [index, rawLine] of content.split(/\r?\n/).entries()) {
+    if (symbols.length >= remaining) break;
+    const indent = rawLine.match(/^\s*/)?.[0].length ?? 0;
+    while (parents.length && indent <= parents.at(-1).indent) parents.pop();
+    const parsed = extractSymbolFromLine(file.language, rawLine.trimStart());
+    if (!parsed) continue;
+    const parent = parents.at(-1)?.name ?? null;
+    if (["class", "struct", "enum", "trait"].includes(parsed.kind)) {
+      parents.push({ indent, name: parsed.name });
+    }
+    symbols.push({ ...parsed, file: file.path, line: index + 1, parent });
+  }
+  return symbols;
+}
+
+function extractSymbolFromLine(language, rawLine) {
+  const line = rawLine
+    .replace(/^(pub|async|export|default)\s+/, "")
+    .replace(/^(pub|async|export|default)\s+/, "");
+  const pick = (prefix, kind) => {
+    if (!line.startsWith(prefix)) return null;
+    const match = line.slice(prefix.length).match(/^[A-Za-z_$][A-Za-z0-9_$]*/);
+    return match ? { name: match[0], kind } : null;
+  };
+  if (["TypeScript", "JavaScript", "React"].includes(language)) {
+    return (
+      pick("function ", "function") ??
+      pick("class ", "class") ??
+      pick("interface ", "trait") ??
+      pick("type ", "trait") ??
+      pick("const ", "const")
+    );
+  }
+  if (language === "Rust") {
+    return (
+      pick("fn ", "function") ??
+      pick("struct ", "struct") ??
+      pick("enum ", "enum") ??
+      pick("trait ", "trait") ??
+      pick("const ", "const")
+    );
+  }
+  if (language === "Python") {
+    return pick("def ", "function") ?? pick("class ", "class");
+  }
+  return null;
+}
+
+function buildSymbolEdges(files, symbols) {
+  const edges = [];
+  for (const symbol of symbols.slice(0, 80)) {
+    for (const file of files) {
+      if (edges.length >= 80) return edges;
+      if (file.path === symbol.file) continue;
+      const to = `${symbol.file}#${symbol.name}`;
+      if (!file.path.toLowerCase().includes(symbol.name.toLowerCase()))
+        continue;
+      if (
+        edges.some(
+          (edge) =>
+            edge.from === file.path &&
+            edge.to === to &&
+            edge.kind === "symbol_reference",
+        )
+      )
+        continue;
+      edges.push({
+        from: file.path,
+        to,
+        kind: "symbol_reference",
+        reason: "file path references indexed symbol name",
+      });
+    }
+  }
+  return edges;
 }
 
 function buildGraphEdges(files) {
@@ -356,21 +519,47 @@ function buildGraphEdges(files) {
   const edges = [];
   const pushEdge = (edge) => {
     if (edge.from === edge.to || edges.length >= 24) return;
-    if (edges.some((existing) => existing.from === edge.from && existing.to === edge.to && existing.kind === edge.kind)) return;
+    if (
+      edges.some(
+        (existing) =>
+          existing.from === edge.from &&
+          existing.to === edge.to &&
+          existing.kind === edge.kind,
+      )
+    )
+      return;
     edges.push(edge);
   };
   for (const file of files) {
     if (file.role === "test") {
       const target = findTestTarget(file, byPath);
-      if (target) pushEdge({ from: file.path, to: target.path, kind: "test_to_source", reason: "test filename matches source module" });
+      if (target)
+        pushEdge({
+          from: file.path,
+          to: target.path,
+          kind: "test_to_source",
+          reason: "test filename matches source module",
+        });
     }
     if (isLikelyEntrypoint(file)) {
       const config = findNearestConfigHub(file, configHubs);
-      if (config) pushEdge({ from: file.path, to: config.path, kind: "entrypoint_to_config", reason: "entrypoint shares closest config surface" });
+      if (config)
+        pushEdge({
+          from: file.path,
+          to: config.path,
+          kind: "entrypoint_to_config",
+          reason: "entrypoint shares closest config surface",
+        });
     }
     if (file.role === "source") {
       const dependencyHub = findNearestDependencyHub(file, dependencyHubs);
-      if (dependencyHub) pushEdge({ from: file.path, to: dependencyHub.path, kind: "source_to_dependency_hub", reason: "source file belongs to dependency hub scope" });
+      if (dependencyHub)
+        pushEdge({
+          from: file.path,
+          to: dependencyHub.path,
+          kind: "source_to_dependency_hub",
+          reason: "source file belongs to dependency hub scope",
+        });
     }
   }
   return edges;
@@ -381,43 +570,78 @@ function buildReverseDependencyHubs(files, edges) {
   const inbound = new Map();
   for (const edge of edges) {
     const target = byPath.get(edge.to);
-    const node = inbound.get(edge.to) ?? { label: edge.to, count: 0, estimatedTokens: target?.estimatedTokens ?? 0, examples: [] };
+    const node = inbound.get(edge.to) ?? {
+      label: edge.to,
+      count: 0,
+      estimatedTokens: target?.estimatedTokens ?? 0,
+      examples: [],
+    };
     node.count += 1;
     if (node.examples.length < 4) node.examples.push(edge.from);
     inbound.set(edge.to, node);
   }
   return [...inbound.values()]
-    .sort((a, b) => b.count - a.count || b.estimatedTokens - a.estimatedTokens || a.label.localeCompare(b.label))
+    .sort(
+      (a, b) =>
+        b.count - a.count ||
+        b.estimatedTokens - a.estimatedTokens ||
+        a.label.localeCompare(b.label),
+    )
     .slice(0, 12);
 }
 
 function findTestTarget(testFile, byPath) {
-  return testTargetCandidates(testFile.path).map((candidate) => byPath.get(candidate)).find(Boolean);
+  return testTargetCandidates(testFile.path)
+    .map((candidate) => byPath.get(candidate))
+    .find(Boolean);
 }
 
 function testTargetCandidates(filePath) {
   const extension = extensionForPath(filePath);
-  const withoutExtension = extension ? filePath.slice(0, -extension.length) : filePath;
+  const withoutExtension = extension
+    ? filePath.slice(0, -extension.length)
+    : filePath;
   const base = withoutExtension.replace(/\.(test|spec)$/i, "");
   if (base === withoutExtension) return [];
-  const extensions = [extension, ".tsx", ".ts", ".jsx", ".js", ".rs"].filter(Boolean);
-  return [...new Set(extensions.map((candidateExtension) => `${base}${candidateExtension}`))];
+  const extensions = [extension, ".tsx", ".ts", ".jsx", ".js", ".rs"].filter(
+    Boolean,
+  );
+  return [
+    ...new Set(
+      extensions.map((candidateExtension) => `${base}${candidateExtension}`),
+    ),
+  ];
 }
 
 function findNearestConfigHub(file, configHubs) {
-  return nearestScopedFile(file, configHubs) ?? configHubs.find((candidate) => !candidate.path.includes("/"));
+  return (
+    nearestScopedFile(file, configHubs) ??
+    configHubs.find((candidate) => !candidate.path.includes("/"))
+  );
 }
 
 function findNearestDependencyHub(file, dependencyHubs) {
-  return nearestScopedFile(file, dependencyHubs) ?? dependencyHubs.find((candidate) => !candidate.path.includes("/"));
+  return (
+    nearestScopedFile(file, dependencyHubs) ??
+    dependencyHubs.find((candidate) => !candidate.path.includes("/"))
+  );
 }
 
 function nearestScopedFile(file, candidates) {
   return candidates
     .filter((candidate) => candidate.path !== file.path)
-    .map((candidate) => ({ candidate, score: sharedPathPrefixScore(file.path, candidate.path) }))
+    .map((candidate) => ({
+      candidate,
+      score: sharedPathPrefixScore(file.path, candidate.path),
+    }))
     .filter((item) => item.score > 0)
-    .sort((a, b) => b.score - a.score || a.candidate.path.split("/").length - b.candidate.path.split("/").length || a.candidate.path.localeCompare(b.candidate.path))[0]?.candidate;
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        a.candidate.path.split("/").length -
+          b.candidate.path.split("/").length ||
+        a.candidate.path.localeCompare(b.candidate.path),
+    )[0]?.candidate;
 }
 
 function sharedPathPrefixScore(left, right) {
@@ -434,7 +658,6 @@ function extensionForPath(filePath) {
   const dot = name.lastIndexOf(".");
   return dot >= 0 ? name.slice(dot) : "";
 }
-
 
 function summarizeGraphNodes(files, labelForFile, limit) {
   const nodes = new Map();
@@ -467,7 +690,8 @@ function topDirectory(filePath) {
 }
 
 function isDependencyHub(file) {
-  const name = file.path.split("/").pop()?.toLowerCase() ?? file.path.toLowerCase();
+  const name =
+    file.path.split("/").pop()?.toLowerCase() ?? file.path.toLowerCase();
   return (
     file.role === "lockfile" ||
     name === "package.json" ||
@@ -479,7 +703,6 @@ function isDependencyHub(file) {
     name === "podfile"
   );
 }
-
 
 function isLikelyEntrypoint(file) {
   const normalized = file.path.toLowerCase();
@@ -505,23 +728,58 @@ function formatGraphMarkdown(graph) {
   if (!graph) return "";
   const lines = ["## Repo Graph Summary"];
   const directories = graph.topDirectories.map(
-    (node) => "- " + node.label + ": " + node.count + " files, ~" + node.estimatedTokens.toLocaleString() + " tokens",
+    (node) =>
+      "- " +
+      node.label +
+      ": " +
+      node.count +
+      " files, ~" +
+      node.estimatedTokens.toLocaleString() +
+      " tokens",
   );
-  const languages = graph.topLanguages.map((node) => "- " + node.label + ": " + node.count + " files");
-  const entrypoints = graph.entrypoints.map((file) => "- " + file.path + " (" + file.language + ")");
+  const languages = graph.topLanguages.map(
+    (node) => "- " + node.label + ": " + node.count + " files",
+  );
+  const entrypoints = graph.entrypoints.map(
+    (file) => "- " + file.path + " (" + file.language + ")",
+  );
   const tests = graph.likelyTests.map((file) => "- " + file.path);
   const config = graph.configHubs.map((file) => "- " + file.path);
-  const dependencies = (graph.dependencyHubs ?? []).map((file) => "- " + file.path);
-  const importEdges = (graph.importEdges ?? []).map((edge) => "- " + edge.from + " -> " + edge.to + " (" + edge.kind + ": " + edge.reason + ")");
-  const reverseDependencyHubs = (graph.reverseDependencyHubs ?? []).map((node) => "- " + node.label + ": " + node.count + " inbound links");
+  const dependencies = (graph.dependencyHubs ?? []).map(
+    (file) => "- " + file.path,
+  );
+  const importEdges = (graph.importEdges ?? []).map(
+    (edge) =>
+      "- " +
+      edge.from +
+      " -> " +
+      edge.to +
+      " (" +
+      edge.kind +
+      ": " +
+      edge.reason +
+      ")",
+  );
+  const reverseDependencyHubs = (graph.reverseDependencyHubs ?? []).map(
+    (node) => "- " + node.label + ": " + node.count + " inbound links",
+  );
   if (directories.length) lines.push("", "Top directories", ...directories);
   if (languages.length) lines.push("", "Top languages", ...languages);
   if (entrypoints.length) lines.push("", "Likely entrypoints", ...entrypoints);
   if (tests.length) lines.push("", "Likely tests", ...tests);
   if (config.length) lines.push("", "Config hubs", ...config);
   if (dependencies.length) lines.push("", "Dependency hubs", ...dependencies);
-  if (importEdges.length) lines.push("", "Import and dependency edges", ...importEdges.slice(0, 8));
-  if (reverseDependencyHubs.length) lines.push("", "Reverse dependency hubs", ...reverseDependencyHubs.slice(0, 8));
+  if (symbols.length) lines.push("", "Symbols", ...symbols.slice(0, 12));
+  if (symbolEdges.length)
+    lines.push("", "Symbol edges", ...symbolEdges.slice(0, 8));
+  if (importEdges.length)
+    lines.push("", "Import and dependency edges", ...importEdges.slice(0, 8));
+  if (reverseDependencyHubs.length)
+    lines.push(
+      "",
+      "Reverse dependency hubs",
+      ...reverseDependencyHubs.slice(0, 8),
+    );
   return lines.join("\n");
 }
 
@@ -529,7 +787,10 @@ function buildSummary(repoRoot) {
   const files = walk(repoRoot);
   const signals = files.map((file) => classify(file.path, file.bytes));
   const indexable = signals.filter((file) => file.includeByDefault);
-  const estimatedFullScanTokens = signals.reduce((sum, file) => sum + file.estimatedTokens, 0);
+  const estimatedFullScanTokens = signals.reduce(
+    (sum, file) => sum + file.estimatedTokens,
+    0,
+  );
   const roleCounts = signals.reduce((counts, file) => {
     counts[file.role] = (counts[file.role] ?? 0) + 1;
     return counts;
@@ -542,27 +803,33 @@ function buildSummary(repoRoot) {
     indexedFiles: indexable.length,
     estimatedFullScanTokens,
     roleCounts,
-    graph: buildGraphSummary(indexable),
+    graph: buildGraphSummary(repoRoot, indexable),
     packs: [
       pack(
         "implementation",
         "Implementation Pack",
         "Source files likely needed feature work.",
-        indexable.filter((file) => file.role === "source" || file.role === "config"),
+        indexable.filter(
+          (file) => file.role === "source" || file.role === "config",
+        ),
         estimatedFullScanTokens,
       ),
       pack(
         "verification",
         "Verification Pack",
         "Tests, scripts, config likely needed before committing.",
-        indexable.filter((file) => file.role === "test" || file.role === "config"),
+        indexable.filter(
+          (file) => file.role === "test" || file.role === "config",
+        ),
         estimatedFullScanTokens,
       ),
       pack(
         "handoff",
         "Handoff Pack",
         "Docs project metadata useful for another agent or maintainer.",
-        indexable.filter((file) => file.role === "docs" || file.role === "config"),
+        indexable.filter(
+          (file) => file.role === "docs" || file.role === "config",
+        ),
         estimatedFullScanTokens,
       ),
     ],
@@ -592,7 +859,9 @@ function formatSinglePackMarkdown(summary, selectedPack) {
 }
 
 function formatAgentHandoffMarkdown(summary, agentId, requestedPackId) {
-  const profile = agentHandoffProfiles.find((candidate) => candidate.id === agentId);
+  const profile = agentHandoffProfiles.find(
+    (candidate) => candidate.id === agentId,
+  );
   if (!profile) {
     throw new Error(
       `Unknown agent: ${agentId}. Available agents: ${agentHandoffProfiles
@@ -603,9 +872,12 @@ function formatAgentHandoffMarkdown(summary, agentId, requestedPackId) {
 
   const selectedPack =
     summary.packs.find(
-      (contextPack) => contextPack.id === (requestedPackId ?? profile.defaultPackId),
+      (contextPack) =>
+        contextPack.id === (requestedPackId ?? profile.defaultPackId),
     ) ??
-    summary.packs.find((contextPack) => contextPack.id === profile.defaultPackId) ??
+    summary.packs.find(
+      (contextPack) => contextPack.id === profile.defaultPackId,
+    ) ??
     summary.packs[0];
 
   if (!selectedPack) {
@@ -634,7 +906,9 @@ function formatAgentHandoffMarkdown(summary, agentId, requestedPackId) {
 }
 
 function buildAgentHandoffPayload(summary, agentId, requestedPackId) {
-  const profile = agentHandoffProfiles.find((candidate) => candidate.id === agentId);
+  const profile = agentHandoffProfiles.find(
+    (candidate) => candidate.id === agentId,
+  );
   if (!profile) {
     throw new Error(
       `Unknown agent: ${agentId}. Available agents: ${agentHandoffProfiles
@@ -645,9 +919,12 @@ function buildAgentHandoffPayload(summary, agentId, requestedPackId) {
 
   const selectedPack =
     summary.packs.find(
-      (contextPack) => contextPack.id === (requestedPackId ?? profile.defaultPackId),
+      (contextPack) =>
+        contextPack.id === (requestedPackId ?? profile.defaultPackId),
     ) ??
-    summary.packs.find((contextPack) => contextPack.id === profile.defaultPackId) ??
+    summary.packs.find(
+      (contextPack) => contextPack.id === profile.defaultPackId,
+    ) ??
     summary.packs[0];
 
   if (!selectedPack) {
@@ -685,6 +962,8 @@ function buildAgentHandoffPayload(summary, agentId, requestedPackId) {
     graph: {
       available: Boolean(summary.graph),
       dependencyHubs: summary.graph?.dependencyHubs ?? [],
+      symbols: summary.graph?.symbols ?? [],
+      symbolEdges: summary.graph?.symbolEdges ?? [],
       importEdges: summary.graph?.importEdges ?? [],
       reverseDependencyHubs: summary.graph?.reverseDependencyHubs ?? [],
     },
@@ -719,11 +998,15 @@ function buildAgentManifest(summary) {
       likelyTestCount: summary.graph?.likelyTests.length ?? 0,
       configHubCount: summary.graph?.configHubs.length ?? 0,
       dependencyHubCount: summary.graph?.dependencyHubs?.length ?? 0,
+      symbolCount: summary.graph?.symbols?.length ?? 0,
+      symbolEdgeCount: summary.graph?.symbolEdges?.length ?? 0,
       importEdgeCount: summary.graph?.importEdges?.length ?? 0,
-      reverseDependencyHubCount: summary.graph?.reverseDependencyHubs?.length ?? 0,
+      reverseDependencyHubCount:
+        summary.graph?.reverseDependencyHubs?.length ?? 0,
       importEdges: summary.graph?.importEdges ?? [],
       reverseDependencyHubs: summary.graph?.reverseDependencyHubs ?? [],
-    },    packs: summary.packs.map((contextPack) => ({
+    },
+    packs: summary.packs.map((contextPack) => ({
       id: contextPack.id,
       title: contextPack.title,
       purpose: contextPack.purpose,
@@ -748,75 +1031,202 @@ function buildAgentManifest(summary) {
   };
 }
 
+function mcpTextResult(value) {
+  return {
+    content: [
+      {
+        type: "text",
+        text:
+          typeof value === "string" ? value : JSON.stringify(value, null, 2),
+      },
+    ],
+  };
+}
+
+function handleRepoMemoryTool(summary, name, args = {}) {
+  if (name === "repo_context_pack") {
+    const pack =
+      summary.packs.find(
+        (candidate) => candidate.id === (args.packId ?? "implementation"),
+      ) ?? summary.packs[0];
+    return mcpTextResult(formatSinglePackMarkdown(summary, pack));
+  }
+  if (name === "repo_symbol_lookup") {
+    const query = String(args.query ?? "").toLowerCase();
+    const symbols = (summary.graph?.symbols ?? [])
+      .filter((symbol) => !query || symbol.name.toLowerCase().includes(query))
+      .slice(0, 25);
+    return mcpTextResult({ repoRoot: summary.repoRoot, symbols });
+  }
+  if (name === "repo_dependents_of") {
+    const target = String(args.target ?? "");
+    const edges = [
+      ...(summary.graph?.importEdges ?? []),
+      ...(summary.graph?.symbolEdges ?? []),
+    ]
+      .filter(
+        (edge) =>
+          !target || edge.to.includes(target) || edge.from.includes(target),
+      )
+      .slice(0, 50);
+    return mcpTextResult({ repoRoot: summary.repoRoot, target, edges });
+  }
+  throw new Error(`Unknown repo-memory tool: ${name}`);
+}
+
+function runRepoMemoryMcpServer(options) {
+  const summary = buildSummary(options.repoRoot);
+  const tools = [
+    {
+      name: "repo_context_pack",
+      description:
+        "Return a read-only Repo Intelligence context pack as Markdown.",
+      inputSchema: {
+        type: "object",
+        properties: { packId: { type: "string" } },
+      },
+    },
+    {
+      name: "repo_symbol_lookup",
+      description: "Search the latest Repo Intelligence symbol graph.",
+      inputSchema: {
+        type: "object",
+        properties: { query: { type: "string" } },
+      },
+    },
+    {
+      name: "repo_dependents_of",
+      description:
+        "Return read-only import/symbol edges that point at a file or symbol.",
+      inputSchema: {
+        type: "object",
+        properties: { target: { type: "string" } },
+      },
+    },
+  ];
+  process.stdin.setEncoding("utf8");
+  let buffer = "";
+  process.stdin.on("data", (chunk) => {
+    buffer += chunk;
+    for (;;) {
+      const index = buffer.indexOf("\n");
+      if (index === -1) break;
+      const line = buffer.slice(0, index).trim();
+      buffer = buffer.slice(index + 1);
+      if (!line) continue;
+      let request;
+      try {
+        request = JSON.parse(line);
+        let result = {};
+        if (request.method === "initialize")
+          result = {
+            protocolVersion: "2024-11-05",
+            capabilities: { tools: {} },
+            serverInfo: { name: "repo-memory", version: "1" },
+          };
+        else if (request.method === "tools/list") result = { tools };
+        else if (request.method === "tools/call")
+          result = handleRepoMemoryTool(
+            summary,
+            request.params?.name,
+            request.params?.arguments ?? {},
+          );
+        else if (request.method === "ping") result = {};
+        else if (request.id == null) continue;
+        else throw new Error(`Unsupported method: ${request.method}`);
+        if (request.id != null)
+          process.stdout.write(
+            `${JSON.stringify({ jsonrpc: "2.0", id: request.id, result })}\n`,
+          );
+      } catch (error) {
+        process.stdout.write(
+          `${JSON.stringify({ jsonrpc: "2.0", id: request?.id ?? null, error: { code: -32000, message: error.message } })}\n`,
+        );
+      }
+    }
+  });
+}
+
 const options = parseArgs(process.argv.slice(2));
+options.mcpServe = options.mcpServe || process.argv.includes("--mcp-serve");
 
-if (!fs.existsSync(options.repoRoot) || !fs.statSync(options.repoRoot).isDirectory()) {
-  console.error(`Repository path does not exist or is not a directory: ${options.repoRoot}`);
-  process.exit(1);
-}
-
-if (!["json", "markdown"].includes(options.format)) {
-  console.error(`Unsupported format: ${options.format}. Use json or markdown.`);
-  process.exit(1);
-}
-
-const summary = buildSummary(options.repoRoot);
-
-if (options.listPacks) {
-  console.log(summary.packs.map((contextPack) => contextPack.id).join("\n"));
-  process.exit(0);
-}
-
-if (options.listAgents) {
-  console.log(agentHandoffProfiles.map((profile) => profile.id).join("\n"));
-  process.exit(0);
-}
-
-if (options.manifest) {
-  console.log(JSON.stringify(buildAgentManifest(summary), null, 2));
-  process.exit(0);
-}
-
-if (options.agent) {
-  try {
-    if (options.formatProvided && options.format === "json") {
+if (options.mcpServe) {
+  runRepoMemoryMcpServer(options);
+} else {
+  if (
+    !fs.existsSync(options.repoRoot) ||
+    !fs.statSync(options.repoRoot).isDirectory()
+  ) {
+    console.error(
+      `Repository path does not exist or not directory: ${options.repoRoot}`,
+    );
+    process.exit(1);
+  }
+  if (!["json", "markdown"].includes(options.format)) {
+    console.error(
+      `Unsupported format: ${options.format}. Use json or markdown.`,
+    );
+    process.exit(1);
+  }
+  const summary = buildSummary(options.repoRoot);
+  if (options.listPacks) {
+    console.log(summary.packs.map((contextPack) => contextPack.id).join("\n"));
+    process.exit(0);
+  }
+  if (options.listAgents) {
+    console.log(agentHandoffProfiles.map((profile) => profile.id).join("\n"));
+    process.exit(0);
+  }
+  if (options.manifest) {
+    console.log(JSON.stringify(buildAgentManifest(summary), null, 2));
+    process.exit(0);
+  }
+  if (options.agent) {
+    try {
+      if (options.formatProvided && options.format === "json")
+        console.log(
+          JSON.stringify(
+            buildAgentHandoffPayload(summary, options.agent, options.packId),
+            null,
+            2,
+          ),
+        );
+      else
+        console.log(
+          formatAgentHandoffMarkdown(summary, options.agent, options.packId),
+        );
+    } catch (error) {
+      console.error(error.message);
+      process.exit(1);
+    }
+    process.exit(0);
+  }
+  if (options.packId) {
+    const selectedPack = summary.packs.find(
+      (contextPack) => contextPack.id === options.packId,
+    );
+    if (!selectedPack) {
+      console.error(
+        `Unknown pack: ${options.packId}. Available packs: ${summary.packs.map((contextPack) => contextPack.id).join(", ")}`,
+      );
+      process.exit(1);
+    }
+    if (options.format === "markdown")
+      console.log(formatSinglePackMarkdown(summary, selectedPack));
+    else
       console.log(
         JSON.stringify(
-          buildAgentHandoffPayload(summary, options.agent, options.packId),
+          { repoRoot: summary.repoRoot, pack: selectedPack },
           null,
           2,
         ),
       );
-    } else {
-      console.log(formatAgentHandoffMarkdown(summary, options.agent, options.packId));
+  } else if (options.format === "markdown") {
+    for (const contextPack of summary.packs) {
+      console.log(formatSinglePackMarkdown(summary, contextPack));
+      console.log("\n---\n");
     }
-  } catch (error) {
-    console.error(error.message);
-    process.exit(1);
-  }
-  process.exit(0);
-}
-
-if (options.packId) {
-  const selectedPack = summary.packs.find((contextPack) => contextPack.id === options.packId);
-  if (!selectedPack) {
-    console.error(
-      `Unknown pack: ${options.packId}. Available packs: ${summary.packs
-        .map((contextPack) => contextPack.id)
-        .join(", ")}`,
-    );
-    process.exit(1);
-  }
-  if (options.format === "markdown") {
-    console.log(formatSinglePackMarkdown(summary, selectedPack));
   } else {
-    console.log(JSON.stringify({ repoRoot: summary.repoRoot, pack: selectedPack }, null, 2));
+    console.log(JSON.stringify(summary, null, 2));
   }
-} else if (options.format === "markdown") {
-  for (const contextPack of summary.packs) {
-    console.log(formatSinglePackMarkdown(summary, contextPack));
-    console.log("\n---\n");
-  }
-} else {
-  console.log(JSON.stringify(summary, null, 2));
 }
