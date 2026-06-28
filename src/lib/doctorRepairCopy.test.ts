@@ -11,6 +11,7 @@ import {
   doctorTimelineKindLabel,
   formatDoctorTimelineShareText,
   formatDoctorReportShareText,
+  plannedConnectorDoctorPreviewRows,
   formatVerifyOffModeShareText,
   sortDoctorTimelineEvents,
 } from "./doctorRepairCopy";
@@ -220,6 +221,23 @@ describe("doctor repair copy", () => {
     expect(dossiers).toContain("Post-rollback diff proving unrelated user settings are unchanged.");
     expect(dossiers).toContain("## Amazon Q Developer CLI");
     expect(dossiers).toContain("AWS profile");
+  });
+
+  it("builds compact planned connector preview rows for Doctor", () => {
+    const rows = plannedConnectorDoctorPreviewRows();
+
+    expect(rows).toHaveLength(11);
+    expect(rows[0]).toEqual(
+      expect.objectContaining({
+        id: "gemini_cli",
+        name: "Gemini CLI",
+        setupPhase: "Guide",
+        nextBlockedGate: "Backup Implemented",
+        automationEnabled: false,
+      }),
+    );
+    expect(rows.map((row) => row.name)).toContain("OpenCode");
+    expect(rows.every((row) => row.configSurface.length > 20)).toBe(true);
   });
 
   it("labels and sorts Doctor timeline events newest first", () => {

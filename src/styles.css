@@ -3015,6 +3015,95 @@ select {
   color: var(--warning);
 }
 
+.switchboard-doctor__connector-preview {
+  margin: 0 0 10px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-overlay);
+}
+
+.switchboard-doctor__connector-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.switchboard-doctor__connector-preview-head strong {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: 1.2;
+}
+
+.switchboard-doctor__connector-preview-head span {
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.switchboard-doctor__connector-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.switchboard-doctor__connector-preview-row {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.switchboard-doctor__connector-preview-row div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.switchboard-doctor__connector-preview-row strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.switchboard-doctor__connector-preview-row span {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.switchboard-doctor__connector-preview-row p {
+  margin: 5px 0 0;
+  color: var(--warning);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.switchboard-doctor__connector-preview-note {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+@media (max-width: 760px) {
+  .switchboard-doctor__connector-preview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .switchboard-doctor__issues {
   display: grid;
   gap: 8px;

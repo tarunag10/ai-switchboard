@@ -96,6 +96,19 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
       screen.getByText(/Manual only, Automation gated/i),
     ).toBeInTheDocument();
     expect(
+      screen.getByLabelText("Planned connector readiness preview"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Connector readiness")).toBeInTheDocument();
+    expect(screen.getByText("11 planned")).toBeInTheDocument();
+    expect(screen.getByText("Gemini CLI")).toBeInTheDocument();
+    expect(screen.getByText("OpenCode")).toBeInTheDocument();
+    expect(screen.getAllByText("Backup Implemented").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "Config automation stays off until every dossier gate is verified.",
+      ),
+    ).toBeInTheDocument();
+    expect(
       screen.getAllByText(
         "Clears the saved Repo Intelligence summary so a stale or missing repo path no longer appears in Doctor. Re-index from Addons when ready.",
       ),

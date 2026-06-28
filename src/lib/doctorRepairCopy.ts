@@ -9,6 +9,15 @@ import {
 } from "./plannedConnectors";
 import type { DoctorIssue, DoctorReport } from "./types";
 
+export interface PlannedConnectorDoctorPreviewRow {
+  id: string;
+  name: string;
+  setupPhase: string;
+  nextBlockedGate: string;
+  automationEnabled: boolean;
+  configSurface: string;
+}
+
 export type DoctorTimelineEventKind =
   | "install"
   | "enable"
@@ -236,6 +245,26 @@ export function formatPlannedConnectorDoctorDossiers(): string {
   ]
     .join("\n")
     .trimEnd();
+}
+
+export function plannedConnectorDoctorPreviewRows(): PlannedConnectorDoctorPreviewRow[] {
+  return plannedConnectors.map((connector) => {
+    const readiness = getPlannedConnectorReadinessContract(connector);
+    const dossier = getPlannedConnectorSafetyDossier(connector.id);
+    const nextBlockedGate =
+      readiness.stages.find((stage) => stage.id === readiness.nextBlockedStage)
+        ?.label ?? "None";
+
+    return {
+      id: connector.id,
+      name: connector.name,
+      setupPhase: connector.setupPhase,
+      nextBlockedGate,
+      automationEnabled: readiness.automationEnabled,
+      configSurface:
+        dossier?.configPathStrategy ?? connector.configSurfaces.join(", "),
+    };
+  });
 }
 
 export function doctorIssueGuidance(issue: DoctorIssue): string {

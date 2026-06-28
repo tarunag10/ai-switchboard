@@ -9,6 +9,7 @@ import {
   formatDoctorReportShareText,
   formatPlannedConnectorDoctorDossiers,
   formatVerifyOffModeShareText,
+  plannedConnectorDoctorPreviewRows,
 } from "../lib/doctorRepairCopy";
 import type { DoctorIssue, DoctorReport } from "../lib/types";
 
@@ -52,6 +53,9 @@ export function SwitchboardDoctorPanel({
   const hasPlannedConnectorEvidence = report.issues.some(
     (issue) => issue.id === "planned_connectors_detected",
   );
+  const connectorPreviewRows = hasPlannedConnectorEvidence
+    ? plannedConnectorDoctorPreviewRows()
+    : [];
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
 
@@ -160,6 +164,35 @@ export function SwitchboardDoctorPanel({
           {canRepair && manualCount > 0 ? (
             <strong>Repair all will leave manual steps visible.</strong>
           ) : null}
+        </div>
+      ) : null}
+
+      {connectorPreviewRows.length > 0 ? (
+        <div
+          className="switchboard-doctor__connector-preview"
+          aria-label="Planned connector readiness preview"
+        >
+          <div className="switchboard-doctor__connector-preview-head">
+            <strong>Connector readiness</strong>
+            <span>{connectorPreviewRows.length} planned</span>
+          </div>
+          <div className="switchboard-doctor__connector-preview-grid">
+            {connectorPreviewRows.slice(0, 6).map((connector) => (
+              <div
+                className="switchboard-doctor__connector-preview-row"
+                key={connector.id}
+              >
+                <div>
+                  <strong>{connector.name}</strong>
+                  <span>{connector.setupPhase}</span>
+                </div>
+                <p>{connector.nextBlockedGate}</p>
+              </div>
+            ))}
+          </div>
+          <p className="switchboard-doctor__connector-preview-note">
+            Config automation stays off until every dossier gate is verified.
+          </p>
         </div>
       ) : null}
 
