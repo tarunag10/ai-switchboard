@@ -194,6 +194,19 @@ const requiredDocSignals = {
     "path-based import/dependency edges",
     "reverse dependency hubs",
   ],
+  "docs/repo-memory-mcp.md": [
+    "Connector Consumption Matrix",
+    "Claude Code",
+    "Codex",
+    "Gemini CLI",
+    "OpenCode",
+    "Goose",
+    "Cursor, Windsurf, Zed",
+    "Aider, Continue",
+    "Grok / xAI CLI, Qwen Code, Amazon Q Developer CLI",
+    "Do not treat MCP availability as permission to mutate provider/editor configuration",
+    "Long-running service supervision beyond the stdio MCP app-session active marker",
+  ],
 };
 
 const requiredSourceSignals = {

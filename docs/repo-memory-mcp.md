@@ -40,6 +40,21 @@ Claude Code, Codex, Gemini CLI, OpenCode, Aider, Goose, Cursor, Continue, Grok /
 
 Goose and other MCP-aware tools should keep Repo Memory MCP separate from provider routing. MCP context can be enabled while provider config remains manual or sidecar-only.
 
+### Connector Consumption Matrix
+
+| Connector | Preferred Repo Memory path | Boundary |
+| --- | --- | --- |
+| Claude Code | Use Repo Memory MCP tools after **Install MCP**, **Start MCP**, and `npm run check:repo-memory-mcp` pass. | MCP context is read-only and separate from Claude Code shell routing or Headroom engine mode. |
+| Codex | Prefer Start Agent Session or `repo:intelligence --session`; use MCP only when the active Codex environment can call configured MCP tools. | MCP context does not change Codex provider config, model selection, or `OPENAI_BASE_URL` routing. |
+| Gemini CLI | Use Start Agent Session handoffs first; use MCP only when Gemini is running in an MCP-capable wrapper or environment. | Gemini base-url/env routing remains managed separately and must keep its backup/rollback evidence. |
+| OpenCode | Use Start Agent Session handoffs first; use MCP only when OpenCode's configured runtime can call MCP tools. | OpenCode provider config routing remains guarded by native backup, verify, rollback, and Off cleanup. |
+| Goose | Use Repo Memory MCP as the preferred read-only context path once configured. | Keep MCP server setup separate from Goose provider, model, and credential configuration. |
+| Cursor, Windsurf, Zed | Use copied context packs or session handoffs until each editor's MCP bridge is explicitly configured and verified. | Editor settings mutation stays gated behind connector-specific dry-run, backup, apply, verify, rollback, Doctor repair, and Off cleanup. |
+| Aider, Continue | Use copied packs/session handoffs by default; use MCP only when the local tool installation advertises compatible MCP consumption. | Multi-provider config and wrapper/env changes remain manual or sidecar-only until native promotion evidence exists. |
+| Grok / xAI CLI, Qwen Code, Amazon Q Developer CLI | Use copied packs/session handoffs until each CLI's MCP/provider capability is detected and documented. | Account, credential, and model guardrails must be proven before native provider config writes are promoted. |
+
+Do not treat MCP availability as permission to mutate provider/editor configuration. The Switchboard rollback inventory and connector readiness dossier remain the source of truth for config writes.
+
 ## Troubleshooting
 
 - If the Mode Inspector says **Unknown**, install MCP and run the smoke check before relying on agent MCP handoffs.
@@ -50,5 +65,4 @@ Goose and other MCP-aware tools should keep Repo Memory MCP separate from provid
 ## Remaining Work
 
 - Long-running service supervision beyond the stdio MCP app-session active marker.
-- Doctor repair integration for failed or missing repo-memory MCP setup.
-- Broader connector-specific docs as native config mutation is promoted.
+- Connector-specific MCP bridge setup docs as native config mutation is promoted.
