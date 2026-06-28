@@ -7,6 +7,7 @@ import {
   doctorIssueGuidance,
   doctorRepairLabel,
   formatDoctorReportShareText,
+  formatVerifyOffModeShareText,
 } from "../lib/doctorRepairCopy";
 import type { DoctorIssue, DoctorReport } from "../lib/types";
 
@@ -42,6 +43,11 @@ export function SwitchboardDoctorPanel({
   const manualCount = Math.max(0, report.issues.length - repairableCount);
   const title = report.status === "ok" ? "Ready" : "Needs attention";
   const doctorReport = report;
+  const hasOffModeVerification = report.issues.some(
+    (issue) =>
+      issue.id === "off_mode_not_clean" ||
+      issue.repairAction === "verify_off_mode",
+  );
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
 
@@ -55,6 +61,18 @@ export function SwitchboardDoctorPanel({
       formatDoctorReportShareText(doctorReport),
     );
     setCopyNotice("Copied report.");
+  }
+
+  async function copyVerifyOffReport() {
+    if (!navigator.clipboard) {
+      setCopyNotice("Clipboard unavailable.");
+      return;
+    }
+
+    await navigator.clipboard.writeText(
+      formatVerifyOffModeShareText(doctorReport),
+    );
+    setCopyNotice("Copied Verify Off.");
   }
 
   return (
@@ -82,6 +100,17 @@ export function SwitchboardDoctorPanel({
             <Copy aria-hidden="true" weight="bold" />
             <span>{copyNotice ?? "Copy report"}</span>
           </button>
+          {hasOffModeVerification ? (
+            <button
+              type="button"
+              className="switchboard-doctor__copy"
+              onClick={copyVerifyOffReport}
+              title="Copy Verify Off report"
+            >
+              <Copy aria-hidden="true" weight="bold" />
+              <span>Copy Verify Off</span>
+            </button>
+          ) : null}
           {canRepair ? (
             <button
               type="button"

@@ -10,6 +10,7 @@ import {
   doctorTimelineKindLabel,
   formatDoctorTimelineShareText,
   formatDoctorReportShareText,
+  formatVerifyOffModeShareText,
   sortDoctorTimelineEvents,
 } from "./doctorRepairCopy";
 import { managedChangeRecords } from "./managedChanges";
@@ -75,6 +76,42 @@ describe("doctor repair copy", () => {
         repairAction: "verify_off_mode",
       }),
     ).toContain("Doctor will re-check active engine");
+  });
+
+  it("formats a focused Verify Off report when routing evidence remains", () => {
+    const text = formatVerifyOffModeShareText({
+      status: "warning",
+      summary: "Off mode requested, but routing is still visible.",
+      issues: [
+        {
+          id: "off_mode_not_clean",
+          title: "Off mode still has active routing evidence",
+          body: "Headroom engine is still reachable and 2 clients are enabled.",
+          severity: "warning",
+          repairAction: "verify_off_mode",
+        },
+      ],
+    });
+
+    expect(text).toContain("Mac AI Switchboard Verify Off report");
+    expect(text).toContain("Status: active routing evidence found");
+    expect(text).toContain("Checks: active engine, enabled clients, RTK routing evidence");
+    expect(text).toContain("Headroom engine is still reachable");
+    expect(text).toContain("Doctor will re-check active engine");
+  });
+
+  it("formats a clean Verify Off report from Doctor state", () => {
+    const text = formatVerifyOffModeShareText({
+      status: "ok",
+      summary: "Switchboard looks ready.",
+      issues: [],
+    });
+
+    expect(text).toContain("Status: clean");
+    expect(text).toContain(
+      "Evidence: no Off mode routing issue is present in the current Doctor report.",
+    );
+    expect(text).toContain("Stay in Off mode");
   });
 
   it("guides manual degraded mode issues without repair action", () => {

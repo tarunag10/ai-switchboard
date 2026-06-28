@@ -263,3 +263,27 @@ export function formatDoctorReportShareText(report: DoctorReport): string {
     .join("\n")
     .trimEnd();
 }
+
+export function formatVerifyOffModeShareText(report: DoctorReport): string {
+  const offModeIssue = report.issues.find(
+    (issue) =>
+      issue.id === "off_mode_not_clean" ||
+      issue.repairAction === "verify_off_mode",
+  );
+
+  return [
+    "Mac AI Switchboard Verify Off report",
+    `Status: ${offModeIssue ? "active routing evidence found" : "clean"}`,
+    `Doctor status: ${report.status}`,
+    `Doctor summary: ${report.summary}`,
+    "Checks: active engine, enabled clients, RTK routing evidence",
+    offModeIssue
+      ? `Evidence: ${offModeIssue.body}`
+      : "Evidence: no Off mode routing issue is present in the current Doctor report.",
+    `Guidance: ${
+      offModeIssue
+        ? doctorIssueGuidance(offModeIssue)
+        : "Stay in Off mode for bypassed routing, or choose another mode to resume managed routing."
+    }`,
+  ].join("\n");
+}

@@ -215,7 +215,51 @@ describe("SwitchboardDoctorPanel", () => {
       "Action: automatic / Reset Codex",
     );
     expect(
+      screen.queryByRole("button", { name: "Copy Verify Off" }),
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByRole("button", { name: "Copied report." }),
     ).toBeInTheDocument();
+  });
+
+  it("copies a focused Verify Off report when Off mode evidence remains", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(
+      <SwitchboardDoctorPanel
+        report={{
+          status: "warning",
+          summary: "Off mode requested, but routing is still visible.",
+          issues: [
+            {
+              id: "off_mode_not_clean",
+              title: "Off mode still has active routing evidence",
+              body: "Headroom engine is still reachable.",
+              severity: "warning",
+              repairAction: "verify_off_mode",
+            },
+          ],
+        }}
+        busyAction={null}
+        error={null}
+        successMessage={null}
+        onRepair={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Copy Verify Off" }));
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).toContain(
+      "Mac AI Switchboard Verify Off report",
+    );
+    expect(writeText.mock.calls[0][0]).toContain(
+      "Status: active routing evidence found",
+    );
   });
 });
