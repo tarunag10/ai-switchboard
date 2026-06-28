@@ -94,6 +94,7 @@ export interface PlannedConnectorConfigCreationStep {
     | "offCleanup";
   label: string;
   detail: string;
+  requiredEvidence: string[];
 }
 
 export interface PlannedConnectorConfigCreationPlan {
@@ -884,39 +885,67 @@ export function getPlannedConnectorConfigCreationPlan(
       id: "detect",
       label: "Detect config surface",
       detail: dossier.configPathStrategy,
+      requiredEvidence: [
+        "Read-only binary or app detection result.",
+        "Detected config, settings, profile, or environment surface documented without writes.",
+      ],
     },
     {
       id: "dryRunDiff",
       label: "Show dry-run diff",
       detail:
         "Preview the exact local proxy/provider change before any file, profile, or environment edit.",
+      requiredEvidence: [
+        "User-visible dry-run diff showing the exact proposed local proxy/provider change.",
+        "No files, profiles, credentials, or account state changed by the preview.",
+      ],
     },
     {
       id: "backup",
       label: "Create backup",
       detail:
         "Write a timestamped backup beside the edited config or record an environment-wrapper restore point.",
+      requiredEvidence: [
+        "Timestamped backup path or environment-wrapper restore point.",
+        "Restore fixture proving unknown fields and unrelated provider entries are preserved.",
+      ],
     },
     {
       id: "apply",
       label: "Apply with consent",
       detail: dossier.providerSemantics,
+      requiredEvidence: [
+        "Explicit user consent captured for the connector and config surface.",
+        "Managed marker or wrapper boundary proving only Switchboard-owned routing was applied.",
+      ],
     },
     {
       id: "verify",
       label: "Verify in Doctor",
       detail: dossier.accountCaveat,
+      requiredEvidence: [
+        "Doctor check confirming account/model guardrails without storing secrets.",
+        "Compatibility or caveat message visible before routing is considered supported.",
+      ],
     },
     {
       id: "rollback",
       label: "Rollback safely",
       detail: dossier.rollbackStrategy,
+      requiredEvidence: [
+        "Rollback test restoring the exact backup or removing only managed wrapper state.",
+        "Post-rollback diff proving unrelated user settings are unchanged.",
+      ],
     },
     {
       id: "offCleanup",
       label: "Clean up in Off mode",
       detail:
         "Off mode removes only Switchboard-managed routing and leaves unrelated user config untouched.",
+      requiredEvidence: [
+        "Off-mode fixture showing managed routing removed.",
+        "Doctor verification that the connector returns to manual or RTK-only mode.",
+      ],
     },
   ];
 
@@ -953,7 +982,10 @@ export function formatPlannedConnectorConfigCreationPlansMarkdown(
       `## ${plan.connectorName}`,
       `- Automation enabled: ${plan.automationEnabled ? "yes" : "no"}`,
       `- Safety note: ${plan.safetyNote}`,
-      ...plan.steps.map((step) => `- ${step.label}: ${step.detail}`),
+      ...plan.steps.map(
+        (step) =>
+          `- ${step.label}: ${step.detail} Required evidence: ${step.requiredEvidence.join(" ")}`,
+      ),
       "",
     ]),
   ]

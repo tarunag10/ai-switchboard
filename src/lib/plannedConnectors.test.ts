@@ -297,6 +297,12 @@ describe("planned connectors", () => {
       expect(plan.steps.map((step) => `${step.label} ${step.detail}`).join(" ")).toMatch(
         /detect|dry-run|backup|provider|Doctor|rollback|Off mode/i,
       );
+      for (const step of plan.steps) {
+        expect(step.requiredEvidence.length).toBeGreaterThanOrEqual(2);
+        expect(step.requiredEvidence.join(" ")).toMatch(
+          /read-only|dry-run|backup|consent|Doctor|rollback|Off-mode|fixture|diff|manual|RTK-only/i,
+        );
+      }
     }
   });
 
@@ -338,6 +344,8 @@ describe("planned connectors", () => {
     expect(markdown).toContain("Automation stays disabled");
     expect(markdown).toContain("## OpenCode");
     expect(markdown).toContain("Detect config surface: Detect PATH: opencode");
+    expect(markdown).toContain("Required evidence:");
+    expect(markdown).toContain("No files, profiles, credentials, or account state changed");
     expect(markdown).toContain("## Grok / xAI CLI");
     expect(markdown).toContain("Doctor guardrails");
     expect(markdown).toContain("## Cursor");
