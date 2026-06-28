@@ -8,7 +8,8 @@ import {
 describe("managedChangeRecords", () => {
   it("keeps rollback-center inventory stable and app-owned", () => {
     expect(managedChangeRecords.map((record) => record.id)).toEqual([
-      "client-hooks",
+      "claude-code-routing",
+      "codex-routing",
       "managed-hooks",
       "managed-storage",
       "repo-intelligence",
@@ -50,35 +51,36 @@ describe("managedChangeRecords", () => {
 
     expect(allCopy).toContain("Claude Code");
     expect(allCopy).toContain("Codex");
+    expect(allCopy).toContain("headroom:claude_code");
+    expect(allCopy).toContain("headroom:codex_cli");
     expect(allCopy).toContain("~/Library/Application Support/Headroom");
     expect(allCopy).toContain("Repo Intelligence");
     expect(allCopy).toContain("User repositories are not modified");
     expect(allCopy).toContain("~/Library/LaunchAgents/");
     expect(allCopy).toContain("Keychain");
     expect(allCopy).toContain("Ponytail");
-    expect(allCopy).toContain("headroom:client-routing");
     expect(allCopy).toContain("*.headroom.bak");
   });
 
   it("builds a safe dry-run diff preview for managed config edits", () => {
     const record = managedChangeRecords.find(
-      (candidate) => candidate.id === "client-hooks",
+      (candidate) => candidate.id === "codex-routing",
     );
     expect(record).toBeDefined();
 
     const preview = buildManagedConfigDiffPreview({
       record: record!,
       targetPath: " ~/.codex/config.toml ",
-      currentManagedBlock: " # >>> headroom:client-routing >>>\nold\n# <<< headroom:client-routing <<< ",
+      currentManagedBlock: " # >>> headroom:codex_cli >>>\nold\n# <<< headroom:codex_cli <<< ",
       proposedManagedBlock:
-        "# >>> headroom:client-routing >>>\nnew\n# <<< headroom:client-routing <<<",
+        "# >>> headroom:codex_cli >>>\nnew\n# <<< headroom:codex_cli <<<",
     });
 
     expect(preview).toMatchObject({
-      recordId: "client-hooks",
-      owner: "Headroom engine routing",
+      recordId: "codex-routing",
+      owner: "Codex routing",
       targetPath: "~/.codex/config.toml",
-      markerId: "headroom:client-routing",
+      markerId: "headroom:codex_cli",
       backupPath: "next to edited client config as *.headroom.bak",
     });
     expect(preview.currentManagedBlock).toContain("old");
@@ -122,7 +124,7 @@ describe("managedChangeRecords", () => {
     ).toThrow("does not require a config backup");
 
     const clientHooks = managedChangeRecords.find(
-      (candidate) => candidate.id === "client-hooks",
+      (candidate) => candidate.id === "codex-routing",
     )!;
     expect(() =>
       buildManagedConfigDiffPreview({

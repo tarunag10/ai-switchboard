@@ -33,20 +33,33 @@ export interface ManagedConfigDiffPreview {
 
 export const managedChangeRecords: ManagedChangeRecord[] = [
   {
-    id: "client-hooks",
+    id: "claude-code-routing",
     kind: "client_config",
-    owner: "Headroom engine routing",
-    text: "Managed routing hooks and environment changes in Claude Code and Codex config.",
+    owner: "Claude Code routing",
+    text: "Managed ANTHROPIC_BASE_URL shell block and Claude Code settings hook.",
     paths: [
+      "~/.zshrc",
+      "~/.zprofile",
       "~/.claude/settings.json",
       "~/.claude/settings.local.json",
-      "~/.codex/config.toml",
     ],
-    markerId: "headroom:client-routing",
+    markerId: "headroom:claude_code",
     backupPath: "next to edited client config as *.headroom.bak",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback:
-      "Remove managed routing hooks and environment changes from Claude Code and Codex config.",
+      "Remove managed Claude Code shell routing, settings env, and Switchboard hook entries.",
+  },
+  {
+    id: "codex-routing",
+    kind: "client_config",
+    owner: "Codex routing",
+    text: "Managed OPENAI_BASE_URL shell block and Codex provider config.",
+    paths: ["~/.codex/config.toml", "~/.zshrc", "~/.zprofile"],
+    markerId: "headroom:codex_cli",
+    backupPath: "next to edited client config as *.headroom.bak",
+    lastVerifiedLabel: "Verified by Doctor connector checks",
+    rollback:
+      "Remove managed Codex shell routing, provider config, AGENTS.md nudge, and thread provider tags.",
   },
   {
     id: "managed-hooks",

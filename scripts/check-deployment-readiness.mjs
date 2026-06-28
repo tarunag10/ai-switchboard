@@ -192,11 +192,13 @@ const requiredSourceSignals = {
     "does not report bootstrap failures in local-only mode",
   ],
   "src/lib/managedChanges.ts": [
-    "Remove managed routing hooks",
+    "Remove managed Claude Code shell routing",
+    "Remove managed Codex shell routing",
     "Delete managed hook scripts",
     "repo-intelligence-latest.json",
     "User repositories are not modified",
-    "headroom:client-routing",
+    "headroom:claude_code",
+    "headroom:codex_cli",
     "*.headroom.bak",
   ],
   "src/lib/managedChanges.test.ts": [
