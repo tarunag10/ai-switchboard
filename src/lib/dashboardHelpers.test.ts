@@ -15,6 +15,7 @@ import {
   dayOfMonthTickFormatter,
   earliestHourlyDay,
   earliestSavingsMonth,
+  formatConnectorConfigDryRunPreview,
   formatDateTime,
   formatDayKey,
   formatLearnStatus,
@@ -470,6 +471,32 @@ describe("dashboard helpers", () => {
       configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but the Headroom adapter is not implemented yet."],
     });
+  });
+
+  it("formats a Gemini config dry-run preview from detected config evidence", () => {
+    expect(
+      formatConnectorConfigDryRunPreview({
+        clientId: "gemini_cli",
+        name: "Gemini CLI",
+        supportStatus: "planned",
+        detectionEvidence: [
+          "Gemini binary: /opt/homebrew/bin/gemini",
+          "Gemini config surface: /Users/test/.gemini",
+        ],
+        installed: true,
+        enabled: false,
+        verified: false,
+      }),
+    ).toContain(
+      [
+        "## Dry-run diff preview",
+        "- Target: /Users/test/.gemini",
+        "- Current managed block: none detected",
+        "- Proposed managed block: Mac AI Switchboard provider routing for Gemini CLI",
+        "- Writes: none; preview only",
+        `- Gates: ${expectedConfigCreationGates.map((gate) => gate.label).join(" -> ")}`,
+      ].join("\n"),
+    );
   });
 
   it("formats OpenCode compatibility evidence for planned connector UI", () => {

@@ -140,6 +140,7 @@ import {
   dayOfMonthTickFormatter,
   earliestHourlyDay,
   earliestSavingsMonth,
+  formatConnectorConfigDryRunPreview,
   formatDateTime,
   formatDayKey,
   formatLearnStatus,
@@ -4391,6 +4392,8 @@ export default function App() {
             return `- ${step.label}: ${step.detail}${evidence}`;
           })
         : stepLabels.map((step) => `- ${step}`)),
+      "",
+      formatConnectorConfigDryRunPreview(connector),
     ].join("\n");
   }
 

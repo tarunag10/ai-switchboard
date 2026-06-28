@@ -692,3 +692,25 @@ export function connectorCompatibilityReport(
     otherEvidence
   };
 }
+
+export function formatConnectorConfigDryRunPreview(
+  connector: ClientConnectorStatus
+) {
+  const report = connectorCompatibilityReport(connector);
+  const target =
+    report?.configSurface ??
+    connector.configLocations?.find((location) => location.trim().length > 0) ??
+    "not detected yet";
+  const gates = report?.configCreationGates.length
+    ? report.configCreationGates.map((gate) => gate.label).join(" -> ")
+    : "Detect config surface -> Show dry-run diff -> Create backup -> Apply with consent -> Verify in Doctor -> Rollback safely -> Clean up in Off mode";
+
+  return [
+    "## Dry-run diff preview",
+    `- Target: ${target}`,
+    "- Current managed block: none detected",
+    `- Proposed managed block: Mac AI Switchboard provider routing for ${connector.name}`,
+    "- Writes: none; preview only",
+    `- Gates: ${gates}`,
+  ].join("\n");
+}
