@@ -26,7 +26,9 @@ use crate::models::{
     CodexAccountProfile, CodexRateLimitSnapshot, DailyInsight, DailySavingsPoint, DashboardState,
     HeadroomLearnPrereqStatus, HeadroomLearnStatus, HourlySavingsPoint, LaunchExperience,
     RtkRuntimeStatus, RuntimeStatus, RuntimeUpgradeFailure, RuntimeUpgradeProgress,
-    SwitchboardMode, TransformationFeedEvent, UpgradeFailurePhase, UsageEvent,
+    SavingsAttributionConfidence, SavingsAttributionEvent, SavingsAttributionScope,
+    SavingsAttributionSource, SwitchboardMode, TransformationFeedEvent, UpgradeFailurePhase,
+    UsageEvent,
 };
 use crate::pricing;
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs, telemetry_file};
@@ -2092,6 +2094,10 @@ impl AppState {
         snapshot
     }
 
+    pub fn savings_attribution_events(&self) -> Vec<SavingsAttributionEvent> {
+        self.savings_tracker.lock().attribution_events()
+    }
+
     /// Emit a weekly recap rolling up the 7 days ending last Sunday.
     /// Previously Monday-only; now runs on any day whose check is due so the
     /// first launch after an upgrade catches up on last week's recap if it
@@ -3576,6 +3582,7 @@ struct PersistedSavingsState {
 
 struct SavingsTracker {
     records_path: std::path::PathBuf,
+    attribution_events_path: std::path::PathBuf,
     state_path: std::path::PathBuf,
     session_requests: usize,
     session_estimated_savings_usd: f64,
@@ -3599,6 +3606,7 @@ struct SavingsTracker {
 impl SavingsTracker {
     fn load_or_create(base_dir: &Path) -> Result<Self> {
         let records_path = telemetry_file(base_dir, "savings-records.jsonl");
+        let attribution_events_path = telemetry_file(base_dir, "savings-attribution-events.jsonl");
         let state_path = config_file(base_dir, "savings-state.json");
         if !records_path.exists() {
             let _ = std::fs::OpenOptions::new()
@@ -3607,11 +3615,19 @@ impl SavingsTracker {
                 .open(&records_path)
                 .with_context(|| format!("creating {}", records_path.display()))?;
         }
+        if !attribution_events_path.exists() {
+            let _ = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&attribution_events_path)
+                .with_context(|| format!("creating {}", attribution_events_path.display()))?;
+        }
 
         let persisted_state = load_persisted_savings_state(&state_path).ok().flatten();
 
         let mut tracker = Self {
             records_path,
+            attribution_events_path,
             state_path,
             session_requests: 0,
             session_estimated_savings_usd: 0.0,
@@ -3721,6 +3737,16 @@ impl SavingsTracker {
                 // The local pre-cutoff tracker has no provider dimension.
                 by_provider: Vec::new(),
             })
+            .collect()
+    }
+
+    fn attribution_events(&self) -> Vec<SavingsAttributionEvent> {
+        let Ok(text) = std::fs::read_to_string(&self.attribution_events_path) else {
+            return Vec::new();
+        };
+
+        text.lines()
+            .filter_map(|line| serde_json::from_str::<SavingsAttributionEvent>(line).ok())
             .collect()
     }
 
@@ -3895,6 +3921,25 @@ impl SavingsTracker {
             || delta_usd > 0.000_001
             || delta_actual_cost_usd > 0.000_001
             || session_buckets_changed;
+        if delta_requests > 0 || delta_tokens > 0 || delta_usd > 0.000_001 {
+            let event = SavingsAttributionEvent {
+                schema_version: 1,
+                id: Uuid::new_v4().to_string(),
+                observed_at: Utc::now(),
+                scope: SavingsAttributionScope::Session,
+                source: SavingsAttributionSource::HeadroomEngine,
+                confidence: SavingsAttributionConfidence::Measured,
+                delta_tokens_saved: delta_tokens,
+                delta_usd,
+                total_tokens_sent: delta_total_tokens_sent,
+                request_delta: delta_requests,
+                evidence: vec![
+                    "Measured from positive Headroom /stats session deltas.".to_string(),
+                    "Source excludes RTK, Repo Intelligence, Ponytail, Caveman, Compact Chinese, and MarkItDown until those emit source-specific counters.".to_string(),
+                ],
+            };
+            let _ = self.append_attribution_event(&event);
+        }
         let previous_lifetime_tokens_saved = self.lifetime_estimated_tokens_saved;
         let previous_lifetime_estimated_savings_usd = self.lifetime_estimated_savings_usd;
         if delta_requests > 0 || delta_tokens > 0 || delta_usd > 0.0 {
@@ -4177,6 +4222,22 @@ impl SavingsTracker {
             .with_context(|| format!("writing {}", self.records_path.display()))?;
         file.write_all(b"\n")
             .with_context(|| format!("writing {}", self.records_path.display()))?;
+        Ok(())
+    }
+
+    fn append_attribution_event(&self, event: &SavingsAttributionEvent) -> Result<()> {
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.attribution_events_path)
+            .with_context(|| format!("opening {}", self.attribution_events_path.display()))?;
+        let serialized =
+            serde_json::to_string(event).context("serializing savings attribution event")?;
+        use std::io::Write;
+        file.write_all(serialized.as_bytes())
+            .with_context(|| format!("writing {}", self.attribution_events_path.display()))?;
+        file.write_all(b"\n")
+            .with_context(|| format!("writing {}", self.attribution_events_path.display()))?;
         Ok(())
     }
 
@@ -5601,7 +5662,8 @@ mod tests {
 
     use crate::models::{
         ActivityEvent, BootstrapProgress, DailySavingsPoint, HourlySavingsPoint,
-        RuntimeUpgradeFailure, UpgradeFailurePhase,
+        RuntimeUpgradeFailure, SavingsAttributionConfidence, SavingsAttributionEvent,
+        SavingsAttributionScope, SavingsAttributionSource, UpgradeFailurePhase,
     };
     use crate::tool_manager::BootstrapStepUpdate;
 
@@ -6083,9 +6145,12 @@ mod tests {
     fn make_tracker() -> SavingsTracker {
         let id = uuid::Uuid::new_v4();
         let records_path = std::env::temp_dir().join(format!("headroom-savings-test-{}.jsonl", id));
+        let attribution_events_path =
+            std::env::temp_dir().join(format!("headroom-savings-attribution-{}.jsonl", id));
         let state_path = std::env::temp_dir().join(format!("headroom-savings-state-{}.json", id));
         SavingsTracker {
             records_path,
+            attribution_events_path,
             state_path,
             session_requests: 0,
             session_estimated_savings_usd: 0.0,
@@ -6177,6 +6242,73 @@ mod tests {
         tracker.observe(&stats);
         let milestones = tracker.take_pending_lifetime_usd_milestones();
         assert_eq!(milestones, vec![10, 50]);
+    }
+
+    #[test]
+    fn savings_tracker_appends_measured_headroom_attribution_events() {
+        let mut tracker = make_tracker();
+        let stats = HeadroomDashboardStats {
+            output_reduction: None,
+            session_requests: Some(3),
+            session_estimated_savings_usd: Some(1.25),
+            session_estimated_tokens_saved: Some(2500),
+            session_savings_pct: Some(25.0),
+            session_actual_cost_usd: Some(2.0),
+            session_total_tokens_sent: Some(7500),
+            savings_history: Vec::new(),
+        };
+
+        tracker.observe(&stats);
+        let events = tracker.attribution_events();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.schema_version, 1);
+        assert_eq!(event.scope, SavingsAttributionScope::Session);
+        assert_eq!(event.source, SavingsAttributionSource::HeadroomEngine);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Measured);
+        assert_eq!(event.delta_tokens_saved, 2500);
+        assert!((event.delta_usd - 1.25).abs() < 1e-9);
+        assert_eq!(event.total_tokens_sent, 7500);
+        assert_eq!(event.request_delta, 3);
+        assert!(event.evidence.join(" ").contains("Headroom /stats"));
+        assert!(event.evidence.join(" ").contains("Ponytail"));
+        let _ = std::fs::remove_file(&tracker.records_path);
+        let _ = std::fs::remove_file(&tracker.attribution_events_path);
+        let _ = std::fs::remove_file(&tracker.state_path);
+    }
+
+    #[test]
+    fn savings_attribution_events_ignore_malformed_jsonl_lines() {
+        let tracker = make_tracker();
+        let event = SavingsAttributionEvent {
+            schema_version: 1,
+            id: "event-1".into(),
+            observed_at: Utc::now(),
+            scope: SavingsAttributionScope::Session,
+            source: SavingsAttributionSource::HeadroomEngine,
+            confidence: SavingsAttributionConfidence::Measured,
+            delta_tokens_saved: 42,
+            delta_usd: 0.21,
+            total_tokens_sent: 100,
+            request_delta: 1,
+            evidence: vec!["Measured from test fixture.".into()],
+        };
+        std::fs::write(
+            &tracker.attribution_events_path,
+            format!(
+                "not-json\n{}\n",
+                serde_json::to_string(&event).expect("serialize attribution event")
+            ),
+        )
+        .expect("write attribution file");
+
+        let events = tracker.attribution_events();
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].id, "event-1");
+        assert_eq!(events[0].delta_tokens_saved, 42);
+        let _ = std::fs::remove_file(&tracker.attribution_events_path);
     }
 
     #[test]

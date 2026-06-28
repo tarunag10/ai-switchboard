@@ -533,6 +533,40 @@ pub struct HourlySavingsPoint {
     pub by_provider: Vec<ProviderSavingsPoint>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SavingsAttributionSource {
+    HeadroomEngine,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SavingsAttributionScope {
+    Session,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SavingsAttributionConfidence {
+    Measured,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavingsAttributionEvent {
+    pub schema_version: u8,
+    pub id: String,
+    pub observed_at: DateTime<Utc>,
+    pub scope: SavingsAttributionScope,
+    pub source: SavingsAttributionSource,
+    pub confidence: SavingsAttributionConfidence,
+    pub delta_tokens_saved: u64,
+    pub delta_usd: f64,
+    pub total_tokens_sent: u64,
+    pub request_delta: usize,
+    pub evidence: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DashboardState {

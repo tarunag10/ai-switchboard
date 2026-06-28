@@ -49,7 +49,8 @@ use crate::models::{
     HeadroomSubscriptionTier, RepoAgentHandoffResponse, RepoContextPackResponse,
     RepoDependentsResponse, RepoIndexFreshnessResponse, RepoIntelligenceManifestResponse,
     RepoIntelligenceSummary, RepoSymbolSearchResponse, RuntimeStatus, RuntimeUpgradeProgress,
-    SavingsMode, SwitchboardMode, SwitchboardState, TransformationFeedResponse,
+    SavingsAttributionEvent, SavingsMode, SwitchboardMode, SwitchboardState,
+    TransformationFeedResponse,
 };
 use crate::state::AppState;
 
@@ -349,6 +350,18 @@ async fn get_dashboard_state(app: AppHandle) -> Result<DashboardState, String> {
         check_zero_spend_anomaly(&dashboard);
 
         dashboard
+    })
+    .await
+    .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+async fn get_savings_attribution_events(
+    app: AppHandle,
+) -> Result<Vec<SavingsAttributionEvent>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state: State<'_, AppState> = app.state();
+        state.savings_attribution_events()
     })
     .await
     .map_err(|err| err.to_string())
@@ -4579,6 +4592,7 @@ pub fn run() {
         .manage(PendingAppUpdate(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             get_dashboard_state,
+            get_savings_attribution_events,
             build_repo_intelligence_summary,
             get_latest_repo_intelligence_summary,
             get_repo_intelligence_context_pack,
