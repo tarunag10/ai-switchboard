@@ -53,6 +53,10 @@ describe("uninstallDisclosure", () => {
     expect(report).toContain("Remove managed Claude Code shell routing");
     expect(report).toContain("Remove managed Codex shell routing");
     expect(report).toContain("~/.codex/config.toml");
+    expect(report).toContain("Marker: headroom:codex_cli");
+    expect(report).toContain("Backup: next to edited client config as *.headroom.bak");
+    expect(report).toContain("Marker: repo-intelligence-latest.json");
+    expect(report).toContain("Backup: not required");
     expect(report).toContain("~/Library/Application Support/Headroom");
     expect(report).toContain(uninstallDisclosureFooter);
   });

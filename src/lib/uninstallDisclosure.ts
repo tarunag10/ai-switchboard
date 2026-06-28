@@ -4,6 +4,8 @@ export interface UninstallDisclosureItem {
   id: string;
   text: string;
   paths: string[];
+  markerId: string;
+  backupPath: string | null;
 }
 
 export const uninstallDisclosureTitle = "Uninstall Mac AI Switchboard?";
@@ -13,6 +15,8 @@ export const uninstallDisclosureItems: UninstallDisclosureItem[] =
     id: record.id,
     text: record.rollback,
     paths: record.paths,
+    markerId: record.markerId,
+    backupPath: record.backupPath,
   }));
 
 export const uninstallDisclosureFooter =
@@ -28,6 +32,8 @@ export function formatUninstallDryRunReport(
     ...items.flatMap((item, index) => [
       `${index + 1}. ${item.text}`,
       `Paths: ${item.paths.length > 0 ? item.paths.join(", ") : "not required"}`,
+      `Marker: ${item.markerId}`,
+      `Backup: ${item.backupPath ?? "not required"}`,
       "",
     ]),
     uninstallDisclosureFooter,
