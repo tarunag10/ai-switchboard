@@ -67,6 +67,8 @@ Run `npm run release:ready -- --strict` before sharing any public build. The rea
 
 See [macOS release docs](macos-release.md) for required secrets and release workflow details.
 
+For read-only agent context sharing, see [Repo Memory MCP](repo-memory-mcp.md). It explains the Mode Inspector install action, `npm run check:repo-memory-mcp`, and how supported coding agents should consume bounded Repo Intelligence packs without mutating repos or connector config.
+
 ## Shareable Build Checklist
 
 Do not share a public DMG until all gates are true:

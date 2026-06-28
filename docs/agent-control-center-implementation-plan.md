@@ -22,7 +22,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 ### Left To Build
 
 - Promote provider-specific config mutation beyond managed sidecars, connector by connector, only after each native surface has real backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup. Priority surfaces include Cursor/Windsurf/Zed editor settings, Continue multi-provider config, Goose MCP/provider config, Aider wrapper/env config, Grok/Qwen account and model guardrails, and Amazon Q credential-safe integration.
-- Turn repo-memory MCP from a smoke-tested CLI transport into a fully app-managed local service. The status/copy contract, backend install command, and Mode Inspector install action exist; remaining work is direct start/stop controls, Doctor repair integration, and agent-consumption docs for supported connector paths.
+- Turn repo-memory MCP from a smoke-tested CLI transport into a fully app-managed local service. The status/copy contract, backend install command, Mode Inspector install action, and first connector-consumption docs exist; remaining work is direct start/stop controls and Doctor repair integration.
 - Deepen Repo Intelligence v2 with tree-sitter or language-specific parsers, persistent parser/index versions, richer symbols/imports/reverse dependencies, graph-aware packs, and parser/index Doctor health checks.
 - Finish exact live/session savings attribution across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese by adding durable per-session source events where profile-specific evidence exists.
 - Promote confirmed safe config apply plans into real user-approved file writes, verification, and rollback flows for supported connectors without touching unmanaged config.
@@ -75,6 +75,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Mode Inspector now labels Repo Memory MCP separately from the generic Headroom MCP state and explains configured, needs-attention, and unknown lifecycle states.
 - Mode Inspector now offers an Install MCP action for unconfigured or unverified Repo Memory MCP state, backed by the existing `install_repo_memory_mcp` Tauri command.
 - Doctor timeline copy now includes Repo Memory MCP lifecycle evidence: `install_repo_memory_mcp`, `npm run check:repo-memory-mcp`, read-only tool names, and the secret-like path exclusion boundary.
+- Repo Memory MCP docs now explain supported-agent consumption, MCP-aware connector boundaries, smoke verification, and troubleshooting.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals
