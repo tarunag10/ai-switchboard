@@ -856,7 +856,8 @@ function SavingsCalculatorCard({
             <div>
               <strong>{row.label}</strong>
               <span>
-                {row.detail} Source: {row.confidence}.
+                {row.detail} Source: {row.source}. Confidence:{" "}
+                {row.confidence}.
               </span>
             </div>
             <div className="savings-calculator__breakdown-value">

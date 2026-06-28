@@ -68,6 +68,7 @@ export interface SavingsCalculatorSummary {
 export interface SavingsCalculatorBreakdownRow {
   id: string;
   label: string;
+  source: SavingsLedgerSource;
   kind: SavingsCalculatorBreakdownKind;
   confidence: SavingsCalculatorConfidence;
   savedTokens: number;
@@ -143,15 +144,6 @@ function formatPercent(value: number | null) {
   }).format(value)}%`;
 }
 
-const ledgerSourceByBreakdownId: Record<string, SavingsLedgerSource> = {
-  headroom: "headroom_engine",
-  rtk: "rtk",
-  repo_intelligence: "repo_intelligence",
-  caveman: "caveman",
-  ponytail: "ponytail",
-  markitdown: "markitdown",
-};
-
 const confidenceCaveat: Record<SavingsCalculatorConfidence, string> = {
   measured: "Observed from local counters for this source.",
   estimated: "Estimated from saved history or cost model; not a per-request proof.",
@@ -223,6 +215,7 @@ export function buildSavingsCalculatorBreakdown(
     {
       id: "headroom",
       label: "Headroom",
+      source: "headroom_engine",
       kind: "runtime",
       confidence: scope === "session" ? "measured" : "estimated",
       savedTokens: summary.savedTokens,
@@ -243,6 +236,7 @@ export function buildSavingsCalculatorBreakdown(
     rows.push({
       id: "rtk",
       label: "RTK",
+      source: "rtk",
       kind: "command_output",
       confidence: "measured",
       savedTokens: rtkSaved,
@@ -262,6 +256,7 @@ export function buildSavingsCalculatorBreakdown(
     rows.push({
       id: "repo_intelligence",
       label: "Repo Intelligence",
+      source: "repo_intelligence",
       kind: "repo_context",
       confidence: "inferred",
       savedTokens: repoSaved,
@@ -275,6 +270,7 @@ export function buildSavingsCalculatorBreakdown(
     rows.push({
       id: "caveman",
       label: "Caveman",
+      source: "caveman",
       kind: "terse_output",
       confidence: "inferred",
       savedTokens: cavemanSaved,
@@ -289,6 +285,7 @@ export function buildSavingsCalculatorBreakdown(
     rows.push({
       id: "ponytail",
       label: "Ponytail",
+      source: "ponytail",
       kind: "change_scope",
       confidence: "inferred",
       savedTokens: ponytailSaved,
@@ -306,6 +303,7 @@ export function buildSavingsCalculatorBreakdown(
     rows.push({
       id: "markitdown",
       label: "MarkItDown",
+      source: "markitdown",
       kind: "doc_preprocess",
       confidence: "inferred",
       savedTokens: markitdownSaved,
@@ -327,7 +325,7 @@ export function buildSavingsLedgerRows(
   return buildSavingsCalculatorBreakdown(dashboard, scope, options).map(
     (row) => ({
       ...row,
-      source: ledgerSourceByBreakdownId[row.id] ?? "headroom_engine",
+      source: row.source,
       scope,
       recordedAt,
       caveat: confidenceCaveat[row.confidence],
@@ -464,7 +462,7 @@ export function formatSavingsCalculatorShareText(
   const sourceLines = rows.map((row) => {
     const usdPart =
       row.savedUsd === null ? "" : ` / ${formatUsd(row.savedUsd)}`;
-    return `- ${row.label} (${row.confidence}): ${formatTokens(row.savedTokens)} tokens${usdPart}`;
+    return `- ${row.source}: ${row.label} (${row.confidence}) saved ${formatTokens(row.savedTokens)} tokens${usdPart}`;
   });
 
   return [

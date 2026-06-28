@@ -596,7 +596,9 @@ describe("savings calculator", () => {
     expect(text).toContain(
       "Confidence: measured = observed local counters; estimated = saved history or cost estimate; inferred = modelled template or context-pack delta.",
     );
-    expect(text).toContain("- Headroom (measured): 300 tokens / $0.75");
+    expect(text).toContain(
+      "- headroom_engine: Headroom (measured) saved 300 tokens / $0.75",
+    );
   });
 
   it("formats a copyable overall savings summary with local sources", () => {
@@ -649,11 +651,17 @@ describe("savings calculator", () => {
     expect(text).toContain("Mac AI Switchboard savings (overall history)");
     expect(text).toContain("Saved: 2,000 tokens / $4.50");
     expect(text).toContain("Confidence: measured = observed local counters");
-    expect(text).toContain("- Headroom (estimated): 2,000 tokens / $4.50");
-    expect(text).toContain("- RTK (measured): 900 tokens");
-    expect(text).toContain("- Repo Intelligence (inferred): 7,500 tokens");
-    expect(text).toContain("- Caveman (inferred): 300 tokens");
-    expect(text).toContain("- Ponytail (inferred): 880 tokens");
-    expect(text).toContain("- MarkItDown (inferred): 2,300 tokens");
+    expect(text).toContain(
+      "- headroom_engine: Headroom (estimated) saved 2,000 tokens / $4.50",
+    );
+    expect(text).toContain("- rtk: RTK (measured) saved 900 tokens");
+    expect(text).toContain(
+      "- repo_intelligence: Repo Intelligence (inferred) saved 7,500 tokens",
+    );
+    expect(text).toContain("- caveman: Caveman (inferred) saved 300 tokens");
+    expect(text).toContain("- ponytail: Ponytail (inferred) saved 880 tokens");
+    expect(text).toContain(
+      "- markitdown: MarkItDown (inferred) saved 2,300 tokens",
+    );
   });
 });
