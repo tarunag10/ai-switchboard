@@ -37,6 +37,15 @@ function send(request) {
 
 send({ jsonrpc: "2.0", id: 1, method: "initialize" });
 send({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+send({
+  jsonrpc: "2.0",
+  id: 3,
+  method: "tools/call",
+  params: {
+    name: "repo_context_pack",
+    arguments: { packId: "implementation" },
+  },
+});
 
 const timeout = setTimeout(() => {
   child.kill();
@@ -49,6 +58,7 @@ function finish() {
     .filter(Boolean)
     .map((line) => JSON.parse(line));
   const listResponse = lines.find((line) => line.id === 2);
+  const packResponse = lines.find((line) => line.id === 3);
   const tools = listResponse?.result?.tools ?? [];
   const names = tools.map((tool) => tool.name).sort();
 
@@ -68,6 +78,13 @@ function finish() {
     if (!/read-only/i.test(tool.description)) {
       throw new Error(`repo-memory MCP tool lacks read-only description: ${tool.name}`);
     }
+  }
+  const packText = packResponse?.result?.content?.[0]?.text ?? "";
+  if (!packText.includes("Safety: read-only context pack")) {
+    throw new Error("repo_context_pack response is missing read-only safety text");
+  }
+  if (packText.includes(".env.local") || packText.includes("SECRET=value")) {
+    throw new Error("repo_context_pack response leaked secret-like file content");
   }
 
   clearTimeout(timeout);
