@@ -21,8 +21,7 @@ use crate::storage::{app_data_dir, config_file};
 const HEADROOM_PROXY_URL: &str = "http://127.0.0.1:6767";
 const HEADROOM_ANTHROPIC_BASE_URL: &str = "http://127.0.0.1:6767";
 const HEADROOM_OPENAI_BASE_URL: &str = "http://127.0.0.1:6767/v1";
-const GEMINI_SWITCHBOARD_MARKER_ID: &str = "gemini_cli";
-const GEMINI_SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md";
+const SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md";
 const ZSH_PROFILE_FILE: &str = ".zprofile";
 const ZSH_RC_FILE: &str = ".zshrc";
 const BASH_PROFILE_FILE: &str = ".bash_profile";
@@ -67,6 +66,26 @@ struct PlannedClientSpec {
     automation_gates: &'static [&'static str],
     manual_workflow: &'static [&'static str],
 }
+
+#[derive(Debug, Clone, Copy)]
+struct PlannedSidecarSpec {
+    id: &'static str,
+    name: &'static str,
+    config_dir: &'static [&'static str],
+}
+
+const PLANNED_SIDECAR_SPECS: [PlannedSidecarSpec; 2] = [
+    PlannedSidecarSpec {
+        id: "gemini_cli",
+        name: "Gemini CLI",
+        config_dir: &[".gemini"],
+    },
+    PlannedSidecarSpec {
+        id: "opencode",
+        name: "OpenCode",
+        config_dir: &[".config", "opencode"],
+    },
+];
 
 const PLANNED_CONFIG_CREATION_STEPS: [&str; 7] = [
     "Detect config surface",
@@ -489,6 +508,7 @@ fn planned_connector_automation_path(
     verified: bool,
 ) -> Vec<ClientConnectorAutomationStage> {
     let step_details = planned_config_creation_step_details(spec);
+    let sidecar_spec = planned_sidecar_spec(spec.id);
     step_details
         .into_iter()
         .map(|step| {
@@ -497,11 +517,11 @@ fn planned_connector_automation_path(
                 "detect" => "blocked",
                 "dryRunDiff" if preview.is_some() => "ready",
                 "backup" | "apply" | "rollback" | "offCleanup"
-                    if spec.id == "gemini_cli" && enabled =>
+                    if sidecar_spec.is_some() && enabled =>
                 {
                     "ready"
                 }
-                "verify" if spec.id == "gemini_cli" && verified => "ready",
+                "verify" if sidecar_spec.is_some() && verified => "ready",
                 _ => "blocked",
             };
             let evidence = match step.id.as_str() {
@@ -518,22 +538,37 @@ fn planned_connector_automation_path(
                 "dryRunDiff" => {
                     "Dry-run preview is blocked until a connector config surface is detected.".to_string()
                 }
-                "backup" if spec.id == "gemini_cli" && enabled => format!(
-                    "Gemini sidecar writes use Headroom timestamped backups when {} already exists.",
-                    gemini_switchboard_routing_path().display()
+                "backup" if sidecar_spec.is_some() && enabled => format!(
+                    "{} sidecar writes use Headroom timestamped backups when {} already exists.",
+                    spec.name,
+                    planned_sidecar_routing_path(spec.id)
+                        .map(|path| path.display().to_string())
+                        .unwrap_or_else(|_| "the connector sidecar".to_string())
                 ),
-                "apply" if spec.id == "gemini_cli" && enabled => format!(
-                    "Gemini sidecar is present at {} with the Switchboard-managed marker.",
-                    gemini_switchboard_routing_path().display()
+                "apply" if sidecar_spec.is_some() && enabled => format!(
+                    "{} sidecar is present at {} with the Switchboard-managed marker.",
+                    spec.name,
+                    planned_sidecar_routing_path(spec.id)
+                        .map(|path| path.display().to_string())
+                        .unwrap_or_else(|_| "the connector sidecar".to_string())
                 ),
-                "verify" if spec.id == "gemini_cli" && verified => {
-                    "Doctor verified the Gemini sidecar marker and local proxy endpoint reference.".to_string()
+                "verify" if sidecar_spec.is_some() && verified => {
+                    format!(
+                        "Doctor verified the {} sidecar marker and local proxy endpoint reference.",
+                        spec.name
+                    )
                 }
-                "rollback" if spec.id == "gemini_cli" && enabled => {
-                    "Rollback removes only the Switchboard-managed Gemini sidecar block.".to_string()
+                "rollback" if sidecar_spec.is_some() && enabled => {
+                    format!(
+                        "Rollback removes only the Switchboard-managed {} sidecar block.",
+                        spec.name
+                    )
                 }
-                "offCleanup" if spec.id == "gemini_cli" && enabled => {
-                    "Off mode cleanup is wired through disable_client_setup for the Gemini sidecar.".to_string()
+                "offCleanup" if sidecar_spec.is_some() && enabled => {
+                    format!(
+                        "Off mode cleanup is wired through disable_client_setup for the {} sidecar.",
+                        spec.name
+                    )
                 }
                 _ => step.required_evidence.join(" "),
             };
@@ -548,7 +583,7 @@ fn planned_connector_automation_path(
 }
 
 fn planned_connector_has_implemented_setup(client_id: &str) -> bool {
-    matches!(client_id, "gemini_cli")
+    planned_sidecar_spec(client_id).is_some()
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -748,10 +783,14 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
             // Codex history list stays whole once it routes through Headroom.
             retag_codex_thread_providers(CODEX_NATIVE_PROVIDER, CODEX_HEADROOM_PROVIDER);
         }
-        "gemini_cli" => {
-            let (changed, backup) = configure_gemini_switchboard_sidecar()?;
+        "gemini_cli" | "opencode" => {
+            let (changed, backup) = configure_planned_switchboard_sidecar(client_id)?;
             if changed {
-                changed_files.push(gemini_switchboard_routing_path().display().to_string());
+                changed_files.push(
+                    planned_sidecar_routing_path(client_id)?
+                        .display()
+                        .to_string(),
+                );
             }
             if let Some(backup) = backup {
                 backup_files.push(backup.display().to_string());
@@ -765,10 +804,15 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
     write_setup_state(&state)?;
 
     let already_configured = changed_files.is_empty();
-    let summary = if client_id == "gemini_cli" && already_configured {
-        "Gemini CLI Switchboard sidecar was already present.".to_string()
-    } else if client_id == "gemini_cli" {
-        "Gemini CLI Switchboard sidecar written for reversible routing intent.".to_string()
+    let summary = if let Some(sidecar) = planned_sidecar_spec(client_id) {
+        if already_configured {
+            format!("{} Switchboard sidecar was already present.", sidecar.name)
+        } else {
+            format!(
+                "{} Switchboard sidecar written for reversible routing intent.",
+                sidecar.name
+            )
+        }
     } else if already_configured {
         "Client was already configured for Headroom.".to_string()
     } else {
@@ -791,6 +835,7 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
                 match normalized_setup_id(client_id) {
                     "codex_cli" => "Codex",
                     "gemini_cli" => "Gemini CLI after connector promotion",
+                    "opencode" => "OpenCode after connector promotion",
                     _ => "Claude Code",
                 }
             ),
@@ -897,18 +942,23 @@ pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
                     .push("Codex OPENAI_BASE_URL export was not found in shell profiles.".into());
             }
         }
-        "gemini_cli" => {
-            let sidecar_ok = gemini_switchboard_sidecar_matches()?;
+        "gemini_cli" | "opencode" => {
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("Unknown planned sidecar {client_id}"))?;
+            let sidecar_path = planned_sidecar_routing_path(client_id)?;
+            let sidecar_ok = planned_switchboard_sidecar_matches(client_id)?;
 
             if sidecar_ok {
                 checks.push(format!(
-                    "Found Switchboard-managed Gemini sidecar at {}.",
-                    gemini_switchboard_routing_path().display()
+                    "Found Switchboard-managed {} sidecar at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
                 ));
             } else {
                 failures.push(format!(
-                    "Switchboard-managed Gemini sidecar was not found at {}.",
-                    gemini_switchboard_routing_path().display()
+                    "Switchboard-managed {} sidecar was not found at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
                 ));
             }
         }
@@ -1090,42 +1140,58 @@ fn managed_connector_config_locations(client_id: &str) -> Vec<String> {
     }
 }
 
-fn gemini_switchboard_routing_path() -> PathBuf {
-    home_dir()
-        .join(".gemini")
-        .join(GEMINI_SWITCHBOARD_ROUTING_FILE)
+fn planned_sidecar_spec(client_id: &str) -> Option<&'static PlannedSidecarSpec> {
+    PLANNED_SIDECAR_SPECS
+        .iter()
+        .find(|spec| spec.id == normalized_setup_id(client_id))
 }
 
-fn build_gemini_switchboard_sidecar_body() -> String {
+fn planned_sidecar_routing_path(client_id: &str) -> Result<PathBuf> {
+    let spec = planned_sidecar_spec(client_id)
+        .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+    let mut path = home_dir();
+    for part in spec.config_dir {
+        path = path.join(part);
+    }
+    Ok(path.join(SWITCHBOARD_ROUTING_FILE))
+}
+
+fn build_planned_switchboard_sidecar_body(spec: &PlannedSidecarSpec) -> String {
     format!(
         "Managed by Mac AI Switchboard.\n\
-         Purpose: reversible Gemini CLI routing-intent sidecar while active provider config support remains gated.\n\
+         Purpose: reversible {} routing-intent sidecar while active provider config support remains gated.\n\
          Proxy base: {HEADROOM_OPENAI_BASE_URL}\n\
-         Boundary: this file does not mutate Gemini account state, secrets, or undocumented provider config.\n\
-         Next promotion gate: replace this sidecar with a documented Gemini config edit after dry-run, backup, verify, rollback, and Off cleanup pass."
+         Boundary: this file does not mutate account state, secrets, or undocumented provider config.\n\
+         Next promotion gate: replace this sidecar with a documented {} config edit after dry-run, backup, verify, rollback, and Off cleanup pass.",
+        spec.name, spec.name
     )
 }
 
-fn configure_gemini_switchboard_sidecar() -> Result<(bool, Option<PathBuf>)> {
+fn configure_planned_switchboard_sidecar(client_id: &str) -> Result<(bool, Option<PathBuf>)> {
+    let spec = planned_sidecar_spec(client_id)
+        .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+    let path = planned_sidecar_routing_path(client_id)?;
     upsert_managed_block(
-        &gemini_switchboard_routing_path(),
-        GEMINI_SWITCHBOARD_MARKER_ID,
-        &build_gemini_switchboard_sidecar_body(),
+        &path,
+        spec.id,
+        &build_planned_switchboard_sidecar_body(spec),
     )
 }
 
-fn gemini_switchboard_sidecar_matches() -> Result<bool> {
-    let path = gemini_switchboard_routing_path();
+fn planned_switchboard_sidecar_matches(client_id: &str) -> Result<bool> {
+    let spec = planned_sidecar_spec(client_id)
+        .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+    let path = planned_sidecar_routing_path(client_id)?;
     if !path.exists() {
         return Ok(false);
     }
 
     let content =
         std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-    Ok(content.contains("# >>> headroom:gemini_cli >>>")
-        && content.contains("# <<< headroom:gemini_cli <<<")
+    Ok(content.contains(&format!("# >>> headroom:{} >>>", spec.id))
+        && content.contains(&format!("# <<< headroom:{} <<<", spec.id))
         && content.contains(HEADROOM_OPENAI_BASE_URL)
-        && content.contains("reversible Gemini CLI routing-intent sidecar"))
+        && content.contains(&format!("reversible {} routing-intent sidecar", spec.name)))
 }
 
 pub fn disable_client_setup(client_id: &str) -> Result<()> {
@@ -1162,11 +1228,10 @@ pub fn disable_client_setup(client_id: &str) -> Result<()> {
             }
         }
         "vscode" => remove_vscode_connector_keys()?,
-        "gemini_cli" => {
-            let _ = remove_managed_block(
-                &gemini_switchboard_routing_path(),
-                GEMINI_SWITCHBOARD_MARKER_ID,
-            )?;
+        "gemini_cli" | "opencode" => {
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+            let _ = remove_managed_block(&planned_sidecar_routing_path(client_id)?, sidecar.id)?;
         }
         other => {
             return Err(anyhow!(
@@ -1214,8 +1279,10 @@ pub fn clear_client_setups() -> Result<()> {
         let _ = disable_client_setup(spec.id);
     }
     let _ = disable_client_setup("codex_gui");
-    if pre.configured_clients.contains_key("gemini_cli") {
-        let _ = disable_client_setup("gemini_cli");
+    for spec in PLANNED_SIDECAR_SPECS {
+        if pre.configured_clients.contains_key(spec.id) {
+            let _ = disable_client_setup(spec.id);
+        }
     }
 
     // Re-save the remembered snapshot so restore_client_setups works on next launch.
@@ -6174,7 +6241,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let sidecar = home
             .path()
             .join(".gemini")
-            .join(super::GEMINI_SWITCHBOARD_ROUTING_FILE);
+            .join(super::SWITCHBOARD_ROUTING_FILE);
         fs::create_dir_all(sidecar.parent().unwrap()).expect("create gemini dir");
         fs::write(&sidecar, "# user note\nkeep this\n").expect("seed sidecar");
 
@@ -6223,6 +6290,68 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert_eq!(content, "# user note\nkeep this\n");
         let verification =
             super::verify_client_setup("gemini_cli").expect("verify cleaned gemini setup");
+        assert!(!verification.verified);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn opencode_setup_writes_verifies_and_cleans_sidecar_only() {
+        let home = TestHome::new();
+        let sidecar = home
+            .path()
+            .join(".config")
+            .join("opencode")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(sidecar.parent().unwrap()).expect("create opencode dir");
+        fs::write(&sidecar, "# opencode user note\nkeep this\n").expect("seed sidecar");
+
+        let result = super::apply_client_setup("opencode").expect("apply opencode setup");
+        assert!(result.applied);
+        assert!(!result.already_configured);
+        assert_eq!(result.changed_files, vec![sidecar.display().to_string()]);
+        assert_eq!(result.backup_files.len(), 1);
+        assert!(result.verification.verified);
+        assert!(result
+            .summary
+            .contains("OpenCode Switchboard sidecar written"));
+
+        let content = fs::read_to_string(&sidecar).expect("read sidecar");
+        assert!(content.contains("# opencode user note\nkeep this"));
+        assert!(content.contains("# >>> headroom:opencode >>>"));
+        assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
+
+        let detected_clients = vec![ClientStatus {
+            id: "opencode".into(),
+            name: "OpenCode".into(),
+            installed: true,
+            configured: false,
+            health: ClientHealth::Attention,
+            notes: vec![
+                "OpenCode binary: /opt/homebrew/bin/opencode".into(),
+                format!(
+                    "OpenCode config surface: {}",
+                    home.path().join(".config").join("opencode").display()
+                ),
+            ],
+        }];
+        let connectors = list_client_connectors(&detected_clients).expect("list connectors");
+        let opencode = connectors
+            .iter()
+            .find(|connector| connector.client_id == "opencode")
+            .expect("opencode connector");
+        assert!(opencode.enabled);
+        assert!(opencode.verified);
+        assert!(opencode.last_configured_at.is_some());
+        assert!(opencode
+            .automation_path
+            .iter()
+            .all(|stage| stage.status == "ready"));
+
+        super::disable_client_setup("opencode").expect("disable opencode setup");
+        let content = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
+        assert_eq!(content, "# opencode user note\nkeep this\n");
+        let verification =
+            super::verify_client_setup("opencode").expect("verify cleaned opencode setup");
         assert!(!verification.verified);
     }
 
