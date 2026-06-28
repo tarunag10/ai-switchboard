@@ -372,6 +372,15 @@ describe("managedChangeRecords", () => {
       "codex-routing",
       "gemini-routing",
       "opencode-routing",
+      "cursor-routing",
+      "grok-routing",
+      "aider-routing",
+      "continue-routing",
+      "goose-routing",
+      "qwen-code-routing",
+      "amazon-q-routing",
+      "windsurf-routing",
+      "zed-ai-routing",
     ]);
     expect(preview.manual).toHaveLength(
       managedChangeRecords.length - preview.executable.length,
@@ -385,10 +394,12 @@ describe("managedChangeRecords", () => {
 
     expect(text).toContain("Mac AI Switchboard undo-all rollback preview");
     expect(text).toContain("Native write status: not_executed");
-    expect(text).toContain("Executable native rows: 3");
+    expect(text).toContain("Executable native rows: 12");
     expect(text).toContain("Codex routing (codex-routing)");
+    expect(text).toContain("Cursor routing (cursor-routing)");
     expect(text).toContain("Gemini CLI routing (gemini-routing)");
     expect(text).toContain("OpenCode routing (opencode-routing)");
+    expect(text).toContain("Amazon Q Developer CLI routing (amazon-q-routing)");
     expect(text).toContain("Manual or cleanup rows:");
     expect(text).toContain("Undo all is preview-only");
     expect(text).toContain("This undo-all preview does not modify files.");

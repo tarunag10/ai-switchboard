@@ -3375,6 +3375,167 @@ fn managed_rollback_confirmation_phrase(target: &ManagedRollbackTarget) -> Strin
     format!("Restore {} for {}", target.marker, target.owner)
 }
 
+struct SidecarRollbackTarget {
+    record_id: &'static str,
+    client_id: &'static str,
+    owner: &'static str,
+    marker: &'static str,
+}
+
+fn sidecar_rollback_target(record_id: &str) -> Option<SidecarRollbackTarget> {
+    match record_id {
+        "cursor-routing" => Some(SidecarRollbackTarget {
+            record_id: "cursor-routing",
+            client_id: "cursor",
+            owner: "Cursor routing",
+            marker: "headroom:cursor",
+        }),
+        "grok-routing" => Some(SidecarRollbackTarget {
+            record_id: "grok-routing",
+            client_id: "grok_cli",
+            owner: "Grok / xAI CLI routing",
+            marker: "headroom:grok_cli",
+        }),
+        "aider-routing" => Some(SidecarRollbackTarget {
+            record_id: "aider-routing",
+            client_id: "aider",
+            owner: "Aider routing",
+            marker: "headroom:aider",
+        }),
+        "continue-routing" => Some(SidecarRollbackTarget {
+            record_id: "continue-routing",
+            client_id: "continue",
+            owner: "Continue routing",
+            marker: "headroom:continue",
+        }),
+        "goose-routing" => Some(SidecarRollbackTarget {
+            record_id: "goose-routing",
+            client_id: "goose",
+            owner: "Goose routing",
+            marker: "headroom:goose",
+        }),
+        "qwen-code-routing" => Some(SidecarRollbackTarget {
+            record_id: "qwen-code-routing",
+            client_id: "qwen_code",
+            owner: "Qwen Code routing",
+            marker: "headroom:qwen_code",
+        }),
+        "amazon-q-routing" => Some(SidecarRollbackTarget {
+            record_id: "amazon-q-routing",
+            client_id: "amazon_q",
+            owner: "Amazon Q Developer CLI routing",
+            marker: "headroom:amazon_q",
+        }),
+        "windsurf-routing" => Some(SidecarRollbackTarget {
+            record_id: "windsurf-routing",
+            client_id: "windsurf",
+            owner: "Windsurf routing",
+            marker: "headroom:windsurf",
+        }),
+        "zed-ai-routing" => Some(SidecarRollbackTarget {
+            record_id: "zed-ai-routing",
+            client_id: "zed_ai",
+            owner: "Zed AI routing",
+            marker: "headroom:zed_ai",
+        }),
+        _ => None,
+    }
+}
+
+fn sidecar_rollback_confirmation_phrase(target: &SidecarRollbackTarget) -> String {
+    format!("Restore {} for {}", target.marker, target.owner)
+}
+
+fn preview_sidecar_rollback(target: SidecarRollbackTarget) -> Result<ManagedRollbackPreview> {
+    let sidecar = planned_sidecar_spec(target.client_id).ok_or_else(|| {
+        anyhow!(
+            "No Switchboard sidecar is configured for {}.",
+            target.client_id
+        )
+    })?;
+    let target_path = planned_sidecar_routing_path(target.client_id)?;
+    let marker_present = target_path.exists()
+        && planned_switchboard_sidecar_matches(target.client_id).unwrap_or(false);
+    let blocked_reason = if marker_present {
+        None
+    } else {
+        Some(format!(
+            "Managed {} marker is not present in the sidecar config.",
+            target.owner
+        ))
+    };
+
+    Ok(ManagedRollbackPreview {
+        record_id: target.record_id.to_string(),
+        owner: target.owner.to_string(),
+        target_path: target_path.display().to_string(),
+        marker: target.marker.to_string(),
+        backup_path: None,
+        marker_present,
+        backup_exists: true,
+        status: if blocked_reason.is_none() {
+            ManagedRollbackExecutionStatus::Ready
+        } else {
+            ManagedRollbackExecutionStatus::Blocked
+        },
+        confirmation_phrase: sidecar_rollback_confirmation_phrase(&target),
+        proposed_action: format!(
+            "Remove only the Switchboard-owned {} sidecar block after creating a per-file safety backup.",
+            sidecar.name
+        ),
+        blocked_reason,
+        evidence: vec![
+            format!("Allowlisted rollback execution row: {}.", target.record_id),
+            format!(
+                "Cleanup removes only the Switchboard-owned {} sidecar block.",
+                sidecar.name
+            ),
+            "Current sidecar must still contain the managed marker before cleanup.".to_string(),
+        ],
+    })
+}
+
+fn execute_sidecar_rollback(
+    target: SidecarRollbackTarget,
+    confirmation_phrase: &str,
+) -> Result<ManagedRollbackExecutionResult> {
+    let expected_confirmation = sidecar_rollback_confirmation_phrase(&target);
+    if confirmation_phrase != expected_confirmation {
+        return Err(anyhow!("Rollback confirmation phrase does not match."));
+    }
+    let target_path = planned_sidecar_routing_path(target.client_id)?;
+    if !target_path.exists() || !planned_switchboard_sidecar_matches(target.client_id)? {
+        return Err(anyhow!(
+            "Managed {} marker is missing or has drifted; refusing rollback.",
+            target.owner
+        ));
+    }
+    disable_client_setup(target.client_id)?;
+
+    Ok(ManagedRollbackExecutionResult {
+        record_id: target.record_id.to_string(),
+        owner: target.owner.to_string(),
+        target_path: target_path.display().to_string(),
+        restored_from: format!(
+            "Switchboard-owned {} sidecar block removed.",
+            target.client_id
+        ),
+        safety_backup_path: None,
+        marker: target.marker.to_string(),
+        verification: vec![
+            "Exact confirmation phrase matched.".to_string(),
+            format!(
+                "Managed {} marker was present before cleanup.",
+                target.owner
+            ),
+            format!(
+                "Cleanup used disable_client_setup for {} Off-mode parity.",
+                target.client_id
+            ),
+        ],
+    })
+}
+
 fn latest_headroom_backup_for(path: &Path) -> Option<PathBuf> {
     let dir = path.parent()?;
     let file_name = path.file_name()?.to_str()?;
@@ -3428,6 +3589,10 @@ fn validate_managed_rollback_backup_path(target_path: &Path, backup_path: &Path)
 }
 
 pub fn preview_managed_rollback(record_id: &str) -> Result<ManagedRollbackPreview> {
+    if let Some(target) = sidecar_rollback_target(record_id) {
+        return preview_sidecar_rollback(target);
+    }
+
     let target = managed_rollback_target(record_id)?;
     let target_path = (target.target_path)();
     let marker_present = (!target.backup_required || target_path.exists())
@@ -3481,6 +3646,10 @@ pub fn execute_managed_rollback(
     backup_path: &str,
     confirmation_phrase: &str,
 ) -> Result<ManagedRollbackExecutionResult> {
+    if let Some(target) = sidecar_rollback_target(record_id) {
+        return execute_sidecar_rollback(target, confirmation_phrase);
+    }
+
     let target = managed_rollback_target(record_id)?;
     let expected_confirmation = managed_rollback_confirmation_phrase(&target);
     if confirmation_phrase != expected_confirmation {
@@ -7006,6 +7175,48 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert_eq!(content, "# user note\nkeep this\n");
         let shell_content = fs::read_to_string(home.path().join(".zprofile")).expect("read shell");
         assert!(!shell_content.contains("GOOGLE_GEMINI_BASE_URL"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn sidecar_managed_rollback_removes_cursor_sidecar_block_only() {
+        let home = TestHome::new();
+        let sidecar = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Cursor")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(sidecar.parent().unwrap()).expect("create cursor dir");
+        fs::write(&sidecar, "# cursor user note\nkeep this\n").expect("seed sidecar");
+
+        super::apply_client_setup("cursor").expect("apply cursor setup");
+
+        let preview =
+            super::preview_managed_rollback("cursor-routing").expect("preview cursor rollback");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.backup_path.is_none());
+        assert!(preview.backup_exists);
+        assert!(preview.marker_present);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Restore headroom:cursor for Cursor routing"
+        );
+        assert!(preview.proposed_action.contains("Cursor sidecar block"));
+
+        let result = super::execute_managed_rollback(
+            "cursor-routing",
+            "",
+            "Restore headroom:cursor for Cursor routing",
+        )
+        .expect("execute cursor rollback");
+        assert_eq!(
+            result.restored_from,
+            "Switchboard-owned cursor sidecar block removed."
+        );
+
+        let content = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
+        assert_eq!(content, "# cursor user note\nkeep this\n");
     }
 
     #[test]

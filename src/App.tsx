@@ -217,6 +217,7 @@ import {
   formatManagedRollbackUndoAllPreview,
   formatManagedRollbackInventory,
   managedChangeRecords,
+  supportsNativeManagedRollbackRecord,
   type ManagedChangeRecord,
 } from "./lib/managedChanges";
 import {
@@ -6187,11 +6188,7 @@ export default function App() {
   }
 
   function supportsNativeManagedRollback(record: ManagedChangeRecord) {
-    return (
-      record.id === "codex-routing" ||
-      record.id === "gemini-routing" ||
-      record.id === "opencode-routing"
-    );
+    return supportsNativeManagedRollbackRecord(record.id);
   }
 
   async function previewManagedRollback(record: ManagedChangeRecord) {

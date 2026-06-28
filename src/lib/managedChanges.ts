@@ -703,21 +703,34 @@ export function buildManagedRollbackExecutionPreviews(
   );
 }
 
-const nativeRollbackRecordIds = new Set([
+export const nativeRollbackRecordIds = new Set([
   "codex-routing",
+  "cursor-routing",
+  "grok-routing",
+  "aider-routing",
+  "continue-routing",
   "gemini-routing",
+  "goose-routing",
   "opencode-routing",
+  "qwen-code-routing",
+  "amazon-q-routing",
+  "windsurf-routing",
+  "zed-ai-routing",
 ]);
+
+export function supportsNativeManagedRollbackRecord(recordId: string): boolean {
+  return nativeRollbackRecordIds.has(recordId);
+}
 
 export function buildManagedRollbackUndoAllPreview(
   records: ManagedChangeRecord[] = managedChangeRecords,
 ): ManagedRollbackUndoAllPreview {
   const previews = buildManagedRollbackExecutionPreviews(records);
   const executable = previews.filter((preview) =>
-    nativeRollbackRecordIds.has(preview.plan.recordId),
+    supportsNativeManagedRollbackRecord(preview.plan.recordId),
   );
   const manual = previews.filter(
-    (preview) => !nativeRollbackRecordIds.has(preview.plan.recordId),
+    (preview) => !supportsNativeManagedRollbackRecord(preview.plan.recordId),
   );
 
   return {
@@ -734,7 +747,7 @@ export function buildManagedRollbackUndoAllPreview(
     ],
     safetyNotes: [
       "This undo-all preview does not modify files.",
-      "Executable rows are limited to Codex, Gemini, and OpenCode native rollback paths.",
+      "Executable rows are limited to allowlisted config-backed and sidecar-backed native rollback paths.",
       "Cleanup-only app state, storage, launch agents, repo indexes, and plugin footprints must use their dedicated flows.",
       "Unmanaged user config outside Switchboard markers remains out of scope.",
     ],
