@@ -205,6 +205,9 @@ describe("doctor repair copy", () => {
     expect(text).toContain("get_agent_handoff");
     expect(text).toContain("get_index_freshness");
     expect(text).toContain("API availability");
+    expect(text).toContain("graph availability");
+    expect(text).toContain("indexer/parser versions");
+    expect(text).toContain("indexed/skipped counts");
     expect(text).toContain("missing/stale index state");
     expect(text).toContain("clear_repo_index");
     expect(text).toContain("Availability gates");
@@ -219,6 +222,8 @@ describe("doctor repair copy", () => {
     expect(contract).toContain("generated/vendor paths skipped");
     expect(contract).toContain("outputs bounded by pack/token budgets");
     expect(contract).toContain("parser version reported");
+    expect(contract).toContain("graph availability reported");
+    expect(contract).toContain("indexed/skipped counts");
     expect(contract).toContain("missing, stale, corrupt, or moved repo indexes");
   });
 
