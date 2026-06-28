@@ -1884,6 +1884,28 @@ function formatAgentSessionMarkdown(preparation) {
   return lines.join("\n");
 }
 
+function buildAgentSessionRecipes(repoRoot) {
+  return agentHandoffProfiles.map((profile) => {
+    const configReadiness = buildConfigReadiness(profile.id);
+    return {
+      id: profile.id,
+      label: profile.label,
+      toolKind: profile.toolKind,
+      taskType: profile.defaultPackId,
+      command: `npm run repo:intelligence -- ${JSON.stringify(repoRoot || ".")} --session --agent ${profile.id} --task ${profile.defaultPackId} --format markdown`,
+      readOnly: true,
+      manualProviderRouting: !primaryRepoAgentIds.has(profile.id),
+      configReadiness: configReadiness
+        ? {
+            plannedConnectorId: configReadiness.plannedConnectorId,
+            nextGate: configReadiness.nextGate.label,
+            automationEnabled: configReadiness.automationEnabled,
+          }
+        : null,
+    };
+  });
+}
+
 function buildAgentManifest(summary) {
   const fullScanTokens = summary.estimatedFullScanTokens;
   return {
@@ -1932,6 +1954,7 @@ function buildAgentManifest(summary) {
       ...recipe,
       command: `npm run repo:intelligence -- ${JSON.stringify(summary.repoRoot)} --pack ${recipe.packIds[0]} --format markdown`,
     })),
+    agentSessionRecipes: buildAgentSessionRecipes(summary.repoRoot),
     apiQueries: repoAgentApiQueryTemplates.map((query) => ({
       ...query,
       readOnly: true,

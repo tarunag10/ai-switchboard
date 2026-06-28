@@ -445,6 +445,47 @@ describe("repoIntelligence", () => {
     expect(manifest.agentRecipes[0].command).toContain(
       "--pack implementation --format markdown",
     );
+    expect(manifest.agentSessionRecipes).toHaveLength(13);
+    expect(
+      manifest.agentSessionRecipes.map((recipe) => recipe.id),
+    ).toContain("gemini");
+    expect(
+      manifest.agentSessionRecipes.map((recipe) => recipe.id),
+    ).toContain("zed");
+    const codexSessionRecipe = manifest.agentSessionRecipes.find(
+      (recipe) => recipe.id === "codex",
+    );
+    expect(codexSessionRecipe).toEqual(
+      expect.objectContaining({
+        label: "Codex",
+        taskType: "verification",
+        readOnly: true,
+        manualProviderRouting: false,
+        configReadiness: null,
+      }),
+    );
+    expect(codexSessionRecipe?.command).toContain(
+      "--session --agent codex --task verification --format markdown",
+    );
+    const geminiSessionRecipe = manifest.agentSessionRecipes.find(
+      (recipe) => recipe.id === "gemini",
+    );
+    expect(geminiSessionRecipe).toEqual(
+      expect.objectContaining({
+        label: "Gemini CLI",
+        taskType: "implementation",
+        readOnly: true,
+        manualProviderRouting: true,
+        configReadiness: {
+          plannedConnectorId: "gemini_cli",
+          nextGate: "Detect config surface",
+          automationEnabled: false,
+        },
+      }),
+    );
+    expect(geminiSessionRecipe?.command).toContain(
+      "--session --agent gemini --task implementation --format markdown",
+    );
     expect(manifest.apiQueries.map((query) => query.command)).toEqual([
       "get_repo_manifest",
       "get_repo_pack",

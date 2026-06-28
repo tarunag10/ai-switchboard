@@ -281,6 +281,20 @@ export interface RepoAgentManifest {
     instruction: string;
     command: string;
   }>;
+  agentSessionRecipes: Array<{
+    id: RepoAgentHandoffTarget;
+    label: string;
+    toolKind: RepoAgentHandoffProfile["toolKind"];
+    taskType: AgentSessionTaskType;
+    command: string;
+    readOnly: true;
+    manualProviderRouting: boolean;
+    configReadiness: {
+      plannedConnectorId: string;
+      nextGate: string;
+      automationEnabled: boolean;
+    } | null;
+  }>;
   apiQueries: Array<{
     id: string;
     description: string;
@@ -560,6 +574,11 @@ const plannedConnectorIdByAgentTarget: Partial<
   zed: "zed_ai",
 };
 
+const primaryRepoAgentIds = new Set<RepoAgentHandoffTarget>([
+  "claude",
+  "codex",
+]);
+
 function buildRepoAgentConfigReadiness(
   target: RepoAgentHandoffTarget,
 ): RepoAgentConfigReadiness | undefined {
@@ -637,6 +656,28 @@ const repoAgentRecipeTemplates = [
       "Use these packs as read-only context in editor assistants while provider routing remains manual.",
   },
 ] as const;
+
+function buildRepoAgentSessionRecipes(repoRoot: string) {
+  return repoAgentHandoffProfiles.map((profile) => {
+    const configReadiness = buildRepoAgentConfigReadiness(profile.id);
+    return {
+      id: profile.id,
+      label: profile.label,
+      toolKind: profile.toolKind,
+      taskType: profile.defaultPackId,
+      command: `npm run repo:intelligence -- ${JSON.stringify(repoRoot || ".")} --session --agent ${profile.id} --task ${profile.defaultPackId} --format markdown`,
+      readOnly: true as const,
+      manualProviderRouting: !primaryRepoAgentIds.has(profile.id),
+      configReadiness: configReadiness
+        ? {
+            plannedConnectorId: configReadiness.plannedConnectorId,
+            nextGate: configReadiness.nextGate.label,
+            automationEnabled: configReadiness.automationEnabled,
+          }
+        : null,
+    };
+  });
+}
 
 const repoAgentApiQueryTemplates = [
   {
@@ -1168,6 +1209,7 @@ export function buildRepoAgentManifest(
       packIds: [...recipe.packIds],
       command: `npm run repo:intelligence -- ${JSON.stringify(repoRoot || ".")} --pack ${recipe.packIds[0]} --format markdown`,
     })),
+    agentSessionRecipes: buildRepoAgentSessionRecipes(repoRoot),
     apiQueries: repoAgentApiQueryTemplates.map((query) => ({
       ...query,
       readOnly: true,
