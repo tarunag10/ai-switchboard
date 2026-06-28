@@ -1483,6 +1483,9 @@ fn extract_symbol_from_line(language: &str, line: &str) -> Option<(RepoSymbolKin
         if let Some(name) = symbol_name_after(line, "function ") {
             return Some((RepoSymbolKind::Function, name));
         }
+        if let Some(name) = exported_assignment_symbol_name(line) {
+            return Some((RepoSymbolKind::Function, name));
+        }
         if let Some(name) = symbol_name_after(line, "class ") {
             return Some((RepoSymbolKind::Class, name));
         }
@@ -1514,6 +1517,9 @@ fn extract_symbol_from_line(language: &str, line: &str) -> Option<(RepoSymbolKin
         }
     }
     if language == "Python" {
+        if let Some(name) = symbol_name_after(line, "async def ") {
+            return Some((RepoSymbolKind::Function, name));
+        }
         if let Some(name) = symbol_name_after(line, "def ") {
             return Some((RepoSymbolKind::Function, name));
         }
@@ -1527,6 +1533,29 @@ fn extract_symbol_from_line(language: &str, line: &str) -> Option<(RepoSymbolKin
 fn symbol_name_after(line: &str, prefix: &str) -> Option<String> {
     let rest = line.strip_prefix(prefix)?;
     let name = rest
+        .chars()
+        .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_' || *ch == '$')
+        .collect::<String>();
+    (!name.is_empty()).then_some(name)
+}
+
+fn exported_assignment_symbol_name(line: &str) -> Option<String> {
+    let line = line
+        .trim_start_matches("export ")
+        .trim_start_matches("const ")
+        .trim_start_matches("let ")
+        .trim_start_matches("var ");
+    let (name, rest) = line.split_once('=')?;
+    let name = name.trim();
+    let rhs = rest.trim_start();
+    let is_function_like = rhs.starts_with("async ")
+        || rhs.starts_with('(')
+        || rhs.starts_with('<')
+        || rhs.contains("=>");
+    if !is_function_like {
+        return None;
+    }
+    let name = name
         .chars()
         .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_' || *ch == '$')
         .collect::<String>();
@@ -2131,6 +2160,61 @@ mod tests {
             classify_file("dist/assets/index.js", MAX_INDEXED_FILE_BYTES + 1).role,
             RepoFileRole::Generated
         ));
+    }
+
+    #[test]
+    fn extracts_modern_js_and_python_symbols() {
+        let react_file = RepoFileSignal {
+            path: "src/App.tsx".to_string(),
+            role: RepoFileRole::Source,
+            language: "React".to_string(),
+            estimated_tokens: 120,
+            include_by_default: true,
+            reasons: vec![],
+        };
+        let react_symbols = extract_file_symbols(
+            &react_file,
+            r#"
+export const App = () => <main />;
+const useThing = async () => fetch("/api");
+const config = { mode: "local" };
+export const mapValues = <T>(items: T[]) => items;
+"#,
+            10,
+        );
+        let react_names = react_symbols
+            .iter()
+            .map(|symbol| (symbol.name.as_str(), &symbol.kind))
+            .collect::<Vec<_>>();
+        assert!(react_names
+            .iter()
+            .any(|(name, kind)| *name == "App" && matches!(kind, RepoSymbolKind::Function)));
+        assert!(react_names
+            .iter()
+            .any(|(name, kind)| *name == "useThing" && matches!(kind, RepoSymbolKind::Function)));
+        assert!(react_names
+            .iter()
+            .any(|(name, kind)| *name == "mapValues" && matches!(kind, RepoSymbolKind::Function)));
+        assert!(react_symbols.iter().any(|symbol| {
+            symbol.name == "config" && matches!(symbol.kind, RepoSymbolKind::Const)
+        }));
+
+        let python_file = RepoFileSignal {
+            path: "worker.py".to_string(),
+            role: RepoFileRole::Source,
+            language: "Python".to_string(),
+            estimated_tokens: 80,
+            include_by_default: true,
+            reasons: vec![],
+        };
+        let python_symbols = extract_file_symbols(
+            &python_file,
+            "async def fetch_user():\n    return None\n",
+            10,
+        );
+        assert!(python_symbols.iter().any(|symbol| {
+            symbol.name == "fetch_user" && matches!(symbol.kind, RepoSymbolKind::Function)
+        }));
     }
 
     #[test]
