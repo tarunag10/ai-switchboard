@@ -510,7 +510,7 @@ export function formatSavingsLedgerShareText(
       ? rows.map((row) => {
           const usdPart =
             row.savedUsd === null ? "" : ` / ${formatUsd(row.savedUsd)}`;
-          return `- ${row.source}: ${row.label} (${row.confidence}) saved ${formatTokens(row.savedTokens)} tokens${usdPart}. ${row.caveat}`;
+          return `- ${row.source}: ${row.label} (${row.confidence}, ${savingsCalculatorScopeLabel(row.scope)}, ${row.recordedAt}) saved ${formatTokens(row.savedTokens)} tokens${usdPart}. ${row.caveat}`;
         })
       : ["- No ledger rows yet."];
 

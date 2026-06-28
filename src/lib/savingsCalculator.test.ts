@@ -616,8 +616,12 @@ describe("savings calculator", () => {
       recordedAt,
     );
     expect(copied).toContain("Rows: 2");
-    expect(copied).toContain("- repo_intelligence: Repo Intelligence");
-    expect(copied).toContain("- ponytail: Ponytail");
+    expect(copied).toContain(
+      "- repo_intelligence: Repo Intelligence (inferred, lifetime, 2026-06-27T10:00:00.000Z)",
+    );
+    expect(copied).toContain(
+      "- ponytail: Ponytail (inferred, lifetime, 2026-06-27T10:00:00.000Z)",
+    );
     expect(copied).not.toContain("- rtk: RTK");
     expect(copied).not.toContain("- headroom_engine: Headroom");
   });
@@ -660,7 +664,7 @@ describe("savings calculator", () => {
       "Confidence labels are not interchangeable: inferred rows are never reported as measured.",
     );
     expect(text).toContain(
-      "- markitdown: MarkItDown (inferred) saved 2,300 tokens.",
+      "- markitdown: MarkItDown (inferred, lifetime, 2026-06-27T10:00:00.000Z) saved 2,300 tokens.",
     );
   });
 
