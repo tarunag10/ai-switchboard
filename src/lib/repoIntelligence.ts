@@ -1732,8 +1732,14 @@ function agentSessionFreshnessDetailLabel(freshness: RepoIndexFreshness) {
     freshness.skippedFileCount === null || freshness.skippedFileCount === undefined
       ? "skipped files unknown"
       : `${freshness.skippedFileCount.toLocaleString()} skipped`;
+  const detail =
+    freshness.status === "fresh" || freshness.status === "none"
+      ? null
+      : freshness.detail;
 
-  return `${api} · ${graph} · ${parser} · ${indexed} · ${skipped}`;
+  return [api, graph, parser, indexed, skipped, detail]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function buildAgentSessionDisplayState(

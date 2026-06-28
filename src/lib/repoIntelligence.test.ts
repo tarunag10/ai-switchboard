@@ -1066,6 +1066,11 @@ describe("repoIntelligence", () => {
     );
 
     expect(staleDisplay.copyStatus).toBe("warn");
+    expect(staleDisplay.freshnessLabel).toBe("Changed local index");
+    expect(staleDisplay.freshnessLabel).not.toBe("Fresh local index");
+    expect(staleDisplay.freshnessDetailLabel).toBe(
+      "API ready · graph ready · parser metadata-fingerprint-v1 · 4 indexed · 0 skipped · Repo metadata changed since the previous saved index.",
+    );
     expect(staleDisplay.modeLabel).toBe("RTK only");
     expect(staleDisplay.copyDetail).toContain("Changed local index");
     expect(staleDisplay.connectorReadinessLabel).toBe(
