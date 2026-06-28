@@ -18,11 +18,29 @@ import {
   formatSingleRepoContextPackMarkdown,
   getRepoIndexFreshness,
   isSecretLikeRepoPath,
+  normalizeRepoIndexRequest,
   recommendAgentSessionMode,
   repoAgentPackLabel,
 } from "./repoIntelligence";
 
 describe("repoIntelligence", () => {
+  it("validates repo index requests before invoking the app indexer", () => {
+    expect(normalizeRepoIndexRequest("")).toEqual({
+      repoPath: "",
+      error: "Enter a local repository folder path first.",
+    });
+    expect(normalizeRepoIndexRequest("   ")).toEqual({
+      repoPath: "",
+      error: "Enter a local repository folder path first.",
+    });
+    expect(
+      normalizeRepoIndexRequest("  /Users/me/Developer/app  "),
+    ).toEqual({
+      repoPath: "/Users/me/Developer/app",
+      error: null,
+    });
+  });
+
   it("estimates tokens from bytes conservatively", () => {
     expect(estimateRepoTokens(0)).toBe(1);
     expect(estimateRepoTokens(400)).toBe(100);

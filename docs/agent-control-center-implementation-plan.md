@@ -32,6 +32,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Uninstall dry-run exports now state that their managed footprint comes from the Rollback Center inventory and include the item count, with tests guarding against drift.
 - Release readiness command copy now includes the strict public-release gate, report path, and local unsigned/ad-hoc evidence boundary even before a report JSON is loaded.
 - Start Agent Session now has a dedicated Copy summary action alongside full handoff, selected pack, and JSON copy; sample/demo indexes stay blocked from summary copy too.
+- Start Agent Session repo-path validation now uses a shared tested helper, so empty or whitespace-only paths are blocked before the Mac app invokes indexing.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

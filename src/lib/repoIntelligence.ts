@@ -141,6 +141,23 @@ export interface RepoSavingsEstimate {
   bestPack?: RepoContextPack;
 }
 
+export interface RepoIndexRequestValidation {
+  repoPath: string;
+  error: string | null;
+}
+
+export function normalizeRepoIndexRequest(
+  repoPath: string,
+): RepoIndexRequestValidation {
+  const trimmedPath = repoPath.trim();
+  return {
+    repoPath: trimmedPath,
+    error: trimmedPath
+      ? null
+      : "Enter a local repository folder path first.",
+  };
+}
+
 export interface RepoIndexFreshness {
   status: "none" | "fresh" | "unchanged_cache" | "changed_cache" | "unknown";
   label: string;

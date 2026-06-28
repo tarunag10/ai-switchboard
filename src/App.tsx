@@ -78,6 +78,7 @@ import {
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
   getRepoIndexFreshness,
+  normalizeRepoIndexRequest,
   repoAgentPackLabel,
   repoAgentHandoffProfiles,
   type AgentSessionTaskType,
@@ -1731,9 +1732,9 @@ function RepoIntelligencePreview({
   }, []);
 
   async function runRepoIndex() {
-    const trimmedPath = repoPath.trim();
-    if (!trimmedPath) {
-      setIndexError("Enter a local repository folder path first.");
+    const request = normalizeRepoIndexRequest(repoPath);
+    if (request.error) {
+      setIndexError(request.error);
       return;
     }
     setIndexing(true);
@@ -1742,7 +1743,7 @@ function RepoIntelligencePreview({
       const next = await invoke<RepoIntelligenceSummary>(
         "build_repo_intelligence_summary",
         {
-          repoPath: trimmedPath,
+          repoPath: request.repoPath,
         },
       );
       setSummary(next);
