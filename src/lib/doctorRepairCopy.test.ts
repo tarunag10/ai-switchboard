@@ -13,6 +13,7 @@ import {
   formatDoctorReportShareText,
   plannedConnectorDoctorPreviewRows,
   formatVerifyOffModeShareText,
+  repoIntelligenceDoctorApiContract,
   sortDoctorTimelineEvents,
 } from "./doctorRepairCopy";
 import { managedChangeRecords } from "./managedChanges";
@@ -197,6 +198,22 @@ describe("doctor repair copy", () => {
     expect(text).toContain("Gated config-creation steps:");
     expect(text).toContain("Show dry-run diff");
     expect(text).toContain("Required evidence:");
+    expect(text).toContain("Repo Intelligence local API contract");
+    expect(text).toContain("get_repo_manifest");
+    expect(text).toContain("get_repo_pack");
+    expect(text).toContain("get_agent_handoff");
+    expect(text).toContain("get_index_freshness");
+    expect(text).toContain("clear_repo_index");
+    expect(text).toContain("never mutates the user repo");
+  });
+
+  it("summarizes the read-only Repo Intelligence API contract for Doctor", () => {
+    const contract = repoIntelligenceDoctorApiContract();
+
+    expect(contract).toContain("read-only by default");
+    expect(contract).toContain("secret-like paths excluded");
+    expect(contract).toContain("generated/vendor paths skipped");
+    expect(contract).toContain("outputs bounded by pack/token budgets");
   });
 
   it("explains why planned connectors stay manual in Doctor", () => {

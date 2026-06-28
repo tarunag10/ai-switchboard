@@ -283,6 +283,18 @@ export function plannedConnectorDoctorPreviewRows(): PlannedConnectorDoctorPrevi
   });
 }
 
+export function repoIntelligenceDoctorApiContract(): string {
+  return [
+    "Repo Intelligence local API contract",
+    "- get_repo_manifest: read latest bounded manifest.",
+    "- get_repo_pack: read one bounded context pack.",
+    "- get_agent_handoff: read one bounded agent handoff.",
+    "- get_index_freshness: read freshness and parser metadata.",
+    "- clear_repo_index: clears only Switchboard managed index metadata; never mutates the user repo.",
+    "Safety: read-only by default, secret-like paths excluded, generated/vendor paths skipped, outputs bounded by pack/token budgets.",
+  ].join("\n");
+}
+
 export function doctorIssueGuidance(issue: DoctorIssue): string {
   if (doctorIssueActionKind(issue.repairAction) === "automatic") {
     return doctorRepairHint(issue.repairAction as string);
@@ -344,6 +356,8 @@ export function formatDoctorReportShareText(report: DoctorReport): string {
     ...(includesPlannedConnectorIssue
       ? ["", formatPlannedConnectorDoctorDossiers()]
       : []),
+    "",
+    repoIntelligenceDoctorApiContract(),
   ]
     .join("\n")
     .trimEnd();
