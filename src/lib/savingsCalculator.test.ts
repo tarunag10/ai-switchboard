@@ -7,6 +7,7 @@ import {
   buildSavingsCalculatorSummary,
   buildSavingsLedgerRows,
   filterSavingsLedgerRowsByConfidence,
+  formatSavingsLedgerAttributionSummary,
   formatSavingsLedgerConfidenceBreakdown,
   formatSavingsLedgerShareText,
   getSavingsLedgerEmptyState,
@@ -681,6 +682,7 @@ describe("savings calculator", () => {
     expect(text).toContain("Measured tokens: 900 / $0.00");
     expect(text).toContain("Estimated tokens: 2,000 / $4.50");
     expect(text).toContain("Inferred tokens: 2,300");
+    expect(text).toContain("Attribution: 17.3% measured · 38.5% estimated · 44.2% inferred");
     expect(text).toContain(
       "Equation per row: saved tokens come from each source's before/after or counter delta",
     );
@@ -696,6 +698,26 @@ describe("savings calculator", () => {
     expect(text).toContain(
       "- markitdown: MarkItDown (inferred, lifetime, 2026-06-27T10:00:00.000Z) saved 2,300 tokens.",
     );
+  });
+
+  it("formats savings attribution by confidence without overstating empty ledgers", () => {
+    expect(
+      formatSavingsLedgerAttributionSummary({
+        totalTokens: 0,
+        measuredTokens: 0,
+        estimatedTokens: 0,
+        inferredTokens: 0,
+      }),
+    ).toBe("No attributed savings yet.");
+
+    expect(
+      formatSavingsLedgerAttributionSummary({
+        totalTokens: 1_000,
+        measuredTokens: 250,
+        estimatedTokens: 250,
+        inferredTokens: 500,
+      }),
+    ).toBe("25% measured · 25% estimated · 50% inferred");
   });
 
   it("formats a copyable session savings summary", () => {

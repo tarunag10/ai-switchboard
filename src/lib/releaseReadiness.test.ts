@@ -5,6 +5,7 @@ import {
   formatReleaseReadinessReportSnapshot,
   formatReleaseReadinessSourceLabel,
   releaseReadinessCommand,
+  releaseReadinessEvidenceSummary,
   releaseReadinessGroups,
   releaseReadinessItemCount,
   releaseReadinessRowsFromReport,
@@ -138,6 +139,53 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("local install evidence");
     expect(copy).toContain("does not prove signed release readiness");
     expect(copy).toContain("release blockers when missing, not app failures");
+  });
+
+  it("summarizes release evidence coverage separately from local-only proof", () => {
+    const defaults = releaseReadinessEvidenceSummary();
+    expect(defaults).toMatchObject({
+      totalRows: 9,
+      readyRows: 1,
+      blockedRows: 7,
+      localOnlyRows: 1,
+      publicGateReady: false,
+      reportLoaded: false,
+    });
+    expect(defaults.copy).toContain("no release report loaded");
+
+    const report = {
+      status: "ready",
+      backendValidation: { ready: true },
+      staticSmokePreflight: {
+        ready: true,
+        evidenceReady: true,
+        requiredEvidence: [
+          "Planned connector config creation plan",
+          "Connector readiness payload in agent handoffs",
+        ],
+      },
+      installedSmoke: {
+        installedAppPresent: true,
+        evidenceReady: true,
+        missingEvidence: [],
+      },
+      shareableDmgGate: {
+        ready: true,
+        signedAndNotarized: true,
+        updaterFeedReady: true,
+      },
+    };
+    const rows = releaseReadinessRowsFromReport(report);
+    const loaded = releaseReadinessEvidenceSummary(rows, report);
+
+    expect(loaded).toMatchObject({
+      readyRows: 8,
+      blockedRows: 0,
+      localOnlyRows: 1,
+      publicGateReady: true,
+      reportLoaded: true,
+    });
+    expect(loaded.copy).toContain("public gate ready");
   });
 
   it("derives ready release dashboard rows from release report JSON", () => {
@@ -275,6 +323,7 @@ describe("release readiness checklist", () => {
     expect(row?.tone).toBe("blocked");
     expect(row?.statusLabel).toBe("Blocked");
     expect(snapshot).toContain("Connector config plan evidence: no");
+    expect(snapshot).toContain("Evidence summary:");
   });
 
   it("keeps frontend blocked when direct static evidence is missing", () => {

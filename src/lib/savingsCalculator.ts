@@ -537,6 +537,29 @@ export function formatSavingsLedgerConfidenceBreakdown(
   ].join(" · ");
 }
 
+export function formatSavingsLedgerAttributionSummary(
+  summary: Pick<
+    SavingsLedgerSummary,
+    "totalTokens" | "measuredTokens" | "estimatedTokens" | "inferredTokens"
+  >,
+) {
+  if (summary.totalTokens <= 0) {
+    return "No attributed savings yet.";
+  }
+
+  const percent = (value: number) =>
+    `${new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 1,
+    }).format((value / summary.totalTokens) * 100)}%`;
+
+  return [
+    `${percent(summary.measuredTokens)} measured`,
+    `${percent(summary.estimatedTokens)} estimated`,
+    `${percent(summary.inferredTokens)} inferred`,
+  ].join(" · ");
+}
+
 export function formatSavingsLedgerShareText(
   rows: SavingsLedgerRow[],
   scope: SavingsCalculatorScope,
@@ -564,6 +587,7 @@ export function formatSavingsLedgerShareText(
     `Measured tokens: ${formatTokens(summary.measuredTokens)} / ${formatUsd(summary.measuredUsd)}`,
     `Estimated tokens: ${formatTokens(summary.estimatedTokens)} / ${formatUsd(summary.estimatedUsd)}`,
     `Inferred tokens: ${formatTokens(summary.inferredTokens)}`,
+    `Attribution: ${formatSavingsLedgerAttributionSummary(summary)}`,
     "Equation per row: saved tokens come from each source's before/after or counter delta; see Evidence on each row.",
     "Confidence labels are not interchangeable: inferred rows are never reported as measured.",
     "Rows:",

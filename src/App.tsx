@@ -103,6 +103,7 @@ import {
   formatReleaseReadinessCommandCopy,
   formatReleaseReadinessReportSnapshot,
   formatReleaseReadinessSourceLabel,
+  releaseReadinessEvidenceSummary,
   releaseReadinessGroups,
   releaseReadinessItemCount,
   releaseReadinessRowsFromReport,
@@ -233,6 +234,7 @@ import {
   buildSavingsLedgerRows,
   buildSavingsCalculatorSummary,
   formatSavingsLedgerConfidenceBreakdown,
+  formatSavingsLedgerAttributionSummary,
   formatSavingsLedgerShareText,
   getSavingsLedgerEmptyState,
   savingsCalculatorScopeLabel,
@@ -935,6 +937,12 @@ function SavingsCalculatorCard({
             Confidence{" "}
             <strong>
               {formatSavingsLedgerConfidenceBreakdown(filteredLedger.summary)}
+            </strong>
+          </span>
+          <span>
+            Attribution{" "}
+            <strong>
+              {formatSavingsLedgerAttributionSummary(filteredLedger.summary)}
             </strong>
           </span>
         </div>
@@ -2706,6 +2714,10 @@ export default function App() {
   );
   const releaseReadinessCounts =
     releaseReadinessStatusCounts(releaseReadinessRows);
+  const releaseReadinessEvidence = releaseReadinessEvidenceSummary(
+    releaseReadinessRows,
+    releaseReadinessReport?.report,
+  );
   const [connectorsBusy, setConnectorsBusy] = useState(false);
   const [connectorPhase, setConnectorPhase] = useState<
     "disabled" | "verifying" | "healthy"
@@ -9328,6 +9340,9 @@ export default function App() {
                     ? releaseReadinessReport.reportPath
                     : null,
                 )}
+              </p>
+              <p className="release-readiness-card__source">
+                {releaseReadinessEvidence.copy}
               </p>
               <div
                 className="release-readiness-card__summary"

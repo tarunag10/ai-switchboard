@@ -33,6 +33,16 @@ export interface ReleaseReadinessStatusRow {
   detail: string;
 }
 
+export interface ReleaseReadinessEvidenceSummary {
+  totalRows: number;
+  readyRows: number;
+  blockedRows: number;
+  localOnlyRows: number;
+  publicGateReady: boolean;
+  reportLoaded: boolean;
+  copy: string;
+}
+
 export interface ReleaseReadinessReportSnapshot {
   generatedAt?: string;
   status: "ready" | "blocked" | string;
@@ -385,6 +395,28 @@ export function releaseReadinessStatusCounts(
   );
 }
 
+export function releaseReadinessEvidenceSummary(
+  rows: ReleaseReadinessStatusRow[] = releaseReadinessStatusRows,
+  report: ReleaseReadinessReportSnapshot | null | undefined = null,
+): ReleaseReadinessEvidenceSummary {
+  const counts = releaseReadinessStatusCounts(rows);
+  const publicGateReady =
+    report?.status === "ready" && report.shareableDmgGate?.ready === true;
+  const reportLoaded = Boolean(report);
+
+  return {
+    totalRows: rows.length,
+    readyRows: counts.ready,
+    blockedRows: counts.blocked,
+    localOnlyRows: counts["local-only"],
+    publicGateReady,
+    reportLoaded,
+    copy: reportLoaded
+      ? `${counts.ready}/${rows.length} scripted release checks ready; ${counts.blocked} blocked; ${counts["local-only"]} local-only; public gate ${publicGateReady ? "ready" : "blocked"}.`
+      : `${counts.ready}/${rows.length} checklist defaults ready; ${counts.blocked} blocked; ${counts["local-only"]} local-only; no release report loaded.`,
+  };
+}
+
 function statusTone(ready: boolean): ReleaseReadinessStatusTone {
   return ready ? "ready" : "blocked";
 }
@@ -502,6 +534,7 @@ export function formatReleaseReadinessReportSnapshot(
   reportPath: string,
 ) {
   const statusRows = releaseReadinessRowsFromReport(report);
+  const evidenceSummary = releaseReadinessEvidenceSummary(statusRows, report);
   const localInstalled = report.installedSmoke?.installedAppPresent === true;
   const publicReady = report.shareableDmgGate?.ready === true && report.status === "ready";
 
@@ -511,6 +544,7 @@ export function formatReleaseReadinessReportSnapshot(
     `Source: ${reportPath}`,
     `Generated: ${report.generatedAt ?? "unknown"}`,
     `Status: ${report.status}`,
+    `Evidence summary: ${evidenceSummary.copy}`,
     "",
     "## Commands",
     `- Refresh report: ${releaseReadinessCommand}`,
