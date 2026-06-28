@@ -602,6 +602,43 @@ describe("repoIntelligence", () => {
     expect(packMarkdown).toContain("Estimated tokens avoided:");
   });
 
+  it("builds risk review and release handoff agent sessions", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+
+    const riskReview = buildAgentSessionPreparation(summary, {
+      target: "codex",
+      taskType: "risk_review",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+      },
+    });
+    const releaseHandoff = buildAgentSessionPreparation(summary, {
+      target: "codex",
+      taskType: "release_handoff",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+      },
+    });
+
+    expect(riskReview.packId).toBe("risk_review");
+    expect(riskReview.handoffPayload?.pack.title).toBe("Risk Review Pack");
+    expect(releaseHandoff.packId).toBe("release_handoff");
+    expect(releaseHandoff.handoffPayload?.pack.title).toBe(
+      "Release Handoff Pack",
+    );
+  });
+
   it("warns when agent session preparation uses a changed cached index", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },

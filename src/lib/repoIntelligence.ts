@@ -145,7 +145,9 @@ export interface RepoIndexFreshness {
 export type AgentSessionTaskType =
   | "implementation"
   | "verification"
-  | "handoff";
+  | "handoff"
+  | "risk_review"
+  | "release_handoff";
 
 export interface AgentSessionModeInputs {
   headroomHealthy: boolean;
@@ -1119,6 +1121,12 @@ function packIdForAgentSessionTask(
   }
   if (taskType === "handoff") {
     return "handoff";
+  }
+  if (taskType === "risk_review") {
+    return "risk_review";
+  }
+  if (taskType === "release_handoff") {
+    return "release_handoff";
   }
   return profile.defaultPackId;
 }

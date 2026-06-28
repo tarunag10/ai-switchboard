@@ -222,6 +222,8 @@ const agentSessionTaskTypes = new Set([
   "implementation",
   "verification",
   "handoff",
+  "risk_review",
+  "release_handoff",
 ]);
 
 function parseArgs(argv) {
@@ -313,7 +315,7 @@ Options:
   --pack <id>          Print one context pack: implementation, verification, handoff, risk_review, release_handoff
   --agent <id>         Print agent handoff: claude, codex, gemini, opencode, aider, goose, cursor, continue, grok, qwen, amazonq, windsurf, zed
   --session            Print Start Agent Session preparation for --agent
-  --task <type>        Session task: implementation, verification, handoff
+  --task <type>        Session task: implementation, verification, handoff, risk_review, release_handoff
   --headroom-healthy   Mark Headroom engine healthy for mode recommendation
   --rtk-healthy        Mark RTK healthy for mode recommendation
   --provider-routing-safe|--provider-routing-unsafe
@@ -1334,6 +1336,8 @@ function packIdForTask(profile, taskType) {
   if (taskType === "implementation") return "implementation";
   if (taskType === "verification") return "verification";
   if (taskType === "handoff") return "handoff";
+  if (taskType === "risk_review") return "risk_review";
+  if (taskType === "release_handoff") return "release_handoff";
   return profile.defaultPackId;
 }
 

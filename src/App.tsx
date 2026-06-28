@@ -2108,6 +2108,8 @@ function RepoIntelligencePreview({
               <option value="implementation">Implementation</option>
               <option value="verification">Verification</option>
               <option value="handoff">Handoff</option>
+              <option value="risk_review">Risk review</option>
+              <option value="release_handoff">Release handoff</option>
             </select>
           </label>
           <button

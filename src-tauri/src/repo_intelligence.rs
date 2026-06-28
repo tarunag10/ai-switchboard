@@ -472,6 +472,8 @@ pub fn build_agent_handoff_response(
         "implementation" => "implementation",
         "verification" => "verification",
         "handoff" => "handoff",
+        "risk_review" => "risk_review",
+        "release_handoff" => "release_handoff",
         other => return Err(anyhow!("unknown repo handoff task: {other}")),
     };
     let pack = summary
@@ -2487,6 +2489,17 @@ mod tests {
             .files
             .iter()
             .any(|file| file.path.contains(".env.local")));
+
+        let risk_review =
+            build_agent_handoff_response(&summary, "codex", Some("risk_review")).expect("risk");
+        assert_eq!(risk_review.pack.id, "risk_review");
+        assert_eq!(risk_review.pack.title, "Risk Review Pack");
+
+        let release_handoff =
+            build_agent_handoff_response(&summary, "codex", Some("release_handoff"))
+                .expect("release");
+        assert_eq!(release_handoff.pack.id, "release_handoff");
+        assert_eq!(release_handoff.pack.title, "Release Handoff Pack");
 
         let error = build_agent_handoff_response(&summary, "unknown", None).unwrap_err();
         assert!(error.to_string().contains("unknown repo handoff agent"));
