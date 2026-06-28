@@ -386,8 +386,9 @@ describe("managedChangeRecords", () => {
     expect(preview.manual).toHaveLength(
       managedChangeRecords.length - preview.executable.length,
     );
-    expect(preview.blockedReason).toContain("preview-only");
-    expect(preview.safetyNotes.join(" ")).toContain("does not modify files");
+    expect(preview.blockedReason).toContain("Native undo-all can execute");
+    expect(preview.blockedReason).toContain("manual and dedicated cleanup rows stay blocked");
+    expect(preview.safetyNotes.join(" ")).toContain("native undo-all control");
   });
 
   it("formats undo-all preview without claiming native writes ran", () => {
@@ -402,8 +403,11 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("OpenCode routing (opencode-routing)");
     expect(text).toContain("Amazon Q Developer CLI routing (amazon-q-routing)");
     expect(text).toContain("Manual or cleanup rows:");
-    expect(text).toContain("Undo all is preview-only");
-    expect(text).toContain("This undo-all preview does not modify files.");
+    expect(text).toContain("Native undo-all can execute only allowlisted ready rows");
+    expect(text).toContain("manual and dedicated cleanup rows stay blocked");
+    expect(text).toContain(
+      "This copyable undo-all preview does not modify files; use the native undo-all control to execute ready rows.",
+    );
   });
 
   it("rejects diff previews for non-config records or missing inputs", () => {

@@ -760,16 +760,16 @@ export function buildManagedRollbackUndoAllPreview(
     executable,
     manual,
     blockedReason:
-      "Undo all is preview-only until every managed rollback row has backend execution, relaunch-survival evidence, and explicit per-row confirmation.",
+      "Native undo-all can execute only allowlisted ready rows through the backend confirmation flow; manual and dedicated cleanup rows stay blocked until they have their own restore execution and relaunch-survival evidence.",
     orderedSteps: [
       "Preview every managed rollback row in stable inventory order.",
-      "Execute only allowlisted native rows one at a time after their exact confirmation phrases match.",
+      "Execute only allowlisted native rows after the backend preview reports them ready and the exact undo-all confirmation phrase matches.",
       "Leave unsupported rows in manual review or dedicated cleanup flows.",
       "Refresh Doctor and connector verification after each native restore.",
       "Stop before any row whose marker, backup, or ownership evidence is missing.",
     ],
     safetyNotes: [
-      "This undo-all preview does not modify files.",
+      "This copyable undo-all preview does not modify files; use the native undo-all control to execute ready rows.",
       "Executable rows are limited to allowlisted config-backed and sidecar-backed native rollback paths.",
       "Cleanup-only app state, storage, launch agents, repo indexes, and plugin footprints must use their dedicated flows.",
       "Unmanaged user config outside Switchboard markers remains out of scope.",
