@@ -7190,9 +7190,13 @@ export default function App() {
         ? "Paused"
         : "Offline";
   const switchboardRtkDetail =
-    rtkAvgSavingsPct !== null
-      ? `${percent1(rtkAvgSavingsPct)}% average savings`
-      : "Shell output compression";
+    runtimeStatus?.rtk.enabled
+      ? rtkAvgSavingsPct !== null
+        ? `${percent1(rtkAvgSavingsPct)}% average savings`
+        : "Shell output compression active"
+      : runtimeStatus?.rtk.installed
+        ? "Installed but disabled"
+        : "Shell output compression not installed";
   const switchboardHeadroomLabel =
     (switchboardState?.enabledClients ?? enabledSwitchboardConnectors).length >
     0
@@ -7784,6 +7788,7 @@ export default function App() {
             headroomDetail={switchboardHeadroomLabel}
             rtkStatus={switchboardRtkLabel}
             rtkDetail={switchboardRtkDetail}
+            connectors={switchboardConnectors}
             inspectorRows={switchboardInspectorRows}
             remoteServicesEnabled={switchboardRemoteServicesEnabled}
             savingsMode={savingsMode}
@@ -7822,7 +7827,7 @@ export default function App() {
                   size={15}
                   weight="bold"
                 />
-                Total costs saved (estimate)
+                All-time costs saved (estimate)
                 <button
                   className="stat-card__info-button"
                   onClick={(e) => {
@@ -7853,7 +7858,7 @@ export default function App() {
                   size={15}
                   weight="bold"
                 />
-                Total input tokens saved
+                All-time input tokens saved
               </span>
               <div className="stat-value-row">
                 <strong className="stat-value--blue">
@@ -7920,7 +7925,7 @@ export default function App() {
                     size={15}
                     weight="bold"
                   />
-                  Total costs saved (estimate)
+                  All-time costs saved (estimate)
                   <button
                     className="stat-card__info-button"
                     onClick={(e) => {
@@ -7951,7 +7956,7 @@ export default function App() {
                     size={15}
                     weight="bold"
                   />
-                  Total input tokens saved
+                  All-time input tokens saved
                 </span>
                 <div className="stat-value-row">
                   <strong className="stat-value--blue">

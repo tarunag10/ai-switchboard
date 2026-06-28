@@ -18,7 +18,11 @@ import {
   switchboardModeLabel,
   switchboardModeSafetyNotes,
 } from "../lib/switchboardDisplay";
-import type { SavingsMode, SwitchboardMode } from "../lib/types";
+import type {
+  ClientConnectorStatus,
+  SavingsMode,
+  SwitchboardMode,
+} from "../lib/types";
 
 interface SwitchboardPanelProps {
   mode: SwitchboardMode;
@@ -30,6 +34,7 @@ interface SwitchboardPanelProps {
   headroomDetail: string;
   rtkStatus: string;
   rtkDetail: string;
+  connectors?: ClientConnectorStatus[];
   inspectorRows?: Array<{
     label: string;
     status: string;
@@ -71,6 +76,7 @@ export function SwitchboardPanel({
   headroomDetail,
   rtkStatus,
   rtkDetail,
+  connectors = [],
   inspectorRows = [],
   remoteServicesEnabled,
   savingsMode,
@@ -102,6 +108,8 @@ export function SwitchboardPanel({
     savingsMode === "aggressive"
       ? "Lower thresholds and stronger compression for noisy context."
       : "Preserves cache-friendly context with conservative compression.";
+  const visibleConnectors = connectors.slice(0, 8);
+  const hiddenConnectorCount = Math.max(0, connectors.length - visibleConnectors.length);
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
 
@@ -189,6 +197,49 @@ export function SwitchboardPanel({
         })}
       </div>
       <p className="switchboard-panel__mode-effect">{modeEffect}</p>
+      {connectors.length > 0 ? (
+        <div className="switchboard-panel__connectors" aria-label="Managed coding agents">
+          <div className="switchboard-panel__connectors-head">
+            <span>Coding agents</span>
+            <button type="button" onClick={onManageClients}>
+              Manage
+            </button>
+          </div>
+          <div className="switchboard-panel__connector-row">
+            {visibleConnectors.map((connector) => {
+              const state = connector.enabled
+                ? connector.verified
+                  ? "on"
+                  : "attention"
+                : connector.installed
+                  ? "detected"
+                  : "off";
+              return (
+                <span
+                  className={`switchboard-panel__connector-pill switchboard-panel__connector-pill--${state}`}
+                  key={connector.clientId}
+                  title={
+                    connector.enabled
+                      ? connector.verified
+                        ? "Enabled and verified"
+                        : "Enabled, needs verification"
+                      : connector.installed
+                        ? "Detected, not enabled"
+                        : "Not detected"
+                  }
+                >
+                  {connector.name}
+                </span>
+              );
+            })}
+            {hiddenConnectorCount > 0 ? (
+              <span className="switchboard-panel__connector-pill switchboard-panel__connector-pill--more">
+                +{hiddenConnectorCount}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       <div className="switchboard-panel__savings-mode">
         <div>
           <span>Savings profile</span>

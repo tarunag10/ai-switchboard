@@ -2619,6 +2619,80 @@ select {
   line-height: 1.35;
 }
 
+.switchboard-panel__connectors {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.switchboard-panel__connectors-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.switchboard-panel__connectors-head span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.switchboard-panel__connectors-head button {
+  border: 0;
+  background: transparent;
+  color: var(--brand-primary);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 800;
+}
+
+.switchboard-panel__connector-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.switchboard-panel__connector-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  max-width: 100%;
+  padding: 4px 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  font-weight: 750;
+  line-height: 1.15;
+}
+
+.switchboard-panel__connector-pill--on {
+  border-color: rgba(16, 185, 129, 0.42);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.switchboard-panel__connector-pill--attention {
+  border-color: rgba(245, 158, 11, 0.44);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.switchboard-panel__connector-pill--detected {
+  border-color: rgba(59, 130, 246, 0.38);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.switchboard-panel__connector-pill--off,
+.switchboard-panel__connector-pill--more {
+  color: var(--text-muted);
+}
+
 .switchboard-panel__savings-mode {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
