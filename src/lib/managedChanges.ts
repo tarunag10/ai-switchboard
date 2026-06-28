@@ -83,6 +83,17 @@ export interface ManagedRollbackPlan {
   safetyNotes: string[];
 }
 
+export interface ManagedRollbackExecutionPreview {
+  plan: ManagedRollbackPlan;
+  executionStatus: "blocked_until_confirmed" | "cleanup_inventory_only";
+  confirmationPhrase: string;
+  orderedSteps: string[];
+  undoAllOrder: number;
+  backendAction: "restore_backup_or_remove_marker" | "cleanup_inventory_review";
+  nativeWriteStatus: "not_executed";
+  blockedReason: string;
+}
+
 export const managedChangeRecords: ManagedChangeRecord[] = [
   {
     id: "claude-code-routing",
@@ -635,6 +646,71 @@ export function formatManagedRollbackPlan(plan: ManagedRollbackPlan): string {
     "",
     "Safety:",
     ...plan.safetyNotes.map((note) => `- ${note}`),
+  ].join("\n");
+}
+
+export function buildManagedRollbackExecutionPreview(
+  record: ManagedChangeRecord,
+  index = 0,
+): ManagedRollbackExecutionPreview {
+  const plan = buildManagedRollbackPlan(record);
+  const cleanupOnly = plan.mode === "cleanup_inventory";
+  const confirmationPhrase = `Restore ${record.markerId} for ${record.owner}`;
+
+  return {
+    plan,
+    executionStatus: cleanupOnly
+      ? "cleanup_inventory_only"
+      : "blocked_until_confirmed",
+    confirmationPhrase,
+    undoAllOrder: index + 1,
+    backendAction: cleanupOnly
+      ? "cleanup_inventory_review"
+      : "restore_backup_or_remove_marker",
+    nativeWriteStatus: "not_executed",
+    blockedReason: cleanupOnly
+      ? "This record represents managed storage or app state; native cleanup must run through the dedicated uninstall or Doctor repair path."
+      : "Native restore is blocked until the user confirms the exact marker, target summary, rollback mode, and verification evidence.",
+    orderedSteps: cleanupOnly
+      ? [
+          "Show the cleanup inventory and managed ownership boundary.",
+          "Require the user to choose the dedicated cleanup or uninstall flow.",
+          "Verify user repositories and unmanaged configs were not modified.",
+        ]
+      : [
+          "Load the target file and confirm the Switchboard marker is still present.",
+          "Locate the timestamped backup or compute managed-marker removal.",
+          "Require the exact confirmation phrase before any write.",
+          "Restore from backup or remove only the marked Switchboard block.",
+          "Run connector verification and show the post-restore evidence.",
+        ],
+  };
+}
+
+export function buildManagedRollbackExecutionPreviews(
+  records: ManagedChangeRecord[] = managedChangeRecords,
+): ManagedRollbackExecutionPreview[] {
+  return records.map((record, index) =>
+    buildManagedRollbackExecutionPreview(record, index),
+  );
+}
+
+export function formatManagedRollbackExecutionPreview(
+  preview: ManagedRollbackExecutionPreview,
+): string {
+  return [
+    `Mac AI Switchboard rollback execution preview: ${preview.plan.owner}`,
+    `Native write status: ${preview.nativeWriteStatus}`,
+    `Execution status: ${preview.executionStatus}`,
+    `Undo-all order: ${preview.undoAllOrder}`,
+    `Backend action: ${preview.backendAction}`,
+    `Confirmation phrase: ${preview.confirmationPhrase}`,
+    `Blocked reason: ${preview.blockedReason}`,
+    "",
+    formatManagedRollbackPlan(preview.plan),
+    "",
+    "Ordered restore steps:",
+    ...preview.orderedSteps.map((step, index) => `${index + 1}. ${step}`),
   ].join("\n");
 }
 

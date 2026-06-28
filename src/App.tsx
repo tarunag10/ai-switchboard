@@ -207,8 +207,10 @@ import {
 } from "./lib/analytics";
 import { localOnlyModeEnabled } from "./lib/localMode";
 import {
+  buildManagedRollbackExecutionPreview,
   buildManagedRollbackPlan,
   buildManagedConfigDiffPreview,
+  formatManagedRollbackExecutionPreview,
   formatManagedConfigDiffPreview,
   formatManagedRollbackPlan,
   formatManagedRollbackInventory,
@@ -5987,6 +5989,27 @@ export default function App() {
     }
   }
 
+  async function copyManagedRollbackExecutionPreview(
+    record: ManagedChangeRecord,
+    index: number,
+  ) {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(
+        formatManagedRollbackExecutionPreview(
+          buildManagedRollbackExecutionPreview(record, index),
+        ),
+      );
+      setRollbackCopyNotice(`${record.owner} execution preview copied.`);
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+    } catch {
+      setRollbackCopyNotice("Copy failed. Review the rollback row manually.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    }
+  }
+
   if (windowLabel === "launcher" && launcherStage === "install") {
     const stepProgress = Math.round(getStepProgress(bootstrapProgress) * 100);
     const renderPercent = animatedOverallPercent(bootstrapProgress);
@@ -9519,8 +9542,12 @@ export default function App() {
                 </button>
               </div>
               <div className="rollback-center-card__list">
-                {managedChangeRecords.map((record) => {
+                {managedChangeRecords.map((record, index) => {
                   const plan = buildManagedRollbackPlan(record);
+                  const executionPreview = buildManagedRollbackExecutionPreview(
+                    record,
+                    index,
+                  );
                   return (
                     <div className="rollback-center-card__item" key={record.id}>
                       <div>
@@ -9534,6 +9561,16 @@ export default function App() {
                           <span>Status: {plan.status.replace(/_/g, " ")}</span>
                           <span>
                             Evidence: {plan.evidenceRequired[0]}
+                          </span>
+                          <span>
+                            Native restore:{" "}
+                            {executionPreview.executionStatus.replace(
+                              /_/g,
+                              " ",
+                            )}
+                          </span>
+                          <span>
+                            Confirm: {executionPreview.confirmationPhrase}
                           </span>
                         </div>
                         <div className="rollback-center-card__diff">
@@ -9557,6 +9594,18 @@ export default function App() {
                             type="button"
                           >
                             Copy rollback plan
+                          </button>
+                          <button
+                            className="secondary-button secondary-button--small"
+                            onClick={() =>
+                              void copyManagedRollbackExecutionPreview(
+                                record,
+                                index,
+                              )
+                            }
+                            type="button"
+                          >
+                            Copy execution preview
                           </button>
                         </div>
                       </div>

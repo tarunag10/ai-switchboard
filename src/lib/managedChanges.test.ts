@@ -3,10 +3,13 @@ import {
   applyManagedConfigBlock,
   buildManagedConfigApplyPlan,
   buildManagedConfigDiffPreview,
+  buildManagedRollbackExecutionPreview,
+  buildManagedRollbackExecutionPreviews,
   buildManagedRollbackPlan,
   buildManagedRollbackPlans,
   formatManagedConfigApplyPlan,
   formatManagedConfigDiffPreview,
+  formatManagedRollbackExecutionPreview,
   formatManagedRollbackInventory,
   formatManagedRollbackPlan,
   managedChangeRecords,
@@ -282,6 +285,82 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Off-mode cleanup boundary:");
     expect(text).toContain("This rollback plan does not modify files.");
     expect(text).toContain("fixture-home tests");
+  });
+
+  it("builds guarded rollback execution previews without native writes", () => {
+    const record = managedChangeRecords.find(
+      (candidate) => candidate.id === "opencode-routing",
+    )!;
+
+    const preview = buildManagedRollbackExecutionPreview(record, 3);
+
+    expect(preview).toMatchObject({
+      executionStatus: "blocked_until_confirmed",
+      confirmationPhrase: "Restore headroom:opencode for OpenCode routing",
+      undoAllOrder: 4,
+      backendAction: "restore_backup_or_remove_marker",
+      nativeWriteStatus: "not_executed",
+    });
+    expect(preview.blockedReason).toContain("Native restore is blocked");
+    expect(preview.orderedSteps.join(" ")).toContain(
+      "Require the exact confirmation phrase",
+    );
+    expect(preview.orderedSteps.join(" ")).toContain(
+      "remove only the marked Switchboard block",
+    );
+    expect(preview.plan.rollback).toContain("OpenCode");
+  });
+
+  it("keeps cleanup-only rollback execution previews out of config writes", () => {
+    const record = managedChangeRecords.find(
+      (candidate) => candidate.id === "repo-intelligence",
+    )!;
+
+    const preview = buildManagedRollbackExecutionPreview(record);
+
+    expect(preview.executionStatus).toBe("cleanup_inventory_only");
+    expect(preview.backendAction).toBe("cleanup_inventory_review");
+    expect(preview.nativeWriteStatus).toBe("not_executed");
+    expect(preview.blockedReason).toContain("dedicated uninstall or Doctor repair");
+    expect(preview.orderedSteps.join(" ")).toContain("managed ownership boundary");
+    expect(preview.orderedSteps.join(" ")).toContain("unmanaged configs");
+  });
+
+  it("formats execution previews with confirmation and ordered restore steps", () => {
+    const record = managedChangeRecords.find(
+      (candidate) => candidate.id === "codex-routing",
+    )!;
+    const text = formatManagedRollbackExecutionPreview(
+      buildManagedRollbackExecutionPreview(record, 1),
+    );
+
+    expect(text).toContain(
+      "Mac AI Switchboard rollback execution preview: Codex routing",
+    );
+    expect(text).toContain("Native write status: not_executed");
+    expect(text).toContain("Execution status: blocked_until_confirmed");
+    expect(text).toContain("Undo-all order: 2");
+    expect(text).toContain("Backend action: restore_backup_or_remove_marker");
+    expect(text).toContain(
+      "Confirmation phrase: Restore headroom:codex_cli for Codex routing",
+    );
+    expect(text).toContain("Mac AI Switchboard rollback plan: Codex routing");
+    expect(text).toContain("Ordered restore steps:");
+    expect(text).toContain("1. Load the target file");
+  });
+
+  it("builds undo-all execution previews in stable inventory order", () => {
+    const previews = buildManagedRollbackExecutionPreviews();
+
+    expect(previews).toHaveLength(managedChangeRecords.length);
+    expect(previews[0]).toMatchObject({
+      undoAllOrder: 1,
+      confirmationPhrase: "Restore headroom:claude_code for Claude Code routing",
+    });
+    expect(previews[previews.length - 1]).toMatchObject({
+      undoAllOrder: managedChangeRecords.length,
+      confirmationPhrase: "Restore headroom:addon for Add-ons",
+    });
   });
 
   it("rejects diff previews for non-config records or missing inputs", () => {
