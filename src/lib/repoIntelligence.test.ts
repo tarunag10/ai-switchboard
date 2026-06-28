@@ -487,6 +487,21 @@ describe("repoIntelligence", () => {
       modifiesRepository: false,
       manualProviderRouting: true,
     });
+    expect(payload.configReadiness).toEqual(
+      expect.objectContaining({
+        plannedConnectorId: "gemini_cli",
+        automationEnabled: false,
+      }),
+    );
+    expect(payload.configReadiness?.gatedSteps.map((step) => step.id)).toEqual([
+      "detect",
+      "dryRunDiff",
+      "backup",
+      "apply",
+      "verify",
+      "rollback",
+      "offCleanup",
+    ]);
   });
 
   it("formats agent-specific bounded handoffs for popular coding tools", () => {
@@ -503,22 +518,28 @@ describe("repoIntelligence", () => {
     expect(claude).toContain("# Claude Code Handoff");
     expect(claude).toContain("Selected pack: Implementation Pack");
     expect(claude).toContain("bounded repo context");
+    expect(claude).not.toContain("Connector Config Readiness");
 
     const codex = formatRepoAgentHandoffMarkdown(summary, "codex");
     expect(codex).toContain("# Codex Handoff");
     expect(codex).toContain("Selected pack: Verification Pack");
     expect(codex).toContain("repeated broad repo discovery");
+    expect(codex).not.toContain("Connector Config Readiness");
 
     const gemini = formatRepoAgentHandoffMarkdown(summary, "gemini");
     expect(gemini).toContain("# Gemini CLI Handoff");
     expect(gemini).toContain("Selected pack: Implementation Pack");
     expect(gemini).toContain("Secret-like paths");
+    expect(gemini).toContain("## Connector Config Readiness");
+    expect(gemini).toContain("Planned connector: gemini_cli");
+    expect(gemini).toContain("Clean up in Off mode");
     expect(gemini).toContain("src/App.tsx");
     expect(gemini).not.toContain(".env.local");
 
     const cursor = formatRepoAgentHandoffMarkdown(summary, "cursor");
     expect(cursor).toContain("# Cursor Handoff");
     expect(cursor).toContain("Selected pack: Handoff Pack");
+    expect(cursor).toContain("Planned connector: cursor");
     expect(cursor).toContain("docs/install.md");
   });
 

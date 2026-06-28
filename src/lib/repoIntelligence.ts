@@ -318,6 +318,7 @@ export interface RepoAgentHandoffPayload {
     modifiesRepository: false;
     manualProviderRouting: true;
   };
+  configReadiness?: RepoAgentConfigReadiness;
 }
 
 export type RepoAgentHandoffTarget =
@@ -334,6 +335,16 @@ export type RepoAgentHandoffTarget =
   | "amazonq"
   | "windsurf"
   | "zed";
+
+export interface RepoAgentConfigReadiness {
+  plannedConnectorId: string;
+  automationEnabled: false;
+  safetyNote: string;
+  gatedSteps: Array<{
+    id: string;
+    label: string;
+  }>;
+}
 
 export interface RepoAgentHandoffProfile {
   id: RepoAgentHandoffTarget;
@@ -447,6 +458,49 @@ export const repoAgentHandoffProfiles: RepoAgentHandoffProfile[] = [
       "Paste into Zed assistant as read-only context while model/provider selection stays manual.",
   },
 ];
+
+const plannedConnectorIdByAgentTarget: Partial<
+  Record<RepoAgentHandoffTarget, string>
+> = {
+  gemini: "gemini_cli",
+  opencode: "opencode",
+  aider: "aider",
+  goose: "goose",
+  cursor: "cursor",
+  continue: "continue",
+  grok: "grok_cli",
+  qwen: "qwen_code",
+  amazonq: "amazon_q",
+  windsurf: "windsurf",
+  zed: "zed_ai",
+};
+
+const plannedConnectorConfigGateSteps = [
+  { id: "detect", label: "Detect config surface" },
+  { id: "dryRunDiff", label: "Show dry-run diff" },
+  { id: "backup", label: "Create backup" },
+  { id: "apply", label: "Apply with consent" },
+  { id: "verify", label: "Verify in Doctor" },
+  { id: "rollback", label: "Rollback safely" },
+  { id: "offCleanup", label: "Clean up in Off mode" },
+];
+
+function buildRepoAgentConfigReadiness(
+  target: RepoAgentHandoffTarget,
+): RepoAgentConfigReadiness | undefined {
+  const plannedConnectorId = plannedConnectorIdByAgentTarget[target];
+  if (!plannedConnectorId) {
+    return undefined;
+  }
+
+  return {
+    plannedConnectorId,
+    automationEnabled: false,
+    safetyNote:
+      "Planned connector config creation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested.",
+    gatedSteps: plannedConnectorConfigGateSteps.map((step) => ({ ...step })),
+  };
+}
 
 const repoAgentRecipeTemplates = [
   {
@@ -1016,6 +1070,7 @@ export function buildRepoAgentHandoffPayload(
   if (!selectedPack) {
     throw new Error("No repo intelligence packs available.");
   }
+  const configReadiness = buildRepoAgentConfigReadiness(profile.id);
 
   return {
     schemaVersion: 1,
@@ -1059,6 +1114,7 @@ export function buildRepoAgentHandoffPayload(
       modifiesRepository: false,
       manualProviderRouting: true,
     },
+    ...(configReadiness ? { configReadiness } : {}),
   };
 }
 
@@ -1090,6 +1146,18 @@ export function formatRepoAgentHandoffMarkdown(
     summary,
     selectedPack,
   );
+  const configReadiness = buildRepoAgentConfigReadiness(profile.id);
+  const configReadinessMarkdown = configReadiness
+    ? [
+        "## Connector Config Readiness",
+        `Planned connector: ${configReadiness.plannedConnectorId}`,
+        `Automation enabled: ${configReadiness.automationEnabled ? "yes" : "no"}`,
+        configReadiness.safetyNote,
+        "Gated steps:",
+        ...configReadiness.gatedSteps.map((step) => `- ${step.label}`),
+        "",
+      ].join("\n")
+    : "";
 
   return [
     `# ${profile.label} Handoff`,
@@ -1107,9 +1175,15 @@ export function formatRepoAgentHandoffMarkdown(
     profile.guidance,
     "Treat this as read-only planning context unless the user explicitly asks for edits.",
     "Secret-like paths and generated folders are excluded from this handoff.",
+    configReadiness
+      ? "Do not create or modify this connector's config unless every gated config-creation step is implemented and verified."
+      : "",
     "",
+    configReadinessMarkdown,
     packMarkdown,
-  ].join("\n");
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
 }
 
 function packIdForAgentSessionTask(
