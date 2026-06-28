@@ -429,6 +429,8 @@ export function formatReleaseReadinessReportSnapshot(
   report: ReleaseReadinessReportSnapshot,
   reportPath: string,
 ) {
+  const statusRows = releaseReadinessRowsFromReport(report);
+
   return [
     "# Mac AI Switchboard Release Readiness",
     "",
@@ -445,6 +447,12 @@ export function formatReleaseReadinessReportSnapshot(
     `- Signed and notarized: ${yesNo(report.shareableDmgGate?.signedAndNotarized)}`,
     `- Updater feed ready: ${yesNo(report.shareableDmgGate?.updaterFeedReady)}`,
     `- Shareable DMG ready: ${yesNo(report.shareableDmgGate?.ready)}`,
+    "",
+    "## Status Rows",
+    ...statusRows.map(
+      (row) =>
+        `- ${row.label}: ${row.statusLabel} (${row.tone}) via ${row.source}. ${row.detail}`,
+    ),
     "",
     "## Blockers",
     `- Environment blockers: ${labels(report.releaseEnv?.blockers)}`,

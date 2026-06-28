@@ -271,6 +271,13 @@ describe("release readiness checklist", () => {
     expect(snapshot).toContain("Installed app present: yes");
     expect(snapshot).toContain("Connector config plan evidence: yes");
     expect(snapshot).toContain("Signed and notarized: no");
+    expect(snapshot).toContain("## Status Rows");
+    expect(snapshot).toContain(
+      "Local DMG: Installed locally (local-only) via npm run build:mac:local-install. A local installed app exists, but local evidence is separate from signed release readiness.",
+    );
+    expect(snapshot).toContain(
+      "Final release gate: Blocked (blocked) via npm run release:ready -- --strict. Do not share a public DMG until every gate is clear.",
+    );
     expect(snapshot).toContain("missing environment: APPLE_SIGNING_IDENTITY");
     expect(snapshot).toContain("Codex compression recovery");
     expect(snapshot).toContain(
