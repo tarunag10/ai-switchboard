@@ -272,24 +272,198 @@ const plannedConnectorIdByAgentId = {
 };
 
 const plannedConnectorConfigGateSteps = [
-  { id: "detect", label: "Detect config surface" },
-  { id: "dryRunDiff", label: "Show dry-run diff" },
-  { id: "backup", label: "Create backup" },
-  { id: "apply", label: "Apply with consent" },
-  { id: "verify", label: "Verify in Doctor" },
-  { id: "rollback", label: "Rollback safely" },
-  { id: "offCleanup", label: "Clean up in Off mode" },
+  {
+    id: "detect",
+    label: "Detect config surface",
+    requiredEvidence: [
+      "Read-only binary or app detection result.",
+      "Detected config, settings, profile, or environment surface documented without writes.",
+    ],
+  },
+  {
+    id: "dryRunDiff",
+    label: "Show dry-run diff",
+    requiredEvidence: [
+      "User-visible dry-run diff artifact showing target, before/after local proxy/provider change, managed marker boundary, rollback preview, and confirmation phrase.",
+      "No files, profiles, credentials, or account state changed by the preview.",
+    ],
+  },
+  {
+    id: "backup",
+    label: "Create backup",
+    requiredEvidence: [
+      "Timestamped backup path or environment-wrapper restore point.",
+      "Fixture-home restore test proving unknown fields and unrelated provider entries are preserved.",
+    ],
+  },
+  {
+    id: "apply",
+    label: "Apply with consent",
+    requiredEvidence: [
+      "Explicit user consent captured for the connector and config surface.",
+      "Managed marker or wrapper boundary proving only Switchboard-owned routing was applied.",
+    ],
+  },
+  {
+    id: "verify",
+    label: "Verify in Doctor",
+    requiredEvidence: [
+      "Doctor check confirming account/model guardrails without storing secrets.",
+      "Compatibility or caveat message visible before routing is considered supported.",
+    ],
+  },
+  {
+    id: "rollback",
+    label: "Rollback safely",
+    requiredEvidence: [
+      "Fixture-home rollback test restoring the exact backup or removing only managed wrapper state.",
+      "Post-rollback diff proving unrelated user settings are unchanged.",
+    ],
+  },
+  {
+    id: "offCleanup",
+    label: "Clean up in Off mode",
+    requiredEvidence: [
+      "Fixture-home Off-mode cleanup showing managed routing removed.",
+      "Doctor verification that the connector returns to manual or RTK-only mode.",
+    ],
+  },
 ];
+
+const plannedConnectorDossiers = {
+  gemini_cli: {
+    name: "Gemini CLI",
+    configPathStrategy:
+      "Detect PATH: gemini first, then probe documented provider settings or shell flags read-only.",
+    accountCaveat:
+      "Model and account compatibility must be reported before routing; no account tokens are stored.",
+    rollbackStrategy:
+      "Restore the previous provider settings or remove only Switchboard-managed shell routing.",
+  },
+  opencode: {
+    name: "OpenCode",
+    configPathStrategy:
+      "Detect PATH: opencode, then identify the active provider config path before any write.",
+    accountCaveat:
+      "Secrets stay in the user's existing provider store and must not be copied into Switchboard state.",
+    rollbackStrategy:
+      "Restore the timestamped provider-config backup and clear managed environment overrides.",
+  },
+  cursor: {
+    name: "Cursor",
+    configPathStrategy:
+      "Find the active Cursor app/profile settings surface before reading user settings.",
+    accountCaveat:
+      "Account-specific model choices remain user-controlled until Doctor can explain compatibility.",
+    rollbackStrategy:
+      "Restore the exact profile settings backup without touching extension-managed secrets.",
+  },
+  grok_cli: {
+    name: "Grok / xAI CLI",
+    configPathStrategy:
+      "Detect PATH: grok or PATH: xai and avoid guessing hidden provider files.",
+    accountCaveat:
+      "Unsupported model/account combinations require Doctor guardrails before setup is offered.",
+    rollbackStrategy:
+      "Remove managed shell routing and leave API key/account state outside app storage.",
+  },
+  aider: {
+    name: "Aider",
+    configPathStrategy:
+      "Detect PATH: aider and prefer a one-launch environment wrapper over saved config edits.",
+    accountCaveat:
+      "Existing provider secrets remain in the user's shell or provider config and are never copied.",
+    rollbackStrategy:
+      "Drop the wrapper environment and leave the user's Aider/provider files unchanged.",
+  },
+  continue: {
+    name: "Continue",
+    configPathStrategy:
+      "Open or parse the Continue config folder only after preserving unknown provider fields.",
+    accountCaveat:
+      "Provider credentials and account selections stay visible and user-owned during guided setup.",
+    rollbackStrategy:
+      "Restore the exact config backup or remove only the marked Switchboard provider entry.",
+  },
+  goose: {
+    name: "Goose",
+    configPathStrategy:
+      "Detect PATH: goose and inspect Goose provider/MCP surfaces read-only before handoff.",
+    accountCaveat:
+      "Provider account state remains outside Switchboard until compatibility checks are explicit.",
+    rollbackStrategy:
+      "Remove managed provider routing while preserving unrelated Goose MCP configuration.",
+  },
+  qwen_code: {
+    name: "Qwen Code",
+    configPathStrategy:
+      "Detect PATH: qwen-code or PATH: qwen, then probe provider/model settings read-only.",
+    accountCaveat:
+      "Qwen account and model compatibility must be verified without editing config.",
+    rollbackStrategy:
+      "Remove managed shell routing and restore provider settings from the exact backup.",
+  },
+  amazon_q: {
+    name: "Amazon Q Developer CLI",
+    configPathStrategy:
+      "Detect PATH: q and avoid reading AWS credentials, SSO caches, or profile secrets.",
+    accountCaveat:
+      "AWS profile, SSO, and credential state must remain outside Switchboard storage.",
+    rollbackStrategy:
+      "Remove managed routing without modifying AWS config, credentials, SSO cache, or profiles.",
+  },
+  windsurf: {
+    name: "Windsurf",
+    configPathStrategy:
+      "Detect the Windsurf app and active settings location before showing any write plan.",
+    accountCaveat:
+      "Account and model settings stay manual until the adapter preserves unknown fields.",
+    rollbackStrategy:
+      "Restore the active settings backup and remove only Switchboard-managed provider entries.",
+  },
+  zed_ai: {
+    name: "Zed AI",
+    configPathStrategy:
+      "Detect the Zed app and assistant settings before parsing provider entries.",
+    accountCaveat:
+      "Provider/account selection stays manual until lossless settings parsing is proven.",
+    rollbackStrategy:
+      "Restore assistant/provider settings from backup and remove managed local proxy entries.",
+  },
+};
 
 function buildConfigReadiness(agentId) {
   const plannedConnectorId = plannedConnectorIdByAgentId[agentId];
   if (!plannedConnectorId) return null;
+  const dossier = plannedConnectorDossiers[plannedConnectorId] ?? {
+    name: plannedConnectorId,
+    configPathStrategy:
+      "Detect the connector config, settings, profile, or environment surface read-only before any write.",
+    accountCaveat:
+      "Account, credential, profile, and model choices stay user-owned until Doctor guardrails are explicit.",
+    rollbackStrategy:
+      "Restore the exact backup or remove only Switchboard-managed routing.",
+  };
+  const nextGate = plannedConnectorConfigGateSteps[0];
   return {
     plannedConnectorId,
+    plannedConnectorName: dossier.name,
     automationEnabled: false,
     safetyNote:
       "Planned connector config creation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested.",
-    gatedSteps: plannedConnectorConfigGateSteps.map((step) => ({ ...step })),
+    nextGate: {
+      id: nextGate.id,
+      label: nextGate.label,
+    },
+    safetyDossier: {
+      configPathStrategy: dossier.configPathStrategy,
+      accountCaveat: dossier.accountCaveat,
+      rollbackStrategy: dossier.rollbackStrategy,
+    },
+    gatedSteps: plannedConnectorConfigGateSteps.map((step) => ({
+      ...step,
+      requiredEvidence: [...step.requiredEvidence],
+    })),
   };
 }
 
@@ -1325,11 +1499,18 @@ function formatAgentHandoffMarkdown(summary, agentId, requestedPackId) {
   const configReadinessMarkdown = configReadiness
     ? [
         "## Connector Config Readiness",
-        `Planned connector: ${configReadiness.plannedConnectorId}`,
+        `Planned connector: ${configReadiness.plannedConnectorName} (${configReadiness.plannedConnectorId})`,
         `Automation enabled: ${configReadiness.automationEnabled ? "yes" : "no"}`,
+        `Next gate: ${configReadiness.nextGate.label}`,
         configReadiness.safetyNote,
+        `Config path strategy: ${configReadiness.safetyDossier.configPathStrategy}`,
+        `Account caveat: ${configReadiness.safetyDossier.accountCaveat}`,
+        `Rollback strategy: ${configReadiness.safetyDossier.rollbackStrategy}`,
         "Gated steps:",
-        ...configReadiness.gatedSteps.map((step) => `- ${step.label}`),
+        ...configReadiness.gatedSteps.map(
+          (step) =>
+            `- ${step.label}: evidence required: ${step.requiredEvidence.join(" ")}`,
+        ),
         "",
       ].join("\n")
     : "";
