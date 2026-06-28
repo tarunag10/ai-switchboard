@@ -2159,6 +2159,30 @@ function RepoIntelligencePreview({
           {sessionDisplayState.copyDetail} Doctor still verifies runtime and
           connector health before any managed setup.
         </p>
+        <div
+          className="repo-intelligence-session__safety"
+          aria-label="Agent session copy safety proof"
+        >
+          <span>
+            {sessionPreparation.copySafety.hasRealIndex
+              ? "Real index"
+              : "Sample blocked"}
+          </span>
+          <span>
+            {sessionPreparation.copySafety.allowsCopy
+              ? "Copy allowed"
+              : "Copy disabled"}
+          </span>
+          <span>
+            {sessionPreparation.copySafety.excludesSecretLikePaths
+              ? "Secrets excluded"
+              : "Secrets unchecked"}
+          </span>
+          <span>
+            {sessionPreparation.copySafety.skippedFileCount.toLocaleString()}{" "}
+            skipped
+          </span>
+        </div>
         <p className="repo-intelligence-session__detail">
           {sessionPreparation.recommendedModeReason}
         </p>
