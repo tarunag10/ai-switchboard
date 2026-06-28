@@ -3285,6 +3285,9 @@ const CODEX_ROLLBACK_MARKER: &str = "headroom:codex_cli";
 const OPENCODE_ROLLBACK_RECORD_ID: &str = "opencode-routing";
 const OPENCODE_ROLLBACK_OWNER: &str = "OpenCode routing";
 const OPENCODE_ROLLBACK_MARKER: &str = "headroom:opencode";
+const GEMINI_ROLLBACK_RECORD_ID: &str = "gemini-routing";
+const GEMINI_ROLLBACK_OWNER: &str = "Gemini CLI routing";
+const GEMINI_ROLLBACK_MARKER: &str = "headroom:gemini_cli";
 
 struct ManagedRollbackTarget {
     record_id: &'static str,
@@ -3292,6 +3295,7 @@ struct ManagedRollbackTarget {
     marker: &'static str,
     target_path: fn() -> PathBuf,
     marker_matches: fn() -> Result<bool>,
+    backup_required: bool,
     proposed_action: &'static str,
     evidence: &'static [&'static str],
 }
@@ -3308,6 +3312,21 @@ const OPENCODE_ROLLBACK_EVIDENCE: &[&str] = &[
     "Current config must still contain the managed OpenCode Headroom provider before restore.",
 ];
 
+const GEMINI_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: gemini-routing.",
+    "Cleanup removes only Switchboard-owned Gemini shell and sidecar blocks.",
+    "Current shell profile or sidecar must still contain the managed Gemini marker before cleanup.",
+];
+
+fn gemini_routing_marker_matches() -> Result<bool> {
+    let state = load_setup_state();
+    let shell_targets = resolve_client_shell_targets_for_cleanup(&state, "gemini_cli")?;
+    let shell_matches =
+        shell_block_contains_text_in_files(&shell_targets, "gemini_cli", GEMINI_BASE_URL_ENV_KEY)?;
+    let sidecar_matches = planned_switchboard_sidecar_matches("gemini_cli").unwrap_or(false);
+    Ok(shell_matches || sidecar_matches)
+}
+
 fn managed_rollback_target(record_id: &str) -> Result<ManagedRollbackTarget> {
     match record_id {
         CODEX_ROLLBACK_RECORD_ID => Ok(ManagedRollbackTarget {
@@ -3316,6 +3335,7 @@ fn managed_rollback_target(record_id: &str) -> Result<ManagedRollbackTarget> {
             marker: CODEX_ROLLBACK_MARKER,
             target_path: codex_config_toml_path,
             marker_matches: codex_provider_block_matches,
+            backup_required: true,
             proposed_action:
                 "Restore the Codex config from the selected sibling backup after creating a fresh safety backup.",
             evidence: CODEX_ROLLBACK_EVIDENCE,
@@ -3326,12 +3346,27 @@ fn managed_rollback_target(record_id: &str) -> Result<ManagedRollbackTarget> {
             marker: OPENCODE_ROLLBACK_MARKER,
             target_path: opencode_config_path,
             marker_matches: opencode_provider_config_matches,
+            backup_required: true,
             proposed_action:
                 "Restore the OpenCode provider config from the selected sibling backup after creating a fresh safety backup.",
             evidence: OPENCODE_ROLLBACK_EVIDENCE,
         }),
+        GEMINI_ROLLBACK_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: GEMINI_ROLLBACK_RECORD_ID,
+            owner: GEMINI_ROLLBACK_OWNER,
+            marker: GEMINI_ROLLBACK_MARKER,
+            target_path: || {
+                planned_sidecar_routing_path("gemini_cli")
+                    .unwrap_or_else(|_| home_dir().join(".gemini").join(SWITCHBOARD_ROUTING_FILE))
+            },
+            marker_matches: gemini_routing_marker_matches,
+            backup_required: false,
+            proposed_action:
+                "Remove only the Switchboard-owned Gemini shell routing and sidecar blocks after creating per-file safety backups.",
+            evidence: GEMINI_ROLLBACK_EVIDENCE,
+        }),
         _ => Err(anyhow!(
-            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID} and {OPENCODE_ROLLBACK_RECORD_ID}."
+            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, and {GEMINI_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -3395,15 +3430,20 @@ fn validate_managed_rollback_backup_path(target_path: &Path, backup_path: &Path)
 pub fn preview_managed_rollback(record_id: &str) -> Result<ManagedRollbackPreview> {
     let target = managed_rollback_target(record_id)?;
     let target_path = (target.target_path)();
-    let marker_present = target_path.exists() && (target.marker_matches)().unwrap_or(false);
-    let backup_path = latest_headroom_backup_for(&target_path);
-    let backup_exists = backup_path.as_ref().is_some_and(|path| path.exists());
+    let marker_present = (!target.backup_required || target_path.exists())
+        && (target.marker_matches)().unwrap_or(false);
+    let backup_path = target
+        .backup_required
+        .then(|| latest_headroom_backup_for(&target_path))
+        .flatten();
+    let backup_exists =
+        !target.backup_required || backup_path.as_ref().is_some_and(|path| path.exists());
     let blocked_reason = if !marker_present {
         Some(format!(
             "Managed {} marker is not present in the target config.",
             target.owner
         ))
-    } else if !backup_exists {
+    } else if target.backup_required && !backup_exists {
         Some(format!(
             "No sibling Switchboard backup was found for the {} config.",
             target.owner
@@ -3448,7 +3488,7 @@ pub fn execute_managed_rollback(
     }
 
     let target_path = (target.target_path)();
-    if !target_path.exists() {
+    if target.backup_required && !target_path.exists() {
         return Err(anyhow!("Rollback config target does not exist."));
     }
     if !(target.marker_matches)()? {
@@ -3457,30 +3497,48 @@ pub fn execute_managed_rollback(
             target.owner
         ));
     }
-    let backup_path = PathBuf::from(backup_path);
-    validate_managed_rollback_backup_path(&target_path, &backup_path)?;
+    let (restored_from, safety_backup, verification) = if target.backup_required {
+        let backup_path = PathBuf::from(backup_path);
+        validate_managed_rollback_backup_path(&target_path, &backup_path)?;
 
-    let safety_backup = backup_if_exists(&target_path)?;
-    std::fs::copy(&backup_path, &target_path).with_context(|| {
-        format!(
-            "restoring {} from {}",
-            target_path.display(),
-            backup_path.display()
+        let safety_backup = backup_if_exists(&target_path)?;
+        std::fs::copy(&backup_path, &target_path).with_context(|| {
+            format!(
+                "restoring {} from {}",
+                target_path.display(),
+                backup_path.display()
+            )
+        })?;
+        (
+            backup_path.display().to_string(),
+            safety_backup.map(|path| path.display().to_string()),
+            vec![
+                "Exact confirmation phrase matched.".to_string(),
+                "Backup path was validated as a sibling Switchboard backup.".to_string(),
+                "A fresh safety backup was created before restore.".to_string(),
+            ],
         )
-    })?;
+    } else {
+        disable_client_setup("gemini_cli")?;
+        (
+            "Switchboard-owned Gemini shell and sidecar blocks removed.".to_string(),
+            None,
+            vec![
+                "Exact confirmation phrase matched.".to_string(),
+                "Managed Gemini marker was present before cleanup.".to_string(),
+                "Cleanup used disable_client_setup for Gemini Off-mode parity.".to_string(),
+            ],
+        )
+    };
 
     Ok(ManagedRollbackExecutionResult {
         record_id: target.record_id.to_string(),
         owner: target.owner.to_string(),
         target_path: target_path.display().to_string(),
-        restored_from: backup_path.display().to_string(),
-        safety_backup_path: safety_backup.map(|path| path.display().to_string()),
+        restored_from,
+        safety_backup_path: safety_backup,
         marker: target.marker.to_string(),
-        verification: vec![
-            "Exact confirmation phrase matched.".to_string(),
-            "Backup path was validated as a sibling Switchboard backup.".to_string(),
-            "A fresh safety backup was created before restore.".to_string(),
-        ],
+        verification,
     })
 }
 
@@ -6907,6 +6965,47 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let verification =
             super::verify_client_setup("gemini_cli").expect("verify cleaned gemini setup");
         assert!(!verification.verified);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn gemini_managed_rollback_removes_shell_and_sidecar_blocks() {
+        let home = TestHome::new();
+        let sidecar = home
+            .path()
+            .join(".gemini")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(sidecar.parent().unwrap()).expect("create gemini dir");
+        fs::write(&sidecar, "# user note\nkeep this\n").expect("seed sidecar");
+
+        super::apply_client_setup("gemini_cli").expect("apply gemini setup");
+
+        let preview =
+            super::preview_managed_rollback("gemini-routing").expect("preview gemini rollback");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.backup_path.is_none());
+        assert!(preview.backup_exists);
+        assert!(preview.marker_present);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Restore headroom:gemini_cli for Gemini CLI routing"
+        );
+
+        let result = super::execute_managed_rollback(
+            "gemini-routing",
+            "",
+            "Restore headroom:gemini_cli for Gemini CLI routing",
+        )
+        .expect("execute gemini rollback");
+        assert_eq!(
+            result.restored_from,
+            "Switchboard-owned Gemini shell and sidecar blocks removed."
+        );
+
+        let content = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
+        assert_eq!(content, "# user note\nkeep this\n");
+        let shell_content = fs::read_to_string(home.path().join(".zprofile")).expect("read shell");
+        assert!(!shell_content.contains("GOOGLE_GEMINI_BASE_URL"));
     }
 
     #[test]

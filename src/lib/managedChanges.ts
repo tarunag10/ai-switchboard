@@ -703,7 +703,11 @@ export function buildManagedRollbackExecutionPreviews(
   );
 }
 
-const nativeRollbackRecordIds = new Set(["codex-routing", "opencode-routing"]);
+const nativeRollbackRecordIds = new Set([
+  "codex-routing",
+  "gemini-routing",
+  "opencode-routing",
+]);
 
 export function buildManagedRollbackUndoAllPreview(
   records: ManagedChangeRecord[] = managedChangeRecords,
@@ -730,7 +734,7 @@ export function buildManagedRollbackUndoAllPreview(
     ],
     safetyNotes: [
       "This undo-all preview does not modify files.",
-      "Executable rows are limited to Codex and OpenCode native restore paths.",
+      "Executable rows are limited to Codex, Gemini, and OpenCode native rollback paths.",
       "Cleanup-only app state, storage, launch agents, repo indexes, and plugin footprints must use their dedicated flows.",
       "Unmanaged user config outside Switchboard markers remains out of scope.",
     ],

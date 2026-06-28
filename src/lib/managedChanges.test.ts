@@ -365,11 +365,12 @@ describe("managedChangeRecords", () => {
     });
   });
 
-  it("builds undo-all preview with only allowlisted native restore rows executable", () => {
+  it("builds undo-all preview with only allowlisted native rows executable", () => {
     const preview = buildManagedRollbackUndoAllPreview();
 
     expect(preview.executable.map((item) => item.plan.recordId)).toEqual([
       "codex-routing",
+      "gemini-routing",
       "opencode-routing",
     ]);
     expect(preview.manual).toHaveLength(
@@ -384,8 +385,9 @@ describe("managedChangeRecords", () => {
 
     expect(text).toContain("Mac AI Switchboard undo-all rollback preview");
     expect(text).toContain("Native write status: not_executed");
-    expect(text).toContain("Executable native rows: 2");
+    expect(text).toContain("Executable native rows: 3");
     expect(text).toContain("Codex routing (codex-routing)");
+    expect(text).toContain("Gemini CLI routing (gemini-routing)");
     expect(text).toContain("OpenCode routing (opencode-routing)");
     expect(text).toContain("Manual or cleanup rows:");
     expect(text).toContain("Undo all is preview-only");

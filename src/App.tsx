@@ -793,6 +793,14 @@ function SavingsCalculatorCard({
     ledgerRows.length,
     ledgerFilter,
   );
+  const measuredSessionAttributionEvents = (attributionEvents ?? []).filter(
+    (event) =>
+      scope === "session" &&
+      event.scope === "session" &&
+      event.source === "headroom_engine" &&
+      event.confidence === "measured" &&
+      (event.deltaTokensSaved > 0 || event.deltaUsd > 0),
+  ).length;
 
   async function copySavingsSummary() {
     if (!navigator.clipboard) {
@@ -972,6 +980,12 @@ function SavingsCalculatorCard({
               {formatSavingsLedgerAttributionSummary(filteredLedger.summary)}
             </strong>
           </span>
+          {scope === "session" ? (
+            <span>
+              Backend events{" "}
+              <strong>{compactNumber(measuredSessionAttributionEvents)}</strong>
+            </span>
+          ) : null}
         </div>
         <div className="savings-calculator__ledger-list">
           {filteredLedger.groups.length > 0 ? (
@@ -3462,6 +3476,7 @@ export default function App() {
           return;
         }
         applyDashboardIfChanged(latestDashboard);
+        void refreshSavingsAttributionEvents();
         // Always land on the install step after a bootstrap completes during
         // this session, regardless of launchExperience. The install step's
         // Continue button is gated on runtime.running, so it handles both the
@@ -5695,6 +5710,7 @@ export default function App() {
 
       const latestDashboard = await loadDashboard();
       applyDashboardIfChanged(latestDashboard);
+      void refreshSavingsAttributionEvents();
       await refreshConnectors();
     } catch (error) {
       setConnectorsError(
@@ -6170,7 +6186,11 @@ export default function App() {
   }
 
   function supportsNativeManagedRollback(record: ManagedChangeRecord) {
-    return record.id === "codex-routing" || record.id === "opencode-routing";
+    return (
+      record.id === "codex-routing" ||
+      record.id === "gemini-routing" ||
+      record.id === "opencode-routing"
+    );
   }
 
   async function previewManagedRollback(record: ManagedChangeRecord) {
@@ -6226,7 +6246,7 @@ export default function App() {
         "execute_managed_rollback",
         {
           recordId: record.id,
-          backupPath: preview.backupPath,
+          backupPath: preview.backupPath ?? "",
           confirmationPhrase: rollbackConfirmationByRecord[record.id] ?? "",
         },
       );
@@ -6234,7 +6254,7 @@ export default function App() {
         ...current,
         [record.id]: result,
       }));
-      setRollbackCopyNotice(`${record.owner} restored from backup.`);
+      setRollbackCopyNotice(`${record.owner} rollback executed.`);
       window.setTimeout(() => setRollbackCopyNotice(null), 2500);
     } catch (error) {
       setRollbackErrorByRecord((current) => ({
@@ -9852,7 +9872,6 @@ export default function App() {
                     supportsNativeManagedRollback(record);
                   const canExecuteNativeRollback =
                     nativePreview?.status === "ready" &&
-                    nativePreview.backupPath !== null &&
                     confirmation === nativePreview.confirmationPhrase &&
                     rollbackBusyRecord !== record.id;
                   return (
