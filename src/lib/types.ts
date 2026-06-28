@@ -196,6 +196,7 @@ export interface ClientConnectorConfigDryRunPreview {
   backupPath: string;
   currentState: string;
   proposedState: string;
+  applyBlockedReason: string;
   rollbackPreview: string;
   confirmationPhrase: string;
   writes: string[];

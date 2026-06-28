@@ -2658,6 +2658,9 @@ mod doctor_tests {
                 proposed_state:
                     "Add Mac AI Switchboard local provider routing after explicit consent."
                         .to_string(),
+                apply_blocked_reason:
+                    "Gemini CLI automation is disabled until backup, verify, rollback, and Off cleanup gates pass."
+                        .to_string(),
                 rollback_preview:
                     "Restore the Gemini config backup or remove only the managed block.".to_string(),
                 confirmation_phrase: "APPLY GEMINI CLI CONFIG".to_string(),

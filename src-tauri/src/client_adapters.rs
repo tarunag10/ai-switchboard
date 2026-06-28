@@ -442,6 +442,9 @@ fn planned_connector_dry_run_preview(
         current_state: "No Switchboard-managed Gemini provider routing detected.".to_string(),
         proposed_state: "Preview only: no files are written. after explicit consent, add Mac AI Switchboard local provider routing for Gemini CLI."
             .to_string(),
+        apply_blocked_reason:
+            "Gemini CLI automation is disabled until backup, verify, rollback, and Off cleanup gates pass."
+                .to_string(),
         rollback_preview:
             "Restore the Gemini config backup or remove only the Switchboard-managed provider block."
                 .to_string(),

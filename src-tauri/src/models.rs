@@ -613,6 +613,7 @@ pub struct ClientConnectorConfigDryRunPreview {
     pub backup_path: String,
     pub current_state: String,
     pub proposed_state: String,
+    pub apply_blocked_reason: String,
     pub rollback_preview: String,
     pub confirmation_phrase: String,
     pub writes: Vec<String>,
