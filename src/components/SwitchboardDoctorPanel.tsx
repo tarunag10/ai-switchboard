@@ -48,6 +48,13 @@ export function SwitchboardDoctorPanel({
   const manualCount = Math.max(0, report.issues.length - repairableCount);
   const title = report.status === "ok" ? "Ready" : "Needs attention";
   const doctorReport = report;
+  const automaticIssues = report.issues.filter((issue) =>
+    canRepairIssue(issue.repairAction),
+  );
+  const manualIssues = report.issues.filter(
+    (issue) => !canRepairIssue(issue.repairAction),
+  );
+  const nextAutomaticIssue = automaticIssues[0] ?? null;
   const hasOffModeVerification = report.issues.some(
     (issue) =>
       issue.id === "off_mode_not_clean" ||
@@ -61,6 +68,46 @@ export function SwitchboardDoctorPanel({
     : [];
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
+
+  function renderIssue(issue: DoctorIssue) {
+    const repairAction = issue.repairAction ?? null;
+    const repairable = canRepairIssue(repairAction);
+    const actionKind = doctorIssueActionKind(repairAction);
+
+    return (
+      <article
+        key={issue.id}
+        className={`switchboard-doctor__issue switchboard-doctor__issue--${issueTone(issue)} switchboard-doctor__issue--${actionKind}`}
+      >
+        <div>
+          <div className="switchboard-doctor__issue-title">
+            <strong>{issue.title}</strong>
+            <span
+              className={`switchboard-doctor__action-kind switchboard-doctor__action-kind--${actionKind}`}
+            >
+              {doctorIssueActionLabel(repairAction)}
+            </span>
+          </div>
+          <p>{issue.body}</p>
+          <p className="switchboard-doctor__hint">
+            {doctorIssueGuidance(issue)}
+          </p>
+        </div>
+        {repairable ? (
+          <button
+            type="button"
+            className="switchboard-doctor__repair"
+            disabled={busyAction !== null}
+            onClick={() => onRepair(repairAction as string)}
+          >
+            {busyAction === repairAction
+              ? "Working"
+              : doctorRepairLabel(repairAction as string)}
+          </button>
+        ) : null}
+      </article>
+    );
+  }
 
   async function copyDoctorReport() {
     if (!navigator.clipboard) {
@@ -140,55 +187,6 @@ export function SwitchboardDoctorPanel({
           >
             {report.status}
           </span>
-          <button
-            type="button"
-            className="switchboard-doctor__copy"
-            onClick={copyDoctorReport}
-            title="Copy Doctor report"
-          >
-            <Copy aria-hidden="true" weight="bold" />
-            <span>{copyNotice ?? "Copy report"}</span>
-          </button>
-          <button
-            type="button"
-            className="switchboard-doctor__copy"
-            onClick={copyDoctorTimeline}
-            title="Copy Doctor timeline"
-          >
-            <Copy aria-hidden="true" weight="bold" />
-            <span>Copy timeline</span>
-          </button>
-          <button
-            type="button"
-            className="switchboard-doctor__copy"
-            onClick={copyRollbackCenter}
-            title="Copy Rollback Center inventory"
-          >
-            <Copy aria-hidden="true" weight="bold" />
-            <span>Copy Rollback Center</span>
-          </button>
-          {hasOffModeVerification ? (
-            <button
-              type="button"
-              className="switchboard-doctor__copy"
-              onClick={copyVerifyOffReport}
-              title="Copy Verify Off report"
-            >
-              <Copy aria-hidden="true" weight="bold" />
-              <span>Copy Verify Off</span>
-            </button>
-          ) : null}
-          {hasPlannedConnectorEvidence ? (
-            <button
-              type="button"
-              className="switchboard-doctor__copy"
-              onClick={copyConnectorDossiers}
-              title="Copy connector readiness dossiers"
-            >
-              <Copy aria-hidden="true" weight="bold" />
-              <span>Copy connector dossiers</span>
-            </button>
-          ) : null}
           {canRepair ? (
             <button
               type="button"
@@ -203,6 +201,27 @@ export function SwitchboardDoctorPanel({
       </div>
       <p className="switchboard-doctor__summary">{report.summary}</p>
 
+      <div className="switchboard-doctor__action-center">
+        <div>
+          <span>Automatic repairs</span>
+          <strong>{repairableCount}</strong>
+          <small>
+            {nextAutomaticIssue
+              ? `Next: ${doctorRepairLabel(nextAutomaticIssue.repairAction as string)}`
+              : "No direct repair is needed right now."}
+          </small>
+        </div>
+        <div>
+          <span>Manual checks</span>
+          <strong>{manualCount}</strong>
+          <small>
+            {manualCount > 0
+              ? "Review guidance; no file changes will run from these rows."
+              : "No manual-only warnings."}
+          </small>
+        </div>
+      </div>
+
       {report.issues.length > 0 ? (
         <div
           className="switchboard-doctor__triage"
@@ -215,6 +234,64 @@ export function SwitchboardDoctorPanel({
           ) : null}
         </div>
       ) : null}
+
+      <details className="switchboard-doctor__exports">
+        <summary>
+          <span>Export reports</span>
+          <strong>{copyNotice ?? "Optional"}</strong>
+        </summary>
+        <div className="switchboard-doctor__export-actions">
+          <button
+            type="button"
+            className="switchboard-doctor__copy"
+            onClick={copyDoctorReport}
+            title="Copy Doctor report"
+          >
+            <Copy aria-hidden="true" weight="bold" />
+            <span>Doctor report</span>
+          </button>
+          <button
+            type="button"
+            className="switchboard-doctor__copy"
+            onClick={copyDoctorTimeline}
+            title="Copy Doctor timeline"
+          >
+            <Copy aria-hidden="true" weight="bold" />
+            <span>Timeline</span>
+          </button>
+          <button
+            type="button"
+            className="switchboard-doctor__copy"
+            onClick={copyRollbackCenter}
+            title="Copy Rollback Center inventory"
+          >
+            <Copy aria-hidden="true" weight="bold" />
+            <span>Rollback inventory</span>
+          </button>
+          {hasOffModeVerification ? (
+            <button
+              type="button"
+              className="switchboard-doctor__copy"
+              onClick={copyVerifyOffReport}
+              title="Copy Verify Off report"
+            >
+              <Copy aria-hidden="true" weight="bold" />
+              <span>Verify Off</span>
+            </button>
+          ) : null}
+          {hasPlannedConnectorEvidence ? (
+            <button
+              type="button"
+              className="switchboard-doctor__copy"
+              onClick={copyConnectorDossiers}
+              title="Copy connector readiness dossiers"
+            >
+              <Copy aria-hidden="true" weight="bold" />
+              <span>Connector dossiers</span>
+            </button>
+          ) : null}
+        </div>
+      </details>
 
       {connectorPreviewRows.length > 0 ? (
         <div
@@ -249,47 +326,26 @@ export function SwitchboardDoctorPanel({
         <p className="switchboard-doctor__success">{successMessage}</p>
       ) : null}
 
-      <div className="switchboard-doctor__issues">
-        {report.issues.map((issue) => {
-          const repairAction = issue.repairAction ?? null;
-          const repairable = canRepairIssue(repairAction);
-          const actionKind = doctorIssueActionKind(repairAction);
+      {automaticIssues.length > 0 ? (
+        <div className="switchboard-doctor__issues">
+          <h3>Actions</h3>
+          {automaticIssues.map(renderIssue)}
+        </div>
+      ) : null}
 
-          return (
-            <article
-              key={issue.id}
-              className={`switchboard-doctor__issue switchboard-doctor__issue--${issueTone(issue)} switchboard-doctor__issue--${actionKind}`}
-            >
-              <div>
-                <div className="switchboard-doctor__issue-title">
-                  <strong>{issue.title}</strong>
-                  <span
-                    className={`switchboard-doctor__action-kind switchboard-doctor__action-kind--${actionKind}`}
-                  >
-                    {doctorIssueActionLabel(repairAction)}
-                  </span>
-                </div>
-                <p>{issue.body}</p>
-                <p className="switchboard-doctor__hint">
-                  {doctorIssueGuidance(issue)}
-                </p>
-              </div>
-              {repairable ? (
-                <button
-                  type="button"
-                  className="switchboard-doctor__repair"
-                  disabled={busyAction !== null}
-                  onClick={() => onRepair(repairAction as string)}
-                >
-                  {busyAction === repairAction
-                    ? "Repairing"
-                    : doctorRepairLabel(repairAction as string)}
-                </button>
-              ) : null}
-            </article>
-          );
-        })}
-      </div>
+      {manualIssues.length > 0 ? (
+        <div className="switchboard-doctor__issues">
+          <h3>Manual review</h3>
+          {manualIssues.map(renderIssue)}
+        </div>
+      ) : null}
+
+      {report.issues.length === 0 ? (
+        <div className="switchboard-doctor__empty">
+          <strong>No Doctor actions are required.</strong>
+          <p>Switchboard, Off cleanup, and local setup checks are clean.</p>
+        </div>
+      ) : null}
 
       {error ? <p className="switchboard-doctor__error">{error}</p> : null}
     </section>
