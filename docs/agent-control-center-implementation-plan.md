@@ -44,6 +44,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Release readiness source labels now state that checklist defaults are guidance, not release proof, until `npm run release:ready` produces the report JSON.
 - Repo Intelligence CLI help now advertises the read-only `--mcp-serve` repo-memory transport, and deployment readiness checks guard its no-mutation MCP tool contract.
 - Repo-memory MCP tools now declare `readOnlyHint` annotations for context packs, symbol lookup, and dependent-edge queries, with deployment readiness guarding the annotation.
+- `npm run check:repo-memory-mcp` now smoke-tests the repo-memory MCP stdio tool list and runs in the release verifier before connector parity checks.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

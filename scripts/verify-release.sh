@@ -17,6 +17,9 @@ npm run release:env:selftest
 echo "Checking installed-app smoke preflight..."
 npm run smoke:preflight
 
+echo "Checking repo-memory MCP read-only contract..."
+npm run check:repo-memory-mcp
+
 echo "Checking planned connector registry parity..."
 npm run check:connectors
 
