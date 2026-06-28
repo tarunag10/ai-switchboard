@@ -665,8 +665,17 @@ describe("savings calculator", () => {
     expect(text).toContain("Estimated tokens: 2,000 / $4.50");
     expect(text).toContain("Inferred tokens: 2,300");
     expect(text).toContain(
+      "Equation per row: saved tokens come from each source's before/after or counter delta",
+    );
+    expect(text).toContain(
       "Confidence labels are not interchangeable: inferred rows are never reported as measured.",
     );
+    expect(text).toContain("Evidence: 12 command outputs compressed locally.");
+    expect(text).toContain(
+      "Evidence: Markdown extract vs re-attaching the full source document each turn.",
+    );
+    expect(text).toContain("Caveat: Observed from local counters");
+    expect(text).toContain("Caveat: Modelled from a template");
     expect(text).toContain(
       "- markitdown: MarkItDown (inferred, lifetime, 2026-06-27T10:00:00.000Z) saved 2,300 tokens.",
     );

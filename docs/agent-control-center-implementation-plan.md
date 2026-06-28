@@ -26,6 +26,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Doctor timeline copy now includes Repo Intelligence availability gates for `get_index_freshness`, missing/stale/corrupt/moved index states, `clear_repo_index` cleanup boundaries, and the evidence agents need before trusting saved packs.
 - The Doctor panel now exposes a Copy timeline action that exports scrubbed Doctor status, issue, repair-success, and Repo Intelligence availability-gate events for support/debugging.
 - Doctor now reports moved or replaced Repo Intelligence repo paths explicitly when the saved file map no longer matches the existing folder, with the same managed-index-only clear repair.
+- Savings ledger exports now include per-row evidence alongside confidence caveats, so measured, estimated, and inferred savings keep their source equations visible when copied.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

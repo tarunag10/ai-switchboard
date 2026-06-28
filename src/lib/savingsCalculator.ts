@@ -523,7 +523,7 @@ export function formatSavingsLedgerShareText(
       ? rows.map((row) => {
           const usdPart =
             row.savedUsd === null ? "" : ` / ${formatUsd(row.savedUsd)}`;
-          return `- ${row.source}: ${row.label} (${row.confidence}, ${savingsCalculatorScopeLabel(row.scope)}, ${row.recordedAt}) saved ${formatTokens(row.savedTokens)} tokens${usdPart}. ${row.caveat}`;
+          return `- ${row.source}: ${row.label} (${row.confidence}, ${savingsCalculatorScopeLabel(row.scope)}, ${row.recordedAt}) saved ${formatTokens(row.savedTokens)} tokens${usdPart}. Evidence: ${row.detail} Caveat: ${row.caveat}`;
         })
       : ["- No ledger rows yet."];
 
@@ -536,6 +536,7 @@ export function formatSavingsLedgerShareText(
     `Measured tokens: ${formatTokens(summary.measuredTokens)} / ${formatUsd(summary.measuredUsd)}`,
     `Estimated tokens: ${formatTokens(summary.estimatedTokens)} / ${formatUsd(summary.estimatedUsd)}`,
     `Inferred tokens: ${formatTokens(summary.inferredTokens)}`,
+    "Equation per row: saved tokens come from each source's before/after or counter delta; see Evidence on each row.",
     "Confidence labels are not interchangeable: inferred rows are never reported as measured.",
     "Rows:",
     ...rowLines,
