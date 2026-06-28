@@ -118,6 +118,12 @@ export function buildManagedChangeTimelineEvents(
   }));
 }
 
+function scrubTimelineText(value: string) {
+  return value
+    .replace(/~\/\S+/g, "[home-path]")
+    .replace(/\/Users\/\S+/g, "[user-path]");
+}
+
 export function formatDoctorTimelineShareText(
   events: DoctorTimelineEvent[],
 ): string {
@@ -136,8 +142,8 @@ export function formatDoctorTimelineShareText(
       `Status: ${event.status}`,
       `Actor: ${event.actor}`,
       `When: ${event.occurredAt}`,
-      `Target: ${event.target ?? "not recorded"}`,
-      `Body: ${event.body}`,
+      `Target: ${event.target ? scrubTimelineText(event.target) : "not recorded"}`,
+      `Body: ${scrubTimelineText(event.body)}`,
       "",
     ]),
   ]

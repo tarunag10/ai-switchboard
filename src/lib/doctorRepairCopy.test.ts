@@ -313,7 +313,7 @@ describe("doctor repair copy", () => {
         id: "rollback-1",
         kind: "rollback",
         title: "Rolled back Codex routing",
-        body: "Removed managed provider block.",
+        body: "Removed managed provider block from /Users/tarunagarwal/.codex/config.toml.",
         occurredAt: "2026-06-27T10:05:00.000Z",
         status: "warning",
         actor: "user",
@@ -326,7 +326,10 @@ describe("doctor repair copy", () => {
     expect(text).toContain("1. Rolled back Codex routing");
     expect(text).toContain("Kind: Rollback");
     expect(text).toContain("Actor: user");
-    expect(text).toContain("Target: ~/.codex/config.toml");
+    expect(text).toContain("Target: [home-path]");
+    expect(text).toContain("Body: Removed managed provider block from [user-path]");
+    expect(text).not.toContain("~/.codex/config.toml");
+    expect(text).not.toContain("/Users/tarunagarwal");
   });
 
   it("builds scrubbed timeline events from managed rollback records", () => {
