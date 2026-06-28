@@ -35,6 +35,11 @@ export interface ManagedConfigDiffPreview {
   safetyNotes: string[];
 }
 
+export interface ManagedConfigTextResult {
+  text: string;
+  changed: boolean;
+}
+
 export const managedChangeRecords: ManagedChangeRecord[] = [
   {
     id: "claude-code-routing",
@@ -188,6 +193,72 @@ export function buildManagedConfigDiffPreview({
       "Off mode must remove only Switchboard-owned marked changes.",
       "Unmanaged user config outside the marker must remain untouched.",
     ],
+  };
+}
+
+function markerBounds(markerId: string) {
+  return {
+    start: `# >>> ${markerId} >>>`,
+    end: `# <<< ${markerId} <<<`,
+  };
+}
+
+export function applyManagedConfigBlock(
+  existingText: string,
+  markerId: string,
+  proposedManagedBlock: string,
+): ManagedConfigTextResult {
+  const trimmedBlock = proposedManagedBlock.trim();
+  if (!trimmedBlock) {
+    throw new Error("proposedManagedBlock is required.");
+  }
+
+  const { start, end } = markerBounds(markerId);
+  const normalizedBlock = `${trimmedBlock}\n`;
+  const startIndex = existingText.indexOf(start);
+  if (startIndex === -1) {
+    const separator = existingText.length > 0 && !existingText.endsWith("\n") ? "\n" : "";
+    return {
+      text: `${existingText}${separator}${normalizedBlock}`,
+      changed: true,
+    };
+  }
+
+  const endIndex = existingText.indexOf(end, startIndex);
+  if (endIndex === -1) {
+    throw new Error(`managed marker ${markerId} is missing an end marker.`);
+  }
+  const endWithMarker = endIndex + end.length;
+  const suffix = existingText.slice(endWithMarker).replace(/^\n+/, "\n");
+  const nextText = `${existingText.slice(0, startIndex)}${normalizedBlock}${suffix}`;
+
+  return {
+    text: nextText,
+    changed: nextText !== existingText,
+  };
+}
+
+export function removeManagedConfigBlock(
+  existingText: string,
+  markerId: string,
+): ManagedConfigTextResult {
+  const { start, end } = markerBounds(markerId);
+  const startIndex = existingText.indexOf(start);
+  if (startIndex === -1) {
+    return { text: existingText, changed: false };
+  }
+
+  const endIndex = existingText.indexOf(end, startIndex);
+  if (endIndex === -1) {
+    throw new Error(`managed marker ${markerId} is missing an end marker.`);
+  }
+  const endWithMarker = endIndex + end.length;
+  const suffix = existingText.slice(endWithMarker).replace(/^\n+/, "\n");
+  const text = `${existingText.slice(0, startIndex)}${suffix}`;
+
+  return {
+    text,
+    changed: text !== existingText,
   };
 }
 

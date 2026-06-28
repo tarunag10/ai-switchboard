@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyManagedConfigBlock,
   buildManagedConfigDiffPreview,
   formatManagedConfigDiffPreview,
   formatManagedRollbackInventory,
   managedChangeRecords,
+  removeManagedConfigBlock,
 } from "./managedChanges";
 
 describe("managedChangeRecords", () => {
@@ -172,5 +174,93 @@ describe("managedChangeRecords", () => {
         proposedManagedBlock: " ",
       }),
     ).toThrow("proposedManagedBlock is required");
+  });
+
+  it("applies managed config blocks without touching unmanaged user config", () => {
+    const existing = [
+      "export PATH=/usr/local/bin:$PATH",
+      "alias ll='ls -la'",
+      "",
+    ].join("\n");
+    const proposed = [
+      "# >>> headroom:claude_code >>>",
+      "export ANTHROPIC_BASE_URL=http://127.0.0.1:6767",
+      "# <<< headroom:claude_code <<<",
+    ].join("\n");
+
+    const result = applyManagedConfigBlock(
+      existing,
+      "headroom:claude_code",
+      proposed,
+    );
+
+    expect(result.changed).toBe(true);
+    expect(result.text).toContain("export PATH=/usr/local/bin:$PATH");
+    expect(result.text).toContain("alias ll='ls -la'");
+    expect(result.text).toContain("export ANTHROPIC_BASE_URL");
+    expect(result.text.match(/# >>> headroom:claude_code >>>/g)).toHaveLength(1);
+  });
+
+  it("replaces only the managed block during repair", () => {
+    const existing = [
+      "export EDITOR=vim",
+      "# >>> headroom:codex_cli >>>",
+      "old = true",
+      "# <<< headroom:codex_cli <<<",
+      "export VISUAL=code",
+      "",
+    ].join("\n");
+    const proposed = [
+      "# >>> headroom:codex_cli >>>",
+      "new = true",
+      "# <<< headroom:codex_cli <<<",
+    ].join("\n");
+
+    const result = applyManagedConfigBlock(existing, "headroom:codex_cli", proposed);
+
+    expect(result.changed).toBe(true);
+    expect(result.text).toContain("export EDITOR=vim");
+    expect(result.text).toContain("export VISUAL=code");
+    expect(result.text).toContain("new = true");
+    expect(result.text).not.toContain("old = true");
+    expect(result.text.match(/# >>> headroom:codex_cli >>>/g)).toHaveLength(1);
+  });
+
+  it("removes only the managed block for Off cleanup", () => {
+    const existing = [
+      "export PATH=/usr/bin:$PATH",
+      "# >>> headroom:rtk >>>",
+      "source ~/.headroom/rtk.sh",
+      "# <<< headroom:rtk <<<",
+      "export EDITOR=vim",
+      "",
+    ].join("\n");
+
+    const result = removeManagedConfigBlock(existing, "headroom:rtk");
+
+    expect(result.changed).toBe(true);
+    expect(result.text).toContain("export PATH=/usr/bin:$PATH");
+    expect(result.text).toContain("export EDITOR=vim");
+    expect(result.text).not.toContain("source ~/.headroom/rtk.sh");
+    expect(result.text).not.toContain("# >>> headroom:rtk >>>");
+  });
+
+  it("rejects broken marker blocks before apply or cleanup", () => {
+    const broken = [
+      "export PATH=/usr/bin:$PATH",
+      "# >>> headroom:codex_cli >>>",
+      "managed = true",
+    ].join("\n");
+
+    expect(() =>
+      applyManagedConfigBlock(
+        broken,
+        "headroom:codex_cli",
+        "# >>> headroom:codex_cli >>>\nnew = true\n# <<< headroom:codex_cli <<<",
+      ),
+    ).toThrow("missing an end marker");
+    expect(() =>
+      removeManagedConfigBlock(broken, "headroom:codex_cli"),
+    ).toThrow("missing an end marker");
   });
 });
