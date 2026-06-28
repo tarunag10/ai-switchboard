@@ -13,6 +13,7 @@ The goal is not to hide Headroom. Headroom is still a real underlying optimizati
 - Off/RTK-only mode now prevents automatic Headroom intercept/proxy startup on launch and bootstrap.
 - Remote destinations are now inventoried in `docs/remote-destinations.md`, and governance/deployment checks require that registry before release.
 - In-app support actions now route to this repository's GitHub Issues instead of the inherited upstream support mailbox.
+- External link opening now rejects unsupported schemes, embedded credentials, line-break injection, and loopback/private/link-local hosts before launching a browser or mail client.
 - Many user-facing strings, release docs, runtime labels, support links, pricing/account flows, keychain labels, and file paths still refer to Headroom or upstream Extra Headroom services.
 
 ## Principles
@@ -177,7 +178,7 @@ Acceptance checks:
 
 - A local-only run performs no remote account, pricing, telemetry, or support requests.
 - Every remaining remote URL is documented and intentionally allowed.
-- SSRF/url allowlist tests cover link-opening and contact/payment flows.
+- SSRF/url allowlist tests cover link-opening and contact/payment flows. Link-opening coverage is shipped for unsupported schemes, credentialed URLs, newline injection, loopback, private, and link-local hosts.
 
 Suggested commit:
 

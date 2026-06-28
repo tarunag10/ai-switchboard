@@ -4130,18 +4130,12 @@ async fn open_headroom_dashboard() -> Result<(), String> {
 }
 
 fn open_external_link_impl(url: &str) -> Result<(), String> {
-    let trimmed = url.trim();
-    if !(trimmed.starts_with("http://")
-        || trimmed.starts_with("https://")
-        || trimmed.starts_with("mailto:"))
-    {
-        return Err("Only http, https, and mailto links are supported.".into());
-    }
+    let trimmed = validate_external_link_url(url)?;
 
     #[cfg(target_os = "macos")]
     let mut command = {
         let mut command = Command::new("open");
-        command.arg(trimmed);
+        command.arg(&trimmed);
         command
     };
 
@@ -4152,7 +4146,7 @@ fn open_external_link_impl(url: &str) -> Result<(), String> {
             if opener == "gio" {
                 command.args(["open", trimmed]);
             } else {
-                command.arg(trimmed);
+                command.arg(&trimmed);
             }
             match command.status() {
                 Ok(status) if status.success() => return Ok(()),
@@ -4173,7 +4167,7 @@ fn open_external_link_impl(url: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     let mut command = {
         let mut command = Command::new("cmd");
-        command.args(["/C", "start", "", trimmed]);
+        command.args(["/C", "start", "", trimmed.as_str()]);
         command
     };
 
@@ -4188,6 +4182,68 @@ fn open_external_link_impl(url: &str) -> Result<(), String> {
         } else {
             Err(format!("External link opener exited with {status}."))
         }
+    }
+}
+
+fn validate_external_link_url(raw: &str) -> Result<String, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err("External link is empty.".into());
+    }
+    if trimmed.contains('\n') || trimmed.contains('\r') {
+        return Err("External links cannot contain line breaks.".into());
+    }
+
+    if trimmed.starts_with("mailto:") {
+        let address = trimmed.trim_start_matches("mailto:");
+        if address.is_empty() || address.contains('?') || address.contains('/') {
+            return Err("Only simple mailto links are supported.".into());
+        }
+        return Ok(trimmed.to_string());
+    }
+
+    let parsed =
+        reqwest::Url::parse(trimmed).map_err(|_| "External link URL is invalid.".to_string())?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err("Only http, https, and mailto links are supported.".into());
+    }
+    if parsed.username() != "" || parsed.password().is_some() {
+        return Err("External links cannot include embedded credentials.".into());
+    }
+
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| "External link must include a host.".to_string())?;
+    if is_blocked_external_link_host(host) {
+        return Err("External link host is not allowed.".into());
+    }
+
+    Ok(trimmed.to_string())
+}
+
+fn is_blocked_external_link_host(host: &str) -> bool {
+    let normalized = host
+        .trim_matches(|ch| ch == '[' || ch == ']')
+        .trim_end_matches('.')
+        .to_ascii_lowercase();
+    if matches!(normalized.as_str(), "localhost" | "localhost.localdomain") {
+        return true;
+    }
+    if normalized.ends_with(".localhost") || normalized.ends_with(".local") {
+        return true;
+    }
+    match normalized.parse::<std::net::IpAddr>() {
+        Ok(std::net::IpAddr::V4(ip)) => {
+            ip.is_loopback()
+                || ip.is_private()
+                || ip.is_link_local()
+                || ip.is_broadcast()
+                || ip.is_unspecified()
+        }
+        Ok(std::net::IpAddr::V6(ip)) => {
+            ip.is_loopback() || ip.is_unspecified() || ip.is_unique_local()
+        }
+        Err(_) => false,
     }
 }
 
@@ -6997,6 +7053,47 @@ mod tests {
         let insecure = parse_updater_endpoint_list("http://updates.example.com/latest.json")
             .expect_err("http endpoint should fail");
         assert!(insecure.contains("must use HTTPS"));
+    }
+
+    #[test]
+    fn external_link_validator_accepts_documented_public_links() {
+        assert_eq!(
+            super::validate_external_link_url(
+                " https://github.com/tarunag10/mac-ai-switchboard/issues ",
+            )
+            .expect("repo issues link"),
+            "https://github.com/tarunag10/mac-ai-switchboard/issues"
+        );
+        assert_eq!(
+            super::validate_external_link_url("https://developers.openai.com/codex/cli")
+                .expect("codex docs link"),
+            "https://developers.openai.com/codex/cli"
+        );
+        assert_eq!(
+            super::validate_external_link_url("mailto:hello@example.com").expect("simple mailto"),
+            "mailto:hello@example.com"
+        );
+    }
+
+    #[test]
+    fn external_link_validator_rejects_ssrf_and_injection_shapes() {
+        for raw in [
+            "file:///etc/passwd",
+            "http://127.0.0.1:6767/stats",
+            "http://localhost:6767/stats",
+            "https://10.0.0.4/admin",
+            "https://172.16.0.2/admin",
+            "https://192.168.1.2/admin",
+            "https://[::1]/admin",
+            "https://user:pass@example.com/path",
+            "https://github.com/tarunag10/mac-ai-switchboard/issues\nhttps://evil.example",
+            "mailto:hello@example.com?subject=Injected",
+        ] {
+            assert!(
+                super::validate_external_link_url(raw).is_err(),
+                "{raw} should be rejected"
+            );
+        }
     }
 
     #[test]

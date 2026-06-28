@@ -98,6 +98,10 @@ const requiredDocSignals = {
     "Provider Traffic",
     "Change Control",
   ],
+  "docs/rebrand-trust-hardening-plan.md": [
+    "External link opening now rejects unsupported schemes",
+    "SSRF/url allowlist tests cover link-opening",
+  ],
   "docs/install.md": [
     "Mac-AI-Switchboard_<version>.dmg",
     "Applications",
