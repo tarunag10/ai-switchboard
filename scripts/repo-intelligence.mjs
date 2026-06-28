@@ -1444,16 +1444,27 @@ function packIdForTask(profile, taskType) {
 }
 
 function getIndexFreshness(summary) {
+  const metadata = summary.indexMetadata;
+  const base = {
+    apiAvailable: true,
+    graphAvailable: Boolean(summary.graph),
+    indexerVersion: summary.indexerVersion ?? metadata?.indexerVersion ?? null,
+    parserVersion: metadata?.parserVersion ?? null,
+    indexedFileCount: metadata?.indexedFileCount ?? null,
+    skippedFileCount: metadata?.skippedFileCount ?? null,
+  };
+
   if (!summary.indexedAt) {
     return {
+      ...base,
       status: "none",
       label: "No repo indexed",
       detail: "Index a local repository to create a persistent metadata cache.",
     };
   }
-  const metadata = summary.indexMetadata;
   if (!metadata) {
     return {
+      ...base,
       status: "unknown",
       label: "Indexed without cache metadata",
       detail: "Re-index this repo to add persistent freshness metadata.",
@@ -1461,6 +1472,7 @@ function getIndexFreshness(summary) {
   }
   if (metadata.cacheState === "unchanged") {
     return {
+      ...base,
       status: "unchanged_cache",
       label: "Unchanged local index",
       detail: metadata.previousIndexedAt
@@ -1470,12 +1482,14 @@ function getIndexFreshness(summary) {
   }
   if (metadata.cacheState === "changed") {
     return {
+      ...base,
       status: "changed_cache",
       label: "Changed local index",
       detail: "Repo metadata changed since the previous saved index.",
     };
   }
   return {
+    ...base,
     status: "fresh",
     label: "Fresh local index",
     detail: `Indexed with ${metadata.parserVersion}.`,

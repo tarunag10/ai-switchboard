@@ -140,6 +140,12 @@ export interface RepoIndexFreshness {
   status: "none" | "fresh" | "unchanged_cache" | "changed_cache" | "unknown";
   label: string;
   detail: string;
+  apiAvailable: boolean;
+  graphAvailable: boolean;
+  indexerVersion?: string | null;
+  parserVersion?: string | null;
+  indexedFileCount?: number | null;
+  skippedFileCount?: number | null;
 }
 
 export type AgentSessionTaskType =
@@ -282,19 +288,30 @@ export interface RepoAgentManifest {
 export function getRepoIndexFreshness(
   summary: Pick<
     RepoIntelligenceSummary,
-    "indexedAt" | "indexMetadata" | "indexerVersion"
+    "indexedAt" | "indexMetadata" | "indexerVersion" | "graph"
   >,
 ): RepoIndexFreshness {
+  const metadata = summary.indexMetadata;
+  const base = {
+    apiAvailable: true,
+    graphAvailable: Boolean(summary.graph),
+    indexerVersion: summary.indexerVersion ?? metadata?.indexerVersion ?? null,
+    parserVersion: metadata?.parserVersion ?? null,
+    indexedFileCount: metadata?.indexedFileCount ?? null,
+    skippedFileCount: metadata?.skippedFileCount ?? null,
+  };
+
   if (!summary.indexedAt) {
     return {
+      ...base,
       status: "none",
       label: "No repo indexed",
       detail: "Index a local repository to create a persistent metadata cache.",
     };
   }
-  const metadata = summary.indexMetadata;
   if (!metadata) {
     return {
+      ...base,
       status: "unknown",
       label: "Indexed without cache metadata",
       detail: "Re-index this repo to add persistent freshness metadata.",
@@ -302,6 +319,7 @@ export function getRepoIndexFreshness(
   }
   if (metadata.cacheState === "unchanged") {
     return {
+      ...base,
       status: "unchanged_cache",
       label: "Unchanged local index",
       detail: metadata.previousIndexedAt
@@ -311,12 +329,14 @@ export function getRepoIndexFreshness(
   }
   if (metadata.cacheState === "changed") {
     return {
+      ...base,
       status: "changed_cache",
       label: "Changed local index",
       detail: "Repo metadata changed since the previous saved index.",
     };
   }
   return {
+    ...base,
     status: "fresh",
     label: "Fresh local index",
     detail: `Indexed with ${metadata.parserVersion}.`,

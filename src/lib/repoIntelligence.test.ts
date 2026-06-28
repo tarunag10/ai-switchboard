@@ -185,7 +185,15 @@ describe("repoIntelligence", () => {
   });
 
   it("derives index freshness copy from persistent metadata", () => {
-    expect(getRepoIndexFreshness({}).status).toBe("none");
+    expect(getRepoIndexFreshness({})).toMatchObject({
+      status: "none",
+      apiAvailable: true,
+      graphAvailable: false,
+      indexerVersion: null,
+      parserVersion: null,
+      indexedFileCount: null,
+      skippedFileCount: null,
+    });
     expect(
       getRepoIndexFreshness({
         indexedAt: "2026-06-27T10:00:00Z",
@@ -200,9 +208,23 @@ describe("repoIntelligence", () => {
     expect(
       getRepoIndexFreshness({
         indexedAt: "2026-06-27T10:00:00Z",
+        indexerVersion: "path-graph-v2",
         indexMetadata: baseMetadata,
+        graph: buildRepoIntelligenceSummary([
+          { path: "src/App.tsx", bytes: 4000 },
+          { path: "package.json", bytes: 800 },
+        ]).graph,
       }),
-    ).toMatchObject({ status: "fresh", label: "Fresh local index" });
+    ).toMatchObject({
+      status: "fresh",
+      label: "Fresh local index",
+      apiAvailable: true,
+      graphAvailable: true,
+      indexerVersion: "path-graph-v2",
+      parserVersion: "metadata-fingerprint-v1",
+      indexedFileCount: 2,
+      skippedFileCount: 0,
+    });
     expect(
       getRepoIndexFreshness({
         indexedAt: "2026-06-27T10:00:00Z",
