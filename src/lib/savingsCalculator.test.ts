@@ -6,6 +6,7 @@ import {
   buildSavingsCalculatorSummary,
   buildSavingsLedgerRows,
   formatSavingsLedgerShareText,
+  groupSavingsLedgerRowsBySource,
   formatSavingsCalculatorShareText,
   summarizeSavingsLedgerRows,
   type SavingsCalculatorScope,
@@ -385,6 +386,86 @@ describe("savings calculator", () => {
       estimatedUsd: 4.5,
       measuredUsd: 0,
     });
+  });
+
+  it("groups ledger rows by source and preserves the time window", () => {
+    const recordedAt = "2026-06-27T10:00:00.000Z";
+    const rows = buildSavingsLedgerRows(dashboardFixture(), "overall", recordedAt, {
+      runtimeStatus: {
+        platform: "darwin",
+        supportTier: "supported",
+        installed: true,
+        running: true,
+        starting: false,
+        paused: false,
+        autoPaused: false,
+        proxyReachable: true,
+        headroomLearnSupported: true,
+        rtk: {
+          installed: true,
+          enabled: true,
+          pathConfigured: true,
+          hookConfigured: true,
+          totalCommands: 12,
+          totalSaved: 900,
+        },
+      },
+      repoSavings: {
+        fullScanTokens: 10_000,
+        bestPackTokens: 2_500,
+        bestPackTokensAvoided: 7_500,
+        bestPackSavingsPct: 75,
+        allPacksTokens: 4_000,
+        allPacksTokensAvoided: 6_000,
+        allPacksSavingsPct: 60,
+        bestPack: {
+          id: "implementation",
+          title: "Implementation pack",
+          purpose: "Build next slice",
+          estimatedTokens: 2_500,
+          savingsVsFullScanPct: 75,
+          files: [],
+        },
+      },
+    });
+    const groups = groupSavingsLedgerRowsBySource(rows, "overall", recordedAt);
+
+    expect(groups.map((group) => group.source)).toEqual([
+      "headroom_engine",
+      "rtk",
+      "repo_intelligence",
+    ]);
+    expect(groups.map((group) => group.scope)).toEqual([
+      "overall",
+      "overall",
+      "overall",
+    ]);
+    expect(groups.map((group) => group.recordedAt)).toEqual([
+      recordedAt,
+      recordedAt,
+      recordedAt,
+    ]);
+    expect(groups.map((group) => group.confidence)).toEqual([
+      "estimated",
+      "measured",
+      "inferred",
+    ]);
+    expect(groups[2]).toMatchObject({
+      label: "Repo Intelligence",
+      inferredTokens: 7_500,
+      measuredTokens: 0,
+      estimatedTokens: 0,
+    });
+  });
+
+  it("returns no source groups for an empty ledger", () => {
+    expect(
+      groupSavingsLedgerRowsBySource(
+        [],
+        "session",
+        "2026-06-27T10:00:00.000Z",
+      ),
+    ).toEqual([]);
   });
 
   it("formats a copyable savings ledger with confidence caveats", () => {

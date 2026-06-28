@@ -102,6 +102,12 @@ export interface SavingsLedgerSummary {
   estimatedUsd: number;
 }
 
+export interface SavingsLedgerSourceGroup extends SavingsLedgerSummary {
+  source: SavingsLedgerSource;
+  label: string;
+  confidence: SavingsCalculatorConfidence;
+}
+
 function formatUsd(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -350,6 +356,36 @@ export function summarizeSavingsLedgerRows(
       estimatedUsd: 0,
     } satisfies SavingsLedgerSummary,
   );
+}
+
+export function groupSavingsLedgerRowsBySource(
+  rows: SavingsLedgerRow[],
+  scope: SavingsCalculatorScope,
+  recordedAt: string,
+): SavingsLedgerSourceGroup[] {
+  const groups = new Map<SavingsLedgerSource, SavingsLedgerRow[]>();
+  for (const row of rows) {
+    const sourceRows = groups.get(row.source) ?? [];
+    sourceRows.push(row);
+    groups.set(row.source, sourceRows);
+  }
+
+  return [...groups.entries()].map(([source, sourceRows]) => {
+    const summary = summarizeSavingsLedgerRows(sourceRows, scope, recordedAt);
+    const confidences = new Set(sourceRows.map((row) => row.confidence));
+    const confidence: SavingsCalculatorConfidence = confidences.has("measured")
+      ? "measured"
+      : confidences.has("estimated")
+        ? "estimated"
+        : "inferred";
+
+    return {
+      ...summary,
+      source,
+      label: sourceRows[0]?.label ?? source,
+      confidence,
+    };
+  });
 }
 
 export function formatSavingsLedgerShareText(
