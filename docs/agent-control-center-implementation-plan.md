@@ -17,6 +17,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - The Tauri `get_agent_handoff` read-only API now returns matching connector config readiness dossiers for planned connector targets while leaving Claude/Codex handoffs unchanged.
 - Doctor support copy and Repo Intelligence docs now describe the `get_agent_handoff` connector readiness payload, including next gate, evidence requirements, config path strategy, account caveat, and rollback strategy.
 - `npm run check:connectors` now verifies the Tauri `get_agent_handoff` connector readiness response and tests alongside the frontend, backend adapter registry, and CLI mirror.
+- Release readiness smoke evidence now requires connector readiness payloads in agent handoffs alongside the planned connector config creation plan.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

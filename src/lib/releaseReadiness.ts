@@ -80,11 +80,11 @@ function labels(items: Array<{ label?: string }> | undefined) {
 function hasConnectorConfigPlanEvidence(
   report: ReleaseReadinessReportSnapshot,
 ) {
+  const evidence = report.staticSmokePreflight?.requiredEvidence ?? [];
   return (
     report.staticSmokePreflight?.ready === true &&
-    report.staticSmokePreflight?.requiredEvidence?.includes(
-      "Planned connector config creation plan",
-    ) === true
+    evidence.includes("Planned connector config creation plan") &&
+    evidence.includes("Connector readiness payload in agent handoffs")
   );
 }
 
@@ -193,7 +193,7 @@ export const releaseReadinessStatusRows: ReleaseReadinessStatusRow[] = [
     tone: "blocked",
     source: "npm run smoke:preflight",
     detail:
-      "Planned connector smoke evidence must include the gated config creation plan before any future config writes.",
+      "Planned connector smoke evidence must include the gated config creation plan and connector readiness payload before any future config writes.",
   },
   {
     id: "final-gate",
@@ -309,7 +309,7 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         id: "static-preflight",
         label: "Run smoke preflight",
         detail:
-          "Run npm run smoke:preflight and keep dist/smoke-preflight-summary.md as release evidence, including planned connector automation gates and manual workflow.",
+          "Run npm run smoke:preflight and keep dist/smoke-preflight-summary.md as release evidence, including planned connector automation gates, manual workflow, and connector readiness payload.",
         command: "npm run smoke:preflight",
       },
       {
@@ -323,7 +323,7 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         id: "beta-smoke",
         label: "Run beta smoke test",
         detail:
-          "Follow docs/beta-smoke-test.md against the installed app, including planned connector evidence, automation gates, manual workflow, Repo Intelligence recipes, and per-tool agent handoffs; then run npm run smoke:installed to write dist/installed-smoke-summary.md.",
+          "Follow docs/beta-smoke-test.md against the installed app, including planned connector evidence, automation gates, manual workflow, Repo Intelligence recipes, per-tool agent handoffs, and connector readiness payload; then run npm run smoke:installed to write dist/installed-smoke-summary.md.",
         command: "open docs/beta-smoke-test.md",
       },
       {
@@ -456,8 +456,8 @@ export function releaseReadinessRowsFromReport(
       statusLabel: statusLabel(connectorConfigPlanReady),
       tone: statusTone(connectorConfigPlanReady),
       detail: connectorConfigPlanReady
-        ? "Static smoke evidence includes the planned connector config creation plan."
-        : "Static smoke evidence must include the planned connector config creation plan.",
+        ? "Static smoke evidence includes the planned connector config creation plan and connector readiness payload."
+        : "Static smoke evidence must include the planned connector config creation plan and connector readiness payload.",
     },
     {
       ...releaseReadinessStatusRows[8],

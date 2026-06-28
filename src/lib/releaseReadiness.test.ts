@@ -42,6 +42,7 @@ describe("release readiness checklist", () => {
     expect(allCopy).toMatch(/manual workflow/i);
     expect(allCopy).toMatch(/Repo Intelligence recipes/i);
     expect(allCopy).toMatch(/per-tool agent handoffs/i);
+    expect(allCopy).toMatch(/connector readiness payload/i);
     expect(allCopy).toMatch(/beta-smoke-test\.md/i);
   });
 
@@ -103,6 +104,7 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("HEADROOM_UPDATER_PUBLIC_KEY");
     expect(copy).toMatch(/planned connector smoke evidence/i);
     expect(copy).toMatch(/gated config creation plan/i);
+    expect(copy).toMatch(/connector readiness payload/i);
     expect(copy).toContain("npm run release:ready -- --strict");
     expect(copy).toContain("local install evidence");
     expect(copy).toContain("does not prove signed release readiness");
@@ -115,7 +117,10 @@ describe("release readiness checklist", () => {
       backendValidation: { ready: true },
       staticSmokePreflight: {
         ready: true,
-        requiredEvidence: ["Planned connector config creation plan"],
+        requiredEvidence: [
+          "Planned connector config creation plan",
+          "Connector readiness payload in agent handoffs",
+        ],
       },
       installedSmoke: {
         installedAppPresent: true,
@@ -143,7 +148,7 @@ describe("release readiness checklist", () => {
       "local-only": 1,
     });
     expect(rows.find((row) => row.id === "connector-config-plan")?.detail).toContain(
-      "includes the planned connector config creation plan",
+      "includes the planned connector config creation plan and connector readiness payload",
     );
     expect(rows.find((row) => row.id === "final-gate")?.detail).toBe(
       "Shareable DMG is ready.",
@@ -198,7 +203,7 @@ describe("release readiness checklist", () => {
       "does not prove signed release readiness",
     );
     expect(rows.find((row) => row.id === "connector-config-plan")?.detail).toContain(
-      "must include the planned connector config creation plan",
+      "must include the planned connector config creation plan and connector readiness payload",
     );
   });
 
@@ -208,7 +213,10 @@ describe("release readiness checklist", () => {
       backendValidation: { ready: true },
       staticSmokePreflight: {
         ready: false,
-        requiredEvidence: ["Planned connector config creation plan"],
+        requiredEvidence: [
+          "Planned connector config creation plan",
+          "Connector readiness payload in agent handoffs",
+        ],
       },
       installedSmoke: {
         installedAppPresent: true,
@@ -246,7 +254,10 @@ describe("release readiness checklist", () => {
       backendValidation: { ready: true },
       staticSmokePreflight: {
         ready: true,
-        requiredEvidence: ["Planned connector config creation plan"],
+        requiredEvidence: [
+          "Planned connector config creation plan",
+          "Connector readiness payload in agent handoffs",
+        ],
         missingEvidence: ["Savings calculator copyable ledger"],
         evidenceReady: false,
       },
@@ -283,7 +294,10 @@ describe("release readiness checklist", () => {
         backendValidation: { ready: true },
         staticSmokePreflight: {
           ready: true,
-          requiredEvidence: ["Planned connector config creation plan"],
+          requiredEvidence: [
+            "Planned connector config creation plan",
+            "Connector readiness payload in agent handoffs",
+          ],
         },
         installedSmoke: {
           ready: false,
@@ -367,7 +381,10 @@ describe("release readiness checklist", () => {
         staticSmokePreflight: {
           ready: true,
           evidenceReady: true,
-          requiredEvidence: ["Planned connector config creation plan"],
+          requiredEvidence: [
+            "Planned connector config creation plan",
+            "Connector readiness payload in agent handoffs",
+          ],
           missingEvidence: [],
         },
         installedSmoke: {

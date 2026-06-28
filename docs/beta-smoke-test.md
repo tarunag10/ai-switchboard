@@ -101,7 +101,7 @@ Expect: the copied session handoff matches the selected task pack, shows freshne
 
 In **Agent handoffs**, expect grouped sections for Primary agents, CLI agents, Editor agents, and Chat agents. Claude Code and Codex should appear in Primary agents. Click **Claude Code**, **Codex**, **Gemini CLI**, **Cursor**, and newer targets such as **Qwen Code**, **Amazon Q Developer CLI**, **Windsurf**, or **Zed AI**.
 
-Expect: Markdown action copies a ready-to-paste bounded handoff for that tool, selects the expected implementation, verification, or handoff pack, includes token savings and graph summary, and does not write third-party config. JSON action copies a `mac_ai_switchboard.repo_agent_handoff` payload with agent id, selected pack, file list, graph hints, token savings, and read-only safety flags.
+Expect: Markdown action copies a ready-to-paste bounded handoff for that tool, selects the expected implementation, verification, or handoff pack, includes token savings and graph summary, and does not write third-party config. Planned connector targets include **Connector Config Readiness** with planned connector config readiness, next gate, evidence requirements, config path strategy, account caveat, and rollback strategy. JSON action copies a `mac_ai_switchboard.repo_agent_handoff` payload with agent id, selected pack, file list, graph hints, token savings, read-only safety flags, and the same connector readiness payload.
 
 Click **Clear** in the Repo Intelligence card.
 

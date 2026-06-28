@@ -22,6 +22,7 @@ const staticSmokeRequiredEvidence = [
   "Repo Intelligence context packs",
   "Savings calculator copyable ledger",
   "Per-tool agent handoffs",
+  "Connector readiness payload in agent handoffs",
   "Installed app metadata check",
 ];
 const installedSmokeRequiredEvidence = [
@@ -33,6 +34,7 @@ const installedSmokeRequiredEvidence = [
   "Repo Intelligence recipes and local context packs",
   "Savings calculator copyable ledger",
   "Per-tool agent handoffs",
+  "Connector readiness payload in agent handoffs",
   "Codex compression recovery",
 ];
 const plannedConnectorReadinessSummary = [
