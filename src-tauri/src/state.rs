@@ -50,6 +50,13 @@ pub const REQUIRED_TERMS_VERSION: u32 = 2;
 /// Deprecated dashboard field retained for older frontends; Terms are bundled in-app.
 pub const TERMS_URL: &str = "";
 
+const CAVEMAN_TEMPLATE_BASELINE_TOKENS: u64 = 480;
+const CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS: u64 = 180;
+const PONYTAIL_TEMPLATE_BASELINE_TOKENS: u64 = 1_400;
+const PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS: u64 = 520;
+const MARKITDOWN_TEMPLATE_BASELINE_TOKENS: u64 = 3_200;
+const MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS: u64 = 900;
+
 /// Absolute maximum time we'll wait for the new proxy to come up during
 /// boot validation, regardless of observed activity. Bounded so an
 /// indefinitely-hung process is still detected eventually. Adaptive stall
@@ -2115,6 +2122,17 @@ impl AppState {
         self.savings_tracker.lock().append_attribution_event(&event)
     }
 
+    pub fn record_addon_attribution(
+        &self,
+        addon_id: &str,
+        caveman_level: Option<&str>,
+    ) -> Result<()> {
+        let Some(event) = build_addon_attribution_event(addon_id, caveman_level) else {
+            return Ok(());
+        };
+        self.savings_tracker.lock().append_attribution_event(&event)
+    }
+
     /// Emit a weekly recap rolling up the 7 days ending last Sunday.
     /// Previously Monday-only; now runs on any day whose check is due so the
     /// first launch after an upgrade catches up on last week's recap if it
@@ -3665,6 +3683,76 @@ fn build_repo_intelligence_attribution_event(
             ),
             "Repo Intelligence savings estimate is local context avoided, not provider-spend dollars."
                 .to_string(),
+        ],
+    })
+}
+
+fn build_addon_attribution_event(
+    addon_id: &str,
+    caveman_level: Option<&str>,
+) -> Option<SavingsAttributionEvent> {
+    let (source, label, baseline, optimized, evidence_subject) = match addon_id {
+        "markitdown" => (
+            SavingsAttributionSource::Markitdown,
+            "MarkItDown",
+            MARKITDOWN_TEMPLATE_BASELINE_TOKENS,
+            MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS,
+            "Markdown extract vs re-attaching the full source document each turn",
+        ),
+        "ponytail" => (
+            SavingsAttributionSource::Ponytail,
+            "Ponytail",
+            PONYTAIL_TEMPLATE_BASELINE_TOKENS,
+            PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS,
+            "Scoped implementation plan vs broad codebase exploration",
+        ),
+        "caveman" => {
+            let compact = caveman_level
+                .map(|level| level == crate::tool_manager::CAVEMAN_LEVEL_COMPACT_CHINESE)
+                .unwrap_or(false);
+            (
+                if compact {
+                    SavingsAttributionSource::CompactChinese
+                } else {
+                    SavingsAttributionSource::Caveman
+                },
+                if compact {
+                    "Compact Chinese"
+                } else {
+                    "Caveman"
+                },
+                CAVEMAN_TEMPLATE_BASELINE_TOKENS,
+                CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
+                if compact {
+                    "Compact Chinese private handoff profile vs verbose internal handoff"
+                } else {
+                    "Terse handoff template vs verbose baseline"
+                },
+            )
+        }
+        _ => return None,
+    };
+    let delta_tokens = baseline.saturating_sub(optimized);
+    if delta_tokens == 0 {
+        return None;
+    }
+
+    Some(SavingsAttributionEvent {
+        schema_version: 1,
+        id: Uuid::new_v4().to_string(),
+        observed_at: Utc::now(),
+        scope: SavingsAttributionScope::Session,
+        source,
+        confidence: SavingsAttributionConfidence::Inferred,
+        delta_tokens_saved: delta_tokens,
+        delta_usd: 0.0,
+        total_tokens_sent: 0,
+        request_delta: 1,
+        evidence: vec![
+            format!(
+                "Inferred from {label} template delta: baseline {baseline} tokens vs optimized {optimized} tokens."
+            ),
+            format!("{evidence_subject}; local workflow estimate, not provider-spend dollars."),
         ],
     })
 }
@@ -6628,6 +6716,37 @@ mod tests {
         );
 
         assert!(super::build_repo_intelligence_attribution_event(&summary).is_none());
+    }
+
+    #[test]
+    fn addon_attribution_event_records_inferred_template_delta() {
+        let event = super::build_addon_attribution_event("markitdown", None)
+            .expect("markitdown attribution");
+
+        assert_eq!(event.source, SavingsAttributionSource::Markitdown);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Inferred);
+        assert_eq!(event.delta_tokens_saved, 2_300);
+        assert_eq!(event.request_delta, 1);
+        let evidence = event.evidence.join(" ");
+        assert!(evidence.contains("baseline 3200 tokens"));
+        assert!(evidence.contains("optimized 900 tokens"));
+        assert!(evidence.contains("not provider-spend dollars"));
+    }
+
+    #[test]
+    fn addon_attribution_event_separates_compact_chinese_from_caveman() {
+        let caveman = super::build_addon_attribution_event("caveman", Some("scoped"))
+            .expect("caveman attribution");
+        let compact = super::build_addon_attribution_event(
+            "caveman",
+            Some(crate::tool_manager::CAVEMAN_LEVEL_COMPACT_CHINESE),
+        )
+        .expect("compact chinese attribution");
+
+        assert_eq!(caveman.source, SavingsAttributionSource::Caveman);
+        assert_eq!(compact.source, SavingsAttributionSource::CompactChinese);
+        assert_eq!(caveman.delta_tokens_saved, 300);
+        assert_eq!(compact.delta_tokens_saved, 300);
     }
 
     #[test]

@@ -926,6 +926,7 @@ async fn install_addon(state: State<'_, AppState>, id: String) -> Result<Dashboa
             .map_err(|err| {
                 format!("markitdown installed but enabling integration failed: {err:#}")
             })?;
+            let _ = state.record_addon_attribution("markitdown", None);
             Ok(state.dashboard())
         }
         "rtk" => {
@@ -946,6 +947,7 @@ async fn install_addon(state: State<'_, AppState>, id: String) -> Result<Dashboa
                 .tool_manager
                 .install_ponytail()
                 .map_err(|err| err.to_string())?;
+            let _ = state.record_addon_attribution("ponytail", None);
             Ok(state.dashboard())
         }
         "caveman" => {
@@ -957,6 +959,8 @@ async fn install_addon(state: State<'_, AppState>, id: String) -> Result<Dashboa
                 .map_err(|err| {
                     format!("caveman installed but enabling guidance failed: {err:#}")
                 })?;
+            let _ = state
+                .record_addon_attribution("caveman", Some(&state.tool_manager.caveman_level()));
             Ok(state.dashboard())
         }
         other => Err(format!("unknown addon: {other}")),
@@ -982,6 +986,7 @@ async fn set_addon_enabled(
                     &state.tool_manager.managed_python(),
                 )
                 .map_err(|err| err.to_string())?;
+                let _ = state.record_addon_attribution("markitdown", None);
             } else {
                 client_adapters::disable_markitdown_integration(
                     &state.tool_manager.markitdown_shim_path(),
@@ -995,6 +1000,9 @@ async fn set_addon_enabled(
                 .tool_manager
                 .set_ponytail_enabled(enabled)
                 .map_err(|err| err.to_string())?;
+            if enabled {
+                let _ = state.record_addon_attribution("ponytail", None);
+            }
             Ok(state.dashboard())
         }
         "caveman" => {
@@ -1005,6 +1013,8 @@ async fn set_addon_enabled(
             if enabled {
                 client_adapters::enable_caveman_integration(&state.tool_manager.caveman_level())
                     .map_err(|err| err.to_string())?;
+                let _ = state
+                    .record_addon_attribution("caveman", Some(&state.tool_manager.caveman_level()));
             } else {
                 client_adapters::disable_caveman_integration().map_err(|err| err.to_string())?;
             }
