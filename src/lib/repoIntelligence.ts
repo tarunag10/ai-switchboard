@@ -166,11 +166,22 @@ export interface AgentSessionPreparationOptions {
 
 export type AgentSessionCopyStatus = "ready" | "warn" | "blocked";
 
+export interface AgentSessionCopySafety {
+  hasRealIndex: boolean;
+  allowsCopy: boolean;
+  blocksSampleContext: boolean;
+  excludesSecretLikePaths: boolean;
+  freshnessStatus: RepoIndexFreshness["status"];
+  skippedFileCount: number;
+  reason: string;
+}
+
 export interface AgentSessionPreparation {
   target: RepoAgentHandoffProfile;
   taskType: AgentSessionTaskType;
   packId: string;
   freshness: RepoIndexFreshness;
+  copySafety: AgentSessionCopySafety;
   copyStatus: AgentSessionCopyStatus;
   copyDetail: string;
   recommendedMode: SwitchboardMode;
@@ -1369,6 +1380,24 @@ function getAgentSessionCopyState(
   };
 }
 
+function buildAgentSessionCopySafety(
+  summary: RepoIntelligenceSummary,
+  freshness: RepoIndexFreshness,
+  copyState: ReturnType<typeof getAgentSessionCopyState>,
+): AgentSessionCopySafety {
+  const hasRealIndex = summary.packs.length > 0 && summary.indexedFiles > 0;
+
+  return {
+    hasRealIndex,
+    allowsCopy: copyState.status !== "blocked",
+    blocksSampleContext: !hasRealIndex,
+    excludesSecretLikePaths: true,
+    freshnessStatus: freshness.status,
+    skippedFileCount: summary.indexMetadata?.skippedFileCount ?? 0,
+    reason: copyState.detail,
+  };
+}
+
 export function buildAgentSessionPreparation(
   summary: RepoIntelligenceSummary,
   options: AgentSessionPreparationOptions,
@@ -1384,6 +1413,11 @@ export function buildAgentSessionPreparation(
   const packId = packIdForAgentSessionTask(profile, taskType);
   const freshness = getRepoIndexFreshness(summary);
   const copyState = getAgentSessionCopyState(summary, freshness);
+  const copySafety = buildAgentSessionCopySafety(
+    summary,
+    freshness,
+    copyState,
+  );
   const modeRecommendation = recommendAgentSessionMode(options.modeInputs);
 
   return {
@@ -1391,6 +1425,7 @@ export function buildAgentSessionPreparation(
     taskType,
     packId,
     freshness,
+    copySafety,
     copyStatus: copyState.status,
     copyDetail: copyState.detail,
     recommendedMode: modeRecommendation.mode,

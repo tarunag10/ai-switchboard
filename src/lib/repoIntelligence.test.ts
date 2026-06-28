@@ -618,6 +618,15 @@ describe("repoIntelligence", () => {
     expect(preparation.taskType).toBe("verification");
     expect(preparation.packId).toBe("verification");
     expect(preparation.copyStatus).toBe("ready");
+    expect(preparation.copySafety).toMatchObject({
+      hasRealIndex: true,
+      allowsCopy: true,
+      blocksSampleContext: false,
+      excludesSecretLikePaths: true,
+      freshnessStatus: "fresh",
+      skippedFileCount: 0,
+      reason: "Fresh local index",
+    });
     expect(preparation.recommendedMode).toBe("full");
     expect(preparation.handoffMarkdown).toContain("# Codex Handoff");
     expect(preparation.handoffMarkdown).toContain(
@@ -699,6 +708,13 @@ describe("repoIntelligence", () => {
     });
 
     expect(preparation.copyStatus).toBe("warn");
+    expect(preparation.copySafety).toMatchObject({
+      hasRealIndex: true,
+      allowsCopy: true,
+      blocksSampleContext: false,
+      excludesSecretLikePaths: true,
+      freshnessStatus: "changed_cache",
+    });
     expect(preparation.copyDetail).toContain("Changed local index");
     expect(preparation.recommendedMode).toBe("rtk");
     expect(preparation.handoffMarkdown).toContain("# Gemini CLI Handoff");
@@ -742,6 +758,15 @@ describe("repoIntelligence", () => {
     );
 
     expect(preparation.copyStatus).toBe("blocked");
+    expect(preparation.copySafety).toMatchObject({
+      hasRealIndex: false,
+      allowsCopy: false,
+      blocksSampleContext: true,
+      excludesSecretLikePaths: true,
+      freshnessStatus: "none",
+      skippedFileCount: 0,
+    });
+    expect(preparation.copySafety.reason).toContain("Index a real local repo");
     expect(preparation.copyDetail).toContain("Index a real local repo");
     expect(preparation.recommendedMode).toBe("off");
     expect(preparation.handoffMarkdown).toBeNull();
