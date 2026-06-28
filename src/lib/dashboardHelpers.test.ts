@@ -502,6 +502,47 @@ describe("dashboard helpers", () => {
     );
   });
 
+  it("prefers backend-owned Gemini dry-run preview when present", () => {
+    expect(
+      formatConnectorConfigDryRunPreview({
+        clientId: "gemini_cli",
+        name: "Gemini CLI",
+        supportStatus: "planned",
+        detectionEvidence: [
+          "Gemini binary: /opt/homebrew/bin/gemini",
+          "Gemini config surface: /Users/test/.gemini",
+        ],
+        configDryRunPreview: {
+          target: "/Users/test/.gemini",
+          marker: "mac-ai-switchboard:gemini_cli",
+          backupPath: "/Users/test/.gemini.mac-ai-switchboard.bak",
+          currentState: "No Switchboard-managed Gemini provider routing detected.",
+          proposedState:
+            "Add Mac AI Switchboard local provider routing for Gemini CLI after explicit consent.",
+          rollbackPreview:
+            "Restore the Gemini config backup or remove only the Switchboard-managed provider block.",
+          confirmationPhrase: "APPLY GEMINI CLI CONFIG",
+          writes: [],
+        },
+        installed: true,
+        enabled: false,
+        verified: false,
+      }),
+    ).toContain(
+      [
+        "## Dry-run diff preview",
+        "- Target: /Users/test/.gemini",
+        "- Marker: mac-ai-switchboard:gemini_cli",
+        "- Backup: /Users/test/.gemini.mac-ai-switchboard.bak",
+        "- Current managed block: No Switchboard-managed Gemini provider routing detected.",
+        "- Proposed managed block: Add Mac AI Switchboard local provider routing for Gemini CLI after explicit consent.",
+        "- Writes: none; preview only; apply stays disabled",
+        "- Rollback: Restore the Gemini config backup or remove only the Switchboard-managed provider block.",
+        "- Confirmation phrase: APPLY GEMINI CLI CONFIG",
+      ].join("\n"),
+    );
+  });
+
   it("formats OpenCode compatibility evidence for planned connector UI", () => {
     const report = connectorCompatibilityReport({
       clientId: "opencode",

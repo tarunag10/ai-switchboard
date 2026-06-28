@@ -697,6 +697,21 @@ export function connectorCompatibilityReport(
 export function formatConnectorConfigDryRunPreview(
   connector: ClientConnectorStatus
 ) {
+  if (connector.configDryRunPreview) {
+    const preview = connector.configDryRunPreview;
+    return [
+      "## Dry-run diff preview",
+      `- Target: ${preview.target}`,
+      `- Marker: ${preview.marker}`,
+      `- Backup: ${preview.backupPath}`,
+      `- Current managed block: ${preview.currentState}`,
+      `- Proposed managed block: ${preview.proposedState}`,
+      `- Writes: ${preview.writes.length ? preview.writes.join(", ") : "none; preview only; apply stays disabled"}`,
+      `- Rollback: ${preview.rollbackPreview}`,
+      `- Confirmation phrase: ${preview.confirmationPhrase}`,
+    ].join("\n");
+  }
+
   const report = connectorCompatibilityReport(connector);
   const safetyDossier = getPlannedConnectorSafetyDossier(connector.clientId);
   const target =

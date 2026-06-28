@@ -176,6 +176,7 @@ export interface ClientConnectorStatus {
   manualWorkflow?: string[];
   configCreationSteps?: string[];
   configCreationStepDetails?: ClientConnectorConfigCreationStep[];
+  configDryRunPreview?: ClientConnectorConfigDryRunPreview | null;
   installed: boolean;
   enabled: boolean;
   verified: boolean;
@@ -187,6 +188,17 @@ export interface ClientConnectorConfigCreationStep {
   label: string;
   detail: string;
   requiredEvidence?: string[];
+}
+
+export interface ClientConnectorConfigDryRunPreview {
+  target: string;
+  marker: string;
+  backupPath: string;
+  currentState: string;
+  proposedState: string;
+  rollbackPreview: string;
+  confirmationPhrase: string;
+  writes: string[];
 }
 
 export interface RuntimeStatus {

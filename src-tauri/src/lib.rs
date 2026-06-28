@@ -2631,6 +2631,7 @@ mod doctor_tests {
                 "Clean up in Off mode".to_string(),
             ],
             config_creation_step_details: Vec::new(),
+            config_dry_run_preview: None,
             installed: true,
             enabled: false,
             verified: false,

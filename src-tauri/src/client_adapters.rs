@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::models::{
-    ClientConnectorConfigCreationStep, ClientConnectorStatus, ClientConnectorSupportStatus,
-    ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus, SavingsMode,
-    SwitchboardMode,
+    ClientConnectorConfigCreationStep, ClientConnectorConfigDryRunPreview, ClientConnectorStatus,
+    ClientConnectorSupportStatus, ClientHealth, ClientSetupResult, ClientSetupVerification,
+    ClientStatus, SavingsMode, SwitchboardMode,
 };
 use crate::storage::{app_data_dir, config_file};
 
@@ -414,6 +414,39 @@ fn planned_config_creation_step_details(
             },
         )
         .collect()
+}
+
+fn evidence_value<'a>(evidence: &'a [String], prefix: &str) -> Option<&'a str> {
+    evidence
+        .iter()
+        .find_map(|item| item.strip_prefix(prefix).map(str::trim))
+}
+
+fn planned_connector_dry_run_preview(
+    spec: &PlannedClientSpec,
+    detection_evidence: &[String],
+) -> Option<ClientConnectorConfigDryRunPreview> {
+    if spec.id != "gemini_cli" {
+        return None;
+    }
+
+    let target = evidence_value(detection_evidence, "Gemini config surface: ")?;
+    if target == "none detected yet." {
+        return None;
+    }
+
+    Some(ClientConnectorConfigDryRunPreview {
+        target: target.to_string(),
+        marker: format!("mac-ai-switchboard:{}", spec.id),
+        backup_path: format!("{target}.mac-ai-switchboard.bak"),
+        current_state: "No Switchboard-managed Gemini provider routing detected.".to_string(),
+        proposed_state: "Add Mac AI Switchboard local provider routing for Gemini CLI after explicit consent.".to_string(),
+        rollback_preview:
+            "Restore the Gemini config backup or remove only the Switchboard-managed provider block."
+                .to_string(),
+        confirmation_phrase: format!("APPLY {} CONFIG", spec.name.to_uppercase()),
+        writes: Vec::new(),
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -831,6 +864,7 @@ pub fn list_client_connectors(
                 ],
                 config_creation_steps: Vec::new(),
                 config_creation_step_details: Vec::new(),
+                config_dry_run_preview: None,
                 installed,
                 enabled,
                 verified,
@@ -844,6 +878,10 @@ pub fn list_client_connectors(
         let installed = detected_client
             .map(|client| client.installed)
             .unwrap_or(false);
+        let detection_evidence = detected_client
+            .map(|client| client.notes.clone())
+            .unwrap_or_else(|| vec!["Not checked yet.".to_string()]);
+        let config_dry_run_preview = planned_connector_dry_run_preview(spec, &detection_evidence);
 
         ClientConnectorStatus {
             client_id: spec.id.to_string(),
@@ -857,9 +895,7 @@ pub fn list_client_connectors(
                 .iter()
                 .map(|source| source.to_string())
                 .collect(),
-            detection_evidence: detected_client
-                .map(|client| client.notes.clone())
-                .unwrap_or_else(|| vec!["Not checked yet.".to_string()]),
+            detection_evidence,
             config_locations: spec
                 .config_locations
                 .iter()
@@ -880,6 +916,7 @@ pub fn list_client_connectors(
                 .map(|step| step.to_string())
                 .collect(),
             config_creation_step_details: planned_config_creation_step_details(spec),
+            config_dry_run_preview,
             installed,
             enabled: false,
             verified: false,
@@ -4590,6 +4627,34 @@ mod tests {
                 assert!(dry_run_copy.contains(snippet));
             }
         }
+
+        let gemini = connectors
+            .iter()
+            .find(|connector| connector.client_id == "gemini_cli")
+            .expect("gemini connector");
+        let preview = gemini
+            .config_dry_run_preview
+            .as_ref()
+            .expect("gemini dry-run preview");
+        assert_eq!(preview.target, "/Users/test/.gemini");
+        assert_eq!(preview.marker, "mac-ai-switchboard:gemini_cli");
+        assert_eq!(
+            preview.backup_path,
+            "/Users/test/.gemini.mac-ai-switchboard.bak"
+        );
+        assert!(preview.current_state.contains("No Switchboard-managed"));
+        assert!(preview.proposed_state.contains("after explicit consent"));
+        assert!(preview.rollback_preview.contains("remove only"));
+        assert_eq!(preview.confirmation_phrase, "APPLY GEMINI CLI CONFIG");
+        assert!(preview.writes.is_empty());
+        assert!(!gemini.enabled);
+        assert!(!gemini.verified);
+
+        let opencode = connectors
+            .iter()
+            .find(|connector| connector.client_id == "opencode")
+            .expect("opencode connector");
+        assert!(opencode.config_dry_run_preview.is_none());
 
         let managed = connectors
             .iter()

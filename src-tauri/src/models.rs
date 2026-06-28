@@ -582,6 +582,8 @@ pub struct ClientConnectorStatus {
     pub config_creation_steps: Vec<String>,
     #[serde(default)]
     pub config_creation_step_details: Vec<ClientConnectorConfigCreationStep>,
+    #[serde(default)]
+    pub config_dry_run_preview: Option<ClientConnectorConfigDryRunPreview>,
     pub installed: bool,
     pub enabled: bool,
     pub verified: bool,
@@ -595,6 +597,19 @@ pub struct ClientConnectorConfigCreationStep {
     pub label: String,
     pub detail: String,
     pub required_evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientConnectorConfigDryRunPreview {
+    pub target: String,
+    pub marker: String,
+    pub backup_path: String,
+    pub current_state: String,
+    pub proposed_state: String,
+    pub rollback_preview: String,
+    pub confirmation_phrase: String,
+    pub writes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
