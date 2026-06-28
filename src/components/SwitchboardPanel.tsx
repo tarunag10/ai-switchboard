@@ -30,6 +30,11 @@ interface SwitchboardPanelProps {
   headroomDetail: string;
   rtkStatus: string;
   rtkDetail: string;
+  inspectorRows?: Array<{
+    label: string;
+    status: string;
+    detail: string;
+  }>;
   remoteServicesEnabled: boolean;
   savingsMode: SavingsMode;
   savingsModeBusy: SavingsMode | null;
@@ -62,6 +67,7 @@ export function SwitchboardPanel({
   headroomDetail,
   rtkStatus,
   rtkDetail,
+  inspectorRows = [],
   remoteServicesEnabled,
   savingsMode,
   savingsModeBusy,
@@ -238,6 +244,13 @@ export function SwitchboardPanel({
     <strong>{rtkStatus}</strong>
     <small>{rtkDetail}</small>
   </div>
+  {inspectorRows.map((row) => (
+    <div key={row.label}>
+      <span>{row.label}</span>
+      <strong>{row.status}</strong>
+      <small>{row.detail}</small>
+    </div>
+  ))}
   <div>
     <span>Remote services</span>
     <strong>{remoteCopy.label}</strong>

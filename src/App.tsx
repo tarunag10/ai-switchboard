@@ -6561,6 +6561,45 @@ export default function App() {
           .map((connector) => connector.name)
           .join(", ")
       : "No clients enabled";
+  const switchboardInspectorRows = [
+    {
+      label: "Client routing",
+      status:
+        (switchboardState?.enabledClients ?? enabledSwitchboardConnectors)
+          .length > 0
+          ? "Managed"
+          : "Direct",
+      detail: switchboardHeadroomLabel,
+    },
+    {
+      label: "Shell export",
+      status: runtimeStatus?.rtk.pathConfigured ? "Configured" : "Not configured",
+      detail: runtimeStatus?.rtk.pathConfigured
+        ? "Managed RTK PATH export is present."
+        : "Managed RTK PATH export is not active.",
+    },
+    {
+      label: "MCP state",
+      status:
+        runtimeStatus?.mcpConfigured === true
+          ? "Configured"
+          : runtimeStatus?.mcpConfigured === false
+            ? "Needs attention"
+            : "Unknown",
+      detail:
+        runtimeStatus?.mcpError ??
+        (runtimeStatus?.mcpConfigured === true
+          ? "Repo Memory MCP is configured."
+          : "MCP configuration has not been verified."),
+    },
+    {
+      label: "LaunchAgent",
+      status: runtimeStatus?.running ? "Running" : "Stopped",
+      detail: runtimeStatus?.headroomPid
+        ? `Headroom PID ${runtimeStatus.headroomPid}`
+        : "No Headroom process id reported.",
+    },
+  ];
   const switchboardLocalOnly = switchboardState?.localOnly ?? localOnlyMode;
   const switchboardRemoteServicesEnabled =
     switchboardState?.remoteServicesEnabled ?? !switchboardLocalOnly;
@@ -7087,6 +7126,7 @@ export default function App() {
             headroomDetail={switchboardHeadroomLabel}
             rtkStatus={switchboardRtkLabel}
             rtkDetail={switchboardRtkDetail}
+            inspectorRows={switchboardInspectorRows}
             remoteServicesEnabled={switchboardRemoteServicesEnabled}
             savingsMode={savingsMode}
             savingsModeBusy={savingsModeBusy}

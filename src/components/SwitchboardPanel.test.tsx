@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -16,6 +16,28 @@ function renderPanel(
     headroomDetail: "Codex, Claude Code",
     rtkStatus: "Enabled",
     rtkDetail: "82.5% average savings",
+    inspectorRows: [
+      {
+        label: "Client routing",
+        status: "Managed",
+        detail: "Codex, Claude Code",
+      },
+      {
+        label: "Shell export",
+        status: "Configured",
+        detail: "Managed RTK PATH export is present.",
+      },
+      {
+        label: "MCP state",
+        status: "Configured",
+        detail: "Repo Memory MCP is configured.",
+      },
+      {
+        label: "LaunchAgent",
+        status: "Running",
+        detail: "Headroom PID 1234",
+      },
+    ],
     remoteServicesEnabled: false,
     savingsMode: "balanced",
     savingsModeBusy: null,
@@ -42,25 +64,37 @@ describe("SwitchboardPanel", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Local-only Mac setup")).toBeInTheDocument();
     expect(screen.getByLabelText("Mode Inspector")).toBeInTheDocument();
-    expect(screen.getByText("Requested")).toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
-    expect(screen.getByText("Headroom engine")).toBeInTheDocument();
-    expect(screen.getByText("RTK hook")).toBeInTheDocument();
+    const inspector = within(screen.getByLabelText("Mode Inspector"));
+    expect(inspector.getByText("Requested")).toBeInTheDocument();
+    expect(inspector.getByText("Active")).toBeInTheDocument();
+    expect(inspector.getByText("Headroom engine")).toBeInTheDocument();
+    expect(inspector.getByText("RTK hook")).toBeInTheDocument();
+    expect(inspector.getByText("Client routing")).toBeInTheDocument();
+    expect(inspector.getByText("Shell export")).toBeInTheDocument();
+    expect(inspector.getByText("MCP state")).toBeInTheDocument();
+    expect(inspector.getByText("LaunchAgent")).toBeInTheDocument();
     expect(screen.getAllByText("Codex, Claude Code").length).toBeGreaterThan(0);
     expect(screen.getAllByText("82.5% average savings").length).toBeGreaterThan(
       0,
     );
+    expect(
+      inspector.getByText("Managed RTK PATH export is present."),
+    ).toBeInTheDocument();
+    expect(
+      inspector.getByText("Repo Memory MCP is configured."),
+    ).toBeInTheDocument();
+    expect(inspector.getByText("Headroom PID 1234")).toBeInTheDocument();
     expect(screen.getByText("Savings profile")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Balanced" })).toBeDisabled();
     expect(
       screen.getByRole("button", { name: "Aggressive" }),
     ).toBeInTheDocument();
-    expect(
+    const footprint = within(
       screen.getByLabelText("Full optimization local footprint"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Client routing")).toBeInTheDocument();
-    expect(screen.getByText("Shell output")).toBeInTheDocument();
-    expect(screen.getByText("Repo packs")).toBeInTheDocument();
+    );
+    expect(footprint.getByText("Client routing")).toBeInTheDocument();
+    expect(footprint.getByText("Shell output")).toBeInTheDocument();
+    expect(footprint.getByText("Repo packs")).toBeInTheDocument();
     expect(screen.getByText("Managed through Headroom")).toBeInTheDocument();
     expect(screen.getByText("RTK compacts noisy commands")).toBeInTheDocument();
     expect(
