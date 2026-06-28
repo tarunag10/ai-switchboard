@@ -416,38 +416,63 @@ fn planned_config_creation_step_details(
         .collect()
 }
 
-fn evidence_value<'a>(evidence: &'a [String], prefix: &str) -> Option<&'a str> {
-    evidence
+fn detected_config_surface<'a>(
+    spec: &'a PlannedClientSpec,
+    detection_evidence: &'a [String],
+) -> Option<String> {
+    if detection_evidence
         .iter()
-        .find_map(|item| item.strip_prefix(prefix).map(str::trim))
+        .any(|item| item == "Not detected on machine yet.")
+    {
+        return None;
+    }
+
+    for item in detection_evidence {
+        for label in [
+            "config surface:",
+            "config folder:",
+            "profile settings:",
+            "assistant settings:",
+            "settings:",
+        ] {
+            if let Some((_, value)) = item.split_once(label) {
+                let value = value.trim();
+                if !value.is_empty() && value != "none detected yet." {
+                    return Some(value.to_string());
+                }
+            }
+        }
+    }
+
+    spec.config_locations
+        .first()
+        .map(|location| location.to_string())
 }
 
 fn planned_connector_dry_run_preview(
     spec: &PlannedClientSpec,
     detection_evidence: &[String],
 ) -> Option<ClientConnectorConfigDryRunPreview> {
-    if spec.id != "gemini_cli" {
-        return None;
-    }
-
-    let target = evidence_value(detection_evidence, "Gemini config surface: ")?;
-    if target == "none detected yet." {
-        return None;
-    }
+    let target = detected_config_surface(spec, detection_evidence)?;
 
     Some(ClientConnectorConfigDryRunPreview {
-        target: target.to_string(),
+        target: target.clone(),
         marker: format!("mac-ai-switchboard:{}", spec.id),
         backup_path: format!("{target}.mac-ai-switchboard.bak"),
-        current_state: "No Switchboard-managed Gemini provider routing detected.".to_string(),
-        proposed_state: "Preview only: no files are written. after explicit consent, add Mac AI Switchboard local provider routing for Gemini CLI."
-            .to_string(),
-        apply_blocked_reason:
-            "Gemini CLI automation is disabled until backup, verify, rollback, and Off cleanup gates pass."
-                .to_string(),
+        current_state: format!(
+            "No Switchboard-managed {} provider routing detected.",
+            spec.name
+        ),
+        proposed_state: format!(
+            "Preview only: no files are written. after explicit consent, add Mac AI Switchboard local provider routing for {}.",
+            spec.name
+        ),
+        apply_blocked_reason: format!(
+            "{} automation is disabled until backup, verify, rollback, and Off cleanup gates pass.",
+            spec.name
+        ),
         rollback_preview:
-            "Restore the Gemini config backup or remove only the Switchboard-managed provider block."
-                .to_string(),
+            format!("Restore the {} config backup or remove only the Switchboard-managed provider block.", spec.name),
         confirmation_phrase: format!("APPLY {} CONFIG", spec.name.to_uppercase()),
         writes: Vec::new(),
     })
@@ -4642,6 +4667,28 @@ mod tests {
             ] {
                 assert!(dry_run_copy.contains(snippet));
             }
+            let preview = connector
+                .config_dry_run_preview
+                .as_ref()
+                .expect("planned connector dry-run preview");
+            assert_eq!(
+                preview.marker,
+                format!("mac-ai-switchboard:{}", connector.client_id)
+            );
+            assert!(preview.backup_path.ends_with(".mac-ai-switchboard.bak"));
+            assert!(preview.current_state.contains(&connector.name));
+            assert!(preview.proposed_state.contains("Preview only"));
+            assert!(preview.proposed_state.contains("no files are written"));
+            assert!(preview.apply_blocked_reason.contains(&connector.name));
+            assert!(preview
+                .apply_blocked_reason
+                .contains("backup, verify, rollback, and Off cleanup"));
+            assert!(preview.rollback_preview.contains("remove only"));
+            assert_eq!(
+                preview.confirmation_phrase,
+                format!("APPLY {} CONFIG", connector.name.to_uppercase())
+            );
+            assert!(preview.writes.is_empty());
         }
 
         let gemini = connectors
@@ -4672,7 +4719,13 @@ mod tests {
             .iter()
             .find(|connector| connector.client_id == "opencode")
             .expect("opencode connector");
-        assert!(opencode.config_dry_run_preview.is_none());
+        assert_eq!(
+            opencode
+                .config_dry_run_preview
+                .as_ref()
+                .map(|preview| preview.target.as_str()),
+            Some("/Users/test/.config/opencode")
+        );
 
         let managed = connectors
             .iter()
