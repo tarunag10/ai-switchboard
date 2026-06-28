@@ -1,6 +1,7 @@
 export type RepoMemoryMcpState =
   | "active"
   | "configured"
+  | "stale"
   | "needs_attention"
   | "unknown";
 
@@ -20,6 +21,8 @@ export interface RepoMemoryMcpStatusInput {
   error?: string | null;
   active?: boolean | null;
   lastStartedAt?: string | null;
+  lastCheckedAt?: string | null;
+  supervisionStatus?: string | null;
 }
 
 export const repoMemoryMcpInstallCommand = "install_repo_memory_mcp";
@@ -30,14 +33,37 @@ export const repoMemoryMcpVerifyCommand = "npm run check:repo-memory-mcp";
 export function repoMemoryMcpLifecycle(
   input: RepoMemoryMcpStatusInput,
 ): RepoMemoryMcpLifecycle {
+  if (input.supervisionStatus === "stale_config") {
+    const checked = input.lastCheckedAt
+      ? ` Last checked: ${input.lastCheckedAt}.`
+      : "";
+    return {
+      state: "stale",
+      status: "Stale",
+      detail: `Repo Memory MCP was marked active, but the managed MCP config is no longer present.${checked}`,
+      installCommand: repoMemoryMcpInstallCommand,
+      startCommand: repoMemoryMcpStartCommand,
+      stopCommand: repoMemoryMcpStopCommand,
+      verifyCommand: repoMemoryMcpVerifyCommand,
+      copy: [
+        "Repo Memory MCP stale: active session state no longer matches managed MCP configuration.",
+        `Install action: ${repoMemoryMcpInstallCommand}`,
+        `Stop action: ${repoMemoryMcpStopCommand}`,
+        `Verify: ${repoMemoryMcpVerifyCommand}`,
+        "Safety: do not rely on repo-memory MCP handoffs until configuration is repaired.",
+      ].join("\n"),
+    };
+  }
+
   if (input.configured === true && input.active === true) {
     const started = input.lastStartedAt
       ? ` Last started: ${input.lastStartedAt}.`
       : "";
+    const checked = input.lastCheckedAt ? ` Last checked: ${input.lastCheckedAt}.` : "";
     return {
       state: "active",
       status: "Active",
-      detail: `Repo Memory MCP is app-managed, read-only, and marked active for supported agents.${started}`,
+      detail: `Repo Memory MCP is app-managed, read-only, and marked active for supported agents.${started}${checked}`,
       installCommand: repoMemoryMcpInstallCommand,
       startCommand: repoMemoryMcpStartCommand,
       stopCommand: repoMemoryMcpStopCommand,

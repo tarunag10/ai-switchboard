@@ -297,6 +297,8 @@ export interface RuntimeStatus {
   mcpError?: string | null;
   repoMemoryMcpActive?: boolean | null;
   repoMemoryMcpLastStartedAt?: string | null;
+  repoMemoryMcpLastCheckedAt?: string | null;
+  repoMemoryMcpSupervisionStatus?: string | null;
   mlInstalled?: boolean | null;
   kompressEnabled?: boolean | null;
   headroomLearnSupported: boolean;

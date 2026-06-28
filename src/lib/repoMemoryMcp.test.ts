@@ -29,6 +29,8 @@ describe("repoMemoryMcpLifecycle", () => {
       configured: true,
       active: true,
       lastStartedAt: "2026-06-28T10:00:00Z",
+      lastCheckedAt: "2026-06-28T10:05:00Z",
+      supervisionStatus: "active",
     });
 
     expect(lifecycle).toMatchObject({
@@ -40,7 +42,25 @@ describe("repoMemoryMcpLifecycle", () => {
     });
     expect(lifecycle.detail).toContain("marked active");
     expect(lifecycle.detail).toContain("2026-06-28T10:00:00Z");
+    expect(lifecycle.detail).toContain("2026-06-28T10:05:00Z");
     expect(lifecycle.copy).toContain("Start action: start_repo_memory_mcp");
+    expect(lifecycle.copy).toContain("Stop action: stop_repo_memory_mcp");
+  });
+
+  it("surfaces stale active state when MCP config drifts", () => {
+    const lifecycle = repoMemoryMcpLifecycle({
+      configured: false,
+      active: false,
+      lastCheckedAt: "2026-06-28T10:07:00Z",
+      supervisionStatus: "stale_config",
+    });
+
+    expect(lifecycle.state).toBe("stale");
+    expect(lifecycle.status).toBe("Stale");
+    expect(lifecycle.detail).toContain("marked active");
+    expect(lifecycle.detail).toContain("no longer present");
+    expect(lifecycle.detail).toContain("2026-06-28T10:07:00Z");
+    expect(lifecycle.copy).toContain("active session state no longer matches");
     expect(lifecycle.copy).toContain("Stop action: stop_repo_memory_mcp");
   });
 

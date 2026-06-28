@@ -7099,6 +7099,8 @@ export default function App() {
     error: runtimeStatus?.mcpError,
     active: runtimeStatus?.repoMemoryMcpActive,
     lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
+    lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
+    supervisionStatus: runtimeStatus?.repoMemoryMcpSupervisionStatus,
   });
   const switchboardInspectorRows = [
     {
@@ -7123,6 +7125,8 @@ export default function App() {
         error: runtimeStatus?.mcpError,
         active: runtimeStatus?.repoMemoryMcpActive,
         lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
+        lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
+        supervisionStatus: runtimeStatus?.repoMemoryMcpSupervisionStatus,
       }),
       actionLabel:
         repoMemoryLifecycle.state === "active"

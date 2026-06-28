@@ -807,6 +807,8 @@ pub struct RuntimeStatus {
     pub mcp_error: Option<String>,
     pub repo_memory_mcp_active: bool,
     pub repo_memory_mcp_last_started_at: Option<DateTime<Utc>>,
+    pub repo_memory_mcp_last_checked_at: Option<DateTime<Utc>>,
+    pub repo_memory_mcp_supervision_status: String,
     pub ml_installed: Option<bool>,
     pub kompress_enabled: Option<bool>,
     pub headroom_learn_supported: bool,

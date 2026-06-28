@@ -2769,6 +2769,8 @@ impl AppState {
             let mut session = self.repo_memory_mcp_state.lock();
             session.active = true;
             session.last_started_at = Some(Utc::now());
+            session.last_checked_at = Some(Utc::now());
+            session.supervision_status = Some("active".to_string());
             self.persist_repo_memory_mcp_state(&session)?;
         }
         *self.cached_runtime_status.lock() = None;
@@ -2779,6 +2781,8 @@ impl AppState {
         {
             let mut session = self.repo_memory_mcp_state.lock();
             session.active = false;
+            session.last_checked_at = Some(Utc::now());
+            session.supervision_status = Some("stopped".to_string());
             self.persist_repo_memory_mcp_state(&session)?;
         }
         *self.cached_runtime_status.lock() = None;
@@ -2791,6 +2795,20 @@ impl AppState {
         std::fs::write(&self.repo_memory_mcp_state_path, serialized)
             .with_context(|| format!("writing {}", self.repo_memory_mcp_state_path.display()))?;
         Ok(())
+    }
+
+    fn record_repo_memory_mcp_supervision(&self, status: &str) {
+        let mut session = self.repo_memory_mcp_state.lock();
+        if session.supervision_status.as_deref() == Some(status)
+            && session.last_checked_at.is_some()
+        {
+            return;
+        }
+        session.last_checked_at = Some(Utc::now());
+        session.supervision_status = Some(status.to_string());
+        if let Err(err) = self.persist_repo_memory_mcp_state(&session) {
+            log::warn!("failed to persist repo-memory MCP supervision state: {err:#}");
+        }
     }
 
     fn compute_runtime_status(&self) -> RuntimeStatus {
@@ -2838,6 +2856,11 @@ impl AppState {
         let startup_error = self.last_startup_error.lock().clone();
         let startup_error_hint = startup_error.as_deref().and_then(classify_startup_error);
 
+        let repo_memory_mcp_supervision_status =
+            repo_memory_mcp_supervision_status(&repo_memory_mcp_session, mcp_configured);
+        self.record_repo_memory_mcp_supervision(&repo_memory_mcp_supervision_status);
+        let repo_memory_mcp_session = self.repo_memory_mcp_state.lock().clone();
+
         RuntimeStatus {
             platform: platform.into(),
             support_tier: support_tier.into(),
@@ -2852,6 +2875,8 @@ impl AppState {
             mcp_error,
             repo_memory_mcp_active: repo_memory_mcp_session.active && mcp_configured == Some(true),
             repo_memory_mcp_last_started_at: repo_memory_mcp_session.last_started_at,
+            repo_memory_mcp_last_checked_at: repo_memory_mcp_session.last_checked_at,
+            repo_memory_mcp_supervision_status,
             ml_installed,
             kompress_enabled,
             headroom_learn_supported: headroom_learn_disabled_reason.is_none(),
@@ -3566,6 +3591,8 @@ fn persist_last_known_good_plan(path: &std::path::Path, plan: &LastKnownGoodPlan
 struct RepoMemoryMcpSessionState {
     active: bool,
     last_started_at: Option<DateTime<Utc>>,
+    last_checked_at: Option<DateTime<Utc>>,
+    supervision_status: Option<String>,
 }
 
 impl RepoMemoryMcpSessionState {
@@ -3575,6 +3602,20 @@ impl RepoMemoryMcpSessionState {
         }
         let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
         serde_json::from_slice(&bytes).context("parsing repo-memory MCP session state")
+    }
+}
+
+fn repo_memory_mcp_supervision_status(
+    session: &RepoMemoryMcpSessionState,
+    configured: Option<bool>,
+) -> String {
+    match (session.active, configured) {
+        (true, Some(true)) => "active".to_string(),
+        (true, Some(false)) => "stale_config".to_string(),
+        (true, None) => "unknown_active".to_string(),
+        (false, Some(true)) => "configured".to_string(),
+        (false, Some(false)) => "needs_attention".to_string(),
+        (false, None) => "unknown".to_string(),
     }
 }
 
@@ -8954,5 +8995,37 @@ mod tests {
         let next = bootstrap_failed_state(&idle_progress(), "early failure".into());
         assert_eq!(next.overall_percent, 1);
         assert!(next.failed);
+    }
+
+    #[test]
+    fn repo_memory_mcp_supervision_distinguishes_stale_active_state() {
+        let active = super::RepoMemoryMcpSessionState {
+            active: true,
+            last_started_at: None,
+            last_checked_at: None,
+            supervision_status: None,
+        };
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(&active, Some(true)),
+            "active"
+        );
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(&active, Some(false)),
+            "stale_config"
+        );
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(&active, None),
+            "unknown_active"
+        );
+
+        let stopped = super::RepoMemoryMcpSessionState::default();
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(&stopped, Some(true)),
+            "configured"
+        );
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(&stopped, Some(false)),
+            "needs_attention"
+        );
     }
 }
