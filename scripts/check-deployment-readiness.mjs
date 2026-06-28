@@ -409,6 +409,7 @@ const requiredSourceSignals = {
     "repo_symbol_lookup",
     "repo_dependents_of",
     "Return a read-only Repo Intelligence context pack",
+    "readOnlyHint: true",
     "repositories are not modified",
     "repoMemorySafety",
     "--list-agents",

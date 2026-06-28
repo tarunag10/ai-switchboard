@@ -2054,6 +2054,7 @@ function runRepoMemoryMcpServer(options) {
         type: "object",
         properties: { packId: { type: "string" } },
       },
+      annotations: { readOnlyHint: true },
     },
     {
       name: "repo_symbol_lookup",
@@ -2063,6 +2064,7 @@ function runRepoMemoryMcpServer(options) {
         type: "object",
         properties: { query: { type: "string" } },
       },
+      annotations: { readOnlyHint: true },
     },
     {
       name: "repo_dependents_of",
@@ -2072,6 +2074,7 @@ function runRepoMemoryMcpServer(options) {
         type: "object",
         properties: { target: { type: "string" } },
       },
+      annotations: { readOnlyHint: true },
     },
   ];
   process.stdin.setEncoding("utf8");
