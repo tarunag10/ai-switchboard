@@ -6,6 +6,8 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 
 ## Shipped Vs Left
 
+Current checkpoint: Start Agent Session, managed sidecar connector coverage, Gemini/OpenCode managed routing, read-only Repo Intelligence APIs, repo-memory MCP lifecycle/supervision evidence, durable savings attribution, guarded Rollback Center native restore/cleanup, native undo-all for ready rows, release-readiness local evidence, Caveman Compact Chinese, and trust-hardening guards are shipped. Remaining work centers on provider-specific native config mutation, long-running repo-memory MCP process supervision, deeper Repo Intelligence graphs, stronger measured add-on counters, real approved config writes, Rollback Center relaunch-survival evidence, signed/notarized public release evidence, and final trust hardening.
+
 ### Shipped
 
 - Start Agent Session has a first usable flow with repo-path validation, freshness detail, selected-pack/full-handoff/summary/JSON copy actions, sample-pack copy blocking, managed connector readiness in session payloads, and matching `repo:intelligence --session` CLI exports.

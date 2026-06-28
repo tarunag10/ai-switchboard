@@ -11,6 +11,12 @@ The app is **local-first**, not offline-only. Claude, OpenAI, and other provider
 
 Current status: active productization branch. The standalone repository is public, but signed release artifacts are not published yet. Build from source for now.
 
+## Roadmap Checkpoint
+
+Created so far: Start Agent Session, managed connector sidecar coverage, Gemini/OpenCode managed routing, read-only Repo Intelligence APIs, expanded lightweight symbol parsing, repo-memory MCP lifecycle/supervision evidence, savings attribution ledger, safe config dry-runs, Doctor timeline/repair copy, Rollback Center native restore/cleanup, guarded native undo-all for ready rollback rows, release-readiness evidence surfaces, Caveman profiles including opt-in Compact Chinese, and trust-hardening guards for remote destinations, local-only account flows, external links, and app-owned branding.
+
+Still left: provider-specific native config writes beyond sidecars, real long-running repo-memory MCP process supervision, deeper tree-sitter/language-aware Repo Intelligence graphs, stronger measured counters for add-ons where runtime evidence exists, user-approved safe config writes with verification/rollback, relaunch-survival evidence for Rollback Center, signed/notarized public DMG evidence in-app, and remaining legal/privacy/network-audit/public-release hardening.
+
 ## What It Controls
 
 | Area | What Switchboard Does | Status |
@@ -118,6 +124,8 @@ Supported handoff targets include `claude`, `codex`, `gemini`, `opencode`, `aide
 
 Repo Memory MCP is the read-only agent-consumption surface for Repo Intelligence. It exposes context packs, symbol lookup, and dependent-edge queries to supported agents without modifying the repository. The app surfaces lifecycle status in Mode Inspector, provides an Install MCP action, and Doctor can repair missing Repo Memory MCP configuration. The release verifier includes `npm run check:repo-memory-mcp`.
 
+Current repo-memory MCP supervision records app-session active state, last-check evidence, and stale-config detection. Real long-running process supervision and connector-specific MCP bridge docs remain roadmap work.
+
 See [docs/repo-memory-mcp.md](docs/repo-memory-mcp.md), [docs/repo-intelligence-plan.md](docs/repo-intelligence-plan.md), and [docs/architecture.md](docs/architecture.md).
 
 ## Savings And Attribution
@@ -125,8 +133,9 @@ See [docs/repo-memory-mcp.md](docs/repo-memory-mcp.md), [docs/repo-intelligence-
 Switchboard separates measured, estimated, and inferred savings instead of merging them into one opaque number.
 
 - Headroom engine session deltas are now written as append-only measured attribution events and exposed through a read-only backend command.
-- RTK reports command-output savings through its own gain/today stats.
-- Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese savings remain estimated or inferred until each source has durable source-specific counters.
+- RTK reports command-output savings through its own gain/today stats and measured backend attribution events.
+- Repo Intelligence records estimated best-pack token-avoidance events after successful index builds.
+- MarkItDown, Ponytail, Caveman, and Compact Chinese record durable inferred template events when enabled until each source has stronger measured runtime counters.
 - Savings ledger exports include confidence labels, evidence, caveats, and attribution percentages by confidence.
 
 ## What It Changes On Your Mac
@@ -141,7 +150,9 @@ Switchboard is designed to be reversible and explicit. Depending on mode and ins
 
 Managed config blocks are fenced with `# >>> headroom:... >>>` markers and backups are written before edits where client configuration is changed.
 
-Rollback Center inventories every managed local footprint with targets, markers, backup expectations, restore mode, evidence requirements, and Off-cleanup boundaries. It also provides guarded execution previews with undo-all order and exact confirmation phrases. Actual native restore execution is still gated behind backend fixture-home restore tests.
+Rollback Center inventories every managed local footprint with targets, markers, backup expectations, restore mode, evidence requirements, and Off-cleanup boundaries. It also provides guarded execution previews with undo-all order and exact confirmation phrases.
+
+Native rollback execution is currently allowlisted for Codex/OpenCode backup restores, Gemini managed cleanup, and sidecar-backed cleanup rows for Cursor, Grok/xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed. The guarded native undo-all flow executes only ready allowlisted rows and leaves manual or dedicated cleanup rows blocked.
 
 Off mode removes routing hooks and RTK integration. Runtime files, logs, receipts, and keychain entries remain so the next launch is fast. Uninstall cleanup is covered in [docs/install.md](docs/install.md).
 
