@@ -13,6 +13,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Planned connector cards now surface the same seven config-creation gates in-app before backend-specific detection evidence is available.
 - Repo Intelligence agent handoffs now include connector config readiness, next gate, evidence requirements, config path strategy, account caveat, and rollback strategy for each planned connector target.
 - The `repo:intelligence` CLI handoff export now mirrors those connector readiness dossiers in Markdown and JSON output.
+- `npm run check:connectors` now verifies the CLI connector dossier mirror so planned config metadata cannot silently drift across app, backend, and handoff exports.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

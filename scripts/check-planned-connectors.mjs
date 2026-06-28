@@ -3,6 +3,7 @@ import fs from "node:fs";
 const frontendPath = "src/lib/plannedConnectors.ts";
 const appPath = "src/App.tsx";
 const backendPath = "src-tauri/src/client_adapters.rs";
+const cliPath = "scripts/repo-intelligence.mjs";
 
 function readFile(path) {
   return fs.readFileSync(path, "utf8");
@@ -209,6 +210,64 @@ function validateBackendConfigCreationPlanContract(source) {
   return errors;
 }
 
+function validateCliConnectorDossierContract(source, connectorIds) {
+  const errors = [];
+  const dossierBody = source.match(
+    /const plannedConnectorDossiers = \{([\s\S]*?)\n\};\n\nfunction buildConfigReadiness/,
+  )?.[1];
+
+  if (!dossierBody) {
+    return ["missing plannedConnectorDossiers CLI handoff contract"];
+  }
+
+  for (const id of connectorIds) {
+    if (!dossierBody.includes(`${id}: {`)) {
+      errors.push(`${id}: CLI connector dossier missing`);
+    }
+  }
+
+  for (const snippet of [
+    "plannedConnectorName",
+    "nextGate",
+    "safetyDossier",
+    "configPathStrategy",
+    "accountCaveat",
+    "rollbackStrategy",
+    "requiredEvidence",
+    "dry-run diff artifact",
+    "Fixture-home restore test",
+    "Fixture-home rollback test",
+    "Fixture-home Off-mode cleanup",
+  ]) {
+    if (!source.includes(snippet)) {
+      errors.push(`CLI connector handoff contract missing "${snippet}"`);
+    }
+  }
+
+  for (const [connectorId, snippets] of Object.entries({
+    gemini_cli: ["Detect PATH: gemini", "provider settings"],
+    opencode: ["Detect PATH: opencode", "provider-config backup"],
+    cursor: ["Cursor app/profile", "profile settings backup"],
+    grok_cli: ["PATH: grok", "PATH: xai", "Doctor guardrails"],
+    amazon_q: ["AWS credentials", "SSO cache"],
+  })) {
+    for (const snippet of snippets) {
+      if (!dossierBody.includes(snippet)) {
+        errors.push(`${connectorId}: CLI connector dossier missing "${snippet}"`);
+      }
+    }
+  }
+
+  if (!source.includes("Planned connector: ${configReadiness.plannedConnectorName}")) {
+    errors.push("CLI markdown handoff must include connector name and id");
+  }
+  if (!source.includes("evidence required: ${step.requiredEvidence.join")) {
+    errors.push("CLI markdown handoff must include config gate evidence");
+  }
+
+  return errors;
+}
+
 function extractBackendConnectors(source) {
   const registry = extractArrayBody(
     source,
@@ -245,6 +304,7 @@ function difference(left, right) {
 const frontendSource = readFile(frontendPath);
 const appSource = readFile(appPath);
 const backendSource = readFile(backendPath);
+const cliSource = readFile(cliPath);
 const frontendConnectors = extractFrontendConnectors(frontendSource);
 const backendConnectors = extractBackendConnectors(backendSource);
 const frontendIds = uniqueSorted([...frontendConnectors.keys()]);
@@ -272,6 +332,7 @@ if (frontendIds.length === 0) {
 const metadataErrors = [];
 metadataErrors.push(...validateConfigCreationPlanContract(frontendSource));
 metadataErrors.push(...validateBackendConfigCreationPlanContract(backendSource));
+metadataErrors.push(...validateCliConnectorDossierContract(cliSource, frontendIds));
 if (!appSource.includes("configPlan.steps.map((step) =>")) {
   metadataErrors.push("planned connector UI must render every config creation step");
 }
