@@ -6,6 +6,7 @@ import {
   uninstallDisclosureItems,
   uninstallDisclosureTitle,
 } from "./uninstallDisclosure";
+import { managedChangeRecords } from "./managedChanges";
 
 describe("uninstallDisclosure", () => {
   it("uses Mac AI Switchboard product naming", () => {
@@ -45,11 +46,20 @@ describe("uninstallDisclosure", () => {
     ]);
   });
 
+  it("derives uninstall footprint from the rollback center inventory", () => {
+    expect(uninstallDisclosureItems.map((item) => item.id)).toEqual(
+      managedChangeRecords.map((record) => record.id),
+    );
+    expect(uninstallDisclosureItems).toHaveLength(managedChangeRecords.length);
+  });
+
   it("formats a copyable uninstall dry-run report from the managed footprint", () => {
     const report = formatUninstallDryRunReport();
 
     expect(report).toContain("Mac AI Switchboard uninstall dry-run");
     expect(report).toContain("No files are changed by this report.");
+    expect(report).toContain("Managed footprint source: Rollback Center inventory.");
+    expect(report).toContain(`Items: ${managedChangeRecords.length}`);
     expect(report).toContain("Remove managed Claude Code shell routing");
     expect(report).toContain("Remove managed Codex shell routing");
     expect(report).toContain("~/.codex/config.toml");

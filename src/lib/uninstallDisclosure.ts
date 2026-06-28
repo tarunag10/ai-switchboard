@@ -28,6 +28,8 @@ export function formatUninstallDryRunReport(
   return [
     "Mac AI Switchboard uninstall dry-run",
     "No files are changed by this report.",
+    "Managed footprint source: Rollback Center inventory.",
+    `Items: ${items.length}`,
     "",
     ...items.flatMap((item, index) => [
       `${index + 1}. ${item.text}`,
