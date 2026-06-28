@@ -108,6 +108,17 @@ export interface SavingsLedgerSourceGroup extends SavingsLedgerSummary {
   confidence: SavingsCalculatorConfidence;
 }
 
+export type SavingsLedgerConfidenceFilter =
+  | "all"
+  | SavingsCalculatorConfidence;
+
+export interface FilteredSavingsLedger {
+  filter: SavingsLedgerConfidenceFilter;
+  rows: SavingsLedgerRow[];
+  groups: SavingsLedgerSourceGroup[];
+  summary: SavingsLedgerSummary;
+}
+
 function formatUsd(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -386,6 +397,31 @@ export function groupSavingsLedgerRowsBySource(
       confidence,
     };
   });
+}
+
+export function filterSavingsLedgerRowsByConfidence(
+  rows: SavingsLedgerRow[],
+  filter: SavingsLedgerConfidenceFilter,
+) {
+  return filter === "all"
+    ? rows
+    : rows.filter((row) => row.confidence === filter);
+}
+
+export function buildFilteredSavingsLedger(
+  rows: SavingsLedgerRow[],
+  scope: SavingsCalculatorScope,
+  recordedAt: string,
+  filter: SavingsLedgerConfidenceFilter,
+): FilteredSavingsLedger {
+  const filteredRows = filterSavingsLedgerRowsByConfidence(rows, filter);
+
+  return {
+    filter,
+    rows: filteredRows,
+    groups: groupSavingsLedgerRowsBySource(filteredRows, scope, recordedAt),
+    summary: summarizeSavingsLedgerRows(filteredRows, scope, recordedAt),
+  };
 }
 
 export function formatSavingsLedgerShareText(

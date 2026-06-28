@@ -213,6 +213,7 @@ import {
 } from "./lib/switchboardDisplay";
 import {
   buildAddonSavingsEstimate,
+  buildFilteredSavingsLedger,
   buildSavingsCalculatorBreakdown,
   buildSavingsLedgerRows,
   buildSavingsCalculatorSummary,
@@ -224,6 +225,7 @@ import {
   MARKITDOWN_TEMPLATE_BASELINE_TOKENS,
   MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS,
   type AddonSavingsEstimate,
+  type SavingsLedgerConfidenceFilter,
   type SavingsCalculatorScope,
 } from "./lib/savingsCalculator";
 import { ActivityFeed } from "./components/ActivityFeed";
@@ -578,6 +580,12 @@ function delay(ms: number) {
 
 type SavingsChartView = "month" | "day";
 type SavingsChartMode = "usd" | "tokens";
+const savingsLedgerConfidenceFilters: SavingsLedgerConfidenceFilter[] = [
+  "all",
+  "measured",
+  "estimated",
+  "inferred",
+];
 
 // Output-token reduction from the proxy's output shaper, shown as a secondary
 // line inside the "Total input tokens saved" card so the two numbers (input
@@ -717,6 +725,15 @@ function SavingsCalculatorCard({
       : `${percent1(summary.savingsPct)}%`;
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
+  const [ledgerFilter, setLedgerFilter] =
+    useState<SavingsLedgerConfidenceFilter>("all");
+  const ledgerRecordedAt = ledgerRows[0]?.recordedAt ?? new Date().toISOString();
+  const filteredLedger = buildFilteredSavingsLedger(
+    ledgerRows,
+    scope,
+    ledgerRecordedAt,
+    ledgerFilter,
+  );
 
   async function copySavingsSummary() {
     if (!navigator.clipboard) {
@@ -726,12 +743,14 @@ function SavingsCalculatorCard({
 
     await navigator.clipboard.writeText(
       formatSavingsLedgerShareText(
-        ledgerRows,
+        filteredLedger.rows,
         scope,
-        ledgerRows[0]?.recordedAt ?? new Date().toISOString(),
+        ledgerRecordedAt,
       ),
     );
-    setCopyNotice("Copied ledger.");
+    setCopyNotice(
+      ledgerFilter === "all" ? "Copied ledger." : `Copied ${ledgerFilter}.`,
+    );
   }
 
   return (
@@ -848,22 +867,79 @@ function SavingsCalculatorCard({
       </div>
       <div className="savings-calculator__ledger" aria-label="Savings ledger">
         <div className="savings-calculator__ledger-head">
-          <span>Ledger</span>
-          <strong>{scope === "session" ? "Session" : "Overall"}</strong>
+          <div>
+            <span>Ledger</span>
+            <strong>{scope === "session" ? "Session" : "Overall"}</strong>
+          </div>
+          <div
+            className="savings-calculator__ledger-filters"
+            role="group"
+            aria-label="Ledger confidence filter"
+          >
+            {savingsLedgerConfidenceFilters.map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                className={`savings-calculator__ledger-filter${
+                  ledgerFilter === filter ? " is-active" : ""
+                }`}
+                onClick={() => setLedgerFilter(filter)}
+              >
+                {filter === "all" ? "All" : filter}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="savings-calculator__ledger-summary">
+          <span>
+            Sources <strong>{filteredLedger.groups.length}</strong>
+          </span>
+          <span>
+            Rows <strong>{compactNumber(filteredLedger.summary.rowCount)}</strong>
+          </span>
+          <span>
+            Tokens{" "}
+            <strong>{compactNumber(filteredLedger.summary.totalTokens)}</strong>
+          </span>
         </div>
         <div className="savings-calculator__ledger-list">
-          {ledgerRows.map((row) => (
-            <div className="savings-calculator__ledger-row" key={row.id}>
+          {filteredLedger.groups.length > 0 ? (
+            filteredLedger.groups.map((group) => (
+              <div
+                className="savings-calculator__ledger-row"
+                key={group.source}
+              >
+                <div>
+                  <strong>{group.label}</strong>
+                  <span>
+                    {group.confidence} · {group.rowCount} row
+                    {group.rowCount === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <div>
+                  <strong>{compactNumber(group.totalTokens)}</strong>
+                  <span>
+                    {group.measuredTokens > 0
+                      ? `${compactNumber(group.measuredTokens)} measured`
+                      : group.estimatedTokens > 0
+                        ? `${compactNumber(group.estimatedTokens)} estimated`
+                        : `${compactNumber(group.inferredTokens)} inferred`}
+                  </span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="savings-calculator__ledger-row">
               <div>
-                <strong>{row.label}</strong>
-                <span>{row.confidence}</span>
+                <strong>No matching ledger rows</strong>
+                <span>Change the confidence filter to see other sources.</span>
               </div>
               <div>
-                <strong>{compactNumber(row.savedTokens)}</strong>
-                <span>{formatDateTime(row.recordedAt)}</span>
+                <strong>0</strong>
+                <span>{formatDateTime(ledgerRecordedAt)}</span>
               </div>
             </div>
-          ))}
+          )}
         </div>
       </div>
     </article>

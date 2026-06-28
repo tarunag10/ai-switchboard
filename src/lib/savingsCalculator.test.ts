@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAddonSavingsEstimate,
+  buildFilteredSavingsLedger,
   buildSavingsCalculatorBreakdown,
   buildSavingsCalculatorSummary,
   buildSavingsLedgerRows,
+  filterSavingsLedgerRowsByConfidence,
   formatSavingsLedgerShareText,
   groupSavingsLedgerRowsBySource,
   formatSavingsCalculatorShareText,
@@ -466,6 +468,82 @@ describe("savings calculator", () => {
         "2026-06-27T10:00:00.000Z",
       ),
     ).toEqual([]);
+  });
+
+  it("filters ledger rows by confidence before grouping and copying", () => {
+    const recordedAt = "2026-06-27T10:00:00.000Z";
+    const rows = buildSavingsLedgerRows(dashboardFixture(), "overall", recordedAt, {
+      runtimeStatus: {
+        platform: "darwin",
+        supportTier: "supported",
+        installed: true,
+        running: true,
+        starting: false,
+        paused: false,
+        autoPaused: false,
+        proxyReachable: true,
+        headroomLearnSupported: true,
+        rtk: {
+          installed: true,
+          enabled: true,
+          pathConfigured: true,
+          hookConfigured: true,
+          totalCommands: 12,
+          totalSaved: 900,
+        },
+      },
+      repoSavings: {
+        fullScanTokens: 10_000,
+        bestPackTokens: 2_500,
+        bestPackTokensAvoided: 7_500,
+        bestPackSavingsPct: 75,
+        allPacksTokens: 4_000,
+        allPacksTokensAvoided: 6_000,
+        allPacksSavingsPct: 60,
+        bestPack: {
+          id: "implementation",
+          title: "Implementation pack",
+          purpose: "Build next slice",
+          estimatedTokens: 2_500,
+          savingsVsFullScanPct: 75,
+          files: [],
+        },
+      },
+      ponytailSavings: buildAddonSavingsEstimate(1_400, 520),
+    });
+
+    expect(filterSavingsLedgerRowsByConfidence(rows, "measured").map((row) => row.source)).toEqual([
+      "rtk",
+    ]);
+
+    const inferred = buildFilteredSavingsLedger(
+      rows,
+      "overall",
+      recordedAt,
+      "inferred",
+    );
+    expect(inferred.summary).toMatchObject({
+      rowCount: 2,
+      measuredTokens: 0,
+      estimatedTokens: 0,
+      inferredTokens: 8_380,
+      totalTokens: 8_380,
+    });
+    expect(inferred.groups.map((group) => group.source)).toEqual([
+      "repo_intelligence",
+      "ponytail",
+    ]);
+
+    const copied = formatSavingsLedgerShareText(
+      inferred.rows,
+      "overall",
+      recordedAt,
+    );
+    expect(copied).toContain("Rows: 2");
+    expect(copied).toContain("- repo_intelligence: Repo Intelligence");
+    expect(copied).toContain("- ponytail: Ponytail");
+    expect(copied).not.toContain("- rtk: RTK");
+    expect(copied).not.toContain("- headroom_engine: Headroom");
   });
 
   it("formats a copyable savings ledger with confidence caveats", () => {
