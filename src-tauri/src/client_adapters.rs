@@ -3341,18 +3341,21 @@ const CODEX_ROLLBACK_EVIDENCE: &[&str] = &[
     "Allowlisted rollback execution row: codex-routing.",
     "Backup must live next to ~/.codex/config.toml and use *.headroom-backup-*.",
     "Current config must still contain the managed Codex marker before restore.",
+    "Relaunch-survival evidence requires re-reading restored config from disk after write.",
 ];
 
 const OPENCODE_ROLLBACK_EVIDENCE: &[&str] = &[
     "Allowlisted rollback execution row: opencode-routing.",
     "Backup must live next to ~/.config/opencode/opencode.json and use *.headroom-backup-*.",
     "Current config must still contain the managed OpenCode Headroom provider before restore.",
+    "Relaunch-survival evidence requires re-reading restored config from disk after write.",
 ];
 
 const GEMINI_ROLLBACK_EVIDENCE: &[&str] = &[
     "Allowlisted rollback execution row: gemini-routing.",
     "Cleanup removes only Switchboard-owned Gemini shell and sidecar blocks.",
     "Current shell profile or sidecar must still contain the managed Gemini marker before cleanup.",
+    "Relaunch-survival evidence requires re-reading managed files from disk after cleanup.",
 ];
 
 fn gemini_routing_marker_matches() -> Result<bool> {
@@ -3548,6 +3551,10 @@ fn execute_sidecar_rollback(
         ));
     }
     disable_client_setup(target.client_id)?;
+    if target_path.exists() {
+        let _ = std::fs::read_to_string(&target_path)
+            .with_context(|| format!("re-reading {}", target_path.display()))?;
+    }
 
     Ok(ManagedRollbackExecutionResult {
         record_id: target.record_id.to_string(),
@@ -3569,6 +3576,8 @@ fn execute_sidecar_rollback(
                 "Cleanup used disable_client_setup for {} Off-mode parity.",
                 target.client_id
             ),
+            "Relaunch-survival evidence: sidecar file was re-read from disk after cleanup."
+                .to_string(),
         ],
     })
 }
@@ -3800,6 +3809,8 @@ pub fn execute_managed_rollback(
                 backup_path.display()
             )
         })?;
+        let _ = std::fs::read_to_string(&target_path)
+            .with_context(|| format!("re-reading {}", target_path.display()))?;
         (
             backup_path.display().to_string(),
             safety_backup.map(|path| path.display().to_string()),
@@ -3807,10 +3818,16 @@ pub fn execute_managed_rollback(
                 "Exact confirmation phrase matched.".to_string(),
                 "Backup path was validated as a sibling Switchboard backup.".to_string(),
                 "A fresh safety backup was created before restore.".to_string(),
+                "Relaunch-survival evidence: restored config was re-read from disk after write."
+                    .to_string(),
             ],
         )
     } else {
         disable_client_setup("gemini_cli")?;
+        if target_path.exists() {
+            let _ = std::fs::read_to_string(&target_path)
+                .with_context(|| format!("re-reading {}", target_path.display()))?;
+        }
         (
             "Switchboard-owned Gemini shell and sidecar blocks removed.".to_string(),
             None,
@@ -3818,6 +3835,8 @@ pub fn execute_managed_rollback(
                 "Exact confirmation phrase matched.".to_string(),
                 "Managed Gemini marker was present before cleanup.".to_string(),
                 "Cleanup used disable_client_setup for Gemini Off-mode parity.".to_string(),
+                "Relaunch-survival evidence: Gemini shell and sidecar files were re-read from disk after cleanup."
+                    .to_string(),
             ],
         )
     };
@@ -7411,6 +7430,10 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             "Restore headroom:cursor for Cursor routing"
         );
         assert!(preview.proposed_action.contains("Cursor sidecar block"));
+        assert!(preview
+            .evidence
+            .join(" ")
+            .contains("Current sidecar must still contain"));
 
         let result = super::execute_managed_rollback(
             "cursor-routing",
@@ -7422,6 +7445,10 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             result.restored_from,
             "Switchboard-owned cursor sidecar block removed."
         );
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("Relaunch-survival evidence"));
 
         let content = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
         assert_eq!(content, "# cursor user note\nkeep this\n");
@@ -8337,6 +8364,10 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
         assert!(preview.marker_present);
         assert!(preview.backup_exists);
+        assert!(preview
+            .evidence
+            .join(" ")
+            .contains("Relaunch-survival evidence"));
         assert_eq!(
             preview.confirmation_phrase,
             "Restore headroom:opencode for OpenCode routing"
@@ -8356,6 +8387,10 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             result.safety_backup_path.is_some(),
             "fresh safety backup is created before restore"
         );
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("Relaunch-survival evidence"));
         let restored: serde_json::Value =
             serde_json::from_slice(&fs::read(&config_json).unwrap()).unwrap();
         assert_eq!(restored, original);
