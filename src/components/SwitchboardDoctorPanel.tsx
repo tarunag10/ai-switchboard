@@ -13,6 +13,7 @@ import {
   formatVerifyOffModeShareText,
   plannedConnectorDoctorPreviewRows,
 } from "../lib/doctorRepairCopy";
+import { formatManagedRollbackInventory } from "../lib/managedChanges";
 import type { DoctorIssue, DoctorReport } from "../lib/types";
 
 interface SwitchboardDoctorPanelProps {
@@ -113,6 +114,16 @@ export function SwitchboardDoctorPanel({
     setCopyNotice("Copied connector dossiers.");
   }
 
+  async function copyRollbackCenter() {
+    if (!navigator.clipboard) {
+      setCopyNotice("Clipboard unavailable.");
+      return;
+    }
+
+    await navigator.clipboard.writeText(formatManagedRollbackInventory());
+    setCopyNotice("Copied Rollback Center.");
+  }
+
   return (
     <section
       className={`switchboard-doctor switchboard-doctor--${report.status}`}
@@ -146,6 +157,15 @@ export function SwitchboardDoctorPanel({
           >
             <Copy aria-hidden="true" weight="bold" />
             <span>Copy timeline</span>
+          </button>
+          <button
+            type="button"
+            className="switchboard-doctor__copy"
+            onClick={copyRollbackCenter}
+            title="Copy Rollback Center inventory"
+          >
+            <Copy aria-hidden="true" weight="bold" />
+            <span>Copy Rollback Center</span>
           </button>
           {hasOffModeVerification ? (
             <button

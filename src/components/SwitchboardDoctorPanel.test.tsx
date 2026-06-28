@@ -262,6 +262,51 @@ describe("SwitchboardDoctorPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("copies the Rollback Center inventory from Doctor", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(
+      <SwitchboardDoctorPanel
+        report={{ status: "ok", summary: "No issues.", issues: [] }}
+        busyAction={null}
+        error={null}
+        successMessage={null}
+        onRepair={vi.fn()}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Copy Rollback Center" }),
+    );
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).toContain(
+      "Mac AI Switchboard Rollback Center inventory",
+    );
+    expect(writeText.mock.calls[0][0]).toContain(
+      "No files are changed by this report.",
+    );
+    expect(writeText.mock.calls[0][0]).toContain("## Codex routing");
+    expect(writeText.mock.calls[0][0]).toContain("Marker: headroom:codex_cli");
+    expect(writeText.mock.calls[0][0]).toContain(
+      "Remove managed Codex shell routing",
+    );
+    expect(writeText.mock.calls[0][0]).toContain(
+      "## Amazon Q Developer CLI routing",
+    );
+    expect(writeText.mock.calls[0][0]).toContain(
+      "AWS credentials, SSO cache, and profiles are not modified",
+    );
+    expect(
+      screen.getByRole("button", { name: "Copied Rollback Center." }),
+    ).toBeInTheDocument();
+  });
+
   it("copies a focused Verify Off report when Off mode evidence remains", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);

@@ -14,7 +14,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Repo-memory MCP is advertised in CLI help and smoke-tested through `npm run check:repo-memory-mcp`, including read-only tool annotations and a real `repo_context_pack` call that checks safety text and seeded secret exclusion.
 - Savings ledger has shipped rows/copy exports with measured, estimated, and inferred confidence labels, empty-state distinction, active-filter copy disclosure, per-row evidence/caveats, and attribution percentages by confidence.
 - Safe config dry-run coverage proves managed write paths can produce blocked previews with target, backup, marker, rollback, Off cleanup, and unmanaged-config boundaries; confirmed apply plans now require the exact preview phrase before producing write-ready next text.
-- Doctor support/timeline copy now includes scrubbed status, issue, repair-success, Repo Intelligence availability-gate events, moved-repo detail, token/path/secret scrubbing, uninstall dry-run managed-footprint counts, and per-change rollback plans with restore mode, evidence, and cleanup boundaries.
+- Doctor support/timeline copy now includes scrubbed status, issue, repair-success, Repo Intelligence availability-gate events, moved-repo detail, token/path/secret scrubbing, uninstall dry-run managed-footprint counts, and a Doctor-visible Rollback Center inventory copy with per-change rollback plans, restore mode, evidence, and cleanup boundaries.
 - Release readiness surfaces have shipped report loading, copyable snapshots, command copy, source labels that distinguish guidance from report proof, evidence coverage summary, next blocked release action, connector-readiness evidence checks, and separate signing/notarization/updater blocker categories.
 - Caveman supports scoped, aggressive, and experimental opt-in Compact Chinese profiles; Compact Chinese is limited to private internal planning notes and handoffs while user-facing, legal, safety, debugging, and release-readiness content stays in the requested language with full detail.
 
@@ -25,7 +25,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Deepen Repo Intelligence v2 with tree-sitter or language-specific parsers, persistent parser/index versions, richer symbols/imports/reverse dependencies, graph-aware packs, and parser/index Doctor health checks.
 - Finish exact live/session savings attribution across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese by adding durable per-session source events where profile-specific evidence exists.
 - Promote confirmed safe config apply plans into real user-approved file writes, verification, and rollback flows for supported connectors without touching unmanaged config.
-- Complete persistent Rollback Center execution with actual per-change restore actions, relaunch survival, and a guarded "undo all Switchboard changes" flow.
+- Complete persistent Rollback Center execution with actual per-change restore actions, relaunch survival, and a guarded "undo all Switchboard changes" flow. The Doctor copy surface and inventory model are shipped; backend restore execution is still gated.
 - Complete release readiness execution by loading fresh script output on demand and wiring desktop-test/local-DMG/installed-smoke evidence generation into the in-app panel.
 - Finish trust hardening from the product roadmap: app-owned legal/privacy surfaces, local-only network audit, remote destination registry, branding/asset provenance, and public-release evidence cleanup.
 
@@ -55,6 +55,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Savings ledger exports now include per-row evidence alongside confidence caveats, so measured, estimated, and inferred savings keep their source equations visible when copied.
 - Managed config dry-run exports now label the write path as blocked and spell out the Off-mode cleanup boundary before any config apply path can be promoted.
 - Uninstall dry-run exports now state that their managed footprint comes from the Rollback Center inventory and include the item count, with tests guarding against drift.
+- Doctor now exposes a Copy Rollback Center action that exports the full no-write rollback inventory from the app, including target summaries, markers, backup expectations, restore modes, evidence, and Off cleanup boundaries.
 - Release readiness command copy now includes the strict public-release gate, report path, and local unsigned/ad-hoc evidence boundary even before a report JSON is loaded.
 - Start Agent Session now has a dedicated Copy summary action alongside full handoff, selected pack, and JSON copy; sample/demo indexes stay blocked from summary copy too.
 - Start Agent Session repo-path validation now uses a shared tested helper, so empty or whitespace-only paths are blocked before the Mac app invokes indexing.
@@ -243,7 +244,8 @@ Deliverables:
 
 - Persist local events for install, enable, disable, repair, backup, rollback, failed repair, index refresh, and connector setup.
 - Add a Doctor timeline with scrubbed paths and statuses.
-- Add per-change rollback where safe.
+- Add a Doctor-visible Rollback Center copy/export for every managed change.
+- Add per-change rollback execution where safe.
 - Add "copy Doctor timeline" for support/debugging.
 - Add uninstall dry-run output that matches the actual managed footprint.
 
@@ -258,7 +260,7 @@ Implementation areas:
 
 Acceptance gates:
 
-- Timeline survives app relaunch.
+- Timeline and rollback inventory survive app relaunch.
 - Sensitive values are scrubbed.
 - Rollback does not touch unrelated config.
 - Doctor copy output is complete enough for debugging.
