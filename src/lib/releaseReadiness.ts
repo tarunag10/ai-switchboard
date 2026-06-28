@@ -517,6 +517,7 @@ export function formatReleaseReadinessReportSnapshot(
     "## Blockers",
     `- Environment blockers: ${labels(report.releaseEnv?.blockers)}`,
     `- Environment warnings: ${labels(report.releaseEnv?.warnings)}`,
+    "- Missing signing, notarization, or updater secrets are release blockers, not app failures.",
     `- Missing installed smoke evidence: ${
       report.installedSmoke?.missingEvidence?.join(", ") || "none"
     }`,
