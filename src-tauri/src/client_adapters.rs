@@ -3282,9 +3282,62 @@ pub fn codex_provider_block_matches() -> Result<bool> {
 const CODEX_ROLLBACK_RECORD_ID: &str = "codex-routing";
 const CODEX_ROLLBACK_OWNER: &str = "Codex routing";
 const CODEX_ROLLBACK_MARKER: &str = "headroom:codex_cli";
+const OPENCODE_ROLLBACK_RECORD_ID: &str = "opencode-routing";
+const OPENCODE_ROLLBACK_OWNER: &str = "OpenCode routing";
+const OPENCODE_ROLLBACK_MARKER: &str = "headroom:opencode";
 
-fn codex_rollback_confirmation_phrase() -> String {
-    format!("Restore {CODEX_ROLLBACK_MARKER} for {CODEX_ROLLBACK_OWNER}")
+struct ManagedRollbackTarget {
+    record_id: &'static str,
+    owner: &'static str,
+    marker: &'static str,
+    target_path: fn() -> PathBuf,
+    marker_matches: fn() -> Result<bool>,
+    proposed_action: &'static str,
+    evidence: &'static [&'static str],
+}
+
+const CODEX_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: codex-routing.",
+    "Backup must live next to ~/.codex/config.toml and use *.headroom-backup-*.",
+    "Current config must still contain the managed Codex marker before restore.",
+];
+
+const OPENCODE_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: opencode-routing.",
+    "Backup must live next to ~/.config/opencode/opencode.json and use *.headroom-backup-*.",
+    "Current config must still contain the managed OpenCode Headroom provider before restore.",
+];
+
+fn managed_rollback_target(record_id: &str) -> Result<ManagedRollbackTarget> {
+    match record_id {
+        CODEX_ROLLBACK_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: CODEX_ROLLBACK_RECORD_ID,
+            owner: CODEX_ROLLBACK_OWNER,
+            marker: CODEX_ROLLBACK_MARKER,
+            target_path: codex_config_toml_path,
+            marker_matches: codex_provider_block_matches,
+            proposed_action:
+                "Restore the Codex config from the selected sibling backup after creating a fresh safety backup.",
+            evidence: CODEX_ROLLBACK_EVIDENCE,
+        }),
+        OPENCODE_ROLLBACK_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: OPENCODE_ROLLBACK_RECORD_ID,
+            owner: OPENCODE_ROLLBACK_OWNER,
+            marker: OPENCODE_ROLLBACK_MARKER,
+            target_path: opencode_config_path,
+            marker_matches: opencode_provider_config_matches,
+            proposed_action:
+                "Restore the OpenCode provider config from the selected sibling backup after creating a fresh safety backup.",
+            evidence: OPENCODE_ROLLBACK_EVIDENCE,
+        }),
+        _ => Err(anyhow!(
+            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID} and {OPENCODE_ROLLBACK_RECORD_ID}."
+        )),
+    }
+}
+
+fn managed_rollback_confirmation_phrase(target: &ManagedRollbackTarget) -> String {
+    format!("Restore {} for {}", target.marker, target.owner)
 }
 
 fn latest_headroom_backup_for(path: &Path) -> Option<PathBuf> {
@@ -3307,32 +3360,22 @@ fn latest_headroom_backup_for(path: &Path) -> Option<PathBuf> {
     backups.pop()
 }
 
-fn validate_codex_rollback_record(record_id: &str) -> Result<()> {
-    if record_id == CODEX_ROLLBACK_RECORD_ID {
-        Ok(())
-    } else {
-        Err(anyhow!(
-            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}."
-        ))
-    }
-}
-
-fn validate_codex_backup_path(target_path: &Path, backup_path: &Path) -> Result<()> {
+fn validate_managed_rollback_backup_path(target_path: &Path, backup_path: &Path) -> Result<()> {
     let target_dir = target_path
         .parent()
-        .ok_or_else(|| anyhow!("Codex target path has no parent directory."))?;
+        .ok_or_else(|| anyhow!("Rollback target path has no parent directory."))?;
     let backup_parent = backup_path
         .parent()
         .ok_or_else(|| anyhow!("Rollback backup path has no parent directory."))?;
     if backup_parent != target_dir {
         return Err(anyhow!(
-            "Rollback backup must live next to the managed Codex config."
+            "Rollback backup must live next to the managed config."
         ));
     }
     let target_file = target_path
         .file_name()
         .and_then(|name| name.to_str())
-        .ok_or_else(|| anyhow!("Codex target path has no file name."))?;
+        .ok_or_else(|| anyhow!("Rollback target path has no file name."))?;
     let expected_prefix = format!("{target_file}.headroom-backup-");
     let backup_name = backup_path
         .file_name()
@@ -3350,24 +3393,30 @@ fn validate_codex_backup_path(target_path: &Path, backup_path: &Path) -> Result<
 }
 
 pub fn preview_managed_rollback(record_id: &str) -> Result<ManagedRollbackPreview> {
-    validate_codex_rollback_record(record_id)?;
-    let target_path = codex_config_toml_path();
-    let marker_present = target_path.exists() && codex_provider_block_matches().unwrap_or(false);
+    let target = managed_rollback_target(record_id)?;
+    let target_path = (target.target_path)();
+    let marker_present = target_path.exists() && (target.marker_matches)().unwrap_or(false);
     let backup_path = latest_headroom_backup_for(&target_path);
     let backup_exists = backup_path.as_ref().is_some_and(|path| path.exists());
     let blocked_reason = if !marker_present {
-        Some("Managed Codex marker is not present in the target config.".to_string())
+        Some(format!(
+            "Managed {} marker is not present in the target config.",
+            target.owner
+        ))
     } else if !backup_exists {
-        Some("No sibling Switchboard backup was found for the Codex config.".to_string())
+        Some(format!(
+            "No sibling Switchboard backup was found for the {} config.",
+            target.owner
+        ))
     } else {
         None
     };
 
     Ok(ManagedRollbackPreview {
-        record_id: CODEX_ROLLBACK_RECORD_ID.to_string(),
-        owner: CODEX_ROLLBACK_OWNER.to_string(),
+        record_id: target.record_id.to_string(),
+        owner: target.owner.to_string(),
         target_path: target_path.display().to_string(),
-        marker: CODEX_ROLLBACK_MARKER.to_string(),
+        marker: target.marker.to_string(),
         backup_path: backup_path.map(|path| path.display().to_string()),
         marker_present,
         backup_exists,
@@ -3376,16 +3425,14 @@ pub fn preview_managed_rollback(record_id: &str) -> Result<ManagedRollbackPrevie
         } else {
             ManagedRollbackExecutionStatus::Blocked
         },
-        confirmation_phrase: codex_rollback_confirmation_phrase(),
-        proposed_action:
-            "Restore the Codex config from the selected sibling backup after creating a fresh safety backup."
-                .to_string(),
+        confirmation_phrase: managed_rollback_confirmation_phrase(&target),
+        proposed_action: target.proposed_action.to_string(),
         blocked_reason,
-        evidence: vec![
-            "Allowlisted first rollback execution row: codex-routing.".to_string(),
-            "Backup must live next to ~/.codex/config.toml and use *.headroom-backup-*.".to_string(),
-            "Current config must still contain the managed Codex marker before restore.".to_string(),
-        ],
+        evidence: target
+            .evidence
+            .iter()
+            .map(|item| (*item).to_string())
+            .collect(),
     })
 }
 
@@ -3394,23 +3441,24 @@ pub fn execute_managed_rollback(
     backup_path: &str,
     confirmation_phrase: &str,
 ) -> Result<ManagedRollbackExecutionResult> {
-    validate_codex_rollback_record(record_id)?;
-    let expected_confirmation = codex_rollback_confirmation_phrase();
+    let target = managed_rollback_target(record_id)?;
+    let expected_confirmation = managed_rollback_confirmation_phrase(&target);
     if confirmation_phrase != expected_confirmation {
         return Err(anyhow!("Rollback confirmation phrase does not match."));
     }
 
-    let target_path = codex_config_toml_path();
+    let target_path = (target.target_path)();
     if !target_path.exists() {
-        return Err(anyhow!("Codex config target does not exist."));
+        return Err(anyhow!("Rollback config target does not exist."));
     }
-    if !codex_provider_block_matches()? {
+    if !(target.marker_matches)()? {
         return Err(anyhow!(
-            "Managed Codex marker is missing or has drifted; refusing rollback."
+            "Managed {} marker is missing or has drifted; refusing rollback.",
+            target.owner
         ));
     }
     let backup_path = PathBuf::from(backup_path);
-    validate_codex_backup_path(&target_path, &backup_path)?;
+    validate_managed_rollback_backup_path(&target_path, &backup_path)?;
 
     let safety_backup = backup_if_exists(&target_path)?;
     std::fs::copy(&backup_path, &target_path).with_context(|| {
@@ -3422,12 +3470,12 @@ pub fn execute_managed_rollback(
     })?;
 
     Ok(ManagedRollbackExecutionResult {
-        record_id: CODEX_ROLLBACK_RECORD_ID.to_string(),
-        owner: CODEX_ROLLBACK_OWNER.to_string(),
+        record_id: target.record_id.to_string(),
+        owner: target.owner.to_string(),
         target_path: target_path.display().to_string(),
         restored_from: backup_path.display().to_string(),
         safety_backup_path: safety_backup.map(|path| path.display().to_string()),
-        marker: CODEX_ROLLBACK_MARKER.to_string(),
+        marker: target.marker.to_string(),
         verification: vec![
             "Exact confirmation phrase matched.".to_string(),
             "Backup path was validated as a sibling Switchboard backup.".to_string(),
@@ -7676,6 +7724,112 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             "Restore headroom:codex_cli for Codex routing",
         )
         .expect_err("missing marker must be rejected");
+
+        assert!(
+            err.to_string().contains("marker is missing"),
+            "unexpected error: {err:#}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_preview_and_execute_restores_opencode_backup() {
+        let home = TestHome::new();
+        let opencode_dir = home.path().join(".config").join("opencode");
+        fs::create_dir_all(&opencode_dir).unwrap();
+        let config_json = opencode_dir.join("opencode.json");
+        let original = serde_json::json!({
+            "provider": {
+                "openai": {
+                    "npm": "@ai-sdk/openai",
+                    "name": "OpenAI",
+                    "options": {
+                        "baseURL": "https://api.openai.com/v1"
+                    }
+                }
+            },
+            "theme": "system"
+        });
+        fs::write(
+            &config_json,
+            serde_json::to_vec_pretty(&original).expect("serialize original opencode"),
+        )
+        .unwrap();
+
+        super::apply_client_setup("opencode").expect("apply opencode");
+        let preview =
+            super::preview_managed_rollback("opencode-routing").expect("preview rollback");
+
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.marker_present);
+        assert!(preview.backup_exists);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Restore headroom:opencode for OpenCode routing"
+        );
+        let backup_path = preview.backup_path.expect("backup path");
+
+        let result = super::execute_managed_rollback(
+            "opencode-routing",
+            &backup_path,
+            "Restore headroom:opencode for OpenCode routing",
+        )
+        .expect("execute rollback");
+
+        assert_eq!(result.record_id, "opencode-routing");
+        assert_eq!(result.restored_from, backup_path);
+        assert!(
+            result.safety_backup_path.is_some(),
+            "fresh safety backup is created before restore"
+        );
+        let restored: serde_json::Value =
+            serde_json::from_slice(&fs::read(&config_json).unwrap()).unwrap();
+        assert_eq!(restored, original);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_rejects_backup_outside_opencode_config_directory() {
+        let home = TestHome::new();
+        let opencode_dir = home.path().join(".config").join("opencode");
+        fs::create_dir_all(&opencode_dir).unwrap();
+        fs::write(opencode_dir.join("opencode.json"), "{}").unwrap();
+        super::apply_client_setup("opencode").expect("apply opencode");
+        let wrong_backup = home.path().join("opencode.json.headroom-backup-wrong");
+        fs::write(&wrong_backup, "{}").unwrap();
+
+        let err = super::execute_managed_rollback(
+            "opencode-routing",
+            wrong_backup.to_str().unwrap(),
+            "Restore headroom:opencode for OpenCode routing",
+        )
+        .expect_err("wrong backup must be rejected");
+
+        assert!(
+            err.to_string().contains("must live next to"),
+            "unexpected error: {err:#}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_rejects_missing_opencode_provider() {
+        let home = TestHome::new();
+        let opencode_dir = home.path().join(".config").join("opencode");
+        fs::create_dir_all(&opencode_dir).unwrap();
+        let config_json = opencode_dir.join("opencode.json");
+        fs::write(&config_json, "{}").unwrap();
+        super::apply_client_setup("opencode").expect("apply opencode");
+        let preview = super::preview_managed_rollback("opencode-routing").expect("preview");
+        let backup_path = preview.backup_path.expect("backup");
+        fs::write(&config_json, "{}").unwrap();
+
+        let err = super::execute_managed_rollback(
+            "opencode-routing",
+            &backup_path,
+            "Restore headroom:opencode for OpenCode routing",
+        )
+        .expect_err("missing provider must be rejected");
 
         assert!(
             err.to_string().contains("marker is missing"),

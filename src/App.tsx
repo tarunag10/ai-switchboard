@@ -6087,8 +6087,12 @@ export default function App() {
     }
   }
 
+  function supportsNativeManagedRollback(record: ManagedChangeRecord) {
+    return record.id === "codex-routing" || record.id === "opencode-routing";
+  }
+
   async function previewManagedRollback(record: ManagedChangeRecord) {
-    if (record.id !== "codex-routing") {
+    if (!supportsNativeManagedRollback(record)) {
       return;
     }
     setRollbackBusyRecord(record.id);
@@ -9713,7 +9717,8 @@ export default function App() {
                   const rollbackError = rollbackErrorByRecord[record.id];
                   const confirmation =
                     rollbackConfirmationByRecord[record.id] ?? "";
-                  const nativeRollbackSupported = record.id === "codex-routing";
+                  const nativeRollbackSupported =
+                    supportsNativeManagedRollback(record);
                   const canExecuteNativeRollback =
                     nativePreview?.status === "ready" &&
                     nativePreview.backupPath !== null &&
@@ -9835,7 +9840,7 @@ export default function App() {
                                   }
                                   type="button"
                                 >
-                                  Restore Codex config
+                                  Restore {record.owner}
                                 </button>
                               </>
                             ) : null}
