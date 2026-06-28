@@ -22,7 +22,8 @@ Current status: active productization branch. The standalone repository is publi
 | Repo Intelligence | Builds read-only local repo summaries, context packs, and agent handoffs. | Supported |
 | MarkItDown | Installs local document-to-Markdown preprocessing for PDFs and Office files. | Add-on |
 | Ponytail | Installs a local behavior nudge for smaller, cleaner coding-agent changes. | Add-on |
-| Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI | Detects planned tools and keeps safe manual workflow guidance visible until reversible adapters are ready. | Planned |
+| Gemini CLI and OpenCode | Provides managed routing surfaces plus sidecar dossiers, dry-run previews, rollback guidance, and Doctor/release-readiness visibility. | Managed |
+| Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI | Provides managed sidecar lifecycle, config surfaces, manual guides, automation gates, dry-run previews, rollback dossiers, and Off-cleanup boundaries. Native provider mutation remains gated connector by connector. | Managed sidecar |
 
 ## Switchboard Modes
 
@@ -42,7 +43,8 @@ Doctor currently repairs:
 - RTK installation and shell integration.
 - Codex direct-bypass state after Headroom returns `413 compression_refused`.
 - Repo Intelligence stale or missing index warnings.
-- Planned connector status and safe manual workflow guidance.
+- Repo Memory MCP configuration for read-only agent access to Repo Intelligence packs.
+- Managed connector status, dry-run evidence, and safe manual workflow guidance.
 
 For real-world Codex compression failures such as:
 
@@ -88,11 +90,15 @@ MarkItDown is an optional local add-on for converting PDFs and Office documents 
 
 Ponytail is an optional local add-on that nudges coding agents toward smaller, less over-engineered changes. It complements RTK and Repo Intelligence by reducing unnecessary implementation sprawl rather than compressing output after the fact.
 
+### Caveman
+
+Caveman is an optional prompt/profile layer for terse internal handoffs and command summaries. It includes scoped and aggressive profiles, plus an experimental opt-in Compact Chinese profile. Compact Chinese is limited to private internal planning notes and handoffs; user-facing, legal, safety, debugging, and release-readiness content stays in the requested language with full detail.
+
 ### Repo Intelligence
 
 Repo Intelligence is a read-only local indexer and handoff generator. It scans a local repository, classifies files, estimates context size, summarizes implementation/test/config areas, and produces bounded packs for agents.
 
-Read-only foundation: the app now ships a read-only foundation for local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI. Read-only local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI are available before any agent starts reading files. The CLI now exposes an agent-readable `--manifest` for agents that need to discover packs without rescanning the repo, plus `--session` for `mac_ai_switchboard.agent_session_preparation` payloads with freshness, task type, recommended mode, and selected handoff.
+Read-only foundation: the app now ships a read-only foundation for local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI. Read-only local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI are available before any agent starts reading files. The CLI now exposes an agent-readable `--manifest` for agents that need to discover packs without rescanning the repo, plus `--session` for `mac_ai_switchboard.agent_session_preparation` payloads with freshness, task type, recommended mode, selected handoff, and managed connector readiness.
 
 Useful commands:
 
@@ -108,7 +114,20 @@ npm run repo:intelligence -- <repo-path> --agent gemini --format json
 
 Supported handoff targets include `claude`, `codex`, `gemini`, `opencode`, `aider`, `goose`, `cursor`, `continue`, `grok`, `qwen`, `amazonq`, `windsurf`, and `zed`. Default packs exclude secret-like paths such as `.env*`, private-key folders, certificates, and signing keys.
 
-See [docs/repo-intelligence-plan.md](docs/repo-intelligence-plan.md) and [docs/architecture.md](docs/architecture.md).
+### Repo Memory MCP
+
+Repo Memory MCP is the read-only agent-consumption surface for Repo Intelligence. It exposes context packs, symbol lookup, and dependent-edge queries to supported agents without modifying the repository. The app surfaces lifecycle status in Mode Inspector, provides an Install MCP action, and Doctor can repair missing Repo Memory MCP configuration. The release verifier includes `npm run check:repo-memory-mcp`.
+
+See [docs/repo-memory-mcp.md](docs/repo-memory-mcp.md), [docs/repo-intelligence-plan.md](docs/repo-intelligence-plan.md), and [docs/architecture.md](docs/architecture.md).
+
+## Savings And Attribution
+
+Switchboard separates measured, estimated, and inferred savings instead of merging them into one opaque number.
+
+- Headroom engine session deltas are now written as append-only measured attribution events and exposed through a read-only backend command.
+- RTK reports command-output savings through its own gain/today stats.
+- Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese savings remain estimated or inferred until each source has durable source-specific counters.
+- Savings ledger exports include confidence labels, evidence, caveats, and attribution percentages by confidence.
 
 ## What It Changes On Your Mac
 
@@ -121,6 +140,8 @@ Switchboard is designed to be reversible and explicit. Depending on mode and ins
 - `~/Library/LaunchAgents/` only if launch at login is enabled.
 
 Managed config blocks are fenced with `# >>> headroom:... >>>` markers and backups are written before edits where client configuration is changed.
+
+Rollback Center inventories every managed local footprint with targets, markers, backup expectations, restore mode, evidence requirements, and Off-cleanup boundaries. It also provides guarded execution previews with undo-all order and exact confirmation phrases. Actual native restore execution is still gated behind backend fixture-home restore tests.
 
 Off mode removes routing hooks and RTK integration. Runtime files, logs, receipts, and keychain entries remain so the next launch is fast. Uninstall cleanup is covered in [docs/install.md](docs/install.md).
 
@@ -198,6 +219,8 @@ src-tauri/src/state.rs       App state and dashboard shaping
 src-tauri/src/tool_manager.rs Managed runtime and tool installation
 src-tauri/src/client_adapters.rs Client detection and reversible setup
 src-tauri/src/repo_intelligence.rs Read-only repo indexing and context packs
+src/lib/managedChanges.ts Rollback Center inventory, dry-run, and execution-preview contracts
+src/lib/savingsCalculator.ts Savings ledger display helpers
 src-tauri/src/insights.rs    Local recommendations
 scripts/                     Release, smoke, repo-intelligence, and validation helpers
 docs/                        Architecture, install, release, troubleshooting docs
