@@ -233,6 +233,9 @@ export function formatPlannedConnectorDoctorDossiers(): string {
       const nextBlockedStage =
         readiness.stages.find((stage) => stage.id === readiness.nextBlockedStage)
           ?.label ?? "None";
+      const blockedStages = readiness.stages.filter(
+        (stage) => stage.state === "blocked",
+      );
 
       return [
         `## ${connector.name}`,
@@ -241,6 +244,12 @@ export function formatPlannedConnectorDoctorDossiers(): string {
         `Next blocked gate: ${nextBlockedStage}`,
         `Automation enabled: ${plan.automationEnabled ? "yes" : "no"}`,
         `Safety: ${plan.safetyNote}`,
+        "Blocked automation gates:",
+        ...(blockedStages.length > 0
+          ? blockedStages.map(
+              (stage) => `- ${stage.label}: ${stage.evidence}`,
+            )
+          : ["- None"]),
         "Gated config-creation steps:",
         ...plan.steps.map(
           (step) =>

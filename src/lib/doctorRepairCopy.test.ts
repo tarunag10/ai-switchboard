@@ -190,6 +190,10 @@ describe("doctor repair copy", () => {
     expect(text).toContain("Planned connector config readiness dossiers");
     expect(text).toContain("## Gemini CLI");
     expect(text).toContain("Config surface:");
+    expect(text).toContain("Blocked automation gates:");
+    expect(text).toContain(
+      "Backup Implemented: No planned connector can write config until exact backup coverage exists.",
+    );
     expect(text).toContain("Gated config-creation steps:");
     expect(text).toContain("Show dry-run diff");
     expect(text).toContain("Required evidence:");
@@ -216,6 +220,13 @@ describe("doctor repair copy", () => {
     expect(dossiers).toContain("Connector ID: opencode");
     expect(dossiers).toContain("Next blocked gate: Backup Implemented");
     expect(dossiers).toContain("Automation enabled: no");
+    expect(dossiers).toContain("Blocked automation gates:");
+    expect(dossiers).toContain(
+      "Apply Implemented: Automatic setup is disabled until a reversible apply path exists.",
+    );
+    expect(dossiers).toContain(
+      "Off Cleanup Implemented: Off mode cleanup must remove managed routing before automation is enabled.",
+    );
     expect(dossiers).toContain("Detect config surface");
     expect(dossiers).toContain("Clean up in Off mode");
     expect(dossiers).toContain("Post-rollback diff proving unrelated user settings are unchanged.");
