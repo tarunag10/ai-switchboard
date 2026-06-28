@@ -34,6 +34,10 @@ interface SwitchboardPanelProps {
     label: string;
     status: string;
     detail: string;
+    actionLabel?: string;
+    actionBusyLabel?: string;
+    actionDisabled?: boolean;
+    onAction?: () => void;
   }>;
   remoteServicesEnabled: boolean;
   savingsMode: SavingsMode;
@@ -249,6 +253,16 @@ export function SwitchboardPanel({
       <span>{row.label}</span>
       <strong>{row.status}</strong>
       <small>{row.detail}</small>
+      {row.onAction && row.actionLabel ? (
+        <button
+          type="button"
+          className="switchboard-panel__inspector-action"
+          disabled={row.actionDisabled}
+          onClick={row.onAction}
+        >
+          {row.actionBusyLabel ?? row.actionLabel}
+        </button>
+      ) : null}
     </div>
   ))}
   <div>

@@ -154,6 +154,47 @@ describe("SwitchboardPanel", () => {
     expect(screen.getAllByText(/endpoints stay paused/)[0]).toBeInTheDocument();
   });
 
+  it("runs optional Mode Inspector row actions", async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    renderPanel({
+      inspectorRows: [
+        {
+          label: "Repo Memory MCP",
+          status: "Needs attention",
+          detail: "Repo Memory MCP is not configured.",
+          actionLabel: "Install MCP",
+          onAction,
+        },
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Install MCP" }));
+
+    expect(onAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables busy Mode Inspector row actions", () => {
+    const onAction = vi.fn();
+    renderPanel({
+      inspectorRows: [
+        {
+          label: "Repo Memory MCP",
+          status: "Unknown",
+          detail: "Repo Memory MCP lifecycle has not been verified.",
+          actionLabel: "Install MCP",
+          actionBusyLabel: "Installing Repo Memory MCP...",
+          actionDisabled: true,
+          onAction,
+        },
+      ],
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Installing Repo Memory MCP..." }),
+    ).toBeDisabled();
+  });
+
   it("shows off mode safety notes for routing and local metadata", () => {
     renderPanel({
       mode: "off",

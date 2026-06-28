@@ -87,7 +87,10 @@ import {
   type RepoIntelligenceSummary,
   type RepoSavingsEstimate,
 } from "./lib/repoIntelligence";
-import { repoMemoryMcpInspectorRow } from "./lib/repoMemoryMcp";
+import {
+  repoMemoryMcpInspectorRow,
+  repoMemoryMcpLifecycle,
+} from "./lib/repoMemoryMcp";
 import {
   formatPlannedConnectorConfigCreationPlansMarkdown,
   getPlannedConnector,
@@ -5104,6 +5107,33 @@ export default function App() {
       setAddonBusyLabel(null);
     }
   }
+
+  async function installRepoMemoryMcp() {
+    setAddonBusyId("repo-memory");
+    setAddonBusyLabel("Installing Repo Memory MCP...");
+    setAddonError(null);
+    setAddonResult(null);
+    try {
+      const next = await invoke<DashboardState>("install_repo_memory_mcp");
+      setDashboard(next);
+      await refreshRuntimeStatus();
+      setAddonResult({
+        id: "repo-memory",
+        message:
+          "Repo Memory MCP installed. Run npm run check:repo-memory-mcp to verify the read-only tool contract.",
+      });
+    } catch (error) {
+      setAddonError(
+        error instanceof Error
+          ? error.message
+          : "Repo Memory MCP could not be installed.",
+      );
+    } finally {
+      setAddonBusyId(null);
+      setAddonBusyLabel(null);
+    }
+  }
+
   async function setCavemanLevel(
     level: "scoped" | "aggressive" | "compact_chinese",
   ) {
@@ -6716,6 +6746,10 @@ export default function App() {
           .map((connector) => connector.name)
           .join(", ")
       : "No clients enabled";
+  const repoMemoryLifecycle = repoMemoryMcpLifecycle({
+    configured: runtimeStatus?.mcpConfigured,
+    error: runtimeStatus?.mcpError,
+  });
   const switchboardInspectorRows = [
     {
       label: "Client routing",
@@ -6738,6 +6772,17 @@ export default function App() {
         configured: runtimeStatus?.mcpConfigured,
         error: runtimeStatus?.mcpError,
       }),
+      ...(repoMemoryLifecycle.state === "configured"
+        ? {}
+        : {
+            actionLabel: "Install MCP",
+            actionBusyLabel:
+              addonBusyId === "repo-memory"
+                ? (addonBusyLabel ?? "Installing")
+                : undefined,
+            actionDisabled: addonBusyId !== null,
+            onAction: () => void installRepoMemoryMcp(),
+          }),
     },
     {
       label: "LaunchAgent",
