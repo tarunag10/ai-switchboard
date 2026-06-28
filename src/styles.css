@@ -5038,6 +5038,13 @@ details[open] .optimize-minimal__details summary::after {
   gap: 8px;
 }
 
+.rollback-center-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .rollback-center-card__item {
   display: flex;
   align-items: flex-start;

@@ -94,6 +94,14 @@ export interface ManagedRollbackExecutionPreview {
   blockedReason: string;
 }
 
+export interface ManagedRollbackUndoAllPreview {
+  executable: ManagedRollbackExecutionPreview[];
+  manual: ManagedRollbackExecutionPreview[];
+  blockedReason: string;
+  orderedSteps: string[];
+  safetyNotes: string[];
+}
+
 export const managedChangeRecords: ManagedChangeRecord[] = [
   {
     id: "claude-code-routing",
@@ -695,6 +703,40 @@ export function buildManagedRollbackExecutionPreviews(
   );
 }
 
+const nativeRollbackRecordIds = new Set(["codex-routing", "opencode-routing"]);
+
+export function buildManagedRollbackUndoAllPreview(
+  records: ManagedChangeRecord[] = managedChangeRecords,
+): ManagedRollbackUndoAllPreview {
+  const previews = buildManagedRollbackExecutionPreviews(records);
+  const executable = previews.filter((preview) =>
+    nativeRollbackRecordIds.has(preview.plan.recordId),
+  );
+  const manual = previews.filter(
+    (preview) => !nativeRollbackRecordIds.has(preview.plan.recordId),
+  );
+
+  return {
+    executable,
+    manual,
+    blockedReason:
+      "Undo all is preview-only until every managed rollback row has backend execution, relaunch-survival evidence, and explicit per-row confirmation.",
+    orderedSteps: [
+      "Preview every managed rollback row in stable inventory order.",
+      "Execute only allowlisted native rows one at a time after their exact confirmation phrases match.",
+      "Leave unsupported rows in manual review or dedicated cleanup flows.",
+      "Refresh Doctor and connector verification after each native restore.",
+      "Stop before any row whose marker, backup, or ownership evidence is missing.",
+    ],
+    safetyNotes: [
+      "This undo-all preview does not modify files.",
+      "Executable rows are limited to Codex and OpenCode native restore paths.",
+      "Cleanup-only app state, storage, launch agents, repo indexes, and plugin footprints must use their dedicated flows.",
+      "Unmanaged user config outside Switchboard markers remains out of scope.",
+    ],
+  };
+}
+
 export function formatManagedRollbackExecutionPreview(
   preview: ManagedRollbackExecutionPreview,
 ): string {
@@ -711,6 +753,36 @@ export function formatManagedRollbackExecutionPreview(
     "",
     "Ordered restore steps:",
     ...preview.orderedSteps.map((step, index) => `${index + 1}. ${step}`),
+  ].join("\n");
+}
+
+export function formatManagedRollbackUndoAllPreview(
+  preview: ManagedRollbackUndoAllPreview = buildManagedRollbackUndoAllPreview(),
+): string {
+  return [
+    "Mac AI Switchboard undo-all rollback preview",
+    "Native write status: not_executed",
+    `Executable native rows: ${preview.executable.length}`,
+    `Manual or cleanup rows: ${preview.manual.length}`,
+    `Blocked reason: ${preview.blockedReason}`,
+    "",
+    "Executable native order:",
+    ...preview.executable.map(
+      (item, index) =>
+        `${index + 1}. ${item.plan.owner} (${item.plan.recordId}) — ${item.confirmationPhrase}`,
+    ),
+    "",
+    "Manual or cleanup rows:",
+    ...preview.manual.map(
+      (item) =>
+        `- ${item.plan.owner} (${item.plan.recordId}) — ${item.executionStatus}`,
+    ),
+    "",
+    "Ordered undo-all steps:",
+    ...preview.orderedSteps.map((step, index) => `${index + 1}. ${step}`),
+    "",
+    "Safety:",
+    ...preview.safetyNotes.map((note) => `- ${note}`),
   ].join("\n");
 }
 

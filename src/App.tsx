@@ -209,10 +209,12 @@ import { localOnlyModeEnabled } from "./lib/localMode";
 import {
   buildManagedRollbackExecutionPreview,
   buildManagedRollbackPlan,
+  buildManagedRollbackUndoAllPreview,
   buildManagedConfigDiffPreview,
   formatManagedRollbackExecutionPreview,
   formatManagedConfigDiffPreview,
   formatManagedRollbackPlan,
+  formatManagedRollbackUndoAllPreview,
   formatManagedRollbackInventory,
   managedChangeRecords,
   type ManagedChangeRecord,
@@ -6114,6 +6116,22 @@ export default function App() {
     }
   }
 
+  async function copyManagedRollbackUndoAllPreview() {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(
+        formatManagedRollbackUndoAllPreview(buildManagedRollbackUndoAllPreview()),
+      );
+      setRollbackCopyNotice("Undo-all preview copied.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+    } catch {
+      setRollbackCopyNotice("Copy failed. Review rollback rows manually.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    }
+  }
+
   async function copyManagedRollbackPlan(record: ManagedChangeRecord) {
     try {
       if (!navigator.clipboard) {
@@ -9801,13 +9819,22 @@ export default function App() {
                     undo.
                   </p>
                 </div>
-                <button
-                  className="secondary-button secondary-button--small"
-                  onClick={() => void copyManagedRollbackInventory()}
-                  type="button"
-                >
-                  Copy inventory
-                </button>
+                <div className="rollback-center-card__actions">
+                  <button
+                    className="secondary-button secondary-button--small"
+                    onClick={() => void copyManagedRollbackUndoAllPreview()}
+                    type="button"
+                  >
+                    Copy undo-all preview
+                  </button>
+                  <button
+                    className="secondary-button secondary-button--small"
+                    onClick={() => void copyManagedRollbackInventory()}
+                    type="button"
+                  >
+                    Copy inventory
+                  </button>
+                </div>
               </div>
               <div className="rollback-center-card__list">
                 {managedChangeRecords.map((record, index) => {

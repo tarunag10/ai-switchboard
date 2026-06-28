@@ -5,6 +5,7 @@ import {
   buildManagedConfigDiffPreview,
   buildManagedRollbackExecutionPreview,
   buildManagedRollbackExecutionPreviews,
+  buildManagedRollbackUndoAllPreview,
   buildManagedRollbackPlan,
   buildManagedRollbackPlans,
   formatManagedConfigApplyPlan,
@@ -12,6 +13,7 @@ import {
   formatManagedRollbackExecutionPreview,
   formatManagedRollbackInventory,
   formatManagedRollbackPlan,
+  formatManagedRollbackUndoAllPreview,
   managedChangeRecords,
   removeManagedConfigBlock,
 } from "./managedChanges";
@@ -361,6 +363,33 @@ describe("managedChangeRecords", () => {
       undoAllOrder: managedChangeRecords.length,
       confirmationPhrase: "Restore headroom:addon for Add-ons",
     });
+  });
+
+  it("builds undo-all preview with only allowlisted native restore rows executable", () => {
+    const preview = buildManagedRollbackUndoAllPreview();
+
+    expect(preview.executable.map((item) => item.plan.recordId)).toEqual([
+      "codex-routing",
+      "opencode-routing",
+    ]);
+    expect(preview.manual).toHaveLength(
+      managedChangeRecords.length - preview.executable.length,
+    );
+    expect(preview.blockedReason).toContain("preview-only");
+    expect(preview.safetyNotes.join(" ")).toContain("does not modify files");
+  });
+
+  it("formats undo-all preview without claiming native writes ran", () => {
+    const text = formatManagedRollbackUndoAllPreview();
+
+    expect(text).toContain("Mac AI Switchboard undo-all rollback preview");
+    expect(text).toContain("Native write status: not_executed");
+    expect(text).toContain("Executable native rows: 2");
+    expect(text).toContain("Codex routing (codex-routing)");
+    expect(text).toContain("OpenCode routing (opencode-routing)");
+    expect(text).toContain("Manual or cleanup rows:");
+    expect(text).toContain("Undo all is preview-only");
+    expect(text).toContain("This undo-all preview does not modify files.");
   });
 
   it("rejects diff previews for non-config records or missing inputs", () => {
