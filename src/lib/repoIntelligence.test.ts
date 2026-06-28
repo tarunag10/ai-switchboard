@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildAgentSessionPreparation,
+  buildAgentSessionDisplayState,
   buildRepoIntelligenceSummary,
   buildRepoAgentManifest,
   buildRepoAgentHandoffPayload,
@@ -17,6 +18,7 @@ import {
   getRepoIndexFreshness,
   isSecretLikeRepoPath,
   recommendAgentSessionMode,
+  repoAgentPackLabel,
 } from "./repoIntelligence";
 
 describe("repoIntelligence", () => {
@@ -752,6 +754,105 @@ describe("repoIntelligence", () => {
       roleCounts: preparation.manifest.totals.roleCounts,
       packs: [],
     }, preparation)).toBeNull();
+  });
+
+  it("builds Start Agent Session display state for copy controls", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+
+    const readyPreparation = buildAgentSessionPreparation(summary, {
+      target: "codex",
+      taskType: "verification",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+      },
+    });
+    const readyDisplay = buildAgentSessionDisplayState(
+      readyPreparation,
+      true,
+    );
+
+    expect(readyDisplay).toMatchObject({
+      targetLabel: "Codex",
+      packLabel: "Verification pack",
+      modeLabel: "Full optimization",
+      freshnessLabel: "Fresh local index",
+      copyStatus: "ready",
+      canCopyHandoff: true,
+      canCopySelectedPack: true,
+      canCopyJson: true,
+    });
+
+    summary.indexMetadata = {
+      ...summary.indexMetadata!,
+      cacheState: "changed",
+      previousIndexedAt: "2026-06-25T09:00:00Z",
+    };
+    const stalePreparation = buildAgentSessionPreparation(summary, {
+      target: "gemini",
+      taskType: "implementation",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: false,
+      },
+    });
+    const staleDisplay = buildAgentSessionDisplayState(
+      stalePreparation,
+      true,
+    );
+
+    expect(staleDisplay.copyStatus).toBe("warn");
+    expect(staleDisplay.modeLabel).toBe("RTK only");
+    expect(staleDisplay.copyDetail).toContain("Changed local index");
+    expect(staleDisplay.canCopyHandoff).toBe(true);
+
+    const blockedDisplay = buildAgentSessionDisplayState(
+      buildAgentSessionPreparation(
+        {
+          totalFiles: 0,
+          indexedFiles: 0,
+          estimatedFullScanTokens: 0,
+          roleCounts: readyPreparation.manifest.totals.roleCounts,
+          packs: [],
+        },
+        {
+          target: "cursor",
+          modeInputs: {
+            headroomHealthy: false,
+            rtkHealthy: false,
+            providerRoutingSafe: true,
+          },
+        },
+      ),
+      false,
+    );
+
+    expect(blockedDisplay).toMatchObject({
+      targetLabel: "Cursor",
+      packLabel: "Handoff pack",
+      modeLabel: "Off",
+      copyStatus: "blocked",
+      canCopyHandoff: false,
+      canCopySelectedPack: false,
+      canCopyJson: false,
+    });
+  });
+
+  it("labels agent session packs consistently", () => {
+    expect(repoAgentPackLabel("implementation")).toBe("Implementation pack");
+    expect(repoAgentPackLabel("verification")).toBe("Verification pack");
+    expect(repoAgentPackLabel("handoff")).toBe("Handoff pack");
+    expect(repoAgentPackLabel("risk_review")).toBe("Risk review pack");
+    expect(repoAgentPackLabel("release_handoff")).toBe("Release handoff pack");
   });
 
   it("calculates best-pack and all-pack token savings", () => {

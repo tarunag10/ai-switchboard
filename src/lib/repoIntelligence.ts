@@ -180,6 +180,18 @@ export interface AgentSessionPreparation {
   manifest: RepoAgentManifest;
 }
 
+export interface AgentSessionDisplayState {
+  targetLabel: string;
+  packLabel: string;
+  modeLabel: string;
+  freshnessLabel: string;
+  copyStatus: AgentSessionCopyStatus;
+  copyDetail: string;
+  canCopyHandoff: boolean;
+  canCopySelectedPack: boolean;
+  canCopyJson: boolean;
+}
+
 export interface RepoAgentManifest {
   schemaVersion: 1;
   kind: "mac_ai_switchboard.repo_intelligence_manifest";
@@ -1417,6 +1429,56 @@ export function formatAgentSessionSelectedPackMarkdown(
   }
 
   return formatSingleRepoContextPackMarkdown(summary, pack);
+}
+
+export function repoAgentPackLabel(packId: string) {
+  switch (packId) {
+    case "implementation":
+      return "Implementation pack";
+    case "verification":
+      return "Verification pack";
+    case "handoff":
+      return "Handoff pack";
+    case "risk_review":
+      return "Risk review pack";
+    case "release_handoff":
+      return "Release handoff pack";
+    default:
+      return `${packId} pack`;
+  }
+}
+
+function agentSessionModeLabel(mode: SwitchboardMode) {
+  switch (mode) {
+    case "full":
+      return "Full optimization";
+    case "headroom":
+      return "Headroom only";
+    case "rtk":
+      return "RTK only";
+    case "off":
+      return "Off";
+  }
+}
+
+export function buildAgentSessionDisplayState(
+  preparation: AgentSessionPreparation,
+  hasRealIndex: boolean,
+): AgentSessionDisplayState {
+  const canCopyHandoff = hasRealIndex && preparation.handoffMarkdown !== null;
+  const canCopyPayload = hasRealIndex && preparation.handoffPayload !== null;
+
+  return {
+    targetLabel: preparation.target.label,
+    packLabel: repoAgentPackLabel(preparation.packId),
+    modeLabel: agentSessionModeLabel(preparation.recommendedMode),
+    freshnessLabel: preparation.freshness.label,
+    copyStatus: preparation.copyStatus,
+    copyDetail: preparation.copyDetail,
+    canCopyHandoff,
+    canCopySelectedPack: canCopyPayload,
+    canCopyJson: canCopyPayload,
+  };
 }
 
 export function estimateRepoIntelligenceSavings(

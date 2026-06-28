@@ -65,6 +65,7 @@ import {
 import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
 import {
   buildAgentSessionPreparation,
+  buildAgentSessionDisplayState,
   buildRepoAgentHandoffPayload,
   buildRepoAgentManifest,
   buildRepoIntelligenceSummary,
@@ -76,6 +77,7 @@ import {
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
   getRepoIndexFreshness,
+  repoAgentPackLabel,
   repoAgentHandoffProfiles,
   type AgentSessionTaskType,
   type RepoContextPack,
@@ -214,7 +216,6 @@ import {
 } from "./lib/uninstallDisclosure";
 import {
   deriveSwitchboardMode,
-  switchboardModeLabel,
   switchboardModeSummary,
 } from "./lib/switchboardDisplay";
 import {
@@ -1547,19 +1548,6 @@ function repoAgentGroupLabel(
   }
 }
 
-function repoAgentPackLabel(packId: string) {
-  switch (packId) {
-    case "implementation":
-      return "Implementation pack";
-    case "verification":
-      return "Verification pack";
-    case "handoff":
-      return "Handoff pack";
-    default:
-      return `${packId} pack`;
-  }
-}
-
 const repoAgentHandoffGroups = repoAgentHandoffProfiles.reduce<
   Array<{
     label: string;
@@ -1718,6 +1706,10 @@ function RepoIntelligencePreview({
       providerRoutingSafe,
     },
   });
+  const sessionDisplayState = buildAgentSessionDisplayState(
+    sessionPreparation,
+    hasRealIndex,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -2075,12 +2067,12 @@ function RepoIntelligencePreview({
         <div className="repo-intelligence-session__heading">
           <div>
             <span>Start session</span>
-            <strong>{sessionPreparation.target.label}</strong>
+            <strong>{sessionDisplayState.targetLabel}</strong>
           </div>
           <span
-            className={`repo-intelligence-session__status repo-intelligence-session__status--${sessionPreparation.copyStatus}`}
+            className={`repo-intelligence-session__status repo-intelligence-session__status--${sessionDisplayState.copyStatus}`}
           >
-            {sessionPreparation.copyStatus}
+            {sessionDisplayState.copyStatus}
           </span>
         </div>
         <div className="repo-intelligence-session__controls">
@@ -2116,7 +2108,7 @@ function RepoIntelligencePreview({
           </label>
           <button
             className="addon-card__action addon-card__action--primary"
-            disabled={!hasRealIndex || !sessionPreparation.handoffMarkdown}
+            disabled={!sessionDisplayState.canCopyHandoff}
             onClick={() => void copyPreparedAgentSession()}
             type="button"
           >
@@ -2124,7 +2116,7 @@ function RepoIntelligencePreview({
           </button>
           <button
             className="addon-card__action"
-            disabled={!hasRealIndex || !sessionPreparation.handoffPayload}
+            disabled={!sessionDisplayState.canCopySelectedPack}
             onClick={() => void copyPreparedAgentSessionPack()}
             type="button"
           >
@@ -2132,7 +2124,7 @@ function RepoIntelligencePreview({
           </button>
           <button
             className="addon-card__action"
-            disabled={!hasRealIndex || !sessionPreparation.handoffPayload}
+            disabled={!sessionDisplayState.canCopyJson}
             onClick={() => void copyPreparedAgentSessionJson()}
             type="button"
           >
@@ -2142,21 +2134,21 @@ function RepoIntelligencePreview({
         <div className="repo-intelligence-session__summary">
           <div>
             <span>Pack</span>
-            <strong>{repoAgentPackLabel(sessionPreparation.packId)}</strong>
+            <strong>{sessionDisplayState.packLabel}</strong>
           </div>
           <div>
             <span>Mode</span>
             <strong>
-              {switchboardModeLabel(sessionPreparation.recommendedMode)}
+              {sessionDisplayState.modeLabel}
             </strong>
           </div>
           <div>
             <span>Freshness</span>
-            <strong>{sessionPreparation.freshness.label}</strong>
+            <strong>{sessionDisplayState.freshnessLabel}</strong>
           </div>
         </div>
         <p className="repo-intelligence-session__detail">
-          {sessionPreparation.copyDetail} Doctor still verifies runtime and
+          {sessionDisplayState.copyDetail} Doctor still verifies runtime and
           connector health before any managed setup.
         </p>
         <p className="repo-intelligence-session__detail">
