@@ -9287,7 +9287,14 @@ html.window-hiding {
   background: var(--surface-raised);
 }
 
-.planned-connectors__config-plan > span {
+.planned-connectors__config-plan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.planned-connectors__config-plan-head > span {
   color: var(--text-muted);
   font-size: var(--text-xxs);
   font-weight: 800;
@@ -9295,7 +9302,25 @@ html.window-hiding {
   text-transform: uppercase;
 }
 
-.planned-connectors__config-plan div {
+.planned-connectors__copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  color: var(--text-muted);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.planned-connectors__copy:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.planned-connectors__config-plan > div:not(.planned-connectors__config-plan-head) {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;

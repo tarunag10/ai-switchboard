@@ -11,6 +11,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Each planned connector must get config-creation work like Gemini, gated behind detection, dry-run diff, backup, verify, rollback, and Off cleanup.
 - `npm run check:connectors` enforces the shared config-creation plan contract, including the seven required gated steps and copyable markdown handoff.
 - Planned connector cards now surface the same seven config-creation gates in-app before backend-specific detection evidence is available.
+- Planned connector cards now provide per-tool Copy config plan actions, so Gemini, OpenCode, Grok/xAI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed each export the same gated config-creation contract from the Mac app.
 - Repo Intelligence agent handoffs now include connector config readiness, next gate, evidence requirements, config path strategy, account caveat, and rollback strategy for each planned connector target.
 - The `repo:intelligence` CLI handoff export now mirrors those connector readiness dossiers in Markdown and JSON output.
 - `npm run check:connectors` now verifies the CLI connector dossier mirror so planned config metadata cannot silently drift across app, backend, and handoff exports.

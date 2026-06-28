@@ -1450,9 +1450,11 @@ function AddonCard({
 
 function PlannedAddonCard({
   addon,
+  onCopyConnectorConfigPlan,
   onOpenRepoIntelligence,
 }: {
   addon: PlannedAddon;
+  onCopyConnectorConfigPlan?: (connector: PlannedConnector) => void;
   onOpenRepoIntelligence?: () => void;
 }) {
   const showConnectorRoadmap = addon.id === "agent_connectors";
@@ -1503,7 +1505,13 @@ function PlannedAddonCard({
           </p>
         ) : null}
         {showConnectorRoadmap ? (
-          <PlannedConnectorRoadmap connectors={plannedConnectors} />
+          <PlannedConnectorRoadmap
+            connectors={plannedConnectors}
+            onCopyConfigPlan={
+              onCopyConnectorConfigPlan ??
+              (() => undefined)
+            }
+          />
         ) : null}
         {showRepoIntelligencePreview ? (
           <div className="repo-intelligence-addon-cta">
@@ -2470,8 +2478,10 @@ function connectorCategoryLabel(category: PlannedConnector["category"]) {
 
 function PlannedConnectorRoadmap({
   connectors,
+  onCopyConfigPlan,
 }: {
   connectors: PlannedConnector[];
+  onCopyConfigPlan: (connector: PlannedConnector) => void;
 }) {
   return (
     <div className="planned-connectors" aria-label="Planned connector roadmap">
@@ -2545,7 +2555,17 @@ function PlannedConnectorRoadmap({
               aria-label={`${connector.name} config creation plan`}
               title={configPlan.safetyNote}
             >
-              <span>Config creation</span>
+              <div className="planned-connectors__config-plan-head">
+                <span>Config creation</span>
+                <button
+                  type="button"
+                  className="planned-connectors__copy"
+                  onClick={() => onCopyConfigPlan(connector)}
+                  aria-label={`Copy ${connector.name} config creation plan`}
+                >
+                  <Copy size={13} weight="bold" />
+                </button>
+              </div>
               <div>
                 {configPlan.steps.map((step) => (
                   <strong key={step.id} title={step.detail}>
@@ -8139,6 +8159,14 @@ export default function App() {
                 <PlannedAddonCard
                   key={addon.id}
                   addon={addon}
+                  onCopyConnectorConfigPlan={(connector) =>
+                    void copyPlannedConnectorCommand(
+                      formatPlannedConnectorConfigCreationPlansMarkdown([
+                        connector,
+                      ]),
+                      `${connector.name} config plan`,
+                    )
+                  }
                   onOpenRepoIntelligence={() =>
                     setActiveView("repoIntelligence")
                   }
