@@ -2563,6 +2563,18 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
         })
         .take(7)
         .collect::<Vec<_>>();
+    let dry_run_previews = connectors
+        .iter()
+        .filter_map(|client| {
+            client.config_dry_run_preview.as_ref().map(|preview| {
+                format!(
+                    "{} target {} marker {} confirmation {}",
+                    client.name, preview.target, preview.marker, preview.confirmation_phrase
+                )
+            })
+        })
+        .take(3)
+        .collect::<Vec<_>>();
 
     let mut parts = vec![format!(
         "{names} detected. Mac AI Switchboard can identify these tools but keeps routing manual until backup, restore, and Off mode cleanup are implemented."
@@ -2591,6 +2603,12 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
         parts.push(format!(
             "Config creation plan: {}.",
             config_steps.join(" -> ")
+        ));
+    }
+    if !dry_run_previews.is_empty() {
+        parts.push(format!(
+            "Dry-run preview evidence: {}.",
+            dry_run_previews.join(" | ")
         ));
     }
     parts.push(
@@ -2631,7 +2649,20 @@ mod doctor_tests {
                 "Clean up in Off mode".to_string(),
             ],
             config_creation_step_details: Vec::new(),
-            config_dry_run_preview: None,
+            config_dry_run_preview: Some(crate::models::ClientConnectorConfigDryRunPreview {
+                target: "/Users/test/.gemini".to_string(),
+                marker: "mac-ai-switchboard:gemini_cli".to_string(),
+                backup_path: "/Users/test/.gemini.mac-ai-switchboard.bak".to_string(),
+                current_state: "No Switchboard-managed Gemini provider routing detected."
+                    .to_string(),
+                proposed_state:
+                    "Add Mac AI Switchboard local provider routing after explicit consent."
+                        .to_string(),
+                rollback_preview:
+                    "Restore the Gemini config backup or remove only the managed block.".to_string(),
+                confirmation_phrase: "APPLY GEMINI CLI CONFIG".to_string(),
+                writes: Vec::new(),
+            }),
             installed: true,
             enabled: false,
             verified: false,
@@ -2645,6 +2676,9 @@ mod doctor_tests {
         assert!(body.contains("Automation gates: Back up provider settings"));
         assert!(body.contains("Manual workflow: Use RTK-only mode"));
         assert!(body.contains("Config creation plan: Detect config surface -> Show dry-run diff"));
+        assert!(body.contains("Dry-run preview evidence: Gemini CLI target /Users/test/.gemini"));
+        assert!(body.contains("marker mac-ai-switchboard:gemini_cli"));
+        assert!(body.contains("confirmation APPLY GEMINI CLI CONFIG"));
         assert!(body.contains("Safe today: use RTK-only mode or Repo Intelligence packs"));
         assert!(body.contains("keeps routing manual"));
     }
