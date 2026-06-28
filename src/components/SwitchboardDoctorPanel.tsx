@@ -7,6 +7,7 @@ import {
   doctorIssueGuidance,
   doctorRepairLabel,
   formatDoctorReportShareText,
+  formatPlannedConnectorDoctorDossiers,
   formatVerifyOffModeShareText,
 } from "../lib/doctorRepairCopy";
 import type { DoctorIssue, DoctorReport } from "../lib/types";
@@ -48,6 +49,9 @@ export function SwitchboardDoctorPanel({
       issue.id === "off_mode_not_clean" ||
       issue.repairAction === "verify_off_mode",
   );
+  const hasPlannedConnectorEvidence = report.issues.some(
+    (issue) => issue.id === "planned_connectors_detected",
+  );
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
 
@@ -73,6 +77,16 @@ export function SwitchboardDoctorPanel({
       formatVerifyOffModeShareText(doctorReport),
     );
     setCopyNotice("Copied Verify Off.");
+  }
+
+  async function copyConnectorDossiers() {
+    if (!navigator.clipboard) {
+      setCopyNotice("Clipboard unavailable.");
+      return;
+    }
+
+    await navigator.clipboard.writeText(formatPlannedConnectorDoctorDossiers());
+    setCopyNotice("Copied connector dossiers.");
   }
 
   return (
@@ -109,6 +123,17 @@ export function SwitchboardDoctorPanel({
             >
               <Copy aria-hidden="true" weight="bold" />
               <span>Copy Verify Off</span>
+            </button>
+          ) : null}
+          {hasPlannedConnectorEvidence ? (
+            <button
+              type="button"
+              className="switchboard-doctor__copy"
+              onClick={copyConnectorDossiers}
+              title="Copy connector readiness dossiers"
+            >
+              <Copy aria-hidden="true" weight="bold" />
+              <span>Copy connector dossiers</span>
             </button>
           ) : null}
           {canRepair ? (

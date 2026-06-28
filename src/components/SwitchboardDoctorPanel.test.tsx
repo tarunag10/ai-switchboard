@@ -262,4 +262,50 @@ describe("SwitchboardDoctorPanel", () => {
       "Status: active routing evidence found",
     );
   });
+
+  it("copies planned connector readiness dossiers when connector evidence is present", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(
+      <SwitchboardDoctorPanel
+        report={{
+          status: "warning",
+          summary: "Planned connectors detected.",
+          issues: [
+            {
+              id: "planned_connectors_detected",
+              title: "Planned coding tools detected",
+              body: "Gemini CLI detected.",
+              severity: "warning",
+              repairAction: null,
+            },
+          ],
+        }}
+        busyAction={null}
+        error={null}
+        successMessage={null}
+        onRepair={vi.fn()}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Copy connector dossiers" }),
+    );
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).toContain(
+      "Planned connector config readiness dossiers",
+    );
+    expect(writeText.mock.calls[0][0]).toContain("## OpenCode");
+    expect(writeText.mock.calls[0][0]).toContain("Show dry-run diff");
+    expect(writeText.mock.calls[0][0]).toContain("Required evidence:");
+    expect(
+      screen.getByRole("button", { name: "Copied connector dossiers." }),
+    ).toBeInTheDocument();
+  });
 });
