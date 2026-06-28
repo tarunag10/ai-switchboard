@@ -176,6 +176,11 @@ if (!requiredEvidence.includes("Planned connector config creation plan")) {
     "staticSmokePreflight.requiredEvidence must include planned connector config creation plan",
   );
 }
+if (!requiredEvidence.includes("Gemini connector dry-run preview evidence")) {
+  fail(
+    "staticSmokePreflight.requiredEvidence must include Gemini connector dry-run preview evidence",
+  );
+}
 requireType(report, "staticSmokePreflight.message", "string");
 
 requireObject(report, "installedSmokeSummary");
@@ -229,7 +234,7 @@ for (const requiredItem of [
   "Switchboard copyable state",
   "Doctor copyable report",
   "Savings calculator copyable ledger",
-  "Planned connector automation gates, manual workflow, and config creation plan",
+  "Planned connector automation gates, manual workflow, config creation plan, and Gemini dry-run preview evidence",
   "Codex compression recovery",
 ]) {
   if (!installedRequiredEvidence.includes(requiredItem)) {
