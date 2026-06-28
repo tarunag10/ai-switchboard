@@ -100,8 +100,15 @@ export interface SavingsAttributionEvent {
   id: string;
   observedAt: string;
   scope: "session";
-  source: "headroom_engine" | "rtk";
-  confidence: "measured";
+  source:
+    | "headroom_engine"
+    | "rtk"
+    | "repo_intelligence"
+    | "caveman"
+    | "ponytail"
+    | "markitdown"
+    | "compact_chinese";
+  confidence: "measured" | "estimated" | "inferred";
   deltaTokensSaved: number;
   deltaUsd: number;
   totalTokensSent: number;

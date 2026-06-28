@@ -6464,6 +6464,49 @@ mod tests {
     }
 
     #[test]
+    fn savings_attribution_event_schema_accepts_source_specific_future_events() {
+        let text = r#"{
+            "schemaVersion": 1,
+            "id": "repo-event-1",
+            "observedAt": "2026-06-28T10:00:00Z",
+            "scope": "session",
+            "source": "repo_intelligence",
+            "confidence": "estimated",
+            "deltaTokensSaved": 1200,
+            "deltaUsd": 0.0,
+            "totalTokensSent": 0,
+            "requestDelta": 1,
+            "evidence": ["Estimated from a Repo Intelligence pack before/after token delta."]
+        }"#;
+
+        let event: SavingsAttributionEvent =
+            serde_json::from_str(text).expect("source-specific event decodes");
+
+        assert_eq!(event.source, SavingsAttributionSource::RepoIntelligence);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(event.delta_tokens_saved, 1200);
+
+        let compact_chinese = serde_json::json!({
+            "schemaVersion": 1,
+            "id": "compact-chinese-event-1",
+            "observedAt": "2026-06-28T10:01:00Z",
+            "scope": "session",
+            "source": "compact_chinese",
+            "confidence": "inferred",
+            "deltaTokensSaved": 300,
+            "deltaUsd": 0.0,
+            "totalTokensSent": 0,
+            "requestDelta": 1,
+            "evidence": ["Inferred from Compact Chinese private handoff profile."]
+        });
+        let event: SavingsAttributionEvent =
+            serde_json::from_value(compact_chinese).expect("compact chinese event decodes");
+
+        assert_eq!(event.source, SavingsAttributionSource::CompactChinese);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Inferred);
+    }
+
+    #[test]
     fn aggregate_weekly_totals_sums_active_days_in_window() {
         use std::collections::BTreeMap;
         let mut daily: BTreeMap<String, DailySavingsBucket> = BTreeMap::new();

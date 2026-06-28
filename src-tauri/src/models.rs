@@ -540,6 +540,11 @@ pub struct HourlySavingsPoint {
 pub enum SavingsAttributionSource {
     HeadroomEngine,
     Rtk,
+    RepoIntelligence,
+    Caveman,
+    Ponytail,
+    Markitdown,
+    CompactChinese,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -552,6 +557,8 @@ pub enum SavingsAttributionScope {
 #[serde(rename_all = "snake_case")]
 pub enum SavingsAttributionConfidence {
     Measured,
+    Estimated,
+    Inferred,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

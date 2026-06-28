@@ -247,6 +247,55 @@ describe("savings calculator", () => {
     expect(rtk?.detail).toContain("RTK gain counter");
   });
 
+  it("uses measured backend attribution events for session Repo Intelligence rows", () => {
+    const rows = buildSavingsLedgerRows(
+      dashboardFixture(),
+      "session",
+      "2026-06-25T10:00:00Z",
+      {
+        repoSavings: {
+          fullScanTokens: 4_000,
+          bestPackTokens: 1_500,
+          bestPackTokensAvoided: 2_500,
+          bestPackSavingsPct: 62.5,
+          allPacksTokens: 2_500,
+          allPacksTokensAvoided: 1_500,
+          allPacksSavingsPct: 37.5,
+        },
+        attributionEvents: [
+          {
+            schemaVersion: 1,
+            id: "repo-event-1",
+            observedAt: "2026-06-25T10:04:00Z",
+            scope: "session",
+            source: "repo_intelligence",
+            confidence: "measured",
+            deltaTokensSaved: 1_100,
+            deltaUsd: 0,
+            totalTokensSent: 0,
+            requestDelta: 1,
+            evidence: ["Measured from a copied Repo Intelligence context-pack delta."],
+          },
+        ],
+      },
+    );
+
+    const repo = rows.find((row) => row.source === "repo_intelligence");
+
+    expect(repo).toMatchObject({
+      id: "repo_intelligence_attribution_events",
+      label: "Repo Intelligence",
+      confidence: "measured",
+      savedTokens: 1_100,
+      savedUsd: null,
+      recordedAt: "2026-06-25T10:04:00Z",
+      caveat: "Observed from append-only backend attribution events.",
+    });
+    expect(repo?.detail).toContain("1 measured Repo Intelligence session event");
+    expect(repo?.detail).toContain("1 request");
+    expect(rows.filter((row) => row.source === "repo_intelligence")).toHaveLength(1);
+  });
+
   it("keeps lifetime Headroom ledger rows based on saved rollups", () => {
     const rows = buildSavingsLedgerRows(
       dashboardFixture(),

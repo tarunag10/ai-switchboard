@@ -24,7 +24,8 @@ export type SavingsLedgerSource =
   | "repo_intelligence"
   | "caveman"
   | "ponytail"
-  | "markitdown";
+  | "markitdown"
+  | "compact_chinese";
 
 export interface AddonSavingsEstimate {
   baselineTokens: number;
@@ -479,6 +480,11 @@ function measuredBackendAttributionRows(
       id: "markitdown_attribution_events",
       label: "MarkItDown",
       kind: "doc_preprocess",
+    },
+    compact_chinese: {
+      id: "compact_chinese_attribution_events",
+      label: "Compact Chinese",
+      kind: "terse_output",
     },
   };
 
