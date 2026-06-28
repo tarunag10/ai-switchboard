@@ -491,6 +491,7 @@ pub fn build_agent_handoff_response(
         .or_else(|| summary.packs.first().cloned())
         .ok_or_else(|| anyhow!("no repo intelligence packs are available"))?;
     let graph = summary.graph.as_ref();
+    let index_freshness = build_index_freshness_response(Some(summary));
 
     Ok(RepoAgentHandoffResponse {
         schema_version: 1,
@@ -520,6 +521,7 @@ pub fn build_agent_handoff_response(
                 .map(|graph| graph.symbol_edges.len())
                 .unwrap_or_default(),
         },
+        index_freshness,
         safety: RepoAgentHandoffSafety {
             read_only: true,
             excludes_secret_like_paths: true,
@@ -2475,6 +2477,12 @@ mod tests {
         assert_eq!(codex.kind, "mac_ai_switchboard.repo_agent_handoff");
         assert_eq!(codex.agent.label, "Codex");
         assert_eq!(codex.pack.id, "verification");
+        assert!(matches!(
+            codex.index_freshness.status,
+            RepoIndexFreshnessStatus::Fresh | RepoIndexFreshnessStatus::UnchangedCache
+        ));
+        assert!(codex.index_freshness.safety.read_only);
+        assert!(!codex.index_freshness.safety.modifies_repository);
         assert!(!codex.safety.manual_provider_routing);
         assert!(codex.safety.read_only);
         assert!(!codex.safety.modifies_repository);

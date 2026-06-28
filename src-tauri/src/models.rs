@@ -278,6 +278,7 @@ pub struct RepoAgentHandoffResponse {
     pub agent: RepoAgentHandoffAgent,
     pub pack: RepoContextPack,
     pub graph_brief: RepoContextPackGraphBrief,
+    pub index_freshness: RepoIndexFreshnessResponse,
     pub safety: RepoAgentHandoffSafety,
 }
 
