@@ -123,6 +123,7 @@ const requiredDocSignals = {
     "planned connector automation gates, manual workflow, config creation plan",
     "Gemini dry-run preview evidence",
     "Repo Intelligence agent handoffs",
+    "connector readiness payload",
   ],
   "docs/beta-smoke-test.md": [
     "Local-only",
@@ -150,6 +151,8 @@ const requiredDocSignals = {
     "Clear index",
     "Re-indexing remains a deliberate Addons action",
     "bounded Markdown context pack",
+    "Connector Config Readiness",
+    "planned connector config readiness",
   ],
   "docs/codex-compression-troubleshooting.md": [
     "compression_refused",
@@ -376,6 +379,7 @@ const requiredSourceSignals = {
     "backend detection evidence",
     "planned connector manual warnings with detection evidence",
     "safe RTK-only or Repo Intelligence pack guidance",
+    "Connector readiness payload in agent handoffs",
     "Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI",
     "Gemini shows binary/version/config compatibility evidence",
     "backend dry-run preview evidence",
@@ -408,6 +412,7 @@ const requiredSourceSignals = {
     "mac_ai_switchboard.agent_session_preparation",
     "mac_ai_switchboard.repo_intelligence_manifest",
     "mac_ai_switchboard.repo_agent_handoff",
+    "Connector readiness payload in agent handoffs",
     "excludesSecretLikePaths",
     "buildAgentSessionPreparation",
     "formatSinglePackMarkdown",
@@ -427,6 +432,16 @@ const requiredSourceSignals = {
     "Zed AI",
     "provider routing remains manual",
     "Available packs",
+  ],
+  "scripts/release-readiness-report.mjs": [
+    "Connector readiness payload in agent handoffs",
+    "staticSmokeRequiredEvidence",
+    "installedSmokeRequiredEvidence",
+  ],
+  "src/lib/releaseReadiness.ts": [
+    "Connector readiness payload in agent handoffs",
+    "connector readiness payload",
+    "Planned connector smoke evidence must include the gated config creation plan and connector readiness payload",
   ],
   "scripts/check-release-env.mjs": [
     "jsonOutput",

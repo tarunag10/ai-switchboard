@@ -1532,7 +1532,7 @@ function formatAgentHandoffMarkdown(summary, agentId, requestedPackId) {
     "Treat this as read-only planning context unless the user explicitly asks for edits.",
     "Secret-like paths and generated folders are excluded from this handoff.",
     configReadiness
-      ? "Do not create or modify this connector's config unless every gated config-creation step is implemented and verified."
+      ? "Connector readiness payload in agent handoffs: do not create or modify this connector's config unless every gated config-creation step is implemented and verified."
       : "",
     "",
     configReadinessMarkdown,
