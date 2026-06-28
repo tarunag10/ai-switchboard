@@ -112,6 +112,46 @@ const repoAgentRecipeTemplates = [
   },
 ];
 
+const repoAgentApiQueryTemplates = [
+  {
+    id: "repo_manifest",
+    description: "Read the latest saved Repo Intelligence manifest.",
+    command: "get_repo_manifest",
+  },
+  {
+    id: "context_pack",
+    description: "Read one bounded context pack from the latest saved index.",
+    command: "get_repo_pack",
+  },
+  {
+    id: "agent_handoff",
+    description:
+      "Read a bounded agent-specific handoff from the latest saved index.",
+    command: "get_agent_handoff",
+  },
+  {
+    id: "index_freshness",
+    description: "Read index freshness and parser metadata without rescanning.",
+    command: "get_index_freshness",
+  },
+  {
+    id: "clear_repo_index",
+    description: "Clear the saved Repo Intelligence index metadata.",
+    command: "clear_repo_index",
+  },
+  {
+    id: "symbol_search",
+    description: "Search symbols in the latest saved index without rescanning.",
+    command: "search_repo_intelligence_symbols",
+  },
+  {
+    id: "dependents",
+    description:
+      "Find import and symbol edges related to a target path or symbol.",
+    command: "get_repo_intelligence_dependents",
+  },
+];
+
 const agentHandoffProfiles = [
   {
     id: "claude",
@@ -1648,6 +1688,10 @@ function buildAgentManifest(summary) {
     agentRecipes: repoAgentRecipeTemplates.map((recipe) => ({
       ...recipe,
       command: `npm run repo:intelligence -- ${JSON.stringify(summary.repoRoot)} --pack ${recipe.packIds[0]} --format markdown`,
+    })),
+    apiQueries: repoAgentApiQueryTemplates.map((query) => ({
+      ...query,
+      readOnly: true,
     })),
     safety: {
       readOnly: true,

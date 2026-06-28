@@ -228,6 +228,12 @@ export interface RepoAgentManifest {
     instruction: string;
     command: string;
   }>;
+  apiQueries: Array<{
+    id: string;
+    description: string;
+    command: string;
+    readOnly: true;
+  }>;
   safety: {
     readOnly: true;
     excludesSecretLikePaths: true;
@@ -540,6 +546,46 @@ const repoAgentRecipeTemplates = [
     packIds: ["implementation", "handoff"],
     instruction:
       "Use these packs as read-only context in editor assistants while provider routing remains manual.",
+  },
+] as const;
+
+const repoAgentApiQueryTemplates = [
+  {
+    id: "repo_manifest",
+    description: "Read the latest saved Repo Intelligence manifest.",
+    command: "get_repo_manifest",
+  },
+  {
+    id: "context_pack",
+    description: "Read one bounded context pack from the latest saved index.",
+    command: "get_repo_pack",
+  },
+  {
+    id: "agent_handoff",
+    description:
+      "Read a bounded agent-specific handoff from the latest saved index.",
+    command: "get_agent_handoff",
+  },
+  {
+    id: "index_freshness",
+    description: "Read index freshness and parser metadata without rescanning.",
+    command: "get_index_freshness",
+  },
+  {
+    id: "clear_repo_index",
+    description: "Clear the saved Repo Intelligence index metadata.",
+    command: "clear_repo_index",
+  },
+  {
+    id: "symbol_search",
+    description: "Search symbols in the latest saved index without rescanning.",
+    command: "search_repo_intelligence_symbols",
+  },
+  {
+    id: "dependents",
+    description:
+      "Find import and symbol edges related to a target path or symbol.",
+    command: "get_repo_intelligence_dependents",
   },
 ] as const;
 
@@ -1032,6 +1078,10 @@ export function buildRepoAgentManifest(
       tools: [...recipe.tools],
       packIds: [...recipe.packIds],
       command: `npm run repo:intelligence -- ${JSON.stringify(repoRoot || ".")} --pack ${recipe.packIds[0]} --format markdown`,
+    })),
+    apiQueries: repoAgentApiQueryTemplates.map((query) => ({
+      ...query,
+      readOnly: true,
     })),
     safety: {
       readOnly: true,

@@ -421,6 +421,16 @@ describe("repoIntelligence", () => {
     expect(manifest.agentRecipes[0].command).toContain(
       "--pack implementation --format markdown",
     );
+    expect(manifest.apiQueries.map((query) => query.command)).toEqual([
+      "get_repo_manifest",
+      "get_repo_pack",
+      "get_agent_handoff",
+      "get_index_freshness",
+      "clear_repo_index",
+      "search_repo_intelligence_symbols",
+      "get_repo_intelligence_dependents",
+    ]);
+    expect(manifest.apiQueries.every((query) => query.readOnly)).toBe(true);
     expect(manifest.graph.available).toBe(true);
     expect(manifest.graph.dependencyHubCount).toBe(1);
     expect(manifest.graph.symbolCount).toBeGreaterThan(0);
