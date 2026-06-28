@@ -1,6 +1,7 @@
 import {
   getPlannedConnector,
   getPlannedConnectorConfigCreationPlan,
+  getPlannedConnectorSafetyDossier,
   plannedConnectors,
   summarizePlannedConnectorSupport,
 } from "./plannedConnectors";
@@ -697,10 +698,14 @@ export function formatConnectorConfigDryRunPreview(
   connector: ClientConnectorStatus
 ) {
   const report = connectorCompatibilityReport(connector);
+  const safetyDossier = getPlannedConnectorSafetyDossier(connector.clientId);
   const target =
     report?.configSurface ??
     connector.configLocations?.find((location) => location.trim().length > 0) ??
     "not detected yet";
+  const markerId = `mac-ai-switchboard:${connector.clientId}`;
+  const backupPath =
+    target === "not detected yet" ? "blocked until target is detected" : `${target}.mac-ai-switchboard.bak`;
   const gates = report?.configCreationGates.length
     ? report.configCreationGates.map((gate) => gate.label).join(" -> ")
     : "Detect config surface -> Show dry-run diff -> Create backup -> Apply with consent -> Verify in Doctor -> Rollback safely -> Clean up in Off mode";
@@ -708,9 +713,12 @@ export function formatConnectorConfigDryRunPreview(
   return [
     "## Dry-run diff preview",
     `- Target: ${target}`,
+    `- Marker: ${markerId}`,
+    `- Backup: ${backupPath}`,
     "- Current managed block: none detected",
     `- Proposed managed block: Mac AI Switchboard provider routing for ${connector.name}`,
-    "- Writes: none; preview only",
+    "- Writes: none; preview only; apply stays disabled",
+    `- Rollback: ${safetyDossier?.rollbackStrategy ?? "Remove only Switchboard-managed routing."}`,
     `- Gates: ${gates}`,
   ].join("\n");
 }

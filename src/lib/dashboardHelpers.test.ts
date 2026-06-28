@@ -491,9 +491,12 @@ describe("dashboard helpers", () => {
       [
         "## Dry-run diff preview",
         "- Target: /Users/test/.gemini",
+        "- Marker: mac-ai-switchboard:gemini_cli",
+        "- Backup: /Users/test/.gemini.mac-ai-switchboard.bak",
         "- Current managed block: none detected",
         "- Proposed managed block: Mac AI Switchboard provider routing for Gemini CLI",
-        "- Writes: none; preview only",
+        "- Writes: none; preview only; apply stays disabled",
+        "- Rollback: Restore the previous provider settings or remove only Switchboard-managed shell routing.",
         `- Gates: ${expectedConfigCreationGates.map((gate) => gate.label).join(" -> ")}`,
       ].join("\n"),
     );
