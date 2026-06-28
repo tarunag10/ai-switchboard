@@ -336,7 +336,7 @@ const addonCopy: Record<string, AddonCopy> = {
     installing: "Writing Caveman guidance blocks...",
     uninstalling: "Removing Caveman guidance blocks...",
     installed:
-      "Caveman installed. Pick scoped or aggressive terse mode any time.",
+      "Caveman installed. Pick scoped, aggressive, or Compact Chinese experimental mode any time.",
     uninstalled: "Caveman removed. Managed terse-output blocks were deleted.",
     enabling: "Enabling Caveman guidance...",
     disabling: "Disabling Caveman guidance...",
@@ -5086,7 +5086,9 @@ export default function App() {
       setAddonBusyLabel(null);
     }
   }
-  async function setCavemanLevel(level: "scoped" | "aggressive") {
+  async function setCavemanLevel(
+    level: "scoped" | "aggressive" | "compact_chinese",
+  ) {
     setAddonBusyId("caveman");
     setAddonBusyLabel("Updating Caveman level...");
     setAddonError(null);
@@ -8129,15 +8131,23 @@ export default function App() {
                             const level =
                               tool.metadata?.level === "aggressive"
                                 ? "aggressive"
-                                : "scoped";
+                                : tool.metadata?.level === "compact_chinese"
+                                  ? "compact_chinese"
+                                  : "scoped";
                             return (
-                              <div
-                                className="addon-card__segmented"
-                                role="group"
-                                aria-label="Caveman level"
-                              >
-                                {(["scoped", "aggressive"] as const).map(
-                                  (item) => (
+                              <div className="addon-card__option-block">
+                                <div
+                                  className="addon-card__segmented"
+                                  role="group"
+                                  aria-label="Caveman level"
+                                >
+                                  {(
+                                    [
+                                      ["scoped", "Scoped"],
+                                      ["aggressive", "Aggressive"],
+                                      ["compact_chinese", "Compact Chinese"],
+                                    ] as const
+                                  ).map(([item, label]) => (
                                     <button
                                       key={item}
                                       type="button"
@@ -8150,12 +8160,19 @@ export default function App() {
                                       }
                                       onClick={() => void setCavemanLevel(item)}
                                     >
-                                      {item === "scoped"
-                                        ? "Scoped"
-                                        : "Aggressive"}
+                                      {label}
                                     </button>
-                                  ),
-                                )}
+                                  ))}
+                                </div>
+                                {level === "compact_chinese" ? (
+                                  <p className="addon-card__hint">
+                                    Experimental: compact Chinese is only for
+                                    private internal notes and handoffs. Final
+                                    user-facing, legal, safety, debugging, and
+                                    release content stays in the requested
+                                    language with full detail.
+                                  </p>
+                                ) : null}
                               </div>
                             );
                           })()

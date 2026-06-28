@@ -1810,22 +1810,34 @@ fn caveman_codex_agents_path() -> PathBuf {
 /// Terse-output guidance body keyed by level. Scoped is the conservative
 /// default: terse only where short output is safe, never hiding required
 /// legal, safety, or debugging detail. Aggressive asks for terseness broadly.
+/// Compact Chinese is experimental and only for internal working notes.
 fn build_caveman_nudge(level: &str) -> String {
-    if level == "aggressive" {
-        "## Terse output (Switchboard Caveman, aggressive)\n\
-         Default to terse output everywhere. Lead with the answer or result; cut\n\
-         preamble, restated questions, and summaries of what you just did. Prefer\n\
-         fragments and short synonyms. Still include any legal, safety, or\n\
-         debugging detail the task actually requires -- brevity never overrides\n\
-         correctness or required disclosure."
-            .to_string()
-    } else {
-        "## Terse output (Switchboard Caveman, scoped)\n\
-         For command summaries, PR notes, and handoffs, keep output terse: lead\n\
-         with the result and drop preamble and self-summaries. Do NOT shorten\n\
-         legal, safety, or debugging content -- keep those complete even when the\n\
-         surrounding prose is terse."
-            .to_string()
+    match level {
+        "aggressive" => "## Terse output (Switchboard Caveman, aggressive)\n\
+             Default to terse output everywhere. Lead with the answer or result; cut\n\
+             preamble, restated questions, and summaries of what you just did. Prefer\n\
+             fragments and short synonyms. Still include any legal, safety, or\n\
+             debugging detail the task actually requires -- brevity never overrides\n\
+             correctness or required disclosure."
+            .to_string(),
+        "compact_chinese" => {
+            "## Terse output (Switchboard Caveman, compact Chinese experimental)\n\
+             Use compact Chinese only for private internal planning notes, scratch\n\
+             handoffs, and hidden working prompts when that reduces tokens. Keep all\n\
+             user-visible replies, commit messages, PR notes, legal, safety,\n\
+             debugging, and release-readiness content in the user's requested\n\
+             language with complete required detail. Never translate code, commands,\n\
+             file paths, identifiers, error text, secrets, citations, or quoted\n\
+             source material. If compact Chinese could make verification ambiguous,\n\
+             use terse English instead."
+                .to_string()
+        }
+        _ => "## Terse output (Switchboard Caveman, scoped)\n\
+             For command summaries, PR notes, and handoffs, keep output terse: lead\n\
+             with the result and drop preamble and self-summaries. Do NOT shorten\n\
+             legal, safety, or debugging content -- keep those complete even when the\n\
+             surrounding prose is terse."
+            .to_string(),
     }
 }
 
@@ -5967,6 +5979,25 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             fs::read_to_string(home.path().join(".codex").join("AGENTS.md")).expect("read codex");
         assert!(agents.contains("Switchboard Caveman, aggressive"));
         assert!(!agents.contains("Switchboard Caveman, scoped"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn caveman_compact_chinese_profile_is_internal_only() {
+        let home = TestHome::new();
+        seed_caveman_clients_configured();
+
+        super::enable_caveman_integration("compact_chinese").expect("enable compact chinese");
+
+        let agents =
+            fs::read_to_string(home.path().join(".codex").join("AGENTS.md")).expect("read codex");
+        assert!(agents.contains("Switchboard Caveman, compact Chinese experimental"));
+        assert!(agents.contains("private internal planning notes"));
+        assert!(agents.contains("user-visible replies"));
+        assert!(agents.contains("legal, safety"));
+        assert!(agents.contains("debugging"));
+        assert!(agents.contains("release-readiness"));
+        assert!(agents.contains("Never translate code"));
     }
 
     #[test]

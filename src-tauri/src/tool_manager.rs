@@ -205,6 +205,7 @@ const PONYTAIL_DISPLAY_VERSION: &str = "latest";
 const CAVEMAN_DISPLAY_VERSION: &str = "1";
 pub const CAVEMAN_LEVEL_SCOPED: &str = "scoped";
 pub const CAVEMAN_LEVEL_AGGRESSIVE: &str = "aggressive";
+pub const CAVEMAN_LEVEL_COMPACT_CHINESE: &str = "compact_chinese";
 const REPO_MEMORY_DISPLAY_VERSION: &str = "1";
 const REPO_MEMORY_MCP_NAME: &str = "repo-memory";
 const RTK_SHA256_MACOS_AARCH64: &str =
@@ -3565,10 +3566,10 @@ impl ToolManager {
         if !self.caveman_receipt_exists() {
             bail!("caveman is not installed");
         }
-        let normalized = if level == CAVEMAN_LEVEL_AGGRESSIVE {
-            CAVEMAN_LEVEL_AGGRESSIVE
-        } else {
-            CAVEMAN_LEVEL_SCOPED
+        let normalized = match level {
+            CAVEMAN_LEVEL_AGGRESSIVE => CAVEMAN_LEVEL_AGGRESSIVE,
+            CAVEMAN_LEVEL_COMPACT_CHINESE => CAVEMAN_LEVEL_COMPACT_CHINESE,
+            _ => CAVEMAN_LEVEL_SCOPED,
         };
         let enabled = self.tool_enabled("caveman");
         self.write_tool_receipt(
@@ -5645,7 +5646,8 @@ mod tests {
         requirements_lock_sha, rtk_distribution_artifact, run_command, sanitize_log_variant,
         sha256_bytes, summarize_kompress_prefetch_failure, verify_sha256_file, wait_for_port_free,
         write_mcp_server_to_claude_json, CommandFailure, HeadroomRelease, ManagedRuntime,
-        PipOutputCapture, ToolManager, UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION, RTK_VERSION,
+        PipOutputCapture, ToolManager, UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION,
+        CAVEMAN_LEVEL_COMPACT_CHINESE, CAVEMAN_LEVEL_SCOPED, RTK_VERSION,
     };
     use crate::backend_port;
     use crate::models::SavingsMode;
@@ -5931,6 +5933,39 @@ mod tests {
             .expect("rtk manifest should exist");
         assert_eq!(rtk.version, RTK_VERSION);
         assert!(rtk.checksum.is_some(), "RTK checksum should be exposed");
+    }
+
+    #[test]
+    fn caveman_compact_chinese_level_round_trips() {
+        let (_root, _runtime, manager) = seed_test_runtime("caveman-compact-chinese");
+
+        manager.install_caveman().expect("install caveman");
+        manager
+            .set_caveman_level(CAVEMAN_LEVEL_COMPACT_CHINESE)
+            .expect("set compact chinese");
+
+        let caveman = manager
+            .list_tools()
+            .into_iter()
+            .find(|tool| tool.id == "caveman")
+            .expect("caveman manifest should exist");
+        assert_eq!(manager.caveman_level(), CAVEMAN_LEVEL_COMPACT_CHINESE);
+        assert_eq!(
+            caveman.metadata.as_ref().and_then(|meta| meta.get("level")),
+            Some(&json!(CAVEMAN_LEVEL_COMPACT_CHINESE))
+        );
+    }
+
+    #[test]
+    fn caveman_unknown_level_falls_back_to_scoped() {
+        let (_root, _runtime, manager) = seed_test_runtime("caveman-unknown-level");
+
+        manager.install_caveman().expect("install caveman");
+        manager
+            .set_caveman_level("translate_everything")
+            .expect("set unknown level");
+
+        assert_eq!(manager.caveman_level(), CAVEMAN_LEVEL_SCOPED);
     }
 
     #[test]

@@ -51,7 +51,8 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 
 - Make Repo Intelligence the primary workflow before starting Codex, Claude Code, Gemini CLI, Cursor, Aider, OpenCode, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI, or similar tools.
 - Expose read-only local repo context through app UI, CLI, and a future MCP-style interface so agents stop rediscovering the same codebase.
-- Prove savings by source: Headroom engine compression, RTK output reduction, Repo Intelligence avoided reads, MarkItDown preprocessing, and Ponytail smaller-change guidance.
+- Prove savings by source: Headroom engine compression, RTK output reduction, Repo Intelligence avoided reads, MarkItDown preprocessing, Ponytail smaller-change guidance, and Caveman terse-output guidance.
+- Add Caveman Compact Chinese as an experimental opt-in profile only for private internal planning notes and handoffs; user-facing, legal, safety, debugging, and release-readiness content must stay in the user's requested language with full required detail.
 - Make every managed config mutation visible before and after it happens.
 - Convert planned connectors into supported connectors only after detection, dry-run diff, backup, verify, rollback, and Off-mode cleanup exist.
 - Surface release readiness in the app without confusing local unsigned install success with signed/notarized public release readiness.
@@ -154,6 +155,8 @@ Deliverables:
   - Repo Intelligence: estimated avoided discovery reads.
   - MarkItDown: estimated binary-document-to-Markdown reduction.
   - Ponytail: inferred smaller-change guidance savings.
+  - Caveman: inferred terse-output guidance savings.
+  - Caveman Compact Chinese: experimental inferred prompt and handoff compaction, counted separately only after profile-specific evidence exists.
 - Scopes: current session, repo, today, month, lifetime.
 - Add UI filters and a "copy savings summary" action.
 - Keep equations and caveats visible in exported summaries.
