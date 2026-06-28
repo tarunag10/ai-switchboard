@@ -541,6 +541,7 @@ export function formatSavingsLedgerShareText(
   rows: SavingsLedgerRow[],
   scope: SavingsCalculatorScope,
   recordedAt: string,
+  filter: SavingsLedgerConfidenceFilter = "all",
 ) {
   const summary = summarizeSavingsLedgerRows(rows, scope, recordedAt);
   const scopeLabel = savingsCalculatorScopeLabel(scope);
@@ -556,6 +557,7 @@ export function formatSavingsLedgerShareText(
   return [
     `Mac AI Switchboard savings ledger (${scopeLabel})`,
     `Recorded: ${recordedAt}`,
+    `Confidence filter: ${filter === "all" ? "all rows" : filter}`,
     "Scopes: session uses live app counters; repo uses Repo Intelligence context estimates; today/month/lifetime use saved local history.",
     `Rows: ${formatTokens(summary.rowCount)}`,
     `Total tokens: ${formatTokens(summary.totalTokens)}`,

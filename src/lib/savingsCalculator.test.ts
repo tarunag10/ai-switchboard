@@ -632,8 +632,10 @@ describe("savings calculator", () => {
       inferred.rows,
       "lifetime",
       recordedAt,
+      "inferred",
     );
     expect(copied).toContain("Rows: 2");
+    expect(copied).toContain("Confidence filter: inferred");
     expect(copied).toContain(
       "- repo_intelligence: Repo Intelligence (inferred, lifetime, 2026-06-27T10:00:00.000Z)",
     );
@@ -672,6 +674,7 @@ describe("savings calculator", () => {
 
     expect(text).toContain("Mac AI Switchboard savings ledger (lifetime)");
     expect(text).toContain("Recorded: 2026-06-27T10:00:00.000Z");
+    expect(text).toContain("Confidence filter: all rows");
     expect(text).toContain(
       "Scopes: session uses live app counters; repo uses Repo Intelligence context estimates; today/month/lifetime use saved local history.",
     );

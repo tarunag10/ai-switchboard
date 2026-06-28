@@ -773,6 +773,7 @@ function SavingsCalculatorCard({
         filteredLedger.rows,
         scope,
         ledgerRecordedAt,
+        ledgerFilter,
       ),
     );
     setCopyNotice(
