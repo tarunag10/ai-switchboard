@@ -44,14 +44,23 @@ describe("remote services copy", () => {
     expect(
       remoteServiceDestinations.every(
         (destination) =>
-          destination.endpointExample.length > 0 && destination.source.length > 0,
+          destination.endpointExample.length > 0 &&
+          destination.source.length > 0,
       ),
     ).toBe(true);
     expect(
       remoteServiceDestinations
-        .filter((destination) => destination.kind !== "support")
-        .every((destination) => Boolean(destination.envVar)),
+        .filter((destination) => destination.kind === "support")
+        .every((destination) => !destination.endpointExample.includes("extraheadroom.com")),
     ).toBe(true);
+    expect(
+      remoteServiceDestinations
+        .filter((destination) => destination.kind !== "support")
+        .every((destination) => Boolean(destination.envVar ?? destination.envVars?.length)),
+    ).toBe(true);
+    expect(remoteServiceDestinations.find((destination) => destination.id === "sentry")).toMatchObject({
+      envVars: ["HEADROOM_SENTRY_DSN", "VITE_SENTRY_DSN"],
+    });
   });
 
   it("uses explicit setup labels for local-only and cloud-capable modes", () => {

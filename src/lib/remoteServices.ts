@@ -11,6 +11,7 @@ export interface RemoteServiceDestination {
   kind: RemoteServiceKind;
   label: string;
   envVar?: string;
+  envVars?: string[];
   endpointExample: string;
   source: string;
   localOnlyAllowed: boolean;
@@ -39,7 +40,7 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     id: "sentry",
     kind: "telemetry",
     label: "Sentry diagnostics",
-    envVar: "SENTRY_DSN",
+    envVars: ["HEADROOM_SENTRY_DSN", "VITE_SENTRY_DSN"],
     endpointExample: "configured DSN host",
     source: "error and crash diagnostics",
     localOnlyAllowed: false,
@@ -76,8 +77,8 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     id: "support_links",
     kind: "support",
     label: "External support links",
-    endpointExample: "mailto:support@extraheadroom.com",
-    source: "user-opened support links",
+    endpointExample: "https://github.com/tarunag10/mac-ai-switchboard/issues",
+    source: "user-opened repository support links",
     localOnlyAllowed: false,
   },
 ];

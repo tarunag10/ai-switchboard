@@ -12,6 +12,7 @@ The goal is not to hide Headroom. Headroom is still a real underlying optimizati
 - A generated Mac AI Switchboard logo is now used in the launcher, tray, and app icon assets.
 - Off/RTK-only mode now prevents automatic Headroom intercept/proxy startup on launch and bootstrap.
 - Remote destinations are now inventoried in `docs/remote-destinations.md`, and governance/deployment checks require that registry before release.
+- In-app support actions now route to this repository's GitHub Issues instead of the inherited upstream support mailbox.
 - Many user-facing strings, release docs, runtime labels, support links, pricing/account flows, keychain labels, and file paths still refer to Headroom or upstream Extra Headroom services.
 
 ## Principles
@@ -169,7 +170,7 @@ Tasks:
 - Add a `LOCAL_ONLY` test mode that rejects unexpected network calls.
 - Ensure local-only mode disables or hides account/pricing/telemetry flows.
 - Decide whether upstream account/pricing should be removed, replaced, or clearly labeled as upstream.
-- Replace upstream support mailto and endpoint copy with Mac AI Switchboard-owned support details or remove those actions.
+- Replace upstream support mailto and endpoint copy with Mac AI Switchboard-owned support details or remove those actions: shipped for the main in-app support and runtime-upgrade failure actions.
 - Audit Keychain service names before renaming; create migration logic if they change.
 
 Acceptance checks:

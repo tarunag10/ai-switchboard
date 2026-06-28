@@ -27,10 +27,10 @@ endpoints, not remote destinations.
 | --- | --- | --- | --- |
 | Tauri updater feeds | `HEADROOM_UPDATER_ENDPOINTS`, `HEADROOM_UPDATER_STAGING_ENDPOINTS`, `HEADROOM_UPDATER_PUBLIC_KEY` | Signed desktop update checks for release builds. Official feeds are expected to be GitHub Release `latest.json` endpoints for this repository unless a fork intentionally replaces them. | Do not configure updater endpoints for local-only builds. |
 | Account and pricing API | `HEADROOM_ACCOUNT_API_BASE_URL` | Optional upstream-compatible account, subscription, and pricing flows. Production fallback is `https://extraheadroom.com/api/v1` until those flows are removed, replaced, or clearly relabeled. | Hide or disable account and pricing flows. |
-| Sentry diagnostics | `HEADROOM_SENTRY_DSN` | Optional backend/frontend crash and bootstrap failure diagnostics. | Disabled when local-only or remote telemetry is disabled. |
+| Sentry diagnostics | `HEADROOM_SENTRY_DSN`, `VITE_SENTRY_DSN` | Optional backend/frontend crash and bootstrap failure diagnostics. | Disabled when local-only or remote telemetry is disabled. |
 | Aptabase analytics | `HEADROOM_APTABASE_APP_KEY` | Optional backend analytics events sent to `https://eu.aptabase.com/api/v0/events` or `https://us.aptabase.com/api/v0/events` depending on the configured key region. | Disabled when local-only. |
 | Microsoft Clarity | `VITE_CLARITY_PROJECT_ID` | Optional frontend product analytics when a build opts in. | Leave empty for local-only builds. |
-| Support and external links | Bundled app/docs copy | Optional user-initiated browser or mail actions for support, repository, legal, or release pages. | Hide, remove, or keep as explicit user-initiated links only. |
+| Support and external links | Bundled app/docs copy | Optional user-initiated browser actions for this repository's GitHub Issues, legal, or release pages. | Hide, remove, or keep as explicit user-initiated links only. |
 
 ## Tool And Dependency Downloads
 

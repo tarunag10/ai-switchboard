@@ -495,6 +495,8 @@ const SALES_CONTACT_URL =
 const CONTACT_FORM_URL = (
   import.meta.env.VITE_HEADROOM_CONTACT_FORM_URL ?? ""
 ).trim();
+const SUPPORT_ISSUES_URL =
+  "https://github.com/tarunag10/mac-ai-switchboard/issues";
 
 type StartupPhase = "window" | "dashboard" | "bootstrap" | "runtime" | "ready";
 
@@ -2667,7 +2669,7 @@ function PlannedConnectorRoadmap({
   );
 }
 
-function buildUpgradeIssueMailto(failure: RuntimeUpgradeFailure): string {
+function buildUpgradeIssueUrl(failure: RuntimeUpgradeFailure): string {
   const subject = `Mac AI Switchboard engine update issue (${failure.targetHeadroomVersion}, ${failure.failurePhase})`;
   const diagnosticLines = [
     `App version: ${failure.appVersion}`,
@@ -2689,7 +2691,7 @@ function buildUpgradeIssueMailto(failure: RuntimeUpgradeFailure): string {
     "---\n" +
     "Diagnostic info (please keep):\n" +
     diagnosticLines.join("\n");
-  return `mailto:support@extraheadroom.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return `${SUPPORT_ISSUES_URL}/new?title=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 interface ProxyVerificationRow {
@@ -5942,7 +5944,7 @@ export default function App() {
                 className="secondary-button secondary-button--small"
                 onClick={() =>
                   void invoke("open_external_link", {
-                    url: buildUpgradeIssueMailto(upgradeFailure),
+                            url: buildUpgradeIssueUrl(upgradeFailure),
                   }).catch(() => {})
                 }
               >
@@ -6079,7 +6081,7 @@ export default function App() {
                   className="secondary-button secondary-button--small"
                   onClick={() =>
                     void invoke("open_external_link", {
-                      url: buildUpgradeIssueMailto(upgradeFailure),
+                              url: buildUpgradeIssueUrl(upgradeFailure),
                     }).catch(() => {})
                   }
                 >
@@ -10045,7 +10047,7 @@ export default function App() {
               className="contact-link"
               onClick={() =>
                 void invoke("open_external_link", {
-                  url: "mailto:support@extraheadroom.com",
+                  url: SUPPORT_ISSUES_URL,
                 })
               }
               type="button"

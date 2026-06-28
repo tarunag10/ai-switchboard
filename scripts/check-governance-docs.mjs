@@ -97,8 +97,10 @@ if (failures.length === 0) {
     "HEADROOM_UPDATER_ENDPOINTS",
     "HEADROOM_ACCOUNT_API_BASE_URL",
     "HEADROOM_SENTRY_DSN",
+    "VITE_SENTRY_DSN",
     "HEADROOM_APTABASE_APP_KEY",
     "VITE_CLARITY_PROJECT_ID",
+    "GitHub Issues",
     "Provider Traffic",
     "Change Control",
   ]) {
