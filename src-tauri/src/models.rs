@@ -701,6 +701,42 @@ pub struct ClientConnectorAutomationStage {
     pub evidence: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ManagedRollbackExecutionStatus {
+    Ready,
+    Blocked,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedRollbackPreview {
+    pub record_id: String,
+    pub owner: String,
+    pub target_path: String,
+    pub marker: String,
+    pub backup_path: Option<String>,
+    pub marker_present: bool,
+    pub backup_exists: bool,
+    pub status: ManagedRollbackExecutionStatus,
+    pub confirmation_phrase: String,
+    pub proposed_action: String,
+    pub blocked_reason: Option<String>,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedRollbackExecutionResult {
+    pub record_id: String,
+    pub owner: String,
+    pub target_path: String,
+    pub restored_from: String,
+    pub safety_backup_path: Option<String>,
+    pub marker: String,
+    pub verification: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ClientConnectorSupportStatus {

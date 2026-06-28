@@ -8,12 +8,14 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use uuid::Uuid;
 
 use crate::models::{
     ClientConnectorAutomationStage, ClientConnectorConfigCreationStep,
     ClientConnectorConfigDryRunPreview, ClientConnectorStatus, ClientConnectorSupportStatus,
-    ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus, SavingsMode,
-    SwitchboardMode,
+    ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus,
+    ManagedRollbackExecutionResult, ManagedRollbackExecutionStatus, ManagedRollbackPreview,
+    SavingsMode, SwitchboardMode,
 };
 use crate::storage::{app_data_dir, config_file};
 
@@ -3277,6 +3279,163 @@ pub fn codex_provider_block_matches() -> Result<bool> {
     Ok(root_ok && table_ok)
 }
 
+const CODEX_ROLLBACK_RECORD_ID: &str = "codex-routing";
+const CODEX_ROLLBACK_OWNER: &str = "Codex routing";
+const CODEX_ROLLBACK_MARKER: &str = "headroom:codex_cli";
+
+fn codex_rollback_confirmation_phrase() -> String {
+    format!("Restore {CODEX_ROLLBACK_MARKER} for {CODEX_ROLLBACK_OWNER}")
+}
+
+fn latest_headroom_backup_for(path: &Path) -> Option<PathBuf> {
+    let dir = path.parent()?;
+    let file_name = path.file_name()?.to_str()?;
+    let prefix = format!("{file_name}.headroom-backup-");
+    let mut backups = std::fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|candidate| {
+            candidate
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.starts_with(&prefix))
+                .unwrap_or(false)
+        })
+        .collect::<Vec<_>>();
+    backups.sort();
+    backups.pop()
+}
+
+fn validate_codex_rollback_record(record_id: &str) -> Result<()> {
+    if record_id == CODEX_ROLLBACK_RECORD_ID {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}."
+        ))
+    }
+}
+
+fn validate_codex_backup_path(target_path: &Path, backup_path: &Path) -> Result<()> {
+    let target_dir = target_path
+        .parent()
+        .ok_or_else(|| anyhow!("Codex target path has no parent directory."))?;
+    let backup_parent = backup_path
+        .parent()
+        .ok_or_else(|| anyhow!("Rollback backup path has no parent directory."))?;
+    if backup_parent != target_dir {
+        return Err(anyhow!(
+            "Rollback backup must live next to the managed Codex config."
+        ));
+    }
+    let target_file = target_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| anyhow!("Codex target path has no file name."))?;
+    let expected_prefix = format!("{target_file}.headroom-backup-");
+    let backup_name = backup_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| anyhow!("Rollback backup path has no file name."))?;
+    if !backup_name.starts_with(&expected_prefix) {
+        return Err(anyhow!(
+            "Rollback backup must use the Switchboard headroom-backup naming pattern."
+        ));
+    }
+    if !backup_path.exists() {
+        return Err(anyhow!("Rollback backup file does not exist."));
+    }
+    Ok(())
+}
+
+pub fn preview_managed_rollback(record_id: &str) -> Result<ManagedRollbackPreview> {
+    validate_codex_rollback_record(record_id)?;
+    let target_path = codex_config_toml_path();
+    let marker_present = target_path.exists() && codex_provider_block_matches().unwrap_or(false);
+    let backup_path = latest_headroom_backup_for(&target_path);
+    let backup_exists = backup_path.as_ref().is_some_and(|path| path.exists());
+    let blocked_reason = if !marker_present {
+        Some("Managed Codex marker is not present in the target config.".to_string())
+    } else if !backup_exists {
+        Some("No sibling Switchboard backup was found for the Codex config.".to_string())
+    } else {
+        None
+    };
+
+    Ok(ManagedRollbackPreview {
+        record_id: CODEX_ROLLBACK_RECORD_ID.to_string(),
+        owner: CODEX_ROLLBACK_OWNER.to_string(),
+        target_path: target_path.display().to_string(),
+        marker: CODEX_ROLLBACK_MARKER.to_string(),
+        backup_path: backup_path.map(|path| path.display().to_string()),
+        marker_present,
+        backup_exists,
+        status: if blocked_reason.is_none() {
+            ManagedRollbackExecutionStatus::Ready
+        } else {
+            ManagedRollbackExecutionStatus::Blocked
+        },
+        confirmation_phrase: codex_rollback_confirmation_phrase(),
+        proposed_action:
+            "Restore the Codex config from the selected sibling backup after creating a fresh safety backup."
+                .to_string(),
+        blocked_reason,
+        evidence: vec![
+            "Allowlisted first rollback execution row: codex-routing.".to_string(),
+            "Backup must live next to ~/.codex/config.toml and use *.headroom-backup-*.".to_string(),
+            "Current config must still contain the managed Codex marker before restore.".to_string(),
+        ],
+    })
+}
+
+pub fn execute_managed_rollback(
+    record_id: &str,
+    backup_path: &str,
+    confirmation_phrase: &str,
+) -> Result<ManagedRollbackExecutionResult> {
+    validate_codex_rollback_record(record_id)?;
+    let expected_confirmation = codex_rollback_confirmation_phrase();
+    if confirmation_phrase != expected_confirmation {
+        return Err(anyhow!("Rollback confirmation phrase does not match."));
+    }
+
+    let target_path = codex_config_toml_path();
+    if !target_path.exists() {
+        return Err(anyhow!("Codex config target does not exist."));
+    }
+    if !codex_provider_block_matches()? {
+        return Err(anyhow!(
+            "Managed Codex marker is missing or has drifted; refusing rollback."
+        ));
+    }
+    let backup_path = PathBuf::from(backup_path);
+    validate_codex_backup_path(&target_path, &backup_path)?;
+
+    let safety_backup = backup_if_exists(&target_path)?;
+    std::fs::copy(&backup_path, &target_path).with_context(|| {
+        format!(
+            "restoring {} from {}",
+            target_path.display(),
+            backup_path.display()
+        )
+    })?;
+
+    Ok(ManagedRollbackExecutionResult {
+        record_id: CODEX_ROLLBACK_RECORD_ID.to_string(),
+        owner: CODEX_ROLLBACK_OWNER.to_string(),
+        target_path: target_path.display().to_string(),
+        restored_from: backup_path.display().to_string(),
+        safety_backup_path: safety_backup.map(|path| path.display().to_string()),
+        marker: CODEX_ROLLBACK_MARKER.to_string(),
+        verification: vec![
+            "Exact confirmation phrase matched.".to_string(),
+            "Backup path was validated as a sibling Switchboard backup.".to_string(),
+            "A fresh safety backup was created before restore.".to_string(),
+        ],
+    })
+}
+
 fn marker_block_contains(content: &str, block_id: &str, needle: &str) -> bool {
     let start = format!("# >>> headroom:{block_id} >>>");
     let end = format!("# <<< headroom:{block_id} <<<");
@@ -3516,7 +3675,15 @@ fn backup_if_exists(path: &Path) -> Result<Option<PathBuf>> {
     }
 
     let stamp = Utc::now().format("%Y%m%d%H%M%S");
-    let backup_path = PathBuf::from(format!("{}.headroom-backup-{}", path.display(), stamp));
+    let mut backup_path = PathBuf::from(format!("{}.headroom-backup-{}", path.display(), stamp));
+    if backup_path.exists() {
+        backup_path = PathBuf::from(format!(
+            "{}.headroom-backup-{}-{}",
+            path.display(),
+            stamp,
+            Uuid::new_v4()
+        ));
+    }
     std::fs::copy(path, &backup_path)
         .with_context(|| format!("creating backup {}", backup_path.display()))?;
 
@@ -4979,7 +5146,8 @@ mod tests {
     use serde_json::json;
 
     use crate::models::{
-        ClientConnectorSupportStatus, ClientHealth, ClientStatus, SwitchboardMode,
+        ClientConnectorSupportStatus, ClientHealth, ClientStatus, ManagedRollbackExecutionStatus,
+        SwitchboardMode,
     };
 
     use super::{
@@ -7418,6 +7586,100 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             toml_second.matches("# >>> headroom:codex_cli >>>").count(),
             1,
             "managed block appears exactly once"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_preview_and_execute_restores_codex_backup() {
+        let home = TestHome::new();
+        fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
+        fs::write(home.path().join(".zshenv"), "# user zshenv\n").unwrap();
+        let codex_dir = home.path().join(".codex");
+        fs::create_dir_all(&codex_dir).unwrap();
+        let config_toml = codex_dir.join("config.toml");
+        let original = "model = \"gpt-5\"\n[profiles.default]\napproval_policy = \"never\"\n";
+        fs::write(&config_toml, original).unwrap();
+
+        super::apply_client_setup("codex").expect("apply codex");
+        let preview = super::preview_managed_rollback("codex-routing").expect("preview rollback");
+
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.marker_present);
+        assert!(preview.backup_exists);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Restore headroom:codex_cli for Codex routing"
+        );
+        let backup_path = preview.backup_path.expect("backup path");
+
+        let result = super::execute_managed_rollback(
+            "codex-routing",
+            &backup_path,
+            "Restore headroom:codex_cli for Codex routing",
+        )
+        .expect("execute rollback");
+
+        assert_eq!(result.record_id, "codex-routing");
+        assert_eq!(result.restored_from, backup_path);
+        assert!(
+            result.safety_backup_path.is_some(),
+            "fresh safety backup is created before restore"
+        );
+        assert_eq!(fs::read_to_string(&config_toml).unwrap(), original);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_rejects_backup_outside_codex_config_directory() {
+        let home = TestHome::new();
+        fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
+        fs::write(home.path().join(".zshenv"), "# user zshenv\n").unwrap();
+        let codex_dir = home.path().join(".codex");
+        fs::create_dir_all(&codex_dir).unwrap();
+        fs::write(codex_dir.join("config.toml"), "model = \"gpt-5\"\n").unwrap();
+        super::apply_client_setup("codex").expect("apply codex");
+        let wrong_backup = home.path().join("config.toml.headroom-backup-wrong");
+        fs::write(&wrong_backup, "model = \"gpt-4\"\n").unwrap();
+
+        let err = super::execute_managed_rollback(
+            "codex-routing",
+            wrong_backup.to_str().unwrap(),
+            "Restore headroom:codex_cli for Codex routing",
+        )
+        .expect_err("wrong backup must be rejected");
+
+        assert!(
+            err.to_string().contains("must live next to"),
+            "unexpected error: {err:#}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_rejects_missing_codex_marker() {
+        let home = TestHome::new();
+        fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
+        fs::write(home.path().join(".zshenv"), "# user zshenv\n").unwrap();
+        let codex_dir = home.path().join(".codex");
+        fs::create_dir_all(&codex_dir).unwrap();
+        let config_toml = codex_dir.join("config.toml");
+        fs::write(&config_toml, "model = \"gpt-5\"\n").unwrap();
+        super::apply_client_setup("codex").expect("apply codex");
+        let preview = super::preview_managed_rollback("codex-routing").expect("preview");
+        let backup_path = preview.backup_path.expect("backup");
+        fs::write(&config_toml, "model = \"gpt-5\"\n").unwrap();
+
+        let err = super::execute_managed_rollback(
+            "codex-routing",
+            &backup_path,
+            "Restore headroom:codex_cli for Codex routing",
+        )
+        .expect_err("missing marker must be rejected");
+
+        assert!(
+            err.to_string().contains("marker is missing"),
+            "unexpected error: {err:#}"
         );
     }
 

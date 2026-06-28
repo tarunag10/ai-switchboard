@@ -46,11 +46,11 @@ use crate::models::{
     ClaudeCodeProject, ClaudeUsage, ClientConnectorStatus, ClientSetupResult,
     ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
     HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
-    HeadroomSubscriptionTier, RepoAgentHandoffResponse, RepoContextPackResponse,
-    RepoDependentsResponse, RepoIndexFreshnessResponse, RepoIntelligenceManifestResponse,
-    RepoIntelligenceSummary, RepoSymbolSearchResponse, RuntimeStatus, RuntimeUpgradeProgress,
-    SavingsAttributionEvent, SavingsMode, SwitchboardMode, SwitchboardState,
-    TransformationFeedResponse,
+    HeadroomSubscriptionTier, ManagedRollbackExecutionResult, ManagedRollbackPreview,
+    RepoAgentHandoffResponse, RepoContextPackResponse, RepoDependentsResponse,
+    RepoIndexFreshnessResponse, RepoIntelligenceManifestResponse, RepoIntelligenceSummary,
+    RepoSymbolSearchResponse, RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionEvent,
+    SavingsMode, SwitchboardMode, SwitchboardState, TransformationFeedResponse,
 };
 use crate::state::AppState;
 
@@ -365,6 +365,21 @@ async fn get_savings_attribution_events(
     })
     .await
     .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn preview_managed_rollback(record_id: String) -> Result<ManagedRollbackPreview, String> {
+    client_adapters::preview_managed_rollback(&record_id).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn execute_managed_rollback(
+    record_id: String,
+    backup_path: String,
+    confirmation_phrase: String,
+) -> Result<ManagedRollbackExecutionResult, String> {
+    client_adapters::execute_managed_rollback(&record_id, &backup_path, &confirmation_phrase)
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -4593,6 +4608,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_dashboard_state,
             get_savings_attribution_events,
+            preview_managed_rollback,
+            execute_managed_rollback,
             build_repo_intelligence_summary,
             get_latest_repo_intelligence_summary,
             get_repo_intelligence_context_pack,
