@@ -203,7 +203,10 @@ describe("doctor repair copy", () => {
     expect(text).toContain("get_repo_pack");
     expect(text).toContain("get_agent_handoff");
     expect(text).toContain("get_index_freshness");
+    expect(text).toContain("API availability");
+    expect(text).toContain("missing/stale index state");
     expect(text).toContain("clear_repo_index");
+    expect(text).toContain("Availability gates");
     expect(text).toContain("never mutates the user repo");
   });
 
@@ -214,6 +217,8 @@ describe("doctor repair copy", () => {
     expect(contract).toContain("secret-like paths excluded");
     expect(contract).toContain("generated/vendor paths skipped");
     expect(contract).toContain("outputs bounded by pack/token budgets");
+    expect(contract).toContain("parser version reported");
+    expect(contract).toContain("missing, stale, corrupt, or moved repo indexes");
   });
 
   it("explains why planned connectors stay manual in Doctor", () => {

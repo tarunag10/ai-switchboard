@@ -83,7 +83,8 @@ Deliverables:
 - Return bounded JSON and Markdown.
 - Include safety flags: read-only, ignored secret paths, skipped generated/vendor paths, token budget, graph freshness, parser version.
 - Document how each agent can consume the API today, even before automatic connector setup exists.
-- Add Doctor checks for stale index, missing index, corrupt index, and local API availability.
+- Add Doctor checks for stale index, missing index, corrupt index, moved repo paths, and local API availability.
+- Treat `get_index_freshness` as the availability gate for local agents: it must expose API availability, graph status, parser/indexer metadata, and missing/stale/corrupt index state before an agent trusts a pack.
 
 Implementation areas:
 
@@ -98,6 +99,7 @@ Acceptance gates:
 - API calls are read-only and do not mutate user repositories.
 - Oversized outputs are bounded.
 - Secret-like files remain excluded by default.
+- Missing, stale, corrupt, or moved repo indexes remain visible in Doctor until cleared or re-indexed.
 - Tests cover manifest, pack, handoff, stale, clear, and corrupt-storage paths.
 
 Suggested commit:

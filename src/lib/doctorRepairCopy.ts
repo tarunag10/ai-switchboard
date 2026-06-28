@@ -295,9 +295,10 @@ export function repoIntelligenceDoctorApiContract(): string {
     "- get_repo_manifest: read latest bounded manifest.",
     "- get_repo_pack: read one bounded context pack.",
     "- get_agent_handoff: read one bounded agent handoff.",
-    "- get_index_freshness: read freshness and parser metadata.",
+    "- get_index_freshness: read API availability, freshness, graph status, parser metadata, and missing/stale index state.",
     "- clear_repo_index: clears only Switchboard managed index metadata; never mutates the user repo.",
-    "Safety: read-only by default, secret-like paths excluded, generated/vendor paths skipped, outputs bounded by pack/token budgets.",
+    "Availability gates: missing, stale, corrupt, or moved repo indexes stay visible in Doctor until cleared or re-indexed.",
+    "Safety: read-only by default, secret-like paths excluded, generated/vendor paths skipped, outputs bounded by pack/token budgets, parser version reported.",
   ].join("\n");
 }
 
