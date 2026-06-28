@@ -2,10 +2,15 @@ import fs from "node:fs";
 import path from "node:path";
 
 const roots = ["src", "src-tauri"];
-const blockedPathFragments = ["logo" + "ipsum", "headroom-" + "logo.svg"];
+const blockedPathFragments = [
+  "logo" + "ipsum",
+  "headroom-" + "logo.svg",
+  "headroom.iconset",
+];
 const blockedTextPatterns = [
   new RegExp("\\b" + "logo" + "ipsum" + "\\b", "i"),
   new RegExp("headroom-" + "logo\\.svg", "i"),
+  new RegExp("headroom\\.iconset", "i"),
 ];
 const ignoredDirs = new Set(["node_modules", "dist", "target", ".git"]);
 
@@ -56,6 +61,7 @@ if (!fs.existsSync("docs/asset-provenance.md")) {
     "ChatGPT image generation",
     "src/assets/",
     "src-tauri/icons/",
+    "mac-ai-switchboard.iconset",
   ]) {
     if (!provenance.includes(phrase)) {
       failures.push(`docs/asset-provenance.md missing ${phrase}`);

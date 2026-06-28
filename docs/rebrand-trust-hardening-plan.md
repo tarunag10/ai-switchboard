@@ -10,6 +10,7 @@ The goal is not to hide Headroom. Headroom is still a real underlying optimizati
 - The visible Terms gate now uses bundled Mac AI Switchboard Terms of Use.
 - The old Logoipsum/Headroom SVG has been removed from the app UI.
 - A generated Mac AI Switchboard logo is now used in the launcher, tray, and app icon assets.
+- The inherited `headroom.iconset` source folder has been renamed to `src-tauri/icons/mac-ai-switchboard.iconset/`, and the branding guard blocks the old folder name.
 - Off/RTK-only mode now prevents automatic Headroom intercept/proxy startup on launch and bootstrap.
 - Remote destinations are now inventoried in `docs/remote-destinations.md`, and governance/deployment checks require that registry before release.
 - In-app support actions now route to this repository's GitHub Issues instead of the inherited upstream support mailbox.
@@ -134,11 +135,11 @@ Finish replacing inherited visual identity.
 
 Tasks:
 
-- Rename `src-tauri/icons/headroom.iconset` to a Mac AI Switchboard-owned name if Tauri tooling and scripts allow it safely.
+- Rename `src-tauri/icons/headroom.iconset` to a Mac AI Switchboard-owned name if Tauri tooling and scripts allow it safely: shipped as `src-tauri/icons/mac-ai-switchboard.iconset/`.
 - Check DMG artwork, generated release artifacts, docs screenshots, README images, and app store/public listing assets for old branding.
 - Consider creating a vector-friendly source logo derived from the generated PNG for long-term maintainability.
-- Add an asset provenance note: generated with ChatGPT image generation, copied into the repo, edited only by resizing/format conversion.
-- Add an asset guard script that fails on `logoipsum`, `headroom-logo.svg`, and old upstream logo imports.
+- Add an asset provenance note: generated with ChatGPT image generation, copied into the repo, edited only by resizing/format conversion: shipped in `docs/asset-provenance.md`.
+- Add an asset guard script that fails on `logoipsum`, `headroom-logo.svg`, and old upstream logo imports: shipped, now including the old inherited `headroom.iconset` folder name.
 
 Acceptance checks:
 
