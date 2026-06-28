@@ -102,6 +102,7 @@ export function buildManagedChangeTimelineEvents(
     title: `${record.owner} rollback coverage`,
     body: [
       record.rollback,
+      "Per-change rollback: available from the rollback center when this managed footprint is present.",
       `Backup: ${record.backupPath ?? "not required"}.`,
       `Marker: ${record.markerId}.`,
       record.backupPath
