@@ -1706,6 +1706,20 @@ function buildAgentManifest(summary) {
   };
 }
 
+function formatApiQueryList(summary) {
+  const manifest = buildAgentManifest(summary);
+  return [
+    "# Repo Intelligence Read-Only API",
+    "Safety: read-only yes; secret-like paths excluded yes; modifies repository no.",
+    ...manifest.apiQueries.map(
+      (query) =>
+        `- ${query.command}: ${query.description} Read-only: ${
+          query.readOnly ? "yes" : "no"
+        }.`,
+    ),
+  ].join("\n");
+}
+
 function mcpTextResult(value) {
   return {
     content: [
@@ -1853,9 +1867,7 @@ if (options.mcpServe) {
     process.exit(0);
   }
   if (options.listApi) {
-    console.log(
-      repoAgentApiQueryTemplates.map((query) => query.command).join("\n"),
-    );
+    console.log(formatApiQueryList(summary));
     process.exit(0);
   }
   if (options.manifest) {
