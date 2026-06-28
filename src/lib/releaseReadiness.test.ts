@@ -53,11 +53,11 @@ describe("release readiness checklist", () => {
       "signing",
       "smoke",
     ]);
-    expect(releaseReadinessItemCount()).toBe(12);
+    expect(releaseReadinessItemCount()).toBe(13);
 
     const allCopy = releaseReadinessGroups
       .flatMap((group) => group.items)
-      .map((item) => `${item.label} ${item.detail}`)
+      .map((item) => `${item.label} ${item.detail} ${item.command ?? ""}`)
       .join(" ");
 
     expect(allCopy).toMatch(/cargo|rustup/i);
@@ -66,6 +66,8 @@ describe("release readiness checklist", () => {
     expect(allCopy).toMatch(/notarization|App Store Connect/i);
     expect(allCopy).toMatch(/signed DMG/i);
     expect(allCopy).toMatch(/notarized DMG/i);
+    expect(allCopy).toMatch(/Build\/install local DMG/i);
+    expect(allCopy).toMatch(/npm run build:mac:local-install/i);
     expect(allCopy).toMatch(/local unsigned\/ad-hoc install evidence/i);
     expect(allCopy).toMatch(/smoke:preflight/i);
     expect(allCopy).toMatch(/smoke-preflight-summary\.md/i);

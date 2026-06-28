@@ -506,6 +506,8 @@ fn run_release_evidence_command(
     ];
     const LOCAL_INSTALLED_SMOKE_STEPS: &[(&str, &[&str])] =
         &[("npm", &["run", "smoke:installed:local"])];
+    const LOCAL_DMG_BUILD_INSTALL_STEPS: &[(&str, &[&str])] =
+        &[("npm", &["run", "build:mac:local-install"])];
 
     let spec = match command_id.as_str() {
         "static-preflight" => ReleaseEvidenceCommandSpec {
@@ -526,9 +528,15 @@ fn run_release_evidence_command(
             steps: LOCAL_INSTALLED_SMOKE_STEPS,
             summary_path: Some("dist/local-installed-smoke-summary.md"),
         },
+        "local-dmg-build-install" => ReleaseEvidenceCommandSpec {
+            label: "Local DMG build/install",
+            command: "npm run build:mac:local-install",
+            steps: LOCAL_DMG_BUILD_INSTALL_STEPS,
+            summary_path: Some("dist/local-installed-smoke-summary.md"),
+        },
         _ => {
             return Err(
-                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, and local-installed-smoke."
+                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, local-dmg-build-install, and local-installed-smoke."
                     .to_string(),
             )
         }
@@ -8623,7 +8631,7 @@ Some unrelated content.
 
         assert!(
             err.contains(
-                "enabled only for static-preflight, desktop-validation, and local-installed-smoke"
+                "enabled only for static-preflight, desktop-validation, local-dmg-build-install, and local-installed-smoke"
             ),
             "unexpected error: {err}"
         );

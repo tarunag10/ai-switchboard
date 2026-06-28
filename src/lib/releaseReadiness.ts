@@ -374,6 +374,14 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         command: "npm run build:mac:dmg",
       },
       {
+        id: "local-dmg-build-install",
+        label: "Build/install local DMG",
+        detail:
+          "Build, install, ad-hoc sign, and verify the local unsigned DMG from the app; this produces local-only evidence and does not prove public release readiness.",
+        command: "npm run build:mac:local-install",
+        executable: true,
+      },
+      {
         id: "local-installed-smoke",
         label: "Record local install smoke",
         detail:
