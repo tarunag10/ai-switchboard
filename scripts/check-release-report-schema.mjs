@@ -94,6 +94,12 @@ const markdownReport = fs.readFileSync(markdownReportPath, "utf8");
 if (!markdownReport.includes("Planned connector config creation plan")) {
   fail(`${markdownReportPath} must include planned connector config creation plan evidence`);
 }
+if (!markdownReport.includes("## Planned Connector Readiness")) {
+  fail(`${markdownReportPath} must include planned connector readiness summary`);
+}
+if (!markdownReport.includes("Full per-tool dossiers are available from Doctor")) {
+  fail(`${markdownReportPath} must point to Doctor connector dossiers`);
+}
 
 requireType(report, "status", "string");
 requireType(report, "generatedAt", "string");

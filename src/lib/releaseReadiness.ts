@@ -1,3 +1,8 @@
+import {
+  getPlannedConnectorReadinessContract,
+  plannedConnectors,
+} from "./plannedConnectors";
+
 export interface ReleaseReadinessItem {
   id: string;
   label: string;
@@ -79,6 +84,39 @@ function hasConnectorConfigPlanEvidence(
       "Planned connector config creation plan",
     ) === true
   );
+}
+
+function formatConnectorReadinessSummary() {
+  const contracts = plannedConnectors.map(getPlannedConnectorReadinessContract);
+  const automationReady = contracts.filter(
+    (contract) => contract.automationEnabled,
+  ).length;
+  const nextBlocked = new Map<string, number>();
+  for (const contract of contracts) {
+    const stage =
+      contract.stages.find((item) => item.id === contract.nextBlockedStage)
+        ?.label ?? "None";
+    nextBlocked.set(stage, (nextBlocked.get(stage) ?? 0) + 1);
+  }
+
+  return [
+    "## Planned Connector Readiness",
+    `- Planned connectors: ${contracts.length}`,
+    `- Automation ready: ${automationReady}`,
+    `- Next blocked gates: ${[...nextBlocked.entries()]
+      .map(([label, count]) => `${label} (${count})`)
+      .join(", ")}`,
+    ...contracts
+      .slice(0, 6)
+      .map(
+        (contract) =>
+          `- ${contract.connectorName}: ${contract.setupPhase}, next gate ${
+            contract.stages.find((item) => item.id === contract.nextBlockedStage)
+              ?.label ?? "None"
+          }`,
+      ),
+    "- Full per-tool dossiers are available from Doctor's connector dossier copy action.",
+  ].join("\n");
 }
 
 export const releaseReadinessCommand = "npm run release:ready";
@@ -453,6 +491,8 @@ export function formatReleaseReadinessReportSnapshot(
       (row) =>
         `- ${row.label}: ${row.statusLabel} (${row.tone}) via ${row.source}. ${row.detail}`,
     ),
+    "",
+    formatConnectorReadinessSummary(),
     "",
     "## Blockers",
     `- Environment blockers: ${labels(report.releaseEnv?.blockers)}`,

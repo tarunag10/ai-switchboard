@@ -34,6 +34,20 @@ const installedSmokeRequiredEvidence = [
   "Per-tool agent handoffs",
   "Codex compression recovery",
 ];
+const plannedConnectorReadinessSummary = [
+  "## Planned Connector Readiness",
+  "",
+  "- Planned connectors: 11",
+  "- Automation ready: 0",
+  "- Next blocked gates: Backup Implemented (11)",
+  "- Gemini CLI: Guide, next gate Backup Implemented",
+  "- OpenCode: Adapt, next gate Backup Implemented",
+  "- Cursor: Guide, next gate Backup Implemented",
+  "- Grok / xAI CLI: Detect, next gate Backup Implemented",
+  "- Aider: Adapt, next gate Backup Implemented",
+  "- Continue: Guide, next gate Backup Implemented",
+  "- Full per-tool dossiers are available from Doctor's connector dossier copy action.",
+].join("\n");
 function runReleaseEnv() {
   const result = spawnSync(
     process.execPath,
@@ -326,6 +340,8 @@ ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Instal
 - Static smoke preflight ready: ${shareableDmgGate.staticSmokePreflightReady ? "yes" : "no"}
 - Installed-app smoke ready: ${shareableDmgGate.installedAppSmokeReady ? "yes" : "no"}
 - ${shareableDmgGate.message}
+
+${plannedConnectorReadinessSummary}
 
 ## Next Steps
 

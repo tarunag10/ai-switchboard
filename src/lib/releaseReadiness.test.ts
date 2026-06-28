@@ -272,6 +272,14 @@ describe("release readiness checklist", () => {
     expect(snapshot).toContain("Connector config plan evidence: yes");
     expect(snapshot).toContain("Signed and notarized: no");
     expect(snapshot).toContain("## Status Rows");
+    expect(snapshot).toContain("## Planned Connector Readiness");
+    expect(snapshot).toContain("Planned connectors: 11");
+    expect(snapshot).toContain("Automation ready: 0");
+    expect(snapshot).toContain("Backup Implemented (11)");
+    expect(snapshot).toContain("Gemini CLI: Guide, next gate Backup Implemented");
+    expect(snapshot).toContain(
+      "Full per-tool dossiers are available from Doctor's connector dossier copy action.",
+    );
     expect(snapshot).toContain(
       "Local DMG: Installed locally (local-only) via npm run build:mac:local-install. A local installed app exists, but local evidence is separate from signed release readiness.",
     );
