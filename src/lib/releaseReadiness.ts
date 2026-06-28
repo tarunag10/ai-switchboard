@@ -374,6 +374,14 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         command: "npm run build:mac:dmg",
       },
       {
+        id: "local-installed-smoke",
+        label: "Record local install smoke",
+        detail:
+          "Record local unsigned/ad-hoc install evidence after a local DMG install; this remains local-only and does not prove public release readiness.",
+        command: "npm run smoke:installed:local",
+        executable: true,
+      },
+      {
         id: "beta-smoke",
         label: "Run beta smoke test",
         detail:

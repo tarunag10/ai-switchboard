@@ -504,6 +504,8 @@ fn run_release_evidence_command(
         ("npm", &["run", "fmt:desktop"]),
         ("npm", &["run", "test:desktop"]),
     ];
+    const LOCAL_INSTALLED_SMOKE_STEPS: &[(&str, &[&str])] =
+        &[("npm", &["run", "smoke:installed:local"])];
 
     let spec = match command_id.as_str() {
         "static-preflight" => ReleaseEvidenceCommandSpec {
@@ -518,9 +520,15 @@ fn run_release_evidence_command(
             steps: DESKTOP_VALIDATION_STEPS,
             summary_path: None,
         },
+        "local-installed-smoke" => ReleaseEvidenceCommandSpec {
+            label: "Local installed smoke",
+            command: "npm run smoke:installed:local",
+            steps: LOCAL_INSTALLED_SMOKE_STEPS,
+            summary_path: Some("dist/local-installed-smoke-summary.md"),
+        },
         _ => {
             return Err(
-                "Release evidence execution is currently enabled only for static-preflight and desktop-validation."
+                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, and local-installed-smoke."
                     .to_string(),
             )
         }
@@ -8580,7 +8588,9 @@ Some unrelated content.
         let err = crate::run_release_evidence_command("build-mac-dmg".to_string()).unwrap_err();
 
         assert!(
-            err.contains("enabled only for static-preflight and desktop-validation"),
+            err.contains(
+                "enabled only for static-preflight, desktop-validation, and local-installed-smoke"
+            ),
             "unexpected error: {err}"
         );
     }
