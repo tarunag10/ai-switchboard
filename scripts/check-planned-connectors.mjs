@@ -126,8 +126,31 @@ function validateBackendConfigCreationPlanContract(source) {
       errors.push(`backend config creation plan missing "${label}"`);
     }
   }
+  const idBody = source.match(
+    /const PLANNED_CONFIG_CREATION_STEP_IDS:\s*\[&str;\s*7\]\s*=\s*\[([\s\S]*?)\];/,
+  )?.[1];
+  if (!idBody) {
+    errors.push("missing PLANNED_CONFIG_CREATION_STEP_IDS backend contract");
+  } else {
+    for (const id of [
+      "detect",
+      "dryRunDiff",
+      "backup",
+      "apply",
+      "verify",
+      "rollback",
+      "offCleanup",
+    ]) {
+      if (!idBody.includes(`"${id}"`)) {
+        errors.push(`backend config creation plan missing "${id}" step id`);
+      }
+    }
+  }
   if (!source.includes("config_creation_steps: PLANNED_CONFIG_CREATION_STEPS")) {
     errors.push("planned backend connectors must expose config_creation_steps");
+  }
+  if (!source.includes("config_creation_step_details: planned_config_creation_step_details(spec)")) {
+    errors.push("planned backend connectors must expose structured config_creation_step_details");
   }
   return errors;
 }
@@ -197,6 +220,9 @@ metadataErrors.push(...validateConfigCreationPlanContract(frontendSource));
 metadataErrors.push(...validateBackendConfigCreationPlanContract(backendSource));
 if (!appSource.includes("configPlan.steps.map((step) =>")) {
   metadataErrors.push("planned connector UI must render every config creation step");
+}
+if (!appSource.includes("connector.configCreationStepDetails")) {
+  metadataErrors.push("planned connector UI must render structured config creation step details");
 }
 if (appSource.includes("configPlan.steps.slice(")) {
   metadataErrors.push("planned connector UI must not truncate config creation steps");

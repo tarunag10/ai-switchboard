@@ -2550,7 +2550,17 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
         .collect::<Vec<_>>();
     let config_steps = connectors
         .iter()
-        .flat_map(|client| client.config_creation_steps.iter().map(String::as_str))
+        .flat_map(|client| {
+            if client.config_creation_step_details.is_empty() {
+                client.config_creation_steps.clone()
+            } else {
+                client
+                    .config_creation_step_details
+                    .iter()
+                    .map(|step| step.label.clone())
+                    .collect()
+            }
+        })
         .take(7)
         .collect::<Vec<_>>();
 
@@ -2620,6 +2630,7 @@ mod doctor_tests {
                 "Rollback safely".to_string(),
                 "Clean up in Off mode".to_string(),
             ],
+            config_creation_step_details: Vec::new(),
             installed: true,
             enabled: false,
             verified: false,

@@ -4204,8 +4204,9 @@ export default function App() {
     connector: ClientConnectorStatus,
     plannedConnector: PlannedConnector,
   ) {
-    const steps = connector.configCreationSteps ?? [];
-    if (steps.length === 0) {
+    const stepDetails = connector.configCreationStepDetails ?? [];
+    const stepLabels = connector.configCreationSteps ?? [];
+    if (stepDetails.length === 0 && stepLabels.length === 0) {
       return formatPlannedConnectorConfigCreationPlansMarkdown([
         plannedConnector,
       ]);
@@ -4217,7 +4218,9 @@ export default function App() {
       `## ${connector.name}`,
       "- Automation enabled: no",
       "- Safety note: Backend metadata keeps config creation gated until every step has tests and Doctor evidence.",
-      ...steps.map((step) => `- ${step}`),
+      ...(stepDetails.length > 0
+        ? stepDetails.map((step) => `- ${step.label}: ${step.detail}`)
+        : stepLabels.map((step) => `- ${step}`)),
     ].join("\n");
   }
 
@@ -8567,6 +8570,7 @@ export default function App() {
                             connector.detectionEvidence?.length ||
                             connector.automationGates?.length ||
                             connector.manualWorkflow?.length ||
+                            connector.configCreationStepDetails?.length ||
                             connector.configCreationSteps?.length ? (
                               <div className="connector-plan__backend">
                                 <strong>Backend checks</strong>
@@ -8613,9 +8617,17 @@ export default function App() {
                                 {connector.configCreationSteps?.length ? (
                                   <span>
                                     Config plan{" "}
-                                    {connector.configCreationSteps
-                                      .slice(0, 4)
-                                      .join(" -> ")}
+                                    {(connector.configCreationStepDetails
+                                      ?.slice(0, 4)
+                                      .map(
+                                        (step) =>
+                                          `${step.label}: ${step.detail}`,
+                                      ) ??
+                                      connector.configCreationSteps.slice(
+                                        0,
+                                        4,
+                                      )
+                                    ).join(" -> ")}
                                   </span>
                                 ) : null}
                               </div>

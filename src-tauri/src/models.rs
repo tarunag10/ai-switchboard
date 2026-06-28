@@ -578,10 +578,20 @@ pub struct ClientConnectorStatus {
     pub manual_workflow: Vec<String>,
     #[serde(default)]
     pub config_creation_steps: Vec<String>,
+    #[serde(default)]
+    pub config_creation_step_details: Vec<ClientConnectorConfigCreationStep>,
     pub installed: bool,
     pub enabled: bool,
     pub verified: bool,
     pub last_configured_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientConnectorConfigCreationStep {
+    pub id: String,
+    pub label: String,
+    pub detail: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

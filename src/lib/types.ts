@@ -175,10 +175,17 @@ export interface ClientConnectorStatus {
   automationGates?: string[];
   manualWorkflow?: string[];
   configCreationSteps?: string[];
+  configCreationStepDetails?: ClientConnectorConfigCreationStep[];
   installed: boolean;
   enabled: boolean;
   verified: boolean;
   lastConfiguredAt?: string | null;
+}
+
+export interface ClientConnectorConfigCreationStep {
+  id: string;
+  label: string;
+  detail: string;
 }
 
 export interface RuntimeStatus {

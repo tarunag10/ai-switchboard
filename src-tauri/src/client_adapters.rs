@@ -10,8 +10,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::models::{
-    ClientConnectorStatus, ClientConnectorSupportStatus, ClientHealth, ClientSetupResult,
-    ClientSetupVerification, ClientStatus, SavingsMode, SwitchboardMode,
+    ClientConnectorConfigCreationStep, ClientConnectorStatus, ClientConnectorSupportStatus,
+    ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus, SavingsMode,
+    SwitchboardMode,
 };
 use crate::storage::{app_data_dir, config_file};
 
@@ -72,6 +73,16 @@ const PLANNED_CONFIG_CREATION_STEPS: [&str; 7] = [
     "Verify in Doctor",
     "Rollback safely",
     "Clean up in Off mode",
+];
+
+const PLANNED_CONFIG_CREATION_STEP_IDS: [&str; 7] = [
+    "detect",
+    "dryRunDiff",
+    "backup",
+    "apply",
+    "verify",
+    "rollback",
+    "offCleanup",
 ];
 
 const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
@@ -294,6 +305,77 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         ],
     },
 ];
+
+fn planned_config_creation_step_details(
+    spec: &PlannedClientSpec,
+) -> Vec<ClientConnectorConfigCreationStep> {
+    let detect_detail = format!(
+        "Read-only probe only: inspect {} and watch {} without creating or modifying config.",
+        spec.detection_sources.join(", "),
+        spec.config_locations.join(", ")
+    );
+    let dry_run_detail =
+        "Preview the exact local proxy/provider diff before any file, profile, or environment edit."
+            .to_string();
+    let backup_detail = spec
+        .automation_gates
+        .iter()
+        .find(|gate| gate.to_lowercase().contains("back up"))
+        .copied()
+        .unwrap_or("Create a timestamped backup before any managed setup.")
+        .to_string();
+    let apply_detail = format!(
+        "Apply stays disabled for {} until the dry-run diff, backup, verify, rollback, and Off cleanup gates all pass.",
+        spec.name
+    );
+    let verify_detail = spec
+        .automation_gates
+        .iter()
+        .find(|gate| {
+            let gate = gate.to_lowercase();
+            gate.contains("doctor")
+                || gate.contains("verify")
+                || gate.contains("guardrails")
+                || gate.contains("compatibility")
+        })
+        .copied()
+        .unwrap_or("Doctor verification must prove the connector state after setup.")
+        .to_string();
+    let rollback_detail = spec
+        .automation_gates
+        .iter()
+        .find(|gate| {
+            let gate = gate.to_lowercase();
+            gate.contains("restore") || gate.contains("off mode") || gate.contains("unchanged")
+        })
+        .copied()
+        .unwrap_or("Rollback must restore previous config without touching unrelated settings.")
+        .to_string();
+    let off_cleanup_detail = format!(
+        "Off cleanup removes only Switchboard-managed routing; manual workflow remains: {}",
+        spec.manual_workflow.join(" ")
+    );
+    let details = [
+        detect_detail,
+        dry_run_detail,
+        backup_detail,
+        apply_detail,
+        verify_detail,
+        rollback_detail,
+        off_cleanup_detail,
+    ];
+
+    PLANNED_CONFIG_CREATION_STEP_IDS
+        .iter()
+        .zip(PLANNED_CONFIG_CREATION_STEPS.iter())
+        .zip(details)
+        .map(|((id, label), detail)| ClientConnectorConfigCreationStep {
+            id: (*id).to_string(),
+            label: (*label).to_string(),
+            detail,
+        })
+        .collect()
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ShellFamily {
@@ -709,6 +791,7 @@ pub fn list_client_connectors(
                     "Switch to Off mode to remove managed routing.".to_string(),
                 ],
                 config_creation_steps: Vec::new(),
+                config_creation_step_details: Vec::new(),
                 installed,
                 enabled,
                 verified,
@@ -757,6 +840,7 @@ pub fn list_client_connectors(
                 .iter()
                 .map(|step| step.to_string())
                 .collect(),
+            config_creation_step_details: planned_config_creation_step_details(spec),
             installed,
             enabled: false,
             verified: false,
@@ -4164,7 +4248,7 @@ mod tests {
         retag_one_codex_db, serialize_paths, shell_block_contains_in_files,
         shell_block_contains_text_in_files, shell_double_quote, strip_headroom_hook_from_settings,
         upsert_managed_block, write_file_if_changed, ClientSetupState, ShellFamily,
-        PLANNED_CLIENT_SPECS, PLANNED_CONFIG_CREATION_STEPS,
+        PLANNED_CLIENT_SPECS, PLANNED_CONFIG_CREATION_STEPS, PLANNED_CONFIG_CREATION_STEP_IDS,
     };
     use rusqlite::Connection;
 
@@ -4432,6 +4516,18 @@ mod tests {
                     .map(|step| step.to_string())
                     .collect::<Vec<_>>()
             );
+            assert_eq!(
+                connector
+                    .config_creation_step_details
+                    .iter()
+                    .map(|step| step.id.as_str())
+                    .collect::<Vec<_>>(),
+                PLANNED_CONFIG_CREATION_STEP_IDS
+            );
+            assert!(connector
+                .config_creation_step_details
+                .iter()
+                .all(|step| !step.label.is_empty() && step.detail.len() > 30));
         }
 
         let managed = connectors
@@ -4440,7 +4536,8 @@ mod tests {
             .collect::<Vec<_>>();
         assert!(managed
             .iter()
-            .all(|connector| connector.config_creation_steps.is_empty()));
+            .all(|connector| connector.config_creation_steps.is_empty()
+                && connector.config_creation_step_details.is_empty()));
 
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "gemini_cli"
