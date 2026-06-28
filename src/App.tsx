@@ -370,9 +370,9 @@ const connectorSetupDetails: Record<string, string> = {
   codex:
     "Headroom writes a managed provider block to ~/.codex/config.toml and exports OPENAI_BASE_URL in shell profiles so Codex connects through Headroom.",
   gemini_cli:
-    "Gemini CLI is tracked as a planned adapter. Until its reversible config path is implemented, use RTK-only mode for command output savings.",
+    "Headroom writes managed Gemini CLI shell routing exports and a rollback dossier so Gemini CLI connects through Mac AI Switchboard while preserving user config.",
   opencode:
-    "OpenCode is tracked as a planned adapter. Until its reversible config path is implemented, use RTK-only mode for command output savings.",
+    "Headroom writes a managed OpenCode provider in ~/.config/opencode/opencode.json and a rollback dossier so OpenCode connects through Mac AI Switchboard.",
   cursor:
     "Cursor is tracked as a planned editor connector. Guided setup is shown first because Cursor settings and account behavior can vary by release channel.",
   grok_cli:
@@ -399,8 +399,8 @@ const connectorUnavailableReasons: Record<string, string> = {
   claude_code:
     "Claude Code was not detected. Install Claude Code and restart Headroom.",
   codex: "Codex was not detected. Install the Codex CLI and restart Headroom.",
-  gemini_cli: "Gemini CLI adapter is planned but not configurable yet.",
-  opencode: "OpenCode adapter is planned but not configurable yet.",
+  gemini_cli: "Gemini CLI was not detected. Install Gemini CLI and restart Headroom.",
+  opencode: "OpenCode was not detected. Install OpenCode and restart Headroom.",
   cursor: "Cursor adapter is planned but not configurable yet.",
   grok_cli: "Grok / xAI CLI adapter is planned but not configurable yet.",
   aider: "Aider adapter is planned but not configurable yet.",

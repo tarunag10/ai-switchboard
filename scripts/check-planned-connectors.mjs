@@ -163,10 +163,16 @@ function validateBackendConfigCreationPlanContract(source) {
       }
     }
   }
-  if (!source.includes("config_creation_steps: PLANNED_CONFIG_CREATION_STEPS")) {
+  if (
+    !source.includes("config_creation_steps")
+    || !source.includes("PLANNED_CONFIG_CREATION_STEPS")
+  ) {
     errors.push("planned backend connectors must expose config_creation_steps");
   }
-  if (!source.includes("config_creation_step_details: planned_config_creation_step_details(spec)")) {
+  if (
+    !source.includes("config_creation_step_details")
+    || !source.includes("planned_config_creation_step_details(spec)")
+  ) {
     errors.push("planned backend connectors must expose structured config_creation_step_details");
   }
   if (!source.includes("required_evidence")) {

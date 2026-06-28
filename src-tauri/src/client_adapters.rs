@@ -23,6 +23,8 @@ const HEADROOM_ANTHROPIC_BASE_URL: &str = "http://127.0.0.1:6767";
 const HEADROOM_OPENAI_BASE_URL: &str = "http://127.0.0.1:6767/v1";
 const GEMINI_BASE_URL_ENV_KEY: &str = "GOOGLE_GEMINI_BASE_URL";
 const GEMINI_COMPAT_BASE_URL_ENV_KEY: &str = "GEMINI_BASE_URL";
+const GEMINI_API_KEY_ENV_KEY: &str = "GEMINI_API_KEY";
+const GEMINI_HEADROOM_API_KEY_VALUE: &str = "headroom-local";
 const OPENCODE_CONFIG_FILE: &str = "opencode.json";
 const OPENCODE_HEADROOM_PROVIDER_ID: &str = "headroom";
 const SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md";
@@ -790,7 +792,7 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
         "gemini_cli" => {
             let shell_targets = resolve_client_shell_targets(&state, client_id)?;
             let env_block = format!(
-                "export {GEMINI_BASE_URL_ENV_KEY}={HEADROOM_PROXY_URL}\nexport {GEMINI_COMPAT_BASE_URL_ENV_KEY}={HEADROOM_PROXY_URL}"
+                "export {GEMINI_BASE_URL_ENV_KEY}={HEADROOM_PROXY_URL}\nexport {GEMINI_COMPAT_BASE_URL_ENV_KEY}={HEADROOM_PROXY_URL}\nexport {GEMINI_API_KEY_ENV_KEY}={GEMINI_HEADROOM_API_KEY_VALUE}"
             );
             let mut updates = configure_shell_block(&shell_targets, "gemini_cli", &env_block)?;
             let (changed, backup) = configure_planned_switchboard_sidecar(client_id)?;
@@ -991,6 +993,12 @@ pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
                 GEMINI_COMPAT_BASE_URL_ENV_KEY,
                 HEADROOM_PROXY_URL,
             )?;
+            let api_key_ok = shell_block_contains_in_files(
+                &shell_targets,
+                "gemini_cli",
+                GEMINI_API_KEY_ENV_KEY,
+                GEMINI_HEADROOM_API_KEY_VALUE,
+            )?;
 
             if sidecar_ok {
                 checks.push(format!(
@@ -1025,6 +1033,17 @@ pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
                 failures.push(format!(
                     "Gemini compatibility {} export was not found in shell profiles.",
                     GEMINI_COMPAT_BASE_URL_ENV_KEY
+                ));
+            }
+            if api_key_ok {
+                checks.push(format!(
+                    "Found Gemini {} export for local Headroom proxy auth.",
+                    GEMINI_API_KEY_ENV_KEY
+                ));
+            } else {
+                failures.push(format!(
+                    "Gemini {} export was not found in shell profiles.",
+                    GEMINI_API_KEY_ENV_KEY
                 ));
             }
         }
@@ -1179,14 +1198,76 @@ pub fn list_client_connectors(
             enabled,
             verified,
         );
+        let support_status = if has_implemented_setup {
+            ClientConnectorSupportStatus::Managed
+        } else {
+            ClientConnectorSupportStatus::Planned
+        };
+        let setup_phase = if has_implemented_setup {
+            "managed"
+        } else {
+            spec.setup_phase
+        };
+        let setup_hint = if has_implemented_setup {
+            "Automatic reversible setup, verification, repair, restore, and off-mode cleanup are supported."
+        } else {
+            spec.setup_hint
+        };
+        let automation_gates = if has_implemented_setup {
+            vec![
+                "Timestamped backups are created before managed config edits.".to_string(),
+                "Verification confirms managed routing config points to Headroom.".to_string(),
+                "Off mode removes only Switchboard-managed routing and preserves user config."
+                    .to_string(),
+            ]
+        } else {
+            spec.automation_gates
+                .iter()
+                .map(|gate| gate.to_string())
+                .collect()
+        };
+        let manual_workflow = if has_implemented_setup {
+            vec![
+                "Toggle the connector on from Settings.".to_string(),
+                "Use Doctor repair if verification reports a drifted config.".to_string(),
+                "Switch to Off mode to remove managed routing.".to_string(),
+            ]
+        } else {
+            spec.manual_workflow
+                .iter()
+                .map(|step| step.to_string())
+                .collect()
+        };
+        let config_creation_steps = if has_implemented_setup {
+            Vec::new()
+        } else {
+            PLANNED_CONFIG_CREATION_STEPS
+                .iter()
+                .map(|step| step.to_string())
+                .collect()
+        };
+        let config_creation_step_details = if has_implemented_setup {
+            Vec::new()
+        } else {
+            planned_config_creation_step_details(spec)
+        };
+        let config_dry_run_preview = if has_implemented_setup {
+            None
+        } else {
+            config_dry_run_preview
+        };
 
         ClientConnectorStatus {
             client_id: spec.id.to_string(),
             name: spec.name.to_string(),
-            support_status: ClientConnectorSupportStatus::Planned,
-            setup_phase: spec.setup_phase.to_string(),
-            setup_hint: spec.setup_hint.to_string(),
-            category: spec.category.to_string(),
+            support_status,
+            setup_phase: setup_phase.to_string(),
+            setup_hint: setup_hint.to_string(),
+            category: if has_implemented_setup {
+                "managed".to_string()
+            } else {
+                spec.category.to_string()
+            },
             detection_sources: spec
                 .detection_sources
                 .iter()
@@ -1198,23 +1279,16 @@ pub fn list_client_connectors(
                 .iter()
                 .map(|location| location.to_string())
                 .collect(),
-            automation_gates: spec
-                .automation_gates
-                .iter()
-                .map(|gate| gate.to_string())
-                .collect(),
-            manual_workflow: spec
-                .manual_workflow
-                .iter()
-                .map(|step| step.to_string())
-                .collect(),
-            config_creation_steps: PLANNED_CONFIG_CREATION_STEPS
-                .iter()
-                .map(|step| step.to_string())
-                .collect(),
-            config_creation_step_details: planned_config_creation_step_details(spec),
+            automation_gates,
+            manual_workflow,
+            config_creation_steps,
+            config_creation_step_details,
             config_dry_run_preview,
-            automation_path,
+            automation_path: if has_implemented_setup {
+                Vec::new()
+            } else {
+                automation_path
+            },
             installed,
             enabled,
             verified,
@@ -4832,6 +4906,7 @@ mod tests {
         shell_block_contains_text_in_files, shell_double_quote, strip_headroom_hook_from_settings,
         upsert_managed_block, write_file_if_changed, ClientSetupState, ShellFamily,
         PLANNED_CLIENT_SPECS, PLANNED_CONFIG_CREATION_STEPS, PLANNED_CONFIG_CREATION_STEP_IDS,
+        PLANNED_SIDECAR_SPECS,
     };
     use rusqlite::Connection;
 
@@ -5082,7 +5157,10 @@ mod tests {
             .filter(|connector| connector.support_status == ClientConnectorSupportStatus::Planned)
             .collect::<Vec<_>>();
 
-        assert_eq!(planned.len(), PLANNED_CLIENT_SPECS.len());
+        assert_eq!(
+            planned.len(),
+            PLANNED_CLIENT_SPECS.len() - PLANNED_SIDECAR_SPECS.len()
+        );
 
         for connector in planned {
             assert!(!connector.enabled);
@@ -5180,23 +5258,12 @@ mod tests {
             .iter()
             .find(|connector| connector.client_id == "gemini_cli")
             .expect("gemini connector");
-        let preview = gemini
-            .config_dry_run_preview
-            .as_ref()
-            .expect("gemini dry-run preview");
-        assert_eq!(preview.target, "/Users/test/.gemini");
-        assert_eq!(preview.marker, "mac-ai-switchboard:gemini_cli");
-        assert_eq!(
-            preview.backup_path,
-            "/Users/test/.gemini.mac-ai-switchboard.bak"
-        );
-        assert!(preview.current_state.contains("No Switchboard-managed"));
-        assert!(preview.proposed_state.contains("Preview only"));
-        assert!(preview.proposed_state.contains("no files are written"));
-        assert!(preview.proposed_state.contains("after explicit consent"));
-        assert!(preview.rollback_preview.contains("remove only"));
-        assert_eq!(preview.confirmation_phrase, "APPLY GEMINI CLI CONFIG");
-        assert!(preview.writes.is_empty());
+        assert_eq!(gemini.support_status, ClientConnectorSupportStatus::Managed);
+        assert_eq!(gemini.setup_phase, "managed");
+        assert!(gemini.config_creation_steps.is_empty());
+        assert!(gemini.config_creation_step_details.is_empty());
+        assert!(gemini.config_dry_run_preview.is_none());
+        assert!(gemini.automation_path.is_empty());
         assert!(!gemini.enabled);
         assert!(!gemini.verified);
 
@@ -5205,12 +5272,16 @@ mod tests {
             .find(|connector| connector.client_id == "opencode")
             .expect("opencode connector");
         assert_eq!(
-            opencode
-                .config_dry_run_preview
-                .as_ref()
-                .map(|preview| preview.target.as_str()),
-            Some("/Users/test/.config/opencode")
+            opencode.support_status,
+            ClientConnectorSupportStatus::Managed
         );
+        assert_eq!(opencode.setup_phase, "managed");
+        assert!(opencode.config_creation_steps.is_empty());
+        assert!(opencode.config_creation_step_details.is_empty());
+        assert!(opencode.config_dry_run_preview.is_none());
+        assert!(opencode.automation_path.is_empty());
+        assert!(!opencode.enabled);
+        assert!(!opencode.verified);
 
         let managed = connectors
             .iter()
@@ -5223,7 +5294,7 @@ mod tests {
 
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "gemini_cli"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -5234,7 +5305,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "opencode"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
