@@ -320,6 +320,8 @@ describe("doctor repair copy", () => {
     });
     expect(codex?.body).toContain("headroom:codex_cli");
     expect(codex?.body).toContain("Backup: next to edited client config");
+    expect(codex?.body).toContain("Dry-run diff available");
+    expect(codex?.body).toContain("apply requires explicit confirmation");
     expect(codex?.target).not.toContain("~/.codex/config.toml");
 
     const repoIndex = events.find(
@@ -329,6 +331,9 @@ describe("doctor repair copy", () => {
       kind: "rollback",
       target: "1 managed path",
     });
+    expect(repoIndex?.body).toContain(
+      "No config diff is required for this managed footprint.",
+    );
   });
 
   it("formats an empty Doctor timeline", () => {

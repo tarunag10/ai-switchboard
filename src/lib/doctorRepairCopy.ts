@@ -100,7 +100,14 @@ export function buildManagedChangeTimelineEvents(
     id: `managed-change-${record.id}`,
     kind: record.backupPath ? "backup" : "rollback",
     title: `${record.owner} rollback coverage`,
-    body: `${record.rollback} Backup: ${record.backupPath ?? "not required"}. Marker: ${record.markerId}.`,
+    body: [
+      record.rollback,
+      `Backup: ${record.backupPath ?? "not required"}.`,
+      `Marker: ${record.markerId}.`,
+      record.backupPath
+        ? "Dry-run diff available; copied previews do not modify files and apply requires explicit confirmation."
+        : "No config diff is required for this managed footprint.",
+    ].join(" "),
     occurredAt: observedAt,
     status: "warning",
     actor: "switchboard",
