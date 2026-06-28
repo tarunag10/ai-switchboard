@@ -9,6 +9,7 @@ import {
   filterSavingsLedgerRowsByConfidence,
   formatSavingsLedgerConfidenceBreakdown,
   formatSavingsLedgerShareText,
+  getSavingsLedgerEmptyState,
   groupSavingsLedgerRowsBySource,
   formatSavingsCalculatorShareText,
   summarizeSavingsLedgerRows,
@@ -548,6 +549,19 @@ describe("savings calculator", () => {
         "2026-06-27T10:00:00.000Z",
       ),
     ).toEqual([]);
+  });
+
+  it("describes genuinely empty and filter-empty ledgers distinctly", () => {
+    expect(getSavingsLedgerEmptyState(0, "all")).toEqual({
+      title: "No savings ledger rows yet",
+      detail:
+        "Run a connected agent, index a repo, or enable an add-on estimate to populate measured, estimated, or inferred rows.",
+    });
+    expect(getSavingsLedgerEmptyState(3, "measured")).toEqual({
+      title: "No matching ledger rows",
+      detail:
+        "No measured rows match this ledger view. Change the confidence filter to see other sources.",
+    });
   });
 
   it("filters ledger rows by confidence before grouping and copying", () => {

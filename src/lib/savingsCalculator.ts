@@ -125,6 +125,11 @@ export interface FilteredSavingsLedger {
   summary: SavingsLedgerSummary;
 }
 
+export interface SavingsLedgerEmptyState {
+  title: string;
+  detail: string;
+}
+
 function formatUsd(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -495,6 +500,27 @@ export function buildFilteredSavingsLedger(
     rows: filteredRows,
     groups: groupSavingsLedgerRowsBySource(filteredRows, scope, recordedAt),
     summary: summarizeSavingsLedgerRows(filteredRows, scope, recordedAt),
+  };
+}
+
+export function getSavingsLedgerEmptyState(
+  allRowCount: number,
+  filter: SavingsLedgerConfidenceFilter,
+): SavingsLedgerEmptyState {
+  if (allRowCount === 0) {
+    return {
+      title: "No savings ledger rows yet",
+      detail:
+        "Run a connected agent, index a repo, or enable an add-on estimate to populate measured, estimated, or inferred rows.",
+    };
+  }
+
+  return {
+    title: "No matching ledger rows",
+    detail:
+      filter === "all"
+        ? "No sources match the current ledger view."
+        : `No ${filter} rows match this ledger view. Change the confidence filter to see other sources.`,
   };
 }
 

@@ -231,6 +231,7 @@ import {
   buildSavingsCalculatorSummary,
   formatSavingsLedgerConfidenceBreakdown,
   formatSavingsLedgerShareText,
+  getSavingsLedgerEmptyState,
   savingsCalculatorScopeLabel,
   CAVEMAN_TEMPLATE_BASELINE_TOKENS,
   CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
@@ -756,6 +757,10 @@ function SavingsCalculatorCard({
     ledgerRecordedAt,
     ledgerFilter,
   );
+  const ledgerEmptyState = getSavingsLedgerEmptyState(
+    ledgerRows.length,
+    ledgerFilter,
+  );
 
   async function copySavingsSummary() {
     if (!navigator.clipboard) {
@@ -958,8 +963,8 @@ function SavingsCalculatorCard({
           ) : (
             <div className="savings-calculator__ledger-row">
               <div>
-                <strong>No matching ledger rows</strong>
-                <span>Change the confidence filter to see other sources.</span>
+                <strong>{ledgerEmptyState.title}</strong>
+                <span>{ledgerEmptyState.detail}</span>
               </div>
               <div>
                 <strong>0</strong>

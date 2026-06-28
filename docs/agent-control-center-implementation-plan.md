@@ -35,6 +35,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Start Agent Session repo-path validation now uses a shared tested helper, so empty or whitespace-only paths are blocked before the Mac app invokes indexing.
 - Start Agent Session freshness detail now includes changed-cache metadata, with tests proving stale indexes stay labeled as changed instead of fresh/current.
 - Read-only `get_repo_pack` responses now have Rust coverage for default pack selection, bounded file lists, secret exclusion, freshness safety, verification-pack selection, and unknown-pack errors.
+- Savings ledger empty states now distinguish a genuinely empty ledger from confidence filters that hide existing rows, with helper tests covering both copy paths.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals
