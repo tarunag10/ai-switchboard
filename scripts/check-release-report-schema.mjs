@@ -8,6 +8,8 @@ const requiredReleaseReportPaths = [
   "staticSmokePreflight.smokeSummaryPresent",
   "staticSmokePreflight.requiredCommand",
   "staticSmokePreflight.requiredEvidence",
+  "staticSmokePreflight.missingEvidence",
+  "staticSmokePreflight.evidenceReady",
   "installedSmokeSummary.present",
   "installedSmoke.smokeSummaryPresent",
   "installedSmoke.requiredEvidence",
@@ -133,6 +135,7 @@ requireObject(report, "staticSmokePreflight");
 requireBooleanFields(report, "staticSmokePreflight", [
   "ready",
   "smokeSummaryPresent",
+  "evidenceReady",
 ]);
 requireType(report, "staticSmokePreflight.smokeSummaryPath", "string");
 requireType(report, "staticSmokePreflight.requiredCommand", "string");
@@ -140,10 +143,21 @@ const requiredEvidence = requireArray(
   report,
   "staticSmokePreflight.requiredEvidence",
 );
+const missingStaticEvidence = requireArray(
+  report,
+  "staticSmokePreflight.missingEvidence",
+);
 for (const item of requiredEvidence) {
   if (typeof item !== "string" || item.length === 0) {
     fail(
       "staticSmokePreflight.requiredEvidence entries must be non-empty strings",
+    );
+  }
+}
+for (const item of missingStaticEvidence) {
+  if (typeof item !== "string" || item.length === 0) {
+    fail(
+      "staticSmokePreflight.missingEvidence entries must be non-empty strings",
     );
   }
 }

@@ -44,6 +44,8 @@ export interface ReleaseReadinessReportSnapshot {
     ready?: boolean;
     message?: string;
     requiredEvidence?: string[];
+    missingEvidence?: string[];
+    evidenceReady?: boolean;
   };
   installedSmoke?: {
     ready?: boolean;
@@ -381,6 +383,7 @@ export function releaseReadinessRowsFromReport(
   const connectorConfigPlanReady = hasConnectorConfigPlanEvidence(report);
   const finalReady = report.status === "ready" && report.shareableDmgGate?.ready === true;
   const missingEvidence = report.installedSmoke?.missingEvidence ?? [];
+  const missingStaticEvidence = report.staticSmokePreflight?.missingEvidence ?? [];
   const releaseBlockers = report.releaseEnv?.blockers ?? [];
 
   return [
@@ -390,7 +393,9 @@ export function releaseReadinessRowsFromReport(
       tone: statusTone(frontendReady),
       detail: frontendReady
         ? "Static smoke preflight is ready in the release report."
-        : "Run the frontend build and smoke preflight before publishing.",
+        : missingStaticEvidence.length
+          ? `Static smoke evidence missing: ${missingStaticEvidence.join(", ")}.`
+          : "Run the frontend build and smoke preflight before publishing.",
     },
     {
       ...releaseReadinessStatusRows[1],

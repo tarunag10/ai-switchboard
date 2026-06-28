@@ -191,18 +191,23 @@ function buildInstalledSmoke(
 }
 
 function buildStaticSmokePreflight(smokeSummary) {
-  const ready = smokeSummary.present;
+  const missingEvidence = staticSmokeRequiredEvidence.filter(
+    (item) => !smokeSummary.body.includes(item),
+  );
+  const evidenceReady = smokeSummary.present && missingEvidence.length === 0;
 
   return {
-    ready,
+    ready: evidenceReady,
     smokeSummaryPath,
     smokeSummaryPresent: smokeSummary.present,
     generatedLine: smokeSummary.generatedLine,
     requiredCommand: "npm run smoke:preflight",
     requiredEvidence: staticSmokeRequiredEvidence,
-    message: ready
-      ? "Static smoke preflight summary present. Keep it with release evidence."
-      : "Run npm run smoke:preflight before handing a DMG to a tester.",
+    missingEvidence,
+    evidenceReady,
+    message: evidenceReady
+      ? "Static smoke preflight summary present with every required evidence line. Keep it with release evidence."
+      : "Run npm run smoke:preflight before handing a DMG to a tester, and make sure it includes every required evidence line.",
   };
 }
 
@@ -314,6 +319,8 @@ ${listItems(releaseEnv.warnings, "None. Recommended release settings are present
 ${staticSmokePreflight.generatedLine ? `- ${staticSmokePreflight.generatedLine}` : "- Smoke preflight summary has not been generated in this checkout."}
 - Required command: ${staticSmokePreflight.requiredCommand}
 - Required evidence: ${staticSmokePreflight.requiredEvidence.join(", ")}
+- Missing evidence: ${staticSmokePreflight.missingEvidence.length ? staticSmokePreflight.missingEvidence.join(", ") : "none"}
+- Static smoke evidence ready: ${staticSmokePreflight.evidenceReady ? "yes" : "no"}
 - ${staticSmokePreflight.message}
 
 ## Installed App Smoke

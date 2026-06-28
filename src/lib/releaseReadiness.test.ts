@@ -154,7 +154,12 @@ describe("release readiness checklist", () => {
     const rows = releaseReadinessRowsFromReport({
       status: "blocked",
       backendValidation: { ready: false },
-      staticSmokePreflight: { ready: false, requiredEvidence: [] },
+      staticSmokePreflight: {
+        ready: false,
+        requiredEvidence: [],
+        missingEvidence: ["Savings calculator copyable ledger"],
+        evidenceReady: false,
+      },
       installedSmoke: {
         installedAppPresent: false,
         evidenceReady: false,
@@ -180,6 +185,9 @@ describe("release readiness checklist", () => {
       blocked: 8,
       "local-only": 1,
     });
+    expect(rows.find((row) => row.id === "frontend-build")?.detail).toContain(
+      "Savings calculator copyable ledger",
+    );
     expect(rows.find((row) => row.id === "installed-smoke")?.detail).toContain(
       "planned connector evidence",
     );
