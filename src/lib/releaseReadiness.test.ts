@@ -268,6 +268,14 @@ describe("release readiness checklist", () => {
     expect(snapshot).toContain("# Mac AI Switchboard Release Readiness");
     expect(snapshot).toContain("Source: dist/release-readiness-report.json");
     expect(snapshot).toContain("Status: blocked");
+    expect(snapshot).toContain("## Commands");
+    expect(snapshot).toContain("Refresh report: npm run release:ready");
+    expect(snapshot).toContain(
+      "Strict public-release gate: npm run release:ready -- --strict",
+    );
+    expect(snapshot).toContain(
+      "Local-only install evidence: npm run build:mac:local-install",
+    );
     expect(snapshot).toContain("Installed app present: yes");
     expect(snapshot).toContain("Connector config plan evidence: yes");
     expect(snapshot).toContain("Signed and notarized: no");
