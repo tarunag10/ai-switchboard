@@ -70,6 +70,7 @@ import {
   buildRepoIntelligenceSummary,
   estimateRepoIntelligenceSavings,
   formatRepoAgentHandoffMarkdown,
+  formatAgentSessionPreparationJson,
   formatRepoAgentManifestJson,
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
@@ -1933,6 +1934,26 @@ function RepoIntelligencePreview({
     }
   }
 
+  async function copyPreparedAgentSessionJson() {
+    const json = formatAgentSessionPreparationJson(sessionPreparation);
+    if (!hasRealIndex || !json) {
+      setCopyNotice(sessionPreparation.copyDetail);
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(json);
+      setCopyNotice(`${sessionPreparation.target.label} JSON copied.`);
+      window.setTimeout(() => setCopyNotice(null), 2000);
+    } catch {
+      setCopyNotice("Copy failed. Select session JSON manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
+
   return (
     <div
       className="repo-intelligence-preview"
@@ -2068,6 +2089,14 @@ function RepoIntelligencePreview({
             type="button"
           >
             Copy full handoff
+          </button>
+          <button
+            className="addon-card__action"
+            disabled={!hasRealIndex || !sessionPreparation.handoffPayload}
+            onClick={() => void copyPreparedAgentSessionJson()}
+            type="button"
+          >
+            Copy JSON
           </button>
         </div>
         <div className="repo-intelligence-session__summary">

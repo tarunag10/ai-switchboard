@@ -8,6 +8,7 @@ import {
   classifyRepoFile,
   estimateRepoIntelligenceSavings,
   estimateRepoTokens,
+  formatAgentSessionPreparationJson,
   formatRepoAgentManifestJson,
   formatRepoAgentHandoffMarkdown,
   formatRepoContextPackMarkdown,
@@ -555,6 +556,10 @@ describe("repoIntelligence", () => {
     expect(preparation.handoffMarkdown).toContain("# Codex Handoff");
     expect(preparation.handoffPayload?.pack.id).toBe("verification");
     expect(preparation.manifest.generatedAt).toBe("2026-06-25T10:05:00Z");
+
+    const json = formatAgentSessionPreparationJson(preparation);
+    expect(json).toContain('"kind": "mac_ai_switchboard.repo_agent_handoff"');
+    expect(json).toContain('"id": "codex"');
   });
 
   it("warns when agent session preparation uses a changed cached index", () => {
@@ -618,6 +623,7 @@ describe("repoIntelligence", () => {
     expect(preparation.recommendedMode).toBe("off");
     expect(preparation.handoffMarkdown).toBeNull();
     expect(preparation.handoffPayload).toBeNull();
+    expect(formatAgentSessionPreparationJson(preparation)).toBeNull();
   });
 
   it("calculates best-pack and all-pack token savings", () => {

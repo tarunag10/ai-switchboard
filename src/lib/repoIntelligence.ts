@@ -1224,6 +1224,19 @@ export function buildAgentSessionPreparation(
   };
 }
 
+export function formatAgentSessionPreparationJson(
+  preparation: Pick<
+    AgentSessionPreparation,
+    "handoffPayload" | "copyStatus" | "copyDetail"
+  >,
+): string | null {
+  if (!preparation.handoffPayload || preparation.copyStatus === "blocked") {
+    return null;
+  }
+
+  return JSON.stringify(preparation.handoffPayload, null, 2);
+}
+
 export function estimateRepoIntelligenceSavings(
   summary: RepoIntelligenceSummary,
 ): RepoSavingsEstimate {
