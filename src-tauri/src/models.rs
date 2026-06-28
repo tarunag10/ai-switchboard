@@ -747,6 +747,25 @@ pub struct ManagedRollbackExecutionResult {
     pub verification: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedRollbackUndoAllPreview {
+    pub status: ManagedRollbackExecutionStatus,
+    pub confirmation_phrase: String,
+    pub ready: Vec<ManagedRollbackPreview>,
+    pub blocked: Vec<ManagedRollbackPreview>,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedRollbackUndoAllExecutionResult {
+    pub confirmation_phrase: String,
+    pub executed: Vec<ManagedRollbackExecutionResult>,
+    pub blocked: Vec<ManagedRollbackPreview>,
+    pub verification: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ClientConnectorSupportStatus {

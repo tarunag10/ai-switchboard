@@ -47,10 +47,11 @@ use crate::models::{
     ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
     HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
     HeadroomSubscriptionTier, ManagedRollbackExecutionResult, ManagedRollbackPreview,
-    RepoAgentHandoffResponse, RepoContextPackResponse, RepoDependentsResponse,
-    RepoIndexFreshnessResponse, RepoIntelligenceManifestResponse, RepoIntelligenceSummary,
-    RepoSymbolSearchResponse, RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionEvent,
-    SavingsMode, SwitchboardMode, SwitchboardState, TransformationFeedResponse,
+    ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview, RepoAgentHandoffResponse,
+    RepoContextPackResponse, RepoDependentsResponse, RepoIndexFreshnessResponse,
+    RepoIntelligenceManifestResponse, RepoIntelligenceSummary, RepoSymbolSearchResponse,
+    RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionEvent, SavingsMode, SwitchboardMode,
+    SwitchboardState, TransformationFeedResponse,
 };
 use crate::state::AppState;
 
@@ -403,6 +404,19 @@ fn execute_managed_rollback(
     confirmation_phrase: String,
 ) -> Result<ManagedRollbackExecutionResult, String> {
     client_adapters::execute_managed_rollback(&record_id, &backup_path, &confirmation_phrase)
+        .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn preview_managed_rollback_undo_all() -> ManagedRollbackUndoAllPreview {
+    client_adapters::preview_managed_rollback_undo_all()
+}
+
+#[tauri::command]
+fn execute_managed_rollback_undo_all(
+    confirmation_phrase: String,
+) -> Result<ManagedRollbackUndoAllExecutionResult, String> {
+    client_adapters::execute_managed_rollback_undo_all(&confirmation_phrase)
         .map_err(|err| err.to_string())
 }
 
@@ -4861,6 +4875,8 @@ pub fn run() {
             get_savings_attribution_events,
             preview_managed_rollback,
             execute_managed_rollback,
+            preview_managed_rollback_undo_all,
+            execute_managed_rollback_undo_all,
             build_repo_intelligence_summary,
             get_latest_repo_intelligence_summary,
             get_repo_intelligence_context_pack,

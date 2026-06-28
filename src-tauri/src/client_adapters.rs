@@ -15,7 +15,8 @@ use crate::models::{
     ClientConnectorConfigDryRunPreview, ClientConnectorStatus, ClientConnectorSupportStatus,
     ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus,
     ManagedRollbackExecutionResult, ManagedRollbackExecutionStatus, ManagedRollbackPreview,
-    SavingsMode, SwitchboardMode,
+    ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview, SavingsMode,
+    SwitchboardMode,
 };
 use crate::storage::{app_data_dir, config_file};
 
@@ -3288,6 +3289,22 @@ const OPENCODE_ROLLBACK_MARKER: &str = "headroom:opencode";
 const GEMINI_ROLLBACK_RECORD_ID: &str = "gemini-routing";
 const GEMINI_ROLLBACK_OWNER: &str = "Gemini CLI routing";
 const GEMINI_ROLLBACK_MARKER: &str = "headroom:gemini_cli";
+const MANAGED_ROLLBACK_UNDO_ALL_CONFIRMATION: &str =
+    "Undo all ready Switchboard native rollback rows";
+const NATIVE_MANAGED_ROLLBACK_RECORD_IDS: &[&str] = &[
+    CODEX_ROLLBACK_RECORD_ID,
+    GEMINI_ROLLBACK_RECORD_ID,
+    OPENCODE_ROLLBACK_RECORD_ID,
+    "cursor-routing",
+    "grok-routing",
+    "aider-routing",
+    "continue-routing",
+    "goose-routing",
+    "qwen-code-routing",
+    "amazon-q-routing",
+    "windsurf-routing",
+    "zed-ai-routing",
+];
 
 struct ManagedRollbackTarget {
     record_id: &'static str,
@@ -3707,6 +3724,92 @@ pub fn execute_managed_rollback(
         restored_from,
         safety_backup_path: safety_backup,
         marker: target.marker.to_string(),
+        verification,
+    })
+}
+
+pub fn preview_managed_rollback_undo_all() -> ManagedRollbackUndoAllPreview {
+    let mut ready = Vec::new();
+    let mut blocked = Vec::new();
+
+    for record_id in NATIVE_MANAGED_ROLLBACK_RECORD_IDS {
+        match preview_managed_rollback(record_id) {
+            Ok(preview) if preview.status == ManagedRollbackExecutionStatus::Ready => {
+                ready.push(preview)
+            }
+            Ok(preview) => blocked.push(preview),
+            Err(err) => blocked.push(ManagedRollbackPreview {
+                record_id: (*record_id).to_string(),
+                owner: (*record_id).to_string(),
+                target_path: String::new(),
+                marker: String::new(),
+                backup_path: None,
+                marker_present: false,
+                backup_exists: false,
+                status: ManagedRollbackExecutionStatus::Blocked,
+                confirmation_phrase: String::new(),
+                proposed_action: "No native rollback preview could be prepared.".to_string(),
+                blocked_reason: Some(err.to_string()),
+                evidence: vec![format!(
+                    "Undo-all preview failed while checking {record_id}; no files were modified."
+                )],
+            }),
+        }
+    }
+
+    ManagedRollbackUndoAllPreview {
+        status: if ready.is_empty() {
+            ManagedRollbackExecutionStatus::Blocked
+        } else {
+            ManagedRollbackExecutionStatus::Ready
+        },
+        confirmation_phrase: MANAGED_ROLLBACK_UNDO_ALL_CONFIRMATION.to_string(),
+        evidence: vec![
+            "Undo-all preview is limited to allowlisted native rollback rows.".to_string(),
+            "Each ready row already passed its per-row marker and backup readiness checks."
+                .to_string(),
+            "Execution re-previews rows immediately before modifying files.".to_string(),
+            "Blocked rows are reported and left untouched.".to_string(),
+        ],
+        ready,
+        blocked,
+    }
+}
+
+pub fn execute_managed_rollback_undo_all(
+    confirmation_phrase: &str,
+) -> Result<ManagedRollbackUndoAllExecutionResult> {
+    if confirmation_phrase != MANAGED_ROLLBACK_UNDO_ALL_CONFIRMATION {
+        return Err(anyhow!("Undo-all confirmation phrase does not match."));
+    }
+
+    let preview = preview_managed_rollback_undo_all();
+    if preview.ready.is_empty() {
+        return Err(anyhow!("No native rollback rows are ready to execute."));
+    }
+
+    let mut executed = Vec::new();
+    let mut verification = vec![
+        "Undo-all confirmation phrase matched.".to_string(),
+        "Rows were re-previewed before execution.".to_string(),
+        "Only rows with ready native previews were executed.".to_string(),
+    ];
+
+    for row in &preview.ready {
+        let result = execute_managed_rollback(
+            &row.record_id,
+            row.backup_path.as_deref().unwrap_or(""),
+            &row.confirmation_phrase,
+        )
+        .with_context(|| format!("executing native rollback row {}", row.record_id))?;
+        verification.push(format!("Executed {} ({})", row.owner, row.record_id));
+        executed.push(result);
+    }
+
+    Ok(ManagedRollbackUndoAllExecutionResult {
+        confirmation_phrase: MANAGED_ROLLBACK_UNDO_ALL_CONFIRMATION.to_string(),
+        executed,
+        blocked: preview.blocked,
         verification,
     })
 }
@@ -7217,6 +7320,62 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
         let content = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
         assert_eq!(content, "# cursor user note\nkeep this\n");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_undo_all_executes_ready_native_rows_only() {
+        let home = TestHome::new();
+        let gemini_sidecar = home
+            .path()
+            .join(".gemini")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(gemini_sidecar.parent().unwrap()).expect("create gemini dir");
+        fs::write(&gemini_sidecar, "# gemini user note\nkeep this\n").expect("seed gemini");
+        let cursor_sidecar = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Cursor")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(cursor_sidecar.parent().unwrap()).expect("create cursor dir");
+        fs::write(&cursor_sidecar, "# cursor user note\nkeep this\n").expect("seed cursor");
+
+        super::apply_client_setup("gemini_cli").expect("apply gemini setup");
+        super::apply_client_setup("cursor").expect("apply cursor setup");
+
+        let preview = super::preview_managed_rollback_undo_all();
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        let ready_ids = preview
+            .ready
+            .iter()
+            .map(|row| row.record_id.as_str())
+            .collect::<Vec<_>>();
+        assert!(ready_ids.contains(&"gemini-routing"));
+        assert!(ready_ids.contains(&"cursor-routing"));
+        assert!(
+            !preview.blocked.is_empty(),
+            "unused native rows should remain blocked"
+        );
+
+        let result = super::execute_managed_rollback_undo_all(
+            "Undo all ready Switchboard native rollback rows",
+        )
+        .expect("execute undo-all");
+        let executed_ids = result
+            .executed
+            .iter()
+            .map(|row| row.record_id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(executed_ids, vec!["gemini-routing", "cursor-routing"]);
+        assert_eq!(
+            fs::read_to_string(&gemini_sidecar).expect("read cleaned gemini"),
+            "# gemini user note\nkeep this\n"
+        );
+        assert_eq!(
+            fs::read_to_string(&cursor_sidecar).expect("read cleaned cursor"),
+            "# cursor user note\nkeep this\n"
+        );
     }
 
     #[test]

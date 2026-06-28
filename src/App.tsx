@@ -284,6 +284,8 @@ import type {
   HeadroomSubscriptionTier,
   ManagedRollbackExecutionResult,
   ManagedRollbackPreview,
+  ManagedRollbackUndoAllExecutionResult,
+  ManagedRollbackUndoAllPreview,
   ActivityFeedResponse,
   AppliedPatterns,
   HourlySavingsPoint,
@@ -2935,6 +2937,16 @@ export default function App() {
   const [rollbackErrorByRecord, setRollbackErrorByRecord] = useState<
     Record<string, string>
   >({});
+  const [rollbackUndoAllPreview, setRollbackUndoAllPreview] =
+    useState<ManagedRollbackUndoAllPreview | null>(null);
+  const [rollbackUndoAllResult, setRollbackUndoAllResult] =
+    useState<ManagedRollbackUndoAllExecutionResult | null>(null);
+  const [rollbackUndoAllConfirmation, setRollbackUndoAllConfirmation] =
+    useState("");
+  const [rollbackUndoAllBusy, setRollbackUndoAllBusy] = useState(false);
+  const [rollbackUndoAllError, setRollbackUndoAllError] = useState<string | null>(
+    null,
+  );
   // Safety net: if native history never loads (backend unreachable), reveal the
   // chart anyway after this delay rather than spinning forever.
   const [historyLoadTimedOut, setHistoryLoadTimedOut] = useState(false);
@@ -6150,6 +6162,56 @@ export default function App() {
     } catch {
       setRollbackCopyNotice("Copy failed. Review rollback rows manually.");
       window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    }
+  }
+
+  async function previewNativeRollbackUndoAll() {
+    setRollbackUndoAllBusy(true);
+    setRollbackUndoAllError(null);
+    try {
+      const preview = await invoke<ManagedRollbackUndoAllPreview>(
+        "preview_managed_rollback_undo_all",
+      );
+      setRollbackUndoAllPreview(preview);
+      setRollbackUndoAllResult(null);
+      setRollbackUndoAllConfirmation("");
+    } catch (error) {
+      setRollbackUndoAllError(
+        describeInvokeError(error, "Could not preview native undo-all."),
+      );
+    } finally {
+      setRollbackUndoAllBusy(false);
+    }
+  }
+
+  async function executeNativeRollbackUndoAll() {
+    if (
+      !rollbackUndoAllPreview ||
+      rollbackUndoAllPreview.status !== "ready" ||
+      rollbackUndoAllConfirmation !== rollbackUndoAllPreview.confirmationPhrase
+    ) {
+      return;
+    }
+    setRollbackUndoAllBusy(true);
+    setRollbackUndoAllError(null);
+    try {
+      const result = await invoke<ManagedRollbackUndoAllExecutionResult>(
+        "execute_managed_rollback_undo_all",
+        { confirmationPhrase: rollbackUndoAllConfirmation },
+      );
+      setRollbackUndoAllResult(result);
+      setRollbackCopyNotice(
+        `Undo-all executed ${result.executed.length} native row${
+          result.executed.length === 1 ? "" : "s"
+        }.`,
+      );
+      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    } catch (error) {
+      setRollbackUndoAllError(
+        describeInvokeError(error, "Could not execute native undo-all."),
+      );
+    } finally {
+      setRollbackUndoAllBusy(false);
     }
   }
 
@@ -9849,6 +9911,14 @@ export default function App() {
                 <div className="rollback-center-card__actions">
                   <button
                     className="secondary-button secondary-button--small"
+                    disabled={rollbackUndoAllBusy}
+                    onClick={() => void previewNativeRollbackUndoAll()}
+                    type="button"
+                  >
+                    Preview native undo-all
+                  </button>
+                  <button
+                    className="secondary-button secondary-button--small"
                     onClick={() => void copyManagedRollbackUndoAllPreview()}
                     type="button"
                   >
@@ -9863,6 +9933,52 @@ export default function App() {
                   </button>
                 </div>
               </div>
+              {rollbackUndoAllPreview ? (
+                <div className="rollback-center-card__native">
+                  <div className="rollback-center-card__native-row">
+                    <span>
+                      Native undo-all:{" "}
+                      {rollbackUndoAllPreview.ready.length} ready,{" "}
+                      {rollbackUndoAllPreview.blocked.length} blocked
+                    </span>
+                    {rollbackUndoAllResult ? (
+                      <span>
+                        Executed {rollbackUndoAllResult.executed.length}; left{" "}
+                        {rollbackUndoAllResult.blocked.length} blocked
+                      </span>
+                    ) : null}
+                  </div>
+                  <label className="rollback-center-card__confirm">
+                    <span>Exact undo-all confirmation</span>
+                    <input
+                      type="text"
+                      value={rollbackUndoAllConfirmation}
+                      placeholder={rollbackUndoAllPreview.confirmationPhrase}
+                      onChange={(event) =>
+                        setRollbackUndoAllConfirmation(event.target.value)
+                      }
+                    />
+                  </label>
+                  <button
+                    className="secondary-button secondary-button--small rollback-center-card__restore-button"
+                    disabled={
+                      rollbackUndoAllBusy ||
+                      rollbackUndoAllPreview.status !== "ready" ||
+                      rollbackUndoAllConfirmation !==
+                        rollbackUndoAllPreview.confirmationPhrase
+                    }
+                    onClick={() => void executeNativeRollbackUndoAll()}
+                    type="button"
+                  >
+                    Execute native undo-all
+                  </button>
+                </div>
+              ) : null}
+              {rollbackUndoAllError ? (
+                <p className="rollback-center-card__notice">
+                  {rollbackUndoAllError}
+                </p>
+              ) : null}
               <div className="rollback-center-card__list">
                 {managedChangeRecords.map((record, index) => {
                   const plan = buildManagedRollbackPlan(record);

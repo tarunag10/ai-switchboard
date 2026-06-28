@@ -256,6 +256,21 @@ export interface ManagedRollbackExecutionResult {
   verification: string[];
 }
 
+export interface ManagedRollbackUndoAllPreview {
+  status: "ready" | "blocked";
+  confirmationPhrase: string;
+  ready: ManagedRollbackPreview[];
+  blocked: ManagedRollbackPreview[];
+  evidence: string[];
+}
+
+export interface ManagedRollbackUndoAllExecutionResult {
+  confirmationPhrase: string;
+  executed: ManagedRollbackExecutionResult[];
+  blocked: ManagedRollbackPreview[];
+  verification: string[];
+}
+
 export interface ReleaseEvidenceCommandResult {
   commandId: string;
   label: string;
