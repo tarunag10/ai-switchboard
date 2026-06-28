@@ -4,6 +4,31 @@ This plan turns Mac AI Switchboard into a local-first agent control center: pick
 
 The work should ship in small slices. Each slice must leave the app usable, keep config changes reversible, and preserve the boundary between local ad-hoc evidence and public signed release readiness.
 
+## Shipped Vs Left
+
+### Shipped
+
+- Start Agent Session has a first usable flow with repo-path validation, freshness detail, selected-pack/full-handoff/summary/JSON copy actions, sample-pack copy blocking, planned connector readiness in session payloads, and matching `repo:intelligence --session` CLI exports.
+- Planned connector registry coverage exists for Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed, including config surfaces, manual guides, automation gates, rollback dossiers, copyable config-plan actions, and compatibility-matrix checks.
+- Read-only Repo Intelligence API coverage exists for manifests, packs, handoffs, freshness, stale/moved/corrupt index states, safe clear behavior, bounded pack output, and secret-like path exclusion.
+- Repo-memory MCP is advertised in CLI help and smoke-tested through `npm run check:repo-memory-mcp`, including read-only tool annotations and a real `repo_context_pack` call that checks safety text and seeded secret exclusion.
+- Savings ledger has shipped rows/copy exports with measured, estimated, and inferred confidence labels, empty-state distinction, active-filter copy disclosure, and per-row evidence/caveats.
+- Safe config dry-run coverage proves managed write paths can produce blocked previews with target, backup, marker, rollback, Off cleanup, and unmanaged-config boundaries before apply paths are promoted.
+- Doctor support/timeline copy now includes scrubbed status, issue, repair-success, Repo Intelligence availability-gate events, moved-repo detail, token/path/secret scrubbing, and uninstall dry-run managed-footprint counts.
+- Release readiness surfaces have shipped report loading, copyable snapshots, command copy, source labels that distinguish guidance from report proof, connector-readiness evidence checks, and separate signing/notarization/updater blocker categories.
+- Caveman supports scoped, aggressive, and experimental opt-in Compact Chinese profiles; Compact Chinese is limited to private internal planning notes and handoffs while user-facing, legal, safety, debugging, and release-readiness content stays in the requested language with full detail.
+
+### Left To Build
+
+- Promote planned connectors into supported adapters one by one, starting with Gemini CLI, only after detection, dry-run diff, backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are complete.
+- Turn repo-memory MCP from a smoke-tested CLI transport into an app-managed local service with lifecycle controls, Doctor availability checks, and agent-consumption docs for the supported connector path.
+- Deepen Repo Intelligence v2 with tree-sitter or language-specific parsers, persistent parser/index versions, richer symbols/imports/reverse dependencies, graph-aware packs, and parser/index Doctor health checks.
+- Finish exact live/session savings attribution across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese once profile-specific evidence exists.
+- Promote safe config diffs from blocked previews into user-approved apply/verify/rollback flows for supported connectors without touching unmanaged config.
+- Complete the persistent Rollback Center with per-change restore actions, relaunch survival, and a guarded "undo all Switchboard changes" flow.
+- Complete the release readiness dashboard as a script-backed in-app panel for frontend build, desktop tests, local DMG, installed smoke, signing, notarization, updater, and final release gate status.
+- Finish trust hardening from the product roadmap: app-owned legal/privacy surfaces, local-only network audit, remote destination registry, branding/asset provenance, and public-release evidence cleanup.
+
 ## Current Connector Checkpoint
 
 - Gemini has the deepest current implementation path.
