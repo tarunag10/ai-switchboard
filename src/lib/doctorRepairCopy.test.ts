@@ -4,6 +4,7 @@ import {
   buildManagedChangeTimelineEvents,
   canRepairIssue,
   doctorIssueGuidance,
+  formatPlannedConnectorDoctorDossiers,
   plannedConnectorDoctorGuidance,
   doctorRepairHint,
   doctorRepairLabel,
@@ -185,6 +186,12 @@ describe("doctor repair copy", () => {
     expect(text).toContain("Action: manual / Manual step");
     expect(text).toContain("next automation gate is backup implemented");
     expect(text).toContain("Automation gated");
+    expect(text).toContain("Planned connector config readiness dossiers");
+    expect(text).toContain("## Gemini CLI");
+    expect(text).toContain("Config surface:");
+    expect(text).toContain("Gated config-creation steps:");
+    expect(text).toContain("Show dry-run diff");
+    expect(text).toContain("Required evidence:");
   });
 
   it("explains why planned connectors stay manual in Doctor", () => {
@@ -198,6 +205,21 @@ describe("doctor repair copy", () => {
     expect(guidance).toContain("Automation gated");
     expect(guidance).toContain("Unsupported account/model");
     expect(guidance).toContain("backup, verify, rollback, and Off mode cleanup");
+  });
+
+  it("formats per-tool planned connector readiness dossiers", () => {
+    const dossiers = formatPlannedConnectorDoctorDossiers();
+
+    expect(dossiers).toContain("Planned connector config readiness dossiers");
+    expect(dossiers).toContain("## OpenCode");
+    expect(dossiers).toContain("Connector ID: opencode");
+    expect(dossiers).toContain("Next blocked gate: Backup Implemented");
+    expect(dossiers).toContain("Automation enabled: no");
+    expect(dossiers).toContain("Detect config surface");
+    expect(dossiers).toContain("Clean up in Off mode");
+    expect(dossiers).toContain("Post-rollback diff proving unrelated user settings are unchanged.");
+    expect(dossiers).toContain("## Amazon Q Developer CLI");
+    expect(dossiers).toContain("AWS profile");
   });
 
   it("labels and sorts Doctor timeline events newest first", () => {

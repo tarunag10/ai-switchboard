@@ -1,8 +1,10 @@
 import { codexDoctorHint } from "./codexErrorGuidance";
 import type { ManagedChangeRecord } from "./managedChanges";
 import {
+  getPlannedConnectorConfigCreationPlan,
   getPlannedConnectorReadinessBadges,
   getPlannedConnectorReadinessContract,
+  getPlannedConnectorSafetyDossier,
   plannedConnectors,
 } from "./plannedConnectors";
 import type { DoctorIssue, DoctorReport } from "./types";
@@ -204,6 +206,38 @@ export function plannedConnectorDoctorGuidance(): string {
   ].join(" ");
 }
 
+export function formatPlannedConnectorDoctorDossiers(): string {
+  return [
+    "Planned connector config readiness dossiers",
+    "",
+    ...plannedConnectors.flatMap((connector) => {
+      const readiness = getPlannedConnectorReadinessContract(connector);
+      const plan = getPlannedConnectorConfigCreationPlan(connector);
+      const dossier = getPlannedConnectorSafetyDossier(connector.id);
+      const nextBlockedStage =
+        readiness.stages.find((stage) => stage.id === readiness.nextBlockedStage)
+          ?.label ?? "None";
+
+      return [
+        `## ${connector.name}`,
+        `Connector ID: ${connector.id}`,
+        `Config surface: ${dossier?.configPathStrategy ?? connector.configSurfaces.join(", ")}`,
+        `Next blocked gate: ${nextBlockedStage}`,
+        `Automation enabled: ${plan.automationEnabled ? "yes" : "no"}`,
+        `Safety: ${plan.safetyNote}`,
+        "Gated config-creation steps:",
+        ...plan.steps.map(
+          (step) =>
+            `- ${step.label}: ${step.detail} Required evidence: ${step.requiredEvidence.join(" ")}`,
+        ),
+        "",
+      ];
+    }),
+  ]
+    .join("\n")
+    .trimEnd();
+}
+
 export function doctorIssueGuidance(issue: DoctorIssue): string {
   if (doctorIssueActionKind(issue.repairAction) === "automatic") {
     return doctorRepairHint(issue.repairAction as string);
@@ -240,6 +274,9 @@ export function formatDoctorReportShareText(report: DoctorReport): string {
   if (report.issues.length === 0) {
     return [...lines, "No Doctor issues found."].join("\n");
   }
+  const includesPlannedConnectorIssue = report.issues.some(
+    (issue) => issue.id === "planned_connectors_detected",
+  );
 
   return [
     ...lines,
@@ -259,6 +296,9 @@ export function formatDoctorReportShareText(report: DoctorReport): string {
         "",
       ];
     }),
+    ...(includesPlannedConnectorIssue
+      ? ["", formatPlannedConnectorDoctorDossiers()]
+      : []),
   ]
     .join("\n")
     .trimEnd();
