@@ -196,7 +196,12 @@ export function formatDoctorTimelineShareText(
 ): string {
   const sorted = sortDoctorTimelineEvents(events);
   if (sorted.length === 0) {
-    return "Mac AI Switchboard Doctor timeline\nNo Doctor timeline events recorded.";
+    return [
+      "Mac AI Switchboard Doctor timeline",
+      "No Doctor timeline events recorded.",
+      "",
+      repoIntelligenceDoctorAvailabilityGates(),
+    ].join("\n");
   }
 
   return [
@@ -213,6 +218,7 @@ export function formatDoctorTimelineShareText(
       `Body: ${scrubTimelineText(event.body)}`,
       "",
     ]),
+    repoIntelligenceDoctorAvailabilityGates(),
   ]
     .join("\n")
     .trimEnd();
@@ -366,6 +372,18 @@ export function repoIntelligenceDoctorApiContract(): string {
     "- clear_repo_index: clears only Switchboard managed index metadata; never mutates the user repo.",
     "Availability gates: missing, stale, corrupt, or moved repo indexes stay visible in Doctor until cleared or re-indexed.",
     "Safety: read-only by default, secret-like paths excluded, generated/vendor paths skipped, outputs bounded by pack/token budgets, parser version reported, graph availability reported.",
+  ].join("\n");
+}
+
+export function repoIntelligenceDoctorAvailabilityGates(): string {
+  return [
+    "Repo Intelligence Doctor availability gates",
+    "- get_index_freshness is the trust gate before agents use saved packs.",
+    "- Missing index: copy actions stay blocked until a real local repo is indexed.",
+    "- Stale index: Doctor must keep the stale state visible until the index is cleared or refreshed.",
+    "- Corrupt index: clear_repo_index removes only Switchboard managed index metadata, then the repo must be re-indexed.",
+    "- Moved repo path: clear the saved index or re-index the new local path before handoff.",
+    "- Evidence to copy: API availability, graph availability, indexer/parser versions, indexed/skipped counts, secret exclusion, and read-only safety.",
   ].join("\n");
 }
 

@@ -14,6 +14,7 @@ import {
   formatDoctorReportShareText,
   plannedConnectorDoctorPreviewRows,
   formatVerifyOffModeShareText,
+  repoIntelligenceDoctorAvailabilityGates,
   repoIntelligenceDoctorApiContract,
   sortDoctorTimelineEvents,
 } from "./doctorRepairCopy";
@@ -236,6 +237,22 @@ describe("doctor repair copy", () => {
     expect(contract).toContain("rollback strategy");
   });
 
+  it("summarizes Repo Intelligence Doctor availability gates", () => {
+    const gates = repoIntelligenceDoctorAvailabilityGates();
+
+    expect(gates).toContain("get_index_freshness is the trust gate");
+    expect(gates).toContain("copy actions stay blocked");
+    expect(gates).toContain("stale state visible");
+    expect(gates).toContain(
+      "clear_repo_index removes only Switchboard managed index metadata",
+    );
+    expect(gates).toContain("Moved repo path");
+    expect(gates).toContain("indexer/parser versions");
+    expect(gates).toContain("indexed/skipped counts");
+    expect(gates).toContain("secret exclusion");
+    expect(gates).toContain("read-only safety");
+  });
+
   it("explains why planned connectors stay manual in Doctor", () => {
     const guidance = plannedConnectorDoctorGuidance();
 
@@ -348,6 +365,17 @@ describe("doctor repair copy", () => {
     expect(text).toContain("Actor: user");
     expect(text).toContain("Target: [home-path]");
     expect(text).toContain("Body: Removed managed provider block from [user-path]");
+    expect(text).toContain("Repo Intelligence Doctor availability gates");
+    expect(text).toContain("get_index_freshness is the trust gate");
+    expect(text).toContain("Missing index");
+    expect(text).toContain("Stale index");
+    expect(text).toContain("Corrupt index");
+    expect(text).toContain("Moved repo path");
+    expect(text).toContain(
+      "clear_repo_index removes only Switchboard managed index metadata",
+    );
+    expect(text).toContain("API availability");
+    expect(text).toContain("read-only safety");
     expect(text).not.toContain("~/.codex/config.toml");
     expect(text).not.toContain("/Users/tarunagarwal");
   });
@@ -463,8 +491,10 @@ describe("doctor repair copy", () => {
   });
 
   it("formats an empty Doctor timeline", () => {
-    expect(formatDoctorTimelineShareText([])).toContain(
-      "No Doctor timeline events recorded.",
-    );
+    const text = formatDoctorTimelineShareText([]);
+
+    expect(text).toContain("No Doctor timeline events recorded.");
+    expect(text).toContain("Repo Intelligence Doctor availability gates");
+    expect(text).toContain("get_index_freshness is the trust gate");
   });
 });

@@ -23,6 +23,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Start Agent Session now exposes planned connector config readiness as a first-class app/session field, including the next gate and disabled automation state before copying Gemini, OpenCode, Grok/xAI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, or Zed handoffs.
 - The `repo:intelligence --session` CLI export now mirrors that session-level config readiness in JSON and Markdown, so config-creation work stays Gemini-like and gated across app and terminal workflows.
 - Repo Intelligence manifests now advertise per-agent Start Agent Session recipes, including the exact `--session` command, default task, read-only safety, manual provider routing state, and planned connector next gate when applicable.
+- Doctor timeline copy now includes Repo Intelligence availability gates for `get_index_freshness`, missing/stale/corrupt/moved index states, `clear_repo_index` cleanup boundaries, and the evidence agents need before trusting saved packs.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals
