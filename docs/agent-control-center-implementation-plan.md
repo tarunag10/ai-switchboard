@@ -19,6 +19,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - `npm run check:connectors` now verifies the Tauri `get_agent_handoff` connector readiness response and tests alongside the frontend, backend adapter registry, and CLI mirror.
 - Release readiness smoke evidence now requires connector readiness payloads in agent handoffs alongside the planned connector config creation plan.
 - `npm run check:deployment` now verifies the connector-readiness release evidence chain across beta smoke docs, smoke preflight, release readiness report generation, and dashboard copy.
+- `npm run release:report:check` now rejects release reports that omit connector readiness payload evidence from static or installed smoke evidence.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

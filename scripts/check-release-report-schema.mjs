@@ -96,6 +96,9 @@ const markdownReport = fs.readFileSync(markdownReportPath, "utf8");
 if (!markdownReport.includes("Planned connector config creation plan")) {
   fail(`${markdownReportPath} must include planned connector config creation plan evidence`);
 }
+if (!markdownReport.includes("Connector readiness payload in agent handoffs")) {
+  fail(`${markdownReportPath} must include connector readiness payload evidence`);
+}
 if (!markdownReport.includes("## Planned Connector Readiness")) {
   fail(`${markdownReportPath} must include planned connector readiness summary`);
 }
@@ -176,6 +179,11 @@ if (!requiredEvidence.includes("Planned connector config creation plan")) {
     "staticSmokePreflight.requiredEvidence must include planned connector config creation plan",
   );
 }
+if (!requiredEvidence.includes("Connector readiness payload in agent handoffs")) {
+  fail(
+    "staticSmokePreflight.requiredEvidence must include connector readiness payload in agent handoffs",
+  );
+}
 if (!requiredEvidence.includes("Gemini connector dry-run preview evidence")) {
   fail(
     "staticSmokePreflight.requiredEvidence must include Gemini connector dry-run preview evidence",
@@ -235,6 +243,7 @@ for (const requiredItem of [
   "Doctor copyable report",
   "Savings calculator copyable ledger",
   "Planned connector automation gates, manual workflow, config creation plan, and Gemini dry-run preview evidence",
+  "Connector readiness payload in agent handoffs",
   "Codex compression recovery",
 ]) {
   if (!installedRequiredEvidence.includes(requiredItem)) {
