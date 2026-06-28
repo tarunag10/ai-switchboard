@@ -27,6 +27,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - The Doctor panel now exposes a Copy timeline action that exports scrubbed Doctor status, issue, repair-success, and Repo Intelligence availability-gate events for support/debugging.
 - Doctor now reports moved or replaced Repo Intelligence repo paths explicitly when the saved file map no longer matches the existing folder, with the same managed-index-only clear repair.
 - Savings ledger exports now include per-row evidence alongside confidence caveats, so measured, estimated, and inferred savings keep their source equations visible when copied.
+- Managed config dry-run exports now label the write path as blocked and spell out the Off-mode cleanup boundary before any config apply path can be promoted.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

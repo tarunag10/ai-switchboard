@@ -29,6 +29,8 @@ export interface ManagedConfigDiffPreview {
   requiresExplicitConfirmation: true;
   confirmationPhrase: string;
   applyBlockedReason: string;
+  writePathStatus: "blocked";
+  offModeCleanupBoundary: string;
   currentManagedBlock: string | null;
   proposedManagedBlock: string;
   rollback: string;
@@ -185,6 +187,9 @@ export function buildManagedConfigDiffPreview({
     confirmationPhrase: `Apply ${record.markerId} to ${trimmedPath}`,
     applyBlockedReason:
       "Apply is blocked until the user confirms this exact target, backup path, marker, rollback plan, and Off-mode cleanup boundary.",
+    writePathStatus: "blocked",
+    offModeCleanupBoundary:
+      "Off mode cleanup may remove only the marked Switchboard block and must preserve unrelated user config.",
     currentManagedBlock: currentManagedBlock?.trim() || null,
     proposedManagedBlock: trimmedProposedBlock,
     rollback: record.rollback,
@@ -279,7 +284,9 @@ export function formatManagedConfigDiffPreview(
       preview.requiresExplicitConfirmation ? "yes" : "no"
     }`,
     `Confirmation phrase: ${preview.confirmationPhrase}`,
+    `Write path status: ${preview.writePathStatus}`,
     `Apply blocked: ${preview.applyBlockedReason}`,
+    `Off-mode cleanup boundary: ${preview.offModeCleanupBoundary}`,
     "",
     "Current managed block:",
     preview.currentManagedBlock ?? "(none detected)",
