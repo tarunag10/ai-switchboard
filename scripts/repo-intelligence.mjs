@@ -1283,6 +1283,7 @@ function formatSinglePackMarkdown(summary, selectedPack) {
     `# ${selectedPack.title}: ${summary.repoRoot}`,
     "",
     selectedPack.purpose,
+    "Safety: read-only context pack; secret-like paths excluded; repository not modified.",
     `Estimated full scan tokens: ${summary.estimatedFullScanTokens.toLocaleString()}`,
     `Estimated pack tokens: ${selectedPack.estimatedTokens.toLocaleString()}`,
     `Estimated tokens avoided: ${Math.max(0, summary.estimatedFullScanTokens - selectedPack.estimatedTokens).toLocaleString()}`,

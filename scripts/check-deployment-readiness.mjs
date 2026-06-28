@@ -411,6 +411,8 @@ const requiredSourceSignals = {
     "excludesSecretLikePaths",
     "buildAgentSessionPreparation",
     "formatSinglePackMarkdown",
+    "Safety: read-only context pack",
+    "repository not modified",
     "secretPathPatterns",
     "agentRecipes",
     "agentHandoffProfiles",
