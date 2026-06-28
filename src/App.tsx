@@ -2150,6 +2150,22 @@ function RepoIntelligencePreview({
             <span>Context</span>
             <strong>{sessionDisplayState.contextLabel}</strong>
           </div>
+          <div>
+            <span>Selected pack</span>
+            <strong>{sessionDisplayState.selectedPackTokensLabel}</strong>
+          </div>
+          <div>
+            <span>Avoided</span>
+            <strong>{sessionDisplayState.tokensAvoidedLabel}</strong>
+          </div>
+          <div>
+            <span>Skipped</span>
+            <strong>{sessionDisplayState.skippedFilesLabel}</strong>
+          </div>
+          <div>
+            <span>Secrets</span>
+            <strong>{sessionDisplayState.secretExclusionLabel}</strong>
+          </div>
         </div>
         {sessionDisplayState.sampleContextWarning ? (
           <p className="repo-intelligence-session__detail">

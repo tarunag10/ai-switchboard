@@ -186,6 +186,10 @@ export interface AgentSessionDisplayState {
   modeLabel: string;
   freshnessLabel: string;
   contextLabel: string;
+  selectedPackTokensLabel: string;
+  tokensAvoidedLabel: string;
+  skippedFilesLabel: string;
+  secretExclusionLabel: string;
   sampleContextWarning: string | null;
   copyStatus: AgentSessionCopyStatus;
   copyDetail: string;
@@ -1469,6 +1473,14 @@ export function buildAgentSessionDisplayState(
 ): AgentSessionDisplayState {
   const canCopyHandoff = hasRealIndex && preparation.handoffMarkdown !== null;
   const canCopyPayload = hasRealIndex && preparation.handoffPayload !== null;
+  const selectedPackTokens =
+    preparation.handoffPayload?.pack.estimatedTokens ?? 0;
+  const tokensAvoided =
+    preparation.handoffPayload?.pack.estimatedTokensAvoided ?? 0;
+  const skippedFileCount =
+    preparation.manifest.totals.indexMetadata?.skippedFileCount ?? 0;
+  const secretExcluded =
+    preparation.manifest.safety.excludesSecretLikePaths === true;
 
   return {
     targetLabel: preparation.target.label,
@@ -1476,6 +1488,12 @@ export function buildAgentSessionDisplayState(
     modeLabel: agentSessionModeLabel(preparation.recommendedMode),
     freshnessLabel: preparation.freshness.label,
     contextLabel: hasRealIndex ? "Local repo index" : "Sample preview",
+    selectedPackTokensLabel: selectedPackTokens.toLocaleString(),
+    tokensAvoidedLabel: tokensAvoided.toLocaleString(),
+    skippedFilesLabel: `${skippedFileCount.toLocaleString()} skipped`,
+    secretExclusionLabel: secretExcluded
+      ? "Secret-like paths excluded"
+      : "Secret exclusion unavailable",
     sampleContextWarning: hasRealIndex
       ? null
       : "Sample preview packs are blocked from copy actions. Index a real local repo first.",
