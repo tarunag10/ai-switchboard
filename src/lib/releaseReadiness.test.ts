@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatReleaseReadinessCommandCopy,
   formatReleaseReadinessReportSnapshot,
   releaseReadinessCommand,
   releaseReadinessGroups,
@@ -13,6 +14,21 @@ import {
 describe("release readiness checklist", () => {
   it("points users at durable release report command", () => {
     expect(releaseReadinessCommand).toBe("npm run release:ready");
+  });
+
+  it("formats a safe release command copy when no report is loaded", () => {
+    const copy = formatReleaseReadinessCommandCopy();
+
+    expect(copy).toContain("Mac AI Switchboard release readiness command");
+    expect(copy).toContain("Refresh report: npm run release:ready");
+    expect(copy).toContain(
+      "Strict public-release gate: npm run release:ready -- --strict",
+    );
+    expect(copy).toContain("dist/release-readiness-report.json");
+    expect(copy).toContain("npm run build:mac:local-install");
+    expect(copy).toContain(
+      "local unsigned/ad-hoc install evidence never replaces signed DMG install",
+    );
   });
 
   it("covers environment, signing, static preflight, and installed-app smoke gates", () => {

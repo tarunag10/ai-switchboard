@@ -123,6 +123,17 @@ function formatConnectorReadinessSummary() {
 
 export const releaseReadinessCommand = "npm run release:ready";
 
+export function formatReleaseReadinessCommandCopy() {
+  return [
+    "Mac AI Switchboard release readiness command",
+    `Refresh report: ${releaseReadinessCommand}`,
+    "Strict public-release gate: npm run release:ready -- --strict",
+    "Report source after running: dist/release-readiness-report.json",
+    "Local-only install evidence: npm run build:mac:local-install",
+    "Boundary: local unsigned/ad-hoc install evidence never replaces signed DMG install, notarization, updater feed, or installed smoke confirmation.",
+  ].join("\n");
+}
+
 export const releaseReadinessStatusRows: ReleaseReadinessStatusRow[] = [
   {
     id: "frontend-build",

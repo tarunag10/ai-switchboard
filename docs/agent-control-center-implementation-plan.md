@@ -29,6 +29,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Savings ledger exports now include per-row evidence alongside confidence caveats, so measured, estimated, and inferred savings keep their source equations visible when copied.
 - Managed config dry-run exports now label the write path as blocked and spell out the Off-mode cleanup boundary before any config apply path can be promoted.
 - Uninstall dry-run exports now state that their managed footprint comes from the Rollback Center inventory and include the item count, with tests guarding against drift.
+- Release readiness command copy now includes the strict public-release gate, report path, and local unsigned/ad-hoc evidence boundary even before a report JSON is loaded.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

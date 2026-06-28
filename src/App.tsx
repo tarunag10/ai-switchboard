@@ -98,6 +98,7 @@ import {
 } from "./lib/plannedConnectors";
 import {
   releaseReadinessCommand,
+  formatReleaseReadinessCommandCopy,
   formatReleaseReadinessReportSnapshot,
   releaseReadinessGroups,
   releaseReadinessItemCount,
@@ -4815,7 +4816,7 @@ export default function App() {
         );
         setReleaseReadinessCopyNotice("Release report snapshot copied.");
       } else {
-        await navigator.clipboard.writeText(releaseReadinessCommand);
+        await navigator.clipboard.writeText(formatReleaseReadinessCommandCopy());
         setReleaseReadinessCopyNotice("Release report command copied.");
       }
       window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2000);
