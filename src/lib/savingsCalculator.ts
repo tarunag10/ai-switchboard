@@ -2,7 +2,12 @@ import type { DashboardState } from "./types";
 import type { RuntimeStatus } from "./types";
 import type { RepoSavingsEstimate } from "./repoIntelligence";
 
-export type SavingsCalculatorScope = "session" | "overall";
+export type SavingsCalculatorScope =
+  | "session"
+  | "repo"
+  | "today"
+  | "month"
+  | "lifetime";
 
 export type SavingsCalculatorBreakdownKind =
   | "runtime"
@@ -150,6 +155,46 @@ const confidenceCaveat: Record<SavingsCalculatorConfidence, string> = {
   inferred: "Modelled from a template, context-pack, or workflow delta.",
 };
 
+export function savingsCalculatorScopeLabel(scope: SavingsCalculatorScope) {
+  switch (scope) {
+    case "session":
+      return "current app session";
+    case "repo":
+      return "current repo";
+    case "today":
+      return "today";
+    case "month":
+      return "this month";
+    case "lifetime":
+      return "lifetime";
+  }
+}
+
+function currentDateKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function currentMonthKey() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function summarizeDailySavings(
+  dashboard: DashboardState,
+  predicate: (date: string) => boolean,
+) {
+  return dashboard.dailySavings
+    .filter((point) => predicate(point.date))
+    .reduce(
+      (total, point) => {
+        total.savedUsd += point.estimatedSavingsUsd;
+        total.savedTokens += point.estimatedTokensSaved;
+        total.sentTokens += point.totalTokensSent;
+        return total;
+      },
+      { savedUsd: 0, savedTokens: 0, sentTokens: 0 },
+    );
+}
+
 export function buildSavingsCalculatorSummary(
   dashboard: DashboardState,
   scope: SavingsCalculatorScope,
@@ -180,28 +225,55 @@ export function buildSavingsCalculatorSummary(
     };
   }
 
-  const sentTokens = dashboard.dailySavings.reduce(
-    (sum, point) => sum + point.totalTokensSent,
-    0,
-  );
-  const beforeTokens = sentTokens + dashboard.lifetimeEstimatedTokensSaved;
-  const savingsPct =
-    beforeTokens > 0
-      ? (dashboard.lifetimeEstimatedTokensSaved / beforeTokens) * 100
-      : null;
+  if (scope === "repo") {
+    return {
+      scope,
+      requests: 0,
+      savedTokens: 0,
+      savedUsd: 0,
+      conservativeSavedUsd: 0,
+      sentTokens: 0,
+      beforeTokens: 0,
+      savingsPct: null,
+      dataLabel: "Current repo context estimate",
+    };
+  }
+
+  const scopedDailySavings =
+    scope === "today"
+      ? summarizeDailySavings(dashboard, (date) => date === currentDateKey())
+      : scope === "month"
+        ? summarizeDailySavings(dashboard, (date) =>
+            date.startsWith(currentMonthKey()),
+          )
+        : null;
+  const savedTokens =
+    scopedDailySavings?.savedTokens ?? dashboard.lifetimeEstimatedTokensSaved;
+  const savedUsd =
+    scopedDailySavings?.savedUsd ?? dashboard.lifetimeEstimatedSavingsUsd;
+  const sentTokens =
+    scopedDailySavings?.sentTokens ??
+    dashboard.dailySavings.reduce((sum, point) => sum + point.totalTokensSent, 0);
+  const beforeTokens = sentTokens + savedTokens;
+  const savingsPct = beforeTokens > 0 ? (savedTokens / beforeTokens) * 100 : null;
 
   return {
     scope,
-    requests: dashboard.lifetimeRequests,
-    savedTokens: dashboard.lifetimeEstimatedTokensSaved,
-    savedUsd: dashboard.lifetimeEstimatedSavingsUsd,
-    conservativeSavedUsd: dashboard.lifetimeEstimatedSavingsUsd * 0.5,
+    requests: scope === "lifetime" ? dashboard.lifetimeRequests : 0,
+    savedTokens,
+    savedUsd,
+    conservativeSavedUsd: savedUsd * 0.5,
     sentTokens,
     beforeTokens,
     savingsPct,
-    dataLabel: dashboard.savingsHistoryLoaded
-      ? "All tracked switchboard usage"
-      : "All recorded usage",
+    dataLabel:
+      scope === "today"
+        ? "Tracked switchboard usage today"
+        : scope === "month"
+          ? "Tracked switchboard usage this month"
+          : dashboard.savingsHistoryLoaded
+            ? "All tracked switchboard usage"
+            : "All recorded usage",
   };
 }
 
@@ -211,8 +283,10 @@ export function buildSavingsCalculatorBreakdown(
   options: SavingsCalculatorBreakdownOptions = {},
 ): SavingsCalculatorBreakdownRow[] {
   const summary = buildSavingsCalculatorSummary(dashboard, scope);
-  const rows: SavingsCalculatorBreakdownRow[] = [
-    {
+  const rows: SavingsCalculatorBreakdownRow[] = [];
+
+  if (scope !== "repo" || summary.savedTokens > 0 || summary.savedUsd > 0) {
+    rows.push({
       id: "headroom",
       label: "Headroom",
       source: "headroom_engine",
@@ -223,16 +297,18 @@ export function buildSavingsCalculatorBreakdown(
       detail:
         scope === "session"
           ? "Runtime compression measured in this app session."
+          : scope === "repo"
+            ? "Runtime savings are not attributed to a repo until backend repo-scoped history ships."
           : "Runtime compression recorded across saved history.",
-    },
-  ];
+    });
+  }
 
   const rtkSaved = Math.max(0, options.runtimeStatus?.rtk.totalSaved ?? 0);
   const rtkCommands = Math.max(
     0,
     options.runtimeStatus?.rtk.totalCommands ?? 0,
   );
-  if (scope === "overall" && rtkSaved > 0) {
+  if (scope === "lifetime" && rtkSaved > 0) {
     rows.push({
       id: "rtk",
       label: "RTK",
@@ -252,7 +328,7 @@ export function buildSavingsCalculatorBreakdown(
     0,
     options.repoSavings?.bestPackTokensAvoided ?? 0,
   );
-  if (repoSaved > 0) {
+  if (repoSaved > 0 && scope !== "today" && scope !== "month") {
     rows.push({
       id: "repo_intelligence",
       label: "Repo Intelligence",
@@ -428,8 +504,7 @@ export function formatSavingsLedgerShareText(
   recordedAt: string,
 ) {
   const summary = summarizeSavingsLedgerRows(rows, scope, recordedAt);
-  const scopeLabel =
-    scope === "session" ? "current app session" : "overall history";
+  const scopeLabel = savingsCalculatorScopeLabel(scope);
   const rowLines =
     rows.length > 0
       ? rows.map((row) => {
@@ -442,7 +517,7 @@ export function formatSavingsLedgerShareText(
   return [
     `Mac AI Switchboard savings ledger (${scopeLabel})`,
     `Recorded: ${recordedAt}`,
-    "Scopes: current session is live; repo, today, month, and lifetime views currently roll up through saved history until dedicated filters ship.",
+    "Scopes: session uses live app counters; repo uses Repo Intelligence context estimates; today/month/lifetime use saved local history.",
     `Rows: ${formatTokens(summary.rowCount)}`,
     `Total tokens: ${formatTokens(summary.totalTokens)}`,
     `Measured tokens: ${formatTokens(summary.measuredTokens)} / ${formatUsd(summary.measuredUsd)}`,
@@ -458,8 +533,7 @@ export function formatSavingsCalculatorShareText(
   summary: SavingsCalculatorSummary,
   rows: SavingsCalculatorBreakdownRow[],
 ) {
-  const scopeLabel =
-    summary.scope === "session" ? "current app session" : "overall history";
+  const scopeLabel = savingsCalculatorScopeLabel(summary.scope);
   const sourceLines = rows.map((row) => {
     const usdPart =
       row.savedUsd === null ? "" : ` / ${formatUsd(row.savedUsd)}`;

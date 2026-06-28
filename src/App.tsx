@@ -225,6 +225,7 @@ import {
   buildSavingsLedgerRows,
   buildSavingsCalculatorSummary,
   formatSavingsLedgerShareText,
+  savingsCalculatorScopeLabel,
   CAVEMAN_TEMPLATE_BASELINE_TOKENS,
   CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
   PONYTAIL_TEMPLATE_BASELINE_TOKENS,
@@ -593,6 +594,13 @@ const savingsLedgerConfidenceFilters: SavingsLedgerConfidenceFilter[] = [
   "estimated",
   "inferred",
 ];
+const savingsCalculatorScopes: SavingsCalculatorScope[] = [
+  "session",
+  "repo",
+  "today",
+  "month",
+  "lifetime",
+];
 
 // Output-token reduction from the proxy's output shaper, shown as a secondary
 // line inside the "Total input tokens saved" card so the two numbers (input
@@ -725,7 +733,8 @@ function SavingsCalculatorCard({
   const sentLabel = compactNumber(summary.sentTokens);
   const beforeLabel = compactNumber(summary.beforeTokens);
   const conservativeUsdLabel = currencyExact(summary.conservativeSavedUsd);
-  const hasUsage = summary.requests > 0 || summary.savedTokens > 0;
+  const hasUsage =
+    summary.requests > 0 || summary.savedTokens > 0 || ledgerRows.length > 0;
   const percentLabel =
     summary.savingsPct === null
       ? "Waiting for usage"
@@ -777,7 +786,7 @@ function SavingsCalculatorCard({
           role="group"
           aria-label="Savings scope"
         >
-          {(["session", "overall"] as const).map((item) => (
+          {savingsCalculatorScopes.map((item) => (
             <button
               key={item}
               type="button"
@@ -786,7 +795,7 @@ function SavingsCalculatorCard({
               }`}
               onClick={() => onScopeChange(item)}
             >
-              {item === "session" ? "Session" : "Overall"}
+              {savingsCalculatorScopeLabel(item).replace("current app ", "")}
             </button>
           ))}
         </div>
@@ -803,9 +812,7 @@ function SavingsCalculatorCard({
       </header>
       <div className="savings-calculator__body">
         <div className="savings-calculator__hero">
-          <span>
-            {scope === "session" ? "Saved this session" : "Saved overall"}
-          </span>
+          <span>Saved {savingsCalculatorScopeLabel(scope)}</span>
           <strong>{currencyExact(summary.savedUsd)}</strong>
         </div>
         <dl className="savings-calculator__metrics">
@@ -877,7 +884,7 @@ function SavingsCalculatorCard({
         <div className="savings-calculator__ledger-head">
           <div>
             <span>Ledger</span>
-            <strong>{scope === "session" ? "Session" : "Overall"}</strong>
+            <strong>{savingsCalculatorScopeLabel(scope)}</strong>
           </div>
           <div
             className="savings-calculator__ledger-filters"

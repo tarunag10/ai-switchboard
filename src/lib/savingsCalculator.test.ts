@@ -68,7 +68,7 @@ function dashboardFixture(
 }
 
 describe("savings calculator", () => {
-  it.each<SavingsCalculatorScope>(["session", "overall"])(
+  it.each<SavingsCalculatorScope>(["session", "lifetime"])(
     "returns stable %s totals",
     (scope) => {
       const summary = buildSavingsCalculatorSummary(dashboardFixture(), scope);
@@ -97,17 +97,93 @@ describe("savings calculator", () => {
         dailySavings: [],
         recentUsage: [],
       }),
-      "overall",
+      "lifetime",
     );
 
     expect(summary.savingsPct).toBeNull();
     expect(summary.beforeTokens).toBe(0);
   });
 
-  it("breaks down overall savings by runtime, RTK, and repo context", () => {
+  it("builds today and month summaries from saved local history", () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const month = today.slice(0, 7);
+    const dashboard = dashboardFixture({
+      dailySavings: [
+        {
+          date: today,
+          estimatedSavingsUsd: 1.5,
+          estimatedTokensSaved: 600,
+          actualCostUsd: 0.75,
+          totalTokensSent: 2_400,
+        },
+        {
+          date: `${month}-01`,
+          estimatedSavingsUsd: 2,
+          estimatedTokensSaved: 800,
+          actualCostUsd: 1,
+          totalTokensSent: 3_200,
+        },
+        {
+          date: "2026-01-01",
+          estimatedSavingsUsd: 9,
+          estimatedTokensSaved: 9_000,
+          actualCostUsd: 4,
+          totalTokensSent: 9_000,
+        },
+      ],
+    });
+
+    expect(buildSavingsCalculatorSummary(dashboard, "today")).toMatchObject({
+      savedTokens: 600,
+      savedUsd: 1.5,
+      sentTokens: 2_400,
+      requests: 0,
+      dataLabel: "Tracked switchboard usage today",
+    });
+    expect(buildSavingsCalculatorSummary(dashboard, "month")).toMatchObject({
+      savedTokens: 1_400,
+      savedUsd: 3.5,
+      sentTokens: 5_600,
+      requests: 0,
+      dataLabel: "Tracked switchboard usage this month",
+    });
+  });
+
+  it("keeps repo scope focused on Repo Intelligence estimates", () => {
+    const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "repo", {
+      repoSavings: {
+        fullScanTokens: 10_000,
+        bestPackTokens: 2_500,
+        bestPackTokensAvoided: 7_500,
+        bestPackSavingsPct: 75,
+        allPacksTokens: 4_000,
+        allPacksTokensAvoided: 6_000,
+        allPacksSavingsPct: 60,
+        bestPack: {
+          id: "implementation",
+          title: "Implementation pack",
+          purpose: "Build next slice",
+          estimatedTokens: 2_500,
+          savingsVsFullScanPct: 75,
+          files: [],
+        },
+      },
+    });
+
+    expect(buildSavingsCalculatorSummary(dashboardFixture(), "repo")).toMatchObject({
+      savedTokens: 0,
+      savedUsd: 0,
+      requests: 0,
+      dataLabel: "Current repo context estimate",
+    });
+    expect(rows.map((row) => row.id)).toEqual(["repo_intelligence"]);
+    expect(rows[0].confidence).toBe("inferred");
+  });
+
+  it("breaks down lifetime savings by runtime, RTK, and repo context", () => {
     const rows = buildSavingsCalculatorBreakdown(
       dashboardFixture(),
-      "overall",
+      "lifetime",
       {
         runtimeStatus: {
           platform: "darwin",
@@ -166,7 +242,7 @@ describe("savings calculator", () => {
   });
 
   it("appends inferred add-on rows when their estimates avoid tokens", () => {
-    const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "overall", {
+    const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "lifetime", {
       runtimeStatus: {
         platform: "darwin",
         supportTier: "supported",
@@ -230,7 +306,7 @@ describe("savings calculator", () => {
   });
 
   it("omits add-on rows when the estimate is missing or avoids no tokens", () => {
-    const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "overall", {
+    const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "lifetime", {
       cavemanSavings: buildAddonSavingsEstimate(200, 200),
       ponytailSavings: null,
     });
@@ -283,7 +359,7 @@ describe("savings calculator", () => {
   it("builds scoped ledger rows with confidence labels", () => {
     const rows = buildSavingsLedgerRows(
       dashboardFixture(),
-      "overall",
+      "lifetime",
       "2026-06-27T10:00:00.000Z",
       {
         runtimeStatus: {
@@ -308,7 +384,7 @@ describe("savings calculator", () => {
       },
     );
 
-    expect(rows.map((row) => row.scope)).toEqual(["overall", "overall"]);
+    expect(rows.map((row) => row.scope)).toEqual(["lifetime", "lifetime"]);
     expect(rows.map((row) => row.recordedAt)).toEqual([
       "2026-06-27T10:00:00.000Z",
       "2026-06-27T10:00:00.000Z",
@@ -325,7 +401,7 @@ describe("savings calculator", () => {
   it("summarizes ledger confidence buckets without upgrading inferred rows", () => {
     const rows = buildSavingsLedgerRows(
       dashboardFixture(),
-      "overall",
+      "lifetime",
       "2026-06-27T10:00:00.000Z",
       {
         runtimeStatus: {
@@ -369,7 +445,7 @@ describe("savings calculator", () => {
     );
     const summary = summarizeSavingsLedgerRows(
       rows,
-      "overall",
+      "lifetime",
       "2026-06-27T10:00:00.000Z",
     );
 
@@ -392,7 +468,7 @@ describe("savings calculator", () => {
 
   it("groups ledger rows by source and preserves the time window", () => {
     const recordedAt = "2026-06-27T10:00:00.000Z";
-    const rows = buildSavingsLedgerRows(dashboardFixture(), "overall", recordedAt, {
+    const rows = buildSavingsLedgerRows(dashboardFixture(), "lifetime", recordedAt, {
       runtimeStatus: {
         platform: "darwin",
         supportTier: "supported",
@@ -430,7 +506,7 @@ describe("savings calculator", () => {
         },
       },
     });
-    const groups = groupSavingsLedgerRowsBySource(rows, "overall", recordedAt);
+    const groups = groupSavingsLedgerRowsBySource(rows, "lifetime", recordedAt);
 
     expect(groups.map((group) => group.source)).toEqual([
       "headroom_engine",
@@ -438,9 +514,9 @@ describe("savings calculator", () => {
       "repo_intelligence",
     ]);
     expect(groups.map((group) => group.scope)).toEqual([
-      "overall",
-      "overall",
-      "overall",
+      "lifetime",
+      "lifetime",
+      "lifetime",
     ]);
     expect(groups.map((group) => group.recordedAt)).toEqual([
       recordedAt,
@@ -472,7 +548,7 @@ describe("savings calculator", () => {
 
   it("filters ledger rows by confidence before grouping and copying", () => {
     const recordedAt = "2026-06-27T10:00:00.000Z";
-    const rows = buildSavingsLedgerRows(dashboardFixture(), "overall", recordedAt, {
+    const rows = buildSavingsLedgerRows(dashboardFixture(), "lifetime", recordedAt, {
       runtimeStatus: {
         platform: "darwin",
         supportTier: "supported",
@@ -518,7 +594,7 @@ describe("savings calculator", () => {
 
     const inferred = buildFilteredSavingsLedger(
       rows,
-      "overall",
+      "lifetime",
       recordedAt,
       "inferred",
     );
@@ -536,7 +612,7 @@ describe("savings calculator", () => {
 
     const copied = formatSavingsLedgerShareText(
       inferred.rows,
-      "overall",
+      "lifetime",
       recordedAt,
     );
     expect(copied).toContain("Rows: 2");
@@ -548,7 +624,7 @@ describe("savings calculator", () => {
 
   it("formats a copyable savings ledger with confidence caveats", () => {
     const recordedAt = "2026-06-27T10:00:00.000Z";
-    const rows = buildSavingsLedgerRows(dashboardFixture(), "overall", recordedAt, {
+    const rows = buildSavingsLedgerRows(dashboardFixture(), "lifetime", recordedAt, {
       runtimeStatus: {
         platform: "darwin",
         supportTier: "supported",
@@ -570,12 +646,12 @@ describe("savings calculator", () => {
       },
       markitdownSavings: buildAddonSavingsEstimate(3_200, 900),
     });
-    const text = formatSavingsLedgerShareText(rows, "overall", recordedAt);
+    const text = formatSavingsLedgerShareText(rows, "lifetime", recordedAt);
 
-    expect(text).toContain("Mac AI Switchboard savings ledger (overall history)");
+    expect(text).toContain("Mac AI Switchboard savings ledger (lifetime)");
     expect(text).toContain("Recorded: 2026-06-27T10:00:00.000Z");
     expect(text).toContain(
-      "Scopes: current session is live; repo, today, month, and lifetime views currently roll up through saved history until dedicated filters ship.",
+      "Scopes: session uses live app counters; repo uses Repo Intelligence context estimates; today/month/lifetime use saved local history.",
     );
     expect(text).toContain("Measured tokens: 900 / $0.00");
     expect(text).toContain("Estimated tokens: 2,000 / $4.50");
@@ -604,10 +680,10 @@ describe("savings calculator", () => {
     );
   });
 
-  it("formats a copyable overall savings summary with local sources", () => {
+  it("formats a copyable lifetime savings summary with local sources", () => {
     const dashboard = dashboardFixture();
-    const summary = buildSavingsCalculatorSummary(dashboard, "overall");
-    const rows = buildSavingsCalculatorBreakdown(dashboard, "overall", {
+    const summary = buildSavingsCalculatorSummary(dashboard, "lifetime");
+    const rows = buildSavingsCalculatorBreakdown(dashboard, "lifetime", {
       runtimeStatus: {
         platform: "darwin",
         supportTier: "supported",
@@ -651,7 +727,7 @@ describe("savings calculator", () => {
     });
     const text = formatSavingsCalculatorShareText(summary, rows);
 
-    expect(text).toContain("Mac AI Switchboard savings (overall history)");
+    expect(text).toContain("Mac AI Switchboard savings (lifetime)");
     expect(text).toContain("Saved: 2,000 tokens / $4.50");
     expect(text).toContain("Confidence: measured = observed local counters");
     expect(text).toContain(
