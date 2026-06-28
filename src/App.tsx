@@ -87,6 +87,7 @@ import {
   type RepoIntelligenceSummary,
   type RepoSavingsEstimate,
 } from "./lib/repoIntelligence";
+import { repoMemoryMcpInspectorRow } from "./lib/repoMemoryMcp";
 import {
   formatPlannedConnectorConfigCreationPlansMarkdown,
   getPlannedConnector,
@@ -6733,18 +6734,10 @@ export default function App() {
         : "Managed RTK PATH export is not active.",
     },
     {
-      label: "MCP state",
-      status:
-        runtimeStatus?.mcpConfigured === true
-          ? "Configured"
-          : runtimeStatus?.mcpConfigured === false
-            ? "Needs attention"
-            : "Unknown",
-      detail:
-        runtimeStatus?.mcpError ??
-        (runtimeStatus?.mcpConfigured === true
-          ? "Repo Memory MCP is configured."
-          : "MCP configuration has not been verified."),
+      ...repoMemoryMcpInspectorRow({
+        configured: runtimeStatus?.mcpConfigured,
+        error: runtimeStatus?.mcpError,
+      }),
     },
     {
       label: "LaunchAgent",

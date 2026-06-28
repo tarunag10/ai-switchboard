@@ -28,9 +28,10 @@ function renderPanel(
         detail: "Managed RTK PATH export is present.",
       },
       {
-        label: "MCP state",
+        label: "Repo Memory MCP",
         status: "Configured",
-        detail: "Repo Memory MCP is configured.",
+        detail:
+          "Repo Memory MCP is app-managed, read-only, and available to supported agents.",
       },
       {
         label: "LaunchAgent",
@@ -71,7 +72,7 @@ describe("SwitchboardPanel", () => {
     expect(inspector.getByText("RTK hook")).toBeInTheDocument();
     expect(inspector.getByText("Client routing")).toBeInTheDocument();
     expect(inspector.getByText("Shell export")).toBeInTheDocument();
-    expect(inspector.getByText("MCP state")).toBeInTheDocument();
+    expect(inspector.getByText("Repo Memory MCP")).toBeInTheDocument();
     expect(inspector.getByText("LaunchAgent")).toBeInTheDocument();
     expect(screen.getAllByText("Codex, Claude Code").length).toBeGreaterThan(0);
     expect(screen.getAllByText("82.5% average savings").length).toBeGreaterThan(
@@ -81,7 +82,9 @@ describe("SwitchboardPanel", () => {
       inspector.getByText("Managed RTK PATH export is present."),
     ).toBeInTheDocument();
     expect(
-      inspector.getByText("Repo Memory MCP is configured."),
+      inspector.getByText(
+        "Repo Memory MCP is app-managed, read-only, and available to supported agents.",
+      ),
     ).toBeInTheDocument();
     expect(inspector.getByText("Headroom PID 1234")).toBeInTheDocument();
     expect(screen.getByText("Savings profile")).toBeInTheDocument();

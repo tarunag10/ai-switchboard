@@ -255,6 +255,10 @@ describe("doctor repair copy", () => {
     expect(gates).toContain("indexed/skipped counts");
     expect(gates).toContain("secret exclusion");
     expect(gates).toContain("read-only safety");
+    expect(gates).toContain("Repo Memory MCP lifecycle");
+    expect(gates).toContain("install_repo_memory_mcp");
+    expect(gates).toContain("npm run check:repo-memory-mcp");
+    expect(gates).toContain("repo_context_pack");
   });
 
   it("explains why planned connectors stay manual in Doctor", () => {
@@ -352,6 +356,7 @@ describe("doctor repair copy", () => {
     );
     expect(text).toContain("API availability");
     expect(text).toContain("read-only safety");
+    expect(text).toContain("Repo Memory MCP smoke check");
     expect(text).not.toContain("~/.codex/config.toml");
     expect(text).not.toContain("/Users/tarunagarwal");
   });

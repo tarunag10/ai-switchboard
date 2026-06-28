@@ -88,7 +88,7 @@ Tasks:
 
 - Add backend checks for listeners on `127.0.0.1:6767`, `127.0.0.1:8787`, managed shell blocks, Claude hooks, Codex provider blocks, MCP config, and LaunchAgents.
 - Add a Doctor "Verify Off mode" action.
-- Add a Mode Inspector panel showing requested mode, active mode, Headroom engine status, RTK hook status, Claude routing, Codex routing, MCP state, shell export state, and LaunchAgent state.
+- Add a Mode Inspector panel showing requested mode, active mode, Headroom engine status, RTK hook status, Claude routing, Codex routing, Repo Memory MCP lifecycle state, shell export state, and LaunchAgent state.
 - Block repair actions from silently restoring Headroom routing when requested mode is Off or RTK-only.
 - Add launch/bootstrap tests proving Off and RTK-only do not start the Headroom engine.
 - Document stale shell behavior and restart guidance.
