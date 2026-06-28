@@ -400,6 +400,8 @@ const requiredSourceSignals = {
     "Repo Intelligence Read-Only API",
     "Safety: read-only yes",
     "modifies repository no",
+    "repoMemorySafety",
+    "repositories are not modified",
     "--list-agents",
     "--manifest",
     "--format json",

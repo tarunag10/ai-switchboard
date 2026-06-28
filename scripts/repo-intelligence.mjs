@@ -1720,6 +1720,14 @@ function formatApiQueryList(summary) {
   ].join("\n");
 }
 
+function repoMemorySafety() {
+  return {
+    readOnly: true,
+    excludesSecretLikePaths: true,
+    modifiesRepository: false,
+  };
+}
+
 function mcpTextResult(value) {
   return {
     content: [
@@ -1745,7 +1753,11 @@ function handleRepoMemoryTool(summary, name, args = {}) {
     const symbols = (summary.graph?.symbols ?? [])
       .filter((symbol) => !query || symbol.name.toLowerCase().includes(query))
       .slice(0, 25);
-    return mcpTextResult({ repoRoot: summary.repoRoot, symbols });
+    return mcpTextResult({
+      repoRoot: summary.repoRoot,
+      symbols,
+      safety: repoMemorySafety(),
+    });
   }
   if (name === "repo_dependents_of") {
     const target = String(args.target ?? "");
@@ -1758,7 +1770,12 @@ function handleRepoMemoryTool(summary, name, args = {}) {
           !target || edge.to.includes(target) || edge.from.includes(target),
       )
       .slice(0, 50);
-    return mcpTextResult({ repoRoot: summary.repoRoot, target, edges });
+    return mcpTextResult({
+      repoRoot: summary.repoRoot,
+      target,
+      edges,
+      safety: repoMemorySafety(),
+    });
   }
   throw new Error(`Unknown repo-memory tool: ${name}`);
 }
@@ -1769,7 +1786,7 @@ function runRepoMemoryMcpServer(options) {
     {
       name: "repo_context_pack",
       description:
-        "Return a read-only Repo Intelligence context pack as Markdown.",
+        "Return a read-only Repo Intelligence context pack as Markdown; secret-like paths are excluded and repositories are not modified.",
       inputSchema: {
         type: "object",
         properties: { packId: { type: "string" } },
@@ -1777,7 +1794,8 @@ function runRepoMemoryMcpServer(options) {
     },
     {
       name: "repo_symbol_lookup",
-      description: "Search the latest Repo Intelligence symbol graph.",
+      description:
+        "Search the latest Repo Intelligence symbol graph read-only; secret-like paths are excluded and repositories are not modified.",
       inputSchema: {
         type: "object",
         properties: { query: { type: "string" } },
@@ -1786,7 +1804,7 @@ function runRepoMemoryMcpServer(options) {
     {
       name: "repo_dependents_of",
       description:
-        "Return read-only import/symbol edges that point at a file or symbol.",
+        "Return read-only import/symbol edges that point at a file or symbol; secret-like paths are excluded and repositories are not modified.",
       inputSchema: {
         type: "object",
         properties: { target: { type: "string" } },
