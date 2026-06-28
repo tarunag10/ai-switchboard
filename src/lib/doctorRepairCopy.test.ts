@@ -392,6 +392,30 @@ describe("doctor repair copy", () => {
     expect(text).not.toContain("/Users/tarunagarwal");
   });
 
+  it("scrubs secrets from Doctor timeline support sharing", () => {
+    const text = formatDoctorTimelineShareText([
+      {
+        id: "secret-issue",
+        kind: "failed_repair",
+        title: "Provider config failed",
+        body:
+          "OPENAI_API_KEY=sk-proj_abc123456789012345 leaked near github_pat_1234567890abcdef and /Users/tarunagarwal/.config/tool.",
+        occurredAt: "2026-06-27T10:10:00.000Z",
+        status: "error",
+        actor: "doctor",
+        target: "xai_1234567890abcdef",
+      },
+    ]);
+
+    expect(text).toContain("OPENAI_API_KEY=[secret]");
+    expect(text).toContain("Target: [secret]");
+    expect(text).toContain("[user-path]");
+    expect(text).not.toContain("sk-proj_abc123456789012345");
+    expect(text).not.toContain("github_pat_1234567890abcdef");
+    expect(text).not.toContain("xai_1234567890abcdef");
+    expect(text).not.toContain("/Users/tarunagarwal");
+  });
+
   it("builds scrubbed timeline events from managed rollback records", () => {
     const events = buildManagedChangeTimelineEvents(
       managedChangeRecords,

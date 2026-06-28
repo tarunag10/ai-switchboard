@@ -188,7 +188,12 @@ export function buildDoctorReportTimelineEvents(
 function scrubTimelineText(value: string) {
   return value
     .replace(/~\/\S+/g, "[home-path]")
-    .replace(/\/Users\/\S+/g, "[user-path]");
+    .replace(/\/Users\/\S+/g, "[user-path]")
+    .replace(/\b(?:sk|sk-proj|xai|ghp|github_pat)_[A-Za-z0-9_-]{12,}\b/g, "[secret]")
+    .replace(
+      /\b([A-Z][A-Z0-9_]*(?:API_KEY|TOKEN|SECRET|PASSWORD)\s*=\s*)[^\s,;]+/g,
+      "$1[secret]",
+    );
 }
 
 export function formatDoctorTimelineShareText(
