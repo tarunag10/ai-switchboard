@@ -269,9 +269,15 @@ fn check_zero_spend_anomaly(dashboard: &DashboardState) {
 }
 
 #[tauri::command]
-fn build_repo_intelligence_summary(repo_path: String) -> Result<RepoIntelligenceSummary, String> {
+fn build_repo_intelligence_summary(
+    state: State<'_, AppState>,
+    repo_path: String,
+) -> Result<RepoIntelligenceSummary, String> {
     let summary = repo_intelligence::summarize_repo(repo_path).map_err(|err| err.to_string())?;
     repo_intelligence::save_latest_summary(&summary).map_err(|err| err.to_string())?;
+    if let Err(err) = state.record_repo_intelligence_attribution(&summary) {
+        log::warn!("could not record Repo Intelligence attribution event: {err:#}");
+    }
     Ok(summary)
 }
 

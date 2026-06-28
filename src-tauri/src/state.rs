@@ -2105,6 +2105,16 @@ impl AppState {
         self.savings_tracker.lock().attribution_events()
     }
 
+    pub fn record_repo_intelligence_attribution(
+        &self,
+        summary: &crate::models::RepoIntelligenceSummary,
+    ) -> Result<()> {
+        let Some(event) = build_repo_intelligence_attribution_event(summary) else {
+            return Ok(());
+        };
+        self.savings_tracker.lock().append_attribution_event(&event)
+    }
+
     /// Emit a weekly recap rolling up the 7 days ending last Sunday.
     /// Previously Monday-only; now runs on any day whose check is due so the
     /// first launch after an upgrade catches up on last week's recap if it
@@ -3612,6 +3622,51 @@ struct RtkSavingsObservation {
     observed_at: chrono::DateTime<Utc>,
     total_commands: u64,
     total_saved: u64,
+}
+
+fn build_repo_intelligence_attribution_event(
+    summary: &crate::models::RepoIntelligenceSummary,
+) -> Option<SavingsAttributionEvent> {
+    let full_scan_tokens = summary.estimated_full_scan_tokens;
+    let best_pack = summary
+        .packs
+        .iter()
+        .filter(|pack| pack.estimated_tokens > 0)
+        .min_by(|left, right| {
+            left.estimated_tokens
+                .cmp(&right.estimated_tokens)
+                .then_with(|| {
+                    right
+                        .savings_vs_full_scan_pct
+                        .total_cmp(&left.savings_vs_full_scan_pct)
+                })
+                .then_with(|| left.title.cmp(&right.title))
+        })?;
+    let delta_tokens = full_scan_tokens.saturating_sub(best_pack.estimated_tokens);
+    if delta_tokens == 0 {
+        return None;
+    }
+
+    Some(SavingsAttributionEvent {
+        schema_version: 1,
+        id: Uuid::new_v4().to_string(),
+        observed_at: Utc::now(),
+        scope: SavingsAttributionScope::Session,
+        source: SavingsAttributionSource::RepoIntelligence,
+        confidence: SavingsAttributionConfidence::Estimated,
+        delta_tokens_saved: delta_tokens,
+        delta_usd: 0.0,
+        total_tokens_sent: 0,
+        request_delta: 1,
+        evidence: vec![
+            format!(
+                "Estimated from Repo Intelligence best-pack delta: full scan {full_scan_tokens} tokens vs '{}' pack {} tokens.",
+                best_pack.title, best_pack.estimated_tokens
+            ),
+            "Repo Intelligence savings estimate is local context avoided, not provider-spend dollars."
+                .to_string(),
+        ],
+    })
 }
 
 impl SavingsObservation {
@@ -5777,9 +5832,10 @@ mod tests {
     use crate::storage::{config_file, ensure_data_dirs, telemetry_file};
 
     use crate::models::{
-        ActivityEvent, BootstrapProgress, DailySavingsPoint, HourlySavingsPoint,
-        RuntimeUpgradeFailure, SavingsAttributionConfidence, SavingsAttributionEvent,
-        SavingsAttributionScope, SavingsAttributionSource, UpgradeFailurePhase,
+        ActivityEvent, BootstrapProgress, DailySavingsPoint, HourlySavingsPoint, RepoContextPack,
+        RepoIntelligenceSummary, RuntimeUpgradeFailure, SavingsAttributionConfidence,
+        SavingsAttributionEvent, SavingsAttributionScope, SavingsAttributionSource,
+        UpgradeFailurePhase,
     };
     use crate::tool_manager::{BootstrapStepUpdate, RtkGainSummary};
 
@@ -6504,6 +6560,74 @@ mod tests {
 
         assert_eq!(event.source, SavingsAttributionSource::CompactChinese);
         assert_eq!(event.confidence, SavingsAttributionConfidence::Inferred);
+    }
+
+    fn repo_summary_for_attribution(
+        full_scan: u64,
+        packs: Vec<RepoContextPack>,
+    ) -> RepoIntelligenceSummary {
+        RepoIntelligenceSummary {
+            indexed_at: "2026-06-28T10:00:00Z".into(),
+            repo_root: "/tmp/example".into(),
+            indexer_version: Some("test".into()),
+            total_files: 3,
+            indexed_files: 3,
+            skipped_files: 0,
+            estimated_full_scan_tokens: full_scan,
+            role_counts: Default::default(),
+            index_metadata: None,
+            graph: None,
+            packs,
+        }
+    }
+
+    fn repo_pack_for_attribution(
+        title: &str,
+        estimated_tokens: u64,
+        savings: f64,
+    ) -> RepoContextPack {
+        RepoContextPack {
+            id: title.to_ascii_lowercase().replace(' ', "_"),
+            title: title.into(),
+            purpose: "test pack".into(),
+            files: Vec::new(),
+            estimated_tokens,
+            savings_vs_full_scan_pct: savings,
+        }
+    }
+
+    #[test]
+    fn repo_intelligence_attribution_event_uses_best_pack_delta() {
+        let summary = repo_summary_for_attribution(
+            10_000,
+            vec![
+                repo_pack_for_attribution("Verification", 4_000, 60.0),
+                repo_pack_for_attribution("Implementation", 2_500, 75.0),
+            ],
+        );
+
+        let event = super::build_repo_intelligence_attribution_event(&summary)
+            .expect("repo intelligence attribution event");
+
+        assert_eq!(event.source, SavingsAttributionSource::RepoIntelligence);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(event.delta_tokens_saved, 7_500);
+        assert_eq!(event.delta_usd, 0.0);
+        assert_eq!(event.request_delta, 1);
+        let evidence = event.evidence.join(" ");
+        assert!(evidence.contains("full scan 10000 tokens"));
+        assert!(evidence.contains("Implementation"));
+        assert!(evidence.contains("not provider-spend dollars"));
+    }
+
+    #[test]
+    fn repo_intelligence_attribution_event_skips_zero_delta() {
+        let summary = repo_summary_for_attribution(
+            1_000,
+            vec![repo_pack_for_attribution("Full", 1_000, 0.0)],
+        );
+
+        assert!(super::build_repo_intelligence_attribution_event(&summary).is_none());
     }
 
     #[test]
