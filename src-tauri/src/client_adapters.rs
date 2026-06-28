@@ -364,15 +364,53 @@ fn planned_config_creation_step_details(
         rollback_detail,
         off_cleanup_detail,
     ];
+    let required_evidence = [
+        vec![
+            "Read-only binary or app detection result.".to_string(),
+            "Detected config, settings, profile, or environment surface documented without writes."
+                .to_string(),
+        ],
+        vec![
+            "User-visible dry-run diff showing the exact proposed local proxy/provider change."
+                .to_string(),
+            "No files, profiles, credentials, or account state changed by the preview.".to_string(),
+        ],
+        vec![
+            "Timestamped backup path or environment-wrapper restore point.".to_string(),
+            "Restore fixture proving unknown fields and unrelated provider entries are preserved."
+                .to_string(),
+        ],
+        vec![
+            format!("Explicit user consent captured for {}.", spec.name),
+            "Managed marker or wrapper boundary proving only Switchboard-owned routing was applied."
+                .to_string(),
+        ],
+        vec![
+            "Doctor check confirming account/model guardrails without storing secrets.".to_string(),
+            "Compatibility or caveat message visible before routing is considered supported."
+                .to_string(),
+        ],
+        vec![
+            "Rollback test restoring the exact backup or removing only managed wrapper state."
+                .to_string(),
+            "Post-rollback diff proving unrelated user settings are unchanged.".to_string(),
+        ],
+        vec![
+            "Off-mode fixture showing managed routing removed.".to_string(),
+            "Doctor verification that the connector returns to manual or RTK-only mode.".to_string(),
+        ],
+    ];
 
     PLANNED_CONFIG_CREATION_STEP_IDS
         .iter()
         .zip(PLANNED_CONFIG_CREATION_STEPS.iter())
         .zip(details)
-        .map(|((id, label), detail)| ClientConnectorConfigCreationStep {
+        .zip(required_evidence)
+        .map(|(((id, label), detail), required_evidence)| ClientConnectorConfigCreationStep {
             id: (*id).to_string(),
             label: (*label).to_string(),
             detail,
+            required_evidence,
         })
         .collect()
 }
@@ -4527,7 +4565,13 @@ mod tests {
             assert!(connector
                 .config_creation_step_details
                 .iter()
-                .all(|step| !step.label.is_empty() && step.detail.len() > 30));
+                .all(|step| !step.label.is_empty()
+                    && step.detail.len() > 30
+                    && step.required_evidence.len() >= 2
+                    && step
+                        .required_evidence
+                        .iter()
+                        .all(|evidence| evidence.len() > 30)));
         }
 
         let managed = connectors

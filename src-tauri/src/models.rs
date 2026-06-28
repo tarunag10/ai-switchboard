@@ -592,6 +592,7 @@ pub struct ClientConnectorConfigCreationStep {
     pub id: String,
     pub label: String,
     pub detail: String,
+    pub required_evidence: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

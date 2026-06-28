@@ -4380,7 +4380,12 @@ export default function App() {
       "- Automation enabled: no",
       "- Safety note: Backend metadata keeps config creation gated until every step has tests and Doctor evidence.",
       ...(stepDetails.length > 0
-        ? stepDetails.map((step) => `- ${step.label}: ${step.detail}`)
+        ? stepDetails.map((step) => {
+            const evidence = step.requiredEvidence?.length
+              ? ` Required evidence: ${step.requiredEvidence.join(" ")}`
+              : "";
+            return `- ${step.label}: ${step.detail}${evidence}`;
+          })
         : stepLabels.map((step) => `- ${step}`)),
     ].join("\n");
   }
@@ -8782,7 +8787,11 @@ export default function App() {
                                       ?.slice(0, 4)
                                       .map(
                                         (step) =>
-                                          `${step.label}: ${step.detail}`,
+                                          `${step.label}: ${step.detail}${
+                                            step.requiredEvidence?.length
+                                              ? ` Evidence ${step.requiredEvidence.join(" ")}`
+                                              : ""
+                                          }`,
                                       ) ??
                                       connector.configCreationSteps.slice(
                                         0,

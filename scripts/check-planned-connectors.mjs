@@ -152,6 +152,9 @@ function validateBackendConfigCreationPlanContract(source) {
   if (!source.includes("config_creation_step_details: planned_config_creation_step_details(spec)")) {
     errors.push("planned backend connectors must expose structured config_creation_step_details");
   }
+  if (!source.includes("required_evidence")) {
+    errors.push("planned backend config creation steps must expose required_evidence");
+  }
   for (const snippet of [
     "spec.detection_sources.join",
     "spec.config_locations.join",

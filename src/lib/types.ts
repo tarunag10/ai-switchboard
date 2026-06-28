@@ -186,6 +186,7 @@ export interface ClientConnectorConfigCreationStep {
   id: string;
   label: string;
   detail: string;
+  requiredEvidence?: string[];
 }
 
 export interface RuntimeStatus {
