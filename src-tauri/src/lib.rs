@@ -185,6 +185,17 @@ struct ReleaseReadinessReportPayload {
     report: Option<Value>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct ReleaseEvidenceCommandResult {
+    command_id: String,
+    label: String,
+    command: String,
+    summary_path: Option<String>,
+    stdout: String,
+    stderr: String,
+}
+
 static ZERO_SPEND_ALERT_FIRED: AtomicBool = AtomicBool::new(false);
 
 // Set when the watchdog has captured a Sentry event for the current "down
@@ -475,6 +486,60 @@ fn refresh_release_readiness_report() -> Result<ReleaseReadinessReportPayload, S
     }
 
     load_release_readiness_report_from(&cwd.join("dist/release-readiness-report.json"))
+}
+
+#[tauri::command]
+fn run_release_evidence_command(
+    command_id: String,
+) -> Result<ReleaseEvidenceCommandResult, String> {
+    let (label, command, program, args, summary_path) = match command_id.as_str() {
+        "static-preflight" => (
+            "Static smoke preflight",
+            "npm run smoke:preflight",
+            "npm",
+            vec!["run", "smoke:preflight"],
+            Some("dist/smoke-preflight-summary.md"),
+        ),
+        _ => {
+            return Err(
+                "Release evidence execution is currently enabled only for static-preflight."
+                    .to_string(),
+            )
+        }
+    };
+
+    let cwd = std::env::current_dir().map_err(|err| err.to_string())?;
+    let output = Command::new(program)
+        .args(args)
+        .current_dir(&cwd)
+        .output()
+        .map_err(|err| format!("failed to run {command}: {err}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    if !output.status.success() {
+        let detail = [stdout.trim(), stderr.trim()]
+            .into_iter()
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        return Err(if detail.is_empty() {
+            format!("{command} failed with status {}", output.status)
+        } else {
+            format!(
+                "{command} failed with status {}:\n{}",
+                output.status, detail
+            )
+        });
+    }
+
+    Ok(ReleaseEvidenceCommandResult {
+        command_id,
+        label: label.to_string(),
+        command: command.to_string(),
+        summary_path: summary_path.map(str::to_string),
+        stdout,
+        stderr,
+    })
 }
 
 #[tauri::command]
@@ -4672,6 +4737,7 @@ pub fn run() {
             get_app_update_configuration,
             load_release_readiness_report,
             refresh_release_readiness_report,
+            run_release_evidence_command,
             check_for_app_update,
             install_app_update,
             restart_app,
@@ -8480,5 +8546,15 @@ Some unrelated content.
 
         assert_eq!(payload.report_path, path.to_string_lossy());
         assert!(payload.report.is_none());
+    }
+
+    #[test]
+    fn release_evidence_command_rejects_unallowlisted_commands() {
+        let err = crate::run_release_evidence_command("build-mac-dmg".to_string()).unwrap_err();
+
+        assert!(
+            err.contains("enabled only for static-preflight"),
+            "unexpected error: {err}"
+        );
     }
 }

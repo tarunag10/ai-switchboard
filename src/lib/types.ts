@@ -249,6 +249,15 @@ export interface ManagedRollbackExecutionResult {
   verification: string[];
 }
 
+export interface ReleaseEvidenceCommandResult {
+  commandId: string;
+  label: string;
+  command: string;
+  summaryPath: string | null;
+  stdout: string;
+  stderr: string;
+}
+
 export interface RuntimeStatus {
   platform: string;
   supportTier: string;

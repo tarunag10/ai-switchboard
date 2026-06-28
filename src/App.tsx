@@ -2686,6 +2686,15 @@ interface ReleaseReadinessReportPayload {
   report: ReleaseReadinessReportSnapshot | null;
 }
 
+interface ReleaseEvidenceCommandResult {
+  commandId: string;
+  label: string;
+  command: string;
+  summaryPath: string | null;
+  stdout: string;
+  stderr: string;
+}
+
 export default function App() {
   const [dashboard, setDashboard] = useState<DashboardState>(mockDashboard);
   const [savingsAttributionEvents, setSavingsAttributionEvents] = useState<
@@ -2742,6 +2751,11 @@ export default function App() {
   const [releaseReadinessError, setReleaseReadinessError] = useState<
     string | null
   >(null);
+  const [releaseEvidenceBusyId, setReleaseEvidenceBusyId] = useState<
+    string | null
+  >(null);
+  const [releaseEvidenceResult, setReleaseEvidenceResult] =
+    useState<ReleaseEvidenceCommandResult | null>(null);
   const releaseReadinessRows = releaseReadinessRowsFromReport(
     releaseReadinessReport?.report,
   );
@@ -4974,6 +4988,31 @@ export default function App() {
       );
     } finally {
       setReleaseReadinessRefreshing(false);
+    }
+  }
+
+  async function runReleaseEvidenceCommand(commandId: string) {
+    setReleaseEvidenceBusyId(commandId);
+    setReleaseReadinessError(null);
+    setReleaseReadinessCopyNotice(null);
+    try {
+      const result = await invoke<ReleaseEvidenceCommandResult>(
+        "run_release_evidence_command",
+        { commandId },
+      );
+      setReleaseEvidenceResult(result);
+      setReleaseReadinessCopyNotice(`${result.label} evidence generated.`);
+      window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2500);
+      const payload = await invoke<ReleaseReadinessReportPayload>(
+        "load_release_readiness_report",
+      );
+      setReleaseReadinessReport(payload);
+    } catch (error) {
+      setReleaseReadinessError(
+        describeInvokeError(error, "Could not run release evidence command."),
+      );
+    } finally {
+      setReleaseEvidenceBusyId(null);
     }
   }
 
@@ -9691,6 +9730,28 @@ export default function App() {
                           <strong>{item.label}</strong>
                           <span>{item.detail}</span>
                           {item.command ? <code>{item.command}</code> : null}
+                          {item.executable ? (
+                            <button
+                              className="secondary-button secondary-button--small"
+                              disabled={releaseEvidenceBusyId !== null}
+                              onClick={() =>
+                                void runReleaseEvidenceCommand(item.id)
+                              }
+                              type="button"
+                            >
+                              <ArrowClockwise size={14} weight="bold" />
+                              {releaseEvidenceBusyId === item.id
+                                ? "Running"
+                                : "Run evidence"}
+                            </button>
+                          ) : null}
+                          {releaseEvidenceResult?.commandId === item.id ? (
+                            <span className="release-readiness-card__evidence-result">
+                              Generated{" "}
+                              {releaseEvidenceResult.summaryPath ??
+                                releaseEvidenceResult.command}
+                            </span>
+                          ) : null}
                         </li>
                       ))}
                     </ul>

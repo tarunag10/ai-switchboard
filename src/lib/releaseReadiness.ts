@@ -8,6 +8,7 @@ export interface ReleaseReadinessItem {
   label: string;
   detail: string;
   command?: string;
+  executable?: boolean;
 }
 
 export interface ReleaseReadinessGroup {
@@ -355,6 +356,7 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         detail:
           "Run npm run smoke:preflight and keep dist/smoke-preflight-summary.md as release evidence, including managed connector evidence, managed connector automation gates, and native config gates for connector-specific writes.",
         command: "npm run smoke:preflight",
+        executable: true,
       },
       {
         id: "dmg-install",

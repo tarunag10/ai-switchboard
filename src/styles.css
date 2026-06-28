@@ -5584,6 +5584,16 @@ details[open] .optimize-minimal__details summary::after {
   line-height: 1.35;
 }
 
+.release-readiness-card__group .secondary-button {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.release-readiness-card__evidence-result {
+  color: var(--success);
+  font-weight: 700;
+}
+
 .runtime-log {
   margin: 8px 0 0;
   padding: 8px 10px;
