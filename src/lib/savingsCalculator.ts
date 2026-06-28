@@ -442,6 +442,7 @@ export function formatSavingsLedgerShareText(
   return [
     `Mac AI Switchboard savings ledger (${scopeLabel})`,
     `Recorded: ${recordedAt}`,
+    "Scopes: current session is live; repo, today, month, and lifetime views currently roll up through saved history until dedicated filters ship.",
     `Rows: ${formatTokens(summary.rowCount)}`,
     `Total tokens: ${formatTokens(summary.totalTokens)}`,
     `Measured tokens: ${formatTokens(summary.measuredTokens)} / ${formatUsd(summary.measuredUsd)}`,

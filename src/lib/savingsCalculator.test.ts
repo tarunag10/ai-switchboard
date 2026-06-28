@@ -574,6 +574,9 @@ describe("savings calculator", () => {
 
     expect(text).toContain("Mac AI Switchboard savings ledger (overall history)");
     expect(text).toContain("Recorded: 2026-06-27T10:00:00.000Z");
+    expect(text).toContain(
+      "Scopes: current session is live; repo, today, month, and lifetime views currently roll up through saved history until dedicated filters ship.",
+    );
     expect(text).toContain("Measured tokens: 900 / $0.00");
     expect(text).toContain("Estimated tokens: 2,000 / $4.50");
     expect(text).toContain("Inferred tokens: 2,300");
