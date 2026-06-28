@@ -13,6 +13,7 @@ import {
   getPlannedConnectorSetupChecklistScript,
   getPlannedConnectorSetupGuide,
   formatPlannedConnectorSafetyDossierMarkdown,
+  managedConnectorDossiers,
   plannedConnectorReadinessStageOrder,
   plannedConnectors,
   summarizePlannedConnectorSupport,
@@ -21,8 +22,6 @@ import {
 describe("planned connectors", () => {
   it("tracks popular coding CLIs and editor agents beyond Claude Code and Codex", () => {
     expect(plannedConnectors.map((connector) => connector.id)).toEqual([
-      "gemini_cli",
-      "opencode",
       "cursor",
       "grok_cli",
       "aider",
@@ -33,6 +32,22 @@ describe("planned connectors", () => {
       "windsurf",
       "zed_ai",
     ]);
+  });
+
+  it("tracks Gemini CLI and OpenCode as managed connector dossiers", () => {
+    expect(managedConnectorDossiers.map((connector) => connector.id)).toEqual([
+      "gemini_cli",
+      "opencode",
+    ]);
+    for (const connector of managedConnectorDossiers) {
+      expect(connector.statusLabel).toBe("Managed");
+      expect(connector.setupPhase).toBe("Managed");
+      expect(connector.supportedModes).toEqual(["Full", "Headroom", "Off"]);
+      expect(connector.capabilityRows.every((row) => row.state === "Available now")).toBe(
+        true,
+      );
+      expect(connector.notes).toMatch(/Doctor|rollback|Off cleanup/i);
+    }
   });
 
   it("keeps every planned connector explicit about local reversible setup", () => {
@@ -78,7 +93,7 @@ describe("planned connectors", () => {
         0,
       ),
     );
-    expect(summary.safeTodayLabels.join(" ")).toContain("Gemini CLI");
+    expect(summary.safeTodayLabels.join(" ")).toContain("Cursor");
     expect(summary.plannedLabels.join(" ")).toContain("Provider");
   });
 
@@ -131,10 +146,10 @@ describe("planned connectors", () => {
     ).toHaveLength(2);
     expect(
       plannedConnectors.filter((connector) => connector.setupPhase === "Guide"),
-    ).toHaveLength(6);
+    ).toHaveLength(5);
     expect(
       plannedConnectors.filter((connector) => connector.setupPhase === "Adapt"),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
   });
 
   it("looks up connector metadata by id", () => {
@@ -318,21 +333,21 @@ describe("planned connectors", () => {
     }
   });
 
-  it("carries OpenCode, Grok, and Cursor config-creation details explicitly", () => {
-    const opencode = getPlannedConnectorConfigCreationPlan(
-      getPlannedConnector("opencode")!,
-    );
+  it("carries Grok, Cursor, and Aider config-creation details explicitly", () => {
     const grok = getPlannedConnectorConfigCreationPlan(
       getPlannedConnector("grok_cli")!,
     );
     const cursor = getPlannedConnectorConfigCreationPlan(
       getPlannedConnector("cursor")!,
     );
-
-    expect(opencode.steps.find((step) => step.id === "detect")?.detail).toMatch(
-      /opencode/i,
+    const aider = getPlannedConnectorConfigCreationPlan(
+      getPlannedConnector("aider")!,
     );
-    expect(opencode.steps.find((step) => step.id === "backup")?.detail).toMatch(
+
+    expect(aider.steps.find((step) => step.id === "detect")?.detail).toMatch(
+      /aider/i,
+    );
+    expect(aider.steps.find((step) => step.id === "backup")?.detail).toMatch(
       /backup|restore point/i,
     );
     expect(grok.steps.find((step) => step.id === "verify")?.detail).toMatch(
@@ -345,7 +360,7 @@ describe("planned connectors", () => {
 
   it("formats copyable config-creation plans for handoff", () => {
     const markdown = formatPlannedConnectorConfigCreationPlansMarkdown([
-      getPlannedConnector("opencode")!,
+      getPlannedConnector("aider")!,
       getPlannedConnector("grok_cli")!,
       getPlannedConnector("cursor")!,
     ]);
@@ -354,8 +369,8 @@ describe("planned connectors", () => {
       "# Mac AI Switchboard Connector Config Creation Plans",
     );
     expect(markdown).toContain("Automation stays disabled");
-    expect(markdown).toContain("## OpenCode");
-    expect(markdown).toContain("Detect config surface: Detect PATH: opencode");
+    expect(markdown).toContain("## Aider");
+    expect(markdown).toContain("Detect config surface: Detect PATH: aider");
     expect(markdown).toContain("Required evidence:");
     expect(markdown).toContain("No files, profiles, credentials, or account state changed");
     expect(markdown).toContain("managed marker boundary");
@@ -369,14 +384,14 @@ describe("planned connectors", () => {
 
   it("formats a single connector config-creation plan for card-level copy", () => {
     const markdown = formatPlannedConnectorConfigCreationPlansMarkdown([
-      getPlannedConnector("opencode")!,
+      getPlannedConnector("aider")!,
     ]);
 
     expect(markdown).toContain(
       "# Mac AI Switchboard Connector Config Creation Plan",
     );
     expect(markdown).not.toContain("## Grok / xAI CLI");
-    expect(markdown).toContain("## OpenCode");
+    expect(markdown).toContain("## Aider");
     expect(markdown).toContain("Automation enabled: no");
     expect(markdown).toContain("Show dry-run diff");
   });

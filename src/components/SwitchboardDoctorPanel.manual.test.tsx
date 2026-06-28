@@ -99,9 +99,9 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
       screen.getByLabelText("Planned connector readiness preview"),
     ).toBeInTheDocument();
     expect(screen.getByText("Connector readiness")).toBeInTheDocument();
-    expect(screen.getByText("11 planned")).toBeInTheDocument();
-    expect(screen.getByText("Gemini CLI")).toBeInTheDocument();
-    expect(screen.getByText("OpenCode")).toBeInTheDocument();
+    expect(screen.getByText("9 planned")).toBeInTheDocument();
+    expect(screen.getByText("Cursor")).toBeInTheDocument();
+    expect(screen.getByText("Grok / xAI CLI")).toBeInTheDocument();
     expect(screen.getAllByText("Backup Implemented").length).toBeGreaterThan(0);
     expect(
       screen.getByText(

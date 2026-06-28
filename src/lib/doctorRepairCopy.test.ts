@@ -203,7 +203,7 @@ describe("doctor repair copy", () => {
     expect(text).toContain("next automation gate is backup implemented");
     expect(text).toContain("Automation gated");
     expect(text).toContain("Planned connector config readiness dossiers");
-    expect(text).toContain("## Gemini CLI");
+    expect(text).toContain("## Cursor");
     expect(text).toContain("Config surface:");
     expect(text).toContain("Blocked automation gates:");
     expect(text).toContain(
@@ -282,8 +282,8 @@ describe("doctor repair copy", () => {
     const dossiers = formatPlannedConnectorDoctorDossiers();
 
     expect(dossiers).toContain("Planned connector config readiness dossiers");
-    expect(dossiers).toContain("## OpenCode");
-    expect(dossiers).toContain("Connector ID: opencode");
+    expect(dossiers).toContain("## Cursor");
+    expect(dossiers).toContain("Connector ID: cursor");
     expect(dossiers).toContain("Next blocked gate: Backup Implemented");
     expect(dossiers).toContain("Automation enabled: no");
     expect(dossiers).toContain("Blocked automation gates:");
@@ -303,17 +303,17 @@ describe("doctor repair copy", () => {
   it("builds compact planned connector preview rows for Doctor", () => {
     const rows = plannedConnectorDoctorPreviewRows();
 
-    expect(rows).toHaveLength(11);
+    expect(rows).toHaveLength(9);
     expect(rows[0]).toEqual(
       expect.objectContaining({
-        id: "gemini_cli",
-        name: "Gemini CLI",
+        id: "cursor",
+        name: "Cursor",
         setupPhase: "Guide",
         nextBlockedGate: "Backup Implemented",
         automationEnabled: false,
       }),
     );
-    expect(rows.map((row) => row.name)).toContain("OpenCode");
+    expect(rows.map((row) => row.name)).toContain("Grok / xAI CLI");
     expect(rows.every((row) => row.configSurface.length > 20)).toBe(true);
   });
 

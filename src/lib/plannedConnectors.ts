@@ -16,6 +16,14 @@ export interface PlannedConnector {
   manualWorkflow: string[];
 }
 
+export type ManagedConnectorDossier = Omit<
+  PlannedConnector,
+  "statusLabel" | "setupPhase"
+> & {
+  statusLabel: "Managed";
+  setupPhase: "Managed";
+};
+
 export interface PlannedConnectorCapability {
   label: string;
   state: "Available now" | "Manual today" | "Planned";
@@ -116,43 +124,44 @@ export const plannedConnectorReadinessStageOrder: PlannedConnectorReadinessStage
     "offCleanupImplemented",
   ];
 
-export const plannedConnectors: PlannedConnector[] = [
+export const managedConnectorDossiers: ManagedConnectorDossier[] = [
   {
     id: "gemini_cli",
     name: "Gemini CLI",
     category: "cli",
-    statusLabel: "Planned",
-    setupPhase: "Guide",
-    integrationTarget: "Reversible local config base-url routing adapter.",
+    statusLabel: "Managed",
+    setupPhase: "Managed",
+    integrationTarget: "Managed shell base-url routing adapter.",
     notes:
-      "Detect installed CLI first, then add Headroom routing only when provider configuration supports local proxy.",
+      "Switchboard manages Gemini CLI routing through shell exports, Doctor verification, rollback, restore, and Off cleanup.",
     capabilityBadges: [
-      "CLI detection",
-      "RTK-safe today",
-      "Provider routing pending",
+      "Managed routing",
+      "Doctor verified",
+      "Rollback ready",
     ],
-    supportedModes: ["RTK only", "Off"],
+    supportedModes: ["Full", "Headroom", "Off"],
     safeToday:
-      "Detect binary and use RTK around verbose Gemini shell runs; provider routing remains manual.",
+      "Enable the connector to write managed Gemini CLI routing exports and rollback evidence.",
     firstAutomation:
-      "Add a read-only config probe that reports detected provider surface and model/account compatibility.",
+      "Doctor re-applies the managed shell routing block if verification drifts.",
     capabilityRows: [
       {
-        label: "Detection",
+        label: "Managed routing",
         state: "Available now",
         detail:
-          "Switchboard can surface the installed Gemini CLI without editing files.",
+          "Switchboard writes managed Gemini CLI base-url and proxy API-key shell exports.",
       },
       {
-        label: "Token-saving shell output",
+        label: "Verification",
         state: "Available now",
-        detail: "RTK-only mode can be used around noisy Gemini commands today.",
+        detail:
+          "Doctor verifies the managed shell exports and rollback sidecar are present.",
       },
       {
-        label: "Provider routing",
-        state: "Planned",
+        label: "Rollback",
+        state: "Available now",
         detail:
-          "Automatic base-url routing waits for backed-up Gemini config support.",
+          "Off mode removes only Switchboard-owned Gemini shell and sidecar blocks.",
       },
     ],
     configSurfaces: [
@@ -161,67 +170,70 @@ export const plannedConnectors: PlannedConnector[] = [
       "shell environment",
     ],
     automationGates: [
-      "Detect a stable Gemini config file or documented provider flag.",
-      "Back up and restore provider settings before enabling setup.",
-      "Verify Off mode removes local proxy routing without changing account state.",
+      "Write only Switchboard-owned shell blocks and sidecar evidence.",
+      "Verify GOOGLE_GEMINI_BASE_URL, GEMINI_BASE_URL, and GEMINI_API_KEY routing exports.",
+      "Off mode removes local proxy routing without changing account state.",
     ],
     manualWorkflow: [
       "Confirm the Gemini CLI binary is installed.",
-      "Use RTK-only mode around noisy Gemini shell commands.",
-      "Keep provider routing manual until the Doctor can verify account and model compatibility.",
+      "Toggle the connector on from Settings.",
+      "Use Doctor repair if managed Gemini routing drifts.",
     ],
   },
   {
     id: "opencode",
     name: "OpenCode",
     category: "cli",
-    statusLabel: "Planned",
-    setupPhase: "Adapt",
-    integrationTarget:
-      "Reversible provider config adapter plus RTK shell-output support.",
+    statusLabel: "Managed",
+    setupPhase: "Managed",
+    integrationTarget: "Managed OpenCode provider config adapter.",
     notes:
-      "Keep off-mode cleanup symmetric with Claude Code and Codex before enabling automatic setup.",
+      "Switchboard manages an OpenCode headroom provider with backups, Doctor verification, rollback, restore, and Off cleanup.",
     capabilityBadges: [
-      "CLI detection",
-      "RTK-safe today",
-      "Backup/restore pending",
+      "Managed provider",
+      "Doctor verified",
+      "Rollback ready",
     ],
-    supportedModes: ["RTK only", "Off"],
+    supportedModes: ["Full", "Headroom", "Off"],
     safeToday:
-      "Detect binary and compact command output while provider config handling stays untouched.",
+      "Enable the connector to write the managed OpenCode provider and rollback evidence.",
     firstAutomation:
-      "Ship backup/restore for the active provider config path before enabling Headroom routing.",
+      "Doctor re-applies the managed provider block if verification drifts.",
     capabilityRows: [
       {
-        label: "Detection",
-        state: "Available now",
-        detail: "Switchboard can identify a local OpenCode binary.",
-      },
-      {
-        label: "Token-saving shell output",
+        label: "Managed provider",
         state: "Available now",
         detail:
-          "RTK can compact command output while OpenCode adapter work continues.",
+          "Switchboard writes a Headroom provider in ~/.config/opencode/opencode.json.",
       },
       {
-        label: "Config edits",
-        state: "Planned",
+        label: "Verification",
+        state: "Available now",
         detail:
-          "Automatic setup is gated on backup, restore, and Off mode cleanup.",
+          "Doctor verifies the OpenCode provider baseURL and rollback sidecar.",
+      },
+      {
+        label: "Rollback",
+        state: "Available now",
+        detail:
+          "Off mode removes only the Switchboard-owned OpenCode provider and sidecar.",
       },
     ],
     configSurfaces: ["OpenCode binary", "provider config", "shell environment"],
     automationGates: [
-      "Identify the active provider config path without guessing.",
-      "Create timestamped backups before any provider edits.",
-      "Prove Off mode restores the exact previous provider config.",
+      "Create timestamped backups before provider edits.",
+      "Verify the managed headroom provider points at the local proxy.",
+      "Prove Off mode removes only the Switchboard-owned provider config.",
     ],
     manualWorkflow: [
       "Confirm OpenCode is installed.",
-      "Run OpenCode commands through RTK when output is noisy.",
-      "Leave provider config edits manual until backup and restore checks ship.",
+      "Toggle the connector on from Settings.",
+      "Use Doctor repair if managed OpenCode routing drifts.",
     ],
   },
+];
+
+export const plannedConnectors: PlannedConnector[] = [
   {
     id: "cursor",
     name: "Cursor",

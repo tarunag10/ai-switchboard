@@ -46,16 +46,13 @@ function countStringArrayField(block, field) {
   return [...match[1].matchAll(/"([^"]+)"/g)].length;
 }
 
-function extractFrontendConnectors(source) {
-  const plannedArray = source.match(
-    /export const plannedConnectors: PlannedConnector\[] = \[([\s\S]*?)\];/,
-  );
-  if (!plannedArray) {
-    throw new Error("Could not find plannedConnectors array in frontend source.");
+function extractConnectorsFromArray(source, pattern, label) {
+  const array = source.match(pattern);
+  if (!array) {
+    throw new Error(`Could not find ${label} array in frontend source.`);
   }
-
   const connectors = new Map();
-  for (const block of splitTopLevelObjects(plannedArray[1], /\n  \{/g)) {
+  for (const block of splitTopLevelObjects(array[1], /\n  \{/g)) {
     const id = readStringField(block, "id");
     if (!id) {
       continue;
@@ -72,6 +69,22 @@ function extractFrontendConnectors(source) {
   }
 
   return connectors;
+}
+
+function extractFrontendConnectors(source) {
+  return extractConnectorsFromArray(
+    source,
+    /export const plannedConnectors: PlannedConnector\[] = \[([\s\S]*?)\];/,
+    "plannedConnectors",
+  );
+}
+
+function extractManagedFrontendConnectors(source) {
+  return extractConnectorsFromArray(
+    source,
+    /export const managedConnectorDossiers: ManagedConnectorDossier\[] = \[([\s\S]*?)\];/,
+    "managedConnectorDossiers",
+  );
 }
 
 function validateConfigCreationPlanContract(source) {
@@ -390,12 +403,20 @@ const cliSource = readFile(cliPath);
 const repoApiSource = readFile(repoApiPath);
 const compatibilityMatrixSource = readFile(compatibilityMatrixPath);
 const frontendConnectors = extractFrontendConnectors(frontendSource);
+const managedFrontendConnectors = extractManagedFrontendConnectors(frontendSource);
+const allFrontendConnectors = new Map([
+  ...managedFrontendConnectors,
+  ...frontendConnectors,
+]);
 const backendConnectors = extractBackendConnectors(backendSource);
 const frontendIds = uniqueSorted([...frontendConnectors.keys()]);
+const managedFrontendIds = uniqueSorted([...managedFrontendConnectors.keys()]);
+const managedFrontendIdSet = new Set(managedFrontendIds);
+const allFrontendIds = uniqueSorted([...allFrontendConnectors.keys()]);
 const backendIds = uniqueSorted([...backendConnectors.keys()]);
 
-const frontendOnly = difference(frontendIds, backendIds);
-const backendOnly = difference(backendIds, frontendIds);
+const frontendOnly = difference(allFrontendIds, backendIds);
+const backendOnly = difference(backendIds, allFrontendIds);
 
 if (frontendOnly.length > 0 || backendOnly.length > 0) {
   console.error("Planned connector registries are out of sync.");
@@ -416,12 +437,12 @@ if (frontendIds.length === 0) {
 const metadataErrors = [];
 metadataErrors.push(...validateConfigCreationPlanContract(frontendSource));
 metadataErrors.push(...validateBackendConfigCreationPlanContract(backendSource));
-metadataErrors.push(...validateCliConnectorDossierContract(cliSource, frontendIds));
+metadataErrors.push(...validateCliConnectorDossierContract(cliSource, allFrontendIds));
 metadataErrors.push(...validateRepoApiConnectorDossierContract(repoApiSource));
 metadataErrors.push(
   ...validateCompatibilityMatrixContract(
     compatibilityMatrixSource,
-    frontendConnectors,
+    allFrontendConnectors,
   ),
 );
 if (!appSource.includes("configPlan.steps.map((step) =>")) {
@@ -433,8 +454,8 @@ if (!appSource.includes("connector.configCreationStepDetails")) {
 if (appSource.includes("configPlan.steps.slice(")) {
   metadataErrors.push("planned connector UI must not truncate config creation steps");
 }
-for (const id of frontendIds) {
-  const frontend = frontendConnectors.get(id);
+for (const id of allFrontendIds) {
+  const frontend = allFrontendConnectors.get(id);
   const backend = backendConnectors.get(id);
   if (!frontend || !backend) {
     continue;
@@ -445,7 +466,7 @@ for (const id of frontendIds) {
     }
   }
   const frontendPhase = frontend.setupPhase?.toLowerCase();
-  if (frontendPhase !== backend.setupPhase) {
+  if (!managedFrontendIdSet.has(id) && frontendPhase !== backend.setupPhase) {
     metadataErrors.push(
       `${id}: setup phase mismatch (${frontend.setupPhase} !== ${backend.setupPhase})`,
     );
@@ -473,5 +494,5 @@ if (metadataErrors.length > 0) {
 }
 
 console.log(
-  `Planned connector registries match with metadata (${frontendIds.length} connectors): ${frontendIds.join(", ")}`,
+  `Planned connector registries match with metadata (${frontendIds.length} planned, ${managedFrontendIds.length} managed): ${frontendIds.join(", ")}`,
 );

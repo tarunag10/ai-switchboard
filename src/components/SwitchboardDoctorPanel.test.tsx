@@ -341,7 +341,7 @@ describe("SwitchboardDoctorPanel", () => {
     expect(writeText.mock.calls[0][0]).toContain(
       "Planned connector config readiness dossiers",
     );
-    expect(writeText.mock.calls[0][0]).toContain("## OpenCode");
+    expect(writeText.mock.calls[0][0]).toContain("## Cursor");
     expect(writeText.mock.calls[0][0]).toContain("Show dry-run diff");
     expect(writeText.mock.calls[0][0]).toContain("Required evidence:");
     expect(

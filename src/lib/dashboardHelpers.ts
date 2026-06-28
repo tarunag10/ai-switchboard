@@ -2,6 +2,7 @@ import {
   getPlannedConnector,
   getPlannedConnectorConfigCreationPlan,
   getPlannedConnectorSafetyDossier,
+  managedConnectorDossiers,
   plannedConnectors,
   summarizePlannedConnectorSupport,
 } from "./plannedConnectors";
@@ -376,6 +377,7 @@ export function formatLearnStatus(project: {
 const KNOWN_CONNECTOR_IDS = new Set([
   "claude_code",
   "codex",
+  ...managedConnectorDossiers.map((connector) => connector.id),
   ...plannedConnectors.map((connector) => connector.id),
 ]);
 

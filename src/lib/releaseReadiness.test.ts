@@ -485,10 +485,10 @@ describe("release readiness checklist", () => {
     );
     expect(snapshot).toContain("## Status Rows");
     expect(snapshot).toContain("## Planned Connector Readiness");
-    expect(snapshot).toContain("Planned connectors: 11");
+    expect(snapshot).toContain("Planned connectors: 9");
     expect(snapshot).toContain("Automation ready: 0");
-    expect(snapshot).toContain("Backup Implemented (11)");
-    expect(snapshot).toContain("Gemini CLI: Guide, next gate Backup Implemented");
+    expect(snapshot).toContain("Backup Implemented (9)");
+    expect(snapshot).toContain("Cursor: Guide, next gate Backup Implemented");
     expect(snapshot).toContain(
       "Full per-tool dossiers are available from Doctor's connector dossier copy action.",
     );

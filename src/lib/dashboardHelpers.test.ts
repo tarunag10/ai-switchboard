@@ -29,7 +29,7 @@ import {
   sortClientConnectors,
   summarizePlannedConnectorReadiness,
 } from "./dashboardHelpers";
-import { plannedConnectors } from "./plannedConnectors";
+import { managedConnectorDossiers, plannedConnectors } from "./plannedConnectors";
 
 import type {
   ClientConnectorStatus,
@@ -376,11 +376,11 @@ describe("dashboard helpers", () => {
   it("disables planned connector controls with RTK-only guidance", () => {
     expect(
       connectorControlState({
-        clientId: "gemini_cli",
-        name: "Gemini CLI",
+        clientId: "cursor",
+        name: "Cursor",
         supportStatus: "planned",
         setupHint:
-          "Manual guide only. Reversible Gemini provider routing is planned.",
+          "Manual guide only. Reversible Cursor profile routing is planned.",
         installed: true,
         enabled: false,
         verified: false,
@@ -388,13 +388,13 @@ describe("dashboard helpers", () => {
     ).toEqual({
       disabled: true,
       reason:
-        "Gemini CLI is detected, but automatic routing is not available yet. Manual guide only. Reversible Gemini provider routing is planned.",
+        "Cursor is detected, but automatic routing is not available yet. Manual guide only. Reversible Cursor profile routing is planned.",
     });
 
     expect(
       connectorControlState({
-        clientId: "opencode",
-        name: "OpenCode",
+        clientId: "grok_cli",
+        name: "Grok / xAI CLI",
         supportStatus: "planned",
         installed: false,
         enabled: false,
@@ -403,7 +403,7 @@ describe("dashboard helpers", () => {
     ).toEqual({
       disabled: true,
       reason:
-        "OpenCode support is planned for a later release. Use RTK-only mode for command output savings today.",
+        "Grok / xAI CLI support is planned for a later release. Use RTK-only mode for command output savings today.",
     });
 
     expect(
@@ -417,10 +417,14 @@ describe("dashboard helpers", () => {
     ).toEqual({ disabled: false, reason: null });
   });
 
-  it("keeps compatibility report config coverage for every planned connector", () => {
+  it("keeps compatibility report config coverage for every managed and planned connector", () => {
     expect(
       Object.keys(plannedConnectorCompatibilityReportConfigs).sort(),
-    ).toEqual(plannedConnectors.map((connector) => connector.id).sort());
+    ).toEqual(
+      [...managedConnectorDossiers, ...plannedConnectors]
+        .map((connector) => connector.id)
+        .sort(),
+    );
   });
 
   it("exposes config creation gates for every planned connector compatibility report", () => {
@@ -444,8 +448,8 @@ describe("dashboard helpers", () => {
 
   it("formats config creation gate summaries for planned connector cards", () => {
     const summary = formatPlannedConnectorConfigGateSummary({
-      clientId: "opencode",
-      name: "OpenCode",
+      clientId: "aider",
+      name: "Aider",
       supportStatus: "planned",
       installed: true,
       enabled: false,
@@ -472,7 +476,7 @@ describe("dashboard helpers", () => {
     ).toBeNull();
   });
 
-  it("formats Gemini compatibility evidence for planned connector UI", () => {
+  it("formats Gemini compatibility evidence for managed connector UI", () => {
     const report = connectorCompatibilityReport({
       clientId: "gemini_cli",
       name: "Gemini CLI",
@@ -499,7 +503,7 @@ describe("dashboard helpers", () => {
       routingBlocker:
         "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.",
       automationEnabled: false,
-      configCreationGates: expectedConfigCreationGates,
+      configCreationGates: [],
       otherEvidence: ["Detected, but the Headroom adapter is not implemented yet."],
     });
   });
@@ -578,7 +582,7 @@ describe("dashboard helpers", () => {
     );
   });
 
-  it("formats OpenCode compatibility evidence for planned connector UI", () => {
+  it("formats OpenCode compatibility evidence for managed connector UI", () => {
     const report = connectorCompatibilityReport({
       clientId: "opencode",
       name: "OpenCode",
@@ -605,7 +609,7 @@ describe("dashboard helpers", () => {
       routingBlocker:
         "Provider routing blocked until active config path, backup, verify, rollback, and Off mode cleanup exist.",
       automationEnabled: false,
-      configCreationGates: expectedConfigCreationGates,
+      configCreationGates: [],
       otherEvidence: ["Detected, but the Headroom adapter is not implemented yet."],
     });
   });
@@ -933,8 +937,8 @@ describe("dashboard helpers", () => {
     ).toEqual({ label: "Active", tone: "active" });
     expect(
       connectorDashboardStatus({
-        clientId: "gemini_cli",
-        name: "Gemini CLI",
+        clientId: "amazon_q",
+        name: "Amazon Q Developer CLI",
         supportStatus: "planned",
         installed: true,
         enabled: false,
@@ -954,8 +958,8 @@ describe("dashboard helpers", () => {
     ).toEqual({ label: "guide", tone: "pending" });
     expect(
       connectorDashboardStatus({
-        clientId: "opencode",
-        name: "OpenCode",
+        clientId: "grok_cli",
+        name: "Grok / xAI CLI",
         supportStatus: "planned",
         installed: false,
         enabled: false,
@@ -1057,17 +1061,19 @@ describe("mergeProviderSavingsForDisplay", () => {
         verified: true,
       },
       {
-        clientId: "gemini_cli",
-        name: "Gemini CLI",
+        clientId: "grok_cli",
+        name: "Grok / xAI CLI",
         supportStatus: "planned",
+        setupPhase: "detect",
         installed: true,
         enabled: false,
         verified: false,
       },
       {
-        clientId: "opencode",
-        name: "OpenCode",
+        clientId: "aider",
+        name: "Aider",
         supportStatus: "planned",
+        setupPhase: "adapt",
         installed: false,
         enabled: false,
         verified: false,
@@ -1086,14 +1092,14 @@ describe("mergeProviderSavingsForDisplay", () => {
       detectedCount: 2,
       manualOnlyCount: 3,
       notDetectedCount: 1,
-      safeTodayCount: 13,
-      plannedCapabilityCount: 12,
-      automationGateCount: 33,
-      detectedNames: ["Gemini CLI", "Cursor"],
-      notDetectedNames: ["OpenCode"],
+      safeTodayCount: 9,
+      plannedCapabilityCount: 10,
+      automationGateCount: 27,
+      detectedNames: ["Grok / xAI CLI", "Cursor"],
+      notDetectedNames: ["Aider"],
       headline: "2 planned tools detected locally",
       detail:
-        "Gemini CLI, Cursor are read-only today. Not found: OpenCode. 13 safe capabilities are available now; 12 remain gated behind 33 backup, restore, and Off mode checks. Automatic routing stays locked until backup, restore, and Off mode cleanup ship.",
+        "Grok / xAI CLI, Cursor are read-only today. Not found: Aider. 9 safe capabilities are available now; 10 remain gated behind 27 backup, restore, and Off mode checks. Automatic routing stays locked until backup, restore, and Off mode cleanup ship.",
     });
   });
 });
