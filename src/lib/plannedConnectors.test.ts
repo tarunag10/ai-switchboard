@@ -14,6 +14,7 @@ import {
   getPlannedConnectorSetupGuide,
   formatPlannedConnectorSafetyDossierMarkdown,
   managedConnectorDossiers,
+  pendingPlannedConnectors,
   plannedConnectorReadinessStageOrder,
   plannedConnectors,
   summarizePlannedConnectorSupport,
@@ -79,22 +80,34 @@ describe("planned connectors", () => {
   it("summarizes safe today and gated planned capabilities", () => {
     const summary = summarizePlannedConnectorSupport();
 
-    expect(summary.connectorCount).toBe(plannedConnectors.length);
-    expect(summary.safeTodayCount).toBeGreaterThanOrEqual(
+    expect(pendingPlannedConnectors).toHaveLength(0);
+    expect(summary).toMatchObject({
+      connectorCount: 0,
+      safeTodayCount: 0,
+      manualTodayCount: 0,
+      plannedCount: 0,
+      automationGateCount: 0,
+      safeTodayLabels: [],
+      plannedLabels: [],
+    });
+
+    const fullMetadataSummary = summarizePlannedConnectorSupport(plannedConnectors);
+    expect(fullMetadataSummary.connectorCount).toBe(plannedConnectors.length);
+    expect(fullMetadataSummary.safeTodayCount).toBeGreaterThanOrEqual(
       plannedConnectors.length,
     );
-    expect(summary.manualTodayCount).toBeGreaterThan(0);
-    expect(summary.plannedCount).toBeGreaterThanOrEqual(
+    expect(fullMetadataSummary.manualTodayCount).toBeGreaterThan(0);
+    expect(fullMetadataSummary.plannedCount).toBeGreaterThanOrEqual(
       plannedConnectors.length,
     );
-    expect(summary.automationGateCount).toBe(
+    expect(fullMetadataSummary.automationGateCount).toBe(
       plannedConnectors.reduce(
         (total, connector) => total + connector.automationGates.length,
         0,
       ),
     );
-    expect(summary.safeTodayLabels.join(" ")).toContain("Cursor");
-    expect(summary.plannedLabels.join(" ")).toContain("Provider");
+    expect(fullMetadataSummary.safeTodayLabels.join(" ")).toContain("Cursor");
+    expect(fullMetadataSummary.plannedLabels.join(" ")).toContain("Provider");
   });
 
   it("defines safe automation contracts for every future connector", () => {
@@ -262,7 +275,7 @@ describe("planned connectors", () => {
   });
 
   it("documents config, provider, account, and rollback strategy per connector", () => {
-    const dossiers = getPlannedConnectorSafetyDossiers();
+    const dossiers = getPlannedConnectorSafetyDossiers(plannedConnectors);
 
     expect(dossiers.map((dossier) => dossier.connectorId)).toEqual(
       plannedConnectors.map((connector) => connector.id),
@@ -292,7 +305,7 @@ describe("planned connectors", () => {
   });
 
   it("defines config-creation plans for every connector before enabling writes", () => {
-    const plans = getPlannedConnectorConfigCreationPlans();
+    const plans = getPlannedConnectorConfigCreationPlans(plannedConnectors);
 
     expect(plans.map((plan) => plan.connectorId)).toEqual(
       plannedConnectors.map((connector) => connector.id),

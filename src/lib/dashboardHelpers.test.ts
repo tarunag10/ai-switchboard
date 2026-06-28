@@ -1092,14 +1092,14 @@ describe("mergeProviderSavingsForDisplay", () => {
       detectedCount: 2,
       manualOnlyCount: 3,
       notDetectedCount: 1,
-      safeTodayCount: 9,
-      plannedCapabilityCount: 10,
-      automationGateCount: 27,
+      safeTodayCount: 0,
+      plannedCapabilityCount: 0,
+      automationGateCount: 0,
       detectedNames: ["Grok / xAI CLI", "Cursor"],
       notDetectedNames: ["Aider"],
       headline: "2 planned tools detected locally",
       detail:
-        "Grok / xAI CLI, Cursor are read-only today. Not found: Aider. 9 safe capabilities are available now; 10 remain gated behind 27 backup, restore, and Off mode checks. Automatic routing stays locked until backup, restore, and Off mode cleanup ship.",
+        "Grok / xAI CLI, Cursor are read-only today. Not found: Aider. 0 safe capabilities are available now; 0 remain gated behind 0 backup, restore, and Off mode checks. Automatic routing stays locked until backup, restore, and Off mode cleanup ship.",
     });
   });
 });

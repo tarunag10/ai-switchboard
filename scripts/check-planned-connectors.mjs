@@ -87,6 +87,15 @@ function extractManagedFrontendConnectors(source) {
   );
 }
 
+function extractPromotedSidecarConnectorIds(source) {
+  const body = extractArrayBody(
+    source,
+    /export const promotedSidecarConnectorIds = new Set\(\[([\s\S]*?)\]\);/,
+    "promotedSidecarConnectorIds",
+  );
+  return uniqueSorted([...body.matchAll(/"([^"]+)"/g)].map((match) => match[1]));
+}
+
 function validateConfigCreationPlanContract(source) {
   const errors = [];
   const functionBody = source.match(
@@ -404,6 +413,7 @@ const repoApiSource = readFile(repoApiPath);
 const compatibilityMatrixSource = readFile(compatibilityMatrixPath);
 const frontendConnectors = extractFrontendConnectors(frontendSource);
 const managedFrontendConnectors = extractManagedFrontendConnectors(frontendSource);
+const promotedSidecarIds = extractPromotedSidecarConnectorIds(frontendSource);
 const allFrontendConnectors = new Map([
   ...managedFrontendConnectors,
   ...frontendConnectors,
@@ -412,6 +422,8 @@ const backendConnectors = extractBackendConnectors(backendSource);
 const frontendIds = uniqueSorted([...frontendConnectors.keys()]);
 const managedFrontendIds = uniqueSorted([...managedFrontendConnectors.keys()]);
 const managedFrontendIdSet = new Set(managedFrontendIds);
+const promotedSidecarIdSet = new Set(promotedSidecarIds);
+const pendingFrontendIds = frontendIds.filter((id) => !promotedSidecarIdSet.has(id));
 const allFrontendIds = uniqueSorted([...allFrontendConnectors.keys()]);
 const backendIds = uniqueSorted([...backendConnectors.keys()]);
 
@@ -429,8 +441,8 @@ if (frontendOnly.length > 0 || backendOnly.length > 0) {
   process.exit(1);
 }
 
-if (frontendIds.length === 0) {
-  console.error("No planned connectors found; expected at least one registry entry.");
+if (allFrontendIds.length === 0) {
+  console.error("No connector metadata found; expected at least one registry entry.");
   process.exit(1);
 }
 
@@ -494,5 +506,5 @@ if (metadataErrors.length > 0) {
 }
 
 console.log(
-  `Planned connector registries match with metadata (${frontendIds.length} planned, ${managedFrontendIds.length} managed): ${frontendIds.join(", ")}`,
+  `Connector registries match with metadata (${pendingFrontendIds.length} pending planned, ${managedFrontendIds.length + promotedSidecarIds.length} managed, ${frontendIds.length} retained compatibility dossiers): ${pendingFrontendIds.join(", ") || "none"}`,
 );

@@ -1,6 +1,6 @@
 import {
   getPlannedConnectorReadinessContract,
-  plannedConnectors,
+  pendingPlannedConnectors,
 } from "./plannedConnectors";
 
 export interface ReleaseReadinessItem {
@@ -114,7 +114,7 @@ function hasConnectorConfigPlanEvidence(
 }
 
 function formatConnectorReadinessSummary() {
-  const contracts = plannedConnectors.map(getPlannedConnectorReadinessContract);
+  const contracts = pendingPlannedConnectors.map(getPlannedConnectorReadinessContract);
   const automationReady = contracts.filter(
     (contract) => contract.automationEnabled,
   ).length;

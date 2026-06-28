@@ -718,6 +718,23 @@ export const plannedConnectors: PlannedConnector[] = [
   },
 ];
 
+export const promotedSidecarConnectorIds = new Set([
+  "cursor",
+  "grok_cli",
+  "aider",
+  "continue",
+  "goose",
+  "qwen_code",
+  "amazon_q",
+  "windsurf",
+  "zed_ai",
+]);
+
+export const pendingPlannedConnectors: PlannedConnector[] =
+  plannedConnectors.filter(
+    (connector) => !promotedSidecarConnectorIds.has(connector.id),
+  );
+
 const plannedConnectorSafetyDossiers: Record<
   string,
   PlannedConnectorSafetyDossier
@@ -856,7 +873,7 @@ export function getPlannedConnectorSafetyDossier(
 }
 
 export function getPlannedConnectorSafetyDossiers(
-  connectors: PlannedConnector[] = plannedConnectors,
+  connectors: PlannedConnector[] = pendingPlannedConnectors,
 ) {
   return connectors.map((connector) => {
     const dossier = getPlannedConnectorSafetyDossier(connector.id);
@@ -972,13 +989,13 @@ export function getPlannedConnectorConfigCreationPlan(
 }
 
 export function getPlannedConnectorConfigCreationPlans(
-  connectors: PlannedConnector[] = plannedConnectors,
+  connectors: PlannedConnector[] = pendingPlannedConnectors,
 ) {
   return connectors.map(getPlannedConnectorConfigCreationPlan);
 }
 
 export function formatPlannedConnectorConfigCreationPlansMarkdown(
-  connectors: PlannedConnector[] = plannedConnectors,
+  connectors: PlannedConnector[] = pendingPlannedConnectors,
 ) {
   const title =
     connectors.length === 1
@@ -1006,7 +1023,7 @@ export function formatPlannedConnectorConfigCreationPlansMarkdown(
 }
 
 export function summarizePlannedConnectorSupport(
-  connectors: PlannedConnector[] = plannedConnectors,
+  connectors: PlannedConnector[] = pendingPlannedConnectors,
 ): PlannedConnectorSupportSummary {
   const capabilityRows = connectors.flatMap((connector) =>
     connector.capabilityRows.map((capability) => ({

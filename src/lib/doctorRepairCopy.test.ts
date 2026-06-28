@@ -200,18 +200,10 @@ describe("doctor repair copy", () => {
     expect(text).toContain("Status: warning");
     expect(text).toContain("Action: automatic / Install RTK");
     expect(text).toContain("Action: manual / Manual step");
-    expect(text).toContain("next automation gate is backup implemented");
-    expect(text).toContain("Automation gated");
+    expect(text).toContain("planned connector setup gates have been promoted");
+    expect(text).toContain("managed sidecar coverage");
     expect(text).toContain("Planned connector config readiness dossiers");
-    expect(text).toContain("## Cursor");
-    expect(text).toContain("Config surface:");
-    expect(text).toContain("Blocked automation gates:");
-    expect(text).toContain(
-      "Backup Implemented: No planned connector can write config until exact backup coverage exists.",
-    );
-    expect(text).toContain("Gated config-creation steps:");
-    expect(text).toContain("Show dry-run diff");
-    expect(text).toContain("Required evidence:");
+    expect(text).toContain("No pending planned connector dossiers remain");
     expect(text).toContain("Repo Intelligence local API contract");
     expect(text).toContain("get_repo_manifest");
     expect(text).toContain("get_repo_pack");
@@ -268,53 +260,25 @@ describe("doctor repair copy", () => {
   it("explains why planned connectors stay manual in Doctor", () => {
     const guidance = plannedConnectorDoctorGuidance();
 
-    expect(guidance).toContain("detection evidence");
-    expect(guidance).toContain("readiness stages");
-    expect(guidance).toContain("safety badges");
-    expect(guidance).toContain("next automation gate is backup implemented");
-    expect(guidance).toContain("Manual only");
-    expect(guidance).toContain("Automation gated");
-    expect(guidance).toContain("Unsupported account/model");
-    expect(guidance).toContain("backup, verify, rollback, and Off mode cleanup");
+    expect(guidance).toContain("planned connector setup gates");
+    expect(guidance).toContain("managed sidecar coverage");
+    expect(guidance).toContain("Doctor repair");
+    expect(guidance).toContain("rollback");
+    expect(guidance).toContain("Off mode cleanup");
   });
 
   it("formats per-tool planned connector readiness dossiers", () => {
     const dossiers = formatPlannedConnectorDoctorDossiers();
 
     expect(dossiers).toContain("Planned connector config readiness dossiers");
-    expect(dossiers).toContain("## Cursor");
-    expect(dossiers).toContain("Connector ID: cursor");
-    expect(dossiers).toContain("Next blocked gate: Backup Implemented");
-    expect(dossiers).toContain("Automation enabled: no");
-    expect(dossiers).toContain("Blocked automation gates:");
-    expect(dossiers).toContain(
-      "Apply Implemented: Automatic setup is disabled until a reversible apply path exists.",
-    );
-    expect(dossiers).toContain(
-      "Off Cleanup Implemented: Off mode cleanup must remove managed routing before automation is enabled.",
-    );
-    expect(dossiers).toContain("Detect config surface");
-    expect(dossiers).toContain("Clean up in Off mode");
-    expect(dossiers).toContain("Post-rollback diff proving unrelated user settings are unchanged.");
-    expect(dossiers).toContain("## Amazon Q Developer CLI");
-    expect(dossiers).toContain("AWS profile");
+    expect(dossiers).toContain("No pending planned connector dossiers remain");
+    expect(dossiers).toContain("managed sidecar coverage");
   });
 
   it("builds compact planned connector preview rows for Doctor", () => {
     const rows = plannedConnectorDoctorPreviewRows();
 
-    expect(rows).toHaveLength(9);
-    expect(rows[0]).toEqual(
-      expect.objectContaining({
-        id: "cursor",
-        name: "Cursor",
-        setupPhase: "Guide",
-        nextBlockedGate: "Backup Implemented",
-        automationEnabled: false,
-      }),
-    );
-    expect(rows.map((row) => row.name)).toContain("Grok / xAI CLI");
-    expect(rows.every((row) => row.configSurface.length > 20)).toBe(true);
+    expect(rows).toEqual([]);
   });
 
   it("labels and sorts Doctor timeline events newest first", () => {

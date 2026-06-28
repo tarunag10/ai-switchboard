@@ -341,9 +341,10 @@ describe("SwitchboardDoctorPanel", () => {
     expect(writeText.mock.calls[0][0]).toContain(
       "Planned connector config readiness dossiers",
     );
-    expect(writeText.mock.calls[0][0]).toContain("## Cursor");
-    expect(writeText.mock.calls[0][0]).toContain("Show dry-run diff");
-    expect(writeText.mock.calls[0][0]).toContain("Required evidence:");
+    expect(writeText.mock.calls[0][0]).toContain(
+      "No pending planned connector dossiers remain",
+    );
+    expect(writeText.mock.calls[0][0]).toContain("managed sidecar coverage");
     expect(
       screen.getByRole("button", { name: "Copied connector dossiers." }),
     ).toBeInTheDocument();

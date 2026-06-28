@@ -5,7 +5,7 @@ import {
   getPlannedConnectorReadinessBadges,
   getPlannedConnectorReadinessContract,
   getPlannedConnectorSafetyDossier,
-  plannedConnectors,
+  pendingPlannedConnectors,
 } from "./plannedConnectors";
 import type { DoctorIssue, DoctorReport } from "./types";
 
@@ -284,8 +284,16 @@ export function doctorIssueActionHint(
 }
 
 export function plannedConnectorDoctorGuidance(): string {
+  if (pendingPlannedConnectors.length === 0) {
+    return [
+      "All planned connector setup gates have been promoted to managed sidecar coverage.",
+      "Use Settings or Doctor repair for managed connector verification, rollback, and Off mode cleanup.",
+      "Repo Intelligence packs remain available for agent handoffs, while provider-specific config mutation stays guarded behind explicit connector evidence.",
+    ].join(" ");
+  }
+
   const firstBlockedStage =
-    plannedConnectors
+    pendingPlannedConnectors
       .map((connector) =>
         getPlannedConnectorReadinessContract(connector).stages.find(
           (stage) => stage.state === "blocked",
@@ -293,7 +301,7 @@ export function plannedConnectorDoctorGuidance(): string {
       )
       .find(Boolean)?.label ?? "backup coverage";
   const badgeLabels = new Set(
-    plannedConnectors.flatMap((connector) =>
+    pendingPlannedConnectors.flatMap((connector) =>
       getPlannedConnectorReadinessBadges(connector).map((badge) => badge.label),
     ),
   );
@@ -307,10 +315,18 @@ export function plannedConnectorDoctorGuidance(): string {
 }
 
 export function formatPlannedConnectorDoctorDossiers(): string {
+  if (pendingPlannedConnectors.length === 0) {
+    return [
+      "Planned connector config readiness dossiers",
+      "",
+      "No pending planned connector dossiers remain; connector setup has managed sidecar coverage.",
+    ].join("\n");
+  }
+
   return [
     "Planned connector config readiness dossiers",
     "",
-    ...plannedConnectors.flatMap((connector) => {
+    ...pendingPlannedConnectors.flatMap((connector) => {
       const readiness = getPlannedConnectorReadinessContract(connector);
       const plan = getPlannedConnectorConfigCreationPlan(connector);
       const dossier = getPlannedConnectorSafetyDossier(connector.id);
@@ -348,7 +364,7 @@ export function formatPlannedConnectorDoctorDossiers(): string {
 }
 
 export function plannedConnectorDoctorPreviewRows(): PlannedConnectorDoctorPreviewRow[] {
-  return plannedConnectors.map((connector) => {
+  return pendingPlannedConnectors.map((connector) => {
     const readiness = getPlannedConnectorReadinessContract(connector);
     const dossier = getPlannedConnectorSafetyDossier(connector.id);
     const nextBlockedGate =

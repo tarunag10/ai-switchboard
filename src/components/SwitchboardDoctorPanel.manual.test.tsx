@@ -87,27 +87,13 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.getByText("2 automatic")).toBeInTheDocument();
     expect(screen.getByText("2 manual")).toBeInTheDocument();
     expect(
-      screen.getByText(/review each planned connector's detection evidence/i),
-    ).toBeInTheDocument();
+      screen.queryByText(/review each planned connector's detection evidence/i),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByText(/next automation gate is backup implemented/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Manual only, Automation gated/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText("Planned connector readiness preview"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Connector readiness")).toBeInTheDocument();
-    expect(screen.getByText("9 planned")).toBeInTheDocument();
-    expect(screen.getByText("Cursor")).toBeInTheDocument();
-    expect(screen.getByText("Grok / xAI CLI")).toBeInTheDocument();
-    expect(screen.getAllByText("Backup Implemented").length).toBeGreaterThan(0);
-    expect(
-      screen.getByText(
-        "Config automation stays off until every dossier gate is verified.",
-      ),
-    ).toBeInTheDocument();
+      screen.queryByLabelText("Planned connector readiness preview"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Connector readiness")).not.toBeInTheDocument();
+    expect(screen.getByText(/managed sidecar coverage/i)).toBeInTheDocument();
     expect(
       screen.getAllByText(
         "Clears the saved Repo Intelligence summary so stale, missing, moved, or replaced repo paths no longer appear in Doctor. Re-index the current local repo path from Addons when ready.",
