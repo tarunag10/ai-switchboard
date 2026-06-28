@@ -2339,7 +2339,7 @@ fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
             id: "switchboard_mode_degraded".to_string(),
             title: "Requested optimization is degraded".to_string(),
             body: format!(
-                "{} is requested, but {} is active. Doctor lists missing local pieces below; repair automatic items, then keep manual connector steps visible.",
+                "{} is requested, but {} is active. Doctor lists missing local pieces below; repair managed connector items, then keep only remaining planned connector steps manual.",
                 switchboard_mode_label(&desired_mode),
                 switchboard_mode_label(&inferred_mode)
             ),
@@ -2400,6 +2400,27 @@ title: "Codex routing config needs repair".to_string(),
 body: "Codex is marked as connected, but its model provider or proxy URL no longer matches the managed Headroom setup. This can cause empty or unsupported-model errors. Repair will re-apply the reversible Codex setup.".to_string(),
 severity: crate::models::DoctorSeverity::Warning,
 repair_action: Some("repair_codex_setup".to_string()),
+        });
+    }
+
+    for connector in connectors.iter().filter(|client| {
+        client.enabled
+            && !client.verified
+            && client.client_id != "codex"
+            && matches!(
+                client.support_status,
+                crate::models::ClientConnectorSupportStatus::Managed
+            )
+    }) {
+        issues.push(crate::models::DoctorIssue {
+            id: format!("{}_routing_config_mismatch", connector.client_id),
+            title: format!("{} routing config needs repair", connector.name),
+            body: format!(
+                "{} is marked as connected, but its managed routing config no longer verifies. Repair will re-apply the reversible managed setup and preserve user-owned config outside Switchboard markers.",
+                connector.name
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("repair_client_setups".to_string()),
         });
     }
 

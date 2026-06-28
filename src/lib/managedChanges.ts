@@ -114,6 +114,37 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
       "Remove managed Codex shell routing, provider config, AGENTS.md nudge, and thread provider tags.",
   },
   {
+    id: "gemini-routing",
+    kind: "client_config",
+    owner: "Gemini CLI routing",
+    text: "Managed Gemini CLI shell routing exports and rollback dossier.",
+    paths: [
+      "~/.zshrc",
+      "~/.zprofile",
+      "~/.gemini/mac-ai-switchboard-routing.md",
+    ],
+    markerId: "headroom:gemini_cli",
+    backupPath: "next to edited shell profile or sidecar as *.headroom.bak",
+    lastVerifiedLabel: "Verified by Doctor connector checks",
+    rollback:
+      "Remove managed Gemini CLI shell routing exports and Switchboard sidecar dossier.",
+  },
+  {
+    id: "opencode-routing",
+    kind: "client_config",
+    owner: "OpenCode routing",
+    text: "Managed OpenCode provider config and rollback dossier.",
+    paths: [
+      "~/.config/opencode/opencode.json",
+      "~/.config/opencode/mac-ai-switchboard-routing.md",
+    ],
+    markerId: "headroom:opencode",
+    backupPath: "next to edited OpenCode config or sidecar as *.headroom.bak",
+    lastVerifiedLabel: "Verified by Doctor connector checks",
+    rollback:
+      "Remove only the managed OpenCode headroom provider and Switchboard sidecar dossier.",
+  },
+  {
     id: "managed-hooks",
     kind: "shell_hook",
     owner: "RTK shell compression",

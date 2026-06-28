@@ -18,6 +18,8 @@ describe("managedChangeRecords", () => {
     expect(managedChangeRecords.map((record) => record.id)).toEqual([
       "claude-code-routing",
       "codex-routing",
+      "gemini-routing",
+      "opencode-routing",
       "managed-hooks",
       "managed-storage",
       "repo-intelligence",
@@ -154,6 +156,8 @@ describe("managedChangeRecords", () => {
     expect(configRecords.map((record) => record.id)).toEqual([
       "claude-code-routing",
       "codex-routing",
+      "gemini-routing",
+      "opencode-routing",
       "managed-hooks",
       "plugins-backups",
     ]);

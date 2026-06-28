@@ -493,7 +493,8 @@ export const repoAgentHandoffProfiles: RepoAgentHandoffProfile[] = [
     label: "Gemini CLI",
     toolKind: "cli",
     defaultPackId: "implementation",
-    guidance: "Paste this before the task. Keep provider routing manual.",
+    guidance:
+      "Paste this before the task. Gemini CLI can use managed Switchboard routing when its connector is enabled.",
   },
   {
     id: "opencode",

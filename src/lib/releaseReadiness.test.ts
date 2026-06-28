@@ -69,9 +69,9 @@ describe("release readiness checklist", () => {
     expect(allCopy).toMatch(/smoke-preflight-summary\.md/i);
     expect(allCopy).toMatch(/npm run smoke:installed/i);
     expect(allCopy).toMatch(/installed-smoke-summary\.md/i);
-    expect(allCopy).toMatch(/planned connector evidence/i);
+    expect(allCopy).toMatch(/managed connector evidence/i);
+    expect(allCopy).toMatch(/planned connector automation gates/i);
     expect(allCopy).toMatch(/automation gates/i);
-    expect(allCopy).toMatch(/manual workflow/i);
     expect(allCopy).toMatch(/Repo Intelligence recipes/i);
     expect(allCopy).toMatch(/per-tool agent handoffs/i);
     expect(allCopy).toMatch(/connector readiness payload/i);

@@ -353,7 +353,7 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         id: "static-preflight",
         label: "Run smoke preflight",
         detail:
-          "Run npm run smoke:preflight and keep dist/smoke-preflight-summary.md as release evidence, including planned connector automation gates, manual workflow, and connector readiness payload.",
+          "Run npm run smoke:preflight and keep dist/smoke-preflight-summary.md as release evidence, including managed connector evidence for Claude/Codex/Gemini/OpenCode plus planned connector automation gates for the rest.",
         command: "npm run smoke:preflight",
       },
       {
@@ -367,7 +367,7 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         id: "beta-smoke",
         label: "Run beta smoke test",
         detail:
-          "Follow docs/beta-smoke-test.md against the installed app, including planned connector evidence, automation gates, manual workflow, Repo Intelligence recipes, per-tool agent handoffs, and connector readiness payload; then run npm run smoke:installed to write dist/installed-smoke-summary.md.",
+          "Follow docs/beta-smoke-test.md against the installed app, including managed connector evidence, remaining planned connector gates, Repo Intelligence recipes, per-tool agent handoffs, and connector readiness payload; then run npm run smoke:installed to write dist/installed-smoke-summary.md.",
         command: "open docs/beta-smoke-test.md",
       },
       {

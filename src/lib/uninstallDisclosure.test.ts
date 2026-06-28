@@ -37,6 +37,8 @@ describe("uninstallDisclosure", () => {
     expect(uninstallDisclosureItems.map((item) => item.id)).toEqual([
       "claude-code-routing",
       "codex-routing",
+      "gemini-routing",
+      "opencode-routing",
       "managed-hooks",
       "managed-storage",
       "repo-intelligence",
