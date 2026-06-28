@@ -222,6 +222,46 @@ describe("SwitchboardDoctorPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("copies a shareable Doctor timeline", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(
+      <SwitchboardDoctorPanel
+        report={warningReport}
+        busyAction={null}
+        error={null}
+        successMessage="Repair complete. Switchboard looks ready."
+        onRepair={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Copy timeline" }));
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).toContain(
+      "Mac AI Switchboard Doctor timeline",
+    );
+    expect(writeText.mock.calls[0][0]).toContain("Doctor status: warning");
+    expect(writeText.mock.calls[0][0]).toContain("Latest repair completed");
+    expect(writeText.mock.calls[0][0]).toContain(
+      "Repo Intelligence Doctor availability gates",
+    );
+    expect(writeText.mock.calls[0][0]).toContain(
+      "get_index_freshness is the trust gate",
+    );
+    expect(writeText.mock.calls[0][0]).toContain(
+      "clear_repo_index removes only Switchboard managed index metadata",
+    );
+    expect(
+      screen.getByRole("button", { name: "Copied timeline." }),
+    ).toBeInTheDocument();
+  });
+
   it("copies a focused Verify Off report when Off mode evidence remains", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);

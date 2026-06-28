@@ -24,6 +24,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - The `repo:intelligence --session` CLI export now mirrors that session-level config readiness in JSON and Markdown, so config-creation work stays Gemini-like and gated across app and terminal workflows.
 - Repo Intelligence manifests now advertise per-agent Start Agent Session recipes, including the exact `--session` command, default task, read-only safety, manual provider routing state, and planned connector next gate when applicable.
 - Doctor timeline copy now includes Repo Intelligence availability gates for `get_index_freshness`, missing/stale/corrupt/moved index states, `clear_repo_index` cleanup boundaries, and the evidence agents need before trusting saved packs.
+- The Doctor panel now exposes a Copy timeline action that exports scrubbed Doctor status, issue, repair-success, and Repo Intelligence availability-gate events for support/debugging.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

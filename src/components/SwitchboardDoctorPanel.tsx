@@ -2,11 +2,13 @@ import { Copy } from "@phosphor-icons/react";
 import { useState } from "react";
 import {
   canRepairIssue,
+  buildDoctorReportTimelineEvents,
   doctorIssueActionKind,
   doctorIssueActionLabel,
   doctorIssueGuidance,
   doctorRepairLabel,
   formatDoctorReportShareText,
+  formatDoctorTimelineShareText,
   formatPlannedConnectorDoctorDossiers,
   formatVerifyOffModeShareText,
   plannedConnectorDoctorPreviewRows,
@@ -71,6 +73,24 @@ export function SwitchboardDoctorPanel({
     setCopyNotice("Copied report.");
   }
 
+  async function copyDoctorTimeline() {
+    if (!navigator.clipboard) {
+      setCopyNotice("Clipboard unavailable.");
+      return;
+    }
+
+    await navigator.clipboard.writeText(
+      formatDoctorTimelineShareText(
+        buildDoctorReportTimelineEvents(
+          doctorReport,
+          successMessage ?? null,
+          new Date().toISOString(),
+        ),
+      ),
+    );
+    setCopyNotice("Copied timeline.");
+  }
+
   async function copyVerifyOffReport() {
     if (!navigator.clipboard) {
       setCopyNotice("Clipboard unavailable.");
@@ -117,6 +137,15 @@ export function SwitchboardDoctorPanel({
           >
             <Copy aria-hidden="true" weight="bold" />
             <span>{copyNotice ?? "Copy report"}</span>
+          </button>
+          <button
+            type="button"
+            className="switchboard-doctor__copy"
+            onClick={copyDoctorTimeline}
+            title="Copy Doctor timeline"
+          >
+            <Copy aria-hidden="true" weight="bold" />
+            <span>Copy timeline</span>
           </button>
           {hasOffModeVerification ? (
             <button
