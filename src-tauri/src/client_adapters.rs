@@ -21,6 +21,10 @@ use crate::storage::{app_data_dir, config_file};
 const HEADROOM_PROXY_URL: &str = "http://127.0.0.1:6767";
 const HEADROOM_ANTHROPIC_BASE_URL: &str = "http://127.0.0.1:6767";
 const HEADROOM_OPENAI_BASE_URL: &str = "http://127.0.0.1:6767/v1";
+const GEMINI_BASE_URL_ENV_KEY: &str = "GOOGLE_GEMINI_BASE_URL";
+const GEMINI_COMPAT_BASE_URL_ENV_KEY: &str = "GEMINI_BASE_URL";
+const OPENCODE_CONFIG_FILE: &str = "opencode.json";
+const OPENCODE_HEADROOM_PROVIDER_ID: &str = "headroom";
 const SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md";
 const ZSH_PROFILE_FILE: &str = ".zprofile";
 const ZSH_RC_FILE: &str = ".zshrc";
@@ -783,18 +787,44 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
             // Codex history list stays whole once it routes through Headroom.
             retag_codex_thread_providers(CODEX_NATIVE_PROVIDER, CODEX_HEADROOM_PROVIDER);
         }
-        "gemini_cli" | "opencode" => {
+        "gemini_cli" => {
+            let shell_targets = resolve_client_shell_targets(&state, client_id)?;
+            let env_block = format!(
+                "export {GEMINI_BASE_URL_ENV_KEY}={HEADROOM_PROXY_URL}\nexport {GEMINI_COMPAT_BASE_URL_ENV_KEY}={HEADROOM_PROXY_URL}"
+            );
+            let mut updates = configure_shell_block(&shell_targets, "gemini_cli", &env_block)?;
             let (changed, backup) = configure_planned_switchboard_sidecar(client_id)?;
             if changed {
-                changed_files.push(
+                updates.0.push(
                     planned_sidecar_routing_path(client_id)?
                         .display()
                         .to_string(),
                 );
             }
             if let Some(backup) = backup {
-                backup_files.push(backup.display().to_string());
+                updates.1.push(backup.display().to_string());
             }
+            changed_files.extend(updates.0);
+            backup_files.extend(updates.1);
+            state
+                .managed_shell_files
+                .insert(state_id.clone(), serialize_paths(&shell_targets));
+        }
+        "opencode" => {
+            let mut updates = configure_opencode_provider_config()?;
+            let (changed, backup) = configure_planned_switchboard_sidecar(client_id)?;
+            if changed {
+                updates.0.push(
+                    planned_sidecar_routing_path(client_id)?
+                        .display()
+                        .to_string(),
+                );
+            }
+            if let Some(backup) = backup {
+                updates.1.push(backup.display().to_string());
+            }
+            changed_files.extend(updates.0);
+            backup_files.extend(updates.1);
         }
         other => return Err(anyhow!("Automatic setup is not supported yet for {other}.",)),
     }
@@ -834,8 +864,8 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
                 "Run one {} prompt and verify activity appears in Headroom.",
                 match normalized_setup_id(client_id) {
                     "codex_cli" => "Codex",
-                    "gemini_cli" => "Gemini CLI after connector promotion",
-                    "opencode" => "OpenCode after connector promotion",
+                    "gemini_cli" => "Gemini CLI",
+                    "opencode" => "OpenCode",
                     _ => "Claude Code",
                 }
             ),
@@ -942,11 +972,25 @@ pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
                     .push("Codex OPENAI_BASE_URL export was not found in shell profiles.".into());
             }
         }
-        "gemini_cli" | "opencode" => {
+        "gemini_cli" => {
+            let state = load_setup_state();
+            let shell_targets = resolve_client_shell_targets(&state, client_id)?;
             let sidecar = planned_sidecar_spec(client_id)
                 .ok_or_else(|| anyhow!("Unknown planned sidecar {client_id}"))?;
             let sidecar_path = planned_sidecar_routing_path(client_id)?;
             let sidecar_ok = planned_switchboard_sidecar_matches(client_id)?;
+            let google_base_ok = shell_block_contains_in_files(
+                &shell_targets,
+                "gemini_cli",
+                GEMINI_BASE_URL_ENV_KEY,
+                HEADROOM_PROXY_URL,
+            )?;
+            let compat_base_ok = shell_block_contains_in_files(
+                &shell_targets,
+                "gemini_cli",
+                GEMINI_COMPAT_BASE_URL_ENV_KEY,
+                HEADROOM_PROXY_URL,
+            )?;
 
             if sidecar_ok {
                 checks.push(format!(
@@ -959,6 +1003,61 @@ pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
                     "Switchboard-managed {} sidecar was not found at {}.",
                     sidecar.name,
                     sidecar_path.display()
+                ));
+            }
+            if google_base_ok {
+                checks.push(format!(
+                    "Found Gemini {} export pointing to Headroom.",
+                    GEMINI_BASE_URL_ENV_KEY
+                ));
+            } else {
+                failures.push(format!(
+                    "Gemini {} export was not found in shell profiles.",
+                    GEMINI_BASE_URL_ENV_KEY
+                ));
+            }
+            if compat_base_ok {
+                checks.push(format!(
+                    "Found Gemini compatibility {} export pointing to Headroom.",
+                    GEMINI_COMPAT_BASE_URL_ENV_KEY
+                ));
+            } else {
+                failures.push(format!(
+                    "Gemini compatibility {} export was not found in shell profiles.",
+                    GEMINI_COMPAT_BASE_URL_ENV_KEY
+                ));
+            }
+        }
+        "opencode" => {
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("Unknown planned sidecar {client_id}"))?;
+            let sidecar_path = planned_sidecar_routing_path(client_id)?;
+            let sidecar_ok = planned_switchboard_sidecar_matches(client_id)?;
+            let provider_ok = opencode_provider_config_matches()?;
+
+            if sidecar_ok {
+                checks.push(format!(
+                    "Found Switchboard-managed {} sidecar at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Switchboard-managed {} sidecar was not found at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            }
+            if provider_ok {
+                checks.push(format!(
+                    "Found OpenCode provider {} pointing to Headroom.",
+                    OPENCODE_HEADROOM_PROVIDER_ID
+                ));
+            } else {
+                failures.push(format!(
+                    "OpenCode provider {} was not found in {}.",
+                    OPENCODE_HEADROOM_PROVIDER_ID,
+                    opencode_config_path().display()
                 ));
             }
         }
@@ -1156,6 +1255,130 @@ fn planned_sidecar_routing_path(client_id: &str) -> Result<PathBuf> {
     Ok(path.join(SWITCHBOARD_ROUTING_FILE))
 }
 
+fn opencode_config_path() -> PathBuf {
+    home_dir()
+        .join(".config")
+        .join("opencode")
+        .join(OPENCODE_CONFIG_FILE)
+}
+
+fn opencode_headroom_provider_value() -> Value {
+    serde_json::json!({
+        "npm": "@ai-sdk/openai",
+        "name": "Mac AI Switchboard",
+        "options": {
+            "baseURL": HEADROOM_OPENAI_BASE_URL
+        },
+        "models": {
+            "headroom": {
+                "name": "Headroom Router"
+            }
+        }
+    })
+}
+
+fn configure_opencode_provider_config() -> Result<(Vec<String>, Vec<String>)> {
+    let path = opencode_config_path();
+    let mut root = if path.exists() {
+        let raw = std::fs::read_to_string(&path)
+            .with_context(|| format!("reading {}", path.display()))?;
+        parse_json_object(&raw, &path)?
+    } else {
+        serde_json::Map::new()
+    };
+
+    let provider_value = root
+        .entry("provider".to_string())
+        .or_insert_with(|| Value::Object(Default::default()));
+    if !provider_value.is_object() {
+        return Err(anyhow!(
+            "{} provider key must be an object before Switchboard can manage OpenCode.",
+            path.display()
+        ));
+    }
+    let provider = provider_value
+        .as_object_mut()
+        .ok_or_else(|| anyhow!("unable to write OpenCode provider settings"))?;
+    let next = opencode_headroom_provider_value();
+    let changed = match provider.get(OPENCODE_HEADROOM_PROVIDER_ID) {
+        Some(existing) if existing == &next => false,
+        _ => {
+            provider.insert(OPENCODE_HEADROOM_PROVIDER_ID.to_string(), next);
+            true
+        }
+    };
+    if !changed {
+        return Ok((Vec::new(), Vec::new()));
+    }
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    let backup = backup_if_exists(&path)?;
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&Value::Object(root))
+            .context("serializing OpenCode provider config")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+
+    Ok((
+        vec![path.display().to_string()],
+        backup
+            .into_iter()
+            .map(|path| path.display().to_string())
+            .collect(),
+    ))
+}
+
+fn opencode_provider_config_matches() -> Result<bool> {
+    let path = opencode_config_path();
+    if !path.exists() {
+        return Ok(false);
+    }
+    let raw =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let root = parse_json_object(&raw, &path)?;
+    let provider = root
+        .get("provider")
+        .and_then(|value| value.as_object())
+        .and_then(|providers| providers.get(OPENCODE_HEADROOM_PROVIDER_ID));
+    Ok(provider == Some(&opencode_headroom_provider_value()))
+}
+
+fn remove_opencode_provider_config() -> Result<()> {
+    let path = opencode_config_path();
+    if !path.exists() {
+        return Ok(());
+    }
+    let raw =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let mut root = parse_json_object(&raw, &path)?;
+    let Some(provider_obj) = root
+        .get_mut("provider")
+        .and_then(|value| value.as_object_mut())
+    else {
+        return Ok(());
+    };
+    match provider_obj.get(OPENCODE_HEADROOM_PROVIDER_ID) {
+        Some(existing) if existing == &opencode_headroom_provider_value() => {}
+        _ => return Ok(()),
+    }
+    provider_obj.remove(OPENCODE_HEADROOM_PROVIDER_ID);
+    if provider_obj.is_empty() {
+        root.remove("provider");
+    }
+    let _ = backup_if_exists(&path)?;
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&Value::Object(root))
+            .context("serializing OpenCode provider cleanup")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+    Ok(())
+}
+
 fn build_planned_switchboard_sidecar_body(spec: &PlannedSidecarSpec) -> String {
     format!(
         "Managed by Mac AI Switchboard.\n\
@@ -1228,7 +1451,15 @@ pub fn disable_client_setup(client_id: &str) -> Result<()> {
             }
         }
         "vscode" => remove_vscode_connector_keys()?,
-        "gemini_cli" | "opencode" => {
+        "gemini_cli" => {
+            let shell_targets = resolve_client_shell_targets_for_cleanup(&state, client_id)?;
+            remove_shell_block(&shell_targets, "gemini_cli")?;
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+            let _ = remove_managed_block(&planned_sidecar_routing_path(client_id)?, sidecar.id)?;
+        }
+        "opencode" => {
+            remove_opencode_provider_config()?;
             let sidecar = planned_sidecar_spec(client_id)
                 .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
             let _ = remove_managed_block(&planned_sidecar_routing_path(client_id)?, sidecar.id)?;
@@ -6248,7 +6479,12 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let result = super::apply_client_setup("gemini_cli").expect("apply gemini setup");
         assert!(result.applied);
         assert!(!result.already_configured);
-        assert_eq!(result.changed_files, vec![sidecar.display().to_string()]);
+        assert!(result
+            .changed_files
+            .contains(&home.path().join(".zprofile").display().to_string()));
+        assert!(result
+            .changed_files
+            .contains(&sidecar.display().to_string()));
         assert_eq!(result.backup_files.len(), 1);
         assert!(result.verification.verified);
         assert!(result.summary.contains("Switchboard sidecar written"));
@@ -6257,6 +6493,9 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(content.contains("# user note\nkeep this"));
         assert!(content.contains("# >>> headroom:gemini_cli >>>"));
         assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
+        let shell_content = fs::read_to_string(home.path().join(".zprofile")).expect("read shell");
+        assert!(shell_content.contains("GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:6767"));
+        assert!(shell_content.contains("GEMINI_BASE_URL=http://127.0.0.1:6767"));
 
         let detected_clients = vec![ClientStatus {
             id: "gemini_cli".into(),
@@ -6288,6 +6527,8 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         super::disable_client_setup("gemini_cli").expect("disable gemini setup");
         let content = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
         assert_eq!(content, "# user note\nkeep this\n");
+        let shell_content = fs::read_to_string(home.path().join(".zprofile")).expect("read shell");
+        assert!(!shell_content.contains("GOOGLE_GEMINI_BASE_URL"));
         let verification =
             super::verify_client_setup("gemini_cli").expect("verify cleaned gemini setup");
         assert!(!verification.verified);
@@ -6302,14 +6543,27 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             .join(".config")
             .join("opencode")
             .join(super::SWITCHBOARD_ROUTING_FILE);
+        let config = home
+            .path()
+            .join(".config")
+            .join("opencode")
+            .join(super::OPENCODE_CONFIG_FILE);
         fs::create_dir_all(sidecar.parent().unwrap()).expect("create opencode dir");
         fs::write(&sidecar, "# opencode user note\nkeep this\n").expect("seed sidecar");
+        fs::write(
+            &config,
+            r#"{"provider":{"custom":{"name":"Custom"}},"theme":"system"}"#,
+        )
+        .expect("seed opencode config");
 
         let result = super::apply_client_setup("opencode").expect("apply opencode setup");
         assert!(result.applied);
         assert!(!result.already_configured);
-        assert_eq!(result.changed_files, vec![sidecar.display().to_string()]);
-        assert_eq!(result.backup_files.len(), 1);
+        assert!(result.changed_files.contains(&config.display().to_string()));
+        assert!(result
+            .changed_files
+            .contains(&sidecar.display().to_string()));
+        assert_eq!(result.backup_files.len(), 2);
         assert!(result.verification.verified);
         assert!(result
             .summary
@@ -6319,6 +6573,15 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(content.contains("# opencode user note\nkeep this"));
         assert!(content.contains("# >>> headroom:opencode >>>"));
         assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
+        let config_value: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&config).expect("read config"))
+                .expect("parse config");
+        assert_eq!(config_value["theme"], "system");
+        assert_eq!(config_value["provider"]["custom"]["name"], "Custom");
+        assert_eq!(
+            config_value["provider"]["headroom"]["options"]["baseURL"],
+            super::HEADROOM_OPENAI_BASE_URL
+        );
 
         let detected_clients = vec![ClientStatus {
             id: "opencode".into(),
@@ -6350,6 +6613,11 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         super::disable_client_setup("opencode").expect("disable opencode setup");
         let content = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
         assert_eq!(content, "# opencode user note\nkeep this\n");
+        let config_value: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&config).expect("read config"))
+                .expect("parse config");
+        assert!(config_value["provider"]["headroom"].is_null());
+        assert_eq!(config_value["provider"]["custom"]["name"], "Custom");
         let verification =
             super::verify_client_setup("opencode").expect("verify cleaned opencode setup");
         assert!(!verification.verified);
