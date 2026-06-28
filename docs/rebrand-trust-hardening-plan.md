@@ -11,6 +11,7 @@ The goal is not to hide Headroom. Headroom is still a real underlying optimizati
 - The old Logoipsum/Headroom SVG has been removed from the app UI.
 - A generated Mac AI Switchboard logo is now used in the launcher, tray, and app icon assets.
 - Off/RTK-only mode now prevents automatic Headroom intercept/proxy startup on launch and bootstrap.
+- Remote destinations are now inventoried in `docs/remote-destinations.md`, and governance/deployment checks require that registry before release.
 - Many user-facing strings, release docs, runtime labels, support links, pricing/account flows, keychain labels, and file paths still refer to Headroom or upstream Extra Headroom services.
 
 ## Principles
@@ -151,9 +152,13 @@ Suggested commit:
 
 Audit every remote call and decide what belongs in this fork.
 
+Status: remote destination registry and release gates are shipped. Runtime
+local-only network rejection tests and final account/pricing ownership decisions
+are still open.
+
 Tasks:
 
-- Inventory all remote destinations:
+- Inventory all remote destinations: shipped in `docs/remote-destinations.md`.
   - account API
   - pricing API
   - auth code flows

@@ -32,7 +32,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Promote confirmed safe config apply plans into real user-approved file writes, verification, and rollback flows for supported connectors without touching unmanaged config.
 - Complete persistent Rollback Center execution with actual per-change restore actions, relaunch survival, and a guarded "undo all Switchboard changes" flow. The Doctor copy surface, inventory model, execution-preview contract, copyable undo-all preview, Codex/OpenCode backup restore paths, Gemini managed cleanup path, and sidecar-backed connector cleanup paths are shipped; remaining work is executable undo-all orchestration, relaunch-survival evidence, and promotion to deeper provider-specific config-backed rows.
 - Complete release readiness execution by wiring signed/notarized public DMG install and confirmed public installed-smoke evidence generation into the in-app panel. Fresh report refresh from `npm run release:ready -- --json`, desktop validation, static smoke-preflight execution, local unsigned DMG build/install, and local installed-smoke evidence recording are shipped.
-- Finish trust hardening from the product roadmap: app-owned legal/privacy surfaces, local-only network audit, remote destination registry, branding/asset provenance, and public-release evidence cleanup.
+- Finish trust hardening from the product roadmap: app-owned legal/privacy surfaces, local-only network audit, branding/asset provenance, and public-release evidence cleanup. The remote destination registry is shipped in `docs/remote-destinations.md` and enforced by governance/deployment checks.
 
 ## Current Connector Checkpoint
 
@@ -50,6 +50,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - `npm run check:connectors` now verifies the Tauri `get_agent_handoff` connector readiness response and tests alongside the frontend, backend adapter registry, and CLI mirror.
 - Release readiness smoke evidence now requires connector readiness payloads in agent handoffs alongside the managed connector config creation plan.
 - `npm run check:deployment` now verifies the connector-readiness release evidence chain across beta smoke docs, smoke preflight, release readiness report generation, and dashboard copy.
+- `docs/remote-destinations.md` now inventories app-owned remote destinations, provider-traffic boundaries, tool download surfaces, local-only behavior, and change-control requirements, with governance/deployment checks requiring the registry before release.
 - `npm run release:report:check` now rejects release reports that omit connector readiness payload evidence from static or installed smoke evidence.
 - Start Agent Session now exposes managed connector config readiness as a first-class app/session field, including the next gate and automation state before copying Gemini, OpenCode, Grok/xAI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, or Zed handoffs.
 - The `repo:intelligence --session` CLI export now mirrors that session-level config readiness in JSON and Markdown, so config-creation work stays Gemini-like and gated across app and terminal workflows.

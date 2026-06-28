@@ -12,6 +12,7 @@ const publicDocFiles = [
   "TERMS.md",
   "CODE_OF_CONDUCT.md",
   "SUPPORT.md",
+  "docs/remote-destinations.md",
   "docs/repository-settings.md",
 ];
 
@@ -86,6 +87,23 @@ if (failures.length === 0) {
   for (const phrase of ["Local-First", "Secrets", "Remote Services"]) {
     if (!privacy.includes(phrase)) {
       failures.push(`PRIVACY.md does not mention ${phrase}`);
+    }
+  }
+
+  const remoteDestinations = read("docs/remote-destinations.md");
+  for (const phrase of [
+    "Local-Only Boundary",
+    "App-Owned Remote Destinations",
+    "HEADROOM_UPDATER_ENDPOINTS",
+    "HEADROOM_ACCOUNT_API_BASE_URL",
+    "HEADROOM_SENTRY_DSN",
+    "HEADROOM_APTABASE_APP_KEY",
+    "VITE_CLARITY_PROJECT_ID",
+    "Provider Traffic",
+    "Change Control",
+  ]) {
+    if (!remoteDestinations.includes(phrase)) {
+      failures.push(`docs/remote-destinations.md does not mention ${phrase}`);
     }
   }
 
