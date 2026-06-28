@@ -278,6 +278,8 @@ import type {
   HeadroomLearnPrereqStatus,
   HeadroomLearnStatus,
   HeadroomSubscriptionTier,
+  ManagedRollbackExecutionResult,
+  ManagedRollbackPreview,
   ActivityFeedResponse,
   AppliedPatterns,
   HourlySavingsPoint,
@@ -2879,6 +2881,20 @@ export default function App() {
   const [rollbackCopyNotice, setRollbackCopyNotice] = useState<string | null>(
     null,
   );
+  const [rollbackPreviewByRecord, setRollbackPreviewByRecord] = useState<
+    Record<string, ManagedRollbackPreview>
+  >({});
+  const [rollbackResultByRecord, setRollbackResultByRecord] = useState<
+    Record<string, ManagedRollbackExecutionResult>
+  >({});
+  const [rollbackConfirmationByRecord, setRollbackConfirmationByRecord] =
+    useState<Record<string, string>>({});
+  const [rollbackBusyRecord, setRollbackBusyRecord] = useState<string | null>(
+    null,
+  );
+  const [rollbackErrorByRecord, setRollbackErrorByRecord] = useState<
+    Record<string, string>
+  >({});
   // Safety net: if native history never loads (backend unreachable), reveal the
   // chart anyway after this delay rather than spinning forever.
   const [historyLoadTimedOut, setHistoryLoadTimedOut] = useState(false);
@@ -6037,6 +6053,79 @@ export default function App() {
     } catch {
       setRollbackCopyNotice("Copy failed. Review the rollback row manually.");
       window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    }
+  }
+
+  async function previewManagedRollback(record: ManagedChangeRecord) {
+    if (record.id !== "codex-routing") {
+      return;
+    }
+    setRollbackBusyRecord(record.id);
+    setRollbackErrorByRecord((current) => {
+      const next = { ...current };
+      delete next[record.id];
+      return next;
+    });
+    try {
+      const preview = await invoke<ManagedRollbackPreview>(
+        "preview_managed_rollback",
+        { recordId: record.id },
+      );
+      setRollbackPreviewByRecord((current) => ({
+        ...current,
+        [record.id]: preview,
+      }));
+      setRollbackResultByRecord((current) => {
+        const next = { ...current };
+        delete next[record.id];
+        return next;
+      });
+    } catch (error) {
+      setRollbackErrorByRecord((current) => ({
+        ...current,
+        [record.id]: describeInvokeError(
+          error,
+          "Could not preview native rollback.",
+        ),
+      }));
+    } finally {
+      setRollbackBusyRecord(null);
+    }
+  }
+
+  async function executeManagedRollback(record: ManagedChangeRecord) {
+    const preview = rollbackPreviewByRecord[record.id];
+    if (!preview?.backupPath || preview.status !== "ready") {
+      return;
+    }
+    setRollbackBusyRecord(record.id);
+    setRollbackErrorByRecord((current) => {
+      const next = { ...current };
+      delete next[record.id];
+      return next;
+    });
+    try {
+      const result = await invoke<ManagedRollbackExecutionResult>(
+        "execute_managed_rollback",
+        {
+          recordId: record.id,
+          backupPath: preview.backupPath,
+          confirmationPhrase: rollbackConfirmationByRecord[record.id] ?? "",
+        },
+      );
+      setRollbackResultByRecord((current) => ({
+        ...current,
+        [record.id]: result,
+      }));
+      setRollbackCopyNotice(`${record.owner} restored from backup.`);
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+    } catch (error) {
+      setRollbackErrorByRecord((current) => ({
+        ...current,
+        [record.id]: describeInvokeError(error, "Could not restore from backup."),
+      }));
+    } finally {
+      setRollbackBusyRecord(null);
     }
   }
 
@@ -9580,6 +9669,17 @@ export default function App() {
                     record,
                     index,
                   );
+                  const nativePreview = rollbackPreviewByRecord[record.id];
+                  const nativeResult = rollbackResultByRecord[record.id];
+                  const rollbackError = rollbackErrorByRecord[record.id];
+                  const confirmation =
+                    rollbackConfirmationByRecord[record.id] ?? "";
+                  const nativeRollbackSupported = record.id === "codex-routing";
+                  const canExecuteNativeRollback =
+                    nativePreview?.status === "ready" &&
+                    nativePreview.backupPath !== null &&
+                    confirmation === nativePreview.confirmationPhrase &&
+                    rollbackBusyRecord !== record.id;
                   return (
                     <div className="rollback-center-card__item" key={record.id}>
                       <div>
@@ -9640,6 +9740,76 @@ export default function App() {
                             Copy execution preview
                           </button>
                         </div>
+                        {nativeRollbackSupported ? (
+                          <div className="rollback-center-card__native">
+                            <div className="rollback-center-card__native-row">
+                              <button
+                                className="secondary-button secondary-button--small"
+                                disabled={rollbackBusyRecord === record.id}
+                                onClick={() => void previewManagedRollback(record)}
+                                type="button"
+                              >
+                                Preview native restore
+                              </button>
+                              {nativePreview ? (
+                                <span>
+                                  Native status:{" "}
+                                  {nativePreview.status.replace(/_/g, " ")}
+                                </span>
+                              ) : null}
+                            </div>
+                            {nativePreview ? (
+                              <>
+                                <span>Target: {nativePreview.targetPath}</span>
+                                <span>
+                                  Backup:{" "}
+                                  {nativePreview.backupPath ?? "not found"}
+                                </span>
+                                <span>
+                                  Marker present:{" "}
+                                  {nativePreview.markerPresent ? "yes" : "no"}
+                                </span>
+                                {nativePreview.blockedReason ? (
+                                  <span>{nativePreview.blockedReason}</span>
+                                ) : null}
+                                <label className="rollback-center-card__confirm">
+                                  <span>Exact confirmation</span>
+                                  <input
+                                    type="text"
+                                    value={confirmation}
+                                    placeholder={nativePreview.confirmationPhrase}
+                                    onChange={(event) =>
+                                      setRollbackConfirmationByRecord(
+                                        (current) => ({
+                                          ...current,
+                                          [record.id]: event.target.value,
+                                        }),
+                                      )
+                                    }
+                                  />
+                                </label>
+                                <button
+                                  className="secondary-button secondary-button--small rollback-center-card__restore-button"
+                                  disabled={!canExecuteNativeRollback}
+                                  onClick={() =>
+                                    void executeManagedRollback(record)
+                                  }
+                                  type="button"
+                                >
+                                  Restore Codex config
+                                </button>
+                              </>
+                            ) : null}
+                            {nativeResult ? (
+                              <span>
+                                Restored from {nativeResult.restoredFrom};
+                                safety backup:{" "}
+                                {nativeResult.safetyBackupPath ?? "not created"}
+                              </span>
+                            ) : null}
+                            {rollbackError ? <span>{rollbackError}</span> : null}
+                          </div>
+                        ) : null}
                       </div>
                       <span className="rollback-center-card__kind">
                         {record.kind.replace(/_/g, " ")}

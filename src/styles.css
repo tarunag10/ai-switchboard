@@ -5092,6 +5092,43 @@ details[open] .optimize-minimal__details summary::after {
   font-weight: 700;
 }
 
+.rollback-center-card__native {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.rollback-center-card__native-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.rollback-center-card__confirm {
+  display: grid;
+  gap: 4px;
+}
+
+.rollback-center-card__confirm input {
+  min-height: 32px;
+  border: 1px solid var(--border-muted);
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: var(--surface-base);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.rollback-center-card__restore-button:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 .rollback-center-card__notice {
   margin: 8px 0 0;
   color: var(--text-secondary);

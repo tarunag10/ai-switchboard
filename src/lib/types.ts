@@ -224,6 +224,31 @@ export interface ClientConnectorAutomationStage {
   evidence: string;
 }
 
+export interface ManagedRollbackPreview {
+  recordId: string;
+  owner: string;
+  targetPath: string;
+  marker: string;
+  backupPath: string | null;
+  markerPresent: boolean;
+  backupExists: boolean;
+  status: "ready" | "blocked";
+  confirmationPhrase: string;
+  proposedAction: string;
+  blockedReason: string | null;
+  evidence: string[];
+}
+
+export interface ManagedRollbackExecutionResult {
+  recordId: string;
+  owner: string;
+  targetPath: string;
+  restoredFrom: string;
+  safetyBackupPath: string | null;
+  marker: string;
+  verification: string[];
+}
+
 export interface RuntimeStatus {
   platform: string;
   supportTier: string;
