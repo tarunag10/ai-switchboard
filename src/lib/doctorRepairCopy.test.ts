@@ -5,6 +5,7 @@ import {
   canRepairIssue,
   doctorIssueGuidance,
   formatPlannedConnectorDoctorDossiers,
+  buildDoctorReportTimelineEvents,
   plannedConnectorDoctorGuidance,
   doctorRepairHint,
   doctorRepairLabel,
@@ -370,6 +371,74 @@ describe("doctor repair copy", () => {
     expect(repoIndex?.body).toContain(
       "No config diff is required for this managed footprint.",
     );
+  });
+
+  it("builds issue-level Doctor timeline events", () => {
+    const events = buildDoctorReportTimelineEvents(
+      {
+        status: "error",
+        summary: "Doctor found a blocking issue.",
+        issues: [
+          {
+            id: "codex_setup_broken",
+            title: "Codex setup broken",
+            body: "Provider block is missing.",
+            severity: "error",
+            repairAction: "repair_codex_setup",
+          },
+          {
+            id: "planned_connectors_detected",
+            title: "Planned coding tools detected",
+            body: "Automation is still gated.",
+            severity: "warning",
+            repairAction: null,
+          },
+          {
+            id: "repo_intelligence_stale",
+            title: "Repo Intelligence stale",
+            body: "Saved index is stale.",
+            severity: "warning",
+            repairAction: "clear_repo_intelligence_index",
+          },
+        ],
+      },
+      "Repair finished.",
+      "2026-06-27T10:00:00.000Z",
+    );
+
+    expect(events.map((event) => event.id).sort()).toEqual([
+      "doctor-issue-codex_setup_broken",
+      "doctor-issue-planned_connectors_detected",
+      "doctor-issue-repo_intelligence_stale",
+      "latest-repair-success",
+      "latest-report",
+    ]);
+    expect(
+      events.find((event) => event.id === "doctor-issue-codex_setup_broken"),
+    ).toMatchObject({
+      kind: "failed_repair",
+      status: "error",
+      target: "Repair Codex",
+    });
+    expect(
+      events.find(
+        (event) => event.id === "doctor-issue-planned_connectors_detected",
+      ),
+    ).toMatchObject({
+      kind: "connector_setup",
+      target: "manual follow-up",
+    });
+    expect(
+      events.find((event) => event.id === "doctor-issue-repo_intelligence_stale"),
+    ).toMatchObject({
+      kind: "index_refresh",
+      target: "Clear index",
+    });
+    expect(events.find((event) => event.id === "latest-repair-success")).toMatchObject({
+      kind: "repair",
+      status: "ok",
+      target: "automatic repair",
+    });
   });
 
   it("formats an empty Doctor timeline", () => {

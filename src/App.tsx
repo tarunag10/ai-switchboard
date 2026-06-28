@@ -204,6 +204,7 @@ import {
 import {
   doctorTimelineKindLabel,
   buildManagedChangeTimelineEvents,
+  buildDoctorReportTimelineEvents,
   formatDoctorTimelineShareText,
   sortDoctorTimelineEvents,
   type DoctorTimelineEvent,
@@ -1589,34 +1590,9 @@ function buildDoctorTimelinePreview(
   successMessage: string | null,
 ): DoctorTimelineEvent[] {
   const now = new Date().toISOString();
-  const events: DoctorTimelineEvent[] = [
-    {
-      id: "latest-report",
-      kind: "repair",
-      title: report ? `Doctor status: ${report.status}` : "Doctor report pending",
-      body: report?.summary ?? "Run Doctor to capture local setup evidence.",
-      occurredAt: now,
-      status: report?.status ?? "warning",
-      actor: "doctor",
-      target: "switchboard setup",
-    },
-  ];
-
-  if (successMessage) {
-    events.push({
-      id: "latest-repair-success",
-      kind: "repair",
-      title: "Latest repair completed",
-      body: successMessage,
-      occurredAt: now,
-      status: "ok",
-      actor: "doctor",
-      target: "automatic repair",
-    });
-  }
 
   return sortDoctorTimelineEvents([
-    ...events,
+    ...buildDoctorReportTimelineEvents(report, successMessage, now),
     ...buildManagedChangeTimelineEvents(managedChangeRecords, now),
   ]);
 }

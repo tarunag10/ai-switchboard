@@ -118,6 +118,69 @@ export function buildManagedChangeTimelineEvents(
   }));
 }
 
+function doctorIssueTimelineKind(issue: DoctorIssue): DoctorTimelineEventKind {
+  if (issue.severity === "error" && issue.repairAction) {
+    return "failed_repair";
+  }
+  if (issue.id.startsWith("repo_intelligence_")) {
+    return "index_refresh";
+  }
+  if (issue.id === "planned_connectors_detected") {
+    return "connector_setup";
+  }
+  return issue.repairAction ? "repair" : "disable";
+}
+
+export function buildDoctorReportTimelineEvents(
+  report: DoctorReport | null,
+  successMessage: string | null,
+  observedAt: string,
+): DoctorTimelineEvent[] {
+  const events: DoctorTimelineEvent[] = [
+    {
+      id: "latest-report",
+      kind: "repair",
+      title: report ? `Doctor status: ${report.status}` : "Doctor report pending",
+      body: report?.summary ?? "Run Doctor to capture local setup evidence.",
+      occurredAt: observedAt,
+      status: report?.status ?? "warning",
+      actor: "doctor",
+      target: "switchboard setup",
+    },
+  ];
+
+  for (const issue of report?.issues ?? []) {
+    const repairLabel = issue.repairAction
+      ? doctorRepairLabel(issue.repairAction)
+      : "manual step";
+    events.push({
+      id: `doctor-issue-${issue.id}`,
+      kind: doctorIssueTimelineKind(issue),
+      title: issue.title,
+      body: `${issue.body} Action: ${repairLabel}.`,
+      occurredAt: observedAt,
+      status: issue.severity,
+      actor: "doctor",
+      target: issue.repairAction ? repairLabel : "manual follow-up",
+    });
+  }
+
+  if (successMessage) {
+    events.push({
+      id: "latest-repair-success",
+      kind: "repair",
+      title: "Latest repair completed",
+      body: successMessage,
+      occurredAt: observedAt,
+      status: "ok",
+      actor: "doctor",
+      target: "automatic repair",
+    });
+  }
+
+  return sortDoctorTimelineEvents(events);
+}
+
 function scrubTimelineText(value: string) {
   return value
     .replace(/~\/\S+/g, "[home-path]")
