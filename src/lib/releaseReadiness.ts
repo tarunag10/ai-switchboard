@@ -77,6 +77,14 @@ function labels(items: Array<{ label?: string }> | undefined) {
   return items?.map((item) => item.label).filter(Boolean).join(", ") || "none";
 }
 
+function labelsMatching(
+  items: Array<{ label?: string }> | undefined,
+  pattern: RegExp,
+) {
+  const matches = items?.filter((item) => item.label && pattern.test(item.label));
+  return labels(matches);
+}
+
 function hasConnectorConfigPlanEvidence(
   report: ReleaseReadinessReportSnapshot,
 ) {
@@ -528,6 +536,18 @@ export function formatReleaseReadinessReportSnapshot(
     "## Blockers",
     `- Environment blockers: ${labels(report.releaseEnv?.blockers)}`,
     `- Environment warnings: ${labels(report.releaseEnv?.warnings)}`,
+    `- Signing blockers: ${labelsMatching(
+      report.releaseEnv?.blockers,
+      /APPLE_SIGNING|TAURI_SIGNING|Developer ID|signing/i,
+    )}`,
+    `- Notarization blockers: ${labelsMatching(
+      report.releaseEnv?.blockers,
+      /notarization|APPLE_API|APPLE_ID|App Store Connect/i,
+    )}`,
+    `- Updater blockers: ${labelsMatching(
+      report.releaseEnv?.blockers,
+      /HEADROOM_UPDATER|updater/i,
+    )}`,
     "- Missing signing, notarization, or updater secrets are release blockers, not app failures.",
     `- Missing installed smoke evidence: ${
       report.installedSmoke?.missingEvidence?.join(", ") || "none"

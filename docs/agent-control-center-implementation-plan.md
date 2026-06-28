@@ -40,6 +40,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Safe config diff coverage now proves every managed config write path in the rollback inventory can produce a blocked dry-run preview with target, backup, marker, rollback, Off cleanup, and unmanaged-config boundaries.
 - Doctor timeline support copies now scrub user paths, token-like values, and common secret assignments before sharing support/debug evidence.
 - The tool compatibility matrix now lists every planned connector from the registry, and `npm run check:connectors` fails if the matrix omits a connector or the Gemini detection-only gate.
+- Release readiness report copies now categorize signing, notarization, and updater blockers separately so missing secrets stay release blockers, not app failures.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

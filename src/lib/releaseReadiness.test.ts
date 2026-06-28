@@ -331,7 +331,11 @@ describe("release readiness checklist", () => {
         },
         releaseEnv: {
           ok: false,
-          blockers: [{ label: "missing environment: APPLE_SIGNING_IDENTITY" }],
+          blockers: [
+            { label: "missing environment: APPLE_SIGNING_IDENTITY" },
+            { label: "missing notarization credentials" },
+            { label: "missing HEADROOM_UPDATER_PUBLIC_KEY" },
+          ],
           warnings: [{ label: "missing HEADROOM_UPDATER_PUBLIC_KEY" }],
         },
       },
@@ -379,6 +383,15 @@ describe("release readiness checklist", () => {
       "Final release gate: Blocked (blocked) via npm run release:ready -- --strict. Do not share a public DMG until every gate is clear.",
     );
     expect(snapshot).toContain("missing environment: APPLE_SIGNING_IDENTITY");
+    expect(snapshot).toContain(
+      "Signing blockers: missing environment: APPLE_SIGNING_IDENTITY",
+    );
+    expect(snapshot).toContain(
+      "Notarization blockers: missing notarization credentials",
+    );
+    expect(snapshot).toContain(
+      "Updater blockers: missing HEADROOM_UPDATER_PUBLIC_KEY",
+    );
     expect(snapshot).toContain(
       "Missing signing, notarization, or updater secrets are release blockers, not app failures.",
     );
