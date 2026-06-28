@@ -240,6 +240,41 @@ describe("release readiness checklist", () => {
     expect(snapshot).toContain("Connector config plan evidence: no");
   });
 
+  it("keeps frontend blocked when direct static evidence is missing", () => {
+    const rows = releaseReadinessRowsFromReport({
+      status: "blocked",
+      backendValidation: { ready: true },
+      staticSmokePreflight: {
+        ready: true,
+        requiredEvidence: ["Planned connector config creation plan"],
+        missingEvidence: ["Savings calculator copyable ledger"],
+        evidenceReady: false,
+      },
+      installedSmoke: {
+        installedAppPresent: true,
+        evidenceReady: true,
+        missingEvidence: [],
+      },
+      shareableDmgGate: {
+        ready: false,
+        signedAndNotarized: true,
+        updaterFeedReady: true,
+        staticSmokePreflightReady: true,
+        installedAppSmokeReady: true,
+      },
+      releaseEnv: {
+        ok: true,
+        blockers: [],
+        warnings: [],
+      },
+    });
+
+    const row = rows.find((item) => item.id === "frontend-build");
+    expect(row?.tone).toBe("blocked");
+    expect(row?.statusLabel).toBe("Blocked");
+    expect(row?.detail).toContain("Savings calculator copyable ledger");
+  });
+
   it("formats a copyable release report snapshot from report JSON", () => {
     const snapshot = formatReleaseReadinessReportSnapshot(
       {

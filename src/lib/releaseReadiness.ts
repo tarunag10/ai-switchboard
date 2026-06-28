@@ -373,7 +373,9 @@ export function releaseReadinessRowsFromReport(
     return releaseReadinessStatusRows;
   }
 
-  const frontendReady = report.shareableDmgGate?.staticSmokePreflightReady === true;
+  const frontendReady =
+    report.staticSmokePreflight?.evidenceReady ??
+    report.shareableDmgGate?.staticSmokePreflightReady === true;
   const desktopReady = report.backendValidation?.ready === true;
   const installedAppPresent = report.installedSmoke?.installedAppPresent === true;
   const installedSmokeReady = report.installedSmoke?.evidenceReady === true;
