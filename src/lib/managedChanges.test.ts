@@ -20,6 +20,15 @@ describe("managedChangeRecords", () => {
       "codex-routing",
       "gemini-routing",
       "opencode-routing",
+      "cursor-routing",
+      "grok-routing",
+      "aider-routing",
+      "continue-routing",
+      "goose-routing",
+      "qwen-code-routing",
+      "amazon-q-routing",
+      "windsurf-routing",
+      "zed-ai-routing",
       "managed-hooks",
       "managed-storage",
       "repo-intelligence",
@@ -61,8 +70,12 @@ describe("managedChangeRecords", () => {
 
     expect(allCopy).toContain("Claude Code");
     expect(allCopy).toContain("Codex");
+    expect(allCopy).toContain("Aider");
+    expect(allCopy).toContain("Amazon Q");
+    expect(allCopy).toContain("AWS credentials, SSO cache, and profiles are not modified");
     expect(allCopy).toContain("headroom:claude_code");
     expect(allCopy).toContain("headroom:codex_cli");
+    expect(allCopy).toContain("headroom:zed_ai");
     expect(allCopy).toContain("~/Library/Application Support/Headroom");
     expect(allCopy).toContain("Repo Intelligence");
     expect(allCopy).toContain("User repositories are not modified");
@@ -158,6 +171,15 @@ describe("managedChangeRecords", () => {
       "codex-routing",
       "gemini-routing",
       "opencode-routing",
+      "cursor-routing",
+      "grok-routing",
+      "aider-routing",
+      "continue-routing",
+      "goose-routing",
+      "qwen-code-routing",
+      "amazon-q-routing",
+      "windsurf-routing",
+      "zed-ai-routing",
       "managed-hooks",
       "plugins-backups",
     ]);

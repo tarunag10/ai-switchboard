@@ -80,7 +80,7 @@ struct PlannedSidecarSpec {
     config_dir: &'static [&'static str],
 }
 
-const PLANNED_SIDECAR_SPECS: [PlannedSidecarSpec; 2] = [
+const PLANNED_SIDECAR_SPECS: [PlannedSidecarSpec; 11] = [
     PlannedSidecarSpec {
         id: "gemini_cli",
         name: "Gemini CLI",
@@ -90,6 +90,51 @@ const PLANNED_SIDECAR_SPECS: [PlannedSidecarSpec; 2] = [
         id: "opencode",
         name: "OpenCode",
         config_dir: &[".config", "opencode"],
+    },
+    PlannedSidecarSpec {
+        id: "cursor",
+        name: "Cursor",
+        config_dir: &["Library", "Application Support", "Cursor"],
+    },
+    PlannedSidecarSpec {
+        id: "grok_cli",
+        name: "Grok / xAI CLI",
+        config_dir: &[".config", "xai"],
+    },
+    PlannedSidecarSpec {
+        id: "aider",
+        name: "Aider",
+        config_dir: &[".config", "aider"],
+    },
+    PlannedSidecarSpec {
+        id: "continue",
+        name: "Continue",
+        config_dir: &[".continue"],
+    },
+    PlannedSidecarSpec {
+        id: "goose",
+        name: "Goose",
+        config_dir: &[".config", "goose"],
+    },
+    PlannedSidecarSpec {
+        id: "qwen_code",
+        name: "Qwen Code",
+        config_dir: &[".qwen"],
+    },
+    PlannedSidecarSpec {
+        id: "amazon_q",
+        name: "Amazon Q Developer CLI",
+        config_dir: &[".aws", "amazonq"],
+    },
+    PlannedSidecarSpec {
+        id: "windsurf",
+        name: "Windsurf",
+        config_dir: &["Library", "Application Support", "Windsurf"],
+    },
+    PlannedSidecarSpec {
+        id: "zed_ai",
+        name: "Zed AI",
+        config_dir: &[".config", "zed"],
     },
 ];
 
@@ -828,6 +873,15 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
             changed_files.extend(updates.0);
             backup_files.extend(updates.1);
         }
+        other if planned_sidecar_spec(other).is_some() => {
+            let (changed, backup) = configure_planned_switchboard_sidecar(other)?;
+            if changed {
+                changed_files.push(planned_sidecar_routing_path(other)?.display().to_string());
+            }
+            if let Some(backup) = backup {
+                backup_files.push(backup.display().to_string());
+            }
+        }
         other => return Err(anyhow!("Automatic setup is not supported yet for {other}.",)),
     }
 
@@ -868,6 +922,15 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
                     "codex_cli" => "Codex",
                     "gemini_cli" => "Gemini CLI",
                     "opencode" => "OpenCode",
+                    "cursor" => "Cursor",
+                    "grok_cli" => "Grok / xAI CLI",
+                    "aider" => "Aider",
+                    "continue" => "Continue",
+                    "goose" => "Goose",
+                    "qwen_code" => "Qwen Code",
+                    "amazon_q" => "Amazon Q Developer CLI",
+                    "windsurf" => "Windsurf",
+                    "zed_ai" => "Zed AI",
                     _ => "Claude Code",
                 }
             ),
@@ -1077,6 +1140,26 @@ pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
                     "OpenCode provider {} was not found in {}.",
                     OPENCODE_HEADROOM_PROVIDER_ID,
                     opencode_config_path().display()
+                ));
+            }
+        }
+        other if planned_sidecar_spec(other).is_some() => {
+            let sidecar = planned_sidecar_spec(other)
+                .ok_or_else(|| anyhow!("Unknown planned sidecar {other}"))?;
+            let sidecar_path = planned_sidecar_routing_path(other)?;
+            let sidecar_ok = planned_switchboard_sidecar_matches(other)?;
+
+            if sidecar_ok {
+                checks.push(format!(
+                    "Found Switchboard-managed {} sidecar at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Switchboard-managed {} sidecar was not found at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
                 ));
             }
         }
@@ -1537,6 +1620,11 @@ pub fn disable_client_setup(client_id: &str) -> Result<()> {
             let sidecar = planned_sidecar_spec(client_id)
                 .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
             let _ = remove_managed_block(&planned_sidecar_routing_path(client_id)?, sidecar.id)?;
+        }
+        other if planned_sidecar_spec(other).is_some() => {
+            let sidecar = planned_sidecar_spec(other)
+                .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {other}."))?;
+            let _ = remove_managed_block(&planned_sidecar_routing_path(other)?, sidecar.id)?;
         }
         other => {
             return Err(anyhow!(
@@ -5316,7 +5404,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "grok_cli"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -5327,7 +5415,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "cursor"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -5339,7 +5427,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "aider"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -5350,7 +5438,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "continue"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -5362,7 +5450,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "goose"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -5373,7 +5461,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "qwen_code"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -5384,7 +5472,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "amazon_q"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -5395,7 +5483,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "windsurf"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -5407,7 +5495,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "zed_ai"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -6692,6 +6780,120 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let verification =
             super::verify_client_setup("opencode").expect("verify cleaned opencode setup");
         assert!(!verification.verified);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn remaining_planned_connectors_have_reversible_sidecar_lifecycle() {
+        let home = TestHome::new();
+        let connectors = [
+            ("cursor", "Cursor"),
+            ("grok_cli", "Grok / xAI CLI"),
+            ("aider", "Aider"),
+            ("continue", "Continue"),
+            ("goose", "Goose"),
+            ("qwen_code", "Qwen Code"),
+            ("amazon_q", "Amazon Q Developer CLI"),
+            ("windsurf", "Windsurf"),
+            ("zed_ai", "Zed AI"),
+        ];
+
+        for (client_id, name) in connectors {
+            let sidecar =
+                super::planned_sidecar_routing_path(client_id).expect("sidecar path available");
+            fs::create_dir_all(sidecar.parent().unwrap()).expect("create sidecar parent");
+            fs::write(&sidecar, format!("# {client_id} user note\nkeep this\n"))
+                .expect("seed sidecar");
+
+            let result = super::apply_client_setup(client_id)
+                .unwrap_or_else(|error| panic!("apply {client_id}: {error:?}"));
+            assert!(result.applied, "{client_id} should apply");
+            assert!(
+                !result.already_configured,
+                "{client_id} should not start configured"
+            );
+            assert!(
+                result
+                    .changed_files
+                    .contains(&sidecar.display().to_string()),
+                "{client_id} should report changed sidecar"
+            );
+            assert_eq!(
+                result.backup_files.len(),
+                1,
+                "{client_id} should back up the pre-existing sidecar"
+            );
+            assert!(
+                result.verification.verified,
+                "{client_id} verification should pass"
+            );
+            assert!(
+                result
+                    .summary
+                    .contains(&format!("{name} Switchboard sidecar written")),
+                "{client_id} summary should name the connector"
+            );
+
+            let content = fs::read_to_string(&sidecar).expect("read sidecar");
+            assert!(
+                content.contains(&format!("# >>> headroom:{client_id} >>>")),
+                "{client_id} sidecar should contain managed start marker"
+            );
+            assert!(
+                content.contains(super::HEADROOM_OPENAI_BASE_URL),
+                "{client_id} sidecar should mention Headroom proxy"
+            );
+            assert!(
+                content.contains(&format!("# {client_id} user note\nkeep this")),
+                "{client_id} sidecar should preserve user content"
+            );
+
+            let detected_clients = vec![ClientStatus {
+                id: client_id.into(),
+                name: name.into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![format!("{name} config surface: {}", sidecar.display())],
+            }];
+            let listed = list_client_connectors(&detected_clients).expect("list connectors");
+            let connector = listed
+                .iter()
+                .find(|connector| connector.client_id == client_id)
+                .unwrap_or_else(|| panic!("{client_id} connector listed"));
+            assert_eq!(
+                connector.support_status,
+                ClientConnectorSupportStatus::Managed,
+                "{client_id} should be promoted to managed"
+            );
+            assert_eq!(connector.setup_phase, "managed");
+            assert!(connector.enabled, "{client_id} should be enabled");
+            assert!(connector.verified, "{client_id} should be verified");
+            assert!(connector.config_creation_steps.is_empty());
+            assert!(connector.config_creation_step_details.is_empty());
+            assert!(connector.config_dry_run_preview.is_none());
+            assert!(connector.automation_path.is_empty());
+
+            super::disable_client_setup(client_id)
+                .unwrap_or_else(|error| panic!("disable {client_id}: {error:?}"));
+            let cleaned = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
+            assert_eq!(
+                cleaned,
+                format!("# {client_id} user note\nkeep this\n"),
+                "{client_id} disable should remove only the managed block"
+            );
+            let verification = super::verify_client_setup(client_id)
+                .unwrap_or_else(|error| panic!("verify cleaned {client_id}: {error:?}"));
+            assert!(
+                !verification.verified,
+                "{client_id} should not verify after disable"
+            );
+        }
+
+        assert!(
+            !home.path().join(".aws").join("credentials").exists(),
+            "Amazon Q sidecar setup must not create AWS credentials"
+        );
     }
 
     fn read_settings_json(path: &Path) -> serde_json::Value {

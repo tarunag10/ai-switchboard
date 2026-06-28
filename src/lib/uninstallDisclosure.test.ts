@@ -22,6 +22,8 @@ describe("uninstallDisclosure", () => {
 
     expect(allCopy).toContain("Claude Code");
     expect(allCopy).toContain("Codex");
+    expect(allCopy).toContain("Amazon Q");
+    expect(allCopy).toContain("AWS credentials, SSO cache, and profiles are not modified");
     expect(allCopy).toContain("~/Library/Application Support/Headroom");
     expect(allCopy).toContain("Repo Intelligence");
     expect(allCopy).toContain("repo-intelligence-latest.json");
@@ -39,6 +41,15 @@ describe("uninstallDisclosure", () => {
       "codex-routing",
       "gemini-routing",
       "opencode-routing",
+      "cursor-routing",
+      "grok-routing",
+      "aider-routing",
+      "continue-routing",
+      "goose-routing",
+      "qwen-code-routing",
+      "amazon-q-routing",
+      "windsurf-routing",
+      "zed-ai-routing",
       "managed-hooks",
       "managed-storage",
       "repo-intelligence",
