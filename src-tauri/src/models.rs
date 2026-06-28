@@ -175,6 +175,12 @@ pub struct RepoIndexFreshnessResponse {
     pub status: RepoIndexFreshnessStatus,
     pub label: String,
     pub detail: String,
+    pub api_available: bool,
+    pub graph_available: bool,
+    pub indexer_version: Option<String>,
+    pub parser_version: Option<String>,
+    pub indexed_file_count: Option<u64>,
+    pub skipped_file_count: Option<u64>,
     pub safety: RepoContextPackSafety,
 }
 

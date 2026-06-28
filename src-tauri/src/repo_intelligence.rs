@@ -359,6 +359,12 @@ pub fn build_index_freshness_response(
             status: RepoIndexFreshnessStatus::None,
             label: "No repo indexed".to_string(),
             detail: "Index a local repository to create a persistent metadata cache.".to_string(),
+            api_available: true,
+            graph_available: false,
+            indexer_version: None,
+            parser_version: None,
+            indexed_file_count: None,
+            skipped_file_count: None,
             safety: repo_context_safety(),
         };
     };
@@ -396,6 +402,15 @@ pub fn build_index_freshness_response(
         status,
         label,
         detail,
+        api_available: true,
+        graph_available: summary.graph.is_some(),
+        indexer_version: summary.indexer_version.clone(),
+        parser_version: summary
+            .index_metadata
+            .as_ref()
+            .map(|metadata| metadata.parser_version.clone()),
+        indexed_file_count: Some(summary.indexed_files),
+        skipped_file_count: Some(summary.skipped_files),
         safety: repo_context_safety(),
     }
 }
@@ -2417,6 +2432,12 @@ mod tests {
         let empty = build_index_freshness_response(None);
         assert!(matches!(empty.status, RepoIndexFreshnessStatus::None));
         assert_eq!(empty.label, "No repo indexed");
+        assert!(empty.api_available);
+        assert!(!empty.graph_available);
+        assert_eq!(empty.indexer_version, None);
+        assert_eq!(empty.parser_version, None);
+        assert_eq!(empty.indexed_file_count, None);
+        assert_eq!(empty.skipped_file_count, None);
         assert!(empty.safety.read_only);
 
         let mut summary = RepoIntelligenceSummary {
@@ -2453,6 +2474,12 @@ mod tests {
             RepoIndexFreshnessStatus::UnchangedCache
         ));
         assert_eq!(unchanged.repo_root.as_deref(), Some("/tmp/example"));
+        assert!(unchanged.api_available);
+        assert!(!unchanged.graph_available);
+        assert_eq!(unchanged.indexer_version.as_deref(), Some(INDEXER_VERSION));
+        assert_eq!(unchanged.parser_version.as_deref(), Some(PARSER_VERSION));
+        assert_eq!(unchanged.indexed_file_count, Some(1));
+        assert_eq!(unchanged.skipped_file_count, Some(0));
 
         summary.index_metadata.as_mut().unwrap().cache_state = "changed".to_string();
         let changed = build_index_freshness_response(Some(&summary));
