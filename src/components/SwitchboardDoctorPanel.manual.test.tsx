@@ -110,7 +110,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     ).toBeInTheDocument();
     expect(
       screen.getAllByText(
-        "Clears the saved Repo Intelligence summary so a stale or missing repo path no longer appears in Doctor. Re-index from Addons when ready.",
+        "Clears the saved Repo Intelligence summary so stale, missing, moved, or replaced repo paths no longer appear in Doctor. Re-index the current local repo path from Addons when ready.",
       ),
     ).toHaveLength(2);
     expect(

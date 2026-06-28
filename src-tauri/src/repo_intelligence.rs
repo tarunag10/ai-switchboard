@@ -2668,8 +2668,7 @@ mod tests {
             "test('module', () => {})\n",
         )
         .expect("write test");
-        std::fs::write(root.path().join(".env.local"), "SECRET=value\n")
-            .expect("write secret");
+        std::fs::write(root.path().join(".env.local"), "SECRET=value\n").expect("write secret");
 
         let summary = summarize_repo(root.path()).expect("summarize repo");
         let default_pack = build_context_pack_response(&summary, None).expect("default pack");
