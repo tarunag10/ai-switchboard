@@ -25,6 +25,8 @@ export interface ManagedConfigDiffPreview {
   targetPath: string;
   markerId: string;
   backupPath: string;
+  dryRunOnly: true;
+  requiresExplicitConfirmation: true;
   currentManagedBlock: string | null;
   proposedManagedBlock: string;
   rollback: string;
@@ -170,6 +172,8 @@ export function buildManagedConfigDiffPreview({
     targetPath: trimmedPath,
     markerId: record.markerId,
     backupPath: record.backupPath,
+    dryRunOnly: true,
+    requiresExplicitConfirmation: true,
     currentManagedBlock: currentManagedBlock?.trim() || null,
     proposedManagedBlock: trimmedProposedBlock,
     rollback: record.rollback,
@@ -189,6 +193,10 @@ export function formatManagedConfigDiffPreview(
     `Target: ${preview.targetPath}`,
     `Marker: ${preview.markerId}`,
     `Backup: ${preview.backupPath}`,
+    `Dry run only: ${preview.dryRunOnly ? "yes" : "no"}`,
+    `Requires explicit confirmation: ${
+      preview.requiresExplicitConfirmation ? "yes" : "no"
+    }`,
     "",
     "Current managed block:",
     preview.currentManagedBlock ?? "(none detected)",
@@ -222,7 +230,7 @@ export function formatManagedRollbackInventory(
       `Rollback: ${record.rollback}`,
       "",
     ]),
-    "Review dry-run diffs before applying config changes. Off mode must remove only Switchboard-owned marked changes.",
+    "Review dry-run diffs before applying config changes. Dry-run reports do not modify files and every apply requires explicit user confirmation. Off mode must remove only Switchboard-owned marked changes.",
   ]
     .join("\n")
     .trimEnd();

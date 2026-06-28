@@ -83,6 +83,8 @@ describe("managedChangeRecords", () => {
       targetPath: "~/.codex/config.toml",
       markerId: "headroom:codex_cli",
       backupPath: "next to edited client config as *.headroom.bak",
+      dryRunOnly: true,
+      requiresExplicitConfirmation: true,
     });
     expect(preview.currentManagedBlock).toContain("old");
     expect(preview.proposedManagedBlock).toContain("new");
@@ -106,6 +108,8 @@ describe("managedChangeRecords", () => {
 
     expect(text).toContain("Managed config diff: RTK shell compression");
     expect(text).toContain("Target: ~/.zshrc");
+    expect(text).toContain("Dry run only: yes");
+    expect(text).toContain("Requires explicit confirmation: yes");
     expect(text).toContain("Current managed block:\n(none detected)");
     expect(text).toContain("Proposed managed block:");
     expect(text).toContain("Backup: next to edited shell profile as *.headroom.bak");
@@ -125,6 +129,8 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Rollback: Remove managed Codex shell routing");
     expect(text).toContain("Repo Intelligence");
     expect(text).toContain("Launch at login");
+    expect(text).toContain("Dry-run reports do not modify files");
+    expect(text).toContain("every apply requires explicit user confirmation");
     expect(text).toContain("Off mode must remove only Switchboard-owned");
   });
 
