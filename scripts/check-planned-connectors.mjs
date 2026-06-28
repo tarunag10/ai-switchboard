@@ -5,6 +5,7 @@ const appPath = "src/App.tsx";
 const backendPath = "src-tauri/src/client_adapters.rs";
 const cliPath = "scripts/repo-intelligence.mjs";
 const repoApiPath = "src-tauri/src/repo_intelligence.rs";
+const compatibilityMatrixPath = "research/tool-compatibility-matrix.md";
 
 function readFile(path) {
   return fs.readFileSync(path, "utf8");
@@ -321,6 +322,28 @@ function validateRepoApiConnectorDossierContract(source) {
   return errors;
 }
 
+function validateCompatibilityMatrixContract(source, connectors) {
+  const errors = [];
+  for (const connector of connectors.values()) {
+    if (!connector.name || !source.includes(`| ${connector.name} |`)) {
+      errors.push(`${connector.id}: compatibility matrix missing ${connector.name}`);
+    }
+  }
+
+  for (const snippet of [
+    "Gemini CLI Detection-Only Gate",
+    "Detection source: `PATH: gemini`, `~/.gemini`, and `~/.config/gemini`.",
+    "dry-run diff, exact backup, apply, verify, rollback, and Off mode cleanup",
+    "keep Gemini as `planned` and `guide`; do not convert to managed setup yet",
+  ]) {
+    if (!source.includes(snippet)) {
+      errors.push(`compatibility matrix missing "${snippet}"`);
+    }
+  }
+
+  return errors;
+}
+
 function extractBackendConnectors(source) {
   const registry = extractArrayBody(
     source,
@@ -359,6 +382,7 @@ const appSource = readFile(appPath);
 const backendSource = readFile(backendPath);
 const cliSource = readFile(cliPath);
 const repoApiSource = readFile(repoApiPath);
+const compatibilityMatrixSource = readFile(compatibilityMatrixPath);
 const frontendConnectors = extractFrontendConnectors(frontendSource);
 const backendConnectors = extractBackendConnectors(backendSource);
 const frontendIds = uniqueSorted([...frontendConnectors.keys()]);
@@ -388,6 +412,12 @@ metadataErrors.push(...validateConfigCreationPlanContract(frontendSource));
 metadataErrors.push(...validateBackendConfigCreationPlanContract(backendSource));
 metadataErrors.push(...validateCliConnectorDossierContract(cliSource, frontendIds));
 metadataErrors.push(...validateRepoApiConnectorDossierContract(repoApiSource));
+metadataErrors.push(
+  ...validateCompatibilityMatrixContract(
+    compatibilityMatrixSource,
+    frontendConnectors,
+  ),
+);
 if (!appSource.includes("configPlan.steps.map((step) =>")) {
   metadataErrors.push("planned connector UI must render every config creation step");
 }
