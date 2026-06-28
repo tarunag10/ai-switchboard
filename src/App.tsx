@@ -205,6 +205,7 @@ import {
   type DoctorTimelineEvent,
 } from "./lib/doctorRepairCopy";
 import {
+  formatUninstallDryRunReport,
   uninstallDisclosureFooter,
   uninstallDisclosureItems,
   uninstallDisclosureTitle,
@@ -2774,6 +2775,9 @@ export default function App() {
   const [showUninstallDialog, setShowUninstallDialog] = useState(false);
   const [uninstallBusy, setUninstallBusy] = useState(false);
   const [uninstallError, setUninstallError] = useState<string | null>(null);
+  const [uninstallCopyNotice, setUninstallCopyNotice] = useState<string | null>(
+    null,
+  );
   const [upgradeActionBusy, setUpgradeActionBusy] =
     useState<UpgradePlanId | null>(null);
   const [upgradeActionError, setUpgradeActionError] = useState<string | null>(
@@ -3679,6 +3683,20 @@ export default function App() {
           : "Uninstall failed. Please try again.",
       );
       setUninstallBusy(false);
+    }
+  }
+
+  async function copyUninstallDryRunReport() {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(formatUninstallDryRunReport());
+      setUninstallCopyNotice("Uninstall dry-run copied.");
+      window.setTimeout(() => setUninstallCopyNotice(null), 2500);
+    } catch {
+      setUninstallCopyNotice("Copy failed. Review the uninstall list manually.");
+      window.setTimeout(() => setUninstallCopyNotice(null), 3000);
     }
   }
 
@@ -9336,10 +9354,23 @@ export default function App() {
                 ))}
               </ul>
               <p>{uninstallDisclosureFooter}</p>
+              {uninstallCopyNotice ? (
+                <p className="rollback-center-card__notice">
+                  {uninstallCopyNotice}
+                </p>
+              ) : null}
               {uninstallError ? (
                 <p className="install-progress__error">{uninstallError}</p>
               ) : null}
               <div className="modal-actions">
+                <button
+                  className="secondary-button"
+                  disabled={uninstallBusy}
+                  onClick={() => void copyUninstallDryRunReport()}
+                  type="button"
+                >
+                  Copy dry-run
+                </button>
                 <button
                   className="secondary-button"
                   disabled={uninstallBusy}

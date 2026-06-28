@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatUninstallDryRunReport,
   uninstallDisclosureFooter,
   uninstallDisclosureItems,
   uninstallDisclosureTitle,
@@ -33,7 +34,8 @@ describe("uninstallDisclosure", () => {
 
   it("keeps stable ids for modal rendering", () => {
     expect(uninstallDisclosureItems.map((item) => item.id)).toEqual([
-      "client-hooks",
+      "claude-code-routing",
+      "codex-routing",
       "managed-hooks",
       "managed-storage",
       "repo-intelligence",
@@ -41,5 +43,17 @@ describe("uninstallDisclosure", () => {
       "app-state",
       "plugins-backups",
     ]);
+  });
+
+  it("formats a copyable uninstall dry-run report from the managed footprint", () => {
+    const report = formatUninstallDryRunReport();
+
+    expect(report).toContain("Mac AI Switchboard uninstall dry-run");
+    expect(report).toContain("No files are changed by this report.");
+    expect(report).toContain("Remove managed Claude Code shell routing");
+    expect(report).toContain("Remove managed Codex shell routing");
+    expect(report).toContain("~/.codex/config.toml");
+    expect(report).toContain("~/Library/Application Support/Headroom");
+    expect(report).toContain(uninstallDisclosureFooter);
   });
 });
