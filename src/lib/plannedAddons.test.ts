@@ -22,7 +22,9 @@ describe("planned add-ons", () => {
     );
     expect(repoIntelligence?.bullets.join(" ")).toContain("Still planned");
     expect(repoIntelligence?.bullets.join(" ")).toContain("reverse hubs");
-    expect(repoIntelligence?.bullets.join(" ")).toContain("MCP repo-memory");
+    expect(repoIntelligence?.bullets.join(" ")).toContain(
+      "direct repo-memory MCP UI controls",
+    );
     expect(repoIntelligence?.bullets.join(" ")).toContain(
       "persistent parser index",
     );

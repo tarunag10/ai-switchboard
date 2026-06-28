@@ -20,7 +20,7 @@ export const plannedAddons: PlannedAddon[] = [
       "Available now: local file classification, token estimates, dependency hubs, path-based edges, import references, call references, reverse hubs, symbol summaries, and bounded context packs.",
       "Open the Repo Intelligence sidebar view to index a repo, review graph and savings signals, then copy Markdown or JSON handoffs.",
       "Sample preview stays non-copyable until a real local index exists, so users do not paste demo context into agents.",
-      "Still planned: deeper AST-backed parsing, full call graph, persistent parser index, and app-managed MCP repo-memory service.",
+      "Still planned: deeper AST-backed parsing, full call graph, persistent parser index, direct repo-memory MCP UI controls, and Doctor repair integration.",
       "Local-first index stored on Mac, with secret-like paths, generated outputs, and vendor folders excluded from default packs.",
       "Read-only by default; write or auto-repair actions remain explicit user actions.",
     ],
@@ -51,8 +51,8 @@ export const plannedAddons: PlannedAddon[] = [
     ],
     healthChecks: [
       "Detected tools stay read-only unless a managed adapter is explicitly supported.",
-      "Every planned connector shows config surfaces, automation gates, manual workflow.",
-      "Doctor keeps planned connector tasks manual and excludes them from Repair all.",
+      "Every managed connector shows config surfaces, automation gates, manual workflow, and native config gate state.",
+      "Doctor keeps native connector config tasks manual and excludes them from Repair all until restore coverage is proven.",
       "Off mode must remove only Switchboard-owned changes before any future adapter writes config.",
     ],
     savingsSources: [
