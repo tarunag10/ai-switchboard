@@ -101,6 +101,17 @@ function validateConfigCreationPlanContract(source) {
   if (!source.includes("formatPlannedConnectorConfigCreationPlansMarkdown")) {
     errors.push("config creation plans must have copyable markdown formatter");
   }
+  for (const snippet of [
+    "target path",
+    "before/after",
+    "managed marker boundary",
+    "rollback preview",
+    "confirmation phrase",
+  ]) {
+    if (!functionBody.includes(snippet)) {
+      errors.push(`frontend dry-run diff evidence missing "${snippet}"`);
+    }
+  }
 
   return errors;
 }
@@ -154,6 +165,17 @@ function validateBackendConfigCreationPlanContract(source) {
   }
   if (!source.includes("required_evidence")) {
     errors.push("planned backend config creation steps must expose required_evidence");
+  }
+  for (const snippet of [
+    "target path",
+    "before/after",
+    "managed marker boundary",
+    "rollback preview",
+    "confirmation phrase",
+  ]) {
+    if (!source.includes(snippet)) {
+      errors.push(`backend dry-run diff evidence missing "${snippet}"`);
+    }
   }
   for (const snippet of [
     "spec.detection_sources.join",

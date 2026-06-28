@@ -894,9 +894,9 @@ export function getPlannedConnectorConfigCreationPlan(
       id: "dryRunDiff",
       label: "Show dry-run diff",
       detail:
-        "Preview the exact local proxy/provider change before any file, profile, or environment edit.",
+        "Preview a copyable dry-run artifact with target path, before/after provider intent, managed marker boundary, rollback preview, and confirmation phrase before any file, profile, or environment edit.",
       requiredEvidence: [
-        "User-visible dry-run diff showing the exact proposed local proxy/provider change.",
+        "User-visible dry-run diff artifact showing target, before/after local proxy/provider change, managed marker boundary, rollback preview, and confirmation phrase.",
         "No files, profiles, credentials, or account state changed by the preview.",
       ],
     },

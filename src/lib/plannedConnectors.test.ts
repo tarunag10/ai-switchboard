@@ -297,6 +297,9 @@ describe("planned connectors", () => {
       expect(plan.steps.map((step) => `${step.label} ${step.detail}`).join(" ")).toMatch(
         /detect|dry-run|backup|provider|Doctor|rollback|Off mode/i,
       );
+      expect(plan.steps.find((step) => step.id === "dryRunDiff")?.detail).toMatch(
+        /target path|before\/after|managed marker|rollback preview|confirmation phrase/i,
+      );
       for (const step of plan.steps) {
         expect(step.requiredEvidence.length).toBeGreaterThanOrEqual(2);
         expect(step.requiredEvidence.join(" ")).toMatch(
@@ -346,6 +349,8 @@ describe("planned connectors", () => {
     expect(markdown).toContain("Detect config surface: Detect PATH: opencode");
     expect(markdown).toContain("Required evidence:");
     expect(markdown).toContain("No files, profiles, credentials, or account state changed");
+    expect(markdown).toContain("managed marker boundary");
+    expect(markdown).toContain("confirmation phrase");
     expect(markdown).toContain("## Grok / xAI CLI");
     expect(markdown).toContain("Doctor guardrails");
     expect(markdown).toContain("## Cursor");

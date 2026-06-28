@@ -314,9 +314,8 @@ fn planned_config_creation_step_details(
         spec.detection_sources.join(", "),
         spec.config_locations.join(", ")
     );
-    let dry_run_detail =
-        "Preview the exact local proxy/provider diff before any file, profile, or environment edit."
-            .to_string();
+    let dry_run_detail = "Preview a copyable dry-run artifact with target path, before/after provider intent, managed marker boundary, rollback preview, and confirmation phrase before any file, profile, or environment edit."
+        .to_string();
     let backup_detail = spec
         .automation_gates
         .iter()
@@ -371,7 +370,7 @@ fn planned_config_creation_step_details(
                 .to_string(),
         ],
         vec![
-            "User-visible dry-run diff showing the exact proposed local proxy/provider change."
+            "User-visible dry-run diff artifact showing target, before/after local proxy/provider change, managed marker boundary, rollback preview, and confirmation phrase."
                 .to_string(),
             "No files, profiles, credentials, or account state changed by the preview.".to_string(),
         ],
@@ -406,12 +405,14 @@ fn planned_config_creation_step_details(
         .zip(PLANNED_CONFIG_CREATION_STEPS.iter())
         .zip(details)
         .zip(required_evidence)
-        .map(|(((id, label), detail), required_evidence)| ClientConnectorConfigCreationStep {
-            id: (*id).to_string(),
-            label: (*label).to_string(),
-            detail,
-            required_evidence,
-        })
+        .map(
+            |(((id, label), detail), required_evidence)| ClientConnectorConfigCreationStep {
+                id: (*id).to_string(),
+                label: (*label).to_string(),
+                detail,
+                required_evidence,
+            },
+        )
         .collect()
 }
 
@@ -4572,6 +4573,22 @@ mod tests {
                         .required_evidence
                         .iter()
                         .all(|evidence| evidence.len() > 30)));
+            let dry_run = connector
+                .config_creation_step_details
+                .iter()
+                .find(|step| step.id == "dryRunDiff")
+                .expect("planned connector dry-run step");
+            let dry_run_copy =
+                format!("{} {}", dry_run.detail, dry_run.required_evidence.join(" "));
+            for snippet in [
+                "target path",
+                "before/after",
+                "managed marker boundary",
+                "rollback preview",
+                "confirmation phrase",
+            ] {
+                assert!(dry_run_copy.contains(snippet));
+            }
         }
 
         let managed = connectors
