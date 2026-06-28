@@ -2446,6 +2446,21 @@ fn repo_intelligence_doctor_issue(
         });
     }
 
+    let freshness = repo_intelligence::build_index_freshness_response(Some(summary));
+    if freshness.parser_health == "version_mismatch" || freshness.index_health == "metadata_missing"
+    {
+        return Some(crate::models::DoctorIssue {
+            id: "repo_intelligence_index_health".to_string(),
+            title: "Repo Intelligence parser/index health needs refresh".to_string(),
+            body: format!(
+                "The saved Repo Intelligence index for {} reports index health '{}' and parser health '{}'. Repair will clear this saved index; then re-index the current local repository so Doctor and agent handoffs use the current parser/index contract.",
+                summary.repo_root, freshness.index_health, freshness.parser_health
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("clear_repo_intelligence_index".to_string()),
+        });
+    }
+
     let stale = DateTime::parse_from_rfc3339(&summary.indexed_at)
         .map(|indexed_at| {
             now.signed_duration_since(indexed_at.with_timezone(&Utc))
@@ -6820,6 +6835,25 @@ mod tests {
             repo_intelligence_doctor_issue(&moved, now).is_none(),
             "existing indexed file should keep the saved index healthy"
         );
+
+        let mut missing_metadata = moved.clone();
+        missing_metadata.index_metadata = None;
+        let missing_metadata_issue =
+            repo_intelligence_doctor_issue(&missing_metadata, now).expect("metadata issue");
+        assert_eq!(missing_metadata_issue.id, "repo_intelligence_index_health");
+        assert!(missing_metadata_issue.body.contains("metadata_missing"));
+        assert!(missing_metadata_issue.body.contains("unavailable"));
+
+        let mut parser_mismatch = moved.clone();
+        parser_mismatch
+            .index_metadata
+            .as_mut()
+            .expect("fixture metadata")
+            .parser_version = "older-parser-v0".to_string();
+        let parser_mismatch_issue =
+            repo_intelligence_doctor_issue(&parser_mismatch, now).expect("parser issue");
+        assert_eq!(parser_mismatch_issue.id, "repo_intelligence_index_health");
+        assert!(parser_mismatch_issue.body.contains("version_mismatch"));
     }
 
     #[test]

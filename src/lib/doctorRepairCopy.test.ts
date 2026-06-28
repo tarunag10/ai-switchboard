@@ -182,6 +182,18 @@ describe("doctor repair copy", () => {
     ).toContain("Re-index the current local repo path");
   });
 
+  it("guides Repo Intelligence parser and index health recovery", () => {
+    expect(
+      doctorIssueGuidance({
+        id: "repo_intelligence_index_health",
+        title: "Repo Intelligence parser/index health needs refresh",
+        body: "The saved parser health is stale.",
+        severity: "warning",
+        repairAction: null,
+      }),
+    ).toContain("parserHealth, indexHealth");
+  });
+
   it("formats healthy Doctor report for sharing", () => {
     expect(
       formatDoctorReportShareText({
@@ -251,6 +263,8 @@ describe("doctor repair copy", () => {
     expect(contract).toContain("generated/vendor paths skipped");
     expect(contract).toContain("outputs bounded by pack/token budgets");
     expect(contract).toContain("parser version reported");
+    expect(contract).toContain("parserHealth reported");
+    expect(contract).toContain("indexHealth reported");
     expect(contract).toContain("graph availability reported");
     expect(contract).toContain("indexed/skipped counts");
     expect(contract).toContain("missing, stale, corrupt, or moved repo indexes");
@@ -270,6 +284,8 @@ describe("doctor repair copy", () => {
     );
     expect(gates).toContain("Moved repo path");
     expect(gates).toContain("indexer/parser versions");
+    expect(gates).toContain("indexHealth");
+    expect(gates).toContain("parserHealth");
     expect(gates).toContain("indexed/skipped counts");
     expect(gates).toContain("secret exclusion");
     expect(gates).toContain("read-only safety");

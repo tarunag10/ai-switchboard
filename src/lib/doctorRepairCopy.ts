@@ -397,10 +397,10 @@ export function repoIntelligenceDoctorApiContract(): string {
     "- get_repo_manifest: read latest bounded manifest.",
     "- get_repo_pack: read one bounded context pack.",
     "- get_agent_handoff: read one bounded agent handoff, including planned connector config readiness, next gate, evidence requirements, config path strategy, account caveat, and rollback strategy when the target is a planned connector.",
-    "- get_index_freshness: read API availability, freshness, graph availability, indexer/parser versions, indexed/skipped counts, and missing/stale index state.",
+    "- get_index_freshness: read API availability, freshness, graph availability, indexHealth, parserHealth, indexer/parser versions, indexed/skipped counts, and missing/stale index state.",
     "- clear_repo_index: clears only Switchboard managed index metadata; never mutates the user repo.",
     "Availability gates: missing, stale, corrupt, or moved repo indexes stay visible in Doctor until cleared or re-indexed.",
-    "Safety: read-only by default, secret-like paths excluded, generated/vendor paths skipped, outputs bounded by pack/token budgets, parser version reported, graph availability reported.",
+    "Safety: read-only by default, secret-like paths excluded, generated/vendor paths skipped, outputs bounded by pack/token budgets, parser version reported, parserHealth reported, indexHealth reported, graph availability reported.",
   ].join("\n");
 }
 
@@ -412,7 +412,7 @@ export function repoIntelligenceDoctorAvailabilityGates(): string {
     "- Stale index: Doctor must keep the stale state visible until the index is cleared or refreshed.",
     "- Corrupt index: clear_repo_index removes only Switchboard managed index metadata, then the repo must be re-indexed.",
     "- Moved repo path: clear the saved index or re-index the new local path before handoff.",
-    "- Evidence to copy: API availability, graph availability, indexer/parser versions, indexed/skipped counts, secret exclusion, and read-only safety.",
+    "- Evidence to copy: API availability, graph availability, indexHealth, parserHealth, indexer/parser versions, indexed/skipped counts, secret exclusion, and read-only safety.",
     "- Repo Memory MCP lifecycle: install through Mac AI Switchboard before agent consumption.",
     `- Repo Memory MCP install action: ${repoMemoryMcpInstallCommand}.`,
     `- Repo Memory MCP smoke check: ${repoMemoryMcpVerifyCommand}.`,
@@ -436,6 +436,8 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
       return "Clear the saved Repo Intelligence index, then re-index the current local repo path before copying packs into another agent.";
     case "repo_intelligence_stale":
       return "Clear the stale saved Repo Intelligence index, then open Addons and re-index the repo before copying packs into another agent.";
+    case "repo_intelligence_index_health":
+      return "Clear the saved Repo Intelligence index, then re-index the current repo so parserHealth, indexHealth, graph metadata, and handoff packs match the current parser/index contract.";
     case "repo_intelligence_storage_corrupt":
       return "Clear the unreadable Repo Intelligence index, then open Addons and re-index a local repo before copying packs into another agent.";
     case "repo_memory_mcp_not_configured":
