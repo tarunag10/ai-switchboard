@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   applyManagedConfigBlock,
+  buildManagedConfigApplyPlan,
   buildManagedConfigDiffPreview,
+  formatManagedConfigApplyPlan,
   formatManagedConfigDiffPreview,
   formatManagedRollbackInventory,
   managedChangeRecords,
@@ -253,6 +255,106 @@ describe("managedChangeRecords", () => {
     expect(result.text).toContain("alias ll='ls -la'");
     expect(result.text).toContain("export ANTHROPIC_BASE_URL");
     expect(result.text.match(/# >>> headroom:claude_code >>>/g)).toHaveLength(1);
+  });
+
+  it("builds a confirmed apply plan from the reviewed dry-run preview", () => {
+    const record = managedChangeRecords.find(
+      (candidate) => candidate.id === "codex-routing",
+    )!;
+    const preview = buildManagedConfigDiffPreview({
+      record,
+      targetPath: "~/.codex/config.toml",
+      currentManagedBlock: null,
+      proposedManagedBlock: [
+        "# >>> headroom:codex_cli >>>",
+        '[model_providers.headroom]',
+        'base_url = "http://127.0.0.1:6767/v1"',
+        "# <<< headroom:codex_cli <<<",
+      ].join("\n"),
+    });
+    const existing = [
+      'model = "gpt-5"',
+      "[profiles.default]",
+      'approval_policy = "never"',
+      "",
+    ].join("\n");
+
+    const plan = buildManagedConfigApplyPlan({
+      preview,
+      existingText: existing,
+      confirmationPhrase: "Apply headroom:codex_cli to ~/.codex/config.toml",
+    });
+
+    expect(plan).toMatchObject({
+      recordId: "codex-routing",
+      owner: "Codex routing",
+      targetPath: "~/.codex/config.toml",
+      markerId: "headroom:codex_cli",
+      confirmed: true,
+      writePathStatus: "ready",
+      changed: true,
+    });
+    expect(plan.nextText).toContain('model = "gpt-5"');
+    expect(plan.nextText).toContain("[profiles.default]");
+    expect(plan.nextText).toContain("[model_providers.headroom]");
+    expect(plan.nextText.match(/# >>> headroom:codex_cli >>>/g)).toHaveLength(1);
+    expect(plan.safetyNotes.join(" ")).toContain("Create the backup");
+    expect(plan.safetyNotes.join(" ")).toContain("Off mode");
+  });
+
+  it("rejects apply plans without the exact confirmation phrase", () => {
+    const record = managedChangeRecords.find(
+      (candidate) => candidate.id === "managed-hooks",
+    )!;
+    const preview = buildManagedConfigDiffPreview({
+      record,
+      targetPath: "~/.zshrc",
+      currentManagedBlock: null,
+      proposedManagedBlock:
+        "# >>> headroom:rtk >>>\nsource ~/.headroom/rtk.sh\n# <<< headroom:rtk <<<",
+    });
+
+    expect(() =>
+      buildManagedConfigApplyPlan({
+        preview,
+        existingText: "export PATH=/usr/bin:$PATH\n",
+        confirmationPhrase: "Apply RTK",
+      }),
+    ).toThrow("confirmation phrase does not match");
+  });
+
+  it("formats confirmed apply plans with backup rollback and cleanup evidence", () => {
+    const record = managedChangeRecords.find(
+      (candidate) => candidate.id === "claude-code-routing",
+    )!;
+    const preview = buildManagedConfigDiffPreview({
+      record,
+      targetPath: "~/.zshrc",
+      currentManagedBlock: null,
+      proposedManagedBlock: [
+        "# >>> headroom:claude_code >>>",
+        "export ANTHROPIC_BASE_URL=http://127.0.0.1:6767",
+        "# <<< headroom:claude_code <<<",
+      ].join("\n"),
+    });
+    const text = formatManagedConfigApplyPlan(
+      buildManagedConfigApplyPlan({
+        preview,
+        existingText: "alias ll='ls -la'\n",
+        confirmationPhrase: "Apply headroom:claude_code to ~/.zshrc",
+      }),
+    );
+
+    expect(text).toContain("Managed config apply plan: Claude Code routing");
+    expect(text).toContain("Target: ~/.zshrc");
+    expect(text).toContain("Confirmed: yes");
+    expect(text).toContain("Write path status: ready");
+    expect(text).toContain("Backup: next to edited client config as *.headroom.bak");
+    expect(text).toContain("Rollback:\nRemove managed Claude Code shell routing");
+    expect(text).toContain("Off-mode cleanup boundary:");
+    expect(text).toContain("Unmanaged user config:");
+    expect(text).toContain("Exact user confirmation phrase matched");
+    expect(text).toContain("Create the backup before writing nextText");
   });
 
   it("replaces only the managed block during repair", () => {

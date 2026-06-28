@@ -43,6 +43,23 @@ export interface ManagedConfigTextResult {
   changed: boolean;
 }
 
+export interface ManagedConfigApplyPlan {
+  recordId: ManagedChangeRecord["id"];
+  owner: string;
+  targetPath: string;
+  markerId: string;
+  backupPath: string;
+  confirmationPhrase: string;
+  confirmed: true;
+  writePathStatus: "ready";
+  nextText: string;
+  changed: boolean;
+  rollback: string;
+  offModeCleanupBoundary: string;
+  unmanagedConfigPolicy: string;
+  safetyNotes: string[];
+}
+
 export const managedChangeRecords: ManagedChangeRecord[] = [
   {
     id: "claude-code-routing",
@@ -247,6 +264,48 @@ export function applyManagedConfigBlock(
   };
 }
 
+export function buildManagedConfigApplyPlan({
+  preview,
+  existingText,
+  confirmationPhrase,
+}: {
+  preview: ManagedConfigDiffPreview;
+  existingText: string;
+  confirmationPhrase: string;
+}): ManagedConfigApplyPlan {
+  if (confirmationPhrase !== preview.confirmationPhrase) {
+    throw new Error("confirmation phrase does not match managed config preview.");
+  }
+
+  const result = applyManagedConfigBlock(
+    existingText,
+    preview.markerId,
+    preview.proposedManagedBlock,
+  );
+
+  return {
+    recordId: preview.recordId,
+    owner: preview.owner,
+    targetPath: preview.targetPath,
+    markerId: preview.markerId,
+    backupPath: preview.backupPath,
+    confirmationPhrase: preview.confirmationPhrase,
+    confirmed: true,
+    writePathStatus: "ready",
+    nextText: result.text,
+    changed: result.changed,
+    rollback: preview.rollback,
+    offModeCleanupBoundary: preview.offModeCleanupBoundary,
+    unmanagedConfigPolicy: preview.unmanagedConfigPolicy,
+    safetyNotes: [
+      "Exact user confirmation phrase matched this preview.",
+      "Create the backup before writing nextText to the target path.",
+      "Write only the computed nextText for this target path.",
+      ...preview.safetyNotes.filter((note) => !/dry-run report/i.test(note)),
+    ],
+  };
+}
+
 export function removeManagedConfigBlock(
   existingText: string,
   markerId: string,
@@ -302,6 +361,29 @@ export function formatManagedConfigDiffPreview(
     "",
     "Safety:",
     ...preview.safetyNotes.map((note) => `- ${note}`),
+  ].join("\n");
+}
+
+export function formatManagedConfigApplyPlan(plan: ManagedConfigApplyPlan): string {
+  return [
+    `Managed config apply plan: ${plan.owner}`,
+    `Target: ${plan.targetPath}`,
+    `Marker: ${plan.markerId}`,
+    `Backup: ${plan.backupPath}`,
+    `Confirmed: ${plan.confirmed ? "yes" : "no"}`,
+    `Confirmation phrase: ${plan.confirmationPhrase}`,
+    `Write path status: ${plan.writePathStatus}`,
+    `Changed: ${plan.changed ? "yes" : "no"}`,
+    `Off-mode cleanup boundary: ${plan.offModeCleanupBoundary}`,
+    "",
+    "Rollback:",
+    plan.rollback,
+    "",
+    "Unmanaged user config:",
+    plan.unmanagedConfigPolicy,
+    "",
+    "Safety:",
+    ...plan.safetyNotes.map((note) => `- ${note}`),
   ].join("\n");
 }
 
