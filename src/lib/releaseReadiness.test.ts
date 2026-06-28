@@ -322,6 +322,17 @@ describe("release readiness checklist", () => {
     expect(snapshot).toContain("Installed app present: yes");
     expect(snapshot).toContain("Connector config plan evidence: yes");
     expect(snapshot).toContain("Signed and notarized: no");
+    expect(snapshot).toContain("## Evidence Boundary");
+    expect(snapshot).toContain("Public signed/notarized release proof: not ready");
+    expect(snapshot).toContain(
+      "Local unsigned/ad-hoc install evidence: present, local-only",
+    );
+    expect(snapshot).toContain(
+      "Local unsigned/ad-hoc evidence never replaces signed DMG install, notarization, updater feed, or installed smoke confirmation.",
+    );
+    expect(snapshot).toContain(
+      "Sharing status: blocked until strict release gate is ready",
+    );
     expect(snapshot).toContain("## Status Rows");
     expect(snapshot).toContain("## Planned Connector Readiness");
     expect(snapshot).toContain("Planned connectors: 11");
@@ -342,5 +353,47 @@ describe("release readiness checklist", () => {
     expect(snapshot).toContain(
       "Do not share a public DMG until every gate is clear.",
     );
+  });
+
+  it("marks copied release snapshots shareable only when strict gates are ready", () => {
+    const snapshot = formatReleaseReadinessReportSnapshot(
+      {
+        generatedAt: "2026-06-28T00:00:00.000Z",
+        status: "ready",
+        backendValidation: { ready: true },
+        staticSmokePreflight: {
+          ready: true,
+          evidenceReady: true,
+          requiredEvidence: ["Planned connector config creation plan"],
+          missingEvidence: [],
+        },
+        installedSmoke: {
+          ready: true,
+          installedAppPresent: true,
+          evidenceReady: true,
+          missingEvidence: [],
+        },
+        shareableDmgGate: {
+          ready: true,
+          signedAndNotarized: true,
+          updaterFeedReady: true,
+          staticSmokePreflightReady: true,
+          installedAppSmokeReady: true,
+        },
+        releaseEnv: {
+          ok: true,
+          blockers: [],
+          warnings: [],
+        },
+      },
+      "dist/release-readiness-report.json",
+    );
+
+    expect(snapshot).toContain("Public signed/notarized release proof: ready");
+    expect(snapshot).toContain(
+      "Local unsigned/ad-hoc install evidence: present, local-only",
+    );
+    expect(snapshot).toContain("Sharing status: shareable");
+    expect(snapshot).toContain("Shareable DMG ready: yes");
   });
 });

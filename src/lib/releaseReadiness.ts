@@ -475,6 +475,8 @@ export function formatReleaseReadinessReportSnapshot(
   reportPath: string,
 ) {
   const statusRows = releaseReadinessRowsFromReport(report);
+  const localInstalled = report.installedSmoke?.installedAppPresent === true;
+  const publicReady = report.shareableDmgGate?.ready === true && report.status === "ready";
 
   return [
     "# Mac AI Switchboard Release Readiness",
@@ -497,6 +499,12 @@ export function formatReleaseReadinessReportSnapshot(
     `- Signed and notarized: ${yesNo(report.shareableDmgGate?.signedAndNotarized)}`,
     `- Updater feed ready: ${yesNo(report.shareableDmgGate?.updaterFeedReady)}`,
     `- Shareable DMG ready: ${yesNo(report.shareableDmgGate?.ready)}`,
+    "",
+    "## Evidence Boundary",
+    `- Public signed/notarized release proof: ${publicReady ? "ready" : "not ready"}`,
+    `- Local unsigned/ad-hoc install evidence: ${localInstalled ? "present, local-only" : "not present"}`,
+    "- Local unsigned/ad-hoc evidence never replaces signed DMG install, notarization, updater feed, or installed smoke confirmation.",
+    `- Sharing status: ${publicReady ? "shareable" : "blocked until strict release gate is ready"}`,
     "",
     "## Status Rows",
     ...statusRows.map(
