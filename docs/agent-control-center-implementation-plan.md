@@ -30,6 +30,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Managed config dry-run exports now label the write path as blocked and spell out the Off-mode cleanup boundary before any config apply path can be promoted.
 - Uninstall dry-run exports now state that their managed footprint comes from the Rollback Center inventory and include the item count, with tests guarding against drift.
 - Release readiness command copy now includes the strict public-release gate, report path, and local unsigned/ad-hoc evidence boundary even before a report JSON is loaded.
+- Start Agent Session now has a dedicated Copy summary action alongside full handoff, selected pack, and JSON copy; sample/demo indexes stay blocked from summary copy too.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

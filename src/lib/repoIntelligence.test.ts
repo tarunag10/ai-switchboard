@@ -11,6 +11,7 @@ import {
   estimateRepoTokens,
   formatAgentSessionPreparationJson,
   formatAgentSessionSelectedPackMarkdown,
+  formatAgentSessionSummaryMarkdown,
   formatRepoAgentManifestJson,
   formatRepoAgentHandoffMarkdown,
   formatRepoContextPackMarkdown,
@@ -723,6 +724,13 @@ describe("repoIntelligence", () => {
     });
     expect(preparation.copyArtifacts).toEqual([
       {
+        id: "session_summary",
+        label: "Session summary",
+        format: "markdown",
+        available: true,
+        blockedReason: null,
+      },
+      {
         id: "full_handoff",
         label: "Full handoff",
         format: "markdown",
@@ -757,6 +765,12 @@ describe("repoIntelligence", () => {
     const json = formatAgentSessionPreparationJson(preparation);
     expect(json).toContain('"kind": "mac_ai_switchboard.repo_agent_handoff"');
     expect(json).toContain('"id": "codex"');
+
+    const sessionSummary = formatAgentSessionSummaryMarkdown(preparation);
+    expect(sessionSummary).toContain("# Start Agent Session Summary: Codex");
+    expect(sessionSummary).toContain("Selected pack: Verification pack");
+    expect(sessionSummary).toContain("Estimated tokens avoided:");
+    expect(sessionSummary).toContain("Secret-like paths excluded: yes");
 
     const packMarkdown = formatAgentSessionSelectedPackMarkdown(
       summary,
@@ -810,6 +824,11 @@ describe("repoIntelligence", () => {
     const json = formatAgentSessionPreparationJson(preparation);
     expect(json).toContain('"configReadiness"');
     expect(json).toContain('"plannedConnectorId": "gemini_cli"');
+
+    const sessionSummary = formatAgentSessionSummaryMarkdown(preparation);
+    expect(sessionSummary).toContain("## Connector Config Readiness");
+    expect(sessionSummary).toContain("Planned connector: Gemini CLI (gemini_cli)");
+    expect(sessionSummary).toContain("Next gate: Detect config surface");
 
     const display = buildAgentSessionDisplayState(preparation, true);
     expect(display.connectorReadinessLabel).toBe("Gemini CLI config gated");
@@ -950,8 +969,10 @@ describe("repoIntelligence", () => {
       "Index a real local repo before copying agent context.",
       "Index a real local repo before copying agent context.",
       "Index a real local repo before copying agent context.",
+      "Index a real local repo before copying agent context.",
     ]);
     expect(formatAgentSessionPreparationJson(preparation)).toBeNull();
+    expect(formatAgentSessionSummaryMarkdown(preparation)).toBeNull();
     expect(formatAgentSessionSelectedPackMarkdown({
       totalFiles: 0,
       indexedFiles: 0,
@@ -1001,6 +1022,7 @@ describe("repoIntelligence", () => {
       connectorReadinessDetailLabel: null,
       sampleContextWarning: null,
       copyStatus: "ready",
+      canCopySummary: true,
       canCopyHandoff: true,
       canCopySelectedPack: true,
       canCopyJson: true,
@@ -1035,6 +1057,7 @@ describe("repoIntelligence", () => {
       "Next gate: Detect config surface; automation enabled: no",
     );
     expect(staleDisplay.canCopyHandoff).toBe(true);
+    expect(staleDisplay.canCopySummary).toBe(true);
     expect(staleDisplay.canCopySelectedPack).toBe(true);
     expect(staleDisplay.canCopyJson).toBe(true);
 
@@ -1089,6 +1112,7 @@ describe("repoIntelligence", () => {
       skippedFilesLabel: "0 skipped",
       secretExclusionLabel: "Secret-like paths excluded",
       copyStatus: "blocked",
+      canCopySummary: false,
       canCopyHandoff: false,
       canCopySelectedPack: false,
       canCopyJson: false,

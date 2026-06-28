@@ -188,7 +188,7 @@ export interface AgentSessionCopySafety {
 }
 
 export interface AgentSessionCopyArtifact {
-  id: "full_handoff" | "selected_pack" | "json_payload";
+  id: "session_summary" | "full_handoff" | "selected_pack" | "json_payload";
   label: string;
   format: "markdown" | "json";
   available: boolean;
@@ -228,6 +228,7 @@ export interface AgentSessionDisplayState {
   sampleContextWarning: string | null;
   copyStatus: AgentSessionCopyStatus;
   copyDetail: string;
+  canCopySummary: boolean;
   canCopyHandoff: boolean;
   canCopySelectedPack: boolean;
   canCopyJson: boolean;
@@ -1514,6 +1515,13 @@ function buildAgentSessionCopyArtifacts(
 
   return [
     {
+      id: "session_summary",
+      label: "Session summary",
+      format: "markdown",
+      available,
+      blockedReason,
+    },
+    {
       id: "full_handoff",
       label: "Full handoff",
       format: "markdown",
@@ -1597,6 +1605,55 @@ export function formatAgentSessionPreparationJson(
   return JSON.stringify(preparation.handoffPayload, null, 2);
 }
 
+export function formatAgentSessionSummaryMarkdown(
+  preparation: Pick<
+    AgentSessionPreparation,
+    | "target"
+    | "taskType"
+    | "packId"
+    | "freshness"
+    | "copyStatus"
+    | "copyDetail"
+    | "recommendedMode"
+    | "recommendedModeReason"
+    | "handoffPayload"
+    | "configReadiness"
+    | "manifest"
+  >,
+): string | null {
+  if (preparation.copyStatus === "blocked" || !preparation.handoffPayload) {
+    return null;
+  }
+
+  const configReadiness = preparation.configReadiness
+    ? [
+        "",
+        "## Connector Config Readiness",
+        `- Planned connector: ${preparation.configReadiness.plannedConnectorName} (${preparation.configReadiness.plannedConnectorId})`,
+        `- Next gate: ${preparation.configReadiness.nextGate.label}`,
+        `- Automation enabled: ${preparation.configReadiness.automationEnabled ? "yes" : "no"}`,
+      ]
+    : [];
+
+  return [
+    `# Start Agent Session Summary: ${preparation.target.label}`,
+    "",
+    `Repository: ${preparation.handoffPayload.repoRoot}`,
+    `Task: ${preparation.taskType}`,
+    `Selected pack: ${repoAgentPackLabel(preparation.packId)}`,
+    `Copy status: ${preparation.copyStatus}`,
+    `Freshness: ${preparation.freshness.label}`,
+    `Mode: ${agentSessionModeLabel(preparation.recommendedMode)}`,
+    `Mode reason: ${preparation.recommendedModeReason}`,
+    `Estimated pack tokens: ${preparation.handoffPayload.pack.estimatedTokens.toLocaleString()}`,
+    `Estimated tokens avoided: ${preparation.handoffPayload.pack.estimatedTokensAvoided.toLocaleString()}`,
+    `Skipped files: ${(preparation.manifest.totals.indexMetadata?.skippedFileCount ?? 0).toLocaleString()}`,
+    "Secret-like paths excluded: yes",
+    `Detail: ${preparation.copyDetail}`,
+    ...configReadiness,
+  ].join("\n");
+}
+
 export function formatAgentSessionSelectedPackMarkdown(
   summary: RepoIntelligenceSummary,
   preparation: Pick<AgentSessionPreparation, "packId" | "copyStatus">,
@@ -1673,6 +1730,10 @@ export function buildAgentSessionDisplayState(
     hasRealIndex &&
     preparation.handoffMarkdown !== null &&
     copyArtifactAvailable("full_handoff");
+  const canCopySummary =
+    hasRealIndex &&
+    preparation.handoffPayload !== null &&
+    copyArtifactAvailable("session_summary");
   const canCopyPayload =
     hasRealIndex &&
     preparation.handoffPayload !== null &&
@@ -1719,6 +1780,7 @@ export function buildAgentSessionDisplayState(
       : "Sample preview packs are blocked from copy actions. Index a real local repo first.",
     copyStatus: preparation.copyStatus,
     copyDetail: preparation.copyDetail,
+    canCopySummary,
     canCopyHandoff,
     canCopySelectedPack,
     canCopyJson: canCopyPayload,

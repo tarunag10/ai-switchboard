@@ -73,6 +73,7 @@ import {
   formatRepoAgentHandoffMarkdown,
   formatAgentSessionPreparationJson,
   formatAgentSessionSelectedPackMarkdown,
+  formatAgentSessionSummaryMarkdown,
   formatRepoAgentManifestJson,
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
@@ -1923,6 +1924,26 @@ function RepoIntelligencePreview({
     }
   }
 
+  async function copyPreparedAgentSessionSummary() {
+    const summaryMarkdown = formatAgentSessionSummaryMarkdown(sessionPreparation);
+    if (!hasRealIndex || !summaryMarkdown) {
+      setCopyNotice(sessionPreparation.copyDetail);
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(summaryMarkdown);
+      setCopyNotice(`${sessionPreparation.target.label} summary copied.`);
+      window.setTimeout(() => setCopyNotice(null), 2000);
+    } catch {
+      setCopyNotice("Copy failed. Select session summary manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
+
   async function copyPreparedAgentSessionJson() {
     const json = formatAgentSessionPreparationJson(sessionPreparation);
     if (!hasRealIndex || !json) {
@@ -2105,6 +2126,14 @@ function RepoIntelligencePreview({
             type="button"
           >
             Copy full handoff
+          </button>
+          <button
+            className="addon-card__action"
+            disabled={!sessionDisplayState.canCopySummary}
+            onClick={() => void copyPreparedAgentSessionSummary()}
+            type="button"
+          >
+            Copy summary
           </button>
           <button
             className="addon-card__action"
