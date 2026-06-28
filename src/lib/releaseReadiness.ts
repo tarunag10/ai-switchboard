@@ -351,6 +351,14 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
     title: "Smoke Evidence",
     items: [
       {
+        id: "desktop-validation",
+        label: "Run desktop validation",
+        detail:
+          "Run Rust formatting and desktop tests from the app before release evidence is refreshed.",
+        command: "npm run fmt:desktop && npm run test:desktop",
+        executable: true,
+      },
+      {
         id: "static-preflight",
         label: "Run smoke preflight",
         detail:

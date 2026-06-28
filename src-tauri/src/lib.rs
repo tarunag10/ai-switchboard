@@ -196,6 +196,13 @@ struct ReleaseEvidenceCommandResult {
     stderr: String,
 }
 
+struct ReleaseEvidenceCommandSpec {
+    label: &'static str,
+    command: &'static str,
+    steps: &'static [(&'static str, &'static [&'static str])],
+    summary_path: Option<&'static str>,
+}
+
 static ZERO_SPEND_ALERT_FIRED: AtomicBool = AtomicBool::new(false);
 
 // Set when the watchdog has captured a Sentry event for the current "down
@@ -492,53 +499,73 @@ fn refresh_release_readiness_report() -> Result<ReleaseReadinessReportPayload, S
 fn run_release_evidence_command(
     command_id: String,
 ) -> Result<ReleaseEvidenceCommandResult, String> {
-    let (label, command, program, args, summary_path) = match command_id.as_str() {
-        "static-preflight" => (
-            "Static smoke preflight",
-            "npm run smoke:preflight",
-            "npm",
-            vec!["run", "smoke:preflight"],
-            Some("dist/smoke-preflight-summary.md"),
-        ),
+    const STATIC_PREFLIGHT_STEPS: &[(&str, &[&str])] = &[("npm", &["run", "smoke:preflight"])];
+    const DESKTOP_VALIDATION_STEPS: &[(&str, &[&str])] = &[
+        ("npm", &["run", "fmt:desktop"]),
+        ("npm", &["run", "test:desktop"]),
+    ];
+
+    let spec = match command_id.as_str() {
+        "static-preflight" => ReleaseEvidenceCommandSpec {
+            label: "Static smoke preflight",
+            command: "npm run smoke:preflight",
+            steps: STATIC_PREFLIGHT_STEPS,
+            summary_path: Some("dist/smoke-preflight-summary.md"),
+        },
+        "desktop-validation" => ReleaseEvidenceCommandSpec {
+            label: "Desktop validation",
+            command: "npm run fmt:desktop && npm run test:desktop",
+            steps: DESKTOP_VALIDATION_STEPS,
+            summary_path: None,
+        },
         _ => {
             return Err(
-                "Release evidence execution is currently enabled only for static-preflight."
+                "Release evidence execution is currently enabled only for static-preflight and desktop-validation."
                     .to_string(),
             )
         }
     };
 
     let cwd = std::env::current_dir().map_err(|err| err.to_string())?;
-    let output = Command::new(program)
-        .args(args)
-        .current_dir(&cwd)
-        .output()
-        .map_err(|err| format!("failed to run {command}: {err}"))?;
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    if !output.status.success() {
-        let detail = [stdout.trim(), stderr.trim()]
-            .into_iter()
-            .filter(|part| !part.is_empty())
-            .collect::<Vec<_>>()
-            .join("\n");
-        return Err(if detail.is_empty() {
-            format!("{command} failed with status {}", output.status)
-        } else {
-            format!(
-                "{command} failed with status {}:\n{}",
-                output.status, detail
-            )
-        });
+    let mut combined_stdout = Vec::new();
+    let mut combined_stderr = Vec::new();
+    for (program, args) in spec.steps {
+        let step_label = format!("{} {}", program, args.join(" "));
+        let output = Command::new(program)
+            .args(*args)
+            .current_dir(&cwd)
+            .output()
+            .map_err(|err| format!("failed to run {step_label}: {err}"))?;
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        combined_stdout.push(format!("$ {step_label}\n{stdout}"));
+        if !stderr.trim().is_empty() {
+            combined_stderr.push(format!("$ {step_label}\n{stderr}"));
+        }
+        if !output.status.success() {
+            let detail = [stdout.trim(), stderr.trim()]
+                .into_iter()
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<_>>()
+                .join("\n");
+            return Err(if detail.is_empty() {
+                format!("{step_label} failed with status {}", output.status)
+            } else {
+                format!(
+                    "{step_label} failed with status {}:\n{}",
+                    output.status, detail
+                )
+            });
+        }
     }
 
     Ok(ReleaseEvidenceCommandResult {
         command_id,
-        label: label.to_string(),
-        command: command.to_string(),
-        summary_path: summary_path.map(str::to_string),
-        stdout,
-        stderr,
+        label: spec.label.to_string(),
+        command: spec.command.to_string(),
+        summary_path: spec.summary_path.map(str::to_string),
+        stdout: combined_stdout.join("\n"),
+        stderr: combined_stderr.join("\n"),
     })
 }
 
@@ -8553,7 +8580,7 @@ Some unrelated content.
         let err = crate::run_release_evidence_command("build-mac-dmg".to_string()).unwrap_err();
 
         assert!(
-            err.contains("enabled only for static-preflight"),
+            err.contains("enabled only for static-preflight and desktop-validation"),
             "unexpected error: {err}"
         );
     }

@@ -53,7 +53,7 @@ describe("release readiness checklist", () => {
       "signing",
       "smoke",
     ]);
-    expect(releaseReadinessItemCount()).toBe(10);
+    expect(releaseReadinessItemCount()).toBe(11);
 
     const allCopy = releaseReadinessGroups
       .flatMap((group) => group.items)
@@ -61,6 +61,7 @@ describe("release readiness checklist", () => {
       .join(" ");
 
     expect(allCopy).toMatch(/cargo|rustup/i);
+    expect(allCopy).toMatch(/desktop tests/i);
     expect(allCopy).toMatch(/Developer ID/i);
     expect(allCopy).toMatch(/notarization|App Store Connect/i);
     expect(allCopy).toMatch(/signed DMG/i);
@@ -88,6 +89,7 @@ describe("release readiness checklist", () => {
     expect(commands).toContain(
       "rustup --version && cargo --version && rustup target add aarch64-apple-darwin x86_64-apple-darwin",
     );
+    expect(commands).toContain("npm run fmt:desktop && npm run test:desktop");
     expect(commands).toContain("npm run smoke:preflight");
     expect(commands).toContain("npm run build:mac:dmg");
     expect(commands).toContain("npm run release:ready -- --strict");
