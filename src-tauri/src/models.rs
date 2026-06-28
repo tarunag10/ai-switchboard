@@ -737,6 +737,35 @@ pub struct ManagedRollbackPreview {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ManagedConfigApplyPreview {
+    pub record_id: String,
+    pub owner: String,
+    pub target_path: String,
+    pub marker: String,
+    pub backup_path: String,
+    pub status: ManagedRollbackExecutionStatus,
+    pub confirmation_phrase: String,
+    pub current_state: String,
+    pub proposed_state: String,
+    pub rollback_preview: String,
+    pub blocked_reason: Option<String>,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedConfigApplyResult {
+    pub record_id: String,
+    pub owner: String,
+    pub target_path: String,
+    pub changed: bool,
+    pub backup_path: Option<String>,
+    pub marker: String,
+    pub verification: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ManagedRollbackExecutionResult {
     pub record_id: String,
     pub owner: String,

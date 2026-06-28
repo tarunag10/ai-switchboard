@@ -14,9 +14,9 @@ use crate::models::{
     ClientConnectorAutomationStage, ClientConnectorConfigCreationStep,
     ClientConnectorConfigDryRunPreview, ClientConnectorStatus, ClientConnectorSupportStatus,
     ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus,
-    ManagedRollbackExecutionResult, ManagedRollbackExecutionStatus, ManagedRollbackPreview,
-    ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview, SavingsMode,
-    SwitchboardMode,
+    ManagedConfigApplyPreview, ManagedConfigApplyResult, ManagedRollbackExecutionResult,
+    ManagedRollbackExecutionStatus, ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult,
+    ManagedRollbackUndoAllPreview, SavingsMode, SwitchboardMode,
 };
 use crate::storage::{app_data_dir, config_file};
 
@@ -1437,7 +1437,23 @@ fn opencode_headroom_provider_value() -> Value {
     })
 }
 
-fn configure_opencode_provider_config() -> Result<(Vec<String>, Vec<String>)> {
+fn opencode_apply_confirmation_phrase() -> String {
+    format!(
+        "Apply {OPENCODE_ROLLBACK_MARKER} to {}",
+        opencode_config_path().display()
+    )
+}
+
+fn opencode_config_backup_pattern() -> String {
+    let path = opencode_config_path();
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(OPENCODE_CONFIG_FILE);
+    format!("{}.headroom-backup-*", file_name)
+}
+
+fn opencode_next_provider_config() -> Result<(Value, bool)> {
     let path = opencode_config_path();
     let mut root = if path.exists() {
         let raw = std::fs::read_to_string(&path)
@@ -1446,7 +1462,6 @@ fn configure_opencode_provider_config() -> Result<(Vec<String>, Vec<String>)> {
     } else {
         serde_json::Map::new()
     };
-
     let provider_value = root
         .entry("provider".to_string())
         .or_insert_with(|| Value::Object(Default::default()));
@@ -1467,6 +1482,12 @@ fn configure_opencode_provider_config() -> Result<(Vec<String>, Vec<String>)> {
             true
         }
     };
+    Ok((Value::Object(root), changed))
+}
+
+fn configure_opencode_provider_config() -> Result<(Vec<String>, Vec<String>)> {
+    let path = opencode_config_path();
+    let (next_config, changed) = opencode_next_provider_config()?;
     if !changed {
         return Ok((Vec::new(), Vec::new()));
     }
@@ -1478,8 +1499,7 @@ fn configure_opencode_provider_config() -> Result<(Vec<String>, Vec<String>)> {
     let backup = backup_if_exists(&path)?;
     std::fs::write(
         &path,
-        serde_json::to_vec_pretty(&Value::Object(root))
-            .context("serializing OpenCode provider config")?,
+        serde_json::to_vec_pretty(&next_config).context("serializing OpenCode provider config")?,
     )
     .with_context(|| format!("writing {}", path.display()))?;
 
@@ -3603,6 +3623,91 @@ fn validate_managed_rollback_backup_path(target_path: &Path, backup_path: &Path)
         return Err(anyhow!("Rollback backup file does not exist."));
     }
     Ok(())
+}
+
+pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigApplyPreview> {
+    match record_id {
+        OPENCODE_ROLLBACK_RECORD_ID => {
+            let path = opencode_config_path();
+            let current_state = if path.exists() {
+                std::fs::read_to_string(&path)
+                    .with_context(|| format!("reading {}", path.display()))?
+            } else {
+                "{}".to_string()
+            };
+            let (next_config, changed) = opencode_next_provider_config()?;
+            let proposed_state = serde_json::to_string_pretty(&next_config)
+                .context("serializing OpenCode provider preview")?;
+            Ok(ManagedConfigApplyPreview {
+                record_id: OPENCODE_ROLLBACK_RECORD_ID.to_string(),
+                owner: OPENCODE_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                marker: OPENCODE_ROLLBACK_MARKER.to_string(),
+                backup_path: opencode_config_backup_pattern(),
+                status: ManagedRollbackExecutionStatus::Ready,
+                confirmation_phrase: opencode_apply_confirmation_phrase(),
+                current_state,
+                proposed_state,
+                rollback_preview:
+                    "Restore the sibling *.headroom-backup-* file through Rollback Center."
+                        .to_string(),
+                blocked_reason: None,
+                evidence: vec![
+                    "OpenCode provider config is allowlisted for native safe apply.".to_string(),
+                    "Preview preserves unmanaged JSON fields outside provider.headroom.".to_string(),
+                    format!("Preview changed: {changed}."),
+                    "Apply creates a sibling backup, writes the proposed JSON, verifies the provider, and can roll back from the backup.".to_string(),
+                ],
+            })
+        }
+        _ => Err(anyhow!(
+            "Managed config apply is currently promoted only for {OPENCODE_ROLLBACK_RECORD_ID}."
+        )),
+    }
+}
+
+pub fn execute_managed_config_apply(
+    record_id: &str,
+    confirmation_phrase: &str,
+) -> Result<ManagedConfigApplyResult> {
+    let preview = preview_managed_config_apply(record_id)?;
+    if confirmation_phrase != preview.confirmation_phrase {
+        return Err(anyhow!(
+            "Managed config apply confirmation phrase does not match."
+        ));
+    }
+    match record_id {
+        OPENCODE_ROLLBACK_RECORD_ID => {
+            let path = opencode_config_path();
+            let (changed_files, backup_files) = configure_opencode_provider_config()?;
+            if !opencode_provider_config_matches()? {
+                return Err(anyhow!(
+                    "OpenCode provider config verification failed after apply."
+                ));
+            }
+            Ok(ManagedConfigApplyResult {
+                record_id: OPENCODE_ROLLBACK_RECORD_ID.to_string(),
+                owner: OPENCODE_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                changed: changed_files
+                    .iter()
+                    .any(|changed| changed == &path.display().to_string()),
+                backup_path: backup_files.first().cloned(),
+                marker: OPENCODE_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact confirmation phrase matched the dry-run preview.".to_string(),
+                    "Sibling backup was created before writing when a prior config existed."
+                        .to_string(),
+                    "OpenCode provider.headroom matches the Switchboard-managed provider."
+                        .to_string(),
+                    "Rollback Center can restore the selected sibling backup.".to_string(),
+                ],
+            })
+        }
+        _ => Err(anyhow!(
+            "Managed config apply is currently promoted only for {OPENCODE_ROLLBACK_RECORD_ID}."
+        )),
+    }
 }
 
 pub fn preview_managed_rollback(record_id: &str) -> Result<ManagedRollbackPreview> {
@@ -8254,6 +8359,89 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let restored: serde_json::Value =
             serde_json::from_slice(&fs::read(&config_json).unwrap()).unwrap();
         assert_eq!(restored, original);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_config_apply_preview_and_execute_promotes_opencode_safely() {
+        let home = TestHome::new();
+        let opencode_dir = home.path().join(".config").join("opencode");
+        fs::create_dir_all(&opencode_dir).unwrap();
+        let config_json = opencode_dir.join("opencode.json");
+        let original = serde_json::json!({
+            "provider": {
+                "openai": {
+                    "name": "OpenAI",
+                    "options": {
+                        "baseURL": "https://api.openai.com/v1"
+                    }
+                }
+            },
+            "theme": "system"
+        });
+        fs::write(
+            &config_json,
+            serde_json::to_vec_pretty(&original).expect("serialize original opencode"),
+        )
+        .unwrap();
+
+        let preview =
+            super::preview_managed_config_apply("opencode-routing").expect("preview apply");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(
+            preview.confirmation_phrase,
+            format!("Apply headroom:opencode to {}", config_json.display())
+        );
+        assert!(preview.current_state.contains("OpenAI"));
+        assert!(preview.proposed_state.contains("Mac AI Switchboard"));
+        assert!(preview.proposed_state.contains("\"theme\": \"system\""));
+        assert!(preview.rollback_preview.contains("Rollback Center"));
+
+        let result =
+            super::execute_managed_config_apply("opencode-routing", &preview.confirmation_phrase)
+                .expect("execute apply");
+        assert!(result.changed);
+        assert!(result.backup_path.is_some());
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("provider.headroom matches"));
+        assert!(super::opencode_provider_config_matches().expect("verify opencode"));
+
+        let applied: serde_json::Value =
+            serde_json::from_slice(&fs::read(&config_json).unwrap()).unwrap();
+        assert_eq!(applied["theme"], "system");
+        assert_eq!(
+            applied["provider"]["openai"],
+            original["provider"]["openai"]
+        );
+        assert_eq!(
+            applied["provider"]["headroom"]["options"]["baseURL"],
+            super::HEADROOM_OPENAI_BASE_URL
+        );
+
+        let rollback = super::execute_managed_rollback(
+            "opencode-routing",
+            result.backup_path.as_deref().expect("backup"),
+            "Restore headroom:opencode for OpenCode routing",
+        )
+        .expect("rollback applied config");
+        assert_eq!(rollback.record_id, "opencode-routing");
+        let restored: serde_json::Value =
+            serde_json::from_slice(&fs::read(&config_json).unwrap()).unwrap();
+        assert_eq!(restored, original);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_config_apply_rejects_wrong_confirmation_for_opencode() {
+        let _home = TestHome::new();
+        let err = super::execute_managed_config_apply("opencode-routing", "Apply OpenCode")
+            .expect_err("wrong confirmation must be rejected");
+        assert!(
+            err.to_string().contains("confirmation phrase"),
+            "unexpected error: {err:#}"
+        );
     }
 
     #[test]

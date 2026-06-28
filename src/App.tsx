@@ -282,6 +282,8 @@ import type {
   HeadroomLearnPrereqStatus,
   HeadroomLearnStatus,
   HeadroomSubscriptionTier,
+  ManagedConfigApplyPreview,
+  ManagedConfigApplyResult,
   ManagedRollbackExecutionResult,
   ManagedRollbackPreview,
   ManagedRollbackUndoAllExecutionResult,
@@ -2935,6 +2937,20 @@ export default function App() {
     null,
   );
   const [rollbackErrorByRecord, setRollbackErrorByRecord] = useState<
+    Record<string, string>
+  >({});
+  const [configApplyPreviewByRecord, setConfigApplyPreviewByRecord] = useState<
+    Record<string, ManagedConfigApplyPreview>
+  >({});
+  const [configApplyResultByRecord, setConfigApplyResultByRecord] = useState<
+    Record<string, ManagedConfigApplyResult>
+  >({});
+  const [configApplyConfirmationByRecord, setConfigApplyConfirmationByRecord] =
+    useState<Record<string, string>>({});
+  const [configApplyBusyRecord, setConfigApplyBusyRecord] = useState<
+    string | null
+  >(null);
+  const [configApplyErrorByRecord, setConfigApplyErrorByRecord] = useState<
     Record<string, string>
   >({});
   const [rollbackUndoAllPreview, setRollbackUndoAllPreview] =
@@ -6254,6 +6270,96 @@ export default function App() {
 
   function supportsNativeManagedRollback(record: ManagedChangeRecord) {
     return supportsNativeManagedRollbackRecord(record.id);
+  }
+
+  function supportsNativeConfigApply(record: ManagedChangeRecord) {
+    return record.id === "opencode-routing";
+  }
+
+  async function previewManagedConfigApply(record: ManagedChangeRecord) {
+    if (!supportsNativeConfigApply(record)) {
+      return;
+    }
+    setConfigApplyBusyRecord(record.id);
+    setConfigApplyErrorByRecord((current) => {
+      const next = { ...current };
+      delete next[record.id];
+      return next;
+    });
+    try {
+      const preview = await invoke<ManagedConfigApplyPreview>(
+        "preview_managed_config_apply",
+        { recordId: record.id },
+      );
+      setConfigApplyPreviewByRecord((current) => ({
+        ...current,
+        [record.id]: preview,
+      }));
+      setConfigApplyResultByRecord((current) => {
+        const next = { ...current };
+        delete next[record.id];
+        return next;
+      });
+      setConfigApplyConfirmationByRecord((current) => ({
+        ...current,
+        [record.id]: "",
+      }));
+    } catch (error) {
+      setConfigApplyErrorByRecord((current) => ({
+        ...current,
+        [record.id]: describeInvokeError(
+          error,
+          "Could not preview safe config apply.",
+        ),
+      }));
+    } finally {
+      setConfigApplyBusyRecord(null);
+    }
+  }
+
+  async function executeManagedConfigApply(record: ManagedChangeRecord) {
+    const preview = configApplyPreviewByRecord[record.id];
+    const confirmation = configApplyConfirmationByRecord[record.id] ?? "";
+    if (
+      !preview ||
+      preview.status !== "ready" ||
+      confirmation !== preview.confirmationPhrase ||
+      configApplyBusyRecord === record.id
+    ) {
+      return;
+    }
+    setConfigApplyBusyRecord(record.id);
+    setConfigApplyErrorByRecord((current) => {
+      const next = { ...current };
+      delete next[record.id];
+      return next;
+    });
+    try {
+      const result = await invoke<ManagedConfigApplyResult>(
+        "execute_managed_config_apply",
+        {
+          recordId: record.id,
+          confirmationPhrase: confirmation,
+        },
+      );
+      setConfigApplyResultByRecord((current) => ({
+        ...current,
+        [record.id]: result,
+      }));
+      setRollbackCopyNotice(`${record.owner} config apply executed.`);
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+      void previewManagedRollback(record);
+    } catch (error) {
+      setConfigApplyErrorByRecord((current) => ({
+        ...current,
+        [record.id]: describeInvokeError(
+          error,
+          "Could not apply managed config.",
+        ),
+      }));
+    } finally {
+      setConfigApplyBusyRecord(null);
+    }
   }
 
   async function previewManagedRollback(record: ManagedChangeRecord) {
@@ -9993,6 +10099,16 @@ export default function App() {
                   const nativePreview = rollbackPreviewByRecord[record.id];
                   const nativeResult = rollbackResultByRecord[record.id];
                   const rollbackError = rollbackErrorByRecord[record.id];
+                  const applyPreview = configApplyPreviewByRecord[record.id];
+                  const applyResult = configApplyResultByRecord[record.id];
+                  const applyError = configApplyErrorByRecord[record.id];
+                  const applyConfirmation =
+                    configApplyConfirmationByRecord[record.id] ?? "";
+                  const nativeApplySupported = supportsNativeConfigApply(record);
+                  const canExecuteNativeApply =
+                    applyPreview?.status === "ready" &&
+                    applyConfirmation === applyPreview.confirmationPhrase &&
+                    configApplyBusyRecord !== record.id;
                   const confirmation =
                     rollbackConfirmationByRecord[record.id] ?? "";
                   const nativeRollbackSupported =
@@ -10063,6 +10179,71 @@ export default function App() {
                             Copy execution preview
                           </button>
                         </div>
+                        {nativeApplySupported ? (
+                          <div className="rollback-center-card__native">
+                            <div className="rollback-center-card__native-row">
+                              <button
+                                className="secondary-button secondary-button--small"
+                                disabled={configApplyBusyRecord === record.id}
+                                onClick={() =>
+                                  void previewManagedConfigApply(record)
+                                }
+                                type="button"
+                              >
+                                Preview safe apply
+                              </button>
+                              {applyPreview ? (
+                                <span>
+                                  Apply status:{" "}
+                                  {applyPreview.status.replace(/_/g, " ")}
+                                </span>
+                              ) : null}
+                            </div>
+                            {applyPreview ? (
+                              <>
+                                <span>Target: {applyPreview.targetPath}</span>
+                                <span>Backup: {applyPreview.backupPath}</span>
+                                <span>{applyPreview.rollbackPreview}</span>
+                                {applyPreview.blockedReason ? (
+                                  <span>{applyPreview.blockedReason}</span>
+                                ) : null}
+                                <label className="rollback-center-card__confirm">
+                                  <span>Exact apply confirmation</span>
+                                  <input
+                                    type="text"
+                                    value={applyConfirmation}
+                                    placeholder={applyPreview.confirmationPhrase}
+                                    onChange={(event) =>
+                                      setConfigApplyConfirmationByRecord(
+                                        (current) => ({
+                                          ...current,
+                                          [record.id]: event.target.value,
+                                        }),
+                                      )
+                                    }
+                                  />
+                                </label>
+                                <button
+                                  className="secondary-button secondary-button--small rollback-center-card__restore-button"
+                                  disabled={!canExecuteNativeApply}
+                                  onClick={() =>
+                                    void executeManagedConfigApply(record)
+                                  }
+                                  type="button"
+                                >
+                                  Apply {record.owner}
+                                </button>
+                              </>
+                            ) : null}
+                            {applyResult ? (
+                              <span>
+                                Applied: {applyResult.changed ? "changed" : "already current"};
+                                backup: {applyResult.backupPath ?? "not created"}
+                              </span>
+                            ) : null}
+                            {applyError ? <span>{applyError}</span> : null}
+                          </div>
+                        ) : null}
                         {nativeRollbackSupported ? (
                           <div className="rollback-center-card__native">
                             <div className="rollback-center-card__native-row">

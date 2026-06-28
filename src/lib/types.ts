@@ -256,6 +256,31 @@ export interface ManagedRollbackExecutionResult {
   verification: string[];
 }
 
+export interface ManagedConfigApplyPreview {
+  recordId: string;
+  owner: string;
+  targetPath: string;
+  marker: string;
+  backupPath: string;
+  status: "ready" | "blocked";
+  confirmationPhrase: string;
+  currentState: string;
+  proposedState: string;
+  rollbackPreview: string;
+  blockedReason: string | null;
+  evidence: string[];
+}
+
+export interface ManagedConfigApplyResult {
+  recordId: string;
+  owner: string;
+  targetPath: string;
+  changed: boolean;
+  backupPath: string | null;
+  marker: string;
+  verification: string[];
+}
+
 export interface ManagedRollbackUndoAllPreview {
   status: "ready" | "blocked";
   confirmationPhrase: string;
