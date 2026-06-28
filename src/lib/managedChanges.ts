@@ -60,6 +60,29 @@ export interface ManagedConfigApplyPlan {
   safetyNotes: string[];
 }
 
+export type ManagedRollbackMode =
+  | "backup_restore"
+  | "managed_block_removal"
+  | "cleanup_inventory";
+
+export interface ManagedRollbackPlan {
+  recordId: ManagedChangeRecord["id"];
+  owner: string;
+  kind: ManagedChangeKind;
+  managedChange: string;
+  mode: ManagedRollbackMode;
+  status: "ready_for_review" | "cleanup_only";
+  targetSummary: string;
+  markerId: string;
+  backupPath: string | null;
+  rollback: string;
+  verification: string;
+  evidenceRequired: string[];
+  unmanagedConfigPolicy: string;
+  offModeCleanupBoundary: string;
+  safetyNotes: string[];
+}
+
 export const managedChangeRecords: ManagedChangeRecord[] = [
   {
     id: "claude-code-routing",
@@ -387,22 +410,118 @@ export function formatManagedConfigApplyPlan(plan: ManagedConfigApplyPlan): stri
   ].join("\n");
 }
 
+function managedRollbackMode(record: ManagedChangeRecord): ManagedRollbackMode {
+  if (record.backupPath) {
+    return record.kind === "plugin" ? "managed_block_removal" : "backup_restore";
+  }
+  return "cleanup_inventory";
+}
+
+export function buildManagedRollbackPlan(
+  record: ManagedChangeRecord,
+): ManagedRollbackPlan {
+  const mode = managedRollbackMode(record);
+  const targetSummary =
+    record.paths.length > 0
+      ? record.paths.join(", ")
+      : "Managed footprint discovered by add-on health checks";
+
+  return {
+    recordId: record.id,
+    owner: record.owner,
+    kind: record.kind,
+    managedChange: record.text,
+    mode,
+    status: mode === "cleanup_inventory" ? "cleanup_only" : "ready_for_review",
+    targetSummary,
+    markerId: record.markerId,
+    backupPath: record.backupPath,
+    rollback: record.rollback,
+    verification: record.lastVerifiedLabel,
+    evidenceRequired:
+      mode === "backup_restore"
+        ? [
+            "Confirm the target file still contains the Switchboard marker.",
+            "Confirm the timestamped backup exists before restoring.",
+            "Verify the post-restore diff leaves unmanaged user config unchanged.",
+          ]
+        : mode === "managed_block_removal"
+          ? [
+              "Confirm the managed add-on marker or registration exists.",
+              "Remove only Switchboard-owned plugin or backup artifacts.",
+              "Verify add-on health checks no longer report the managed footprint.",
+            ]
+          : [
+              "Confirm this footprint is Switchboard-owned managed state.",
+              "Use cleanup inventory instead of a config-file restore.",
+              "Verify user repositories and unmanaged configs are not modified.",
+            ],
+    unmanagedConfigPolicy:
+      "Rollback may touch only Switchboard-owned markers, backups, or managed storage listed for this record.",
+    offModeCleanupBoundary:
+      "Off mode cleanup must remove only Switchboard-owned changes and must not recreate routing, hooks, or agent config.",
+    safetyNotes: [
+      "This rollback plan does not modify files.",
+      "Per-change restore stays manual until backend restore actions and fixture-home tests exist.",
+      "Copy this plan before restoring so target, backup, marker, and verification evidence stay visible.",
+    ],
+  };
+}
+
+export function buildManagedRollbackPlans(
+  records: ManagedChangeRecord[] = managedChangeRecords,
+): ManagedRollbackPlan[] {
+  return records.map(buildManagedRollbackPlan);
+}
+
+export function formatManagedRollbackPlan(plan: ManagedRollbackPlan): string {
+  return [
+    `Mac AI Switchboard rollback plan: ${plan.owner}`,
+    `Kind: ${plan.kind}`,
+    `Mode: ${plan.mode}`,
+    `Status: ${plan.status}`,
+    `Targets: ${plan.targetSummary}`,
+    `Marker: ${plan.markerId}`,
+    `Backup: ${plan.backupPath ?? "not required"}`,
+    `Verified by: ${plan.verification}`,
+    "",
+    "Rollback:",
+    plan.rollback,
+    "",
+    "Evidence required:",
+    ...plan.evidenceRequired.map((item) => `- ${item}`),
+    "",
+    "Unmanaged user config:",
+    plan.unmanagedConfigPolicy,
+    "",
+    "Off-mode cleanup boundary:",
+    plan.offModeCleanupBoundary,
+    "",
+    "Safety:",
+    ...plan.safetyNotes.map((note) => `- ${note}`),
+  ].join("\n");
+}
+
 export function formatManagedRollbackInventory(
   records: ManagedChangeRecord[] = managedChangeRecords,
 ): string {
+  const plans = buildManagedRollbackPlans(records);
   return [
     "Mac AI Switchboard Rollback Center inventory",
     "No files are changed by this report.",
     "",
-    ...records.flatMap((record) => [
-      `## ${record.owner}`,
-      `Kind: ${record.kind}`,
-      `Managed change: ${record.text}`,
-      `Paths: ${record.paths.length > 0 ? record.paths.join(", ") : "none recorded"}`,
-      `Marker: ${record.markerId}`,
-      `Backup: ${record.backupPath ?? "not required"}`,
-      `Verified by: ${record.lastVerifiedLabel}`,
-      `Rollback: ${record.rollback}`,
+    ...plans.flatMap((plan) => [
+      `## ${plan.owner}`,
+      `Kind: ${plan.kind}`,
+      `Mode: ${plan.mode}`,
+      `Status: ${plan.status}`,
+      `Managed change: ${plan.managedChange}`,
+      `Targets: ${plan.targetSummary}`,
+      `Marker: ${plan.markerId}`,
+      `Backup: ${plan.backupPath ?? "not required"}`,
+      `Verified by: ${plan.verification}`,
+      `Rollback: ${plan.rollback}`,
+      `Evidence required: ${plan.evidenceRequired.join(" | ")}`,
       "",
     ]),
     "Review dry-run diffs before applying config changes. Dry-run reports do not modify files and every apply requires explicit user confirmation. Off mode must remove only Switchboard-owned marked changes.",

@@ -200,8 +200,10 @@ import {
 } from "./lib/analytics";
 import { localOnlyModeEnabled } from "./lib/localMode";
 import {
+  buildManagedRollbackPlan,
   buildManagedConfigDiffPreview,
   formatManagedConfigDiffPreview,
+  formatManagedRollbackPlan,
   formatManagedRollbackInventory,
   managedChangeRecords,
   type ManagedChangeRecord,
@@ -5923,6 +5925,22 @@ export default function App() {
     }
   }
 
+  async function copyManagedRollbackPlan(record: ManagedChangeRecord) {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(
+        formatManagedRollbackPlan(buildManagedRollbackPlan(record)),
+      );
+      setRollbackCopyNotice(`${record.owner} rollback plan copied.`);
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+    } catch {
+      setRollbackCopyNotice("Copy failed. Review the rollback row manually.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    }
+  }
+
   if (windowLabel === "launcher" && launcherStage === "install") {
     const stepProgress = Math.round(getStepProgress(bootstrapProgress) * 100);
     const renderPercent = animatedOverallPercent(bootstrapProgress);
@@ -9429,34 +9447,53 @@ export default function App() {
                 </button>
               </div>
               <div className="rollback-center-card__list">
-                {managedChangeRecords.map((record) => (
-                  <div className="rollback-center-card__item" key={record.id}>
-                    <div>
-                      <strong>{record.owner}</strong>
-                      <span>{record.rollback}</span>
-                      <span>Marker: {record.markerId}</span>
-                      <span>Backup: {record.backupPath ?? "not required"}</span>
-                      <span>{record.lastVerifiedLabel}</span>
-                      {record.backupPath ? (
-                        <div className="rollback-center-card__diff">
+                {managedChangeRecords.map((record) => {
+                  const plan = buildManagedRollbackPlan(record);
+                  return (
+                    <div className="rollback-center-card__item" key={record.id}>
+                      <div>
+                        <strong>{record.owner}</strong>
+                        <span>{record.rollback}</span>
+                        <span>Marker: {record.markerId}</span>
+                        <span>Backup: {record.backupPath ?? "not required"}</span>
+                        <span>{record.lastVerifiedLabel}</span>
+                        <div className="rollback-center-card__evidence">
+                          <span>Mode: {plan.mode.replace(/_/g, " ")}</span>
+                          <span>Status: {plan.status.replace(/_/g, " ")}</span>
                           <span>
-                            Dry-run target: {firstManagedConfigTarget(record)}
+                            Evidence: {plan.evidenceRequired[0]}
                           </span>
+                        </div>
+                        <div className="rollback-center-card__diff">
+                          {record.backupPath ? (
+                            <>
+                              <span>
+                                Dry-run target: {firstManagedConfigTarget(record)}
+                              </span>
+                              <button
+                                className="secondary-button secondary-button--small"
+                                onClick={() => void copyManagedDiffPreview(record)}
+                                type="button"
+                              >
+                                Copy dry-run diff
+                              </button>
+                            </>
+                          ) : null}
                           <button
                             className="secondary-button secondary-button--small"
-                            onClick={() => void copyManagedDiffPreview(record)}
+                            onClick={() => void copyManagedRollbackPlan(record)}
                             type="button"
                           >
-                            Copy dry-run diff
+                            Copy rollback plan
                           </button>
                         </div>
-                      ) : null}
+                      </div>
+                      <span className="rollback-center-card__kind">
+                        {record.kind.replace(/_/g, " ")}
+                      </span>
                     </div>
-                    <span className="rollback-center-card__kind">
-                      {record.kind.replace(/_/g, " ")}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {rollbackCopyNotice ? (
                 <p className="rollback-center-card__notice">

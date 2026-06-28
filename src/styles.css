@@ -5051,6 +5051,16 @@ details[open] .optimize-minimal__details summary::after {
   text-transform: capitalize;
 }
 
+.rollback-center-card__evidence {
+  display: grid;
+  gap: 2px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+
 .rollback-center-card__diff {
   display: flex;
   flex-wrap: wrap;

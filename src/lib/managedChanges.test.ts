@@ -3,9 +3,12 @@ import {
   applyManagedConfigBlock,
   buildManagedConfigApplyPlan,
   buildManagedConfigDiffPreview,
+  buildManagedRollbackPlan,
+  buildManagedRollbackPlans,
   formatManagedConfigApplyPlan,
   formatManagedConfigDiffPreview,
   formatManagedRollbackInventory,
+  formatManagedRollbackPlan,
   managedChangeRecords,
   removeManagedConfigBlock,
 } from "./managedChanges";
@@ -189,16 +192,70 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Mac AI Switchboard Rollback Center inventory");
     expect(text).toContain("No files are changed by this report.");
     expect(text).toContain("## Claude Code routing");
-    expect(text).toContain("Paths: ~/.zshrc, ~/.zprofile");
+    expect(text).toContain("Mode: backup_restore");
+    expect(text).toContain("Status: ready_for_review");
+    expect(text).toContain("Targets: ~/.zshrc, ~/.zprofile");
     expect(text).toContain("Marker: headroom:codex_cli");
     expect(text).toContain("Backup: next to edited shell profile as *.headroom.bak");
     expect(text).toContain("Verified by: Verified by Doctor connector checks");
     expect(text).toContain("Rollback: Remove managed Codex shell routing");
+    expect(text).toContain("Evidence required: Confirm the target file still contains");
     expect(text).toContain("Repo Intelligence");
     expect(text).toContain("Launch at login");
     expect(text).toContain("Dry-run reports do not modify files");
     expect(text).toContain("every apply requires explicit user confirmation");
     expect(text).toContain("Off mode must remove only Switchboard-owned");
+  });
+
+  it("classifies rollback plans by restore mode and required evidence", () => {
+    const plans = buildManagedRollbackPlans();
+    const codex = plans.find((plan) => plan.recordId === "codex-routing");
+    const repoIndex = plans.find((plan) => plan.recordId === "repo-intelligence");
+    const plugins = plans.find((plan) => plan.recordId === "plugins-backups");
+
+    expect(plans).toHaveLength(managedChangeRecords.length);
+    expect(codex).toMatchObject({
+      owner: "Codex routing",
+      mode: "backup_restore",
+      status: "ready_for_review",
+      backupPath: "next to edited client config as *.headroom.bak",
+    });
+    expect(codex?.evidenceRequired.join(" ")).toContain(
+      "timestamped backup exists",
+    );
+    expect(repoIndex).toMatchObject({
+      mode: "cleanup_inventory",
+      status: "cleanup_only",
+      backupPath: null,
+    });
+    expect(repoIndex?.evidenceRequired.join(" ")).toContain(
+      "user repositories",
+    );
+    expect(plugins).toMatchObject({
+      mode: "managed_block_removal",
+      status: "ready_for_review",
+    });
+  });
+
+  it("formats per-change rollback plans for copy and support review", () => {
+    const record = managedChangeRecords.find(
+      (candidate) => candidate.id === "codex-routing",
+    )!;
+    const text = formatManagedRollbackPlan(buildManagedRollbackPlan(record));
+
+    expect(text).toContain("Mac AI Switchboard rollback plan: Codex routing");
+    expect(text).toContain("Kind: client_config");
+    expect(text).toContain("Mode: backup_restore");
+    expect(text).toContain("Status: ready_for_review");
+    expect(text).toContain("Targets: ~/.codex/config.toml, ~/.zshrc, ~/.zprofile");
+    expect(text).toContain("Marker: headroom:codex_cli");
+    expect(text).toContain("Backup: next to edited client config as *.headroom.bak");
+    expect(text).toContain("Evidence required:");
+    expect(text).toContain("Confirm the target file still contains");
+    expect(text).toContain("Unmanaged user config:");
+    expect(text).toContain("Off-mode cleanup boundary:");
+    expect(text).toContain("This rollback plan does not modify files.");
+    expect(text).toContain("fixture-home tests");
   });
 
   it("rejects diff previews for non-config records or missing inputs", () => {
