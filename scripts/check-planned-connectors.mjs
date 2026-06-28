@@ -4,6 +4,7 @@ const frontendPath = "src/lib/plannedConnectors.ts";
 const appPath = "src/App.tsx";
 const backendPath = "src-tauri/src/client_adapters.rs";
 const cliPath = "scripts/repo-intelligence.mjs";
+const repoApiPath = "src-tauri/src/repo_intelligence.rs";
 
 function readFile(path) {
   return fs.readFileSync(path, "utf8");
@@ -268,6 +269,58 @@ function validateCliConnectorDossierContract(source, connectorIds) {
   return errors;
 }
 
+function validateRepoApiConnectorDossierContract(source) {
+  const errors = [];
+
+  for (const snippet of [
+    "RepoAgentConfigReadiness",
+    "RepoAgentConfigReadinessDossier",
+    "RepoAgentConfigReadinessGate",
+    "config_readiness",
+    "build_agent_config_readiness",
+    "planned_connector_dossier",
+    "PLANNED_CONFIG_GATES",
+    "dry-run diff artifact",
+    "Fixture-home restore test",
+    "Fixture-home rollback test",
+    "Fixture-home Off-mode cleanup",
+  ]) {
+    if (!source.includes(snippet)) {
+      errors.push(`Repo Intelligence API connector handoff contract missing "${snippet}"`);
+    }
+  }
+
+  for (const [agentId, snippets] of Object.entries({
+    gemini: ["id: \"gemini_cli\"", "Detect PATH: gemini", "provider settings"],
+    opencode: ["id: \"opencode\"", "Detect PATH: opencode", "provider-config backup"],
+    cursor: ["id: \"cursor\"", "Cursor app/profile", "profile settings backup"],
+    grok: ["id: \"grok_cli\"", "PATH: grok", "PATH: xai", "Doctor guardrails"],
+    qwen: ["id: \"qwen_code\"", "PATH: qwen-code", "PATH: qwen"],
+    amazonq: ["id: \"amazon_q\"", "AWS credentials", "SSO cache"],
+    zed: ["id: \"zed_ai\"", "Zed app"],
+  })) {
+    for (const snippet of snippets) {
+      if (!source.includes(snippet)) {
+        errors.push(`${agentId}: Repo Intelligence API connector dossier missing "${snippet}"`);
+      }
+    }
+  }
+
+  for (const assertion of [
+    "assert!(codex.config_readiness.is_none())",
+    "expect(\"gemini config readiness\")",
+    "assert_eq!(gemini_readiness.planned_connector_id, \"gemini_cli\")",
+    "assert_eq!(gemini_readiness.gated_steps.len(), 7)",
+    "expect(\"cursor config readiness\")",
+  ]) {
+    if (!source.includes(assertion)) {
+      errors.push(`Repo Intelligence API connector readiness tests missing "${assertion}"`);
+    }
+  }
+
+  return errors;
+}
+
 function extractBackendConnectors(source) {
   const registry = extractArrayBody(
     source,
@@ -305,6 +358,7 @@ const frontendSource = readFile(frontendPath);
 const appSource = readFile(appPath);
 const backendSource = readFile(backendPath);
 const cliSource = readFile(cliPath);
+const repoApiSource = readFile(repoApiPath);
 const frontendConnectors = extractFrontendConnectors(frontendSource);
 const backendConnectors = extractBackendConnectors(backendSource);
 const frontendIds = uniqueSorted([...frontendConnectors.keys()]);
@@ -333,6 +387,7 @@ const metadataErrors = [];
 metadataErrors.push(...validateConfigCreationPlanContract(frontendSource));
 metadataErrors.push(...validateBackendConfigCreationPlanContract(backendSource));
 metadataErrors.push(...validateCliConnectorDossierContract(cliSource, frontendIds));
+metadataErrors.push(...validateRepoApiConnectorDossierContract(repoApiSource));
 if (!appSource.includes("configPlan.steps.map((step) =>")) {
   metadataErrors.push("planned connector UI must render every config creation step");
 }
