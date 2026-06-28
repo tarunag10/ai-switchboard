@@ -37,6 +37,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Read-only `get_repo_pack` responses now have Rust coverage for default pack selection, bounded file lists, secret exclusion, freshness safety, verification-pack selection, and unknown-pack errors.
 - Savings ledger empty states now distinguish a genuinely empty ledger from confidence filters that hide existing rows, with helper tests covering both copy paths.
 - Savings ledger copy payloads now include the active confidence filter, so exported rows remain auditable when users copy measured, estimated, inferred, or all-row views.
+- Safe config diff coverage now proves every managed config write path in the rollback inventory can produce a blocked dry-run preview with target, backup, marker, rollback, Off cleanup, and unmanaged-config boundaries.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

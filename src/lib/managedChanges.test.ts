@@ -141,6 +141,46 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Off mode must remove only Switchboard-owned");
   });
 
+  it("can produce dry-run previews for every managed config write path", () => {
+    const configRecords = managedChangeRecords.filter(
+      (record) => record.backupPath !== null,
+    );
+
+    expect(configRecords.map((record) => record.id)).toEqual([
+      "claude-code-routing",
+      "codex-routing",
+      "managed-hooks",
+      "plugins-backups",
+    ]);
+
+    for (const record of configRecords) {
+      const targetPath = record.paths[0] ?? "~/.config/mac-ai-switchboard";
+      const preview = buildManagedConfigDiffPreview({
+        record,
+        targetPath,
+        currentManagedBlock: null,
+        proposedManagedBlock: [
+          `# >>> ${record.markerId} >>>`,
+          "managed = true",
+          `# <<< ${record.markerId} <<<`,
+        ].join("\n"),
+      });
+      const text = formatManagedConfigDiffPreview(preview);
+
+      expect(preview.targetPath).toBe(targetPath);
+      expect(preview.backupPath).toBe(record.backupPath);
+      expect(preview.writePathStatus).toBe("blocked");
+      expect(preview.requiresExplicitConfirmation).toBe(true);
+      expect(text).toContain(`Marker: ${record.markerId}`);
+      expect(text).toContain(`Backup: ${record.backupPath}`);
+      expect(text).toContain("Write path status: blocked");
+      expect(text).toContain("Rollback:");
+      expect(text).toContain(record.rollback);
+      expect(text).toContain("Off-mode cleanup boundary:");
+      expect(text).toContain("Unmanaged user config:");
+    }
+  });
+
   it("formats a complete rollback-center inventory for support handoff", () => {
     const text = formatManagedRollbackInventory();
 
