@@ -627,6 +627,8 @@ pub struct ClientConnectorStatus {
     pub config_creation_step_details: Vec<ClientConnectorConfigCreationStep>,
     #[serde(default)]
     pub config_dry_run_preview: Option<ClientConnectorConfigDryRunPreview>,
+    #[serde(default)]
+    pub automation_path: Vec<ClientConnectorAutomationStage>,
     pub installed: bool,
     pub enabled: bool,
     pub verified: bool,
@@ -654,6 +656,15 @@ pub struct ClientConnectorConfigDryRunPreview {
     pub rollback_preview: String,
     pub confirmation_phrase: String,
     pub writes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientConnectorAutomationStage {
+    pub id: String,
+    pub label: String,
+    pub status: String,
+    pub evidence: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

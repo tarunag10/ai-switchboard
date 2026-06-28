@@ -177,6 +177,7 @@ export interface ClientConnectorStatus {
   configCreationSteps?: string[];
   configCreationStepDetails?: ClientConnectorConfigCreationStep[];
   configDryRunPreview?: ClientConnectorConfigDryRunPreview | null;
+  automationPath?: ClientConnectorAutomationStage[];
   installed: boolean;
   enabled: boolean;
   verified: boolean;
@@ -200,6 +201,13 @@ export interface ClientConnectorConfigDryRunPreview {
   rollbackPreview: string;
   confirmationPhrase: string;
   writes: string[];
+}
+
+export interface ClientConnectorAutomationStage {
+  id: string;
+  label: string;
+  status: "ready" | "blocked" | string;
+  evidence: string;
 }
 
 export interface RuntimeStatus {

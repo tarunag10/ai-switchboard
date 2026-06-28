@@ -9,7 +9,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 ### Shipped
 
 - Start Agent Session has a first usable flow with repo-path validation, freshness detail, selected-pack/full-handoff/summary/JSON copy actions, sample-pack copy blocking, planned connector readiness in session payloads, and matching `repo:intelligence --session` CLI exports.
-- Planned connector registry coverage exists for Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed, including config surfaces, manual guides, automation gates, rollback dossiers, copyable config-plan actions, compatibility-matrix checks, and blocked dry-run previews for detected or documented config surfaces.
+- Planned connector registry coverage exists for Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed, including config surfaces, manual guides, automation gates, rollback dossiers, copyable config-plan actions, compatibility-matrix checks, blocked dry-run previews for detected or documented config surfaces, and a seven-stage automation path for detect, dry-run, backup, apply, verify, rollback, and Off cleanup.
 - Read-only Repo Intelligence API coverage exists for manifests, packs, handoffs, freshness, stale/moved/corrupt index states, safe clear behavior, bounded pack output, and secret-like path exclusion.
 - Repo-memory MCP is advertised in CLI help and smoke-tested through `npm run check:repo-memory-mcp`, including read-only tool annotations and a real `repo_context_pack` call that checks safety text and seeded secret exclusion.
 - Savings ledger has shipped rows/copy exports with measured, estimated, and inferred confidence labels, empty-state distinction, active-filter copy disclosure, per-row evidence/caveats, and attribution percentages by confidence.
@@ -20,7 +20,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 
 ### Left To Build
 
-- Promote planned connectors into supported adapters one by one, starting with Gemini CLI, only after the blocked dry-run previews are backed by real backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup.
+- Promote planned connectors into supported adapters one by one, starting with Gemini CLI, only after the blocked automation path stages are backed by real backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup.
 - Turn repo-memory MCP from a smoke-tested CLI transport into an app-managed local service with lifecycle controls, Doctor availability checks, and agent-consumption docs for the supported connector path.
 - Deepen Repo Intelligence v2 with tree-sitter or language-specific parsers, persistent parser/index versions, richer symbols/imports/reverse dependencies, graph-aware packs, and parser/index Doctor health checks.
 - Finish exact live/session savings attribution across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese by adding durable per-session source events where profile-specific evidence exists.
@@ -37,7 +37,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - `npm run check:connectors` enforces the shared config-creation plan contract, including the seven required gated steps and copyable markdown handoff.
 - Planned connector cards now surface the same seven config-creation gates in-app before backend-specific detection evidence is available.
 - Planned connector cards now provide per-tool Copy config plan actions, so Gemini, OpenCode, Grok/xAI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed each export the same gated config-creation contract from the Mac app.
-- Detected planned connector cards now receive blocked dry-run previews with target, marker, backup path, proposed state, rollback preview, confirmation phrase, and apply-blocked reason while automatic writes remain disabled.
+- Detected planned connector cards now receive blocked dry-run previews with target, marker, backup path, proposed state, rollback preview, confirmation phrase, apply-blocked reason, and seven-stage automation path status while automatic writes remain disabled.
 - Repo Intelligence agent handoffs now include connector config readiness, next gate, evidence requirements, config path strategy, account caveat, and rollback strategy for each planned connector target.
 - The `repo:intelligence` CLI handoff export now mirrors those connector readiness dossiers in Markdown and JSON output.
 - `npm run check:connectors` now verifies the CLI connector dossier mirror so planned config metadata cannot silently drift across app, backend, and handoff exports.

@@ -2703,6 +2703,20 @@ mod doctor_tests {
                 confirmation_phrase: "APPLY GEMINI CLI CONFIG".to_string(),
                 writes: Vec::new(),
             }),
+            automation_path: vec![
+                crate::models::ClientConnectorAutomationStage {
+                    id: "detect".to_string(),
+                    label: "Detect config surface".to_string(),
+                    status: "ready".to_string(),
+                    evidence: "Gemini CLI has local detection evidence.".to_string(),
+                },
+                crate::models::ClientConnectorAutomationStage {
+                    id: "dryRunDiff".to_string(),
+                    label: "Show dry-run diff".to_string(),
+                    status: "ready".to_string(),
+                    evidence: "Blocked preview is ready.".to_string(),
+                },
+            ],
             installed: true,
             enabled: false,
             verified: false,

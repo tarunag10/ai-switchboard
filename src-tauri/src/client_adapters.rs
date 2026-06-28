@@ -10,9 +10,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::models::{
-    ClientConnectorConfigCreationStep, ClientConnectorConfigDryRunPreview, ClientConnectorStatus,
-    ClientConnectorSupportStatus, ClientHealth, ClientSetupResult, ClientSetupVerification,
-    ClientStatus, SavingsMode, SwitchboardMode,
+    ClientConnectorAutomationStage, ClientConnectorConfigCreationStep,
+    ClientConnectorConfigDryRunPreview, ClientConnectorStatus, ClientConnectorSupportStatus,
+    ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus, SavingsMode,
+    SwitchboardMode,
 };
 use crate::storage::{app_data_dir, config_file};
 
@@ -478,6 +479,47 @@ fn planned_connector_dry_run_preview(
     })
 }
 
+fn planned_connector_automation_path(
+    spec: &PlannedClientSpec,
+    installed: bool,
+    preview: Option<&ClientConnectorConfigDryRunPreview>,
+) -> Vec<ClientConnectorAutomationStage> {
+    let step_details = planned_config_creation_step_details(spec);
+    step_details
+        .into_iter()
+        .map(|step| {
+            let status = match step.id.as_str() {
+                "detect" if installed => "ready",
+                "detect" => "blocked",
+                "dryRunDiff" if preview.is_some() => "ready",
+                _ => "blocked",
+            };
+            let evidence = match step.id.as_str() {
+                "detect" if installed => {
+                    format!("{} has local detection evidence; no config writes performed.", spec.name)
+                }
+                "detect" => {
+                    format!("{} is not detected locally yet; install or expose it on PATH first.", spec.name)
+                }
+                "dryRunDiff" if let Some(preview) = preview => format!(
+                    "Blocked preview ready for {} with target {}, marker {}, backup {}, and confirmation phrase {}.",
+                    spec.name, preview.target, preview.marker, preview.backup_path, preview.confirmation_phrase
+                ),
+                "dryRunDiff" => {
+                    "Dry-run preview is blocked until a connector config surface is detected.".to_string()
+                }
+                _ => step.required_evidence.join(" "),
+            };
+            ClientConnectorAutomationStage {
+                id: step.id,
+                label: step.label,
+                status: status.to_string(),
+                evidence,
+            }
+        })
+        .collect()
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ShellFamily {
     Zsh,
@@ -894,6 +936,7 @@ pub fn list_client_connectors(
                 config_creation_steps: Vec::new(),
                 config_creation_step_details: Vec::new(),
                 config_dry_run_preview: None,
+                automation_path: Vec::new(),
                 installed,
                 enabled,
                 verified,
@@ -911,6 +954,8 @@ pub fn list_client_connectors(
             .map(|client| client.notes.clone())
             .unwrap_or_else(|| vec!["Not checked yet.".to_string()]);
         let config_dry_run_preview = planned_connector_dry_run_preview(spec, &detection_evidence);
+        let automation_path =
+            planned_connector_automation_path(spec, installed, config_dry_run_preview.as_ref());
 
         ClientConnectorStatus {
             client_id: spec.id.to_string(),
@@ -946,6 +991,7 @@ pub fn list_client_connectors(
                 .collect(),
             config_creation_step_details: planned_config_creation_step_details(spec),
             config_dry_run_preview,
+            automation_path,
             installed,
             enabled: false,
             verified: false,
@@ -4689,6 +4735,25 @@ mod tests {
                 format!("APPLY {} CONFIG", connector.name.to_uppercase())
             );
             assert!(preview.writes.is_empty());
+            assert_eq!(connector.automation_path.len(), 7);
+            assert_eq!(
+                connector
+                    .automation_path
+                    .iter()
+                    .map(|stage| stage.id.as_str())
+                    .collect::<Vec<_>>(),
+                PLANNED_CONFIG_CREATION_STEP_IDS
+            );
+            assert_eq!(connector.automation_path[0].status, "ready");
+            assert_eq!(connector.automation_path[1].status, "ready");
+            assert!(connector
+                .automation_path
+                .iter()
+                .skip(2)
+                .all(|stage| stage.status == "blocked"));
+            assert!(connector.automation_path[1]
+                .evidence
+                .contains(&preview.confirmation_phrase));
         }
 
         let gemini = connectors

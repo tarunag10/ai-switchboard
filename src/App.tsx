@@ -8980,7 +8980,8 @@ export default function App() {
                             connector.automationGates?.length ||
                             connector.manualWorkflow?.length ||
                             connector.configCreationStepDetails?.length ||
-                            connector.configCreationSteps?.length ? (
+                            connector.configCreationSteps?.length ||
+                            connector.automationPath?.length ? (
                               <div className="connector-plan__backend">
                                 <strong>Backend checks</strong>
                                 {connector.detectionSources?.length ? (
@@ -9041,6 +9042,18 @@ export default function App() {
                                         4,
                                       )
                                     ).join(" -> ")}
+                                  </span>
+                                ) : null}
+                                {connector.automationPath?.length ? (
+                                  <span>
+                                    Automation path{" "}
+                                    {connector.automationPath
+                                      .slice(0, 7)
+                                      .map(
+                                        (stage) =>
+                                          `${stage.label}: ${stage.status}`,
+                                      )
+                                      .join(" -> ")}
                                   </span>
                                 ) : null}
                               </div>
