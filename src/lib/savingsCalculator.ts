@@ -498,6 +498,19 @@ export function buildFilteredSavingsLedger(
   };
 }
 
+export function formatSavingsLedgerConfidenceBreakdown(
+  summary: Pick<
+    SavingsLedgerSummary,
+    "measuredTokens" | "estimatedTokens" | "inferredTokens"
+  >,
+) {
+  return [
+    `${formatTokens(summary.measuredTokens)} measured`,
+    `${formatTokens(summary.estimatedTokens)} estimated`,
+    `${formatTokens(summary.inferredTokens)} inferred`,
+  ].join(" · ");
+}
+
 export function formatSavingsLedgerShareText(
   rows: SavingsLedgerRow[],
   scope: SavingsCalculatorScope,

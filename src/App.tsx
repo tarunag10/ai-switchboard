@@ -225,6 +225,7 @@ import {
   buildSavingsCalculatorBreakdown,
   buildSavingsLedgerRows,
   buildSavingsCalculatorSummary,
+  formatSavingsLedgerConfidenceBreakdown,
   formatSavingsLedgerShareText,
   savingsCalculatorScopeLabel,
   CAVEMAN_TEMPLATE_BASELINE_TOKENS,
@@ -916,6 +917,12 @@ function SavingsCalculatorCard({
           <span>
             Tokens{" "}
             <strong>{compactNumber(filteredLedger.summary.totalTokens)}</strong>
+          </span>
+          <span>
+            Confidence{" "}
+            <strong>
+              {formatSavingsLedgerConfidenceBreakdown(filteredLedger.summary)}
+            </strong>
           </span>
         </div>
         <div className="savings-calculator__ledger-list">

@@ -7,6 +7,7 @@ import {
   buildSavingsCalculatorSummary,
   buildSavingsLedgerRows,
   filterSavingsLedgerRowsByConfidence,
+  formatSavingsLedgerConfidenceBreakdown,
   formatSavingsLedgerShareText,
   groupSavingsLedgerRowsBySource,
   formatSavingsCalculatorShareText,
@@ -464,6 +465,9 @@ describe("savings calculator", () => {
       estimatedUsd: 4.5,
       measuredUsd: 0,
     });
+    expect(formatSavingsLedgerConfidenceBreakdown(summary)).toBe(
+      "900 measured · 2,000 estimated · 8,380 inferred",
+    );
   });
 
   it("groups ledger rows by source and preserves the time window", () => {
