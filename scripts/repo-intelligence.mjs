@@ -580,6 +580,7 @@ Options:
   --list-agents       Print available agent handoff ids
   --list-api          Print read-only local API query command names
   --manifest          Print agent-readable pack manifest JSON
+  --mcp-serve         Serve read-only repo-memory MCP tools over stdio
   --help              Show this help
 
 Examples:
@@ -590,7 +591,8 @@ Examples:
   npm run repo:intelligence -- . --pack implementation --format markdown
   npm run repo:intelligence -- . --agent codex --format markdown
   npm run repo:intelligence -- . --session --agent codex --task verification --headroom-healthy --rtk-healthy --format markdown
-  npm run repo:intelligence -- . --agent gemini --format json`);
+  npm run repo:intelligence -- . --agent gemini --format json
+  npm run repo:intelligence -- . --mcp-serve`);
 }
 
 function walk(repoRoot, dir = repoRoot, files = []) {
