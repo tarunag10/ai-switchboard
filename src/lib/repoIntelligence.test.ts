@@ -524,7 +524,18 @@ describe("repoIntelligence", () => {
     expect(payload.configReadiness).toEqual(
       expect.objectContaining({
         plannedConnectorId: "gemini_cli",
+        plannedConnectorName: "Gemini CLI",
         automationEnabled: false,
+        nextGate: {
+          id: "detect",
+          label: "Detect config surface",
+        },
+      }),
+    );
+    expect(payload.configReadiness?.safetyDossier).toEqual(
+      expect.objectContaining({
+        configPathStrategy: expect.stringContaining("gemini"),
+        rollbackStrategy: expect.stringContaining("provider settings"),
       }),
     );
     expect(payload.configReadiness?.gatedSteps.map((step) => step.id)).toEqual([
@@ -536,6 +547,22 @@ describe("repoIntelligence", () => {
       "rollback",
       "offCleanup",
     ]);
+    expect(
+      payload.configReadiness?.gatedSteps.find(
+        (step) => step.id === "dryRunDiff",
+      )?.requiredEvidence.join(" "),
+    ).toContain("dry-run diff artifact");
+
+    const cursorPayload = buildRepoAgentHandoffPayload(summary, "cursor");
+    expect(cursorPayload.configReadiness).toEqual(
+      expect.objectContaining({
+        plannedConnectorId: "cursor",
+        plannedConnectorName: "Cursor",
+      }),
+    );
+    expect(
+      cursorPayload.configReadiness?.safetyDossier.configPathStrategy,
+    ).toContain("Cursor app/profile");
   });
 
   it("formats agent-specific bounded handoffs for popular coding tools", () => {
@@ -565,7 +592,11 @@ describe("repoIntelligence", () => {
     expect(gemini).toContain("Selected pack: Implementation Pack");
     expect(gemini).toContain("Secret-like paths");
     expect(gemini).toContain("## Connector Config Readiness");
-    expect(gemini).toContain("Planned connector: gemini_cli");
+    expect(gemini).toContain("Planned connector: Gemini CLI (gemini_cli)");
+    expect(gemini).toContain("Next gate: Detect config surface");
+    expect(gemini).toContain("Config path strategy:");
+    expect(gemini).toContain("Rollback strategy:");
+    expect(gemini).toContain("evidence required:");
     expect(gemini).toContain("Clean up in Off mode");
     expect(gemini).toContain("src/App.tsx");
     expect(gemini).not.toContain(".env.local");
@@ -573,7 +604,7 @@ describe("repoIntelligence", () => {
     const cursor = formatRepoAgentHandoffMarkdown(summary, "cursor");
     expect(cursor).toContain("# Cursor Handoff");
     expect(cursor).toContain("Selected pack: Handoff Pack");
-    expect(cursor).toContain("Planned connector: cursor");
+    expect(cursor).toContain("Planned connector: Cursor (cursor)");
     expect(cursor).toContain("docs/install.md");
   });
 

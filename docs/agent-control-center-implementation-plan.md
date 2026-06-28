@@ -11,6 +11,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Each planned connector must get config-creation work like Gemini, gated behind detection, dry-run diff, backup, verify, rollback, and Off cleanup.
 - `npm run check:connectors` enforces the shared config-creation plan contract, including the seven required gated steps and copyable markdown handoff.
 - Planned connector cards now surface the same seven config-creation gates in-app before backend-specific detection evidence is available.
+- Repo Intelligence agent handoffs now include connector config readiness, next gate, evidence requirements, config path strategy, account caveat, and rollback strategy for each planned connector target.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

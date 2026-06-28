@@ -1,4 +1,9 @@
 import type { SwitchboardMode } from "./types";
+import {
+  getPlannedConnector,
+  getPlannedConnectorConfigCreationPlan,
+  getPlannedConnectorSafetyDossier,
+} from "./plannedConnectors";
 
 export type RepoFileRole =
   | "source"
@@ -404,11 +409,22 @@ export type RepoAgentHandoffTarget =
 
 export interface RepoAgentConfigReadiness {
   plannedConnectorId: string;
-  automationEnabled: false;
+  plannedConnectorName: string;
+  automationEnabled: boolean;
   safetyNote: string;
+  nextGate: {
+    id: string;
+    label: string;
+  };
+  safetyDossier: {
+    configPathStrategy: string;
+    accountCaveat: string;
+    rollbackStrategy: string;
+  };
   gatedSteps: Array<{
     id: string;
     label: string;
+    requiredEvidence: string[];
   }>;
 }
 
@@ -541,16 +557,6 @@ const plannedConnectorIdByAgentTarget: Partial<
   zed: "zed_ai",
 };
 
-const plannedConnectorConfigGateSteps = [
-  { id: "detect", label: "Detect config surface" },
-  { id: "dryRunDiff", label: "Show dry-run diff" },
-  { id: "backup", label: "Create backup" },
-  { id: "apply", label: "Apply with consent" },
-  { id: "verify", label: "Verify in Doctor" },
-  { id: "rollback", label: "Rollback safely" },
-  { id: "offCleanup", label: "Clean up in Off mode" },
-];
-
 function buildRepoAgentConfigReadiness(
   target: RepoAgentHandoffTarget,
 ): RepoAgentConfigReadiness | undefined {
@@ -558,13 +564,33 @@ function buildRepoAgentConfigReadiness(
   if (!plannedConnectorId) {
     return undefined;
   }
+  const plannedConnector = getPlannedConnector(plannedConnectorId);
+  const dossier = getPlannedConnectorSafetyDossier(plannedConnectorId);
+  if (!plannedConnector || !dossier) {
+    return undefined;
+  }
+  const plan = getPlannedConnectorConfigCreationPlan(plannedConnector);
+  const nextGate = plan.steps[0];
 
   return {
     plannedConnectorId,
-    automationEnabled: false,
-    safetyNote:
-      "Planned connector config creation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested.",
-    gatedSteps: plannedConnectorConfigGateSteps.map((step) => ({ ...step })),
+    plannedConnectorName: plannedConnector.name,
+    automationEnabled: plan.automationEnabled,
+    safetyNote: plan.safetyNote,
+    nextGate: {
+      id: nextGate.id,
+      label: nextGate.label,
+    },
+    safetyDossier: {
+      configPathStrategy: dossier.configPathStrategy,
+      accountCaveat: dossier.accountCaveat,
+      rollbackStrategy: dossier.rollbackStrategy,
+    },
+    gatedSteps: plan.steps.map((step) => ({
+      id: step.id,
+      label: step.label,
+      requiredEvidence: [...step.requiredEvidence],
+    })),
   };
 }
 
@@ -1267,11 +1293,18 @@ export function formatRepoAgentHandoffMarkdown(
   const configReadinessMarkdown = configReadiness
     ? [
         "## Connector Config Readiness",
-        `Planned connector: ${configReadiness.plannedConnectorId}`,
+        `Planned connector: ${configReadiness.plannedConnectorName} (${configReadiness.plannedConnectorId})`,
         `Automation enabled: ${configReadiness.automationEnabled ? "yes" : "no"}`,
+        `Next gate: ${configReadiness.nextGate.label}`,
         configReadiness.safetyNote,
+        `Config path strategy: ${configReadiness.safetyDossier.configPathStrategy}`,
+        `Account caveat: ${configReadiness.safetyDossier.accountCaveat}`,
+        `Rollback strategy: ${configReadiness.safetyDossier.rollbackStrategy}`,
         "Gated steps:",
-        ...configReadiness.gatedSteps.map((step) => `- ${step.label}`),
+        ...configReadiness.gatedSteps.map(
+          (step) =>
+            `- ${step.label}: evidence required: ${step.requiredEvidence.join(" ")}`,
+        ),
         "",
       ].join("\n")
     : "";
