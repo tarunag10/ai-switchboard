@@ -216,7 +216,7 @@ import {
   buildSavingsCalculatorBreakdown,
   buildSavingsLedgerRows,
   buildSavingsCalculatorSummary,
-  formatSavingsCalculatorShareText,
+  formatSavingsLedgerShareText,
   CAVEMAN_TEMPLATE_BASELINE_TOKENS,
   CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
   PONYTAIL_TEMPLATE_BASELINE_TOKENS,
@@ -725,9 +725,13 @@ function SavingsCalculatorCard({
     }
 
     await navigator.clipboard.writeText(
-      formatSavingsCalculatorShareText(summary, breakdownRows),
+      formatSavingsLedgerShareText(
+        ledgerRows,
+        scope,
+        ledgerRows[0]?.recordedAt ?? new Date().toISOString(),
+      ),
     );
-    setCopyNotice("Copied summary.");
+    setCopyNotice("Copied ledger.");
   }
 
   return (

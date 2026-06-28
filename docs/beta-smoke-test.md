@@ -158,7 +158,7 @@ If enabled, have Claude call `mcp__headroom__headroom_retrieve` with any small q
 
 ### 5. Tray → Dashboard renders
 
-Click the tray icon, open the dashboard. Expect savings chart, per-client stats, and the Savings calculator to render without a blank/error state. Toggle Session / Overall and confirm the source breakdown names Headroom, Repo Intelligence, and RTK when those data sources are available. Click **Copy** in the Savings calculator and confirm the clipboard summary includes the selected scope, saved tokens, estimated dollars, reduction, equation, and sources.
+Click the tray icon, open the dashboard. Expect savings chart, per-client stats, and the Savings calculator to render without a blank/error state. Toggle Session / Overall and confirm the source breakdown names Headroom, Repo Intelligence, and RTK when those data sources are available. Click **Copy** in the Savings calculator and confirm the clipboard ledger includes the selected scope, timestamp, source ids, saved tokens, estimated dollars, confidence labels, and caveats that keep measured, estimated, and inferred rows separate.
 
 ### 6. Pause / resume cleanly strips and restores interception
 

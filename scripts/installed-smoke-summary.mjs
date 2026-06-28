@@ -62,7 +62,7 @@ const evidenceAreas = [
   "Doctor copyable report",
   "Planned connector automation gates, manual workflow, and config creation plan",
   "Repo Intelligence recipes and local context packs",
-  "Savings calculator copyable summary",
+  "Savings calculator copyable ledger",
   "Per-tool agent handoffs",
   "Codex compression recovery",
 ];

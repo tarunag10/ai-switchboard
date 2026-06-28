@@ -122,7 +122,7 @@ Generated: ${generatedAt}
 - Doctor repairs: runtime, Codex setup, RTK, planned connector manual warnings with detection evidence and config creation plan, and Repo Intelligence stale/missing-index warnings
 - Planned connectors: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI; each stays disabled and manual with safe RTK-only or Repo Intelligence pack guidance, copyable config creation plan, and Gemini shows binary/version/config compatibility evidence when detected
 - Repo Intelligence: local repo index, persisted latest summary, copy bounded context pack, copy individual task pack, copy agent manifest, copy per-tool Markdown and JSON agent handoffs, clear saved index, context-pack preview, per-pack copy
-- Savings calculator: Session / Overall scopes, copyable summary, saved tokens, estimated dollars, reduction, equation, source breakdown
+- Savings calculator: Session / Overall scopes, copyable confidence-labelled ledger, saved tokens, estimated dollars, reduction, equation, source breakdown
 - Local-first behavior: remote services gated, Off mode reversible cleanup
 - Codex resilience: compression refusal reset and model/provider repair
 
