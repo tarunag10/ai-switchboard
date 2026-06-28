@@ -618,7 +618,11 @@ describe("repoIntelligence", () => {
     expect(preparation.copyStatus).toBe("ready");
     expect(preparation.recommendedMode).toBe("full");
     expect(preparation.handoffMarkdown).toContain("# Codex Handoff");
+    expect(preparation.handoffMarkdown).toContain(
+      "Index freshness: Fresh local index",
+    );
     expect(preparation.handoffPayload?.pack.id).toBe("verification");
+    expect(preparation.handoffPayload?.indexFreshness.status).toBe("fresh");
     expect(preparation.manifest.generatedAt).toBe("2026-06-25T10:05:00Z");
 
     const json = formatAgentSessionPreparationJson(preparation);
@@ -696,6 +700,15 @@ describe("repoIntelligence", () => {
     expect(preparation.copyDetail).toContain("Changed local index");
     expect(preparation.recommendedMode).toBe("rtk");
     expect(preparation.handoffMarkdown).toContain("# Gemini CLI Handoff");
+    expect(preparation.handoffMarkdown).toContain(
+      "Warning: Changed local index",
+    );
+    expect(preparation.handoffMarkdown).toContain(
+      "Refresh before relying on this handoff for current code.",
+    );
+    expect(preparation.handoffPayload?.indexFreshness.status).toBe(
+      "changed_cache",
+    );
   });
 
   it("blocks agent session copying until a real repo index exists", () => {

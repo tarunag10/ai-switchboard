@@ -318,6 +318,7 @@ export interface RepoAgentHandoffPayload {
     importEdges: RepoGraphEdge[];
     reverseDependencyHubs: RepoGraphNode[];
   };
+  indexFreshness: RepoIndexFreshness;
   safety: {
     readOnly: true;
     excludesSecretLikePaths: true;
@@ -1121,6 +1122,7 @@ export function buildRepoAgentHandoffPayload(
     throw new Error("No repo intelligence packs available.");
   }
   const configReadiness = buildRepoAgentConfigReadiness(profile.id);
+  const indexFreshness = getRepoIndexFreshness(summary);
 
   return {
     schemaVersion: 1,
@@ -1158,6 +1160,7 @@ export function buildRepoAgentHandoffPayload(
       importEdges: summary.graph?.importEdges ?? [],
       reverseDependencyHubs: summary.graph?.reverseDependencyHubs ?? [],
     },
+    indexFreshness,
     safety: {
       readOnly: true,
       excludesSecretLikePaths: true,
@@ -1197,6 +1200,11 @@ export function formatRepoAgentHandoffMarkdown(
     selectedPack,
   );
   const configReadiness = buildRepoAgentConfigReadiness(profile.id);
+  const indexFreshness = getRepoIndexFreshness(summary);
+  const freshnessWarning =
+    indexFreshness.status === "changed_cache" || indexFreshness.status === "unknown"
+      ? `Warning: ${indexFreshness.label}. ${indexFreshness.detail} Refresh before relying on this handoff for current code.`
+      : `${indexFreshness.label}: ${indexFreshness.detail}`;
   const configReadinessMarkdown = configReadiness
     ? [
         "## Connector Config Readiness",
@@ -1215,6 +1223,7 @@ export function formatRepoAgentHandoffMarkdown(
     `Repository: ${repoLabel}`,
     `Tool kind: ${profile.toolKind}`,
     `Selected pack: ${selectedPack.title}`,
+    `Index freshness: ${freshnessWarning}`,
     `Estimated context tokens: ${selectedPack.estimatedTokens.toLocaleString()}`,
     `Estimated tokens avoided: ${Math.max(
       0,
