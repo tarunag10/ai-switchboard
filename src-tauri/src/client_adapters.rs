@@ -440,7 +440,8 @@ fn planned_connector_dry_run_preview(
         marker: format!("mac-ai-switchboard:{}", spec.id),
         backup_path: format!("{target}.mac-ai-switchboard.bak"),
         current_state: "No Switchboard-managed Gemini provider routing detected.".to_string(),
-        proposed_state: "Add Mac AI Switchboard local provider routing for Gemini CLI after explicit consent.".to_string(),
+        proposed_state: "Preview only: no files are written. after explicit consent, add Mac AI Switchboard local provider routing for Gemini CLI."
+            .to_string(),
         rollback_preview:
             "Restore the Gemini config backup or remove only the Switchboard-managed provider block."
                 .to_string(),
@@ -4643,6 +4644,8 @@ mod tests {
             "/Users/test/.gemini.mac-ai-switchboard.bak"
         );
         assert!(preview.current_state.contains("No Switchboard-managed"));
+        assert!(preview.proposed_state.contains("Preview only"));
+        assert!(preview.proposed_state.contains("no files are written"));
         assert!(preview.proposed_state.contains("after explicit consent"));
         assert!(preview.rollback_preview.contains("remove only"));
         assert_eq!(preview.confirmation_phrase, "APPLY GEMINI CLI CONFIG");
