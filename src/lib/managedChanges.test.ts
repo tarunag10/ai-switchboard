@@ -88,6 +88,8 @@ describe("managedChangeRecords", () => {
       dryRunOnly: true,
       requiresExplicitConfirmation: true,
       confirmationPhrase: "Apply headroom:codex_cli to ~/.codex/config.toml",
+      applyBlockedReason:
+        "Apply is blocked until the user confirms this exact target, backup path, marker, rollback plan, and Off-mode cleanup boundary.",
       unmanagedConfigPolicy:
         "Preserve unmanaged user config outside the marked Switchboard block.",
     });
@@ -118,6 +120,9 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Dry run only: yes");
     expect(text).toContain("Requires explicit confirmation: yes");
     expect(text).toContain("Confirmation phrase: Apply headroom:rtk to ~/.zshrc");
+    expect(text).toContain(
+      "Apply blocked: Apply is blocked until the user confirms this exact target, backup path, marker, rollback plan, and Off-mode cleanup boundary.",
+    );
     expect(text).toContain("Current managed block:\n(none detected)");
     expect(text).toContain("Proposed managed block:");
     expect(text).toContain("Unmanaged user config:");

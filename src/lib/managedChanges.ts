@@ -28,6 +28,7 @@ export interface ManagedConfigDiffPreview {
   dryRunOnly: true;
   requiresExplicitConfirmation: true;
   confirmationPhrase: string;
+  applyBlockedReason: string;
   currentManagedBlock: string | null;
   proposedManagedBlock: string;
   rollback: string;
@@ -182,6 +183,8 @@ export function buildManagedConfigDiffPreview({
     dryRunOnly: true,
     requiresExplicitConfirmation: true,
     confirmationPhrase: `Apply ${record.markerId} to ${trimmedPath}`,
+    applyBlockedReason:
+      "Apply is blocked until the user confirms this exact target, backup path, marker, rollback plan, and Off-mode cleanup boundary.",
     currentManagedBlock: currentManagedBlock?.trim() || null,
     proposedManagedBlock: trimmedProposedBlock,
     rollback: record.rollback,
@@ -276,6 +279,7 @@ export function formatManagedConfigDiffPreview(
       preview.requiresExplicitConfirmation ? "yes" : "no"
     }`,
     `Confirmation phrase: ${preview.confirmationPhrase}`,
+    `Apply blocked: ${preview.applyBlockedReason}`,
     "",
     "Current managed block:",
     preview.currentManagedBlock ?? "(none detected)",
