@@ -2128,6 +2128,7 @@ function RepoIntelligencePreview({
           <div>
             <span>Freshness</span>
             <strong>{sessionDisplayState.freshnessLabel}</strong>
+            <small>{sessionDisplayState.freshnessDetailLabel}</small>
           </div>
           <div>
             <span>Context</span>

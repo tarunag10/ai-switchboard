@@ -864,6 +864,8 @@ describe("repoIntelligence", () => {
       packLabel: "Verification pack",
       modeLabel: "Full optimization",
       freshnessLabel: "Fresh local index",
+      freshnessDetailLabel:
+        "API ready · graph ready · parser metadata-fingerprint-v1 · 4 indexed · 0 skipped",
       contextLabel: "Local repo index",
       selectedPackTokensLabel: "700",
       tokensAvoidedLabel: "1,300",

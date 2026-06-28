@@ -211,6 +211,7 @@ export interface AgentSessionDisplayState {
   packLabel: string;
   modeLabel: string;
   freshnessLabel: string;
+  freshnessDetailLabel: string;
   contextLabel: string;
   selectedPackTokensLabel: string;
   tokensAvoidedLabel: string;
@@ -1563,6 +1564,24 @@ function agentSessionModeLabel(mode: SwitchboardMode) {
   }
 }
 
+function agentSessionFreshnessDetailLabel(freshness: RepoIndexFreshness) {
+  const api = freshness.apiAvailable ? "API ready" : "API unavailable";
+  const graph = freshness.graphAvailable ? "graph ready" : "graph unavailable";
+  const parser = freshness.parserVersion
+    ? `parser ${freshness.parserVersion}`
+    : "parser unavailable";
+  const indexed =
+    freshness.indexedFileCount === null || freshness.indexedFileCount === undefined
+      ? "indexed files unknown"
+      : `${freshness.indexedFileCount.toLocaleString()} indexed`;
+  const skipped =
+    freshness.skippedFileCount === null || freshness.skippedFileCount === undefined
+      ? "skipped files unknown"
+      : `${freshness.skippedFileCount.toLocaleString()} skipped`;
+
+  return `${api} · ${graph} · ${parser} · ${indexed} · ${skipped}`;
+}
+
 export function buildAgentSessionDisplayState(
   preparation: AgentSessionPreparation,
   hasRealIndex: boolean,
@@ -1596,6 +1615,9 @@ export function buildAgentSessionDisplayState(
     packLabel: repoAgentPackLabel(preparation.packId),
     modeLabel: agentSessionModeLabel(preparation.recommendedMode),
     freshnessLabel: preparation.freshness.label,
+    freshnessDetailLabel: agentSessionFreshnessDetailLabel(
+      preparation.freshness,
+    ),
     contextLabel: hasRealIndex ? "Local repo index" : "Sample preview",
     selectedPackTokensLabel: selectedPackTokens.toLocaleString(),
     tokensAvoidedLabel: tokensAvoided.toLocaleString(),
