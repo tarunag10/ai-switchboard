@@ -152,6 +152,7 @@ pub struct RepoContextPackResponse {
     pub indexed_at: String,
     pub pack: RepoContextPack,
     pub index_metadata: Option<RepoIndexMetadata>,
+    pub index_freshness: RepoIndexFreshnessResponse,
     pub graph_brief: RepoContextPackGraphBrief,
     pub safety: RepoContextPackSafety,
 }

@@ -419,12 +419,14 @@ pub fn build_context_pack_response(
         .cloned()
         .ok_or_else(|| anyhow!("repo intelligence pack not found: {selected_pack_id}"))?;
     let graph = summary.graph.as_ref();
+    let index_freshness = build_index_freshness_response(Some(summary));
 
     Ok(RepoContextPackResponse {
         repo_root: summary.repo_root.clone(),
         indexed_at: summary.indexed_at.clone(),
         pack,
         index_metadata: summary.index_metadata.clone(),
+        index_freshness,
         graph_brief: RepoContextPackGraphBrief {
             available: graph.is_some(),
             dependency_hub_count: graph
@@ -2160,6 +2162,12 @@ mod tests {
         assert_eq!(response.pack.id, "implementation");
         assert!(response.graph_brief.available);
         assert!(response.graph_brief.symbol_count > 0);
+        assert!(matches!(
+            response.index_freshness.status,
+            RepoIndexFreshnessStatus::Fresh | RepoIndexFreshnessStatus::UnchangedCache
+        ));
+        assert!(response.index_freshness.safety.read_only);
+        assert!(!response.index_freshness.safety.modifies_repository);
         assert!(response.safety.read_only);
         assert!(response.safety.excludes_secret_like_paths);
         assert!(!response.safety.modifies_repository);
