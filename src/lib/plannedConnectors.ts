@@ -907,7 +907,7 @@ export function getPlannedConnectorConfigCreationPlan(
         "Write a timestamped backup beside the edited config or record an environment-wrapper restore point.",
       requiredEvidence: [
         "Timestamped backup path or environment-wrapper restore point.",
-        "Restore fixture proving unknown fields and unrelated provider entries are preserved.",
+        "Fixture-home restore test proving unknown fields and unrelated provider entries are preserved.",
       ],
     },
     {
@@ -933,7 +933,7 @@ export function getPlannedConnectorConfigCreationPlan(
       label: "Rollback safely",
       detail: dossier.rollbackStrategy,
       requiredEvidence: [
-        "Rollback test restoring the exact backup or removing only managed wrapper state.",
+        "Fixture-home rollback test restoring the exact backup or removing only managed wrapper state.",
         "Post-rollback diff proving unrelated user settings are unchanged.",
       ],
     },
@@ -943,7 +943,7 @@ export function getPlannedConnectorConfigCreationPlan(
       detail:
         "Off mode removes only Switchboard-managed routing and leaves unrelated user config untouched.",
       requiredEvidence: [
-        "Off-mode fixture showing managed routing removed.",
+        "Fixture-home Off-mode cleanup showing managed routing removed.",
         "Doctor verification that the connector returns to manual or RTK-only mode.",
       ],
     },

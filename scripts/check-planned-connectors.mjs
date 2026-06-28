@@ -107,9 +107,12 @@ function validateConfigCreationPlanContract(source) {
     "managed marker boundary",
     "rollback preview",
     "confirmation phrase",
+    "Fixture-home restore test",
+    "Fixture-home rollback test",
+    "Fixture-home Off-mode cleanup",
   ]) {
     if (!functionBody.includes(snippet)) {
-      errors.push(`frontend dry-run diff evidence missing "${snippet}"`);
+      errors.push(`frontend config creation evidence missing "${snippet}"`);
     }
   }
 
@@ -172,9 +175,12 @@ function validateBackendConfigCreationPlanContract(source) {
     "managed marker boundary",
     "rollback preview",
     "confirmation phrase",
+    "Fixture-home restore test",
+    "Fixture-home rollback test",
+    "Fixture-home Off-mode cleanup",
   ]) {
     if (!source.includes(snippet)) {
-      errors.push(`backend dry-run diff evidence missing "${snippet}"`);
+      errors.push(`backend config creation evidence missing "${snippet}"`);
     }
   }
   for (const snippet of [

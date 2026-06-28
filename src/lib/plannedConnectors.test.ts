@@ -300,6 +300,15 @@ describe("planned connectors", () => {
       expect(plan.steps.find((step) => step.id === "dryRunDiff")?.detail).toMatch(
         /target path|before\/after|managed marker|rollback preview|confirmation phrase/i,
       );
+      expect(plan.steps.find((step) => step.id === "backup")?.requiredEvidence.join(" ")).toMatch(
+        /Fixture-home restore test/i,
+      );
+      expect(plan.steps.find((step) => step.id === "rollback")?.requiredEvidence.join(" ")).toMatch(
+        /Fixture-home rollback test/i,
+      );
+      expect(plan.steps.find((step) => step.id === "offCleanup")?.requiredEvidence.join(" ")).toMatch(
+        /Fixture-home Off-mode cleanup/i,
+      );
       for (const step of plan.steps) {
         expect(step.requiredEvidence.length).toBeGreaterThanOrEqual(2);
         expect(step.requiredEvidence.join(" ")).toMatch(

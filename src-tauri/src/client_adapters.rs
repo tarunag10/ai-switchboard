@@ -376,7 +376,7 @@ fn planned_config_creation_step_details(
         ],
         vec![
             "Timestamped backup path or environment-wrapper restore point.".to_string(),
-            "Restore fixture proving unknown fields and unrelated provider entries are preserved."
+            "Fixture-home restore test proving unknown fields and unrelated provider entries are preserved."
                 .to_string(),
         ],
         vec![
@@ -390,12 +390,12 @@ fn planned_config_creation_step_details(
                 .to_string(),
         ],
         vec![
-            "Rollback test restoring the exact backup or removing only managed wrapper state."
+            "Fixture-home rollback test restoring the exact backup or removing only managed wrapper state."
                 .to_string(),
             "Post-rollback diff proving unrelated user settings are unchanged.".to_string(),
         ],
         vec![
-            "Off-mode fixture showing managed routing removed.".to_string(),
+            "Fixture-home Off-mode cleanup showing managed routing removed.".to_string(),
             "Doctor verification that the connector returns to manual or RTK-only mode.".to_string(),
         ],
     ];
