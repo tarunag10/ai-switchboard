@@ -2653,6 +2653,54 @@ mod tests {
     }
 
     #[test]
+    fn builds_bounded_read_only_context_pack_response() {
+        let root = tempfile::tempdir().expect("create repo");
+        std::fs::create_dir_all(root.path().join("src")).expect("create src");
+        for index in 0..45 {
+            std::fs::write(
+                root.path().join(format!("src/module_{index:02}.ts")),
+                format!("export const value{index} = {index};\n"),
+            )
+            .expect("write source");
+        }
+        std::fs::write(
+            root.path().join("src/module_00.test.ts"),
+            "test('module', () => {})\n",
+        )
+        .expect("write test");
+        std::fs::write(root.path().join(".env.local"), "SECRET=value\n")
+            .expect("write secret");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        let default_pack = build_context_pack_response(&summary, None).expect("default pack");
+        assert_eq!(default_pack.pack.id, "implementation");
+        assert!(default_pack.pack.files.len() <= MAX_PACK_FILES);
+        assert!(default_pack.index_freshness.safety.read_only);
+        assert!(default_pack.safety.read_only);
+        assert!(default_pack.safety.excludes_secret_like_paths);
+        assert!(!default_pack.safety.modifies_repository);
+        assert!(!default_pack
+            .pack
+            .files
+            .iter()
+            .any(|file| file.path.contains(".env.local")));
+
+        let verification =
+            build_context_pack_response(&summary, Some("verification")).expect("verification pack");
+        assert_eq!(verification.pack.id, "verification");
+        assert!(verification
+            .pack
+            .files
+            .iter()
+            .any(|file| file.path.ends_with(".test.ts")));
+
+        let missing = build_context_pack_response(&summary, Some("missing")).unwrap_err();
+        assert!(missing
+            .to_string()
+            .contains("repo intelligence pack not found: missing"));
+    }
+
+    #[test]
     fn builds_index_freshness_for_empty_and_cached_indexes() {
         let empty = build_index_freshness_response(None);
         assert!(matches!(empty.status, RepoIndexFreshnessStatus::None));
