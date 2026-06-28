@@ -419,58 +419,118 @@ export function buildSavingsLedgerRows(
     return rows;
   }
 
-  const measuredHeadroomEvents = (options.attributionEvents ?? []).filter(
-    (event) =>
-      event.scope === "session" &&
-      event.source === "headroom_engine" &&
-      event.confidence === "measured" &&
-      (event.deltaTokensSaved > 0 || event.deltaUsd > 0),
+  const backendRows = measuredBackendAttributionRows(
+    options.attributionEvents ?? [],
+    scope,
+    recordedAt,
   );
-  if (measuredHeadroomEvents.length === 0) {
+  if (backendRows.length === 0) {
     return rows;
   }
 
-  const savedTokens = measuredHeadroomEvents.reduce(
-    (sum, event) => sum + Math.max(0, event.deltaTokensSaved),
-    0,
+  const backendSources = new Set(backendRows.map((row) => row.source));
+  return [
+    ...backendRows,
+    ...rows.filter((row) => !backendSources.has(row.source)),
+  ];
+}
+
+function measuredBackendAttributionRows(
+  events: SavingsAttributionEvent[],
+  scope: SavingsCalculatorScope,
+  recordedAt: string,
+): SavingsLedgerRow[] {
+  const measuredEvents = events.filter(
+    (event) =>
+      event.scope === "session" &&
+      event.confidence === "measured" &&
+      (event.deltaTokensSaved > 0 || event.deltaUsd > 0 || event.requestDelta > 0),
   );
-  const savedUsd = measuredHeadroomEvents.reduce(
-    (sum, event) => sum + Math.max(0, event.deltaUsd),
-    0,
-  );
-  const requests = measuredHeadroomEvents.reduce(
-    (sum, event) => sum + Math.max(0, event.requestDelta),
-    0,
-  );
-  const observedAtValues = measuredHeadroomEvents
-    .map((event) => event.observedAt)
-    .sort();
-  const latestObservedAt =
-    observedAtValues[observedAtValues.length - 1] ?? recordedAt;
-  const eventCount = measuredHeadroomEvents.length;
-  const eventEvidence = measuredHeadroomEvents
-    .flatMap((event) => event.evidence)
-    .filter(Boolean);
-  const evidenceDetail =
-    eventEvidence.length > 0 ? ` Evidence: ${eventEvidence[0]}` : "";
-  const backendHeadroomRow: SavingsLedgerRow = {
-    id: "headroom_attribution_events",
-    label: "Headroom",
-    source: "headroom_engine",
-    kind: "runtime",
-    confidence: "measured",
-    savedTokens,
-    savedUsd,
-    detail: `${eventCount.toLocaleString()} measured Headroom session event${eventCount === 1 ? "" : "s"} across ${requests.toLocaleString()} request${requests === 1 ? "" : "s"}.${evidenceDetail}`,
-    scope,
-    recordedAt: latestObservedAt,
-    caveat: "Observed from append-only backend attribution events.",
+  const sourceLabels: Record<
+    SavingsLedgerSource,
+    { id: string; label: string; kind: SavingsCalculatorBreakdownKind }
+  > = {
+    headroom_engine: {
+      id: "headroom_attribution_events",
+      label: "Headroom",
+      kind: "runtime",
+    },
+    rtk: {
+      id: "rtk_attribution_events",
+      label: "RTK",
+      kind: "command_output",
+    },
+    repo_intelligence: {
+      id: "repo_intelligence_attribution_events",
+      label: "Repo Intelligence",
+      kind: "repo_context",
+    },
+    caveman: {
+      id: "caveman_attribution_events",
+      label: "Caveman",
+      kind: "terse_output",
+    },
+    ponytail: {
+      id: "ponytail_attribution_events",
+      label: "Ponytail",
+      kind: "change_scope",
+    },
+    markitdown: {
+      id: "markitdown_attribution_events",
+      label: "MarkItDown",
+      kind: "doc_preprocess",
+    },
   };
 
-  return [
-    backendHeadroomRow,
-    ...rows.filter((row) => row.source !== "headroom_engine"),
-  ];
+  return Object.entries(sourceLabels)
+    .flatMap(([source, meta]) => {
+      const sourceEvents = measuredEvents.filter(
+        (event) => event.source === source,
+      );
+      if (sourceEvents.length === 0) {
+        return [];
+      }
+      const savedTokens = sourceEvents.reduce(
+        (sum, event) => sum + Math.max(0, event.deltaTokensSaved),
+        0,
+      );
+      const savedUsd = sourceEvents.reduce(
+        (sum, event) => sum + Math.max(0, event.deltaUsd),
+        0,
+      );
+      const requests = sourceEvents.reduce(
+        (sum, event) => sum + Math.max(0, event.requestDelta),
+        0,
+      );
+      const observedAtValues = sourceEvents
+        .map((event) => event.observedAt)
+        .sort();
+      const latestObservedAt =
+        observedAtValues[observedAtValues.length - 1] ?? recordedAt;
+      const eventCount = sourceEvents.length;
+      const eventEvidence = sourceEvents
+        .flatMap((event) => event.evidence)
+        .filter(Boolean);
+      const evidenceDetail =
+        eventEvidence.length > 0 ? ` Evidence: ${eventEvidence[0]}` : "";
+
+      return [
+        {
+          id: meta.id,
+          label: meta.label,
+          source: source as SavingsLedgerSource,
+          kind: meta.kind,
+          confidence: "measured" as const,
+          savedTokens,
+          savedUsd: savedUsd > 0 ? savedUsd : null,
+          detail: `${eventCount.toLocaleString()} measured ${meta.label} session event${eventCount === 1 ? "" : "s"} across ${requests.toLocaleString()} ${source === "rtk" ? "command" : "request"}${requests === 1 ? "" : "s"}.${evidenceDetail}`,
+          scope,
+          recordedAt: latestObservedAt,
+          caveat: "Observed from append-only backend attribution events.",
+        },
+      ];
+    })
+    .sort((left, right) => left.label.localeCompare(right.label));
 }
 
 export function summarizeSavingsLedgerRows(

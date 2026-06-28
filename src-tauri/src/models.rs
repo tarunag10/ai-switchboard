@@ -539,6 +539,7 @@ pub struct HourlySavingsPoint {
 #[serde(rename_all = "snake_case")]
 pub enum SavingsAttributionSource {
     HeadroomEngine,
+    Rtk,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

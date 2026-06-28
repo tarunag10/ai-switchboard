@@ -100,7 +100,7 @@ export interface SavingsAttributionEvent {
   id: string;
   observedAt: string;
   scope: "session";
-  source: "headroom_engine";
+  source: "headroom_engine" | "rtk";
   confidence: "measured";
   deltaTokensSaved: number;
   deltaUsd: number;

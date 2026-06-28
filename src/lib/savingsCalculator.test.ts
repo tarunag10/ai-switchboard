@@ -207,6 +207,46 @@ describe("savings calculator", () => {
     expect(rows.filter((row) => row.source === "headroom_engine")).toHaveLength(1);
   });
 
+  it("uses measured backend attribution events for the session RTK ledger row", () => {
+    const rows = buildSavingsLedgerRows(
+      dashboardFixture(),
+      "session",
+      "2026-06-25T10:00:00Z",
+      {
+        attributionEvents: [
+          {
+            schemaVersion: 1,
+            id: "rtk-event-1",
+            observedAt: "2026-06-25T10:03:00Z",
+            scope: "session",
+            source: "rtk",
+            confidence: "measured",
+            deltaTokensSaved: 450,
+            deltaUsd: 0,
+            totalTokensSent: 0,
+            requestDelta: 3,
+            evidence: ["Measured from positive RTK gain counter deltas."],
+          },
+        ],
+      },
+    );
+
+    const rtk = rows.find((row) => row.source === "rtk");
+
+    expect(rtk).toMatchObject({
+      id: "rtk_attribution_events",
+      label: "RTK",
+      confidence: "measured",
+      savedTokens: 450,
+      savedUsd: null,
+      recordedAt: "2026-06-25T10:03:00Z",
+      caveat: "Observed from append-only backend attribution events.",
+    });
+    expect(rtk?.detail).toContain("1 measured RTK session event");
+    expect(rtk?.detail).toContain("3 commands");
+    expect(rtk?.detail).toContain("RTK gain counter");
+  });
+
   it("keeps lifetime Headroom ledger rows based on saved rollups", () => {
     const rows = buildSavingsLedgerRows(
       dashboardFixture(),

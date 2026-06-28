@@ -2787,6 +2787,9 @@ impl AppState {
         let (rtk_path_configured, rtk_hook_configured) =
             rtk_integration_status().unwrap_or((false, false));
         let rtk_gain_summary = self.cached_rtk_gain_summary();
+        if let Some(stats) = rtk_gain_summary.as_ref() {
+            self.savings_tracker.lock().observe_rtk_gain_summary(stats);
+        }
         let headroom_pid = {
             let mut process = self.headroom_process.lock();
             if let Some(existing) = process.as_mut() {
@@ -3604,6 +3607,13 @@ struct SavingsObservation {
     session_total_tokens_sent: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RtkSavingsObservation {
+    observed_at: chrono::DateTime<Utc>,
+    total_commands: u64,
+    total_saved: u64,
+}
+
 impl SavingsObservation {
     fn last_activity_at(&self) -> chrono::DateTime<Utc> {
         self.last_activity_at.unwrap_or(self.observed_at)
@@ -3630,6 +3640,7 @@ struct PersistedSavingsState {
     lifetime_estimated_savings_usd: f64,
     lifetime_estimated_tokens_saved: u64,
     last_observation: Option<SavingsObservation>,
+    last_rtk_observation: Option<RtkSavingsObservation>,
     display_session_baseline: Option<SavingsObservation>,
     session_savings_history: Vec<HeadroomSavingsHistoryPoint>,
     session_hourly_buckets: BTreeMap<String, DailySavingsBucket>,
@@ -3649,6 +3660,7 @@ struct SavingsTracker {
     lifetime_estimated_savings_usd: f64,
     lifetime_estimated_tokens_saved: u64,
     last_observation: Option<SavingsObservation>,
+    last_rtk_observation: Option<RtkSavingsObservation>,
     display_session_baseline: Option<SavingsObservation>,
     session_savings_history: Vec<HeadroomSavingsHistoryPoint>,
     session_hourly_buckets: BTreeMap<String, DailySavingsBucket>,
@@ -3702,6 +3714,9 @@ impl SavingsTracker {
             last_observation: persisted_state
                 .as_ref()
                 .and_then(|state| state.last_observation.clone()),
+            last_rtk_observation: persisted_state
+                .as_ref()
+                .and_then(|state| state.last_rtk_observation.clone()),
             display_session_baseline: persisted_state
                 .as_ref()
                 .and_then(|state| state.display_session_baseline.clone()),
@@ -3805,6 +3820,49 @@ impl SavingsTracker {
         text.lines()
             .filter_map(|line| serde_json::from_str::<SavingsAttributionEvent>(line).ok())
             .collect()
+    }
+
+    fn observe_rtk_gain_summary(&mut self, stats: &RtkGainSummary) {
+        let previous = self.last_rtk_observation.clone();
+        let reset_detected = previous.as_ref().is_some_and(|prev| {
+            stats.total_saved < prev.total_saved || stats.total_commands < prev.total_commands
+        });
+        let (delta_tokens, delta_commands) = match previous.as_ref() {
+            Some(prev) if !reset_detected => (
+                stats.total_saved.saturating_sub(prev.total_saved),
+                stats.total_commands.saturating_sub(prev.total_commands),
+            ),
+            Some(_) => (stats.total_saved, stats.total_commands),
+            None => (0, 0),
+        };
+
+        if delta_tokens > 0 || delta_commands > 0 {
+            let event = SavingsAttributionEvent {
+                schema_version: 1,
+                id: Uuid::new_v4().to_string(),
+                observed_at: Utc::now(),
+                scope: SavingsAttributionScope::Session,
+                source: SavingsAttributionSource::Rtk,
+                confidence: SavingsAttributionConfidence::Measured,
+                delta_tokens_saved: delta_tokens,
+                delta_usd: 0.0,
+                total_tokens_sent: 0,
+                request_delta: delta_commands as usize,
+                evidence: vec![
+                    "Measured from positive RTK gain counter deltas.".to_string(),
+                    "RTK savings are local command-output tokens and are not model-spend dollars."
+                        .to_string(),
+                ],
+            };
+            let _ = self.append_attribution_event(&event);
+        }
+
+        self.last_rtk_observation = Some(RtkSavingsObservation {
+            observed_at: Utc::now(),
+            total_commands: stats.total_commands,
+            total_saved: stats.total_saved,
+        });
+        let _ = self.persist_state();
     }
 
     /// Fold the backend's authoritative rollups into the local archive so they
@@ -4309,6 +4367,7 @@ impl SavingsTracker {
             lifetime_estimated_savings_usd: self.lifetime_estimated_savings_usd,
             lifetime_estimated_tokens_saved: self.lifetime_estimated_tokens_saved,
             last_observation: self.last_observation.clone(),
+            last_rtk_observation: self.last_rtk_observation.clone(),
             display_session_baseline: self.display_session_baseline.clone(),
             session_savings_history: self.session_savings_history.clone(),
             session_hourly_buckets: self.session_hourly_buckets.clone(),
@@ -5722,7 +5781,7 @@ mod tests {
         RuntimeUpgradeFailure, SavingsAttributionConfidence, SavingsAttributionEvent,
         SavingsAttributionScope, SavingsAttributionSource, UpgradeFailurePhase,
     };
-    use crate::tool_manager::BootstrapStepUpdate;
+    use crate::tool_manager::{BootstrapStepUpdate, RtkGainSummary};
 
     use super::{
         aggregate_weekly_totals, apply_bootstrap_step, begin_bootstrap_transition,
@@ -6217,6 +6276,7 @@ mod tests {
             lifetime_estimated_savings_usd: 0.0,
             lifetime_estimated_tokens_saved: 0,
             last_observation: None,
+            last_rtk_observation: None,
             display_session_baseline: None,
             session_savings_history: Vec::new(),
             session_hourly_buckets: std::collections::BTreeMap::new(),
@@ -6330,6 +6390,41 @@ mod tests {
         assert_eq!(event.request_delta, 3);
         assert!(event.evidence.join(" ").contains("Headroom /stats"));
         assert!(event.evidence.join(" ").contains("Ponytail"));
+        let _ = std::fs::remove_file(&tracker.records_path);
+        let _ = std::fs::remove_file(&tracker.attribution_events_path);
+        let _ = std::fs::remove_file(&tracker.state_path);
+    }
+
+    #[test]
+    fn savings_tracker_appends_measured_rtk_attribution_events_from_deltas() {
+        let mut tracker = make_tracker();
+
+        tracker.observe_rtk_gain_summary(&RtkGainSummary {
+            total_commands: 10,
+            total_saved: 1000,
+            avg_savings_pct: 70.0,
+        });
+        assert!(
+            tracker.attribution_events().is_empty(),
+            "first RTK observation establishes the baseline"
+        );
+
+        tracker.observe_rtk_gain_summary(&RtkGainSummary {
+            total_commands: 13,
+            total_saved: 1450,
+            avg_savings_pct: 72.0,
+        });
+
+        let events = tracker.attribution_events();
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.source, SavingsAttributionSource::Rtk);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Measured);
+        assert_eq!(event.delta_tokens_saved, 450);
+        assert_eq!(event.delta_usd, 0.0);
+        assert_eq!(event.request_delta, 3);
+        assert!(event.evidence.join(" ").contains("RTK gain counter"));
+        assert!(event.evidence.join(" ").contains("local command-output"));
         let _ = std::fs::remove_file(&tracker.records_path);
         let _ = std::fs::remove_file(&tracker.attribution_events_path);
         let _ = std::fs::remove_file(&tracker.state_path);
@@ -8198,6 +8293,7 @@ mod tests {
                 session_actual_cost_usd: 0.0,
                 session_total_tokens_sent: 0,
             }),
+            last_rtk_observation: None,
             display_session_baseline: None,
             session_savings_history: Vec::new(),
             session_hourly_buckets: std::collections::BTreeMap::new(),

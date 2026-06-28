@@ -797,9 +797,10 @@ function SavingsCalculatorCard({
     (event) =>
       scope === "session" &&
       event.scope === "session" &&
-      event.source === "headroom_engine" &&
       event.confidence === "measured" &&
-      (event.deltaTokensSaved > 0 || event.deltaUsd > 0),
+      (event.deltaTokensSaved > 0 ||
+        event.deltaUsd > 0 ||
+        event.requestDelta > 0),
   ).length;
 
   async function copySavingsSummary() {
