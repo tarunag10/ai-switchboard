@@ -147,6 +147,7 @@ import {
   formatDayKey,
   formatLearnStatus,
   formatMonthLabel,
+  formatPlannedConnectorConfigGateSummary,
   formatSelectedDayLabel,
   getEnabledSupportedConnectors,
   hasEnabledConnector,
@@ -8699,6 +8700,8 @@ export default function App() {
                     connector.setupHint ?? plannedConnector?.notes ?? null;
                   const compatibilityReport =
                     connectorCompatibilityReport(connector);
+                  const configGateSummary =
+                    formatPlannedConnectorConfigGateSummary(connector);
                   return (
                     <article
                       className="connector-item"
@@ -8836,6 +8839,16 @@ export default function App() {
                                     ? "enabled"
                                     : "manual gated"}
                                 </span>
+                              </div>
+                            ) : null}
+                            {configGateSummary ? (
+                              <div className="connector-plan__config-gates">
+                                <strong>{configGateSummary.title}</strong>
+                                <span>{configGateSummary.detail}</span>
+                                <span>
+                                  Next: {configGateSummary.nextGateLabel}
+                                </span>
+                                <span>{configGateSummary.safetyNote}</span>
                               </div>
                             ) : null}
                             {connector.detectionSources?.length ||

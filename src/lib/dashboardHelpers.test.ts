@@ -20,6 +20,7 @@ import {
   formatDayKey,
   formatLearnStatus,
   getEnabledSupportedConnectors,
+  formatPlannedConnectorConfigGateSummary,
   hasEnabledConnector,
   hourOfDayTickFormatter,
   mergeProviderSavingsForDisplay,
@@ -439,6 +440,36 @@ describe("dashboard helpers", () => {
       expect(report?.automationEnabled).toBe(false);
       expect(report?.configCreationGates).toEqual(expectedConfigCreationGates);
     }
+  });
+
+  it("formats config creation gate summaries for planned connector cards", () => {
+    const summary = formatPlannedConnectorConfigGateSummary({
+      clientId: "opencode",
+      name: "OpenCode",
+      supportStatus: "planned",
+      installed: true,
+      enabled: false,
+      verified: false,
+    });
+
+    expect(summary).toEqual({
+      title: "Config creation gates",
+      detail:
+        "7 gates required before automatic setup: Detect config surface -> Show dry-run diff -> Create backup -> Apply with consent -> Verify in Doctor -> Rollback safely -> Clean up in Off mode",
+      nextGateLabel: "Detect config surface",
+      automationEnabled: false,
+      safetyNote:
+        "Config creation remains gated until every step has tests and Doctor evidence.",
+    });
+    expect(
+      formatPlannedConnectorConfigGateSummary({
+        clientId: "claude_code",
+        name: "Claude Code",
+        installed: true,
+        enabled: true,
+        verified: true,
+      }),
+    ).toBeNull();
   });
 
   it("formats Gemini compatibility evidence for planned connector UI", () => {

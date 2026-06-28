@@ -694,6 +694,27 @@ export function connectorCompatibilityReport(
   };
 }
 
+export function formatPlannedConnectorConfigGateSummary(
+  connector: ClientConnectorStatus
+) {
+  const plannedConnector = getPlannedConnector(connector.clientId);
+  if (!plannedConnector) {
+    return null;
+  }
+
+  const plan = getPlannedConnectorConfigCreationPlan(plannedConnector);
+  const gateLabels = plan.steps.map((step) => step.label);
+  const nextGate = plan.steps.find((step) => step.id === "detect") ?? plan.steps[0];
+
+  return {
+    title: "Config creation gates",
+    detail: `${gateLabels.length} gates required before automatic setup: ${gateLabels.join(" -> ")}`,
+    nextGateLabel: nextGate.label,
+    automationEnabled: plan.automationEnabled,
+    safetyNote: plan.safetyNote,
+  };
+}
+
 export function formatConnectorConfigDryRunPreview(
   connector: ClientConnectorStatus
 ) {
