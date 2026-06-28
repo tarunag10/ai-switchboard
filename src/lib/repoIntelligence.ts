@@ -185,6 +185,8 @@ export interface AgentSessionDisplayState {
   packLabel: string;
   modeLabel: string;
   freshnessLabel: string;
+  contextLabel: string;
+  sampleContextWarning: string | null;
   copyStatus: AgentSessionCopyStatus;
   copyDetail: string;
   canCopyHandoff: boolean;
@@ -1473,6 +1475,10 @@ export function buildAgentSessionDisplayState(
     packLabel: repoAgentPackLabel(preparation.packId),
     modeLabel: agentSessionModeLabel(preparation.recommendedMode),
     freshnessLabel: preparation.freshness.label,
+    contextLabel: hasRealIndex ? "Local repo index" : "Sample preview",
+    sampleContextWarning: hasRealIndex
+      ? null
+      : "Sample preview packs are blocked from copy actions. Index a real local repo first.",
     copyStatus: preparation.copyStatus,
     copyDetail: preparation.copyDetail,
     canCopyHandoff,

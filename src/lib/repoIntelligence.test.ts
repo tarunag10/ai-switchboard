@@ -785,6 +785,8 @@ describe("repoIntelligence", () => {
       packLabel: "Verification pack",
       modeLabel: "Full optimization",
       freshnessLabel: "Fresh local index",
+      contextLabel: "Local repo index",
+      sampleContextWarning: null,
       copyStatus: "ready",
       canCopyHandoff: true,
       canCopySelectedPack: true,
@@ -840,11 +842,15 @@ describe("repoIntelligence", () => {
       targetLabel: "Cursor",
       packLabel: "Handoff pack",
       modeLabel: "Off",
+      contextLabel: "Sample preview",
       copyStatus: "blocked",
       canCopyHandoff: false,
       canCopySelectedPack: false,
       canCopyJson: false,
     });
+    expect(blockedDisplay.sampleContextWarning).toContain(
+      "Sample preview packs are blocked",
+    );
   });
 
   it("labels agent session packs consistently", () => {

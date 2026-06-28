@@ -2146,7 +2146,16 @@ function RepoIntelligencePreview({
             <span>Freshness</span>
             <strong>{sessionDisplayState.freshnessLabel}</strong>
           </div>
+          <div>
+            <span>Context</span>
+            <strong>{sessionDisplayState.contextLabel}</strong>
+          </div>
         </div>
+        {sessionDisplayState.sampleContextWarning ? (
+          <p className="repo-intelligence-session__detail">
+            {sessionDisplayState.sampleContextWarning}
+          </p>
+        ) : null}
         <p className="repo-intelligence-session__detail">
           {sessionDisplayState.copyDetail} Doctor still verifies runtime and
           connector health before any managed setup.
