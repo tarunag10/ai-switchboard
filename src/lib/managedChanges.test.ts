@@ -93,6 +93,7 @@ describe("managedChangeRecords", () => {
     });
     expect(preview.currentManagedBlock).toContain("old");
     expect(preview.proposedManagedBlock).toContain("new");
+    expect(preview.safetyNotes.join(" ")).toContain("does not modify files");
     expect(preview.safetyNotes.join(" ")).toContain("dry-run diff");
     expect(preview.safetyNotes.join(" ")).toContain("Off mode");
     expect(preview.safetyNotes.join(" ")).toContain("Unmanaged user config");
@@ -120,6 +121,7 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Current managed block:\n(none detected)");
     expect(text).toContain("Proposed managed block:");
     expect(text).toContain("Unmanaged user config:");
+    expect(text).toContain("This dry-run report does not modify files.");
     expect(text).toContain(
       "Preserve unmanaged user config outside the marked Switchboard block.",
     );

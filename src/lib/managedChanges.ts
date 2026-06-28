@@ -157,9 +157,9 @@ export function buildManagedConfigDiffPreview({
   proposedManagedBlock,
 }: {
   record: ManagedChangeRecord;
-  targetPath: string;
-  currentManagedBlock?: string | null;
-  proposedManagedBlock: string;
+    targetPath: string;
+    currentManagedBlock?: string | null;
+    proposedManagedBlock: string;
 }): ManagedConfigDiffPreview {
   if (!record.backupPath) {
     throw new Error(`${record.id} does not require a config backup.`);
@@ -188,6 +188,7 @@ export function buildManagedConfigDiffPreview({
     unmanagedConfigPolicy:
       "Preserve unmanaged user config outside the marked Switchboard block.",
     safetyNotes: [
+      "This dry-run report does not modify files.",
       "Review this dry-run diff before applying changes.",
       "Back up the target config before writing the proposed managed block.",
       "Off mode must remove only Switchboard-owned marked changes.",
