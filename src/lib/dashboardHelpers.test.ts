@@ -28,11 +28,22 @@ import {
   summarizePlannedConnectorReadiness,
 } from "./dashboardHelpers";
 import { plannedConnectors } from "./plannedConnectors";
+
 import type {
   ClientConnectorStatus,
   DailySavingsPoint,
   HourlySavingsPoint,
 } from "./types";
+
+const expectedConfigCreationGates = [
+  { id: "detect", label: "Detect config surface" },
+  { id: "dryRunDiff", label: "Show dry-run diff" },
+  { id: "backup", label: "Create backup" },
+  { id: "apply", label: "Apply with consent" },
+  { id: "verify", label: "Verify in Doctor" },
+  { id: "rollback", label: "Rollback safely" },
+  { id: "offCleanup", label: "Clean up in Off mode" },
+];
 
 describe("dashboard helpers", () => {
   afterEach(() => {
@@ -410,6 +421,25 @@ describe("dashboard helpers", () => {
     ).toEqual(plannedConnectors.map((connector) => connector.id).sort());
   });
 
+  it("exposes config creation gates for every planned connector compatibility report", () => {
+    for (const connector of plannedConnectors) {
+      const report = connectorCompatibilityReport({
+        clientId: connector.id,
+        name: connector.name,
+        supportStatus: "planned",
+        detectionEvidence: [
+          `${plannedConnectorCompatibilityReportConfigs[connector.id]?.pathPrefix} /tmp/${connector.id}`,
+        ],
+        installed: true,
+        enabled: false,
+        verified: false,
+      });
+
+      expect(report?.automationEnabled).toBe(false);
+      expect(report?.configCreationGates).toEqual(expectedConfigCreationGates);
+    }
+  });
+
   it("formats Gemini compatibility evidence for planned connector UI", () => {
     const report = connectorCompatibilityReport({
       clientId: "gemini_cli",
@@ -436,6 +466,8 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.gemini",
       routingBlocker:
         "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.",
+      automationEnabled: false,
+      configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but the Headroom adapter is not implemented yet."],
     });
   });
@@ -466,6 +498,8 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.config/opencode",
       routingBlocker:
         "Provider routing blocked until active config path, backup, verify, rollback, and Off mode cleanup exist.",
+      automationEnabled: false,
+      configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but the Headroom adapter is not implemented yet."],
     });
   });
@@ -496,6 +530,8 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.config/xai",
       routingBlocker:
         "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+      automationEnabled: false,
+      configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
     });
   });
@@ -525,6 +561,8 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/Library/Application Support/Cursor",
       routingBlocker:
         "Settings routing blocked until active profile detection, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
+      automationEnabled: false,
+      configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
     });
   });
@@ -555,6 +593,8 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.aider.conf.yml",
       routingBlocker:
         "Provider routing blocked until reversible environment wrapper, backup, verify, rollback, and Off mode cleanup exist.",
+      automationEnabled: false,
+      configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
     });
   });
@@ -584,6 +624,8 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.continue",
       routingBlocker:
         "Settings routing blocked until multi-provider parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
+      automationEnabled: false,
+      configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
     });
   });
@@ -614,6 +656,8 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.config/goose",
       routingBlocker:
         "Provider routing blocked until MCP handoff shape, backup, verify, rollback, and Off mode cleanup exist.",
+      automationEnabled: false,
+      configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
     });
   });
@@ -644,6 +688,8 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.qwen",
       routingBlocker:
         "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+      automationEnabled: false,
+      configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter is not implemented yet."],
     });
   });
@@ -674,6 +720,8 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.aws/amazonq",
       routingBlocker:
         "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+      automationEnabled: false,
+      configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter is not implemented yet."],
     });
   });
@@ -703,6 +751,8 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/Library/Application Support/Windsurf",
       routingBlocker:
         "Settings routing blocked until profile-aware discovery, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
+      automationEnabled: false,
+      configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter is not implemented yet."],
     });
   });
@@ -732,6 +782,8 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.config/zed",
       routingBlocker:
         "Settings routing blocked until lossless settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
+      automationEnabled: false,
+      configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter is not implemented yet."],
     });
   });

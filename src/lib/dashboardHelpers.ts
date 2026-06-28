@@ -1,7 +1,10 @@
 import {
+  getPlannedConnector,
+  getPlannedConnectorConfigCreationPlan,
   plannedConnectors,
   summarizePlannedConnectorSupport,
 } from "./plannedConnectors";
+import type { PlannedConnectorConfigCreationStep } from "./plannedConnectors";
 import type {
   ClientConnectorStatus,
   DailySavingsPoint,
@@ -526,6 +529,10 @@ export interface ConnectorCompatibilityReport {
   version: string | null;
   configSurface: string | null;
   routingBlocker: string | null;
+  automationEnabled: boolean;
+  configCreationGates: Array<
+    Pick<PlannedConnectorConfigCreationStep, "id" | "label">
+  >;
   otherEvidence: string[];
 }
 
@@ -660,6 +667,10 @@ export function connectorCompatibilityReport(
     ].filter((item): item is string => item !== null)
   );
   const otherEvidence = evidence.filter((item) => !knownEvidence.has(item));
+  const plannedConnector = getPlannedConnector(connector.clientId);
+  const configCreationPlan = plannedConnector
+    ? getPlannedConnectorConfigCreationPlan(plannedConnector)
+    : null;
 
   if (!binaryPath && !version && !configSurface && !routingBlocker) {
     return null;
@@ -672,6 +683,12 @@ export function connectorCompatibilityReport(
     version,
     configSurface,
     routingBlocker,
+    automationEnabled: configCreationPlan?.automationEnabled ?? false,
+    configCreationGates:
+      configCreationPlan?.steps.map(({ id, label }) => ({
+        id,
+        label,
+      })) ?? [],
     otherEvidence
   };
 }

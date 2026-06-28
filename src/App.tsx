@@ -8787,6 +8787,20 @@ export default function App() {
                                     {compatibilityReport.routingBlocker}
                                   </span>
                                 ) : null}
+                                {compatibilityReport.configCreationGates.length ? (
+                                  <span>
+                                    Config gates{" "}
+                                    {compatibilityReport.configCreationGates
+                                      .map((gate) => gate.label)
+                                      .join(" -> ")}
+                                  </span>
+                                ) : null}
+                                <span>
+                                  Automation{" "}
+                                  {compatibilityReport.automationEnabled
+                                    ? "enabled"
+                                    : "manual gated"}
+                                </span>
                               </div>
                             ) : null}
                             {connector.detectionSources?.length ||
