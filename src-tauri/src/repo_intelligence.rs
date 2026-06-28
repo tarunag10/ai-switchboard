@@ -9,11 +9,12 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 
 use crate::models::{
-    RepoAgentHandoffAgent, RepoAgentHandoffResponse, RepoAgentHandoffSafety, RepoContextPack,
-    RepoContextPackGraphBrief, RepoContextPackResponse, RepoContextPackSafety,
-    RepoDependentsResponse, RepoFileIndexEntry, RepoFileRole, RepoFileSignal, RepoGraphEdge,
-    RepoGraphEdgeKind, RepoGraphInputEntry, RepoGraphNode, RepoGraphSummary,
-    RepoIndexFreshnessResponse, RepoIndexFreshnessStatus, RepoIndexMetadata,
+    RepoAgentConfigReadiness, RepoAgentConfigReadinessDossier, RepoAgentConfigReadinessGate,
+    RepoAgentConfigReadinessNextGate, RepoAgentHandoffAgent, RepoAgentHandoffResponse,
+    RepoAgentHandoffSafety, RepoContextPack, RepoContextPackGraphBrief, RepoContextPackResponse,
+    RepoContextPackSafety, RepoDependentsResponse, RepoFileIndexEntry, RepoFileRole,
+    RepoFileSignal, RepoGraphEdge, RepoGraphEdgeKind, RepoGraphInputEntry, RepoGraphNode,
+    RepoGraphSummary, RepoIndexFreshnessResponse, RepoIndexFreshnessStatus, RepoIndexMetadata,
     RepoIntelligenceManifestResponse, RepoIntelligenceSummary, RepoManifestPackSummary,
     RepoManifestQuery, RepoManifestTotals, RepoSkippedIndexEntry, RepoSymbol, RepoSymbolKind,
     RepoSymbolSearchResponse,
@@ -198,6 +199,228 @@ const AGENT_HANDOFF_PROFILES: [AgentHandoffProfile; 13] = [
         manual_provider_routing: true,
     },
 ];
+
+struct PlannedConnectorDossier {
+    id: &'static str,
+    name: &'static str,
+    config_path_strategy: &'static str,
+    account_caveat: &'static str,
+    rollback_strategy: &'static str,
+}
+
+struct PlannedConfigGate {
+    id: &'static str,
+    label: &'static str,
+    required_evidence: &'static [&'static str],
+}
+
+const PLANNED_CONFIG_GATES: [PlannedConfigGate; 7] = [
+    PlannedConfigGate {
+        id: "detect",
+        label: "Detect config surface",
+        required_evidence: &[
+            "Read-only binary or app detection result.",
+            "Detected config, settings, profile, or environment surface documented without writes.",
+        ],
+    },
+    PlannedConfigGate {
+        id: "dryRunDiff",
+        label: "Show dry-run diff",
+        required_evidence: &[
+            "User-visible dry-run diff artifact showing target, before/after local proxy/provider change, managed marker boundary, rollback preview, and confirmation phrase.",
+            "No files, profiles, credentials, or account state changed by the preview.",
+        ],
+    },
+    PlannedConfigGate {
+        id: "backup",
+        label: "Create backup",
+        required_evidence: &[
+            "Timestamped backup path or environment-wrapper restore point.",
+            "Fixture-home restore test proving unknown fields and unrelated provider entries are preserved.",
+        ],
+    },
+    PlannedConfigGate {
+        id: "apply",
+        label: "Apply with consent",
+        required_evidence: &[
+            "Explicit user consent captured for the connector and config surface.",
+            "Managed marker or wrapper boundary proving only Switchboard-owned routing was applied.",
+        ],
+    },
+    PlannedConfigGate {
+        id: "verify",
+        label: "Verify in Doctor",
+        required_evidence: &[
+            "Doctor check confirming account/model guardrails without storing secrets.",
+            "Compatibility or caveat message visible before routing is considered supported.",
+        ],
+    },
+    PlannedConfigGate {
+        id: "rollback",
+        label: "Rollback safely",
+        required_evidence: &[
+            "Fixture-home rollback test restoring the exact backup or removing only managed wrapper state.",
+            "Post-rollback diff proving unrelated user settings are unchanged.",
+        ],
+    },
+    PlannedConfigGate {
+        id: "offCleanup",
+        label: "Clean up in Off mode",
+        required_evidence: &[
+            "Fixture-home Off-mode cleanup showing managed routing removed.",
+            "Doctor verification that the connector returns to manual or RTK-only mode.",
+        ],
+    },
+];
+
+fn planned_connector_dossier(agent_id: &str) -> Option<PlannedConnectorDossier> {
+    match agent_id {
+        "gemini" => Some(PlannedConnectorDossier {
+            id: "gemini_cli",
+            name: "Gemini CLI",
+            config_path_strategy:
+                "Detect PATH: gemini first, then probe documented provider settings or shell flags read-only.",
+            account_caveat:
+                "Model and account compatibility must be reported before routing; no account tokens are stored.",
+            rollback_strategy:
+                "Restore the previous provider settings or remove only Switchboard-managed shell routing.",
+        }),
+        "opencode" => Some(PlannedConnectorDossier {
+            id: "opencode",
+            name: "OpenCode",
+            config_path_strategy:
+                "Detect PATH: opencode, then identify the active provider config path before any write.",
+            account_caveat:
+                "Secrets stay in the user's existing provider store and must not be copied into Switchboard state.",
+            rollback_strategy:
+                "Restore the timestamped provider-config backup and clear managed environment overrides.",
+        }),
+        "cursor" => Some(PlannedConnectorDossier {
+            id: "cursor",
+            name: "Cursor",
+            config_path_strategy:
+                "Find the active Cursor app/profile settings surface before reading user settings.",
+            account_caveat:
+                "Account-specific model choices remain user-controlled until Doctor can explain compatibility.",
+            rollback_strategy:
+                "Restore the exact profile settings backup without touching extension-managed secrets.",
+        }),
+        "grok" => Some(PlannedConnectorDossier {
+            id: "grok_cli",
+            name: "Grok / xAI CLI",
+            config_path_strategy:
+                "Detect PATH: grok or PATH: xai and avoid guessing hidden provider files.",
+            account_caveat:
+                "Unsupported model/account combinations require Doctor guardrails before setup is offered.",
+            rollback_strategy:
+                "Remove managed shell routing and leave API key/account state outside app storage.",
+        }),
+        "aider" => Some(PlannedConnectorDossier {
+            id: "aider",
+            name: "Aider",
+            config_path_strategy:
+                "Detect PATH: aider and prefer a one-launch environment wrapper over saved config edits.",
+            account_caveat:
+                "Existing provider secrets remain in the user's shell or provider config and are never copied.",
+            rollback_strategy:
+                "Drop the wrapper environment and leave the user's Aider/provider files unchanged.",
+        }),
+        "continue" => Some(PlannedConnectorDossier {
+            id: "continue",
+            name: "Continue",
+            config_path_strategy:
+                "Open or parse the Continue config folder only after preserving unknown provider fields.",
+            account_caveat:
+                "Provider credentials and account selections stay visible and user-owned during guided setup.",
+            rollback_strategy:
+                "Restore the exact config backup or remove only the marked Switchboard provider entry.",
+        }),
+        "goose" => Some(PlannedConnectorDossier {
+            id: "goose",
+            name: "Goose",
+            config_path_strategy:
+                "Detect PATH: goose and inspect Goose provider/MCP surfaces read-only before handoff.",
+            account_caveat:
+                "Provider account state remains outside Switchboard until compatibility checks are explicit.",
+            rollback_strategy:
+                "Remove managed provider routing while preserving unrelated Goose MCP configuration.",
+        }),
+        "qwen" => Some(PlannedConnectorDossier {
+            id: "qwen_code",
+            name: "Qwen Code",
+            config_path_strategy:
+                "Detect PATH: qwen-code or PATH: qwen, then probe provider/model settings read-only.",
+            account_caveat:
+                "Qwen account and model compatibility must be verified without editing config.",
+            rollback_strategy:
+                "Remove managed shell routing and restore provider settings from the exact backup.",
+        }),
+        "amazonq" => Some(PlannedConnectorDossier {
+            id: "amazon_q",
+            name: "Amazon Q Developer CLI",
+            config_path_strategy:
+                "Detect PATH: q and avoid reading AWS credentials, SSO caches, or profile secrets.",
+            account_caveat:
+                "AWS profile, SSO, and credential state must remain outside Switchboard storage.",
+            rollback_strategy:
+                "Remove managed routing without modifying AWS config, credentials, SSO cache, or profiles.",
+        }),
+        "windsurf" => Some(PlannedConnectorDossier {
+            id: "windsurf",
+            name: "Windsurf",
+            config_path_strategy:
+                "Detect the Windsurf app and active settings location before showing any write plan.",
+            account_caveat:
+                "Account and model settings stay manual until the adapter preserves unknown fields.",
+            rollback_strategy:
+                "Restore the active settings backup and remove only Switchboard-managed provider entries.",
+        }),
+        "zed" => Some(PlannedConnectorDossier {
+            id: "zed_ai",
+            name: "Zed AI",
+            config_path_strategy:
+                "Detect the Zed app and assistant settings before parsing provider entries.",
+            account_caveat:
+                "Provider/account selection stays manual until lossless settings parsing is proven.",
+            rollback_strategy:
+                "Restore assistant/provider settings from backup and remove managed local proxy entries.",
+        }),
+        _ => None,
+    }
+}
+
+fn build_agent_config_readiness(agent_id: &str) -> Option<RepoAgentConfigReadiness> {
+    let dossier = planned_connector_dossier(agent_id)?;
+    let next_gate = &PLANNED_CONFIG_GATES[0];
+
+    Some(RepoAgentConfigReadiness {
+        planned_connector_id: dossier.id.to_string(),
+        planned_connector_name: dossier.name.to_string(),
+        automation_enabled: false,
+        safety_note: "Planned connector config creation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested.".to_string(),
+        next_gate: RepoAgentConfigReadinessNextGate {
+            id: next_gate.id.to_string(),
+            label: next_gate.label.to_string(),
+        },
+        safety_dossier: RepoAgentConfigReadinessDossier {
+            config_path_strategy: dossier.config_path_strategy.to_string(),
+            account_caveat: dossier.account_caveat.to_string(),
+            rollback_strategy: dossier.rollback_strategy.to_string(),
+        },
+        gated_steps: PLANNED_CONFIG_GATES
+            .iter()
+            .map(|gate| RepoAgentConfigReadinessGate {
+                id: gate.id.to_string(),
+                label: gate.label.to_string(),
+                required_evidence: gate
+                    .required_evidence
+                    .iter()
+                    .map(|evidence| (*evidence).to_string())
+                    .collect(),
+            })
+            .collect(),
+    })
+}
 
 pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary> {
     let repo_root = normalize_repo_root(path.as_ref())?;
@@ -509,6 +732,7 @@ pub fn build_agent_handoff_response(
         .ok_or_else(|| anyhow!("no repo intelligence packs are available"))?;
     let graph = summary.graph.as_ref();
     let index_freshness = build_index_freshness_response(Some(summary));
+    let config_readiness = build_agent_config_readiness(profile.id);
 
     Ok(RepoAgentHandoffResponse {
         schema_version: 1,
@@ -545,6 +769,7 @@ pub fn build_agent_handoff_response(
             modifies_repository: false,
             manual_provider_routing: profile.manual_provider_routing,
         },
+        config_readiness,
     })
 }
 
@@ -2521,17 +2746,54 @@ mod tests {
         assert!(!codex.safety.manual_provider_routing);
         assert!(codex.safety.read_only);
         assert!(!codex.safety.modifies_repository);
+        assert!(codex.config_readiness.is_none());
 
         let gemini = build_agent_handoff_response(&summary, "gemini", Some("implementation"))
             .expect("gemini");
         assert_eq!(gemini.agent.label, "Gemini CLI");
         assert_eq!(gemini.pack.id, "implementation");
         assert!(gemini.safety.manual_provider_routing);
+        let gemini_readiness = gemini
+            .config_readiness
+            .as_ref()
+            .expect("gemini config readiness");
+        assert_eq!(gemini_readiness.planned_connector_id, "gemini_cli");
+        assert_eq!(gemini_readiness.planned_connector_name, "Gemini CLI");
+        assert!(!gemini_readiness.automation_enabled);
+        assert_eq!(gemini_readiness.next_gate.label, "Detect config surface");
+        assert!(gemini_readiness
+            .safety_dossier
+            .config_path_strategy
+            .contains("PATH: gemini"));
+        assert!(gemini_readiness
+            .safety_dossier
+            .rollback_strategy
+            .contains("provider settings"));
+        assert_eq!(gemini_readiness.gated_steps.len(), 7);
+        assert!(gemini_readiness.gated_steps.iter().any(|gate| {
+            gate.id == "dryRunDiff"
+                && gate
+                    .required_evidence
+                    .join(" ")
+                    .contains("dry-run diff artifact")
+        }));
         assert!(!gemini
             .pack
             .files
             .iter()
             .any(|file| file.path.contains(".env.local")));
+
+        let cursor =
+            build_agent_handoff_response(&summary, "cursor", Some("handoff")).expect("cursor");
+        let cursor_readiness = cursor
+            .config_readiness
+            .as_ref()
+            .expect("cursor config readiness");
+        assert_eq!(cursor_readiness.planned_connector_id, "cursor");
+        assert!(cursor_readiness
+            .safety_dossier
+            .config_path_strategy
+            .contains("Cursor app/profile"));
 
         let risk_review =
             build_agent_handoff_response(&summary, "codex", Some("risk_review")).expect("risk");

@@ -277,6 +277,41 @@ pub struct RepoAgentHandoffSafety {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RepoAgentConfigReadinessGate {
+    pub id: String,
+    pub label: String,
+    pub required_evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoAgentConfigReadinessNextGate {
+    pub id: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoAgentConfigReadinessDossier {
+    pub config_path_strategy: String,
+    pub account_caveat: String,
+    pub rollback_strategy: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoAgentConfigReadiness {
+    pub planned_connector_id: String,
+    pub planned_connector_name: String,
+    pub automation_enabled: bool,
+    pub safety_note: String,
+    pub next_gate: RepoAgentConfigReadinessNextGate,
+    pub safety_dossier: RepoAgentConfigReadinessDossier,
+    pub gated_steps: Vec<RepoAgentConfigReadinessGate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepoAgentHandoffResponse {
     pub schema_version: u64,
     pub kind: String,
@@ -287,6 +322,8 @@ pub struct RepoAgentHandoffResponse {
     pub graph_brief: RepoContextPackGraphBrief,
     pub index_freshness: RepoIndexFreshnessResponse,
     pub safety: RepoAgentHandoffSafety,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config_readiness: Option<RepoAgentConfigReadiness>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
