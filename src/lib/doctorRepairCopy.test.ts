@@ -364,6 +364,9 @@ describe("doctor repair copy", () => {
     expect(codex?.body).toContain("Backup: next to edited client config");
     expect(codex?.body).toContain("Dry-run diff available");
     expect(codex?.body).toContain("apply requires explicit confirmation");
+    expect(codex?.body).toContain(
+      "Apply gate: target, backup path, marker, rollback plan, and Off-mode cleanup boundary must be confirmed first.",
+    );
     expect(codex?.body).toContain("Per-change rollback: available");
     expect(codex?.target).not.toContain("~/.codex/config.toml");
 
@@ -376,6 +379,9 @@ describe("doctor repair copy", () => {
     });
     expect(repoIndex?.body).toContain(
       "No config diff is required for this managed footprint.",
+    );
+    expect(repoIndex?.body).toContain(
+      "Apply gate: not applicable because this footprint is removed through cleanup inventory.",
     );
   });
 

@@ -108,6 +108,9 @@ export function buildManagedChangeTimelineEvents(
       record.backupPath
         ? "Dry-run diff available; copied previews do not modify files and apply requires explicit confirmation."
         : "No config diff is required for this managed footprint.",
+      record.backupPath
+        ? "Apply gate: target, backup path, marker, rollback plan, and Off-mode cleanup boundary must be confirmed first."
+        : "Apply gate: not applicable because this footprint is removed through cleanup inventory.",
     ].join(" "),
     occurredAt: observedAt,
     status: "warning",
