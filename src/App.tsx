@@ -210,6 +210,7 @@ import {
   buildManagedRollbackExecutionPreview,
   buildManagedRollbackPlan,
   buildManagedRollbackUndoAllPreview,
+  canExecuteNativeManagedRollbackPreview,
   buildManagedConfigDiffPreview,
   formatManagedRollbackExecutionPreview,
   formatManagedConfigDiffPreview,
@@ -6232,7 +6233,13 @@ export default function App() {
 
   async function executeManagedRollback(record: ManagedChangeRecord) {
     const preview = rollbackPreviewByRecord[record.id];
-    if (!preview?.backupPath || preview.status !== "ready") {
+    if (
+      !canExecuteNativeManagedRollbackPreview({
+        preview,
+        confirmation: rollbackConfirmationByRecord[record.id] ?? "",
+        busy: rollbackBusyRecord === record.id,
+      })
+    ) {
       return;
     }
     setRollbackBusyRecord(record.id);
@@ -9871,9 +9878,11 @@ export default function App() {
                   const nativeRollbackSupported =
                     supportsNativeManagedRollback(record);
                   const canExecuteNativeRollback =
-                    nativePreview?.status === "ready" &&
-                    confirmation === nativePreview.confirmationPhrase &&
-                    rollbackBusyRecord !== record.id;
+                    canExecuteNativeManagedRollbackPreview({
+                      preview: nativePreview,
+                      confirmation,
+                      busy: rollbackBusyRecord === record.id,
+                    });
                   return (
                     <div className="rollback-center-card__item" key={record.id}>
                       <div>

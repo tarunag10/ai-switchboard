@@ -6,6 +6,7 @@ import {
   buildManagedRollbackExecutionPreview,
   buildManagedRollbackExecutionPreviews,
   buildManagedRollbackUndoAllPreview,
+  canExecuteNativeManagedRollbackPreview,
   buildManagedRollbackPlan,
   buildManagedRollbackPlans,
   formatManagedConfigApplyPlan,
@@ -622,5 +623,52 @@ describe("managedChangeRecords", () => {
     expect(() =>
       removeManagedConfigBlock(broken, "headroom:codex_cli"),
     ).toThrow("missing an end marker");
+  });
+
+  it("allows native rollback execution for ready no-backup cleanup previews", () => {
+    expect(
+      canExecuteNativeManagedRollbackPreview({
+        preview: {
+          recordId: "gemini-routing",
+          owner: "Gemini CLI routing",
+          targetPath: "~/.gemini/mac-ai-switchboard-routing.md",
+          marker: "headroom:gemini_cli",
+          backupPath: null,
+          markerPresent: true,
+          backupExists: true,
+          status: "ready",
+          confirmationPhrase: "Restore headroom:gemini_cli for Gemini CLI routing",
+          proposedAction:
+            "Remove only the Switchboard-owned Gemini shell routing and sidecar blocks.",
+          blockedReason: null,
+          evidence: [],
+        },
+        confirmation: "Restore headroom:gemini_cli for Gemini CLI routing",
+        busy: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("blocks native rollback execution when ready previews are missing backup evidence", () => {
+    expect(
+      canExecuteNativeManagedRollbackPreview({
+        preview: {
+          recordId: "codex-routing",
+          owner: "Codex routing",
+          targetPath: "~/.codex/config.toml",
+          marker: "headroom:codex_cli",
+          backupPath: null,
+          markerPresent: true,
+          backupExists: false,
+          status: "ready",
+          confirmationPhrase: "Restore headroom:codex_cli for Codex routing",
+          proposedAction: "Restore the Codex config from backup.",
+          blockedReason: null,
+          evidence: [],
+        },
+        confirmation: "Restore headroom:codex_cli for Codex routing",
+        busy: false,
+      }),
+    ).toBe(false);
   });
 });

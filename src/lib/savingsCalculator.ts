@@ -420,7 +420,7 @@ export function buildSavingsLedgerRows(
     return rows;
   }
 
-  const backendRows = measuredBackendAttributionRows(
+  const backendRows = backendAttributionRows(
     options.attributionEvents ?? [],
     scope,
     recordedAt,
@@ -436,15 +436,14 @@ export function buildSavingsLedgerRows(
   ];
 }
 
-function measuredBackendAttributionRows(
+function backendAttributionRows(
   events: SavingsAttributionEvent[],
   scope: SavingsCalculatorScope,
   recordedAt: string,
 ): SavingsLedgerRow[] {
-  const measuredEvents = events.filter(
+  const durableSessionEvents = events.filter(
     (event) =>
       event.scope === "session" &&
-      event.confidence === "measured" &&
       (event.deltaTokensSaved > 0 || event.deltaUsd > 0 || event.requestDelta > 0),
   );
   const sourceLabels: Record<
@@ -490,12 +489,24 @@ function measuredBackendAttributionRows(
 
   return Object.entries(sourceLabels)
     .flatMap(([source, meta]) => {
-      const sourceEvents = measuredEvents.filter(
+      const sourceEvents = durableSessionEvents.filter(
         (event) => event.source === source,
       );
       if (sourceEvents.length === 0) {
         return [];
       }
+      const confidenceRank: Record<SavingsCalculatorConfidence, number> = {
+        measured: 3,
+        estimated: 2,
+        inferred: 1,
+      };
+      const strongestConfidence = sourceEvents.reduce(
+        (strongest, event) =>
+          confidenceRank[event.confidence] > confidenceRank[strongest]
+            ? event.confidence
+            : strongest,
+        "inferred" as SavingsCalculatorConfidence,
+      );
       const savedTokens = sourceEvents.reduce(
         (sum, event) => sum + Math.max(0, event.deltaTokensSaved),
         0,
@@ -526,13 +537,16 @@ function measuredBackendAttributionRows(
           label: meta.label,
           source: source as SavingsLedgerSource,
           kind: meta.kind,
-          confidence: "measured" as const,
+          confidence: strongestConfidence,
           savedTokens,
           savedUsd: savedUsd > 0 ? savedUsd : null,
-          detail: `${eventCount.toLocaleString()} measured ${meta.label} session event${eventCount === 1 ? "" : "s"} across ${requests.toLocaleString()} ${source === "rtk" ? "command" : "request"}${requests === 1 ? "" : "s"}.${evidenceDetail}`,
+          detail: `${eventCount.toLocaleString()} ${strongestConfidence} ${meta.label} session event${eventCount === 1 ? "" : "s"} across ${requests.toLocaleString()} ${source === "rtk" ? "command" : "request"}${requests === 1 ? "" : "s"}.${evidenceDetail}`,
           scope,
           recordedAt: latestObservedAt,
-          caveat: "Observed from append-only backend attribution events.",
+          caveat:
+            strongestConfidence === "measured"
+              ? "Observed from append-only backend attribution events."
+              : confidenceCaveat[strongestConfidence],
         },
       ];
     })

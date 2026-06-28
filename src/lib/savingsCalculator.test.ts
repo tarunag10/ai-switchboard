@@ -296,6 +296,47 @@ describe("savings calculator", () => {
     expect(rows.filter((row) => row.source === "repo_intelligence")).toHaveLength(1);
   });
 
+  it("uses durable inferred backend attribution events for session add-on ledger rows", () => {
+    const rows = buildSavingsLedgerRows(
+      dashboardFixture(),
+      "session",
+      "2026-06-25T10:00:00Z",
+      {
+        cavemanSavings: buildAddonSavingsEstimate(480, 180),
+        attributionEvents: [
+          {
+            schemaVersion: 1,
+            id: "caveman-event-1",
+            observedAt: "2026-06-25T10:05:00Z",
+            scope: "session",
+            source: "caveman",
+            confidence: "inferred",
+            deltaTokensSaved: 300,
+            deltaUsd: 0,
+            totalTokensSent: 0,
+            requestDelta: 1,
+            evidence: ["Inferred Caveman template delta."],
+          },
+        ],
+      },
+    );
+
+    const caveman = rows.find((row) => row.source === "caveman");
+
+    expect(caveman).toMatchObject({
+      id: "caveman_attribution_events",
+      label: "Caveman",
+      confidence: "inferred",
+      savedTokens: 300,
+      savedUsd: null,
+      recordedAt: "2026-06-25T10:05:00Z",
+      caveat: "Modelled from a template, context-pack, or workflow delta.",
+    });
+    expect(caveman?.detail).toContain("1 inferred Caveman session event");
+    expect(caveman?.detail).toContain("Inferred Caveman template delta");
+    expect(rows.filter((row) => row.source === "caveman")).toHaveLength(1);
+  });
+
   it("keeps lifetime Headroom ledger rows based on saved rollups", () => {
     const rows = buildSavingsLedgerRows(
       dashboardFixture(),

@@ -1,3 +1,5 @@
+import type { ManagedRollbackPreview } from "./types";
+
 export type ManagedChangeKind =
   | "client_config"
   | "shell_hook"
@@ -720,6 +722,27 @@ export const nativeRollbackRecordIds = new Set([
 
 export function supportsNativeManagedRollbackRecord(recordId: string): boolean {
   return nativeRollbackRecordIds.has(recordId);
+}
+
+export function canExecuteNativeManagedRollbackPreview({
+  preview,
+  confirmation,
+  busy,
+}: {
+  preview: ManagedRollbackPreview | null | undefined;
+  confirmation: string;
+  busy: boolean;
+}): boolean {
+  if (!preview || busy) {
+    return false;
+  }
+
+  return (
+    preview.status === "ready" &&
+    confirmation === preview.confirmationPhrase &&
+    preview.markerPresent &&
+    preview.backupExists
+  );
 }
 
 export function buildManagedRollbackUndoAllPreview(
