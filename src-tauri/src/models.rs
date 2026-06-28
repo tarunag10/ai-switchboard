@@ -776,6 +776,8 @@ pub struct RuntimeStatus {
     pub headroom_pid: Option<u32>,
     pub mcp_configured: Option<bool>,
     pub mcp_error: Option<String>,
+    pub repo_memory_mcp_active: bool,
+    pub repo_memory_mcp_last_started_at: Option<DateTime<Utc>>,
     pub ml_installed: Option<bool>,
     pub kompress_enabled: Option<bool>,
     pub headroom_learn_supported: bool,

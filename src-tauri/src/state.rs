@@ -489,6 +489,8 @@ pub struct AppState {
     launch_profile_path: std::path::PathBuf,
     last_known_good_plan: Mutex<Option<LastKnownGoodPlan>>,
     last_known_good_plan_path: std::path::PathBuf,
+    repo_memory_mcp_state: Mutex<RepoMemoryMcpSessionState>,
+    repo_memory_mcp_state_path: std::path::PathBuf,
     savings_tracker: Mutex<SavingsTracker>,
     activity_facts: Mutex<ActivityFacts>,
     cached_clients: Mutex<Option<(Vec<ClientStatus>, Instant)>>,
@@ -577,6 +579,9 @@ impl AppState {
         let tool_manager = ToolManager::new(runtime);
         let (launch_profile, launch_profile_path) = LaunchProfile::load_or_create(&base_dir)?;
         let (last_known_good_plan, last_known_good_plan_path) = LastKnownGoodPlan::load(&base_dir);
+        let repo_memory_mcp_state_path = config_file(&base_dir, "repo-memory-mcp-session.json");
+        let repo_memory_mcp_state =
+            RepoMemoryMcpSessionState::load(&repo_memory_mcp_state_path).unwrap_or_default();
         let savings_tracker = SavingsTracker::load_or_create(&base_dir)?;
         let activity_facts = ActivityFacts::load_or_create(&base_dir)?;
 
@@ -631,6 +636,8 @@ impl AppState {
             launch_profile_path,
             last_known_good_plan: Mutex::new(last_known_good_plan),
             last_known_good_plan_path,
+            repo_memory_mcp_state: Mutex::new(repo_memory_mcp_state),
+            repo_memory_mcp_state_path,
             savings_tracker: Mutex::new(savings_tracker),
             activity_facts: Mutex::new(activity_facts),
             cached_clients: Mutex::new(None),
@@ -2728,6 +2735,36 @@ impl AppState {
         status
     }
 
+    pub fn start_repo_memory_mcp(&self) -> Result<()> {
+        self.tool_manager.ensure_mcp_configured()?;
+        {
+            let mut session = self.repo_memory_mcp_state.lock();
+            session.active = true;
+            session.last_started_at = Some(Utc::now());
+            self.persist_repo_memory_mcp_state(&session)?;
+        }
+        *self.cached_runtime_status.lock() = None;
+        Ok(())
+    }
+
+    pub fn stop_repo_memory_mcp(&self) -> Result<()> {
+        {
+            let mut session = self.repo_memory_mcp_state.lock();
+            session.active = false;
+            self.persist_repo_memory_mcp_state(&session)?;
+        }
+        *self.cached_runtime_status.lock() = None;
+        Ok(())
+    }
+
+    fn persist_repo_memory_mcp_state(&self, session: &RepoMemoryMcpSessionState) -> Result<()> {
+        let serialized = serde_json::to_vec_pretty(session)
+            .context("serializing repo-memory MCP session state")?;
+        std::fs::write(&self.repo_memory_mcp_state_path, serialized)
+            .with_context(|| format!("writing {}", self.repo_memory_mcp_state_path.display()))?;
+        Ok(())
+    }
+
     fn compute_runtime_status(&self) -> RuntimeStatus {
         let installed = self.tool_manager.python_runtime_installed();
         let paused = self.runtime_is_paused();
@@ -2735,6 +2772,7 @@ impl AppState {
         let proxy_reachable = is_headroom_proxy_reachable();
         let mcp_configured = self.tool_manager.headroom_mcp_configured();
         let mcp_error = self.tool_manager.headroom_mcp_error();
+        let repo_memory_mcp_session = self.repo_memory_mcp_state.lock().clone();
         let ml_installed = self.tool_manager.headroom_ml_installed();
         let platform = current_platform();
         let support_tier = current_platform_support_tier();
@@ -2781,6 +2819,8 @@ impl AppState {
             headroom_pid,
             mcp_configured,
             mcp_error,
+            repo_memory_mcp_active: repo_memory_mcp_session.active && mcp_configured == Some(true),
+            repo_memory_mcp_last_started_at: repo_memory_mcp_session.last_started_at,
             ml_installed,
             kompress_enabled,
             headroom_learn_supported: headroom_learn_disabled_reason.is_none(),
@@ -3487,6 +3527,23 @@ impl LastKnownGoodPlan {
 fn persist_last_known_good_plan(path: &std::path::Path, plan: &LastKnownGoodPlan) {
     if let Ok(bytes) = serde_json::to_vec_pretty(plan) {
         let _ = std::fs::write(path, bytes);
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RepoMemoryMcpSessionState {
+    active: bool,
+    last_started_at: Option<DateTime<Utc>>,
+}
+
+impl RepoMemoryMcpSessionState {
+    fn load(path: &Path) -> Result<Self> {
+        if !path.exists() {
+            return Ok(Self::default());
+        }
+        let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+        serde_json::from_slice(&bytes).context("parsing repo-memory MCP session state")
     }
 }
 

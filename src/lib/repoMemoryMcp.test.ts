@@ -13,6 +13,8 @@ describe("repoMemoryMcpLifecycle", () => {
       state: "configured",
       status: "Configured",
       installCommand: "install_repo_memory_mcp",
+      startCommand: "start_repo_memory_mcp",
+      stopCommand: "stop_repo_memory_mcp",
       verifyCommand: "npm run check:repo-memory-mcp",
     });
     expect(lifecycle.detail).toContain("app-managed");
@@ -20,6 +22,26 @@ describe("repoMemoryMcpLifecycle", () => {
     expect(lifecycle.copy).toContain("repo_context_pack");
     expect(lifecycle.copy).toContain("repo_symbol_lookup");
     expect(lifecycle.copy).toContain("repo_dependents_of");
+  });
+
+  it("labels active repo-memory MCP with start and stop controls", () => {
+    const lifecycle = repoMemoryMcpLifecycle({
+      configured: true,
+      active: true,
+      lastStartedAt: "2026-06-28T10:00:00Z",
+    });
+
+    expect(lifecycle).toMatchObject({
+      state: "active",
+      status: "Active",
+      installCommand: "install_repo_memory_mcp",
+      startCommand: "start_repo_memory_mcp",
+      stopCommand: "stop_repo_memory_mcp",
+    });
+    expect(lifecycle.detail).toContain("marked active");
+    expect(lifecycle.detail).toContain("2026-06-28T10:00:00Z");
+    expect(lifecycle.copy).toContain("Start action: start_repo_memory_mcp");
+    expect(lifecycle.copy).toContain("Stop action: stop_repo_memory_mcp");
   });
 
   it("surfaces install and smoke commands when MCP needs attention", () => {

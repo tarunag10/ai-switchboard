@@ -6,6 +6,7 @@ Repo Memory MCP is the read-only agent-consumption surface for Repo Intelligence
 
 - Transport: stdio MCP served by `scripts/repo-intelligence.mjs --mcp-serve`.
 - Install action: **Install MCP** in the Mode Inspector, backed by `install_repo_memory_mcp`.
+- Session controls: **Start MCP** and **Stop MCP** in the Mode Inspector, backed by `start_repo_memory_mcp` and `stop_repo_memory_mcp`. These controls persist app-session active state for the stdio MCP path; they do not claim a separate background daemon is running.
 - Verification: `npm run check:repo-memory-mcp`.
 - Tools: `repo_context_pack`, `repo_symbol_lookup`, and `repo_dependents_of`.
 - Safety: read-only tools, secret-like paths excluded, generated/vendor paths skipped, and pack output bounded by Repo Intelligence budgets.
@@ -18,9 +19,11 @@ Recommended agent flow:
 
 1. Index or refresh the repo in Mac AI Switchboard.
 2. Install Repo Memory MCP from the Mode Inspector if it is not configured.
-3. Run `npm run check:repo-memory-mcp` to verify the read-only tool contract.
-4. Ask the agent to request a bounded context pack with `repo_context_pack`.
-5. Use `repo_symbol_lookup` or `repo_dependents_of` only for targeted follow-up.
+3. Start Repo Memory MCP from the Mode Inspector when the agent session should be allowed to consume app-managed repo context.
+4. Run `npm run check:repo-memory-mcp` to verify the read-only tool contract.
+5. Ask the agent to request a bounded context pack with `repo_context_pack`.
+6. Use `repo_symbol_lookup` or `repo_dependents_of` only for targeted follow-up.
+7. Stop Repo Memory MCP from the Mode Inspector when the app session should no longer advertise active MCP context.
 
 The same handoff information is also available without MCP:
 
@@ -46,6 +49,6 @@ Goose and other MCP-aware tools should keep Repo Memory MCP separate from provid
 
 ## Remaining Work
 
-- Direct MCP start/stop lifecycle controls beyond install.
+- Long-running service supervision beyond the stdio MCP app-session active marker.
 - Doctor repair integration for failed or missing repo-memory MCP setup.
 - Broader connector-specific docs as native config mutation is promoted.

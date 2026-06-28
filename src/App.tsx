@@ -5182,6 +5182,37 @@ export default function App() {
     }
   }
 
+  async function setRepoMemoryMcpActive(active: boolean) {
+    setAddonBusyId("repo-memory");
+    setAddonBusyLabel(active ? "Starting Repo Memory MCP..." : "Stopping Repo Memory MCP...");
+    setAddonError(null);
+    setAddonResult(null);
+    try {
+      const next = await invoke<DashboardState>(
+        active ? "start_repo_memory_mcp" : "stop_repo_memory_mcp",
+      );
+      setDashboard(next);
+      await refreshRuntimeStatus();
+      setAddonResult({
+        id: "repo-memory",
+        message: active
+          ? "Repo Memory MCP marked active. Supported agents can request read-only repo context."
+          : "Repo Memory MCP stopped for this app session. Agent MCP configuration was left intact.",
+      });
+    } catch (error) {
+      setAddonError(
+        error instanceof Error
+          ? error.message
+          : active
+            ? "Repo Memory MCP could not be started."
+            : "Repo Memory MCP could not be stopped.",
+      );
+    } finally {
+      setAddonBusyId(null);
+      setAddonBusyLabel(null);
+    }
+  }
+
   async function setCavemanLevel(
     level: "scoped" | "aggressive" | "compact_chinese",
   ) {
@@ -6891,6 +6922,8 @@ export default function App() {
   const repoMemoryLifecycle = repoMemoryMcpLifecycle({
     configured: runtimeStatus?.mcpConfigured,
     error: runtimeStatus?.mcpError,
+    active: runtimeStatus?.repoMemoryMcpActive,
+    lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
   });
   const switchboardInspectorRows = [
     {
@@ -6913,18 +6946,24 @@ export default function App() {
       ...repoMemoryMcpInspectorRow({
         configured: runtimeStatus?.mcpConfigured,
         error: runtimeStatus?.mcpError,
+        active: runtimeStatus?.repoMemoryMcpActive,
+        lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
       }),
-      ...(repoMemoryLifecycle.state === "configured"
-        ? {}
-        : {
-            actionLabel: "Install MCP",
-            actionBusyLabel:
-              addonBusyId === "repo-memory"
-                ? (addonBusyLabel ?? "Installing")
-                : undefined,
-            actionDisabled: addonBusyId !== null,
-            onAction: () => void installRepoMemoryMcp(),
-          }),
+      actionLabel:
+        repoMemoryLifecycle.state === "active"
+          ? "Stop MCP"
+          : repoMemoryLifecycle.state === "configured"
+            ? "Start MCP"
+            : "Install MCP",
+      actionBusyLabel:
+        addonBusyId === "repo-memory" ? (addonBusyLabel ?? "Working") : undefined,
+      actionDisabled: addonBusyId !== null,
+      onAction:
+        repoMemoryLifecycle.state === "active"
+          ? () => void setRepoMemoryMcpActive(false)
+          : repoMemoryLifecycle.state === "configured"
+            ? () => void setRepoMemoryMcpActive(true)
+            : () => void installRepoMemoryMcp(),
     },
     {
       label: "LaunchAgent",

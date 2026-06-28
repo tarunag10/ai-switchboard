@@ -264,6 +264,8 @@ export interface RuntimeStatus {
   headroomPid?: number | null;
   mcpConfigured?: boolean | null;
   mcpError?: string | null;
+  repoMemoryMcpActive?: boolean | null;
+  repoMemoryMcpLastStartedAt?: string | null;
   mlInstalled?: boolean | null;
   kompressEnabled?: boolean | null;
   headroomLearnSupported: boolean;

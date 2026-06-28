@@ -949,6 +949,22 @@ fn install_repo_memory_mcp(state: State<'_, AppState>) -> Result<DashboardState,
 }
 
 #[tauri::command]
+fn start_repo_memory_mcp(state: State<'_, AppState>) -> Result<DashboardState, String> {
+    state
+        .start_repo_memory_mcp()
+        .map_err(|err| err.to_string())?;
+    Ok(state.dashboard())
+}
+
+#[tauri::command]
+fn stop_repo_memory_mcp(state: State<'_, AppState>) -> Result<DashboardState, String> {
+    state
+        .stop_repo_memory_mcp()
+        .map_err(|err| err.to_string())?;
+    Ok(state.dashboard())
+}
+
+#[tauri::command]
 fn bootstrap_runtime(state: State<'_, AppState>) -> Result<DashboardState, String> {
     state
         .tool_manager
@@ -2826,6 +2842,8 @@ mod doctor_tests {
             headroom_pid: if running { Some(42) } else { None },
             mcp_configured: None,
             mcp_error: None,
+            repo_memory_mcp_active: false,
+            repo_memory_mcp_last_started_at: None,
             ml_installed: None,
             kompress_enabled: None,
             headroom_learn_supported: true,
@@ -4634,6 +4652,8 @@ pub fn run() {
             uninstall_addon,
             set_caveman_level,
             install_repo_memory_mcp,
+            start_repo_memory_mcp,
+            stop_repo_memory_mcp,
             bootstrap_runtime,
             start_bootstrap,
             get_bootstrap_progress,
