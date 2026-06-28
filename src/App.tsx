@@ -197,6 +197,7 @@ import {
 } from "./lib/managedChanges";
 import {
   doctorTimelineKindLabel,
+  buildManagedChangeTimelineEvents,
   formatDoctorTimelineShareText,
   sortDoctorTimelineEvents,
   type DoctorTimelineEvent,
@@ -1613,7 +1614,10 @@ function buildDoctorTimelinePreview(
     });
   }
 
-  return sortDoctorTimelineEvents(events);
+  return sortDoctorTimelineEvents([
+    ...events,
+    ...buildManagedChangeTimelineEvents(managedChangeRecords, now),
+  ]);
 }
 
 function DoctorTimelineCard({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildManagedChangeTimelineEvents,
   canRepairIssue,
   doctorIssueGuidance,
   plannedConnectorDoctorGuidance,
@@ -11,6 +12,7 @@ import {
   formatDoctorReportShareText,
   sortDoctorTimelineEvents,
 } from "./doctorRepairCopy";
+import { managedChangeRecords } from "./managedChanges";
 
 describe("doctor repair copy", () => {
   it.each([
@@ -220,6 +222,36 @@ describe("doctor repair copy", () => {
     expect(text).toContain("Kind: Rollback");
     expect(text).toContain("Actor: user");
     expect(text).toContain("Target: ~/.codex/config.toml");
+  });
+
+  it("builds scrubbed timeline events from managed rollback records", () => {
+    const events = buildManagedChangeTimelineEvents(
+      managedChangeRecords,
+      "2026-06-27T10:00:00.000Z",
+    );
+    const codex = events.find(
+      (event) => event.id === "managed-change-codex-routing",
+    );
+
+    expect(events).toHaveLength(managedChangeRecords.length);
+    expect(codex).toMatchObject({
+      kind: "backup",
+      title: "Codex routing rollback coverage",
+      status: "warning",
+      actor: "switchboard",
+      target: "3 managed paths",
+    });
+    expect(codex?.body).toContain("headroom:codex_cli");
+    expect(codex?.body).toContain("Backup: next to edited client config");
+    expect(codex?.target).not.toContain("~/.codex/config.toml");
+
+    const repoIndex = events.find(
+      (event) => event.id === "managed-change-repo-intelligence",
+    );
+    expect(repoIndex).toMatchObject({
+      kind: "rollback",
+      target: "1 managed path",
+    });
   });
 
   it("formats an empty Doctor timeline", () => {

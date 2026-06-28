@@ -1,4 +1,5 @@
 import { codexDoctorHint } from "./codexErrorGuidance";
+import type { ManagedChangeRecord } from "./managedChanges";
 import {
   getPlannedConnectorReadinessBadges,
   getPlannedConnectorReadinessContract,
@@ -78,6 +79,25 @@ export function sortDoctorTimelineEvents(
       Date.parse(right.occurredAt) - Date.parse(left.occurredAt);
     return timeDelta || left.title.localeCompare(right.title);
   });
+}
+
+export function buildManagedChangeTimelineEvents(
+  records: ManagedChangeRecord[],
+  observedAt: string,
+): DoctorTimelineEvent[] {
+  return records.map((record) => ({
+    id: `managed-change-${record.id}`,
+    kind: record.backupPath ? "backup" : "rollback",
+    title: `${record.owner} rollback coverage`,
+    body: `${record.rollback} Backup: ${record.backupPath ?? "not required"}. Marker: ${record.markerId}.`,
+    occurredAt: observedAt,
+    status: "warning",
+    actor: "switchboard",
+    target:
+      record.paths.length > 0
+        ? `${record.paths.length} managed path${record.paths.length === 1 ? "" : "s"}`
+        : "managed footprint",
+  }));
 }
 
 export function formatDoctorTimelineShareText(
