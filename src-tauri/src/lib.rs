@@ -2296,6 +2296,25 @@ fn repo_intelligence_doctor_issue(
     None
 }
 
+fn repo_memory_mcp_doctor_issue(runtime: &RuntimeStatus) -> Option<crate::models::DoctorIssue> {
+    if runtime.mcp_configured != Some(false) {
+        return None;
+    }
+
+    Some(crate::models::DoctorIssue {
+        id: "repo_memory_mcp_not_configured".to_string(),
+        title: "Repo Memory MCP is not configured".to_string(),
+        body: runtime
+            .mcp_error
+            .clone()
+            .unwrap_or_else(|| {
+                "Repo Memory MCP is required before supported agents can request read-only Repo Intelligence packs through MCP. Repair will install the app-managed read-only repo-memory server, then you can run npm run check:repo-memory-mcp to verify the tool contract.".to_string()
+            }),
+        severity: crate::models::DoctorSeverity::Warning,
+        repair_action: Some("install_repo_memory_mcp".to_string()),
+    })
+}
+
 fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
     let runtime = state.runtime_status();
     let codex_direct_bypass = state
@@ -2332,6 +2351,10 @@ fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
 
     if matches!(desired_mode, SwitchboardMode::Off) {
         push_off_mode_doctor_issue(&mut issues, &runtime, enabled_clients);
+    }
+
+    if let Some(issue) = repo_memory_mcp_doctor_issue(&runtime) {
+        issues.push(issue);
     }
 
     if desired_mode != inferred_mode {
@@ -2821,6 +2844,25 @@ mod doctor_tests {
         ));
         assert_eq!(issues[0].repair_action.as_deref(), Some("verify_off_mode"));
     }
+
+    #[test]
+    fn repo_memory_mcp_doctor_issue_is_repairable_when_unconfigured() {
+        let mut runtime = test_runtime_status(true, true, true);
+        runtime.mcp_configured = Some(false);
+        runtime.mcp_error = Some("repo-memory missing from Claude MCP config".to_string());
+
+        let issue = repo_memory_mcp_doctor_issue(&runtime).expect("repo memory issue");
+
+        assert_eq!(issue.id, "repo_memory_mcp_not_configured");
+        assert_eq!(
+            issue.repair_action.as_deref(),
+            Some("install_repo_memory_mcp")
+        );
+        assert!(issue.body.contains("repo-memory missing"));
+
+        runtime.mcp_configured = Some(true);
+        assert!(repo_memory_mcp_doctor_issue(&runtime).is_none());
+    }
 }
 
 #[tauri::command]
@@ -2933,6 +2975,15 @@ fn clear_repo_intelligence_index() -> Result<(), String> {
         .map_err(|err| err.to_string())
 }
 
+fn repair_repo_memory_mcp(state: &AppState) -> Result<(), String> {
+    state
+        .tool_manager
+        .install_repo_memory_mcp()
+        .map_err(|err| err.to_string())?;
+    state.invalidate_runtime_status_cache();
+    Ok(())
+}
+
 #[tauri::command]
 async fn run_doctor_repair(
     state: State<'_, AppState>,
@@ -2979,6 +3030,10 @@ async fn run_doctor_repair(
             clear_repo_intelligence_index()?;
             Ok(build_doctor_report(&state))
         }
+        "install_repo_memory_mcp" => {
+            repair_repo_memory_mcp(&state)?;
+            Ok(build_doctor_report(&state))
+        }
         "repair_all" => {
             let report = build_doctor_report(&state);
             for issue in report.issues {
@@ -2997,6 +3052,7 @@ async fn run_doctor_repair(
                     Some("repair_caveman_guidance") => repair_caveman_guidance(&state)?,
                     Some("repair_ponytail_plugin") => repair_ponytail_plugin(&state)?,
                     Some("clear_repo_intelligence_index") => clear_repo_intelligence_index()?,
+                    Some("install_repo_memory_mcp") => repair_repo_memory_mcp(&state)?,
                     _ => {}
                 }
             }

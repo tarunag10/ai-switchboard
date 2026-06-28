@@ -307,6 +307,44 @@ describe("SwitchboardDoctorPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("offers Repo Memory MCP install as an automatic Doctor repair", async () => {
+    const user = userEvent.setup();
+    const onRepair = vi.fn();
+
+    render(
+      <SwitchboardDoctorPanel
+        report={{
+          status: "warning",
+          summary: "Doctor found switchboard items that may need attention.",
+          issues: [
+            {
+              id: "repo_memory_mcp_not_configured",
+              title: "Repo Memory MCP is not configured",
+              body: "repo-memory missing from Claude MCP config",
+              severity: "warning",
+              repairAction: "install_repo_memory_mcp",
+            },
+          ],
+        }}
+        busyAction={null}
+        error={null}
+        successMessage={null}
+        onRepair={onRepair}
+      />,
+    );
+
+    expect(screen.getByText("1 automatic")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Installs the app-managed read-only Repo Memory MCP server, then run npm run check:repo-memory-mcp to verify repo_context_pack, repo_symbol_lookup, and repo_dependents_of.",
+      ),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Install MCP" }));
+
+    expect(onRepair).toHaveBeenCalledWith("install_repo_memory_mcp");
+  });
+
   it("copies a focused Verify Off report when Off mode evidence remains", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);

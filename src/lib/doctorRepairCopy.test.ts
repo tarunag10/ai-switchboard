@@ -29,6 +29,7 @@ describe("doctor repair copy", () => {
     ["repair_rtk_integrations", "Repair RTK"],
     ["repair_rtk_runtime", "Install RTK"],
     ["clear_repo_intelligence_index", "Clear index"],
+    ["install_repo_memory_mcp", "Install MCP"],
     ["verify_off_mode", "Verify Off"],
     ["unknown", "Repair"],
   ])("labels %s", (action, label) => {
@@ -57,6 +58,9 @@ describe("doctor repair copy", () => {
     expect(doctorRepairHint("clear_repo_intelligence_index")).toContain(
       "saved Repo Intelligence summary",
     );
+    expect(doctorRepairHint("install_repo_memory_mcp")).toContain(
+      "npm run check:repo-memory-mcp",
+    );
     expect(doctorRepairHint("verify_off_mode")).toContain(
       "without changing local routing",
     );
@@ -65,10 +69,24 @@ describe("doctor repair copy", () => {
   it("detects repairable issues by action presence", () => {
     expect(canRepairIssue("repair_runtime")).toBe(true);
     expect(canRepairIssue("clear_repo_intelligence_index")).toBe(true);
+    expect(canRepairIssue("install_repo_memory_mcp")).toBe(true);
     expect(canRepairIssue("verify_off_mode")).toBe(true);
     expect(canRepairIssue("")).toBe(false);
     expect(canRepairIssue(null)).toBe(false);
     expect(canRepairIssue(undefined)).toBe(false);
+  });
+
+  it("guides Repo Memory MCP repair through Doctor", () => {
+    const guidance = doctorIssueGuidance({
+      id: "repo_memory_mcp_not_configured",
+      title: "Repo Memory MCP is not configured",
+      body: "repo-memory missing from Claude MCP config",
+      severity: "warning",
+      repairAction: "install_repo_memory_mcp",
+    });
+
+    expect(guidance).toContain("npm run check:repo-memory-mcp");
+    expect(guidance).toContain("repo_context_pack");
   });
 
   it("guides Off mode verification without promising repair", () => {

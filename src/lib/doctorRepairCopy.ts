@@ -66,6 +66,8 @@ export function doctorRepairLabel(action: string): string {
       return "Repair Ponytail";
     case "clear_repo_intelligence_index":
       return "Clear index";
+    case "install_repo_memory_mcp":
+      return "Install MCP";
     default:
       return "Repair";
   }
@@ -256,6 +258,8 @@ export function doctorRepairHint(action: string): string {
       return "Re-registers the Ponytail plugin with available Claude Code and Codex hosts.";
     case "clear_repo_intelligence_index":
       return "Clears the saved Repo Intelligence summary so stale, missing, moved, or replaced repo paths no longer appear in Doctor. Re-index the current local repo path from Addons when ready.";
+    case "install_repo_memory_mcp":
+      return "Installs the app-managed read-only Repo Memory MCP server, then run npm run check:repo-memory-mcp to verify repo_context_pack, repo_symbol_lookup, and repo_dependents_of.";
     default:
       return "Runs the safest available repair for this issue.";
   }
@@ -434,6 +438,8 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
       return "Clear the stale saved Repo Intelligence index, then open Addons and re-index the repo before copying packs into another agent.";
     case "repo_intelligence_storage_corrupt":
       return "Clear the unreadable Repo Intelligence index, then open Addons and re-index a local repo before copying packs into another agent.";
+    case "repo_memory_mcp_not_configured":
+      return "Install Repo Memory MCP from Doctor, then run npm run check:repo-memory-mcp before asking supported agents to consume repo-memory tools.";
     case "headroom_paused":
       return "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.";
     case "off_mode_not_clean":
