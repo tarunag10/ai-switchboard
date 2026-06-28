@@ -203,3 +203,27 @@ export function formatManagedConfigDiffPreview(
     ...preview.safetyNotes.map((note) => `- ${note}`),
   ].join("\n");
 }
+
+export function formatManagedRollbackInventory(
+  records: ManagedChangeRecord[] = managedChangeRecords,
+): string {
+  return [
+    "Mac AI Switchboard Rollback Center inventory",
+    "No files are changed by this report.",
+    "",
+    ...records.flatMap((record) => [
+      `## ${record.owner}`,
+      `Kind: ${record.kind}`,
+      `Managed change: ${record.text}`,
+      `Paths: ${record.paths.length > 0 ? record.paths.join(", ") : "none recorded"}`,
+      `Marker: ${record.markerId}`,
+      `Backup: ${record.backupPath ?? "not required"}`,
+      `Verified by: ${record.lastVerifiedLabel}`,
+      `Rollback: ${record.rollback}`,
+      "",
+    ]),
+    "Review dry-run diffs before applying config changes. Off mode must remove only Switchboard-owned marked changes.",
+  ]
+    .join("\n")
+    .trimEnd();
+}

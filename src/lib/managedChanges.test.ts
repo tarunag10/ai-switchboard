@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildManagedConfigDiffPreview,
   formatManagedConfigDiffPreview,
+  formatManagedRollbackInventory,
   managedChangeRecords,
 } from "./managedChanges";
 
@@ -108,6 +109,22 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Current managed block:\n(none detected)");
     expect(text).toContain("Proposed managed block:");
     expect(text).toContain("Backup: next to edited shell profile as *.headroom.bak");
+    expect(text).toContain("Off mode must remove only Switchboard-owned");
+  });
+
+  it("formats a complete rollback-center inventory for support handoff", () => {
+    const text = formatManagedRollbackInventory();
+
+    expect(text).toContain("Mac AI Switchboard Rollback Center inventory");
+    expect(text).toContain("No files are changed by this report.");
+    expect(text).toContain("## Claude Code routing");
+    expect(text).toContain("Paths: ~/.zshrc, ~/.zprofile");
+    expect(text).toContain("Marker: headroom:codex_cli");
+    expect(text).toContain("Backup: next to edited shell profile as *.headroom.bak");
+    expect(text).toContain("Verified by: Verified by Doctor connector checks");
+    expect(text).toContain("Rollback: Remove managed Codex shell routing");
+    expect(text).toContain("Repo Intelligence");
+    expect(text).toContain("Launch at login");
     expect(text).toContain("Off mode must remove only Switchboard-owned");
   });
 

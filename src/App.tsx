@@ -194,6 +194,7 @@ import { localOnlyModeEnabled } from "./lib/localMode";
 import {
   buildManagedConfigDiffPreview,
   formatManagedConfigDiffPreview,
+  formatManagedRollbackInventory,
   managedChangeRecords,
   type ManagedChangeRecord,
 } from "./lib/managedChanges";
@@ -5802,6 +5803,20 @@ export default function App() {
     }
   }
 
+  async function copyManagedRollbackInventory() {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(formatManagedRollbackInventory());
+      setRollbackCopyNotice("Rollback inventory copied.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+    } catch {
+      setRollbackCopyNotice("Copy failed. Review the rollback rows manually.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    }
+  }
+
   if (windowLabel === "launcher" && launcherStage === "install") {
     const stepProgress = Math.round(getStepProgress(bootstrapProgress) * 100);
     const renderPercent = animatedOverallPercent(bootstrapProgress);
@@ -9248,6 +9263,13 @@ export default function App() {
                     undo.
                   </p>
                 </div>
+                <button
+                  className="secondary-button secondary-button--small"
+                  onClick={() => void copyManagedRollbackInventory()}
+                  type="button"
+                >
+                  Copy inventory
+                </button>
               </div>
               <div className="rollback-center-card__list">
                 {managedChangeRecords.map((record) => (
