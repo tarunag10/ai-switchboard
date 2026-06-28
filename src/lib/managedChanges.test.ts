@@ -85,11 +85,14 @@ describe("managedChangeRecords", () => {
       backupPath: "next to edited client config as *.headroom.bak",
       dryRunOnly: true,
       requiresExplicitConfirmation: true,
+      unmanagedConfigPolicy:
+        "Preserve unmanaged user config outside the marked Switchboard block.",
     });
     expect(preview.currentManagedBlock).toContain("old");
     expect(preview.proposedManagedBlock).toContain("new");
     expect(preview.safetyNotes.join(" ")).toContain("dry-run diff");
     expect(preview.safetyNotes.join(" ")).toContain("Off mode");
+    expect(preview.safetyNotes.join(" ")).toContain("Unmanaged user config");
   });
 
   it("formats managed config diff previews for review before writes", () => {
@@ -112,6 +115,10 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Requires explicit confirmation: yes");
     expect(text).toContain("Current managed block:\n(none detected)");
     expect(text).toContain("Proposed managed block:");
+    expect(text).toContain("Unmanaged user config:");
+    expect(text).toContain(
+      "Preserve unmanaged user config outside the marked Switchboard block.",
+    );
     expect(text).toContain("Backup: next to edited shell profile as *.headroom.bak");
     expect(text).toContain("Off mode must remove only Switchboard-owned");
   });

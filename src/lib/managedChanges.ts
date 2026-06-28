@@ -30,6 +30,7 @@ export interface ManagedConfigDiffPreview {
   currentManagedBlock: string | null;
   proposedManagedBlock: string;
   rollback: string;
+  unmanagedConfigPolicy: string;
   safetyNotes: string[];
 }
 
@@ -177,10 +178,13 @@ export function buildManagedConfigDiffPreview({
     currentManagedBlock: currentManagedBlock?.trim() || null,
     proposedManagedBlock: trimmedProposedBlock,
     rollback: record.rollback,
+    unmanagedConfigPolicy:
+      "Preserve unmanaged user config outside the marked Switchboard block.",
     safetyNotes: [
       "Review this dry-run diff before applying changes.",
       "Back up the target config before writing the proposed managed block.",
       "Off mode must remove only Switchboard-owned marked changes.",
+      "Unmanaged user config outside the marker must remain untouched.",
     ],
   };
 }
@@ -206,6 +210,9 @@ export function formatManagedConfigDiffPreview(
     "",
     "Rollback:",
     preview.rollback,
+    "",
+    "Unmanaged user config:",
+    preview.unmanagedConfigPolicy,
     "",
     "Safety:",
     ...preview.safetyNotes.map((note) => `- ${note}`),
