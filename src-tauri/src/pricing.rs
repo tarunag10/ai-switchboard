@@ -24,6 +24,8 @@ const HEADROOM_ACCOUNT_SESSION_ACCOUNT: &str = "session-token";
 const DEFAULT_ACCOUNT_API_BASE_URL: &str = "http://127.0.0.1:3000/api/v1";
 #[cfg(not(debug_assertions))]
 const DEFAULT_ACCOUNT_API_BASE_URL: &str = "https://extraheadroom.com/api/v1";
+const LOCAL_ONLY_REMOTE_SERVICES_ERROR: &str =
+    "Remote account and billing services are disabled in local-only mode.";
 const LOCAL_GRACE_PERIOD_HOURS: i64 = 72;
 const TIER_MISMATCH_GRACE_DAYS: i64 = 14;
 // Set to true in dev builds to skip sign-in requirement (indefinite trial)
@@ -860,6 +862,7 @@ pub(crate) fn activate_account_with_base_url(
     lifetime_tokens_saved: u64,
     base_url: &str,
 ) -> Result<HeadroomPricingStatus, String> {
+    reject_remote_services_in_local_only()?;
     let token = read_session_token()?
         .ok_or_else(|| "Sign in to Headroom before activating desktop access.".to_string())?;
     let identity = IdentityPayload::for_state(state);
@@ -958,6 +961,7 @@ pub(crate) fn create_checkout_session_with_base_url(
     billing_period: BillingPeriod,
     base_url: &str,
 ) -> Result<String, String> {
+    reject_remote_services_in_local_only()?;
     let token = read_session_token()?
         .ok_or_else(|| "Sign in to Headroom before starting checkout.".to_string())?;
     let response = http_client()?
@@ -1005,6 +1009,7 @@ pub(crate) fn change_subscription_plan_with_base_url(
     billing_period: BillingPeriod,
     base_url: &str,
 ) -> Result<(), String> {
+    reject_remote_services_in_local_only()?;
     let token = read_session_token()?
         .ok_or_else(|| "Sign in to Headroom before changing your plan.".to_string())?;
     let response = http_client()?
@@ -1041,6 +1046,7 @@ pub fn reactivate_subscription() -> Result<(), String> {
 }
 
 pub(crate) fn reactivate_subscription_with_base_url(base_url: &str) -> Result<(), String> {
+    reject_remote_services_in_local_only()?;
     let token = read_session_token()?
         .ok_or_else(|| "Sign in to Headroom before reactivating your plan.".to_string())?;
     let response = http_client()?
@@ -1077,6 +1083,7 @@ pub(crate) fn get_billing_portal_url_with_base_url(
     base_url: &str,
     target: Option<&str>,
 ) -> Result<String, String> {
+    reject_remote_services_in_local_only()?;
     let token = read_session_token()?
         .ok_or_else(|| "Sign in to Headroom before accessing billing.".to_string())?;
     let mut request = http_client()?
@@ -1109,6 +1116,14 @@ pub(crate) fn get_billing_portal_url_with_base_url(
         .json::<BillingPortalResponse>()
         .map(|body| body.url)
         .map_err(|err| format!("Could not parse billing portal response: {err}"))
+}
+
+fn reject_remote_services_in_local_only() -> Result<(), String> {
+    if local_mode::enabled() {
+        Err(LOCAL_ONLY_REMOTE_SERVICES_ERROR.to_string())
+    } else {
+        Ok(())
+    }
 }
 
 pub fn fetch_claude_usage(state: &AppState) -> Result<ClaudeUsage, String> {
@@ -4028,6 +4043,70 @@ mod tests {
         _scratch: tempfile::TempDir,
         prev_home: Option<std::ffi::OsString>,
         prev_xdg: Option<std::ffi::OsString>,
+        prev_local: Option<std::ffi::OsString>,
+        prev_remote: Option<std::ffi::OsString>,
+    }
+
+    struct LocalOnlyEnvGuard {
+        prev_local: Option<std::ffi::OsString>,
+        prev_remote: Option<std::ffi::OsString>,
+    }
+
+    struct RemoteServicesEnvGuard {
+        prev_local: Option<std::ffi::OsString>,
+        prev_remote: Option<std::ffi::OsString>,
+    }
+
+    impl LocalOnlyEnvGuard {
+        fn enabled() -> Self {
+            let prev_local = std::env::var_os("HEADROOM_LOCAL_ONLY");
+            let prev_remote = std::env::var_os("HEADROOM_REMOTE_SERVICES");
+            std::env::set_var("HEADROOM_LOCAL_ONLY", "1");
+            std::env::remove_var("HEADROOM_REMOTE_SERVICES");
+            Self {
+                prev_local,
+                prev_remote,
+            }
+        }
+    }
+
+    impl Drop for LocalOnlyEnvGuard {
+        fn drop(&mut self) {
+            match self.prev_local.take() {
+                Some(value) => std::env::set_var("HEADROOM_LOCAL_ONLY", value),
+                None => std::env::remove_var("HEADROOM_LOCAL_ONLY"),
+            }
+            match self.prev_remote.take() {
+                Some(value) => std::env::set_var("HEADROOM_REMOTE_SERVICES", value),
+                None => std::env::remove_var("HEADROOM_REMOTE_SERVICES"),
+            }
+        }
+    }
+
+    impl RemoteServicesEnvGuard {
+        fn enabled() -> Self {
+            let prev_local = std::env::var_os("HEADROOM_LOCAL_ONLY");
+            let prev_remote = std::env::var_os("HEADROOM_REMOTE_SERVICES");
+            std::env::remove_var("HEADROOM_LOCAL_ONLY");
+            std::env::set_var("HEADROOM_REMOTE_SERVICES", "1");
+            Self {
+                prev_local,
+                prev_remote,
+            }
+        }
+    }
+
+    impl Drop for RemoteServicesEnvGuard {
+        fn drop(&mut self) {
+            match self.prev_local.take() {
+                Some(value) => std::env::set_var("HEADROOM_LOCAL_ONLY", value),
+                None => std::env::remove_var("HEADROOM_LOCAL_ONLY"),
+            }
+            match self.prev_remote.take() {
+                Some(value) => std::env::set_var("HEADROOM_REMOTE_SERVICES", value),
+                None => std::env::remove_var("HEADROOM_REMOTE_SERVICES"),
+            }
+        }
     }
 
     impl AuthedTestEnv {
@@ -4035,8 +4114,12 @@ mod tests {
             let scratch = tempfile::tempdir().expect("scratch tempdir");
             let prev_home = std::env::var_os("HOME");
             let prev_xdg = std::env::var_os("XDG_DATA_HOME");
+            let prev_local = std::env::var_os("HEADROOM_LOCAL_ONLY");
+            let prev_remote = std::env::var_os("HEADROOM_REMOTE_SERVICES");
             std::env::set_var("HOME", scratch.path());
             std::env::set_var("XDG_DATA_HOME", scratch.path().join(".local").join("share"));
+            std::env::remove_var("HEADROOM_LOCAL_ONLY");
+            std::env::set_var("HEADROOM_REMOTE_SERVICES", "1");
             crate::storage::ensure_data_dirs(&crate::storage::app_data_dir())
                 .expect("ensure_data_dirs in scratch");
             crate::keychain::write_secret(
@@ -4049,6 +4132,8 @@ mod tests {
                 _scratch: scratch,
                 prev_home,
                 prev_xdg,
+                prev_local,
+                prev_remote,
             }
         }
     }
@@ -4062,6 +4147,14 @@ mod tests {
             match self.prev_xdg.take() {
                 Some(v) => std::env::set_var("XDG_DATA_HOME", v),
                 None => std::env::remove_var("XDG_DATA_HOME"),
+            }
+            match self.prev_local.take() {
+                Some(v) => std::env::set_var("HEADROOM_LOCAL_ONLY", v),
+                None => std::env::remove_var("HEADROOM_LOCAL_ONLY"),
+            }
+            match self.prev_remote.take() {
+                Some(v) => std::env::set_var("HEADROOM_REMOTE_SERVICES", v),
+                None => std::env::remove_var("HEADROOM_REMOTE_SERVICES"),
             }
         }
     }
@@ -4131,6 +4224,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn activate_account_requires_session_token() {
+        let _remote_services = RemoteServicesEnvGuard::enabled();
         // No AuthedTestEnv → no token in keychain. Override HOME so any
         // keychain read still goes to a tempdir, not the dev profile.
         let scratch = tempfile::tempdir().expect("scratch");
@@ -4154,6 +4248,39 @@ mod tests {
             Some(v) => std::env::set_var("XDG_DATA_HOME", v),
             None => std::env::remove_var("XDG_DATA_HOME"),
         }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn local_only_blocks_remote_account_and_billing_entrypoints_before_auth() {
+        let _local_only = LocalOnlyEnvGuard::enabled();
+        let (state, dir) = temp_app_state();
+        let base_url = "http://127.0.0.1:1";
+
+        let activation = super::activate_account_with_base_url(&state, 0, base_url)
+            .expect_err("local-only blocks activation");
+        let checkout = super::create_checkout_session_with_base_url(
+            HeadroomSubscriptionTier::Pro,
+            BillingPeriod::Annual,
+            base_url,
+        )
+        .expect_err("local-only blocks checkout");
+        let change_plan = super::change_subscription_plan_with_base_url(
+            HeadroomSubscriptionTier::Pro,
+            BillingPeriod::Annual,
+            base_url,
+        )
+        .expect_err("local-only blocks plan changes");
+        let reactivate = super::reactivate_subscription_with_base_url(base_url)
+            .expect_err("local-only blocks reactivation");
+        let billing = super::get_billing_portal_url_with_base_url(base_url, Some("subscription"))
+            .expect_err("local-only blocks billing portal");
+
+        for err in [activation, checkout, change_plan, reactivate, billing] {
+            assert_eq!(err, super::LOCAL_ONLY_REMOTE_SERVICES_ERROR);
+        }
+
+        drop_state(dir);
     }
 
     #[test]

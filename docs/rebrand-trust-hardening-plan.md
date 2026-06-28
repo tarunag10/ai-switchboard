@@ -155,8 +155,8 @@ Suggested commit:
 Audit every remote call and decide what belongs in this fork.
 
 Status: remote destination registry and release gates are shipped. Runtime
-local-only network rejection tests and final account/pricing ownership decisions
-are still open.
+local-only backend rejection for account, billing, and contact commands is
+shipped. Final account/pricing ownership decisions are still open.
 
 Tasks:
 
@@ -168,15 +168,15 @@ Tasks:
   - update feeds
   - telemetry/Sentry/Clarity
   - external legal/support/mail links
-- Add a `LOCAL_ONLY` test mode that rejects unexpected network calls.
-- Ensure local-only mode disables or hides account/pricing/telemetry flows.
+- Add a `LOCAL_ONLY` test mode that rejects unexpected network calls: shipped for account activation, checkout, plan change, reactivation, billing portal, and support/contact command entrypoints.
+- Ensure local-only mode disables or hides account/pricing/telemetry flows: backend refusal is shipped for account/billing/contact commands, with frontend hiding already present.
 - Decide whether upstream account/pricing should be removed, replaced, or clearly labeled as upstream.
 - Replace upstream support mailto and endpoint copy with Mac AI Switchboard-owned support details or remove those actions: shipped for the main in-app support and runtime-upgrade failure actions.
 - Audit Keychain service names before renaming; create migration logic if they change.
 
 Acceptance checks:
 
-- A local-only run performs no remote account, pricing, telemetry, or support requests.
+- A local-only run performs no remote account, pricing, telemetry, or support requests. Account activation, checkout, plan change, reactivation, billing portal, and contact commands now refuse in local-only mode before auth or HTTP setup.
 - Every remaining remote URL is documented and intentionally allowed.
 - SSRF/url allowlist tests cover link-opening and contact/payment flows. Link-opening coverage is shipped for unsupported schemes, credentialed URLs, newline injection, loopback, private, and link-local hosts.
 

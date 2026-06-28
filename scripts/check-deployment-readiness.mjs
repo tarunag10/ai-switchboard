@@ -101,6 +101,8 @@ const requiredDocSignals = {
   "docs/rebrand-trust-hardening-plan.md": [
     "External link opening now rejects unsupported schemes",
     "SSRF/url allowlist tests cover link-opening",
+    "local-only backend rejection for account, billing, and contact commands is",
+    "checkout, plan change, reactivation, billing portal, and support/contact",
   ],
   "docs/install.md": [
     "Mac-AI-Switchboard_<version>.dmg",

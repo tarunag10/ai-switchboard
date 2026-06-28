@@ -4263,6 +4263,7 @@ async fn submit_contact_request(
     email: String,
     message: Option<String>,
 ) -> Result<(), String> {
+    reject_contact_request_in_local_only()?;
     let trimmed = email.trim();
     if trimmed.is_empty() || !trimmed.contains('@') {
         return Err("Enter a valid email address.".to_string());
@@ -4296,6 +4297,14 @@ async fn submit_contact_request(
         422 => Err("Enter a valid email address.".to_string()),
         503 => Err("Email delivery still needs to be configured.".to_string()),
         status => Err(format!("Contact request failed with status {status}.")),
+    }
+}
+
+fn reject_contact_request_in_local_only() -> Result<(), String> {
+    if local_mode::enabled() {
+        Err("Support/contact requests are disabled in local-only mode.".to_string())
+    } else {
+        Ok(())
     }
 }
 
@@ -6783,6 +6792,37 @@ mod tests {
     use serde_json::{json, Value};
     use std::collections::BTreeMap;
     use std::sync::Arc;
+
+    struct LocalOnlyEnvGuard {
+        prev_local: Option<std::ffi::OsString>,
+        prev_remote: Option<std::ffi::OsString>,
+    }
+
+    impl LocalOnlyEnvGuard {
+        fn enabled() -> Self {
+            let prev_local = std::env::var_os("HEADROOM_LOCAL_ONLY");
+            let prev_remote = std::env::var_os("HEADROOM_REMOTE_SERVICES");
+            std::env::set_var("HEADROOM_LOCAL_ONLY", "1");
+            std::env::remove_var("HEADROOM_REMOTE_SERVICES");
+            Self {
+                prev_local,
+                prev_remote,
+            }
+        }
+    }
+
+    impl Drop for LocalOnlyEnvGuard {
+        fn drop(&mut self) {
+            match self.prev_local.take() {
+                Some(value) => std::env::set_var("HEADROOM_LOCAL_ONLY", value),
+                None => std::env::remove_var("HEADROOM_LOCAL_ONLY"),
+            }
+            match self.prev_remote.take() {
+                Some(value) => std::env::set_var("HEADROOM_REMOTE_SERVICES", value),
+                None => std::env::remove_var("HEADROOM_REMOTE_SERVICES"),
+            }
+        }
+    }
     use tauri::{LogicalPosition, LogicalSize, PhysicalSize, Position, Rect, Size};
 
     const TEST_UPDATER_PUBLIC_KEY: &str = "test-updater-public-key";
@@ -7094,6 +7134,19 @@ mod tests {
                 "{raw} should be rejected"
             );
         }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn local_only_blocks_contact_request_before_url_or_email_validation() {
+        let _local_only = LocalOnlyEnvGuard::enabled();
+        let err = super::reject_contact_request_in_local_only()
+            .expect_err("local-only blocks contact requests");
+
+        assert_eq!(
+            err,
+            "Support/contact requests are disabled in local-only mode."
+        );
     }
 
     #[test]
