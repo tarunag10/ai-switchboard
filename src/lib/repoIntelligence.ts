@@ -1237,6 +1237,23 @@ export function formatAgentSessionPreparationJson(
   return JSON.stringify(preparation.handoffPayload, null, 2);
 }
 
+export function formatAgentSessionSelectedPackMarkdown(
+  summary: RepoIntelligenceSummary,
+  preparation: Pick<AgentSessionPreparation, "packId" | "copyStatus">,
+): string | null {
+  if (preparation.copyStatus === "blocked") {
+    return null;
+  }
+  const pack = summary.packs.find(
+    (candidate) => candidate.id === preparation.packId,
+  );
+  if (!pack) {
+    return null;
+  }
+
+  return formatSingleRepoContextPackMarkdown(summary, pack);
+}
+
 export function estimateRepoIntelligenceSavings(
   summary: RepoIntelligenceSummary,
 ): RepoSavingsEstimate {
