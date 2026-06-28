@@ -263,6 +263,38 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
                 .collect(),
             estimated_full_scan_tokens,
         ),
+        build_context_pack(
+            "risk_review",
+            "Risk Review Pack",
+            "Source, tests, and config likely needed for regression or security review.",
+            indexed
+                .iter()
+                .filter(|signal| {
+                    matches!(
+                        signal.role,
+                        RepoFileRole::Source | RepoFileRole::Test | RepoFileRole::Config
+                    )
+                })
+                .cloned()
+                .collect(),
+            estimated_full_scan_tokens,
+        ),
+        build_context_pack(
+            "release_handoff",
+            "Release Handoff Pack",
+            "Verification, docs, and config useful for release readiness handoff.",
+            indexed
+                .iter()
+                .filter(|signal| {
+                    matches!(
+                        signal.role,
+                        RepoFileRole::Test | RepoFileRole::Docs | RepoFileRole::Config
+                    )
+                })
+                .cloned()
+                .collect(),
+            estimated_full_scan_tokens,
+        ),
     ];
 
     Ok(RepoIntelligenceSummary {
@@ -2339,7 +2371,13 @@ mod tests {
                 .iter()
                 .map(|pack| pack.id.as_str())
                 .collect::<Vec<_>>(),
-            vec!["implementation", "verification", "handoff"]
+            vec![
+                "implementation",
+                "verification",
+                "handoff",
+                "risk_review",
+                "release_handoff"
+            ]
         );
         assert_eq!(
             manifest

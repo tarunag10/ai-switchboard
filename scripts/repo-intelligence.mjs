@@ -310,7 +310,7 @@ function printHelp() {
   console.log(`Usage: npm run repo:intelligence -- [repo-path] [options]
 
 Options:
-  --pack <id>          Print one context pack: implementation, verification, handoff
+  --pack <id>          Print one context pack: implementation, verification, handoff, risk_review, release_handoff
   --agent <id>         Print agent handoff: claude, codex, gemini, opencode, aider, goose, cursor, continue, grok, qwen, amazonq, windsurf, zed
   --session            Print Start Agent Session preparation for --agent
   --task <type>        Session task: implementation, verification, handoff
@@ -1159,6 +1159,30 @@ function buildSummary(repoRoot) {
         "Docs project metadata useful for another agent or maintainer.",
         indexable.filter(
           (file) => file.role === "docs" || file.role === "config",
+        ),
+        estimatedFullScanTokens,
+      ),
+      pack(
+        "risk_review",
+        "Risk Review Pack",
+        "Source, tests, and config likely needed for regression or security review.",
+        indexable.filter(
+          (file) =>
+            file.role === "source" ||
+            file.role === "test" ||
+            file.role === "config",
+        ),
+        estimatedFullScanTokens,
+      ),
+      pack(
+        "release_handoff",
+        "Release Handoff Pack",
+        "Verification, docs, and config useful for release readiness handoff.",
+        indexable.filter(
+          (file) =>
+            file.role === "test" ||
+            file.role === "docs" ||
+            file.role === "config",
         ),
         estimatedFullScanTokens,
       ),

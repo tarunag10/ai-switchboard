@@ -146,10 +146,38 @@ describe("repoIntelligence", () => {
         }),
       ]),
     );
-    expect(summary.packs).toHaveLength(3);
+    expect(summary.packs.map((pack) => pack.id)).toEqual([
+      "implementation",
+      "verification",
+      "handoff",
+      "risk_review",
+      "release_handoff",
+    ]);
     expect(summary.packs[0].id).toBe("implementation");
     expect(summary.packs[0].files.map((file) => file.path)).toContain(
       "src/App.tsx",
+    );
+    expect(
+      summary.packs
+        .find((pack) => pack.id === "risk_review")
+        ?.files.map((file) => file.path),
+    ).toEqual(
+      expect.arrayContaining([
+        "src/App.tsx",
+        "src/App.test.tsx",
+        "package.json",
+      ]),
+    );
+    expect(
+      summary.packs
+        .find((pack) => pack.id === "release_handoff")
+        ?.files.map((file) => file.path),
+    ).toEqual(
+      expect.arrayContaining([
+        "src/App.test.tsx",
+        "docs/install.md",
+        "package.json",
+      ]),
     );
     expect(summary.packs[0].savingsVsFullScanPct).toBeGreaterThan(50);
   });
@@ -300,6 +328,8 @@ describe("repoIntelligence", () => {
     expect(markdown).toContain("Symbols");
     expect(markdown).toContain("- package.json");
     expect(markdown).toContain("## Implementation Pack");
+    expect(markdown).toContain("## Risk Review Pack");
+    expect(markdown).toContain("## Release Handoff Pack");
     expect(markdown).toContain("src/App.tsx");
     expect(markdown).toContain("Estimated savings vs full scan");
   });
@@ -369,6 +399,8 @@ describe("repoIntelligence", () => {
       "implementation",
       "verification",
       "handoff",
+      "risk_review",
+      "release_handoff",
     ]);
     expect(manifest.packs[0].command).toContain(
       "--pack implementation --format markdown",

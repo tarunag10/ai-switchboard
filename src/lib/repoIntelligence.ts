@@ -704,6 +704,30 @@ export function buildRepoIntelligenceSummary(
       ),
       estimatedFullScanTokens,
     ),
+    buildContextPack(
+      "risk_review",
+      "Risk Review Pack",
+      "Source, tests, and config likely needed for regression or security review.",
+      indexed.filter(
+        (signal) =>
+          signal.role === "source" ||
+          signal.role === "test" ||
+          signal.role === "config",
+      ),
+      estimatedFullScanTokens,
+    ),
+    buildContextPack(
+      "release_handoff",
+      "Release Handoff Pack",
+      "Verification, docs, and config useful for release readiness handoff.",
+      indexed.filter(
+        (signal) =>
+          signal.role === "test" ||
+          signal.role === "docs" ||
+          signal.role === "config",
+      ),
+      estimatedFullScanTokens,
+    ),
   ];
 
   const indexMetadata = buildRepoIndexMetadata(files, signals);
