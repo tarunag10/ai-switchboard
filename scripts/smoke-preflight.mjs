@@ -17,7 +17,7 @@ const requiredSignals = {
     "Copy report",
     "degraded-mode guidance",
     "re-run Doctor until requested mode becomes active",
-    "Planned connectors are visible but manual",
+    "Managed connectors are visible with native config gates",
 "backend detection evidence",
 "Automation gates",
 "Manual workflow",
@@ -29,7 +29,7 @@ const requiredSignals = {
 "Agent handoffs",
 "mac_ai_switchboard.repo_agent_handoff",
 "Connector Config Readiness",
-"planned connector config readiness",
+"managed connector config readiness",
 "ready-to-paste bounded handoff",
     "Clear index",
     "Re-indexing remains a deliberate Addons action",
@@ -122,8 +122,8 @@ Generated: ${generatedAt}
 ## Required Installed-App Smoke Areas
 
 - Switchboard modes: Full optimization, Headroom only, RTK only, Off
-- Doctor repairs: runtime, Codex setup, RTK, planned connector manual warnings with detection evidence, config creation plan, Gemini dry-run preview evidence, and Repo Intelligence stale/missing-index warnings
-- Planned connectors: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI; each stays disabled and manual with safe RTK-only or Repo Intelligence pack guidance, copyable config creation plan, and Gemini shows binary/version/config compatibility evidence plus backend dry-run preview evidence when detected
+- Doctor repairs: runtime, Codex setup, RTK, managed connector native config warnings with detection evidence, config creation plan, Gemini dry-run preview evidence, and Repo Intelligence stale/missing-index warnings
+- Managed connectors: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI; each keeps native config mutation gated with safe RTK-only or Repo Intelligence pack guidance, copyable manual setup guide, copyable config creation plan, and Gemini shows binary/version/config compatibility evidence plus backend dry-run preview evidence when detected
 - Repo Intelligence: local repo index, persisted latest summary, copy bounded context pack, copy individual task pack, copy agent manifest, copy per-tool Markdown and JSON agent handoffs, Connector readiness payload in agent handoffs, clear saved index, context-pack preview, per-pack copy
 - Savings calculator: Session / Overall scopes, copyable confidence-labelled ledger, saved tokens, estimated dollars, reduction, equation, source breakdown
 - Local-first behavior: remote services gated, Off mode reversible cleanup

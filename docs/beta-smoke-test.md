@@ -71,13 +71,13 @@ The '' model is not supported when using Codex with a ChatGPT account.
 
 Expect: this is treated as a Codex routing/config problem, not as an RTK compression problem. Doctor should flag Codex routing config if the managed provider block or proxy URL is stale, and **Repair Codex** should re-apply the reversible Codex setup.
 
-### S8. Planned connectors are visible but manual
+### S8. Managed connectors are visible with native config gates
 
 Open Settings and inspect the coding tool connector list.
 
-Expect: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI all appear when detected or known to the connector registry. Each planned connector shows a **Planned** badge, setup phase, category, safe mode chips such as RTK only or Repo packs, backend detection evidence, copyable manual setup guide, and disabled switch. Gemini CLI shows a compatibility report with binary, version, config surface, routing-blocker evidence, and backend dry-run preview evidence when detected. Cards explain what is safe today and the first automation step before config writes. Doctor may show **Planned coding tools detected**, but it must be a manual step with no **Repair all** action for those tools. If a report mixes repairable and manual items, Doctor says **Repair all will leave manual steps visible.** Launcher auto-setup and proxy verification should include only managed connectors such as Claude Code and Codex.
+Expect: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI all appear when detected or known to the connector registry. Each managed connector shows setup phase, category, safe mode chips such as RTK only or Repo packs, backend detection evidence, copyable manual setup guide, sidecar lifecycle state, and native config gate status. Gemini CLI shows a compatibility report with binary, version, config surface, routing evidence, and backend dry-run preview evidence when detected. Cards explain what is safe today and the first native config automation step before third-party config writes. Doctor may show connector native config gates as a **Manual workflow**, but it must be a manual step with no **Repair all** action for those native writes. If a report mixes repairable and manual items, Doctor says **Repair all will leave manual steps visible.** Launcher auto-setup and proxy verification should include only managed connectors.
 
-Expect: planned connector cards and Doctor evidence include **Automation gates**, **Manual workflow**, **Config creation plan**, and **Gemini dry-run preview evidence** before any future Gemini config-writing support is allowed.
+Expect: managed connector cards and Doctor evidence include **Automation gates**, **Manual workflow**, native config gate status, **Config creation plan**, and **Gemini dry-run preview evidence** before future native config-writing support is promoted.
 
 ### S9. Repo Intelligence index health
 
@@ -97,11 +97,11 @@ Expect: JSON manifest is copied for external coding agents. It includes `mac_ai_
 
 In **Start session**, choose an agent and task, then click **Copy full handoff**.
 
-Expect: the copied session handoff matches the selected task pack, shows freshness and recommended mode, and keeps provider routing manual for planned connectors. CLI parity is `npm run repo:intelligence -- <repo> --session --agent codex --task verification --headroom-healthy --rtk-healthy --format markdown`; JSON output uses `mac_ai_switchboard.agent_session_preparation`.
+Expect: the copied session handoff matches the selected task pack, shows freshness and recommended mode, and keeps provider routing manual for managed connectors. CLI parity is `npm run repo:intelligence -- <repo> --session --agent codex --task verification --headroom-healthy --rtk-healthy --format markdown`; JSON output uses `mac_ai_switchboard.agent_session_preparation`.
 
 In **Agent handoffs**, expect grouped sections for Primary agents, CLI agents, Editor agents, and Chat agents. Claude Code and Codex should appear in Primary agents. Click **Claude Code**, **Codex**, **Gemini CLI**, **Cursor**, and newer targets such as **Qwen Code**, **Amazon Q Developer CLI**, **Windsurf**, or **Zed AI**.
 
-Expect: Markdown action copies a ready-to-paste bounded handoff for that tool, selects the expected implementation, verification, or handoff pack, includes token savings and graph summary, and does not write third-party config. Planned connector targets include **Connector Config Readiness** with planned connector config readiness, next gate, evidence requirements, config path strategy, account caveat, and rollback strategy. JSON action copies a `mac_ai_switchboard.repo_agent_handoff` payload with agent id, selected pack, file list, graph hints, token savings, read-only safety flags, and the same connector readiness payload.
+Expect: Markdown action copies a ready-to-paste bounded handoff for that tool, selects the expected implementation, verification, or handoff pack, includes token savings and graph summary, and does not write third-party config. Managed connector targets include **Connector Config Readiness** with managed connector config readiness, next gate, evidence requirements, config path strategy, account caveat, and rollback strategy. JSON action copies a `mac_ai_switchboard.repo_agent_handoff` payload with agent id, selected pack, file list, graph hints, token savings, read-only safety flags, and the same connector readiness payload.
 
 Click **Clear** in the Repo Intelligence card.
 

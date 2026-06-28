@@ -70,8 +70,9 @@ describe("release readiness checklist", () => {
     expect(allCopy).toMatch(/npm run smoke:installed/i);
     expect(allCopy).toMatch(/installed-smoke-summary\.md/i);
     expect(allCopy).toMatch(/managed connector evidence/i);
-    expect(allCopy).toMatch(/planned connector automation gates/i);
+    expect(allCopy).toMatch(/managed connector automation gates/i);
     expect(allCopy).toMatch(/automation gates/i);
+    expect(allCopy).toMatch(/manual workflow/i);
     expect(allCopy).toMatch(/Repo Intelligence recipes/i);
     expect(allCopy).toMatch(/per-tool agent handoffs/i);
     expect(allCopy).toMatch(/connector readiness payload/i);
@@ -134,7 +135,7 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("Developer ID");
     expect(copy).toContain("notarization credentials");
     expect(copy).toContain("HEADROOM_UPDATER_PUBLIC_KEY");
-    expect(copy).toMatch(/planned connector smoke evidence/i);
+    expect(copy).toMatch(/managed connector smoke evidence/i);
     expect(copy).toMatch(/gated config creation plan/i);
     expect(copy).toMatch(/connector readiness payload/i);
     expect(copy).toContain("npm run release:ready -- --strict");
@@ -162,7 +163,7 @@ describe("release readiness checklist", () => {
         ready: true,
         evidenceReady: true,
         requiredEvidence: [
-          "Planned connector config creation plan",
+          "Managed connector config creation plan",
           "Connector readiness payload in agent handoffs",
         ],
       },
@@ -216,7 +217,7 @@ describe("release readiness checklist", () => {
         ready: true,
         evidenceReady: true,
         requiredEvidence: [
-          "Planned connector config creation plan",
+          "Managed connector config creation plan",
           "Connector readiness payload in agent handoffs",
         ],
       },
@@ -248,7 +249,7 @@ describe("release readiness checklist", () => {
       staticSmokePreflight: {
         ready: true,
         requiredEvidence: [
-          "Planned connector config creation plan",
+          "Managed connector config creation plan",
           "Connector readiness payload in agent handoffs",
         ],
       },
@@ -278,7 +279,7 @@ describe("release readiness checklist", () => {
       "local-only": 1,
     });
     expect(rows.find((row) => row.id === "connector-config-plan")?.detail).toContain(
-      "includes the planned connector config creation plan and connector readiness payload",
+      "includes the managed connector config creation plan and connector readiness payload",
     );
     expect(rows.find((row) => row.id === "final-gate")?.detail).toBe(
       "Shareable DMG is ready.",
@@ -298,7 +299,7 @@ describe("release readiness checklist", () => {
       installedSmoke: {
         installedAppPresent: false,
         evidenceReady: false,
-        missingEvidence: ["planned connector evidence", "installed smoke summary"],
+        missingEvidence: ["managed connector evidence", "installed smoke summary"],
       },
       shareableDmgGate: {
         ready: false,
@@ -324,7 +325,7 @@ describe("release readiness checklist", () => {
       "Savings calculator copyable ledger",
     );
     expect(rows.find((row) => row.id === "installed-smoke")?.detail).toContain(
-      "planned connector evidence",
+      "managed connector evidence",
     );
     expect(rows.find((row) => row.id === "signing-env")?.detail).toContain(
       "APPLE_SIGNING_IDENTITY",
@@ -333,7 +334,7 @@ describe("release readiness checklist", () => {
       "does not prove signed release readiness",
     );
     expect(rows.find((row) => row.id === "connector-config-plan")?.detail).toContain(
-      "must include the planned connector config creation plan and connector readiness payload",
+      "must include the managed connector config creation plan and connector readiness payload",
     );
   });
 
@@ -344,7 +345,7 @@ describe("release readiness checklist", () => {
       staticSmokePreflight: {
         ready: false,
         requiredEvidence: [
-          "Planned connector config creation plan",
+          "Managed connector config creation plan",
           "Connector readiness payload in agent handoffs",
         ],
       },
@@ -387,7 +388,7 @@ describe("release readiness checklist", () => {
       staticSmokePreflight: {
         ready: true,
         requiredEvidence: [
-          "Planned connector config creation plan",
+          "Managed connector config creation plan",
           "Connector readiness payload in agent handoffs",
         ],
         missingEvidence: ["Savings calculator copyable ledger"],
@@ -427,7 +428,7 @@ describe("release readiness checklist", () => {
         staticSmokePreflight: {
           ready: true,
           requiredEvidence: [
-            "Planned connector config creation plan",
+            "Managed connector config creation plan",
             "Connector readiness payload in agent handoffs",
           ],
         },
@@ -484,8 +485,8 @@ describe("release readiness checklist", () => {
       "Sharing status: blocked until strict release gate is ready",
     );
     expect(snapshot).toContain("## Status Rows");
-    expect(snapshot).toContain("## Planned Connector Readiness");
-    expect(snapshot).toContain("Planned connectors: 0");
+    expect(snapshot).toContain("## Managed Connector Readiness");
+    expect(snapshot).toContain("Managed connectors: 0");
     expect(snapshot).toContain("Automation ready: 0");
     expect(snapshot).toContain("Next blocked gates:");
     expect(snapshot).not.toContain("Cursor: Guide, next gate Backup Implemented");
@@ -527,7 +528,7 @@ describe("release readiness checklist", () => {
           ready: true,
           evidenceReady: true,
           requiredEvidence: [
-            "Planned connector config creation plan",
+            "Managed connector config creation plan",
             "Connector readiness payload in agent handoffs",
           ],
           missingEvidence: [],

@@ -50,9 +50,9 @@ Mac AI Switchboard should stay local-first. The app can route Claude, Codex, and
 
 ### Connector Expansion Risk
 
-- Planned connectors include Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI.
-- Each connector has different config files, provider semantics, account models, and rollback behavior.
-- Automation should be gated behind detection, manual-safe instructions, backups, Doctor verification, Off-mode cleanup, and restore tests.
+- Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI now have managed sidecar lifecycle coverage.
+- The remaining connector risk is provider-specific native config mutation: each connector has different config files, provider semantics, account models, credential surfaces, and rollback behavior.
+- Native config automation should stay gated behind detection, manual-safe instructions, dry-run diffs, backups, Doctor verification, Off-mode cleanup, and fixture-home restore tests.
 
 ## Roadmap Phases
 
@@ -182,15 +182,15 @@ Goal: add new agent connectors safely and repeatedly.
 
 Tasks:
 
-- Create a connector readiness contract with stages: detected, manual guide available, backup implemented, apply implemented, verify implemented, rollback implemented, Off cleanup implemented.
-- Add connector manifests for Gemini CLI, OpenCode, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI, and Grok / xAI CLI.
-- For each connector, document config paths, provider/base-url semantics, account caveats, and rollback strategy.
-- Add UI badges for "manual only", "automation gated", "verified automation", and "unsupported account/model".
-- Start automation with one low-risk connector after the framework is tested.
+- Preserve the shipped connector readiness contract with stages: detected, manual guide available, backup implemented, apply implemented, verify implemented, rollback implemented, Off cleanup implemented.
+- Keep connector manifests current for Gemini CLI, OpenCode, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI, and Grok / xAI CLI.
+- For each connector, document native config paths, provider/base-url semantics, account caveats, credential boundaries, and rollback strategy.
+- Keep UI badges for "manual only", "automation gated", "verified automation", and "unsupported account/model".
+- Promote native config automation connector by connector after the managed sidecar framework and fixture-home restore tests prove the path.
 
 Acceptance checks:
 
-- Planned connectors show useful detection and manual setup without mutating config.
+- Managed connectors show useful detection, sidecar lifecycle state, and native config gates without mutating native config.
 - Automation is disabled until backup, verify, rollback, and Off cleanup exist.
 - Doctor can explain why a connector is not safely automatable yet.
 - Adding a new connector does not require bespoke UI rewrites.
@@ -298,4 +298,3 @@ Suggested commit:
 8. Branding and release evidence.
 
 This order front-loads user trust and safety before expanding automation. It also creates the observability needed to tell whether later connector and savings features are actually working.
-

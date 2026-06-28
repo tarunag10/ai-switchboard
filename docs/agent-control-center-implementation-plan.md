@@ -8,8 +8,8 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 
 ### Shipped
 
-- Start Agent Session has a first usable flow with repo-path validation, freshness detail, selected-pack/full-handoff/summary/JSON copy actions, sample-pack copy blocking, planned connector readiness in session payloads, and matching `repo:intelligence --session` CLI exports.
-- Planned connector registry coverage exists for Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed, including config surfaces, manual guides, automation gates, rollback dossiers, copyable config-plan actions, compatibility-matrix checks, blocked dry-run previews for detected or documented config surfaces, and a seven-stage automation path for detect, dry-run, backup, apply, verify, rollback, and Off cleanup.
+- Start Agent Session has a first usable flow with repo-path validation, freshness detail, selected-pack/full-handoff/summary/JSON copy actions, sample-pack copy blocking, managed connector readiness in session payloads, and matching `repo:intelligence --session` CLI exports.
+- Managed connector sidecar coverage exists for Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed, including config surfaces, manual guides, automation gates, rollback dossiers, copyable config-plan actions, compatibility-matrix checks, dry-run previews for detected or documented config surfaces, and a seven-stage automation path for detect, dry-run, backup, apply, verify, rollback, and Off cleanup.
 - Read-only Repo Intelligence API coverage exists for manifests, packs, handoffs, freshness, stale/moved/corrupt index states, safe clear behavior, bounded pack output, and secret-like path exclusion.
 - Repo-memory MCP is advertised in CLI help and smoke-tested through `npm run check:repo-memory-mcp`, including read-only tool annotations and a real `repo_context_pack` call that checks safety text and seeded secret exclusion.
 - Savings ledger has shipped rows/copy exports with measured, estimated, and inferred confidence labels, empty-state distinction, active-filter copy disclosure, per-row evidence/caveats, and attribution percentages by confidence.
@@ -20,7 +20,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 
 ### Left To Build
 
-- Promote planned connectors into supported adapters one by one, starting with Gemini CLI, only after the blocked automation path stages are backed by real backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup.
+- Promote provider-specific config mutation beyond managed sidecars, connector by connector, only after each native surface has real backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup. Priority surfaces include Cursor/Windsurf/Zed editor settings, Continue multi-provider config, Goose MCP/provider config, Aider wrapper/env config, Grok/Qwen account and model guardrails, and Amazon Q credential-safe integration.
 - Turn repo-memory MCP from a smoke-tested CLI transport into an app-managed local service with lifecycle controls, Doctor availability checks, and agent-consumption docs for the supported connector path.
 - Deepen Repo Intelligence v2 with tree-sitter or language-specific parsers, persistent parser/index versions, richer symbols/imports/reverse dependencies, graph-aware packs, and parser/index Doctor health checks.
 - Finish exact live/session savings attribution across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese by adding durable per-session source events where profile-specific evidence exists.
@@ -31,25 +31,24 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 
 ## Current Connector Checkpoint
 
-- Gemini has the deepest current implementation path.
-- OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed already exist in the planned connector registry with config surfaces, manual guides, automation gates, and rollback dossiers.
-- Each planned connector must get config-creation work like Gemini, gated behind detection, dry-run diff, backup, verify, rollback, and Off cleanup.
-- `npm run check:connectors` enforces the shared config-creation plan contract, including the seven required gated steps and copyable markdown handoff.
-- Planned connector cards now surface the same seven config-creation gates in-app before backend-specific detection evidence is available.
-- Planned connector cards now provide per-tool Copy config plan actions, so Gemini, OpenCode, Grok/xAI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed each export the same gated config-creation contract from the Mac app.
-- Detected planned connector cards now receive blocked dry-run previews with target, marker, backup path, proposed state, rollback preview, confirmation phrase, apply-blocked reason, and seven-stage automation path status while automatic writes remain disabled.
-- Repo Intelligence agent handoffs now include connector config readiness, next gate, evidence requirements, config path strategy, account caveat, and rollback strategy for each planned connector target.
+- Gemini and OpenCode are no longer only registry plans: Gemini has managed shell base-url env routing, and OpenCode has provider config routing plus the shared sidecar lifecycle.
+- Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed now have managed sidecar lifecycle coverage with config surfaces, manual guides, automation gates, rollback dossiers, dry-run previews, backup/apply/verify/rollback/Off cleanup stages, and release-readiness evidence.
+- `npm run check:connectors` reports `0 pending planned, 11 managed, 9 retained compatibility dossiers` and enforces the shared config-creation contract, including the seven required gated steps and copyable markdown handoff.
+- Managed connector cards now surface the same seven config-creation gates in-app, with provider-specific native mutation still gated behind compatibility dossiers where needed.
+- Managed connector cards now provide per-tool Copy config plan actions, so Gemini, OpenCode, Grok/xAI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed each export the same gated config-creation contract from the Mac app.
+- Detected managed connector cards now receive dry-run previews with target, marker, backup path, proposed state, rollback preview, confirmation phrase, apply-blocked reason when native mutation is not promoted, and seven-stage automation path status.
+- Repo Intelligence agent handoffs now include connector config readiness, next gate, evidence requirements, config path strategy, account caveat, and rollback strategy for each managed connector target.
 - The `repo:intelligence` CLI handoff export now mirrors those connector readiness dossiers in Markdown and JSON output.
-- `npm run check:connectors` now verifies the CLI connector dossier mirror so planned config metadata cannot silently drift across app, backend, and handoff exports.
-- The Tauri `get_agent_handoff` read-only API now returns matching connector config readiness dossiers for planned connector targets while leaving Claude/Codex handoffs unchanged.
+- `npm run check:connectors` now verifies the CLI connector dossier mirror so managed config metadata cannot silently drift across app, backend, and handoff exports.
+- The Tauri `get_agent_handoff` read-only API now returns matching connector config readiness dossiers for managed connector targets while leaving Claude/Codex handoffs unchanged.
 - Doctor support copy and Repo Intelligence docs now describe the `get_agent_handoff` connector readiness payload, including next gate, evidence requirements, config path strategy, account caveat, and rollback strategy.
 - `npm run check:connectors` now verifies the Tauri `get_agent_handoff` connector readiness response and tests alongside the frontend, backend adapter registry, and CLI mirror.
-- Release readiness smoke evidence now requires connector readiness payloads in agent handoffs alongside the planned connector config creation plan.
+- Release readiness smoke evidence now requires connector readiness payloads in agent handoffs alongside the managed connector config creation plan.
 - `npm run check:deployment` now verifies the connector-readiness release evidence chain across beta smoke docs, smoke preflight, release readiness report generation, and dashboard copy.
 - `npm run release:report:check` now rejects release reports that omit connector readiness payload evidence from static or installed smoke evidence.
-- Start Agent Session now exposes planned connector config readiness as a first-class app/session field, including the next gate and disabled automation state before copying Gemini, OpenCode, Grok/xAI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, or Zed handoffs.
+- Start Agent Session now exposes managed connector config readiness as a first-class app/session field, including the next gate and automation state before copying Gemini, OpenCode, Grok/xAI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, or Zed handoffs.
 - The `repo:intelligence --session` CLI export now mirrors that session-level config readiness in JSON and Markdown, so config-creation work stays Gemini-like and gated across app and terminal workflows.
-- Repo Intelligence manifests now advertise per-agent Start Agent Session recipes, including the exact `--session` command, default task, read-only safety, manual provider routing state, and planned connector next gate when applicable.
+- Repo Intelligence manifests now advertise per-agent Start Agent Session recipes, including the exact `--session` command, default task, read-only safety, provider routing state, and managed connector next gate when applicable.
 - Doctor timeline copy now includes Repo Intelligence availability gates for `get_index_freshness`, missing/stale/corrupt/moved index states, `clear_repo_index` cleanup boundaries, and the evidence agents need before trusting saved packs.
 - The Doctor panel now exposes a Copy timeline action that exports scrubbed Doctor status, issue, repair-success, and Repo Intelligence availability-gate events for support/debugging.
 - Doctor now reports moved or replaced Repo Intelligence repo paths explicitly when the saved file map no longer matches the existing folder, with the same managed-index-only clear repair.
@@ -65,7 +64,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Savings ledger copy payloads now include the active confidence filter, so exported rows remain auditable when users copy measured, estimated, inferred, or all-row views.
 - Safe config diff coverage now proves every managed config write path in the rollback inventory can produce a blocked dry-run preview with target, backup, marker, rollback, Off cleanup, and unmanaged-config boundaries.
 - Doctor timeline support copies now scrub user paths, token-like values, and common secret assignments before sharing support/debug evidence.
-- The tool compatibility matrix now lists every planned connector from the registry, and `npm run check:connectors` fails if the matrix omits a connector or the Gemini detection-only gate.
+- The tool compatibility matrix now lists every managed connector, and `npm run check:connectors` fails if the matrix omits a connector or required Gemini/OpenCode routing gates.
 - Release readiness report copies now categorize signing, notarization, and updater blockers separately so missing secrets stay release blockers, not app failures.
 - Release readiness source labels now state that checklist defaults are guidance, not release proof, until `npm run release:ready` produces the report JSON.
 - Repo Intelligence CLI help now advertises the read-only `--mcp-serve` repo-memory transport, and deployment readiness checks guard its no-mutation MCP tool contract.
@@ -80,7 +79,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Prove savings by source: Headroom engine compression, RTK output reduction, Repo Intelligence avoided reads, MarkItDown preprocessing, Ponytail smaller-change guidance, and Caveman terse-output guidance.
 - Add Caveman Compact Chinese as an experimental opt-in profile only for private internal planning notes and handoffs; user-facing, legal, safety, debugging, and release-readiness content must stay in the user's requested language with full required detail.
 - Make every managed config mutation visible before and after it happens.
-- Convert planned connectors into supported connectors only after detection, dry-run diff, backup, verify, rollback, and Off-mode cleanup exist.
+- Promote provider-specific native config mutation only after detection, dry-run diff, backup, verify, rollback, and Off-mode cleanup exist for that native surface.
 - Surface release readiness in the app without confusing local unsigned install success with signed/notarized public release readiness.
 
 ## Non-Negotiable Constraints
@@ -89,7 +88,7 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Off means off: no proxy listener, no routing hook, no hidden repair, no LaunchAgent restore.
 - First API surfaces are read-only and bounded.
 - Config edits require explicit user action, backup, managed markers, and rollback.
-- Planned connectors stay manual or detect-only until their safety contract is complete.
+- Native provider/editor config mutation stays manual or detect-only until its connector-specific safety contract is complete.
 - Savings rows must be labeled as measured, estimated, or inferred.
 - Release gates must use existing scripts as authority instead of UI inference.
 
@@ -268,32 +267,31 @@ Suggested commit:
 
 - `Add Doctor timeline and rollback center`
 
-## Phase 6: First Real Planned Connector
+## Phase 6: Managed Connector Baseline And Native Config Promotion
 
-Goal: convert one planned connector into a supported adapter without weakening safety.
+Goal: keep the shipped managed sidecar baseline for all connector targets and promote native provider/editor config mutation only where the connector-specific safety contract is proven.
 
-Recommended first target: Gemini CLI.
+Current baseline: Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI all have managed sidecar lifecycle coverage. `npm run check:connectors` should continue to report `0 pending planned, 11 managed, 9 retained compatibility dossiers`.
 
 Deliverables:
 
-- Detect Gemini CLI binary and version.
-- Detect stable provider/config surface without writing.
-- Show compatibility report in planned connector UI.
-- Add dry-run diff, backup, apply, verify, rollback, and Off cleanup only after config surface is proven.
+- Preserve binary/version detection and compatibility reporting for every managed connector.
+- Keep sidecar dry-run diff, backup, apply, verify, rollback, and Off cleanup available for every managed connector.
+- Promote native config writes connector by connector only after the provider/editor surface is proven locally.
 - Keep provider routing manual if model/account compatibility cannot be verified locally.
 
 Connector config track:
 
-- Gemini CLI is the first full pattern: detect, report compatibility, then add safe config creation only after the provider surface is proven.
-- OpenCode follows the same path for provider config: detect `opencode`, find the active config path, preview the local proxy entry, back up, apply, verify, rollback, and clean up in Off mode.
-- Grok / xAI CLI follows the same path after `grok` or `xai` detection, with model/account guardrails before any base-url or provider config is offered.
-- Cursor follows a profile-aware editor path: detect the app/profile settings, show a dry-run settings diff, back up profile settings, apply only user-approved routing, verify, rollback, and clean up in Off mode.
-- Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI get matching config-creation plans in their connector dossiers before any adapter is promoted from planned to supported.
-- No connector may create or modify config until its manifest has config paths, account caveats, rollback strategy, Doctor verification, and fixture-home restore tests.
+- Gemini CLI keeps managed shell base-url env routing as the current safe path; native prompt-routing behavior remains dependent on Gemini CLI honoring those env vars at runtime.
+- OpenCode keeps provider config routing as the closest Codex/Claude-style path and remains the reference implementation for connector-specific config promotion.
+- Grok / xAI CLI requires `grok` or `xai` detection plus model/account guardrails before any base-url or provider config is offered.
+- Cursor, Windsurf, and Zed follow profile-aware editor paths: detect app/profile settings, show a dry-run settings diff, back up profile settings, apply only user-approved routing, verify, rollback, and clean up in Off mode.
+- Aider, Continue, Goose, Qwen Code, and Amazon Q Developer CLI retain compatibility dossiers until their wrapper, provider, MCP, account, or credential-safe native config contracts are backed by fixture-home restore tests.
+- No connector may create or modify native config until its manifest has config paths, account caveats, rollback strategy, Doctor verification, and fixture-home restore tests.
 
 Implementation areas:
 
-- `src/lib/plannedConnectors.ts`
+- `src/lib/connectorReadiness.ts`
 - `src-tauri/src/client_adapters.rs`
 - `src-tauri/src/lib.rs`
 - `research/tool-compatibility-matrix.md`
@@ -301,15 +299,15 @@ Implementation areas:
 
 Acceptance gates:
 
-- Detection never mutates config.
-- Automation is disabled until all safety gates pass.
+- Detection never mutates native config.
+- Native config automation is disabled until all connector-specific safety gates pass.
 - Doctor explains each blocked automation gate.
-- OpenCode, Grok/xAI, Cursor, and every other planned connector have an explicit config-creation dossier before implementation starts.
+- OpenCode, Grok/xAI, Cursor, and every other managed connector retain explicit config-creation dossiers before native config mutation is promoted.
 - `npm run check:connectors` verifies the manifest contract.
 
 Suggested commit:
 
-- `Add Gemini CLI connector detection`
+- `Promote native connector config safely`
 
 ## Phase 7: Release Readiness Dashboard
 
@@ -408,19 +406,19 @@ Output:
 
 ### Subagent 4: Connector Safety Scout
 
-Goal: map planned connector contracts and define the first Gemini CLI detection-only slice.
+Goal: map managed connector contracts and define the next native config promotion slice.
 
 Questions:
 
-- What metadata does `plannedConnectors.ts` already require?
-- What backend detection functions already exist for planned tools?
-- What would a no-write Gemini detection result look like?
+- What metadata does `connectorReadiness.ts` already require?
+- What backend detection functions already exist for managed tools?
+- Which native provider/editor config surface is safest to promote after OpenCode?
 - Which script validates connector manifests?
 
 Output:
 
 - Connector contract map.
-- Gemini detection-only proposal.
+- Native config promotion proposal.
 - Test list.
 - Risks.
 

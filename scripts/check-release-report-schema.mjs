@@ -93,14 +93,14 @@ try {
   process.exit();
 }
 const markdownReport = fs.readFileSync(markdownReportPath, "utf8");
-if (!markdownReport.includes("Planned connector config creation plan")) {
-  fail(`${markdownReportPath} must include planned connector config creation plan evidence`);
+if (!markdownReport.includes("Managed connector config creation plan")) {
+  fail(`${markdownReportPath} must include managed connector config creation plan evidence`);
 }
 if (!markdownReport.includes("Connector readiness payload in agent handoffs")) {
   fail(`${markdownReportPath} must include connector readiness payload evidence`);
 }
-if (!markdownReport.includes("## Planned Connector Readiness")) {
-  fail(`${markdownReportPath} must include planned connector readiness summary`);
+if (!markdownReport.includes("## Managed Connector Readiness")) {
+  fail(`${markdownReportPath} must include managed connector readiness summary`);
 }
 if (!markdownReport.includes("Full per-tool dossiers are available from Doctor")) {
   fail(`${markdownReportPath} must point to Doctor connector dossiers`);
@@ -164,19 +164,19 @@ for (const item of missingStaticEvidence) {
     );
   }
 }
-if (!requiredEvidence.includes("Planned connector automation gates")) {
+if (!requiredEvidence.includes("Managed connector automation gates")) {
   fail(
-    "staticSmokePreflight.requiredEvidence must include planned connector automation gates",
+    "staticSmokePreflight.requiredEvidence must include managed connector automation gates",
   );
 }
-if (!requiredEvidence.includes("Planned connector manual workflow")) {
+if (!requiredEvidence.includes("Managed connector native config gate")) {
   fail(
-    "staticSmokePreflight.requiredEvidence must include planned connector manual workflow",
+    "staticSmokePreflight.requiredEvidence must include managed connector native config gate",
   );
 }
-if (!requiredEvidence.includes("Planned connector config creation plan")) {
+if (!requiredEvidence.includes("Managed connector config creation plan")) {
   fail(
-    "staticSmokePreflight.requiredEvidence must include planned connector config creation plan",
+    "staticSmokePreflight.requiredEvidence must include managed connector config creation plan",
   );
 }
 if (!requiredEvidence.includes("Connector readiness payload in agent handoffs")) {
@@ -242,7 +242,7 @@ for (const requiredItem of [
   "Switchboard copyable state",
   "Doctor copyable report",
   "Savings calculator copyable ledger",
-  "Planned connector automation gates, manual workflow, config creation plan, and Gemini dry-run preview evidence",
+  "Managed connector automation gates, manual workflow, config creation plan, and Gemini dry-run preview evidence",
   "Connector readiness payload in agent handoffs",
   "Codex compression recovery",
 ]) {

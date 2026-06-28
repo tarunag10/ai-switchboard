@@ -108,7 +108,7 @@ function hasConnectorConfigPlanEvidence(
   const evidence = report.staticSmokePreflight?.requiredEvidence ?? [];
   return (
     report.staticSmokePreflight?.ready === true &&
-    evidence.includes("Planned connector config creation plan") &&
+    evidence.includes("Managed connector config creation plan") &&
     evidence.includes("Connector readiness payload in agent handoffs")
   );
 }
@@ -127,8 +127,8 @@ function formatConnectorReadinessSummary() {
   }
 
   return [
-    "## Planned Connector Readiness",
-    `- Planned connectors: ${contracts.length}`,
+    "## Managed Connector Readiness",
+    `- Managed connectors: ${contracts.length}`,
     `- Automation ready: ${automationReady}`,
     `- Next blocked gates: ${[...nextBlocked.entries()]
       .map(([label, count]) => `${label} (${count})`)
@@ -237,7 +237,7 @@ export const releaseReadinessStatusRows: ReleaseReadinessStatusRow[] = [
     tone: "blocked",
     source: "npm run smoke:preflight",
     detail:
-      "Planned connector smoke evidence must include the gated config creation plan and connector readiness payload before any future config writes.",
+      "Managed connector smoke evidence must include the gated config creation plan and connector readiness payload before any future config writes.",
   },
   {
     id: "final-gate",
@@ -276,7 +276,7 @@ export const releaseShareableGates: ReleaseShareableGate[] = [
     id: "static-smoke-preflight",
     label: "Static smoke preflight",
     detail:
-      "smoke:preflight passes and writes dist/smoke-preflight-summary.md with planned connector safety evidence.",
+      "smoke:preflight passes and writes dist/smoke-preflight-summary.md with managed connector safety evidence.",
   },
   {
     id: "installed-smoke",
@@ -353,7 +353,7 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         id: "static-preflight",
         label: "Run smoke preflight",
         detail:
-          "Run npm run smoke:preflight and keep dist/smoke-preflight-summary.md as release evidence, including managed connector evidence for Claude/Codex/Gemini/OpenCode plus planned connector automation gates for the rest.",
+          "Run npm run smoke:preflight and keep dist/smoke-preflight-summary.md as release evidence, including managed connector evidence, managed connector automation gates, and native config gates for connector-specific writes.",
         command: "npm run smoke:preflight",
       },
       {
@@ -367,7 +367,7 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         id: "beta-smoke",
         label: "Run beta smoke test",
         detail:
-          "Follow docs/beta-smoke-test.md against the installed app, including managed connector evidence, remaining planned connector gates, Repo Intelligence recipes, per-tool agent handoffs, and connector readiness payload; then run npm run smoke:installed to write dist/installed-smoke-summary.md.",
+          "Follow docs/beta-smoke-test.md against the installed app, including managed connector evidence, native config gates as a manual workflow, Repo Intelligence recipes, per-tool agent handoffs, and connector readiness payload; then run npm run smoke:installed to write dist/installed-smoke-summary.md.",
         command: "open docs/beta-smoke-test.md",
       },
       {
@@ -552,8 +552,8 @@ export function releaseReadinessRowsFromReport(
       statusLabel: statusLabel(connectorConfigPlanReady),
       tone: statusTone(connectorConfigPlanReady),
       detail: connectorConfigPlanReady
-        ? "Static smoke evidence includes the planned connector config creation plan and connector readiness payload."
-        : "Static smoke evidence must include the planned connector config creation plan and connector readiness payload.",
+        ? "Static smoke evidence includes the managed connector config creation plan and connector readiness payload."
+        : "Static smoke evidence must include the managed connector config creation plan and connector readiness payload.",
     },
     {
       ...releaseReadinessStatusRows[8],
