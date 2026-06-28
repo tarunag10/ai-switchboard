@@ -1547,8 +1547,21 @@ export function buildAgentSessionDisplayState(
   preparation: AgentSessionPreparation,
   hasRealIndex: boolean,
 ): AgentSessionDisplayState {
-  const canCopyHandoff = hasRealIndex && preparation.handoffMarkdown !== null;
-  const canCopyPayload = hasRealIndex && preparation.handoffPayload !== null;
+  const copyArtifactAvailable = (id: AgentSessionCopyArtifact["id"]) =>
+    preparation.copyArtifacts.find((artifact) => artifact.id === id)
+      ?.available === true;
+  const canCopyHandoff =
+    hasRealIndex &&
+    preparation.handoffMarkdown !== null &&
+    copyArtifactAvailable("full_handoff");
+  const canCopyPayload =
+    hasRealIndex &&
+    preparation.handoffPayload !== null &&
+    copyArtifactAvailable("json_payload");
+  const canCopySelectedPack =
+    hasRealIndex &&
+    preparation.handoffPayload !== null &&
+    copyArtifactAvailable("selected_pack");
   const selectedPackTokens =
     preparation.handoffPayload?.pack.estimatedTokens ?? 0;
   const tokensAvoided =
@@ -1576,7 +1589,7 @@ export function buildAgentSessionDisplayState(
     copyStatus: preparation.copyStatus,
     copyDetail: preparation.copyDetail,
     canCopyHandoff,
-    canCopySelectedPack: canCopyPayload,
+    canCopySelectedPack,
     canCopyJson: canCopyPayload,
   };
 }

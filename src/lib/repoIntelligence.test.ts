@@ -877,6 +877,28 @@ describe("repoIntelligence", () => {
     expect(staleDisplay.modeLabel).toBe("RTK only");
     expect(staleDisplay.copyDetail).toContain("Changed local index");
     expect(staleDisplay.canCopyHandoff).toBe(true);
+    expect(staleDisplay.canCopySelectedPack).toBe(true);
+    expect(staleDisplay.canCopyJson).toBe(true);
+
+    const artifactBlockedDisplay = buildAgentSessionDisplayState(
+      {
+        ...readyPreparation,
+        copyArtifacts: readyPreparation.copyArtifacts.map((artifact) =>
+          artifact.id === "selected_pack"
+            ? {
+                ...artifact,
+                available: false,
+                blockedReason: "Selected pack unavailable.",
+              }
+            : artifact,
+        ),
+      },
+      true,
+    );
+
+    expect(artifactBlockedDisplay.canCopyHandoff).toBe(true);
+    expect(artifactBlockedDisplay.canCopySelectedPack).toBe(false);
+    expect(artifactBlockedDisplay.canCopyJson).toBe(true);
 
     const blockedDisplay = buildAgentSessionDisplayState(
       buildAgentSessionPreparation(
