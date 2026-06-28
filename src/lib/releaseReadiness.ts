@@ -43,6 +43,13 @@ export interface ReleaseReadinessEvidenceSummary {
   copy: string;
 }
 
+export interface ReleaseReadinessNextAction {
+  rowId: string;
+  label: string;
+  command: string;
+  detail: string;
+}
+
 export interface ReleaseReadinessReportSnapshot {
   generatedAt?: string;
   status: "ready" | "blocked" | string;
@@ -417,6 +424,36 @@ export function releaseReadinessEvidenceSummary(
   };
 }
 
+export function releaseReadinessNextAction(
+  rows: ReleaseReadinessStatusRow[] = releaseReadinessStatusRows,
+): ReleaseReadinessNextAction | null {
+  const blocked = rows.find((row) => row.tone === "blocked");
+  if (!blocked) {
+    return null;
+  }
+
+  return {
+    rowId: blocked.id,
+    label: blocked.label,
+    command: blocked.source,
+    detail: blocked.detail,
+  };
+}
+
+export function formatReleaseReadinessNextAction(
+  action: ReleaseReadinessNextAction | null,
+) {
+  if (!action) {
+    return "Next release action: no blocked scripted rows. Run the strict release gate before sharing a DMG.";
+  }
+
+  return [
+    `Next release action: ${action.label}`,
+    `Command: ${action.command}`,
+    `Why: ${action.detail}`,
+  ].join("\n");
+}
+
 function statusTone(ready: boolean): ReleaseReadinessStatusTone {
   return ready ? "ready" : "blocked";
 }
@@ -535,6 +572,7 @@ export function formatReleaseReadinessReportSnapshot(
 ) {
   const statusRows = releaseReadinessRowsFromReport(report);
   const evidenceSummary = releaseReadinessEvidenceSummary(statusRows, report);
+  const nextAction = releaseReadinessNextAction(statusRows);
   const localInstalled = report.installedSmoke?.installedAppPresent === true;
   const publicReady = report.shareableDmgGate?.ready === true && report.status === "ready";
 
@@ -545,6 +583,7 @@ export function formatReleaseReadinessReportSnapshot(
     `Generated: ${report.generatedAt ?? "unknown"}`,
     `Status: ${report.status}`,
     `Evidence summary: ${evidenceSummary.copy}`,
+    formatReleaseReadinessNextAction(nextAction),
     "",
     "## Commands",
     `- Refresh report: ${releaseReadinessCommand}`,

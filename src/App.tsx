@@ -101,11 +101,13 @@ import {
 import {
   releaseReadinessCommand,
   formatReleaseReadinessCommandCopy,
+  formatReleaseReadinessNextAction,
   formatReleaseReadinessReportSnapshot,
   formatReleaseReadinessSourceLabel,
   releaseReadinessEvidenceSummary,
   releaseReadinessGroups,
   releaseReadinessItemCount,
+  releaseReadinessNextAction,
   releaseReadinessRowsFromReport,
   releaseReadinessStatusCounts,
   releaseShareableGates,
@@ -2718,6 +2720,7 @@ export default function App() {
     releaseReadinessRows,
     releaseReadinessReport?.report,
   );
+  const releaseReadinessAction = releaseReadinessNextAction(releaseReadinessRows);
   const [connectorsBusy, setConnectorsBusy] = useState(false);
   const [connectorPhase, setConnectorPhase] = useState<
     "disabled" | "verifying" | "healthy"
@@ -9343,6 +9346,9 @@ export default function App() {
               </p>
               <p className="release-readiness-card__source">
                 {releaseReadinessEvidence.copy}
+              </p>
+              <p className="release-readiness-card__source">
+                {formatReleaseReadinessNextAction(releaseReadinessAction)}
               </p>
               <div
                 className="release-readiness-card__summary"

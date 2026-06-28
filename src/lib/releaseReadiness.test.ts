@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatReleaseReadinessCommandCopy,
+  formatReleaseReadinessNextAction,
   formatReleaseReadinessReportSnapshot,
   formatReleaseReadinessSourceLabel,
   releaseReadinessCommand,
   releaseReadinessEvidenceSummary,
   releaseReadinessGroups,
   releaseReadinessItemCount,
+  releaseReadinessNextAction,
   releaseReadinessRowsFromReport,
   releaseReadinessStatusCounts,
   releaseReadinessStatusRows,
@@ -188,6 +190,57 @@ describe("release readiness checklist", () => {
     expect(loaded.copy).toContain("public gate ready");
   });
 
+  it("selects the next blocked release action from scripted rows", () => {
+    const action = releaseReadinessNextAction();
+
+    expect(action).toEqual({
+      rowId: "desktop-tests",
+      label: "Desktop tests",
+      command: "npm run fmt:desktop && npm run test:desktop",
+      detail:
+        "Rust formatting and desktop tests must run locally or in CI before public release.",
+    });
+    expect(formatReleaseReadinessNextAction(action)).toContain(
+      "Next release action: Desktop tests",
+    );
+    expect(formatReleaseReadinessNextAction(action)).toContain(
+      "Command: npm run fmt:desktop && npm run test:desktop",
+    );
+  });
+
+  it("reports no blocked next action for a ready public release report", () => {
+    const report = {
+      status: "ready",
+      backendValidation: { ready: true },
+      staticSmokePreflight: {
+        ready: true,
+        evidenceReady: true,
+        requiredEvidence: [
+          "Planned connector config creation plan",
+          "Connector readiness payload in agent handoffs",
+        ],
+      },
+      installedSmoke: {
+        installedAppPresent: true,
+        evidenceReady: true,
+        missingEvidence: [],
+      },
+      shareableDmgGate: {
+        ready: true,
+        signedAndNotarized: true,
+        updaterFeedReady: true,
+      },
+    };
+    const action = releaseReadinessNextAction(
+      releaseReadinessRowsFromReport(report),
+    );
+
+    expect(action).toBeNull();
+    expect(formatReleaseReadinessNextAction(action)).toContain(
+      "no blocked scripted rows",
+    );
+  });
+
   it("derives ready release dashboard rows from release report JSON", () => {
     const rows = releaseReadinessRowsFromReport({
       status: "ready",
@@ -324,6 +377,7 @@ describe("release readiness checklist", () => {
     expect(row?.statusLabel).toBe("Blocked");
     expect(snapshot).toContain("Connector config plan evidence: no");
     expect(snapshot).toContain("Evidence summary:");
+    expect(snapshot).toContain("Next release action:");
   });
 
   it("keeps frontend blocked when direct static evidence is missing", () => {
