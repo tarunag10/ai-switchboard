@@ -1796,6 +1796,10 @@ function buildAgentSessionPreparation(summary, options) {
     headroomCompressionRisk: options.headroomCompressionRisk,
     cleanPassThrough: options.cleanPassThrough,
   });
+  const handoff =
+    copyState.status === "blocked"
+      ? null
+      : buildAgentHandoffPayload(summary, profile.id, packId);
   return {
     schemaVersion: 1,
     kind: "mac_ai_switchboard.agent_session_preparation",
@@ -1820,10 +1824,8 @@ function buildAgentSessionPreparation(summary, options) {
       modifiesRepository: false,
       manualProviderRouting: !providerRoutingSafe,
     },
-    handoff:
-      copyState.status === "blocked"
-        ? null
-        : buildAgentHandoffPayload(summary, profile.id, packId),
+    handoff,
+    configReadiness: handoff?.configReadiness ?? null,
     handoffMarkdown:
       copyState.status === "blocked"
         ? null
@@ -1846,6 +1848,18 @@ function formatAgentSessionMarkdown(preparation) {
     `Copy artifacts: ${preparation.copyArtifacts
       .map((artifact) => `${artifact.label}=${artifact.available ? "ready" : "blocked"}`)
       .join(", ")}`,
+  ];
+  if (preparation.configReadiness) {
+    lines.push(
+      `Connector readiness: ${preparation.configReadiness.plannedConnectorName} (${preparation.configReadiness.plannedConnectorId})`,
+      `Connector next gate: ${preparation.configReadiness.nextGate.label}`,
+      `Connector automation enabled: ${
+        preparation.configReadiness.automationEnabled ? "yes" : "no"
+      }`,
+      `Connector gated evidence: ${preparation.configReadiness.gatedSteps.length} steps`,
+    );
+  }
+  lines.push(
     "",
     "## Safety",
     `- Read-only: ${preparation.safety.readOnly ? "yes" : "no"}`,
@@ -1861,7 +1875,7 @@ function formatAgentSessionMarkdown(preparation) {
     "",
     "## Detail",
     preparation.copyDetail,
-  ];
+  );
 
   if (preparation.handoffMarkdown) {
     lines.push("", "## Handoff", preparation.handoffMarkdown);

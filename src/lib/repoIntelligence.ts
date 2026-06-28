@@ -208,6 +208,7 @@ export interface AgentSessionPreparation {
   copyArtifacts: AgentSessionCopyArtifact[];
   handoffMarkdown: string | null;
   handoffPayload: RepoAgentHandoffPayload | null;
+  configReadiness: RepoAgentConfigReadiness | null;
   manifest: RepoAgentManifest;
 }
 
@@ -222,6 +223,8 @@ export interface AgentSessionDisplayState {
   tokensAvoidedLabel: string;
   skippedFilesLabel: string;
   secretExclusionLabel: string;
+  connectorReadinessLabel: string | null;
+  connectorReadinessDetailLabel: string | null;
   sampleContextWarning: string | null;
   copyStatus: AgentSessionCopyStatus;
   copyDetail: string;
@@ -1513,6 +1516,10 @@ export function buildAgentSessionPreparation(
     copyState,
   );
   const modeRecommendation = recommendAgentSessionMode(options.modeInputs);
+  const handoffPayload =
+    copyState.status === "blocked"
+      ? null
+      : buildRepoAgentHandoffPayload(summary, profile.id, packId);
 
   return {
     target: profile,
@@ -1529,10 +1536,8 @@ export function buildAgentSessionPreparation(
       copyState.status === "blocked"
         ? null
         : formatRepoAgentHandoffMarkdown(summary, profile.id, packId),
-    handoffPayload:
-      copyState.status === "blocked"
-        ? null
-        : buildRepoAgentHandoffPayload(summary, profile.id, packId),
+    handoffPayload,
+    configReadiness: handoffPayload?.configReadiness ?? null,
     manifest: buildRepoAgentManifest(summary, options.generatedAt),
   };
 }
@@ -1642,6 +1647,7 @@ export function buildAgentSessionDisplayState(
     preparation.manifest.totals.indexMetadata?.skippedFileCount ?? 0;
   const secretExcluded =
     preparation.manifest.safety.excludesSecretLikePaths === true;
+  const configReadiness = preparation.configReadiness;
 
   return {
     targetLabel: preparation.target.label,
@@ -1658,6 +1664,14 @@ export function buildAgentSessionDisplayState(
     secretExclusionLabel: secretExcluded
       ? "Secret-like paths excluded"
       : "Secret exclusion unavailable",
+    connectorReadinessLabel: configReadiness
+      ? `${configReadiness.plannedConnectorName} config gated`
+      : null,
+    connectorReadinessDetailLabel: configReadiness
+      ? `Next gate: ${configReadiness.nextGate.label}; automation enabled: ${
+          configReadiness.automationEnabled ? "yes" : "no"
+        }`
+      : null,
     sampleContextWarning: hasRealIndex
       ? null
       : "Sample preview packs are blocked from copy actions. Index a real local repo first.",

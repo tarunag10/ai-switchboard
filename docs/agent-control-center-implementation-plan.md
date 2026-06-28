@@ -20,6 +20,8 @@ The work should ship in small slices. Each slice must leave the app usable, keep
 - Release readiness smoke evidence now requires connector readiness payloads in agent handoffs alongside the planned connector config creation plan.
 - `npm run check:deployment` now verifies the connector-readiness release evidence chain across beta smoke docs, smoke preflight, release readiness report generation, and dashboard copy.
 - `npm run release:report:check` now rejects release reports that omit connector readiness payload evidence from static or installed smoke evidence.
+- Start Agent Session now exposes planned connector config readiness as a first-class app/session field, including the next gate and disabled automation state before copying Gemini, OpenCode, Grok/xAI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, or Zed handoffs.
+- The `repo:intelligence --session` CLI export now mirrors that session-level config readiness in JSON and Markdown, so config-creation work stays Gemini-like and gated across app and terminal workflows.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

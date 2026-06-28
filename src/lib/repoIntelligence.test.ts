@@ -710,6 +710,7 @@ describe("repoIntelligence", () => {
     );
     expect(preparation.handoffPayload?.pack.id).toBe("verification");
     expect(preparation.handoffPayload?.indexFreshness.status).toBe("fresh");
+    expect(preparation.configReadiness).toBeNull();
     expect(preparation.manifest.generatedAt).toBe("2026-06-25T10:05:00Z");
 
     const json = formatAgentSessionPreparationJson(preparation);
@@ -722,6 +723,58 @@ describe("repoIntelligence", () => {
     );
     expect(packMarkdown).toContain("# Verification Pack: /Users/me/app");
     expect(packMarkdown).toContain("Estimated tokens avoided:");
+  });
+
+  it("exposes planned connector readiness in agent session preparation", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+
+    const preparation = buildAgentSessionPreparation(summary, {
+      target: "gemini",
+      taskType: "implementation",
+      generatedAt: "2026-06-25T10:05:00Z",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: false,
+      },
+    });
+
+    expect(preparation.configReadiness).toEqual(
+      expect.objectContaining({
+        plannedConnectorId: "gemini_cli",
+        plannedConnectorName: "Gemini CLI",
+        automationEnabled: false,
+        nextGate: {
+          id: "detect",
+          label: "Detect config surface",
+        },
+      }),
+    );
+    expect(preparation.handoffPayload?.configReadiness).toBe(
+      preparation.configReadiness,
+    );
+    expect(
+      preparation.configReadiness?.gatedSteps.find(
+        (step) => step.id === "dryRunDiff",
+      )?.requiredEvidence.join(" "),
+    ).toContain("dry-run diff artifact");
+
+    const json = formatAgentSessionPreparationJson(preparation);
+    expect(json).toContain('"configReadiness"');
+    expect(json).toContain('"plannedConnectorId": "gemini_cli"');
+
+    const display = buildAgentSessionDisplayState(preparation, true);
+    expect(display.connectorReadinessLabel).toBe("Gemini CLI config gated");
+    expect(display.connectorReadinessDetailLabel).toBe(
+      "Next gate: Detect config surface; automation enabled: no",
+    );
   });
 
   it("builds risk review and release handoff agent sessions", () => {
@@ -847,6 +900,7 @@ describe("repoIntelligence", () => {
     expect(preparation.recommendedMode).toBe("off");
     expect(preparation.handoffMarkdown).toBeNull();
     expect(preparation.handoffPayload).toBeNull();
+    expect(preparation.configReadiness).toBeNull();
     expect(preparation.copyArtifacts.every((artifact) => !artifact.available))
       .toBe(true);
     expect(
@@ -902,6 +956,8 @@ describe("repoIntelligence", () => {
       tokensAvoidedLabel: "1,300",
       skippedFilesLabel: "0 skipped",
       secretExclusionLabel: "Secret-like paths excluded",
+      connectorReadinessLabel: null,
+      connectorReadinessDetailLabel: null,
       sampleContextWarning: null,
       copyStatus: "ready",
       canCopyHandoff: true,
@@ -931,6 +987,12 @@ describe("repoIntelligence", () => {
     expect(staleDisplay.copyStatus).toBe("warn");
     expect(staleDisplay.modeLabel).toBe("RTK only");
     expect(staleDisplay.copyDetail).toContain("Changed local index");
+    expect(staleDisplay.connectorReadinessLabel).toBe(
+      "Gemini CLI config gated",
+    );
+    expect(staleDisplay.connectorReadinessDetailLabel).toBe(
+      "Next gate: Detect config surface; automation enabled: no",
+    );
     expect(staleDisplay.canCopyHandoff).toBe(true);
     expect(staleDisplay.canCopySelectedPack).toBe(true);
     expect(staleDisplay.canCopyJson).toBe(true);

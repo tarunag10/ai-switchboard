@@ -2158,6 +2158,13 @@ function RepoIntelligencePreview({
             <span>Secrets</span>
             <strong>{sessionDisplayState.secretExclusionLabel}</strong>
           </div>
+          {sessionDisplayState.connectorReadinessLabel ? (
+            <div>
+              <span>Connector</span>
+              <strong>{sessionDisplayState.connectorReadinessLabel}</strong>
+              <small>{sessionDisplayState.connectorReadinessDetailLabel}</small>
+            </div>
+          ) : null}
         </div>
         {sessionDisplayState.sampleContextWarning ? (
           <p className="repo-intelligence-session__detail">
