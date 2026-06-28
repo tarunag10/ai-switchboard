@@ -177,6 +177,8 @@ pub struct RepoIndexFreshnessResponse {
     pub detail: String,
     pub api_available: bool,
     pub graph_available: bool,
+    pub index_health: String,
+    pub parser_health: String,
     pub indexer_version: Option<String>,
     pub parser_version: Option<String>,
     pub indexed_file_count: Option<u64>,

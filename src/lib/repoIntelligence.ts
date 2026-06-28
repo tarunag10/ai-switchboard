@@ -164,6 +164,8 @@ export interface RepoIndexFreshness {
   detail: string;
   apiAvailable: boolean;
   graphAvailable: boolean;
+  indexHealth: string;
+  parserHealth: string;
   indexerVersion?: string | null;
   parserVersion?: string | null;
   indexedFileCount?: number | null;
@@ -336,6 +338,13 @@ export function getRepoIndexFreshness(
   const base = {
     apiAvailable: true,
     graphAvailable: Boolean(summary.graph),
+    indexHealth: metadata?.cacheState ?? "metadata_missing",
+    parserHealth:
+      metadata?.parserVersion === "metadata-fingerprint-v1"
+        ? "current"
+        : metadata?.parserVersion
+          ? "version_mismatch"
+          : "unavailable",
     indexerVersion: summary.indexerVersion ?? metadata?.indexerVersion ?? null,
     parserVersion: metadata?.parserVersion ?? null,
     indexedFileCount: metadata?.indexedFileCount ?? null,
@@ -1723,8 +1732,9 @@ function agentSessionFreshnessDetailLabel(freshness: RepoIndexFreshness) {
   const api = freshness.apiAvailable ? "API ready" : "API unavailable";
   const graph = freshness.graphAvailable ? "graph ready" : "graph unavailable";
   const parser = freshness.parserVersion
-    ? `parser ${freshness.parserVersion}`
+    ? `parser ${freshness.parserVersion} (${freshness.parserHealth})`
     : "parser unavailable";
+  const indexHealth = `index ${freshness.indexHealth}`;
   const indexed =
     freshness.indexedFileCount === null || freshness.indexedFileCount === undefined
       ? "indexed files unknown"
@@ -1738,7 +1748,7 @@ function agentSessionFreshnessDetailLabel(freshness: RepoIndexFreshness) {
       ? null
       : freshness.detail;
 
-  return [api, graph, parser, indexed, skipped, detail]
+  return [api, graph, indexHealth, parser, indexed, skipped, detail]
     .filter(Boolean)
     .join(" · ");
 }

@@ -208,6 +208,8 @@ describe("repoIntelligence", () => {
       status: "none",
       apiAvailable: true,
       graphAvailable: false,
+      indexHealth: "metadata_missing",
+      parserHealth: "unavailable",
       indexerVersion: null,
       parserVersion: null,
       indexedFileCount: null,
@@ -239,6 +241,8 @@ describe("repoIntelligence", () => {
       label: "Fresh local index",
       apiAvailable: true,
       graphAvailable: true,
+      indexHealth: "new",
+      parserHealth: "current",
       indexerVersion: "path-graph-v2",
       parserVersion: "metadata-fingerprint-v1",
       indexedFileCount: 2,
@@ -495,11 +499,7 @@ describe("repoIntelligence", () => {
         taskType: "implementation",
         readOnly: true,
         manualProviderRouting: true,
-        configReadiness: {
-          plannedConnectorId: "gemini_cli",
-          nextGate: "Detect config surface",
-          automationEnabled: false,
-        },
+        configReadiness: null,
       }),
     );
     expect(geminiSessionRecipe?.command).toContain(
@@ -581,37 +581,7 @@ describe("repoIntelligence", () => {
       modifiesRepository: false,
       manualProviderRouting: true,
     });
-    expect(payload.configReadiness).toEqual(
-      expect.objectContaining({
-        plannedConnectorId: "gemini_cli",
-        plannedConnectorName: "Gemini CLI",
-        automationEnabled: false,
-        nextGate: {
-          id: "detect",
-          label: "Detect config surface",
-        },
-      }),
-    );
-    expect(payload.configReadiness?.safetyDossier).toEqual(
-      expect.objectContaining({
-        configPathStrategy: expect.stringContaining("gemini"),
-        rollbackStrategy: expect.stringContaining("provider settings"),
-      }),
-    );
-    expect(payload.configReadiness?.gatedSteps.map((step) => step.id)).toEqual([
-      "detect",
-      "dryRunDiff",
-      "backup",
-      "apply",
-      "verify",
-      "rollback",
-      "offCleanup",
-    ]);
-    expect(
-      payload.configReadiness?.gatedSteps.find(
-        (step) => step.id === "dryRunDiff",
-      )?.requiredEvidence.join(" "),
-    ).toContain("dry-run diff artifact");
+    expect(payload.configReadiness).toBeUndefined();
 
     const cursorPayload = buildRepoAgentHandoffPayload(summary, "cursor");
     expect(cursorPayload.configReadiness).toEqual(
@@ -651,13 +621,7 @@ describe("repoIntelligence", () => {
     expect(gemini).toContain("# Gemini CLI Handoff");
     expect(gemini).toContain("Selected pack: Implementation Pack");
     expect(gemini).toContain("Secret-like paths");
-    expect(gemini).toContain("## Connector Config Readiness");
-    expect(gemini).toContain("Planned connector: Gemini CLI (gemini_cli)");
-    expect(gemini).toContain("Next gate: Detect config surface");
-    expect(gemini).toContain("Config path strategy:");
-    expect(gemini).toContain("Rollback strategy:");
-    expect(gemini).toContain("evidence required:");
-    expect(gemini).toContain("Clean up in Off mode");
+    expect(gemini).not.toContain("Connector Config Readiness");
     expect(gemini).toContain("src/App.tsx");
     expect(gemini).not.toContain(".env.local");
 
@@ -809,7 +773,7 @@ describe("repoIntelligence", () => {
     summary.indexedAt = "2026-06-25T10:00:00Z";
 
     const preparation = buildAgentSessionPreparation(summary, {
-      target: "gemini",
+      target: "cursor",
       taskType: "implementation",
       generatedAt: "2026-06-25T10:05:00Z",
       modeInputs: {
@@ -821,8 +785,8 @@ describe("repoIntelligence", () => {
 
     expect(preparation.configReadiness).toEqual(
       expect.objectContaining({
-        plannedConnectorId: "gemini_cli",
-        plannedConnectorName: "Gemini CLI",
+        plannedConnectorId: "cursor",
+        plannedConnectorName: "Cursor",
         automationEnabled: false,
         nextGate: {
           id: "detect",
@@ -841,15 +805,15 @@ describe("repoIntelligence", () => {
 
     const json = formatAgentSessionPreparationJson(preparation);
     expect(json).toContain('"configReadiness"');
-    expect(json).toContain('"plannedConnectorId": "gemini_cli"');
+    expect(json).toContain('"plannedConnectorId": "cursor"');
 
     const sessionSummary = formatAgentSessionSummaryMarkdown(preparation);
     expect(sessionSummary).toContain("## Connector Config Readiness");
-    expect(sessionSummary).toContain("Planned connector: Gemini CLI (gemini_cli)");
+    expect(sessionSummary).toContain("Planned connector: Cursor (cursor)");
     expect(sessionSummary).toContain("Next gate: Detect config surface");
 
     const display = buildAgentSessionDisplayState(preparation, true);
-    expect(display.connectorReadinessLabel).toBe("Gemini CLI config gated");
+    expect(display.connectorReadinessLabel).toBe("Cursor config gated");
     expect(display.connectorReadinessDetailLabel).toBe(
       "Next gate: Detect config surface; automation enabled: no",
     );
@@ -1030,7 +994,7 @@ describe("repoIntelligence", () => {
       modeLabel: "Full optimization",
       freshnessLabel: "Fresh local index",
       freshnessDetailLabel:
-        "API ready · graph ready · parser metadata-fingerprint-v1 · 4 indexed · 0 skipped",
+        "API ready · graph ready · index new · parser metadata-fingerprint-v1 (current) · 4 indexed · 0 skipped",
       contextLabel: "Local repo index",
       selectedPackTokensLabel: "700",
       tokensAvoidedLabel: "1,300",
@@ -1052,7 +1016,7 @@ describe("repoIntelligence", () => {
       previousIndexedAt: "2026-06-25T09:00:00Z",
     };
     const stalePreparation = buildAgentSessionPreparation(summary, {
-      target: "gemini",
+      target: "cursor",
       taskType: "implementation",
       modeInputs: {
         headroomHealthy: true,
@@ -1069,13 +1033,11 @@ describe("repoIntelligence", () => {
     expect(staleDisplay.freshnessLabel).toBe("Changed local index");
     expect(staleDisplay.freshnessLabel).not.toBe("Fresh local index");
     expect(staleDisplay.freshnessDetailLabel).toBe(
-      "API ready · graph ready · parser metadata-fingerprint-v1 · 4 indexed · 0 skipped · Repo metadata changed since the previous saved index.",
+      "API ready · graph ready · index changed · parser metadata-fingerprint-v1 (current) · 4 indexed · 0 skipped · Repo metadata changed since the previous saved index.",
     );
     expect(staleDisplay.modeLabel).toBe("RTK only");
     expect(staleDisplay.copyDetail).toContain("Changed local index");
-    expect(staleDisplay.connectorReadinessLabel).toBe(
-      "Gemini CLI config gated",
-    );
+    expect(staleDisplay.connectorReadinessLabel).toBe("Cursor config gated");
     expect(staleDisplay.connectorReadinessDetailLabel).toBe(
       "Next gate: Detect config surface; automation enabled: no",
     );

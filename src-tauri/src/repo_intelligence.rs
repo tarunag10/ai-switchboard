@@ -584,6 +584,8 @@ pub fn build_index_freshness_response(
             detail: "Index a local repository to create a persistent metadata cache.".to_string(),
             api_available: true,
             graph_available: false,
+            index_health: "missing".to_string(),
+            parser_health: "unavailable".to_string(),
             indexer_version: None,
             parser_version: None,
             indexed_file_count: None,
@@ -627,6 +629,15 @@ pub fn build_index_freshness_response(
         detail,
         api_available: true,
         graph_available: summary.graph.is_some(),
+        index_health: match summary.index_metadata.as_ref() {
+            None => "metadata_missing".to_string(),
+            Some(metadata) => metadata.cache_state.clone(),
+        },
+        parser_health: match summary.index_metadata.as_ref() {
+            Some(metadata) if metadata.parser_version == PARSER_VERSION => "current".to_string(),
+            Some(_) => "version_mismatch".to_string(),
+            None => "unavailable".to_string(),
+        },
         indexer_version: summary.indexer_version.clone(),
         parser_version: summary
             .index_metadata
