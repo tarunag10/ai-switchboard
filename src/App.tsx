@@ -2737,6 +2737,11 @@ export default function App() {
   >(null);
   const [releaseReadinessReport, setReleaseReadinessReport] =
     useState<ReleaseReadinessReportPayload | null>(null);
+  const [releaseReadinessRefreshing, setReleaseReadinessRefreshing] =
+    useState(false);
+  const [releaseReadinessError, setReleaseReadinessError] = useState<
+    string | null
+  >(null);
   const releaseReadinessRows = releaseReadinessRowsFromReport(
     releaseReadinessReport?.report,
   );
@@ -4949,6 +4954,26 @@ export default function App() {
     } catch {
       setReleaseReadinessCopyNotice("Copy failed. Select release text manually.");
       window.setTimeout(() => setReleaseReadinessCopyNotice(null), 3000);
+    }
+  }
+
+  async function refreshReleaseReadinessReport() {
+    setReleaseReadinessRefreshing(true);
+    setReleaseReadinessError(null);
+    setReleaseReadinessCopyNotice(null);
+    try {
+      const payload = await invoke<ReleaseReadinessReportPayload>(
+        "refresh_release_readiness_report",
+      );
+      setReleaseReadinessReport(payload);
+      setReleaseReadinessCopyNotice("Release report refreshed.");
+      window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2000);
+    } catch (error) {
+      setReleaseReadinessError(
+        describeInvokeError(error, "Could not refresh release report."),
+      );
+    } finally {
+      setReleaseReadinessRefreshing(false);
     }
   }
 
@@ -9560,16 +9585,29 @@ export default function App() {
                     be handed to testers.
                   </p>
                 </div>
-                <button
-                  className="secondary-button secondary-button--small"
-                  onClick={() => void copyReleaseReadinessReport()}
-                  type="button"
-                >
-                  <Copy size={14} weight="bold" />
-                  {releaseReadinessReport?.report
-                    ? "Copy report snapshot"
-                    : "Copy report command"}
-                </button>
+                <div className="release-readiness-card__actions">
+                  <button
+                    className="secondary-button secondary-button--small"
+                    disabled={releaseReadinessRefreshing}
+                    onClick={() => void refreshReleaseReadinessReport()}
+                    type="button"
+                  >
+                    <ArrowClockwise size={14} weight="bold" />
+                    {releaseReadinessRefreshing
+                      ? "Refreshing"
+                      : "Refresh report"}
+                  </button>
+                  <button
+                    className="secondary-button secondary-button--small"
+                    onClick={() => void copyReleaseReadinessReport()}
+                    type="button"
+                  >
+                    <Copy size={14} weight="bold" />
+                    {releaseReadinessReport?.report
+                      ? "Copy report snapshot"
+                      : "Copy report command"}
+                  </button>
+                </div>
               </div>
               <div className="release-readiness-card__command">
                 <Terminal size={15} weight="duotone" />
@@ -9588,6 +9626,11 @@ export default function App() {
               <p className="release-readiness-card__source">
                 {formatReleaseReadinessNextAction(releaseReadinessAction)}
               </p>
+              {releaseReadinessError ? (
+                <p className="release-readiness-card__error">
+                  {releaseReadinessError}
+                </p>
+              ) : null}
               <div
                 className="release-readiness-card__summary"
                 aria-label="Release readiness status summary"

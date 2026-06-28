@@ -449,6 +449,35 @@ fn load_release_readiness_report() -> Result<ReleaseReadinessReportPayload, Stri
 }
 
 #[tauri::command]
+fn refresh_release_readiness_report() -> Result<ReleaseReadinessReportPayload, String> {
+    let cwd = std::env::current_dir().map_err(|err| err.to_string())?;
+    let output = Command::new("npm")
+        .args(["run", "release:ready", "--", "--json"])
+        .current_dir(&cwd)
+        .output()
+        .map_err(|err| format!("failed to run npm run release:ready: {err}"))?;
+    if !output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let detail = [stdout, stderr]
+            .into_iter()
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        return Err(if detail.is_empty() {
+            format!("npm run release:ready failed with status {}", output.status)
+        } else {
+            format!(
+                "npm run release:ready failed with status {}:\n{}",
+                output.status, detail
+            )
+        });
+    }
+
+    load_release_readiness_report_from(&cwd.join("dist/release-readiness-report.json"))
+}
+
+#[tauri::command]
 async fn check_for_app_update(
     app: AppHandle,
     pending_update: State<'_, PendingAppUpdate>,
@@ -4642,6 +4671,7 @@ pub fn run() {
             clear_repo_index,
             get_app_update_configuration,
             load_release_readiness_report,
+            refresh_release_readiness_report,
             check_for_app_update,
             install_app_update,
             restart_app,

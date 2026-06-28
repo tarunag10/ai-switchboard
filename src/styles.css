@@ -5340,6 +5340,13 @@ details[open] .optimize-minimal__details summary::after {
   line-height: 1.35;
 }
 
+.release-readiness-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .release-readiness-card__command {
   display: inline-flex;
   align-items: center;
@@ -5365,6 +5372,18 @@ details[open] .optimize-minimal__details summary::after {
   color: var(--text-tertiary);
   font-size: var(--text-xs);
   overflow-wrap: anywhere;
+}
+
+.release-readiness-card__error {
+  margin: -2px 0 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 8px;
+  background: rgba(248, 113, 113, 0.1);
+  color: #fecaca;
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+  white-space: pre-line;
 }
 
 .release-readiness-card__summary {
