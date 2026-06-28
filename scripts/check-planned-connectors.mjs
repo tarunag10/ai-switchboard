@@ -152,6 +152,29 @@ function validateBackendConfigCreationPlanContract(source) {
   if (!source.includes("config_creation_step_details: planned_config_creation_step_details(spec)")) {
     errors.push("planned backend connectors must expose structured config_creation_step_details");
   }
+  for (const snippet of [
+    "spec.detection_sources.join",
+    "spec.config_locations.join",
+    "automation_gates",
+    "spec.name",
+    "spec.manual_workflow.join",
+  ]) {
+    if (!source.includes(snippet)) {
+      errors.push(`backend config creation details must derive from ${snippet}`);
+    }
+  }
+  for (const [connectorId, snippets] of Object.entries({
+    gemini_cli: ["PATH: gemini", "Gemini provider config", "model/account compatibility"],
+    opencode: ["PATH: opencode", "OpenCode provider config", "exact previous provider config"],
+    cursor: ["PATH: cursor", "Cursor profile", "extension-managed secrets"],
+    grok_cli: ["PATH: grok", "PATH: xai", "Doctor guardrails"],
+  })) {
+    for (const snippet of snippets) {
+      if (!source.includes(snippet)) {
+        errors.push(`${connectorId}: backend config creation evidence missing "${snippet}"`);
+      }
+    }
+  }
   return errors;
 }
 
