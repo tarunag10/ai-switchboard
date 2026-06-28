@@ -285,6 +285,7 @@ import type {
   RuntimeStatus,
   RuntimeUpgradeFailure,
   RuntimeUpgradeProgress,
+  SavingsAttributionEvent,
   SavingsMode,
   SwitchboardMode,
   SwitchboardState,
@@ -504,6 +505,16 @@ async function loadDashboard(): Promise<DashboardState> {
   }
 }
 
+async function loadSavingsAttributionEvents(): Promise<SavingsAttributionEvent[]> {
+  try {
+    return await invoke<SavingsAttributionEvent[]>(
+      "get_savings_attribution_events",
+    );
+  } catch {
+    return [];
+  }
+}
+
 function SavingsChartTooltip({
   active,
   payload,
@@ -714,6 +725,7 @@ function SavingsCalculatorCard({
   dashboard,
   repoSavings,
   runtimeStatus,
+  attributionEvents,
   cavemanSavings,
   ponytailSavings,
   markitdownSavings,
@@ -723,6 +735,7 @@ function SavingsCalculatorCard({
   dashboard: DashboardState;
   repoSavings?: RepoSavingsEstimate | null;
   runtimeStatus?: RuntimeStatus | null;
+  attributionEvents?: SavingsAttributionEvent[];
   cavemanSavings?: AddonSavingsEstimate | null;
   ponytailSavings?: AddonSavingsEstimate | null;
   markitdownSavings?: AddonSavingsEstimate | null;
@@ -733,6 +746,7 @@ function SavingsCalculatorCard({
   const breakdownRows = buildSavingsCalculatorBreakdown(dashboard, scope, {
     repoSavings,
     runtimeStatus,
+    attributionEvents,
     cavemanSavings,
     ponytailSavings,
     markitdownSavings,
@@ -744,6 +758,7 @@ function SavingsCalculatorCard({
     {
       repoSavings,
       runtimeStatus,
+      attributionEvents,
       cavemanSavings,
       ponytailSavings,
       markitdownSavings,
@@ -2671,6 +2686,9 @@ interface ReleaseReadinessReportPayload {
 
 export default function App() {
   const [dashboard, setDashboard] = useState<DashboardState>(mockDashboard);
+  const [savingsAttributionEvents, setSavingsAttributionEvents] = useState<
+    SavingsAttributionEvent[]
+  >([]);
   const [addonBusyId, setAddonBusyId] = useState<string | null>(null);
   const [addonBusyLabel, setAddonBusyLabel] = useState<string | null>(null);
   const [addonInfoId, setAddonInfoId] = useState<string | null>(null);
@@ -3053,6 +3071,13 @@ export default function App() {
     setDashboard(next);
   }
 
+  async function refreshSavingsAttributionEvents() {
+    const events = await loadSavingsAttributionEvents();
+    setSavingsAttributionEvents((current) =>
+      serializeState(current) === serializeState(events) ? current : events,
+    );
+  }
+
   function applyConnectorsIfChanged(next: ClientConnectorStatus[]) {
     const nextSignature = serializeState(next);
     if (connectorsSignatureRef.current === nextSignature) {
@@ -3252,6 +3277,7 @@ export default function App() {
         return;
       }
       applyDashboardIfChanged(dashboardResult);
+      void refreshSavingsAttributionEvents();
 
       updateStartup("bootstrap", 58, "Checking runtime install state…");
       const bootstrapResult = await invoke<BootstrapProgress>(
@@ -3827,7 +3853,10 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (activeView !== "home" || !trayWindowFocused) {
+    if (
+      (activeView !== "home" && activeView !== "usage") ||
+      !trayWindowFocused
+    ) {
       return;
     }
 
@@ -3837,6 +3866,7 @@ export default function App() {
         .then((next) => {
           if (!active) return;
           applyDashboardIfChanged(next);
+          void refreshSavingsAttributionEvents();
         })
         .catch(() => {
           // keep last known state
@@ -7427,6 +7457,7 @@ export default function App() {
             dashboard={dashboard}
             repoSavings={savingsCalculatorRepoEstimate}
             runtimeStatus={runtimeStatus}
+            attributionEvents={savingsAttributionEvents}
             cavemanSavings={cavemanSavingsEstimate}
             ponytailSavings={ponytailSavingsEstimate}
             markitdownSavings={markitdownSavingsEstimate}
@@ -7526,6 +7557,7 @@ export default function App() {
               dashboard={dashboard}
               repoSavings={savingsCalculatorRepoEstimate}
               runtimeStatus={runtimeStatus}
+              attributionEvents={savingsAttributionEvents}
               cavemanSavings={cavemanSavingsEstimate}
               ponytailSavings={ponytailSavingsEstimate}
               markitdownSavings={markitdownSavingsEstimate}

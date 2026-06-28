@@ -1,5 +1,6 @@
 import type { DashboardState } from "./types";
 import type { RuntimeStatus } from "./types";
+import type { SavingsAttributionEvent } from "./types";
 import type { RepoSavingsEstimate } from "./repoIntelligence";
 
 export type SavingsCalculatorScope =
@@ -87,6 +88,7 @@ export interface SavingsCalculatorBreakdownOptions {
   cavemanSavings?: AddonSavingsEstimate | null;
   ponytailSavings?: AddonSavingsEstimate | null;
   markitdownSavings?: AddonSavingsEstimate | null;
+  attributionEvents?: SavingsAttributionEvent[];
 }
 
 export interface SavingsLedgerRow extends SavingsCalculatorBreakdownRow {
@@ -403,7 +405,7 @@ export function buildSavingsLedgerRows(
   recordedAt: string,
   options: SavingsCalculatorBreakdownOptions = {},
 ): SavingsLedgerRow[] {
-  return buildSavingsCalculatorBreakdown(dashboard, scope, options).map(
+  const rows = buildSavingsCalculatorBreakdown(dashboard, scope, options).map(
     (row) => ({
       ...row,
       source: row.source,
@@ -412,6 +414,63 @@ export function buildSavingsLedgerRows(
       caveat: confidenceCaveat[row.confidence],
     }),
   );
+
+  if (scope !== "session") {
+    return rows;
+  }
+
+  const measuredHeadroomEvents = (options.attributionEvents ?? []).filter(
+    (event) =>
+      event.scope === "session" &&
+      event.source === "headroom_engine" &&
+      event.confidence === "measured" &&
+      (event.deltaTokensSaved > 0 || event.deltaUsd > 0),
+  );
+  if (measuredHeadroomEvents.length === 0) {
+    return rows;
+  }
+
+  const savedTokens = measuredHeadroomEvents.reduce(
+    (sum, event) => sum + Math.max(0, event.deltaTokensSaved),
+    0,
+  );
+  const savedUsd = measuredHeadroomEvents.reduce(
+    (sum, event) => sum + Math.max(0, event.deltaUsd),
+    0,
+  );
+  const requests = measuredHeadroomEvents.reduce(
+    (sum, event) => sum + Math.max(0, event.requestDelta),
+    0,
+  );
+  const observedAtValues = measuredHeadroomEvents
+    .map((event) => event.observedAt)
+    .sort();
+  const latestObservedAt =
+    observedAtValues[observedAtValues.length - 1] ?? recordedAt;
+  const eventCount = measuredHeadroomEvents.length;
+  const eventEvidence = measuredHeadroomEvents
+    .flatMap((event) => event.evidence)
+    .filter(Boolean);
+  const evidenceDetail =
+    eventEvidence.length > 0 ? ` Evidence: ${eventEvidence[0]}` : "";
+  const backendHeadroomRow: SavingsLedgerRow = {
+    id: "headroom_attribution_events",
+    label: "Headroom",
+    source: "headroom_engine",
+    kind: "runtime",
+    confidence: "measured",
+    savedTokens,
+    savedUsd,
+    detail: `${eventCount.toLocaleString()} measured Headroom session event${eventCount === 1 ? "" : "s"} across ${requests.toLocaleString()} request${requests === 1 ? "" : "s"}.${evidenceDetail}`,
+    scope,
+    recordedAt: latestObservedAt,
+    caveat: "Observed from append-only backend attribution events.",
+  };
+
+  return [
+    backendHeadroomRow,
+    ...rows.filter((row) => row.source !== "headroom_engine"),
+  ];
 }
 
 export function summarizeSavingsLedgerRows(

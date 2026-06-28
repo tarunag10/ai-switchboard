@@ -95,6 +95,20 @@ export interface HourlySavingsPoint {
   byProvider: ProviderSavingsPoint[];
 }
 
+export interface SavingsAttributionEvent {
+  schemaVersion: number;
+  id: string;
+  observedAt: string;
+  scope: "session";
+  source: "headroom_engine";
+  confidence: "measured";
+  deltaTokensSaved: number;
+  deltaUsd: number;
+  totalTokensSent: number;
+  requestDelta: number;
+  evidence: string[];
+}
+
 export interface DashboardState {
   appVersion: string;
   launchExperience: LaunchExperience;

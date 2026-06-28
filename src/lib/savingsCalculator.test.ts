@@ -152,6 +152,95 @@ describe("savings calculator", () => {
     });
   });
 
+  it("uses measured backend attribution events for the session Headroom ledger row", () => {
+    const rows = buildSavingsLedgerRows(
+      dashboardFixture({
+        sessionEstimatedTokensSaved: 999,
+        sessionEstimatedSavingsUsd: 9.99,
+      }),
+      "session",
+      "2026-06-25T10:00:00Z",
+      {
+        attributionEvents: [
+          {
+            schemaVersion: 1,
+            id: "event-1",
+            observedAt: "2026-06-25T10:01:00Z",
+            scope: "session",
+            source: "headroom_engine",
+            confidence: "measured",
+            deltaTokensSaved: 100,
+            deltaUsd: 0.25,
+            totalTokensSent: 900,
+            requestDelta: 1,
+            evidence: ["Measured from positive Headroom /stats session deltas."],
+          },
+          {
+            schemaVersion: 1,
+            id: "event-2",
+            observedAt: "2026-06-25T10:02:00Z",
+            scope: "session",
+            source: "headroom_engine",
+            confidence: "measured",
+            deltaTokensSaved: 125,
+            deltaUsd: 0.5,
+            totalTokensSent: 1_000,
+            requestDelta: 2,
+            evidence: [],
+          },
+        ],
+      },
+    );
+
+    const headroom = rows.find((row) => row.source === "headroom_engine");
+
+    expect(headroom).toMatchObject({
+      id: "headroom_attribution_events",
+      confidence: "measured",
+      savedTokens: 225,
+      savedUsd: 0.75,
+      recordedAt: "2026-06-25T10:02:00Z",
+      caveat: "Observed from append-only backend attribution events.",
+    });
+    expect(headroom?.detail).toContain("2 measured Headroom session events");
+    expect(headroom?.detail).toContain("3 requests");
+    expect(rows.filter((row) => row.source === "headroom_engine")).toHaveLength(1);
+  });
+
+  it("keeps lifetime Headroom ledger rows based on saved rollups", () => {
+    const rows = buildSavingsLedgerRows(
+      dashboardFixture(),
+      "lifetime",
+      "2026-06-25T10:00:00Z",
+      {
+        attributionEvents: [
+          {
+            schemaVersion: 1,
+            id: "event-1",
+            observedAt: "2026-06-25T10:01:00Z",
+            scope: "session",
+            source: "headroom_engine",
+            confidence: "measured",
+            deltaTokensSaved: 100,
+            deltaUsd: 0.25,
+            totalTokensSent: 900,
+            requestDelta: 1,
+            evidence: [],
+          },
+        ],
+      },
+    );
+
+    const headroom = rows.find((row) => row.source === "headroom_engine");
+
+    expect(headroom).toMatchObject({
+      id: "headroom",
+      confidence: "estimated",
+      savedTokens: 2_000,
+      savedUsd: 4.5,
+    });
+  });
+
   it("keeps repo scope focused on Repo Intelligence estimates", () => {
     const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "repo", {
       repoSavings: {
