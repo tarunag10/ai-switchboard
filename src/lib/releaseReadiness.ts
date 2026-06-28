@@ -142,6 +142,14 @@ export function formatReleaseReadinessCommandCopy() {
   ].join("\n");
 }
 
+export function formatReleaseReadinessSourceLabel(
+  reportPath: string | null | undefined,
+) {
+  return reportPath
+    ? `Loaded report: ${reportPath}`
+    : `No release report loaded. Run ${releaseReadinessCommand} to create dist/release-readiness-report.json; checklist defaults are guidance, not release proof.`;
+}
+
 export const releaseReadinessStatusRows: ReleaseReadinessStatusRow[] = [
   {
     id: "frontend-build",

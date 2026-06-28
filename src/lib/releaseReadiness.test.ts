@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatReleaseReadinessCommandCopy,
   formatReleaseReadinessReportSnapshot,
+  formatReleaseReadinessSourceLabel,
   releaseReadinessCommand,
   releaseReadinessGroups,
   releaseReadinessItemCount,
@@ -28,6 +29,18 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("npm run build:mac:local-install");
     expect(copy).toContain(
       "local unsigned/ad-hoc install evidence never replaces signed DMG install",
+    );
+  });
+
+  it("labels release report source without treating defaults as proof", () => {
+    expect(
+      formatReleaseReadinessSourceLabel("dist/release-readiness-report.json"),
+    ).toBe("Loaded report: dist/release-readiness-report.json");
+    expect(formatReleaseReadinessSourceLabel(null)).toContain(
+      "checklist defaults are guidance, not release proof",
+    );
+    expect(formatReleaseReadinessSourceLabel(undefined)).toContain(
+      "Run npm run release:ready",
     );
   });
 

@@ -102,6 +102,7 @@ import {
   releaseReadinessCommand,
   formatReleaseReadinessCommandCopy,
   formatReleaseReadinessReportSnapshot,
+  formatReleaseReadinessSourceLabel,
   releaseReadinessGroups,
   releaseReadinessItemCount,
   releaseReadinessRowsFromReport,
@@ -9287,9 +9288,11 @@ export default function App() {
                 <code>{releaseReadinessCommand}</code>
               </div>
               <p className="release-readiness-card__source">
-                {releaseReadinessReport?.report
-                  ? `Loaded report: ${releaseReadinessReport.reportPath}`
-                  : "Using checklist defaults until dist/release-readiness-report.json exists."}
+                {formatReleaseReadinessSourceLabel(
+                  releaseReadinessReport?.report
+                    ? releaseReadinessReport.reportPath
+                    : null,
+                )}
               </p>
               <div
                 className="release-readiness-card__summary"
