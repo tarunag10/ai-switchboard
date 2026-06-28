@@ -313,6 +313,7 @@ function parseArgs(argv) {
     formatProvided: false,
     listPacks: false,
     listAgents: false,
+    listApi: false,
     manifest: false,
     mcpServe: false,
     headroomHealthy: false,
@@ -365,6 +366,8 @@ function parseArgs(argv) {
       options.listPacks = true;
     } else if (arg === "--list-agents") {
       options.listAgents = true;
+    } else if (arg === "--list-api") {
+      options.listApi = true;
     } else if (arg === "--manifest") {
       options.manifest = true;
     } else if (arg === "--mcp-serve") {
@@ -401,12 +404,14 @@ Options:
   --format <format>   json or markdown
   --list-packs        Print available pack ids
   --list-agents       Print available agent handoff ids
+  --list-api          Print read-only local API query command names
   --manifest          Print agent-readable pack manifest JSON
   --help              Show this help
 
 Examples:
   npm run repo:intelligence -- .
   npm run repo:intelligence -- . --manifest
+  npm run repo:intelligence -- . --list-api
   npm run repo:intelligence -- . --list-agents
   npm run repo:intelligence -- . --pack implementation --format markdown
   npm run repo:intelligence -- . --agent codex --format markdown
@@ -1845,6 +1850,12 @@ if (options.mcpServe) {
   }
   if (options.listAgents) {
     console.log(agentHandoffProfiles.map((profile) => profile.id).join("\n"));
+    process.exit(0);
+  }
+  if (options.listApi) {
+    console.log(
+      repoAgentApiQueryTemplates.map((query) => query.command).join("\n"),
+    );
     process.exit(0);
   }
   if (options.manifest) {
