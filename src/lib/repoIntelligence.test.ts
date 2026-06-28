@@ -627,6 +627,29 @@ describe("repoIntelligence", () => {
       skippedFileCount: 0,
       reason: "Fresh local index",
     });
+    expect(preparation.copyArtifacts).toEqual([
+      {
+        id: "full_handoff",
+        label: "Full handoff",
+        format: "markdown",
+        available: true,
+        blockedReason: null,
+      },
+      {
+        id: "selected_pack",
+        label: "Selected pack",
+        format: "markdown",
+        available: true,
+        blockedReason: null,
+      },
+      {
+        id: "json_payload",
+        label: "JSON payload",
+        format: "json",
+        available: true,
+        blockedReason: null,
+      },
+    ]);
     expect(preparation.recommendedMode).toBe("full");
     expect(preparation.handoffMarkdown).toContain("# Codex Handoff");
     expect(preparation.handoffMarkdown).toContain(
@@ -771,6 +794,15 @@ describe("repoIntelligence", () => {
     expect(preparation.recommendedMode).toBe("off");
     expect(preparation.handoffMarkdown).toBeNull();
     expect(preparation.handoffPayload).toBeNull();
+    expect(preparation.copyArtifacts.every((artifact) => !artifact.available))
+      .toBe(true);
+    expect(
+      preparation.copyArtifacts.map((artifact) => artifact.blockedReason),
+    ).toEqual([
+      "Index a real local repo before copying agent context.",
+      "Index a real local repo before copying agent context.",
+      "Index a real local repo before copying agent context.",
+    ]);
     expect(formatAgentSessionPreparationJson(preparation)).toBeNull();
     expect(formatAgentSessionSelectedPackMarkdown({
       totalFiles: 0,

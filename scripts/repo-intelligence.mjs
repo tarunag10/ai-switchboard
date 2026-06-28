@@ -1570,6 +1570,30 @@ function buildAgentSessionPreparation(summary, options) {
     options.providerRoutingSafe ?? primaryRepoAgentIds.has(profile.id);
   const freshness = getIndexFreshness(summary);
   const copyState = getSessionCopyState(summary, freshness);
+  const copyArtifactAvailable = copyState.status !== "blocked";
+  const copyArtifacts = [
+    {
+      id: "full_handoff",
+      label: "Full handoff",
+      format: "markdown",
+      available: copyArtifactAvailable,
+      blockedReason: copyArtifactAvailable ? null : copyState.detail,
+    },
+    {
+      id: "selected_pack",
+      label: "Selected pack",
+      format: "markdown",
+      available: copyArtifactAvailable,
+      blockedReason: copyArtifactAvailable ? null : copyState.detail,
+    },
+    {
+      id: "json_payload",
+      label: "JSON payload",
+      format: "json",
+      available: copyArtifactAvailable,
+      blockedReason: copyArtifactAvailable ? null : copyState.detail,
+    },
+  ];
   const modeRecommendation = recommendSessionMode({
     headroomHealthy: options.headroomHealthy,
     rtkHealthy: options.rtkHealthy,
@@ -1592,6 +1616,7 @@ function buildAgentSessionPreparation(summary, options) {
     freshness,
     copyStatus: copyState.status,
     copyDetail: copyState.detail,
+    copyArtifacts,
     recommendedMode: modeRecommendation.mode,
     recommendedModeReason: modeRecommendation.reason,
     safety: {
@@ -1623,6 +1648,9 @@ function formatAgentSessionMarkdown(preparation) {
     `Freshness: ${preparation.freshness.label}`,
     `Recommended mode: ${preparation.recommendedMode}`,
     `Mode reason: ${preparation.recommendedModeReason}`,
+    `Copy artifacts: ${preparation.copyArtifacts
+      .map((artifact) => `${artifact.label}=${artifact.available ? "ready" : "blocked"}`)
+      .join(", ")}`,
     "",
     "## Safety",
     `- Read-only: ${preparation.safety.readOnly ? "yes" : "no"}`,

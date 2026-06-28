@@ -176,6 +176,14 @@ export interface AgentSessionCopySafety {
   reason: string;
 }
 
+export interface AgentSessionCopyArtifact {
+  id: "full_handoff" | "selected_pack" | "json_payload";
+  label: string;
+  format: "markdown" | "json";
+  available: boolean;
+  blockedReason: string | null;
+}
+
 export interface AgentSessionPreparation {
   target: RepoAgentHandoffProfile;
   taskType: AgentSessionTaskType;
@@ -186,6 +194,7 @@ export interface AgentSessionPreparation {
   copyDetail: string;
   recommendedMode: SwitchboardMode;
   recommendedModeReason: string;
+  copyArtifacts: AgentSessionCopyArtifact[];
   handoffMarkdown: string | null;
   handoffPayload: RepoAgentHandoffPayload | null;
   manifest: RepoAgentManifest;
@@ -1398,6 +1407,37 @@ function buildAgentSessionCopySafety(
   };
 }
 
+function buildAgentSessionCopyArtifacts(
+  copyState: ReturnType<typeof getAgentSessionCopyState>,
+): AgentSessionCopyArtifact[] {
+  const available = copyState.status !== "blocked";
+  const blockedReason = available ? null : copyState.detail;
+
+  return [
+    {
+      id: "full_handoff",
+      label: "Full handoff",
+      format: "markdown",
+      available,
+      blockedReason,
+    },
+    {
+      id: "selected_pack",
+      label: "Selected pack",
+      format: "markdown",
+      available,
+      blockedReason,
+    },
+    {
+      id: "json_payload",
+      label: "JSON payload",
+      format: "json",
+      available,
+      blockedReason,
+    },
+  ];
+}
+
 export function buildAgentSessionPreparation(
   summary: RepoIntelligenceSummary,
   options: AgentSessionPreparationOptions,
@@ -1430,6 +1470,7 @@ export function buildAgentSessionPreparation(
     copyDetail: copyState.detail,
     recommendedMode: modeRecommendation.mode,
     recommendedModeReason: modeRecommendation.reason,
+    copyArtifacts: buildAgentSessionCopyArtifacts(copyState),
     handoffMarkdown:
       copyState.status === "blocked"
         ? null
