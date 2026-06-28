@@ -203,6 +203,12 @@ describe("doctor repair copy", () => {
     expect(text).toContain("get_repo_manifest");
     expect(text).toContain("get_repo_pack");
     expect(text).toContain("get_agent_handoff");
+    expect(text).toContain("planned connector config readiness");
+    expect(text).toContain("next gate");
+    expect(text).toContain("evidence requirements");
+    expect(text).toContain("config path strategy");
+    expect(text).toContain("account caveat");
+    expect(text).toContain("rollback strategy");
     expect(text).toContain("get_index_freshness");
     expect(text).toContain("API availability");
     expect(text).toContain("graph availability");
@@ -225,6 +231,9 @@ describe("doctor repair copy", () => {
     expect(contract).toContain("graph availability reported");
     expect(contract).toContain("indexed/skipped counts");
     expect(contract).toContain("missing, stale, corrupt, or moved repo indexes");
+    expect(contract).toContain("planned connector config readiness");
+    expect(contract).toContain("config path strategy");
+    expect(contract).toContain("rollback strategy");
   });
 
   it("explains why planned connectors stay manual in Doctor", () => {
