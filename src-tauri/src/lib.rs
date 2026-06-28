@@ -2229,6 +2229,73 @@ async fn get_switchboard_state(state: State<'_, AppState>) -> Result<Switchboard
     build_switchboard_state(&state)
 }
 
+fn repo_intelligence_saved_paths_missing(summary: &crate::models::RepoIntelligenceSummary) -> bool {
+    let Some(metadata) = summary.index_metadata.as_ref() else {
+        return false;
+    };
+    if metadata.file_fingerprints.is_empty() {
+        return false;
+    }
+    let repo_root = Path::new(&summary.repo_root);
+    metadata
+        .file_fingerprints
+        .iter()
+        .all(|entry| !repo_root.join(&entry.path).exists())
+}
+
+fn repo_intelligence_doctor_issue(
+    summary: &crate::models::RepoIntelligenceSummary,
+    now: DateTime<Utc>,
+) -> Option<crate::models::DoctorIssue> {
+    if !Path::new(&summary.repo_root).is_dir() {
+        return Some(crate::models::DoctorIssue {
+            id: "repo_intelligence_repo_missing".to_string(),
+            title: "Repo Intelligence index points to a missing folder".to_string(),
+            body: format!(
+                "The last indexed repo path is no longer available: {}. Repair will clear this saved index; then re-index an available local repository from the Repo Intelligence add-on card.",
+                summary.repo_root
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("clear_repo_intelligence_index".to_string()),
+        });
+    }
+
+    if repo_intelligence_saved_paths_missing(summary) {
+        return Some(crate::models::DoctorIssue {
+            id: "repo_intelligence_repo_moved".to_string(),
+            title: "Repo Intelligence index no longer matches this folder".to_string(),
+            body: format!(
+                "The saved Repo Intelligence file map no longer matches files under {}. The repo may have moved, been replaced, or been cleaned. Repair will clear this saved index; then re-index the current local repository before copying packs or agent handoffs.",
+                summary.repo_root
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("clear_repo_intelligence_index".to_string()),
+        });
+    }
+
+    let stale = DateTime::parse_from_rfc3339(&summary.indexed_at)
+        .map(|indexed_at| {
+            now.signed_duration_since(indexed_at.with_timezone(&Utc))
+                .num_days()
+                >= 7
+        })
+        .unwrap_or(false);
+    if stale {
+        return Some(crate::models::DoctorIssue {
+            id: "repo_intelligence_stale".to_string(),
+            title: "Repo Intelligence index is stale".to_string(),
+            body: format!(
+                "The last Repo Intelligence index for {} is more than 7 days old. Repair will clear the stale saved index; then re-index it before relying on context packs for agent handoff.",
+                summary.repo_root
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("clear_repo_intelligence_index".to_string()),
+        });
+    }
+
+    None
+}
+
 fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
     let runtime = state.runtime_status();
     let codex_direct_bypass = state
@@ -2371,38 +2438,8 @@ repair_action,
 
     match repo_intelligence::load_latest_summary() {
         Ok(Some(summary)) => {
-            let repo_missing = !Path::new(&summary.repo_root).is_dir();
-            let stale = DateTime::parse_from_rfc3339(&summary.indexed_at)
-                .map(|indexed_at| {
-                    Utc::now()
-                        .signed_duration_since(indexed_at.with_timezone(&Utc))
-                        .num_days()
-                        >= 7
-                })
-                .unwrap_or(false);
-
-            if repo_missing {
-                issues.push(crate::models::DoctorIssue {
-id: "repo_intelligence_repo_missing".to_string(),
-title: "Repo Intelligence index points to a missing folder".to_string(),
-body: format!(
-"The last indexed repo path is no longer available: {}. Repair will clear this saved index; then re-index an available local repository from the Repo Intelligence add-on card.",
-summary.repo_root
-),
-severity: crate::models::DoctorSeverity::Warning,
-repair_action: Some("clear_repo_intelligence_index".to_string()),
-});
-            } else if stale {
-                issues.push(crate::models::DoctorIssue {
-id: "repo_intelligence_stale".to_string(),
-title: "Repo Intelligence index is stale".to_string(),
-body: format!(
-"The last Repo Intelligence index for {} is more than 7 days old. Repair will clear the stale saved index; then re-index it before relying on context packs for agent handoff.",
-summary.repo_root
-),
-severity: crate::models::DoctorSeverity::Warning,
-repair_action: Some("clear_repo_intelligence_index".to_string()),
-});
+            if let Some(issue) = repo_intelligence_doctor_issue(&summary, Utc::now()) {
+                issues.push(issue);
             }
         }
         Ok(None) => {}
@@ -6382,14 +6419,17 @@ mod tests {
         parse_updater_endpoint_list, pattern_matches_project, physical_rect_from_rect,
         read_applied_patterns_for_project, readyz_failed_checks_csv,
         readyz_failure_has_core_unhealthy, readyz_failure_is_upstream_only,
-        resolve_release_updater_config, select_updater_endpoints, store_checked_update,
-        watchdog_should_be_up, zero_spend_affected_days, AppUpdateProgress,
+        repo_intelligence_doctor_issue, resolve_release_updater_config, select_updater_endpoints,
+        store_checked_update, watchdog_should_be_up, zero_spend_affected_days, AppUpdateProgress,
         AppUpdateProgressEmitter, AvailableAppUpdate, BootstrapFailureKind, DailySavingsPoint,
         HeadroomLearnPrereqStatus, InstallPendingUpdateFuture, InstallableAppUpdate, LearnAgent,
         MonitorBounds, PhysicalRect, QuitSource, TrayRuntimeVisual,
     };
+    use crate::models::{RepoFileIndexEntry, RepoIndexMetadata, RepoIntelligenceSummary};
+    use chrono::{TimeZone, Utc};
     use parking_lot::Mutex;
     use serde_json::{json, Value};
+    use std::collections::BTreeMap;
     use std::sync::Arc;
     use tauri::{LogicalPosition, LogicalSize, PhysicalSize, Position, Rect, Size};
 
@@ -6433,6 +6473,80 @@ mod tests {
             actual_cost_usd: cost_usd,
             total_tokens_sent: tokens_sent,
         }
+    }
+
+    fn repo_summary_fixture(repo_root: String, indexed_at: &str) -> RepoIntelligenceSummary {
+        RepoIntelligenceSummary {
+            indexed_at: indexed_at.to_string(),
+            repo_root,
+            indexer_version: Some("path-graph-v2".to_string()),
+            total_files: 1,
+            indexed_files: 1,
+            skipped_files: 0,
+            estimated_full_scan_tokens: 10,
+            role_counts: BTreeMap::new(),
+            index_metadata: Some(RepoIndexMetadata {
+                schema_version: 1,
+                indexer_version: "path-graph-v2".to_string(),
+                parser_version: "metadata-fingerprint-v1".to_string(),
+                cache_key: "test".to_string(),
+                cache_state: "unchanged".to_string(),
+                generated_at: indexed_at.to_string(),
+                previous_indexed_at: None,
+                file_count: 1,
+                indexed_file_count: 1,
+                skipped_file_count: 0,
+                file_fingerprints: vec![RepoFileIndexEntry {
+                    path: "src/App.tsx".to_string(),
+                    bytes: 10,
+                    modified_unix_ms: 0,
+                    fingerprint: "abc123".to_string(),
+                }],
+                skipped_files: Vec::new(),
+                graph_inputs: Vec::new(),
+            }),
+            graph: None,
+            packs: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn repo_intelligence_doctor_issue_reports_missing_moved_and_healthy_indexes() {
+        let now = Utc
+            .with_ymd_and_hms(2026, 6, 28, 12, 0, 0)
+            .single()
+            .expect("valid time");
+        let missing = repo_summary_fixture(
+            "/tmp/mac-ai-switchboard-missing-repo-for-doctor".to_string(),
+            "2026-06-28T10:00:00Z",
+        );
+        let missing_issue = repo_intelligence_doctor_issue(&missing, now).expect("missing issue");
+        assert_eq!(missing_issue.id, "repo_intelligence_repo_missing");
+        assert_eq!(
+            missing_issue.repair_action.as_deref(),
+            Some("clear_repo_intelligence_index")
+        );
+
+        let moved_root = tempfile::tempdir().expect("create moved repo root");
+        let moved = repo_summary_fixture(
+            moved_root.path().to_string_lossy().to_string(),
+            "2026-06-28T10:00:00Z",
+        );
+        let moved_issue = repo_intelligence_doctor_issue(&moved, now).expect("moved issue");
+        assert_eq!(moved_issue.id, "repo_intelligence_repo_moved");
+        assert!(moved_issue.body.contains("file map no longer matches"));
+        assert_eq!(
+            moved_issue.repair_action.as_deref(),
+            Some("clear_repo_intelligence_index")
+        );
+
+        std::fs::create_dir_all(moved_root.path().join("src")).expect("create src");
+        std::fs::write(moved_root.path().join("src/App.tsx"), "export {}\n")
+            .expect("write indexed file");
+        assert!(
+            repo_intelligence_doctor_issue(&moved, now).is_none(),
+            "existing indexed file should keep the saved index healthy"
+        );
     }
 
     #[test]

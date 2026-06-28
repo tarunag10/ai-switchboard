@@ -152,6 +152,18 @@ describe("doctor repair copy", () => {
     ).toContain("Clear the unreadable Repo Intelligence index");
   });
 
+  it("guides moved Repo Intelligence path recovery", () => {
+    expect(
+      doctorIssueGuidance({
+        id: "repo_intelligence_repo_moved",
+        title: "Repo Intelligence index no longer matches this folder",
+        body: "The saved Repo Intelligence file map no longer matches files under the saved path.",
+        severity: "warning",
+        repairAction: "clear_repo_intelligence_index",
+      }),
+    ).toContain("Re-index the current local repo path");
+  });
+
   it("formats healthy Doctor report for sharing", () => {
     expect(
       formatDoctorReportShareText({

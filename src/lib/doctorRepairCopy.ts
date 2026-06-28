@@ -246,7 +246,7 @@ export function doctorRepairHint(action: string): string {
     case "repair_ponytail_plugin":
       return "Re-registers the Ponytail plugin with available Claude Code and Codex hosts.";
     case "clear_repo_intelligence_index":
-      return "Clears the saved Repo Intelligence summary so a stale or missing repo path no longer appears in Doctor. Re-index from Addons when ready.";
+      return "Clears the saved Repo Intelligence summary so stale, missing, moved, or replaced repo paths no longer appear in Doctor. Re-index the current local repo path from Addons when ready.";
     default:
       return "Runs the safest available repair for this issue.";
   }
@@ -399,6 +399,8 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
       return plannedConnectorDoctorGuidance();
     case "repo_intelligence_repo_missing":
       return "Clear the saved Repo Intelligence index, then open Addons and index an available local repo when ready.";
+    case "repo_intelligence_repo_moved":
+      return "Clear the saved Repo Intelligence index, then re-index the current local repo path before copying packs into another agent.";
     case "repo_intelligence_stale":
       return "Clear the stale saved Repo Intelligence index, then open Addons and re-index the repo before copying packs into another agent.";
     case "repo_intelligence_storage_corrupt":
