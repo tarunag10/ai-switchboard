@@ -1035,12 +1035,12 @@ async fn install_addon(state: State<'_, AppState>, id: String) -> Result<Dashboa
                 .tool_manager
                 .install_caveman()
                 .map_err(|err| err.to_string())?;
-            client_adapters::enable_caveman_integration(&state.tool_manager.caveman_level())
+            let level = state.tool_manager.caveman_level();
+            let (changed_files, backup_files) = client_adapters::enable_caveman_integration(&level)
                 .map_err(|err| {
                     format!("caveman installed but enabling guidance failed: {err:#}")
                 })?;
-            let _ = state
-                .record_addon_attribution("caveman", Some(&state.tool_manager.caveman_level()));
+            let _ = state.record_caveman_attribution(&level, &changed_files, &backup_files);
             Ok(state.dashboard())
         }
         other => Err(format!("unknown addon: {other}")),
@@ -1091,10 +1091,11 @@ async fn set_addon_enabled(
                 .set_caveman_enabled(enabled)
                 .map_err(|err| err.to_string())?;
             if enabled {
-                client_adapters::enable_caveman_integration(&state.tool_manager.caveman_level())
-                    .map_err(|err| err.to_string())?;
-                let _ = state
-                    .record_addon_attribution("caveman", Some(&state.tool_manager.caveman_level()));
+                let level = state.tool_manager.caveman_level();
+                let (changed_files, backup_files) =
+                    client_adapters::enable_caveman_integration(&level)
+                        .map_err(|err| err.to_string())?;
+                let _ = state.record_caveman_attribution(&level, &changed_files, &backup_files);
             } else {
                 client_adapters::disable_caveman_integration().map_err(|err| err.to_string())?;
             }
@@ -1166,8 +1167,10 @@ async fn set_caveman_level(
             .iter()
             .any(|tool| tool.id == "caveman" && tool.enabled)
     {
-        client_adapters::enable_caveman_integration(&state.tool_manager.caveman_level())
-            .map_err(|err| err.to_string())?;
+        let level = state.tool_manager.caveman_level();
+        let (changed_files, backup_files) =
+            client_adapters::enable_caveman_integration(&level).map_err(|err| err.to_string())?;
+        let _ = state.record_caveman_attribution(&level, &changed_files, &backup_files);
     }
     Ok(state.dashboard())
 }

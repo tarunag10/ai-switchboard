@@ -316,7 +316,7 @@ describe("savings calculator", () => {
     expect(rows.filter((row) => row.source === "repo_intelligence")).toHaveLength(1);
   });
 
-  it("uses durable inferred backend attribution events for session add-on ledger rows", () => {
+  it("uses durable estimated backend attribution events for session add-on ledger rows", () => {
     const rows = buildSavingsLedgerRows(
       dashboardFixture(),
       "session",
@@ -330,12 +330,14 @@ describe("savings calculator", () => {
             observedAt: "2026-06-25T10:05:00Z",
             scope: "session",
             source: "caveman",
-            confidence: "inferred",
+            confidence: "estimated",
             deltaTokensSaved: 300,
             deltaUsd: 0,
             totalTokensSent: 0,
             requestDelta: 1,
-            evidence: ["Inferred Caveman template delta."],
+            evidence: [
+              "Estimated Caveman managed guidance changed 2 client instruction files.",
+            ],
           },
         ],
       },
@@ -346,14 +348,14 @@ describe("savings calculator", () => {
     expect(caveman).toMatchObject({
       id: "caveman_attribution_events",
       label: "Caveman",
-      confidence: "inferred",
+      confidence: "estimated",
       savedTokens: 300,
       savedUsd: null,
       recordedAt: "2026-06-25T10:05:00Z",
-      caveat: "Modelled from a template, context-pack, or workflow delta.",
+      caveat: "Estimated from saved history or cost model; not a per-request proof.",
     });
-    expect(caveman?.detail).toContain("1 inferred Caveman session event");
-    expect(caveman?.detail).toContain("Inferred Caveman template delta");
+    expect(caveman?.detail).toContain("1 estimated Caveman session event");
+    expect(caveman?.detail).toContain("managed guidance changed 2 client instruction files");
     expect(rows.filter((row) => row.source === "caveman")).toHaveLength(1);
   });
 

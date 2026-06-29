@@ -2172,7 +2172,24 @@ impl AppState {
         addon_id: &str,
         caveman_level: Option<&str>,
     ) -> Result<()> {
-        let Some(event) = build_addon_attribution_event(addon_id, caveman_level) else {
+        let Some(event) = build_addon_attribution_event(addon_id, caveman_level, None, None) else {
+            return Ok(());
+        };
+        self.savings_tracker.lock().append_attribution_event(&event)
+    }
+
+    pub fn record_caveman_attribution(
+        &self,
+        caveman_level: &str,
+        changed_files: &[String],
+        backup_files: &[String],
+    ) -> Result<()> {
+        let Some(event) = build_addon_attribution_event(
+            "caveman",
+            Some(caveman_level),
+            Some(changed_files),
+            Some(backup_files),
+        ) else {
             return Ok(());
         };
         self.savings_tracker.lock().append_attribution_event(&event)
@@ -3984,6 +4001,8 @@ fn build_repo_intelligence_attribution_event(
 fn build_addon_attribution_event(
     addon_id: &str,
     caveman_level: Option<&str>,
+    changed_files: Option<&[String]>,
+    backup_files: Option<&[String]>,
 ) -> Option<SavingsAttributionEvent> {
     let (source, label, baseline, optimized, confidence, evidence_subject) = match addon_id {
         "markitdown" => (
@@ -4003,6 +4022,10 @@ fn build_addon_attribution_event(
             "Scoped implementation plan vs broad codebase exploration",
         ),
         "caveman" => {
+            let changed_files = changed_files?;
+            if changed_files.is_empty() {
+                return None;
+            }
             let compact = caveman_level
                 .map(|level| level == crate::tool_manager::CAVEMAN_LEVEL_COMPACT_CHINESE)
                 .unwrap_or(false);
@@ -4019,11 +4042,11 @@ fn build_addon_attribution_event(
                 },
                 CAVEMAN_TEMPLATE_BASELINE_TOKENS,
                 CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
-                SavingsAttributionConfidence::Inferred,
+                SavingsAttributionConfidence::Estimated,
                 if compact {
-                    "Compact Chinese private handoff profile vs verbose internal handoff"
+                    "Compact Chinese managed guidance was written into connected client instruction files"
                 } else {
-                    "Terse handoff template vs verbose baseline"
+                    "Caveman managed guidance was written into connected client instruction files"
                 },
             )
         }
@@ -4039,6 +4062,28 @@ fn build_addon_attribution_event(
         SavingsAttributionConfidence::Inferred => "Inferred",
     };
 
+    let mut evidence = vec![
+        format!(
+            "{confidence_label} from {label} template delta: baseline {baseline} tokens vs optimized {optimized} tokens."
+        ),
+        format!("{evidence_subject}; local workflow estimate, not provider-spend dollars."),
+    ];
+    if addon_id == "caveman" {
+        let changed = changed_files.unwrap_or(&[]);
+        evidence.push(format!(
+            "Managed guidance changed {} client instruction file{}: {}.",
+            changed.len(),
+            if changed.len() == 1 { "" } else { "s" },
+            changed.join(", ")
+        ));
+        if let Some(backups) = backup_files.filter(|backups| !backups.is_empty()) {
+            evidence.push(format!(
+                "Backups created for reversible guidance writes: {}.",
+                backups.join(", ")
+            ));
+        }
+    }
+
     Some(SavingsAttributionEvent {
         schema_version: 1,
         id: Uuid::new_v4().to_string(),
@@ -4050,12 +4095,7 @@ fn build_addon_attribution_event(
         delta_usd: 0.0,
         total_tokens_sent: 0,
         request_delta: 1,
-        evidence: vec![
-            format!(
-                "{confidence_label} from {label} template delta: baseline {baseline} tokens vs optimized {optimized} tokens."
-            ),
-            format!("{evidence_subject}; local workflow estimate, not provider-spend dollars."),
-        ],
+        evidence,
     })
 }
 
@@ -7030,7 +7070,7 @@ mod tests {
 
     #[test]
     fn addon_attribution_event_records_estimated_markitdown_delta() {
-        let event = super::build_addon_attribution_event("markitdown", None)
+        let event = super::build_addon_attribution_event("markitdown", None, None, None)
             .expect("markitdown attribution");
 
         assert_eq!(event.source, SavingsAttributionSource::Markitdown);
@@ -7046,26 +7086,47 @@ mod tests {
 
     #[test]
     fn addon_attribution_event_separates_compact_chinese_from_caveman() {
-        let caveman = super::build_addon_attribution_event("caveman", Some("scoped"))
-            .expect("caveman attribution");
+        let changed_files = vec!["/tmp/CLAUDE.md".to_string(), "/tmp/AGENTS.md".to_string()];
+        let backup_files = vec!["/tmp/CLAUDE.md.bak".to_string()];
+        let caveman = super::build_addon_attribution_event(
+            "caveman",
+            Some("scoped"),
+            Some(&changed_files),
+            Some(&backup_files),
+        )
+        .expect("caveman attribution");
         let compact = super::build_addon_attribution_event(
             "caveman",
             Some(crate::tool_manager::CAVEMAN_LEVEL_COMPACT_CHINESE),
+            Some(&changed_files),
+            Some(&backup_files),
         )
         .expect("compact chinese attribution");
 
         assert_eq!(caveman.source, SavingsAttributionSource::Caveman);
         assert_eq!(compact.source, SavingsAttributionSource::CompactChinese);
-        assert_eq!(caveman.confidence, SavingsAttributionConfidence::Inferred);
-        assert_eq!(compact.confidence, SavingsAttributionConfidence::Inferred);
+        assert_eq!(caveman.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(compact.confidence, SavingsAttributionConfidence::Estimated);
         assert_eq!(caveman.delta_tokens_saved, 300);
         assert_eq!(compact.delta_tokens_saved, 300);
+        let evidence = caveman.evidence.join(" ");
+        assert!(evidence.contains("changed 2 client instruction files"));
+        assert!(evidence.contains("/tmp/CLAUDE.md"));
+        assert!(evidence.contains("Backups created"));
+    }
+
+    #[test]
+    fn addon_attribution_event_skips_caveman_without_changed_files() {
+        assert!(
+            super::build_addon_attribution_event("caveman", Some("scoped"), Some(&[]), None,)
+                .is_none()
+        );
     }
 
     #[test]
     fn addon_attribution_event_keeps_ponytail_guidance_inferred() {
-        let event =
-            super::build_addon_attribution_event("ponytail", None).expect("ponytail attribution");
+        let event = super::build_addon_attribution_event("ponytail", None, None, None)
+            .expect("ponytail attribution");
 
         assert_eq!(event.source, SavingsAttributionSource::Ponytail);
         assert_eq!(event.confidence, SavingsAttributionConfidence::Inferred);

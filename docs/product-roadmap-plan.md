@@ -37,6 +37,7 @@ Shipped:
 - One-click local evidence now includes focused Doctor repair validation for UI/copy behavior and backend Off/RTK Headroom-restoring repair guards, with durable local summary artifacts.
 - Repo Memory MCP active sessions are now app-supervised with periodic read-only smoke rechecks while the same app process owns the session.
 - The home runtime banner now offers a primary Start runtime action when the Headroom runtime is offline, degraded, or proxy-unreachable, reusing the same restart-and-refresh path as paused recovery.
+- Caveman and Compact Chinese savings attribution now records durable estimated events only when managed guidance actually changes client instruction files, including changed-file and backup evidence instead of unconditional inferred template rows.
 
 Left:
 
@@ -44,7 +45,7 @@ Left:
 - Add reboot and installed-app smoke evidence for full Doctor repair and Rollback Center survival.
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
 - Turn repo-memory MCP into a real background local service beyond current app-process supervision plus smoke-tested stdio transport.
-- Replace inferred Ponytail, Caveman, and Compact Chinese savings rows with stronger measured counters where trustworthy evidence exists; Repo Intelligence and MarkItDown fallback rows are now estimated from graph-pack and managed smoke-tested conversion paths.
+- Replace the remaining inferred Ponytail savings row with stronger counters where trustworthy evidence exists; Caveman and Compact Chinese now use changed-file estimated events when managed guidance is actually written, and Repo Intelligence/MarkItDown fallback rows are estimated from graph-pack and managed smoke-tested conversion paths.
 - Deepen Repo Intelligence beyond the shipped parser/index health checks, local imports, package-dependency edges, reverse dependencies, graph-input evidence, and graph-aware packs with richer language-specific dependency analyzers and Doctor health checks.
 - Complete public release readiness with signed/notarized DMG, updater artifacts, public installed-smoke proof, uninstall evidence, and release-panel wiring.
 
@@ -90,7 +91,7 @@ Left:
 ### Observability and Savings Accuracy
 
 - A session savings ledger exists and labels rows as measured, estimated, or inferred.
-- Headroom and RTK measured events are the strongest evidence today; Repo Intelligence has estimated best-pack events; MarkItDown is estimated from the managed smoke-tested conversion path; Ponytail, Caveman, and Compact Chinese still rely mostly on inferred template events.
+- Headroom and RTK measured events are the strongest evidence today; Repo Intelligence has estimated best-pack events; MarkItDown is estimated from the managed smoke-tested conversion path; Caveman and Compact Chinese now use changed-file estimated events when managed guidance is written; Ponytail still relies mostly on inferred template events.
 - Remaining work is to make add-on counters more exact and to explain current session, repo, today, and all-time scopes without mixing them.
 
 ### Connector Expansion Risk
