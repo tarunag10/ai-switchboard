@@ -13,6 +13,7 @@ import {
   getSavingsLedgerEmptyState,
   groupSavingsLedgerRowsBySource,
   formatSavingsCalculatorShareText,
+  savingsCalculatorScopeDefinition,
   summarizeSavingsLedgerRows,
   type SavingsCalculatorScope,
 } from "./savingsCalculator";
@@ -1061,7 +1062,7 @@ describe("savings calculator", () => {
     expect(text).toContain("Recorded: 2026-06-27T10:00:00.000Z");
     expect(text).toContain("Confidence filter: all rows");
     expect(text).toContain(
-      "Scopes: session uses live app counters; repo uses Repo Intelligence context estimates; today/week/month/lifetime use saved local history.",
+      `Scope definition: ${savingsCalculatorScopeDefinition("lifetime")}`,
     );
     expect(text).toContain("Measured tokens: 900 / $0.00");
     expect(text).toContain("Estimated tokens: 4,300 / $4.50");
@@ -1113,6 +1114,9 @@ describe("savings calculator", () => {
     const text = formatSavingsCalculatorShareText(summary, rows);
 
     expect(text).toContain("Mac AI Switchboard savings (current app session)");
+    expect(text).toContain(
+      `Scope definition: ${savingsCalculatorScopeDefinition("session")}`,
+    );
     expect(text).toContain("Saved: 300 tokens / $0.75");
     expect(text).toContain(
       "Confidence: measured = observed local counters; estimated = saved history or cost estimate; inferred = modelled template or context-pack delta.",
@@ -1170,6 +1174,9 @@ describe("savings calculator", () => {
     const text = formatSavingsCalculatorShareText(summary, rows);
 
     expect(text).toContain("Mac AI Switchboard savings (lifetime)");
+    expect(text).toContain(
+      `Scope definition: ${savingsCalculatorScopeDefinition("lifetime")}`,
+    );
     expect(text).toContain("Saved: 2,000 tokens / $4.50");
     expect(text).toContain("Confidence: measured = observed local counters");
     expect(text).toContain(
@@ -1183,6 +1190,27 @@ describe("savings calculator", () => {
     expect(text).toContain("- ponytail: Ponytail (inferred) saved 880 tokens");
     expect(text).toContain(
       "- markitdown: MarkItDown (estimated) saved 2,300 tokens",
+    );
+  });
+
+  it("defines savings scopes without mixing session, repo, and history windows", () => {
+    expect(savingsCalculatorScopeDefinition("session")).toContain(
+      "reset on app restart",
+    );
+    expect(savingsCalculatorScopeDefinition("session")).toContain(
+      "not a repo total",
+    );
+    expect(savingsCalculatorScopeDefinition("repo")).toContain(
+      "Repo Intelligence context-pack estimates",
+    );
+    expect(savingsCalculatorScopeDefinition("repo")).toContain(
+      "Runtime and RTK traffic are excluded",
+    );
+    expect(savingsCalculatorScopeDefinition("today")).toContain(
+      "current UTC date",
+    );
+    expect(savingsCalculatorScopeDefinition("lifetime")).toContain(
+      "all saved local Switchboard history",
     );
   });
 });

@@ -255,6 +255,7 @@ import {
   formatSavingsLedgerAttributionSummary,
   formatSavingsLedgerShareText,
   getSavingsLedgerEmptyState,
+  savingsCalculatorScopeDefinition,
   savingsCalculatorScopeLabel,
   CAVEMAN_TEMPLATE_BASELINE_TOKENS,
   CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
@@ -963,6 +964,7 @@ function SavingsCalculatorCard({
           <div>
             <span>Ledger</span>
             <strong>{savingsCalculatorScopeLabel(scope)}</strong>
+            <p>{savingsCalculatorScopeDefinition(scope)}</p>
           </div>
           <div
             className="savings-calculator__ledger-filters"

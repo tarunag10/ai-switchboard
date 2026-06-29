@@ -222,6 +222,23 @@ export function savingsCalculatorScopeLabel(scope: SavingsCalculatorScope) {
   }
 }
 
+export function savingsCalculatorScopeDefinition(scope: SavingsCalculatorScope) {
+  switch (scope) {
+    case "session":
+      return "Current app session includes live Headroom and backend attribution counters since this Mac AI Switchboard launch. It is reset on app restart and is not a repo total.";
+    case "repo":
+      return "Current repo includes Repo Intelligence context-pack estimates for the indexed repository only. Runtime and RTK traffic are excluded until backend repo-scoped history exists.";
+    case "today":
+      return "Today includes saved local daily history for the current UTC date plus same-day RTK counters when available.";
+    case "week":
+      return "This week is the trailing seven-day local history window, including today, plus matching RTK daily rows.";
+    case "month":
+      return "This month includes saved local history for the current UTC month plus matching RTK daily rows.";
+    case "lifetime":
+      return "Lifetime includes all saved local Switchboard history and all-time RTK totals on this Mac.";
+  }
+}
+
 function currentDateKey() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -913,7 +930,7 @@ export function formatSavingsLedgerShareText(
     `Mac AI Switchboard savings ledger (${scopeLabel})`,
     `Recorded: ${recordedAt}`,
     `Confidence filter: ${filter === "all" ? "all rows" : filter}`,
-    "Scopes: session uses live app counters; repo uses Repo Intelligence context estimates; today/week/month/lifetime use saved local history.",
+    `Scope definition: ${savingsCalculatorScopeDefinition(scope)}`,
     `Rows: ${formatTokens(summary.rowCount)}`,
     `Total tokens: ${formatTokens(summary.totalTokens)}`,
     `Measured tokens: ${formatTokens(summary.measuredTokens)} / ${formatUsd(summary.measuredUsd)}`,
@@ -940,6 +957,7 @@ export function formatSavingsCalculatorShareText(
 
   return [
     `Mac AI Switchboard savings (${scopeLabel})`,
+    `Scope definition: ${savingsCalculatorScopeDefinition(summary.scope)}`,
     `Saved: ${formatTokens(summary.savedTokens)} tokens / ${formatUsd(summary.savedUsd)}`,
     `Requests: ${formatTokens(summary.requests)}`,
     `Reduction: ${formatPercent(summary.savingsPct)}`,
