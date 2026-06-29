@@ -73,6 +73,10 @@
   "bundle": {
     "active": true,
     "createUpdaterArtifacts": true,
+    "resources": [
+      "../scripts/check-repo-memory-mcp.mjs",
+      "../scripts/repo-intelligence.mjs"
+    ],
     "targets": "all",
     "icon": [
       "icons/32x32.png",

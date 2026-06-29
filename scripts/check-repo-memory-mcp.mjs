@@ -2,6 +2,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const repoIntelligenceScript = path.join(scriptDir, "repo-intelligence.mjs");
 
 const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), "switchboard-mcp-repo-"));
 fs.mkdirSync(path.join(repoRoot, "src"), { recursive: true });
@@ -13,9 +17,9 @@ fs.writeFileSync(path.join(repoRoot, ".env.local"), "SECRET=value\n");
 
 const child = spawn(
   process.execPath,
-  ["scripts/repo-intelligence.mjs", repoRoot, "--mcp-serve"],
+  [repoIntelligenceScript, repoRoot, "--mcp-serve"],
   {
-    cwd: process.cwd(),
+    cwd: scriptDir,
     stdio: ["pipe", "pipe", "pipe"],
   },
 );

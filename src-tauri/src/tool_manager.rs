@@ -3594,10 +3594,7 @@ impl ToolManager {
     }
 
     pub fn install_repo_memory_mcp(&self) -> Result<()> {
-        let script = std::env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join("scripts")
-            .join("repo-intelligence.mjs");
+        let script = repo_memory_script_path("repo-intelligence.mjs")?;
         write_mcp_server_to_claude_json(
             REPO_MEMORY_MCP_NAME,
             json!({
@@ -3628,14 +3625,11 @@ impl ToolManager {
     }
 
     pub fn verify_repo_memory_mcp_smoke(&self) -> Result<()> {
-        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let script = cwd.join("scripts").join("check-repo-memory-mcp.mjs");
-        if !script.exists() {
-            bail!(
-                "repo-memory MCP smoke script is missing at {}",
-                script.display()
-            );
-        }
+        let script = repo_memory_script_path("check-repo-memory-mcp.mjs")?;
+        let cwd = script
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
         let script_arg = script.to_string_lossy().to_string();
         run_command_with_timeout(
             Path::new("node"),
@@ -3955,6 +3949,38 @@ fn installed_ponytail_version() -> Option<String> {
         .get("version")?
         .as_str()
         .map(str::to_string)
+}
+
+fn repo_memory_script_path(script_name: &str) -> Result<PathBuf> {
+    for candidate in repo_memory_script_candidates(script_name) {
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+    bail!("repo-memory script {script_name} is missing from dev scripts and bundled resources")
+}
+
+fn repo_memory_script_candidates(script_name: &str) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("scripts").join(script_name));
+        if let Some(parent) = cwd.parent() {
+            candidates.push(parent.join("scripts").join(script_name));
+        }
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(mac_os_dir) = exe.parent() {
+            if let Some(contents_dir) = mac_os_dir.parent() {
+                let resources_dir = contents_dir.join("Resources");
+                candidates.push(resources_dir.join("scripts").join(script_name));
+                candidates.push(resources_dir.join(script_name));
+            }
+        }
+        if let Some(exe_dir) = exe.parent() {
+            candidates.push(exe_dir.join("scripts").join(script_name));
+        }
+    }
+    candidates
 }
 
 /// Claude Code ≥2.x stores user-scope MCP servers in `~/.claude.json` under
@@ -7028,6 +7054,23 @@ after
             .repo_memory_mcp_error()
             .expect("repo memory error")
             .contains("repo-memory missing"));
+    }
+
+    #[test]
+    fn repo_memory_script_candidates_include_dev_and_resource_paths() {
+        let candidates = super::repo_memory_script_candidates("repo-intelligence.mjs");
+        assert!(
+            candidates
+                .iter()
+                .any(|path| path.ends_with("scripts/repo-intelligence.mjs")),
+            "dev script path should be a candidate"
+        );
+        assert!(
+            candidates
+                .iter()
+                .any(|path| path.display().to_string().contains("Resources")),
+            "bundled resource path should be a candidate"
+        );
     }
 
     #[test]
