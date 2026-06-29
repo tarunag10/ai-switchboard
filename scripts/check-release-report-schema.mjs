@@ -18,6 +18,17 @@ const requiredReleaseReportPaths = [
   "installedSmoke.checklistSha256Matches",
   "localValidation.ready",
   "localValidation.releaseGateEvidence",
+  "localValidation.localInstalled.summaryPath",
+  "localValidation.localInstalled.jsonPath",
+  "localValidation.localInstalled.passed",
+  "localValidation.localInstalled.appPresent",
+  "localValidation.localInstalled.metadataMatches",
+  "localValidation.localInstalled.dmgVerified",
+  "localValidation.localInstalled.codesignVerified",
+  "localValidation.localInstalled.runtimeHealthChecked",
+  "localValidation.localInstalled.appListenerReady",
+  "localValidation.localInstalled.engineProxyReady",
+  "localValidation.localInstalled.requiredCommand",
   "localValidation.modeRelaunch.summaryPath",
   "localValidation.modeRelaunch.jsonPath",
   "localValidation.modeRelaunch.passed",
@@ -319,6 +330,7 @@ if (localValidation.releaseGateEvidence !== false) {
   fail("localValidation.releaseGateEvidence must remain false for local-only evidence");
 }
 for (const prefix of [
+  "localValidation.localInstalled",
   "localValidation.rollback",
   "localValidation.doctorRepair",
   "localValidation.uninstall",
@@ -332,7 +344,9 @@ for (const prefix of [
     "jsonPresent",
     "passed",
   ]);
-  requireType(report, `${prefix}.stepCount`, "number");
+  if (prefix !== "localValidation.localInstalled") {
+    requireType(report, `${prefix}.stepCount`, "number");
+  }
   requireType(report, `${prefix}.requiredCommand`, "string");
   const kind = prefix
     .split(".")
@@ -346,6 +360,17 @@ for (const prefix of [
   if (parseError !== null && typeof parseError !== "string") {
     fail(`${prefix}.parseError must be string or null`);
   }
+}
+for (const field of [
+  "appPresent",
+  "metadataMatches",
+  "dmgVerified",
+  "codesignVerified",
+  "runtimeHealthChecked",
+  "appListenerReady",
+  "engineProxyReady",
+]) {
+  requireType(report, `localValidation.localInstalled.${field}`, "boolean");
 }
 requireObject(report, "localValidation.modeRelaunch");
 requireType(report, "localValidation.modeRelaunch.summaryPath", "string");
@@ -370,6 +395,26 @@ if (
   typeof modeRelaunchParseError !== "string"
 ) {
   fail("localValidation.modeRelaunch.parseError must be string or null");
+}
+if (
+  report.localValidation.localInstalled.requiredCommand !==
+  "npm run smoke:installed:local"
+) {
+  fail(
+    "localValidation.localInstalled.requiredCommand must be npm run smoke:installed:local",
+  );
+}
+if (report.localValidation.localInstalled.appPresent !== true) {
+  fail("localValidation.localInstalled.appPresent must be true");
+}
+if (report.localValidation.localInstalled.metadataMatches !== true) {
+  fail("localValidation.localInstalled.metadataMatches must be true");
+}
+if (report.localValidation.localInstalled.dmgVerified !== true) {
+  fail("localValidation.localInstalled.dmgVerified must be true");
+}
+if (report.localValidation.localInstalled.codesignVerified !== true) {
+  fail("localValidation.localInstalled.codesignVerified must be true");
 }
 if (
   report.localValidation.modeRelaunch.requiredCommand !==

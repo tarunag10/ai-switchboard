@@ -40,6 +40,27 @@ function sha256(filePath) {
   return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 }
 
+function probeReadyz(url) {
+  const result = run("curl", ["-fsS", "--max-time", "2", url]);
+  let body = null;
+  if (result.ok && result.stdout) {
+    try {
+      body = JSON.parse(result.stdout);
+    } catch {
+      body = null;
+    }
+  }
+  return {
+    url,
+    reachable: result.ok,
+    ready: body?.ready === true,
+    service: typeof body?.service === "string" ? body.service : null,
+    status: typeof body?.status === "string" ? body.status : null,
+    version: typeof body?.version === "string" ? body.version : null,
+    error: result.ok ? null : result.stderr || result.stdout || "unreachable",
+  };
+}
+
 if (!fs.existsSync(dmgPath) && fs.existsSync(rawDmgPath)) {
   fs.mkdirSync(path.dirname(dmgPath), { recursive: true });
   fs.copyFileSync(rawDmgPath, dmgPath);
@@ -67,6 +88,19 @@ const spctlAssess = appPresent
   ? run("spctl", ["--assess", "--type", "execute", "--verbose=4", appPath])
   : null;
 const running = run("pgrep", ["-fl", "mac-ai-switchboard|Mac AI Switchboard"]);
+const runtimeHealth = running.ok
+  ? {
+      checked: true,
+      appListener: probeReadyz("http://127.0.0.1:6767/readyz"),
+      engineProxy: probeReadyz("http://127.0.0.1:6768/readyz"),
+    }
+  : {
+      checked: false,
+      appListener: null,
+      engineProxy: null,
+      note:
+        "Runtime health was not checked because the installed app process was not running.",
+    };
 
 const payload = {
   generatedAt,
@@ -84,6 +118,7 @@ const payload = {
     running: running.ok,
     runningProcess: running.stdout || null,
   },
+  runtimeHealth,
   dmg: {
     path: dmgPath,
     present: dmgPresent,
@@ -113,6 +148,20 @@ Generated: ${generatedAt}
 - Bundle name: ${bundleName ?? "unknown"}
 - Metadata matches repo config: ${metadataMatches ? "yes" : "no"}
 - Running process: ${running.ok ? "yes" : "no"}
+- App listener ready: ${
+  runtimeHealth.checked
+    ? runtimeHealth.appListener.ready
+      ? `yes (${runtimeHealth.appListener.url}, ${runtimeHealth.appListener.service ?? "unknown service"} ${runtimeHealth.appListener.version ?? "unknown version"})`
+      : `no (${runtimeHealth.appListener.url}: ${runtimeHealth.appListener.error ?? runtimeHealth.appListener.status ?? "not ready"})`
+    : "not checked (app not running)"
+}
+- Headroom engine proxy ready: ${
+  runtimeHealth.checked
+    ? runtimeHealth.engineProxy.ready
+      ? `yes (${runtimeHealth.engineProxy.url}, ${runtimeHealth.engineProxy.service ?? "unknown service"} ${runtimeHealth.engineProxy.version ?? "unknown version"})`
+      : `no (${runtimeHealth.engineProxy.url}: ${runtimeHealth.engineProxy.error ?? runtimeHealth.engineProxy.status ?? "not ready"})`
+    : "not checked (app not running)"
+}
 - Local DMG present: ${dmgPresent ? "yes" : "no"} (${dmgPath})
 - Local DMG SHA-256: ${dmgSha256 ?? "missing"}
 - DMG hdiutil verify: ${dmgVerify?.ok ? "pass" : "not verified"}

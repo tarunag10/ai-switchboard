@@ -86,6 +86,20 @@ export interface ReleaseReadinessReportSnapshot {
     ready?: boolean;
     releaseGateEvidence?: boolean;
     message?: string;
+    localInstalled?: {
+      summaryPresent?: boolean;
+      jsonPresent?: boolean;
+      passed?: boolean;
+      appPresent?: boolean;
+      metadataMatches?: boolean;
+      dmgVerified?: boolean;
+      codesignVerified?: boolean;
+      runtimeHealthChecked?: boolean;
+      appListenerReady?: boolean;
+      engineProxyReady?: boolean;
+      requiredCommand?: string;
+      summaryPath?: string;
+    };
     modeRelaunch?: {
       summaryPresent?: boolean;
       jsonPresent?: boolean;
@@ -663,6 +677,30 @@ export function releaseLocalEvidenceRowsFromReport(
 
   return [
     {
+      id: "local-installed",
+      label: "Local installed app",
+      passed: local.localInstalled?.passed === true,
+      statusLabel:
+        local.localInstalled?.passed === true ? "Passed" : "Missing",
+      command:
+        local.localInstalled?.requiredCommand ??
+        "npm run smoke:installed:local",
+      summaryPath:
+        local.localInstalled?.summaryPath ??
+        "dist/local-installed-smoke-summary.md",
+      detail: localEvidenceDetail(
+        "Local installed smoke checked",
+        undefined,
+        local.localInstalled?.summaryPresent,
+        local.localInstalled?.runtimeHealthChecked === true
+          ? local.localInstalled?.appListenerReady === true &&
+            local.localInstalled?.engineProxyReady === true
+            ? "App listener and Headroom engine proxy were ready."
+            : "Runtime health was checked but one listener was not ready."
+          : "Runtime health was not checked because the app was not running.",
+      ),
+    },
+    {
       id: "mode-relaunch",
       label: "Mode relaunch",
       passed: local.modeRelaunch?.passed === true,
@@ -779,6 +817,8 @@ export function releaseReadinessRowsFromReport(
   const rollbackPassed = report.localValidation?.rollback?.passed === true;
   const doctorRepairPassed =
     report.localValidation?.doctorRepair?.passed === true;
+  const localInstalledPassed =
+    report.localValidation?.localInstalled?.passed === true;
   const uninstallPassed = report.localValidation?.uninstall?.passed === true;
   const repoIntelligencePassed =
     report.localValidation?.repoIntelligence?.passed === true;
@@ -837,8 +877,10 @@ export function releaseReadinessRowsFromReport(
       statusLabel: localValidationReady ? "Validated locally" : "Local only",
       tone: "local-only",
       detail: localValidationReady
-        ? "Local Rollback Center, Doctor repair, uninstall dry-run, and Repo Intelligence validation summaries are passing; this remains local-only evidence."
-        : `Local survival validation missing or stale: Rollback ${
+        ? "Local installed app, Rollback Center, Doctor repair, uninstall dry-run, and Repo Intelligence validation summaries are passing; this remains local-only evidence."
+        : `Local survival validation missing or stale: installed app ${
+            localInstalledPassed ? "passed" : "not passed"
+          }, Rollback ${
             rollbackPassed ? "passed" : "not passed"
           }, Doctor repair ${
             doctorRepairPassed ? "passed" : "not passed"

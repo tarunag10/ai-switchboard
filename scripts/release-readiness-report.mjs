@@ -7,6 +7,8 @@ const reportPath = "dist/release-readiness-report.md";
 const jsonPath = "dist/release-readiness-report.json";
 const smokeSummaryPath = "dist/smoke-preflight-summary.md";
 const installedSmokeSummaryPath = "dist/installed-smoke-summary.md";
+const localInstalledSmokeSummaryPath = "dist/local-installed-smoke-summary.md";
+const localInstalledSmokeJsonPath = "dist/local-installed-smoke-summary.json";
 const localModeRelaunchSummaryPath =
   "dist/local-mode-relaunch-smoke-summary.md";
 const localModeRelaunchJsonPath =
@@ -255,6 +257,8 @@ function buildStaticSmokePreflight(smokeSummary) {
 }
 
 function buildLocalValidationEvidence() {
+  const localInstalledSummary = readSummaryStatus(localInstalledSmokeSummaryPath);
+  const localInstalledJson = readJsonStatus(localInstalledSmokeJsonPath);
   const modeRelaunchSummary = readSummaryStatus(localModeRelaunchSummaryPath);
   const modeRelaunchJson = readJsonStatus(localModeRelaunchJsonPath);
   const rollbackSummary = readSummaryStatus(localRollbackSummaryPath);
@@ -272,7 +276,26 @@ function buildLocalValidationEvidence() {
   const doctorRepairPassed = doctorJson.body?.passed === true;
   const uninstallPassed = uninstallJson.body?.passed === true;
   const repoIntelligencePassed = repoIntelligenceJson.body?.passed === true;
+  const localInstalledAppPresent = localInstalledJson.body?.app?.present === true;
+  const localInstalledMetadataMatches =
+    localInstalledJson.body?.app?.metadataMatches === true;
+  const localInstalledDmgVerified =
+    localInstalledJson.body?.dmg?.hdiutilVerifyOk === true;
+  const localInstalledCodesignVerified =
+    localInstalledJson.body?.signing?.codesignVerifyOk === true;
+  const localInstalledRuntimeChecked =
+    localInstalledJson.body?.runtimeHealth?.checked === true;
+  const localInstalledAppListenerReady =
+    localInstalledJson.body?.runtimeHealth?.appListener?.ready === true;
+  const localInstalledEngineProxyReady =
+    localInstalledJson.body?.runtimeHealth?.engineProxy?.ready === true;
+  const localInstalledPassed =
+    localInstalledAppPresent &&
+    localInstalledMetadataMatches &&
+    localInstalledDmgVerified &&
+    localInstalledCodesignVerified;
   const ready =
+    localInstalledPassed &&
     modeRelaunchPassed &&
     rollbackPassed &&
     doctorRepairPassed &&
@@ -282,6 +305,24 @@ function buildLocalValidationEvidence() {
   return {
     ready,
     releaseGateEvidence: false,
+    localInstalled: {
+      summaryPath: localInstalledSmokeSummaryPath,
+      jsonPath: localInstalledSmokeJsonPath,
+      summaryPresent: localInstalledSummary.present,
+      jsonPresent: localInstalledJson.present,
+      generatedLine: localInstalledSummary.generatedLine,
+      passed: localInstalledPassed,
+      parseError: localInstalledJson.parseError,
+      kind: localInstalledJson.body?.kind ?? null,
+      appPresent: localInstalledAppPresent,
+      metadataMatches: localInstalledMetadataMatches,
+      dmgVerified: localInstalledDmgVerified,
+      codesignVerified: localInstalledCodesignVerified,
+      runtimeHealthChecked: localInstalledRuntimeChecked,
+      appListenerReady: localInstalledAppListenerReady,
+      engineProxyReady: localInstalledEngineProxyReady,
+      requiredCommand: "npm run smoke:installed:local",
+    },
     modeRelaunch: {
       summaryPath: localModeRelaunchSummaryPath,
       jsonPath: localModeRelaunchJsonPath,
@@ -363,8 +404,8 @@ function buildLocalValidationEvidence() {
       requiredCommand: "npm run smoke:repo-intelligence:local",
     },
     message: ready
-      ? "Local mode relaunch, Doctor repair, Rollback Center, uninstall dry-run, and Repo Intelligence validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
-      : "Run npm run smoke:mode-relaunch:local -- --confirm, npm run smoke:rollback:local, npm run smoke:doctor-repair:local, npm run smoke:uninstall:local, and npm run smoke:repo-intelligence:local to refresh local relaunch, survival, cleanup, and repo-context evidence before public installed-smoke proof.",
+      ? "Local installed smoke, mode relaunch, Doctor repair, Rollback Center, uninstall dry-run, and Repo Intelligence validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
+      : "Run npm run smoke:installed:local, npm run smoke:mode-relaunch:local -- --confirm, npm run smoke:rollback:local, npm run smoke:doctor-repair:local, npm run smoke:uninstall:local, and npm run smoke:repo-intelligence:local to refresh local install, relaunch, survival, cleanup, and repo-context evidence before public installed-smoke proof.",
   };
 }
 
@@ -501,6 +542,18 @@ ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Instal
 
 - Release gate evidence: ${localValidation.releaseGateEvidence ? "yes" : "no"}
 - Local validation ready: ${localValidation.ready ? "yes" : "no"}
+- Local installed smoke summary present: ${localValidation.localInstalled.summaryPresent ? "yes" : "no"} (${localValidation.localInstalled.summaryPath})
+- Local installed smoke JSON present: ${localValidation.localInstalled.jsonPresent ? "yes" : "no"} (${localValidation.localInstalled.jsonPath})
+${localValidation.localInstalled.generatedLine ? `- ${localValidation.localInstalled.generatedLine}` : "- Local installed smoke summary has not been generated in this checkout."}
+- Local installed validation passed: ${localValidation.localInstalled.passed ? "yes" : "no"}
+- Local installed app present: ${localValidation.localInstalled.appPresent ? "yes" : "no"}
+- Local installed metadata matches: ${localValidation.localInstalled.metadataMatches ? "yes" : "no"}
+- Local installed DMG verified: ${localValidation.localInstalled.dmgVerified ? "yes" : "no"}
+- Local installed codesign verified: ${localValidation.localInstalled.codesignVerified ? "yes" : "no"}
+- Local installed runtime health checked: ${localValidation.localInstalled.runtimeHealthChecked ? "yes" : "no"}
+- Local installed app listener ready: ${localValidation.localInstalled.appListenerReady ? "yes" : "no"}
+- Local installed Headroom engine proxy ready: ${localValidation.localInstalled.engineProxyReady ? "yes" : "no"}
+- Local installed command: ${localValidation.localInstalled.requiredCommand}
 - Mode relaunch summary present: ${localValidation.modeRelaunch.summaryPresent ? "yes" : "no"} (${localValidation.modeRelaunch.summaryPath})
 - Mode relaunch JSON present: ${localValidation.modeRelaunch.jsonPresent ? "yes" : "no"} (${localValidation.modeRelaunch.jsonPath})
 ${localValidation.modeRelaunch.generatedLine ? `- ${localValidation.modeRelaunch.generatedLine}` : "- Mode relaunch smoke summary has not been generated in this checkout."}

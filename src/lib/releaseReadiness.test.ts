@@ -252,6 +252,19 @@ describe("release readiness checklist", () => {
       status: "blocked",
       localValidation: {
         ready: true,
+        localInstalled: {
+          passed: true,
+          summaryPresent: true,
+          appPresent: true,
+          metadataMatches: true,
+          dmgVerified: true,
+          codesignVerified: true,
+          runtimeHealthChecked: true,
+          appListenerReady: true,
+          engineProxyReady: true,
+          requiredCommand: "npm run smoke:installed:local",
+          summaryPath: "dist/local-installed-smoke-summary.md",
+        },
         modeRelaunch: {
           passed: true,
           modeCount: 2,
@@ -297,6 +310,7 @@ describe("release readiness checklist", () => {
     });
 
     expect(rows.map((row) => row.id)).toEqual([
+      "local-installed",
       "mode-relaunch",
       "rollback",
       "doctor-repair",
@@ -305,12 +319,16 @@ describe("release readiness checklist", () => {
     ]);
     expect(rows.every((row) => row.passed)).toBe(true);
     expect(rows.map((row) => row.command)).toEqual([
+      "npm run smoke:installed:local",
       "npm run smoke:mode-relaunch:local -- --confirm",
       "npm run smoke:rollback:local",
       "npm run smoke:doctor-repair:local",
       "npm run smoke:uninstall:local",
       "npm run smoke:repo-intelligence:local",
     ]);
+    expect(rows.find((row) => row.id === "local-installed")?.detail).toContain(
+      "App listener and Headroom engine proxy were ready.",
+    );
     expect(rows.find((row) => row.id === "mode-relaunch")?.detail).toContain(
       "Proxy listeners stayed down and config was restored.",
     );

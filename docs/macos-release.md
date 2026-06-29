@@ -42,7 +42,7 @@ the Tauri action publishes the DMG/updater assets. These integrity artifacts do
 not replace Apple signing or notarization; they make release contents easier to
 verify and audit.
 
-For local unsigned/ad-hoc testing only, use `npm run build:mac:local-install`. It builds a local DMG, copies it to `dist/release-artifacts`, installs `/Applications/Mac AI Switchboard.app`, ad-hoc signs the installed app, then runs `npm run smoke:installed:local`. The local smoke command writes `dist/local-installed-smoke-summary.md` and JSON metadata for the bundle, checksum, local code signature, Gatekeeper status, and running process. Do not use that local summary as public release evidence.
+For local unsigned/ad-hoc testing only, use `npm run build:mac:local-install`. It builds a local DMG, copies it to `dist/release-artifacts`, installs `/Applications/Mac AI Switchboard.app`, ad-hoc signs the installed app, then runs `npm run smoke:installed:local`. The local smoke command writes `dist/local-installed-smoke-summary.md` and JSON metadata for the bundle, checksum, local code signature, Gatekeeper status, and running process. When the installed app is running, the same local smoke also records whether the loopback app listener (`127.0.0.1:6767`) and Headroom engine proxy (`127.0.0.1:6768`) report healthy `/readyz` status. Do not use that local summary as public release evidence.
 
 If you want a universal build, install both Rust macOS targets first and then run:
 
