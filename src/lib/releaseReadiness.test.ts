@@ -149,6 +149,7 @@ describe("release readiness checklist", () => {
       "desktop-tests",
       "local-dmg",
       "installed-smoke",
+      "local-doctor-rollback",
       "signing-env",
       "notarization-env",
       "updater-config",
@@ -159,7 +160,7 @@ describe("release readiness checklist", () => {
     expect(releaseReadinessStatusCounts()).toEqual({
       ready: 1,
       blocked: 7,
-      "local-only": 1,
+      "local-only": 2,
     });
 
     const copy = releaseReadinessStatusRows
@@ -170,6 +171,8 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("npm run fmt:desktop && npm run test:desktop");
     expect(copy).toContain("npm run build:mac:local-install");
     expect(copy).toContain("npm run smoke:installed -- --confirm");
+    expect(copy).toContain("npm run smoke:rollback:local");
+    expect(copy).toContain("npm run smoke:doctor-repair:local");
     expect(copy).toContain("Developer ID");
     expect(copy).toContain("notarization credentials");
     expect(copy).toContain("HEADROOM_UPDATER_PUBLIC_KEY");
@@ -185,10 +188,10 @@ describe("release readiness checklist", () => {
   it("summarizes release evidence coverage separately from local-only proof", () => {
     const defaults = releaseReadinessEvidenceSummary();
     expect(defaults).toMatchObject({
-      totalRows: 9,
+      totalRows: 10,
       readyRows: 1,
       blockedRows: 7,
-      localOnlyRows: 1,
+      localOnlyRows: 2,
       publicGateReady: false,
       reportLoaded: false,
     });
@@ -222,7 +225,7 @@ describe("release readiness checklist", () => {
     expect(loaded).toMatchObject({
       readyRows: 8,
       blockedRows: 0,
-      localOnlyRows: 1,
+      localOnlyRows: 2,
       publicGateReady: true,
       reportLoaded: true,
     });
@@ -314,7 +317,7 @@ describe("release readiness checklist", () => {
     expect(releaseReadinessStatusCounts(rows)).toEqual({
       ready: 8,
       blocked: 0,
-      "local-only": 1,
+      "local-only": 2,
     });
     expect(rows.find((row) => row.id === "connector-config-plan")?.detail).toContain(
       "includes the managed connector config creation plan and connector readiness payload",
@@ -357,7 +360,7 @@ describe("release readiness checklist", () => {
     expect(releaseReadinessStatusCounts(rows)).toEqual({
       ready: 0,
       blocked: 8,
-      "local-only": 1,
+      "local-only": 2,
     });
     expect(rows.find((row) => row.id === "frontend-build")?.detail).toContain(
       "Savings calculator copyable ledger",

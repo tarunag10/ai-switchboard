@@ -16,6 +16,16 @@ const requiredReleaseReportPaths = [
   "installedSmoke.missingEvidence",
   "installedSmoke.evidenceReady",
   "installedSmoke.checklistSha256Matches",
+  "localValidation.ready",
+  "localValidation.releaseGateEvidence",
+  "localValidation.rollback.summaryPath",
+  "localValidation.rollback.jsonPath",
+  "localValidation.rollback.passed",
+  "localValidation.rollback.requiredCommand",
+  "localValidation.doctorRepair.summaryPath",
+  "localValidation.doctorRepair.jsonPath",
+  "localValidation.doctorRepair.passed",
+  "localValidation.doctorRepair.requiredCommand",
   "shareableDmgGate.staticSmokePreflightReady",
   "shareableDmgGate.updaterFeedReady",
   "releaseEnv.blockers",
@@ -104,6 +114,19 @@ if (!markdownReport.includes("## Managed Connector Readiness")) {
 }
 if (!markdownReport.includes("Full per-tool dossiers are available from Doctor")) {
   fail(`${markdownReportPath} must point to Doctor connector dossiers`);
+}
+if (!markdownReport.includes("## Local Doctor and Rollback Validation")) {
+  fail(`${markdownReportPath} must include local Doctor and Rollback validation evidence`);
+}
+if (!markdownReport.includes("Rollback command: npm run smoke:rollback:local")) {
+  fail(`${markdownReportPath} must include the local rollback validation command`);
+}
+if (
+  !markdownReport.includes(
+    "Doctor repair command: npm run smoke:doctor-repair:local",
+  )
+) {
+  fail(`${markdownReportPath} must include the local Doctor repair validation command`);
 }
 
 requireType(report, "status", "string");
@@ -251,6 +274,57 @@ for (const requiredItem of [
   }
 }
 requireType(report, "installedSmoke.message", "string");
+
+const localValidation = requireObject(report, "localValidation");
+requireBooleanFields(report, "localValidation", [
+  "ready",
+  "releaseGateEvidence",
+]);
+if (localValidation.releaseGateEvidence !== false) {
+  fail("localValidation.releaseGateEvidence must remain false for local-only evidence");
+}
+for (const prefix of [
+  "localValidation.rollback",
+  "localValidation.doctorRepair",
+]) {
+  requireObject(report, prefix);
+  requireType(report, `${prefix}.summaryPath`, "string");
+  requireType(report, `${prefix}.jsonPath`, "string");
+  requireBooleanFields(report, prefix, [
+    "summaryPresent",
+    "jsonPresent",
+    "passed",
+  ]);
+  requireType(report, `${prefix}.stepCount`, "number");
+  requireType(report, `${prefix}.requiredCommand`, "string");
+  const kind = prefix
+    .split(".")
+    .reduce((current, part) => current?.[part], report).kind;
+  if (kind !== null && typeof kind !== "string") {
+    fail(`${prefix}.kind must be string or null`);
+  }
+  const parseError = prefix
+    .split(".")
+    .reduce((current, part) => current?.[part], report).parseError;
+  if (parseError !== null && typeof parseError !== "string") {
+    fail(`${prefix}.parseError must be string or null`);
+  }
+}
+if (
+  report.localValidation.rollback.requiredCommand !==
+  "npm run smoke:rollback:local"
+) {
+  fail("localValidation.rollback.requiredCommand must be npm run smoke:rollback:local");
+}
+if (
+  report.localValidation.doctorRepair.requiredCommand !==
+  "npm run smoke:doctor-repair:local"
+) {
+  fail(
+    "localValidation.doctorRepair.requiredCommand must be npm run smoke:doctor-repair:local",
+  );
+}
+requireType(report, "localValidation.message", "string");
 
 requireObject(report, "shareableDmgGate");
 requireBooleanFields(report, "shareableDmgGate", [

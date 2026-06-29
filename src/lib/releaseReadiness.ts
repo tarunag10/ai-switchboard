@@ -72,6 +72,25 @@ export interface ReleaseReadinessReportSnapshot {
     missingEvidence?: string[];
     message?: string;
   };
+  localValidation?: {
+    ready?: boolean;
+    releaseGateEvidence?: boolean;
+    message?: string;
+    rollback?: {
+      summaryPresent?: boolean;
+      jsonPresent?: boolean;
+      passed?: boolean;
+      stepCount?: number;
+      requiredCommand?: string;
+    };
+    doctorRepair?: {
+      summaryPresent?: boolean;
+      jsonPresent?: boolean;
+      passed?: boolean;
+      stepCount?: number;
+      requiredCommand?: string;
+    };
+  };
   shareableDmgGate?: {
     ready?: boolean;
     signedAndNotarized?: boolean;
@@ -238,6 +257,15 @@ export const releaseReadinessStatusRows: ReleaseReadinessStatusRow[] = [
     source: "npm run smoke:installed -- --confirm",
     detail:
       "Installed-app smoke evidence must be recorded after running the beta checklist against the installed app.",
+  },
+  {
+    id: "local-doctor-rollback",
+    label: "Local Doctor/Rollback",
+    statusLabel: "Local only",
+    tone: "local-only",
+    source: "npm run smoke:rollback:local && npm run smoke:doctor-repair:local",
+    detail:
+      "Local Doctor repair and Rollback Center survival evidence is useful operational proof but does not replace signed installed-app smoke.",
   },
   {
     id: "signing-env",
@@ -555,6 +583,10 @@ export function releaseReadinessRowsFromReport(
   const installedAppPresent =
     report.installedSmoke?.installedAppPresent === true;
   const installedSmokeReady = report.installedSmoke?.evidenceReady === true;
+  const localValidationReady = report.localValidation?.ready === true;
+  const rollbackPassed = report.localValidation?.rollback?.passed === true;
+  const doctorRepairPassed =
+    report.localValidation?.doctorRepair?.passed === true;
   const signingReady = report.shareableDmgGate?.signedAndNotarized === true;
   const notarizationReady = signingReady;
   const updaterReady = report.shareableDmgGate?.updaterFeedReady === true;
@@ -607,6 +639,16 @@ export function releaseReadinessRowsFromReport(
     },
     {
       ...releaseReadinessStatusRows[4],
+      statusLabel: localValidationReady ? "Validated locally" : "Local only",
+      tone: "local-only",
+      detail: localValidationReady
+        ? "Local Rollback Center and Doctor repair validation summaries are passing; this remains local-only evidence."
+        : `Local survival validation missing or stale: Rollback ${
+            rollbackPassed ? "passed" : "not passed"
+          }, Doctor repair ${doctorRepairPassed ? "passed" : "not passed"}.`,
+    },
+    {
+      ...releaseReadinessStatusRows[5],
       statusLabel: statusLabel(signingReady),
       tone: statusTone(signingReady),
       detail: signingReady
@@ -618,7 +660,7 @@ export function releaseReadinessRowsFromReport(
           }`,
     },
     {
-      ...releaseReadinessStatusRows[5],
+      ...releaseReadinessStatusRows[6],
       statusLabel: statusLabel(notarizationReady),
       tone: statusTone(notarizationReady),
       detail: notarizationReady
@@ -626,7 +668,7 @@ export function releaseReadinessRowsFromReport(
         : "Notarization credentials are still missing or unproven.",
     },
     {
-      ...releaseReadinessStatusRows[6],
+      ...releaseReadinessStatusRows[7],
       statusLabel: statusLabel(updaterReady),
       tone: statusTone(updaterReady),
       detail: updaterReady
@@ -634,7 +676,7 @@ export function releaseReadinessRowsFromReport(
         : "Updater feed configuration is missing or incomplete.",
     },
     {
-      ...releaseReadinessStatusRows[7],
+      ...releaseReadinessStatusRows[8],
       statusLabel: statusLabel(connectorConfigPlanReady),
       tone: statusTone(connectorConfigPlanReady),
       detail: connectorConfigPlanReady
@@ -642,7 +684,7 @@ export function releaseReadinessRowsFromReport(
         : "Static smoke evidence must include the managed connector config creation plan and connector readiness payload.",
     },
     {
-      ...releaseReadinessStatusRows[8],
+      ...releaseReadinessStatusRows[9],
       statusLabel: finalReady ? "Ready" : "Blocked",
       tone: statusTone(finalReady),
       detail:
@@ -683,6 +725,7 @@ export function formatReleaseReadinessReportSnapshot(
     `- Connector config plan evidence: ${yesNo(hasConnectorConfigPlanEvidence(report))}`,
     `- Installed app present: ${yesNo(report.installedSmoke?.installedAppPresent)}`,
     `- Installed smoke ready: ${yesNo(report.installedSmoke?.ready ?? report.installedSmoke?.evidenceReady)}`,
+    `- Local Doctor/Rollback validation ready: ${yesNo(report.localValidation?.ready)}`,
     `- Signed and notarized: ${yesNo(report.shareableDmgGate?.signedAndNotarized)}`,
     `- Updater feed ready: ${yesNo(report.shareableDmgGate?.updaterFeedReady)}`,
     `- Shareable DMG ready: ${yesNo(report.shareableDmgGate?.ready)}`,

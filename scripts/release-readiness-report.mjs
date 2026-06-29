@@ -7,6 +7,12 @@ const reportPath = "dist/release-readiness-report.md";
 const jsonPath = "dist/release-readiness-report.json";
 const smokeSummaryPath = "dist/smoke-preflight-summary.md";
 const installedSmokeSummaryPath = "dist/installed-smoke-summary.md";
+const localRollbackSummaryPath = "dist/local-rollback-validation-summary.md";
+const localRollbackJsonPath = "dist/local-rollback-validation-summary.json";
+const localDoctorRepairSummaryPath =
+  "dist/local-doctor-repair-validation-summary.md";
+const localDoctorRepairJsonPath =
+  "dist/local-doctor-repair-validation-summary.json";
 const betaSmokeDoc = "docs/beta-smoke-test.md";
 const appPath = "/Applications/Mac AI Switchboard.app";
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
@@ -99,6 +105,30 @@ function readSummaryStatus(summaryPath) {
     generatedLine: firstGeneratedLine,
     body,
   };
+}
+
+function readJsonStatus(jsonPath) {
+  if (!fs.existsSync(jsonPath)) {
+    return {
+      present: false,
+      body: null,
+      parseError: null,
+    };
+  }
+
+  try {
+    return {
+      present: true,
+      body: JSON.parse(fs.readFileSync(jsonPath, "utf8")),
+      parseError: null,
+    };
+  } catch (error) {
+    return {
+      present: true,
+      body: null,
+      parseError: error.message,
+    };
+  }
 }
 
 function currentFileSha256(filePath) {
@@ -214,6 +244,52 @@ function buildStaticSmokePreflight(smokeSummary) {
   };
 }
 
+function buildLocalValidationEvidence() {
+  const rollbackSummary = readSummaryStatus(localRollbackSummaryPath);
+  const rollbackJson = readJsonStatus(localRollbackJsonPath);
+  const doctorSummary = readSummaryStatus(localDoctorRepairSummaryPath);
+  const doctorJson = readJsonStatus(localDoctorRepairJsonPath);
+  const rollbackPassed = rollbackJson.body?.passed === true;
+  const doctorRepairPassed = doctorJson.body?.passed === true;
+  const ready = rollbackPassed && doctorRepairPassed;
+
+  return {
+    ready,
+    releaseGateEvidence: false,
+    rollback: {
+      summaryPath: localRollbackSummaryPath,
+      jsonPath: localRollbackJsonPath,
+      summaryPresent: rollbackSummary.present,
+      jsonPresent: rollbackJson.present,
+      generatedLine: rollbackSummary.generatedLine,
+      passed: rollbackPassed,
+      parseError: rollbackJson.parseError,
+      kind: rollbackJson.body?.kind ?? null,
+      stepCount: Array.isArray(rollbackJson.body?.steps)
+        ? rollbackJson.body.steps.length
+        : 0,
+      requiredCommand: "npm run smoke:rollback:local",
+    },
+    doctorRepair: {
+      summaryPath: localDoctorRepairSummaryPath,
+      jsonPath: localDoctorRepairJsonPath,
+      summaryPresent: doctorSummary.present,
+      jsonPresent: doctorJson.present,
+      generatedLine: doctorSummary.generatedLine,
+      passed: doctorRepairPassed,
+      parseError: doctorJson.parseError,
+      kind: doctorJson.body?.kind ?? null,
+      stepCount: Array.isArray(doctorJson.body?.steps)
+        ? doctorJson.body.steps.length
+        : 0,
+      requiredCommand: "npm run smoke:doctor-repair:local",
+    },
+    message: ready
+      ? "Local Doctor repair and Rollback Center validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
+      : "Run npm run smoke:rollback:local and npm run smoke:doctor-repair:local to refresh local survival evidence before public installed-smoke proof.",
+  };
+}
+
 function buildShareableDmgGate(
   releaseEnv,
   backendValidation,
@@ -263,6 +339,7 @@ const installedSmoke = buildInstalledSmoke(
   bundleMetadataPresent,
   installedSmokeSummary,
 );
+const localValidation = buildLocalValidationEvidence();
 const shareableDmgGate = buildShareableDmgGate(
   releaseEnv,
   backendValidation,
@@ -289,6 +366,7 @@ const payload = {
   backendValidation,
   staticSmokePreflight,
   installedSmoke,
+  localValidation,
   shareableDmgGate,
   releaseEnv,
 };
@@ -340,6 +418,24 @@ ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Instal
 - Missing evidence: ${installedSmoke.missingEvidence.length ? installedSmoke.missingEvidence.join(", ") : "none"}
 - Installed smoke evidence ready: ${installedSmoke.evidenceReady ? "yes" : "no"}
 - ${installedSmoke.message}
+
+## Local Doctor and Rollback Validation
+
+- Release gate evidence: ${localValidation.releaseGateEvidence ? "yes" : "no"}
+- Local validation ready: ${localValidation.ready ? "yes" : "no"}
+- Rollback summary present: ${localValidation.rollback.summaryPresent ? "yes" : "no"} (${localValidation.rollback.summaryPath})
+- Rollback JSON present: ${localValidation.rollback.jsonPresent ? "yes" : "no"} (${localValidation.rollback.jsonPath})
+${localValidation.rollback.generatedLine ? `- ${localValidation.rollback.generatedLine}` : "- Rollback validation summary has not been generated in this checkout."}
+- Rollback validation passed: ${localValidation.rollback.passed ? "yes" : "no"}
+- Rollback validation steps: ${localValidation.rollback.stepCount}
+- Rollback command: ${localValidation.rollback.requiredCommand}
+- Doctor repair summary present: ${localValidation.doctorRepair.summaryPresent ? "yes" : "no"} (${localValidation.doctorRepair.summaryPath})
+- Doctor repair JSON present: ${localValidation.doctorRepair.jsonPresent ? "yes" : "no"} (${localValidation.doctorRepair.jsonPath})
+${localValidation.doctorRepair.generatedLine ? `- ${localValidation.doctorRepair.generatedLine}` : "- Doctor repair validation summary has not been generated in this checkout."}
+- Doctor repair validation passed: ${localValidation.doctorRepair.passed ? "yes" : "no"}
+- Doctor repair validation steps: ${localValidation.doctorRepair.stepCount}
+- Doctor repair command: ${localValidation.doctorRepair.requiredCommand}
+- ${localValidation.message}
 
 ## Shareable DMG Gates
 

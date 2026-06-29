@@ -41,10 +41,11 @@ Shipped:
 - Local-only network certification now has a repo-owned gate, `npm run check:local-only-network`, that verifies the remote destination registry, frontend/backend local-only guards, and documented app-owned remote-service surfaces.
 - Settings Legal now includes bundled license, notice, trademark, and asset-provenance summaries offline, including the logo provenance and branding guard command, without external legal links.
 - Ponytail savings attribution now records durable estimated events only when plugin registration is verified in connected agent hosts, including host evidence instead of unconditional inferred template rows.
+- Release readiness reports now ingest the local Rollback Center and Doctor repair validation summaries as explicit local-only evidence, including the required refresh commands and pass/fail status, while keeping signed/public installed-smoke gates separate.
 
 Left:
 
-- Add reboot and installed-app smoke evidence for full Doctor repair and Rollback Center survival.
+- Add reboot-level and signed installed-app smoke evidence for full Doctor repair and Rollback Center survival; local summary artifacts are now reported, but they remain local-only proof.
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
 - Turn repo-memory MCP into a real background local service beyond current app-process supervision plus smoke-tested stdio transport.
 - Replace remaining fallback-only inferred add-on rows with stronger counters where trustworthy evidence exists; Ponytail now uses host-registration estimated events, Caveman and Compact Chinese use changed-file estimated events, and Repo Intelligence/MarkItDown fallback rows are estimated from graph-pack and managed smoke-tested conversion paths.
