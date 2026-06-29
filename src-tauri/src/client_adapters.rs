@@ -31,6 +31,9 @@ const GEMINI_HEADROOM_API_KEY_VALUE: &str = "headroom-local";
 const OPENCODE_CONFIG_FILE: &str = "opencode.json";
 const OPENCODE_HEADROOM_PROVIDER_ID: &str = "headroom";
 const SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md";
+const LEGACY_MARKER_PREFIX: &str = "headroom";
+const MARKER_PREFIX: &str = "headroom";
+const SWITCHBOARD_MARKER_PREFIX: &str = "mac-ai-switchboard";
 const ZSH_PROFILE_FILE: &str = ".zprofile";
 const ZSH_RC_FILE: &str = ".zshrc";
 const BASH_PROFILE_FILE: &str = ".bash_profile";
@@ -3190,7 +3193,11 @@ fn codex_provider_table_body(requires_openai_auth: bool) -> String {
 }
 
 fn codex_marker_block(block_id: &str, body: &str) -> String {
-    format!("# >>> headroom:{block_id} >>>\n{body}\n# <<< headroom:{block_id} <<<\n")
+    format!(
+        "{}\n{body}\n{}\n",
+        managed_marker_start(MARKER_PREFIX, block_id),
+        managed_marker_end(MARKER_PREFIX, block_id)
+    )
 }
 
 /// Remove every Headroom-managed artifact from Codex `config.toml` text: both
@@ -3234,8 +3241,24 @@ fn strip_legacy_codex_headroom_provider_table(content: &str) -> String {
 
 /// Pure-text removal of a single `# >>> headroom:<id> >>> ... <<<` block.
 fn strip_marker_block(content: &str, block_id: &str) -> String {
-    let start = format!("# >>> headroom:{block_id} >>>");
-    let end = format!("# <<< headroom:{block_id} <<<");
+    strip_marker_block_with_prefix(
+        &strip_marker_block_with_prefix(content, block_id, SWITCHBOARD_MARKER_PREFIX),
+        block_id,
+        LEGACY_MARKER_PREFIX,
+    )
+}
+
+fn managed_marker_start(prefix: &str, block_id: &str) -> String {
+    format!("# >>> {prefix}:{block_id} >>>")
+}
+
+fn managed_marker_end(prefix: &str, block_id: &str) -> String {
+    format!("# <<< {prefix}:{block_id} <<<")
+}
+
+fn strip_marker_block_with_prefix(content: &str, block_id: &str, prefix: &str) -> String {
+    let start = managed_marker_start(prefix, block_id);
+    let end = managed_marker_end(prefix, block_id);
     let (Some(start_idx), Some(end_idx)) = (content.find(&start), content.find(&end)) else {
         return content.to_string();
     };
@@ -3954,8 +3977,17 @@ pub fn execute_managed_rollback_undo_all(
 }
 
 fn marker_block_contains(content: &str, block_id: &str, needle: &str) -> bool {
-    let start = format!("# >>> headroom:{block_id} >>>");
-    let end = format!("# <<< headroom:{block_id} <<<");
+    marker_block_contains_with_prefix(content, block_id, needle, MARKER_PREFIX)
+}
+
+fn marker_block_contains_with_prefix(
+    content: &str,
+    block_id: &str,
+    needle: &str,
+    prefix: &str,
+) -> bool {
+    let start = managed_marker_start(prefix, block_id);
+    let end = managed_marker_end(prefix, block_id);
     match (content.find(&start), content.find(&end)) {
         (Some(start_idx), Some(end_idx)) if start_idx < end_idx => {
             content[start_idx..end_idx].contains(needle)
@@ -4060,8 +4092,10 @@ fn upsert_managed_block(
         String::new()
     };
 
-    let start = format!("# >>> headroom:{block_id} >>>");
-    let end = format!("# <<< headroom:{block_id} <<<");
+    let start = managed_marker_start(MARKER_PREFIX, block_id);
+    let end = managed_marker_end(MARKER_PREFIX, block_id);
+    let legacy_start = managed_marker_start(LEGACY_MARKER_PREFIX, block_id);
+    let legacy_end = managed_marker_end(LEGACY_MARKER_PREFIX, block_id);
     let block = format!("{start}\n{block_body}\n{end}\n");
     let updated =
         if let (Some(start_idx), Some(end_idx)) = (existing.find(&start), existing.find(&end)) {
@@ -4073,6 +4107,19 @@ fn upsert_managed_block(
                 // `block` already ends in `\n`; if the surviving suffix also
                 // starts with `\n`, drop one to avoid blank-line padding
                 // accumulating between managed blocks on repeat applies.
+                let suffix = &existing[end_with_marker..];
+                let suffix = suffix.strip_prefix('\n').unwrap_or(suffix);
+                rebuilt.push_str(suffix);
+            }
+            rebuilt
+        } else if let (Some(start_idx), Some(end_idx)) =
+            (existing.find(&legacy_start), existing.find(&legacy_end))
+        {
+            let end_with_marker = end_idx + legacy_end.len();
+            let mut rebuilt = String::with_capacity(existing.len() + block.len());
+            rebuilt.push_str(&existing[..start_idx]);
+            rebuilt.push_str(&block);
+            if end_with_marker < existing.len() {
                 let suffix = &existing[end_with_marker..];
                 let suffix = suffix.strip_prefix('\n').unwrap_or(suffix);
                 rebuilt.push_str(suffix);
@@ -4161,12 +4208,26 @@ fn remove_managed_block(file_path: &Path, block_id: &str) -> Result<bool> {
 
     let existing = std::fs::read_to_string(file_path)
         .with_context(|| format!("reading {}", file_path.display()))?;
-    let start = format!("# >>> headroom:{block_id} >>>");
-    let end = format!("# <<< headroom:{block_id} <<<");
+    let new_start = managed_marker_start(SWITCHBOARD_MARKER_PREFIX, block_id);
+    let new_end = managed_marker_end(SWITCHBOARD_MARKER_PREFIX, block_id);
+    let legacy_start = managed_marker_start(LEGACY_MARKER_PREFIX, block_id);
+    let legacy_end = managed_marker_end(LEGACY_MARKER_PREFIX, block_id);
 
-    let (Some(start_idx), Some(end_idx)) = (existing.find(&start), existing.find(&end)) else {
+    let (start, end, start_idx, end_idx) = if let (Some(start_idx), Some(end_idx)) =
+        (existing.find(&new_start), existing.find(&new_end))
+    {
+        (new_start, new_end, start_idx, end_idx)
+    } else if let (Some(start_idx), Some(end_idx)) =
+        (existing.find(&legacy_start), existing.find(&legacy_end))
+    {
+        (legacy_start, legacy_end, start_idx, end_idx)
+    } else {
         return Ok(false);
     };
+
+    if start_idx >= end_idx {
+        return Ok(false);
+    }
 
     let end_with_marker = end_idx + end.len();
     let tail = existing[end_with_marker..].trim_start_matches('\n');
@@ -5871,7 +5932,9 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn planned_connectors_are_detected_but_not_enabled_or_verified() {
+        let _home = TestHome::new();
         let detected_clients = vec![
         ClientStatus {
             id: "gemini_cli".into(),
