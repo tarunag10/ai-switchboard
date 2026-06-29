@@ -429,18 +429,16 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         id: "rollback-center-validation",
         label: "Validate Rollback Center",
         detail:
-          "Run focused Rollback Center frontend and backend tests from the app evidence flow, including native undo-all and Gemini cleanup survival cases.",
-        command:
-          "npm test -- src/lib/managedChanges.test.ts && cargo test managed rollback focused cases",
+          "Run focused Rollback Center frontend and backend checks from the app evidence flow, then write local summary evidence.",
+        command: "npm run smoke:rollback:local",
         executable: true,
       },
       {
         id: "doctor-repair-validation",
         label: "Validate Doctor repairs",
         detail:
-          "Run focused Doctor UI/copy tests and the backend Off/RTK guard test proving Headroom-restoring repairs stay blocked when they should.",
-        command:
-          "npm test -- SwitchboardDoctorPanel/doctorRepairCopy focused tests && cargo test off_mode_blocks_doctor_repairs_that_restore_headroom",
+          "Run focused Doctor UI/copy checks and the backend Off/RTK guard check, then write local summary evidence.",
+        command: "npm run smoke:doctor-repair:local",
         executable: true,
       },
       {

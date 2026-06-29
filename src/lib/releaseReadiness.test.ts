@@ -99,6 +99,8 @@ describe("release readiness checklist", () => {
     expect(allCopy).toMatch(/Build\/install local DMG/i);
     expect(allCopy).toMatch(/npm run build:mac:local-install/i);
     expect(allCopy).toMatch(/local unsigned\/ad-hoc install evidence/i);
+    expect(allCopy).toMatch(/npm run smoke:rollback:local/i);
+    expect(allCopy).toMatch(/npm run smoke:doctor-repair:local/i);
     expect(allCopy).toMatch(/smoke:preflight/i);
     expect(allCopy).toMatch(/smoke-preflight-summary\.md/i);
     expect(allCopy).toMatch(/npm run smoke:installed/i);

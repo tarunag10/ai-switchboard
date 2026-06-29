@@ -30,8 +30,8 @@ Shipped:
 - Mode Inspector now separates generic Headroom MCP config evidence from Repo Memory MCP lifecycle evidence.
 - Mode Inspector now probes launchd load state for the app-managed LaunchAgent and legacy `Headroom.plist` label instead of only checking plist files.
 - One-click local evidence now includes local Off/RTK installed-app relaunch smoke after local DMG build/install and local installed smoke.
-- One-click local evidence now includes focused Rollback Center validation for frontend inventory/copy plus native undo-all and Gemini cleanup survival backend cases.
-- One-click local evidence now includes focused Doctor repair validation for UI/copy behavior and backend Off/RTK Headroom-restoring repair guards.
+- One-click local evidence now includes focused Rollback Center validation for frontend inventory/copy plus native undo-all and Gemini cleanup survival backend cases, with durable local summary artifacts.
+- One-click local evidence now includes focused Doctor repair validation for UI/copy behavior and backend Off/RTK Headroom-restoring repair guards, with durable local summary artifacts.
 - Repo Memory MCP active sessions are now app-supervised with periodic read-only smoke rechecks while the same app process owns the session.
 
 Left:

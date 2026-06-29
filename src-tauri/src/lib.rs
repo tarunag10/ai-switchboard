@@ -570,48 +570,10 @@ fn run_release_evidence_command(
         "npm",
         &["run", "smoke:mode-relaunch:local", "--", "--confirm"],
     )];
-    const ROLLBACK_CENTER_VALIDATION_STEPS: &[(&str, &[&str])] = &[
-        ("npm", &["test", "--", "src/lib/managedChanges.test.ts"]),
-        (
-            "cargo",
-            &[
-                "test",
-                "--manifest-path",
-                "src-tauri/Cargo.toml",
-                "managed_rollback_undo_all_executes_ready_native_rows_only",
-            ],
-        ),
-        (
-            "cargo",
-            &[
-                "test",
-                "--manifest-path",
-                "src-tauri/Cargo.toml",
-                "gemini_managed_rollback_removes_shell_and_sidecar_blocks",
-            ],
-        ),
-    ];
-    const DOCTOR_REPAIR_VALIDATION_STEPS: &[(&str, &[&str])] = &[
-        (
-            "npm",
-            &[
-                "test",
-                "--",
-                "src/components/SwitchboardDoctorPanel.test.tsx",
-                "src/lib/doctorRepairCopy.test.ts",
-                "src/lib/doctorRepairClassification.test.ts",
-            ],
-        ),
-        (
-            "cargo",
-            &[
-                "test",
-                "--manifest-path",
-                "src-tauri/Cargo.toml",
-                "off_mode_blocks_doctor_repairs_that_restore_headroom",
-            ],
-        ),
-    ];
+    const ROLLBACK_CENTER_VALIDATION_STEPS: &[(&str, &[&str])] =
+        &[("npm", &["run", "smoke:rollback:local"])];
+    const DOCTOR_REPAIR_VALIDATION_STEPS: &[(&str, &[&str])] =
+        &[("npm", &["run", "smoke:doctor-repair:local"])];
     const LOCAL_DMG_BUILD_INSTALL_STEPS: &[(&str, &[&str])] =
         &[("npm", &["run", "build:mac:local-install"])];
 
@@ -642,15 +604,15 @@ fn run_release_evidence_command(
         },
         "rollback-center-validation" => ReleaseEvidenceCommandSpec {
             label: "Rollback Center validation",
-            command: "npm test -- src/lib/managedChanges.test.ts && cargo test managed rollback focused cases",
+            command: "npm run smoke:rollback:local",
             steps: ROLLBACK_CENTER_VALIDATION_STEPS,
-            summary_path: None,
+            summary_path: Some("dist/local-rollback-validation-summary.md"),
         },
         "doctor-repair-validation" => ReleaseEvidenceCommandSpec {
             label: "Doctor repair validation",
-            command: "npm test -- SwitchboardDoctorPanel/doctorRepairCopy focused tests && cargo test off_mode_blocks_doctor_repairs_that_restore_headroom",
+            command: "npm run smoke:doctor-repair:local",
             steps: DOCTOR_REPAIR_VALIDATION_STEPS,
-            summary_path: None,
+            summary_path: Some("dist/local-doctor-repair-validation-summary.md"),
         },
         "local-dmg-build-install" => ReleaseEvidenceCommandSpec {
             label: "Local DMG build/install",
