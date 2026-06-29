@@ -15,6 +15,10 @@ const localDoctorRepairJsonPath =
   "dist/local-doctor-repair-validation-summary.json";
 const localUninstallSummaryPath = "dist/local-uninstall-validation-summary.md";
 const localUninstallJsonPath = "dist/local-uninstall-validation-summary.json";
+const localRepoIntelligenceSummaryPath =
+  "dist/local-repo-intelligence-validation-summary.md";
+const localRepoIntelligenceJsonPath =
+  "dist/local-repo-intelligence-validation-summary.json";
 const betaSmokeDoc = "docs/beta-smoke-test.md";
 const appPath = "/Applications/Mac AI Switchboard.app";
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
@@ -253,10 +257,19 @@ function buildLocalValidationEvidence() {
   const doctorJson = readJsonStatus(localDoctorRepairJsonPath);
   const uninstallSummary = readSummaryStatus(localUninstallSummaryPath);
   const uninstallJson = readJsonStatus(localUninstallJsonPath);
+  const repoIntelligenceSummary = readSummaryStatus(
+    localRepoIntelligenceSummaryPath,
+  );
+  const repoIntelligenceJson = readJsonStatus(localRepoIntelligenceJsonPath);
   const rollbackPassed = rollbackJson.body?.passed === true;
   const doctorRepairPassed = doctorJson.body?.passed === true;
   const uninstallPassed = uninstallJson.body?.passed === true;
-  const ready = rollbackPassed && doctorRepairPassed && uninstallPassed;
+  const repoIntelligencePassed = repoIntelligenceJson.body?.passed === true;
+  const ready =
+    rollbackPassed &&
+    doctorRepairPassed &&
+    uninstallPassed &&
+    repoIntelligencePassed;
 
   return {
     ready,
@@ -304,9 +317,25 @@ function buildLocalValidationEvidence() {
         : 0,
       requiredCommand: "npm run smoke:uninstall:local",
     },
+    repoIntelligence: {
+      summaryPath: localRepoIntelligenceSummaryPath,
+      jsonPath: localRepoIntelligenceJsonPath,
+      summaryPresent: repoIntelligenceSummary.present,
+      jsonPresent: repoIntelligenceJson.present,
+      generatedLine: repoIntelligenceSummary.generatedLine,
+      passed: repoIntelligencePassed,
+      readOnly: repoIntelligenceJson.body?.readOnly ?? null,
+      modifiesRepository: repoIntelligenceJson.body?.modifiesRepository ?? null,
+      parseError: repoIntelligenceJson.parseError,
+      kind: repoIntelligenceJson.body?.kind ?? null,
+      stepCount: Array.isArray(repoIntelligenceJson.body?.steps)
+        ? repoIntelligenceJson.body.steps.length
+        : 0,
+      requiredCommand: "npm run smoke:repo-intelligence:local",
+    },
     message: ready
-      ? "Local Doctor repair, Rollback Center, and uninstall dry-run validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
-      : "Run npm run smoke:rollback:local, npm run smoke:doctor-repair:local, and npm run smoke:uninstall:local to refresh local survival and cleanup evidence before public installed-smoke proof.",
+      ? "Local Doctor repair, Rollback Center, uninstall dry-run, and Repo Intelligence validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
+      : "Run npm run smoke:rollback:local, npm run smoke:doctor-repair:local, npm run smoke:uninstall:local, and npm run smoke:repo-intelligence:local to refresh local survival, cleanup, and repo-context evidence before public installed-smoke proof.",
   };
 }
 
@@ -462,6 +491,14 @@ ${localValidation.uninstall.generatedLine ? `- ${localValidation.uninstall.gener
 - Uninstall validation destructive: ${localValidation.uninstall.destructive === false ? "no" : "unknown"}
 - Uninstall validation steps: ${localValidation.uninstall.stepCount}
 - Uninstall command: ${localValidation.uninstall.requiredCommand}
+- Repo Intelligence summary present: ${localValidation.repoIntelligence.summaryPresent ? "yes" : "no"} (${localValidation.repoIntelligence.summaryPath})
+- Repo Intelligence JSON present: ${localValidation.repoIntelligence.jsonPresent ? "yes" : "no"} (${localValidation.repoIntelligence.jsonPath})
+${localValidation.repoIntelligence.generatedLine ? `- ${localValidation.repoIntelligence.generatedLine}` : "- Repo Intelligence validation summary has not been generated in this checkout."}
+- Repo Intelligence validation passed: ${localValidation.repoIntelligence.passed ? "yes" : "no"}
+- Repo Intelligence validation read-only: ${localValidation.repoIntelligence.readOnly === true ? "yes" : "unknown"}
+- Repo Intelligence modifies repository: ${localValidation.repoIntelligence.modifiesRepository === false ? "no" : "unknown"}
+- Repo Intelligence validation steps: ${localValidation.repoIntelligence.stepCount}
+- Repo Intelligence command: ${localValidation.repoIntelligence.requiredCommand}
 - ${localValidation.message}
 
 ## Shareable DMG Gates

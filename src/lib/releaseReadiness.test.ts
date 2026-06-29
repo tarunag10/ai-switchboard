@@ -36,6 +36,7 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("Rollback Center validation");
     expect(copy).toContain("Doctor repair validation");
     expect(copy).toContain("uninstall dry-run validation");
+    expect(copy).toContain("Repo Intelligence validation");
     expect(copy).toContain(
       "local unsigned/ad-hoc install evidence never replaces signed DMG install",
     );
@@ -51,6 +52,7 @@ describe("release readiness checklist", () => {
       "rollback-center-validation",
       "doctor-repair-validation",
       "uninstall-validation",
+      "repo-intelligence-validation",
       "release-report",
     ]);
 
@@ -62,6 +64,7 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("Rollback Center validation");
     expect(copy).toContain("Doctor repair validation");
     expect(copy).toContain("Uninstall dry-run validation");
+    expect(copy).toContain("Repo Intelligence validation");
     expect(copy).toContain("Refresh release readiness report");
     expect(copy).toContain("does not run signing, notarization");
     expect(copy).toContain("strict public-release gate");
@@ -85,9 +88,9 @@ describe("release readiness checklist", () => {
       "signing",
       "smoke",
     ]);
-    expect(releaseReadinessItemCount()).toBe(16);
+    expect(releaseReadinessItemCount()).toBe(17);
     expect(releaseReadinessGroups.map((group) => group.items.length)).toEqual([
-      2, 3, 11,
+      2, 3, 12,
     ]);
 
     const allCopy = releaseReadinessGroups
@@ -107,6 +110,7 @@ describe("release readiness checklist", () => {
     expect(allCopy).toMatch(/npm run smoke:rollback:local/i);
     expect(allCopy).toMatch(/npm run smoke:doctor-repair:local/i);
     expect(allCopy).toMatch(/npm run smoke:uninstall:local/i);
+    expect(allCopy).toMatch(/npm run smoke:repo-intelligence:local/i);
     expect(allCopy).toMatch(/smoke:preflight/i);
     expect(allCopy).toMatch(/smoke-preflight-summary\.md/i);
     expect(allCopy).toMatch(/npm run smoke:installed/i);
@@ -135,6 +139,7 @@ describe("release readiness checklist", () => {
     expect(commands).toContain("npm run build:mac:dmg");
     expect(commands).toContain("npm run smoke:installed:local");
     expect(commands).toContain("npm run smoke:uninstall:local");
+    expect(commands).toContain("npm run smoke:repo-intelligence:local");
     expect(commands).toContain("npm run release:report");
   });
 
@@ -181,6 +186,7 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("npm run smoke:rollback:local");
     expect(copy).toContain("npm run smoke:doctor-repair:local");
     expect(copy).toContain("npm run smoke:uninstall:local");
+    expect(copy).toContain("npm run smoke:repo-intelligence:local");
     expect(copy).toContain("Developer ID");
     expect(copy).toContain("notarization credentials");
     expect(copy).toContain("HEADROOM_UPDATER_PUBLIC_KEY");

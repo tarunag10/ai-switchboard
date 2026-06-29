@@ -44,6 +44,7 @@ Shipped:
 - Release readiness reports now ingest the local Rollback Center and Doctor repair validation summaries as explicit local-only evidence, including the required refresh commands and pass/fail status, while keeping signed/public installed-smoke gates separate.
 - The in-app Run local evidence action now finishes by regenerating the release readiness report, so one click produces fresh local validation summaries and a fresh report snapshot without running signing, notarization, updater publication, or the strict public-release gate.
 - Local uninstall validation now writes durable non-destructive dry-run evidence from frontend disclosure and backend target-inventory checks, and the release readiness report ingests it alongside Doctor and Rollback local evidence.
+- Local Repo Intelligence validation now writes durable read-only evidence for pack generation, backend read-only API payloads, and repo-memory MCP smoke access, and the release readiness report ingests it as local-only proof.
 
 Left:
 
@@ -51,7 +52,7 @@ Left:
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
 - Turn repo-memory MCP into a real background local service beyond current app-process supervision plus smoke-tested stdio transport.
 - Replace remaining fallback-only inferred add-on rows with stronger counters where trustworthy evidence exists; Ponytail now uses host-registration estimated events, Caveman and Compact Chinese use changed-file estimated events, and Repo Intelligence/MarkItDown fallback rows are estimated from graph-pack and managed smoke-tested conversion paths.
-- Deepen Repo Intelligence beyond the shipped parser/index health checks, local imports, package-dependency edges, reverse dependencies, graph-input evidence, and graph-aware packs with richer language-specific dependency analyzers and Doctor health checks.
+- Deepen Repo Intelligence beyond the shipped parser/index health checks, local imports, package-dependency edges, reverse dependencies, graph-input evidence, graph-aware packs, local validation artifact, and read-only MCP smoke proof with richer language-specific dependency analyzers and Doctor health checks.
 - Complete public release readiness with signed/notarized DMG, updater artifacts, public installed-smoke proof, installed-app uninstall proof, and release-panel wiring; local non-destructive uninstall dry-run evidence is now reported.
 
 ## Product Principles

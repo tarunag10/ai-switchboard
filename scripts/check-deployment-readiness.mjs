@@ -55,6 +55,7 @@ const requiredScripts = {
     '"smoke:rollback:local"',
     '"smoke:doctor-repair:local"',
     '"smoke:uninstall:local"',
+    '"smoke:repo-intelligence:local"',
     '"check:repo-memory-mcp"',
     '"check:connectors"',
     '"check:branding"',

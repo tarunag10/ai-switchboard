@@ -576,6 +576,8 @@ fn run_release_evidence_command(
         &[("npm", &["run", "smoke:doctor-repair:local"])];
     const UNINSTALL_VALIDATION_STEPS: &[(&str, &[&str])] =
         &[("npm", &["run", "smoke:uninstall:local"])];
+    const REPO_INTELLIGENCE_VALIDATION_STEPS: &[(&str, &[&str])] =
+        &[("npm", &["run", "smoke:repo-intelligence:local"])];
     const LOCAL_DMG_BUILD_INSTALL_STEPS: &[(&str, &[&str])] =
         &[("npm", &["run", "build:mac:local-install"])];
     const RELEASE_REPORT_STEPS: &[(&str, &[&str])] = &[("npm", &["run", "release:report"])];
@@ -623,6 +625,12 @@ fn run_release_evidence_command(
             steps: UNINSTALL_VALIDATION_STEPS,
             summary_path: Some("dist/local-uninstall-validation-summary.md"),
         },
+        "repo-intelligence-validation" => ReleaseEvidenceCommandSpec {
+            label: "Repo Intelligence validation",
+            command: "npm run smoke:repo-intelligence:local",
+            steps: REPO_INTELLIGENCE_VALIDATION_STEPS,
+            summary_path: Some("dist/local-repo-intelligence-validation-summary.md"),
+        },
         "local-dmg-build-install" => ReleaseEvidenceCommandSpec {
             label: "Local DMG build/install",
             command: "npm run build:mac:local-install",
@@ -637,7 +645,7 @@ fn run_release_evidence_command(
         },
         _ => {
             return Err(
-                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, rollback-center-validation, doctor-repair-validation, uninstall-validation, and release-report."
+                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, rollback-center-validation, doctor-repair-validation, uninstall-validation, repo-intelligence-validation, and release-report."
                     .to_string(),
             )
         }
@@ -9514,7 +9522,7 @@ Some unrelated content.
 
         assert!(
             err.contains(
-                "enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, rollback-center-validation, doctor-repair-validation, uninstall-validation, and release-report"
+                "enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, rollback-center-validation, doctor-repair-validation, uninstall-validation, repo-intelligence-validation, and release-report"
             ),
             "unexpected error: {err}"
         );

@@ -33,6 +33,7 @@
     "smoke:rollback:local": "node scripts/local-rollback-validation-summary.mjs",
     "smoke:doctor-repair:local": "node scripts/local-doctor-repair-validation-summary.mjs",
     "smoke:uninstall:local": "node scripts/local-uninstall-validation-summary.mjs",
+    "smoke:repo-intelligence:local": "node scripts/local-repo-intelligence-validation-summary.mjs",
     "repo:intelligence": "node scripts/repo-intelligence.mjs",
     "check:repo-memory-mcp": "node scripts/check-repo-memory-mcp.mjs",
     "benchmarks": "node scripts/run-benchmarks.mjs",

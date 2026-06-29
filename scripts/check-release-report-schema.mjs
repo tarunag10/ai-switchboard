@@ -31,6 +31,12 @@ const requiredReleaseReportPaths = [
   "localValidation.uninstall.passed",
   "localValidation.uninstall.destructive",
   "localValidation.uninstall.requiredCommand",
+  "localValidation.repoIntelligence.summaryPath",
+  "localValidation.repoIntelligence.jsonPath",
+  "localValidation.repoIntelligence.passed",
+  "localValidation.repoIntelligence.readOnly",
+  "localValidation.repoIntelligence.modifiesRepository",
+  "localValidation.repoIntelligence.requiredCommand",
   "shareableDmgGate.staticSmokePreflightReady",
   "shareableDmgGate.updaterFeedReady",
   "releaseEnv.blockers",
@@ -135,6 +141,13 @@ if (
 }
 if (!markdownReport.includes("Uninstall command: npm run smoke:uninstall:local")) {
   fail(`${markdownReportPath} must include the local uninstall validation command`);
+}
+if (
+  !markdownReport.includes(
+    "Repo Intelligence command: npm run smoke:repo-intelligence:local",
+  )
+) {
+  fail(`${markdownReportPath} must include the local Repo Intelligence validation command`);
 }
 
 requireType(report, "status", "string");
@@ -295,6 +308,7 @@ for (const prefix of [
   "localValidation.rollback",
   "localValidation.doctorRepair",
   "localValidation.uninstall",
+  "localValidation.repoIntelligence",
 ]) {
   requireObject(report, prefix);
   requireType(report, `${prefix}.summaryPath`, "string");
@@ -343,6 +357,20 @@ if (
 }
 if (report.localValidation.uninstall.destructive !== false) {
   fail("localValidation.uninstall.destructive must be false");
+}
+if (
+  report.localValidation.repoIntelligence.requiredCommand !==
+  "npm run smoke:repo-intelligence:local"
+) {
+  fail(
+    "localValidation.repoIntelligence.requiredCommand must be npm run smoke:repo-intelligence:local",
+  );
+}
+if (report.localValidation.repoIntelligence.readOnly !== true) {
+  fail("localValidation.repoIntelligence.readOnly must be true");
+}
+if (report.localValidation.repoIntelligence.modifiesRepository !== false) {
+  fail("localValidation.repoIntelligence.modifiesRepository must be false");
 }
 requireType(report, "localValidation.message", "string");
 
