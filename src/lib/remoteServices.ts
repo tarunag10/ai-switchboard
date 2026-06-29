@@ -4,7 +4,7 @@ export interface RemoteServicesCopy {
 }
 
 export type RemoteServiceKind =
-  "account" | "pricing" | "telemetry" | "analytics" | "updates" | "support";
+  "telemetry" | "analytics" | "updates" | "support";
 
 export interface RemoteServiceDestination {
   id: string;
@@ -16,22 +16,6 @@ export interface RemoteServiceDestination {
 }
 
 export const remoteServiceDestinations: RemoteServiceDestination[] = [
-  {
-    id: "headroom_account_api",
-    kind: "account",
-    label: "Mac AI Switchboard account API",
-    endpointExample: "configured account API host",
-    source: "sign-in and account profile requests",
-    localOnlyAllowed: false,
-  },
-  {
-    id: "headroom_pricing_api",
-    kind: "pricing",
-    label: "Mac AI Switchboard pricing and trial API",
-    endpointExample: "configured account API host",
-    source: "pricing, trial, usage, and upgrade requests",
-    localOnlyAllowed: false,
-  },
   {
     id: "sentry",
     kind: "telemetry",
@@ -60,8 +44,7 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     id: "tauri_updater",
     kind: "updates",
     label: "Tauri update feed",
-    endpointExample:
-      "configured signed update feed",
+    endpointExample: "configured signed update feed",
     source: "signed app update checks",
     localOnlyAllowed: false,
   },
@@ -99,7 +82,7 @@ export function remoteServicesCopy(
     return {
       label: "Available",
       detail:
-        "Account, pricing, update, support, and optional telemetry destinations are enabled.",
+        "Update, support, and optional telemetry destinations are enabled. Account and paid pricing APIs are not part of this app.",
     };
   }
   const paused = blockedLocalOnlyDestinations()
@@ -107,7 +90,7 @@ export function remoteServicesCopy(
     .join(", ");
   return {
     label: "Local-only",
-    detail: `Mac AI Switchboard local-only mode is on. Cloud account, pricing, diagnostics, analytics, update, and support endpoints stay paused: ${paused}.`,
+    detail: `Mac AI Switchboard local-only mode is on. Diagnostics, analytics, update, and support endpoints stay paused: ${paused}. Account and paid pricing APIs are not part of this app.`,
   };
 }
 

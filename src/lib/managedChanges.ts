@@ -63,9 +63,7 @@ export interface ManagedConfigApplyPlan {
 }
 
 export type ManagedRollbackMode =
-  | "backup_restore"
-  | "managed_block_removal"
-  | "cleanup_inventory";
+  "backup_restore" | "managed_block_removal" | "cleanup_inventory";
 
 export interface ManagedRollbackPlan {
   recordId: ManagedChangeRecord["id"];
@@ -283,7 +281,8 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     markerId: "headroom:rtk",
     backupPath: "next to edited shell profile as *.headroom.bak",
     lastVerifiedLabel: "Verified by RTK path and hook checks",
-    rollback: "Delete managed hook scripts and shell-profile blocks created by the app.",
+    rollback:
+      "Delete managed hook scripts and shell-profile blocks created by the app.",
   },
   {
     id: "managed-storage",
@@ -317,10 +316,11 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     owner: "Launch at login",
     text: "App-managed LaunchAgent files and launch-at-login state.",
     paths: ["~/Library/LaunchAgents/"],
-    markerId: "com.extraheadroom.headroom",
+    markerId: "com.tarunagarwal.mac-ai-switchboard",
     backupPath: null,
     lastVerifiedLabel: "Verified by autostart status check",
-    rollback: "Disable launch-at-login and remove app-managed LaunchAgent files.",
+    rollback:
+      "Disable launch-at-login and remove app-managed LaunchAgent files.",
   },
   {
     id: "app-state",
@@ -328,13 +328,14 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     owner: "Mac AI Switchboard app state",
     text: "App preferences, caches, logs, and known Keychain entries.",
     paths: [
-      "~/Library/Preferences/com.extraheadroom.headroom*",
-      "~/Library/Caches/com.extraheadroom.headroom",
+      "~/Library/Preferences/com.tarunagarwal.mac-ai-switchboard*",
+      "~/Library/Caches/com.tarunagarwal.mac-ai-switchboard",
     ],
-    markerId: "com.extraheadroom.headroom",
+    markerId: "com.tarunagarwal.mac-ai-switchboard",
     backupPath: null,
     lastVerifiedLabel: "Verified by uninstall disclosure",
-    rollback: "Delete app preferences, caches, logs, and known Keychain entries.",
+    rollback:
+      "Delete app preferences, caches, logs, and known Keychain entries.",
   },
   {
     id: "plugins-backups",
@@ -357,9 +358,9 @@ export function buildManagedConfigDiffPreview({
   proposedManagedBlock,
 }: {
   record: ManagedChangeRecord;
-    targetPath: string;
-    currentManagedBlock?: string | null;
-    proposedManagedBlock: string;
+  targetPath: string;
+  currentManagedBlock?: string | null;
+  proposedManagedBlock: string;
 }): ManagedConfigDiffPreview {
   if (!record.backupPath) {
     throw new Error(`${record.id} does not require a config backup.`);
@@ -423,7 +424,8 @@ export function applyManagedConfigBlock(
   const normalizedBlock = `${trimmedBlock}\n`;
   const startIndex = existingText.indexOf(start);
   if (startIndex === -1) {
-    const separator = existingText.length > 0 && !existingText.endsWith("\n") ? "\n" : "";
+    const separator =
+      existingText.length > 0 && !existingText.endsWith("\n") ? "\n" : "";
     return {
       text: `${existingText}${separator}${normalizedBlock}`,
       changed: true,
@@ -454,7 +456,9 @@ export function buildManagedConfigApplyPlan({
   confirmationPhrase: string;
 }): ManagedConfigApplyPlan {
   if (confirmationPhrase !== preview.confirmationPhrase) {
-    throw new Error("confirmation phrase does not match managed config preview.");
+    throw new Error(
+      "confirmation phrase does not match managed config preview.",
+    );
   }
 
   const result = applyManagedConfigBlock(
@@ -544,7 +548,9 @@ export function formatManagedConfigDiffPreview(
   ].join("\n");
 }
 
-export function formatManagedConfigApplyPlan(plan: ManagedConfigApplyPlan): string {
+export function formatManagedConfigApplyPlan(
+  plan: ManagedConfigApplyPlan,
+): string {
   return [
     `Managed config apply plan: ${plan.owner}`,
     `Target: ${plan.targetPath}`,
@@ -569,7 +575,9 @@ export function formatManagedConfigApplyPlan(plan: ManagedConfigApplyPlan): stri
 
 function managedRollbackMode(record: ManagedChangeRecord): ManagedRollbackMode {
   if (record.backupPath) {
-    return record.kind === "plugin" ? "managed_block_removal" : "backup_restore";
+    return record.kind === "plugin"
+      ? "managed_block_removal"
+      : "backup_restore";
   }
   return "cleanup_inventory";
 }

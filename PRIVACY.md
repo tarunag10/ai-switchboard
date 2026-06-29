@@ -73,8 +73,8 @@ it.
 
 ## Remote Services
 
-The free public app is intended to run without sign-in, checkout, pricing APIs,
-or required hosted services.
+The free public app is intended to run without sign-in, checkout, paid pricing
+APIs, or required hosted services.
 
 Local-only mode should avoid account, pricing, telemetry, support, analytics,
 and update-network calls unless a remote feature is explicitly enabled by the

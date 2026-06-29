@@ -12,7 +12,7 @@ describe("remote services copy", () => {
     expect(remoteServicesCopy(false)).toEqual({
       label: "Local-only",
       detail:
-        "Mac AI Switchboard local-only mode is on. Cloud account, pricing, diagnostics, analytics, update, and support endpoints stay paused: Mac AI Switchboard account API, Mac AI Switchboard pricing and trial API, Sentry diagnostics, Microsoft Clarity analytics, Product analytics, Tauri update feed, External support links.",
+        "Mac AI Switchboard local-only mode is on. Diagnostics, analytics, update, and support endpoints stay paused: Sentry diagnostics, Microsoft Clarity analytics, Product analytics, Tauri update feed, External support links. Account and paid pricing APIs are not part of this app.",
     });
   });
 
@@ -20,14 +20,14 @@ describe("remote services copy", () => {
     expect(remoteServicesCopy(true)).toEqual({
       label: "Available",
       detail:
-        "Account, pricing, update, support, and optional telemetry destinations are enabled.",
+        "Update, support, and optional telemetry destinations are enabled. Account and paid pricing APIs are not part of this app.",
     });
   });
 
   it("keeps local-only blocked destination registry explicit", () => {
-    expect(remoteServiceDestinations.map((destination) => destination.id)).toEqual([
-      "headroom_account_api",
-      "headroom_pricing_api",
+    expect(
+      remoteServiceDestinations.map((destination) => destination.id),
+    ).toEqual([
       "sentry",
       "clarity",
       "product_analytics",
@@ -48,9 +48,13 @@ describe("remote services copy", () => {
           destination.source.length > 0,
       ),
     ).toBe(true);
-    expect(remoteServiceDestinations.map((destination) => destination.endpointExample)).not.toContain(
-      "https://extraheadroom.com/api/v1",
-    );
+    expect(
+      remoteServiceDestinations.every(
+        (destination) =>
+          !destination.id.includes("account") &&
+          !destination.id.includes("pricing"),
+      ),
+    ).toBe(true);
   });
 
   it("uses explicit setup labels for local-only and cloud-capable modes", () => {

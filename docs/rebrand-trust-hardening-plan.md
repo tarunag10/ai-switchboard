@@ -15,7 +15,7 @@ The goal is not to hide Headroom. Headroom is still a real underlying optimizati
 - Remote destinations are now inventoried in `docs/remote-destinations.md`, and governance/deployment checks require that registry before release.
 - In-app support actions now route to this repository's GitHub Issues instead of the inherited upstream support mailbox.
 - External link opening now rejects unsupported schemes, embedded credentials, line-break injection, and loopback/private/link-local hosts before launching a browser or mail client.
-- Many user-facing strings, release docs, runtime labels, support links, pricing/account flows, keychain labels, and file paths still refer to Headroom or upstream Extra Headroom services.
+- Remaining Headroom references should describe only the local compatibility engine, runtime folders, or user-visible migration context.
 
 ## Principles
 
@@ -57,18 +57,18 @@ Move from upstream legal assumptions to app-owned local legal surfaces.
 Tasks:
 
 - Move Terms copy out of `TermsGate.tsx` into a small source module such as `src/lib/legalText.ts`.
-- Add a bundled Privacy Notice covering local file access, local config edits, remote account/pricing calls, update checks, telemetry, and generated diagnostics.
+- Add a bundled Privacy Notice covering local file access, local config edits, update checks, telemetry, and generated diagnostics.
 - Add a Settings/legal area showing Terms of Use and Privacy Notice after first launch.
-- Decide whether any remote account or pricing feature is still owned by upstream Extra Headroom. If not, disable or replace those flows before release.
+- Remove remote account, billing, checkout, and paid pricing flows before release.
 - Replace any upstream Terms/Privacy/support links in pricing, sign-in, settings, release docs, and error messages.
 - Add a terms-version note explaining why `REQUIRED_TERMS_VERSION` was bumped and when future bumps are required.
 
 Acceptance checks:
 
 - Terms and Privacy are readable without network access.
-- No visible legal UI links to `extraheadroom.com/terms` or `extraheadroom.com/privacy`.
+- No visible legal UI links to inherited upstream legal pages.
 - Tests cover the Terms gate, legal panel rendering, and version bump behavior.
-- Remote account/pricing copy does not imply Mac AI Switchboard owns a service that it does not own.
+- App copy states that Mac AI Switchboard does not include remote account, billing, checkout, or paid pricing APIs.
 
 Suggested commit:
 
@@ -195,7 +195,7 @@ Tasks:
   - `~/Library/Application Support/Headroom`
   - `~/Library/Logs/Headroom`
   - `~/Library/LaunchAgents/com.headroom.*`
-  - Keychain services under `com.extraheadroom.*`
+  - Switchboard-owned Keychain services
   - webview storage paths
 - Decide whether to migrate storage to `Mac AI Switchboard` paths or keep compatibility paths with clearer UI wording.
 - If renaming storage, write an idempotent migration:

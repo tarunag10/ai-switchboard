@@ -2,7 +2,6 @@ import fs from "node:fs";
 
 const requiredFiles = [
   ".env.example",
-  ".env.remote-services.example",
   "docs/install.md",
   "docs/macos-release.md",
   "docs/beta-smoke-test.md",
@@ -88,17 +87,6 @@ const requiredDocSignals = {
     "# Optional: app updater configuration for signed release builds",
     "# Optional: local signed macOS DMG builds",
   ],
-  ".env.remote-services.example": [
-    'HEADROOM_BUILD_FLAVOR="remote-services"',
-    'VITE_HEADROOM_BUILD_FLAVOR="remote-services"',
-    'HEADROOM_REMOTE_SERVICES="1"',
-    'VITE_HEADROOM_REMOTE_SERVICES="1"',
-    "HEADROOM_ACCOUNT_API_BASE_URL",
-    "HEADROOM_SENTRY_DSN",
-    "VITE_SENTRY_DSN",
-    "HEADROOM_APTABASE_APP_KEY",
-    "VITE_CLARITY_PROJECT_ID",
-  ],
   "README.md": [
     "Read-only local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI",
     "Read-only foundation",
@@ -134,7 +122,6 @@ const requiredDocSignals = {
     "Local-Only Boundary",
     "App-Owned Remote Destinations",
     "HEADROOM_UPDATER_ENDPOINTS",
-    "HEADROOM_ACCOUNT_API_BASE_URL",
     "HEADROOM_SENTRY_DSN",
     "VITE_SENTRY_DSN",
     "HEADROOM_APTABASE_APP_KEY",

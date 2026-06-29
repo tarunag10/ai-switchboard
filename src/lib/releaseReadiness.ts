@@ -92,14 +92,21 @@ function yesNo(value: boolean | undefined) {
 }
 
 function labels(items: Array<{ label?: string }> | undefined) {
-  return items?.map((item) => item.label).filter(Boolean).join(", ") || "none";
+  return (
+    items
+      ?.map((item) => item.label)
+      .filter(Boolean)
+      .join(", ") || "none"
+  );
 }
 
 function labelsMatching(
   items: Array<{ label?: string }> | undefined,
   pattern: RegExp,
 ) {
-  const matches = items?.filter((item) => item.label && pattern.test(item.label));
+  const matches = items?.filter(
+    (item) => item.label && pattern.test(item.label),
+  );
   return labels(matches);
 }
 
@@ -115,7 +122,9 @@ function hasConnectorConfigPlanEvidence(
 }
 
 function formatConnectorReadinessSummary() {
-  const contracts = pendingPlannedConnectors.map(getPlannedConnectorReadinessContract);
+  const contracts = pendingPlannedConnectors.map(
+    getPlannedConnectorReadinessContract,
+  );
   const automationReady = contracts.filter(
     (contract) => contract.automationEnabled,
   ).length;
@@ -139,8 +148,9 @@ function formatConnectorReadinessSummary() {
       .map(
         (contract) =>
           `- ${contract.connectorName}: ${contract.setupPhase}, next gate ${
-            contract.stages.find((item) => item.id === contract.nextBlockedStage)
-              ?.label ?? "None"
+            contract.stages.find(
+              (item) => item.id === contract.nextBlockedStage,
+            )?.label ?? "None"
           }`,
       ),
     "- Full per-tool dossiers are available from Doctor's connector dossier copy action.",
@@ -271,7 +281,8 @@ export const releaseShareableGates: ReleaseShareableGate[] = [
   {
     id: "updater-feed",
     label: "Updater feed",
-    detail: "HEADROOM_UPDATER_PUBLIC_KEY and HEADROOM_UPDATER_ENDPOINTS are set.",
+    detail:
+      "HEADROOM_UPDATER_PUBLIC_KEY and HEADROOM_UPDATER_ENDPOINTS are set.",
   },
   {
     id: "static-smoke-preflight",
@@ -306,13 +317,6 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         detail:
           "xcodebuild, codesign, and xcrun are required for signed macOS packaging.",
         command: "xcodebuild -version && codesign --version && xcrun --version",
-      },
-      {
-        id: "account-api",
-        label: "Account API URL",
-        detail:
-          "Remote-services builds must point to the packaged sign-in account service.",
-        command: "Copy .env.remote-services.example and set the account API URL.",
       },
     ],
   },
@@ -398,7 +402,8 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
       {
         id: "release-report",
         label: "Archive readiness report",
-        detail: "Keep dist/release-readiness-report.md with release artifacts for handoff.",
+        detail:
+          "Keep dist/release-readiness-report.md with release artifacts for handoff.",
         command: "npm run release:ready -- --strict",
       },
     ],
@@ -498,15 +503,18 @@ export function releaseReadinessRowsFromReport(
     report.staticSmokePreflight?.evidenceReady ??
     report.shareableDmgGate?.staticSmokePreflightReady === true;
   const desktopReady = report.backendValidation?.ready === true;
-  const installedAppPresent = report.installedSmoke?.installedAppPresent === true;
+  const installedAppPresent =
+    report.installedSmoke?.installedAppPresent === true;
   const installedSmokeReady = report.installedSmoke?.evidenceReady === true;
   const signingReady = report.shareableDmgGate?.signedAndNotarized === true;
   const notarizationReady = signingReady;
   const updaterReady = report.shareableDmgGate?.updaterFeedReady === true;
   const connectorConfigPlanReady = hasConnectorConfigPlanEvidence(report);
-  const finalReady = report.status === "ready" && report.shareableDmgGate?.ready === true;
+  const finalReady =
+    report.status === "ready" && report.shareableDmgGate?.ready === true;
   const missingEvidence = report.installedSmoke?.missingEvidence ?? [];
-  const missingStaticEvidence = report.staticSmokePreflight?.missingEvidence ?? [];
+  const missingStaticEvidence =
+    report.staticSmokePreflight?.missingEvidence ?? [];
   const releaseBlockers = report.releaseEnv?.blockers ?? [];
 
   return [
@@ -543,7 +551,9 @@ export function releaseReadinessRowsFromReport(
       detail: installedSmokeReady
         ? "Installed-app smoke evidence is complete for the current checklist."
         : `Installed smoke evidence missing: ${
-            missingEvidence.length ? missingEvidence.join(", ") : "installed smoke summary"
+            missingEvidence.length
+              ? missingEvidence.join(", ")
+              : "installed smoke summary"
           }.`,
     },
     {
@@ -553,7 +563,9 @@ export function releaseReadinessRowsFromReport(
       detail: signingReady
         ? "Signing and updater secrets are present according to the release report."
         : `Signing remains blocked${
-            releaseBlockers.length ? `: ${releaseBlockers[0].label ?? "release blocker"}` : "."
+            releaseBlockers.length
+              ? `: ${releaseBlockers[0].label ?? "release blocker"}`
+              : "."
           }`,
     },
     {
@@ -599,7 +611,8 @@ export function formatReleaseReadinessReportSnapshot(
   const evidenceSummary = releaseReadinessEvidenceSummary(statusRows, report);
   const nextAction = releaseReadinessNextAction(statusRows);
   const localInstalled = report.installedSmoke?.installedAppPresent === true;
-  const publicReady = report.shareableDmgGate?.ready === true && report.status === "ready";
+  const publicReady =
+    report.shareableDmgGate?.ready === true && report.status === "ready";
 
   return [
     "# Mac AI Switchboard Release Readiness",

@@ -1,7 +1,6 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly HEADROOM_ACCOUNT_API_BASE_URL?: string;
   readonly VITE_CLARITY_PROJECT_ID?: string;
   readonly VITE_HEADROOM_BUILD_FLAVOR?: string;
   readonly VITE_HEADROOM_LOCAL_ONLY?: string;

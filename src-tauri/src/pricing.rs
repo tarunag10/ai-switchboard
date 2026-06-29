@@ -18,14 +18,11 @@ use crate::state::AppState;
 use crate::storage::{app_data_dir, config_file};
 
 const HEADROOM_ACCOUNT_KEYCHAIN_SERVICE: &str = "com.tarunagarwal.mac-ai-switchboard.account";
-const LEGACY_HEADROOM_ACCOUNT_KEYCHAIN_SERVICE: &str = "com.extraheadroom.headroom.account";
 const HEADROOM_ACCOUNT_SESSION_ACCOUNT: &str = "session-token";
-#[cfg(debug_assertions)]
-const DEFAULT_ACCOUNT_API_BASE_URL: &str = "http://127.0.0.1:3000/api/v1";
-#[cfg(not(debug_assertions))]
-const DEFAULT_ACCOUNT_API_BASE_URL: &str = "https://extraheadroom.com/api/v1";
 const LOCAL_ONLY_REMOTE_SERVICES_ERROR: &str =
     "Remote account and billing services are disabled in local-only mode.";
+const REMOTE_ACCOUNT_API_DISABLED_ERROR: &str =
+    "Remote account, billing, and paid plan APIs have been removed from Mac AI Switchboard.";
 const LOCAL_GRACE_PERIOD_HOURS: i64 = 72;
 const TIER_MISMATCH_GRACE_DAYS: i64 = 14;
 // Set to true in dev builds to skip sign-in requirement (indefinite trial)
@@ -496,50 +493,8 @@ enum RemoteAccountSyncError {
 }
 
 pub fn get_pricing_status(state: &AppState) -> Result<HeadroomPricingStatus, String> {
-    if local_mode::enabled() {
-        return Ok(free_local_pricing_status(state));
-    }
-
-    let local_state = reconcile_local_state_with_server(state)?;
-    let local_grace_ends_at = local_state.first_seen_at + Duration::hours(LOCAL_GRACE_PERIOD_HOURS);
-    let local_grace_active = Utc::now() < local_grace_ends_at;
-    let session_token = read_session_token()?;
-    let identity = IdentityPayload::for_state(state);
-    let (authenticated, account, account_sync_error, promo) =
-        if let Some(token) = session_token.as_deref() {
-            let envelope_result = fetch_remote_account(token, &identity);
-            let promo = envelope_result
-                .as_ref()
-                .map(|e| build_promo(e.active_percent_off, &e.pricing_ladder))
-                .unwrap_or_default();
-            let account_result = envelope_result.map(|e| e.account);
-            let (auth, acc, err) = merge_background_account_sync(Some(token), account_result);
-            (auth, acc, err, promo)
-        } else {
-            let promo = fetch_public_config()
-                .map(|c| build_promo(c.active_percent_off, &c.pricing_ladder))
-                .unwrap_or_default();
-            (false, None, None, promo)
-        };
-
-    let claude = detect_claude_profile(state);
-    let last_known_good_plan_tier = state.last_known_good_plan_tier();
-    let codex_plan = crate::client_adapters::is_codex_enabled().then(|| state.codex_plan_tier());
-    let tier_mismatch = resolve_tier_mismatch(account.as_ref(), &claude, codex_plan);
-
-    let mut status = evaluate_pricing_status_with_mismatch(
-        authenticated,
-        local_state.first_seen_at,
-        local_grace_ends_at,
-        local_grace_active,
-        account_sync_error,
-        account,
-        claude,
-        promo,
-        last_known_good_plan_tier,
-        tier_mismatch,
-    );
-    status.codex = fetch_codex_usage(state, status.account.as_ref());
+    let mut status = free_local_pricing_status(state);
+    status.codex = fetch_codex_usage(state, None);
     Ok(status)
 }
 
@@ -720,7 +675,9 @@ fn format_codex_nudge_message(weekly_usage: f64, disable: f64, level: u8) -> Str
 }
 
 pub fn request_auth_code(state: &AppState, email: &str) -> Result<HeadroomAuthCodeRequest, String> {
-    request_auth_code_with_base_url(state, email, &api_base_url())
+    let _ = state;
+    let _ = email;
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 /// Test-only seam: `request_auth_code` against a parameterized base URL so a
@@ -777,7 +734,8 @@ pub fn verify_auth_code(
     code: &str,
     invite_code: Option<&str>,
 ) -> Result<HeadroomPricingStatus, String> {
-    verify_auth_code_with_base_url(state, email, code, invite_code, &api_base_url())
+    let _ = (state, email, code, invite_code);
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 /// Test-only seam: `verify_auth_code` against a parameterized base URL so a
@@ -852,7 +810,8 @@ pub fn activate_account(
     state: &AppState,
     lifetime_tokens_saved: u64,
 ) -> Result<HeadroomPricingStatus, String> {
-    activate_account_with_base_url(state, lifetime_tokens_saved, &api_base_url())
+    let _ = (state, lifetime_tokens_saved);
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 /// Test-only seam: `activate_account` against a parameterized base URL so a
@@ -926,33 +885,15 @@ pub(crate) fn activate_account_with_base_url(
 /// the feedback email for users who were below the threshold at sign-up.
 /// Silently no-ops if the user is not signed in or the request fails.
 pub fn report_milestone(milestone_tokens_saved: u64) {
-    if local_mode::enabled() {
-        return;
-    }
-
-    let token = match read_session_token() {
-        Ok(Some(t)) => t,
-        _ => return,
-    };
-    let client = match http_client() {
-        Ok(c) => c,
-        Err(_) => return,
-    };
-    let identity = IdentityPayload::device_only();
-    let builder = client
-        .post(api_url("desktop/milestones"))
-        .header("Authorization", format!("Bearer {token}"));
-    let _ = identity
-        .apply_headers(builder)
-        .json(&serde_json::json!({ "milestone_tokens_saved": milestone_tokens_saved }))
-        .send();
+    let _ = milestone_tokens_saved;
 }
 
 pub fn create_checkout_session(
     subscription_tier: HeadroomSubscriptionTier,
     billing_period: BillingPeriod,
 ) -> Result<String, String> {
-    create_checkout_session_with_base_url(subscription_tier, billing_period, &api_base_url())
+    let _ = (subscription_tier, billing_period);
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 /// Test-only seam: `create_checkout_session` against a parameterized base URL.
@@ -1000,7 +941,8 @@ pub fn change_subscription_plan(
     subscription_tier: HeadroomSubscriptionTier,
     billing_period: BillingPeriod,
 ) -> Result<(), String> {
-    change_subscription_plan_with_base_url(subscription_tier, billing_period, &api_base_url())
+    let _ = (subscription_tier, billing_period);
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 /// Test-only seam: `change_subscription_plan` against a parameterized base URL.
@@ -1042,7 +984,7 @@ pub(crate) fn change_subscription_plan_with_base_url(
 }
 
 pub fn reactivate_subscription() -> Result<(), String> {
-    reactivate_subscription_with_base_url(&api_base_url())
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 pub(crate) fn reactivate_subscription_with_base_url(base_url: &str) -> Result<(), String> {
@@ -1075,7 +1017,8 @@ pub(crate) fn reactivate_subscription_with_base_url(base_url: &str) -> Result<()
 }
 
 pub fn get_billing_portal_url(target: Option<String>) -> Result<String, String> {
-    get_billing_portal_url_with_base_url(&api_base_url(), target.as_deref())
+    let _ = target;
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 /// Test-only seam: `get_billing_portal_url` against a parameterized base URL.
@@ -2196,9 +2139,8 @@ fn local_state_path() -> PathBuf {
 }
 
 fn read_session_token() -> Result<Option<String>, String> {
-    keychain::read_migrated_secret(
+    keychain::read_secret(
         HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-        LEGACY_HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
         HEADROOM_ACCOUNT_SESSION_ACCOUNT,
     )
     .map(|value| value.and_then(non_empty_string))
@@ -2274,19 +2216,7 @@ fn http_client() -> Result<Client, String> {
 }
 
 fn api_url(path: &str) -> String {
-    join_url(&api_base_url(), path)
-}
-
-fn api_base_url() -> String {
-    // Runtime override is only honored in debug builds. In release builds an
-    // attacker with persistence on the user's machine (e.g. a launchd plist)
-    // could otherwise redirect every billing/auth call to a rogue host.
-    #[cfg(debug_assertions)]
-    let runtime_env = std::env::var("HEADROOM_ACCOUNT_API_BASE_URL").ok();
-    #[cfg(not(debug_assertions))]
-    let runtime_env: Option<String> = None;
-
-    resolve_account_api_base_url(runtime_env, option_env!("HEADROOM_ACCOUNT_API_BASE_URL"))
+    join_url("", path)
 }
 
 fn join_url(base: &str, path: &str) -> String {
@@ -2295,16 +2225,6 @@ fn join_url(base: &str, path: &str) -> String {
         base.trim_end_matches('/'),
         path.trim_start_matches('/')
     )
-}
-
-fn resolve_account_api_base_url(
-    runtime_env: Option<String>,
-    compile_time_env: Option<&str>,
-) -> String {
-    runtime_env
-        .and_then(non_empty_string)
-        .or_else(|| compile_time_env.and_then(|value| non_empty_string(value.to_string())))
-        .unwrap_or_else(|| DEFAULT_ACCOUNT_API_BASE_URL.to_string())
 }
 
 fn non_empty_string(value: String) -> Option<String> {
@@ -2358,10 +2278,9 @@ mod tests {
         codex_billing_type, decode_jwt_payload, detect_plan_tier_from_profile,
         detect_tier_mismatch, evaluate_pricing_status_with_mismatch, is_identity_complete,
         merge_background_account_sync, plan_tier_header_value, remote_account_to_profile,
-        resolve_account_api_base_url, ClaudeOauthProfile, ClaudeOauthProfileAccount,
-        ClaudeOauthProfileOrganization, HeadroomSubscriptionTier, IdentityFingerprint,
-        IdentityPayload, LocalPricingState, PricingPromo, RemoteAccountResponse,
-        RemoteAccountSyncError, DEFAULT_ACCOUNT_API_BASE_URL,
+        ClaudeOauthProfile, ClaudeOauthProfileAccount, ClaudeOauthProfileOrganization,
+        HeadroomSubscriptionTier, IdentityFingerprint, IdentityPayload, LocalPricingState,
+        PricingPromo, RemoteAccountResponse, RemoteAccountSyncError,
     };
     use crate::models::{
         BillingPeriod, ClaudeAccountProfile, ClaudeAuthMethod, ClaudePlanTier, CodexPlanTier,
@@ -2753,30 +2672,6 @@ mod tests {
     }
 
     #[test]
-    fn runtime_env_overrides_compile_time_env() {
-        let resolved = resolve_account_api_base_url(
-            Some("https://runtime.example/api/v1".into()),
-            Some("https://compile.example/api/v1"),
-        );
-
-        assert_eq!(resolved, "https://runtime.example/api/v1");
-    }
-
-    #[test]
-    fn compile_time_env_used_when_runtime_missing() {
-        let resolved = resolve_account_api_base_url(None, Some("https://compile.example/api/v1"));
-
-        assert_eq!(resolved, "https://compile.example/api/v1");
-    }
-
-    #[test]
-    fn blank_values_fall_back_to_default() {
-        let resolved = resolve_account_api_base_url(Some("   ".into()), Some(" "));
-
-        assert_eq!(resolved, DEFAULT_ACCOUNT_API_BASE_URL);
-    }
-
-    #[test]
     fn unauthorized_background_sync_keeps_local_session_authenticated() {
         let (authenticated, account, error) = merge_background_account_sync(
             Some("session-token"),
@@ -2817,15 +2712,6 @@ mod tests {
                 .and_then(|value| value.subscription_tier.clone()),
             Some(HeadroomSubscriptionTier::Pro)
         ));
-    }
-
-    #[test]
-    fn release_default_points_at_production_api() {
-        #[cfg(not(debug_assertions))]
-        assert_eq!(
-            DEFAULT_ACCOUNT_API_BASE_URL,
-            "https://extraheadroom.com/api/v1"
-        );
     }
 
     fn empty_claude_profile(plan_tier: ClaudePlanTier) -> ClaudeAccountProfile {

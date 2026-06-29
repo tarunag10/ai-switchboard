@@ -6,6 +6,9 @@ enables remote services. Local-only mode should avoid account, pricing,
 telemetry, support, analytics, and update-network calls unless an operator of a
 fork or build explicitly enables them.
 
+Mac AI Switchboard does not include a remote account, billing, checkout, or paid
+pricing API.
+
 This file is a release gate. Add or update a row before adding a new app-owned
 remote destination.
 
@@ -23,26 +26,25 @@ endpoints, not remote destinations.
 
 ## App-Owned Remote Destinations
 
-| Destination | Configuration | Purpose | Local-only behavior |
-| --- | --- | --- | --- |
-| Tauri updater feeds | `HEADROOM_UPDATER_ENDPOINTS`, `HEADROOM_UPDATER_STAGING_ENDPOINTS`, `HEADROOM_UPDATER_PUBLIC_KEY` | Signed desktop update checks for release builds. Official feeds are expected to be GitHub Release `latest.json` endpoints for this repository unless a fork intentionally replaces them. | Do not configure updater endpoints for local-only builds. |
-| Account and pricing API | `HEADROOM_ACCOUNT_API_BASE_URL` | Optional upstream-compatible account, subscription, and pricing flows. Production fallback is `https://extraheadroom.com/api/v1` until those flows are removed, replaced, or clearly relabeled. | Hide or disable account and pricing flows. |
-| Sentry diagnostics | `HEADROOM_SENTRY_DSN`, `VITE_SENTRY_DSN` | Optional backend/frontend crash and bootstrap failure diagnostics. | Disabled when local-only or remote telemetry is disabled. |
-| Aptabase analytics | `HEADROOM_APTABASE_APP_KEY` | Optional backend analytics events sent to `https://eu.aptabase.com/api/v0/events` or `https://us.aptabase.com/api/v0/events` depending on the configured key region. | Disabled when local-only. |
-| Microsoft Clarity | `VITE_CLARITY_PROJECT_ID` | Optional frontend product analytics when a build opts in. | Leave empty for local-only builds. |
-| Support and external links | Bundled app/docs copy | Optional user-initiated browser actions for this repository's GitHub Issues, legal, or release pages. | Hide, remove, or keep as explicit user-initiated links only. |
+| Destination                | Configuration                                                                                     | Purpose                                                                                                                                                                                  | Local-only behavior                                          |
+| -------------------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Tauri updater feeds        | `HEADROOM_UPDATER_ENDPOINTS`, `HEADROOM_UPDATER_STAGING_ENDPOINTS`, `HEADROOM_UPDATER_PUBLIC_KEY` | Signed desktop update checks for release builds. Official feeds are expected to be GitHub Release `latest.json` endpoints for this repository unless a fork intentionally replaces them. | Do not configure updater endpoints for local-only builds.    |
+| Sentry diagnostics         | `HEADROOM_SENTRY_DSN`, `VITE_SENTRY_DSN`                                                          | Optional backend/frontend crash and bootstrap failure diagnostics.                                                                                                                       | Disabled when local-only or remote telemetry is disabled.    |
+| Aptabase analytics         | `HEADROOM_APTABASE_APP_KEY`                                                                       | Optional backend analytics events sent to `https://eu.aptabase.com/api/v0/events` or `https://us.aptabase.com/api/v0/events` depending on the configured key region.                     | Disabled when local-only.                                    |
+| Microsoft Clarity          | `VITE_CLARITY_PROJECT_ID`                                                                         | Optional frontend product analytics when a build opts in.                                                                                                                                | Leave empty for local-only builds.                           |
+| Support and external links | Bundled app/docs copy                                                                             | Optional user-initiated browser actions for this repository's GitHub Issues, legal, or release pages.                                                                                    | Hide, remove, or keep as explicit user-initiated links only. |
 
 ## Tool And Dependency Downloads
 
 Managed helper installation can fetch pinned release artifacts when a user asks
 the app to install or repair tools:
 
-| Destination | Purpose | Controls |
-| --- | --- | --- |
-| `https://files.pythonhosted.org/...headroom_ai...whl` | Pinned `headroom-ai` wheel install. | Version and SHA-256 are pinned in `src-tauri/src/tool_manager.rs`. |
-| `https://github.com/gglucass/headroom-desktop/releases/expanded_assets/vendor-wheels-v1` | Vendor wheel index for packages that do not ship suitable macOS wheels. | Pinned by the desktop release. |
-| PyPI/simple index URLs | Python dependency resolution from the bundled lock files. | Lock files are bundled under `src-tauri/python/`. |
-| GitHub release/project URLs for RTK, MarkItDown, Ponytail, and Caveman | User-visible source/provenance and managed install surfaces. | Keep versions pinned or explicit before enabling automatic installation. |
+| Destination                                                                              | Purpose                                                                 | Controls                                                                 |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `https://files.pythonhosted.org/...headroom_ai...whl`                                    | Pinned `headroom-ai` wheel install.                                     | Version and SHA-256 are pinned in `src-tauri/src/tool_manager.rs`.       |
+| `https://github.com/gglucass/headroom-desktop/releases/expanded_assets/vendor-wheels-v1` | Vendor wheel index for packages that do not ship suitable macOS wheels. | Pinned by the desktop release.                                           |
+| PyPI/simple index URLs                                                                   | Python dependency resolution from the bundled lock files.               | Lock files are bundled under `src-tauri/python/`.                        |
+| GitHub release/project URLs for RTK, MarkItDown, Ponytail, and Caveman                   | User-visible source/provenance and managed install surfaces.            | Keep versions pinned or explicit before enabling automatic installation. |
 
 ## Provider Traffic
 
@@ -52,9 +54,9 @@ tools may contact providers such as Anthropic, OpenAI, Gemini, xAI, Amazon, or
 other configured model endpoints under the user's own accounts and the
 provider's terms.
 
-The app may read provider-auth evidence for diagnostics or pricing flows only
-where that flow already exists and is explicitly enabled. Do not add silent
-provider calls in local-only mode.
+The app may read provider-auth evidence for local diagnostics only where that
+flow already exists and is explicitly enabled. Do not add silent provider calls
+in local-only mode.
 
 ## Change Control
 

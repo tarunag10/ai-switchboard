@@ -38,7 +38,6 @@ const CONNECTOR_MANIFEST_JSON: &str = include_str!("../../connectors/manifest.js
 const LEGACY_MARKER_PREFIX: &str = "headroom";
 const MARKER_PREFIX: &str = "headroom";
 const SWITCHBOARD_MARKER_PREFIX: &str = "mac-ai-switchboard";
-const LEGACY_BUNDLE_ID: &str = "com.extraheadroom.headroom";
 const APP_BUNDLE_ID: &str = "com.tarunagarwal.mac-ai-switchboard";
 const ZSH_PROFILE_FILE: &str = ".zprofile";
 const ZSH_RC_FILE: &str = ".zshrc";
@@ -2280,7 +2279,6 @@ fn extend_macos_uninstall_targets(targets: &mut Vec<UninstallTarget>) {
     let lib = home.join("Library");
     let launch_agents_dir = lib.join("LaunchAgents");
     for name in [
-        format!("{LEGACY_BUNDLE_ID}.plist"),
         format!("{APP_BUNDLE_ID}.plist"),
         "Headroom.plist".to_string(),
     ] {
@@ -2296,7 +2294,7 @@ fn extend_macos_uninstall_targets(targets: &mut Vec<UninstallTarget>) {
         );
     }
 
-    for bundle_id in [LEGACY_BUNDLE_ID, APP_BUNDLE_ID] {
+    for bundle_id in [APP_BUNDLE_ID] {
         push_uninstall_target(
             targets,
             "preferences",
@@ -2392,9 +2390,8 @@ fn remove_macos_launch_agents() -> Vec<String> {
     let launch_agents_dir = home_dir().join("Library").join("LaunchAgents");
 
     // Bundle-id-style plist (tauri-plugin-autostart default) and the
-    // "Headroom.plist" name some older builds shipped. Either can exist.
+    // "Headroom.plist" name some older local builds shipped. Either can exist.
     let candidates = [
-        format!("{LEGACY_BUNDLE_ID}.plist"),
         format!("{APP_BUNDLE_ID}.plist"),
         "Headroom.plist".to_string(),
     ];
@@ -2429,7 +2426,7 @@ fn remove_macos_preferences() -> Vec<String> {
         let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
             continue;
         };
-        if !name.starts_with(LEGACY_BUNDLE_ID) && !name.starts_with(APP_BUNDLE_ID) {
+        if !name.starts_with(APP_BUNDLE_ID) {
             continue;
         }
         let path = entry.path();
@@ -2450,7 +2447,7 @@ fn remove_macos_preferences() -> Vec<String> {
 fn remove_macos_caches() -> Vec<String> {
     let mut removed = Vec::new();
     let caches_base = home_dir().join("Library").join("Caches");
-    for bundle_id in [LEGACY_BUNDLE_ID, APP_BUNDLE_ID] {
+    for bundle_id in [APP_BUNDLE_ID] {
         let caches_dir = caches_base.join(bundle_id);
         if caches_dir.exists() {
             match std::fs::remove_dir_all(&caches_dir) {
@@ -2485,7 +2482,7 @@ fn remove_macos_logs() -> Vec<String> {
 fn remove_macos_bundle_dirs() -> Vec<String> {
     let mut removed = Vec::new();
     let lib = home_dir().join("Library");
-    for bundle_id in [LEGACY_BUNDLE_ID, APP_BUNDLE_ID] {
+    for bundle_id in [APP_BUNDLE_ID] {
         let targets = [
             lib.join("WebKit").join(bundle_id),
             lib.join("HTTPStorages").join(bundle_id),
@@ -2532,11 +2529,6 @@ fn known_keychain_entries() -> &'static [(&'static str, &'static str)] {
             "com.tarunagarwal.mac-ai-switchboard.device",
             "machine-id-digest",
         ),
-        ("com.extraheadroom.headroom.account", "session-token"),
-        ("com.extraheadroom.headroom.device", "machine-id-digest"),
-        ("com.extraheadroom.headroom.headroom-learn", "openai"),
-        ("com.extraheadroom.headroom.headroom-learn", "anthropic"),
-        ("com.extraheadroom.headroom.headroom-learn", "gemini"),
     ]
 }
 
@@ -10125,7 +10117,7 @@ js_repl = false\n",
 
     #[test]
     #[serial_test::serial]
-    fn uninstall_dry_run_lists_current_and_legacy_cleanup_targets() {
+    fn uninstall_dry_run_lists_current_cleanup_targets() {
         let home = TestHome::new();
         let current_storage = home
             .path()
@@ -10139,7 +10131,6 @@ js_repl = false\n",
 
         assert!(serialized.contains("Mac AI Switchboard"));
         assert!(serialized.contains(super::APP_BUNDLE_ID));
-        assert!(serialized.contains(super::LEGACY_BUNDLE_ID));
         assert!(serialized.contains("keychain://com.tarunagarwal.mac-ai-switchboard.account"));
         assert!(serialized.contains("User repositories and source files are never deleted."));
         assert!(!serialized.contains("session-token="));

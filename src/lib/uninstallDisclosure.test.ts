@@ -24,12 +24,18 @@ describe("uninstallDisclosure", () => {
     expect(allCopy).toContain("Claude Code");
     expect(allCopy).toContain("Codex");
     expect(allCopy).toContain("Amazon Q");
-    expect(allCopy).toContain("AWS credentials, SSO cache, and profiles are not modified");
+    expect(allCopy).toContain(
+      "AWS credentials, SSO cache, and profiles are not modified",
+    );
     expect(allCopy).toContain("~/Library/Application Support/Headroom");
     expect(allCopy).toContain("com.tarunagarwal.mac-ai-switchboard");
-    expect(allCopy).toContain("com.extraheadroom.headroom");
-    expect(allCopy).toContain("~/Library/WebKit/com.tarunagarwal.mac-ai-switchboard");
-    expect(allCopy).toContain("~/Library/HTTPStorages/com.extraheadroom.headroom");
+    expect(allCopy).toContain("com.tarunagarwal.mac-ai-switchboard");
+    expect(allCopy).toContain(
+      "~/Library/WebKit/com.tarunagarwal.mac-ai-switchboard",
+    );
+    expect(allCopy).toContain(
+      "~/Library/HTTPStorages/com.tarunagarwal.mac-ai-switchboard",
+    );
     expect(allCopy).toContain("Repo Intelligence");
     expect(allCopy).toContain("repo-intelligence-latest.json");
     expect(allCopy).toContain("User repositories are not modified");
@@ -62,7 +68,6 @@ describe("uninstallDisclosure", () => {
       "app-state",
       "plugins-backups",
       "macos-current-bundle-data",
-      "macos-legacy-bundle-data",
       "keychain-entries",
     ]);
   });
@@ -83,13 +88,17 @@ describe("uninstallDisclosure", () => {
 
     expect(report).toContain("Mac AI Switchboard uninstall dry-run");
     expect(report).toContain("No files are changed by this report.");
-    expect(report).toContain("Managed footprint source: Rollback Center inventory.");
+    expect(report).toContain(
+      "Managed footprint source: Rollback Center inventory.",
+    );
     expect(report).toContain(`Items: ${uninstallDisclosureItems.length}`);
     expect(report).toContain("Remove managed Claude Code shell routing");
     expect(report).toContain("Remove managed Codex shell routing");
     expect(report).toContain("~/.codex/config.toml");
     expect(report).toContain("Marker: headroom:codex_cli");
-    expect(report).toContain("Backup: next to edited client config as *.headroom.bak");
+    expect(report).toContain(
+      "Backup: next to edited client config as *.headroom.bak",
+    );
     expect(report).toContain("Marker: repo-intelligence-latest.json");
     expect(report).toContain("Backup: not required");
     expect(report).toContain("~/Library/Application Support/Headroom");
@@ -111,7 +120,8 @@ describe("uninstallDisclosure", () => {
           path: "/Users/test/Library/Application Support/Mac AI Switchboard",
           exists: true,
           managed: true,
-          action: "Delete Mac AI Switchboard app support storage after explicit uninstall confirmation.",
+          action:
+            "Delete Mac AI Switchboard app support storage after explicit uninstall confirmation.",
           requiresConfirmation: true,
           notes: ["Contains local runtime state."],
         },
@@ -123,6 +133,8 @@ describe("uninstallDisclosure", () => {
     expect(report).toContain("Category: app-storage");
     expect(report).toContain("Exists now: yes");
     expect(report).toContain("Requires confirmation: yes");
-    expect(report).toContain("User repositories and source files are never deleted.");
+    expect(report).toContain(
+      "User repositories and source files are never deleted.",
+    );
   });
 });

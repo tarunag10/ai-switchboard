@@ -1421,14 +1421,14 @@ fn user_message_for(kind: BootstrapFailureKind) -> &'static str {
              antivirus is inspecting HTTPS traffic. Set the REQUESTS_CA_BUNDLE \
              environment variable to your organization's CA bundle, or disable TLS \
              inspection for pypi.org, files.pythonhosted.org, and github.com, then \
-             restart the app. Contact support@extraheadroom.com if you need help."
+             restart the app. Open a GitHub Issue from Support if you need help."
         }
         BootstrapFailureKind::NoUsableTempDir => {
             "Installation failed: Headroom can't create temporary files on this Mac. \
              This usually means your disk is full, or security software (like an MDM \
              profile or endpoint protection) is blocking writes to /tmp and \
              /var/folders. Free up disk space, restart your Mac, and try again. \
-             If it still fails, contact support@extraheadroom.com."
+             If it still fails, open a GitHub Issue from Support."
         }
         BootstrapFailureKind::NetworkDownload => {
             "Couldn't reach the download server. This is usually a temporary \
@@ -1436,12 +1436,12 @@ fn user_message_for(kind: BootstrapFailureKind) -> &'static str {
              internet connection and click Try again. If it keeps failing, a \
              firewall, VPN, or corporate proxy may be blocking pypi.org and \
              files.pythonhosted.org - try another network or contact \
-             support@extraheadroom.com."
+             the Support page."
         }
         BootstrapFailureKind::Other => {
             "Installation failed: Headroom couldn't download a required file. \
              Check your internet connection, then click Try again. \
-             If this keeps happening, contact support at support@extraheadroom.com."
+             If this keeps happening, open a GitHub Issue from Support."
         }
     }
 }
@@ -4515,7 +4515,7 @@ fn reject_contact_request_in_local_only() -> Result<(), String> {
 // an SSRF primitive here would let a compromised frame POST to arbitrary
 // hosts, including loopback services.
 fn validate_contact_request_url(raw: &str) -> Option<reqwest::Url> {
-    const ALLOWED_HOSTS: &[&str] = &["extraheadroom.com", "www.extraheadroom.com"];
+    const ALLOWED_HOSTS: &[&str] = &["github.com"];
     let parsed = reqwest::Url::parse(raw).ok()?;
     if parsed.scheme() != "https" {
         return None;

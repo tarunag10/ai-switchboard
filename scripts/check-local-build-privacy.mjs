@@ -4,7 +4,9 @@ import path from "node:path";
 const truthyValues = new Set(["1", "true", "yes", "on"]);
 
 function truthy(value) {
-  return typeof value === "string" && truthyValues.has(value.trim().toLowerCase());
+  return (
+    typeof value === "string" && truthyValues.has(value.trim().toLowerCase())
+  );
 }
 
 const buildFlavor =
@@ -36,12 +38,9 @@ const forbiddenStrings = [
   "app.aptabase.com",
   "aptabase",
   "sentry.io",
-  "extraheadroom.com/api",
-  "HEADROOM_ACCOUNT_API_BASE_URL",
   "REPLACE_WITH_APTABASE_APP_KEY",
   "REPLACE_WITH_SENTRY_DSN",
   "REPLACE_WITH_CLARITY_PROJECT_ID",
-  "checkout.stripe.com",
 ];
 
 const skippedRoots = [];
@@ -87,5 +86,10 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-const skipped = skippedRoots.length > 0 ? ` Skipped missing roots: ${skippedRoots.join(", ")}.` : "";
-console.log(`Local-free privacy scan passed for ${files.length} files.${skipped}`);
+const skipped =
+  skippedRoots.length > 0
+    ? ` Skipped missing roots: ${skippedRoots.join(", ")}.`
+    : "";
+console.log(
+  `Local-free privacy scan passed for ${files.length} files.${skipped}`,
+);

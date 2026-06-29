@@ -51,8 +51,7 @@ Uninstall removes only Switchboard-owned surfaces:
 - Current bundle data for `com.tarunagarwal.mac-ai-switchboard`: Preferences,
   Caches, WebKit data, HTTPStorages, saved application state, logs, and
   LaunchAgents.
-- Legacy bundle data for `com.extraheadroom.headroom` plus `Headroom.plist`
-  LaunchAgent.
+- Current app bundle data plus any old `Headroom.plist` LaunchAgent.
 - Switchboard-owned Keychain service entries by service/account name, without
   exporting or logging secret values.
 - Managed backup siblings with `*.headroom-backup-*` or

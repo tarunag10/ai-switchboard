@@ -19,30 +19,30 @@ Still left: provider-specific native config writes beyond sidecars, real long-ru
 
 ## What It Controls
 
-| Tool or area | Status | Automatic routing | RTK support | Repo packs | Notes |
-| --- | --- | ---: | ---: | ---: | --- |
-| Claude Code | Managed | Yes | Yes | Yes | Reversible config edits and hook setup. |
-| Codex | Managed | Yes | Partial | Yes | Provider block, direct-bypass handling, and Doctor repair flows. |
-| Headroom | Core runtime | Yes | No | No | Local optimization proxy used by managed clients. |
-| RTK | Core add-on | No | Yes | No | Command-output compression for shells and agent tool output. |
-| Repo Intelligence | Supported | No | No | Yes | Read-only repo summaries, context packs, and agent handoffs. |
-| Gemini CLI | Limited managed adapter | Limited | No | Yes | Shell/base-url routing adapter exists; provider/account mutation remains gated. |
-| OpenCode | Limited managed adapter | Limited | No | Yes | Provider adapter work exists; lifecycle gates still decide native writes. |
-| Cursor | Guided | No | No | Yes | Copyable packs and settings detection today. |
-| Windsurf | Guided | No | No | Yes | Copyable packs and settings detection today. |
-| Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Zed AI, Grok / xAI CLI | Detected or planned | No | No | Yes | Manual workflow, detection evidence, and automation gates until reversible setup is proven. |
-| MarkItDown, Ponytail, Caveman | Add-on | No | Depends | No | Local helper add-ons with explicit install/disable flows. |
+| Tool or area                                                                      | Status                  | Automatic routing | RTK support | Repo packs | Notes                                                                                       |
+| --------------------------------------------------------------------------------- | ----------------------- | ----------------: | ----------: | ---------: | ------------------------------------------------------------------------------------------- |
+| Claude Code                                                                       | Managed                 |               Yes |         Yes |        Yes | Reversible config edits and hook setup.                                                     |
+| Codex                                                                             | Managed                 |               Yes |     Partial |        Yes | Provider block, direct-bypass handling, and Doctor repair flows.                            |
+| Headroom                                                                          | Core runtime            |               Yes |          No |         No | Local optimization proxy used by managed clients.                                           |
+| RTK                                                                               | Core add-on             |                No |         Yes |         No | Command-output compression for shells and agent tool output.                                |
+| Repo Intelligence                                                                 | Supported               |                No |          No |        Yes | Read-only repo summaries, context packs, and agent handoffs.                                |
+| Gemini CLI                                                                        | Limited managed adapter |           Limited |          No |        Yes | Shell/base-url routing adapter exists; provider/account mutation remains gated.             |
+| OpenCode                                                                          | Limited managed adapter |           Limited |          No |        Yes | Provider adapter work exists; lifecycle gates still decide native writes.                   |
+| Cursor                                                                            | Guided                  |                No |          No |        Yes | Copyable packs and settings detection today.                                                |
+| Windsurf                                                                          | Guided                  |                No |          No |        Yes | Copyable packs and settings detection today.                                                |
+| Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Zed AI, Grok / xAI CLI | Detected or planned     |                No |          No |        Yes | Manual workflow, detection evidence, and automation gates until reversible setup is proven. |
+| MarkItDown, Ponytail, Caveman                                                     | Add-on                  |                No |     Depends |         No | Local helper add-ons with explicit install/disable flows.                                   |
 
 See [Connector Support](docs/connectors.md) for the status vocabulary and per-tool guardrails.
 
 ## Switchboard Modes
 
-| Mode | What It Does | Typical Use |
-| --- | --- | --- |
-| Full optimization | Routes supported clients through Headroom and enables RTK shell-output compression. | Daily coding-agent work with the full local optimization layer. |
-| Headroom only | Routes supported clients through the local Headroom proxy while leaving shell output unchanged. | Prompt/context optimization without shell command rewriting. |
-| RTK only | Keeps LLM traffic direct and enables RTK shell-output compression. | When a client should bypass Headroom or a large Codex request hits compression refusal. |
-| Off | Removes local routing hooks and disables RTK integration. | Clean pass-through mode before debugging client config or comparing behavior. |
+| Mode              | What It Does                                                                                    | Typical Use                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Full optimization | Routes supported clients through Headroom and enables RTK shell-output compression.             | Daily coding-agent work with the full local optimization layer.                         |
+| Headroom only     | Routes supported clients through the local Headroom proxy while leaving shell output unchanged. | Prompt/context optimization without shell command rewriting.                            |
+| RTK only          | Keeps LLM traffic direct and enables RTK shell-output compression.                              | When a client should bypass Headroom or a large Codex request hits compression refusal. |
+| Off               | Removes local routing hooks and disables RTK integration.                                       | Clean pass-through mode before debugging client config or comparing behavior.           |
 
 Switchboard separates **requested mode** from **active mode**. If a mode is requested but a dependency is missing, the app shows the active subset and points you to Doctor.
 
@@ -211,7 +211,7 @@ VITE_HEADROOM_LOCAL_ONLY="1"
 VITE_HEADROOM_REMOTE_TELEMETRY="0"
 ```
 
-Remote account, pricing, and telemetry services are off by default. Only set remote-service keys if you operate your own forked service. Public builds in this repo should not require sign-in, checkout, or pricing API.
+Remote telemetry, support, and update services are off by default. Mac AI Switchboard does not include a remote account, billing, checkout, or paid pricing API.
 
 Useful checks:
 

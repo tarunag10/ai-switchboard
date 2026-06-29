@@ -44,15 +44,15 @@ Headroom and RTK save tokens. Repo Intelligence and Graphify-style context selec
 
 ## Roadmap Overview
 
-| Phase | Timeframe | Theme | Outcome |
-|---|---:|---|---|
-| P0 | Days 0-7 | Trust and repo hygiene | Remove risky artifacts, lock local-only defaults, fix obvious trust issues |
-| P1 | Days 7-21 | Branding, migration, and public build clarity | App identity is coherent and public builds are clearly free/local |
-| P2 | Days 14-30 | CI, release, and security gates | Every PR and release passes quality, dependency, and secret checks |
-| P3 | Days 21-45 | Runtime and connector safety | Claude/Codex flows are safer, more reversible, and easier to recover |
-| P4 | Days 30-60 | Repo Intelligence v2 | Context packs become task-aware and relevance-ranked |
-| P5 | Days 45-75 | Adapter platform | Planned connectors move toward manifest-based guided/managed support |
-| P6 | Days 60-90 | Distribution and polish | Signed releases, Homebrew, onboarding, docs, diagnostics, and benchmarks |
+| Phase |  Timeframe | Theme                                         | Outcome                                                                    |
+| ----- | ---------: | --------------------------------------------- | -------------------------------------------------------------------------- |
+| P0    |   Days 0-7 | Trust and repo hygiene                        | Remove risky artifacts, lock local-only defaults, fix obvious trust issues |
+| P1    |  Days 7-21 | Branding, migration, and public build clarity | App identity is coherent and public builds are clearly free/local          |
+| P2    | Days 14-30 | CI, release, and security gates               | Every PR and release passes quality, dependency, and secret checks         |
+| P3    | Days 21-45 | Runtime and connector safety                  | Claude/Codex flows are safer, more reversible, and easier to recover       |
+| P4    | Days 30-60 | Repo Intelligence v2                          | Context packs become task-aware and relevance-ranked                       |
+| P5    | Days 45-75 | Adapter platform                              | Planned connectors move toward manifest-based guided/managed support       |
+| P6    | Days 60-90 | Distribution and polish                       | Signed releases, Homebrew, onboarding, docs, diagnostics, and benchmarks   |
 
 The phases overlap intentionally. For example, signed releases can begin before Repo Intelligence v2 is done, but broad distribution should wait until P0-P3 are complete.
 
@@ -180,7 +180,7 @@ The app has local-only guards, but the public repo still contains remote-service
    VITE_HEADROOM_REMOTE_TELEMETRY="0"
    ```
 
-3. Change `.env.example` so local/free is the only default. Move remote-service keys to `.env.remote-services.example`.
+3. Change `.env.example` so local/free is the only default. Keep optional remote telemetry, update, and support keys documented without an account or paid pricing API.
 
 4. Add a bundle scanner:
 
@@ -193,10 +193,9 @@ The app has local-only guards, but the public repo still contains remote-service
    - `clarity.ms`
    - `aptabase`
    - `sentry.io`
-   - `extraheadroom.com/api`
-   - `checkout`
-   - `pricing`
-   - `HEADROOM_ACCOUNT_API_BASE_URL`
+   - inherited paid account endpoints
+   - checkout hosts
+   - paid pricing endpoint identifiers
 
 5. Remove Clarity from the default CSP. If Clarity is used in a remote-services build, inject CSP conditionally at build time or maintain separate config overlays.
 
@@ -258,13 +257,13 @@ The project aims to support many agentic coding tools, but managed support curre
 
 2. Add a clear support matrix:
 
-   | Tool | Status | Automatic routing | RTK support | Repo packs | Notes |
-   |---|---|---:|---:|---:|---|
-   | Claude Code | Managed | Yes | Yes | Yes | Reversible config edits |
-   | Codex | Managed | Yes | Partial | Yes | Provider block and bypass handling |
-   | Cursor | Planned/guided | No | No | Yes | Copyable packs only today |
-   | Windsurf | Planned/guided | No | No | Yes | Copyable packs only today |
-   | OpenCode | Planned | No | Possible later | Yes | Detection only today |
+   | Tool        | Status         | Automatic routing |    RTK support | Repo packs | Notes                              |
+   | ----------- | -------------- | ----------------: | -------------: | ---------: | ---------------------------------- |
+   | Claude Code | Managed        |               Yes |            Yes |        Yes | Reversible config edits            |
+   | Codex       | Managed        |               Yes |        Partial |        Yes | Provider block and bypass handling |
+   | Cursor      | Planned/guided |                No |             No |        Yes | Copyable packs only today          |
+   | Windsurf    | Planned/guided |                No |             No |        Yes | Copyable packs only today          |
+   | OpenCode    | Planned        |                No | Possible later |        Yes | Detection only today               |
 
 3. Use consistent labels everywhere:
 
@@ -400,11 +399,7 @@ Uninstall cleanup currently includes old Headroom bundle IDs and paths. Current 
 
 ### Implementation steps
 
-1. Expand cleanup targets to include both old and new identifiers:
-
-   - `com.extraheadroom.headroom`
-   - `com.tarunagarwal.mac-ai-switchboard`
-   - any future official org bundle ID
+1. Expand cleanup targets to include current app identifiers and any explicitly approved future official org bundle ID.
 
 2. Cleanup should cover:
 
@@ -1494,7 +1489,7 @@ Show token savings and quality preservation using reproducible public fixtures.
 
 ## PR 2: Local-free build cleanup
 
-- Split `.env.example` and `.env.remote-services.example`.
+- Keep `.env.example` local-free by default.
 - Add `check:local-build-privacy`.
 - Remove remote-service requirements from local-free release path.
 - Update README local build instructions.
@@ -1606,18 +1601,18 @@ A feature is done only when all relevant items are true:
 
 # Risk Register
 
-| Risk | Severity | Mitigation |
-|---|---:|---|
-| Accidental committed local data | Critical | Remove DB, add artifact guard, secret scanning |
-| Confusing Headroom/Switchboard identity | High | Complete rebrand, migrate paths, document legacy compatibility |
-| Telemetry distrust | High | Local-free build scanner, privacy panel, separate remote-services build |
-| Raw prompt logs leak secrets | High | Off by default, warnings, redaction, expiry, purge |
-| Codex DB modification breaks history | High | Opt-in, backup, transaction, schema guard, restore action |
-| Off mode leaves hooks behind | High | Managed footprint inventory, fixture tests, Doctor repair |
-| Planned connectors overmarketed | Medium | Honest labels, support matrix, automation gates |
-| Repo packs omit important files | Medium | Relevance ranking, AST graph, test proximity |
-| Release artifacts not trusted | Medium | Signed/notarized DMG, checksums, SBOM, Homebrew cask |
-| Long-running runtime install fails | Medium | Better Doctor repair, logs, preflight checks, recovery scripts |
+| Risk                                    | Severity | Mitigation                                                              |
+| --------------------------------------- | -------: | ----------------------------------------------------------------------- |
+| Accidental committed local data         | Critical | Remove DB, add artifact guard, secret scanning                          |
+| Confusing Headroom/Switchboard identity |     High | Complete rebrand, migrate paths, document legacy compatibility          |
+| Telemetry distrust                      |     High | Local-free build scanner, privacy panel, separate remote-services build |
+| Raw prompt logs leak secrets            |     High | Off by default, warnings, redaction, expiry, purge                      |
+| Codex DB modification breaks history    |     High | Opt-in, backup, transaction, schema guard, restore action               |
+| Off mode leaves hooks behind            |     High | Managed footprint inventory, fixture tests, Doctor repair               |
+| Planned connectors overmarketed         |   Medium | Honest labels, support matrix, automation gates                         |
+| Repo packs omit important files         |   Medium | Relevance ranking, AST graph, test proximity                            |
+| Release artifacts not trusted           |   Medium | Signed/notarized DMG, checksums, SBOM, Homebrew cask                    |
+| Long-running runtime install fails      |   Medium | Better Doctor repair, logs, preflight checks, recovery scripts          |
 
 ---
 

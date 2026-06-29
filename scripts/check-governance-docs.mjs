@@ -59,7 +59,9 @@ if (failures.length === 0) {
     failures.push("CONTRIBUTING.md does not confirm MIT contribution terms");
   }
   if (!contributing.includes("@tarunag10")) {
-    failures.push("CONTRIBUTING.md does not name the maintainer approval owner");
+    failures.push(
+      "CONTRIBUTING.md does not name the maintainer approval owner",
+    );
   }
 
   const governance = read("GOVERNANCE.md");
@@ -96,7 +98,6 @@ if (failures.length === 0) {
     "Local-Only Boundary",
     "App-Owned Remote Destinations",
     "HEADROOM_UPDATER_ENDPOINTS",
-    "HEADROOM_ACCOUNT_API_BASE_URL",
     "HEADROOM_SENTRY_DSN",
     "VITE_SENTRY_DSN",
     "HEADROOM_APTABASE_APP_KEY",
@@ -140,7 +141,9 @@ if (failures.length === 0) {
 
   const pullRequestTemplate = read(".github/pull_request_template.md");
   if (!pullRequestTemplate.includes("@tarunag10")) {
-    failures.push(".github/pull_request_template.md does not require @tarunag10 approval");
+    failures.push(
+      ".github/pull_request_template.md does not require @tarunag10 approval",
+    );
   }
 
   const repositorySettings = read("docs/repository-settings.md");
