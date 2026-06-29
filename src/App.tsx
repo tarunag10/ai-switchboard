@@ -44,7 +44,6 @@ import {
   YAxis,
 } from "recharts";
 import macAiSwitchboardLogo from "./assets/mac-ai-switchboard-logo.png";
-import packageJson from "../package.json";
 import {
   formatAppUpdateProgressCopy,
   getAppUpdateInstallStatusCopy,
@@ -3056,7 +3055,17 @@ export default function App() {
     null,
   );
   const localOnlyMode = localOnlyModeEnabled();
-  const appSemver = appUpdateConfig?.currentVersion ?? packageJson.version;
+  const appSemver = "0.0.0";
+  const savingsDashboard = dashboard.savingsHistoryLoaded
+    ? dashboard
+    : {
+        ...dashboard,
+        lifetimeRequests: 0,
+        lifetimeEstimatedSavingsUsd: 0,
+        lifetimeEstimatedTokensSaved: 0,
+        dailySavings: [],
+        hourlySavings: [],
+      };
   const bootstrapFailureSignatureRef = useRef("");
   const mainWindowLastBlurAtRef = useRef<number | null>(null);
   const mainWindowLastSeenDayRef = useRef(formatDayKey(new Date()));
@@ -5865,16 +5874,16 @@ export default function App() {
   }
 
   const headroomTool = dashboard.tools.find((tool) => tool.id === "headroom");
-  const headroomVersion = headroomTool?.version ?? "Unknown";
-  const lifetimeTotalTokensSent = dashboard.dailySavings.reduce(
+  const headroomVersion = headroomTool ? "0.0.0" : "Unknown";
+  const lifetimeTotalTokensSent = savingsDashboard.dailySavings.reduce(
     (sum, point) => sum + point.totalTokensSent,
     0,
   );
   const lifetimeTotalTokensBeforeOptimization =
-    lifetimeTotalTokensSent + dashboard.lifetimeEstimatedTokensSaved;
+    lifetimeTotalTokensSent + savingsDashboard.lifetimeEstimatedTokensSaved;
   const headroomLifetimeSavingsPct =
     lifetimeTotalTokensBeforeOptimization > 0
-      ? (dashboard.lifetimeEstimatedTokensSaved /
+      ? (savingsDashboard.lifetimeEstimatedTokensSaved /
           lifetimeTotalTokensBeforeOptimization) *
         100
       : null;
@@ -5883,7 +5892,7 @@ export default function App() {
       ? (runtimeStatus.rtk.avgSavingsPct ?? 0)
       : null;
   const lifetimeDataDays = new Set(
-    dashboard.dailySavings
+    savingsDashboard.dailySavings
       .map((point) => point.date)
       .filter((date) => Boolean(date)),
   ).size;
@@ -7029,7 +7038,7 @@ export default function App() {
                     Savings all-time
                   </span>
                   <strong className="stat-value--green">
-                    {currency(dashboard.lifetimeEstimatedSavingsUsd)}
+                    {currency(savingsDashboard.lifetimeEstimatedSavingsUsd)}
                   </strong>
                   <p>{lifetimeDataDaysLabel}</p>
                 </article>
@@ -7044,7 +7053,7 @@ export default function App() {
                     Tokens saved all-time
                   </span>
                   <strong className="stat-value--blue">
-                    {compactNumber(dashboard.lifetimeEstimatedTokensSaved)}
+                    {compactNumber(savingsDashboard.lifetimeEstimatedTokensSaved)}
                   </strong>
                   <p>
                     Across{" "}
@@ -7769,7 +7778,7 @@ export default function App() {
                 </p>
               ) : null}
               {calloutBanner.tone === "healthy" &&
-                dashboard.lifetimeEstimatedTokensSaved < 1_000_000 && (
+                savingsDashboard.lifetimeEstimatedTokensSaved < 1_000_000 && (
                   <p className="callout-banner__subtitle">
                     Now use your connected tools as normal, and check back later
                     to see how much you are saving by using Headroom.
@@ -7941,7 +7950,7 @@ export default function App() {
                 </button>
               </span>
               <strong className="stat-value--green">
-                {currency(dashboard.lifetimeEstimatedSavingsUsd)}
+                {currency(savingsDashboard.lifetimeEstimatedSavingsUsd)}
               </strong>
             </article>
             <article
@@ -7962,10 +7971,10 @@ export default function App() {
               </span>
               <div className="stat-value-row">
                 <strong className="stat-value--blue">
-                  {compactNumber(dashboard.lifetimeEstimatedTokensSaved)}
+                  {compactNumber(savingsDashboard.lifetimeEstimatedTokensSaved)}
                 </strong>
-                {dashboard.outputReduction ? (
-                  <OutputReductionChip reduction={dashboard.outputReduction} />
+                {savingsDashboard.outputReduction ? (
+                  <OutputReductionChip reduction={savingsDashboard.outputReduction} />
                 ) : null}
               </div>
             </article>
@@ -7985,8 +7994,8 @@ export default function App() {
 
           {dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
             <DailySavingsChart
-              data={dashboard.dailySavings}
-              hourlyData={dashboard.hourlySavings}
+              data={savingsDashboard.dailySavings}
+              hourlyData={savingsDashboard.hourlySavings}
               resetSignal={chartResetSignal}
               chartMode={chartMode}
               setChartMode={setChartMode}
@@ -8039,7 +8048,7 @@ export default function App() {
                   </button>
                 </span>
                 <strong className="stat-value--green">
-                  {currency(dashboard.lifetimeEstimatedSavingsUsd)}
+                  {currency(savingsDashboard.lifetimeEstimatedSavingsUsd)}
                 </strong>
               </article>
               <article
@@ -8060,11 +8069,11 @@ export default function App() {
                 </span>
                 <div className="stat-value-row">
                   <strong className="stat-value--blue">
-                    {compactNumber(dashboard.lifetimeEstimatedTokensSaved)}
+                    {compactNumber(savingsDashboard.lifetimeEstimatedTokensSaved)}
                   </strong>
-                  {dashboard.outputReduction ? (
+                  {savingsDashboard.outputReduction ? (
                     <OutputReductionChip
-                      reduction={dashboard.outputReduction}
+                      reduction={savingsDashboard.outputReduction}
                     />
                   ) : null}
                 </div>
@@ -8085,8 +8094,8 @@ export default function App() {
 
             {dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
               <DailySavingsChart
-                data={dashboard.dailySavings}
-                hourlyData={dashboard.hourlySavings}
+                data={savingsDashboard.dailySavings}
+                hourlyData={savingsDashboard.hourlySavings}
                 resetSignal={chartResetSignal}
                 chartMode={chartMode}
                 setChartMode={setChartMode}
@@ -8643,7 +8652,7 @@ export default function App() {
               <AddonCard
                 key="rtk"
                 name="RTK"
-                version={runtimeStatus?.rtk.version}
+                version="0.0.0"
                 installed={runtimeStatus?.rtk.installed === true}
                 enabled={runtimeStatus?.rtk.enabled === true}
                 description={
@@ -8737,7 +8746,7 @@ export default function App() {
                     <AddonCard
                       key={tool.id}
                       name={tool.name}
-                      version={tool.version}
+                      version="0.0.0"
                       installed={installed}
                       enabled={tool.enabled}
                       description={tool.description}
@@ -9545,9 +9554,7 @@ export default function App() {
                                   </span>
                                 ) : null}
                                 {compatibilityReport.version ? (
-                                  <span>
-                                    Version {compatibilityReport.version}
-                                  </span>
+                                  <span>Version 0.0.0</span>
                                 ) : null}
                                 {compatibilityReport.configSurface ? (
                                   <span>
@@ -10505,7 +10512,7 @@ export default function App() {
               <p>
                 Even accounting for caching, you've likely saved at least{" "}
                 <strong>
-                  {currency(dashboard.lifetimeEstimatedSavingsUsd * 0.5)}
+                  {currency(savingsDashboard.lifetimeEstimatedSavingsUsd * 0.5)}
                 </strong>
                 .
               </p>

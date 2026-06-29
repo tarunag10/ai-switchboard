@@ -255,13 +255,18 @@ export function buildSavingsCalculatorSummary(
             date.startsWith(currentMonthKey()),
           )
         : null;
+  const historyReady = dashboard.savingsHistoryLoaded;
   const savedTokens =
-    scopedDailySavings?.savedTokens ?? dashboard.lifetimeEstimatedTokensSaved;
+    scopedDailySavings?.savedTokens ??
+    (historyReady ? dashboard.lifetimeEstimatedTokensSaved : 0);
   const savedUsd =
-    scopedDailySavings?.savedUsd ?? dashboard.lifetimeEstimatedSavingsUsd;
+    scopedDailySavings?.savedUsd ??
+    (historyReady ? dashboard.lifetimeEstimatedSavingsUsd : 0);
   const sentTokens =
     scopedDailySavings?.sentTokens ??
-    dashboard.dailySavings.reduce((sum, point) => sum + point.totalTokensSent, 0);
+    (historyReady
+      ? dashboard.dailySavings.reduce((sum, point) => sum + point.totalTokensSent, 0)
+      : 0);
   const beforeTokens = sentTokens + savedTokens;
   const savingsPct = beforeTokens > 0 ? (savedTokens / beforeTokens) * 100 : null;
 
@@ -281,7 +286,7 @@ export function buildSavingsCalculatorSummary(
           ? "Tracked switchboard usage this month"
           : dashboard.savingsHistoryLoaded
             ? "All tracked switchboard usage"
-            : "All recorded usage",
+            : "Waiting for saved local history",
   };
 }
 

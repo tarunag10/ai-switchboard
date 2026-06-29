@@ -107,6 +107,26 @@ describe("savings calculator", () => {
     expect(summary.beforeTokens).toBe(0);
   });
 
+  it("does not surface lifetime fallbacks until saved local history loads", () => {
+    const summary = buildSavingsCalculatorSummary(
+      dashboardFixture({
+        lifetimeEstimatedSavingsUsd: 4.25,
+        lifetimeEstimatedTokensSaved: 6_400_000,
+        dailySavings: [],
+        savingsHistoryLoaded: false,
+      }),
+      "lifetime",
+    );
+
+    expect(summary).toMatchObject({
+      savedTokens: 0,
+      savedUsd: 0,
+      sentTokens: 0,
+      dataLabel: "Waiting for saved local history",
+    });
+    expect(summary.savingsPct).toBeNull();
+  });
+
   it("builds today and month summaries from saved local history", () => {
     const today = new Date().toISOString().slice(0, 10);
     const month = today.slice(0, 7);

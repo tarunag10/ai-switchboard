@@ -1,6 +1,6 @@
 [package]
 name = "mac-ai-switchboard"
-version = "0.5.1"
+version = "0.0.0"
 description = "Local-first Mac switchboard for AI coding-agent routing, token savings, and repo context packs."
 authors = ["Tarun Agarwal"]
 license = "MIT"

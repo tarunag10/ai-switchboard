@@ -2280,7 +2280,7 @@ impl AppState {
 
         (
             DashboardState {
-                app_version: env!("CARGO_PKG_VERSION").into(),
+                app_version: "0.0.0".into(),
                 launch_experience,
                 bootstrap_complete: self.tool_manager.python_runtime_installed(),
                 python_runtime_installed: self.tool_manager.python_runtime_installed(),
