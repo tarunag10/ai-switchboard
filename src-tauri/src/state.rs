@@ -245,6 +245,12 @@ pub(crate) fn proxy_port_accepts_connection() -> bool {
     tcp_port_accepts_connection(addr, std::time::Duration::from_secs(1))
 }
 
+pub(crate) fn intercept_port_accepts_connection() -> bool {
+    let addr: std::net::SocketAddr =
+        ([127, 0, 0, 1], crate::proxy_intercept::INTERCEPT_PORT).into();
+    tcp_port_accepts_connection(addr, std::time::Duration::from_millis(250))
+}
+
 /// Parse the `ps -p PID -o time=` accumulated CPU time format.
 /// macOS `ps` emits this as `MM:SS.ss`, `HH:MM:SS`, or `D-HH:MM:SS`
 /// depending on duration. Returns whole seconds; sub-second precision
@@ -483,6 +489,10 @@ pub struct AppState {
     /// once a free user crosses the weekly Codex disable threshold, so Codex
     /// gating never pauses Claude optimization for mixed users.
     pub codex_bypass: Arc<AtomicBool>,
+    /// Sender used by the Rust intercept to notify the identity worker when it
+    /// captures a fresh OAuth bearer. Stored so repair/startup paths can respawn
+    /// the 6767 intercept if the thread exits while the app process remains up.
+    fresh_bearer_tx: Mutex<Option<crate::proxy_intercept::FreshBearerNotifier>>,
     /// Debounce streak for `codex_bypass`, mirroring `pricing_gate_violation_streak`.
     codex_gate_violation_streak: Arc<AtomicU32>,
     /// Number of consecutive `apply_pricing_gate_status` calls that reported
@@ -627,6 +637,7 @@ impl AppState {
             codex_plan_tier: Arc::new(Mutex::new(None)),
             proxy_bypass: Arc::new(AtomicBool::new(false)),
             codex_bypass: Arc::new(AtomicBool::new(false)),
+            fresh_bearer_tx: Mutex::new(None),
             codex_gate_violation_streak: Arc::new(AtomicU32::new(0)),
             pricing_gate_violation_streak: Arc::new(AtomicU32::new(0)),
             headroom_learn_state: Mutex::new(HeadroomLearnRuntimeState {
@@ -666,6 +677,33 @@ impl AppState {
         };
 
         Ok(state)
+    }
+
+    pub fn set_fresh_bearer_notifier(
+        &self,
+        fresh_bearer_tx: crate::proxy_intercept::FreshBearerNotifier,
+    ) {
+        *self.fresh_bearer_tx.lock() = Some(fresh_bearer_tx);
+    }
+
+    pub fn ensure_proxy_intercept_running(&self) {
+        if intercept_port_accepts_connection() {
+            return;
+        }
+        let Some(fresh_bearer_tx) = self.fresh_bearer_tx.lock().clone() else {
+            log::warn!("cannot respawn proxy intercept: bearer notifier is not initialized");
+            return;
+        };
+        log::warn!("proxy intercept on 127.0.0.1:6767 is not accepting connections; respawning");
+        crate::proxy_intercept::spawn(
+            Arc::clone(&self.claude_bearer_token),
+            Arc::clone(&self.codex_rate_limits),
+            Arc::clone(&self.codex_plan_tier),
+            Arc::clone(&self.proxy_bypass),
+            Arc::clone(&self.codex_bypass),
+            fresh_bearer_tx,
+        );
+        self.invalidate_runtime_status_cache();
     }
 
     pub fn warm_runtime_on_launch(&self, app: &tauri::AppHandle) {
@@ -2707,23 +2745,43 @@ impl AppState {
         // If the proxy is already live (e.g. started externally, or by us under
         // the lifecycle lock just above), treat runtime as healthy without
         // forcing another launcher.
+        self.ensure_proxy_intercept_running();
         if is_headroom_proxy_reachable() {
             *self.last_startup_error.lock() = None;
             return Ok(());
         }
 
+        let mut existing_backend_alive = false;
         {
             let mut process = self.headroom_process.lock();
 
             if let Some(existing) = process.as_mut() {
                 match existing.try_wait() {
-                    Ok(None) => return Ok(()),
+                    Ok(None) => {
+                        existing_backend_alive = proxy_port_accepts_connection();
+                    }
                     Ok(Some(_)) | Err(_) => {
                         *process = None;
                     }
                 }
             }
         } // release lock before the blocking start
+
+        if existing_backend_alive {
+            self.ensure_proxy_intercept_running();
+            for _ in 0..8 {
+                if is_headroom_proxy_reachable() {
+                    *self.last_startup_error.lock() = None;
+                    return Ok(());
+                }
+                std::thread::sleep(std::time::Duration::from_millis(250));
+            }
+            *self.last_startup_error.lock() = Some(
+                "Headroom backend is alive, but the client-facing proxy on 127.0.0.1:6767 is not ready."
+                    .to_string(),
+            );
+            return Ok(());
+        }
 
         self.set_runtime_starting(true);
         // During upgrade boot validation, reclaim 6768 even from a still-healthy
@@ -5796,6 +5854,14 @@ pub(crate) fn classify_startup_error(raw: &str) -> Option<String> {
         return Some(
             "A previous Headroom proxy is still running in the background. \
              Quit and relaunch Headroom to reset it."
+                .into(),
+        );
+    }
+    if raw.contains("client-facing proxy on 127.0.0.1:6767 is not ready") {
+        return Some(
+            "The Headroom backend is running, but the client-facing proxy on \
+             127.0.0.1:6767 is not accepting traffic. Click Repair runtime \
+             to respawn the local proxy front door."
                 .into(),
         );
     }

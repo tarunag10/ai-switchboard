@@ -5083,6 +5083,7 @@ pub fn run() {
             // channel forever). On panic we log + report and resume the
             // recv loop on the next signal.
             let (fresh_bearer_tx, fresh_bearer_rx) = std::sync::mpsc::channel::<()>();
+            state.set_fresh_bearer_notifier(fresh_bearer_tx.clone());
             let app_handle_for_pusher = app.handle().clone();
             std::thread::Builder::new()
                 .name("identity-pusher".into())
@@ -5113,14 +5114,7 @@ pub fn run() {
             let wants_headroom = saved_switchboard_mode_wants_headroom();
             if wants_headroom {
                 // Start the intercept layer before anything else touches port 6767.
-                proxy_intercept::spawn(
-                    std::sync::Arc::clone(&state.claude_bearer_token),
-                    std::sync::Arc::clone(&state.codex_rate_limits),
-                    std::sync::Arc::clone(&state.codex_plan_tier),
-                    std::sync::Arc::clone(&state.proxy_bypass),
-                    std::sync::Arc::clone(&state.codex_bypass),
-                    fresh_bearer_tx,
-                );
+                state.ensure_proxy_intercept_running();
             }
             if state.should_present_on_launch() && !launched_from_autostart {
                 let _ = show_launcher_window(app.handle());
@@ -6505,6 +6499,17 @@ fn spawn_proxy_watchdog(app: AppHandle) {
             log::info!(
                 "watchdog: proxy unreachable (failure {consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}, bypass={bypass_active}), attempting restart"
             );
+
+            // If the Python backend is still accepting loopback connections
+            // but the client-facing 6767 intercept is gone, restarting Python
+            // does not help: clients are pointed at the Rust front door. Respawn
+            // the intercept in-process and let the next poll confirm readiness.
+            if state::proxy_port_accepts_connection() && !state::intercept_port_accepts_connection()
+            {
+                state.ensure_proxy_intercept_running();
+                consecutive_failures = 0;
+                continue;
+            }
 
             if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
                 // Before pausing, probe the backend directly on its loopback

@@ -788,6 +788,7 @@ impl ToolManager {
             // Use the console_scripts entrypoint when available to avoid the Python
             // -m double-import RuntimeWarning. Fall back to -m if missing.
             let savings_mode = crate::client_adapters::load_savings_mode();
+            repair_console_script_interpreter(&entrypoint, &python)?;
             let startup_variants: Vec<(PathBuf, Vec<String>)> = if entrypoint.exists() {
                 vec![
                     (entrypoint, headroom_entrypoint_startup_args(&savings_mode)),
@@ -4076,6 +4077,40 @@ fn diagnose_proxy_port(port: u16) -> PortState {
     }
 }
 
+fn repair_console_script_interpreter(entrypoint: &Path, python: &Path) -> Result<()> {
+    if !entrypoint.exists() {
+        return Ok(());
+    }
+    let content = std::fs::read_to_string(entrypoint)
+        .with_context(|| format!("reading {}", entrypoint.display()))?;
+    let python = python.to_string_lossy();
+    let mut changed = false;
+    let mut updated_lines = Vec::new();
+    for line in content.lines() {
+        if line.starts_with("'''exec' \"") && !line.contains(&python[..]) {
+            if let Some(rest_start) = line.find("\" \"$0\" \"$@\"") {
+                let mut updated = String::from("'''exec' \"");
+                updated.push_str(&python);
+                updated.push_str(&line[rest_start..]);
+                updated_lines.push(updated);
+                changed = true;
+                continue;
+            }
+        }
+        updated_lines.push(line.to_string());
+    }
+    if !changed {
+        return Ok(());
+    }
+    let mut updated = updated_lines.join("\n");
+    if content.ends_with('\n') {
+        updated.push('\n');
+    }
+    std::fs::write(entrypoint, updated)
+        .with_context(|| format!("rewriting stale interpreter in {}", entrypoint.display()))?;
+    Ok(())
+}
+
 fn probe_headroom_http(port: u16, timeout: Duration) -> bool {
     use std::io::{Read, Write};
     let addr: SocketAddr = ([127, 0, 0, 1], port).into();
@@ -5719,11 +5754,12 @@ mod tests {
         parse_pid_from_lsof_detail, path_with_binary_dir, probe_backend_readyz_ok,
         proxy_argv_contains_expected_flags_for, read_headroom_learn_metadata_from_path,
         receipt_requires_atomic_rebuild, reclaim_orphan_proxy, redact_sensitive,
-        requirements_lock_sha, rtk_distribution_artifact, run_command, sanitize_log_variant,
-        sha256_bytes, summarize_kompress_prefetch_failure, verify_sha256_file, wait_for_port_free,
-        write_mcp_server_to_claude_json, CommandFailure, HeadroomRelease, ManagedRuntime,
-        PipOutputCapture, ToolManager, UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION,
-        CAVEMAN_LEVEL_COMPACT_CHINESE, CAVEMAN_LEVEL_SCOPED, RTK_VERSION,
+        repair_console_script_interpreter, requirements_lock_sha, rtk_distribution_artifact,
+        run_command, sanitize_log_variant, sha256_bytes, summarize_kompress_prefetch_failure,
+        verify_sha256_file, wait_for_port_free, write_mcp_server_to_claude_json, CommandFailure,
+        HeadroomRelease, ManagedRuntime, PipOutputCapture, ToolManager, UpgradeOutcome,
+        ATOMIC_REBUILD_FLOOR_VERSION, CAVEMAN_LEVEL_COMPACT_CHINESE, CAVEMAN_LEVEL_SCOPED,
+        RTK_VERSION,
     };
     use crate::backend_port;
     use crate::models::SavingsMode;
@@ -5738,6 +5774,29 @@ mod tests {
         // A bare binary name has no usable parent; PATH is left unchanged.
         let existing = std::env::var("PATH").unwrap_or_default();
         assert_eq!(path_with_binary_dir(&PathBuf::from("codex")), existing);
+    }
+
+    #[test]
+    fn repair_console_script_interpreter_rewrites_legacy_python_path() {
+        let root = unique_temp_dir("repair-console-script");
+        let bin = root.join("venv").join("bin");
+        fs::create_dir_all(&bin).unwrap();
+        let entrypoint = bin.join("headroom");
+        let python = bin.join("python3");
+        fs::write(&python, "#!/bin/sh\n").unwrap();
+        fs::write(
+            &entrypoint,
+            "#!/bin/sh\n'''exec' \"/Users/t/Library/Application Support/Headroom/headroom/runtime/venv/bin/python3\" \"$0\" \"$@\"\n' '''\nimport sys\n",
+        )
+        .unwrap();
+
+        repair_console_script_interpreter(&entrypoint, &python).unwrap();
+
+        let updated = fs::read_to_string(&entrypoint).unwrap();
+        assert!(updated.contains(&format!("'''exec' \"{}\"", python.display())));
+        assert!(!updated.contains("Application Support/Headroom/headroom/runtime/venv/bin/python3"));
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
