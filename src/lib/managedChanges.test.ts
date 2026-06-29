@@ -11,6 +11,7 @@ import {
   buildManagedRollbackPlans,
   formatManagedConfigApplyPlan,
   formatManagedConfigDiffPreview,
+  formatManagedFootprintReport,
   formatManagedRollbackExecutionPreview,
   formatManagedRollbackInventory,
   formatManagedRollbackPlan,
@@ -674,5 +675,42 @@ describe("managedChangeRecords", () => {
         busy: false,
       }),
     ).toBe(false);
+  });
+
+  it("formats managed footprint reports without secret values", () => {
+    const text = formatManagedFootprintReport({
+      generatedAt: "2026-06-29T00:00:00Z",
+      items: [
+        {
+          id: "codex-config",
+          category: "client_config",
+          path: "~/.codex/config.toml",
+          exists: true,
+          managed: true,
+          action: "Codex config may contain managed provider blocks.",
+          reversible: true,
+          backupPaths: ["*.headroom.bak next to edited config"],
+          notes: ["Report does not include provider values."],
+        },
+        {
+          id: "keychain-mac-ai-switchboard",
+          category: "keychain",
+          path: "Keychain service: mac-ai-switchboard",
+          exists: false,
+          managed: true,
+          action: "Values are never reported.",
+          reversible: true,
+          backupPaths: [],
+          notes: ["Existence is not probed."],
+        },
+      ],
+    });
+
+    expect(text).toContain("Mac AI Switchboard managed footprint");
+    expect(text).toContain("## client_config");
+    expect(text).toContain("Path: ~/.codex/config.toml");
+    expect(text).toContain("Keychain service: mac-ai-switchboard");
+    expect(text).toContain("No file contents, secret values, or keychain values");
+    expect(text).not.toContain("sk-");
   });
 });

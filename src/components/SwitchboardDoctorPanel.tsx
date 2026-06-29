@@ -13,14 +13,22 @@ import {
   formatVerifyOffModeShareText,
   plannedConnectorDoctorPreviewRows,
 } from "../lib/doctorRepairCopy";
-import { formatManagedRollbackInventory } from "../lib/managedChanges";
-import type { DoctorIssue, DoctorReport } from "../lib/types";
+import {
+  formatManagedFootprintReport,
+  formatManagedRollbackInventory,
+} from "../lib/managedChanges";
+import type {
+  DoctorIssue,
+  DoctorReport,
+  ManagedFootprintReport,
+} from "../lib/types";
 
 interface SwitchboardDoctorPanelProps {
   report: DoctorReport | null;
   busyAction: string | null;
   error: string | null;
   successMessage?: string | null;
+  footprintReport?: ManagedFootprintReport | null;
   onRepair: (action: string) => void;
 }
 
@@ -33,6 +41,7 @@ export function SwitchboardDoctorPanel({
   busyAction,
   error,
   successMessage,
+  footprintReport,
   onRepair,
 }: SwitchboardDoctorPanelProps) {
   if (!report) {
@@ -171,6 +180,24 @@ export function SwitchboardDoctorPanel({
     setCopyNotice("Copied Rollback Center.");
   }
 
+  async function copyManagedFootprint() {
+    if (!navigator.clipboard || !footprintReport) {
+      setCopyNotice("Clipboard unavailable.");
+      return;
+    }
+
+    await navigator.clipboard.writeText(
+      formatManagedFootprintReport(footprintReport),
+    );
+    setCopyNotice("Copied managed footprint.");
+  }
+
+  const footprintCategories = footprintReport
+    ? Array.from(
+        new Set(footprintReport.items.map((item) => item.category)),
+      ).sort()
+    : [];
+
   return (
     <section
       className={`switchboard-doctor switchboard-doctor--${report.status}`}
@@ -221,6 +248,27 @@ export function SwitchboardDoctorPanel({
           </small>
         </div>
       </div>
+
+      {footprintReport ? (
+        <section className="switchboard-doctor__report-card">
+          <div>
+            <span>Managed footprint</span>
+            <strong>{footprintReport.items.length}</strong>
+            <small>
+              {footprintCategories.length > 0
+                ? footprintCategories.join(", ")
+                : "No managed footprint rows."}
+            </small>
+          </div>
+          <button
+            type="button"
+            className="switchboard-doctor__copy"
+            onClick={() => void copyManagedFootprint()}
+          >
+            <Copy size={14} /> Copy footprint
+          </button>
+        </section>
+      ) : null}
 
       {report.issues.length > 0 ? (
         <div

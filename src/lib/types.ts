@@ -281,6 +281,23 @@ export interface ManagedConfigApplyResult {
   verification: string[];
 }
 
+export interface ManagedFootprintItem {
+  id: string;
+  category: string;
+  path: string;
+  exists: boolean;
+  managed: boolean;
+  action: string;
+  reversible: boolean;
+  backupPaths: string[];
+  notes: string[];
+}
+
+export interface ManagedFootprintReport {
+  generatedAt: string;
+  items: ManagedFootprintItem[];
+}
+
 export interface ManagedRollbackUndoAllPreview {
   status: "ready" | "blocked";
   confirmationPhrase: string;

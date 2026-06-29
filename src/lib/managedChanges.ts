@@ -1,4 +1,4 @@
-import type { ManagedRollbackPreview } from "./types";
+import type { ManagedFootprintReport, ManagedRollbackPreview } from "./types";
 
 export type ManagedChangeKind =
   | "client_config"
@@ -849,6 +849,45 @@ export function formatManagedRollbackInventory(
       "",
     ]),
     "Review dry-run diffs before applying config changes. Dry-run reports do not modify files and every apply requires explicit user confirmation. Off mode must remove only Switchboard-owned marked changes.",
+  ]
+    .join("\n")
+    .trimEnd();
+}
+
+export function formatManagedFootprintReport(
+  report: ManagedFootprintReport,
+): string {
+  const categories = Array.from(
+    new Set(report.items.map((item) => item.category)),
+  ).sort();
+
+  return [
+    "Mac AI Switchboard managed footprint",
+    `Generated: ${report.generatedAt}`,
+    "No file contents, secret values, or keychain values are included.",
+    "",
+    ...categories.flatMap((category) => [
+      `## ${category}`,
+      ...report.items
+        .filter((item) => item.category === category)
+        .map((item) =>
+          [
+            `- ${item.id}`,
+            `  Path: ${item.path}`,
+            `  Exists: ${item.exists ? "yes" : "no"}`,
+            `  Managed: ${item.managed ? "yes" : "no"}`,
+            `  Reversible: ${item.reversible ? "yes" : "no"}`,
+            `  Action: ${item.action}`,
+            item.backupPaths.length > 0
+              ? `  Backups: ${item.backupPaths.join(" | ")}`
+              : null,
+            item.notes.length > 0 ? `  Notes: ${item.notes.join(" | ")}` : null,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        ),
+      "",
+    ]),
   ]
     .join("\n")
     .trimEnd();

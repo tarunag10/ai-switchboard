@@ -14,9 +14,10 @@ use crate::models::{
     ClientConnectorAutomationStage, ClientConnectorConfigCreationStep,
     ClientConnectorConfigDryRunPreview, ClientConnectorStatus, ClientConnectorSupportStatus,
     ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus,
-    ManagedConfigApplyPreview, ManagedConfigApplyResult, ManagedRollbackExecutionResult,
-    ManagedRollbackExecutionStatus, ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult,
-    ManagedRollbackUndoAllPreview, SavingsMode, SwitchboardMode,
+    ManagedConfigApplyPreview, ManagedConfigApplyResult, ManagedFootprintItem,
+    ManagedFootprintReport, ManagedRollbackExecutionResult, ManagedRollbackExecutionStatus,
+    ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview,
+    SavingsMode, SwitchboardMode,
 };
 use crate::storage::{app_data_dir, config_file};
 
@@ -3976,6 +3977,190 @@ pub fn execute_managed_rollback_undo_all(
     })
 }
 
+pub fn get_managed_footprint() -> ManagedFootprintReport {
+    let mut items = Vec::new();
+    let app_dir = app_data_dir();
+    let legacy_app_dir = app_dir
+        .parent()
+        .map(|parent| parent.join(crate::storage::LEGACY_STORAGE_DIR_NAME))
+        .unwrap_or_else(|| home_dir().join("Library/Application Support/Headroom"));
+
+    push_footprint_item(
+        &mut items,
+        "app-storage",
+        "storage",
+        app_dir,
+        true,
+        "Primary app support storage for runtimes, receipts, logs, backups, and indexes.",
+        true,
+        vec![],
+        vec!["Contains local state, not secrets values in this report.".to_string()],
+    );
+    push_footprint_item(
+        &mut items,
+        "legacy-storage",
+        "storage",
+        legacy_app_dir,
+        true,
+        "Preserved legacy Headroom storage copied forward during migration.",
+        true,
+        vec![],
+        vec!["Left intact for compatibility; not deleted by migration.".to_string()],
+    );
+    push_footprint_item(
+        &mut items,
+        "claude-settings",
+        "client_config",
+        claude_settings_path(),
+        false,
+        "Claude Code settings may contain managed env and hook references.",
+        true,
+        vec!["*.headroom.bak next to edited config".to_string()],
+        vec!["Report does not read or include setting values.".to_string()],
+    );
+    push_footprint_item(
+        &mut items,
+        "claude-rtk-hook",
+        "client_config",
+        headroom_rtk_hook_path(),
+        true,
+        "Managed Claude Code RTK PreToolUse hook.",
+        true,
+        vec!["*.headroom.bak next to edited hook".to_string()],
+        vec![],
+    );
+    push_footprint_item(
+        &mut items,
+        "claude-markitdown-hook",
+        "client_config",
+        headroom_markitdown_hook_path(),
+        true,
+        "Managed Claude Code MarkItDown PreToolUse hook.",
+        true,
+        vec!["*.headroom.bak next to edited hook".to_string()],
+        vec![],
+    );
+    push_footprint_item(
+        &mut items,
+        "codex-config",
+        "client_config",
+        codex_config_toml_path(),
+        false,
+        "Codex config may contain managed provider and routing blocks.",
+        true,
+        vec!["*.headroom.bak next to edited config".to_string()],
+        vec!["Report does not read or include provider values.".to_string()],
+    );
+
+    for shell in ALL_SHELL_FILES {
+        push_footprint_item(
+            &mut items,
+            &format!("shell-{shell}"),
+            "shell_profile",
+            shell_path(shell),
+            false,
+            "Shell profile may contain Switchboard-managed routing or RTK blocks.",
+            true,
+            vec!["*.headroom.bak next to edited shell profile".to_string()],
+            vec![],
+        );
+    }
+
+    for spec in PLANNED_SIDECAR_SPECS {
+        if let Ok(path) = planned_sidecar_routing_path(spec.id) {
+            push_footprint_item(
+                &mut items,
+                &format!("{}-sidecar", spec.id),
+                "connector_sidecar",
+                path,
+                true,
+                &format!("Managed {} routing-intent sidecar.", spec.name),
+                true,
+                vec!["*.headroom.bak next to edited sidecar".to_string()],
+                vec!["Sidecar contains no account secrets by design.".to_string()],
+            );
+        }
+    }
+
+    push_footprint_item(
+        &mut items,
+        "app-log",
+        "logs",
+        crate::logging::log_path(),
+        true,
+        "Desktop app log file.",
+        true,
+        vec![],
+        vec!["Logs may include local paths; copy report excludes log contents.".to_string()],
+    );
+    push_footprint_item(
+        &mut items,
+        "memory-db",
+        "local_database",
+        crate::storage::memory_db_path(&app_data_dir()),
+        true,
+        "Local memory database.",
+        true,
+        vec![],
+        vec!["Database contents are not included in this report.".to_string()],
+    );
+    push_footprint_item(
+        &mut items,
+        "launch-agent",
+        "launch_agent",
+        home_dir().join("Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist"),
+        false,
+        "Launch at login agent if enabled.",
+        true,
+        vec![],
+        vec![],
+    );
+    for service in ["mac-ai-switchboard", "headroom-desktop", "headroom"] {
+        items.push(ManagedFootprintItem {
+            id: format!("keychain-{service}"),
+            category: "keychain".to_string(),
+            path: format!("Keychain service: {service}"),
+            exists: false,
+            managed: true,
+            action:
+                "May store app/session secrets under this service name; values are never reported."
+                    .to_string(),
+            reversible: true,
+            backup_paths: vec![],
+            notes: vec!["Existence is not probed to avoid touching secret material.".to_string()],
+        });
+    }
+
+    ManagedFootprintReport {
+        generated_at: Utc::now(),
+        items,
+    }
+}
+
+fn push_footprint_item(
+    items: &mut Vec<ManagedFootprintItem>,
+    id: &str,
+    category: &str,
+    path: PathBuf,
+    managed: bool,
+    action: &str,
+    reversible: bool,
+    backup_paths: Vec<String>,
+    notes: Vec<String>,
+) {
+    items.push(ManagedFootprintItem {
+        id: id.to_string(),
+        category: category.to_string(),
+        exists: path.exists(),
+        path: path.display().to_string(),
+        managed,
+        action: action.to_string(),
+        reversible,
+        backup_paths,
+        notes,
+    });
+}
+
 fn marker_block_contains(content: &str, block_id: &str, needle: &str) -> bool {
     marker_block_contains_with_prefix(content, block_id, needle, MARKER_PREFIX)
 }
@@ -4213,7 +4398,7 @@ fn remove_managed_block(file_path: &Path, block_id: &str) -> Result<bool> {
     let legacy_start = managed_marker_start(LEGACY_MARKER_PREFIX, block_id);
     let legacy_end = managed_marker_end(LEGACY_MARKER_PREFIX, block_id);
 
-    let (start, end, start_idx, end_idx) = if let (Some(start_idx), Some(end_idx)) =
+    let (_start, end, start_idx, end_idx) = if let (Some(start_idx), Some(end_idx)) =
         (existing.find(&new_start), existing.find(&new_end))
     {
         (new_start, new_end, start_idx, end_idx)
@@ -9183,5 +9368,61 @@ js_repl = false\n",
         assert_eq!(provider_count(&db, "headroom"), 2);
         assert_eq!(provider_count(&db, "openai"), 0);
         assert_eq!(provider_count(&db, "anthropic"), 1);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_footprint_report_is_redacted_and_lists_core_surfaces() {
+        let home = TestHome::new();
+        std::fs::create_dir_all(home.path().join(".codex")).unwrap();
+        std::fs::write(
+            home.path().join(".codex").join("config.toml"),
+            "secret = true",
+        )
+        .unwrap();
+
+        let report = super::get_managed_footprint();
+        let ids = report
+            .items
+            .iter()
+            .map(|item| item.id.as_str())
+            .collect::<BTreeSet<_>>();
+
+        assert!(ids.contains("app-storage"));
+        assert!(ids.contains("legacy-storage"));
+        assert!(ids.contains("codex-config"));
+        assert!(ids.contains("claude-settings"));
+        assert!(ids.contains("launch-agent"));
+        assert!(ids.contains("keychain-mac-ai-switchboard"));
+        assert!(ids.contains("gemini_cli-sidecar"));
+
+        let serialized = serde_json::to_string(&report).unwrap();
+        assert!(!serialized.contains("secret = true"));
+        assert!(!serialized.contains("sk-"));
+        assert!(serialized.contains("Keychain service: mac-ai-switchboard"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_footprint_marks_existing_paths_without_reading_values() {
+        let home = TestHome::new();
+        let sidecar = home
+            .path()
+            .join(".gemini")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        std::fs::create_dir_all(sidecar.parent().unwrap()).unwrap();
+        std::fs::write(&sidecar, "token = sk-test").unwrap();
+
+        let report = super::get_managed_footprint();
+        let gemini = report
+            .items
+            .iter()
+            .find(|item| item.id == "gemini_cli-sidecar")
+            .expect("gemini footprint");
+
+        assert!(gemini.exists);
+        assert!(gemini.managed);
+        assert!(gemini.reversible);
+        assert!(!serde_json::to_string(&report).unwrap().contains("sk-test"));
     }
 }

@@ -47,12 +47,12 @@ use crate::models::{
     ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
     HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
     HeadroomSubscriptionTier, ManagedConfigApplyPreview, ManagedConfigApplyResult,
-    ManagedRollbackExecutionResult, ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult,
-    ManagedRollbackUndoAllPreview, RepoAgentHandoffResponse, RepoContextPackResponse,
-    RepoDependentsResponse, RepoIndexFreshnessResponse, RepoIntelligenceManifestResponse,
-    RepoIntelligenceSummary, RepoSymbolSearchResponse, RuntimeStatus, RuntimeUpgradeProgress,
-    SavingsAttributionEvent, SavingsMode, SwitchboardMode, SwitchboardState,
-    TransformationFeedResponse,
+    ManagedFootprintReport, ManagedRollbackExecutionResult, ManagedRollbackPreview,
+    ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview, RepoAgentHandoffResponse,
+    RepoContextPackResponse, RepoDependentsResponse, RepoIndexFreshnessResponse,
+    RepoIntelligenceManifestResponse, RepoIntelligenceSummary, RepoSymbolSearchResponse,
+    RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionEvent, SavingsMode, SwitchboardMode,
+    SwitchboardState, TransformationFeedResponse,
 };
 use crate::state::AppState;
 
@@ -433,6 +433,11 @@ fn execute_managed_rollback_undo_all(
 ) -> Result<ManagedRollbackUndoAllExecutionResult, String> {
     client_adapters::execute_managed_rollback_undo_all(&confirmation_phrase)
         .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn get_managed_footprint() -> ManagedFootprintReport {
+    client_adapters::get_managed_footprint()
 }
 
 #[tauri::command]
@@ -4947,6 +4952,7 @@ pub fn run() {
             execute_managed_config_apply,
             preview_managed_rollback,
             execute_managed_rollback,
+            get_managed_footprint,
             preview_managed_rollback_undo_all,
             execute_managed_rollback_undo_all,
             build_repo_intelligence_summary,

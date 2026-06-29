@@ -284,6 +284,7 @@ import type {
   HeadroomSubscriptionTier,
   ManagedConfigApplyPreview,
   ManagedConfigApplyResult,
+  ManagedFootprintReport,
   ManagedRollbackExecutionResult,
   ManagedRollbackPreview,
   ManagedRollbackUndoAllExecutionResult,
@@ -3040,6 +3041,8 @@ export default function App() {
     string | null
   >(null);
   const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
+  const [managedFootprintReport, setManagedFootprintReport] =
+    useState<ManagedFootprintReport | null>(null);
   const [doctorRepairBusy, setDoctorRepairBusy] = useState<string | null>(null);
   const [doctorRepairError, setDoctorRepairError] = useState<string | null>(
     null,
@@ -3385,11 +3388,20 @@ export default function App() {
       }
 
       updateStartup("runtime", 80, "Preparing local engine…");
-      const [runtimeResult, switchboardResult, doctorResult, pricingResult] =
+      const [
+        runtimeResult,
+        switchboardResult,
+        doctorResult,
+        footprintResult,
+        pricingResult,
+      ] =
         await Promise.all([
           invoke<RuntimeStatus>("get_runtime_status").catch(() => null),
           invoke<SwitchboardState>("get_switchboard_state").catch(() => null),
           invoke<DoctorReport>("get_doctor_report").catch(() => null),
+          invoke<ManagedFootprintReport>("get_managed_footprint").catch(
+            () => null,
+          ),
           localOnlyMode
             ? Promise.resolve(null)
             : invoke<HeadroomPricingStatus>(
@@ -3408,6 +3420,9 @@ export default function App() {
       }
       if (doctorResult) {
         setDoctorReport(doctorResult);
+      }
+      if (footprintResult) {
+        setManagedFootprintReport(footprintResult);
       }
       if (pricingResult) {
         setPricingStatus(pricingResult);
@@ -4773,10 +4788,17 @@ export default function App() {
 
   async function refreshDoctorReport() {
     try {
-      const report = await invoke<DoctorReport>("get_doctor_report");
+      const [report, footprint] = await Promise.all([
+        invoke<DoctorReport>("get_doctor_report"),
+        invoke<ManagedFootprintReport>("get_managed_footprint").catch(
+          () => null,
+        ),
+      ]);
       setDoctorReport(report);
+      setManagedFootprintReport(footprint);
     } catch {
       setDoctorReport(null);
+      setManagedFootprintReport(null);
     }
   }
 
@@ -7809,6 +7831,7 @@ export default function App() {
             busyAction={doctorRepairBusy}
             error={doctorRepairError}
             successMessage={doctorRepairSuccess}
+            footprintReport={managedFootprintReport}
             onRepair={(action) => void handleDoctorRepair(action)}
           />
 
@@ -8016,6 +8039,7 @@ export default function App() {
               busyAction={doctorRepairBusy}
               error={doctorRepairError}
               successMessage={doctorRepairSuccess}
+              footprintReport={managedFootprintReport}
               onRepair={(action) => void handleDoctorRepair(action)}
             />
             <DoctorTimelineCard

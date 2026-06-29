@@ -30,6 +30,27 @@ pub struct ManagedTool {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ManagedFootprintItem {
+    pub id: String,
+    pub category: String,
+    pub path: String,
+    pub exists: bool,
+    pub managed: bool,
+    pub action: String,
+    pub reversible: bool,
+    pub backup_paths: Vec<String>,
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedFootprintReport {
+    pub generated_at: DateTime<Utc>,
+    pub items: Vec<ManagedFootprintItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PipelineStageMetric {
     pub stage_id: String,
     pub stage_name: String,
