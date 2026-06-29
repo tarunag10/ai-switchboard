@@ -3972,6 +3972,7 @@ fn repo_memory_script_candidates(script_name: &str) -> Vec<PathBuf> {
         if let Some(mac_os_dir) = exe.parent() {
             if let Some(contents_dir) = mac_os_dir.parent() {
                 let resources_dir = contents_dir.join("Resources");
+                candidates.push(resources_dir.join("_up_").join("scripts").join(script_name));
                 candidates.push(resources_dir.join("scripts").join(script_name));
                 candidates.push(resources_dir.join(script_name));
             }
