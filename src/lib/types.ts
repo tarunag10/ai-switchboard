@@ -628,12 +628,22 @@ export interface RtkTodayStats {
   date: string;
   savedTokens: number;
   commands: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  savingsPct?: number | null;
+  totalTimeMs?: number;
+  avgTimeMs?: number | null;
 }
 
 export interface RtkDailyStats {
   date: string;
   savedTokens: number;
   commands: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  savingsPct?: number | null;
+  totalTimeMs?: number;
+  avgTimeMs?: number | null;
 }
 
 export type RecordTag = "daily" | "weekly" | "allTime";

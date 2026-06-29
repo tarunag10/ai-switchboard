@@ -1240,6 +1240,11 @@ pub struct RtkTodayStats {
     pub date: String,
     pub saved_tokens: u64,
     pub commands: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub savings_pct: Option<f64>,
+    pub total_time_ms: u64,
+    pub avg_time_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1248,6 +1253,11 @@ pub struct RtkDailyStats {
     pub date: String,
     pub saved_tokens: u64,
     pub commands: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub savings_pct: Option<f64>,
+    pub total_time_ms: u64,
+    pub avg_time_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]

@@ -352,7 +352,15 @@ struct RtkDailyEntry {
     #[serde(default)]
     commands: u64,
     #[serde(default)]
+    input_tokens: u64,
+    #[serde(default)]
+    output_tokens: u64,
+    #[serde(default)]
     saved_tokens: u64,
+    savings_pct: Option<f64>,
+    #[serde(default)]
+    total_time_ms: u64,
+    avg_time_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -1402,6 +1410,11 @@ impl ToolManager {
                 date: entry.date,
                 saved_tokens: entry.saved_tokens,
                 commands: entry.commands,
+                input_tokens: entry.input_tokens,
+                output_tokens: entry.output_tokens,
+                savings_pct: entry.savings_pct,
+                total_time_ms: entry.total_time_ms,
+                avg_time_ms: entry.avg_time_ms,
             })
     }
 
@@ -1414,6 +1427,11 @@ impl ToolManager {
                     date: entry.date,
                     saved_tokens: entry.saved_tokens,
                     commands: entry.commands,
+                    input_tokens: entry.input_tokens,
+                    output_tokens: entry.output_tokens,
+                    savings_pct: entry.savings_pct,
+                    total_time_ms: entry.total_time_ms,
+                    avg_time_ms: entry.avg_time_ms,
                 })
                 .collect(),
         )
@@ -6319,6 +6337,11 @@ mod tests {
         assert_eq!(stats.date, today);
         assert_eq!(stats.commands, 7);
         assert_eq!(stats.saved_tokens, 1234);
+        assert_eq!(stats.input_tokens, 0);
+        assert_eq!(stats.output_tokens, 0);
+        assert_eq!(stats.savings_pct, None);
+        assert_eq!(stats.total_time_ms, 0);
+        assert_eq!(stats.avg_time_ms, None);
 
         let _ = fs::remove_dir_all(root);
     }
@@ -6328,7 +6351,7 @@ mod tests {
         let (root, runtime, manager) = seed_test_runtime("rtk-daily");
         write_executable(
             &runtime.bin_dir.join("rtk"),
-            "#!/usr/bin/env bash\nif [ \"$1\" = \"gain\" ]; then\n  echo '{\"daily\":[{\"date\":\"2026-06-24\",\"commands\":2,\"saved_tokens\":300},{\"date\":\"2026-06-25\",\"commands\":7,\"saved_tokens\":1234}]}';\n  exit 0\nfi\nexit 9\n",
+            "#!/usr/bin/env bash\nif [ \"$1\" = \"gain\" ]; then\n  echo '{\"daily\":[{\"date\":\"2026-06-24\",\"commands\":2,\"input_tokens\":900,\"output_tokens\":600,\"saved_tokens\":300,\"savings_pct\":33.3,\"total_time_ms\":1200,\"avg_time_ms\":600},{\"date\":\"2026-06-25\",\"commands\":7,\"input_tokens\":2000,\"output_tokens\":766,\"saved_tokens\":1234,\"savings_pct\":61.7,\"total_time_ms\":3500,\"avg_time_ms\":500}]}';\n  exit 0\nfi\nexit 9\n",
         );
         manager
             .write_tool_receipt("rtk", serde_json::json!({ "version": RTK_VERSION }))
@@ -6338,10 +6361,20 @@ mod tests {
         assert_eq!(stats.len(), 2);
         assert_eq!(stats[0].date, "2026-06-24");
         assert_eq!(stats[0].commands, 2);
+        assert_eq!(stats[0].input_tokens, 900);
+        assert_eq!(stats[0].output_tokens, 600);
         assert_eq!(stats[0].saved_tokens, 300);
+        assert_eq!(stats[0].savings_pct, Some(33.3));
+        assert_eq!(stats[0].total_time_ms, 1200);
+        assert_eq!(stats[0].avg_time_ms, Some(600));
         assert_eq!(stats[1].date, "2026-06-25");
         assert_eq!(stats[1].commands, 7);
+        assert_eq!(stats[1].input_tokens, 2000);
+        assert_eq!(stats[1].output_tokens, 766);
         assert_eq!(stats[1].saved_tokens, 1234);
+        assert_eq!(stats[1].savings_pct, Some(61.7));
+        assert_eq!(stats[1].total_time_ms, 3500);
+        assert_eq!(stats[1].avg_time_ms, Some(500));
 
         let _ = fs::remove_dir_all(root);
     }

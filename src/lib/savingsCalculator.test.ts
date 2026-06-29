@@ -297,6 +297,9 @@ describe("savings calculator", () => {
           date: "2026-06-25",
           savedTokens: 1_234,
           commands: 7,
+          inputTokens: 2_000,
+          outputTokens: 766,
+          totalTimeMs: 3_500,
         },
       },
     );
@@ -313,6 +316,11 @@ describe("savings calculator", () => {
       caveat: "Observed from local counters for this source.",
     });
     expect(rtk?.detail).toContain("7 command outputs compressed locally today");
+    expect(rtk?.detail).toContain(
+      "RTK measured 2,000 input tokens, 766 output tokens, and 1,234 saved tokens",
+    );
+    expect(rtk?.detail).toContain("61.7% saved vs input");
+    expect(rtk?.detail).toContain("3.5s total RTK processing time");
   });
 
   it("rolls RTK daily stats into week and month measured ledger rows", () => {
@@ -324,8 +332,22 @@ describe("savings calculator", () => {
     const runtimeStatus = {
       rtk: {
         daily: [
-          { date: today, savedTokens: 500, commands: 2 },
-          { date: weekStartDate, savedTokens: 250, commands: 1 },
+          {
+            date: today,
+            savedTokens: 500,
+            commands: 2,
+            inputTokens: 1_000,
+            outputTokens: 500,
+            totalTimeMs: 1_100,
+          },
+          {
+            date: weekStartDate,
+            savedTokens: 250,
+            commands: 1,
+            inputTokens: 500,
+            outputTokens: 250,
+            totalTimeMs: 900,
+          },
           { date: "2026-01-01", savedTokens: 9_000, commands: 9 },
         ],
       },
@@ -349,6 +371,12 @@ describe("savings calculator", () => {
       confidence: "measured",
       savedTokens: 750,
     });
+    expect(weekRows.find((row) => row.id === "rtk_week")?.detail).toContain(
+      "RTK measured 1,500 input tokens, 750 output tokens, and 750 saved tokens",
+    );
+    expect(weekRows.find((row) => row.id === "rtk_week")?.detail).toContain(
+      "2s total RTK processing time",
+    );
     expect(monthRows.find((row) => row.id === "rtk_month")).toMatchObject({
       label: "RTK this month",
       confidence: "measured",

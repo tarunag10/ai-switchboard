@@ -150,6 +150,15 @@ function formatTokens(value: number) {
   return new Intl.NumberFormat("en-US").format(Math.round(value));
 }
 
+function formatDurationMs(value: number) {
+  if (value < 1000) {
+    return `${Math.round(value)}ms`;
+  }
+  return `${new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 1,
+  }).format(value / 1000)}s`;
+}
+
 function formatPercent(value: number | null) {
   if (value === null) {
     return "waiting for usage";
@@ -254,10 +263,53 @@ function summarizeRtkDailyStats(
       (total, point) => {
         total.savedTokens += point.savedTokens;
         total.commands += point.commands;
+        total.inputTokens += Math.max(0, point.inputTokens ?? 0);
+        total.outputTokens += Math.max(0, point.outputTokens ?? 0);
+        total.totalTimeMs += Math.max(0, point.totalTimeMs ?? 0);
         return total;
       },
-      { savedTokens: 0, commands: 0 },
+      {
+        savedTokens: 0,
+        commands: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTimeMs: 0,
+      },
     );
+}
+
+function rtkSavingsPercent(inputTokens: number, savedTokens: number) {
+  return inputTokens > 0 ? (savedTokens / inputTokens) * 100 : null;
+}
+
+function rtkMeasuredDetail(
+  commands: number,
+  savedTokens: number,
+  inputTokens: number,
+  outputTokens: number,
+  totalTimeMs: number,
+  scopeLabel: string,
+) {
+  const parts = [
+    commands > 0
+      ? `${commands.toLocaleString()} command outputs compressed locally ${scopeLabel}`
+      : `Command-output tokens compressed locally ${scopeLabel}`,
+  ];
+  if (inputTokens > 0 || outputTokens > 0) {
+    parts.push(
+      `RTK measured ${formatTokens(inputTokens)} input tokens, ${formatTokens(
+        outputTokens,
+      )} output tokens, and ${formatTokens(savedTokens)} saved tokens`,
+    );
+  }
+  const pct = rtkSavingsPercent(inputTokens, savedTokens);
+  if (pct !== null) {
+    parts.push(`${formatPercent(pct)} saved vs input`);
+  }
+  if (totalTimeMs > 0) {
+    parts.push(`${formatDurationMs(totalTimeMs)} total RTK processing time`);
+  }
+  return `${parts.join(". ")}.`;
 }
 
 export function buildSavingsCalculatorSummary(
@@ -415,16 +467,37 @@ export function buildSavingsCalculatorBreakdown(
           ? summarizeRtkDailyStats(rtkDaily, (date) =>
               date.startsWith(currentMonthKey()),
             )
-          : { savedTokens: 0, commands: 0 };
+          : {
+              savedTokens: 0,
+              commands: 0,
+              inputTokens: 0,
+              outputTokens: 0,
+              totalTimeMs: 0,
+            };
   const fallbackRtkToday =
     scope === "today" && rtkScopedDaily.savedTokens === 0
       ? {
           savedTokens: Math.max(0, options.rtkToday?.savedTokens ?? 0),
           commands: Math.max(0, options.rtkToday?.commands ?? 0),
+          inputTokens: Math.max(0, options.rtkToday?.inputTokens ?? 0),
+          outputTokens: Math.max(0, options.rtkToday?.outputTokens ?? 0),
+          totalTimeMs: Math.max(0, options.rtkToday?.totalTimeMs ?? 0),
         }
-      : { savedTokens: 0, commands: 0 };
+      : {
+          savedTokens: 0,
+          commands: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTimeMs: 0,
+        };
   const rtkWindowSaved = rtkScopedDaily.savedTokens + fallbackRtkToday.savedTokens;
   const rtkWindowCommands = rtkScopedDaily.commands + fallbackRtkToday.commands;
+  const rtkWindowInput =
+    rtkScopedDaily.inputTokens + fallbackRtkToday.inputTokens;
+  const rtkWindowOutput =
+    rtkScopedDaily.outputTokens + fallbackRtkToday.outputTokens;
+  const rtkWindowTime =
+    rtkScopedDaily.totalTimeMs + fallbackRtkToday.totalTimeMs;
   if (
     (scope === "today" || scope === "week" || scope === "month") &&
     rtkWindowSaved > 0
@@ -438,10 +511,14 @@ export function buildSavingsCalculatorBreakdown(
       confidence: "measured",
       savedTokens: rtkWindowSaved,
       savedUsd: null,
-      detail:
-        rtkWindowCommands > 0
-          ? `${rtkWindowCommands.toLocaleString()} command outputs compressed locally ${scopeLabel}.`
-          : `Command-output tokens compressed locally ${scopeLabel}.`,
+      detail: rtkMeasuredDetail(
+        rtkWindowCommands,
+        rtkWindowSaved,
+        rtkWindowInput,
+        rtkWindowOutput,
+        rtkWindowTime,
+        scopeLabel,
+      ),
     });
   }
 
