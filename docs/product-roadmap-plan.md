@@ -43,6 +43,7 @@ Shipped:
 - Settings Legal now includes bundled license, notice, trademark, and asset-provenance summaries offline, including the logo provenance and branding guard command, without external legal links.
 - Ponytail savings attribution now records durable estimated events only when plugin registration is verified in connected agent hosts, including host evidence instead of unconditional inferred template rows.
 - Savings ledger caveats now use source-specific evidence language for estimated Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese rows instead of collapsing all estimates into a generic history/model warning.
+- The savings calculator now exposes the roadmap week scope in the Optimize UI, backed by saved local daily history over the trailing seven-day window alongside session, repo, today, month, and lifetime scopes.
 - Release readiness reports now ingest the local Rollback Center and Doctor repair validation summaries as explicit local-only evidence, including the required refresh commands and pass/fail status, while keeping signed/public installed-smoke gates separate.
 - The in-app Run local evidence action now finishes by regenerating the release readiness report, so one click produces fresh local validation summaries and a fresh report snapshot without running signing, notarization, updater publication, or the strict public-release gate.
 - Local uninstall validation now writes durable non-destructive dry-run evidence from frontend disclosure and backend target-inventory checks, and the release readiness report ingests it alongside Doctor and Rollback local evidence.
@@ -191,11 +192,11 @@ Suggested commit:
 
 Goal: give users an exact, scoped answer to "how many tokens or credits did this session save?"
 
-Status: partially shipped. The ledger UI and backend durable events exist with measured, estimated, and inferred confidence labels. The remaining work is stronger live counters and clearer scoped rollups.
+Status: partially shipped. The ledger UI and backend durable events exist with measured, estimated, and inferred confidence labels, and the calculator now covers session, repo, today, week, month, and lifetime scopes. The remaining work is stronger live counters and clearer repo/current-session rollups.
 
 Tasks:
 
-- Define savings scopes: current app session, current repo, today, week, month, lifetime.
+- Define savings scopes: current app session, current repo, today, week, month, lifetime: shipped in the calculator and ledger UI.
 - Persist RTK command summaries with timestamps, project path, command family, input tokens, output tokens, saved tokens, and elapsed time.
 - Persist Headroom engine compression events with client, model, request id, before/after tokens, saved tokens, and estimated cost.
 - Keep the unified savings ledger accurate across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, Compact Chinese, and future add-ons.

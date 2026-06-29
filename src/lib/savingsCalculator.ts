@@ -7,6 +7,7 @@ export type SavingsCalculatorScope =
   | "session"
   | "repo"
   | "today"
+  | "week"
   | "month"
   | "lifetime";
 
@@ -200,6 +201,8 @@ export function savingsCalculatorScopeLabel(scope: SavingsCalculatorScope) {
       return "current repo";
     case "today":
       return "today";
+    case "week":
+      return "this week";
     case "month":
       return "this month";
     case "lifetime":
@@ -213,6 +216,12 @@ function currentDateKey() {
 
 function currentMonthKey() {
   return new Date().toISOString().slice(0, 7);
+}
+
+function trailingWeekStartDateKey() {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() - 6);
+  return date.toISOString().slice(0, 10);
 }
 
 function summarizeDailySavings(
@@ -279,6 +288,12 @@ export function buildSavingsCalculatorSummary(
   const scopedDailySavings =
     scope === "today"
       ? summarizeDailySavings(dashboard, (date) => date === currentDateKey())
+      : scope === "week"
+        ? summarizeDailySavings(
+            dashboard,
+            (date) =>
+              date >= trailingWeekStartDateKey() && date <= currentDateKey(),
+          )
       : scope === "month"
         ? summarizeDailySavings(dashboard, (date) =>
             date.startsWith(currentMonthKey()),
@@ -311,6 +326,8 @@ export function buildSavingsCalculatorSummary(
     dataLabel:
       scope === "today"
         ? "Tracked switchboard usage today"
+        : scope === "week"
+          ? "Tracked switchboard usage this week"
         : scope === "month"
           ? "Tracked switchboard usage this month"
           : dashboard.savingsHistoryLoaded
@@ -757,7 +774,7 @@ export function formatSavingsLedgerShareText(
     `Mac AI Switchboard savings ledger (${scopeLabel})`,
     `Recorded: ${recordedAt}`,
     `Confidence filter: ${filter === "all" ? "all rows" : filter}`,
-    "Scopes: session uses live app counters; repo uses Repo Intelligence context estimates; today/month/lifetime use saved local history.",
+    "Scopes: session uses live app counters; repo uses Repo Intelligence context estimates; today/week/month/lifetime use saved local history.",
     `Rows: ${formatTokens(summary.rowCount)}`,
     `Total tokens: ${formatTokens(summary.totalTokens)}`,
     `Measured tokens: ${formatTokens(summary.measuredTokens)} / ${formatUsd(summary.measuredUsd)}`,

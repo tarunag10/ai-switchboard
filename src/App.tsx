@@ -652,6 +652,7 @@ const savingsCalculatorScopes: SavingsCalculatorScope[] = [
   "session",
   "repo",
   "today",
+  "week",
   "month",
   "lifetime",
 ];

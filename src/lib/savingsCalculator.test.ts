@@ -127,9 +127,22 @@ describe("savings calculator", () => {
     expect(summary.savingsPct).toBeNull();
   });
 
-  it("builds today and month summaries from saved local history", () => {
+  it("builds today, week, and month summaries from saved local history", () => {
     const today = new Date().toISOString().slice(0, 10);
-    const month = today.slice(0, 7);
+    const weekStart = new Date();
+    weekStart.setUTCDate(weekStart.getUTCDate() - 6);
+    const weekStartDate = weekStart.toISOString().slice(0, 10);
+    const weekStartInCurrentMonth = weekStartDate.startsWith(today.slice(0, 7));
+    const expectedWeek = {
+      savedTokens: 800,
+      savedUsd: 2,
+      sentTokens: 3_200,
+    };
+    const expectedMonth = {
+      savedTokens: weekStartInCurrentMonth ? 800 : 600,
+      savedUsd: weekStartInCurrentMonth ? 2 : 1.5,
+      sentTokens: weekStartInCurrentMonth ? 3_200 : 2_400,
+    };
     const dashboard = dashboardFixture({
       dailySavings: [
         {
@@ -140,11 +153,11 @@ describe("savings calculator", () => {
           totalTokensSent: 2_400,
         },
         {
-          date: `${month}-01`,
-          estimatedSavingsUsd: 2,
-          estimatedTokensSaved: 800,
-          actualCostUsd: 1,
-          totalTokensSent: 3_200,
+          date: weekStartDate,
+          estimatedSavingsUsd: 0.5,
+          estimatedTokensSaved: 200,
+          actualCostUsd: 0.25,
+          totalTokensSent: 800,
         },
         {
           date: "2026-01-01",
@@ -163,10 +176,17 @@ describe("savings calculator", () => {
       requests: 0,
       dataLabel: "Tracked switchboard usage today",
     });
+    expect(buildSavingsCalculatorSummary(dashboard, "week")).toMatchObject({
+      savedTokens: expectedWeek.savedTokens,
+      savedUsd: expectedWeek.savedUsd,
+      sentTokens: expectedWeek.sentTokens,
+      requests: 0,
+      dataLabel: "Tracked switchboard usage this week",
+    });
     expect(buildSavingsCalculatorSummary(dashboard, "month")).toMatchObject({
-      savedTokens: 1_400,
-      savedUsd: 3.5,
-      sentTokens: 5_600,
+      savedTokens: expectedMonth.savedTokens,
+      savedUsd: expectedMonth.savedUsd,
+      sentTokens: expectedMonth.sentTokens,
       requests: 0,
       dataLabel: "Tracked switchboard usage this month",
     });
@@ -944,7 +964,7 @@ describe("savings calculator", () => {
     expect(text).toContain("Recorded: 2026-06-27T10:00:00.000Z");
     expect(text).toContain("Confidence filter: all rows");
     expect(text).toContain(
-      "Scopes: session uses live app counters; repo uses Repo Intelligence context estimates; today/month/lifetime use saved local history.",
+      "Scopes: session uses live app counters; repo uses Repo Intelligence context estimates; today/week/month/lifetime use saved local history.",
     );
     expect(text).toContain("Measured tokens: 900 / $0.00");
     expect(text).toContain("Estimated tokens: 4,300 / $4.50");
