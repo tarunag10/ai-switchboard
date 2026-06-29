@@ -7538,6 +7538,55 @@ html.window-hiding {
   line-height: 1.4;
 }
 
+.activity-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.activity-card__privacy-note {
+  margin: 8px 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.activity-card__modal {
+  max-width: 460px;
+  padding: 18px;
+}
+
+.activity-card__modal h2 {
+  margin: 0 0 10px;
+  font-size: var(--text-lg);
+  font-weight: 500;
+}
+
+.activity-card__modal p {
+  margin: 0 0 14px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.activity-card__field,
+.activity-card__consent {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.activity-card__field {
+  justify-content: space-between;
+}
+
+.activity-card__field select {
+  min-width: 140px;
+}
+
 .activity-feed__list {
   list-style: none;
   margin: 0;
