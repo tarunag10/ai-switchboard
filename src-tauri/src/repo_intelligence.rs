@@ -668,7 +668,6 @@ pub fn build_context_pack_response(
         .find(|candidate| candidate.id == selected_pack_id)
         .cloned()
         .ok_or_else(|| anyhow!("repo intelligence pack not found: {selected_pack_id}"))?;
-    let graph = summary.graph.as_ref();
     let index_freshness = build_index_freshness_response(Some(summary));
 
     Ok(RepoContextPackResponse {
@@ -677,22 +676,7 @@ pub fn build_context_pack_response(
         pack,
         index_metadata: summary.index_metadata.clone(),
         index_freshness,
-        graph_brief: RepoContextPackGraphBrief {
-            available: graph.is_some(),
-            dependency_hub_count: graph
-                .map(|graph| graph.dependency_hubs.len())
-                .unwrap_or_default(),
-            import_edge_count: graph
-                .map(|graph| graph.import_edges.len())
-                .unwrap_or_default(),
-            reverse_dependency_hub_count: graph
-                .map(|graph| graph.reverse_dependency_hubs.len())
-                .unwrap_or_default(),
-            symbol_count: graph.map(|graph| graph.symbols.len()).unwrap_or_default(),
-            symbol_edge_count: graph
-                .map(|graph| graph.symbol_edges.len())
-                .unwrap_or_default(),
-        },
+        graph_brief: build_graph_brief(summary),
         safety: RepoContextPackSafety {
             read_only: true,
             excludes_secret_like_paths: true,
@@ -742,7 +726,6 @@ pub fn build_agent_handoff_response(
         })
         .or_else(|| summary.packs.first().cloned())
         .ok_or_else(|| anyhow!("no repo intelligence packs are available"))?;
-    let graph = summary.graph.as_ref();
     let index_freshness = build_index_freshness_response(Some(summary));
     let config_readiness = build_agent_config_readiness(profile.id);
 
@@ -758,22 +741,7 @@ pub fn build_agent_handoff_response(
             guidance: profile.guidance.to_string(),
         },
         pack,
-        graph_brief: RepoContextPackGraphBrief {
-            available: graph.is_some(),
-            dependency_hub_count: graph
-                .map(|graph| graph.dependency_hubs.len())
-                .unwrap_or_default(),
-            import_edge_count: graph
-                .map(|graph| graph.import_edges.len())
-                .unwrap_or_default(),
-            reverse_dependency_hub_count: graph
-                .map(|graph| graph.reverse_dependency_hubs.len())
-                .unwrap_or_default(),
-            symbol_count: graph.map(|graph| graph.symbols.len()).unwrap_or_default(),
-            symbol_edge_count: graph
-                .map(|graph| graph.symbol_edges.len())
-                .unwrap_or_default(),
-        },
+        graph_brief: build_graph_brief(summary),
         index_freshness,
         safety: RepoAgentHandoffSafety {
             read_only: true,
@@ -783,6 +751,51 @@ pub fn build_agent_handoff_response(
         },
         config_readiness,
     })
+}
+
+fn build_graph_brief(summary: &RepoIntelligenceSummary) -> RepoContextPackGraphBrief {
+    let graph = summary.graph.as_ref();
+    let mut graph_input_paths: Vec<String> = summary
+        .index_metadata
+        .as_ref()
+        .map(|metadata| {
+            metadata
+                .graph_inputs
+                .iter()
+                .take(6)
+                .map(|entry| entry.path.clone())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if graph_input_paths.is_empty() {
+        if let Some(graph) = graph {
+            graph_input_paths = graph
+                .dependency_hubs
+                .iter()
+                .take(6)
+                .map(|signal| signal.path.clone())
+                .collect();
+        }
+    }
+
+    RepoContextPackGraphBrief {
+        available: graph.is_some(),
+        dependency_hub_count: graph
+            .map(|graph| graph.dependency_hubs.len())
+            .unwrap_or_default(),
+        import_edge_count: graph
+            .map(|graph| graph.import_edges.len())
+            .unwrap_or_default(),
+        reverse_dependency_hub_count: graph
+            .map(|graph| graph.reverse_dependency_hubs.len())
+            .unwrap_or_default(),
+        symbol_count: graph.map(|graph| graph.symbols.len()).unwrap_or_default(),
+        symbol_edge_count: graph
+            .map(|graph| graph.symbol_edges.len())
+            .unwrap_or_default(),
+        graph_input_paths,
+    }
 }
 
 pub fn latest_symbol_search(
@@ -911,7 +924,6 @@ pub fn latest_manifest() -> Result<Option<RepoIntelligenceManifestResponse>> {
 pub fn build_manifest_response(
     summary: &RepoIntelligenceSummary,
 ) -> RepoIntelligenceManifestResponse {
-    let graph = summary.graph.as_ref();
     let repo_root = summary.repo_root.clone();
 
     RepoIntelligenceManifestResponse {
@@ -929,22 +941,7 @@ pub fn build_manifest_response(
                 .clone()
                 .unwrap_or_else(|| "unknown".to_string()),
         },
-        graph_brief: RepoContextPackGraphBrief {
-            available: graph.is_some(),
-            dependency_hub_count: graph
-                .map(|graph| graph.dependency_hubs.len())
-                .unwrap_or_default(),
-            import_edge_count: graph
-                .map(|graph| graph.import_edges.len())
-                .unwrap_or_default(),
-            reverse_dependency_hub_count: graph
-                .map(|graph| graph.reverse_dependency_hubs.len())
-                .unwrap_or_default(),
-            symbol_count: graph.map(|graph| graph.symbols.len()).unwrap_or_default(),
-            symbol_edge_count: graph
-                .map(|graph| graph.symbol_edges.len())
-                .unwrap_or_default(),
-        },
+        graph_brief: build_graph_brief(summary),
         packs: summary
             .packs
             .iter()
@@ -2788,6 +2785,12 @@ export const mapValues = <T>(items: T[]) => items;
         assert_eq!(response.pack.id, "implementation");
         assert!(response.graph_brief.available);
         assert!(response.graph_brief.symbol_count > 0);
+        assert!(response
+            .graph_brief
+            .graph_input_paths
+            .iter()
+            .any(|path| path == "src/App.tsx"));
+        assert!(response.graph_brief.graph_input_paths.len() <= 6);
         assert!(matches!(
             response.index_freshness.status,
             RepoIndexFreshnessStatus::Fresh | RepoIndexFreshnessStatus::UnchangedCache
@@ -3003,6 +3006,11 @@ export const mapValues = <T>(items: T[]) => items;
         assert_eq!(manifest.totals.total_files, 4);
         assert!(manifest.graph_brief.available);
         assert!(manifest.graph_brief.symbol_count > 0);
+        assert!(manifest
+            .graph_brief
+            .graph_input_paths
+            .iter()
+            .any(|path| path == "src/App.tsx"));
         assert_eq!(
             manifest
                 .packs
@@ -3179,6 +3187,12 @@ export const mapValues = <T>(items: T[]) => items;
         assert!(!codex.safety.manual_provider_routing);
         assert!(codex.safety.read_only);
         assert!(!codex.safety.modifies_repository);
+        assert!(codex.graph_brief.graph_input_paths.len() <= 6);
+        assert!(codex
+            .graph_brief
+            .graph_input_paths
+            .iter()
+            .any(|path| path == "src/App.tsx"));
         assert!(codex.config_readiness.is_none());
 
         let gemini = build_agent_handoff_response(&summary, "gemini", Some("implementation"))

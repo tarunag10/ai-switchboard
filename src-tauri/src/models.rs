@@ -239,6 +239,8 @@ pub struct RepoContextPackGraphBrief {
     pub reverse_dependency_hub_count: usize,
     pub symbol_count: usize,
     pub symbol_edge_count: usize,
+    #[serde(default)]
+    pub graph_input_paths: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

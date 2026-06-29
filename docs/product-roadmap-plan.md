@@ -32,7 +32,7 @@ Left:
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
 - Turn repo-memory MCP into a real app-supervised long-running local service beyond the current process-bound active marker plus smoke-tested stdio transport.
 - Replace inferred Ponytail, Caveman, Compact Chinese, and some Repo Intelligence savings rows with stronger measured counters where trustworthy evidence exists; MarkItDown is now estimated from the managed smoke-tested conversion path.
-- Deepen Repo Intelligence with tree-sitter or language-aware parser/index versions, imports, reverse dependencies, graph-aware packs, and richer Doctor health checks.
+- Deepen Repo Intelligence beyond the shipped tree-sitter/parser index versions, imports, reverse dependencies, graph-input evidence, and graph-aware packs with richer language-specific dependency analyzers and Doctor health checks.
 - Complete public release readiness with signed/notarized DMG, updater artifacts, public installed-smoke proof, uninstall evidence, and release-panel wiring.
 
 ## Product Principles
@@ -247,9 +247,9 @@ Status: v1 is usable. Start Agent Session, CLI handoffs, read-only packs, parser
 
 Tasks:
 
-- Add tree-sitter or language-specific parsers for TypeScript, JavaScript, Python, Rust, Swift, Markdown, and shell scripts.
-- Persist file hashes, parser versions, symbol counts, imports, reverse dependencies, likely tests, and stale status.
-- Add graph-aware packs for implementation, verification, onboarding, risk review, and release handoff.
+- Add tree-sitter or language-specific parsers for TypeScript, JavaScript, Python, Rust, Swift, Markdown, and shell scripts: shipped for the current tree-sitter-backed symbol extraction contract; deeper language-specific dependency analyzers remain.
+- Persist file hashes, parser versions, symbol counts, imports, reverse dependencies, graph-input paths, likely tests, and stale status: shipped for the current graph index contract.
+- Add graph-aware packs for implementation, verification, onboarding, risk review, and release handoff: shipped with bounded graph brief and graph-input evidence; deeper task-specific graph ranking remains.
 - Expose packs through local CLI and MCP-style APIs.
 - Add Doctor checks for parser availability, corrupt graph storage, stale index, and missing repo paths.
 - Keep indexing read-only and ignore-aware.
