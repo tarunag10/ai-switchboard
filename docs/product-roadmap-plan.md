@@ -6,7 +6,7 @@ Mac AI Switchboard should stay local-first. The app can route Claude, Codex, and
 
 ## Current Checkpoint - 2026-06-29
 
-Recent verified build: `/Applications/Mac AI Switchboard.app` was rebuilt and locally reinstalled from `tarun/local-switchboard` at commit `0a96d26 Guard bootstrap in off mode`. Local installed smoke and codesign verification passed for the ad-hoc app. Public release readiness is still blocked by signing, notarization, updater, and public installed-smoke evidence.
+Recent verified build: `/Applications/Mac AI Switchboard.app` was rebuilt and locally reinstalled from `tarun/local-switchboard` at commit `739dd49 Clarify mode inspector one-click actions`. Local installed smoke, codesign verification, and Off/RTK-only local mode relaunch smoke passed for the ad-hoc app. Public release readiness is still blocked by signing, notarization, updater, and public installed-smoke evidence.
 
 Shipped:
 
@@ -19,12 +19,13 @@ Shipped:
 - Savings ledger rows now distinguish measured, estimated, and inferred events across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese.
 - Rollback Center has guarded preview/execution for ready allowlisted rows, including Codex/OpenCode restore paths and managed sidecar cleanup.
 - Remote destination registry, support-link routing, external-link SSRF guards, local-only backend refusal for account/billing/contact commands, branding iconset provenance, local DMG build, and local installed smoke evidence are shipped.
+- Local mode relaunch smoke now backs up and restores `client-setup.json`, launches the installed app in saved Off and RTK-only modes, and verifies the app process returns while intercept and Headroom proxy listeners stay down.
 
 Left:
 
 - App-owned Terms, Privacy Notice, Settings Legal surfaces, and terms-version policy are bundled and covered by focused tests.
 - Complete the Mode Inspector as a user-facing proof surface for every listener, hook, MCP, shell block, provider block, LaunchAgent, and stale-shell caveat.
-- Add installed-app/relaunch/reboot smoke evidence for Off mode, RTK-only mode, Doctor repair guards, and Rollback Center survival.
+- Add reboot smoke evidence for Off mode, RTK-only mode, Doctor repair guards, and Rollback Center survival.
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
 - Turn repo-memory MCP into a real app-supervised long-running local service instead of only persisted app-session state plus smoke-tested stdio transport.
 - Replace inferred Ponytail, Caveman, Compact Chinese, MarkItDown, and some Repo Intelligence savings rows with stronger measured counters where trustworthy evidence exists.
@@ -112,7 +113,7 @@ Suggested commit:
 
 Goal: make switchboard modes provable instead of merely selectable.
 
-Status: partially shipped. Off/RTK-only launch and bootstrap guards are in place, and Doctor can flag active routing evidence while Off is requested. The remaining work is the full proof surface, repair blocking, and installed-app persistence evidence.
+Status: partially shipped. Off/RTK-only launch and bootstrap guards are in place, Doctor can flag active routing evidence while Off is requested, Mode Inspector exposes Codex/Claude/RTK/MCP/LaunchAgent rows, and local installed relaunch smoke proves saved Off and RTK-only modes do not start the Headroom proxy. The remaining work is reboot evidence, deeper listener/hook proof, and Doctor-repair smoke evidence.
 
 Tasks:
 
@@ -120,7 +121,7 @@ Tasks:
 - Add a Doctor "Verify Off mode" action.
 - Add a Mode Inspector panel showing requested mode, active mode, Headroom engine status, RTK hook status, Claude routing, Codex routing, Repo Memory MCP lifecycle state, shell export state, and LaunchAgent state.
 - Block repair actions from silently restoring Headroom routing when requested mode is Off or RTK-only.
-- Extend launch/bootstrap tests into installed-app restart, relaunch, reboot, and Doctor-repair smoke evidence.
+- Extend launch/bootstrap tests into installed-app reboot and Doctor-repair smoke evidence.
 - Document stale shell behavior and restart guidance.
 
 Acceptance checks:
