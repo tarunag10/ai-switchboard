@@ -22,13 +22,13 @@ use crate::client_adapters::{
 };
 use crate::insights::generate_daily_insights;
 use crate::models::{
-    ActivityEvent, BootstrapProgress, ClaudeAccountProfile, ClaudeCodeProject, ClientStatus,
-    CodexAccountProfile, CodexRateLimitSnapshot, DailyInsight, DailySavingsPoint, DashboardState,
-    HeadroomLearnPrereqStatus, HeadroomLearnStatus, HourlySavingsPoint, LaunchAgentRuntimeStatus,
-    LaunchExperience, RtkRuntimeStatus, RuntimeStatus, RuntimeUpgradeFailure,
-    RuntimeUpgradeProgress, SavingsAttributionConfidence, SavingsAttributionEvent,
-    SavingsAttributionScope, SavingsAttributionSource, SwitchboardMode, TransformationFeedEvent,
-    UpgradeFailurePhase, UsageEvent,
+    ActivityEvent, BackendRuntimeStatus, BootstrapProgress, ClaudeAccountProfile,
+    ClaudeCodeProject, ClientStatus, CodexAccountProfile, CodexRateLimitSnapshot, DailyInsight,
+    DailySavingsPoint, DashboardState, HeadroomLearnPrereqStatus, HeadroomLearnStatus,
+    HourlySavingsPoint, LaunchAgentRuntimeStatus, LaunchExperience, RtkRuntimeStatus,
+    RuntimeStatus, RuntimeUpgradeFailure, RuntimeUpgradeProgress, SavingsAttributionConfidence,
+    SavingsAttributionEvent, SavingsAttributionScope, SavingsAttributionSource, SwitchboardMode,
+    TransformationFeedEvent, UpgradeFailurePhase, UsageEvent,
 };
 use crate::pricing;
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs, telemetry_file};
@@ -2931,6 +2931,7 @@ impl AppState {
             }
         };
         let launch_agent_status = launch_agent_runtime_status();
+        let backend_status = backend_runtime_status();
 
         let effective_running = installed && !paused && proxy_reachable;
 
@@ -2961,6 +2962,7 @@ impl AppState {
                     .to_string(),
             headroom_pid,
             launch_agent_status,
+            backend_status,
             mcp_configured,
             mcp_error,
             repo_memory_mcp_configured,
@@ -3413,6 +3415,18 @@ fn launch_agent_runtime_status() -> LaunchAgentRuntimeStatus {
         path: Some(managed_path.display().to_string()),
         legacy_installed: legacy_path.exists(),
         legacy_path: Some(legacy_path.display().to_string()),
+    }
+}
+
+fn backend_runtime_status() -> BackendRuntimeStatus {
+    let port = crate::backend_port::get();
+    BackendRuntimeStatus {
+        reachable: proxy_port_accepts_connection(),
+        bind_address: format!("127.0.0.1:{port}"),
+        port,
+        default_port: crate::backend_port::DEFAULT_BACKEND_PORT,
+        fallback_range_start: crate::backend_port::FALLBACK_RANGE_START,
+        fallback_range_end: crate::backend_port::FALLBACK_RANGE_END,
     }
 }
 

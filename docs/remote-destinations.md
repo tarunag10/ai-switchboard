@@ -20,9 +20,9 @@ disabled unless `VITE_HEADROOM_REMOTE_SERVICES=1` is set. Remote telemetry stays
 off unless both remote services are enabled and `VITE_HEADROOM_REMOTE_TELEMETRY`
 is truthy.
 
-Local loopback URLs such as `http://127.0.0.1:6767`,
-`http://127.0.0.1:6768`, and `http://127.0.0.1:8787` are local runtime
-endpoints, not remote destinations.
+Local loopback URLs such as `http://127.0.0.1:6767` and the selected internal
+backend port (`http://127.0.0.1:6768` or fallback `6769..=6790`) are local
+runtime endpoints, not remote destinations.
 
 ## App-Owned Remote Destinations
 

@@ -387,6 +387,14 @@ export interface RuntimeStatus {
     legacyInstalled: boolean;
     legacyPath?: string | null;
   } | null;
+  backendStatus?: {
+    reachable: boolean;
+    bindAddress: string;
+    port: number;
+    defaultPort: number;
+    fallbackRangeStart: number;
+    fallbackRangeEnd: number;
+  } | null;
   mcpConfigured?: boolean | null;
   mcpError?: string | null;
   repoMemoryMcpConfigured?: boolean | null;

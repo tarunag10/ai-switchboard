@@ -24,6 +24,12 @@ function renderPanel(
           "127.0.0.1:6767 is accepting loopback traffic. The listener is local-only.",
       },
       {
+        label: "Backend port",
+        status: "Reachable",
+        detail:
+          "127.0.0.1:6768 is the default internal Headroom backend port.",
+      },
+      {
         label: "Codex routing",
         status: "Verified",
         detail: "Codex is routed through Headroom and verified.",
@@ -92,6 +98,7 @@ describe("SwitchboardPanel", () => {
     expect(inspector.getByText("RTK hook")).toBeInTheDocument();
     expect(inspector.queryByText("Stale shells")).not.toBeInTheDocument();
     expect(inspector.getByText("Proxy listener")).toBeInTheDocument();
+    expect(inspector.getByText("Backend port")).toBeInTheDocument();
     expect(inspector.getByText("Codex routing")).toBeInTheDocument();
     expect(inspector.getByText("Claude routing")).toBeInTheDocument();
     expect(inspector.getByText("Client routing")).toBeInTheDocument();
@@ -108,6 +115,11 @@ describe("SwitchboardPanel", () => {
     expect(
       inspector.getByText(
         "127.0.0.1:6767 is accepting loopback traffic. The listener is local-only.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      inspector.getByText(
+        "127.0.0.1:6768 is the default internal Headroom backend port.",
       ),
     ).toBeInTheDocument();
     expect(

@@ -88,7 +88,7 @@ Tasks:
 - Add backend tests for saved `SwitchboardMode::Off` preventing intercept spawn, Python proxy startup, MCP restore, and client setup restore.
 - Add a Doctor item for Off verification:
   - no `127.0.0.1:6767` listener
-  - no `127.0.0.1:8787` listener
+  - no selected internal backend listener (`6768` or fallback `6769..=6790`)
   - no Headroom MCP config in Codex
   - no app-managed or legacy Headroom LaunchAgent plist present; launchd load-state proof remains separate
   - no managed client routing blocks
