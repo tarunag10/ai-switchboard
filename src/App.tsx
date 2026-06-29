@@ -125,6 +125,7 @@ import {
   getUpgradePlans,
   getFounderStepPricing,
   isTierDowngrade,
+  shouldOfferRuntimeRestartAction,
   tierRecommendationSourceLabel,
   upgradePlanIntentLabel,
   type BillingPeriod,
@@ -7410,6 +7411,14 @@ export default function App() {
           }
           return `Mac AI Switchboard needs attention: ${primaryIssue}.`;
         })();
+  const showRuntimeRestartAction = shouldOfferRuntimeRestartAction(
+    calloutBanner.tone,
+    {
+      runtimeHealthy,
+      runtimeStarting: runtimeStatus?.starting === true,
+      connectorPhase,
+    },
+  );
   const tierMismatch = localOnlyMode
     ? null
     : (pricingStatus?.tierMismatch ?? null);
@@ -8094,8 +8103,7 @@ export default function App() {
                     to see how much you are saving by using Headroom.
                   </p>
                 )}
-              {(calloutBanner.tone === "auto-paused" ||
-                calloutBanner.tone === "paused") && (
+              {showRuntimeRestartAction ? (
                 <div className="callout-banner__resume">
                   <button
                     type="button"
@@ -8103,7 +8111,12 @@ export default function App() {
                     onClick={() => void handleResumeRuntime()}
                     disabled={resuming}
                   >
-                    {resuming ? "Restarting…" : "Resume"}
+                    {resuming
+                      ? "Restarting…"
+                      : calloutBanner.tone === "paused" ||
+                          calloutBanner.tone === "auto-paused"
+                        ? "Resume"
+                        : "Start runtime"}
                   </button>
                   {resumeError ? (
                     <p
@@ -8114,7 +8127,7 @@ export default function App() {
                     </p>
                   ) : null}
                 </div>
-              )}
+              ) : null}
               {calloutBanner.tone === "starting" &&
               connectorPhase === "verifying" ? (
                 <div className="callout-banner__resume">

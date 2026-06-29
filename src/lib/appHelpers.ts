@@ -169,6 +169,32 @@ export function describeInvokeError(error: unknown, fallback: string) {
   return fallback;
 }
 
+export type RuntimeCalloutTone =
+  | "auto-paused"
+  | "degraded"
+  | "disabled"
+  | "disconnected"
+  | "healthy"
+  | "paused"
+  | "starting";
+
+export function shouldOfferRuntimeRestartAction(
+  tone: RuntimeCalloutTone,
+  options: {
+    runtimeHealthy: boolean;
+    runtimeStarting?: boolean;
+    connectorPhase?: "disabled" | "healthy" | "verifying";
+  },
+): boolean {
+  if (options.runtimeStarting || options.connectorPhase === "verifying") {
+    return false;
+  }
+  if (tone === "auto-paused" || tone === "paused") {
+    return true;
+  }
+  return !options.runtimeHealthy && (tone === "disconnected" || tone === "degraded");
+}
+
 export function getNextLowerUpgradePlanId(
   planId?: PaidUpgradePlanId | null
 ): IndividualUpgradePlanId | null {
