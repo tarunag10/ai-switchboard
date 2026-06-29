@@ -4202,10 +4202,35 @@ fn execute_sidecar_rollback(
             target.owner
         ));
     }
-    disable_client_setup(target.client_id)?;
+    let sidecar = planned_sidecar_spec(target.client_id).ok_or_else(|| {
+        anyhow!(
+            "No Switchboard sidecar is configured for {}.",
+            target.client_id
+        )
+    })?;
+    let (removed, safety_backup) = remove_managed_block_with_backup(&target_path, sidecar.id)?;
+    if !removed {
+        return Err(anyhow!(
+            "Managed {} marker disappeared before rollback could remove it.",
+            target.owner
+        ));
+    }
+    let mut state = load_setup_state();
+    let state_id = normalized_setup_id(target.client_id);
+    state.configured_clients.remove(state_id);
+    state.remembered_clients.remove(state_id);
+    state.managed_shell_files.remove(state_id);
+    state.remembered_shell_files.remove(state_id);
+    write_setup_state(&state)?;
     if target_path.exists() {
         let _ = std::fs::read_to_string(&target_path)
             .with_context(|| format!("re-reading {}", target_path.display()))?;
+        if planned_switchboard_sidecar_matches(target.client_id)? {
+            return Err(anyhow!(
+                "Managed {} marker is still present after rollback.",
+                target.owner
+            ));
+        }
     }
 
     Ok(ManagedRollbackExecutionResult {
@@ -4216,7 +4241,7 @@ fn execute_sidecar_rollback(
             "Switchboard-owned {} sidecar block removed.",
             target.client_id
         ),
-        safety_backup_path: None,
+        safety_backup_path: safety_backup.map(|path| path.display().to_string()),
         marker: target.marker.to_string(),
         verification: vec![
             "Exact confirmation phrase matched.".to_string(),
@@ -4224,8 +4249,9 @@ fn execute_sidecar_rollback(
                 "Managed {} marker was present before cleanup.",
                 target.owner
             ),
+            "A fresh sidecar safety backup was created before cleanup.".to_string(),
             format!(
-                "Cleanup used disable_client_setup for {} Off-mode parity.",
+                "Setup state was cleared for {} Off-mode parity.",
                 target.client_id
             ),
             "Relaunch-survival evidence: sidecar file was re-read from disk after cleanup."
@@ -5000,8 +5026,15 @@ fn remove_shell_block(shell_targets: &[PathBuf], block_id: &str) -> Result<()> {
 }
 
 fn remove_managed_block(file_path: &Path, block_id: &str) -> Result<bool> {
+    remove_managed_block_with_backup(file_path, block_id).map(|(removed, _backup)| removed)
+}
+
+fn remove_managed_block_with_backup(
+    file_path: &Path,
+    block_id: &str,
+) -> Result<(bool, Option<PathBuf>)> {
     if !file_path.exists() {
-        return Ok(false);
+        return Ok((false, None));
     }
 
     let existing = std::fs::read_to_string(file_path)
@@ -5020,11 +5053,11 @@ fn remove_managed_block(file_path: &Path, block_id: &str) -> Result<bool> {
     {
         (legacy_start, legacy_end, start_idx, end_idx)
     } else {
-        return Ok(false);
+        return Ok((false, None));
     };
 
     if start_idx >= end_idx {
-        return Ok(false);
+        return Ok((false, None));
     }
 
     let end_with_marker = end_idx + end.len();
@@ -5039,10 +5072,10 @@ fn remove_managed_block(file_path: &Path, block_id: &str) -> Result<bool> {
         rebuilt.push('\n');
     }
 
-    let _ = backup_if_exists(file_path)?;
+    let backup = backup_if_exists(file_path)?;
     std::fs::write(file_path, rebuilt)
         .with_context(|| format!("writing {}", file_path.display()))?;
-    Ok(true)
+    Ok((true, backup))
 }
 
 fn backup_if_exists(path: &Path) -> Result<Option<PathBuf>> {
@@ -8473,6 +8506,19 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             result.restored_from,
             "Switchboard-owned cursor sidecar block removed."
         );
+        let safety_backup = result
+            .safety_backup_path
+            .as_ref()
+            .expect("sidecar rollback reports safety backup");
+        assert!(
+            safety_backup.contains(".headroom-backup-"),
+            "unexpected safety backup path: {safety_backup}"
+        );
+        assert!(std::path::Path::new(safety_backup).exists());
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("fresh sidecar safety backup"));
         assert!(result
             .verification
             .join(" ")
@@ -8480,6 +8526,8 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
         let content = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
         assert_eq!(content, "# cursor user note\nkeep this\n");
+        assert!(!super::planned_switchboard_sidecar_matches("cursor")
+            .expect("check cleaned cursor sidecar"));
     }
 
     #[test]
@@ -8528,6 +8576,12 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             .map(|row| row.record_id.as_str())
             .collect::<Vec<_>>();
         assert_eq!(executed_ids, vec!["gemini-routing", "cursor-routing"]);
+        let cursor_result = result
+            .executed
+            .iter()
+            .find(|row| row.record_id == "cursor-routing")
+            .expect("cursor rollback result");
+        assert!(cursor_result.safety_backup_path.is_some());
         assert_eq!(
             fs::read_to_string(&gemini_sidecar).expect("read cleaned gemini"),
             "# gemini user note\nkeep this\n"
