@@ -65,5 +65,12 @@ codesign --verify --deep --strict --verbose=2 "${APP_DEST}"
 
 npm run smoke:installed:local
 
+if [[ "${MAC_AI_SWITCHBOARD_SKIP_OPEN:-0}" != "1" ]]; then
+  open "${APP_DEST}"
+  echo "Opened ${APP_DEST}"
+else
+  echo "Skipped opening ${APP_DEST} because MAC_AI_SWITCHBOARD_SKIP_OPEN=1"
+fi
+
 echo "Local app installed at ${APP_DEST}"
 echo "Local DMG copied to ${LOCAL_DMG}"

@@ -196,6 +196,8 @@ npm run build:mac:local-install
 
 Unsigned DMGs are local build output under `src-tauri/target/release/bundle/dmg/`. They are useful for internal testing, but they are ignored by git and should not be treated as public release artifacts.
 
+The local install command installs, ad-hoc signs, smoke-checks, and opens `/Applications/Mac AI Switchboard.app`. For automation that should not open the app window, run `MAC_AI_SWITCHBOARD_SKIP_OPEN=1 npm run build:mac:local-install`.
+
 ## Development
 
 ```bash

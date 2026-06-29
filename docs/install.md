@@ -41,7 +41,7 @@ npm install
 npm run build:mac:local-install
 ```
 
-That script builds a local DMG, installs `/Applications/Mac AI Switchboard.app`, ad-hoc signs the installed bundle for local execution, and runs `npm run smoke:installed:local`.
+That script builds a local DMG, installs `/Applications/Mac AI Switchboard.app`, ad-hoc signs the installed bundle for local execution, runs `npm run smoke:installed:local`, and opens the installed app. Set `MAC_AI_SWITCHBOARD_SKIP_OPEN=1` when you want the same local evidence without launching the app window.
 
 Local unsigned DMGs are build output, not source artifacts. They are ignored by git under `src-tauri/target/` and should not be committed as a substitute for a GitHub Release.
 
