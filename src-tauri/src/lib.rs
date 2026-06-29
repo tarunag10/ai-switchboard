@@ -566,6 +566,10 @@ fn run_release_evidence_command(
     ];
     const LOCAL_INSTALLED_SMOKE_STEPS: &[(&str, &[&str])] =
         &[("npm", &["run", "smoke:installed:local"])];
+    const LOCAL_MODE_RELAUNCH_SMOKE_STEPS: &[(&str, &[&str])] = &[(
+        "npm",
+        &["run", "smoke:mode-relaunch:local", "--", "--confirm"],
+    )];
     const LOCAL_DMG_BUILD_INSTALL_STEPS: &[(&str, &[&str])] =
         &[("npm", &["run", "build:mac:local-install"])];
 
@@ -588,6 +592,12 @@ fn run_release_evidence_command(
             steps: LOCAL_INSTALLED_SMOKE_STEPS,
             summary_path: Some("dist/local-installed-smoke-summary.md"),
         },
+        "local-mode-relaunch-smoke" => ReleaseEvidenceCommandSpec {
+            label: "Local mode relaunch smoke",
+            command: "npm run smoke:mode-relaunch:local -- --confirm",
+            steps: LOCAL_MODE_RELAUNCH_SMOKE_STEPS,
+            summary_path: Some("dist/local-mode-relaunch-smoke-summary.md"),
+        },
         "local-dmg-build-install" => ReleaseEvidenceCommandSpec {
             label: "Local DMG build/install",
             command: "npm run build:mac:local-install",
@@ -596,7 +606,7 @@ fn run_release_evidence_command(
         },
         _ => {
             return Err(
-                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, local-dmg-build-install, and local-installed-smoke."
+                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, and local-mode-relaunch-smoke."
                     .to_string(),
             )
         }
@@ -9448,7 +9458,7 @@ Some unrelated content.
 
         assert!(
             err.contains(
-                "enabled only for static-preflight, desktop-validation, local-dmg-build-install, and local-installed-smoke"
+                "enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, and local-mode-relaunch-smoke"
             ),
             "unexpected error: {err}"
         );

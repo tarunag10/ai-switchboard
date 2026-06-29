@@ -164,6 +164,7 @@ export const localReleaseEvidenceCommandIds = [
   "static-preflight",
   "local-dmg-build-install",
   "local-installed-smoke",
+  "local-mode-relaunch-smoke",
 ] as const;
 
 export function formatLocalReleaseEvidenceSequenceCopy() {
@@ -173,6 +174,7 @@ export function formatLocalReleaseEvidenceSequenceCopy() {
     "2. Static smoke preflight",
     "3. Local DMG build/install",
     "4. Local installed smoke",
+    "5. Local Off/RTK relaunch smoke",
     "Boundary: this local unsigned/ad-hoc evidence does not run signing, notarization, updater publication, or the strict public-release gate.",
   ].join("\n");
 }
@@ -409,6 +411,14 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         detail:
           "Record local unsigned/ad-hoc install evidence after a local DMG install; this remains local-only and does not prove public release readiness.",
         command: "npm run smoke:installed:local",
+        executable: true,
+      },
+      {
+        id: "local-mode-relaunch-smoke",
+        label: "Record local mode relaunch smoke",
+        detail:
+          "Relaunch the installed local app in saved Off and RTK-only modes and confirm proxy listeners stay down; this remains local-only and does not prove public release readiness.",
+        command: "npm run smoke:mode-relaunch:local -- --confirm",
         executable: true,
       },
       {

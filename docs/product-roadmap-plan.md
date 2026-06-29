@@ -29,11 +29,12 @@ Shipped:
 - Mode Inspector now reuses connector verification details to show managed shell-block and Codex provider-block proof when those checks have run.
 - Mode Inspector now separates generic Headroom MCP config evidence from Repo Memory MCP lifecycle evidence.
 - Mode Inspector now probes launchd load state for the app-managed LaunchAgent and legacy `Headroom.plist` label instead of only checking plist files.
+- One-click local evidence now includes local Off/RTK installed-app relaunch smoke after local DMG build/install and local installed smoke.
 
 Left:
 
 - App-owned Terms, Privacy Notice, Settings Legal surfaces, and terms-version policy are bundled and covered by focused tests.
-- Add reboot and installed-app smoke evidence for Mode Inspector, Off mode, RTK-only mode, Doctor repair guards, and Rollback Center survival.
+- Add reboot and installed-app smoke evidence for Doctor repair guards and Rollback Center survival.
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
 - Turn repo-memory MCP into a real app-supervised long-running local service beyond the current process-bound active marker plus smoke-tested stdio transport.
 - Replace inferred Ponytail, Caveman, Compact Chinese, and some Repo Intelligence savings rows with stronger measured counters where trustworthy evidence exists; MarkItDown is now estimated from the managed smoke-tested conversion path.
