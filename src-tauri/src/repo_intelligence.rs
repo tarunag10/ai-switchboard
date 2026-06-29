@@ -12,7 +12,7 @@ use crate::models::{
     RepoAgentConfigReadiness, RepoAgentConfigReadinessDossier, RepoAgentConfigReadinessGate,
     RepoAgentConfigReadinessNextGate, RepoAgentHandoffAgent, RepoAgentHandoffResponse,
     RepoAgentHandoffSafety, RepoContextPack, RepoContextPackGraphBrief, RepoContextPackResponse,
-    RepoContextPackSafety, RepoDependentsResponse, RepoFileIndexEntry, RepoFileRole,
+    RepoContextPackSafety, RepoDependentsResponse, RepoFileIndexEntry, RepoFileRank, RepoFileRole,
     RepoFileSignal, RepoGraphEdge, RepoGraphEdgeKind, RepoGraphInputEntry, RepoGraphNode,
     RepoGraphSummary, RepoIndexFreshnessResponse, RepoIndexFreshnessStatus, RepoIndexMetadata,
     RepoIntelligenceManifestResponse, RepoIntelligenceSummary, RepoManifestPackSummary,
@@ -24,6 +24,7 @@ use crate::storage::{app_data_dir, config_file, ensure_data_dirs};
 const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
+const TASK_PACK_BUDGET_TOKENS: u64 = 8_000;
 const INDEXER_VERSION: &str = "path-graph-v2";
 const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
 const PARSER_VERSION: &str = "metadata-fingerprint-v1";
@@ -1328,9 +1329,29 @@ fn build_context_pack(
     mut files: Vec<RepoFileSignal>,
     estimated_full_scan_tokens: u64,
 ) -> RepoContextPack {
+    let task_terms = task_terms(purpose);
+    files = files
+        .into_iter()
+        .map(|mut file| {
+            let rank = rank_file_for_task(&file, &task_terms, purpose);
+            file.reasons
+                .extend(rank.reasons.iter().map(|reason| format!("rank: {reason}")));
+            file
+        })
+        .collect();
     files.sort_by(|a, b| {
-        a.estimated_tokens
-            .cmp(&b.estimated_tokens)
+        let rank_a = rank_file_for_task(a, &task_terms, purpose);
+        let rank_b = rank_file_for_task(b, &task_terms, purpose);
+        rank_b
+            .score
+            .partial_cmp(&rank_a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| {
+                score_per_token(&rank_b)
+                    .partial_cmp(&score_per_token(&rank_a))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .then_with(|| a.estimated_tokens.cmp(&b.estimated_tokens))
             .then_with(|| a.path.cmp(&b.path))
     });
     files.truncate(MAX_PACK_FILES);
@@ -1352,6 +1373,118 @@ fn build_context_pack(
         files,
         estimated_tokens,
         savings_vs_full_scan_pct,
+    }
+}
+
+fn task_terms(task: &str) -> Vec<String> {
+    task.split(|ch: char| !ch.is_ascii_alphanumeric())
+        .filter_map(|term| {
+            let term = term.trim().to_ascii_lowercase();
+            if term.len() >= 3 {
+                Some(term)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn score_per_token(rank: &RepoFileRank) -> f64 {
+    rank.score / rank.estimated_tokens.max(1) as f64
+}
+
+fn rank_file_for_task(file: &RepoFileSignal, task_terms: &[String], task: &str) -> RepoFileRank {
+    let mut score = 0.0;
+    let mut reasons = Vec::new();
+    let mut risks = Vec::new();
+    let lower_path = file.path.to_ascii_lowercase();
+    let file_name = lower_path.rsplit('/').next().unwrap_or(&lower_path);
+
+    match file.role {
+        RepoFileRole::Source => {
+            score += 50.0;
+            reasons.push("source file".to_string());
+        }
+        RepoFileRole::Test => {
+            score += if task.contains("Verification") || task.contains("Risk") {
+                45.0
+            } else {
+                28.0
+            };
+            reasons.push("test proximity".to_string());
+        }
+        RepoFileRole::Config => {
+            score += 35.0;
+            reasons.push("project configuration".to_string());
+        }
+        RepoFileRole::Docs => {
+            score += if task.contains("Handoff") || task.contains("Release") {
+                34.0
+            } else {
+                14.0
+            };
+            reasons.push("documentation context".to_string());
+        }
+        RepoFileRole::Lockfile => {
+            score += 8.0;
+            risks.push("lockfile token cost can dominate packs".to_string());
+        }
+        RepoFileRole::Asset | RepoFileRole::Generated => {
+            score -= 100.0;
+            risks.push("generated or binary-like path".to_string());
+        }
+        RepoFileRole::Unknown => {
+            score += 2.0;
+        }
+    }
+
+    if matches!(
+        file_name,
+        "main.rs"
+            | "lib.rs"
+            | "main.ts"
+            | "main.tsx"
+            | "index.ts"
+            | "index.tsx"
+            | "app.ts"
+            | "app.tsx"
+            | "package.json"
+            | "cargo.toml"
+            | "pyproject.toml"
+    ) {
+        score += 30.0;
+        reasons.push("entrypoint or project hub".to_string());
+    }
+    if lower_path.contains("/src/") || lower_path.starts_with("src/") {
+        score += 8.0;
+        reasons.push("source tree centrality".to_string());
+    }
+    if lower_path.contains("/test")
+        || lower_path.contains(".test.")
+        || lower_path.contains(".spec.")
+    {
+        score += 8.0;
+        reasons.push("nearest tests candidate".to_string());
+    }
+    for term in task_terms {
+        if lower_path.contains(term) {
+            score += 16.0;
+            reasons.push(format!("matches task term `{term}`"));
+        }
+    }
+
+    let token_penalty = (file.estimated_tokens as f64 / TASK_PACK_BUDGET_TOKENS as f64) * 12.0;
+    score -= token_penalty.min(24.0);
+    if file.estimated_tokens > TASK_PACK_BUDGET_TOKENS / 2 {
+        risks.push("large token footprint".to_string());
+    }
+
+    RepoFileRank {
+        path: file.path.clone(),
+        score: (score * 10.0).round() / 10.0,
+        estimated_tokens: file.estimated_tokens,
+        reasons,
+        risks,
     }
 }
 
@@ -2472,6 +2605,34 @@ export const mapValues = <T>(items: T[]) => items;
         assert_eq!(pack.files[0].path, "src/small.ts");
         assert_eq!(pack.estimated_tokens, 320);
         assert!(pack.savings_vs_full_scan_pct > 60.0);
+    }
+
+    #[test]
+    fn context_pack_ranking_prefers_task_relevance_over_smallest_file() {
+        let pack = build_context_pack(
+            "implementation",
+            "Implementation Pack",
+            "Feature work on billing dashboard",
+            vec![
+                classify_file("src/tiny.ts", 40),
+                classify_file("src/billing/DashboardController.ts", 2_400),
+                classify_file("src/billing/DashboardController.test.ts", 1_200),
+            ],
+            4_000,
+        );
+
+        assert_eq!(pack.files[0].path, "src/billing/DashboardController.ts");
+        assert!(pack.files[0]
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("matches task term `billing`")));
+        assert!(pack.files.iter().any(|file| {
+            file.path == "src/billing/DashboardController.ts"
+                && file
+                    .reasons
+                    .iter()
+                    .any(|reason| reason.contains("matches task term `dashboard`"))
+        }));
     }
 
     #[test]

@@ -33,6 +33,24 @@ export interface RepoContextPack {
   savingsVsFullScanPct: number;
 }
 
+export interface RepoFileRank {
+  path: string;
+  score: number;
+  estimatedTokens: number;
+  reasons: string[];
+  risks: string[];
+}
+
+export interface RepoTaskContextPack {
+  id: string;
+  task: string;
+  budgetTokens: number;
+  files: RepoFileRank[];
+  tests: RepoFileRank[];
+  commands: string[];
+  omitted: RepoFileRank[];
+}
+
 export interface RepoGraphNode {
   label: string;
   count: number;

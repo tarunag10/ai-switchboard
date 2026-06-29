@@ -210,6 +210,28 @@ pub struct RepoContextPack {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RepoFileRank {
+    pub path: String,
+    pub score: f64,
+    pub estimated_tokens: u64,
+    pub reasons: Vec<String>,
+    pub risks: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoTaskContextPack {
+    pub id: String,
+    pub task: String,
+    pub budget_tokens: u64,
+    pub files: Vec<RepoFileRank>,
+    pub tests: Vec<RepoFileRank>,
+    pub commands: Vec<String>,
+    pub omitted: Vec<RepoFileRank>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepoContextPackGraphBrief {
     pub available: bool,
     pub dependency_hub_count: usize,
