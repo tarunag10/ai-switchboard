@@ -1027,7 +1027,8 @@ async fn install_addon(state: State<'_, AppState>, id: String) -> Result<Dashboa
                 .tool_manager
                 .install_ponytail()
                 .map_err(|err| err.to_string())?;
-            let _ = state.record_addon_attribution("ponytail", None);
+            let hosts = state.tool_manager.ponytail_registered_hosts();
+            let _ = state.record_ponytail_attribution(&hosts);
             Ok(state.dashboard())
         }
         "caveman" => {
@@ -1081,7 +1082,8 @@ async fn set_addon_enabled(
                 .set_ponytail_enabled(enabled)
                 .map_err(|err| err.to_string())?;
             if enabled {
-                let _ = state.record_addon_attribution("ponytail", None);
+                let hosts = state.tool_manager.ponytail_registered_hosts();
+                let _ = state.record_ponytail_attribution(&hosts);
             }
             Ok(state.dashboard())
         }
@@ -3471,6 +3473,8 @@ fn repair_ponytail_plugin(state: &AppState) -> Result<(), String> {
             .set_ponytail_enabled(true)
             .map_err(|err| err.to_string())?;
     }
+    let hosts = state.tool_manager.ponytail_registered_hosts();
+    let _ = state.record_ponytail_attribution(&hosts);
     Ok(())
 }
 

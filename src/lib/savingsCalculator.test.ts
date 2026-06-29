@@ -323,6 +323,7 @@ describe("savings calculator", () => {
       "2026-06-25T10:00:00Z",
       {
         cavemanSavings: buildAddonSavingsEstimate(480, 180),
+        ponytailSavings: buildAddonSavingsEstimate(1_400, 520),
         attributionEvents: [
           {
             schemaVersion: 1,
@@ -339,11 +340,27 @@ describe("savings calculator", () => {
               "Estimated Caveman managed guidance changed 2 client instruction files.",
             ],
           },
+          {
+            schemaVersion: 1,
+            id: "ponytail-event-1",
+            observedAt: "2026-06-25T10:06:00Z",
+            scope: "session",
+            source: "ponytail",
+            confidence: "estimated",
+            deltaTokensSaved: 880,
+            deltaUsd: 0,
+            totalTokensSent: 0,
+            requestDelta: 1,
+            evidence: [
+              "Estimated Ponytail plugin registered with 2 agent hosts: Claude Code, Codex.",
+            ],
+          },
         ],
       },
     );
 
     const caveman = rows.find((row) => row.source === "caveman");
+    const ponytail = rows.find((row) => row.source === "ponytail");
 
     expect(caveman).toMatchObject({
       id: "caveman_attribution_events",
@@ -357,6 +374,17 @@ describe("savings calculator", () => {
     expect(caveman?.detail).toContain("1 estimated Caveman session event");
     expect(caveman?.detail).toContain("managed guidance changed 2 client instruction files");
     expect(rows.filter((row) => row.source === "caveman")).toHaveLength(1);
+    expect(ponytail).toMatchObject({
+      id: "ponytail_attribution_events",
+      label: "Ponytail",
+      confidence: "estimated",
+      savedTokens: 880,
+      savedUsd: null,
+      recordedAt: "2026-06-25T10:06:00Z",
+    });
+    expect(ponytail?.detail).toContain("1 estimated Ponytail session event");
+    expect(ponytail?.detail).toContain("plugin registered with 2 agent hosts");
+    expect(rows.filter((row) => row.source === "ponytail")).toHaveLength(1);
   });
 
   it("keeps lifetime Headroom ledger rows based on saved rollups", () => {

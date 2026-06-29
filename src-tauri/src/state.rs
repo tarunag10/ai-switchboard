@@ -2172,7 +2172,8 @@ impl AppState {
         addon_id: &str,
         caveman_level: Option<&str>,
     ) -> Result<()> {
-        let Some(event) = build_addon_attribution_event(addon_id, caveman_level, None, None) else {
+        let Some(event) = build_addon_attribution_event(addon_id, caveman_level, None, None, None)
+        else {
             return Ok(());
         };
         self.savings_tracker.lock().append_attribution_event(&event)
@@ -2189,7 +2190,17 @@ impl AppState {
             Some(caveman_level),
             Some(changed_files),
             Some(backup_files),
+            None,
         ) else {
+            return Ok(());
+        };
+        self.savings_tracker.lock().append_attribution_event(&event)
+    }
+
+    pub fn record_ponytail_attribution(&self, registered_hosts: &[String]) -> Result<()> {
+        let Some(event) =
+            build_addon_attribution_event("ponytail", None, None, None, Some(registered_hosts))
+        else {
             return Ok(());
         };
         self.savings_tracker.lock().append_attribution_event(&event)
@@ -4003,6 +4014,7 @@ fn build_addon_attribution_event(
     caveman_level: Option<&str>,
     changed_files: Option<&[String]>,
     backup_files: Option<&[String]>,
+    ponytail_hosts: Option<&[String]>,
 ) -> Option<SavingsAttributionEvent> {
     let (source, label, baseline, optimized, confidence, evidence_subject) = match addon_id {
         "markitdown" => (
@@ -4013,14 +4025,20 @@ fn build_addon_attribution_event(
             SavingsAttributionConfidence::Estimated,
             "Markdown extract vs re-attaching the full source document each turn; the managed MarkItDown console script is smoke-tested before integration is enabled",
         ),
-        "ponytail" => (
-            SavingsAttributionSource::Ponytail,
-            "Ponytail",
-            PONYTAIL_TEMPLATE_BASELINE_TOKENS,
-            PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS,
-            SavingsAttributionConfidence::Inferred,
-            "Scoped implementation plan vs broad codebase exploration",
-        ),
+        "ponytail" => {
+            let hosts = ponytail_hosts?;
+            if hosts.is_empty() {
+                return None;
+            }
+            (
+                SavingsAttributionSource::Ponytail,
+                "Ponytail",
+                PONYTAIL_TEMPLATE_BASELINE_TOKENS,
+                PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS,
+                SavingsAttributionConfidence::Estimated,
+                "Ponytail plugin registration was verified in connected agent hosts",
+            )
+        }
         "caveman" => {
             let changed_files = changed_files?;
             if changed_files.is_empty() {
@@ -4082,6 +4100,15 @@ fn build_addon_attribution_event(
                 backups.join(", ")
             ));
         }
+    }
+    if addon_id == "ponytail" {
+        let hosts = ponytail_hosts.unwrap_or(&[]);
+        evidence.push(format!(
+            "Ponytail plugin registered with {} agent host{}: {}.",
+            hosts.len(),
+            if hosts.len() == 1 { "" } else { "s" },
+            hosts.join(", ")
+        ));
     }
 
     Some(SavingsAttributionEvent {
@@ -7070,7 +7097,7 @@ mod tests {
 
     #[test]
     fn addon_attribution_event_records_estimated_markitdown_delta() {
-        let event = super::build_addon_attribution_event("markitdown", None, None, None)
+        let event = super::build_addon_attribution_event("markitdown", None, None, None, None)
             .expect("markitdown attribution");
 
         assert_eq!(event.source, SavingsAttributionSource::Markitdown);
@@ -7093,6 +7120,7 @@ mod tests {
             Some("scoped"),
             Some(&changed_files),
             Some(&backup_files),
+            None,
         )
         .expect("caveman attribution");
         let compact = super::build_addon_attribution_event(
@@ -7100,6 +7128,7 @@ mod tests {
             Some(crate::tool_manager::CAVEMAN_LEVEL_COMPACT_CHINESE),
             Some(&changed_files),
             Some(&backup_files),
+            None,
         )
         .expect("compact chinese attribution");
 
@@ -7117,20 +7146,38 @@ mod tests {
 
     #[test]
     fn addon_attribution_event_skips_caveman_without_changed_files() {
-        assert!(
-            super::build_addon_attribution_event("caveman", Some("scoped"), Some(&[]), None,)
-                .is_none()
-        );
+        assert!(super::build_addon_attribution_event(
+            "caveman",
+            Some("scoped"),
+            Some(&[]),
+            None,
+            None,
+        )
+        .is_none());
     }
 
     #[test]
-    fn addon_attribution_event_keeps_ponytail_guidance_inferred() {
-        let event = super::build_addon_attribution_event("ponytail", None, None, None)
-            .expect("ponytail attribution");
+    fn addon_attribution_event_records_estimated_ponytail_host_registration() {
+        let hosts = vec!["Claude Code".to_string(), "Codex".to_string()];
+        let event =
+            super::build_addon_attribution_event("ponytail", None, None, None, Some(&hosts))
+                .expect("ponytail attribution");
 
         assert_eq!(event.source, SavingsAttributionSource::Ponytail);
-        assert_eq!(event.confidence, SavingsAttributionConfidence::Inferred);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
         assert_eq!(event.delta_tokens_saved, 880);
+        let evidence = event.evidence.join(" ");
+        assert!(evidence.contains("registered with 2 agent hosts"));
+        assert!(evidence.contains("Claude Code"));
+        assert!(evidence.contains("Codex"));
+    }
+
+    #[test]
+    fn addon_attribution_event_skips_ponytail_without_registered_hosts() {
+        assert!(
+            super::build_addon_attribution_event("ponytail", None, None, None, Some(&[]),)
+                .is_none()
+        );
     }
 
     #[test]

@@ -3704,6 +3704,15 @@ impl ToolManager {
             && PluginHost::ALL.iter().any(|host| host.plugin_present())
     }
 
+    pub fn ponytail_registered_hosts(&self) -> Vec<String> {
+        PluginHost::ALL
+            .iter()
+            .copied()
+            .filter(|host| host.plugin_present())
+            .map(|host| host.label().to_string())
+            .collect()
+    }
+
     fn ponytail_receipt_exists(&self) -> bool {
         self.runtime.tools_dir.join("ponytail.json").exists()
     }
