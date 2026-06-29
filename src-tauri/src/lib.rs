@@ -4884,49 +4884,44 @@ fn tail_text(value: &str, max_chars: usize) -> String {
         .collect()
 }
 
+fn shell_single_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
+}
+
+fn connector_smoke_shell_command(client_id: &str, prompt: &str) -> Option<String> {
+    let quoted_prompt = shell_single_quote(prompt);
+    match client_id {
+        "codex" => Some(format!(
+            "codex exec --ephemeral --sandbox read-only --skip-git-repo-check --ignore-rules {quoted_prompt}"
+        )),
+        "claude_code" => Some(format!(
+            "claude --print --no-session-persistence --permission-mode dontAsk --tools '' --output-format text {quoted_prompt}"
+        )),
+        _ => None,
+    }
+}
+
+fn connector_smoke_command(client_id: &str, prompt: &str) -> Option<Command> {
+    let shell_command = connector_smoke_shell_command(client_id, prompt)?;
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    let mut command = Command::new(shell);
+    command.args(["-lc", &shell_command]);
+    Some(command)
+}
+
 #[tauri::command]
 async fn run_connector_smoke_test(client_id: String) -> Result<ConnectorSmokeTestResult, String> {
     let prompt = "Reply with exactly: switchboard verification ok";
-    let mut command = match client_id.as_str() {
-        "codex" => {
-            let mut command = Command::new("codex");
-            command.args([
-                "exec",
-                "--ephemeral",
-                "--sandbox",
-                "read-only",
-                "--skip-git-repo-check",
-                "--ignore-rules",
-                prompt,
-            ]);
-            command
-        }
-        "claude_code" => {
-            let mut command = Command::new("claude");
-            command.args([
-                "--print",
-                "--no-session-persistence",
-                "--permission-mode",
-                "dontAsk",
-                "--tools",
-                "",
-                "--output-format",
-                "text",
-                prompt,
-            ]);
-            command
-        }
-        _ => {
-            return Ok(ConnectorSmokeTestResult {
-                client_id,
-                supported: false,
-                launched: false,
-                success: false,
-                summary: "One-click test is available for Claude Code and Codex. For this connector, send a tiny prompt manually and watch this screen for verification.".into(),
-                stdout_tail: String::new(),
-                stderr_tail: String::new(),
-            });
-        }
+    let Some(mut command) = connector_smoke_command(&client_id, prompt) else {
+        return Ok(ConnectorSmokeTestResult {
+            client_id,
+            supported: false,
+            launched: false,
+            success: false,
+            summary: "One-click test is available for Claude Code and Codex. For this connector, send a tiny prompt manually and watch this screen for verification.".into(),
+            stdout_tail: String::new(),
+            stderr_tail: String::new(),
+        });
     };
 
     command.current_dir(connector_smoke_working_dir());
@@ -7568,10 +7563,11 @@ mod tests {
         read_applied_patterns_for_project, readyz_failed_checks_csv,
         readyz_failure_has_core_unhealthy, readyz_failure_is_upstream_only,
         repo_intelligence_doctor_issue, resolve_release_updater_config, select_updater_endpoints,
-        store_checked_update, watchdog_should_be_up, zero_spend_affected_days, AppUpdateProgress,
-        AppUpdateProgressEmitter, AvailableAppUpdate, BootstrapFailureKind, DailySavingsPoint,
-        HeadroomLearnPrereqStatus, InstallPendingUpdateFuture, InstallableAppUpdate, LearnAgent,
-        MonitorBounds, PhysicalRect, QuitSource, TrayRuntimeVisual,
+        shell_single_quote, store_checked_update, watchdog_should_be_up, zero_spend_affected_days,
+        AppUpdateProgress, AppUpdateProgressEmitter, AvailableAppUpdate, BootstrapFailureKind,
+        DailySavingsPoint, HeadroomLearnPrereqStatus, InstallPendingUpdateFuture,
+        InstallableAppUpdate, LearnAgent, MonitorBounds, PhysicalRect, QuitSource,
+        TrayRuntimeVisual,
     };
     use crate::models::{RepoFileIndexEntry, RepoIndexMetadata, RepoIntelligenceSummary};
     use crate::repo_intelligence;
@@ -8022,6 +8018,22 @@ mod tests {
                 "{raw} should be rejected"
             );
         }
+    }
+
+    #[test]
+    fn connector_smoke_shell_command_uses_login_shell_safe_fixed_prompts() {
+        assert_eq!(shell_single_quote("don't drift"), "'don'\"'\"'t drift'");
+        let codex = super::connector_smoke_shell_command("codex", "say it's ok")
+            .expect("codex smoke supported");
+        assert!(codex.starts_with("codex exec --ephemeral --sandbox read-only"));
+        assert!(codex.contains("--skip-git-repo-check --ignore-rules"));
+        assert!(codex.ends_with("'say it'\"'\"'s ok'"));
+
+        let claude = super::connector_smoke_shell_command("claude_code", "verify")
+            .expect("claude smoke supported");
+        assert!(claude.starts_with("claude --print --no-session-persistence"));
+        assert!(claude.contains("--tools '' --output-format text 'verify'"));
+        assert!(super::connector_smoke_shell_command("cursor", "verify").is_none());
     }
 
     #[test]

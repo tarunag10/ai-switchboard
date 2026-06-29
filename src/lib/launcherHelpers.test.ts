@@ -6,6 +6,7 @@ import {
   getContactRequestValidationError,
   getInitialLauncherStage,
   getLauncherAutoConfigureDecision,
+  hasPendingOneClickProxyVerification,
   isValidEmailAddress,
   needsTermsAcceptance,
   nextAutoConfigureStep,
@@ -114,9 +115,42 @@ describe("launcher helpers", () => {
         clientId: "claude_code",
         name: "Claude Code",
         state: "processing",
-        message: "Waiting for a Claude Code prompt..."
+        message: "Ready to send a Claude Code test prompt.",
+        oneClickSupported: true
       }
     ]);
+  });
+
+  it("marks one-click verification only for supported pending connector rows", () => {
+    expect(
+      hasPendingOneClickProxyVerification([
+        {
+          clientId: "claude_code",
+          name: "Claude Code",
+          state: "processing",
+          message: "Ready",
+          oneClickSupported: true
+        }
+      ])
+    ).toBe(true);
+    expect(
+      hasPendingOneClickProxyVerification([
+        {
+          clientId: "claude_code",
+          name: "Claude Code",
+          state: "verified",
+          message: "Request received",
+          oneClickSupported: true
+        },
+        {
+          clientId: "cursor",
+          name: "Cursor",
+          state: "waiting",
+          message: "Manual",
+          oneClickSupported: false
+        }
+      ])
+    ).toBe(false);
   });
 
   describe("getInitialLauncherStage", () => {

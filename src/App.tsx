@@ -180,6 +180,7 @@ import {
   getContactRequestValidationError,
   getInitialLauncherStage,
   getLauncherAutoConfigureDecision,
+  hasPendingOneClickProxyVerification,
   isValidEmailAddress,
   needsTermsAcceptance,
   nextAutoConfigureStep,
@@ -2720,6 +2721,7 @@ interface ProxyVerificationRow {
   name: string;
   state: "processing" | "waiting" | "testing" | "verified";
   message: string;
+  oneClickSupported: boolean;
 }
 
 interface ConnectorSmokeTestResult {
@@ -5945,6 +5947,18 @@ export default function App() {
     }
   }
 
+  async function runAllSupportedConnectorSmokeTests() {
+    if (connectorSmokeBusyId !== null) {
+      return;
+    }
+    const pendingRows = proxyVerificationRows.filter(
+      (row) => row.oneClickSupported && row.state !== "verified",
+    );
+    for (const row of pendingRows) {
+      await runConnectorSmokeTest(row);
+    }
+  }
+
   async function toggleConnector(
     connector: ClientConnectorStatus,
     nextEnabled: boolean,
@@ -7066,6 +7080,8 @@ export default function App() {
 
   if (windowLabel === "launcher" && launcherStage === "proxy_verify") {
     const hasEnabledApps = proxyVerificationRows.length > 0;
+    const hasOneClickTests =
+      hasPendingOneClickProxyVerification(proxyVerificationRows);
     const allVerified =
       hasEnabledApps &&
       proxyVerificationRows.every((row) => row.state === "verified");
@@ -7081,10 +7097,23 @@ export default function App() {
         <div className="post-install__lead">
           <h1>Test your setup</h1>
           <p>
-            Click Send test prompt for supported tools, or send one message in
-            each connected tool. If the tool was already open, restart it first
-            so it reloads the managed config.
+            Send automatic test prompts for Claude Code and Codex, then watch
+            for a verified badge. For tools without automatic tests, open the
+            tool and send one tiny prompt. Restart tools that were already open
+            so they reload the managed config.
           </p>
+          {hasOneClickTests ? (
+            <button
+              className="primary-button primary-button--large"
+              disabled={connectorSmokeBusyId !== null}
+              onClick={() => void runAllSupportedConnectorSmokeTests()}
+              type="button"
+            >
+              {connectorSmokeBusyId !== null
+                ? "Sending test prompts..."
+                : "Send all test prompts"}
+            </button>
+          ) : null}
           {hasEnabledApps ? (
             <div className="connector-list">
               {proxyVerificationRows.map((row) => (
@@ -7103,8 +7132,7 @@ export default function App() {
                       ) : null}
                     </div>
                   </div>
-                  {["claude_code", "codex"].includes(row.clientId) &&
-                  row.state !== "verified" ? (
+                  {row.oneClickSupported && row.state !== "verified" ? (
                     <button
                       className="secondary-button connector-item__action"
                       disabled={connectorSmokeBusyId !== null}
