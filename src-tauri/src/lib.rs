@@ -3195,6 +3195,7 @@ mod doctor_tests {
             repo_memory_mcp_last_started_at: None,
             repo_memory_mcp_last_checked_at: None,
             repo_memory_mcp_supervision_status: "unknown".to_string(),
+            repo_memory_mcp_service: None,
             ml_installed: None,
             kompress_enabled: None,
             headroom_learn_supported: true,

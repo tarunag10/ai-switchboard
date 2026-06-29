@@ -5,6 +5,9 @@ Repo Memory MCP is the read-only agent-consumption surface for Repo Intelligence
 ## Current Status
 
 - Transport: stdio MCP served by `scripts/repo-intelligence.mjs --mcp-serve`.
+- Service descriptor: the app writes `repo-memory.json` with the managed stdio
+  command, descriptor path, read-only flag, and app-managed ownership so Mode
+  Inspector can show durable service wiring separately from active supervision.
 - Prepare action: **Prepare MCP** in the Mode Inspector, backed by `install_repo_memory_mcp` followed by `start_repo_memory_mcp`. It installs the app-managed config, runs the read-only smoke contract, and records the current app process before marking MCP active.
 - Session controls: **Start MCP** and **Stop MCP** in the Mode Inspector, backed by `start_repo_memory_mcp` and `stop_repo_memory_mcp`. Start re-runs the read-only smoke contract for configured or restart-required states; these controls do not claim a separate background daemon is running.
 - Supervision: while the same app process owns an active Repo Memory MCP session, runtime status polling periodically re-runs the read-only smoke check. A failed recheck downgrades the lifecycle to **Smoke failed** so agents do not rely on stale MCP handoffs.

@@ -953,6 +953,7 @@ pub struct RuntimeStatus {
     pub repo_memory_mcp_last_started_at: Option<DateTime<Utc>>,
     pub repo_memory_mcp_last_checked_at: Option<DateTime<Utc>>,
     pub repo_memory_mcp_supervision_status: String,
+    pub repo_memory_mcp_service: Option<RepoMemoryMcpServiceStatus>,
     pub ml_installed: Option<bool>,
     pub kompress_enabled: Option<bool>,
     pub headroom_learn_supported: bool,
@@ -961,6 +962,16 @@ pub struct RuntimeStatus {
     pub startup_error_hint: Option<String>,
     pub runtime_upgrade_failure: Option<RuntimeUpgradeFailure>,
     pub rtk: RtkRuntimeStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoMemoryMcpServiceStatus {
+    pub managed_by_app: bool,
+    pub read_only: bool,
+    pub transport: String,
+    pub command: String,
+    pub descriptor_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

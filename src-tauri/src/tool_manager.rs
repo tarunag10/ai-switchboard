@@ -19,7 +19,9 @@ use sha2::{Digest, Sha256};
 use tar::Archive;
 
 use crate::backend_port::{self, AllForeign, SelectedFallback};
-use crate::models::{ManagedTool, RtkTodayStats, SavingsMode, ToolStatus};
+use crate::models::{
+    ManagedTool, RepoMemoryMcpServiceStatus, RtkTodayStats, SavingsMode, ToolStatus,
+};
 
 /// Pinned headroom-ai version. Upgrade logic is disabled; this exact version
 /// will be installed if the currently-installed version differs.
@@ -3596,6 +3598,7 @@ impl ToolManager {
 
     pub fn install_repo_memory_mcp(&self) -> Result<()> {
         let script = repo_memory_script_path("repo-intelligence.mjs")?;
+        let command = format!("node {} --mcp-serve", script.display());
         write_mcp_server_to_claude_json(
             REPO_MEMORY_MCP_NAME,
             json!({
@@ -3612,10 +3615,28 @@ impl ToolManager {
                     "configured": true,
                     "serverName": REPO_MEMORY_MCP_NAME,
                     "readOnly": true,
+                    "transport": "stdio",
+                    "command": command,
+                    "descriptorPath": self.runtime.tools_dir.join("repo-memory.json"),
                 },
             }),
         )?;
         Ok(())
+    }
+
+    pub fn repo_memory_mcp_service_status(&self) -> Option<RepoMemoryMcpServiceStatus> {
+        let descriptor_path = self.runtime.tools_dir.join("repo-memory.json");
+        if !descriptor_path.exists() {
+            return None;
+        }
+        let script = repo_memory_script_path("repo-intelligence.mjs").ok()?;
+        Some(RepoMemoryMcpServiceStatus {
+            managed_by_app: true,
+            read_only: true,
+            transport: "stdio".to_string(),
+            command: format!("node {} --mcp-serve", script.display()),
+            descriptor_path: descriptor_path.display().to_string(),
+        })
     }
 
     pub fn ensure_repo_memory_mcp_configured(&self) -> Result<()> {
@@ -7107,6 +7128,15 @@ after
         .expect("parse receipt");
         assert_eq!(receipt["mcp"]["configured"], true);
         assert_eq!(receipt["mcp"]["readOnly"], true);
+        assert_eq!(receipt["mcp"]["transport"], "stdio");
+        assert!(receipt["mcp"]["command"]
+            .as_str()
+            .expect("receipt command")
+            .contains("repo-intelligence.mjs"));
+        assert!(receipt["mcp"]["descriptorPath"]
+            .as_str()
+            .expect("descriptor path")
+            .ends_with("repo-memory.json"));
         let claude: Value =
             serde_json::from_slice(&fs::read(home.root.join(".claude.json")).expect("read claude"))
                 .expect("parse claude");
@@ -7116,6 +7146,14 @@ after
         );
         assert_eq!(manager.repo_memory_mcp_configured(), Some(true));
         assert!(manager.repo_memory_mcp_error().is_none());
+        let service = manager
+            .repo_memory_mcp_service_status()
+            .expect("repo memory service status");
+        assert!(service.managed_by_app);
+        assert!(service.read_only);
+        assert_eq!(service.transport, "stdio");
+        assert!(service.command.contains("repo-intelligence.mjs"));
+        assert!(service.descriptor_path.ends_with("repo-memory.json"));
 
         let _ = fs::remove_dir_all(root);
     }

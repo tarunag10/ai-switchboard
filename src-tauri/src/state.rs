@@ -2928,6 +2928,7 @@ impl AppState {
         let mcp_error = self.tool_manager.headroom_mcp_error();
         let repo_memory_mcp_configured = self.tool_manager.repo_memory_mcp_configured();
         let repo_memory_mcp_error = self.tool_manager.repo_memory_mcp_error();
+        let repo_memory_mcp_service = self.tool_manager.repo_memory_mcp_service_status();
         self.supervise_repo_memory_mcp_if_due(repo_memory_mcp_configured);
         let repo_memory_mcp_session = self.repo_memory_mcp_state.lock().clone();
         let ml_installed = self.tool_manager.headroom_ml_installed();
@@ -3004,6 +3005,7 @@ impl AppState {
             repo_memory_mcp_last_started_at: repo_memory_mcp_session.last_started_at,
             repo_memory_mcp_last_checked_at: repo_memory_mcp_session.last_checked_at,
             repo_memory_mcp_supervision_status,
+            repo_memory_mcp_service,
             ml_installed,
             kompress_enabled,
             headroom_learn_supported: headroom_learn_disabled_reason.is_none(),

@@ -7485,6 +7485,7 @@ export default function App() {
     lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
     lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
     supervisionStatus: runtimeStatus?.repoMemoryMcpSupervisionStatus,
+    service: runtimeStatus?.repoMemoryMcpService,
   });
   const launchAgentStatus = runtimeStatus?.launchAgentStatus ?? null;
   const launchAgentInstalled = launchAgentStatus?.installed === true;
@@ -7649,6 +7650,7 @@ export default function App() {
         lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
         lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
         supervisionStatus: runtimeStatus?.repoMemoryMcpSupervisionStatus,
+        service: runtimeStatus?.repoMemoryMcpService,
       }),
       actionLabel:
         repoMemoryLifecycle.state === "active"

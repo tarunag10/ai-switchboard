@@ -410,6 +410,13 @@ export interface RuntimeStatus {
   repoMemoryMcpLastStartedAt?: string | null;
   repoMemoryMcpLastCheckedAt?: string | null;
   repoMemoryMcpSupervisionStatus?: string | null;
+  repoMemoryMcpService?: {
+    managedByApp: boolean;
+    readOnly: boolean;
+    transport: string;
+    command: string;
+    descriptorPath: string;
+  } | null;
   mlInstalled?: boolean | null;
   kompressEnabled?: boolean | null;
   headroomLearnSupported: boolean;

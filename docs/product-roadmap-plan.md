@@ -17,6 +17,7 @@ Shipped:
 - Cursor and Windsurf now surface detected editor settings files as evidence while native writes remain blocked.
 - Repo Intelligence Start Agent Session, read-only packs, handoffs, CLI exports, and repo-memory MCP smoke transport are usable.
 - Repo Memory MCP active state is now process-bound: after app relaunch, Mode Inspector shows Start required until the app re-runs the read-only smoke check. For new setup, Mode Inspector's Prepare MCP action installs, starts, and smoke-checks the app-managed server in one click.
+- Repo Memory MCP runtime status now exposes the managed stdio service descriptor separately from app-process smoke supervision, including command, descriptor path, read-only flag, and app-managed ownership.
 - Savings ledger rows now distinguish measured, estimated, and inferred events across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese.
 - Rollback Center has guarded preview/execution for backend-allowlisted rows, including Codex/OpenCode restore paths and Gemini managed-block cleanup. Other sidecar connector rows stay visible as rollback plans/manual rows until backend execution exists.
 - Doctor repair actions that can restore Headroom routing are now blocked while the saved mode is Off or RTK-only; non-Headroom repairs such as RTK, Caveman, Ponytail, Repo Intelligence, and Repo Memory MCP stay available. Doctor also exposes Verify Off as a primary one-click action when Off-mode evidence remains.

@@ -24,6 +24,27 @@ describe("repoMemoryMcpLifecycle", () => {
     expect(lifecycle.copy).toContain("repo_dependents_of");
   });
 
+  it("surfaces the app-managed stdio service descriptor", () => {
+    const lifecycle = repoMemoryMcpLifecycle({
+      configured: true,
+      service: {
+        managedByApp: true,
+        readOnly: true,
+        transport: "stdio",
+        command: "node /Applications/Mac AI Switchboard.app/repo-intelligence.mjs --mcp-serve",
+        descriptorPath:
+          "/Users/example/Library/Application Support/Mac AI Switchboard/tools/repo-memory.json",
+      },
+    });
+
+    expect(lifecycle.detail).toContain("Service: stdio node");
+    expect(lifecycle.detail).toContain("--mcp-serve");
+    expect(lifecycle.copy).toContain("Service transport: stdio");
+    expect(lifecycle.copy).toContain("Service command: node");
+    expect(lifecycle.copy).toContain("Descriptor:");
+    expect(lifecycle.copy).toContain("repo-memory.json");
+  });
+
   it("labels active repo-memory MCP with start and stop controls", () => {
     const lifecycle = repoMemoryMcpLifecycle({
       configured: true,
@@ -31,6 +52,13 @@ describe("repoMemoryMcpLifecycle", () => {
       lastStartedAt: "2026-06-28T10:00:00Z",
       lastCheckedAt: "2026-06-28T10:05:00Z",
       supervisionStatus: "verified_active",
+      service: {
+        managedByApp: true,
+        readOnly: true,
+        transport: "stdio",
+        command: "node /repo-intelligence.mjs --mcp-serve",
+        descriptorPath: "/tools/repo-memory.json",
+      },
     });
 
     expect(lifecycle).toMatchObject({
@@ -46,6 +74,7 @@ describe("repoMemoryMcpLifecycle", () => {
     expect(lifecycle.copy).toContain("passed smoke verification");
     expect(lifecycle.copy).toContain("Start action: start_repo_memory_mcp");
     expect(lifecycle.copy).toContain("Stop action: stop_repo_memory_mcp");
+    expect(lifecycle.copy).toContain("Service transport: stdio");
   });
 
   it("requires smoke verification before trusting active MCP state", () => {
