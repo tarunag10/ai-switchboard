@@ -81,9 +81,9 @@ function renderPanel(
       },
       {
         label: "Launch at login",
-        status: "Installed",
+        status: "Loaded",
         detail:
-          "Launch at login plist exists at ~/Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist.",
+          "Launch at login plist exists at ~/Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist. launchctl reports gui/501/com.tarunagarwal.mac-ai-switchboard is loaded.",
       },
     ],
     remoteServicesEnabled: false,
@@ -168,7 +168,7 @@ describe("SwitchboardPanel", () => {
     ).toBeInTheDocument();
     expect(
       inspector.getByText(
-        "Launch at login plist exists at ~/Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist.",
+        "Launch at login plist exists at ~/Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist. launchctl reports gui/501/com.tarunagarwal.mac-ai-switchboard is loaded.",
       ),
     ).toBeInTheDocument();
     expect(

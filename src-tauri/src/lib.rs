@@ -3140,8 +3140,18 @@ mod doctor_tests {
             launch_agent_status: crate::models::LaunchAgentRuntimeStatus {
                 installed: false,
                 path: None,
+                label: "com.tarunagarwal.mac-ai-switchboard".to_string(),
+                loaded: Some(false),
+                load_detail: Some(
+                    "launchctl does not report test LaunchAgent as loaded.".to_string(),
+                ),
                 legacy_installed: false,
                 legacy_path: None,
+                legacy_label: "Headroom".to_string(),
+                legacy_loaded: Some(false),
+                legacy_load_detail: Some(
+                    "launchctl does not report legacy test LaunchAgent as loaded.".to_string(),
+                ),
             },
             backend_status: crate::models::BackendRuntimeStatus {
                 reachable: running,

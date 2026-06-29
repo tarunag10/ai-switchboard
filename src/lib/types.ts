@@ -385,8 +385,14 @@ export interface RuntimeStatus {
   launchAgentStatus?: {
     installed: boolean;
     path?: string | null;
+    label: string;
+    loaded?: boolean | null;
+    loadDetail?: string | null;
     legacyInstalled: boolean;
     legacyPath?: string | null;
+    legacyLabel: string;
+    legacyLoaded?: boolean | null;
+    legacyLoadDetail?: string | null;
   } | null;
   backendStatus?: {
     reachable: boolean;

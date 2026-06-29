@@ -3407,14 +3407,72 @@ fn user_home_dir() -> PathBuf {
 
 fn launch_agent_runtime_status() -> LaunchAgentRuntimeStatus {
     const APP_BUNDLE_ID: &str = "com.tarunagarwal.mac-ai-switchboard";
+    const LEGACY_LABEL: &str = "Headroom";
     let launch_agents_dir = user_home_dir().join("Library").join("LaunchAgents");
     let managed_path = launch_agents_dir.join(format!("{APP_BUNDLE_ID}.plist"));
     let legacy_path = launch_agents_dir.join("Headroom.plist");
+    let (loaded, load_detail) = launch_agent_loaded_status(APP_BUNDLE_ID);
+    let (legacy_loaded, legacy_load_detail) = launch_agent_loaded_status(LEGACY_LABEL);
     LaunchAgentRuntimeStatus {
         installed: managed_path.exists(),
         path: Some(managed_path.display().to_string()),
+        label: APP_BUNDLE_ID.to_string(),
+        loaded,
+        load_detail,
         legacy_installed: legacy_path.exists(),
         legacy_path: Some(legacy_path.display().to_string()),
+        legacy_label: LEGACY_LABEL.to_string(),
+        legacy_loaded,
+        legacy_load_detail,
+    }
+}
+
+fn launch_agent_loaded_status(label: &str) -> (Option<bool>, Option<String>) {
+    #[cfg(target_os = "macos")]
+    {
+        let uid = unsafe { libc::getuid() };
+        let target = format!("gui/{uid}/{label}");
+        match Command::new("launchctl").args(["print", &target]).output() {
+            Ok(output) if output.status.success() => (
+                Some(true),
+                Some(format!("launchctl reports {target} is loaded.")),
+            ),
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let combined = format!("{stderr}{stdout}").to_lowercase();
+                if combined.contains("could not find service")
+                    || combined.contains("service is not loaded")
+                    || combined.contains("no such process")
+                    || output.status.code() == Some(113)
+                {
+                    (
+                        Some(false),
+                        Some(format!("launchctl does not report {target} as loaded.")),
+                    )
+                } else {
+                    (
+                        None,
+                        Some(format!(
+                            "launchctl could not determine {target} load state."
+                        )),
+                    )
+                }
+            }
+            Err(err) => (
+                None,
+                Some(format!("launchctl load-state check failed: {err}")),
+            ),
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = label;
+        (
+            None,
+            Some("LaunchAgent load-state checks are only available on macOS.".to_string()),
+        )
     }
 }
 

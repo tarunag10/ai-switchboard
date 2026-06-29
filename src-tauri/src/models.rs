@@ -968,8 +968,14 @@ pub struct RuntimeStatus {
 pub struct LaunchAgentRuntimeStatus {
     pub installed: bool,
     pub path: Option<String>,
+    pub label: String,
+    pub loaded: Option<bool>,
+    pub load_detail: Option<String>,
     pub legacy_installed: bool,
     pub legacy_path: Option<String>,
+    pub legacy_label: String,
+    pub legacy_loaded: Option<bool>,
+    pub legacy_load_detail: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

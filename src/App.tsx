@@ -7490,11 +7490,13 @@ export default function App() {
   const launchAgentInstalled = launchAgentStatus?.installed === true;
   const legacyLaunchAgentInstalled =
     launchAgentStatus?.legacyInstalled === true;
+  const launchAgentLoaded = launchAgentStatus?.loaded === true;
+  const legacyLaunchAgentLoaded = launchAgentStatus?.legacyLoaded === true;
   const launchAgentDetail = legacyLaunchAgentInstalled
-    ? `Legacy Headroom.plist exists at ${launchAgentStatus?.legacyPath ?? "~/Library/LaunchAgents/Headroom.plist"}. Run Doctor cleanup or uninstall to remove it.`
+    ? `Legacy Headroom.plist exists at ${launchAgentStatus?.legacyPath ?? "~/Library/LaunchAgents/Headroom.plist"}. ${launchAgentStatus?.legacyLoadDetail ?? "Legacy launchd load state is unknown."} Run Doctor cleanup or uninstall to remove it.`
     : launchAgentInstalled
-      ? `Launch at login plist exists at ${launchAgentStatus?.path ?? "~/Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist"}.`
-      : "No app-managed launch-at-login plist found.";
+      ? `Launch at login plist exists at ${launchAgentStatus?.path ?? "~/Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist"}. ${launchAgentStatus?.loadDetail ?? "launchd load state is unknown."}`
+      : `No app-managed launch-at-login plist found. ${launchAgentStatus?.loadDetail ?? "launchd load state is unknown."}`;
   const switchboardRoutingConnectors =
     switchboardState?.clients ?? switchboardConnectors;
   const codexRoutingConnector = switchboardRoutingConnectors.find(
@@ -7666,10 +7668,12 @@ export default function App() {
     },
     {
       label: "Launch at login",
-      status: legacyLaunchAgentInstalled
+      status: legacyLaunchAgentInstalled || legacyLaunchAgentLoaded
         ? "Legacy found"
-        : launchAgentInstalled
-          ? "Installed"
+        : launchAgentLoaded
+          ? "Loaded"
+          : launchAgentInstalled
+            ? "Installed"
           : "Not installed",
       detail: launchAgentDetail,
     },
