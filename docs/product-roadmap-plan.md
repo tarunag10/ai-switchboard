@@ -16,7 +16,7 @@ Shipped:
 - Gemini has managed shell base-url routing. OpenCode has the first promoted provider-config write path with preview, exact confirmation, backup, apply, verify, and rollback coverage.
 - Cursor and Windsurf now surface detected editor settings files as evidence while native writes remain blocked.
 - Repo Intelligence Start Agent Session, read-only packs, handoffs, CLI exports, and repo-memory MCP smoke transport are usable.
-- Repo Intelligence graph version `path-graph-v3` adds package-dependency edges from TypeScript/JavaScript/React imports back to `package.json`, so context packs can show source-to-installed-package relationships in addition to local imports and call references.
+- Repo Intelligence graph version `path-graph-v4` adds Python local import-reference edges plus package-dependency edges from TypeScript/JavaScript/React imports back to `package.json`, so context packs can show Python module relationships and source-to-installed-package relationships in addition to local imports and call references.
 - Doctor now treats stale Repo Intelligence indexer versions as index-health issues, so graph analyzer upgrades ask users to clear/re-index before relying on context packs.
 - Repo Memory MCP active state is now process-bound but self-healing: after app relaunch, the app automatically re-runs the read-only smoke check for a previously verified app-managed descriptor. For new setup, Mode Inspector's Prepare MCP action installs, starts, and smoke-checks the app-managed server in one click.
 - Repo Memory MCP runtime status now exposes the managed stdio service descriptor separately from app-process smoke supervision, including command, descriptor path, read-only flag, and app-managed ownership.

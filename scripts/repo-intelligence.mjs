@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const INDEXER_VERSION = "path-graph-v3";
+const INDEXER_VERSION = "path-graph-v4";
 
 const ignoredSegments = new Set([
   ".git",
@@ -670,7 +670,7 @@ function classify(filePath, bytes) {
     role = "config";
     reasons.push("configuration or script");
   } else if (
-    [".ts", ".tsx", ".js", ".jsx", ".rs", ".css", ".html"].includes(extension)
+    [".ts", ".tsx", ".js", ".jsx", ".py", ".rs", ".swift", ".css", ".html"].includes(extension)
   ) {
     role = "source";
     reasons.push("source extension");
@@ -1056,7 +1056,12 @@ function buildImportReferenceEdges(repoRoot, files) {
       continue;
     }
     for (const specifier of extractImportSpecifiers(content, file.language)) {
-      if (!specifier.startsWith(".") && !specifier.startsWith("crate:")) continue;
+      if (
+        !specifier.startsWith(".") &&
+        !specifier.startsWith("crate:") &&
+        !specifier.startsWith("py:")
+      )
+        continue;
       const target = resolveImportSpecifier(file.path, specifier, byPath);
       if (!target) continue;
       pushUniqueGraphEdge(edges, {
@@ -1190,7 +1195,34 @@ function extractImportSpecifiers(content, language) {
       if (cratePath) specifiers.push(`crate:${cratePath}`);
     }
   }
+  if (language === "Python") {
+    for (const line of content.split(/\r?\n/)) {
+      specifiers.push(...pythonImportSpecifiers(line.trim()));
+    }
+  }
   return specifiers;
+}
+
+function pythonImportSpecifiers(line) {
+  const trimmed = line.split("#")[0]?.trim() ?? "";
+  if (!trimmed) return [];
+  if (trimmed.startsWith("import ")) {
+    return trimmed
+      .slice("import ".length)
+      .split(",")
+      .map((part) => part.trim().split(/\s+/)[0])
+      .filter(Boolean)
+      .map((name) => `py:${name.replace(/\./g, "/")}`);
+  }
+  if (trimmed.startsWith("from ")) {
+    const rest = trimmed.slice("from ".length);
+    const [module] = rest.split(/\s+import\s+/);
+    if (!module || module === rest) return [];
+    const relativePrefix = module.match(/^\.+/)?.[0] ?? "";
+    const modulePath = module.slice(relativePrefix.length).replace(/\./g, "/");
+    return [`py:${relativePrefix}${modulePath}`];
+  }
+  return [];
 }
 
 function resolveImportSpecifier(fromPath, specifier, byPath) {
@@ -1199,6 +1231,8 @@ function resolveImportSpecifier(fromPath, specifier, byPath) {
     ? normalizeRepoPath(
         `${crateSourceRoot(fromPath)}/${specifier.slice("crate:".length).replace(/::/g, "/")}`,
       )
+    : specifier.startsWith("py:")
+      ? normalizePythonImportPath(fromPath, specifier.slice("py:".length))
     : normalizeRepoPath(`${fromDir}/${specifier}`);
   const crateParent = specifier.startsWith("crate:")
     ? normalized.split("/").slice(0, -1).join("/")
@@ -1211,12 +1245,14 @@ function resolveImportSpecifier(fromPath, specifier, byPath) {
     `${normalized}.js`,
     `${normalized}.jsx`,
     `${normalized}.mjs`,
+    `${normalized}.py`,
     `${normalized}.rs`,
     ...(crateParent ? [`${crateParent}.rs`, `${crateParent}/mod.rs`] : []),
     `${normalized}.swift`,
     `${normalized}/index.ts`,
     `${normalized}/index.tsx`,
     `${normalized}/index.js`,
+    `${normalized}/__init__.py`,
     `${normalized}/mod.rs`,
   ];
   for (const candidate of candidates) {
@@ -1224,6 +1260,26 @@ function resolveImportSpecifier(fromPath, specifier, byPath) {
     if (target) return target;
   }
   return null;
+}
+
+function normalizePythonImportPath(fromPath, pythonPath) {
+  const fromDir = fromPath.split("/").slice(0, -1).join("/");
+  if (pythonPath.startsWith(".")) {
+    const dotCount = pythonPath.match(/^\.+/)?.[0].length ?? 0;
+    const modulePath = pythonPath.slice(dotCount);
+    const relativeBase = `${fromDir}${"/..".repeat(Math.max(0, dotCount - 1))}`;
+    return normalizeRepoPath(`${relativeBase}/${modulePath}`);
+  }
+  const packageRoot = pythonPackageRoot(fromPath);
+  return normalizeRepoPath(packageRoot ? `${packageRoot}/${pythonPath}` : pythonPath);
+}
+
+function pythonPackageRoot(fromPath) {
+  const parts = fromPath.split("/");
+  const index = parts.findLastIndex((part) =>
+    ["src", "app", "apps", "lib", "server", "backend"].includes(part),
+  );
+  return index >= 0 ? parts.slice(0, index + 1).join("/") : "";
 }
 
 function crateSourceRoot(fromPath) {

@@ -25,7 +25,7 @@ const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
 const TASK_PACK_BUDGET_TOKENS: u64 = 8_000;
-const INDEXER_VERSION: &str = "path-graph-v3";
+const INDEXER_VERSION: &str = "path-graph-v4";
 const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
 const PARSER_VERSION: &str = "metadata-fingerprint-v1";
 const DEFAULT_SYMBOL_SEARCH_LIMIT: usize = 25;
@@ -1891,14 +1891,17 @@ fn build_import_reference_edges(repo_root: &Path, files: &[RepoFileSignal]) -> V
         matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
             && matches!(
                 file.language.as_str(),
-                "TypeScript" | "JavaScript" | "React" | "Rust"
+                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python"
             )
     }) {
         let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
             continue;
         };
         for specifier in extract_import_specifiers(&content, &file.language) {
-            if !specifier.starts_with('.') && !specifier.starts_with("crate:") {
+            if !specifier.starts_with('.')
+                && !specifier.starts_with("crate:")
+                && !specifier.starts_with("py:")
+            {
                 continue;
             }
             let Some(target) = resolve_import_specifier(&file.path, &specifier, files) else {
@@ -2084,8 +2087,43 @@ fn extract_import_specifiers(content: &str, language: &str) -> Vec<String> {
                 }
             }
         }
+        if language == "Python" {
+            specifiers.extend(python_import_specifiers(trimmed));
+        }
     }
     specifiers
+}
+
+fn python_import_specifiers(line: &str) -> Vec<String> {
+    let line = line.split('#').next().unwrap_or("").trim();
+    if line.is_empty() {
+        return Vec::new();
+    }
+    if let Some(rest) = line.strip_prefix("import ") {
+        return rest
+            .split(',')
+            .filter_map(|part| part.split_whitespace().next())
+            .filter(|name| !name.is_empty())
+            .map(|name| format!("py:{}", name.replace('.', "/")))
+            .collect();
+    }
+    if let Some(rest) = line.strip_prefix("from ") {
+        let Some((module, _imports)) = rest.split_once(" import ") else {
+            return Vec::new();
+        };
+        let module = module.trim();
+        if module.is_empty() {
+            return Vec::new();
+        }
+        let relative_prefix_len = module.chars().take_while(|ch| *ch == '.').count();
+        let module_path = module[relative_prefix_len..].replace('.', "/");
+        if relative_prefix_len == 0 {
+            return vec![format!("py:{module_path}")];
+        }
+        let prefix = ".".repeat(relative_prefix_len);
+        return vec![format!("py:{prefix}{module_path}")];
+    }
+    Vec::new()
 }
 
 fn quoted_import_specifier(line: &str) -> Option<String> {
@@ -2120,6 +2158,8 @@ fn resolve_import_specifier<'a>(
             crate_source_root(from_path),
             crate_path.replace("::", "/")
         ))
+    } else if let Some(python_path) = specifier.strip_prefix("py:") {
+        normalize_python_import_path(from_path, python_path)
     } else {
         normalize_repo_path(&format!("{base_dir}/{specifier}"))
     };
@@ -2135,11 +2175,13 @@ fn resolve_import_specifier<'a>(
         format!("{normalized}.js"),
         format!("{normalized}.jsx"),
         format!("{normalized}.mjs"),
+        format!("{normalized}.py"),
         format!("{normalized}.rs"),
         format!("{normalized}.swift"),
         format!("{normalized}/index.ts"),
         format!("{normalized}/index.tsx"),
         format!("{normalized}/index.js"),
+        format!("{normalized}/__init__.py"),
         format!("{normalized}/mod.rs"),
     ];
     if let Some(crate_parent) = crate_parent {
@@ -2150,6 +2192,31 @@ fn resolve_import_specifier<'a>(
     candidates
         .iter()
         .find_map(|candidate| files.iter().find(|file| file.path == *candidate))
+}
+
+fn normalize_python_import_path(from_path: &str, python_path: &str) -> String {
+    let base_dir = from_path.rsplit_once('/').map(|(dir, _)| dir).unwrap_or("");
+    if python_path.starts_with('.') {
+        let dot_count = python_path.chars().take_while(|ch| *ch == '.').count();
+        let module_path = &python_path[dot_count..];
+        let mut relative_base = base_dir.to_string();
+        for _ in 1..dot_count {
+            relative_base.push_str("/..");
+        }
+        return normalize_repo_path(&format!("{relative_base}/{module_path}"));
+    }
+    let Some(package_root) = python_package_root(from_path) else {
+        return normalize_repo_path(python_path);
+    };
+    normalize_repo_path(&format!("{package_root}/{python_path}"))
+}
+
+fn python_package_root(from_path: &str) -> Option<String> {
+    let parts = from_path.split('/').collect::<Vec<_>>();
+    parts
+        .iter()
+        .rposition(|part| matches!(*part, "src" | "app" | "apps" | "lib" | "server" | "backend"))
+        .map(|index| parts[..=index].join("/"))
 }
 
 fn crate_source_root(from_path: &str) -> String {
@@ -2761,6 +2828,25 @@ export const mapValues = <T>(items: T[]) => items;
             "use crate::state::RuntimeState;\npub fn consume_state() {}\n",
         )
         .expect("write rust consumer");
+        std::fs::write(src.join("__init__.py"), "").expect("write python init");
+        std::fs::write(
+            src.join("worker.py"),
+            "from services.worker_helpers import run_job\nfrom .local_helpers import build_job\n\ndef main():\n    run_job()\n    build_job()\n",
+        )
+        .expect("write python worker");
+        let services_dir = src.join("services");
+        std::fs::create_dir_all(&services_dir).expect("create services dir");
+        std::fs::write(services_dir.join("__init__.py"), "").expect("write services init");
+        std::fs::write(
+            services_dir.join("worker_helpers.py"),
+            "def run_job():\n    return None\n",
+        )
+        .expect("write python services helper");
+        std::fs::write(
+            src.join("local_helpers.py"),
+            "def build_job():\n    return None\n",
+        )
+        .expect("write python local helper");
         let swift_dir = root.path().join("Sources").join("Switchboard");
         std::fs::create_dir_all(&swift_dir).expect("create swift dir");
         std::fs::write(
@@ -2816,6 +2902,18 @@ export const mapValues = <T>(items: T[]) => items;
                 && edge.to == "package.json"
                 && edge.kind == RepoGraphEdgeKind::PackageDependency
                 && edge.reason == "source imports package react"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/worker.py"
+                && edge.to == "src/services/worker_helpers.py"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports py:services/worker_helpers"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/worker.py"
+                && edge.to == "src/local_helpers.py"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports py:.local_helpers"
         }));
         assert!(graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/App.tsx"

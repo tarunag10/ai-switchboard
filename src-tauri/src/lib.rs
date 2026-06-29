@@ -7511,6 +7511,7 @@ mod tests {
         MonitorBounds, PhysicalRect, QuitSource, TrayRuntimeVisual,
     };
     use crate::models::{RepoFileIndexEntry, RepoIndexMetadata, RepoIntelligenceSummary};
+    use crate::repo_intelligence;
     use chrono::{TimeZone, Utc};
     use parking_lot::Mutex;
     use serde_json::{json, Value};
@@ -7626,7 +7627,7 @@ mod tests {
         RepoIntelligenceSummary {
             indexed_at: indexed_at.to_string(),
             repo_root,
-            indexer_version: Some("path-graph-v3".to_string()),
+            indexer_version: Some(repo_intelligence::current_indexer_version().to_string()),
             total_files: 1,
             indexed_files: 1,
             skipped_files: 0,
@@ -7634,7 +7635,7 @@ mod tests {
             role_counts: BTreeMap::new(),
             index_metadata: Some(RepoIndexMetadata {
                 schema_version: 1,
-                indexer_version: "path-graph-v3".to_string(),
+                indexer_version: repo_intelligence::current_indexer_version().to_string(),
                 parser_version: "metadata-fingerprint-v1".to_string(),
                 cache_key: "test".to_string(),
                 cache_state: "unchanged".to_string(),

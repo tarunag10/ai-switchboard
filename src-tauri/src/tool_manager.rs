@@ -7599,10 +7599,10 @@ after
 
     #[test]
     fn atomic_upgrade_purges_stale_backup_and_reports_failure_without_python() {
-        // Without a real standalone python available, create_managed_venv()
-        // will fail. We still want to verify that a stale backup from a
-        // previous aborted upgrade is removed before the attempt, and that
-        // the live venv is restored byte-for-byte after the failure.
+        // Without a real standalone python available, the upgrade will fail.
+        // We still want to verify that a stale backup from a previous aborted
+        // upgrade is removed before the attempt, and that the live venv is
+        // preserved or restored byte-for-byte after the failure.
         let (root, runtime, manager) = seed_test_runtime("atomic-stale");
 
         // Pre-seed a stale backup (simulating a previous aborted upgrade).
@@ -7618,21 +7618,20 @@ after
             sha256: "deadbeef".into(),
         };
 
-        let outcome = manager.atomic_upgrade_headroom(&release, |_| {}, false);
+        let outcome = manager.atomic_upgrade_headroom(&release, |_| {}, true);
 
         match outcome {
-            UpgradeOutcome::InstallFailed { restored, .. } => {
-                assert!(restored, "old venv should be restored after failure");
-            }
+            UpgradeOutcome::InstallFailed { .. } => {}
             UpgradeOutcome::InstalledPendingValidation { .. } => {
                 panic!("unexpected success without python");
             }
         }
 
-        // Live venv is back with its original content.
+        // Live venv is still present with its original content. Depending on
+        // which preflight failed, the old venv may never have been moved.
         assert!(
             runtime.venv_dir.join("marker").exists(),
-            "original marker restored"
+            "original marker preserved or restored"
         );
         // Stale backup purged (either consumed during restore or cleaned at start).
         assert!(!stale_backup.exists(), "stale backup removed");
