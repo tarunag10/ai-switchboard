@@ -2656,19 +2656,44 @@ fn repo_intelligence_doctor_issue(
 }
 
 fn repo_memory_mcp_doctor_issue(runtime: &RuntimeStatus) -> Option<crate::models::DoctorIssue> {
-    if runtime.repo_memory_mcp_configured != Some(false) {
-        return None;
+    if runtime.repo_memory_mcp_configured == Some(false) {
+        return Some(crate::models::DoctorIssue {
+            id: "repo_memory_mcp_not_configured".to_string(),
+            title: "Repo Memory MCP is not configured".to_string(),
+            body: runtime
+                .repo_memory_mcp_error
+                .clone()
+                .unwrap_or_else(|| {
+                    "Repo Memory MCP is required before supported agents can request read-only Repo Intelligence packs through MCP. Repair will install the app-managed read-only repo-memory server, then run the start/smoke check before marking it active.".to_string()
+                }),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("install_repo_memory_mcp".to_string()),
+        });
     }
 
+    let (id, title, body) = match runtime.repo_memory_mcp_supervision_status.as_str() {
+        "smoke_failed" => (
+            "repo_memory_mcp_smoke_failed",
+            "Repo Memory MCP smoke check failed",
+            "Repo Memory MCP is configured, but the read-only smoke check failed. Repair will reinstall the app-managed descriptor, start the MCP session, and re-run the smoke contract before supported agents rely on repo context.",
+        ),
+        "stale_config" => (
+            "repo_memory_mcp_stale_config",
+            "Repo Memory MCP config is stale",
+            "Repo Memory MCP was marked active, but the app-managed MCP descriptor is missing or unsafe. Repair will restore the read-only descriptor and re-run the start/smoke check.",
+        ),
+        "restart_required" | "unknown_active" | "active" => (
+            "repo_memory_mcp_needs_verification",
+            "Repo Memory MCP needs verification",
+            "Repo Memory MCP has active session state without current app-process smoke proof. Repair will run the app-managed Prepare MCP flow before agents consume repo-memory tools.",
+        ),
+        _ => return None,
+    };
+
     Some(crate::models::DoctorIssue {
-        id: "repo_memory_mcp_not_configured".to_string(),
-        title: "Repo Memory MCP is not configured".to_string(),
-        body: runtime
-            .repo_memory_mcp_error
-            .clone()
-            .unwrap_or_else(|| {
-                "Repo Memory MCP is required before supported agents can request read-only Repo Intelligence packs through MCP. Repair will install the app-managed read-only repo-memory server, then you can run npm run check:repo-memory-mcp to verify the tool contract.".to_string()
-            }),
+        id: id.to_string(),
+        title: title.to_string(),
+        body: body.to_string(),
         severity: crate::models::DoctorSeverity::Warning,
         repair_action: Some("install_repo_memory_mcp".to_string()),
     })
@@ -3392,6 +3417,37 @@ mod doctor_tests {
         assert!(issue.body.contains("repo-memory missing"));
 
         runtime.repo_memory_mcp_configured = Some(true);
+        assert!(repo_memory_mcp_doctor_issue(&runtime).is_none());
+    }
+
+    #[test]
+    fn repo_memory_mcp_doctor_issue_surfaces_failed_supervision() {
+        let mut runtime = test_runtime_status(true, true, true);
+        runtime.mcp_configured = Some(true);
+        runtime.repo_memory_mcp_configured = Some(true);
+
+        runtime.repo_memory_mcp_supervision_status = "smoke_failed".to_string();
+        let smoke_issue = repo_memory_mcp_doctor_issue(&runtime).expect("smoke issue");
+        assert_eq!(smoke_issue.id, "repo_memory_mcp_smoke_failed");
+        assert_eq!(
+            smoke_issue.repair_action.as_deref(),
+            Some("install_repo_memory_mcp")
+        );
+        assert!(smoke_issue.body.contains("read-only smoke check failed"));
+
+        runtime.repo_memory_mcp_supervision_status = "stale_config".to_string();
+        let stale_issue = repo_memory_mcp_doctor_issue(&runtime).expect("stale issue");
+        assert_eq!(stale_issue.id, "repo_memory_mcp_stale_config");
+        assert!(stale_issue.body.contains("descriptor is missing or unsafe"));
+
+        runtime.repo_memory_mcp_supervision_status = "active".to_string();
+        let active_issue = repo_memory_mcp_doctor_issue(&runtime).expect("active issue");
+        assert_eq!(active_issue.id, "repo_memory_mcp_needs_verification");
+        assert!(active_issue
+            .body
+            .contains("without current app-process smoke proof"));
+
+        runtime.repo_memory_mcp_supervision_status = "verified_active".to_string();
         assert!(repo_memory_mcp_doctor_issue(&runtime).is_none());
     }
 }

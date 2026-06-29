@@ -89,6 +89,36 @@ describe("doctor repair copy", () => {
     expect(guidance).toContain("one-click install, start, and smoke check");
   });
 
+  it("guides Repo Memory MCP supervision failures through Prepare MCP", () => {
+    expect(
+      doctorIssueGuidance({
+        id: "repo_memory_mcp_smoke_failed",
+        title: "Repo Memory MCP smoke check failed",
+        body: "smoke failed",
+        severity: "warning",
+        repairAction: "install_repo_memory_mcp",
+      }),
+    ).toContain("re-run the smoke check");
+    expect(
+      doctorIssueGuidance({
+        id: "repo_memory_mcp_stale_config",
+        title: "Repo Memory MCP config is stale",
+        body: "descriptor missing",
+        severity: "warning",
+        repairAction: "install_repo_memory_mcp",
+      }),
+    ).toContain("restore the app-managed read-only descriptor");
+    expect(
+      doctorIssueGuidance({
+        id: "repo_memory_mcp_needs_verification",
+        title: "Repo Memory MCP needs verification",
+        body: "needs proof",
+        severity: "warning",
+        repairAction: "install_repo_memory_mcp",
+      }),
+    ).toContain("current app-process smoke proof");
+  });
+
   it("guides Off mode verification without promising repair", () => {
     expect(
       doctorIssueGuidance({

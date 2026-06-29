@@ -95,10 +95,15 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.queryByText("Connector readiness")).not.toBeInTheDocument();
     expect(screen.getByText(/managed sidecar coverage/i)).toBeInTheDocument();
     expect(
-      screen.getAllByText(
-        "Clears the saved Repo Intelligence summary from Switchboard managed storage so stale, missing, moved, corrupt, or replaced repo paths no longer appear in Doctor. Re-index the current local repo path from Addons when ready.",
+      screen.getByText(
+        "Clear the saved Repo Intelligence index, then open Addons and index an available local repo when ready.",
       ),
-    ).toHaveLength(2);
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Clear the stale saved Repo Intelligence index, then open Addons and re-index the repo before copying packs into another agent.",
+      ),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
         "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.",
@@ -139,7 +144,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.getByText("Auto repair")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Clears the saved Repo Intelligence summary from Switchboard managed storage so stale, missing, moved, corrupt, or replaced repo paths no longer appear in Doctor. Re-index the current local repo path from Addons when ready.",
+        "Use Clear index to remove the corrupt or unreadable saved Repo Intelligence summary from Switchboard managed storage, then open Addons and re-index a local repo before copying packs into another agent.",
       ),
     ).toBeInTheDocument();
     expect(

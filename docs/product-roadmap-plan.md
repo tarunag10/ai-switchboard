@@ -51,6 +51,7 @@ Shipped:
 - Local Repo Intelligence validation now writes durable read-only evidence for pack generation, backend read-only API payloads, and repo-memory MCP smoke access, and the release readiness report ingests it as local-only proof.
 - Repo Intelligence now aligns the frontend preview, CLI/MCP script, and Tauri backend on Swift source classification/symbol extraction and Rust module/import-reference edges, so one-click packs cover more macOS app code without broad file dumps.
 - Doctor now treats corrupt Repo Intelligence saved summaries as one-click Clear index repairs, with backend proof that only Switchboard managed index metadata is removed before re-indexing.
+- Doctor now surfaces Repo Memory MCP smoke-failed, stale-config, and unverified-active supervision states as Prepare MCP repairs, so unsafe MCP handoffs are visible instead of relying on configured-state alone.
 
 Left:
 

@@ -368,7 +368,7 @@ describe("SwitchboardDoctorPanel", () => {
     expect(screen.getByText("1 automatic")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Installs the app-managed read-only Repo Memory MCP config. Use Prepare MCP in Mode Inspector for the one-click install, start, and smoke check path.",
+        "Use Prepare MCP in Mode Inspector for the one-click install, start, and smoke check before asking supported agents to consume repo-memory tools.",
       ),
     ).toBeInTheDocument();
 
