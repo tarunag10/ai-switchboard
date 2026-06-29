@@ -9,6 +9,7 @@ The goal is not to hide Headroom. Headroom is still a real underlying optimizati
 - Product name and bundle identity are Mac AI Switchboard.
 - The visible Terms gate now uses bundled Mac AI Switchboard Terms of Use.
 - Settings now includes bundled Terms, Privacy Notice, account/API status, and the terms-version policy.
+- App update download, install, and restart-ready copy now names Mac AI Switchboard instead of the underlying Headroom project.
 - The old Logoipsum/Headroom SVG has been removed from the app UI.
 - A generated Mac AI Switchboard logo is now used in the launcher, tray, and app icon assets.
 - The inherited `headroom.iconset` source folder has been renamed to `src-tauri/icons/mac-ai-switchboard.iconset/`, and the branding guard blocks the old folder name.
@@ -35,7 +36,7 @@ Replace visible upstream identity where it describes the app rather than the run
 Tasks:
 
 - Replace legacy tray menu labels that name Headroom as the app with Mac AI Switchboard wording.
-- Replace update banners that name Headroom when they mean the desktop app update.
+- Replace update banners that name Headroom when they mean the desktop app update: shipped.
 - Replace onboarding copy that says users are launching Headroom when they are launching Mac AI Switchboard.
 - Replace support/contact copy that points to upstream support addresses unless those services are intentionally still used.
 - Keep labels such as "Headroom engine", "Headroom proxy", and `headroom-ai` where they refer to the underlying optimizer.

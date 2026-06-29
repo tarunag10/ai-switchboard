@@ -194,7 +194,7 @@ describe("app update helpers", () => {
   });
 
   it("returns the install progress copy for the selected update", () => {
-    expect(getAppUpdateInstallStatusCopy(availableUpdate)).toBe("Downloading Headroom 0.3.0…");
+    expect(getAppUpdateInstallStatusCopy(availableUpdate)).toBe("Downloading Mac AI Switchboard 0.3.0…");
     expect(getAppUpdateInstallStatusCopy(null)).toBeNull();
   });
 
@@ -210,7 +210,7 @@ describe("app update helpers", () => {
     expect(result).toEqual({
       readyToRestart: true,
       showDialog: true,
-      statusCopy: "Headroom 0.3.0 is installed and ready to restart.",
+      statusCopy: "Mac AI Switchboard 0.3.0 is installed and ready to restart.",
     });
   });
 
@@ -246,7 +246,7 @@ describe("app update helpers", () => {
         downloaded: 5_500_000,
         total: 22_000_000,
       })
-    ).toBe("Downloading Headroom 0.3.0: 5.5 MB of 22.0 MB (25%)…");
+    ).toBe("Downloading Mac AI Switchboard 0.3.0: 5.5 MB of 22.0 MB (25%)…");
   });
 
   it("formats download progress without a percent when total is unknown", () => {
@@ -256,13 +256,13 @@ describe("app update helpers", () => {
         downloaded: 1_200_000,
         total: null,
       })
-    ).toBe("Downloading Headroom 0.3.0: 1.2 MB…");
+    ).toBe("Downloading Mac AI Switchboard 0.3.0: 1.2 MB…");
   });
 
   it("formats the installing phase as a separate copy string", () => {
     expect(
       formatAppUpdateProgressCopy("0.3.0", { phase: "installing" })
-    ).toBe("Installing Headroom 0.3.0…");
+    ).toBe("Installing Mac AI Switchboard 0.3.0…");
   });
 
   it("does not subscribe to progress events when no onProgress callback is given", async () => {
