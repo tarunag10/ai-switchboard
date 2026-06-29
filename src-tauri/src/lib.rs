@@ -2375,6 +2375,17 @@ fn switchboard_mode_wants_rtk(mode: Option<&SwitchboardMode>) -> bool {
     )
 }
 
+fn doctor_repair_action_restores_headroom(action: &str) -> bool {
+    matches!(
+        action,
+        "repair_runtime" | "repair_client_setups" | "repair_codex_setup" | "repair_all"
+    )
+}
+
+fn switchboard_mode_blocks_doctor_repair(mode: Option<&SwitchboardMode>, action: &str) -> bool {
+    !switchboard_mode_wants_headroom(mode) && doctor_repair_action_restores_headroom(action)
+}
+
 fn infer_switchboard_mode(
     runtime: &RuntimeStatus,
     enabled_client_count: usize,
@@ -3182,6 +3193,76 @@ mod doctor_tests {
     }
 
     #[test]
+    fn off_mode_blocks_doctor_repairs_that_restore_headroom() {
+        for action in [
+            "repair_runtime",
+            "repair_client_setups",
+            "repair_codex_setup",
+            "repair_all",
+        ] {
+            assert!(
+                switchboard_mode_blocks_doctor_repair(Some(&SwitchboardMode::Off), action),
+                "{action} should be blocked in Off mode"
+            );
+        }
+    }
+
+    #[test]
+    fn rtk_only_blocks_doctor_repairs_that_restore_headroom() {
+        for action in [
+            "repair_runtime",
+            "repair_client_setups",
+            "repair_codex_setup",
+            "repair_all",
+        ] {
+            assert!(
+                switchboard_mode_blocks_doctor_repair(Some(&SwitchboardMode::Rtk), action),
+                "{action} should be blocked in RTK-only mode"
+            );
+        }
+    }
+
+    #[test]
+    fn headroom_modes_allow_headroom_repair_actions() {
+        for mode in [SwitchboardMode::Headroom, SwitchboardMode::Full] {
+            for action in [
+                "repair_runtime",
+                "repair_client_setups",
+                "repair_codex_setup",
+                "repair_all",
+            ] {
+                assert!(
+                    !switchboard_mode_blocks_doctor_repair(Some(&mode), action),
+                    "{action} should be allowed in {}",
+                    switchboard_mode_label(&mode)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn non_headroom_doctor_repairs_remain_available_in_off_and_rtk_modes() {
+        for mode in [SwitchboardMode::Off, SwitchboardMode::Rtk] {
+            for action in [
+                "verify_off_mode",
+                "reset_codex_bypass",
+                "repair_rtk_integrations",
+                "repair_rtk_runtime",
+                "repair_caveman_guidance",
+                "repair_ponytail_plugin",
+                "clear_repo_intelligence_index",
+                "install_repo_memory_mcp",
+            ] {
+                assert!(
+                    !switchboard_mode_blocks_doctor_repair(Some(&mode), action),
+                    "{action} should remain available in {}",
+                    switchboard_mode_label(&mode)
+                );
+            }
+        }
+    }
+
+    #[test]
     fn off_mode_doctor_issue_lists_active_routing_evidence() {
         let runtime = test_runtime_status(true, true, true);
         let mut issues = Vec::new();
@@ -3349,6 +3430,17 @@ async fn run_doctor_repair(
     state: State<'_, AppState>,
     action: String,
 ) -> Result<crate::models::DoctorReport, String> {
+    let saved_mode = client_adapters::load_switchboard_mode();
+    if switchboard_mode_blocks_doctor_repair(saved_mode.as_ref(), action.as_str()) {
+        let mode_label = saved_mode
+            .as_ref()
+            .map(switchboard_mode_label)
+            .unwrap_or("current mode");
+        return Err(format!(
+            "{mode_label} is requested, so Doctor will not run {action} because it can restore Headroom routing. Choose Headroom only or Full optimization first."
+        ));
+    }
+
     match action.as_str() {
         "verify_off_mode" => Ok(build_doctor_report(&state)),
         "reset_codex_bypass" => {
