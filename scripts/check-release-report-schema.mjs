@@ -18,6 +18,13 @@ const requiredReleaseReportPaths = [
   "installedSmoke.checklistSha256Matches",
   "localValidation.ready",
   "localValidation.releaseGateEvidence",
+  "localValidation.modeRelaunch.summaryPath",
+  "localValidation.modeRelaunch.jsonPath",
+  "localValidation.modeRelaunch.passed",
+  "localValidation.modeRelaunch.offModeProxyDown",
+  "localValidation.modeRelaunch.rtkModeProxyDown",
+  "localValidation.modeRelaunch.restored",
+  "localValidation.modeRelaunch.requiredCommand",
   "localValidation.rollback.summaryPath",
   "localValidation.rollback.jsonPath",
   "localValidation.rollback.passed",
@@ -128,6 +135,13 @@ if (!markdownReport.includes("Full per-tool dossiers are available from Doctor")
 }
 if (!markdownReport.includes("## Local Doctor and Rollback Validation")) {
   fail(`${markdownReportPath} must include local Doctor and Rollback validation evidence`);
+}
+if (
+  !markdownReport.includes(
+    "Mode relaunch command: npm run smoke:mode-relaunch:local -- --confirm",
+  )
+) {
+  fail(`${markdownReportPath} must include the local mode relaunch smoke command`);
 }
 if (!markdownReport.includes("Rollback command: npm run smoke:rollback:local")) {
   fail(`${markdownReportPath} must include the local rollback validation command`);
@@ -332,6 +346,47 @@ for (const prefix of [
   if (parseError !== null && typeof parseError !== "string") {
     fail(`${prefix}.parseError must be string or null`);
   }
+}
+requireObject(report, "localValidation.modeRelaunch");
+requireType(report, "localValidation.modeRelaunch.summaryPath", "string");
+requireType(report, "localValidation.modeRelaunch.jsonPath", "string");
+requireBooleanFields(report, "localValidation.modeRelaunch", [
+  "summaryPresent",
+  "jsonPresent",
+  "passed",
+  "offModeProxyDown",
+  "rtkModeProxyDown",
+  "restored",
+]);
+requireType(report, "localValidation.modeRelaunch.modeCount", "number");
+requireType(report, "localValidation.modeRelaunch.requiredCommand", "string");
+const modeRelaunchKind = report.localValidation.modeRelaunch.kind;
+if (modeRelaunchKind !== null && typeof modeRelaunchKind !== "string") {
+  fail("localValidation.modeRelaunch.kind must be string or null");
+}
+const modeRelaunchParseError = report.localValidation.modeRelaunch.parseError;
+if (
+  modeRelaunchParseError !== null &&
+  typeof modeRelaunchParseError !== "string"
+) {
+  fail("localValidation.modeRelaunch.parseError must be string or null");
+}
+if (
+  report.localValidation.modeRelaunch.requiredCommand !==
+  "npm run smoke:mode-relaunch:local -- --confirm"
+) {
+  fail(
+    "localValidation.modeRelaunch.requiredCommand must be npm run smoke:mode-relaunch:local -- --confirm",
+  );
+}
+if (report.localValidation.modeRelaunch.offModeProxyDown !== true) {
+  fail("localValidation.modeRelaunch.offModeProxyDown must be true");
+}
+if (report.localValidation.modeRelaunch.rtkModeProxyDown !== true) {
+  fail("localValidation.modeRelaunch.rtkModeProxyDown must be true");
+}
+if (report.localValidation.modeRelaunch.restored !== true) {
+  fail("localValidation.modeRelaunch.restored must be true");
 }
 if (
   report.localValidation.rollback.requiredCommand !==

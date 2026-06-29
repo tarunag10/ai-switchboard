@@ -252,6 +252,16 @@ describe("release readiness checklist", () => {
       status: "blocked",
       localValidation: {
         ready: true,
+        modeRelaunch: {
+          passed: true,
+          modeCount: 2,
+          summaryPresent: true,
+          offModeProxyDown: true,
+          rtkModeProxyDown: true,
+          restored: true,
+          requiredCommand: "npm run smoke:mode-relaunch:local -- --confirm",
+          summaryPath: "dist/local-mode-relaunch-smoke-summary.md",
+        },
         rollback: {
           passed: true,
           stepCount: 3,
@@ -287,6 +297,7 @@ describe("release readiness checklist", () => {
     });
 
     expect(rows.map((row) => row.id)).toEqual([
+      "mode-relaunch",
       "rollback",
       "doctor-repair",
       "uninstall",
@@ -294,11 +305,18 @@ describe("release readiness checklist", () => {
     ]);
     expect(rows.every((row) => row.passed)).toBe(true);
     expect(rows.map((row) => row.command)).toEqual([
+      "npm run smoke:mode-relaunch:local -- --confirm",
       "npm run smoke:rollback:local",
       "npm run smoke:doctor-repair:local",
       "npm run smoke:uninstall:local",
       "npm run smoke:repo-intelligence:local",
     ]);
+    expect(rows.find((row) => row.id === "mode-relaunch")?.detail).toContain(
+      "Proxy listeners stayed down and config was restored.",
+    );
+    expect(rows.find((row) => row.id === "mode-relaunch")?.detail).toContain(
+      "2 modes.",
+    );
     expect(rows.find((row) => row.id === "uninstall")?.detail).toContain(
       "Dry-run only; no destructive actions.",
     );

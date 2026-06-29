@@ -86,6 +86,17 @@ export interface ReleaseReadinessReportSnapshot {
     ready?: boolean;
     releaseGateEvidence?: boolean;
     message?: string;
+    modeRelaunch?: {
+      summaryPresent?: boolean;
+      jsonPresent?: boolean;
+      passed?: boolean;
+      modeCount?: number;
+      offModeProxyDown?: boolean;
+      rtkModeProxyDown?: boolean;
+      restored?: boolean;
+      requiredCommand?: string;
+      summaryPath?: string;
+    };
     rollback?: {
       summaryPresent?: boolean;
       jsonPresent?: boolean;
@@ -626,12 +637,14 @@ function statusLabel(ready: boolean) {
 
 function localEvidenceDetail(
   label: string,
-  stepCount: number | undefined,
+  count: number | undefined,
   summaryPresent: boolean | undefined,
   extra: string | null = null,
+  unit = "step",
 ) {
+  const safeCount = count ?? 0;
   const parts = [
-    `${label} ${stepCount ?? 0} step${stepCount === 1 ? "" : "s"}.`,
+    `${label} ${safeCount} ${unit}${safeCount === 1 ? "" : "s"}.`,
     summaryPresent ? "Summary present." : "Summary missing.",
   ];
   if (extra) {
@@ -649,6 +662,29 @@ export function releaseLocalEvidenceRowsFromReport(
   }
 
   return [
+    {
+      id: "mode-relaunch",
+      label: "Mode relaunch",
+      passed: local.modeRelaunch?.passed === true,
+      statusLabel: local.modeRelaunch?.passed === true ? "Passed" : "Missing",
+      command:
+        local.modeRelaunch?.requiredCommand ??
+        "npm run smoke:mode-relaunch:local -- --confirm",
+      summaryPath:
+        local.modeRelaunch?.summaryPath ??
+        "dist/local-mode-relaunch-smoke-summary.md",
+      detail: localEvidenceDetail(
+        "Off and RTK relaunch smoke checked",
+        local.modeRelaunch?.modeCount,
+        local.modeRelaunch?.summaryPresent,
+        local.modeRelaunch?.offModeProxyDown === true &&
+          local.modeRelaunch?.rtkModeProxyDown === true &&
+        local.modeRelaunch?.restored === true
+          ? "Proxy listeners stayed down and config was restored."
+          : "Proxy or restore evidence unproven.",
+        "mode",
+      ),
+    },
     {
       id: "rollback",
       label: "Rollback Center",

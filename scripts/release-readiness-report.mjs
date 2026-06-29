@@ -7,6 +7,10 @@ const reportPath = "dist/release-readiness-report.md";
 const jsonPath = "dist/release-readiness-report.json";
 const smokeSummaryPath = "dist/smoke-preflight-summary.md";
 const installedSmokeSummaryPath = "dist/installed-smoke-summary.md";
+const localModeRelaunchSummaryPath =
+  "dist/local-mode-relaunch-smoke-summary.md";
+const localModeRelaunchJsonPath =
+  "dist/local-mode-relaunch-smoke-summary.json";
 const localRollbackSummaryPath = "dist/local-rollback-validation-summary.md";
 const localRollbackJsonPath = "dist/local-rollback-validation-summary.json";
 const localDoctorRepairSummaryPath =
@@ -251,6 +255,8 @@ function buildStaticSmokePreflight(smokeSummary) {
 }
 
 function buildLocalValidationEvidence() {
+  const modeRelaunchSummary = readSummaryStatus(localModeRelaunchSummaryPath);
+  const modeRelaunchJson = readJsonStatus(localModeRelaunchJsonPath);
   const rollbackSummary = readSummaryStatus(localRollbackSummaryPath);
   const rollbackJson = readJsonStatus(localRollbackJsonPath);
   const doctorSummary = readSummaryStatus(localDoctorRepairSummaryPath);
@@ -261,11 +267,13 @@ function buildLocalValidationEvidence() {
     localRepoIntelligenceSummaryPath,
   );
   const repoIntelligenceJson = readJsonStatus(localRepoIntelligenceJsonPath);
+  const modeRelaunchPassed = modeRelaunchJson.body?.passed === true;
   const rollbackPassed = rollbackJson.body?.passed === true;
   const doctorRepairPassed = doctorJson.body?.passed === true;
   const uninstallPassed = uninstallJson.body?.passed === true;
   const repoIntelligencePassed = repoIntelligenceJson.body?.passed === true;
   const ready =
+    modeRelaunchPassed &&
     rollbackPassed &&
     doctorRepairPassed &&
     uninstallPassed &&
@@ -274,6 +282,27 @@ function buildLocalValidationEvidence() {
   return {
     ready,
     releaseGateEvidence: false,
+    modeRelaunch: {
+      summaryPath: localModeRelaunchSummaryPath,
+      jsonPath: localModeRelaunchJsonPath,
+      summaryPresent: modeRelaunchSummary.present,
+      jsonPresent: modeRelaunchJson.present,
+      generatedLine: modeRelaunchSummary.generatedLine,
+      passed: modeRelaunchPassed,
+      parseError: modeRelaunchJson.parseError,
+      kind: modeRelaunchJson.body?.kind ?? null,
+      modeCount: Array.isArray(modeRelaunchJson.body?.modes)
+        ? modeRelaunchJson.body.modes.length
+        : 0,
+      offModeProxyDown:
+        modeRelaunchJson.body?.modes?.find((mode) => mode.mode === "off")
+          ?.proxyListening === false,
+      rtkModeProxyDown:
+        modeRelaunchJson.body?.modes?.find((mode) => mode.mode === "rtk")
+          ?.proxyListening === false,
+      restored: modeRelaunchJson.body?.restored ?? null,
+      requiredCommand: "npm run smoke:mode-relaunch:local -- --confirm",
+    },
     rollback: {
       summaryPath: localRollbackSummaryPath,
       jsonPath: localRollbackJsonPath,
@@ -334,8 +363,8 @@ function buildLocalValidationEvidence() {
       requiredCommand: "npm run smoke:repo-intelligence:local",
     },
     message: ready
-      ? "Local Doctor repair, Rollback Center, uninstall dry-run, and Repo Intelligence validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
-      : "Run npm run smoke:rollback:local, npm run smoke:doctor-repair:local, npm run smoke:uninstall:local, and npm run smoke:repo-intelligence:local to refresh local survival, cleanup, and repo-context evidence before public installed-smoke proof.",
+      ? "Local mode relaunch, Doctor repair, Rollback Center, uninstall dry-run, and Repo Intelligence validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
+      : "Run npm run smoke:mode-relaunch:local -- --confirm, npm run smoke:rollback:local, npm run smoke:doctor-repair:local, npm run smoke:uninstall:local, and npm run smoke:repo-intelligence:local to refresh local relaunch, survival, cleanup, and repo-context evidence before public installed-smoke proof.",
   };
 }
 
@@ -472,6 +501,15 @@ ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Instal
 
 - Release gate evidence: ${localValidation.releaseGateEvidence ? "yes" : "no"}
 - Local validation ready: ${localValidation.ready ? "yes" : "no"}
+- Mode relaunch summary present: ${localValidation.modeRelaunch.summaryPresent ? "yes" : "no"} (${localValidation.modeRelaunch.summaryPath})
+- Mode relaunch JSON present: ${localValidation.modeRelaunch.jsonPresent ? "yes" : "no"} (${localValidation.modeRelaunch.jsonPath})
+${localValidation.modeRelaunch.generatedLine ? `- ${localValidation.modeRelaunch.generatedLine}` : "- Mode relaunch smoke summary has not been generated in this checkout."}
+- Mode relaunch validation passed: ${localValidation.modeRelaunch.passed ? "yes" : "no"}
+- Mode relaunch checked modes: ${localValidation.modeRelaunch.modeCount}
+- Mode relaunch Off proxy down: ${localValidation.modeRelaunch.offModeProxyDown ? "yes" : "unknown"}
+- Mode relaunch RTK proxy down: ${localValidation.modeRelaunch.rtkModeProxyDown ? "yes" : "unknown"}
+- Mode relaunch config restored: ${localValidation.modeRelaunch.restored ? "yes" : "unknown"}
+- Mode relaunch command: ${localValidation.modeRelaunch.requiredCommand}
 - Rollback summary present: ${localValidation.rollback.summaryPresent ? "yes" : "no"} (${localValidation.rollback.summaryPath})
 - Rollback JSON present: ${localValidation.rollback.jsonPresent ? "yes" : "no"} (${localValidation.rollback.jsonPath})
 ${localValidation.rollback.generatedLine ? `- ${localValidation.rollback.generatedLine}` : "- Rollback validation summary has not been generated in this checkout."}
