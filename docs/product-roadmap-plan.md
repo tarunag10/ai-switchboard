@@ -46,6 +46,7 @@ Shipped:
 - Local uninstall validation now writes durable non-destructive dry-run evidence from frontend disclosure and backend target-inventory checks, and the release readiness report ingests it alongside Doctor and Rollback local evidence.
 - Local Repo Intelligence validation now writes durable read-only evidence for pack generation, backend read-only API payloads, and repo-memory MCP smoke access, and the release readiness report ingests it as local-only proof.
 - Repo Intelligence now aligns the frontend preview, CLI/MCP script, and Tauri backend on Swift source classification/symbol extraction and Rust module/import-reference edges, so one-click packs cover more macOS app code without broad file dumps.
+- Doctor now treats corrupt Repo Intelligence saved summaries as one-click Clear index repairs, with backend proof that only Switchboard managed index metadata is removed before re-indexing.
 
 Left:
 
@@ -53,7 +54,7 @@ Left:
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
 - Turn repo-memory MCP into a real background local service beyond current app-process supervision plus smoke-tested stdio transport.
 - Replace remaining fallback-only inferred add-on rows with stronger counters where trustworthy evidence exists; Ponytail now uses host-registration estimated events, Caveman and Compact Chinese use changed-file estimated events, MarkItDown uses changed hook/nudge artifact evidence after smoke-tested integration, and Repo Intelligence fallback rows are estimated from graph-pack evidence.
-- Deepen Repo Intelligence beyond the shipped parser/index health checks, local imports, package-dependency edges, reverse dependencies, graph-input evidence, graph-aware packs, Swift symbols, Rust module edges, local validation artifact, and read-only MCP smoke proof with richer language-specific dependency analyzers and Doctor health checks.
+- Deepen Repo Intelligence beyond the shipped parser/index health checks, corrupt-index Doctor cleanup, local imports, package-dependency edges, reverse dependencies, graph-input evidence, graph-aware packs, Swift symbols, Rust module edges, local validation artifact, and read-only MCP smoke proof with richer language-specific dependency analyzers and broader Doctor health checks.
 - Complete public release readiness with signed/notarized DMG, updater artifacts, public installed-smoke proof, installed-app uninstall proof, and release-panel wiring; local non-destructive uninstall dry-run evidence is now reported.
 
 ## Product Principles
@@ -264,7 +265,7 @@ Suggested commit:
 
 Goal: turn Repo Intelligence from bounded packs into a graph-aware local context layer.
 
-Status: v1 is usable. Start Agent Session, CLI handoffs, read-only packs, parser/index health fields, modern JS/TS/Python/Rust/Swift symbol extraction, Rust module/import-reference edges, and repo-memory MCP smoke transport are shipped. The remaining work is deeper graphing and supervised service behavior.
+Status: v1 is usable. Start Agent Session, CLI handoffs, read-only packs, parser/index health fields, corrupt saved-index Doctor cleanup, modern JS/TS/Python/Rust/Swift symbol extraction, Rust module/import-reference edges, and repo-memory MCP smoke transport are shipped. The remaining work is deeper graphing and supervised service behavior.
 
 Tasks:
 

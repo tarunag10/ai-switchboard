@@ -257,7 +257,7 @@ export function doctorRepairHint(action: string): string {
     case "repair_ponytail_plugin":
       return "Re-registers the Ponytail plugin with available Claude Code and Codex hosts.";
     case "clear_repo_intelligence_index":
-      return "Clears the saved Repo Intelligence summary so stale, missing, moved, or replaced repo paths no longer appear in Doctor. Re-index the current local repo path from Addons when ready.";
+      return "Clears the saved Repo Intelligence summary from Switchboard managed storage so stale, missing, moved, corrupt, or replaced repo paths no longer appear in Doctor. Re-index the current local repo path from Addons when ready.";
     case "install_repo_memory_mcp":
       return "Installs the app-managed read-only Repo Memory MCP config. Use Prepare MCP in Mode Inspector for the one-click install, start, and smoke check path.";
     default:
@@ -439,7 +439,7 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
     case "repo_intelligence_index_health":
       return "Clear the saved Repo Intelligence index, then re-index the current repo so parserHealth, indexHealth, graph metadata, and handoff packs match the current parser/index contract.";
     case "repo_intelligence_storage_corrupt":
-      return "Clear the unreadable Repo Intelligence index, then open Addons and re-index a local repo before copying packs into another agent.";
+      return "Use Clear index to remove the unreadable Repo Intelligence summary from Switchboard managed storage, then open Addons and re-index a local repo before copying packs into another agent.";
     case "repo_memory_mcp_not_configured":
       return "Use Prepare MCP in Mode Inspector for the one-click install, start, and smoke check before asking supported agents to consume repo-memory tools.";
     case "headroom_paused":

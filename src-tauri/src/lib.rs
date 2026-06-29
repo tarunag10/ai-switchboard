@@ -7493,9 +7493,9 @@ mod tests {
         aggregate_live_learnings, app_quit_requested_properties, app_update_notification_body,
         auto_resume_backoff, beta_channel_enabled_from, build_release_updater_config,
         build_watchdog_give_up_report, check_headroom_learn_prereqs, classify_bootstrap_failure,
-        classify_upgrade_error, compute_tray_window_position, count_memories_created_today,
-        cpu_rate_indicates_burn, debounced_tray_runtime_visual, delete_applied_pattern,
-        empty_live_learnings_for_projects, extract_llm_failure_warnings,
+        classify_upgrade_error, clear_repo_intelligence_index, compute_tray_window_position,
+        count_memories_created_today, cpu_rate_indicates_burn, debounced_tray_runtime_visual,
+        delete_applied_pattern, empty_live_learnings_for_projects, extract_llm_failure_warnings,
         fetch_transformations_feed_from, install_pending_update, is_disk_full_signal,
         is_endpoint_protection_signal, is_network_download_signal, is_port_conflict_failure,
         is_prerelease_version, lifetime_token_milestone_kind, load_release_readiness_report_from,
@@ -7544,6 +7544,37 @@ mod tests {
             match self.prev_remote.take() {
                 Some(value) => std::env::set_var("HEADROOM_REMOTE_SERVICES", value),
                 None => std::env::remove_var("HEADROOM_REMOTE_SERVICES"),
+            }
+        }
+    }
+
+    struct AppStorageEnvGuard {
+        prev_xdg: Option<std::ffi::OsString>,
+        prev_home: Option<std::ffi::OsString>,
+    }
+
+    impl AppStorageEnvGuard {
+        fn isolated(root: &std::path::Path) -> Self {
+            let prev_xdg = std::env::var_os("XDG_DATA_HOME");
+            let prev_home = std::env::var_os("HOME");
+            std::env::set_var("XDG_DATA_HOME", root);
+            std::env::set_var("HOME", root);
+            Self {
+                prev_xdg,
+                prev_home,
+            }
+        }
+    }
+
+    impl Drop for AppStorageEnvGuard {
+        fn drop(&mut self) {
+            match self.prev_xdg.take() {
+                Some(value) => std::env::set_var("XDG_DATA_HOME", value),
+                None => std::env::remove_var("XDG_DATA_HOME"),
+            }
+            match self.prev_home.take() {
+                Some(value) => std::env::set_var("HOME", value),
+                None => std::env::remove_var("HOME"),
             }
         }
     }
@@ -7690,6 +7721,32 @@ mod tests {
         assert_eq!(indexer_mismatch_issue.id, "repo_intelligence_index_health");
         assert!(indexer_mismatch_issue.body.contains("indexer health"));
         assert!(indexer_mismatch_issue.body.contains("version_mismatch"));
+    }
+
+    #[test]
+    fn clear_repo_intelligence_index_repairs_corrupt_saved_summary() {
+        let scratch = tempfile::tempdir().expect("scratch");
+        let _guard = AppStorageEnvGuard::isolated(scratch.path());
+        let path = crate::storage::config_file(
+            &crate::storage::app_data_dir(),
+            "repo-intelligence-latest.json",
+        );
+        std::fs::create_dir_all(path.parent().expect("summary parent"))
+            .expect("create repo intelligence config dir");
+        std::fs::write(&path, b"{not valid json").expect("write corrupt summary");
+
+        let corrupt = crate::repo_intelligence::load_latest_summary()
+            .expect_err("corrupt summary should be unreadable");
+        assert!(corrupt
+            .to_string()
+            .contains("parsing repo intelligence summary"));
+
+        clear_repo_intelligence_index().expect("clear corrupt repo index");
+
+        assert!(!path.exists());
+        assert!(crate::repo_intelligence::load_latest_summary()
+            .expect("cleared summary should read as none")
+            .is_none());
     }
 
     #[test]

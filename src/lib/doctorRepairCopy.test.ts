@@ -158,16 +158,25 @@ describe("doctor repair copy", () => {
     ).toContain("re-run Doctor until requested mode becomes active");
   });
 
-  it("guides corrupt Repo Intelligence storage recovery", () => {
+  it("guides corrupt Repo Intelligence storage through automatic cleanup", () => {
     expect(
       doctorIssueGuidance({
         id: "repo_intelligence_storage_corrupt",
         title: "Repo Intelligence index cannot be read",
         body: "The saved Repo Intelligence index could not be parsed.",
         severity: "warning",
-        repairAction: null,
+        repairAction: "clear_repo_intelligence_index",
       }),
-    ).toContain("Clear the unreadable Repo Intelligence index");
+    ).toContain("corrupt");
+    expect(
+      doctorIssueGuidance({
+        id: "repo_intelligence_storage_corrupt",
+        title: "Repo Intelligence index cannot be read",
+        body: "The saved Repo Intelligence index could not be parsed.",
+        severity: "warning",
+        repairAction: "clear_repo_intelligence_index",
+      }),
+    ).toContain("Switchboard managed storage");
   });
 
   it("guides moved Repo Intelligence path recovery", () => {

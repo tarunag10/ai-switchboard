@@ -96,7 +96,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.getByText(/managed sidecar coverage/i)).toBeInTheDocument();
     expect(
       screen.getAllByText(
-        "Clears the saved Repo Intelligence summary so stale, missing, moved, or replaced repo paths no longer appear in Doctor. Re-index the current local repo path from Addons when ready.",
+        "Clears the saved Repo Intelligence summary from Switchboard managed storage so stale, missing, moved, corrupt, or replaced repo paths no longer appear in Doctor. Re-index the current local repo path from Addons when ready.",
       ),
     ).toHaveLength(2);
     expect(
@@ -107,6 +107,44 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.getAllByRole("button", { name: "Clear index" })).toHaveLength(
       2,
     );
+  });
+
+  it("treats corrupt Repo Intelligence storage as automatic cleanup", () => {
+    const onRepair = vi.fn();
+
+    render(
+      <SwitchboardDoctorPanel
+        report={{
+          status: "warning",
+          summary: "Repo Intelligence storage needs cleanup.",
+          issues: [
+            {
+              id: "repo_intelligence_storage_corrupt",
+              title: "Repo Intelligence index cannot be read",
+              body: "The saved Repo Intelligence index could not be parsed.",
+              severity: "warning",
+              repairAction: "clear_repo_intelligence_index",
+            },
+          ],
+        }}
+        busyAction={null}
+        error={null}
+        successMessage={null}
+        onRepair={onRepair}
+      />,
+    );
+
+    expect(screen.getByText("1 automatic")).toBeInTheDocument();
+    expect(screen.getByText("0 manual")).toBeInTheDocument();
+    expect(screen.getByText("Auto repair")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Clears the saved Repo Intelligence summary from Switchboard managed storage so stale, missing, moved, corrupt, or replaced repo paths no longer appear in Doctor. Re-index the current local repo path from Addons when ready.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Clear index" }),
+    ).toBeInTheDocument();
   });
 
   it("warns repair all will leave manual follow-up", () => {
