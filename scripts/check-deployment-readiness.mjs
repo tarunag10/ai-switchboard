@@ -84,6 +84,12 @@ const requiredScripts = {
     "npm run fmt:desktop",
     "npm run test:desktop",
   ],
+  "scripts/check-release-readiness.mjs": [
+    'run("npm", ["run", "check:branding"])',
+    'run("npm", ["run", "check:local-only-network"])',
+    'run("npm", ["run", "release:report"])',
+    'run("npm", ["run", "release:report:check"])',
+  ],
 };
 
 const requiredDocSignals = {

@@ -370,7 +370,7 @@ Suggested commit:
 2. Complete Mode Inspector, Verify Off mode, and installed-app restart/relaunch/reboot smoke evidence.
 3. Public local-only/network certification tests on top of the shipped remote destination registry and backend guards.
 4. Promote the next native connector write path with full parse, dry-run, backup, apply, verify, rollback, Doctor repair, fixture-home restore, and Off cleanup.
-5. Add real repo-memory MCP long-running supervision and connector-specific MCP bridge docs.
+5. Add real repo-memory MCP long-running supervision.
 6. Replace inferred add-on savings events with measured counters where possible.
 7. Expand Repo Intelligence graph packs with language-aware parser/index versions, imports, and reverse dependencies.
 8. Finish public signed/notarized release readiness, updater evidence, uninstall proof, and broad tester handoff.
