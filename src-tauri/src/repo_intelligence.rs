@@ -1555,7 +1555,7 @@ fn build_repo_symbols(repo_root: &Path, files: &[RepoFileSignal]) -> Vec<RepoSym
         matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
             && matches!(
                 file.language.as_str(),
-                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python"
+                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python" | "Swift"
             )
     }) {
         if symbols.len() >= 200 {
@@ -1740,6 +1740,14 @@ fn symbol_from_ast_node(
 
 fn extract_symbol_from_line(language: &str, line: &str) -> Option<(RepoSymbolKind, String)> {
     let line = line
+        .trim_start_matches("public ")
+        .trim_start_matches("private ")
+        .trim_start_matches("internal ")
+        .trim_start_matches("open ")
+        .trim_start_matches("fileprivate ")
+        .trim_start_matches("final ")
+        .trim_start_matches("static ")
+        .trim_start_matches("mutating ")
         .trim_start_matches("pub ")
         .trim_start_matches("async ")
         .trim_start_matches("export ")
@@ -1790,6 +1798,29 @@ fn extract_symbol_from_line(language: &str, line: &str) -> Option<(RepoSymbolKin
         }
         if let Some(name) = symbol_name_after(line, "class ") {
             return Some((RepoSymbolKind::Class, name));
+        }
+    }
+    if language == "Swift" {
+        if let Some(name) = symbol_name_after(line, "func ") {
+            return Some((RepoSymbolKind::Function, name));
+        }
+        if let Some(name) = symbol_name_after(line, "class ") {
+            return Some((RepoSymbolKind::Class, name));
+        }
+        if let Some(name) = symbol_name_after(line, "struct ") {
+            return Some((RepoSymbolKind::Struct, name));
+        }
+        if let Some(name) = symbol_name_after(line, "enum ") {
+            return Some((RepoSymbolKind::Enum, name));
+        }
+        if let Some(name) = symbol_name_after(line, "protocol ") {
+            return Some((RepoSymbolKind::Trait, name));
+        }
+        if let Some(name) = symbol_name_after(line, "let ") {
+            return Some((RepoSymbolKind::Const, name));
+        }
+        if let Some(name) = symbol_name_after(line, "var ") {
+            return Some((RepoSymbolKind::Const, name));
         }
     }
     None
@@ -1867,7 +1898,7 @@ fn build_import_reference_edges(repo_root: &Path, files: &[RepoFileSignal]) -> V
             continue;
         };
         for specifier in extract_import_specifiers(&content, &file.language) {
-            if !specifier.starts_with('.') {
+            if !specifier.starts_with('.') && !specifier.starts_with("crate:") {
                 continue;
             }
             let Some(target) = resolve_import_specifier(&file.path, &specifier, files) else {
@@ -1918,7 +1949,7 @@ fn build_package_dependency_edges(
             continue;
         };
         for specifier in extract_import_specifiers(&content, &file.language) {
-            if specifier.starts_with('.') {
+            if specifier.starts_with('.') || specifier.starts_with("crate:") {
                 continue;
             }
             let Some(package_name) = package_name_from_specifier(&specifier) else {
@@ -2041,6 +2072,17 @@ fn extract_import_specifiers(content: &str, language: &str) -> Vec<String> {
             {
                 specifiers.push(format!("./{}", module.trim()));
             }
+            if let Some(crate_path) = trimmed.strip_prefix("use crate::") {
+                let crate_path = crate_path
+                    .trim_end_matches(';')
+                    .split([' ', '{'])
+                    .next()
+                    .unwrap_or("")
+                    .trim();
+                if !crate_path.is_empty() {
+                    specifiers.push(format!("crate:{crate_path}"));
+                }
+            }
         }
     }
     specifiers
@@ -2072,8 +2114,21 @@ fn resolve_import_specifier<'a>(
     files: &'a [RepoFileSignal],
 ) -> Option<&'a RepoFileSignal> {
     let base_dir = from_path.rsplit_once('/').map(|(dir, _)| dir).unwrap_or("");
-    let normalized = normalize_repo_path(&format!("{base_dir}/{specifier}"));
-    let candidates = [
+    let normalized = if let Some(crate_path) = specifier.strip_prefix("crate:") {
+        normalize_repo_path(&format!(
+            "{}/{}",
+            crate_source_root(from_path),
+            crate_path.replace("::", "/")
+        ))
+    } else {
+        normalize_repo_path(&format!("{base_dir}/{specifier}"))
+    };
+    let crate_parent = specifier.strip_prefix("crate:").and_then(|_| {
+        normalized
+            .rsplit_once('/')
+            .map(|(parent, _)| parent.to_string())
+    });
+    let mut candidates = vec![
         normalized.clone(),
         format!("{normalized}.ts"),
         format!("{normalized}.tsx"),
@@ -2081,13 +2136,29 @@ fn resolve_import_specifier<'a>(
         format!("{normalized}.jsx"),
         format!("{normalized}.mjs"),
         format!("{normalized}.rs"),
+        format!("{normalized}.swift"),
         format!("{normalized}/index.ts"),
         format!("{normalized}/index.tsx"),
         format!("{normalized}/index.js"),
+        format!("{normalized}/mod.rs"),
     ];
+    if let Some(crate_parent) = crate_parent {
+        candidates.push(crate_parent.clone());
+        candidates.push(format!("{crate_parent}.rs"));
+        candidates.push(format!("{crate_parent}/mod.rs"));
+    }
     candidates
         .iter()
         .find_map(|candidate| files.iter().find(|file| file.path == *candidate))
+}
+
+fn crate_source_root(from_path: &str) -> String {
+    let parts = from_path.split('/').collect::<Vec<_>>();
+    parts
+        .iter()
+        .rposition(|part| *part == "src")
+        .map(|index| parts[..=index].join("/"))
+        .unwrap_or_else(|| "src".to_string())
 }
 
 fn normalize_repo_path(path: &str) -> String {
@@ -2677,9 +2748,26 @@ export const mapValues = <T>(items: T[]) => items;
         .expect("write package json");
         std::fs::write(
             src.join("lib.rs"),
-            "pub struct RuntimeState {}\npub fn run_app() {}\n",
+            "mod state;\nuse crate::state::RuntimeState;\npub fn run_app() {}\n",
         )
         .expect("write rust");
+        std::fs::write(
+            src.join("state.rs"),
+            "pub struct RuntimeState {}\npub fn load_state() {}\n",
+        )
+        .expect("write rust state");
+        std::fs::write(
+            src.join("consumer.rs"),
+            "use crate::state::RuntimeState;\npub fn consume_state() {}\n",
+        )
+        .expect("write rust consumer");
+        let swift_dir = root.path().join("Sources").join("Switchboard");
+        std::fs::create_dir_all(&swift_dir).expect("create swift dir");
+        std::fs::write(
+            swift_dir.join("AppView.swift"),
+            "import SwiftUI\npublic struct AppView: View {}\nfinal class AppViewModel {}\nfunc makeAppView() -> AppView { AppView() }\n",
+        )
+        .expect("write swift");
 
         let summary = summarize_repo(root.path()).expect("summarize repo");
         let graph = summary.graph.expect("graph");
@@ -2690,11 +2778,38 @@ export const mapValues = <T>(items: T[]) => items;
         assert!(graph
             .symbols
             .iter()
-            .any(|symbol| symbol.name == "RuntimeState" && symbol.file == "src/lib.rs"));
+            .any(|symbol| symbol.name == "run_app" && symbol.file == "src/lib.rs"));
+        assert!(graph
+            .symbols
+            .iter()
+            .any(|symbol| symbol.name == "RuntimeState" && symbol.file == "src/state.rs"));
+        assert!(graph
+            .symbols
+            .iter()
+            .any(|symbol| symbol.name == "AppView"
+                && symbol.file == "Sources/Switchboard/AppView.swift"));
+        assert!(graph
+            .symbols
+            .iter()
+            .any(|symbol| symbol.name == "AppViewModel"
+                && symbol.file == "Sources/Switchboard/AppView.swift"));
+        assert!(graph.top_languages.iter().any(|node| node.label == "Swift"));
         assert!(graph.import_edges.iter().any(|edge| {
             edge.from == "src/App.tsx"
                 && edge.to == "src/helper.ts"
                 && edge.kind == RepoGraphEdgeKind::ImportReference
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/lib.rs"
+                && edge.to == "src/state.rs"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports ./state"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/consumer.rs"
+                && edge.to == "src/state.rs"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports crate:state::RuntimeState"
         }));
         assert!(graph.import_edges.iter().any(|edge| {
             edge.from == "src/App.tsx"

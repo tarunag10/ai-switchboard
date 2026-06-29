@@ -333,12 +333,28 @@ describe("repoIntelligence", () => {
       {
         path: "src-tauri/src/lib.rs",
         bytes: 5000,
-        content: "pub(crate) fn run_app() {}\npub struct AppState;",
+        content: "mod state;\nuse crate::state::AppState;\npub(crate) fn run_app() {}\n",
+      },
+      {
+        path: "src-tauri/src/state.rs",
+        bytes: 3200,
+        content: "pub struct AppState;\npub fn load_state() {}\n",
+      },
+      {
+        path: "src-tauri/src/consumer.rs",
+        bytes: 1400,
+        content: "use crate::state::AppState;\npub fn consume_state() {}\n",
       },
       {
         path: "scripts/tools.py",
         bytes: 700,
         content: "async def collect_context():\n    return []\nclass ToolRunner:\n    pass",
+      },
+      {
+        path: "Sources/Switchboard/AppView.swift",
+        bytes: 900,
+        content:
+          "import SwiftUI\npublic struct AppView: View {\n  var body: some View { Text(\"Hi\") }\n}\nfinal class AppViewModel {}\nfunc makeAppView() -> AppView { AppView() }\n",
       },
       { path: "scripts/release.mjs", bytes: 1200 },
       {
@@ -406,6 +422,28 @@ describe("repoIntelligence", () => {
         "AppState",
         "collect_context",
         "ToolRunner",
+        "AppView",
+        "AppViewModel",
+        "makeAppView",
+      ]),
+    );
+    expect(summary.graph?.topLanguages.map((node) => node.label)).toContain(
+      "Swift",
+    );
+    expect(summary.graph?.importEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          from: "src-tauri/src/lib.rs",
+          to: "src-tauri/src/state.rs",
+          kind: "import_reference",
+          reason: "source imports ./state",
+        }),
+        expect.objectContaining({
+          from: "src-tauri/src/consumer.rs",
+          to: "src-tauri/src/state.rs",
+          kind: "import_reference",
+          reason: "source imports crate:state::AppState",
+        }),
       ]),
     );
     expect(summary.graph?.symbolEdges).toEqual(

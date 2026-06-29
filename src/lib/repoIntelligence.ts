@@ -844,6 +844,7 @@ const languageByExtension: Record<string, string> = {
   ".py": "Python",
   ".rs": "Rust",
   ".sh": "Shell",
+  ".swift": "Swift",
   ".toml": "TOML",
   ".ts": "TypeScript",
   ".tsx": "React",
@@ -2307,7 +2308,7 @@ function buildRepoSymbols(
     if (symbols.length >= 200) break;
     if (file.role !== "source" && file.role !== "test") continue;
     if (
-      !["TypeScript", "JavaScript", "React", "Rust", "Python"].includes(
+      !["TypeScript", "JavaScript", "React", "Rust", "Python", "Swift"].includes(
         file.language,
       )
     )
@@ -2326,7 +2327,10 @@ function buildRepoSymbols(
         ?.replace(/\.[^.]+$/, "") ?? file.path;
     symbols.push({
       name,
-      kind: file.language === "Rust" ? "struct" : "function",
+      kind:
+        file.language === "Rust" || file.language === "Swift"
+          ? "struct"
+          : "function",
       file: file.path,
       line: 1,
       parent: null,
@@ -2364,6 +2368,8 @@ function extractSymbolFromLine(
   rawLine: string,
 ): Pick<RepoSymbol, "name" | "kind"> | null {
   const line = rawLine
+    .replace(/^(?:public|private|internal|open|fileprivate)\s+/, "")
+    .replace(/^(?:final|static|mutating)\s+/, "")
     .replace(/^(?:export\s+)?default\s+/, "")
     .replace(/^(?:export\s+)?(?:async\s+)?/, "")
     .replace(/^pub(?:\([^)]*\))?\s+/, "")
@@ -2398,6 +2404,16 @@ function extractSymbolFromLine(
     return (
       matchName(/^def\s+([A-Za-z_][A-Za-z0-9_]*)/, "function") ??
       matchName(/^class\s+([A-Za-z_][A-Za-z0-9_]*)/, "class")
+    );
+  }
+  if (language === "Swift") {
+    return (
+      matchName(/^func\s+([A-Za-z_][A-Za-z0-9_]*)/, "function") ??
+      matchName(/^class\s+([A-Za-z_][A-Za-z0-9_]*)/, "class") ??
+      matchName(/^struct\s+([A-Za-z_][A-Za-z0-9_]*)/, "struct") ??
+      matchName(/^enum\s+([A-Za-z_][A-Za-z0-9_]*)/, "enum") ??
+      matchName(/^protocol\s+([A-Za-z_][A-Za-z0-9_]*)/, "trait") ??
+      matchName(/^(?:let|var)\s+([A-Za-z_][A-Za-z0-9_]*)/, "const")
     );
   }
   return null;
@@ -2450,8 +2466,8 @@ function buildImportReferenceEdges(
     const content = contentByPath.get(file.path);
     if (!content) continue;
 
-    for (const specifier of extractImportSpecifiers(content)) {
-      if (!specifier.startsWith(".")) continue;
+    for (const specifier of extractImportSpecifiers(content, file.language)) {
+      if (!specifier.startsWith(".") && !specifier.startsWith("crate:")) continue;
       const target = resolveImportSpecifier(file.path, specifier, byPath);
       if (!target) continue;
       pushUniqueGraphEdge(edges, {
@@ -2483,8 +2499,8 @@ function buildPackageDependencyEdges(
   )) {
     const content = contentByPath.get(file.path);
     if (!content) continue;
-    for (const specifier of extractImportSpecifiers(content)) {
-      if (specifier.startsWith(".")) continue;
+    for (const specifier of extractImportSpecifiers(content, file.language)) {
+      if (specifier.startsWith(".") || specifier.startsWith("crate:")) continue;
       const packageName = packageNameFromSpecifier(specifier);
       if (!packageName || !packages.has(packageName)) continue;
       pushUniqueGraphEdge(edges, {
@@ -2562,19 +2578,27 @@ function buildCallReferenceEdges(
   return edges;
 }
 
-function extractImportSpecifiers(content: string): string[] {
+function extractImportSpecifiers(content: string, language: string): string[] {
   const specifiers: string[] = [];
-  const patterns = [
-    /\bimport\s+(?:type\s+)?(?:[^"']+\s+from\s+)?["']([^"']+)["']/g,
-    /\bexport\s+(?:type\s+)?[^"']+\s+from\s+["']([^"']+)["']/g,
-    /\brequire\(\s*["']([^"']+)["']\s*\)/g,
-    /\buse\s+crate::([A-Za-z0-9_:]+)/g,
-    /\bmod\s+([A-Za-z0-9_]+)\s*;/g,
-  ];
-
-  for (const pattern of patterns) {
-    for (const match of content.matchAll(pattern)) {
-      if (match[1]) specifiers.push(match[1]);
+  if (["TypeScript", "JavaScript", "React"].includes(language)) {
+    const patterns = [
+      /\bimport\s+(?:type\s+)?(?:[^"']+\s+from\s+)?["']([^"']+)["']/g,
+      /\bexport\s+(?:type\s+)?[^"']+\s+from\s+["']([^"']+)["']/g,
+      /\brequire\(\s*["']([^"']+)["']\s*\)/g,
+    ];
+    for (const pattern of patterns) {
+      for (const match of content.matchAll(pattern)) {
+        if (match[1]) specifiers.push(match[1]);
+      }
+    }
+  }
+  if (language === "Rust") {
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      const module = trimmed.match(/^mod\s+([A-Za-z0-9_]+)\s*;/)?.[1];
+      if (module) specifiers.push(`./${module}`);
+      const cratePath = trimmed.match(/^use\s+crate::([A-Za-z0-9_:]+)/)?.[1];
+      if (cratePath) specifiers.push(`crate:${cratePath}`);
     }
   }
 
@@ -2587,24 +2611,41 @@ function resolveImportSpecifier(
   byPath: Map<string, RepoFileSignal>,
 ): RepoFileSignal | null {
   const fromDir = fromPath.split("/").slice(0, -1).join("/");
-  const normalized = normalizeRepoPath(`${fromDir}/${specifier}`);
+  const normalized = specifier.startsWith("crate:")
+    ? normalizeRepoPath(
+        `${crateSourceRoot(fromPath)}/${specifier.slice("crate:".length).replace(/::/g, "/")}`,
+      )
+    : normalizeRepoPath(`${fromDir}/${specifier}`);
+  const crateParent = specifier.startsWith("crate:")
+    ? normalized.split("/").slice(0, -1).join("/")
+    : "";
   const candidates = [
     normalized,
+    ...(crateParent ? [crateParent] : []),
     `${normalized}.ts`,
     `${normalized}.tsx`,
     `${normalized}.js`,
     `${normalized}.jsx`,
     `${normalized}.mjs`,
     `${normalized}.rs`,
+    ...(crateParent ? [`${crateParent}.rs`, `${crateParent}/mod.rs`] : []),
+    `${normalized}.swift`,
     `${normalized}/index.ts`,
     `${normalized}/index.tsx`,
     `${normalized}/index.js`,
+    `${normalized}/mod.rs`,
   ];
   for (const candidate of candidates) {
     const target = byPath.get(candidate);
     if (target) return target;
   }
   return null;
+}
+
+function crateSourceRoot(fromPath: string): string {
+  const parts = fromPath.split("/");
+  const srcIndex = parts.lastIndexOf("src");
+  return srcIndex >= 0 ? parts.slice(0, srcIndex + 1).join("/") : "src";
 }
 
 function normalizeRepoPath(path: string): string {

@@ -26,6 +26,7 @@ const languageByExtension = {
   ".py": "Python",
   ".rs": "Rust",
   ".sh": "Shell",
+  ".swift": "Swift",
   ".toml": "TOML",
   ".ts": "TypeScript",
   ".tsx": "React",
@@ -926,7 +927,7 @@ function buildRepoSymbols(repoRoot, files) {
     if (symbols.length >= 200) break;
     if (file.role !== "source" && file.role !== "test") continue;
     if (
-      !["TypeScript", "JavaScript", "React", "Rust", "Python"].includes(
+      !["TypeScript", "JavaScript", "React", "Rust", "Python", "Swift"].includes(
         file.language,
       )
     )
@@ -962,6 +963,8 @@ function extractFileSymbols(file, content, remaining) {
 
 function extractSymbolFromLine(language, rawLine) {
   const line = rawLine
+    .replace(/^(?:public|private|internal|open|fileprivate)\s+/, "")
+    .replace(/^(?:final|static|mutating)\s+/, "")
     .replace(/^(?:export\s+)?default\s+/, "")
     .replace(/^(?:export\s+)?(?:async\s+)?/, "")
     .replace(/^pub(?:\([^)]*\))?\s+/, "")
@@ -996,6 +999,16 @@ function extractSymbolFromLine(language, rawLine) {
     return (
       pick(/^def\s+([A-Za-z_][A-Za-z0-9_]*)/, "function") ??
       pick(/^class\s+([A-Za-z_][A-Za-z0-9_]*)/, "class")
+    );
+  }
+  if (language === "Swift") {
+    return (
+      pick(/^func\s+([A-Za-z_][A-Za-z0-9_]*)/, "function") ??
+      pick(/^class\s+([A-Za-z_][A-Za-z0-9_]*)/, "class") ??
+      pick(/^struct\s+([A-Za-z_][A-Za-z0-9_]*)/, "struct") ??
+      pick(/^enum\s+([A-Za-z_][A-Za-z0-9_]*)/, "enum") ??
+      pick(/^protocol\s+([A-Za-z_][A-Za-z0-9_]*)/, "trait") ??
+      pick(/^(?:let|var)\s+([A-Za-z_][A-Za-z0-9_]*)/, "const")
     );
   }
   return null;
@@ -1042,8 +1055,8 @@ function buildImportReferenceEdges(repoRoot, files) {
     } catch {
       continue;
     }
-    for (const specifier of extractImportSpecifiers(content)) {
-      if (!specifier.startsWith(".")) continue;
+    for (const specifier of extractImportSpecifiers(content, file.language)) {
+      if (!specifier.startsWith(".") && !specifier.startsWith("crate:")) continue;
       const target = resolveImportSpecifier(file.path, specifier, byPath);
       if (!target) continue;
       pushUniqueGraphEdge(edges, {
@@ -1080,8 +1093,8 @@ function buildPackageDependencyEdges(repoRoot, files) {
     } catch {
       continue;
     }
-    for (const specifier of extractImportSpecifiers(content)) {
-      if (specifier.startsWith(".")) continue;
+    for (const specifier of extractImportSpecifiers(content, file.language)) {
+      if (specifier.startsWith(".") || specifier.startsWith("crate:")) continue;
       const packageName = packageNameFromSpecifier(specifier);
       if (!packageName || !packages.has(packageName)) continue;
       pushUniqueGraphEdge(edges, {
@@ -1154,17 +1167,27 @@ function buildCallReferenceEdges(repoRoot, files, symbols) {
   return edges;
 }
 
-function extractImportSpecifiers(content) {
+function extractImportSpecifiers(content, language) {
   const specifiers = [];
-  const patterns = [
-    /\bimport\s+(?:type\s+)?(?:[^"']+\s+from\s+)?["']([^"']+)["']/g,
-    /\bexport\s+(?:type\s+)?[^"']+\s+from\s+["']([^"']+)["']/g,
-    /\brequire\(\s*["']([^"']+)["']\s*\)/g,
-    /\bmod\s+([A-Za-z0-9_]+)\s*;/g,
-  ];
-  for (const pattern of patterns) {
-    for (const match of content.matchAll(pattern)) {
-      if (match[1]) specifiers.push(match[1]);
+  if (["TypeScript", "JavaScript", "React"].includes(language)) {
+    const patterns = [
+      /\bimport\s+(?:type\s+)?(?:[^"']+\s+from\s+)?["']([^"']+)["']/g,
+      /\bexport\s+(?:type\s+)?[^"']+\s+from\s+["']([^"']+)["']/g,
+      /\brequire\(\s*["']([^"']+)["']\s*\)/g,
+    ];
+    for (const pattern of patterns) {
+      for (const match of content.matchAll(pattern)) {
+        if (match[1]) specifiers.push(match[1]);
+      }
+    }
+  }
+  if (language === "Rust") {
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      const module = trimmed.match(/^mod\s+([A-Za-z0-9_]+)\s*;/)?.[1];
+      if (module) specifiers.push(`./${module}`);
+      const cratePath = trimmed.match(/^use\s+crate::([A-Za-z0-9_:]+)/)?.[1];
+      if (cratePath) specifiers.push(`crate:${cratePath}`);
     }
   }
   return specifiers;
@@ -1172,24 +1195,41 @@ function extractImportSpecifiers(content) {
 
 function resolveImportSpecifier(fromPath, specifier, byPath) {
   const fromDir = fromPath.split("/").slice(0, -1).join("/");
-  const normalized = normalizeRepoPath(`${fromDir}/${specifier}`);
+  const normalized = specifier.startsWith("crate:")
+    ? normalizeRepoPath(
+        `${crateSourceRoot(fromPath)}/${specifier.slice("crate:".length).replace(/::/g, "/")}`,
+      )
+    : normalizeRepoPath(`${fromDir}/${specifier}`);
+  const crateParent = specifier.startsWith("crate:")
+    ? normalized.split("/").slice(0, -1).join("/")
+    : "";
   const candidates = [
     normalized,
+    ...(crateParent ? [crateParent] : []),
     `${normalized}.ts`,
     `${normalized}.tsx`,
     `${normalized}.js`,
     `${normalized}.jsx`,
     `${normalized}.mjs`,
     `${normalized}.rs`,
+    ...(crateParent ? [`${crateParent}.rs`, `${crateParent}/mod.rs`] : []),
+    `${normalized}.swift`,
     `${normalized}/index.ts`,
     `${normalized}/index.tsx`,
     `${normalized}/index.js`,
+    `${normalized}/mod.rs`,
   ];
   for (const candidate of candidates) {
     const target = byPath.get(candidate);
     if (target) return target;
   }
   return null;
+}
+
+function crateSourceRoot(fromPath) {
+  const parts = fromPath.split("/");
+  const srcIndex = parts.lastIndexOf("src");
+  return srcIndex >= 0 ? parts.slice(0, srcIndex + 1).join("/") : "src";
 }
 
 function normalizeRepoPath(filePath) {

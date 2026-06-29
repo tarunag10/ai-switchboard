@@ -7153,8 +7153,9 @@ mod tests {
 
     #[test]
     fn addon_attribution_event_skips_markitdown_without_changed_artifacts() {
-        assert!(super::build_addon_attribution_event("markitdown", None, None, None, None)
-            .is_none());
+        assert!(
+            super::build_addon_attribution_event("markitdown", None, None, None, None).is_none()
+        );
         assert!(
             super::build_addon_attribution_event("markitdown", None, Some(&[]), None, None)
                 .is_none()
