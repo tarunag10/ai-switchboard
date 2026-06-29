@@ -11,6 +11,8 @@ The app is **local-first**, not offline-only. Claude, OpenAI, and other provider
 
 Current status: active productization branch. The standalone repository is public, but signed release artifacts are not published yet. Build from source for now.
 
+For local development, run `npm run app:run` or use the Codex desktop **Run** action. Both point at `script/build_and_run.sh`, which stops any existing app process and launches the Tauri development build. Use `script/build_and_run.sh --verify` when you want a one-command launch health check.
+
 ## Roadmap Checkpoint
 
 Created so far: Start Agent Session, Claude/Codex managed routing, one-click Claude/Codex connector verification prompts, bounded Gemini/OpenCode adapter work, managed connector sidecar coverage, read-only Repo Intelligence APIs, expanded lightweight symbol parsing, repo-memory MCP lifecycle/supervision evidence, savings attribution ledger, safe config dry-runs, Doctor timeline/repair copy, Rollback Center native restore/cleanup, guarded native undo-all for ready rollback rows, release-readiness evidence surfaces, Caveman profiles including opt-in Compact Chinese, and trust-hardening guards for remote destinations, local-only account flows, external links, and app-owned branding.

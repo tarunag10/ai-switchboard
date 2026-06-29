@@ -8,6 +8,8 @@ const requiredFiles = [
   "docs/codex-compression-troubleshooting.md",
   "docs/remote-destinations.md",
   "docs/connectors.md",
+  ".codex/environments/environment.toml",
+  "script/build_and_run.sh",
   "scripts/build-macos-dmg.sh",
   "scripts/build-install-local-dmg.sh",
   "scripts/verify-release.sh",
@@ -38,6 +40,7 @@ const requiredFiles = [
 
 const requiredScripts = {
   "package.json": [
+    '"app:run"',
     '"build:mac:dmg"',
     '"build:mac:local-install"',
     '"release:check"',
@@ -66,6 +69,20 @@ const requiredScripts = {
     '"check:governance"',
     '"check:deployment"',
     '"fmt:desktop"',
+  ],
+  ".codex/environments/environment.toml": [
+    'name = "mac-ai-switchboard"',
+    'name = "Run"',
+    'icon = "run"',
+    'command = "./script/build_and_run.sh"',
+  ],
+  "script/build_and_run.sh": [
+    'APP_NAME="Mac AI Switchboard"',
+    'BUNDLE_ID="com.tarunagarwal.mac-ai-switchboard"',
+    "npm run tauri -- dev",
+    "--verify|verify",
+    "--logs|logs",
+    "--telemetry|telemetry",
   ],
   "scripts/verify-release.sh": [
     "npm run check:deployment",
