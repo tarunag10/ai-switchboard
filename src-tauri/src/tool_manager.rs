@@ -3658,16 +3658,20 @@ impl ToolManager {
 
     pub fn repo_memory_mcp_service_status(&self) -> Option<RepoMemoryMcpServiceStatus> {
         let descriptor_path = self.runtime.tools_dir.join("repo-memory.json");
-        if !descriptor_path.exists() {
-            return None;
-        }
         let script = repo_memory_script_path("repo-intelligence.mjs").ok()?;
+        let descriptor_present = descriptor_path.exists();
+        let script_present = script.exists();
+        let node_available = command_available_on_path("node");
         Some(RepoMemoryMcpServiceStatus {
             managed_by_app: true,
             read_only: true,
             transport: "stdio".to_string(),
             command: format!("node {} --mcp-serve", script.display()),
             descriptor_path: descriptor_path.display().to_string(),
+            descriptor_present,
+            script_path: script.display().to_string(),
+            script_present,
+            node_available,
         })
     }
 
@@ -4045,6 +4049,26 @@ fn repo_memory_script_candidates(script_name: &str) -> Vec<PathBuf> {
         }
     }
     candidates
+}
+
+fn command_available_on_path(command: &str) -> bool {
+    fn is_executable_file(path: &Path) -> bool {
+        use std::os::unix::fs::PermissionsExt;
+        path.metadata()
+            .map(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+            .unwrap_or(false)
+    }
+
+    if command.contains(std::path::MAIN_SEPARATOR) {
+        return is_executable_file(Path::new(command));
+    }
+    let Some(path_var) = std::env::var_os("PATH") else {
+        return false;
+    };
+    std::env::split_paths(&path_var).any(|dir| {
+        let candidate = dir.join(command);
+        is_executable_file(&candidate)
+    })
 }
 
 /// Claude Code ≥2.x stores user-scope MCP servers in `~/.claude.json` under
@@ -7233,8 +7257,19 @@ after
         assert_eq!(service.transport, "stdio");
         assert!(service.command.contains("repo-intelligence.mjs"));
         assert!(service.descriptor_path.ends_with("repo-memory.json"));
+        assert!(service.descriptor_present);
+        assert!(service.script_path.ends_with("repo-intelligence.mjs"));
+        assert!(service.script_present);
+        assert!(service.node_available);
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn command_available_on_path_detects_missing_commands() {
+        assert!(!super::command_available_on_path(
+            "mac-ai-switchboard-definitely-missing-command"
+        ));
     }
 
     #[test]

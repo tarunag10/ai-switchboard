@@ -34,6 +34,11 @@ describe("repoMemoryMcpLifecycle", () => {
         command: "node /Applications/Mac AI Switchboard.app/repo-intelligence.mjs --mcp-serve",
         descriptorPath:
           "/Users/example/Library/Application Support/Mac AI Switchboard/tools/repo-memory.json",
+        descriptorPresent: true,
+        scriptPath:
+          "/Applications/Mac AI Switchboard.app/Contents/Resources/scripts/repo-intelligence.mjs",
+        scriptPresent: true,
+        nodeAvailable: true,
       },
     });
 
@@ -43,6 +48,9 @@ describe("repoMemoryMcpLifecycle", () => {
     expect(lifecycle.copy).toContain("Service command: node");
     expect(lifecycle.copy).toContain("Descriptor:");
     expect(lifecycle.copy).toContain("repo-memory.json");
+    expect(lifecycle.copy).toContain("Descriptor present: yes");
+    expect(lifecycle.copy).toContain("Script present: yes");
+    expect(lifecycle.copy).toContain("Node available: yes");
   });
 
   it("blocks unsafe service descriptors before agent handoffs", () => {
@@ -85,6 +93,31 @@ describe("repoMemoryMcpLifecycle", () => {
     expect(lifecycle.state).toBe("needs_attention");
     expect(lifecycle.detail).toContain("app-managed");
     expect(lifecycle.detail).toContain("not read-only");
+  });
+
+  it("blocks app-managed descriptors when the MCP command cannot run", () => {
+    const lifecycle = repoMemoryMcpLifecycle({
+      configured: true,
+      active: true,
+      supervisionStatus: "verified_active",
+      service: {
+        managedByApp: true,
+        readOnly: true,
+        transport: "stdio",
+        command: "node /missing/repo-intelligence.mjs --mcp-serve",
+        descriptorPath: "/tools/repo-memory.json",
+        descriptorPresent: true,
+        scriptPath: "/missing/repo-intelligence.mjs",
+        scriptPresent: false,
+        nodeAvailable: false,
+      },
+    });
+
+    expect(lifecycle.state).toBe("needs_attention");
+    expect(lifecycle.detail).toContain("script missing");
+    expect(lifecycle.detail).toContain("node unavailable");
+    expect(lifecycle.copy).toContain("Service health: script missing");
+    expect(lifecycle.copy).toContain("Service health: node unavailable");
   });
 
   it("labels active repo-memory MCP with start and stop controls", () => {

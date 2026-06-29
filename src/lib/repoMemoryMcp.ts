@@ -31,6 +31,10 @@ export interface RepoMemoryMcpStatusInput {
     transport: string;
     command: string;
     descriptorPath: string;
+    descriptorPresent?: boolean;
+    scriptPath?: string;
+    scriptPresent?: boolean;
+    nodeAvailable?: boolean;
   } | null;
 }
 
@@ -51,20 +55,34 @@ export function repoMemoryMcpLifecycle(
         `Service transport: ${input.service.transport}`,
         `Service command: ${input.service.command}`,
         `Descriptor: ${input.service.descriptorPath}`,
+        `Descriptor present: ${input.service.descriptorPresent !== false ? "yes" : "no"}`,
+        `Script: ${input.service.scriptPath ?? "unknown"}`,
+        `Script present: ${input.service.scriptPresent !== false ? "yes" : "no"}`,
+        `Node available: ${input.service.nodeAvailable !== false ? "yes" : "no"}`,
       ]
     : [];
   const unsafeService =
     service &&
-    (service.managedByApp !== true || service.readOnly !== true);
+    (service.managedByApp !== true ||
+      service.readOnly !== true ||
+      service.descriptorPresent === false ||
+      service.scriptPresent === false ||
+      service.nodeAvailable === false);
   if (unsafeService) {
     const ownership = service.managedByApp
       ? "app-managed"
       : "not app-managed";
     const access = service.readOnly ? "read-only" : "not read-only";
+    const missing = [
+      service.descriptorPresent === false ? "descriptor missing" : null,
+      service.scriptPresent === false ? "script missing" : null,
+      service.nodeAvailable === false ? "node unavailable" : null,
+    ].filter(Boolean);
+    const health = missing.length ? ` ${missing.join(", ")}.` : "";
     return {
       state: "needs_attention",
       status: "Needs attention",
-      detail: `Repo Memory MCP service descriptor is ${ownership} and ${access}. Use Prepare MCP to restore the app-managed read-only descriptor before agent handoffs.${serviceDetail}`,
+      detail: `Repo Memory MCP service descriptor is ${ownership} and ${access}.${health} Use Prepare MCP to restore the app-managed read-only descriptor before agent handoffs.${serviceDetail}`,
       installCommand: repoMemoryMcpInstallCommand,
       startCommand: repoMemoryMcpStartCommand,
       stopCommand: repoMemoryMcpStopCommand,
@@ -73,6 +91,7 @@ export function repoMemoryMcpLifecycle(
         "Repo Memory MCP descriptor is unsafe for agent handoffs.",
         `Descriptor ownership: ${ownership}`,
         `Descriptor access: ${access}`,
+        ...missing.map((item) => `Service health: ${item}`),
         `Prepare action: ${repoMemoryMcpInstallCommand} then ${repoMemoryMcpStartCommand}`,
         `Verify: ${repoMemoryMcpVerifyCommand}`,
         ...serviceCopy,

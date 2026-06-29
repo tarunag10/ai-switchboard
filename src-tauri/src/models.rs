@@ -976,6 +976,10 @@ pub struct RepoMemoryMcpServiceStatus {
     pub transport: String,
     pub command: String,
     pub descriptor_path: String,
+    pub descriptor_present: bool,
+    pub script_path: String,
+    pub script_present: bool,
+    pub node_available: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

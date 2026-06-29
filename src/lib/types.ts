@@ -416,6 +416,10 @@ export interface RuntimeStatus {
     transport: string;
     command: string;
     descriptorPath: string;
+    descriptorPresent: boolean;
+    scriptPath: string;
+    scriptPresent: boolean;
+    nodeAvailable: boolean;
   } | null;
   mlInstalled?: boolean | null;
   kompressEnabled?: boolean | null;

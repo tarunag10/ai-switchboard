@@ -128,7 +128,7 @@ Supported handoff targets include `claude`, `codex`, `gemini`, `opencode`, `aide
 
 Repo Memory MCP is the read-only agent-consumption surface for Repo Intelligence. It exposes context packs, symbol lookup, and dependent-edge queries to supported agents without modifying the repository. The app surfaces lifecycle status in Mode Inspector, provides an Install MCP action, and Doctor can repair missing Repo Memory MCP configuration. The release verifier includes `npm run check:repo-memory-mcp`.
 
-Current repo-memory MCP supervision records app-session active state, last-check evidence, and stale-config detection. Real long-running process supervision and connector-specific MCP bridge docs remain roadmap work.
+Current repo-memory MCP supervision records app-session active state, last-check evidence, stale-config detection, and managed command health for the descriptor, repo-memory script, and Node entrypoint. Real long-running process supervision and connector-specific MCP bridge docs remain roadmap work.
 
 See [docs/repo-memory-mcp.md](docs/repo-memory-mcp.md), [docs/repo-intelligence-plan.md](docs/repo-intelligence-plan.md), and [docs/architecture.md](docs/architecture.md).
 
