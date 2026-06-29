@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  connectorManifests,
+  connectorSupportMatrixRows,
   formatPlannedConnectorConfigCreationPlansMarkdown,
+  getConnectorManifest,
   getPlannedConnector,
   getPlannedConnectorConfigCreationPlan,
   getPlannedConnectorConfigCreationPlans,
@@ -48,6 +51,39 @@ describe("planned connectors", () => {
         true,
       );
       expect(connector.notes).toMatch(/Doctor|rollback|Off cleanup/i);
+    }
+  });
+
+  it("derives the shared support matrix from connector manifests", () => {
+    const rows = connectorSupportMatrixRows();
+
+    expect(rows.map((row) => row.id)).toEqual(
+      connectorManifests.map((manifest) => manifest.id),
+    );
+    expect(getConnectorManifest("codex")?.support_status).toBe("managed");
+    expect(getConnectorManifest("cursor")?.support_status).toBe("planned");
+    expect(getConnectorManifest("missing")).toBeNull();
+    expect(rows.find((row) => row.id === "gemini_cli")).toMatchObject({
+      name: "Gemini CLI",
+      category: "cli",
+      supportStatus: "managed",
+    });
+    expect(
+      rows.find((row) => row.id === "opencode")?.detectionSources,
+    ).toContain("PATH: opencode");
+  });
+
+  it("keeps rich frontend connector identity and status aligned with manifests", () => {
+    for (const connector of [
+      ...managedConnectorDossiers,
+      ...plannedConnectors,
+    ]) {
+      const manifest = getConnectorManifest(connector.id);
+
+      expect(manifest).toBeTruthy();
+      expect(connector.name).toBe(manifest?.name);
+      expect(connector.category).toBe(manifest?.category);
+      expect(connector.supportStatus).toBe(manifest?.support_status);
     }
   });
 

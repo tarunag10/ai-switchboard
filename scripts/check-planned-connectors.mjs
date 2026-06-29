@@ -1,6 +1,7 @@
 import fs from "node:fs";
 
 const frontendPath = "src/lib/plannedConnectors.ts";
+const connectorManifestPath = "connectors/manifest.json";
 const appPath = "src/App.tsx";
 const backendPath = "src-tauri/src/client_adapters.rs";
 const cliPath = "scripts/repo-intelligence.mjs";
@@ -61,6 +62,7 @@ function extractConnectorsFromArray(source, pattern, label) {
       id,
       name: readStringField(block, "name"),
       category: readStringField(block, "category"),
+      supportStatus: readStringField(block, "supportStatus"),
       setupPhase: readStringField(block, "setupPhase"),
       configSurfaceCount: countStringArrayField(block, "configSurfaces"),
       automationGateCount: countStringArrayField(block, "automationGates"),
@@ -406,6 +408,10 @@ function difference(left, right) {
 }
 
 const frontendSource = readFile(frontendPath);
+const connectorManifests = JSON.parse(readFile(connectorManifestPath));
+const connectorManifestById = new Map(
+  connectorManifests.map((connector) => [connector.id, connector]),
+);
 const appSource = readFile(appPath);
 const backendSource = readFile(backendPath);
 const cliSource = readFile(cliPath);
@@ -469,13 +475,28 @@ if (appSource.includes("configPlan.steps.slice(")) {
 for (const id of allFrontendIds) {
   const frontend = allFrontendConnectors.get(id);
   const backend = backendConnectors.get(id);
+  const manifest = connectorManifestById.get(id);
   if (!frontend || !backend) {
+    continue;
+  }
+  if (!manifest) {
+    metadataErrors.push(`${id}: missing connector manifest`);
     continue;
   }
   for (const field of ["name", "category"]) {
     if (frontend[field] !== backend[field]) {
       metadataErrors.push(`${id}: ${field} mismatch (${frontend[field]} !== ${backend[field]})`);
     }
+    if (frontend[field] !== manifest[field]) {
+      metadataErrors.push(
+        `${id}: ${field} manifest mismatch (${frontend[field]} !== ${manifest[field]})`,
+      );
+    }
+  }
+  if (frontend.supportStatus !== manifest.support_status) {
+    metadataErrors.push(
+      `${id}: support status manifest mismatch (${frontend.supportStatus} !== ${manifest.support_status})`,
+    );
   }
   const frontendPhase = frontend.setupPhase?.toLowerCase();
   if (!managedFrontendIdSet.has(id) && frontendPhase !== backend.setupPhase) {

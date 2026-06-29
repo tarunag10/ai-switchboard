@@ -1,7 +1,72 @@
+import connectorManifestJson from "../../connectors/manifest.json";
+
+export type ConnectorSupportStatus =
+  | "managed"
+  | "guided"
+  | "detected"
+  | "planned"
+  | "unsupported";
+
+export interface ConnectorManifest {
+  id: string;
+  name: string;
+  category: "cli" | "editor" | "agent" | "runtime";
+  support_status: ConnectorSupportStatus;
+  detection: {
+    binaries?: string[];
+    paths?: string[];
+  };
+  config?: {
+    locations?: string[];
+    forbidden_reads?: string[];
+  };
+  automation_gates: string[];
+  manual_workflow: string[];
+}
+
+export interface ConnectorSupportMatrixRow {
+  id: string;
+  name: string;
+  category: ConnectorManifest["category"];
+  supportStatus: ConnectorSupportStatus;
+  detectionSources: string[];
+  configLocations: string[];
+  automationGateCount: number;
+  manualWorkflow: string[];
+}
+
+export const connectorManifests =
+  connectorManifestJson as ConnectorManifest[];
+
+const connectorManifestById = new Map(
+  connectorManifests.map((manifest) => [manifest.id, manifest]),
+);
+
+export function getConnectorManifest(id: string): ConnectorManifest | null {
+  return connectorManifestById.get(id) ?? null;
+}
+
+export function connectorSupportMatrixRows(): ConnectorSupportMatrixRow[] {
+  return connectorManifests.map((manifest) => ({
+    id: manifest.id,
+    name: manifest.name,
+    category: manifest.category,
+    supportStatus: manifest.support_status,
+    detectionSources: [
+      ...(manifest.detection.binaries ?? []).map((binary) => `PATH: ${binary}`),
+      ...(manifest.detection.paths ?? []),
+    ],
+    configLocations: manifest.config?.locations ?? [],
+    automationGateCount: manifest.automation_gates.length,
+    manualWorkflow: manifest.manual_workflow,
+  }));
+}
+
 export interface PlannedConnector {
   id: string;
   name: string;
   category: "cli" | "editor" | "agent";
+  supportStatus: ConnectorSupportStatus;
   statusLabel: "Planned";
   setupPhase: "Detect" | "Guide" | "Adapt";
   integrationTarget: string;
@@ -20,6 +85,7 @@ export type ManagedConnectorDossier = Omit<
   PlannedConnector,
   "statusLabel" | "setupPhase"
 > & {
+  supportStatus: "managed";
   statusLabel: "Managed";
   setupPhase: "Managed";
 };
@@ -129,6 +195,7 @@ export const managedConnectorDossiers: ManagedConnectorDossier[] = [
     id: "gemini_cli",
     name: "Gemini CLI",
     category: "cli",
+    supportStatus: "managed",
     statusLabel: "Managed",
     setupPhase: "Managed",
     integrationTarget: "Managed shell base-url routing adapter.",
@@ -184,6 +251,7 @@ export const managedConnectorDossiers: ManagedConnectorDossier[] = [
     id: "opencode",
     name: "OpenCode",
     category: "cli",
+    supportStatus: "managed",
     statusLabel: "Managed",
     setupPhase: "Managed",
     integrationTarget: "Managed OpenCode provider config adapter.",
@@ -238,6 +306,7 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "cursor",
     name: "Cursor",
     category: "editor",
+    supportStatus: "planned",
     statusLabel: "Planned",
     setupPhase: "Guide",
     integrationTarget:
@@ -289,6 +358,7 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "grok_cli",
     name: "Grok / xAI CLI",
     category: "cli",
+    supportStatus: "planned",
     statusLabel: "Planned",
     setupPhase: "Detect",
     integrationTarget:
@@ -344,6 +414,7 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "aider",
     name: "Aider",
     category: "agent",
+    supportStatus: "planned",
     statusLabel: "Planned",
     setupPhase: "Adapt",
     integrationTarget:
@@ -395,6 +466,7 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "continue",
     name: "Continue",
     category: "editor",
+    supportStatus: "planned",
     statusLabel: "Planned",
     setupPhase: "Guide",
     integrationTarget: "Local config adapter with explicit backup and restore.",
@@ -449,6 +521,7 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "goose",
     name: "Goose",
     category: "agent",
+    supportStatus: "planned",
     statusLabel: "Planned",
     setupPhase: "Adapt",
     integrationTarget:
@@ -500,6 +573,7 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "qwen_code",
     name: "Qwen Code",
     category: "cli",
+    supportStatus: "planned",
     statusLabel: "Planned",
     setupPhase: "Guide",
     integrationTarget:
@@ -555,6 +629,7 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "amazon_q",
     name: "Amazon Q Developer CLI",
     category: "cli",
+    supportStatus: "planned",
     statusLabel: "Planned",
     setupPhase: "Detect",
     integrationTarget:
@@ -610,6 +685,7 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "windsurf",
     name: "Windsurf",
     category: "editor",
+    supportStatus: "planned",
     statusLabel: "Planned",
     setupPhase: "Guide",
     integrationTarget:
@@ -665,6 +741,7 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "zed_ai",
     name: "Zed AI",
     category: "editor",
+    supportStatus: "planned",
     statusLabel: "Planned",
     setupPhase: "Guide",
     integrationTarget:
