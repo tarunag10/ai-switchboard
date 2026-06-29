@@ -18,7 +18,7 @@ Shipped:
 - Repo Intelligence Start Agent Session, read-only packs, handoffs, CLI exports, and repo-memory MCP smoke transport are usable.
 - Repo Intelligence graph version `path-graph-v3` adds package-dependency edges from TypeScript/JavaScript/React imports back to `package.json`, so context packs can show source-to-installed-package relationships in addition to local imports and call references.
 - Doctor now treats stale Repo Intelligence indexer versions as index-health issues, so graph analyzer upgrades ask users to clear/re-index before relying on context packs.
-- Repo Memory MCP active state is now process-bound: after app relaunch, Mode Inspector shows Start required until the app re-runs the read-only smoke check. For new setup, Mode Inspector's Prepare MCP action installs, starts, and smoke-checks the app-managed server in one click.
+- Repo Memory MCP active state is now process-bound but self-healing: after app relaunch, the app automatically re-runs the read-only smoke check for a previously verified app-managed descriptor. For new setup, Mode Inspector's Prepare MCP action installs, starts, and smoke-checks the app-managed server in one click.
 - Repo Memory MCP runtime status now exposes the managed stdio service descriptor separately from app-process smoke supervision, including command, descriptor path, read-only flag, and app-managed ownership.
 - Savings ledger rows now distinguish measured, estimated, and inferred events across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese.
 - Rollback Center has guarded preview/execution for backend-allowlisted rows, including Codex/OpenCode restore paths and Gemini managed-block cleanup. Other sidecar connector rows stay visible as rollback plans/manual rows until backend execution exists.
@@ -36,6 +36,7 @@ Shipped:
 - One-click local evidence now includes focused Rollback Center validation for frontend inventory/copy plus native undo-all and Gemini cleanup survival backend cases, with durable local summary artifacts.
 - One-click local evidence now includes focused Doctor repair validation for UI/copy behavior and backend Off/RTK Headroom-restoring repair guards, with durable local summary artifacts.
 - Repo Memory MCP active sessions are now app-supervised with periodic read-only smoke rechecks while the same app process owns the session.
+- Repo Memory MCP relaunch recovery now auto-verifies previously active app-managed read-only descriptors during runtime refresh, so repeat launches do not require a manual Start MCP click unless smoke fails.
 - The home runtime banner now offers a primary Start runtime action when the Headroom runtime is offline, degraded, or proxy-unreachable, reusing the same restart-and-refresh path as paused recovery.
 - Caveman and Compact Chinese savings attribution now records durable estimated events only when managed guidance actually changes client instruction files, including changed-file and backup evidence instead of unconditional inferred template rows.
 - Local-only network certification now has a repo-owned gate, `npm run check:local-only-network`, that verifies the remote destination registry, frontend/backend local-only guards, and documented app-owned remote-service surfaces.

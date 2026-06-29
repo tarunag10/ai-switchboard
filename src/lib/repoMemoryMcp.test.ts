@@ -133,7 +133,7 @@ describe("repoMemoryMcpLifecycle", () => {
     expect(lifecycle.copy).toContain("run Start MCP again");
   });
 
-  it("requires a fresh Start MCP after app relaunch", () => {
+  it("explains app-session re-verification after app relaunch", () => {
     const lifecycle = repoMemoryMcpLifecycle({
       configured: true,
       active: false,
@@ -143,10 +143,11 @@ describe("repoMemoryMcpLifecycle", () => {
     });
 
     expect(lifecycle.state).toBe("restart_required");
-    expect(lifecycle.status).toBe("Start required");
+    expect(lifecycle.status).toBe("Verifying");
     expect(lifecycle.detail).toContain("previous app process");
-    expect(lifecycle.detail).toContain("Click Start MCP");
-    expect(lifecycle.copy).toContain("fresh app-session start");
+    expect(lifecycle.detail).toContain("automatically");
+    expect(lifecycle.detail).toContain("Start MCP");
+    expect(lifecycle.copy).toContain("being re-verified");
     expect(lifecycle.copy).toContain("Start action: start_repo_memory_mcp");
   });
 

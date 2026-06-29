@@ -132,14 +132,14 @@ export function repoMemoryMcpLifecycle(
       : "";
     return {
       state: "restart_required",
-      status: "Start required",
-      detail: `Repo Memory MCP was active in a previous app process. Click Start MCP to re-run the read-only smoke check before agent handoffs.${started}${checked}${serviceDetail}`,
+      status: "Verifying",
+      detail: `Repo Memory MCP was active in a previous app process. Mac AI Switchboard will re-run the read-only smoke check automatically; click Start MCP if you want to retry now.${started}${checked}${serviceDetail}`,
       installCommand: repoMemoryMcpInstallCommand,
       startCommand: repoMemoryMcpStartCommand,
       stopCommand: repoMemoryMcpStopCommand,
       verifyCommand: repoMemoryMcpVerifyCommand,
       copy: [
-        "Repo Memory MCP needs a fresh app-session start.",
+        "Repo Memory MCP is being re-verified for this app session.",
         `Start action: ${repoMemoryMcpStartCommand}`,
         `Verify: ${repoMemoryMcpVerifyCommand}`,
         ...serviceCopy,

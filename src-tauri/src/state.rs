@@ -3891,9 +3891,12 @@ fn repo_memory_mcp_supervision_due(
     if configured != Some(true)
         || !session.active
         || session.supervision_status.as_deref() != Some("verified_active")
-        || session.supervisor_pid != Some(current_pid)
     {
         return false;
+    }
+
+    if session.supervisor_pid != Some(current_pid) {
+        return true;
     }
 
     match session.last_checked_at {
@@ -9545,7 +9548,7 @@ mod tests {
             supervisor_pid: Some(current_pid + 1),
             ..active.clone()
         };
-        assert!(!super::repo_memory_mcp_supervision_due(
+        assert!(super::repo_memory_mcp_supervision_due(
             &previous_process,
             Some(true),
             current_pid,
