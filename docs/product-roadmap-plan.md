@@ -18,7 +18,7 @@ Shipped:
 - Repo Intelligence Start Agent Session, read-only packs, handoffs, CLI exports, and repo-memory MCP smoke transport are usable.
 - Repo Memory MCP active state is now process-bound: after app relaunch, Mode Inspector shows Start required until the app re-runs the read-only smoke check. For new setup, Mode Inspector's Prepare MCP action installs, starts, and smoke-checks the app-managed server in one click.
 - Savings ledger rows now distinguish measured, estimated, and inferred events across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese.
-- Rollback Center has guarded preview/execution for ready allowlisted rows, including Codex/OpenCode restore paths and managed sidecar cleanup.
+- Rollback Center has guarded preview/execution for backend-allowlisted rows, including Codex/OpenCode restore paths and Gemini managed-block cleanup. Other sidecar connector rows stay visible as rollback plans/manual rows until backend execution exists.
 - Doctor repair actions that can restore Headroom routing are now blocked while the saved mode is Off or RTK-only; non-Headroom repairs such as RTK, Caveman, Ponytail, Repo Intelligence, and Repo Memory MCP stay available. Doctor also exposes Verify Off as a primary one-click action when Off-mode evidence remains.
 - Remote destination registry, support-link routing, external-link SSRF guards, local-only backend refusal for account/billing/contact commands, branding iconset provenance, local DMG build, local installed smoke evidence, and the in-app Run local evidence sequence are shipped.
 - Local mode relaunch smoke now backs up and restores `client-setup.json`, launches the installed app in saved Off and RTK-only modes, and verifies the app process returns while intercept and Headroom proxy listeners stay down.
@@ -193,7 +193,7 @@ Suggested commit:
 
 Goal: make every managed config mutation visible and reversible from one place.
 
-Status: partially shipped. Rollback inventory, guarded previews, selected native restore paths, sidecar cleanup, and undo-all orchestration for ready rows exist. The remaining work is broader native restore coverage and installed-app survival evidence.
+Status: partially shipped. Rollback inventory, guarded previews, selected native restore paths, Gemini managed-block cleanup, and undo-all orchestration for backend-allowlisted ready rows exist. The remaining work is broader native restore coverage for the remaining sidecar connectors and installed-app survival evidence.
 
 Tasks:
 
