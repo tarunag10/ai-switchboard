@@ -1,6 +1,6 @@
 # Mac AI Switchboard
 
-**A local-first Mac menu bar switchboard for Headroom, RTK, Claude Code, Codex, Repo Intelligence, and coding-agent add-ons.**
+**A local-first Mac menu bar switchboard for Claude Code, Codex, Headroom, RTK, and copyable context packs for other coding agents.**
 
 [![Repository](https://img.shields.io/badge/GitHub-tarunag10%2Fmac--ai--switchboard-blue?style=for-the-badge&logo=github)](https://github.com/tarunag10/mac-ai-switchboard)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
@@ -13,23 +13,27 @@ Current status: active productization branch. The standalone repository is publi
 
 ## Roadmap Checkpoint
 
-Created so far: Start Agent Session, managed connector sidecar coverage, Gemini/OpenCode managed routing, read-only Repo Intelligence APIs, expanded lightweight symbol parsing, repo-memory MCP lifecycle/supervision evidence, savings attribution ledger, safe config dry-runs, Doctor timeline/repair copy, Rollback Center native restore/cleanup, guarded native undo-all for ready rollback rows, release-readiness evidence surfaces, Caveman profiles including opt-in Compact Chinese, and trust-hardening guards for remote destinations, local-only account flows, external links, and app-owned branding.
+Created so far: Start Agent Session, Claude/Codex managed routing, bounded Gemini/OpenCode adapter work, managed connector sidecar coverage, read-only Repo Intelligence APIs, expanded lightweight symbol parsing, repo-memory MCP lifecycle/supervision evidence, savings attribution ledger, safe config dry-runs, Doctor timeline/repair copy, Rollback Center native restore/cleanup, guarded native undo-all for ready rollback rows, release-readiness evidence surfaces, Caveman profiles including opt-in Compact Chinese, and trust-hardening guards for remote destinations, local-only account flows, external links, and app-owned branding.
 
 Still left: provider-specific native config writes beyond sidecars, real long-running repo-memory MCP process supervision, deeper tree-sitter/language-aware Repo Intelligence graphs, stronger measured counters for add-ons where runtime evidence exists, user-approved safe config writes with verification/rollback, relaunch-survival evidence for Rollback Center, signed/notarized public DMG evidence in-app, and remaining legal/privacy/network-audit/public-release hardening.
 
 ## What It Controls
 
-| Area | What Switchboard Does | Status |
-| --- | --- | --- |
-| Headroom | Routes supported coding clients through the local Headroom optimization proxy. | Core |
-| RTK | Installs/enables command-output compression for shells and agent tool output. | Core |
-| Claude Code | Applies reversible local routing and hook setup. | Supported |
-| Codex | Applies reversible provider/base URL setup and Doctor repair flows. | Supported |
-| Repo Intelligence | Builds read-only local repo summaries, context packs, and agent handoffs. | Supported |
-| MarkItDown | Installs local document-to-Markdown preprocessing for PDFs and Office files. | Add-on |
-| Ponytail | Installs a local behavior nudge for smaller, cleaner coding-agent changes. | Add-on |
-| Gemini CLI and OpenCode | Provides managed routing surfaces plus sidecar dossiers, dry-run previews, rollback guidance, and Doctor/release-readiness visibility. | Managed |
-| Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI | Provides managed sidecar lifecycle, config surfaces, manual guides, automation gates, dry-run previews, rollback dossiers, and Off-cleanup boundaries. Native provider mutation remains gated connector by connector. | Managed sidecar |
+| Tool or area | Status | Automatic routing | RTK support | Repo packs | Notes |
+| --- | --- | ---: | ---: | ---: | --- |
+| Claude Code | Managed | Yes | Yes | Yes | Reversible config edits and hook setup. |
+| Codex | Managed | Yes | Partial | Yes | Provider block, direct-bypass handling, and Doctor repair flows. |
+| Headroom | Core runtime | Yes | No | No | Local optimization proxy used by managed clients. |
+| RTK | Core add-on | No | Yes | No | Command-output compression for shells and agent tool output. |
+| Repo Intelligence | Supported | No | No | Yes | Read-only repo summaries, context packs, and agent handoffs. |
+| Gemini CLI | Limited managed adapter | Limited | No | Yes | Shell/base-url routing adapter exists; provider/account mutation remains gated. |
+| OpenCode | Limited managed adapter | Limited | No | Yes | Provider adapter work exists; lifecycle gates still decide native writes. |
+| Cursor | Guided | No | No | Yes | Copyable packs and settings detection today. |
+| Windsurf | Guided | No | No | Yes | Copyable packs and settings detection today. |
+| Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Zed AI, Grok / xAI CLI | Detected or planned | No | No | Yes | Manual workflow, detection evidence, and automation gates until reversible setup is proven. |
+| MarkItDown, Ponytail, Caveman | Add-on | No | Depends | No | Local helper add-ons with explicit install/disable flows. |
+
+See [Connector Support](docs/connectors.md) for the status vocabulary and per-tool guardrails.
 
 ## Switchboard Modes
 

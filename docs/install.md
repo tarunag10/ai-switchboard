@@ -69,6 +69,8 @@ See [macOS release docs](macos-release.md) for required secrets and release work
 
 For read-only agent context sharing, see [Repo Memory MCP](repo-memory-mcp.md). It explains the Mode Inspector install action, `npm run check:repo-memory-mcp`, and how supported coding agents should consume bounded Repo Intelligence packs without mutating repos or connector config.
 
+For per-tool support status, see [Connector Support](connectors.md). Claude Code and Codex are the first-class managed targets; other tools stay guided, detected, planned, or limited managed adapters until their reversible lifecycle is fully proven.
+
 ## Shareable Build Checklist
 
 Do not share a public DMG until all gates are true:
@@ -93,6 +95,8 @@ Mac AI Switchboard may write:
 - `~/Library/LaunchAgents/` only if launch at login is enabled.
 
 Managed edits are fenced and reversible. Use **Off** mode or Doctor repair flows to remove routing hooks and return clients to direct provider behavior.
+
+Connector support is intentionally explicit: Claude Code and Codex have first-class managed setup, while Cursor, Windsurf, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Zed AI, and Grok / xAI CLI rely on guided or detected workflows unless [Connector Support](connectors.md) says a lifecycle is managed.
 
 For oversized Codex payload failures such as `413 Payload Too Large`, see [Codex Compression Troubleshooting](codex-compression-troubleshooting.md).
 

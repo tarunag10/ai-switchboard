@@ -14,6 +14,7 @@ const publicDocFiles = [
   "SUPPORT.md",
   "docs/remote-destinations.md",
   "docs/repository-settings.md",
+  "docs/connectors.md",
 ];
 
 const requiredFiles = [
@@ -106,6 +107,27 @@ if (failures.length === 0) {
   ]) {
     if (!remoteDestinations.includes(phrase)) {
       failures.push(`docs/remote-destinations.md does not mention ${phrase}`);
+    }
+  }
+
+  const connectors = read("docs/connectors.md");
+  for (const phrase of [
+    "Status Labels",
+    "Support Matrix",
+    "Managed",
+    "Guided",
+    "Detected",
+    "Planned",
+    "Limited managed adapter",
+    "Claude Code",
+    "Codex",
+    "Cursor",
+    "Windsurf",
+    "OpenCode",
+    "Automation Gates",
+  ]) {
+    if (!connectors.includes(phrase)) {
+      failures.push(`docs/connectors.md does not mention ${phrase}`);
     }
   }
 
