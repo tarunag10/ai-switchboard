@@ -1,4 +1,4 @@
-use std::collections::{hash_map::DefaultHasher, BTreeMap};
+use std::collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet};
 use std::ffi::OsStr;
 use std::hash::{Hash, Hasher};
 use std::io::Read;
@@ -25,7 +25,7 @@ const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
 const TASK_PACK_BUDGET_TOKENS: u64 = 8_000;
-const INDEXER_VERSION: &str = "path-graph-v2";
+const INDEXER_VERSION: &str = "path-graph-v3";
 const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
 const PARSER_VERSION: &str = "metadata-fingerprint-v1";
 const DEFAULT_SYMBOL_SEARCH_LIMIT: usize = 25;
@@ -1498,6 +1498,7 @@ fn build_repo_graph_summary(repo_root: &Path, files: &[RepoFileSignal]) -> RepoG
         .collect::<Vec<_>>();
     let mut import_edges = build_repo_graph_edges(&included);
     import_edges.extend(build_import_reference_edges(repo_root, &included));
+    import_edges.extend(build_package_dependency_edges(repo_root, &included));
     let symbols = build_repo_symbols(repo_root, &included);
     let mut symbol_edges = build_symbol_edges(&included, &symbols);
     symbol_edges.extend(build_call_reference_edges(repo_root, &included, &symbols));
@@ -1884,6 +1885,89 @@ fn build_import_reference_edges(repo_root: &Path, files: &[RepoFileSignal]) -> V
         }
     }
     edges
+}
+
+fn build_package_dependency_edges(
+    repo_root: &Path,
+    files: &[RepoFileSignal],
+) -> Vec<RepoGraphEdge> {
+    let Some(package_json) = files.iter().find(|file| file.path == "package.json") else {
+        return Vec::new();
+    };
+    let Ok(package_content) = std::fs::read_to_string(repo_root.join(&package_json.path)) else {
+        return Vec::new();
+    };
+    let packages = package_dependency_names(&package_content);
+    if packages.is_empty() {
+        return Vec::new();
+    }
+
+    let mut edges = Vec::new();
+    for file in files.iter().filter(|file| {
+        matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
+            && matches!(
+                file.language.as_str(),
+                "TypeScript" | "JavaScript" | "React"
+            )
+    }) {
+        let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
+            continue;
+        };
+        for specifier in extract_import_specifiers(&content, &file.language) {
+            if specifier.starts_with('.') {
+                continue;
+            }
+            let Some(package_name) = package_name_from_specifier(&specifier) else {
+                continue;
+            };
+            if !packages.contains(&package_name) {
+                continue;
+            }
+            push_unbounded_graph_edge(
+                &mut edges,
+                RepoGraphEdge {
+                    from: file.path.clone(),
+                    to: package_json.path.clone(),
+                    kind: RepoGraphEdgeKind::PackageDependency,
+                    reason: format!("source imports package {package_name}"),
+                },
+                80,
+            );
+            if edges.len() >= 80 {
+                return edges;
+            }
+        }
+    }
+    edges
+}
+
+fn package_dependency_names(package_json: &str) -> BTreeSet<String> {
+    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(package_json) else {
+        return BTreeSet::new();
+    };
+    [
+        "dependencies",
+        "devDependencies",
+        "peerDependencies",
+        "optionalDependencies",
+    ]
+    .into_iter()
+    .filter_map(|key| parsed.get(key)?.as_object())
+    .flat_map(|deps| deps.keys().cloned())
+    .collect()
+}
+
+fn package_name_from_specifier(specifier: &str) -> Option<String> {
+    if specifier.is_empty() || specifier.starts_with('.') || specifier.starts_with('/') {
+        return None;
+    }
+    if specifier.starts_with('@') {
+        let mut parts = specifier.split('/');
+        let scope = parts.next()?;
+        let name = parts.next()?;
+        return Some(format!("{scope}/{name}"));
+    }
+    specifier.split('/').next().map(str::to_string)
 }
 
 fn build_call_reference_edges(
@@ -2577,11 +2661,16 @@ export const mapValues = <T>(items: T[]) => items;
         std::fs::create_dir_all(&src).expect("create src");
         std::fs::write(
         src.join("App.tsx"),
-        "import { helper } from './helper';\nexport function App() { helper(); return null; }\nexport class ViewModel {}\n",
+        "import React from 'react';\nimport { helper } from './helper';\nexport function App() { helper(); return null; }\nexport class ViewModel {}\n",
     )
     .expect("write tsx");
         std::fs::write(src.join("helper.ts"), "export function helper() {}\n")
             .expect("write helper");
+        std::fs::write(
+            root.path().join("package.json"),
+            r#"{"dependencies":{"react":"18.3.1"}}"#,
+        )
+        .expect("write package json");
         std::fs::write(
             src.join("lib.rs"),
             "pub struct RuntimeState {}\npub fn run_app() {}\n",
@@ -2602,6 +2691,12 @@ export const mapValues = <T>(items: T[]) => items;
             edge.from == "src/App.tsx"
                 && edge.to == "src/helper.ts"
                 && edge.kind == RepoGraphEdgeKind::ImportReference
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/App.tsx"
+                && edge.to == "package.json"
+                && edge.kind == RepoGraphEdgeKind::PackageDependency
+                && edge.reason == "source imports package react"
         }));
         assert!(graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/App.tsx"

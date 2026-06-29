@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const INDEXER_VERSION = "path-graph-v2";
+const INDEXER_VERSION = "path-graph-v3";
 
 const ignoredSegments = new Set([
   ".git",
@@ -721,6 +721,7 @@ function buildGraphSummary(repoRoot, files) {
   const importEdges = [
     ...buildGraphEdges(included),
     ...buildImportReferenceEdges(repoRoot, included),
+    ...buildPackageDependencyEdges(repoRoot, included),
   ];
   const symbols = buildRepoSymbols(repoRoot, included);
   const symbolEdges = [
@@ -877,6 +878,71 @@ function buildImportReferenceEdges(repoRoot, files) {
     }
   }
   return edges;
+}
+
+function buildPackageDependencyEdges(repoRoot, files) {
+  const packageJson = files.find((file) => file.path === "package.json");
+  if (!packageJson) return [];
+  let packageContent = "";
+  try {
+    packageContent = fs.readFileSync(path.join(repoRoot, packageJson.path), "utf8");
+  } catch {
+    return [];
+  }
+  const packages = packageDependencyNames(packageContent);
+  if (!packages.size) return [];
+
+  const edges = [];
+  for (const file of files.filter(
+    (candidate) => candidate.role === "source" || candidate.role === "test",
+  )) {
+    let content = "";
+    try {
+      content = fs.readFileSync(path.join(repoRoot, file.path), "utf8");
+    } catch {
+      continue;
+    }
+    for (const specifier of extractImportSpecifiers(content)) {
+      if (specifier.startsWith(".")) continue;
+      const packageName = packageNameFromSpecifier(specifier);
+      if (!packageName || !packages.has(packageName)) continue;
+      pushUniqueGraphEdge(edges, {
+        from: file.path,
+        to: packageJson.path,
+        kind: "package_dependency",
+        reason: `source imports package ${packageName}`,
+      });
+      if (edges.length >= 80) return edges;
+    }
+  }
+  return edges;
+}
+
+function packageDependencyNames(packageJson) {
+  try {
+    const parsed = JSON.parse(packageJson);
+    return new Set(
+      [
+        "dependencies",
+        "devDependencies",
+        "peerDependencies",
+        "optionalDependencies",
+      ].flatMap((key) => Object.keys(parsed[key] ?? {})),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function packageNameFromSpecifier(specifier) {
+  if (!specifier || specifier.startsWith(".") || specifier.startsWith("/")) {
+    return null;
+  }
+  if (specifier.startsWith("@")) {
+    const [scope, name] = specifier.split("/");
+    return scope && name ? `${scope}/${name}` : null;
+  }
+  return specifier.split("/")[0] ?? null;
 }
 
 function buildCallReferenceEdges(repoRoot, files, symbols) {

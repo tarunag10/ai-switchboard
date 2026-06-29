@@ -127,11 +127,11 @@ describe("repoIntelligence", () => {
 
     expect(summary.totalFiles).toBe(6);
     expect(summary.indexedFiles).toBe(5);
-    expect(summary.indexerVersion).toBe("path-graph-v2");
+    expect(summary.indexerVersion).toBe("path-graph-v3");
     expect(summary.roleCounts.generated).toBe(1);
     expect(summary.indexMetadata).toMatchObject({
       schemaVersion: 1,
-      indexerVersion: "path-graph-v2",
+      indexerVersion: "path-graph-v3",
       parserVersion: "metadata-fingerprint-v1",
       cacheState: "new",
       fileCount: 6,
@@ -229,7 +229,7 @@ describe("repoIntelligence", () => {
     expect(
       getRepoIndexFreshness({
         indexedAt: "2026-06-27T10:00:00Z",
-        indexerVersion: "path-graph-v2",
+        indexerVersion: "path-graph-v3",
         indexMetadata: baseMetadata,
         graph: buildRepoIntelligenceSummary([
           { path: "src/App.tsx", bytes: 4000 },
@@ -243,7 +243,7 @@ describe("repoIntelligence", () => {
       graphAvailable: true,
       indexHealth: "new",
       parserHealth: "current",
-      indexerVersion: "path-graph-v2",
+      indexerVersion: "path-graph-v3",
       parserVersion: "metadata-fingerprint-v1",
       indexedFileCount: 2,
       skippedFileCount: 0,
@@ -274,7 +274,8 @@ describe("repoIntelligence", () => {
       {
         path: "src/App.tsx",
         bytes: 4000,
-        content: 'import { helper } from "./lib/helper";\nhelper();',
+        content:
+          'import React from "react";\nimport { helper } from "./lib/helper";\nhelper();',
       },
       { path: "src/main.tsx", bytes: 1400, content: 'import "./App";' },
       { path: "src/App.test.tsx", bytes: 2000 },
@@ -285,7 +286,11 @@ describe("repoIntelligence", () => {
       },
       { path: "src-tauri/src/lib.rs", bytes: 5000 },
       { path: "scripts/release.mjs", bytes: 1200 },
-      { path: "package.json", bytes: 800 },
+      {
+        path: "package.json",
+        bytes: 800,
+        content: '{"dependencies":{"react":"18.3.1"}}',
+      },
       { path: "package-lock.json", bytes: 1600 },
       { path: ".env.local", bytes: 200 },
     ]);
@@ -325,6 +330,12 @@ describe("repoIntelligence", () => {
           from: "src/App.tsx",
           to: "src/lib/helper.ts",
           kind: "import_reference",
+        }),
+        expect.objectContaining({
+          from: "src/App.tsx",
+          to: "package.json",
+          kind: "package_dependency",
+          reason: "source imports package react",
         }),
       ]),
     );
@@ -419,7 +430,7 @@ describe("repoIntelligence", () => {
     expect(manifest.kind).toBe("mac_ai_switchboard.repo_intelligence_manifest");
     expect(manifest.schemaVersion).toBe(1);
     expect(manifest.generatedAt).toBe("2026-06-25T10:00:00Z");
-    expect(manifest.totals.indexerVersion).toBe("path-graph-v2");
+    expect(manifest.totals.indexerVersion).toBe("path-graph-v3");
     expect(manifest.totals.indexMetadata?.cacheState).toBe("new");
     expect(manifest.totals.indexMetadata?.fileFingerprints.length).toBe(4);
     expect(manifest.totals.indexMetadata?.skippedFiles).toEqual(

@@ -7556,7 +7556,7 @@ mod tests {
         RepoIntelligenceSummary {
             indexed_at: indexed_at.to_string(),
             repo_root,
-            indexer_version: Some("path-graph-v2".to_string()),
+            indexer_version: Some("path-graph-v3".to_string()),
             total_files: 1,
             indexed_files: 1,
             skipped_files: 0,
@@ -7564,7 +7564,7 @@ mod tests {
             role_counts: BTreeMap::new(),
             index_metadata: Some(RepoIndexMetadata {
                 schema_version: 1,
-                indexer_version: "path-graph-v2".to_string(),
+                indexer_version: "path-graph-v3".to_string(),
                 parser_version: "metadata-fingerprint-v1".to_string(),
                 cache_key: "test".to_string(),
                 cache_state: "unchanged".to_string(),

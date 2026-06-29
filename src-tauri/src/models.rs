@@ -309,6 +309,7 @@ pub enum RepoGraphEdgeKind {
     SourceToDependencyHub,
     SymbolReference,
     ImportReference,
+    PackageDependency,
     CallReference,
 }
 

@@ -64,6 +64,7 @@ export type RepoGraphEdgeKind =
   | "source_to_dependency_hub"
   | "symbol_reference"
   | "import_reference"
+  | "package_dependency"
   | "call_reference";
 
 export interface RepoGraphEdge {
@@ -775,7 +776,7 @@ const generatedPathPatterns = [
   /(^|\/)\.turbo\//,
   /(^|\/)vendor\//,
 ];
-export const repoIntelligenceIndexerVersion = "path-graph-v2";
+export const repoIntelligenceIndexerVersion = "path-graph-v3";
 
 const lockfileNames = new Set([
   "Cargo.lock",
@@ -2000,6 +2001,7 @@ function buildRepoGraphSummary(
   const importEdges = [
     ...buildRepoGraphEdges(included),
     ...buildImportReferenceEdges(included, contentByPath),
+    ...buildPackageDependencyEdges(included, contentByPath),
   ];
   const symbols = buildRepoSymbols(included);
   const symbolEdges = [
@@ -2117,6 +2119,67 @@ function buildImportReferenceEdges(
   }
 
   return edges;
+}
+
+function buildPackageDependencyEdges(
+  files: RepoFileSignal[],
+  contentByPath: Map<string, string>,
+): RepoGraphEdge[] {
+  const packageJson = files.find((file) => file.path === "package.json");
+  const packageContent = contentByPath.get("package.json");
+  if (!packageJson || !packageContent) return [];
+  const packages = packageDependencyNames(packageContent);
+  if (packages.size === 0) return [];
+
+  const edges: RepoGraphEdge[] = [];
+  for (const file of files.filter(
+    (candidate) => candidate.role === "source" || candidate.role === "test",
+  )) {
+    const content = contentByPath.get(file.path);
+    if (!content) continue;
+    for (const specifier of extractImportSpecifiers(content)) {
+      if (specifier.startsWith(".")) continue;
+      const packageName = packageNameFromSpecifier(specifier);
+      if (!packageName || !packages.has(packageName)) continue;
+      pushUniqueGraphEdge(edges, {
+        from: file.path,
+        to: packageJson.path,
+        kind: "package_dependency",
+        reason: `source imports package ${packageName}`,
+      });
+      if (edges.length >= 80) return edges;
+    }
+  }
+  return edges;
+}
+
+function packageDependencyNames(packageJson: string): Set<string> {
+  try {
+    const parsed = JSON.parse(packageJson) as Record<string, unknown>;
+    return new Set(
+      [
+        "dependencies",
+        "devDependencies",
+        "peerDependencies",
+        "optionalDependencies",
+      ].flatMap((key) =>
+        Object.keys((parsed[key] as Record<string, unknown>) ?? {}),
+      ),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function packageNameFromSpecifier(specifier: string): string | null {
+  if (!specifier || specifier.startsWith(".") || specifier.startsWith("/")) {
+    return null;
+  }
+  if (specifier.startsWith("@")) {
+    const [scope, name] = specifier.split("/");
+    return scope && name ? `${scope}/${name}` : null;
+  }
+  return specifier.split("/")[0] ?? null;
 }
 
 function buildCallReferenceEdges(
