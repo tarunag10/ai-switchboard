@@ -6,6 +6,13 @@ target
 *.log
 .env.local
 .env
+*.db
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+headroom_memory.db
+memory.db
 src-tauri/target
 src-tauri/gen
 announcement-recordings

@@ -23,6 +23,9 @@ npm run check:repo-memory-mcp
 echo "Checking planned connector registry parity..."
 npm run check:connectors
 
+echo "Checking for tracked local artifacts..."
+npm run check:local-artifacts
+
 echo "Checking semantic color tokens..."
 npm run check:colors
 
