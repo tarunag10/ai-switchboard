@@ -4,6 +4,7 @@ import {
   buildAgentSessionPreparation,
   buildAgentSessionDisplayState,
   buildRepoIntelligenceSummary,
+  buildRepoTaskContextPack,
   buildRepoAgentManifest,
   buildRepoAgentHandoffPayload,
   classifyRepoFile,
@@ -201,6 +202,50 @@ describe("repoIntelligence", () => {
       ]),
     );
     expect(summary.packs[0].savingsVsFullScanPct).toBeGreaterThan(50);
+    expect(summary.taskPacks?.map((pack) => pack.id)).toEqual([
+      "task_implementation",
+      "task_verification",
+    ]);
+  });
+
+  it("builds task-aware context packs with reasons and omitted files", () => {
+    const summary = buildRepoIntelligenceSummary([
+      {
+        path: "src/components/ReleaseReadinessPanel.tsx",
+        bytes: 1200,
+      },
+      {
+        path: "src/components/ReleaseReadinessPanel.test.tsx",
+        bytes: 900,
+      },
+      { path: "src/lib/releaseReadiness.ts", bytes: 2000 },
+      { path: "src/lib/savingsCalculator.ts", bytes: 2600 },
+      { path: "docs/macos-release.md", bytes: 800 },
+      { path: ".env.local", bytes: 100 },
+      { path: "dist/bundle.js", bytes: 20000 },
+    ]);
+
+    const files = summary.packs.flatMap((contextPack) => contextPack.files);
+    const pack = buildRepoTaskContextPack(
+      files,
+      summary.graph,
+      "release readiness",
+      "release readiness panel smoke evidence",
+      900,
+    );
+
+    expect(pack.id).toBe("task_release_readiness");
+    expect(pack.files[0].path).toContain("ReleaseReadinessPanel");
+    expect(pack.files[0].reasons.join(" ")).toContain("release");
+    expect(pack.tests.map((file) => file.path)).toContain(
+      "src/components/ReleaseReadinessPanel.test.tsx",
+    );
+    expect(pack.omitted.every((file) => !file.path.includes(".env"))).toBe(
+      true,
+    );
+    expect(pack.commands).toEqual(
+      expect.arrayContaining(["npm run smoke:preflight"]),
+    );
   });
 
   it("derives index freshness copy from persistent metadata", () => {
@@ -752,8 +797,19 @@ describe("repoIntelligence", () => {
     );
     expect(preparation.handoffPayload?.pack.id).toBe("verification");
     expect(preparation.handoffPayload?.indexFreshness.status).toBe("fresh");
+    expect(preparation.taskContext).toMatchObject({
+      id: "task_verification",
+      task: "verification",
+      budgetTokens: 6000,
+    });
+    expect(preparation.taskContext?.commands).toContain("npm test");
     expect(preparation.configReadiness).toBeNull();
     expect(preparation.manifest.generatedAt).toBe("2026-06-25T10:05:00Z");
+    expect(preparation.manifest.taskPacks?.[0]).toMatchObject({
+      id: "task_implementation",
+      fileCount: expect.any(Number),
+      commandCount: expect.any(Number),
+    });
 
     const json = formatAgentSessionPreparationJson(preparation);
     expect(json).toContain('"kind": "mac_ai_switchboard.repo_agent_handoff"');
@@ -764,6 +820,8 @@ describe("repoIntelligence", () => {
     expect(sessionSummary).toContain("Selected pack: Verification pack");
     expect(sessionSummary).toContain("Estimated tokens avoided:");
     expect(sessionSummary).toContain("Secret-like paths excluded: yes");
+    expect(sessionSummary).toContain("## Task-Aware Context");
+    expect(sessionSummary).toContain("Suggested commands:");
 
     const packMarkdown = formatAgentSessionSelectedPackMarkdown(
       summary,

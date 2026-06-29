@@ -147,6 +147,7 @@ export interface RepoIntelligenceSummary {
   indexMetadata?: RepoIndexMetadata | null;
   graph?: RepoGraphSummary;
   packs: RepoContextPack[];
+  taskPacks?: RepoTaskContextPack[];
 }
 
 export interface RepoSavingsEstimate {
@@ -246,6 +247,7 @@ export interface AgentSessionPreparation {
   copyArtifacts: AgentSessionCopyArtifact[];
   handoffMarkdown: string | null;
   handoffPayload: RepoAgentHandoffPayload | null;
+  taskContext: RepoTaskContextPack | null;
   configReadiness: RepoAgentConfigReadiness | null;
   manifest: RepoAgentManifest;
 }
@@ -311,6 +313,18 @@ export interface RepoAgentManifest {
     estimatedTokensAvoided: number;
     savingsVsFullScanPct: number;
     command: string;
+  }>;
+  taskPacks?: Array<{
+    id: string;
+    task: string;
+    budgetTokens: number;
+    fileCount: number;
+    testCount: number;
+    commandCount: number;
+    topFiles: RepoFileRank[];
+    tests: RepoFileRank[];
+    commands: string[];
+    omittedCount: number;
   }>;
   agentRecipes: Array<{
     id: string;
@@ -955,6 +969,22 @@ export function buildRepoIntelligenceSummary(
       .map((file) => [file.path.replace(/\\/g, "/"), file.content ?? ""]),
   );
   const graph = buildRepoGraphSummary(indexed, contentByPath);
+  const taskPacks = [
+    buildRepoTaskContextPack(
+      indexed,
+      graph,
+      "implementation",
+      "implementation app feature UI state",
+      8_000,
+    ),
+    buildRepoTaskContextPack(
+      indexed,
+      graph,
+      "verification",
+      "test build smoke release validation",
+      6_000,
+    ),
+  ];
   const packs = [
     buildContextPack(
       "implementation",
@@ -1019,6 +1049,7 @@ export function buildRepoIntelligenceSummary(
     indexMetadata,
     graph,
     packs,
+    taskPacks,
   };
 }
 
@@ -1249,6 +1280,18 @@ export function buildRepoAgentManifest(
       ),
       savingsVsFullScanPct: pack.savingsVsFullScanPct,
       command: `npm run repo:intelligence -- ${JSON.stringify(repoRoot || ".")} --pack ${pack.id} --format markdown`,
+    })),
+    taskPacks: summary.taskPacks?.map((taskPack) => ({
+      id: taskPack.id,
+      task: taskPack.task,
+      budgetTokens: taskPack.budgetTokens,
+      fileCount: taskPack.files.length,
+      testCount: taskPack.tests.length,
+      commandCount: taskPack.commands.length,
+      topFiles: taskPack.files.slice(0, 8),
+      tests: taskPack.tests.slice(0, 8),
+      commands: [...taskPack.commands],
+      omittedCount: taskPack.omitted.length,
     })),
     agentRecipes: repoAgentRecipeTemplates.map((recipe) => ({
       ...recipe,
@@ -1616,6 +1659,10 @@ export function buildAgentSessionPreparation(
     copyState.status === "blocked"
       ? null
       : buildRepoAgentHandoffPayload(summary, profile.id, packId);
+  const taskContext =
+    summary.taskPacks?.find((pack) => pack.task === taskType) ??
+    summary.taskPacks?.[0] ??
+    null;
 
   return {
     target: profile,
@@ -1633,6 +1680,7 @@ export function buildAgentSessionPreparation(
         ? null
         : formatRepoAgentHandoffMarkdown(summary, profile.id, packId),
     handoffPayload,
+    taskContext,
     configReadiness: handoffPayload?.configReadiness ?? null,
     manifest: buildRepoAgentManifest(summary, options.generatedAt),
   };
@@ -1663,6 +1711,7 @@ export function formatAgentSessionSummaryMarkdown(
     | "recommendedMode"
     | "recommendedModeReason"
     | "handoffPayload"
+    | "taskContext"
     | "configReadiness"
     | "manifest"
   >,
@@ -1678,6 +1727,22 @@ export function formatAgentSessionSummaryMarkdown(
         `- Planned connector: ${preparation.configReadiness.plannedConnectorName} (${preparation.configReadiness.plannedConnectorId})`,
         `- Next gate: ${preparation.configReadiness.nextGate.label}`,
         `- Automation enabled: ${preparation.configReadiness.automationEnabled ? "yes" : "no"}`,
+      ]
+    : [];
+  const taskContext = preparation.taskContext
+    ? [
+        "",
+        "## Task-Aware Context",
+        `- Budget: ${preparation.taskContext.budgetTokens.toLocaleString()} tokens`,
+        `- Ranked files: ${preparation.taskContext.files.length.toLocaleString()}`,
+        `- Likely tests: ${preparation.taskContext.tests.length.toLocaleString()}`,
+        "- Top files:",
+        ...preparation.taskContext.files.slice(0, 5).map(
+          (file) =>
+            `  - ${file.path} (score ${file.score}, ~${file.estimatedTokens.toLocaleString()} tokens): ${file.reasons.join("; ")}`,
+        ),
+        "- Suggested commands:",
+        ...preparation.taskContext.commands.map((command) => `  - ${command}`),
       ]
     : [];
 
@@ -1696,6 +1761,7 @@ export function formatAgentSessionSummaryMarkdown(
     `Skipped files: ${(preparation.manifest.totals.indexMetadata?.skippedFileCount ?? 0).toLocaleString()}`,
     "Secret-like paths excluded: yes",
     `Detail: ${preparation.copyDetail}`,
+    ...taskContext,
     ...configReadiness,
   ].join("\n");
 }
@@ -1988,6 +2054,191 @@ function buildContextPack(
     estimatedTokens,
     savingsVsFullScanPct,
   };
+}
+
+export function buildRepoTaskContextPack(
+  files: RepoFileSignal[],
+  graph: RepoGraphSummary | null | undefined,
+  task: string,
+  query: string,
+  budgetTokens = 8_000,
+): RepoTaskContextPack {
+  const included = files.filter((file) => file.includeByDefault);
+  const queryTerms = normalizeTaskQueryTerms(query || task);
+  const graphHints = buildTaskGraphHints(graph);
+  const ranked = included
+    .filter((file) => file.role !== "test")
+    .map((file) => rankRepoFileForTask(file, queryTerms, graphHints))
+    .filter((rank) => rank.score > 0)
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        left.estimatedTokens - right.estimatedTokens ||
+        left.path.localeCompare(right.path),
+    );
+
+  const selected: RepoFileRank[] = [];
+  let tokenTotal = 0;
+  for (const rank of ranked) {
+    if (
+      selected.length > 0 &&
+      tokenTotal + rank.estimatedTokens > budgetTokens
+    ) {
+      continue;
+    }
+    selected.push(rank);
+    tokenTotal += rank.estimatedTokens;
+    if (selected.length >= 24) break;
+  }
+
+  const selectedPaths = new Set(selected.map((rank) => rank.path));
+  const tests = included
+    .filter((file) => file.role === "test" && !selectedPaths.has(file.path))
+    .map((file) => rankRepoFileForTask(file, queryTerms, graphHints))
+    .filter((rank) => rank.score > 0)
+    .sort(
+      (left, right) =>
+        right.score - left.score || left.path.localeCompare(right.path),
+    )
+    .slice(0, 8);
+  const omitted = ranked
+    .filter((rank) => !selectedPaths.has(rank.path))
+    .slice(0, 12);
+
+  return {
+    id: `task_${slugifyTaskId(task)}`,
+    task,
+    budgetTokens,
+    files: selected,
+    tests,
+    commands: taskCommandsForQuery(task, queryTerms),
+    omitted,
+  };
+}
+
+function normalizeTaskQueryTerms(query: string): string[] {
+  return [
+    ...new Set(
+      query
+        .toLowerCase()
+        .split(/[^a-z0-9_/-]+/)
+        .map((term) => term.trim())
+        .filter((term) => term.length >= 3),
+    ),
+  ].slice(0, 16);
+}
+
+function buildTaskGraphHints(graph: RepoGraphSummary | null | undefined) {
+  return {
+    entrypoints: new Set((graph?.entrypoints ?? []).map((file) => file.path)),
+    tests: new Set((graph?.likelyTests ?? []).map((file) => file.path)),
+    configHubs: new Set((graph?.configHubs ?? []).map((file) => file.path)),
+    dependencyHubs: new Set(
+      (graph?.dependencyHubs ?? []).map((file) => file.path),
+    ),
+    reverseHubs: new Set(
+      (graph?.reverseDependencyHubs ?? []).map((node) => node.label),
+    ),
+  };
+}
+
+function rankRepoFileForTask(
+  file: RepoFileSignal,
+  queryTerms: string[],
+  graphHints: ReturnType<typeof buildTaskGraphHints>,
+): RepoFileRank {
+  let score = 0;
+  const reasons: string[] = [];
+  const risks: string[] = [];
+
+  const roleScore: Record<RepoFileRole, number> = {
+    source: 18,
+    test: 14,
+    config: 10,
+    docs: 6,
+    asset: 0,
+    lockfile: 2,
+    generated: 0,
+    unknown: 1,
+  };
+  score += roleScore[file.role] ?? 0;
+  if ((roleScore[file.role] ?? 0) > 0) {
+    reasons.push(`${file.role} file`);
+  }
+
+  if (graphHints.entrypoints.has(file.path)) {
+    score += 18;
+    reasons.push("likely entrypoint");
+  }
+  if (graphHints.tests.has(file.path)) {
+    score += 10;
+    reasons.push("likely test");
+  }
+  if (graphHints.configHubs.has(file.path)) {
+    score += 8;
+    reasons.push("config hub");
+  }
+  if (graphHints.dependencyHubs.has(file.path)) {
+    score += 6;
+    reasons.push("dependency hub");
+  }
+  if (graphHints.reverseHubs.has(file.path)) {
+    score += 14;
+    reasons.push("reverse dependency hub");
+  }
+
+  const normalizedPath = file.path.toLowerCase();
+  for (const term of queryTerms) {
+    if (normalizedPath.includes(term)) {
+      score += 16;
+      reasons.push(`path matches "${term}"`);
+    }
+  }
+  if (file.estimatedTokens > 4_000) {
+    score -= 8;
+    risks.push("large file may crowd out narrower context");
+  }
+  if (!file.includeByDefault) {
+    score = 0;
+    risks.push("not included by default");
+  }
+
+  return {
+    path: file.path,
+    score: Math.max(0, score),
+    estimatedTokens: file.estimatedTokens,
+    reasons: reasons.length ? reasons : ["low-confidence contextual match"],
+    risks,
+  };
+}
+
+function taskCommandsForQuery(task: string, queryTerms: string[]): string[] {
+  const joined = `${task} ${queryTerms.join(" ")}`;
+  const commands = new Set<string>();
+  if (/test|verify|smoke|release|build/.test(joined)) {
+    commands.add("npm test");
+    commands.add("npm run build");
+  }
+  if (/release|smoke/.test(joined)) {
+    commands.add("npm run smoke:preflight");
+    commands.add("npm run release:report:check");
+  }
+  if (/rust|tauri|desktop/.test(joined)) {
+    commands.add("npm run test:desktop");
+  }
+  if (commands.size === 0) {
+    commands.add("npm test");
+  }
+  return [...commands];
+}
+
+function slugifyTaskId(task: string): string {
+  return (
+    task
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "context"
+  );
 }
 
 function buildRepoGraphSummary(

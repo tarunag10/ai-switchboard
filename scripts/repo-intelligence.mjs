@@ -713,6 +713,152 @@ function pack(id, title, purpose, files, estimatedFullScanTokens) {
   };
 }
 
+function buildTaskContextPack(files, graph, task, query, budgetTokens = 8000) {
+  const included = files.filter((file) => file.includeByDefault);
+  const queryTerms = normalizeTaskQueryTerms(query || task);
+  const graphHints = buildTaskGraphHints(graph);
+  const ranked = included
+    .filter((file) => file.role !== "test")
+    .map((file) => rankFileForTask(file, queryTerms, graphHints))
+    .filter((rank) => rank.score > 0)
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        left.estimatedTokens - right.estimatedTokens ||
+        left.path.localeCompare(right.path),
+    );
+  const selected = [];
+  let tokenTotal = 0;
+  for (const rank of ranked) {
+    if (selected.length > 0 && tokenTotal + rank.estimatedTokens > budgetTokens) {
+      continue;
+    }
+    selected.push(rank);
+    tokenTotal += rank.estimatedTokens;
+    if (selected.length >= 24) break;
+  }
+  const selectedPaths = new Set(selected.map((rank) => rank.path));
+  const tests = included
+    .filter((file) => file.role === "test" && !selectedPaths.has(file.path))
+    .map((file) => rankFileForTask(file, queryTerms, graphHints))
+    .filter((rank) => rank.score > 0)
+    .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
+    .slice(0, 8);
+  return {
+    id: `task_${slugifyTaskId(task)}`,
+    task,
+    budgetTokens,
+    files: selected,
+    tests,
+    commands: taskCommandsForQuery(task, queryTerms),
+    omitted: ranked.filter((rank) => !selectedPaths.has(rank.path)).slice(0, 12),
+  };
+}
+
+function normalizeTaskQueryTerms(query) {
+  return [
+    ...new Set(
+      query
+        .toLowerCase()
+        .split(/[^a-z0-9_/-]+/)
+        .map((term) => term.trim())
+        .filter((term) => term.length >= 3),
+    ),
+  ].slice(0, 16);
+}
+
+function buildTaskGraphHints(graph) {
+  return {
+    entrypoints: new Set((graph?.entrypoints ?? []).map((file) => file.path)),
+    tests: new Set((graph?.likelyTests ?? []).map((file) => file.path)),
+    configHubs: new Set((graph?.configHubs ?? []).map((file) => file.path)),
+    dependencyHubs: new Set((graph?.dependencyHubs ?? []).map((file) => file.path)),
+    reverseHubs: new Set((graph?.reverseDependencyHubs ?? []).map((node) => node.label)),
+  };
+}
+
+function rankFileForTask(file, queryTerms, graphHints) {
+  const roleScore = {
+    source: 18,
+    test: 14,
+    config: 10,
+    docs: 6,
+    asset: 0,
+    lockfile: 2,
+    generated: 0,
+    unknown: 1,
+  };
+  let score = roleScore[file.role] ?? 0;
+  const reasons = score > 0 ? [`${file.role} file`] : [];
+  const risks = [];
+  if (graphHints.entrypoints.has(file.path)) {
+    score += 18;
+    reasons.push("likely entrypoint");
+  }
+  if (graphHints.tests.has(file.path)) {
+    score += 10;
+    reasons.push("likely test");
+  }
+  if (graphHints.configHubs.has(file.path)) {
+    score += 8;
+    reasons.push("config hub");
+  }
+  if (graphHints.dependencyHubs.has(file.path)) {
+    score += 6;
+    reasons.push("dependency hub");
+  }
+  if (graphHints.reverseHubs.has(file.path)) {
+    score += 14;
+    reasons.push("reverse dependency hub");
+  }
+  const normalizedPath = file.path.toLowerCase();
+  for (const term of queryTerms) {
+    if (normalizedPath.includes(term)) {
+      score += 16;
+      reasons.push(`path matches "${term}"`);
+    }
+  }
+  if (file.estimatedTokens > 4000) {
+    score -= 8;
+    risks.push("large file may crowd out narrower context");
+  }
+  if (!file.includeByDefault) {
+    score = 0;
+    risks.push("not included by default");
+  }
+  return {
+    path: file.path,
+    score: Math.max(0, score),
+    estimatedTokens: file.estimatedTokens,
+    reasons: reasons.length ? reasons : ["low-confidence contextual match"],
+    risks,
+  };
+}
+
+function taskCommandsForQuery(task, queryTerms) {
+  const joined = `${task} ${queryTerms.join(" ")}`;
+  const commands = new Set();
+  if (/test|verify|smoke|release|build/.test(joined)) {
+    commands.add("npm test");
+    commands.add("npm run build");
+  }
+  if (/release|smoke/.test(joined)) {
+    commands.add("npm run smoke:preflight");
+    commands.add("npm run release:report:check");
+  }
+  if (/rust|tauri|desktop/.test(joined)) {
+    commands.add("npm run test:desktop");
+  }
+  if (commands.size === 0) {
+    commands.add("npm test");
+  }
+  return [...commands];
+}
+
+function slugifyTaskId(task) {
+  return task.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "context";
+}
+
 function buildGraphSummary(repoRoot, files) {
   const included = files.filter((file) => file.includeByDefault);
   const sourceAndConfig = included.filter(
@@ -1448,6 +1594,23 @@ function buildSummary(repoRoot) {
     return counts;
   }, {});
   const indexMetadata = buildIndexMetadata(repoRoot, files, signals);
+  const graph = buildGraphSummary(repoRoot, indexable);
+  const taskPacks = [
+    buildTaskContextPack(
+      indexable,
+      graph,
+      "implementation",
+      "implementation app feature UI state",
+      8000,
+    ),
+    buildTaskContextPack(
+      indexable,
+      graph,
+      "verification",
+      "test build smoke release validation",
+      6000,
+    ),
+  ];
 
   return {
     repoRoot,
@@ -1459,7 +1622,8 @@ function buildSummary(repoRoot) {
     estimatedFullScanTokens,
     roleCounts,
     indexMetadata,
-    graph: buildGraphSummary(repoRoot, indexable),
+    graph,
+    taskPacks,
     packs: [
       pack(
         "implementation",
@@ -1869,6 +2033,10 @@ function buildAgentSessionPreparation(summary, options) {
     copyState.status === "blocked"
       ? null
       : buildAgentHandoffPayload(summary, profile.id, packId);
+  const taskContext =
+    summary.taskPacks?.find((pack) => pack.task === taskType) ??
+    summary.taskPacks?.[0] ??
+    null;
   return {
     schemaVersion: 1,
     kind: "mac_ai_switchboard.agent_session_preparation",
@@ -1894,6 +2062,7 @@ function buildAgentSessionPreparation(summary, options) {
       manualProviderRouting: !providerRoutingSafe,
     },
     handoff,
+    taskContext,
     configReadiness: handoff?.configReadiness ?? null,
     handoffMarkdown:
       copyState.status === "blocked"
@@ -1926,6 +2095,24 @@ function formatAgentSessionMarkdown(preparation) {
         preparation.configReadiness.automationEnabled ? "yes" : "no"
       }`,
       `Connector gated evidence: ${preparation.configReadiness.gatedSteps.length} steps`,
+    );
+  }
+  if (preparation.taskContext) {
+    lines.push(
+      "",
+      "## Task-Aware Context",
+      `Budget: ${preparation.taskContext.budgetTokens.toLocaleString()} tokens`,
+      `Ranked files: ${preparation.taskContext.files.length}`,
+      `Likely tests: ${preparation.taskContext.tests.length}`,
+      "Top files:",
+      ...preparation.taskContext.files
+        .slice(0, 8)
+        .map(
+          (file) =>
+            `- ${file.path} (score ${file.score}, ~${file.estimatedTokens.toLocaleString()} tokens): ${file.reasons.join("; ")}`,
+        ),
+      "Suggested commands:",
+      ...preparation.taskContext.commands.map((command) => `- ${command}`),
     );
   }
   lines.push(
@@ -2018,6 +2205,18 @@ function buildAgentManifest(summary) {
       ),
       savingsVsFullScanPct: contextPack.savingsVsFullScanPct,
       command: `npm run repo:intelligence -- ${JSON.stringify(summary.repoRoot)} --pack ${contextPack.id} --format markdown`,
+    })),
+    taskPacks: (summary.taskPacks ?? []).map((taskPack) => ({
+      id: taskPack.id,
+      task: taskPack.task,
+      budgetTokens: taskPack.budgetTokens,
+      fileCount: taskPack.files.length,
+      testCount: taskPack.tests.length,
+      commandCount: taskPack.commands.length,
+      topFiles: taskPack.files.slice(0, 8),
+      tests: taskPack.tests.slice(0, 8),
+      commands: taskPack.commands,
+      omittedCount: taskPack.omitted.length,
     })),
     agentRecipes: repoAgentRecipeTemplates.map((recipe) => ({
       ...recipe,
