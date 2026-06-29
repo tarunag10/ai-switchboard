@@ -8,6 +8,12 @@ const frontendPath = "src/lib/plannedConnectors.ts";
 
 const allowedStatus = new Set(["managed", "guided", "detected", "planned", "unsupported"]);
 const allowedCategory = new Set(["cli", "editor", "agent", "runtime"]);
+const managedLifecycleTerms = [
+  ["backup", "back up"],
+  ["verify", "verification"],
+  ["rollback", "roll back", "restore"],
+  ["off mode", "off cleanup"],
+];
 
 function fail(message) {
   console.error(message);
@@ -49,6 +55,14 @@ function parseManifest() {
     }
     if (!Array.isArray(connector.manual_workflow) || connector.manual_workflow.length === 0) {
       fail(`${connector.id} must define manual_workflow`);
+    }
+    if (connector.support_status === "managed") {
+      const gateText = connector.automation_gates.join(" ").toLowerCase();
+      for (const variants of managedLifecycleTerms) {
+        if (!variants.some((term) => gateText.includes(term))) {
+          fail(`${connector.id} managed automation_gates must mention ${variants[0]}`);
+        }
+      }
     }
   }
   return manifests;

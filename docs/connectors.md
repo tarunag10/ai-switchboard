@@ -1,6 +1,6 @@
 # Connector Support
 
-Mac AI Switchboard treats connector status as a safety boundary. A tool is not advertised as fully managed until setup, verification, rollback, Off mode cleanup, and manual recovery are all implemented and tested for that tool.
+Mac AI Switchboard treats connector status as a safety boundary. A tool is not advertised as fully managed until setup, verification, rollback, Off mode cleanup, and manual recovery are all implemented and tested for that tool. See [Adapter Lifecycle Contract](adapter-lifecycle.md) for the managed promotion rule.
 
 ## Status Labels
 

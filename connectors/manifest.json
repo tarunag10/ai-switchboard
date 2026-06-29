@@ -6,7 +6,7 @@
     "support_status": "managed",
     "detection": { "binaries": ["claude"], "paths": ["~/.claude"] },
     "config": { "locations": ["~/.claude/settings.json", "~/.claude/settings.local.json"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
-    "automation_gates": ["Back up managed settings before edits.", "Verify managed shell and hook config.", "Off mode removes only Switchboard-owned blocks."],
+    "automation_gates": ["Back up managed settings before edits.", "Verify managed shell and hook config.", "Rollback restores the previous settings backup without touching unrelated config.", "Off mode removes only Switchboard-owned blocks."],
     "manual_workflow": ["Install Claude Code.", "Enable Claude Code routing from Switchboard.", "Use Doctor repair if managed config drifts."]
   },
   {
@@ -16,7 +16,7 @@
     "support_status": "managed",
     "detection": { "binaries": ["codex"], "paths": ["~/.codex"] },
     "config": { "locations": ["~/.codex/config.toml", "~/.codex/AGENTS.md"], "forbidden_reads": ["auth.json", "*token*", "*secret*"] },
-    "automation_gates": ["Back up provider config before edits.", "Codex SQLite retagging requires explicit opt-in.", "Off mode removes only managed provider blocks."],
+    "automation_gates": ["Back up provider config before edits.", "Verify Codex provider block and proxy URL in Doctor.", "Rollback restores the previous provider config backup.", "Codex SQLite retagging requires explicit opt-in.", "Off mode removes only managed provider blocks."],
     "manual_workflow": ["Install Codex.", "Enable Codex routing from Switchboard.", "Review retagging backup/restore notes before opting in."]
   },
   {
@@ -26,7 +26,7 @@
     "support_status": "managed",
     "detection": { "binaries": ["gemini"], "paths": ["~/.gemini", "~/.config/gemini"] },
     "config": { "locations": ["shell profile managed blocks"], "forbidden_reads": ["*token*", "*secret*"] },
-    "automation_gates": ["Write only Switchboard-owned shell blocks.", "Verify Gemini base-url exports.", "Off mode removes local proxy routing without account changes."],
+    "automation_gates": ["Back up shell/profile targets before managed edits.", "Write only Switchboard-owned shell blocks.", "Verify Gemini base-url exports.", "Rollback removes managed blocks or restores backup evidence.", "Off mode removes local proxy routing without account changes."],
     "manual_workflow": ["Confirm Gemini CLI is installed.", "Toggle the connector on from Settings.", "Use Doctor repair if managed routing drifts."]
   },
   {
@@ -36,7 +36,7 @@
     "support_status": "managed",
     "detection": { "binaries": ["opencode", "open-code"], "paths": ["~/.opencode", "~/.config/opencode"] },
     "config": { "locations": ["~/.config/opencode/opencode.json"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
-    "automation_gates": ["Back up provider settings before edits.", "Verify managed provider baseURL.", "Off mode removes only Switchboard-owned provider entries."],
+    "automation_gates": ["Back up provider settings before edits.", "Verify managed provider baseURL.", "Rollback restores provider settings from backup.", "Off mode removes only Switchboard-owned provider entries."],
     "manual_workflow": ["Confirm OpenCode is installed.", "Toggle the connector on from Settings.", "Use Doctor repair if provider config drifts."]
   },
   {
