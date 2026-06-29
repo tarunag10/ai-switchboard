@@ -6507,6 +6507,12 @@ details[open] .optimize-minimal__details summary::after {
   gap: 8px;
 }
 
+.connector-item__action {
+  flex: 0 0 auto;
+  min-width: 132px;
+  white-space: nowrap;
+}
+
 .connector-tooltip {
   margin-top: 4px !important;
   font-size: var(--text-xs) !important;

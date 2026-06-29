@@ -417,10 +417,13 @@ const connectorSupportWarnings: Record<string, string> = {};
 
 const connectorUnavailableReasons: Record<string, string> = {
   claude_code:
-    "Claude Code was not detected. Install Claude Code and restart Headroom.",
-  codex: "Codex was not detected. Install the Codex CLI and restart Headroom.",
-  gemini_cli: "Gemini CLI was not detected. Install Gemini CLI and restart Headroom.",
-  opencode: "OpenCode was not detected. Install OpenCode and restart Headroom.",
+    "Claude Code was not detected. Install Claude Code, then reopen Mac AI Switchboard.",
+  codex:
+    "Codex was not detected. Install the Codex CLI, then reopen Mac AI Switchboard.",
+  gemini_cli:
+    "Gemini CLI was not detected. Install Gemini CLI, then reopen Mac AI Switchboard.",
+  opencode:
+    "OpenCode was not detected. Install OpenCode, then reopen Mac AI Switchboard.",
   cursor: "Cursor adapter is planned but not configurable yet.",
   grok_cli: "Grok / xAI CLI adapter is planned but not configurable yet.",
   aider: "Aider adapter is planned but not configurable yet.",
@@ -2705,8 +2708,18 @@ function buildUpgradeIssueUrl(failure: RuntimeUpgradeFailure): string {
 interface ProxyVerificationRow {
   clientId: string;
   name: string;
-  state: "processing" | "waiting" | "verified";
+  state: "processing" | "waiting" | "testing" | "verified";
   message: string;
+}
+
+interface ConnectorSmokeTestResult {
+  clientId: string;
+  supported: boolean;
+  launched: boolean;
+  success: boolean;
+  summary: string;
+  stdoutTail: string;
+  stderrTail: string;
 }
 
 interface ReleaseReadinessReportPayload {
@@ -2812,6 +2825,9 @@ export default function App() {
     ProxyVerificationRow[]
   >([]);
   const [proxyVerificationHint, setProxyVerificationHint] = useState<
+    string | null
+  >(null);
+  const [connectorSmokeBusyId, setConnectorSmokeBusyId] = useState<
     string | null
   >(null);
   const proxyVerificationRequestAnchorRef = useRef<Record<
@@ -4480,6 +4496,23 @@ export default function App() {
     };
   }, [connectorPhase]);
 
+  useEffect(() => {
+    if (!anyConnectorEnabled || connectorPhase !== "verifying") {
+      return;
+    }
+    let active = true;
+    void invoke<number | null>("get_headroom_request_count")
+      .then((count) => {
+        if (active && count !== null && count > 0) {
+          setConnectorPhase("healthy");
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [anyConnectorEnabled, connectorPhase]);
+
   async function handleBootstrap() {
     bootstrapFailureSignatureRef.current = "";
     setBootstrapError(null);
@@ -5803,6 +5836,67 @@ export default function App() {
     proxyVerificationRequestAnchorRef.current = null;
   }
 
+  async function runConnectorSmokeTest(row: ProxyVerificationRow) {
+    if (connectorSmokeBusyId !== null || row.state === "verified") {
+      return;
+    }
+    setConnectorSmokeBusyId(row.clientId);
+    setProxyVerificationHint(null);
+    setProxyVerificationRows((current) =>
+      current.map((item) =>
+        item.clientId === row.clientId
+          ? { ...item, state: "testing", message: "Sending test prompt..." }
+          : item,
+      ),
+    );
+
+    try {
+      const result = await invoke<ConnectorSmokeTestResult>(
+        "run_connector_smoke_test",
+        { clientId: row.clientId },
+      );
+      setProxyVerificationRows((current) =>
+        current.map((item) =>
+          item.clientId === row.clientId
+            ? {
+                ...item,
+                state: result.success ? "processing" : "waiting",
+                message: result.summary,
+              }
+            : item,
+        ),
+      );
+      if (!result.supported || !result.success) {
+        const details = [result.stderrTail, result.stdoutTail]
+          .filter(Boolean)
+          .join("\n")
+          .trim();
+        setProxyVerificationHint(
+          details.length > 0
+            ? `${result.summary} ${details.slice(-300)}`
+            : result.summary,
+        );
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Could not send the test prompt.";
+      setProxyVerificationRows((current) =>
+        current.map((item) =>
+          item.clientId === row.clientId
+            ? { ...item, state: "waiting", message }
+            : item,
+        ),
+      );
+      setProxyVerificationHint(message);
+    } finally {
+      setConnectorSmokeBusyId(null);
+    }
+  }
+
   async function toggleConnector(
     connector: ClientConnectorStatus,
     nextEnabled: boolean,
@@ -6939,9 +7033,9 @@ export default function App() {
         <div className="post-install__lead">
           <h1>Test your setup</h1>
           <p>
-            Send one message in each connected tool to verify local routing. If
-            the tool was already open, restart it first so it reloads the
-            managed config.
+            Click Send test prompt for supported tools, or send one message in
+            each connected tool. If the tool was already open, restart it first
+            so it reloads the managed config.
           </p>
           {hasEnabledApps ? (
             <div className="connector-list">
@@ -6961,6 +7055,19 @@ export default function App() {
                       ) : null}
                     </div>
                   </div>
+                  {["claude_code", "codex"].includes(row.clientId) &&
+                  row.state !== "verified" ? (
+                    <button
+                      className="secondary-button connector-item__action"
+                      disabled={connectorSmokeBusyId !== null}
+                      onClick={() => void runConnectorSmokeTest(row)}
+                      type="button"
+                    >
+                      {connectorSmokeBusyId === row.clientId
+                        ? "Sending..."
+                        : "Send test prompt"}
+                    </button>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -7016,9 +7123,10 @@ export default function App() {
           </h1>
           {dashboard.launchExperience === "first_run" ? (
             <p>
-              Send your first prompt from a connected tool. The switchboard will
-              route through the local Headroom engine and track savings
-              automatically.
+              Use Test setup to send a first prompt automatically where
+              supported, or send your first prompt from a connected tool.
+              Switchboard will route through the local Headroom engine and
+              track savings automatically.
             </p>
           ) : (
             <>
@@ -7220,7 +7328,7 @@ export default function App() {
         return {
           tone: "starting",
           title:
-            "Send a message in a connected tool to verify the connection is working. You may need to restart it first.",
+            "Use Test setup or send a message in a connected tool to verify routing. You may need to restart the tool first.",
         } as const;
       }
       if (kompressWarming) {
@@ -7805,6 +7913,18 @@ export default function App() {
                   ) : null}
                 </div>
               )}
+              {calloutBanner.tone === "starting" &&
+              connectorPhase === "verifying" ? (
+                <div className="callout-banner__resume">
+                  <button
+                    type="button"
+                    className="callout-banner__action"
+                    onClick={() => void beginProxyVerificationStep()}
+                  >
+                    Test setup
+                  </button>
+                </div>
+              ) : null}
             </div>
             {(() => {
               const homeConnectors = sortClientConnectors(
