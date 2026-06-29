@@ -32,6 +32,9 @@ describe("release readiness checklist", () => {
     );
     expect(copy).toContain("dist/release-readiness-report.json");
     expect(copy).toContain("npm run build:mac:local-install");
+    expect(copy).toContain("local Off/RTK relaunch smoke");
+    expect(copy).toContain("Rollback Center validation");
+    expect(copy).toContain("Doctor repair validation");
     expect(copy).toContain(
       "local unsigned/ad-hoc install evidence never replaces signed DMG install",
     );

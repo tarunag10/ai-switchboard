@@ -190,7 +190,7 @@ export function formatReleaseReadinessCommandCopy() {
     "Strict public-release gate: npm run release:ready -- --strict",
     "Report source after running: dist/release-readiness-report.json",
     "Local-only install evidence: npm run build:mac:local-install",
-    "App shortcut: Run local evidence executes desktop validation, smoke preflight, local DMG build/install, and local installed smoke only.",
+    "App shortcut: Run local evidence executes desktop validation, smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, and Doctor repair validation.",
     "Boundary: local unsigned/ad-hoc install evidence never replaces signed DMG install, notarization, updater feed, or installed smoke confirmation.",
   ].join("\n");
 }
