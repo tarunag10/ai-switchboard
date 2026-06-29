@@ -6,7 +6,7 @@ Repo Memory MCP is the read-only agent-consumption surface for Repo Intelligence
 
 - Transport: stdio MCP served by `scripts/repo-intelligence.mjs --mcp-serve`.
 - Install action: **Install MCP** in the Mode Inspector, backed by `install_repo_memory_mcp`.
-- Session controls: **Start MCP** and **Stop MCP** in the Mode Inspector, backed by `start_repo_memory_mcp` and `stop_repo_memory_mcp`. Start verifies the read-only smoke contract before marking MCP active; these controls do not claim a separate background daemon is running.
+- Session controls: **Start MCP** and **Stop MCP** in the Mode Inspector, backed by `start_repo_memory_mcp` and `stop_repo_memory_mcp`. Start verifies the read-only smoke contract and records the current app process before marking MCP active; these controls do not claim a separate background daemon is running.
 - Verification: `npm run check:repo-memory-mcp`.
 - Tools: `repo_context_pack`, `repo_symbol_lookup`, and `repo_dependents_of`.
   Switchboard-compatible aliases are also exposed:
@@ -62,6 +62,7 @@ Do not treat MCP availability as permission to mutate provider/editor configurat
 
 - If the Mode Inspector says **Unknown**, install MCP and run the smoke check before relying on agent MCP handoffs.
 - If it says **Needs attention**, copy the Doctor timeline; it includes `install_repo_memory_mcp`, `npm run check:repo-memory-mcp`, tool names, and the read-only safety boundary.
+- If it says **Start required**, click **Start MCP** again. A previous app process verified the tools, but this app session has not.
 - If `npm run check:repo-memory-mcp` fails, do not ask agents to use MCP context until the tool list and `repo_context_pack` smoke pass.
 - If a repo was moved, deleted, or became stale, clear or refresh the Repo Intelligence index before using MCP output.
 

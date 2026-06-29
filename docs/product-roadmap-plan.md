@@ -16,6 +16,7 @@ Shipped:
 - Gemini has managed shell base-url routing. OpenCode has the first promoted provider-config write path with preview, exact confirmation, backup, apply, verify, and rollback coverage.
 - Cursor and Windsurf now surface detected editor settings files as evidence while native writes remain blocked.
 - Repo Intelligence Start Agent Session, read-only packs, handoffs, CLI exports, and repo-memory MCP smoke transport are usable.
+- Repo Memory MCP active state is now process-bound: after app relaunch, Mode Inspector shows Start required until the app re-runs the read-only smoke check.
 - Savings ledger rows now distinguish measured, estimated, and inferred events across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese.
 - Rollback Center has guarded preview/execution for ready allowlisted rows, including Codex/OpenCode restore paths and managed sidecar cleanup.
 - Remote destination registry, support-link routing, external-link SSRF guards, local-only backend refusal for account/billing/contact commands, branding iconset provenance, local DMG build, and local installed smoke evidence are shipped.
@@ -27,7 +28,7 @@ Left:
 - Complete the Mode Inspector as a user-facing proof surface for every listener, hook, MCP, shell block, provider block, LaunchAgent, and stale-shell caveat.
 - Add reboot smoke evidence for Off mode, RTK-only mode, Doctor repair guards, and Rollback Center survival.
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
-- Turn repo-memory MCP into a real app-supervised long-running local service instead of only persisted app-session state plus smoke-tested stdio transport.
+- Turn repo-memory MCP into a real app-supervised long-running local service beyond the current process-bound active marker plus smoke-tested stdio transport.
 - Replace inferred Ponytail, Caveman, Compact Chinese, MarkItDown, and some Repo Intelligence savings rows with stronger measured counters where trustworthy evidence exists.
 - Deepen Repo Intelligence with tree-sitter or language-aware parser/index versions, imports, reverse dependencies, graph-aware packs, and richer Doctor health checks.
 - Complete public release readiness with signed/notarized DMG, updater artifacts, public installed-smoke proof, uninstall evidence, and release-panel wiring.

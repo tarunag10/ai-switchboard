@@ -2,6 +2,7 @@ export type RepoMemoryMcpState =
   | "active"
   | "configured"
   | "stale"
+  | "restart_required"
   | "needs_attention"
   | "smoke_failed"
   | "unknown";
@@ -71,6 +72,30 @@ export function repoMemoryMcpLifecycle(
         `Stop action: ${repoMemoryMcpStopCommand}`,
         `Verify: ${repoMemoryMcpVerifyCommand}`,
         "Safety: do not rely on repo-memory MCP handoffs until configuration is repaired.",
+      ].join("\n"),
+    };
+  }
+
+  if (input.supervisionStatus === "restart_required") {
+    const started = input.lastStartedAt
+      ? ` Last started: ${input.lastStartedAt}.`
+      : "";
+    const checked = input.lastCheckedAt
+      ? ` Last checked: ${input.lastCheckedAt}.`
+      : "";
+    return {
+      state: "restart_required",
+      status: "Start required",
+      detail: `Repo Memory MCP was active in a previous app process. Click Start MCP to re-run the read-only smoke check before agent handoffs.${started}${checked}`,
+      installCommand: repoMemoryMcpInstallCommand,
+      startCommand: repoMemoryMcpStartCommand,
+      stopCommand: repoMemoryMcpStopCommand,
+      verifyCommand: repoMemoryMcpVerifyCommand,
+      copy: [
+        "Repo Memory MCP needs a fresh app-session start.",
+        `Start action: ${repoMemoryMcpStartCommand}`,
+        `Verify: ${repoMemoryMcpVerifyCommand}`,
+        "Safety: previous-process active state is not trusted until the app re-runs the read-only smoke check.",
       ].join("\n"),
     };
   }

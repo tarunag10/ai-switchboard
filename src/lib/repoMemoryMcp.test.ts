@@ -62,6 +62,23 @@ describe("repoMemoryMcpLifecycle", () => {
     expect(lifecycle.copy).toContain("run Start MCP again");
   });
 
+  it("requires a fresh Start MCP after app relaunch", () => {
+    const lifecycle = repoMemoryMcpLifecycle({
+      configured: true,
+      active: false,
+      lastStartedAt: "2026-06-28T10:00:00Z",
+      lastCheckedAt: "2026-06-28T10:08:00Z",
+      supervisionStatus: "restart_required",
+    });
+
+    expect(lifecycle.state).toBe("restart_required");
+    expect(lifecycle.status).toBe("Start required");
+    expect(lifecycle.detail).toContain("previous app process");
+    expect(lifecycle.detail).toContain("Click Start MCP");
+    expect(lifecycle.copy).toContain("fresh app-session start");
+    expect(lifecycle.copy).toContain("Start action: start_repo_memory_mcp");
+  });
+
   it("surfaces failed repo-memory MCP smoke checks", () => {
     const lifecycle = repoMemoryMcpLifecycle({
       configured: true,

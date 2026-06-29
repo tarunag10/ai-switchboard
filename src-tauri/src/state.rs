@@ -2835,6 +2835,7 @@ impl AppState {
                 session.active = false;
                 session.last_checked_at = Some(Utc::now());
                 session.supervision_status = Some("smoke_failed".to_string());
+                session.supervisor_pid = None;
                 self.persist_repo_memory_mcp_state(&session)?;
             }
             *self.cached_runtime_status.lock() = None;
@@ -2846,6 +2847,7 @@ impl AppState {
             session.last_started_at = Some(Utc::now());
             session.last_checked_at = Some(Utc::now());
             session.supervision_status = Some("verified_active".to_string());
+            session.supervisor_pid = Some(std::process::id());
             self.persist_repo_memory_mcp_state(&session)?;
         }
         *self.cached_runtime_status.lock() = None;
@@ -2858,6 +2860,7 @@ impl AppState {
             session.active = false;
             session.last_checked_at = Some(Utc::now());
             session.supervision_status = Some("stopped".to_string());
+            session.supervisor_pid = None;
             self.persist_repo_memory_mcp_state(&session)?;
         }
         *self.cached_runtime_status.lock() = None;
@@ -2936,6 +2939,7 @@ impl AppState {
         let repo_memory_mcp_supervision_status = repo_memory_mcp_supervision_status(
             &repo_memory_mcp_session,
             repo_memory_mcp_configured,
+            std::process::id(),
         );
         self.record_repo_memory_mcp_supervision(&repo_memory_mcp_supervision_status);
         let repo_memory_mcp_session = self.repo_memory_mcp_state.lock().clone();
@@ -2960,7 +2964,8 @@ impl AppState {
             repo_memory_mcp_configured,
             repo_memory_mcp_error,
             repo_memory_mcp_active: repo_memory_mcp_session.active
-                && repo_memory_mcp_configured == Some(true),
+                && repo_memory_mcp_configured == Some(true)
+                && repo_memory_mcp_supervision_status == "verified_active",
             repo_memory_mcp_last_started_at: repo_memory_mcp_session.last_started_at,
             repo_memory_mcp_last_checked_at: repo_memory_mcp_session.last_checked_at,
             repo_memory_mcp_supervision_status,
@@ -3680,6 +3685,7 @@ struct RepoMemoryMcpSessionState {
     last_started_at: Option<DateTime<Utc>>,
     last_checked_at: Option<DateTime<Utc>>,
     supervision_status: Option<String>,
+    supervisor_pid: Option<u32>,
 }
 
 impl RepoMemoryMcpSessionState {
@@ -3695,13 +3701,23 @@ impl RepoMemoryMcpSessionState {
 fn repo_memory_mcp_supervision_status(
     session: &RepoMemoryMcpSessionState,
     configured: Option<bool>,
+    current_pid: u32,
 ) -> String {
     match (session.active, configured) {
-        (true, Some(true)) => session
-            .supervision_status
-            .clone()
-            .filter(|status| status == "verified_active")
-            .unwrap_or_else(|| "active".to_string()),
+        (true, Some(true)) => {
+            if session.supervision_status.as_deref() == Some("verified_active")
+                && session.supervisor_pid == Some(current_pid)
+            {
+                "verified_active".to_string()
+            } else if session.supervision_status.as_deref() == Some("verified_active") {
+                "restart_required".to_string()
+            } else {
+                session
+                    .supervision_status
+                    .clone()
+                    .unwrap_or_else(|| "active".to_string())
+            }
+        }
         (true, Some(false)) => "stale_config".to_string(),
         (true, None) => "unknown_active".to_string(),
         (false, Some(true)) if session.supervision_status.as_deref() == Some("smoke_failed") => {
@@ -9101,32 +9117,66 @@ mod tests {
 
     #[test]
     fn repo_memory_mcp_supervision_distinguishes_stale_active_state() {
+        let current_pid = 42;
         let active = super::RepoMemoryMcpSessionState {
             active: true,
             last_started_at: None,
             last_checked_at: None,
             supervision_status: None,
+            supervisor_pid: None,
         };
         assert_eq!(
-            super::repo_memory_mcp_supervision_status(&active, Some(true)),
+            super::repo_memory_mcp_supervision_status(&active, Some(true), current_pid),
             "active"
         );
         assert_eq!(
-            super::repo_memory_mcp_supervision_status(&active, Some(false)),
+            super::repo_memory_mcp_supervision_status(&active, Some(false), current_pid),
             "stale_config"
         );
         assert_eq!(
-            super::repo_memory_mcp_supervision_status(&active, None),
+            super::repo_memory_mcp_supervision_status(&active, None, current_pid),
             "unknown_active"
+        );
+
+        let verified_this_process = super::RepoMemoryMcpSessionState {
+            active: true,
+            last_started_at: None,
+            last_checked_at: None,
+            supervision_status: Some("verified_active".to_string()),
+            supervisor_pid: Some(current_pid),
+        };
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(
+                &verified_this_process,
+                Some(true),
+                current_pid
+            ),
+            "verified_active"
+        );
+
+        let verified_previous_process = super::RepoMemoryMcpSessionState {
+            active: true,
+            last_started_at: None,
+            last_checked_at: None,
+            supervision_status: Some("verified_active".to_string()),
+            supervisor_pid: Some(current_pid + 1),
+        };
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(
+                &verified_previous_process,
+                Some(true),
+                current_pid
+            ),
+            "restart_required"
         );
 
         let stopped = super::RepoMemoryMcpSessionState::default();
         assert_eq!(
-            super::repo_memory_mcp_supervision_status(&stopped, Some(true)),
+            super::repo_memory_mcp_supervision_status(&stopped, Some(true), current_pid),
             "configured"
         );
         assert_eq!(
-            super::repo_memory_mcp_supervision_status(&stopped, Some(false)),
+            super::repo_memory_mcp_supervision_status(&stopped, Some(false), current_pid),
             "needs_attention"
         );
     }
