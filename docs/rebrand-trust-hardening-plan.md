@@ -184,7 +184,7 @@ Acceptance checks:
 
 - A local-only run performs no remote account, pricing, telemetry, or support requests. Account activation, checkout, plan change, reactivation, billing portal, and contact commands now refuse in local-only mode before auth or HTTP setup.
 - Every remaining remote URL is documented and intentionally allowed.
-- SSRF/url allowlist tests cover link-opening and contact/payment flows. Link-opening coverage is shipped for unsupported schemes, credentialed URLs, newline injection, loopback, private, and link-local hosts.
+- SSRF/url allowlist tests cover link-opening, contact, and payment redirect flows, including unsupported schemes, credentialed URLs, newline injection, loopback/private/link-local hosts, and untrusted checkout/billing redirect hosts.
 
 Suggested commit:
 

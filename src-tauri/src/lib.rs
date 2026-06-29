@@ -4772,8 +4772,14 @@ fn reject_contact_request_in_local_only() -> Result<(), String> {
 // hosts, including loopback services.
 fn validate_contact_request_url(raw: &str) -> Option<reqwest::Url> {
     const ALLOWED_HOSTS: &[&str] = &["github.com"];
+    if raw.contains('\n') || raw.contains('\r') {
+        return None;
+    }
     let parsed = reqwest::Url::parse(raw).ok()?;
     if parsed.scheme() != "https" {
+        return None;
+    }
+    if parsed.username() != "" || parsed.password().is_some() {
         return None;
     }
     let host = parsed.host_str()?;
@@ -7994,6 +8000,28 @@ mod tests {
             err,
             "Support/contact requests are disabled in local-only mode."
         );
+    }
+
+    #[test]
+    fn contact_request_url_validator_rejects_ssrf_and_injection_shapes() {
+        assert!(super::validate_contact_request_url(
+            "https://github.com/tarunag10/mac-ai-switchboard/issues",
+        )
+        .is_some());
+        for raw in [
+            "http://github.com/tarunag10/mac-ai-switchboard/issues",
+            "https://127.0.0.1/contact",
+            "https://localhost/contact",
+            "https://10.0.0.4/contact",
+            "https://user:pass@github.com/tarunag10/mac-ai-switchboard/issues",
+            "https://github.com.evil.example/contact",
+            "https://github.com/tarunag10/mac-ai-switchboard/issues\nhttps://evil.example",
+        ] {
+            assert!(
+                super::validate_contact_request_url(raw).is_none(),
+                "{raw} should be rejected"
+            );
+        }
     }
 
     #[test]

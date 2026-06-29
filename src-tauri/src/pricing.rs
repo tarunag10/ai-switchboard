@@ -933,8 +933,8 @@ pub(crate) fn create_checkout_session_with_base_url(
 
     response
         .json::<CheckoutSessionResponse>()
-        .map(|body| body.url)
         .map_err(|err| format!("Could not parse checkout response: {err}"))
+        .and_then(|body| validate_payment_redirect_url(&body.url, &["buy.polar.sh"]))
 }
 
 pub fn change_subscription_plan(
@@ -1057,8 +1057,33 @@ pub(crate) fn get_billing_portal_url_with_base_url(
 
     response
         .json::<BillingPortalResponse>()
-        .map(|body| body.url)
         .map_err(|err| format!("Could not parse billing portal response: {err}"))
+        .and_then(|body| validate_payment_redirect_url(&body.url, &["billing.polar.sh"]))
+}
+
+fn validate_payment_redirect_url(raw: &str, allowed_hosts: &[&str]) -> Result<String, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err("Payment redirect URL is empty.".to_string());
+    }
+    if trimmed.contains('\n') || trimmed.contains('\r') {
+        return Err("Payment redirect URL cannot contain line breaks.".to_string());
+    }
+    let parsed =
+        reqwest::Url::parse(trimmed).map_err(|_| "Payment redirect URL is invalid.".to_string())?;
+    if parsed.scheme() != "https" {
+        return Err("Payment redirect URL must use HTTPS.".to_string());
+    }
+    if parsed.username() != "" || parsed.password().is_some() {
+        return Err("Payment redirect URL cannot include embedded credentials.".to_string());
+    }
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| "Payment redirect URL must include a host.".to_string())?;
+    if !allowed_hosts.contains(&host) {
+        return Err("Payment redirect host is not allowed.".to_string());
+    }
+    Ok(trimmed.to_string())
 }
 
 fn reject_remote_services_in_local_only() -> Result<(), String> {
@@ -4191,6 +4216,37 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
+    fn create_checkout_session_rejects_untrusted_redirect_urls() {
+        for value in [
+            "http://buy.polar.sh/abc123",
+            "https://127.0.0.1:6767/checkout",
+            "https://user:pass@buy.polar.sh/abc123",
+            "https://buy.polar.sh.evil.example/abc123",
+            "https://buy.polar.sh/abc123\nhttps://evil.example",
+        ] {
+            let _env = AuthedTestEnv::new("session-xyz");
+            let (port, server) = spawn_canned_response_server(
+                serde_json::json!({ "url": value }),
+                "HTTP/1.1 200 OK",
+            );
+
+            let err = super::create_checkout_session_with_base_url(
+                HeadroomSubscriptionTier::Pro,
+                BillingPeriod::Annual,
+                &format!("http://127.0.0.1:{port}"),
+            )
+            .expect_err("untrusted redirect should fail");
+            server.join().unwrap();
+
+            assert!(
+                err.contains("Payment redirect"),
+                "{value} should fail with payment redirect error, got {err}"
+            );
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn create_checkout_session_surfaces_api_error_message() {
         let _env = AuthedTestEnv::new("session-xyz");
         let (port, server) = spawn_canned_response_server(
@@ -4313,6 +4369,36 @@ mod tests {
         server.join().unwrap();
 
         assert_eq!(url, "https://billing.polar.sh/customer/abc");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn get_billing_portal_url_rejects_untrusted_redirect_urls() {
+        for value in [
+            "http://billing.polar.sh/customer/abc",
+            "https://localhost:6767/customer/abc",
+            "https://user:pass@billing.polar.sh/customer/abc",
+            "https://billing.polar.sh.evil.example/customer/abc",
+            "https://billing.polar.sh/customer/abc\r\nhttps://evil.example",
+        ] {
+            let _env = AuthedTestEnv::new("session-xyz");
+            let (port, server) = spawn_canned_response_server(
+                serde_json::json!({ "url": value }),
+                "HTTP/1.1 200 OK",
+            );
+
+            let err = super::get_billing_portal_url_with_base_url(
+                &format!("http://127.0.0.1:{port}"),
+                None,
+            )
+            .expect_err("untrusted redirect should fail");
+            server.join().unwrap();
+
+            assert!(
+                err.contains("Payment redirect"),
+                "{value} should fail with payment redirect error, got {err}"
+            );
+        }
     }
 
     #[test]
