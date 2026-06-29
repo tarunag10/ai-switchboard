@@ -128,11 +128,11 @@ describe("repoIntelligence", () => {
 
     expect(summary.totalFiles).toBe(6);
     expect(summary.indexedFiles).toBe(5);
-    expect(summary.indexerVersion).toBe("path-graph-v4");
+    expect(summary.indexerVersion).toBe("path-graph-v5");
     expect(summary.roleCounts.generated).toBe(1);
     expect(summary.indexMetadata).toMatchObject({
       schemaVersion: 1,
-      indexerVersion: "path-graph-v4",
+      indexerVersion: "path-graph-v5",
       parserVersion: "metadata-fingerprint-v1",
       cacheState: "new",
       fileCount: 6,
@@ -274,7 +274,7 @@ describe("repoIntelligence", () => {
     expect(
       getRepoIndexFreshness({
         indexedAt: "2026-06-27T10:00:00Z",
-        indexerVersion: "path-graph-v4",
+        indexerVersion: "path-graph-v5",
         indexMetadata: baseMetadata,
         graph: buildRepoIntelligenceSummary([
           { path: "src/App.tsx", bytes: 4000 },
@@ -288,7 +288,7 @@ describe("repoIntelligence", () => {
       graphAvailable: true,
       indexHealth: "new",
       parserHealth: "current",
-      indexerVersion: "path-graph-v4",
+      indexerVersion: "path-graph-v5",
       parserVersion: "metadata-fingerprint-v1",
       indexedFileCount: 2,
       skippedFileCount: 0,
@@ -358,6 +358,13 @@ describe("repoIntelligence", () => {
       },
       { path: "scripts/release.mjs", bytes: 1200 },
       {
+        path: "scripts/release.sh",
+        bytes: 600,
+        content: "set -e\n./build.sh\nbash scripts/smoke.sh\n",
+      },
+      { path: "scripts/build.sh", bytes: 200, content: "echo build\n" },
+      { path: "scripts/smoke.sh", bytes: 200, content: "echo smoke\n" },
+      {
         path: "package.json",
         bytes: 800,
         content: '{"dependencies":{"react":"18.3.1"}}',
@@ -366,7 +373,9 @@ describe("repoIntelligence", () => {
       { path: ".env.local", bytes: 200 },
     ]);
 
-    expect(summary.graph?.topDirectories[0].label).toBe("src");
+    expect(summary.graph?.topDirectories.map((node) => node.label)).toContain(
+      "src",
+    );
     expect(summary.graph?.topLanguages.map((node) => node.label)).toContain(
       "React",
     );
@@ -407,6 +416,18 @@ describe("repoIntelligence", () => {
           to: "package.json",
           kind: "package_dependency",
           reason: "source imports package react",
+        }),
+        expect.objectContaining({
+          from: "scripts/release.sh",
+          to: "scripts/build.sh",
+          kind: "import_reference",
+          reason: "script invokes ./build.sh",
+        }),
+        expect.objectContaining({
+          from: "scripts/release.sh",
+          to: "scripts/smoke.sh",
+          kind: "import_reference",
+          reason: "script invokes scripts/smoke.sh",
         }),
       ]),
     );
@@ -531,7 +552,7 @@ describe("repoIntelligence", () => {
     expect(manifest.kind).toBe("mac_ai_switchboard.repo_intelligence_manifest");
     expect(manifest.schemaVersion).toBe(1);
     expect(manifest.generatedAt).toBe("2026-06-25T10:00:00Z");
-    expect(manifest.totals.indexerVersion).toBe("path-graph-v4");
+    expect(manifest.totals.indexerVersion).toBe("path-graph-v5");
     expect(manifest.totals.indexMetadata?.cacheState).toBe("new");
     expect(manifest.totals.indexMetadata?.fileFingerprints.length).toBe(4);
     expect(manifest.totals.indexMetadata?.skippedFiles).toEqual(

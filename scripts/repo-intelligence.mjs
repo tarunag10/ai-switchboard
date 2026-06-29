@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const INDEXER_VERSION = "path-graph-v4";
+const INDEXER_VERSION = "path-graph-v5";
 
 const ignoredSegments = new Set([
   ".git",
@@ -1059,16 +1059,23 @@ function buildImportReferenceEdges(repoRoot, files) {
       if (
         !specifier.startsWith(".") &&
         !specifier.startsWith("crate:") &&
-        !specifier.startsWith("py:")
+        !specifier.startsWith("py:") &&
+        !specifier.startsWith("repo:")
       )
         continue;
       const target = resolveImportSpecifier(file.path, specifier, byPath);
       if (!target) continue;
+      const displaySpecifier = specifier.startsWith("repo:")
+        ? specifier.slice("repo:".length)
+        : specifier;
       pushUniqueGraphEdge(edges, {
         from: file.path,
         to: target.path,
         kind: "import_reference",
-        reason: `source imports ${specifier}`,
+        reason:
+          file.language === "Shell"
+            ? `script invokes ${displaySpecifier}`
+            : `source imports ${displaySpecifier}`,
       });
       if (edges.length >= 80) return edges;
     }
@@ -1200,7 +1207,27 @@ function extractImportSpecifiers(content, language) {
       specifiers.push(...pythonImportSpecifiers(line.trim()));
     }
   }
+  if (language === "Shell") {
+    specifiers.push(...extractShellScriptSpecifiers(content));
+  }
   return specifiers;
+}
+
+function extractShellScriptSpecifiers(content) {
+  const specifiers = new Set();
+  const scriptPathPattern =
+    /(?:^|[\s;&|()])(?:(?:bash|zsh|sh)\s+)?((?:\.{1,2}\/|scripts\/|bin\/|tools\/)[A-Za-z0-9_./-]+\.sh)\b/g;
+  for (const line of content.split(/\r?\n/)) {
+    const command = line.split("#")[0] ?? "";
+    for (const match of command.matchAll(scriptPathPattern)) {
+      const scriptPath = match[1]?.trim();
+      if (!scriptPath) continue;
+      specifiers.add(
+        scriptPath.startsWith(".") ? scriptPath : `repo:${scriptPath}`,
+      );
+    }
+  }
+  return [...specifiers];
 }
 
 function pythonImportSpecifiers(line) {
@@ -1233,6 +1260,8 @@ function resolveImportSpecifier(fromPath, specifier, byPath) {
       )
     : specifier.startsWith("py:")
       ? normalizePythonImportPath(fromPath, specifier.slice("py:".length))
+    : specifier.startsWith("repo:")
+      ? normalizeRepoPath(specifier.slice("repo:".length))
     : normalizeRepoPath(`${fromDir}/${specifier}`);
   const crateParent = specifier.startsWith("crate:")
     ? normalized.split("/").slice(0, -1).join("/")
@@ -1245,6 +1274,7 @@ function resolveImportSpecifier(fromPath, specifier, byPath) {
     `${normalized}.js`,
     `${normalized}.jsx`,
     `${normalized}.mjs`,
+    `${normalized}.sh`,
     `${normalized}.py`,
     `${normalized}.rs`,
     ...(crateParent ? [`${crateParent}.rs`, `${crateParent}/mod.rs`] : []),

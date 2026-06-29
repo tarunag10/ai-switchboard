@@ -25,7 +25,7 @@ const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
 const TASK_PACK_BUDGET_TOKENS: u64 = 8_000;
-const INDEXER_VERSION: &str = "path-graph-v4";
+const INDEXER_VERSION: &str = "path-graph-v5";
 const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
 const PARSER_VERSION: &str = "metadata-fingerprint-v1";
 const DEFAULT_SYMBOL_SEARCH_LIMIT: usize = 25;
@@ -1891,7 +1891,7 @@ fn build_import_reference_edges(repo_root: &Path, files: &[RepoFileSignal]) -> V
         matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
             && matches!(
                 file.language.as_str(),
-                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python"
+                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python" | "Shell"
             )
     }) {
         let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
@@ -1901,19 +1901,28 @@ fn build_import_reference_edges(repo_root: &Path, files: &[RepoFileSignal]) -> V
             if !specifier.starts_with('.')
                 && !specifier.starts_with("crate:")
                 && !specifier.starts_with("py:")
+                && !specifier.starts_with("repo:")
             {
                 continue;
             }
             let Some(target) = resolve_import_specifier(&file.path, &specifier, files) else {
                 continue;
             };
+            let display_specifier = specifier
+                .strip_prefix("repo:")
+                .unwrap_or(&specifier)
+                .to_string();
             push_unbounded_graph_edge(
                 &mut edges,
                 RepoGraphEdge {
                     from: file.path.clone(),
                     to: target.path.clone(),
                     kind: RepoGraphEdgeKind::ImportReference,
-                    reason: format!("source imports {specifier}"),
+                    reason: if file.language == "Shell" {
+                        format!("script invokes {display_specifier}")
+                    } else {
+                        format!("source imports {display_specifier}")
+                    },
                 },
                 80,
             );
@@ -2090,8 +2099,36 @@ fn extract_import_specifiers(content: &str, language: &str) -> Vec<String> {
         if language == "Python" {
             specifiers.extend(python_import_specifiers(trimmed));
         }
+        if language == "Shell" {
+            specifiers.extend(shell_script_specifiers(trimmed));
+        }
     }
     specifiers
+}
+
+fn shell_script_specifiers(line: &str) -> Vec<String> {
+    let line = line.split('#').next().unwrap_or("").trim();
+    if line.is_empty() {
+        return Vec::new();
+    }
+    line.split([' ', '\t', ';', '&', '|', '(', ')'])
+        .filter_map(|token| {
+            let token = token.trim_matches(['"', '\'']);
+            if !token.ends_with(".sh") {
+                return None;
+            }
+            if token.starts_with("./") || token.starts_with("../") {
+                return Some(token.to_string());
+            }
+            if token.starts_with("scripts/")
+                || token.starts_with("bin/")
+                || token.starts_with("tools/")
+            {
+                return Some(format!("repo:{token}"));
+            }
+            None
+        })
+        .collect()
 }
 
 fn python_import_specifiers(line: &str) -> Vec<String> {
@@ -2160,6 +2197,8 @@ fn resolve_import_specifier<'a>(
         ))
     } else if let Some(python_path) = specifier.strip_prefix("py:") {
         normalize_python_import_path(from_path, python_path)
+    } else if let Some(repo_path) = specifier.strip_prefix("repo:") {
+        normalize_repo_path(repo_path)
     } else {
         normalize_repo_path(&format!("{base_dir}/{specifier}"))
     };
@@ -2176,6 +2215,7 @@ fn resolve_import_specifier<'a>(
         format!("{normalized}.jsx"),
         format!("{normalized}.mjs"),
         format!("{normalized}.py"),
+        format!("{normalized}.sh"),
         format!("{normalized}.rs"),
         format!("{normalized}.swift"),
         format!("{normalized}/index.ts"),
@@ -2854,6 +2894,15 @@ export const mapValues = <T>(items: T[]) => items;
             "import SwiftUI\npublic struct AppView: View {}\nfinal class AppViewModel {}\nfunc makeAppView() -> AppView { AppView() }\n",
         )
         .expect("write swift");
+        let scripts_dir = root.path().join("scripts");
+        std::fs::create_dir_all(&scripts_dir).expect("create scripts dir");
+        std::fs::write(
+            scripts_dir.join("release.sh"),
+            "set -e\n./build.sh\nbash scripts/smoke.sh\n",
+        )
+        .expect("write shell release");
+        std::fs::write(scripts_dir.join("build.sh"), "echo build\n").expect("write shell build");
+        std::fs::write(scripts_dir.join("smoke.sh"), "echo smoke\n").expect("write shell smoke");
 
         let summary = summarize_repo(root.path()).expect("summarize repo");
         let graph = summary.graph.expect("graph");
@@ -2914,6 +2963,18 @@ export const mapValues = <T>(items: T[]) => items;
                 && edge.to == "src/local_helpers.py"
                 && edge.kind == RepoGraphEdgeKind::ImportReference
                 && edge.reason == "source imports py:.local_helpers"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "scripts/release.sh"
+                && edge.to == "scripts/build.sh"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "script invokes ./build.sh"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "scripts/release.sh"
+                && edge.to == "scripts/smoke.sh"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "script invokes scripts/smoke.sh"
         }));
         assert!(graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/App.tsx"
