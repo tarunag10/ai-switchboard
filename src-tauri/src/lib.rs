@@ -4823,7 +4823,22 @@ pub fn run() {
     // records flow into Sentry too. Failure here cannot abort startup.
     let _ = logging::init();
 
-    if std::env::args().any(|arg| arg == "--uninstall-dry-run") {
+    let args = std::env::args().collect::<Vec<_>>();
+
+    if args.iter().any(|arg| arg == "--print-managed-footprint") {
+        match serde_json::to_string_pretty(&client_adapters::get_managed_footprint()) {
+            Ok(report) => {
+                println!("{report}");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to build managed footprint report: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--uninstall-dry-run") {
         match serde_json::to_string_pretty(&client_adapters::uninstall_dry_run_report()) {
             Ok(report) => {
                 println!("{report}");
@@ -4836,7 +4851,112 @@ pub fn run() {
         }
     }
 
-    let args = std::env::args().collect::<Vec<_>>();
+    if args.iter().any(|arg| arg == "--disable-routing") {
+        match client_adapters::clear_client_setups() {
+            Ok(()) => {
+                println!("disabled managed routing");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to disable managed routing: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--disable-rtk") {
+        let runtime = tool_manager::ManagedRuntime::bootstrap_root(&storage::app_data_dir());
+        match client_adapters::set_rtk_enabled(
+            false,
+            &runtime.bin_dir.join("rtk"),
+            &runtime.venv_dir.join("bin").join("python"),
+        ) {
+            Ok(()) => {
+                println!("disabled managed RTK integration");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to disable RTK integration: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--disable-markitdown") {
+        let runtime = tool_manager::ManagedRuntime::bootstrap_root(&storage::app_data_dir());
+        match client_adapters::disable_markitdown_integration(&runtime.bin_dir.join("markitdown")) {
+            Ok(changed) => {
+                println!("disabled managed MarkItDown integration changed={changed}");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to disable MarkItDown integration: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--disable-caveman") {
+        match client_adapters::disable_caveman_integration() {
+            Ok(changed) => {
+                println!("disabled managed Caveman integration changed={changed}");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to disable Caveman integration: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--uninstall-managed-config") {
+        let removed = client_adapters::perform_full_cleanup();
+        match serde_json::to_string_pretty(&removed) {
+            Ok(report) => {
+                println!("{report}");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to serialize cleanup report: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--purge-logs") {
+        let activity_facts = storage::config_file(&storage::app_data_dir(), "activity-facts.json");
+        match serde_json::to_string_pretty(&message_logging::purge_message_logs(&activity_facts)) {
+            Ok(report) => {
+                println!("{report}");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to serialize log purge report: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--doctor-reset") {
+        let routing = client_adapters::clear_client_setups();
+        let activity_facts = storage::config_file(&storage::app_data_dir(), "activity-facts.json");
+        let purge = message_logging::purge_message_logs(&activity_facts);
+        match routing {
+            Ok(()) => {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&purge)
+                        .unwrap_or_else(|_| "{\"logsPurged\":true}".to_string())
+                );
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("doctor reset partially failed while disabling routing: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
     if let Some(index) = args
         .iter()
         .position(|arg| arg == "--restore-codex-thread-db-backup")

@@ -16,6 +16,26 @@ Or use **Settings -> Uninstall -> Copy dry-run** in the app. The dry-run report
 is read-only and lists each target, whether it exists now, the planned action,
 and whether explicit uninstall confirmation is required.
 
+## Emergency Commands
+
+These commands run before the GUI starts, so they still work when the window or
+runtime is unhealthy:
+
+```bash
+mac-ai-switchboard --print-managed-footprint
+mac-ai-switchboard --doctor-reset
+mac-ai-switchboard --disable-routing
+mac-ai-switchboard --disable-rtk
+mac-ai-switchboard --disable-markitdown
+mac-ai-switchboard --disable-caveman
+mac-ai-switchboard --uninstall-managed-config
+mac-ai-switchboard --purge-logs
+```
+
+All commands are scoped to Switchboard-managed marker blocks, managed runtime
+paths, or persisted app diagnostics. They do not remove user repositories or
+provider credentials.
+
 ## Removed By Uninstall
 
 Uninstall removes only Switchboard-owned surfaces:
