@@ -1077,8 +1077,26 @@ pub struct TransformationFeedEvent {
 #[serde(rename_all = "camelCase")]
 pub struct TransformationFeedResponse {
     pub log_full_messages: bool,
+    pub full_message_logging_expires_at: Option<DateTime<Utc>>,
+    pub message_log_retention_hours: u32,
     pub transformations: Vec<TransformationFeedEvent>,
     pub proxy_reachable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageLoggingSettings {
+    pub full_message_logging: bool,
+    pub full_message_logging_expires_at: Option<DateTime<Utc>>,
+    pub message_log_retention_hours: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PurgeResult {
+    pub purged: bool,
+    pub removed_paths: Vec<String>,
+    pub notes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

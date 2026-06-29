@@ -48,6 +48,19 @@ The app may store local state such as:
 Diagnostics can include local paths, command metadata, token counts, runtime
 status, and provider-routing evidence. Review diagnostics before sharing them.
 
+## Full Message Logging
+
+Full message logging is off by default because request and compressed-message
+payloads can contain prompts, source code, local paths, provider responses, and
+secrets. When enabled for debugging, it must have an expiry and should be kept
+short. The app stores the setting in local config as `fullMessageLogging`,
+`fullMessageLoggingExpiresAt`, and `messageLogRetentionHours`.
+
+Displayed and exported message dumps are redacted for common secret patterns
+such as provider keys, GitHub tokens, bearer headers, private-key markers, and
+`.p8`, `.pem`, or `.p12` filenames. Redaction is a last line of defense, not a
+guarantee. Use the message-log purge action before sharing diagnostics.
+
 ## Secrets
 
 Provider API keys, Apple signing credentials, updater private keys, and personal
@@ -93,4 +106,3 @@ Mac AI Switchboard is a developer tool and is not intended for children.
 
 Privacy behavior can change as the app evolves. Material privacy changes should
 be documented in this file, release notes, or both.
-

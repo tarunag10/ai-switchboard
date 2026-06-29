@@ -530,8 +530,22 @@ export interface TransformationFeedEvent {
 
 export interface TransformationFeedResponse {
   logFullMessages: boolean;
+  fullMessageLoggingExpiresAt?: string | null;
+  messageLogRetentionHours: number;
   proxyReachable: boolean;
   transformations: TransformationFeedEvent[];
+}
+
+export interface MessageLoggingSettings {
+  fullMessageLogging: boolean;
+  fullMessageLoggingExpiresAt: string | null;
+  messageLogRetentionHours: number;
+}
+
+export interface PurgeResult {
+  purged: boolean;
+  removedPaths: string[];
+  notes: string[];
 }
 
 export interface LiveLearning {

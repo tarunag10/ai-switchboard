@@ -296,12 +296,33 @@ function flattenContent(c: unknown): string {
 }
 
 export function formatRequestMessages(messages: TransformationRequestMessage[]): string {
-  return messages
+  return redactSensitiveMessageText(messages
     .map((m) => {
       const role = (m.role ?? "").trim() || "(unknown)";
       return `${role}:\n${messageText(m)}`;
     })
-    .join("\n\n");
+    .join("\n\n"));
+}
+
+export function redactSensitiveMessageText(input: string): string {
+  let output = input;
+  const patterns = [
+    /sk-ant-[A-Za-z0-9_-]+/g,
+    /sk-proj-[A-Za-z0-9_-]+/g,
+    /ghp_[A-Za-z0-9_]+/g,
+    /github_pat_[A-Za-z0-9_]+/g,
+    /Authorization:\s*Bearer\s+[A-Za-z0-9._~+/=-]+/gi,
+    /Bearer\s+[A-Za-z0-9._~+/=-]{8,}/g,
+    /[A-Za-z0-9_.-]+\.(?:p8|pem|p12)\b/g,
+    /BEGIN PRIVATE KEY/g,
+    /AWS_SECRET_ACCESS_KEY/g,
+    /ANTHROPIC_API_KEY/g,
+    /OPENAI_API_KEY/g
+  ];
+  for (const pattern of patterns) {
+    output = output.replace(pattern, "[REDACTED]");
+  }
+  return output;
 }
 
 export type DiffLine = { type: "same" | "add" | "del"; text: string };
@@ -991,4 +1012,3 @@ function WeeklyRecapRow({ event }: { event: WeeklyRecapEvent }) {
     </li>
   );
 }
-

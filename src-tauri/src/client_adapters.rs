@@ -1976,7 +1976,6 @@ fn uninstall_targets() -> Vec<UninstallTarget> {
         Vec::new(),
     );
 
-    #[cfg(target_os = "macos")]
     extend_macos_uninstall_targets(&mut targets);
 
     for target in managed_backup_targets() {
@@ -2140,7 +2139,6 @@ fn remove_pre_tool_use_markers(settings_path: &Path, markers: &[&str]) -> Result
     Ok(true)
 }
 
-#[cfg(target_os = "macos")]
 fn extend_macos_uninstall_targets(targets: &mut Vec<UninstallTarget>) {
     let home = home_dir();
     let lib = home.join("Library");

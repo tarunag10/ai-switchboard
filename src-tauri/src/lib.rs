@@ -10,6 +10,7 @@ mod keychain;
 mod local_mode;
 mod logging;
 mod memory_scrubber;
+mod message_logging;
 mod models;
 mod port_conflict;
 mod pricing;
@@ -48,11 +49,12 @@ use crate::models::{
     HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
     HeadroomSubscriptionTier, ManagedConfigApplyPreview, ManagedConfigApplyResult,
     ManagedFootprintReport, ManagedRollbackExecutionResult, ManagedRollbackPreview,
-    ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview, RepoAgentHandoffResponse,
-    RepoContextPackResponse, RepoDependentsResponse, RepoIndexFreshnessResponse,
-    RepoIntelligenceManifestResponse, RepoIntelligenceSummary, RepoSymbolSearchResponse,
-    RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionEvent, SavingsMode, SwitchboardMode,
-    SwitchboardState, TransformationFeedResponse, UninstallDryRunReport,
+    ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview, MessageLoggingSettings,
+    PurgeResult, RepoAgentHandoffResponse, RepoContextPackResponse, RepoDependentsResponse,
+    RepoIndexFreshnessResponse, RepoIntelligenceManifestResponse, RepoIntelligenceSummary,
+    RepoSymbolSearchResponse, RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionEvent,
+    SavingsMode, SwitchboardMode, SwitchboardState, TransformationFeedResponse,
+    UninstallDryRunReport,
 };
 use crate::state::AppState;
 
@@ -3804,11 +3806,47 @@ fn get_headroom_learn_prereq_status(
 #[tauri::command]
 async fn get_transformations_feed(limit: Option<u32>) -> TransformationFeedResponse {
     let limit = limit.unwrap_or(50).min(100);
+    let settings = message_logging::load_settings();
     fetch_transformations_feed(limit).unwrap_or_else(|_| TransformationFeedResponse {
         log_full_messages: false,
+        full_message_logging_expires_at: settings.full_message_logging_expires_at,
+        message_log_retention_hours: settings.message_log_retention_hours,
         transformations: Vec::new(),
         proxy_reachable: false,
     })
+}
+
+#[tauri::command]
+fn get_message_logging_settings() -> MessageLoggingSettings {
+    message_logging::load_settings()
+}
+
+#[tauri::command]
+fn set_message_logging_settings(
+    settings: MessageLoggingSettings,
+) -> Result<MessageLoggingSettings, String> {
+    message_logging::save_settings(&settings).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn enable_full_message_logging(hours: u32) -> Result<MessageLoggingSettings, String> {
+    let settings = MessageLoggingSettings::enabled_for(hours);
+    message_logging::save_settings(&settings).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn disable_full_message_logging() -> Result<MessageLoggingSettings, String> {
+    let settings = MessageLoggingSettings {
+        full_message_logging: false,
+        full_message_logging_expires_at: None,
+        message_log_retention_hours: 24,
+    };
+    message_logging::save_settings(&settings).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn purge_message_logs(state: State<'_, AppState>) -> PurgeResult {
+    state.purge_message_logs()
 }
 
 /// Read-only snapshot of the activity feed. Observation — fetching the proxy,
@@ -5041,6 +5079,11 @@ pub fn run() {
             reactivate_headroom_subscription,
             get_headroom_billing_portal_url,
             get_activity_feed,
+            get_message_logging_settings,
+            set_message_logging_settings,
+            enable_full_message_logging,
+            disable_full_message_logging,
+            purge_message_logs,
             list_live_learnings,
             list_live_learnings_for_projects,
             delete_live_learning,
@@ -5400,11 +5443,31 @@ fn fetch_transformations_feed_from(
         return Err(format!("proxy returned HTTP {}", response.status()));
     }
     let raw: RawTransformationsFeedResponse = response.json().map_err(|err| err.to_string())?;
+    let settings = message_logging::load_settings();
+    let transformations = raw
+        .transformations
+        .into_iter()
+        .map(redact_transformation_feed_event)
+        .collect();
     Ok(TransformationFeedResponse {
-        log_full_messages: raw.log_full_messages,
-        transformations: raw.transformations,
+        log_full_messages: raw.log_full_messages && settings.full_message_logging,
+        full_message_logging_expires_at: settings.full_message_logging_expires_at,
+        message_log_retention_hours: settings.message_log_retention_hours,
+        transformations,
         proxy_reachable: true,
     })
+}
+
+fn redact_transformation_feed_event(
+    mut event: crate::models::TransformationFeedEvent,
+) -> crate::models::TransformationFeedEvent {
+    event.request_messages = event
+        .request_messages
+        .map(crate::message_logging::redact_value);
+    event.compressed_messages = event
+        .compressed_messages
+        .map(crate::message_logging::redact_value);
+    event
 }
 
 struct HeadroomLearnRunResult {
@@ -7900,7 +7963,11 @@ mod tests {
                     "input_tokens_optimized": 250,
                     "tokens_saved": 750,
                     "savings_percent": 75.0,
-                    "transforms_applied": ["interceptor:ast-grep"]
+                    "transforms_applied": ["interceptor:ast-grep"],
+                    "request_messages": [{
+                        "role": "user",
+                        "content": "sk-ant-test Authorization: Bearer abcdefghijklmnop"
+                    }]
                 }]
             })
             .to_string();
@@ -7917,13 +7984,18 @@ mod tests {
         server.join().unwrap();
 
         assert!(result.proxy_reachable);
-        assert!(result.log_full_messages);
+        assert!(!result.log_full_messages);
+        assert_eq!(result.message_log_retention_hours, 24);
         assert_eq!(result.transformations.len(), 1);
         let event = &result.transformations[0];
         assert_eq!(event.request_id.as_deref(), Some("req-1"));
         assert_eq!(event.provider.as_deref(), Some("anthropic"));
         assert_eq!(event.tokens_saved, Some(750));
         assert_eq!(event.transforms_applied, vec!["interceptor:ast-grep"]);
+        let redacted = serde_json::to_string(&event.request_messages).unwrap();
+        assert!(!redacted.contains("sk-ant-test"));
+        assert!(!redacted.contains("abcdefghijklmnop"));
+        assert!(redacted.contains("[REDACTED]"));
     }
 
     #[test]

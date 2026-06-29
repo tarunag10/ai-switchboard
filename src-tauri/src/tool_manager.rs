@@ -4330,14 +4330,17 @@ fn headroom_python_startup_args() -> Vec<String> {
     // here makes argparse exit 2, so the fallback would always fail and mask
     // the real entrypoint failure under spurious noise. Keep this variant to
     // server-supported flags only.
-    vec![
+    let mut args = vec![
         "-m".to_string(),
         "headroom.proxy.server".to_string(),
         "--port".to_string(),
         headroom_proxy_port(),
         "--no-http2".to_string(),
-        "--log-messages".to_string(),
-    ]
+    ];
+    if crate::message_logging::full_message_logging_active() {
+        args.push("--log-messages".to_string());
+    }
+    args
 }
 
 fn headroom_entrypoint_startup_args(savings_mode: &SavingsMode) -> Vec<String> {
@@ -4345,14 +4348,14 @@ fn headroom_entrypoint_startup_args(savings_mode: &SavingsMode) -> Vec<String> {
     // (set to "false" in the spawn env). Older bundled runtimes ignored this var
     // and ran HTTP/2 unconditionally, which surfaced as SSLV3_ALERT_BAD_RECORD_MAC
     // under multi-tab concurrency; the runtime bundled with this build honors it.
-    // --log-messages stores full request/response bodies so the desktop's
-    // Activity tab can render the live transformations feed.
     let mut args = vec![
         "proxy".to_string(),
         "--port".to_string(),
         headroom_proxy_port(),
-        "--log-messages".to_string(),
     ];
+    if crate::message_logging::full_message_logging_active() {
+        args.push("--log-messages".to_string());
+    }
     if matches!(savings_mode, SavingsMode::Aggressive) {
         args.push("--intercept-tool-results".to_string());
     }
@@ -4389,12 +4392,14 @@ fn expected_proxy_arg_signature() -> Vec<&'static str> {
 fn expected_proxy_arg_signature_for(savings_mode: &SavingsMode) -> Vec<&'static str> {
     let mut flags = vec![
         "--port",
-        "--log-messages",
         "--learn",
         "--no-memory-tools",
         "--no-memory-context",
         "--memory-db-path",
     ];
+    if crate::message_logging::full_message_logging_active() {
+        flags.push("--log-messages");
+    }
     if matches!(savings_mode, SavingsMode::Aggressive) {
         flags.push("--intercept-tool-results");
     }
@@ -6282,6 +6287,7 @@ mod tests {
 
     #[test]
     fn proxy_argv_matches_when_all_expected_flags_present() {
+        std::env::remove_var("HEADROOM_FULL_MESSAGE_LOGGING");
         let argv = "/usr/bin/nice -n 5 /Users/x/headroom proxy --port 6768 --log-messages \
                     --learn --no-memory-tools --no-memory-context --memory-db-path /tmp/m.db";
         assert!(proxy_argv_contains_expected_flags_for(
@@ -6291,14 +6297,24 @@ mod tests {
     }
 
     #[test]
-    fn proxy_argv_mismatch_when_log_messages_missing() {
-        // The exact orphan-from-old-build case: a v0.2.x proxy still running
-        // with just `proxy --port 6768`.
+    fn proxy_argv_mismatch_when_core_flags_missing() {
         let argv = "/Users/x/headroom proxy --port 6768";
         assert!(!proxy_argv_contains_expected_flags_for(
             argv,
             &SavingsMode::Balanced
         ));
+    }
+
+    #[test]
+    fn proxy_argv_requires_log_messages_only_during_explicit_opt_in() {
+        std::env::set_var("HEADROOM_FULL_MESSAGE_LOGGING", "1");
+        let argv = "headroom proxy --port 6768 --learn --no-memory-tools \
+                    --no-memory-context --memory-db-path /tmp/m.db";
+        assert!(!proxy_argv_contains_expected_flags_for(
+            argv,
+            &SavingsMode::Balanced
+        ));
+        std::env::remove_var("HEADROOM_FULL_MESSAGE_LOGGING");
     }
 
     #[test]
@@ -6569,6 +6585,7 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 
     #[test]
     fn managed_headroom_startup_uses_supported_proxy_args() {
+        std::env::remove_var("HEADROOM_FULL_MESSAGE_LOGGING");
         backend_port::reset_for_tests();
         let default_port = backend_port::DEFAULT_BACKEND_PORT.to_string();
         let entrypoint_args = headroom_entrypoint_startup_args(&SavingsMode::Balanced);
@@ -6576,8 +6593,8 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
             "proxy".to_string(),
             "--port".to_string(),
             default_port.clone(),
-            "--log-messages".to_string(),
         ]));
+        assert!(!entrypoint_args.contains(&"--log-messages".to_string()));
         assert!(entrypoint_args.contains(&"--learn".to_string()));
         assert!(entrypoint_args.contains(&"--no-memory-tools".to_string()));
         assert!(entrypoint_args.contains(&"--no-memory-context".to_string()));
@@ -6592,7 +6609,6 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
                 "--port".to_string(),
                 default_port,
                 "--no-http2".to_string(),
-                "--log-messages".to_string(),
             ]
         );
         // The python -m fallback must not pass learn flags; argparse on
@@ -6603,6 +6619,17 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
         assert!(!python_args.contains(&"--memory-db-path".to_string()));
 
         backend_port::reset_for_tests();
+    }
+
+    #[test]
+    fn full_message_logging_startup_args_require_explicit_opt_in() {
+        std::env::set_var("HEADROOM_FULL_MESSAGE_LOGGING", "1");
+        let entrypoint_args = headroom_entrypoint_startup_args(&SavingsMode::Balanced);
+        let python_args = headroom_python_startup_args();
+        std::env::remove_var("HEADROOM_FULL_MESSAGE_LOGGING");
+
+        assert!(entrypoint_args.contains(&"--log-messages".to_string()));
+        assert!(python_args.contains(&"--log-messages".to_string()));
     }
 
     #[test]

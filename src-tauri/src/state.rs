@@ -2108,6 +2108,12 @@ impl AppState {
         snapshot
     }
 
+    pub fn purge_message_logs(&self) -> crate::models::PurgeResult {
+        let mut facts = self.activity_facts.lock();
+        facts.reset_for_message_log_purge();
+        crate::message_logging::purge_message_logs(facts.path())
+    }
+
     pub fn savings_attribution_events(&self) -> Vec<SavingsAttributionEvent> {
         self.savings_tracker.lock().attribution_events()
     }

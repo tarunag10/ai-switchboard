@@ -53,3 +53,11 @@ Uninstall preserves:
 Use **Off** mode when you only want to stop routing. Off mode removes managed
 routing hooks and provider overrides while leaving app storage, local evidence,
 and reinstall state available.
+
+## Message Log Purge
+
+Full message logging is off by default. If it was temporarily enabled for
+debugging, use the app's message-log purge action before sharing diagnostics.
+The purge removes persisted Activity feed facts that may contain historical
+request or compressed-message payloads. Restart the runtime afterward so the
+proxy runs without raw message capture.
