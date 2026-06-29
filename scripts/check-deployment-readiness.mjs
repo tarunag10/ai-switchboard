@@ -238,7 +238,7 @@ const requiredDocSignals = {
     "Aider, Continue",
     "Grok / xAI CLI, Qwen Code, Amazon Q Developer CLI",
     "Do not treat MCP availability as permission to mutate provider/editor configuration",
-    "Long-running service supervision beyond the stdio MCP app-session active marker",
+    "Background service supervision beyond the current app-process smoke recheck loop",
   ],
 };
 

@@ -56,6 +56,7 @@ const PONYTAIL_TEMPLATE_BASELINE_TOKENS: u64 = 1_400;
 const PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS: u64 = 520;
 const MARKITDOWN_TEMPLATE_BASELINE_TOKENS: u64 = 3_200;
 const MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS: u64 = 900;
+const REPO_MEMORY_MCP_SUPERVISION_INTERVAL_SECS: i64 = 15 * 60;
 
 /// Absolute maximum time we'll wait for the new proxy to come up during
 /// boot validation, regardless of observed activity. Bounded so an
@@ -2889,6 +2890,35 @@ impl AppState {
         }
     }
 
+    fn supervise_repo_memory_mcp_if_due(&self, configured: Option<bool>) {
+        let now = Utc::now();
+        let current_pid = std::process::id();
+        let should_verify = {
+            let session = self.repo_memory_mcp_state.lock();
+            repo_memory_mcp_supervision_due(&session, configured, current_pid, now)
+        };
+        if !should_verify {
+            return;
+        }
+
+        let (active, status) = match self.tool_manager.verify_repo_memory_mcp_smoke() {
+            Ok(_) => (true, "verified_active".to_string()),
+            Err(err) => {
+                log::warn!("repo-memory MCP supervision smoke failed: {err:#}");
+                (false, "smoke_failed".to_string())
+            }
+        };
+
+        let mut session = self.repo_memory_mcp_state.lock();
+        session.active = active;
+        session.last_checked_at = Some(Utc::now());
+        session.supervision_status = Some(status);
+        session.supervisor_pid = if active { Some(current_pid) } else { None };
+        if let Err(err) = self.persist_repo_memory_mcp_state(&session) {
+            log::warn!("failed to persist repo-memory MCP supervision state: {err:#}");
+        }
+    }
+
     fn compute_runtime_status(&self) -> RuntimeStatus {
         let installed = self.tool_manager.python_runtime_installed();
         let paused = self.runtime_is_paused();
@@ -2898,6 +2928,7 @@ impl AppState {
         let mcp_error = self.tool_manager.headroom_mcp_error();
         let repo_memory_mcp_configured = self.tool_manager.repo_memory_mcp_configured();
         let repo_memory_mcp_error = self.tool_manager.repo_memory_mcp_error();
+        self.supervise_repo_memory_mcp_if_due(repo_memory_mcp_configured);
         let repo_memory_mcp_session = self.repo_memory_mcp_state.lock().clone();
         let ml_installed = self.tool_manager.headroom_ml_installed();
         let platform = current_platform();
@@ -3813,6 +3844,29 @@ fn repo_memory_mcp_supervision_status(
         (false, Some(true)) => "configured".to_string(),
         (false, Some(false)) => "needs_attention".to_string(),
         (false, None) => "unknown".to_string(),
+    }
+}
+
+fn repo_memory_mcp_supervision_due(
+    session: &RepoMemoryMcpSessionState,
+    configured: Option<bool>,
+    current_pid: u32,
+    now: DateTime<Utc>,
+) -> bool {
+    if configured != Some(true)
+        || !session.active
+        || session.supervision_status.as_deref() != Some("verified_active")
+        || session.supervisor_pid != Some(current_pid)
+    {
+        return false;
+    }
+
+    match session.last_checked_at {
+        Some(last_checked_at) => {
+            now.signed_duration_since(last_checked_at).num_seconds()
+                >= REPO_MEMORY_MCP_SUPERVISION_INTERVAL_SECS
+        }
+        None => true,
     }
 }
 
@@ -9282,5 +9336,62 @@ mod tests {
             super::repo_memory_mcp_supervision_status(&stopped, Some(false), current_pid),
             "needs_attention"
         );
+    }
+
+    #[test]
+    fn repo_memory_mcp_supervision_due_requires_current_active_verified_session() {
+        let current_pid = 42;
+        let now = Utc
+            .with_ymd_and_hms(2026, 6, 30, 10, 0, 0)
+            .single()
+            .unwrap();
+        let stale_check = Some(
+            now - chrono::Duration::seconds(super::REPO_MEMORY_MCP_SUPERVISION_INTERVAL_SECS + 1),
+        );
+        let fresh_check = Some(now - chrono::Duration::seconds(60));
+        let active = super::RepoMemoryMcpSessionState {
+            active: true,
+            last_started_at: Some(now - chrono::Duration::minutes(30)),
+            last_checked_at: stale_check,
+            supervision_status: Some("verified_active".to_string()),
+            supervisor_pid: Some(current_pid),
+        };
+
+        assert!(super::repo_memory_mcp_supervision_due(
+            &active,
+            Some(true),
+            current_pid,
+            now
+        ));
+
+        let fresh = super::RepoMemoryMcpSessionState {
+            last_checked_at: fresh_check,
+            ..active.clone()
+        };
+        assert!(!super::repo_memory_mcp_supervision_due(
+            &fresh,
+            Some(true),
+            current_pid,
+            now
+        ));
+
+        let previous_process = super::RepoMemoryMcpSessionState {
+            supervisor_pid: Some(current_pid + 1),
+            ..active.clone()
+        };
+        assert!(!super::repo_memory_mcp_supervision_due(
+            &previous_process,
+            Some(true),
+            current_pid,
+            now
+        ));
+
+        let not_configured = super::RepoMemoryMcpSessionState { ..active.clone() };
+        assert!(!super::repo_memory_mcp_supervision_due(
+            &not_configured,
+            Some(false),
+            current_pid,
+            now
+        ));
     }
 }

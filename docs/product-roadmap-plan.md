@@ -32,13 +32,14 @@ Shipped:
 - One-click local evidence now includes local Off/RTK installed-app relaunch smoke after local DMG build/install and local installed smoke.
 - One-click local evidence now includes focused Rollback Center validation for frontend inventory/copy plus native undo-all and Gemini cleanup survival backend cases.
 - One-click local evidence now includes focused Doctor repair validation for UI/copy behavior and backend Off/RTK Headroom-restoring repair guards.
+- Repo Memory MCP active sessions are now app-supervised with periodic read-only smoke rechecks while the same app process owns the session.
 
 Left:
 
 - App-owned Terms, Privacy Notice, Settings Legal surfaces, and terms-version policy are bundled and covered by focused tests.
 - Add reboot and installed-app smoke evidence for full Doctor repair and Rollback Center survival.
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
-- Turn repo-memory MCP into a real app-supervised long-running local service beyond the current process-bound active marker plus smoke-tested stdio transport.
+- Turn repo-memory MCP into a real background local service beyond current app-process supervision plus smoke-tested stdio transport.
 - Replace inferred Ponytail, Caveman, Compact Chinese, and some Repo Intelligence savings rows with stronger measured counters where trustworthy evidence exists; MarkItDown is now estimated from the managed smoke-tested conversion path.
 - Deepen Repo Intelligence beyond the shipped tree-sitter/parser index versions, imports, reverse dependencies, graph-input evidence, and graph-aware packs with richer language-specific dependency analyzers and Doctor health checks.
 - Complete public release readiness with signed/notarized DMG, updater artifacts, public installed-smoke proof, uninstall evidence, and release-panel wiring.
