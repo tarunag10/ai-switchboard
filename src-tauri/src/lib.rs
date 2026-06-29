@@ -2538,7 +2538,7 @@ fn repo_intelligence_doctor_issue(
 }
 
 fn repo_memory_mcp_doctor_issue(runtime: &RuntimeStatus) -> Option<crate::models::DoctorIssue> {
-    if runtime.mcp_configured != Some(false) {
+    if runtime.repo_memory_mcp_configured != Some(false) {
         return None;
     }
 
@@ -2546,7 +2546,7 @@ fn repo_memory_mcp_doctor_issue(runtime: &RuntimeStatus) -> Option<crate::models
         id: "repo_memory_mcp_not_configured".to_string(),
         title: "Repo Memory MCP is not configured".to_string(),
         body: runtime
-            .mcp_error
+            .repo_memory_mcp_error
             .clone()
             .unwrap_or_else(|| {
                 "Repo Memory MCP is required before supported agents can request read-only Repo Intelligence packs through MCP. Repair will install the app-managed read-only repo-memory server, then you can run npm run check:repo-memory-mcp to verify the tool contract.".to_string()
@@ -2775,7 +2775,14 @@ repair_action: Some("repair_rtk_integrations".to_string()),
             !tool.enabled || !matches!(tool.status, crate::models::ToolStatus::Healthy)
         })
     };
-    if tool_needs_repair("caveman") {
+    let caveman_level = state.tool_manager.caveman_level();
+    let caveman_guidance_drifted = state.tool_manager.caveman_receipt_exists()
+        && tools
+            .iter()
+            .find(|tool| tool.id == "caveman")
+            .is_some_and(|tool| tool.enabled)
+        && !client_adapters::caveman_integration_matches_level(&caveman_level).unwrap_or(false);
+    if tool_needs_repair("caveman") || caveman_guidance_drifted {
         issues.push(crate::models::DoctorIssue {
             id: "caveman_guidance_inactive".to_string(),
             title: "Caveman guidance is not active".to_string(),
@@ -3039,6 +3046,8 @@ mod doctor_tests {
             headroom_pid: if running { Some(42) } else { None },
             mcp_configured: None,
             mcp_error: None,
+            repo_memory_mcp_configured: None,
+            repo_memory_mcp_error: None,
             repo_memory_mcp_active: false,
             repo_memory_mcp_last_started_at: None,
             repo_memory_mcp_last_checked_at: None,
@@ -3093,8 +3102,11 @@ mod doctor_tests {
     #[test]
     fn repo_memory_mcp_doctor_issue_is_repairable_when_unconfigured() {
         let mut runtime = test_runtime_status(true, true, true);
-        runtime.mcp_configured = Some(false);
-        runtime.mcp_error = Some("repo-memory missing from Claude MCP config".to_string());
+        runtime.mcp_configured = Some(true);
+        runtime.mcp_error = None;
+        runtime.repo_memory_mcp_configured = Some(false);
+        runtime.repo_memory_mcp_error =
+            Some("repo-memory missing from Claude MCP config".to_string());
 
         let issue = repo_memory_mcp_doctor_issue(&runtime).expect("repo memory issue");
 
@@ -3105,7 +3117,7 @@ mod doctor_tests {
         );
         assert!(issue.body.contains("repo-memory missing"));
 
-        runtime.mcp_configured = Some(true);
+        runtime.repo_memory_mcp_configured = Some(true);
         assert!(repo_memory_mcp_doctor_issue(&runtime).is_none());
     }
 }

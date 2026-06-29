@@ -30,7 +30,7 @@ describe("repoMemoryMcpLifecycle", () => {
       active: true,
       lastStartedAt: "2026-06-28T10:00:00Z",
       lastCheckedAt: "2026-06-28T10:05:00Z",
-      supervisionStatus: "active",
+      supervisionStatus: "verified_active",
     });
 
     expect(lifecycle).toMatchObject({
@@ -40,11 +40,42 @@ describe("repoMemoryMcpLifecycle", () => {
       startCommand: "start_repo_memory_mcp",
       stopCommand: "stop_repo_memory_mcp",
     });
-    expect(lifecycle.detail).toContain("marked active");
+    expect(lifecycle.detail).toContain("smoke-tested");
     expect(lifecycle.detail).toContain("2026-06-28T10:00:00Z");
     expect(lifecycle.detail).toContain("2026-06-28T10:05:00Z");
+    expect(lifecycle.copy).toContain("passed smoke verification");
     expect(lifecycle.copy).toContain("Start action: start_repo_memory_mcp");
     expect(lifecycle.copy).toContain("Stop action: stop_repo_memory_mcp");
+  });
+
+  it("requires smoke verification before trusting active MCP state", () => {
+    const lifecycle = repoMemoryMcpLifecycle({
+      configured: true,
+      active: true,
+      lastCheckedAt: "2026-06-28T10:04:00Z",
+      supervisionStatus: "active",
+    });
+
+    expect(lifecycle.state).toBe("unknown");
+    expect(lifecycle.status).toBe("Needs verification");
+    expect(lifecycle.detail).toContain("smoke verification has not been recorded");
+    expect(lifecycle.copy).toContain("run Start MCP again");
+  });
+
+  it("surfaces failed repo-memory MCP smoke checks", () => {
+    const lifecycle = repoMemoryMcpLifecycle({
+      configured: true,
+      active: false,
+      lastCheckedAt: "2026-06-28T10:06:00Z",
+      supervisionStatus: "smoke_failed",
+    });
+
+    expect(lifecycle.state).toBe("smoke_failed");
+    expect(lifecycle.status).toBe("Smoke failed");
+    expect(lifecycle.detail).toContain("read-only smoke check did not pass");
+    expect(lifecycle.detail).toContain("2026-06-28T10:06:00Z");
+    expect(lifecycle.copy).toContain("configured state is not enough");
+    expect(lifecycle.copy).toContain("repo_context_pack");
   });
 
   it("surfaces stale active state when MCP config drifts", () => {

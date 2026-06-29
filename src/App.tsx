@@ -7205,8 +7205,8 @@ export default function App() {
           .join(", ")
       : "No clients enabled";
   const repoMemoryLifecycle = repoMemoryMcpLifecycle({
-    configured: runtimeStatus?.mcpConfigured,
-    error: runtimeStatus?.mcpError,
+    configured: runtimeStatus?.repoMemoryMcpConfigured,
+    error: runtimeStatus?.repoMemoryMcpError,
     active: runtimeStatus?.repoMemoryMcpActive,
     lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
     lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
@@ -7231,8 +7231,8 @@ export default function App() {
     },
     {
       ...repoMemoryMcpInspectorRow({
-        configured: runtimeStatus?.mcpConfigured,
-        error: runtimeStatus?.mcpError,
+        configured: runtimeStatus?.repoMemoryMcpConfigured,
+        error: runtimeStatus?.repoMemoryMcpError,
         active: runtimeStatus?.repoMemoryMcpActive,
         lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
         lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
@@ -7241,7 +7241,7 @@ export default function App() {
       actionLabel:
         repoMemoryLifecycle.state === "active"
           ? "Stop MCP"
-          : repoMemoryLifecycle.state === "configured"
+          : runtimeStatus?.repoMemoryMcpConfigured === true
             ? "Start MCP"
             : "Install MCP",
       actionBusyLabel:
@@ -7250,7 +7250,7 @@ export default function App() {
       onAction:
         repoMemoryLifecycle.state === "active"
           ? () => void setRepoMemoryMcpActive(false)
-          : repoMemoryLifecycle.state === "configured"
+          : runtimeStatus?.repoMemoryMcpConfigured === true
             ? () => void setRepoMemoryMcpActive(true)
             : () => void installRepoMemoryMcp(),
     },

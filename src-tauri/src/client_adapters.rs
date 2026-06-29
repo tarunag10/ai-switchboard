@@ -2551,6 +2551,21 @@ pub fn enable_caveman_integration(level: &str) -> Result<(Vec<String>, Vec<Strin
     Ok((changed_files, backup_files))
 }
 
+pub fn caveman_integration_matches_level(level: &str) -> Result<bool> {
+    let expected = build_caveman_nudge(level);
+    if is_claude_code_enabled()
+        && !managed_block_contains_text(&caveman_claude_md_path(), "caveman", &expected)?
+    {
+        return Ok(false);
+    }
+    if is_codex_enabled()
+        && !managed_block_contains_text(&caveman_codex_agents_path(), "caveman", &expected)?
+    {
+        return Ok(false);
+    }
+    Ok(true)
+}
+
 /// Removes the managed Caveman block from every client instruction file. Runs
 /// unconditionally so a later-disconnected client is still scrubbed.
 pub fn disable_caveman_integration() -> Result<bool> {
@@ -4468,6 +4483,24 @@ fn file_has_managed_block(file_path: &Path, block_id: &str) -> Result<bool> {
     let start = format!("# >>> headroom:{block_id} >>>");
     let end = format!("# <<< headroom:{block_id} <<<");
     Ok(content.contains(&start) && content.contains(&end))
+}
+
+fn managed_block_contains_text(
+    file_path: &Path,
+    block_id: &str,
+    expected_text: &str,
+) -> Result<bool> {
+    if !file_path.exists() {
+        return Ok(false);
+    }
+    let content = std::fs::read_to_string(file_path)
+        .with_context(|| format!("reading {}", file_path.display()))?;
+    let start = format!("# >>> headroom:{block_id} >>>");
+    let end = format!("# <<< headroom:{block_id} <<<");
+    let (Some(start_idx), Some(end_idx)) = (content.find(&start), content.find(&end)) else {
+        return Ok(false);
+    };
+    Ok(content[start_idx..end_idx].contains(expected_text))
 }
 
 fn shell_path(name: &str) -> PathBuf {
@@ -7765,6 +7798,25 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             fs::read_to_string(home.path().join(".codex").join("AGENTS.md")).expect("read codex");
         assert!(agents.contains("Switchboard Caveman, aggressive"));
         assert!(!agents.contains("Switchboard Caveman, scoped"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn caveman_integration_match_detects_stale_level_body() {
+        let _home = TestHome::new();
+        seed_caveman_clients_configured();
+
+        super::enable_caveman_integration("scoped").expect("enable scoped");
+
+        assert!(
+            super::caveman_integration_matches_level("scoped").expect("check scoped"),
+            "scoped body should match"
+        );
+        assert!(
+            !super::caveman_integration_matches_level("compact_chinese")
+                .expect("check compact chinese"),
+            "compact Chinese should not match stale scoped body"
+        );
     }
 
     #[test]

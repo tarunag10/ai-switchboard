@@ -208,6 +208,7 @@ pub const CAVEMAN_LEVEL_AGGRESSIVE: &str = "aggressive";
 pub const CAVEMAN_LEVEL_COMPACT_CHINESE: &str = "compact_chinese";
 const REPO_MEMORY_DISPLAY_VERSION: &str = "1";
 const REPO_MEMORY_MCP_NAME: &str = "repo-memory";
+const REPO_MEMORY_MCP_SMOKE_TEST_TIMEOUT: Duration = Duration::from_secs(10);
 const RTK_SHA256_MACOS_AARCH64: &str =
     "f223ca074a0215af002679bc1d34ca92b93e25b3e8ae16aace6e84c06e586802";
 const RTK_SHA256_MACOS_X86_64: &str =
@@ -3619,6 +3620,48 @@ impl ToolManager {
         Ok(())
     }
 
+    pub fn ensure_repo_memory_mcp_configured(&self) -> Result<()> {
+        if self.repo_memory_mcp_configured() == Some(true) {
+            return Ok(());
+        }
+        self.install_repo_memory_mcp()
+    }
+
+    pub fn verify_repo_memory_mcp_smoke(&self) -> Result<()> {
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let script = cwd.join("scripts").join("check-repo-memory-mcp.mjs");
+        if !script.exists() {
+            bail!(
+                "repo-memory MCP smoke script is missing at {}",
+                script.display()
+            );
+        }
+        let script_arg = script.to_string_lossy().to_string();
+        run_command_with_timeout(
+            Path::new("node"),
+            &[script_arg.as_str()],
+            &cwd,
+            REPO_MEMORY_MCP_SMOKE_TEST_TIMEOUT,
+        )
+        .context("verifying repo-memory MCP read-only smoke contract")?;
+        Ok(())
+    }
+
+    pub fn repo_memory_mcp_configured(&self) -> Option<bool> {
+        if !self.runtime.tools_dir.join("repo-memory.json").exists() {
+            return Some(false);
+        }
+        Some(claude_code_has_mcp_server(REPO_MEMORY_MCP_NAME))
+    }
+
+    pub fn repo_memory_mcp_error(&self) -> Option<String> {
+        match self.repo_memory_mcp_configured() {
+            Some(true) => None,
+            Some(false) => Some("repo-memory missing from Claude MCP config".to_string()),
+            None => Some("Repo Memory MCP configuration could not be verified".to_string()),
+        }
+    }
+
     /// Remove the managed rtk binary and its receipt. Shell PATH and Claude Code
     /// hook teardown is handled separately by `client_adapters::set_rtk_enabled`.
     pub fn uninstall_rtk(&self) -> Result<()> {
@@ -3920,6 +3963,10 @@ fn installed_ponytail_version() -> Option<String> {
 /// actually reads is the only reliable way to confirm the registration
 /// landed where `/mcp` and `claude mcp list` will see it.
 fn claude_code_has_headroom_mcp_server() -> bool {
+    claude_code_has_mcp_server("headroom")
+}
+
+fn claude_code_has_mcp_server(name: &str) -> bool {
     let Some(home) = dirs::home_dir() else {
         return false;
     };
@@ -3930,10 +3977,7 @@ fn claude_code_has_headroom_mcp_server() -> bool {
     let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
         return false;
     };
-    value
-        .get("mcpServers")
-        .and_then(|v| v.get("headroom"))
-        .is_some()
+    value.get("mcpServers").and_then(|v| v.get(name)).is_some()
 }
 
 /// Writes the headroom MCP server entry directly to `~/.claude.json`.
@@ -6957,8 +7001,33 @@ after
             claude["mcpServers"]["repo-memory"]["env"]["MAC_AI_SWITCHBOARD_REPO_MEMORY_READ_ONLY"],
             "1"
         );
+        assert_eq!(manager.repo_memory_mcp_configured(), Some(true));
+        assert!(manager.repo_memory_mcp_error().is_none());
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn repo_memory_mcp_config_detects_missing_server_separately_from_headroom() {
+        let home = TestHome::new("repo-memory-missing-home");
+        let (_root, runtime, manager) = seed_test_runtime("repo-memory-missing");
+        fs::write(
+            runtime.tools_dir.join("repo-memory.json"),
+            br#"{"version":"1","mcp":{"configured":true,"serverName":"repo-memory"}}"#,
+        )
+        .expect("write receipt");
+        fs::write(
+            home.root.join(".claude.json"),
+            br#"{"mcpServers":{"headroom":{"command":"headroom"}}}"#,
+        )
+        .expect("write claude json");
+
+        assert_eq!(manager.repo_memory_mcp_configured(), Some(false));
+        assert!(manager
+            .repo_memory_mcp_error()
+            .expect("repo memory error")
+            .contains("repo-memory missing"));
     }
 
     #[test]

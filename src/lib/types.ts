@@ -320,6 +320,8 @@ export interface RuntimeStatus {
   headroomPid?: number | null;
   mcpConfigured?: boolean | null;
   mcpError?: string | null;
+  repoMemoryMcpConfigured?: boolean | null;
+  repoMemoryMcpError?: string | null;
   repoMemoryMcpActive?: boolean | null;
   repoMemoryMcpLastStartedAt?: string | null;
   repoMemoryMcpLastCheckedAt?: string | null;

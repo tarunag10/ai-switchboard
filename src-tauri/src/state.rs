@@ -2764,13 +2764,24 @@ impl AppState {
     }
 
     pub fn start_repo_memory_mcp(&self) -> Result<()> {
-        self.tool_manager.ensure_mcp_configured()?;
+        self.tool_manager.ensure_repo_memory_mcp_configured()?;
+        if let Err(err) = self.tool_manager.verify_repo_memory_mcp_smoke() {
+            {
+                let mut session = self.repo_memory_mcp_state.lock();
+                session.active = false;
+                session.last_checked_at = Some(Utc::now());
+                session.supervision_status = Some("smoke_failed".to_string());
+                self.persist_repo_memory_mcp_state(&session)?;
+            }
+            *self.cached_runtime_status.lock() = None;
+            return Err(err);
+        }
         {
             let mut session = self.repo_memory_mcp_state.lock();
             session.active = true;
             session.last_started_at = Some(Utc::now());
             session.last_checked_at = Some(Utc::now());
-            session.supervision_status = Some("active".to_string());
+            session.supervision_status = Some("verified_active".to_string());
             self.persist_repo_memory_mcp_state(&session)?;
         }
         *self.cached_runtime_status.lock() = None;
@@ -2818,6 +2829,8 @@ impl AppState {
         let proxy_reachable = is_headroom_proxy_reachable();
         let mcp_configured = self.tool_manager.headroom_mcp_configured();
         let mcp_error = self.tool_manager.headroom_mcp_error();
+        let repo_memory_mcp_configured = self.tool_manager.repo_memory_mcp_configured();
+        let repo_memory_mcp_error = self.tool_manager.repo_memory_mcp_error();
         let repo_memory_mcp_session = self.repo_memory_mcp_state.lock().clone();
         let ml_installed = self.tool_manager.headroom_ml_installed();
         let platform = current_platform();
@@ -2856,8 +2869,10 @@ impl AppState {
         let startup_error = self.last_startup_error.lock().clone();
         let startup_error_hint = startup_error.as_deref().and_then(classify_startup_error);
 
-        let repo_memory_mcp_supervision_status =
-            repo_memory_mcp_supervision_status(&repo_memory_mcp_session, mcp_configured);
+        let repo_memory_mcp_supervision_status = repo_memory_mcp_supervision_status(
+            &repo_memory_mcp_session,
+            repo_memory_mcp_configured,
+        );
         self.record_repo_memory_mcp_supervision(&repo_memory_mcp_supervision_status);
         let repo_memory_mcp_session = self.repo_memory_mcp_state.lock().clone();
 
@@ -2873,7 +2888,10 @@ impl AppState {
             headroom_pid,
             mcp_configured,
             mcp_error,
-            repo_memory_mcp_active: repo_memory_mcp_session.active && mcp_configured == Some(true),
+            repo_memory_mcp_configured,
+            repo_memory_mcp_error,
+            repo_memory_mcp_active: repo_memory_mcp_session.active
+                && repo_memory_mcp_configured == Some(true),
             repo_memory_mcp_last_started_at: repo_memory_mcp_session.last_started_at,
             repo_memory_mcp_last_checked_at: repo_memory_mcp_session.last_checked_at,
             repo_memory_mcp_supervision_status,
@@ -3610,9 +3628,16 @@ fn repo_memory_mcp_supervision_status(
     configured: Option<bool>,
 ) -> String {
     match (session.active, configured) {
-        (true, Some(true)) => "active".to_string(),
+        (true, Some(true)) => session
+            .supervision_status
+            .clone()
+            .filter(|status| status == "verified_active")
+            .unwrap_or_else(|| "active".to_string()),
         (true, Some(false)) => "stale_config".to_string(),
         (true, None) => "unknown_active".to_string(),
+        (false, Some(true)) if session.supervision_status.as_deref() == Some("smoke_failed") => {
+            "smoke_failed".to_string()
+        }
         (false, Some(true)) => "configured".to_string(),
         (false, Some(false)) => "needs_attention".to_string(),
         (false, None) => "unknown".to_string(),

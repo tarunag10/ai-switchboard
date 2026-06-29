@@ -3,6 +3,7 @@ export type RepoMemoryMcpState =
   | "configured"
   | "stale"
   | "needs_attention"
+  | "smoke_failed"
   | "unknown";
 
 export interface RepoMemoryMcpLifecycle {
@@ -33,6 +34,25 @@ export const repoMemoryMcpVerifyCommand = "npm run check:repo-memory-mcp";
 export function repoMemoryMcpLifecycle(
   input: RepoMemoryMcpStatusInput,
 ): RepoMemoryMcpLifecycle {
+  if (input.supervisionStatus === "smoke_failed") {
+    const checked = input.lastCheckedAt ? ` Last checked: ${input.lastCheckedAt}.` : "";
+    return {
+      state: "smoke_failed",
+      status: "Smoke failed",
+      detail: `Repo Memory MCP is configured, but the read-only smoke check did not pass.${checked}`,
+      installCommand: repoMemoryMcpInstallCommand,
+      startCommand: repoMemoryMcpStartCommand,
+      stopCommand: repoMemoryMcpStopCommand,
+      verifyCommand: repoMemoryMcpVerifyCommand,
+      copy: [
+        "Repo Memory MCP smoke failed: configured state is not enough to rely on agent MCP handoffs.",
+        `Start action: ${repoMemoryMcpStartCommand}`,
+        `Verify: ${repoMemoryMcpVerifyCommand}`,
+        "Safety: do not mark MCP active until repo_context_pack, repo_symbol_lookup, and repo_dependents_of pass the read-only smoke.",
+      ].join("\n"),
+    };
+  }
+
   if (input.supervisionStatus === "stale_config") {
     const checked = input.lastCheckedAt
       ? ` Last checked: ${input.lastCheckedAt}.`
@@ -55,7 +75,11 @@ export function repoMemoryMcpLifecycle(
     };
   }
 
-  if (input.configured === true && input.active === true) {
+  if (
+    input.configured === true &&
+    input.active === true &&
+    input.supervisionStatus === "verified_active"
+  ) {
     const started = input.lastStartedAt
       ? ` Last started: ${input.lastStartedAt}.`
       : "";
@@ -63,16 +87,35 @@ export function repoMemoryMcpLifecycle(
     return {
       state: "active",
       status: "Active",
-      detail: `Repo Memory MCP is app-managed, read-only, and marked active for supported agents.${started}${checked}`,
+      detail: `Repo Memory MCP is app-managed, read-only, smoke-tested, and active for supported agents.${started}${checked}`,
       installCommand: repoMemoryMcpInstallCommand,
       startCommand: repoMemoryMcpStartCommand,
       stopCommand: repoMemoryMcpStopCommand,
       verifyCommand: repoMemoryMcpVerifyCommand,
       copy: [
-        "Repo Memory MCP active: app-managed read-only repo_context_pack, repo_symbol_lookup, and repo_dependents_of tools are available.",
+        "Repo Memory MCP active: app-managed read-only repo_context_pack, repo_symbol_lookup, and repo_dependents_of tools passed smoke verification.",
         `Start action: ${repoMemoryMcpStartCommand}`,
         `Stop action: ${repoMemoryMcpStopCommand}`,
         `Verify: ${repoMemoryMcpVerifyCommand}`,
+      ].join("\n"),
+    };
+  }
+
+  if (input.configured === true && input.active === true) {
+    const checked = input.lastCheckedAt ? ` Last checked: ${input.lastCheckedAt}.` : "";
+    return {
+      state: "unknown",
+      status: "Needs verification",
+      detail: `Repo Memory MCP is marked active, but smoke verification has not been recorded.${checked}`,
+      installCommand: repoMemoryMcpInstallCommand,
+      startCommand: repoMemoryMcpStartCommand,
+      stopCommand: repoMemoryMcpStopCommand,
+      verifyCommand: repoMemoryMcpVerifyCommand,
+      copy: [
+        "Repo Memory MCP active state needs verification.",
+        `Start action: ${repoMemoryMcpStartCommand}`,
+        `Verify: ${repoMemoryMcpVerifyCommand}`,
+        "Safety: run Start MCP again so the app records smoke-tested active state.",
       ].join("\n"),
     };
   }

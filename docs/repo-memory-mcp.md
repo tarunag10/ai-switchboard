@@ -6,7 +6,7 @@ Repo Memory MCP is the read-only agent-consumption surface for Repo Intelligence
 
 - Transport: stdio MCP served by `scripts/repo-intelligence.mjs --mcp-serve`.
 - Install action: **Install MCP** in the Mode Inspector, backed by `install_repo_memory_mcp`.
-- Session controls: **Start MCP** and **Stop MCP** in the Mode Inspector, backed by `start_repo_memory_mcp` and `stop_repo_memory_mcp`. These controls persist app-session active state for the stdio MCP path; they do not claim a separate background daemon is running.
+- Session controls: **Start MCP** and **Stop MCP** in the Mode Inspector, backed by `start_repo_memory_mcp` and `stop_repo_memory_mcp`. Start verifies the read-only smoke contract before marking MCP active; these controls do not claim a separate background daemon is running.
 - Verification: `npm run check:repo-memory-mcp`.
 - Tools: `repo_context_pack`, `repo_symbol_lookup`, and `repo_dependents_of`.
 - Safety: read-only tools, secret-like paths excluded, generated/vendor paths skipped, and pack output bounded by Repo Intelligence budgets.
@@ -19,8 +19,8 @@ Recommended agent flow:
 
 1. Index or refresh the repo in Mac AI Switchboard.
 2. Install Repo Memory MCP from the Mode Inspector if it is not configured.
-3. Start Repo Memory MCP from the Mode Inspector when the agent session should be allowed to consume app-managed repo context.
-4. Run `npm run check:repo-memory-mcp` to verify the read-only tool contract.
+3. Start Repo Memory MCP from the Mode Inspector when the agent session should be allowed to consume app-managed repo context; the app runs the same read-only smoke before marking it active.
+4. Run `npm run check:repo-memory-mcp` manually when you want an extra terminal proof of the read-only tool contract.
 5. Ask the agent to request a bounded context pack with `repo_context_pack`.
 6. Use `repo_symbol_lookup` or `repo_dependents_of` only for targeted follow-up.
 7. Stop Repo Memory MCP from the Mode Inspector when the app session should no longer advertise active MCP context.
