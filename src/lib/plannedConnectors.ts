@@ -247,7 +247,7 @@ export const plannedConnectors: PlannedConnector[] = [
     capabilityBadges: [
       "App detection",
       "Guided setup",
-      "Settings backup pending",
+      "Settings discovery",
     ],
     supportedModes: ["Repo packs", "Guided setup", "Off"],
     safeToday:
@@ -268,9 +268,9 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Settings adapter",
-        state: "Planned",
+        state: "Available now",
         detail:
-          "Automatic edits wait for profile-aware backups and restore tests.",
+          "Settings file discovery is available; writes still wait for parse, backup, restore, and Off cleanup tests.",
       },
     ],
     configSurfaces: ["Cursor app bundle", "user settings", "profile settings"],
@@ -625,7 +625,7 @@ export const plannedConnectors: PlannedConnector[] = [
     safeToday:
       "Open Windsurf paste Repo Intelligence handoff packs into assistant manually.",
     firstAutomation:
-      "Add settings discovery dry-run profile-aware backup before any provider edits.",
+      "Use detected settings files to build a dry-run diff before any provider edits.",
     capabilityRows: [
       {
         label: "App detection",
@@ -640,9 +640,9 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Settings adapter",
-        state: "Planned",
+        state: "Available now",
         detail:
-          "Automatic edits wait settings backup restore Off mode cleanup.",
+          "Settings file discovery is available; writes still wait for parse, backup, restore, and Off mode cleanup.",
       },
     ],
     configSurfaces: [

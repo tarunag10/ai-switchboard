@@ -91,6 +91,7 @@ Current checkpoint: Start Agent Session, managed sidecar connector coverage, Gem
 - Doctor now reports `repo_memory_mcp_not_configured` as an automatic repair and routes the repair through the same app-managed `install_repo_memory_mcp` command, including Repair all.
 - Doctor timeline copy now includes Repo Memory MCP lifecycle evidence: `install_repo_memory_mcp`, `npm run check:repo-memory-mcp`, read-only tool names, and the secret-like path exclusion boundary.
 - Repo Memory MCP docs now explain supported-agent consumption, MCP-aware connector boundaries, smoke verification, and troubleshooting.
+- Cursor and Windsurf now surface existing editor settings files as detection evidence, while native provider writes remain blocked until settings parse, dry-run diff, backup, verification, rollback, and Off cleanup are promoted.
 - Release readiness dashboard slices already shipped report loading and copyable report snapshots; continue shipping the remaining roadmap slice by slice with a commit and push after each validated slice.
 
 ## Product Goals

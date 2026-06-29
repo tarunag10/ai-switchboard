@@ -5093,6 +5093,7 @@ fn detect_cursor_client() -> ClientStatus {
         .filter(|path| path.exists())
         .cloned()
         .collect::<Vec<_>>();
+    let settings_files = discover_editor_settings_files(&profile_surfaces);
     let installed = app_path.exists() || command_path.is_some() || !profile_surfaces.is_empty();
     let mut notes = if installed {
         let mut evidence = Vec::new();
@@ -5113,8 +5114,20 @@ fn detect_cursor_client() -> ClientStatus {
                     .join(", ")
             ));
         }
+        if settings_files.is_empty() {
+            evidence.push("Cursor settings files: none detected yet.".into());
+        } else {
+            evidence.push(format!(
+                "Cursor settings files: {}",
+                settings_files
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
         evidence.push(
-            "Settings routing blocked until active profile detection, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+            "Settings routing blocked until profile settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
                 .into(),
         );
         evidence
@@ -5416,6 +5429,7 @@ fn detect_windsurf_client() -> ClientStatus {
         .filter(|path| path.exists())
         .cloned()
         .collect::<Vec<_>>();
+    let settings_files = discover_editor_settings_files(&settings_surfaces);
     let installed = app_path.exists() || command_path.is_some() || !settings_surfaces.is_empty();
     let mut notes = if installed {
         let mut evidence = Vec::new();
@@ -5436,8 +5450,20 @@ fn detect_windsurf_client() -> ClientStatus {
                     .join(", ")
             ));
         }
+        if settings_files.is_empty() {
+            evidence.push("Windsurf settings files: none detected yet.".into());
+        } else {
+            evidence.push(format!(
+                "Windsurf settings files: {}",
+                settings_files
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
         evidence.push(
-            "Settings routing blocked until profile-aware discovery, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+            "Settings routing blocked until settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
                 .into(),
         );
         evidence
@@ -5607,6 +5633,29 @@ pub(crate) fn detect_codex_cli() -> Option<PathBuf> {
 /// `codex exec` analysis backend.
 pub(crate) fn codex_logged_in() -> bool {
     codex_home().join("auth.json").is_file()
+}
+
+fn discover_editor_settings_files(profile_roots: &[PathBuf]) -> Vec<PathBuf> {
+    let relative_candidates = [
+        PathBuf::from("User").join("settings.json"),
+        PathBuf::from("User").join("settings.jsonc"),
+        PathBuf::from("settings.json"),
+        PathBuf::from("settings.jsonc"),
+        PathBuf::from("profiles").join("User").join("settings.json"),
+        PathBuf::from("profiles")
+            .join("User")
+            .join("settings.jsonc"),
+    ];
+    let mut candidates = Vec::new();
+    for root in profile_roots {
+        for relative in &relative_candidates {
+            let path = root.join(relative);
+            if path.is_file() {
+                candidates.push(path);
+            }
+        }
+    }
+    dedupe_paths(candidates)
 }
 
 fn parse_json_object(raw: &str, path: &Path) -> Result<serde_json::Map<String, Value>> {
@@ -5798,6 +5847,30 @@ mod tests {
     }
 
     #[test]
+    fn editor_settings_discovery_finds_user_settings_without_writing() {
+        let root = unique_temp_dir("editor-settings-discovery");
+        let cursor_root = root.join("Cursor");
+        let windsurf_root = root.join("Windsurf");
+        fs::create_dir_all(cursor_root.join("User")).expect("create cursor user");
+        fs::create_dir_all(windsurf_root.join("profiles").join("User"))
+            .expect("create windsurf profile");
+        let cursor_settings = cursor_root.join("User").join("settings.json");
+        let windsurf_settings = windsurf_root
+            .join("profiles")
+            .join("User")
+            .join("settings.jsonc");
+        fs::write(&cursor_settings, "{}").expect("write cursor settings");
+        fs::write(&windsurf_settings, "{}").expect("write windsurf settings");
+
+        let discovered =
+            super::discover_editor_settings_files(&[cursor_root.clone(), windsurf_root.clone()]);
+
+        assert!(discovered.contains(&cursor_settings));
+        assert!(discovered.contains(&windsurf_settings));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn planned_connectors_are_detected_but_not_enabled_or_verified() {
         let detected_clients = vec![
         ClientStatus {
@@ -5848,7 +5921,7 @@ mod tests {
                 notes: vec![
                     "Cursor app: /Applications/Cursor.app".into(),
                     "Cursor profile settings: /Users/test/Library/Application Support/Cursor".into(),
-                    "Settings routing blocked until active profile detection, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                    "Settings routing blocked until profile settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
                 ],
             },
             ClientStatus {
@@ -5925,7 +5998,7 @@ mod tests {
                     "Windsurf app: /Applications/Windsurf.app".into(),
                     "Windsurf settings: /Users/test/Library/Application Support/Windsurf"
                         .into(),
-                    "Settings routing blocked until profile-aware discovery, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                    "Settings routing blocked until settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
                 ],
             },
             ClientStatus {
@@ -6124,7 +6197,7 @@ mod tests {
                     .detection_evidence
                     .contains(&"Cursor app: /Applications/Cursor.app".to_string())
                 && connector.detection_evidence.contains(
-                    &"Settings routing blocked until active profile detection, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                    &"Settings routing blocked until profile settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
                         .to_string()
                 )
         }));
@@ -6192,7 +6265,7 @@ mod tests {
                     .detection_evidence
                     .contains(&"Windsurf app: /Applications/Windsurf.app".to_string())
                 && connector.detection_evidence.contains(
-                    &"Settings routing blocked until profile-aware discovery, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                    &"Settings routing blocked until settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
                         .to_string()
                 )
         }));
