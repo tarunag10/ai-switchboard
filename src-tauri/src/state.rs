@@ -24,11 +24,11 @@ use crate::insights::generate_daily_insights;
 use crate::models::{
     ActivityEvent, BootstrapProgress, ClaudeAccountProfile, ClaudeCodeProject, ClientStatus,
     CodexAccountProfile, CodexRateLimitSnapshot, DailyInsight, DailySavingsPoint, DashboardState,
-    HeadroomLearnPrereqStatus, HeadroomLearnStatus, HourlySavingsPoint, LaunchExperience,
-    RtkRuntimeStatus, RuntimeStatus, RuntimeUpgradeFailure, RuntimeUpgradeProgress,
-    SavingsAttributionConfidence, SavingsAttributionEvent, SavingsAttributionScope,
-    SavingsAttributionSource, SwitchboardMode, TransformationFeedEvent, UpgradeFailurePhase,
-    UsageEvent,
+    HeadroomLearnPrereqStatus, HeadroomLearnStatus, HourlySavingsPoint, LaunchAgentRuntimeStatus,
+    LaunchExperience, RtkRuntimeStatus, RuntimeStatus, RuntimeUpgradeFailure,
+    RuntimeUpgradeProgress, SavingsAttributionConfidence, SavingsAttributionEvent,
+    SavingsAttributionScope, SavingsAttributionSource, SwitchboardMode, TransformationFeedEvent,
+    UpgradeFailurePhase, UsageEvent,
 };
 use crate::pricing;
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs, telemetry_file};
@@ -2930,6 +2930,7 @@ impl AppState {
                 None
             }
         };
+        let launch_agent_status = launch_agent_runtime_status();
 
         let effective_running = installed && !paused && proxy_reachable;
 
@@ -2959,6 +2960,7 @@ impl AppState {
                 "Intercept binds only to 127.0.0.1 and rejects browser Origin/non-loopback Host requests; managed clients do not yet support a shared per-session auth header."
                     .to_string(),
             headroom_pid,
+            launch_agent_status,
             mcp_configured,
             mcp_error,
             repo_memory_mcp_configured,
@@ -3399,6 +3401,19 @@ fn user_home_dir() -> PathBuf {
     dirs::home_dir()
         .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
         .unwrap_or_else(std::env::temp_dir)
+}
+
+fn launch_agent_runtime_status() -> LaunchAgentRuntimeStatus {
+    const APP_BUNDLE_ID: &str = "com.tarunagarwal.mac-ai-switchboard";
+    let launch_agents_dir = user_home_dir().join("Library").join("LaunchAgents");
+    let managed_path = launch_agents_dir.join(format!("{APP_BUNDLE_ID}.plist"));
+    let legacy_path = launch_agents_dir.join("Headroom.plist");
+    LaunchAgentRuntimeStatus {
+        installed: managed_path.exists(),
+        path: Some(managed_path.display().to_string()),
+        legacy_installed: legacy_path.exists(),
+        legacy_path: Some(legacy_path.display().to_string()),
+    }
 }
 
 fn claude_projects_dir() -> PathBuf {

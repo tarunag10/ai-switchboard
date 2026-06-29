@@ -941,6 +941,7 @@ pub struct RuntimeStatus {
     pub proxy_auth_status: String,
     pub proxy_auth_detail: String,
     pub headroom_pid: Option<u32>,
+    pub launch_agent_status: LaunchAgentRuntimeStatus,
     pub mcp_configured: Option<bool>,
     pub mcp_error: Option<String>,
     pub repo_memory_mcp_configured: Option<bool>,
@@ -957,6 +958,15 @@ pub struct RuntimeStatus {
     pub startup_error_hint: Option<String>,
     pub runtime_upgrade_failure: Option<RuntimeUpgradeFailure>,
     pub rtk: RtkRuntimeStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchAgentRuntimeStatus {
+    pub installed: bool,
+    pub path: Option<String>,
+    pub legacy_installed: bool,
+    pub legacy_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

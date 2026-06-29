@@ -7466,6 +7466,15 @@ export default function App() {
     lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
     supervisionStatus: runtimeStatus?.repoMemoryMcpSupervisionStatus,
   });
+  const launchAgentStatus = runtimeStatus?.launchAgentStatus ?? null;
+  const launchAgentInstalled = launchAgentStatus?.installed === true;
+  const legacyLaunchAgentInstalled =
+    launchAgentStatus?.legacyInstalled === true;
+  const launchAgentDetail = legacyLaunchAgentInstalled
+    ? `Legacy Headroom.plist exists at ${launchAgentStatus?.legacyPath ?? "~/Library/LaunchAgents/Headroom.plist"}. Run Doctor cleanup or uninstall to remove it.`
+    : launchAgentInstalled
+      ? `Launch at login plist exists at ${launchAgentStatus?.path ?? "~/Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist"}.`
+      : "No app-managed launch-at-login plist found.";
   const switchboardRoutingConnectors =
     switchboardState?.clients ?? switchboardConnectors;
   const codexRoutingConnector = switchboardRoutingConnectors.find(
@@ -7540,11 +7549,13 @@ export default function App() {
             : () => void prepareRepoMemoryMcp(),
     },
     {
-      label: "LaunchAgent",
-      status: runtimeStatus?.running ? "Running" : "Stopped",
-      detail: runtimeStatus?.headroomPid
-        ? `Headroom PID ${runtimeStatus.headroomPid}`
-        : "No Headroom process id reported.",
+      label: "Launch at login",
+      status: legacyLaunchAgentInstalled
+        ? "Legacy found"
+        : launchAgentInstalled
+          ? "Installed"
+          : "Not installed",
+      detail: launchAgentDetail,
     },
   ];
   const switchboardLocalOnly = switchboardState?.localOnly ?? localOnlyMode;

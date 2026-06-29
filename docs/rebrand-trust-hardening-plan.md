@@ -90,7 +90,7 @@ Tasks:
   - no `127.0.0.1:6767` listener
   - no `127.0.0.1:8787` listener
   - no Headroom MCP config in Codex
-  - no Headroom LaunchAgent loaded
+  - no app-managed or legacy Headroom LaunchAgent plist present; launchd load-state proof remains separate
   - no managed client routing blocks
 - Add a one-click "Verify Off mode" action in Doctor: shipped.
 - Ensure repair actions cannot silently re-enable Headroom while desired mode is Off or RTK-only: shipped for Headroom-restoring Doctor actions.

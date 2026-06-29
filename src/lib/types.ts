@@ -381,6 +381,12 @@ export interface RuntimeStatus {
   proxyAuthStatus?: string | null;
   proxyAuthDetail?: string | null;
   headroomPid?: number | null;
+  launchAgentStatus?: {
+    installed: boolean;
+    path?: string | null;
+    legacyInstalled: boolean;
+    legacyPath?: string | null;
+  } | null;
   mcpConfigured?: boolean | null;
   mcpError?: string | null;
   repoMemoryMcpConfigured?: boolean | null;

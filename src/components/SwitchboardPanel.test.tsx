@@ -47,9 +47,10 @@ function renderPanel(
           "Repo Memory MCP is app-managed, read-only, and available to supported agents.",
       },
       {
-        label: "LaunchAgent",
-        status: "Running",
-        detail: "Headroom PID 1234",
+        label: "Launch at login",
+        status: "Installed",
+        detail:
+          "Launch at login plist exists at ~/Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist.",
       },
     ],
     remoteServicesEnabled: false,
@@ -89,7 +90,7 @@ describe("SwitchboardPanel", () => {
     expect(inspector.getByText("Client routing")).toBeInTheDocument();
     expect(inspector.getByText("Shell export")).toBeInTheDocument();
     expect(inspector.getByText("Repo Memory MCP")).toBeInTheDocument();
-    expect(inspector.getByText("LaunchAgent")).toBeInTheDocument();
+    expect(inspector.getByText("Launch at login")).toBeInTheDocument();
     expect(screen.getAllByText("Codex, Claude Code").length).toBeGreaterThan(0);
     expect(screen.getAllByText("82.5% average savings").length).toBeGreaterThan(
       0,
@@ -102,7 +103,11 @@ describe("SwitchboardPanel", () => {
         "Repo Memory MCP is app-managed, read-only, and available to supported agents.",
       ),
     ).toBeInTheDocument();
-    expect(inspector.getByText("Headroom PID 1234")).toBeInTheDocument();
+    expect(
+      inspector.getByText(
+        "Launch at login plist exists at ~/Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist.",
+      ),
+    ).toBeInTheDocument();
     expect(
       inspector.getByText("Codex is routed through Headroom and verified."),
     ).toBeInTheDocument();

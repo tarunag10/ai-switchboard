@@ -3136,6 +3136,12 @@ mod doctor_tests {
             proxy_auth_status: "loopback_validated_unauthenticated".to_string(),
             proxy_auth_detail: "Loopback-only test fixture.".to_string(),
             headroom_pid: if running { Some(42) } else { None },
+            launch_agent_status: crate::models::LaunchAgentRuntimeStatus {
+                installed: false,
+                path: None,
+                legacy_installed: false,
+                legacy_path: None,
+            },
             mcp_configured: None,
             mcp_error: None,
             repo_memory_mcp_configured: None,
