@@ -4,6 +4,33 @@ This plan expands the rebrand and trust-hardening work into a broader product ro
 
 Mac AI Switchboard should stay local-first. The app can route Claude, Codex, and future agent traffic to remote model providers when the user chooses those tools, but switchboard state, config edits, Doctor checks, savings attribution, repo context packs, and add-on health should remain inspectable on the user's Mac.
 
+## Current Checkpoint - 2026-06-29
+
+Recent verified build: `/Applications/Mac AI Switchboard.app` was rebuilt and locally reinstalled from `tarun/local-switchboard` at commit `0a96d26 Guard bootstrap in off mode`. Local installed smoke and codesign verification passed for the ad-hoc app. Public release readiness is still blocked by signing, notarization, updater, and public installed-smoke evidence.
+
+Shipped:
+
+- Off and RTK-only modes now gate launch warmup, threaded bootstrap, and legacy synchronous bootstrap so optimization does not silently restart after the user turns it off.
+- Doctor already reports Off-mode violations when Headroom, managed client routing, or RTK remain active against a requested Off mode.
+- Managed connector sidecar coverage exists for Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed.
+- Gemini has managed shell base-url routing. OpenCode has the first promoted provider-config write path with preview, exact confirmation, backup, apply, verify, and rollback coverage.
+- Cursor and Windsurf now surface detected editor settings files as evidence while native writes remain blocked.
+- Repo Intelligence Start Agent Session, read-only packs, handoffs, CLI exports, and repo-memory MCP smoke transport are usable.
+- Savings ledger rows now distinguish measured, estimated, and inferred events across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese.
+- Rollback Center has guarded preview/execution for ready allowlisted rows, including Codex/OpenCode restore paths and managed sidecar cleanup.
+- Remote destination registry, support-link routing, external-link SSRF guards, local-only backend refusal for account/billing/contact commands, branding iconset provenance, local DMG build, and local installed smoke evidence are shipped.
+
+Left:
+
+- Finish app-owned Privacy Notice and Settings Legal surfaces; Terms are bundled, but the full privacy/legal panel and version policy still need completion.
+- Complete the Mode Inspector as a user-facing proof surface for every listener, hook, MCP, shell block, provider block, LaunchAgent, and stale-shell caveat.
+- Add installed-app/relaunch/reboot smoke evidence for Off mode, RTK-only mode, Doctor repair guards, and Rollback Center survival.
+- Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
+- Turn repo-memory MCP into a real app-supervised long-running local service instead of only persisted app-session state plus smoke-tested stdio transport.
+- Replace inferred Ponytail, Caveman, Compact Chinese, MarkItDown, and some Repo Intelligence savings rows with stronger measured counters where trustworthy evidence exists.
+- Deepen Repo Intelligence with tree-sitter or language-aware parser/index versions, imports, reverse dependencies, graph-aware packs, and richer Doctor health checks.
+- Complete public release readiness with signed/notarized DMG, updater artifacts, public installed-smoke proof, uninstall evidence, and release-panel wiring.
+
 ## Product Principles
 
 - Off means off: no local proxy listener, no client routing, no MCP restore, no LaunchAgent, and no hidden repair that re-enables routing.
@@ -18,40 +45,41 @@ Mac AI Switchboard should stay local-first. The app can route Claude, Codex, and
 
 ### Trust and Identity
 
-- Some docs and runtime surfaces still mix app identity with Headroom engine terminology.
-- Terms are bundled, but Privacy Notice and legal review surfaces are not yet fully app-owned.
-- Upstream account, pricing, legal, support, telemetry, and update assumptions need a deliberate keep, replace, or remove decision.
-- Generated logo provenance and branding guardrails should be documented so inherited assets do not reappear.
+- Some runtime/file-path surfaces still use compatibility Headroom naming where migration would risk user state; visible app identity should continue moving to Mac AI Switchboard while keeping "Headroom engine" for the optimizer.
+- Terms are bundled, but Privacy Notice, Settings Legal, and terms-version policy are not yet fully app-owned.
+- Upstream account, pricing, telemetry, and update assumptions need a deliberate keep, replace, or remove decision before public release. Support actions now route to this repository's GitHub Issues.
+- Generated logo provenance and branding guardrails are partly shipped; keep them enforced as release assets and screenshots change.
 
 ### Mode Safety
 
-- Off mode and RTK-only mode are high-trust controls. They need regression tests across launch, bootstrap, repair, relaunch, reboot, and uninstall paths.
-- Doctor needs a mode inspector that proves what is active instead of only describing desired state.
+- Off mode and RTK-only mode now gate launch and bootstrap startup paths, including the legacy synchronous bootstrap command.
+- Remaining mode-safety work is installed-app/relaunch/reboot evidence, stronger Doctor repair guards, LaunchAgent/MCP/listener proof, and stale-shell detection/copy.
+- Doctor still needs a complete Mode Inspector that proves what is active instead of only describing desired state.
 - Already-running shells can retain old environment variables; the app should explain this clearly and detect likely stale shells where possible.
 
 ### Privacy and Network Boundaries
 
-- Remote destinations need a complete inventory and allowlist.
-- Local-only mode needs tests that reject unexpected network calls.
+- Remote destinations are inventoried in `docs/remote-destinations.md` and guarded by governance/deployment checks; keep the registry current as release, update, telemetry, account, and provider surfaces change.
+- Local-only backend guards reject account, billing, and contact entrypoints before auth or HTTP setup; broader unexpected-network tests still need completion.
 - Account/pricing screens should not imply Mac AI Switchboard owns upstream services unless those services have been replaced or intentionally adopted.
 - Keychain service names and storage paths still use compatibility names; renaming them without migration risks losing user state.
 
 ### Release and Installation
 
 - Public release readiness requires signed/notarized DMGs, updater keys, installed-app smoke evidence, and uninstall evidence.
-- Local ad-hoc install success is useful but does not prove public release readiness.
+- Local ad-hoc build/install and local installed-smoke evidence are shipped and useful, but they do not prove public release readiness.
 - Uninstall copy and Doctor cleanup must match the actual filesystem, Keychain, LaunchAgent, shell, Claude, and Codex footprint.
 
 ### Observability and Savings Accuracy
 
-- RTK currently reports global and project savings, but not a clean app-facing "this session" ledger.
-- Savings should be attributed separately to Headroom engine, RTK, Repo Intelligence, MarkItDown, and other add-ons.
-- Users need to know whether savings are measured, estimated, or inferred.
+- A session savings ledger exists and labels rows as measured, estimated, or inferred.
+- Headroom and RTK measured events are the strongest evidence today; Repo Intelligence has estimated best-pack events; MarkItDown, Ponytail, Caveman, and Compact Chinese still rely mostly on inferred template events.
+- Remaining work is to make add-on counters more exact and to explain current session, repo, today, and all-time scopes without mixing them.
 
 ### Connector Expansion Risk
 
 - Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI now have managed sidecar lifecycle coverage.
-- The remaining connector risk is provider-specific native config mutation: each connector has different config files, provider semantics, account models, credential surfaces, and rollback behavior.
+- The remaining connector risk is provider-specific native config mutation: Gemini and OpenCode are furthest along, while Cursor/Windsurf/Zed/Continue/Goose/Aider/Grok/Qwen/Amazon Q still need connector-specific safe writes.
 - Native config automation should stay gated behind detection, manual-safe instructions, dry-run diffs, backups, Doctor verification, Off-mode cleanup, and fixture-home restore tests.
 
 ## Roadmap Phases
@@ -84,13 +112,15 @@ Suggested commit:
 
 Goal: make switchboard modes provable instead of merely selectable.
 
+Status: partially shipped. Off/RTK-only launch and bootstrap guards are in place, and Doctor can flag active routing evidence while Off is requested. The remaining work is the full proof surface, repair blocking, and installed-app persistence evidence.
+
 Tasks:
 
 - Add backend checks for listeners on `127.0.0.1:6767`, `127.0.0.1:8787`, managed shell blocks, Claude hooks, Codex provider blocks, MCP config, and LaunchAgents.
 - Add a Doctor "Verify Off mode" action.
 - Add a Mode Inspector panel showing requested mode, active mode, Headroom engine status, RTK hook status, Claude routing, Codex routing, Repo Memory MCP lifecycle state, shell export state, and LaunchAgent state.
 - Block repair actions from silently restoring Headroom routing when requested mode is Off or RTK-only.
-- Add launch/bootstrap tests proving Off and RTK-only do not start the Headroom engine.
+- Extend launch/bootstrap tests into installed-app restart, relaunch, reboot, and Doctor-repair smoke evidence.
 - Document stale shell behavior and restart guidance.
 
 Acceptance checks:
@@ -133,13 +163,15 @@ Suggested commit:
 
 Goal: give users an exact, scoped answer to "how many tokens or credits did this session save?"
 
+Status: partially shipped. The ledger UI and backend durable events exist with measured, estimated, and inferred confidence labels. The remaining work is stronger live counters and clearer scoped rollups.
+
 Tasks:
 
 - Define savings scopes: current app session, current repo, today, week, month, lifetime.
 - Persist RTK command summaries with timestamps, project path, command family, input tokens, output tokens, saved tokens, and elapsed time.
 - Persist Headroom engine compression events with client, model, request id, before/after tokens, saved tokens, and estimated cost.
-- Add a unified savings ledger that merges Headroom, RTK, Repo Intelligence, MarkItDown, and future add-ons.
-- Label each row as measured, estimated, or inferred.
+- Keep the unified savings ledger accurate across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, Compact Chinese, and future add-ons.
+- Replace inferred add-on rows with measured counters when runtime evidence is trustworthy.
 - Add copy/export actions for a session summary.
 
 Acceptance checks:
@@ -156,6 +188,8 @@ Suggested commit:
 ### Phase 5: Safety Rollback Center
 
 Goal: make every managed config mutation visible and reversible from one place.
+
+Status: partially shipped. Rollback inventory, guarded previews, selected native restore paths, sidecar cleanup, and undo-all orchestration for ready rows exist. The remaining work is broader native restore coverage and installed-app survival evidence.
 
 Tasks:
 
@@ -180,6 +214,8 @@ Suggested commit:
 
 Goal: add new agent connectors safely and repeatedly.
 
+Status: framework shipped; native writes are intentionally gated. Managed sidecar lifecycle, readiness metadata, dry-run previews, handoff dossiers, and release evidence checks exist across the managed connector set. OpenCode is the first promoted provider-config write path; Gemini has managed shell routing.
+
 Tasks:
 
 - Preserve the shipped connector readiness contract with stages: detected, manual guide available, backup implemented, apply implemented, verify implemented, rollback implemented, Off cleanup implemented.
@@ -202,6 +238,8 @@ Suggested commit:
 ### Phase 7: Repo Intelligence v2
 
 Goal: turn Repo Intelligence from bounded packs into a graph-aware local context layer.
+
+Status: v1 is usable. Start Agent Session, CLI handoffs, read-only packs, parser/index health fields, modern JS/TS/Python symbol extraction, and repo-memory MCP smoke transport are shipped. The remaining work is deeper graphing and supervised service behavior.
 
 Tasks:
 
@@ -227,13 +265,15 @@ Suggested commit:
 
 Goal: make the app ready for real testers with app-owned assets and recorded evidence.
 
+Status: local evidence is shipped; public evidence is not. The app has app-owned iconset provenance, branding guards, local unsigned DMG build/install, local installed smoke, and release-readiness reports. The remaining work is signed/notarized public release evidence and uninstall proof.
+
 Tasks:
 
 - Add asset provenance notes for the generated Mac AI Switchboard logo.
 - Add a branding guard script for `logoipsum`, removed upstream logo imports, and stale app-name strings.
 - Audit DMG artwork, screenshots, README images, release notes, and app icons.
-- Build a local DMG, install `/Applications/Mac AI Switchboard.app`, and run installed smoke tests.
-- Save evidence in `dist/local-installed-smoke-summary.md` or a release evidence doc.
+- Keep building local DMGs, installing `/Applications/Mac AI Switchboard.app`, and running installed smoke tests after app-behavior slices.
+- Add signed/notarized public DMG install evidence, updater artifact evidence, and uninstall proof before broad testers.
 - Keep signed/notarized release readiness separate from local ad-hoc success.
 
 Acceptance checks:
@@ -251,13 +291,14 @@ Suggested commit:
 
 ### High Impact
 
-- Session savings ledger with copyable summary.
-- Mode Inspector and Verify Off mode.
-- Rollback Center for managed config edits.
+- Complete Mode Inspector and Verify Off mode proof surface.
+- Legal/Privacy Settings surface and local-only network certification.
+- Connector-native config promotion after safe parse/dry-run/backup/apply/verify/rollback/Off cleanup.
+- Repo Memory MCP long-running app supervision.
+- Public signed/notarized release readiness and uninstall proof.
+- Stronger measured savings counters for inferred add-ons.
 - Local-only certification mode.
-- Connector readiness framework.
 - Repo Intelligence graph packs.
-- Release readiness dashboard.
 
 ### Medium Impact
 
@@ -267,7 +308,7 @@ Suggested commit:
 - Test relationship view in Repo Intelligence.
 - Add-on health cards for RTK, MarkItDown, Ponytail, and Headroom engine.
 - Import/export of app settings without secrets.
-- Doctor evidence copy button for support/debug handoff.
+- Broader Rollback Center native restore coverage beyond Codex/OpenCode/Gemini/sidecar rows.
 
 ### Later
 
@@ -288,13 +329,13 @@ Suggested commit:
 
 ## Recommended Implementation Order
 
-1. Legal and Privacy surfaces.
-2. Mode Inspector and Off-mode regression gates.
-3. Network and local-only audit.
-4. Session savings ledger.
-5. Safety Rollback Center.
-6. Connector readiness framework.
-7. Repo Intelligence v2.
-8. Branding and release evidence.
+1. Legal and Privacy Settings surfaces.
+2. Complete Mode Inspector, Verify Off mode, and installed-app restart/relaunch/reboot smoke evidence.
+3. Public local-only/network certification tests on top of the shipped remote destination registry and backend guards.
+4. Promote the next native connector write path with full parse, dry-run, backup, apply, verify, rollback, Doctor repair, fixture-home restore, and Off cleanup.
+5. Add real repo-memory MCP long-running supervision and connector-specific MCP bridge docs.
+6. Replace inferred add-on savings events with measured counters where possible.
+7. Expand Repo Intelligence graph packs with language-aware parser/index versions, imports, and reverse dependencies.
+8. Finish public signed/notarized release readiness, updater evidence, uninstall proof, and broad tester handoff.
 
 This order front-loads user trust and safety before expanding automation. It also creates the observability needed to tell whether later connector and savings features are actually working.
