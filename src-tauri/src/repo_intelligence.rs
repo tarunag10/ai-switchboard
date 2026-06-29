@@ -1503,6 +1503,7 @@ fn build_repo_graph_summary(repo_root: &Path, files: &[RepoFileSignal]) -> RepoG
     let mut import_edges = build_repo_graph_edges(&included);
     import_edges.extend(build_import_reference_edges(repo_root, &included));
     import_edges.extend(build_package_dependency_edges(repo_root, &included));
+    import_edges.extend(build_package_script_edges(repo_root, &included));
     let symbols = build_repo_symbols(repo_root, &included);
     let mut symbol_edges = build_symbol_edges(&included, &symbols);
     symbol_edges.extend(build_call_reference_edges(repo_root, &included, &symbols));
@@ -2033,6 +2034,62 @@ fn build_package_dependency_edges(
     edges
 }
 
+fn build_package_script_edges(repo_root: &Path, files: &[RepoFileSignal]) -> Vec<RepoGraphEdge> {
+    let Some(package_json) = files.iter().find(|file| file.path == "package.json") else {
+        return Vec::new();
+    };
+    let Ok(package_content) = std::fs::read_to_string(repo_root.join(&package_json.path)) else {
+        return Vec::new();
+    };
+    let scripts = package_scripts(&package_content);
+    if scripts.is_empty() {
+        return Vec::new();
+    }
+
+    let mut edges = Vec::new();
+    for (script_name, command) in &scripts {
+        for specifier in shell_script_specifiers(command) {
+            let Some(target) = resolve_import_specifier(&package_json.path, &specifier, files)
+            else {
+                continue;
+            };
+            let display_specifier = specifier.strip_prefix("repo:").unwrap_or(&specifier);
+            push_unbounded_graph_edge(
+                &mut edges,
+                RepoGraphEdge {
+                    from: package_json.path.clone(),
+                    to: target.path.clone(),
+                    kind: RepoGraphEdgeKind::ImportReference,
+                    reason: format!("package script {script_name} invokes {display_specifier}"),
+                },
+                80,
+            );
+            if edges.len() >= 80 {
+                return edges;
+            }
+        }
+        for invoked_script in package_run_specifiers(command) {
+            if !scripts.contains_key(&invoked_script) {
+                continue;
+            }
+            push_unbounded_graph_edge(
+                &mut edges,
+                RepoGraphEdge {
+                    from: package_json.path.clone(),
+                    to: format!("{}#script:{invoked_script}", package_json.path),
+                    kind: RepoGraphEdgeKind::ImportReference,
+                    reason: format!("package script {script_name} runs script {invoked_script}"),
+                },
+                80,
+            );
+            if edges.len() >= 80 {
+                return edges;
+            }
+        }
+    }
+    edges
+}
+
 fn package_dependency_names(package_json: &str) -> BTreeSet<String> {
     let Ok(parsed) = serde_json::from_str::<serde_json::Value>(package_json) else {
         return BTreeSet::new();
@@ -2047,6 +2104,48 @@ fn package_dependency_names(package_json: &str) -> BTreeSet<String> {
     .filter_map(|key| parsed.get(key)?.as_object())
     .flat_map(|deps| deps.keys().cloned())
     .collect()
+}
+
+fn package_scripts(package_json: &str) -> BTreeMap<String, String> {
+    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(package_json) else {
+        return BTreeMap::new();
+    };
+    parsed
+        .get("scripts")
+        .and_then(|scripts| scripts.as_object())
+        .map(|scripts| {
+            scripts
+                .iter()
+                .filter_map(|(name, command)| {
+                    command
+                        .as_str()
+                        .map(|command| (name.clone(), command.to_string()))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn package_run_specifiers(command: &str) -> Vec<String> {
+    let mut scripts = BTreeSet::new();
+    let tokens = command
+        .split([' ', '\t', ';', '&', '|', '(', ')'])
+        .map(|token| token.trim_matches(['"', '\'']))
+        .filter(|token| !token.is_empty())
+        .collect::<Vec<_>>();
+    for window in tokens.windows(3) {
+        if matches!(window[0], "npm" | "pnpm" | "yarn" | "bun") && window[1] == "run" {
+            scripts.insert(window[2].to_string());
+        }
+    }
+    for window in tokens.windows(2) {
+        if matches!(window[0], "npm" | "pnpm" | "yarn" | "bun")
+            && !matches!(window[1], "run" | "exec" | "x" | "dlx" | "install")
+        {
+            scripts.insert(window[1].to_string());
+        }
+    }
+    scripts.into_iter().collect()
 }
 
 fn package_name_from_specifier(specifier: &str) -> Option<String> {
@@ -2928,7 +3027,7 @@ export const mapValues = <T>(items: T[]) => items;
             .expect("write helper");
         std::fs::write(
             root.path().join("package.json"),
-            r#"{"dependencies":{"react":"18.3.1"}}"#,
+            r#"{"scripts":{"build":"vite build && bash scripts/release.sh","smoke":"npm run build && scripts/smoke.sh"},"dependencies":{"react":"18.3.1"}}"#,
         )
         .expect("write package json");
         std::fs::write(
@@ -3053,6 +3152,24 @@ export const mapValues = <T>(items: T[]) => items;
                 && edge.to == "scripts/smoke.sh"
                 && edge.kind == RepoGraphEdgeKind::ImportReference
                 && edge.reason == "script invokes scripts/smoke.sh"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "package.json"
+                && edge.to == "scripts/release.sh"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "package script build invokes scripts/release.sh"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "package.json"
+                && edge.to == "scripts/smoke.sh"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "package script smoke invokes scripts/smoke.sh"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "package.json"
+                && edge.to == "package.json#script:build"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "package script smoke runs script build"
         }));
         assert!(graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/App.tsx"

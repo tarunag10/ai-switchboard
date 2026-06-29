@@ -2277,6 +2277,7 @@ function buildRepoGraphSummary(
     ...buildRepoGraphEdges(included),
     ...buildImportReferenceEdges(included, contentByPath),
     ...buildPackageDependencyEdges(included, contentByPath),
+    ...buildPackageScriptEdges(included, contentByPath),
   ];
   const symbols = buildRepoSymbols(included, contentByPath);
   const symbolEdges = [
@@ -2572,6 +2573,50 @@ function buildPackageDependencyEdges(
   return edges;
 }
 
+function buildPackageScriptEdges(
+  files: RepoFileSignal[],
+  contentByPath: Map<string, string>,
+): RepoGraphEdge[] {
+  const packageJson = files.find((file) => file.path === "package.json");
+  const packageContent = contentByPath.get("package.json");
+  if (!packageJson || !packageContent) return [];
+  const scripts = packageScripts(packageContent);
+  if (scripts.size === 0) return [];
+  const byPath = new Map(files.map((file) => [file.path, file]));
+  const edges: RepoGraphEdge[] = [];
+  for (const [scriptName, command] of scripts) {
+    for (const specifier of extractShellScriptSpecifiers(command)) {
+      const target = resolveImportSpecifier(
+        packageJson.path,
+        specifier,
+        byPath,
+      );
+      if (!target) continue;
+      const displaySpecifier = specifier.startsWith("repo:")
+        ? specifier.slice("repo:".length)
+        : specifier;
+      pushUniqueGraphEdge(edges, {
+        from: packageJson.path,
+        to: target.path,
+        kind: "import_reference",
+        reason: `package script ${scriptName} invokes ${displaySpecifier}`,
+      });
+      if (edges.length >= 80) return edges;
+    }
+    for (const invokedScript of extractPackageRunSpecifiers(command)) {
+      if (!scripts.has(invokedScript)) continue;
+      pushUniqueGraphEdge(edges, {
+        from: packageJson.path,
+        to: `${packageJson.path}#script:${invokedScript}`,
+        kind: "import_reference",
+        reason: `package script ${scriptName} runs script ${invokedScript}`,
+      });
+      if (edges.length >= 80) return edges;
+    }
+  }
+  return edges;
+}
+
 function packageDependencyNames(packageJson: string): Set<string> {
   try {
     const parsed = JSON.parse(packageJson) as Record<string, unknown>;
@@ -2588,6 +2633,33 @@ function packageDependencyNames(packageJson: string): Set<string> {
   } catch {
     return new Set();
   }
+}
+
+function packageScripts(packageJson: string): Map<string, string> {
+  try {
+    const parsed = JSON.parse(packageJson) as Record<string, unknown>;
+    const scripts = parsed.scripts as Record<string, unknown> | undefined;
+    return new Map(
+      Object.entries(scripts ?? {}).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+  } catch {
+    return new Map();
+  }
+}
+
+function extractPackageRunSpecifiers(command: string): string[] {
+  const scripts = new Set<string>();
+  const pattern = /\b(?:npm|pnpm|yarn|bun)\s+(?:run\s+)?([A-Za-z0-9:_-]+)/g;
+  for (const match of command.matchAll(pattern)) {
+    const scriptName = match[1];
+    if (!scriptName || ["run", "exec", "x", "dlx", "install"].includes(scriptName)) {
+      continue;
+    }
+    scripts.add(scriptName);
+  }
+  return [...scripts];
 }
 
 function packageNameFromSpecifier(specifier: string): string | null {

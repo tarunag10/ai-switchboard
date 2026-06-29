@@ -53,7 +53,7 @@ Shipped:
 - The in-app Run local evidence action now finishes by regenerating the release readiness report, so one click produces fresh local validation summaries and a fresh report snapshot without running signing, notarization, updater publication, or the strict public-release gate.
 - Local uninstall validation now writes durable non-destructive dry-run evidence from frontend disclosure and backend target-inventory checks, and the release readiness report ingests it alongside Doctor and Rollback local evidence.
 - Local Repo Intelligence validation now writes durable read-only evidence for pack generation, backend read-only API payloads, and repo-memory MCP smoke access, and the release readiness report ingests it as local-only proof.
-- Repo Intelligence now aligns the frontend preview, CLI/MCP script, and Tauri backend on Swift source classification/symbol extraction and Rust module/import-reference edges, so one-click packs cover more macOS app code without broad file dumps.
+- Repo Intelligence now aligns the frontend preview, CLI/MCP script, and Tauri backend on Swift source classification/symbol extraction, Rust module/import-reference edges, and `package.json` script graph edges, so one-click packs cover more macOS app and build/release workflow code without broad file dumps.
 - Doctor now treats corrupt Repo Intelligence saved summaries as one-click Clear index repairs, with backend proof that only Switchboard managed index metadata is removed before re-indexing.
 - Doctor now surfaces Repo Memory MCP smoke-failed, stale-config, and unverified-active supervision states as Prepare MCP repairs, so unsafe MCP handoffs are visible instead of relying on configured-state alone.
 
@@ -274,7 +274,7 @@ Suggested commit:
 
 Goal: turn Repo Intelligence from bounded packs into a graph-aware local context layer.
 
-Status: v1 is usable. Start Agent Session, CLI handoffs, read-only packs, parser/index health fields, corrupt saved-index Doctor cleanup, modern JS/TS/Python/Rust/Swift symbol extraction, Rust module/import-reference edges, and repo-memory MCP smoke transport are shipped. The remaining work is deeper graphing and supervised service behavior.
+Status: v1 is usable. Start Agent Session, CLI handoffs, read-only packs, parser/index health fields, corrupt saved-index Doctor cleanup, modern JS/TS/Python/Rust/Swift symbol extraction, Rust module/import-reference edges, `package.json` script graphing, and repo-memory MCP smoke transport are shipped. The remaining work is deeper graphing and supervised service behavior.
 
 Tasks:
 

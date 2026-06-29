@@ -384,7 +384,8 @@ describe("repoIntelligence", () => {
       {
         path: "package.json",
         bytes: 800,
-        content: '{"dependencies":{"react":"18.3.1"}}',
+        content:
+          '{"scripts":{"build":"vite build && bash scripts/release.sh","smoke":"npm run build && scripts/smoke.sh"},"dependencies":{"react":"18.3.1"}}',
       },
       { path: "package-lock.json", bytes: 1600 },
       { path: ".env.local", bytes: 200 },
@@ -445,6 +446,24 @@ describe("repoIntelligence", () => {
           to: "scripts/smoke.sh",
           kind: "import_reference",
           reason: "script invokes scripts/smoke.sh",
+        }),
+        expect.objectContaining({
+          from: "package.json",
+          to: "scripts/release.sh",
+          kind: "import_reference",
+          reason: "package script build invokes scripts/release.sh",
+        }),
+        expect.objectContaining({
+          from: "package.json",
+          to: "scripts/smoke.sh",
+          kind: "import_reference",
+          reason: "package script smoke invokes scripts/smoke.sh",
+        }),
+        expect.objectContaining({
+          from: "package.json",
+          to: "package.json#script:build",
+          kind: "import_reference",
+          reason: "package script smoke runs script build",
         }),
         expect.objectContaining({
           from: "src/worker.py",
