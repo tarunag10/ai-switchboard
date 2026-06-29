@@ -8149,6 +8149,13 @@ export default function App() {
               <p className="optimize-card__blurb">{learnBlurb}</p>
             </header>
             <div className="optimize-card__body">
+              <div className="optimize-learn-setup" role="note">
+                <strong>Where this lives</strong>
+                <span>
+                  Enable Claude Code or Codex in Addons, then return here and
+                  run a visible scan button for the project or session history.
+                </span>
+              </div>
               {!headroomLearnSupported ? (
                 <div className="optimize-minimal">
                   <p className="optimize-minimal__meta">
@@ -8160,10 +8167,20 @@ export default function App() {
                   </p>
                 </div>
               ) : !claudeLearnEnabled && !codexLearnEnabled ? (
-                <p className="loading-copy">
-                  Enable the Claude Code or Codex connector to scan sessions for
-                  learnings.
-                </p>
+                <div className="optimize-empty-action">
+                  <p className="loading-copy">
+                    No learning source is enabled yet. Turn on the Claude Code
+                    or Codex connector in Addons, then the scan controls appear
+                    here.
+                  </p>
+                  <button
+                    type="button"
+                    className="secondary-button secondary-button--small"
+                    onClick={() => setActiveView("addons")}
+                  >
+                    Open Addons
+                  </button>
+                </div>
               ) : (
                 <div className="optimize-minimal">
                   {claudeLearnEnabled &&
@@ -8263,9 +8280,6 @@ export default function App() {
                             claudeProjectsBusy ||
                             (headroomLearnStatus.running && !isRunning);
                           const learnMeta = formatLearnStatus(project);
-                          const refreshLabel = isRunning
-                            ? "Scanning…"
-                            : "Scan now";
                           const projectResultTone =
                             headroomLearnStatus.success === true
                               ? "success"
@@ -8307,25 +8321,6 @@ export default function App() {
                                               : ""
                                           }`
                                         : learnMeta}
-                                      <button
-                                        type="button"
-                                        className={`optimize-project-row__refresh${isRunning ? " is-spinning" : ""}`}
-                                        onClick={() =>
-                                          void handleRunHeadroomLearn(
-                                            "claude",
-                                            project.projectPath,
-                                          )
-                                        }
-                                        disabled={disableLearn}
-                                        aria-label={refreshLabel}
-                                        title={refreshLabel}
-                                      >
-                                        <ArrowClockwise
-                                          weight="bold"
-                                          size={12}
-                                          aria-hidden="true"
-                                        />
-                                      </button>
                                     </span>
                                     <OptimizePanel
                                       projectPath={project.projectPath}
@@ -8357,6 +8352,26 @@ export default function App() {
                                   </small>
                                 </span>
                                 <div className="optimize-project-row__actions">
+                                  <button
+                                    type="button"
+                                    className={`secondary-button secondary-button--small optimize-project-row__scan${isRunning ? " is-spinning" : ""}`}
+                                    onClick={() =>
+                                      void handleRunHeadroomLearn(
+                                        "claude",
+                                        project.projectPath,
+                                      )
+                                    }
+                                    disabled={disableLearn}
+                                  >
+                                    <ArrowClockwise
+                                      weight="bold"
+                                      size={12}
+                                      aria-hidden="true"
+                                    />
+                                    {isRunning
+                                      ? "Scanning"
+                                      : "Scan Claude project"}
+                                  </button>
                                   {showInlineResult ? (
                                     <span
                                       className={`optimize-project-row__status optimize-minimal__result--${projectResultTone}`}
@@ -8531,34 +8546,27 @@ export default function App() {
                                               : ""
                                           }`
                                         : "Scans ~/.codex/sessions into AGENTS.md"}
-                                      <button
-                                        type="button"
-                                        className={`optimize-project-row__refresh${codexRunning ? " is-spinning" : ""}`}
-                                        onClick={() =>
-                                          void handleRunHeadroomLearn("codex")
-                                        }
-                                        disabled={codexDisable}
-                                        aria-label={
-                                          codexRunning
-                                            ? "Scanning…"
-                                            : "Scan now"
-                                        }
-                                        title={
-                                          codexRunning
-                                            ? "Scanning…"
-                                            : "Scan now"
-                                        }
-                                      >
-                                        <ArrowClockwise
-                                          weight="bold"
-                                          size={12}
-                                          aria-hidden="true"
-                                        />
-                                      </button>
                                     </span>
                                   </small>
                                 </span>
                                 <div className="optimize-project-row__actions">
+                                  <button
+                                    type="button"
+                                    className={`secondary-button secondary-button--small optimize-project-row__scan${codexRunning ? " is-spinning" : ""}`}
+                                    onClick={() =>
+                                      void handleRunHeadroomLearn("codex")
+                                    }
+                                    disabled={codexDisable}
+                                  >
+                                    <ArrowClockwise
+                                      weight="bold"
+                                      size={12}
+                                      aria-hidden="true"
+                                    />
+                                    {codexRunning
+                                      ? "Scanning"
+                                      : "Scan Codex sessions"}
+                                  </button>
                                   {codexShowResult ? (
                                     <span
                                       className={`optimize-project-row__status optimize-minimal__result--${codexResultTone}`}
