@@ -67,6 +67,40 @@ Goose and other MCP-aware tools should keep Repo Memory MCP separate from provid
 
 Do not treat MCP availability as permission to mutate provider/editor configuration. The Switchboard rollback inventory and connector readiness dossier remain the source of truth for config writes.
 
+### Bridge Setup Recipes
+
+Use these recipes only after **Prepare MCP** reports an app-managed, read-only, smoke-tested descriptor. They are consumption guides for agents that already support MCP; they are not provider setup instructions.
+
+#### Claude Code
+
+- Preferred path: let Mac AI Switchboard install the app-managed `repo-memory` descriptor, then restart Claude Code so it reloads MCP servers.
+- Verification: open a fresh Claude Code session and ask it to call `repo_context_pack` for a small implementation pack. If the tool is unavailable, run `npm run check:repo-memory-mcp` and use **Prepare MCP** again.
+- Boundary: do not edit Claude model, subscription, shell routing, or Headroom proxy settings while testing Repo Memory MCP.
+
+#### Goose
+
+- Preferred path: register the app-managed `repo-memory.json` descriptor as a read-only MCP server in the Goose MCP surface, or paste the same command/args from Mode Inspector when Goose asks for a stdio server.
+- Verification: ask Goose for `repo_symbol_lookup` on a known symbol before requesting broader context.
+- Boundary: Goose provider/model credentials remain manual. Repo Memory MCP only supplies repository context.
+
+#### Cursor, Windsurf, and Zed
+
+- Preferred path: keep using Start Agent Session and copied context packs until the editor's MCP bridge UI is explicitly configured by the user.
+- Verification: once the editor advertises MCP tools, request `repo_context_pack` and compare the pack title/path against the current Repo Intelligence index.
+- Boundary: editor settings writes remain blocked until Switchboard has connector-specific dry-run, backup, apply, verify, rollback, Doctor repair, and Off cleanup evidence.
+
+#### Continue and Aider
+
+- Preferred path: copied packs/session handoffs by default. Use Repo Memory MCP only when the local Continue or Aider installation documents stdio MCP tool consumption.
+- Verification: request `repo_dependents_of` for a small file before asking for a task pack.
+- Boundary: multi-provider config and wrapper/env changes remain manual or sidecar-only.
+
+#### Gemini CLI, OpenCode, Grok / xAI CLI, Qwen Code, and Amazon Q Developer CLI
+
+- Preferred path: Start Agent Session handoffs first. Use MCP only in a wrapper or environment that already exposes MCP tools to the CLI.
+- Verification: request a bounded `repo_context_pack`; if the CLI cannot call MCP, fall back to `npm run repo:intelligence -- <repo-path> --session --agent <id> --task implementation --format markdown`.
+- Boundary: account, credential, model, and provider-routing guardrails must be proven before native provider config writes are promoted.
+
 ## Troubleshooting
 
 - If the Mode Inspector says **Unknown**, use **Prepare MCP** before relying on agent MCP handoffs.

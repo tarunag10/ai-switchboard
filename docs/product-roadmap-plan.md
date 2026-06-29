@@ -57,6 +57,7 @@ Shipped:
 - Repo Intelligence now aligns the frontend preview, CLI/MCP script, and Tauri backend on Swift source classification/symbol extraction, Rust module/import-reference edges, and `package.json` script graph edges, so one-click packs cover more macOS app and build/release workflow code without broad file dumps.
 - Doctor now treats corrupt Repo Intelligence saved summaries as one-click Clear index repairs, with backend proof that only Switchboard managed index metadata is removed before re-indexing.
 - Doctor now surfaces Repo Memory MCP smoke-failed, stale-config, and unverified-active supervision states as Prepare MCP repairs, so unsafe MCP handoffs are visible instead of relying on configured-state alone.
+- Repo Memory MCP now has connector-specific bridge setup recipes for Claude Code, Goose, Cursor/Windsurf/Zed, Continue/Aider, Gemini/OpenCode/Grok/Qwen/Amazon Q, and deployment checks keep those read-only boundaries documented.
 
 Left:
 
@@ -275,7 +276,7 @@ Suggested commit:
 
 Goal: turn Repo Intelligence from bounded packs into a graph-aware local context layer.
 
-Status: v1 is usable. Start Agent Session, CLI handoffs, read-only packs, parser/index health fields, corrupt saved-index Doctor cleanup, modern JS/TS/Python/Rust/Swift symbol extraction, Rust module/import-reference edges, `package.json` script graphing, and repo-memory MCP smoke transport are shipped. The remaining work is deeper graphing and supervised service behavior.
+Status: v1 is usable. Start Agent Session, CLI handoffs, read-only packs, parser/index health fields, corrupt saved-index Doctor cleanup, modern JS/TS/Python/Rust/Swift symbol extraction, Rust module/import-reference edges, `package.json` script graphing, repo-memory MCP smoke transport, and connector-specific MCP bridge recipes are shipped. The remaining work is deeper graphing and long-running supervised service behavior.
 
 Tasks:
 
