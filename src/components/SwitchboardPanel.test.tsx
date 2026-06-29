@@ -18,6 +18,12 @@ function renderPanel(
     rtkDetail: "82.5% average savings",
     inspectorRows: [
       {
+        label: "Proxy listener",
+        status: "Reachable",
+        detail:
+          "127.0.0.1:6767 is accepting loopback traffic. The listener is local-only.",
+      },
+      {
         label: "Codex routing",
         status: "Verified",
         detail: "Codex is routed through Headroom and verified.",
@@ -85,6 +91,7 @@ describe("SwitchboardPanel", () => {
     expect(inspector.getByText("Headroom engine")).toBeInTheDocument();
     expect(inspector.getByText("RTK hook")).toBeInTheDocument();
     expect(inspector.queryByText("Stale shells")).not.toBeInTheDocument();
+    expect(inspector.getByText("Proxy listener")).toBeInTheDocument();
     expect(inspector.getByText("Codex routing")).toBeInTheDocument();
     expect(inspector.getByText("Claude routing")).toBeInTheDocument();
     expect(inspector.getByText("Client routing")).toBeInTheDocument();
@@ -97,6 +104,11 @@ describe("SwitchboardPanel", () => {
     );
     expect(
       inspector.getByText("Managed RTK PATH export is present."),
+    ).toBeInTheDocument();
+    expect(
+      inspector.getByText(
+        "127.0.0.1:6767 is accepting loopback traffic. The listener is local-only.",
+      ),
     ).toBeInTheDocument();
     expect(
       inspector.getByText(

@@ -7443,6 +7443,14 @@ export default function App() {
       : runtimeStatus?.paused
         ? "Paused"
         : "Offline";
+  const proxyListenerAddress =
+    runtimeStatus?.proxyBindAddress ?? "127.0.0.1:6767";
+  const proxyListenerDetail =
+    runtimeStatus?.proxyReachable === true
+      ? `${proxyListenerAddress} is accepting loopback traffic. ${runtimeStatus?.proxyAuthDetail ?? "The listener is local-only."}`
+      : runtimeStatus?.paused
+        ? `${proxyListenerAddress} is intentionally stopped while the Headroom engine is paused.`
+        : `${proxyListenerAddress} is not accepting traffic.`;
   const switchboardRtkDetail =
     runtimeStatus?.rtk.enabled
       ? rtkAvgSavingsPct !== null
@@ -7505,6 +7513,16 @@ export default function App() {
     };
   };
   const switchboardInspectorRows = [
+    {
+      label: "Proxy listener",
+      status:
+        runtimeStatus?.proxyReachable === true
+          ? "Reachable"
+          : runtimeStatus?.paused
+            ? "Paused"
+            : "Unreachable",
+      detail: proxyListenerDetail,
+    },
     connectorRoutingRow("Codex routing", codexRoutingConnector),
     connectorRoutingRow("Claude routing", claudeRoutingConnector),
     {
