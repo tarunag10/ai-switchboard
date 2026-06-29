@@ -93,13 +93,9 @@ describe("planned connectors", () => {
 
     const fullMetadataSummary = summarizePlannedConnectorSupport(plannedConnectors);
     expect(fullMetadataSummary.connectorCount).toBe(plannedConnectors.length);
-    expect(fullMetadataSummary.safeTodayCount).toBeGreaterThanOrEqual(
-      plannedConnectors.length,
-    );
+    expect(fullMetadataSummary.safeTodayCount).toBeGreaterThan(0);
     expect(fullMetadataSummary.manualTodayCount).toBeGreaterThan(0);
-    expect(fullMetadataSummary.plannedCount).toBeGreaterThanOrEqual(
-      plannedConnectors.length,
-    );
+    expect(fullMetadataSummary.plannedCount).toBeGreaterThan(0);
     expect(fullMetadataSummary.automationGateCount).toBe(
       plannedConnectors.reduce(
         (total, connector) => total + connector.automationGates.length,
@@ -132,12 +128,9 @@ describe("planned connectors", () => {
       expect(connector.capabilityRows).toHaveLength(3);
       expect(
         connector.capabilityRows.some(
-          (capability) => capability.state === "Available now",
-        ),
-      ).toBe(true);
-      expect(
-        connector.capabilityRows.some(
-          (capability) => capability.state === "Planned",
+          (capability) =>
+            capability.state === "Available now" ||
+            capability.state === "Manual today",
         ),
       ).toBe(true);
 

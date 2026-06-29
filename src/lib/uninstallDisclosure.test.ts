@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatBackendUninstallDryRunReport,
   formatUninstallDryRunReport,
   uninstallDisclosureFooter,
   uninstallDisclosureItems,
@@ -25,6 +26,10 @@ describe("uninstallDisclosure", () => {
     expect(allCopy).toContain("Amazon Q");
     expect(allCopy).toContain("AWS credentials, SSO cache, and profiles are not modified");
     expect(allCopy).toContain("~/Library/Application Support/Headroom");
+    expect(allCopy).toContain("com.tarunagarwal.mac-ai-switchboard");
+    expect(allCopy).toContain("com.extraheadroom.headroom");
+    expect(allCopy).toContain("~/Library/WebKit/com.tarunagarwal.mac-ai-switchboard");
+    expect(allCopy).toContain("~/Library/HTTPStorages/com.extraheadroom.headroom");
     expect(allCopy).toContain("Repo Intelligence");
     expect(allCopy).toContain("repo-intelligence-latest.json");
     expect(allCopy).toContain("User repositories are not modified");
@@ -56,14 +61,21 @@ describe("uninstallDisclosure", () => {
       "login-item",
       "app-state",
       "plugins-backups",
+      "macos-current-bundle-data",
+      "macos-legacy-bundle-data",
+      "keychain-entries",
     ]);
   });
 
-  it("derives uninstall footprint from the rollback center inventory", () => {
-    expect(uninstallDisclosureItems.map((item) => item.id)).toEqual(
-      managedChangeRecords.map((record) => record.id),
+  it("starts with rollback center inventory and appends uninstall-only cleanup targets", () => {
+    expect(
+      uninstallDisclosureItems
+        .slice(0, managedChangeRecords.length)
+        .map((item) => item.id),
+    ).toEqual(managedChangeRecords.map((record) => record.id));
+    expect(uninstallDisclosureItems.length).toBeGreaterThan(
+      managedChangeRecords.length,
     );
-    expect(uninstallDisclosureItems).toHaveLength(managedChangeRecords.length);
   });
 
   it("formats a copyable uninstall dry-run report from the managed footprint", () => {
@@ -72,7 +84,7 @@ describe("uninstallDisclosure", () => {
     expect(report).toContain("Mac AI Switchboard uninstall dry-run");
     expect(report).toContain("No files are changed by this report.");
     expect(report).toContain("Managed footprint source: Rollback Center inventory.");
-    expect(report).toContain(`Items: ${managedChangeRecords.length}`);
+    expect(report).toContain(`Items: ${uninstallDisclosureItems.length}`);
     expect(report).toContain("Remove managed Claude Code shell routing");
     expect(report).toContain("Remove managed Codex shell routing");
     expect(report).toContain("~/.codex/config.toml");
@@ -81,6 +93,36 @@ describe("uninstallDisclosure", () => {
     expect(report).toContain("Marker: repo-intelligence-latest.json");
     expect(report).toContain("Backup: not required");
     expect(report).toContain("~/Library/Application Support/Headroom");
+    expect(report).toContain("bundle-id:com.tarunagarwal.mac-ai-switchboard");
     expect(report).toContain(uninstallDisclosureFooter);
+  });
+
+  it("formats backend uninstall dry-run reports with exact target evidence", () => {
+    const report = formatBackendUninstallDryRunReport({
+      generatedAt: "2026-06-29T00:00:00Z",
+      removedOnUninstall: [
+        "/Users/test/Library/Application Support/Mac AI Switchboard",
+      ],
+      preserved: ["User repositories and source files are never deleted."],
+      targets: [
+        {
+          id: "app-support-current",
+          category: "app-storage",
+          path: "/Users/test/Library/Application Support/Mac AI Switchboard",
+          exists: true,
+          managed: true,
+          action: "Delete Mac AI Switchboard app support storage after explicit uninstall confirmation.",
+          requiresConfirmation: true,
+          notes: ["Contains local runtime state."],
+        },
+      ],
+    });
+
+    expect(report).toContain("Generated: 2026-06-29T00:00:00Z");
+    expect(report).toContain("Targets: 1");
+    expect(report).toContain("Category: app-storage");
+    expect(report).toContain("Exists now: yes");
+    expect(report).toContain("Requires confirmation: yes");
+    expect(report).toContain("User repositories and source files are never deleted.");
   });
 });

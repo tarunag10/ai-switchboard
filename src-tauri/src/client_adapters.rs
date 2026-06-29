@@ -17,9 +17,9 @@ use crate::models::{
     ManagedConfigApplyPreview, ManagedConfigApplyResult, ManagedFootprintItem,
     ManagedFootprintReport, ManagedRollbackExecutionResult, ManagedRollbackExecutionStatus,
     ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview,
-    SavingsMode, SwitchboardMode,
+    SavingsMode, SwitchboardMode, UninstallDryRunReport, UninstallTarget,
 };
-use crate::storage::{app_data_dir, config_file};
+use crate::storage::{app_data_dir, config_file, LEGACY_STORAGE_DIR_NAME};
 
 // Raw proxy base — use provider-specific constants below when configuring client endpoints.
 const HEADROOM_PROXY_URL: &str = "http://127.0.0.1:6767";
@@ -35,6 +35,8 @@ const SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md";
 const LEGACY_MARKER_PREFIX: &str = "headroom";
 const MARKER_PREFIX: &str = "headroom";
 const SWITCHBOARD_MARKER_PREFIX: &str = "mac-ai-switchboard";
+const LEGACY_BUNDLE_ID: &str = "com.extraheadroom.headroom";
+const APP_BUNDLE_ID: &str = "com.tarunagarwal.mac-ai-switchboard";
 const ZSH_PROFILE_FILE: &str = ".zprofile";
 const ZSH_RC_FILE: &str = ".zshrc";
 const BASH_PROFILE_FILE: &str = ".bash_profile";
@@ -1825,6 +1827,14 @@ pub fn perform_full_cleanup() -> Vec<String> {
     // Without this, stale backups remain in ~/.claude, ~/.claude/hooks,
     // ~/.codex, ~/Library/Application Support/Code/User, and the user's
     // shell rc directory after uninstall.
+    for target in managed_backup_targets() {
+        removed.extend(sweep_managed_backups(&target));
+    }
+
+    removed
+}
+
+fn managed_backup_targets() -> Vec<PathBuf> {
     let mut backup_targets: Vec<PathBuf> = claude_settings_candidates();
     backup_targets.push(headroom_rtk_hook_path());
     backup_targets.push(headroom_markitdown_hook_path());
@@ -1838,11 +1848,184 @@ pub fn perform_full_cleanup() -> Vec<String> {
             .join("settings.json"),
     );
     backup_targets.extend(all_shell_paths());
-    for target in backup_targets {
-        removed.extend(sweep_managed_backups(&target));
+    backup_targets
+}
+
+pub fn uninstall_dry_run_report() -> UninstallDryRunReport {
+    let targets = uninstall_targets();
+    UninstallDryRunReport {
+        generated_at: Utc::now(),
+        removed_on_uninstall: targets
+            .iter()
+            .filter(|target| target.managed)
+            .map(|target| target.path.clone())
+            .collect(),
+        preserved: vec![
+            "User repositories and source files are never deleted.".to_string(),
+            "Provider credentials, AWS credentials, SSO cache, and user profiles are not modified."
+                .to_string(),
+            "Unmanaged shell/profile content outside Switchboard marker blocks is preserved."
+                .to_string(),
+            "Legacy Headroom storage is preserved during migration, but removed during explicit uninstall."
+                .to_string(),
+        ],
+        targets,
+    }
+}
+
+fn uninstall_targets() -> Vec<UninstallTarget> {
+    let mut targets = Vec::new();
+
+    let home = home_dir();
+    for settings_path in claude_settings_candidates() {
+        push_uninstall_target(
+            &mut targets,
+            "claude-settings-hooks",
+            "client-config",
+            settings_path,
+            true,
+            "Strip managed Claude Code hook entries and routing keys only.",
+            false,
+            vec!["User-owned Claude settings remain in place.".to_string()],
+        );
+    }
+    push_uninstall_target(
+        &mut targets,
+        "codex-config",
+        "client-config",
+        codex_config_toml_path(),
+        true,
+        "Remove managed Codex provider/routing blocks only.",
+        false,
+        vec!["User-owned Codex config remains in place.".to_string()],
+    );
+    push_uninstall_target(
+        &mut targets,
+        "codex-agents-rules",
+        "client-config",
+        rtk_codex_agents_path(),
+        true,
+        "Remove managed RTK/Caveman instruction blocks only.",
+        false,
+        vec!["Both headroom: and mac-ai-switchboard: marker blocks are recognized.".to_string()],
+    );
+    for shell_path in all_shell_paths() {
+        push_uninstall_target(
+            &mut targets,
+            "shell-routing-blocks",
+            "shell-profile",
+            shell_path,
+            true,
+            "Remove managed shell export blocks only.",
+            false,
+            vec!["Unmanaged shell profile content is preserved.".to_string()],
+        );
+    }
+    push_uninstall_target(
+        &mut targets,
+        "rtk-hook",
+        "managed-hook",
+        headroom_rtk_hook_path(),
+        true,
+        "Delete the managed RTK hook script.",
+        false,
+        Vec::new(),
+    );
+    push_uninstall_target(
+        &mut targets,
+        "markitdown-hook",
+        "managed-hook",
+        headroom_markitdown_hook_path(),
+        true,
+        "Delete the managed MarkItDown hook script.",
+        false,
+        Vec::new(),
+    );
+    push_uninstall_target(
+        &mut targets,
+        "app-support-current",
+        "app-storage",
+        app_data_dir(),
+        true,
+        "Delete Mac AI Switchboard app support storage after explicit uninstall confirmation.",
+        true,
+        vec![
+            "Contains local runtime state, logs, memory DB, and Repo Intelligence cache."
+                .to_string(),
+        ],
+    );
+    let app_support = home.join("Library").join("Application Support");
+    push_uninstall_target(
+        &mut targets,
+        "app-support-legacy",
+        "app-storage",
+        app_support.join(LEGACY_STORAGE_DIR_NAME),
+        true,
+        "Delete legacy Headroom app support storage after explicit uninstall confirmation.",
+        true,
+        vec!["Migration keeps this folder intact until uninstall.".to_string()],
+    );
+    push_uninstall_target(
+        &mut targets,
+        "dot-headroom-runtime",
+        "runtime",
+        home.join(".headroom"),
+        true,
+        "Delete managed local runtime files.",
+        true,
+        Vec::new(),
+    );
+
+    #[cfg(target_os = "macos")]
+    extend_macos_uninstall_targets(&mut targets);
+
+    for target in managed_backup_targets() {
+        let Some(parent) = target.parent() else {
+            continue;
+        };
+        let Some(file_name) = target.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        for prefix in [
+            format!("{file_name}.headroom-backup-*"),
+            format!("{file_name}.nommer-backup-*"),
+        ] {
+            push_uninstall_target(
+                &mut targets,
+                "managed-backups",
+                "backup",
+                parent.join(prefix),
+                true,
+                "Delete managed backup siblings created by Switchboard/Headroom.",
+                false,
+                vec!["Only matching backup file names are removed.".to_string()],
+            );
+        }
     }
 
-    removed
+    targets
+}
+
+fn push_uninstall_target(
+    targets: &mut Vec<UninstallTarget>,
+    id: &str,
+    category: &str,
+    path: PathBuf,
+    managed: bool,
+    action: &str,
+    requires_confirmation: bool,
+    notes: Vec<String>,
+) {
+    targets.push(UninstallTarget {
+        id: id.to_string(),
+        category: category.to_string(),
+        exists: path.exists(),
+        path: path.display().to_string(),
+        managed,
+        action: action.to_string(),
+        requires_confirmation,
+        notes,
+    });
 }
 
 /// Remove sibling backup files that `backup_if_exists` (or its predecessor
@@ -1958,13 +2141,129 @@ fn remove_pre_tool_use_markers(settings_path: &Path, markers: &[&str]) -> Result
 }
 
 #[cfg(target_os = "macos")]
+fn extend_macos_uninstall_targets(targets: &mut Vec<UninstallTarget>) {
+    let home = home_dir();
+    let lib = home.join("Library");
+    let launch_agents_dir = lib.join("LaunchAgents");
+    for name in [
+        format!("{LEGACY_BUNDLE_ID}.plist"),
+        format!("{APP_BUNDLE_ID}.plist"),
+        "Headroom.plist".to_string(),
+    ] {
+        push_uninstall_target(
+            targets,
+            "launch-agent",
+            "launch-agent",
+            launch_agents_dir.join(name),
+            true,
+            "Unload and delete managed login item launch agent.",
+            false,
+            Vec::new(),
+        );
+    }
+
+    for bundle_id in [LEGACY_BUNDLE_ID, APP_BUNDLE_ID] {
+        push_uninstall_target(
+            targets,
+            "preferences",
+            "macos-app-data",
+            lib.join("Preferences").join(format!("{bundle_id}.plist")),
+            true,
+            "Delete managed app preferences for this bundle ID.",
+            false,
+            Vec::new(),
+        );
+        push_uninstall_target(
+            targets,
+            "caches",
+            "macos-app-data",
+            lib.join("Caches").join(bundle_id),
+            true,
+            "Delete managed app cache data.",
+            false,
+            Vec::new(),
+        );
+        push_uninstall_target(
+            targets,
+            "webkit-data",
+            "macos-app-data",
+            lib.join("WebKit").join(bundle_id),
+            true,
+            "Delete managed WebKit data for the app.",
+            false,
+            Vec::new(),
+        );
+        push_uninstall_target(
+            targets,
+            "http-storage",
+            "macos-app-data",
+            lib.join("HTTPStorages").join(bundle_id),
+            true,
+            "Delete managed HTTP storage for the app.",
+            false,
+            Vec::new(),
+        );
+        push_uninstall_target(
+            targets,
+            "http-cookies",
+            "macos-app-data",
+            lib.join("HTTPStorages")
+                .join(format!("{bundle_id}.binarycookies")),
+            true,
+            "Delete managed HTTP cookie storage for the app.",
+            false,
+            Vec::new(),
+        );
+        push_uninstall_target(
+            targets,
+            "saved-state",
+            "macos-app-data",
+            lib.join("Saved Application State")
+                .join(format!("{bundle_id}.savedState")),
+            true,
+            "Delete managed saved window state.",
+            false,
+            Vec::new(),
+        );
+    }
+    for log_dir in ["Headroom", "Mac AI Switchboard"] {
+        push_uninstall_target(
+            targets,
+            "logs",
+            "macos-app-data",
+            lib.join("Logs").join(log_dir),
+            true,
+            "Delete managed app logs.",
+            false,
+            Vec::new(),
+        );
+    }
+    for (service, account) in known_keychain_entries() {
+        push_uninstall_target(
+            targets,
+            "keychain-entry",
+            "keychain",
+            PathBuf::from(format!("keychain://{service}/{account}")),
+            true,
+            "Delete managed keychain entry metadata without exposing the secret value.",
+            false,
+            Vec::new(),
+        );
+    }
+}
+
+#[cfg(target_os = "macos")]
 fn remove_macos_launch_agents() -> Vec<String> {
     let mut removed = Vec::new();
     let launch_agents_dir = home_dir().join("Library").join("LaunchAgents");
 
     // Bundle-id-style plist (tauri-plugin-autostart default) and the
     // "Headroom.plist" name some older builds shipped. Either can exist.
-    let candidates = ["com.extraheadroom.headroom.plist", "Headroom.plist"];
+    let candidates = [
+        format!("{LEGACY_BUNDLE_ID}.plist"),
+        format!("{APP_BUNDLE_ID}.plist"),
+        "Headroom.plist".to_string(),
+    ];
 
     for name in candidates {
         let path = launch_agents_dir.join(name);
@@ -1996,7 +2295,7 @@ fn remove_macos_preferences() -> Vec<String> {
         let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
             continue;
         };
-        if !name.starts_with("com.extraheadroom.headroom") {
+        if !name.starts_with(LEGACY_BUNDLE_ID) && !name.starts_with(APP_BUNDLE_ID) {
             continue;
         }
         let path = entry.path();
@@ -2016,14 +2315,14 @@ fn remove_macos_preferences() -> Vec<String> {
 #[cfg(target_os = "macos")]
 fn remove_macos_caches() -> Vec<String> {
     let mut removed = Vec::new();
-    let caches_dir = home_dir()
-        .join("Library")
-        .join("Caches")
-        .join("com.extraheadroom.headroom");
-    if caches_dir.exists() {
-        match std::fs::remove_dir_all(&caches_dir) {
-            Ok(_) => removed.push(caches_dir.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", caches_dir.display()),
+    let caches_base = home_dir().join("Library").join("Caches");
+    for bundle_id in [LEGACY_BUNDLE_ID, APP_BUNDLE_ID] {
+        let caches_dir = caches_base.join(bundle_id);
+        if caches_dir.exists() {
+            match std::fs::remove_dir_all(&caches_dir) {
+                Ok(_) => removed.push(caches_dir.display().to_string()),
+                Err(err) => log::warn!("cleanup: removing {} failed: {err}", caches_dir.display()),
+            }
         }
     }
     removed
@@ -2032,11 +2331,14 @@ fn remove_macos_caches() -> Vec<String> {
 #[cfg(target_os = "macos")]
 fn remove_macos_logs() -> Vec<String> {
     let mut removed = Vec::new();
-    let logs_dir = home_dir().join("Library").join("Logs").join("Headroom");
-    if logs_dir.exists() {
-        match std::fs::remove_dir_all(&logs_dir) {
-            Ok(_) => removed.push(logs_dir.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", logs_dir.display()),
+    let logs_base = home_dir().join("Library").join("Logs");
+    for log_dir in ["Headroom", "Mac AI Switchboard"] {
+        let logs_dir = logs_base.join(log_dir);
+        if logs_dir.exists() {
+            match std::fs::remove_dir_all(&logs_dir) {
+                Ok(_) => removed.push(logs_dir.display().to_string()),
+                Err(err) => log::warn!("cleanup: removing {} failed: {err}", logs_dir.display()),
+            }
         }
     }
     removed
@@ -2049,26 +2351,28 @@ fn remove_macos_logs() -> Vec<String> {
 fn remove_macos_bundle_dirs() -> Vec<String> {
     let mut removed = Vec::new();
     let lib = home_dir().join("Library");
-    let targets = [
-        lib.join("WebKit").join("com.extraheadroom.headroom"),
-        lib.join("HTTPStorages").join("com.extraheadroom.headroom"),
-        lib.join("HTTPStorages")
-            .join("com.extraheadroom.headroom.binarycookies"),
-        lib.join("Saved Application State")
-            .join("com.extraheadroom.headroom.savedState"),
-    ];
-    for path in targets {
-        if !path.exists() {
-            continue;
-        }
-        let result = if path.is_dir() {
-            std::fs::remove_dir_all(&path)
-        } else {
-            std::fs::remove_file(&path)
-        };
-        match result {
-            Ok(_) => removed.push(path.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", path.display()),
+    for bundle_id in [LEGACY_BUNDLE_ID, APP_BUNDLE_ID] {
+        let targets = [
+            lib.join("WebKit").join(bundle_id),
+            lib.join("HTTPStorages").join(bundle_id),
+            lib.join("HTTPStorages")
+                .join(format!("{bundle_id}.binarycookies")),
+            lib.join("Saved Application State")
+                .join(format!("{bundle_id}.savedState")),
+        ];
+        for path in targets {
+            if !path.exists() {
+                continue;
+            }
+            let result = if path.is_dir() {
+                std::fs::remove_dir_all(&path)
+            } else {
+                std::fs::remove_file(&path)
+            };
+            match result {
+                Ok(_) => removed.push(path.display().to_string()),
+                Err(err) => log::warn!("cleanup: removing {} failed: {err}", path.display()),
+            }
         }
     }
     removed
@@ -2077,7 +2381,15 @@ fn remove_macos_bundle_dirs() -> Vec<String> {
 /// Delete every keychain entry Headroom is known to write. Accounts are
 /// captured alongside services because macOS keychain queries require both.
 fn remove_known_keychain_entries() {
-    const ENTRIES: &[(&str, &str)] = &[
+    for (service, account) in known_keychain_entries() {
+        if let Err(err) = crate::keychain::delete_secret(service, account) {
+            log::warn!("cleanup: deleting keychain {service}/{account} failed: {err}");
+        }
+    }
+}
+
+fn known_keychain_entries() -> &'static [(&'static str, &'static str)] {
+    &[
         (
             "com.tarunagarwal.mac-ai-switchboard.account",
             "session-token",
@@ -2091,12 +2403,7 @@ fn remove_known_keychain_entries() {
         ("com.extraheadroom.headroom.headroom-learn", "openai"),
         ("com.extraheadroom.headroom.headroom-learn", "anthropic"),
         ("com.extraheadroom.headroom.headroom-learn", "gemini"),
-    ];
-    for (service, account) in ENTRIES {
-        if let Err(err) = crate::keychain::delete_secret(service, account) {
-            log::warn!("cleanup: deleting keychain {service}/{account} failed: {err}");
-        }
-    }
+    ]
 }
 
 /// Re-applies setup for all clients that were active at the last pause or quit.
@@ -9424,5 +9731,36 @@ js_repl = false\n",
         assert!(gemini.managed);
         assert!(gemini.reversible);
         assert!(!serde_json::to_string(&report).unwrap().contains("sk-test"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn uninstall_dry_run_lists_current_and_legacy_cleanup_targets() {
+        let home = TestHome::new();
+        let current_storage = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Mac AI Switchboard");
+        std::fs::create_dir_all(&current_storage).unwrap();
+
+        let report = super::uninstall_dry_run_report();
+        let serialized = serde_json::to_string(&report).unwrap();
+
+        assert!(serialized.contains("Mac AI Switchboard"));
+        assert!(serialized.contains(super::APP_BUNDLE_ID));
+        assert!(serialized.contains(super::LEGACY_BUNDLE_ID));
+        assert!(serialized.contains("keychain://com.tarunagarwal.mac-ai-switchboard.account"));
+        assert!(serialized.contains("User repositories and source files are never deleted."));
+        assert!(!serialized.contains("session-token="));
+
+        let app_storage = report
+            .targets
+            .iter()
+            .find(|target| target.id == "app-support-current")
+            .expect("current app storage target");
+        assert!(app_storage.exists);
+        assert!(app_storage.managed);
+        assert!(app_storage.requires_confirmation);
     }
 }

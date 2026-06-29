@@ -52,7 +52,7 @@ use crate::models::{
     RepoContextPackResponse, RepoDependentsResponse, RepoIndexFreshnessResponse,
     RepoIntelligenceManifestResponse, RepoIntelligenceSummary, RepoSymbolSearchResponse,
     RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionEvent, SavingsMode, SwitchboardMode,
-    SwitchboardState, TransformationFeedResponse,
+    SwitchboardState, TransformationFeedResponse, UninstallDryRunReport,
 };
 use crate::state::AppState;
 
@@ -438,6 +438,11 @@ fn execute_managed_rollback_undo_all(
 #[tauri::command]
 fn get_managed_footprint() -> ManagedFootprintReport {
     client_adapters::get_managed_footprint()
+}
+
+#[tauri::command]
+fn get_uninstall_dry_run_report() -> UninstallDryRunReport {
+    client_adapters::uninstall_dry_run_report()
 }
 
 #[tauri::command]
@@ -4249,7 +4254,7 @@ fn open_external_link_impl(url: &str) -> Result<(), String> {
         for opener in ["xdg-open", "gio", "kde-open5", "wslview"] {
             let mut command = Command::new(opener);
             if opener == "gio" {
-                command.args(["open", trimmed]);
+                command.args(["open", &trimmed]);
             } else {
                 command.arg(&trimmed);
             }
@@ -4630,15 +4635,7 @@ fn uninstall_and_quit(app: AppHandle) -> Result<Vec<String>, String> {
     // listing Headroom as a background item even if the user later reinstalls.
     let _ = app.autolaunch().disable();
 
-    let mut removed = client_adapters::perform_full_cleanup();
-
-    // Trash the running .app bundle itself once we exit. Best-effort and
-    // macOS-only; everything above only removed Headroom's on-disk footprint
-    // (config, runtime, caches), not the application.
-    #[cfg(target_os = "macos")]
-    if let Some(bundle) = schedule_app_bundle_trash() {
-        removed.push(bundle.display().to_string());
-    }
+    let removed = append_scheduled_app_bundle_cleanup(client_adapters::perform_full_cleanup());
 
     analytics::track_event(
         &app,
@@ -4659,6 +4656,22 @@ fn uninstall_and_quit(app: AppHandle) -> Result<Vec<String>, String> {
     });
 
     Ok(removed)
+}
+
+#[cfg(target_os = "macos")]
+fn append_scheduled_app_bundle_cleanup(mut removed: Vec<String>) -> Vec<String> {
+    // Trash the running .app bundle itself once we exit. Best-effort and
+    // macOS-only; everything above only removed Headroom's on-disk footprint
+    // (config, runtime, caches), not the application.
+    if let Some(bundle) = schedule_app_bundle_trash() {
+        removed.push(bundle.display().to_string());
+    }
+    removed
+}
+
+#[cfg(not(target_os = "macos"))]
+fn append_scheduled_app_bundle_cleanup(removed: Vec<String>) -> Vec<String> {
+    removed
 }
 
 #[tauri::command]
@@ -4717,6 +4730,19 @@ pub fn run() {
     // Initialize the panic-safe file logger after Sentry so warn!/error!
     // records flow into Sentry too. Failure here cannot abort startup.
     let _ = logging::init();
+
+    if std::env::args().any(|arg| arg == "--uninstall-dry-run") {
+        match serde_json::to_string_pretty(&client_adapters::uninstall_dry_run_report()) {
+            Ok(report) => {
+                println!("{report}");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to build uninstall dry-run report: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
 
     // Raise the open-file soft limit to the hard limit. macOS launches GUI apps
     // with RLIMIT_NOFILE soft = 256, which the intercept proxy exhausts under
@@ -4953,6 +4979,7 @@ pub fn run() {
             preview_managed_rollback,
             execute_managed_rollback,
             get_managed_footprint,
+            get_uninstall_dry_run_report,
             preview_managed_rollback_undo_all,
             execute_managed_rollback_undo_all,
             build_repo_intelligence_summary,

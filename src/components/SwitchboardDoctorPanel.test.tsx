@@ -205,7 +205,7 @@ describe("SwitchboardDoctorPanel", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Copy report" }));
+    await user.click(screen.getByRole("button", { name: "Doctor report" }));
 
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0][0]).toContain(
@@ -215,11 +215,9 @@ describe("SwitchboardDoctorPanel", () => {
       "Action: automatic / Reset Codex",
     );
     expect(
-      screen.queryByRole("button", { name: "Copy Verify Off" }),
+      screen.queryByRole("button", { name: "Verify Off" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Copied report." }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Copied report.")).toBeInTheDocument();
   });
 
   it("copies a shareable Doctor timeline", async () => {
@@ -240,7 +238,7 @@ describe("SwitchboardDoctorPanel", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Copy timeline" }));
+    await user.click(screen.getByRole("button", { name: "Timeline" }));
 
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0][0]).toContain(
@@ -257,9 +255,7 @@ describe("SwitchboardDoctorPanel", () => {
     expect(writeText.mock.calls[0][0]).toContain(
       "clear_repo_index removes only Switchboard managed index metadata",
     );
-    expect(
-      screen.getByRole("button", { name: "Copied timeline." }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Copied timeline.")).toBeInTheDocument();
   });
 
   it("copies the Rollback Center inventory from Doctor", async () => {
@@ -281,7 +277,7 @@ describe("SwitchboardDoctorPanel", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "Copy Rollback Center" }),
+      screen.getByRole("button", { name: "Rollback inventory" }),
     );
 
     expect(writeText).toHaveBeenCalledTimes(1);
@@ -302,9 +298,7 @@ describe("SwitchboardDoctorPanel", () => {
     expect(writeText.mock.calls[0][0]).toContain(
       "AWS credentials, SSO cache, and profiles are not modified",
     );
-    expect(
-      screen.getByRole("button", { name: "Copied Rollback Center." }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Copied Rollback Center.")).toBeInTheDocument();
   });
 
   it("offers Repo Memory MCP install as an automatic Doctor repair", async () => {
@@ -375,7 +369,7 @@ describe("SwitchboardDoctorPanel", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Copy Verify Off" }));
+    await user.click(screen.getByTitle("Copy Verify Off report"));
 
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0][0]).toContain(
@@ -417,7 +411,7 @@ describe("SwitchboardDoctorPanel", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "Copy connector dossiers" }),
+      screen.getByRole("button", { name: "Connector dossiers" }),
     );
 
     expect(writeText).toHaveBeenCalledTimes(1);
@@ -428,8 +422,6 @@ describe("SwitchboardDoctorPanel", () => {
       "No pending planned connector dossiers remain",
     );
     expect(writeText.mock.calls[0][0]).toContain("managed sidecar coverage");
-    expect(
-      screen.getByRole("button", { name: "Copied connector dossiers." }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Copied connector dossiers.")).toBeInTheDocument();
   });
 });

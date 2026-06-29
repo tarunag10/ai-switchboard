@@ -54,11 +54,13 @@ jobs:
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
       - name: Audit Rust dependencies
-        run: cargo audit --manifest-path src-tauri/Cargo.toml
+        working-directory: src-tauri
+        run: cargo audit
       - name: Install cargo-deny
         run: cargo install cargo-deny --locked
       - name: Check Rust dependency policy
-        run: cargo deny --manifest-path src-tauri/Cargo.toml check
+        working-directory: src-tauri
+        run: cargo deny check
 
   codeql:
     runs-on: ubuntu-latest

@@ -230,6 +230,7 @@ import {
   type DoctorTimelineEvent,
 } from "./lib/doctorRepairCopy";
 import {
+  formatBackendUninstallDryRunReport,
   formatUninstallDryRunReport,
   uninstallDisclosureFooter,
   uninstallDisclosureItems,
@@ -300,6 +301,7 @@ import type {
   SavingsMode,
   SwitchboardMode,
   SwitchboardState,
+  UninstallDryRunReport,
 } from "./lib/types";
 
 interface NavItem {
@@ -3943,7 +3945,16 @@ export default function App() {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
       }
-      await navigator.clipboard.writeText(formatUninstallDryRunReport());
+      let report = formatUninstallDryRunReport();
+      try {
+        const backendReport = await invoke<UninstallDryRunReport>(
+          "get_uninstall_dry_run_report",
+        );
+        report = formatBackendUninstallDryRunReport(backendReport);
+      } catch (error) {
+        console.warn("Falling back to static uninstall dry-run report", error);
+      }
+      await navigator.clipboard.writeText(report);
       setUninstallCopyNotice("Uninstall dry-run copied.");
       window.setTimeout(() => setUninstallCopyNotice(null), 2500);
     } catch {

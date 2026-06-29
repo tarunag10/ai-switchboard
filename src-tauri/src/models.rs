@@ -51,6 +51,28 @@ pub struct ManagedFootprintReport {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct UninstallTarget {
+    pub id: String,
+    pub category: String,
+    pub path: String,
+    pub exists: bool,
+    pub managed: bool,
+    pub action: String,
+    pub requires_confirmation: bool,
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UninstallDryRunReport {
+    pub generated_at: DateTime<Utc>,
+    pub targets: Vec<UninstallTarget>,
+    pub removed_on_uninstall: Vec<String>,
+    pub preserved: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PipelineStageMetric {
     pub stage_id: String,
     pub stage_name: String,

@@ -298,6 +298,24 @@ export interface ManagedFootprintReport {
   items: ManagedFootprintItem[];
 }
 
+export interface UninstallTarget {
+  id: string;
+  category: string;
+  path: string;
+  exists: boolean;
+  managed: boolean;
+  action: string;
+  requiresConfirmation: boolean;
+  notes: string[];
+}
+
+export interface UninstallDryRunReport {
+  generatedAt: string;
+  targets: UninstallTarget[];
+  removedOnUninstall: string[];
+  preserved: string[];
+}
+
 export interface ManagedRollbackUndoAllPreview {
   status: "ready" | "blocked";
   confirmationPhrase: string;

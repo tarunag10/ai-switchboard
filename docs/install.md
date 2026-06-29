@@ -97,6 +97,14 @@ Mac AI Switchboard may write:
 
 Managed edits are fenced and reversible. Use **Off** mode or Doctor repair flows to remove routing hooks and return clients to direct provider behavior.
 
+Before uninstalling, use **Settings -> Uninstall -> Copy dry-run** or run
+`mac-ai-switchboard --uninstall-dry-run` from a local build to preview the
+managed cleanup targets. The report includes legacy Headroom and current Mac AI
+Switchboard bundle IDs, app support storage, LaunchAgents, macOS WebKit/cache
+data, managed shell/config blocks, managed backups, and Switchboard-owned
+Keychain service metadata. See [Recovery and Uninstall](recovery.md) for the
+full cleanup boundary.
+
 Connector support is intentionally explicit: Claude Code and Codex have first-class managed setup, while Cursor, Windsurf, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Zed AI, and Grok / xAI CLI rely on guided or detected workflows unless [Connector Support](connectors.md) says a lifecycle is managed.
 
 For oversized Codex payload failures such as `413 Payload Too Large`, see [Codex Compression Troubleshooting](codex-compression-troubleshooting.md).
