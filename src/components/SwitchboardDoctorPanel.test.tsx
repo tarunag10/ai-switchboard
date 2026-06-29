@@ -368,7 +368,7 @@ describe("SwitchboardDoctorPanel", () => {
     expect(screen.getByText("1 automatic")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Installs the app-managed read-only Repo Memory MCP server, then run npm run check:repo-memory-mcp to verify repo_context_pack, repo_symbol_lookup, and repo_dependents_of.",
+        "Installs the app-managed read-only Repo Memory MCP server. Then click Start MCP in Mode Inspector to verify repo_context_pack, repo_symbol_lookup, and repo_dependents_of.",
       ),
     ).toBeInTheDocument();
 

@@ -59,7 +59,7 @@ describe("doctor repair copy", () => {
       "saved Repo Intelligence summary",
     );
     expect(doctorRepairHint("install_repo_memory_mcp")).toContain(
-      "npm run check:repo-memory-mcp",
+      "Start MCP in Mode Inspector",
     );
     expect(doctorRepairHint("verify_off_mode")).toContain(
       "without changing local routing",
@@ -85,7 +85,7 @@ describe("doctor repair copy", () => {
       repairAction: "install_repo_memory_mcp",
     });
 
-    expect(guidance).toContain("npm run check:repo-memory-mcp");
+    expect(guidance).toContain("Start MCP in Mode Inspector");
     expect(guidance).toContain("repo_context_pack");
   });
 

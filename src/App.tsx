@@ -5393,7 +5393,7 @@ export default function App() {
       setAddonResult({
         id: "repo-memory",
         message:
-          "Repo Memory MCP installed. Run npm run check:repo-memory-mcp to verify the read-only tool contract.",
+          "Repo Memory MCP installed. Click Start MCP in Mode Inspector to run the read-only smoke check and mark it active.",
       });
     } catch (error) {
       setAddonError(
@@ -7429,7 +7429,38 @@ export default function App() {
     lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
     supervisionStatus: runtimeStatus?.repoMemoryMcpSupervisionStatus,
   });
+  const switchboardRoutingConnectors =
+    switchboardState?.clients ?? switchboardConnectors;
+  const codexRoutingConnector = switchboardRoutingConnectors.find(
+    (connector) => connector.clientId === "codex",
+  );
+  const claudeRoutingConnector = switchboardRoutingConnectors.find(
+    (connector) => connector.clientId === "claude_code",
+  );
+  const connectorRoutingRow = (
+    label: string,
+    connector: ClientConnectorStatus | undefined,
+  ) => {
+    const configured = connector?.enabled === true;
+    const verified = connector?.verified === true;
+    return {
+      label,
+      status: configured ? (verified ? "Verified" : "Needs test") : "Direct",
+      detail: connector?.installed
+        ? configured
+          ? verified
+            ? `${connector.name} is routed through Headroom and verified.`
+            : `${connector.name} routing is configured; send a test prompt from Connectors.`
+          : `${connector.name} is detected but not routed.`
+        : `${label.replace(" routing", "")} is not detected on this Mac.`,
+      actionLabel: configured && !verified ? "Open Connectors" : undefined,
+      actionDisabled: configured && !verified ? false : undefined,
+      onAction: configured && !verified ? () => setActiveView("settings") : undefined,
+    };
+  };
   const switchboardInspectorRows = [
+    connectorRoutingRow("Codex routing", codexRoutingConnector),
+    connectorRoutingRow("Claude routing", claudeRoutingConnector),
     {
       label: "Client routing",
       status:

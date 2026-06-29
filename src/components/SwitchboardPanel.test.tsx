@@ -18,6 +18,19 @@ function renderPanel(
     rtkDetail: "82.5% average savings",
     inspectorRows: [
       {
+        label: "Codex routing",
+        status: "Verified",
+        detail: "Codex is routed through Headroom and verified.",
+      },
+      {
+        label: "Claude routing",
+        status: "Needs test",
+        detail:
+          "Claude Code routing is configured; send a test prompt from Connectors.",
+        actionLabel: "Open Connectors",
+        onAction: vi.fn(),
+      },
+      {
         label: "Client routing",
         status: "Managed",
         detail: "Codex, Claude Code",
@@ -70,6 +83,8 @@ describe("SwitchboardPanel", () => {
     expect(inspector.getByText("Active")).toBeInTheDocument();
     expect(inspector.getByText("Headroom engine")).toBeInTheDocument();
     expect(inspector.getByText("RTK hook")).toBeInTheDocument();
+    expect(inspector.getByText("Codex routing")).toBeInTheDocument();
+    expect(inspector.getByText("Claude routing")).toBeInTheDocument();
     expect(inspector.getByText("Client routing")).toBeInTheDocument();
     expect(inspector.getByText("Shell export")).toBeInTheDocument();
     expect(inspector.getByText("Repo Memory MCP")).toBeInTheDocument();
@@ -87,6 +102,14 @@ describe("SwitchboardPanel", () => {
       ),
     ).toBeInTheDocument();
     expect(inspector.getByText("Headroom PID 1234")).toBeInTheDocument();
+    expect(
+      inspector.getByText("Codex is routed through Headroom and verified."),
+    ).toBeInTheDocument();
+    expect(
+      inspector.getByText(
+        "Claude Code routing is configured; send a test prompt from Connectors.",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("Savings profile")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Balanced" })).toBeDisabled();
     expect(
@@ -270,7 +293,7 @@ describe("SwitchboardPanel", () => {
     expect(screen.getByText("Mac AI Switchboard cloud setup")).toBeInTheDocument();
     expect(
       screen.getAllByText(
-        /Account, pricing, update, support, and optional telemetry/,
+        /Update, support, and optional telemetry destinations are enabled/,
       )[0],
     ).toBeInTheDocument();
   });
