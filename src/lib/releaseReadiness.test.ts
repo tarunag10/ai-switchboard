@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  formatLocalReleaseEvidenceSequenceCopy,
   formatReleaseReadinessCommandCopy,
   formatReleaseReadinessNextAction,
   formatReleaseReadinessReportSnapshot,
   formatReleaseReadinessSourceLabel,
+  localReleaseEvidenceCommandIds,
   releaseReadinessCommand,
   releaseReadinessEvidenceSummary,
   releaseReadinessGroups,
@@ -35,6 +37,22 @@ describe("release readiness checklist", () => {
     );
   });
 
+  it("defines a local-only evidence sequence without public release commands", () => {
+    expect([...localReleaseEvidenceCommandIds]).toEqual([
+      "desktop-validation",
+      "static-preflight",
+      "local-dmg-build-install",
+      "local-installed-smoke",
+    ]);
+
+    const copy = formatLocalReleaseEvidenceSequenceCopy();
+
+    expect(copy).toContain("Local DMG build/install");
+    expect(copy).toContain("Local installed smoke");
+    expect(copy).toContain("does not run signing, notarization");
+    expect(copy).toContain("strict public-release gate");
+  });
+
   it("labels release report source without treating defaults as proof", () => {
     expect(
       formatReleaseReadinessSourceLabel("dist/release-readiness-report.json"),
@@ -53,7 +71,10 @@ describe("release readiness checklist", () => {
       "signing",
       "smoke",
     ]);
-    expect(releaseReadinessItemCount()).toBe(13);
+    expect(releaseReadinessItemCount()).toBe(12);
+    expect(releaseReadinessGroups.map((group) => group.items.length)).toEqual([
+      2, 3, 7,
+    ]);
 
     const allCopy = releaseReadinessGroups
       .flatMap((group) => group.items)
@@ -102,7 +123,7 @@ describe("release readiness checklist", () => {
   it("keeps checklist entries concrete enough for release handoff", () => {
     for (const group of releaseReadinessGroups) {
       expect(group.title.length).toBeGreaterThan(4);
-      expect(group.items.length).toBeGreaterThanOrEqual(3);
+      expect(group.items.length).toBeGreaterThanOrEqual(2);
       for (const item of group.items) {
         expect(item.label.length).toBeGreaterThan(5);
         expect(item.detail.length).toBeGreaterThan(40);

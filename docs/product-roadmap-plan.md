@@ -20,7 +20,7 @@ Shipped:
 - Savings ledger rows now distinguish measured, estimated, and inferred events across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese.
 - Rollback Center has guarded preview/execution for ready allowlisted rows, including Codex/OpenCode restore paths and managed sidecar cleanup.
 - Doctor repair actions that can restore Headroom routing are now blocked while the saved mode is Off or RTK-only; non-Headroom repairs such as RTK, Caveman, Ponytail, Repo Intelligence, and Repo Memory MCP stay available. Doctor also exposes Verify Off as a primary one-click action when Off-mode evidence remains.
-- Remote destination registry, support-link routing, external-link SSRF guards, local-only backend refusal for account/billing/contact commands, branding iconset provenance, local DMG build, and local installed smoke evidence are shipped.
+- Remote destination registry, support-link routing, external-link SSRF guards, local-only backend refusal for account/billing/contact commands, branding iconset provenance, local DMG build, local installed smoke evidence, and the in-app Run local evidence sequence are shipped.
 - Local mode relaunch smoke now backs up and restores `client-setup.json`, launches the installed app in saved Off and RTK-only modes, and verifies the app process returns while intercept and Headroom proxy listeners stay down.
 
 Left:

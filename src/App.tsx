@@ -102,11 +102,13 @@ import {
   type PlannedConnector,
 } from "./lib/plannedConnectors";
 import {
+  formatLocalReleaseEvidenceSequenceCopy,
   releaseReadinessCommand,
   formatReleaseReadinessCommandCopy,
   formatReleaseReadinessNextAction,
   formatReleaseReadinessReportSnapshot,
   formatReleaseReadinessSourceLabel,
+  localReleaseEvidenceCommandIds,
   releaseReadinessEvidenceSummary,
   releaseReadinessGroups,
   releaseReadinessItemCount,
@@ -5177,6 +5179,40 @@ export default function App() {
     }
   }
 
+  async function runLocalReleaseEvidenceSequence() {
+    setReleaseEvidenceBusyId("local-evidence");
+    setReleaseReadinessError(null);
+    setReleaseReadinessCopyNotice("Running local release evidence...");
+    try {
+      let lastResult: ReleaseEvidenceCommandResult | null = null;
+      for (const commandId of localReleaseEvidenceCommandIds) {
+        const result = await invoke<ReleaseEvidenceCommandResult>(
+          "run_release_evidence_command",
+          { commandId },
+        );
+        lastResult = result;
+        setReleaseEvidenceResult(result);
+        setReleaseReadinessCopyNotice(`${result.label} evidence generated.`);
+      }
+      const payload = await invoke<ReleaseReadinessReportPayload>(
+        "load_release_readiness_report",
+      );
+      setReleaseReadinessReport(payload);
+      setReleaseReadinessCopyNotice(
+        lastResult
+          ? "Local release evidence sequence completed."
+          : "No local evidence commands ran.",
+      );
+      window.setTimeout(() => setReleaseReadinessCopyNotice(null), 3000);
+    } catch (error) {
+      setReleaseReadinessError(
+        describeInvokeError(error, "Could not run local release evidence."),
+      );
+    } finally {
+      setReleaseEvidenceBusyId(null);
+    }
+  }
+
   async function autoConfigureConnectorsForLauncher() {
     setConnectorsBusy(true);
     setConnectorsError(null);
@@ -10106,6 +10142,18 @@ export default function App() {
                     {releaseReadinessRefreshing
                       ? "Refreshing"
                       : "Refresh report"}
+                  </button>
+                  <button
+                    className="secondary-button secondary-button--small"
+                    disabled={releaseEvidenceBusyId !== null}
+                    onClick={() => void runLocalReleaseEvidenceSequence()}
+                    title={formatLocalReleaseEvidenceSequenceCopy()}
+                    type="button"
+                  >
+                    <ArrowClockwise size={14} weight="bold" />
+                    {releaseEvidenceBusyId === "local-evidence"
+                      ? "Running local evidence"
+                      : "Run local evidence"}
                   </button>
                   <button
                     className="secondary-button secondary-button--small"

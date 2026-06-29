@@ -159,6 +159,24 @@ function formatConnectorReadinessSummary() {
 
 export const releaseReadinessCommand = "npm run release:ready";
 
+export const localReleaseEvidenceCommandIds = [
+  "desktop-validation",
+  "static-preflight",
+  "local-dmg-build-install",
+  "local-installed-smoke",
+] as const;
+
+export function formatLocalReleaseEvidenceSequenceCopy() {
+  return [
+    "Run local evidence in this order:",
+    "1. Desktop validation",
+    "2. Static smoke preflight",
+    "3. Local DMG build/install",
+    "4. Local installed smoke",
+    "Boundary: this local unsigned/ad-hoc evidence does not run signing, notarization, updater publication, or the strict public-release gate.",
+  ].join("\n");
+}
+
 export function formatReleaseReadinessCommandCopy() {
   return [
     "Mac AI Switchboard release readiness command",
@@ -166,6 +184,7 @@ export function formatReleaseReadinessCommandCopy() {
     "Strict public-release gate: npm run release:ready -- --strict",
     "Report source after running: dist/release-readiness-report.json",
     "Local-only install evidence: npm run build:mac:local-install",
+    "App shortcut: Run local evidence executes desktop validation, smoke preflight, local DMG build/install, and local installed smoke only.",
     "Boundary: local unsigned/ad-hoc install evidence never replaces signed DMG install, notarization, updater feed, or installed smoke confirmation.",
   ].join("\n");
 }
