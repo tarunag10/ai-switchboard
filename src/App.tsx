@@ -109,6 +109,7 @@ import {
   formatReleaseReadinessReportSnapshot,
   formatReleaseReadinessSourceLabel,
   localReleaseEvidenceCommandIds,
+  releaseLocalEvidenceRowsFromReport,
   releaseReadinessEvidenceSummary,
   releaseReadinessGroups,
   releaseReadinessItemCount,
@@ -2808,6 +2809,9 @@ export default function App() {
     releaseReadinessStatusCounts(releaseReadinessRows);
   const releaseReadinessEvidence = releaseReadinessEvidenceSummary(
     releaseReadinessRows,
+    releaseReadinessReport?.report,
+  );
+  const releaseLocalEvidenceRows = releaseLocalEvidenceRowsFromReport(
     releaseReadinessReport?.report,
   );
   const releaseReadinessAction = releaseReadinessNextAction(releaseReadinessRows);
@@ -10371,6 +10375,36 @@ export default function App() {
                   </div>
                 ))}
               </div>
+              {releaseLocalEvidenceRows.length > 0 ? (
+                <div
+                  className="release-readiness-card__local-evidence"
+                  aria-label="Local validation evidence"
+                >
+                  <h4>Local evidence</h4>
+                  <div className="release-readiness-card__status-grid">
+                    {releaseLocalEvidenceRows.map((row) => (
+                      <div
+                        className="release-readiness-card__status-row"
+                        key={row.id}
+                      >
+                        <div>
+                          <strong>{row.label}</strong>
+                          <span>{row.detail}</span>
+                        </div>
+                        <span
+                          className={`release-readiness-card__status-badge release-readiness-card__status-badge--${
+                            row.passed ? "ready" : "blocked"
+                          }`}
+                        >
+                          {row.statusLabel}
+                        </span>
+                        <code>{row.command}</code>
+                        <code>{row.summaryPath}</code>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div
                 className="release-readiness-card__gates"
                 aria-label="Shareable DMG gates"

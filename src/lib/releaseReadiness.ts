@@ -34,6 +34,16 @@ export interface ReleaseReadinessStatusRow {
   detail: string;
 }
 
+export interface ReleaseLocalEvidenceRow {
+  id: string;
+  label: string;
+  passed: boolean;
+  statusLabel: string;
+  command: string;
+  summaryPath: string;
+  detail: string;
+}
+
 export interface ReleaseReadinessEvidenceSummary {
   totalRows: number;
   readyRows: number;
@@ -82,6 +92,7 @@ export interface ReleaseReadinessReportSnapshot {
       passed?: boolean;
       stepCount?: number;
       requiredCommand?: string;
+      summaryPath?: string;
     };
     doctorRepair?: {
       summaryPresent?: boolean;
@@ -89,6 +100,7 @@ export interface ReleaseReadinessReportSnapshot {
       passed?: boolean;
       stepCount?: number;
       requiredCommand?: string;
+      summaryPath?: string;
     };
     uninstall?: {
       summaryPresent?: boolean;
@@ -97,6 +109,7 @@ export interface ReleaseReadinessReportSnapshot {
       destructive?: boolean | null;
       stepCount?: number;
       requiredCommand?: string;
+      summaryPath?: string;
     };
     repoIntelligence?: {
       summaryPresent?: boolean;
@@ -106,6 +119,7 @@ export interface ReleaseReadinessReportSnapshot {
       modifiesRepository?: boolean | null;
       stepCount?: number;
       requiredCommand?: string;
+      summaryPath?: string;
     };
   };
   shareableDmgGate?: {
@@ -608,6 +622,107 @@ function statusTone(ready: boolean): ReleaseReadinessStatusTone {
 
 function statusLabel(ready: boolean) {
   return ready ? "Ready" : "Blocked";
+}
+
+function localEvidenceDetail(
+  label: string,
+  stepCount: number | undefined,
+  summaryPresent: boolean | undefined,
+  extra: string | null = null,
+) {
+  const parts = [
+    `${label} ${stepCount ?? 0} step${stepCount === 1 ? "" : "s"}.`,
+    summaryPresent ? "Summary present." : "Summary missing.",
+  ];
+  if (extra) {
+    parts.push(extra);
+  }
+  return parts.join(" ");
+}
+
+export function releaseLocalEvidenceRowsFromReport(
+  report: ReleaseReadinessReportSnapshot | null | undefined,
+): ReleaseLocalEvidenceRow[] {
+  const local = report?.localValidation;
+  if (!local) {
+    return [];
+  }
+
+  return [
+    {
+      id: "rollback",
+      label: "Rollback Center",
+      passed: local.rollback?.passed === true,
+      statusLabel: local.rollback?.passed === true ? "Passed" : "Missing",
+      command: local.rollback?.requiredCommand ?? "npm run smoke:rollback:local",
+      summaryPath:
+        local.rollback?.summaryPath ??
+        "dist/local-rollback-validation-summary.md",
+      detail: localEvidenceDetail(
+        "Rollback validation checked",
+        local.rollback?.stepCount,
+        local.rollback?.summaryPresent,
+      ),
+    },
+    {
+      id: "doctor-repair",
+      label: "Doctor repairs",
+      passed: local.doctorRepair?.passed === true,
+      statusLabel: local.doctorRepair?.passed === true ? "Passed" : "Missing",
+      command:
+        local.doctorRepair?.requiredCommand ??
+        "npm run smoke:doctor-repair:local",
+      summaryPath:
+        local.doctorRepair?.summaryPath ??
+        "dist/local-doctor-repair-validation-summary.md",
+      detail: localEvidenceDetail(
+        "Doctor repair validation checked",
+        local.doctorRepair?.stepCount,
+        local.doctorRepair?.summaryPresent,
+      ),
+    },
+    {
+      id: "uninstall",
+      label: "Uninstall dry-run",
+      passed: local.uninstall?.passed === true,
+      statusLabel: local.uninstall?.passed === true ? "Passed" : "Missing",
+      command:
+        local.uninstall?.requiredCommand ?? "npm run smoke:uninstall:local",
+      summaryPath:
+        local.uninstall?.summaryPath ??
+        "dist/local-uninstall-validation-summary.md",
+      detail: localEvidenceDetail(
+        "Uninstall validation checked",
+        local.uninstall?.stepCount,
+        local.uninstall?.summaryPresent,
+        local.uninstall?.destructive === false
+          ? "Dry-run only; no destructive actions."
+          : "Destructive status unproven.",
+      ),
+    },
+    {
+      id: "repo-intelligence",
+      label: "Repo Intelligence",
+      passed: local.repoIntelligence?.passed === true,
+      statusLabel:
+        local.repoIntelligence?.passed === true ? "Passed" : "Missing",
+      command:
+        local.repoIntelligence?.requiredCommand ??
+        "npm run smoke:repo-intelligence:local",
+      summaryPath:
+        local.repoIntelligence?.summaryPath ??
+        "dist/local-repo-intelligence-validation-summary.md",
+      detail: localEvidenceDetail(
+        "Repo Intelligence validation checked",
+        local.repoIntelligence?.stepCount,
+        local.repoIntelligence?.summaryPresent,
+        local.repoIntelligence?.readOnly === true &&
+          local.repoIntelligence?.modifiesRepository === false
+          ? "Read-only and non-mutating."
+          : "Read-only boundary unproven.",
+      ),
+    },
+  ];
 }
 
 export function releaseReadinessRowsFromReport(

@@ -7,6 +7,7 @@ import {
   formatReleaseReadinessReportSnapshot,
   formatReleaseReadinessSourceLabel,
   localReleaseEvidenceCommandIds,
+  releaseLocalEvidenceRowsFromReport,
   releaseReadinessCommand,
   releaseReadinessEvidenceSummary,
   releaseReadinessGroups,
@@ -244,6 +245,71 @@ describe("release readiness checklist", () => {
       reportLoaded: true,
     });
     expect(loaded.copy).toContain("public gate ready");
+  });
+
+  it("builds explicit local evidence rows from release report JSON", () => {
+    const rows = releaseLocalEvidenceRowsFromReport({
+      status: "blocked",
+      localValidation: {
+        ready: true,
+        rollback: {
+          passed: true,
+          stepCount: 3,
+          summaryPresent: true,
+          requiredCommand: "npm run smoke:rollback:local",
+          summaryPath: "dist/local-rollback-validation-summary.md",
+        },
+        doctorRepair: {
+          passed: true,
+          stepCount: 2,
+          summaryPresent: true,
+          requiredCommand: "npm run smoke:doctor-repair:local",
+          summaryPath: "dist/local-doctor-repair-validation-summary.md",
+        },
+        uninstall: {
+          passed: true,
+          stepCount: 2,
+          summaryPresent: true,
+          destructive: false,
+          requiredCommand: "npm run smoke:uninstall:local",
+          summaryPath: "dist/local-uninstall-validation-summary.md",
+        },
+        repoIntelligence: {
+          passed: true,
+          stepCount: 3,
+          summaryPresent: true,
+          readOnly: true,
+          modifiesRepository: false,
+          requiredCommand: "npm run smoke:repo-intelligence:local",
+          summaryPath: "dist/local-repo-intelligence-validation-summary.md",
+        },
+      },
+    });
+
+    expect(rows.map((row) => row.id)).toEqual([
+      "rollback",
+      "doctor-repair",
+      "uninstall",
+      "repo-intelligence",
+    ]);
+    expect(rows.every((row) => row.passed)).toBe(true);
+    expect(rows.map((row) => row.command)).toEqual([
+      "npm run smoke:rollback:local",
+      "npm run smoke:doctor-repair:local",
+      "npm run smoke:uninstall:local",
+      "npm run smoke:repo-intelligence:local",
+    ]);
+    expect(rows.find((row) => row.id === "uninstall")?.detail).toContain(
+      "Dry-run only; no destructive actions.",
+    );
+    expect(
+      rows.find((row) => row.id === "repo-intelligence")?.detail,
+    ).toContain("Read-only and non-mutating.");
+  });
+
+  it("returns no local evidence rows before a release report is loaded", () => {
+    expect(releaseLocalEvidenceRowsFromReport(null)).toEqual([]);
+    expect(releaseLocalEvidenceRowsFromReport(undefined)).toEqual([]);
   });
 
   it("selects the next blocked release action from scripted rows", () => {

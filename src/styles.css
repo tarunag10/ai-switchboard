@@ -5800,6 +5800,18 @@ details[open] .optimize-minimal__details summary::after {
   color: var(--text-primary);
 }
 
+.release-readiness-card__local-evidence {
+  display: grid;
+  gap: 8px;
+}
+
+.release-readiness-card__local-evidence h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: 1.25;
+}
+
 .release-readiness-card__gates {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
