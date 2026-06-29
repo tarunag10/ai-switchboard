@@ -98,14 +98,14 @@ fn skip_sentry(target: &str, msg: &str) -> bool {
     // proxy_intercept bypass forwarder: when CC is bypassing the local Python
     // proxy and we re-issue directly to api.anthropic.com, transient network
     // failures aren't actionable — client already gets a 502 and CC retries.
-    if target.starts_with("headroom_desktop_lib::proxy_intercept")
+    if target.starts_with("mac_ai_switchboard_lib::proxy_intercept")
         && msg.starts_with("proxy_intercept bypass forward failed")
     {
         return is_transient_transport_error(msg);
     }
     // The accept loop self-heals: it backs off and keeps accepting. A transient
     // EMFILE (or similar) under load isn't actionable as a Sentry event.
-    if target.starts_with("headroom_desktop_lib::proxy_intercept")
+    if target.starts_with("mac_ai_switchboard_lib::proxy_intercept")
         && msg.starts_with("[proxy_intercept] accept error")
     {
         return true;
@@ -115,7 +115,7 @@ fn skip_sentry(target: &str, msg: &str) -> bool {
     // spawn error is rare and the restart self-heals on next request), so they
     // are pure noise. The "download error" variant is NOT suppressed — it
     // carries a classified cause and is the systemic signal worth tracking.
-    if target.starts_with("headroom_desktop_lib::state")
+    if target.starts_with("mac_ai_switchboard_lib::state")
         && (msg.starts_with("kompress prefetch failed")
             || msg.starts_with("kompress prefetch: restart after download failed"))
     {
@@ -124,7 +124,7 @@ fn skip_sentry(target: &str, msg: &str) -> bool {
     // Uninstall cleanup is best-effort and races a still-exiting backend/proxy
     // that may re-create a file mid-walk ("Directory not empty"). The removal
     // is retried; a residual failure during teardown isn't actionable.
-    if target.starts_with("headroom_desktop_lib::client_adapters")
+    if target.starts_with("mac_ai_switchboard_lib::client_adapters")
         && msg.starts_with("cleanup: removing")
     {
         return true;
@@ -197,15 +197,15 @@ pub fn init() -> Result<PathBuf, SetLoggerError> {
 #[cfg(target_os = "macos")]
 pub(crate) fn log_path() -> PathBuf {
     dirs::home_dir()
-        .map(|h| h.join("Library/Logs/Headroom/headroom-desktop.log"))
-        .unwrap_or_else(|| PathBuf::from("/tmp/headroom-desktop.log"))
+        .map(|h| h.join("Library/Logs/Headroom/mac-ai-switchboard.log"))
+        .unwrap_or_else(|| PathBuf::from("/tmp/mac-ai-switchboard.log"))
 }
 
 #[cfg(not(target_os = "macos"))]
 pub(crate) fn log_path() -> PathBuf {
     dirs::data_local_dir()
-        .map(|d| d.join("headroom/headroom-desktop.log"))
-        .unwrap_or_else(|| std::env::temp_dir().join("headroom-desktop.log"))
+        .map(|d| d.join("headroom/mac-ai-switchboard.log"))
+        .unwrap_or_else(|| std::env::temp_dir().join("mac-ai-switchboard.log"))
 }
 
 #[cfg(test)]
@@ -251,7 +251,7 @@ mod tests {
     #[test]
     fn keeps_other_targets() {
         assert!(!skip_sentry(
-            "headroom_desktop_lib::pricing",
+            "mac_ai_switchboard_lib::pricing",
             "error sending request: timeout"
         ));
         assert!(!skip_sentry("reqwest", "error sending request"));
@@ -260,11 +260,11 @@ mod tests {
     #[test]
     fn skips_proxy_intercept_bypass_transport_errors() {
         assert!(skip_sentry(
-            "headroom_desktop_lib::proxy_intercept",
+            "mac_ai_switchboard_lib::proxy_intercept",
             "proxy_intercept bypass forward failed: error sending request for url (https://api.anthropic.com/v1/messages?beta=true)"
         ));
         assert!(skip_sentry(
-            "headroom_desktop_lib::proxy_intercept",
+            "mac_ai_switchboard_lib::proxy_intercept",
             "proxy_intercept bypass forward failed: dns error: failed to lookup address"
         ));
     }
@@ -272,11 +272,11 @@ mod tests {
     #[test]
     fn keeps_proxy_intercept_non_transport_errors() {
         assert!(!skip_sentry(
-            "headroom_desktop_lib::proxy_intercept",
+            "mac_ai_switchboard_lib::proxy_intercept",
             "proxy_intercept bypass forward failed: invalid header value"
         ));
         assert!(!skip_sentry(
-            "headroom_desktop_lib::proxy_intercept",
+            "mac_ai_switchboard_lib::proxy_intercept",
             "some other proxy_intercept warning"
         ));
     }
@@ -284,11 +284,11 @@ mod tests {
     #[test]
     fn skips_kompress_prefetch_best_effort_warnings() {
         assert!(skip_sentry(
-            "headroom_desktop_lib::state",
+            "mac_ai_switchboard_lib::state",
             "kompress prefetch failed: some error"
         ));
         assert!(skip_sentry(
-            "headroom_desktop_lib::state",
+            "mac_ai_switchboard_lib::state",
             "kompress prefetch: restart after download failed: boom"
         ));
     }
@@ -296,7 +296,7 @@ mod tests {
     #[test]
     fn skips_uninstall_cleanup_removal_warnings() {
         assert!(skip_sentry(
-            "headroom_desktop_lib::client_adapters",
+            "mac_ai_switchboard_lib::client_adapters",
             "cleanup: removing /Users/x/Library/Application Support/Headroom failed: Directory not empty (os error 66)"
         ));
     }
@@ -306,7 +306,7 @@ mod tests {
         // The classified-cause variant carries the systemic signal and must
         // reach Sentry.
         assert!(!skip_sentry(
-            "headroom_desktop_lib::state",
+            "mac_ai_switchboard_lib::state",
             "kompress prefetch download error: [network] Max retries exceeded"
         ));
     }
@@ -314,7 +314,7 @@ mod tests {
     #[test]
     fn keeps_other_state_warnings() {
         assert!(!skip_sentry(
-            "headroom_desktop_lib::state",
+            "mac_ai_switchboard_lib::state",
             "some other state warning"
         ));
     }

@@ -66,7 +66,7 @@ const codesignVerify = appPresent
 const spctlAssess = appPresent
   ? run("spctl", ["--assess", "--type", "execute", "--verbose=4", appPath])
   : null;
-const running = run("pgrep", ["-fl", "headroom-desktop|Mac AI Switchboard"]);
+const running = run("pgrep", ["-fl", "mac-ai-switchboard|Mac AI Switchboard"]);
 
 const payload = {
   generatedAt,

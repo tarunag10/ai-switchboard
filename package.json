@@ -1,6 +1,8 @@
 {
   "name": "mac-ai-switchboard",
   "version": "0.5.1",
+  "description": "Local-first Mac switchboard for AI coding-agent routing, token savings, and repo context packs.",
+  "author": "Tarun Agarwal",
   "private": false,
   "type": "module",
   "scripts": {

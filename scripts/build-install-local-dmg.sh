@@ -52,11 +52,11 @@ if [[ ! -d "${MOUNT_POINT}/Mac AI Switchboard.app" ]]; then
   exit 1
 fi
 
-if pgrep -f "${APP_DEST}/Contents/MacOS/headroom-desktop" >/dev/null 2>&1; then
+if pgrep -f "${APP_DEST}/Contents/MacOS/mac-ai-switchboard" >/dev/null 2>&1; then
   osascript -e 'tell application id "com.tarunagarwal.mac-ai-switchboard" to quit' >/dev/null 2>&1 || true
   sleep 2
 fi
-pkill -f "${APP_DEST}/Contents/MacOS/headroom-desktop" >/dev/null 2>&1 || true
+pkill -f "${APP_DEST}/Contents/MacOS/mac-ai-switchboard" >/dev/null 2>&1 || true
 
 rm -rf "${APP_DEST}"
 ditto "${MOUNT_POINT}/Mac AI Switchboard.app" "${APP_DEST}"

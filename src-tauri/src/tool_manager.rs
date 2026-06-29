@@ -4721,7 +4721,7 @@ where
     }
 
     let client = reqwest::blocking::Client::builder()
-        .user_agent(concat!("headroom-desktop/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("mac-ai-switchboard/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(30))
         .timeout(Duration::from_secs(30 * 60))
         .tcp_keepalive(Duration::from_secs(60))

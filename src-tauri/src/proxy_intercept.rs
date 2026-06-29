@@ -644,7 +644,7 @@ fn maybe_spawn_codex_usage_poll(buf: &[u8], codex_slot: &CodexRateLimitSlot) {
     }
 
     let user_agent =
-        extract_header_value(buf, "user-agent").unwrap_or_else(|| "headroom-desktop".to_string());
+        extract_header_value(buf, "user-agent").unwrap_or_else(|| "mac-ai-switchboard".to_string());
     let slot = codex_slot.clone();
     tokio::task::spawn_blocking(move || {
         if let Some(snapshot) = fetch_codex_usage_snapshot(&token, &account_id, &user_agent) {

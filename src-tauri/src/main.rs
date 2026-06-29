@@ -1,3 +1,3 @@
 fn main() {
-    headroom_desktop_lib::run();
+    mac_ai_switchboard_lib::run();
 }
