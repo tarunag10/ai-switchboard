@@ -53,6 +53,11 @@ function renderPanel(
         detail: "Managed RTK PATH export is present.",
       },
       {
+        label: "RTK shell hook",
+        status: "Configured",
+        detail: "Managed RTK command-rewrite hook is present.",
+      },
+      {
         label: "Repo Memory MCP",
         status: "Configured",
         detail:
@@ -103,6 +108,7 @@ describe("SwitchboardPanel", () => {
     expect(inspector.getByText("Claude routing")).toBeInTheDocument();
     expect(inspector.getByText("Client routing")).toBeInTheDocument();
     expect(inspector.getByText("Shell export")).toBeInTheDocument();
+    expect(inspector.getByText("RTK shell hook")).toBeInTheDocument();
     expect(inspector.getByText("Repo Memory MCP")).toBeInTheDocument();
     expect(inspector.getByText("Launch at login")).toBeInTheDocument();
     expect(screen.getAllByText("Codex, Claude Code").length).toBeGreaterThan(0);
@@ -111,6 +117,9 @@ describe("SwitchboardPanel", () => {
     );
     expect(
       inspector.getByText("Managed RTK PATH export is present."),
+    ).toBeInTheDocument();
+    expect(
+      inspector.getByText("Managed RTK command-rewrite hook is present."),
     ).toBeInTheDocument();
     expect(
       inspector.getByText(

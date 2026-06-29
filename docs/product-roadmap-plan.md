@@ -25,11 +25,12 @@ Shipped:
 - Mode Inspector now surfaces stale-shell restart guidance when requested and active mode evidence disagree, including old `ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`, and `PATH` exports.
 - Mode Inspector now reports app-managed launch-at-login plist evidence separately from runtime process/proxy status, including legacy `Headroom.plist` leftovers when present.
 - Mode Inspector now shows the client-facing proxy listener address, loopback-only auth/detail evidence, and selected internal backend port/fallback evidence instead of hiding listener proof behind a generic engine label.
+- Mode Inspector now distinguishes RTK PATH export evidence from RTK shell hook evidence, so command-rewrite setup is visible separately from install/enabled state.
 
 Left:
 
 - App-owned Terms, Privacy Notice, Settings Legal surfaces, and terms-version policy are bundled and covered by focused tests.
-- Complete the Mode Inspector as a user-facing proof surface for hook, MCP, shell block, provider block, launchd load state, and stale-shell caveat.
+- Complete the Mode Inspector as a user-facing proof surface for MCP, shell block, provider block, launchd load state, and stale-shell caveat.
 - Add reboot smoke evidence for Off mode, RTK-only mode, Doctor repair guards, and Rollback Center survival.
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
 - Turn repo-memory MCP into a real app-supervised long-running local service beyond the current process-bound active marker plus smoke-tested stdio transport.

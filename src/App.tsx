@@ -7559,6 +7559,15 @@ export default function App() {
         : "Managed RTK PATH export is not active.",
     },
     {
+      label: "RTK shell hook",
+      status: runtimeStatus?.rtk.hookConfigured ? "Configured" : "Not configured",
+      detail: runtimeStatus?.rtk.hookConfigured
+        ? "Managed RTK command-rewrite hook is present."
+        : runtimeStatus?.rtk.installed
+          ? "RTK is installed, but the managed shell hook is not active."
+          : "RTK shell hook is not installed.",
+    },
+    {
       ...repoMemoryMcpInspectorRow({
         configured: runtimeStatus?.repoMemoryMcpConfigured,
         error: runtimeStatus?.repoMemoryMcpError,
