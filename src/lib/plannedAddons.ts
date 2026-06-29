@@ -129,7 +129,7 @@ export const plannedAddons: PlannedAddon[] = [
     savingsSources: [
       "Markdown extracts avoid repeated binary document uploads.",
       "Prepared reference snippets pair with Repo Intelligence packs for smaller task context.",
-      "Savings calculator shows an inferred MarkItDown row from extract-versus-full-document template delta, separate from RTK shell-output and Headroom compression savings.",
+      "Savings calculator shows an estimated MarkItDown row from extract-versus-full-document template delta plus managed smoke evidence, separate from RTK shell-output and Headroom compression savings.",
     ],
     verificationCommand: "npm run smoke:preflight",
   },

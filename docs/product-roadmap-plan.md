@@ -86,7 +86,7 @@ Left:
 ### Observability and Savings Accuracy
 
 - A session savings ledger exists and labels rows as measured, estimated, or inferred.
-- Headroom and RTK measured events are the strongest evidence today; Repo Intelligence has estimated best-pack events; MarkItDown, Ponytail, Caveman, and Compact Chinese still rely mostly on inferred template events.
+- Headroom and RTK measured events are the strongest evidence today; Repo Intelligence has estimated best-pack events; MarkItDown is estimated from the managed smoke-tested conversion path; Ponytail, Caveman, and Compact Chinese still rely mostly on inferred template events.
 - Remaining work is to make add-on counters more exact and to explain current session, repo, today, and all-time scopes without mixing them.
 
 ### Connector Expansion Risk

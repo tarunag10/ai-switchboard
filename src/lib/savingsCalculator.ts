@@ -394,11 +394,11 @@ export function buildSavingsCalculatorBreakdown(
       label: "MarkItDown",
       source: "markitdown",
       kind: "doc_preprocess",
-      confidence: "inferred",
+      confidence: "estimated",
       savedTokens: markitdownSaved,
       savedUsd: null,
       detail:
-        "Markdown extract vs re-attaching the full source document each turn.",
+        "Markdown extract vs re-attaching the full source document each turn; the managed converter is smoke-tested before integration is enabled.",
     });
   }
 

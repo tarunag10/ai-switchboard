@@ -4031,6 +4031,11 @@ fn build_addon_attribution_event(
     if delta_tokens == 0 {
         return None;
     }
+    let confidence_label = match confidence {
+        SavingsAttributionConfidence::Measured => "Measured",
+        SavingsAttributionConfidence::Estimated => "Estimated",
+        SavingsAttributionConfidence::Inferred => "Inferred",
+    };
 
     Some(SavingsAttributionEvent {
         schema_version: 1,
@@ -4045,7 +4050,7 @@ fn build_addon_attribution_event(
         request_delta: 1,
         evidence: vec![
             format!(
-                "Inferred from {label} template delta: baseline {baseline} tokens vs optimized {optimized} tokens."
+                "{confidence_label} from {label} template delta: baseline {baseline} tokens vs optimized {optimized} tokens."
             ),
             format!("{evidence_subject}; local workflow estimate, not provider-spend dollars."),
         ],

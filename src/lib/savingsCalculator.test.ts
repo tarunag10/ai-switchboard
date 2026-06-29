@@ -541,7 +541,7 @@ describe("savings calculator", () => {
     expect(addonRows.map((row) => row.confidence)).toEqual([
       "inferred",
       "inferred",
-      "inferred",
+      "estimated",
     ]);
     expect(addonRows.map((row) => row.savedUsd)).toEqual([null, null, null]);
     expect(addonRows.map((row) => row.savedTokens)).toEqual([300, 880, 2_300]);
@@ -919,9 +919,9 @@ describe("savings calculator", () => {
       "Scopes: session uses live app counters; repo uses Repo Intelligence context estimates; today/month/lifetime use saved local history.",
     );
     expect(text).toContain("Measured tokens: 900 / $0.00");
-    expect(text).toContain("Estimated tokens: 2,000 / $4.50");
-    expect(text).toContain("Inferred tokens: 2,300");
-    expect(text).toContain("Attribution: 17.3% measured · 38.5% estimated · 44.2% inferred");
+    expect(text).toContain("Estimated tokens: 4,300 / $4.50");
+    expect(text).toContain("Inferred tokens: 0");
+    expect(text).toContain("Attribution: 17.3% measured · 82.7% estimated");
     expect(text).toContain(
       "Equation per row: saved tokens come from each source's before/after or counter delta",
     );
@@ -930,12 +930,14 @@ describe("savings calculator", () => {
     );
     expect(text).toContain("Evidence: 12 command outputs compressed locally.");
     expect(text).toContain(
-      "Evidence: Markdown extract vs re-attaching the full source document each turn.",
+      "Evidence: Markdown extract vs re-attaching the full source document each turn; the managed converter is smoke-tested before integration is enabled.",
     );
     expect(text).toContain("Caveat: Observed from local counters");
-    expect(text).toContain("Caveat: Modelled from a template");
     expect(text).toContain(
-      "- markitdown: MarkItDown (inferred, lifetime, 2026-06-27T10:00:00.000Z) saved 2,300 tokens.",
+      "Caveat: Estimated from saved history or cost model",
+    );
+    expect(text).toContain(
+      "- markitdown: MarkItDown (estimated, lifetime, 2026-06-27T10:00:00.000Z) saved 2,300 tokens.",
     );
   });
 
@@ -1035,7 +1037,7 @@ describe("savings calculator", () => {
     expect(text).toContain("- caveman: Caveman (inferred) saved 300 tokens");
     expect(text).toContain("- ponytail: Ponytail (inferred) saved 880 tokens");
     expect(text).toContain(
-      "- markitdown: MarkItDown (inferred) saved 2,300 tokens",
+      "- markitdown: MarkItDown (estimated) saved 2,300 tokens",
     );
   });
 });
