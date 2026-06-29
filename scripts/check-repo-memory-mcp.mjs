@@ -66,11 +66,14 @@ function finish() {
   const tools = listResponse?.result?.tools ?? [];
   const names = tools.map((tool) => tool.name).sort();
 
-  for (const expected of [
-    "repo_context_pack",
-    "repo_dependents_of",
-    "repo_symbol_lookup",
-  ]) {
+for (const expected of [
+  "repo_context_pack",
+  "repo_dependents_of",
+  "repo_symbol_lookup",
+  "switchboard.build_context_pack",
+  "switchboard.get_repo_graph_summary",
+  "switchboard.list_context_packs",
+]) {
     if (!names.includes(expected)) {
       throw new Error(`repo-memory MCP tool missing: ${expected}`);
     }

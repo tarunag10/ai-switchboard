@@ -2005,12 +2005,34 @@ function mcpTextResult(value) {
 }
 
 function handleRepoMemoryTool(summary, name, args = {}) {
-  if (name === "repo_context_pack") {
+  if (name === "switchboard.list_context_packs") {
+    return mcpTextResult({
+      repoRoot: summary.repoRoot,
+      packs: summary.packs.map((pack) => ({
+        id: pack.id,
+        title: pack.title,
+        purpose: pack.purpose,
+        estimatedTokens: pack.estimatedTokens,
+        fileCount: pack.files.length,
+      })),
+      safety: repoMemorySafety(),
+    });
+  }
+  if (name === "repo_context_pack" || name === "switchboard.build_context_pack") {
     const pack =
       summary.packs.find(
-        (candidate) => candidate.id === (args.packId ?? "implementation"),
+        (candidate) =>
+          candidate.id ===
+          (args.packId ?? args.pack_id ?? args.id ?? "implementation"),
       ) ?? summary.packs[0];
     return mcpTextResult(formatSinglePackMarkdown(summary, pack));
+  }
+  if (name === "switchboard.get_repo_graph_summary") {
+    return mcpTextResult({
+      repoRoot: summary.repoRoot,
+      graph: summary.graph ?? null,
+      safety: repoMemorySafety(),
+    });
   }
   if (name === "repo_symbol_lookup") {
     const query = String(args.query ?? "").toLowerCase();
@@ -2047,6 +2069,41 @@ function handleRepoMemoryTool(summary, name, args = {}) {
 function runRepoMemoryMcpServer(options) {
   const summary = buildSummary(options.repoRoot);
   const tools = [
+    {
+      name: "switchboard.list_context_packs",
+      description:
+        "List available read-only Switchboard Repo Intelligence context packs; secret-like paths are excluded and repositories are not modified.",
+      inputSchema: {
+        type: "object",
+        properties: {},
+      },
+      annotations: { readOnlyHint: true },
+    },
+    {
+      name: "switchboard.build_context_pack",
+      description:
+        "Build a read-only Switchboard context pack as Markdown; secret-like paths are excluded and repositories are not modified.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          packId: { type: "string" },
+          pack_id: { type: "string" },
+          task: { type: "string" },
+          budget_tokens: { type: "number" },
+        },
+      },
+      annotations: { readOnlyHint: true },
+    },
+    {
+      name: "switchboard.get_repo_graph_summary",
+      description:
+        "Return the read-only Switchboard Repo Intelligence graph summary; secret-like paths are excluded and repositories are not modified.",
+      inputSchema: {
+        type: "object",
+        properties: {},
+      },
+      annotations: { readOnlyHint: true },
+    },
     {
       name: "repo_context_pack",
       description:

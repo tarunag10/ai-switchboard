@@ -9,6 +9,9 @@ Repo Memory MCP is the read-only agent-consumption surface for Repo Intelligence
 - Session controls: **Start MCP** and **Stop MCP** in the Mode Inspector, backed by `start_repo_memory_mcp` and `stop_repo_memory_mcp`. Start verifies the read-only smoke contract before marking MCP active; these controls do not claim a separate background daemon is running.
 - Verification: `npm run check:repo-memory-mcp`.
 - Tools: `repo_context_pack`, `repo_symbol_lookup`, and `repo_dependents_of`.
+  Switchboard-compatible aliases are also exposed:
+  `switchboard.list_context_packs`, `switchboard.build_context_pack`, and
+  `switchboard.get_repo_graph_summary`.
 - Safety: read-only tools, secret-like paths excluded, generated/vendor paths skipped, and pack output bounded by Repo Intelligence budgets.
 
 ## Agent Consumption
