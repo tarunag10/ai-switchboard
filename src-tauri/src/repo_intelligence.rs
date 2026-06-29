@@ -1568,6 +1568,10 @@ fn build_repo_symbols(repo_root: &Path, files: &[RepoFileSignal]) -> Vec<RepoSym
 }
 
 fn extract_file_symbols(file: &RepoFileSignal, content: &str, remaining: usize) -> Vec<RepoSymbol> {
+    if let Some(symbols) = extract_file_symbols_with_tree_sitter(file, content, remaining) {
+        return symbols;
+    }
+
     let mut symbols = Vec::new();
     let mut parents: Vec<(usize, String)> = Vec::new();
     for (index, line) in content.lines().enumerate() {
@@ -1604,6 +1608,132 @@ fn extract_file_symbols(file: &RepoFileSignal, content: &str, remaining: usize) 
         });
     }
     symbols
+}
+
+fn extract_file_symbols_with_tree_sitter(
+    file: &RepoFileSignal,
+    content: &str,
+    remaining: usize,
+) -> Option<Vec<RepoSymbol>> {
+    let mut parser = tree_sitter::Parser::new();
+    let language = tree_sitter_language_for_file(file)?;
+    parser.set_language(&language).ok()?;
+    let tree = parser.parse(content, None)?;
+    let mut symbols = Vec::new();
+    collect_ast_symbols(
+        file,
+        content.as_bytes(),
+        tree.root_node(),
+        None,
+        remaining,
+        &mut symbols,
+    );
+    Some(symbols)
+}
+
+fn tree_sitter_language_for_file(file: &RepoFileSignal) -> Option<tree_sitter::Language> {
+    match file.language.as_str() {
+        "TypeScript" => Some(tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
+        "React" => Some(tree_sitter_typescript::LANGUAGE_TSX.into()),
+        "JavaScript" => Some(tree_sitter_javascript::LANGUAGE.into()),
+        "Rust" => Some(tree_sitter_rust::LANGUAGE.into()),
+        "Python" => Some(tree_sitter_python::LANGUAGE.into()),
+        _ => None,
+    }
+}
+
+fn collect_ast_symbols(
+    file: &RepoFileSignal,
+    source: &[u8],
+    node: tree_sitter::Node<'_>,
+    parent: Option<String>,
+    remaining: usize,
+    symbols: &mut Vec<RepoSymbol>,
+) {
+    if symbols.len() >= remaining {
+        return;
+    }
+
+    let symbol = symbol_from_ast_node(file, source, node, parent.clone());
+    let child_parent = symbol
+        .as_ref()
+        .filter(|symbol| {
+            matches!(
+                symbol.kind,
+                RepoSymbolKind::Class
+                    | RepoSymbolKind::Struct
+                    | RepoSymbolKind::Enum
+                    | RepoSymbolKind::Trait
+            )
+        })
+        .map(|symbol| symbol.name.clone())
+        .or(parent);
+    if let Some(symbol) = symbol {
+        symbols.push(symbol);
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_ast_symbols(
+            file,
+            source,
+            child,
+            child_parent.clone(),
+            remaining,
+            symbols,
+        );
+        if symbols.len() >= remaining {
+            break;
+        }
+    }
+}
+
+fn symbol_from_ast_node(
+    file: &RepoFileSignal,
+    source: &[u8],
+    node: tree_sitter::Node<'_>,
+    parent: Option<String>,
+) -> Option<RepoSymbol> {
+    let kind = match (file.language.as_str(), node.kind()) {
+        ("TypeScript" | "JavaScript" | "React", "function_declaration")
+        | ("TypeScript" | "JavaScript" | "React", "method_definition")
+        | ("TypeScript" | "JavaScript" | "React", "function_signature") => RepoSymbolKind::Function,
+        ("TypeScript" | "JavaScript" | "React", "class_declaration") => RepoSymbolKind::Class,
+        ("TypeScript" | "React", "interface_declaration")
+        | ("TypeScript" | "React", "type_alias_declaration") => RepoSymbolKind::Trait,
+        ("TypeScript" | "JavaScript" | "React", "variable_declarator") => {
+            if node.child_by_field_name("value").is_some_and(|value| {
+                matches!(
+                    value.kind(),
+                    "arrow_function" | "function" | "function_expression"
+                )
+            }) {
+                RepoSymbolKind::Function
+            } else {
+                RepoSymbolKind::Const
+            }
+        }
+        ("Rust", "function_item") => RepoSymbolKind::Function,
+        ("Rust", "struct_item") => RepoSymbolKind::Struct,
+        ("Rust", "enum_item") => RepoSymbolKind::Enum,
+        ("Rust", "trait_item") => RepoSymbolKind::Trait,
+        ("Rust", "const_item") => RepoSymbolKind::Const,
+        ("Python", "function_definition") => RepoSymbolKind::Function,
+        ("Python", "class_definition") => RepoSymbolKind::Class,
+        _ => return None,
+    };
+    let name_node = node.child_by_field_name("name")?;
+    let name = name_node.utf8_text(source).ok()?.to_string();
+    if name.is_empty() {
+        return None;
+    }
+    Some(RepoSymbol {
+        name,
+        kind,
+        file: file.path.clone(),
+        line: (node.start_position().row + 1) as u64,
+        parent,
+    })
 }
 
 fn extract_symbol_from_line(language: &str, line: &str) -> Option<(RepoSymbolKind, String)> {
