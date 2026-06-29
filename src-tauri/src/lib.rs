@@ -576,6 +576,7 @@ fn run_release_evidence_command(
         &[("npm", &["run", "smoke:doctor-repair:local"])];
     const LOCAL_DMG_BUILD_INSTALL_STEPS: &[(&str, &[&str])] =
         &[("npm", &["run", "build:mac:local-install"])];
+    const RELEASE_REPORT_STEPS: &[(&str, &[&str])] = &[("npm", &["run", "release:report"])];
 
     let spec = match command_id.as_str() {
         "static-preflight" => ReleaseEvidenceCommandSpec {
@@ -620,9 +621,15 @@ fn run_release_evidence_command(
             steps: LOCAL_DMG_BUILD_INSTALL_STEPS,
             summary_path: Some("dist/local-installed-smoke-summary.md"),
         },
+        "release-report" => ReleaseEvidenceCommandSpec {
+            label: "Release readiness report",
+            command: "npm run release:report",
+            steps: RELEASE_REPORT_STEPS,
+            summary_path: Some("dist/release-readiness-report.md"),
+        },
         _ => {
             return Err(
-                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, rollback-center-validation, and doctor-repair-validation."
+                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, rollback-center-validation, doctor-repair-validation, and release-report."
                     .to_string(),
             )
         }
@@ -9499,7 +9506,7 @@ Some unrelated content.
 
         assert!(
             err.contains(
-                "enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, rollback-center-validation, and doctor-repair-validation"
+                "enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, rollback-center-validation, doctor-repair-validation, and release-report"
             ),
             "unexpected error: {err}"
         );

@@ -49,6 +49,7 @@ describe("release readiness checklist", () => {
       "local-mode-relaunch-smoke",
       "rollback-center-validation",
       "doctor-repair-validation",
+      "release-report",
     ]);
 
     const copy = formatLocalReleaseEvidenceSequenceCopy();
@@ -58,6 +59,7 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("Local Off/RTK relaunch smoke");
     expect(copy).toContain("Rollback Center validation");
     expect(copy).toContain("Doctor repair validation");
+    expect(copy).toContain("Refresh release readiness report");
     expect(copy).toContain("does not run signing, notarization");
     expect(copy).toContain("strict public-release gate");
   });
@@ -128,7 +130,7 @@ describe("release readiness checklist", () => {
     expect(commands).toContain("npm run smoke:preflight");
     expect(commands).toContain("npm run build:mac:dmg");
     expect(commands).toContain("npm run smoke:installed:local");
-    expect(commands).toContain("npm run release:ready -- --strict");
+    expect(commands).toContain("npm run release:report");
   });
 
   it("keeps checklist entries concrete enough for release handoff", () => {

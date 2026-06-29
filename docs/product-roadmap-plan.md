@@ -42,6 +42,7 @@ Shipped:
 - Settings Legal now includes bundled license, notice, trademark, and asset-provenance summaries offline, including the logo provenance and branding guard command, without external legal links.
 - Ponytail savings attribution now records durable estimated events only when plugin registration is verified in connected agent hosts, including host evidence instead of unconditional inferred template rows.
 - Release readiness reports now ingest the local Rollback Center and Doctor repair validation summaries as explicit local-only evidence, including the required refresh commands and pass/fail status, while keeping signed/public installed-smoke gates separate.
+- The in-app Run local evidence action now finishes by regenerating the release readiness report, so one click produces fresh local validation summaries and a fresh report snapshot without running signing, notarization, updater publication, or the strict public-release gate.
 
 Left:
 

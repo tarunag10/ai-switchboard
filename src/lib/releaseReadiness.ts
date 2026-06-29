@@ -186,6 +186,7 @@ export const localReleaseEvidenceCommandIds = [
   "local-mode-relaunch-smoke",
   "rollback-center-validation",
   "doctor-repair-validation",
+  "release-report",
 ] as const;
 
 export function formatLocalReleaseEvidenceSequenceCopy() {
@@ -198,6 +199,7 @@ export function formatLocalReleaseEvidenceSequenceCopy() {
     "5. Local Off/RTK relaunch smoke",
     "6. Rollback Center validation",
     "7. Doctor repair validation",
+    "8. Refresh release readiness report",
     "Boundary: this local unsigned/ad-hoc evidence does not run signing, notarization, updater publication, or the strict public-release gate.",
   ].join("\n");
 }
@@ -209,7 +211,7 @@ export function formatReleaseReadinessCommandCopy() {
     "Strict public-release gate: npm run release:ready -- --strict",
     "Report source after running: dist/release-readiness-report.json",
     "Local-only install evidence: npm run build:mac:local-install",
-    "App shortcut: Run local evidence executes desktop validation, smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, and Doctor repair validation.",
+    "App shortcut: Run local evidence executes desktop validation, smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, Doctor repair validation, and a release report refresh.",
     "Boundary: local unsigned/ad-hoc install evidence never replaces signed DMG install, notarization, updater feed, or installed smoke confirmation.",
   ].join("\n");
 }
@@ -480,8 +482,9 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         id: "release-report",
         label: "Archive readiness report",
         detail:
-          "Keep dist/release-readiness-report.md with release artifacts for handoff.",
-        command: "npm run release:ready -- --strict",
+          "Refresh dist/release-readiness-report.md and .json with the latest local evidence for handoff; this does not run the strict public-release gate.",
+        command: "npm run release:report",
+        executable: true,
       },
     ],
   },
