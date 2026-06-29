@@ -419,7 +419,7 @@ describe("savings calculator", () => {
       dataLabel: "Current repo context estimate",
     });
     expect(rows.map((row) => row.id)).toEqual(["repo_intelligence"]);
-    expect(rows[0].confidence).toBe("inferred");
+    expect(rows[0].confidence).toBe("estimated");
   });
 
   it("breaks down lifetime savings by runtime, RTK, and repo context", () => {
@@ -475,7 +475,7 @@ describe("savings calculator", () => {
     expect(rows.map((row) => row.confidence)).toEqual([
       "estimated",
       "measured",
-      "inferred",
+      "estimated",
     ]);
     expect(rows[0].savedUsd).toBe(4.5);
     expect(rows[1].savedTokens).toBe(900);
@@ -700,14 +700,14 @@ describe("savings calculator", () => {
     expect(summary).toMatchObject({
       rowCount: 4,
       measuredTokens: 900,
-      estimatedTokens: 2_000,
-      inferredTokens: 8_380,
+      estimatedTokens: 9_500,
+      inferredTokens: 880,
       totalTokens: 11_280,
       estimatedUsd: 4.5,
       measuredUsd: 0,
     });
     expect(formatSavingsLedgerConfidenceBreakdown(summary)).toBe(
-      "900 measured · 2,000 estimated · 8,380 inferred",
+      "900 measured · 9,500 estimated · 880 inferred",
     );
   });
 
@@ -771,13 +771,13 @@ describe("savings calculator", () => {
     expect(groups.map((group) => group.confidence)).toEqual([
       "estimated",
       "measured",
-      "inferred",
+      "estimated",
     ]);
     expect(groups[2]).toMatchObject({
       label: "Repo Intelligence",
-      inferredTokens: 7_500,
+      inferredTokens: 0,
       measuredTokens: 0,
-      estimatedTokens: 0,
+      estimatedTokens: 7_500,
     });
   });
 
@@ -857,16 +857,13 @@ describe("savings calculator", () => {
       "inferred",
     );
     expect(inferred.summary).toMatchObject({
-      rowCount: 2,
+      rowCount: 1,
       measuredTokens: 0,
       estimatedTokens: 0,
-      inferredTokens: 8_380,
-      totalTokens: 8_380,
+      inferredTokens: 880,
+      totalTokens: 880,
     });
-    expect(inferred.groups.map((group) => group.source)).toEqual([
-      "repo_intelligence",
-      "ponytail",
-    ]);
+    expect(inferred.groups.map((group) => group.source)).toEqual(["ponytail"]);
 
     const copied = formatSavingsLedgerShareText(
       inferred.rows,
@@ -874,14 +871,12 @@ describe("savings calculator", () => {
       recordedAt,
       "inferred",
     );
-    expect(copied).toContain("Rows: 2");
+    expect(copied).toContain("Rows: 1");
     expect(copied).toContain("Confidence filter: inferred");
-    expect(copied).toContain(
-      "- repo_intelligence: Repo Intelligence (inferred, lifetime, 2026-06-27T10:00:00.000Z)",
-    );
     expect(copied).toContain(
       "- ponytail: Ponytail (inferred, lifetime, 2026-06-27T10:00:00.000Z)",
     );
+    expect(copied).not.toContain("- repo_intelligence: Repo Intelligence");
     expect(copied).not.toContain("- rtk: RTK");
     expect(copied).not.toContain("- headroom_engine: Headroom");
   });
@@ -1032,7 +1027,7 @@ describe("savings calculator", () => {
     );
     expect(text).toContain("- rtk: RTK (measured) saved 900 tokens");
     expect(text).toContain(
-      "- repo_intelligence: Repo Intelligence (inferred) saved 7,500 tokens",
+      "- repo_intelligence: Repo Intelligence (estimated) saved 7,500 tokens",
     );
     expect(text).toContain("- caveman: Caveman (inferred) saved 300 tokens");
     expect(text).toContain("- ponytail: Ponytail (inferred) saved 880 tokens");

@@ -42,7 +42,7 @@ Left:
 - Add reboot and installed-app smoke evidence for full Doctor repair and Rollback Center survival.
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
 - Turn repo-memory MCP into a real background local service beyond current app-process supervision plus smoke-tested stdio transport.
-- Replace inferred Ponytail, Caveman, Compact Chinese, and some Repo Intelligence savings rows with stronger measured counters where trustworthy evidence exists; MarkItDown is now estimated from the managed smoke-tested conversion path.
+- Replace inferred Ponytail, Caveman, and Compact Chinese savings rows with stronger measured counters where trustworthy evidence exists; Repo Intelligence and MarkItDown fallback rows are now estimated from graph-pack and managed smoke-tested conversion paths.
 - Deepen Repo Intelligence beyond the shipped parser/index versions, local imports, package-dependency edges, reverse dependencies, graph-input evidence, and graph-aware packs with richer language-specific dependency analyzers and Doctor health checks.
 - Complete public release readiness with signed/notarized DMG, updater artifacts, public installed-smoke proof, uninstall evidence, and release-panel wiring.
 

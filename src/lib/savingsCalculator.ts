@@ -347,7 +347,7 @@ export function buildSavingsCalculatorBreakdown(
       label: "Repo Intelligence",
       source: "repo_intelligence",
       kind: "repo_context",
-      confidence: "inferred",
+      confidence: "estimated",
       savedTokens: repoSaved,
       savedUsd: null,
       detail: `${options.repoSavings?.bestPack?.title ?? "Best context pack"} avoids a broad full-repo scan; graph summary points agents at hubs, entrypoints, and tests.`,
