@@ -841,6 +841,7 @@ const languageByExtension: Record<string, string> = {
   ".jsx": "React",
   ".md": "Markdown",
   ".mjs": "JavaScript",
+  ".py": "Python",
   ".rs": "Rust",
   ".sh": "Shell",
   ".toml": "TOML",
@@ -2270,7 +2271,7 @@ function buildRepoGraphSummary(
     ...buildImportReferenceEdges(included, contentByPath),
     ...buildPackageDependencyEdges(included, contentByPath),
   ];
-  const symbols = buildRepoSymbols(included);
+  const symbols = buildRepoSymbols(included, contentByPath);
   const symbolEdges = [
     ...buildSymbolEdges(included, symbols),
     ...buildCallReferenceEdges(included, symbols, contentByPath),
@@ -2297,7 +2298,10 @@ function buildRepoGraphSummary(
   };
 }
 
-function buildRepoSymbols(files: RepoFileSignal[]): RepoSymbol[] {
+function buildRepoSymbols(
+  files: RepoFileSignal[],
+  contentByPath: Map<string, string>,
+): RepoSymbol[] {
   const symbols: RepoSymbol[] = [];
   for (const file of files) {
     if (symbols.length >= 200) break;
@@ -2308,6 +2312,13 @@ function buildRepoSymbols(files: RepoFileSignal[]): RepoSymbol[] {
       )
     )
       continue;
+    const content = contentByPath.get(file.path);
+    if (content) {
+      symbols.push(
+        ...extractFileSymbols(file, content, 200 - symbols.length),
+      );
+      continue;
+    }
     const name =
       file.path
         .split("/")
@@ -2322,6 +2333,74 @@ function buildRepoSymbols(files: RepoFileSignal[]): RepoSymbol[] {
     });
   }
   return symbols;
+}
+
+function extractFileSymbols(
+  file: RepoFileSignal,
+  content: string,
+  remaining: number,
+): RepoSymbol[] {
+  const symbols: RepoSymbol[] = [];
+  const parents: Array<{ indent: number; name: string }> = [];
+  for (const [index, rawLine] of content.split(/\r?\n/).entries()) {
+    if (symbols.length >= remaining) break;
+    const indent = rawLine.match(/^\s*/)?.[0].length ?? 0;
+    while (parents.length && indent <= parents[parents.length - 1].indent) {
+      parents.pop();
+    }
+    const parsed = extractSymbolFromLine(file.language, rawLine.trimStart());
+    if (!parsed) continue;
+    const parent = parents[parents.length - 1]?.name ?? null;
+    if (["class", "struct", "enum", "trait"].includes(parsed.kind)) {
+      parents.push({ indent, name: parsed.name });
+    }
+    symbols.push({ ...parsed, file: file.path, line: index + 1, parent });
+  }
+  return symbols;
+}
+
+function extractSymbolFromLine(
+  language: string,
+  rawLine: string,
+): Pick<RepoSymbol, "name" | "kind"> | null {
+  const line = rawLine
+    .replace(/^(?:export\s+)?default\s+/, "")
+    .replace(/^(?:export\s+)?(?:async\s+)?/, "")
+    .replace(/^pub(?:\([^)]*\))?\s+/, "")
+    .replace(/^async\s+/, "");
+  const matchName = (pattern: RegExp, kind: RepoSymbolKind) => {
+    const match = line.match(pattern);
+    return match?.[1] ? { name: match[1], kind } : null;
+  };
+  if (["TypeScript", "JavaScript", "React"].includes(language)) {
+    return (
+      matchName(/^function\s+([A-Za-z_$][A-Za-z0-9_$]*)/, "function") ??
+      matchName(/^class\s+([A-Za-z_$][A-Za-z0-9_$]*)/, "class") ??
+      matchName(/^interface\s+([A-Za-z_$][A-Za-z0-9_$]*)/, "trait") ??
+      matchName(/^type\s+([A-Za-z_$][A-Za-z0-9_$]*)/, "trait") ??
+      matchName(
+        /^(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][A-Za-z0-9_$]*)\s*=>/,
+        "function",
+      ) ??
+      matchName(/^(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)/, "const")
+    );
+  }
+  if (language === "Rust") {
+    return (
+      matchName(/^fn\s+([A-Za-z_][A-Za-z0-9_]*)/, "function") ??
+      matchName(/^struct\s+([A-Za-z_][A-Za-z0-9_]*)/, "struct") ??
+      matchName(/^enum\s+([A-Za-z_][A-Za-z0-9_]*)/, "enum") ??
+      matchName(/^trait\s+([A-Za-z_][A-Za-z0-9_]*)/, "trait") ??
+      matchName(/^const\s+([A-Za-z_][A-Za-z0-9_]*)/, "const")
+    );
+  }
+  if (language === "Python") {
+    return (
+      matchName(/^def\s+([A-Za-z_][A-Za-z0-9_]*)/, "function") ??
+      matchName(/^class\s+([A-Za-z_][A-Za-z0-9_]*)/, "class")
+    );
+  }
+  return null;
 }
 
 function buildSymbolEdges(

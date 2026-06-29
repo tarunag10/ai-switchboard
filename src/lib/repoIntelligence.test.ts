@@ -320,16 +320,26 @@ describe("repoIntelligence", () => {
         path: "src/App.tsx",
         bytes: 4000,
         content:
-          'import React from "react";\nimport { helper } from "./lib/helper";\nhelper();',
+          'import React from "react";\nimport { helper } from "./lib/helper";\nexport default function App() { helper(); return null; }\nexport const loadPanel = async () => true;',
       },
       { path: "src/main.tsx", bytes: 1400, content: 'import "./App";' },
       { path: "src/App.test.tsx", bytes: 2000 },
       {
         path: "src/lib/helper.ts",
         bytes: 900,
-        content: "export function helper() { return true; }",
+        content:
+          "export function helper() { return true; }\nexport const makeHelper = () => helper();",
       },
-      { path: "src-tauri/src/lib.rs", bytes: 5000 },
+      {
+        path: "src-tauri/src/lib.rs",
+        bytes: 5000,
+        content: "pub(crate) fn run_app() {}\npub struct AppState;",
+      },
+      {
+        path: "scripts/tools.py",
+        bytes: 700,
+        content: "async def collect_context():\n    return []\nclass ToolRunner:\n    pass",
+      },
       { path: "scripts/release.mjs", bytes: 1200 },
       {
         path: "package.json",
@@ -387,8 +397,16 @@ describe("repoIntelligence", () => {
     expect(
       summary.graph?.reverseDependencyHubs?.map((node) => node.label),
     ).toContain("package.json");
-    expect(summary.graph?.symbols?.map((symbol) => symbol.name)).toContain(
-      "App",
+    expect(summary.graph?.symbols?.map((symbol) => symbol.name)).toEqual(
+      expect.arrayContaining([
+        "App",
+        "loadPanel",
+        "makeHelper",
+        "run_app",
+        "AppState",
+        "collect_context",
+        "ToolRunner",
+      ]),
     );
     expect(summary.graph?.symbolEdges).toEqual(
       expect.arrayContaining([

@@ -23,6 +23,7 @@ const languageByExtension = {
   ".jsx": "React",
   ".md": "Markdown",
   ".mjs": "JavaScript",
+  ".py": "Python",
   ".rs": "Rust",
   ".sh": "Shell",
   ".toml": "TOML",
@@ -961,33 +962,41 @@ function extractFileSymbols(file, content, remaining) {
 
 function extractSymbolFromLine(language, rawLine) {
   const line = rawLine
-    .replace(/^(pub|async|export|default)\s+/, "")
-    .replace(/^(pub|async|export|default)\s+/, "");
-  const pick = (prefix, kind) => {
-    if (!line.startsWith(prefix)) return null;
-    const match = line.slice(prefix.length).match(/^[A-Za-z_$][A-Za-z0-9_$]*/);
-    return match ? { name: match[0], kind } : null;
+    .replace(/^(?:export\s+)?default\s+/, "")
+    .replace(/^(?:export\s+)?(?:async\s+)?/, "")
+    .replace(/^pub(?:\([^)]*\))?\s+/, "")
+    .replace(/^async\s+/, "");
+  const pick = (pattern, kind) => {
+    const match = line.match(pattern);
+    return match?.[1] ? { name: match[1], kind } : null;
   };
   if (["TypeScript", "JavaScript", "React"].includes(language)) {
     return (
-      pick("function ", "function") ??
-      pick("class ", "class") ??
-      pick("interface ", "trait") ??
-      pick("type ", "trait") ??
-      pick("const ", "const")
+      pick(/^function\s+([A-Za-z_$][A-Za-z0-9_$]*)/, "function") ??
+      pick(/^class\s+([A-Za-z_$][A-Za-z0-9_$]*)/, "class") ??
+      pick(/^interface\s+([A-Za-z_$][A-Za-z0-9_$]*)/, "trait") ??
+      pick(/^type\s+([A-Za-z_$][A-Za-z0-9_$]*)/, "trait") ??
+      pick(
+        /^(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][A-Za-z0-9_$]*)\s*=>/,
+        "function",
+      ) ??
+      pick(/^(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)/, "const")
     );
   }
   if (language === "Rust") {
     return (
-      pick("fn ", "function") ??
-      pick("struct ", "struct") ??
-      pick("enum ", "enum") ??
-      pick("trait ", "trait") ??
-      pick("const ", "const")
+      pick(/^fn\s+([A-Za-z_][A-Za-z0-9_]*)/, "function") ??
+      pick(/^struct\s+([A-Za-z_][A-Za-z0-9_]*)/, "struct") ??
+      pick(/^enum\s+([A-Za-z_][A-Za-z0-9_]*)/, "enum") ??
+      pick(/^trait\s+([A-Za-z_][A-Za-z0-9_]*)/, "trait") ??
+      pick(/^const\s+([A-Za-z_][A-Za-z0-9_]*)/, "const")
     );
   }
   if (language === "Python") {
-    return pick("def ", "function") ?? pick("class ", "class");
+    return (
+      pick(/^def\s+([A-Za-z_][A-Za-z0-9_]*)/, "function") ??
+      pick(/^class\s+([A-Za-z_][A-Za-z0-9_]*)/, "class")
+    );
   }
   return null;
 }
