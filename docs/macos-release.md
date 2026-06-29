@@ -37,6 +37,11 @@ Run `npm run release:check` before publishing. The release gate runs release env
 Run `npm run smoke:preflight` before handing a DMG to a tester; it confirms the installed-app smoke checklist covers Switchboard modes, degraded-mode Doctor guidance, managed connector automation gates, manual workflow, config creation plan, Gemini dry-run preview evidence, pause/resume, Repo Intelligence agent handoffs, connector readiness payload in agent handoffs, Savings calculator copyable summary, and Codex optimization.
 Treat the build as blocked until `npm run release:ready -- --strict` is clear, the DMG is signed/notarized, `/Applications/Mac AI Switchboard.app/Contents/Info.plist` exists from the DMG install, the beta smoke checklist has been run on that installed app, and `npm run smoke:installed -- --confirm` has written `dist/installed-smoke-summary.md`. The installed smoke summary records the SHA-256 of `docs/beta-smoke-test.md`; rerun installed smoke whenever the checklist changes so release readiness does not accept stale evidence.
 
+Stable GitHub releases upload `SHA256SUMS.txt` and `sbom-summary.json` after
+the Tauri action publishes the DMG/updater assets. These integrity artifacts do
+not replace Apple signing or notarization; they make release contents easier to
+verify and audit.
+
 For local unsigned/ad-hoc testing only, use `npm run build:mac:local-install`. It builds a local DMG, copies it to `dist/release-artifacts`, installs `/Applications/Mac AI Switchboard.app`, ad-hoc signs the installed app, then runs `npm run smoke:installed:local`. The local smoke command writes `dist/local-installed-smoke-summary.md` and JSON metadata for the bundle, checksum, local code signature, Gatekeeper status, and running process. Do not use that local summary as public release evidence.
 
 If you want a universal build, install both Rust macOS targets first and then run:
