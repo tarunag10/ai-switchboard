@@ -1,4 +1,5 @@
 import type { DashboardState } from "./types";
+import type { RtkTodayStats } from "./types";
 import type { RuntimeStatus } from "./types";
 import type { SavingsAttributionEvent } from "./types";
 import type { RepoSavingsEstimate } from "./repoIntelligence";
@@ -91,6 +92,7 @@ export interface SavingsCalculatorBreakdownOptions {
   ponytailSavings?: AddonSavingsEstimate | null;
   markitdownSavings?: AddonSavingsEstimate | null;
   attributionEvents?: SavingsAttributionEvent[];
+  rtkToday?: RtkTodayStats | null;
 }
 
 export interface SavingsLedgerRow extends SavingsCalculatorBreakdownRow {
@@ -380,6 +382,23 @@ export function buildSavingsCalculatorBreakdown(
         rtkCommands > 0
           ? `${rtkCommands.toLocaleString()} command outputs compressed locally.`
           : "Command-output tokens compressed locally.",
+    });
+  }
+  const rtkTodaySaved = Math.max(0, options.rtkToday?.savedTokens ?? 0);
+  const rtkTodayCommands = Math.max(0, options.rtkToday?.commands ?? 0);
+  if (scope === "today" && rtkTodaySaved > 0) {
+    rows.push({
+      id: "rtk_today",
+      label: "RTK today",
+      source: "rtk",
+      kind: "command_output",
+      confidence: "measured",
+      savedTokens: rtkTodaySaved,
+      savedUsd: null,
+      detail:
+        rtkTodayCommands > 0
+          ? `${rtkTodayCommands.toLocaleString()} command outputs compressed locally today.`
+          : "Command-output tokens compressed locally today.",
     });
   }
 

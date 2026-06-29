@@ -749,6 +749,7 @@ function SavingsCalculatorCard({
   dashboard,
   repoSavings,
   runtimeStatus,
+  rtkToday,
   attributionEvents,
   cavemanSavings,
   ponytailSavings,
@@ -759,6 +760,7 @@ function SavingsCalculatorCard({
   dashboard: DashboardState;
   repoSavings?: RepoSavingsEstimate | null;
   runtimeStatus?: RuntimeStatus | null;
+  rtkToday?: ActivityFeedResponse["tiles"]["rtkToday"];
   attributionEvents?: SavingsAttributionEvent[];
   cavemanSavings?: AddonSavingsEstimate | null;
   ponytailSavings?: AddonSavingsEstimate | null;
@@ -770,6 +772,7 @@ function SavingsCalculatorCard({
   const breakdownRows = buildSavingsCalculatorBreakdown(dashboard, scope, {
     repoSavings,
     runtimeStatus,
+    rtkToday,
     attributionEvents,
     cavemanSavings,
     ponytailSavings,
@@ -782,6 +785,7 @@ function SavingsCalculatorCard({
     {
       repoSavings,
       runtimeStatus,
+      rtkToday,
       attributionEvents,
       cavemanSavings,
       ponytailSavings,
@@ -8331,6 +8335,7 @@ export default function App() {
             dashboard={dashboard}
             repoSavings={savingsCalculatorRepoEstimate}
             runtimeStatus={runtimeStatus}
+            rtkToday={activityFeed.tiles.rtkToday}
             attributionEvents={savingsAttributionEvents}
             cavemanSavings={cavemanSavingsEstimate}
             ponytailSavings={ponytailSavingsEstimate}
@@ -8431,6 +8436,7 @@ export default function App() {
               dashboard={dashboard}
               repoSavings={savingsCalculatorRepoEstimate}
               runtimeStatus={runtimeStatus}
+              rtkToday={activityFeed.tiles.rtkToday}
               attributionEvents={savingsAttributionEvents}
               cavemanSavings={cavemanSavingsEstimate}
               ponytailSavings={ponytailSavingsEstimate}

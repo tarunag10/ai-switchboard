@@ -287,6 +287,34 @@ describe("savings calculator", () => {
     expect(rtk?.detail).toContain("RTK gain counter");
   });
 
+  it("uses measured RTK daily stats for the today ledger row", () => {
+    const rows = buildSavingsLedgerRows(
+      dashboardFixture(),
+      "today",
+      "2026-06-25T10:00:00Z",
+      {
+        rtkToday: {
+          date: "2026-06-25",
+          savedTokens: 1_234,
+          commands: 7,
+        },
+      },
+    );
+
+    const rtk = rows.find((row) => row.id === "rtk_today");
+
+    expect(rtk).toMatchObject({
+      label: "RTK today",
+      source: "rtk",
+      confidence: "measured",
+      savedTokens: 1_234,
+      savedUsd: null,
+      recordedAt: "2026-06-25T10:00:00Z",
+      caveat: "Observed from local counters for this source.",
+    });
+    expect(rtk?.detail).toContain("7 command outputs compressed locally today");
+  });
+
   it("uses measured backend attribution events for session Repo Intelligence rows", () => {
     const rows = buildSavingsLedgerRows(
       dashboardFixture(),
