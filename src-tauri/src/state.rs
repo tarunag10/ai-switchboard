@@ -3842,19 +3842,21 @@ fn build_addon_attribution_event(
     addon_id: &str,
     caveman_level: Option<&str>,
 ) -> Option<SavingsAttributionEvent> {
-    let (source, label, baseline, optimized, evidence_subject) = match addon_id {
+    let (source, label, baseline, optimized, confidence, evidence_subject) = match addon_id {
         "markitdown" => (
             SavingsAttributionSource::Markitdown,
             "MarkItDown",
             MARKITDOWN_TEMPLATE_BASELINE_TOKENS,
             MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS,
-            "Markdown extract vs re-attaching the full source document each turn",
+            SavingsAttributionConfidence::Estimated,
+            "Markdown extract vs re-attaching the full source document each turn; the managed MarkItDown console script is smoke-tested before integration is enabled",
         ),
         "ponytail" => (
             SavingsAttributionSource::Ponytail,
             "Ponytail",
             PONYTAIL_TEMPLATE_BASELINE_TOKENS,
             PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS,
+            SavingsAttributionConfidence::Inferred,
             "Scoped implementation plan vs broad codebase exploration",
         ),
         "caveman" => {
@@ -3874,6 +3876,7 @@ fn build_addon_attribution_event(
                 },
                 CAVEMAN_TEMPLATE_BASELINE_TOKENS,
                 CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
+                SavingsAttributionConfidence::Inferred,
                 if compact {
                     "Compact Chinese private handoff profile vs verbose internal handoff"
                 } else {
@@ -3894,7 +3897,7 @@ fn build_addon_attribution_event(
         observed_at: Utc::now(),
         scope: SavingsAttributionScope::Session,
         source,
-        confidence: SavingsAttributionConfidence::Inferred,
+        confidence,
         delta_tokens_saved: delta_tokens,
         delta_usd: 0.0,
         total_tokens_sent: 0,
@@ -6878,17 +6881,18 @@ mod tests {
     }
 
     #[test]
-    fn addon_attribution_event_records_inferred_template_delta() {
+    fn addon_attribution_event_records_estimated_markitdown_delta() {
         let event = super::build_addon_attribution_event("markitdown", None)
             .expect("markitdown attribution");
 
         assert_eq!(event.source, SavingsAttributionSource::Markitdown);
-        assert_eq!(event.confidence, SavingsAttributionConfidence::Inferred);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
         assert_eq!(event.delta_tokens_saved, 2_300);
         assert_eq!(event.request_delta, 1);
         let evidence = event.evidence.join(" ");
         assert!(evidence.contains("baseline 3200 tokens"));
         assert!(evidence.contains("optimized 900 tokens"));
+        assert!(evidence.contains("smoke-tested"));
         assert!(evidence.contains("not provider-spend dollars"));
     }
 
@@ -6904,8 +6908,20 @@ mod tests {
 
         assert_eq!(caveman.source, SavingsAttributionSource::Caveman);
         assert_eq!(compact.source, SavingsAttributionSource::CompactChinese);
+        assert_eq!(caveman.confidence, SavingsAttributionConfidence::Inferred);
+        assert_eq!(compact.confidence, SavingsAttributionConfidence::Inferred);
         assert_eq!(caveman.delta_tokens_saved, 300);
         assert_eq!(compact.delta_tokens_saved, 300);
+    }
+
+    #[test]
+    fn addon_attribution_event_keeps_ponytail_guidance_inferred() {
+        let event =
+            super::build_addon_attribution_event("ponytail", None).expect("ponytail attribution");
+
+        assert_eq!(event.source, SavingsAttributionSource::Ponytail);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Inferred);
+        assert_eq!(event.delta_tokens_saved, 880);
     }
 
     #[test]
