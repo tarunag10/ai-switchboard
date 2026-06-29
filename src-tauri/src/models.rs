@@ -924,6 +924,8 @@ pub struct RtkRuntimeStatus {
     pub total_commands: Option<u64>,
     pub total_saved: Option<u64>,
     pub avg_savings_pct: Option<f64>,
+    #[serde(default)]
+    pub daily: Vec<RtkDailyStats>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1235,6 +1237,14 @@ pub struct AppliedPatterns {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RtkTodayStats {
+    pub date: String,
+    pub saved_tokens: u64,
+    pub commands: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RtkDailyStats {
     pub date: String,
     pub saved_tokens: u64,
     pub commands: u64,

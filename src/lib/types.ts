@@ -433,6 +433,7 @@ export interface RuntimeStatus {
     totalCommands?: number | null;
     totalSaved?: number | null;
     avgSavingsPct?: number | null;
+    daily?: RtkDailyStats[];
   };
 }
 
@@ -624,6 +625,12 @@ export interface AppliedPatterns {
 }
 
 export interface RtkTodayStats {
+  date: string;
+  savedTokens: number;
+  commands: number;
+}
+
+export interface RtkDailyStats {
   date: string;
   savedTokens: number;
   commands: number;

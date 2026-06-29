@@ -1,4 +1,5 @@
 import type { DashboardState } from "./types";
+import type { RtkDailyStats } from "./types";
 import type { RtkTodayStats } from "./types";
 import type { RuntimeStatus } from "./types";
 import type { SavingsAttributionEvent } from "./types";
@@ -243,6 +244,22 @@ function summarizeDailySavings(
     );
 }
 
+function summarizeRtkDailyStats(
+  daily: RtkDailyStats[],
+  predicate: (date: string) => boolean,
+) {
+  return daily
+    .filter((point) => predicate(point.date))
+    .reduce(
+      (total, point) => {
+        total.savedTokens += point.savedTokens;
+        total.commands += point.commands;
+        return total;
+      },
+      { savedTokens: 0, commands: 0 },
+    );
+}
+
 export function buildSavingsCalculatorSummary(
   dashboard: DashboardState,
   scope: SavingsCalculatorScope,
@@ -384,21 +401,47 @@ export function buildSavingsCalculatorBreakdown(
           : "Command-output tokens compressed locally.",
     });
   }
-  const rtkTodaySaved = Math.max(0, options.rtkToday?.savedTokens ?? 0);
-  const rtkTodayCommands = Math.max(0, options.rtkToday?.commands ?? 0);
-  if (scope === "today" && rtkTodaySaved > 0) {
+  const rtkDaily = options.runtimeStatus?.rtk.daily ?? [];
+  const rtkScopedDaily =
+    scope === "today"
+      ? summarizeRtkDailyStats(rtkDaily, (date) => date === currentDateKey())
+      : scope === "week"
+        ? summarizeRtkDailyStats(
+            rtkDaily,
+            (date) =>
+              date >= trailingWeekStartDateKey() && date <= currentDateKey(),
+          )
+        : scope === "month"
+          ? summarizeRtkDailyStats(rtkDaily, (date) =>
+              date.startsWith(currentMonthKey()),
+            )
+          : { savedTokens: 0, commands: 0 };
+  const fallbackRtkToday =
+    scope === "today" && rtkScopedDaily.savedTokens === 0
+      ? {
+          savedTokens: Math.max(0, options.rtkToday?.savedTokens ?? 0),
+          commands: Math.max(0, options.rtkToday?.commands ?? 0),
+        }
+      : { savedTokens: 0, commands: 0 };
+  const rtkWindowSaved = rtkScopedDaily.savedTokens + fallbackRtkToday.savedTokens;
+  const rtkWindowCommands = rtkScopedDaily.commands + fallbackRtkToday.commands;
+  if (
+    (scope === "today" || scope === "week" || scope === "month") &&
+    rtkWindowSaved > 0
+  ) {
+    const scopeLabel = savingsCalculatorScopeLabel(scope);
     rows.push({
-      id: "rtk_today",
-      label: "RTK today",
+      id: `rtk_${scope}`,
+      label: `RTK ${scopeLabel}`,
       source: "rtk",
       kind: "command_output",
       confidence: "measured",
-      savedTokens: rtkTodaySaved,
+      savedTokens: rtkWindowSaved,
       savedUsd: null,
       detail:
-        rtkTodayCommands > 0
-          ? `${rtkTodayCommands.toLocaleString()} command outputs compressed locally today.`
-          : "Command-output tokens compressed locally today.",
+        rtkWindowCommands > 0
+          ? `${rtkWindowCommands.toLocaleString()} command outputs compressed locally ${scopeLabel}.`
+          : `Command-output tokens compressed locally ${scopeLabel}.`,
     });
   }
 

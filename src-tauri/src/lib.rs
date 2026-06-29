@@ -3249,6 +3249,7 @@ mod doctor_tests {
                 total_commands: None,
                 total_saved: None,
                 avg_savings_pct: None,
+                daily: Vec::new(),
             },
         }
     }

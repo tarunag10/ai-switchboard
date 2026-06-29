@@ -519,6 +519,7 @@ pub struct AppState {
     cached_headroom_history: Mutex<Option<(Option<HeadroomSavingsHistoryResponse>, Instant, bool)>>,
     cached_rtk_gain_summary: Mutex<Option<(Option<RtkGainSummary>, Instant)>>,
     cached_rtk_today_stats: Mutex<Option<(Option<crate::models::RtkTodayStats>, Instant)>>,
+    cached_rtk_daily_stats: Mutex<Option<(Option<Vec<crate::models::RtkDailyStats>>, Instant)>>,
     cached_claude_profile: Mutex<Option<(Option<String>, ClaudeAccountProfile, Instant)>>,
     /// TTL-cached Codex identity profile, the Codex analog of
     /// `cached_claude_profile`. Built by `pricing::detect_codex_profile` from
@@ -664,6 +665,7 @@ impl AppState {
             cached_headroom_history: Mutex::new(None),
             cached_rtk_gain_summary: Mutex::new(None),
             cached_rtk_today_stats: Mutex::new(None),
+            cached_rtk_daily_stats: Mutex::new(None),
             cached_claude_profile: Mutex::new(None),
             cached_codex_profile: Mutex::new(None),
             stale_profile_since: Mutex::new(None),
@@ -2070,6 +2072,19 @@ impl AppState {
         stats
     }
 
+    fn cached_rtk_daily_stats(&self) -> Option<Vec<crate::models::RtkDailyStats>> {
+        const TTL: Duration = Duration::from_secs(10);
+        let mut cache = self.cached_rtk_daily_stats.lock();
+        if let Some((stats, at)) = cache.as_ref() {
+            if at.elapsed() < TTL {
+                return stats.clone();
+            }
+        }
+        let stats = self.tool_manager.rtk_daily_stats();
+        *cache = Some((stats.clone(), Instant::now()));
+        stats
+    }
+
     pub fn dashboard(&self) -> DashboardState {
         // Callers that take this read-only path (tray updater, bootstrap
         // finalize, account activation) must NOT drain pending milestones —
@@ -2978,6 +2993,7 @@ impl AppState {
         let (rtk_path_configured, rtk_hook_configured) =
             rtk_integration_status().unwrap_or((false, false));
         let rtk_gain_summary = self.cached_rtk_gain_summary();
+        let rtk_daily_stats = self.cached_rtk_daily_stats().unwrap_or_default();
         if let Some(stats) = rtk_gain_summary.as_ref() {
             self.savings_tracker.lock().observe_rtk_gain_summary(stats);
         }
@@ -3055,6 +3071,7 @@ impl AppState {
                 total_commands: rtk_gain_summary.as_ref().map(|stats| stats.total_commands),
                 total_saved: rtk_gain_summary.as_ref().map(|stats| stats.total_saved),
                 avg_savings_pct: rtk_gain_summary.as_ref().map(|stats| stats.avg_savings_pct),
+                daily: rtk_daily_stats,
             },
         }
     }

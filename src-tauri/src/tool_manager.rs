@@ -20,7 +20,7 @@ use tar::Archive;
 
 use crate::backend_port::{self, AllForeign, SelectedFallback};
 use crate::models::{
-    ManagedTool, RepoMemoryMcpServiceStatus, RtkTodayStats, SavingsMode, ToolStatus,
+    ManagedTool, RepoMemoryMcpServiceStatus, RtkDailyStats, RtkTodayStats, SavingsMode, ToolStatus,
 };
 
 /// Pinned headroom-ai version. Upgrade logic is disabled; this exact version
@@ -1403,6 +1403,20 @@ impl ToolManager {
                 saved_tokens: entry.saved_tokens,
                 commands: entry.commands,
             })
+    }
+
+    pub fn rtk_daily_stats(&self) -> Option<Vec<RtkDailyStats>> {
+        Some(
+            self.rtk_gain_output()?
+                .daily
+                .into_iter()
+                .map(|entry| RtkDailyStats {
+                    date: entry.date,
+                    saved_tokens: entry.saved_tokens,
+                    commands: entry.commands,
+                })
+                .collect(),
+        )
     }
 
     /// Returns the pinned release if the installed version differs from the pin.
@@ -6305,6 +6319,29 @@ mod tests {
         assert_eq!(stats.date, today);
         assert_eq!(stats.commands, 7);
         assert_eq!(stats.saved_tokens, 1234);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn rtk_daily_stats_returns_all_daily_rows() {
+        let (root, runtime, manager) = seed_test_runtime("rtk-daily");
+        write_executable(
+            &runtime.bin_dir.join("rtk"),
+            "#!/usr/bin/env bash\nif [ \"$1\" = \"gain\" ]; then\n  echo '{\"daily\":[{\"date\":\"2026-06-24\",\"commands\":2,\"saved_tokens\":300},{\"date\":\"2026-06-25\",\"commands\":7,\"saved_tokens\":1234}]}';\n  exit 0\nfi\nexit 9\n",
+        );
+        manager
+            .write_tool_receipt("rtk", serde_json::json!({ "version": RTK_VERSION }))
+            .expect("rtk receipt");
+
+        let stats = manager.rtk_daily_stats().expect("daily stats");
+        assert_eq!(stats.len(), 2);
+        assert_eq!(stats[0].date, "2026-06-24");
+        assert_eq!(stats[0].commands, 2);
+        assert_eq!(stats[0].saved_tokens, 300);
+        assert_eq!(stats[1].date, "2026-06-25");
+        assert_eq!(stats[1].commands, 7);
+        assert_eq!(stats[1].saved_tokens, 1234);
 
         let _ = fs::remove_dir_all(root);
     }

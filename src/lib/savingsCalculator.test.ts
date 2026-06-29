@@ -315,6 +315,47 @@ describe("savings calculator", () => {
     expect(rtk?.detail).toContain("7 command outputs compressed locally today");
   });
 
+  it("rolls RTK daily stats into week and month measured ledger rows", () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const weekStart = new Date();
+    weekStart.setUTCDate(weekStart.getUTCDate() - 6);
+    const weekStartDate = weekStart.toISOString().slice(0, 10);
+    const weekStartInCurrentMonth = weekStartDate.startsWith(today.slice(0, 7));
+    const runtimeStatus = {
+      rtk: {
+        daily: [
+          { date: today, savedTokens: 500, commands: 2 },
+          { date: weekStartDate, savedTokens: 250, commands: 1 },
+          { date: "2026-01-01", savedTokens: 9_000, commands: 9 },
+        ],
+      },
+    } as never;
+
+    const weekRows = buildSavingsLedgerRows(
+      dashboardFixture(),
+      "week",
+      "2026-06-25T10:00:00Z",
+      { runtimeStatus },
+    );
+    const monthRows = buildSavingsLedgerRows(
+      dashboardFixture(),
+      "month",
+      "2026-06-25T10:00:00Z",
+      { runtimeStatus },
+    );
+
+    expect(weekRows.find((row) => row.id === "rtk_week")).toMatchObject({
+      label: "RTK this week",
+      confidence: "measured",
+      savedTokens: 750,
+    });
+    expect(monthRows.find((row) => row.id === "rtk_month")).toMatchObject({
+      label: "RTK this month",
+      confidence: "measured",
+      savedTokens: weekStartInCurrentMonth ? 750 : 500,
+    });
+  });
+
   it("uses measured backend attribution events for session Repo Intelligence rows", () => {
     const rows = buildSavingsLedgerRows(
       dashboardFixture(),
