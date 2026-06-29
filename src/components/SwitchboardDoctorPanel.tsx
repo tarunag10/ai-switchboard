@@ -1,5 +1,6 @@
 import { Copy } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
   canRepairIssue,
   buildDoctorReportTimelineEvents,
@@ -21,6 +22,8 @@ import type {
   DoctorIssue,
   DoctorReport,
   ManagedFootprintReport,
+  CodexThreadRetaggingMode,
+  CodexThreadRetaggingSettings,
 } from "../lib/types";
 
 interface SwitchboardDoctorPanelProps {
@@ -77,6 +80,37 @@ export function SwitchboardDoctorPanel({
     : [];
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
+  const [retaggingSettings, setRetaggingSettings] =
+    useState<CodexThreadRetaggingSettings | null>(null);
+  const [retaggingBusy, setRetaggingBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    invoke<CodexThreadRetaggingSettings>("get_codex_thread_retagging_settings")
+      .then((settings) => {
+        if (!cancelled) setRetaggingSettings(settings);
+      })
+      .catch(() => {
+        if (!cancelled) setRetaggingSettings(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function setRetaggingMode(mode: CodexThreadRetaggingMode) {
+    setRetaggingBusy(true);
+    try {
+      const settings = await invoke<CodexThreadRetaggingSettings>(
+        "set_codex_thread_retagging_settings",
+        { settings: { codexThreadRetagging: mode } },
+      );
+      setRetaggingSettings(settings);
+      setCopyNotice(`Codex retagging set to ${mode}.`);
+    } finally {
+      setRetaggingBusy(false);
+    }
+  }
 
   function renderIssue(issue: DoctorIssue) {
     const repairAction = issue.repairAction ?? null;
@@ -269,6 +303,36 @@ export function SwitchboardDoctorPanel({
           </button>
         </section>
       ) : null}
+
+      <section className="switchboard-doctor__report-card switchboard-doctor__report-card--stacked">
+        <div>
+          <span>Codex history retagging</span>
+          <strong>{retaggingSettings?.codexThreadRetagging ?? "ask"}</strong>
+          <small>
+            Enables SQLite thread-provider retagging only after consent. Every
+            write creates a sibling backup; unknown schemas are skipped.
+          </small>
+        </div>
+        <div className="switchboard-doctor__segmented">
+          {(["ask", "enabled", "disabled"] as CodexThreadRetaggingMode[]).map(
+            (mode) => (
+              <button
+                key={mode}
+                type="button"
+                className={
+                  retaggingSettings?.codexThreadRetagging === mode
+                    ? "is-selected"
+                    : ""
+                }
+                disabled={retaggingBusy}
+                onClick={() => void setRetaggingMode(mode)}
+              >
+                {mode}
+              </button>
+            ),
+          )}
+        </div>
+      </section>
 
       {report.issues.length > 0 ? (
         <div

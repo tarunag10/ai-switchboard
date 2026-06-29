@@ -1,8 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DoctorReport } from "../lib/types";
 import { SwitchboardDoctorPanel } from "./SwitchboardDoctorPanel";
+
+const invokeMock = vi.fn();
+
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: (...args: unknown[]) => invokeMock(...args),
+}));
 
 const warningReport: DoctorReport = {
   status: "warning",
@@ -54,6 +60,11 @@ const warningReport: DoctorReport = {
 };
 
 describe("SwitchboardDoctorPanel", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue({ codexThreadRetagging: "ask" });
+  });
+
   it("shows when the report is healthy", () => {
     render(
       <SwitchboardDoctorPanel
@@ -168,6 +179,33 @@ describe("SwitchboardDoctorPanel", () => {
     expect(onRepair).toHaveBeenCalledWith("repair_rtk_runtime");
     await user.click(screen.getByRole("button", { name: "Repair all" }));
     expect(onRepair).toHaveBeenCalledWith("repair_all");
+  });
+
+  it("loads and updates Codex retagging consent", async () => {
+    const user = userEvent.setup();
+    invokeMock
+      .mockResolvedValueOnce({ codexThreadRetagging: "disabled" })
+      .mockResolvedValueOnce({ codexThreadRetagging: "enabled" });
+
+    render(
+      <SwitchboardDoctorPanel
+        report={{ status: "ok", summary: "No issues.", issues: [] }}
+        busyAction={null}
+        error={null}
+        successMessage={null}
+        onRepair={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("disabled")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "enabled" }));
+
+    expect(invokeMock).toHaveBeenLastCalledWith(
+      "set_codex_thread_retagging_settings",
+      { settings: { codexThreadRetagging: "enabled" } },
+    );
+    expect(screen.getByText("Codex retagging set to enabled.")).toBeInTheDocument();
   });
 
   it("shows busy and error states", () => {
