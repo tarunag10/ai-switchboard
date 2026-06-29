@@ -31,6 +31,7 @@
     "smoke:installed:local": "node scripts/local-installed-smoke-summary.mjs",
     "repo:intelligence": "node scripts/repo-intelligence.mjs",
     "check:repo-memory-mcp": "node scripts/check-repo-memory-mcp.mjs",
+    "benchmarks": "node scripts/run-benchmarks.mjs",
     "check:connectors": "node scripts/check-planned-connectors.mjs && node scripts/check-connector-manifests.mjs",
     "check:branding": "node scripts/check-branding-assets.mjs",
     "check:colors": "./scripts/check-colors.sh",
