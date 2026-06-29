@@ -22,6 +22,7 @@ Shipped:
 - Doctor repair actions that can restore Headroom routing are now blocked while the saved mode is Off or RTK-only; non-Headroom repairs such as RTK, Caveman, Ponytail, Repo Intelligence, and Repo Memory MCP stay available. Doctor also exposes Verify Off as a primary one-click action when Off-mode evidence remains.
 - Remote destination registry, support-link routing, external-link SSRF guards, local-only backend refusal for account/billing/contact commands, branding iconset provenance, local DMG build, local installed smoke evidence, and the in-app Run local evidence sequence are shipped.
 - Local mode relaunch smoke now backs up and restores `client-setup.json`, launches the installed app in saved Off and RTK-only modes, and verifies the app process returns while intercept and Headroom proxy listeners stay down.
+- Mode Inspector now surfaces stale-shell restart guidance when requested and active mode evidence disagree, including old `ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`, and `PATH` exports.
 
 Left:
 
@@ -56,9 +57,9 @@ Left:
 ### Mode Safety
 
 - Off mode and RTK-only mode now gate launch and bootstrap startup paths, including the legacy synchronous bootstrap command.
-- Remaining mode-safety work is reboot evidence, Doctor-repair installed smoke evidence, LaunchAgent/MCP/listener proof, and stale-shell detection/copy.
+- Remaining mode-safety work is reboot evidence, Doctor-repair installed smoke evidence, and deeper LaunchAgent/MCP/listener proof.
 - Doctor still needs a complete Mode Inspector that proves what is active instead of only describing desired state.
-- Already-running shells can retain old environment variables; the app should explain this clearly and detect likely stale shells where possible.
+- Already-running shells can retain old environment variables; Mode Inspector now explains the restart requirement when mode evidence needs attention. Deeper per-process stale-shell detection can be added later if macOS exposes reliable evidence.
 
 ### Privacy and Network Boundaries
 
@@ -124,7 +125,7 @@ Tasks:
 - Add a Mode Inspector panel showing requested mode, active mode, Headroom engine status, RTK hook status, Claude routing, Codex routing, Repo Memory MCP lifecycle state, shell export state, and LaunchAgent state.
 - Block repair actions from silently restoring Headroom routing when requested mode is Off or RTK-only: shipped for Headroom-restoring Doctor actions.
 - Extend launch/bootstrap tests into installed-app reboot and Doctor-repair smoke evidence.
-- Document stale shell behavior and restart guidance.
+- Document stale shell behavior and restart guidance: shipped in the Mode Inspector attention state.
 
 Acceptance checks:
 

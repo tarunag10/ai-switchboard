@@ -83,6 +83,7 @@ describe("SwitchboardPanel", () => {
     expect(inspector.getByText("Active")).toBeInTheDocument();
     expect(inspector.getByText("Headroom engine")).toBeInTheDocument();
     expect(inspector.getByText("RTK hook")).toBeInTheDocument();
+    expect(inspector.queryByText("Stale shells")).not.toBeInTheDocument();
     expect(inspector.getByText("Codex routing")).toBeInTheDocument();
     expect(inspector.getByText("Claude routing")).toBeInTheDocument();
     expect(inspector.getByText("Client routing")).toBeInTheDocument();
@@ -238,6 +239,26 @@ describe("SwitchboardPanel", () => {
       screen.getByText(
         "Repo Intelligence summaries remain local until cleared from Addons.",
       ),
+    ).toBeInTheDocument();
+  });
+
+  it("surfaces stale shell restart guidance when mode evidence needs attention", () => {
+    renderPanel({
+      mode: "off",
+      effectiveMode: "full",
+      needsAttention: true,
+      summary: "Off requested, but routing evidence is still active.",
+      proxyStatus: "Running",
+      headroomDetail: "Headroom engine is still reachable",
+      rtkStatus: "Enabled",
+      rtkDetail: "Old shell hook still active",
+    });
+
+    const inspector = within(screen.getByLabelText("Mode Inspector"));
+    expect(inspector.getByText("Stale shells")).toBeInTheDocument();
+    expect(inspector.getByText("Restart shells")).toBeInTheDocument();
+    expect(
+      inspector.getByText(/ANTHROPIC_BASE_URL, OPENAI_BASE_URL, or PATH/),
     ).toBeInTheDocument();
   });
 

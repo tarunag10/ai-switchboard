@@ -104,6 +104,7 @@ export function SwitchboardPanel({
   const setupLabel = localOnlySetupLabel(localOnly);
   const remoteCopy = remoteServicesCopy(remoteServicesEnabled);
   const codexGuidance = codexConcurrencyGuidance(mode, headroomDetail);
+  const showStaleShellWarning = Boolean(needsAttention);
   const savingsModeCopy =
     savingsMode === "aggressive"
       ? "Lower thresholds and stronger compression for noisy context."
@@ -299,6 +300,16 @@ export function SwitchboardPanel({
     <strong>{rtkStatus}</strong>
     <small>{rtkDetail}</small>
   </div>
+  {showStaleShellWarning ? (
+    <div>
+      <span>Stale shells</span>
+      <strong>Restart shells</strong>
+      <small>
+        Terminals or editors opened before this mode change can retain old
+        ANTHROPIC_BASE_URL, OPENAI_BASE_URL, or PATH exports until restarted.
+      </small>
+    </div>
+  ) : null}
   {inspectorRows.map((row) => (
     <div key={row.label}>
       <span>{row.label}</span>
