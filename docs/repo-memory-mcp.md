@@ -8,6 +8,8 @@ Repo Memory MCP is the read-only agent-consumption surface for Repo Intelligence
 - Service descriptor: the app writes `repo-memory.json` with the managed stdio
   command, descriptor path, read-only flag, and app-managed ownership so Mode
   Inspector can show durable service wiring separately from active supervision.
+  If descriptor evidence is not app-managed or not read-only, Mode Inspector
+  downgrades Repo Memory MCP to **Needs attention** before agent handoffs.
 - Prepare action: **Prepare MCP** in the Mode Inspector, backed by `install_repo_memory_mcp` followed by `start_repo_memory_mcp`. It installs the app-managed config, runs the read-only smoke contract, and records the current app process before marking MCP active.
 - Session controls: **Start MCP** and **Stop MCP** in the Mode Inspector, backed by `start_repo_memory_mcp` and `stop_repo_memory_mcp`. Start re-runs the read-only smoke contract for configured or restart-required states; these controls do not claim a separate background daemon is running.
 - Supervision: while the same app process owns an active Repo Memory MCP session, runtime status polling periodically re-runs the read-only smoke check. A failed recheck downgrades the lifecycle to **Smoke failed** so agents do not rely on stale MCP handoffs.
@@ -66,6 +68,9 @@ Do not treat MCP availability as permission to mutate provider/editor configurat
 
 - If the Mode Inspector says **Unknown**, use **Prepare MCP** before relying on agent MCP handoffs.
 - If it says **Needs attention**, click **Prepare MCP** or copy the Doctor timeline; it includes `install_repo_memory_mcp`, `start_repo_memory_mcp`, `npm run check:repo-memory-mcp`, tool names, and the read-only safety boundary.
+- If descriptor detail says **not app-managed** or **not read-only**, click
+  **Prepare MCP**. Do not ask agents to use MCP context until the app restores
+  the app-managed read-only descriptor and the smoke check passes.
 - If it says **Start required**, click **Start MCP** again. A previous app process verified the tools, but this app session has not.
 - If `npm run check:repo-memory-mcp` fails, do not ask agents to use MCP context until the tool list and `repo_context_pack` smoke pass.
 - If a repo was moved, deleted, or became stale, clear or refresh the Repo Intelligence index before using MCP output.

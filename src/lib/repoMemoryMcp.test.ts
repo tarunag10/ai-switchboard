@@ -45,6 +45,48 @@ describe("repoMemoryMcpLifecycle", () => {
     expect(lifecycle.copy).toContain("repo-memory.json");
   });
 
+  it("blocks unsafe service descriptors before agent handoffs", () => {
+    const lifecycle = repoMemoryMcpLifecycle({
+      configured: true,
+      active: true,
+      supervisionStatus: "verified_active",
+      service: {
+        managedByApp: false,
+        readOnly: false,
+        transport: "stdio",
+        command: "node /tmp/repo-intelligence.mjs --mcp-serve",
+        descriptorPath: "/tmp/repo-memory.json",
+      },
+    });
+
+    expect(lifecycle.state).toBe("needs_attention");
+    expect(lifecycle.status).toBe("Needs attention");
+    expect(lifecycle.detail).toContain("not app-managed");
+    expect(lifecycle.detail).toContain("not read-only");
+    expect(lifecycle.copy).toContain("descriptor is unsafe");
+    expect(lifecycle.copy).toContain(
+      "Prepare action: install_repo_memory_mcp then start_repo_memory_mcp",
+    );
+    expect(lifecycle.copy).toContain("must be app-managed and read-only");
+  });
+
+  it("blocks writable service descriptors even when app-managed", () => {
+    const lifecycle = repoMemoryMcpLifecycle({
+      configured: true,
+      service: {
+        managedByApp: true,
+        readOnly: false,
+        transport: "stdio",
+        command: "node /repo-intelligence.mjs --mcp-serve",
+        descriptorPath: "/tools/repo-memory.json",
+      },
+    });
+
+    expect(lifecycle.state).toBe("needs_attention");
+    expect(lifecycle.detail).toContain("app-managed");
+    expect(lifecycle.detail).toContain("not read-only");
+  });
+
   it("labels active repo-memory MCP with start and stop controls", () => {
     const lifecycle = repoMemoryMcpLifecycle({
       configured: true,

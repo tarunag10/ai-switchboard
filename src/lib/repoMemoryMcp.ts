@@ -42,6 +42,7 @@ export const repoMemoryMcpVerifyCommand = "npm run check:repo-memory-mcp";
 export function repoMemoryMcpLifecycle(
   input: RepoMemoryMcpStatusInput,
 ): RepoMemoryMcpLifecycle {
+  const service = input.service ?? null;
   const serviceDetail = input.service
     ? ` Service: ${input.service.transport} ${input.service.command}.`
     : "";
@@ -52,6 +53,33 @@ export function repoMemoryMcpLifecycle(
         `Descriptor: ${input.service.descriptorPath}`,
       ]
     : [];
+  const unsafeService =
+    service &&
+    (service.managedByApp !== true || service.readOnly !== true);
+  if (unsafeService) {
+    const ownership = service.managedByApp
+      ? "app-managed"
+      : "not app-managed";
+    const access = service.readOnly ? "read-only" : "not read-only";
+    return {
+      state: "needs_attention",
+      status: "Needs attention",
+      detail: `Repo Memory MCP service descriptor is ${ownership} and ${access}. Use Prepare MCP to restore the app-managed read-only descriptor before agent handoffs.${serviceDetail}`,
+      installCommand: repoMemoryMcpInstallCommand,
+      startCommand: repoMemoryMcpStartCommand,
+      stopCommand: repoMemoryMcpStopCommand,
+      verifyCommand: repoMemoryMcpVerifyCommand,
+      copy: [
+        "Repo Memory MCP descriptor is unsafe for agent handoffs.",
+        `Descriptor ownership: ${ownership}`,
+        `Descriptor access: ${access}`,
+        `Prepare action: ${repoMemoryMcpInstallCommand} then ${repoMemoryMcpStartCommand}`,
+        `Verify: ${repoMemoryMcpVerifyCommand}`,
+        ...serviceCopy,
+        "Safety: MCP context must be app-managed and read-only before agents rely on it.",
+      ].join("\n"),
+    };
+  }
   if (input.supervisionStatus === "smoke_failed") {
     const checked = input.lastCheckedAt ? ` Last checked: ${input.lastCheckedAt}.` : "";
     return {
