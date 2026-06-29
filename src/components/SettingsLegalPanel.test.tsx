@@ -15,6 +15,11 @@ describe("SettingsLegalPanel", () => {
         name: "Mac AI Switchboard Privacy Notice",
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "Licenses, Notices, and Assets",
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Terms version 2/i)).toBeInTheDocument();
     expect(
       screen.getByText(/remote account, billing, checkout, or paid pricing/i),
@@ -22,6 +27,11 @@ describe("SettingsLegalPanel", () => {
     expect(
       screen.getByText(/Review exported diagnostics before sharing them/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/source code is MIT-licensed/i)).toBeInTheDocument();
+    expect(screen.getByText(/bundled NOTICE explains/i)).toBeInTheDocument();
+    expect(screen.getByText(/bundled TRADEMARKS notice/i)).toBeInTheDocument();
+    expect(screen.getByText(/docs\/asset-provenance\.md/i)).toBeInTheDocument();
+    expect(screen.getByText(/npm run check:branding/i)).toBeInTheDocument();
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });

@@ -39,10 +39,10 @@ Shipped:
 - The home runtime banner now offers a primary Start runtime action when the Headroom runtime is offline, degraded, or proxy-unreachable, reusing the same restart-and-refresh path as paused recovery.
 - Caveman and Compact Chinese savings attribution now records durable estimated events only when managed guidance actually changes client instruction files, including changed-file and backup evidence instead of unconditional inferred template rows.
 - Local-only network certification now has a repo-owned gate, `npm run check:local-only-network`, that verifies the remote destination registry, frontend/backend local-only guards, and documented app-owned remote-service surfaces.
+- Settings Legal now includes bundled license, notice, trademark, and asset-provenance summaries offline, including the logo provenance and branding guard command, without external legal links.
 
 Left:
 
-- App-owned Terms, Privacy Notice, Settings Legal surfaces, and terms-version policy are bundled and covered by focused tests.
 - Add reboot and installed-app smoke evidence for full Doctor repair and Rollback Center survival.
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
 - Turn repo-memory MCP into a real background local service beyond current app-process supervision plus smoke-tested stdio transport.
@@ -111,7 +111,7 @@ Tasks:
 
 - Move Terms copy into `src/lib/legalText.ts` or a similar source module: shipped.
 - Add a bundled Privacy Notice covering local file access, local config edits, update checks, telemetry, account/pricing calls, diagnostics, Keychain usage, and generated evidence: shipped.
-- Add a Settings Legal section for Terms, Privacy, license, notices, and asset provenance: Terms and Privacy shipped; license/notices/asset provenance links remain to be folded into Settings.
+- Add a Settings Legal section for Terms, Privacy, license, notices, and asset provenance: shipped.
 - Remove or clearly label upstream legal, pricing, account, and support links: account and paid API copy now states those APIs are not included.
 - Add tests proving Terms and Privacy render offline: shipped.
 - Add a terms-version note explaining when `REQUIRED_TERMS_VERSION` must change: shipped in Settings Legal.
