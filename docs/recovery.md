@@ -61,3 +61,23 @@ debugging, use the app's message-log purge action before sharing diagnostics.
 The purge removes persisted Activity feed facts that may contain historical
 request or compressed-message payloads. Restart the runtime afterward so the
 proxy runs without raw message capture.
+
+## Codex Thread DB Restore
+
+Codex history retagging is opt-in. In `ask` or `disabled` mode, Switchboard does
+not write Codex SQLite thread stores, even when Codex is routed through
+Headroom. If retagging is enabled, every write first creates a sibling backup:
+
+```text
+~/.codex/sqlite/state_5.sqlite.switchboard-backup-20260629T120000Z
+```
+
+Restore from a Switchboard backup only when Codex is closed:
+
+```bash
+mac-ai-switchboard --restore-codex-thread-db-backup ~/.codex/sqlite/state_5.sqlite.switchboard-backup-20260629T120000Z
+```
+
+The restore copies the backup over the original `state_<N>.sqlite` file in the
+same directory. Unknown Codex store versions are skipped until the schema is
+verified.

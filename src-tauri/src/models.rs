@@ -71,6 +71,45 @@ pub struct UninstallDryRunReport {
     pub preserved: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CodexThreadRetaggingMode {
+    Ask,
+    Enabled,
+    Disabled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexThreadRetaggingSettings {
+    pub codex_thread_retagging: CodexThreadRetaggingMode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexThreadRetaggingReport {
+    pub path: String,
+    pub from_provider: String,
+    pub to_provider: String,
+    pub rows_changed: usize,
+    pub backup_path: Option<String>,
+    pub skipped_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexThreadRetaggingRunReport {
+    pub mode: CodexThreadRetaggingMode,
+    pub reports: Vec<CodexThreadRetaggingReport>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexDbRestoreResult {
+    pub restored_path: String,
+    pub backup_path: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PipelineStageMetric {

@@ -45,16 +45,16 @@ use tauri_plugin_updater::{Update, UpdaterExt};
 use crate::models::{
     ActivityFeedResponse, BillingPeriod, BootstrapProgress, ClaudeAccountProfile,
     ClaudeCodeProject, ClaudeUsage, ClientConnectorStatus, ClientSetupResult,
-    ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
-    HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
-    HeadroomSubscriptionTier, ManagedConfigApplyPreview, ManagedConfigApplyResult,
-    ManagedFootprintReport, ManagedRollbackExecutionResult, ManagedRollbackPreview,
-    ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview, MessageLoggingSettings,
-    PurgeResult, RepoAgentHandoffResponse, RepoContextPackResponse, RepoDependentsResponse,
-    RepoIndexFreshnessResponse, RepoIntelligenceManifestResponse, RepoIntelligenceSummary,
-    RepoSymbolSearchResponse, RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionEvent,
-    SavingsMode, SwitchboardMode, SwitchboardState, TransformationFeedResponse,
-    UninstallDryRunReport,
+    ClientSetupVerification, CodexDbRestoreResult, CodexThreadRetaggingSettings, DailySavingsPoint,
+    DashboardState, HeadroomAuthCodeRequest, HeadroomLearnPrereqStatus, HeadroomLearnStatus,
+    HeadroomPricingStatus, HeadroomSubscriptionTier, ManagedConfigApplyPreview,
+    ManagedConfigApplyResult, ManagedFootprintReport, ManagedRollbackExecutionResult,
+    ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview,
+    MessageLoggingSettings, PurgeResult, RepoAgentHandoffResponse, RepoContextPackResponse,
+    RepoDependentsResponse, RepoIndexFreshnessResponse, RepoIntelligenceManifestResponse,
+    RepoIntelligenceSummary, RepoSymbolSearchResponse, RuntimeStatus, RuntimeUpgradeProgress,
+    SavingsAttributionEvent, SavingsMode, SwitchboardMode, SwitchboardState,
+    TransformationFeedResponse, UninstallDryRunReport,
 };
 use crate::state::AppState;
 
@@ -2698,6 +2698,27 @@ repair_action: Some("repair_codex_setup".to_string()),
         });
     }
 
+    if codex_connector_enabled
+        && matches!(
+            desired_mode,
+            SwitchboardMode::Full | SwitchboardMode::Headroom
+        )
+    {
+        let retagging = client_adapters::get_codex_thread_retagging_settings();
+        if !matches!(
+            retagging.codex_thread_retagging,
+            crate::models::CodexThreadRetaggingMode::Enabled
+        ) {
+            issues.push(crate::models::DoctorIssue {
+                id: "codex_thread_retagging_opt_in_required".to_string(),
+                title: "Codex history retagging needs consent".to_string(),
+                body: "Codex is routed through Headroom, but Switchboard will not edit Codex SQLite history until retagging is explicitly enabled. History may appear split between native and Headroom providers; enable retagging only after reviewing the backup and restore notes.".to_string(),
+                severity: crate::models::DoctorSeverity::Warning,
+                repair_action: None,
+            });
+        }
+    }
+
     for connector in connectors.iter().filter(|client| {
         client.enabled
             && !client.verified
@@ -3849,6 +3870,23 @@ fn purge_message_logs(state: State<'_, AppState>) -> PurgeResult {
     state.purge_message_logs()
 }
 
+#[tauri::command]
+fn get_codex_thread_retagging_settings() -> CodexThreadRetaggingSettings {
+    client_adapters::get_codex_thread_retagging_settings()
+}
+
+#[tauri::command]
+fn set_codex_thread_retagging_settings(
+    settings: CodexThreadRetaggingSettings,
+) -> Result<CodexThreadRetaggingSettings, String> {
+    client_adapters::set_codex_thread_retagging_settings(settings).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn restore_codex_thread_db_backup(path: String) -> Result<CodexDbRestoreResult, String> {
+    client_adapters::restore_codex_thread_db_backup(&path).map_err(|err| err.to_string())
+}
+
 /// Read-only snapshot of the activity feed. Observation — fetching the proxy,
 /// writing to ActivityFacts, persisting — happens on a dedicated background
 /// timer (see `spawn_activity_observer`), so this command never mutates state.
@@ -4782,6 +4820,33 @@ pub fn run() {
         }
     }
 
+    let args = std::env::args().collect::<Vec<_>>();
+    if let Some(index) = args
+        .iter()
+        .position(|arg| arg == "--restore-codex-thread-db-backup")
+    {
+        let Some(path) = args.get(index + 1) else {
+            eprintln!("missing path for --restore-codex-thread-db-backup");
+            std::process::exit(2);
+        };
+        match client_adapters::restore_codex_thread_db_backup(path) {
+            Ok(result) => match serde_json::to_string_pretty(&result) {
+                Ok(report) => {
+                    println!("{report}");
+                    std::process::exit(0);
+                }
+                Err(err) => {
+                    eprintln!("failed to serialize Codex restore result: {err}");
+                    std::process::exit(1);
+                }
+            },
+            Err(err) => {
+                eprintln!("failed to restore Codex thread DB backup: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
     // Raise the open-file soft limit to the hard limit. macOS launches GUI apps
     // with RLIMIT_NOFILE soft = 256, which the intercept proxy exhausts under
     // bursty load (each proxied request holds a client + backend FD), producing
@@ -5084,6 +5149,9 @@ pub fn run() {
             enable_full_message_logging,
             disable_full_message_logging,
             purge_message_logs,
+            get_codex_thread_retagging_settings,
+            set_codex_thread_retagging_settings,
+            restore_codex_thread_db_backup,
             list_live_learnings,
             list_live_learnings_for_projects,
             delete_live_learning,

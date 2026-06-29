@@ -316,6 +316,31 @@ export interface UninstallDryRunReport {
   preserved: string[];
 }
 
+export type CodexThreadRetaggingMode = "ask" | "enabled" | "disabled";
+
+export interface CodexThreadRetaggingSettings {
+  codexThreadRetagging: CodexThreadRetaggingMode;
+}
+
+export interface CodexThreadRetaggingReport {
+  path: string;
+  fromProvider: string;
+  toProvider: string;
+  rowsChanged: number;
+  backupPath?: string | null;
+  skippedReason?: string | null;
+}
+
+export interface CodexThreadRetaggingRunReport {
+  mode: CodexThreadRetaggingMode;
+  reports: CodexThreadRetaggingReport[];
+}
+
+export interface CodexDbRestoreResult {
+  restoredPath: string;
+  backupPath: string;
+}
+
 export interface ManagedRollbackUndoAllPreview {
   status: "ready" | "blocked";
   confirmationPhrase: string;

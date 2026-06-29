@@ -13,11 +13,13 @@ use uuid::Uuid;
 use crate::models::{
     ClientConnectorAutomationStage, ClientConnectorConfigCreationStep,
     ClientConnectorConfigDryRunPreview, ClientConnectorStatus, ClientConnectorSupportStatus,
-    ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus,
-    ManagedConfigApplyPreview, ManagedConfigApplyResult, ManagedFootprintItem,
-    ManagedFootprintReport, ManagedRollbackExecutionResult, ManagedRollbackExecutionStatus,
-    ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview,
-    SavingsMode, SwitchboardMode, UninstallDryRunReport, UninstallTarget,
+    ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus, CodexDbRestoreResult,
+    CodexThreadRetaggingMode, CodexThreadRetaggingReport, CodexThreadRetaggingRunReport,
+    CodexThreadRetaggingSettings, ManagedConfigApplyPreview, ManagedConfigApplyResult,
+    ManagedFootprintItem, ManagedFootprintReport, ManagedRollbackExecutionResult,
+    ManagedRollbackExecutionStatus, ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult,
+    ManagedRollbackUndoAllPreview, SavingsMode, SwitchboardMode, UninstallDryRunReport,
+    UninstallTarget,
 };
 use crate::storage::{app_data_dir, config_file, LEGACY_STORAGE_DIR_NAME};
 
@@ -841,7 +843,7 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
                 .insert(state_id.clone(), serialize_paths(&shell_targets));
             // Pull existing native threads into the headroom-provider menu so the
             // Codex history list stays whole once it routes through Headroom.
-            retag_codex_thread_providers(CODEX_NATIVE_PROVIDER, CODEX_HEADROOM_PROVIDER);
+            let _ = retag_codex_thread_providers(CODEX_NATIVE_PROVIDER, CODEX_HEADROOM_PROVIDER);
         }
         "gemini_cli" => {
             let shell_targets = resolve_client_shell_targets(&state, client_id)?;
@@ -1612,7 +1614,7 @@ pub fn disable_client_setup(client_id: &str) -> Result<()> {
             disable_codex_gui()?;
             // Hand the threads back to the native-provider menu so the full
             // history stays visible once Codex no longer routes through Headroom.
-            retag_codex_thread_providers(CODEX_HEADROOM_PROVIDER, CODEX_NATIVE_PROVIDER);
+            let _ = retag_codex_thread_providers(CODEX_HEADROOM_PROVIDER, CODEX_NATIVE_PROVIDER);
         }
         "codex_gui" => {
             disable_codex_gui()?;
@@ -3288,11 +3290,11 @@ const CODEX_TABLE_BLOCK_ID: &str = "codex_cli_provider";
 // `openai -> headroom` on connect, `headroom -> openai` on disconnect/quit.
 const CODEX_HEADROOM_PROVIDER: &str = "headroom";
 const CODEX_NATIVE_PROVIDER: &str = "openai";
+const CODEX_RETAGGING_SETTINGS_FILE: &str = "codex-retagging.json";
 
 /// Codex store-schema versions this build has been verified against. Discovered
-/// stores with a version outside this set are still retagged (best-effort) but
-/// logged, so a Codex store bump is visible before it can silently split the
-/// history menu for everyone.
+/// stores with a version outside this set are skipped until verified, so a Codex
+/// store bump is visible before Switchboard writes an unknown private DB.
 const KNOWN_CODEX_STORE_VERSIONS: &[u32] = &[5];
 
 /// Directories Codex is known to keep its state store in: the v148 GUI uses
@@ -3364,12 +3366,96 @@ fn discover_codex_state_dbs() -> Vec<(PathBuf, u32)> {
     out
 }
 
+impl Default for CodexThreadRetaggingSettings {
+    fn default() -> Self {
+        Self {
+            codex_thread_retagging: CodexThreadRetaggingMode::Ask,
+        }
+    }
+}
+
+fn codex_retagging_settings_path() -> PathBuf {
+    config_file(&app_data_dir(), CODEX_RETAGGING_SETTINGS_FILE)
+}
+
+pub fn get_codex_thread_retagging_settings() -> CodexThreadRetaggingSettings {
+    let path = codex_retagging_settings_path();
+    let Ok(raw) = std::fs::read_to_string(&path) else {
+        return CodexThreadRetaggingSettings::default();
+    };
+    serde_json::from_str::<CodexThreadRetaggingSettings>(&raw).unwrap_or_else(|err| {
+        log::warn!(
+            "codex retag: reading {} failed, falling back to ask mode: {err}",
+            path.display()
+        );
+        CodexThreadRetaggingSettings::default()
+    })
+}
+
+pub fn set_codex_thread_retagging_settings(
+    settings: CodexThreadRetaggingSettings,
+) -> Result<CodexThreadRetaggingSettings> {
+    let path = codex_retagging_settings_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&settings).context("serializing Codex retagging settings")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+    Ok(settings)
+}
+
+fn codex_retagging_backup_path(path: &Path) -> PathBuf {
+    let timestamp = Utc::now().format("%Y%m%dT%H%M%SZ");
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("state.sqlite");
+    path.with_file_name(format!("{name}.switchboard-backup-{timestamp}"))
+}
+
+fn backup_codex_db(path: &Path) -> Result<PathBuf> {
+    let backup = codex_retagging_backup_path(path);
+    std::fs::copy(path, &backup)
+        .with_context(|| format!("creating Codex thread DB backup {}", backup.display()))?;
+    Ok(backup)
+}
+
+fn codex_skip_report(
+    path: &Path,
+    from: &str,
+    to: &str,
+    reason: impl Into<String>,
+) -> CodexThreadRetaggingReport {
+    CodexThreadRetaggingReport {
+        path: path.display().to_string(),
+        from_provider: from.to_string(),
+        to_provider: to.to_string(),
+        rows_changed: 0,
+        backup_path: None,
+        skipped_reason: Some(reason.into()),
+    }
+}
+
 /// Best-effort retag of Codex thread provider tags so the history menu stays
 /// whole across the Headroom proxy boundary. Never fails the caller: a missing
 /// store, a missing `threads` table, or a DB locked by a running Codex is logged
 /// and skipped. Only rows whose `model_provider` equals `from` are touched, so
 /// third-party providers are left alone.
-fn retag_codex_thread_providers(from: &str, to: &str) {
+fn retag_codex_thread_providers(from: &str, to: &str) -> CodexThreadRetaggingRunReport {
+    let settings = get_codex_thread_retagging_settings();
+    let mode = settings.codex_thread_retagging.clone();
+    if mode != CodexThreadRetaggingMode::Enabled {
+        log::info!("codex retag {from}->{to}: skipped because mode is {mode:?}");
+        return CodexThreadRetaggingRunReport {
+            mode,
+            reports: Vec::new(),
+        };
+    }
+
     let stores = discover_codex_state_dbs();
     if stores.is_empty() {
         // Only a signal when a sqlite thread store is actually expected: the
@@ -3385,36 +3471,77 @@ fn retag_codex_thread_providers(from: &str, to: &str) {
                 dirs = codex_state_dirs(),
             );
         }
-        return;
+        return CodexThreadRetaggingRunReport {
+            mode,
+            reports: Vec::new(),
+        };
     }
+    let mut reports = Vec::new();
     for (path, version) in stores {
         if !KNOWN_CODEX_STORE_VERSIONS.contains(&version) {
             log::warn!(
                 "codex retag: store version {version} at {} is outside the known \
-                 set {KNOWN_CODEX_STORE_VERSIONS:?}; retagging anyway. Verify the \
-                 history menu still works and add {version} to \
-                 KNOWN_CODEX_STORE_VERSIONS.",
+                 set {KNOWN_CODEX_STORE_VERSIONS:?}; skipping until the user \
+                 explicitly restores compatibility or this version is verified.",
                 path.display(),
             );
+            reports.push(codex_skip_report(
+                &path,
+                from,
+                to,
+                format!("unknown Codex store version {version}"),
+            ));
+            continue;
         }
+        let backup = match backup_codex_db(&path) {
+            Ok(path) => path,
+            Err(e) => {
+                log::warn!(
+                    "codex retag {from}->{to} skipped for {}: backup failed: {e}",
+                    path.display()
+                );
+                reports.push(codex_skip_report(
+                    &path,
+                    from,
+                    to,
+                    format!("backup failed: {e}"),
+                ));
+                continue;
+            }
+        };
         match retag_one_codex_db(&path, from, to) {
-            Ok(0) => {}
-            Ok(n) => log::info!(
-                "codex retag {from}->{to}: {n} thread(s) in {}",
-                path.display()
-            ),
-            Err(e) => log::warn!(
-                "codex retag {from}->{to} skipped for {}: {e}",
-                path.display()
-            ),
+            Ok(n) => {
+                if n > 0 {
+                    log::info!(
+                        "codex retag {from}->{to}: {n} thread(s) in {}",
+                        path.display()
+                    );
+                }
+                reports.push(CodexThreadRetaggingReport {
+                    path: path.display().to_string(),
+                    from_provider: from.to_string(),
+                    to_provider: to.to_string(),
+                    rows_changed: n,
+                    backup_path: Some(backup.display().to_string()),
+                    skipped_reason: None,
+                });
+            }
+            Err(e) => {
+                log::warn!(
+                    "codex retag {from}->{to} skipped for {}: {e}",
+                    path.display()
+                );
+                reports.push(codex_skip_report(&path, from, to, e.to_string()));
+            }
         }
     }
+    CodexThreadRetaggingRunReport { mode, reports }
 }
 
 fn retag_one_codex_db(path: &Path, from: &str, to: &str) -> rusqlite::Result<usize> {
     use rusqlite::OptionalExtension;
 
-    let conn = rusqlite::Connection::open(path)?;
+    let mut conn = rusqlite::Connection::open(path)?;
     conn.busy_timeout(Duration::from_millis(750))?;
     // No-op (without erroring) on builds whose store lacks the threads table.
     let has_table = conn
@@ -3428,10 +3555,65 @@ fn retag_one_codex_db(path: &Path, from: &str, to: &str) -> rusqlite::Result<usi
     if !has_table {
         return Ok(0);
     }
-    conn.execute(
+    let has_column = conn
+        .query_row("PRAGMA table_info(threads)", [], |_| Ok(()))
+        .optional()?
+        .is_some()
+        && {
+            let mut stmt = conn.prepare("PRAGMA table_info(threads)")?;
+            let mut rows = stmt.query([])?;
+            let mut found = false;
+            while let Some(row) = rows.next()? {
+                let name: String = row.get(1)?;
+                if name == "model_provider" {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        };
+    if !has_column {
+        return Ok(0);
+    }
+    let tx = conn.transaction()?;
+    let changed = tx.execute(
         "UPDATE threads SET model_provider = ?2 WHERE model_provider = ?1",
         rusqlite::params![from, to],
-    )
+    )?;
+    tx.commit()?;
+    Ok(changed)
+}
+
+pub fn restore_codex_thread_db_backup(path: &str) -> Result<CodexDbRestoreResult> {
+    let backup = PathBuf::from(path);
+    if !backup.exists() {
+        return Err(anyhow!(
+            "Codex thread DB backup does not exist: {}",
+            backup.display()
+        ));
+    }
+    let file_name = backup
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| anyhow!("Invalid Codex backup path: {}", backup.display()))?;
+    let Some(original_name) = file_name.split(".switchboard-backup-").next() else {
+        return Err(anyhow!("Invalid Switchboard backup name: {file_name}"));
+    };
+    if original_name == file_name {
+        return Err(anyhow!("Not a Switchboard Codex DB backup: {file_name}"));
+    }
+    let original = backup.with_file_name(original_name);
+    std::fs::copy(&backup, &original).with_context(|| {
+        format!(
+            "restoring Codex thread DB from {} to {}",
+            backup.display(),
+            original.display()
+        )
+    })?;
+    Ok(CodexDbRestoreResult {
+        restored_path: original.display().to_string(),
+        backup_path: backup.display().to_string(),
+    })
 }
 
 /// Retag Codex threads back to the native provider. Exposed for the app-quit
@@ -6281,19 +6463,21 @@ mod tests {
     use serde_json::json;
 
     use crate::models::{
-        ClientConnectorSupportStatus, ClientHealth, ClientStatus, ManagedRollbackExecutionStatus,
-        SwitchboardMode,
+        ClientConnectorSupportStatus, ClientHealth, ClientStatus, CodexThreadRetaggingMode,
+        CodexThreadRetaggingSettings, ManagedRollbackExecutionStatus, SwitchboardMode,
     };
 
     use super::{
         build_headroom_markitdown_hook, build_headroom_rtk_hook, build_markitdown_codex_nudge,
         build_markitdown_office_nudge, claude_code_user_state_exists, claude_hook_present_in_value,
-        codex_home, codex_sqlite_store_expected, codex_store_version,
-        default_shell_targets_for_family, discover_codex_state_dbs, entry_contains_hook,
-        find_on_path_entries, list_client_connectors, normalize_setup_state, normalized_setup_id,
-        nvm_binary_candidates, parse_json_object, remove_managed_block,
-        remove_pre_tool_use_markers, retag_codex_thread_providers, retag_codex_threads_to_headroom,
-        retag_one_codex_db, serialize_paths, shell_block_contains_in_files,
+        codex_home, codex_retagging_settings_path, codex_sqlite_store_expected,
+        codex_store_version, default_shell_targets_for_family, discover_codex_state_dbs,
+        entry_contains_hook, find_on_path_entries, get_codex_thread_retagging_settings,
+        list_client_connectors, normalize_setup_state, normalized_setup_id, nvm_binary_candidates,
+        parse_json_object, remove_managed_block, remove_pre_tool_use_markers,
+        restore_codex_thread_db_backup, retag_codex_thread_providers,
+        retag_codex_threads_to_headroom, retag_one_codex_db, serialize_paths,
+        set_codex_thread_retagging_settings, shell_block_contains_in_files,
         shell_block_contains_text_in_files, shell_double_quote, strip_headroom_hook_from_settings,
         upsert_managed_block, write_file_if_changed, ClientSetupState, ShellFamily,
         PLANNED_CLIENT_SPECS, PLANNED_CONFIG_CREATION_STEPS, PLANNED_CONFIG_CREATION_STEP_IDS,
@@ -9524,6 +9708,13 @@ js_repl = false\n",
         .unwrap()
     }
 
+    fn enable_codex_retagging() {
+        set_codex_thread_retagging_settings(CodexThreadRetaggingSettings {
+            codex_thread_retagging: CodexThreadRetaggingMode::Enabled,
+        })
+        .unwrap();
+    }
+
     #[test]
     fn retag_one_codex_db_moves_only_matching_provider() {
         let tmp = tempfile::tempdir().unwrap();
@@ -9601,6 +9792,7 @@ js_repl = false\n",
         let db = home.path().join(".codex").join("state_5.sqlite");
         std::fs::create_dir_all(db.parent().unwrap()).unwrap();
         seed_codex_threads_db(&db, &[("a", "openai"), ("b", "openai"), ("c", "anthropic")]);
+        enable_codex_retagging();
 
         retag_codex_threads_to_headroom();
 
@@ -9661,17 +9853,71 @@ js_repl = false\n",
     #[test]
     #[serial_test::serial]
     fn retag_handles_unknown_store_version() {
-        // Future-proofing: a Codex store-version bump (here state_99) must still
-        // retag, not silently no-op for every user at once.
+        // Future-proofing: a Codex store-version bump (here state_99) must not
+        // write until the schema version is verified.
         let home = TestHome::new();
         let db = home.path().join(".codex").join("state_99.sqlite");
         std::fs::create_dir_all(db.parent().unwrap()).unwrap();
         seed_codex_threads_db(&db, &[("a", "openai"), ("b", "openai"), ("c", "anthropic")]);
+        enable_codex_retagging();
 
-        retag_codex_threads_to_headroom();
+        let report = retag_codex_thread_providers("openai", "headroom");
 
+        assert_eq!(report.reports.len(), 1);
+        assert_eq!(report.reports[0].rows_changed, 0);
+        assert!(report.reports[0]
+            .skipped_reason
+            .as_deref()
+            .unwrap_or_default()
+            .contains("unknown Codex store version"));
+        assert_eq!(provider_count(&db, "headroom"), 0);
+        assert_eq!(provider_count(&db, "openai"), 2);
+        assert_eq!(provider_count(&db, "anthropic"), 1);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn codex_retagging_defaults_to_ask_and_does_not_write() {
+        let home = TestHome::new();
+        let db = home.path().join(".codex").join("state_5.sqlite");
+        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+        seed_codex_threads_db(&db, &[("a", "openai"), ("b", "openai")]);
+
+        let settings = get_codex_thread_retagging_settings();
+        assert_eq!(
+            settings.codex_thread_retagging,
+            CodexThreadRetaggingMode::Ask
+        );
+        let report = retag_codex_thread_providers("openai", "headroom");
+
+        assert_eq!(report.mode, CodexThreadRetaggingMode::Ask);
+        assert!(report.reports.is_empty());
+        assert_eq!(provider_count(&db, "openai"), 2);
+        assert!(!codex_retagging_settings_path().exists());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn enabled_codex_retagging_creates_backup_and_can_restore() {
+        let home = TestHome::new();
+        let db = home.path().join(".codex").join("state_5.sqlite");
+        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+        seed_codex_threads_db(&db, &[("a", "openai"), ("b", "openai"), ("c", "anthropic")]);
+        enable_codex_retagging();
+
+        let report = retag_codex_thread_providers("openai", "headroom");
+
+        assert_eq!(report.mode, CodexThreadRetaggingMode::Enabled);
+        assert_eq!(report.reports.len(), 1);
+        let backup = report.reports[0].backup_path.as_ref().expect("backup path");
+        assert!(Path::new(backup).exists());
+        assert_eq!(report.reports[0].rows_changed, 2);
         assert_eq!(provider_count(&db, "headroom"), 2);
-        assert_eq!(provider_count(&db, "openai"), 0);
+
+        let restored = restore_codex_thread_db_backup(backup).unwrap();
+        assert_eq!(restored.restored_path, db.display().to_string());
+        assert_eq!(provider_count(&db, "openai"), 2);
+        assert_eq!(provider_count(&db, "headroom"), 0);
         assert_eq!(provider_count(&db, "anthropic"), 1);
     }
 
