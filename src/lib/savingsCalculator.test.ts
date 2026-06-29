@@ -369,7 +369,8 @@ describe("savings calculator", () => {
       savedTokens: 300,
       savedUsd: null,
       recordedAt: "2026-06-25T10:05:00Z",
-      caveat: "Estimated from saved history or cost model; not a per-request proof.",
+      caveat:
+        "Estimated from changed Caveman-managed instruction files and the audited terse-output template delta.",
     });
     expect(caveman?.detail).toContain("1 estimated Caveman session event");
     expect(caveman?.detail).toContain("managed guidance changed 2 client instruction files");
@@ -381,6 +382,8 @@ describe("savings calculator", () => {
       savedTokens: 880,
       savedUsd: null,
       recordedAt: "2026-06-25T10:06:00Z",
+      caveat:
+        "Estimated from verified Ponytail plugin registration in connected agent hosts; not runtime-measured output.",
     });
     expect(ponytail?.detail).toContain("1 estimated Ponytail session event");
     expect(ponytail?.detail).toContain("plugin registered with 2 agent hosts");
@@ -959,7 +962,7 @@ describe("savings calculator", () => {
     );
     expect(text).toContain("Caveat: Observed from local counters");
     expect(text).toContain(
-      "Caveat: Estimated from saved history or cost model",
+      "Caveat: Estimated from a smoke-tested managed MarkItDown hook or instruction-file change",
     );
     expect(text).toContain(
       "- markitdown: MarkItDown (estimated, lifetime, 2026-06-27T10:00:00.000Z) saved 2,300 tokens.",

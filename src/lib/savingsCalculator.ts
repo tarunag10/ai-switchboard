@@ -163,6 +163,35 @@ const confidenceCaveat: Record<SavingsCalculatorConfidence, string> = {
   inferred: "Modelled from a template, context-pack, or workflow delta.",
 };
 
+function sourceEvidenceCaveat(
+  confidence: SavingsCalculatorConfidence,
+  source: SavingsLedgerSource,
+) {
+  if (confidence === "measured") {
+    return confidenceCaveat.measured;
+  }
+
+  if (confidence === "estimated") {
+    switch (source) {
+      case "repo_intelligence":
+        return "Estimated from a local Repo Intelligence full-scan vs selected-pack token delta; not provider-spend dollars.";
+      case "markitdown":
+        return "Estimated from a smoke-tested managed MarkItDown hook or instruction-file change; not a per-document provider bill.";
+      case "ponytail":
+        return "Estimated from verified Ponytail plugin registration in connected agent hosts; not runtime-measured output.";
+      case "caveman":
+        return "Estimated from changed Caveman-managed instruction files and the audited terse-output template delta.";
+      case "compact_chinese":
+        return "Estimated from changed Compact Chinese managed instruction files and the audited terse-output template delta.";
+      case "headroom_engine":
+      case "rtk":
+        return confidenceCaveat.estimated;
+    }
+  }
+
+  return confidenceCaveat[confidence];
+}
+
 export function savingsCalculatorScopeLabel(scope: SavingsCalculatorScope) {
   switch (scope) {
     case "session":
@@ -417,7 +446,7 @@ export function buildSavingsLedgerRows(
       source: row.source,
       scope,
       recordedAt,
-      caveat: confidenceCaveat[row.confidence],
+      caveat: sourceEvidenceCaveat(row.confidence, row.source),
     }),
   );
 
@@ -551,7 +580,10 @@ function backendAttributionRows(
           caveat:
             strongestConfidence === "measured"
               ? "Observed from append-only backend attribution events."
-              : confidenceCaveat[strongestConfidence],
+              : sourceEvidenceCaveat(
+                  strongestConfidence,
+                  source as SavingsLedgerSource,
+                ),
         },
       ];
     })
