@@ -913,6 +913,9 @@ pub struct RuntimeStatus {
     /// banner + Resume button.
     pub auto_paused: bool,
     pub proxy_reachable: bool,
+    pub proxy_bind_address: String,
+    pub proxy_auth_status: String,
+    pub proxy_auth_detail: String,
     pub headroom_pid: Option<u32>,
     pub mcp_configured: Option<bool>,
     pub mcp_error: Option<String>,

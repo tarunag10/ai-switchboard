@@ -377,6 +377,9 @@ export interface RuntimeStatus {
    *  banner + Resume button. */
   autoPaused: boolean;
   proxyReachable: boolean;
+  proxyBindAddress?: string | null;
+  proxyAuthStatus?: string | null;
+  proxyAuthDetail?: string | null;
   headroomPid?: number | null;
   mcpConfigured?: boolean | null;
   mcpError?: string | null;

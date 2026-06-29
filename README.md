@@ -161,6 +161,8 @@ Native rollback execution is currently allowlisted for Codex/OpenCode backup res
 
 Off mode removes routing hooks and RTK integration. Runtime files, logs, receipts, and keychain entries remain so the next launch is fast. Uninstall cleanup is covered in [docs/install.md](docs/install.md).
 
+See [Threat Model](docs/threat-model.md) for the local proxy bind/auth boundary, raw-message logging limits, and future hardening plan.
+
 ## Installing
 
 Normal users will install a signed DMG once releases are published:

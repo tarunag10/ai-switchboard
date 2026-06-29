@@ -2679,6 +2679,19 @@ repair_action: Some("reset_codex_bypass".to_string()),
 });
     }
 
+    if runtime.proxy_reachable && runtime.proxy_auth_status != "authenticated" {
+        issues.push(crate::models::DoctorIssue {
+            id: "proxy_loopback_unauthenticated".to_string(),
+            title: "Proxy is loopback-only, not authenticated".to_string(),
+            body: format!(
+                "The local proxy is bound to {} and rejects browser Origin/non-loopback Host requests, but managed clients do not yet send a per-session auth token. Treat localhost as local-process trust, not a security boundary.",
+                runtime.proxy_bind_address
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: None,
+        });
+    }
+
     let codex_connector_enabled = connectors
         .iter()
         .any(|client| client.client_id == "codex" && client.enabled);
@@ -3095,6 +3108,9 @@ mod doctor_tests {
             paused: false,
             auto_paused: false,
             proxy_reachable,
+            proxy_bind_address: "127.0.0.1:6767".to_string(),
+            proxy_auth_status: "loopback_validated_unauthenticated".to_string(),
+            proxy_auth_detail: "Loopback-only test fixture.".to_string(),
             headroom_pid: if running { Some(42) } else { None },
             mcp_configured: None,
             mcp_error: None,

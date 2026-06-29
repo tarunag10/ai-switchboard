@@ -2891,6 +2891,11 @@ impl AppState {
             paused,
             auto_paused,
             proxy_reachable,
+            proxy_bind_address: "127.0.0.1:6767".to_string(),
+            proxy_auth_status: "loopback_validated_unauthenticated".to_string(),
+            proxy_auth_detail:
+                "Intercept binds only to 127.0.0.1 and rejects browser Origin/non-loopback Host requests; managed clients do not yet support a shared per-session auth header."
+                    .to_string(),
             headroom_pid,
             mcp_configured,
             mcp_error,
