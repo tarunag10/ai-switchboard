@@ -339,7 +339,7 @@ describe("SwitchboardDoctorPanel", () => {
     expect(screen.getByText("Copied Rollback Center.")).toBeInTheDocument();
   });
 
-  it("offers Repo Memory MCP install as an automatic Doctor repair", async () => {
+  it("offers Repo Memory MCP prepare as an automatic Doctor repair", async () => {
     const user = userEvent.setup();
     const onRepair = vi.fn();
 
@@ -368,11 +368,11 @@ describe("SwitchboardDoctorPanel", () => {
     expect(screen.getByText("1 automatic")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Installs the app-managed read-only Repo Memory MCP server. Then click Start MCP in Mode Inspector to verify repo_context_pack, repo_symbol_lookup, and repo_dependents_of.",
+        "Installs the app-managed read-only Repo Memory MCP config. Use Prepare MCP in Mode Inspector for the one-click install, start, and smoke check path.",
       ),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Install MCP" }));
+    await user.click(screen.getByRole("button", { name: "Prepare MCP" }));
 
     expect(onRepair).toHaveBeenCalledWith("install_repo_memory_mcp");
   });

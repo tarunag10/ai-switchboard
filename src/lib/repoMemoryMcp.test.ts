@@ -112,7 +112,7 @@ describe("repoMemoryMcpLifecycle", () => {
     expect(lifecycle.copy).toContain("Stop action: stop_repo_memory_mcp");
   });
 
-  it("surfaces install and smoke commands when MCP needs attention", () => {
+  it("surfaces the one-click prepare action when MCP needs attention", () => {
     const lifecycle = repoMemoryMcpLifecycle({
       configured: false,
       error: "Claude config is missing repo-memory.",
@@ -121,8 +121,12 @@ describe("repoMemoryMcpLifecycle", () => {
     expect(lifecycle.state).toBe("needs_attention");
     expect(lifecycle.status).toBe("Needs attention");
     expect(lifecycle.detail).toBe("Claude config is missing repo-memory.");
-    expect(lifecycle.copy).toContain("Install action: install_repo_memory_mcp");
-    expect(lifecycle.copy).toContain("Verify: npm run check:repo-memory-mcp");
+    expect(lifecycle.copy).toContain(
+      "Prepare action: install_repo_memory_mcp then start_repo_memory_mcp",
+    );
+    expect(lifecycle.copy).toContain(
+      "Optional terminal verify: npm run check:repo-memory-mcp",
+    );
     expect(lifecycle.copy).toContain("secret-like repo paths");
   });
 
@@ -136,7 +140,7 @@ describe("repoMemoryMcpLifecycle", () => {
       label: "Repo Memory MCP",
       status: "Unknown",
       detail:
-        "Repo Memory MCP lifecycle has not been verified. Run the installer and smoke check before relying on agent MCP handoffs.",
+        "Repo Memory MCP lifecycle has not been verified. Use Prepare MCP to install it and run the smoke check before relying on agent MCP handoffs.",
     });
   });
 });

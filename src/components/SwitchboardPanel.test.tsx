@@ -186,13 +186,13 @@ describe("SwitchboardPanel", () => {
           label: "Repo Memory MCP",
           status: "Needs attention",
           detail: "Repo Memory MCP is not configured.",
-          actionLabel: "Install MCP",
+          actionLabel: "Prepare MCP",
           onAction,
         },
       ],
     });
 
-    await user.click(screen.getByRole("button", { name: "Install MCP" }));
+    await user.click(screen.getByRole("button", { name: "Prepare MCP" }));
 
     expect(onAction).toHaveBeenCalledTimes(1);
   });
@@ -205,8 +205,8 @@ describe("SwitchboardPanel", () => {
           label: "Repo Memory MCP",
           status: "Unknown",
           detail: "Repo Memory MCP lifecycle has not been verified.",
-          actionLabel: "Install MCP",
-          actionBusyLabel: "Installing Repo Memory MCP...",
+          actionLabel: "Prepare MCP",
+          actionBusyLabel: "Preparing Repo Memory MCP...",
           actionDisabled: true,
           onAction,
         },
@@ -214,7 +214,7 @@ describe("SwitchboardPanel", () => {
     });
 
     expect(
-      screen.getByRole("button", { name: "Installing Repo Memory MCP..." }),
+      screen.getByRole("button", { name: "Preparing Repo Memory MCP..." }),
     ).toBeDisabled();
   });
 

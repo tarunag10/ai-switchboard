@@ -29,7 +29,7 @@ describe("doctor repair copy", () => {
     ["repair_rtk_integrations", "Repair RTK"],
     ["repair_rtk_runtime", "Install RTK"],
     ["clear_repo_intelligence_index", "Clear index"],
-    ["install_repo_memory_mcp", "Install MCP"],
+    ["install_repo_memory_mcp", "Prepare MCP"],
     ["verify_off_mode", "Verify Off"],
     ["unknown", "Repair"],
   ])("labels %s", (action, label) => {
@@ -59,7 +59,7 @@ describe("doctor repair copy", () => {
       "saved Repo Intelligence summary",
     );
     expect(doctorRepairHint("install_repo_memory_mcp")).toContain(
-      "Start MCP in Mode Inspector",
+      "Prepare MCP in Mode Inspector",
     );
     expect(doctorRepairHint("verify_off_mode")).toContain(
       "without changing local routing",
@@ -85,8 +85,8 @@ describe("doctor repair copy", () => {
       repairAction: "install_repo_memory_mcp",
     });
 
-    expect(guidance).toContain("Start MCP in Mode Inspector");
-    expect(guidance).toContain("repo_context_pack");
+    expect(guidance).toContain("Prepare MCP in Mode Inspector");
+    expect(guidance).toContain("one-click install, start, and smoke check");
   });
 
   it("guides Off mode verification without promising repair", () => {

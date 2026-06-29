@@ -87,8 +87,8 @@ Current checkpoint: Start Agent Session, managed sidecar connector coverage, Gem
 - Repo-memory MCP tools now declare `readOnlyHint` annotations for context packs, symbol lookup, and dependent-edge queries, with deployment readiness guarding the annotation.
 - `npm run check:repo-memory-mcp` now smoke-tests the repo-memory MCP stdio tool list and runs in the release verifier before connector parity checks.
 - Mode Inspector now labels Repo Memory MCP separately from the generic Headroom MCP state and explains configured, needs-attention, and unknown lifecycle states.
-- Mode Inspector now offers Install MCP, Start MCP, and Stop MCP actions for Repo Memory MCP state, backed by `install_repo_memory_mcp`, `start_repo_memory_mcp`, and `stop_repo_memory_mcp` Tauri commands.
-- Doctor now reports `repo_memory_mcp_not_configured` as an automatic repair and routes the repair through the same app-managed `install_repo_memory_mcp` command, including Repair all.
+- Mode Inspector now offers a one-click Prepare MCP action for unconfigured Repo Memory MCP state, backed by `install_repo_memory_mcp` followed by `start_repo_memory_mcp`; configured states still expose Start MCP and Stop MCP.
+- Doctor now reports `repo_memory_mcp_not_configured` as an automatic Prepare MCP repair; the repair installs the app-managed config, runs the start/smoke check, and is included in Repair all.
 - Doctor timeline copy now includes Repo Memory MCP lifecycle evidence: `install_repo_memory_mcp`, `npm run check:repo-memory-mcp`, read-only tool names, and the secret-like path exclusion boundary.
 - Repo Memory MCP docs now explain supported-agent consumption, MCP-aware connector boundaries, smoke verification, and troubleshooting.
 - Cursor and Windsurf now surface existing editor settings files as detection evidence, while native provider writes remain blocked until settings parse, dry-run diff, backup, verification, rollback, and Off cleanup are promoted.

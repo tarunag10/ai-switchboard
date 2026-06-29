@@ -3421,6 +3421,9 @@ fn repair_repo_memory_mcp(state: &AppState) -> Result<(), String> {
         .tool_manager
         .install_repo_memory_mcp()
         .map_err(|err| err.to_string())?;
+    state
+        .start_repo_memory_mcp()
+        .map_err(|err| err.to_string())?;
     state.invalidate_runtime_status_cache();
     Ok(())
 }

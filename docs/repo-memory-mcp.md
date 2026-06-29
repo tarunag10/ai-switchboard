@@ -5,9 +5,9 @@ Repo Memory MCP is the read-only agent-consumption surface for Repo Intelligence
 ## Current Status
 
 - Transport: stdio MCP served by `scripts/repo-intelligence.mjs --mcp-serve`.
-- Install action: **Install MCP** in the Mode Inspector, backed by `install_repo_memory_mcp`.
-- Session controls: **Start MCP** and **Stop MCP** in the Mode Inspector, backed by `start_repo_memory_mcp` and `stop_repo_memory_mcp`. Start verifies the read-only smoke contract and records the current app process before marking MCP active; these controls do not claim a separate background daemon is running.
-- Verification: `npm run check:repo-memory-mcp`.
+- Prepare action: **Prepare MCP** in the Mode Inspector, backed by `install_repo_memory_mcp` followed by `start_repo_memory_mcp`. It installs the app-managed config, runs the read-only smoke contract, and records the current app process before marking MCP active.
+- Session controls: **Start MCP** and **Stop MCP** in the Mode Inspector, backed by `start_repo_memory_mcp` and `stop_repo_memory_mcp`. Start re-runs the read-only smoke contract for configured or restart-required states; these controls do not claim a separate background daemon is running.
+- Optional terminal verification: `npm run check:repo-memory-mcp`.
 - Tools: `repo_context_pack`, `repo_symbol_lookup`, and `repo_dependents_of`.
   Switchboard-compatible aliases are also exposed:
   `switchboard.list_context_packs`, `switchboard.build_context_pack`, and
@@ -21,9 +21,9 @@ Use Repo Memory MCP after indexing a real local repo from the Repo Intelligence 
 Recommended agent flow:
 
 1. Index or refresh the repo in Mac AI Switchboard.
-2. Install Repo Memory MCP from the Mode Inspector if it is not configured.
-3. Start Repo Memory MCP from the Mode Inspector when the agent session should be allowed to consume app-managed repo context; the app runs the same read-only smoke before marking it active.
-4. Run `npm run check:repo-memory-mcp` manually when you want an extra terminal proof of the read-only tool contract.
+2. Click **Prepare MCP** in the Mode Inspector if Repo Memory MCP is not configured; the app installs it, starts it, and runs the same read-only smoke before marking it active.
+3. Click **Start MCP** again only after relaunch, stale state, or failed smoke requires a fresh app-session verification.
+4. Run `npm run check:repo-memory-mcp` manually only when you want extra terminal proof of the read-only tool contract.
 5. Ask the agent to request a bounded context pack with `repo_context_pack`.
 6. Use `repo_symbol_lookup` or `repo_dependents_of` only for targeted follow-up.
 7. Stop Repo Memory MCP from the Mode Inspector when the app session should no longer advertise active MCP context.
@@ -47,7 +47,7 @@ Goose and other MCP-aware tools should keep Repo Memory MCP separate from provid
 
 | Connector | Preferred Repo Memory path | Boundary |
 | --- | --- | --- |
-| Claude Code | Use Repo Memory MCP tools after **Install MCP**, **Start MCP**, and `npm run check:repo-memory-mcp` pass. | MCP context is read-only and separate from Claude Code shell routing or Headroom engine mode. |
+| Claude Code | Use Repo Memory MCP tools after **Prepare MCP** marks the app-managed smoke check active; run `npm run check:repo-memory-mcp` only for extra terminal proof. | MCP context is read-only and separate from Claude Code shell routing or Headroom engine mode. |
 | Codex | Prefer Start Agent Session or `repo:intelligence --session`; use MCP only when the active Codex environment can call configured MCP tools. | MCP context does not change Codex provider config, model selection, or `OPENAI_BASE_URL` routing. |
 | Gemini CLI | Use Start Agent Session handoffs first; use MCP only when Gemini is running in an MCP-capable wrapper or environment. | Gemini base-url/env routing remains managed separately and must keep its backup/rollback evidence. |
 | OpenCode | Use Start Agent Session handoffs first; use MCP only when OpenCode's configured runtime can call MCP tools. | OpenCode provider config routing remains guarded by native backup, verify, rollback, and Off cleanup. |
@@ -60,8 +60,8 @@ Do not treat MCP availability as permission to mutate provider/editor configurat
 
 ## Troubleshooting
 
-- If the Mode Inspector says **Unknown**, install MCP and run the smoke check before relying on agent MCP handoffs.
-- If it says **Needs attention**, copy the Doctor timeline; it includes `install_repo_memory_mcp`, `npm run check:repo-memory-mcp`, tool names, and the read-only safety boundary.
+- If the Mode Inspector says **Unknown**, use **Prepare MCP** before relying on agent MCP handoffs.
+- If it says **Needs attention**, click **Prepare MCP** or copy the Doctor timeline; it includes `install_repo_memory_mcp`, `start_repo_memory_mcp`, `npm run check:repo-memory-mcp`, tool names, and the read-only safety boundary.
 - If it says **Start required**, click **Start MCP** again. A previous app process verified the tools, but this app session has not.
 - If `npm run check:repo-memory-mcp` fails, do not ask agents to use MCP context until the tool list and `repo_context_pack` smoke pass.
 - If a repo was moved, deleted, or became stale, clear or refresh the Repo Intelligence index before using MCP output.

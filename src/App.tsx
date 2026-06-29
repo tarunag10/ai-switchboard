@@ -5381,25 +5381,26 @@ export default function App() {
     }
   }
 
-  async function installRepoMemoryMcp() {
+  async function prepareRepoMemoryMcp() {
     setAddonBusyId("repo-memory");
-    setAddonBusyLabel("Installing Repo Memory MCP...");
+    setAddonBusyLabel("Preparing Repo Memory MCP...");
     setAddonError(null);
     setAddonResult(null);
     try {
-      const next = await invoke<DashboardState>("install_repo_memory_mcp");
+      await invoke<DashboardState>("install_repo_memory_mcp");
+      const next = await invoke<DashboardState>("start_repo_memory_mcp");
       setDashboard(next);
       await refreshRuntimeStatus();
       setAddonResult({
         id: "repo-memory",
         message:
-          "Repo Memory MCP installed. Click Start MCP in Mode Inspector to run the read-only smoke check and mark it active.",
+          "Repo Memory MCP prepared. The app installed it, ran the read-only smoke check, and marked it active for supported agents.",
       });
     } catch (error) {
       setAddonError(
         error instanceof Error
           ? error.message
-          : "Repo Memory MCP could not be installed.",
+          : "Repo Memory MCP could not be prepared.",
       );
     } finally {
       setAddonBusyId(null);
@@ -7491,7 +7492,7 @@ export default function App() {
           ? "Stop MCP"
           : runtimeStatus?.repoMemoryMcpConfigured === true
             ? "Start MCP"
-            : "Install MCP",
+            : "Prepare MCP",
       actionBusyLabel:
         addonBusyId === "repo-memory" ? (addonBusyLabel ?? "Working") : undefined,
       actionDisabled: addonBusyId !== null,
@@ -7500,7 +7501,7 @@ export default function App() {
           ? () => void setRepoMemoryMcpActive(false)
           : runtimeStatus?.repoMemoryMcpConfigured === true
             ? () => void setRepoMemoryMcpActive(true)
-            : () => void installRepoMemoryMcp(),
+            : () => void prepareRepoMemoryMcp(),
     },
     {
       label: "LaunchAgent",

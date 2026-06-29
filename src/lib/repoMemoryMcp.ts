@@ -150,7 +150,7 @@ export function repoMemoryMcpLifecycle(
       state: "configured",
       status: "Configured",
       detail:
-        "Repo Memory MCP is app-managed, read-only, and available to supported agents.",
+        "Repo Memory MCP is app-managed and read-only. Click Start MCP to run the smoke check and mark it active for supported agents.",
       installCommand: repoMemoryMcpInstallCommand,
       startCommand: repoMemoryMcpStartCommand,
       stopCommand: repoMemoryMcpStopCommand,
@@ -163,7 +163,7 @@ export function repoMemoryMcpLifecycle(
   if (input.configured === false) {
     const detail =
       input.error?.trim() ||
-      "Repo Memory MCP is not configured. Install from Mac AI Switchboard, then verify the read-only tool contract.";
+      "Repo Memory MCP is not configured. Use Prepare MCP from Mac AI Switchboard to install it, start it, and verify the read-only tool contract.";
     return {
       state: "needs_attention",
       status: "Needs attention",
@@ -175,8 +175,8 @@ export function repoMemoryMcpLifecycle(
       copy: [
         "Repo Memory MCP needs attention.",
         `Detail: ${detail}`,
-        `Install action: ${repoMemoryMcpInstallCommand}`,
-        `Verify: ${repoMemoryMcpVerifyCommand}`,
+        "Prepare action: install_repo_memory_mcp then start_repo_memory_mcp",
+        `Optional terminal verify: ${repoMemoryMcpVerifyCommand}`,
         "Safety: tools must stay read-only and must not expose secret-like repo paths.",
       ].join("\n"),
     };
@@ -186,15 +186,15 @@ export function repoMemoryMcpLifecycle(
     state: "unknown",
     status: "Unknown",
     detail:
-      "Repo Memory MCP lifecycle has not been verified. Run the installer and smoke check before relying on agent MCP handoffs.",
+      "Repo Memory MCP lifecycle has not been verified. Use Prepare MCP to install it and run the smoke check before relying on agent MCP handoffs.",
     installCommand: repoMemoryMcpInstallCommand,
     startCommand: repoMemoryMcpStartCommand,
     stopCommand: repoMemoryMcpStopCommand,
     verifyCommand: repoMemoryMcpVerifyCommand,
     copy: [
       "Repo Memory MCP status unknown.",
-      `Install action: ${repoMemoryMcpInstallCommand}`,
-      `Verify: ${repoMemoryMcpVerifyCommand}`,
+      "Prepare action: install_repo_memory_mcp then start_repo_memory_mcp",
+      `Optional terminal verify: ${repoMemoryMcpVerifyCommand}`,
       "Safety: repo-memory MCP must remain app-managed and read-only.",
     ].join("\n"),
   };
