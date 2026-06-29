@@ -19,7 +19,7 @@ Shipped:
 - Repo Memory MCP active state is now process-bound: after app relaunch, Mode Inspector shows Start required until the app re-runs the read-only smoke check.
 - Savings ledger rows now distinguish measured, estimated, and inferred events across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese.
 - Rollback Center has guarded preview/execution for ready allowlisted rows, including Codex/OpenCode restore paths and managed sidecar cleanup.
-- Doctor repair actions that can restore Headroom routing are now blocked while the saved mode is Off or RTK-only; non-Headroom repairs such as RTK, Caveman, Ponytail, Repo Intelligence, and Repo Memory MCP stay available.
+- Doctor repair actions that can restore Headroom routing are now blocked while the saved mode is Off or RTK-only; non-Headroom repairs such as RTK, Caveman, Ponytail, Repo Intelligence, and Repo Memory MCP stay available. Doctor also exposes Verify Off as a primary one-click action when Off-mode evidence remains.
 - Remote destination registry, support-link routing, external-link SSRF guards, local-only backend refusal for account/billing/contact commands, branding iconset provenance, local DMG build, and local installed smoke evidence are shipped.
 - Local mode relaunch smoke now backs up and restores `client-setup.json`, launches the installed app in saved Off and RTK-only modes, and verifies the app process returns while intercept and Headroom proxy listeners stay down.
 
@@ -120,7 +120,7 @@ Status: partially shipped. Off/RTK-only launch and bootstrap guards are in place
 Tasks:
 
 - Add backend checks for listeners on `127.0.0.1:6767`, `127.0.0.1:8787`, managed shell blocks, Claude hooks, Codex provider blocks, MCP config, and LaunchAgents.
-- Add a Doctor "Verify Off mode" action.
+- Add a Doctor "Verify Off mode" action: shipped as a primary Doctor action when Off-mode evidence remains.
 - Add a Mode Inspector panel showing requested mode, active mode, Headroom engine status, RTK hook status, Claude routing, Codex routing, Repo Memory MCP lifecycle state, shell export state, and LaunchAgent state.
 - Block repair actions from silently restoring Headroom routing when requested mode is Off or RTK-only: shipped for Headroom-restoring Doctor actions.
 - Extend launch/bootstrap tests into installed-app reboot and Doctor-repair smoke evidence.

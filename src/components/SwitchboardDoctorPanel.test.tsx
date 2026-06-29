@@ -379,6 +379,7 @@ describe("SwitchboardDoctorPanel", () => {
 
   it("copies a focused Verify Off report when Off mode evidence remains", async () => {
     const user = userEvent.setup();
+    const onRepair = vi.fn();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -403,9 +404,12 @@ describe("SwitchboardDoctorPanel", () => {
         busyAction={null}
         error={null}
         successMessage={null}
-        onRepair={vi.fn()}
+        onRepair={onRepair}
       />,
     );
+
+    await user.click(screen.getByRole("button", { name: "Verify Off" }));
+    expect(onRepair).toHaveBeenCalledWith("verify_off_mode");
 
     await user.click(screen.getByTitle("Copy Verify Off report"));
 

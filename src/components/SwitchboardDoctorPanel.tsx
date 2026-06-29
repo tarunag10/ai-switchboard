@@ -136,7 +136,7 @@ export function SwitchboardDoctorPanel({
             {doctorIssueGuidance(issue)}
           </p>
         </div>
-        {repairable ? (
+        {repairable && repairAction !== "verify_off_mode" ? (
           <button
             type="button"
             className="switchboard-doctor__repair"
@@ -281,6 +281,21 @@ export function SwitchboardDoctorPanel({
               : "No manual-only warnings."}
           </small>
         </div>
+        {hasOffModeVerification ? (
+          <div>
+            <span>Off mode proof</span>
+            <strong>Verify</strong>
+            <small>Run the local listener, hook, MCP, and routing check again.</small>
+            <button
+              type="button"
+              className="switchboard-doctor__repair-all"
+              disabled={busyAction !== null}
+              onClick={() => onRepair("verify_off_mode")}
+            >
+              {busyAction === "verify_off_mode" ? "Verifying" : "Verify Off"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {footprintReport ? (
@@ -388,7 +403,7 @@ export function SwitchboardDoctorPanel({
               title="Copy Verify Off report"
             >
               <Copy aria-hidden="true" weight="bold" />
-              <span>Verify Off</span>
+              <span>Verify Off report</span>
             </button>
           ) : null}
           {hasPlannedConnectorEvidence ? (
