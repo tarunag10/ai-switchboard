@@ -26,6 +26,11 @@ const requiredReleaseReportPaths = [
   "localValidation.doctorRepair.jsonPath",
   "localValidation.doctorRepair.passed",
   "localValidation.doctorRepair.requiredCommand",
+  "localValidation.uninstall.summaryPath",
+  "localValidation.uninstall.jsonPath",
+  "localValidation.uninstall.passed",
+  "localValidation.uninstall.destructive",
+  "localValidation.uninstall.requiredCommand",
   "shareableDmgGate.staticSmokePreflightReady",
   "shareableDmgGate.updaterFeedReady",
   "releaseEnv.blockers",
@@ -127,6 +132,9 @@ if (
   )
 ) {
   fail(`${markdownReportPath} must include the local Doctor repair validation command`);
+}
+if (!markdownReport.includes("Uninstall command: npm run smoke:uninstall:local")) {
+  fail(`${markdownReportPath} must include the local uninstall validation command`);
 }
 
 requireType(report, "status", "string");
@@ -286,6 +294,7 @@ if (localValidation.releaseGateEvidence !== false) {
 for (const prefix of [
   "localValidation.rollback",
   "localValidation.doctorRepair",
+  "localValidation.uninstall",
 ]) {
   requireObject(report, prefix);
   requireType(report, `${prefix}.summaryPath`, "string");
@@ -323,6 +332,17 @@ if (
   fail(
     "localValidation.doctorRepair.requiredCommand must be npm run smoke:doctor-repair:local",
   );
+}
+if (
+  report.localValidation.uninstall.requiredCommand !==
+  "npm run smoke:uninstall:local"
+) {
+  fail(
+    "localValidation.uninstall.requiredCommand must be npm run smoke:uninstall:local",
+  );
+}
+if (report.localValidation.uninstall.destructive !== false) {
+  fail("localValidation.uninstall.destructive must be false");
 }
 requireType(report, "localValidation.message", "string");
 

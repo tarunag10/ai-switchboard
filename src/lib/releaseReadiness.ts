@@ -90,6 +90,14 @@ export interface ReleaseReadinessReportSnapshot {
       stepCount?: number;
       requiredCommand?: string;
     };
+    uninstall?: {
+      summaryPresent?: boolean;
+      jsonPresent?: boolean;
+      passed?: boolean;
+      destructive?: boolean | null;
+      stepCount?: number;
+      requiredCommand?: string;
+    };
   };
   shareableDmgGate?: {
     ready?: boolean;
@@ -186,6 +194,7 @@ export const localReleaseEvidenceCommandIds = [
   "local-mode-relaunch-smoke",
   "rollback-center-validation",
   "doctor-repair-validation",
+  "uninstall-validation",
   "release-report",
 ] as const;
 
@@ -199,7 +208,8 @@ export function formatLocalReleaseEvidenceSequenceCopy() {
     "5. Local Off/RTK relaunch smoke",
     "6. Rollback Center validation",
     "7. Doctor repair validation",
-    "8. Refresh release readiness report",
+    "8. Uninstall dry-run validation",
+    "9. Refresh release readiness report",
     "Boundary: this local unsigned/ad-hoc evidence does not run signing, notarization, updater publication, or the strict public-release gate.",
   ].join("\n");
 }
@@ -211,7 +221,7 @@ export function formatReleaseReadinessCommandCopy() {
     "Strict public-release gate: npm run release:ready -- --strict",
     "Report source after running: dist/release-readiness-report.json",
     "Local-only install evidence: npm run build:mac:local-install",
-    "App shortcut: Run local evidence executes desktop validation, smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, Doctor repair validation, and a release report refresh.",
+    "App shortcut: Run local evidence executes desktop validation, smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, Doctor repair validation, uninstall dry-run validation, and a release report refresh.",
     "Boundary: local unsigned/ad-hoc install evidence never replaces signed DMG install, notarization, updater feed, or installed smoke confirmation.",
   ].join("\n");
 }
@@ -262,12 +272,13 @@ export const releaseReadinessStatusRows: ReleaseReadinessStatusRow[] = [
   },
   {
     id: "local-doctor-rollback",
-    label: "Local Doctor/Rollback",
+    label: "Local safety evidence",
     statusLabel: "Local only",
     tone: "local-only",
-    source: "npm run smoke:rollback:local && npm run smoke:doctor-repair:local",
+    source:
+      "npm run smoke:rollback:local && npm run smoke:doctor-repair:local && npm run smoke:uninstall:local",
     detail:
-      "Local Doctor repair and Rollback Center survival evidence is useful operational proof but does not replace signed installed-app smoke.",
+      "Local Doctor repair, Rollback Center, and uninstall dry-run evidence is useful operational proof but does not replace signed installed-app smoke.",
   },
   {
     id: "signing-env",
@@ -472,6 +483,14 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         executable: true,
       },
       {
+        id: "uninstall-validation",
+        label: "Validate uninstall dry-run",
+        detail:
+          "Run frontend disclosure and backend target-inventory checks for the uninstall dry-run without deleting files.",
+        command: "npm run smoke:uninstall:local",
+        executable: true,
+      },
+      {
         id: "beta-smoke",
         label: "Run beta smoke test",
         detail:
@@ -590,6 +609,7 @@ export function releaseReadinessRowsFromReport(
   const rollbackPassed = report.localValidation?.rollback?.passed === true;
   const doctorRepairPassed =
     report.localValidation?.doctorRepair?.passed === true;
+  const uninstallPassed = report.localValidation?.uninstall?.passed === true;
   const signingReady = report.shareableDmgGate?.signedAndNotarized === true;
   const notarizationReady = signingReady;
   const updaterReady = report.shareableDmgGate?.updaterFeedReady === true;
@@ -645,10 +665,12 @@ export function releaseReadinessRowsFromReport(
       statusLabel: localValidationReady ? "Validated locally" : "Local only",
       tone: "local-only",
       detail: localValidationReady
-        ? "Local Rollback Center and Doctor repair validation summaries are passing; this remains local-only evidence."
+        ? "Local Rollback Center, Doctor repair, and uninstall dry-run validation summaries are passing; this remains local-only evidence."
         : `Local survival validation missing or stale: Rollback ${
             rollbackPassed ? "passed" : "not passed"
-          }, Doctor repair ${doctorRepairPassed ? "passed" : "not passed"}.`,
+          }, Doctor repair ${
+            doctorRepairPassed ? "passed" : "not passed"
+          }, uninstall ${uninstallPassed ? "passed" : "not passed"}.`,
     },
     {
       ...releaseReadinessStatusRows[5],
@@ -728,7 +750,7 @@ export function formatReleaseReadinessReportSnapshot(
     `- Connector config plan evidence: ${yesNo(hasConnectorConfigPlanEvidence(report))}`,
     `- Installed app present: ${yesNo(report.installedSmoke?.installedAppPresent)}`,
     `- Installed smoke ready: ${yesNo(report.installedSmoke?.ready ?? report.installedSmoke?.evidenceReady)}`,
-    `- Local Doctor/Rollback validation ready: ${yesNo(report.localValidation?.ready)}`,
+    `- Local safety validation ready: ${yesNo(report.localValidation?.ready)}`,
     `- Signed and notarized: ${yesNo(report.shareableDmgGate?.signedAndNotarized)}`,
     `- Updater feed ready: ${yesNo(report.shareableDmgGate?.updaterFeedReady)}`,
     `- Shareable DMG ready: ${yesNo(report.shareableDmgGate?.ready)}`,

@@ -13,6 +13,8 @@ const localDoctorRepairSummaryPath =
   "dist/local-doctor-repair-validation-summary.md";
 const localDoctorRepairJsonPath =
   "dist/local-doctor-repair-validation-summary.json";
+const localUninstallSummaryPath = "dist/local-uninstall-validation-summary.md";
+const localUninstallJsonPath = "dist/local-uninstall-validation-summary.json";
 const betaSmokeDoc = "docs/beta-smoke-test.md";
 const appPath = "/Applications/Mac AI Switchboard.app";
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
@@ -249,9 +251,12 @@ function buildLocalValidationEvidence() {
   const rollbackJson = readJsonStatus(localRollbackJsonPath);
   const doctorSummary = readSummaryStatus(localDoctorRepairSummaryPath);
   const doctorJson = readJsonStatus(localDoctorRepairJsonPath);
+  const uninstallSummary = readSummaryStatus(localUninstallSummaryPath);
+  const uninstallJson = readJsonStatus(localUninstallJsonPath);
   const rollbackPassed = rollbackJson.body?.passed === true;
   const doctorRepairPassed = doctorJson.body?.passed === true;
-  const ready = rollbackPassed && doctorRepairPassed;
+  const uninstallPassed = uninstallJson.body?.passed === true;
+  const ready = rollbackPassed && doctorRepairPassed && uninstallPassed;
 
   return {
     ready,
@@ -284,9 +289,24 @@ function buildLocalValidationEvidence() {
         : 0,
       requiredCommand: "npm run smoke:doctor-repair:local",
     },
+    uninstall: {
+      summaryPath: localUninstallSummaryPath,
+      jsonPath: localUninstallJsonPath,
+      summaryPresent: uninstallSummary.present,
+      jsonPresent: uninstallJson.present,
+      generatedLine: uninstallSummary.generatedLine,
+      passed: uninstallPassed,
+      destructive: uninstallJson.body?.destructive ?? null,
+      parseError: uninstallJson.parseError,
+      kind: uninstallJson.body?.kind ?? null,
+      stepCount: Array.isArray(uninstallJson.body?.steps)
+        ? uninstallJson.body.steps.length
+        : 0,
+      requiredCommand: "npm run smoke:uninstall:local",
+    },
     message: ready
-      ? "Local Doctor repair and Rollback Center validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
-      : "Run npm run smoke:rollback:local and npm run smoke:doctor-repair:local to refresh local survival evidence before public installed-smoke proof.",
+      ? "Local Doctor repair, Rollback Center, and uninstall dry-run validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
+      : "Run npm run smoke:rollback:local, npm run smoke:doctor-repair:local, and npm run smoke:uninstall:local to refresh local survival and cleanup evidence before public installed-smoke proof.",
   };
 }
 
@@ -435,6 +455,13 @@ ${localValidation.doctorRepair.generatedLine ? `- ${localValidation.doctorRepair
 - Doctor repair validation passed: ${localValidation.doctorRepair.passed ? "yes" : "no"}
 - Doctor repair validation steps: ${localValidation.doctorRepair.stepCount}
 - Doctor repair command: ${localValidation.doctorRepair.requiredCommand}
+- Uninstall summary present: ${localValidation.uninstall.summaryPresent ? "yes" : "no"} (${localValidation.uninstall.summaryPath})
+- Uninstall JSON present: ${localValidation.uninstall.jsonPresent ? "yes" : "no"} (${localValidation.uninstall.jsonPath})
+${localValidation.uninstall.generatedLine ? `- ${localValidation.uninstall.generatedLine}` : "- Uninstall validation summary has not been generated in this checkout."}
+- Uninstall validation passed: ${localValidation.uninstall.passed ? "yes" : "no"}
+- Uninstall validation destructive: ${localValidation.uninstall.destructive === false ? "no" : "unknown"}
+- Uninstall validation steps: ${localValidation.uninstall.stepCount}
+- Uninstall command: ${localValidation.uninstall.requiredCommand}
 - ${localValidation.message}
 
 ## Shareable DMG Gates
