@@ -351,6 +351,23 @@ describe("repoIntelligence", () => {
         content: "async def collect_context():\n    return []\nclass ToolRunner:\n    pass",
       },
       {
+        path: "src/worker.py",
+        bytes: 700,
+        content:
+          "from services.worker_helpers import run_job\nfrom .local_helpers import build_job\n",
+      },
+      { path: "src/services/__init__.py", bytes: 80, content: "" },
+      {
+        path: "src/services/worker_helpers.py",
+        bytes: 300,
+        content: "def run_job():\n    return True\n",
+      },
+      {
+        path: "src/local_helpers.py",
+        bytes: 240,
+        content: "def build_job():\n    return {}\n",
+      },
+      {
         path: "Sources/Switchboard/AppView.swift",
         bytes: 900,
         content:
@@ -429,6 +446,18 @@ describe("repoIntelligence", () => {
           kind: "import_reference",
           reason: "script invokes scripts/smoke.sh",
         }),
+        expect.objectContaining({
+          from: "src/worker.py",
+          to: "src/services/worker_helpers.py",
+          kind: "import_reference",
+          reason: "source imports py:services/worker_helpers",
+        }),
+        expect.objectContaining({
+          from: "src/worker.py",
+          to: "src/local_helpers.py",
+          kind: "import_reference",
+          reason: "source imports py:.local_helpers",
+        }),
       ]),
     );
     expect(
@@ -443,6 +472,8 @@ describe("repoIntelligence", () => {
         "AppState",
         "collect_context",
         "ToolRunner",
+        "run_job",
+        "build_job",
         "AppView",
         "AppViewModel",
         "makeAppView",
