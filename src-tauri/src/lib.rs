@@ -570,6 +570,27 @@ fn run_release_evidence_command(
         "npm",
         &["run", "smoke:mode-relaunch:local", "--", "--confirm"],
     )];
+    const ROLLBACK_CENTER_VALIDATION_STEPS: &[(&str, &[&str])] = &[
+        ("npm", &["test", "--", "src/lib/managedChanges.test.ts"]),
+        (
+            "cargo",
+            &[
+                "test",
+                "--manifest-path",
+                "src-tauri/Cargo.toml",
+                "managed_rollback_undo_all_executes_ready_native_rows_only",
+            ],
+        ),
+        (
+            "cargo",
+            &[
+                "test",
+                "--manifest-path",
+                "src-tauri/Cargo.toml",
+                "gemini_managed_rollback_removes_shell_and_sidecar_blocks",
+            ],
+        ),
+    ];
     const LOCAL_DMG_BUILD_INSTALL_STEPS: &[(&str, &[&str])] =
         &[("npm", &["run", "build:mac:local-install"])];
 
@@ -598,6 +619,12 @@ fn run_release_evidence_command(
             steps: LOCAL_MODE_RELAUNCH_SMOKE_STEPS,
             summary_path: Some("dist/local-mode-relaunch-smoke-summary.md"),
         },
+        "rollback-center-validation" => ReleaseEvidenceCommandSpec {
+            label: "Rollback Center validation",
+            command: "npm test -- src/lib/managedChanges.test.ts && cargo test managed rollback focused cases",
+            steps: ROLLBACK_CENTER_VALIDATION_STEPS,
+            summary_path: None,
+        },
         "local-dmg-build-install" => ReleaseEvidenceCommandSpec {
             label: "Local DMG build/install",
             command: "npm run build:mac:local-install",
@@ -606,7 +633,7 @@ fn run_release_evidence_command(
         },
         _ => {
             return Err(
-                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, and local-mode-relaunch-smoke."
+                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, and rollback-center-validation."
                     .to_string(),
             )
         }
@@ -9458,7 +9485,7 @@ Some unrelated content.
 
         assert!(
             err.contains(
-                "enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, and local-mode-relaunch-smoke"
+                "enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, and rollback-center-validation"
             ),
             "unexpected error: {err}"
         );

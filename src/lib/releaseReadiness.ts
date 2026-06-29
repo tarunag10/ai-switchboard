@@ -165,6 +165,7 @@ export const localReleaseEvidenceCommandIds = [
   "local-dmg-build-install",
   "local-installed-smoke",
   "local-mode-relaunch-smoke",
+  "rollback-center-validation",
 ] as const;
 
 export function formatLocalReleaseEvidenceSequenceCopy() {
@@ -175,6 +176,7 @@ export function formatLocalReleaseEvidenceSequenceCopy() {
     "3. Local DMG build/install",
     "4. Local installed smoke",
     "5. Local Off/RTK relaunch smoke",
+    "6. Rollback Center validation",
     "Boundary: this local unsigned/ad-hoc evidence does not run signing, notarization, updater publication, or the strict public-release gate.",
   ].join("\n");
 }
@@ -419,6 +421,15 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         detail:
           "Relaunch the installed local app in saved Off and RTK-only modes and confirm proxy listeners stay down; this remains local-only and does not prove public release readiness.",
         command: "npm run smoke:mode-relaunch:local -- --confirm",
+        executable: true,
+      },
+      {
+        id: "rollback-center-validation",
+        label: "Validate Rollback Center",
+        detail:
+          "Run focused Rollback Center frontend and backend tests from the app evidence flow, including native undo-all and Gemini cleanup survival cases.",
+        command:
+          "npm test -- src/lib/managedChanges.test.ts && cargo test managed rollback focused cases",
         executable: true,
       },
       {
