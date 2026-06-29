@@ -46,6 +46,10 @@ const IGNORED_DIRS: [&str; 12] = [
     "__pycache__",
     ".pytest_cache",
 ];
+
+pub fn current_indexer_version() -> &'static str {
+    INDEXER_VERSION
+}
 const SECRET_FILE_NAMES: [&str; 13] = [
     ".env",
     ".env.local",

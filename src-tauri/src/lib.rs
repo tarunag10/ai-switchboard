@@ -2581,14 +2581,23 @@ fn repo_intelligence_doctor_issue(
     }
 
     let freshness = repo_intelligence::build_index_freshness_response(Some(summary));
-    if freshness.parser_health == "version_mismatch" || freshness.index_health == "metadata_missing"
+    let indexer_health = if freshness.indexer_version.as_deref()
+        == Some(repo_intelligence::current_indexer_version())
+    {
+        "current"
+    } else {
+        "version_mismatch"
+    };
+    if freshness.parser_health == "version_mismatch"
+        || freshness.index_health == "metadata_missing"
+        || indexer_health == "version_mismatch"
     {
         return Some(crate::models::DoctorIssue {
             id: "repo_intelligence_index_health".to_string(),
             title: "Repo Intelligence parser/index health needs refresh".to_string(),
             body: format!(
-                "The saved Repo Intelligence index for {} reports index health '{}' and parser health '{}'. Repair will clear this saved index; then re-index the current local repository so Doctor and agent handoffs use the current parser/index contract.",
-                summary.repo_root, freshness.index_health, freshness.parser_health
+                "The saved Repo Intelligence index for {} reports index health '{}', parser health '{}', and indexer health '{}'. Repair will clear this saved index; then re-index the current local repository so Doctor and agent handoffs use the current parser/index contract.",
+                summary.repo_root, freshness.index_health, freshness.parser_health, indexer_health
             ),
             severity: crate::models::DoctorSeverity::Warning,
             repair_action: Some("clear_repo_intelligence_index".to_string()),
@@ -7643,6 +7652,14 @@ mod tests {
             repo_intelligence_doctor_issue(&parser_mismatch, now).expect("parser issue");
         assert_eq!(parser_mismatch_issue.id, "repo_intelligence_index_health");
         assert!(parser_mismatch_issue.body.contains("version_mismatch"));
+
+        let mut indexer_mismatch = moved.clone();
+        indexer_mismatch.indexer_version = Some("path-graph-v2".to_string());
+        let indexer_mismatch_issue =
+            repo_intelligence_doctor_issue(&indexer_mismatch, now).expect("indexer issue");
+        assert_eq!(indexer_mismatch_issue.id, "repo_intelligence_index_health");
+        assert!(indexer_mismatch_issue.body.contains("indexer health"));
+        assert!(indexer_mismatch_issue.body.contains("version_mismatch"));
     }
 
     #[test]

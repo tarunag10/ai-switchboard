@@ -17,6 +17,7 @@ Shipped:
 - Cursor and Windsurf now surface detected editor settings files as evidence while native writes remain blocked.
 - Repo Intelligence Start Agent Session, read-only packs, handoffs, CLI exports, and repo-memory MCP smoke transport are usable.
 - Repo Intelligence graph version `path-graph-v3` adds package-dependency edges from TypeScript/JavaScript/React imports back to `package.json`, so context packs can show source-to-installed-package relationships in addition to local imports and call references.
+- Doctor now treats stale Repo Intelligence indexer versions as index-health issues, so graph analyzer upgrades ask users to clear/re-index before relying on context packs.
 - Repo Memory MCP active state is now process-bound: after app relaunch, Mode Inspector shows Start required until the app re-runs the read-only smoke check. For new setup, Mode Inspector's Prepare MCP action installs, starts, and smoke-checks the app-managed server in one click.
 - Repo Memory MCP runtime status now exposes the managed stdio service descriptor separately from app-process smoke supervision, including command, descriptor path, read-only flag, and app-managed ownership.
 - Savings ledger rows now distinguish measured, estimated, and inferred events across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese.
@@ -43,7 +44,7 @@ Left:
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
 - Turn repo-memory MCP into a real background local service beyond current app-process supervision plus smoke-tested stdio transport.
 - Replace inferred Ponytail, Caveman, and Compact Chinese savings rows with stronger measured counters where trustworthy evidence exists; Repo Intelligence and MarkItDown fallback rows are now estimated from graph-pack and managed smoke-tested conversion paths.
-- Deepen Repo Intelligence beyond the shipped parser/index versions, local imports, package-dependency edges, reverse dependencies, graph-input evidence, and graph-aware packs with richer language-specific dependency analyzers and Doctor health checks.
+- Deepen Repo Intelligence beyond the shipped parser/index health checks, local imports, package-dependency edges, reverse dependencies, graph-input evidence, and graph-aware packs with richer language-specific dependency analyzers and Doctor health checks.
 - Complete public release readiness with signed/notarized DMG, updater artifacts, public installed-smoke proof, uninstall evidence, and release-panel wiring.
 
 ## Product Principles
