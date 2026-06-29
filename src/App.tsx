@@ -6516,10 +6516,33 @@ export default function App() {
             </p>
           </article>
           <article>
+            <strong>Managed local files</strong>
+            <p>
+              May write app storage, shell profile blocks, Claude settings or
+              hooks, Codex provider blocks, and recovery backups with managed
+              markers.
+            </p>
+          </article>
+          <article>
             <strong>Off means off</strong>
             <p>
               Switchboard can remove routing hooks, and Doctor can repair stale
               local setup if a client or proxy drifts.
+            </p>
+          </article>
+          <article>
+            <strong>Privacy and network</strong>
+            <p>
+              Local-free builds do not require telemetry or accounts. Provider
+              model calls still leave your Mac through Claude, OpenAI, or the
+              provider you choose.
+            </p>
+          </article>
+          <article>
+            <strong>Choose initial mode later</strong>
+            <p>
+              Start in Off, RTK only, Headroom only, or Full optimization after
+              install; managed routing is not required to finish onboarding.
             </p>
           </article>
         </div>
