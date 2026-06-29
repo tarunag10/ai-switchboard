@@ -10,8 +10,6 @@ export interface RemoteServiceDestination {
   id: string;
   kind: RemoteServiceKind;
   label: string;
-  envVar?: string;
-  envVars?: string[];
   endpointExample: string;
   source: string;
   localOnlyAllowed: boolean;
@@ -22,8 +20,7 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     id: "headroom_account_api",
     kind: "account",
     label: "Mac AI Switchboard account API",
-    envVar: "HEADROOM_ACCOUNT_API_BASE_URL",
-    endpointExample: "https://extraheadroom.com/api/v1",
+    endpointExample: "configured account API host",
     source: "sign-in and account profile requests",
     localOnlyAllowed: false,
   },
@@ -31,8 +28,7 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     id: "headroom_pricing_api",
     kind: "pricing",
     label: "Mac AI Switchboard pricing and trial API",
-    envVar: "HEADROOM_ACCOUNT_API_BASE_URL",
-    endpointExample: "https://extraheadroom.com/api/v1",
+    endpointExample: "configured account API host",
     source: "pricing, trial, usage, and upgrade requests",
     localOnlyAllowed: false,
   },
@@ -40,7 +36,6 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     id: "sentry",
     kind: "telemetry",
     label: "Sentry diagnostics",
-    envVars: ["HEADROOM_SENTRY_DSN", "VITE_SENTRY_DSN"],
     endpointExample: "configured DSN host",
     source: "error and crash diagnostics",
     localOnlyAllowed: false,
@@ -49,17 +44,15 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     id: "clarity",
     kind: "analytics",
     label: "Microsoft Clarity analytics",
-    envVar: "VITE_CLARITY_PROJECT_ID",
-    endpointExample: "https://www.clarity.ms",
+    endpointExample: "configured session analytics host",
     source: "optional product analytics",
     localOnlyAllowed: false,
   },
   {
-    id: "aptabase",
+    id: "product_analytics",
     kind: "analytics",
-    label: "Aptabase analytics",
-    envVar: "HEADROOM_APTABASE_APP_KEY",
-    endpointExample: "https://app.aptabase.com",
+    label: "Product analytics",
+    endpointExample: "configured event analytics host",
     source: "optional product analytics",
     localOnlyAllowed: false,
   },
@@ -67,9 +60,8 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     id: "tauri_updater",
     kind: "updates",
     label: "Tauri update feed",
-    envVar: "HEADROOM_UPDATER_ENDPOINTS",
     endpointExample:
-      "https://github.com/tarunag10/mac-ai-switchboard/releases/latest/download/latest.json",
+      "configured signed update feed",
     source: "signed app update checks",
     localOnlyAllowed: false,
   },
@@ -77,7 +69,7 @@ export const remoteServiceDestinations: RemoteServiceDestination[] = [
     id: "support_links",
     kind: "support",
     label: "External support links",
-    endpointExample: "https://github.com/tarunag10/mac-ai-switchboard/issues",
+    endpointExample: "user-opened support destination",
     source: "user-opened repository support links",
     localOnlyAllowed: false,
   },

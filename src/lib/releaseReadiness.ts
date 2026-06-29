@@ -311,9 +311,8 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         id: "account-api",
         label: "Account API URL",
         detail:
-          "HEADROOM_ACCOUNT_API_BASE_URL must point to the packaged sign-in account service.",
-        command:
-          "export HEADROOM_ACCOUNT_API_BASE_URL=https://your-account-api.example.com/api/v1",
+          "Remote-services builds must point to the packaged sign-in account service.",
+        command: "Copy .env.remote-services.example and set the account API URL.",
       },
     ],
   },

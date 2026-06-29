@@ -2,6 +2,7 @@ import fs from "node:fs";
 
 const requiredFiles = [
   ".env.example",
+  ".env.remote-services.example",
   "docs/install.md",
   "docs/macos-release.md",
   "docs/beta-smoke-test.md",
@@ -17,6 +18,7 @@ const requiredFiles = [
   "scripts/check-release-report-schema.mjs",
   "scripts/check-deployment-readiness.mjs",
   "scripts/check-no-local-artifacts.sh",
+  "scripts/check-local-build-privacy.mjs",
   "scripts/smoke-preflight.mjs",
   "scripts/installed-smoke-summary.mjs",
   "scripts/local-installed-smoke-summary.mjs",
@@ -48,6 +50,7 @@ const requiredScripts = {
     '"check:branding"',
     '"check:colors"',
     '"check:local-artifacts"',
+    '"check:local-build-privacy"',
     '"check:governance"',
     '"check:deployment"',
     '"fmt:desktop"',
@@ -63,6 +66,7 @@ const requiredScripts = {
     "npm run check:colors",
     "npm run check:governance",
     "npm run build",
+    "npm run check:local-build-privacy",
     "npm run test:coverage",
     "npm run fmt:desktop",
     "npm run test:desktop",
@@ -71,12 +75,26 @@ const requiredScripts = {
 
 const requiredDocSignals = {
   ".env.example": [
+    'HEADROOM_BUILD_FLAVOR="local-free"',
+    'VITE_HEADROOM_BUILD_FLAVOR="local-free"',
     'HEADROOM_LOCAL_ONLY="1"',
     'VITE_HEADROOM_LOCAL_ONLY="1"',
+    'HEADROOM_REMOTE_SERVICES="0"',
+    'VITE_HEADROOM_REMOTE_SERVICES="0"',
     'VITE_HEADROOM_REMOTE_TELEMETRY="0"',
-    'VITE_CLARITY_PROJECT_ID=""',
     "# Optional: app updater configuration for signed release builds",
     "# Optional: local signed macOS DMG builds",
+  ],
+  ".env.remote-services.example": [
+    'HEADROOM_BUILD_FLAVOR="remote-services"',
+    'VITE_HEADROOM_BUILD_FLAVOR="remote-services"',
+    'HEADROOM_REMOTE_SERVICES="1"',
+    'VITE_HEADROOM_REMOTE_SERVICES="1"',
+    "HEADROOM_ACCOUNT_API_BASE_URL",
+    "HEADROOM_SENTRY_DSN",
+    "VITE_SENTRY_DSN",
+    "HEADROOM_APTABASE_APP_KEY",
+    "VITE_CLARITY_PROJECT_ID",
   ],
   "README.md": [
     "Read-only local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI",

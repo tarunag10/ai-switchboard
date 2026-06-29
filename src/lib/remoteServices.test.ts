@@ -12,7 +12,7 @@ describe("remote services copy", () => {
     expect(remoteServicesCopy(false)).toEqual({
       label: "Local-only",
       detail:
-        "Mac AI Switchboard local-only mode is on. Cloud account, pricing, diagnostics, analytics, update, and support endpoints stay paused: Mac AI Switchboard account API, Mac AI Switchboard pricing and trial API, Sentry diagnostics, Microsoft Clarity analytics, Aptabase analytics, Tauri update feed, External support links.",
+        "Mac AI Switchboard local-only mode is on. Cloud account, pricing, diagnostics, analytics, update, and support endpoints stay paused: Mac AI Switchboard account API, Mac AI Switchboard pricing and trial API, Sentry diagnostics, Microsoft Clarity analytics, Product analytics, Tauri update feed, External support links.",
     });
   });
 
@@ -30,7 +30,7 @@ describe("remote services copy", () => {
       "headroom_pricing_api",
       "sentry",
       "clarity",
-      "aptabase",
+      "product_analytics",
       "tauri_updater",
       "support_links",
     ]);
@@ -40,7 +40,7 @@ describe("remote services copy", () => {
     expect(allowedRemoteDestinations(true)).toEqual([]);
   });
 
-  it("documents env and endpoint evidence for every remote destination", () => {
+  it("documents endpoint evidence for every remote destination without bundling operator env names", () => {
     expect(
       remoteServiceDestinations.every(
         (destination) =>
@@ -48,19 +48,9 @@ describe("remote services copy", () => {
           destination.source.length > 0,
       ),
     ).toBe(true);
-    expect(
-      remoteServiceDestinations
-        .filter((destination) => destination.kind === "support")
-        .every((destination) => !destination.endpointExample.includes("extraheadroom.com")),
-    ).toBe(true);
-    expect(
-      remoteServiceDestinations
-        .filter((destination) => destination.kind !== "support")
-        .every((destination) => Boolean(destination.envVar ?? destination.envVars?.length)),
-    ).toBe(true);
-    expect(remoteServiceDestinations.find((destination) => destination.id === "sentry")).toMatchObject({
-      envVars: ["HEADROOM_SENTRY_DSN", "VITE_SENTRY_DSN"],
-    });
+    expect(remoteServiceDestinations.map((destination) => destination.endpointExample)).not.toContain(
+      "https://extraheadroom.com/api/v1",
+    );
   });
 
   it("uses explicit setup labels for local-only and cloud-capable modes", () => {

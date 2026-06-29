@@ -33,6 +33,7 @@
     "check:branding": "node scripts/check-branding-assets.mjs",
     "check:colors": "./scripts/check-colors.sh",
     "check:local-artifacts": "./scripts/check-no-local-artifacts.sh",
+    "check:local-build-privacy": "node scripts/check-local-build-privacy.mjs",
     "check:governance": "node scripts/check-governance-docs.mjs",
     "check:deployment": "node scripts/check-deployment-readiness.mjs"
   },

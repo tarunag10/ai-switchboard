@@ -35,6 +35,9 @@ npm run check:governance
 echo "Building production frontend..."
 npm run build
 
+echo "Checking local-free build privacy..."
+npm run check:local-build-privacy
+
 echo "Running frontend coverage..."
 npm run test:coverage
 
