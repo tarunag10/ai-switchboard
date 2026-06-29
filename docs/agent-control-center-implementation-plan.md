@@ -91,6 +91,7 @@ Current checkpoint: Start Agent Session, managed sidecar connector coverage, Gem
 - Doctor now reports `repo_memory_mcp_not_configured` as an automatic Prepare MCP repair; the repair installs the app-managed config, runs the start/smoke check, and is included in Repair all.
 - Doctor timeline copy now includes Repo Memory MCP lifecycle evidence: `install_repo_memory_mcp`, `npm run check:repo-memory-mcp`, read-only tool names, and the secret-like path exclusion boundary.
 - Repo Memory MCP docs now explain supported-agent consumption, MCP-aware connector boundaries, smoke verification, and troubleshooting.
+- Launcher setup verification now offers a one-click **Send all test prompts** path for Claude Code and Codex, with per-tool fallback instructions for manual-only connectors. The backend launches those fixed smoke prompts through the user's login shell so Finder-launched app sessions can find Terminal-installed `codex` and `claude` binaries.
 - Cursor and Windsurf now surface existing editor settings files as detection evidence, while native provider writes remain blocked until settings parse, dry-run diff, backup, verification, rollback, and Off cleanup are promoted.
 - Release readiness dashboard slices already shipped report loading, copyable report snapshots, and a Run local evidence action that sequences desktop validation, smoke preflight, local DMG build/install, and local installed smoke without touching signing, notarization, or public publication gates.
 
