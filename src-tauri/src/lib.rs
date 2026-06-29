@@ -1021,7 +1021,7 @@ async fn install_addon(state: State<'_, AppState>, id: String) -> Result<Dashboa
                 .tool_manager
                 .install_markitdown()
                 .map_err(|err| err.to_string())?;
-            client_adapters::enable_markitdown_integration(
+            let (changed_files, backup_files) = client_adapters::enable_markitdown_integration(
                 &state.tool_manager.markitdown_entrypoint(),
                 &state.tool_manager.markitdown_shim_path(),
                 &state.tool_manager.managed_python(),
@@ -1029,7 +1029,7 @@ async fn install_addon(state: State<'_, AppState>, id: String) -> Result<Dashboa
             .map_err(|err| {
                 format!("markitdown installed but enabling integration failed: {err:#}")
             })?;
-            let _ = state.record_addon_attribution("markitdown", None);
+            let _ = state.record_markitdown_attribution(&changed_files, &backup_files);
             Ok(state.dashboard())
         }
         "rtk" => {
@@ -1084,13 +1084,13 @@ async fn set_addon_enabled(
                 .set_markitdown_enabled(enabled)
                 .map_err(|err| err.to_string())?;
             if enabled {
-                client_adapters::enable_markitdown_integration(
+                let (changed_files, backup_files) = client_adapters::enable_markitdown_integration(
                     &state.tool_manager.markitdown_entrypoint(),
                     &state.tool_manager.markitdown_shim_path(),
                     &state.tool_manager.managed_python(),
                 )
                 .map_err(|err| err.to_string())?;
-                let _ = state.record_addon_attribution("markitdown", None);
+                let _ = state.record_markitdown_attribution(&changed_files, &backup_files);
             } else {
                 client_adapters::disable_markitdown_integration(
                     &state.tool_manager.markitdown_shim_path(),

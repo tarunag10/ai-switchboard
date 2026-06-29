@@ -2167,13 +2167,18 @@ impl AppState {
         self.savings_tracker.lock().append_attribution_event(&event)
     }
 
-    pub fn record_addon_attribution(
+    pub fn record_markitdown_attribution(
         &self,
-        addon_id: &str,
-        caveman_level: Option<&str>,
+        changed_files: &[String],
+        backup_files: &[String],
     ) -> Result<()> {
-        let Some(event) = build_addon_attribution_event(addon_id, caveman_level, None, None, None)
-        else {
+        let Some(event) = build_addon_attribution_event(
+            "markitdown",
+            None,
+            Some(changed_files),
+            Some(backup_files),
+            None,
+        ) else {
             return Ok(());
         };
         self.savings_tracker.lock().append_attribution_event(&event)
@@ -4017,14 +4022,20 @@ fn build_addon_attribution_event(
     ponytail_hosts: Option<&[String]>,
 ) -> Option<SavingsAttributionEvent> {
     let (source, label, baseline, optimized, confidence, evidence_subject) = match addon_id {
-        "markitdown" => (
-            SavingsAttributionSource::Markitdown,
-            "MarkItDown",
-            MARKITDOWN_TEMPLATE_BASELINE_TOKENS,
-            MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS,
-            SavingsAttributionConfidence::Estimated,
-            "Markdown extract vs re-attaching the full source document each turn; the managed MarkItDown console script is smoke-tested before integration is enabled",
-        ),
+        "markitdown" => {
+            let changed_files = changed_files?;
+            if changed_files.is_empty() {
+                return None;
+            }
+            (
+                SavingsAttributionSource::Markitdown,
+                "MarkItDown",
+                MARKITDOWN_TEMPLATE_BASELINE_TOKENS,
+                MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS,
+                SavingsAttributionConfidence::Estimated,
+                "MarkItDown managed hook or instruction guidance was written into connected client files after the console script was smoke-tested",
+            )
+        }
         "ponytail" => {
             let hosts = ponytail_hosts?;
             if hosts.is_empty() {
@@ -4097,6 +4108,21 @@ fn build_addon_attribution_event(
         if let Some(backups) = backup_files.filter(|backups| !backups.is_empty()) {
             evidence.push(format!(
                 "Backups created for reversible guidance writes: {}.",
+                backups.join(", ")
+            ));
+        }
+    }
+    if addon_id == "markitdown" {
+        let changed = changed_files.unwrap_or(&[]);
+        evidence.push(format!(
+            "Managed MarkItDown integration changed {} client artifact{}: {}.",
+            changed.len(),
+            if changed.len() == 1 { "" } else { "s" },
+            changed.join(", ")
+        ));
+        if let Some(backups) = backup_files.filter(|backups| !backups.is_empty()) {
+            evidence.push(format!(
+                "Backups created for reversible MarkItDown integration writes: {}.",
                 backups.join(", ")
             ));
         }
@@ -7097,8 +7123,19 @@ mod tests {
 
     #[test]
     fn addon_attribution_event_records_estimated_markitdown_delta() {
-        let event = super::build_addon_attribution_event("markitdown", None, None, None, None)
-            .expect("markitdown attribution");
+        let changed_files = vec![
+            "/tmp/headroom-markitdown-read.sh".to_string(),
+            "/tmp/CLAUDE.md".to_string(),
+        ];
+        let backup_files = vec!["/tmp/CLAUDE.md.bak".to_string()];
+        let event = super::build_addon_attribution_event(
+            "markitdown",
+            None,
+            Some(&changed_files),
+            Some(&backup_files),
+            None,
+        )
+        .expect("markitdown attribution");
 
         assert_eq!(event.source, SavingsAttributionSource::Markitdown);
         assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
@@ -7108,7 +7145,20 @@ mod tests {
         assert!(evidence.contains("baseline 3200 tokens"));
         assert!(evidence.contains("optimized 900 tokens"));
         assert!(evidence.contains("smoke-tested"));
+        assert!(evidence.contains("changed 2 client artifacts"));
+        assert!(evidence.contains("headroom-markitdown-read.sh"));
+        assert!(evidence.contains("Backups created"));
         assert!(evidence.contains("not provider-spend dollars"));
+    }
+
+    #[test]
+    fn addon_attribution_event_skips_markitdown_without_changed_artifacts() {
+        assert!(super::build_addon_attribution_event("markitdown", None, None, None, None)
+            .is_none());
+        assert!(
+            super::build_addon_attribution_event("markitdown", None, Some(&[]), None, None)
+                .is_none()
+        );
     }
 
     #[test]
