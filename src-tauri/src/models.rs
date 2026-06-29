@@ -782,6 +782,8 @@ pub struct ClientConnectorStatus {
     pub installed: bool,
     pub enabled: bool,
     pub verified: bool,
+    #[serde(default)]
+    pub setup_verification: Option<ClientSetupVerification>,
     pub last_configured_at: Option<String>,
 }
 

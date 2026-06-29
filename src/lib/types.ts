@@ -202,6 +202,7 @@ export interface ClientConnectorStatus {
   installed: boolean;
   enabled: boolean;
   verified: boolean;
+  setupVerification?: ClientSetupVerification | null;
   lastConfiguredAt?: string | null;
 }
 

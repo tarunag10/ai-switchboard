@@ -1296,13 +1296,15 @@ pub fn list_client_connectors(
                 || setup_state
                     .remembered_clients
                     .contains_key(normalized_setup_id(spec.id));
-            let verified = if enabled {
-                verify_client_setup(spec.id)
-                    .map(|result| result.verified)
-                    .unwrap_or(false)
+            let setup_verification = if enabled {
+                verify_client_setup(spec.id).ok()
             } else {
-                false
+                None
             };
+            let verified = setup_verification
+                .as_ref()
+                .map(|result| result.verified)
+                .unwrap_or(false);
 
             ClientConnectorStatus {
                 client_id: spec.id.to_string(),
@@ -1365,6 +1367,7 @@ pub fn list_client_connectors(
                 installed,
                 enabled,
                 verified,
+                setup_verification,
                 last_configured_at: configured_timestamp(&setup_state, spec.id),
             }
         })
@@ -1382,13 +1385,15 @@ pub fn list_client_connectors(
         let config_dry_run_preview = planned_connector_dry_run_preview(spec, &detection_evidence);
         let has_implemented_setup = planned_connector_has_implemented_setup(spec.id);
         let enabled = has_implemented_setup && is_configured(&setup_state, spec.id);
-        let verified = if enabled {
-            verify_client_setup(spec.id)
-                .map(|result| result.verified)
-                .unwrap_or(false)
+        let setup_verification = if enabled {
+            verify_client_setup(spec.id).ok()
         } else {
-            false
+            None
         };
+        let verified = setup_verification
+            .as_ref()
+            .map(|result| result.verified)
+            .unwrap_or(false);
         let automation_path = planned_connector_automation_path(
             spec,
             installed,
@@ -1520,6 +1525,7 @@ pub fn list_client_connectors(
             installed,
             enabled,
             verified,
+            setup_verification,
             last_configured_at: configured_timestamp(&setup_state, spec.id),
         }
     }));

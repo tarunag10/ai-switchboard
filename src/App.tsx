@@ -7524,6 +7524,32 @@ export default function App() {
       onAction: configured && !verified ? () => setActiveView("settings") : undefined,
     };
   };
+  const enabledConnectorVerifications = switchboardRoutingConnectors
+    .filter((connector) => connector.enabled)
+    .map((connector) => connector.setupVerification)
+    .filter((verification): verification is NonNullable<typeof verification> =>
+      Boolean(verification),
+    );
+  const managedShellBlockVerified = enabledConnectorVerifications.some(
+    (verification) =>
+      verification.checks.some((check) =>
+        /managed shell block|shell profiles/i.test(check),
+      ),
+  );
+  const managedShellBlockMissing = enabledConnectorVerifications.some(
+    (verification) =>
+      verification.failures.some((failure) =>
+        /shell profiles|shell blocks/i.test(failure),
+      ),
+  );
+  const codexProviderVerified =
+    codexRoutingConnector?.setupVerification?.checks.some((check) =>
+      /provider block/i.test(check),
+    ) === true;
+  const codexProviderMissing =
+    codexRoutingConnector?.setupVerification?.failures.some((failure) =>
+      /provider block/i.test(failure),
+    ) === true;
   const switchboardInspectorRows = [
     {
       label: "Proxy listener",
@@ -7550,6 +7576,36 @@ export default function App() {
           ? "Managed"
           : "Direct",
       detail: switchboardHeadroomLabel,
+    },
+    {
+      label: "Managed shell blocks",
+      status: managedShellBlockVerified
+        ? "Verified"
+        : managedShellBlockMissing
+          ? "Missing"
+          : "No proof",
+      detail: managedShellBlockVerified
+        ? "Connector verification found managed shell routing blocks."
+        : managedShellBlockMissing
+          ? "Connector verification reported missing shell routing blocks."
+          : "No enabled connector has reported shell-block verification yet.",
+    },
+    {
+      label: "Codex provider block",
+      status: codexProviderVerified
+        ? "Verified"
+        : codexProviderMissing
+          ? "Missing"
+          : codexRoutingConnector?.enabled
+            ? "No proof"
+            : "Direct",
+      detail: codexProviderVerified
+        ? "Connector verification found the Headroom-managed provider block in ~/.codex/config.toml."
+        : codexProviderMissing
+          ? "Connector verification reported the Codex provider block is missing."
+          : codexRoutingConnector?.enabled
+            ? "Codex is enabled, but provider-block verification has not reported proof yet."
+            : "Codex is not routed through Switchboard.",
     },
     {
       label: "Shell export",

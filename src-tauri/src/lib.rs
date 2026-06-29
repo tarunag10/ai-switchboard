@@ -3101,6 +3101,7 @@ mod doctor_tests {
             installed: true,
             enabled: false,
             verified: false,
+            setup_verification: None,
             last_configured_at: None,
         }]);
 

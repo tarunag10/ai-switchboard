@@ -48,6 +48,17 @@ function renderPanel(
         detail: "Codex, Claude Code",
       },
       {
+        label: "Managed shell blocks",
+        status: "Verified",
+        detail: "Connector verification found managed shell routing blocks.",
+      },
+      {
+        label: "Codex provider block",
+        status: "Verified",
+        detail:
+          "Connector verification found the Headroom-managed provider block in ~/.codex/config.toml.",
+      },
+      {
         label: "Shell export",
         status: "Configured",
         detail: "Managed RTK PATH export is present.",
@@ -107,6 +118,8 @@ describe("SwitchboardPanel", () => {
     expect(inspector.getByText("Codex routing")).toBeInTheDocument();
     expect(inspector.getByText("Claude routing")).toBeInTheDocument();
     expect(inspector.getByText("Client routing")).toBeInTheDocument();
+    expect(inspector.getByText("Managed shell blocks")).toBeInTheDocument();
+    expect(inspector.getByText("Codex provider block")).toBeInTheDocument();
     expect(inspector.getByText("Shell export")).toBeInTheDocument();
     expect(inspector.getByText("RTK shell hook")).toBeInTheDocument();
     expect(inspector.getByText("Repo Memory MCP")).toBeInTheDocument();
@@ -120,6 +133,14 @@ describe("SwitchboardPanel", () => {
     ).toBeInTheDocument();
     expect(
       inspector.getByText("Managed RTK command-rewrite hook is present."),
+    ).toBeInTheDocument();
+    expect(
+      inspector.getByText("Connector verification found managed shell routing blocks."),
+    ).toBeInTheDocument();
+    expect(
+      inspector.getByText(
+        "Connector verification found the Headroom-managed provider block in ~/.codex/config.toml.",
+      ),
     ).toBeInTheDocument();
     expect(
       inspector.getByText(
