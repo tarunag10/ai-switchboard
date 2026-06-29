@@ -1152,12 +1152,23 @@ fn bootstrap_runtime(state: State<'_, AppState>) -> Result<DashboardState, Strin
         .tool_manager
         .bootstrap_all()
         .map_err(|err| err.to_string())?;
-    if let Err(err) = client_adapters::ensure_rtk_integrations(
-        &state.tool_manager.rtk_entrypoint(),
-        &state.tool_manager.managed_python(),
-    ) {
-        log::warn!("RTK integrations failed after bootstrap_runtime: {err:#}");
+
+    if saved_switchboard_mode_wants_rtk() {
+        if let Err(err) = client_adapters::ensure_rtk_integrations(
+            &state.tool_manager.rtk_entrypoint(),
+            &state.tool_manager.managed_python(),
+        ) {
+            log::warn!("RTK integrations failed after bootstrap_runtime: {err:#}");
+        }
     }
+
+    if !saved_switchboard_mode_wants_headroom() {
+        state.stop_headroom();
+        state.set_runtime_paused(true);
+        state.set_runtime_auto_paused(false);
+        return Ok(state.dashboard());
+    }
+
     state
         .ensure_headroom_running()
         .map_err(|err| format!("bootstrap complete but failed to start headroom: {err}"))?;
@@ -2318,15 +2329,23 @@ fn switchboard_mode_label(mode: &SwitchboardMode) -> &'static str {
 }
 
 fn saved_switchboard_mode_wants_headroom() -> bool {
+    switchboard_mode_wants_headroom(client_adapters::load_switchboard_mode().as_ref())
+}
+
+fn saved_switchboard_mode_wants_rtk() -> bool {
+    switchboard_mode_wants_rtk(client_adapters::load_switchboard_mode().as_ref())
+}
+
+fn switchboard_mode_wants_headroom(mode: Option<&SwitchboardMode>) -> bool {
     matches!(
-        client_adapters::load_switchboard_mode(),
+        mode,
         Some(SwitchboardMode::Headroom | SwitchboardMode::Full) | None
     )
 }
 
-fn saved_switchboard_mode_wants_rtk() -> bool {
+fn switchboard_mode_wants_rtk(mode: Option<&SwitchboardMode>) -> bool {
     matches!(
-        client_adapters::load_switchboard_mode(),
+        mode,
         Some(SwitchboardMode::Rtk | SwitchboardMode::Full) | None
     )
 }
@@ -3076,6 +3095,28 @@ mod doctor_tests {
     fn off_mode_violations_empty_when_runtime_clients_and_rtk_are_off() {
         let runtime = test_runtime_status(false, false, false);
         assert!(off_mode_violations(&runtime, 0).is_empty());
+    }
+
+    #[test]
+    fn switchboard_mode_intent_disables_everything_in_off_mode() {
+        assert!(!switchboard_mode_wants_headroom(Some(
+            &SwitchboardMode::Off
+        )));
+        assert!(!switchboard_mode_wants_rtk(Some(&SwitchboardMode::Off)));
+    }
+
+    #[test]
+    fn switchboard_mode_intent_keeps_rtk_only_without_headroom() {
+        assert!(!switchboard_mode_wants_headroom(Some(
+            &SwitchboardMode::Rtk
+        )));
+        assert!(switchboard_mode_wants_rtk(Some(&SwitchboardMode::Rtk)));
+    }
+
+    #[test]
+    fn switchboard_mode_intent_defaults_to_full_optimization() {
+        assert!(switchboard_mode_wants_headroom(None));
+        assert!(switchboard_mode_wants_rtk(None));
     }
 
     #[test]
