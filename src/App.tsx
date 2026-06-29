@@ -264,6 +264,7 @@ import {
 import { ActivityFeed } from "./components/ActivityFeed";
 import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
+import { SettingsLegalPanel } from "./components/SettingsLegalPanel";
 import { TermsGate } from "./components/TermsGate";
 import { SwitchboardPanel } from "./components/SwitchboardPanel";
 import { SwitchboardDoctorPanel } from "./components/SwitchboardDoctorPanel";
@@ -9425,40 +9426,20 @@ export default function App() {
             <article className="soft-card panel-card settings-account-card">
               <div className="settings-account-row">
                 <p className="settings-account-copy">
-                  Headroom account:{" "}
-                  {pricingStatus?.authenticated ? (
-                    <>
-                      {accountDisplayEmail} <em>({accountPlanName})</em>
-                    </>
-                  ) : (
-                    <em>not signed in</em>
-                  )}
+                  Account and paid APIs: <em>not included</em>
                 </p>
-                {pricingStatus?.authenticated ? (
-                  <button
-                    className="secondary-button secondary-button--small"
-                    onClick={() => void handleSignOutHeadroomAccount()}
-                    type="button"
-                  >
-                    <SignOut size={16} weight="bold" />
-                    Sign out
-                  </button>
-                ) : (
-                  <button
-                    className="secondary-button secondary-button--small"
-                    onClick={() => openUpgradeAuthView()}
-                    type="button"
-                  >
-                    Sign in
-                  </button>
-                )}
+                <span className="settings-account-badge">Local-free</span>
               </div>
-              {pricingStatus?.claude?.profileFetchError ? (
-                <p className="settings-account-notice">
-                  {pricingStatus.claude.profileFetchError}
-                </p>
-              ) : null}
+              <p className="settings-account-notice">
+                Mac AI Switchboard does not include remote account, billing,
+                checkout, or paid pricing APIs. Provider model calls still use
+                the accounts you configure in Claude, Codex, or other tools.
+              </p>
             </article>
+
+            <SettingsLegalPanel
+              requiredTermsVersion={dashboard.requiredTermsVersion}
+            />
 
             <article className="soft-card panel-card">
               <div className="panel-card__header">

@@ -8,6 +8,7 @@ The goal is not to hide Headroom. Headroom is still a real underlying optimizati
 
 - Product name and bundle identity are Mac AI Switchboard.
 - The visible Terms gate now uses bundled Mac AI Switchboard Terms of Use.
+- Settings now includes bundled Terms, Privacy Notice, account/API status, and the terms-version policy.
 - The old Logoipsum/Headroom SVG has been removed from the app UI.
 - A generated Mac AI Switchboard logo is now used in the launcher, tray, and app icon assets.
 - The inherited `headroom.iconset` source folder has been renamed to `src-tauri/icons/mac-ai-switchboard.iconset/`, and the branding guard blocks the old folder name.
@@ -56,12 +57,12 @@ Move from upstream legal assumptions to app-owned local legal surfaces.
 
 Tasks:
 
-- Move Terms copy out of `TermsGate.tsx` into a small source module such as `src/lib/legalText.ts`.
-- Add a bundled Privacy Notice covering local file access, local config edits, update checks, telemetry, and generated diagnostics.
-- Add a Settings/legal area showing Terms of Use and Privacy Notice after first launch.
-- Remove remote account, billing, checkout, and paid pricing flows before release.
-- Replace any upstream Terms/Privacy/support links in pricing, sign-in, settings, release docs, and error messages.
-- Add a terms-version note explaining why `REQUIRED_TERMS_VERSION` was bumped and when future bumps are required.
+- Move Terms copy out of `TermsGate.tsx` into a small source module such as `src/lib/legalText.ts`: shipped.
+- Add a bundled Privacy Notice covering local file access, local config edits, update checks, telemetry, and generated diagnostics: shipped.
+- Add a Settings/legal area showing Terms of Use and Privacy Notice after first launch: shipped.
+- Remove remote account, billing, checkout, and paid pricing flows before release: shipped for app-facing local-free surfaces.
+- Replace any upstream Terms/Privacy/support links in pricing, sign-in, settings, release docs, and error messages: shipped for visible Settings and launch legal surfaces.
+- Add a terms-version note explaining why `REQUIRED_TERMS_VERSION` was bumped and when future bumps are required: shipped in Settings Legal.
 
 Acceptance checks:
 

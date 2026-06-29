@@ -22,7 +22,7 @@ Shipped:
 
 Left:
 
-- Finish app-owned Privacy Notice and Settings Legal surfaces; Terms are bundled, but the full privacy/legal panel and version policy still need completion.
+- App-owned Terms, Privacy Notice, Settings Legal surfaces, and terms-version policy are bundled and covered by focused tests.
 - Complete the Mode Inspector as a user-facing proof surface for every listener, hook, MCP, shell block, provider block, LaunchAgent, and stale-shell caveat.
 - Add installed-app/relaunch/reboot smoke evidence for Off mode, RTK-only mode, Doctor repair guards, and Rollback Center survival.
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
@@ -46,7 +46,7 @@ Left:
 ### Trust and Identity
 
 - Some runtime/file-path surfaces still use compatibility Headroom naming where migration would risk user state; visible app identity should continue moving to Mac AI Switchboard while keeping "Headroom engine" for the optimizer.
-- Terms are bundled, but Privacy Notice, Settings Legal, and terms-version policy are not yet fully app-owned.
+- Terms, Privacy Notice, Settings Legal, and terms-version policy are app-owned and readable without network access.
 - Upstream account, pricing, telemetry, and update assumptions need a deliberate keep, replace, or remove decision before public release. Support actions now route to this repository's GitHub Issues.
 - Generated logo provenance and branding guardrails are partly shipped; keep them enforced as release assets and screenshots change.
 
@@ -90,12 +90,12 @@ Goal: make the user-facing legal and trust story app-owned, local-readable, and 
 
 Tasks:
 
-- Move Terms copy into `src/lib/legalText.ts` or a similar source module.
-- Add a bundled Privacy Notice covering local file access, local config edits, update checks, telemetry, account/pricing calls, diagnostics, Keychain usage, and generated evidence.
-- Add a Settings Legal section for Terms, Privacy, license, notices, and asset provenance.
-- Remove or clearly label upstream legal, pricing, account, and support links.
-- Add tests proving Terms and Privacy render offline.
-- Add a terms-version note explaining when `REQUIRED_TERMS_VERSION` must change.
+- Move Terms copy into `src/lib/legalText.ts` or a similar source module: shipped.
+- Add a bundled Privacy Notice covering local file access, local config edits, update checks, telemetry, account/pricing calls, diagnostics, Keychain usage, and generated evidence: shipped.
+- Add a Settings Legal section for Terms, Privacy, license, notices, and asset provenance: Terms and Privacy shipped; license/notices/asset provenance links remain to be folded into Settings.
+- Remove or clearly label upstream legal, pricing, account, and support links: account and paid API copy now states those APIs are not included.
+- Add tests proving Terms and Privacy render offline: shipped.
+- Add a terms-version note explaining when `REQUIRED_TERMS_VERSION` must change: shipped in Settings Legal.
 
 Acceptance checks:
 
