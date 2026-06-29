@@ -7624,6 +7624,22 @@ export default function App() {
           : "RTK shell hook is not installed.",
     },
     {
+      label: "Headroom MCP",
+      status:
+        runtimeStatus?.mcpConfigured === true
+          ? "Configured"
+          : runtimeStatus?.mcpConfigured === false
+            ? "Not configured"
+            : "Unknown",
+      detail:
+        runtimeStatus?.mcpConfigured === true
+          ? "Claude MCP config includes the local Headroom server."
+          : runtimeStatus?.mcpConfigured === false
+            ? (runtimeStatus.mcpError ??
+              "Claude MCP config does not include the local Headroom server.")
+            : "Headroom MCP configuration has not been checked yet.",
+    },
+    {
       ...repoMemoryMcpInspectorRow({
         configured: runtimeStatus?.repoMemoryMcpConfigured,
         error: runtimeStatus?.repoMemoryMcpError,

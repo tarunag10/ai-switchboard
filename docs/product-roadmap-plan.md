@@ -27,11 +27,12 @@ Shipped:
 - Mode Inspector now shows the client-facing proxy listener address, loopback-only auth/detail evidence, and selected internal backend port/fallback evidence instead of hiding listener proof behind a generic engine label.
 - Mode Inspector now distinguishes RTK PATH export evidence from RTK shell hook evidence, so command-rewrite setup is visible separately from install/enabled state.
 - Mode Inspector now reuses connector verification details to show managed shell-block and Codex provider-block proof when those checks have run.
+- Mode Inspector now separates generic Headroom MCP config evidence from Repo Memory MCP lifecycle evidence.
 
 Left:
 
 - App-owned Terms, Privacy Notice, Settings Legal surfaces, and terms-version policy are bundled and covered by focused tests.
-- Complete the Mode Inspector as a user-facing proof surface for deeper MCP evidence, launchd load state, and stale-shell caveat.
+- Complete the Mode Inspector as a user-facing proof surface for launchd load state and stale-shell caveat.
 - Add reboot smoke evidence for Off mode, RTK-only mode, Doctor repair guards, and Rollback Center survival.
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
 - Turn repo-memory MCP into a real app-supervised long-running local service beyond the current process-bound active marker plus smoke-tested stdio transport.

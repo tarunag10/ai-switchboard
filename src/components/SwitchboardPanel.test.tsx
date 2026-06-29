@@ -69,6 +69,11 @@ function renderPanel(
         detail: "Managed RTK command-rewrite hook is present.",
       },
       {
+        label: "Headroom MCP",
+        status: "Configured",
+        detail: "Claude MCP config includes the local Headroom server.",
+      },
+      {
         label: "Repo Memory MCP",
         status: "Configured",
         detail:
@@ -122,6 +127,7 @@ describe("SwitchboardPanel", () => {
     expect(inspector.getByText("Codex provider block")).toBeInTheDocument();
     expect(inspector.getByText("Shell export")).toBeInTheDocument();
     expect(inspector.getByText("RTK shell hook")).toBeInTheDocument();
+    expect(inspector.getByText("Headroom MCP")).toBeInTheDocument();
     expect(inspector.getByText("Repo Memory MCP")).toBeInTheDocument();
     expect(inspector.getByText("Launch at login")).toBeInTheDocument();
     expect(screen.getAllByText("Codex, Claude Code").length).toBeGreaterThan(0);
@@ -133,6 +139,9 @@ describe("SwitchboardPanel", () => {
     ).toBeInTheDocument();
     expect(
       inspector.getByText("Managed RTK command-rewrite hook is present."),
+    ).toBeInTheDocument();
+    expect(
+      inspector.getByText("Claude MCP config includes the local Headroom server."),
     ).toBeInTheDocument();
     expect(
       inspector.getByText("Connector verification found managed shell routing blocks."),
