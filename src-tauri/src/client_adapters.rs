@@ -34,6 +34,7 @@ const GEMINI_HEADROOM_API_KEY_VALUE: &str = "headroom-local";
 const OPENCODE_CONFIG_FILE: &str = "opencode.json";
 const OPENCODE_HEADROOM_PROVIDER_ID: &str = "headroom";
 const SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md";
+const CONNECTOR_MANIFEST_JSON: &str = include_str!("../../connectors/manifest.json");
 const LEGACY_MARKER_PREFIX: &str = "headroom";
 const MARKER_PREFIX: &str = "headroom";
 const SWITCHBOARD_MARKER_PREFIX: &str = "mac-ai-switchboard";
@@ -89,6 +90,32 @@ struct PlannedSidecarSpec {
     id: &'static str,
     name: &'static str,
     config_dir: &'static [&'static str],
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ConnectorManifest {
+    id: String,
+    name: String,
+    category: String,
+    support_status: String,
+    detection: ConnectorManifestDetection,
+    config: Option<ConnectorManifestConfig>,
+    automation_gates: Vec<String>,
+    manual_workflow: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+struct ConnectorManifestDetection {
+    #[serde(default)]
+    binaries: Vec<String>,
+    #[serde(default)]
+    paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+struct ConnectorManifestConfig {
+    #[serde(default)]
+    locations: Vec<String>,
 }
 
 const PLANNED_SIDECAR_SPECS: [PlannedSidecarSpec; 11] = [
@@ -390,6 +417,40 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
     },
 ];
 
+fn connector_manifests() -> Vec<ConnectorManifest> {
+    serde_json::from_str(CONNECTOR_MANIFEST_JSON).unwrap_or_default()
+}
+
+fn connector_manifest(client_id: &str) -> Option<ConnectorManifest> {
+    connector_manifests()
+        .into_iter()
+        .find(|manifest| manifest.id == client_id)
+}
+
+fn manifest_support_status(manifest: Option<&ConnectorManifest>) -> ClientConnectorSupportStatus {
+    match manifest.map(|item| item.support_status.as_str()) {
+        Some("managed") => ClientConnectorSupportStatus::Managed,
+        _ => ClientConnectorSupportStatus::Planned,
+    }
+}
+
+fn manifest_detection_sources(manifest: &ConnectorManifest) -> Vec<String> {
+    manifest
+        .detection
+        .binaries
+        .iter()
+        .map(|binary| format!("PATH: {binary}"))
+        .chain(manifest.detection.paths.iter().cloned())
+        .collect()
+}
+
+fn manifest_config_locations(manifest: Option<&ConnectorManifest>) -> Vec<String> {
+    manifest
+        .and_then(|item| item.config.as_ref())
+        .map(|config| config.locations.clone())
+        .unwrap_or_default()
+}
+
 fn planned_config_creation_step_details(
     spec: &PlannedClientSpec,
 ) -> Vec<ClientConnectorConfigCreationStep> {
@@ -646,6 +707,12 @@ fn planned_connector_automation_path(
 
 fn planned_connector_has_implemented_setup(client_id: &str) -> bool {
     planned_sidecar_spec(client_id).is_some()
+        && matches!(
+            connector_manifest(client_id)
+                .as_ref()
+                .map(|manifest| manifest.support_status.as_str()),
+            Some("managed")
+        )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -885,6 +952,11 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
             backup_files.extend(updates.1);
         }
         other if planned_sidecar_spec(other).is_some() => {
+            if !planned_connector_has_implemented_setup(other) {
+                return Err(anyhow!(
+                    "Automatic setup is not supported yet for {other}. Use the guided workflow until backup, verify, rollback, and Off mode coverage are promoted."
+                ));
+            }
             let (changed, backup) = configure_planned_switchboard_sidecar(other)?;
             if changed {
                 changed_files.push(planned_sidecar_routing_path(other)?.display().to_string());
@@ -1211,6 +1283,7 @@ pub fn list_client_connectors(
     let mut connectors = MANAGED_CLIENT_SPECS
         .iter()
         .map(|spec| {
+            let manifest = connector_manifest(spec.id);
             let installed = detected_clients
                 .iter()
                 .find(|client| client.id == spec.id)
@@ -1233,28 +1306,58 @@ pub fn list_client_connectors(
 
             ClientConnectorStatus {
                 client_id: spec.id.to_string(),
-                name: spec.name.to_string(),
-                support_status: ClientConnectorSupportStatus::Managed,
+                name: manifest
+                    .as_ref()
+                    .map(|item| item.name.clone())
+                    .unwrap_or_else(|| spec.name.to_string()),
+                support_status: manifest_support_status(manifest.as_ref()),
                 setup_phase: "managed".to_string(),
                 setup_hint: "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.".to_string(),
-                category: "managed".to_string(),
-                detection_sources: vec!["App state and local config".to_string()],
+                category: manifest
+                    .as_ref()
+                    .map(|item| item.category.clone())
+                    .unwrap_or_else(|| "managed".to_string()),
+                detection_sources: manifest
+                    .as_ref()
+                    .map(manifest_detection_sources)
+                    .unwrap_or_else(|| vec!["App state and local config".to_string()]),
                 detection_evidence: detected_clients
                     .iter()
                     .find(|client| client.id == spec.id)
                     .map(|client| client.notes.clone())
                     .unwrap_or_default(),
-                config_locations: managed_connector_config_locations(spec.id),
-                automation_gates: vec![
-                    "Timestamped backups are created before managed config edits.".to_string(),
-                    "Verification confirms the connector routes through Headroom.".to_string(),
-                    "Off mode removes managed routing blocks and preserves user config.".to_string(),
-                ],
-                manual_workflow: vec![
-                    "Toggle the connector on from Settings.".to_string(),
-                    "Use Doctor repair if verification reports a drifted config.".to_string(),
-                    "Switch to Off mode to remove managed routing.".to_string(),
-                ],
+                config_locations: {
+                    let manifest_locations = manifest_config_locations(manifest.as_ref());
+                    if manifest_locations.is_empty() {
+                        managed_connector_config_locations(spec.id)
+                    } else {
+                        manifest_locations
+                    }
+                },
+                automation_gates: manifest
+                    .as_ref()
+                    .map(|item| item.automation_gates.clone())
+                    .unwrap_or_else(|| {
+                        vec![
+                            "Timestamped backups are created before managed config edits."
+                                .to_string(),
+                            "Verification confirms the connector routes through Headroom."
+                                .to_string(),
+                            "Off mode removes managed routing blocks and preserves user config."
+                                .to_string(),
+                        ]
+                    }),
+                manual_workflow: manifest
+                    .as_ref()
+                    .map(|item| item.manual_workflow.clone())
+                    .unwrap_or_else(|| {
+                        vec![
+                            "Toggle the connector on from Settings.".to_string(),
+                            "Use Doctor repair if verification reports a drifted config."
+                                .to_string(),
+                            "Switch to Off mode to remove managed routing.".to_string(),
+                        ]
+                    }),
                 config_creation_steps: Vec::new(),
                 config_creation_step_details: Vec::new(),
                 config_dry_run_preview: None,
@@ -1268,6 +1371,7 @@ pub fn list_client_connectors(
         .collect::<Vec<_>>();
 
     connectors.extend(PLANNED_CLIENT_SPECS.iter().map(|spec| {
+        let manifest = connector_manifest(spec.id);
         let detected_client = detected_clients.iter().find(|client| client.id == spec.id);
         let installed = detected_client
             .map(|client| client.installed)
@@ -1292,11 +1396,7 @@ pub fn list_client_connectors(
             enabled,
             verified,
         );
-        let support_status = if has_implemented_setup {
-            ClientConnectorSupportStatus::Managed
-        } else {
-            ClientConnectorSupportStatus::Planned
-        };
+        let support_status = manifest_support_status(manifest.as_ref());
         let setup_phase = if has_implemented_setup {
             "managed"
         } else {
@@ -1308,29 +1408,51 @@ pub fn list_client_connectors(
             spec.setup_hint
         };
         let automation_gates = if has_implemented_setup {
-            vec![
-                "Timestamped backups are created before managed config edits.".to_string(),
-                "Verification confirms managed routing config points to Headroom.".to_string(),
-                "Off mode removes only Switchboard-managed routing and preserves user config."
-                    .to_string(),
-            ]
+            manifest
+                .as_ref()
+                .map(|item| item.automation_gates.clone())
+                .unwrap_or_else(|| {
+                    vec![
+                        "Timestamped backups are created before managed config edits.".to_string(),
+                        "Verification confirms managed routing config points to Headroom."
+                            .to_string(),
+                        "Off mode removes only Switchboard-managed routing and preserves user config."
+                            .to_string(),
+                    ]
+                })
         } else {
-            spec.automation_gates
-                .iter()
-                .map(|gate| gate.to_string())
-                .collect()
+            manifest
+                .as_ref()
+                .map(|item| item.automation_gates.clone())
+                .unwrap_or_else(|| {
+                    spec.automation_gates
+                        .iter()
+                        .map(|gate| gate.to_string())
+                        .collect()
+                })
         };
         let manual_workflow = if has_implemented_setup {
-            vec![
-                "Toggle the connector on from Settings.".to_string(),
-                "Use Doctor repair if verification reports a drifted config.".to_string(),
-                "Switch to Off mode to remove managed routing.".to_string(),
-            ]
+            manifest
+                .as_ref()
+                .map(|item| item.manual_workflow.clone())
+                .unwrap_or_else(|| {
+                    vec![
+                        "Toggle the connector on from Settings.".to_string(),
+                        "Use Doctor repair if verification reports a drifted config."
+                            .to_string(),
+                        "Switch to Off mode to remove managed routing.".to_string(),
+                    ]
+                })
         } else {
-            spec.manual_workflow
-                .iter()
-                .map(|step| step.to_string())
-                .collect()
+            manifest
+                .as_ref()
+                .map(|item| item.manual_workflow.clone())
+                .unwrap_or_else(|| {
+                    spec.manual_workflow
+                        .iter()
+                        .map(|step| step.to_string())
+                        .collect()
+                })
         };
         let config_creation_steps = if has_implemented_setup {
             Vec::new()
@@ -1353,26 +1475,38 @@ pub fn list_client_connectors(
 
         ClientConnectorStatus {
             client_id: spec.id.to_string(),
-            name: spec.name.to_string(),
+            name: manifest
+                .as_ref()
+                .map(|item| item.name.clone())
+                .unwrap_or_else(|| spec.name.to_string()),
             support_status,
             setup_phase: setup_phase.to_string(),
             setup_hint: setup_hint.to_string(),
-            category: if has_implemented_setup {
-                "managed".to_string()
-            } else {
-                spec.category.to_string()
-            },
-            detection_sources: spec
-                .detection_sources
-                .iter()
-                .map(|source| source.to_string())
-                .collect(),
+            category: manifest
+                .as_ref()
+                .map(|item| item.category.clone())
+                .unwrap_or_else(|| spec.category.to_string()),
+            detection_sources: manifest
+                .as_ref()
+                .map(manifest_detection_sources)
+                .unwrap_or_else(|| {
+                    spec.detection_sources
+                        .iter()
+                        .map(|source| source.to_string())
+                        .collect()
+                }),
             detection_evidence,
-            config_locations: spec
-                .config_locations
-                .iter()
-                .map(|location| location.to_string())
-                .collect(),
+            config_locations: {
+                let manifest_locations = manifest_config_locations(manifest.as_ref());
+                if manifest_locations.is_empty() {
+                    spec.config_locations
+                        .iter()
+                        .map(|location| location.to_string())
+                        .collect()
+                } else {
+                    manifest_locations
+                }
+            },
             automation_gates,
             manual_workflow,
             config_creation_steps,
@@ -6480,8 +6614,8 @@ mod tests {
         set_codex_thread_retagging_settings, shell_block_contains_in_files,
         shell_block_contains_text_in_files, shell_double_quote, strip_headroom_hook_from_settings,
         upsert_managed_block, write_file_if_changed, ClientSetupState, ShellFamily,
-        PLANNED_CLIENT_SPECS, PLANNED_CONFIG_CREATION_STEPS, PLANNED_CONFIG_CREATION_STEP_IDS,
-        PLANNED_SIDECAR_SPECS,
+        CONNECTOR_MANIFEST_JSON, MANAGED_CLIENT_SPECS, PLANNED_CLIENT_SPECS,
+        PLANNED_CONFIG_CREATION_STEPS, PLANNED_CONFIG_CREATION_STEP_IDS,
     };
     use rusqlite::Connection;
 
@@ -6555,6 +6689,52 @@ mod tests {
                 "zed_ai",
             ])
         );
+    }
+
+    #[test]
+    fn connector_registry_uses_manifest_owned_identity_and_status() {
+        let detected_clients = vec![
+            ClientStatus {
+                id: "claude_code".into(),
+                name: "Claude Code".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Healthy,
+                notes: vec!["Claude config present".into()],
+            },
+            ClientStatus {
+                id: "gemini_cli".into(),
+                name: "Gemini CLI".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec!["Gemini binary present".into()],
+            },
+        ];
+        let connectors = list_client_connectors(&detected_clients).expect("list connectors");
+        let manifests = serde_json::from_str::<Vec<serde_json::Value>>(CONNECTOR_MANIFEST_JSON)
+            .expect("valid connector manifest");
+        let rust_ids = MANAGED_CLIENT_SPECS
+            .iter()
+            .map(|spec| spec.id)
+            .chain(PLANNED_CLIENT_SPECS.iter().map(|spec| spec.id))
+            .collect::<BTreeSet<_>>();
+
+        for manifest in manifests {
+            let id = manifest["id"].as_str().expect("manifest id");
+            assert!(rust_ids.contains(id), "{id} missing from Rust registry");
+            let connector = connectors
+                .iter()
+                .find(|connector| connector.client_id == id)
+                .unwrap_or_else(|| panic!("{id} missing from connector status"));
+            assert_eq!(connector.name, manifest["name"].as_str().unwrap());
+            assert_eq!(connector.category, manifest["category"].as_str().unwrap());
+            let expected_status = match manifest["support_status"].as_str().unwrap() {
+                "managed" => ClientConnectorSupportStatus::Managed,
+                _ => ClientConnectorSupportStatus::Planned,
+            };
+            assert_eq!(connector.support_status, expected_status);
+        }
     }
 
     #[test]
@@ -6759,8 +6939,21 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(
-            planned.len(),
-            PLANNED_CLIENT_SPECS.len() - PLANNED_SIDECAR_SPECS.len()
+            planned
+                .iter()
+                .map(|connector| connector.client_id.as_str())
+                .collect::<BTreeSet<_>>(),
+            BTreeSet::from([
+                "aider",
+                "amazon_q",
+                "continue",
+                "cursor",
+                "goose",
+                "grok_cli",
+                "qwen_code",
+                "windsurf",
+                "zed_ai",
+            ])
         );
 
         for connector in planned {
@@ -6917,7 +7110,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "grok_cli"
-                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -6928,7 +7121,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "cursor"
-                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -6940,7 +7133,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "aider"
-                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -6951,7 +7144,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "continue"
-                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -6963,7 +7156,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "goose"
-                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -6974,7 +7167,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "qwen_code"
-                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -6985,7 +7178,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "amazon_q"
-                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -6996,7 +7189,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "windsurf"
-                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -7008,7 +7201,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "zed_ai"
-                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -8249,7 +8442,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
-    fn sidecar_managed_rollback_removes_cursor_sidecar_block_only() {
+    fn sidecar_managed_rollback_removes_existing_cursor_sidecar_block_only() {
         let home = TestHome::new();
         let sidecar = home
             .path()
@@ -8260,7 +8453,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         fs::create_dir_all(sidecar.parent().unwrap()).expect("create cursor dir");
         fs::write(&sidecar, "# cursor user note\nkeep this\n").expect("seed sidecar");
 
-        super::apply_client_setup("cursor").expect("apply cursor setup");
+        super::configure_planned_switchboard_sidecar("cursor").expect("seed cursor sidecar");
 
         let preview =
             super::preview_managed_rollback("cursor-routing").expect("preview cursor rollback");
@@ -8317,7 +8510,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         fs::write(&cursor_sidecar, "# cursor user note\nkeep this\n").expect("seed cursor");
 
         super::apply_client_setup("gemini_cli").expect("apply gemini setup");
-        super::apply_client_setup("cursor").expect("apply cursor setup");
+        super::configure_planned_switchboard_sidecar("cursor").expect("seed cursor sidecar");
 
         let preview = super::preview_managed_rollback_undo_all();
         assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
@@ -8444,7 +8637,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
-    fn remaining_planned_connectors_have_reversible_sidecar_lifecycle() {
+    fn remaining_planned_connectors_block_automatic_sidecar_setup() {
         let home = TestHome::new();
         let connectors = [
             ("cursor", "Cursor"),
@@ -8465,47 +8658,17 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             fs::write(&sidecar, format!("# {client_id} user note\nkeep this\n"))
                 .expect("seed sidecar");
 
-            let result = super::apply_client_setup(client_id)
-                .unwrap_or_else(|error| panic!("apply {client_id}: {error:?}"));
-            assert!(result.applied, "{client_id} should apply");
+            let error = super::apply_client_setup(client_id)
+                .expect_err("planned connector setup should be blocked");
             assert!(
-                !result.already_configured,
-                "{client_id} should not start configured"
+                error.to_string().contains("guided workflow"),
+                "{client_id} should explain the guided workflow gate"
             );
-            assert!(
-                result
-                    .changed_files
-                    .contains(&sidecar.display().to_string()),
-                "{client_id} should report changed sidecar"
-            );
-            assert_eq!(
-                result.backup_files.len(),
-                1,
-                "{client_id} should back up the pre-existing sidecar"
-            );
-            assert!(
-                result.verification.verified,
-                "{client_id} verification should pass"
-            );
-            assert!(
-                result
-                    .summary
-                    .contains(&format!("{name} Switchboard sidecar written")),
-                "{client_id} summary should name the connector"
-            );
-
             let content = fs::read_to_string(&sidecar).expect("read sidecar");
-            assert!(
-                content.contains(&format!("# >>> headroom:{client_id} >>>")),
-                "{client_id} sidecar should contain managed start marker"
-            );
-            assert!(
-                content.contains(super::HEADROOM_OPENAI_BASE_URL),
-                "{client_id} sidecar should mention Headroom proxy"
-            );
-            assert!(
-                content.contains(&format!("# {client_id} user note\nkeep this")),
-                "{client_id} sidecar should preserve user content"
+            assert_eq!(
+                content,
+                format!("# {client_id} user note\nkeep this\n"),
+                "{client_id} setup block should preserve user content"
             );
 
             let detected_clients = vec![ClientStatus {
@@ -8523,31 +8686,14 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
                 .unwrap_or_else(|| panic!("{client_id} connector listed"));
             assert_eq!(
                 connector.support_status,
-                ClientConnectorSupportStatus::Managed,
-                "{client_id} should be promoted to managed"
+                ClientConnectorSupportStatus::Planned,
+                "{client_id} should stay planned until manifest promotion"
             );
-            assert_eq!(connector.setup_phase, "managed");
-            assert!(connector.enabled, "{client_id} should be enabled");
-            assert!(connector.verified, "{client_id} should be verified");
-            assert!(connector.config_creation_steps.is_empty());
-            assert!(connector.config_creation_step_details.is_empty());
-            assert!(connector.config_dry_run_preview.is_none());
-            assert!(connector.automation_path.is_empty());
-
-            super::disable_client_setup(client_id)
-                .unwrap_or_else(|error| panic!("disable {client_id}: {error:?}"));
-            let cleaned = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
-            assert_eq!(
-                cleaned,
-                format!("# {client_id} user note\nkeep this\n"),
-                "{client_id} disable should remove only the managed block"
-            );
-            let verification = super::verify_client_setup(client_id)
-                .unwrap_or_else(|error| panic!("verify cleaned {client_id}: {error:?}"));
-            assert!(
-                !verification.verified,
-                "{client_id} should not verify after disable"
-            );
+            assert!(!connector.enabled, "{client_id} should not be enabled");
+            assert!(!connector.verified, "{client_id} should not be verified");
+            assert_eq!(connector.config_creation_steps.len(), 7);
+            assert!(connector.config_dry_run_preview.is_some());
+            assert_eq!(connector.automation_path.len(), 7);
         }
 
         assert!(
