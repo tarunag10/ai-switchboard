@@ -331,6 +331,7 @@ pub enum RepoSymbolKind {
     Enum,
     Trait,
     Const,
+    Heading,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

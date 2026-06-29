@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const INDEXER_VERSION = "path-graph-v5";
+const INDEXER_VERSION = "path-graph-v6";
 
 const ignoredSegments = new Set([
   ".git",
@@ -925,13 +925,19 @@ function buildRepoSymbols(repoRoot, files) {
   const symbols = [];
   for (const file of files) {
     if (symbols.length >= 200) break;
-    if (file.role !== "source" && file.role !== "test") continue;
-    if (
-      !["TypeScript", "JavaScript", "React", "Rust", "Python", "Swift"].includes(
-        file.language,
-      )
-    )
+    const symbolLanguage = [
+      "TypeScript",
+      "JavaScript",
+      "React",
+      "Rust",
+      "Python",
+      "Swift",
+    ].includes(file.language);
+    const markdownDocs = file.role === "docs" && file.language === "Markdown";
+    if (!(file.role === "source" || file.role === "test" || markdownDocs)) {
       continue;
+    }
+    if (!symbolLanguage && !markdownDocs) continue;
     let content = "";
     try {
       content = fs.readFileSync(path.join(repoRoot, file.path), "utf8");
@@ -944,6 +950,9 @@ function buildRepoSymbols(repoRoot, files) {
 }
 
 function extractFileSymbols(file, content, remaining) {
+  if (file.language === "Markdown") {
+    return extractMarkdownHeadingSymbols(file, content, remaining);
+  }
   const symbols = [];
   const parents = [];
   for (const [index, rawLine] of content.split(/\r?\n/).entries()) {
@@ -957,6 +966,30 @@ function extractFileSymbols(file, content, remaining) {
       parents.push({ indent, name: parsed.name });
     }
     symbols.push({ ...parsed, file: file.path, line: index + 1, parent });
+  }
+  return symbols;
+}
+
+function extractMarkdownHeadingSymbols(file, content, remaining) {
+  const symbols = [];
+  const parents = [];
+  for (const [index, rawLine] of content.split(/\r?\n/).entries()) {
+    if (symbols.length >= remaining) break;
+    const match = rawLine.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
+    if (!match) continue;
+    const level = match[1].length;
+    const name = match[2].trim();
+    if (!name) continue;
+    while (parents.length && parents.at(-1).level >= level) parents.pop();
+    const parent = parents.at(-1)?.name ?? null;
+    symbols.push({
+      name,
+      kind: "heading",
+      file: file.path,
+      line: index + 1,
+      parent,
+    });
+    parents.push({ level, name });
   }
   return symbols;
 }

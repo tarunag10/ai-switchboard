@@ -25,7 +25,7 @@ const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
 const TASK_PACK_BUDGET_TOKENS: u64 = 8_000;
-const INDEXER_VERSION: &str = "path-graph-v5";
+const INDEXER_VERSION: &str = "path-graph-v6";
 const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
 const PARSER_VERSION: &str = "metadata-fingerprint-v1";
 const DEFAULT_SYMBOL_SEARCH_LIMIT: usize = 25;
@@ -1552,11 +1552,13 @@ fn build_repo_graph_summary(repo_root: &Path, files: &[RepoFileSignal]) -> RepoG
 fn build_repo_symbols(repo_root: &Path, files: &[RepoFileSignal]) -> Vec<RepoSymbol> {
     let mut symbols = Vec::new();
     for file in files.iter().filter(|file| {
-        matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
-            && matches!(
-                file.language.as_str(),
-                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python" | "Swift"
-            )
+        let symbol_language = matches!(
+            file.language.as_str(),
+            "TypeScript" | "JavaScript" | "React" | "Rust" | "Python" | "Swift"
+        );
+        let markdown_docs = matches!(file.role, RepoFileRole::Docs) && file.language == "Markdown";
+        (matches!(file.role, RepoFileRole::Source | RepoFileRole::Test) || markdown_docs)
+            && (symbol_language || markdown_docs)
     }) {
         if symbols.len() >= 200 {
             break;
@@ -1570,6 +1572,9 @@ fn build_repo_symbols(repo_root: &Path, files: &[RepoFileSignal]) -> Vec<RepoSym
 }
 
 fn extract_file_symbols(file: &RepoFileSignal, content: &str, remaining: usize) -> Vec<RepoSymbol> {
+    if file.language == "Markdown" {
+        return extract_markdown_heading_symbols(file, content, remaining);
+    }
     if let Some(symbols) = extract_file_symbols_with_tree_sitter(file, content, remaining) {
         return symbols;
     }
@@ -1608,6 +1613,46 @@ fn extract_file_symbols(file: &RepoFileSignal, content: &str, remaining: usize) 
             line: (index + 1) as u64,
             parent,
         });
+    }
+    symbols
+}
+
+fn extract_markdown_heading_symbols(
+    file: &RepoFileSignal,
+    content: &str,
+    remaining: usize,
+) -> Vec<RepoSymbol> {
+    let mut symbols = Vec::new();
+    let mut parents: Vec<(usize, String)> = Vec::new();
+    for (index, line) in content.lines().enumerate() {
+        if symbols.len() >= remaining {
+            break;
+        }
+        let trimmed = line.trim_end();
+        let level = trimmed.chars().take_while(|ch| *ch == '#').count();
+        if !(1..=6).contains(&level) || !trimmed[level..].starts_with(' ') {
+            continue;
+        }
+        let name = trimmed[level..].trim().trim_end_matches('#').trim();
+        if name.is_empty() {
+            continue;
+        }
+        while parents
+            .last()
+            .map(|(parent_level, _)| *parent_level >= level)
+            .unwrap_or(false)
+        {
+            parents.pop();
+        }
+        let parent = parents.last().map(|(_, parent)| parent.clone());
+        symbols.push(RepoSymbol {
+            name: name.to_string(),
+            kind: RepoSymbolKind::Heading,
+            file: file.path.clone(),
+            line: (index + 1) as u64,
+            parent,
+        });
+        parents.push((level, name.to_string()));
     }
     symbols
 }
@@ -2740,6 +2785,39 @@ export const mapValues = <T>(items: T[]) => items;
         );
         assert!(python_symbols.iter().any(|symbol| {
             symbol.name == "fetch_user" && matches!(symbol.kind, RepoSymbolKind::Function)
+        }));
+    }
+
+    #[test]
+    fn extracts_markdown_heading_symbols_with_parents() {
+        let markdown_file = RepoFileSignal {
+            path: "docs/architecture.md".to_string(),
+            role: RepoFileRole::Docs,
+            language: "Markdown".to_string(),
+            estimated_tokens: 80,
+            include_by_default: true,
+            reasons: vec![],
+        };
+        let symbols = extract_file_symbols(
+            &markdown_file,
+            "# Architecture\n\n## Runtime\n\n### Proxy\n\n## Repo Intelligence\n",
+            10,
+        );
+
+        assert!(symbols.iter().any(|symbol| {
+            symbol.name == "Architecture"
+                && matches!(symbol.kind, RepoSymbolKind::Heading)
+                && symbol.parent.is_none()
+        }));
+        assert!(symbols.iter().any(|symbol| {
+            symbol.name == "Proxy"
+                && matches!(symbol.kind, RepoSymbolKind::Heading)
+                && symbol.parent.as_deref() == Some("Runtime")
+        }));
+        assert!(symbols.iter().any(|symbol| {
+            symbol.name == "Repo Intelligence"
+                && matches!(symbol.kind, RepoSymbolKind::Heading)
+                && symbol.parent.as_deref() == Some("Architecture")
         }));
     }
 

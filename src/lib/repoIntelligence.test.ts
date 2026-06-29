@@ -128,11 +128,11 @@ describe("repoIntelligence", () => {
 
     expect(summary.totalFiles).toBe(6);
     expect(summary.indexedFiles).toBe(5);
-    expect(summary.indexerVersion).toBe("path-graph-v5");
+    expect(summary.indexerVersion).toBe("path-graph-v6");
     expect(summary.roleCounts.generated).toBe(1);
     expect(summary.indexMetadata).toMatchObject({
       schemaVersion: 1,
-      indexerVersion: "path-graph-v5",
+      indexerVersion: "path-graph-v6",
       parserVersion: "metadata-fingerprint-v1",
       cacheState: "new",
       fileCount: 6,
@@ -274,7 +274,7 @@ describe("repoIntelligence", () => {
     expect(
       getRepoIndexFreshness({
         indexedAt: "2026-06-27T10:00:00Z",
-        indexerVersion: "path-graph-v5",
+        indexerVersion: "path-graph-v6",
         indexMetadata: baseMetadata,
         graph: buildRepoIntelligenceSummary([
           { path: "src/App.tsx", bytes: 4000 },
@@ -288,7 +288,7 @@ describe("repoIntelligence", () => {
       graphAvailable: true,
       indexHealth: "new",
       parserHealth: "current",
-      indexerVersion: "path-graph-v5",
+      indexerVersion: "path-graph-v6",
       parserVersion: "metadata-fingerprint-v1",
       indexedFileCount: 2,
       skippedFileCount: 0,
@@ -513,6 +513,40 @@ describe("repoIntelligence", () => {
     );
   });
 
+  it("extracts Markdown heading symbols with hierarchy", () => {
+    const summary = buildRepoIntelligenceSummary([
+      {
+        path: "docs/architecture.md",
+        bytes: 900,
+        content:
+          "# Architecture\n\n## Runtime\n\n### Proxy\n\n## Repo Intelligence\n",
+      },
+    ]);
+
+    expect(summary.graph?.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "Architecture",
+          kind: "heading",
+          file: "docs/architecture.md",
+          parent: null,
+        }),
+        expect.objectContaining({
+          name: "Proxy",
+          kind: "heading",
+          file: "docs/architecture.md",
+          parent: "Runtime",
+        }),
+        expect.objectContaining({
+          name: "Repo Intelligence",
+          kind: "heading",
+          file: "docs/architecture.md",
+          parent: "Architecture",
+        }),
+      ]),
+    );
+  });
+
   it("formats bounded context packs for agent handoff", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },
@@ -583,7 +617,7 @@ describe("repoIntelligence", () => {
     expect(manifest.kind).toBe("mac_ai_switchboard.repo_intelligence_manifest");
     expect(manifest.schemaVersion).toBe(1);
     expect(manifest.generatedAt).toBe("2026-06-25T10:00:00Z");
-    expect(manifest.totals.indexerVersion).toBe("path-graph-v5");
+    expect(manifest.totals.indexerVersion).toBe("path-graph-v6");
     expect(manifest.totals.indexMetadata?.cacheState).toBe("new");
     expect(manifest.totals.indexMetadata?.fileFingerprints.length).toBe(4);
     expect(manifest.totals.indexMetadata?.skippedFiles).toEqual(

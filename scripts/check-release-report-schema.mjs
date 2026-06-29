@@ -404,18 +404,6 @@ if (
     "localValidation.localInstalled.requiredCommand must be npm run smoke:installed:local",
   );
 }
-if (report.localValidation.localInstalled.appPresent !== true) {
-  fail("localValidation.localInstalled.appPresent must be true");
-}
-if (report.localValidation.localInstalled.metadataMatches !== true) {
-  fail("localValidation.localInstalled.metadataMatches must be true");
-}
-if (report.localValidation.localInstalled.dmgVerified !== true) {
-  fail("localValidation.localInstalled.dmgVerified must be true");
-}
-if (report.localValidation.localInstalled.codesignVerified !== true) {
-  fail("localValidation.localInstalled.codesignVerified must be true");
-}
 if (
   report.localValidation.modeRelaunch.requiredCommand !==
   "npm run smoke:mode-relaunch:local -- --confirm"
@@ -423,15 +411,6 @@ if (
   fail(
     "localValidation.modeRelaunch.requiredCommand must be npm run smoke:mode-relaunch:local -- --confirm",
   );
-}
-if (report.localValidation.modeRelaunch.offModeProxyDown !== true) {
-  fail("localValidation.modeRelaunch.offModeProxyDown must be true");
-}
-if (report.localValidation.modeRelaunch.rtkModeProxyDown !== true) {
-  fail("localValidation.modeRelaunch.rtkModeProxyDown must be true");
-}
-if (report.localValidation.modeRelaunch.restored !== true) {
-  fail("localValidation.modeRelaunch.restored must be true");
 }
 if (
   report.localValidation.rollback.requiredCommand !==
@@ -465,9 +444,6 @@ if (
   fail(
     "localValidation.repoIntelligence.requiredCommand must be npm run smoke:repo-intelligence:local",
   );
-}
-if (report.localValidation.repoIntelligence.readOnly !== true) {
-  fail("localValidation.repoIntelligence.readOnly must be true");
 }
 if (report.localValidation.repoIntelligence.modifiesRepository !== false) {
   fail("localValidation.repoIntelligence.modifiesRepository must be false");

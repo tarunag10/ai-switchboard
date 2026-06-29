@@ -75,7 +75,13 @@ export interface RepoGraphEdge {
 }
 
 export type RepoSymbolKind =
-  "function" | "class" | "struct" | "enum" | "trait" | "const";
+  | "function"
+  | "class"
+  | "struct"
+  | "enum"
+  | "trait"
+  | "const"
+  | "heading";
 
 export interface RepoSymbol {
   name: string;
@@ -792,7 +798,7 @@ const generatedPathPatterns = [
   /(^|\/)\.turbo\//,
   /(^|\/)vendor\//,
 ];
-export const repoIntelligenceIndexerVersion = "path-graph-v5";
+export const repoIntelligenceIndexerVersion = "path-graph-v6";
 
 const lockfileNames = new Set([
   "Cargo.lock",
@@ -2306,13 +2312,19 @@ function buildRepoSymbols(
   const symbols: RepoSymbol[] = [];
   for (const file of files) {
     if (symbols.length >= 200) break;
-    if (file.role !== "source" && file.role !== "test") continue;
-    if (
-      !["TypeScript", "JavaScript", "React", "Rust", "Python", "Swift"].includes(
-        file.language,
-      )
-    )
+    const symbolLanguage = [
+      "TypeScript",
+      "JavaScript",
+      "React",
+      "Rust",
+      "Python",
+      "Swift",
+    ].includes(file.language);
+    const markdownDocs = file.role === "docs" && file.language === "Markdown";
+    if (!(file.role === "source" || file.role === "test" || markdownDocs)) {
       continue;
+    }
+    if (!symbolLanguage && !markdownDocs) continue;
     const content = contentByPath.get(file.path);
     if (content) {
       symbols.push(
@@ -2344,6 +2356,9 @@ function extractFileSymbols(
   content: string,
   remaining: number,
 ): RepoSymbol[] {
+  if (file.language === "Markdown") {
+    return extractMarkdownHeadingSymbols(file, content, remaining);
+  }
   const symbols: RepoSymbol[] = [];
   const parents: Array<{ indent: number; name: string }> = [];
   for (const [index, rawLine] of content.split(/\r?\n/).entries()) {
@@ -2359,6 +2374,36 @@ function extractFileSymbols(
       parents.push({ indent, name: parsed.name });
     }
     symbols.push({ ...parsed, file: file.path, line: index + 1, parent });
+  }
+  return symbols;
+}
+
+function extractMarkdownHeadingSymbols(
+  file: RepoFileSignal,
+  content: string,
+  remaining: number,
+): RepoSymbol[] {
+  const symbols: RepoSymbol[] = [];
+  const parents: Array<{ level: number; name: string }> = [];
+  for (const [index, rawLine] of content.split(/\r?\n/).entries()) {
+    if (symbols.length >= remaining) break;
+    const match = rawLine.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
+    if (!match) continue;
+    const level = match[1].length;
+    const name = match[2].trim();
+    if (!name) continue;
+    while (parents.length && parents[parents.length - 1].level >= level) {
+      parents.pop();
+    }
+    const parent = parents[parents.length - 1]?.name ?? null;
+    symbols.push({
+      name,
+      kind: "heading",
+      file: file.path,
+      line: index + 1,
+      parent,
+    });
+    parents.push({ level, name });
   }
   return symbols;
 }

@@ -341,7 +341,7 @@ function buildLocalValidationEvidence() {
       rtkModeProxyDown:
         modeRelaunchJson.body?.modes?.find((mode) => mode.mode === "rtk")
           ?.proxyListening === false,
-      restored: modeRelaunchJson.body?.restored ?? null,
+      restored: modeRelaunchJson.body?.restored === true,
       requiredCommand: "npm run smoke:mode-relaunch:local -- --confirm",
     },
     rollback: {
@@ -379,7 +379,7 @@ function buildLocalValidationEvidence() {
       jsonPresent: uninstallJson.present,
       generatedLine: uninstallSummary.generatedLine,
       passed: uninstallPassed,
-      destructive: uninstallJson.body?.destructive ?? null,
+      destructive: uninstallJson.body?.destructive === true,
       parseError: uninstallJson.parseError,
       kind: uninstallJson.body?.kind ?? null,
       stepCount: Array.isArray(uninstallJson.body?.steps)
@@ -394,8 +394,8 @@ function buildLocalValidationEvidence() {
       jsonPresent: repoIntelligenceJson.present,
       generatedLine: repoIntelligenceSummary.generatedLine,
       passed: repoIntelligencePassed,
-      readOnly: repoIntelligenceJson.body?.readOnly ?? null,
-      modifiesRepository: repoIntelligenceJson.body?.modifiesRepository ?? null,
+      readOnly: repoIntelligenceJson.body?.readOnly === true,
+      modifiesRepository: repoIntelligenceJson.body?.modifiesRepository === true,
       parseError: repoIntelligenceJson.parseError,
       kind: repoIntelligenceJson.body?.kind ?? null,
       stepCount: Array.isArray(repoIntelligenceJson.body?.steps)
