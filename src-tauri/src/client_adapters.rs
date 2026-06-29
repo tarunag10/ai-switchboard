@@ -8,6 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use crate::models::{
@@ -1578,10 +1579,22 @@ fn opencode_headroom_provider_value() -> Value {
     })
 }
 
-fn opencode_apply_confirmation_phrase() -> String {
+fn short_state_hash(value: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(value.as_bytes());
+    let digest = hasher.finalize();
+    digest
+        .iter()
+        .take(6)
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+fn opencode_apply_confirmation_phrase(current_state: &str) -> String {
     format!(
-        "Apply {OPENCODE_ROLLBACK_MARKER} to {}",
-        opencode_config_path().display()
+        "Apply {OPENCODE_ROLLBACK_MARKER} to {} after reviewing {}",
+        opencode_config_path().display(),
+        short_state_hash(current_state)
     )
 }
 
@@ -4332,7 +4345,7 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
                 marker: OPENCODE_ROLLBACK_MARKER.to_string(),
                 backup_path: opencode_config_backup_pattern(),
                 status: ManagedRollbackExecutionStatus::Ready,
-                confirmation_phrase: opencode_apply_confirmation_phrase(),
+                confirmation_phrase: opencode_apply_confirmation_phrase(&current_state),
                 current_state,
                 proposed_state,
                 rollback_preview:
@@ -9477,10 +9490,10 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let preview =
             super::preview_managed_config_apply("opencode-routing").expect("preview apply");
         assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
-        assert_eq!(
-            preview.confirmation_phrase,
-            format!("Apply headroom:opencode to {}", config_json.display())
-        );
+        assert!(preview.confirmation_phrase.starts_with(&format!(
+            "Apply headroom:opencode to {} after reviewing ",
+            config_json.display()
+        )));
         assert!(preview.current_state.contains("OpenAI"));
         assert!(preview.proposed_state.contains("Mac AI Switchboard"));
         assert!(preview.proposed_state.contains("\"theme\": \"system\""));
@@ -9531,6 +9544,33 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             err.to_string().contains("confirmation phrase"),
             "unexpected error: {err:#}"
         );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_config_apply_rejects_opencode_drift_after_preview() {
+        let home = TestHome::new();
+        let opencode_dir = home.path().join(".config").join("opencode");
+        fs::create_dir_all(&opencode_dir).unwrap();
+        let config_json = opencode_dir.join("opencode.json");
+        fs::write(&config_json, r#"{"provider":{},"theme":"system"}"#).unwrap();
+
+        let preview =
+            super::preview_managed_config_apply("opencode-routing").expect("preview apply");
+        fs::write(&config_json, r#"{"provider":{},"theme":"midnight"}"#).unwrap();
+
+        let err =
+            super::execute_managed_config_apply("opencode-routing", &preview.confirmation_phrase)
+                .expect_err("post-preview drift must be rejected");
+
+        assert!(
+            err.to_string().contains("confirmation phrase"),
+            "unexpected error: {err:#}"
+        );
+        let current: serde_json::Value =
+            serde_json::from_slice(&fs::read(&config_json).unwrap()).unwrap();
+        assert_eq!(current["theme"], "midnight");
+        assert!(current["provider"].as_object().unwrap().is_empty());
     }
 
     #[test]
