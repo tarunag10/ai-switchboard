@@ -591,6 +591,27 @@ fn run_release_evidence_command(
             ],
         ),
     ];
+    const DOCTOR_REPAIR_VALIDATION_STEPS: &[(&str, &[&str])] = &[
+        (
+            "npm",
+            &[
+                "test",
+                "--",
+                "src/components/SwitchboardDoctorPanel.test.tsx",
+                "src/lib/doctorRepairCopy.test.ts",
+                "src/lib/doctorRepairClassification.test.ts",
+            ],
+        ),
+        (
+            "cargo",
+            &[
+                "test",
+                "--manifest-path",
+                "src-tauri/Cargo.toml",
+                "off_mode_blocks_doctor_repairs_that_restore_headroom",
+            ],
+        ),
+    ];
     const LOCAL_DMG_BUILD_INSTALL_STEPS: &[(&str, &[&str])] =
         &[("npm", &["run", "build:mac:local-install"])];
 
@@ -625,6 +646,12 @@ fn run_release_evidence_command(
             steps: ROLLBACK_CENTER_VALIDATION_STEPS,
             summary_path: None,
         },
+        "doctor-repair-validation" => ReleaseEvidenceCommandSpec {
+            label: "Doctor repair validation",
+            command: "npm test -- SwitchboardDoctorPanel/doctorRepairCopy focused tests && cargo test off_mode_blocks_doctor_repairs_that_restore_headroom",
+            steps: DOCTOR_REPAIR_VALIDATION_STEPS,
+            summary_path: None,
+        },
         "local-dmg-build-install" => ReleaseEvidenceCommandSpec {
             label: "Local DMG build/install",
             command: "npm run build:mac:local-install",
@@ -633,7 +660,7 @@ fn run_release_evidence_command(
         },
         _ => {
             return Err(
-                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, and rollback-center-validation."
+                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, rollback-center-validation, and doctor-repair-validation."
                     .to_string(),
             )
         }
@@ -9485,7 +9512,7 @@ Some unrelated content.
 
         assert!(
             err.contains(
-                "enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, and rollback-center-validation"
+                "enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, rollback-center-validation, and doctor-repair-validation"
             ),
             "unexpected error: {err}"
         );

@@ -166,6 +166,7 @@ export const localReleaseEvidenceCommandIds = [
   "local-installed-smoke",
   "local-mode-relaunch-smoke",
   "rollback-center-validation",
+  "doctor-repair-validation",
 ] as const;
 
 export function formatLocalReleaseEvidenceSequenceCopy() {
@@ -177,6 +178,7 @@ export function formatLocalReleaseEvidenceSequenceCopy() {
     "4. Local installed smoke",
     "5. Local Off/RTK relaunch smoke",
     "6. Rollback Center validation",
+    "7. Doctor repair validation",
     "Boundary: this local unsigned/ad-hoc evidence does not run signing, notarization, updater publication, or the strict public-release gate.",
   ].join("\n");
 }
@@ -430,6 +432,15 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
           "Run focused Rollback Center frontend and backend tests from the app evidence flow, including native undo-all and Gemini cleanup survival cases.",
         command:
           "npm test -- src/lib/managedChanges.test.ts && cargo test managed rollback focused cases",
+        executable: true,
+      },
+      {
+        id: "doctor-repair-validation",
+        label: "Validate Doctor repairs",
+        detail:
+          "Run focused Doctor UI/copy tests and the backend Off/RTK guard test proving Headroom-restoring repairs stay blocked when they should.",
+        command:
+          "npm test -- SwitchboardDoctorPanel/doctorRepairCopy focused tests && cargo test off_mode_blocks_doctor_repairs_that_restore_headroom",
         executable: true,
       },
       {

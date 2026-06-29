@@ -31,11 +31,12 @@ Shipped:
 - Mode Inspector now probes launchd load state for the app-managed LaunchAgent and legacy `Headroom.plist` label instead of only checking plist files.
 - One-click local evidence now includes local Off/RTK installed-app relaunch smoke after local DMG build/install and local installed smoke.
 - One-click local evidence now includes focused Rollback Center validation for frontend inventory/copy plus native undo-all and Gemini cleanup survival backend cases.
+- One-click local evidence now includes focused Doctor repair validation for UI/copy behavior and backend Off/RTK Headroom-restoring repair guards.
 
 Left:
 
 - App-owned Terms, Privacy Notice, Settings Legal surfaces, and terms-version policy are bundled and covered by focused tests.
-- Add reboot and installed-app smoke evidence for Doctor repair guards and full Rollback Center survival.
+- Add reboot and installed-app smoke evidence for full Doctor repair and Rollback Center survival.
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
 - Turn repo-memory MCP into a real app-supervised long-running local service beyond the current process-bound active marker plus smoke-tested stdio transport.
 - Replace inferred Ponytail, Caveman, Compact Chinese, and some Repo Intelligence savings rows with stronger measured counters where trustworthy evidence exists; MarkItDown is now estimated from the managed smoke-tested conversion path.

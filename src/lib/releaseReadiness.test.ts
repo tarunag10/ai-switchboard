@@ -45,6 +45,7 @@ describe("release readiness checklist", () => {
       "local-installed-smoke",
       "local-mode-relaunch-smoke",
       "rollback-center-validation",
+      "doctor-repair-validation",
     ]);
 
     const copy = formatLocalReleaseEvidenceSequenceCopy();
@@ -53,6 +54,7 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("Local installed smoke");
     expect(copy).toContain("Local Off/RTK relaunch smoke");
     expect(copy).toContain("Rollback Center validation");
+    expect(copy).toContain("Doctor repair validation");
     expect(copy).toContain("does not run signing, notarization");
     expect(copy).toContain("strict public-release gate");
   });
@@ -75,9 +77,9 @@ describe("release readiness checklist", () => {
       "signing",
       "smoke",
     ]);
-    expect(releaseReadinessItemCount()).toBe(14);
+    expect(releaseReadinessItemCount()).toBe(15);
     expect(releaseReadinessGroups.map((group) => group.items.length)).toEqual([
-      2, 3, 9,
+      2, 3, 10,
     ]);
 
     const allCopy = releaseReadinessGroups
