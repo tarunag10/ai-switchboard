@@ -831,6 +831,47 @@ describe("repoIntelligence", () => {
     expect(packMarkdown).toContain("Estimated tokens avoided:");
   });
 
+  it("builds custom task context from a session query and budget", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/lib/releaseReadiness.ts", bytes: 1200 },
+      { path: "src/lib/releaseReadiness.test.ts", bytes: 900 },
+      { path: "src/lib/repoIntelligence.ts", bytes: 2000 },
+      { path: "docs/macos-release.md", bytes: 800 },
+      { path: "package.json", bytes: 700 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+
+    const preparation = buildAgentSessionPreparation(summary, {
+      target: "codex",
+      taskType: "verification",
+      taskQuery: "release readiness schema smoke evidence",
+      budgetTokens: 1_000,
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+      },
+    });
+
+    expect(preparation.taskContext).toMatchObject({
+      task: "verification",
+      budgetTokens: 1_000,
+    });
+    expect(preparation.taskContext?.files[0].path).toContain(
+      "releaseReadiness",
+    );
+    expect(preparation.taskContext?.commands).toEqual(
+      expect.arrayContaining(["npm run smoke:preflight"]),
+    );
+    expect(
+      new Set(preparation.taskContext?.files.map((file) => file.path)).size,
+    ).toBe(preparation.taskContext?.files.length);
+    expect(formatAgentSessionSummaryMarkdown(preparation)).toContain(
+      "releaseReadiness",
+    );
+  });
+
   it("exposes planned connector readiness in agent session preparation", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },

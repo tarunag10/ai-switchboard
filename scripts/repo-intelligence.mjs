@@ -484,6 +484,8 @@ function parseArgs(argv) {
     agent: null,
     session: false,
     taskType: null,
+    taskQuery: null,
+    budgetTokens: null,
     format: "json",
     formatProvided: false,
     listPacks: false,
@@ -518,6 +520,16 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg.startsWith("--task=")) {
       options.taskType = arg.slice("--task=".length);
+    } else if (arg === "--query") {
+      options.taskQuery = argv[index + 1] ?? null;
+      index += 1;
+    } else if (arg.startsWith("--query=")) {
+      options.taskQuery = arg.slice("--query=".length);
+    } else if (arg === "--budget") {
+      options.budgetTokens = Number(argv[index + 1] ?? NaN);
+      index += 1;
+    } else if (arg.startsWith("--budget=")) {
+      options.budgetTokens = Number(arg.slice("--budget=".length));
     } else if (arg === "--headroom-healthy") {
       options.headroomHealthy = true;
     } else if (arg === "--rtk-healthy") {
@@ -570,6 +582,8 @@ Options:
   --agent <id>         Print agent handoff: claude, codex, gemini, opencode, aider, goose, cursor, continue, grok, qwen, amazonq, windsurf, zed
   --session            Print Start Agent Session preparation for --agent
   --task <type>        Session task: implementation, verification, handoff, risk_review, release_handoff
+  --query <text>       Optional free-form task query for task-aware context ranking
+  --budget <tokens>    Optional token budget for task-aware context ranking
   --headroom-healthy   Mark Headroom engine healthy for mode recommendation
   --rtk-healthy        Mark RTK healthy for mode recommendation
   --provider-routing-safe|--provider-routing-unsafe
@@ -592,6 +606,7 @@ Examples:
   npm run repo:intelligence -- . --pack implementation --format markdown
   npm run repo:intelligence -- . --agent codex --format markdown
   npm run repo:intelligence -- . --session --agent codex --task verification --headroom-healthy --rtk-healthy --format markdown
+  npm run repo:intelligence -- . --session --agent codex --task verification --query "release readiness schema smoke evidence" --budget 6000 --format markdown
   npm run repo:intelligence -- . --agent gemini --format json
   npm run repo:intelligence -- . --mcp-serve`);
 }
@@ -714,7 +729,7 @@ function pack(id, title, purpose, files, estimatedFullScanTokens) {
 }
 
 function buildTaskContextPack(files, graph, task, query, budgetTokens = 8000) {
-  const included = files.filter((file) => file.includeByDefault);
+  const included = dedupeFilesByPath(files).filter((file) => file.includeByDefault);
   const queryTerms = normalizeTaskQueryTerms(query || task);
   const graphHints = buildTaskGraphHints(graph);
   const ranked = included
@@ -857,6 +872,14 @@ function taskCommandsForQuery(task, queryTerms) {
 
 function slugifyTaskId(task) {
   return task.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "context";
+}
+
+function normalizedTaskBudget(value, fallback = 8000) {
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : fallback;
+}
+
+function dedupeFilesByPath(files) {
+  return [...new Map(files.map((file) => [file.path, file])).values()];
 }
 
 function buildGraphSummary(repoRoot, files) {
@@ -2034,9 +2057,17 @@ function buildAgentSessionPreparation(summary, options) {
       ? null
       : buildAgentHandoffPayload(summary, profile.id, packId);
   const taskContext =
-    summary.taskPacks?.find((pack) => pack.task === taskType) ??
-    summary.taskPacks?.[0] ??
-    null;
+    options.taskQuery?.trim() || options.budgetTokens
+      ? buildTaskContextPack(
+          dedupeFilesByPath(summary.packs.flatMap((contextPack) => contextPack.files)),
+          summary.graph,
+          taskType,
+          options.taskQuery?.trim() || taskType,
+          normalizedTaskBudget(options.budgetTokens),
+        )
+      : summary.taskPacks?.find((pack) => pack.task === taskType) ??
+        summary.taskPacks?.[0] ??
+        null;
   return {
     schemaVersion: 1,
     kind: "mac_ai_switchboard.agent_session_preparation",

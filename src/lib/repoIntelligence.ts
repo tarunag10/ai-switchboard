@@ -210,6 +210,8 @@ export interface AgentSessionModeInputs {
 export interface AgentSessionPreparationOptions {
   target: RepoAgentHandoffTarget;
   taskType?: AgentSessionTaskType;
+  taskQuery?: string;
+  budgetTokens?: number;
   modeInputs: AgentSessionModeInputs;
   generatedAt?: string;
 }
@@ -1660,9 +1662,17 @@ export function buildAgentSessionPreparation(
       ? null
       : buildRepoAgentHandoffPayload(summary, profile.id, packId);
   const taskContext =
-    summary.taskPacks?.find((pack) => pack.task === taskType) ??
-    summary.taskPacks?.[0] ??
-    null;
+    options.taskQuery?.trim() || options.budgetTokens
+      ? buildRepoTaskContextPack(
+          dedupeRepoFilesByPath(summary.packs.flatMap((pack) => pack.files)),
+          summary.graph,
+          taskType,
+          options.taskQuery?.trim() || taskType,
+          options.budgetTokens ?? 8_000,
+        )
+      : summary.taskPacks?.find((pack) => pack.task === taskType) ??
+        summary.taskPacks?.[0] ??
+        null;
 
   return {
     target: profile,
@@ -2063,7 +2073,9 @@ export function buildRepoTaskContextPack(
   query: string,
   budgetTokens = 8_000,
 ): RepoTaskContextPack {
-  const included = files.filter((file) => file.includeByDefault);
+  const included = dedupeRepoFilesByPath(files).filter(
+    (file) => file.includeByDefault,
+  );
   const queryTerms = normalizeTaskQueryTerms(query || task);
   const graphHints = buildTaskGraphHints(graph);
   const ranked = included
@@ -2239,6 +2251,10 @@ function slugifyTaskId(task: string): string {
       .replace(/[^a-z0-9]+/g, "_")
       .replace(/^_+|_+$/g, "") || "context"
   );
+}
+
+function dedupeRepoFilesByPath(files: RepoFileSignal[]): RepoFileSignal[] {
+  return [...new Map(files.map((file) => [file.path, file])).values()];
 }
 
 function buildRepoGraphSummary(
