@@ -11,7 +11,7 @@ Once releases are published:
 1. Download `Mac-AI-Switchboard_<version>.dmg` from GitHub Releases.
 2. Open the DMG and drag **Mac AI Switchboard** into **Applications**.
 3. Launch the app from Applications.
-4. On first launch, approve the local runtime install. The app downloads a self-contained Python runtime and managed tools into `~/Library/Application Support/Headroom`.
+4. On first launch, approve the local runtime install. The app downloads a self-contained Python runtime and managed tools into `~/Library/Application Support/Mac AI Switchboard`.
 5. Choose **Full optimization**, **Headroom only**, **RTK only**, or **Off mode**.
 
 ## Current Source Install
@@ -88,7 +88,8 @@ Do not share a public DMG until all gates are true:
 
 Mac AI Switchboard may write:
 
-- `~/Library/Application Support/Headroom` for managed runtimes, tools, logs, receipts, backups, caches, and Repo Intelligence summaries.
+- `~/Library/Application Support/Mac AI Switchboard` for managed runtimes, tools, logs, receipts, backups, caches, and Repo Intelligence summaries.
+- `~/Library/Application Support/Headroom` may remain as preserved legacy storage after first-launch migration.
 - `~/.claude/settings.json` plus `~/.claude/hooks/` when Claude Code routing or RTK hooks are enabled.
 - `~/.codex/config.toml` and shell profile managed blocks when Codex routing is enabled.
 - macOS Keychain entries for app/session secrets.

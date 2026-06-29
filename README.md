@@ -78,13 +78,13 @@ that is a Codex model/provider configuration problem, not the usual Headroom com
 
 Headroom is the managed local optimization runtime used by Switchboard for proxy routing and prompt/context compression. Switchboard installs it into app-owned storage and controls whether supported clients route through it.
 
-The app identity is **Mac AI Switchboard**, but the managed runtime directory intentionally remains:
+The app identity is **Mac AI Switchboard**. New primary app storage is:
 
 ```text
-~/Library/Application Support/Headroom
+~/Library/Application Support/Mac AI Switchboard
 ```
 
-That avoids orphaning existing runtimes, logs, receipts, backups, cleanup paths, and reversible client setup state until a dedicated state migration exists.
+On first launch after upgrading from older builds, Switchboard copies legacy `~/Library/Application Support/Headroom` storage into the new app storage path and records `config/migrations.json`. The legacy directory is preserved for one-release compatibility with existing runtimes, logs, receipts, backups, cleanup paths, and reversible client setup state.
 
 ### RTK
 
@@ -146,7 +146,8 @@ Switchboard separates measured, estimated, and inferred savings instead of mergi
 
 Switchboard is designed to be reversible and explicit. Depending on mode and installed tools, it may write:
 
-- `~/Library/Application Support/Headroom` for managed runtimes, tools, logs, receipts, backups, caches, and Repo Intelligence summaries.
+- `~/Library/Application Support/Mac AI Switchboard` for managed runtimes, tools, logs, receipts, backups, caches, and Repo Intelligence summaries.
+- `~/Library/Application Support/Headroom` may remain as preserved legacy storage after migration.
 - `~/.claude/settings.json` and `~/.claude/hooks/` when Claude Code routing or RTK hooks are enabled.
 - `~/.codex/config.toml` and shell profile managed blocks when Codex routing is enabled.
 - macOS Keychain entries for app/session secrets.
