@@ -7371,7 +7371,7 @@ export default function App() {
         return {
           tone: "starting",
           title:
-            "Use Test setup or send a message in a connected tool to verify routing. You may need to restart the tool first.",
+            "Click Test setup, then send a message in a connected tool to verify routing. Restart the tool first if it was already open.",
         } as const;
       }
       if (kompressWarming) {
@@ -8241,6 +8241,13 @@ export default function App() {
             savingsMode={savingsMode}
             savingsModeBusy={savingsModeBusy}
             paused={runtimeStatus?.paused === true}
+            runtimeActionVisible={showRuntimeRestartAction}
+            runtimeActionLabel={
+              calloutBanner.tone === "paused" ||
+              calloutBanner.tone === "auto-paused"
+                ? "Resume runtime"
+                : "Start runtime"
+            }
             resuming={resuming}
             modeBusy={switchboardModeBusy}
             modeError={switchboardModeError}

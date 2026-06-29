@@ -393,6 +393,22 @@ describe("SwitchboardPanel", () => {
     expect(screen.getByRole("button", { name: "Restarting…" })).toBeDisabled();
   });
 
+  it("offers a primary start runtime action when the engine is offline", async () => {
+    const user = userEvent.setup();
+    const onResume = vi.fn();
+    renderPanel({
+      proxyStatus: "Offline",
+      headroomDetail: "127.0.0.1:6767 is not accepting traffic.",
+      runtimeActionVisible: true,
+      runtimeActionLabel: "Start runtime",
+      onResume,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Start runtime" }));
+
+    expect(onResume).toHaveBeenCalledOnce();
+  });
+
   it("calls action handlers", async () => {
     const user = userEvent.setup();
     const onResume = vi.fn();
@@ -408,7 +424,7 @@ describe("SwitchboardPanel", () => {
     });
 
     await user.click(screen.getByRole("button", { name: /RTK only:/ }));
-    await user.click(screen.getByRole("button", { name: "Resume Headroom" }));
+    await user.click(screen.getByRole("button", { name: "Resume runtime" }));
     await user.click(screen.getByRole("button", { name: "Manage clients" }));
     await user.click(screen.getByRole("button", { name: "Manage RTK" }));
 

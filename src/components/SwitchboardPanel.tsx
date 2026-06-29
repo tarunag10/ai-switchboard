@@ -48,6 +48,8 @@ interface SwitchboardPanelProps {
   savingsMode: SavingsMode;
   savingsModeBusy: SavingsMode | null;
   paused: boolean;
+  runtimeActionVisible?: boolean;
+  runtimeActionLabel?: string;
   resuming: boolean;
   modeBusy: SwitchboardMode | null;
   modeError: string | null;
@@ -82,6 +84,8 @@ export function SwitchboardPanel({
   savingsMode,
   savingsModeBusy,
   paused,
+  runtimeActionVisible = paused,
+  runtimeActionLabel,
   resuming,
   modeBusy,
   modeError,
@@ -410,14 +414,16 @@ className="switchboard-panel__footprint"
         </div>
       </div>
       <div className="switchboard-panel__actions">
-        {paused ? (
+        {runtimeActionVisible ? (
           <button
             type="button"
             className="switchboard-panel__action switchboard-panel__action--primary"
             onClick={onResume}
             disabled={resuming}
           >
-            {resuming ? "Restarting…" : "Resume Headroom"}
+            {resuming
+              ? "Restarting…"
+              : runtimeActionLabel ?? (paused ? "Resume runtime" : "Start runtime")}
           </button>
         ) : null}
         <button
