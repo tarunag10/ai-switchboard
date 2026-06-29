@@ -1,0 +1,46 @@
+[
+  {
+    "category": "shell_output",
+    "name": "noisy test log",
+    "original": "test_auth_login ... ok\ntest_auth_logout ... ok\ntest_billing_plan ... ok\ntest_cli_help ... ok\ntest_connector_detect ... ok\ntest_connector_verify ... ok\ntest_doctor_repair ... ok\ntest_repo_pack ... ok\n",
+    "optimized": "8 tests passed: auth, billing, cli, connector, doctor, repo pack.",
+    "latencyOverheadMs": 8,
+    "relevantFacts": ["8 tests passed", "auth", "connector", "doctor", "repo pack"],
+    "optimizedFacts": ["8 tests passed", "auth", "connector", "doctor", "repo pack"],
+    "wrongOmissions": [],
+    "agentSuccessProxy": "pass"
+  },
+  {
+    "category": "shell_output",
+    "name": "stack trace summary",
+    "original": "Traceback (most recent call last):\n  File \"scripts/import.py\", line 42, in <module>\n    main()\n  File \"scripts/import.py\", line 31, in main\n    parse_rows(path)\n  File \"scripts/import.py\", line 17, in parse_rows\n    int(row['amount'])\nValueError: invalid literal for int() with base 10: '12.50'\n",
+    "optimized": "ValueError in scripts/import.py:17 while parsing row['amount']; value '12.50' is not an integer.",
+    "latencyOverheadMs": 6,
+    "relevantFacts": ["ValueError", "scripts/import.py:17", "row['amount']", "12.50"],
+    "optimizedFacts": ["ValueError", "scripts/import.py:17", "row['amount']", "12.50"],
+    "wrongOmissions": [],
+    "agentSuccessProxy": "pass"
+  },
+  {
+    "category": "repo_context_pack",
+    "name": "task-aware pack vs broad scan",
+    "original": "full repo scan package.json src/App.tsx src/lib/repoIntelligence.ts src-tauri/src/repo_intelligence.rs tests repo graph docs repeated broad scan context package lock generated assets vendor output full repo scan package.json src/App.tsx src/lib/repoIntelligence.ts src-tauri/src/repo_intelligence.rs tests repo graph docs repeated broad scan context package lock generated assets vendor output",
+    "optimized": "ranked implementation pack src/lib/repoIntelligence.ts src-tauri/src/repo_intelligence.rs nearest tests config task match",
+    "latencyOverheadMs": 24,
+    "relevantFacts": ["entrypoint", "nearest test", "config", "task match"],
+    "optimizedFacts": ["entrypoint", "nearest test", "config", "task match"],
+    "wrongOmissions": [],
+    "agentSuccessProxy": "pass"
+  },
+  {
+    "category": "document_conversion",
+    "name": "office/pdf markdown handoff",
+    "original": "Header Page 1 Confidential Report Header Page 1 Section A table row one table row two Footer Header Page 2 Confidential Report Header Page 2 Section B paragraph paragraph Footer Header Page 3 Confidential Report Header Page 3 Section C appendix Footer",
+    "optimized": "# Report\n\n## Section A\n\n- table row one\n- table row two\n\n## Section B\n\nparagraph paragraph\n\n## Section C\n\nappendix",
+    "latencyOverheadMs": 18,
+    "relevantFacts": ["headings", "tables", "section order"],
+    "optimizedFacts": ["headings", "tables", "section order"],
+    "wrongOmissions": [],
+    "agentSuccessProxy": "not_applicable"
+  }
+]

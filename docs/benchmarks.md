@@ -9,9 +9,11 @@ Run:
 npm run benchmarks
 ```
 
-Current fixtures cover:
+Fixtures live in `benchmarks/fixtures.json` and cover:
 
 - Shell output compression.
+  - Noisy test logs.
+  - Stack-trace summaries.
 - Repo context pack savings versus broad scans.
 - Document-conversion handoff cleanup.
 
@@ -21,6 +23,10 @@ Reported metrics:
 - Optimized token estimate.
 - Saved tokens.
 - Percent saved.
+- Latency overhead in milliseconds.
+- Relevant fact retention.
+- Wrong omission rate.
+- Static agent success proxy where applicable.
 - Quality check label.
 
 LLM-judged quality benchmarks are intentionally not part of the default run.
