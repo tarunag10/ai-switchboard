@@ -5038,7 +5038,7 @@ export default function App() {
       );
       setPricingStatus(status);
       void maybeFireTrialNotifications(status);
-      void maybeFireUrgentPricingNotifications(status);
+      void maybeFireUrgentPricingNotifications(status, { localOnlyMode });
       setPricingError(null);
     } catch (error) {
       setPricingError(

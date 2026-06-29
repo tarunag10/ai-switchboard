@@ -143,6 +143,23 @@ describe("maybeFireUrgentPricingNotifications", () => {
     expect(invokeMock).not.toHaveBeenCalled();
   });
 
+  it("does not fire pricing or billing notifications in local-only mode", async () => {
+    isVisibleMock.mockResolvedValue(false);
+    installStorage();
+
+    await maybeFireUrgentPricingNotifications(
+      makePricing({
+        needsAuthentication: true,
+        optimizationAllowed: false,
+        gateMessage: "Remote account required.",
+      }),
+      { localOnlyMode: true },
+    );
+
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(localStorage.setItem).not.toHaveBeenCalled();
+  });
+
   it("treats isVisible failures as visible to avoid spamming", async () => {
     isVisibleMock.mockRejectedValue(new Error("bridge down"));
     installStorage();
