@@ -38,6 +38,7 @@ Shipped:
 - Repo Memory MCP active sessions are now app-supervised with periodic read-only smoke rechecks while the same app process owns the session.
 - The home runtime banner now offers a primary Start runtime action when the Headroom runtime is offline, degraded, or proxy-unreachable, reusing the same restart-and-refresh path as paused recovery.
 - Caveman and Compact Chinese savings attribution now records durable estimated events only when managed guidance actually changes client instruction files, including changed-file and backup evidence instead of unconditional inferred template rows.
+- Local-only network certification now has a repo-owned gate, `npm run check:local-only-network`, that verifies the remote destination registry, frontend/backend local-only guards, and documented app-owned remote-service surfaces.
 
 Left:
 

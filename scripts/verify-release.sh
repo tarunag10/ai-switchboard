@@ -32,6 +32,9 @@ npm run check:colors
 echo "Checking governance docs..."
 npm run check:governance
 
+echo "Checking local-only network boundary..."
+npm run check:local-only-network
+
 echo "Building production frontend..."
 npm run build
 
