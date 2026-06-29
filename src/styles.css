@@ -812,6 +812,12 @@ select {
   opacity: 0.75;
 }
 
+.install-disclosure__copy {
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
 .install-disclosure__foot {
   margin: 8px 0 0;
   font-size: var(--text-xs);

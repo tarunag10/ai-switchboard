@@ -212,6 +212,7 @@ import {
   buildManagedRollbackUndoAllPreview,
   canExecuteNativeManagedRollbackPreview,
   buildManagedConfigDiffPreview,
+  formatManagedFootprintReport,
   formatManagedRollbackExecutionPreview,
   formatManagedConfigDiffPreview,
   formatManagedRollbackPlan,
@@ -3045,6 +3046,8 @@ export default function App() {
   const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
   const [managedFootprintReport, setManagedFootprintReport] =
     useState<ManagedFootprintReport | null>(null);
+  const [onboardingFootprintCopyNotice, setOnboardingFootprintCopyNotice] =
+    useState<string | null>(null);
   const [doctorRepairBusy, setDoctorRepairBusy] = useState<string | null>(null);
   const [doctorRepairError, setDoctorRepairError] = useState<string | null>(
     null,
@@ -4504,6 +4507,38 @@ export default function App() {
     } finally {
       // Most completion paths are still managed by progress polling.
     }
+  }
+
+  async function copyFirstRunFootprint() {
+    if (!navigator.clipboard) {
+      setOnboardingFootprintCopyNotice("Clipboard unavailable.");
+      return;
+    }
+
+    const fallbackFootprint = [
+      "# Mac AI Switchboard first-run footprint",
+      "",
+      "Pre-install preview. Some paths are written only after you opt in to the relevant mode or connector.",
+      "",
+      "- App support storage: ~/Library/Application Support/Mac AI Switchboard",
+      "- Local engine/tool storage: ~/.headroom and app-owned helper runtimes",
+      "- Shell profile managed blocks: zsh/bash/profile files, with managed markers",
+      "- Claude Code: ~/.claude/settings.json, hooks, and managed instruction blocks",
+      "- Codex: ~/.codex/config.toml and AGENTS.md managed blocks",
+      "- Add-ons: RTK, Ponytail, MarkItDown, Caveman, and Repo Intelligence state when enabled",
+      "- Backups: timestamped sidecars before managed config edits",
+      "- Off mode: removes Switchboard-owned routing hooks and managed blocks",
+      "",
+      "Local-free builds do not require telemetry, sign-in, checkout, or hosted pricing services.",
+    ].join("\n");
+
+    await navigator.clipboard.writeText(
+      managedFootprintReport
+        ? formatManagedFootprintReport(managedFootprintReport)
+        : fallbackFootprint,
+    );
+    setOnboardingFootprintCopyNotice("Copied footprint.");
+    window.setTimeout(() => setOnboardingFootprintCopyNotice(null), 2500);
   }
 
   function stepPercentSpan(step: string) {
@@ -6623,6 +6658,14 @@ export default function App() {
                     as optional add-ons you control separately.
                   </li>
                 </ul>
+                <button
+                  className="secondary-button secondary-button--small install-disclosure__copy"
+                  onClick={() => void copyFirstRunFootprint()}
+                  type="button"
+                >
+                  <Copy aria-hidden="true" weight="bold" />
+                  <span>{onboardingFootprintCopyNotice ?? "Copy footprint"}</span>
+                </button>
               </div>
             )}
           </>
