@@ -310,7 +310,8 @@ const requiredDocSignals = {
     "Gemini CLI, OpenCode, Grok / xAI CLI, Qwen Code, and Amazon Q Developer CLI",
     "provider setup instructions",
     "dry-run, backup, apply, verify, rollback, Doctor repair, and Off cleanup evidence",
-    "Background service supervision beyond the current app-process smoke recheck loop",
+    "broken service evidence downgrades to **Needs attention**",
+    "Installed-app relaunch survival evidence for the app-supervised stdio service",
   ],
   "docs/product-roadmap-plan.md": [
     "Runtime storage now lives under `~/Library/Application Support/Mac AI Switchboard`",
@@ -318,6 +319,8 @@ const requiredDocSignals = {
     "Keychain service names are already Mac AI Switchboard-owned",
     "runtime storage migrates from legacy Headroom storage on first launch",
     "Legacy storage compatibility sunset after a release with migration evidence",
+    "service-unhealthy",
+    "Repo Memory MCP installed-app relaunch survival and connector bridge verification",
   ],
 };
 
@@ -379,6 +382,9 @@ const requiredSourceSignals = {
     "Automation gates:",
     "Manual workflow:",
     "Safe today: use RTK-only mode or Repo Intelligence packs",
+    "repo_memory_mcp_service_unhealthy",
+    "Repo Memory MCP service is unhealthy",
+    "descriptor, script, or Node runtime evidence is not healthy",
   ],
   "src-tauri/src/models.rs": [
     "setup_phase",
@@ -492,6 +498,16 @@ const requiredSourceSignals = {
     "symbolEdges",
     "symbolCount",
     "Symbol edges",
+  ],
+  "src/lib/repoMemoryMcp.ts": [
+    "service_unhealthy",
+    "Repo Memory MCP service is unhealthy",
+    "descriptor, repo-memory script, and Node runtime evidence must be healthy",
+  ],
+  "src-tauri/src/state.rs": [
+    "repo_memory_mcp_service_healthy",
+    "service_unhealthy",
+    "repo_memory_mcp_active: repo_memory_mcp_session.active",
   ],
   "scripts/repo-intelligence.mjs": [
     "buildRepoSymbols",

@@ -442,6 +442,8 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
       return "Use Prepare MCP to reinstall the app-managed read-only descriptor, start Repo Memory MCP, and re-run the smoke check before agent handoffs.";
     case "repo_memory_mcp_stale_config":
       return "Use Prepare MCP to restore the app-managed read-only descriptor and verify it before supported agents consume repo-memory tools.";
+    case "repo_memory_mcp_service_unhealthy":
+      return "Use Prepare MCP to restore the app-managed read-only descriptor, script, and Node command evidence before supported agents consume repo-memory tools.";
     case "repo_memory_mcp_needs_verification":
       return "Use Prepare MCP to refresh current app-process smoke proof before relying on Repo Memory MCP handoffs.";
     case "headroom_paused":

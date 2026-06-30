@@ -217,6 +217,24 @@ describe("repoMemoryMcpLifecycle", () => {
     expect(lifecycle.copy).toContain("Stop action: stop_repo_memory_mcp");
   });
 
+  it("surfaces unhealthy service supervision even when configuration exists", () => {
+    const lifecycle = repoMemoryMcpLifecycle({
+      configured: true,
+      active: false,
+      lastCheckedAt: "2026-06-28T10:09:00Z",
+      supervisionStatus: "service_unhealthy",
+    });
+
+    expect(lifecycle.state).toBe("needs_attention");
+    expect(lifecycle.status).toBe("Needs attention");
+    expect(lifecycle.detail).toContain("service evidence is unhealthy");
+    expect(lifecycle.detail).toContain("2026-06-28T10:09:00Z");
+    expect(lifecycle.copy).toContain("service is unhealthy");
+    expect(lifecycle.copy).toContain(
+      "Prepare action: install_repo_memory_mcp then start_repo_memory_mcp",
+    );
+  });
+
   it("surfaces the one-click prepare action when MCP needs attention", () => {
     const lifecycle = repoMemoryMcpLifecycle({
       configured: false,

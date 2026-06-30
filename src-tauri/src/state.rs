@@ -25,10 +25,11 @@ use crate::models::{
     ActivityEvent, BackendRuntimeStatus, BootstrapProgress, ClaudeAccountProfile,
     ClaudeCodeProject, ClientStatus, CodexAccountProfile, CodexRateLimitSnapshot, DailyInsight,
     DailySavingsPoint, DashboardState, HeadroomLearnPrereqStatus, HeadroomLearnStatus,
-    HourlySavingsPoint, LaunchAgentRuntimeStatus, LaunchExperience, RtkRuntimeStatus,
-    RuntimeStatus, RuntimeUpgradeFailure, RuntimeUpgradeProgress, SavingsAttributionConfidence,
-    SavingsAttributionEvent, SavingsAttributionScope, SavingsAttributionSource, SwitchboardMode,
-    TransformationFeedEvent, UpgradeFailurePhase, UsageEvent,
+    HourlySavingsPoint, LaunchAgentRuntimeStatus, LaunchExperience, RepoMemoryMcpServiceStatus,
+    RtkRuntimeStatus, RuntimeStatus, RuntimeUpgradeFailure, RuntimeUpgradeProgress,
+    SavingsAttributionConfidence, SavingsAttributionEvent, SavingsAttributionScope,
+    SavingsAttributionSource, SwitchboardMode, TransformationFeedEvent, UpgradeFailurePhase,
+    UsageEvent,
 };
 use crate::pricing;
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs, telemetry_file};
@@ -3023,6 +3024,7 @@ impl AppState {
             &repo_memory_mcp_session,
             repo_memory_mcp_configured,
             std::process::id(),
+            repo_memory_mcp_service.as_ref(),
         );
         self.record_repo_memory_mcp_supervision(&repo_memory_mcp_supervision_status);
         let repo_memory_mcp_session = self.repo_memory_mcp_state.lock().clone();
@@ -3050,6 +3052,7 @@ impl AppState {
             repo_memory_mcp_error,
             repo_memory_mcp_active: repo_memory_mcp_session.active
                 && repo_memory_mcp_configured == Some(true)
+                && repo_memory_mcp_service_healthy(repo_memory_mcp_service.as_ref())
                 && repo_memory_mcp_supervision_status == "verified_active",
             repo_memory_mcp_last_started_at: repo_memory_mcp_session.last_started_at,
             repo_memory_mcp_last_checked_at: repo_memory_mcp_session.last_checked_at,
@@ -3876,7 +3879,12 @@ fn repo_memory_mcp_supervision_status(
     session: &RepoMemoryMcpSessionState,
     configured: Option<bool>,
     current_pid: u32,
+    service: Option<&RepoMemoryMcpServiceStatus>,
 ) -> String {
+    if configured == Some(true) && !repo_memory_mcp_service_healthy(service) {
+        return "service_unhealthy".to_string();
+    }
+
     match (session.active, configured) {
         (true, Some(true)) => {
             if session.supervision_status.as_deref() == Some("verified_active")
@@ -3901,6 +3909,17 @@ fn repo_memory_mcp_supervision_status(
         (false, Some(false)) => "needs_attention".to_string(),
         (false, None) => "unknown".to_string(),
     }
+}
+
+fn repo_memory_mcp_service_healthy(service: Option<&RepoMemoryMcpServiceStatus>) -> bool {
+    let Some(service) = service else {
+        return false;
+    };
+    service.managed_by_app
+        && service.read_only
+        && service.descriptor_present
+        && service.script_present
+        && service.node_available
 }
 
 fn repo_memory_mcp_supervision_due(
@@ -9473,6 +9492,17 @@ mod tests {
     #[test]
     fn repo_memory_mcp_supervision_distinguishes_stale_active_state() {
         let current_pid = 42;
+        let healthy_service = super::RepoMemoryMcpServiceStatus {
+            managed_by_app: true,
+            read_only: true,
+            transport: "stdio".to_string(),
+            command: "node repo-intelligence.mjs --mcp-serve".to_string(),
+            descriptor_path: "/tmp/repo-memory.json".to_string(),
+            descriptor_present: true,
+            script_path: "/tmp/repo-intelligence.mjs".to_string(),
+            script_present: true,
+            node_available: true,
+        };
         let active = super::RepoMemoryMcpSessionState {
             active: true,
             last_started_at: None,
@@ -9481,16 +9511,45 @@ mod tests {
             supervisor_pid: None,
         };
         assert_eq!(
-            super::repo_memory_mcp_supervision_status(&active, Some(true), current_pid),
+            super::repo_memory_mcp_supervision_status(
+                &active,
+                Some(true),
+                current_pid,
+                Some(&healthy_service)
+            ),
             "active"
         );
         assert_eq!(
-            super::repo_memory_mcp_supervision_status(&active, Some(false), current_pid),
+            super::repo_memory_mcp_supervision_status(
+                &active,
+                Some(false),
+                current_pid,
+                Some(&healthy_service)
+            ),
             "stale_config"
         );
         assert_eq!(
-            super::repo_memory_mcp_supervision_status(&active, None, current_pid),
+            super::repo_memory_mcp_supervision_status(
+                &active,
+                None,
+                current_pid,
+                Some(&healthy_service)
+            ),
             "unknown_active"
+        );
+
+        let broken_service = super::RepoMemoryMcpServiceStatus {
+            script_present: false,
+            ..healthy_service.clone()
+        };
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(
+                &active,
+                Some(true),
+                current_pid,
+                Some(&broken_service)
+            ),
+            "service_unhealthy"
         );
 
         let verified_this_process = super::RepoMemoryMcpSessionState {
@@ -9504,7 +9563,8 @@ mod tests {
             super::repo_memory_mcp_supervision_status(
                 &verified_this_process,
                 Some(true),
-                current_pid
+                current_pid,
+                Some(&healthy_service)
             ),
             "verified_active"
         );
@@ -9520,18 +9580,29 @@ mod tests {
             super::repo_memory_mcp_supervision_status(
                 &verified_previous_process,
                 Some(true),
-                current_pid
+                current_pid,
+                Some(&healthy_service)
             ),
             "restart_required"
         );
 
         let stopped = super::RepoMemoryMcpSessionState::default();
         assert_eq!(
-            super::repo_memory_mcp_supervision_status(&stopped, Some(true), current_pid),
+            super::repo_memory_mcp_supervision_status(
+                &stopped,
+                Some(true),
+                current_pid,
+                Some(&healthy_service)
+            ),
             "configured"
         );
         assert_eq!(
-            super::repo_memory_mcp_supervision_status(&stopped, Some(false), current_pid),
+            super::repo_memory_mcp_supervision_status(
+                &stopped,
+                Some(false),
+                current_pid,
+                Some(&healthy_service)
+            ),
             "needs_attention"
         );
     }

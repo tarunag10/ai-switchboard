@@ -110,6 +110,15 @@ describe("doctor repair copy", () => {
     ).toContain("restore the app-managed read-only descriptor");
     expect(
       doctorIssueGuidance({
+        id: "repo_memory_mcp_service_unhealthy",
+        title: "Repo Memory MCP service is unhealthy",
+        body: "script missing",
+        severity: "warning",
+        repairAction: "install_repo_memory_mcp",
+      }),
+    ).toContain("Node command evidence");
+    expect(
+      doctorIssueGuidance({
         id: "repo_memory_mcp_needs_verification",
         title: "Repo Memory MCP needs verification",
         body: "needs proof",

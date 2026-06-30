@@ -142,6 +142,28 @@ export function repoMemoryMcpLifecycle(
     };
   }
 
+  if (input.supervisionStatus === "service_unhealthy") {
+    const checked = input.lastCheckedAt
+      ? ` Last checked: ${input.lastCheckedAt}.`
+      : "";
+    return {
+      state: "needs_attention",
+      status: "Needs attention",
+      detail: `Repo Memory MCP is configured, but current service evidence is unhealthy.${checked}${serviceDetail} Use Prepare MCP to restore the app-managed read-only service before agent handoffs.`,
+      installCommand: repoMemoryMcpInstallCommand,
+      startCommand: repoMemoryMcpStartCommand,
+      stopCommand: repoMemoryMcpStopCommand,
+      verifyCommand: repoMemoryMcpVerifyCommand,
+      copy: [
+        "Repo Memory MCP service is unhealthy: configured state is not enough to rely on agent MCP handoffs.",
+        `Prepare action: ${repoMemoryMcpInstallCommand} then ${repoMemoryMcpStartCommand}`,
+        `Verify: ${repoMemoryMcpVerifyCommand}`,
+        ...serviceCopy,
+        "Safety: descriptor, repo-memory script, and Node runtime evidence must be healthy before agents rely on MCP context.",
+      ].join("\n"),
+    };
+  }
+
   if (input.supervisionStatus === "restart_required") {
     const started = input.lastStartedAt
       ? ` Last started: ${input.lastStartedAt}.`

@@ -2682,6 +2682,11 @@ fn repo_memory_mcp_doctor_issue(runtime: &RuntimeStatus) -> Option<crate::models
             "Repo Memory MCP config is stale",
             "Repo Memory MCP was marked active, but the app-managed MCP descriptor is missing or unsafe. Repair will restore the read-only descriptor and re-run the start/smoke check.",
         ),
+        "service_unhealthy" => (
+            "repo_memory_mcp_service_unhealthy",
+            "Repo Memory MCP service is unhealthy",
+            "Repo Memory MCP is configured, but the current descriptor, script, or Node runtime evidence is not healthy. Repair will restore the app-managed read-only descriptor and re-run the start/smoke check.",
+        ),
         "restart_required" | "unknown_active" | "active" => (
             "repo_memory_mcp_needs_verification",
             "Repo Memory MCP needs verification",
@@ -3443,6 +3448,15 @@ mod doctor_tests {
         let stale_issue = repo_memory_mcp_doctor_issue(&runtime).expect("stale issue");
         assert_eq!(stale_issue.id, "repo_memory_mcp_stale_config");
         assert!(stale_issue.body.contains("descriptor is missing or unsafe"));
+
+        runtime.repo_memory_mcp_supervision_status = "service_unhealthy".to_string();
+        let service_issue = repo_memory_mcp_doctor_issue(&runtime).expect("service issue");
+        assert_eq!(service_issue.id, "repo_memory_mcp_service_unhealthy");
+        assert!(service_issue.body.contains("descriptor, script, or Node"));
+        assert_eq!(
+            service_issue.repair_action.as_deref(),
+            Some("install_repo_memory_mcp")
+        );
 
         runtime.repo_memory_mcp_supervision_status = "active".to_string();
         let active_issue = repo_memory_mcp_doctor_issue(&runtime).expect("active issue");
