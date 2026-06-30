@@ -8140,6 +8140,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn clear_repo_intelligence_index_repairs_corrupt_saved_summary() {
         let scratch = tempfile::tempdir().expect("scratch");
         let _guard = AppStorageEnvGuard::isolated(scratch.path());

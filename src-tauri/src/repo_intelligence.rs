@@ -25,7 +25,7 @@ const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
 const TASK_PACK_BUDGET_TOKENS: u64 = 8_000;
-const INDEXER_VERSION: &str = "path-graph-v6";
+const INDEXER_VERSION: &str = "path-graph-v8";
 const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
 const PARSER_VERSION: &str = "metadata-fingerprint-v1";
 const DEFAULT_SYMBOL_SEARCH_LIMIT: usize = 25;
@@ -1555,7 +1555,7 @@ fn build_repo_symbols(repo_root: &Path, files: &[RepoFileSignal]) -> Vec<RepoSym
     for file in files.iter().filter(|file| {
         let symbol_language = matches!(
             file.language.as_str(),
-            "TypeScript" | "JavaScript" | "React" | "Rust" | "Python" | "Swift"
+            "TypeScript" | "JavaScript" | "React" | "Rust" | "Python" | "Swift" | "CSS" | "HTML"
         );
         let markdown_docs = matches!(file.role, RepoFileRole::Docs) && file.language == "Markdown";
         (matches!(file.role, RepoFileRole::Source | RepoFileRole::Test) || markdown_docs)
@@ -1869,6 +1869,16 @@ fn extract_symbol_from_line(language: &str, line: &str) -> Option<(RepoSymbolKin
             return Some((RepoSymbolKind::Const, name));
         }
     }
+    if language == "CSS" {
+        if let Some(name) = css_symbol_name(line) {
+            return Some((RepoSymbolKind::Const, name));
+        }
+    }
+    if language == "HTML" {
+        if let Some(name) = html_symbol_name(line) {
+            return Some((RepoSymbolKind::Const, name));
+        }
+    }
     None
 }
 
@@ -1879,6 +1889,44 @@ fn symbol_name_after(line: &str, prefix: &str) -> Option<String> {
         .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_' || *ch == '$')
         .collect::<String>();
     (!name.is_empty()).then_some(name)
+}
+
+fn css_symbol_name(line: &str) -> Option<String> {
+    let mut chars = line.chars();
+    let first = chars.next()?;
+    if !matches!(first, '.' | '#') {
+        return None;
+    }
+    let name = std::iter::once(first)
+        .chain(chars.take_while(|ch| ch.is_ascii_alphanumeric() || matches!(*ch, '_' | '-')))
+        .collect::<String>();
+    (name.len() > 1).then_some(name)
+}
+
+fn html_symbol_name(line: &str) -> Option<String> {
+    let tag_body = line.strip_prefix('<')?.split('>').next()?;
+    let lower = tag_body.to_ascii_lowercase();
+    if let Some(id_start) = lower.find("id=\"").or_else(|| lower.find("id='")) {
+        let quote = lower.as_bytes().get(id_start + 3).copied()? as char;
+        let value = &tag_body[id_start + 4..];
+        let id = value
+            .chars()
+            .take_while(|ch| *ch != quote)
+            .collect::<String>();
+        if !id.is_empty()
+            && id
+                .chars()
+                .next()
+                .is_some_and(|ch| ch.is_ascii_alphabetic() || ch == '_')
+        {
+            return Some(id);
+        }
+    }
+    let tag = tag_body
+        .chars()
+        .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '-')
+        .collect::<String>();
+    (!tag.is_empty()).then_some(tag)
 }
 
 fn exported_assignment_symbol_name(line: &str) -> Option<String> {
@@ -1937,7 +1985,14 @@ fn build_import_reference_edges(repo_root: &Path, files: &[RepoFileSignal]) -> V
         matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
             && matches!(
                 file.language.as_str(),
-                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python" | "Shell"
+                "TypeScript"
+                    | "JavaScript"
+                    | "React"
+                    | "Rust"
+                    | "Python"
+                    | "Shell"
+                    | "CSS"
+                    | "HTML"
             )
     }) {
         let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
@@ -2247,7 +2302,113 @@ fn extract_import_specifiers(content: &str, language: &str) -> Vec<String> {
             specifiers.extend(shell_script_specifiers(trimmed));
         }
     }
+    if language == "CSS" {
+        specifiers.extend(css_asset_specifiers(content));
+    }
+    if language == "HTML" {
+        specifiers.extend(html_asset_specifiers(content));
+    }
     specifiers
+}
+
+fn css_asset_specifiers(content: &str) -> Vec<String> {
+    let mut specifiers = BTreeSet::new();
+    for line in content.lines() {
+        for specifier in css_line_asset_specifiers(line) {
+            specifiers.insert(specifier);
+        }
+    }
+    specifiers.into_iter().collect()
+}
+
+fn css_line_asset_specifiers(line: &str) -> Vec<String> {
+    let mut specifiers = Vec::new();
+    let trimmed = line.trim();
+    if let Some(import_tail) = trimmed.strip_prefix("@import") {
+        if let Some(specifier) = first_css_asset_value(import_tail) {
+            specifiers.push(specifier);
+        }
+    }
+
+    let mut rest = trimmed;
+    while let Some(start) = rest.find("url(") {
+        let after_start = &rest[start + 4..];
+        let Some(end) = after_start.find(')') else {
+            break;
+        };
+        if let Some(specifier) = normalize_asset_specifier(&after_start[..end]) {
+            specifiers.push(specifier);
+        }
+        rest = &after_start[end + 1..];
+    }
+    specifiers
+}
+
+fn first_css_asset_value(value: &str) -> Option<String> {
+    let value = value
+        .trim()
+        .trim_end_matches(';')
+        .trim()
+        .strip_prefix("url(")
+        .unwrap_or(value.trim().trim_end_matches(';').trim())
+        .trim_end_matches(')');
+    normalize_asset_specifier(value)
+}
+
+fn html_asset_specifiers(content: &str) -> Vec<String> {
+    let mut specifiers = BTreeSet::new();
+    for attribute in ["src", "href"] {
+        for specifier in html_attribute_values(content, attribute) {
+            if let Some(specifier) = normalize_asset_specifier(&specifier) {
+                specifiers.insert(specifier);
+            }
+        }
+    }
+    specifiers.into_iter().collect()
+}
+
+fn html_attribute_values(content: &str, attribute: &str) -> Vec<String> {
+    let mut values = Vec::new();
+    let mut rest = content;
+    let needle = format!("{attribute}=");
+    while let Some(start) = rest.to_ascii_lowercase().find(&needle) {
+        let after = &rest[start + needle.len()..];
+        let Some(quote) = after
+            .chars()
+            .next()
+            .filter(|quote| *quote == '"' || *quote == '\'')
+        else {
+            rest = after;
+            continue;
+        };
+        let value_start = quote.len_utf8();
+        let Some(value_end) = after[value_start..].find(quote) else {
+            break;
+        };
+        values.push(after[value_start..value_start + value_end].to_string());
+        rest = &after[value_start + value_end + quote.len_utf8()..];
+    }
+    values
+}
+
+fn normalize_asset_specifier(raw_specifier: &str) -> Option<String> {
+    let specifier = raw_specifier.trim().trim_matches(['"', '\'']);
+    if specifier.is_empty()
+        || specifier.starts_with('#')
+        || specifier.starts_with("http://")
+        || specifier.starts_with("https://")
+        || specifier.starts_with("data:")
+        || specifier.starts_with("mailto:")
+        || specifier.starts_with("tel:")
+    {
+        return None;
+    }
+    Some(
+        specifier
+            .strip_prefix('/')
+            .map(|path| format!("repo:{path}"))
+            .unwrap_or_else(|| specifier.to_string()),
+    )
 }
 
 fn shell_script_specifiers(line: &str) -> Vec<String> {
@@ -2361,6 +2522,8 @@ fn resolve_import_specifier<'a>(
         format!("{normalized}.py"),
         format!("{normalized}.sh"),
         format!("{normalized}.rs"),
+        format!("{normalized}.css"),
+        format!("{normalized}.html"),
         format!("{normalized}.swift"),
         format!("{normalized}/index.ts"),
         format!("{normalized}/index.tsx"),
@@ -3175,6 +3338,69 @@ export const mapValues = <T>(items: T[]) => items;
             edge.from == "src/App.tsx"
                 && edge.to == "src/helper.ts#helper"
                 && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
+    }
+
+    #[test]
+    fn builds_css_and_html_asset_graph_edges_and_symbols() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(
+            src.join("styles.css"),
+            "@import './theme.css';\n.app-shell { color: var(--ink); }\n.logo { background: url('/src/logo.css'); }\n",
+        )
+        .expect("write styles");
+        std::fs::write(src.join("theme.css"), ":root { --ink: #111; }\n").expect("write theme");
+        std::fs::write(src.join("logo.css"), ".logo-mark { display: block; }\n")
+            .expect("write logo");
+        std::fs::write(
+            src.join("main.tsx"),
+            "export function boot() { return null; }\n",
+        )
+        .expect("write main");
+        std::fs::write(
+            root.path().join("index.html"),
+            r#"<html><head><link rel="stylesheet" href="/src/styles.css"></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>"#,
+        )
+        .expect("write html");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        assert_eq!(summary.indexer_version.as_deref(), Some("path-graph-v8"));
+        let graph = summary.graph.expect("graph");
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/styles.css"
+                && edge.to == "src/theme.css"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports ./theme.css"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/styles.css"
+                && edge.to == "src/logo.css"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports src/logo.css"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "index.html"
+                && edge.to == "src/styles.css"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports src/styles.css"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "index.html"
+                && edge.to == "src/main.tsx"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports src/main.tsx"
+        }));
+        assert!(graph.symbols.iter().any(|symbol| {
+            symbol.file == "src/styles.css"
+                && symbol.name == ".app-shell"
+                && matches!(symbol.kind, RepoSymbolKind::Const)
+        }));
+        assert!(graph.symbols.iter().any(|symbol| {
+            symbol.file == "index.html"
+                && symbol.name == "html"
+                && matches!(symbol.kind, RepoSymbolKind::Const)
         }));
     }
 
