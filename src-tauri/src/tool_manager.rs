@@ -342,8 +342,15 @@ struct RtkDailyGainOutput {
 #[derive(Debug, Clone, Deserialize)]
 pub struct RtkGainSummary {
     pub total_commands: u64,
+    #[serde(default)]
+    pub total_input: u64,
+    #[serde(default)]
+    pub total_output: u64,
     pub total_saved: u64,
     pub avg_savings_pct: f64,
+    #[serde(default)]
+    pub total_time_ms: u64,
+    pub avg_time_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -6399,6 +6406,29 @@ mod tests {
         assert_eq!(stats[1].savings_pct, Some(61.7));
         assert_eq!(stats[1].total_time_ms, 3500);
         assert_eq!(stats[1].avg_time_ms, Some(500));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn rtk_gain_summary_preserves_lifetime_token_and_timing_totals() {
+        let (root, runtime, manager) = seed_test_runtime("rtk-summary");
+        write_executable(
+            &runtime.bin_dir.join("rtk"),
+            "#!/usr/bin/env bash\nif [ \"$1\" = \"gain\" ]; then\n  echo '{\"summary\":{\"total_commands\":12,\"total_input\":1500,\"total_output\":600,\"total_saved\":900,\"avg_savings_pct\":60.0,\"total_time_ms\":3500,\"avg_time_ms\":292},\"daily\":[]}';\n  exit 0\nfi\nexit 9\n",
+        );
+        manager
+            .write_tool_receipt("rtk", serde_json::json!({ "version": RTK_VERSION }))
+            .expect("rtk receipt");
+
+        let summary = manager.rtk_gain_summary().expect("summary");
+        assert_eq!(summary.total_commands, 12);
+        assert_eq!(summary.total_input, 1500);
+        assert_eq!(summary.total_output, 600);
+        assert_eq!(summary.total_saved, 900);
+        assert_eq!(summary.avg_savings_pct, 60.0);
+        assert_eq!(summary.total_time_ms, 3500);
+        assert_eq!(summary.avg_time_ms, Some(292));
 
         let _ = fs::remove_dir_all(root);
     }

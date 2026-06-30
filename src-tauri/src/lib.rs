@@ -3272,8 +3272,12 @@ mod doctor_tests {
                 path_configured: false,
                 hook_configured: false,
                 total_commands: None,
+                total_input: None,
+                total_output: None,
                 total_saved: None,
                 avg_savings_pct: None,
+                total_time_ms: None,
+                avg_time_ms: None,
                 daily: Vec::new(),
             },
         }

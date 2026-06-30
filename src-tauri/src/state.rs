@@ -3069,8 +3069,12 @@ impl AppState {
                 path_configured: rtk_path_configured,
                 hook_configured: rtk_hook_configured,
                 total_commands: rtk_gain_summary.as_ref().map(|stats| stats.total_commands),
+                total_input: rtk_gain_summary.as_ref().map(|stats| stats.total_input),
+                total_output: rtk_gain_summary.as_ref().map(|stats| stats.total_output),
                 total_saved: rtk_gain_summary.as_ref().map(|stats| stats.total_saved),
                 avg_savings_pct: rtk_gain_summary.as_ref().map(|stats| stats.avg_savings_pct),
+                total_time_ms: rtk_gain_summary.as_ref().map(|stats| stats.total_time_ms),
+                avg_time_ms: rtk_gain_summary.as_ref().and_then(|stats| stats.avg_time_ms),
                 daily: rtk_daily_stats,
             },
         }
@@ -6968,8 +6972,12 @@ mod tests {
 
         tracker.observe_rtk_gain_summary(&RtkGainSummary {
             total_commands: 10,
+            total_input: 1_200,
+            total_output: 200,
             total_saved: 1000,
             avg_savings_pct: 70.0,
+            total_time_ms: 400,
+            avg_time_ms: Some(40),
         });
         assert!(
             tracker.attribution_events().is_empty(),
@@ -6978,8 +6986,12 @@ mod tests {
 
         tracker.observe_rtk_gain_summary(&RtkGainSummary {
             total_commands: 13,
+            total_input: 1_800,
+            total_output: 350,
             total_saved: 1450,
             avg_savings_pct: 72.0,
+            total_time_ms: 550,
+            avg_time_ms: Some(42),
         });
 
         let events = tracker.attribution_events();

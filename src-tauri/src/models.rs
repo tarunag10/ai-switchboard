@@ -923,8 +923,12 @@ pub struct RtkRuntimeStatus {
     pub path_configured: bool,
     pub hook_configured: bool,
     pub total_commands: Option<u64>,
+    pub total_input: Option<u64>,
+    pub total_output: Option<u64>,
     pub total_saved: Option<u64>,
     pub avg_savings_pct: Option<f64>,
+    pub total_time_ms: Option<u64>,
+    pub avg_time_ms: Option<u64>,
     #[serde(default)]
     pub daily: Vec<RtkDailyStats>,
 }

@@ -652,8 +652,12 @@ describe("savings calculator", () => {
           pathConfigured: true,
           hookConfigured: true,
           totalCommands: 12,
+          totalInput: 1_500,
+          totalOutput: 600,
           totalSaved: 900,
           avgSavingsPct: 72,
+          totalTimeMs: 3_500,
+          avgTimeMs: 292,
         },
       },
       repoSavings: {
@@ -881,7 +885,10 @@ describe("savings calculator", () => {
           pathConfigured: true,
           hookConfigured: true,
           totalCommands: 12,
+          totalInput: 1_500,
+          totalOutput: 600,
           totalSaved: 900,
+          totalTimeMs: 3_500,
         },
       },
       repoSavings: {
@@ -974,7 +981,10 @@ describe("savings calculator", () => {
           pathConfigured: true,
           hookConfigured: true,
           totalCommands: 12,
+          totalInput: 1_500,
+          totalOutput: 600,
           totalSaved: 900,
+          totalTimeMs: 3_500,
         },
       },
       repoSavings: {
@@ -1051,7 +1061,10 @@ describe("savings calculator", () => {
           pathConfigured: true,
           hookConfigured: true,
           totalCommands: 12,
+          totalInput: 1_500,
+          totalOutput: 600,
           totalSaved: 900,
+          totalTimeMs: 3_500,
         },
       },
       markitdownSavings: buildAddonSavingsEstimate(3_200, 900),
@@ -1074,7 +1087,9 @@ describe("savings calculator", () => {
     expect(text).toContain(
       "Confidence labels are not interchangeable: inferred rows are never reported as measured.",
     );
-    expect(text).toContain("Evidence: 12 command outputs compressed locally.");
+    expect(text).toContain(
+      "Evidence: 12 command outputs compressed locally across all recorded RTK history. RTK measured 1,500 input tokens, 600 output tokens, and 900 saved tokens. 60.0% saved vs input. 3.5s total RTK processing time.",
+    );
     expect(text).toContain(
       "Evidence: Markdown extract vs re-attaching the full source document each turn; the managed converter is smoke-tested before integration is enabled.",
     );

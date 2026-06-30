@@ -435,8 +435,12 @@ export interface RuntimeStatus {
     pathConfigured: boolean;
     hookConfigured: boolean;
     totalCommands?: number | null;
+    totalInput?: number | null;
+    totalOutput?: number | null;
     totalSaved?: number | null;
     avgSavingsPct?: number | null;
+    totalTimeMs?: number | null;
+    avgTimeMs?: number | null;
     daily?: RtkDailyStats[];
   };
 }

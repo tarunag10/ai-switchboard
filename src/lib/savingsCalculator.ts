@@ -455,6 +455,18 @@ export function buildSavingsCalculatorBreakdown(
     0,
     options.runtimeStatus?.rtk.totalCommands ?? 0,
   );
+  const rtkInputTokens = Math.max(
+    0,
+    options.runtimeStatus?.rtk.totalInput ?? 0,
+  );
+  const rtkOutputTokens = Math.max(
+    0,
+    options.runtimeStatus?.rtk.totalOutput ?? 0,
+  );
+  const rtkTotalTimeMs = Math.max(
+    0,
+    options.runtimeStatus?.rtk.totalTimeMs ?? 0,
+  );
   if (scope === "lifetime" && rtkSaved > 0) {
     rows.push({
       id: "rtk",
@@ -464,10 +476,14 @@ export function buildSavingsCalculatorBreakdown(
       confidence: "measured",
       savedTokens: rtkSaved,
       savedUsd: null,
-      detail:
-        rtkCommands > 0
-          ? `${rtkCommands.toLocaleString()} command outputs compressed locally.`
-          : "Command-output tokens compressed locally.",
+      detail: rtkMeasuredDetail(
+        rtkCommands,
+        rtkSaved,
+        rtkInputTokens,
+        rtkOutputTokens,
+        rtkTotalTimeMs,
+        "across all recorded RTK history",
+      ),
     });
   }
   const rtkDaily = options.runtimeStatus?.rtk.daily ?? [];

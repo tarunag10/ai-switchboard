@@ -48,7 +48,7 @@ Shipped:
 - Savings ledger caveats now use source-specific evidence language for estimated Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese rows instead of collapsing all estimates into a generic history/model warning.
 - The savings calculator now exposes the roadmap week scope in the Optimize UI, backed by saved local daily history over the trailing seven-day window alongside session, repo, today, month, and lifetime scopes.
 - The savings ledger now uses RTK daily gain rows as measured today/week/month evidence, so scoped command-output savings are no longer hidden behind lifetime-only RTK totals.
-- RTK daily gain rows now preserve measured input tokens, output tokens, savings percentage, and processing time when the local RTK binary exposes them, so today/week/month ledger rows explain more than command count and saved-token totals.
+- RTK gain rows now preserve measured input tokens, output tokens, savings percentage, and processing time when the local RTK binary exposes them, for both scoped daily rows and all-time summary rows, so ledger rows explain more than command count and saved-token totals.
 - Savings ledger scope definitions are now visible in-app and included in copied summaries, making it explicit that session resets on app restart, repo is a Repo Intelligence context estimate, and today/week/month/lifetime use saved local history.
 - Release readiness reports now ingest the local Rollback Center and Doctor repair validation summaries as explicit local-only evidence, including the required refresh commands and pass/fail status, while keeping signed/public installed-smoke gates separate.
 - The in-app Run local evidence action now finishes by regenerating the release readiness report, so one click produces fresh local validation summaries and a fresh report snapshot without running signing, notarization, updater publication, or the strict public-release gate.
@@ -200,7 +200,7 @@ Suggested commit:
 
 Goal: give users an exact, scoped answer to "how many tokens or credits did this session save?"
 
-Status: partially shipped. The ledger UI and backend durable events exist with measured, estimated, and inferred confidence labels, the calculator now covers session, repo, today, week, month, and lifetime scopes, RTK daily gain rows feed measured today/week/month ledger rows, and scope definitions are visible in-app/copyable so repo and current-session rollups are not conflated. The remaining work is stronger live counters and command-family persistence.
+Status: partially shipped. The ledger UI and backend durable events exist with measured, estimated, and inferred confidence labels, the calculator now covers session, repo, today, week, month, and lifetime scopes, RTK gain rows feed measured today/week/month/lifetime ledger rows with input/output/time evidence when available, and scope definitions are visible in-app/copyable so repo and current-session rollups are not conflated. The remaining work is stronger live counters and command-family persistence once RTK exposes command-family data.
 
 Tasks:
 
