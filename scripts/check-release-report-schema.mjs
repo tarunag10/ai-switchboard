@@ -517,14 +517,16 @@ if (
 }
 requireType(report, "localValidation.localOnlyNetwork.localOnly", "boolean");
 requireType(report, "localValidation.localOnlyNetwork.appOwnedRemoteCallsBlocked", "boolean");
-requireObject(report, "localValidation.localOnlyNetwork.coverage");
-for (const field of [
-  "guardSurfaces",
-  "appOwnedRemoteServiceSurfaces",
-  "providerTrafficSurfaces",
-  "managedDownloadSurfaces",
-]) {
-  requireType(report, `localValidation.localOnlyNetwork.coverage.${field}`, "number");
+if (report.localValidation.localOnlyNetwork.passed === true) {
+  requireObject(report, "localValidation.localOnlyNetwork.coverage");
+  for (const field of [
+    "guardSurfaces",
+    "appOwnedRemoteServiceSurfaces",
+    "providerTrafficSurfaces",
+    "managedDownloadSurfaces",
+  ]) {
+    requireType(report, `localValidation.localOnlyNetwork.coverage.${field}`, "number");
+  }
 }
 if (
   report.localValidation.localOnlyNetwork.passed === true &&
