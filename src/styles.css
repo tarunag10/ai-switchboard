@@ -8605,6 +8605,91 @@ html.window-hiding {
   background: var(--danger-tint);
 }
 
+.addons__health-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.addons__health-card {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.addons__health-card--healthy {
+  border-color: color-mix(in srgb, var(--success) 38%, var(--border-subtle));
+}
+
+.addons__health-card--warning {
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--border-subtle));
+  background: color-mix(in srgb, var(--warning) 7%, var(--surface-raised));
+}
+
+.addons__health-card--offline {
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border-subtle));
+}
+
+.addons__health-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.addons__health-heading strong,
+.addons__health-heading span,
+.addons__health-card p,
+.addons__health-card li,
+.addons__health-card em {
+  overflow-wrap: anywhere;
+}
+
+.addons__health-heading strong {
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+}
+
+.addons__health-heading span {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.addons__health-card p {
+  margin: 7px 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+.addons__health-card ul {
+  display: grid;
+  gap: 3px;
+  margin: 8px 0 0;
+  padding-left: 14px;
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  line-height: 1.35;
+}
+
+.addons__health-card em {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-primary);
+  font-size: var(--text-xxs);
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .addons__list {
   list-style: none;
   margin: 16px 0 0;
@@ -9520,6 +9605,10 @@ html.window-hiding {
 }
 
 @media (max-width: 760px) {
+  .addons__health-strip {
+    grid-template-columns: 1fr;
+  }
+
   .connector-readiness {
     grid-template-columns: 1fr;
   }

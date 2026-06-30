@@ -60,6 +60,7 @@ Shipped:
 - Doctor now treats corrupt Repo Intelligence saved summaries as one-click Clear index repairs, with backend proof that only Switchboard managed index metadata is removed before re-indexing.
 - Doctor now surfaces Repo Memory MCP smoke-failed, stale-config, service-unhealthy, and unverified-active supervision states as Prepare MCP repairs, so unsafe MCP handoffs are visible instead of relying on configured-state alone.
 - Repo Memory MCP now has connector-specific bridge setup recipes for Claude Code, Goose, Cursor/Windsurf/Zed, Continue/Aider, Gemini/OpenCode/Grok/Qwen/Amazon Q, and deployment checks keep those read-only boundaries documented.
+- The Addons page now has live health cards for Headroom engine, RTK, MarkItDown, and Ponytail, with status, evidence, and next-action copy derived from runtime/tool health instead of static checklist text alone.
 
 Left:
 
@@ -345,7 +346,7 @@ Suggested commit:
 - Per-client savings trends for Claude, Codex, and future connectors.
 - Codex large-context advisor that recommends compacting, RTK-only, or connector reset.
 - Test relationship view in Repo Intelligence.
-- Add-on health cards for RTK, MarkItDown, Ponytail, and Headroom engine.
+- Deeper add-on health history and per-add-on trend charts beyond the shipped live health cards.
 - Import/export of app settings without secrets.
 - Broader Rollback Center native restore coverage beyond Codex/OpenCode/Gemini/sidecar rows.
 

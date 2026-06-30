@@ -507,6 +507,8 @@ const requiredSourceSignals = {
     "Symbols",
     "Output growth alerts",
     "Savings anomaly alerts",
+    "AddonHealthStrip",
+    "Add-on health",
   ],
   "src/lib/repoIntelligence.ts": [
     "RepoSymbol",
@@ -523,6 +525,16 @@ const requiredSourceSignals = {
   "src/lib/savingsCalculator.test.ts": [
     "flags session savings attribution when a source increases output",
     "rtk_output_growth",
+  ],
+  "src/lib/plannedAddons.ts": [
+    "buildAddonHealthCards",
+    "Headroom engine",
+    "MarkItDown",
+    "Ponytail",
+  ],
+  "src/lib/plannedAddons.test.ts": [
+    "builds live health cards for healthy runtime and enabled add-ons",
+    "surfaces degraded runtime and incomplete RTK wiring",
   ],
   "src/lib/repoMemoryMcp.ts": [
     "service_unhealthy",

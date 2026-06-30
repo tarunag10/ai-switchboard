@@ -1,6 +1,61 @@
 import { describe, expect, it } from "vitest";
 
-import { getPlannedAddon, plannedAddons } from "./plannedAddons";
+import {
+  buildAddonHealthCards,
+  getPlannedAddon,
+  plannedAddons,
+} from "./plannedAddons";
+import type { ManagedTool, RuntimeStatus } from "./types";
+
+function runtimeFixture(
+  overrides: Partial<RuntimeStatus> = {},
+): RuntimeStatus {
+  return {
+    platform: "darwin",
+    supportTier: "supported",
+    installed: true,
+    running: true,
+    starting: false,
+    paused: false,
+    autoPaused: false,
+    proxyReachable: true,
+    proxyBindAddress: "127.0.0.1:6767",
+    backendStatus: {
+      reachable: true,
+      bindAddress: "127.0.0.1",
+      port: 6768,
+      defaultPort: 6768,
+      fallbackRangeStart: 6770,
+      fallbackRangeEnd: 6790,
+    },
+    headroomLearnSupported: true,
+    rtk: {
+      installed: true,
+      enabled: true,
+      version: "0.1.0",
+      pathConfigured: true,
+      hookConfigured: true,
+      totalCommands: 12,
+      totalSaved: 900,
+    },
+    ...overrides,
+  };
+}
+
+function toolFixture(overrides: Partial<ManagedTool>): ManagedTool {
+  return {
+    id: "markitdown",
+    name: "MarkItDown",
+    description: "Local document conversion",
+    runtime: "python",
+    required: false,
+    enabled: true,
+    status: "healthy",
+    sourceUrl: "https://example.com/tool",
+    version: "0.0.0",
+    ...overrides,
+  };
+}
 
 describe("planned add-ons", () => {
   it("tracks repo intelligence as an available local-first graph tool", () => {
@@ -82,5 +137,61 @@ describe("planned add-ons", () => {
       expect(addon.savingsSources.length).toBeGreaterThan(0);
       expect(addon.verificationCommand).toEqual(expect.any(String));
     }
+  });
+
+  it("builds live health cards for healthy runtime and enabled add-ons", () => {
+    const cards = buildAddonHealthCards(runtimeFixture(), [
+      toolFixture({ id: "markitdown", name: "MarkItDown", version: "1.0.0" }),
+      toolFixture({
+        id: "ponytail",
+        name: "Ponytail",
+        runtime: "plugin",
+        version: "2.0.0",
+      }),
+    ]);
+
+    expect(cards.map((card) => [card.id, card.statusLabel, card.tone])).toEqual([
+      ["headroom_engine", "Healthy", "healthy"],
+      ["rtk", "Healthy", "healthy"],
+      ["markitdown", "Healthy", "healthy"],
+      ["ponytail", "Healthy", "healthy"],
+    ]);
+    expect(cards.find((card) => card.id === "headroom_engine")?.evidence).toContain(
+      "Proxy listener: 127.0.0.1:6767.",
+    );
+    expect(cards.find((card) => card.id === "rtk")?.evidence).toContain(
+      "Tokens saved: 900.",
+    );
+  });
+
+  it("surfaces degraded runtime and incomplete RTK wiring as actionable warnings", () => {
+    const cards = buildAddonHealthCards(
+      runtimeFixture({
+        running: false,
+        proxyReachable: false,
+        rtk: {
+          installed: true,
+          enabled: false,
+          pathConfigured: true,
+          hookConfigured: false,
+        },
+      }),
+      [],
+    );
+
+    expect(cards.find((card) => card.id === "headroom_engine")).toMatchObject({
+      statusLabel: "Needs attention",
+      tone: "warning",
+      nextAction: "Use Start runtime or run Doctor from Home.",
+    });
+    expect(cards.find((card) => card.id === "rtk")).toMatchObject({
+      statusLabel: "Needs attention",
+      tone: "warning",
+      nextAction: "Use Enable or run Doctor to repair shell wiring.",
+    });
+    expect(cards.find((card) => card.id === "markitdown")).toMatchObject({
+      statusLabel: "Not installed",
+      tone: "offline",
+    });
   });
 });

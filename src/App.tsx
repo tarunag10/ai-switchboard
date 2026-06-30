@@ -61,7 +61,12 @@ import {
   maybeFireUrgentPricingNotifications,
   maybeFireUrgentRuntimeNotification,
 } from "./lib/urgentNotifications";
-import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
+import {
+  buildAddonHealthCards,
+  plannedAddons,
+  type AddonHealthCard,
+  type PlannedAddon,
+} from "./lib/plannedAddons";
 import {
   buildAgentSessionPreparation,
   buildAgentSessionDisplayState,
@@ -1406,6 +1411,31 @@ function AddonClientChips({
           </span>
         );
       })}
+    </div>
+  );
+}
+
+function AddonHealthStrip({ cards }: { cards: AddonHealthCard[] }) {
+  return (
+    <div className="addons__health-strip" aria-label="Add-on health">
+      {cards.map((card) => (
+        <section
+          className={`addons__health-card addons__health-card--${card.tone}`}
+          key={card.id}
+        >
+          <div className="addons__health-heading">
+            <strong>{card.name}</strong>
+            <span>{card.statusLabel}</span>
+          </div>
+          <p>{card.detail}</p>
+          <ul>
+            {card.evidence.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <em>{card.nextAction}</em>
+        </section>
+      ))}
     </div>
   );
 }
@@ -9056,6 +9086,9 @@ export default function App() {
               </p>
             </header>
             {addonError ? <p className="addons__error">{addonError}</p> : null}
+            <AddonHealthStrip
+              cards={buildAddonHealthCards(runtimeStatus, dashboard.tools)}
+            />
             <ul className="addons__list">
               <AddonCard
                 key="rtk"
