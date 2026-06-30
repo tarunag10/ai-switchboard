@@ -13,9 +13,9 @@ Mac AI Switchboard is a small Tauri desktop shell with a local daemon-oriented b
 
 ## Bootstrap Strategy
 
-The downloadable app stays small: it ships the Tauri shell, Rust backend, and installer logic. Third-party Python components are fetched on first launch into the Headroom-managed application support directory.
+The downloadable app stays small: it ships the Tauri shell, Rust backend, and installer logic. Third-party Python components are fetched on first launch into Mac AI Switchboard's managed application support directory.
 
-The packaged app identity is `Mac AI Switchboard`, but runtime storage intentionally remains under `~/Library/Application Support/Headroom` for now. That preserves existing managed Python runtimes, logs, receipts, backups, cleanup paths, and reversible client setup state until a dedicated migration can copy and verify state safely.
+The packaged app identity is `Mac AI Switchboard`, and new runtime storage lives under `~/Library/Application Support/Mac AI Switchboard`. On first launch after an older build, the app copies legacy `~/Library/Application Support/Headroom` storage into the current app storage path, records `config/migrations.json`, and preserves the legacy directory for one-release compatibility with existing runtimes, logs, receipts, backups, cleanup paths, and reversible client setup state.
 
 ## V1 Boundaries
 
@@ -51,7 +51,7 @@ Repo Intelligence exists to reduce repeated agent discovery work before large co
 The saved summary lives under managed app storage:
 
 ```text
-~/Library/Application Support/Headroom/config/repo-intelligence-latest.json
+~/Library/Application Support/Mac AI Switchboard/config/repo-intelligence-latest.json
 ```
 
 User repositories are not modified.

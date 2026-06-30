@@ -194,23 +194,26 @@ Suggested commit:
 
 Clean up app-owned footprint without breaking installed users.
 
+Status: storage migration and non-destructive uninstall disclosure are shipped. New installs use `~/Library/Application Support/Mac AI Switchboard`; first launch after an older build copies preserved `~/Library/Application Support/Headroom` storage into the current path and records `config/migrations.json`. The uninstall dry-run disclosure and local validation summary cover current bundle data, preserved legacy storage, Keychain service metadata, managed config blocks, LaunchAgents, and cleanup boundaries without deleting files. Remaining work is reboot/signed installed-app cleanup evidence before broad public tester handoff.
+
 Tasks:
 
-- Inventory current storage:
+- Inventory current storage: shipped for the app-owned and preserved legacy footprint.
   - `~/Library/Application Support/Headroom`
+  - `~/Library/Application Support/Mac AI Switchboard`
   - `~/Library/Logs/Headroom`
   - `~/Library/LaunchAgents/com.headroom.*`
   - Switchboard-owned Keychain services
   - webview storage paths
-- Decide whether to migrate storage to `Mac AI Switchboard` paths or keep compatibility paths with clearer UI wording.
-- If renaming storage, write an idempotent migration:
+- Decide whether to migrate storage to `Mac AI Switchboard` paths or keep compatibility paths with clearer UI wording: shipped; current storage is Mac AI Switchboard with preserved legacy compatibility.
+- If renaming storage, write an idempotent migration: shipped.
   - copy/move state
   - preserve backups
   - avoid losing user settings
   - clean old LaunchAgents
   - keep rollback possible
-- Update uninstall disclosure to match actual paths.
-- Add installed-app smoke tests for uninstall cleanup.
+- Update uninstall disclosure to match actual paths: shipped for non-destructive dry-run evidence.
+- Add installed-app smoke tests for uninstall cleanup: local dry-run validation is shipped; signed/reboot cleanup proof remains.
 
 Acceptance checks:
 

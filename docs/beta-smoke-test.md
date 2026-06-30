@@ -242,7 +242,7 @@ kill $BLOCK_PID 2>/dev/null
 
 Expect: `livez=200`, a `127.0.0.1:67XX` line where `XX` is NOT `68` (the fallback worked). After the test, quit + relaunch Mac AI Switchboard so the next session goes back to 6768.
 
-If the fallback is missing, check `~/Library/Application Support/Headroom/headroom/logs/` for a `[backend_port]` warning line that names the occupant and the chosen fallback port.
+If the fallback is missing, check `~/Library/Application Support/Mac AI Switchboard/headroom/logs/` first for a `[backend_port]` warning line that names the occupant and the chosen fallback port. Upgraded installs may also have preserved legacy logs under `~/Library/Application Support/Headroom/headroom/logs/`.
 
 ### 10. Free local mode has no account gate
 
@@ -309,11 +309,11 @@ rtk proxy curl -s http://127.0.0.1:6767/stats | jq .summary
 Every `rtk` invocation in this doc (checks 3, 7, C2, and above) has the same PATH caveat as check 3: when Claude Code or Codex runs them through their shell tool, `rtk` is not on PATH because the non-login shell never sources `~/.zprofile`. Either wrap the command in `zsh -lc '...'`, or call the binary by its managed path:
 
 ```bash
-"$HOME/Library/Application Support/Headroom/headroom/bin/rtk" proxy curl -s http://127.0.0.1:6767/stats | jq .summary
+"$HOME/Library/Application Support/Mac AI Switchboard/headroom/bin/rtk" proxy curl -s http://127.0.0.1:6767/stats | jq .summary
 ```
 
 ## When something fails
 
-- Proxy log silent → check `~/Library/Application Support/Headroom/headroom/logs/` for a newer log file or a crash file. This compatibility storage path remains named Headroom until a dedicated state migration is implemented.
+- Proxy log silent → check `~/Library/Application Support/Mac AI Switchboard/headroom/logs/` for a newer log file or a crash file. Upgraded installs may also retain preserved legacy logs under `~/Library/Application Support/Headroom/headroom/logs/`.
 - RTK missing → check the managed block in `~/.zshrc` / `~/.zprofile` is intact and the shell has been reloaded.
 - MCP tool missing → restart Claude Code; the MCP server registration happens at session start.

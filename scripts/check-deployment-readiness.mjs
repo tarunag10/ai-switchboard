@@ -169,6 +169,10 @@ const requiredDocSignals = {
     "SSRF/url allowlist tests cover link-opening",
     "local-only backend rejection for account, billing, and contact commands is",
     "checkout, plan change, reactivation, billing portal, and support/contact",
+    "storage migration and non-destructive uninstall disclosure are shipped",
+    "New installs use `~/Library/Application Support/Mac AI Switchboard`",
+    "records `config/migrations.json`",
+    "signed/reboot cleanup proof remains",
   ],
   "docs/install.md": [
     "Mac-AI-Switchboard_<version>.dmg",
@@ -244,6 +248,8 @@ const requiredDocSignals = {
     "bounded Markdown context pack",
     "Connector Config Readiness",
     "managed connector config readiness",
+    "Application Support/Mac AI Switchboard/headroom/bin/rtk",
+    "preserved legacy logs under `~/Library/Application Support/Headroom/headroom/logs/`",
   ],
   "docs/codex-compression-troubleshooting.md": [
     "compression_refused",
@@ -254,6 +260,10 @@ const requiredDocSignals = {
   ],
   "docs/architecture.md": [
     "src-tauri/src/repo_intelligence.rs",
+    "new runtime storage lives under `~/Library/Application Support/Mac AI Switchboard`",
+    "records `config/migrations.json`",
+    "preserves the legacy directory for one-release compatibility",
+    "Application Support/Mac AI Switchboard/config/repo-intelligence-latest.json",
     "repo-intelligence-latest.json",
     "--pack implementation --format markdown",
     "Default packs exclude secret-like paths",
@@ -813,6 +823,15 @@ const forbiddenUserCopy = {
     "tracked planned adapter",
     "command-output savings.",
     "provider config backup restore",
+  ],
+  "docs/architecture.md": [
+    "runtime storage intentionally remains under `~/Library/Application Support/Headroom`",
+    "until a dedicated migration can copy and verify state safely",
+    "Application Support/Headroom/config/repo-intelligence-latest.json",
+  ],
+  "docs/beta-smoke-test.md": [
+    "This compatibility storage path remains named Headroom until a dedicated state migration is implemented",
+    "Application Support/Headroom/headroom/bin/rtk",
   ],
 };
 
