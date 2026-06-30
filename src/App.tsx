@@ -8318,6 +8318,7 @@ export default function App() {
             rtkStatus={switchboardRtkLabel}
             rtkDetail={switchboardRtkDetail}
             connectors={switchboardConnectors}
+            recentUsage={dashboard.recentUsage}
             inspectorRows={switchboardInspectorRows}
             remoteServicesEnabled={switchboardRemoteServicesEnabled}
             savingsMode={savingsMode}

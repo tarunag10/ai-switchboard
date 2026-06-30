@@ -61,6 +61,7 @@ Shipped:
 - Doctor now surfaces Repo Memory MCP smoke-failed, stale-config, service-unhealthy, and unverified-active supervision states as Prepare MCP repairs, so unsafe MCP handoffs are visible instead of relying on configured-state alone.
 - Repo Memory MCP now has connector-specific bridge setup recipes for Claude Code, Goose, Cursor/Windsurf/Zed, Continue/Aider, Gemini/OpenCode/Grok/Qwen/Amazon Q, and deployment checks keep those read-only boundaries documented.
 - The Addons page now has live health cards for Headroom engine, RTK, MarkItDown, and Ponytail, with status, evidence, and next-action copy derived from runtime/tool health instead of static checklist text alone.
+- The Home Switchboard panel now includes a Codex large-context advisor that grades recent Codex token pressure, explains when to compact, when to switch to RTK-only, and when to reset/repair Codex through Doctor.
 
 Left:
 
@@ -344,7 +345,7 @@ Suggested commit:
 
 - Broader savings anomaly thresholds and trends beyond session-level backend output-growth alerts.
 - Per-client savings trends for Claude, Codex, and future connectors.
-- Codex large-context advisor that recommends compacting, RTK-only, or connector reset.
+- Broader Codex advisor history that persists large-context risk across launches instead of only using recent in-session token events.
 - Test relationship view in Repo Intelligence.
 - Deeper add-on health history and per-add-on trend charts beyond the shipped live health cards.
 - Import/export of app settings without secrets.

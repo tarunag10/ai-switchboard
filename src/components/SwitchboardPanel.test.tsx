@@ -200,10 +200,17 @@ describe("SwitchboardPanel", () => {
     expect(
       screen.getByText("Running several Codex goals?"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Preventive guidance")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Headroom compression is best for one main Codex session. Use RTK only before running several heavy active Codex chats or goals so large requests do not stall behind compression.",
       ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Codex context pressure evidence"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("No recent Codex token events in this app session yet."),
     ).toBeInTheDocument();
     expect(
       screen.getByLabelText("Codex parallel-session policy"),
@@ -339,6 +346,37 @@ describe("SwitchboardPanel", () => {
     expect(
       screen.queryByText("Running several Codex goals?"),
     ).not.toBeInTheDocument();
+  });
+
+  it("renders high context-pressure evidence from recent Codex usage", () => {
+    renderPanel({
+      recentUsage: [
+        {
+          id: "codex-large",
+          timestamp: "2026-06-30T10:00:00Z",
+          client: "Codex",
+          workspace: "repo",
+          upstreamTarget: "openai",
+          stages: [],
+          estimatedInputTokens: 125_000,
+          estimatedOutputTokens: 6_000,
+          estimatedCostSavingsUsd: 0,
+          latencyMs: 1_200,
+          outcome: "success",
+        },
+      ],
+    });
+
+    expect(screen.getByText("High context pressure")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Recent Codex traffic is large enough that Headroom compression can stall. Compact the largest conversation or switch to RTK only before opening more heavy Codex work.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1 recent Codex request.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Largest recent Codex request: 131,000 tokens."),
+    ).toBeInTheDocument();
   });
 
   it("switches to RTK only from Codex parallel-goal guidance", async () => {

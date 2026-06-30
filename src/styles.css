@@ -2546,16 +2546,45 @@ select {
 }
 
 .switchboard-panel__recommendation strong {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 3px;
   color: var(--text-primary);
   font-size: var(--text-xs);
+}
+
+.switchboard-panel__recommendation-risk {
+  display: inline-flex;
+  margin: 0 0 5px 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  vertical-align: top;
+}
+
+.switchboard-panel__recommendation-risk--high {
+  background: var(--warning-tint);
+  color: var(--warning);
 }
 
 .switchboard-panel__recommendation p {
   margin: 0;
   color: var(--text-secondary);
   font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+.switchboard-panel__recommendation-evidence {
+  display: grid;
+  gap: 3px;
+  margin: 7px 0 0;
+  padding-left: 16px;
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
   line-height: 1.35;
 }
 

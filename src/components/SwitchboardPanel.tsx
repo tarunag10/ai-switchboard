@@ -22,6 +22,7 @@ import type {
   ClientConnectorStatus,
   SavingsMode,
   SwitchboardMode,
+  UsageEvent,
 } from "../lib/types";
 
 interface SwitchboardPanelProps {
@@ -35,6 +36,7 @@ interface SwitchboardPanelProps {
   rtkStatus: string;
   rtkDetail: string;
   connectors?: ClientConnectorStatus[];
+  recentUsage?: UsageEvent[];
   inspectorRows?: Array<{
     label: string;
     status: string;
@@ -79,6 +81,7 @@ export function SwitchboardPanel({
   rtkStatus,
   rtkDetail,
   connectors = [],
+  recentUsage = [],
   inspectorRows = [],
   remoteServicesEnabled,
   savingsMode,
@@ -107,7 +110,11 @@ export function SwitchboardPanel({
   const modeFootprint = switchboardModeFootprint(mode);
   const setupLabel = localOnlySetupLabel(localOnly);
   const remoteCopy = remoteServicesCopy(remoteServicesEnabled);
-  const codexGuidance = codexConcurrencyGuidance(mode, headroomDetail);
+  const codexGuidance = codexConcurrencyGuidance(
+    mode,
+    headroomDetail,
+    recentUsage,
+  );
   const showStaleShellWarning = Boolean(needsAttention);
   const savingsModeCopy =
     savingsMode === "aggressive"
@@ -363,7 +370,20 @@ className="switchboard-panel__footprint"
         <div className="switchboard-panel__recommendation">
           <div>
             <strong>{codexGuidance.title}</strong>
+            <span
+              className={`switchboard-panel__recommendation-risk switchboard-panel__recommendation-risk--${codexGuidance.riskTone}`}
+            >
+              {codexGuidance.riskLabel}
+            </span>
             <p>{codexGuidance.body}</p>
+            <ul
+              className="switchboard-panel__recommendation-evidence"
+              aria-label="Codex context pressure evidence"
+            >
+              {codexGuidance.evidence.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
             <div
               className="switchboard-panel__recommendation-policies"
               aria-label="Codex parallel-session policy"

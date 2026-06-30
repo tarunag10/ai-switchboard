@@ -510,6 +510,23 @@ const requiredSourceSignals = {
     "AddonHealthStrip",
     "Add-on health",
   ],
+  "src/components/SwitchboardPanel.tsx": [
+    "Codex context pressure evidence",
+    "switchboard-panel__recommendation-risk",
+    "recentUsage",
+  ],
+  "src/lib/codexConcurrencyGuidance.ts": [
+    "riskLabel",
+    "Largest recent Codex request",
+    "Recent Codex traffic is large enough",
+  ],
+  "src/lib/codexConcurrencyGuidance.test.ts": [
+    "raises a high-pressure warning from large recent Codex requests",
+    "watches multiple medium Codex requests",
+  ],
+  "src/components/SwitchboardPanel.test.tsx": [
+    "renders high context-pressure evidence from recent Codex usage",
+  ],
   "src/lib/repoIntelligence.ts": [
     "RepoSymbol",
     "symbolEdges",
