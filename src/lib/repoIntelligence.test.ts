@@ -128,11 +128,11 @@ describe("repoIntelligence", () => {
 
     expect(summary.totalFiles).toBe(6);
     expect(summary.indexedFiles).toBe(5);
-    expect(summary.indexerVersion).toBe("path-graph-v7");
+    expect(summary.indexerVersion).toBe("path-graph-v8");
     expect(summary.roleCounts.generated).toBe(1);
     expect(summary.indexMetadata).toMatchObject({
       schemaVersion: 1,
-      indexerVersion: "path-graph-v7",
+      indexerVersion: "path-graph-v8",
       parserVersion: "metadata-fingerprint-v1",
       cacheState: "new",
       fileCount: 6,
@@ -208,6 +208,84 @@ describe("repoIntelligence", () => {
     ]);
   });
 
+  it("extracts CSS and HTML asset graph edges and symbols", () => {
+    const summary = buildRepoIntelligenceSummary([
+      {
+        path: "src/styles.css",
+        bytes: 300,
+        content:
+          "@import './theme.css';\n.app-shell { color: var(--ink); }\n.logo { background: url('/src/logo.css'); }\n",
+      },
+      {
+        path: "src/theme.css",
+        bytes: 120,
+        content: ":root { --ink: #111; }\n",
+      },
+      {
+        path: "src/logo.css",
+        bytes: 120,
+        content: ".logo-mark { display: block; }\n",
+      },
+      {
+        path: "index.html",
+        bytes: 400,
+        content:
+          '<html><head><link rel="stylesheet" href="/src/styles.css"></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>',
+      },
+      {
+        path: "src/main.tsx",
+        bytes: 500,
+        content: "export function boot() { return null; }\n",
+      },
+    ]);
+
+    expect(summary.indexerVersion).toBe("path-graph-v8");
+    expect(summary.graph).toBeDefined();
+    const graph = summary.graph!;
+    expect(graph.importEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          from: "src/styles.css",
+          to: "src/theme.css",
+          kind: "import_reference",
+          reason: "source imports ./theme.css",
+        }),
+        expect.objectContaining({
+          from: "src/styles.css",
+          to: "src/logo.css",
+          kind: "import_reference",
+          reason: "source imports src/logo.css",
+        }),
+        expect.objectContaining({
+          from: "index.html",
+          to: "src/styles.css",
+          kind: "import_reference",
+          reason: "source imports src/styles.css",
+        }),
+        expect.objectContaining({
+          from: "index.html",
+          to: "src/main.tsx",
+          kind: "import_reference",
+          reason: "source imports src/main.tsx",
+        }),
+      ]),
+    );
+    expect(graph.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          file: "src/styles.css",
+          name: ".app-shell",
+          kind: "const",
+        }),
+        expect.objectContaining({
+          file: "index.html",
+          name: "html",
+          kind: "const",
+        }),
+      ]),
+    );
+  });
+
   it("builds task-aware context packs with reasons and omitted files", () => {
     const summary = buildRepoIntelligenceSummary([
       {
@@ -274,7 +352,7 @@ describe("repoIntelligence", () => {
     expect(
       getRepoIndexFreshness({
         indexedAt: "2026-06-27T10:00:00Z",
-        indexerVersion: "path-graph-v7",
+        indexerVersion: "path-graph-v8",
         indexMetadata: baseMetadata,
         graph: buildRepoIntelligenceSummary([
           { path: "src/App.tsx", bytes: 4000 },
@@ -288,7 +366,7 @@ describe("repoIntelligence", () => {
       graphAvailable: true,
       indexHealth: "new",
       parserHealth: "current",
-      indexerVersion: "path-graph-v7",
+      indexerVersion: "path-graph-v8",
       parserVersion: "metadata-fingerprint-v1",
       indexedFileCount: 2,
       skippedFileCount: 0,
@@ -646,7 +724,7 @@ describe("repoIntelligence", () => {
     expect(manifest.kind).toBe("mac_ai_switchboard.repo_intelligence_manifest");
     expect(manifest.schemaVersion).toBe(1);
     expect(manifest.generatedAt).toBe("2026-06-25T10:00:00Z");
-    expect(manifest.totals.indexerVersion).toBe("path-graph-v7");
+    expect(manifest.totals.indexerVersion).toBe("path-graph-v8");
     expect(manifest.totals.indexMetadata?.cacheState).toBe("new");
     expect(manifest.totals.indexMetadata?.fileFingerprints.length).toBe(4);
     expect(manifest.totals.indexMetadata?.skippedFiles).toEqual(

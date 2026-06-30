@@ -59,7 +59,7 @@ export const plannedAddons: PlannedAddon[] = [
       "Available now: local file classification, token estimates, dependency hubs, path-based edges, import references, call references, reverse hubs, symbol summaries, and bounded context packs.",
       "Open the Repo Intelligence sidebar view to index a repo, review graph and savings signals, then copy Markdown or JSON handoffs.",
       "Sample preview stays non-copyable until a real local index exists, so users do not paste demo context into agents.",
-      "Still planned: deeper AST-backed parsing, full call graph, persistent parser index, direct repo-memory MCP UI controls, and Doctor repair integration.",
+      "Still planned: deeper AST-backed parsing, full call graph, and persistent parser indexes; direct repo-memory MCP controls and Doctor repair integration are available now.",
       "Local-first index stored on Mac, with secret-like paths, generated outputs, and vendor folders excluded from default packs.",
       "Read-only by default; write or auto-repair actions remain explicit user actions.",
     ],
@@ -67,7 +67,7 @@ export const plannedAddons: PlannedAddon[] = [
       "Local index exists can be cleared without touching repository.",
       "Secret-like paths generated folders excluded context packs.",
       "Manifest includes implementation, verification, handoff packs estimated tokens avoided.",
-      "Graph summary includes dependency hubs, path-based edges, import references, call references, and reverse dependency hubs.",
+      "Graph summary includes dependency hubs, path-based edges, import references, call references, reverse dependency hubs, stylesheet links, and HTML asset entrypoints.",
     ],
     savingsSources: [
       "Avoided full-repo scans by copying bounded context packs.",

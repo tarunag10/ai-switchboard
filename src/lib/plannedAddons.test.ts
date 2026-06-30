@@ -90,7 +90,7 @@ describe("planned add-ons", () => {
     expect(repoIntelligence?.bullets.join(" ")).toContain("Still planned");
     expect(repoIntelligence?.bullets.join(" ")).toContain("reverse hubs");
     expect(repoIntelligence?.bullets.join(" ")).toContain(
-      "direct repo-memory MCP UI controls",
+      "direct repo-memory MCP controls and Doctor repair integration are available now",
     );
     expect(repoIntelligence?.bullets.join(" ")).toContain(
       "persistent parser index",
@@ -101,6 +101,9 @@ describe("planned add-ons", () => {
     );
     expect(repoIntelligence?.healthChecks.join(" ")).toContain(
       "reverse dependency hubs",
+    );
+    expect(repoIntelligence?.healthChecks.join(" ")).toContain(
+      "HTML asset entrypoints",
     );
     expect(repoIntelligence?.savingsSources.join(" ")).toContain(
       "bounded context packs",

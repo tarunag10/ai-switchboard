@@ -805,7 +805,7 @@ const generatedPathPatterns = [
   /(^|\/)\.turbo\//,
   /(^|\/)vendor\//,
 ];
-export const repoIntelligenceIndexerVersion = "path-graph-v7";
+export const repoIntelligenceIndexerVersion = "path-graph-v8";
 
 const lockfileNames = new Set([
   "Cargo.lock",
@@ -2349,6 +2349,8 @@ function buildRepoSymbols(
       "Rust",
       "Python",
       "Swift",
+      "CSS",
+      "HTML",
     ].includes(file.language);
     const markdownDocs = file.role === "docs" && file.language === "Markdown";
     if (!(file.role === "source" || file.role === "test" || markdownDocs)) {
@@ -2489,6 +2491,15 @@ function extractSymbolFromLine(
       matchName(/^enum\s+([A-Za-z_][A-Za-z0-9_]*)/, "enum") ??
       matchName(/^protocol\s+([A-Za-z_][A-Za-z0-9_]*)/, "trait") ??
       matchName(/^(?:let|var)\s+([A-Za-z_][A-Za-z0-9_]*)/, "const")
+    );
+  }
+  if (language === "CSS") {
+    return matchName(/^([.#][A-Za-z_][A-Za-z0-9_-]*)\s*[,>{:.[#\s{]/, "const");
+  }
+  if (language === "HTML") {
+    return (
+      matchName(/^(?:<[^>]+\s+id=["'])([A-Za-z_][A-Za-z0-9_-]*)/, "const") ??
+      matchName(/^<([A-Za-z][A-Za-z0-9-]*)\b/, "const")
     );
   }
   return null;
@@ -2767,8 +2778,51 @@ function extractImportSpecifiers(content: string, language: string): string[] {
   if (language === "Shell") {
     specifiers.push(...extractShellScriptSpecifiers(content));
   }
+  if (language === "CSS") {
+    specifiers.push(...extractCssAssetSpecifiers(content));
+  }
+  if (language === "HTML") {
+    specifiers.push(...extractHtmlAssetSpecifiers(content));
+  }
 
   return specifiers;
+}
+
+function extractCssAssetSpecifiers(content: string): string[] {
+  const specifiers = new Set<string>();
+  const importPattern =
+    /@import\s+(?:url\(\s*)?["']?([^"')\s;]+)["']?\s*\)?/g;
+  const urlPattern = /\burl\(\s*["']?([^"')]+)["']?\s*\)/g;
+  for (const pattern of [importPattern, urlPattern]) {
+    for (const match of content.matchAll(pattern)) {
+      const specifier = normalizeAssetSpecifier(match[1]);
+      if (specifier) specifiers.add(specifier);
+    }
+  }
+  return [...specifiers];
+}
+
+function extractHtmlAssetSpecifiers(content: string): string[] {
+  const specifiers = new Set<string>();
+  const patterns = [
+    /<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi,
+    /<link\b[^>]*\bhref=["']([^"']+)["'][^>]*>/gi,
+    /<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi,
+  ];
+  for (const pattern of patterns) {
+    for (const match of content.matchAll(pattern)) {
+      const specifier = normalizeAssetSpecifier(match[1]);
+      if (specifier) specifiers.add(specifier);
+    }
+  }
+  return [...specifiers];
+}
+
+function normalizeAssetSpecifier(rawSpecifier: string | undefined): string | null {
+  const specifier = rawSpecifier?.trim();
+  if (!specifier) return null;
+  if (/^(?:https?:|data:|mailto:|tel:|#)/i.test(specifier)) return null;
+  return specifier.startsWith("/") ? `repo:${specifier.slice(1)}` : specifier;
 }
 
 function extractShellScriptSpecifiers(content: string): string[] {
@@ -2839,6 +2893,8 @@ function resolveImportSpecifier(
     `${normalized}.sh`,
     `${normalized}.py`,
     `${normalized}.rs`,
+    `${normalized}.css`,
+    `${normalized}.html`,
     ...(crateParent ? [`${crateParent}.rs`, `${crateParent}/mod.rs`] : []),
     `${normalized}.swift`,
     `${normalized}/index.ts`,
