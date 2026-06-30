@@ -2507,6 +2507,16 @@ function RepoIntelligencePreview({
             <span>Likely tests</span>
             <strong>{summary.graph.likelyTests.length}</strong>
           </div>
+          <div className="repo-intelligence-graph__wide">
+            <span>Test relationships</span>
+            <strong>{summary.graph.testRelationships?.length ?? 0}</strong>
+            <em>
+              {summary.graph.testRelationships
+                ?.slice(0, 2)
+                .map((edge) => `${edge.testPath} -> ${edge.sourcePath}`)
+                .join(", ") || "No source/test links yet"}
+            </em>
+          </div>
           <div>
             <span>Dependency hubs</span>
             <strong>{summary.graph.dependencyHubs?.length ?? 0}</strong>

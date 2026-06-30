@@ -128,11 +128,11 @@ describe("repoIntelligence", () => {
 
     expect(summary.totalFiles).toBe(6);
     expect(summary.indexedFiles).toBe(5);
-    expect(summary.indexerVersion).toBe("path-graph-v6");
+    expect(summary.indexerVersion).toBe("path-graph-v7");
     expect(summary.roleCounts.generated).toBe(1);
     expect(summary.indexMetadata).toMatchObject({
       schemaVersion: 1,
-      indexerVersion: "path-graph-v6",
+      indexerVersion: "path-graph-v7",
       parserVersion: "metadata-fingerprint-v1",
       cacheState: "new",
       fileCount: 6,
@@ -274,7 +274,7 @@ describe("repoIntelligence", () => {
     expect(
       getRepoIndexFreshness({
         indexedAt: "2026-06-27T10:00:00Z",
-        indexerVersion: "path-graph-v6",
+        indexerVersion: "path-graph-v7",
         indexMetadata: baseMetadata,
         graph: buildRepoIntelligenceSummary([
           { path: "src/App.tsx", bytes: 4000 },
@@ -288,7 +288,7 @@ describe("repoIntelligence", () => {
       graphAvailable: true,
       indexHealth: "new",
       parserHealth: "current",
-      indexerVersion: "path-graph-v6",
+      indexerVersion: "path-graph-v7",
       parserVersion: "metadata-fingerprint-v1",
       indexedFileCount: 2,
       skippedFileCount: 0,
@@ -402,6 +402,15 @@ describe("repoIntelligence", () => {
     );
     expect(summary.graph?.likelyTests.map((file) => file.path)).toContain(
       "src/App.test.tsx",
+    );
+    expect(summary.graph?.testRelationships).toEqual(
+      expect.arrayContaining([
+        {
+          testPath: "src/App.test.tsx",
+          sourcePath: "src/App.tsx",
+          reason: "test filename matches source module",
+        },
+      ]),
     );
     expect(summary.graph?.configHubs.map((file) => file.path)).toContain(
       "package.json",
@@ -586,6 +595,7 @@ describe("repoIntelligence", () => {
     expect(markdown).toContain("## Repo Graph Summary");
     expect(markdown).toContain("Top directories");
     expect(markdown).toContain("Likely tests");
+    expect(markdown).toContain("Test relationships");
     expect(markdown).toContain("Dependency hubs");
     expect(markdown).toContain("Import and dependency edges");
     expect(markdown).toContain("Reverse dependency hubs");
@@ -636,7 +646,7 @@ describe("repoIntelligence", () => {
     expect(manifest.kind).toBe("mac_ai_switchboard.repo_intelligence_manifest");
     expect(manifest.schemaVersion).toBe(1);
     expect(manifest.generatedAt).toBe("2026-06-25T10:00:00Z");
-    expect(manifest.totals.indexerVersion).toBe("path-graph-v6");
+    expect(manifest.totals.indexerVersion).toBe("path-graph-v7");
     expect(manifest.totals.indexMetadata?.cacheState).toBe("new");
     expect(manifest.totals.indexMetadata?.fileFingerprints.length).toBe(4);
     expect(manifest.totals.indexMetadata?.skippedFiles).toEqual(

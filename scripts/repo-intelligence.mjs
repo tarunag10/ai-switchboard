@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const INDEXER_VERSION = "path-graph-v6";
+const INDEXER_VERSION = "path-graph-v7";
 
 const ignoredSegments = new Set([
   ".git",
@@ -913,6 +913,7 @@ function buildGraphSummary(repoRoot, files) {
     ),
     entrypoints: sourceAndConfig.filter(isLikelyEntrypoint).slice(0, 12),
     likelyTests: included.filter((file) => file.role === "test").slice(0, 12),
+    testRelationships: buildTestRelationships(importEdges).slice(0, 12),
     configHubs: included.filter((file) => file.role === "config").slice(0, 12),
     dependencyHubs: files.filter(isDependencyHub).slice(0, 12),
     importEdges,
@@ -920,6 +921,16 @@ function buildGraphSummary(repoRoot, files) {
     symbols,
     symbolEdges,
   };
+}
+
+function buildTestRelationships(edges) {
+  return edges
+    .filter((edge) => edge.kind === "test_to_source")
+    .map((edge) => ({
+      testPath: edge.from,
+      sourcePath: edge.to,
+      reason: edge.reason,
+    }));
 }
 
 function buildRepoSymbols(repoRoot, files) {
@@ -1684,6 +1695,16 @@ function formatGraphMarkdown(graph) {
     (file) => "- " + file.path + " (" + file.language + ")",
   );
   const tests = graph.likelyTests.map((file) => "- " + file.path);
+  const testRelationships = (graph.testRelationships ?? []).map(
+    (edge) =>
+      "- " +
+      edge.testPath +
+      " -> " +
+      edge.sourcePath +
+      " (" +
+      edge.reason +
+      ")",
+  );
   const config = graph.configHubs.map((file) => "- " + file.path);
   const dependencies = (graph.dependencyHubs ?? []).map(
     (file) => "- " + file.path,
@@ -1730,6 +1751,9 @@ function formatGraphMarkdown(graph) {
   if (languages.length) lines.push("", "Top languages", ...languages);
   if (entrypoints.length) lines.push("", "Likely entrypoints", ...entrypoints);
   if (tests.length) lines.push("", "Likely tests", ...tests);
+  if (testRelationships.length) {
+    lines.push("", "Test relationships", ...testRelationships);
+  }
   if (config.length) lines.push("", "Config hubs", ...config);
   if (dependencies.length) lines.push("", "Dependency hubs", ...dependencies);
   if (symbols.length) lines.push("", "Symbols", ...symbols.slice(0, 12));

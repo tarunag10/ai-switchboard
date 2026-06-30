@@ -74,6 +74,12 @@ export interface RepoGraphEdge {
   reason: string;
 }
 
+export interface RepoTestRelationship {
+  testPath: string;
+  sourcePath: string;
+  reason: string;
+}
+
 export type RepoSymbolKind =
   | "function"
   | "class"
@@ -96,6 +102,7 @@ export interface RepoGraphSummary {
   topLanguages: RepoGraphNode[];
   entrypoints: RepoFileSignal[];
   likelyTests: RepoFileSignal[];
+  testRelationships?: RepoTestRelationship[];
   configHubs: RepoFileSignal[];
   dependencyHubs?: RepoFileSignal[];
   importEdges?: RepoGraphEdge[];
@@ -798,7 +805,7 @@ const generatedPathPatterns = [
   /(^|\/)\.turbo\//,
   /(^|\/)vendor\//,
 ];
-export const repoIntelligenceIndexerVersion = "path-graph-v6";
+export const repoIntelligenceIndexerVersion = "path-graph-v7";
 
 const lockfileNames = new Set([
   "Cargo.lock",
@@ -1980,6 +1987,12 @@ function formatRepoGraphMarkdown(graph: RepoGraphSummary | undefined): string {
     .map((file) => `- ${file.path} (${file.language})`)
     .slice(0, 8);
   const tests = graph.likelyTests.map((file) => `- ${file.path}`).slice(0, 8);
+  const testRelationships = (graph.testRelationships ?? [])
+    .map(
+      (edge) =>
+        `- ${edge.testPath} -> ${edge.sourcePath} (${edge.reason})`,
+    )
+    .slice(0, 8);
   const config = graph.configHubs.map((file) => `- ${file.path}`).slice(0, 8);
   const dependencies = (graph.dependencyHubs ?? [])
     .map((file) => `- ${file.path}`)
@@ -2015,6 +2028,9 @@ function formatRepoGraphMarkdown(graph: RepoGraphSummary | undefined): string {
   }
   if (tests.length) {
     lines.push("", "Likely tests", ...tests);
+  }
+  if (testRelationships.length) {
+    lines.push("", "Test relationships", ...testRelationships);
   }
   if (config.length) {
     lines.push("", "Config hubs", ...config);
@@ -2297,6 +2313,7 @@ function buildRepoGraphSummary(
     ),
     entrypoints: sourceAndConfig.filter(isLikelyEntrypoint).slice(0, 12),
     likelyTests: included.filter((file) => file.role === "test").slice(0, 12),
+    testRelationships: buildTestRelationships(importEdges).slice(0, 12),
     configHubs: included.filter((file) => file.role === "config").slice(0, 12),
     dependencyHubs: files.filter(isDependencyHub).slice(0, 12),
     importEdges,
@@ -2304,6 +2321,18 @@ function buildRepoGraphSummary(
     symbols,
     symbolEdges,
   };
+}
+
+function buildTestRelationships(
+  edges: RepoGraphEdge[],
+): RepoTestRelationship[] {
+  return edges
+    .filter((edge) => edge.kind === "test_to_source")
+    .map((edge) => ({
+      testPath: edge.from,
+      sourcePath: edge.to,
+      reason: edge.reason,
+    }));
 }
 
 function buildRepoSymbols(
