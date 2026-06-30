@@ -454,6 +454,7 @@ function buildLocalValidationEvidence() {
       localOnly: localOnlyNetworkJson.body?.localOnly === true,
       appOwnedRemoteCallsBlocked:
         localOnlyNetworkJson.body?.appOwnedRemoteCallsBlocked === true,
+      coverage: localOnlyNetworkJson.body?.coverage ?? null,
       parseError: localOnlyNetworkJson.parseError,
       kind: localOnlyNetworkJson.body?.kind ?? null,
       stepCount: Array.isArray(localOnlyNetworkJson.body?.steps)
@@ -666,6 +667,10 @@ ${localValidation.localOnlyNetwork.generatedLine ? `- ${localValidation.localOnl
 - Local-only network validation passed: ${localValidation.localOnlyNetwork.passed ? "yes" : "no"}
 - Local-only network mode: ${localValidation.localOnlyNetwork.localOnly ? "yes" : "unknown"}
 - App-owned remote calls blocked: ${localValidation.localOnlyNetwork.appOwnedRemoteCallsBlocked ? "yes" : "unknown"}
+- Local-only network guard surfaces: ${localValidation.localOnlyNetwork.coverage?.guardSurfaces ?? "unknown"}
+- Local-only network app-owned remote-service surfaces: ${localValidation.localOnlyNetwork.coverage?.appOwnedRemoteServiceSurfaces ?? "unknown"}
+- Local-only network provider-traffic surfaces: ${localValidation.localOnlyNetwork.coverage?.providerTrafficSurfaces ?? "unknown"}
+- Local-only network managed-download surfaces: ${localValidation.localOnlyNetwork.coverage?.managedDownloadSurfaces ?? "unknown"}
 - Local-only network validation steps: ${localValidation.localOnlyNetwork.stepCount}
 - Local-only network command: ${localValidation.localOnlyNetwork.requiredCommand}
 - ${localValidation.message}

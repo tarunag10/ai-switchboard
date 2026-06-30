@@ -147,6 +147,9 @@ const requiredScripts = {
     "dist/local-only-network-validation-summary.json",
     "releaseGateEvidence: false",
     "App-owned remote calls blocked",
+    "providerTrafficSurfaces",
+    "managedDownloadSurfaces",
+    "api.headroom",
   ],
 };
 

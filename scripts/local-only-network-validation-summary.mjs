@@ -4,6 +4,13 @@ import path from "node:path";
 
 const summaryPath = "dist/local-only-network-validation-summary.md";
 const jsonPath = "dist/local-only-network-validation-summary.json";
+const coverage = {
+  guardSurfaces: 6,
+  appOwnedRemoteServiceSurfaces: 4,
+  providerTrafficSurfaces: 2,
+  managedDownloadSurfaces: 2,
+  forbiddenRemoteFragments: ["buy.polar.sh", "app.aptabase.com", "clarity.ms", "api.headroom"],
+};
 
 const steps = [
   {
@@ -47,6 +54,7 @@ const payload = {
   releaseGateEvidence: false,
   localOnly: true,
   appOwnedRemoteCallsBlocked: passed,
+  coverage,
   passed,
   steps: results.map(({ stdout, stderr, ...result }) => ({
     ...result,
@@ -63,6 +71,13 @@ Generated: ${generatedAt}
 - Release gate evidence: no
 - Local-only: yes
 - App-owned remote calls blocked: ${passed ? "yes" : "no"}
+- Guard surfaces checked: ${coverage.guardSurfaces}
+- App-owned remote-service surfaces documented: ${coverage.appOwnedRemoteServiceSurfaces}
+- Provider-traffic surfaces documented: ${coverage.providerTrafficSurfaces}
+- Managed-download surfaces documented: ${coverage.managedDownloadSurfaces}
+- Forbidden remote fragments checked: ${coverage.forbiddenRemoteFragments
+  .map((fragment) => `\`${fragment}\``)
+  .join(", ")}
 - Overall result: ${passed ? "pass" : "fail"}
 
 ${results

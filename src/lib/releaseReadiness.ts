@@ -165,6 +165,12 @@ export interface ReleaseReadinessReportSnapshot {
       passed?: boolean;
       localOnly?: boolean | null;
       appOwnedRemoteCallsBlocked?: boolean | null;
+      coverage?: {
+        guardSurfaces?: number;
+        appOwnedRemoteServiceSurfaces?: number;
+        providerTrafficSurfaces?: number;
+        managedDownloadSurfaces?: number;
+      } | null;
       stepCount?: number;
       requiredCommand?: string;
       summaryPath?: string;
@@ -877,7 +883,11 @@ export function releaseLocalEvidenceRowsFromReport(
         local.localOnlyNetwork?.summaryPresent,
         local.localOnlyNetwork?.localOnly === true &&
           local.localOnlyNetwork?.appOwnedRemoteCallsBlocked === true
-          ? "Local-only guards and remote-service scan passed."
+          ? `Local-only guards and remote-service scan passed${
+              local.localOnlyNetwork.coverage
+                ? ` across ${local.localOnlyNetwork.coverage.guardSurfaces ?? "unknown"} guard surfaces, ${local.localOnlyNetwork.coverage.appOwnedRemoteServiceSurfaces ?? "unknown"} app-owned remote-service surfaces, ${local.localOnlyNetwork.coverage.providerTrafficSurfaces ?? "unknown"} provider-traffic surfaces, and ${local.localOnlyNetwork.coverage.managedDownloadSurfaces ?? "unknown"} managed-download surfaces.`
+                : "."
+            }`
           : "Local-only network boundary unproven.",
       ),
     },

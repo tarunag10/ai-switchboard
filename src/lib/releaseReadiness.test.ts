@@ -337,6 +337,12 @@ describe("release readiness checklist", () => {
           summaryPresent: true,
           localOnly: true,
           appOwnedRemoteCallsBlocked: true,
+          coverage: {
+            guardSurfaces: 6,
+            appOwnedRemoteServiceSurfaces: 4,
+            providerTrafficSurfaces: 2,
+            managedDownloadSurfaces: 2,
+          },
           requiredCommand: "npm run smoke:local-only:local",
           summaryPath: "dist/local-only-network-validation-summary.md",
         },
@@ -384,7 +390,13 @@ describe("release readiness checklist", () => {
     );
     expect(
       rows.find((row) => row.id === "local-only-network")?.detail,
-    ).toContain("Local-only guards and remote-service scan passed.");
+    ).toContain("Local-only guards and remote-service scan passed");
+    expect(
+      rows.find((row) => row.id === "local-only-network")?.detail,
+    ).toContain("2 provider-traffic surfaces");
+    expect(
+      rows.find((row) => row.id === "local-only-network")?.detail,
+    ).toContain("2 managed-download surfaces");
   });
 
   it("returns no local evidence rows before a release report is loaded", () => {

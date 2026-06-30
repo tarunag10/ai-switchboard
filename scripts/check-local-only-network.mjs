@@ -78,6 +78,38 @@ const documentedAppOwnedRemoteSignals = [
   },
 ];
 
+const documentedProviderTrafficSignals = [
+  {
+    id: "anthropic-provider-traffic",
+    sourcePath: "src-tauri/src/proxy_intercept.rs",
+    needles: ["https://api.anthropic.com"],
+    docsNeedles: ["Provider Traffic", "Anthropic"],
+  },
+  {
+    id: "openai-provider-traffic",
+    sourcePath: "src-tauri/src/proxy_intercept.rs",
+    needles: ["https://api.openai.com", "https://chatgpt.com/backend-api/wham/usage"],
+    docsNeedles: ["Provider Traffic", "OpenAI"],
+  },
+];
+
+const documentedToolDownloadSignals = [
+  {
+    id: "pinned-headroom-wheel",
+    sourcePath: "src-tauri/src/tool_manager.rs",
+    needles: ["https://files.pythonhosted.org/", "HEADROOM_PINNED_WHEEL_URL"],
+    docsNeedles: ["Tool And Dependency Downloads", "Pinned `headroom-ai` wheel install."],
+  },
+  {
+    id: "vendor-wheel-index",
+    sourcePath: "src-tauri/src/tool_manager.rs",
+    needles: [
+      "https://github.com/gglucass/headroom-desktop/releases/expanded_assets/vendor-wheels-v1",
+    ],
+    docsNeedles: ["Vendor wheel index", "Pinned by the desktop release."],
+  },
+];
+
 const forbiddenExecutableRemoteFragments = [
   {
     fragment: "buy.polar.sh",
@@ -93,6 +125,11 @@ const forbiddenExecutableRemoteFragments = [
     fragment: "clarity.ms",
     allowedPaths: [],
     requiredContext: "frontend Clarity must remain env-gated and absent from local-free bundles",
+  },
+  {
+    fragment: "api.headroom",
+    allowedPaths: [],
+    requiredContext: "no paid or upstream Headroom account API is allowed",
   },
 ];
 
@@ -160,6 +197,38 @@ if (requireFile(docsPath)) {
       }
     }
   }
+
+  for (const item of documentedProviderTrafficSignals) {
+    if (!requireFile(item.sourcePath)) {
+      continue;
+    }
+    const source = read(item.sourcePath);
+    const sourceHasNeedle = item.needles.some((needle) => source.includes(needle));
+    if (!sourceHasNeedle) {
+      failures.push(`${item.sourcePath} missing expected ${item.id} provider signal`);
+    }
+    for (const docsNeedle of item.docsNeedles) {
+      if (!docs.includes(docsNeedle)) {
+        failures.push(`${docsPath} missing ${item.id} documentation signal: ${docsNeedle}`);
+      }
+    }
+  }
+
+  for (const item of documentedToolDownloadSignals) {
+    if (!requireFile(item.sourcePath)) {
+      continue;
+    }
+    const source = read(item.sourcePath);
+    const sourceHasNeedle = item.needles.some((needle) => source.includes(needle));
+    if (!sourceHasNeedle) {
+      failures.push(`${item.sourcePath} missing expected ${item.id} download signal`);
+    }
+    for (const docsNeedle of item.docsNeedles) {
+      if (!docs.includes(docsNeedle)) {
+        failures.push(`${docsPath} missing ${item.id} documentation signal: ${docsNeedle}`);
+      }
+    }
+  }
 }
 
 for (const [path, signals] of Object.entries(requiredGuardSignals)) {
@@ -204,5 +273,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Local-only network certification passed for ${Object.keys(requiredGuardSignals).length} guard surfaces and ${documentedAppOwnedRemoteSignals.length} documented remote-service surfaces.`,
+  `Local-only network certification passed for ${Object.keys(requiredGuardSignals).length} guard surfaces, ${documentedAppOwnedRemoteSignals.length} documented app-owned remote-service surfaces, ${documentedProviderTrafficSignals.length} documented provider-traffic surfaces, and ${documentedToolDownloadSignals.length} documented managed-download surfaces.`,
 );
