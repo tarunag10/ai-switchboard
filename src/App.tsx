@@ -1040,7 +1040,7 @@ function SavingsCalculatorCard({
             className="savings-calculator__anomalies"
             aria-label="Savings anomaly alerts"
           >
-            <strong>Output growth alerts</strong>
+            <strong>Savings anomaly alerts</strong>
             <span>{formatSavingsAnomalyAlerts(anomalyAlerts)}</span>
           </div>
         ) : null}

@@ -142,6 +142,7 @@ export interface SavingsAnomalyAlert {
   source: SavingsLedgerSource;
   label: string;
   severity: "warning";
+  kind: "output_growth" | "low_savings" | "cost_growth";
   eventCount: number;
   requestDelta: number;
   tokenIncrease: number;
@@ -803,7 +804,7 @@ export function buildSavingsAnomalyAlerts(
 
   const grouped = new Map<SavingsLedgerSource, SavingsAttributionEvent[]>();
   for (const event of events) {
-    if (event.scope !== "session" || event.deltaTokensSaved >= 0) {
+    if (event.scope !== "session") {
       continue;
     }
 
@@ -813,16 +814,8 @@ export function buildSavingsAnomalyAlerts(
   }
 
   return [...grouped.entries()]
-    .map(([source, sourceEvents]) => {
+    .flatMap(([source, sourceEvents]) => {
       const meta = savingsSourceLabels[source];
-      const tokenIncrease = sourceEvents.reduce(
-        (sum, event) => sum + Math.max(0, -event.deltaTokensSaved),
-        0,
-      );
-      const requestDelta = sourceEvents.reduce(
-        (sum, event) => sum + Math.max(0, event.requestDelta),
-        0,
-      );
       const observedAtValues = sourceEvents
         .map((event) => event.observedAt)
         .sort();
@@ -833,20 +826,85 @@ export function buildSavingsAnomalyAlerts(
         .filter(Boolean);
       const evidenceDetail =
         evidence.length > 0 ? ` Evidence: ${evidence[0]}` : "";
+      const requestDelta = sourceEvents.reduce(
+        (sum, event) => sum + Math.max(0, event.requestDelta),
+        0,
+      );
+      const alerts: SavingsAnomalyAlert[] = [];
 
-      return {
-        id: `${source}_output_growth`,
-        source,
-        label: meta.label,
-        severity: "warning" as const,
-        eventCount: sourceEvents.length,
-        requestDelta,
-        tokenIncrease,
-        latestObservedAt,
-        detail: `${meta.label} output grew by ${formatTokens(tokenIncrease)} token${Math.round(tokenIncrease) === 1 ? "" : "s"} across ${requestDelta.toLocaleString()} ${source === "rtk" ? "command" : "request"}${requestDelta === 1 ? "" : "s"}.${evidenceDetail}`,
-      };
+      const outputGrowthEvents = sourceEvents.filter(
+        (event) => event.deltaTokensSaved < 0,
+      );
+      const tokenIncrease = sourceEvents.reduce(
+        (sum, event) => sum + Math.max(0, -event.deltaTokensSaved),
+        0,
+      );
+      if (tokenIncrease > 0) {
+        alerts.push({
+          id: `${source}_output_growth`,
+          source,
+          label: meta.label,
+          severity: "warning",
+          kind: "output_growth",
+          eventCount: outputGrowthEvents.length,
+          requestDelta,
+          tokenIncrease,
+          latestObservedAt,
+          detail: `${meta.label} output grew by ${formatTokens(tokenIncrease)} token${Math.round(tokenIncrease) === 1 ? "" : "s"} across ${requestDelta.toLocaleString()} ${source === "rtk" ? "command" : "request"}${requestDelta === 1 ? "" : "s"}.${evidenceDetail}`,
+        });
+      }
+
+      const positiveEvents = sourceEvents.filter(
+        (event) => event.deltaTokensSaved >= 0,
+      );
+      const totalTokensSent = positiveEvents.reduce(
+        (sum, event) => sum + Math.max(0, event.totalTokensSent),
+        0,
+      );
+      const totalTokensSaved = positiveEvents.reduce(
+        (sum, event) => sum + Math.max(0, event.deltaTokensSaved),
+        0,
+      );
+      const savingsRatio =
+        totalTokensSent + totalTokensSaved > 0
+          ? totalTokensSaved / (totalTokensSent + totalTokensSaved)
+          : 0;
+      if (totalTokensSent >= 50_000 && savingsRatio > 0 && savingsRatio < 0.02) {
+        alerts.push({
+          id: `${source}_low_savings`,
+          source,
+          label: meta.label,
+          severity: "warning",
+          kind: "low_savings",
+          eventCount: positiveEvents.length,
+          requestDelta,
+          tokenIncrease: totalTokensSent,
+          latestObservedAt,
+          detail: `${meta.label} saved only ${(savingsRatio * 100).toFixed(1)}% across ${formatTokens(totalTokensSent)} sent tokens. Review thresholds or switch modes before heavier traffic.${evidenceDetail}`,
+        });
+      }
+
+      const negativeUsd = sourceEvents.reduce(
+        (sum, event) => sum + Math.max(0, -event.deltaUsd),
+        0,
+      );
+      if (negativeUsd > 0) {
+        alerts.push({
+          id: `${source}_cost_growth`,
+          source,
+          label: meta.label,
+          severity: "warning",
+          kind: "cost_growth",
+          eventCount: sourceEvents.filter((event) => event.deltaUsd < 0).length,
+          requestDelta,
+          tokenIncrease: Math.round(negativeUsd * 100),
+          latestObservedAt,
+          detail: `${meta.label} cost estimate increased by ${formatUsd(negativeUsd)} in this session. Check provider routing and attribution evidence.${evidenceDetail}`,
+        });
+      }
+
+      return alerts;
     })
-    .filter((alert) => alert.tokenIncrease > 0)
     .sort((left, right) => right.tokenIncrease - left.tokenIncrease);
 }
 

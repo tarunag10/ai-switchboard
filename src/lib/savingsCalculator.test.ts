@@ -1157,6 +1157,7 @@ describe("savings calculator", () => {
         source: "rtk",
         label: "RTK",
         severity: "warning",
+        kind: "output_growth",
         eventCount: 2,
         requestDelta: 2,
         tokenIncrease: 200,
@@ -1185,6 +1186,65 @@ describe("savings calculator", () => {
       "- rtk: RTK output grew by 200 tokens across 2 commands. Evidence: rtk sample grew after fallback passthrough",
     );
     expect(formatSavingsAnomalyAlerts([])).toBe("Anomalies: none detected.");
+  });
+
+  it("detects low savings and cost-growth anomalies for high-volume sessions", () => {
+    const recordedAt = "2026-06-27T10:00:00.000Z";
+    const events: SavingsAttributionEvent[] = [
+      {
+        schemaVersion: 1,
+        id: "low-savings",
+        observedAt: "2026-06-27T10:01:00.000Z",
+        scope: "session",
+        source: "headroom_engine",
+        confidence: "measured",
+        deltaTokensSaved: 900,
+        deltaUsd: 0.02,
+        totalTokensSent: 90_000,
+        requestDelta: 3,
+        evidence: ["large prompt barely compressed"],
+      },
+      {
+        schemaVersion: 1,
+        id: "cost-growth",
+        observedAt: "2026-06-27T10:02:00.000Z",
+        scope: "session",
+        source: "repo_intelligence",
+        confidence: "estimated",
+        deltaTokensSaved: 1_200,
+        deltaUsd: -0.08,
+        totalTokensSent: 12_000,
+        requestDelta: 1,
+        evidence: ["pack estimate exceeded baseline"],
+      },
+    ];
+
+    const alerts = buildSavingsAnomalyAlerts(events, "session", recordedAt);
+
+    expect(alerts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "headroom_engine_low_savings",
+          kind: "low_savings",
+          source: "headroom_engine",
+          eventCount: 1,
+          tokenIncrease: 90_000,
+        }),
+        expect.objectContaining({
+          id: "repo_intelligence_cost_growth",
+          kind: "cost_growth",
+          source: "repo_intelligence",
+          eventCount: 1,
+          tokenIncrease: 8,
+        }),
+      ]),
+    );
+    expect(
+      alerts.find((alert) => alert.id === "headroom_engine_low_savings")?.detail,
+    ).toContain("saved only 1.0% across 90,000 sent tokens");
+    expect(
+      alerts.find((alert) => alert.id === "repo_intelligence_cost_growth")?.detail,
+    ).toContain("cost estimate increased by $0.08");
   });
 
   it("formats savings attribution by confidence without overstating empty ledgers", () => {

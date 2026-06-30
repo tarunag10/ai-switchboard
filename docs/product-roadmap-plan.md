@@ -60,6 +60,7 @@ Shipped:
 - Doctor now treats corrupt Repo Intelligence saved summaries as one-click Clear index repairs, with backend proof that only Switchboard managed index metadata is removed before re-indexing.
 - Add-on health cards now include bounded trend evidence: Headroom uses recent optimized usage or saved local history, RTK uses per-day command-output history, and MarkItDown/Ponytail explicitly show current-only history until durable counters exist.
 - Codex context-pressure guidance now uses saved local daily token history as fallback evidence after relaunch, while still labeling session-only Codex events separately from broader local history.
+- Savings anomaly alerts now cover output growth, low savings ratio on high-token sessions, and session cost-growth estimates instead of only showing backend output-growth warnings.
 - Doctor now surfaces Repo Memory MCP smoke-failed, stale-config, service-unhealthy, and unverified-active supervision states as Prepare MCP repairs, so unsafe MCP handoffs are visible instead of relying on configured-state alone.
 - Repo Memory MCP now has connector-specific bridge setup recipes for Claude Code, Goose, Cursor/Windsurf/Zed, Continue/Aider, Gemini/OpenCode/Grok/Qwen/Amazon Q, and deployment checks keep those read-only boundaries documented.
 - The Addons page now has live health cards for Headroom engine, RTK, MarkItDown, and Ponytail, with status, evidence, and next-action copy derived from runtime/tool health instead of static checklist text alone.
@@ -348,7 +349,7 @@ Suggested commit:
 
 ### Medium Impact
 
-- Broader savings anomaly thresholds and trends beyond session-level backend output-growth alerts.
+- Broader savings anomaly thresholds beyond the shipped session output-growth, low-savings, and cost-growth alerts, especially durable day/week trends once backend attribution can persist richer baselines.
 - Broader per-client savings history beyond the shipped saved provider-history fallback, including exact request counts once backend daily/hourly history can persist client counts directly.
 - Broader Codex advisor history beyond the shipped saved daily-history fallback, including per-Codex durable history once backend attribution can separate clients across launches.
 - Test relationship view in Repo Intelligence.

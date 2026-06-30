@@ -509,7 +509,6 @@ const requiredSourceSignals = {
     "Top directories",
     "Likely tests",
     "Symbols",
-    "Output growth alerts",
     "Savings anomaly alerts",
     "AddonHealthStrip",
     "Add-on health",
@@ -565,6 +564,8 @@ const requiredSourceSignals = {
     "formatSavingsAnomalyAlerts",
     "Anomalies: none detected.",
     "output grew by",
+    "low_savings",
+    "cost_growth",
   ],
   "src/lib/savingsCalculator.test.ts": [
     "flags session savings attribution when a source increases output",
