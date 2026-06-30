@@ -1949,31 +1949,15 @@ pub fn perform_full_cleanup() -> Vec<String> {
         let _ = std::fs::remove_file(&setup_state);
     }
 
-    let app_dir = app_data_dir();
-    if app_dir.exists() {
-        match remove_dir_all_retry(&app_dir) {
-            Ok(_) => removed.push(app_dir.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", app_dir.display()),
-        }
-    }
-
-    let dot_headroom = home_dir().join(".headroom");
-    if dot_headroom.exists() {
-        match std::fs::remove_dir_all(&dot_headroom) {
-            Ok(_) => removed.push(dot_headroom.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", dot_headroom.display()),
-        }
-    }
+    removed.extend(remove_managed_runtime_storage());
 
     #[cfg(target_os = "macos")]
     {
         removed.extend(remove_macos_launch_agents());
-        removed.extend(remove_macos_preferences());
-        removed.extend(remove_macos_caches());
-        removed.extend(remove_macos_logs());
-        removed.extend(remove_macos_bundle_dirs());
+        removed.extend(remove_macos_app_state());
     }
 
+    #[cfg(not(target_os = "macos"))]
     remove_known_keychain_entries();
 
     // Sweep `<basename>.headroom-backup-*` and `<basename>.nommer-backup-*`
@@ -1986,6 +1970,93 @@ pub fn perform_full_cleanup() -> Vec<String> {
     }
 
     removed
+}
+
+pub fn managed_runtime_storage_paths() -> Vec<PathBuf> {
+    let app_dir = app_data_dir();
+    let legacy_dir = app_dir
+        .parent()
+        .map(|parent| parent.join(LEGACY_STORAGE_DIR_NAME))
+        .unwrap_or_else(|| {
+            home_dir()
+                .join("Library")
+                .join("Application Support")
+                .join(LEGACY_STORAGE_DIR_NAME)
+        });
+    vec![app_dir, legacy_dir, home_dir().join(".headroom")]
+}
+
+pub fn remove_managed_runtime_storage() -> Vec<String> {
+    let mut removed = Vec::new();
+    for path in managed_runtime_storage_paths() {
+        if !path.exists() {
+            continue;
+        }
+        match remove_dir_all_retry(&path) {
+            Ok(_) => removed.push(path.display().to_string()),
+            Err(err) => log::warn!("cleanup: removing {} failed: {err}", path.display()),
+        }
+    }
+    removed
+}
+
+#[cfg(target_os = "macos")]
+pub fn macos_app_state_paths() -> Vec<PathBuf> {
+    let lib = home_dir().join("Library");
+    let mut paths = vec![
+        lib.join("Caches").join(APP_BUNDLE_ID),
+        lib.join("WebKit").join(APP_BUNDLE_ID),
+        lib.join("HTTPStorages").join(APP_BUNDLE_ID),
+        lib.join("HTTPStorages")
+            .join(format!("{APP_BUNDLE_ID}.binarycookies")),
+        lib.join("Saved Application State")
+            .join(format!("{APP_BUNDLE_ID}.savedState")),
+    ];
+    for log_dir in ["Headroom", "Mac AI Switchboard"] {
+        paths.push(lib.join("Logs").join(log_dir));
+    }
+    let prefs_dir = lib.join("Preferences");
+    if let Ok(entries) = std::fs::read_dir(&prefs_dir) {
+        for entry in entries.flatten() {
+            let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+                continue;
+            };
+            if name.starts_with(APP_BUNDLE_ID) {
+                paths.push(entry.path());
+            }
+        }
+    } else {
+        paths.push(prefs_dir.join(format!("{APP_BUNDLE_ID}.plist")));
+    }
+    paths
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn macos_app_state_paths() -> Vec<PathBuf> {
+    Vec::new()
+}
+
+#[cfg(target_os = "macos")]
+pub fn remove_macos_app_state() -> Vec<String> {
+    let mut removed = Vec::new();
+    removed.extend(remove_macos_preferences());
+    removed.extend(remove_macos_caches());
+    removed.extend(remove_macos_logs());
+    removed.extend(remove_macos_bundle_dirs());
+    remove_known_keychain_entries();
+    removed
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn remove_macos_app_state() -> Vec<String> {
+    Vec::new()
+}
+
+pub fn known_keychain_entry_labels() -> Vec<String> {
+    known_keychain_entries()
+        .iter()
+        .map(|(service, account)| format!("keychain://{service}/{account}"))
+        .collect()
 }
 
 fn managed_backup_targets() -> Vec<PathBuf> {

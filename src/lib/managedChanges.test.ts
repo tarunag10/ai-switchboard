@@ -49,8 +49,10 @@ describe("managedChangeRecords", () => {
       managedChangeRecords.every((record) => record.rollback.length > 0),
     ).toBe(true);
     expect(supportsNativeManagedRollbackRecord("repo-intelligence")).toBe(false);
+    expect(supportsDedicatedCleanupRollbackRecord("managed-storage")).toBe(true);
     expect(supportsDedicatedCleanupRollbackRecord("repo-intelligence")).toBe(true);
     expect(supportsDedicatedCleanupRollbackRecord("login-item")).toBe(true);
+    expect(supportsDedicatedCleanupRollbackRecord("app-state")).toBe(true);
     expect(supportsDedicatedCleanupRollbackRecord("plugins-backups")).toBe(true);
   });
 
@@ -397,7 +399,9 @@ describe("managedChangeRecords", () => {
       managedChangeRecords.length - preview.executable.length,
     );
     expect(preview.blockedReason).toContain("Native undo-all can execute");
-    expect(preview.blockedReason).toContain("dedicated cleanup rows stay blocked");
+    expect(preview.blockedReason).toContain(
+      "dedicated cleanup rows use their own exact-confirmation cleanup actions",
+    );
     expect(preview.safetyNotes.join(" ")).toContain("native undo-all control");
   });
 
@@ -414,7 +418,9 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Amazon Q Developer CLI routing (amazon-q-routing)");
     expect(text).toContain("Manual or cleanup rows:");
     expect(text).toContain("Native undo-all can execute only backend-allowlisted ready rows");
-    expect(text).toContain("dedicated cleanup rows stay blocked");
+    expect(text).toContain(
+      "dedicated cleanup rows use their own exact-confirmation cleanup actions",
+    );
     expect(text).toContain(
       "This copyable undo-all preview does not modify files; use the native undo-all control to execute ready rows.",
     );

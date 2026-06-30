@@ -437,6 +437,28 @@ const PLUGINS_ROLLBACK_RECORD_ID: &str = "plugins-backups";
 const PLUGINS_ROLLBACK_OWNER: &str = "Add-ons";
 const PLUGINS_ROLLBACK_MARKER: &str = "headroom:addon";
 const PLUGINS_ROLLBACK_CONFIRMATION: &str = "Remove headroom:addon for Add-ons";
+const MANAGED_STORAGE_ROLLBACK_RECORD_ID: &str = "managed-storage";
+const MANAGED_STORAGE_ROLLBACK_OWNER: &str = "Mac AI Switchboard runtime";
+const MANAGED_STORAGE_ROLLBACK_MARKER: &str = "managed storage path";
+const MANAGED_STORAGE_ROLLBACK_CONFIRMATION: &str =
+    "Delete managed storage for Mac AI Switchboard runtime";
+const APP_STATE_ROLLBACK_RECORD_ID: &str = "app-state";
+const APP_STATE_ROLLBACK_OWNER: &str = "Mac AI Switchboard app state";
+const APP_STATE_ROLLBACK_MARKER: &str = "com.tarunagarwal.mac-ai-switchboard";
+const APP_STATE_ROLLBACK_CONFIRMATION: &str =
+    "Delete com.tarunagarwal.mac-ai-switchboard app state";
+
+fn display_paths(paths: &[PathBuf]) -> String {
+    paths
+        .iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn any_path_exists(paths: &[PathBuf]) -> bool {
+    paths.iter().any(|path| path.exists())
+}
 
 fn repo_intelligence_summary_path_string() -> String {
     repo_intelligence::latest_summary_path()
@@ -458,11 +480,7 @@ fn launch_agent_cleanup_paths() -> Vec<PathBuf> {
 }
 
 fn launch_agent_target_summary(paths: &[PathBuf]) -> String {
-    paths
-        .iter()
-        .map(|path| path.display().to_string())
-        .collect::<Vec<_>>()
-        .join(", ")
+    display_paths(paths)
 }
 
 fn remove_launch_agent_files(paths: &[PathBuf]) -> Result<Vec<String>, String> {
@@ -611,8 +629,81 @@ fn preview_dedicated_cleanup_rollback_inner(
                 ],
             })
         }
+        MANAGED_STORAGE_ROLLBACK_RECORD_ID => {
+            let paths = client_adapters::managed_runtime_storage_paths();
+            let marker_present = any_path_exists(&paths);
+            Ok(ManagedRollbackPreview {
+                record_id,
+                owner: MANAGED_STORAGE_ROLLBACK_OWNER.to_string(),
+                target_path: display_paths(&paths),
+                marker: MANAGED_STORAGE_ROLLBACK_MARKER.to_string(),
+                backup_path: None,
+                marker_present,
+                backup_exists: true,
+                status: if marker_present {
+                    ManagedRollbackExecutionStatus::Ready
+                } else {
+                    ManagedRollbackExecutionStatus::Blocked
+                },
+                confirmation_phrase: MANAGED_STORAGE_ROLLBACK_CONFIRMATION.to_string(),
+                proposed_action:
+                    "Delete only Switchboard-managed runtime storage and legacy runtime folders."
+                        .to_string(),
+                blocked_reason: if marker_present {
+                    None
+                } else {
+                    Some("No managed runtime storage paths exist.".to_string())
+                },
+                evidence: vec![
+                    "Dedicated cleanup row: managed-storage.".to_string(),
+                    "Cleanup targets app support storage, legacy Headroom app support storage, and ~/.headroom runtime files.".to_string(),
+                    "User repositories, provider credentials, shell profiles, LaunchAgents, and app preferences are not modified by this row.".to_string(),
+                ],
+            })
+        }
+        APP_STATE_ROLLBACK_RECORD_ID => {
+            let paths = client_adapters::macos_app_state_paths();
+            let keychain_labels = client_adapters::known_keychain_entry_labels();
+            let marker_present = any_path_exists(&paths);
+            Ok(ManagedRollbackPreview {
+                record_id,
+                owner: APP_STATE_ROLLBACK_OWNER.to_string(),
+                target_path: if keychain_labels.is_empty() {
+                    display_paths(&paths)
+                } else {
+                    format!(
+                        "{}; {}",
+                        display_paths(&paths),
+                        keychain_labels.join(", ")
+                    )
+                },
+                marker: APP_STATE_ROLLBACK_MARKER.to_string(),
+                backup_path: None,
+                marker_present,
+                backup_exists: true,
+                status: if marker_present {
+                    ManagedRollbackExecutionStatus::Ready
+                } else {
+                    ManagedRollbackExecutionStatus::Blocked
+                },
+                confirmation_phrase: APP_STATE_ROLLBACK_CONFIRMATION.to_string(),
+                proposed_action:
+                    "Delete only Switchboard app preferences, caches, logs, WebKit/HTTP storage, saved state, and known keychain entries."
+                        .to_string(),
+                blocked_reason: if marker_present {
+                    None
+                } else {
+                    Some("No Switchboard app-state files exist in managed macOS locations.".to_string())
+                },
+                evidence: vec![
+                    "Dedicated cleanup row: app-state.".to_string(),
+                    "Cleanup targets app bundle-id preferences, caches, logs, WebKit/HTTP storage, saved state, and known app keychain labels.".to_string(),
+                    "Runtime storage, user repositories, shell profiles, provider configs, and LaunchAgents are not modified by this row.".to_string(),
+                ],
+            })
+        }
         _ => Err(format!(
-            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID}, {LOGIN_ITEM_ROLLBACK_RECORD_ID}, and {PLUGINS_ROLLBACK_RECORD_ID}."
+            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID}, {LOGIN_ITEM_ROLLBACK_RECORD_ID}, {PLUGINS_ROLLBACK_RECORD_ID}, {MANAGED_STORAGE_ROLLBACK_RECORD_ID}, and {APP_STATE_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -733,8 +824,59 @@ fn execute_dedicated_cleanup_rollback_inner(
                 ],
             })
         }
+        MANAGED_STORAGE_ROLLBACK_RECORD_ID => {
+            let paths = client_adapters::managed_runtime_storage_paths();
+            let removed = client_adapters::remove_managed_runtime_storage();
+            if any_path_exists(&paths) {
+                return Err("A managed runtime storage path is still present after cleanup.".to_string());
+            }
+            Ok(ManagedRollbackExecutionResult {
+                record_id,
+                owner: MANAGED_STORAGE_ROLLBACK_OWNER.to_string(),
+                target_path: display_paths(&paths),
+                restored_from: if removed.is_empty() {
+                    "No managed runtime storage path was present.".to_string()
+                } else {
+                    format!("Removed managed runtime storage paths: {}", removed.join(", "))
+                },
+                safety_backup_path: None,
+                marker: MANAGED_STORAGE_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact cleanup confirmation phrase matched.".to_string(),
+                    "Managed runtime storage cleanup completed.".to_string(),
+                    "App support storage, legacy storage, and ~/.headroom were absent after cleanup.".to_string(),
+                    "App preferences, keychain entries, LaunchAgents, shell profiles, provider configs, and user repositories were not modified by this row.".to_string(),
+                ],
+            })
+        }
+        APP_STATE_ROLLBACK_RECORD_ID => {
+            let paths = client_adapters::macos_app_state_paths();
+            let removed = client_adapters::remove_macos_app_state();
+            if any_path_exists(&paths) {
+                return Err("A managed app-state path is still present after cleanup.".to_string());
+            }
+            Ok(ManagedRollbackExecutionResult {
+                record_id,
+                owner: APP_STATE_ROLLBACK_OWNER.to_string(),
+                target_path: display_paths(&paths),
+                restored_from: if removed.is_empty() {
+                    "No managed app-state file was present.".to_string()
+                } else {
+                    format!("Removed managed app-state paths: {}", removed.join(", "))
+                },
+                safety_backup_path: None,
+                marker: APP_STATE_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact cleanup confirmation phrase matched.".to_string(),
+                    "App-state cleanup completed.".to_string(),
+                    "Managed app preferences, caches, logs, WebKit/HTTP storage, and saved state were absent after cleanup.".to_string(),
+                    "Known app keychain labels were requested for deletion without reading secret values.".to_string(),
+                    "Runtime storage, LaunchAgents, shell profiles, provider configs, and user repositories were not modified by this row.".to_string(),
+                ],
+            })
+        }
         _ => Err(format!(
-            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID}, {LOGIN_ITEM_ROLLBACK_RECORD_ID}, and {PLUGINS_ROLLBACK_RECORD_ID}."
+            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID}, {LOGIN_ITEM_ROLLBACK_RECORD_ID}, {PLUGINS_ROLLBACK_RECORD_ID}, {MANAGED_STORAGE_ROLLBACK_RECORD_ID}, and {APP_STATE_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -8317,6 +8459,114 @@ mod tests {
             .verification
             .join(" ")
             .contains("No add-on backup files were swept"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn dedicated_cleanup_rollback_removes_managed_runtime_storage_only() {
+        let scratch = tempfile::tempdir().expect("scratch");
+        let _guard = AppStorageEnvGuard::isolated(scratch.path());
+        let app_dir = crate::storage::app_data_dir();
+        let legacy_dir = app_dir
+            .parent()
+            .expect("app data parent")
+            .join(crate::storage::LEGACY_STORAGE_DIR_NAME);
+        let dot_headroom = scratch.path().join(".headroom");
+        let preferences = scratch
+            .path()
+            .join("Library")
+            .join("Preferences")
+            .join("com.tarunagarwal.mac-ai-switchboard.plist");
+        std::fs::create_dir_all(&app_dir).expect("create app storage");
+        std::fs::write(app_dir.join("runtime.json"), "{}").expect("write app storage");
+        std::fs::create_dir_all(&legacy_dir).expect("create legacy storage");
+        std::fs::write(legacy_dir.join("legacy.json"), "{}").expect("write legacy storage");
+        std::fs::create_dir_all(&dot_headroom).expect("create dot runtime");
+        std::fs::write(dot_headroom.join("receipt.json"), "{}").expect("write dot runtime");
+        std::fs::create_dir_all(preferences.parent().expect("prefs parent")).expect("create prefs");
+        std::fs::write(&preferences, "prefs").expect("write prefs");
+
+        let preview =
+            super::preview_dedicated_cleanup_rollback_inner(None, "managed-storage".to_string())
+                .expect("preview");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Delete managed storage for Mac AI Switchboard runtime"
+        );
+
+        let result = super::execute_dedicated_cleanup_rollback_inner(
+            None,
+            "managed-storage".to_string(),
+            preview.confirmation_phrase,
+        )
+        .expect("execute cleanup");
+
+        assert!(!app_dir.exists());
+        assert!(!legacy_dir.exists());
+        assert!(!dot_headroom.exists());
+        assert!(preferences.exists());
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("App support storage"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn dedicated_cleanup_rollback_removes_app_state_only() {
+        let scratch = tempfile::tempdir().expect("scratch");
+        let _guard = AppStorageEnvGuard::isolated(scratch.path());
+        let app_dir = crate::storage::app_data_dir();
+        std::fs::create_dir_all(&app_dir).expect("create app storage");
+        std::fs::write(app_dir.join("runtime.json"), "{}").expect("write app storage");
+        let library = scratch.path().join("Library");
+        let preferences = library
+            .join("Preferences")
+            .join("com.tarunagarwal.mac-ai-switchboard.plist");
+        let caches = library
+            .join("Caches")
+            .join("com.tarunagarwal.mac-ai-switchboard");
+        let logs = library.join("Logs").join("Mac AI Switchboard");
+        let webkit = library
+            .join("WebKit")
+            .join("com.tarunagarwal.mac-ai-switchboard");
+        for path in [
+            preferences.clone(),
+            caches.join("cache.db"),
+            logs.join("app.log"),
+            webkit.join("data"),
+        ] {
+            std::fs::create_dir_all(path.parent().expect("state parent"))
+                .expect("create state parent");
+            std::fs::write(path, "state").expect("write state file");
+        }
+
+        let preview =
+            super::preview_dedicated_cleanup_rollback_inner(None, "app-state".to_string())
+                .expect("preview");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Delete com.tarunagarwal.mac-ai-switchboard app state"
+        );
+
+        let result = super::execute_dedicated_cleanup_rollback_inner(
+            None,
+            "app-state".to_string(),
+            preview.confirmation_phrase,
+        )
+        .expect("execute cleanup");
+
+        assert!(!preferences.exists());
+        assert!(!caches.exists());
+        assert!(!logs.exists());
+        assert!(!webkit.exists());
+        assert!(app_dir.exists());
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("App-state cleanup completed"));
     }
 
     #[test]

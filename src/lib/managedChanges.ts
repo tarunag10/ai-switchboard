@@ -733,8 +733,10 @@ export function supportsNativeManagedRollbackRecord(recordId: string): boolean {
 }
 
 export const dedicatedCleanupRollbackRecordIds = new Set([
+  "managed-storage",
   "repo-intelligence",
   "login-item",
+  "app-state",
   "plugins-backups",
 ]);
 
@@ -778,7 +780,7 @@ export function buildManagedRollbackUndoAllPreview(
     executable,
     manual,
     blockedReason:
-      "Native undo-all can execute only backend-allowlisted ready rows through the confirmation flow; dedicated cleanup rows stay blocked until they have their own restore execution and relaunch-survival evidence.",
+      "Native undo-all can execute only backend-allowlisted ready rows through the confirmation flow; dedicated cleanup rows use their own exact-confirmation cleanup actions.",
     orderedSteps: [
       "Preview every managed rollback row in stable inventory order.",
       "Execute only allowlisted native rows after the backend preview reports them ready and the exact undo-all confirmation phrase matches.",
