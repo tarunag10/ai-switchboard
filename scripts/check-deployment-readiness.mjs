@@ -514,6 +514,7 @@ const requiredSourceSignals = {
     "AddonHealthStrip",
     "Add-on health",
     "Settings import/export",
+    "Settings migration actions",
     "Copy settings export",
     "Apply safe preferences",
     "ClientSavingsTrendsCard",
@@ -526,11 +527,13 @@ const requiredSourceSignals = {
   "src/lib/settingsTransfer.ts": [
     "buildSettingsExportBundle",
     "parseSettingsImport",
+    "migrationActions",
     "No provider API keys",
   ],
   "src/lib/settingsTransfer.test.ts": [
     "exports only non-secret app preferences",
     "previews valid imports",
+    "native config changes still require",
   ],
   "src/components/SwitchboardPanel.tsx": [
     "Codex context pressure evidence",

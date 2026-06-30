@@ -150,6 +150,31 @@ describe("settings transfer", () => {
     expect(preview.manualItems).toContain(
       "Add-on rtk: enabled in export; install or enable from Addons if wanted.",
     );
+    expect(preview.migrationActions).toEqual(
+      expect.arrayContaining([
+        {
+          id: "preferences",
+          label: "App preferences",
+          status: "safe",
+          detail:
+            "Switchboard mode and savings profile can be applied without touching provider config.",
+        },
+        {
+          id: "connector:codex",
+          label: "Connector codex",
+          status: "manual",
+          detail:
+            "Managed connector state is advisory; native config changes still require the connector's backup, verify, rollback, Doctor, and Off cleanup gates.",
+        },
+        {
+          id: "addon:rtk",
+          label: "Add-on rtk",
+          status: "manual",
+          detail:
+            "Healthy add-on state is advisory; install, enable, or repair it from Addons so local runtime checks stay explicit.",
+        },
+      ]),
+    );
   });
 
   it("rejects invalid or unsupported import bundles", () => {
@@ -170,6 +195,12 @@ describe("settings transfer", () => {
       errors: [
         "Unsupported schema version: 999.",
         "Missing or invalid switchboard mode.",
+      ],
+      migrationActions: [
+        expect.objectContaining({
+          id: "preferences",
+          status: "blocked",
+        }),
       ],
     });
   });

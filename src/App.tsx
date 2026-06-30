@@ -10047,6 +10047,25 @@ export default function App() {
                         .join(", ")}
                     </p>
                   ) : null}
+                  {settingsImportPreview.migrationActions.length > 0 ? (
+                    <div
+                      className="settings-transfer__migration"
+                      aria-label="Settings migration actions"
+                    >
+                      {settingsImportPreview.migrationActions
+                        .slice(0, 8)
+                        .map((action) => (
+                          <div
+                            className={`settings-transfer__migration-row settings-transfer__migration-row--${action.status}`}
+                            key={action.id}
+                          >
+                            <span>{action.label}</span>
+                            <strong>{action.status}</strong>
+                            <small>{action.detail}</small>
+                          </div>
+                        ))}
+                    </div>
+                  ) : null}
                   {settingsImportPreview.manualItems.length > 0 ? (
                     <ul>
                       {settingsImportPreview.manualItems.slice(0, 6).map((item) => (

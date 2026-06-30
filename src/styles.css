@@ -5611,6 +5611,60 @@ details[open] .optimize-minimal__details summary::after {
   padding-left: 16px;
 }
 
+.settings-transfer__migration {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-transfer__migration-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.settings-transfer__migration-row--safe {
+  border-color: color-mix(in srgb, var(--success) 32%, var(--border-subtle));
+}
+
+.settings-transfer__migration-row--blocked {
+  border-color: color-mix(in srgb, var(--danger) 32%, var(--border-subtle));
+}
+
+.settings-transfer__migration-row span,
+.settings-transfer__migration-row strong,
+.settings-transfer__migration-row small {
+  overflow-wrap: anywhere;
+}
+
+.settings-transfer__migration-row span {
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  font-weight: 800;
+}
+
+.settings-transfer__migration-row strong {
+  align-self: start;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--text-xxs);
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.settings-transfer__migration-row small {
+  grid-column: 1 / -1;
+  color: var(--text-secondary);
+  font-size: var(--text-xxs);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .settings-legal-card {
   padding: 14px 16px;
 }

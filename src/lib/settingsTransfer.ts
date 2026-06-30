@@ -35,8 +35,16 @@ export interface SettingsImportPreview {
   title: string;
   detail: string;
   safePreferences: Partial<SettingsExportBundle["preferences"]>;
+  migrationActions: SettingsMigrationAction[];
   manualItems: string[];
   errors: string[];
+}
+
+export interface SettingsMigrationAction {
+  id: string;
+  label: string;
+  status: "safe" | "manual" | "blocked";
+  detail: string;
 }
 
 const caveats = [
@@ -116,6 +124,7 @@ export function parseSettingsImport(text: string): SettingsImportPreview {
       title: "Settings import is not valid JSON",
       detail: "Paste a Mac AI Switchboard settings export JSON bundle.",
       safePreferences: {},
+      migrationActions: [],
       manualItems: [],
       errors: ["JSON parse failed."],
     };
@@ -127,6 +136,7 @@ export function parseSettingsImport(text: string): SettingsImportPreview {
       title: "Settings import is not an object",
       detail: "The import bundle must be a JSON object.",
       safePreferences: {},
+      migrationActions: [],
       manualItems: [],
       errors: ["Expected a JSON object."],
     };
@@ -157,15 +167,54 @@ export function parseSettingsImport(text: string): SettingsImportPreview {
 
   const connectors = Array.isArray(bundle.connectors) ? bundle.connectors : [];
   const addons = Array.isArray(bundle.addons) ? bundle.addons : [];
+  const migrationActions: SettingsMigrationAction[] = [
+    {
+      id: "preferences",
+      label: "App preferences",
+      status: errors.length === 0 ? "safe" : "blocked",
+      detail:
+        errors.length === 0
+          ? "Switchboard mode and savings profile can be applied without touching provider config."
+          : "Preferences cannot be applied until the bundle errors are fixed.",
+    },
+  ];
   const manualItems = [
     ...connectors.map((item) => {
-      const connector = item as { clientId?: unknown; enabled?: unknown };
+      const connector = item as {
+        clientId?: unknown;
+        enabled?: unknown;
+        supportStatus?: unknown;
+      };
+      const label = `Connector ${String(connector.clientId ?? "unknown")}`;
+      migrationActions.push({
+        id: `connector:${String(connector.clientId ?? "unknown")}`,
+        label,
+        status: "manual",
+        detail:
+          connector.supportStatus === "managed"
+            ? "Managed connector state is advisory; native config changes still require the connector's backup, verify, rollback, Doctor, and Off cleanup gates."
+            : "Connector state is advisory and must be reviewed from Connectors before any local config changes.",
+      });
       return `Connector ${String(connector.clientId ?? "unknown")}: ${
         connector.enabled ? "enabled" : "disabled"
       } in export; review manually before applying config.`;
     }),
     ...addons.map((item) => {
-      const addon = item as { id?: unknown; enabled?: unknown };
+      const addon = item as {
+        id?: unknown;
+        enabled?: unknown;
+        status?: unknown;
+      };
+      const label = `Add-on ${String(addon.id ?? "unknown")}`;
+      migrationActions.push({
+        id: `addon:${String(addon.id ?? "unknown")}`,
+        label,
+        status: "manual",
+        detail:
+          addon.status === "healthy"
+            ? "Healthy add-on state is advisory; install, enable, or repair it from Addons so local runtime checks stay explicit."
+            : "Add-on state is advisory; import does not install runtimes or write hooks.",
+      });
       return `Add-on ${String(addon.id ?? "unknown")}: ${
         addon.enabled ? "enabled" : "disabled"
       } in export; install or enable from Addons if wanted.`;
@@ -180,6 +229,7 @@ export function parseSettingsImport(text: string): SettingsImportPreview {
       ? "Safe app preferences can be applied. Connector and add-on entries remain manual."
       : "Fix the bundle before applying settings.",
     safePreferences,
+    migrationActions,
     manualItems,
     errors,
   };
