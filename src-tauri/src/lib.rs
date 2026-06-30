@@ -50,12 +50,12 @@ use crate::models::{
     DashboardState, HeadroomAuthCodeRequest, HeadroomLearnPrereqStatus, HeadroomLearnStatus,
     HeadroomPricingStatus, HeadroomSubscriptionTier, ManagedConfigApplyPreview,
     ManagedConfigApplyResult, ManagedFootprintReport, ManagedRollbackExecutionResult,
-    ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview,
-    MessageLoggingSettings, PurgeResult, RepoAgentHandoffResponse, RepoContextPackResponse,
-    RepoDependentsResponse, RepoIndexFreshnessResponse, RepoIntelligenceManifestResponse,
-    RepoIntelligenceSummary, RepoSymbolSearchResponse, RuntimeStatus, RuntimeUpgradeProgress,
-    SavingsAttributionEvent, SavingsMode, SwitchboardMode, SwitchboardState,
-    TransformationFeedResponse, UninstallDryRunReport,
+    ManagedRollbackExecutionStatus, ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult,
+    ManagedRollbackUndoAllPreview, MessageLoggingSettings, PurgeResult, RepoAgentHandoffResponse,
+    RepoContextPackResponse, RepoDependentsResponse, RepoIndexFreshnessResponse,
+    RepoIntelligenceManifestResponse, RepoIntelligenceSummary, RepoSymbolSearchResponse,
+    RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionEvent, SavingsMode, SwitchboardMode,
+    SwitchboardState, TransformationFeedResponse, UninstallDryRunReport,
 };
 use crate::state::AppState;
 
@@ -421,6 +421,96 @@ fn execute_managed_rollback(
 ) -> Result<ManagedRollbackExecutionResult, String> {
     client_adapters::execute_managed_rollback(&record_id, &backup_path, &confirmation_phrase)
         .map_err(|err| err.to_string())
+}
+
+const REPO_INTELLIGENCE_ROLLBACK_RECORD_ID: &str = "repo-intelligence";
+const REPO_INTELLIGENCE_ROLLBACK_OWNER: &str = "Repo Intelligence";
+const REPO_INTELLIGENCE_ROLLBACK_MARKER: &str = "repo-intelligence-latest.json";
+const REPO_INTELLIGENCE_ROLLBACK_CONFIRMATION: &str =
+    "Clear repo-intelligence-latest.json for Repo Intelligence";
+
+fn repo_intelligence_summary_path_string() -> String {
+    repo_intelligence::latest_summary_path()
+        .display()
+        .to_string()
+}
+
+#[tauri::command]
+fn preview_dedicated_cleanup_rollback(record_id: String) -> Result<ManagedRollbackPreview, String> {
+    if record_id != REPO_INTELLIGENCE_ROLLBACK_RECORD_ID {
+        return Err(format!(
+            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID}."
+        ));
+    }
+
+    let target_path = repo_intelligence::latest_summary_path();
+    let marker_present = target_path.exists();
+    Ok(ManagedRollbackPreview {
+        record_id,
+        owner: REPO_INTELLIGENCE_ROLLBACK_OWNER.to_string(),
+        target_path: target_path.display().to_string(),
+        marker: REPO_INTELLIGENCE_ROLLBACK_MARKER.to_string(),
+        backup_path: None,
+        marker_present,
+        backup_exists: true,
+        status: if marker_present {
+            ManagedRollbackExecutionStatus::Ready
+        } else {
+            ManagedRollbackExecutionStatus::Blocked
+        },
+        confirmation_phrase: REPO_INTELLIGENCE_ROLLBACK_CONFIRMATION.to_string(),
+        proposed_action:
+            "Remove only the Switchboard-managed Repo Intelligence latest-summary metadata."
+                .to_string(),
+        blocked_reason: if marker_present {
+            None
+        } else {
+            Some("No saved Repo Intelligence summary exists in managed storage.".to_string())
+        },
+        evidence: vec![
+            "Dedicated cleanup row: repo-intelligence.".to_string(),
+            "Cleanup calls the existing Clear index path used by Doctor and the Repo Intelligence add-on card.".to_string(),
+            "User repositories are not modified; only Switchboard managed summary metadata is removed.".to_string(),
+        ],
+    })
+}
+
+#[tauri::command]
+fn execute_dedicated_cleanup_rollback(
+    record_id: String,
+    confirmation_phrase: String,
+) -> Result<ManagedRollbackExecutionResult, String> {
+    let preview = preview_dedicated_cleanup_rollback(record_id.clone())?;
+    if confirmation_phrase != preview.confirmation_phrase {
+        return Err("Rollback confirmation phrase does not match.".to_string());
+    }
+    if preview.status != ManagedRollbackExecutionStatus::Ready {
+        return Err(preview
+            .blocked_reason
+            .unwrap_or_else(|| "Dedicated cleanup rollback is not ready.".to_string()));
+    }
+
+    clear_repo_intelligence_index()?;
+    let still_present = repo_intelligence::latest_summary_path().exists();
+    if still_present {
+        return Err("Repo Intelligence summary is still present after cleanup.".to_string());
+    }
+
+    Ok(ManagedRollbackExecutionResult {
+        record_id,
+        owner: REPO_INTELLIGENCE_ROLLBACK_OWNER.to_string(),
+        target_path: repo_intelligence_summary_path_string(),
+        restored_from: "Switchboard-managed Repo Intelligence latest-summary metadata removed."
+            .to_string(),
+        safety_backup_path: None,
+        marker: REPO_INTELLIGENCE_ROLLBACK_MARKER.to_string(),
+        verification: vec![
+            "Exact cleanup confirmation phrase matched.".to_string(),
+            "Existing Clear index cleanup path completed.".to_string(),
+            "Repo Intelligence latest-summary file was absent after cleanup.".to_string(),
+            "User repositories were not modified by this cleanup.".to_string(),
+        ],
+    })
 }
 
 #[tauri::command]
@@ -5617,6 +5707,8 @@ pub fn run() {
             execute_managed_config_apply,
             preview_managed_rollback,
             execute_managed_rollback,
+            preview_dedicated_cleanup_rollback,
+            execute_dedicated_cleanup_rollback,
             get_managed_footprint,
             get_uninstall_dry_run_report,
             preview_managed_rollback_undo_all,
@@ -7603,7 +7695,10 @@ mod tests {
         InstallableAppUpdate, LearnAgent, MonitorBounds, PhysicalRect, QuitSource,
         TrayRuntimeVisual,
     };
-    use crate::models::{RepoFileIndexEntry, RepoIndexMetadata, RepoIntelligenceSummary};
+    use crate::models::{
+        ManagedRollbackExecutionStatus, RepoFileIndexEntry, RepoIndexMetadata,
+        RepoIntelligenceSummary,
+    };
     use crate::repo_intelligence;
     use chrono::{TimeZone, Utc};
     use parking_lot::Mutex;
@@ -7841,6 +7936,58 @@ mod tests {
         assert!(crate::repo_intelligence::load_latest_summary()
             .expect("cleared summary should read as none")
             .is_none());
+    }
+
+    #[test]
+    fn dedicated_cleanup_rollback_clears_only_repo_intelligence_summary() {
+        let scratch = tempfile::tempdir().expect("scratch");
+        let _guard = AppStorageEnvGuard::isolated(scratch.path());
+        let repo = tempfile::tempdir().expect("repo");
+        let source = repo.path().join("src").join("App.tsx");
+        std::fs::create_dir_all(source.parent().expect("source parent"))
+            .expect("create source parent");
+        std::fs::write(&source, "export const untouched = true;\n").expect("write source");
+        let before = std::fs::read_to_string(&source).expect("read source before");
+        let summary = repo_summary_fixture(
+            repo.path().to_string_lossy().to_string(),
+            "2026-06-28T10:00:00Z",
+        );
+        crate::repo_intelligence::save_latest_summary(&summary).expect("save summary");
+
+        let preview = super::preview_dedicated_cleanup_rollback("repo-intelligence".to_string())
+            .expect("preview");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Clear repo-intelligence-latest.json for Repo Intelligence"
+        );
+        assert!(preview.marker_present);
+        assert!(preview.backup_path.is_none());
+        assert!(preview
+            .evidence
+            .join(" ")
+            .contains("User repositories are not modified"));
+
+        let result = super::execute_dedicated_cleanup_rollback(
+            "repo-intelligence".to_string(),
+            "Clear repo-intelligence-latest.json for Repo Intelligence".to_string(),
+        )
+        .expect("execute cleanup");
+        assert_eq!(result.record_id, "repo-intelligence");
+        assert_eq!(
+            result.restored_from,
+            "Switchboard-managed Repo Intelligence latest-summary metadata removed."
+        );
+        assert!(result.safety_backup_path.is_none());
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("User repositories were not modified"));
+        assert!(!crate::repo_intelligence::latest_summary_path().exists());
+        assert_eq!(
+            std::fs::read_to_string(&source).expect("read source after"),
+            before
+        );
     }
 
     #[test]

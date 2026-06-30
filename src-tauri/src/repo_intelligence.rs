@@ -1008,7 +1008,7 @@ pub fn build_manifest_response(
     }
 }
 
-fn latest_summary_path() -> PathBuf {
+pub fn latest_summary_path() -> PathBuf {
     config_file(&app_data_dir(), "repo-intelligence-latest.json")
 }
 

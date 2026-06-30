@@ -18,6 +18,8 @@ import {
   formatManagedRollbackUndoAllPreview,
   managedChangeRecords,
   removeManagedConfigBlock,
+  supportsDedicatedCleanupRollbackRecord,
+  supportsNativeManagedRollbackRecord,
 } from "./managedChanges";
 
 describe("managedChangeRecords", () => {
@@ -46,6 +48,8 @@ describe("managedChangeRecords", () => {
     expect(
       managedChangeRecords.every((record) => record.rollback.length > 0),
     ).toBe(true);
+    expect(supportsNativeManagedRollbackRecord("repo-intelligence")).toBe(false);
+    expect(supportsDedicatedCleanupRollbackRecord("repo-intelligence")).toBe(true);
   });
 
   it("tracks marker, backup, and verification evidence for every managed change", () => {

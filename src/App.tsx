@@ -229,6 +229,7 @@ import {
   formatManagedRollbackUndoAllPreview,
   formatManagedRollbackInventory,
   managedChangeRecords,
+  supportsDedicatedCleanupRollbackRecord,
   supportsNativeManagedRollbackRecord,
   type ManagedChangeRecord,
 } from "./lib/managedChanges";
@@ -6737,7 +6738,10 @@ export default function App() {
   }
 
   function supportsNativeManagedRollback(record: ManagedChangeRecord) {
-    return supportsNativeManagedRollbackRecord(record.id);
+    return (
+      supportsNativeManagedRollbackRecord(record.id) ||
+      supportsDedicatedCleanupRollbackRecord(record.id)
+    );
   }
 
   function supportsNativeConfigApply(record: ManagedChangeRecord) {
@@ -6842,7 +6846,9 @@ export default function App() {
     });
     try {
       const preview = await invoke<ManagedRollbackPreview>(
-        "preview_managed_rollback",
+        supportsDedicatedCleanupRollbackRecord(record.id)
+          ? "preview_dedicated_cleanup_rollback"
+          : "preview_managed_rollback",
         { recordId: record.id },
       );
       setRollbackPreviewByRecord((current) => ({
@@ -6886,12 +6892,19 @@ export default function App() {
     });
     try {
       const result = await invoke<ManagedRollbackExecutionResult>(
-        "execute_managed_rollback",
-        {
-          recordId: record.id,
-          backupPath: preview.backupPath ?? "",
-          confirmationPhrase: rollbackConfirmationByRecord[record.id] ?? "",
-        },
+        supportsDedicatedCleanupRollbackRecord(record.id)
+          ? "execute_dedicated_cleanup_rollback"
+          : "execute_managed_rollback",
+        supportsDedicatedCleanupRollbackRecord(record.id)
+          ? {
+              recordId: record.id,
+              confirmationPhrase: rollbackConfirmationByRecord[record.id] ?? "",
+            }
+          : {
+              recordId: record.id,
+              backupPath: preview.backupPath ?? "",
+              confirmationPhrase: rollbackConfirmationByRecord[record.id] ?? "",
+            },
       );
       setRollbackResultByRecord((current) => ({
         ...current,

@@ -732,6 +732,14 @@ export function supportsNativeManagedRollbackRecord(recordId: string): boolean {
   return nativeRollbackRecordIds.has(recordId);
 }
 
+export const dedicatedCleanupRollbackRecordIds = new Set([
+  "repo-intelligence",
+]);
+
+export function supportsDedicatedCleanupRollbackRecord(recordId: string): boolean {
+  return dedicatedCleanupRollbackRecordIds.has(recordId);
+}
+
 export function canExecuteNativeManagedRollbackPreview({
   preview,
   confirmation,
