@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   buildAddonSavingsEstimate,
   buildFilteredSavingsLedger,
+  buildSavingsAnomalyAlerts,
   buildSavingsCalculatorBreakdown,
   buildSavingsCalculatorSummary,
   buildSavingsLedgerRows,
   filterSavingsLedgerRowsByConfidence,
+  formatSavingsAnomalyAlerts,
   formatSavingsLedgerAttributionSummary,
   formatSavingsLedgerConfidenceBreakdown,
   formatSavingsLedgerShareText,
@@ -17,7 +19,7 @@ import {
   summarizeSavingsLedgerRows,
   type SavingsCalculatorScope,
 } from "./savingsCalculator";
-import type { DashboardState } from "./types";
+import type { DashboardState, SavingsAttributionEvent } from "./types";
 
 function dashboardFixture(
   overrides: Partial<DashboardState> = {},
@@ -1100,6 +1102,89 @@ describe("savings calculator", () => {
     expect(text).toContain(
       "- markitdown: MarkItDown (estimated, lifetime, 2026-06-27T10:00:00.000Z) saved 2,300 tokens.",
     );
+    expect(text).toContain("Anomalies: none detected.");
+  });
+
+  it("flags session savings attribution when a source increases output", () => {
+    const recordedAt = "2026-06-27T10:00:00.000Z";
+    const events: SavingsAttributionEvent[] = [
+      {
+        schemaVersion: 1,
+        id: "negative-rtk-1",
+        observedAt: "2026-06-27T10:01:00.000Z",
+        scope: "session",
+        source: "rtk",
+        confidence: "measured",
+        deltaTokensSaved: -180,
+        deltaUsd: 0,
+        totalTokensSent: 1_200,
+        requestDelta: 1,
+        evidence: ["rtk sample grew after fallback passthrough"],
+      },
+      {
+        schemaVersion: 1,
+        id: "negative-rtk-2",
+        observedAt: "2026-06-27T10:02:00.000Z",
+        scope: "session",
+        source: "rtk",
+        confidence: "measured",
+        deltaTokensSaved: -20,
+        deltaUsd: 0,
+        totalTokensSent: 400,
+        requestDelta: 1,
+        evidence: [],
+      },
+      {
+        schemaVersion: 1,
+        id: "positive-caveman",
+        observedAt: "2026-06-27T10:03:00.000Z",
+        scope: "session",
+        source: "caveman",
+        confidence: "estimated",
+        deltaTokensSaved: 300,
+        deltaUsd: 0,
+        totalTokensSent: 900,
+        requestDelta: 1,
+        evidence: ["managed instruction changed"],
+      },
+    ];
+
+    const alerts = buildSavingsAnomalyAlerts(events, "session", recordedAt);
+
+    expect(alerts).toEqual([
+      expect.objectContaining({
+        id: "rtk_output_growth",
+        source: "rtk",
+        label: "RTK",
+        severity: "warning",
+        eventCount: 2,
+        requestDelta: 2,
+        tokenIncrease: 200,
+        latestObservedAt: "2026-06-27T10:02:00.000Z",
+      }),
+    ]);
+    expect(alerts[0]?.detail).toContain("output grew by 200 tokens");
+    expect(alerts[0]?.detail).toContain(
+      "Evidence: rtk sample grew after fallback passthrough",
+    );
+    expect(buildSavingsAnomalyAlerts(events, "lifetime", recordedAt)).toEqual(
+      [],
+    );
+
+    const text = formatSavingsLedgerShareText(
+      buildSavingsLedgerRows(dashboardFixture(), "session", recordedAt, {
+        attributionEvents: events,
+      }),
+      "session",
+      recordedAt,
+      "all",
+      alerts,
+    );
+    expect(text).toContain("Anomalies:");
+    expect(text).toContain(
+      "- rtk: RTK output grew by 200 tokens across 2 commands. Evidence: rtk sample grew after fallback passthrough",
+    );
+    expect(formatSavingsAnomalyAlerts([])).toBe("Anomalies: none detected.");
   });
 
   it("formats savings attribution by confidence without overstating empty ledgers", () => {

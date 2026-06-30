@@ -137,6 +137,18 @@ export interface SavingsLedgerEmptyState {
   detail: string;
 }
 
+export interface SavingsAnomalyAlert {
+  id: string;
+  source: SavingsLedgerSource;
+  label: string;
+  severity: "warning";
+  eventCount: number;
+  requestDelta: number;
+  tokenIncrease: number;
+  latestObservedAt: string;
+  detail: string;
+}
+
 function formatUsd(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -204,6 +216,47 @@ function sourceEvidenceCaveat(
 
   return confidenceCaveat[confidence];
 }
+
+const savingsSourceLabels: Record<
+  SavingsLedgerSource,
+  { id: string; label: string; kind: SavingsCalculatorBreakdownKind }
+> = {
+  headroom_engine: {
+    id: "headroom_attribution_events",
+    label: "Headroom",
+    kind: "runtime",
+  },
+  rtk: {
+    id: "rtk_attribution_events",
+    label: "RTK",
+    kind: "command_output",
+  },
+  repo_intelligence: {
+    id: "repo_intelligence_attribution_events",
+    label: "Repo Intelligence",
+    kind: "repo_context",
+  },
+  caveman: {
+    id: "caveman_attribution_events",
+    label: "Caveman",
+    kind: "terse_output",
+  },
+  ponytail: {
+    id: "ponytail_attribution_events",
+    label: "Ponytail",
+    kind: "change_scope",
+  },
+  markitdown: {
+    id: "markitdown_attribution_events",
+    label: "MarkItDown",
+    kind: "doc_preprocess",
+  },
+  compact_chinese: {
+    id: "compact_chinese_attribution_events",
+    label: "Compact Chinese",
+    kind: "terse_output",
+  },
+};
 
 export function savingsCalculatorScopeLabel(scope: SavingsCalculatorScope) {
   switch (scope) {
@@ -669,48 +722,8 @@ function backendAttributionRows(
       event.scope === "session" &&
       (event.deltaTokensSaved > 0 || event.deltaUsd > 0 || event.requestDelta > 0),
   );
-  const sourceLabels: Record<
-    SavingsLedgerSource,
-    { id: string; label: string; kind: SavingsCalculatorBreakdownKind }
-  > = {
-    headroom_engine: {
-      id: "headroom_attribution_events",
-      label: "Headroom",
-      kind: "runtime",
-    },
-    rtk: {
-      id: "rtk_attribution_events",
-      label: "RTK",
-      kind: "command_output",
-    },
-    repo_intelligence: {
-      id: "repo_intelligence_attribution_events",
-      label: "Repo Intelligence",
-      kind: "repo_context",
-    },
-    caveman: {
-      id: "caveman_attribution_events",
-      label: "Caveman",
-      kind: "terse_output",
-    },
-    ponytail: {
-      id: "ponytail_attribution_events",
-      label: "Ponytail",
-      kind: "change_scope",
-    },
-    markitdown: {
-      id: "markitdown_attribution_events",
-      label: "MarkItDown",
-      kind: "doc_preprocess",
-    },
-    compact_chinese: {
-      id: "compact_chinese_attribution_events",
-      label: "Compact Chinese",
-      kind: "terse_output",
-    },
-  };
 
-  return Object.entries(sourceLabels)
+  return Object.entries(savingsSourceLabels)
     .flatMap(([source, meta]) => {
       const sourceEvents = durableSessionEvents.filter(
         (event) => event.source === source,
@@ -777,6 +790,78 @@ function backendAttributionRows(
       ];
     })
     .sort((left, right) => left.label.localeCompare(right.label));
+}
+
+export function buildSavingsAnomalyAlerts(
+  events: SavingsAttributionEvent[],
+  scope: SavingsCalculatorScope,
+  recordedAt: string,
+): SavingsAnomalyAlert[] {
+  if (scope !== "session") {
+    return [];
+  }
+
+  const grouped = new Map<SavingsLedgerSource, SavingsAttributionEvent[]>();
+  for (const event of events) {
+    if (event.scope !== "session" || event.deltaTokensSaved >= 0) {
+      continue;
+    }
+
+    const sourceEvents = grouped.get(event.source) ?? [];
+    sourceEvents.push(event);
+    grouped.set(event.source, sourceEvents);
+  }
+
+  return [...grouped.entries()]
+    .map(([source, sourceEvents]) => {
+      const meta = savingsSourceLabels[source];
+      const tokenIncrease = sourceEvents.reduce(
+        (sum, event) => sum + Math.max(0, -event.deltaTokensSaved),
+        0,
+      );
+      const requestDelta = sourceEvents.reduce(
+        (sum, event) => sum + Math.max(0, event.requestDelta),
+        0,
+      );
+      const observedAtValues = sourceEvents
+        .map((event) => event.observedAt)
+        .sort();
+      const latestObservedAt =
+        observedAtValues[observedAtValues.length - 1] ?? recordedAt;
+      const evidence = sourceEvents
+        .flatMap((event) => event.evidence)
+        .filter(Boolean);
+      const evidenceDetail =
+        evidence.length > 0 ? ` Evidence: ${evidence[0]}` : "";
+
+      return {
+        id: `${source}_output_growth`,
+        source,
+        label: meta.label,
+        severity: "warning" as const,
+        eventCount: sourceEvents.length,
+        requestDelta,
+        tokenIncrease,
+        latestObservedAt,
+        detail: `${meta.label} output grew by ${formatTokens(tokenIncrease)} token${Math.round(tokenIncrease) === 1 ? "" : "s"} across ${requestDelta.toLocaleString()} ${source === "rtk" ? "command" : "request"}${requestDelta === 1 ? "" : "s"}.${evidenceDetail}`,
+      };
+    })
+    .filter((alert) => alert.tokenIncrease > 0)
+    .sort((left, right) => right.tokenIncrease - left.tokenIncrease);
+}
+
+export function formatSavingsAnomalyAlerts(alerts: SavingsAnomalyAlert[]) {
+  if (alerts.length === 0) {
+    return "Anomalies: none detected.";
+  }
+
+  return [
+    "Anomalies:",
+    ...alerts.map(
+      (alert) =>
+        `- ${alert.source}: ${alert.detail} Latest: ${alert.latestObservedAt}`,
+    ),
+  ].join("\n");
 }
 
 export function summarizeSavingsLedgerRows(
@@ -930,6 +1015,7 @@ export function formatSavingsLedgerShareText(
   scope: SavingsCalculatorScope,
   recordedAt: string,
   filter: SavingsLedgerConfidenceFilter = "all",
+  anomalyAlerts: SavingsAnomalyAlert[] = [],
 ) {
   const summary = summarizeSavingsLedgerRows(rows, scope, recordedAt);
   const scopeLabel = savingsCalculatorScopeLabel(scope);
@@ -953,6 +1039,7 @@ export function formatSavingsLedgerShareText(
     `Estimated tokens: ${formatTokens(summary.estimatedTokens)} / ${formatUsd(summary.estimatedUsd)}`,
     `Inferred tokens: ${formatTokens(summary.inferredTokens)}`,
     `Attribution: ${formatSavingsLedgerAttributionSummary(summary)}`,
+    formatSavingsAnomalyAlerts(anomalyAlerts),
     "Equation per row: saved tokens come from each source's before/after or counter delta; see Evidence on each row.",
     "Confidence labels are not interchangeable: inferred rows are never reported as measured.",
     "Rows:",

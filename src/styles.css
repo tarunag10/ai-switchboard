@@ -4055,6 +4055,28 @@ select {
   white-space: nowrap;
 }
 
+.savings-calculator__anomalies {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--warning) 34%, var(--border-subtle));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface-sunken));
+}
+
+.savings-calculator__anomalies strong {
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+}
+
+.savings-calculator__anomalies span {
+  color: var(--text-secondary);
+  font-size: var(--text-xxs);
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
 .savings-calculator__ledger-list {
   display: grid;
   gap: 6px;

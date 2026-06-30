@@ -50,6 +50,7 @@ Shipped:
 - The savings ledger now uses RTK daily gain rows as measured today/week/month evidence, so scoped command-output savings are no longer hidden behind lifetime-only RTK totals.
 - RTK gain rows now preserve measured input tokens, output tokens, savings percentage, and processing time when the local RTK binary exposes them, for both scoped daily rows and all-time summary rows, so ledger rows explain more than command count and saved-token totals.
 - Savings ledger scope definitions are now visible in-app and included in copied summaries, making it explicit that session resets on app restart, repo is a Repo Intelligence context estimate, and today/week/month/lifetime use saved local history.
+- Savings ledger copy and the Optimize UI now flag session output-growth anomalies when backend attribution events report negative saved-token deltas, so regressions are visible instead of being hidden behind positive-only totals.
 - Release readiness reports now ingest the local Rollback Center and Doctor repair validation summaries as explicit local-only evidence, including the required refresh commands and pass/fail status, while keeping signed/public installed-smoke gates separate.
 - The in-app Run local evidence action now finishes by regenerating the release readiness report, so one click produces fresh local validation summaries and a fresh report snapshot without running signing, notarization, updater publication, or the strict public-release gate.
 - Local-only network validation now writes durable local-only evidence from the remote destination registry check and local-free build privacy scan, and the release readiness report ingests it alongside other local validation summaries.
@@ -340,7 +341,7 @@ Suggested commit:
 
 ### Medium Impact
 
-- Savings anomaly alerts when output unexpectedly grows.
+- Broader savings anomaly thresholds and trends beyond session-level backend output-growth alerts.
 - Per-client savings trends for Claude, Codex, and future connectors.
 - Codex large-context advisor that recommends compacting, RTK-only, or connector reset.
 - Test relationship view in Repo Intelligence.

@@ -505,12 +505,24 @@ const requiredSourceSignals = {
     "Top directories",
     "Likely tests",
     "Symbols",
+    "Output growth alerts",
+    "Savings anomaly alerts",
   ],
   "src/lib/repoIntelligence.ts": [
     "RepoSymbol",
     "symbolEdges",
     "symbolCount",
     "Symbol edges",
+  ],
+  "src/lib/savingsCalculator.ts": [
+    "buildSavingsAnomalyAlerts",
+    "formatSavingsAnomalyAlerts",
+    "Anomalies: none detected.",
+    "output grew by",
+  ],
+  "src/lib/savingsCalculator.test.ts": [
+    "flags session savings attribution when a source increases output",
+    "rtk_output_growth",
   ],
   "src/lib/repoMemoryMcp.ts": [
     "service_unhealthy",

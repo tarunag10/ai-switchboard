@@ -248,9 +248,11 @@ import {
 import {
   buildAddonSavingsEstimate,
   buildFilteredSavingsLedger,
+  buildSavingsAnomalyAlerts,
   buildSavingsCalculatorBreakdown,
   buildSavingsLedgerRows,
   buildSavingsCalculatorSummary,
+  formatSavingsAnomalyAlerts,
   formatSavingsLedgerConfidenceBreakdown,
   formatSavingsLedgerAttributionSummary,
   formatSavingsLedgerShareText,
@@ -815,6 +817,11 @@ function SavingsCalculatorCard({
     ledgerRecordedAt,
     ledgerFilter,
   );
+  const anomalyAlerts = buildSavingsAnomalyAlerts(
+    attributionEvents ?? [],
+    scope,
+    ledgerRecordedAt,
+  );
   const ledgerEmptyState = getSavingsLedgerEmptyState(
     ledgerRows.length,
     ledgerFilter,
@@ -841,6 +848,7 @@ function SavingsCalculatorCard({
         scope,
         ledgerRecordedAt,
         ledgerFilter,
+        anomalyAlerts,
       ),
     );
     setCopyNotice(
@@ -1015,6 +1023,15 @@ function SavingsCalculatorCard({
             </span>
           ) : null}
         </div>
+        {anomalyAlerts.length > 0 ? (
+          <div
+            className="savings-calculator__anomalies"
+            aria-label="Savings anomaly alerts"
+          >
+            <strong>Output growth alerts</strong>
+            <span>{formatSavingsAnomalyAlerts(anomalyAlerts)}</span>
+          </div>
+        ) : null}
         <div className="savings-calculator__ledger-list">
           {filteredLedger.groups.length > 0 ? (
             filteredLedger.groups.map((group) => (
