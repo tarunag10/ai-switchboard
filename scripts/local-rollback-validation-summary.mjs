@@ -4,6 +4,13 @@ import path from "node:path";
 
 const summaryPath = "dist/local-rollback-validation-summary.md";
 const jsonPath = "dist/local-rollback-validation-summary.json";
+const dedicatedCleanupDomains = [
+  "managed-storage",
+  "repo-intelligence",
+  "login-item",
+  "app-state",
+  "plugins-backups",
+];
 
 const steps = [
   {
@@ -72,6 +79,7 @@ const payload = {
   generatedAt,
   kind: "mac_ai_switchboard.local_rollback_validation",
   releaseGateEvidence: false,
+  dedicatedCleanupDomains,
   passed,
   steps: results.map(({ stdout, stderr, ...result }) => ({
     ...result,
@@ -87,6 +95,9 @@ Generated: ${generatedAt}
 - Evidence kind: local Rollback Center validation
 - Release gate evidence: no
 - Overall result: ${passed ? "pass" : "fail"}
+- Dedicated cleanup domains covered: ${dedicatedCleanupDomains
+  .map((domain) => `\`${domain}\``)
+  .join(", ")}
 
 ${results
   .map(

@@ -866,6 +866,9 @@ const requiredSourceSignals = {
     "managed_rollback_undo_all_executes_ready_native_rows_only",
     "gemini_managed_rollback_removes_shell_and_sidecar_blocks",
     "dedicated_cleanup_rollback",
+    "managed-storage",
+    "app-state",
+    "plugins-backups",
   ],
   "scripts/local-doctor-repair-validation-summary.mjs": [
     "dist/local-doctor-repair-validation-summary.md",
