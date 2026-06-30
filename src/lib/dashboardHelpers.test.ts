@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   aggregateClientConnectors,
+  buildClientSavingsTrendRows,
   buildClientSavingsTrends,
+  buildPersistentClientSavingsTrends,
   buildHourlySavingsChartData,
   buildHourlySavingsWindow,
   buildMonthlySavingsChartData,
@@ -192,6 +194,7 @@ describe("dashboard helpers", () => {
     expect(buildClientSavingsTrends(events)).toEqual([
       {
         client: "Claude Code",
+        scope: "session",
         requests: 1,
         estimatedInputTokens: 500,
         estimatedOutputTokens: 100,
@@ -202,6 +205,7 @@ describe("dashboard helpers", () => {
       },
       {
         client: "Codex",
+        scope: "session",
         requests: 2,
         estimatedInputTokens: 3_000,
         estimatedOutputTokens: 750,
@@ -210,6 +214,121 @@ describe("dashboard helpers", () => {
         estimatedSavingsUsd: 0.8,
         lastSeenAt: "2026-06-30T10:05:00Z",
       },
+    ]);
+  });
+
+  it("builds persistent client trends from saved hourly provider history", () => {
+    const trends = buildPersistentClientSavingsTrends([
+      {
+        hour: "2026-06-29T10",
+        estimatedSavingsUsd: 0.14,
+        estimatedTokensSaved: 140,
+        actualCostUsd: 0.42,
+        totalTokensSent: 420,
+        byProvider: [
+          {
+            provider: "openai",
+            estimatedSavingsUsd: 0.04,
+            estimatedTokensSaved: 40,
+            actualCostUsd: 0.16,
+            totalTokensSent: 80,
+          },
+          {
+            provider: "anthropic",
+            estimatedSavingsUsd: 0.1,
+            estimatedTokensSaved: 100,
+            actualCostUsd: 0.26,
+            totalTokensSent: 340,
+          },
+        ],
+      },
+      {
+        hour: "2026-06-30T11",
+        estimatedSavingsUsd: 0.2,
+        estimatedTokensSaved: 200,
+        actualCostUsd: 0.8,
+        totalTokensSent: 900,
+        byProvider: [
+          {
+            provider: "openai",
+            estimatedSavingsUsd: 0.2,
+            estimatedTokensSaved: 200,
+            actualCostUsd: 0.8,
+            totalTokensSent: 900,
+          },
+        ],
+      },
+    ]);
+
+    expect(trends).toEqual([
+      {
+        client: "Claude Code",
+        scope: "saved_history",
+        requests: 0,
+        estimatedInputTokens: 0,
+        estimatedOutputTokens: 0,
+        totalTokensSent: 340,
+        estimatedTokensSaved: 100,
+        estimatedSavingsUsd: 0.1,
+        lastSeenAt: "2026-06-29T10",
+      },
+      {
+        client: "Codex",
+        scope: "saved_history",
+        requests: 0,
+        estimatedInputTokens: 0,
+        estimatedOutputTokens: 0,
+        totalTokensSent: 980,
+        estimatedTokensSaved: 240,
+        estimatedSavingsUsd: 0.24000000000000002,
+        lastSeenAt: "2026-06-30T11",
+      },
+    ]);
+  });
+
+  it("prefers current session client trends over saved provider history", () => {
+    expect(
+      buildClientSavingsTrendRows(
+        [
+          {
+            id: "codex-session",
+            timestamp: "2026-06-30T12:00:00Z",
+            client: "Codex",
+            workspace: "repo",
+            upstreamTarget: "openai",
+            stages: [],
+            estimatedInputTokens: 1_000,
+            estimatedOutputTokens: 200,
+            estimatedCostSavingsUsd: 0.1,
+            latencyMs: 100,
+            outcome: "success",
+          },
+        ],
+        [
+          {
+            hour: "2026-06-29T10",
+            estimatedSavingsUsd: 0.2,
+            estimatedTokensSaved: 200,
+            actualCostUsd: 0.8,
+            totalTokensSent: 900,
+            byProvider: [
+              {
+                provider: "anthropic",
+                estimatedSavingsUsd: 0.2,
+                estimatedTokensSaved: 200,
+                actualCostUsd: 0.8,
+                totalTokensSent: 900,
+              },
+            ],
+          },
+        ],
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        client: "Codex",
+        scope: "session",
+        totalTokensSent: 1_200,
+      }),
     ]);
   });
 

@@ -203,6 +203,7 @@ export interface ProviderSavingsDisplay {
 
 export interface ClientSavingsTrend {
   client: string;
+  scope: "session" | "saved_history";
   requests: number;
   estimatedInputTokens: number;
   estimatedOutputTokens: number;
@@ -229,6 +230,7 @@ export function buildClientSavingsTrends(events: UsageEvent[]): ClientSavingsTre
   for (const event of events) {
     const existing = groups.get(event.client) ?? {
       client: event.client,
+      scope: "session",
       requests: 0,
       estimatedInputTokens: 0,
       estimatedOutputTokens: 0,
@@ -261,6 +263,52 @@ export function buildClientSavingsTrends(events: UsageEvent[]): ClientSavingsTre
     const byKey = clientSortKey(left.client).localeCompare(clientSortKey(right.client));
     return byKey !== 0 ? byKey : right.totalTokensSent - left.totalTokensSent;
   });
+}
+
+export function buildPersistentClientSavingsTrends(
+  hourlySavings: HourlySavingsPoint[],
+): ClientSavingsTrend[] {
+  const groups = new Map<string, ClientSavingsTrend>();
+
+  for (const point of hourlySavings) {
+    for (const provider of point.byProvider ?? []) {
+      for (const display of mergeProviderSavingsForDisplay([provider])) {
+        const existing = groups.get(display.label) ?? {
+          client: display.label,
+          scope: "saved_history",
+          requests: 0,
+          estimatedInputTokens: 0,
+          estimatedOutputTokens: 0,
+          totalTokensSent: 0,
+          estimatedTokensSaved: 0,
+          estimatedSavingsUsd: 0,
+          lastSeenAt: point.hour,
+        };
+        existing.totalTokensSent += Math.max(0, display.totalTokensSent);
+        existing.estimatedTokensSaved += Math.max(0, display.estimatedTokensSaved);
+        existing.estimatedSavingsUsd += Math.max(0, display.estimatedSavingsUsd);
+        if (point.hour > existing.lastSeenAt) {
+          existing.lastSeenAt = point.hour;
+        }
+        groups.set(display.label, existing);
+      }
+    }
+  }
+
+  return [...groups.values()].sort((left, right) => {
+    const byKey = clientSortKey(left.client).localeCompare(clientSortKey(right.client));
+    return byKey !== 0 ? byKey : right.totalTokensSent - left.totalTokensSent;
+  });
+}
+
+export function buildClientSavingsTrendRows(
+  events: UsageEvent[],
+  hourlySavings: HourlySavingsPoint[] = [],
+): ClientSavingsTrend[] {
+  const sessionRows = buildClientSavingsTrends(events);
+  return sessionRows.length > 0
+    ? sessionRows
+    : buildPersistentClientSavingsTrends(hourlySavings);
 }
 
 // Fold the upstream per-provider breakdown into the two connectors the desktop

@@ -148,7 +148,7 @@ import {
   aggregateClientConnectors,
   addDays,
   addMonths,
-  buildClientSavingsTrends,
+  buildClientSavingsTrendRows,
   buildHourlySavingsChartData,
   buildHourlySavingsWindow,
   buildMonthlySavingsChartData,
@@ -1093,16 +1093,27 @@ function ClientSavingsTrendsCard({
 }: {
   dashboard: DashboardState;
 }) {
-  const trends = buildClientSavingsTrends(dashboard.recentUsage);
+  const trends = buildClientSavingsTrendRows(
+    dashboard.recentUsage,
+    dashboard.hourlySavings,
+  );
+  const trendScope =
+    trends[0]?.scope === "saved_history" ? "saved history" : "current session";
 
   return (
     <article className="soft-card client-savings-trends">
       <header className="client-savings-trends__header">
         <div>
           <h2>Per-client savings</h2>
-          <p>Current app session, grouped by connected coding tool.</p>
+          <p>
+            {trendScope === "saved history"
+              ? "Saved local history, grouped by connected coding tool."
+              : "Current app session, grouped by connected coding tool."}
+          </p>
         </div>
-        <span>{compactNumber(trends.length)} client{trends.length === 1 ? "" : "s"}</span>
+        <span>
+          {compactNumber(trends.length)} client{trends.length === 1 ? "" : "s"}
+        </span>
       </header>
       {trends.length > 0 ? (
         <div className="client-savings-trends__list">
@@ -1118,9 +1129,11 @@ function ClientSavingsTrendsCard({
                 <div>
                   <strong>{trend.client}</strong>
                   <span>
-                    {compactNumber(trend.requests)} request
-                    {trend.requests === 1 ? "" : "s"} · last{" "}
-                    {formatDateTime(trend.lastSeenAt)}
+                    {trend.scope === "saved_history"
+                      ? `Saved history · latest ${formatDateTime(trend.lastSeenAt)}`
+                      : `${compactNumber(trend.requests)} request${
+                          trend.requests === 1 ? "" : "s"
+                        } · last ${formatDateTime(trend.lastSeenAt)}`}
                   </span>
                 </div>
                 <dl>
@@ -1148,7 +1161,8 @@ function ClientSavingsTrendsCard({
       ) : (
         <p className="client-savings-trends__empty">
           Send a prompt through Claude Code, Codex, or another connected tool to
-          populate session-level client trends.
+          populate session-level client trends. Saved per-client history appears
+          here after provider-attributed savings history is available.
         </p>
       )}
     </article>

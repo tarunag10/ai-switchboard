@@ -428,6 +428,8 @@ const requiredSourceSignals = {
     "connector.setupHint",
     "connector.setupPhase",
     "buildClientSavingsTrends",
+    "buildPersistentClientSavingsTrends",
+    "buildClientSavingsTrendRows",
     "ClientSavingsTrend",
   ],
   "src/lib/types.ts": ["automationGates", "manualWorkflow"],
@@ -519,6 +521,7 @@ const requiredSourceSignals = {
   ],
   "src/lib/dashboardHelpers.test.ts": [
     "builds per-client savings trends from recent usage events",
+    "builds persistent client trends from saved hourly provider history",
   ],
   "src/lib/settingsTransfer.ts": [
     "buildSettingsExportBundle",
