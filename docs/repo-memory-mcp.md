@@ -17,6 +17,7 @@ Repo Memory MCP is the read-only agent-consumption surface for Repo Intelligence
 - Relaunch recovery: when the previous app process had already verified an app-managed read-only Repo Memory MCP descriptor, the next app launch automatically re-runs the smoke check during runtime refresh before advertising MCP as active again. Unsafe, missing, or never-prepared descriptors still require **Prepare MCP**.
 - Supervision: while the same app process owns an active Repo Memory MCP session, runtime status polling periodically re-runs the read-only smoke check. A failed recheck downgrades the lifecycle to **Smoke failed** so agents do not rely on stale MCP handoffs. Runtime status also checks the managed descriptor, script, and Node command evidence before telling agents the MCP service is safe to use; broken service evidence downgrades to **Needs attention** even if a previous smoke check passed.
 - Optional terminal verification: `npm run check:repo-memory-mcp`.
+- One-click evidence verification: the app's **Run local evidence** flow now runs `npm run smoke:repo-memory-mcp:local` as a separate local-only report row. It writes `dist/local-repo-memory-mcp-validation-summary.md` and `.json` with read-only tool, bounded response, seeded secret exclusion, app-managed descriptor recheck, and connector bridge recipe evidence.
 - Tools: `repo_context_pack`, `repo_symbol_lookup`, and `repo_dependents_of`.
   Switchboard-compatible aliases are also exposed:
   `switchboard.list_context_packs`, `switchboard.build_context_pack`, and
@@ -114,5 +115,5 @@ Use these recipes only after **Prepare MCP** reports an app-managed, read-only, 
 
 ## Remaining Work
 
-- Installed-app relaunch survival evidence for the app-supervised stdio service and connector bridge recipes as native config mutation is promoted.
+- Signed installed-app relaunch survival evidence for the app-supervised stdio service as native config mutation is promoted. Local one-click smoke evidence is recorded separately by `npm run smoke:repo-memory-mcp:local`.
 - Connector-specific MCP bridge setup docs as native config mutation is promoted.

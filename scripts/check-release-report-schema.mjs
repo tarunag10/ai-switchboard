@@ -55,6 +55,12 @@ const requiredReleaseReportPaths = [
   "localValidation.repoIntelligence.readOnly",
   "localValidation.repoIntelligence.modifiesRepository",
   "localValidation.repoIntelligence.requiredCommand",
+  "localValidation.repoMemoryMcp.summaryPath",
+  "localValidation.repoMemoryMcp.jsonPath",
+  "localValidation.repoMemoryMcp.passed",
+  "localValidation.repoMemoryMcp.readOnly",
+  "localValidation.repoMemoryMcp.modifiesRepository",
+  "localValidation.repoMemoryMcp.requiredCommand",
   "localValidation.localOnlyNetwork.summaryPath",
   "localValidation.localOnlyNetwork.jsonPath",
   "localValidation.localOnlyNetwork.passed",
@@ -341,6 +347,7 @@ for (const prefix of [
   "localValidation.doctorRepair",
   "localValidation.uninstall",
   "localValidation.repoIntelligence",
+  "localValidation.repoMemoryMcp",
   "localValidation.localOnlyNetwork",
 ]) {
   requireObject(report, prefix);
@@ -454,6 +461,51 @@ if (
 }
 if (report.localValidation.repoIntelligence.modifiesRepository !== false) {
   fail("localValidation.repoIntelligence.modifiesRepository must be false");
+}
+if (
+  report.localValidation.repoMemoryMcp.requiredCommand !==
+  "npm run smoke:repo-memory-mcp:local"
+) {
+  fail(
+    "localValidation.repoMemoryMcp.requiredCommand must be npm run smoke:repo-memory-mcp:local",
+  );
+}
+if (report.localValidation.repoMemoryMcp.modifiesRepository !== false) {
+  fail("localValidation.repoMemoryMcp.modifiesRepository must be false");
+}
+requireType(report, "localValidation.repoMemoryMcp.readOnly", "boolean");
+requireType(
+  report,
+  "localValidation.repoMemoryMcp.expectedToolsPresent",
+  "boolean",
+);
+requireType(
+  report,
+  "localValidation.repoMemoryMcp.connectorBridgeRecipesVerified",
+  "boolean",
+);
+requireType(report, "localValidation.repoMemoryMcp.toolCount", "number");
+const repoMemoryMcpRelaunchEvidence =
+  report.localValidation.repoMemoryMcp.relaunchSurvivalEvidence;
+if (
+  repoMemoryMcpRelaunchEvidence !== null &&
+  typeof repoMemoryMcpRelaunchEvidence !== "string"
+) {
+  fail("localValidation.repoMemoryMcp.relaunchSurvivalEvidence must be string or null");
+}
+if (
+  report.localValidation.repoMemoryMcp.passed === true &&
+  report.localValidation.repoMemoryMcp.readOnly !== true
+) {
+  fail("localValidation.repoMemoryMcp.readOnly must be true when validation passes");
+}
+if (
+  report.localValidation.repoMemoryMcp.passed === true &&
+  report.localValidation.repoMemoryMcp.expectedToolsPresent !== true
+) {
+  fail(
+    "localValidation.repoMemoryMcp.expectedToolsPresent must be true when validation passes",
+  );
 }
 if (
   report.localValidation.localOnlyNetwork.requiredCommand !==

@@ -25,6 +25,10 @@ const localRepoIntelligenceSummaryPath =
   "dist/local-repo-intelligence-validation-summary.md";
 const localRepoIntelligenceJsonPath =
   "dist/local-repo-intelligence-validation-summary.json";
+const localRepoMemoryMcpSummaryPath =
+  "dist/local-repo-memory-mcp-validation-summary.md";
+const localRepoMemoryMcpJsonPath =
+  "dist/local-repo-memory-mcp-validation-summary.json";
 const localOnlyNetworkSummaryPath =
   "dist/local-only-network-validation-summary.md";
 const localOnlyNetworkJsonPath =
@@ -275,6 +279,8 @@ function buildLocalValidationEvidence() {
     localRepoIntelligenceSummaryPath,
   );
   const repoIntelligenceJson = readJsonStatus(localRepoIntelligenceJsonPath);
+  const repoMemoryMcpSummary = readSummaryStatus(localRepoMemoryMcpSummaryPath);
+  const repoMemoryMcpJson = readJsonStatus(localRepoMemoryMcpJsonPath);
   const localOnlyNetworkSummary = readSummaryStatus(localOnlyNetworkSummaryPath);
   const localOnlyNetworkJson = readJsonStatus(localOnlyNetworkJsonPath);
   const modeRelaunchPassed = modeRelaunchJson.body?.passed === true;
@@ -282,6 +288,7 @@ function buildLocalValidationEvidence() {
   const doctorRepairPassed = doctorJson.body?.passed === true;
   const uninstallPassed = uninstallJson.body?.passed === true;
   const repoIntelligencePassed = repoIntelligenceJson.body?.passed === true;
+  const repoMemoryMcpPassed = repoMemoryMcpJson.body?.passed === true;
   const localOnlyNetworkPassed = localOnlyNetworkJson.body?.passed === true;
   const localInstalledAppPresent = localInstalledJson.body?.app?.present === true;
   const localInstalledMetadataMatches =
@@ -308,6 +315,7 @@ function buildLocalValidationEvidence() {
     doctorRepairPassed &&
     uninstallPassed &&
     repoIntelligencePassed &&
+    repoMemoryMcpPassed &&
     localOnlyNetworkPassed;
 
   return {
@@ -411,6 +419,31 @@ function buildLocalValidationEvidence() {
         : 0,
       requiredCommand: "npm run smoke:repo-intelligence:local",
     },
+    repoMemoryMcp: {
+      summaryPath: localRepoMemoryMcpSummaryPath,
+      jsonPath: localRepoMemoryMcpJsonPath,
+      summaryPresent: repoMemoryMcpSummary.present,
+      jsonPresent: repoMemoryMcpJson.present,
+      generatedLine: repoMemoryMcpSummary.generatedLine,
+      passed: repoMemoryMcpPassed,
+      readOnly: repoMemoryMcpJson.body?.readOnly === true,
+      modifiesRepository: repoMemoryMcpJson.body?.modifiesRepository === true,
+      relaunchSurvivalEvidence:
+        repoMemoryMcpJson.body?.relaunchSurvivalEvidence ?? null,
+      connectorBridgeRecipesVerified:
+        repoMemoryMcpJson.body?.connectorBridgeRecipesVerified === true,
+      expectedToolsPresent:
+        repoMemoryMcpJson.body?.expectedToolsPresent === true,
+      parseError: repoMemoryMcpJson.parseError,
+      kind: repoMemoryMcpJson.body?.kind ?? null,
+      toolCount: Number.isFinite(repoMemoryMcpJson.body?.toolCount)
+        ? repoMemoryMcpJson.body.toolCount
+        : 0,
+      stepCount: Array.isArray(repoMemoryMcpJson.body?.steps)
+        ? repoMemoryMcpJson.body.steps.length
+        : 0,
+      requiredCommand: "npm run smoke:repo-memory-mcp:local",
+    },
     localOnlyNetwork: {
       summaryPath: localOnlyNetworkSummaryPath,
       jsonPath: localOnlyNetworkJsonPath,
@@ -429,8 +462,8 @@ function buildLocalValidationEvidence() {
       requiredCommand: "npm run smoke:local-only:local",
     },
     message: ready
-      ? "Local installed smoke, mode relaunch, Doctor repair, Rollback Center, uninstall dry-run, Repo Intelligence, and local-only network validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
-      : "Run npm run smoke:installed:local, npm run smoke:mode-relaunch:local -- --confirm, npm run smoke:rollback:local, npm run smoke:doctor-repair:local, npm run smoke:uninstall:local, npm run smoke:repo-intelligence:local, and npm run smoke:local-only:local to refresh local install, relaunch, survival, cleanup, repo-context, and local-only network evidence before public installed-smoke proof.",
+      ? "Local installed smoke, mode relaunch, Doctor repair, Rollback Center, uninstall dry-run, Repo Intelligence, Repo Memory MCP, and local-only network validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
+      : "Run npm run smoke:installed:local, npm run smoke:mode-relaunch:local -- --confirm, npm run smoke:rollback:local, npm run smoke:doctor-repair:local, npm run smoke:uninstall:local, npm run smoke:repo-intelligence:local, npm run smoke:repo-memory-mcp:local, and npm run smoke:local-only:local to refresh local install, relaunch, survival, cleanup, repo-context, MCP bridge, and local-only network evidence before public installed-smoke proof.",
   };
 }
 
@@ -615,6 +648,18 @@ ${localValidation.repoIntelligence.generatedLine ? `- ${localValidation.repoInte
 - Repo Intelligence modifies repository: ${localValidation.repoIntelligence.modifiesRepository === false ? "no" : "unknown"}
 - Repo Intelligence validation steps: ${localValidation.repoIntelligence.stepCount}
 - Repo Intelligence command: ${localValidation.repoIntelligence.requiredCommand}
+- Repo Memory MCP summary present: ${localValidation.repoMemoryMcp.summaryPresent ? "yes" : "no"} (${localValidation.repoMemoryMcp.summaryPath})
+- Repo Memory MCP JSON present: ${localValidation.repoMemoryMcp.jsonPresent ? "yes" : "no"} (${localValidation.repoMemoryMcp.jsonPath})
+${localValidation.repoMemoryMcp.generatedLine ? `- ${localValidation.repoMemoryMcp.generatedLine}` : "- Repo Memory MCP validation summary has not been generated in this checkout."}
+- Repo Memory MCP validation passed: ${localValidation.repoMemoryMcp.passed ? "yes" : "no"}
+- Repo Memory MCP validation read-only: ${localValidation.repoMemoryMcp.readOnly === true ? "yes" : "unknown"}
+- Repo Memory MCP modifies repository: ${localValidation.repoMemoryMcp.modifiesRepository === false ? "no" : "unknown"}
+- Repo Memory MCP expected tools present: ${localValidation.repoMemoryMcp.expectedToolsPresent ? "yes" : "unknown"}
+- Repo Memory MCP connector bridge recipes verified: ${localValidation.repoMemoryMcp.connectorBridgeRecipesVerified ? "yes" : "unknown"}
+- Repo Memory MCP relaunch survival evidence: ${localValidation.repoMemoryMcp.relaunchSurvivalEvidence ?? "unknown"}
+- Repo Memory MCP tool count: ${localValidation.repoMemoryMcp.toolCount}
+- Repo Memory MCP validation steps: ${localValidation.repoMemoryMcp.stepCount}
+- Repo Memory MCP command: ${localValidation.repoMemoryMcp.requiredCommand}
 - Local-only network summary present: ${localValidation.localOnlyNetwork.summaryPresent ? "yes" : "no"} (${localValidation.localOnlyNetwork.summaryPath})
 - Local-only network JSON present: ${localValidation.localOnlyNetwork.jsonPresent ? "yes" : "no"} (${localValidation.localOnlyNetwork.jsonPath})
 ${localValidation.localOnlyNetwork.generatedLine ? `- ${localValidation.localOnlyNetwork.generatedLine}` : "- Local-only network validation summary has not been generated in this checkout."}

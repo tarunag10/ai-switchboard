@@ -41,6 +41,7 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("Doctor repair validation");
     expect(copy).toContain("uninstall dry-run validation");
     expect(copy).toContain("Repo Intelligence validation");
+    expect(copy).toContain("Repo Memory MCP validation");
     expect(copy).toContain(
       "local unsigned/ad-hoc install evidence never replaces signed DMG install",
     );
@@ -57,6 +58,7 @@ describe("release readiness checklist", () => {
       "doctor-repair-validation",
       "uninstall-validation",
       "repo-intelligence-validation",
+      "repo-memory-mcp-validation",
       "local-only-network-validation",
       "release-report",
     ]);
@@ -72,6 +74,7 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("Doctor repair validation");
     expect(copy).toContain("Uninstall dry-run validation");
     expect(copy).toContain("Repo Intelligence validation");
+    expect(copy).toContain("Repo Memory MCP validation");
     expect(copy).toContain("Local-only network validation");
     expect(copy).toContain("Refresh release readiness report");
     expect(copy).toContain("dist/local-evidence-summary.md");
@@ -97,9 +100,9 @@ describe("release readiness checklist", () => {
       "signing",
       "smoke",
     ]);
-    expect(releaseReadinessItemCount()).toBe(17);
+    expect(releaseReadinessItemCount()).toBe(18);
     expect(releaseReadinessGroups.map((group) => group.items.length)).toEqual([
-      2, 3, 12,
+      2, 3, 13,
     ]);
 
     const allCopy = releaseReadinessGroups
@@ -307,12 +310,23 @@ describe("release readiness checklist", () => {
         },
         repoIntelligence: {
           passed: true,
-          stepCount: 3,
+          stepCount: 2,
           summaryPresent: true,
           readOnly: true,
           modifiesRepository: false,
           requiredCommand: "npm run smoke:repo-intelligence:local",
           summaryPath: "dist/local-repo-intelligence-validation-summary.md",
+        },
+        repoMemoryMcp: {
+          passed: true,
+          toolCount: 6,
+          summaryPresent: true,
+          readOnly: true,
+          modifiesRepository: false,
+          expectedToolsPresent: true,
+          connectorBridgeRecipesVerified: true,
+          requiredCommand: "npm run smoke:repo-memory-mcp:local",
+          summaryPath: "dist/local-repo-memory-mcp-validation-summary.md",
         },
         localOnlyNetwork: {
           passed: true,
@@ -333,6 +347,7 @@ describe("release readiness checklist", () => {
       "doctor-repair",
       "uninstall",
       "repo-intelligence",
+      "repo-memory-mcp",
       "local-only-network",
     ]);
     expect(rows.every((row) => row.passed)).toBe(true);
@@ -343,6 +358,7 @@ describe("release readiness checklist", () => {
       "npm run smoke:doctor-repair:local",
       "npm run smoke:uninstall:local",
       "npm run smoke:repo-intelligence:local",
+      "npm run smoke:repo-memory-mcp:local",
       "npm run smoke:local-only:local",
     ]);
     expect(rows.find((row) => row.id === "local-installed")?.detail).toContain(
@@ -360,6 +376,9 @@ describe("release readiness checklist", () => {
     expect(
       rows.find((row) => row.id === "repo-intelligence")?.detail,
     ).toContain("Read-only and non-mutating.");
+    expect(rows.find((row) => row.id === "repo-memory-mcp")?.detail).toContain(
+      "Read-only stdio tools",
+    );
     expect(
       rows.find((row) => row.id === "local-only-network")?.detail,
     ).toContain("Local-only guards and remote-service scan passed.");

@@ -23,12 +23,6 @@ const steps = [
       "repo_intelligence",
     ],
   },
-  {
-    id: "repo-memory-mcp",
-    label: "Repo Memory MCP read-only smoke",
-    command: "npm",
-    args: ["run", "check:repo-memory-mcp"],
-  },
 ];
 
 function runStep(step) {
@@ -86,7 +80,7 @@ ${results
 `,
   )
   .join("\n")}
-This smoke proves Repo Intelligence pack generation, read-only API payloads, and repo-memory MCP access checks completed locally. It does not mutate the user repository and does not prove signed/notarized public release readiness.
+This smoke proves Repo Intelligence pack generation and read-only API payloads completed locally. Repo Memory MCP bridge checks are recorded separately by npm run smoke:repo-memory-mcp:local. It does not mutate the user repository and does not prove signed/notarized public release readiness.
 `;
 
 fs.mkdirSync(path.dirname(summaryPath), { recursive: true });

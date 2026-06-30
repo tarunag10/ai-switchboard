@@ -40,6 +40,7 @@ Shipped:
 - One-click local evidence now includes focused Doctor repair validation for UI/copy behavior and backend Off/RTK Headroom-restoring repair guards, with durable local summary artifacts.
 - Repo Memory MCP active sessions are now app-supervised with periodic read-only smoke rechecks while the same app process owns the session.
 - Repo Memory MCP relaunch recovery now auto-verifies previously active app-managed read-only descriptors during runtime refresh, so repeat launches do not require a manual Start MCP click unless smoke fails.
+- One-click local evidence now records Repo Memory MCP as its own validation row, including read-only stdio tools, bounded pack response, seeded secret exclusion, app-managed descriptor recheck evidence, and connector bridge recipe proof instead of burying MCP proof inside Repo Intelligence.
 - The home runtime banner now offers a primary Start runtime action when the Headroom runtime is offline, degraded, or proxy-unreachable, reusing the same restart-and-refresh path as paused recovery.
 - Caveman and Compact Chinese savings attribution now records durable estimated events only when managed guidance actually changes client instruction files, including changed-file and backup evidence instead of unconditional inferred template rows.
 - Local-only network certification now has a repo-owned gate, `npm run check:local-only-network`, that verifies the remote destination registry, frontend/backend local-only guards, and documented app-owned remote-service surfaces.
@@ -73,7 +74,7 @@ Left:
 
 - Add reboot-level and signed installed-app smoke evidence for full Doctor repair and Rollback Center survival; local summary artifacts are now reported, but they remain local-only proof.
 - Promote native config mutation connector by connector beyond Gemini/OpenCode only after parse, dry-run diff, exact backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are proven.
-- Add installed-app relaunch survival evidence for Repo Memory MCP's app-supervised stdio service and verify connector bridge recipes as native config mutation is promoted.
+- Add signed installed-app relaunch survival evidence for Repo Memory MCP's app-supervised stdio service as native config mutation is promoted; local one-click MCP smoke and connector bridge recipe proof are now split into their own report row.
 - Replace remaining fallback-only inferred add-on rows with stronger counters where trustworthy evidence exists; Ponytail now uses host-registration estimated events, Caveman and Compact Chinese use changed-file estimated events, MarkItDown uses changed hook/nudge artifact evidence after smoke-tested integration, and Repo Intelligence fallback rows are estimated from graph-pack evidence.
 - Deepen Repo Intelligence beyond the shipped parser/index health checks, corrupt-index Doctor cleanup, local imports, package-dependency edges, reverse dependencies, graph-input evidence, graph-aware packs, Swift symbols, Rust module edges, local validation artifact, and read-only MCP smoke proof with richer language-specific dependency analyzers and broader Doctor health checks.
 - Complete public release readiness with signed/notarized DMG, updater artifacts, public installed-smoke proof, installed-app uninstall proof, and release-panel wiring; local non-destructive uninstall dry-run evidence is now reported.
@@ -341,7 +342,7 @@ Suggested commit:
 - Complete Mode Inspector and Verify Off mode proof surface.
 - Legal/Privacy Settings surface and local-only network certification.
 - Connector-native config promotion after safe parse/dry-run/backup/apply/verify/rollback/Off cleanup.
-- Repo Memory MCP installed-app relaunch survival and connector bridge verification.
+- Repo Memory MCP signed installed-app relaunch survival evidence beyond the local one-click MCP smoke row.
 - Public signed/notarized release readiness and uninstall proof.
 - Stronger measured savings counters for inferred add-ons.
 - Broader local-only certification mode beyond the shipped static registry, backend guard, local-free bundle scan, and local summary evidence.
@@ -380,7 +381,7 @@ Suggested commit:
 2. Complete Mode Inspector, Verify Off mode, and installed-app restart/relaunch/reboot smoke evidence.
 3. Broaden public local-only/network certification tests on top of the shipped remote destination registry, backend guards, local-free bundle scan, and local summary evidence.
 4. Promote the next native connector write path with full parse, dry-run, backup, apply, verify, rollback, Doctor repair, fixture-home restore, and Off cleanup.
-5. Add installed-app relaunch survival evidence for Repo Memory MCP and verify connector bridge recipes as native config mutation is promoted.
+5. Add signed installed-app relaunch survival evidence for Repo Memory MCP as native config mutation is promoted.
 6. Replace inferred add-on savings events with measured counters where possible.
 7. Expand Repo Intelligence graph packs with language-aware parser/index versions, imports, and reverse dependencies.
 8. Finish public signed/notarized release readiness, updater evidence, uninstall proof, and broad tester handoff.

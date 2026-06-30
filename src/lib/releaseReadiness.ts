@@ -146,6 +146,19 @@ export interface ReleaseReadinessReportSnapshot {
       requiredCommand?: string;
       summaryPath?: string;
     };
+    repoMemoryMcp?: {
+      summaryPresent?: boolean;
+      jsonPresent?: boolean;
+      passed?: boolean;
+      readOnly?: boolean | null;
+      modifiesRepository?: boolean | null;
+      relaunchSurvivalEvidence?: string | null;
+      connectorBridgeRecipesVerified?: boolean | null;
+      toolCount?: number;
+      expectedToolsPresent?: boolean | null;
+      requiredCommand?: string;
+      summaryPath?: string;
+    };
     localOnlyNetwork?: {
       summaryPresent?: boolean;
       jsonPresent?: boolean;
@@ -255,6 +268,7 @@ export const localReleaseEvidenceCommandIds = [
   "doctor-repair-validation",
   "uninstall-validation",
   "repo-intelligence-validation",
+  "repo-memory-mcp-validation",
   "local-only-network-validation",
   "release-report",
 ] as const;
@@ -272,8 +286,9 @@ export function formatLocalReleaseEvidenceSequenceCopy() {
     "7. Doctor repair validation",
     "8. Uninstall dry-run validation",
     "9. Repo Intelligence validation",
-    "10. Local-only network validation",
-    "11. Refresh release readiness report",
+    "10. Repo Memory MCP validation",
+    "11. Local-only network validation",
+    "12. Refresh release readiness report",
     "Summary: dist/local-evidence-summary.md",
     "Boundary: this local unsigned/ad-hoc evidence does not run signing, notarization, updater publication, or the strict public-release gate.",
   ].join("\n");
@@ -287,7 +302,7 @@ export function formatReleaseReadinessCommandCopy() {
     "Report source after running: dist/release-readiness-report.json",
     `One-command local evidence: ${localReleaseEvidenceCommand}`,
     "Local-only install evidence: npm run build:mac:local-install",
-    "App shortcut: Run local evidence executes the same sequence as npm run evidence:local: desktop validation, smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, Doctor repair validation, uninstall dry-run validation, Repo Intelligence validation, local-only network validation, and a release report refresh.",
+    "App shortcut: Run local evidence executes the same sequence as npm run evidence:local: desktop validation, smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, Doctor repair validation, uninstall dry-run validation, Repo Intelligence validation, Repo Memory MCP validation, local-only network validation, and a release report refresh.",
     "Boundary: local unsigned/ad-hoc install evidence never replaces signed DMG install, notarization, updater feed, or installed smoke confirmation.",
   ].join("\n");
 }
@@ -342,9 +357,9 @@ export const releaseReadinessStatusRows: ReleaseReadinessStatusRow[] = [
     statusLabel: "Local only",
     tone: "local-only",
     source:
-      "npm run smoke:rollback:local && npm run smoke:doctor-repair:local && npm run smoke:uninstall:local && npm run smoke:repo-intelligence:local",
+      "npm run smoke:rollback:local && npm run smoke:doctor-repair:local && npm run smoke:uninstall:local && npm run smoke:repo-intelligence:local && npm run smoke:repo-memory-mcp:local",
     detail:
-      "Local Doctor repair, Rollback Center, uninstall dry-run, and Repo Intelligence evidence is useful operational proof but does not replace signed installed-app smoke.",
+      "Local Doctor repair, Rollback Center, uninstall dry-run, Repo Intelligence, and Repo Memory MCP evidence is useful operational proof but does not replace signed installed-app smoke.",
   },
   {
     id: "signing-env",
@@ -560,8 +575,16 @@ export const releaseReadinessGroups: ReleaseReadinessGroup[] = [
         id: "repo-intelligence-validation",
         label: "Validate Repo Intelligence",
         detail:
-          "Run Repo Intelligence pack/safety tests, backend read-only API tests, and repo-memory MCP smoke without mutating the repository.",
+          "Run Repo Intelligence pack/safety tests and backend read-only API tests without mutating the repository.",
         command: "npm run smoke:repo-intelligence:local",
+        executable: true,
+      },
+      {
+        id: "repo-memory-mcp-validation",
+        label: "Validate Repo Memory MCP",
+        detail:
+          "Run the app-managed repo-memory MCP stdio smoke as its own local evidence row, including read-only tools, bounded pack response, seeded secret exclusion, and connector bridge recipe proof.",
+        command: "npm run smoke:repo-memory-mcp:local",
         executable: true,
       },
       {
@@ -813,6 +836,31 @@ export function releaseLocalEvidenceRowsFromReport(
       ),
     },
     {
+      id: "repo-memory-mcp",
+      label: "Repo Memory MCP",
+      passed: local.repoMemoryMcp?.passed === true,
+      statusLabel:
+        local.repoMemoryMcp?.passed === true ? "Passed" : "Missing",
+      command:
+        local.repoMemoryMcp?.requiredCommand ??
+        "npm run smoke:repo-memory-mcp:local",
+      summaryPath:
+        local.repoMemoryMcp?.summaryPath ??
+        "dist/local-repo-memory-mcp-validation-summary.md",
+      detail: localEvidenceDetail(
+        "Repo Memory MCP validation checked",
+        local.repoMemoryMcp?.toolCount,
+        local.repoMemoryMcp?.summaryPresent,
+        local.repoMemoryMcp?.readOnly === true &&
+          local.repoMemoryMcp?.modifiesRepository === false &&
+          local.repoMemoryMcp?.expectedToolsPresent === true &&
+          local.repoMemoryMcp?.connectorBridgeRecipesVerified === true
+          ? "Read-only stdio tools, connector bridge recipes, and seeded secret exclusion passed."
+          : "MCP read-only or bridge evidence unproven.",
+        "tool",
+      ),
+    },
+    {
       id: "local-only-network",
       label: "Local-only network",
       passed: local.localOnlyNetwork?.passed === true,
@@ -860,6 +908,8 @@ export function releaseReadinessRowsFromReport(
   const uninstallPassed = report.localValidation?.uninstall?.passed === true;
   const repoIntelligencePassed =
     report.localValidation?.repoIntelligence?.passed === true;
+  const repoMemoryMcpPassed =
+    report.localValidation?.repoMemoryMcp?.passed === true;
   const localOnlyNetworkPassed =
     report.localValidation?.localOnlyNetwork?.passed === true;
   const signingReady = report.shareableDmgGate?.signedAndNotarized === true;
@@ -917,7 +967,7 @@ export function releaseReadinessRowsFromReport(
       statusLabel: localValidationReady ? "Validated locally" : "Local only",
       tone: "local-only",
       detail: localValidationReady
-        ? "Local installed app, Rollback Center, Doctor repair, uninstall dry-run, Repo Intelligence, and local-only network validation summaries are passing; this remains local-only evidence."
+        ? "Local installed app, Rollback Center, Doctor repair, uninstall dry-run, Repo Intelligence, Repo Memory MCP, and local-only network validation summaries are passing; this remains local-only evidence."
         : `Local survival validation missing or stale: installed app ${
             localInstalledPassed ? "passed" : "not passed"
           }, Rollback ${
@@ -928,6 +978,8 @@ export function releaseReadinessRowsFromReport(
             uninstallPassed ? "passed" : "not passed"
           }, Repo Intelligence ${
             repoIntelligencePassed ? "passed" : "not passed"
+          }, Repo Memory MCP ${
+            repoMemoryMcpPassed ? "passed" : "not passed"
           }, local-only network ${
             localOnlyNetworkPassed ? "passed" : "not passed"
           }.`,

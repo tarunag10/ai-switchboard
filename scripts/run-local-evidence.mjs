@@ -69,6 +69,13 @@ const steps = [
     summaryPath: "dist/local-repo-intelligence-validation-summary.md",
   },
   {
+    id: "repo-memory-mcp-validation",
+    label: "Repo Memory MCP validation",
+    command: "npm run smoke:repo-memory-mcp:local",
+    commands: [["npm", ["run", "smoke:repo-memory-mcp:local"]]],
+    summaryPath: "dist/local-repo-memory-mcp-validation-summary.md",
+  },
+  {
     id: "local-only-network-validation",
     label: "Local-only network validation",
     command: "npm run smoke:local-only:local",
