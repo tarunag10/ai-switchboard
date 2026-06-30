@@ -3756,7 +3756,7 @@ impl ToolManager {
             .collect()
     }
 
-    fn ponytail_receipt_exists(&self) -> bool {
+    pub fn ponytail_receipt_exists(&self) -> bool {
         self.runtime.tools_dir.join("ponytail.json").exists()
     }
 

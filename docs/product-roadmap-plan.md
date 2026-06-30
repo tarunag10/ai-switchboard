@@ -22,7 +22,7 @@ Shipped:
 - Repo Memory MCP runtime status now exposes the managed stdio service descriptor separately from app-process smoke supervision, including command, descriptor path, read-only flag, and app-managed ownership.
 - Repo Memory MCP service evidence now includes descriptor presence, repo-memory script path/presence, and Node command availability, so Mode Inspector can downgrade broken MCP command wiring before agents rely on handoffs.
 - Savings ledger rows now distinguish measured, estimated, and inferred events across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, and Compact Chinese.
-- Rollback Center has guarded preview/execution for backend-allowlisted rows, including Codex/OpenCode restore paths, Gemini managed-block cleanup, managed sidecar cleanup rows, dedicated Repo Intelligence summary cleanup, and LaunchAgent/login-item cleanup. Dedicated app-state, storage, and plugin cleanup rows stay visible as rollback plans/manual rows until backend execution exists.
+- Rollback Center has guarded preview/execution for backend-allowlisted rows, including Codex/OpenCode restore paths, Gemini managed-block cleanup, managed sidecar cleanup rows, dedicated Repo Intelligence summary cleanup, LaunchAgent/login-item cleanup, and Ponytail receipt/plugin cleanup. Dedicated app-state and storage cleanup rows stay visible as rollback plans/manual rows until backend execution exists.
 - Doctor repair actions that can restore Headroom routing are now blocked while the saved mode is Off or RTK-only; non-Headroom repairs such as RTK, Caveman, Ponytail, Repo Intelligence, and Repo Memory MCP stay available. Doctor also exposes Verify Off as a primary one-click action when Off-mode evidence remains.
 - Remote destination registry, support-link routing, external-link SSRF guards, local-only backend refusal for account/billing/contact commands, branding iconset provenance, local DMG build, local installed smoke evidence, and the in-app Run local evidence sequence are shipped.
 - Local-only builds now suppress urgent account, billing, checkout, and upgrade notifications at the shared notification boundary, so stale pricing states cannot reopen remote-service prompts.
@@ -358,7 +358,7 @@ Suggested commit:
 - Test relationship view in Repo Intelligence.
 - Deeper add-on health history beyond the shipped bounded trend cards, especially durable MarkItDown/Ponytail counters.
 - Broader settings migration that can apply connector/add-on changes after each native config gate has restore evidence; preview classification is shipped, but connector/add-on application remains manual.
-- Broader Rollback Center native restore coverage for dedicated cleanup domains beyond the shipped Codex/OpenCode/Gemini/sidecar, Repo Intelligence summary, and LaunchAgent rows.
+- Broader Rollback Center native restore coverage for dedicated cleanup domains beyond the shipped Codex/OpenCode/Gemini/sidecar, Repo Intelligence summary, LaunchAgent, and Ponytail receipt rows.
 
 ### Later
 

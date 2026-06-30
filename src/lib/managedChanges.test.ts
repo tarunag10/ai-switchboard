@@ -51,6 +51,7 @@ describe("managedChangeRecords", () => {
     expect(supportsNativeManagedRollbackRecord("repo-intelligence")).toBe(false);
     expect(supportsDedicatedCleanupRollbackRecord("repo-intelligence")).toBe(true);
     expect(supportsDedicatedCleanupRollbackRecord("login-item")).toBe(true);
+    expect(supportsDedicatedCleanupRollbackRecord("plugins-backups")).toBe(true);
   });
 
   it("tracks marker, backup, and verification evidence for every managed change", () => {

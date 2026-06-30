@@ -433,6 +433,10 @@ const LOGIN_ITEM_ROLLBACK_OWNER: &str = "Launch at login";
 const LOGIN_ITEM_ROLLBACK_MARKER: &str = "com.tarunagarwal.mac-ai-switchboard";
 const LOGIN_ITEM_ROLLBACK_CONFIRMATION: &str =
     "Remove com.tarunagarwal.mac-ai-switchboard LaunchAgent for Launch at login";
+const PLUGINS_ROLLBACK_RECORD_ID: &str = "plugins-backups";
+const PLUGINS_ROLLBACK_OWNER: &str = "Add-ons";
+const PLUGINS_ROLLBACK_MARKER: &str = "headroom:addon";
+const PLUGINS_ROLLBACK_CONFIRMATION: &str = "Remove headroom:addon for Add-ons";
 
 fn repo_intelligence_summary_path_string() -> String {
     repo_intelligence::latest_summary_path()
@@ -482,7 +486,18 @@ fn remove_launch_agent_files(paths: &[PathBuf]) -> Result<Vec<String>, String> {
 }
 
 #[tauri::command]
-fn preview_dedicated_cleanup_rollback(record_id: String) -> Result<ManagedRollbackPreview, String> {
+fn preview_dedicated_cleanup_rollback(
+    app: AppHandle,
+    record_id: String,
+) -> Result<ManagedRollbackPreview, String> {
+    let state: tauri::State<'_, AppState> = app.state();
+    preview_dedicated_cleanup_rollback_inner(Some(&state), record_id)
+}
+
+fn preview_dedicated_cleanup_rollback_inner(
+    state: Option<&AppState>,
+    record_id: String,
+) -> Result<ManagedRollbackPreview, String> {
     match record_id.as_str() {
         REPO_INTELLIGENCE_ROLLBACK_RECORD_ID => {
             let target_path = repo_intelligence::latest_summary_path();
@@ -548,8 +563,56 @@ fn preview_dedicated_cleanup_rollback(record_id: String) -> Result<ManagedRollba
                 ],
             })
         }
+        PLUGINS_ROLLBACK_RECORD_ID => {
+            let receipt_present = state
+                .map(|state| state.tool_manager.ponytail_receipt_exists())
+                .unwrap_or(false);
+            let registered_hosts = state
+                .map(|state| state.tool_manager.ponytail_registered_hosts())
+                .unwrap_or_default();
+            Ok(ManagedRollbackPreview {
+                record_id,
+                owner: PLUGINS_ROLLBACK_OWNER.to_string(),
+                target_path: "Ponytail plugin receipt and app-managed host registrations"
+                    .to_string(),
+                marker: PLUGINS_ROLLBACK_MARKER.to_string(),
+                backup_path: None,
+                marker_present: receipt_present,
+                backup_exists: true,
+                status: if receipt_present {
+                    ManagedRollbackExecutionStatus::Ready
+                } else {
+                    ManagedRollbackExecutionStatus::Blocked
+                },
+                confirmation_phrase: PLUGINS_ROLLBACK_CONFIRMATION.to_string(),
+                proposed_action:
+                    "Remove only the Switchboard-receipted Ponytail plugin registration."
+                        .to_string(),
+                blocked_reason: if receipt_present {
+                    None
+                } else {
+                    Some(
+                        "No Switchboard Ponytail receipt exists; plugin config may be user-owned."
+                            .to_string(),
+                    )
+                },
+                evidence: vec![
+                    "Dedicated cleanup row: plugins-backups.".to_string(),
+                    "Cleanup calls the existing Ponytail uninstall path, which is no-op without the app receipt.".to_string(),
+                    format!(
+                        "Currently registered hosts: {}.",
+                        if registered_hosts.is_empty() {
+                            "none detected".to_string()
+                        } else {
+                            registered_hosts.join(", ")
+                        }
+                    ),
+                    "Managed backup-file sweeping remains manual until a stricter backup allowlist exists.".to_string(),
+                ],
+            })
+        }
         _ => Err(format!(
-            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID} and {LOGIN_ITEM_ROLLBACK_RECORD_ID}."
+            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID}, {LOGIN_ITEM_ROLLBACK_RECORD_ID}, and {PLUGINS_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -563,14 +626,16 @@ fn execute_dedicated_cleanup_rollback(
     if record_id == LOGIN_ITEM_ROLLBACK_RECORD_ID {
         let _ = app.autolaunch().disable();
     }
-    execute_dedicated_cleanup_rollback_inner(record_id, confirmation_phrase)
+    let state: tauri::State<'_, AppState> = app.state();
+    execute_dedicated_cleanup_rollback_inner(Some(&state), record_id, confirmation_phrase)
 }
 
 fn execute_dedicated_cleanup_rollback_inner(
+    state: Option<&AppState>,
     record_id: String,
     confirmation_phrase: String,
 ) -> Result<ManagedRollbackExecutionResult, String> {
-    let preview = preview_dedicated_cleanup_rollback(record_id.clone())?;
+    let preview = preview_dedicated_cleanup_rollback_inner(state, record_id.clone())?;
     if confirmation_phrase != preview.confirmation_phrase {
         return Err("Rollback confirmation phrase does not match.".to_string());
     }
@@ -630,8 +695,46 @@ fn execute_dedicated_cleanup_rollback_inner(
                 ],
             })
         }
+        PLUGINS_ROLLBACK_RECORD_ID => {
+            let state = state.ok_or_else(|| {
+                "Plugin cleanup requires app state to access the managed Ponytail receipt."
+                    .to_string()
+            })?;
+            let before_hosts = state.tool_manager.ponytail_registered_hosts();
+            state
+                .tool_manager
+                .uninstall_ponytail()
+                .map_err(|err| err.to_string())?;
+            if state.tool_manager.ponytail_receipt_exists() {
+                return Err("Ponytail receipt is still present after cleanup.".to_string());
+            }
+            Ok(ManagedRollbackExecutionResult {
+                record_id,
+                owner: PLUGINS_ROLLBACK_OWNER.to_string(),
+                target_path: "Ponytail plugin receipt and app-managed host registrations"
+                    .to_string(),
+                restored_from: "Switchboard-receipted Ponytail plugin registration removed."
+                    .to_string(),
+                safety_backup_path: None,
+                marker: PLUGINS_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact cleanup confirmation phrase matched.".to_string(),
+                    "Existing Ponytail uninstall path completed.".to_string(),
+                    "Ponytail receipt was absent after cleanup.".to_string(),
+                    format!(
+                        "Previously registered hosts: {}.",
+                        if before_hosts.is_empty() {
+                            "none detected".to_string()
+                        } else {
+                            before_hosts.join(", ")
+                        }
+                    ),
+                    "No add-on backup files were swept without a stricter allowlist.".to_string(),
+                ],
+            })
+        }
         _ => Err(format!(
-            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID} and {LOGIN_ITEM_ROLLBACK_RECORD_ID}."
+            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID}, {LOGIN_ITEM_ROLLBACK_RECORD_ID}, and {PLUGINS_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -7823,6 +7926,7 @@ mod tests {
         RepoIntelligenceSummary,
     };
     use crate::repo_intelligence;
+    use crate::state::AppState;
     use chrono::{TimeZone, Utc};
     use parking_lot::Mutex;
     use serde_json::{json, Value};
@@ -8078,8 +8182,9 @@ mod tests {
         );
         crate::repo_intelligence::save_latest_summary(&summary).expect("save summary");
 
-        let preview = super::preview_dedicated_cleanup_rollback("repo-intelligence".to_string())
-            .expect("preview");
+        let preview =
+            super::preview_dedicated_cleanup_rollback_inner(None, "repo-intelligence".to_string())
+                .expect("preview");
         assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
         assert_eq!(
             preview.confirmation_phrase,
@@ -8093,6 +8198,7 @@ mod tests {
             .contains("User repositories are not modified"));
 
         let result = super::execute_dedicated_cleanup_rollback_inner(
+            None,
             "repo-intelligence".to_string(),
             "Clear repo-intelligence-latest.json for Repo Intelligence".to_string(),
         )
@@ -8129,7 +8235,8 @@ mod tests {
         std::fs::write(&unrelated, "<plist>keep</plist>\n").expect("write unrelated");
 
         let preview =
-            super::preview_dedicated_cleanup_rollback("login-item".to_string()).expect("preview");
+            super::preview_dedicated_cleanup_rollback_inner(None, "login-item".to_string())
+                .expect("preview");
         assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
         assert_eq!(
             preview.confirmation_phrase,
@@ -8143,6 +8250,7 @@ mod tests {
             .contains("~/Library/LaunchAgents"));
 
         let result = super::execute_dedicated_cleanup_rollback_inner(
+            None,
             "login-item".to_string(),
             "Remove com.tarunagarwal.mac-ai-switchboard LaunchAgent for Launch at login"
                 .to_string(),
@@ -8157,6 +8265,57 @@ mod tests {
         assert!(!managed.exists());
         assert!(!legacy.exists());
         assert!(unrelated.exists());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn dedicated_cleanup_rollback_removes_ponytail_receipt_only() {
+        let scratch = tempfile::tempdir().expect("scratch");
+        let _guard = AppStorageEnvGuard::isolated(scratch.path());
+        let state = AppState::new_in(scratch.path().join("state")).expect("app state");
+        let tools_dir = state
+            .tool_manager
+            .managed_python()
+            .ancestors()
+            .nth(4)
+            .expect("managed python under headroom root")
+            .join("tools");
+        std::fs::create_dir_all(&tools_dir).expect("create tools");
+        let ponytail_receipt = tools_dir.join("ponytail.json");
+        let unrelated = tools_dir.join("markitdown.json");
+        std::fs::write(&ponytail_receipt, br#"{"version":"latest","enabled":true}"#)
+            .expect("write ponytail receipt");
+        std::fs::write(&unrelated, br#"{"version":"keep"}"#).expect("write unrelated receipt");
+
+        let preview = super::preview_dedicated_cleanup_rollback_inner(
+            Some(&state),
+            "plugins-backups".to_string(),
+        )
+        .expect("preview");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Remove headroom:addon for Add-ons"
+        );
+        assert!(preview
+            .evidence
+            .join(" ")
+            .contains("no-op without the app receipt"));
+
+        let result = super::execute_dedicated_cleanup_rollback_inner(
+            Some(&state),
+            "plugins-backups".to_string(),
+            "Remove headroom:addon for Add-ons".to_string(),
+        )
+        .expect("execute cleanup");
+        assert_eq!(result.record_id, "plugins-backups");
+        assert!(result.restored_from.contains("Ponytail"));
+        assert!(!ponytail_receipt.exists());
+        assert!(unrelated.exists());
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("No add-on backup files were swept"));
     }
 
     #[test]
