@@ -674,7 +674,62 @@ export function buildSavingsCalculatorBreakdown(
     });
   }
 
-  return rows;
+  const backendRows =
+    scope === "session"
+      ? backendAttributionBreakdownRows(options.attributionEvents ?? [])
+      : [];
+  if (backendRows.length === 0) {
+    return rows;
+  }
+
+  const backendSources = new Set(backendRows.map((row) => row.source));
+  return [
+    ...backendRows,
+    ...rows.filter((row) => !backendSources.has(row.source)),
+  ];
+}
+
+function backendAttributionBreakdownRows(
+  events: SavingsAttributionEvent[],
+): SavingsCalculatorBreakdownRow[] {
+  const durableSessionEvents = positiveSessionAttributionEvents(events);
+  return Object.entries(savingsSourceLabels)
+    .flatMap(([source, meta]) => {
+      const sourceEvents = durableSessionEvents.filter(
+        (event) => event.source === source,
+      );
+      if (sourceEvents.length === 0) return [];
+      const strongestConfidence = strongestAttributionConfidence(sourceEvents);
+      const savedTokens = sourceEvents.reduce(
+        (sum, event) => sum + Math.max(0, event.deltaTokensSaved),
+        0,
+      );
+      const savedUsd = sourceEvents.reduce(
+        (sum, event) => sum + Math.max(0, event.deltaUsd),
+        0,
+      );
+      const requests = sourceEvents.reduce(
+        (sum, event) => sum + Math.max(0, event.requestDelta),
+        0,
+      );
+      const firstEvidence = sourceEvents
+        .flatMap((event) => event.evidence)
+        .filter(Boolean)[0];
+      const evidenceDetail = firstEvidence ? ` Evidence: ${firstEvidence}` : "";
+      return [
+        {
+          id: meta.id,
+          label: meta.label,
+          source: source as SavingsLedgerSource,
+          kind: meta.kind,
+          confidence: strongestConfidence,
+          savedTokens,
+          savedUsd: savedUsd > 0 ? savedUsd : null,
+          detail: `${sourceEvents.length.toLocaleString()} ${strongestConfidence} ${meta.label} session event${sourceEvents.length === 1 ? "" : "s"} across ${requests.toLocaleString()} ${source === "rtk" ? "command" : "request"}${requests === 1 ? "" : "s"}.${evidenceDetail}`,
+        },
+      ];
+    })
+    .sort((left, right) => left.label.localeCompare(right.label));
 }
 
 export function buildSavingsLedgerRows(
@@ -718,11 +773,7 @@ function backendAttributionRows(
   scope: SavingsCalculatorScope,
   recordedAt: string,
 ): SavingsLedgerRow[] {
-  const durableSessionEvents = events.filter(
-    (event) =>
-      event.scope === "session" &&
-      (event.deltaTokensSaved > 0 || event.deltaUsd > 0 || event.requestDelta > 0),
-  );
+  const durableSessionEvents = positiveSessionAttributionEvents(events);
 
   return Object.entries(savingsSourceLabels)
     .flatMap(([source, meta]) => {
@@ -732,18 +783,7 @@ function backendAttributionRows(
       if (sourceEvents.length === 0) {
         return [];
       }
-      const confidenceRank: Record<SavingsCalculatorConfidence, number> = {
-        measured: 3,
-        estimated: 2,
-        inferred: 1,
-      };
-      const strongestConfidence = sourceEvents.reduce(
-        (strongest, event) =>
-          confidenceRank[event.confidence] > confidenceRank[strongest]
-            ? event.confidence
-            : strongest,
-        "inferred" as SavingsCalculatorConfidence,
-      );
+      const strongestConfidence = strongestAttributionConfidence(sourceEvents);
       const savedTokens = sourceEvents.reduce(
         (sum, event) => sum + Math.max(0, event.deltaTokensSaved),
         0,
@@ -791,6 +831,31 @@ function backendAttributionRows(
       ];
     })
     .sort((left, right) => left.label.localeCompare(right.label));
+}
+
+function positiveSessionAttributionEvents(events: SavingsAttributionEvent[]) {
+  return events.filter(
+    (event) =>
+      event.scope === "session" &&
+      (event.deltaTokensSaved > 0 ||
+        event.deltaUsd > 0 ||
+        event.requestDelta > 0),
+  );
+}
+
+function strongestAttributionConfidence(events: SavingsAttributionEvent[]) {
+  const confidenceRank: Record<SavingsCalculatorConfidence, number> = {
+    measured: 3,
+    estimated: 2,
+    inferred: 1,
+  };
+  return events.reduce(
+    (strongest, event) =>
+      confidenceRank[event.confidence] > confidenceRank[strongest]
+        ? event.confidence
+        : strongest,
+    "inferred" as SavingsCalculatorConfidence,
+  );
 }
 
 export function buildSavingsAnomalyAlerts(
