@@ -1507,6 +1507,34 @@ function AddonHealthStrip({ cards }: { cards: AddonHealthCard[] }) {
               <li key={item}>{item}</li>
             ))}
           </ul>
+          <div
+            className="addons__health-trend"
+            aria-label={`${card.name} health trend`}
+          >
+            <div className="addons__health-trend-heading">
+              <span>{card.trend.label}</span>
+              <strong>{card.trend.value}</strong>
+            </div>
+            {card.trend.points.length > 0 ? (
+              <div className="addons__health-sparkline" aria-hidden="true">
+                {card.trend.points.map((point) => {
+                  const maxValue = Math.max(
+                    ...card.trend.points.map((item) => item.value),
+                    1,
+                  );
+                  const height = Math.max(12, (point.value / maxValue) * 100);
+                  return (
+                    <span
+                      key={`${point.label}-${point.value}`}
+                      style={{ height: `${height}%` }}
+                      title={`${point.label}: ${point.value.toLocaleString()}`}
+                    />
+                  );
+                })}
+              </div>
+            ) : null}
+            <small>{card.trend.detail}</small>
+          </div>
           <em>{card.nextAction}</em>
         </section>
       ))}
@@ -9236,7 +9264,10 @@ export default function App() {
             </header>
             {addonError ? <p className="addons__error">{addonError}</p> : null}
             <AddonHealthStrip
-              cards={buildAddonHealthCards(runtimeStatus, dashboard.tools)}
+              cards={buildAddonHealthCards(runtimeStatus, dashboard.tools, {
+                dailySavings: dashboard.dailySavings,
+                recentUsage: dashboard.recentUsage,
+              })}
             />
             <ul className="addons__list">
               <AddonCard

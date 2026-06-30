@@ -8956,6 +8956,67 @@ html.window-hiding {
   line-height: 1.35;
 }
 
+.addons__health-trend {
+  display: grid;
+  gap: 6px;
+  margin-top: 9px;
+  padding: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+
+.addons__health-trend-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.addons__health-trend-heading span,
+.addons__health-trend-heading strong,
+.addons__health-trend small {
+  overflow-wrap: anywhere;
+}
+
+.addons__health-trend-heading span {
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.addons__health-trend-heading strong {
+  color: var(--text-primary);
+  font-size: var(--text-xxs);
+  font-weight: 850;
+  text-align: right;
+}
+
+.addons__health-sparkline {
+  display: grid;
+  align-items: end;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(6px, 1fr);
+  gap: 3px;
+  height: 34px;
+}
+
+.addons__health-sparkline span {
+  min-height: 12px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+}
+
+.addons__health-trend small {
+  color: var(--text-secondary);
+  font-size: var(--text-xxs);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .addons__list {
   list-style: none;
   margin: 16px 0 0;

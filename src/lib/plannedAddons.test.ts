@@ -37,6 +37,18 @@ function runtimeFixture(
       hookConfigured: true,
       totalCommands: 12,
       totalSaved: 900,
+      daily: [
+        {
+          date: "2026-06-29",
+          savedTokens: 300,
+          commands: 4,
+        },
+        {
+          date: "2026-06-30",
+          savedTokens: 600,
+          commands: 8,
+        },
+      ],
     },
     ...overrides,
   };
@@ -162,6 +174,80 @@ describe("planned add-ons", () => {
     expect(cards.find((card) => card.id === "rtk")?.evidence).toContain(
       "Tokens saved: 900.",
     );
+    expect(cards.find((card) => card.id === "rtk")?.trend).toMatchObject({
+      label: "RTK history trend",
+      value: "900 tokens",
+      detail: "12 commands across 2 local RTK history days.",
+    });
+    expect(cards.find((card) => card.id === "markitdown")?.trend).toMatchObject(
+      {
+        label: "Health history",
+        value: "Current only",
+      },
+    );
+  });
+
+  it("derives Headroom trend evidence from recent optimized usage", () => {
+    const cards = buildAddonHealthCards(runtimeFixture(), [], {
+      recentUsage: [
+        {
+          id: "usage-1",
+          timestamp: "2026-06-30T09:00:00Z",
+          client: "Claude Code",
+          workspace: "/repo",
+          upstreamTarget: "anthropic",
+          stages: [
+            {
+              stageId: "headroom",
+              stageName: "Headroom",
+              applied: true,
+              estimatedTokensSaved: 1200,
+              addedLatencyMs: 12,
+              notes: [],
+            },
+          ],
+          estimatedInputTokens: 4000,
+          estimatedOutputTokens: 900,
+          estimatedCostSavingsUsd: 0.02,
+          latencyMs: 200,
+          outcome: "success",
+        },
+        {
+          id: "usage-2",
+          timestamp: "2026-06-30T09:30:00Z",
+          client: "Codex",
+          workspace: "/repo",
+          upstreamTarget: "openai",
+          stages: [
+            {
+              stageId: "rtk",
+              stageName: "RTK",
+              applied: true,
+              estimatedTokensSaved: 300,
+              addedLatencyMs: 2,
+              notes: [],
+            },
+          ],
+          estimatedInputTokens: 1200,
+          estimatedOutputTokens: 300,
+          estimatedCostSavingsUsd: 0.01,
+          latencyMs: 100,
+          outcome: "success",
+        },
+      ],
+    });
+
+    expect(cards.find((card) => card.id === "headroom_engine")?.trend).toMatchObject(
+      {
+        label: "Recent Headroom trend",
+        value: "1,200 tokens",
+        detail:
+          "1 recent optimized request includes Headroom compression evidence.",
+      },
+    );
+    expect(
+      cards.find((card) => card.id === "headroom_engine")?.trend.points,
+    ).toHaveLength(1);
   });
 
   it("surfaces degraded runtime and incomplete RTK wiring as actionable warnings", () => {

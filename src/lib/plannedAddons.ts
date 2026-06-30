@@ -1,4 +1,10 @@
-import type { ManagedTool, RuntimeStatus } from "./types";
+import type {
+  DailySavingsPoint,
+  ManagedTool,
+  RtkDailyStats,
+  RuntimeStatus,
+  UsageEvent,
+} from "./types";
 
 export interface PlannedAddon {
   id: string;
@@ -21,7 +27,25 @@ export interface AddonHealthCard {
   tone: AddonHealthTone;
   detail: string;
   evidence: string[];
+  trend: AddonHealthTrend;
   nextAction: string;
+}
+
+export interface AddonHealthTrendPoint {
+  label: string;
+  value: number;
+}
+
+export interface AddonHealthTrend {
+  label: string;
+  value: string;
+  detail: string;
+  points: AddonHealthTrendPoint[];
+}
+
+export interface AddonHealthHistoryInputs {
+  recentUsage?: UsageEvent[];
+  dailySavings?: DailySavingsPoint[];
 }
 
 export const plannedAddons: PlannedAddon[] = [
@@ -158,6 +182,132 @@ function toolById(tools: ManagedTool[], id: string) {
   return tools.find((tool) => tool.id === id) ?? null;
 }
 
+function formatCount(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    notation: value >= 10_000 ? "compact" : "standard",
+    maximumFractionDigits: value >= 10_000 ? 1 : 0,
+  }).format(Math.max(0, value));
+}
+
+function shortDateLabel(dateKey: string) {
+  const parsed = new Date(`${dateKey}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return dateKey;
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+  }).format(parsed);
+}
+
+function noDurableHistoryTrend(addonName: string): AddonHealthTrend {
+  return {
+    label: "Health history",
+    value: "Current only",
+    detail: `${addonName} has live install health; durable per-day trend evidence is not available yet.`,
+    points: [],
+  };
+}
+
+function buildHeadroomHealthTrend(
+  history: AddonHealthHistoryInputs,
+): AddonHealthTrend {
+  const events = history.recentUsage ?? [];
+  const headroomEvents = events
+    .map((event) => {
+      const tokensSaved = event.stages
+        .filter(
+          (stage) =>
+            stage.applied &&
+            /headroom|kompress/i.test(`${stage.stageId} ${stage.stageName}`),
+        )
+        .reduce(
+          (sum, stage) => sum + Math.max(0, stage.estimatedTokensSaved),
+          0,
+        );
+      return {
+        label: new Intl.DateTimeFormat(undefined, {
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(new Date(event.timestamp)),
+        value: tokensSaved,
+      };
+    })
+    .filter((point) => point.value > 0);
+
+  if (headroomEvents.length > 0) {
+    const tokensSaved = headroomEvents.reduce(
+      (sum, point) => sum + point.value,
+      0,
+    );
+    const requestNoun = headroomEvents.length === 1 ? "request" : "requests";
+    const requestVerb = headroomEvents.length === 1 ? "includes" : "include";
+    return {
+      label: "Recent Headroom trend",
+      value: `${formatCount(tokensSaved)} tokens`,
+      detail: `${headroomEvents.length} recent optimized ${requestNoun} ${requestVerb} Headroom compression evidence.`,
+      points: headroomEvents.slice(-6),
+    };
+  }
+
+  const savingsDays = (history.dailySavings ?? [])
+    .filter((point) => Math.max(0, point.estimatedTokensSaved) > 0)
+    .slice(-7)
+    .map((point) => ({
+      label: shortDateLabel(point.date),
+      value: Math.max(0, point.estimatedTokensSaved),
+    }));
+
+  if (savingsDays.length > 0) {
+    const tokensSaved = savingsDays.reduce((sum, point) => sum + point.value, 0);
+    return {
+      label: "Saved history trend",
+      value: `${formatCount(tokensSaved)} tokens`,
+      detail: `${savingsDays.length} saved local history days include optimization savings.`,
+      points: savingsDays,
+    };
+  }
+
+  return {
+    label: "Recent Headroom trend",
+    value: "No traffic yet",
+    detail: "Send traffic through a connected tool to build durable Headroom trend evidence.",
+    points: [],
+  };
+}
+
+function buildRtkHealthTrend(daily: RtkDailyStats[] = []): AddonHealthTrend {
+  const points = daily
+    .filter(
+      (point) =>
+        Math.max(0, point.commands) > 0 || Math.max(0, point.savedTokens) > 0,
+    )
+    .slice(-7)
+    .map((point) => ({
+      label: shortDateLabel(point.date),
+      value: Math.max(0, point.savedTokens),
+      commands: Math.max(0, point.commands),
+    }));
+
+  if (points.length === 0) {
+    return {
+      label: "RTK history trend",
+      value: "No commands yet",
+      detail: "Run shell commands through RTK to build per-day command-output savings history.",
+      points: [],
+    };
+  }
+
+  const tokensSaved = points.reduce((sum, point) => sum + point.value, 0);
+  const commands = points.reduce((sum, point) => sum + point.commands, 0);
+  return {
+    label: "RTK history trend",
+    value: `${formatCount(tokensSaved)} tokens`,
+    detail: `${formatCount(commands)} commands across ${points.length} local RTK history days.`,
+    points: points.map(({ label, value }) => ({ label, value })),
+  };
+}
+
 function managedToolHealth(
   tool: ManagedTool | null,
   id: "markitdown" | "ponytail",
@@ -172,6 +322,7 @@ function managedToolHealth(
       tone: "offline",
       detail: `${name} is not installed in managed app storage yet.`,
       evidence: ["No managed tool record is healthy for this add-on."],
+      trend: noDurableHistoryTrend(name),
       nextAction: "Install from this Addons page.",
     };
   }
@@ -187,6 +338,7 @@ function managedToolHealth(
         `Tool status: ${tool.status}.`,
         tool.version ? `Version: ${tool.version}.` : "Version is not reported.",
       ],
+      trend: noDurableHistoryTrend(name),
       nextAction: installedAction,
     };
   }
@@ -202,6 +354,7 @@ function managedToolHealth(
         `Tool status: ${tool.status}.`,
         tool.version ? `Version: ${tool.version}.` : "Version is not reported.",
       ],
+      trend: noDurableHistoryTrend(name),
       nextAction: "Enable it from this Addons page or leave it off intentionally.",
     };
   }
@@ -216,6 +369,7 @@ function managedToolHealth(
       `Tool status: ${tool.status}.`,
       tool.version ? `Version: ${tool.version}.` : "Version is not reported.",
     ],
+    trend: noDurableHistoryTrend(name),
     nextAction: "No action needed.",
   };
 }
@@ -223,6 +377,7 @@ function managedToolHealth(
 export function buildAddonHealthCards(
   runtimeStatus: RuntimeStatus | null | undefined,
   tools: ManagedTool[] = [],
+  history: AddonHealthHistoryInputs = {},
 ): AddonHealthCard[] {
   const headroomHealthy =
     runtimeStatus?.installed === true &&
@@ -239,6 +394,7 @@ export function buildAddonHealthCards(
           tone: "warning",
           detail: "Runtime status has not loaded yet.",
           evidence: ["Waiting for the backend runtime probe."],
+          trend: buildHeadroomHealthTrend(history),
           nextAction: "Refresh runtime status or run Doctor.",
         }
       : headroomHealthy
@@ -256,6 +412,7 @@ export function buildAddonHealthCards(
                 ? `Backend port: ${runtimeStatus.backendStatus.port}.`
                 : "Backend status did not report a port.",
             ],
+            trend: buildHeadroomHealthTrend(history),
             nextAction: "No action needed.",
           }
         : {
@@ -274,6 +431,7 @@ export function buildAddonHealthCards(
               `Running: ${runtimeStatus.running ? "yes" : "no"}.`,
               `Proxy reachable: ${runtimeStatus.proxyReachable ? "yes" : "no"}.`,
             ],
+            trend: buildHeadroomHealthTrend(history),
             nextAction: "Use Start runtime or run Doctor from Home.",
           };
 
@@ -290,6 +448,7 @@ export function buildAddonHealthCards(
             `Commands recorded: ${Math.max(0, rtk.totalCommands ?? 0).toLocaleString()}.`,
             `Tokens saved: ${Math.max(0, rtk.totalSaved ?? 0).toLocaleString()}.`,
           ],
+          trend: buildRtkHealthTrend(rtk.daily ?? []),
           nextAction: "No action needed.",
         }
       : {
@@ -306,6 +465,7 @@ export function buildAddonHealthCards(
             `PATH configured: ${rtk?.pathConfigured ? "yes" : "no"}.`,
             `Hook configured: ${rtk?.hookConfigured ? "yes" : "no"}.`,
           ],
+          trend: buildRtkHealthTrend(rtk?.daily ?? []),
           nextAction: rtk?.installed
             ? "Use Enable or run Doctor to repair shell wiring."
             : "Install RTK from this Addons page.",

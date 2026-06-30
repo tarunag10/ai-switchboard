@@ -58,6 +58,7 @@ Shipped:
 - Local Repo Intelligence validation now writes durable read-only evidence for pack generation, backend read-only API payloads, and repo-memory MCP smoke access, and the release readiness report ingests it as local-only proof.
 - Repo Intelligence now aligns the frontend preview, CLI/MCP script, and Tauri backend on Swift source classification/symbol extraction, Rust module/import-reference edges, and `package.json` script graph edges, so one-click packs cover more macOS app and build/release workflow code without broad file dumps.
 - Doctor now treats corrupt Repo Intelligence saved summaries as one-click Clear index repairs, with backend proof that only Switchboard managed index metadata is removed before re-indexing.
+- Add-on health cards now include bounded trend evidence: Headroom uses recent optimized usage or saved local history, RTK uses per-day command-output history, and MarkItDown/Ponytail explicitly show current-only history until durable counters exist.
 - Doctor now surfaces Repo Memory MCP smoke-failed, stale-config, service-unhealthy, and unverified-active supervision states as Prepare MCP repairs, so unsafe MCP handoffs are visible instead of relying on configured-state alone.
 - Repo Memory MCP now has connector-specific bridge setup recipes for Claude Code, Goose, Cursor/Windsurf/Zed, Continue/Aider, Gemini/OpenCode/Grok/Qwen/Amazon Q, and deployment checks keep those read-only boundaries documented.
 - The Addons page now has live health cards for Headroom engine, RTK, MarkItDown, and Ponytail, with status, evidence, and next-action copy derived from runtime/tool health instead of static checklist text alone.
@@ -349,7 +350,7 @@ Suggested commit:
 - Persistent per-client savings history beyond the shipped current-session trend card.
 - Broader Codex advisor history that persists large-context risk across launches instead of only using recent in-session token events.
 - Test relationship view in Repo Intelligence.
-- Deeper add-on health history and per-add-on trend charts beyond the shipped live health cards.
+- Deeper add-on health history beyond the shipped bounded trend cards, especially durable MarkItDown/Ponytail counters.
 - Broader settings migration that can safely apply connector/add-on changes after each native config gate has restore evidence.
 - Broader Rollback Center native restore coverage beyond Codex/OpenCode/Gemini/sidecar rows.
 
