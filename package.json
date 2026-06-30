@@ -27,6 +27,7 @@
     "release:report:check": "node scripts/check-release-report-schema.mjs",
     "release:ready": "node scripts/check-release-readiness.mjs",
     "release:ready:strict": "node scripts/check-release-readiness.mjs --strict",
+    "evidence:local": "node scripts/run-local-evidence.mjs",
     "smoke:preflight": "node scripts/smoke-preflight.mjs",
     "smoke:installed": "node scripts/installed-smoke-summary.mjs",
     "smoke:installed:local": "node scripts/local-installed-smoke-summary.mjs",

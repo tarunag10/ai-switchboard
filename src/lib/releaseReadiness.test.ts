@@ -6,6 +6,7 @@ import {
   formatReleaseReadinessNextAction,
   formatReleaseReadinessReportSnapshot,
   formatReleaseReadinessSourceLabel,
+  localReleaseEvidenceCommand,
   localReleaseEvidenceCommandIds,
   releaseLocalEvidenceRowsFromReport,
   releaseReadinessCommand,
@@ -21,6 +22,7 @@ import {
 describe("release readiness checklist", () => {
   it("points users at durable release report command", () => {
     expect(releaseReadinessCommand).toBe("npm run release:ready");
+    expect(localReleaseEvidenceCommand).toBe("npm run evidence:local");
   });
 
   it("formats a safe release command copy when no report is loaded", () => {
@@ -32,6 +34,7 @@ describe("release readiness checklist", () => {
       "Strict public-release gate: npm run release:ready -- --strict",
     );
     expect(copy).toContain("dist/release-readiness-report.json");
+    expect(copy).toContain("One-command local evidence: npm run evidence:local");
     expect(copy).toContain("npm run build:mac:local-install");
     expect(copy).toContain("local Off/RTK relaunch smoke");
     expect(copy).toContain("Rollback Center validation");
@@ -59,6 +62,8 @@ describe("release readiness checklist", () => {
 
     const copy = formatLocalReleaseEvidenceSequenceCopy();
 
+    expect(copy).toContain("Run local evidence: npm run evidence:local");
+    expect(copy).toContain("matches the in-app Run local evidence button");
     expect(copy).toContain("Local DMG build/install");
     expect(copy).toContain("Local installed smoke");
     expect(copy).toContain("Local Off/RTK relaunch smoke");
@@ -67,6 +72,7 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("Uninstall dry-run validation");
     expect(copy).toContain("Repo Intelligence validation");
     expect(copy).toContain("Refresh release readiness report");
+    expect(copy).toContain("dist/local-evidence-summary.md");
     expect(copy).toContain("does not run signing, notarization");
     expect(copy).toContain("strict public-release gate");
   });

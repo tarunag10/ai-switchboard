@@ -233,6 +233,7 @@ function formatConnectorReadinessSummary() {
 }
 
 export const releaseReadinessCommand = "npm run release:ready";
+export const localReleaseEvidenceCommand = "npm run evidence:local";
 
 export const localReleaseEvidenceCommandIds = [
   "desktop-validation",
@@ -249,7 +250,8 @@ export const localReleaseEvidenceCommandIds = [
 
 export function formatLocalReleaseEvidenceSequenceCopy() {
   return [
-    "Run local evidence in this order:",
+    `Run local evidence: ${localReleaseEvidenceCommand}`,
+    "This matches the in-app Run local evidence button and runs these steps in order:",
     "1. Desktop validation",
     "2. Static smoke preflight",
     "3. Local DMG build/install",
@@ -260,6 +262,7 @@ export function formatLocalReleaseEvidenceSequenceCopy() {
     "8. Uninstall dry-run validation",
     "9. Repo Intelligence validation",
     "10. Refresh release readiness report",
+    "Summary: dist/local-evidence-summary.md",
     "Boundary: this local unsigned/ad-hoc evidence does not run signing, notarization, updater publication, or the strict public-release gate.",
   ].join("\n");
 }
@@ -270,8 +273,9 @@ export function formatReleaseReadinessCommandCopy() {
     `Refresh report: ${releaseReadinessCommand}`,
     "Strict public-release gate: npm run release:ready -- --strict",
     "Report source after running: dist/release-readiness-report.json",
+    `One-command local evidence: ${localReleaseEvidenceCommand}`,
     "Local-only install evidence: npm run build:mac:local-install",
-    "App shortcut: Run local evidence executes desktop validation, smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, Doctor repair validation, uninstall dry-run validation, Repo Intelligence validation, and a release report refresh.",
+    "App shortcut: Run local evidence executes the same sequence as npm run evidence:local: desktop validation, smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, Doctor repair validation, uninstall dry-run validation, Repo Intelligence validation, and a release report refresh.",
     "Boundary: local unsigned/ad-hoc install evidence never replaces signed DMG install, notarization, updater feed, or installed smoke confirmation.",
   ].join("\n");
 }
