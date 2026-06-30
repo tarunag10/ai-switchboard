@@ -537,10 +537,12 @@ const requiredSourceSignals = {
   "src/lib/codexConcurrencyGuidance.ts": [
     "riskLabel",
     "Largest recent Codex request",
-    "Recent Codex traffic is large enough",
+    "saved local token history",
+    "Saved history total",
   ],
   "src/lib/codexConcurrencyGuidance.test.ts": [
     "raises a high-pressure warning from large recent Codex requests",
+    "raises pressure from saved local history",
     "watches multiple medium Codex requests",
   ],
   "src/components/SwitchboardPanel.test.tsx": [

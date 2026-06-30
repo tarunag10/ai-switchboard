@@ -213,6 +213,9 @@ describe("SwitchboardPanel", () => {
       screen.getByText("No recent Codex token events in this app session yet."),
     ).toBeInTheDocument();
     expect(
+      screen.getByText("No saved local token history is available yet."),
+    ).toBeInTheDocument();
+    expect(
       screen.getByLabelText("Codex parallel-session policy"),
     ).toBeInTheDocument();
     expect(
@@ -370,12 +373,35 @@ describe("SwitchboardPanel", () => {
     expect(screen.getByText("High context pressure")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Recent Codex traffic is large enough that Headroom compression can stall. Compact the largest conversation or switch to RTK only before opening more heavy Codex work.",
+        "Codex or saved local token history is large enough that Headroom compression can stall. Compact the largest conversation or switch to RTK only before opening more heavy Codex work.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("1 recent Codex request.")).toBeInTheDocument();
     expect(
       screen.getByText("Largest recent Codex request: 131,000 tokens."),
+    ).toBeInTheDocument();
+  });
+
+  it("renders high context-pressure evidence from saved local history", () => {
+    renderPanel({
+      recentUsage: [],
+      savedHistory: [
+        {
+          date: "2026-06-29",
+          estimatedSavingsUsd: 0.7,
+          estimatedTokensSaved: 70_000,
+          actualCostUsd: 2.0,
+          totalTokensSent: 320_000,
+        },
+      ],
+    });
+
+    expect(screen.getByText("High context pressure")).toBeInTheDocument();
+    expect(
+      screen.getByText("1 saved local history day with token traffic."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Largest saved history day: 320,000 tokens sent."),
     ).toBeInTheDocument();
   });
 

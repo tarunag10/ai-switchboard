@@ -20,6 +20,7 @@ import {
 } from "../lib/switchboardDisplay";
 import type {
   ClientConnectorStatus,
+  DailySavingsPoint,
   SavingsMode,
   SwitchboardMode,
   UsageEvent,
@@ -37,6 +38,7 @@ interface SwitchboardPanelProps {
   rtkDetail: string;
   connectors?: ClientConnectorStatus[];
   recentUsage?: UsageEvent[];
+  savedHistory?: DailySavingsPoint[];
   inspectorRows?: Array<{
     label: string;
     status: string;
@@ -82,6 +84,7 @@ export function SwitchboardPanel({
   rtkDetail,
   connectors = [],
   recentUsage = [],
+  savedHistory = [],
   inspectorRows = [],
   remoteServicesEnabled,
   savingsMode,
@@ -114,6 +117,7 @@ export function SwitchboardPanel({
     mode,
     headroomDetail,
     recentUsage,
+    savedHistory,
   );
   const showStaleShellWarning = Boolean(needsAttention);
   const savingsModeCopy =

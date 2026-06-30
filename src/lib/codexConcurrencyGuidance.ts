@@ -1,5 +1,4 @@
-import type { SwitchboardMode } from "./types";
-import type { UsageEvent } from "./types";
+import type { DailySavingsPoint, SwitchboardMode, UsageEvent } from "./types";
 
 export interface CodexConcurrencyGuidance {
   title: string;
@@ -21,6 +20,7 @@ export function codexConcurrencyGuidance(
   mode: SwitchboardMode,
   headroomDetail: string,
   recentUsage: UsageEvent[] = [],
+  savedHistory: DailySavingsPoint[] = [],
 ): CodexConcurrencyGuidance | null {
   const codexRouted =
     /codex/i.test(headroomDetail) && (mode === "full" || mode === "headroom");
@@ -35,36 +35,66 @@ export function codexConcurrencyGuidance(
   );
   const largestRequestTokens = Math.max(0, ...codexTokenTotals);
   const totalRecentTokens = codexTokenTotals.reduce((sum, tokens) => sum + tokens, 0);
+  const savedHistoryPressure = savedHistory
+    .filter((point) => Math.max(0, point.totalTokensSent) > 0)
+    .slice(-7);
+  const largestHistoryDayTokens = Math.max(
+    0,
+    ...savedHistoryPressure.map((point) => Math.max(0, point.totalTokensSent)),
+  );
+  const totalHistoryTokens = savedHistoryPressure.reduce(
+    (sum, point) => sum + Math.max(0, point.totalTokensSent),
+    0,
+  );
+  const historyHighRisk =
+    largestHistoryDayTokens >= 300_000 ||
+    (savedHistoryPressure.length >= 3 && totalHistoryTokens >= 600_000);
+  const historyWatchRisk =
+    historyHighRisk ||
+    largestHistoryDayTokens >= 150_000 ||
+    totalHistoryTokens >= 300_000;
   const highRisk =
     largestRequestTokens >= 120_000 ||
-    (codexEvents.length >= 3 && totalRecentTokens >= 150_000);
+    (codexEvents.length >= 3 && totalRecentTokens >= 150_000) ||
+    historyHighRisk;
   const watchRisk =
     highRisk ||
     largestRequestTokens >= 60_000 ||
     codexEvents.length >= 2 ||
-    totalRecentTokens >= 90_000;
+    totalRecentTokens >= 90_000 ||
+    historyWatchRisk;
   const riskLabel = highRisk
     ? "High context pressure"
     : watchRisk
       ? "Context pressure watch"
       : "Preventive guidance";
   const riskTone = highRisk ? "high" : "watch";
-  const evidence =
+  const recentEvidence =
     codexEvents.length > 0
       ? [
           `${codexEvents.length.toLocaleString()} recent Codex request${codexEvents.length === 1 ? "" : "s"}.`,
           `Largest recent Codex request: ${formatTokens(largestRequestTokens)} tokens.`,
           `Recent Codex total: ${formatTokens(totalRecentTokens)} tokens.`,
         ]
-      : [
-          "No recent Codex token events in this app session yet.",
-          "Guidance is based on Codex being routed through Headroom.",
-        ];
+      : ["No recent Codex token events in this app session yet."];
+  const historyEvidence =
+    savedHistoryPressure.length > 0
+      ? [
+          `${savedHistoryPressure.length.toLocaleString()} saved local history day${savedHistoryPressure.length === 1 ? "" : "s"} with token traffic.`,
+          `Largest saved history day: ${formatTokens(largestHistoryDayTokens)} tokens sent.`,
+          `Saved history total: ${formatTokens(totalHistoryTokens)} tokens sent.`,
+        ]
+      : ["No saved local token history is available yet."];
+  const evidence = [
+    ...recentEvidence,
+    ...historyEvidence,
+    "Guidance is based on Codex being routed through Headroom.",
+  ];
 
   return {
     title: "Running several Codex goals?",
     body: highRisk
-      ? "Recent Codex traffic is large enough that Headroom compression can stall. Compact the largest conversation or switch to RTK only before opening more heavy Codex work."
+      ? "Codex or saved local token history is large enough that Headroom compression can stall. Compact the largest conversation or switch to RTK only before opening more heavy Codex work."
       : "Headroom compression is best for one main Codex session. Use RTK only before running several heavy active Codex chats or goals so large requests do not stall behind compression.",
     riskLabel,
     riskTone,

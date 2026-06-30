@@ -29,6 +29,7 @@ describe("codexConcurrencyGuidance", () => {
       riskTone: "watch",
       evidence: [
         "No recent Codex token events in this app session yet.",
+        "No saved local token history is available yet.",
         "Guidance is based on Codex being routed through Headroom.",
       ],
       policies: [
@@ -66,11 +67,51 @@ describe("codexConcurrencyGuidance", () => {
     expect(guidance).toMatchObject({
       riskLabel: "High context pressure",
       riskTone: "high",
-      body: "Recent Codex traffic is large enough that Headroom compression can stall. Compact the largest conversation or switch to RTK only before opening more heavy Codex work.",
+      body: "Codex or saved local token history is large enough that Headroom compression can stall. Compact the largest conversation or switch to RTK only before opening more heavy Codex work.",
       evidence: [
         "1 recent Codex request.",
         "Largest recent Codex request: 134,000 tokens.",
         "Recent Codex total: 134,000 tokens.",
+        "No saved local token history is available yet.",
+        "Guidance is based on Codex being routed through Headroom.",
+      ],
+    });
+  });
+
+  it("raises pressure from saved local history when the app session is fresh", () => {
+    const guidance = codexConcurrencyGuidance("full", "Codex", [], [
+      {
+        date: "2026-06-28",
+        estimatedSavingsUsd: 0.5,
+        estimatedTokensSaved: 50_000,
+        actualCostUsd: 1.2,
+        totalTokensSent: 220_000,
+      },
+      {
+        date: "2026-06-29",
+        estimatedSavingsUsd: 0.6,
+        estimatedTokensSaved: 60_000,
+        actualCostUsd: 1.4,
+        totalTokensSent: 230_000,
+      },
+      {
+        date: "2026-06-30",
+        estimatedSavingsUsd: 0.9,
+        estimatedTokensSaved: 90_000,
+        actualCostUsd: 1.9,
+        totalTokensSent: 250_000,
+      },
+    ]);
+
+    expect(guidance).toMatchObject({
+      riskLabel: "High context pressure",
+      riskTone: "high",
+      evidence: [
+        "No recent Codex token events in this app session yet.",
+        "3 saved local history days with token traffic.",
+        "Largest saved history day: 250,000 tokens sent.",
+        "Saved history total: 700,000 tokens sent.",
+        "Guidance is based on Codex being routed through Headroom.",
       ],
     });
   });
