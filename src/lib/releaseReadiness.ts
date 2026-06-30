@@ -356,10 +356,9 @@ export const releaseReadinessStatusRows: ReleaseReadinessStatusRow[] = [
     label: "Local safety evidence",
     statusLabel: "Local only",
     tone: "local-only",
-    source:
-      "npm run smoke:rollback:local && npm run smoke:doctor-repair:local && npm run smoke:uninstall:local && npm run smoke:repo-intelligence:local && npm run smoke:repo-memory-mcp:local",
+    source: localReleaseEvidenceCommand,
     detail:
-      "Local Doctor repair, Rollback Center, uninstall dry-run, Repo Intelligence, and Repo Memory MCP evidence is useful operational proof but does not replace signed installed-app smoke.",
+      "The one-click local evidence flow runs desktop validation, preflight, local install/relaunch, Rollback Center, Doctor repair, uninstall dry-run, Repo Intelligence, Repo Memory MCP, local-only network validation, and a release report refresh; it does not replace signed installed-app smoke.",
   },
   {
     id: "signing-env",

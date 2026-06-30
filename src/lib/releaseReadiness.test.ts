@@ -195,10 +195,13 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("npm run fmt:desktop && npm run test:desktop");
     expect(copy).toContain("npm run build:mac:local-install");
     expect(copy).toContain("npm run smoke:installed -- --confirm");
-    expect(copy).toContain("npm run smoke:rollback:local");
-    expect(copy).toContain("npm run smoke:doctor-repair:local");
-    expect(copy).toContain("npm run smoke:uninstall:local");
-    expect(copy).toContain("npm run smoke:repo-intelligence:local");
+    expect(copy).toContain("npm run evidence:local");
+    expect(copy).toContain("Rollback Center");
+    expect(copy).toContain("Doctor repair");
+    expect(copy).toContain("uninstall dry-run");
+    expect(copy).toContain("Repo Intelligence");
+    expect(copy).toContain("Repo Memory MCP");
+    expect(copy).toContain("local-only network validation");
     expect(copy).toContain("Developer ID");
     expect(copy).toContain("notarization credentials");
     expect(copy).toContain("HEADROOM_UPDATER_PUBLIC_KEY");
