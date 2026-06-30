@@ -25,6 +25,10 @@ const localRepoIntelligenceSummaryPath =
   "dist/local-repo-intelligence-validation-summary.md";
 const localRepoIntelligenceJsonPath =
   "dist/local-repo-intelligence-validation-summary.json";
+const localOnlyNetworkSummaryPath =
+  "dist/local-only-network-validation-summary.md";
+const localOnlyNetworkJsonPath =
+  "dist/local-only-network-validation-summary.json";
 const betaSmokeDoc = "docs/beta-smoke-test.md";
 const appPath = "/Applications/Mac AI Switchboard.app";
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
@@ -271,11 +275,14 @@ function buildLocalValidationEvidence() {
     localRepoIntelligenceSummaryPath,
   );
   const repoIntelligenceJson = readJsonStatus(localRepoIntelligenceJsonPath);
+  const localOnlyNetworkSummary = readSummaryStatus(localOnlyNetworkSummaryPath);
+  const localOnlyNetworkJson = readJsonStatus(localOnlyNetworkJsonPath);
   const modeRelaunchPassed = modeRelaunchJson.body?.passed === true;
   const rollbackPassed = rollbackJson.body?.passed === true;
   const doctorRepairPassed = doctorJson.body?.passed === true;
   const uninstallPassed = uninstallJson.body?.passed === true;
   const repoIntelligencePassed = repoIntelligenceJson.body?.passed === true;
+  const localOnlyNetworkPassed = localOnlyNetworkJson.body?.passed === true;
   const localInstalledAppPresent = localInstalledJson.body?.app?.present === true;
   const localInstalledMetadataMatches =
     localInstalledJson.body?.app?.metadataMatches === true;
@@ -300,7 +307,8 @@ function buildLocalValidationEvidence() {
     rollbackPassed &&
     doctorRepairPassed &&
     uninstallPassed &&
-    repoIntelligencePassed;
+    repoIntelligencePassed &&
+    localOnlyNetworkPassed;
 
   return {
     ready,
@@ -403,9 +411,26 @@ function buildLocalValidationEvidence() {
         : 0,
       requiredCommand: "npm run smoke:repo-intelligence:local",
     },
+    localOnlyNetwork: {
+      summaryPath: localOnlyNetworkSummaryPath,
+      jsonPath: localOnlyNetworkJsonPath,
+      summaryPresent: localOnlyNetworkSummary.present,
+      jsonPresent: localOnlyNetworkJson.present,
+      generatedLine: localOnlyNetworkSummary.generatedLine,
+      passed: localOnlyNetworkPassed,
+      localOnly: localOnlyNetworkJson.body?.localOnly === true,
+      appOwnedRemoteCallsBlocked:
+        localOnlyNetworkJson.body?.appOwnedRemoteCallsBlocked === true,
+      parseError: localOnlyNetworkJson.parseError,
+      kind: localOnlyNetworkJson.body?.kind ?? null,
+      stepCount: Array.isArray(localOnlyNetworkJson.body?.steps)
+        ? localOnlyNetworkJson.body.steps.length
+        : 0,
+      requiredCommand: "npm run smoke:local-only:local",
+    },
     message: ready
-      ? "Local installed smoke, mode relaunch, Doctor repair, Rollback Center, uninstall dry-run, and Repo Intelligence validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
-      : "Run npm run smoke:installed:local, npm run smoke:mode-relaunch:local -- --confirm, npm run smoke:rollback:local, npm run smoke:doctor-repair:local, npm run smoke:uninstall:local, and npm run smoke:repo-intelligence:local to refresh local install, relaunch, survival, cleanup, and repo-context evidence before public installed-smoke proof.",
+      ? "Local installed smoke, mode relaunch, Doctor repair, Rollback Center, uninstall dry-run, Repo Intelligence, and local-only network validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
+      : "Run npm run smoke:installed:local, npm run smoke:mode-relaunch:local -- --confirm, npm run smoke:rollback:local, npm run smoke:doctor-repair:local, npm run smoke:uninstall:local, npm run smoke:repo-intelligence:local, and npm run smoke:local-only:local to refresh local install, relaunch, survival, cleanup, repo-context, and local-only network evidence before public installed-smoke proof.",
   };
 }
 
@@ -590,6 +615,14 @@ ${localValidation.repoIntelligence.generatedLine ? `- ${localValidation.repoInte
 - Repo Intelligence modifies repository: ${localValidation.repoIntelligence.modifiesRepository === false ? "no" : "unknown"}
 - Repo Intelligence validation steps: ${localValidation.repoIntelligence.stepCount}
 - Repo Intelligence command: ${localValidation.repoIntelligence.requiredCommand}
+- Local-only network summary present: ${localValidation.localOnlyNetwork.summaryPresent ? "yes" : "no"} (${localValidation.localOnlyNetwork.summaryPath})
+- Local-only network JSON present: ${localValidation.localOnlyNetwork.jsonPresent ? "yes" : "no"} (${localValidation.localOnlyNetwork.jsonPath})
+${localValidation.localOnlyNetwork.generatedLine ? `- ${localValidation.localOnlyNetwork.generatedLine}` : "- Local-only network validation summary has not been generated in this checkout."}
+- Local-only network validation passed: ${localValidation.localOnlyNetwork.passed ? "yes" : "no"}
+- Local-only network mode: ${localValidation.localOnlyNetwork.localOnly ? "yes" : "unknown"}
+- App-owned remote calls blocked: ${localValidation.localOnlyNetwork.appOwnedRemoteCallsBlocked ? "yes" : "unknown"}
+- Local-only network validation steps: ${localValidation.localOnlyNetwork.stepCount}
+- Local-only network command: ${localValidation.localOnlyNetwork.requiredCommand}
 - ${localValidation.message}
 
 ## Shareable DMG Gates

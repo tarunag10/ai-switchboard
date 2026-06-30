@@ -55,6 +55,12 @@ const requiredReleaseReportPaths = [
   "localValidation.repoIntelligence.readOnly",
   "localValidation.repoIntelligence.modifiesRepository",
   "localValidation.repoIntelligence.requiredCommand",
+  "localValidation.localOnlyNetwork.summaryPath",
+  "localValidation.localOnlyNetwork.jsonPath",
+  "localValidation.localOnlyNetwork.passed",
+  "localValidation.localOnlyNetwork.localOnly",
+  "localValidation.localOnlyNetwork.appOwnedRemoteCallsBlocked",
+  "localValidation.localOnlyNetwork.requiredCommand",
   "shareableDmgGate.staticSmokePreflightReady",
   "shareableDmgGate.updaterFeedReady",
   "releaseEnv.blockers",
@@ -335,6 +341,7 @@ for (const prefix of [
   "localValidation.doctorRepair",
   "localValidation.uninstall",
   "localValidation.repoIntelligence",
+  "localValidation.localOnlyNetwork",
 ]) {
   requireObject(report, prefix);
   requireType(report, `${prefix}.summaryPath`, "string");
@@ -447,6 +454,30 @@ if (
 }
 if (report.localValidation.repoIntelligence.modifiesRepository !== false) {
   fail("localValidation.repoIntelligence.modifiesRepository must be false");
+}
+if (
+  report.localValidation.localOnlyNetwork.requiredCommand !==
+  "npm run smoke:local-only:local"
+) {
+  fail(
+    "localValidation.localOnlyNetwork.requiredCommand must be npm run smoke:local-only:local",
+  );
+}
+requireType(report, "localValidation.localOnlyNetwork.localOnly", "boolean");
+requireType(report, "localValidation.localOnlyNetwork.appOwnedRemoteCallsBlocked", "boolean");
+if (
+  report.localValidation.localOnlyNetwork.passed === true &&
+  report.localValidation.localOnlyNetwork.localOnly !== true
+) {
+  fail("localValidation.localOnlyNetwork.localOnly must be true when validation passes");
+}
+if (
+  report.localValidation.localOnlyNetwork.passed === true &&
+  report.localValidation.localOnlyNetwork.appOwnedRemoteCallsBlocked !== true
+) {
+  fail(
+    "localValidation.localOnlyNetwork.appOwnedRemoteCallsBlocked must be true when validation passes",
+  );
 }
 requireType(report, "localValidation.message", "string");
 

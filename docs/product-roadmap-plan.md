@@ -52,6 +52,7 @@ Shipped:
 - Savings ledger scope definitions are now visible in-app and included in copied summaries, making it explicit that session resets on app restart, repo is a Repo Intelligence context estimate, and today/week/month/lifetime use saved local history.
 - Release readiness reports now ingest the local Rollback Center and Doctor repair validation summaries as explicit local-only evidence, including the required refresh commands and pass/fail status, while keeping signed/public installed-smoke gates separate.
 - The in-app Run local evidence action now finishes by regenerating the release readiness report, so one click produces fresh local validation summaries and a fresh report snapshot without running signing, notarization, updater publication, or the strict public-release gate.
+- Local-only network validation now writes durable local-only evidence from the remote destination registry check and local-free build privacy scan, and the release readiness report ingests it alongside other local validation summaries.
 - Local uninstall validation now writes durable non-destructive dry-run evidence from frontend disclosure and backend target-inventory checks, and the release readiness report ingests it alongside Doctor and Rollback local evidence.
 - Local Repo Intelligence validation now writes durable read-only evidence for pack generation, backend read-only API payloads, and repo-memory MCP smoke access, and the release readiness report ingests it as local-only proof.
 - Repo Intelligence now aligns the frontend preview, CLI/MCP script, and Tauri backend on Swift source classification/symbol extraction, Rust module/import-reference edges, and `package.json` script graph edges, so one-click packs cover more macOS app and build/release workflow code without broad file dumps.
@@ -334,7 +335,7 @@ Suggested commit:
 - Repo Memory MCP installed-app relaunch survival and connector bridge verification.
 - Public signed/notarized release readiness and uninstall proof.
 - Stronger measured savings counters for inferred add-ons.
-- Local-only certification mode.
+- Broader local-only certification mode beyond the shipped static registry, backend guard, local-free bundle scan, and local summary evidence.
 - Repo Intelligence graph packs.
 
 ### Medium Impact
@@ -368,7 +369,7 @@ Suggested commit:
 
 1. Legal and Privacy Settings surfaces.
 2. Complete Mode Inspector, Verify Off mode, and installed-app restart/relaunch/reboot smoke evidence.
-3. Public local-only/network certification tests on top of the shipped remote destination registry and backend guards.
+3. Broaden public local-only/network certification tests on top of the shipped remote destination registry, backend guards, local-free bundle scan, and local summary evidence.
 4. Promote the next native connector write path with full parse, dry-run, backup, apply, verify, rollback, Doctor repair, fixture-home restore, and Off cleanup.
 5. Add installed-app relaunch survival evidence for Repo Memory MCP and verify connector bridge recipes as native config mutation is promoted.
 6. Replace inferred add-on savings events with measured counters where possible.

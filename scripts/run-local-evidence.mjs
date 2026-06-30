@@ -69,6 +69,13 @@ const steps = [
     summaryPath: "dist/local-repo-intelligence-validation-summary.md",
   },
   {
+    id: "local-only-network-validation",
+    label: "Local-only network validation",
+    command: "npm run smoke:local-only:local",
+    commands: [["npm", ["run", "smoke:local-only:local"]]],
+    summaryPath: "dist/local-only-network-validation-summary.md",
+  },
+  {
     id: "release-report",
     label: "Refresh release readiness report",
     command: "npm run release:report",

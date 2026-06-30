@@ -57,6 +57,7 @@ describe("release readiness checklist", () => {
       "doctor-repair-validation",
       "uninstall-validation",
       "repo-intelligence-validation",
+      "local-only-network-validation",
       "release-report",
     ]);
 
@@ -71,6 +72,7 @@ describe("release readiness checklist", () => {
     expect(copy).toContain("Doctor repair validation");
     expect(copy).toContain("Uninstall dry-run validation");
     expect(copy).toContain("Repo Intelligence validation");
+    expect(copy).toContain("Local-only network validation");
     expect(copy).toContain("Refresh release readiness report");
     expect(copy).toContain("dist/local-evidence-summary.md");
     expect(copy).toContain("does not run signing, notarization");
@@ -312,6 +314,15 @@ describe("release readiness checklist", () => {
           requiredCommand: "npm run smoke:repo-intelligence:local",
           summaryPath: "dist/local-repo-intelligence-validation-summary.md",
         },
+        localOnlyNetwork: {
+          passed: true,
+          stepCount: 2,
+          summaryPresent: true,
+          localOnly: true,
+          appOwnedRemoteCallsBlocked: true,
+          requiredCommand: "npm run smoke:local-only:local",
+          summaryPath: "dist/local-only-network-validation-summary.md",
+        },
       },
     });
 
@@ -322,6 +333,7 @@ describe("release readiness checklist", () => {
       "doctor-repair",
       "uninstall",
       "repo-intelligence",
+      "local-only-network",
     ]);
     expect(rows.every((row) => row.passed)).toBe(true);
     expect(rows.map((row) => row.command)).toEqual([
@@ -331,6 +343,7 @@ describe("release readiness checklist", () => {
       "npm run smoke:doctor-repair:local",
       "npm run smoke:uninstall:local",
       "npm run smoke:repo-intelligence:local",
+      "npm run smoke:local-only:local",
     ]);
     expect(rows.find((row) => row.id === "local-installed")?.detail).toContain(
       "App listener and Headroom engine proxy were ready.",
@@ -347,6 +360,9 @@ describe("release readiness checklist", () => {
     expect(
       rows.find((row) => row.id === "repo-intelligence")?.detail,
     ).toContain("Read-only and non-mutating.");
+    expect(
+      rows.find((row) => row.id === "local-only-network")?.detail,
+    ).toContain("Local-only guards and remote-service scan passed.");
   });
 
   it("returns no local evidence rows before a release report is loaded", () => {

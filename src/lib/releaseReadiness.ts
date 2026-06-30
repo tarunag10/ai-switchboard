@@ -146,6 +146,16 @@ export interface ReleaseReadinessReportSnapshot {
       requiredCommand?: string;
       summaryPath?: string;
     };
+    localOnlyNetwork?: {
+      summaryPresent?: boolean;
+      jsonPresent?: boolean;
+      passed?: boolean;
+      localOnly?: boolean | null;
+      appOwnedRemoteCallsBlocked?: boolean | null;
+      stepCount?: number;
+      requiredCommand?: string;
+      summaryPath?: string;
+    };
   };
   shareableDmgGate?: {
     ready?: boolean;
@@ -245,6 +255,7 @@ export const localReleaseEvidenceCommandIds = [
   "doctor-repair-validation",
   "uninstall-validation",
   "repo-intelligence-validation",
+  "local-only-network-validation",
   "release-report",
 ] as const;
 
@@ -261,7 +272,8 @@ export function formatLocalReleaseEvidenceSequenceCopy() {
     "7. Doctor repair validation",
     "8. Uninstall dry-run validation",
     "9. Repo Intelligence validation",
-    "10. Refresh release readiness report",
+    "10. Local-only network validation",
+    "11. Refresh release readiness report",
     "Summary: dist/local-evidence-summary.md",
     "Boundary: this local unsigned/ad-hoc evidence does not run signing, notarization, updater publication, or the strict public-release gate.",
   ].join("\n");
@@ -275,7 +287,7 @@ export function formatReleaseReadinessCommandCopy() {
     "Report source after running: dist/release-readiness-report.json",
     `One-command local evidence: ${localReleaseEvidenceCommand}`,
     "Local-only install evidence: npm run build:mac:local-install",
-    "App shortcut: Run local evidence executes the same sequence as npm run evidence:local: desktop validation, smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, Doctor repair validation, uninstall dry-run validation, Repo Intelligence validation, and a release report refresh.",
+    "App shortcut: Run local evidence executes the same sequence as npm run evidence:local: desktop validation, smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, Doctor repair validation, uninstall dry-run validation, Repo Intelligence validation, local-only network validation, and a release report refresh.",
     "Boundary: local unsigned/ad-hoc install evidence never replaces signed DMG install, notarization, updater feed, or installed smoke confirmation.",
   ].join("\n");
 }
@@ -800,6 +812,28 @@ export function releaseLocalEvidenceRowsFromReport(
           : "Read-only boundary unproven.",
       ),
     },
+    {
+      id: "local-only-network",
+      label: "Local-only network",
+      passed: local.localOnlyNetwork?.passed === true,
+      statusLabel:
+        local.localOnlyNetwork?.passed === true ? "Passed" : "Missing",
+      command:
+        local.localOnlyNetwork?.requiredCommand ??
+        "npm run smoke:local-only:local",
+      summaryPath:
+        local.localOnlyNetwork?.summaryPath ??
+        "dist/local-only-network-validation-summary.md",
+      detail: localEvidenceDetail(
+        "Local-only network validation checked",
+        local.localOnlyNetwork?.stepCount,
+        local.localOnlyNetwork?.summaryPresent,
+        local.localOnlyNetwork?.localOnly === true &&
+          local.localOnlyNetwork?.appOwnedRemoteCallsBlocked === true
+          ? "Local-only guards and remote-service scan passed."
+          : "Local-only network boundary unproven.",
+      ),
+    },
   ];
 }
 
@@ -826,6 +860,8 @@ export function releaseReadinessRowsFromReport(
   const uninstallPassed = report.localValidation?.uninstall?.passed === true;
   const repoIntelligencePassed =
     report.localValidation?.repoIntelligence?.passed === true;
+  const localOnlyNetworkPassed =
+    report.localValidation?.localOnlyNetwork?.passed === true;
   const signingReady = report.shareableDmgGate?.signedAndNotarized === true;
   const notarizationReady = signingReady;
   const updaterReady = report.shareableDmgGate?.updaterFeedReady === true;
@@ -881,7 +917,7 @@ export function releaseReadinessRowsFromReport(
       statusLabel: localValidationReady ? "Validated locally" : "Local only",
       tone: "local-only",
       detail: localValidationReady
-        ? "Local installed app, Rollback Center, Doctor repair, uninstall dry-run, and Repo Intelligence validation summaries are passing; this remains local-only evidence."
+        ? "Local installed app, Rollback Center, Doctor repair, uninstall dry-run, Repo Intelligence, and local-only network validation summaries are passing; this remains local-only evidence."
         : `Local survival validation missing or stale: installed app ${
             localInstalledPassed ? "passed" : "not passed"
           }, Rollback ${
@@ -892,6 +928,8 @@ export function releaseReadinessRowsFromReport(
             uninstallPassed ? "passed" : "not passed"
           }, Repo Intelligence ${
             repoIntelligencePassed ? "passed" : "not passed"
+          }, local-only network ${
+            localOnlyNetworkPassed ? "passed" : "not passed"
           }.`,
     },
     {
