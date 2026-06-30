@@ -34,6 +34,17 @@ const steps = [
       "gemini_managed_rollback_removes_shell_and_sidecar_blocks",
     ],
   },
+  {
+    id: "dedicated-cleanup",
+    label: "Dedicated cleanup rollback backend tests",
+    command: "cargo",
+    args: [
+      "test",
+      "--manifest-path",
+      "src-tauri/Cargo.toml",
+      "dedicated_cleanup_rollback",
+    ],
+  },
 ];
 
 function runStep(step) {
