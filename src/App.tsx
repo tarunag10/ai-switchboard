@@ -240,6 +240,12 @@ import {
   type DoctorTimelineEvent,
 } from "./lib/doctorRepairCopy";
 import {
+  buildSettingsExportBundle,
+  formatSettingsExportBundle,
+  parseSettingsImport,
+  type SettingsImportPreview,
+} from "./lib/settingsTransfer";
+import {
   formatBackendUninstallDryRunReport,
   formatUninstallDryRunReport,
   uninstallDisclosureFooter,
@@ -2858,6 +2864,13 @@ export default function App() {
   >(null);
   const [releaseEvidenceResult, setReleaseEvidenceResult] =
     useState<ReleaseEvidenceCommandResult | null>(null);
+  const [settingsTransferNotice, setSettingsTransferNotice] = useState<
+    string | null
+  >(null);
+  const [settingsImportText, setSettingsImportText] = useState("");
+  const [settingsImportPreview, setSettingsImportPreview] =
+    useState<SettingsImportPreview | null>(null);
+  const [settingsImportBusy, setSettingsImportBusy] = useState(false);
   const releaseReadinessRows = releaseReadinessRowsFromReport(
     releaseReadinessReport?.report,
   );
@@ -5192,6 +5205,59 @@ export default function App() {
     } catch {
       setReleaseReadinessCopyNotice("Copy failed. Select release text manually.");
       window.setTimeout(() => setReleaseReadinessCopyNotice(null), 3000);
+    }
+  }
+
+  async function copySettingsExport() {
+    if (!navigator.clipboard) {
+      setSettingsTransferNotice("Clipboard unavailable.");
+      return;
+    }
+
+    const bundle = buildSettingsExportBundle({
+      dashboard,
+      connectors,
+      switchboardMode,
+      savingsMode,
+    });
+    await navigator.clipboard.writeText(formatSettingsExportBundle(bundle));
+    setSettingsTransferNotice("Settings export copied.");
+    window.setTimeout(() => setSettingsTransferNotice(null), 2500);
+  }
+
+  function previewSettingsImport() {
+    const preview = parseSettingsImport(settingsImportText);
+    setSettingsImportPreview(preview);
+    setSettingsTransferNotice(preview.valid ? "Import preview ready." : null);
+  }
+
+  async function applySettingsImport() {
+    const preview = settingsImportPreview ?? parseSettingsImport(settingsImportText);
+    setSettingsImportPreview(preview);
+    if (!preview.valid) {
+      setSettingsTransferNotice(null);
+      return;
+    }
+
+    setSettingsImportBusy(true);
+    setSettingsTransferNotice("Applying safe preferences...");
+    try {
+      if (
+        preview.safePreferences.switchboardMode &&
+        preview.safePreferences.switchboardMode !== switchboardMode
+      ) {
+        await handleSetSwitchboardMode(preview.safePreferences.switchboardMode);
+      }
+      if (
+        preview.safePreferences.savingsMode &&
+        preview.safePreferences.savingsMode !== savingsMode
+      ) {
+        await handleSetSavingsMode(preview.safePreferences.savingsMode);
+      }
+      setSettingsTransferNotice("Safe settings applied.");
+      window.setTimeout(() => setSettingsTransferNotice(null), 2500);
+    } finally {
+      setSettingsImportBusy(false);
     }
   }
 
@@ -9753,6 +9819,116 @@ export default function App() {
             <SettingsLegalPanel
               requiredTermsVersion={dashboard.requiredTermsVersion}
             />
+
+            <article className="soft-card panel-card settings-transfer-card">
+              <div className="panel-card__header">
+                <div>
+                  <h3>Settings import/export</h3>
+                  <p>
+                    Move safe Mac AI Switchboard preferences without carrying
+                    secrets, local paths, message logs, billing state, or token
+                    history.
+                  </p>
+                </div>
+              </div>
+              <div className="settings-transfer__summary">
+                <span>
+                  Mode <strong>{switchboardMode}</strong>
+                </span>
+                <span>
+                  Savings <strong>{savingsMode}</strong>
+                </span>
+                <span>
+                  Connectors <strong>{connectors.length}</strong>
+                </span>
+                <span>
+                  Add-ons{" "}
+                  <strong>{dashboard.tools.filter((tool) => !tool.required).length}</strong>
+                </span>
+              </div>
+              <p className="settings-transfer__note">
+                Import applies only safe app preferences. Connector and add-on
+                entries are shown as manual review items so config writes still
+                go through Doctor, Addons, and connector gates.
+              </p>
+              <div className="settings-transfer__actions">
+                <button
+                  className="secondary-button secondary-button--small"
+                  onClick={() => void copySettingsExport()}
+                  type="button"
+                >
+                  Copy settings export
+                </button>
+                {settingsTransferNotice ? (
+                  <span>{settingsTransferNotice}</span>
+                ) : null}
+              </div>
+              <textarea
+                className="settings-transfer__textarea"
+                onChange={(event) => {
+                  setSettingsImportText(event.target.value);
+                  setSettingsImportPreview(null);
+                  setSettingsTransferNotice(null);
+                }}
+                placeholder="Paste settings export JSON to preview safe preferences"
+                rows={5}
+                value={settingsImportText}
+              />
+              <div className="settings-transfer__actions">
+                <button
+                  className="secondary-button secondary-button--small"
+                  disabled={settingsImportText.trim().length === 0}
+                  onClick={previewSettingsImport}
+                  type="button"
+                >
+                  Preview import
+                </button>
+                <button
+                  className="secondary-button secondary-button--small"
+                  disabled={
+                    settingsImportBusy ||
+                    settingsImportText.trim().length === 0 ||
+                    settingsImportPreview?.valid !== true
+                  }
+                  onClick={() => void applySettingsImport()}
+                  type="button"
+                >
+                  {settingsImportBusy ? "Applying..." : "Apply safe preferences"}
+                </button>
+              </div>
+              {settingsImportPreview ? (
+                <div
+                  className={`settings-transfer__preview${
+                    settingsImportPreview.valid ? " is-valid" : " is-invalid"
+                  }`}
+                >
+                  <strong>{settingsImportPreview.title}</strong>
+                  <p>{settingsImportPreview.detail}</p>
+                  {settingsImportPreview.errors.length > 0 ? (
+                    <ul>
+                      {settingsImportPreview.errors.map((error) => (
+                        <li key={error}>{error}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {Object.keys(settingsImportPreview.safePreferences).length > 0 ? (
+                    <p>
+                      Safe preferences:{" "}
+                      {Object.entries(settingsImportPreview.safePreferences)
+                        .map(([key, value]) => `${key} ${value}`)
+                        .join(", ")}
+                    </p>
+                  ) : null}
+                  {settingsImportPreview.manualItems.length > 0 ? (
+                    <ul>
+                      {settingsImportPreview.manualItems.slice(0, 6).map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
+            </article>
 
             <article className="soft-card panel-card">
               <div className="panel-card__header">

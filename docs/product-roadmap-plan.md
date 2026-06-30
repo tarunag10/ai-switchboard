@@ -62,6 +62,7 @@ Shipped:
 - Repo Memory MCP now has connector-specific bridge setup recipes for Claude Code, Goose, Cursor/Windsurf/Zed, Continue/Aider, Gemini/OpenCode/Grok/Qwen/Amazon Q, and deployment checks keep those read-only boundaries documented.
 - The Addons page now has live health cards for Headroom engine, RTK, MarkItDown, and Ponytail, with status, evidence, and next-action copy derived from runtime/tool health instead of static checklist text alone.
 - The Home Switchboard panel now includes a Codex large-context advisor that grades recent Codex token pressure, explains when to compact, when to switch to RTK-only, and when to reset/repair Codex through Doctor.
+- Settings now exports and previews imports for a secret-free settings bundle covering safe app preferences plus advisory connector/add-on state, while keeping connector config writes and add-on installs manual.
 
 Left:
 
@@ -348,7 +349,7 @@ Suggested commit:
 - Broader Codex advisor history that persists large-context risk across launches instead of only using recent in-session token events.
 - Test relationship view in Repo Intelligence.
 - Deeper add-on health history and per-add-on trend charts beyond the shipped live health cards.
-- Import/export of app settings without secrets.
+- Broader settings migration that can safely apply connector/add-on changes after each native config gate has restore evidence.
 - Broader Rollback Center native restore coverage beyond Codex/OpenCode/Gemini/sidecar rows.
 
 ### Later

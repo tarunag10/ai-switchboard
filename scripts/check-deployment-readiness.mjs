@@ -509,6 +509,18 @@ const requiredSourceSignals = {
     "Savings anomaly alerts",
     "AddonHealthStrip",
     "Add-on health",
+    "Settings import/export",
+    "Copy settings export",
+    "Apply safe preferences",
+  ],
+  "src/lib/settingsTransfer.ts": [
+    "buildSettingsExportBundle",
+    "parseSettingsImport",
+    "No provider API keys",
+  ],
+  "src/lib/settingsTransfer.test.ts": [
+    "exports only non-secret app preferences",
+    "previews valid imports",
   ],
   "src/components/SwitchboardPanel.tsx": [
     "Codex context pressure evidence",
