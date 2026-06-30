@@ -17,8 +17,8 @@ use crate::models::{
 use crate::state::AppState;
 use crate::storage::{app_data_dir, config_file};
 
-const HEADROOM_ACCOUNT_KEYCHAIN_SERVICE: &str = "com.tarunagarwal.mac-ai-switchboard.account";
-const HEADROOM_ACCOUNT_SESSION_ACCOUNT: &str = "session-token";
+const SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE: &str = "com.tarunagarwal.mac-ai-switchboard.account";
+const SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT: &str = "session-token";
 const LOCAL_ONLY_REMOTE_SERVICES_ERROR: &str =
     "Remote account and billing services are disabled in local-only mode.";
 const REMOTE_ACCOUNT_API_DISABLED_ERROR: &str =
@@ -2165,24 +2165,24 @@ fn local_state_path() -> PathBuf {
 
 fn read_session_token() -> Result<Option<String>, String> {
     keychain::read_secret(
-        HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-        HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+        SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+        SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
     )
     .map(|value| value.and_then(non_empty_string))
 }
 
 fn write_session_token(token: &str) -> Result<(), String> {
     keychain::write_secret(
-        HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-        HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+        SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+        SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
         token.trim(),
     )
 }
 
 fn clear_session_token() -> Result<(), String> {
     keychain::delete_secret(
-        HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-        HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+        SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+        SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
     )
 }
 
@@ -3912,8 +3912,8 @@ mod tests {
 
         // Session token should have been written to the (debug) keychain.
         let stored = crate::keychain::read_secret(
-            super::HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-            super::HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+            super::SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+            super::SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
         )
         .expect("read session token");
         assert_eq!(stored.as_deref(), Some("session-xyz"));
@@ -4034,8 +4034,8 @@ mod tests {
             crate::storage::ensure_data_dirs(&crate::storage::app_data_dir())
                 .expect("ensure_data_dirs in scratch");
             crate::keychain::write_secret(
-                super::HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-                super::HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+                super::SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+                super::SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
                 session_token,
             )
             .expect("seed session token");
@@ -4123,8 +4123,8 @@ mod tests {
 
         // Session token should be cleared after 401.
         let stored = crate::keychain::read_secret(
-            super::HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-            super::HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+            super::SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+            super::SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
         )
         .expect("read after 401");
         assert!(stored.is_none(), "session token cleared after 401");
@@ -4300,8 +4300,8 @@ mod tests {
         assert!(err.contains("session expired"));
 
         let stored = crate::keychain::read_secret(
-            super::HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-            super::HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+            super::SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+            super::SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
         )
         .unwrap();
         assert!(stored.is_none());
@@ -4347,8 +4347,8 @@ mod tests {
         assert!(err.contains("session expired"));
 
         let stored = crate::keychain::read_secret(
-            super::HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-            super::HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+            super::SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+            super::SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
         )
         .unwrap();
         assert!(stored.is_none());

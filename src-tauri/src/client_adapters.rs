@@ -2528,7 +2528,7 @@ fn remove_macos_bundle_dirs() -> Vec<String> {
     removed
 }
 
-/// Delete every keychain entry Headroom is known to write. Accounts are
+/// Delete every keychain entry Mac AI Switchboard is known to write. Accounts are
 /// captured alongside services because macOS keychain queries require both.
 fn remove_known_keychain_entries() {
     for (service, account) in known_keychain_entries() {

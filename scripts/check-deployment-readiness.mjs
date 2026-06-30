@@ -292,6 +292,13 @@ const requiredDocSignals = {
     "dry-run, backup, apply, verify, rollback, Doctor repair, and Off cleanup evidence",
     "Background service supervision beyond the current app-process smoke recheck loop",
   ],
+  "docs/product-roadmap-plan.md": [
+    "Runtime storage now lives under `~/Library/Application Support/Mac AI Switchboard`",
+    "preserves legacy Headroom storage during migration",
+    "Keychain service names are already Mac AI Switchboard-owned",
+    "runtime storage migrates from legacy Headroom storage on first launch",
+    "Legacy storage compatibility sunset after a release with migration evidence",
+  ],
 };
 
 const requiredSourceSignals = {
@@ -371,6 +378,11 @@ const requiredSourceSignals = {
     "manual_workflow",
     "planned_connector_registry_includes_backend_detection_metadata",
     "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.",
+    "Mac AI Switchboard is known to write",
+  ],
+  "src-tauri/src/pricing.rs": [
+    "SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE",
+    '"com.tarunagarwal.mac-ai-switchboard.account"',
   ],
   "src/lib/dashboardHelpers.ts": [
     "connectorSupportsAutomaticSetup",
@@ -832,6 +844,18 @@ const forbiddenUserCopy = {
   "docs/beta-smoke-test.md": [
     "This compatibility storage path remains named Headroom until a dedicated state migration is implemented",
     "Application Support/Headroom/headroom/bin/rtk",
+  ],
+  "docs/product-roadmap-plan.md": [
+    "Some runtime/file-path surfaces still use compatibility Headroom naming where migration would risk user state",
+    "Keychain service names and storage paths still use compatibility names; renaming them without migration risks losing user state",
+    "Storage/keychain migration from compatibility Headroom names to Mac AI Switchboard names",
+  ],
+  "src-tauri/src/pricing.rs": [
+    "HEADROOM_ACCOUNT_KEYCHAIN_SERVICE",
+    "HEADROOM_ACCOUNT_SESSION_ACCOUNT",
+  ],
+  "src-tauri/src/client_adapters.rs": [
+    "Delete every keychain entry Headroom is known to write",
   ],
 };
 

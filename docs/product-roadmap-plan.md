@@ -82,7 +82,7 @@ Left:
 
 ### Trust and Identity
 
-- Some runtime/file-path surfaces still use compatibility Headroom naming where migration would risk user state; visible app identity should continue moving to Mac AI Switchboard while keeping "Headroom engine" for the optimizer.
+- Runtime storage now lives under `~/Library/Application Support/Mac AI Switchboard`; the app preserves legacy Headroom storage during migration for one-release compatibility while still naming the optimizer engine accurately as Headroom where technically relevant.
 - Terms, Privacy Notice, Settings Legal, and terms-version policy are app-owned and readable without network access.
 - Upstream account, pricing, telemetry, and update assumptions need a deliberate keep, replace, or remove decision before public release. Support actions now route to this repository's GitHub Issues.
 - Generated logo provenance and branding guardrails are partly shipped; keep them enforced as release assets and screenshots change.
@@ -99,7 +99,7 @@ Left:
 - Remote destinations are inventoried in `docs/remote-destinations.md` and guarded by governance/deployment checks; keep the registry current as release, update, telemetry, account, and provider surfaces change.
 - Local-only backend guards reject account, billing, and contact entrypoints before auth or HTTP setup; broader unexpected-network tests still need completion.
 - Account/pricing screens should not imply Mac AI Switchboard owns upstream services unless those services have been replaced or intentionally adopted.
-- Keychain service names and storage paths still use compatibility names; renaming them without migration risks losing user state.
+- Keychain service names are already Mac AI Switchboard-owned, runtime storage migrates from legacy Headroom storage on first launch, and cleanup disclosures must stay aligned with the actual files, Keychain entries, LaunchAgents, shell profile blocks, Claude config, and Codex config touched by the app.
 
 ### Release and Installation
 
@@ -349,7 +349,7 @@ Suggested commit:
 
 ### Later
 
-- Storage/keychain migration from compatibility Headroom names to Mac AI Switchboard names.
+- Legacy storage compatibility sunset after a release with migration evidence and user-state preservation proof.
 - Signed public release channel and auto-update promotion workflow.
 - Optional team/shared policy profiles.
 - Optional local MCP server for cross-agent context packs and health checks.
