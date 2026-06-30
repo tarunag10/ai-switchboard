@@ -358,7 +358,7 @@ Suggested commit:
 - Test relationship view in Repo Intelligence.
 - Deeper add-on health history beyond the shipped bounded trend cards, especially durable MarkItDown/Ponytail counters.
 - Broader settings migration that can apply connector/add-on changes after each native config gate has restore evidence; preview classification is shipped, but connector/add-on application remains manual.
-- Broader Rollback Center native restore coverage beyond Codex/OpenCode/Gemini/sidecar rows.
+- Broader Rollback Center native restore coverage for dedicated cleanup domains beyond the shipped Codex/OpenCode/Gemini/sidecar rows.
 
 ### Later
 

@@ -367,25 +367,31 @@ describe("managedChangeRecords", () => {
     });
   });
 
-  it("builds undo-all preview with only allowlisted native rows executable", () => {
+  it("builds undo-all preview with backend-allowlisted native and sidecar rows executable", () => {
     const preview = buildManagedRollbackUndoAllPreview();
 
     expect(preview.executable.map((item) => item.plan.recordId)).toEqual([
       "codex-routing",
       "gemini-routing",
       "opencode-routing",
-    ]);
-    expect(preview.manual.map((item) => item.plan.recordId)).toContain(
       "cursor-routing",
-    );
-    expect(preview.manual.map((item) => item.plan.recordId)).toContain(
+      "grok-routing",
+      "aider-routing",
+      "continue-routing",
+      "goose-routing",
+      "qwen-code-routing",
       "amazon-q-routing",
+      "windsurf-routing",
+      "zed-ai-routing",
+    ]);
+    expect(preview.manual.map((item) => item.plan.recordId)).not.toContain(
+      "cursor-routing",
     );
     expect(preview.manual).toHaveLength(
       managedChangeRecords.length - preview.executable.length,
     );
     expect(preview.blockedReason).toContain("Native undo-all can execute");
-    expect(preview.blockedReason).toContain("manual and dedicated cleanup rows stay blocked");
+    expect(preview.blockedReason).toContain("dedicated cleanup rows stay blocked");
     expect(preview.safetyNotes.join(" ")).toContain("native undo-all control");
   });
 
@@ -394,15 +400,15 @@ describe("managedChangeRecords", () => {
 
     expect(text).toContain("Mac AI Switchboard undo-all rollback preview");
     expect(text).toContain("Native write status: not_executed");
-    expect(text).toContain("Executable native rows: 3");
+    expect(text).toContain("Executable native rows: 12");
     expect(text).toContain("Codex routing (codex-routing)");
     expect(text).toContain("Gemini CLI routing (gemini-routing)");
     expect(text).toContain("OpenCode routing (opencode-routing)");
-    expect(text).toContain("Manual or cleanup rows:");
     expect(text).toContain("Cursor routing (cursor-routing)");
     expect(text).toContain("Amazon Q Developer CLI routing (amazon-q-routing)");
-    expect(text).toContain("Native undo-all can execute only allowlisted ready rows");
-    expect(text).toContain("manual and dedicated cleanup rows stay blocked");
+    expect(text).toContain("Manual or cleanup rows:");
+    expect(text).toContain("Native undo-all can execute only backend-allowlisted ready rows");
+    expect(text).toContain("dedicated cleanup rows stay blocked");
     expect(text).toContain(
       "This copyable undo-all preview does not modify files; use the native undo-all control to execute ready rows.",
     );
@@ -646,6 +652,29 @@ describe("managedChangeRecords", () => {
           evidence: [],
         },
         confirmation: "Restore headroom:gemini_cli for Gemini CLI routing",
+        busy: false,
+      }),
+    ).toBe(true);
+
+    expect(
+      canExecuteNativeManagedRollbackPreview({
+        preview: {
+          recordId: "cursor-routing",
+          owner: "Cursor routing",
+          targetPath:
+            "~/Library/Application Support/Cursor/mac-ai-switchboard-routing.md",
+          marker: "headroom:cursor",
+          backupPath: null,
+          markerPresent: true,
+          backupExists: true,
+          status: "ready",
+          confirmationPhrase: "Restore headroom:cursor for Cursor routing",
+          proposedAction:
+            "Remove only the Switchboard-owned Cursor sidecar block.",
+          blockedReason: null,
+          evidence: [],
+        },
+        confirmation: "Restore headroom:cursor for Cursor routing",
         busy: false,
       }),
     ).toBe(true);

@@ -10915,7 +10915,7 @@ export default function App() {
                   <h3>Rollback Center</h3>
                   <p>
                     Managed local changes Mac AI Switchboard can disclose or
-                    undo.
+                    undo with guarded restore or cleanup previews.
                   </p>
                 </div>
                 <div className="rollback-center-card__actions">
@@ -11153,7 +11153,7 @@ export default function App() {
                                 onClick={() => void previewManagedRollback(record)}
                                 type="button"
                               >
-                                Preview native restore
+                                Preview native rollback
                               </button>
                               {nativePreview ? (
                                 <span>
@@ -11200,7 +11200,7 @@ export default function App() {
                                   }
                                   type="button"
                                 >
-                                  Restore {record.owner}
+                                  Execute rollback for {record.owner}
                                 </button>
                               </>
                             ) : null}
