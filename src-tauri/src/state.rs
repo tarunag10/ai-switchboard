@@ -4009,7 +4009,10 @@ struct SavingsObservation {
 struct RtkSavingsObservation {
     observed_at: chrono::DateTime<Utc>,
     total_commands: u64,
+    total_input: u64,
+    total_output: u64,
     total_saved: u64,
+    total_time_ms: u64,
 }
 
 fn build_repo_intelligence_attribution_event(
@@ -4408,16 +4411,48 @@ impl SavingsTracker {
         let reset_detected = previous.as_ref().is_some_and(|prev| {
             stats.total_saved < prev.total_saved || stats.total_commands < prev.total_commands
         });
-        let (delta_tokens, delta_commands) = match previous.as_ref() {
-            Some(prev) if !reset_detected => (
-                stats.total_saved.saturating_sub(prev.total_saved),
-                stats.total_commands.saturating_sub(prev.total_commands),
-            ),
-            Some(_) => (stats.total_saved, stats.total_commands),
-            None => (0, 0),
-        };
+        let (delta_tokens, delta_commands, delta_input, delta_output, delta_time_ms) =
+            match previous.as_ref() {
+                Some(prev) if !reset_detected => (
+                    stats.total_saved.saturating_sub(prev.total_saved),
+                    stats.total_commands.saturating_sub(prev.total_commands),
+                    stats.total_input.saturating_sub(prev.total_input),
+                    stats.total_output.saturating_sub(prev.total_output),
+                    stats.total_time_ms.saturating_sub(prev.total_time_ms),
+                ),
+                Some(_) => (
+                    stats.total_saved,
+                    stats.total_commands,
+                    stats.total_input,
+                    stats.total_output,
+                    stats.total_time_ms,
+                ),
+                None => (0, 0, 0, 0, 0),
+            };
 
         if delta_tokens > 0 || delta_commands > 0 {
+            let mut evidence = vec![
+                "Measured from positive RTK gain counter deltas.".to_string(),
+                "RTK savings are local command-output tokens and are not model-spend dollars."
+                    .to_string(),
+            ];
+            if delta_input > 0 || delta_output > 0 {
+                evidence.push(format!(
+                    "RTK delta included {delta_input} input tokens, {delta_output} output tokens, and {delta_tokens} saved tokens."
+                ));
+            }
+            if stats.avg_savings_pct > 0.0 {
+                evidence.push(format!(
+                    "RTK reported {:.1}% average savings across all recorded command output.",
+                    stats.avg_savings_pct
+                ));
+            }
+            if delta_time_ms > 0 {
+                evidence.push(format!(
+                    "RTK delta included {delta_time_ms}ms processing time."
+                ));
+            }
+
             let event = SavingsAttributionEvent {
                 schema_version: 1,
                 id: Uuid::new_v4().to_string(),
@@ -4429,11 +4464,7 @@ impl SavingsTracker {
                 delta_usd: 0.0,
                 total_tokens_sent: 0,
                 request_delta: delta_commands as usize,
-                evidence: vec![
-                    "Measured from positive RTK gain counter deltas.".to_string(),
-                    "RTK savings are local command-output tokens and are not model-spend dollars."
-                        .to_string(),
-                ],
+                evidence,
             };
             let _ = self.append_attribution_event(&event);
         }
@@ -4441,7 +4472,10 @@ impl SavingsTracker {
         self.last_rtk_observation = Some(RtkSavingsObservation {
             observed_at: Utc::now(),
             total_commands: stats.total_commands,
+            total_input: stats.total_input,
+            total_output: stats.total_output,
             total_saved: stats.total_saved,
+            total_time_ms: stats.total_time_ms,
         });
         let _ = self.persist_state();
     }
@@ -7023,6 +7057,11 @@ mod tests {
         assert_eq!(event.request_delta, 3);
         assert!(event.evidence.join(" ").contains("RTK gain counter"));
         assert!(event.evidence.join(" ").contains("local command-output"));
+        assert!(event
+            .evidence
+            .join(" ")
+            .contains("600 input tokens, 150 output tokens, and 450 saved tokens"));
+        assert!(event.evidence.join(" ").contains("150ms processing time"));
         let _ = std::fs::remove_file(&tracker.records_path);
         let _ = std::fs::remove_file(&tracker.attribution_events_path);
         let _ = std::fs::remove_file(&tracker.state_path);
