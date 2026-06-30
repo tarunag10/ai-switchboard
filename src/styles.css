@@ -4153,6 +4153,126 @@ select {
   line-height: 1.35;
 }
 
+.client-savings-trends {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.client-savings-trends__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.client-savings-trends__header h2,
+.client-savings-trends__header p {
+  margin: 0;
+}
+
+.client-savings-trends__header h2 {
+  color: var(--text-primary);
+  font-size: var(--text-md);
+}
+
+.client-savings-trends__header p {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+.client-savings-trends__header > span {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+}
+
+.client-savings-trends__list {
+  display: grid;
+  gap: 8px;
+}
+
+.client-savings-trends__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 1.2fr);
+  gap: 12px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+
+.client-savings-trends__row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.client-savings-trends__row strong,
+.client-savings-trends__row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.client-savings-trends__row strong {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.client-savings-trends__row span {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.client-savings-trends__row dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+
+.client-savings-trends__row dl div {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.client-savings-trends__row dt,
+.client-savings-trends__row dd {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.client-savings-trends__row dt {
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.client-savings-trends__row dd {
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  font-weight: 800;
+}
+
+.client-savings-trends__empty {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
 @media (max-width: 620px) {
   .savings-calculator__header,
   .savings-calculator__body {
@@ -4177,6 +4297,18 @@ select {
   .savings-calculator__breakdown-value,
   .savings-calculator__ledger-row div:last-child {
     text-align: left;
+  }
+
+  .client-savings-trends__header {
+    flex-direction: column;
+  }
+
+  .client-savings-trends__row {
+    grid-template-columns: 1fr;
+  }
+
+  .client-savings-trends__row dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .savings-calculator__equation span[aria-hidden="true"] {

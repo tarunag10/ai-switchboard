@@ -148,6 +148,7 @@ import {
   aggregateClientConnectors,
   addDays,
   addMonths,
+  buildClientSavingsTrends,
   buildHourlySavingsChartData,
   buildHourlySavingsWindow,
   buildMonthlySavingsChartData,
@@ -1083,6 +1084,73 @@ function SavingsCalculatorCard({
           )}
         </div>
       </div>
+    </article>
+  );
+}
+
+function ClientSavingsTrendsCard({
+  dashboard,
+}: {
+  dashboard: DashboardState;
+}) {
+  const trends = buildClientSavingsTrends(dashboard.recentUsage);
+
+  return (
+    <article className="soft-card client-savings-trends">
+      <header className="client-savings-trends__header">
+        <div>
+          <h2>Per-client savings</h2>
+          <p>Current app session, grouped by connected coding tool.</p>
+        </div>
+        <span>{compactNumber(trends.length)} client{trends.length === 1 ? "" : "s"}</span>
+      </header>
+      {trends.length > 0 ? (
+        <div className="client-savings-trends__list">
+          {trends.map((trend) => {
+            const reduction =
+              trend.totalTokensSent + trend.estimatedTokensSaved > 0
+                ? (trend.estimatedTokensSaved /
+                    (trend.totalTokensSent + trend.estimatedTokensSaved)) *
+                  100
+                : 0;
+            return (
+              <div className="client-savings-trends__row" key={trend.client}>
+                <div>
+                  <strong>{trend.client}</strong>
+                  <span>
+                    {compactNumber(trend.requests)} request
+                    {trend.requests === 1 ? "" : "s"} · last{" "}
+                    {formatDateTime(trend.lastSeenAt)}
+                  </span>
+                </div>
+                <dl>
+                  <div>
+                    <dt>Saved</dt>
+                    <dd>{compactNumber(trend.estimatedTokensSaved)}</dd>
+                  </div>
+                  <div>
+                    <dt>Spent</dt>
+                    <dd>{compactNumber(trend.totalTokensSent)}</dd>
+                  </div>
+                  <div>
+                    <dt>USD</dt>
+                    <dd>{currencyExact(trend.estimatedSavingsUsd)}</dd>
+                  </div>
+                  <div>
+                    <dt>Reduction</dt>
+                    <dd>{percent1(reduction)}%</dd>
+                  </div>
+                </dl>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="client-savings-trends__empty">
+          Send a prompt through Claude Code, Codex, or another connected tool to
+          populate session-level client trends.
+        </p>
+      )}
     </article>
   );
 }
@@ -8488,6 +8556,8 @@ export default function App() {
             onScopeChange={setSavingsCalculatorScope}
           />
 
+          <ClientSavingsTrendsCard dashboard={dashboard} />
+
           {dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
             <DailySavingsChart
               data={savingsDashboard.dailySavings}
@@ -8588,6 +8658,8 @@ export default function App() {
               scope={savingsCalculatorScope}
               onScopeChange={setSavingsCalculatorScope}
             />
+
+            <ClientSavingsTrendsCard dashboard={dashboard} />
 
             {dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
               <DailySavingsChart

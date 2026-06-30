@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   aggregateClientConnectors,
+  buildClientSavingsTrends,
   buildHourlySavingsChartData,
   buildHourlySavingsWindow,
   buildMonthlySavingsChartData,
@@ -35,6 +36,7 @@ import type {
   ClientConnectorStatus,
   DailySavingsPoint,
   HourlySavingsPoint,
+  UsageEvent,
 } from "./types";
 
 const expectedConfigCreationGates = [
@@ -124,6 +126,91 @@ describe("dashboard helpers", () => {
     // Per-provider breakdown carries through; padded hours default to empty.
     expect(chartData[4].byProvider).toEqual(data[0].byProvider);
     expect(chartData[3].byProvider).toEqual([]);
+  });
+
+  it("builds per-client savings trends from recent usage events", () => {
+    const events: UsageEvent[] = [
+      {
+        id: "codex-1",
+        timestamp: "2026-06-30T10:00:00Z",
+        client: "Codex",
+        workspace: "repo",
+        upstreamTarget: "openai",
+        stages: [
+          {
+            stageId: "headroom",
+            stageName: "Headroom",
+            applied: true,
+            estimatedTokensSaved: 400,
+            addedLatencyMs: 12,
+            notes: [],
+          },
+        ],
+        estimatedInputTokens: 1_000,
+        estimatedOutputTokens: 250,
+        estimatedCostSavingsUsd: 0.5,
+        latencyMs: 100,
+        outcome: "success",
+      },
+      {
+        id: "claude-1",
+        timestamp: "2026-06-30T10:02:00Z",
+        client: "Claude Code",
+        workspace: "repo",
+        upstreamTarget: "anthropic",
+        stages: [
+          {
+            stageId: "rtk",
+            stageName: "RTK",
+            applied: true,
+            estimatedTokensSaved: 125,
+            addedLatencyMs: 4,
+            notes: [],
+          },
+        ],
+        estimatedInputTokens: 500,
+        estimatedOutputTokens: 100,
+        estimatedCostSavingsUsd: 0.2,
+        latencyMs: 80,
+        outcome: "success",
+      },
+      {
+        id: "codex-2",
+        timestamp: "2026-06-30T10:05:00Z",
+        client: "Codex",
+        workspace: "repo",
+        upstreamTarget: "openai",
+        stages: [],
+        estimatedInputTokens: 2_000,
+        estimatedOutputTokens: 500,
+        estimatedCostSavingsUsd: 0.3,
+        latencyMs: 120,
+        outcome: "success",
+      },
+    ];
+
+    expect(buildClientSavingsTrends(events)).toEqual([
+      {
+        client: "Claude Code",
+        requests: 1,
+        estimatedInputTokens: 500,
+        estimatedOutputTokens: 100,
+        totalTokensSent: 600,
+        estimatedTokensSaved: 125,
+        estimatedSavingsUsd: 0.2,
+        lastSeenAt: "2026-06-30T10:02:00Z",
+      },
+      {
+        client: "Codex",
+        requests: 2,
+        estimatedInputTokens: 3_000,
+        estimatedOutputTokens: 750,
+        totalTokensSent: 3_750,
+        estimatedTokensSaved: 400,
+        estimatedSavingsUsd: 0.8,
+        lastSeenAt: "2026-06-30T10:05:00Z",
+      },
+    ]);
   });
 
   it("builds monthly chart data and finds earliest visible history", () => {

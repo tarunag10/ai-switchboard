@@ -11,7 +11,8 @@ import type {
   ClientConnectorStatus,
   DailySavingsPoint,
   HourlySavingsPoint,
-  ProviderSavingsPoint
+  ProviderSavingsPoint,
+  UsageEvent
 } from "./types";
 
 export interface SavingsChartDatum {
@@ -198,6 +199,68 @@ export interface ProviderSavingsDisplay {
   estimatedTokensSaved: number;
   actualCostUsd: number;
   totalTokensSent: number;
+}
+
+export interface ClientSavingsTrend {
+  client: string;
+  requests: number;
+  estimatedInputTokens: number;
+  estimatedOutputTokens: number;
+  totalTokensSent: number;
+  estimatedTokensSaved: number;
+  estimatedSavingsUsd: number;
+  lastSeenAt: string;
+}
+
+function clientSortKey(client: string) {
+  const normalized = client.toLowerCase();
+  if (normalized.includes("claude")) {
+    return "0";
+  }
+  if (normalized.includes("codex")) {
+    return "1";
+  }
+  return `2:${normalized}`;
+}
+
+export function buildClientSavingsTrends(events: UsageEvent[]): ClientSavingsTrend[] {
+  const groups = new Map<string, ClientSavingsTrend>();
+
+  for (const event of events) {
+    const existing = groups.get(event.client) ?? {
+      client: event.client,
+      requests: 0,
+      estimatedInputTokens: 0,
+      estimatedOutputTokens: 0,
+      totalTokensSent: 0,
+      estimatedTokensSaved: 0,
+      estimatedSavingsUsd: 0,
+      lastSeenAt: event.timestamp,
+    };
+    const sentTokens =
+      Math.max(0, event.estimatedInputTokens) +
+      Math.max(0, event.estimatedOutputTokens);
+    const stageTokensSaved = event.stages.reduce(
+      (sum, stage) => sum + Math.max(0, stage.estimatedTokensSaved),
+      0,
+    );
+
+    existing.requests += 1;
+    existing.estimatedInputTokens += Math.max(0, event.estimatedInputTokens);
+    existing.estimatedOutputTokens += Math.max(0, event.estimatedOutputTokens);
+    existing.totalTokensSent += sentTokens;
+    existing.estimatedTokensSaved += stageTokensSaved;
+    existing.estimatedSavingsUsd += Math.max(0, event.estimatedCostSavingsUsd);
+    if (event.timestamp > existing.lastSeenAt) {
+      existing.lastSeenAt = event.timestamp;
+    }
+    groups.set(event.client, existing);
+  }
+
+  return [...groups.values()].sort((left, right) => {
+    const byKey = clientSortKey(left.client).localeCompare(clientSortKey(right.client));
+    return byKey !== 0 ? byKey : right.totalTokensSent - left.totalTokensSent;
+  });
 }
 
 // Fold the upstream per-provider breakdown into the two connectors the desktop

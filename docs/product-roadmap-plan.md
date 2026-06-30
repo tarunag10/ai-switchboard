@@ -63,6 +63,7 @@ Shipped:
 - The Addons page now has live health cards for Headroom engine, RTK, MarkItDown, and Ponytail, with status, evidence, and next-action copy derived from runtime/tool health instead of static checklist text alone.
 - The Home Switchboard panel now includes a Codex large-context advisor that grades recent Codex token pressure, explains when to compact, when to switch to RTK-only, and when to reset/repair Codex through Doctor.
 - Settings now exports and previews imports for a secret-free settings bundle covering safe app preferences plus advisory connector/add-on state, while keeping connector config writes and add-on installs manual.
+- Home and Usage savings surfaces now include per-client session trends for Claude Code, Codex, and future connected tools, showing requests, spent tokens, saved tokens, estimated USD, and reduction from current app-session usage events.
 
 Left:
 
@@ -345,7 +346,7 @@ Suggested commit:
 ### Medium Impact
 
 - Broader savings anomaly thresholds and trends beyond session-level backend output-growth alerts.
-- Per-client savings trends for Claude, Codex, and future connectors.
+- Persistent per-client savings history beyond the shipped current-session trend card.
 - Broader Codex advisor history that persists large-context risk across launches instead of only using recent in-session token events.
 - Test relationship view in Repo Intelligence.
 - Deeper add-on health history and per-add-on trend charts beyond the shipped live health cards.

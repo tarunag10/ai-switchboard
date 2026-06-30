@@ -427,6 +427,8 @@ const requiredSourceSignals = {
     "connectorSupportsAutomaticSetup",
     "connector.setupHint",
     "connector.setupPhase",
+    "buildClientSavingsTrends",
+    "ClientSavingsTrend",
   ],
   "src/lib/types.ts": ["automationGates", "manualWorkflow"],
   "src/App.tsx": [
@@ -512,6 +514,11 @@ const requiredSourceSignals = {
     "Settings import/export",
     "Copy settings export",
     "Apply safe preferences",
+    "ClientSavingsTrendsCard",
+    "Per-client savings",
+  ],
+  "src/lib/dashboardHelpers.test.ts": [
+    "builds per-client savings trends from recent usage events",
   ],
   "src/lib/settingsTransfer.ts": [
     "buildSettingsExportBundle",
