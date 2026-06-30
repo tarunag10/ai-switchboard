@@ -21,7 +21,7 @@ mod storage;
 mod tool_manager;
 
 use std::future::Future;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -428,6 +428,11 @@ const REPO_INTELLIGENCE_ROLLBACK_OWNER: &str = "Repo Intelligence";
 const REPO_INTELLIGENCE_ROLLBACK_MARKER: &str = "repo-intelligence-latest.json";
 const REPO_INTELLIGENCE_ROLLBACK_CONFIRMATION: &str =
     "Clear repo-intelligence-latest.json for Repo Intelligence";
+const LOGIN_ITEM_ROLLBACK_RECORD_ID: &str = "login-item";
+const LOGIN_ITEM_ROLLBACK_OWNER: &str = "Launch at login";
+const LOGIN_ITEM_ROLLBACK_MARKER: &str = "com.tarunagarwal.mac-ai-switchboard";
+const LOGIN_ITEM_ROLLBACK_CONFIRMATION: &str =
+    "Remove com.tarunagarwal.mac-ai-switchboard LaunchAgent for Launch at login";
 
 fn repo_intelligence_summary_path_string() -> String {
     repo_intelligence::latest_summary_path()
@@ -435,48 +440,133 @@ fn repo_intelligence_summary_path_string() -> String {
         .to_string()
 }
 
+fn launch_agent_cleanup_paths() -> Vec<PathBuf> {
+    let launch_agents_dir = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .or_else(dirs::home_dir)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("Library")
+        .join("LaunchAgents");
+    vec![
+        launch_agents_dir.join("com.tarunagarwal.mac-ai-switchboard.plist"),
+        launch_agents_dir.join("Headroom.plist"),
+    ]
+}
+
+fn launch_agent_target_summary(paths: &[PathBuf]) -> String {
+    paths
+        .iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn remove_launch_agent_files(paths: &[PathBuf]) -> Result<Vec<String>, String> {
+    let mut removed = Vec::new();
+    for path in paths {
+        if !path.exists() {
+            continue;
+        }
+        #[cfg(target_os = "macos")]
+        {
+            let _ = Command::new("launchctl")
+                .args(["unload", "-w"])
+                .arg(path)
+                .output();
+        }
+        std::fs::remove_file(path)
+            .map_err(|err| format!("removing {} failed: {err}", path.display()))?;
+        removed.push(path.display().to_string());
+    }
+    Ok(removed)
+}
+
 #[tauri::command]
 fn preview_dedicated_cleanup_rollback(record_id: String) -> Result<ManagedRollbackPreview, String> {
-    if record_id != REPO_INTELLIGENCE_ROLLBACK_RECORD_ID {
-        return Err(format!(
-            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID}."
-        ));
+    match record_id.as_str() {
+        REPO_INTELLIGENCE_ROLLBACK_RECORD_ID => {
+            let target_path = repo_intelligence::latest_summary_path();
+            let marker_present = target_path.exists();
+            Ok(ManagedRollbackPreview {
+                record_id,
+                owner: REPO_INTELLIGENCE_ROLLBACK_OWNER.to_string(),
+                target_path: target_path.display().to_string(),
+                marker: REPO_INTELLIGENCE_ROLLBACK_MARKER.to_string(),
+                backup_path: None,
+                marker_present,
+                backup_exists: true,
+                status: if marker_present {
+                    ManagedRollbackExecutionStatus::Ready
+                } else {
+                    ManagedRollbackExecutionStatus::Blocked
+                },
+                confirmation_phrase: REPO_INTELLIGENCE_ROLLBACK_CONFIRMATION.to_string(),
+                proposed_action:
+                    "Remove only the Switchboard-managed Repo Intelligence latest-summary metadata."
+                        .to_string(),
+                blocked_reason: if marker_present {
+                    None
+                } else {
+                    Some("No saved Repo Intelligence summary exists in managed storage.".to_string())
+                },
+                evidence: vec![
+                    "Dedicated cleanup row: repo-intelligence.".to_string(),
+                    "Cleanup calls the existing Clear index path used by Doctor and the Repo Intelligence add-on card.".to_string(),
+                    "User repositories are not modified; only Switchboard managed summary metadata is removed.".to_string(),
+                ],
+            })
+        }
+        LOGIN_ITEM_ROLLBACK_RECORD_ID => {
+            let paths = launch_agent_cleanup_paths();
+            let marker_present = paths.iter().any(|path| path.exists());
+            Ok(ManagedRollbackPreview {
+                record_id,
+                owner: LOGIN_ITEM_ROLLBACK_OWNER.to_string(),
+                target_path: launch_agent_target_summary(&paths),
+                marker: LOGIN_ITEM_ROLLBACK_MARKER.to_string(),
+                backup_path: None,
+                marker_present,
+                backup_exists: true,
+                status: if marker_present {
+                    ManagedRollbackExecutionStatus::Ready
+                } else {
+                    ManagedRollbackExecutionStatus::Blocked
+                },
+                confirmation_phrase: LOGIN_ITEM_ROLLBACK_CONFIRMATION.to_string(),
+                proposed_action:
+                    "Disable app autostart and remove only Switchboard-managed LaunchAgent plist files."
+                        .to_string(),
+                blocked_reason: if marker_present {
+                    None
+                } else {
+                    Some("No app-managed LaunchAgent plist exists in managed locations.".to_string())
+                },
+                evidence: vec![
+                    "Dedicated cleanup row: login-item.".to_string(),
+                    "Cleanup targets only com.tarunagarwal.mac-ai-switchboard.plist and legacy Headroom.plist in ~/Library/LaunchAgents.".to_string(),
+                    "launchctl unload is best-effort on macOS before file removal.".to_string(),
+                ],
+            })
+        }
+        _ => Err(format!(
+            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID} and {LOGIN_ITEM_ROLLBACK_RECORD_ID}."
+        )),
     }
-
-    let target_path = repo_intelligence::latest_summary_path();
-    let marker_present = target_path.exists();
-    Ok(ManagedRollbackPreview {
-        record_id,
-        owner: REPO_INTELLIGENCE_ROLLBACK_OWNER.to_string(),
-        target_path: target_path.display().to_string(),
-        marker: REPO_INTELLIGENCE_ROLLBACK_MARKER.to_string(),
-        backup_path: None,
-        marker_present,
-        backup_exists: true,
-        status: if marker_present {
-            ManagedRollbackExecutionStatus::Ready
-        } else {
-            ManagedRollbackExecutionStatus::Blocked
-        },
-        confirmation_phrase: REPO_INTELLIGENCE_ROLLBACK_CONFIRMATION.to_string(),
-        proposed_action:
-            "Remove only the Switchboard-managed Repo Intelligence latest-summary metadata."
-                .to_string(),
-        blocked_reason: if marker_present {
-            None
-        } else {
-            Some("No saved Repo Intelligence summary exists in managed storage.".to_string())
-        },
-        evidence: vec![
-            "Dedicated cleanup row: repo-intelligence.".to_string(),
-            "Cleanup calls the existing Clear index path used by Doctor and the Repo Intelligence add-on card.".to_string(),
-            "User repositories are not modified; only Switchboard managed summary metadata is removed.".to_string(),
-        ],
-    })
 }
 
 #[tauri::command]
 fn execute_dedicated_cleanup_rollback(
+    app: AppHandle,
+    record_id: String,
+    confirmation_phrase: String,
+) -> Result<ManagedRollbackExecutionResult, String> {
+    if record_id == LOGIN_ITEM_ROLLBACK_RECORD_ID {
+        let _ = app.autolaunch().disable();
+    }
+    execute_dedicated_cleanup_rollback_inner(record_id, confirmation_phrase)
+}
+
+fn execute_dedicated_cleanup_rollback_inner(
     record_id: String,
     confirmation_phrase: String,
 ) -> Result<ManagedRollbackExecutionResult, String> {
@@ -490,27 +580,60 @@ fn execute_dedicated_cleanup_rollback(
             .unwrap_or_else(|| "Dedicated cleanup rollback is not ready.".to_string()));
     }
 
-    clear_repo_intelligence_index()?;
-    let still_present = repo_intelligence::latest_summary_path().exists();
-    if still_present {
-        return Err("Repo Intelligence summary is still present after cleanup.".to_string());
-    }
+    match record_id.as_str() {
+        REPO_INTELLIGENCE_ROLLBACK_RECORD_ID => {
+            clear_repo_intelligence_index()?;
+            let still_present = repo_intelligence::latest_summary_path().exists();
+            if still_present {
+                return Err("Repo Intelligence summary is still present after cleanup.".to_string());
+            }
 
-    Ok(ManagedRollbackExecutionResult {
-        record_id,
-        owner: REPO_INTELLIGENCE_ROLLBACK_OWNER.to_string(),
-        target_path: repo_intelligence_summary_path_string(),
-        restored_from: "Switchboard-managed Repo Intelligence latest-summary metadata removed."
-            .to_string(),
-        safety_backup_path: None,
-        marker: REPO_INTELLIGENCE_ROLLBACK_MARKER.to_string(),
-        verification: vec![
-            "Exact cleanup confirmation phrase matched.".to_string(),
-            "Existing Clear index cleanup path completed.".to_string(),
-            "Repo Intelligence latest-summary file was absent after cleanup.".to_string(),
-            "User repositories were not modified by this cleanup.".to_string(),
-        ],
-    })
+            Ok(ManagedRollbackExecutionResult {
+                record_id,
+                owner: REPO_INTELLIGENCE_ROLLBACK_OWNER.to_string(),
+                target_path: repo_intelligence_summary_path_string(),
+                restored_from:
+                    "Switchboard-managed Repo Intelligence latest-summary metadata removed."
+                        .to_string(),
+                safety_backup_path: None,
+                marker: REPO_INTELLIGENCE_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact cleanup confirmation phrase matched.".to_string(),
+                    "Existing Clear index cleanup path completed.".to_string(),
+                    "Repo Intelligence latest-summary file was absent after cleanup.".to_string(),
+                    "User repositories were not modified by this cleanup.".to_string(),
+                ],
+            })
+        }
+        LOGIN_ITEM_ROLLBACK_RECORD_ID => {
+            let paths = launch_agent_cleanup_paths();
+            let removed = remove_launch_agent_files(&paths)?;
+            if paths.iter().any(|path| path.exists()) {
+                return Err("A managed LaunchAgent plist is still present after cleanup.".to_string());
+            }
+            Ok(ManagedRollbackExecutionResult {
+                record_id,
+                owner: LOGIN_ITEM_ROLLBACK_OWNER.to_string(),
+                target_path: launch_agent_target_summary(&paths),
+                restored_from: if removed.is_empty() {
+                    "No managed LaunchAgent plist was present.".to_string()
+                } else {
+                    format!("Removed managed LaunchAgent plist files: {}", removed.join(", "))
+                },
+                safety_backup_path: None,
+                marker: LOGIN_ITEM_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact cleanup confirmation phrase matched.".to_string(),
+                    "Tauri autostart disable was requested before file cleanup.".to_string(),
+                    "Managed LaunchAgent plist files were absent after cleanup.".to_string(),
+                    "No shell, client, repo, Keychain, or runtime storage files were modified by this cleanup.".to_string(),
+                ],
+            })
+        }
+        _ => Err(format!(
+            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID} and {LOGIN_ITEM_ROLLBACK_RECORD_ID}."
+        )),
+    }
 }
 
 #[tauri::command]
@@ -7939,6 +8062,7 @@ mod tests {
     }
 
     #[test]
+    #[serial_test::serial]
     fn dedicated_cleanup_rollback_clears_only_repo_intelligence_summary() {
         let scratch = tempfile::tempdir().expect("scratch");
         let _guard = AppStorageEnvGuard::isolated(scratch.path());
@@ -7968,7 +8092,7 @@ mod tests {
             .join(" ")
             .contains("User repositories are not modified"));
 
-        let result = super::execute_dedicated_cleanup_rollback(
+        let result = super::execute_dedicated_cleanup_rollback_inner(
             "repo-intelligence".to_string(),
             "Clear repo-intelligence-latest.json for Repo Intelligence".to_string(),
         )
@@ -7988,6 +8112,51 @@ mod tests {
             std::fs::read_to_string(&source).expect("read source after"),
             before
         );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn dedicated_cleanup_rollback_removes_managed_launch_agents_only() {
+        let scratch = tempfile::tempdir().expect("scratch");
+        let _guard = AppStorageEnvGuard::isolated(scratch.path());
+        let launch_agents = scratch.path().join("Library").join("LaunchAgents");
+        std::fs::create_dir_all(&launch_agents).expect("create launch agents");
+        let managed = launch_agents.join("com.tarunagarwal.mac-ai-switchboard.plist");
+        let legacy = launch_agents.join("Headroom.plist");
+        let unrelated = launch_agents.join("com.example.other.plist");
+        std::fs::write(&managed, "<plist>managed</plist>\n").expect("write managed");
+        std::fs::write(&legacy, "<plist>legacy</plist>\n").expect("write legacy");
+        std::fs::write(&unrelated, "<plist>keep</plist>\n").expect("write unrelated");
+
+        let preview =
+            super::preview_dedicated_cleanup_rollback("login-item".to_string()).expect("preview");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Remove com.tarunagarwal.mac-ai-switchboard LaunchAgent for Launch at login"
+        );
+        assert!(preview.target_path.contains("com.tarunagarwal"));
+        assert!(preview.target_path.contains("Headroom.plist"));
+        assert!(preview
+            .evidence
+            .join(" ")
+            .contains("~/Library/LaunchAgents"));
+
+        let result = super::execute_dedicated_cleanup_rollback_inner(
+            "login-item".to_string(),
+            "Remove com.tarunagarwal.mac-ai-switchboard LaunchAgent for Launch at login"
+                .to_string(),
+        )
+        .expect("execute cleanup");
+        assert_eq!(result.record_id, "login-item");
+        assert!(result.restored_from.contains("LaunchAgent"));
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("No shell, client, repo, Keychain, or runtime storage"));
+        assert!(!managed.exists());
+        assert!(!legacy.exists());
+        assert!(unrelated.exists());
     }
 
     #[test]

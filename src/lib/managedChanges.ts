@@ -734,6 +734,7 @@ export function supportsNativeManagedRollbackRecord(recordId: string): boolean {
 
 export const dedicatedCleanupRollbackRecordIds = new Set([
   "repo-intelligence",
+  "login-item",
 ]);
 
 export function supportsDedicatedCleanupRollbackRecord(recordId: string): boolean {
