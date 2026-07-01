@@ -106,7 +106,7 @@ describe("planned connectors", () => {
 
   it("keeps every planned connector explicit about local reversible setup", () => {
     for (const connector of plannedConnectors) {
-      expect(connector.statusLabel).toBe("Planned");
+      expect(connector.statusLabel).toBe("Gated");
       expect(["Detect", "Guide", "Adapt"]).toContain(connector.setupPhase);
       expect(connector.integrationTarget.length).toBeGreaterThan(20);
       expect(connector.capabilityBadges.length).toBeGreaterThanOrEqual(3);
@@ -190,7 +190,7 @@ describe("planned connectors", () => {
       for (const capability of connector.capabilityRows) {
         expect(capability.label.length).toBeGreaterThan(4);
         expect(capability.detail.length).toBeGreaterThan(30);
-        expect(["Available now", "Manual today", "Planned"]).toContain(
+        expect(["Available now", "Manual today", "Gated"]).toContain(
           capability.state,
         );
       }

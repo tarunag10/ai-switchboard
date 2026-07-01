@@ -67,7 +67,7 @@ export interface PlannedConnector {
   name: string;
   category: "cli" | "editor" | "agent";
   supportStatus: ConnectorSupportStatus;
-  statusLabel: "Planned";
+  statusLabel: "Gated";
   setupPhase: "Detect" | "Guide" | "Adapt";
   integrationTarget: string;
   notes: string;
@@ -94,7 +94,7 @@ export type ConnectorDossier = PlannedConnector | ManagedConnectorDossier;
 
 export interface PlannedConnectorCapability {
   label: string;
-  state: "Available now" | "Manual today" | "Planned";
+  state: "Available now" | "Manual today" | "Gated";
   detail: string;
 }
 
@@ -408,7 +408,7 @@ export const plannedConnectors: PlannedConnector[] = [
     name: "Cursor",
     category: "editor",
     supportStatus: "planned",
-    statusLabel: "Planned",
+    statusLabel: "Gated",
     setupPhase: "Guide",
     integrationTarget:
       "Editor settings/profile detection with opt-in local proxy routing where supported.",
@@ -460,7 +460,7 @@ export const plannedConnectors: PlannedConnector[] = [
     name: "Grok / xAI CLI",
     category: "cli",
     supportStatus: "planned",
-    statusLabel: "Planned",
+    statusLabel: "Gated",
     setupPhase: "Detect",
     integrationTarget:
       "Provider/base-url adapter once a stable local CLI surface is identified.",
@@ -484,13 +484,13 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Model guardrails",
-        state: "Planned",
+        state: "Gated",
         detail:
           "Doctor should prevent unsupported model/account combinations before routing.",
       },
       {
         label: "Provider routing",
-        state: "Planned",
+        state: "Gated",
         detail:
           "Automatic setup waits for a stable OpenAI-compatible local config surface.",
       },
@@ -516,7 +516,7 @@ export const plannedConnectors: PlannedConnector[] = [
     name: "Aider",
     category: "agent",
     supportStatus: "planned",
-    statusLabel: "Planned",
+    statusLabel: "Gated",
     setupPhase: "Adapt",
     integrationTarget:
       "Local environment/provider wrapper plus Repo Intelligence context packs.",
@@ -542,7 +542,7 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Provider wrapper",
-        state: "Planned",
+        state: "Gated",
         detail:
           "Automatic provider environment wrapping waits for reversible setup state.",
       },
@@ -568,7 +568,7 @@ export const plannedConnectors: PlannedConnector[] = [
     name: "Continue",
     category: "editor",
     supportStatus: "planned",
-    statusLabel: "Planned",
+    statusLabel: "Gated",
     setupPhase: "Guide",
     integrationTarget: "Local config adapter with explicit backup and restore.",
     notes:
@@ -597,7 +597,7 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Config adapter",
-        state: "Planned",
+        state: "Gated",
         detail:
           "Automatic edits wait for multi-provider backup and restore coverage.",
       },
@@ -623,7 +623,7 @@ export const plannedConnectors: PlannedConnector[] = [
     name: "Goose",
     category: "agent",
     supportStatus: "planned",
-    statusLabel: "Planned",
+    statusLabel: "Gated",
     setupPhase: "Adapt",
     integrationTarget:
       "Local provider adapter and MCP/Repo Intelligence handoff.",
@@ -636,7 +636,7 @@ export const plannedConnectors: PlannedConnector[] = [
     ],
     supportedModes: ["RTK only", "Repo packs", "Off"],
     safeToday:
-      "Detect Goose and copy Repo Intelligence packs into sessions while MCP handoff remains planned.",
+      "Detect Goose and copy Repo Intelligence packs into sessions while MCP handoff remains gated.",
     firstAutomation:
       "Prototype a read-only MCP handoff manifest before managing provider configuration.",
     capabilityRows: [
@@ -653,7 +653,7 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "MCP handoff",
-        state: "Planned",
+        state: "Gated",
         detail:
           "Automatic MCP and provider handoff waits for tested connector state.",
       },
@@ -675,7 +675,7 @@ export const plannedConnectors: PlannedConnector[] = [
     name: "Qwen Code",
     category: "cli",
     supportStatus: "planned",
-    statusLabel: "Planned",
+    statusLabel: "Gated",
     setupPhase: "Guide",
     integrationTarget:
       "CLI detection plus read-only Repo Intelligence handoff before reversible provider routing.",
@@ -705,7 +705,7 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Provider routing",
-        state: "Planned",
+        state: "Gated",
         detail:
           "Automatic routing waits model/account guardrails restore coverage.",
       },
@@ -731,7 +731,7 @@ export const plannedConnectors: PlannedConnector[] = [
     name: "Amazon Q Developer CLI",
     category: "cli",
     supportStatus: "planned",
-    statusLabel: "Planned",
+    statusLabel: "Gated",
     setupPhase: "Detect",
     integrationTarget:
       "Local CLI detection verification-pack handoff without changing AWS or provider state.",
@@ -761,7 +761,7 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Credential guardrails",
-        state: "Planned",
+        state: "Gated",
         detail:
           "Automatic setup waits AWS profile-safe detection restore policy.",
       },
@@ -1116,15 +1116,15 @@ export function summarizePlannedConnectorSupport(
   const manualToday = capabilityRows.filter(
     (capability) => capability.state === "Manual today",
   );
-  const planned = capabilityRows.filter(
-    (capability) => capability.state === "Planned",
+  const gated = capabilityRows.filter(
+    (capability) => capability.state === "Gated",
   );
 
   return {
     connectorCount: connectors.length,
     safeTodayCount: safeToday.length,
     manualTodayCount: manualToday.length,
-    plannedCount: planned.length,
+    plannedCount: gated.length,
     automationGateCount: connectors.reduce(
       (total, connector) => total + connector.automationGates.length,
       0,
@@ -1132,7 +1132,7 @@ export function summarizePlannedConnectorSupport(
     safeTodayLabels: safeToday.map(
       (capability) => `${capability.connectorName}: ${capability.label}`,
     ),
-    plannedLabels: planned.map(
+    plannedLabels: gated.map(
       (capability) => `${capability.connectorName}: ${capability.label}`,
     ),
   };

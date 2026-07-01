@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Connector dossier gated status states
+
+- Updated retained connector dossier status labels and gated capability-row states so cards no longer present blocked setup work as planned.
+
 ### Connector dossier badge gating labels
 
 - Updated connector dossier capability badges so gated setup work is labeled as gated instead of planned or pending.
