@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+### Retained connector Doctor wording
+
+- Aligned planned-connector Doctor body, beta smoke expectations, and deployment readiness checks around retained connector native-routing gates so managed connectors are not described as manual-only.
+- Kept the release checklist tied to the current degraded-mode repair contract for runtime, managed clients, and RTK.
+
 ### Doctor degraded-mode routing guidance
 
 - Clarified degraded-mode Doctor guidance so managed connectors remain automatic repair targets while only retained connector native-routing gates stay manual until backup, verify, rollback, and Off cleanup evidence is promoted.

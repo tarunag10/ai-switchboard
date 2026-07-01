@@ -3629,7 +3629,7 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
         .collect::<Vec<_>>();
 
     let mut parts = vec![format!(
-        "{names} detected. Mac AI Switchboard can identify these tools and expose gated connector readiness evidence, but keeps native/provider routing manual until connector-specific backup, verify, rollback, and Off mode cleanup evidence is promoted."
+        "{names} detected. Mac AI Switchboard can identify these retained connectors and expose gated connector readiness evidence, but keeps native/provider routing manual until their backup, verify, rollback, and Off mode cleanup evidence is promoted."
     )];
 
     if !sources.is_empty() {
@@ -3751,8 +3751,9 @@ mod doctor_tests {
         assert!(body.contains("confirmation APPLY GEMINI CLI CONFIG"));
         assert!(body.contains("Safe today: use RTK-only mode or Repo Intelligence packs"));
         assert!(body.contains("expose gated connector readiness evidence"));
+        assert!(body.contains("retained connectors"));
         assert!(body.contains("keeps native/provider routing manual"));
-        assert!(body.contains("connector-specific backup, verify, rollback, and Off mode cleanup"));
+        assert!(body.contains("until their backup, verify, rollback, and Off mode cleanup"));
     }
 
     fn test_runtime_status(

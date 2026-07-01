@@ -408,7 +408,7 @@ const requiredSourceSignals = {
     "ClientConnectorSupportStatus::Planned",
     "ClientConnectorSupportStatus::Managed",
     "planned_connector_doctor_body",
-    "keeps native/provider routing manual until connector-specific backup, verify, rollback, and Off mode cleanup evidence is promoted",
+    "keeps native/provider routing manual until their backup, verify, rollback, and Off mode cleanup evidence is promoted",
     "Backend checks:",
     "Config locations watched:",
     "Detection evidence:",

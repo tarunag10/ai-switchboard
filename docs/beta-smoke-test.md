@@ -37,7 +37,7 @@ If Codex is one of the routed Headroom clients in Full optimization or Headroom 
 
 Create a degraded setup by requesting Full optimization while either RTK or client routing is missing. The easiest safe path is to uninstall or disable RTK from Addons, then request Full optimization.
 
-Expect: Switchboard still shows the requested mode, but the attention line reports the active mode and says to run Doctor. Doctor lists the missing dependency instead of leaving the mode change looking stuck, and degraded-mode guidance says to run automatic repairs, keep only connector-specific native routing gates manual until backup/verify/rollback/Off cleanup evidence is promoted, then re-run Doctor until requested mode becomes active.
+Expect: Switchboard still shows the requested mode, but the attention line reports the active mode and says to run Doctor. Doctor lists the missing dependency instead of leaving the mode change looking stuck, and degraded-mode guidance says to run automatic repairs for runtime, managed clients, or RTK, keep only retained connector native-routing gates manual until backup/verify/rollback/Off cleanup evidence is promoted, then re-run Doctor until requested mode becomes active.
 
 ### S4. Doctor repairs missing RTK
 
