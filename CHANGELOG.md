@@ -103,3 +103,7 @@
 ### Connector smoke evidence copy
 
 - Updated smoke-preflight and roadmap evidence text to distinguish promoted native-routing connectors from guided connectors whose native config mutation remains gated.
+
+### Rollback Center connector inventory
+
+- Updated Windsurf and Zed Rollback Center records to describe native editor settings routing, backup paths, markers, and restore boundaries instead of stale sidecar dossiers.

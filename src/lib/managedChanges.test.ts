@@ -65,8 +65,15 @@ describe("managedChangeRecords", () => {
     ).toBe(true);
     expect(
       managedChangeRecords
-        .filter((record) => record.kind === "client_config" || record.kind === "shell_hook")
-        .every((record) => record.backupPath?.includes("*.headroom.bak")),
+        .filter(
+          (record) =>
+            record.kind === "client_config" || record.kind === "shell_hook",
+        )
+        .every(
+          (record) =>
+            record.backupPath?.includes("*.headroom.bak") ||
+            record.backupPath?.includes("*.headroom-backup-*"),
+        ),
     ).toBe(true);
   });
 
@@ -90,7 +97,13 @@ describe("managedChangeRecords", () => {
     expect(allCopy).toContain("AWS credentials, SSO cache, and profiles are not modified");
     expect(allCopy).toContain("headroom:claude_code");
     expect(allCopy).toContain("headroom:codex_cli");
-    expect(allCopy).toContain("headroom:zed_ai");
+    expect(allCopy).toContain("headroom:zed");
+    expect(allCopy).toContain("~/.config/zed/settings.json");
+    expect(allCopy).toContain(
+      "~/Library/Application Support/Windsurf/User/settings.json",
+    );
+    expect(allCopy).toContain("Managed Zed AI editor settings routing.");
+    expect(allCopy).toContain("Managed Windsurf editor settings routing.");
     expect(allCopy).toContain("~/Library/Application Support/Headroom");
     expect(allCopy).toContain("Repo Intelligence");
     expect(allCopy).toContain("User repositories are not modified");
