@@ -63,20 +63,52 @@ const installedSmokeRequiredEvidence = [
   "Connector readiness payload in agent handoffs",
   "Codex compression recovery",
 ];
-const plannedConnectorReadinessSummary = [
-  "## Managed Connector Readiness",
-  "",
-  "- Managed connectors: 11",
-  "- Automation ready: 0",
-  "- Next blocked gates: Backup Implemented (11)",
-  "- Gemini CLI: Guide, next gate Backup Implemented",
-  "- OpenCode: Adapt, next gate Backup Implemented",
-  "- Cursor: Guide, next gate Backup Implemented",
-  "- Grok / xAI CLI: Detect, next gate Backup Implemented",
-  "- Aider: Adapt, next gate Backup Implemented",
-  "- Continue: Guide, next gate Backup Implemented",
-  "- Full per-tool dossiers are available from Doctor's connector dossier copy action.",
-].join("\n");
+const connectorManifestPath = "connectors/manifest.json";
+
+function buildManagedConnectorReadiness() {
+  const manifest = JSON.parse(fs.readFileSync(connectorManifestPath, "utf8"));
+  const connectors = Array.isArray(manifest) ? manifest : manifest.connectors;
+  if (!Array.isArray(connectors)) {
+    throw new Error(`${connectorManifestPath} must contain a connector array`);
+  }
+
+  const managed = connectors
+    .filter((connector) => connector.support_status === "managed")
+    .map((connector) => ({
+      id: connector.id,
+      name: connector.name,
+      category: connector.category,
+      configLocations: connector.config?.locations ?? [],
+      gates: connector.automation_gates ?? [],
+    }));
+  const planned = connectors.filter(
+    (connector) => connector.support_status !== "managed",
+  );
+
+  return {
+    manifestPath: connectorManifestPath,
+    managedCount: managed.length,
+    plannedCount: planned.length,
+    managed,
+  };
+}
+
+function renderManagedConnectorReadiness(readiness) {
+  const managedRows = readiness.managed.map(
+    (connector) =>
+      `- ${connector.name}: ${connector.category}, ${connector.configLocations.length} config surface${connector.configLocations.length === 1 ? "" : "s"}, ${connector.gates.length} automation gate${connector.gates.length === 1 ? "" : "s"}`,
+  );
+
+  return [
+    "## Managed Connector Readiness",
+    "",
+    `- Source: ${readiness.manifestPath}`,
+    `- Managed connectors: ${readiness.managedCount}`,
+    `- Planned/guided connectors retained: ${readiness.plannedCount}`,
+    ...managedRows,
+    "- Full per-tool dossiers are available from Doctor's connector dossier copy action.",
+  ].join("\n");
+}
 function runReleaseEnv() {
   const result = spawnSync(
     process.execPath,
@@ -524,6 +556,10 @@ const shareableDmgGate = buildShareableDmgGate(
   staticSmokePreflight,
   installedSmoke,
 );
+const managedConnectorReadiness = buildManagedConnectorReadiness();
+const managedConnectorReadinessSummary = renderManagedConnectorReadiness(
+  managedConnectorReadiness,
+);
 const generatedAt = new Date().toISOString();
 const status =
   releaseEnv.ok &&
@@ -546,6 +582,7 @@ const payload = {
   installedSmoke,
   localValidation,
   shareableDmgGate,
+  managedConnectorReadiness,
   releaseEnv,
 };
 
@@ -685,7 +722,7 @@ ${localValidation.localOnlyNetwork.generatedLine ? `- ${localValidation.localOnl
 - Installed-app smoke ready: ${shareableDmgGate.installedAppSmokeReady ? "yes" : "no"}
 - ${shareableDmgGate.message}
 
-${plannedConnectorReadinessSummary}
+${managedConnectorReadinessSummary}
 
 ## Next Steps
 

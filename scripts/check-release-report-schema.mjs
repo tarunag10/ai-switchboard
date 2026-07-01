@@ -156,6 +156,33 @@ if (!markdownReport.includes("## Managed Connector Readiness")) {
 if (!markdownReport.includes("Full per-tool dossiers are available from Doctor")) {
   fail(`${markdownReportPath} must point to Doctor connector dossiers`);
 }
+const connectorManifest = JSON.parse(
+  fs.readFileSync("connectors/manifest.json", "utf8"),
+);
+const connectorManifestRows = Array.isArray(connectorManifest)
+  ? connectorManifest
+  : connectorManifest.connectors;
+if (!Array.isArray(connectorManifestRows)) {
+  fail("connectors/manifest.json must contain a connector array");
+}
+const managedConnectors = connectorManifestRows.filter(
+  (connector) => connector.support_status === "managed",
+);
+if (report.managedConnectorReadiness?.managedCount !== managedConnectors.length) {
+  fail(
+    `managedConnectorReadiness.managedCount must match connectors/manifest.json (${managedConnectors.length})`,
+  );
+}
+if (!markdownReport.includes(`Managed connectors: ${managedConnectors.length}`)) {
+  fail(
+    `${markdownReportPath} must report the manifest-managed connector count (${managedConnectors.length})`,
+  );
+}
+for (const connector of managedConnectors) {
+  if (!markdownReport.includes(connector.name)) {
+    fail(`${markdownReportPath} must list managed connector ${connector.name}`);
+  }
+}
 if (!markdownReport.includes("## Local Doctor and Rollback Validation")) {
   fail(`${markdownReportPath} must include local Doctor and Rollback validation evidence`);
 }

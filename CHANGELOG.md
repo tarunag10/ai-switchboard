@@ -21,3 +21,7 @@
 ### Repo Memory MCP deployment gate sync
 
 - Restored deployment-readiness wording in the Repo Memory MCP guide so Cursor, Windsurf, and Zed bridge setup stays separate from provider routing and the full connector lifecycle evidence gate remains visible.
+
+### Release readiness connector summary
+
+- Changed release readiness reporting to derive managed connector counts and rows from `connectors/manifest.json`, with schema checks that fail if the report drifts from the manifest.
