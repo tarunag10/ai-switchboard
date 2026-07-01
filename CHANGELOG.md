@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Doctor connector coverage copy
+
+- Updated Doctor connector guidance and copied dossiers so the no-pending-planned state says managed connector coverage with promoted routing evidence instead of stale managed sidecar coverage.
+
 ### Connector roadmap lifecycle wording
 
 - Updated the roadmap, Repo Intelligence plan, and Agent Control Center checkpoint so promoted Gemini/OpenCode/Windsurf/Zed managed routing is distinct from sidecar/readiness coverage for unpromoted connectors.

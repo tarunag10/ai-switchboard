@@ -286,7 +286,8 @@ describe("doctor repair copy", () => {
     expect(text).toContain("Action: automatic / Install RTK");
     expect(text).toContain("Action: manual / Manual step");
     expect(text).toContain("planned connector setup gates have been promoted");
-    expect(text).toContain("managed sidecar coverage");
+    expect(text).toContain("managed connector coverage");
+    expect(text).toContain("promoted routing evidence");
     expect(text).toContain("Planned connector config readiness dossiers");
     expect(text).toContain("No pending planned connector dossiers remain");
     expect(text).toContain("Repo Intelligence local API contract");
@@ -356,7 +357,8 @@ describe("doctor repair copy", () => {
     const guidance = plannedConnectorDoctorGuidance();
 
     expect(guidance).toContain("planned connector setup gates");
-    expect(guidance).toContain("managed sidecar coverage");
+    expect(guidance).toContain("managed connector coverage");
+    expect(guidance).toContain("Gemini/OpenCode/Windsurf/Zed");
     expect(guidance).toContain("Doctor repair");
     expect(guidance).toContain("rollback");
     expect(guidance).toContain("Off mode cleanup");
@@ -367,7 +369,8 @@ describe("doctor repair copy", () => {
 
     expect(dossiers).toContain("Planned connector config readiness dossiers");
     expect(dossiers).toContain("No pending planned connector dossiers remain");
-    expect(dossiers).toContain("managed sidecar coverage");
+    expect(dossiers).toContain("managed connector coverage");
+    expect(dossiers).toContain("promoted routing evidence");
   });
 
   it("builds compact planned connector preview rows for Doctor", () => {

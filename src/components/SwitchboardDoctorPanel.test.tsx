@@ -463,7 +463,8 @@ describe("SwitchboardDoctorPanel", () => {
     expect(writeText.mock.calls[0][0]).toContain(
       "No pending planned connector dossiers remain",
     );
-    expect(writeText.mock.calls[0][0]).toContain("managed sidecar coverage");
+    expect(writeText.mock.calls[0][0]).toContain("managed connector coverage");
+    expect(writeText.mock.calls[0][0]).toContain("promoted routing evidence");
     expect(screen.getByText("Copied connector dossiers.")).toBeInTheDocument();
   });
 });

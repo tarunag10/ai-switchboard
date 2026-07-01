@@ -93,7 +93,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
       screen.queryByLabelText("Planned connector readiness preview"),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Connector readiness")).not.toBeInTheDocument();
-    expect(screen.getByText(/managed sidecar coverage/i)).toBeInTheDocument();
+    expect(screen.getByText(/managed connector coverage/i)).toBeInTheDocument();
     expect(
       screen.getByText(
         "Clear the saved Repo Intelligence index, then open Addons and index an available local repo when ready.",
