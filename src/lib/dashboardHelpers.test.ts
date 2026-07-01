@@ -707,8 +707,16 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.gemini",
       routingBlocker:
         "Managed shell/base-url routing uses Switchboard-owned shell blocks, sidecar evidence, backup, Doctor verification, rollback, and Off mode cleanup.",
-      automationEnabled: false,
-      configCreationGates: [],
+      automationEnabled: true,
+      configCreationGates: [
+        { id: "detect", label: "Detect config surface" },
+        { id: "dryRunDiff", label: "Show dry-run diff" },
+        { id: "backup", label: "Create backup" },
+        { id: "apply", label: "Apply with consent" },
+        { id: "verify", label: "Verify in Doctor" },
+        { id: "rollback", label: "Rollback safely" },
+        { id: "offCleanup", label: "Clean up in Off mode" },
+      ],
       otherEvidence: [
         "Detected. Switchboard can manage Gemini CLI shell/base-url routing while keeping account and model choices user-owned.",
       ],

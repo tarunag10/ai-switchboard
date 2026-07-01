@@ -804,7 +804,11 @@ describe("repoIntelligence", () => {
         taskType: "implementation",
         readOnly: true,
         manualProviderRouting: false,
-        configReadiness: null,
+        configReadiness: {
+          plannedConnectorId: "gemini_cli",
+          nextGate: "Detect config surface",
+          automationEnabled: true,
+        },
       }),
     );
     expect(geminiSessionRecipe?.command).toContain(
@@ -886,7 +890,13 @@ describe("repoIntelligence", () => {
       modifiesRepository: false,
       manualProviderRouting: false,
     });
-    expect(payload.configReadiness).toBeUndefined();
+    expect(payload.configReadiness).toEqual(
+      expect.objectContaining({
+        plannedConnectorId: "gemini_cli",
+        plannedConnectorName: "Gemini CLI",
+        automationEnabled: true,
+      }),
+    );
 
     const cursorPayload = buildRepoAgentHandoffPayload(summary, "cursor");
     expect(cursorPayload.configReadiness).toEqual(
@@ -898,6 +908,29 @@ describe("repoIntelligence", () => {
     expect(
       cursorPayload.configReadiness?.safetyDossier.configPathStrategy,
     ).toContain("Cursor app/profile");
+
+    const windsurfPayload = buildRepoAgentHandoffPayload(summary, "windsurf");
+    expect(windsurfPayload.safety.manualProviderRouting).toBe(false);
+    expect(windsurfPayload.agent.guidance).toContain(
+      "managed provider routing is handled",
+    );
+    expect(windsurfPayload.configReadiness).toEqual(
+      expect.objectContaining({
+        plannedConnectorId: "windsurf",
+        plannedConnectorName: "Windsurf",
+        automationEnabled: true,
+      }),
+    );
+
+    const zedPayload = buildRepoAgentHandoffPayload(summary, "zed");
+    expect(zedPayload.safety.manualProviderRouting).toBe(false);
+    expect(zedPayload.configReadiness).toEqual(
+      expect.objectContaining({
+        plannedConnectorId: "zed_ai",
+        plannedConnectorName: "Zed AI",
+        automationEnabled: true,
+      }),
+    );
   });
 
   it("formats agent-specific bounded handoffs for popular coding tools", () => {
@@ -926,7 +959,8 @@ describe("repoIntelligence", () => {
     expect(gemini).toContain("# Gemini CLI Handoff");
     expect(gemini).toContain("Selected pack: Implementation Pack");
     expect(gemini).toContain("Secret-like paths");
-    expect(gemini).not.toContain("Connector Config Readiness");
+    expect(gemini).toContain("Connector Config Readiness");
+    expect(gemini).toContain("Automation enabled: yes");
     expect(gemini).toContain("src/App.tsx");
     expect(gemini).not.toContain(".env.local");
 

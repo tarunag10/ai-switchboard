@@ -227,7 +227,7 @@ describe("planned connectors", () => {
   });
 
   it("defines a staged readiness contract before connector automation", () => {
-    const contracts = getPlannedConnectorReadinessContracts();
+    const contracts = getPlannedConnectorReadinessContracts(plannedConnectors);
 
     expect(contracts).toHaveLength(plannedConnectors.length);
     for (const contract of contracts) {
@@ -252,6 +252,27 @@ describe("planned connectors", () => {
         "rollbackImplemented",
         "offCleanupImplemented",
       ]);
+    }
+  });
+
+  it("marks promoted managed editor connectors automation-ready", () => {
+    const contracts = getPlannedConnectorReadinessContracts(
+      managedConnectorDossiers.filter((connector) =>
+        ["windsurf", "zed_ai"].includes(connector.id),
+      ),
+    );
+
+    expect(contracts.map((contract) => contract.connectorId)).toEqual([
+      "windsurf",
+      "zed_ai",
+    ]);
+    for (const contract of contracts) {
+      expect(contract.setupPhase).toBe("Managed");
+      expect(contract.automationEnabled).toBe(true);
+      expect(contract.nextBlockedStage).toBeNull();
+      expect(contract.stages.every((stage) => stage.state === "ready")).toBe(
+        true,
+      );
     }
   });
 
@@ -370,6 +391,32 @@ describe("planned connectors", () => {
           /read-only|dry-run|backup|consent|Doctor|rollback|Off-mode|fixture|diff|manual|RTK-only/i,
         );
       }
+    }
+  });
+
+  it("reports promoted managed editor config plans as enabled", () => {
+    const plans = getPlannedConnectorConfigCreationPlans(
+      managedConnectorDossiers.filter((connector) =>
+        ["windsurf", "zed_ai"].includes(connector.id),
+      ),
+    );
+
+    expect(plans.map((plan) => plan.connectorId)).toEqual([
+      "windsurf",
+      "zed_ai",
+    ]);
+    for (const plan of plans) {
+      expect(plan.automationEnabled).toBe(true);
+      expect(plan.safetyNote).toMatch(/managed routing is enabled/i);
+      expect(plan.steps.map((step) => step.id)).toEqual([
+        "detect",
+        "dryRunDiff",
+        "backup",
+        "apply",
+        "verify",
+        "rollback",
+        "offCleanup",
+      ]);
     }
   });
 

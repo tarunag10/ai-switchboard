@@ -90,6 +90,8 @@ export type ManagedConnectorDossier = Omit<
   setupPhase: "Managed";
 };
 
+export type ConnectorDossier = PlannedConnector | ManagedConnectorDossier;
+
 export interface PlannedConnectorCapability {
   label: string;
   state: "Available now" | "Manual today" | "Planned";
@@ -131,7 +133,7 @@ export interface PlannedConnectorReadinessStage {
 export interface PlannedConnectorReadinessContract {
   connectorId: string;
   connectorName: string;
-  setupPhase: PlannedConnector["setupPhase"];
+  setupPhase: PlannedConnector["setupPhase"] | "Managed";
   automationEnabled: boolean;
   nextBlockedStage: PlannedConnectorReadinessStageId | null;
   stages: PlannedConnectorReadinessStage[];
@@ -900,21 +902,36 @@ const plannedConnectorSafetyDossiers: Record<
     rollbackStrategy:
       "Remove managed routing without modifying AWS config, credentials, SSO cache, or profiles.",
   },
+  windsurf: {
+    connectorId: "windsurf",
+    configPathStrategy:
+      "Detect the Windsurf app and active settings location before applying managed provider routing.",
+    providerSemantics:
+      "Manage only the Switchboard provider routing block while preserving unrelated Windsurf settings.",
+    accountCaveat:
+      "Switchboard preserves unrelated account and model settings while managing only its provider routing block.",
+    rollbackStrategy:
+      "Restore the active settings backup and remove only Switchboard-managed provider entries.",
+  },
   zed_ai: {
     connectorId: "zed_ai",
     configPathStrategy:
-      "Detect the Zed app and assistant settings before parsing provider entries.",
+      "Detect the Zed app settings file at ~/.config/zed/settings.json before applying managed provider routing.",
     providerSemantics:
       "Provider routing must preserve Zed assistant settings and any non-managed providers.",
     accountCaveat:
-      "Provider/account selection stays manual until lossless settings parsing is proven.",
+      "Switchboard preserves unrelated provider/account settings while managing only its local proxy routing entry.",
     rollbackStrategy:
       "Restore assistant/provider settings from backup and remove managed local proxy entries.",
   },
 };
 
 export function getPlannedConnector(id: string) {
-  return plannedConnectors.find((connector) => connector.id === id) ?? null;
+  return (
+    plannedConnectors.find((connector) => connector.id === id) ??
+    managedConnectorDossiers.find((connector) => connector.id === id) ??
+    null
+  );
 }
 
 export function getPlannedConnectorSafetyDossier(
@@ -953,7 +970,7 @@ export function formatPlannedConnectorSafetyDossierMarkdown(
 }
 
 export function getPlannedConnectorConfigCreationPlan(
-  connector: PlannedConnector,
+  connector: ConnectorDossier,
 ): PlannedConnectorConfigCreationPlan {
   const dossier = getPlannedConnectorSafetyDossier(connector.id);
   if (!dossier) {
@@ -1029,6 +1046,17 @@ export function getPlannedConnectorConfigCreationPlan(
     },
   ];
 
+  if (connector.supportStatus === "managed" && connector.setupPhase === "Managed") {
+    return {
+      connectorId: connector.id,
+      connectorName: connector.name,
+      automationEnabled: true,
+      safetyNote:
+        "Managed routing is enabled with backup, apply, verify, rollback, and Off cleanup evidence.",
+      steps,
+    };
+  }
+
   return {
     connectorId: connector.id,
     connectorName: connector.name,
@@ -1040,13 +1068,13 @@ export function getPlannedConnectorConfigCreationPlan(
 }
 
 export function getPlannedConnectorConfigCreationPlans(
-  connectors: PlannedConnector[] = pendingPlannedConnectors,
+  connectors: ConnectorDossier[] = pendingPlannedConnectors,
 ) {
   return connectors.map(getPlannedConnectorConfigCreationPlan);
 }
 
 export function formatPlannedConnectorConfigCreationPlansMarkdown(
-  connectors: PlannedConnector[] = pendingPlannedConnectors,
+  connectors: ConnectorDossier[] = pendingPlannedConnectors,
 ) {
   const title =
     connectors.length === 1
@@ -1177,12 +1205,19 @@ export function getPlannedConnectorSetupGuide(
         notes:
           "Confirms the CLI is present without reading AWS credentials or changing profile state.",
       };
+    case "windsurf":
+      return {
+        label: "Open Windsurf",
+        command: "open -a Windsurf",
+        notes:
+          "Open Windsurf after enabling the connector to verify managed provider routing through Switchboard.",
+      };
     case "zed_ai":
       return {
         label: "Open Zed",
         command: "open -a Zed",
         notes:
-          "Open Zed and paste Repo Intelligence handoffs manually. Provider settings remain manual until restore checks ship.",
+          "Open Zed after enabling the connector to verify managed provider routing through Switchboard.",
       };
     default:
       return null;
@@ -1199,9 +1234,11 @@ function readinessStage(
 }
 
 export function getPlannedConnectorReadinessContract(
-  connector: PlannedConnector,
+  connector: ConnectorDossier,
 ): PlannedConnectorReadinessContract {
   const setupGuide = getPlannedConnectorSetupGuide(connector.id);
+  const isManagedConnector =
+    connector.supportStatus === "managed" && connector.setupPhase === "Managed";
   const hasDetection = connector.capabilityRows.some(
     (capability) =>
       capability.label.toLowerCase().includes("detection") &&
@@ -1209,14 +1246,20 @@ export function getPlannedConnectorReadinessContract(
   );
   const hasManualGuide =
     connector.manualWorkflow.length >= 3 && setupGuide !== null;
+  const managedEvidence = (label: string) =>
+    connector.capabilityRows.find(
+      (capability) =>
+        capability.label.toLowerCase().includes(label) &&
+        capability.state === "Available now",
+    )?.detail;
 
   const stages: PlannedConnectorReadinessStage[] = [
     readinessStage(
       "detected",
       "Detected",
-      hasDetection ? "ready" : "blocked",
-      hasDetection
-        ? "Read-only detection is available now."
+      hasDetection || isManagedConnector ? "ready" : "blocked",
+      hasDetection || isManagedConnector
+        ? "Connector detection or managed setup evidence is available now."
         : "Add read-only detection before any setup path.",
     ),
     readinessStage(
@@ -1230,32 +1273,39 @@ export function getPlannedConnectorReadinessContract(
     readinessStage(
       "backupImplemented",
       "Backup Implemented",
-      "blocked",
-      "No planned connector can write config until exact backup coverage exists.",
+      isManagedConnector ? "ready" : "blocked",
+      isManagedConnector
+        ? "Managed setup creates a rollback backup before editing settings."
+        : "No planned connector can write config until exact backup coverage exists.",
     ),
     readinessStage(
       "applyImplemented",
       "Apply Implemented",
-      "blocked",
-      "Automatic setup is disabled until a reversible apply path exists.",
+      isManagedConnector ? "ready" : "blocked",
+      managedEvidence("routing") ??
+        "Automatic setup is disabled until a reversible apply path exists.",
     ),
     readinessStage(
       "verifyImplemented",
       "Verify Implemented",
-      "blocked",
-      "Doctor verification must prove the connector state after setup.",
+      isManagedConnector ? "ready" : "blocked",
+      managedEvidence("verification") ??
+        "Doctor verification must prove the connector state after setup.",
     ),
     readinessStage(
       "rollbackImplemented",
       "Rollback Implemented",
-      "blocked",
-      "Rollback must restore previous config without touching unrelated settings.",
+      isManagedConnector ? "ready" : "blocked",
+      managedEvidence("rollback") ??
+        "Rollback must restore previous config without touching unrelated settings.",
     ),
     readinessStage(
       "offCleanupImplemented",
       "Off Cleanup Implemented",
-      "blocked",
-      "Off mode cleanup must remove managed routing before automation is enabled.",
+      isManagedConnector ? "ready" : "blocked",
+      isManagedConnector
+        ? "Off mode removes only Switchboard-owned managed routing."
+        : "Off mode cleanup must remove managed routing before automation is enabled.",
     ),
   ];
   const nextBlockedStage =
@@ -1272,13 +1322,13 @@ export function getPlannedConnectorReadinessContract(
 }
 
 export function getPlannedConnectorReadinessContracts(
-  connectors: PlannedConnector[] = plannedConnectors,
+  connectors: ConnectorDossier[] = plannedConnectors,
 ) {
   return connectors.map(getPlannedConnectorReadinessContract);
 }
 
 export function getPlannedConnectorReadinessBadges(
-  connector: PlannedConnector,
+  connector: ConnectorDossier,
 ): PlannedConnectorReadinessBadge[] {
   const readiness = getPlannedConnectorReadinessContract(connector);
   const notes = [

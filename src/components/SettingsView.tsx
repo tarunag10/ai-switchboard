@@ -56,7 +56,7 @@ import type {
   SavingsMode,
   SwitchboardMode,
 } from "../lib/types";
-import type { PlannedConnector } from "../lib/plannedConnectors";
+import type { ConnectorDossier } from "../lib/plannedConnectors";
 import type { ReleaseReadinessReportSnapshot } from "../lib/releaseReadiness";
 import type { ManagedChangeRecord } from "../lib/managedChanges";
 
@@ -385,10 +385,14 @@ function getConnectorDetectionWarning(connector: ClientConnectorStatus) {
 
 function getPlannedConnectorNextStep(
   connector: ClientConnectorStatus,
-  plannedConnector: PlannedConnector,
+  plannedConnector: ConnectorDossier,
 ) {
   if (!connector.installed) {
     return "Install the tool first, then Mac AI Switchboard will detect it here.";
+  }
+
+  if (plannedConnector.setupPhase === "Managed") {
+    return "Detected. Managed routing can be repaired by Doctor if setup drifts.";
   }
 
   if (plannedConnector.setupPhase === "Detect") {
@@ -404,7 +408,7 @@ function getPlannedConnectorNextStep(
 
 function formatBackendConnectorConfigPlan(
   connector: ClientConnectorStatus,
-  plannedConnector: PlannedConnector,
+  plannedConnector: ConnectorDossier,
 ) {
   const stepDetails = connector.configCreationStepDetails ?? [];
   const stepLabels = connector.configCreationSteps ?? [];

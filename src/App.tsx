@@ -104,6 +104,7 @@ import {
   getPlannedConnectorSetupChecklistScript,
   getPlannedConnectorSetupGuide,
   plannedConnectors,
+  type ConnectorDossier,
   type PlannedConnector,
 } from "./lib/plannedConnectors";
 import {
@@ -4886,10 +4887,14 @@ export default function App() {
 
   function getPlannedConnectorNextStep(
     connector: ClientConnectorStatus,
-    plannedConnector: PlannedConnector,
+    plannedConnector: ConnectorDossier,
   ) {
     if (!connector.installed) {
       return "Install the tool first, then Mac AI Switchboard will detect it here.";
+    }
+
+    if (plannedConnector.setupPhase === "Managed") {
+      return "Detected. Managed routing can be repaired by Doctor if setup drifts.";
     }
 
     if (plannedConnector.setupPhase === "Detect") {
@@ -4905,7 +4910,7 @@ export default function App() {
 
   function formatBackendConnectorConfigPlan(
     connector: ClientConnectorStatus,
-    plannedConnector: PlannedConnector,
+    plannedConnector: ConnectorDossier,
   ) {
     const stepDetails = connector.configCreationStepDetails ?? [];
     const stepLabels = connector.configCreationSteps ?? [];

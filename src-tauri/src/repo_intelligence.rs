@@ -120,16 +120,16 @@ const AGENT_HANDOFF_PROFILES: [AgentHandoffProfile; 13] = [
         label: "Gemini CLI",
         tool_kind: "cli",
         default_pack_id: "implementation",
-        guidance: "Paste this before the task. Keep provider routing manual.",
-        manual_provider_routing: true,
+        guidance: "Paste this before the task. Gemini CLI can use managed Switchboard routing when its connector is enabled.",
+        manual_provider_routing: false,
     },
     AgentHandoffProfile {
         id: "opencode",
         label: "OpenCode",
         tool_kind: "cli",
         default_pack_id: "implementation",
-        guidance: "Paste this into the session as bounded repo context before editing.",
-        manual_provider_routing: true,
+        guidance: "Paste this into the session as bounded repo context before editing. OpenCode can use managed Switchboard routing when its connector is enabled.",
+        manual_provider_routing: false,
     },
     AgentHandoffProfile {
         id: "aider",
@@ -192,16 +192,16 @@ const AGENT_HANDOFF_PROFILES: [AgentHandoffProfile; 13] = [
         label: "Windsurf",
         tool_kind: "editor",
         default_pack_id: "handoff",
-        guidance: "Paste into Windsurf chat as read-only project context; do not auto-write editor provider settings.",
-        manual_provider_routing: true,
+        guidance: "Paste into Windsurf chat as read-only project context; managed provider routing is handled by the Switchboard connector.",
+        manual_provider_routing: false,
     },
     AgentHandoffProfile {
         id: "zed",
         label: "Zed AI",
         tool_kind: "editor",
         default_pack_id: "handoff",
-        guidance: "Paste into Zed assistant as read-only context while model/provider selection stays manual.",
-        manual_provider_routing: true,
+        guidance: "Paste into Zed assistant as read-only context; managed provider routing is handled by the Switchboard connector.",
+        manual_provider_routing: false,
     },
 ];
 
@@ -374,9 +374,9 @@ fn planned_connector_dossier(agent_id: &str) -> Option<PlannedConnectorDossier> 
             id: "windsurf",
             name: "Windsurf",
             config_path_strategy:
-                "Detect the Windsurf app and active settings location before showing any write plan.",
+                "Detect the Windsurf app and active settings location before applying managed provider routing.",
             account_caveat:
-                "Account and model settings stay manual until the adapter preserves unknown fields.",
+                "Switchboard preserves unrelated account and model settings while managing only its provider routing block.",
             rollback_strategy:
                 "Restore the active settings backup and remove only Switchboard-managed provider entries.",
         }),
@@ -384,9 +384,9 @@ fn planned_connector_dossier(agent_id: &str) -> Option<PlannedConnectorDossier> 
             id: "zed_ai",
             name: "Zed AI",
             config_path_strategy:
-                "Detect the Zed app and assistant settings before parsing provider entries.",
+                "Detect the Zed app settings file at ~/.config/zed/settings.json before applying managed provider routing.",
             account_caveat:
-                "Provider/account selection stays manual until lossless settings parsing is proven.",
+                "Switchboard preserves unrelated provider/account settings while managing only its local proxy routing entry.",
             rollback_strategy:
                 "Restore assistant/provider settings from backup and remove managed local proxy entries.",
         }),
@@ -397,12 +397,21 @@ fn planned_connector_dossier(agent_id: &str) -> Option<PlannedConnectorDossier> 
 fn build_agent_config_readiness(agent_id: &str) -> Option<RepoAgentConfigReadiness> {
     let dossier = planned_connector_dossier(agent_id)?;
     let next_gate = &PLANNED_CONFIG_GATES[0];
+    let automation_enabled = matches!(
+        dossier.id,
+        "gemini_cli" | "opencode" | "windsurf" | "zed_ai"
+    );
 
     Some(RepoAgentConfigReadiness {
         planned_connector_id: dossier.id.to_string(),
         planned_connector_name: dossier.name.to_string(),
-        automation_enabled: false,
-        safety_note: "Planned connector config creation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested.".to_string(),
+        automation_enabled,
+        safety_note: if automation_enabled {
+            "Managed routing is enabled with backup, apply, verify, rollback, and Off cleanup evidence."
+        } else {
+            "Planned connector config creation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested."
+        }
+        .to_string(),
         next_gate: RepoAgentConfigReadinessNextGate {
             id: next_gate.id.to_string(),
             label: next_gate.label.to_string(),
@@ -3993,14 +4002,14 @@ export const mapValues = <T>(items: T[]) => items;
             .expect("gemini");
         assert_eq!(gemini.agent.label, "Gemini CLI");
         assert_eq!(gemini.pack.id, "implementation");
-        assert!(gemini.safety.manual_provider_routing);
+        assert!(!gemini.safety.manual_provider_routing);
         let gemini_readiness = gemini
             .config_readiness
             .as_ref()
             .expect("gemini config readiness");
         assert_eq!(gemini_readiness.planned_connector_id, "gemini_cli");
         assert_eq!(gemini_readiness.planned_connector_name, "Gemini CLI");
-        assert!(!gemini_readiness.automation_enabled);
+        assert!(gemini_readiness.automation_enabled);
         assert_eq!(gemini_readiness.next_gate.label, "Detect config surface");
         assert!(gemini_readiness
             .safety_dossier
@@ -4023,6 +4032,26 @@ export const mapValues = <T>(items: T[]) => items;
             .files
             .iter()
             .any(|file| file.path.contains(".env.local")));
+
+        let windsurf =
+            build_agent_handoff_response(&summary, "windsurf", Some("handoff")).expect("windsurf");
+        assert!(!windsurf.safety.manual_provider_routing);
+        assert!(windsurf
+            .agent
+            .guidance
+            .contains("managed provider routing is handled"));
+        let windsurf_readiness = windsurf
+            .config_readiness
+            .as_ref()
+            .expect("windsurf config readiness");
+        assert_eq!(windsurf_readiness.planned_connector_id, "windsurf");
+        assert!(windsurf_readiness.automation_enabled);
+
+        let zed = build_agent_handoff_response(&summary, "zed", Some("handoff")).expect("zed");
+        assert!(!zed.safety.manual_provider_routing);
+        let zed_readiness = zed.config_readiness.as_ref().expect("zed config readiness");
+        assert_eq!(zed_readiness.planned_connector_id, "zed_ai");
+        assert!(zed_readiness.automation_enabled);
 
         let cursor =
             build_agent_handoff_response(&summary, "cursor", Some("handoff")).expect("cursor");

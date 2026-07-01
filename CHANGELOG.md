@@ -2,6 +2,12 @@
 
 ## 2026-07-01
 
+### Repo Intelligence managed handoff readiness
+
+- Synced Repo Intelligence handoff metadata across frontend, CLI, and Tauri API paths so Gemini CLI, OpenCode, Windsurf, and Zed AI report promoted managed routing instead of stale manual-provider routing.
+- Added managed Windsurf/Zed safety dossiers and readiness coverage so frontend handoffs include enabled automation evidence with backup, apply, verify, rollback, and Off cleanup status.
+- Added frontend and Rust regressions for managed handoff readiness.
+
 ### Managed connector repair audit
 
 - Fixed Doctor so installed managed connectors that are detected but still Direct now get a repairable issue instead of only a passive warning.

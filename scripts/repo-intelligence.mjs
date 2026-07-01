@@ -248,7 +248,7 @@ const agentHandoffProfiles = [
     toolKind: "editor",
     defaultPackId: "handoff",
     guidance:
-      "Paste into Windsurf chat as read-only project context; do not auto-write editor provider settings.",
+      "Paste into Windsurf chat as read-only project context; managed provider routing is handled by the Switchboard connector.",
   },
   {
     id: "zed",
@@ -256,7 +256,7 @@ const agentHandoffProfiles = [
     toolKind: "editor",
     defaultPackId: "handoff",
     guidance:
-      "Paste into Zed assistant as read-only context while model/provider selection stays manual.",
+      "Paste into Zed assistant as read-only context; managed provider routing is handled by the Switchboard connector.",
   },
 ];
 
@@ -332,6 +332,13 @@ const plannedConnectorConfigGateSteps = [
     ],
   },
 ];
+
+const promotedManagedConfigConnectorIds = new Set([
+  "gemini_cli",
+  "opencode",
+  "windsurf",
+  "zed_ai",
+]);
 
 const plannedConnectorDossiers = {
   gemini_cli: {
@@ -418,18 +425,18 @@ const plannedConnectorDossiers = {
   windsurf: {
     name: "Windsurf",
     configPathStrategy:
-      "Detect the Windsurf app and active settings location before showing any write plan.",
+      "Detect the Windsurf app and active settings location before applying managed provider routing.",
     accountCaveat:
-      "Account and model settings stay manual until the adapter preserves unknown fields.",
+      "Switchboard preserves unrelated account and model settings while managing only its provider routing block.",
     rollbackStrategy:
       "Restore the active settings backup and remove only Switchboard-managed provider entries.",
   },
   zed_ai: {
     name: "Zed AI",
     configPathStrategy:
-      "Detect the Zed app and assistant settings before parsing provider entries.",
+      "Detect the Zed app settings file at ~/.config/zed/settings.json before applying managed provider routing.",
     accountCaveat:
-      "Provider/account selection stays manual until lossless settings parsing is proven.",
+      "Switchboard preserves unrelated provider/account settings while managing only its local proxy routing entry.",
     rollbackStrategy:
       "Restore assistant/provider settings from backup and remove managed local proxy entries.",
   },
@@ -448,12 +455,15 @@ function buildConfigReadiness(agentId) {
       "Restore the exact backup or remove only Switchboard-managed routing.",
   };
   const nextGate = plannedConnectorConfigGateSteps[0];
+  const automationEnabled =
+    promotedManagedConfigConnectorIds.has(plannedConnectorId);
   return {
     plannedConnectorId,
     plannedConnectorName: dossier.name,
-    automationEnabled: false,
-    safetyNote:
-      "Planned connector config creation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested.",
+    automationEnabled,
+    safetyNote: automationEnabled
+      ? "Managed routing is enabled with backup, apply, verify, rollback, and Off cleanup evidence."
+      : "Planned connector config creation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested.",
     nextGate: {
       id: nextGate.id,
       label: nextGate.label,
