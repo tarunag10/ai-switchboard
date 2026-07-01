@@ -442,7 +442,7 @@ const frontendOnly = difference(allFrontendIds, backendIds);
 const backendOnly = difference(backendIds, allFrontendIds);
 
 if (frontendOnly.length > 0 || backendOnly.length > 0) {
-  console.error("Planned connector registries are out of sync.");
+  console.error("Connector readiness registries are out of sync.");
   if (frontendOnly.length > 0) {
     console.error(`Only in ${frontendPath}: ${frontendOnly.join(", ")}`);
   }
@@ -469,13 +469,13 @@ metadataErrors.push(
   ),
 );
 if (!appSource.includes("configPlan.steps.map((step) =>")) {
-  metadataErrors.push("planned connector UI must render every config creation step");
+  metadataErrors.push("connector readiness UI must render every config creation step");
 }
 if (!appSource.includes("connector.configCreationStepDetails")) {
-  metadataErrors.push("planned connector UI must render structured config creation step details");
+  metadataErrors.push("connector readiness UI must render structured config creation step details");
 }
 if (appSource.includes("configPlan.steps.slice(")) {
-  metadataErrors.push("planned connector UI must not truncate config creation steps");
+  metadataErrors.push("connector readiness UI must not truncate config creation steps");
 }
 for (const id of allFrontendIds) {
   const frontend = allFrontendConnectors.get(id);
@@ -524,7 +524,7 @@ for (const id of allFrontendIds) {
 }
 
 if (metadataErrors.length > 0) {
-  console.error("Planned connector metadata is incomplete or out of sync.");
+  console.error("Connector readiness metadata is incomplete or out of sync.");
   for (const error of metadataErrors) {
     console.error(`- ${error}`);
   }
@@ -532,5 +532,5 @@ if (metadataErrors.length > 0) {
 }
 
 console.log(
-  `Connector registries match with metadata (${manifestManagedIds.length} manifest-managed, ${managedFrontendIds.length} managed connector dossiers, ${promotedSidecarIds.length} promoted sidecar dossiers, ${pendingFrontendIds.length} pending planned, ${frontendIds.length} retained compatibility dossiers): ${pendingFrontendIds.join(", ") || "none"}`,
+  `Connector registries match with metadata (${manifestManagedIds.length} manifest-managed, ${managedFrontendIds.length} managed connector dossiers, ${promotedSidecarIds.length} promoted sidecar dossiers, ${pendingFrontendIds.length} gated native-write dossiers, ${frontendIds.length} retained compatibility dossiers): ${pendingFrontendIds.join(", ") || "none"}`,
 );

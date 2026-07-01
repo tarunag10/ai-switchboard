@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Connector verifier output wording
+
+- Updated the connector verifier and implementation-plan references so active check output reports gated native-write dossiers instead of pending planned rows.
+
 ### Connector checklist copy label
 
 - Updated Home and Settings connector checklist copy labels so success feedback no longer refers to stale planned-tool wording.
