@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Lifecycle docs gated connector language
+
+- Updated install and adapter lifecycle docs so non-managed connector promotion guidance uses gated connector language instead of planned connector language.
+
 ### Release and support connector labels
 
 - Updated release readiness report output and connector support docs to describe retained non-managed connectors as gated/guided instead of planned.
