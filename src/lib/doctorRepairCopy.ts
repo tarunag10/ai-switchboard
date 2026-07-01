@@ -322,10 +322,10 @@ export function plannedConnectorDoctorGuidance(): string {
   );
 
   return [
-    "Open Settings and review each planned connector's detection evidence, readiness stages, safety badges, and manual guide.",
-    `Doctor keeps these as manual steps because the next automation gate is ${firstBlockedStage.toLowerCase()}.`,
+    "Open Settings and review each connector's detection evidence, readiness stages, safety badges, and manual guide.",
+    `Doctor keeps native/provider routing manual because the next automation gate is ${firstBlockedStage.toLowerCase()}.`,
     `Look for ${Array.from(badgeLabels).join(", ")} before choosing a workflow.`,
-    "Use RTK-only mode or Repo Intelligence packs; keep provider routing manual until backup, verify, rollback, and Off mode cleanup are available.",
+    "Use RTK-only mode or Repo Intelligence packs; keep native/provider routing manual until connector-specific backup, verify, rollback, and Off mode cleanup evidence is promoted.",
   ].join(" ");
 }
 
@@ -430,7 +430,7 @@ export function repoIntelligenceDoctorAvailabilityGates(): string {
 export function doctorIssueGuidance(issue: DoctorIssue): string {
   switch (issue.id) {
     case "switchboard_mode_degraded":
-      return "Requested mode and active mode differ. Run automatic repairs for runtime, client, or RTK issues below, complete any manual connector steps that remain, then re-run Doctor until requested mode becomes active.";
+      return "Requested mode and active mode differ. Run automatic repairs for runtime, client, or RTK issues below, keep only connector-specific native routing gates manual until backup, verify, rollback, and Off mode cleanup evidence is promoted, then re-run Doctor until requested mode becomes active.";
     case "planned_connectors_detected":
       return plannedConnectorDoctorGuidance();
     case "repo_intelligence_repo_missing":

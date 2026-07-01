@@ -184,24 +184,19 @@ describe("doctor repair copy", () => {
   });
 
   it("guides manual degraded mode issues without repair action", () => {
-    expect(
-      doctorIssueGuidance({
-        id: "switchboard_mode_degraded",
-        title: "Requested optimization is degraded",
-        body: "Full optimization is requested, but RTK only is active.",
-        severity: "warning",
-        repairAction: null,
-      }),
-    ).toContain("Requested mode and active mode differ");
-    expect(
-      doctorIssueGuidance({
-        id: "switchboard_mode_degraded",
-        title: "Requested optimization is degraded",
-        body: "Full optimization is requested, but RTK only is active.",
-        severity: "warning",
-        repairAction: null,
-      }),
-    ).toContain("re-run Doctor until requested mode becomes active");
+    const guidance = doctorIssueGuidance({
+      id: "switchboard_mode_degraded",
+      title: "Requested optimization is degraded",
+      body: "Full optimization is requested, but RTK only is active.",
+      severity: "warning",
+      repairAction: null,
+    });
+
+    expect(guidance).toContain("Requested mode and active mode differ");
+    expect(guidance).toContain("connector-specific native routing gates");
+    expect(guidance).toContain("backup, verify, rollback, and Off mode cleanup");
+    expect(guidance).toContain("re-run Doctor until requested mode becomes active");
+    expect(guidance).not.toContain(["manual", "connector", "steps"].join(" "));
   });
 
   it("guides corrupt Repo Intelligence storage through automatic cleanup", () => {
@@ -353,13 +348,14 @@ describe("doctor repair copy", () => {
     expect(gates).toContain("repo_context_pack");
   });
 
-  it("explains why planned connectors stay manual in Doctor", () => {
+  it("explains connector readiness coverage and gated native routing in Doctor", () => {
     const guidance = plannedConnectorDoctorGuidance();
 
     expect(guidance).toContain("pending connector setup gates");
     expect(guidance).toContain("managed connector coverage");
     expect(guidance).toContain("Gemini/OpenCode/Windsurf/Zed");
     expect(guidance).toContain("Doctor repair");
+    expect(guidance).toContain("provider-specific config mutation");
     expect(guidance).toContain("rollback");
     expect(guidance).toContain("Off mode cleanup");
   });

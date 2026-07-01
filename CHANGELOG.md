@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Frontend Doctor gated-connector guidance
+
+- Aligned frontend Doctor degraded-mode and connector guidance with the backend wording so manual follow-up is limited to connector-specific native routing gates with backup, verify, rollback, and Off cleanup evidence.
+
 ### Backend Doctor gated-connector wording
 
 - Clarified backend Doctor degraded-mode and gated-connector copy so unpromoted tools are described as readiness-covered with connector-specific native routing gates, not as generally unfinished setup.
