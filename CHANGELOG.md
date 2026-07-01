@@ -75,3 +75,7 @@
 ### Mode Inspector unverified connector repairs
 
 - Updated Mode Inspector managed connector rows in the Needs test state to run the same targeted repair action as Doctor instead of only opening connector settings.
+
+### Bulk managed-client repair copy
+
+- Renamed the remaining bulk client repair action to clarify that it reapplies setup for every installed managed client, distinct from per-connector repairs.

@@ -59,7 +59,7 @@ export function doctorRepairLabel(action: string): string {
     case "repair_codex_setup":
       return "Repair Codex";
     case "repair_client_setups":
-      return "Repair clients";
+      return "Repair all managed clients";
     case "repair_rtk_integrations":
       return "Repair RTK";
     case "repair_rtk_runtime":
@@ -254,7 +254,7 @@ export function doctorRepairHint(action: string): string {
     case "repair_runtime":
       return "Restarts the local Headroom engine and refreshes switchboard status.";
     case "repair_client_setups":
-      return "Re-applies reversible setup for installed managed clients.";
+      return "Re-applies reversible setup for every installed managed client.";
     case "repair_rtk_integrations":
       return "Restores RTK PATH and hook wiring without reinstalling the binary.";
     case "repair_rtk_runtime":

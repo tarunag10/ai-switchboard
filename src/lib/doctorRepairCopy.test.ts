@@ -25,7 +25,7 @@ describe("doctor repair copy", () => {
     ["repair_runtime", "Restart Headroom"],
     ["reset_codex_bypass", "Reset Codex"],
     ["repair_codex_setup", "Repair Codex"],
-    ["repair_client_setups", "Repair clients"],
+    ["repair_client_setups", "Repair all managed clients"],
     ["repair_client_setup:gemini_cli", "Repair managed setup"],
     ["repair_rtk_integrations", "Repair RTK"],
     ["repair_rtk_runtime", "Install RTK"],
@@ -52,6 +52,9 @@ describe("doctor repair copy", () => {
     );
     expect(doctorRepairHint("repair_client_setup:gemini_cli")).toContain(
       "this installed managed connector",
+    );
+    expect(doctorRepairHint("repair_client_setups")).toContain(
+      "every installed managed client",
     );
     expect(doctorRepairHint("repair_rtk_integrations")).toContain(
       "RTK PATH and hook",

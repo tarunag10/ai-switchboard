@@ -159,7 +159,7 @@ describe("SwitchboardDoctorPanel", () => {
       screen.getByRole("button", { name: "Restart Headroom" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Repair clients" }),
+      screen.getByRole("button", { name: "Repair all managed clients" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Repair Codex" }),
