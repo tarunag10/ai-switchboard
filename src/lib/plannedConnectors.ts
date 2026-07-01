@@ -468,8 +468,8 @@ export const plannedConnectors: PlannedConnector[] = [
       "Track separately from generic OpenAI-compatible clients so account/model constraints stay visible in Doctor.",
     capabilityBadges: [
       "CLI detection",
-      "Model guardrails pending",
-      "Provider routing pending",
+      "Model guardrails gated",
+      "Provider routing gated",
     ],
     supportedModes: ["RTK only", "Off"],
     safeToday:
@@ -522,7 +522,7 @@ export const plannedConnectors: PlannedConnector[] = [
       "Local environment/provider wrapper plus Repo Intelligence context packs.",
     notes:
       "Good fit for RTK and future repo graph context because it is frequently used inside long coding sessions.",
-    capabilityBadges: ["CLI detection", "RTK-safe today", "Repo packs planned"],
+    capabilityBadges: ["CLI detection", "RTK-safe today", "Repo packs gated"],
     supportedModes: ["RTK only", "Repo packs", "Off"],
     safeToday:
       "Use RTK for noisy verification commands and copy implementation or handoff packs into Aider.",
@@ -576,7 +576,7 @@ export const plannedConnectors: PlannedConnector[] = [
     capabilityBadges: [
       "Config detection",
       "Guided setup",
-      "Backup/restore pending",
+      "Backup/restore gated",
     ],
     supportedModes: ["Repo packs", "Guided setup", "Off"],
     safeToday:
@@ -631,8 +631,8 @@ export const plannedConnectors: PlannedConnector[] = [
       "Useful target once Switchboard has a stable connector capability model for agent-style tools.",
     capabilityBadges: [
       "CLI detection",
-      "MCP handoff planned",
-      "Repo packs planned",
+      "MCP handoff gated",
+      "Repo packs gated",
     ],
     supportedModes: ["RTK only", "Repo packs", "Off"],
     safeToday:
@@ -684,7 +684,7 @@ export const plannedConnectors: PlannedConnector[] = [
     capabilityBadges: [
       "CLI detection",
       "Repo packs today",
-      "Provider routing pending",
+      "Provider routing gated",
     ],
     supportedModes: ["RTK only", "Repo packs", "Off"],
     safeToday:
@@ -740,7 +740,7 @@ export const plannedConnectors: PlannedConnector[] = [
     capabilityBadges: [
       "CLI detection",
       "Repo packs today",
-      "Credential-safe pending",
+      "Credential-safe gated",
     ],
     supportedModes: ["RTK only", "Repo packs", "Off"],
     safeToday:

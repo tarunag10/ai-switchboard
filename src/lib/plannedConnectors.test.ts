@@ -125,9 +125,9 @@ describe("planned connectors", () => {
     );
 
     expect(badges).toContain("RTK-safe today");
-    expect(badges).toContain("Backup/restore pending");
-    expect(badges).toContain("Repo packs planned");
-    expect(badges).toContain("Provider routing pending");
+    expect(badges).toContain("Backup/restore gated");
+    expect(badges).toContain("Repo packs gated");
+    expect(badges).toContain("Provider routing gated");
   });
 
   it("summarizes safe today and gated planned capabilities", () => {

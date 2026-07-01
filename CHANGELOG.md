@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Connector dossier badge gating labels
+
+- Updated connector dossier capability badges so gated setup work is labeled as gated instead of planned or pending.
+
 ### Dashboard gated connector control copy
 
 - Updated connector dashboard control states so unavailable non-managed connectors are labeled as gated setup instead of planned or coming soon.
