@@ -3422,7 +3422,7 @@ repair_action: Some("reset_codex_bypass".to_string()),
     if !planned_installed.is_empty() {
         issues.push(crate::models::DoctorIssue {
             id: "planned_connectors_detected".to_string(),
-            title: "Planned coding tools detected".to_string(),
+            title: "Gated coding tools detected".to_string(),
             body: planned_connector_doctor_body(&planned_installed),
             severity: crate::models::DoctorSeverity::Warning,
             repair_action: None,
@@ -3629,7 +3629,7 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
         .collect::<Vec<_>>();
 
     let mut parts = vec![format!(
-        "{names} detected. Mac AI Switchboard can identify these tools and expose readiness evidence, but keeps native/provider routing manual until connector-specific backup, verify, rollback, and Off mode cleanup evidence is promoted."
+        "{names} detected. Mac AI Switchboard can identify these tools and expose gated connector readiness evidence, but keeps native/provider routing manual until connector-specific backup, verify, rollback, and Off mode cleanup evidence is promoted."
     )];
 
     if !sources.is_empty() {
@@ -3750,7 +3750,7 @@ mod doctor_tests {
         assert!(body.contains("marker mac-ai-switchboard:gemini_cli"));
         assert!(body.contains("confirmation APPLY GEMINI CLI CONFIG"));
         assert!(body.contains("Safe today: use RTK-only mode or Repo Intelligence packs"));
-        assert!(body.contains("expose readiness evidence"));
+        assert!(body.contains("expose gated connector readiness evidence"));
         assert!(body.contains("keeps native/provider routing manual"));
         assert!(body.contains("connector-specific backup, verify, rollback, and Off mode cleanup"));
     }

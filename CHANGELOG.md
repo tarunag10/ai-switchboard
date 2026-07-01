@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Doctor gated connector issue title
+
+- Updated the backend Doctor issue title/body for detected unpromoted coding tools so Doctor reports gated connector readiness instead of planned coding tools.
+
 ### Gated connector setup details
 
 - Updated Home, Settings, connector dossier, and connector verifier detail copy so unpromoted connectors are described as gated connector readiness instead of planned connectors.
