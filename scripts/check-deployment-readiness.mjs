@@ -195,6 +195,7 @@ const requiredDocSignals = {
     "Cursor",
     "Windsurf",
     "OpenCode",
+    "Managed editor settings routing",
     "Automation Gates",
   ],
   "docs/remote-destinations.md": [

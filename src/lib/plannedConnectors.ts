@@ -308,21 +308,21 @@ export const managedConnectorDossiers: ManagedConnectorDossier[] = [
     supportStatus: "managed",
     statusLabel: "Managed",
     setupPhase: "Managed",
-    integrationTarget: "Managed Windsurf provider routing config adapter.",
-    notes: "Switchboard manages Windsurf provider routing through settings with backups, Doctor verification, rollback, and Off cleanup.",
+    integrationTarget: "Managed Windsurf editor settings routing adapter.",
+    notes: "Switchboard manages Windsurf editor settings routing with backups, Doctor verification, rollback, and Off cleanup.",
     capabilityBadges: [
       "Managed routing",
       "Doctor verified",
       "Rollback ready",
     ],
     supportedModes: ["Full", "Headroom", "Off"],
-    safeToday: "Enable the connector to write managed Windsurf provider routing and rollback evidence.",
+    safeToday: "Enable the connector to write managed Windsurf editor settings routing and rollback evidence.",
     firstAutomation: "Doctor re-applies the managed Windsurf routing block if verification drifts.",
     capabilityRows: [
       {
         label: "Managed routing",
         state: "Available now",
-        detail: "Switchboard writes managed Windsurf provider routing settings.",
+        detail: "Switchboard writes managed Windsurf editor settings routing.",
       },
       {
         label: "Verification",

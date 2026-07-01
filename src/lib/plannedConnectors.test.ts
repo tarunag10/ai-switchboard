@@ -52,6 +52,15 @@ describe("planned connectors", () => {
       );
       expect(connector.notes).toMatch(/Doctor|rollback|Off cleanup/i);
     }
+    const windsurf = managedConnectorDossiers.find(
+      (connector) => connector.id === "windsurf",
+    );
+    expect(windsurf?.integrationTarget).toContain("editor settings routing");
+    expect(windsurf?.notes).toContain("editor settings routing");
+    expect(windsurf?.safeToday).toContain("editor settings routing");
+    expect(windsurf?.capabilityRows[0]?.detail).toContain(
+      "editor settings routing",
+    );
   });
 
   it("derives the shared support matrix from connector manifests", () => {

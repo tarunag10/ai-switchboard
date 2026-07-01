@@ -22,7 +22,7 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | Gemini CLI | Managed | Yes | No | Yes | Managed shell/base-url routing with sidecar evidence, Doctor repair, rollback, and Off cleanup. |
 | OpenCode | Managed | Yes | No | Yes | Managed provider routing with backup, verify, rollback, and Off cleanup gates. |
 | Cursor | Guided | No | No | Yes | Copyable packs and settings detection today. |
-| Windsurf | Managed | Yes | No | Yes | Managed provider routing through settings with backup, Doctor verification, rollback, and Off cleanup. |
+| Windsurf | Managed | Yes | No | Yes | Managed editor settings routing with backup, Doctor verification, rollback, and Off cleanup. |
 | Aider | Guided | No | No | Yes | CLI handoffs and manual workflow before managed routing. |
 | Continue | Guided | No | No | Yes | Editor/extension config remains manual. |
 | Goose | Guided | No | No | Yes | MCP/repo handoff fit before native routing. |

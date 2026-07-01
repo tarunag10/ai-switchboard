@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Windsurf connector routing wording
+
+- Aligned Windsurf connector docs and frontend readiness dossiers with the backend editor-settings routing lifecycle, replacing stale provider-routing wording and guarding the docs signal.
+
 ### Release verifier connector wording
 
 - Updated release verification output to check connector registry parity without stale planned-connector wording, and added a deployment-readiness guard for the label.
