@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Rollback plan execution copy
+
+- Updated rollback plan safety copy to reflect the current backend preview, exact-confirmation, and dedicated cleanup flows instead of stale manual-only restore wording.
+
 ### Gemini backend evidence wording
 
 - Updated backend Gemini connector metadata and compatibility evidence so app/session payloads describe sibling rollback backups instead of stale sidecar evidence.

@@ -629,7 +629,9 @@ export function buildManagedRollbackPlan(
       "Off mode cleanup must remove only Switchboard-owned changes and must not recreate routing, hooks, or agent config.",
     safetyNotes: [
       "This rollback plan does not modify files.",
-      "Per-change restore stays manual until backend restore actions and fixture-home tests exist.",
+      mode === "cleanup_inventory"
+        ? "Cleanup-only rows must run through their dedicated cleanup or uninstall flow."
+        : "Executable rollback rows require a backend preview, exact confirmation phrase, and post-restore verification before any write.",
       "Copy this plan before restoring so target, backup, marker, and verification evidence stay visible.",
     ],
   };

@@ -284,6 +284,9 @@ describe("managedChangeRecords", () => {
     expect(repoIndex?.evidenceRequired.join(" ")).toContain(
       "user repositories",
     );
+    expect(repoIndex?.safetyNotes.join(" ")).toContain(
+      "dedicated cleanup or uninstall flow",
+    );
     expect(plugins).toMatchObject({
       mode: "managed_block_removal",
       status: "ready_for_review",
@@ -308,7 +311,8 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Unmanaged user config:");
     expect(text).toContain("Off-mode cleanup boundary:");
     expect(text).toContain("This rollback plan does not modify files.");
-    expect(text).toContain("fixture-home tests");
+    expect(text).toContain("backend preview");
+    expect(text).toContain("exact confirmation phrase");
   });
 
   it("builds guarded rollback execution previews without native writes", () => {
