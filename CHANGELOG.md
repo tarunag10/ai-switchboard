@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Codex backend repair-ready Doctor body
+
+- Updated backend Codex Doctor issue copy so detected or drifted Codex routing is described as repair ready while retaining the managed provider evidence details.
+
 ### Doctor gated connector action label
 
 - Updated Doctor action labels so gated connector readiness issues show as gated setup instead of a generic manual step.

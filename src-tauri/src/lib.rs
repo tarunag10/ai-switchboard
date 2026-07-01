@@ -3201,9 +3201,9 @@ fn codex_routing_doctor_issue(
     }
 
     let body = if codex.enabled {
-        "Codex is marked as connected, but its model provider, shell export, or proxy URL no longer matches the managed Headroom setup. This can cause direct routing, empty model-provider errors, or unsupported-model errors. Repair will re-apply the reversible Codex setup."
+        "Codex routing is repair ready: its model provider, shell export, or proxy URL no longer matches the managed Headroom setup. This can cause direct routing, empty model-provider errors, or unsupported-model errors. Repair will re-apply the reversible Codex setup and verify the managed provider evidence."
     } else {
-        "Codex is detected on this Mac, but it is not routed through Switchboard. Repair will add the reversible OPENAI_BASE_URL shell export and Headroom-managed provider block, then verify the setup."
+        "Codex routing is repair ready: Codex is detected on this Mac, but Switchboard has not applied its reversible managed setup. Repair will add the reversible OPENAI_BASE_URL shell export and Headroom-managed provider block, then verify the setup."
     };
 
     Some(crate::models::DoctorIssue {
@@ -4063,7 +4063,8 @@ mod doctor_tests {
 
         assert_eq!(issue.id, "codex_provider_mismatch");
         assert_eq!(issue.repair_action.as_deref(), Some("repair_codex_setup"));
-        assert!(issue.body.contains("Codex is detected"));
+        assert!(issue.body.contains("Codex routing is repair ready"));
+        assert!(issue.body.contains("reversible managed setup"));
         assert!(issue.body.contains("OPENAI_BASE_URL"));
     }
 
