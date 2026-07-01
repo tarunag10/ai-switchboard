@@ -432,6 +432,11 @@ const promotedSidecarIdSet = new Set(promotedSidecarIds);
 const pendingFrontendIds = frontendIds.filter((id) => !promotedSidecarIdSet.has(id));
 const allFrontendIds = uniqueSorted([...allFrontendConnectors.keys()]);
 const backendIds = uniqueSorted([...backendConnectors.keys()]);
+const manifestManagedIds = uniqueSorted(
+  connectorManifests
+    .filter((connector) => connector.support_status === "managed")
+    .map((connector) => connector.id),
+);
 
 const frontendOnly = difference(allFrontendIds, backendIds);
 const backendOnly = difference(backendIds, allFrontendIds);
@@ -527,5 +532,5 @@ if (metadataErrors.length > 0) {
 }
 
 console.log(
-  `Connector registries match with metadata (${pendingFrontendIds.length} pending planned, ${managedFrontendIds.length + promotedSidecarIds.length} managed, ${frontendIds.length} retained compatibility dossiers): ${pendingFrontendIds.join(", ") || "none"}`,
+  `Connector registries match with metadata (${manifestManagedIds.length} manifest-managed, ${managedFrontendIds.length} managed connector dossiers, ${promotedSidecarIds.length} promoted sidecar dossiers, ${pendingFrontendIds.length} pending planned, ${frontendIds.length} retained compatibility dossiers): ${pendingFrontendIds.join(", ") || "none"}`,
 );

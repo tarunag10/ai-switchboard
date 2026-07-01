@@ -25,3 +25,7 @@
 ### Release readiness connector summary
 
 - Changed release readiness reporting to derive managed connector counts and rows from `connectors/manifest.json`, with schema checks that fail if the report drifts from the manifest.
+
+### Connector checker summary clarity
+
+- Updated the connector metadata checker output to distinguish manifest-managed connectors from managed connector dossiers and promoted sidecar dossiers.
