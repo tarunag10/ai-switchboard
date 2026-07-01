@@ -769,10 +769,9 @@ export function SettingsView({
                 const detectionWarning =
                   getConnectorDetectionWarning(connector);
                 const toggleDisabled = connectorsBusy || controlState.disabled;
-                const plannedConnector =
-                  connector.supportStatus === "planned"
-                    ? getPlannedConnector(connector.clientId)
-                    : null;
+                const plannedConnector = getPlannedConnector(
+                  connector.clientId,
+                );
                 const plannedSetupGuide = plannedConnector
                   ? getPlannedConnectorSetupGuide(plannedConnector.id)
                   : null;
@@ -894,7 +893,7 @@ export function SettingsView({
                                 </span>
                               ) : null}
                               {compatibilityReport.version ? (
-                                <span>Version 0.0.0</span>
+                                <span>Version {compatibilityReport.version}</span>
                               ) : null}
                               {compatibilityReport.configSurface ? (
                                 <span>

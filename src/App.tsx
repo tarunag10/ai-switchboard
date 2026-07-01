@@ -7149,10 +7149,7 @@ export default function App() {
               const detectionWarning = getConnectorDetectionWarning(connector);
               const supportWarning = getConnectorSupportWarning(connector);
               const needsRestart = connector.enabled && !connector.verified;
-              const plannedConnector =
-                connector.supportStatus === "planned"
-                  ? getPlannedConnector(connector.clientId)
-                  : null;
+              const plannedConnector = getPlannedConnector(connector.clientId);
               return (
                 <article className="connector-item" key={connector.clientId}>
                   <div>
@@ -10220,10 +10217,9 @@ export default function App() {
                     getConnectorDetectionWarning(connector);
                   const toggleDisabled =
                     connectorsBusy || controlState.disabled;
-                  const plannedConnector =
-                    connector.supportStatus === "planned"
-                      ? getPlannedConnector(connector.clientId)
-                      : null;
+                  const plannedConnector = getPlannedConnector(
+                    connector.clientId,
+                  );
                   const plannedSetupGuide = plannedConnector
                     ? getPlannedConnectorSetupGuide(plannedConnector.id)
                     : null;
@@ -10351,7 +10347,9 @@ export default function App() {
                                   </span>
                                 ) : null}
                                 {compatibilityReport.version ? (
-                                  <span>Version 0.0.0</span>
+                                  <span>
+                                    Version {compatibilityReport.version}
+                                  </span>
                                 ) : null}
                                 {compatibilityReport.configSurface ? (
                                   <span>

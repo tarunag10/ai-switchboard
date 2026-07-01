@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+### Connector card readiness evidence
+
+- Updated connector cards to use managed connector dossiers as well as planned dossiers, so promoted Gemini/OpenCode/Windsurf/Zed readiness and config-plan evidence can render in the same card surfaces.
+- Fixed connector compatibility blocks to render the detected version string instead of a hard-coded `0.0.0`.
+
 ### Rollback Center undo-all safety copy
 
 - Updated undo-all rollback preview safety notes so backend-allowlisted Windsurf and Zed native rows are named alongside Codex, Gemini, OpenCode, and retained sidecar rollback paths.
