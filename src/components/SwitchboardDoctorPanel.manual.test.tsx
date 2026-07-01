@@ -32,7 +32,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.getByText("1 manual")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "No automatic repair is available yet. Follow the issue guidance, then re-run Doctor.",
+        "Open or install a supported managed client, then use Connectors or Doctor to apply reversible managed setup. Doctor repair becomes available after a supported client is detected.",
       ),
     ).toBeInTheDocument();
     expect(

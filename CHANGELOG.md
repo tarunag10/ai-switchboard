@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### First-run no-client Doctor guidance
+
+- Updated the no-managed-client Doctor guidance so first-run setup tells users when automatic repair becomes available instead of showing a generic no-repair message.
+
 ### Backend managed connector repair-ready Doctor issue
 
 - Updated backend Doctor issues for detected-but-unrouted managed clients so repairable setup is titled as repair-ready and scoped to that managed client.

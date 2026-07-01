@@ -457,6 +457,8 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
       return "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.";
     case "off_mode_not_clean":
       return "Run Verify Off after disabling routing or restarting affected shells; Doctor will re-check active engine, client, and RTK evidence.";
+    case "no_headroom_clients":
+      return "Open or install a supported managed client, then use Connectors or Doctor to apply reversible managed setup. Doctor repair becomes available after a supported client is detected.";
     default:
       if (doctorIssueActionKind(issue.repairAction) === "automatic") {
         return doctorRepairHint(issue.repairAction as string);
