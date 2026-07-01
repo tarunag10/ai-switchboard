@@ -1276,7 +1276,7 @@ export function getPlannedConnectorReadinessContract(
       isManagedConnector ? "ready" : "blocked",
       isManagedConnector
         ? "Managed setup creates a rollback backup before editing settings."
-        : "No planned connector can write config until exact backup coverage exists.",
+        : "No gated connector can write config until exact backup coverage exists.",
     ),
     readinessStage(
       "applyImplemented",
@@ -1393,7 +1393,7 @@ export function getPlannedConnectorReadinessBadges(
 
 export function getPlannedConnectorSetupChecklistScript() {
   const lines = [
-    "# Mac AI Switchboard planned-tool detection checks",
+    "# Mac AI Switchboard connector detection checks",
     "# Read-only: these commands only inspect local app/CLI availability.",
     ...plannedConnectors.flatMap((connector) => {
       const guide = getPlannedConnectorSetupGuide(connector.id);

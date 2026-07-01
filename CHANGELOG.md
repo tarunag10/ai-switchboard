@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Connector roadmap and checklist wording
+
+- Updated connector roadmap accessibility labels, checklist headers, and Repo Intelligence safety notes to avoid stale planned-connector wording in active output.
+
 ### Repo Intelligence connector handoff wording
 
 - Updated Repo Intelligence handoff Markdown, session summaries, and architecture copy so agent-facing exports refer to connector readiness instead of planned connectors.

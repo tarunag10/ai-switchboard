@@ -25,7 +25,7 @@ export function PlannedConnectorRoadmap({
   onCopyConfigPlan: (connector: PlannedConnector) => void;
 }) {
   return (
-    <div className="planned-connectors" aria-label="Planned connector roadmap">
+    <div className="planned-connectors" aria-label="Connector roadmap">
       <div className="planned-connectors__intro">
         <span>Expansion path</span>
         <strong>Detect first, adapt only when reversible.</strong>

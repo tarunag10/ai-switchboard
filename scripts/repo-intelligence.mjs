@@ -463,7 +463,7 @@ function buildConfigReadiness(agentId) {
     automationEnabled,
     safetyNote: automationEnabled
       ? "Managed routing is enabled with backup, apply, verify, rollback, and Off cleanup evidence."
-      : "Planned connector config creation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested.",
+      : "Connector-native config creation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested.",
     nextGate: {
       id: nextGate.id,
       label: nextGate.label,
