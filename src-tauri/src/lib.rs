@@ -4001,6 +4001,26 @@ mod doctor_tests {
     }
 
     #[test]
+    fn repair_all_failure_summary_reports_every_failed_action() {
+        let failures = vec![
+            "repair_client_setups: Gemini CLI verification failed".to_string(),
+            "repair_rtk_runtime: rtk install failed".to_string(),
+        ];
+
+        let error = summarize_doctor_repair_all_failures(&failures)
+            .expect_err("failures should be reported");
+
+        assert!(error.contains("repair_all completed with failures"));
+        assert!(error.contains("repair_client_setups: Gemini CLI verification failed"));
+        assert!(error.contains("repair_rtk_runtime: rtk install failed"));
+    }
+
+    #[test]
+    fn repair_all_failure_summary_allows_successful_runs() {
+        summarize_doctor_repair_all_failures(&[]).expect("empty failures should pass");
+    }
+
+    #[test]
     fn doctor_client_repair_reports_failed_post_write_verification() {
         let result = ClientSetupResult {
             client_id: "gemini_cli".to_string(),
@@ -4587,6 +4607,45 @@ fn normalized_repair_all_actions(report: &crate::models::DoctorReport) -> Vec<St
     actions
 }
 
+fn summarize_doctor_repair_all_failures(failures: &[String]) -> Result<(), String> {
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "repair_all completed with failures: {}",
+            failures.join(" | ")
+        ))
+    }
+}
+
+fn run_single_doctor_repair_action(state: &AppState, action: &str) -> Result<(), String> {
+    match action {
+        "reset_codex_bypass" => {
+            state
+                .codex_bypass
+                .store(false, std::sync::atomic::Ordering::Release);
+            state.invalidate_runtime_status_cache();
+            Ok(())
+        }
+        "repair_runtime" => repair_runtime(state),
+        "repair_client_setups" => repair_client_setups(state),
+        action if action.starts_with("repair_client_setup:") => {
+            let client_id = action
+                .strip_prefix("repair_client_setup:")
+                .unwrap_or_default();
+            repair_managed_client_setup(state, client_id)
+        }
+        "repair_codex_setup" => repair_codex_setup(state),
+        "repair_rtk_integrations" => repair_rtk_integrations(state),
+        "repair_rtk_runtime" => repair_rtk_runtime(state),
+        "repair_caveman_guidance" => repair_caveman_guidance(state),
+        "repair_ponytail_plugin" => repair_ponytail_plugin(state),
+        "clear_repo_intelligence_index" => clear_repo_intelligence_index(),
+        "install_repo_memory_mcp" => repair_repo_memory_mcp(state),
+        other => Err(format!("unknown doctor repair action: {other}")),
+    }
+}
+
 #[tauri::command]
 async fn run_doctor_repair(
     state: State<'_, AppState>,
@@ -4605,87 +4664,21 @@ async fn run_doctor_repair(
 
     match action.as_str() {
         "verify_off_mode" => Ok(build_doctor_report(&state)),
-        "reset_codex_bypass" => {
-            state
-                .codex_bypass
-                .store(false, std::sync::atomic::Ordering::Release);
-            state.invalidate_runtime_status_cache();
-            Ok(build_doctor_report(&state))
-        }
-        "repair_runtime" => {
-            repair_runtime(&state)?;
-            Ok(build_doctor_report(&state))
-        }
-        "repair_client_setups" => {
-            repair_client_setups(&state)?;
-            Ok(build_doctor_report(&state))
-        }
-        action if action.starts_with("repair_client_setup:") => {
-            let client_id = action
-                .strip_prefix("repair_client_setup:")
-                .unwrap_or_default();
-            repair_managed_client_setup(&state, client_id)?;
-            Ok(build_doctor_report(&state))
-        }
-        "repair_codex_setup" => {
-            repair_codex_setup(&state)?;
-            Ok(build_doctor_report(&state))
-        }
-        "repair_rtk_integrations" => {
-            repair_rtk_integrations(&state)?;
-            Ok(build_doctor_report(&state))
-        }
-        "repair_rtk_runtime" => {
-            repair_rtk_runtime(&state)?;
-            Ok(build_doctor_report(&state))
-        }
-        "repair_caveman_guidance" => {
-            repair_caveman_guidance(&state)?;
-            Ok(build_doctor_report(&state))
-        }
-        "repair_ponytail_plugin" => {
-            repair_ponytail_plugin(&state)?;
-            Ok(build_doctor_report(&state))
-        }
-        "clear_repo_intelligence_index" => {
-            clear_repo_intelligence_index()?;
-            Ok(build_doctor_report(&state))
-        }
-        "install_repo_memory_mcp" => {
-            repair_repo_memory_mcp(&state)?;
-            Ok(build_doctor_report(&state))
-        }
         "repair_all" => {
             let report = build_doctor_report(&state);
+            let mut failures = Vec::new();
             for action in normalized_repair_all_actions(&report) {
-                match action.as_str() {
-                    "reset_codex_bypass" => {
-                        state
-                            .codex_bypass
-                            .store(false, std::sync::atomic::Ordering::Release);
-                        state.invalidate_runtime_status_cache();
-                    }
-                    "repair_runtime" => repair_runtime(&state)?,
-                    "repair_client_setups" => repair_client_setups(&state)?,
-                    action if action.starts_with("repair_client_setup:") => {
-                        let client_id = action
-                            .strip_prefix("repair_client_setup:")
-                            .unwrap_or_default();
-                        repair_managed_client_setup(&state, client_id)?
-                    }
-                    "repair_codex_setup" => repair_codex_setup(&state)?,
-                    "repair_rtk_integrations" => repair_rtk_integrations(&state)?,
-                    "repair_rtk_runtime" => repair_rtk_runtime(&state)?,
-                    "repair_caveman_guidance" => repair_caveman_guidance(&state)?,
-                    "repair_ponytail_plugin" => repair_ponytail_plugin(&state)?,
-                    "clear_repo_intelligence_index" => clear_repo_intelligence_index()?,
-                    "install_repo_memory_mcp" => repair_repo_memory_mcp(&state)?,
-                    _ => {}
+                if let Err(err) = run_single_doctor_repair_action(&state, &action) {
+                    failures.push(format!("{action}: {err}"));
                 }
             }
+            summarize_doctor_repair_all_failures(&failures)?;
             Ok(build_doctor_report(&state))
         }
-        other => Err(format!("unknown doctor repair action: {other}")),
+        other => {
+            run_single_doctor_repair_action(&state, other)?;
+            Ok(build_doctor_report(&state))
+        }
     }
 }
 

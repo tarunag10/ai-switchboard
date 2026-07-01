@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+### Repair all failure aggregation
+
+- Hardened Doctor Repair all orchestration so independent repair actions keep running after an earlier action fails, then report all failures together.
+- Shared the single-action repair dispatcher between individual Doctor repairs and Repair all so behavior stays consistent across runtime, managed connector, RTK, add-on, Repo Intelligence, and MCP repairs.
+
 ### Managed client batch repair resilience
 
 - Hardened Doctor's all-managed-client repair flow so it attempts every installed managed connector before reporting failures, preventing one drifted connector from blocking later managed connector repairs.
