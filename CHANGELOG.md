@@ -2,6 +2,11 @@
 
 ## 2026-07-02
 
+### Off-mode verification action split
+
+- Split Off-mode verification from automatic repair classification in the Doctor UI so Verify Off does not surface as a misleading Repair all path.
+- Added frontend and copy classification coverage for the verification-only Doctor action.
+
 ### Launcher manual follow-up wording
 
 - Reworded Doctor and launcher setup verification copy so managed connectors without one-click prompt smoke support are not described as manual-only.

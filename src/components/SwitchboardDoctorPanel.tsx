@@ -57,7 +57,13 @@ export function SwitchboardDoctorPanel({
   const repairableCount = report.issues.filter((issue) =>
     canRepairIssue(issue.repairAction),
   ).length;
-  const manualCount = Math.max(0, report.issues.length - repairableCount);
+  const verificationCount = report.issues.filter(
+    (issue) => doctorIssueActionKind(issue.repairAction) === "verification",
+  ).length;
+  const manualCount = Math.max(
+    0,
+    report.issues.length - repairableCount - verificationCount,
+  );
   const title = report.status === "ok" ? "Ready" : "Needs attention";
   const doctorReport = report;
   const automaticIssues = report.issues.filter((issue) =>
@@ -136,7 +142,7 @@ export function SwitchboardDoctorPanel({
             {doctorIssueGuidance(issue)}
           </p>
         </div>
-        {repairable && repairAction !== "verify_off_mode" ? (
+        {repairable ? (
           <button
             type="button"
             className="switchboard-doctor__repair"

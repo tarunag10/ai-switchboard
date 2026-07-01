@@ -77,7 +77,7 @@ describe("doctor repair copy", () => {
     expect(canRepairIssue("repair_runtime")).toBe(true);
     expect(canRepairIssue("clear_repo_intelligence_index")).toBe(true);
     expect(canRepairIssue("install_repo_memory_mcp")).toBe(true);
-    expect(canRepairIssue("verify_off_mode")).toBe(true);
+    expect(canRepairIssue("verify_off_mode")).toBe(false);
     expect(canRepairIssue("")).toBe(false);
     expect(canRepairIssue(null)).toBe(false);
     expect(canRepairIssue(undefined)).toBe(false);

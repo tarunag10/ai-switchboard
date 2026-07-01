@@ -10,9 +10,11 @@ import {
 describe("doctor repair classification", () => {
   it("describes automatic versus manual issue handling", () => {
     expect(doctorIssueActionKind("repair_runtime")).toBe("automatic");
+    expect(doctorIssueActionKind("verify_off_mode")).toBe("verification");
     expect(doctorIssueActionKind(null)).toBe("manual");
     expect(doctorIssueActionKind(undefined)).toBe("manual");
     expect(doctorIssueActionLabel("repair_runtime")).toBe("Auto repair");
+    expect(doctorIssueActionLabel("verify_off_mode")).toBe("Verification");
     expect(doctorIssueActionLabel(null)).toBe("Manual step");
     expect(doctorIssueActionHint(null)).toContain("No automatic repair");
   });

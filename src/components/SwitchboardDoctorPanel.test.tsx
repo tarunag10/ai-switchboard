@@ -439,6 +439,12 @@ describe("SwitchboardDoctorPanel", () => {
       />,
     );
 
+    expect(screen.getByText("0 automatic")).toBeInTheDocument();
+    expect(screen.getByText("0 manual")).toBeInTheDocument();
+    expect(screen.getByText("Verification")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Repair all" }),
+    ).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Verify Off" }));
     expect(onRepair).toHaveBeenCalledWith("verify_off_mode");
 

@@ -287,21 +287,29 @@ export function doctorRepairHint(action: string): string {
 }
 
 export function canRepairIssue(action: string | null | undefined): boolean {
-  return typeof action === "string" && action.length > 0;
+  return typeof action === "string" && action.length > 0 && action !== "verify_off_mode";
 }
 
 export function doctorIssueActionKind(
   action: string | null | undefined,
-): "automatic" | "manual" {
+): "automatic" | "verification" | "manual" {
+  if (action === "verify_off_mode") {
+    return "verification";
+  }
   return canRepairIssue(action) ? "automatic" : "manual";
 }
 
 export function doctorIssueActionLabel(
   action: string | null | undefined,
 ): string {
-  return doctorIssueActionKind(action) === "automatic"
-    ? "Auto repair"
-    : "Manual step";
+  const kind = doctorIssueActionKind(action);
+  if (kind === "automatic") {
+    return "Auto repair";
+  }
+  if (kind === "verification") {
+    return "Verification";
+  }
+  return "Manual step";
 }
 
 export function doctorIssueActionLabelForIssue(issue: DoctorIssue): string {
