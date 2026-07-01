@@ -334,7 +334,7 @@ export function formatPlannedConnectorDoctorDossiers(): string {
     return [
       "Connector config readiness dossiers",
       "",
-      "No pending planned connector dossiers remain; connector setup has managed connector coverage with promoted routing evidence where native or shell routes are proven.",
+      "No pending connector-native write dossiers remain; connector setup has managed connector coverage with promoted routing evidence where native or shell routes are proven.",
     ].join("\n");
   }
 

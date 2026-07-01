@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Doctor connector dossier export wording
+
+- Updated Doctor connector dossier exports so the no-pending state refers to connector-native write dossiers instead of stale planned connector dossiers.
+
 ### Repo Memory MCP editor connector boundary
 
 - Updated the Repo Memory MCP connector boundary so Windsurf and Zed MCP bridge setup is explicitly separate from Windsurf editor-settings routing and Zed assistant-settings routing.

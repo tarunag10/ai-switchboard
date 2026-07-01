@@ -461,7 +461,7 @@ describe("SwitchboardDoctorPanel", () => {
       "Connector config readiness dossiers",
     );
     expect(writeText.mock.calls[0][0]).toContain(
-      "No pending planned connector dossiers remain",
+      "No pending connector-native write dossiers remain",
     );
     expect(writeText.mock.calls[0][0]).toContain("managed connector coverage");
     expect(writeText.mock.calls[0][0]).toContain("promoted routing evidence");
