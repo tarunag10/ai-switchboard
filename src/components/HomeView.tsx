@@ -386,102 +386,44 @@ export function HomeView({
         onManageRtk={() => setActiveView("addons")}
       />
 
-      <SwitchboardDoctorPanel
-        report={doctorReport}
-        busyAction={doctorRepairBusy}
-        error={doctorRepairError}
-        successMessage={doctorRepairSuccess}
-        footprintReport={managedFootprintReport}
-        onRepair={(action) => void handleDoctorRepair(action)}
-      />
-
-      <section className="stat-grid stat-grid--2col">
-        <article
-          className={`soft-card stat-card stat-card--clickable${chartMode === "usd" ? " is-active" : ""}`}
-          onClick={() => setChartMode("usd")}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === "Enter" && setChartMode("usd")}
+      <section className="home-sector-grid" aria-label="Switchboard sectors">
+        <button
+          type="button"
+          className="home-sector home-sector--primary"
+          onClick={() => setActiveView("doctor")}
         >
-          <span className="stat-card__label">
-            <CurrencyCircleDollar
-              aria-hidden="true"
-              className="stat-card__icon"
-              size={15}
-              weight="bold"
-            />
-            All-time costs saved (estimate)
-            <button
-              className="stat-card__info-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowSavingsInfo(true);
-              }}
-              type="button"
-              aria-label="How savings are calculated"
-            >
-              <Info size={13} weight="bold" />
-            </button>
-          </span>
-          <strong className="stat-value--green">
-            {currency(savingsDashboard.lifetimeEstimatedSavingsUsd)}
-          </strong>
-        </article>
-        <article
-          className={`soft-card stat-card stat-card--clickable${chartMode === "tokens" ? " is-active" : ""}`}
-          onClick={() => setChartMode("tokens")}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === "Enter" && setChartMode("tokens")}
+          <span className="home-sector__tag">Health</span>
+          <strong>Doctor</strong>
+          <span>Repairs, evidence, and managed footprint checks.</span>
+        </button>
+        <button
+          type="button"
+          className="home-sector"
+          onClick={() => setActiveView("usage")}
         >
-          <span className="stat-card__label">
-            <Cpu
-              aria-hidden="true"
-              className="stat-card__icon"
-              size={15}
-              weight="bold"
-            />
-            All-time input tokens saved
-          </span>
-          <div className="stat-value-row">
-            <strong className="stat-value--blue">
-              {compactNumber(savingsDashboard.lifetimeEstimatedTokensSaved)}
-            </strong>
-            {savingsDashboard.outputReduction ? (
-              <OutputReductionChip reduction={savingsDashboard.outputReduction} />
-            ) : null}
-          </div>
-        </article>
+          <span className="home-sector__tag">Savings</span>
+          <strong>{currency(savingsDashboard.lifetimeEstimatedSavingsUsd)}</strong>
+          <span>{compactNumber(savingsDashboard.lifetimeEstimatedTokensSaved)} tokens saved all-time.</span>
+        </button>
+        <button
+          type="button"
+          className="home-sector"
+          onClick={() => setActiveView("addons")}
+        >
+          <span className="home-sector__tag">Tools</span>
+          <strong>Add-ons</strong>
+          <span>RTK, connectors, and planned tool support.</span>
+        </button>
+        <button
+          type="button"
+          className="home-sector"
+          onClick={() => setActiveView("optimization")}
+        >
+          <span className="home-sector__tag">Learn</span>
+          <strong>Optimization</strong>
+          <span>Project learning, history, and routing guidance.</span>
+        </button>
       </section>
-
-      <SavingsCalculatorCard
-        dashboard={dashboard}
-        repoSavings={savingsCalculatorRepoEstimate}
-        runtimeStatus={runtimeStatus}
-        rtkToday={activityFeed.tiles.rtkToday}
-        attributionEvents={savingsAttributionEvents}
-        cavemanSavings={cavemanSavingsEstimate}
-        ponytailSavings={ponytailSavingsEstimate}
-        markitdownSavings={markitdownSavingsEstimate}
-        scope={savingsCalculatorScope}
-        onScopeChange={setSavingsCalculatorScope}
-      />
-
-      <ClientSavingsTrendsCard dashboard={dashboard} />
-
-      {dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
-        <DailySavingsChart
-          data={savingsDashboard.dailySavings}
-          hourlyData={savingsDashboard.hourlySavings}
-          resetSignal={chartResetSignal}
-          chartMode={chartMode}
-          setChartMode={setChartMode}
-        />
-      ) : (
-        <div className="savings-chart__skeleton" role="status">
-          <p className="loading-copy">Loading savings history…</p>
-        </div>
-      )}
     </div>
   );
 }
