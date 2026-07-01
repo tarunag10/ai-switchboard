@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Backend Repo Intelligence gated connector note
+
+- Updated the Tauri Repo Intelligence connector readiness payload so backend handoffs use connector-native gated setup wording instead of planned connector wording.
+
 ### Gated connector status badges
 
 - Updated planned-status connector badges and dashboard fallback labels to show gated setup state instead of planned setup state.
