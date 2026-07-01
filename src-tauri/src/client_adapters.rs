@@ -208,12 +208,12 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         name: "Gemini CLI",
         category: "cli",
         setup_phase: "adapt",
-        setup_hint: "Managed shell/base-url routing with sidecar evidence, Doctor verification, rollback, and Off mode cleanup.",
+        setup_hint: "Managed shell/base-url routing with sibling rollback backups, Doctor verification, rollback, and Off mode cleanup.",
         detection_sources: &["PATH: gemini", "~/.gemini", "~/.config/gemini"],
         config_locations: &["~/.gemini", "~/.config/gemini"],
         automation_gates: &[
             "Detect Gemini CLI and Gemini provider config surfaces before applying routing.",
-            "Write only Switchboard-managed shell/base-url routing and sidecar evidence.",
+            "Write only Switchboard-managed shell/base-url routing and sibling rollback backups.",
             "Verify Doctor repair, model/account compatibility visibility, and Off mode cleanup preserve account state.",
         ],
         manual_workflow: &[
@@ -6463,7 +6463,7 @@ fn detect_gemini_cli_client() -> ClientStatus {
         "Gemini",
         executable.clone(),
         &config_candidates,
-        "Managed shell/base-url routing uses Switchboard-owned shell blocks, sidecar evidence, backup, Doctor verification, rollback, and Off mode cleanup.",
+        "Managed shell/base-url routing uses Switchboard-owned shell blocks, sibling rollback backups, Doctor verification, rollback, and Off mode cleanup.",
     );
     let installed = executable.is_some() || !report.config_surfaces.is_empty();
     let mut notes = if installed {
@@ -7364,6 +7364,17 @@ mod tests {
                 );
             }
         }
+        let gemini = PLANNED_CLIENT_SPECS
+            .iter()
+            .find(|spec| spec.id == "gemini_cli")
+            .expect("Gemini spec");
+        let gemini_copy = format!(
+            "{} {}",
+            gemini.setup_hint,
+            gemini.automation_gates.join(" ")
+        );
+        assert!(gemini_copy.contains("sibling rollback backups"));
+        assert!(!gemini_copy.contains("sidecar evidence"));
     }
 
     #[test]
@@ -7824,7 +7835,7 @@ mod tests {
             version: Some("gemini 0.2.1".to_string()),
             config_surfaces: vec![PathBuf::from("/Users/test/.gemini")],
             routing_blocker:
-                "Managed shell/base-url routing uses Switchboard-owned shell blocks, sidecar evidence, backup, Doctor verification, rollback, and Off mode cleanup.",
+                "Managed shell/base-url routing uses Switchboard-owned shell blocks, sibling rollback backups, Doctor verification, rollback, and Off mode cleanup.",
         };
 
         let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
@@ -7833,7 +7844,8 @@ mod tests {
         assert!(evidence.contains("Gemini version: gemini 0.2.1"));
         assert!(evidence.contains("Gemini config surface: /Users/test/.gemini"));
         assert!(evidence.contains("Managed shell/base-url routing"));
-        assert!(evidence.contains("sidecar evidence"));
+        assert!(evidence.contains("sibling rollback backups"));
+        assert!(!evidence.contains("sidecar evidence"));
         assert!(evidence.contains("Doctor verification"));
         assert!(evidence.contains("backup"));
         assert!(evidence.contains("rollback"));

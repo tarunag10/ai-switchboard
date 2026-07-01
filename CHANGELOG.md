@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Gemini backend evidence wording
+
+- Updated backend Gemini connector metadata and compatibility evidence so app/session payloads describe sibling rollback backups instead of stale sidecar evidence.
+
 ### Doctor repair evidence coverage
 
 - Expanded local Doctor repair validation to cover the managed repair post-write verification guard and require failed-repair timeline evidence in deployment readiness checks.
