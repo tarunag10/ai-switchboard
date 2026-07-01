@@ -2,6 +2,11 @@
 
 ## 2026-07-02
 
+### Managed connector end-to-end verifier
+
+- Added connector readiness verification that managed manifests stay limited to Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI until native lifecycle evidence exists.
+- Guarded OpenCode, Windsurf, and Zed AI end-to-end evidence for apply, verify, rollback, safe apply preview, and tests while keeping Cursor and other planned connectors gated.
+
 ### Launcher managed setup classifier
 
 - Reused the shared managed connector classifier in launcher auto-setup so gated connectors without `supportStatus` cannot be auto-applied by accident.

@@ -242,6 +242,80 @@ function validateBackendConfigCreationPlanContract(source) {
   return errors;
 }
 
+function validateManagedConnectorEndToEndContract(source, manifestById, managedIds) {
+  const errors = [];
+  const expectedManifestManaged = [
+    "claude_code",
+    "codex",
+    "gemini_cli",
+    "opencode",
+    "windsurf",
+    "zed_ai",
+  ];
+  const managedSet = new Set(managedIds);
+  for (const id of expectedManifestManaged) {
+    if (!managedSet.has(id)) {
+      errors.push(`${id}: manifest must keep this connector managed once native lifecycle evidence exists`);
+    }
+  }
+  for (const id of managedIds) {
+    if (!expectedManifestManaged.includes(id)) {
+      errors.push(`${id}: managed manifest status is not allowed until end-to-end setup evidence is promoted`);
+    }
+  }
+
+  for (const [id, snippets] of Object.entries({
+    claude_code: [
+      '"claude_code" => {',
+      "configure_claude_settings_env",
+      "disable_client_setup(\"claude_code\")",
+    ],
+    codex: [
+      '"codex" | "codex_cli" => {',
+      "configure_codex_provider_block",
+      "CODEX_ROLLBACK_RECORD_ID",
+    ],
+    gemini_cli: [
+      '"gemini_cli" => {',
+      "GEMINI_BASE_URL_ENV_KEY",
+      "GEMINI_ROLLBACK_RECORD_ID",
+    ],
+    opencode: [
+      '"opencode" => {',
+      "configure_opencode_provider_config",
+      "preview_managed_config_apply(\"opencode-routing\")",
+      "managed_rollback_preview_and_execute_restores_opencode_backup",
+    ],
+    windsurf: [
+      '"windsurf" => {',
+      "configure_windsurf_provider_config",
+      "preview_managed_config_apply(\"windsurf-routing\")",
+      "managed_config_apply_preview_and_execute_promotes_windsurf_rollback_safely",
+    ],
+    zed_ai: [
+      '"zed_ai" => {',
+      "configure_zed_provider_config",
+      "preview_managed_config_apply(\"zed-ai-routing\")",
+      "managed_config_apply_preview_and_execute_promotes_zed_rollback_safely",
+    ],
+  })) {
+    for (const snippet of snippets) {
+      if (!source.includes(snippet)) {
+        errors.push(`${id}: managed end-to-end evidence missing "${snippet}"`);
+      }
+    }
+  }
+
+  for (const id of ["cursor", "grok_cli", "aider", "continue", "goose", "qwen_code", "amazon_q"]) {
+    const manifest = manifestById.get(id);
+    if (manifest?.support_status === "managed") {
+      errors.push(`${id}: planned connector must not be marked managed before native lifecycle evidence is promoted`);
+    }
+  }
+
+  return errors;
+}
+
 function validateCliConnectorDossierContract(source, connectorIds) {
   const errors = [];
   const dossierBody = source.match(
@@ -460,6 +534,13 @@ if (allFrontendIds.length === 0) {
 const metadataErrors = [];
 metadataErrors.push(...validateConfigCreationPlanContract(frontendSource));
 metadataErrors.push(...validateBackendConfigCreationPlanContract(backendSource));
+metadataErrors.push(
+  ...validateManagedConnectorEndToEndContract(
+    backendSource,
+    connectorManifestById,
+    manifestManagedIds,
+  ),
+);
 metadataErrors.push(...validateCliConnectorDossierContract(cliSource, allFrontendIds));
 metadataErrors.push(...validateRepoApiConnectorDossierContract(repoApiSource));
 metadataErrors.push(
