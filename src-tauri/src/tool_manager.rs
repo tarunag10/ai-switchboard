@@ -3637,11 +3637,14 @@ impl ToolManager {
 
     pub fn install_repo_memory_mcp(&self) -> Result<()> {
         let script = repo_memory_script_path("repo-intelligence.mjs")?;
-        let command = format!("node {} --mcp-serve", script.display());
+        let node_command = resolve_command_path("node")
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "node".to_string());
+        let command = format!("{} {} --mcp-serve", node_command, script.display());
         write_mcp_server_to_claude_json(
             REPO_MEMORY_MCP_NAME,
             json!({
-                "command": "node",
+                "command": node_command,
                 "args": [script, "--mcp-serve"],
                 "env": { "MAC_AI_SWITCHBOARD_REPO_MEMORY_READ_ONLY": "1" },
             }),
@@ -3668,12 +3671,15 @@ impl ToolManager {
         let script = repo_memory_script_path("repo-intelligence.mjs").ok()?;
         let descriptor_present = descriptor_path.exists();
         let script_present = script.exists();
-        let node_available = command_available_on_path("node");
+        let node_command = resolve_command_path("node")
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "node".to_string());
+        let node_available = resolve_command_path("node").is_some();
         Some(RepoMemoryMcpServiceStatus {
             managed_by_app: true,
             read_only: true,
             transport: "stdio".to_string(),
-            command: format!("node {} --mcp-serve", script.display()),
+            command: format!("{} {} --mcp-serve", node_command, script.display()),
             descriptor_path: descriptor_path.display().to_string(),
             descriptor_present,
             script_path: script.display().to_string(),
@@ -4059,6 +4065,10 @@ fn repo_memory_script_candidates(script_name: &str) -> Vec<PathBuf> {
 }
 
 fn command_available_on_path(command: &str) -> bool {
+    resolve_command_path(command).is_some()
+}
+
+fn resolve_command_path(command: &str) -> Option<PathBuf> {
     fn is_executable_file(path: &Path) -> bool {
         use std::os::unix::fs::PermissionsExt;
         path.metadata()
@@ -4067,15 +4077,27 @@ fn command_available_on_path(command: &str) -> bool {
     }
 
     if command.contains(std::path::MAIN_SEPARATOR) {
-        return is_executable_file(Path::new(command));
+        let path = PathBuf::from(command);
+        return is_executable_file(&path).then_some(path);
     }
-    let Some(path_var) = std::env::var_os("PATH") else {
-        return false;
-    };
-    std::env::split_paths(&path_var).any(|dir| {
-        let candidate = dir.join(command);
-        is_executable_file(&candidate)
-    })
+    let path_candidates = std::env::var_os("PATH")
+        .map(|path_var| std::env::split_paths(&path_var).collect::<Vec<_>>())
+        .unwrap_or_default()
+        .into_iter()
+        .chain(
+            [
+                "/opt/homebrew/bin",
+                "/usr/local/bin",
+                "/usr/bin",
+                "/bin",
+                "/opt/local/bin",
+            ]
+            .into_iter()
+            .map(PathBuf::from),
+        );
+    path_candidates
+        .map(|dir| dir.join(command))
+        .find(|candidate| is_executable_file(candidate))
 }
 
 /// Claude Code ≥2.x stores user-scope MCP servers in `~/.claude.json` under
@@ -7242,7 +7264,10 @@ after
                 .expect("parse claude json");
         assert_eq!(value["theme"], "dark");
         assert!(value["mcpServers"]["headroom"].is_object());
-        assert_eq!(value["mcpServers"]["repo-memory"]["command"], "node");
+        assert!(value["mcpServers"]["repo-memory"]["command"]
+            .as_str()
+            .expect("repo-memory command")
+            .ends_with("node"));
     }
 
     #[test]
@@ -7300,6 +7325,20 @@ after
         assert!(!super::command_available_on_path(
             "mac-ai-switchboard-definitely-missing-command"
         ));
+    }
+
+    #[test]
+    fn command_available_on_path_accepts_absolute_node_path() {
+        for candidate in [
+            "/usr/local/bin/node",
+            "/opt/homebrew/bin/node",
+            "/usr/bin/node",
+        ] {
+            if std::path::Path::new(candidate).exists() {
+                assert!(super::command_available_on_path(candidate));
+                return;
+            }
+        }
     }
 
     #[test]

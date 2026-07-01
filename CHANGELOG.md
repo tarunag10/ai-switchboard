@@ -51,3 +51,7 @@
 
 - Added per-connector Doctor repair actions for installed managed connectors so Gemini/OpenCode/Windsurf/Zed-style direct routing drift can be fixed one tool at a time while preserving bulk Repair all behavior.
 - Synced backend connector tests and Gemini/Windsurf/Zed evidence copy with the promoted managed routing lifecycle.
+
+### Repo Memory MCP Node resolution
+
+- Hardened Repo Memory MCP setup and status checks to resolve Node from common macOS install paths when the GUI app PATH does not include Homebrew or `/usr/local/bin`, preventing false missing-Node Doctor loops.
