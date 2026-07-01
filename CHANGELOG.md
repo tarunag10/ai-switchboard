@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Gated connector unavailable reasons
+
+- Updated Home and Settings unavailable-reason copy for unpromoted connectors so missing tools explain the gated setup evidence instead of saying the adapter is planned.
+
 ### Doctor gated connector issue title
 
 - Updated the backend Doctor issue title/body for detected unpromoted coding tools so Doctor reports gated connector readiness instead of planned coding tools.

@@ -99,14 +99,14 @@ const connectorUnavailableReasons: Record<string, string> = {
     "Gemini CLI was not detected. Install Gemini CLI, then reopen Mac AI Switchboard.",
   opencode:
     "OpenCode was not detected. Install OpenCode, then reopen Mac AI Switchboard.",
-  cursor: "Cursor adapter is planned but not configurable yet.",
-  grok_cli: "Grok / xAI CLI adapter is planned but not configurable yet.",
-  aider: "Aider adapter is planned but not configurable yet.",
-  continue: "Continue adapter is planned but not configurable yet.",
-  goose: "Goose adapter is planned but not configurable yet.",
-  qwen_code: "Qwen Code adapter is planned but not configurable yet.",
+  cursor: "Cursor setup is gated until editor-settings backup, verify, rollback, and Off cleanup coverage is promoted.",
+  grok_cli: "Grok / xAI CLI setup is gated until model/account guardrails and reversible provider routing are proven.",
+  aider: "Aider setup is gated until wrapper/env backup, verify, rollback, and Off cleanup coverage is promoted.",
+  continue: "Continue setup is gated until provider config backup, verify, rollback, and Off cleanup coverage is promoted.",
+  goose: "Goose setup is gated until MCP/provider config backup, verify, rollback, and Off cleanup coverage is promoted.",
+  qwen_code: "Qwen Code setup is gated until model/account guardrails and reversible provider routing are proven.",
   amazon_q:
-    "Amazon Q Developer CLI adapter is planned but not configurable yet.",
+    "Amazon Q Developer CLI setup is gated until credential-safe profile handling and reversible routing are proven.",
   windsurf: "Windsurf was not detected. Install Windsurf, then reopen Mac AI Switchboard.",
   zed_ai: "Zed was not detected. Install Zed, then reopen Mac AI Switchboard.",
 };
