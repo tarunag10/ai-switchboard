@@ -29,6 +29,17 @@ const steps = [
       "off_mode_blocks_doctor_repairs_that_restore_headroom",
     ],
   },
+  {
+    id: "post-write-verification-guard",
+    label: "Doctor managed repair post-write verification guard backend test",
+    command: "cargo",
+    args: [
+      "test",
+      "--manifest-path",
+      "src-tauri/Cargo.toml",
+      "doctor_client_repair_reports_failed_post_write_verification",
+    ],
+  },
 ];
 
 function runStep(step) {
@@ -71,6 +82,7 @@ Generated: ${generatedAt}
 - Evidence kind: local Doctor repair validation
 - Release gate evidence: no
 - Overall result: ${passed ? "pass" : "fail"}
+- Scope: Doctor frontend copy, failed-repair timeline evidence, Off/RTK repair guards, and managed repair post-write verification guard
 
 ${results
   .map(

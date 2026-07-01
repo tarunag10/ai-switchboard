@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Doctor repair evidence coverage
+
+- Expanded local Doctor repair validation to cover the managed repair post-write verification guard and require failed-repair timeline evidence in deployment readiness checks.
+
 ### Doctor timeline failed repair evidence
 
 - Added failed Doctor repair details to copied timeline evidence, including scrubbed verification-failure text from automatic repair attempts.
