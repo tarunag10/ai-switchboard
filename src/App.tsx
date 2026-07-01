@@ -7812,35 +7812,25 @@ export default function App() {
   ) => {
     const configured = connector?.enabled === true;
     const verified = connector?.verified === true;
-    const canRepairDirectManaged =
+    const canRepairManaged =
       connector?.installed === true &&
       connector.supportStatus === "managed" &&
-      !configured;
-    const directRepairAction =
+      (!configured || !verified);
+    const managedRepairAction =
       connector?.clientId === "codex"
         ? "repair_codex_setup"
         : connector?.clientId
           ? `repair_client_setup:${connector.clientId}`
           : "repair_client_setups";
-    const actionLabel = configured && !verified
-      ? "Open Connectors"
-      : canRepairDirectManaged
+    const actionLabel = canRepairManaged
         ? connector?.clientId === "codex"
           ? "Repair Codex"
           : "Repair managed setup"
         : undefined;
-    const actionDisabled =
-      configured && !verified
-        ? false
-        : canRepairDirectManaged
-          ? doctorRepairBusy !== null
-          : undefined;
-    const onAction =
-      configured && !verified
-        ? () => setActiveView("settings")
-        : canRepairDirectManaged
-          ? () => void handleDoctorRepair(directRepairAction)
-          : undefined;
+    const actionDisabled = canRepairManaged ? doctorRepairBusy !== null : undefined;
+    const onAction = canRepairManaged
+      ? () => void handleDoctorRepair(managedRepairAction)
+      : undefined;
     return {
       label,
       status: configured ? (verified ? "Verified" : "Needs test") : "Direct",
@@ -7853,7 +7843,7 @@ export default function App() {
         : `${label.replace(" routing", "")} is not detected on this Mac.`,
       actionLabel,
       actionBusyLabel:
-        canRepairDirectManaged && doctorRepairBusy === directRepairAction
+        canRepairManaged && doctorRepairBusy === managedRepairAction
           ? "Repairing"
           : undefined,
       actionDisabled,

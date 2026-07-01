@@ -71,3 +71,7 @@
 ### Targeted verified-connector Doctor repairs
 
 - Updated Doctor issues for enabled managed connectors whose routing no longer verifies to repair the specific connector instead of running the bulk client repair path.
+
+### Mode Inspector unverified connector repairs
+
+- Updated Mode Inspector managed connector rows in the Needs test state to run the same targeted repair action as Doctor instead of only opening connector settings.
