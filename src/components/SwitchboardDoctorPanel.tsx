@@ -67,10 +67,13 @@ export function SwitchboardDoctorPanel({
   const title = report.status === "ok" ? "Ready" : "Needs attention";
   const doctorReport = report;
   const automaticIssues = report.issues.filter((issue) =>
-    canRepairIssue(issue.repairAction),
+    doctorIssueActionKind(issue.repairAction) === "automatic",
+  );
+  const verificationIssues = report.issues.filter(
+    (issue) => doctorIssueActionKind(issue.repairAction) === "verification",
   );
   const manualIssues = report.issues.filter(
-    (issue) => !canRepairIssue(issue.repairAction),
+    (issue) => doctorIssueActionKind(issue.repairAction) === "manual",
   );
   const nextAutomaticIssue = automaticIssues[0] ?? null;
   const hasOffModeVerification = report.issues.some(
@@ -464,6 +467,13 @@ export function SwitchboardDoctorPanel({
         <div className="switchboard-doctor__issues">
           <h3>Actions</h3>
           {automaticIssues.map(renderIssue)}
+        </div>
+      ) : null}
+
+      {verificationIssues.length > 0 ? (
+        <div className="switchboard-doctor__issues">
+          <h3>Verification</h3>
+          {verificationIssues.map(renderIssue)}
         </div>
       ) : null}
 

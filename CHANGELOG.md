@@ -2,6 +2,11 @@
 
 ## 2026-07-02
 
+### Doctor verification issue grouping
+
+- Split verification-only Doctor issues into their own section so Verify Off evidence no longer appears under manual review.
+- Added UI coverage that Off-mode verification keeps Repair all hidden and avoids manual-review grouping.
+
 ### Repair all verification action filter
 
 - Excluded Verify Off from backend Repair all normalization so mixed Doctor reports cannot fail on a verification-only action.

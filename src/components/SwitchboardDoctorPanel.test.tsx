@@ -441,7 +441,15 @@ describe("SwitchboardDoctorPanel", () => {
 
     expect(screen.getByText("0 automatic")).toBeInTheDocument();
     expect(screen.getByText("0 manual")).toBeInTheDocument();
-    expect(screen.getByText("Verification")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Verification" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Verification", { selector: "span" })).toHaveClass(
+      "switchboard-doctor__action-kind--verification",
+    );
+    expect(
+      screen.queryByRole("heading", { name: "Manual review" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Repair all" }),
     ).not.toBeInTheDocument();
