@@ -3943,6 +3943,40 @@ mod doctor_tests {
     }
 
     #[test]
+    fn repair_all_actions_skip_duplicate_managed_client_repairs() {
+        let issue = |id: &str, action: Option<&str>| crate::models::DoctorIssue {
+            id: id.to_string(),
+            title: id.to_string(),
+            body: id.to_string(),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: action.map(str::to_string),
+        };
+        let report = crate::models::DoctorReport {
+            status: crate::models::DoctorSeverity::Warning,
+            summary: "repairable".to_string(),
+            issues: vec![
+                issue("runtime", Some("repair_runtime")),
+                issue("all_clients", Some("repair_client_setups")),
+                issue("gemini_a", Some("repair_client_setup:gemini_cli")),
+                issue("gemini_b", Some("repair_client_setup:gemini_cli")),
+                issue("opencode", Some("repair_client_setup:opencode")),
+                issue("manual", None),
+                issue("rtk_a", Some("repair_rtk_runtime")),
+                issue("rtk_b", Some("repair_rtk_runtime")),
+            ],
+        };
+
+        assert_eq!(
+            normalized_repair_all_actions(&report),
+            vec![
+                "repair_runtime".to_string(),
+                "repair_client_setups".to_string(),
+                "repair_rtk_runtime".to_string(),
+            ],
+        );
+    }
+
+    #[test]
     fn non_headroom_doctor_repairs_remain_available_in_off_and_rtk_modes() {
         for mode in [SwitchboardMode::Off, SwitchboardMode::Rtk] {
             for action in [
@@ -4319,6 +4353,42 @@ fn repair_repo_memory_mcp(state: &AppState) -> Result<(), String> {
     Ok(())
 }
 
+fn normalized_repair_all_actions(report: &crate::models::DoctorReport) -> Vec<String> {
+    let has_all_client_repair = report
+        .issues
+        .iter()
+        .any(|issue| issue.repair_action.as_deref() == Some("repair_client_setups"));
+    let mut actions = Vec::new();
+    let mut repaired_client_ids = Vec::new();
+
+    for action in report
+        .issues
+        .iter()
+        .filter_map(|issue| issue.repair_action.as_deref())
+    {
+        if action.starts_with("repair_client_setup:") {
+            if has_all_client_repair {
+                continue;
+            }
+            let client_id = action
+                .strip_prefix("repair_client_setup:")
+                .unwrap_or_default()
+                .to_string();
+            if repaired_client_ids.iter().any(|seen| seen == &client_id) {
+                continue;
+            }
+            repaired_client_ids.push(client_id);
+        }
+
+        if actions.iter().any(|seen| seen == action) {
+            continue;
+        }
+        actions.push(action.to_string());
+    }
+
+    actions
+}
+
 #[tauri::command]
 async fn run_doctor_repair(
     state: State<'_, AppState>,
@@ -4389,29 +4459,29 @@ async fn run_doctor_repair(
         }
         "repair_all" => {
             let report = build_doctor_report(&state);
-            for issue in report.issues {
-                match issue.repair_action.as_deref() {
-                    Some("reset_codex_bypass") => {
+            for action in normalized_repair_all_actions(&report) {
+                match action.as_str() {
+                    "reset_codex_bypass" => {
                         state
                             .codex_bypass
                             .store(false, std::sync::atomic::Ordering::Release);
                         state.invalidate_runtime_status_cache();
                     }
-                    Some("repair_runtime") => repair_runtime(&state)?,
-                    Some("repair_client_setups") => repair_client_setups(&state)?,
-                    Some(action) if action.starts_with("repair_client_setup:") => {
+                    "repair_runtime" => repair_runtime(&state)?,
+                    "repair_client_setups" => repair_client_setups(&state)?,
+                    action if action.starts_with("repair_client_setup:") => {
                         let client_id = action
                             .strip_prefix("repair_client_setup:")
                             .unwrap_or_default();
                         repair_managed_client_setup(&state, client_id)?
                     }
-                    Some("repair_codex_setup") => repair_codex_setup(&state)?,
-                    Some("repair_rtk_integrations") => repair_rtk_integrations(&state)?,
-                    Some("repair_rtk_runtime") => repair_rtk_runtime(&state)?,
-                    Some("repair_caveman_guidance") => repair_caveman_guidance(&state)?,
-                    Some("repair_ponytail_plugin") => repair_ponytail_plugin(&state)?,
-                    Some("clear_repo_intelligence_index") => clear_repo_intelligence_index()?,
-                    Some("install_repo_memory_mcp") => repair_repo_memory_mcp(&state)?,
+                    "repair_codex_setup" => repair_codex_setup(&state)?,
+                    "repair_rtk_integrations" => repair_rtk_integrations(&state)?,
+                    "repair_rtk_runtime" => repair_rtk_runtime(&state)?,
+                    "repair_caveman_guidance" => repair_caveman_guidance(&state)?,
+                    "repair_ponytail_plugin" => repair_ponytail_plugin(&state)?,
+                    "clear_repo_intelligence_index" => clear_repo_intelligence_index()?,
+                    "install_repo_memory_mcp" => repair_repo_memory_mcp(&state)?,
                     _ => {}
                 }
             }

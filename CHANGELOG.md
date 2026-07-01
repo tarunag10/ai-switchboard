@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Doctor repair-all action normalization
+
+- Added backend normalization for Doctor Repair all so duplicate repair actions are skipped and all-managed-client repair takes precedence over individual managed-client repairs.
+
 ### Gemini routing evidence wording
 
 - Updated Gemini managed connector copy, compatibility evidence, and handoff script text so routing verification describes shell exports plus sibling rollback backups instead of stale sidecar evidence.
