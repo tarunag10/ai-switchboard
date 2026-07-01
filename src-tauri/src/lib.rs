@@ -3864,6 +3864,29 @@ mod doctor_tests {
         }
     }
 
+    fn test_client_setup_result(client_id: &str, verified: bool) -> ClientSetupResult {
+        ClientSetupResult {
+            client_id: client_id.to_string(),
+            applied: true,
+            already_configured: false,
+            summary: "Client configuration updated to route through Headroom.".to_string(),
+            changed_files: vec!["~/.zshrc".to_string()],
+            backup_files: Vec::new(),
+            next_steps: Vec::new(),
+            verification: crate::models::ClientSetupVerification {
+                client_id: client_id.to_string(),
+                verified,
+                proxy_reachable: true,
+                checks: Vec::new(),
+                failures: if verified {
+                    Vec::new()
+                } else {
+                    vec![format!("{client_id} verification failed")]
+                },
+            },
+        }
+    }
+
     #[test]
     fn off_mode_violations_empty_when_runtime_clients_and_rtk_are_off() {
         let runtime = test_runtime_status(false, false, false);
@@ -4005,6 +4028,77 @@ mod doctor_tests {
         assert!(error.contains("gemini_cli repair applied but verification still failed"));
         assert!(error.contains("GEMINI_BASE_URL export was not found"));
         assert!(error.contains("sidecar was not found"));
+    }
+
+    #[test]
+    fn managed_client_batch_repair_attempts_all_installed_managed_connectors() {
+        let connectors = vec![
+            test_connector_status(
+                "gemini_cli",
+                "Gemini CLI",
+                crate::models::ClientConnectorSupportStatus::Managed,
+                true,
+                false,
+                false,
+            ),
+            test_connector_status(
+                "opencode",
+                "OpenCode",
+                crate::models::ClientConnectorSupportStatus::Managed,
+                true,
+                false,
+                false,
+            ),
+            test_connector_status(
+                "cursor",
+                "Cursor",
+                crate::models::ClientConnectorSupportStatus::Planned,
+                true,
+                false,
+                false,
+            ),
+        ];
+        let mut attempted = Vec::new();
+
+        let batch = run_managed_client_repair_batch(&connectors, |connector| {
+            attempted.push(connector.client_id.clone());
+            if connector.client_id == "gemini_cli" {
+                Ok(test_client_setup_result(&connector.client_id, false))
+            } else {
+                Ok(test_client_setup_result(&connector.client_id, true))
+            }
+        })
+        .expect("batch should run");
+
+        assert_eq!(attempted, vec!["gemini_cli", "opencode"]);
+        assert_eq!(batch.repaired, 1);
+        assert_eq!(batch.failures.len(), 1);
+        assert!(batch.failures[0].contains("Gemini CLI"));
+        assert!(batch.failures[0].contains("verification failed"));
+
+        let error = summarize_managed_client_repair_batch(&batch)
+            .expect_err("partial failure should stay visible");
+        assert!(error.contains("repaired 1 managed client(s)"));
+        assert!(error.contains("Gemini CLI"));
+    }
+
+    #[test]
+    fn managed_client_batch_repair_reports_no_installed_supported_clients() {
+        let connectors = vec![test_connector_status(
+            "cursor",
+            "Cursor",
+            crate::models::ClientConnectorSupportStatus::Planned,
+            true,
+            false,
+            false,
+        )];
+
+        let error = run_managed_client_repair_batch(&connectors, |_connector| {
+            Ok(test_client_setup_result("cursor", true))
+        })
+        .expect_err("no managed clients should fail");
+
+        assert_eq!(error, "no installed supported clients found to repair");
     }
 
     #[test]
@@ -4261,6 +4355,70 @@ fn ensure_doctor_client_repair_verified(result: &ClientSetupResult) -> Result<()
     ))
 }
 
+#[derive(Debug, PartialEq, Eq)]
+struct ManagedClientRepairBatch {
+    repaired: usize,
+    failures: Vec<String>,
+}
+
+fn summarize_managed_client_repair_batch(batch: &ManagedClientRepairBatch) -> Result<(), String> {
+    if batch.repaired == 0 && batch.failures.is_empty() {
+        return Err("no installed supported clients found to repair".to_string());
+    }
+    if batch.failures.is_empty() {
+        return Ok(());
+    }
+
+    let prefix = if batch.repaired == 0 {
+        "managed client repair failed".to_string()
+    } else {
+        format!(
+            "repaired {} managed client(s), but some repairs failed",
+            batch.repaired
+        )
+    };
+    Err(format!("{prefix}: {}", batch.failures.join(" | ")))
+}
+
+fn run_managed_client_repair_batch<F>(
+    connectors: &[crate::models::ClientConnectorStatus],
+    mut repair: F,
+) -> Result<ManagedClientRepairBatch, String>
+where
+    F: FnMut(&crate::models::ClientConnectorStatus) -> Result<ClientSetupResult, String>,
+{
+    let mut batch = ManagedClientRepairBatch {
+        repaired: 0,
+        failures: Vec::new(),
+    };
+    let mut saw_installed_managed = false;
+
+    for connector in connectors.iter().filter(|connector| {
+        connector.installed
+            && matches!(
+                connector.support_status,
+                crate::models::ClientConnectorSupportStatus::Managed
+            )
+    }) {
+        saw_installed_managed = true;
+        match repair(connector).and_then(|result| {
+            ensure_doctor_client_repair_verified(&result)?;
+            Ok(result)
+        }) {
+            Ok(_) => batch.repaired += 1,
+            Err(err) => batch
+                .failures
+                .push(format!("{}: {}", connector.name, err)),
+        }
+    }
+
+    if !saw_installed_managed {
+        return Err("no installed supported clients found to repair".to_string());
+    }
+
+    Ok(batch)
+}
+
 fn repair_client_setups(state: &AppState) -> Result<(), String> {
     state
         .codex_bypass
@@ -4268,25 +4426,13 @@ fn repair_client_setups(state: &AppState) -> Result<(), String> {
     state.resume_runtime().map_err(|err| err.to_string())?;
     let connectors = client_adapters::list_client_connectors(&state.cached_clients())
         .map_err(|err| err.to_string())?;
-    let managed_installed = connectors.iter().filter(|connector| {
-        connector.installed
-            && matches!(
-                connector.support_status,
-                crate::models::ClientConnectorSupportStatus::Managed
-            )
-    });
-    let mut repaired = 0usize;
-    for connector in managed_installed {
-        let result = client_adapters::apply_client_setup(&connector.client_id)
-            .map_err(|err| err.to_string())?;
-        ensure_doctor_client_repair_verified(&result)?;
-        repaired += 1;
+    let batch = run_managed_client_repair_batch(&connectors, |connector| {
+        client_adapters::apply_client_setup(&connector.client_id).map_err(|err| err.to_string())
+    })?;
+    if batch.repaired > 0 {
+        state.invalidate_runtime_status_cache();
     }
-    if repaired == 0 {
-        return Err("no installed supported clients found to repair".to_string());
-    }
-    state.invalidate_runtime_status_cache();
-    Ok(())
+    summarize_managed_client_repair_batch(&batch)
 }
 
 fn repair_managed_client_setup(state: &AppState, client_id: &str) -> Result<(), String> {

@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+### Managed client batch repair resilience
+
+- Hardened Doctor's all-managed-client repair flow so it attempts every installed managed connector before reporting failures, preventing one drifted connector from blocking later managed connector repairs.
+- Added batch repair helpers that preserve strict failure reporting while allowing partial successful repairs to refresh runtime status.
+
 ### Managed connector registry invariant
 
 - Added backend coverage that the manifest-managed connector set is exactly Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI.
