@@ -38,3 +38,7 @@
 
 - Replaced stale Gemini/OpenCode manual-routing backend and Repo Intelligence copy with their promoted managed routing lifecycles and rollback evidence.
 - Refreshed Windsurf and Zed backend detector evidence so managed editor-routing connectors no longer describe themselves as unimplemented manual handoffs.
+
+### Repo handoff managed-routing safety
+
+- Updated Repo Intelligence and connector compatibility UI logic so Gemini, OpenCode, Windsurf, and Zed handoffs are no longer marked as manual-provider-routing when their managed connectors are promoted.

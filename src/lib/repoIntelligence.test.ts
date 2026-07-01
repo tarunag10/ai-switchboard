@@ -768,7 +768,7 @@ describe("repoIntelligence", () => {
     expect(manifest.agentRecipes[0].tools).toContain("Aider");
     expect(manifest.agentRecipes[2].tools).toContain("Cursor");
     expect(manifest.agentRecipes[2].instruction).toContain(
-      "provider routing remains manual",
+      "follow each connector readiness state",
     );
     expect(manifest.agentRecipes[0].command).toContain(
       "--pack implementation --format markdown",
@@ -803,7 +803,7 @@ describe("repoIntelligence", () => {
         label: "Gemini CLI",
         taskType: "implementation",
         readOnly: true,
-        manualProviderRouting: true,
+        manualProviderRouting: false,
         configReadiness: null,
       }),
     );
@@ -884,7 +884,7 @@ describe("repoIntelligence", () => {
       readOnly: true,
       excludesSecretLikePaths: true,
       modifiesRepository: false,
-      manualProviderRouting: true,
+      manualProviderRouting: false,
     });
     expect(payload.configReadiness).toBeUndefined();
 

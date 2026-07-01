@@ -479,7 +479,7 @@ export interface RepoAgentHandoffPayload {
     readOnly: true;
     excludesSecretLikePaths: true;
     modifiesRepository: false;
-    manualProviderRouting: true;
+    manualProviderRouting: boolean;
   };
   configReadiness?: RepoAgentConfigReadiness;
 }
@@ -653,6 +653,10 @@ const plannedConnectorIdByAgentTarget: Partial<
 const primaryRepoAgentIds = new Set<RepoAgentHandoffTarget>([
   "claude",
   "codex",
+  "gemini",
+  "opencode",
+  "windsurf",
+  "zed",
 ]);
 
 function buildRepoAgentConfigReadiness(
@@ -729,7 +733,7 @@ const repoAgentRecipeTemplates = [
     tools: ["Cursor", "Continue", "Windsurf", "Zed AI"],
     packIds: ["implementation", "handoff"],
     instruction:
-      "Use these packs as read-only context in editor assistants while provider routing remains manual.",
+      "Use these packs as read-only context in editor assistants; follow each connector readiness state before changing provider routing.",
   },
 ] as const;
 
@@ -1402,7 +1406,7 @@ export function buildRepoAgentHandoffPayload(
       readOnly: true,
       excludesSecretLikePaths: true,
       modifiesRepository: false,
-      manualProviderRouting: true,
+      manualProviderRouting: !primaryRepoAgentIds.has(target),
     },
     ...(configReadiness ? { configReadiness } : {}),
   };

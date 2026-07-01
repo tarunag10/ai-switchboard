@@ -749,7 +749,11 @@ export function connectorCompatibilityReport(
     evidence.find(
       (item) =>
         item.startsWith("Provider routing blocked") ||
-        item.startsWith("Settings routing blocked")
+        item.startsWith("Settings routing blocked") ||
+        item.startsWith("Managed shell/base-url routing") ||
+        item.startsWith("Managed provider routing") ||
+        item.startsWith("Managed Windsurf settings routing") ||
+        item.startsWith("Managed Zed settings routing")
     ) ?? null;
   const knownEvidence = new Set(
     [

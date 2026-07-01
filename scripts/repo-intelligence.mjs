@@ -110,7 +110,7 @@ const repoAgentRecipeTemplates = [
     tools: ["Cursor", "Continue", "Windsurf", "Zed AI"],
     packIds: ["implementation", "handoff"],
     instruction:
-      "Use these packs as read-only context in editor assistants while provider routing remains manual.",
+      "Use these packs as read-only context in editor assistants; follow each connector readiness state before changing provider routing.",
   },
 ];
 
@@ -470,7 +470,14 @@ function buildConfigReadiness(agentId) {
   };
 }
 
-const primaryRepoAgentIds = new Set(["claude", "codex"]);
+const primaryRepoAgentIds = new Set([
+  "claude",
+  "codex",
+  "gemini",
+  "opencode",
+  "windsurf",
+  "zed",
+]);
 const agentSessionTaskTypes = new Set([
   "implementation",
   "verification",
@@ -2182,7 +2189,7 @@ function buildAgentHandoffPayload(summary, agentId, requestedPackId) {
       readOnly: true,
       excludesSecretLikePaths: true,
       modifiesRepository: false,
-      manualProviderRouting: true,
+      manualProviderRouting: !primaryRepoAgentIds.has(profile.id),
     },
     ...(configReadiness ? { configReadiness } : {}),
   };

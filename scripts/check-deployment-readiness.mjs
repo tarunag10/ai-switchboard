@@ -633,7 +633,7 @@ const requiredSourceSignals = {
     "Amazon Q Developer CLI",
     "Windsurf",
     "Zed AI",
-    "provider routing remains manual",
+    "follow each connector readiness state",
   ],
   "src/lib/repoIntelligence.test.ts": [
     "formats an agent-readable manifest",
@@ -706,7 +706,7 @@ const requiredSourceSignals = {
     "Amazon Q Developer CLI",
     "Windsurf",
     "Zed AI",
-    "provider routing remains manual",
+    "follow each connector readiness state",
     "Available packs",
   ],
   "scripts/release-readiness-report.mjs": [

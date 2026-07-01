@@ -691,8 +691,8 @@ describe("dashboard helpers", () => {
         "Gemini binary: /opt/homebrew/bin/gemini",
         "Gemini version: gemini 0.2.1",
         "Gemini config surface: /Users/test/.gemini",
-        "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.",
-        "Detected, but the Headroom adapter is not implemented yet.",
+        "Managed shell/base-url routing uses Switchboard-owned shell blocks, sidecar evidence, backup, Doctor verification, rollback, and Off mode cleanup.",
+        "Detected. Switchboard can manage Gemini CLI shell/base-url routing while keeping account and model choices user-owned.",
       ],
       installed: true,
       enabled: false,
@@ -706,10 +706,12 @@ describe("dashboard helpers", () => {
       version: "gemini 0.2.1",
       configSurface: "/Users/test/.gemini",
       routingBlocker:
-        "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.",
+        "Managed shell/base-url routing uses Switchboard-owned shell blocks, sidecar evidence, backup, Doctor verification, rollback, and Off mode cleanup.",
       automationEnabled: false,
       configCreationGates: [],
-      otherEvidence: ["Detected, but the Headroom adapter is not implemented yet."],
+      otherEvidence: [
+        "Detected. Switchboard can manage Gemini CLI shell/base-url routing while keeping account and model choices user-owned.",
+      ],
     });
   });
 
