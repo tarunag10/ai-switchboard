@@ -7819,7 +7819,9 @@ export default function App() {
     const directRepairAction =
       connector?.clientId === "codex"
         ? "repair_codex_setup"
-        : "repair_client_setups";
+        : connector?.clientId
+          ? `repair_client_setup:${connector.clientId}`
+          : "repair_client_setups";
     const actionLabel = configured && !verified
       ? "Open Connectors"
       : canRepairDirectManaged

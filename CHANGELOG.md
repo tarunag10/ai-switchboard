@@ -59,3 +59,7 @@
 ### Windsurf setup copy
 
 - Fixed duplicated Windsurf settings-path wording in the connector setup details shown by the app.
+
+### Mode Inspector targeted connector repairs
+
+- Updated Home Mode Inspector repair buttons for installed managed connectors to call per-tool repair actions instead of the bulk client repair path.
