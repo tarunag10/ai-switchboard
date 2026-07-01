@@ -290,6 +290,13 @@ export function doctorIssueActionLabel(
     : "Manual step";
 }
 
+export function doctorIssueActionLabelForIssue(issue: DoctorIssue): string {
+  if (issue.id === "planned_connectors_detected" && !issue.repairAction) {
+    return "Gated setup";
+  }
+  return doctorIssueActionLabel(issue.repairAction);
+}
+
 export function doctorIssueActionHint(
   action: string | null | undefined,
 ): string {
@@ -489,7 +496,7 @@ export function formatDoctorReportShareText(report: DoctorReport): string {
       const actionKind = doctorIssueActionKind(issue.repairAction);
       const repairLabel = canRepairIssue(issue.repairAction)
         ? doctorRepairLabel(issue.repairAction as string)
-        : "Manual step";
+        : doctorIssueActionLabelForIssue(issue);
 
       return [
         `${index + 1}. ${issue.title}`,

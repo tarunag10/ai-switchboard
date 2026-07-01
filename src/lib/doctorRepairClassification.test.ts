@@ -4,6 +4,7 @@ import {
   doctorIssueActionHint,
   doctorIssueActionKind,
   doctorIssueActionLabel,
+  doctorIssueActionLabelForIssue,
 } from "./doctorRepairCopy";
 
 describe("doctor repair classification", () => {
@@ -14,5 +15,17 @@ describe("doctor repair classification", () => {
     expect(doctorIssueActionLabel("repair_runtime")).toBe("Auto repair");
     expect(doctorIssueActionLabel(null)).toBe("Manual step");
     expect(doctorIssueActionHint(null)).toContain("No automatic repair");
+  });
+
+  it("labels gated connector manual issues distinctly", () => {
+    expect(
+      doctorIssueActionLabelForIssue({
+        id: "planned_connectors_detected",
+        title: "Gated connector readiness detected",
+        body: "Connector setup remains gated.",
+        severity: "warning",
+        repairAction: null,
+      }),
+    ).toBe("Gated setup");
   });
 });

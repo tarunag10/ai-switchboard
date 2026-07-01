@@ -279,7 +279,7 @@ describe("doctor repair copy", () => {
     expect(text).toContain("Mac AI Switchboard Doctor report");
     expect(text).toContain("Status: warning");
     expect(text).toContain("Action: automatic / Install RTK");
-    expect(text).toContain("Action: manual / Manual step");
+    expect(text).toContain("Action: manual / Gated setup");
     expect(text).toContain("retained connector setup gates");
     expect(text).toContain("managed connector coverage");
     expect(text).toContain("promoted routing evidence");

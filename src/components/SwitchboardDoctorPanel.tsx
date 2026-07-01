@@ -5,7 +5,7 @@ import {
   canRepairIssue,
   buildDoctorReportTimelineEvents,
   doctorIssueActionKind,
-  doctorIssueActionLabel,
+  doctorIssueActionLabelForIssue,
   doctorIssueGuidance,
   doctorRepairLabel,
   formatDoctorReportShareText,
@@ -128,7 +128,7 @@ export function SwitchboardDoctorPanel({
             <span
               className={`switchboard-doctor__action-kind switchboard-doctor__action-kind--${actionKind}`}
             >
-              {doctorIssueActionLabel(repairAction)}
+              {doctorIssueActionLabelForIssue(issue)}
             </span>
           </div>
           <p>{issue.body}</p>

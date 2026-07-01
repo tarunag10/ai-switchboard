@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Doctor gated connector action label
+
+- Updated Doctor action labels so gated connector readiness issues show as gated setup instead of a generic manual step.
+
 ### First-run no-client Doctor guidance
 
 - Updated the no-managed-client Doctor guidance so first-run setup tells users when automatic repair becomes available instead of showing a generic no-repair message.
