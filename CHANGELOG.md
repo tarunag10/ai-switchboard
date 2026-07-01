@@ -67,3 +67,7 @@
 ### Managed connector smoke evidence wording
 
 - Updated smoke, release, and beta-test evidence wording to require broader managed connector readiness evidence instead of stale Gemini-only dry-run preview wording.
+
+### Targeted verified-connector Doctor repairs
+
+- Updated Doctor issues for enabled managed connectors whose routing no longer verifies to repair the specific connector instead of running the bulk client repair path.

@@ -3250,6 +3250,33 @@ fn unrouted_managed_connector_issues(
         .collect()
 }
 
+fn unverified_managed_connector_issues(
+    connectors: &[ClientConnectorStatus],
+) -> Vec<crate::models::DoctorIssue> {
+    connectors
+        .iter()
+        .filter(|client| {
+            client.enabled
+                && !client.verified
+                && client.client_id != "codex"
+                && matches!(
+                    client.support_status,
+                    crate::models::ClientConnectorSupportStatus::Managed
+                )
+        })
+        .map(|connector| crate::models::DoctorIssue {
+            id: format!("{}_routing_config_mismatch", connector.client_id),
+            title: format!("{} routing config needs repair", connector.name),
+            body: format!(
+                "{} is marked as connected, but its managed routing config no longer verifies. Repair will re-apply the reversible managed setup and preserve user-owned config outside Switchboard markers.",
+                connector.name
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some(format!("repair_client_setup:{}", connector.client_id)),
+        })
+        .collect()
+}
+
 fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
     let runtime = state.runtime_status();
     let codex_direct_bypass = state
@@ -3390,26 +3417,7 @@ repair_action: Some("reset_codex_bypass".to_string()),
         }
     }
 
-    for connector in connectors.iter().filter(|client| {
-        client.enabled
-            && !client.verified
-            && client.client_id != "codex"
-            && matches!(
-                client.support_status,
-                crate::models::ClientConnectorSupportStatus::Managed
-            )
-    }) {
-        issues.push(crate::models::DoctorIssue {
-            id: format!("{}_routing_config_mismatch", connector.client_id),
-            title: format!("{} routing config needs repair", connector.name),
-            body: format!(
-                "{} is marked as connected, but its managed routing config no longer verifies. Repair will re-apply the reversible managed setup and preserve user-owned config outside Switchboard markers.",
-                connector.name
-            ),
-            severity: crate::models::DoctorSeverity::Warning,
-            repair_action: Some("repair_client_setups".to_string()),
-        });
-    }
+    issues.extend(unverified_managed_connector_issues(&connectors));
 
     if !planned_installed.is_empty() {
         issues.push(crate::models::DoctorIssue {
@@ -4101,6 +4109,54 @@ mod doctor_tests {
         )];
 
         let issues = unrouted_managed_connector_issues(&connectors, &SwitchboardMode::Full);
+
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn unverified_managed_connector_issue_repairs_only_that_tool() {
+        let connectors = vec![
+            test_connector_status(
+                "gemini_cli",
+                "Gemini CLI",
+                crate::models::ClientConnectorSupportStatus::Managed,
+                true,
+                true,
+                false,
+            ),
+            test_connector_status(
+                "opencode",
+                "OpenCode",
+                crate::models::ClientConnectorSupportStatus::Managed,
+                true,
+                true,
+                true,
+            ),
+        ];
+
+        let issues = unverified_managed_connector_issues(&connectors);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].id, "gemini_cli_routing_config_mismatch");
+        assert_eq!(
+            issues[0].repair_action.as_deref(),
+            Some("repair_client_setup:gemini_cli")
+        );
+        assert!(issues[0].body.contains("no longer verifies"));
+    }
+
+    #[test]
+    fn unverified_planned_connector_stays_manual() {
+        let connectors = vec![test_connector_status(
+            "cursor",
+            "Cursor",
+            crate::models::ClientConnectorSupportStatus::Planned,
+            true,
+            true,
+            false,
+        )];
+
+        let issues = unverified_managed_connector_issues(&connectors);
 
         assert!(issues.is_empty());
     }
