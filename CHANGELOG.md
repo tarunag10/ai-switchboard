@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Managed connector repair-ready routing status
+
+- Updated Mode Inspector managed connector rows so detected-but-direct managed tools show a repair-ready state and point at the one-click repair action.
+
 ### Agent connector add-on gated status
 
 - Updated the Agent Connectors add-on card so the visible status and disabled action describe gated readiness instead of planned or coming soon support.
