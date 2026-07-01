@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Doctor no-pending connector copy
+
+- Updated Doctor no-pending connector guidance so promoted setup coverage is described as managed or gated instead of pending.
+
 ### Doctor gated connector preview count
 
 - Updated Doctor connector-readiness preview copy and test fixtures so connector evidence is described as gated readiness instead of pending or planned tools.

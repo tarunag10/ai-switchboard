@@ -280,11 +280,11 @@ describe("doctor repair copy", () => {
     expect(text).toContain("Status: warning");
     expect(text).toContain("Action: automatic / Install RTK");
     expect(text).toContain("Action: manual / Manual step");
-    expect(text).toContain("pending connector setup gates have been promoted");
+    expect(text).toContain("retained connector setup gates");
     expect(text).toContain("managed connector coverage");
     expect(text).toContain("promoted routing evidence");
     expect(text).toContain("Connector config readiness dossiers");
-    expect(text).toContain("No pending connector-native write dossiers remain");
+    expect(text).toContain("No ungated connector-native write dossiers remain");
     expect(text).toContain("Repo Intelligence local API contract");
     expect(text).toContain("get_repo_manifest");
     expect(text).toContain("get_repo_pack");
@@ -351,7 +351,7 @@ describe("doctor repair copy", () => {
   it("explains connector readiness coverage and gated native routing in Doctor", () => {
     const guidance = plannedConnectorDoctorGuidance();
 
-    expect(guidance).toContain("pending connector setup gates");
+    expect(guidance).toContain("retained connector setup gates");
     expect(guidance).toContain("managed connector coverage");
     expect(guidance).toContain("Gemini/OpenCode/Windsurf/Zed");
     expect(guidance).toContain("Doctor repair");
@@ -364,7 +364,7 @@ describe("doctor repair copy", () => {
     const dossiers = formatPlannedConnectorDoctorDossiers();
 
     expect(dossiers).toContain("Connector config readiness dossiers");
-    expect(dossiers).toContain("No pending connector-native write dossiers remain");
+    expect(dossiers).toContain("No ungated connector-native write dossiers remain");
     expect(dossiers).toContain("managed connector coverage");
     expect(dossiers).toContain("promoted routing evidence");
   });

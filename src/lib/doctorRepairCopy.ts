@@ -301,7 +301,7 @@ export function doctorIssueActionHint(
 export function plannedConnectorDoctorGuidance(): string {
   if (pendingPlannedConnectors.length === 0) {
     return [
-      "All pending connector setup gates have been promoted to managed connector coverage.",
+      "All retained connector setup gates now resolve to managed connector coverage or explicit gated readiness.",
       "Use Settings or Doctor repair for managed connector verification, rollback, and Off mode cleanup.",
       "Gemini/OpenCode/Windsurf/Zed have promoted routing evidence; Repo Intelligence packs and sidecar/readiness coverage remain available for unpromoted agent handoffs while provider-specific config mutation stays guarded behind explicit connector evidence.",
     ].join(" ");
@@ -334,7 +334,7 @@ export function formatPlannedConnectorDoctorDossiers(): string {
     return [
       "Connector config readiness dossiers",
       "",
-      "No pending connector-native write dossiers remain; connector setup has managed connector coverage with promoted routing evidence where native or shell routes are proven.",
+      "No ungated connector-native write dossiers remain; connector setup has managed connector coverage with promoted routing evidence where native or shell routes are proven, and unpromoted native mutation stays gated.",
     ].join("\n");
   }
 
