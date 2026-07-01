@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Promoted editor rollback backup guard
+
+- Corrected Zed rollback preview evidence to use the real `zed-ai-routing` record id and added fixture-home coverage proving Windsurf and Zed reject rollback backups outside their managed config directories.
+
 ### Windsurf safe-apply rollback coverage
 
 - Added fixture-home coverage proving the promoted Windsurf safe-apply flow can preview, apply, verify, and roll back from its sibling backup while preserving unmanaged settings.

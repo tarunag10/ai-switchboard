@@ -4354,7 +4354,7 @@ const ZED_ROLLBACK_RECORD_ID: &str = "zed-ai-routing";
 const ZED_ROLLBACK_OWNER: &str = "Zed routing";
 const ZED_ROLLBACK_MARKER: &str = "headroom:zed";
 const ZED_ROLLBACK_EVIDENCE: &[&str] = &[
-    "Allowlisted rollback execution row: zed-routing.",
+    "Allowlisted rollback execution row: zed-ai-routing.",
     "Backup must live next to ~/.config/zed/settings.json and use *.headroom-backup-*.",
     "Current config must still contain the managed Zed markers before restore.",
     "Relaunch-survival evidence requires re-reading restored config from disk after write.",
@@ -10430,6 +10430,61 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(
             err.to_string().contains("must live next to"),
             "unexpected error: {err:#}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_rejects_backup_outside_promoted_editor_config_directories() {
+        let home = TestHome::new();
+
+        let windsurf_dir = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Windsurf")
+            .join("User");
+        fs::create_dir_all(&windsurf_dir).unwrap();
+        fs::write(windsurf_dir.join("settings.json"), "{}").unwrap();
+        super::apply_client_setup("windsurf").expect("apply windsurf");
+        let wrong_windsurf_backup = home.path().join("settings.json.headroom-backup-wrong");
+        fs::write(&wrong_windsurf_backup, "{}").unwrap();
+
+        let windsurf_err = super::execute_managed_rollback(
+            "windsurf-routing",
+            wrong_windsurf_backup.to_str().unwrap(),
+            "Restore headroom:windsurf for Windsurf routing",
+        )
+        .expect_err("wrong Windsurf backup must be rejected");
+
+        assert!(
+            windsurf_err.to_string().contains("must live next to"),
+            "unexpected error: {windsurf_err:#}"
+        );
+
+        let zed_dir = home.path().join(".config").join("zed");
+        fs::create_dir_all(&zed_dir).unwrap();
+        fs::write(zed_dir.join("settings.json"), "{}").unwrap();
+        super::apply_client_setup("zed_ai").expect("apply zed");
+        let wrong_zed_backup = home.path().join("settings.json.headroom-backup-wrong");
+        fs::write(&wrong_zed_backup, "{}").unwrap();
+
+        let zed_preview =
+            super::preview_managed_rollback("zed-ai-routing").expect("preview zed rollback");
+        assert!(zed_preview
+            .evidence
+            .contains(&"Allowlisted rollback execution row: zed-ai-routing.".to_string()));
+
+        let zed_err = super::execute_managed_rollback(
+            "zed-ai-routing",
+            wrong_zed_backup.to_str().unwrap(),
+            "Restore headroom:zed for Zed routing",
+        )
+        .expect_err("wrong Zed backup must be rejected");
+
+        assert!(
+            zed_err.to_string().contains("must live next to"),
+            "unexpected error: {zed_err:#}"
         );
     }
 
