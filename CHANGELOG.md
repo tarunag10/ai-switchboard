@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Release and support connector labels
+
+- Updated release readiness report output and connector support docs to describe retained non-managed connectors as gated/guided instead of planned.
+
 ### Backend Repo Intelligence gated connector note
 
 - Updated the Tauri Repo Intelligence connector readiness payload so backend handoffs use connector-native gated setup wording instead of planned connector wording.

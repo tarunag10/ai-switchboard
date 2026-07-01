@@ -81,14 +81,14 @@ function buildManagedConnectorReadiness() {
       configLocations: connector.config?.locations ?? [],
       gates: connector.automation_gates ?? [],
     }));
-  const planned = connectors.filter(
+  const gated = connectors.filter(
     (connector) => connector.support_status !== "managed",
   );
 
   return {
     manifestPath: connectorManifestPath,
     managedCount: managed.length,
-    plannedCount: planned.length,
+    gatedCount: gated.length,
     managed,
   };
 }
@@ -104,7 +104,7 @@ function renderManagedConnectorReadiness(readiness) {
     "",
     `- Source: ${readiness.manifestPath}`,
     `- Managed connectors: ${readiness.managedCount}`,
-    `- Planned/guided connectors retained: ${readiness.plannedCount}`,
+    `- Gated/guided connectors retained: ${readiness.gatedCount}`,
     ...managedRows,
     "- Full per-tool dossiers are available from Doctor's connector dossier copy action.",
   ].join("\n");

@@ -118,7 +118,7 @@ if (failures.length === 0) {
     "Managed",
     "Guided",
     "Detected",
-    "Planned",
+    "Gated",
     "Limited managed adapter",
     "Claude Code",
     "Codex",

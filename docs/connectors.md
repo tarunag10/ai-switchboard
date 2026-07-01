@@ -10,7 +10,7 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | Limited managed adapter | A bounded adapter exists, but provider/account mutation or some lifecycle evidence remains gated. |
 | Guided | Switchboard detects the tool and gives a safe manual workflow, usually with copyable Repo Intelligence packs. |
 | Detected | Switchboard can identify the tool or known config locations, but does not guide writes yet. |
-| Planned | The tool is on the roadmap, but automation is not ready. |
+| Gated | The tool has detection or handoff coverage, but native/provider writes stay blocked until the full reversible lifecycle is proven. |
 | Unsupported | No supported workflow is shipped. |
 
 ## Support Matrix
@@ -29,7 +29,7 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | Qwen Code | Detected | No | No | Yes | Detection and handoff only until lifecycle tests exist. |
 | Amazon Q Developer CLI | Detected | No | No | Yes | Detection and handoff only until lifecycle tests exist. |
 | Zed AI | Managed | Yes | No | Yes | Managed assistant settings routing with backup, Doctor verification, rollback, and Off cleanup. |
-| Grok / xAI CLI | Planned | No | No | Yes | Detection and config semantics need more evidence. |
+| Grok / xAI CLI | Gated | No | No | Yes | Detection and config semantics need more evidence before native/provider writes. |
 
 ## Automation Gates
 
