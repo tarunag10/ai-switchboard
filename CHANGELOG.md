@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Backend Doctor gated-connector wording
+
+- Clarified backend Doctor degraded-mode and gated-connector copy so unpromoted tools are described as readiness-covered with connector-specific native routing gates, not as generally unfinished setup.
+
 ### Doctor connector readiness wording
 
 - Updated Doctor connector readiness copy and exports so promoted managed coverage no longer appears under stale planned-connector headings, while pending connector gates remain explicit when they exist.

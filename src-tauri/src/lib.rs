@@ -3324,7 +3324,7 @@ fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
             id: "switchboard_mode_degraded".to_string(),
             title: "Requested optimization is degraded".to_string(),
             body: format!(
-                "{} is requested, but {} is active. Doctor lists missing local pieces below; repair managed connector items, then keep only remaining planned connector steps manual.",
+                "{} is requested, but {} is active. Doctor lists missing local pieces below; repair managed connector items, then keep only connector-specific native routing gates manual until their backup, verify, rollback, and Off cleanup evidence is promoted.",
                 switchboard_mode_label(&desired_mode),
                 switchboard_mode_label(&inferred_mode)
             ),
@@ -3629,7 +3629,7 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
         .collect::<Vec<_>>();
 
     let mut parts = vec![format!(
-        "{names} detected. Mac AI Switchboard can identify these tools but keeps routing manual until backup, restore, and Off mode cleanup are implemented."
+        "{names} detected. Mac AI Switchboard can identify these tools and expose readiness evidence, but keeps native/provider routing manual until connector-specific backup, verify, rollback, and Off mode cleanup evidence is promoted."
     )];
 
     if !sources.is_empty() {
@@ -3750,7 +3750,9 @@ mod doctor_tests {
         assert!(body.contains("marker mac-ai-switchboard:gemini_cli"));
         assert!(body.contains("confirmation APPLY GEMINI CLI CONFIG"));
         assert!(body.contains("Safe today: use RTK-only mode or Repo Intelligence packs"));
-        assert!(body.contains("keeps routing manual"));
+        assert!(body.contains("expose readiness evidence"));
+        assert!(body.contains("keeps native/provider routing manual"));
+        assert!(body.contains("connector-specific backup, verify, rollback, and Off mode cleanup"));
     }
 
     fn test_runtime_status(
