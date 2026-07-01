@@ -176,6 +176,7 @@ export function SwitchboardDoctorPanel({
           doctorReport,
           successMessage ?? null,
           new Date().toISOString(),
+          error,
         ),
       ),
     );

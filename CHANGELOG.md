@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Doctor timeline failed repair evidence
+
+- Added failed Doctor repair details to copied timeline evidence, including scrubbed verification-failure text from automatic repair attempts.
+
 ### Doctor repair verification guard
 
 - Made Doctor-managed client repairs fail with verification details when setup writes complete but post-write verification still fails, preventing false-success repair loops.

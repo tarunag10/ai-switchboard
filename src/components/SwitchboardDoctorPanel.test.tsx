@@ -296,6 +296,33 @@ describe("SwitchboardDoctorPanel", () => {
     expect(screen.getByText("Copied timeline.")).toBeInTheDocument();
   });
 
+  it("copies failed repair details into the Doctor timeline", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(
+      <SwitchboardDoctorPanel
+        report={warningReport}
+        busyAction={null}
+        error="gemini_cli repair applied but verification still failed: GEMINI_API_KEY=sk-proj-secret missing from /Users/tarunagarwal/.zshrc."
+        successMessage={null}
+        onRepair={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Timeline" }));
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText.mock.calls[0][0]).toContain("Latest repair failed");
+    expect(writeText.mock.calls[0][0]).toContain("Kind: Failed repair");
+    expect(writeText.mock.calls[0][0]).toContain("GEMINI_API_KEY=[secret]");
+    expect(writeText.mock.calls[0][0]).toContain("[user-path]");
+  });
+
   it("copies the Rollback Center inventory from Doctor", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);

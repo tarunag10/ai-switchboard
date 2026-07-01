@@ -548,12 +548,14 @@ describe("doctor repair copy", () => {
       },
       "Repair finished.",
       "2026-06-27T10:00:00.000Z",
+      "gemini_cli repair applied but verification still failed: GEMINI_API_KEY=sk-proj-secret was not found in /Users/tarunagarwal/.zshrc.",
     );
 
     expect(events.map((event) => event.id).sort()).toEqual([
       "doctor-issue-codex_setup_broken",
       "doctor-issue-planned_connectors_detected",
       "doctor-issue-repo_intelligence_stale",
+      "latest-repair-failure",
       "latest-repair-success",
       "latest-report",
     ]);
@@ -583,6 +585,16 @@ describe("doctor repair copy", () => {
       status: "ok",
       target: "automatic repair",
     });
+    expect(events.find((event) => event.id === "latest-repair-failure")).toMatchObject({
+      kind: "failed_repair",
+      status: "error",
+      target: "automatic repair",
+    });
+
+    const text = formatDoctorTimelineShareText(events);
+    expect(text).toContain("Latest repair failed");
+    expect(text).toContain("GEMINI_API_KEY=[secret]");
+    expect(text).toContain("[user-path]");
   });
 
   it("formats an empty Doctor timeline", () => {

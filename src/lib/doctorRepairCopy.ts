@@ -149,6 +149,7 @@ export function buildDoctorReportTimelineEvents(
   report: DoctorReport | null,
   successMessage: string | null,
   observedAt: string,
+  repairError: string | null = null,
 ): DoctorTimelineEvent[] {
   const events: DoctorTimelineEvent[] = [
     {
@@ -187,6 +188,19 @@ export function buildDoctorReportTimelineEvents(
       body: successMessage,
       occurredAt: observedAt,
       status: "ok",
+      actor: "doctor",
+      target: "automatic repair",
+    });
+  }
+
+  if (repairError) {
+    events.push({
+      id: "latest-repair-failure",
+      kind: "failed_repair",
+      title: "Latest repair failed",
+      body: repairError,
+      occurredAt: observedAt,
+      status: "error",
       actor: "doctor",
       target: "automatic repair",
     });
