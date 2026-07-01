@@ -29,3 +29,7 @@
 ### Connector checker summary clarity
 
 - Updated the connector metadata checker output to distinguish manifest-managed connectors from managed connector dossiers and promoted sidecar dossiers.
+
+### Connector roadmap truth sync
+
+- Updated the active roadmap docs to distinguish fully managed manifest connectors from sidecar/readiness-covered connector dossiers, and to reflect Windsurf/Zed as promoted editor-routing surfaces instead of blocked editor-write plans.
