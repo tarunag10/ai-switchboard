@@ -296,6 +296,7 @@ const requiredDocSignals = {
     "bounded Markdown context pack",
     "Connector Config Readiness",
     "managed connector config readiness",
+    "marks promoted managed-routing targets as not manual-provider-routed",
     "Application Support/Mac AI Switchboard/headroom/bin/rtk",
     "preserved legacy logs under `~/Library/Application Support/Headroom/headroom/logs/`",
   ],

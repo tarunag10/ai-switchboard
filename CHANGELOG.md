@@ -79,3 +79,7 @@
 ### Bulk managed-client repair copy
 
 - Renamed the remaining bulk client repair action to clarify that it reapplies setup for every installed managed client, distinct from per-connector repairs.
+
+### Repo Intelligence session routing checklist
+
+- Updated beta smoke coverage to require promoted managed-routing session handoffs to report non-manual provider routing while preserving manual routing for connectors that still require it.
