@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Native connector dossier wording
+
+- Updated OpenCode, Windsurf, and Zed managed connector dossier copy so promoted native config rows describe provider/settings verification and sibling rollback backups instead of stale sidecar verification.
+
 ### Promoted editor rollback backup guard
 
 - Corrected Zed rollback preview evidence to use the real `zed-ai-routing` record id and added fixture-home coverage proving Windsurf and Zed reject rollback backups outside their managed config directories.

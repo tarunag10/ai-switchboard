@@ -61,11 +61,27 @@ describe("planned connectors", () => {
     expect(windsurf?.capabilityRows[0]?.detail).toContain(
       "editor settings routing",
     );
+    expect(windsurf?.capabilityRows[1]?.detail).toContain(
+      "sibling rollback backup",
+    );
+    expect(windsurf?.capabilityRows[1]?.detail).not.toContain("sidecar");
+    const opencode = managedConnectorDossiers.find(
+      (connector) => connector.id === "opencode",
+    );
+    expect(opencode?.capabilityRows[1]?.detail).toContain(
+      "sibling rollback backup",
+    );
+    expect(opencode?.capabilityRows[2]?.detail).toContain("native config");
+    expect(opencode?.capabilityRows[1]?.detail).not.toContain("sidecar");
     const zed = managedConnectorDossiers.find(
       (connector) => connector.id === "zed_ai",
     );
     expect(zed?.integrationTarget).toContain("assistant settings routing");
     expect(zed?.notes).toContain("assistant settings routing");
+    expect(zed?.capabilityRows[1]?.detail).toContain(
+      "sibling rollback backup",
+    );
+    expect(zed?.capabilityRows[1]?.detail).not.toContain("sidecar");
     expect(zed?.automationGates.join(" ")).toContain(
       "assistant settings routing",
     );

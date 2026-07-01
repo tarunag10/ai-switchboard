@@ -280,13 +280,13 @@ export const managedConnectorDossiers: ManagedConnectorDossier[] = [
         label: "Verification",
         state: "Available now",
         detail:
-          "Doctor verifies the OpenCode provider baseURL and rollback sidecar.",
+          "Doctor verifies the OpenCode provider baseURL and sibling rollback backup.",
       },
       {
         label: "Rollback",
         state: "Available now",
         detail:
-          "Off mode removes only the Switchboard-owned OpenCode provider and sidecar.",
+          "Off mode removes only the Switchboard-owned OpenCode provider from native config.",
       },
     ],
     configSurfaces: ["OpenCode binary", "provider config", "shell environment"],
@@ -327,7 +327,7 @@ export const managedConnectorDossiers: ManagedConnectorDossier[] = [
       {
         label: "Verification",
         state: "Available now",
-        detail: "Doctor verifies the managed Windsurf routing block and sidecar are present.",
+        detail: "Doctor verifies the managed Windsurf settings block and sibling rollback backup.",
       },
       {
         label: "Rollback",
@@ -374,7 +374,7 @@ export const managedConnectorDossiers: ManagedConnectorDossier[] = [
       {
         label: "Verification",
         state: "Available now",
-        detail: "Doctor verifies the managed routing block and rollback sidecar.",
+        detail: "Doctor verifies the managed Zed settings block and sibling rollback backup.",
       },
       {
         label: "Rollback",
