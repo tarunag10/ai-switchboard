@@ -91,3 +91,7 @@
 ### Implementation plan connector truth
 
 - Refreshed the main implementation plan support matrix and connector expansion order so OpenCode, Windsurf, Zed AI, and Gemini CLI match their current managed status.
+
+### Zed native rollback routing
+
+- Fixed promoted Zed rollback previews and execution to use the native settings backup/restore path before falling back to sidecar cleanup.

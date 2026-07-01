@@ -4472,8 +4472,19 @@ fn managed_rollback_target(record_id: &str) -> Result<ManagedRollbackTarget> {
                 "Restore the Windsurf settings from the selected sibling backup after creating a fresh safety backup.",
             evidence: WINDSURF_ROLLBACK_EVIDENCE,
         }),
+        ZED_ROLLBACK_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: ZED_ROLLBACK_RECORD_ID,
+            owner: ZED_ROLLBACK_OWNER,
+            marker: ZED_ROLLBACK_MARKER,
+            target_path: zed_config_path,
+            marker_matches: zed_provider_config_matches,
+            backup_required: true,
+            proposed_action:
+                "Restore the Zed settings from the selected sibling backup after creating a fresh safety backup.",
+            evidence: ZED_ROLLBACK_EVIDENCE,
+        }),
         _ => Err(anyhow!(
-            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {GEMINI_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
+            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {GEMINI_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {ZED_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -4934,10 +4945,25 @@ pub fn execute_managed_config_apply(
 }
 
 pub fn preview_managed_rollback(record_id: &str) -> Result<ManagedRollbackPreview> {
+    if matches!(
+        record_id,
+        CODEX_ROLLBACK_RECORD_ID
+            | OPENCODE_ROLLBACK_RECORD_ID
+            | GEMINI_ROLLBACK_RECORD_ID
+            | WINDSURF_ROLLBACK_RECORD_ID
+            | ZED_ROLLBACK_RECORD_ID
+    ) {
+        return preview_native_managed_rollback(record_id);
+    }
+
     if let Some(target) = sidecar_rollback_target(record_id) {
         return preview_sidecar_rollback(target);
     }
 
+    preview_native_managed_rollback(record_id)
+}
+
+fn preview_native_managed_rollback(record_id: &str) -> Result<ManagedRollbackPreview> {
     let target = managed_rollback_target(record_id)?;
     let target_path = (target.target_path)();
     let marker_present = (!target.backup_required || target_path.exists())
@@ -4991,10 +5017,29 @@ pub fn execute_managed_rollback(
     backup_path: &str,
     confirmation_phrase: &str,
 ) -> Result<ManagedRollbackExecutionResult> {
+    if matches!(
+        record_id,
+        CODEX_ROLLBACK_RECORD_ID
+            | OPENCODE_ROLLBACK_RECORD_ID
+            | GEMINI_ROLLBACK_RECORD_ID
+            | WINDSURF_ROLLBACK_RECORD_ID
+            | ZED_ROLLBACK_RECORD_ID
+    ) {
+        return execute_native_managed_rollback(record_id, backup_path, confirmation_phrase);
+    }
+
     if let Some(target) = sidecar_rollback_target(record_id) {
         return execute_sidecar_rollback(target, confirmation_phrase);
     }
 
+    execute_native_managed_rollback(record_id, backup_path, confirmation_phrase)
+}
+
+fn execute_native_managed_rollback(
+    record_id: &str,
+    backup_path: &str,
+    confirmation_phrase: &str,
+) -> Result<ManagedRollbackExecutionResult> {
     let target = managed_rollback_target(record_id)?;
     let expected_confirmation = managed_rollback_confirmation_phrase(&target);
     if confirmation_phrase != expected_confirmation {
@@ -10056,6 +10101,68 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert_eq!(rollback.record_id, "opencode-routing");
         let restored: serde_json::Value =
             serde_json::from_slice(&fs::read(&config_json).unwrap()).unwrap();
+        assert_eq!(restored, original);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_config_apply_preview_and_execute_promotes_zed_rollback_safely() {
+        let home = TestHome::new();
+        let zed_dir = home.path().join(".config").join("zed");
+        fs::create_dir_all(&zed_dir).unwrap();
+        let settings_json = zed_dir.join("settings.json");
+        let original = serde_json::json!({
+            "theme": "One Dark",
+            "assistant": { "default_model": "claude-3-5-sonnet" }
+        });
+        fs::write(
+            &settings_json,
+            serde_json::to_vec_pretty(&original).unwrap(),
+        )
+        .unwrap();
+
+        let preview =
+            super::preview_managed_config_apply("zed-ai-routing").expect("preview zed apply");
+        assert_eq!(preview.record_id, "zed-ai-routing");
+        assert!(preview.target_path.ends_with(".config/zed/settings.json"));
+        assert!(preview.current_state.contains("One Dark"));
+        assert!(preview.proposed_state.contains("anthropic.baseUrl"));
+        assert!(preview.rollback_preview.contains("Rollback Center"));
+
+        let result =
+            super::execute_managed_config_apply("zed-ai-routing", &preview.confirmation_phrase)
+                .expect("execute zed apply");
+        assert!(result.changed);
+        assert!(result.backup_path.is_some());
+        assert!(super::zed_provider_config_matches().expect("verify zed"));
+
+        let applied: serde_json::Value =
+            serde_json::from_slice(&fs::read(&settings_json).unwrap()).unwrap();
+        assert_eq!(applied["theme"], "One Dark");
+        assert_eq!(applied["assistant"]["default_model"], "claude-3-5-sonnet");
+        assert_eq!(
+            applied["anthropic.baseUrl"],
+            super::HEADROOM_ANTHROPIC_BASE_URL
+        );
+
+        let rollback_preview =
+            super::preview_managed_rollback("zed-ai-routing").expect("preview zed rollback");
+        assert_eq!(rollback_preview.record_id, "zed-ai-routing");
+        assert_eq!(rollback_preview.marker, "headroom:zed");
+        assert!(rollback_preview.backup_path.is_some());
+        assert!(rollback_preview
+            .proposed_action
+            .contains("Restore the Zed settings"));
+
+        let rollback = super::execute_managed_rollback(
+            "zed-ai-routing",
+            result.backup_path.as_deref().expect("backup"),
+            "Restore headroom:zed for Zed routing",
+        )
+        .expect("rollback applied zed config");
+        assert_eq!(rollback.record_id, "zed-ai-routing");
+        let restored: serde_json::Value =
+            serde_json::from_slice(&fs::read(&settings_json).unwrap()).unwrap();
         assert_eq!(restored, original);
     }
 
