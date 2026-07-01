@@ -81,6 +81,10 @@ describe("SwitchboardDoctorPanel", () => {
     );
     expect(screen.getByText("Ready")).toBeInTheDocument();
     expect(screen.getByText("No issues.")).toBeInTheDocument();
+    expect(
+      screen.getByText("No manual follow-up is needed right now."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/manual-only warnings/i)).not.toBeInTheDocument();
   });
 
   it("shows successful repair message when report is healthy", () => {

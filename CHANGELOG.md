@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-07-02
+
+### Launcher manual follow-up wording
+
+- Reworded Doctor and launcher setup verification copy so managed connectors without one-click prompt smoke support are not described as manual-only.
+- Added Doctor UI coverage to prevent the stale manual-only warning fallback from returning.
+
 ## 2026-07-01
 
 ### Retained connector frontend guidance

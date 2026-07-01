@@ -279,7 +279,7 @@ export function SwitchboardDoctorPanel({
           <small>
             {manualCount > 0
               ? "Review guidance; no file changes will run from these rows."
-              : "No manual-only warnings."}
+              : "No manual follow-up is needed right now."}
           </small>
         </div>
         {hasOffModeVerification ? (
