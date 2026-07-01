@@ -324,7 +324,7 @@ export function plannedConnectorDoctorGuidance(): string {
     return [
       "All retained connector setup gates now resolve to managed connector coverage or explicit gated readiness.",
       "Use Settings or Doctor repair for managed connector verification, rollback, and Off mode cleanup.",
-      "Gemini/OpenCode/Windsurf/Zed have promoted routing evidence; Repo Intelligence packs and sidecar/readiness coverage remain available for unpromoted agent handoffs while provider-specific config mutation stays guarded behind explicit connector evidence.",
+      "Gemini/OpenCode/Windsurf/Zed have promoted routing evidence; Repo Intelligence packs and sidecar/readiness coverage remain available for unpromoted agent handoffs while retained connector native/provider routing and provider-specific config mutation stay manual until backup, verify, rollback, and Off mode cleanup evidence is promoted.",
     ].join(" ");
   }
 
@@ -346,7 +346,7 @@ export function plannedConnectorDoctorGuidance(): string {
     "Open Settings and review each connector's detection evidence, readiness stages, safety badges, and manual guide.",
     `Doctor keeps native/provider routing manual because the next automation gate is ${firstBlockedStage.toLowerCase()}.`,
     `Look for ${Array.from(badgeLabels).join(", ")} before choosing a workflow.`,
-    "Use RTK-only mode or Repo Intelligence packs; keep native/provider routing manual until connector-specific backup, verify, rollback, and Off mode cleanup evidence is promoted.",
+    "Use RTK-only mode or Repo Intelligence packs; keep retained connector native/provider routing manual until backup, verify, rollback, and Off mode cleanup evidence is promoted.",
   ].join(" ");
 }
 

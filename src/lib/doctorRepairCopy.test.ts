@@ -354,6 +354,9 @@ describe("doctor repair copy", () => {
 
     expect(guidance).toContain("retained connector setup gates");
     expect(guidance).toContain("managed connector coverage");
+    expect(guidance).toContain("retained connector native/provider routing");
+    expect(guidance).toContain("stay manual until backup, verify, rollback");
+    expect(guidance).not.toContain("connector-specific backup");
     expect(guidance).toContain("Gemini/OpenCode/Windsurf/Zed");
     expect(guidance).toContain("Doctor repair");
     expect(guidance).toContain("provider-specific config mutation");

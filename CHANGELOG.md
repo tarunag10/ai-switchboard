@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+### Retained connector frontend guidance
+
+- Aligned frontend Doctor connector guidance with the retained-connector routing boundary so promoted managed connectors are not implied to be manual-gated.
+- Added copy coverage to prevent the stale connector-specific backup wording from returning.
+
 ### Repo Intelligence Doctor cleanup docs
 
 - Corrected architecture docs so stale, missing, moved, corrupt, or health-mismatched Repo Intelligence summaries are documented as automatic Clear index cleanup items instead of manual-only warnings.
