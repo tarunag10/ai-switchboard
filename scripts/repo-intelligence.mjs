@@ -344,7 +344,7 @@ const plannedConnectorDossiers = {
   gemini_cli: {
     name: "Gemini CLI",
     configPathStrategy:
-      "Detect PATH: gemini first, then use Switchboard-managed shell/base-url exports and sidecar evidence.",
+      "Detect PATH: gemini first, then use Switchboard-managed shell/base-url exports with sibling rollback backups.",
     accountCaveat:
       "Model and account compatibility must be reported before routing; no account tokens are stored.",
     rollbackStrategy:

@@ -19,7 +19,7 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | --- | --- | ---: | ---: | ---: | --- |
 | Claude Code | Managed | Yes | Yes | Yes | First-class managed target with reversible config edits. |
 | Codex | Managed | Yes | Partial | Yes | First-class managed target with provider block and bypass handling. |
-| Gemini CLI | Managed | Yes | No | Yes | Managed shell/base-url routing with sidecar evidence, Doctor repair, rollback, and Off cleanup. |
+| Gemini CLI | Managed | Yes | No | Yes | Managed shell/base-url routing with sibling rollback backups, Doctor repair, rollback, and Off cleanup. |
 | OpenCode | Managed | Yes | No | Yes | Managed provider routing with backup, verify, rollback, and Off cleanup gates. |
 | Cursor | Guided | No | No | Yes | Copyable packs and settings detection today. |
 | Windsurf | Managed | Yes | No | Yes | Managed editor settings routing with backup, Doctor verification, rollback, and Off cleanup. |

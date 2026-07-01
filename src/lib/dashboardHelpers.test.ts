@@ -692,7 +692,7 @@ describe("dashboard helpers", () => {
         "Gemini binary: /opt/homebrew/bin/gemini",
         "Gemini version: gemini 0.2.1",
         "Gemini config surface: /Users/test/.gemini",
-        "Managed shell/base-url routing uses Switchboard-owned shell blocks, sidecar evidence, backup, Doctor verification, rollback, and Off mode cleanup.",
+        "Managed shell/base-url routing uses Switchboard-owned shell blocks, sibling rollback backups, Doctor verification, rollback, and Off mode cleanup.",
         "Detected. Switchboard can manage Gemini CLI shell/base-url routing while keeping account and model choices user-owned.",
       ],
       installed: true,
@@ -707,7 +707,7 @@ describe("dashboard helpers", () => {
       version: "gemini 0.2.1",
       configSurface: "/Users/test/.gemini",
       routingBlocker:
-        "Managed shell/base-url routing uses Switchboard-owned shell blocks, sidecar evidence, backup, Doctor verification, rollback, and Off mode cleanup.",
+        "Managed shell/base-url routing uses Switchboard-owned shell blocks, sibling rollback backups, Doctor verification, rollback, and Off mode cleanup.",
       automationEnabled: true,
       configCreationGates: [
         { id: "detect", label: "Detect config surface" },

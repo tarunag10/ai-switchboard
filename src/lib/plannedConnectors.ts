@@ -224,13 +224,13 @@ export const managedConnectorDossiers: ManagedConnectorDossier[] = [
         label: "Verification",
         state: "Available now",
         detail:
-          "Doctor verifies the managed shell exports and rollback sidecar are present.",
+          "Doctor verifies the managed shell exports and sibling rollback backup.",
       },
       {
         label: "Rollback",
         state: "Available now",
         detail:
-          "Off mode removes only Switchboard-owned Gemini shell and sidecar blocks.",
+          "Off mode removes only Switchboard-owned Gemini shell routing exports.",
       },
     ],
     configSurfaces: [
@@ -239,7 +239,7 @@ export const managedConnectorDossiers: ManagedConnectorDossier[] = [
       "shell environment",
     ],
     automationGates: [
-      "Write only Switchboard-owned shell blocks and sidecar evidence.",
+      "Write only Switchboard-owned shell blocks and sibling rollback backups.",
       "Verify GOOGLE_GEMINI_BASE_URL, GEMINI_BASE_URL, and GEMINI_API_KEY routing exports.",
       "Off mode removes local proxy routing without changing account state.",
     ],
@@ -806,7 +806,7 @@ const plannedConnectorSafetyDossiers: Record<
   gemini_cli: {
     connectorId: "gemini_cli",
     configPathStrategy:
-      "Detect PATH: gemini first, then apply Switchboard-managed shell/base-url exports and sidecar evidence.",
+      "Detect PATH: gemini first, then apply Switchboard-managed shell/base-url exports with sibling rollback backups.",
     providerSemantics:
       "Route Gemini CLI through the local Headroom-compatible base-url surface managed by Switchboard.",
     accountCaveat:

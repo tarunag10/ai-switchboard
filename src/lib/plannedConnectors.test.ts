@@ -52,6 +52,16 @@ describe("planned connectors", () => {
       );
       expect(connector.notes).toMatch(/Doctor|rollback|Off cleanup/i);
     }
+    const gemini = managedConnectorDossiers.find(
+      (connector) => connector.id === "gemini_cli",
+    );
+    expect(gemini?.capabilityRows[1]?.detail).toContain(
+      "sibling rollback backup",
+    );
+    expect(gemini?.capabilityRows[1]?.detail).not.toContain("sidecar");
+    expect(gemini?.automationGates.join(" ")).toContain(
+      "sibling rollback backups",
+    );
     const windsurf = managedConnectorDossiers.find(
       (connector) => connector.id === "windsurf",
     );

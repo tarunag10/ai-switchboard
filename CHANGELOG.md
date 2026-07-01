@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Gemini routing evidence wording
+
+- Updated Gemini managed connector copy, compatibility evidence, and handoff script text so routing verification describes shell exports plus sibling rollback backups instead of stale sidecar evidence.
+
 ### Codex provider repair-ready row
 
 - Updated the Codex provider-block Mode Inspector fallback so direct provider routing is described as repair-ready instead of a passive not-routed state.
