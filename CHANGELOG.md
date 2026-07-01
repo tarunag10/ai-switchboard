@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Implementation plan gated connector language
+
+- Updated the implementation plan and backend connector test diagnostics so roadmap and fixture messages use gated connector language instead of planned connector language.
+
 ### Lifecycle docs gated connector language
 
 - Updated install and adapter lifecycle docs so non-managed connector promotion guidance uses gated connector language instead of planned connector language.

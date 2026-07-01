@@ -16,7 +16,7 @@ It should be trusted because it:
 4. Does not require telemetry, sign-in, hosted pricing, or cloud services for the public free build.
 5. Gives agents better context at lower token cost without hiding important detail.
 6. Supports Claude Code and Codex deeply before expanding to other tools.
-7. Treats planned connectors honestly as planned, guided, or detection-only until they are safe and reversible.
+7. Treats unpromoted connectors honestly as gated, guided, or detection-only until they are safe and reversible.
 
 ## Guiding Principles
 
@@ -32,9 +32,9 @@ It is not enough for telemetry to be disabled in normal flows. Public local buil
 
 Off mode must remove routing hooks, provider overrides, shell blocks, RTK hooks, MarkItDown hooks, and managed instruction blocks without disturbing user-owned configuration.
 
-### 4. Planned support must not be marketed as managed support
+### 4. Gated support must not be marketed as managed support
 
-Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI are the current managed targets. Cursor, Goose, Aider, Continue, Amazon Q, Qwen Code, Grok / xAI CLI, and similar tools should remain labelled as guided, detected, or planned until automatic setup and cleanup are implemented and tested.
+Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI are the current managed targets. Cursor, Goose, Aider, Continue, Amazon Q, Qwen Code, Grok / xAI CLI, and similar tools should remain labelled as guided, detected, or gated until automatic setup and cleanup are implemented and tested.
 
 ### 5. Context quality is the long-term moat
 
@@ -51,7 +51,7 @@ Headroom and RTK save tokens. Repo Intelligence and Graphify-style context selec
 | P2    | Days 14-30 | CI, release, and security gates               | Every PR and release passes quality, dependency, and secret checks         |
 | P3    | Days 21-45 | Runtime and connector safety                  | Claude/Codex flows are safer, more reversible, and easier to recover       |
 | P4    | Days 30-60 | Repo Intelligence v2                          | Context packs become task-aware and relevance-ranked                       |
-| P5    | Days 45-75 | Adapter platform                              | Planned connectors move toward manifest-based guided/managed support       |
+| P5    | Days 45-75 | Adapter platform                              | Gated connectors move toward manifest-based guided/managed support         |
 | P6    | Days 60-90 | Distribution and polish                       | Signed releases, Homebrew, onboarding, docs, diagnostics, and benchmarks   |
 
 The phases overlap intentionally. For example, signed releases can begin before Repo Intelligence v2 is done, but broad distribution should wait until P0-P3 are complete.
@@ -288,7 +288,7 @@ The project aims to support many agentic coding tools, but managed support curre
 ### Acceptance criteria
 
 - README and docs identify only Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI as fully managed.
-- Every planned connector has a safe manual workflow and automation gates.
+- Every gated connector has a safe manual workflow and automation gates.
 - UI and docs use the same labels.
 
 ---
@@ -1149,7 +1149,7 @@ Expose tools such as:
 
 ### Problem
 
-Planned connectors are hardcoded in Rust and frontend helpers. This will become hard to maintain.
+Gated connectors are hardcoded in Rust and frontend helpers. This will become hard to maintain.
 
 ### Files to add or change
 
@@ -1190,7 +1190,7 @@ Planned connectors are hardcoded in Rust and frontend helpers. This will become 
 ### Implementation steps
 
 1. Add JSON schema.
-2. Move planned connector metadata to `connectors/*.json`.
+2. Move gated connector metadata to `connectors/*.json`.
 3. Generate Rust and TypeScript constants at build time, or load from embedded JSON.
 4. Add parity check to ensure UI and backend see the same data.
 5. Keep managed Claude/Codex adapters in Rust code for now, but represent their metadata with manifests too.
@@ -1198,7 +1198,7 @@ Planned connectors are hardcoded in Rust and frontend helpers. This will become 
 ### Acceptance criteria
 
 - One source of truth for connector metadata.
-- Adding a planned connector does not require editing multiple files.
+- Adding a gated connector does not require editing multiple files.
 - CI validates connector manifests.
 
 ---
@@ -1242,7 +1242,7 @@ Before any adapter becomes managed, it must support:
 ### Acceptance criteria
 
 - Claude and Codex are refactored toward the lifecycle contract.
-- Planned adapters cannot become “managed” unless they pass lifecycle tests.
+- Gated adapters cannot become “managed” unless they pass lifecycle tests.
 
 ---
 
@@ -1582,7 +1582,7 @@ Show token savings and quality preservation using reproducible public fixtures.
 ## PR 14: Adapter manifest platform
 
 - Add connector schema.
-- Move planned connectors to manifests.
+- Move gated connectors to manifests.
 - Generate backend/frontend registry.
 
 ## PR 15: First signed public release
@@ -1621,7 +1621,7 @@ A feature is done only when all relevant items are true:
 | Raw prompt logs leak secrets            |     High | Off by default, warnings, redaction, expiry, purge                      |
 | Codex DB modification breaks history    |     High | Opt-in, backup, transaction, schema guard, restore action               |
 | Off mode leaves hooks behind            |     High | Managed footprint inventory, fixture tests, Doctor repair               |
-| Planned connectors overmarketed         |   Medium | Honest labels, support matrix, automation gates                         |
+| Gated connectors overmarketed           |   Medium | Honest labels, support matrix, automation gates                         |
 | Repo packs omit important files         |   Medium | Relevance ranking, AST graph, test proximity                            |
 | Release artifacts not trusted           |   Medium | Signed/notarized DMG, checksums, SBOM, Homebrew cask                    |
 | Long-running runtime install fails      |   Medium | Better Doctor repair, logs, preflight checks, recovery scripts          |

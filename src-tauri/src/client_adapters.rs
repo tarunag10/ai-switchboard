@@ -7596,7 +7596,7 @@ mod tests {
                 .config_creation_step_details
                 .iter()
                 .find(|step| step.id == "dryRunDiff")
-                .expect("planned connector dry-run step");
+                .expect("gated connector dry-run step");
             let dry_run_copy =
                 format!("{} {}", dry_run.detail, dry_run.required_evidence.join(" "));
             for snippet in [
@@ -7611,7 +7611,7 @@ mod tests {
             let preview = connector
                 .config_dry_run_preview
                 .as_ref()
-                .expect("planned connector dry-run preview");
+                .expect("gated connector dry-run preview");
             assert_eq!(
                 preview.marker,
                 format!("mac-ai-switchboard:{}", connector.client_id)
@@ -9361,7 +9361,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
                 .expect("seed sidecar");
 
             let error = super::apply_client_setup(client_id)
-                .expect_err("planned connector setup should be blocked");
+                .expect_err("gated connector setup should be blocked");
             assert!(
                 error.to_string().contains("guided workflow"),
                 "{client_id} should explain the guided workflow gate"
@@ -9389,7 +9389,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             assert_eq!(
                 connector.support_status,
                 ClientConnectorSupportStatus::Planned,
-                "{client_id} should stay planned until manifest promotion"
+                "{client_id} should stay gated until manifest promotion"
             );
             assert!(!connector.enabled, "{client_id} should not be enabled");
             assert!(!connector.verified, "{client_id} should not be verified");
