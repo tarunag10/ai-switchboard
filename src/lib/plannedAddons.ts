@@ -79,9 +79,9 @@ export const plannedAddons: PlannedAddon[] = [
   {
     id: "agent_connectors",
     name: "Agent Connectors",
-    statusLabel: "Planned",
+    statusLabel: "Gated",
     description:
-      "Future connector layer for popular coding CLIs and editor agents beyond Claude Code and Codex, including Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI.",
+      "Gated connector layer for popular coding CLIs and editor agents beyond Claude Code and Codex, including Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI.",
     bullets: [
       "Start with read-only detection so Switchboard can show installed tools without editing configs.",
       "Add reversible local provider/base-url adapters only after tool stable config surface.",

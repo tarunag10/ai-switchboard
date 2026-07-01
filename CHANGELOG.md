@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Agent connector add-on gated status
+
+- Updated the Agent Connectors add-on card so the visible status and disabled action describe gated readiness instead of planned or coming soon support.
+
 ### Doctor no-pending connector copy
 
 - Updated Doctor no-pending connector guidance so promoted setup coverage is described as managed or gated instead of pending.

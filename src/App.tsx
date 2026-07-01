@@ -1785,7 +1785,7 @@ function PlannedAddonCard({
       </div>
       <div className="addon-card__actions">
         <button type="button" className="addon-card__action" disabled>
-          {isRepoIntelligence ? "Open from sidebar" : "Coming soon"}
+          {isRepoIntelligence ? "Open from sidebar" : "Review gated readiness"}
         </button>
       </div>
     </li>

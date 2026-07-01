@@ -113,13 +113,14 @@ describe("planned add-ons", () => {
     );
   });
 
-  it("keeps popular coding-agent connectors explicitly planned", () => {
+  it("keeps popular coding-agent connectors explicitly gated", () => {
     const connectors = getPlannedAddon("agent_connectors");
 
     expect(connectors).toMatchObject({
       name: "Agent Connectors",
-      statusLabel: "Planned",
+      statusLabel: "Gated",
     });
+    expect(connectors?.description).toContain("Gated connector layer");
     expect(connectors?.description).toContain("Gemini CLI");
     expect(connectors?.description).toContain("OpenCode");
     expect(connectors?.description).toContain("Cursor");
