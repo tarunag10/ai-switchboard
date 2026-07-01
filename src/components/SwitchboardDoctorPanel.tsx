@@ -427,7 +427,7 @@ export function SwitchboardDoctorPanel({
         >
           <div className="switchboard-doctor__connector-preview-head">
             <strong>Connector readiness</strong>
-            <span>{connectorPreviewRows.length} pending</span>
+            <span>{connectorPreviewRows.length} gated</span>
           </div>
           <div className="switchboard-doctor__connector-preview-grid">
             {connectorPreviewRows.slice(0, 6).map((connector) => (

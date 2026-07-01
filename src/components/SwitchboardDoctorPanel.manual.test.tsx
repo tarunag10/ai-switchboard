@@ -49,7 +49,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
           issues: [
             {
               id: "planned_connectors_detected",
-              title: "Planned coding tools detected",
+              title: "Gated connector readiness detected",
               body: "Gemini CLI detected.",
               severity: "warning",
               repairAction: null,
@@ -168,7 +168,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
             },
             {
               id: "planned_connectors_detected",
-              title: "Planned coding tools detected",
+              title: "Gated connector readiness detected",
               body: "Gemini CLI detected.",
               severity: "warning",
               repairAction: null,

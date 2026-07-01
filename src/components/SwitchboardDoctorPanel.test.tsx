@@ -422,7 +422,7 @@ describe("SwitchboardDoctorPanel", () => {
     );
   });
 
-  it("copies planned connector readiness dossiers when connector evidence is present", async () => {
+  it("copies gated connector readiness dossiers when connector evidence is present", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -434,11 +434,11 @@ describe("SwitchboardDoctorPanel", () => {
       <SwitchboardDoctorPanel
         report={{
           status: "warning",
-          summary: "Planned connectors detected.",
+          summary: "Gated connector readiness detected.",
           issues: [
             {
               id: "planned_connectors_detected",
-              title: "Planned coding tools detected",
+              title: "Gated connector readiness detected",
               body: "Gemini CLI detected.",
               severity: "warning",
               repairAction: null,

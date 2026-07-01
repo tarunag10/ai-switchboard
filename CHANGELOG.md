@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Doctor gated connector preview count
+
+- Updated Doctor connector-readiness preview copy and test fixtures so connector evidence is described as gated readiness instead of pending or planned tools.
+
 ### Connector dossier gated status states
 
 - Updated retained connector dossier status labels and gated capability-row states so cards no longer present blocked setup work as planned.

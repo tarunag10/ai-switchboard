@@ -268,7 +268,7 @@ describe("doctor repair copy", () => {
         },
         {
           id: "planned_connectors_detected",
-          title: "Planned coding tools detected",
+          title: "Gated connector readiness detected",
           body: "Gemini CLI detected.",
           severity: "warning",
           repairAction: null,
@@ -532,7 +532,7 @@ describe("doctor repair copy", () => {
           },
           {
             id: "planned_connectors_detected",
-            title: "Planned coding tools detected",
+            title: "Gated connector readiness detected",
             body: "Automation is still gated.",
             severity: "warning",
             repairAction: null,
