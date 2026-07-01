@@ -111,3 +111,7 @@
 ### Rollback roadmap truth
 
 - Synced roadmap and Agent Control Center docs with the promoted OpenCode, Windsurf, and Zed native apply/rollback paths and the remaining sidecar-only connector scope.
+
+### Native editor rollback fallback cleanup
+
+- Removed stale Windsurf/Zed entries from the sidecar rollback fallback table so promoted editor connectors always resolve through native settings rollback paths.

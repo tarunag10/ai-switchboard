@@ -4547,18 +4547,6 @@ fn sidecar_rollback_target(record_id: &str) -> Option<SidecarRollbackTarget> {
             owner: "Amazon Q Developer CLI routing",
             marker: "headroom:amazon_q",
         }),
-        "windsurf-routing" => Some(SidecarRollbackTarget {
-            record_id: "windsurf-routing",
-            client_id: "windsurf",
-            owner: "Windsurf routing",
-            marker: "headroom:windsurf",
-        }),
-        "zed-ai-routing" => Some(SidecarRollbackTarget {
-            record_id: "zed-ai-routing",
-            client_id: "zed_ai",
-            owner: "Zed AI routing",
-            marker: "headroom:zed_ai",
-        }),
         _ => None,
     }
 }
@@ -9120,6 +9108,32 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert_eq!(content, "# cursor user note\nkeep this\n");
         assert!(!super::planned_switchboard_sidecar_matches("cursor")
             .expect("check cleaned cursor sidecar"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn promoted_editor_rollback_records_use_native_targets_not_sidecars() {
+        let _home = TestHome::new();
+
+        assert!(super::sidecar_rollback_target("windsurf-routing").is_none());
+        assert!(super::sidecar_rollback_target("zed-ai-routing").is_none());
+
+        let windsurf =
+            super::preview_managed_rollback("windsurf-routing").expect("preview windsurf rollback");
+        assert_eq!(windsurf.record_id, "windsurf-routing");
+        assert_eq!(windsurf.marker, "headroom:windsurf");
+        assert!(windsurf
+            .target_path
+            .ends_with("Library/Application Support/Windsurf/User/settings.json"));
+        assert!(windsurf
+            .proposed_action
+            .contains("Restore the Windsurf settings"));
+
+        let zed = super::preview_managed_rollback("zed-ai-routing").expect("preview zed rollback");
+        assert_eq!(zed.record_id, "zed-ai-routing");
+        assert_eq!(zed.marker, "headroom:zed");
+        assert!(zed.target_path.ends_with(".config/zed/settings.json"));
+        assert!(zed.proposed_action.contains("Restore the Zed settings"));
     }
 
     #[test]
