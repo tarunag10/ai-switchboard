@@ -617,7 +617,7 @@ export function connectorDashboardStatus(connector: ClientConnectorStatus): {
 } {
   if (!connectorSupportsAutomaticSetup(connector)) {
     return connector.installed
-      ? { label: connector.setupPhase ?? "Planned", tone: "pending" }
+      ? { label: connector.setupPhase ?? "Gated", tone: "pending" }
       : { label: "Coming soon", tone: "idle" };
   }
   if (!connector.enabled) {

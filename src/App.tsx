@@ -10253,7 +10253,7 @@ export default function App() {
                           {connectorLabel}
                           {connector.supportStatus === "planned" ? (
                             <span className="connector-item__badge connector-item__badge--planned">
-                              Planned
+                              Gated
                             </span>
                           ) : null}
                           <button

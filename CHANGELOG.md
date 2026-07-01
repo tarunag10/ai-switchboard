@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Gated connector status badges
+
+- Updated planned-status connector badges and dashboard fallback labels to show gated setup state instead of planned setup state.
+
 ### Gated connector unavailable reasons
 
 - Updated Home and Settings unavailable-reason copy for unpromoted connectors so missing tools explain the gated setup evidence instead of saying the adapter is planned.

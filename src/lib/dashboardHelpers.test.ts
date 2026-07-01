@@ -1128,7 +1128,7 @@ describe("dashboard helpers", () => {
         enabled: false,
         verified: false,
       }),
-    ).toEqual({ label: "Planned", tone: "pending" });
+    ).toEqual({ label: "Gated", tone: "pending" });
     expect(
       connectorDashboardStatus({
         clientId: "cursor",

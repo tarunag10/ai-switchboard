@@ -800,7 +800,7 @@ export function SettingsView({
                         {connectorLabel}
                         {connector.supportStatus === "planned" ? (
                           <span className="connector-item__badge connector-item__badge--planned">
-                            Planned
+                            Gated
                           </span>
                         ) : null}
                         <button
