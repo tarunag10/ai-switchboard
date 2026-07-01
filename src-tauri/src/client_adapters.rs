@@ -5226,7 +5226,7 @@ pub fn get_managed_footprint() -> ManagedFootprintReport {
         false,
         "Claude Code settings may contain managed env and hook references.",
         true,
-        vec!["*.headroom.bak next to edited config".to_string()],
+        vec!["*.headroom-backup-* next to edited config".to_string()],
         vec!["Report does not read or include setting values.".to_string()],
     );
     push_footprint_item(
@@ -5237,7 +5237,7 @@ pub fn get_managed_footprint() -> ManagedFootprintReport {
         true,
         "Managed Claude Code RTK PreToolUse hook.",
         true,
-        vec!["*.headroom.bak next to edited hook".to_string()],
+        vec!["*.headroom-backup-* next to edited hook".to_string()],
         vec![],
     );
     push_footprint_item(
@@ -5248,7 +5248,7 @@ pub fn get_managed_footprint() -> ManagedFootprintReport {
         true,
         "Managed Claude Code MarkItDown PreToolUse hook.",
         true,
-        vec!["*.headroom.bak next to edited hook".to_string()],
+        vec!["*.headroom-backup-* next to edited hook".to_string()],
         vec![],
     );
     push_footprint_item(
@@ -5259,7 +5259,7 @@ pub fn get_managed_footprint() -> ManagedFootprintReport {
         false,
         "Codex config may contain managed provider and routing blocks.",
         true,
-        vec!["*.headroom.bak next to edited config".to_string()],
+        vec!["*.headroom-backup-* next to edited config".to_string()],
         vec!["Report does not read or include provider values.".to_string()],
     );
 
@@ -5272,7 +5272,7 @@ pub fn get_managed_footprint() -> ManagedFootprintReport {
             false,
             "Shell profile may contain Switchboard-managed routing or RTK blocks.",
             true,
-            vec!["*.headroom.bak next to edited shell profile".to_string()],
+            vec!["*.headroom-backup-* next to edited shell profile".to_string()],
             vec![],
         );
     }
@@ -5287,7 +5287,7 @@ pub fn get_managed_footprint() -> ManagedFootprintReport {
                 true,
                 &format!("Managed {} routing-intent sidecar.", spec.name),
                 true,
-                vec!["*.headroom.bak next to edited sidecar".to_string()],
+                vec!["*.headroom-backup-* next to edited sidecar".to_string()],
                 vec!["Sidecar contains no account secrets by design.".to_string()],
             );
         }

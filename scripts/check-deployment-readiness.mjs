@@ -388,7 +388,7 @@ const requiredSourceSignals = {
     "User repositories are not modified",
     "headroom:claude_code",
     "headroom:codex_cli",
-    "*.headroom.bak",
+    "*.headroom-backup-*",
   ],
   "src/lib/managedChanges.test.ts": [
     "tracks marker, backup, and verification evidence",

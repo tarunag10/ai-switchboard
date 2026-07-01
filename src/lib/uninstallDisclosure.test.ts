@@ -97,7 +97,7 @@ describe("uninstallDisclosure", () => {
     expect(report).toContain("~/.codex/config.toml");
     expect(report).toContain("Marker: headroom:codex_cli");
     expect(report).toContain(
-      "Backup: next to edited client config as *.headroom.bak",
+      "Backup: next to edited client config as *.headroom-backup-*",
     );
     expect(report).toContain("Marker: repo-intelligence-latest.json");
     expect(report).toContain("Backup: not required");

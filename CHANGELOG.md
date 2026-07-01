@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Rollback inventory backup pattern
+
+- Updated rollback inventory, uninstall, and managed-footprint copy to use the backend's real `*.headroom-backup-*` backup naming pattern instead of the stale `*.headroom.bak` suffix.
+
 ### Native connector dossier wording
 
 - Updated OpenCode, Windsurf, and Zed managed connector dossier copy so promoted native config rows describe provider/settings verification and sibling rollback backups instead of stale sidecar verification.

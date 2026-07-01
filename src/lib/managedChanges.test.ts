@@ -71,7 +71,6 @@ describe("managedChangeRecords", () => {
         )
         .every(
           (record) =>
-            record.backupPath?.includes("*.headroom.bak") ||
             record.backupPath?.includes("*.headroom-backup-*"),
         ),
     ).toBe(true);
@@ -110,7 +109,7 @@ describe("managedChangeRecords", () => {
     expect(allCopy).toContain("~/Library/LaunchAgents/");
     expect(allCopy).toContain("Keychain");
     expect(allCopy).toContain("Ponytail");
-    expect(allCopy).toContain("*.headroom.bak");
+    expect(allCopy).toContain("*.headroom-backup-*");
   });
 
   it("builds a safe dry-run diff preview for managed config edits", () => {
@@ -132,7 +131,7 @@ describe("managedChangeRecords", () => {
       owner: "Codex routing",
       targetPath: "~/.codex/config.toml",
       markerId: "headroom:codex_cli",
-      backupPath: "next to edited client config as *.headroom.bak",
+      backupPath: "next to edited client config as *.headroom-backup-*",
       dryRunOnly: true,
       requiresExplicitConfirmation: true,
       confirmationPhrase: "Apply headroom:codex_cli to ~/.codex/config.toml",
@@ -185,7 +184,7 @@ describe("managedChangeRecords", () => {
     expect(text).toContain(
       "Preserve unmanaged user config outside the marked Switchboard block.",
     );
-    expect(text).toContain("Backup: next to edited shell profile as *.headroom.bak");
+    expect(text).toContain("Backup: next to edited shell profile as *.headroom-backup-*");
     expect(text).toContain("Off mode must remove only Switchboard-owned");
   });
 
@@ -250,7 +249,7 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Status: ready_for_review");
     expect(text).toContain("Targets: ~/.zshrc, ~/.zprofile");
     expect(text).toContain("Marker: headroom:codex_cli");
-    expect(text).toContain("Backup: next to edited shell profile as *.headroom.bak");
+    expect(text).toContain("Backup: next to edited shell profile as *.headroom-backup-*");
     expect(text).toContain("Verified by: Verified by Doctor connector checks");
     expect(text).toContain("Rollback: Remove managed Codex shell routing");
     expect(text).toContain("Evidence required: Confirm the target file still contains");
@@ -272,7 +271,7 @@ describe("managedChangeRecords", () => {
       owner: "Codex routing",
       mode: "backup_restore",
       status: "ready_for_review",
-      backupPath: "next to edited client config as *.headroom.bak",
+      backupPath: "next to edited client config as *.headroom-backup-*",
     });
     expect(codex?.evidenceRequired.join(" ")).toContain(
       "timestamped backup exists",
@@ -303,7 +302,7 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Status: ready_for_review");
     expect(text).toContain("Targets: ~/.codex/config.toml, ~/.zshrc, ~/.zprofile");
     expect(text).toContain("Marker: headroom:codex_cli");
-    expect(text).toContain("Backup: next to edited client config as *.headroom.bak");
+    expect(text).toContain("Backup: next to edited client config as *.headroom-backup-*");
     expect(text).toContain("Evidence required:");
     expect(text).toContain("Confirm the target file still contains");
     expect(text).toContain("Unmanaged user config:");
@@ -595,7 +594,7 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Target: ~/.zshrc");
     expect(text).toContain("Confirmed: yes");
     expect(text).toContain("Write path status: ready");
-    expect(text).toContain("Backup: next to edited client config as *.headroom.bak");
+    expect(text).toContain("Backup: next to edited client config as *.headroom-backup-*");
     expect(text).toContain("Rollback:\nRemove managed Claude Code shell routing");
     expect(text).toContain("Off-mode cleanup boundary:");
     expect(text).toContain("Unmanaged user config:");
@@ -748,7 +747,7 @@ describe("managedChangeRecords", () => {
           managed: true,
           action: "Codex config may contain managed provider blocks.",
           reversible: true,
-          backupPaths: ["*.headroom.bak next to edited config"],
+          backupPaths: ["*.headroom-backup-* next to edited config"],
           notes: ["Report does not include provider values."],
         },
         {
