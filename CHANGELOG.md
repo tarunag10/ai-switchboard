@@ -2,6 +2,11 @@
 
 ## 2026-07-02
 
+### Launcher managed setup classifier
+
+- Reused the shared managed connector classifier in launcher auto-setup so gated connectors without `supportStatus` cannot be auto-applied by accident.
+- Added launcher coverage for detected adapt-phase connectors that must remain on the manual setup path.
+
 ### Settings import managed fallback
 
 - Applied the managed connector fallback to settings import previews so legacy exported connector state without `supportStatus` still receives managed-gate advisory copy.

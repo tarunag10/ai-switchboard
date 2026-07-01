@@ -89,6 +89,18 @@ describe("launcher helpers", () => {
         { clientId: "codex", name: "Codex", installed: true, enabled: false, verified: false }
       ])
     ).toBe("apply_client_setup");
+    expect(
+      getLauncherAutoConfigureDecision([
+        {
+          clientId: "goose",
+          name: "Goose",
+          setupPhase: "adapt",
+          installed: true,
+          enabled: false,
+          verified: false
+        }
+      ])
+    ).toBe("show_client_setup");
   });
 
   it("builds initial proxy verification rows from enabled installed Claude connectors", () => {
@@ -217,6 +229,21 @@ describe("launcher helpers", () => {
           { clientId: "codex", name: "Codex", installed: false, enabled: false, verified: false }
         ])
       ).toEqual({ kind: "apply", clientIds: ["codex"] });
+    });
+
+    it("does not auto-apply detected gated connectors that omit support status", () => {
+      expect(
+        nextAutoConfigureStep("apply_client_setup", [
+          {
+            clientId: "goose",
+            name: "Goose",
+            setupPhase: "adapt",
+            installed: true,
+            enabled: false,
+            verified: false
+          }
+        ])
+      ).toEqual({ kind: "show_client_setup" });
     });
 
     it("falls back to manual setup when apply_client_setup has no detected connector", () => {

@@ -1,5 +1,6 @@
 import {
   aggregateClientConnectors,
+  connectorSupportsAutomaticSetup,
   getEnabledSupportedConnectors,
 } from "./dashboardHelpers";
 import type { ClientConnectorStatus, LaunchExperience } from "./types";
@@ -74,7 +75,7 @@ export function getLauncherAutoConfigureDecision(
   connectors: ClientConnectorStatus[]
 ): LauncherAutoConfigureDecision {
   const installed = aggregateClientConnectors(connectors).filter(
-    (connector) => connector.installed && (connector.supportStatus ?? "managed") === "managed"
+    (connector) => connector.installed && connectorSupportsAutomaticSetup(connector)
   );
   if (installed.length === 0) {
     return "show_client_setup";
@@ -118,7 +119,7 @@ export function nextAutoConfigureStep(
         (connector) =>
           connector.installed &&
           !connector.enabled &&
-          (connector.supportStatus ?? "managed") === "managed"
+          connectorSupportsAutomaticSetup(connector)
       )
       .map((connector) => connector.clientId);
     if (clientIds.length === 0) {
