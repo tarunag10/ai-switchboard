@@ -7807,7 +7807,7 @@ export default function App() {
   const additionalManagedRoutingConnectors = switchboardRoutingConnectors.filter(
     (connector) =>
       connector.installed === true &&
-      connector.supportStatus === "managed" &&
+      connectorSupportsAutomaticSetup(connector) &&
       !["codex", "claude_code"].includes(connector.clientId),
   );
   const connectorRoutingRow = (

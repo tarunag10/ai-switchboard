@@ -1269,7 +1269,6 @@ describe("mergeProviderSavingsForDisplay", () => {
       {
         clientId: "gemini_cli",
         name: "Gemini CLI",
-        supportStatus: "managed",
         setupPhase: "managed",
         installed: true,
         enabled: true,

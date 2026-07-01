@@ -529,7 +529,7 @@ export function summarizePlannedConnectorReadiness(
   const detected = readinessConnectors.filter((connector) => connector.installed);
   const notDetected = readinessConnectors.filter((connector) => !connector.installed);
   const managedDetectedCount = detected.filter(
-    (connector) => connector.supportStatus === "managed"
+    (connector) => connectorSupportsAutomaticSetup(connector)
   ).length;
 
   const detectedNames = detected.map((connector) => connector.name);

@@ -2,6 +2,11 @@
 
 ## 2026-07-02
 
+### Managed readiness fallback reuse
+
+- Reused the shared managed-connector classifier for additional Mode Inspector routing rows and readiness counts so legacy managed payloads are not hidden or counted as manual.
+- Extended readiness summary coverage to keep omitted managed status compatible with promoted managed connectors.
+
 ### Mode Inspector managed repair fallback
 
 - Reused the shared connector automatic-setup classifier in Mode Inspector so legacy managed connector payloads without `supportStatus` still show repair-ready actions instead of Direct-only status.
