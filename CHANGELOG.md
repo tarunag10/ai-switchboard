@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Managed footprint backup pattern guard
+
+- Added backend regression coverage so managed-footprint evidence keeps the current `*.headroom-backup-*` rollback backup pattern and rejects the stale `*.headroom.bak` suffix.
+
 ### Rollback inventory backup pattern
 
 - Updated rollback inventory, uninstall, and managed-footprint copy to use the backend's real `*.headroom-backup-*` backup naming pattern instead of the stale `*.headroom.bak` suffix.

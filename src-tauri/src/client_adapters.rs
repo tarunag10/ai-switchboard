@@ -11074,6 +11074,8 @@ js_repl = false\n",
         assert!(!serialized.contains("secret = true"));
         assert!(!serialized.contains("sk-"));
         assert!(serialized.contains("Keychain service: mac-ai-switchboard"));
+        assert!(serialized.contains("*.headroom-backup-*"));
+        assert!(!serialized.contains("*.headroom.bak"));
     }
 
     #[test]
