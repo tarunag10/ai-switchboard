@@ -7,8 +7,8 @@ This file is the v1 research gate for add-ons and external coding tools. Mac AI 
 | Headroom engine | Prompt optimization runtime | Python | Excellent | Managed Python install | Core dependency | Include | Required engine for local proxy compression. |
 | RTK | Shell-output optimization | Rust binary | Strong | Managed binary install + shell/client hooks | Core dependency | Include | Safe for noisy command output and planned connectors because it does not require provider config writes. |
 | Repo Intelligence | Repo context optimization | Local indexer | Strong | Built into Switchboard app/backend | Core workflow | Include | Read-only repo graph and context-pack layer for agent handoff before starting Codex, Claude Code, Gemini CLI, and similar tools. |
-| Gemini CLI | Planned coding connector | External CLI | Strong for detection and handoff; unproven for automatic provider routing | User-installed CLI detected read-only | First planned connector target | Detection-only | Detect binary, version, and config surfaces without writes. Keep provider routing manual until a stable config surface, model/account compatibility, backup, verify, rollback, and Off cleanup are proven. |
-| OpenCode | Planned coding connector | External CLI | Strong for detection and RTK-only usage | User-installed CLI detected read-only | Planned | Manual only | Automatic provider config edits wait for active config-path discovery, dry-run diff, backup, restore, and Off cleanup. |
+| Gemini CLI | Managed coding connector | External CLI | Strong for managed shell/base-url routing and handoff | User-installed CLI detected read-only; Switchboard writes managed shell/sidecar routing | Managed | Include | Managed routing is backed by detection, sidecar evidence, Doctor verification, rollback, and Off cleanup. |
+| OpenCode | Managed coding connector | External CLI | Strong for managed provider routing and RTK-only usage | User-installed CLI detected read-only; Switchboard writes managed provider routing | Managed | Include | Provider config edits are gated by backup, verify, rollback, and Off cleanup. |
 | Grok / xAI CLI | Planned coding connector | External CLI | Strong for detection; model/account guardrails required before routing | User-installed CLI detected read-only | Planned | Manual only | Detect `grok` or `xai` plus visible config surfaces without reading credentials. Automatic routing waits for Doctor model/account guardrails, backup, rollback, and Off cleanup. |
 | Cursor | Planned editor connector | External app | Strong for guided setup and repo packs | User-installed app detected read-only | Planned | Manual only | Account/profile-specific settings stay manual until profile-aware backup and restore are implemented. |
 | Aider | Planned agent connector | External CLI | Strong for RTK-only and repo packs | User-installed CLI detected read-only | Planned | Manual only | Prefer reversible environment wrapper before any saved provider config edits. |
@@ -16,8 +16,8 @@ This file is the v1 research gate for add-ons and external coding tools. Mac AI 
 | Goose | Planned agent connector | External CLI | Strong for repo packs and future MCP handoff | User-installed CLI detected read-only | Planned | Manual only | Separate provider routing from MCP/Repo Intelligence handoff until backup and Off cleanup exist. |
 | Qwen Code | Planned coding connector | External CLI | Strong for detection and repo packs; provider/account compatibility must stay visible | User-installed CLI detected read-only | Planned | Manual only | Detect `qwen-code` or `qwen` without writes. Provider routing waits for compatibility checks, backup, rollback, and Off cleanup. |
 | Amazon Q Developer CLI | Planned coding connector | External CLI | Strong for detection and verification packs; AWS credential state must stay outside Switchboard | User-installed CLI detected read-only | Planned | Manual only | Detect `q` without reading AWS secrets or SSO cache. Automatic setup is blocked until credential-safe verification and rollback policy exist. |
-| Windsurf | Planned editor connector | External app | Strong for guided setup and repo packs | User-installed app/settings detected read-only | Planned | Manual only | Settings/profile routing stays manual until active settings detection, backup, rollback, and Off cleanup are tested. |
-| Zed AI | Planned editor connector | External app | Strong for guided setup and bounded Repo Intelligence handoff | User-installed app/settings detected read-only | Planned | Manual only | Zed provider settings remain manual until lossless settings parsing, backup, rollback, and Off cleanup are proven. |
+| Windsurf | Managed editor connector | External app | Strong for managed editor routing and repo packs | User-installed app/settings detected read-only; Switchboard writes managed settings routing | Managed | Include | Settings routing is backed by managed markers, backup, Doctor verification, rollback, and Off cleanup. |
+| Zed AI | Managed editor connector | External app | Strong for managed editor routing and bounded Repo Intelligence handoff | User-installed app/settings detected read-only; Switchboard writes managed settings routing | Managed | Include | Zed settings routing is backed by managed markers, backup, Doctor verification, rollback, and Off cleanup. |
 | claude-cognitive | Workflow enhancement | Outside v1 policy | Weak | Manual external setup | Medium | Defer | Deferred because it breaks the Python-only boundary and assumes user profile edits. |
 
 ## Research checklist
@@ -30,13 +30,13 @@ This file is the v1 research gate for add-ons and external coding tools. Mac AI 
 - For planned connectors, allow read-only detection only when the app can show config surfaces, automation gates, manual workflow, and a disabled setup control.
 - Promote a planned connector to automatic setup only after dry-run diff, backup, apply, verify, rollback, and Off cleanup are all implemented and tested.
 
-## Gemini CLI Detection-Only Gate
+## Gemini CLI Managed Gate
 
-Gemini CLI is the first planned connector target because its detection path is low risk and useful before automatic setup:
+Gemini CLI was the first planned connector target and is now promoted to managed routing:
 
 - Detection source: `PATH: gemini`, `~/.gemini`, and `~/.config/gemini`.
-- Current evidence: backend reports binary path, `gemini --version` output when available, detected config surfaces, and the routing blocker.
-- Safe workflow today: RTK-only shell-output savings plus Repo Intelligence handoff packs.
-- Blocked automation: provider/base-url routing stays manual until model/account compatibility can be verified locally without storing credentials.
-- Required before writes: stable config surface, dry-run diff, exact backup, apply, verify, rollback, and Off mode cleanup.
-- Current decision: keep Gemini as `planned` and `guide`; do not convert to managed setup yet.
+- Current evidence: backend reports binary path, `gemini --version` output when available, detected config surfaces, managed shell/base-url routing, and sidecar verification.
+- Safe workflow today: managed Headroom routing, RTK-only shell-output savings when selected, and Repo Intelligence handoff packs.
+- Managed automation: Switchboard writes bounded shell/base-url routing plus sidecar evidence, then Doctor verifies and repairs drift.
+- Required for future promotions remains unchanged: stable config surface, dry-run diff, exact backup, apply, verify, rollback, and Off mode cleanup.
+- Current decision: keep Gemini as `managed`; do not expand beyond the proven managed routing surface without a new lifecycle gate.

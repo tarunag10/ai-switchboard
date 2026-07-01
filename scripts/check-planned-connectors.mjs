@@ -361,10 +361,10 @@ function validateCompatibilityMatrixContract(source, connectors) {
   }
 
   for (const snippet of [
-    "Gemini CLI Detection-Only Gate",
+    "Gemini CLI Managed Gate",
     "Detection source: `PATH: gemini`, `~/.gemini`, and `~/.config/gemini`.",
     "dry-run diff, exact backup, apply, verify, rollback, and Off mode cleanup",
-    "keep Gemini as `planned` and `guide`; do not convert to managed setup yet",
+    "keep Gemini as `managed`; do not expand beyond the proven managed routing surface",
   ]) {
     if (!source.includes(snippet)) {
       errors.push(`compatibility matrix missing "${snippet}"`);

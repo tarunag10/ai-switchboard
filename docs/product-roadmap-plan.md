@@ -129,7 +129,7 @@ Left:
 ### Connector Expansion Risk
 
 - Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI now have managed sidecar lifecycle coverage.
-- The remaining connector risk is provider-specific native config mutation: Gemini and OpenCode are furthest along, while Cursor/Windsurf/Zed/Continue/Goose/Aider/Grok/Qwen/Amazon Q still need connector-specific safe writes.
+- The remaining connector risk is provider-specific native config mutation for the tools that are not yet managed: Cursor, Continue, Goose, Aider, Grok / xAI CLI, Qwen Code, and Amazon Q still need connector-specific safe writes. Gemini CLI, OpenCode, Windsurf, and Zed AI have promoted managed routing surfaces.
 - Native config automation should stay gated behind detection, manual-safe instructions, dry-run diffs, backups, Doctor verification, Off-mode cleanup, and fixture-home restore tests.
 
 ## Roadmap Phases
@@ -264,7 +264,7 @@ Suggested commit:
 
 Goal: add new agent connectors safely and repeatedly.
 
-Status: framework shipped; native writes are intentionally gated. Managed sidecar lifecycle, readiness metadata, dry-run previews, handoff dossiers, and release evidence checks exist across the managed connector set. OpenCode is the first promoted provider-config write path; Gemini has managed shell routing.
+Status: framework shipped; native writes are intentionally gated per connector. Managed sidecar lifecycle, readiness metadata, dry-run previews, handoff dossiers, and release evidence checks exist across the managed connector set. OpenCode has provider-config routing, Gemini has managed shell routing, and Windsurf/Zed have managed editor settings routing.
 
 Tasks:
 
@@ -358,7 +358,7 @@ Suggested commit:
 - Test relationship view in Repo Intelligence.
 - Deeper add-on health history beyond the shipped bounded trend cards, especially durable MarkItDown/Ponytail counters.
 - Broader settings migration that can apply connector/add-on changes after each native config gate has restore evidence; preview classification is shipped, but connector/add-on application remains manual.
-- Broader Rollback Center native restore coverage for provider-specific connector configs beyond the shipped Codex/OpenCode/Gemini/sidecar, managed-storage, Repo Intelligence summary, LaunchAgent, app-state, and Ponytail receipt/plugin rows.
+- Broader Rollback Center native restore coverage for provider-specific connector configs beyond the shipped Codex/OpenCode/Gemini/Windsurf/Zed/sidecar, managed-storage, Repo Intelligence summary, LaunchAgent, app-state, and Ponytail receipt/plugin rows.
 
 ### Later
 

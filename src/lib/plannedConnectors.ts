@@ -294,7 +294,7 @@ export const managedConnectorDossiers: ManagedConnectorDossier[] = [
       "Prove Off mode removes only the Switchboard-owned provider config.",
     ],
     manualWorkflow: [
-      "Confirm Cursor is installed.",
+      "Confirm OpenCode is installed.",
       "Toggle the connector on from Settings.",
       "Use Doctor repair if managed config drifts.",
     ],
@@ -804,11 +804,11 @@ const plannedConnectorSafetyDossiers: Record<
   gemini_cli: {
     connectorId: "gemini_cli",
     configPathStrategy:
-      "Detect PATH: gemini first, then probe documented provider settings or shell flags read-only.",
+      "Detect PATH: gemini first, then apply Switchboard-managed shell/base-url exports and sidecar evidence.",
     providerSemantics:
-      "Treat base-url routing as provider-specific until Gemini CLI exposes a stable local proxy surface.",
+      "Route Gemini CLI through the local Headroom-compatible base-url surface managed by Switchboard.",
     accountCaveat:
-      "Model and account compatibility must be reported before routing; no account tokens are stored.",
+      "Model and account compatibility must stay visible; no account tokens are stored by Switchboard.",
     rollbackStrategy:
       "Restore the previous provider settings or remove only Switchboard-managed shell routing.",
   },

@@ -84,7 +84,7 @@ const connectorSetupDetails: Record<string, string> = {
   amazon_q:
     "Amazon Q Developer CLI is tracked as a planned CLI connector. Verification packs are safe today; AWS credential and profile state stay outside managed setup.",
   windsurf:
-    "Windsurf is tracked as a planned editor connector. Paste Repo Intelligence handoffs manually until settings backup and restore support lands.",
+    "Windsurf is a managed editor connector. Switchboard manages provider routing with backups, verification, rollback, and Off cleanup.",
   zed_ai:
     "Zed AI is a managed editor connector. Switchboard manages provider routing with backups, verification, rollback, and Off cleanup.",
 };
@@ -106,7 +106,7 @@ const connectorUnavailableReasons: Record<string, string> = {
   qwen_code: "Qwen Code adapter is planned but not configurable yet.",
   amazon_q:
     "Amazon Q Developer CLI adapter is planned but not configurable yet.",
-  windsurf: "Windsurf adapter is planned but not configurable yet.",
+  windsurf: "Windsurf was not detected. Install Windsurf, then reopen Mac AI Switchboard.",
   zed_ai: "Zed was not detected. Install Zed, then reopen Mac AI Switchboard.",
 };
 

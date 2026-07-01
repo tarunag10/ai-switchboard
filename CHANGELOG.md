@@ -9,3 +9,7 @@
 - Added Mode Inspector repair actions for Direct managed connectors.
 - Filled managed Zed connector metadata so connector validation covers config surfaces, manual workflow, and Off-mode cleanup wording.
 - Validated with frontend, desktop, connector, build, and Doctor-repair smoke checks.
+
+### Connector status documentation sync
+
+- Updated connector support docs, install notes, architecture docs, and the compatibility matrix so Gemini CLI, OpenCode, Windsurf, and Zed AI are documented as managed where their lifecycle is now implemented.

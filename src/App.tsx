@@ -432,7 +432,7 @@ const connectorSetupDetails: Record<string, string> = {
   windsurf:
     "Headroom writes managed Windsurf provider routing to ~/Library routing to ~/Library/Application Support/Windsurf/User/settings.json with managed markers and rollback.",
   zed_ai:
-    "Zed AI is tracked as a planned editor connector. Keep provider settings manual while Switchboard adds lossless settings detection and restore.",
+    "Zed AI is a managed editor connector. Switchboard manages provider routing with backups, verification, rollback, and Off cleanup.",
 };
 
 const connectorSupportWarnings: Record<string, string> = {};
@@ -455,7 +455,7 @@ const connectorUnavailableReasons: Record<string, string> = {
   amazon_q:
     "Amazon Q Developer CLI adapter is planned but not configurable yet.",
   windsurf: "Windsurf was not detected. Install Windsurf, then reopen Mac AI Switchboard.",
-  zed_ai: "Zed AI adapter is planned but not configurable yet.",
+  zed_ai: "Zed was not detected. Install Zed, then reopen Mac AI Switchboard.",
 };
 
 const launcherConnectorFallback: ClientConnectorStatus[] = [
