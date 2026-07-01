@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Release readiness connector evidence wording
+
+- Updated the shareable release gate copy so static smoke preflight requires managed connector readiness evidence instead of the old planned-connector safety wording.
+
 ### Frontend Doctor gated-connector guidance
 
 - Aligned frontend Doctor degraded-mode and connector guidance with the backend wording so manual follow-up is limited to connector-specific native routing gates with backup, verify, rollback, and Off cleanup evidence.

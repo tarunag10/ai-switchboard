@@ -440,7 +440,7 @@ export const releaseShareableGates: ReleaseShareableGate[] = [
     id: "static-smoke-preflight",
     label: "Static smoke preflight",
     detail:
-      "smoke:preflight passes and writes dist/smoke-preflight-summary.md with managed connector safety evidence and planned connector safety evidence.",
+      "smoke:preflight passes and writes dist/smoke-preflight-summary.md with managed connector safety evidence and managed connector readiness evidence.",
   },
   {
     id: "installed-smoke",
