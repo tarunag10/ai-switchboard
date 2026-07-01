@@ -8,7 +8,7 @@ const jsonPath = "dist/local-doctor-repair-validation-summary.json";
 const steps = [
   {
     id: "doctor-frontend",
-    label: "Doctor frontend and copy tests",
+    label: "Doctor frontend, copy, and Repair all timeline evidence tests",
     command: "npm",
     args: [
       "test",
@@ -82,7 +82,7 @@ Generated: ${generatedAt}
 - Evidence kind: local Doctor repair validation
 - Release gate evidence: no
 - Overall result: ${passed ? "pass" : "fail"}
-- Scope: Doctor frontend copy, failed-repair timeline evidence, Off/RTK repair guards, and managed repair post-write verification guard
+- Scope: Doctor frontend copy, failed-repair timeline evidence, aggregated Repair all timeline evidence, Off/RTK repair guards, and managed repair post-write verification guard
 
 ${results
   .map(

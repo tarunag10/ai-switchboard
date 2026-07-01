@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+### Doctor repair smoke aggregation evidence
+
+- Updated the local Doctor repair validation summary to explicitly cover aggregated Repair all timeline evidence.
+- Added deployment readiness enforcement so future release checks fail if aggregated Repair all failure evidence drops out of the Doctor smoke.
+
 ### Repair all timeline evidence
 
 - Added Doctor timeline coverage for aggregated Repair all failures so support exports preserve every failed sub-action while still scrubbing secrets and local paths.

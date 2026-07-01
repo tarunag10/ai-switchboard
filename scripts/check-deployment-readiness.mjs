@@ -886,6 +886,7 @@ const requiredSourceSignals = {
     "off_mode_blocks_doctor_repairs_that_restore_headroom",
     "doctor_client_repair_reports_failed_post_write_verification",
     "failed-repair timeline evidence",
+    "aggregated Repair all timeline evidence",
   ],
 };
 
