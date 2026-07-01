@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Release verifier connector wording
+
+- Updated release verification output to check connector registry parity without stale planned-connector wording, and added a deployment-readiness guard for the label.
+
 ### Release readiness connector evidence wording
 
 - Updated the shareable release gate copy so static smoke preflight requires managed connector readiness evidence instead of the old planned-connector safety wording.

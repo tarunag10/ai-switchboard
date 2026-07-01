@@ -20,7 +20,7 @@ npm run smoke:preflight
 echo "Checking repo-memory MCP read-only contract..."
 npm run check:repo-memory-mcp
 
-echo "Checking planned connector registry parity..."
+echo "Checking connector registry parity..."
 npm run check:connectors
 
 echo "Checking for tracked local artifacts..."

@@ -96,6 +96,7 @@ const requiredScripts = {
     "npm run release:env:selftest",
     "npm run smoke:preflight",
     "npm run check:repo-memory-mcp",
+    "Checking connector registry parity",
     "npm run check:connectors",
     "npm run check:local-artifacts",
     "npm run check:colors",
