@@ -416,6 +416,12 @@ describe("managedChangeRecords", () => {
       "dedicated cleanup rows use their own exact-confirmation cleanup actions",
     );
     expect(preview.safetyNotes.join(" ")).toContain("native undo-all control");
+    expect(preview.safetyNotes.join(" ")).toContain(
+      "Codex, Gemini, OpenCode, Windsurf, Zed",
+    );
+    expect(preview.safetyNotes.join(" ")).toContain(
+      "retained managed connector sidecar rollback paths",
+    );
   });
 
   it("formats undo-all preview without claiming native writes ran", () => {
@@ -427,6 +433,8 @@ describe("managedChangeRecords", () => {
     expect(text).toContain("Codex routing (codex-routing)");
     expect(text).toContain("Gemini CLI routing (gemini-routing)");
     expect(text).toContain("OpenCode routing (opencode-routing)");
+    expect(text).toContain("Windsurf routing (windsurf-routing)");
+    expect(text).toContain("Zed AI routing (zed-ai-routing)");
     expect(text).toContain("Cursor routing (cursor-routing)");
     expect(text).toContain("Amazon Q Developer CLI routing (amazon-q-routing)");
     expect(text).toContain("Manual or cleanup rows:");

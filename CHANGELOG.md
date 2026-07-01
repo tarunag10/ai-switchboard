@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Rollback Center undo-all safety copy
+
+- Updated undo-all rollback preview safety notes so backend-allowlisted Windsurf and Zed native rows are named alongside Codex, Gemini, OpenCode, and retained sidecar rollback paths.
+
 ### Mode Inspector repair detail
 
 - Updated managed connector Direct rows in Mode Inspector so repairable routing drift says Repair will re-apply reversible managed setup and verify routing evidence.
