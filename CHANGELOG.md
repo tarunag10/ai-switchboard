@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Connector phase baseline wording
+
+- Updated the Agent Control Center phase 6 baseline and roadmap shipped-state copy so connector readiness coverage is distinct from promoted Gemini/OpenCode/Windsurf/Zed managed routing and retained sidecar/readiness coverage for unpromoted tools.
+
 ### Doctor connector coverage copy
 
 - Updated Doctor connector guidance and copied dossiers so the no-pending-planned state says managed connector coverage with promoted routing evidence instead of stale managed sidecar coverage.

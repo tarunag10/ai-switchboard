@@ -12,7 +12,7 @@ Shipped:
 
 - Off and RTK-only modes now gate launch warmup, threaded bootstrap, and legacy synchronous bootstrap so optimization does not silently restart after the user turns it off.
 - Doctor already reports Off-mode violations when Headroom, managed client routing, or RTK remain active against a requested Off mode.
-- Connector sidecar/readiness coverage exists for Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed, while the fully managed manifest set is Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI.
+- Connector readiness coverage exists for Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed. Gemini CLI, OpenCode, Windsurf, and Zed AI have promoted managed routing evidence, while Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, and Amazon Q retain sidecar/readiness coverage until native/provider writes are proven. The fully managed manifest set is Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI.
 - Gemini has managed shell base-url routing. OpenCode has promoted provider-config routing with preview, exact confirmation, backup, apply, verify, rollback, and Off cleanup coverage.
 - Cursor now surfaces detected editor settings files as evidence while native writes remain blocked. Windsurf and Zed have promoted managed editor-settings routing with backup, verification, rollback, and Off cleanup.
 - Repo Intelligence Start Agent Session, read-only packs, handoffs, CLI exports, and repo-memory MCP smoke transport are usable.

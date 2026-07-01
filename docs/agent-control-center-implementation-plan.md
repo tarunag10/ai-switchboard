@@ -292,16 +292,16 @@ Suggested commit:
 
 - `Add Doctor timeline and rollback center`
 
-## Phase 6: Managed Connector Baseline And Native Config Promotion
+## Phase 6: Connector Readiness Baseline And Native Config Promotion
 
-Goal: keep the shipped managed sidecar baseline for all connector targets and promote native provider/editor config mutation only where the connector-specific safety contract is proven.
+Goal: keep the shipped connector readiness baseline for every connector target, preserve sidecar cleanup where that is still the safe implementation, and promote native provider/editor config mutation only where the connector-specific safety contract is proven.
 
-Current baseline: Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI are manifest-managed. Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI all have sidecar/readiness lifecycle coverage. `npm run check:connectors` should continue to report manifest-managed connectors separately from managed connector dossiers, promoted sidecar dossiers, pending planned rows, and retained compatibility dossiers.
+Current baseline: Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI are manifest-managed. Gemini CLI uses managed shell routing, OpenCode uses promoted provider-config routing, and Windsurf/Zed use promoted editor-settings routing. Cursor, Grok/xAI CLI, Aider, Continue, Goose, Qwen Code, and Amazon Q Developer CLI retain sidecar/readiness lifecycle coverage until their native/provider writes are proven. `npm run check:connectors` should continue to report manifest-managed connectors separately from managed connector dossiers, promoted sidecar dossiers, pending planned rows, and retained compatibility dossiers.
 
 Deliverables:
 
 - Preserve binary/version detection and compatibility reporting for every connector with a readiness dossier.
-- Keep sidecar dry-run diff, backup, apply, verify, rollback, and Off cleanup available for every connector with promoted sidecar coverage.
+- Keep sidecar dry-run diff, backup, apply, verify, rollback, and Off cleanup available for connectors that still rely on promoted sidecar coverage.
 - Promote native config writes connector by connector only after the provider/editor surface is proven locally.
 - Keep provider routing manual if model/account compatibility cannot be verified locally.
 
