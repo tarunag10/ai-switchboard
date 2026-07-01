@@ -207,19 +207,19 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         id: "gemini_cli",
         name: "Gemini CLI",
         category: "cli",
-        setup_phase: "guide",
-        setup_hint: "Manual guide only. Reversible Gemini provider routing is planned once config support is verified.",
+        setup_phase: "adapt",
+        setup_hint: "Managed shell/base-url routing with sidecar evidence, Doctor verification, rollback, and Off mode cleanup.",
         detection_sources: &["PATH: gemini", "~/.gemini", "~/.config/gemini"],
         config_locations: &["~/.gemini", "~/.config/gemini"],
         automation_gates: &[
-            "Detect stable Gemini provider config or documented local proxy flag.",
-            "Back up provider settings before any routing change.",
-            "Verify Off mode restores Gemini without changing account state.",
+            "Detect Gemini CLI and Gemini provider config surfaces before applying routing.",
+            "Write only Switchboard-managed shell/base-url routing and sidecar evidence.",
+            "Verify Doctor repair, model/account compatibility visibility, and Off mode cleanup preserve account state.",
         ],
         manual_workflow: &[
             "Confirm Gemini CLI is installed.",
-            "Use RTK-only mode for noisy Gemini shell output.",
-            "Keep provider routing manual until Doctor can verify model/account compatibility.",
+            "Toggle the connector on from Settings.",
+            "Use Doctor repair if managed Gemini routing drifts.",
         ],
     },
     PlannedClientSpec {
@@ -227,7 +227,7 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         name: "OpenCode",
         category: "cli",
         setup_phase: "adapt",
-        setup_hint: "Manual guide only. Automatic setup waits for backed-up provider config edits and Off mode cleanup.",
+        setup_hint: "Managed provider routing with backup, Doctor verification, rollback, and Off mode cleanup.",
         detection_sources: &["PATH: opencode", "PATH: open-code", "~/.opencode", "~/.config/opencode"],
         config_locations: &["~/.opencode", "~/.config/opencode"],
         automation_gates: &[
@@ -237,8 +237,8 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         ],
         manual_workflow: &[
             "Confirm OpenCode is installed.",
-            "Run OpenCode commands through RTK when output is noisy.",
-            "Leave provider config edits manual until restore checks ship.",
+            "Toggle the connector on from Settings.",
+            "Use Doctor repair if managed OpenCode routing drifts.",
         ],
     },
     PlannedClientSpec {
@@ -378,31 +378,31 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         id: "windsurf",
         name: "Windsurf",
         category: "editor",
-        setup_phase: "guide",
-        setup_hint: "Manual guide only. Editor provider configs need backup and restore coverage before writes.",
+        setup_phase: "adapt",
+        setup_hint: "Managed editor settings routing with backup, Doctor verification, rollback, and Off mode cleanup.",
         detection_sources: &[
             "PATH: windsurf",
             "~/Library/Application Support/Windsurf",
             "/Applications/Windsurf.app",
         ],
-        config_locations: &["~/Library/Application Support/Windsurf"],
+        config_locations: &["~/Library/Application Support/Windsurf/User/settings.json"],
         automation_gates: &[
-            "Identify provider config format without dropping unknown fields.",
-            "Back up editor settings before any routing change.",
-            "Verify Off mode restores the exact prior editor provider state.",
+            "Back up Windsurf settings before managed routing edits.",
+            "Verify managed Windsurf routing points at Headroom.",
+            "Verify Off mode removes only Switchboard-owned managed markers.",
         ],
         manual_workflow: &[
-            "Open Windsurf and keep provider setup manual.",
-            "Paste handoff packs as read-only project context.",
-            "Use Switchboard only for local RTK and Repo Intelligence support today.",
+            "Confirm Windsurf is installed.",
+            "Toggle the connector on from Settings.",
+            "Use Doctor repair if managed Windsurf routing drifts.",
         ],
     },
     PlannedClientSpec {
         id: "zed_ai",
         name: "Zed AI",
         category: "editor",
-        setup_phase: "guide",
-        setup_hint: "Manual guide only. Zed assistant settings require explicit backup/restore support first.",
+        setup_phase: "adapt",
+        setup_hint: "Managed editor settings routing with backup, Doctor verification, rollback, and Off mode cleanup.",
         detection_sources: &[
             "PATH: zed",
             "~/.config/zed",
@@ -411,14 +411,14 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         ],
         config_locations: &["~/.config/zed", "~/Library/Application Support/Zed"],
         automation_gates: &[
-            "Parse Zed assistant settings without losing user options.",
-            "Back up exact settings before managed provider routing.",
-            "Verify Off mode removes only Switchboard-owned changes.",
+            "Detect Zed settings before injecting managed routing.",
+            "Preserve unknown settings losslessly.",
+            "Verify Off mode removes only Switchboard-owned managed routing.",
         ],
         manual_workflow: &[
-            "Open Zed assistant settings manually.",
-            "Paste Repo Intelligence handoff packs into AI chat.",
-            "Keep model/provider choice manual until Doctor can verify it safely.",
+            "Confirm Zed is installed.",
+            "Toggle the connector on from Settings.",
+            "Use Doctor repair if managed Zed routing drifts.",
         ],
     },
 ];
@@ -7169,8 +7169,8 @@ mod tests {
         codex_store_version, default_shell_targets_for_family, discover_codex_state_dbs,
         entry_contains_hook, find_on_path_entries, get_codex_thread_retagging_settings,
         list_client_connectors, normalize_setup_state, normalized_setup_id, nvm_binary_candidates,
-        parse_json_object, remove_managed_block, remove_pre_tool_use_markers,
-        restore_codex_thread_db_backup, retag_codex_thread_providers,
+        parse_json_object, planned_connector_has_implemented_setup, remove_managed_block,
+        remove_pre_tool_use_markers, restore_codex_thread_db_backup, retag_codex_thread_providers,
         retag_codex_threads_to_headroom, retag_one_codex_db, serialize_paths,
         set_codex_thread_retagging_settings, shell_block_contains_in_files,
         shell_block_contains_text_in_files, shell_double_quote, strip_headroom_hook_from_settings,
@@ -7313,12 +7313,20 @@ mod tests {
                 "{} should have config locations",
                 spec.id
             );
-            assert!(
-                spec.setup_hint.contains("Manual guide")
-                    || spec.setup_hint.contains("Detection only"),
-                "{} should stay manual until reversible adapters exist",
-                spec.id
-            );
+            if planned_connector_has_implemented_setup(spec.id) {
+                assert!(
+                    spec.setup_hint.contains("Managed"),
+                    "{} should describe its managed setup lifecycle",
+                    spec.id
+                );
+            } else {
+                assert!(
+                    spec.setup_hint.contains("Manual guide")
+                        || spec.setup_hint.contains("Detection only"),
+                    "{} should stay manual until reversible adapters exist",
+                    spec.id
+                );
+            }
         }
     }
 

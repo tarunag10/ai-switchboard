@@ -22,7 +22,7 @@ tests cover apply, verify, rollback, Doctor repair, Off cleanup, and managed
 footprint reporting. The connector manifest must include automation gates for
 backup, verify, rollback, and Off cleanup.
 
-Claude Code and Codex are first-class managed targets. Gemini CLI and OpenCode
-have bounded managed adapters and remain covered by the same lifecycle checks.
-Editor and multi-provider tools stay guided or planned until their settings can
-be parsed and restored losslessly.
+Claude Code and Codex are first-class managed targets. Gemini CLI, OpenCode,
+Windsurf, and Zed AI have promoted managed adapters and remain covered by the
+same lifecycle checks. Remaining editor and multi-provider tools stay guided or
+planned until their settings can be parsed and restored losslessly.
