@@ -10134,7 +10134,7 @@ export default function App() {
               <div className="connector-readiness">
                 <div>
                   <span className="connector-readiness__eyebrow">
-                    Planned tool readiness
+                    Connector readiness
                   </span>
                   <strong>{plannedConnectorReadiness.headline}</strong>
                   <p>{plannedConnectorReadiness.detail}</p>
@@ -10142,7 +10142,7 @@ export default function App() {
                 <div className="connector-readiness__actions">
                   <div
                     className="connector-readiness__metrics"
-                    aria-label="Planned connector readiness summary"
+                    aria-label="Connector readiness summary"
                   >
                     <span>
                       <strong>{plannedConnectorReadiness.detectedCount}</strong>

@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Connector readiness summary labels
+
+- Updated Home and Settings connector readiness summary labels to use connector readiness wording instead of stale planned-tool wording.
+
 ### Doctor connector dossier export wording
 
 - Updated Doctor connector dossier exports so the no-pending state refers to connector-native write dossiers instead of stale planned connector dossiers.
