@@ -184,6 +184,7 @@ fn home_dir() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::fs;
     use std::os::unix::fs::PermissionsExt;
     use std::time::Instant;
@@ -207,6 +208,28 @@ mod tests {
     impl Drop for ScopedTempDir {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    struct EnvRestore {
+        key: &'static str,
+        previous: Option<std::ffi::OsString>,
+    }
+
+    impl EnvRestore {
+        fn set(key: &'static str, value: &str) -> Self {
+            let previous = std::env::var_os(key);
+            std::env::set_var(key, value);
+            Self { key, previous }
+        }
+    }
+
+    impl Drop for EnvRestore {
+        fn drop(&mut self) {
+            match &self.previous {
+                Some(value) => std::env::set_var(self.key, value),
+                None => std::env::remove_var(self.key),
+            }
         }
     }
 
@@ -352,6 +375,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn is_runnable_finds_colocated_interpreter_via_augmented_path() {
         // Regression: nvm/volta/bun/asdf installs of `claude` are
         // `#!/usr/bin/env <interp>` scripts with the interpreter colocated in
@@ -378,13 +402,8 @@ mod tests {
 
         // Strip PATH so the only way `env fakenode` can resolve is via the
         // augmentation `is_runnable` adds.
-        let saved = std::env::var_os("PATH");
-        std::env::set_var("PATH", "/usr/bin:/bin");
+        let _path = EnvRestore::set("PATH", "/usr/bin:/bin");
         let result = is_runnable(&claude);
-        match saved {
-            Some(v) => std::env::set_var("PATH", v),
-            None => std::env::remove_var("PATH"),
-        }
         assert!(result, "is_runnable must augment PATH with the candidate's bin dir so colocated interpreters resolve");
     }
 

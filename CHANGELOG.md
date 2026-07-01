@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Backend smoke-test stability
+
+- Hardened backend process-spawn smoke tests by serializing PATH-mutating Claude CLI coverage and using production-equivalent smoke timeouts in Headroom and markitdown helper tests.
+
 ### Doctor repair-all action normalization
 
 - Added backend normalization for Doctor Repair all so duplicate repair actions are skipped and all-managed-client repair takes precedence over individual managed-client repairs.

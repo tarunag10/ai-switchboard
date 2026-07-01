@@ -8049,7 +8049,7 @@ after
         write_executable(&runtime.managed_python(), "#!/bin/sh\nexit 0\n");
 
         manager
-            .smoke_test_headroom_with_timeout(Duration::from_secs(2))
+            .smoke_test_headroom_with_timeout(super::HEADROOM_SMOKE_TEST_TIMEOUT)
             .expect("smoke test succeeds");
 
         let _ = fs::remove_dir_all(root);
@@ -8064,7 +8064,7 @@ after
         );
 
         let err = manager
-            .smoke_test_headroom_with_timeout(Duration::from_secs(2))
+            .smoke_test_headroom_with_timeout(super::HEADROOM_SMOKE_TEST_TIMEOUT)
             .expect_err("smoke test should fail");
         let failure = err
             .chain()
@@ -8172,7 +8172,7 @@ after
         write_executable(&manager.markitdown_entrypoint(), "#!/bin/sh\nexit 0\n");
 
         manager
-            .smoke_test_markitdown_with_timeout(Duration::from_secs(2))
+            .smoke_test_markitdown_with_timeout(super::HEADROOM_SMOKE_TEST_TIMEOUT)
             .expect("smoke test succeeds");
 
         let _ = fs::remove_dir_all(root);
@@ -8189,7 +8189,7 @@ after
         write_executable(&manager.markitdown_entrypoint(), "#!/bin/sh\nexit 3\n");
 
         manager
-            .smoke_test_markitdown_with_timeout(Duration::from_secs(2))
+            .smoke_test_markitdown_with_timeout(super::HEADROOM_SMOKE_TEST_TIMEOUT)
             .expect_err("smoke test should fail");
 
         let _ = fs::remove_dir_all(root);
