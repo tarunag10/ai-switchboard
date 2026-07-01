@@ -276,9 +276,9 @@ Tasks:
 
 Acceptance checks:
 
-- Managed connectors show useful detection, sidecar lifecycle state, and native config gates without mutating native config.
-- Automation is disabled until backup, verify, rollback, and Off cleanup exist.
-- Doctor can explain why a connector is not safely automatable yet.
+- Managed connectors show useful detection, sidecar lifecycle state, native config gate status, and promoted routing lifecycle evidence without mutating unsupported native config.
+- Automation is disabled until backup, verify, rollback, and Off cleanup exist; promoted routes expose repair/rollback only after those gates are proven.
+- Doctor can explain why a connector is not safely automatable yet and can repair promoted managed routing drift.
 - Adding a new connector does not require bespoke UI rewrites.
 
 Suggested commit:

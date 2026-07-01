@@ -91,7 +91,7 @@ export const plannedAddons: PlannedAddon[] = [
     healthChecks: [
       "Detected tools stay read-only unless a managed adapter is explicitly supported.",
       "Every managed connector shows config surfaces, automation gates, manual workflow, and native config gate state.",
-      "Doctor keeps native connector config tasks manual and excludes them from Repair all until restore coverage is proven.",
+      "Doctor offers repair for promoted managed routes and keeps remaining native connector config tasks manual until restore coverage is proven.",
       "Off mode must remove only Switchboard-owned changes before any future adapter writes config.",
     ],
     savingsSources: [

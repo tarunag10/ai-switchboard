@@ -115,3 +115,7 @@
 ### Native editor rollback fallback cleanup
 
 - Removed stale Windsurf/Zed entries from the sidecar rollback fallback table so promoted editor connectors always resolve through native settings rollback paths.
+
+### Connector manual-gate copy
+
+- Clarified add-on, roadmap, and beta smoke copy so promoted managed connector routing drift is repairable while only remaining unpromoted native config gates stay manual.

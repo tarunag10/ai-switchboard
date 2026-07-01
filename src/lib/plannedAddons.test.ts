@@ -130,6 +130,12 @@ describe("planned add-ons", () => {
     expect(connectors?.healthChecks.join(" ")).toContain(
       "Off mode must remove only Switchboard-owned changes",
     );
+    expect(connectors?.healthChecks.join(" ")).toContain(
+      "Doctor offers repair for promoted managed routes",
+    );
+    expect(connectors?.healthChecks.join(" ")).toContain(
+      "remaining native connector config tasks manual",
+    );
     expect(connectors?.savingsSources.join(" ")).toContain(
       "Repo Intelligence handoff packs",
     );
