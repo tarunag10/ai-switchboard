@@ -3985,6 +3985,7 @@ mod doctor_tests {
                 issue("gemini_b", Some("repair_client_setup:gemini_cli")),
                 issue("opencode", Some("repair_client_setup:opencode")),
                 issue("manual", None),
+                issue("off_mode", Some("verify_off_mode")),
                 issue("rtk_a", Some("repair_rtk_runtime")),
                 issue("rtk_b", Some("repair_rtk_runtime")),
             ],
@@ -4584,6 +4585,10 @@ fn normalized_repair_all_actions(report: &crate::models::DoctorReport) -> Vec<St
         .iter()
         .filter_map(|issue| issue.repair_action.as_deref())
     {
+        if action == "verify_off_mode" {
+            continue;
+        }
+
         if action.starts_with("repair_client_setup:") {
             if has_all_client_repair {
                 continue;

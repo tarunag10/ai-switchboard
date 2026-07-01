@@ -2,6 +2,11 @@
 
 ## 2026-07-02
 
+### Repair all verification action filter
+
+- Excluded Verify Off from backend Repair all normalization so mixed Doctor reports cannot fail on a verification-only action.
+- Added backend coverage that Repair all keeps repairing actionable items while skipping Off-mode proof refreshes.
+
 ### Doctor verification badge styling
 
 - Added an explicit Doctor verification badge style so Verify Off evidence is visually distinct from automatic repairs and manual steps.
