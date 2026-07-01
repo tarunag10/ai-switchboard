@@ -585,7 +585,7 @@ export function connectorControlState(connector: ClientConnectorStatus): {
   if (!connectorSupportsAutomaticSetup(connector)) {
     const releaseCopy = connector.installed
       ? "is detected, but automatic routing is not available yet"
-      : "support is planned for a later release";
+      : "setup is gated until reversible routing evidence is proven";
     const hint = connector.setupHint
       ? ` ${connector.setupHint}`
       : " Use RTK-only mode for command output savings today.";
@@ -618,7 +618,7 @@ export function connectorDashboardStatus(connector: ClientConnectorStatus): {
   if (!connectorSupportsAutomaticSetup(connector)) {
     return connector.installed
       ? { label: connector.setupPhase ?? "Gated", tone: "pending" }
-      : { label: "Coming soon", tone: "idle" };
+      : { label: "Gated", tone: "idle" };
   }
   if (!connector.enabled) {
     return connector.installed

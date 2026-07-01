@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Dashboard gated connector control copy
+
+- Updated connector dashboard control states so unavailable non-managed connectors are labeled as gated setup instead of planned or coming soon.
+
 ### Implementation plan gated connector language
 
 - Updated the implementation plan and backend connector test diagnostics so roadmap and fixture messages use gated connector language instead of planned connector language.

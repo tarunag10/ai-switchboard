@@ -580,7 +580,7 @@ describe("dashboard helpers", () => {
     ).toBe(false);
   });
 
-  it("disables planned connector controls with RTK-only guidance", () => {
+  it("disables gated connector controls with RTK-only guidance", () => {
     expect(
       connectorControlState({
         clientId: "cursor",
@@ -610,7 +610,7 @@ describe("dashboard helpers", () => {
     ).toEqual({
       disabled: true,
       reason:
-        "Grok / xAI CLI support is planned for a later release. Use RTK-only mode for command output savings today.",
+        "Grok / xAI CLI setup is gated until reversible routing evidence is proven. Use RTK-only mode for command output savings today.",
     });
 
     expect(
@@ -1149,7 +1149,7 @@ describe("dashboard helpers", () => {
         enabled: false,
         verified: false,
       }),
-    ).toEqual({ label: "Coming soon", tone: "idle" });
+    ).toEqual({ label: "Gated", tone: "idle" });
   });
 
   it("formats timestamps and learn recency with clear fallbacks", () => {
