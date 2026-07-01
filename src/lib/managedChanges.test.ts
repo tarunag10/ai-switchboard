@@ -97,6 +97,12 @@ describe("managedChangeRecords", () => {
     expect(allCopy).toContain("headroom:claude_code");
     expect(allCopy).toContain("headroom:codex_cli");
     expect(allCopy).toContain("headroom:zed");
+    expect(allCopy).toContain(
+      "Remove only the Switchboard-owned Gemini shell routing and sidecar blocks.",
+    );
+    expect(allCopy).not.toContain(
+      "Remove managed Gemini CLI shell routing exports and Switchboard sidecar dossier.",
+    );
     expect(allCopy).toContain("~/.config/zed/settings.json");
     expect(allCopy).toContain(
       "~/Library/Application Support/Windsurf/User/settings.json",

@@ -136,7 +136,7 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     id: "gemini-routing",
     kind: "client_config",
     owner: "Gemini CLI routing",
-    text: "Managed Gemini CLI shell routing exports and rollback dossier.",
+    text: "Managed Gemini CLI shell routing exports and rollback cleanup blocks.",
     paths: [
       "~/.zshrc",
       "~/.zprofile",
@@ -146,7 +146,7 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     backupPath: "next to edited shell profile or sidecar as *.headroom-backup-*",
     lastVerifiedLabel: "Verified by Doctor connector checks",
     rollback:
-      "Remove managed Gemini CLI shell routing exports and Switchboard sidecar dossier.",
+      "Remove only the Switchboard-owned Gemini shell routing and sidecar blocks.",
   },
   {
     id: "opencode-routing",

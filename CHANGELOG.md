@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+### Gemini rollback cleanup copy
+
+- Aligned the Gemini managed-change record with the backend rollback preview so cleanup copy names Switchboard-owned shell and sidecar blocks instead of a vague sidecar dossier.
+- Added managed-change coverage to prevent Gemini rollback copy from drifting away from the executable backend cleanup contract.
+
 ### Plugin cleanup rollback copy
 
 - Aligned the add-on managed-change record with the backend Ponytail cleanup contract: automatic rollback now promises only Switchboard-receipted plugin registration removal, while backup-file sweeping remains manual until a stricter allowlist exists.
