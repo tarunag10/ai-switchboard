@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Codex provider repair-ready row
+
+- Updated the Codex provider-block Mode Inspector fallback so direct provider routing is described as repair-ready instead of a passive not-routed state.
+
 ### Managed footprint backup pattern guard
 
 - Added backend regression coverage so managed-footprint evidence keeps the current `*.headroom-backup-*` rollback backup pattern and rejects the stale `*.headroom.bak` suffix.

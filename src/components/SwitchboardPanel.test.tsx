@@ -314,7 +314,7 @@ describe("SwitchboardPanel", () => {
           label: "Codex provider block",
           status: "Direct",
           detail:
-            "Codex is not routed through Switchboard. Use the Codex routing repair-ready row to re-apply the managed provider block.",
+            "Codex provider routing is repair ready. Use the Codex routing repair-ready row to re-apply the managed provider block.",
         },
       ],
     });
@@ -322,7 +322,7 @@ describe("SwitchboardPanel", () => {
     const inspector = within(screen.getByLabelText("Mode Inspector"));
     expect(
       inspector.getByText(
-        "Codex is not routed through Switchboard. Use the Codex routing repair-ready row to re-apply the managed provider block.",
+        "Codex provider routing is repair ready. Use the Codex routing repair-ready row to re-apply the managed provider block.",
       ),
     ).toBeInTheDocument();
   });
