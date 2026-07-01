@@ -28,7 +28,7 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | Goose | Guided | No | No | Yes | MCP/repo handoff fit before native routing. |
 | Qwen Code | Detected | No | No | Yes | Detection and handoff only until lifecycle tests exist. |
 | Amazon Q Developer CLI | Detected | No | No | Yes | Detection and handoff only until lifecycle tests exist. |
-| Zed AI | Managed | Yes | No | Yes | Managed settings routing with backup, Doctor verification, rollback, and Off cleanup. |
+| Zed AI | Managed | Yes | No | Yes | Managed assistant settings routing with backup, Doctor verification, rollback, and Off cleanup. |
 | Grok / xAI CLI | Planned | No | No | Yes | Detection and config semantics need more evidence. |
 
 ## Automation Gates

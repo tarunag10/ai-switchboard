@@ -248,7 +248,7 @@ const agentHandoffProfiles = [
     toolKind: "editor",
     defaultPackId: "handoff",
     guidance:
-      "Paste into Windsurf chat as read-only project context; managed provider routing is handled by the Switchboard connector.",
+      "Paste into Windsurf chat as read-only project context; managed editor settings routing is handled by the Switchboard connector.",
   },
   {
     id: "zed",
@@ -256,7 +256,7 @@ const agentHandoffProfiles = [
     toolKind: "editor",
     defaultPackId: "handoff",
     guidance:
-      "Paste into Zed assistant as read-only context; managed provider routing is handled by the Switchboard connector.",
+      "Paste into Zed assistant as read-only context; managed assistant settings routing is handled by the Switchboard connector.",
   },
 ];
 
@@ -425,20 +425,20 @@ const plannedConnectorDossiers = {
   windsurf: {
     name: "Windsurf",
     configPathStrategy:
-      "Detect the Windsurf app and active settings location before applying managed provider routing.",
+      "Detect the Windsurf app and active settings location before applying managed editor settings routing.",
     accountCaveat:
-      "Switchboard preserves unrelated account and model settings while managing only its provider routing block.",
+      "Switchboard preserves unrelated account and model settings while managing only its editor settings routing block.",
     rollbackStrategy:
-      "Restore the active settings backup and remove only Switchboard-managed provider entries.",
+      "Restore the active settings backup and remove only Switchboard-managed editor settings routing entries.",
   },
   zed_ai: {
     name: "Zed AI",
     configPathStrategy:
-      "Detect the Zed app settings file at ~/.config/zed/settings.json before applying managed provider routing.",
+      "Detect the Zed app settings file at ~/.config/zed/settings.json before applying managed assistant settings routing.",
     accountCaveat:
       "Switchboard preserves unrelated provider/account settings while managing only its local proxy routing entry.",
     rollbackStrategy:
-      "Restore assistant/provider settings from backup and remove managed local proxy entries.",
+      "Restore assistant settings from backup and remove only Switchboard-managed local proxy routing entries.",
   },
 };
 

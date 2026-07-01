@@ -622,7 +622,7 @@ export const repoAgentHandoffProfiles: RepoAgentHandoffProfile[] = [
     toolKind: "editor",
     defaultPackId: "handoff",
     guidance:
-      "Paste into Windsurf chat as read-only project context; managed provider routing is handled by the Switchboard connector.",
+      "Paste into Windsurf chat as read-only project context; managed editor settings routing is handled by the Switchboard connector.",
   },
   {
     id: "zed",
@@ -630,7 +630,7 @@ export const repoAgentHandoffProfiles: RepoAgentHandoffProfile[] = [
     toolKind: "editor",
     defaultPackId: "handoff",
     guidance:
-      "Paste into Zed assistant as read-only context; managed provider routing is handled by the Switchboard connector.",
+      "Paste into Zed assistant as read-only context; managed assistant settings routing is handled by the Switchboard connector.",
   },
 ];
 

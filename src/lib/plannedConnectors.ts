@@ -355,8 +355,8 @@ export const managedConnectorDossiers: ManagedConnectorDossier[] = [
     supportStatus: "managed",
     statusLabel: "Managed",
     setupPhase: "Managed",
-    integrationTarget: "Native config mutation for Zed settings.json provider routing.",
-    notes: "Writes managed routing block to ~/.config/zed/settings.json with full backup/verify/rollback.",
+    integrationTarget: "Managed Zed assistant settings routing adapter.",
+    notes: "Writes managed assistant settings routing to ~/.config/zed/settings.json with full backup/verify/rollback.",
     capabilityBadges: [
       "Managed routing",
       "Doctor verified",
@@ -391,7 +391,7 @@ export const managedConnectorDossiers: ManagedConnectorDossier[] = [
       "Detect Zed settings.json before injecting routing block.",
       "Preserve unknown settings losslessly.",
       "Restore settings from backup.",
-      "Verify managed provider routing after apply.",
+      "Verify managed assistant settings routing after apply.",
       "Clean up managed routing block on disconnect.",
     ],
     manualWorkflow: [
@@ -905,24 +905,24 @@ const plannedConnectorSafetyDossiers: Record<
   windsurf: {
     connectorId: "windsurf",
     configPathStrategy:
-      "Detect the Windsurf app and active settings location before applying managed provider routing.",
+      "Detect the Windsurf app and active settings location before applying managed editor settings routing.",
     providerSemantics:
-      "Manage only the Switchboard provider routing block while preserving unrelated Windsurf settings.",
+      "Manage only the Switchboard editor settings routing block while preserving unrelated Windsurf settings.",
     accountCaveat:
-      "Switchboard preserves unrelated account and model settings while managing only its provider routing block.",
+      "Switchboard preserves unrelated account and model settings while managing only its editor settings routing block.",
     rollbackStrategy:
-      "Restore the active settings backup and remove only Switchboard-managed provider entries.",
+      "Restore the active settings backup and remove only Switchboard-managed editor settings routing entries.",
   },
   zed_ai: {
     connectorId: "zed_ai",
     configPathStrategy:
-      "Detect the Zed app settings file at ~/.config/zed/settings.json before applying managed provider routing.",
+      "Detect the Zed app settings file at ~/.config/zed/settings.json before applying managed assistant settings routing.",
     providerSemantics:
-      "Provider routing must preserve Zed assistant settings and any non-managed providers.",
+      "Assistant settings routing must preserve Zed assistant settings and any non-managed providers.",
     accountCaveat:
       "Switchboard preserves unrelated provider/account settings while managing only its local proxy routing entry.",
     rollbackStrategy:
-      "Restore assistant/provider settings from backup and remove managed local proxy entries.",
+      "Restore assistant settings from backup and remove only Switchboard-managed local proxy routing entries.",
   },
 };
 
@@ -1210,14 +1210,14 @@ export function getPlannedConnectorSetupGuide(
         label: "Open Windsurf",
         command: "open -a Windsurf",
         notes:
-          "Open Windsurf after enabling the connector to verify managed provider routing through Switchboard.",
+          "Open Windsurf after enabling the connector to verify managed editor settings routing through Switchboard.",
       };
     case "zed_ai":
       return {
         label: "Open Zed",
         command: "open -a Zed",
         notes:
-          "Open Zed after enabling the connector to verify managed provider routing through Switchboard.",
+          "Open Zed after enabling the connector to verify managed assistant settings routing through Switchboard.",
       };
     default:
       return null;

@@ -61,6 +61,14 @@ describe("planned connectors", () => {
     expect(windsurf?.capabilityRows[0]?.detail).toContain(
       "editor settings routing",
     );
+    const zed = managedConnectorDossiers.find(
+      (connector) => connector.id === "zed_ai",
+    );
+    expect(zed?.integrationTarget).toContain("assistant settings routing");
+    expect(zed?.notes).toContain("assistant settings routing");
+    expect(zed?.automationGates.join(" ")).toContain(
+      "assistant settings routing",
+    );
   });
 
   it("derives the shared support matrix from connector manifests", () => {

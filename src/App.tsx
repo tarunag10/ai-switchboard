@@ -434,7 +434,7 @@ const connectorSetupDetails: Record<string, string> = {
   windsurf:
     "Headroom writes managed Windsurf editor settings routing to ~/Library/Application Support/Windsurf/User/settings.json with managed markers and rollback.",
   zed_ai:
-    "Zed AI is a managed editor connector. Switchboard manages provider routing with backups, verification, rollback, and Off cleanup.",
+    "Zed AI is a managed editor connector. Switchboard manages assistant settings routing with backups, verification, rollback, and Off cleanup.",
 };
 
 const connectorSupportWarnings: Record<string, string> = {};

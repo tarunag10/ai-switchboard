@@ -912,7 +912,7 @@ describe("repoIntelligence", () => {
     const windsurfPayload = buildRepoAgentHandoffPayload(summary, "windsurf");
     expect(windsurfPayload.safety.manualProviderRouting).toBe(false);
     expect(windsurfPayload.agent.guidance).toContain(
-      "managed provider routing is handled",
+      "managed editor settings routing is handled",
     );
     expect(windsurfPayload.configReadiness).toEqual(
       expect.objectContaining({
@@ -924,6 +924,9 @@ describe("repoIntelligence", () => {
 
     const zedPayload = buildRepoAgentHandoffPayload(summary, "zed");
     expect(zedPayload.safety.manualProviderRouting).toBe(false);
+    expect(zedPayload.agent.guidance).toContain(
+      "managed assistant settings routing is handled",
+    );
     expect(zedPayload.configReadiness).toEqual(
       expect.objectContaining({
         plannedConnectorId: "zed_ai",

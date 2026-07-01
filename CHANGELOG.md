@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Zed connector routing wording
+
+- Aligned Zed connector docs, setup copy, and frontend readiness dossiers with the backend assistant-settings routing lifecycle, and guarded the docs signal.
+
 ### Windsurf connector routing wording
 
 - Aligned Windsurf connector docs and frontend readiness dossiers with the backend editor-settings routing lifecycle, replacing stale provider-routing wording and guarding the docs signal.
