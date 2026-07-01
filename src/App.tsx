@@ -159,6 +159,7 @@ import {
   connectorCompatibilityReport,
   connectorCompatibilityRoutingEvidenceLabel,
   connectorDashboardStatus,
+  connectorSupportsAutomaticSetup,
   currency,
   currencyExact,
   dayOfMonthTickFormatter,
@@ -7817,7 +7818,7 @@ export default function App() {
     const verified = connector?.verified === true;
     const canRepairManaged =
       connector?.installed === true &&
-      connector.supportStatus === "managed" &&
+      connectorSupportsAutomaticSetup(connector) &&
       (!configured || !verified);
     const managedRepairAction =
       connector?.clientId === "codex"

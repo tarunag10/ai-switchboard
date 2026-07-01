@@ -2,6 +2,11 @@
 
 ## 2026-07-02
 
+### Mode Inspector managed repair fallback
+
+- Reused the shared connector automatic-setup classifier in Mode Inspector so legacy managed connector payloads without `supportStatus` still show repair-ready actions instead of Direct-only status.
+- Added helper coverage for omitted managed support status versus explicitly planned connectors.
+
 ### Doctor verification issue grouping
 
 - Split verification-only Doctor issues into their own section so Verify Off evidence no longer appears under manual review.

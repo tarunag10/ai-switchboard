@@ -420,6 +420,28 @@ describe("dashboard helpers", () => {
     ).toEqual(["claude_code", "cursor", "zed"]);
   });
 
+  it("treats omitted support status as managed for legacy connector payloads", () => {
+    expect(
+      connectorSupportsAutomaticSetup({
+        clientId: "codex",
+        name: "Codex",
+        installed: true,
+        enabled: false,
+        verified: false,
+      }),
+    ).toBe(true);
+    expect(
+      connectorSupportsAutomaticSetup({
+        clientId: "cursor",
+        name: "Cursor",
+        supportStatus: "planned",
+        installed: true,
+        enabled: false,
+        verified: false,
+      }),
+    ).toBe(false);
+  });
+
   it("keeps managed and planned switchboard connectors visible", () => {
     const connectors: ClientConnectorStatus[] = [
       {
