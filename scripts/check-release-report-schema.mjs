@@ -292,9 +292,9 @@ if (!requiredEvidence.includes("Connector readiness payload in agent handoffs"))
     "staticSmokePreflight.requiredEvidence must include connector readiness payload in agent handoffs",
   );
 }
-if (!requiredEvidence.includes("Gemini connector dry-run preview evidence")) {
+if (!requiredEvidence.includes("Managed connector readiness evidence")) {
   fail(
-    "staticSmokePreflight.requiredEvidence must include Gemini connector dry-run preview evidence",
+    "staticSmokePreflight.requiredEvidence must include managed connector readiness evidence",
   );
 }
 requireType(report, "staticSmokePreflight.message", "string");
@@ -350,7 +350,7 @@ for (const requiredItem of [
   "Switchboard copyable state",
   "Doctor copyable report",
   "Savings calculator copyable ledger",
-  "Managed connector automation gates, manual workflow, config creation plan, and Gemini dry-run preview evidence",
+  "Managed connector automation gates, manual workflow, config creation plan, and managed connector readiness evidence",
   "Connector readiness payload in agent handoffs",
   "Codex compression recovery",
 ]) {

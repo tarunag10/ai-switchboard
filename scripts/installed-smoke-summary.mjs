@@ -60,7 +60,7 @@ const evidenceAreas = [
   "Switchboard copyable state",
   "Doctor automatic/manual triage and repair actions",
   "Doctor copyable report",
-  "Managed connector automation gates, manual workflow, config creation plan, and Gemini dry-run preview evidence",
+  "Managed connector automation gates, manual workflow, config creation plan, and managed connector readiness evidence",
   "Repo Intelligence recipes and local context packs",
   "Savings calculator copyable ledger",
   "Per-tool agent handoffs",

@@ -63,3 +63,7 @@
 ### Mode Inspector targeted connector repairs
 
 - Updated Home Mode Inspector repair buttons for installed managed connectors to call per-tool repair actions instead of the bulk client repair path.
+
+### Managed connector smoke evidence wording
+
+- Updated smoke, release, and beta-test evidence wording to require broader managed connector readiness evidence instead of stale Gemini-only dry-run preview wording.
