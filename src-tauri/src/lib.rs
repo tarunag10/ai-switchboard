@@ -3178,6 +3178,78 @@ fn repo_memory_mcp_doctor_issue(runtime: &RuntimeStatus) -> Option<crate::models
     })
 }
 
+fn codex_routing_doctor_issue(
+    connectors: &[ClientConnectorStatus],
+    desired_mode: &SwitchboardMode,
+    provider_block_matches: bool,
+) -> Option<crate::models::DoctorIssue> {
+    if !matches!(
+        desired_mode,
+        SwitchboardMode::Full | SwitchboardMode::Headroom
+    ) {
+        return None;
+    }
+
+    let codex = connectors
+        .iter()
+        .find(|client| client.client_id == "codex")?;
+    if !codex.installed {
+        return None;
+    }
+    if codex.verified && provider_block_matches {
+        return None;
+    }
+
+    let body = if codex.enabled {
+        "Codex is marked as connected, but its model provider, shell export, or proxy URL no longer matches the managed Headroom setup. This can cause direct routing, empty model-provider errors, or unsupported-model errors. Repair will re-apply the reversible Codex setup."
+    } else {
+        "Codex is detected on this Mac, but it is not routed through Switchboard. Repair will add the reversible OPENAI_BASE_URL shell export and Headroom-managed provider block, then verify the setup."
+    };
+
+    Some(crate::models::DoctorIssue {
+        id: "codex_provider_mismatch".to_string(),
+        title: "Codex routing config needs repair".to_string(),
+        body: body.to_string(),
+        severity: crate::models::DoctorSeverity::Warning,
+        repair_action: Some("repair_codex_setup".to_string()),
+    })
+}
+
+fn unrouted_managed_connector_issues(
+    connectors: &[ClientConnectorStatus],
+    desired_mode: &SwitchboardMode,
+) -> Vec<crate::models::DoctorIssue> {
+    if !matches!(
+        desired_mode,
+        SwitchboardMode::Full | SwitchboardMode::Headroom
+    ) {
+        return Vec::new();
+    }
+
+    connectors
+        .iter()
+        .filter(|client| {
+            client.client_id != "codex"
+                && client.installed
+                && !client.enabled
+                && matches!(
+                    client.support_status,
+                    crate::models::ClientConnectorSupportStatus::Managed
+                )
+        })
+        .map(|client| crate::models::DoctorIssue {
+            id: format!("{}_routing_not_configured", client.client_id),
+            title: format!("{} is detected but not routed", client.name),
+            body: format!(
+                "{} is installed on this Mac, but Switchboard has not applied its reversible managed routing setup. Repair will re-apply managed client setup for installed supported tools, then verify the routing evidence.",
+                client.name
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("repair_client_setups".to_string()),
+        })
+        .collect()
+}
+
 fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
     let runtime = state.runtime_status();
     let codex_direct_bypass = state
@@ -3283,26 +3355,21 @@ repair_action: Some("reset_codex_bypass".to_string()),
         });
     }
 
-    let codex_connector_enabled = connectors
-        .iter()
-        .any(|client| client.client_id == "codex" && client.enabled);
-    if codex_connector_enabled
-        && matches!(
-            desired_mode,
-            SwitchboardMode::Full | SwitchboardMode::Headroom
-        )
-        && !client_adapters::codex_provider_block_matches().unwrap_or(false)
+    let codex_provider_block_matches =
+        client_adapters::codex_provider_block_matches().unwrap_or(false);
+    if let Some(issue) =
+        codex_routing_doctor_issue(&connectors, &desired_mode, codex_provider_block_matches)
     {
-        issues.push(crate::models::DoctorIssue {
-id: "codex_provider_mismatch".to_string(),
-title: "Codex routing config needs repair".to_string(),
-body: "Codex is marked as connected, but its model provider or proxy URL no longer matches the managed Headroom setup. This can cause empty or unsupported-model errors. Repair will re-apply the reversible Codex setup.".to_string(),
-severity: crate::models::DoctorSeverity::Warning,
-repair_action: Some("repair_codex_setup".to_string()),
-        });
+        issues.push(issue);
     }
+    issues.extend(unrouted_managed_connector_issues(
+        &connectors,
+        &desired_mode,
+    ));
 
-    if codex_connector_enabled
+    if connectors
+        .iter()
+        .any(|client| client.client_id == "codex" && client.enabled)
         && matches!(
             desired_mode,
             SwitchboardMode::Full | SwitchboardMode::Headroom
@@ -3358,22 +3425,14 @@ repair_action: Some("repair_codex_setup".to_string()),
         desired_mode,
         SwitchboardMode::Full | SwitchboardMode::Headroom
     ) && enabled_clients == 0
+        && installed_clients == 0
     {
-        let repair_action = if installed_clients > 0 {
-            Some("repair_client_setups".to_string())
-        } else {
-            None
-        };
         issues.push(crate::models::DoctorIssue {
 id: "no_headroom_clients".to_string(),
 title: "No clients are routed through Headroom".to_string(),
-body: if installed_clients > 0 {
-"Installed coding clients were found, but none are currently configured to use Headroom. Repair will re-apply reversible client setup.".to_string()
-} else {
-"No supported coding clients were detected yet. Install or open Codex, Claude Code, or a supported editor, then return to connect it.".to_string()
-},
+body: "No supported coding clients were detected yet. Install or open Codex, Claude Code, or a supported editor, then return to connect it.".to_string(),
 severity: crate::models::DoctorSeverity::Warning,
-repair_action,
+repair_action: None,
 });
     }
 
@@ -3762,6 +3821,38 @@ mod doctor_tests {
         }
     }
 
+    fn test_connector_status(
+        id: &str,
+        name: &str,
+        support_status: crate::models::ClientConnectorSupportStatus,
+        installed: bool,
+        enabled: bool,
+        verified: bool,
+    ) -> ClientConnectorStatus {
+        ClientConnectorStatus {
+            client_id: id.to_string(),
+            name: name.to_string(),
+            support_status,
+            setup_phase: "managed".to_string(),
+            setup_hint: "Automatic reversible setup.".to_string(),
+            category: "cli".to_string(),
+            detection_sources: vec!["test".to_string()],
+            detection_evidence: vec!["detected".to_string()],
+            config_locations: vec!["~/.config/test".to_string()],
+            automation_gates: Vec::new(),
+            manual_workflow: Vec::new(),
+            config_creation_steps: Vec::new(),
+            config_creation_step_details: Vec::new(),
+            config_dry_run_preview: None,
+            automation_path: Vec::new(),
+            installed,
+            enabled,
+            verified,
+            setup_verification: None,
+            last_configured_at: None,
+        }
+    }
+
     #[test]
     fn off_mode_violations_empty_when_runtime_clients_and_rtk_are_off() {
         let runtime = test_runtime_status(false, false, false);
@@ -3941,6 +4032,74 @@ mod doctor_tests {
 
         runtime.repo_memory_mcp_supervision_status = "verified_active".to_string();
         assert!(repo_memory_mcp_doctor_issue(&runtime).is_none());
+    }
+
+    #[test]
+    fn codex_routing_issue_repairs_detected_but_unrouted_codex() {
+        let connectors = vec![test_connector_status(
+            "codex",
+            "Codex",
+            crate::models::ClientConnectorSupportStatus::Managed,
+            true,
+            false,
+            false,
+        )];
+
+        let issue = codex_routing_doctor_issue(&connectors, &SwitchboardMode::Full, false)
+            .expect("unrouted Codex should be repairable");
+
+        assert_eq!(issue.id, "codex_provider_mismatch");
+        assert_eq!(issue.repair_action.as_deref(), Some("repair_codex_setup"));
+        assert!(issue.body.contains("Codex is detected"));
+        assert!(issue.body.contains("OPENAI_BASE_URL"));
+    }
+
+    #[test]
+    fn unrouted_managed_connector_issue_repairs_second_direct_tool() {
+        let connectors = vec![
+            test_connector_status(
+                "codex",
+                "Codex",
+                crate::models::ClientConnectorSupportStatus::Managed,
+                true,
+                true,
+                true,
+            ),
+            test_connector_status(
+                "gemini_cli",
+                "Gemini CLI",
+                crate::models::ClientConnectorSupportStatus::Managed,
+                true,
+                false,
+                false,
+            ),
+        ];
+
+        let issues = unrouted_managed_connector_issues(&connectors, &SwitchboardMode::Full);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].id, "gemini_cli_routing_not_configured");
+        assert_eq!(
+            issues[0].repair_action.as_deref(),
+            Some("repair_client_setups")
+        );
+        assert!(issues[0].body.contains("Gemini CLI is installed"));
+    }
+
+    #[test]
+    fn unrouted_planned_connector_stays_manual() {
+        let connectors = vec![test_connector_status(
+            "aider",
+            "Aider",
+            crate::models::ClientConnectorSupportStatus::Planned,
+            true,
+            false,
+            false,
+        )];
+
+        let issues = unrouted_managed_connector_issues(&connectors, &SwitchboardMode::Full);
+
+        assert!(issues.is_empty());
     }
 }
 

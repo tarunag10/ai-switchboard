@@ -294,9 +294,108 @@ export const managedConnectorDossiers: ManagedConnectorDossier[] = [
       "Prove Off mode removes only the Switchboard-owned provider config.",
     ],
     manualWorkflow: [
-      "Confirm OpenCode is installed.",
+      "Confirm Cursor is installed.",
       "Toggle the connector on from Settings.",
-      "Use Doctor repair if managed OpenCode routing drifts.",
+      "Use Doctor repair if managed config drifts.",
+    ],
+  },
+  {
+    id: "windsurf",
+    name: "Windsurf",
+    category: "editor",
+    supportStatus: "managed",
+    statusLabel: "Managed",
+    setupPhase: "Managed",
+    integrationTarget: "Managed Windsurf provider routing config adapter.",
+    notes: "Switchboard manages Windsurf provider routing through settings with backups, Doctor verification, rollback, and Off cleanup.",
+    capabilityBadges: [
+      "Managed routing",
+      "Doctor verified",
+      "Rollback ready",
+    ],
+    supportedModes: ["Full", "Headroom", "Off"],
+    safeToday: "Enable the connector to write managed Windsurf provider routing and rollback evidence.",
+    firstAutomation: "Doctor re-applies the managed Windsurf routing block if verification drifts.",
+    capabilityRows: [
+      {
+        label: "Managed routing",
+        state: "Available now",
+        detail: "Switchboard writes managed Windsurf provider routing settings.",
+      },
+      {
+        label: "Verification",
+        state: "Available now",
+        detail: "Doctor verifies the managed Windsurf routing block and sidecar are present.",
+      },
+      {
+        label: "Rollback",
+        state: "Available now",
+        detail: "Off mode removes only Switchboard-owned Windsurf config blocks.",
+      },
+    ],
+    configSurfaces: ["Windsurf app bundle", "user settings", "profile settings"],
+    automationGates: [
+      "Back up Windsurf settings before edits.",
+      "Verify managed Windsurf routing block.",
+      "Rollback restores settings from backup.",
+      "Off mode removes only Switchboard-owned managed blocks.",
+    ],
+    manualWorkflow: [
+      "Confirm Windsurf is installed.",
+      "Toggle the connector on from Settings.",
+      "Use Doctor repair if managed config drifts.",
+    ],
+  },
+  {
+    id: "zed_ai",
+    name: "Zed AI",
+    category: "editor",
+    supportStatus: "managed",
+    statusLabel: "Managed",
+    setupPhase: "Managed",
+    integrationTarget: "Native config mutation for Zed settings.json provider routing.",
+    notes: "Writes managed routing block to ~/.config/zed/settings.json with full backup/verify/rollback.",
+    capabilityBadges: [
+      "Managed routing",
+      "Doctor verified",
+      "Rollback ready",
+    ],
+    supportedModes: ["Full", "Headroom", "Off"],
+    safeToday: "Enable the connector to write the managed Zed routing block and rollback evidence.",
+    firstAutomation: "Doctor re-applies the managed routing block if verification drifts.",
+    capabilityRows: [
+      {
+        label: "Managed routing",
+        state: "Available now",
+        detail: "Switchboard writes a managed routing block to ~/.config/zed/settings.json.",
+      },
+      {
+        label: "Verification",
+        state: "Available now",
+        detail: "Doctor verifies the managed routing block and rollback sidecar.",
+      },
+      {
+        label: "Rollback",
+        state: "Available now",
+        detail: "Off mode removes only the Switchboard-owned routing block.",
+      },
+    ],
+    configSurfaces: [
+      "Zed app bundle",
+      "~/.config/zed/settings.json",
+      "~/Library/Application Support/Zed",
+    ],
+    automationGates: [
+      "Detect Zed settings.json before injecting routing block.",
+      "Preserve unknown settings losslessly.",
+      "Restore settings from backup.",
+      "Verify managed provider routing after apply.",
+      "Clean up managed routing block on disconnect.",
+    ],
+    manualWorkflow: [
+      "Toggle the connector on from Settings.",
+      "Restart Zed to pick up the injected routing block.",
+      "Verify a prompt routes through Headroom.",
     ],
   },
 ];
@@ -681,118 +780,6 @@ export const plannedConnectors: PlannedConnector[] = [
       "Do not route provider traffic automatically until credential guardrails ship.",
     ],
   },
-  {
-    id: "windsurf",
-    name: "Windsurf",
-    category: "editor",
-    supportStatus: "planned",
-    statusLabel: "Planned",
-    setupPhase: "Guide",
-    integrationTarget:
-      "Editor detection copyable Repo Intelligence handoff before settings adapter.",
-    notes:
-      "Start guided editor settings account surfaces vary by release channel.",
-    capabilityBadges: [
-      "App detection",
-      "Repo packs today",
-      "Settings backup pending",
-    ],
-    supportedModes: ["Repo packs", "Guided setup", "Off"],
-    safeToday:
-      "Open Windsurf paste Repo Intelligence handoff packs into assistant manually.",
-    firstAutomation:
-      "Use detected settings files to build a dry-run diff before any provider edits.",
-    capabilityRows: [
-      {
-        label: "App detection",
-        state: "Available now",
-        detail: "Switchboard can guide users toward Windsurf app surface.",
-      },
-      {
-        label: "Repo context",
-        state: "Manual today",
-        detail:
-          "Use handoff packs in Windsurf assistant without writing settings.",
-      },
-      {
-        label: "Settings adapter",
-        state: "Available now",
-        detail:
-          "Settings file discovery is available; writes still wait for parse, backup, restore, and Off mode cleanup.",
-      },
-    ],
-    configSurfaces: [
-      "Windsurf app bundle",
-      "user settings",
-      "profile settings",
-    ],
-    automationGates: [
-      "Detect active Windsurf settings location before reading.",
-      "Back up settings without touching account secrets.",
-      "Verify Off mode restores exact prior settings.",
-    ],
-    manualWorkflow: [
-      "Open Windsurf manually.",
-      "Paste Repo Intelligence handoff packs into assistant.",
-      "Wait settings backup restore coverage before automatic routing.",
-    ],
-  },
-  {
-    id: "zed_ai",
-    name: "Zed AI",
-    category: "editor",
-    supportStatus: "planned",
-    statusLabel: "Planned",
-    setupPhase: "Guide",
-    integrationTarget:
-      "Editor detection read-only context handoff before provider settings support.",
-    notes:
-      "Keep provider/account selection manual until Zed settings parsing restore lossless.",
-    capabilityBadges: [
-      "App detection",
-      "Repo packs today",
-      "Settings backup pending",
-    ],
-    supportedModes: ["Repo packs", "Guided setup", "Off"],
-    safeToday:
-      "Open Zed paste bounded Repo Intelligence handoffs into assistant manually.",
-    firstAutomation:
-      "Parse Zed assistant settings read-only show dry-run diff before edits.",
-    capabilityRows: [
-      {
-        label: "App detection",
-        state: "Available now",
-        detail: "Switchboard can guide users toward Zed app surface.",
-      },
-      {
-        label: "Repo context",
-        state: "Manual today",
-        detail:
-          "Use Repo Intelligence handoff packs in Zed AI without config writes.",
-      },
-      {
-        label: "Settings adapter",
-        state: "Planned",
-        detail:
-          "Automatic routing waits lossless settings parse restore coverage.",
-      },
-    ],
-    configSurfaces: [
-      "Zed app bundle",
-      "assistant settings",
-      "provider settings",
-    ],
-    automationGates: [
-      "Detect Zed assistant settings without guessing paths.",
-      "Back up provider settings before any local proxy route.",
-      "Verify Off mode restores exact previous assistant settings.",
-    ],
-    manualWorkflow: [
-      "Open Zed manually.",
-      "Paste Repo Intelligence handoff packs into Zed AI.",
-      "Keep model/provider settings manual until restore checks ship.",
-    ],
-  },
 ];
 
 export const promotedSidecarConnectorIds = new Set([
@@ -803,8 +790,6 @@ export const promotedSidecarConnectorIds = new Set([
   "goose",
   "qwen_code",
   "amazon_q",
-  "windsurf",
-  "zed_ai",
 ]);
 
 export const pendingPlannedConnectors: PlannedConnector[] =
@@ -914,17 +899,6 @@ const plannedConnectorSafetyDossiers: Record<
       "AWS profile, SSO, and credential state must remain outside Switchboard storage.",
     rollbackStrategy:
       "Remove managed routing without modifying AWS config, credentials, SSO cache, or profiles.",
-  },
-  windsurf: {
-    connectorId: "windsurf",
-    configPathStrategy:
-      "Detect the Windsurf app and active settings location before showing any write plan.",
-    providerSemantics:
-      "Editor/provider behavior can vary by profile, so base-url changes require a dry-run diff.",
-    accountCaveat:
-      "Account and model settings stay manual until the adapter preserves unknown fields.",
-    rollbackStrategy:
-      "Restore the active settings backup and remove only Switchboard-managed provider entries.",
   },
   zed_ai: {
     connectorId: "zed_ai",
@@ -1202,13 +1176,6 @@ export function getPlannedConnectorSetupGuide(
         command: "command -v q && q --version",
         notes:
           "Confirms the CLI is present without reading AWS credentials or changing profile state.",
-      };
-    case "windsurf":
-      return {
-        label: "Open Windsurf",
-        command: "open -a Windsurf",
-        notes:
-          "Open Windsurf and paste Repo Intelligence handoffs manually. Automatic settings edits wait backup and restore coverage.",
       };
     case "zed_ai":
       return {

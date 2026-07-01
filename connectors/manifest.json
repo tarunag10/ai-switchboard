@@ -113,20 +113,22 @@
     "id": "windsurf",
     "name": "Windsurf",
     "category": "editor",
-    "support_status": "planned",
+    "support_status": "managed",
     "detection": { "binaries": [], "paths": ["/Applications/Windsurf.app", "~/Library/Application Support/Windsurf"] },
-    "config": { "locations": ["~/Library/Application Support/Windsurf"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
-    "automation_gates": ["Detect active settings location before writes.", "Preserve account and model settings manually.", "Restore exact settings backup on rollback."],
-    "manual_workflow": ["Use copied context packs.", "Review provider settings manually.", "Wait for verified editor config support."]
+    "config": { "locations": ["~/Library/Application Support/Windsurf/User/settings.json"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
+    "automation_gates": ["Back up Windsurf settings.json before edits.", "Verify managed anthropic.baseUrl routing.", "Rollback restores settings.json from backup.", "Off mode removes only Switchboard-owned managed markers."],
+    "manual_workflow": ["Confirm Windsurf is installed.", "Toggle the connector on from Settings.", "Use Doctor repair if provider config drifts."]
   },
   {
     "id": "zed_ai",
     "name": "Zed AI",
     "category": "editor",
-    "support_status": "planned",
+    "support_status": "managed",
     "detection": { "binaries": ["zed"], "paths": ["~/.config/zed"] },
     "config": { "locations": ["~/.config/zed"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
-    "automation_gates": ["Detect assistant settings before parsing provider entries.", "Preserve unknown settings losslessly.", "Restore assistant/provider settings from backup."],
-    "manual_workflow": ["Use copied context packs.", "Keep provider/account selection manual.", "Wait for verified Zed assistant config support."]
+    "automation_gates": ["Detect Zed settings.json before injecting routing block.", "Preserve unknown settings losslessly.", "Restore settings from backup.", "Verify managed provider routing after apply.", "Off mode removes the managed routing block on disconnect."],
+    "manual_workflow": ["Restart Zed to pick up the injected routing block.", "Verify a prompt routes through Headroom."]
+
+
   }
 ]

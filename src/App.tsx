@@ -430,7 +430,7 @@ const connectorSetupDetails: Record<string, string> = {
   amazon_q:
     "Amazon Q Developer CLI is tracked as a planned CLI connector. Verification packs are safe today; AWS credential and profile state stay outside managed setup.",
   windsurf:
-    "Windsurf is tracked as a planned editor connector. Paste Repo Intelligence handoffs manually until settings backup and restore support lands.",
+    "Headroom writes managed Windsurf provider routing to ~/Library routing to ~/Library/Application Support/Windsurf/User/settings.json with managed markers and rollback.",
   zed_ai:
     "Zed AI is tracked as a planned editor connector. Keep provider settings manual while Switchboard adds lossless settings detection and restore.",
 };
@@ -454,7 +454,7 @@ const connectorUnavailableReasons: Record<string, string> = {
   qwen_code: "Qwen Code adapter is planned but not configurable yet.",
   amazon_q:
     "Amazon Q Developer CLI adapter is planned but not configurable yet.",
-  windsurf: "Windsurf adapter is planned but not configurable yet.",
+  windsurf: "Windsurf was not detected. Install Windsurf, then reopen Mac AI Switchboard.",
   zed_ai: "Zed AI adapter is planned but not configurable yet.",
 };
 
@@ -7806,6 +7806,33 @@ export default function App() {
   ) => {
     const configured = connector?.enabled === true;
     const verified = connector?.verified === true;
+    const canRepairDirectManaged =
+      connector?.installed === true &&
+      connector.supportStatus === "managed" &&
+      !configured;
+    const directRepairAction =
+      connector?.clientId === "codex"
+        ? "repair_codex_setup"
+        : "repair_client_setups";
+    const actionLabel = configured && !verified
+      ? "Open Connectors"
+      : canRepairDirectManaged
+        ? connector?.clientId === "codex"
+          ? "Repair Codex"
+          : "Repair clients"
+        : undefined;
+    const actionDisabled =
+      configured && !verified
+        ? false
+        : canRepairDirectManaged
+          ? doctorRepairBusy !== null
+          : undefined;
+    const onAction =
+      configured && !verified
+        ? () => setActiveView("settings")
+        : canRepairDirectManaged
+          ? () => void handleDoctorRepair(directRepairAction)
+          : undefined;
     return {
       label,
       status: configured ? (verified ? "Verified" : "Needs test") : "Direct",
@@ -7816,9 +7843,13 @@ export default function App() {
             : `${connector.name} routing is configured; send a test prompt from Connectors.`
           : `${connector.name} is detected but not routed.`
         : `${label.replace(" routing", "")} is not detected on this Mac.`,
-      actionLabel: configured && !verified ? "Open Connectors" : undefined,
-      actionDisabled: configured && !verified ? false : undefined,
-      onAction: configured && !verified ? () => setActiveView("settings") : undefined,
+      actionLabel,
+      actionBusyLabel:
+        canRepairDirectManaged && doctorRepairBusy === directRepairAction
+          ? "Repairing"
+          : undefined,
+      actionDisabled,
+      onAction,
     };
   };
   const enabledConnectorVerifications = switchboardRoutingConnectors

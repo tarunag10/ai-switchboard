@@ -27,8 +27,6 @@ describe("planned connector mode readiness", () => {
       "goose",
       "qwen_code",
       "amazon_q",
-      "windsurf",
-      "zed_ai",
     ]);
   });
 });

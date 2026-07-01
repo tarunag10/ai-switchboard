@@ -715,13 +715,6 @@ export const plannedConnectorCompatibilityReportConfigs: Partial<
     versionPrefix: "Grok / xAI version:",
     configPrefix: "Grok / xAI config surface:"
   },
-  opencode: {
-    label: "OpenCode",
-    primaryPathLabel: "Binary",
-    pathPrefix: "OpenCode binary:",
-    versionPrefix: "OpenCode version:",
-    configPrefix: "OpenCode config surface:"
-  },
   qwen_code: {
     label: "Qwen Code",
     primaryPathLabel: "Binary",
@@ -729,20 +722,6 @@ export const plannedConnectorCompatibilityReportConfigs: Partial<
     versionPrefix: "Qwen Code version:",
     configPrefix: "Qwen Code config surface:"
   },
-  windsurf: {
-    label: "Windsurf",
-    primaryPathLabel: "App",
-    pathPrefix: "Windsurf app:",
-    versionPrefix: null,
-    configPrefix: "Windsurf settings:"
-  },
-  zed_ai: {
-    label: "Zed AI",
-    primaryPathLabel: "App",
-    pathPrefix: "Zed app:",
-    versionPrefix: null,
-    configPrefix: "Zed assistant settings:"
-  }
 };
 
 export function connectorCompatibilityReport(

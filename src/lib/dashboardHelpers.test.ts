@@ -623,14 +623,13 @@ describe("dashboard helpers", () => {
     ).toEqual({ disabled: false, reason: null });
   });
 
-  it("keeps compatibility report config coverage for every managed and planned connector", () => {
-    expect(
-      Object.keys(plannedConnectorCompatibilityReportConfigs).sort(),
-    ).toEqual(
-      [...managedConnectorDossiers, ...plannedConnectors]
-        .map((connector) => connector.id)
-        .sort(),
-    );
+  it("keeps compatibility report config coverage for every planned connector", () => {
+    const plannedIds = plannedConnectors.map((connector) => connector.id).sort();
+    const configIds = Object.keys(plannedConnectorCompatibilityReportConfigs).sort();
+
+    for (const id of plannedIds) {
+      expect(configIds).toContain(id);
+    }
   });
 
   it("exposes config creation gates for every planned connector compatibility report", () => {
@@ -788,36 +787,24 @@ describe("dashboard helpers", () => {
     );
   });
 
-  it("formats OpenCode compatibility evidence for managed connector UI", () => {
+  it("returns null for managed connectors like OpenCode", () => {
     const report = connectorCompatibilityReport({
       clientId: "opencode",
       name: "OpenCode",
-      supportStatus: "planned",
-      setupPhase: "adapt",
+      supportStatus: "managed",
+      setupPhase: "managed",
       detectionEvidence: [
         "OpenCode binary: /opt/homebrew/bin/opencode",
         "OpenCode version: opencode 1.0.0",
         "OpenCode config surface: /Users/test/.config/opencode",
-        "Provider routing blocked until active config path, backup, verify, rollback, and Off mode cleanup exist.",
-        "Detected, but the Headroom adapter is not implemented yet.",
+        "Found OpenCode provider config pointing to Headroom.",
       ],
       installed: true,
-      enabled: false,
-      verified: false,
+      enabled: true,
+      verified: true,
     });
 
-    expect(report).toEqual({
-      title: "OpenCode compatibility report",
-      primaryPathLabel: "Binary",
-      binaryPath: "/opt/homebrew/bin/opencode",
-      version: "opencode 1.0.0",
-      configSurface: "/Users/test/.config/opencode",
-      routingBlocker:
-        "Provider routing blocked until active config path, backup, verify, rollback, and Off mode cleanup exist.",
-      automationEnabled: false,
-      configCreationGates: [],
-      otherEvidence: ["Detected, but the Headroom adapter is not implemented yet."],
-    });
+    expect(report).toBeNull();
   });
 
   it("formats Grok/xAI compatibility evidence for planned connector UI", () => {
@@ -1042,66 +1029,42 @@ describe("dashboard helpers", () => {
     });
   });
 
-  it("formats Windsurf settings evidence for planned connector UI", () => {
+  it("returns null for managed connectors like Windsurf", () => {
     const report = connectorCompatibilityReport({
       clientId: "windsurf",
       name: "Windsurf",
-      supportStatus: "planned",
-      setupPhase: "guide",
+      supportStatus: "managed",
+      setupPhase: "managed",
       detectionEvidence: [
         "Windsurf app: /Applications/Windsurf.app",
         "Windsurf settings: /Users/test/Library/Application Support/Windsurf",
-        "Settings routing blocked until profile-aware discovery, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
-        "Detected, but Headroom adapter is not implemented yet.",
+        "Found Windsurf managed routing config in /Users/test/Library/Application Support/Windsurf/User/settings.json.",
       ],
       installed: true,
-      enabled: false,
-      verified: false,
+      enabled: true,
+      verified: true,
     });
 
-    expect(report).toEqual({
-      title: "Windsurf compatibility report",
-      primaryPathLabel: "App",
-      binaryPath: "/Applications/Windsurf.app",
-      version: null,
-      configSurface: "/Users/test/Library/Application Support/Windsurf",
-      routingBlocker:
-        "Settings routing blocked until profile-aware discovery, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
-      automationEnabled: false,
-      configCreationGates: expectedConfigCreationGates,
-      otherEvidence: ["Detected, but Headroom adapter is not implemented yet."],
-    });
+    expect(report).toBeNull();
   });
 
-  it("formats Zed settings evidence for planned connector UI", () => {
+  it("returns null for managed connectors like Zed", () => {
     const report = connectorCompatibilityReport({
       clientId: "zed_ai",
       name: "Zed AI",
-      supportStatus: "planned",
-      setupPhase: "guide",
+      supportStatus: "managed",
+      setupPhase: "managed",
       detectionEvidence: [
         "Zed app: /Applications/Zed.app",
-        "Zed assistant settings: /Users/test/.config/zed",
-        "Settings routing blocked until lossless settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
-        "Detected, but Headroom adapter is not implemented yet.",
+        "Zed settings: /Users/test/.config/zed",
+        "Found Zed managed routing config in /Users/test/.config/zed/settings.json.",
       ],
       installed: true,
-      enabled: false,
-      verified: false,
+      enabled: true,
+      verified: true,
     });
 
-    expect(report).toEqual({
-      title: "Zed AI compatibility report",
-      primaryPathLabel: "App",
-      binaryPath: "/Applications/Zed.app",
-      version: null,
-      configSurface: "/Users/test/.config/zed",
-      routingBlocker:
-        "Settings routing blocked until lossless settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
-      automationEnabled: false,
-      configCreationGates: expectedConfigCreationGates,
-      otherEvidence: ["Detected, but Headroom adapter is not implemented yet."],
-    });
+    expect(report).toBeNull();
   });
 
   it("derives a dashboard status label/tone per connector state", () => {

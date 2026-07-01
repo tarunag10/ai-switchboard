@@ -33,15 +33,15 @@ describe("planned connectors", () => {
       "goose",
       "qwen_code",
       "amazon_q",
-      "windsurf",
-      "zed_ai",
     ]);
   });
 
-  it("tracks Gemini CLI and OpenCode as managed connector dossiers", () => {
+  it("tracks Gemini CLI, OpenCode, Windsurf, and Zed AI as managed connector dossiers", () => {
     expect(managedConnectorDossiers.map((connector) => connector.id)).toEqual([
       "gemini_cli",
       "opencode",
+      "windsurf",
+      "zed_ai",
     ]);
     for (const connector of managedConnectorDossiers) {
       expect(connector.statusLabel).toBe("Managed");
@@ -188,7 +188,7 @@ describe("planned connectors", () => {
     ).toHaveLength(2);
     expect(
       plannedConnectors.filter((connector) => connector.setupPhase === "Guide"),
-    ).toHaveLength(5);
+    ).toHaveLength(3);
     expect(
       plannedConnectors.filter((connector) => connector.setupPhase === "Adapt"),
     ).toHaveLength(2);
@@ -200,8 +200,6 @@ describe("planned connectors", () => {
     expect(getPlannedConnector("amazon_q")?.name).toBe(
       "Amazon Q Developer CLI",
     );
-    expect(getPlannedConnector("windsurf")?.name).toBe("Windsurf");
-    expect(getPlannedConnector("zed_ai")?.name).toBe("Zed AI");
     expect(getPlannedConnector("missing")).toBeNull();
   });
 

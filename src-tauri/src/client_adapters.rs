@@ -34,6 +34,12 @@ const GEMINI_API_KEY_ENV_KEY: &str = "GEMINI_API_KEY";
 const GEMINI_HEADROOM_API_KEY_VALUE: &str = "headroom-local";
 const OPENCODE_CONFIG_FILE: &str = "opencode.json";
 const OPENCODE_HEADROOM_PROVIDER_ID: &str = "headroom";
+const CURSOR_CONFIG_FILE: &str = "settings.json";
+const CURSOR_MARKER_PREFIX: &str = "headroom:cursor";
+const WINDSURF_CONFIG_FILE: &str = "settings.json";
+const WINDSURF_MARKER_PREFIX: &str = "headroom:windsurf";
+const ZED_CONFIG_FILE: &str = "settings.json";
+const ZED_MARKER_PREFIX: &str = "headroom:zed";
 const SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md";
 const CONNECTOR_MANIFEST_JSON: &str = include_str!("../../connectors/manifest.json");
 const LEGACY_MARKER_PREFIX: &str = "headroom";
@@ -951,6 +957,16 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
             changed_files.extend(updates.0);
             backup_files.extend(updates.1);
         }
+        "windsurf" => {
+            let updates = configure_windsurf_provider_config()?;
+            changed_files.extend(updates.0);
+            backup_files.extend(updates.1);
+        }
+        "zed_ai" => {
+            let updates = configure_zed_provider_config()?;
+            changed_files.extend(updates.0);
+            backup_files.extend(updates.1);
+        }
         other if planned_sidecar_spec(other).is_some() => {
             if !planned_connector_has_implemented_setup(other) {
                 return Err(anyhow!(
@@ -1223,6 +1239,34 @@ pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
                     "OpenCode provider {} was not found in {}.",
                     OPENCODE_HEADROOM_PROVIDER_ID,
                     opencode_config_path().display()
+                ));
+            }
+        }
+        "windsurf" => {
+            let provider_ok = windsurf_provider_config_matches()?;
+            if provider_ok {
+                checks.push(format!(
+                    "Found Windsurf managed routing config in {}.",
+                    windsurf_config_path().display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Windsurf managed routing config was not found in {}.",
+                    windsurf_config_path().display()
+                ));
+            }
+        }
+        "zed_ai" => {
+            let provider_ok = zed_provider_config_matches()?;
+            if provider_ok {
+                checks.push(format!(
+                    "Found Zed managed routing config in {}.",
+                    zed_config_path().display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Zed managed routing config was not found in {}.",
+                    zed_config_path().display()
                 ));
             }
         }
@@ -1719,6 +1763,255 @@ fn remove_opencode_provider_config() -> Result<()> {
     Ok(())
 }
 
+fn windsurf_config_path() -> PathBuf {
+    home_dir()
+        .join("Library")
+        .join("Application Support")
+        .join("Windsurf")
+        .join("User")
+        .join(WINDSURF_CONFIG_FILE)
+}
+
+fn windsurf_config_backup_pattern() -> String {
+    let path = windsurf_config_path();
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(WINDSURF_CONFIG_FILE);
+    format!("{}.headroom-backup-*", file_name)
+}
+
+fn windsurf_apply_confirmation_phrase(current_state: &str) -> String {
+    format!(
+        "Apply {WINDSURF_ROLLBACK_MARKER} to {} after reviewing {}",
+        windsurf_config_path().display(),
+        short_state_hash(current_state)
+    )
+}
+
+fn windsurf_next_provider_config() -> Result<(Value, bool)> {
+    let path = windsurf_config_path();
+    let mut root = if path.exists() {
+        let raw = std::fs::read_to_string(&path)
+            .with_context(|| format!("reading {}", path.display()))?;
+        parse_json_object(&raw, &path)?
+    } else {
+        serde_json::Map::new()
+    };
+
+    let mut changed = false;
+    changed |= set_json_string(
+        &mut root,
+        &format!("// >>> {WINDSURF_MARKER_PREFIX} >>>"),
+        "Managed by Mac AI Switchboard for Windsurf.",
+    );
+    changed |= set_json_string(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
+    changed |= set_json_string(
+        &mut root,
+        &format!("// <<< {WINDSURF_MARKER_PREFIX} <<<"),
+        "End of managed block.",
+    );
+
+    Ok((Value::Object(root), changed))
+}
+
+fn configure_windsurf_provider_config() -> Result<(Vec<String>, Vec<String>)> {
+    let path = windsurf_config_path();
+    let (next_config, changed) = windsurf_next_provider_config()?;
+    if !changed {
+        return Ok((Vec::new(), Vec::new()));
+    }
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    let backup = backup_if_exists(&path)?;
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&next_config).context("serializing Windsurf provider config")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+
+    Ok((
+        vec![path.display().to_string()],
+        backup
+            .into_iter()
+            .map(|path| path.display().to_string())
+            .collect(),
+    ))
+}
+
+fn windsurf_provider_config_matches() -> Result<bool> {
+    let path = windsurf_config_path();
+    if !path.exists() {
+        return Ok(false);
+    }
+    let raw =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let root = parse_json_object(&raw, &path)?;
+    let start_marker = format!("// >>> {WINDSURF_MARKER_PREFIX} >>>");
+    let end_marker = format!("// <<< {WINDSURF_MARKER_PREFIX} <<<");
+    Ok(root.get(&start_marker).is_some()
+        && root.get(&end_marker).is_some()
+        && root.get("anthropic.baseUrl").and_then(|v| v.as_str())
+            == Some(HEADROOM_ANTHROPIC_BASE_URL))
+}
+
+fn remove_windsurf_provider_config() -> Result<Vec<String>> {
+    let path = windsurf_config_path();
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let raw =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let mut root = parse_json_object(&raw, &path)?;
+
+    let start_marker = format!("// >>> {WINDSURF_MARKER_PREFIX} >>>");
+    let end_marker = format!("// <<< {WINDSURF_MARKER_PREFIX} <<<");
+    let mut changed = false;
+    changed |= root.remove(&start_marker).is_some();
+    changed |=
+        remove_json_key_if_matches(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
+    changed |= root.remove(&end_marker).is_some();
+
+    if !changed {
+        return Ok(Vec::new());
+    }
+
+    let _ = backup_if_exists(&path)?;
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&Value::Object(root))
+            .context("serializing Windsurf config for connector removal")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+
+    Ok(vec![path.display().to_string()])
+}
+
+fn zed_config_path() -> PathBuf {
+    home_dir().join(".config").join("zed").join(ZED_CONFIG_FILE)
+}
+
+fn zed_config_backup_pattern() -> String {
+    let path = zed_config_path();
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(ZED_CONFIG_FILE);
+    format!("{}.headroom-backup-*", file_name)
+}
+
+fn zed_apply_confirmation_phrase(current_state: &str) -> String {
+    format!(
+        "Apply {ZED_ROLLBACK_MARKER} to {} after reviewing {}",
+        zed_config_path().display(),
+        short_state_hash(current_state)
+    )
+}
+
+fn zed_next_provider_config() -> Result<(Value, bool)> {
+    let path = zed_config_path();
+    let mut root = if path.exists() {
+        let raw = std::fs::read_to_string(&path)
+            .with_context(|| format!("reading {}", path.display()))?;
+        parse_json_object(&raw, &path)?
+    } else {
+        serde_json::Map::new()
+    };
+
+    let mut changed = false;
+    changed |= set_json_string(
+        &mut root,
+        &format!("// >>> {ZED_MARKER_PREFIX} >>>"),
+        "Managed by Mac AI Switchboard for Zed.",
+    );
+    changed |= set_json_string(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
+    changed |= set_json_string(
+        &mut root,
+        &format!("// <<< {ZED_MARKER_PREFIX} <<<"),
+        "End of managed block.",
+    );
+
+    Ok((Value::Object(root), changed))
+}
+
+fn configure_zed_provider_config() -> Result<(Vec<String>, Vec<String>)> {
+    let path = zed_config_path();
+    let (next_config, changed) = zed_next_provider_config()?;
+    if !changed {
+        return Ok((Vec::new(), Vec::new()));
+    }
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    let backup = backup_if_exists(&path)?;
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&next_config).context("serializing Zed provider config")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+
+    Ok((
+        vec![path.display().to_string()],
+        backup
+            .into_iter()
+            .map(|path| path.display().to_string())
+            .collect(),
+    ))
+}
+
+fn zed_provider_config_matches() -> Result<bool> {
+    let path = zed_config_path();
+    if !path.exists() {
+        return Ok(false);
+    }
+    let raw =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let root = parse_json_object(&raw, &path)?;
+    let start_marker = format!("// >>> {ZED_MARKER_PREFIX} >>>");
+    let end_marker = format!("// <<< {ZED_MARKER_PREFIX} <<<");
+    Ok(root.get(&start_marker).is_some()
+        && root.get(&end_marker).is_some()
+        && root.get("anthropic.baseUrl").and_then(|v| v.as_str())
+            == Some(HEADROOM_ANTHROPIC_BASE_URL))
+}
+
+fn remove_zed_provider_config() -> Result<Vec<String>> {
+    let path = zed_config_path();
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let raw =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let mut root = parse_json_object(&raw, &path)?;
+
+    let start_marker = format!("// >>> {ZED_MARKER_PREFIX} >>>");
+    let end_marker = format!("// <<< {ZED_MARKER_PREFIX} <<<");
+    let mut changed = false;
+    changed |= root.remove(&start_marker).is_some();
+    changed |=
+        remove_json_key_if_matches(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
+    changed |= root.remove(&end_marker).is_some();
+
+    if !changed {
+        return Ok(Vec::new());
+    }
+
+    let _ = backup_if_exists(&path)?;
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&Value::Object(root))
+            .context("serializing Zed config for connector removal")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+
+    Ok(vec![path.display().to_string()])
+}
+
 fn build_planned_switchboard_sidecar_body(spec: &PlannedSidecarSpec) -> String {
     format!(
         "Managed by Mac AI Switchboard.\n\
@@ -1803,6 +2096,9 @@ pub fn disable_client_setup(client_id: &str) -> Result<()> {
             let sidecar = planned_sidecar_spec(client_id)
                 .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
             let _ = remove_managed_block(&planned_sidecar_routing_path(client_id)?, sidecar.id)?;
+        }
+        "windsurf" => {
+            remove_windsurf_provider_config()?;
         }
         other if planned_sidecar_spec(other).is_some() => {
             let sidecar = planned_sidecar_spec(other)
@@ -4051,12 +4347,31 @@ const OPENCODE_ROLLBACK_MARKER: &str = "headroom:opencode";
 const GEMINI_ROLLBACK_RECORD_ID: &str = "gemini-routing";
 const GEMINI_ROLLBACK_OWNER: &str = "Gemini CLI routing";
 const GEMINI_ROLLBACK_MARKER: &str = "headroom:gemini_cli";
+const ZED_ROLLBACK_RECORD_ID: &str = "zed-ai-routing";
+const ZED_ROLLBACK_OWNER: &str = "Zed routing";
+const ZED_ROLLBACK_MARKER: &str = "headroom:zed";
+const ZED_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: zed-routing.",
+    "Backup must live next to ~/.config/zed/settings.json and use *.headroom-backup-*.",
+    "Current config must still contain the managed Zed markers before restore.",
+    "Relaunch-survival evidence requires re-reading restored config from disk after write.",
+];
+const WINDSURF_ROLLBACK_RECORD_ID: &str = "windsurf-routing";
+const WINDSURF_ROLLBACK_OWNER: &str = "Windsurf routing";
+const WINDSURF_ROLLBACK_MARKER: &str = "headroom:windsurf";
+const WINDSURF_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: windsurf-routing.",
+    "Backup must live next to ~/Library/Application Support/Windsurf/User/settings.json and use *.headroom-backup-*.",
+    "Current config must still contain the managed Windsurf markers before restore.",
+    "Relaunch-survival evidence requires re-reading restored config from disk after write.",
+];
 const MANAGED_ROLLBACK_UNDO_ALL_CONFIRMATION: &str =
     "Undo all ready Switchboard native rollback rows";
 const NATIVE_MANAGED_ROLLBACK_RECORD_IDS: &[&str] = &[
     CODEX_ROLLBACK_RECORD_ID,
     GEMINI_ROLLBACK_RECORD_ID,
     OPENCODE_ROLLBACK_RECORD_ID,
+    ZED_ROLLBACK_RECORD_ID,
     "cursor-routing",
     "grok-routing",
     "aider-routing",
@@ -4065,7 +4380,6 @@ const NATIVE_MANAGED_ROLLBACK_RECORD_IDS: &[&str] = &[
     "qwen-code-routing",
     "amazon-q-routing",
     "windsurf-routing",
-    "zed-ai-routing",
 ];
 
 struct ManagedRollbackTarget {
@@ -4147,8 +4461,19 @@ fn managed_rollback_target(record_id: &str) -> Result<ManagedRollbackTarget> {
                 "Remove only the Switchboard-owned Gemini shell routing and sidecar blocks after creating per-file safety backups.",
             evidence: GEMINI_ROLLBACK_EVIDENCE,
         }),
+        WINDSURF_ROLLBACK_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: WINDSURF_ROLLBACK_RECORD_ID,
+            owner: WINDSURF_ROLLBACK_OWNER,
+            marker: WINDSURF_ROLLBACK_MARKER,
+            target_path: windsurf_config_path,
+            marker_matches: windsurf_provider_config_matches,
+            backup_required: true,
+            proposed_action:
+                "Restore the Windsurf settings from the selected sibling backup after creating a fresh safety backup.",
+            evidence: WINDSURF_ROLLBACK_EVIDENCE,
+        }),
         _ => Err(anyhow!(
-            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, and {GEMINI_ROLLBACK_RECORD_ID}."
+            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {GEMINI_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -4437,8 +4762,75 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
                 ],
             })
         }
+        ZED_ROLLBACK_RECORD_ID => {
+            let path = zed_config_path();
+            let current_state = if path.exists() {
+                std::fs::read_to_string(&path)
+                    .with_context(|| format!("reading {}", path.display()))?
+            } else {
+                "{}".to_string()
+            };
+            let (next_config, changed) = zed_next_provider_config()?;
+            let proposed_state = serde_json::to_string_pretty(&next_config)
+                .context("serializing Zed provider preview")?;
+            Ok(ManagedConfigApplyPreview {
+                record_id: ZED_ROLLBACK_RECORD_ID.to_string(),
+                owner: ZED_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                marker: ZED_ROLLBACK_MARKER.to_string(),
+                backup_path: zed_config_backup_pattern(),
+                status: ManagedRollbackExecutionStatus::Ready,
+                confirmation_phrase: zed_apply_confirmation_phrase(&current_state),
+                current_state,
+                proposed_state,
+                rollback_preview:
+                    "Restore the sibling *.headroom-backup-* file through Rollback Center."
+                        .to_string(),
+                blocked_reason: None,
+                evidence: vec![
+                    "Zed provider config is allowlisted for native safe apply.".to_string(),
+                    "Preview preserves unmanaged JSON fields outside provider routing.".to_string(),
+                    format!("Preview changed: {changed}."),
+                    "Apply creates a sibling backup, writes the proposed JSON, verifies the provider, and can roll back from the backup.".to_string(),
+                ],
+            })
+        }
+        WINDSURF_ROLLBACK_RECORD_ID => {
+            let path = windsurf_config_path();
+            let current_state = if path.exists() {
+                std::fs::read_to_string(&path)
+                    .with_context(|| format!("reading {}", path.display()))?
+            } else {
+                "{}".to_string()
+            };
+            let (next_config, changed) = windsurf_next_provider_config()?;
+            let proposed_state = serde_json::to_string_pretty(&next_config)
+                .context("serializing Windsurf provider preview")?;
+            let confirmation = windsurf_apply_confirmation_phrase(&current_state);
+            Ok(ManagedConfigApplyPreview {
+                record_id: WINDSURF_ROLLBACK_RECORD_ID.to_string(),
+                owner: WINDSURF_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                marker: WINDSURF_ROLLBACK_MARKER.to_string(),
+                backup_path: windsurf_config_backup_pattern(),
+                status: ManagedRollbackExecutionStatus::Ready,
+                confirmation_phrase: confirmation,
+                current_state,
+                proposed_state,
+                rollback_preview:
+                    "Restore the sibling *.headroom-backup-* file through Rollback Center."
+                        .to_string(),
+                blocked_reason: None,
+                evidence: vec![
+                    "Windsurf settings.json is allowlisted for native safe apply.".to_string(),
+                    "Preview preserves unmanaged JSON fields outside managed markers.".to_string(),
+                    format!("Preview changed: {changed}."),
+                    "Apply creates a sibling backup, writes the proposed JSON, verifies the markers, and can roll back from the backup.".to_string(),
+                ],
+            })
+        }
         _ => Err(anyhow!(
-            "Managed config apply is currently promoted only for {OPENCODE_ROLLBACK_RECORD_ID}."
+            "Managed config apply is currently promoted only for {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -4481,8 +4873,62 @@ pub fn execute_managed_config_apply(
                 ],
             })
         }
+        ZED_ROLLBACK_RECORD_ID => {
+            let path = zed_config_path();
+            let (changed_files, backup_files) = configure_zed_provider_config()?;
+            if !zed_provider_config_matches()? {
+                return Err(anyhow!(
+                    "Zed provider config verification failed after apply."
+                ));
+            }
+            Ok(ManagedConfigApplyResult {
+                record_id: ZED_ROLLBACK_RECORD_ID.to_string(),
+                owner: ZED_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                changed: changed_files
+                    .iter()
+                    .any(|changed| changed == &path.display().to_string()),
+                backup_path: backup_files.first().cloned(),
+                marker: ZED_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact confirmation phrase matched the dry-run preview.".to_string(),
+                    "Sibling backup was created before writing when a prior config existed."
+                        .to_string(),
+                    "Zed managed routing block matches the Switchboard-managed config."
+                        .to_string(),
+                    "Rollback Center can restore the selected sibling backup.".to_string(),
+                ],
+            })
+        }
+        WINDSURF_ROLLBACK_RECORD_ID => {
+            let path = windsurf_config_path();
+            let (changed_files, backup_files) = configure_windsurf_provider_config()?;
+            if !windsurf_provider_config_matches()? {
+                return Err(anyhow!(
+                    "Windsurf provider config verification failed after apply."
+                ));
+            }
+            Ok(ManagedConfigApplyResult {
+                record_id: WINDSURF_ROLLBACK_RECORD_ID.to_string(),
+                owner: WINDSURF_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                changed: changed_files
+                    .iter()
+                    .any(|changed| changed == &path.display().to_string()),
+                backup_path: backup_files.first().cloned(),
+                marker: WINDSURF_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact confirmation phrase matched the dry-run preview.".to_string(),
+                    "Sibling backup was created before writing when a prior config existed."
+                        .to_string(),
+                    "Windsurf managed markers and anthropic.baseUrl match the Switchboard-managed values."
+                        .to_string(),
+                    "Rollback Center can restore the selected sibling backup.".to_string(),
+                ],
+            })
+        }
         _ => Err(anyhow!(
-            "Managed config apply is currently promoted only for {OPENCODE_ROLLBACK_RECORD_ID}."
+            "Managed config apply is currently promoted only for {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -7066,8 +7512,6 @@ mod tests {
                 "goose",
                 "grok_cli",
                 "qwen_code",
-                "windsurf",
-                "zed_ai",
             ])
         );
 
@@ -7304,27 +7748,19 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "windsurf"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
                     .contains(&"Windsurf app: /Applications/Windsurf.app".to_string())
-                && connector.detection_evidence.contains(
-                    &"Settings routing blocked until settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
-                        .to_string()
-                )
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "zed_ai"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
                     .contains(&"Zed app: /Applications/Zed.app".to_string())
-                && connector.detection_evidence.contains(
-                    &"Settings routing blocked until lossless settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
-                        .to_string()
-                )
         }));
     }
 
@@ -8776,15 +9212,9 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
     fn remaining_planned_connectors_block_automatic_sidecar_setup() {
         let home = TestHome::new();
         let connectors = [
-            ("cursor", "Cursor"),
             ("grok_cli", "Grok / xAI CLI"),
-            ("aider", "Aider"),
-            ("continue", "Continue"),
-            ("goose", "Goose"),
             ("qwen_code", "Qwen Code"),
             ("amazon_q", "Amazon Q Developer CLI"),
-            ("windsurf", "Windsurf"),
-            ("zed_ai", "Zed AI"),
         ];
 
         for (client_id, name) in connectors {
@@ -10314,5 +10744,20 @@ js_repl = false\n",
         assert!(app_storage.exists);
         assert!(app_storage.managed);
         assert!(app_storage.requires_confirmation);
+    }
+
+    #[test]
+    fn zed_config_path_returns_user_home_config_json() {
+        let path = super::zed_config_path();
+        assert!(path.to_string_lossy().contains(".config"));
+        assert!(path.to_string_lossy().contains("zed"));
+        assert!(path.to_string_lossy().ends_with("settings.json"));
+    }
+
+    #[test]
+    fn zed_config_backup_pattern_matches_timestamped_backups() {
+        let pattern = super::zed_config_backup_pattern();
+        assert!(pattern.contains("settings.json"));
+        assert!(pattern.contains("headroom-backup-"));
     }
 }
