@@ -11,6 +11,7 @@ import {
   compactNumber,
   connectorControlState,
   connectorCompatibilityReport,
+  connectorCompatibilityRoutingEvidenceLabel,
   connectorDashboardStatus,
   connectorSupportsAutomaticSetup,
   currency,
@@ -721,6 +722,9 @@ describe("dashboard helpers", () => {
         "Detected. Switchboard can manage Gemini CLI shell/base-url routing while keeping account and model choices user-owned.",
       ],
     });
+    expect(connectorCompatibilityRoutingEvidenceLabel(report!)).toBe(
+      "Routing evidence",
+    );
   });
 
   it("formats a Gemini config dry-run preview from detected config evidence", () => {
@@ -847,6 +851,7 @@ describe("dashboard helpers", () => {
       configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
     });
+    expect(connectorCompatibilityRoutingEvidenceLabel(report!)).toBe("Blocked");
   });
 
   it("formats Cursor profile evidence for planned connector UI", () => {

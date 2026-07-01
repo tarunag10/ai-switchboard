@@ -10,6 +10,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   aggregateClientConnectors,
   connectorCompatibilityReport,
+  connectorCompatibilityRoutingEvidenceLabel,
   connectorControlState,
   formatConnectorConfigDryRunPreview,
   formatPlannedConnectorConfigGateSummary,
@@ -902,7 +903,10 @@ export function SettingsView({
                               ) : null}
                               {compatibilityReport.routingBlocker ? (
                                 <span>
-                                  Blocked {compatibilityReport.routingBlocker}
+                                  {connectorCompatibilityRoutingEvidenceLabel(
+                                    compatibilityReport,
+                                  )}{" "}
+                                  {compatibilityReport.routingBlocker}
                                 </span>
                               ) : null}
                               {compatibilityReport.configCreationGates

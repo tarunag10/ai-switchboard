@@ -656,6 +656,15 @@ export interface ConnectorCompatibilityReport {
   otherEvidence: string[];
 }
 
+export function connectorCompatibilityRoutingEvidenceLabel(
+  report: ConnectorCompatibilityReport,
+) {
+  return report.routingBlocker?.startsWith("Provider routing blocked") ||
+    report.routingBlocker?.startsWith("Settings routing blocked")
+    ? "Blocked"
+    : "Routing evidence";
+}
+
 function evidenceValue(evidence: string, prefix: string) {
   return evidence.startsWith(prefix) ? evidence.slice(prefix.length).trim() : null;
 }

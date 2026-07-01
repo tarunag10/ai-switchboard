@@ -157,6 +157,7 @@ import {
   compactNumber,
   connectorControlState,
   connectorCompatibilityReport,
+  connectorCompatibilityRoutingEvidenceLabel,
   connectorDashboardStatus,
   currency,
   currencyExact,
@@ -10358,7 +10359,9 @@ export default function App() {
                                 ) : null}
                                 {compatibilityReport.routingBlocker ? (
                                   <span>
-                                    Blocked{" "}
+                                    {connectorCompatibilityRoutingEvidenceLabel(
+                                      compatibilityReport,
+                                    )}{" "}
                                     {compatibilityReport.routingBlocker}
                                   </span>
                                 ) : null}

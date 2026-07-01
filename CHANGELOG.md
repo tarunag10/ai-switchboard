@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Connector compatibility evidence labels
+
+- Updated connector compatibility cards so promoted managed routing evidence renders as routing evidence instead of being prefixed as blocked, while unpromoted provider/settings blockers still show as blocked.
+
 ### Connector readiness summary counts
 
 - Updated Settings connector readiness summary counts and copy to include managed connector dossiers, so promoted managed routes are counted as repairable connector evidence instead of being hidden behind planned-only wording.
