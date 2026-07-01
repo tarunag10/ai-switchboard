@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Codex provider direct repair guidance
+
+- Updated the Mode Inspector Codex provider-block direct state so it points users back to the repair-ready Codex routing row instead of stopping at a passive not-routed message.
+
 ### Managed connector repair-ready routing status
 
 - Updated Mode Inspector managed connector rows so detected-but-direct managed tools show a repair-ready state and point at the one-click repair action.

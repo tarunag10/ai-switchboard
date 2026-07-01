@@ -7945,7 +7945,7 @@ export default function App() {
           ? "Connector verification reported the Codex provider block is missing."
           : codexRoutingConnector?.enabled
             ? "Codex is enabled, but provider-block verification has not reported proof yet."
-            : "Codex is not routed through Switchboard.",
+            : "Codex is not routed through Switchboard. Use the Codex routing repair-ready row to re-apply the managed provider block.",
     },
     {
       label: "Shell export",

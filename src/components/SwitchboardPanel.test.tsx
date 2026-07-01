@@ -307,6 +307,26 @@ describe("SwitchboardPanel", () => {
     expect(onAction).toHaveBeenCalledTimes(1);
   });
 
+  it("points direct Codex provider rows back to repair-ready routing", () => {
+    renderPanel({
+      inspectorRows: [
+        {
+          label: "Codex provider block",
+          status: "Direct",
+          detail:
+            "Codex is not routed through Switchboard. Use the Codex routing repair-ready row to re-apply the managed provider block.",
+        },
+      ],
+    });
+
+    const inspector = within(screen.getByLabelText("Mode Inspector"));
+    expect(
+      inspector.getByText(
+        "Codex is not routed through Switchboard. Use the Codex routing repair-ready row to re-apply the managed provider block.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("disables busy Mode Inspector row actions", () => {
     const onAction = vi.fn();
     renderPanel({
