@@ -192,7 +192,7 @@ const AGENT_HANDOFF_PROFILES: [AgentHandoffProfile; 13] = [
         label: "Windsurf",
         tool_kind: "editor",
         default_pack_id: "handoff",
-        guidance: "Paste into Windsurf chat as read-only project context; managed provider routing is handled by the Switchboard connector.",
+        guidance: "Paste into Windsurf chat as read-only project context; managed editor settings routing is handled by the Switchboard connector.",
         manual_provider_routing: false,
     },
     AgentHandoffProfile {
@@ -200,7 +200,7 @@ const AGENT_HANDOFF_PROFILES: [AgentHandoffProfile; 13] = [
         label: "Zed AI",
         tool_kind: "editor",
         default_pack_id: "handoff",
-        guidance: "Paste into Zed assistant as read-only context; managed provider routing is handled by the Switchboard connector.",
+        guidance: "Paste into Zed assistant as read-only context; managed assistant settings routing is handled by the Switchboard connector.",
         manual_provider_routing: false,
     },
 ];
@@ -374,21 +374,21 @@ fn planned_connector_dossier(agent_id: &str) -> Option<PlannedConnectorDossier> 
             id: "windsurf",
             name: "Windsurf",
             config_path_strategy:
-                "Detect the Windsurf app and active settings location before applying managed provider routing.",
+                "Detect the Windsurf app and active settings location before applying managed editor settings routing.",
             account_caveat:
-                "Switchboard preserves unrelated account and model settings while managing only its provider routing block.",
+                "Switchboard preserves unrelated account and model settings while managing only its editor settings routing block.",
             rollback_strategy:
-                "Restore the active settings backup and remove only Switchboard-managed provider entries.",
+                "Restore the active settings backup and remove only Switchboard-managed editor settings routing entries.",
         }),
         "zed" => Some(PlannedConnectorDossier {
             id: "zed_ai",
             name: "Zed AI",
             config_path_strategy:
-                "Detect the Zed app settings file at ~/.config/zed/settings.json before applying managed provider routing.",
+                "Detect the Zed app settings file at ~/.config/zed/settings.json before applying managed assistant settings routing.",
             account_caveat:
                 "Switchboard preserves unrelated provider/account settings while managing only its local proxy routing entry.",
             rollback_strategy:
-                "Restore assistant/provider settings from backup and remove managed local proxy entries.",
+                "Restore assistant settings from backup and remove only Switchboard-managed local proxy routing entries.",
         }),
         _ => None,
     }
@@ -4039,7 +4039,7 @@ export const mapValues = <T>(items: T[]) => items;
         assert!(windsurf
             .agent
             .guidance
-            .contains("managed provider routing is handled"));
+            .contains("managed editor settings routing is handled"));
         let windsurf_readiness = windsurf
             .config_readiness
             .as_ref()
@@ -4049,9 +4049,17 @@ export const mapValues = <T>(items: T[]) => items;
 
         let zed = build_agent_handoff_response(&summary, "zed", Some("handoff")).expect("zed");
         assert!(!zed.safety.manual_provider_routing);
+        assert!(zed
+            .agent
+            .guidance
+            .contains("managed assistant settings routing is handled"));
         let zed_readiness = zed.config_readiness.as_ref().expect("zed config readiness");
         assert_eq!(zed_readiness.planned_connector_id, "zed_ai");
         assert!(zed_readiness.automation_enabled);
+        assert!(zed_readiness
+            .safety_dossier
+            .config_path_strategy
+            .contains("managed assistant settings routing"));
 
         let cursor =
             build_agent_handoff_response(&summary, "cursor", Some("handoff")).expect("cursor");

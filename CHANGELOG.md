@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Repo Intelligence API editor connector wording
+
+- Synced the Tauri Repo Intelligence handoff API with the frontend and CLI wording for Windsurf editor-settings routing and Zed assistant-settings routing.
+
 ### Zed connector routing wording
 
 - Aligned Zed connector docs, setup copy, and frontend readiness dossiers with the backend assistant-settings routing lifecycle, and guarded the docs signal.
