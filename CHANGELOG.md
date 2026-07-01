@@ -2,6 +2,11 @@
 
 ## 2026-07-02
 
+### Doctor verification badge styling
+
+- Added an explicit Doctor verification badge style so Verify Off evidence is visually distinct from automatic repairs and manual steps.
+- Guarded the verification badge class in deployment readiness checks.
+
 ### Off-mode verification action split
 
 - Split Off-mode verification from automatic repair classification in the Doctor UI so Verify Off does not surface as a misleading Repair all path.

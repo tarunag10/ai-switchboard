@@ -3480,6 +3480,12 @@ select {
   color: var(--warning);
 }
 
+.switchboard-doctor__action-kind--verification {
+  border-color: var(--accent-tint-strong);
+  background: var(--surface);
+  color: var(--accent-strong);
+}
+
 .switchboard-doctor__issue p {
   margin: 3px 0 0;
   color: var(--text-secondary);

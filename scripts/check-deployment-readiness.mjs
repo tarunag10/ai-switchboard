@@ -621,6 +621,7 @@ const requiredSourceSignals = {
   ],
   "src/styles.css": [
     ".switchboard-panel__footprint",
+    ".switchboard-doctor__action-kind--verification",
     ".release-readiness-card",
     ".repo-intelligence-graph",
     "grid-template-columns: repeat(4, minmax(0, 1fr))",
