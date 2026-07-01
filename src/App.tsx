@@ -7800,6 +7800,12 @@ export default function App() {
   const claudeRoutingConnector = switchboardRoutingConnectors.find(
     (connector) => connector.clientId === "claude_code",
   );
+  const additionalManagedRoutingConnectors = switchboardRoutingConnectors.filter(
+    (connector) =>
+      connector.installed === true &&
+      connector.supportStatus === "managed" &&
+      !["codex", "claude_code"].includes(connector.clientId),
+  );
   const connectorRoutingRow = (
     label: string,
     connector: ClientConnectorStatus | undefined,
@@ -7819,7 +7825,7 @@ export default function App() {
       : canRepairDirectManaged
         ? connector?.clientId === "codex"
           ? "Repair Codex"
-          : "Repair clients"
+          : "Repair managed setup"
         : undefined;
     const actionDisabled =
       configured && !verified
@@ -7896,6 +7902,9 @@ export default function App() {
     },
     connectorRoutingRow("Codex routing", codexRoutingConnector),
     connectorRoutingRow("Claude routing", claudeRoutingConnector),
+    ...additionalManagedRoutingConnectors.map((connector) =>
+      connectorRoutingRow(`${connector.name} routing`, connector),
+    ),
     {
       label: "Client routing",
       status:

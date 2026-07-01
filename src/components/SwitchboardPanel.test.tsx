@@ -276,6 +276,34 @@ describe("SwitchboardPanel", () => {
     expect(onAction).toHaveBeenCalledTimes(1);
   });
 
+  it("renders individual managed connector routing repair rows", async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    renderPanel({
+      inspectorRows: [
+        {
+          label: "Gemini CLI routing",
+          status: "Direct",
+          detail: "Gemini CLI is detected but not routed.",
+          actionLabel: "Repair managed setup",
+          onAction,
+        },
+      ],
+    });
+
+    const inspector = within(screen.getByLabelText("Mode Inspector"));
+    expect(inspector.getByText("Gemini CLI routing")).toBeInTheDocument();
+    expect(
+      inspector.getByText("Gemini CLI is detected but not routed."),
+    ).toBeInTheDocument();
+
+    await user.click(
+      inspector.getByRole("button", { name: "Repair managed setup" }),
+    );
+
+    expect(onAction).toHaveBeenCalledTimes(1);
+  });
+
   it("disables busy Mode Inspector row actions", () => {
     const onAction = vi.fn();
     renderPanel({

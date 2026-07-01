@@ -42,3 +42,7 @@
 ### Repo handoff managed-routing safety
 
 - Updated Repo Intelligence and connector compatibility UI logic so Gemini, OpenCode, Windsurf, and Zed handoffs are no longer marked as manual-provider-routing when their managed connectors are promoted.
+
+### Mode Inspector managed connector rows
+
+- Added individual Mode Inspector routing rows for installed managed connectors beyond Codex and Claude, with repair actions for direct Gemini/OpenCode/Windsurf/Zed-style setup drift.
