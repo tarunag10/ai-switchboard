@@ -10179,7 +10179,7 @@ export default function App() {
                     onClick={() =>
                       void copyPlannedConnectorCommand(
                         getPlannedConnectorSetupChecklistScript(),
-                        "Planned tool checklist",
+                        "Connector checklist",
                       )
                     }
                   >

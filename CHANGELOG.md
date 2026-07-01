@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Connector checklist copy label
+
+- Updated Home and Settings connector checklist copy labels so success feedback no longer refers to stale planned-tool wording.
+
 ### Connector readiness summary labels
 
 - Updated Home and Settings connector readiness summary labels to use connector readiness wording instead of stale planned-tool wording.

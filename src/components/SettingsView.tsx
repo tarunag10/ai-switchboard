@@ -733,7 +733,7 @@ export function SettingsView({
                 onClick={() =>
                   void copyPlannedConnectorCommand(
                     getPlannedConnectorSetupChecklistScript(),
-                    "Planned tool checklist",
+                    "Connector checklist",
                   )
                 }
               >
