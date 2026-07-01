@@ -476,6 +476,30 @@ describe("doctor repair copy", () => {
     expect(text).not.toContain("/Users/tarunagarwal");
   });
 
+  it("preserves aggregated Repair all failures in scrubbed timeline sharing", () => {
+    const text = formatDoctorTimelineShareText([
+      {
+        id: "repair-all-failure",
+        kind: "failed_repair",
+        title: "Latest repair failed",
+        body:
+          "repair_all completed with failures: repair_client_setups: Gemini CLI GEMINI_API_KEY=sk-proj_abc123456789012345 missing from /Users/tarunagarwal/.zshrc | repair_rtk_runtime: rtk install failed",
+        occurredAt: "2026-07-01T10:10:00.000Z",
+        status: "error",
+        actor: "doctor",
+        target: "automatic repair",
+      },
+    ]);
+
+    expect(text).toContain("repair_all completed with failures");
+    expect(text).toContain("repair_client_setups: Gemini CLI");
+    expect(text).toContain("repair_rtk_runtime: rtk install failed");
+    expect(text).toContain("GEMINI_API_KEY=[secret]");
+    expect(text).toContain("[user-path]");
+    expect(text).not.toContain("sk-proj_abc123456789012345");
+    expect(text).not.toContain("/Users/tarunagarwal");
+  });
+
   it("builds scrubbed timeline events from managed rollback records", () => {
     const events = buildManagedChangeTimelineEvents(
       managedChangeRecords,

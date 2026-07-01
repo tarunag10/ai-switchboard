@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+### Repair all timeline evidence
+
+- Added Doctor timeline coverage for aggregated Repair all failures so support exports preserve every failed sub-action while still scrubbing secrets and local paths.
+- Guarded the new aggregated failure format from becoming an opaque single-error message in copied Doctor evidence.
+
 ### Repair all failure aggregation
 
 - Hardened Doctor Repair all orchestration so independent repair actions keep running after an earlier action fails, then report all failures together.
