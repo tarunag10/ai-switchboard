@@ -71,19 +71,19 @@ const connectorSetupDetails: Record<string, string> = {
   opencode:
     "Headroom writes a managed OpenCode provider in ~/.config/opencode/opencode.json and a rollback dossier so OpenCode connects through Mac AI Switchboard.",
   cursor:
-    "Cursor is tracked as a planned editor connector. Guided setup is shown first because Cursor settings and account behavior can vary by release channel.",
+    "Cursor is tracked as a gated editor connector. Guided setup is shown first because Cursor settings and account behavior can vary by release channel.",
   grok_cli:
-    "Grok / xAI CLI is tracked as a planned provider connector. Mac AI Switchboard will keep model and account compatibility visible before routing it.",
+    "Grok / xAI CLI is tracked as a gated provider connector. Mac AI Switchboard will keep model and account compatibility visible before routing it.",
   aider:
-    "Aider is tracked as a planned agent connector. RTK-only mode can already reduce noisy shell output while provider wrapping is built.",
+    "Aider is tracked as a gated agent connector. RTK-only mode can already reduce noisy shell output while provider wrapping is built.",
   continue:
-    "Continue is tracked as a planned editor connector. Guided setup stays manual until provider config backup and restore coverage is ready.",
+    "Continue is tracked as a gated editor connector. Guided setup stays manual until provider config backup and restore coverage is ready.",
   goose:
-    "Goose is tracked as a planned agent connector. Local provider and MCP handoff support will be added after reversible setup coverage.",
+    "Goose is tracked as a gated agent connector. Local provider and MCP handoff support will be added after reversible setup coverage.",
   qwen_code:
-    "Qwen Code is tracked as a planned CLI connector. Use Repo Intelligence packs today while provider routing waits for model and account guardrails.",
+    "Qwen Code is tracked as a gated CLI connector. Use Repo Intelligence packs today while provider routing waits for model and account guardrails.",
   amazon_q:
-    "Amazon Q Developer CLI is tracked as a planned CLI connector. Verification packs are safe today; AWS credential and profile state stay outside managed setup.",
+    "Amazon Q Developer CLI is tracked as a gated CLI connector. Verification packs are safe today; AWS credential and profile state stay outside managed setup.",
   windsurf:
     "Windsurf is a managed editor connector. Switchboard manages editor settings routing with backups, verification, rollback, and Off cleanup.",
   zed_ai:

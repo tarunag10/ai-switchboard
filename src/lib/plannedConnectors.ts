@@ -428,7 +428,7 @@ export const plannedConnectors: PlannedConnector[] = [
       {
         label: "App detection",
         state: "Available now",
-        detail: "Switchboard can show Cursor as a planned editor connector.",
+        detail: "Switchboard can show Cursor as a gated editor connector.",
       },
       {
         label: "Manual setup",

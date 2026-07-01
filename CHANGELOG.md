@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Gated connector setup details
+
+- Updated Home, Settings, connector dossier, and connector verifier detail copy so unpromoted connectors are described as gated connector readiness instead of planned connectors.
+
 ### Connector roadmap and checklist wording
 
 - Updated connector roadmap accessibility labels, checklist headers, and Repo Intelligence safety notes to avoid stale planned-connector wording in active output.

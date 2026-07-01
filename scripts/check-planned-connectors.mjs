@@ -191,16 +191,16 @@ function validateBackendConfigCreationPlanContract(source) {
     !source.includes("config_creation_steps")
     || !source.includes("PLANNED_CONFIG_CREATION_STEPS")
   ) {
-    errors.push("planned backend connectors must expose config_creation_steps");
+    errors.push("connector readiness backend metadata must expose config_creation_steps");
   }
   if (
     !source.includes("config_creation_step_details")
     || !source.includes("planned_config_creation_step_details(spec)")
   ) {
-    errors.push("planned backend connectors must expose structured config_creation_step_details");
+    errors.push("connector readiness backend metadata must expose structured config_creation_step_details");
   }
   if (!source.includes("required_evidence")) {
-    errors.push("planned backend config creation steps must expose required_evidence");
+    errors.push("connector readiness backend config creation steps must expose required_evidence");
   }
   for (const snippet of [
     "target path",
