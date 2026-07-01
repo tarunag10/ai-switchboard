@@ -43,7 +43,8 @@ describe("uninstallDisclosure", () => {
     expect(allCopy).toContain("~/Library/LaunchAgents/");
     expect(allCopy).toContain("Keychain");
     expect(allCopy).toContain("Ponytail");
-    expect(allCopy).toContain("backup files");
+    expect(allCopy).toContain("backup-file sweeping manual");
+    expect(allCopy).toContain("stricter allowlist");
   });
 
   it("keeps stable ids for modal rendering", () => {

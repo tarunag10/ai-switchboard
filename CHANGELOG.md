@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+### Plugin cleanup rollback copy
+
+- Aligned the add-on managed-change record with the backend Ponytail cleanup contract: automatic rollback now promises only Switchboard-receipted plugin registration removal, while backup-file sweeping remains manual until a stricter allowlist exists.
+- Added frontend coverage so the rollback plan cannot regress to claiming automatic backup sweeping for add-ons.
+
 ### Rollback plan execution copy
 
 - Updated rollback plan safety copy to reflect the current backend preview, exact-confirmation, and dedicated cleanup flows instead of stale manual-only restore wording.

@@ -343,13 +343,14 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     id: "plugins-backups",
     kind: "plugin",
     owner: "Add-ons",
-    text: "Ponytail plugin registration and managed backup files created next to edited configs.",
+    text: "Ponytail plugin registration and managed add-on backup inventory.",
     paths: [],
     markerId: "headroom:addon",
-    backupPath: "next to edited add-on config as *.headroom-backup-*",
+    backupPath:
+      "add-on backups are inventoried only; automatic sweeping waits for a stricter allowlist",
     lastVerifiedLabel: "Verified by add-on health checks",
     rollback:
-      "Remove Ponytail plugin registration and sweep managed backup files created next to edited configs.",
+      "Remove Switchboard-receipted Ponytail plugin registration; leave backup-file sweeping manual until a stricter allowlist exists.",
   },
 ];
 

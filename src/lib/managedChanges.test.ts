@@ -291,6 +291,9 @@ describe("managedChangeRecords", () => {
       mode: "managed_block_removal",
       status: "ready_for_review",
     });
+    expect(plugins?.backupPath).toContain("inventoried only");
+    expect(plugins?.rollback).toContain("stricter allowlist");
+    expect(plugins?.rollback).not.toContain("sweep managed backup files");
   });
 
   it("formats per-change rollback plans for copy and support review", () => {
