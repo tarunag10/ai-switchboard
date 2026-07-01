@@ -3977,6 +3977,36 @@ mod doctor_tests {
     }
 
     #[test]
+    fn doctor_client_repair_reports_failed_post_write_verification() {
+        let result = ClientSetupResult {
+            client_id: "gemini_cli".to_string(),
+            applied: true,
+            already_configured: false,
+            summary: "Client configuration updated to route through Headroom.".to_string(),
+            changed_files: vec!["~/.zshrc".to_string()],
+            backup_files: Vec::new(),
+            next_steps: Vec::new(),
+            verification: crate::models::ClientSetupVerification {
+                client_id: "gemini_cli".to_string(),
+                verified: false,
+                proxy_reachable: true,
+                checks: Vec::new(),
+                failures: vec![
+                    "Gemini GEMINI_BASE_URL export was not found in shell profiles.".to_string(),
+                    "Switchboard-managed Gemini CLI sidecar was not found.".to_string(),
+                ],
+            },
+        };
+
+        let error = ensure_doctor_client_repair_verified(&result)
+            .expect_err("Doctor repair should fail when post-write verification fails");
+
+        assert!(error.contains("gemini_cli repair applied but verification still failed"));
+        assert!(error.contains("GEMINI_BASE_URL export was not found"));
+        assert!(error.contains("sidecar was not found"));
+    }
+
+    #[test]
     fn non_headroom_doctor_repairs_remain_available_in_off_and_rtk_modes() {
         for mode in [SwitchboardMode::Off, SwitchboardMode::Rtk] {
             for action in [
@@ -4214,6 +4244,22 @@ fn repair_runtime(state: &AppState) -> Result<(), String> {
     Ok(())
 }
 
+fn ensure_doctor_client_repair_verified(result: &ClientSetupResult) -> Result<(), String> {
+    if result.verification.verified {
+        return Ok(());
+    }
+
+    let details = if result.verification.failures.is_empty() {
+        "post-repair verification returned no passing evidence".to_string()
+    } else {
+        result.verification.failures.join("; ")
+    };
+    Err(format!(
+        "{} repair applied but verification still failed: {details}",
+        result.client_id
+    ))
+}
+
 fn repair_client_setups(state: &AppState) -> Result<(), String> {
     state
         .codex_bypass
@@ -4230,7 +4276,9 @@ fn repair_client_setups(state: &AppState) -> Result<(), String> {
     });
     let mut repaired = 0usize;
     for connector in managed_installed {
-        client_adapters::apply_client_setup(&connector.client_id).map_err(|err| err.to_string())?;
+        let result = client_adapters::apply_client_setup(&connector.client_id)
+            .map_err(|err| err.to_string())?;
+        ensure_doctor_client_repair_verified(&result)?;
         repaired += 1;
     }
     if repaired == 0 {
@@ -4263,7 +4311,9 @@ fn repair_managed_client_setup(state: &AppState, client_id: &str) -> Result<(), 
     ) {
         return Err(format!("{} is not a managed connector", connector.name));
     }
-    client_adapters::apply_client_setup(&connector.client_id).map_err(|err| err.to_string())?;
+    let result =
+        client_adapters::apply_client_setup(&connector.client_id).map_err(|err| err.to_string())?;
+    ensure_doctor_client_repair_verified(&result)?;
     state.invalidate_runtime_status_cache();
     Ok(())
 }
@@ -4273,7 +4323,8 @@ fn repair_codex_setup(state: &AppState) -> Result<(), String> {
         .codex_bypass
         .store(false, std::sync::atomic::Ordering::Release);
     state.resume_runtime().map_err(|err| err.to_string())?;
-    client_adapters::apply_client_setup("codex").map_err(|err| err.to_string())?;
+    let result = client_adapters::apply_client_setup("codex").map_err(|err| err.to_string())?;
+    ensure_doctor_client_repair_verified(&result)?;
     state.invalidate_runtime_status_cache();
     Ok(())
 }

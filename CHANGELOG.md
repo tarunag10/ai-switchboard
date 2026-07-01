@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Doctor repair verification guard
+
+- Made Doctor-managed client repairs fail with verification details when setup writes complete but post-write verification still fails, preventing false-success repair loops.
+
 ### Backend smoke-test stability
 
 - Hardened backend process-spawn smoke tests by serializing PATH-mutating Claude CLI coverage and using production-equivalent smoke timeouts in Headroom and markitdown helper tests.
