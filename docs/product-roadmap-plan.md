@@ -13,8 +13,8 @@ Shipped:
 - Off and RTK-only modes now gate launch warmup, threaded bootstrap, and legacy synchronous bootstrap so optimization does not silently restart after the user turns it off.
 - Doctor already reports Off-mode violations when Headroom, managed client routing, or RTK remain active against a requested Off mode.
 - Connector sidecar/readiness coverage exists for Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed, while the fully managed manifest set is Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI.
-- Gemini has managed shell base-url routing. OpenCode has the first promoted provider-config write path with preview, exact confirmation, backup, apply, verify, and rollback coverage.
-- Cursor now surfaces detected editor settings files as evidence while native writes remain blocked. Windsurf has promoted managed editor-settings routing with backup, verification, rollback, and Off cleanup.
+- Gemini has managed shell base-url routing. OpenCode has promoted provider-config routing with preview, exact confirmation, backup, apply, verify, rollback, and Off cleanup coverage.
+- Cursor now surfaces detected editor settings files as evidence while native writes remain blocked. Windsurf and Zed have promoted managed editor-settings routing with backup, verification, rollback, and Off cleanup.
 - Repo Intelligence Start Agent Session, read-only packs, handoffs, CLI exports, and repo-memory MCP smoke transport are usable.
 - Repo Intelligence graph version `path-graph-v8` adds stylesheet and HTML asset dependency edges plus CSS/HTML symbols on top of visible test/source relationships, Markdown heading symbols with parent hierarchy, shell script invocation edges, Python local import-reference edges, and TypeScript/JavaScript/React package-dependency edges back to `package.json`, so context packs can show web entrypoint links, verification links, docs anchors, shell workflow relationships, Python module relationships, and source-to-installed-package relationships in addition to local imports and call references.
 - Doctor now treats stale Repo Intelligence indexer versions as index-health issues, so graph analyzer upgrades ask users to clear/re-index before relying on context packs.
@@ -264,7 +264,7 @@ Suggested commit:
 
 Goal: add new agent connectors safely and repeatedly.
 
-Status: framework shipped; native writes are intentionally gated per connector. Managed sidecar lifecycle, readiness metadata, dry-run previews, handoff dossiers, and release evidence checks exist across the managed connector set. OpenCode has provider-config routing, Gemini has managed shell routing, and Windsurf/Zed have managed editor settings routing.
+Status: framework shipped; native writes are intentionally gated per connector. Managed sidecar lifecycle, readiness metadata, dry-run previews, handoff dossiers, and release evidence checks exist across the managed connector set. OpenCode has provider-config routing, Gemini has managed shell routing, and Windsurf/Zed have managed editor settings routing with backup, verification, rollback, and Off cleanup coverage.
 
 Tasks:
 

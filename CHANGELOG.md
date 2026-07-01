@@ -99,3 +99,7 @@
 ### Zed Off cleanup
 
 - Wired Zed disable/Off cleanup to remove only the native Switchboard-managed settings routing keys and markers, preserving unrelated user settings.
+
+### Connector smoke evidence copy
+
+- Updated smoke-preflight and roadmap evidence text to distinguish promoted native-routing connectors from guided connectors whose native config mutation remains gated.
