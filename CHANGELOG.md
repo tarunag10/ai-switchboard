@@ -107,3 +107,7 @@
 ### Rollback Center connector inventory
 
 - Updated Windsurf and Zed Rollback Center records to describe native editor settings routing, backup paths, markers, and restore boundaries instead of stale sidecar dossiers.
+
+### Rollback roadmap truth
+
+- Synced roadmap and Agent Control Center docs with the promoted OpenCode, Windsurf, and Zed native apply/rollback paths and the remaining sidecar-only connector scope.
