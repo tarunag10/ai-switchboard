@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Managed connector repair-ready wording
+
+- Updated managed connector dashboard copy so repairable direct routing reads as repair-ready, and clarified the gated manual automation fallback label.
+
 ### Codex backend repair-ready Doctor body
 
 - Updated backend Codex Doctor issue copy so detected or drifted Codex routing is described as repair ready while retaining the managed provider evidence details.

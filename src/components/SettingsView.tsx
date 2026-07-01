@@ -922,7 +922,7 @@ export function SettingsView({
                                 Automation{" "}
                                 {compatibilityReport.automationEnabled
                                   ? "enabled"
-                                  : "manual gated"}
+                                  : "manual setup gated"}
                               </span>
                             </div>
                           ) : null}

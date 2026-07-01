@@ -7849,7 +7849,7 @@ export default function App() {
             ? `${connector.name} is routed through Headroom and verified.`
             : `${connector.name} routing is configured; send a test prompt from Connectors.`
           : canRepairManaged
-            ? `${connector.name} is detected but not routed. Use ${actionLabel} to re-apply reversible managed setup and verify routing evidence.`
+            ? `${connector.name} routing is repair ready. Use ${actionLabel} to re-apply reversible managed setup and verify routing evidence.`
             : `${connector.name} is detected but not routed.`
         : `${label.replace(" routing", "")} is not detected on this Mac.`,
       actionLabel,
@@ -10383,7 +10383,7 @@ export default function App() {
                                   Automation{" "}
                                   {compatibilityReport.automationEnabled
                                     ? "enabled"
-                                    : "manual gated"}
+                                    : "manual setup gated"}
                                 </span>
                               </div>
                             ) : null}

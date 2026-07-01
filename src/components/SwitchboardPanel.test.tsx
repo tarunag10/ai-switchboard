@@ -285,7 +285,7 @@ describe("SwitchboardPanel", () => {
           label: "Gemini CLI routing",
           status: "Repair ready",
           detail:
-            "Gemini CLI is detected but not routed. Use Repair managed setup to re-apply reversible managed setup and verify routing evidence.",
+            "Gemini CLI routing is repair ready. Use Repair managed setup to re-apply reversible managed setup and verify routing evidence.",
           actionLabel: "Repair managed setup",
           onAction,
         },
@@ -296,7 +296,7 @@ describe("SwitchboardPanel", () => {
     expect(inspector.getByText("Gemini CLI routing")).toBeInTheDocument();
     expect(
       inspector.getByText(
-        "Gemini CLI is detected but not routed. Use Repair managed setup to re-apply reversible managed setup and verify routing evidence.",
+        "Gemini CLI routing is repair ready. Use Repair managed setup to re-apply reversible managed setup and verify routing evidence.",
       ),
     ).toBeInTheDocument();
 
