@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Windsurf safe-apply rollback coverage
+
+- Added fixture-home coverage proving the promoted Windsurf safe-apply flow can preview, apply, verify, and roll back from its sibling backup while preserving unmanaged settings.
+
 ### Windsurf native routing regression coverage
 
 - Added fixture-home coverage proving Windsurf managed setup writes, verifies, and Off cleanup removes only the Switchboard-owned native routing keys while preserving user settings.

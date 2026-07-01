@@ -10303,6 +10303,75 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    fn managed_config_apply_preview_and_execute_promotes_windsurf_rollback_safely() {
+        let home = TestHome::new();
+        let windsurf_dir = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Windsurf")
+            .join("User");
+        fs::create_dir_all(&windsurf_dir).unwrap();
+        let settings_json = windsurf_dir.join("settings.json");
+        let original = serde_json::json!({
+            "workbench.colorTheme": "Quiet Light",
+            "assistant": { "defaultModel": "claude-3-5-sonnet" }
+        });
+        fs::write(
+            &settings_json,
+            serde_json::to_vec_pretty(&original).unwrap(),
+        )
+        .unwrap();
+
+        let preview =
+            super::preview_managed_config_apply("windsurf-routing").expect("preview windsurf apply");
+        assert_eq!(preview.record_id, "windsurf-routing");
+        assert!(preview
+            .target_path
+            .ends_with("Application Support/Windsurf/User/settings.json"));
+        assert!(preview.current_state.contains("Quiet Light"));
+        assert!(preview.proposed_state.contains("anthropic.baseUrl"));
+        assert!(preview.rollback_preview.contains("Rollback Center"));
+
+        let result =
+            super::execute_managed_config_apply("windsurf-routing", &preview.confirmation_phrase)
+                .expect("execute windsurf apply");
+        assert!(result.changed);
+        assert!(result.backup_path.is_some());
+        assert!(super::windsurf_provider_config_matches().expect("verify windsurf"));
+
+        let applied: serde_json::Value =
+            serde_json::from_slice(&fs::read(&settings_json).unwrap()).unwrap();
+        assert_eq!(applied["workbench.colorTheme"], "Quiet Light");
+        assert_eq!(applied["assistant"]["defaultModel"], "claude-3-5-sonnet");
+        assert_eq!(
+            applied["anthropic.baseUrl"],
+            super::HEADROOM_ANTHROPIC_BASE_URL
+        );
+
+        let rollback_preview =
+            super::preview_managed_rollback("windsurf-routing").expect("preview windsurf rollback");
+        assert_eq!(rollback_preview.record_id, "windsurf-routing");
+        assert_eq!(rollback_preview.marker, "headroom:windsurf");
+        assert!(rollback_preview.backup_path.is_some());
+        assert!(rollback_preview
+            .proposed_action
+            .contains("Restore the Windsurf settings"));
+
+        let rollback = super::execute_managed_rollback(
+            "windsurf-routing",
+            result.backup_path.as_deref().expect("backup"),
+            "Restore headroom:windsurf for Windsurf routing",
+        )
+        .expect("rollback applied windsurf config");
+        assert_eq!(rollback.record_id, "windsurf-routing");
+        let restored: serde_json::Value =
+            serde_json::from_slice(&fs::read(&settings_json).unwrap()).unwrap();
+        assert_eq!(restored, original);
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn managed_config_apply_rejects_wrong_confirmation_for_opencode() {
         let _home = TestHome::new();
         let err = super::execute_managed_config_apply("opencode-routing", "Apply OpenCode")
