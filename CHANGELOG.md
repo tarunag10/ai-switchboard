@@ -87,3 +87,7 @@
 ### Repo Intelligence Doctor API copy
 
 - Updated Doctor support copy for `get_agent_handoff` to describe managed connector readiness dossiers instead of planned-only readiness.
+
+### Implementation plan connector truth
+
+- Refreshed the main implementation plan support matrix and connector expansion order so OpenCode, Windsurf, Zed AI, and Gemini CLI match their current managed status.

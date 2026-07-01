@@ -34,7 +34,7 @@ Off mode must remove routing hooks, provider overrides, shell blocks, RTK hooks,
 
 ### 4. Planned support must not be marketed as managed support
 
-Claude Code and Codex are the first-class managed targets. Cursor, Windsurf, OpenCode, Gemini CLI, Goose, Aider, Continue, Zed AI, Amazon Q, Qwen Code, and similar tools should remain labelled as guided, detected, or planned until automatic setup and cleanup are implemented and tested.
+Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI are the current managed targets. Cursor, Goose, Aider, Continue, Amazon Q, Qwen Code, Grok / xAI CLI, and similar tools should remain labelled as guided, detected, or planned until automatic setup and cleanup are implemented and tested.
 
 ### 5. Context quality is the long-term moat
 
@@ -257,13 +257,21 @@ The project aims to support many agentic coding tools, but managed support curre
 
 2. Add a clear support matrix:
 
-   | Tool        | Status         | Automatic routing |    RTK support | Repo packs | Notes                              |
-   | ----------- | -------------- | ----------------: | -------------: | ---------: | ---------------------------------- |
-   | Claude Code | Managed        |               Yes |            Yes |        Yes | Reversible config edits            |
-   | Codex       | Managed        |               Yes |        Partial |        Yes | Provider block and bypass handling |
-   | Cursor      | Planned/guided |                No |             No |        Yes | Copyable packs only today          |
-   | Windsurf    | Planned/guided |                No |             No |        Yes | Copyable packs only today          |
-   | OpenCode    | Planned        |                No | Possible later |        Yes | Detection only today               |
+   | Tool        | Status         | Automatic routing | RTK support | Repo packs | Notes                                                 |
+   | ----------- | -------------- | ----------------: | ----------: | ---------: | ----------------------------------------------------- |
+   | Claude Code | Managed        |               Yes |         Yes |        Yes | Reversible config edits                               |
+   | Codex       | Managed        |               Yes |     Partial |        Yes | Provider block and bypass handling                    |
+   | Gemini CLI  | Managed        |               Yes |          No |        Yes | Managed shell/base-url routing and Off cleanup        |
+   | OpenCode    | Managed        |               Yes |          No |        Yes | Managed provider config routing with rollback         |
+   | Windsurf    | Managed        |               Yes |          No |        Yes | Managed editor settings routing with rollback         |
+   | Zed AI      | Managed        |               Yes |          No |        Yes | Managed settings routing with rollback                |
+   | Cursor      | Guided         |                No |          No |        Yes | Detects settings; native writes remain blocked        |
+   | Aider       | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
+   | Continue    | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
+   | Goose       | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
+   | Grok / xAI  | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
+   | Qwen Code   | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
+   | Amazon Q    | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
 
 3. Use consistent labels everywhere:
 
@@ -279,7 +287,7 @@ The project aims to support many agentic coding tools, but managed support curre
 
 ### Acceptance criteria
 
-- README does not imply Cursor/Windsurf/OpenCode/Gemini are fully managed.
+- README and docs identify only Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI as fully managed.
 - Every planned connector has a safe manual workflow and automation gates.
 - UI and docs use the same labels.
 
@@ -1242,28 +1250,32 @@ Before any adapter becomes managed, it must support:
 
 ### Recommended order
 
-1. **Aider**
+1. **Cursor**
+   - Editor settings are already detected.
+   - Promote profile-aware settings writes only after parse, dry-run diff, backup, verification, rollback, and Off cleanup are proven.
+
+2. **Continue**
+   - Multi-provider config needs careful unmanaged-config preservation.
+   - Good candidate for the next read-only-to-managed promotion after editor settings parsing is safer.
+
+3. **Goose**
+   - Agent/MCP-friendly.
+   - Strong fit for Repo Intelligence handoff.
+
+4. **Aider**
    - CLI-first.
    - Common config files.
    - Good candidate for context packs and wrapper-based env routing.
 
-2. **OpenCode**
-   - CLI-first.
-   - Detect and guided setup first.
-   - Managed routing only after config format is stable.
+5. **Grok / xAI CLI, Qwen Code, and Amazon Q**
+   - Keep account, credential, and model guardrails explicit before native writes.
+   - Use sidecar/readiness dossiers until provider-specific safe mutation is proven.
 
-3. **Gemini CLI**
-   - CLI-first.
-   - Important for broad model coverage.
-   - Needs provider/model compatibility checks.
+Managed reference paths:
 
-4. **Goose**
-   - Agent/MCP-friendly.
-   - Strong fit for Repo Intelligence handoff.
-
-5. **Cursor/Windsurf/Zed/Continue**
-   - Start with guided setup and repo packs.
-   - Delay automatic provider edits until settings/profile behavior is stable.
+- **OpenCode** is the CLI/provider-config reference path.
+- **Gemini CLI** is the shell/base-url reference path.
+- **Windsurf** and **Zed AI** are the editor-settings reference paths.
 
 ### Acceptance criteria for each new managed connector
 
