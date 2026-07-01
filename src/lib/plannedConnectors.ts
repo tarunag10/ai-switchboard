@@ -1102,7 +1102,7 @@ export function formatPlannedConnectorConfigCreationPlansMarkdown(
 }
 
 export function summarizePlannedConnectorSupport(
-  connectors: PlannedConnector[] = pendingPlannedConnectors,
+  connectors: ConnectorDossier[] = pendingPlannedConnectors,
 ): PlannedConnectorSupportSummary {
   const capabilityRows = connectors.flatMap((connector) =>
     connector.capabilityRows.map((capability) => ({

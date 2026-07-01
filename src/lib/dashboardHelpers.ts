@@ -523,25 +523,31 @@ export interface PlannedConnectorReadinessSummary {
 export function summarizePlannedConnectorReadiness(
   connectors: ClientConnectorStatus[]
 ): PlannedConnectorReadinessSummary {
-  const planned = aggregateClientConnectors(connectors).filter(
-    (connector) => connector.supportStatus === "planned"
+  const readinessConnectors = aggregateClientConnectors(connectors).filter(
+    (connector) => getPlannedConnector(connector.clientId) !== null
   );
-  const detected = planned.filter((connector) => connector.installed);
-  const notDetected = planned.filter((connector) => !connector.installed);
+  const detected = readinessConnectors.filter((connector) => connector.installed);
+  const notDetected = readinessConnectors.filter((connector) => !connector.installed);
+  const managedDetectedCount = detected.filter(
+    (connector) => connector.supportStatus === "managed"
+  ).length;
 
   const detectedNames = detected.map((connector) => connector.name);
   const notDetectedNames = notDetected.map((connector) => connector.name);
-  const supportSummary = summarizePlannedConnectorSupport();
+  const supportSummary = summarizePlannedConnectorSupport([
+    ...managedConnectorDossiers,
+    ...plannedConnectors,
+  ]);
   const detectedCopy =
-    detectedNames.length > 0 ? detectedNames.join(", ") : "No planned tools";
+    detectedNames.length > 0 ? detectedNames.join(", ") : "No connector tools";
   const notDetectedCopy =
     notDetectedNames.length > 0
       ? notDetectedNames.join(", ")
-      : "all planned tools detected";
+      : "all connector tools detected";
 
   return {
     detectedCount: detected.length,
-    manualOnlyCount: planned.length,
+    manualOnlyCount: readinessConnectors.length - managedDetectedCount,
     notDetectedCount: notDetected.length,
     safeTodayCount: supportSummary.safeTodayCount,
     plannedCapabilityCount: supportSummary.plannedCount,
@@ -550,13 +556,13 @@ export function summarizePlannedConnectorReadiness(
     notDetectedNames,
     headline:
       detected.length > 0
-        ? `${detected.length} planned tool${detected.length === 1 ? "" : "s"} detected locally`
-        : "No planned coding tools detected yet",
+        ? `${detected.length} connector tool${detected.length === 1 ? "" : "s"} detected locally`
+        : "No connector coding tools detected yet",
     detail:
-      `${detectedCopy} are read-only today. Not found: ${notDetectedCopy}. ` +
+      `${detectedCopy} have connector readiness evidence. Not found: ${notDetectedCopy}. ` +
       `${supportSummary.safeTodayCount} safe capabilities are available now; ` +
       `${supportSummary.plannedCount} remain gated behind ${supportSummary.automationGateCount} backup, restore, and Off mode checks. ` +
-      "Automatic routing stays locked until backup, restore, and Off mode cleanup ship."
+      "Promoted managed routes can be repaired now; unpromoted native routing stays locked until backup, restore, and Off mode cleanup ship."
   };
 }
 

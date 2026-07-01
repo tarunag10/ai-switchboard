@@ -1230,11 +1230,20 @@ describe("mergeProviderSavingsForDisplay", () => {
     expect(mergeProviderSavingsForDisplay([])).toEqual([]);
   });
 
-  it("summarizes planned connector readiness without enabling automation", () => {
+  it("summarizes connector readiness across managed and planned dossiers", () => {
     const connectors: ClientConnectorStatus[] = [
       {
         clientId: "claude_code",
         name: "Claude Code",
+        installed: true,
+        enabled: true,
+        verified: true,
+      },
+      {
+        clientId: "gemini_cli",
+        name: "Gemini CLI",
+        supportStatus: "managed",
+        setupPhase: "managed",
         installed: true,
         enabled: true,
         verified: true,
@@ -1268,17 +1277,17 @@ describe("mergeProviderSavingsForDisplay", () => {
     ];
 
     expect(summarizePlannedConnectorReadiness(connectors)).toEqual({
-      detectedCount: 2,
+      detectedCount: 3,
       manualOnlyCount: 3,
       notDetectedCount: 1,
-      safeTodayCount: 0,
-      plannedCapabilityCount: 0,
-      automationGateCount: 0,
-      detectedNames: ["Grok / xAI CLI", "Cursor"],
+      safeTodayCount: 20,
+      plannedCapabilityCount: 7,
+      automationGateCount: 36,
+      detectedNames: ["Gemini CLI", "Grok / xAI CLI", "Cursor"],
       notDetectedNames: ["Aider"],
-      headline: "2 planned tools detected locally",
+      headline: "3 connector tools detected locally",
       detail:
-        "Grok / xAI CLI, Cursor are read-only today. Not found: Aider. 0 safe capabilities are available now; 0 remain gated behind 0 backup, restore, and Off mode checks. Automatic routing stays locked until backup, restore, and Off mode cleanup ship.",
+        "Gemini CLI, Grok / xAI CLI, Cursor have connector readiness evidence. Not found: Aider. 20 safe capabilities are available now; 7 remain gated behind 36 backup, restore, and Off mode checks. Promoted managed routes can be repaired now; unpromoted native routing stays locked until backup, restore, and Off mode cleanup ship.",
     });
   });
 });

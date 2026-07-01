@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Connector readiness summary counts
+
+- Updated Settings connector readiness summary counts and copy to include managed connector dossiers, so promoted managed routes are counted as repairable connector evidence instead of being hidden behind planned-only wording.
+
 ### Connector card readiness evidence
 
 - Updated connector cards to use managed connector dossiers as well as planned dossiers, so promoted Gemini/OpenCode/Windsurf/Zed readiness and config-plan evidence can render in the same card surfaces.
