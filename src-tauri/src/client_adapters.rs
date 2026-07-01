@@ -6427,7 +6427,7 @@ fn detect_gemini_cli_client() -> ClientStatus {
         "Gemini",
         executable.clone(),
         &config_candidates,
-        "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.",
+        "Managed shell/base-url routing uses Switchboard-owned shell blocks, sidecar evidence, backup, Doctor verification, rollback, and Off mode cleanup.",
     );
     let installed = executable.is_some() || !report.config_surfaces.is_empty();
     let mut notes = if installed {
@@ -6437,7 +6437,7 @@ fn detect_gemini_cli_client() -> ClientStatus {
     };
     if installed {
         notes.push(
-            "Detected, but the Headroom adapter is not implemented yet. For now use RTK-only mode for shell-output savings."
+            "Detected. Switchboard can manage Gemini CLI shell/base-url routing while keeping account and model choices user-owned."
                 .into(),
         );
     }
@@ -6461,7 +6461,7 @@ fn detect_gemini_cli_client() -> ClientStatus {
 fn append_gemini_manual_routing_note(status: &mut ClientStatus) {
     if status.installed {
         status.notes.push(
-            "Gemini provider routing remains manual until Doctor can verify a stable config surface, backup, restore, and Off mode cleanup."
+            "Gemini routing is managed through reversible shell/base-url exports with Doctor verification, rollback evidence, and Off mode cleanup."
                 .into(),
         );
     }
@@ -6480,7 +6480,7 @@ fn detect_opencode_client() -> ClientStatus {
         "OpenCode",
         executable.clone(),
         &config_candidates,
-        "Provider routing blocked until active config path, backup, verify, rollback, and Off mode cleanup exist.",
+        "Managed provider routing uses the active OpenCode config path with backup, Doctor verification, rollback, and Off mode cleanup.",
     );
     let installed = executable.is_some() || !report.config_surfaces.is_empty();
     let mut notes = if installed {
@@ -6490,7 +6490,7 @@ fn detect_opencode_client() -> ClientStatus {
     };
     if installed {
         notes.push(
-            "Detected, but the Headroom adapter is not implemented yet. For now use RTK-only mode for shell-output savings."
+            "Detected. Switchboard can manage OpenCode provider routing with backup, verification, rollback, and Off mode cleanup."
                 .into(),
         );
     }
@@ -6891,7 +6891,7 @@ fn detect_windsurf_client() -> ClientStatus {
             ));
         }
         evidence.push(
-            "Settings routing blocked until settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+            "Managed Windsurf settings routing uses settings parse, dry-run diff, backup, Doctor verification, rollback, and Off mode cleanup."
                 .into(),
         );
         evidence
@@ -6900,7 +6900,7 @@ fn detect_windsurf_client() -> ClientStatus {
     };
     if installed {
         notes.push(
-            "Detected, but Headroom adapter is not implemented yet. Use guided setup and copy-only handoff packs."
+            "Detected. Switchboard can manage Windsurf editor settings routing with backup, verification, rollback, and Off mode cleanup."
                 .into(),
         );
     }
@@ -6955,7 +6955,7 @@ fn detect_zed_ai_client() -> ClientStatus {
             ));
         }
         evidence.push(
-            "Settings routing blocked until lossless settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+            "Managed Zed settings routing uses lossless settings parse, dry-run diff, backup, Doctor verification, rollback, and Off mode cleanup."
                 .into(),
         );
         evidence
@@ -6964,7 +6964,7 @@ fn detect_zed_ai_client() -> ClientStatus {
     };
     if installed {
         notes.push(
-            "Detected, but Headroom adapter is not implemented yet. Keep Zed assistant settings manual and use copy-only handoffs."
+            "Detected. Switchboard can manage Zed assistant settings routing with backup, verification, rollback, and Off mode cleanup."
                 .into(),
         );
     }
@@ -7761,6 +7761,10 @@ mod tests {
                 && connector
                     .detection_evidence
                     .contains(&"Windsurf app: /Applications/Windsurf.app".to_string())
+                && connector.detection_evidence.contains(
+                    &"Managed Windsurf settings routing uses settings parse, dry-run diff, backup, Doctor verification, rollback, and Off mode cleanup."
+                        .to_string()
+                )
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "zed_ai"
@@ -7769,18 +7773,22 @@ mod tests {
                 && connector
                     .detection_evidence
                     .contains(&"Zed app: /Applications/Zed.app".to_string())
+                && connector.detection_evidence.contains(
+                    &"Managed Zed settings routing uses lossless settings parse, dry-run diff, backup, Doctor verification, rollback, and Off mode cleanup."
+                        .to_string()
+                )
         }));
     }
 
     #[test]
-    fn gemini_compatibility_evidence_reports_version_config_and_blocked_routing() {
+    fn gemini_compatibility_evidence_reports_version_config_and_managed_routing() {
         let report = super::PlannedCliCompatibilityReport {
             label: "Gemini",
             binary_path: Some(PathBuf::from("/opt/homebrew/bin/gemini")),
             version: Some("gemini 0.2.1".to_string()),
             config_surfaces: vec![PathBuf::from("/Users/test/.gemini")],
             routing_blocker:
-                "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.",
+                "Managed shell/base-url routing uses Switchboard-owned shell blocks, sidecar evidence, backup, Doctor verification, rollback, and Off mode cleanup.",
         };
 
         let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
@@ -7788,22 +7796,23 @@ mod tests {
         assert!(evidence.contains("Gemini binary: /opt/homebrew/bin/gemini"));
         assert!(evidence.contains("Gemini version: gemini 0.2.1"));
         assert!(evidence.contains("Gemini config surface: /Users/test/.gemini"));
-        assert!(evidence.contains("Provider routing blocked"));
+        assert!(evidence.contains("Managed shell/base-url routing"));
+        assert!(evidence.contains("sidecar evidence"));
+        assert!(evidence.contains("Doctor verification"));
         assert!(evidence.contains("backup"));
-        assert!(evidence.contains("verify"));
         assert!(evidence.contains("rollback"));
         assert!(evidence.contains("Off mode cleanup"));
     }
 
     #[test]
-    fn opencode_compatibility_evidence_reports_version_config_and_blocked_routing() {
+    fn opencode_compatibility_evidence_reports_version_config_and_managed_routing() {
         let report = super::PlannedCliCompatibilityReport {
             label: "OpenCode",
             binary_path: Some(PathBuf::from("/opt/homebrew/bin/opencode")),
             version: Some("opencode 1.0.0".to_string()),
             config_surfaces: vec![PathBuf::from("/Users/test/.config/opencode")],
             routing_blocker:
-                "Provider routing blocked until active config path, backup, verify, rollback, and Off mode cleanup exist.",
+                "Managed provider routing uses the active OpenCode config path with backup, Doctor verification, rollback, and Off mode cleanup.",
         };
 
         let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
@@ -7811,10 +7820,10 @@ mod tests {
         assert!(evidence.contains("OpenCode binary: /opt/homebrew/bin/opencode"));
         assert!(evidence.contains("OpenCode version: opencode 1.0.0"));
         assert!(evidence.contains("OpenCode config surface: /Users/test/.config/opencode"));
-        assert!(evidence.contains("Provider routing blocked"));
-        assert!(evidence.contains("active config path"));
+        assert!(evidence.contains("Managed provider routing"));
+        assert!(evidence.contains("active OpenCode config path"));
+        assert!(evidence.contains("Doctor verification"));
         assert!(evidence.contains("backup"));
-        assert!(evidence.contains("verify"));
         assert!(evidence.contains("rollback"));
         assert!(evidence.contains("Off mode cleanup"));
     }

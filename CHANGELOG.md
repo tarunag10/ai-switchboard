@@ -33,3 +33,8 @@
 ### Connector roadmap truth sync
 
 - Updated the active roadmap docs to distinguish fully managed manifest connectors from sidecar/readiness-covered connector dossiers, and to reflect Windsurf/Zed as promoted editor-routing surfaces instead of blocked editor-write plans.
+
+### Managed routing metadata refresh
+
+- Replaced stale Gemini/OpenCode manual-routing backend and Repo Intelligence copy with their promoted managed routing lifecycles and rollback evidence.
+- Refreshed Windsurf and Zed backend detector evidence so managed editor-routing connectors no longer describe themselves as unimplemented manual handoffs.

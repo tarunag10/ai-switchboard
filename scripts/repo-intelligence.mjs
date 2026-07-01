@@ -337,7 +337,7 @@ const plannedConnectorDossiers = {
   gemini_cli: {
     name: "Gemini CLI",
     configPathStrategy:
-      "Detect PATH: gemini first, then probe documented provider settings or shell flags read-only.",
+      "Detect PATH: gemini first, then use Switchboard-managed shell/base-url exports and sidecar evidence.",
     accountCaveat:
       "Model and account compatibility must be reported before routing; no account tokens are stored.",
     rollbackStrategy:
