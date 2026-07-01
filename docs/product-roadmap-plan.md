@@ -128,8 +128,8 @@ Left:
 
 ### Connector Expansion Risk
 
-- Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI now have managed sidecar lifecycle coverage.
-- The remaining connector risk is provider-specific native config mutation for the tools that are not yet managed: Cursor, Continue, Goose, Aider, Grok / xAI CLI, Qwen Code, and Amazon Q still need connector-specific safe writes. Gemini CLI, OpenCode, Windsurf, and Zed AI have promoted managed routing surfaces.
+- Gemini CLI, OpenCode, Windsurf, and Zed AI now have promoted managed routing surfaces with backup, verification, rollback, and Off cleanup evidence. Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, and Amazon Q Developer CLI retain sidecar/readiness coverage and guided setup while their native/provider writes stay gated.
+- The remaining connector risk is provider-specific native config mutation for the tools that are not yet managed: Cursor, Continue, Goose, Aider, Grok / xAI CLI, Qwen Code, and Amazon Q still need connector-specific safe writes. Gemini CLI, OpenCode, Windsurf, and Zed AI remain reference paths for promoted managed routing.
 - Native config automation should stay gated behind detection, manual-safe instructions, dry-run diffs, backups, Doctor verification, Off-mode cleanup, and fixture-home restore tests.
 
 ## Roadmap Phases
@@ -264,7 +264,7 @@ Suggested commit:
 
 Goal: add new agent connectors safely and repeatedly.
 
-Status: framework shipped; native writes are intentionally gated per connector. Managed sidecar lifecycle, readiness metadata, dry-run previews, handoff dossiers, and release evidence checks exist across the managed connector set. OpenCode has provider-config routing, Gemini has managed shell routing, and Windsurf/Zed have managed editor settings routing with backup, verification, rollback, and Off cleanup coverage.
+Status: framework shipped; native writes are intentionally gated per connector. Readiness metadata, dry-run previews, handoff dossiers, sidecar lifecycle evidence for unpromoted connectors, and release evidence checks exist across the connector set. OpenCode has provider-config routing, Gemini has managed shell routing, and Windsurf/Zed have managed editor settings routing with backup, verification, rollback, and Off cleanup coverage.
 
 Tasks:
 
@@ -272,11 +272,11 @@ Tasks:
 - Keep connector manifests current for Gemini CLI, OpenCode, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI, and Grok / xAI CLI.
 - For each connector, document native config paths, provider/base-url semantics, account caveats, credential boundaries, and rollback strategy.
 - Keep UI badges for "manual only", "automation gated", "verified automation", and "unsupported account/model".
-- Promote native config automation connector by connector after the managed sidecar framework and fixture-home restore tests prove the path.
+- Promote native config automation connector by connector after the shared readiness framework and fixture-home restore tests prove the path.
 
 Acceptance checks:
 
-- Managed connectors show useful detection, sidecar lifecycle state, native config gate status, and promoted routing lifecycle evidence without mutating unsupported native config.
+- Managed and guided connectors show useful detection, sidecar/readiness lifecycle state where applicable, native config gate status, and promoted routing lifecycle evidence without mutating unsupported native config.
 - Automation is disabled until backup, verify, rollback, and Off cleanup exist; promoted routes expose repair/rollback only after those gates are proven.
 - Doctor can explain why a connector is not safely automatable yet and can repair promoted managed routing drift.
 - Adding a new connector does not require bespoke UI rewrites.

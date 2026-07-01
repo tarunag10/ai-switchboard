@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+### Connector roadmap lifecycle wording
+
+- Updated the roadmap, Repo Intelligence plan, and Agent Control Center checkpoint so promoted Gemini/OpenCode/Windsurf/Zed managed routing is distinct from sidecar/readiness coverage for unpromoted connectors.
+- Clarified that remaining native/provider writes stay gated for Cursor, Continue, Goose, Aider, Grok / xAI CLI, Qwen Code, and Amazon Q.
+
 ### Repo Intelligence managed handoff readiness
 
 - Synced Repo Intelligence handoff metadata across frontend, CLI, and Tauri API paths so Gemini CLI, OpenCode, Windsurf, and Zed AI report promoted managed routing instead of stale manual-provider routing.
