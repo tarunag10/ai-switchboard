@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Repo Intelligence connector handoff wording
+
+- Updated Repo Intelligence handoff Markdown, session summaries, and architecture copy so agent-facing exports refer to connector readiness instead of planned connectors.
+
 ### Connector verifier output wording
 
 - Updated the connector verifier and implementation-plan references so active check output reports gated native-write dossiers instead of pending planned rows.

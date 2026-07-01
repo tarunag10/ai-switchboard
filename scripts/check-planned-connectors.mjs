@@ -290,7 +290,7 @@ function validateCliConnectorDossierContract(source, connectorIds) {
     }
   }
 
-  if (!source.includes("Planned connector: ${configReadiness.plannedConnectorName}")) {
+  if (!source.includes("Connector readiness: ${configReadiness.plannedConnectorName}")) {
     errors.push("CLI markdown handoff must include connector name and id");
   }
   if (!source.includes("evidence required: ${step.requiredEvidence.join")) {

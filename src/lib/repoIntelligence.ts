@@ -1449,7 +1449,7 @@ export function formatRepoAgentHandoffMarkdown(
   const configReadinessMarkdown = configReadiness
     ? [
         "## Connector Config Readiness",
-        `Planned connector: ${configReadiness.plannedConnectorName} (${configReadiness.plannedConnectorId})`,
+        `Connector readiness: ${configReadiness.plannedConnectorName} (${configReadiness.plannedConnectorId})`,
         `Automation enabled: ${configReadiness.automationEnabled ? "yes" : "no"}`,
         `Next gate: ${configReadiness.nextGate.label}`,
         configReadiness.safetyNote,
@@ -1753,7 +1753,7 @@ export function formatAgentSessionSummaryMarkdown(
     ? [
         "",
         "## Connector Config Readiness",
-        `- Planned connector: ${preparation.configReadiness.plannedConnectorName} (${preparation.configReadiness.plannedConnectorId})`,
+        `- Connector readiness: ${preparation.configReadiness.plannedConnectorName} (${preparation.configReadiness.plannedConnectorId})`,
         `- Next gate: ${preparation.configReadiness.nextGate.label}`,
         `- Automation enabled: ${preparation.configReadiness.automationEnabled ? "yes" : "no"}`,
       ]

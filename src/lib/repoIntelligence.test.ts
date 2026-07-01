@@ -970,7 +970,7 @@ describe("repoIntelligence", () => {
     const cursor = formatRepoAgentHandoffMarkdown(summary, "cursor");
     expect(cursor).toContain("# Cursor Handoff");
     expect(cursor).toContain("Selected pack: Handoff Pack");
-    expect(cursor).toContain("Planned connector: Cursor (cursor)");
+    expect(cursor).toContain("Connector readiness: Cursor (cursor)");
     expect(cursor).toContain("docs/install.md");
   });
 
@@ -1158,7 +1158,7 @@ describe("repoIntelligence", () => {
     );
   });
 
-  it("exposes planned connector readiness in agent session preparation", () => {
+  it("exposes connector readiness in agent session preparation", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },
       { path: "src/App.test.tsx", bytes: 2000 },
@@ -1205,7 +1205,7 @@ describe("repoIntelligence", () => {
 
     const sessionSummary = formatAgentSessionSummaryMarkdown(preparation);
     expect(sessionSummary).toContain("## Connector Config Readiness");
-    expect(sessionSummary).toContain("Planned connector: Cursor (cursor)");
+    expect(sessionSummary).toContain("Connector readiness: Cursor (cursor)");
     expect(sessionSummary).toContain("Next gate: Detect config surface");
 
     const display = buildAgentSessionDisplayState(preparation, true);

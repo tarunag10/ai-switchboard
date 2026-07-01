@@ -2089,7 +2089,7 @@ function formatAgentHandoffMarkdown(summary, agentId, requestedPackId) {
   const configReadinessMarkdown = configReadiness
     ? [
         "## Connector Config Readiness",
-        `Planned connector: ${configReadiness.plannedConnectorName} (${configReadiness.plannedConnectorId})`,
+        `Connector readiness: ${configReadiness.plannedConnectorName} (${configReadiness.plannedConnectorId})`,
         `Automation enabled: ${configReadiness.automationEnabled ? "yes" : "no"}`,
         `Next gate: ${configReadiness.nextGate.label}`,
         configReadiness.safetyNote,
