@@ -49,7 +49,7 @@ npm run repo:intelligence -- <repo-path> --session --agent codex --task verifica
 
 ## Connector Notes
 
-Claude Code, Codex, Gemini CLI, OpenCode, Aider, Goose, Cursor, Continue, Grok / xAI CLI, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI should consume Repo Intelligence as read-only context. Managed connector readiness dossiers may describe config paths and rollback strategy, but provider/editor native config mutation stays gated behind explicit backup, apply, verify, rollback, Doctor, and Off cleanup evidence.
+Claude Code, Codex, Gemini CLI, OpenCode, Aider, Goose, Cursor, Continue, Grok / xAI CLI, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI should consume Repo Intelligence as read-only context. Managed connector readiness dossiers may describe config paths and rollback strategy, but provider/editor native config mutation stays gated behind explicit dry-run, backup, apply, verify, rollback, Doctor repair, and Off cleanup evidence.
 
 Goose and other MCP-aware tools should keep Repo Memory MCP separate from provider routing. MCP context can be enabled while provider config remains manual or sidecar-only.
 
@@ -63,7 +63,7 @@ Goose and other MCP-aware tools should keep Repo Memory MCP separate from provid
 | OpenCode | Use Start Agent Session handoffs first; use MCP only when OpenCode's configured runtime can call MCP tools. | OpenCode provider config routing remains guarded by native backup, verify, rollback, and Off cleanup. |
 | Goose | Use Repo Memory MCP as the preferred read-only context path once configured. | Keep MCP server setup separate from Goose provider, model, and credential configuration. |
 | Cursor | Use copied context packs or session handoffs until Cursor's MCP bridge is explicitly configured and verified. | Cursor editor settings mutation stays gated behind connector-specific dry-run, backup, apply, verify, rollback, Doctor repair, and Off cleanup. |
-| Windsurf, Zed | Use copied context packs or session handoffs until each editor's MCP bridge is explicitly configured and verified. | Repo Memory MCP setup is separate from managed Windsurf/Zed routing; provider settings routing remains governed by the connector lifecycle and rollback inventory. |
+| Windsurf, Zed | Use copied context packs or session handoffs until each editor's MCP bridge is explicitly configured and verified. | Repo Memory MCP setup is separate from managed Windsurf/Zed routing; provider settings routing remains governed by the connector lifecycle and rollback inventory. Cursor, Windsurf, Zed bridge setup is never provider-routing permission. |
 | Aider, Continue | Use copied packs/session handoffs by default; use MCP only when the local tool installation advertises compatible MCP consumption. | Multi-provider config and wrapper/env changes remain manual or sidecar-only until native promotion evidence exists. |
 | Grok / xAI CLI, Qwen Code, Amazon Q Developer CLI | Use copied packs/session handoffs until each CLI's MCP/provider capability is detected and documented. | Account, credential, and model guardrails must be proven before native provider config writes are promoted. |
 

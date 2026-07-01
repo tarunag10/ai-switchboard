@@ -17,3 +17,7 @@
 ### Backend connector metadata sync
 
 - Updated backend connector readiness metadata for Gemini CLI, OpenCode, Windsurf, and Zed AI so Doctor, Settings, and Repo Intelligence fallback copy no longer inherit manual-era routing language.
+
+### Repo Memory MCP deployment gate sync
+
+- Restored deployment-readiness wording in the Repo Memory MCP guide so Cursor, Windsurf, and Zed bridge setup stays separate from provider routing and the full connector lifecycle evidence gate remains visible.
