@@ -9200,7 +9200,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
-    fn opencode_setup_writes_verifies_and_cleans_sidecar_only() {
+    fn opencode_setup_writes_verifies_and_cleans_native_routing_only() {
         let home = TestHome::new();
         let sidecar = home
             .path()
@@ -9284,6 +9284,68 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert_eq!(config_value["provider"]["custom"]["name"], "Custom");
         let verification =
             super::verify_client_setup("opencode").expect("verify cleaned opencode setup");
+        assert!(!verification.verified);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn windsurf_setup_writes_verifies_and_off_cleanup_removes_native_routing_only() {
+        let home = TestHome::new();
+        let windsurf_dir = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Windsurf")
+            .join("User");
+        fs::create_dir_all(&windsurf_dir).unwrap();
+        let settings_json = windsurf_dir.join("settings.json");
+        fs::write(
+            &settings_json,
+            r#"{"workbench.colorTheme":"Quiet Light","assistant":{"defaultModel":"claude-3-5-sonnet"}}"#,
+        )
+        .unwrap();
+
+        let result = super::apply_client_setup("windsurf").expect("apply windsurf setup");
+        assert!(result.applied);
+        assert!(!result.already_configured);
+        assert!(result
+            .changed_files
+            .contains(&settings_json.display().to_string()));
+        assert_eq!(result.backup_files.len(), 1);
+        assert!(result.verification.verified);
+
+        let configured: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&settings_json).expect("read settings"))
+                .expect("parse settings");
+        assert_eq!(configured["workbench.colorTheme"], "Quiet Light");
+        assert_eq!(
+            configured["assistant"]["defaultModel"],
+            "claude-3-5-sonnet"
+        );
+        assert_eq!(
+            configured["anthropic.baseUrl"],
+            super::HEADROOM_ANTHROPIC_BASE_URL
+        );
+        assert!(configured
+            .get(format!("// >>> {} >>>", super::WINDSURF_MARKER_PREFIX))
+            .is_some());
+
+        super::disable_client_setup("windsurf").expect("disable windsurf setup");
+        let cleaned: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&settings_json).expect("read cleaned"))
+                .expect("parse cleaned settings");
+        assert_eq!(cleaned["workbench.colorTheme"], "Quiet Light");
+        assert_eq!(cleaned["assistant"]["defaultModel"], "claude-3-5-sonnet");
+        assert!(cleaned.get("anthropic.baseUrl").is_none());
+        assert!(cleaned
+            .get(format!("// >>> {} >>>", super::WINDSURF_MARKER_PREFIX))
+            .is_none());
+        assert!(cleaned
+            .get(format!("// <<< {} <<<", super::WINDSURF_MARKER_PREFIX))
+            .is_none());
+
+        let verification =
+            super::verify_client_setup("windsurf").expect("verify cleaned windsurf setup");
         assert!(!verification.verified);
     }
 

@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Windsurf native routing regression coverage
+
+- Added fixture-home coverage proving Windsurf managed setup writes, verifies, and Off cleanup removes only the Switchboard-owned native routing keys while preserving user settings.
+
 ### Managed connector repair-ready wording
 
 - Updated managed connector dashboard copy so repairable direct routing reads as repair-ready, and clarified the gated manual automation fallback label.
