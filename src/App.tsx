@@ -430,7 +430,7 @@ const connectorSetupDetails: Record<string, string> = {
   amazon_q:
     "Amazon Q Developer CLI is tracked as a planned CLI connector. Verification packs are safe today; AWS credential and profile state stay outside managed setup.",
   windsurf:
-    "Headroom writes managed Windsurf provider routing to ~/Library routing to ~/Library/Application Support/Windsurf/User/settings.json with managed markers and rollback.",
+    "Headroom writes managed Windsurf provider routing to ~/Library/Application Support/Windsurf/User/settings.json with managed markers and rollback.",
   zed_ai:
     "Zed AI is a managed editor connector. Switchboard manages provider routing with backups, verification, rollback, and Off cleanup.",
 };

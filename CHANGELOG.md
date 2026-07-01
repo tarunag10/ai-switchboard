@@ -55,3 +55,7 @@
 ### Repo Memory MCP Node resolution
 
 - Hardened Repo Memory MCP setup and status checks to resolve Node from common macOS install paths when the GUI app PATH does not include Homebrew or `/usr/local/bin`, preventing false missing-Node Doctor loops.
+
+### Windsurf setup copy
+
+- Fixed duplicated Windsurf settings-path wording in the connector setup details shown by the app.
