@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+### Managed connector registry invariant
+
+- Added backend coverage that the manifest-managed connector set is exactly Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI.
+- Guarded promoted managed connectors so any manifest-managed tool must have a native or promoted apply/verify/repair setup path before Doctor can advertise it as managed.
+
 ### Retained connector Doctor wording
 
 - Aligned planned-connector Doctor body, beta smoke expectations, and deployment readiness checks around retained connector native-routing gates so managed connectors are not described as manual-only.

@@ -7335,6 +7335,38 @@ mod tests {
     }
 
     #[test]
+    fn manifest_managed_connectors_have_implemented_setup_paths() {
+        let manifests = serde_json::from_str::<Vec<serde_json::Value>>(CONNECTOR_MANIFEST_JSON)
+            .expect("valid connector manifest");
+        let managed_ids = manifests
+            .iter()
+            .filter(|manifest| manifest["support_status"].as_str() == Some("managed"))
+            .map(|manifest| manifest["id"].as_str().expect("manifest id"))
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(
+            managed_ids,
+            BTreeSet::from([
+                "claude_code",
+                "codex",
+                "gemini_cli",
+                "opencode",
+                "windsurf",
+                "zed_ai",
+            ])
+        );
+
+        for id in managed_ids {
+            let native_managed = MANAGED_CLIENT_SPECS.iter().any(|spec| spec.id == id);
+            let promoted_planned = planned_connector_has_implemented_setup(id);
+            assert!(
+                native_managed || promoted_planned,
+                "{id} is manifest-managed but has no apply/verify/repair setup path"
+            );
+        }
+    }
+
+    #[test]
     fn planned_connector_registry_includes_backend_detection_metadata() {
         for spec in PLANNED_CLIENT_SPECS {
             assert!(matches!(spec.category, "cli" | "editor" | "agent"));
