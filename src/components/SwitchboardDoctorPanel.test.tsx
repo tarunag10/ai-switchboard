@@ -458,7 +458,7 @@ describe("SwitchboardDoctorPanel", () => {
 
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0][0]).toContain(
-      "Planned connector config readiness dossiers",
+      "Connector config readiness dossiers",
     );
     expect(writeText.mock.calls[0][0]).toContain(
       "No pending planned connector dossiers remain",

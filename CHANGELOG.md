@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Doctor connector readiness wording
+
+- Updated Doctor connector readiness copy and exports so promoted managed coverage no longer appears under stale planned-connector headings, while pending connector gates remain explicit when they exist.
+
 ### Connector compatibility evidence labels
 
 - Updated connector compatibility cards so promoted managed routing evidence renders as routing evidence instead of being prefixed as blocked, while unpromoted provider/settings blockers still show as blocked.

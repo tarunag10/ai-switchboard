@@ -90,7 +90,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
       screen.queryByText(/review each managed connector's detection evidence/i),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByLabelText("Planned connector readiness preview"),
+      screen.queryByLabelText("Connector readiness preview"),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Connector readiness")).not.toBeInTheDocument();
     expect(screen.getByText(/managed connector coverage/i)).toBeInTheDocument();

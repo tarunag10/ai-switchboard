@@ -423,11 +423,11 @@ export function SwitchboardDoctorPanel({
       {connectorPreviewRows.length > 0 ? (
         <div
           className="switchboard-doctor__connector-preview"
-          aria-label="Planned connector readiness preview"
+          aria-label="Connector readiness preview"
         >
           <div className="switchboard-doctor__connector-preview-head">
             <strong>Connector readiness</strong>
-            <span>{connectorPreviewRows.length} planned</span>
+            <span>{connectorPreviewRows.length} pending</span>
           </div>
           <div className="switchboard-doctor__connector-preview-grid">
             {connectorPreviewRows.slice(0, 6).map((connector) => (
