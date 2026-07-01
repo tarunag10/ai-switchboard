@@ -3239,9 +3239,9 @@ fn unrouted_managed_connector_issues(
         })
         .map(|client| crate::models::DoctorIssue {
             id: format!("{}_routing_not_configured", client.client_id),
-            title: format!("{} is detected but not routed", client.name),
+            title: format!("{} routing is repair ready", client.name),
             body: format!(
-                "{} is installed on this Mac, but Switchboard has not applied its reversible managed routing setup. Repair will re-apply managed client setup for installed supported tools, then verify the routing evidence.",
+                "{} is installed on this Mac, but Switchboard has not applied its reversible managed routing setup. Repair will re-apply this managed client setup, preserve user-owned config outside Switchboard markers, and verify routing evidence.",
                 client.name
             ),
             severity: crate::models::DoctorSeverity::Warning,
@@ -4092,11 +4092,13 @@ mod doctor_tests {
 
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].id, "gemini_cli_routing_not_configured");
+        assert_eq!(issues[0].title, "Gemini CLI routing is repair ready");
         assert_eq!(
             issues[0].repair_action.as_deref(),
             Some("repair_client_setup:gemini_cli")
         );
-        assert!(issues[0].body.contains("Gemini CLI is installed"));
+        assert!(issues[0].body.contains("this managed client setup"));
+        assert!(issues[0].body.contains("preserve user-owned config"));
     }
 
     #[test]

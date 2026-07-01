@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Backend managed connector repair-ready Doctor issue
+
+- Updated backend Doctor issues for detected-but-unrouted managed clients so repairable setup is titled as repair-ready and scoped to that managed client.
+
 ### Installed gated connector control reason
 
 - Updated installed gated connector control copy so detected tools describe reversible setup evidence gates instead of saying automatic routing is not available yet.
