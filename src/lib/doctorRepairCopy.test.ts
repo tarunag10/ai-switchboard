@@ -193,7 +193,8 @@ describe("doctor repair copy", () => {
     });
 
     expect(guidance).toContain("Requested mode and active mode differ");
-    expect(guidance).toContain("connector-specific native routing gates");
+    expect(guidance).toContain("managed client");
+    expect(guidance).toContain("retained connector native-routing gates");
     expect(guidance).toContain("backup, verify, rollback, and Off mode cleanup");
     expect(guidance).toContain("re-run Doctor until requested mode becomes active");
     expect(guidance).not.toContain(["manual", "connector", "steps"].join(" "));

@@ -451,7 +451,7 @@ export function repoIntelligenceDoctorAvailabilityGates(): string {
 export function doctorIssueGuidance(issue: DoctorIssue): string {
   switch (issue.id) {
     case "switchboard_mode_degraded":
-      return "Requested mode and active mode differ. Run automatic repairs for runtime, client, or RTK issues below, keep only connector-specific native routing gates manual until backup, verify, rollback, and Off mode cleanup evidence is promoted, then re-run Doctor until requested mode becomes active.";
+      return "Requested mode and active mode differ. Run automatic repairs for runtime, managed client, or RTK issues below, keep only retained connector native-routing gates manual until backup, verify, rollback, and Off mode cleanup evidence is promoted, then re-run Doctor until requested mode becomes active.";
     case "planned_connectors_detected":
       return plannedConnectorDoctorGuidance();
     case "repo_intelligence_repo_missing":

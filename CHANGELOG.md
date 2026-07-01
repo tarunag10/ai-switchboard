@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+### Doctor degraded-mode routing guidance
+
+- Clarified degraded-mode Doctor guidance so managed connectors remain automatic repair targets while only retained connector native-routing gates stay manual until backup, verify, rollback, and Off cleanup evidence is promoted.
+- Updated Doctor copy coverage to guard the managed-client versus retained-connector distinction.
+
 ### Gemini rollback cleanup copy
 
 - Aligned the Gemini managed-change record with the backend rollback preview so cleanup copy names Switchboard-owned shell and sidecar blocks instead of a vague sidecar dossier.

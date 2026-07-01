@@ -3324,7 +3324,7 @@ fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
             id: "switchboard_mode_degraded".to_string(),
             title: "Requested optimization is degraded".to_string(),
             body: format!(
-                "{} is requested, but {} is active. Doctor lists missing local pieces below; repair managed connector items, then keep only connector-specific native routing gates manual until their backup, verify, rollback, and Off cleanup evidence is promoted.",
+                "{} is requested, but {} is active. Doctor lists missing local pieces below; repair managed connector items, then keep only retained connector native-routing gates manual until their backup, verify, rollback, and Off cleanup evidence is promoted.",
                 switchboard_mode_label(&desired_mode),
                 switchboard_mode_label(&inferred_mode)
             ),
