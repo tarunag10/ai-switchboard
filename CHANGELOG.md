@@ -46,3 +46,8 @@
 ### Mode Inspector managed connector rows
 
 - Added individual Mode Inspector routing rows for installed managed connectors beyond Codex and Claude, with repair actions for direct Gemini/OpenCode/Windsurf/Zed-style setup drift.
+
+### Targeted managed connector Doctor repairs
+
+- Added per-connector Doctor repair actions for installed managed connectors so Gemini/OpenCode/Windsurf/Zed-style direct routing drift can be fixed one tool at a time while preserving bulk Repair all behavior.
+- Synced backend connector tests and Gemini/Windsurf/Zed evidence copy with the promoted managed routing lifecycle.

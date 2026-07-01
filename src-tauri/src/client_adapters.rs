@@ -6461,7 +6461,7 @@ fn detect_gemini_cli_client() -> ClientStatus {
 fn append_gemini_manual_routing_note(status: &mut ClientStatus) {
     if status.installed {
         status.notes.push(
-            "Gemini routing is managed through reversible shell/base-url exports with Doctor verification, rollback evidence, and Off mode cleanup."
+            "Gemini routing is managed through reversible shell/base-url exports with backup, Doctor verification, rollback evidence, and Off mode cleanup."
                 .into(),
         );
     }
@@ -7484,7 +7484,7 @@ mod tests {
                     "Windsurf app: /Applications/Windsurf.app".into(),
                     "Windsurf settings: /Users/test/Library/Application Support/Windsurf"
                         .into(),
-                    "Settings routing blocked until settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                    "Managed Windsurf settings routing uses settings parse, dry-run diff, backup, Doctor verification, rollback, and Off mode cleanup.".into(),
                 ],
             },
             ClientStatus {
@@ -7496,7 +7496,7 @@ mod tests {
                 notes: vec![
                     "Zed app: /Applications/Zed.app".into(),
                     "Zed assistant settings: /Users/test/.config/zed".into(),
-                    "Settings routing blocked until lossless settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                    "Managed Zed settings routing uses lossless settings parse, dry-run diff, backup, Doctor verification, rollback, and Off mode cleanup.".into(),
                 ],
             },
         ];
@@ -7944,7 +7944,7 @@ mod tests {
     }
 
     #[test]
-    fn gemini_detection_keeps_provider_routing_manual_until_safety_gates_exist() {
+    fn gemini_detection_reports_managed_routing_lifecycle() {
         let mut status = ClientStatus {
             id: "gemini_cli".into(),
             name: "Gemini CLI".into(),
@@ -7957,10 +7957,11 @@ mod tests {
         super::append_gemini_manual_routing_note(&mut status);
 
         let notes = status.notes.join(" ");
-        assert!(notes.contains("provider routing remains manual"));
-        assert!(notes.contains("stable config surface"));
+        assert!(notes.contains("Gemini routing is managed"));
+        assert!(notes.contains("reversible shell/base-url exports"));
+        assert!(notes.contains("Doctor verification"));
         assert!(notes.contains("backup"));
-        assert!(notes.contains("restore"));
+        assert!(notes.contains("rollback"));
         assert!(notes.contains("Off mode cleanup"));
     }
 

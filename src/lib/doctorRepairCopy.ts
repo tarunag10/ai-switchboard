@@ -45,6 +45,10 @@ export interface DoctorTimelineEvent {
 }
 
 export function doctorRepairLabel(action: string): string {
+  if (action.startsWith("repair_client_setup:")) {
+    return "Repair managed setup";
+  }
+
   switch (action) {
     case "verify_off_mode":
       return "Verify Off";
@@ -239,6 +243,9 @@ export function doctorRepairHint(action: string): string {
   const codexHint = codexDoctorHint(action);
   if (codexHint) {
     return codexHint;
+  }
+  if (action.startsWith("repair_client_setup:")) {
+    return "Re-applies reversible setup for this installed managed connector.";
   }
 
   switch (action) {

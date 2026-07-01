@@ -2907,7 +2907,7 @@ fn doctor_repair_action_restores_headroom(action: &str) -> bool {
     matches!(
         action,
         "repair_runtime" | "repair_client_setups" | "repair_codex_setup" | "repair_all"
-    )
+    ) || action.starts_with("repair_client_setup:")
 }
 
 fn switchboard_mode_blocks_doctor_repair(mode: Option<&SwitchboardMode>, action: &str) -> bool {
@@ -3245,7 +3245,7 @@ fn unrouted_managed_connector_issues(
                 client.name
             ),
             severity: crate::models::DoctorSeverity::Warning,
-            repair_action: Some("repair_client_setups".to_string()),
+            repair_action: Some(format!("repair_client_setup:{}", client.client_id)),
         })
         .collect()
 }
@@ -3886,6 +3886,7 @@ mod doctor_tests {
         for action in [
             "repair_runtime",
             "repair_client_setups",
+            "repair_client_setup:gemini_cli",
             "repair_codex_setup",
             "repair_all",
         ] {
@@ -3901,6 +3902,7 @@ mod doctor_tests {
         for action in [
             "repair_runtime",
             "repair_client_setups",
+            "repair_client_setup:opencode",
             "repair_codex_setup",
             "repair_all",
         ] {
@@ -3917,6 +3919,7 @@ mod doctor_tests {
             for action in [
                 "repair_runtime",
                 "repair_client_setups",
+                "repair_client_setup:windsurf",
                 "repair_codex_setup",
                 "repair_all",
             ] {
@@ -4081,7 +4084,7 @@ mod doctor_tests {
         assert_eq!(issues[0].id, "gemini_cli_routing_not_configured");
         assert_eq!(
             issues[0].repair_action.as_deref(),
-            Some("repair_client_setups")
+            Some("repair_client_setup:gemini_cli")
         );
         assert!(issues[0].body.contains("Gemini CLI is installed"));
     }
@@ -4138,6 +4141,34 @@ fn repair_client_setups(state: &AppState) -> Result<(), String> {
     if repaired == 0 {
         return Err("no installed supported clients found to repair".to_string());
     }
+    state.invalidate_runtime_status_cache();
+    Ok(())
+}
+
+fn repair_managed_client_setup(state: &AppState, client_id: &str) -> Result<(), String> {
+    if client_id.trim().is_empty() {
+        return Err("client id is required for managed client repair".to_string());
+    }
+    state
+        .codex_bypass
+        .store(false, std::sync::atomic::Ordering::Release);
+    state.resume_runtime().map_err(|err| err.to_string())?;
+    let connectors = client_adapters::list_client_connectors(&state.cached_clients())
+        .map_err(|err| err.to_string())?;
+    let connector = connectors
+        .iter()
+        .find(|connector| connector.client_id == client_id)
+        .ok_or_else(|| format!("managed client not found: {client_id}"))?;
+    if !connector.installed {
+        return Err(format!("{} is not installed", connector.name));
+    }
+    if !matches!(
+        connector.support_status,
+        crate::models::ClientConnectorSupportStatus::Managed
+    ) {
+        return Err(format!("{} is not a managed connector", connector.name));
+    }
+    client_adapters::apply_client_setup(&connector.client_id).map_err(|err| err.to_string())?;
     state.invalidate_runtime_status_cache();
     Ok(())
 }
@@ -4260,6 +4291,13 @@ async fn run_doctor_repair(
             repair_client_setups(&state)?;
             Ok(build_doctor_report(&state))
         }
+        action if action.starts_with("repair_client_setup:") => {
+            let client_id = action
+                .strip_prefix("repair_client_setup:")
+                .unwrap_or_default();
+            repair_managed_client_setup(&state, client_id)?;
+            Ok(build_doctor_report(&state))
+        }
         "repair_codex_setup" => {
             repair_codex_setup(&state)?;
             Ok(build_doctor_report(&state))
@@ -4300,6 +4338,12 @@ async fn run_doctor_repair(
                     }
                     Some("repair_runtime") => repair_runtime(&state)?,
                     Some("repair_client_setups") => repair_client_setups(&state)?,
+                    Some(action) if action.starts_with("repair_client_setup:") => {
+                        let client_id = action
+                            .strip_prefix("repair_client_setup:")
+                            .unwrap_or_default();
+                        repair_managed_client_setup(&state, client_id)?
+                    }
                     Some("repair_codex_setup") => repair_codex_setup(&state)?,
                     Some("repair_rtk_integrations") => repair_rtk_integrations(&state)?,
                     Some("repair_rtk_runtime") => repair_rtk_runtime(&state)?,
