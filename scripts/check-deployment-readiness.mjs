@@ -295,6 +295,8 @@ const requiredDocSignals = {
     "signing/notarization",
     "Copy pack",
     "Clear index",
+    "**Repair all** may clear that saved summary",
+    "must not guess a replacement repo path or mutate the repo",
     "Re-indexing remains a deliberate Addons action",
     "bounded Markdown context pack",
     "Connector Config Readiness",

@@ -2,6 +2,11 @@
 
 ## 2026-07-01
 
+### Repo Intelligence Doctor cleanup docs
+
+- Corrected architecture docs so stale, missing, moved, corrupt, or health-mismatched Repo Intelligence summaries are documented as automatic Clear index cleanup items instead of manual-only warnings.
+- Added deployment readiness signals for the Repair all boundary: it may clear only Switchboard-managed saved index metadata and must not guess replacement repo paths or mutate repositories.
+
 ### Doctor repair smoke aggregation evidence
 
 - Updated the local Doctor repair validation summary to explicitly cover aggregated Repair all timeline evidence.
