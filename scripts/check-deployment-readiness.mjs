@@ -331,6 +331,7 @@ const requiredDocSignals = {
     "OpenCode",
     "Goose",
     "Cursor, Windsurf, Zed",
+    "managed Windsurf editor-settings routing and Zed assistant-settings routing",
     "Aider, Continue",
     "Grok / xAI CLI, Qwen Code, Amazon Q Developer CLI",
     "Do not treat MCP availability as permission to mutate provider/editor configuration",

@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Repo Memory MCP editor connector boundary
+
+- Updated the Repo Memory MCP connector boundary so Windsurf and Zed MCP bridge setup is explicitly separate from Windsurf editor-settings routing and Zed assistant-settings routing.
+
 ### Repo Intelligence API editor connector wording
 
 - Synced the Tauri Repo Intelligence handoff API with the frontend and CLI wording for Windsurf editor-settings routing and Zed assistant-settings routing.
