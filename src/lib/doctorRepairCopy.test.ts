@@ -293,7 +293,8 @@ describe("doctor repair copy", () => {
     expect(text).toContain("get_repo_manifest");
     expect(text).toContain("get_repo_pack");
     expect(text).toContain("get_agent_handoff");
-    expect(text).toContain("planned connector config readiness");
+    expect(text).toContain("managed connector config readiness");
+    expect(text).toContain("connector readiness dossier");
     expect(text).toContain("next gate");
     expect(text).toContain("evidence requirements");
     expect(text).toContain("config path strategy");
@@ -323,7 +324,8 @@ describe("doctor repair copy", () => {
     expect(contract).toContain("graph availability reported");
     expect(contract).toContain("indexed/skipped counts");
     expect(contract).toContain("missing, stale, corrupt, or moved repo indexes");
-    expect(contract).toContain("planned connector config readiness");
+    expect(contract).toContain("managed connector config readiness");
+    expect(contract).toContain("connector readiness dossier");
     expect(contract).toContain("config path strategy");
     expect(contract).toContain("rollback strategy");
   });

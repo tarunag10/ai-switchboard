@@ -403,7 +403,7 @@ export function repoIntelligenceDoctorApiContract(): string {
     "Repo Intelligence local API contract",
     "- get_repo_manifest: read latest bounded manifest.",
     "- get_repo_pack: read one bounded context pack.",
-    "- get_agent_handoff: read one bounded agent handoff, including planned connector config readiness, next gate, evidence requirements, config path strategy, account caveat, and rollback strategy when the target is a planned connector.",
+    "- get_agent_handoff: read one bounded agent handoff, including managed connector config readiness, next gate, evidence requirements, config path strategy, account caveat, and rollback strategy when the target has a connector readiness dossier.",
     "- get_index_freshness: read API availability, freshness, graph availability, indexHealth, parserHealth, indexer/parser versions, indexed/skipped counts, and missing/stale index state.",
     "- clear_repo_index: clears only Switchboard managed index metadata; never mutates the user repo.",
     "Availability gates: missing, stale, corrupt, or moved repo indexes stay visible in Doctor until cleared or re-indexed.",

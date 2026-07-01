@@ -83,3 +83,7 @@
 ### Repo Intelligence session routing checklist
 
 - Updated beta smoke coverage to require promoted managed-routing session handoffs to report non-manual provider routing while preserving manual routing for connectors that still require it.
+
+### Repo Intelligence Doctor API copy
+
+- Updated Doctor support copy for `get_agent_handoff` to describe managed connector readiness dossiers instead of planned-only readiness.
