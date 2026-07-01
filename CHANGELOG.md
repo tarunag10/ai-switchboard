@@ -95,3 +95,7 @@
 ### Zed native rollback routing
 
 - Fixed promoted Zed rollback previews and execution to use the native settings backup/restore path before falling back to sidecar cleanup.
+
+### Zed Off cleanup
+
+- Wired Zed disable/Off cleanup to remove only the native Switchboard-managed settings routing keys and markers, preserving unrelated user settings.

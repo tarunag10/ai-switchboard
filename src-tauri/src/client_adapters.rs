@@ -2100,6 +2100,9 @@ pub fn disable_client_setup(client_id: &str) -> Result<()> {
         "windsurf" => {
             remove_windsurf_provider_config()?;
         }
+        "zed_ai" => {
+            remove_zed_provider_config()?;
+        }
         other if planned_sidecar_spec(other).is_some() => {
             let sidecar = planned_sidecar_spec(other)
                 .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {other}."))?;
@@ -9267,6 +9270,62 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert_eq!(config_value["provider"]["custom"]["name"], "Custom");
         let verification =
             super::verify_client_setup("opencode").expect("verify cleaned opencode setup");
+        assert!(!verification.verified);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn zed_setup_writes_verifies_and_off_cleanup_removes_native_routing_only() {
+        let home = TestHome::new();
+        let zed_dir = home.path().join(".config").join("zed");
+        fs::create_dir_all(&zed_dir).unwrap();
+        let settings_json = zed_dir.join("settings.json");
+        fs::write(
+            &settings_json,
+            r#"{"theme":"One Dark","assistant":{"default_model":"claude-3-5-sonnet"}}"#,
+        )
+        .unwrap();
+
+        let result = super::apply_client_setup("zed_ai").expect("apply zed setup");
+        assert!(result.applied);
+        assert!(!result.already_configured);
+        assert!(result
+            .changed_files
+            .contains(&settings_json.display().to_string()));
+        assert!(result.backup_files.len() == 1);
+        assert!(result.verification.verified);
+
+        let configured: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&settings_json).expect("read settings"))
+                .expect("parse settings");
+        assert_eq!(configured["theme"], "One Dark");
+        assert_eq!(
+            configured["assistant"]["default_model"],
+            "claude-3-5-sonnet"
+        );
+        assert_eq!(
+            configured["anthropic.baseUrl"],
+            super::HEADROOM_ANTHROPIC_BASE_URL
+        );
+        assert!(configured
+            .get(format!("// >>> {} >>>", super::ZED_MARKER_PREFIX))
+            .is_some());
+
+        super::disable_client_setup("zed_ai").expect("disable zed setup");
+        let cleaned: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&settings_json).expect("read cleaned"))
+                .expect("parse cleaned settings");
+        assert_eq!(cleaned["theme"], "One Dark");
+        assert_eq!(cleaned["assistant"]["default_model"], "claude-3-5-sonnet");
+        assert!(cleaned.get("anthropic.baseUrl").is_none());
+        assert!(cleaned
+            .get(format!("// >>> {} >>>", super::ZED_MARKER_PREFIX))
+            .is_none());
+        assert!(cleaned
+            .get(format!("// <<< {} <<<", super::ZED_MARKER_PREFIX))
+            .is_none());
+
+        let verification = super::verify_client_setup("zed_ai").expect("verify cleaned zed setup");
         assert!(!verification.verified);
     }
 
