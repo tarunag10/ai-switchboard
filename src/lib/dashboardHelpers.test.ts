@@ -587,7 +587,7 @@ describe("dashboard helpers", () => {
         name: "Cursor",
         supportStatus: "planned",
         setupHint:
-          "Manual guide only. Reversible Cursor profile routing is planned.",
+          "Manual guide only. Reversible Cursor profile routing remains gated.",
         installed: true,
         enabled: false,
         verified: false,
@@ -595,7 +595,7 @@ describe("dashboard helpers", () => {
     ).toEqual({
       disabled: true,
       reason:
-        "Cursor is detected, but automatic routing is not available yet. Manual guide only. Reversible Cursor profile routing is planned.",
+        "Cursor is detected, and managed routing remains gated until reversible setup evidence is proven. Manual guide only. Reversible Cursor profile routing remains gated.",
     });
 
     expect(

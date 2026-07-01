@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Installed gated connector control reason
+
+- Updated installed gated connector control copy so detected tools describe reversible setup evidence gates instead of saying automatic routing is not available yet.
+
 ### Codex provider direct repair guidance
 
 - Updated the Mode Inspector Codex provider-block direct state so it points users back to the repair-ready Codex routing row instead of stopping at a passive not-routed message.

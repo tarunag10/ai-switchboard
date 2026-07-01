@@ -584,7 +584,7 @@ export function connectorControlState(connector: ClientConnectorStatus): {
 } {
   if (!connectorSupportsAutomaticSetup(connector)) {
     const releaseCopy = connector.installed
-      ? "is detected, but automatic routing is not available yet"
+      ? "is detected, and managed routing remains gated until reversible setup evidence is proven"
       : "setup is gated until reversible routing evidence is proven";
     const hint = connector.setupHint
       ? ` ${connector.setupHint}`
