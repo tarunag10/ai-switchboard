@@ -177,6 +177,39 @@ describe("settings transfer", () => {
     );
   });
 
+  it("keeps legacy managed connector imports on the managed-gate copy path", () => {
+    const preview = parseSettingsImport(
+      JSON.stringify({
+        schemaVersion: 1,
+        preferences: { switchboardMode: "headroom", savingsMode: "balanced" },
+        connectors: [
+          { clientId: "codex", enabled: true },
+          { clientId: "cursor", enabled: true, supportStatus: "planned" },
+        ],
+        addons: [],
+      }),
+    );
+
+    expect(preview.migrationActions).toEqual(
+      expect.arrayContaining([
+        {
+          id: "connector:codex",
+          label: "Connector codex",
+          status: "manual",
+          detail:
+            "Managed connector state is advisory; native config changes still require the connector's backup, verify, rollback, Doctor, and Off cleanup gates.",
+        },
+        {
+          id: "connector:cursor",
+          label: "Connector cursor",
+          status: "manual",
+          detail:
+            "Connector state is advisory and must be reviewed from Connectors before any local config changes.",
+        },
+      ]),
+    );
+  });
+
   it("rejects invalid or unsupported import bundles", () => {
     expect(parseSettingsImport("not-json")).toMatchObject({
       valid: false,

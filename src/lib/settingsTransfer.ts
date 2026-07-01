@@ -78,6 +78,16 @@ function safeAddon(tool: ManagedTool) {
   };
 }
 
+function importConnectorLooksManaged(connector: {
+  supportStatus?: unknown;
+  setupPhase?: unknown;
+}) {
+  return (
+    (connector.setupPhase ?? "managed") === "managed" &&
+    (connector.supportStatus ?? "managed") === "managed"
+  );
+}
+
 export function buildSettingsExportBundle({
   dashboard,
   connectors,
@@ -184,6 +194,7 @@ export function parseSettingsImport(text: string): SettingsImportPreview {
         clientId?: unknown;
         enabled?: unknown;
         supportStatus?: unknown;
+        setupPhase?: unknown;
       };
       const label = `Connector ${String(connector.clientId ?? "unknown")}`;
       migrationActions.push({
@@ -191,7 +202,7 @@ export function parseSettingsImport(text: string): SettingsImportPreview {
         label,
         status: "manual",
         detail:
-          connector.supportStatus === "managed"
+          importConnectorLooksManaged(connector)
             ? "Managed connector state is advisory; native config changes still require the connector's backup, verify, rollback, Doctor, and Off cleanup gates."
             : "Connector state is advisory and must be reviewed from Connectors before any local config changes.",
       });

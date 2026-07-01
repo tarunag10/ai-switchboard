@@ -2,6 +2,11 @@
 
 ## 2026-07-02
 
+### Settings import managed fallback
+
+- Applied the managed connector fallback to settings import previews so legacy exported connector state without `supportStatus` still receives managed-gate advisory copy.
+- Added import-preview coverage that explicitly planned connectors remain generic manual review items.
+
 ### Managed readiness fallback reuse
 
 - Reused the shared managed-connector classifier for additional Mode Inspector routing rows and readiness counts so legacy managed payloads are not hidden or counted as manual.
