@@ -7844,7 +7844,9 @@ export default function App() {
           ? verified
             ? `${connector.name} is routed through Headroom and verified.`
             : `${connector.name} routing is configured; send a test prompt from Connectors.`
-          : `${connector.name} is detected but not routed.`
+          : canRepairManaged
+            ? `${connector.name} is detected but not routed. Repair will re-apply reversible managed setup and verify routing evidence.`
+            : `${connector.name} is detected but not routed.`
         : `${label.replace(" routing", "")} is not detected on this Mac.`,
       actionLabel,
       actionBusyLabel:

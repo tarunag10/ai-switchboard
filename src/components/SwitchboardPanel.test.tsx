@@ -284,7 +284,8 @@ describe("SwitchboardPanel", () => {
         {
           label: "Gemini CLI routing",
           status: "Direct",
-          detail: "Gemini CLI is detected but not routed.",
+          detail:
+            "Gemini CLI is detected but not routed. Repair will re-apply reversible managed setup and verify routing evidence.",
           actionLabel: "Repair managed setup",
           onAction,
         },
@@ -294,7 +295,9 @@ describe("SwitchboardPanel", () => {
     const inspector = within(screen.getByLabelText("Mode Inspector"));
     expect(inspector.getByText("Gemini CLI routing")).toBeInTheDocument();
     expect(
-      inspector.getByText("Gemini CLI is detected but not routed."),
+      inspector.getByText(
+        "Gemini CLI is detected but not routed. Repair will re-apply reversible managed setup and verify routing evidence.",
+      ),
     ).toBeInTheDocument();
 
     await user.click(

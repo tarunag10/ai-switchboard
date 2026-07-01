@@ -2,6 +2,10 @@
 
 ## 2026-07-01
 
+### Mode Inspector repair detail
+
+- Updated managed connector Direct rows in Mode Inspector so repairable routing drift says Repair will re-apply reversible managed setup and verify routing evidence.
+
 ### Connector phase baseline wording
 
 - Updated the Agent Control Center phase 6 baseline and roadmap shipped-state copy so connector readiness coverage is distinct from promoted Gemini/OpenCode/Windsurf/Zed managed routing and retained sidecar/readiness coverage for unpromoted tools.
