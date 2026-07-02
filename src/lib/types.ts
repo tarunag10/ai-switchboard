@@ -116,6 +116,15 @@ export interface SavingsAttributionEvent {
   evidence: string[];
 }
 
+export interface MeasuredSavingsAttributionRequest {
+  source: SavingsAttributionEvent["source"];
+  label: string;
+  baselineTokens: number;
+  optimizedTokens: number;
+  requestDelta?: number;
+  detail?: string;
+}
+
 export interface DashboardState {
   appVersion: string;
   launchExperience: LaunchExperience;

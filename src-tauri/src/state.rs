@@ -2256,6 +2256,40 @@ impl AppState {
         event
     }
 
+    pub fn record_measured_addon_attribution(
+        &self,
+        source: SavingsAttributionSource,
+        label: &str,
+        baseline_tokens: u64,
+        optimized_tokens: u64,
+        request_delta: usize,
+        detail: impl Into<String>,
+    ) -> Result<()> {
+        if baseline_tokens <= optimized_tokens || request_delta == 0 {
+            return Ok(());
+        }
+
+        let delta_tokens = baseline_tokens.saturating_sub(optimized_tokens);
+        let event = SavingsAttributionEvent {
+            schema_version: 1,
+            id: Uuid::new_v4().to_string(),
+            observed_at: Utc::now(),
+            scope: SavingsAttributionScope::Session,
+            source,
+            confidence: SavingsAttributionConfidence::Measured,
+            delta_tokens_saved: delta_tokens,
+            delta_usd: 0.0,
+            total_tokens_sent: optimized_tokens,
+            request_delta,
+            evidence: vec![format!(
+                "{label} measured {delta_tokens} saved tokens from {baseline_tokens} before to {optimized_tokens} after. {}",
+                detail.into()
+            )],
+        };
+
+        self.savings_tracker.lock().append_attribution_event(&event)
+    }
+
     pub fn dashboard_with_pending_milestones(&self) -> (DashboardState, PendingMilestones) {
         self.build_dashboard(true)
     }

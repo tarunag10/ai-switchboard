@@ -648,6 +648,44 @@ async fn get_savings_attribution_events(
     .map_err(|err| err.to_string())
 }
 
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MeasuredSavingsAttributionRequest {
+    source: crate::models::SavingsAttributionSource,
+    label: String,
+    baseline_tokens: u64,
+    optimized_tokens: u64,
+    #[serde(default = "default_request_delta")]
+    request_delta: usize,
+    #[serde(default)]
+    detail: String,
+}
+
+fn default_request_delta() -> usize {
+    1
+}
+
+#[tauri::command]
+async fn record_measured_savings_attribution(
+    app: AppHandle,
+    request: MeasuredSavingsAttributionRequest,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state: State<'_, AppState> = app.state();
+        state.record_measured_addon_attribution(
+            request.source,
+            &request.label,
+            request.baseline_tokens,
+            request.optimized_tokens,
+            request.request_delta,
+            request.detail,
+        )
+        .map_err(|err| err.to_string())
+    })
+    .await
+    .map_err(|err| err.to_string())?
+}
+
 #[tauri::command]
 fn preview_managed_rollback(record_id: String) -> Result<ManagedRollbackPreview, String> {
     client_adapters::preview_managed_rollback(&record_id).map_err(|err| err.to_string())
@@ -6839,6 +6877,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_dashboard_state,
             get_savings_attribution_events,
+            record_measured_savings_attribution,
             preview_managed_config_apply,
             execute_managed_config_apply,
             preview_managed_rollback,
