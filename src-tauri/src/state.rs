@@ -1772,6 +1772,10 @@ impl AppState {
         }
     }
 
+    pub fn should_present_on_launch(&self) -> bool {
+        true
+    }
+
     pub fn setup_wizard_complete(&self) -> bool {
         self.launch_profile.lock().setup_wizard_complete
     }
@@ -2683,16 +2687,12 @@ impl AppState {
         &self,
         stats: &HeadroomDashboardStats,
         drain_pending_milestones: bool,
-    ) -> Option<(
-        SavingsTotalsSnapshot,
-        Vec<DailySavingsPoint>,
-        Vec<HourlySavingsPoint>,
-        PendingMilestones,
-    )> {
+    ) -> Option<(SavingsTotalsSnapshot, Vec<DailySavingsPoint>, Vec<HourlySavingsPoint>, PendingMilestones)> {
         let mut tracker = self.savings_tracker.lock();
         let snapshot = tracker.observe(stats)?;
         let daily_savings = tracker.daily_savings();
         let hourly_savings = tracker.hourly_savings();
+        let _ = maybe_append_measured_headroom_attribution(&mut tracker, stats);
         let milestones = if drain_pending_milestones {
             PendingMilestones {
                 token: tracker.take_pending_lifetime_token_milestones(),
@@ -2701,10 +2701,6 @@ impl AppState {
             PendingMilestones::default()
         };
         Some((snapshot, daily_savings, hourly_savings, milestones))
-    }
-
-    pub fn should_present_on_launch(&self) -> bool {
-        true
     }
 
     pub fn bootstrap_progress(&self) -> BootstrapProgress {
@@ -4264,6 +4260,37 @@ struct PersistedSavingsState {
     session_hourly_buckets: BTreeMap<String, DailySavingsBucket>,
     daily_savings: BTreeMap<String, DailySavingsBucket>,
     hourly_savings: BTreeMap<String, DailySavingsBucket>,
+}
+
+fn maybe_append_measured_headroom_attribution(
+    tracker: &mut SavingsTracker,
+    stats: &HeadroomDashboardStats,
+) -> Result<()> {
+    let optimized_tokens = stats.session_total_tokens_sent.unwrap_or(0);
+    let saved_tokens = stats.session_estimated_tokens_saved.unwrap_or(0);
+    let request_delta = stats.session_requests.unwrap_or(0);
+    if optimized_tokens == 0 || saved_tokens == 0 || request_delta == 0 {
+        return Ok(());
+    }
+
+    let baseline_tokens = optimized_tokens.saturating_add(saved_tokens);
+    let event = SavingsAttributionEvent {
+        schema_version: 1,
+        id: Uuid::new_v4().to_string(),
+        observed_at: Utc::now(),
+        scope: SavingsAttributionScope::Session,
+        source: SavingsAttributionSource::HeadroomEngine,
+        confidence: SavingsAttributionConfidence::Measured,
+        delta_tokens_saved: saved_tokens,
+        delta_usd: 0.0,
+        total_tokens_sent: optimized_tokens,
+        request_delta,
+        evidence: vec![format!(
+            "Headroom /stats measured {saved_tokens} saved tokens from {baseline_tokens} before to {optimized_tokens} after using session_estimated_tokens_saved and session_total_tokens_sent."
+        )],
+    };
+
+    tracker.append_attribution_event(&event)
 }
 
 struct SavingsTracker {
@@ -9736,4 +9763,51 @@ mod tests {
             now
         ));
     }
+
+    #[test]
+    fn headroom_stats_snapshot_records_measured_attribution() {
+        let mut tracker = make_tracker();
+        let stats = HeadroomDashboardStats {
+            session_requests: Some(4),
+            session_estimated_savings_usd: Some(0.0),
+            session_estimated_tokens_saved: Some(2_500),
+            session_savings_pct: Some(25.0),
+            session_actual_cost_usd: Some(0.0),
+            session_total_tokens_sent: Some(7_500),
+            savings_history: Vec::new(),
+            output_reduction: None,
+        };
+
+        super::maybe_append_measured_headroom_attribution(&mut tracker, &stats)
+            .expect("record measured event");
+        let events = tracker.attribution_events();
+        let event = events.last().expect("measured event");
+
+        assert_eq!(event.source, SavingsAttributionSource::HeadroomEngine);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Measured);
+        assert_eq!(event.delta_tokens_saved, 2_500);
+        assert_eq!(event.total_tokens_sent, 7_500);
+        assert_eq!(event.request_delta, 4);
+        assert!(event.evidence.join(" ").contains("10000 before to 7500 after"));
+    }
+
+    #[test]
+    fn headroom_stats_snapshot_skips_measured_attribution_without_real_counts() {
+        let mut tracker = make_tracker();
+        let stats = HeadroomDashboardStats {
+            session_requests: Some(0),
+            session_estimated_savings_usd: Some(0.0),
+            session_estimated_tokens_saved: Some(2_500),
+            session_savings_pct: Some(25.0),
+            session_actual_cost_usd: Some(0.0),
+            session_total_tokens_sent: Some(7_500),
+            savings_history: Vec::new(),
+            output_reduction: None,
+        };
+
+        super::maybe_append_measured_headroom_attribution(&mut tracker, &stats)
+            .expect("skip measured event");
+        assert!(tracker.attribution_events().is_empty());
+    }
+
 }
