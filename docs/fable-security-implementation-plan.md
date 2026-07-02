@@ -1,0 +1,70 @@
+# Fable Security and Product Hardening Plan
+
+Source: local Fable audit file reviewed from outside the repository. The raw audit is intentionally not committed because it may contain local paths, inherited machine details, and security-sensitive notes.
+
+## Goals
+
+1. Keep local memory and audit artifacts out of git.
+2. Remove inherited personal-machine guidance from repo docs.
+3. Replace static savings claims with measured before/after token attribution wherever proxy/runtime evidence exists.
+4. Add macOS-specific CI coverage for the app surfaces that Linux cannot exercise.
+5. Improve privacy disclosures for app-owned network surfaces and unofficial upstream usage endpoints.
+6. Turn Repo Intelligence into a stronger MCP-style context service with budget-aware packs and graph queries.
+7. Continue connector readiness through one connector at a time: detect, backup, dry-run, apply, verify, rollback, and Off cleanup.
+
+## Workstreams
+
+### P0: Sensitive Local Artifacts
+
+- Keep `headroom_memory.db`, SQLite sidecars, runtime logs, and local audit files ignored.
+- Verify no DB files are tracked with `git ls-files '*headroom_memory.db*' '*.db' '*.sqlite' '*.sqlite3'`.
+- Keep `CLAUDE.md` sanitized and repo-local.
+
+### P0: Measured Savings
+
+- Use `record_measured_savings_attribution` for real before/after token counts.
+- Keep Caveman, Ponytail, and MarkItDown template values as fallback estimates only.
+- Add proxy/runtime call sites that submit measured events when both baseline and optimized token counts are known.
+- Add tests proving measured events appear as `confidence: measured` and estimated fallbacks remain clearly labeled.
+
+### P1: macOS CI
+
+- Add a non-secret `macos-latest` job for `npm run build`, focused Rust checks, and desktop-safe tests.
+- Keep signing/notarization out of normal CI unless secrets are present.
+- Avoid noisy branch push triggers for local working branches.
+
+### P1: Privacy Disclosure
+
+- Update privacy docs with local-only boundaries, app-owned remote-service calls, telemetry toggles, and known unofficial upstream usage endpoints.
+- Make disclosures match actual code paths and env gates.
+
+### P1: Repo Intelligence MCP
+
+- Expose pack listing, budgeted pack retrieval, graph queries, and stale-index health through MCP-compatible tooling.
+- Keep packs read-only, bounded, secret-excluding, and versioned.
+- Track pack quality with fixture repos and token/recall evidence.
+
+### P1: Connector Native-Write Readiness
+
+- Promote connectors only after the full lifecycle is proven: detect, backup, dry-run diff, apply, verify, rollback, Off cleanup.
+- Keep sidecar-only and MCP-only connectors visibly separate from native provider config writes.
+- Prioritize Cursor or Aider as the next small connector slice after current Qwen/Goose status cleanup.
+
+### P2: Maintainability
+
+- Continue shrinking high-risk giant files by extracting cohesive modules from `lib.rs`, `state.rs`, `tool_manager.rs`, and `App.tsx`.
+- Preserve tests and release gates while extracting.
+
+## Subagent Assignments
+
+- Security scout: verify ignored artifacts, privacy docs, and tracked secret-like files.
+- Savings worker: wire measured token attribution call sites and tests.
+- macOS CI worker: add a safe non-secret macOS workflow job.
+- Repo Intelligence worker: extend MCP-style commands and fixture coverage.
+- Connector worker: implement the next connector lifecycle slice with dry-run, backup, apply, verify, rollback, and Off cleanup.
+
+## Slice Rules
+
+- Every slice must be validated, committed, and pushed before moving on.
+- Do not commit the raw local audit file.
+- Do not commit local databases, logs, generated runtime state, or private machine paths.

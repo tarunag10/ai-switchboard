@@ -15,6 +15,7 @@ target
 *.sqlite-shm
 headroom_memory.db
 memory.db
+mac-ai-switchboard-audit.md
 src-tauri/target
 src-tauri/gen
 announcement-recordings
