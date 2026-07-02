@@ -4,6 +4,49 @@ import path from "node:path";
 
 const INDEXER_VERSION = "path-graph-v8";
 
+function readRepoMapContext(repoRoot) {
+  const mapPath = path.join(repoRoot, "docs/repo-map/repo-map.json");
+  const compactContextPath = path.join(repoRoot, "docs/repo-map/COMPACT_CONTEXT.md");
+  try {
+    const map = JSON.parse(fs.readFileSync(mapPath, "utf8"));
+    const compactContext = fs.existsSync(compactContextPath)
+      ? fs.readFileSync(compactContextPath, "utf8")
+      : "";
+    return {
+      available: true,
+      generatedAt: map.generatedAt ?? null,
+      compactContextPath,
+      mapPath,
+      graphifyNodes: map.tools?.graphify?.nodeCount ?? 0,
+      graphifyLinks: map.tools?.graphify?.linkCount ?? 0,
+      madgeModules: map.tools?.madge?.moduleCount ?? 0,
+      dependencyCruiserModules: map.tools?.dependencyCruiser?.moduleCount ?? 0,
+      cargoDependencies: map.tools?.cargoMetadata?.dependencyCount ?? 0,
+      compactContextEstimatedTokens:
+        map.tokenSavings?.compactContextEstimatedTokens ?? estimateTokens(Buffer.byteLength(compactContext)),
+      estimatedTokensAvoided: map.tokenSavings?.estimatedTokensAvoided ?? 0,
+      toolRuns: map.toolRuns ?? {},
+      summary: compactContext.split("\n").slice(0, 18).join("\n"),
+    };
+  } catch {
+    return {
+      available: false,
+      generatedAt: null,
+      compactContextPath,
+      mapPath,
+      graphifyNodes: 0,
+      graphifyLinks: 0,
+      madgeModules: 0,
+      dependencyCruiserModules: 0,
+      cargoDependencies: 0,
+      compactContextEstimatedTokens: 0,
+      estimatedTokensAvoided: 0,
+      toolRuns: {},
+      summary: "",
+    };
+  }
+}
+
 const ignoredSegments = new Set([
   ".git",
   "node_modules",
@@ -274,6 +317,8 @@ const plannedConnectorIdByAgentId = {
   zed: "zed_ai",
 };
 
+const managedMcpBridgeConnectorIds = new Set(["goose"]);
+
 const plannedConnectorConfigGateSteps = [
   {
     id: "detect",
@@ -398,11 +443,11 @@ const plannedConnectorDossiers = {
   goose: {
     name: "Goose",
     configPathStrategy:
-      "Detect PATH: goose and inspect Goose provider/MCP surfaces read-only before handoff.",
+      "Detect PATH: goose and use the app-managed Repo Memory MCP descriptor for read-only context handoff.",
     accountCaveat:
       "Provider account state remains outside Switchboard until compatibility checks are explicit.",
     rollbackStrategy:
-      "Remove managed provider routing while preserving unrelated Goose MCP configuration.",
+      "Rollback removes only Switchboard-owned MCP bridge metadata while preserving Goose provider configuration.",
   },
   qwen_code: {
     name: "Qwen Code",
@@ -457,12 +502,21 @@ function buildConfigReadiness(agentId) {
   const nextGate = plannedConnectorConfigGateSteps[0];
   const automationEnabled =
     promotedManagedConfigConnectorIds.has(plannedConnectorId);
+  const managedMcpBridge = managedMcpBridgeConnectorIds.has(plannedConnectorId);
   return {
     plannedConnectorId,
     plannedConnectorName: dossier.name,
     automationEnabled,
+    managedMcpBridge,
+    supportStatus: managedMcpBridge
+      ? "managed_mcp"
+      : automationEnabled
+        ? "managed_routing"
+        : "gated_native_write",
     safetyNote: automationEnabled
       ? "Managed routing is enabled with backup, apply, verify, rollback, and Off cleanup evidence."
+      : managedMcpBridge
+        ? "Managed read-only MCP bridge is enabled; provider routing and native writes remain gated."
       : "Connector-native config creation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested.",
     nextGate: {
       id: nextGate.id,
@@ -2037,6 +2091,27 @@ function buildSummary(repoRoot) {
   };
 }
 
+function formatRepoMapContextMarkdown(repoRoot) {
+  const context = readRepoMapContext(repoRoot);
+  if (!context.available) return "";
+  const lines = [
+    "## Repo Map Compact Context",
+    `- Compact context: ${context.compactContextPath}`,
+    `- Structured map: ${context.mapPath}`,
+    `- Generated: ${context.generatedAt ?? "unknown"}`,
+    `- Graphify: ${context.graphifyNodes.toLocaleString()} nodes, ${context.graphifyLinks.toLocaleString()} links`,
+    `- Madge modules: ${context.madgeModules.toLocaleString()}`,
+    `- dependency-cruiser modules: ${context.dependencyCruiserModules.toLocaleString()}`,
+    `- Cargo direct dependencies: ${context.cargoDependencies.toLocaleString()}`,
+    `- Estimated compact-context tokens: ${context.compactContextEstimatedTokens.toLocaleString()}`,
+    `- Estimated tokens avoided: ${context.estimatedTokensAvoided.toLocaleString()}`,
+  ];
+  if (context.summary) {
+    lines.push("", "### Compact Context Excerpt", context.summary);
+  }
+  return lines.join("\n");
+}
+
 function formatSinglePackMarkdown(summary, selectedPack) {
   const files = selectedPack.files.map(
     (file) =>
@@ -2054,6 +2129,8 @@ function formatSinglePackMarkdown(summary, selectedPack) {
     `Estimated savings vs full scan: ${selectedPack.savingsVsFullScanPct.toFixed(1)}%`,
     "",
     formatGraphMarkdown(summary.graph),
+    "",
+    formatRepoMapContextMarkdown(summary.repoRoot),
     "",
     "## Files",
     ...files,
@@ -2126,6 +2203,7 @@ function formatAgentHandoffMarkdown(summary, agentId, requestedPackId) {
       : "",
     "",
     configReadinessMarkdown,
+    formatRepoMapContextMarkdown(summary.repoRoot),
     formatSinglePackMarkdown(summary, selectedPack),
   ]
     .filter((line) => line !== "")
@@ -2195,6 +2273,7 @@ function buildAgentHandoffPayload(summary, agentId, requestedPackId) {
       importEdges: summary.graph?.importEdges ?? [],
       reverseDependencyHubs: summary.graph?.reverseDependencyHubs ?? [],
     },
+    repoMapContext: readRepoMapContext(summary.repoRoot),
     safety: {
       readOnly: true,
       excludesSecretLikePaths: true,
@@ -2521,6 +2600,8 @@ function buildAgentSessionRecipes(repoRoot) {
             plannedConnectorId: configReadiness.plannedConnectorId,
             nextGate: configReadiness.nextGate.label,
             automationEnabled: configReadiness.automationEnabled,
+            managedMcpBridge: configReadiness.managedMcpBridge,
+            supportStatus: configReadiness.supportStatus,
           }
         : null,
     };
@@ -2588,6 +2669,7 @@ function buildAgentManifest(summary) {
       command: `npm run repo:intelligence -- ${JSON.stringify(summary.repoRoot)} --pack ${recipe.packIds[0]} --format markdown`,
     })),
     agentSessionRecipes: buildAgentSessionRecipes(summary.repoRoot),
+    repoMapContext: readRepoMapContext(summary.repoRoot),
     apiQueries: repoAgentApiQueryTemplates.map((query) => ({
       ...query,
       readOnly: true,
@@ -2808,6 +2890,15 @@ function runRepoMemoryMcpServer(options) {
   });
 }
 
+function writeCliOutput(output) {
+  return new Promise((resolve, reject) => {
+    process.stdout.write(`${output}\n`, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
 const options = parseArgs(process.argv.slice(2));
 options.mcpServe = options.mcpServe || process.argv.includes("--mcp-serve");
 
@@ -2831,27 +2922,29 @@ if (options.mcpServe) {
   }
   const summary = buildSummary(options.repoRoot);
   if (options.listPacks) {
-    console.log(summary.packs.map((contextPack) => contextPack.id).join("\n"));
+    await writeCliOutput(
+      summary.packs.map((contextPack) => contextPack.id).join("\n"),
+    );
     process.exit(0);
   }
   if (options.listAgents) {
-    console.log(agentHandoffProfiles.map((profile) => profile.id).join("\n"));
+    await writeCliOutput(agentHandoffProfiles.map((profile) => profile.id).join("\n"));
     process.exit(0);
   }
   if (options.listApi) {
-    console.log(formatApiQueryList(summary));
+    await writeCliOutput(formatApiQueryList(summary));
     process.exit(0);
   }
   if (options.manifest) {
-    console.log(JSON.stringify(buildAgentManifest(summary), null, 2));
+    await writeCliOutput(JSON.stringify(buildAgentManifest(summary), null, 2));
     process.exit(0);
   }
   if (options.session) {
     try {
       const preparation = buildAgentSessionPreparation(summary, options);
       if (options.format === "markdown")
-        console.log(formatAgentSessionMarkdown(preparation));
-      else console.log(JSON.stringify(preparation, null, 2));
+        await writeCliOutput(formatAgentSessionMarkdown(preparation));
+      else await writeCliOutput(JSON.stringify(preparation, null, 2));
     } catch (error) {
       console.error(error.message);
       process.exit(1);
@@ -2861,7 +2954,7 @@ if (options.mcpServe) {
   if (options.agent) {
     try {
       if (options.formatProvided && options.format === "json")
-        console.log(
+        await writeCliOutput(
           JSON.stringify(
             buildAgentHandoffPayload(summary, options.agent, options.packId),
             null,
@@ -2869,7 +2962,7 @@ if (options.mcpServe) {
           ),
         );
       else
-        console.log(
+        await writeCliOutput(
           formatAgentHandoffMarkdown(summary, options.agent, options.packId),
         );
     } catch (error) {
@@ -2889,9 +2982,9 @@ if (options.mcpServe) {
       process.exit(1);
     }
     if (options.format === "markdown")
-      console.log(formatSinglePackMarkdown(summary, selectedPack));
+      await writeCliOutput(formatSinglePackMarkdown(summary, selectedPack));
     else
-      console.log(
+      await writeCliOutput(
         JSON.stringify(
           { repoRoot: summary.repoRoot, pack: selectedPack },
           null,
@@ -2900,10 +2993,10 @@ if (options.mcpServe) {
       );
   } else if (options.format === "markdown") {
     for (const contextPack of summary.packs) {
-      console.log(formatSinglePackMarkdown(summary, contextPack));
-      console.log("\n---\n");
+      await writeCliOutput(formatSinglePackMarkdown(summary, contextPack));
+      await writeCliOutput("\n---\n");
     }
   } else {
-    console.log(JSON.stringify(summary, null, 2));
+    await writeCliOutput(JSON.stringify(summary, null, 2));
   }
 }

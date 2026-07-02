@@ -13,7 +13,15 @@ const runTools = args.includes("--run-tools");
 const root = path.resolve(argValue("--repo", process.cwd()));
 const outDir = path.resolve(root, argValue("--out", path.join("docs", "repo-map")));
 fs.mkdirSync(outDir, { recursive: true });
-const toolLog = [];
+const previousToolLog = (() => {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(path.join(outDir, "tool-log.json"), "utf8"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+})();
+const toolLog = runTools ? [] : previousToolLog;
 
 const run = (label, command, options = {}) => {
   const startedAt = new Date().toISOString();
@@ -38,6 +46,31 @@ const run = (label, command, options = {}) => {
     fs.writeFileSync(path.join(root, options.stdoutFile), result.stdout);
   }
   return record;
+};
+
+const toolStatus = (record, successWhen = (item) => item.exitCode === 0) => {
+  if (!record) {
+    return {
+      status: "not-run",
+      detail: "Tool was not run.",
+      remediation: null,
+    };
+  }
+  if (successWhen(record)) {
+    return {
+      status: "ok",
+      detail: record.stderr || record.error || "Completed.",
+      remediation: null,
+    };
+  }
+  return {
+    status: "warning",
+    detail: record.error || record.stderr || `Exited ${record.exitCode ?? record.signal ?? "unknown"}.`,
+    remediation:
+      record.label === "graphify"
+        ? "Graphify can return a non-zero exit after writing graphify-out/graph.json. Re-run with uvx --from 'graphifyy[openai]' graphify . --no-cluster to inspect semantic extraction errors."
+        : null,
+  };
 };
 
 if (runTools) {
@@ -218,6 +251,25 @@ const map = {
       dependencyCount: cargoDeps.length,
     },
   },
+  toolRuns: {
+    graphify: (() => {
+      const record = toolLog.find((item) => item.label === "graphify");
+      const status = toolStatus(record, () => graphNodes.length > 0);
+      const detail = `${record?.stderr ?? ""} ${record?.error ?? ""}`;
+      if (graphNodes.length > 0 && /failed|502|Bad Gateway|error/i.test(detail)) {
+        return {
+          status: "warning",
+          detail: detail.slice(0, 4000),
+          remediation:
+            "Graphify wrote graphify-out/graph.json, but semantic extraction reported errors. The map is usable; retry later or inspect tool-log.json for backend/API failures.",
+        };
+      }
+      return status;
+    })(),
+    madge: toolStatus(toolLog.find((item) => item.label === "madge-json")),
+    dependencyCruiser: toolStatus(toolLog.find((item) => item.label === "dependency-cruiser-json")),
+    cargoMetadata: toolStatus(toolLog.find((item) => item.label === "cargo-metadata")),
+  },
   inventory: {
     frontendFiles: sourceFiles.length,
     rustFiles: rustFiles.length,
@@ -243,6 +295,28 @@ const map = {
     cargoDirect: cargoDeps,
   },
   scripts,
+};
+
+const compactChars = JSON.stringify({
+  tools: map.tools,
+  inventory: map.inventory,
+  frontend: { topFanOut: map.frontend.topFanOut.slice(0, 10) },
+  tauri: {
+    invokedCommandCount: map.tauri.invokedCommandCount,
+    commandCount: map.tauri.commandCount,
+    missingRustCommand: map.tauri.missingRustCommand,
+    missingHandler: map.tauri.missingHandler,
+  },
+}).length;
+const broadScanChars = [...sourceFiles, ...rustFiles]
+  .slice(0, 500)
+  .reduce((total, file) => total + readText(file).length, 0);
+const estimatedTokens = (chars) => Math.ceil(chars / 4);
+map.tokenSavings = {
+  compactContextEstimatedTokens: estimatedTokens(compactChars),
+  broadScanEstimatedTokens: estimatedTokens(broadScanChars),
+  estimatedTokensAvoided: Math.max(0, estimatedTokens(broadScanChars) - estimatedTokens(compactChars)),
+  method: "Approximate chars/4 estimate comparing bounded repo map context to readable source files capped at 500 files.",
 };
 
 fs.writeFileSync(path.join(outDir, "repo-map.json"), `${JSON.stringify(map, null, 2)}\n`);
@@ -354,6 +428,7 @@ const compactContext = [
   `dependency-cruiser: ${map.tools.dependencyCruiser.moduleCount} modules, ${map.tools.dependencyCruiser.edgeCount} edges.`,
   `Cargo metadata: ${map.tools.cargoMetadata.dependencyCount} direct Rust dependencies.`,
   `Tauri invoke wiring: ${map.tauri.invokedCommandCount} frontend invokes, ${map.tauri.commandCount} Rust commands, ${map.tauri.missingRustCommand.length} missing Rust commands, ${map.tauri.missingHandler.length} missing handlers.`,
+  `Estimated token savings: ${map.tokenSavings.estimatedTokensAvoided} tokens avoided versus broad source scan.`,
   "",
   "## Frontend Hotspots",
   "",

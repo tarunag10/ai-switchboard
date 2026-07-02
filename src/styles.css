@@ -552,6 +552,51 @@
   gap: 7px;
 }
 
+.repo-map-picker {
+  gap: 10px;
+}
+
+.repo-map-picker__row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.repo-map-picker__input {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font: inherit;
+  min-width: 0;
+  padding: 9px 11px;
+}
+
+.repo-map-preflight {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.repo-map-preflight span,
+.repo-map-tool-list__copy {
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  padding: 5px 8px;
+}
+
+.repo-map-preflight .is-ok {
+  border-color: color-mix(in srgb, #22c55e 35%, var(--border-default));
+  color: #237a45;
+}
+
+.repo-map-preflight .is-warning {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border-default));
+  color: var(--warning);
+}
+
 .repo-map-error {
   background: var(--danger-tint);
   border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border-default));
@@ -561,10 +606,97 @@
   padding: 10px 12px;
 }
 
+.repo-map-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.repo-map-progress__step {
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  padding: 6px 9px;
+}
+
+.repo-map-progress__step--active {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border-default));
+  color: var(--accent);
+}
+
+.repo-map-tool-list,
+.repo-map-history {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.repo-map-tool-list__item {
+  align-items: center;
+  border-top: 1px solid var(--border-default);
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-top: 8px;
+}
+
+.repo-map-tool-list__item small {
+  color: var(--text-muted);
+  grid-column: 1 / -1;
+  line-height: 1.35;
+}
+
+.repo-map-tool-list__item--ok strong {
+  color: #237a45;
+}
+
+.repo-map-tool-list__item--warning strong {
+  color: var(--warning);
+}
+
+.repo-map-tool-list__copy {
+  background: transparent;
+  cursor: pointer;
+}
+
+.repo-map-artifact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.repo-map-history button {
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  padding: 9px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.repo-map-history span,
+.repo-map-history small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repo-map-history small {
+  color: var(--text-muted);
+}
+
 @media (max-width: 760px) {
   .repo-map-hero,
   .repo-map-layout,
-  .repo-map-health-grid {
+  .repo-map-health-grid,
+  .repo-map-picker__row {
     grid-template-columns: 1fr;
   }
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-02T13:16:56.529Z",
+  "generatedAt": "2026-07-02T15:19:21.485Z",
   "tools": {
     "graphify": {
       "status": "partial-success",
@@ -29,6 +29,28 @@
     "cargoMetadata": {
       "file": "docs/repo-map/cargo-metadata.json",
       "dependencyCount": 39
+    }
+  },
+  "toolRuns": {
+    "graphify": {
+      "status": "warning",
+      "detail": "[graphify] chunk 2/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] chunk 1/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] chunk 3/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] WARNING: 3/3 semantic chunk(s) failed — see errors above. Partial results returned.\n[graphify extract] error: all semantic chunks failed for backend 'gemini' (96 uncached files) - see per-chunk errors above. If you see 'requires the X package', run `pip install X` and retry.\n ",
+      "remediation": "Graphify wrote graphify-out/graph.json, but semantic extraction reported errors. The map is usable; retry later or inspect tool-log.json for backend/API failures."
+    },
+    "madge": {
+      "status": "ok",
+      "detail": "Completed.",
+      "remediation": null
+    },
+    "dependencyCruiser": {
+      "status": "ok",
+      "detail": "Completed.",
+      "remediation": null
+    },
+    "cargoMetadata": {
+      "status": "ok",
+      "detail": "Completed.",
+      "remediation": null
     }
   },
   "inventory": {
@@ -140,9 +162,9 @@
     ]
   },
   "tauri": {
-    "commandCount": 113,
-    "handlerCount": 113,
-    "invokedCommandCount": 75,
+    "commandCount": 115,
+    "handlerCount": 115,
+    "invokedCommandCount": 77,
     "missingRustCommand": [],
     "missingHandler": [],
     "uncalledHandlerCount": 38,
@@ -622,5 +644,11 @@
       "name": "check:deployment",
       "command": "node scripts/check-deployment-readiness.mjs"
     }
-  ]
+  ],
+  "tokenSavings": {
+    "compactContextEstimatedTokens": 300,
+    "broadScanEstimatedTokens": 1118472,
+    "estimatedTokensAvoided": 1118172,
+    "method": "Approximate chars/4 estimate comparing bounded repo map context to readable source files capped at 500 files."
+  }
 }
