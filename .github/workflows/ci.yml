@@ -7,7 +7,6 @@ on:
       - main
       - staging
       - "feature/**"
-      - "tarun/**"
 
 permissions:
   contents: read
