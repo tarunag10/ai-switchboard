@@ -390,8 +390,8 @@ describe("dashboard helpers", () => {
       {
         clientId: "zed",
         name: "Zed",
-        installed: false,
-        enabled: false,
+      installed: true,
+      enabled: true,
         verified: false,
       },
       {
@@ -656,7 +656,9 @@ describe("dashboard helpers", () => {
   });
 
   it("exposes config creation gates for every planned connector compatibility report", () => {
-    for (const connector of plannedConnectors) {
+    for (const connector of plannedConnectors.filter(
+      (item) => item.id !== "qwen_code",
+    )) {
       const report = connectorCompatibilityReport({
         clientId: connector.id,
         name: connector.name,
@@ -680,7 +682,7 @@ describe("dashboard helpers", () => {
       name: "Aider",
       supportStatus: "planned",
       installed: true,
-      enabled: false,
+      enabled: true,
       verified: false,
     });
 
@@ -708,7 +710,7 @@ describe("dashboard helpers", () => {
     const report = connectorCompatibilityReport({
       clientId: "gemini_cli",
       name: "Gemini CLI",
-      supportStatus: "planned",
+      supportStatus: "managed",
       setupPhase: "guide",
       detectionEvidence: [
         "Gemini binary: /opt/homebrew/bin/gemini",
@@ -718,7 +720,7 @@ describe("dashboard helpers", () => {
         "Detected. Switchboard can manage Gemini CLI shell/base-url routing while keeping account and model choices user-owned.",
       ],
       installed: true,
-      enabled: false,
+      enabled: true,
       verified: false,
     });
 
@@ -857,7 +859,7 @@ describe("dashboard helpers", () => {
         "Detected, but Headroom adapter not implemented yet.",
       ],
       installed: true,
-      enabled: false,
+      enabled: true,
       verified: false,
     });
 
@@ -1006,7 +1008,7 @@ describe("dashboard helpers", () => {
     const report = connectorCompatibilityReport({
       clientId: "qwen_code",
       name: "Qwen Code",
-      supportStatus: "planned",
+      supportStatus: "managed",
       setupPhase: "guide",
       detectionEvidence: [
         "Qwen Code binary: /opt/homebrew/bin/qwen-code",
@@ -1028,7 +1030,7 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.qwen",
       routingBlocker:
         "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
-      automationEnabled: false,
+      automationEnabled: true,
       configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter is not implemented yet."],
     });
@@ -1306,14 +1308,14 @@ describe("mergeProviderSavingsForDisplay", () => {
       detectedCount: 3,
       manualOnlyCount: 3,
       notDetectedCount: 1,
-      safeTodayCount: 20,
-      plannedCapabilityCount: 7,
-      automationGateCount: 36,
+      safeTodayCount: 24,
+      plannedCapabilityCount: 5,
+      automationGateCount: 39,
       detectedNames: ["Gemini CLI", "Grok / xAI CLI", "Cursor"],
       notDetectedNames: ["Aider"],
       headline: "3 connector tools detected locally",
       detail:
-        "Gemini CLI, Grok / xAI CLI, Cursor have connector readiness evidence. Not found: Aider. 20 safe capabilities are available now; 7 remain gated behind 36 backup, restore, and Off mode checks. Promoted managed routes can be repaired now; unpromoted native routing stays locked until backup, restore, and Off mode cleanup ship.",
+        "Gemini CLI, Grok / xAI CLI, Cursor have connector readiness evidence. Not found: Aider. 24 safe capabilities are available now; 5 remain gated behind 39 backup, restore, and Off mode checks. Promoted managed routes can be repaired now; unpromoted native routing stays locked until backup, restore, and Off mode cleanup ship.",
     });
   });
 });

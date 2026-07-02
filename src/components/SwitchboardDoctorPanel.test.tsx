@@ -506,10 +506,12 @@ describe("SwitchboardDoctorPanel", () => {
       "Connector config readiness dossiers",
     );
     expect(writeText.mock.calls[0][0]).toContain(
-      "No ungated connector-native write dossiers remain",
+      "Gated config-creation steps",
     );
-    expect(writeText.mock.calls[0][0]).toContain("managed connector coverage");
-    expect(writeText.mock.calls[0][0]).toContain("promoted routing evidence");
+    expect(writeText.mock.calls[0][0]).toContain("Connector ID: cursor");
+    expect(writeText.mock.calls[0][0]).toContain(
+      "Dry-run preview: target User/settings.json; marker mac-ai-switchboard:cursor",
+    );
     expect(screen.getByText("Copied connector dossiers.")).toBeInTheDocument();
   });
 });

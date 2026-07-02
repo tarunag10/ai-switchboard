@@ -4382,7 +4382,7 @@ fn format_all_foreign_bail(default_port: u16, occupant: &str, range: (u16, u16))
     let (start, end) = range;
     format!(
         "port {default_port} is occupied by a non-headroom process ({occupant}) and fallback ports {start}-{end} are also unavailable; cannot start proxy. \
-         Reboot to clear stuck listeners, then relaunch Headroom."
+         Reboot to clear stuck listeners, then relaunch Mac AI Switchboard."
     )
 }
 

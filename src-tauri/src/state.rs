@@ -356,12 +356,12 @@ pub(crate) fn newest_proxy_log_mtime(logs_dir: &std::path::Path) -> Option<std::
 /// frozen even when all phases last a while.
 fn boot_validation_message(elapsed_secs: u64, active: bool) -> String {
     let prefix = if elapsed_secs < 10 {
-        "Launching Headroom".to_string()
+        "Launching Mac AI Switchboard".to_string()
     } else if elapsed_secs < 30 {
         if active {
             "Warming up Headroom's runtime".to_string()
         } else {
-            "Launching Headroom".to_string()
+            "Launching Mac AI Switchboard".to_string()
         }
     } else if elapsed_secs < 90 {
         // Rotate across a few descriptive phrasings so the line changes
@@ -6183,14 +6183,14 @@ pub(crate) fn classify_startup_error(raw: &str) -> Option<String> {
         // their port at login.
         return Some(
             "A port Headroom needs is held by another app on your machine. \
-             Reboot to clear stuck listeners, then relaunch Headroom."
+             Reboot to clear stuck listeners, then relaunch Mac AI Switchboard."
                 .into(),
         );
     }
     if raw.contains("headroom proxy already running on port") {
         return Some(
             "A previous Headroom proxy is still running in the background. \
-             Quit and relaunch Headroom to reset it."
+             Quit and relaunch Mac AI Switchboard to reset it."
                 .into(),
         );
     }
@@ -6717,7 +6717,7 @@ mod tests {
     #[test]
     fn classify_startup_error_foreign_port_with_fallback_exhausted() {
         let raw =
-            "port 6768 is occupied by a non-headroom process (rapportd pid 594) and fallback ports 6769-6790 are also unavailable; cannot start proxy. Reboot to clear stuck listeners, then relaunch Headroom.";
+            "port 6768 is occupied by a non-headroom process (rapportd pid 594) and fallback ports 6769-6790 are also unavailable; cannot start proxy. Reboot to clear stuck listeners, then relaunch Mac AI Switchboard.";
         let hint = classify_startup_error(raw).expect("all-foreign should classify");
         assert!(hint.contains("Reboot"), "got: {hint}");
     }
@@ -6771,7 +6771,7 @@ mod tests {
     fn classify_startup_error_handles_every_tool_manager_bail_format() {
         // 1. all-foreign exhaustion
         let raw = "port 6768 is occupied by a non-headroom process (rapportd pid 594) and fallback ports 6769-6790 are also unavailable; cannot start proxy. \
-                   Reboot to clear stuck listeners, then relaunch Headroom.";
+                   Reboot to clear stuck listeners, then relaunch Mac AI Switchboard.";
         assert!(
             classify_startup_error(raw).is_some(),
             "all-foreign bail must classify"

@@ -32,7 +32,8 @@ Still left: provider-specific native config writes beyond sidecars, real long-ru
 | OpenCode                                                                          | Limited managed adapter |           Limited |          No |        Yes | Provider adapter work exists; lifecycle gates still decide native writes.                   |
 | Cursor                                                                            | Guided                  |                No |          No |        Yes | Copyable packs and settings detection today.                                                |
 | Windsurf                                                                          | Guided                  |                No |          No |        Yes | Copyable packs and settings detection today.                                                |
-| Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Zed AI, Grok / xAI CLI | Detected or planned     |                No |          No |        Yes | Manual workflow, detection evidence, and automation gates until reversible setup is proven. |
+| Goose | Managed MCP | Yes | No | Yes | Read-only Repo Memory MCP bridge with provider/model routing still manual. |
+| Aider, Continue, Qwen Code, Amazon Q Developer CLI, Zed AI, Grok / xAI CLI | Detected or planned | No | No | Yes | Manual workflow, detection evidence, and automation gates until reversible setup is proven. |
 | MarkItDown, Ponytail, Caveman                                                     | Add-on                  |                No |     Depends |         No | Local helper add-ons with explicit install/disable flows.                                   |
 
 See [Connector Support](docs/connectors.md) for the status vocabulary and per-tool guardrails.

@@ -7,6 +7,7 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | Label | Meaning |
 | --- | --- |
 | Managed | Switchboard can apply reversible setup, verify it, repair drift, and clean up managed edits. |
+| Managed MCP | Switchboard manages a read-only Repo Memory MCP bridge while provider/account mutation remains gated. |
 | Limited managed adapter | A bounded adapter exists, but provider/account mutation or some lifecycle evidence remains gated. |
 | Guided | Switchboard detects the tool and gives a safe manual workflow, usually with copyable Repo Intelligence packs. |
 | Detected | Switchboard can identify the tool or known config locations, but does not guide writes yet. |
@@ -21,13 +22,13 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | Codex | Managed | Yes | Partial | Yes | First-class managed target with provider block and bypass handling. |
 | Gemini CLI | Managed | Yes | No | Yes | Managed shell/base-url routing with sibling rollback backups, Doctor repair, rollback, and Off cleanup. |
 | OpenCode | Managed | Yes | No | Yes | Managed provider routing with backup, verify, rollback, and Off cleanup gates. |
-| Cursor | Guided | No | No | Yes | Copyable packs and settings detection today. |
+| Cursor | Gated | No | No | Yes | Copyable packs, settings discovery, and dry-run target/marker preview today; native/provider writes remain blocked. |
 | Windsurf | Managed | Yes | No | Yes | Managed editor settings routing with backup, Doctor verification, rollback, and Off cleanup. |
-| Aider | Guided | No | No | Yes | CLI handoffs and manual workflow before managed routing. |
-| Continue | Guided | No | No | Yes | Editor/extension config remains manual. |
-| Goose | Guided | No | No | Yes | MCP/repo handoff fit before native routing. |
-| Qwen Code | Detected | No | No | Yes | Detection and handoff only until lifecycle tests exist. |
-| Amazon Q Developer CLI | Detected | No | No | Yes | Detection and handoff only until lifecycle tests exist. |
+| Aider | Gated | No | No | Yes | CLI handoffs and manual workflow before managed routing. |
+| Continue | Gated | No | No | Yes | Editor/extension config remains manual. |
+| Goose | Managed MCP | Yes | No | Yes | Read-only Repo Memory MCP bridge; provider routing remains manual. |
+| Qwen Code | Gated | No | No | Yes | Detection and handoff only until lifecycle tests exist. |
+| Amazon Q Developer CLI | Gated | No | No | Yes | Detection and handoff only until lifecycle tests exist. |
 | Zed AI | Managed | Yes | No | Yes | Managed assistant settings routing with backup, Doctor verification, rollback, and Off cleanup. |
 | Grok / xAI CLI | Gated | No | No | Yes | Detection and config semantics need more evidence before native/provider writes. |
 
@@ -45,4 +46,4 @@ Before a connector moves to Managed, it must have:
 - Fixture-home tests for apply, repair, rollback, and cleanup.
 - Manual recovery docs.
 
-Repo Intelligence packs are safe for every listed tool because they are read-only and copyable. Provider routing, settings mutation, and account-specific config stay gated connector by connector.
+Repo Intelligence packs are safe for every listed tool because they are read-only and copyable. Goose additionally has the managed Repo Memory MCP bridge for read-only context handoff. Provider routing, settings mutation, and account-specific config stay gated connector by connector.

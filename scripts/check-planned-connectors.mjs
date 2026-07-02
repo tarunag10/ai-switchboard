@@ -6,7 +6,11 @@ const appPath = "src/App.tsx";
 const backendPath = "src-tauri/src/client_adapters.rs";
 const cliPath = "scripts/repo-intelligence.mjs";
 const repoApiPath = "src-tauri/src/repo_intelligence.rs";
+const repoIntelligenceUiPath = "src/lib/repoIntelligence.ts";
+const doctorCopyPath = "src/lib/doctorRepairCopy.ts";
 const compatibilityMatrixPath = "research/tool-compatibility-matrix.md";
+const managedMcpBridgeConnectorIds = ["goose"];
+const managedMcpBridgeConnectorIdSet = new Set(managedMcpBridgeConnectorIds);
 
 function readFile(path) {
   return fs.readFileSync(path, "utf8");
@@ -63,6 +67,7 @@ function extractConnectorsFromArray(source, pattern, label) {
       name: readStringField(block, "name"),
       category: readStringField(block, "category"),
       supportStatus: readStringField(block, "supportStatus"),
+      statusLabel: readStringField(block, "statusLabel"),
       setupPhase: readStringField(block, "setupPhase"),
       configSurfaceCount: countStringArrayField(block, "configSurfaces"),
       automationGateCount: countStringArrayField(block, "automationGates"),
@@ -195,7 +200,7 @@ function validateBackendConfigCreationPlanContract(source) {
   }
   if (
     !source.includes("config_creation_step_details")
-    || !source.includes("planned_config_creation_step_details(spec)")
+    || !source.includes("planned_config_creation_step_details(spec,")
   ) {
     errors.push("connector readiness backend metadata must expose structured config_creation_step_details");
   }
@@ -242,6 +247,61 @@ function validateBackendConfigCreationPlanContract(source) {
   return errors;
 }
 
+function validateCursorDryRunContract({
+  manifest,
+  frontendSource,
+  backendSource,
+  repoIntelligenceSource,
+  doctorCopySource,
+}) {
+  const errors = [];
+  const cursor = manifest.get("cursor");
+  if (!cursor) {
+    return ["cursor manifest missing"];
+  }
+
+  const requiredManifestSnippets = [
+    "~/Library/Application Support/Cursor/User/settings.json",
+    "~/Library/Application Support/Cursor/User/globalStorage",
+    "state.vscdb",
+    "Off mode removes only Switchboard-owned Cursor routing markers.",
+  ];
+  for (const snippet of requiredManifestSnippets) {
+    if (!JSON.stringify(cursor).includes(snippet)) {
+      errors.push(`cursor manifest missing dry-run contract "${snippet}"`);
+    }
+  }
+  if (cursor.automation_gates.length !== 7) {
+    errors.push(`cursor manifest expected 7 automation gates, found ${cursor.automation_gates.length}`);
+  }
+
+  for (const snippet of ["User/settings.json", "User/globalStorage"]) {
+    if (!frontendSource.includes(snippet)) {
+      errors.push(`cursor frontend contract missing "${snippet}"`);
+    }
+  }
+  for (const [label, source] of [["backend", backendSource]]) {
+    for (const snippet of ["Cursor/User/settings.json", "Cursor/User/globalStorage"]) {
+      if (!source.includes(snippet)) {
+        errors.push(`cursor ${label} contract missing "${snippet}"`);
+      }
+    }
+  }
+
+  for (const [label, source] of [
+    ["repo intelligence", repoIntelligenceSource],
+    ["doctor copy", doctorCopySource],
+  ]) {
+    for (const snippet of ["Dry-run target", "mac-ai-switchboard:${"]) {
+      if (!source.includes(snippet)) {
+        errors.push(`cursor ${label} evidence missing "${snippet}"`);
+      }
+    }
+  }
+
+  return errors;
+}
+
 function validateManagedConnectorEndToEndContract(source, manifestById, managedIds) {
   const errors = [];
   const expectedManifestManaged = [
@@ -249,6 +309,8 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
     "codex",
     "gemini_cli",
     "opencode",
+    ...managedMcpBridgeConnectorIds,
+    "qwen_code",
     "windsurf",
     "zed_ai",
   ];
@@ -286,6 +348,12 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
       "preview_managed_config_apply(\"opencode-routing\")",
       "managed_rollback_preview_and_execute_restores_opencode_backup",
     ],
+    qwen_code: [
+      '"qwen_code"',
+      "configure_planned_switchboard_sidecar",
+      "qwen_connector_applies_and_disables_switchboard_owned_sidecar_only",
+      'planned_sidecar_routing_path("qwen_code")',
+    ],
     windsurf: [
       '"windsurf" => {',
       "configure_windsurf_provider_config",
@@ -306,7 +374,10 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
     }
   }
 
-  for (const id of ["cursor", "grok_cli", "aider", "continue", "goose", "qwen_code", "amazon_q"]) {
+  for (const id of ["cursor", "grok_cli", "aider", "continue", "goose", "amazon_q"]) {
+    if (managedMcpBridgeConnectorIdSet.has(id)) {
+      continue;
+    }
     const manifest = manifestById.get(id);
     if (manifest?.support_status === "managed") {
       errors.push(`${id}: planned connector must not be marked managed before native lifecycle evidence is promoted`);
@@ -490,6 +561,8 @@ const appSource = readFile(appPath);
 const backendSource = readFile(backendPath);
 const cliSource = readFile(cliPath);
 const repoApiSource = readFile(repoApiPath);
+const repoIntelligenceUiSource = readFile(repoIntelligenceUiPath);
+const doctorCopySource = readFile(doctorCopyPath);
 const compatibilityMatrixSource = readFile(compatibilityMatrixPath);
 const frontendConnectors = extractFrontendConnectors(frontendSource);
 const managedFrontendConnectors = extractManagedFrontendConnectors(frontendSource);
@@ -503,7 +576,12 @@ const frontendIds = uniqueSorted([...frontendConnectors.keys()]);
 const managedFrontendIds = uniqueSorted([...managedFrontendConnectors.keys()]);
 const managedFrontendIdSet = new Set(managedFrontendIds);
 const promotedSidecarIdSet = new Set(promotedSidecarIds);
-const pendingFrontendIds = frontendIds.filter((id) => !promotedSidecarIdSet.has(id));
+const pendingFrontendIds = frontendIds.filter(
+  (id) =>
+    allFrontendConnectors.get(id)?.statusLabel === "Gated" &&
+    !managedFrontendIdSet.has(id) &&
+    !managedMcpBridgeConnectorIdSet.has(id),
+);
 const allFrontendIds = uniqueSorted([...allFrontendConnectors.keys()]);
 const backendIds = uniqueSorted([...backendConnectors.keys()]);
 const manifestManagedIds = uniqueSorted(
@@ -534,6 +612,15 @@ if (allFrontendIds.length === 0) {
 const metadataErrors = [];
 metadataErrors.push(...validateConfigCreationPlanContract(frontendSource));
 metadataErrors.push(...validateBackendConfigCreationPlanContract(backendSource));
+metadataErrors.push(
+  ...validateCursorDryRunContract({
+    manifest: connectorManifestById,
+    frontendSource,
+    backendSource,
+    repoIntelligenceSource: repoIntelligenceUiSource,
+    doctorCopySource,
+  }),
+);
 metadataErrors.push(
   ...validateManagedConnectorEndToEndContract(
     backendSource,
@@ -585,7 +672,11 @@ for (const id of allFrontendIds) {
     );
   }
   const frontendPhase = frontend.setupPhase?.toLowerCase();
-  if (!managedFrontendIdSet.has(id) && frontendPhase !== backend.setupPhase) {
+  if (
+    !managedFrontendIdSet.has(id) &&
+    !managedMcpBridgeConnectorIdSet.has(id) &&
+    frontendPhase !== backend.setupPhase
+  ) {
     metadataErrors.push(
       `${id}: setup phase mismatch (${frontend.setupPhase} !== ${backend.setupPhase})`,
     );

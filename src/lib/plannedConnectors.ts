@@ -67,8 +67,8 @@ export interface PlannedConnector {
   name: string;
   category: "cli" | "editor" | "agent";
   supportStatus: ConnectorSupportStatus;
-  statusLabel: "Gated";
-  setupPhase: "Detect" | "Guide" | "Adapt";
+  statusLabel: "Gated" | "Managed" | "Managed MCP" | "Managed sidecar";
+  setupPhase: "Detect" | "Guide" | "Adapt" | "Managed" | "Managed MCP";
   integrationTarget: string;
   notes: string;
   capabilityBadges: string[];
@@ -411,9 +411,9 @@ export const plannedConnectors: PlannedConnector[] = [
     statusLabel: "Gated",
     setupPhase: "Guide",
     integrationTarget:
-      "Editor settings/profile detection with opt-in local proxy routing where supported.",
+      "Fixture-home Cursor settings discovery and dry-run diff preview; native/provider writes stay blocked.",
     notes:
-      "Treat as guided setup first because Cursor settings and extension behavior can vary by account release channel.",
+      "Treat as gated setup: detect User/settings.json and globalStorage safely, show the dry-run plan, then keep provider and model changes manual until reversible writes are proven.",
     capabilityBadges: [
       "App detection",
       "Guided setup",
@@ -423,7 +423,7 @@ export const plannedConnectors: PlannedConnector[] = [
     safeToday:
       "Show Cursor as a guided editor target and let users copy Repo Intelligence packs into sessions.",
     firstAutomation:
-      "Add profile-aware settings discovery with a dry-run diff before any settings write.",
+      "Profile-aware settings discovery and dry-run diff preview are available; backup, exact consent, verify, rollback, and Off cleanup still gate native writes.",
     capabilityRows: [
       {
         label: "App detection",
@@ -443,11 +443,14 @@ export const plannedConnectors: PlannedConnector[] = [
           "Settings file discovery is available; writes still wait for parse, backup, restore, and Off cleanup tests.",
       },
     ],
-    configSurfaces: ["Cursor app bundle", "user settings", "profile settings"],
+    configSurfaces: ["Cursor app bundle", "User/settings.json", "User/globalStorage", "profile settings"],
     automationGates: [
       "Detect the active Cursor profile before reading settings.",
-      "Back up settings without touching extension-managed secrets.",
-      "Keep account-specific model choices visible before routing.",
+      "Back up Cursor settings without reading extension-managed secrets or global state databases.",
+      "Require exact user consent before any native/provider write is enabled.",
+      "Verify Cursor routing through Doctor evidence after a managed write.",
+      "Rollback restores the exact profile backup without touching unrelated editor or extension config.",
+      "Off mode removes only Switchboard-owned Cursor routing markers.",
     ],
     manualWorkflow: [
       "Open Cursor settings from the setup guide.",
@@ -622,23 +625,23 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "goose",
     name: "Goose",
     category: "agent",
-    supportStatus: "planned",
-    statusLabel: "Gated",
-    setupPhase: "Adapt",
+    supportStatus: "managed",
+    statusLabel: "Managed MCP",
+    setupPhase: "Managed MCP",
     integrationTarget:
-      "Local provider adapter and MCP/Repo Intelligence handoff.",
+      "Managed Repo Memory MCP bridge; provider routing remains manual.",
     notes:
-      "Useful target once Switchboard has a stable connector capability model for agent-style tools.",
+      "Managed only for local read-only Repo Memory MCP context handoff; Goose provider/model configuration stays user-owned and reversible cleanup stays inside Switchboard metadata.",
     capabilityBadges: [
-      "CLI detection",
-      "MCP handoff gated",
-      "Repo packs gated",
+      "Managed MCP",
+      "Doctor verified",
+      "Provider manual",
     ],
     supportedModes: ["RTK only", "Repo packs", "Off"],
     safeToday:
-      "Detect Goose and copy Repo Intelligence packs into sessions while MCP handoff remains gated.",
+      "Prepare the app-managed read-only Repo Memory MCP bridge for Goose while provider and model routing remain manual.",
     firstAutomation:
-      "Prototype a read-only MCP handoff manifest before managing provider configuration.",
+      "Install and smoke-check the app-managed Repo Memory MCP descriptor before any Goose provider routing work.",
     capabilityRows: [
       {
         label: "Detection",
@@ -646,51 +649,55 @@ export const plannedConnectors: PlannedConnector[] = [
         detail: "Switchboard can check for a local Goose command.",
       },
       {
-        label: "Repo context",
-        state: "Manual today",
+        label: "Repo Memory MCP",
+        state: "Available now",
         detail:
-          "Copy Repo Intelligence packs into Goose sessions while adapter work lands.",
+          "Mode Inspector prepares and smoke-checks the app-managed read-only Repo Memory MCP bridge for Goose handoffs.",
       },
       {
         label: "MCP handoff",
-        state: "Gated",
+        state: "Available now",
         detail:
-          "Automatic MCP and provider handoff waits for tested connector state.",
+          "Goose can use Switchboard's managed context bridge without Switchboard editing Goose provider credentials.",
       },
     ],
-    configSurfaces: ["Goose binary", "provider config", "MCP handoff"],
+    configSurfaces: [
+      "Goose binary",
+      "Repo Memory MCP descriptor",
+      "user-owned provider config",
+    ],
     automationGates: [
-      "Detect Goose provider configuration safely.",
-      "Confirm MCP handoff shape before adding managed setup.",
-      "Verify Off mode removes local provider routing and leaves MCP config intact.",
+      "Install only the app-managed Repo Memory MCP descriptor after Goose detection.",
+      "Verify the read-only MCP smoke contract before advertising Goose handoff readiness.",
+      "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata; provider routing stays manual.",
     ],
     manualWorkflow: [
       "Confirm Goose is installed.",
-      "Copy Repo Intelligence packs into Goose sessions today.",
-      "Wait for managed MCP handoff before enabling automatic provider setup.",
+      "Prepare Repo Memory MCP from Mode Inspector for managed context handoff.",
+      "Keep Goose provider and model routing manual until native provider surfaces are proven.",
     ],
   },
   {
     id: "qwen_code",
     name: "Qwen Code",
     category: "cli",
-    supportStatus: "planned",
-    statusLabel: "Gated",
-    setupPhase: "Guide",
+    supportStatus: "managed",
+    statusLabel: "Managed sidecar",
+    setupPhase: "Managed",
     integrationTarget:
-      "CLI detection plus read-only Repo Intelligence handoff before reversible provider routing.",
+      "CLI detection plus Switchboard-owned sidecar routing before any native provider config writes.",
     notes:
-      "Treat as provider/account-sensitive coding CLI until model account compatibility can be checked without editing config.",
+      "Treat as sidecar-only managed: Qwen provider/model config stays user-owned until native config writes are proven.",
     capabilityBadges: [
       "CLI detection",
       "Repo packs today",
-      "Provider routing gated",
+      "Sidecar-only routing managed",
     ],
-    supportedModes: ["RTK only", "Repo packs", "Off"],
+    supportedModes: ["Full", "Headroom", "Off"],
     safeToday:
       "Detect local Qwen Code command copy bounded Repo Intelligence packs into sessions.",
     firstAutomation:
-      "Add read-only provider/model probe reversible environment wrapper before routing through Headroom.",
+      "Apply Switchboard-owned sidecar routing only; keep Qwen provider/model config manual.",
     capabilityRows: [
       {
         label: "Detection",
@@ -699,13 +706,13 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Repo context",
-        state: "Manual today",
+        state: "Available now",
         detail:
           "Use Repo Intelligence implementation packs with Qwen Code today.",
       },
       {
-        label: "Provider routing",
-        state: "Gated",
+        label: "Sidecar routing",
+        state: "Available now",
         detail:
           "Automatic routing waits model/account guardrails restore coverage.",
       },
@@ -794,9 +801,22 @@ export const promotedSidecarConnectorIds = new Set([
   "amazon_q",
 ]);
 
+export const managedMcpBridgeConnectorIds = new Set(["goose"]);
+
+function hasManagedNativeConfigAutomation(connector: ConnectorDossier): boolean {
+  return (
+    connector.supportStatus === "managed" &&
+    connector.setupPhase === "Managed" &&
+    !managedMcpBridgeConnectorIds.has(connector.id)
+  );
+}
+
 export const pendingPlannedConnectors: PlannedConnector[] =
   plannedConnectors.filter(
-    (connector) => !promotedSidecarConnectorIds.has(connector.id),
+    (connector) =>
+      connector.statusLabel === "Gated" &&
+      !hasManagedNativeConfigAutomation(connector) &&
+      !managedMcpBridgeConnectorIds.has(connector.id),
   );
 
 const plannedConnectorSafetyDossiers: Record<
@@ -872,13 +892,13 @@ const plannedConnectorSafetyDossiers: Record<
   goose: {
     connectorId: "goose",
     configPathStrategy:
-      "Detect PATH: goose and inspect Goose provider/MCP surfaces read-only before handoff.",
+      "Detect PATH: goose and use the app-managed Repo Memory MCP descriptor for read-only context handoff.",
     providerSemantics:
-      "Separate provider routing from MCP handoff so Repo Intelligence can stay read-only.",
+      "Repo Memory MCP handoff is managed and read-only; Goose provider/model routing remains manual.",
     accountCaveat:
       "Provider account state remains outside Switchboard until compatibility checks are explicit.",
     rollbackStrategy:
-      "Remove managed provider routing while preserving unrelated Goose MCP configuration.",
+      "Rollback removes only Switchboard-owned MCP bridge metadata while preserving Goose provider configuration.",
   },
   qwen_code: {
     connectorId: "qwen_code",
@@ -1046,7 +1066,7 @@ export function getPlannedConnectorConfigCreationPlan(
     },
   ];
 
-  if (connector.supportStatus === "managed" && connector.setupPhase === "Managed") {
+  if (hasManagedNativeConfigAutomation(connector)) {
     return {
       connectorId: connector.id,
       connectorName: connector.name,

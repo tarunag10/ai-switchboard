@@ -87,13 +87,18 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.getByText("2 automatic")).toBeInTheDocument();
     expect(screen.getByText("2 manual")).toBeInTheDocument();
     expect(
-      screen.queryByText(/review each managed connector's detection evidence/i),
-    ).not.toBeInTheDocument();
+      screen.getByText(/review each connector's detection evidence/i),
+    ).toBeInTheDocument();
     expect(
-      screen.queryByLabelText("Connector readiness preview"),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByText("Connector readiness")).not.toBeInTheDocument();
-    expect(screen.getByText(/managed connector coverage/i)).toBeInTheDocument();
+    screen.getByLabelText("Connector readiness preview"),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "Dry-run target: User/settings.json; marker: mac-ai-switchboard:cursor",
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Connector readiness")).toBeInTheDocument();
+    expect(screen.getByText(/RTK-only mode/i)).toBeInTheDocument();
     expect(
       screen.getByText(
         "Clear the saved Repo Intelligence index, then open Addons and index an available local repo when ready.",

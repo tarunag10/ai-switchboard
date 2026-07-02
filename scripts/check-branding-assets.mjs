@@ -12,6 +12,13 @@ const blockedTextPatterns = [
   new RegExp("headroom-" + "logo\\.svg", "i"),
   new RegExp("headroom\\.iconset", "i"),
 ];
+const blockedProductCopyPhrases = [
+  "Launching Headroom",
+  "launch Headroom whenever",
+  "relaunch Headroom",
+  "Quit and relaunch Headroom",
+  "Open Headroom",
+];
 const ignoredDirs = new Set(["node_modules", "dist", "target", ".git"]);
 
 function walk(dir, files = []) {
@@ -48,6 +55,11 @@ for (const root of roots) {
     for (const pattern of blockedTextPatterns) {
       if (pattern.test(content)) {
         failures.push(`Blocked inherited logo reference in ${normalized}: ${pattern}`);
+      }
+    }
+    for (const phrase of blockedProductCopyPhrases) {
+      if (content.includes(phrase)) {
+        failures.push(`Blocked product-facing Headroom launch copy in ${normalized}: ${phrase}`);
       }
     }
   }

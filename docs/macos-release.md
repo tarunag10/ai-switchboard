@@ -95,7 +95,7 @@ Required for notarization, choose one mode:
 - Apple ID mode:
   `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`
 
-Recommended for production builds of Headroom so auto-update stays enabled:
+Recommended for production builds of Mac AI Switchboard so auto-update stays enabled:
 
 - `HEADROOM_UPDATER_PUBLIC_KEY`
   The public half of the Tauri updater signing keypair.
@@ -187,9 +187,9 @@ For a small app, the simplest setup is:
 
 You can later move the updater feed to S3 or another CDN without changing app code, as long as the published endpoint URL stays valid and the signatures match the embedded public key.
 
-## User experience in Headroom
+## User experience in Mac AI Switchboard
 
-Headroom does not auto-install updates silently.
+Mac AI Switchboard does not auto-install updates silently.
 
 Current behavior:
 

@@ -45,8 +45,8 @@
     "category": "editor",
     "support_status": "planned",
     "detection": { "binaries": ["cursor"], "paths": ["/Applications/Cursor.app", "~/Library/Application Support/Cursor"] },
-    "config": { "locations": ["~/Library/Application Support/Cursor"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
-    "automation_gates": ["Detect active Cursor profile before reading settings.", "Back up settings without touching extension-managed secrets.", "Keep account-specific model choices visible before routing."],
+    "config": { "locations": ["~/Library/Application Support/Cursor/User/settings.json", "~/Library/Application Support/Cursor/User/globalStorage"], "forbidden_reads": ["*token*", "*secret*", "auth.json", "state.vscdb"] },
+    "automation_gates": ["Detect the active Cursor user profile and settings surface before proposing provider changes.", "Show a dry-run diff and keep account-specific model choices visible before routing.", "Back up Cursor settings without reading extension-managed secrets or global state databases.", "Require exact user consent before any native/provider write is enabled.", "Verify Cursor routing through Doctor evidence after a managed write.", "Rollback restores the exact profile backup without touching unrelated editor or extension config.", "Off mode removes only Switchboard-owned Cursor routing markers."],
     "manual_workflow": ["Open Cursor settings.", "Review provider and model settings manually.", "Use Repo Intelligence packs as copyable context."]
   },
   {
@@ -83,20 +83,20 @@
     "id": "goose",
     "name": "Goose",
     "category": "agent",
-    "support_status": "planned",
+    "support_status": "managed",
     "detection": { "binaries": ["goose"], "paths": ["~/.config/goose"] },
-    "config": { "locations": ["~/.config/goose"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
-    "automation_gates": ["Confirm MCP handoff shape before provider routing.", "Back up provider settings before edits.", "Keep MCP setup separate from provider config."],
-    "manual_workflow": ["Use Repo Memory MCP where supported.", "Keep provider routing manual.", "Use Doctor only after managed promotion."]
+    "config": { "locations": ["~/Library/Application Support/Headroom/config/repo-memory-mcp.json", "~/.config/goose"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
+    "automation_gates": ["Detect Goose and install only the app-managed Repo Memory MCP bridge; provider routing stays manual.", "Back up and verify the managed MCP descriptor before Goose handoff.", "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata, never Goose provider credentials."],
+    "manual_workflow": ["Prepare Repo Memory MCP from Mode Inspector for Goose context handoff.", "Keep Goose provider and model routing manual.", "Use Doctor to verify, repair, rollback, or clean up only the managed MCP bridge."]
   },
   {
     "id": "qwen_code",
     "name": "Qwen Code",
     "category": "cli",
-    "support_status": "planned",
+    "support_status": "managed",
     "detection": { "binaries": ["qwen-code", "qwen"], "paths": ["~/.qwen"] },
-    "config": { "locations": ["~/.qwen"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
-    "automation_gates": ["Detect provider/model settings read-only.", "Back up settings before edits.", "Remove managed routing without touching account state."],
+    "config": { "locations": ["~/.qwen", "~/.config/qwen"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
+    "automation_gates": ["Detect provider/model settings read-only.", "Back up the Switchboard-owned sidecar before edits.", "Verify Qwen sidecar routing in Doctor without reading account secrets.", "Rollback removes only the Switchboard-owned Qwen sidecar marker.", "Off mode removes managed routing without touching account state."],
     "manual_workflow": ["Confirm local CLI availability.", "Use copied packs/session handoffs.", "Keep account and model setup manual."]
   },
   {

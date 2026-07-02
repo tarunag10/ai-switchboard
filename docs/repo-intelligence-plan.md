@@ -38,7 +38,7 @@ The goal is to make Mac AI Switchboard useful before an agent burns tokens readi
   - App/API query names exposed in manifests: `get_repo_manifest`, `get_repo_pack`, `get_agent_handoff`, `get_index_freshness`, `clear_repo_index`, `search_repo_intelligence_symbols`, and `get_repo_intelligence_dependents`. Each query is read-only except `clear_repo_index`, which only clears Switchboard's saved managed index metadata and never mutates the user repository.
    - Keep first version read-only. Any write, refactor, or auto-repair action must require explicit user action.
 
-- Reuse the managed connector readiness contract for Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI: identify config surfaces, document manual-safe workflows, show promoted routing evidence for Gemini/OpenCode/Windsurf/Zed, keep sidecar/readiness lifecycle coverage visible for unpromoted connectors, and block remaining native provider/editor config mutation behind backup/restore/off-mode gates.
+- Reuse the managed connector readiness contract for Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI: identify config surfaces, document manual-safe workflows, show promoted routing evidence for Gemini/OpenCode/Windsurf/Zed, show Goose's managed Repo Memory MCP bridge separately from provider routing, keep sidecar/readiness lifecycle coverage visible for unpromoted connectors, and block remaining native provider/editor config mutation behind backup/restore/off-mode gates.
   - Reuse Switchboard on/off behavior: disabling the feature stops indexing and removes routing/hooks without deleting the user's repo.
 
 5. **Doctor repair support**

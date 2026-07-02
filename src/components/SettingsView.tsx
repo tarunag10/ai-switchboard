@@ -1470,7 +1470,7 @@ export function SettingsView({
             </div>
             <div>
               <p>
-                Automatically launch Headroom whenever you login or restart.
+                Automatically launch Mac AI Switchboard whenever you login or restart.
               </p>
             </div>
             <div className="connector-item__controls">

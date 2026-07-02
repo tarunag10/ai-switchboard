@@ -36,7 +36,7 @@ const requiredSignals = {
     "Release readiness visible in Settings",
 "npm run smoke:installed -- --confirm",
 "Contents/Info.plist",
-    "Launcher auto-setup and proxy verification should include only managed connectors",
+    "Launcher auto-setup and proxy verification should include only managed routing connectors",
 "Codex traffic is actively optimized",
 "Pause / resume",
 "Savings calculator",
@@ -123,7 +123,7 @@ Generated: ${generatedAt}
 
 - Switchboard modes: Full optimization, Headroom only, RTK only, Off
 - Doctor repairs: runtime, Codex setup, RTK, managed connector native config warnings with detection evidence, config creation plan, managed connector readiness evidence, and Repo Intelligence stale/missing-index warnings
-- Managed connectors are visible with native config gates: Gemini CLI, OpenCode, Windsurf, and Zed AI show routing lifecycle readiness evidence when detected (promoted managed connectors show routing lifecycle readiness evidence); Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, and Amazon Q Developer CLI keep native config mutation gated with safe RTK-only or Repo Intelligence pack guidance, copyable manual setup guide, and copyable config creation plan. Coverage includes Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI.
+- Managed connectors are visible with native config gates: Gemini CLI, OpenCode, Windsurf, and Zed AI show routing lifecycle readiness evidence when detected (promoted managed routing connectors show routing lifecycle readiness evidence); Goose shows managed Repo Memory MCP bridge readiness while provider routing stays manual; Cursor, Grok / xAI CLI, Aider, Continue, Qwen Code, and Amazon Q Developer CLI keep native config mutation gated with safe RTK-only or Repo Intelligence pack guidance, copyable manual setup guide, and copyable config creation plan. Coverage includes Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI.
 - Repo Intelligence: local repo index, persisted latest summary, copy bounded context pack, copy individual task pack, copy agent manifest, copy per-tool Markdown and JSON agent handoffs, Connector readiness payload in agent handoffs, clear saved index, context-pack preview, per-pack copy
 - Savings calculator: Session / Overall scopes, copyable confidence-labelled ledger, saved tokens, estimated dollars, reduction, equation, source breakdown
 - Local-first behavior: remote services gated, Off mode reversible cleanup

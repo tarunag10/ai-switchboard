@@ -20,6 +20,7 @@ export interface PlannedConnectorDoctorPreviewRow {
   nextBlockedGate: string;
   automationEnabled: boolean;
   configSurface: string;
+  dryRunPreview: string;
 }
 
 export type DoctorTimelineEventKind =
@@ -385,6 +386,13 @@ export function formatPlannedConnectorDoctorDossiers(): string {
         `## ${connector.name}`,
         `Connector ID: ${connector.id}`,
         `Config surface: ${dossier?.configPathStrategy ?? connector.configSurfaces.join(", ")}`,
+        `Dry-run preview: target ${
+          connector.configSurfaces.find((surface) =>
+            /settings|config|profile/i.test(surface),
+          ) ??
+          dossier?.configPathStrategy ??
+          connector.configSurfaces.join(", ")
+        }; marker mac-ai-switchboard:${connector.id}`,
         `Next blocked gate: ${nextBlockedStage}`,
         `Automation enabled: ${plan.automationEnabled ? "yes" : "no"}`,
         `Safety: ${plan.safetyNote}`,
@@ -423,6 +431,13 @@ export function plannedConnectorDoctorPreviewRows(): PlannedConnectorDoctorPrevi
       automationEnabled: readiness.automationEnabled,
       configSurface:
         dossier?.configPathStrategy ?? connector.configSurfaces.join(", "),
+      dryRunPreview: `Dry-run target: ${
+        connector.configSurfaces.find((surface) =>
+          /settings|config|profile/i.test(surface),
+        ) ??
+        dossier?.configPathStrategy ??
+        connector.configSurfaces.join(", ")
+      }; marker: mac-ai-switchboard:${connector.id}`,
     };
   });
 }

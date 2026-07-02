@@ -3,6 +3,7 @@ import { listen, type Event, type UnlistenFn } from "@tauri-apps/api/event";
 import * as Sentry from "@sentry/react";
 
 import { describeInvokeError } from "./appHelpers";
+import { hasTauriEventRuntime } from "./tauriRuntime";
 import type { AppUpdateConfiguration, AvailableAppUpdate } from "./types";
 
 export type AppUpdateInvoker = <T>(
@@ -20,6 +21,9 @@ export type AppUpdateProgressListener = (
 ) => Promise<UnlistenFn>;
 
 const APP_UPDATE_PROGRESS_EVENT = "app-update://progress";
+
+const listenForAppUpdateProgress: AppUpdateProgressListener = (event, handler) =>
+  hasTauriEventRuntime() ? listen(event, handler) : Promise.resolve(() => {});
 
 export interface AppUpdateStatePatch {
   config?: AppUpdateConfiguration;
@@ -194,7 +198,7 @@ export function formatAppUpdateProgressCopy(
 export async function runAppUpdateInstall({
   availableUpdate,
   invokeFn = invoke,
-  listenFn = listen as AppUpdateProgressListener,
+  listenFn = listenForAppUpdateProgress,
   onProgress,
 }: {
   availableUpdate: AvailableAppUpdate | null;

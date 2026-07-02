@@ -582,6 +582,22 @@ requireBooleanFields(report, "shareableDmgGate", [
   "installedAppSmokeReady",
 ]);
 requireType(report, "shareableDmgGate.message", "string");
+if (!report.shareableDmgGate.ready) {
+  const message = report.shareableDmgGate.message;
+  if (!message.startsWith("Public DMG blocked until ")) {
+    fail("shareableDmgGate.message must spell out public DMG blockers when blocked");
+  }
+  for (const [ready, label] of [
+    [report.shareableDmgGate.signedAndNotarized, "signed/notarized DMG"],
+    [report.shareableDmgGate.updaterFeedReady, "updater feed"],
+    [report.shareableDmgGate.staticSmokePreflightReady, "static smoke preflight"],
+    [report.shareableDmgGate.installedAppSmokeReady, "public installed-app smoke"],
+  ]) {
+    if (!ready && !message.includes(label)) {
+      fail(`shareableDmgGate.message missing blocker "${label}"`);
+    }
+  }
+}
 
 requireObject(report, "releaseEnv");
 requireType(report, "releaseEnv.ok", "boolean");

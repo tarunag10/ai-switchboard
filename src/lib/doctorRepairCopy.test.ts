@@ -194,7 +194,6 @@ describe("doctor repair copy", () => {
 
     expect(guidance).toContain("Requested mode and active mode differ");
     expect(guidance).toContain("managed client");
-    expect(guidance).toContain("retained connector native-routing gates");
     expect(guidance).toContain("backup, verify, rollback, and Off mode cleanup");
     expect(guidance).toContain("re-run Doctor until requested mode becomes active");
     expect(guidance).not.toContain(["manual", "connector", "steps"].join(" "));
@@ -281,11 +280,12 @@ describe("doctor repair copy", () => {
     expect(text).toContain("Status: warning");
     expect(text).toContain("Action: automatic / Install RTK");
     expect(text).toContain("Action: manual / Gated setup");
-    expect(text).toContain("retained connector setup gates");
-    expect(text).toContain("managed connector coverage");
-    expect(text).toContain("promoted routing evidence");
+    expect(text).toContain("retained connector native/provider routing");
+    expect(text).toContain("native/provider routing manual");
     expect(text).toContain("Connector config readiness dossiers");
-    expect(text).toContain("No ungated connector-native write dossiers remain");
+    expect(text).toContain(
+      "Open Settings and review each connector's detection evidence",
+    );
     expect(text).toContain("Repo Intelligence local API contract");
     expect(text).toContain("get_repo_manifest");
     expect(text).toContain("get_repo_pack");
@@ -352,14 +352,13 @@ describe("doctor repair copy", () => {
   it("explains connector readiness coverage and gated native routing in Doctor", () => {
     const guidance = plannedConnectorDoctorGuidance();
 
-    expect(guidance).toContain("retained connector setup gates");
-    expect(guidance).toContain("managed connector coverage");
+    expect(guidance).toContain("native/provider routing manual");
+    expect(guidance).toContain("native/provider routing manual");
     expect(guidance).toContain("retained connector native/provider routing");
-    expect(guidance).toContain("stay manual until backup, verify, rollback");
+    expect(guidance).toContain("backup, verify, rollback");
     expect(guidance).not.toContain("connector-specific backup");
-    expect(guidance).toContain("Gemini/OpenCode/Windsurf/Zed");
-    expect(guidance).toContain("Doctor repair");
-    expect(guidance).toContain("provider-specific config mutation");
+    expect(guidance).toContain("manual guide");
+    expect(guidance).toContain("Repo Intelligence packs");
     expect(guidance).toContain("rollback");
     expect(guidance).toContain("Off mode cleanup");
   });
@@ -368,15 +367,20 @@ describe("doctor repair copy", () => {
     const dossiers = formatPlannedConnectorDoctorDossiers();
 
     expect(dossiers).toContain("Connector config readiness dossiers");
-    expect(dossiers).toContain("No ungated connector-native write dossiers remain");
-    expect(dossiers).toContain("managed connector coverage");
-    expect(dossiers).toContain("promoted routing evidence");
+    expect(dossiers).toContain("Gated config-creation steps");
+    expect(dossiers).toContain("Connector ID: cursor");
   });
 
   it("builds compact planned connector preview rows for Doctor", () => {
     const rows = plannedConnectorDoctorPreviewRows();
 
-    expect(rows).toEqual([]);
+    expect(rows.map((row) => row.id)).toEqual([
+      "cursor",
+      "grok_cli",
+      "aider",
+      "continue",
+      "amazon_q",
+    ]);
   });
 
   it("labels and sorts Doctor timeline events newest first", () => {

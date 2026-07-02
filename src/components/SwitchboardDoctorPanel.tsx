@@ -450,6 +450,7 @@ export function SwitchboardDoctorPanel({
                   <span>{connector.setupPhase}</span>
                 </div>
                 <p>{connector.nextBlockedGate}</p>
+                <small>{connector.dryRunPreview}</small>
               </div>
             ))}
           </div>

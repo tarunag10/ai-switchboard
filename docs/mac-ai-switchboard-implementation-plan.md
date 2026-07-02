@@ -34,7 +34,7 @@ Off mode must remove routing hooks, provider overrides, shell blocks, RTK hooks,
 
 ### 4. Gated support must not be marketed as managed support
 
-Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI are the current managed targets. Cursor, Goose, Aider, Continue, Amazon Q, Qwen Code, Grok / xAI CLI, and similar tools should remain labelled as guided, detected, or gated until automatic setup and cleanup are implemented and tested.
+Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI are the current managed routing targets. Goose is managed only for the read-only Repo Memory MCP bridge. Cursor is gated with settings discovery and dry-run target/marker preview while native/provider writes remain blocked. Aider, Continue, Amazon Q, Qwen Code, Grok / xAI CLI, and similar tools should remain labelled as guided, detected, or gated until automatic provider setup and cleanup are implemented and tested.
 
 ### 5. Context quality is the long-term moat
 
@@ -265,10 +265,10 @@ The project aims to support many agentic coding tools, but managed support curre
    | OpenCode    | Managed        |               Yes |          No |        Yes | Managed provider config routing with rollback         |
    | Windsurf    | Managed        |               Yes |          No |        Yes | Managed editor settings routing with rollback         |
    | Zed AI      | Managed        |               Yes |          No |        Yes | Managed settings routing with rollback                |
-   | Cursor      | Guided         |                No |          No |        Yes | Detects settings; native writes remain blocked        |
+   | Cursor      | Gated          |                No |          No |        Yes | Settings discovery and dry-run target/marker preview; native writes remain blocked |
    | Aider       | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
    | Continue    | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
-   | Goose       | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
+   | Goose       | Managed MCP    |               Yes |          No |        Yes | Read-only Repo Memory MCP bridge, native writes blocked |
    | Grok / xAI  | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
    | Qwen Code   | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
    | Amazon Q    | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |

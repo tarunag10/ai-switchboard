@@ -12,7 +12,7 @@ Shipped:
 
 - Off and RTK-only modes now gate launch warmup, threaded bootstrap, and legacy synchronous bootstrap so optimization does not silently restart after the user turns it off.
 - Doctor already reports Off-mode violations when Headroom, managed client routing, or RTK remain active against a requested Off mode.
-- Connector readiness coverage exists for Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed. Gemini CLI, OpenCode, Windsurf, and Zed AI have promoted managed routing evidence, while Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, and Amazon Q retain sidecar/readiness coverage until native/provider writes are proven. The fully managed manifest set is Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI.
+- Connector readiness coverage exists for Gemini CLI, OpenCode, Grok/xAI CLI, Cursor, Aider, Continue, Goose, Qwen Code, Amazon Q, Windsurf, and Zed. Gemini CLI, OpenCode, Windsurf, and Zed AI have promoted managed routing evidence; Goose has a managed read-only Repo Memory MCP bridge; Grok/xAI CLI, Cursor, Aider, Continue, Qwen Code, and Amazon Q retain sidecar/readiness coverage until native/provider writes are proven. The managed manifest set is Claude Code, Codex, Gemini CLI, OpenCode, Goose MCP bridge, Windsurf, and Zed AI.
 - Gemini has managed shell base-url routing. OpenCode has promoted provider-config routing with preview, exact confirmation, backup, apply, verify, rollback, and Off cleanup coverage.
 - Cursor now surfaces detected editor settings files as evidence while native writes remain blocked. Windsurf and Zed have promoted managed editor-settings routing with backup, verification, rollback, and Off cleanup.
 - Repo Intelligence Start Agent Session, read-only packs, handoffs, CLI exports, and repo-memory MCP smoke transport are usable.
@@ -128,8 +128,8 @@ Left:
 
 ### Connector Expansion Risk
 
-- Gemini CLI, OpenCode, Windsurf, and Zed AI now have promoted managed routing surfaces with backup, verification, rollback, and Off cleanup evidence. Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, and Amazon Q Developer CLI retain sidecar/readiness coverage and guided setup while their native/provider writes stay gated.
-- The remaining connector risk is provider-specific native config mutation for the tools that are not yet managed: Cursor, Continue, Goose, Aider, Grok / xAI CLI, Qwen Code, and Amazon Q still need connector-specific safe writes. Gemini CLI, OpenCode, Windsurf, and Zed AI remain reference paths for promoted managed routing.
+- Gemini CLI, OpenCode, Windsurf, and Zed AI now have promoted managed routing surfaces with backup, verification, rollback, and Off cleanup evidence. Goose has the promoted managed read-only Repo Memory MCP bridge. Cursor, Grok / xAI CLI, Aider, Continue, Qwen Code, and Amazon Q Developer CLI retain sidecar/readiness coverage and guided setup while their native/provider writes stay gated.
+- The remaining connector risk is provider-specific native config mutation for the tools whose routing is not yet managed: Cursor, Continue, Goose provider routing, Aider, Grok / xAI CLI, Qwen Code, and Amazon Q still need connector-specific safe writes. Gemini CLI, OpenCode, Windsurf, and Zed AI remain reference paths for promoted managed routing.
 - Native config automation should stay gated behind detection, manual-safe instructions, dry-run diffs, backups, Doctor verification, Off-mode cleanup, and fixture-home restore tests.
 
 ## Roadmap Phases

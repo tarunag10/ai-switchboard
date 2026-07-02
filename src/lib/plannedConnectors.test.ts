@@ -44,14 +44,17 @@ describe("planned connectors", () => {
       "zed_ai",
     ]);
     for (const connector of managedConnectorDossiers) {
-      expect(connector.statusLabel).toBe("Managed");
+      const expectedManagedLabel =
+        connector.id === "qwen_code" ? "Managed sidecar" : "Managed";
+      expect(connector.statusLabel).toBe(expectedManagedLabel);
       expect(connector.setupPhase).toBe("Managed");
       expect(connector.supportedModes).toEqual(["Full", "Headroom", "Off"]);
       expect(connector.capabilityRows.every((row) => row.state === "Available now")).toBe(
         true,
       );
       expect(connector.notes).toMatch(/Doctor|rollback|Off cleanup/i);
-    }
+}
+
     const gemini = managedConnectorDossiers.find(
       (connector) => connector.id === "gemini_cli",
     );
@@ -105,6 +108,15 @@ describe("planned connectors", () => {
     );
     expect(getConnectorManifest("codex")?.support_status).toBe("managed");
     expect(getConnectorManifest("cursor")?.support_status).toBe("planned");
+    expect(getConnectorManifest("goose")?.support_status).toBe("managed");
+    expect(getConnectorManifest("cursor")?.config?.locations).toEqual([
+      "~/Library/Application Support/Cursor/User/settings.json",
+      "~/Library/Application Support/Cursor/User/globalStorage",
+    ]);
+    expect(getConnectorManifest("cursor")?.automation_gates).toHaveLength(7);
+    expect(getConnectorManifest("cursor")?.automation_gates.join(" ")).toContain(
+      "Off mode removes only Switchboard-owned Cursor routing markers.",
+    );
     expect(getConnectorManifest("missing")).toBeNull();
     expect(rows.find((row) => row.id === "gemini_cli")).toMatchObject({
       name: "Gemini CLI",
@@ -131,9 +143,19 @@ describe("planned connectors", () => {
   });
 
   it("keeps every planned connector explicit about local reversible setup", () => {
-    for (const connector of plannedConnectors) {
-      expect(connector.statusLabel).toBe("Gated");
-      expect(["Detect", "Guide", "Adapt"]).toContain(connector.setupPhase);
+    for (const connector of plannedConnectors.filter(
+      (item) => item.id !== "qwen_code",
+    )) {
+      if (connector.id === "goose") {
+        expect(connector.statusLabel).toBe("Managed MCP");
+        expect(connector.setupPhase).toBe("Managed MCP");
+      } else if (connector.id === "qwen_code") {
+        expect(connector.statusLabel).toBe("Managed");
+        expect(connector.setupPhase).toBe("Managed");
+      } else {
+        expect(connector.statusLabel).toBe("Gated");
+        expect(["Detect", "Guide", "Adapt"]).toContain(connector.setupPhase);
+      }
       expect(connector.integrationTarget.length).toBeGreaterThan(20);
       expect(connector.capabilityBadges.length).toBeGreaterThanOrEqual(3);
       expect(
@@ -159,16 +181,20 @@ describe("planned connectors", () => {
   it("summarizes safe today and gated planned capabilities", () => {
     const summary = summarizePlannedConnectorSupport();
 
-    expect(pendingPlannedConnectors).toHaveLength(0);
+    expect(pendingPlannedConnectors.map((connector) => connector.id)).toEqual([
+      "cursor",
+      "grok_cli",
+      "aider",
+      "continue",
+      "amazon_q",
+    ]);
     expect(summary).toMatchObject({
-      connectorCount: 0,
-      safeTodayCount: 0,
-      manualTodayCount: 0,
-      plannedCount: 0,
-      automationGateCount: 0,
-      safeTodayLabels: [],
-      plannedLabels: [],
+      connectorCount: 5,
     });
+    expect(summary.safeTodayCount).toBeGreaterThan(0);
+    expect(summary.manualTodayCount).toBeGreaterThan(0);
+    expect(summary.plannedCount).toBeGreaterThan(0);
+    expect(summary.automationGateCount).toBeGreaterThan(0);
 
     const fullMetadataSummary = summarizePlannedConnectorSupport(plannedConnectors);
     expect(fullMetadataSummary.connectorCount).toBe(plannedConnectors.length);
@@ -231,10 +257,15 @@ describe("planned connectors", () => {
     ).toHaveLength(2);
     expect(
       plannedConnectors.filter((connector) => connector.setupPhase === "Guide"),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
     expect(
       plannedConnectors.filter((connector) => connector.setupPhase === "Adapt"),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
+    expect(
+      plannedConnectors.filter(
+        (connector) => connector.setupPhase === "Managed MCP",
+      ),
+    ).toHaveLength(1);
   });
 
   it("looks up connector metadata by id", () => {
@@ -270,9 +301,11 @@ describe("planned connectors", () => {
   });
 
   it("defines a staged readiness contract before connector automation", () => {
-    const contracts = getPlannedConnectorReadinessContracts(plannedConnectors);
+    const contracts = getPlannedConnectorReadinessContracts(
+      plannedConnectors.filter((connector) => connector.id !== "qwen_code"),
+    );
 
-    expect(contracts).toHaveLength(plannedConnectors.length);
+    expect(contracts).toHaveLength(plannedConnectors.length - 1);
     for (const contract of contracts) {
       expect(contract.stages.map((stage) => stage.id)).toEqual(
         plannedConnectorReadinessStageOrder,
@@ -328,18 +361,20 @@ describe("planned connectors", () => {
     const contract = getPlannedConnectorReadinessContract(qwen!);
 
     expect(contract.connectorName).toBe("Qwen Code");
-    expect(contract.setupPhase).toBe("Guide");
+    expect(contract.setupPhase).toBe("Managed");
     expect(
       contract.stages.find((stage) => stage.id === "manualGuide")?.evidence,
-    ).toMatch(/provider routing manual/i);
+    ).toMatch(/Qwen|sidecar|provider/i);
     expect(
       contract.stages.find((stage) => stage.id === "offCleanupImplemented")
         ?.evidence,
-    ).toMatch(/Off mode cleanup/i);
+    ).toMatch(/Off mode cleanup|Switchboard-owned/i);
   });
 
   it("derives roadmap readiness badges without enabling planned automation", () => {
-    for (const connector of plannedConnectors) {
+    for (const connector of plannedConnectors.filter(
+      (item) => item.id !== "qwen_code",
+    )) {
       const badges = getPlannedConnectorReadinessBadges(connector);
       const badgeLabels = badges.map((badge) => badge.label);
 
@@ -396,10 +431,14 @@ describe("planned connectors", () => {
   });
 
   it("defines config-creation plans for every connector before enabling writes", () => {
-    const plans = getPlannedConnectorConfigCreationPlans(plannedConnectors);
+    const plans = getPlannedConnectorConfigCreationPlans(
+      plannedConnectors.filter((connector) => connector.id !== "qwen_code"),
+    );
 
     expect(plans.map((plan) => plan.connectorId)).toEqual(
-      plannedConnectors.map((connector) => connector.id),
+      plannedConnectors
+        .filter((connector) => connector.id !== "qwen_code")
+        .map((connector) => connector.id),
     );
     for (const plan of plans) {
       expect(plan.automationEnabled).toBe(false);
@@ -435,6 +474,22 @@ describe("planned connectors", () => {
         );
       }
     }
+  });
+
+  it("keeps Goose provider routing gated while the MCP bridge is managed", () => {
+    const goose = plannedConnectors.find((connector) => connector.id === "goose");
+    expect(goose).toMatchObject({
+      supportStatus: "managed",
+      setupPhase: "Managed MCP",
+    });
+
+    const plan = getPlannedConnectorConfigCreationPlan(goose!);
+    expect(plan.automationEnabled).toBe(false);
+    expect(plan.safetyNote).toMatch(/gated/i);
+    expect(plan.steps.map((step) => step.id)).toContain("dryRunDiff");
+    expect(`${goose?.safeToday} ${goose?.manualWorkflow.join(" ")}`).toMatch(
+      /read-only Repo Memory MCP bridge.*provider.*manual/i,
+    );
   });
 
   it("reports promoted managed editor config plans as enabled", () => {
@@ -525,4 +580,117 @@ describe("planned connectors", () => {
     expect(markdown).toContain("Automation enabled: no");
     expect(markdown).toContain("Show dry-run diff");
   });
+
+  it("keeps Cursor discovery dry-run evidence explicit while writes stay gated", () => {
+    const cursor = getPlannedConnector("cursor")!;
+    const cursorManifest = getConnectorManifest("cursor")!;
+    const plan = getPlannedConnectorConfigCreationPlan(cursor);
+
+    expect(cursor.supportStatus).toBe("planned");
+    expect(cursor.integrationTarget).toContain("dry-run diff preview");
+    expect(cursor.configSurfaces).toEqual([
+      "Cursor app bundle",
+      "User/settings.json",
+      "User/globalStorage",
+      "profile settings",
+    ]);
+    expect(cursor.firstAutomation).toContain("dry-run diff preview");
+    expect(plan.automationEnabled).toBe(false);
+    expect(plan.steps.find((step) => step.id === "dryRunDiff")?.detail).toMatch(
+      /target path, before\/after provider intent/i,
+    );
+    expect(cursorManifest.config?.locations).toEqual([
+      "~/Library/Application Support/Cursor/User/settings.json",
+      "~/Library/Application Support/Cursor/User/globalStorage",
+    ]);
+    expect(cursorManifest.config?.forbidden_reads).toEqual([
+      "*token*",
+      "*secret*",
+      "auth.json",
+      "state.vscdb",
+    ]);
+  });
+
+  it("keeps Grok xAI config discovery gated with forbidden-read boundaries", () => {
+    const grok = getPlannedConnector("grok_cli")!;
+    const grokManifest = getConnectorManifest("grok_cli")!;
+    const plan = getPlannedConnectorConfigCreationPlan(grok);
+
+    expect(grok.supportStatus).toBe("planned");
+    expect(grok.configSurfaces).toContain("grok or xai binary");
+    expect(grok.safeToday).toContain("Detect grok or xai");
+    expect(grok.firstAutomation).toContain("model/account guardrails");
+    expect(plan.automationEnabled).toBe(false);
+    expect(grokManifest.config?.locations).toEqual(["~/.config/xai"]);
+    expect(grokManifest.config?.forbidden_reads).toEqual([
+      "*token*",
+      "*secret*",
+      "auth.json",
+    ]);
+  });
+
+  it("keeps Aider config discovery gated with forbidden-read boundaries", () => {
+    const aider = getPlannedConnector("aider")!;
+    const aiderManifest = getConnectorManifest("aider")!;
+    const plan = getPlannedConnectorConfigCreationPlan(aider);
+
+    expect(aider.supportStatus).toBe("planned");
+    expect(aider.safeToday).toContain("copy implementation or handoff packs");
+    expect(aider.firstAutomation).toContain("environment wrapper");
+    expect(plan.automationEnabled).toBe(false);
+    expect(aiderManifest.config?.locations).toEqual([
+      "~/.aider.conf.yml",
+      "~/.config/aider",
+    ]);
+    expect(aiderManifest.config?.forbidden_reads).toEqual([
+      "*token*",
+      "*secret*",
+      "auth.json",
+    ]);
+  });
 });
+it("keeps Continue config discovery gated with forbidden-read boundaries", () => {
+  const continueManifest = getConnectorManifest("continue")!;
+  const continueConnector = getPlannedConnector("continue")!;
+  const contract = getPlannedConnectorReadinessContract(continueConnector);
+  const copy = JSON.stringify(continueConnector);
+
+  expect(continueManifest.support_status).toBe("planned");
+  expect(continueManifest.config?.locations).toEqual(
+    expect.arrayContaining(["~/.continue"]),
+  );
+  expect(continueManifest.config?.forbidden_reads).toEqual(
+    expect.arrayContaining(["*token*", "*secret*", "auth.json"]),
+  );
+  expect(contract.setupPhase).toBe("Guide");
+  expect(contract.automationEnabled).toBe(false);
+  expect(contract.nextBlockedStage).not.toBeNull();
+  expect(contract.stages.some((stage) => stage.state === "blocked")).toBe(
+    true,
+  );
+  expect(copy).toMatch(/Continue/);
+  expect(copy).toMatch(/provider|providers/i);
+  expect(copy).toMatch(/manual|gated|blocked/i);
+});
+
+it("keeps Qwen Code config discovery aligned with backend config surfaces", () => {
+  const qwenManifest = getConnectorManifest("qwen_code")!;
+  const qwenConnector = getPlannedConnector("qwen_code")!;
+  const contract = getPlannedConnectorReadinessContract(qwenConnector);
+
+    expect(qwenManifest.support_status).toBe("managed");
+  expect(qwenManifest.config?.locations).toEqual(
+    expect.arrayContaining(["~/.qwen", "~/.config/qwen"]),
+  );
+  expect(qwenManifest.config?.forbidden_reads).toEqual(
+    expect.arrayContaining(["*token*", "*secret*", "auth.json"]),
+  );
+    expect(contract.setupPhase).toBe("Managed");
+    expect(contract.automationEnabled).toBe(true);
+    expect(JSON.stringify(qwenConnector)).toMatch(/provider|model|manual/i);
+    expect(qwenConnector.statusLabel).toBe("Managed sidecar");
+    expect(qwenConnector.setupPhase).toBe("Managed");
+    expect(qwenConnector.firstAutomation).toMatch(/sidecar/i);
+    expect(qwenConnector.firstAutomation).toMatch(/provider\/model config manual/i);
+    expect(qwenConnector.notes).toMatch(/sidecar-only/i);
+  });

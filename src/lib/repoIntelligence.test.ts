@@ -808,11 +808,34 @@ describe("repoIntelligence", () => {
           plannedConnectorId: "gemini_cli",
           nextGate: "Detect config surface",
           automationEnabled: true,
+          managedMcpBridge: false,
+          supportStatus: "managed_routing",
         },
       }),
     );
     expect(geminiSessionRecipe?.command).toContain(
       "--session --agent gemini --task implementation --format markdown",
+    );
+    const gooseSessionRecipe = manifest.agentSessionRecipes.find(
+      (recipe) => recipe.id === "goose",
+    );
+    expect(gooseSessionRecipe).toEqual(
+      expect.objectContaining({
+        label: "Goose",
+        taskType: "verification",
+        readOnly: true,
+        manualProviderRouting: true,
+        configReadiness: {
+          plannedConnectorId: "goose",
+          nextGate: "Detect config surface",
+          automationEnabled: false,
+          managedMcpBridge: true,
+          supportStatus: "managed_mcp",
+        },
+      }),
+    );
+    expect(gooseSessionRecipe?.command).toContain(
+      "--session --agent goose --task verification --format markdown",
     );
     expect(manifest.apiQueries.map((query) => query.command)).toEqual([
       "get_repo_manifest",
@@ -908,6 +931,31 @@ describe("repoIntelligence", () => {
     expect(
       cursorPayload.configReadiness?.safetyDossier.configPathStrategy,
     ).toContain("Cursor app/profile");
+    expect(cursorPayload.configReadiness?.dryRunPreview).toMatchObject({
+      target: "User/settings.json",
+      marker: "mac-ai-switchboard:cursor",
+      applyBlockedReason:
+        "Config creation remains gated until every step has tests and Doctor evidence.",
+    });
+    const cursorGatedSteps = Object.fromEntries(
+      cursorPayload.configReadiness?.gatedSteps.map((step) => [
+        step.id,
+        step,
+      ]) ?? [],
+    );
+    expect(cursorPayload.configReadiness).toMatchObject({
+      automationEnabled: false,
+      supportStatus: "gated_native_write",
+    });
+    expect(cursorGatedSteps.apply?.requiredEvidence).toContain(
+      "Explicit user consent captured for the connector and config surface.",
+    );
+    expect(cursorGatedSteps.verify?.requiredEvidence).toContain(
+      "Doctor check confirming account/model guardrails without storing secrets.",
+    );
+    expect(cursorGatedSteps.offCleanup?.requiredEvidence).toContain(
+      "Doctor verification that the connector returns to manual or RTK-only mode.",
+    );
 
     const windsurfPayload = buildRepoAgentHandoffPayload(summary, "windsurf");
     expect(windsurfPayload.safety.manualProviderRouting).toBe(false);
@@ -971,6 +1019,8 @@ describe("repoIntelligence", () => {
     expect(cursor).toContain("# Cursor Handoff");
     expect(cursor).toContain("Selected pack: Handoff Pack");
     expect(cursor).toContain("Connector readiness: Cursor (cursor)");
+    expect(cursor).toContain("Dry-run target: User/settings.json");
+    expect(cursor).toContain("Dry-run marker: mac-ai-switchboard:cursor");
     expect(cursor).toContain("docs/install.md");
   });
 
@@ -1207,11 +1257,13 @@ describe("repoIntelligence", () => {
     expect(sessionSummary).toContain("## Connector Config Readiness");
     expect(sessionSummary).toContain("Connector readiness: Cursor (cursor)");
     expect(sessionSummary).toContain("Next gate: Detect config surface");
+    expect(sessionSummary).toContain("Dry-run target: User/settings.json");
+    expect(sessionSummary).toContain("Dry-run marker: mac-ai-switchboard:cursor");
 
     const display = buildAgentSessionDisplayState(preparation, true);
     expect(display.connectorReadinessLabel).toBe("Cursor config gated");
     expect(display.connectorReadinessDetailLabel).toBe(
-      "Next gate: Detect config surface; automation enabled: no",
+      "Next gate: Detect config surface; automation enabled: no; dry-run target: User/settings.json; marker: mac-ai-switchboard:cursor",
     );
   });
 
@@ -1435,7 +1487,7 @@ describe("repoIntelligence", () => {
     expect(staleDisplay.copyDetail).toContain("Changed local index");
     expect(staleDisplay.connectorReadinessLabel).toBe("Cursor config gated");
     expect(staleDisplay.connectorReadinessDetailLabel).toBe(
-      "Next gate: Detect config surface; automation enabled: no",
+      "Next gate: Detect config surface; automation enabled: no; dry-run target: User/settings.json; marker: mac-ai-switchboard:cursor",
     );
     expect(staleDisplay.canCopyHandoff).toBe(true);
     expect(staleDisplay.canCopySummary).toBe(true);

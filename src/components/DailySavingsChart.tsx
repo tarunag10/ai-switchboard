@@ -27,6 +27,7 @@ import {
   startOfDay,
   startOfMonth,
 } from "../lib/dashboardHelpers";
+import { hasTauriEventRuntime } from "../lib/tauriRuntime";
 import type { DailySavingsPoint, HourlySavingsPoint } from "../lib/types";
 import { SavingsChartTooltip, type SavingsChartMode } from "./SavingsChartTooltip";
 
@@ -53,6 +54,10 @@ export function DailySavingsChart({
   const [savingsTodayUsd, setSavingsTodayUsd] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!hasTauriEventRuntime()) {
+      return;
+    }
+
     let unlisten: (() => void) | undefined;
     void listen<number>("savings-today-updated", (event) => {
       setSavingsTodayUsd(event.payload);

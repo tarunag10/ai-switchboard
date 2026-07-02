@@ -122,6 +122,8 @@ struct ConnectorManifestDetection {
 struct ConnectorManifestConfig {
     #[serde(default)]
     locations: Vec<String>,
+    #[serde(default)]
+    forbidden_reads: Vec<String>,
 }
 
 const PLANNED_SIDECAR_SPECS: [PlannedSidecarSpec; 11] = [
@@ -248,11 +250,18 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         setup_phase: "guide",
         setup_hint: "Manual guide only. Cursor routing stays opt-in until account-specific settings are safely detected.",
         detection_sources: &["PATH: cursor", "/Applications/Cursor.app", "~/Library/Application Support/Cursor"],
-        config_locations: &["~/Library/Application Support/Cursor"],
+        config_locations: &[
+            "~/Library/Application Support/Cursor/User/settings.json",
+            "~/Library/Application Support/Cursor/User/globalStorage",
+        ],
         automation_gates: &[
-            "Detect active Cursor profile before reading settings.",
-            "Back up settings without touching extension-managed secrets.",
-            "Keep account-specific model choices visible before routing.",
+            "Detect the active Cursor user profile and settings surface before proposing provider changes.",
+            "Show a dry-run diff and keep account-specific model choices visible before routing.",
+            "Back up Cursor settings without reading extension-managed secrets or global state databases.",
+            "Require exact user consent before any native/provider write is enabled.",
+            "Verify Cursor routing through Doctor evidence after a managed write.",
+            "Rollback restores the exact profile backup without touching unrelated editor or extension config.",
+            "Off mode removes only Switchboard-owned Cursor routing markers.",
         ],
         manual_workflow: &[
             "Open Cursor settings.",
@@ -321,27 +330,30 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         id: "goose",
         name: "Goose",
         category: "agent",
-        setup_phase: "adapt",
-        setup_hint: "Manual guide only. Provider routing and MCP handoff support are planned after reversible setup coverage.",
+        setup_phase: "managed mcp",
+        setup_hint: "Managed MCP bridge only. Repo Memory MCP handoff is read-only; provider routing remains manual until reversible setup coverage.",
         detection_sources: &["PATH: goose", "~/.config/goose"],
-        config_locations: &["~/.config/goose"],
+        config_locations: &[
+            "~/Library/Application Support/Headroom/config/repo-memory-mcp.json",
+            "~/.config/goose",
+        ],
         automation_gates: &[
-            "Detect Goose provider configuration safely.",
-            "Confirm MCP handoff shape before adding managed setup.",
-            "Verify Off mode removes local provider routing and leaves MCP config intact.",
+            "Install only the app-managed Repo Memory MCP descriptor after Goose detection.",
+            "Verify the read-only MCP smoke contract before advertising Goose handoff readiness.",
+            "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata; provider routing stays manual.",
         ],
         manual_workflow: &[
             "Confirm Goose is installed.",
-            "Copy Repo Intelligence packs into Goose sessions today.",
-            "Wait for managed MCP handoff before enabling automatic provider setup.",
+            "Prepare Repo Memory MCP from Mode Inspector for managed context handoff.",
+            "Keep Goose provider and model routing manual until native provider surfaces are proven.",
         ],
     },
     PlannedClientSpec {
         id: "qwen_code",
         name: "Qwen Code",
         category: "cli",
-        setup_phase: "guide",
-        setup_hint: "Manual guide only. Use CLI detection and Repo Intelligence handoff before reversible provider routing.",
+        setup_phase: "managed",
+        setup_hint: "Managed Switchboard-owned sidecar setup with Doctor verify, rollback, and Off mode cleanup; native provider/account config remains manual.",
         detection_sources: &["PATH: qwen", "PATH: qwen-code", "~/.qwen", "~/.config/qwen"],
         config_locations: &["~/.qwen", "~/.config/qwen"],
         automation_gates: &[
@@ -457,16 +469,33 @@ fn manifest_config_locations(manifest: Option<&ConnectorManifest>) -> Vec<String
         .unwrap_or_default()
 }
 
+fn manifest_forbidden_reads(manifest: Option<&ConnectorManifest>) -> Vec<String> {
+    manifest
+        .and_then(|item| item.config.as_ref())
+        .map(|config| config.forbidden_reads.clone())
+        .unwrap_or_default()
+}
+
 fn planned_config_creation_step_details(
     spec: &PlannedClientSpec,
+    forbidden_reads: &[String],
 ) -> Vec<ClientConnectorConfigCreationStep> {
     let detect_detail = format!(
         "Read-only probe only: inspect {} and watch {} without creating or modifying config.",
         spec.detection_sources.join(", "),
         spec.config_locations.join(", ")
     );
-    let dry_run_detail = "Preview a copyable dry-run artifact with target path, before/after provider intent, managed marker boundary, rollback preview, and confirmation phrase before any file, profile, or environment edit."
-        .to_string();
+    let forbidden_boundary = if forbidden_reads.is_empty() {
+        String::new()
+    } else {
+        format!(
+            " Forbidden reads excluded from dry-run and backup probes: {}.",
+            forbidden_reads.join(", ")
+        )
+    };
+    let dry_run_detail = format!(
+        "Preview a copyable dry-run artifact with target path, before/after provider intent, managed marker boundary, rollback preview, and confirmation phrase before any file, profile, or environment edit.{forbidden_boundary}"
+    );
     let backup_detail = spec
         .automation_gates
         .iter()
@@ -636,7 +665,7 @@ fn planned_connector_automation_path(
     enabled: bool,
     verified: bool,
 ) -> Vec<ClientConnectorAutomationStage> {
-    let step_details = planned_config_creation_step_details(spec);
+    let step_details = planned_config_creation_step_details(spec, &[]);
     let sidecar_spec = planned_sidecar_spec(spec.id);
     step_details
         .into_iter()
@@ -1511,10 +1540,11 @@ pub fn list_client_connectors(
                 .map(|step| step.to_string())
                 .collect()
         };
+        let forbidden_reads = manifest_forbidden_reads(manifest.as_ref());
         let config_creation_step_details = if has_implemented_setup {
             Vec::new()
         } else {
-            planned_config_creation_step_details(spec)
+            planned_config_creation_step_details(spec, &forbidden_reads)
         };
         let config_dry_run_preview = if has_implemented_setup {
             None
@@ -7350,13 +7380,18 @@ mod tests {
                 "claude_code",
                 "codex",
                 "gemini_cli",
+                "goose",
                 "opencode",
+                "qwen_code",
                 "windsurf",
                 "zed_ai",
             ])
         );
 
         for id in managed_ids {
+            if id == "goose" {
+                continue;
+            }
             let native_managed = MANAGED_CLIENT_SPECS.iter().any(|spec| spec.id == id);
             let promoted_planned = planned_connector_has_implemented_setup(id);
             assert!(
@@ -7370,7 +7405,10 @@ mod tests {
     fn planned_connector_registry_includes_backend_detection_metadata() {
         for spec in PLANNED_CLIENT_SPECS {
             assert!(matches!(spec.category, "cli" | "editor" | "agent"));
-            assert!(matches!(spec.setup_phase, "detect" | "guide" | "adapt"));
+            assert!(matches!(
+                spec.setup_phase,
+                "detect" | "guide" | "adapt" | "managed" | "managed mcp"
+            ));
             assert!(
                 !spec.detection_sources.is_empty(),
                 "{} should have detection sources",
@@ -7383,7 +7421,8 @@ mod tests {
             );
             if planned_connector_has_implemented_setup(spec.id) {
                 assert!(
-                    spec.setup_hint.contains("Managed"),
+                    spec.setup_hint.contains("Managed")
+                        || (spec.id == "goose" && spec.setup_hint.contains("Managed MCP")),
                     "{} should describe its managed setup lifecycle",
                     spec.id
                 );
@@ -7591,15 +7630,7 @@ mod tests {
                 .iter()
                 .map(|connector| connector.client_id.as_str())
                 .collect::<BTreeSet<_>>(),
-            BTreeSet::from([
-                "aider",
-                "amazon_q",
-                "continue",
-                "cursor",
-                "goose",
-                "grok_cli",
-                "qwen_code",
-            ])
+            BTreeSet::from(["aider", "amazon_q", "continue", "cursor", "grok_cli",])
         );
 
         for connector in planned {
@@ -7802,7 +7833,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "goose"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -7813,7 +7844,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "qwen_code"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -8905,7 +8936,10 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
     /// RAII-style guard that snapshots HOME / XDG_DATA_HOME / SHELL, points
     /// them at a fresh tempdir, and restores them on drop. Used to keep
     /// lifecycle tests from touching the developer's real profile.
+    static TEST_HOME_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+
     struct TestHome {
+        _lock: std::sync::MutexGuard<'static, ()>,
         _tmp: tempfile::TempDir,
         home: PathBuf,
         prev_home: Option<std::ffi::OsString>,
@@ -8916,6 +8950,10 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     impl TestHome {
         fn new() -> Self {
+            let lock = TEST_HOME_LOCK
+                .get_or_init(|| std::sync::Mutex::new(()))
+                .lock()
+                .expect("lock test home env");
             let tmp = tempfile::tempdir().expect("create temp home");
             let home = tmp.path().to_path_buf();
             let prev_home = std::env::var_os("HOME");
@@ -8935,6 +8973,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             crate::storage::ensure_data_dirs(&crate::storage::app_data_dir())
                 .expect("ensure_data_dirs in test home");
             TestHome {
+                _lock: lock,
                 _tmp: tmp,
                 home,
                 prev_home,
@@ -9362,10 +9401,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             serde_json::from_str(&fs::read_to_string(&settings_json).expect("read settings"))
                 .expect("parse settings");
         assert_eq!(configured["workbench.colorTheme"], "Quiet Light");
-        assert_eq!(
-            configured["assistant"]["defaultModel"],
-            "claude-3-5-sonnet"
-        );
+        assert_eq!(configured["assistant"]["defaultModel"], "claude-3-5-sonnet");
         assert_eq!(
             configured["anthropic.baseUrl"],
             super::HEADROOM_ANTHROPIC_BASE_URL
@@ -9455,7 +9491,6 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let home = TestHome::new();
         let connectors = [
             ("grok_cli", "Grok / xAI CLI"),
-            ("qwen_code", "Qwen Code"),
             ("amazon_q", "Amazon Q Developer CLI"),
         ];
 
@@ -10367,8 +10402,8 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         )
         .unwrap();
 
-        let preview =
-            super::preview_managed_config_apply("windsurf-routing").expect("preview windsurf apply");
+        let preview = super::preview_managed_config_apply("windsurf-routing")
+            .expect("preview windsurf apply");
         assert_eq!(preview.record_id, "windsurf-routing");
         assert!(preview
             .target_path
@@ -11189,5 +11224,214 @@ js_repl = false\n",
         let pattern = super::zed_config_backup_pattern();
         assert!(pattern.contains("settings.json"));
         assert!(pattern.contains("headroom-backup-"));
+    }
+
+    #[test]
+    fn cursor_connector_has_fixture_home_dry_run_preview() {
+        let detected_clients = Vec::new();
+        let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
+        let cursor = connectors
+            .iter()
+            .find(|connector| connector.client_id == "cursor")
+            .expect("cursor connector");
+
+        assert_eq!(cursor.support_status, ClientConnectorSupportStatus::Planned);
+        assert_eq!(cursor.automation_gates.len(), 7);
+        assert!(cursor
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("state.vscdb")));
+        assert!(cursor
+            .config_locations
+            .iter()
+            .any(|location| location.contains("Cursor/User/settings.json")));
+        assert!(cursor
+            .config_locations
+            .iter()
+            .any(|location| location.contains("Cursor/User/globalStorage")));
+
+        let preview = cursor
+            .config_dry_run_preview
+            .as_ref()
+            .expect("cursor dry-run preview");
+        assert!(preview.target.contains("Cursor/User/settings.json"));
+        assert!(preview.marker.contains("cursor"));
+        assert!(preview.rollback_preview.contains("Switchboard-managed"));
+    }
+
+    #[test]
+    fn grok_connector_keeps_native_writes_gated_with_manifest_forbidden_reads() {
+        let detected_clients = Vec::new();
+        let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
+        let grok = connectors
+            .iter()
+            .find(|connector| connector.client_id == "grok_cli")
+            .expect("grok connector");
+
+        assert_eq!(grok.support_status, ClientConnectorSupportStatus::Planned);
+        assert!(!grok.enabled);
+        assert!(grok
+            .config_locations
+            .iter()
+            .any(|location| location.contains(".config/xai")));
+        assert!(grok
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("auth.json")));
+        assert!(grok
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("*token*")));
+
+        let preview = grok
+            .config_dry_run_preview
+            .as_ref()
+            .expect("grok dry-run preview");
+        assert!(preview.target.contains(".config/xai"));
+        assert!(preview.marker.contains("grok_cli"));
+        assert!(preview
+            .apply_blocked_reason
+            .contains("automation is disabled"));
+    }
+
+    #[test]
+    fn continue_connector_keeps_native_writes_gated_with_manifest_forbidden_reads() {
+        let detected_clients = Vec::new();
+        let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
+        let continue_connector = connectors
+            .iter()
+            .find(|connector| connector.client_id == "continue")
+            .expect("continue connector");
+
+        assert_eq!(
+            continue_connector.support_status,
+            ClientConnectorSupportStatus::Planned
+        );
+        assert!(!continue_connector.enabled);
+        assert!(!continue_connector.verified);
+        assert!(continue_connector
+            .config_locations
+            .iter()
+            .any(|location| location.contains(".continue")));
+        assert!(continue_connector
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("auth.json")));
+        assert!(continue_connector
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("*token*")));
+        assert!(continue_connector
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("*secret*")));
+
+        let preview = continue_connector
+            .config_dry_run_preview
+            .as_ref()
+            .expect("continue dry-run preview");
+        assert!(preview.target.contains(".continue"));
+        assert!(preview.marker.contains("continue"));
+        assert!(!preview.apply_blocked_reason.is_empty());
+    }
+
+    #[test]
+    fn qwen_connector_exposes_managed_sidecar_without_provider_writes() {
+        let _home = TestHome::new();
+        let detected_clients = Vec::new();
+        let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
+        let qwen = connectors
+            .iter()
+            .find(|connector| connector.client_id == "qwen_code")
+            .expect("qwen connector");
+
+        assert_eq!(qwen.support_status, ClientConnectorSupportStatus::Managed);
+        assert!(!qwen.enabled);
+        assert!(!qwen.verified);
+        assert!(qwen
+            .config_locations
+            .iter()
+            .any(|location| location.contains(".qwen")));
+        assert!(qwen
+            .config_locations
+            .iter()
+            .any(|location| location.contains(".config/qwen")));
+        assert!(qwen.config_creation_step_details.is_empty());
+
+        assert!(qwen.config_dry_run_preview.is_none());
+    }
+
+    #[test]
+    fn qwen_connector_applies_and_disables_switchboard_owned_sidecar_only() {
+        let _home = TestHome::new();
+
+        let result = super::apply_client_setup("qwen_code").expect("apply qwen sidecar");
+        assert!(result.applied);
+        assert!(!result.already_configured);
+        assert_eq!(result.client_id, "qwen_code");
+        assert!(result
+            .changed_files
+            .iter()
+            .any(|path| path.contains("mac-ai-switchboard-routing.md")));
+
+        let routing_path =
+            super::planned_sidecar_routing_path("qwen_code").expect("qwen sidecar path");
+        let body = std::fs::read_to_string(&routing_path).expect("read qwen sidecar");
+        assert!(body.contains("headroom:qwen_code"));
+        assert!(body.contains("reversible Qwen Code routing-intent sidecar"));
+        assert!(
+            super::verify_client_setup("qwen_code")
+                .expect("verify qwen sidecar")
+                .verified
+        );
+
+        super::disable_client_setup("qwen_code").expect("disable qwen sidecar");
+        assert!(
+            !super::verify_client_setup("qwen_code")
+                .expect("verify removed qwen sidecar")
+                .verified
+        );
+        assert!(routing_path.exists());
+        let cleaned = std::fs::read_to_string(&routing_path).expect("read cleaned qwen sidecar");
+        assert!(!cleaned.contains("headroom:qwen_code"));
+    }
+
+    #[test]
+    fn aider_connector_keeps_native_writes_gated_with_manifest_forbidden_reads() {
+        let detected_clients = Vec::new();
+        let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
+        let aider = connectors
+            .iter()
+            .find(|connector| connector.client_id == "aider")
+            .expect("aider connector");
+
+        assert_eq!(aider.support_status, ClientConnectorSupportStatus::Planned);
+        assert!(!aider.enabled);
+        assert!(aider
+            .config_locations
+            .iter()
+            .any(|location| location.contains(".aider.conf.yml")));
+        assert!(aider
+            .config_locations
+            .iter()
+            .any(|location| location.contains(".config/aider")));
+        assert!(aider
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("auth.json")));
+        assert!(aider
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("*secret*")));
+
+        let preview = aider
+            .config_dry_run_preview
+            .as_ref()
+            .expect("aider dry-run preview");
+        assert!(preview.target.contains(".aider.conf.yml"));
+        assert!(preview.marker.contains("aider"));
+        assert!(preview
+            .apply_blocked_reason
+            .contains("automation is disabled"));
     }
 }

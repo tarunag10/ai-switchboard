@@ -2,6 +2,8 @@
 
 Repo Memory MCP is the read-only agent-consumption surface for Repo Intelligence. It lets supported local coding agents request bounded repo context without rescanning the project or copying whole files into every session.
 
+Goose is the first connector marked managed specifically for this bridge: Switchboard manages the read-only Repo Memory MCP descriptor, smoke-checks it before handoff, and leaves Goose provider/model configuration manual.
+
 ## Current Status
 
 - Transport: stdio MCP served by `scripts/repo-intelligence.mjs --mcp-serve`.
@@ -117,4 +119,4 @@ Use these recipes only after **Prepare MCP** reports an app-managed, read-only, 
 ## Remaining Work
 
 - Signed installed-app relaunch survival evidence for the app-supervised stdio service as native config mutation is promoted. Local one-click smoke evidence is recorded separately by `npm run smoke:repo-memory-mcp:local`.
-- Connector-specific MCP bridge setup docs as native config mutation is promoted.
+- Connector-specific MCP bridge setup docs beyond Goose as native config mutation is promoted.

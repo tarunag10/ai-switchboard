@@ -3,6 +3,7 @@ import {
   getPlannedConnector,
   getPlannedConnectorConfigCreationPlan,
   getPlannedConnectorSafetyDossier,
+  managedMcpBridgeConnectorIds,
 } from "./plannedConnectors";
 
 export type RepoFileRole =
@@ -503,6 +504,8 @@ export interface RepoAgentConfigReadiness {
   plannedConnectorId: string;
   plannedConnectorName: string;
   automationEnabled: boolean;
+  managedMcpBridge: boolean;
+  supportStatus: "managed_mcp" | "managed_routing" | "gated_native_write";
   safetyNote: string;
   nextGate: {
     id: string;
@@ -512,6 +515,12 @@ export interface RepoAgentConfigReadiness {
     configPathStrategy: string;
     accountCaveat: string;
     rollbackStrategy: string;
+  };
+  dryRunPreview: {
+    target: string;
+    marker: string;
+    applyBlockedReason: string;
+    rollbackPreview: string;
   };
   gatedSteps: Array<{
     id: string;
@@ -673,11 +682,22 @@ function buildRepoAgentConfigReadiness(
   }
   const plan = getPlannedConnectorConfigCreationPlan(plannedConnector);
   const nextGate = plan.steps[0];
+  const managedMcpBridge = managedMcpBridgeConnectorIds.has(plannedConnectorId);
+  const dryRunTarget =
+    plannedConnector.configSurfaces.find((surface) =>
+      /settings|config|profile/i.test(surface),
+    ) ?? dossier.configPathStrategy;
 
   return {
     plannedConnectorId,
     plannedConnectorName: plannedConnector.name,
     automationEnabled: plan.automationEnabled,
+    managedMcpBridge,
+    supportStatus: managedMcpBridge
+      ? "managed_mcp"
+      : plan.automationEnabled
+        ? "managed_routing"
+        : "gated_native_write",
     safetyNote: plan.safetyNote,
     nextGate: {
       id: nextGate.id,
@@ -687,6 +707,12 @@ function buildRepoAgentConfigReadiness(
       configPathStrategy: dossier.configPathStrategy,
       accountCaveat: dossier.accountCaveat,
       rollbackStrategy: dossier.rollbackStrategy,
+    },
+    dryRunPreview: {
+      target: dryRunTarget,
+      marker: `mac-ai-switchboard:${plannedConnectorId}`,
+      applyBlockedReason: plan.safetyNote,
+      rollbackPreview: dossier.rollbackStrategy,
     },
     gatedSteps: plan.steps.map((step) => ({
       id: step.id,
@@ -753,6 +779,8 @@ function buildRepoAgentSessionRecipes(repoRoot: string) {
             plannedConnectorId: configReadiness.plannedConnectorId,
             nextGate: configReadiness.nextGate.label,
             automationEnabled: configReadiness.automationEnabled,
+            managedMcpBridge: configReadiness.managedMcpBridge,
+            supportStatus: configReadiness.supportStatus,
           }
         : null,
     };
@@ -1452,6 +1480,8 @@ export function formatRepoAgentHandoffMarkdown(
         `Connector readiness: ${configReadiness.plannedConnectorName} (${configReadiness.plannedConnectorId})`,
         `Automation enabled: ${configReadiness.automationEnabled ? "yes" : "no"}`,
         `Next gate: ${configReadiness.nextGate.label}`,
+        `Dry-run target: ${configReadiness.dryRunPreview.target}`,
+        `Dry-run marker: ${configReadiness.dryRunPreview.marker}`,
         configReadiness.safetyNote,
         `Config path strategy: ${configReadiness.safetyDossier.configPathStrategy}`,
         `Account caveat: ${configReadiness.safetyDossier.accountCaveat}`,
@@ -1756,6 +1786,8 @@ export function formatAgentSessionSummaryMarkdown(
         `- Connector readiness: ${preparation.configReadiness.plannedConnectorName} (${preparation.configReadiness.plannedConnectorId})`,
         `- Next gate: ${preparation.configReadiness.nextGate.label}`,
         `- Automation enabled: ${preparation.configReadiness.automationEnabled ? "yes" : "no"}`,
+        `- Dry-run target: ${preparation.configReadiness.dryRunPreview.target}`,
+        `- Dry-run marker: ${preparation.configReadiness.dryRunPreview.marker}`,
       ]
     : [];
   const taskContext = preparation.taskContext
@@ -1921,6 +1953,8 @@ export function buildAgentSessionDisplayState(
     connectorReadinessDetailLabel: configReadiness
       ? `Next gate: ${configReadiness.nextGate.label}; automation enabled: ${
           configReadiness.automationEnabled ? "yes" : "no"
+        }; dry-run target: ${configReadiness.dryRunPreview.target}; marker: ${
+          configReadiness.dryRunPreview.marker
         }`
       : null,
     sampleContextWarning: hasRealIndex
