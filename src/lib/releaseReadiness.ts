@@ -931,6 +931,12 @@ export function releaseReadinessRowsFromReport(
   const missingStaticEvidence =
     report.staticSmokePreflight?.missingEvidence ?? [];
   const releaseBlockers = report.releaseEnv?.blockers ?? [];
+  const publicDmgBlockers = [
+    signingReady ? null : "signed/notarized DMG",
+    updaterReady ? null : "updater feed",
+    frontendReady ? null : "static smoke preflight",
+    installedSmokeReady ? null : "public installed-app smoke",
+  ].filter(Boolean);
 
   return [
     {
@@ -1034,8 +1040,10 @@ export function releaseReadinessRowsFromReport(
       statusLabel: finalReady ? "Ready" : "Blocked",
       tone: statusTone(finalReady),
       detail:
-        report.shareableDmgGate?.message ??
-        "The strict release readiness report is still the source of truth.",
+        publicDmgBlockers.length > 0
+          ? `Public DMG blocked until ${publicDmgBlockers.join(", ")} evidence is ready.`
+          : (report.shareableDmgGate?.message ??
+            "The strict release readiness report is still the source of truth."),
     },
   ];
 }
@@ -1050,6 +1058,17 @@ export function formatReleaseReadinessReportSnapshot(
   const localInstalled = report.installedSmoke?.installedAppPresent === true;
   const publicReady =
     report.shareableDmgGate?.ready === true && report.status === "ready";
+  const localValidation = report.localValidation;
+  const missingLocalEvidence = [
+    localValidation?.localInstalled?.passed ? null : "local installed smoke",
+    localValidation?.modeRelaunch?.passed ? null : "Off/RTK relaunch smoke",
+    localValidation?.rollback?.passed ? null : "Rollback Center validation",
+    localValidation?.doctorRepair?.passed ? null : "Doctor repair validation",
+    localValidation?.uninstall?.passed ? null : "uninstall dry-run validation",
+    localValidation?.repoIntelligence?.passed ? null : "Repo Intelligence validation",
+    localValidation?.repoMemoryMcp?.passed ? null : "Repo Memory MCP validation",
+    localValidation?.localOnlyNetwork?.passed ? null : "local-only network validation",
+  ].filter(Boolean);
 
   return [
     "# Mac AI Switchboard Release Readiness",
@@ -1108,6 +1127,9 @@ export function formatReleaseReadinessReportSnapshot(
     "- Missing signing, notarization, or updater secrets are release blockers, not app failures.",
     `- Missing installed smoke evidence: ${
       report.installedSmoke?.missingEvidence?.join(", ") || "none"
+    }`,
+    `- Missing local evidence: ${
+      missingLocalEvidence.length ? missingLocalEvidence.join(", ") : "none"
     }`,
     "",
     "## Next Step",

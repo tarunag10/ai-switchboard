@@ -275,6 +275,7 @@ export function RepoMapView({
       ["madge", "Madge"],
       ["dependencyCruiser", "dependency-cruiser"],
       ["cargoMetadata", "Cargo metadata"],
+      ["tauriScan", "Tauri scan"],
     ] as const,
     [],
   );

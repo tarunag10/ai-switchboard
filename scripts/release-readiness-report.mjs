@@ -522,6 +522,12 @@ function buildShareableDmgGate(
     backendValidation.ready &&
     staticSmokePreflightReady &&
     installedAppSmokeReady;
+  const publicDmgBlockers = [
+    signedAndNotarized ? null : "signed/notarized DMG",
+    updaterFeedReady ? null : "updater feed",
+    staticSmokePreflightReady ? null : "static smoke preflight",
+    installedAppSmokeReady ? null : "public installed-app smoke",
+  ].filter(Boolean);
 
   return {
     ready,
@@ -533,8 +539,21 @@ function buildShareableDmgGate(
     installedAppSmokeReady,
     message: ready
       ? "All shareable DMG gates are clear."
-      : "Do not share a public DMG until every gate is clear.",
+      : `Public DMG blocked until ${publicDmgBlockers.join(", ")} evidence is ready.`,
   };
+}
+
+function missingLocalEvidenceLabels(localValidation) {
+  return [
+    localValidation.localInstalled?.passed ? null : "local installed smoke",
+    localValidation.modeRelaunch?.passed ? null : "Off/RTK relaunch smoke",
+    localValidation.rollback?.passed ? null : "Rollback Center validation",
+    localValidation.doctorRepair?.passed ? null : "Doctor repair validation",
+    localValidation.uninstall?.passed ? null : "uninstall dry-run validation",
+    localValidation.repoIntelligence?.passed ? null : "Repo Intelligence validation",
+    localValidation.repoMemoryMcp?.passed ? null : "Repo Memory MCP validation",
+    localValidation.localOnlyNetwork?.passed ? null : "local-only network validation",
+  ].filter(Boolean);
 }
 
 const releaseEnv = runReleaseEnv();
@@ -720,6 +739,7 @@ ${localValidation.localOnlyNetwork.generatedLine ? `- ${localValidation.localOnl
 - Updater feed ready: ${shareableDmgGate.updaterFeedReady ? "yes" : "no"}
 - Static smoke preflight ready: ${shareableDmgGate.staticSmokePreflightReady ? "yes" : "no"}
 - Installed-app smoke ready: ${shareableDmgGate.installedAppSmokeReady ? "yes" : "no"}
+- Missing local evidence: ${missingLocalEvidenceLabels(localValidation).join(", ") || "none"}
 - ${shareableDmgGate.message}
 
 ${managedConnectorReadinessSummary}

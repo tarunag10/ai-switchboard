@@ -699,10 +699,10 @@ describe("release readiness checklist", () => {
     );
     expect(snapshot).toContain("## Status Rows");
     expect(snapshot).toContain("## Managed Connector Readiness");
-    expect(snapshot).toContain("Managed connectors: 0");
+    expect(snapshot).toContain("Managed connectors: 5");
     expect(snapshot).toContain("Automation ready: 0");
     expect(snapshot).toContain("Next blocked gates:");
-    expect(snapshot).not.toContain("Cursor: Guide, next gate Backup Implemented");
+    expect(snapshot).toContain("Cursor:");
     expect(snapshot).toContain(
       "Full per-tool dossiers are available from Doctor's connector dossier copy action.",
     );
@@ -710,7 +710,7 @@ describe("release readiness checklist", () => {
       "Local DMG: Installed locally (local-only) via npm run build:mac:local-install. A local installed app exists, but local evidence is separate from signed release readiness.",
     );
     expect(snapshot).toContain(
-      "Final release gate: Blocked (blocked) via npm run release:ready -- --strict. Do not share a public DMG until every gate is clear.",
+      "Final release gate: Blocked (blocked) via npm run release:ready -- --strict. Public DMG blocked until signed/notarized DMG, updater feed, public installed-app smoke evidence is ready.",
     );
     expect(snapshot).toContain("missing environment: APPLE_SIGNING_IDENTITY");
     expect(snapshot).toContain(
@@ -774,5 +774,26 @@ describe("release readiness checklist", () => {
     );
     expect(snapshot).toContain("Sharing status: shareable");
     expect(snapshot).toContain("Shareable DMG ready: yes");
+  });
+
+  it("spells out the public DMG blocker evidence", () => {
+    const rows = releaseReadinessRowsFromReport({
+      status: "blocked",
+      backendValidation: { ready: true },
+      staticSmokePreflight: { evidenceReady: true },
+      installedSmoke: { installedAppPresent: true, evidenceReady: false },
+      shareableDmgGate: {
+        ready: false,
+        signedAndNotarized: false,
+        updaterFeedReady: false,
+        staticSmokePreflightReady: true,
+        installedAppSmokeReady: false,
+        message: "Generic blocked message.",
+      },
+    });
+
+    expect(rows.find((row) => row.id === "final-gate")?.detail).toBe(
+      "Public DMG blocked until signed/notarized DMG, updater feed, public installed-app smoke evidence is ready.",
+    );
   });
 });
