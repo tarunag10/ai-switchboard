@@ -11,10 +11,13 @@ allowed_prefixes=(
 
 forbidden_patterns=(
   "*.db"
+  "*.db-wal"
+  "*.db-shm"
   "*.sqlite"
   "*.sqlite3"
   "*.sqlite-wal"
   "*.sqlite-shm"
+  "*mac-ai-switchboard-audit.md"
   ".env"
   ".env.local"
   ".DS_Store"
