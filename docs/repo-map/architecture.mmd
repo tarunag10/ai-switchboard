@@ -1,0 +1,24 @@
+flowchart LR
+  User["User"]
+  App["src/App.tsx
+main React state machine"]
+  Components["src/components/*
+views and panels"]
+  Lib["src/lib/*
+copy, helpers, release logic"]
+  Assets["src/assets + connectors manifest"]
+  Tauri["src-tauri/src/lib.rs
+Tauri command handler"]
+  RustMods["src-tauri/src/*.rs
+proxy, adapters, storage, analytics"]
+  OS["macOS / Codex / CLIs / local proxy"]
+
+  User --> App
+  App --> Components
+  App --> Lib
+  Components --> Lib
+  Components --> Assets
+  App -- invoke(...) --> Tauri
+  Components -- invoke(...) --> Tauri
+  Tauri --> RustMods
+  RustMods --> OS

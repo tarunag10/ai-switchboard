@@ -74,6 +74,17 @@ const MAIN_WINDOW_BLUR_HIDE_DELAY_MS: u64 = 150;
 
 type InstallPendingUpdateFuture = Pin<Box<dyn Future<Output = Result<(), String>> + Send>>;
 
+fn tail(value: &str, max_chars: usize) -> String {
+    let chars: Vec<char> = value.chars().collect();
+    if chars.len() <= max_chars {
+        value.to_string()
+    } else {
+        chars[chars.len().saturating_sub(max_chars)..]
+            .iter()
+            .collect()
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum QuitSource {
     SettingsButton,
@@ -339,6 +350,90 @@ fn get_repo_intelligence_manifest() -> Result<Option<RepoIntelligenceManifestRes
 #[tauri::command]
 fn get_repo_manifest() -> Result<Option<RepoIntelligenceManifestResponse>, String> {
     repo_intelligence::latest_manifest().map_err(|err| err.to_string())
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RepoMapGenerationResponse {
+    repo_path: String,
+    out_dir: String,
+    readme_path: String,
+    compact_context_path: String,
+    map: Value,
+    compact_context: String,
+    stdout_tail: String,
+    stderr_tail: String,
+}
+
+#[tauri::command]
+async fn generate_repo_map(repo_path: Option<String>) -> Result<RepoMapGenerationResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let app_repo = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .map(Path::to_path_buf)
+            .ok_or_else(|| "Could not resolve app repository root.".to_string())?;
+        let target_repo = repo_path
+            .map(PathBuf::from)
+            .unwrap_or_else(|| app_repo.clone());
+        let script_path = app_repo.join("scripts/generate-repo-map.mjs");
+        if !script_path.exists() {
+            return Err(format!(
+                "Repo map generator missing at {}.",
+                script_path.display()
+            ));
+        }
+        if !target_repo.exists() {
+            return Err(format!(
+                "Repository path does not exist: {}.",
+                target_repo.display()
+            ));
+        }
+
+        let output = Command::new("node")
+            .arg(&script_path)
+            .arg("--repo")
+            .arg(&target_repo)
+            .arg("--out")
+            .arg("docs/repo-map")
+            .arg("--run-tools")
+            .current_dir(&target_repo)
+            .output()
+            .map_err(|err| format!("Failed to start repo map generator: {err}"))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let out_dir = target_repo.join("docs/repo-map");
+        let readme_path = out_dir.join("README.md");
+        let map_path = out_dir.join("repo-map.json");
+        let compact_context_path = out_dir.join("COMPACT_CONTEXT.md");
+
+        if !map_path.exists() {
+            return Err(format!(
+                "Repo map generation did not produce {}. {}",
+                map_path.display(),
+                tail(&stderr, 1200)
+            ));
+        }
+
+        let map_text = std::fs::read_to_string(&map_path)
+            .map_err(|err| format!("Failed to read {}: {err}", map_path.display()))?;
+        let map: Value = serde_json::from_str(&map_text)
+            .map_err(|err| format!("Failed to parse {}: {err}", map_path.display()))?;
+        let compact_context = std::fs::read_to_string(&compact_context_path).unwrap_or_default();
+
+        Ok(RepoMapGenerationResponse {
+            repo_path: target_repo.display().to_string(),
+            out_dir: out_dir.display().to_string(),
+            readme_path: readme_path.display().to_string(),
+            compact_context_path: compact_context_path.display().to_string(),
+            map,
+            compact_context,
+            stdout_tail: tail(&stdout, 2000),
+            stderr_tail: tail(&stderr, 2000),
+        })
+    })
+    .await
+    .map_err(|err| format!("Repo map worker failed: {err}"))?
 }
 
 #[tauri::command]
@@ -4427,9 +4522,7 @@ where
             Ok(result)
         }) {
             Ok(_) => batch.repaired += 1,
-            Err(err) => batch
-                .failures
-                .push(format!("{}: {}", connector.name, err)),
+            Err(err) => batch.failures.push(format!("{}: {}", connector.name, err)),
         }
     }
 
@@ -6619,6 +6712,7 @@ pub fn run() {
             get_repo_intelligence_manifest,
             clear_repo_intelligence_summary,
             get_repo_manifest,
+            generate_repo_map,
             get_repo_pack,
             get_agent_handoff,
             get_index_freshness,
@@ -7393,10 +7487,33 @@ fn execute_headroom_learn_run(
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let show =
         tauri::menu::MenuItem::with_id(app, "show", "Show Mac AI Switchboard", true, None::<&str>)?;
+    let release_readiness = tauri::menu::MenuItem::with_id(
+        app,
+        "release-readiness",
+        "Release Readiness",
+        true,
+        None::<&str>,
+    )?;
+    let rollback_center = tauri::menu::MenuItem::with_id(
+        app,
+        "rollback-center",
+        "Rollback Center",
+        true,
+        None::<&str>,
+    )?;
     let quit =
         tauri::menu::MenuItem::with_id(app, "quit", "Quit Mac AI Switchboard", true, None::<&str>)?;
     let separator = tauri::menu::PredefinedMenuItem::separator(app)?;
-    let menu = tauri::menu::Menu::with_items(app, &[&show, &separator, &quit])?;
+    let menu = tauri::menu::Menu::with_items(
+        app,
+        &[
+            &show,
+            &release_readiness,
+            &rollback_center,
+            &separator,
+            &quit,
+        ],
+    )?;
     let popup_menu = menu.clone();
     let mut tray_builder = tauri::tray::TrayIconBuilder::with_id("headroom-tray")
         .menu(&menu)
@@ -7437,6 +7554,18 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
                     let _ = show_main_window(app, None);
                     let app_bg = app.clone();
                     std::thread::spawn(move || ensure_runtime_ready_for_tray(&app_bg));
+                } else {
+                    let _ = show_launcher_window(app);
+                }
+            }
+            "release-readiness" | "rollback-center" => {
+                if onboarding_complete(app) {
+                    let _ = hide_launcher_window(app);
+                    let _ = show_main_window(app, None);
+                    let _ = app.emit(
+                        "notification-clicked",
+                        serde_json::json!({ "action": event.id.as_ref() }),
+                    );
                 } else {
                     let _ = show_launcher_window(app);
                 }

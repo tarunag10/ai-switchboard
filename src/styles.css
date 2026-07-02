@@ -353,6 +353,226 @@
   --legacy-color-285: rgba(176, 130, 54, 0.14);
 }
 
+.repo-map-view {
+  display: grid;
+  gap: 16px;
+}
+
+.repo-map-hero {
+  align-items: center;
+  background: color-mix(in srgb, var(--surface-raised) 88%, var(--accent) 12%);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 18px;
+}
+
+.repo-map-hero--warning {
+  background: color-mix(in srgb, var(--surface-raised) 88%, #d97706 12%);
+}
+
+.repo-map-hero__icon {
+  align-items: center;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  border-radius: 8px;
+  color: var(--accent);
+  display: grid;
+  height: 48px;
+  place-items: center;
+  width: 48px;
+}
+
+.repo-map-hero__copy {
+  min-width: 0;
+}
+
+.repo-map-eyebrow {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin: 0 0 4px;
+  text-transform: uppercase;
+}
+
+.repo-map-hero h1,
+.repo-map-panel h2 {
+  margin: 0;
+}
+
+.repo-map-hero p:last-child {
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 6px 0 0;
+}
+
+.repo-map-hero__status {
+  align-items: center;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 7px;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.repo-map-health-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.repo-map-health-card,
+.repo-map-panel {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+}
+
+.repo-map-health-card {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.repo-map-health-card strong {
+  font-size: 1.05rem;
+}
+
+.repo-map-health-card span:last-child,
+.repo-map-health-card__label,
+.repo-map-metrics dt,
+.repo-map-hotspots span {
+  color: var(--text-muted);
+}
+
+.repo-map-health-card.is-healthy {
+  border-color: color-mix(in srgb, #22c55e 35%, var(--border-default));
+}
+
+.repo-map-health-card.is-warning {
+  border-color: color-mix(in srgb, #d97706 45%, var(--border-default));
+}
+
+.repo-map-layout {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.repo-map-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.repo-map-panel__header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.repo-map-metrics {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+}
+
+.repo-map-metrics div {
+  border-top: 1px solid var(--border-default);
+  display: grid;
+  gap: 4px;
+  padding-top: 10px;
+}
+
+.repo-map-metrics dd {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.repo-map-hotspots {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.repo-map-hotspots li {
+  align-items: center;
+  border-top: 1px solid var(--border-default);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-top: 8px;
+}
+
+.repo-map-hotspots span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repo-map-artifacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.repo-map-artifacts code {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  padding: 6px 8px;
+}
+
+.repo-map-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.repo-map-actions--primary {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.repo-map-actions button {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+}
+
+.repo-map-error {
+  background: var(--danger-tint);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border-default));
+  border-radius: 8px;
+  color: var(--danger);
+  margin: 0;
+  padding: 10px 12px;
+}
+
+@media (max-width: 760px) {
+  .repo-map-hero,
+  .repo-map-layout,
+  .repo-map-health-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .repo-map-hero__status {
+    justify-self: start;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --surface-app: transparent;
@@ -8362,14 +8582,14 @@ html.window-hiding {
 
 .activity-feed__week-range {
   font-size: var(--text-xs);
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .activity-feed__project {
   font-size: var(--text-xxs);
   font-weight: 600;
   letter-spacing: 0.02em;
-  color: var(--muted);
+  color: var(--text-muted);
   background: var(--legacy-color-265);
   padding: 2px 6px;
   border-radius: 4px;
@@ -10466,5 +10686,76 @@ html.window-hiding {
   .planned-connectors__steps,
   .planned-connectors__list {
     grid-template-columns: 1fr;
+  }
+}
+
+.tray-shell,
+.tray-content,
+.switchboard-panel {
+  min-width: 0;
+}
+
+.tray-content {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.switchboard-panel__mode {
+  min-width: 0;
+}
+
+@media (max-width: 620px) {
+  .tray-shell {
+    grid-template-columns: 72px minmax(0, calc(100vw - 72px));
+  }
+
+  .tray-content {
+    box-sizing: border-box;
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: 10px;
+    width: 100%;
+  }
+
+  .tray-panel,
+  .switchboard-panel {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .switchboard-panel__head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .switchboard-panel__head-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .switchboard-panel__modes {
+    grid-template-columns: 1fr;
+  }
+
+  .switchboard-panel__inspector {
+    grid-template-columns: 1fr;
+  }
+
+  .switchboard-panel__mode {
+    min-height: 38px;
+    padding-inline: 6px;
+    white-space: normal;
+  }
+
+  .switchboard-panel__savings-mode {
+    justify-content: stretch;
+    margin-inline-start: 0;
+    width: 100%;
+  }
+
+  .switchboard-panel__savings-mode button {
+    flex: 1 1 0;
   }
 }

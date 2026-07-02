@@ -23,6 +23,7 @@ import {
   EnvelopeSimple,
   FirstAidKit,
   GearSix,
+  Graph,
   House,
   Key,
   PuzzlePiece,
@@ -208,6 +209,7 @@ import {
 } from "./lib/pricing";
 import {
   activityFeedSignature,
+  notificationActionTargetId,
   safeNotificationActionView,
   safeTrayViewForMode,
   serializeState,
@@ -288,6 +290,7 @@ import {
 import { ActivityFeed } from "./components/ActivityFeed";
 import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
+import { RepoMapView } from "./components/RepoMapView";
 import { SettingsLegalPanel } from "./components/SettingsLegalPanel";
 import { TermsGate } from "./components/TermsGate";
 import { SwitchboardPanel } from "./components/SwitchboardPanel";
@@ -328,6 +331,7 @@ import type {
   SwitchboardState,
   UninstallDryRunReport,
 } from "./lib/types";
+import { hasTauriEventRuntime, hasTauriRuntime } from "./lib/tauriRuntime";
 
 interface NavItem {
   id: TrayView;
@@ -341,6 +345,7 @@ const navItems: NavItem[] = [
   { id: "doctor", label: "Doctor", icon: FirstAidKit },
   { id: "optimization", label: "Optimize", icon: Sliders },
   { id: "notifications", label: "Activity", icon: Bell },
+  { id: "repoMap", label: "Repo Map", icon: Graph },
   { id: "repoIntelligence", label: "Repo Intelligence", icon: Brain },
   { id: "addons", label: "Addons", icon: PuzzlePiece },
 ];
@@ -1194,6 +1199,10 @@ function DailySavingsChart({
   const [savingsTodayUsd, setSavingsTodayUsd] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!hasTauriEventRuntime()) {
+      return;
+    }
+
     let unlisten: (() => void) | undefined;
     void listen<number>("savings-today-updated", (event) => {
       setSavingsTodayUsd(event.payload);
@@ -3433,6 +3442,10 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (!hasTauriEventRuntime()) {
+      return;
+    }
+
     const unlistenPromise = listen<{ action: string | null }>(
       "notification-clicked",
       (event) => {
@@ -3444,6 +3457,14 @@ export default function App() {
         const view = safeNotificationActionView(action, localOnlyMode);
         if (view) {
           setActiveView(view);
+          const targetId = notificationActionTargetId(action);
+          if (targetId) {
+            window.setTimeout(() => {
+              document
+                .getElementById(targetId)
+                ?.scrollIntoView({ block: "start", behavior: "smooth" });
+            }, 0);
+          }
         }
       },
     );
@@ -3580,7 +3601,7 @@ export default function App() {
       };
 
       updateStartup("window", 12, "Opening launch window…");
-      const label = getCurrentWindow().label;
+      const label = hasTauriRuntime() ? getCurrentWindow().label : "main";
       if (active) {
         if (label === "main" || label === "launcher") {
           setWindowLabel(label);
@@ -3768,6 +3789,9 @@ export default function App() {
       }
     };
 
+    if (!hasTauriEventRuntime()) {
+      return;
+    }
     void listen<BootstrapProgress>("bootstrap_progress", (event) => {
       void handleProgress(event.payload);
     }).then((fn) => {
@@ -3794,6 +3818,9 @@ export default function App() {
     let active = true;
     let unlisten: (() => void) | undefined;
 
+    if (!hasTauriEventRuntime()) {
+      return;
+    }
     void listen<RuntimeUpgradeProgress>("runtime_upgrade_progress", (event) => {
       if (!active) return;
       setRuntimeUpgradeProgress(event.payload);
@@ -3937,7 +3964,7 @@ export default function App() {
   }, [bootstrapProgress, showInstallProgress, stepSignature]);
 
   useEffect(() => {
-    if (!isLastScreen) return;
+    if (!isLastScreen || !hasTauriRuntime()) return;
     let unlisten: (() => void) | undefined;
     void getCurrentWindow()
       .onFocusChanged(({ payload: focused }) => {
@@ -3985,7 +4012,7 @@ export default function App() {
   }, [windowLabel, launcherStage, runtimeStatus?.running]);
 
   useEffect(() => {
-    if (windowLabel !== "main") {
+    if (windowLabel !== "main" || !hasTauriRuntime()) {
       return;
     }
 
@@ -4503,7 +4530,7 @@ export default function App() {
   }, [anyConnectorEnabled]);
 
   useEffect(() => {
-    if (localOnlyMode) {
+    if (localOnlyMode || !hasTauriEventRuntime()) {
       return;
     }
     // Pricing status hits the remote Headroom API. When the tray is focused,
@@ -4528,7 +4555,7 @@ export default function App() {
   // just pulls the new status into UI state without waiting for the next
   // poll tick.
   useEffect(() => {
-    if (localOnlyMode) {
+    if (localOnlyMode || !hasTauriEventRuntime()) {
       return;
     }
     let unlisten: (() => void) | undefined;
@@ -4998,9 +5025,11 @@ export default function App() {
       applyAppUpdatePatch(patch);
 
       if (background && patch.availableUpdate) {
-        const windowVisible = await getCurrentWindow()
-          .isVisible()
-          .catch(() => false);
+        const windowVisible = hasTauriRuntime()
+          ? await getCurrentWindow()
+              .isVisible()
+              .catch(() => false)
+          : true;
         if (
           shouldNotifyAboutAvailableAppUpdate({
             background,
@@ -6254,7 +6283,9 @@ export default function App() {
       return;
     }
 
-    void getCurrentWindow().startDragging();
+    if (hasTauriRuntime()) {
+      void getCurrentWindow().startDragging();
+    }
   }
 
   const hidingRef = useRef(false);
@@ -10750,7 +10781,10 @@ export default function App() {
                 ) : null}
               </div>
             </article>
-            <article className="soft-card panel-card release-readiness-card">
+            <article
+              className="soft-card panel-card release-readiness-card"
+              id="release-readiness"
+            >
               <div className="panel-card__header">
                 <div>
                   <h3>Release readiness</h3>
@@ -10948,7 +10982,7 @@ export default function App() {
                 </div>
                 <div>
                   <p>
-                    Automatically launch Headroom whenever you login or restart.
+                    Automatically launch Mac AI Switchboard whenever you login or restart.
                   </p>
                 </div>
                 <div className="connector-item__controls">
@@ -10969,7 +11003,10 @@ export default function App() {
               </div>
             </article>
 
-            <article className="soft-card panel-card rollback-center-card">
+            <article
+              className="soft-card panel-card rollback-center-card"
+              id="rollback-center"
+            >
               <div className="panel-card__header">
                 <div>
                   <h3>Rollback Center</h3>

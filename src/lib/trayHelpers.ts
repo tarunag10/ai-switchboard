@@ -14,6 +14,7 @@ export type TrayView =
   | "optimization"
   | "health"
   | "notifications"
+  | "repoMap"
   | "repoIntelligence"
   | "addons"
   | "upgrade"
@@ -31,11 +32,28 @@ export function notificationActionView(action: string | null): TrayView | null {
       return "upgradeAuth";
     case "runtime":
     case "connectors":
+    case "release":
+    case "release-readiness":
+    case "rollback":
+    case "rollback-center":
       return "settings";
     case "optimize":
       return "optimization";
     case "activity":
       return "notifications";
+    default:
+      return null;
+  }
+}
+
+export function notificationActionTargetId(action: string | null): string | null {
+  switch (action) {
+    case "release":
+    case "release-readiness":
+      return "release-readiness";
+    case "rollback":
+    case "rollback-center":
+      return "rollback-center";
     default:
       return null;
   }
