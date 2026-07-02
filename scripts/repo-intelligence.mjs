@@ -2508,6 +2508,7 @@ function buildAgentSessionPreparation(summary, options) {
     handoff,
     taskContext,
     configReadiness: handoff?.configReadiness ?? null,
+    repoMapContext: readRepoMapContext(summary.repoRoot),
     handoffMarkdown:
       copyState.status === "blocked"
         ? null
@@ -2539,6 +2540,15 @@ function formatAgentSessionMarkdown(preparation) {
         preparation.configReadiness.automationEnabled ? "yes" : "no"
       }`,
       `Connector gated evidence: ${preparation.configReadiness.gatedSteps.length} steps`,
+    );
+  }
+  if (preparation.repoMapContext?.available) {
+    lines.push(
+      "",
+      "## Repo Map Compact Context",
+      `Compact context: ${preparation.repoMapContext.compactContextPath}`,
+      `Structured map: ${preparation.repoMapContext.mapPath}`,
+      `Estimated tokens avoided: ${preparation.repoMapContext.estimatedTokensAvoided.toLocaleString()}`,
     );
   }
   if (preparation.taskContext) {
