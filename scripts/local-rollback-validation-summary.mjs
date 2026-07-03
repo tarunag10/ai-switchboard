@@ -131,6 +131,7 @@ const relaunchProbe = recordRelaunchSurvivalProbe(generatedAt);
 const passed = results.every((result) => result.ok) && relaunchProbe.passed;
 
 const payload = {
+  schemaVersion: 1,
   generatedAt,
   kind: "mac_ai_switchboard.local_rollback_validation",
   releaseGateEvidence: false,
