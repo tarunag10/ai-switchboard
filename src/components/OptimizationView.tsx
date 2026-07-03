@@ -7,6 +7,7 @@ import type {
 } from "../lib/types";
 import type { TrayView } from "../lib/trayHelpers";
 import { formatLearnStatus } from "../lib/dashboardHelpers";
+import { OptimizationDashboard } from "./OptimizationDashboard";
 import { OptimizePanel } from "./OptimizePanel";
 
 const CLAUDE_CODE_INSTALL_CURL_CMD =
@@ -86,6 +87,7 @@ export function OptimizationView({
           <p className="optimize-card__blurb">{learnBlurb}</p>
         </header>
         <div className="optimize-card__body">
+          <OptimizationDashboard />
           <div className="optimize-learn-setup" role="note">
             <strong>Where this lives</strong>
             <span>
