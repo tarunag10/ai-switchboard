@@ -10,6 +10,7 @@ Created:
 Done:
 - Repo Map one-click generation covers Graphify, Madge, dependency-cruiser, Cargo, and Tauri evidence with partial-success handling and token-savings artifacts.
 - Repo Map feeds Repo Intelligence Agent Session handoffs, CLI exports, Repo Memory MCP packs, and artifact-opening flows.
+- Repo Intelligence now carries Repo Map freshness, age, stale warning, and token-savings method into manifests and agent handoff JSON, with `check:repo-intelligence-map` in local evidence.
 - Repo Memory MCP includes app-managed descriptor setup, stale-health smoke summaries, read-only pack/query surfaces, and connector recipes.
 - Savings evidence now distinguishes measured, fixture-backed, and estimated rows for Caveman, Ponytail, MarkItDown, RTK, and Repo Intelligence.
 - Rollback Center records relaunch-survival proof, local evidence summaries, and native-write disabled/gated connector states.
@@ -18,7 +19,7 @@ Done:
 Left:
 - Finish native-write apply/verify/rollback/Off cleanup before enabling remaining connector automation.
 - Add real runtime/session counters for Caveman, Ponytail, and MarkItDown.
-- Expand Tauri/backend graph analyzers and large-file refactors.
+- Expand Tauri/backend graph analyzers and large-file refactors beyond the guarded Repo Map context bridge.
 - Produce signed/notarized DMG, updater feed, and public installed-app smoke proof.
 - Keep release proof blocked until real signing/notarization/updater evidence exists.
 

@@ -12,9 +12,25 @@ function readRepoMapContext(repoRoot) {
     const compactContext = fs.existsSync(compactContextPath)
       ? fs.readFileSync(compactContextPath, "utf8")
       : "";
+    const generatedAt = map.generatedAt ?? null;
+    const generatedTime = generatedAt ? Date.parse(generatedAt) : NaN;
+    const ageHours = Number.isFinite(generatedTime)
+      ? Math.max(0, Math.round(((Date.now() - generatedTime) / 3_600_000) * 100) / 100)
+      : null;
+    const freshness =
+      ageHours === null ? "unknown" : ageHours <= 24 ? "fresh" : ageHours <= 168 ? "stale" : "expired";
+    const freshnessWarning =
+      freshness === "fresh"
+        ? null
+        : freshness === "unknown"
+          ? "Repo Map generation time is missing; regenerate before relying on token-compressed packs."
+          : `Repo Map is ${ageHours} hours old; regenerate before release or large refactors.`;
     return {
       available: true,
-      generatedAt: map.generatedAt ?? null,
+      generatedAt,
+      ageHours,
+      freshness,
+      freshnessWarning,
       compactContextPath,
       mapPath,
       graphifyNodes: map.tools?.graphify?.nodeCount ?? 0,
@@ -25,6 +41,7 @@ function readRepoMapContext(repoRoot) {
       compactContextEstimatedTokens:
         map.tokenSavings?.compactContextEstimatedTokens ?? estimateTokens(Buffer.byteLength(compactContext)),
       estimatedTokensAvoided: map.tokenSavings?.estimatedTokensAvoided ?? 0,
+      tokenSavingsEvidence: map.tokenSavings?.method ?? "Repo Map estimated savings unavailable.",
       toolRuns: map.toolRuns ?? {},
       summary: compactContext.split("\n").slice(0, 18).join("\n"),
     };
@@ -41,6 +58,10 @@ function readRepoMapContext(repoRoot) {
       cargoDependencies: 0,
       compactContextEstimatedTokens: 0,
       estimatedTokensAvoided: 0,
+      tokenSavingsEvidence: "Repo Map artifacts missing; no compact context savings evidence.",
+      ageHours: null,
+      freshness: "missing",
+      freshnessWarning: "Generate a Repo Map before relying on token-compressed packs.",
       toolRuns: {},
       summary: "",
     };

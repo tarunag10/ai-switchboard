@@ -69,6 +69,13 @@ const steps = [
     summaryPath: "dist/local-repo-intelligence-validation-summary.md",
   },
   {
+    id: "repo-intelligence-map-context",
+    label: "Repo Intelligence map context guard",
+    command: "npm run check:repo-intelligence-map",
+    commands: [["npm", ["run", "check:repo-intelligence-map"]]],
+    summaryPath: null,
+  },
+  {
     id: "repo-memory-mcp-validation",
     label: "Repo Memory MCP validation",
     command: "npm run smoke:repo-memory-mcp:local",

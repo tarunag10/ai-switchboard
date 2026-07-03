@@ -11,6 +11,7 @@ Done:
 - Repo Map integrates generated artifacts, history, artifact-opening checks, partial-success handling, context-pack output, and token-savings accounting.
 - Agent Session exports selected-pack, full-handoff, summary, and JSON payloads for Claude Code, Codex, Gemini CLI, OpenCode, Goose, Windsurf, Zed, and gated connector targets.
 - Repo Intelligence exposes read-only manifests, packs, graph-input paths, stale/corrupt/moved index states, and MCP smoke evidence.
+- Repo Intelligence manifest and agent handoffs now expose Repo Map freshness, age, token-savings method, and stale-map warning evidence, guarded by `npm run check:repo-intelligence-map`.
 - Savings ledger separates measured/estimated confidence and copyable evidence for Headroom engine, RTK, Repo Intelligence, Ponytail, Caveman, and Compact profiles.
 - Rollback Center has Doctor-visible inventory, execution previews, relaunch-survival evidence, and cleanup-only rows for native-write surfaces.
 - Connector readiness enforces seven-stage evidence and `automationEnabled: false` for unpromoted native/provider writes.
@@ -18,7 +19,7 @@ Done:
 Left:
 - Promote remaining provider/editor native-write connectors only after backup, apply, verify, rollback, and Off cleanup are proven.
 - Add live runtime/session savings counters for Caveman, Ponytail, and MarkItDown in Rust/frontend state.
-- Deepen long-running Repo Intelligence graph analyzers and MCP supervision evidence.
+- Deepen long-running Repo Intelligence graph analyzers and MCP supervision evidence beyond the guarded Repo Map context bridge.
 - Produce signed/notarized/updater public-release evidence and public installed-app smoke proof.
 - Refactor large backend/frontend files: `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/src/tool_manager.rs`, and `src/App.tsx`.
 
