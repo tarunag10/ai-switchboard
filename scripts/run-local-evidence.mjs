@@ -90,6 +90,13 @@ const steps = [
     summaryPath: "dist/measured-savings-benchmark.md",
   },
   {
+    id: "connector-readiness-validation",
+    label: "Connector readiness validation",
+    command: "npm run smoke:connectors:local",
+    commands: [["npm", ["run", "smoke:connectors:local"]]],
+    summaryPath: "dist/local-connector-readiness-summary.md",
+  },
+  {
     id: "release-report",
     label: "Refresh release readiness report",
     command: "npm run release:report",

@@ -33,6 +33,10 @@ const measuredSavingsBenchmarkSummaryPath =
   "dist/measured-savings-benchmark.md";
 const measuredSavingsBenchmarkJsonPath =
   "dist/measured-savings-benchmark.json";
+const localConnectorReadinessSummaryPath =
+  "dist/local-connector-readiness-summary.md";
+const localConnectorReadinessJsonPath =
+  "dist/local-connector-readiness-summary.json";
 const localOnlyNetworkSummaryPath =
   "dist/local-only-network-validation-summary.md";
 const localOnlyNetworkJsonPath =
@@ -323,6 +327,12 @@ function buildLocalValidationEvidence() {
   const measuredSavingsBenchmarkJson = readJsonStatus(
     measuredSavingsBenchmarkJsonPath,
   );
+  const localConnectorReadinessSummary = readSummaryStatus(
+    localConnectorReadinessSummaryPath,
+  );
+  const localConnectorReadinessJson = readJsonStatus(
+    localConnectorReadinessJsonPath,
+  );
   const localOnlyNetworkSummary = readSummaryStatus(localOnlyNetworkSummaryPath);
   const localOnlyNetworkJson = readJsonStatus(localOnlyNetworkJsonPath);
   const modeRelaunchPassed = modeRelaunchJson.body?.passed === true;
@@ -333,6 +343,8 @@ function buildLocalValidationEvidence() {
   const repoMemoryMcpPassed = repoMemoryMcpJson.body?.passed === true;
   const measuredSavingsBenchmarkPassed =
     Number(measuredSavingsBenchmarkJson.body?.totals?.savedTokens ?? 0) > 0;
+  const localConnectorReadinessPassed =
+    localConnectorReadinessJson.body?.passed === true;
   const localOnlyNetworkPassed = localOnlyNetworkJson.body?.passed === true;
   const localInstalledAppPresent = localInstalledJson.body?.app?.present === true;
   const localInstalledMetadataMatches =
@@ -506,6 +518,24 @@ function buildLocalValidationEvidence() {
         : 0,
       requiredCommand: "npm run smoke:repo-memory-mcp:local",
     },
+    connectorReadiness: {
+      summaryPath: localConnectorReadinessSummaryPath,
+      jsonPath: localConnectorReadinessJsonPath,
+      summaryPresent: localConnectorReadinessSummary.present,
+      jsonPresent: localConnectorReadinessJson.present,
+      generatedLine: localConnectorReadinessSummary.generatedLine ?? null,
+      passed: localConnectorReadinessPassed,
+      readOnly: localConnectorReadinessJson.body?.readOnly === true,
+      modifiesRepository:
+        localConnectorReadinessJson.body?.modifiesRepository === true,
+      requiredGatedNativeWritePresent:
+        localConnectorReadinessJson.body?.requiredGatedNativeWritePresent === true,
+      gatedNativeWriteConnectors:
+        localConnectorReadinessJson.body?.gatedNativeWriteConnectors ?? [],
+      requiredCommand:
+        localConnectorReadinessJson.body?.requiredCommand ??
+        "npm run check:connectors",
+    },
     localOnlyNetwork: {
       summaryPath: localOnlyNetworkSummaryPath,
       jsonPath: localOnlyNetworkJsonPath,
@@ -588,6 +618,9 @@ function missingLocalEvidenceLabels(localValidation) {
       ? null
       : "measured savings benchmark",
     localValidation.repoMemoryMcp?.passed ? null : "Repo Memory MCP validation",
+    localValidation.connectorReadiness?.passed
+      ? null
+      : "connector readiness validation",
     localValidation.localOnlyNetwork?.passed ? null : "local-only network validation",
   ].filter(Boolean);
 }
@@ -762,6 +795,12 @@ ${localValidation.repoMemoryMcp.generatedLine ? `- ${localValidation.repoMemoryM
 - Repo Memory MCP graph queries verified: ${localValidation.repoMemoryMcp.graphQueriesVerified ? "yes" : "no"}
 - Repo Memory MCP stale-index health verified: ${localValidation.repoMemoryMcp.staleIndexHealthVerified ? "yes" : "no"}
 - Repo Memory MCP command: ${localValidation.repoMemoryMcp.requiredCommand}
+- Connector readiness summary present: ${localValidation.connectorReadiness.summaryPresent ? "yes" : "no"} (${localValidation.connectorReadiness.summaryPath})
+- Connector readiness JSON present: ${localValidation.connectorReadiness.jsonPresent ? "yes" : "no"} (${localValidation.connectorReadiness.jsonPath})
+${localValidation.connectorReadiness.generatedLine ? `- ${localValidation.connectorReadiness.generatedLine}` : "- Connector readiness summary has not been generated in this checkout."}
+- Connector readiness required gated native-write dossiers present: ${localValidation.connectorReadiness.requiredGatedNativeWritePresent ? "yes" : "no"}
+- Connector readiness gated native-write dossiers: ${localValidation.connectorReadiness.gatedNativeWriteConnectors.join(", ") || "missing"}
+- Connector readiness command: ${localValidation.connectorReadiness.requiredCommand}
 - Local-only network summary present: ${localValidation.localOnlyNetwork.summaryPresent ? "yes" : "no"} (${localValidation.localOnlyNetwork.summaryPath})
 - Local-only network JSON present: ${localValidation.localOnlyNetwork.jsonPresent ? "yes" : "no"} (${localValidation.localOnlyNetwork.jsonPath})
 ${localValidation.localOnlyNetwork.generatedLine ? `- ${localValidation.localOnlyNetwork.generatedLine}` : "- Local-only network validation summary has not been generated in this checkout."}

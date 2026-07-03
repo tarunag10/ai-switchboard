@@ -49,7 +49,8 @@
     "check:local-build-privacy": "node scripts/check-local-build-privacy.mjs",
     "check:local-only-network": "node scripts/check-local-only-network.mjs",
     "check:governance": "node scripts/check-governance-docs.mjs",
-    "check:deployment": "node scripts/check-deployment-readiness.mjs"
+    "check:deployment": "node scripts/check-deployment-readiness.mjs",
+    "smoke:connectors:local": "node scripts/local-connector-readiness-summary.mjs"
   },
   "dependencies": {
     "@microsoft/clarity": "^1.0.2",

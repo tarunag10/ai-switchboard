@@ -72,6 +72,14 @@ const requiredReleaseReportPaths = [
   "localValidation.repoMemoryMcp.readOnly",
   "localValidation.repoMemoryMcp.modifiesRepository",
   "localValidation.repoMemoryMcp.requiredCommand",
+  "localValidation.connectorReadiness.summaryPath",
+  "localValidation.connectorReadiness.jsonPath",
+  "localValidation.connectorReadiness.summaryPresent",
+  "localValidation.connectorReadiness.jsonPresent",
+  "localValidation.connectorReadiness.passed",
+  "localValidation.connectorReadiness.requiredGatedNativeWritePresent",
+  "localValidation.connectorReadiness.gatedNativeWriteConnectors",
+  "localValidation.connectorReadiness.requiredCommand",
   "localValidation.localOnlyNetwork.summaryPath",
   "localValidation.localOnlyNetwork.jsonPath",
   "localValidation.localOnlyNetwork.passed",
@@ -250,6 +258,20 @@ if (!markdownReport.includes("Repo Memory MCP budgeted pack verified: yes")) {
 }
 if (!markdownReport.includes("Repo Memory MCP graph queries verified: yes")) {
   fail(`${markdownReportPath} must include Repo Memory MCP graph query evidence`);
+}
+if (report.localValidation.connectorReadiness.requiredGatedNativeWritePresent !== true) {
+  fail("localValidation.connectorReadiness.requiredGatedNativeWritePresent must be true");
+}
+if (!Array.isArray(report.localValidation.connectorReadiness.gatedNativeWriteConnectors)) {
+  fail("localValidation.connectorReadiness.gatedNativeWriteConnectors must be an array");
+}
+for (const connectorId of ["aider", "cursor"]) {
+  if (!report.localValidation.connectorReadiness.gatedNativeWriteConnectors.includes(connectorId)) {
+    fail(`localValidation.connectorReadiness.gatedNativeWriteConnectors must include ${connectorId}`);
+  }
+}
+if (!markdownReport.includes("Connector readiness required gated native-write dossiers present: yes")) {
+  fail(`${markdownReportPath} must include connector readiness gated native-write evidence`);
 }
 
 requireType(report, "status", "string");
