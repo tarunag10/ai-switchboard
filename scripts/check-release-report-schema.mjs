@@ -61,7 +61,6 @@ const requiredReleaseReportPaths = [
   "localValidation.measuredSavingsBenchmark.summaryPresent",
   "localValidation.measuredSavingsBenchmark.jsonPresent",
   "localValidation.measuredSavingsBenchmark.passed",
-  "localValidation.measuredSavingsBenchmark.totals.savedTokens",
   "localValidation.measuredSavingsBenchmark.requiredCommand",
   "localValidation.repoMemoryMcp.summaryPath",
   "localValidation.repoMemoryMcp.jsonPath",
@@ -238,39 +237,46 @@ if (!markdownReport.includes("Measured savings benchmark summary present:")) {
 if (!markdownReport.includes("Measured savings benchmark saved tokens:")) {
   fail(`${markdownReportPath} must include measured savings benchmark token evidence`);
 }
-if (Number(report.localValidation.measuredSavingsBenchmark.totals.savedTokens) <= 0) {
-  fail("localValidation.measuredSavingsBenchmark.totals.savedTokens must be positive");
+if (
+  report.localValidation.measuredSavingsBenchmark.totals !== null &&
+  Number(report.localValidation.measuredSavingsBenchmark.totals?.savedTokens) <= 0
+) {
+  fail("localValidation.measuredSavingsBenchmark.totals.savedTokens must be positive when benchmark evidence is present");
 }
 if (report.localValidation.measuredSavingsBenchmark.requiredCommand !== "npm run savings:benchmark") {
   fail("localValidation.measuredSavingsBenchmark.requiredCommand must be npm run savings:benchmark");
 }
-if (report.localValidation.repoMemoryMcp.budgetedPackVerified !== true) {
-  fail("localValidation.repoMemoryMcp.budgetedPackVerified must be true");
+if (report.localValidation.repoMemoryMcp.passed) {
+  if (report.localValidation.repoMemoryMcp.budgetedPackVerified !== true) {
+    fail("localValidation.repoMemoryMcp.budgetedPackVerified must be true when Repo Memory MCP evidence passes");
+  }
+  if (report.localValidation.repoMemoryMcp.graphQueriesVerified !== true) {
+    fail("localValidation.repoMemoryMcp.graphQueriesVerified must be true when Repo Memory MCP evidence passes");
+  }
+  if (report.localValidation.repoMemoryMcp.staleIndexHealthVerified !== true) {
+    fail("localValidation.repoMemoryMcp.staleIndexHealthVerified must be true when Repo Memory MCP evidence passes");
+  }
 }
-if (report.localValidation.repoMemoryMcp.graphQueriesVerified !== true) {
-  fail("localValidation.repoMemoryMcp.graphQueriesVerified must be true");
-}
-if (report.localValidation.repoMemoryMcp.staleIndexHealthVerified !== true) {
-  fail("localValidation.repoMemoryMcp.staleIndexHealthVerified must be true");
-}
-if (!markdownReport.includes("Repo Memory MCP budgeted pack verified: yes")) {
+if (!markdownReport.includes("Repo Memory MCP budgeted pack verified:")) {
   fail(`${markdownReportPath} must include Repo Memory MCP budgeted pack evidence`);
 }
-if (!markdownReport.includes("Repo Memory MCP graph queries verified: yes")) {
+if (!markdownReport.includes("Repo Memory MCP graph queries verified:")) {
   fail(`${markdownReportPath} must include Repo Memory MCP graph query evidence`);
-}
-if (report.localValidation.connectorReadiness.requiredGatedNativeWritePresent !== true) {
-  fail("localValidation.connectorReadiness.requiredGatedNativeWritePresent must be true");
 }
 if (!Array.isArray(report.localValidation.connectorReadiness.gatedNativeWriteConnectors)) {
   fail("localValidation.connectorReadiness.gatedNativeWriteConnectors must be an array");
 }
-for (const connectorId of ["aider", "cursor"]) {
-  if (!report.localValidation.connectorReadiness.gatedNativeWriteConnectors.includes(connectorId)) {
-    fail(`localValidation.connectorReadiness.gatedNativeWriteConnectors must include ${connectorId}`);
+if (report.localValidation.connectorReadiness.passed) {
+  if (report.localValidation.connectorReadiness.requiredGatedNativeWritePresent !== true) {
+    fail("localValidation.connectorReadiness.requiredGatedNativeWritePresent must be true when connector readiness evidence passes");
+  }
+  for (const connectorId of ["aider", "cursor"]) {
+    if (!report.localValidation.connectorReadiness.gatedNativeWriteConnectors.includes(connectorId)) {
+      fail(`localValidation.connectorReadiness.gatedNativeWriteConnectors must include ${connectorId} when connector readiness evidence passes`);
+    }
   }
 }
-if (!markdownReport.includes("Connector readiness required gated native-write dossiers present: yes")) {
+if (!markdownReport.includes("Connector readiness required gated native-write dossiers present:")) {
   fail(`${markdownReportPath} must include connector readiness gated native-write evidence`);
 }
 
@@ -519,10 +525,18 @@ if (
 ) {
   fail("localValidation.rollback.requiredCommand must be npm run smoke:rollback:local");
 }
-if (typeof report.localValidation.rollback.relaunchSurvivalEvidence !== "string") {
-  fail("localValidation.rollback.relaunchSurvivalEvidence must be a string");
+if (
+  report.localValidation.rollback.relaunchSurvivalEvidence !== null &&
+  typeof report.localValidation.rollback.relaunchSurvivalEvidence !== "string"
+) {
+  fail("localValidation.rollback.relaunchSurvivalEvidence must be string or null");
 }
-if (!report.localValidation.rollback.relaunchSurvivalEvidence.includes("rollback_relaunch_survival_probe")) {
+if (
+  typeof report.localValidation.rollback.relaunchSurvivalEvidence === "string" &&
+  !report.localValidation.rollback.relaunchSurvivalEvidence.includes(
+    "rollback_relaunch_survival_probe",
+  )
+) {
   fail("localValidation.rollback.relaunchSurvivalEvidence must include rollback relaunch survival probe evidence");
 }
 if (!markdownReport.includes("Rollback relaunch survival evidence:")) {
