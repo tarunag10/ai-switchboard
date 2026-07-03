@@ -29,6 +29,7 @@
     "rtk:presets": "node scripts/optimization-report.mjs --rtk-presets",
     "rtk:presets:json": "node scripts/optimization-report.mjs --rtk-presets --json",
     "rtk:presets:check": "node --test scripts/rtk-presets.node-test.mjs",
+    "check:file-size-budget": "node scripts/check-file-size-budget.mjs src-tauri/src/optimization src/lib/agentSessionPacks.ts src/lib/agentSessionPacks.test.ts src/components/OptimizationDashboard.tsx src/components/TokenXrayPanel.tsx src/components/RedundancyPanel.tsx",
     "smoke:savings-anomalies:local": "node scripts/local-savings-anomaly-validation-summary.mjs",
     "release:ready": "node scripts/check-release-readiness.mjs",
     "release:ready:strict": "node scripts/check-release-readiness.mjs --strict",
