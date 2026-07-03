@@ -12,6 +12,7 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import repoMapSnapshot from "../../docs/repo-map/repo-map.json";
+import { buildRepoMapProgressSteps } from "../lib/repoMapProgress";
 
 type RepoMapSnapshot = typeof repoMapSnapshot & {
   toolRuns?: Record<string, RepoMapToolRunStatus>;
@@ -279,15 +280,12 @@ export function RepoMapView({
     ] as const,
     [],
   );
-  const generationSteps = [
-    "Preflight",
-    "Graphify",
-    "Madge",
-    "dependency-cruiser",
-    "Cargo metadata",
-    "Tauri invoke scan",
-    "Compact context",
-  ];
+  const generationSteps = buildRepoMapProgressSteps({
+    generateBusy,
+    generateError,
+    preflightTools: preflight?.tools,
+    toolRuns: generation?.map.toolRuns ?? repoMap.toolRuns,
+  });
   const missingPreflightTools =
     preflight?.tools.filter((tool) => !tool.available) ?? [];
 
@@ -398,16 +396,17 @@ export function RepoMapView({
 
       {generateBusy ? (
         <div className="repo-map-progress" aria-label="Repo map generation progress">
-          {generationSteps.map((step, index) => (
+          {generationSteps.map((step) => (
             <span
               className={
-                index === 0
+                step.state === "running"
                   ? "repo-map-progress__step repo-map-progress__step--active"
-                  : "repo-map-progress__step"
+                  : `repo-map-progress__step repo-map-progress__step--${step.state}`
               }
-              key={step}
+              key={step.id}
+              title={step.detail}
             >
-              {step}
+              {step.label}
             </span>
           ))}
         </div>

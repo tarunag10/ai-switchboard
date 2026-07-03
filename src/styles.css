@@ -660,6 +660,25 @@
   color: var(--accent);
 }
 
+.repo-map-progress__step--ok {
+  border-color: color-mix(in srgb, var(--success) 42%, var(--border-default));
+  color: var(--success);
+}
+
+.repo-map-progress__step--warning {
+  border-color: color-mix(in srgb, var(--warning) 42%, var(--border-default));
+  color: var(--warning);
+}
+
+.repo-map-progress__step--error {
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--border-default));
+  color: var(--danger);
+}
+
+.repo-map-progress__step--pending {
+  opacity: 0.72;
+}
+
 .repo-map-tool-list,
 .repo-map-history {
   display: grid;
