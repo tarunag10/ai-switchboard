@@ -452,6 +452,7 @@ function buildLocalValidationEvidence() {
       summaryPresent: uninstallSummary.present,
       jsonPresent: uninstallJson.present,
       generatedLine: uninstallSummary.generatedLine,
+      schemaVersion: uninstallJson.body?.schemaVersion ?? null,
       passed: uninstallPassed,
       destructive: uninstallJson.body?.destructive === true,
       parseError: uninstallJson.parseError,
@@ -459,7 +460,8 @@ function buildLocalValidationEvidence() {
       stepCount: Array.isArray(uninstallJson.body?.steps)
         ? uninstallJson.body.steps.length
         : 0,
-      requiredCommand: "npm run smoke:uninstall:local",
+      requiredCommand:
+        "npm run smoke:uninstall:local && npm run smoke:uninstall:local:check",
     },
     repoIntelligence: {
       summaryPath: localRepoIntelligenceSummaryPath,

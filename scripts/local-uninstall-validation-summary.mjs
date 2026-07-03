@@ -47,6 +47,7 @@ const generatedAt = new Date().toISOString();
 const results = steps.map(runStep);
 const passed = results.every((result) => result.ok);
 const payload = {
+  schemaVersion: 1,
   generatedAt,
   kind: "mac_ai_switchboard.local_uninstall_validation",
   releaseGateEvidence: false,

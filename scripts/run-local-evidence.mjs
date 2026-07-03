@@ -63,8 +63,11 @@ const steps = [
   {
     id: "uninstall-validation",
     label: "Uninstall dry-run validation",
-    command: "npm run smoke:uninstall:local",
-    commands: [["npm", ["run", "smoke:uninstall:local"]]],
+    command: "npm run smoke:uninstall:local && npm run smoke:uninstall:local:check",
+    commands: [
+      ["npm", ["run", "smoke:uninstall:local"]],
+      ["npm", ["run", "smoke:uninstall:local:check"]],
+    ],
     summaryPath: "dist/local-uninstall-validation-summary.md",
   },
   {
