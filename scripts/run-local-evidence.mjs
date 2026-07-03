@@ -83,6 +83,13 @@ const steps = [
     summaryPath: "dist/local-only-network-validation-summary.md",
   },
   {
+    id: "measured-savings-benchmark",
+    label: "Measured savings benchmark",
+    command: "npm run savings:benchmark",
+    commands: [["npm", ["run", "savings:benchmark"]]],
+    summaryPath: "dist/measured-savings-benchmark.md",
+  },
+  {
     id: "release-report",
     label: "Refresh release readiness report",
     command: "npm run release:report",
