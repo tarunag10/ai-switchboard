@@ -9,6 +9,7 @@ Created:
 
 Done:
 - Repo Map one-click generation covers Graphify, Madge, dependency-cruiser, Cargo, and Tauri evidence with partial-success handling and token-savings artifacts.
+- Repo Map background generation now has a tested progress state model for preflight, queued/running tools, partial-success warnings, and generator startup failures.
 - Repo Map feeds Repo Intelligence Agent Session handoffs, CLI exports, Repo Memory MCP packs, and artifact-opening flows.
 - Repo Intelligence now carries Repo Map freshness, age, stale warning, and token-savings method into manifests and agent handoff JSON, with `check:repo-intelligence-map` in local evidence.
 - Repo Memory MCP includes app-managed descriptor setup, stale-health smoke summaries, read-only pack/query surfaces, and connector recipes.
@@ -17,6 +18,7 @@ Done:
 - Aider/Cursor and other unpromoted provider/editor native writes remain guarded behind seven-stage readiness.
 
 Left:
+- Render the tested Repo Map progress state model directly in the map UI so long-running generation shows per-tool state while the job is active.
 - Finish native-write apply/verify/rollback/Off cleanup before enabling remaining connector automation.
 - Add real runtime/session counters for Caveman, Ponytail, and MarkItDown.
 - Expand Tauri/backend graph analyzers and large-file refactors beyond the guarded Repo Map context bridge.
