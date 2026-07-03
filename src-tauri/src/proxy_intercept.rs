@@ -382,6 +382,23 @@ async fn splice_with_codex_capture(
         // Forward the head bytes we read (full head on success, partial on
         // timeout/EOF — `read_http_headers` may also include leading body bytes
         // it over-read), then splice the rest of the response through.
+        if let Some(content_length) = bounded_json_response_len(&head) {
+            let mut body = vec![0_u8; content_length];
+            if backend_rd.read_exact(&mut body).await.is_ok() {
+                if let Some(metrics) =
+                    crate::optimization::provider_usage::parse_provider_cache_metrics(&body)
+                {
+                    telemetry::record_prompt_cache_metrics(metrics);
+                }
+                if client_wr.write_all(&head).await.is_err() {
+                    return;
+                }
+                let _ = client_wr.write_all(&body).await;
+                let _ = client_wr.shutdown().await;
+                return;
+            }
+        }
+
         if client_wr.write_all(&head).await.is_err() {
             return;
         }
@@ -401,6 +418,27 @@ fn is_headroom_compression_refusal_response(head: &[u8]) -> bool {
         && lower.contains("compression_refused")
         && lower.contains("headroom:")
         && lower.contains("compression timeout")
+}
+
+fn bounded_json_response_len(head: &[u8]) -> Option<usize> {
+    const MAX_CAPTURE_BYTES: usize = 1024 * 1024;
+
+    let text = std::str::from_utf8(head).ok()?.to_ascii_lowercase();
+    if !text.starts_with("http/1.1 200") || text.contains("text/event-stream") {
+        return None;
+    }
+    if !text.contains("content-type: application/json") {
+        return None;
+    }
+
+    for line in text.lines() {
+        let Some(value) = line.strip_prefix("content-length:") else {
+            continue;
+        };
+        let len = value.trim().parse::<usize>().ok()?;
+        return (len <= MAX_CAPTURE_BYTES).then_some(len);
+    }
+    None
 }
 
 fn estimate_tokens_from_bytes(byte_len: usize) -> u64 {
