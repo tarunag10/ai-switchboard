@@ -5,6 +5,30 @@
 [![Repository](https://img.shields.io/badge/GitHub-tarunag10%2Fmac--ai--switchboard-blue?style=for-the-badge&logo=github)](https://github.com/tarunag10/mac-ai-switchboard)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
+## Main Page Index
+
+Visible docs:
+- [Plan status ledger](docs/plan-status-ledger.md)
+- [Product roadmap plan](docs/product-roadmap-plan.md)
+- [Agent Control Center implementation plan](docs/agent-control-center-implementation-plan.md)
+- [Fable security implementation plan](docs/fable-security-implementation-plan.md)
+- [Adapter lifecycle](docs/adapter-lifecycle.md)
+- [Benchmarks](docs/benchmarks.md)
+- [Repo map](docs/repo-map/README.md)
+- [Repo map compact context](docs/repo-map/COMPACT_CONTEXT.md)
+
+PR and release materials:
+- [Pull request template](.github/PULL_REQUEST_TEMPLATE.md)
+- [Alternate pull request template](.github/pull_request_template.md)
+- [CI workflow](.github/workflows/ci.yml)
+- [macOS CI workflow](.github/workflows/macos-ci.yml)
+- [Rust/Tauri workflow](.github/workflows/rust-tauri.yml)
+- [Release macOS workflow](.github/workflows/release-macos.yml)
+- [Release macOS staging workflow](.github/workflows/release-macos-staging.yml)
+- [Security workflow](.github/workflows/security.yml)
+- [Test workflow](.github/workflows/test.yml)
+- [Vendor wheel build workflow](.github/workflows/build-vendor-wheels.yml)
+
 Mac AI Switchboard is a privacy-first Mac utility for turning local coding-agent optimizations on and off. It manages supported client routing, shell-output compression, local add-ons, Doctor repairs, and read-only repo context packs from one app.
 
 The app is **local-first**, not offline-only. Claude, OpenAI, and other provider model calls still go to the configured remote APIs. Switchboard state, reversible client config edits, Doctor repair data, add-on setup, telemetry defaults, and Repo Intelligence metadata stay on your Mac.

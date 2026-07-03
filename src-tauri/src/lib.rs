@@ -12,6 +12,7 @@ mod logging;
 mod memory_scrubber;
 mod message_logging;
 mod models;
+mod optimization;
 mod port_conflict;
 mod pricing;
 mod proxy_intercept;
