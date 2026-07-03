@@ -79,6 +79,7 @@ const payload = {
   generatedAt,
   kind: "mac_ai_switchboard.local_rollback_validation",
   releaseGateEvidence: false,
+  relaunchSurvivalEvidence: null,
   dedicatedCleanupDomains,
   passed,
   steps: results.map(({ stdout, stderr, ...result }) => ({
@@ -94,6 +95,7 @@ Generated: ${generatedAt}
 
 - Evidence kind: local Rollback Center validation
 - Release gate evidence: no
+- Installed-app relaunch survival evidence: not recorded
 - Overall result: ${passed ? "pass" : "fail"}
 - Dedicated cleanup domains covered: ${dedicatedCleanupDomains
   .map((domain) => `\`${domain}\``)

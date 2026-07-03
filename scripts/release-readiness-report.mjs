@@ -404,6 +404,8 @@ function buildLocalValidationEvidence() {
       stepCount: Array.isArray(rollbackJson.body?.steps)
         ? rollbackJson.body.steps.length
         : 0,
+      relaunchSurvivalEvidence:
+        rollbackJson.body?.relaunchSurvivalEvidence ?? null,
       requiredCommand: "npm run smoke:rollback:local",
     },
     doctorRepair: {
@@ -548,6 +550,9 @@ function missingLocalEvidenceLabels(localValidation) {
     localValidation.localInstalled?.passed ? null : "local installed smoke",
     localValidation.modeRelaunch?.passed ? null : "Off/RTK relaunch smoke",
     localValidation.rollback?.passed ? null : "Rollback Center validation",
+    localValidation.rollback?.relaunchSurvivalEvidence
+      ? null
+      : "Rollback Center relaunch survival evidence",
     localValidation.doctorRepair?.passed ? null : "Doctor repair validation",
     localValidation.uninstall?.passed ? null : "uninstall dry-run validation",
     localValidation.repoIntelligence?.passed ? null : "Repo Intelligence validation",
@@ -683,6 +688,7 @@ ${localValidation.modeRelaunch.generatedLine ? `- ${localValidation.modeRelaunch
 ${localValidation.rollback.generatedLine ? `- ${localValidation.rollback.generatedLine}` : "- Rollback validation summary has not been generated in this checkout."}
 - Rollback validation passed: ${localValidation.rollback.passed ? "yes" : "no"}
 - Rollback validation steps: ${localValidation.rollback.stepCount}
+- Rollback relaunch survival evidence: ${localValidation.rollback.relaunchSurvivalEvidence ?? "missing"}
 - Rollback command: ${localValidation.rollback.requiredCommand}
 - Doctor repair summary present: ${localValidation.doctorRepair.summaryPresent ? "yes" : "no"} (${localValidation.doctorRepair.summaryPath})
 - Doctor repair JSON present: ${localValidation.doctorRepair.jsonPresent ? "yes" : "no"} (${localValidation.doctorRepair.jsonPath})

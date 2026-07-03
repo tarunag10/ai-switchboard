@@ -116,6 +116,7 @@ export interface ReleaseReadinessReportSnapshot {
       jsonPresent?: boolean;
       passed?: boolean;
       stepCount?: number;
+      relaunchSurvivalEvidence?: string | null;
       requiredCommand?: string;
       summaryPath?: string;
     };
@@ -1063,6 +1064,9 @@ export function formatReleaseReadinessReportSnapshot(
     localValidation?.localInstalled?.passed ? null : "local installed smoke",
     localValidation?.modeRelaunch?.passed ? null : "Off/RTK relaunch smoke",
     localValidation?.rollback?.passed ? null : "Rollback Center validation",
+    localValidation?.rollback?.relaunchSurvivalEvidence
+      ? null
+      : "Rollback Center relaunch survival evidence",
     localValidation?.doctorRepair?.passed ? null : "Doctor repair validation",
     localValidation?.uninstall?.passed ? null : "uninstall dry-run validation",
     localValidation?.repoIntelligence?.passed ? null : "Repo Intelligence validation",

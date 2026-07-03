@@ -39,6 +39,7 @@ const requiredReleaseReportPaths = [
   "localValidation.rollback.summaryPath",
   "localValidation.rollback.jsonPath",
   "localValidation.rollback.passed",
+  "localValidation.rollback.relaunchSurvivalEvidence",
   "localValidation.rollback.requiredCommand",
   "localValidation.doctorRepair.summaryPath",
   "localValidation.doctorRepair.jsonPath",
@@ -458,6 +459,12 @@ if (
   "npm run smoke:rollback:local"
 ) {
   fail("localValidation.rollback.requiredCommand must be npm run smoke:rollback:local");
+}
+if (report.localValidation.rollback.relaunchSurvivalEvidence !== null) {
+  fail("localValidation.rollback.relaunchSurvivalEvidence must be null until installed-app relaunch proof is recorded");
+}
+if (!markdownReport.includes("Rollback relaunch survival evidence:")) {
+  fail(`${markdownReportPath} must include rollback relaunch survival evidence`);
 }
 if (
   report.localValidation.doctorRepair.requiredCommand !==
