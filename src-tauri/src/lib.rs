@@ -5056,6 +5056,11 @@ async fn set_savings_mode(app: AppHandle, mode: SavingsMode) -> Result<Switchboa
     build_switchboard_state(&state)
 }
 
+#[tauri::command]
+fn get_optimization_snapshot() -> optimization::OptimizationSnapshot {
+    optimization::snapshot::build_optimization_snapshot()
+}
+
 /// Debug-only: force the proxy intercept's bypass flag on/off so a developer
 /// can manually exercise the gated path (Python proxy stopped, traffic routed
 /// direct to api.anthropic.com) without crossing the real disable threshold.
@@ -6937,6 +6942,7 @@ pub fn run() {
             get_headroom_logs,
             get_headroom_request_count,
             get_headroom_request_counts_by_agent,
+            get_optimization_snapshot,
             get_rtk_activity,
             get_tool_logs,
             get_claude_code_projects,

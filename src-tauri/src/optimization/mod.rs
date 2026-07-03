@@ -1,11 +1,15 @@
-#![allow(dead_code)]
-
 pub(crate) mod cache_metrics;
+pub(crate) mod compaction;
+pub(crate) mod model_routing;
 pub(crate) mod policy;
+pub(crate) mod redundancy;
+pub(crate) mod rtk_presets;
+pub(crate) mod session_packs;
+pub(crate) mod snapshot;
 pub(crate) mod token_estimator;
 pub(crate) mod token_ledger;
+pub(crate) mod token_xray;
 
-pub(crate) use cache_metrics::{CacheTokenMetrics, ProviderTokenUsage};
+pub(crate) use cache_metrics::CacheTokenMetrics;
 pub(crate) use policy::OptimizationPolicy;
-pub(crate) use token_estimator::{estimate_text_tokens, TokenEstimate};
-pub(crate) use token_ledger::{TokenLedger, TokenLedgerEntry};
+pub(crate) use snapshot::OptimizationSnapshot;
