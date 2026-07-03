@@ -41,8 +41,11 @@ if (proof.kind !== "mac_ai_switchboard.public_release_proof") {
 if (proof.schemaVersion !== 1) {
   fail("schemaVersion must be 1");
 }
-if (proof.releaseGateEvidence !== true) {
-  fail("releaseGateEvidence must be true");
+if (proof.releaseGateEvidence !== proof.proofReady) {
+  fail("releaseGateEvidence must match proofReady");
+}
+if (proof.releaseGateEvidence !== false) {
+  fail("blocked proof must not be release-gate evidence");
 }
 if (!Array.isArray(proof.blockers)) {
   fail("blockers must be an array");

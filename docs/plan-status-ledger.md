@@ -39,6 +39,10 @@ tracks what has been created, what was updated, and what is still left.
 
 ## Updated In This Slice
 
+- Public release proof now treats blocked public-release evidence as
+  `releaseGateEvidence: false`; the checker enforces that
+  `releaseGateEvidence` matches `proofReady` so local/unsigned evidence cannot
+  accidentally satisfy the public release gate.
 - `docs/remote-destinations.md` was restored to readable Markdown and now
   includes the exact local-only boundary and guard signals required by the
   network certifier.
@@ -78,3 +82,5 @@ tracks what has been created, what was updated, and what is still left.
 
 - `npm run smoke:local-only:local`
 - `npm run smoke:local-only:local:check`
+- `npm run release:proof`
+- `npm run release:proof:check`

@@ -44,7 +44,7 @@ const payload = {
   schemaVersion: 1,
   generatedAt,
   kind: "mac_ai_switchboard.public_release_proof",
-  releaseGateEvidence: true,
+  releaseGateEvidence: proofReady,
   proofReady,
   blockers,
   requiredArtifacts: {
