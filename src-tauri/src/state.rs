@@ -2687,7 +2687,12 @@ impl AppState {
         &self,
         stats: &HeadroomDashboardStats,
         drain_pending_milestones: bool,
-    ) -> Option<(SavingsTotalsSnapshot, Vec<DailySavingsPoint>, Vec<HourlySavingsPoint>, PendingMilestones)> {
+    ) -> Option<(
+        SavingsTotalsSnapshot,
+        Vec<DailySavingsPoint>,
+        Vec<HourlySavingsPoint>,
+        PendingMilestones,
+    )> {
         let mut tracker = self.savings_tracker.lock();
         let snapshot = tracker.observe(stats)?;
         let daily_savings = tracker.daily_savings();
@@ -9788,7 +9793,10 @@ mod tests {
         assert_eq!(event.delta_tokens_saved, 2_500);
         assert_eq!(event.total_tokens_sent, 7_500);
         assert_eq!(event.request_delta, 4);
-        assert!(event.evidence.join(" ").contains("10000 before to 7500 after"));
+        assert!(event
+            .evidence
+            .join(" ")
+            .contains("10000 before to 7500 after"));
     }
 
     #[test]
@@ -9809,5 +9817,4 @@ mod tests {
             .expect("skip measured event");
         assert!(tracker.attribution_events().is_empty());
     }
-
 }

@@ -43,6 +43,9 @@ tracks what has been created, what was updated, and what is still left.
   `releaseGateEvidence: false`; the checker enforces that
   `releaseGateEvidence` matches `proofReady` so local/unsigned evidence cannot
   accidentally satisfy the public release gate.
+- Savings anomaly evidence now has a local JSON/Markdown proof for
+  output-growth, low-savings, and cost-growth alerts, plus a checker wired into
+  `evidence:local`.
 - `docs/remote-destinations.md` was restored to readable Markdown and now
   includes the exact local-only boundary and guard signals required by the
   network certifier.
@@ -71,7 +74,8 @@ tracks what has been created, what was updated, and what is still left.
   pack foundations, especially richer Rust/Python/Swift symbol and dependency
   edges.
 - Expand savings accuracy with more real before/after token measurements and
-  alerting for output growth, low savings, or cost growth.
+  durable day/week trend alerts beyond the shipped session output-growth,
+  low-savings, and cost-growth local evidence.
 - Complete gateway/add-on roadmap items that remain guided/gated: LiteLLM
   semantic cache lifecycle, Langfuse self-hosted observability, Cloudflare AI
   Gateway, and Kong enterprise documentation/evidence.
@@ -84,3 +88,5 @@ tracks what has been created, what was updated, and what is still left.
 - `npm run smoke:local-only:local:check`
 - `npm run release:proof`
 - `npm run release:proof:check`
+- `npm run smoke:savings-anomalies:local`
+- `npm run smoke:savings-anomalies:local:check`

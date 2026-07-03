@@ -672,15 +672,16 @@ async fn record_measured_savings_attribution(
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let state: State<'_, AppState> = app.state();
-        state.record_measured_addon_attribution(
-            request.source,
-            &request.label,
-            request.baseline_tokens,
-            request.optimized_tokens,
-            request.request_delta,
-            request.detail,
-        )
-        .map_err(|err| err.to_string())
+        state
+            .record_measured_addon_attribution(
+                request.source,
+                &request.label,
+                request.baseline_tokens,
+                request.optimized_tokens,
+                request.request_delta,
+                request.detail,
+            )
+            .map_err(|err| err.to_string())
     })
     .await
     .map_err(|err| err.to_string())?

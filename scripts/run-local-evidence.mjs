@@ -118,6 +118,12 @@ const steps = [
     summaryPath: "dist/measured-savings-benchmark.md",
   },
   {
+    id: "savings-anomaly-validation",
+    label: "Savings anomaly smoke:savings-anomalies:local smoke:savings-anomalies:local:check",
+    commands: [["npm", ["run", "smoke:savings-anomalies:local"]], ["npm", ["run", "smoke:savings-anomalies:local:check"]]],
+    summaryPath: "dist/local-savings-anomaly-validation-summary.md",
+  },
+  {
     id: "runtime-savings-attribution",
     label: "Runtime savings attribution contract",
     command: "npm run savings:runtime:check",
