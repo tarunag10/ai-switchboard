@@ -1,7 +1,9 @@
 # Fable Security and Product Hardening Plan
 
-Status ledger: see [plan-status-ledger.md](plan-status-ledger.md) for the
-current created/updated/left checklist.
+Canonical status: see [plan-status-ledger.md](plan-status-ledger.md) for the
+current done/left checklist. It includes the latest Repo Map UI mount,
+evidence-gate stabilization, Fable security hardening, and signed-release
+blockers as of 2026-07-03.
 
 ## Updated Status - 2026-07-03
 
