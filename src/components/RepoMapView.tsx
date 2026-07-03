@@ -288,6 +288,8 @@ export function RepoMapView({
     "Tauri invoke scan",
     "Compact context",
   ];
+  const missingPreflightTools =
+    preflight?.tools.filter((tool) => !tool.available) ?? [];
 
   return (
     <section className="repo-map-view" aria-labelledby="repo-map-title">
@@ -373,6 +375,20 @@ export function RepoMapView({
         {copyNotice ? <span>{copyNotice}</span> : null}
         {openNotice ? <span>{openNotice}</span> : null}
       </div>
+
+      {missingPreflightTools.length > 0 ? (
+        <div className="repo-map-preflight-fixes" aria-label="Repo map tool install checks">
+          <strong>Tool install checks</strong>
+          <ul>
+            {missingPreflightTools.map((tool) => (
+              <li key={`${tool.label}-${tool.installHint}`}>
+                <span>{tool.label}</span>
+                <code>{tool.installHint}</code>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {generateError ? (
         <p className="repo-map-error" role="alert">

@@ -597,6 +597,41 @@
   color: var(--warning);
 }
 
+.repo-map-preflight-fixes {
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface-default));
+  border: 1px solid color-mix(in srgb, var(--warning) 28%, var(--border-default));
+  border-radius: 8px;
+  color: var(--text-primary);
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.repo-map-preflight-fixes ul {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.repo-map-preflight-fixes li {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.repo-map-preflight-fixes code {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  padding: 4px 6px;
+}
+
 .repo-map-error {
   background: var(--danger-tint);
   border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border-default));
