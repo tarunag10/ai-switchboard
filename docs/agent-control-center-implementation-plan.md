@@ -1,5 +1,22 @@
 # Agent Control Center Implementation Plan
 
+## Updated Status - 2026-07-03
+
+Created / updated:
+- Agent Session and Repo Intelligence are connected to Repo Map artifacts, selected packs, graph-input paths, freshness states, stale-map warnings, token-savings evidence, and MCP smoke evidence.
+- Mode Inspector / Repo Memory MCP expose install/start/stop style lifecycle evidence, stale-config detection, app-managed descriptor rechecks, and read-only/no-mutation proof.
+- Rollback Center has local evidence for managed records, rollback inventory, Doctor integration, connector cleanup boundaries, and relaunch-survival validation.
+- Release readiness distinguishes unsigned/local evidence from signed/public evidence and reports signing, notarization, updater, and public installed-smoke blockers.
+- Savings attribution has measured-attribution contracts, confidence/caveat classification, and local-only evidence separation.
+- Connector readiness has promoted/read-only paths plus gated native-write evidence for unpromoted provider/editor connectors.
+
+Still left:
+- Promote remaining provider/editor native-write connectors only after real provider-specific apply, verify, rollback, Off cleanup, and relaunch-survival proof.
+- Confirm frontend-visible live runtime/session savings rows for Caveman, Ponytail, and MarkItDown.
+- Extend Repo Intelligence with deeper long-running graph analyzers and supervised MCP operations.
+- Produce signed/notarized/updater public-release evidence and public installed-app smoke proof.
+- Keep planned maintainability refactors scoped to touched areas in `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/src/tool_manager.rs`, and `src/App.tsx`.
+
 ## Current Plan Rollup - 2026-07-03
 
 Created:
