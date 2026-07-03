@@ -18,6 +18,7 @@ Done:
 - Repo Memory MCP local evidence now has a `:check` gate for read-only tools, no repository mutation, budgeted packs, graph queries, stale-index health, connector recipes, and app-managed descriptor recheck proof.
 - Savings evidence now distinguishes measured, fixture-backed, and estimated rows for Caveman, Ponytail, MarkItDown, RTK, and Repo Intelligence.
 - Measured savings benchmark JSON now carries explicit local fixture metadata (`kind`, `measurementClass`, `releaseGateEvidence`) that release reports must preserve.
+- Runtime savings attribution now has a local contract check for measured command wiring, measured confidence, before/after token deltas, and Caveman/Ponytail/MarkItDown source coverage.
 - Rollback Center records relaunch-survival proof, local evidence summaries, and native-write disabled/gated connector states.
 - Rollback and Doctor evidence summaries now have explicit `:check` gates for relaunch-survival, cleanup-domain, Off-mode, frontend repair-copy, and post-write verification proof.
 - Aider/Cursor and other unpromoted provider/editor native writes remain guarded behind seven-stage readiness.
@@ -25,7 +26,7 @@ Done:
 
 Left:
 - Add provider-specific fixture-home apply/verify/rollback/Off cleanup proof before enabling any currently gated connector automation.
-- Add real runtime/session counters for Caveman, Ponytail, and MarkItDown.
+- Surface the backend runtime/session Caveman, Ponytail, and MarkItDown attribution contract in frontend session reporting.
 - Expand Tauri/backend graph analyzers and large-file refactors beyond the guarded Repo Map context bridge.
 - Produce signed/notarized DMG, updater feed, and public installed-app smoke proof.
 - Keep release proof blocked until real signing/notarization/updater evidence exists.

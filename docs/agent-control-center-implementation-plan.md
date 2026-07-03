@@ -16,6 +16,7 @@ Done:
 - Repo Intelligence manifest and agent handoffs now expose Repo Map freshness, age, token-savings method, and stale-map warning evidence, guarded by `npm run check:repo-intelligence-map`.
 - Savings ledger separates measured/estimated confidence and copyable evidence for Headroom engine, RTK, Repo Intelligence, Ponytail, Caveman, and Compact profiles.
 - Savings benchmark evidence now self-identifies as local fixture before/after evidence, not release-gate or provider-billing telemetry, and release reports enforce that classification.
+- Runtime savings attribution now has a local contract check proving the Tauri measured-attribution command, measured confidence, before/after token delta, and Caveman/Ponytail/MarkItDown source coverage.
 - Rollback Center has Doctor-visible inventory, execution previews, relaunch-survival evidence, and cleanup-only rows for native-write surfaces.
 - Rollback and Doctor local evidence now have dedicated summary checkers, so relaunch-survival probes, cleanup domains, Doctor frontend repair copy, Off-mode guardrails, and post-write verification evidence are validated before local evidence is accepted.
 - Connector readiness enforces seven-stage evidence and `automationEnabled: false` for unpromoted native/provider writes.
@@ -23,7 +24,7 @@ Done:
 
 Left:
 - Promote remaining provider/editor native-write connectors only after the existing gated lifecycle evidence is backed by provider-specific fixture-home apply/verify/rollback/Off cleanup proof.
-- Add live runtime/session savings counters for Caveman, Ponytail, and MarkItDown in Rust/frontend state.
+- Promote live runtime/session savings counters for Caveman, Ponytail, and MarkItDown from contract-checked backend support into visible frontend session reporting.
 - Deepen long-running Repo Intelligence graph analyzers and MCP supervision beyond the guarded Repo Memory MCP local evidence checks.
 - Produce signed/notarized/updater public-release evidence and public installed-app smoke proof.
 - Refactor large backend/frontend files: `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/src/tool_manager.rs`, and `src/App.tsx`.

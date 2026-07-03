@@ -57,6 +57,7 @@
     "smoke:connectors:local": "node scripts/local-connector-readiness-summary.mjs",
     "smoke:connectors:local:check": "node scripts/check-local-connector-readiness-summary.mjs",
     "savings:benchmark:check": "node scripts/check-measured-savings-benchmark.mjs",
+    "savings:runtime:check": "node scripts/check-runtime-savings-attribution.mjs",
     "release:proof": "node scripts/public-release-proof-summary.mjs",
     "release:proof:check": "node scripts/check-public-release-proof-summary.mjs"
   },

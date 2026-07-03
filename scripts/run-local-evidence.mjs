@@ -109,6 +109,13 @@ const steps = [
     summaryPath: "dist/measured-savings-benchmark.md",
   },
   {
+    id: "runtime-savings-attribution",
+    label: "Runtime savings attribution contract",
+    command: "npm run savings:runtime:check",
+    commands: [["npm", ["run", "savings:runtime:check"]]],
+    summaryPath: "dist/runtime-savings-attribution-summary.md",
+  },
+  {
     id: "connector-readiness-validation",
     label: "Connector readiness validation",
     command: "npm run smoke:connectors:local && npm run smoke:connectors:local:check",
