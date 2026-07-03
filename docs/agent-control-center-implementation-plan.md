@@ -5,6 +5,7 @@
 Created:
 - Agent Control Center plan for Repo Intelligence, Agent Session handoffs, savings attribution, connector readiness, Rollback Center, and release evidence.
 - Public release proof artifact/check pair wired into local evidence collection.
+- Public release proof now records which local-only evidence artifacts are excluded from public signed/notarized readiness.
 - Repo Memory MCP and connector lifecycle evidence surfaces for app-managed handoffs.
 
 Done:

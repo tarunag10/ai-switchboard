@@ -5,6 +5,7 @@
 Created:
 - Product roadmap status for Repo Map/token compression, Repo Intelligence, Repo Memory MCP, savings, connectors, Rollback Center, and release evidence.
 - One-click public release proof summary workflow for blocked/ready release evidence.
+- Public release proof now points at the real static preflight artifact and explicitly excludes local-only smoke, rollback, Doctor, connector, and fixture savings summaries from public release proof.
 - Deployment governance checks covering remote destinations, workflow branch policy, local rollback evidence, and release proof scripts.
 
 Done:

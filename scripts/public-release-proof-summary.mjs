@@ -49,10 +49,17 @@ const payload = {
   requiredArtifacts: {
     releaseReadinessReport: releaseReportPath,
     installedSmokeSummary: "dist/installed-smoke-summary.md",
-    staticSmokeSummary: "dist/static-smoke-preflight-summary.md",
+      staticSmokeSummary: "dist/smoke-preflight-summary.md",
     signedDmg: "dist/*.dmg with Developer ID signature and notarization ticket",
-    updaterFeed: "signed latest.json from configured updater endpoint",
-  },
+      updaterFeed: "signed latest.json from configured updater endpoint",
+    },
+    localOnlyEvidenceExcluded: [
+      "dist/local-installed-smoke-summary.md",
+      "dist/local-rollback-validation-summary.md",
+      "dist/local-doctor-repair-validation-summary.md",
+      "dist/local-connector-readiness-summary.md",
+      "dist/measured-savings-benchmark.md",
+    ],
   shareableDmgGate: gate,
   releaseEnv,
   command: reportStep.command,
@@ -90,6 +97,10 @@ Generated: ${generatedAt}
 - Updater feed ready: ${gate.updaterFeedReady ? "yes" : "no"}
 - Static smoke preflight ready: ${gate.staticSmokePreflightReady ? "yes" : "no"}
 - Installed app smoke ready: ${gate.installedAppSmokeReady ? "yes" : "no"}
+
+## Local-Only Evidence Excluded
+
+${payload.localOnlyEvidenceExcluded.map((artifact) => `- \`${artifact}\``).join("\n")}
 `;
 
 fs.writeFileSync(summaryPath, markdown);

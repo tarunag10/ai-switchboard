@@ -42,11 +42,27 @@ for (const key of requiredArtifactKeys) {
     fail(`requiredArtifacts.${key} is missing`);
   }
 }
+if (proof.requiredArtifacts.staticSmokeSummary !== "dist/smoke-preflight-summary.md") {
+  fail("requiredArtifacts.staticSmokeSummary must be dist/smoke-preflight-summary.md");
+}
+const excludedLocalEvidence = proof.localOnlyEvidenceExcluded ?? [];
+for (const localOnlyArtifact of [
+  "dist/local-installed-smoke-summary.md",
+  "dist/local-rollback-validation-summary.md",
+  "dist/local-doctor-repair-validation-summary.md",
+  "dist/local-connector-readiness-summary.md",
+  "dist/measured-savings-benchmark.md",
+]) {
+  if (!excludedLocalEvidence.includes(localOnlyArtifact)) {
+    fail(`localOnlyEvidenceExcluded missing ${localOnlyArtifact}`);
+  }
+}
 for (const phrase of [
   "Proof ready:",
   "Signed and notarized:",
   "Updater feed ready:",
   "Installed app smoke ready:",
+  "Local-Only Evidence Excluded",
 ]) {
   if (!markdown.includes(phrase)) {
     fail(`${markdownPath} must include ${phrase}`);
