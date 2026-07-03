@@ -9318,18 +9318,25 @@ export default function App() {
         </div>
 
         <div className="tray-content" hidden={activeView !== "notifications"}>
-          <ActivityFeed
-            feed={activityFeed}
-            error={activityFeedError}
-            loaded={activityFeedLoaded}
-            onNavigateToOptimize={() => setActiveView("optimization")}
-          />
-        </div>
+            <ActivityFeed
+              feed={activityFeed}
+              error={activityFeedError}
+              loaded={activityFeedLoaded}
+              onNavigateToOptimize={() => setActiveView("optimization")}
+            />
+          </div>
 
-        <div
-          className="tray-content tray-content--repo-intelligence"
-          hidden={activeView !== "repoIntelligence"}
-        >
+          <div className="tray-content" hidden={activeView !== "repoMap"}>
+            <RepoMapView
+              onOpenDoctor={() => setActiveView("doctor")}
+              onOpenRepoIntelligence={() => setActiveView("repoIntelligence")}
+            />
+          </div>
+
+          <div
+            className="tray-content tray-content--repo-intelligence"
+            hidden={activeView !== "repoIntelligence"}
+          >
           <section className="repo-intelligence-view">
             <header className="repo-intelligence-view__header">
               <div>

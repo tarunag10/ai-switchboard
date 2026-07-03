@@ -88,6 +88,12 @@ const steps = [
     summaryPath: null,
   },
   {
+    id: "repo-map-mounted",
+    label: "Repo Map UI mount: check:repo-map-mounted",
+    commands: [["npm", ["run", "check:repo-map-mounted"]]],
+    summaryPath: null,
+  },
+  {
     id: "repo-memory-mcp-validation",
     label: "Repo Memory MCP validation",
     command: "npm run smoke:repo-memory-mcp:local && npm run smoke:repo-memory-mcp:local:check",

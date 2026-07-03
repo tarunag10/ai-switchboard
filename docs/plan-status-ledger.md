@@ -96,3 +96,10 @@ tracks what has been created, what was updated, and what is still left.
   local persisted settings cannot make `test:desktop` or `evidence:local`
   fail spuriously.
 - Validation: `npm run test:desktop` and `npm run evidence:local`.
+
+## 2026-07-03 Repo Map UI Reachability
+
+- Repo Map sidebar navigation now renders the existing `RepoMapView`, making
+  repo picker, preflight, generation, history, artifact-open, and install-hint
+  controls reachable in the app.
+- Added `check:repo-map-mounted` and wired it into `evidence:local`.

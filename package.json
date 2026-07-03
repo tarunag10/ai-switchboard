@@ -64,7 +64,8 @@
     "smoke:savings-anomalies:local:check": "node scripts/check-local-savings-anomaly-summary.mjs",
     "savings:runtime:check": "node scripts/check-runtime-savings-attribution.mjs",
     "release:proof": "node scripts/public-release-proof-summary.mjs",
-    "release:proof:check": "node scripts/check-public-release-proof-summary.mjs"
+    "release:proof:check": "node scripts/check-public-release-proof-summary.mjs",
+    "check:repo-map-mounted": "node scripts/check-repo-map-mounted.mjs"
   },
   "dependencies": {
     "@microsoft/clarity": "^1.0.2",
