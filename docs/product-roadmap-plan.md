@@ -1,5 +1,26 @@
 # Mac AI Switchboard Product Roadmap Plan
 
+## Current Status - 2026-07-03
+
+Created and shipped:
+
+- Repo Map one-click generation is now backed by preflight checks, artifact actions, multi-repo history, partial-success messaging, Graphify/Madge/dependency-cruiser/Cargo/Tauri scan evidence, and token-savings artifacts.
+- Repo Map and Repo Intelligence now feed context packs, Start Agent Session handoffs, CLI exports, and Repo Memory MCP read-only tools.
+- Repo Memory MCP release evidence now covers pack listing, budgeted pack generation, graph summary, symbol lookup, dependent lookup, read-only annotations, stale-health state, and local smoke summaries.
+- Savings evidence now separates measured, estimated, inferred, and fixture-backed rows. The benchmark checker requires Caveman, Ponytail, and MarkItDown source rows before local evidence can pass.
+- Rollback Center evidence now includes relaunch-survival proof from a persisted probe artifact re-read by a fresh process.
+- Connector readiness evidence now proves Aider/Cursor native-write gates remain disabled until all seven lifecycle stages are ready.
+- Release readiness now validates local evidence when present but still supports a plain blocked report for normal release triage.
+- Repo Map UX now shows missing tool install hints during preflight instead of leaving users with a generic failure.
+
+Still left:
+
+- Native-write promotion for the next connector with real apply/verify/rollback/Off cleanup, not just gated readiness.
+- Live runtime/session counters for Caveman, Ponytail, and MarkItDown.
+- Large-file refactors across the Tauri backend and main app shell.
+- Signed/notarized DMG, updater, and public installed-app smoke proof.
+
+
 This plan expands the rebrand and trust-hardening work into a broader product roadmap for Mac AI Switchboard. The goal is to make the app trustworthy enough to install, clear enough to debug, and useful enough to become the local control center for coding-agent optimization on macOS.
 
 Mac AI Switchboard should stay local-first. The app can route Claude, Codex, and future agent traffic to remote model providers when the user chooses those tools, but switchboard state, config edits, Doctor checks, savings attribution, repo context packs, and add-on health should remain inspectable on the user's Mac.

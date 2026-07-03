@@ -1,5 +1,24 @@
 # Agent Control Center Implementation Plan
 
+## Current Status - 2026-07-03
+
+Recently shipped and verified:
+
+- Repo Map is integrated with repo intelligence artifacts, history, artifact-opening actions, preflight checks, partial-success copy, and context-pack/token-savings evidence.
+- Repo Map preflight now surfaces missing tool install hints for local generation dependencies.
+- Repo Memory MCP evidence now proves read-only tools, list packs, budgeted context-pack retrieval, graph summary, symbol lookup, dependent lookup, stale-health surface, and secret-exclusion boundaries.
+- Release-readiness local evidence now records measured savings benchmark checks, Repo Memory MCP budget/graph proof, connector readiness proof, rollback relaunch-survival proof, and connector native-write lifecycle gates.
+- Rollback Center local validation now records relaunch-survival evidence by writing and re-reading a probe artifact from a fresh process.
+- Connector readiness now keeps Aider and Cursor native writes gated while proving the required seven-stage lifecycle checklist and `automationEnabled: false` guard.
+- Release-report schema remains compatible with a plain blocked report when local evidence has not been regenerated, and becomes stricter when evidence is present.
+
+Still left:
+
+- Implement real provider/editor native-write promotion for the next connector, rather than readiness evidence only.
+- Add live runtime/session counters for Caveman, Ponytail, and MarkItDown.
+- Continue reducing large-file risk in `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/src/tool_manager.rs`, and `src/App.tsx`.
+- Produce signed/notarized/updater release evidence and final public installed-app smoke proof.
+
 This plan turns Mac AI Switchboard into a local-first agent control center: pick a repo, pick an agent, verify local setup, hand over bounded context, and prove what the app changed or saved.
 
 The work should ship in small slices. Each slice must leave the app usable, keep config changes reversible, and preserve the boundary between local ad-hoc evidence and public signed release readiness.

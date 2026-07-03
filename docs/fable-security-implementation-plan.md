@@ -1,5 +1,28 @@
 # Fable Security and Product Hardening Plan
 
+## Current Status - 2026-07-03
+
+Shipped since this plan was created:
+
+- Protected local/security-sensitive artifacts: `headroom_memory.db`, SQLite sidecars, runtime DBs, and the raw Fable audit file are ignored and guarded by local-artifact checks.
+- Scrubbed inherited personal machine details from project guidance.
+- Added app-owned privacy and remote-destination disclosures, including provider-owned traffic boundaries.
+- Added macOS desktop CI validation without noisy branch push triggers.
+- Added measured Headroom `/stats` attribution and a fixture-backed measured savings benchmark for Caveman, Ponytail, and MarkItDown source rows.
+- Added `npm run savings:benchmark:check` and wired benchmark evidence into `evidence:local` and release-readiness schema checks.
+- Strengthened Repo Intelligence / Repo Memory MCP evidence: budgeted pack retrieval, pack listing, graph summary, symbol lookup, dependent lookup, read-only annotations, stale-health surface, and local release evidence.
+- Added rollback relaunch-survival proof: the local rollback smoke now writes a probe artifact and re-reads it from a fresh process before recording `relaunchSurvivalEvidence`.
+- Added connector readiness release evidence for Aider and Cursor gated native-write dossiers, including seven-stage lifecycle coverage and automation-disabled proof.
+- Added Repo Map preflight install-hint UI so missing `uv`, `npx`, `cargo`, Graphviz, and related tooling show remediation instead of a generic generation failure.
+- Committed and pushed each slice on `tarun/local-switchboard`.
+
+Still left:
+
+- Implement real runtime/session counters for Caveman, Ponytail, and MarkItDown beyond fixture/proxy benchmark evidence.
+- Promote the next connector native-write path only after real detect, dry-run diff, backup, apply, verify, rollback, Doctor repair, fixture-home restore tests, and Off cleanup are implemented.
+- Refactor large files, especially `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/src/tool_manager.rs`, and `src/App.tsx`.
+- Complete signed/notarized/updater public-release proof and installed-app smoke evidence.
+
 Source: local Fable audit file reviewed from outside the repository. The raw audit is intentionally not committed because it may contain local paths, inherited machine details, and security-sensitive notes.
 
 ## Goals
