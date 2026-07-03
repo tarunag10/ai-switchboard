@@ -456,7 +456,8 @@ export const plannedConnectors: PlannedConnector[] = [
       "Open Cursor settings from the setup guide.",
       "Review provider/model settings manually.",
       "Use Repo Intelligence packs as copyable context until editor handoff is stable.",
-    ],
+          "Native-write lifecycle remains gated with automationEnabled: false until detect, dryRunDiff, backup, apply, verify, rollback, and offCleanup are proven in fixture-home tests.",
+],
   },
   {
     id: "grok_cli",
@@ -564,7 +565,8 @@ export const plannedConnectors: PlannedConnector[] = [
       "Confirm Aider is installed.",
       "Copy implementation or handoff packs into long Aider sessions.",
       "Use RTK-only mode for noisy verification commands.",
-    ],
+          "Native-write lifecycle remains gated with automationEnabled: false until detect, dryRunDiff, backup, apply, verify, rollback, and offCleanup are proven in fixture-home tests.",
+],
   },
   {
     id: "continue",

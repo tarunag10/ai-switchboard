@@ -533,6 +533,10 @@ function buildLocalValidationEvidence() {
         localConnectorReadinessJson.body?.requiredGatedNativeWritePresent === true,
       gatedNativeWriteConnectors:
         localConnectorReadinessJson.body?.gatedNativeWriteConnectors ?? [],
+      lifecycleCoverageComplete:
+        localConnectorReadinessJson.body?.lifecycleCoverageComplete === true,
+      lifecycleCoverage:
+        localConnectorReadinessJson.body?.lifecycleCoverage ?? {},
       requiredCommand:
         localConnectorReadinessJson.body?.requiredCommand ??
         "npm run check:connectors",
@@ -802,6 +806,7 @@ ${localValidation.repoMemoryMcp.generatedLine ? `- ${localValidation.repoMemoryM
 ${localValidation.connectorReadiness.generatedLine ? `- ${localValidation.connectorReadiness.generatedLine}` : "- Connector readiness summary has not been generated in this checkout."}
 - Connector readiness required gated native-write dossiers present: ${localValidation.connectorReadiness.requiredGatedNativeWritePresent ? "yes" : "no"}
 - Connector readiness gated native-write dossiers: ${localValidation.connectorReadiness.gatedNativeWriteConnectors.join(", ") || "missing"}
+- Connector readiness lifecycle coverage complete: ${localValidation.connectorReadiness.lifecycleCoverageComplete ? "yes" : "no"}
 - Connector readiness command: ${localValidation.connectorReadiness.requiredCommand}
 - Local-only network summary present: ${localValidation.localOnlyNetwork.summaryPresent ? "yes" : "no"} (${localValidation.localOnlyNetwork.summaryPath})
 - Local-only network JSON present: ${localValidation.localOnlyNetwork.jsonPresent ? "yes" : "no"} (${localValidation.localOnlyNetwork.jsonPath})

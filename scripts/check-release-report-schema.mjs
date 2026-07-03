@@ -79,6 +79,8 @@ const requiredReleaseReportPaths = [
   "localValidation.connectorReadiness.passed",
   "localValidation.connectorReadiness.requiredGatedNativeWritePresent",
   "localValidation.connectorReadiness.gatedNativeWriteConnectors",
+  "localValidation.connectorReadiness.lifecycleCoverageComplete",
+  "localValidation.connectorReadiness.lifecycleCoverage",
   "localValidation.connectorReadiness.requiredCommand",
   "localValidation.localOnlyNetwork.summaryPath",
   "localValidation.localOnlyNetwork.jsonPath",
@@ -301,7 +303,17 @@ if (report.localValidation.connectorReadiness.passed) {
     if (!report.localValidation.connectorReadiness.gatedNativeWriteConnectors.includes(connectorId)) {
       fail(`localValidation.connectorReadiness.gatedNativeWriteConnectors must include ${connectorId} when connector readiness evidence passes`);
     }
+    const coverage = report.localValidation.connectorReadiness.lifecycleCoverage[connectorId];
+    if (!coverage?.complete || !coverage?.automationDisabled) {
+      fail(`localValidation.connectorReadiness.lifecycleCoverage must prove ${connectorId} lifecycle coverage and disabled automation`);
+    }
   }
+  if (report.localValidation.connectorReadiness.lifecycleCoverageComplete !== true) {
+    fail("localValidation.connectorReadiness.lifecycleCoverageComplete must be true when connector readiness evidence passes");
+  }
+}
+if (!markdownReport.includes("Connector readiness lifecycle coverage complete:")) {
+  fail(`${markdownReportPath} must include connector lifecycle coverage evidence`);
 }
 if (!markdownReport.includes("Connector readiness required gated native-write dossiers present:")) {
   fail(`${markdownReportPath} must include connector readiness gated native-write evidence`);
