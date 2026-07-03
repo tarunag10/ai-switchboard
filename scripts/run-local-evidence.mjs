@@ -85,8 +85,11 @@ const steps = [
   {
     id: "measured-savings-benchmark",
     label: "Measured savings benchmark",
-    command: "npm run savings:benchmark",
-    commands: [["npm", ["run", "savings:benchmark"]]],
+    command: "npm run savings:benchmark && npm run savings:benchmark:check",
+    commands: [
+      ["npm", ["run", "savings:benchmark"]],
+      ["npm", ["run", "savings:benchmark:check"]],
+    ],
     summaryPath: "dist/measured-savings-benchmark.md",
   },
   {

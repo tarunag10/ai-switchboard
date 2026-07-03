@@ -485,7 +485,8 @@ function buildLocalValidationEvidence() {
       generatedLine: measuredSavingsBenchmarkSummary.generatedLine ?? null,
       passed: measuredSavingsBenchmarkPassed,
       totals: measuredSavingsBenchmarkJson.body?.totals ?? null,
-      requiredCommand: "npm run savings:benchmark",
+      rows: measuredSavingsBenchmarkJson.body?.rows ?? [],
+      requiredCommand: "npm run savings:benchmark && npm run savings:benchmark:check",
     },
     repoMemoryMcp: {
       summaryPath: localRepoMemoryMcpSummaryPath,
@@ -779,6 +780,7 @@ ${localValidation.repoIntelligence.generatedLine ? `- ${localValidation.repoInte
 - Measured savings benchmark JSON present: ${localValidation.measuredSavingsBenchmark.jsonPresent ? "yes" : "no"} (${localValidation.measuredSavingsBenchmark.jsonPath})
 ${localValidation.measuredSavingsBenchmark.generatedLine ? `- ${localValidation.measuredSavingsBenchmark.generatedLine}` : "- Measured savings benchmark generated timestamp not in summary"}
 - Measured savings benchmark saved tokens: ${localValidation.measuredSavingsBenchmark.totals?.savedTokens ?? "missing"}
+- Measured savings benchmark source rows: ${localValidation.measuredSavingsBenchmark.rows.map((row) => `${row.source}:${row.savedTokens}`).join(", ") || "missing"}
 - Measured savings benchmark command: ${localValidation.measuredSavingsBenchmark.requiredCommand}
 - Repo Memory MCP summary present: ${localValidation.repoMemoryMcp.summaryPresent ? "yes" : "no"} (${localValidation.repoMemoryMcp.summaryPath})
 - Repo Memory MCP JSON present: ${localValidation.repoMemoryMcp.jsonPresent ? "yes" : "no"} (${localValidation.repoMemoryMcp.jsonPath})

@@ -61,6 +61,7 @@ const requiredReleaseReportPaths = [
   "localValidation.measuredSavingsBenchmark.summaryPresent",
   "localValidation.measuredSavingsBenchmark.jsonPresent",
   "localValidation.measuredSavingsBenchmark.passed",
+  "localValidation.measuredSavingsBenchmark.rows",
   "localValidation.measuredSavingsBenchmark.requiredCommand",
   "localValidation.repoMemoryMcp.summaryPath",
   "localValidation.repoMemoryMcp.jsonPath",
@@ -243,8 +244,34 @@ if (
 ) {
   fail("localValidation.measuredSavingsBenchmark.totals.savedTokens must be positive when benchmark evidence is present");
 }
-if (report.localValidation.measuredSavingsBenchmark.requiredCommand !== "npm run savings:benchmark") {
-  fail("localValidation.measuredSavingsBenchmark.requiredCommand must be npm run savings:benchmark");
+if (
+  report.localValidation.measuredSavingsBenchmark.requiredCommand !==
+  "npm run savings:benchmark && npm run savings:benchmark:check"
+) {
+  fail("localValidation.measuredSavingsBenchmark.requiredCommand must include benchmark generation and check");
+}
+if (!Array.isArray(report.localValidation.measuredSavingsBenchmark.rows)) {
+  fail("localValidation.measuredSavingsBenchmark.rows must be an array");
+}
+if (report.localValidation.measuredSavingsBenchmark.passed) {
+  for (const source of ["caveman", "markitdown", "ponytail"]) {
+    const row = report.localValidation.measuredSavingsBenchmark.rows.find(
+      (item) => item.source === source,
+    );
+    if (!row) {
+      fail(`localValidation.measuredSavingsBenchmark.rows must include ${source}`);
+      continue;
+    }
+    if (row.confidence !== "measured_fixture") {
+      fail(`${source} measured savings benchmark confidence must be measured_fixture`);
+    }
+    if (Number(row.savedTokens) <= 0) {
+      fail(`${source} measured savings benchmark savedTokens must be positive`);
+    }
+  }
+}
+if (!markdownReport.includes("Measured savings benchmark source rows:")) {
+  fail(`${markdownReportPath} must include measured savings benchmark source rows`);
 }
 if (report.localValidation.repoMemoryMcp.passed) {
   if (report.localValidation.repoMemoryMcp.budgetedPackVerified !== true) {

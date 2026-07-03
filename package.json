@@ -50,7 +50,8 @@
     "check:local-only-network": "node scripts/check-local-only-network.mjs",
     "check:governance": "node scripts/check-governance-docs.mjs",
     "check:deployment": "node scripts/check-deployment-readiness.mjs",
-    "smoke:connectors:local": "node scripts/local-connector-readiness-summary.mjs"
+    "smoke:connectors:local": "node scripts/local-connector-readiness-summary.mjs",
+    "savings:benchmark:check": "node scripts/check-measured-savings-benchmark.mjs"
   },
   "dependencies": {
     "@microsoft/clarity": "^1.0.2",
