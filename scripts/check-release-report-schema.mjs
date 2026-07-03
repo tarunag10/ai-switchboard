@@ -285,6 +285,12 @@ if (!markdownReport.includes("Measured savings benchmark source rows:")) {
   fail(`${markdownReportPath} must include measured savings benchmark source rows`);
 }
 if (report.localValidation.repoMemoryMcp.passed) {
+  if (report.localValidation.repoMemoryMcp.readOnly !== true) {
+    fail("localValidation.repoMemoryMcp.readOnly must be true when Repo Memory MCP evidence passes");
+  }
+  if (report.localValidation.repoMemoryMcp.modifiesRepository !== false) {
+    fail("localValidation.repoMemoryMcp.modifiesRepository must be false when Repo Memory MCP evidence passes");
+  }
   if (report.localValidation.repoMemoryMcp.budgetedPackVerified !== true) {
     fail("localValidation.repoMemoryMcp.budgetedPackVerified must be true when Repo Memory MCP evidence passes");
   }

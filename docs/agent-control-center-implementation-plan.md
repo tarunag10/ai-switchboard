@@ -12,6 +12,7 @@ Done:
 - Repo Map integrates generated artifacts, history, artifact-opening checks, partial-success handling, context-pack output, and token-savings accounting.
 - Agent Session exports selected-pack, full-handoff, summary, and JSON payloads for Claude Code, Codex, Gemini CLI, OpenCode, Goose, Windsurf, Zed, and gated connector targets.
 - Repo Intelligence exposes read-only manifests, packs, graph-input paths, stale/corrupt/moved index states, and MCP smoke evidence.
+- Repo Memory MCP local evidence now has a dedicated checker enforcing read-only tools, no repository mutation, budgeted context packs, graph queries, stale-index health, connector bridge recipes, and app-managed descriptor recheck evidence.
 - Repo Intelligence manifest and agent handoffs now expose Repo Map freshness, age, token-savings method, and stale-map warning evidence, guarded by `npm run check:repo-intelligence-map`.
 - Savings ledger separates measured/estimated confidence and copyable evidence for Headroom engine, RTK, Repo Intelligence, Ponytail, Caveman, and Compact profiles.
 - Savings benchmark evidence now self-identifies as local fixture before/after evidence, not release-gate or provider-billing telemetry, and release reports enforce that classification.
@@ -23,7 +24,7 @@ Done:
 Left:
 - Promote remaining provider/editor native-write connectors only after the existing gated lifecycle evidence is backed by provider-specific fixture-home apply/verify/rollback/Off cleanup proof.
 - Add live runtime/session savings counters for Caveman, Ponytail, and MarkItDown in Rust/frontend state.
-- Deepen long-running Repo Intelligence graph analyzers and MCP supervision evidence beyond the guarded Repo Map context bridge.
+- Deepen long-running Repo Intelligence graph analyzers and MCP supervision beyond the guarded Repo Memory MCP local evidence checks.
 - Produce signed/notarized/updater public-release evidence and public installed-app smoke proof.
 - Refactor large backend/frontend files: `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/src/tool_manager.rs`, and `src/App.tsx`.
 

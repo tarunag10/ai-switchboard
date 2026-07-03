@@ -15,6 +15,7 @@ Done:
 - Repo Map feeds Repo Intelligence Agent Session handoffs, CLI exports, Repo Memory MCP packs, and artifact-opening flows.
 - Repo Intelligence now carries Repo Map freshness, age, stale warning, and token-savings method into manifests and agent handoff JSON, with `check:repo-intelligence-map` in local evidence.
 - Repo Memory MCP includes app-managed descriptor setup, stale-health smoke summaries, read-only pack/query surfaces, and connector recipes.
+- Repo Memory MCP local evidence now has a `:check` gate for read-only tools, no repository mutation, budgeted packs, graph queries, stale-index health, connector recipes, and app-managed descriptor recheck proof.
 - Savings evidence now distinguishes measured, fixture-backed, and estimated rows for Caveman, Ponytail, MarkItDown, RTK, and Repo Intelligence.
 - Measured savings benchmark JSON now carries explicit local fixture metadata (`kind`, `measurementClass`, `releaseGateEvidence`) that release reports must preserve.
 - Rollback Center records relaunch-survival proof, local evidence summaries, and native-write disabled/gated connector states.

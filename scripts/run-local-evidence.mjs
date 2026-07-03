@@ -84,8 +84,11 @@ const steps = [
   {
     id: "repo-memory-mcp-validation",
     label: "Repo Memory MCP validation",
-    command: "npm run smoke:repo-memory-mcp:local",
-    commands: [["npm", ["run", "smoke:repo-memory-mcp:local"]]],
+    command: "npm run smoke:repo-memory-mcp:local && npm run smoke:repo-memory-mcp:local:check",
+    commands: [
+      ["npm", ["run", "smoke:repo-memory-mcp:local"]],
+      ["npm", ["run", "smoke:repo-memory-mcp:local:check"]],
+    ],
     summaryPath: "dist/local-repo-memory-mcp-validation-summary.md",
   },
   {
