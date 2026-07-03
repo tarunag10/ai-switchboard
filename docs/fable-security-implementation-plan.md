@@ -1,5 +1,8 @@
 # Fable Security and Product Hardening Plan
 
+Status ledger: see [plan-status-ledger.md](plan-status-ledger.md) for the
+current created/updated/left checklist.
+
 ## Updated Status - 2026-07-03
 
 Created / updated:

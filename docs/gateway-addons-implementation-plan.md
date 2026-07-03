@@ -1,5 +1,8 @@
 # Gateway Add-ons Implementation Plan
 
+Status ledger: see [plan-status-ledger.md](plan-status-ledger.md) for the
+current created/updated/left checklist.
+
 This plan adds optional gateway and observability layers around Mac AI Switchboard without replacing Headroom. The app remains local-first by default: any remote gateway or trace export must be explicit, reversible, and clearly labelled.
 
 ## Goals

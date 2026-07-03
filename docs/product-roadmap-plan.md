@@ -1,5 +1,8 @@
 # Mac AI Switchboard Product Roadmap Plan
 
+Status ledger: see [plan-status-ledger.md](plan-status-ledger.md) for the
+current created/updated/left checklist.
+
 ## Updated Status - 2026-07-03
 
 Created / updated:
@@ -12,6 +15,7 @@ Created / updated:
 - Doctor repair, Rollback Center, connector readiness, repo-memory MCP, runtime savings, deployment, release report, and public release proof check scripts exist and are wired as local validation evidence.
 - Doctor repair and Rollback Center local evidence are schema-versioned and checked as local-only/non-release proof.
 - Local uninstall evidence is schema-versioned, checked as non-destructive local proof, and wired into aggregate/release-readiness validation.
+- Local-only network evidence is schema-versioned, checked as app-owned remote-call blocked local proof, and wired into aggregate/release-readiness validation.
 - Connector readiness documents promoted routing for Gemini/OpenCode/Windsurf/Zed, Goose read-only Memory MCP bridge, and gated native/provider proof for Aider, Cursor, Continue, Grok/xAI CLI, Qwen Code, and Amazon Q.
 - Local connector readiness proof is schema-tagged and now checks local-only/non-release status, native-write readiness semantics, successful connector scan status, and full shared lifecycle stage coverage.
 

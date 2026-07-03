@@ -555,6 +555,7 @@ function buildLocalValidationEvidence() {
       summaryPresent: localOnlyNetworkSummary.present,
       jsonPresent: localOnlyNetworkJson.present,
       generatedLine: localOnlyNetworkSummary.generatedLine,
+      schemaVersion: localOnlyNetworkJson.body?.schemaVersion ?? null,
       passed: localOnlyNetworkPassed,
       localOnly: localOnlyNetworkJson.body?.localOnly === true,
       appOwnedRemoteCallsBlocked:
@@ -565,7 +566,8 @@ function buildLocalValidationEvidence() {
       stepCount: Array.isArray(localOnlyNetworkJson.body?.steps)
         ? localOnlyNetworkJson.body.steps.length
         : 0,
-      requiredCommand: "npm run smoke:local-only:local",
+      requiredCommand:
+        "npm run smoke:local-only:local && npm run smoke:local-only:local:check",
     },
     message: ready
       ? "Local installed smoke, mode relaunch, Doctor repair, Rollback Center, uninstall dry-run, Repo Intelligence, Repo Memory MCP, and local-only network validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."

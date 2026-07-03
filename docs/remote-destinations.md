@@ -1,10 +1,43 @@
-## App-Owned Remote Destinations
+# Remote Destinations
+
+This registry is the release-time source of truth for app-owned remote
+destinations and user/provider traffic.
+
+## Local-Only Boundary
+
+Local-only builds must leave app-owned remote services disabled. If a new
+app-owned remote destination is added, add it to this registry before release.
+Add a local-only guard or explain why the call is strictly user-initiated.
+
+Mac AI Switchboard does not include a remote account, billing, checkout, or paid
+app-owned analytics destination in local-only mode.
+
+Provider traffic is not an app-owned analytics or account destination. Provider
+calls are user-selected upstream traffic for the configured coding agent,
+provider, or usage helper.
 
 ## Provider Traffic
 
+- Anthropic provider traffic: `https://api.anthropic.com`
+- OpenAI provider traffic: `https://api.openai.com`,
+  `https://chatgpt.com/backend-api/wham/usage`
+
+## Tool And Dependency Downloads
+
+- `headroom-ai` wheel installs use pinned versions and hashes.
+- Vendor wheel indexes are pinned release surfaces.
+- Local-only/no-network validation must not fetch managed runtime packages.
+
 ## Change Control
 
-## Local-Only Boundary
+- Any new app-owned remote destination must be added to this registry before
+  release.
+- Any app-owned remote call must include a local-only guard or a documented
+  reason that the call is strictly user-initiated.
+- Provider-owned traffic must stay labeled as provider traffic and must not be
+  described as app-owned analytics, account, billing, or checkout traffic.
+
+## App-Owned Remote Destinations
 
 [
   {

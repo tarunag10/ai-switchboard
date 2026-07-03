@@ -1,5 +1,8 @@
 # Repo Intelligence Plan
 
+Status ledger: see [plan-status-ledger.md](plan-status-ledger.md) for the
+current created/updated/left checklist.
+
 Repo Intelligence is underway, not complete. The app now has a read-only foundation for local file classification, rough token estimation, bounded implementation, verification, and handoff context packs. It now includes dependency hubs, path-based import/dependency edges, content-derived import references, package-dependency edges from external imports to `package.json`, lightweight call references, reverse dependency hubs, a bounded symbol graph, a read-only local API manifest in the local graph summary, and a repo-memory MCP stdio transport with app-managed install/start/stop smoke coverage. It does not yet complete a full AST call graph, persistent parser index, long-running MCP daemon supervision, or writable agent automation.
 
 The goal is to make Mac AI Switchboard useful before an agent burns tokens reading the same files repeatedly: build a local repo graph, turn it into small task-specific context packs, and expose those packs to Claude Code, Codex, Gemini CLI, OpenCode, Qwen Code, Amazon Q Developer CLI, Cursor, Continue, Windsurf, Zed AI, and future local agents without sending repository contents to a remote graph service.

@@ -100,8 +100,11 @@ const steps = [
   {
     id: "local-only-network-validation",
     label: "Local-only network validation",
-    command: "npm run smoke:local-only:local",
-    commands: [["npm", ["run", "smoke:local-only:local"]]],
+    command: "npm run smoke:local-only:local && npm run smoke:local-only:local:check",
+    commands: [
+      ["npm", ["run", "smoke:local-only:local"]],
+      ["npm", ["run", "smoke:local-only:local:check"]],
+    ],
     summaryPath: "dist/local-only-network-validation-summary.md",
   },
   {

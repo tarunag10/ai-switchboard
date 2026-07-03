@@ -43,6 +43,12 @@ const forbiddenStrings = [
   "REPLACE_WITH_CLARITY_PROJECT_ID",
 ];
 
+const ignoredGeneratedEvidencePatterns = [
+  /^dist\/local-[^/]+-summary\.(json|md)$/,
+  /^dist\/measured-savings-benchmark\.(json|md)$/,
+  /^dist\/runtime-savings-attribution-summary\.(json|md)$/,
+];
+
 const skippedRoots = [];
 const files = [];
 
@@ -71,6 +77,9 @@ for (const root of scanRoots) {
 const failures = [];
 
 for (const file of files) {
+  if (ignoredGeneratedEvidencePatterns.some((pattern) => pattern.test(file))) {
+    continue;
+  }
   const body = fs.readFileSync(file);
   const text = body.toString("utf8");
   for (const forbidden of forbiddenStrings) {

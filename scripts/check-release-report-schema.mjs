@@ -88,6 +88,7 @@ const requiredReleaseReportPaths = [
   "localValidation.localOnlyNetwork.passed",
   "localValidation.localOnlyNetwork.localOnly",
   "localValidation.localOnlyNetwork.appOwnedRemoteCallsBlocked",
+  "localValidation.localOnlyNetwork.schemaVersion",
   "localValidation.localOnlyNetwork.requiredCommand",
   "shareableDmgGate.staticSmokePreflightReady",
   "shareableDmgGate.updaterFeedReady",
@@ -696,11 +697,17 @@ if (
 }
 if (
   report.localValidation.localOnlyNetwork.requiredCommand !==
-  "npm run smoke:local-only:local"
+  "npm run smoke:local-only:local && npm run smoke:local-only:local:check"
 ) {
   fail(
-    "localValidation.localOnlyNetwork.requiredCommand must be npm run smoke:local-only:local",
+    "localValidation.localOnlyNetwork.requiredCommand must include smoke:local-only:local:check",
   );
+}
+if (
+  report.localValidation.localOnlyNetwork.passed &&
+  report.localValidation.localOnlyNetwork.schemaVersion !== 1
+) {
+  fail("localValidation.localOnlyNetwork.schemaVersion must be 1");
 }
 requireType(report, "localValidation.localOnlyNetwork.localOnly", "boolean");
 requireType(report, "localValidation.localOnlyNetwork.appOwnedRemoteCallsBlocked", "boolean");
