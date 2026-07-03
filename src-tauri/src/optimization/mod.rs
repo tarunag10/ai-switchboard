@@ -2,6 +2,7 @@ pub(crate) mod cache_metrics;
 pub(crate) mod compaction;
 pub(crate) mod model_routing;
 pub(crate) mod policy;
+pub(crate) mod provider_usage;
 pub(crate) mod redundancy;
 pub(crate) mod rtk_presets;
 pub(crate) mod session_packs;
