@@ -10,6 +10,7 @@ Created / updated:
 - Frontend savings ledger coverage now proves Caveman, Ponytail, and MarkItDown add-on attribution events render as source-specific session rows.
 - Doctor repair, Rollback Center, connector readiness, repo-memory MCP, runtime savings, deployment, release report, and public release proof check scripts exist and are wired as local validation evidence.
 - Connector readiness documents promoted routing for Gemini/OpenCode/Windsurf/Zed, Goose read-only Memory MCP bridge, and gated native/provider proof for Aider, Cursor, Continue, Grok/xAI CLI, Qwen Code, and Amazon Q.
+- Local connector readiness proof is schema-tagged and now checks local-only/non-release status, native-write readiness semantics, successful connector scan status, and full shared lifecycle stage coverage.
 
 Still left:
 - Deepen durable add-on health/history beyond the current bounded Caveman/Ponytail/MarkItDown session ledger rows.

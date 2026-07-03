@@ -68,6 +68,7 @@ const lifecycleCoverageComplete = Object.values(lifecycleCoverage).every(
 const ready = result.status === 0 && requiredGatedNativeWritePresent && lifecycleCoverageComplete;
 
 const payload = {
+  schemaVersion: 1,
   generatedAt,
   kind: "mac_ai_switchboard.local_connector_readiness_validation",
   releaseGateEvidence: false,

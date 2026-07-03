@@ -17,8 +17,31 @@ if (!fs.existsSync(reportPath)) {
 
 const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
 
+if (report.schemaVersion !== 1) {
+  fail("schemaVersion must be 1");
+}
+if (report.kind !== "mac_ai_switchboard.local_connector_readiness_validation") {
+  fail("kind must be mac_ai_switchboard.local_connector_readiness_validation");
+}
+if (report.releaseGateEvidence !== false) {
+  fail("releaseGateEvidence must remain false for local connector readiness evidence");
+}
+if (report.readOnly !== false) {
+  fail("readOnly must remain false because this evidence describes native-write readiness");
+}
+if (report.status !== 0) {
+  fail("check:connectors status must be 0");
+}
 if (report.ready !== true) {
   fail("report.ready must be true");
+}
+for (const stage of requiredStages) {
+  if (!report.requiredLifecycleStages?.includes(stage)) {
+    fail(`requiredLifecycleStages missing ${stage}`);
+  }
+  if (!report.sharedStages?.includes(stage)) {
+    fail(`sharedStages missing ${stage}`);
+  }
 }
 
 for (const connectorId of requiredConnectors) {
