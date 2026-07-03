@@ -1,5 +1,27 @@
 # Fable Security and Product Hardening Plan
 
+## Current Plan Rollup - 2026-07-03
+
+Created:
+- Fable audit implementation plan and repo-owned security/privacy hardening checklist.
+- Local artifact guardrails for `headroom_memory.db`, SQLite sidecars, runtime DBs, and raw audit files.
+- App-owned remote destination disclosure and provider-traffic/change-control markers.
+- Public release proof summary scripts: `npm run release:proof` and `npm run release:proof:check`.
+
+Done:
+- Scrubbed committed local/security-sensitive artifacts and added repo-local ignore/check coverage.
+- Added macOS CI and deployment guard coverage without re-enabling noisy `tarun/local-switchboard` push CI.
+- Replaced static-only savings claims with fixture-backed checks for Caveman, Ponytail, and MarkItDown evidence.
+- Strengthened Repo Intelligence and Repo Memory MCP evidence: pack annotations, stale-health surface, local release evidence, and budget/graph proof.
+- Added rollback relaunch-survival evidence and seven-stage automation-disabled connector readiness.
+- Added Repo Map preflight remediation for missing `uv`, `npx`, `cargo`, Graphviz, and related tools.
+
+Left:
+- Measure real runtime/session savings for Caveman, Ponytail, and MarkItDown beyond fixture/proxy evidence.
+- Finish native connector apply/verify/rollback/Off cleanup promotion for provider/editor writes.
+- Complete signed/notarized/updater public-release proof and public installed-app smoke evidence.
+- Continue large-file refactors in `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/src/tool_manager.rs`, and `src/App.tsx`.
+
 ## Current Status - 2026-07-03
 
 Shipped since this plan was created:

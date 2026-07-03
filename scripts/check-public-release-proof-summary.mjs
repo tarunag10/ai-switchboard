@@ -1,0 +1,73 @@
+#!/usr/bin/env node
+import fs from "node:fs";
+
+const proofPath = "dist/public-release-proof-summary.json";
+const markdownPath = "dist/public-release-proof-summary.md";
+const requiredArtifactKeys = [
+  "releaseReadinessReport",
+  "installedSmokeSummary",
+  "staticSmokeSummary",
+  "signedDmg",
+  "updaterFeed",
+];
+
+function fail(message) {
+  console.error(`public release proof check failed: ${message}`);
+  process.exitCode = 1;
+}
+
+if (!fs.existsSync(proofPath)) {
+  fail(`${proofPath} is missing; run npm run release:proof first`);
+  process.exit();
+}
+if (!fs.existsSync(markdownPath)) {
+  fail(`${markdownPath} is missing; run npm run release:proof first`);
+  process.exit();
+}
+
+const proof = JSON.parse(fs.readFileSync(proofPath, "utf8"));
+const markdown = fs.readFileSync(markdownPath, "utf8");
+
+if (proof.kind !== "mac_ai_switchboard.public_release_proof") {
+  fail("kind must be mac_ai_switchboard.public_release_proof");
+}
+if (proof.releaseGateEvidence !== true) {
+  fail("releaseGateEvidence must be true");
+}
+if (!Array.isArray(proof.blockers)) {
+  fail("blockers must be an array");
+}
+for (const key of requiredArtifactKeys) {
+  if (!proof.requiredArtifacts?.[key]) {
+    fail(`requiredArtifacts.${key} is missing`);
+  }
+}
+for (const phrase of [
+  "Proof ready:",
+  "Signed and notarized:",
+  "Updater feed ready:",
+  "Installed app smoke ready:",
+]) {
+  if (!markdown.includes(phrase)) {
+    fail(`${markdownPath} must include ${phrase}`);
+  }
+}
+
+if (proof.proofReady) {
+  if (proof.blockers.length !== 0) {
+    fail("proofReady cannot be true while blockers are present");
+  }
+  for (const [key, value] of Object.entries(proof.shareableDmgGate ?? {})) {
+    if (typeof value === "boolean" && value !== true) {
+      fail(`shareableDmgGate.${key} must be true when proofReady is true`);
+    }
+  }
+} else if (proof.blockers.length === 0) {
+  fail("blocked public release proof must list blockers");
+}
+
+if (process.exitCode) {
+  process.exit();
+}
+
+console.log(`Public release proof summary OK (${proof.proofReady ? "ready" : "blocked"}).`);

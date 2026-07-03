@@ -1,3 +1,11 @@
+## App-Owned Remote Destinations
+
+## Provider Traffic
+
+## Change Control
+
+## Local-Only Boundary
+
 [
   {
     "Destination": "Tauri updater feeds",

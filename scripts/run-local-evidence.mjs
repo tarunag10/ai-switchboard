@@ -106,6 +106,16 @@ const steps = [
     commands: [["npm", ["run", "release:report"]]],
     summaryPath: "dist/release-readiness-report.md",
   },
+  {
+    id: "public-release-proof",
+    label: "Public release proof summary",
+    command: "npm run release:proof && npm run release:proof:check",
+    commands: [
+      ["npm", ["run", "release:proof"]],
+      ["npm", ["run", "release:proof:check"]],
+    ],
+    summaryPath: "dist/public-release-proof-summary.md",
+  },
 ];
 
 const verifyOnly = process.argv.includes("--verify");

@@ -1,5 +1,27 @@
 # Mac AI Switchboard Product Roadmap Plan
 
+## Current Plan Rollup - 2026-07-03
+
+Created:
+- Product roadmap status for Repo Map/token compression, Repo Intelligence, Repo Memory MCP, savings, connectors, Rollback Center, and release evidence.
+- One-click public release proof summary workflow for blocked/ready release evidence.
+- Deployment governance checks covering remote destinations, workflow branch policy, local rollback evidence, and release proof scripts.
+
+Done:
+- Repo Map one-click generation covers Graphify, Madge, dependency-cruiser, Cargo, and Tauri evidence with partial-success handling and token-savings artifacts.
+- Repo Map feeds Repo Intelligence Agent Session handoffs, CLI exports, Repo Memory MCP packs, and artifact-opening flows.
+- Repo Memory MCP includes app-managed descriptor setup, stale-health smoke summaries, read-only pack/query surfaces, and connector recipes.
+- Savings evidence now distinguishes measured, fixture-backed, and estimated rows for Caveman, Ponytail, MarkItDown, RTK, and Repo Intelligence.
+- Rollback Center records relaunch-survival proof, local evidence summaries, and native-write disabled/gated connector states.
+- Aider/Cursor and other unpromoted provider/editor native writes remain guarded behind seven-stage readiness.
+
+Left:
+- Finish native-write apply/verify/rollback/Off cleanup before enabling remaining connector automation.
+- Add real runtime/session counters for Caveman, Ponytail, and MarkItDown.
+- Expand Tauri/backend graph analyzers and large-file refactors.
+- Produce signed/notarized DMG, updater feed, and public installed-app smoke proof.
+- Keep release proof blocked until real signing/notarization/updater evidence exists.
+
 ## Current Status - 2026-07-03
 
 Created and shipped:

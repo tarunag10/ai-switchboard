@@ -52,6 +52,8 @@ const requiredScripts = {
     '"release:env:selftest"',
     '"release:report"',
     '"release:report:check"',
+    '"release:proof"',
+    '"release:proof:check"',
     '"release:ready"',
     '"release:ready:strict"',
     '"evidence:local"',
@@ -797,7 +799,7 @@ const requiredSourceSignals = {
   ],
   ".github/workflows/rust-tauri.yml": [
     "Rust Tauri Validation",
-    "tarun/local-switchboard",
+    "staging",
     "permissions:",
     "contents: read",
     "npm run fmt:desktop",

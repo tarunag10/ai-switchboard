@@ -1,5 +1,27 @@
 # Agent Control Center Implementation Plan
 
+## Current Plan Rollup - 2026-07-03
+
+Created:
+- Agent Control Center plan for Repo Intelligence, Agent Session handoffs, savings attribution, connector readiness, Rollback Center, and release evidence.
+- Public release proof artifact/check pair wired into local evidence collection.
+- Repo Memory MCP and connector lifecycle evidence surfaces for app-managed handoffs.
+
+Done:
+- Repo Map integrates generated artifacts, history, artifact-opening checks, partial-success handling, context-pack output, and token-savings accounting.
+- Agent Session exports selected-pack, full-handoff, summary, and JSON payloads for Claude Code, Codex, Gemini CLI, OpenCode, Goose, Windsurf, Zed, and gated connector targets.
+- Repo Intelligence exposes read-only manifests, packs, graph-input paths, stale/corrupt/moved index states, and MCP smoke evidence.
+- Savings ledger separates measured/estimated confidence and copyable evidence for Headroom engine, RTK, Repo Intelligence, Ponytail, Caveman, and Compact profiles.
+- Rollback Center has Doctor-visible inventory, execution previews, relaunch-survival evidence, and cleanup-only rows for native-write surfaces.
+- Connector readiness enforces seven-stage evidence and `automationEnabled: false` for unpromoted native/provider writes.
+
+Left:
+- Promote remaining provider/editor native-write connectors only after backup, apply, verify, rollback, and Off cleanup are proven.
+- Add live runtime/session savings counters for Caveman, Ponytail, and MarkItDown in Rust/frontend state.
+- Deepen long-running Repo Intelligence graph analyzers and MCP supervision evidence.
+- Produce signed/notarized/updater public-release evidence and public installed-app smoke proof.
+- Refactor large backend/frontend files: `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/src/tool_manager.rs`, and `src/App.tsx`.
+
 ## Current Status - 2026-07-03
 
 Recently shipped and verified:

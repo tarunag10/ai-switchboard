@@ -14,6 +14,8 @@ const dedicatedCleanupDomains = [
 ];
 
 const steps = [
+  // Rollback validation is local-first, not offline-only: it proves app-state
+  // restore/cleanup behavior without treating local evidence as public release proof.
   {
     id: "managed-changes-frontend",
     label: "Managed changes frontend rollback coverage",
