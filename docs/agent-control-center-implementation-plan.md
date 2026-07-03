@@ -13,6 +13,7 @@ Done:
 - Repo Intelligence exposes read-only manifests, packs, graph-input paths, stale/corrupt/moved index states, and MCP smoke evidence.
 - Repo Intelligence manifest and agent handoffs now expose Repo Map freshness, age, token-savings method, and stale-map warning evidence, guarded by `npm run check:repo-intelligence-map`.
 - Savings ledger separates measured/estimated confidence and copyable evidence for Headroom engine, RTK, Repo Intelligence, Ponytail, Caveman, and Compact profiles.
+- Savings benchmark evidence now self-identifies as local fixture before/after evidence, not release-gate or provider-billing telemetry, and release reports enforce that classification.
 - Rollback Center has Doctor-visible inventory, execution previews, relaunch-survival evidence, and cleanup-only rows for native-write surfaces.
 - Rollback and Doctor local evidence now have dedicated summary checkers, so relaunch-survival probes, cleanup domains, Doctor frontend repair copy, Off-mode guardrails, and post-write verification evidence are validated before local evidence is accepted.
 - Connector readiness enforces seven-stage evidence and `automationEnabled: false` for unpromoted native/provider writes.

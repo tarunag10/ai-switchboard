@@ -256,6 +256,15 @@ if (!Array.isArray(report.localValidation.measuredSavingsBenchmark.rows)) {
   fail("localValidation.measuredSavingsBenchmark.rows must be an array");
 }
 if (report.localValidation.measuredSavingsBenchmark.passed) {
+  if (report.localValidation.measuredSavingsBenchmark.kind !== "mac_ai_switchboard.measured_savings_benchmark") {
+    fail("localValidation.measuredSavingsBenchmark.kind must identify the savings benchmark artifact");
+  }
+  if (report.localValidation.measuredSavingsBenchmark.releaseGateEvidence !== false) {
+    fail("localValidation.measuredSavingsBenchmark.releaseGateEvidence must be false");
+  }
+  if (report.localValidation.measuredSavingsBenchmark.measurementClass !== "fixture_before_after") {
+    fail("localValidation.measuredSavingsBenchmark.measurementClass must be fixture_before_after");
+  }
   for (const source of ["caveman", "markitdown", "ponytail"]) {
     const row = report.localValidation.measuredSavingsBenchmark.rows.find(
       (item) => item.source === source,

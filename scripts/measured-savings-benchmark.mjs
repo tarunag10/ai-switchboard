@@ -67,7 +67,10 @@ totals.savingsPct = Number(
 
 const payload = {
   schemaVersion: 1,
+  kind: "mac_ai_switchboard.measured_savings_benchmark",
   generatedAt,
+  releaseGateEvidence: false,
+  measurementClass: "fixture_before_after",
   estimator: "word-and-symbol-count-x1.25",
   caveat:
     "Fixture benchmark evidence for repeatable before/after accounting; provider billing tokens can differ.",
