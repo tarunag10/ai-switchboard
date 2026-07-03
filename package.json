@@ -25,6 +25,7 @@
     "release:env:selftest": "node scripts/check-release-env-selftest.mjs",
     "release:report": "node scripts/release-readiness-report.mjs",
     "release:report:check": "node scripts/check-release-report-schema.mjs",
+    "savings:benchmark": "node scripts/measured-savings-benchmark.mjs",
     "release:ready": "node scripts/check-release-readiness.mjs",
     "release:ready:strict": "node scripts/check-release-readiness.mjs --strict",
     "evidence:local": "node scripts/run-local-evidence.mjs",

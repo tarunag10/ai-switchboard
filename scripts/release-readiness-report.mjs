@@ -29,6 +29,10 @@ const localRepoMemoryMcpSummaryPath =
   "dist/local-repo-memory-mcp-validation-summary.md";
 const localRepoMemoryMcpJsonPath =
   "dist/local-repo-memory-mcp-validation-summary.json";
+const measuredSavingsBenchmarkSummaryPath =
+  "dist/measured-savings-benchmark.md";
+const measuredSavingsBenchmarkJsonPath =
+  "dist/measured-savings-benchmark.json";
 const localOnlyNetworkSummaryPath =
   "dist/local-only-network-validation-summary.md";
 const localOnlyNetworkJsonPath =
@@ -313,6 +317,12 @@ function buildLocalValidationEvidence() {
   const repoIntelligenceJson = readJsonStatus(localRepoIntelligenceJsonPath);
   const repoMemoryMcpSummary = readSummaryStatus(localRepoMemoryMcpSummaryPath);
   const repoMemoryMcpJson = readJsonStatus(localRepoMemoryMcpJsonPath);
+  const measuredSavingsBenchmarkSummary = readSummaryStatus(
+    measuredSavingsBenchmarkSummaryPath,
+  );
+  const measuredSavingsBenchmarkJson = readJsonStatus(
+    measuredSavingsBenchmarkJsonPath,
+  );
   const localOnlyNetworkSummary = readSummaryStatus(localOnlyNetworkSummaryPath);
   const localOnlyNetworkJson = readJsonStatus(localOnlyNetworkJsonPath);
   const modeRelaunchPassed = modeRelaunchJson.body?.passed === true;
@@ -321,6 +331,8 @@ function buildLocalValidationEvidence() {
   const uninstallPassed = uninstallJson.body?.passed === true;
   const repoIntelligencePassed = repoIntelligenceJson.body?.passed === true;
   const repoMemoryMcpPassed = repoMemoryMcpJson.body?.passed === true;
+  const measuredSavingsBenchmarkPassed =
+    Number(measuredSavingsBenchmarkJson.body?.totals?.savedTokens ?? 0) > 0;
   const localOnlyNetworkPassed = localOnlyNetworkJson.body?.passed === true;
   const localInstalledAppPresent = localInstalledJson.body?.app?.present === true;
   const localInstalledMetadataMatches =
@@ -453,6 +465,16 @@ function buildLocalValidationEvidence() {
         : 0,
       requiredCommand: "npm run smoke:repo-intelligence:local",
     },
+    measuredSavingsBenchmark: {
+      summaryPath: measuredSavingsBenchmarkSummaryPath,
+      jsonPath: measuredSavingsBenchmarkJsonPath,
+      summaryPresent: measuredSavingsBenchmarkSummary.present,
+      jsonPresent: measuredSavingsBenchmarkJson.present,
+      generatedLine: measuredSavingsBenchmarkSummary.generatedLine ?? null,
+      passed: measuredSavingsBenchmarkPassed,
+      totals: measuredSavingsBenchmarkJson.body?.totals ?? null,
+      requiredCommand: "npm run savings:benchmark",
+    },
     repoMemoryMcp: {
       summaryPath: localRepoMemoryMcpSummaryPath,
       jsonPath: localRepoMemoryMcpJsonPath,
@@ -556,6 +578,9 @@ function missingLocalEvidenceLabels(localValidation) {
     localValidation.doctorRepair?.passed ? null : "Doctor repair validation",
     localValidation.uninstall?.passed ? null : "uninstall dry-run validation",
     localValidation.repoIntelligence?.passed ? null : "Repo Intelligence validation",
+    localValidation.measuredSavingsBenchmark?.passed
+      ? null
+      : "measured savings benchmark",
     localValidation.repoMemoryMcp?.passed ? null : "Repo Memory MCP validation",
     localValidation.localOnlyNetwork?.passed ? null : "local-only network validation",
   ].filter(Boolean);
@@ -711,6 +736,11 @@ ${localValidation.repoIntelligence.generatedLine ? `- ${localValidation.repoInte
 - Repo Intelligence modifies repository: ${localValidation.repoIntelligence.modifiesRepository === false ? "no" : "unknown"}
 - Repo Intelligence validation steps: ${localValidation.repoIntelligence.stepCount}
 - Repo Intelligence command: ${localValidation.repoIntelligence.requiredCommand}
+- Measured savings benchmark summary present: ${localValidation.measuredSavingsBenchmark.summaryPresent ? "yes" : "no"} (${localValidation.measuredSavingsBenchmark.summaryPath})
+- Measured savings benchmark JSON present: ${localValidation.measuredSavingsBenchmark.jsonPresent ? "yes" : "no"} (${localValidation.measuredSavingsBenchmark.jsonPath})
+${localValidation.measuredSavingsBenchmark.generatedLine ? `- ${localValidation.measuredSavingsBenchmark.generatedLine}` : "- Measured savings benchmark generated timestamp not in summary"}
+- Measured savings benchmark saved tokens: ${localValidation.measuredSavingsBenchmark.totals?.savedTokens ?? "missing"}
+- Measured savings benchmark command: ${localValidation.measuredSavingsBenchmark.requiredCommand}
 - Repo Memory MCP summary present: ${localValidation.repoMemoryMcp.summaryPresent ? "yes" : "no"} (${localValidation.repoMemoryMcp.summaryPath})
 - Repo Memory MCP JSON present: ${localValidation.repoMemoryMcp.jsonPresent ? "yes" : "no"} (${localValidation.repoMemoryMcp.jsonPath})
 ${localValidation.repoMemoryMcp.generatedLine ? `- ${localValidation.repoMemoryMcp.generatedLine}` : "- Repo Memory MCP validation summary has not been generated in this checkout."}

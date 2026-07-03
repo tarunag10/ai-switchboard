@@ -56,6 +56,13 @@ const requiredReleaseReportPaths = [
   "localValidation.repoIntelligence.readOnly",
   "localValidation.repoIntelligence.modifiesRepository",
   "localValidation.repoIntelligence.requiredCommand",
+  "localValidation.measuredSavingsBenchmark.summaryPath",
+  "localValidation.measuredSavingsBenchmark.jsonPath",
+  "localValidation.measuredSavingsBenchmark.summaryPresent",
+  "localValidation.measuredSavingsBenchmark.jsonPresent",
+  "localValidation.measuredSavingsBenchmark.passed",
+  "localValidation.measuredSavingsBenchmark.totals.savedTokens",
+  "localValidation.measuredSavingsBenchmark.requiredCommand",
   "localValidation.repoMemoryMcp.summaryPath",
   "localValidation.repoMemoryMcp.jsonPath",
   "localValidation.repoMemoryMcp.passed",
@@ -213,6 +220,18 @@ if (
   )
 ) {
   fail(`${markdownReportPath} must include the local Repo Intelligence validation command`);
+}
+if (!markdownReport.includes("Measured savings benchmark summary present:")) {
+  fail(`${markdownReportPath} must include measured savings benchmark summary evidence`);
+}
+if (!markdownReport.includes("Measured savings benchmark saved tokens:")) {
+  fail(`${markdownReportPath} must include measured savings benchmark token evidence`);
+}
+if (Number(report.localValidation.measuredSavingsBenchmark.totals.savedTokens) <= 0) {
+  fail("localValidation.measuredSavingsBenchmark.totals.savedTokens must be positive");
+}
+if (report.localValidation.measuredSavingsBenchmark.requiredCommand !== "npm run savings:benchmark") {
+  fail("localValidation.measuredSavingsBenchmark.requiredCommand must be npm run savings:benchmark");
 }
 
 requireType(report, "status", "string");

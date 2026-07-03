@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "generatedFor": "measured-add-on-savings",
+  "fixtures": [
+    {
+      "id": "caveman-agent-instructions",
+      "source": "caveman",
+      "label": "Caveman managed instruction block",
+      "confidence": "measured_fixture",
+      "before": "You are working in a repository where every response should avoid unnecessary introductions, restating the question, and long summaries of actions that were just performed. Prefer a concise answer first, then include only the debugging detail required to be correct. When shell output is lengthy, summarize the meaningful failure lines and mention the command that produced them.",
+      "after": "Terse output. Lead with result. Skip preamble and repeated summaries. Include required debugging detail only."
+    },
+    {
+      "id": "ponytail-agent-handoff",
+      "source": "ponytail",
+      "label": "Ponytail plugin handoff",
+      "confidence": "measured_fixture",
+      "before": "When a user asks for agent handoff, prepare a reusable context package that includes the current repository path, the active branch, the exact files touched, the commands already run, their results, remaining blockers, and the next command the receiving agent should execute. Preserve safety boundaries around secrets and local-only artifacts.",
+      "after": "Handoff: repo, branch, touched files, commands/results, blockers, next command. Exclude secrets and local-only artifacts."
+    },
+    {
+      "id": "markitdown-document-preprocess",
+      "source": "markitdown",
+      "label": "MarkItDown document preprocessing",
+      "confidence": "measured_fixture",
+      "before": "Quarterly planning packet. Section one contains three pages of stakeholder notes, repeated document headers, legal footer boilerplate, image captions, and table formatting. Section two repeats the same initiative names across multiple slides. Section three contains extracted transcript text with timestamps, speaker names, and filler utterances.",
+      "after": "Quarterly planning packet: stakeholder notes, initiative names, and transcript excerpts. Removed repeated headers, footers, captions, table chrome, timestamps, speaker labels, and filler."
+    }
+  ]
+}
