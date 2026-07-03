@@ -27,9 +27,19 @@ if (!fs.existsSync(markdownPath)) {
 
 const proof = JSON.parse(fs.readFileSync(proofPath, "utf8"));
 const markdown = fs.readFileSync(markdownPath, "utf8");
+const expectedBlockedProofBlockers = [
+  "signed/notarized DMG",
+  "updater feed",
+  "static smoke preflight",
+  "public installed-app smoke",
+  "release environment",
+];
 
 if (proof.kind !== "mac_ai_switchboard.public_release_proof") {
   fail("kind must be mac_ai_switchboard.public_release_proof");
+}
+if (proof.schemaVersion !== 1) {
+  fail("schemaVersion must be 1");
 }
 if (proof.releaseGateEvidence !== true) {
   fail("releaseGateEvidence must be true");
@@ -80,6 +90,13 @@ if (proof.proofReady) {
   }
 } else if (proof.blockers.length === 0) {
   fail("blocked public release proof must list blockers");
+}
+if (!proof.proofReady) {
+  for (const blocker of expectedBlockedProofBlockers) {
+    if (!proof.blockers.includes(blocker)) {
+      fail(`blocked public release proof missing blocker: ${blocker}`);
+    }
+  }
 }
 
 if (process.exitCode) {

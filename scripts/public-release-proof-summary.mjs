@@ -41,6 +41,7 @@ const blockers = [
 const proofReady = blockers.length === 0;
 
 const payload = {
+  schemaVersion: 1,
   generatedAt,
   kind: "mac_ai_switchboard.public_release_proof",
   releaseGateEvidence: true,

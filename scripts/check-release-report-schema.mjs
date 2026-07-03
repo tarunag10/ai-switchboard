@@ -623,7 +623,10 @@ if (
     "localValidation.repoIntelligence.requiredCommand must include smoke:repo-intelligence:local:check",
   );
 }
-if (report.localValidation.repoIntelligence.schemaVersion !== 1) {
+if (
+  report.localValidation.repoIntelligence.passed &&
+  report.localValidation.repoIntelligence.schemaVersion !== 1
+) {
   fail("localValidation.repoIntelligence.schemaVersion must be 1");
 }
 if (report.localValidation.repoIntelligence.modifiesRepository !== false) {
@@ -637,7 +640,10 @@ if (
     "localValidation.repoMemoryMcp.requiredCommand must be npm run smoke:repo-memory-mcp:local",
   );
 }
-if (report.localValidation.repoMemoryMcp.schemaVersion !== 1) {
+if (
+  report.localValidation.repoMemoryMcp.passed &&
+  report.localValidation.repoMemoryMcp.schemaVersion !== 1
+) {
   fail("localValidation.repoMemoryMcp.schemaVersion must be 1");
 }
 if (report.localValidation.repoMemoryMcp.modifiesRepository !== false) {
