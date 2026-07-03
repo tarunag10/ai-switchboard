@@ -43,15 +43,21 @@ const steps = [
   {
     id: "rollback-center-validation",
     label: "Rollback Center validation",
-    command: "npm run smoke:rollback:local",
-    commands: [["npm", ["run", "smoke:rollback:local"]]],
+    command: "npm run smoke:rollback:local && npm run smoke:rollback:local:check",
+    commands: [
+      ["npm", ["run", "smoke:rollback:local"]],
+      ["npm", ["run", "smoke:rollback:local:check"]],
+    ],
     summaryPath: "dist/local-rollback-validation-summary.md",
   },
   {
     id: "doctor-repair-validation",
     label: "Doctor repair validation",
-    command: "npm run smoke:doctor-repair:local",
-    commands: [["npm", ["run", "smoke:doctor-repair:local"]]],
+    command: "npm run smoke:doctor-repair:local && npm run smoke:doctor-repair:local:check",
+    commands: [
+      ["npm", ["run", "smoke:doctor-repair:local"]],
+      ["npm", ["run", "smoke:doctor-repair:local:check"]],
+    ],
     summaryPath: "dist/local-doctor-repair-validation-summary.md",
   },
   {

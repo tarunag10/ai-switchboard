@@ -16,6 +16,7 @@ Done:
 - Repo Memory MCP includes app-managed descriptor setup, stale-health smoke summaries, read-only pack/query surfaces, and connector recipes.
 - Savings evidence now distinguishes measured, fixture-backed, and estimated rows for Caveman, Ponytail, MarkItDown, RTK, and Repo Intelligence.
 - Rollback Center records relaunch-survival proof, local evidence summaries, and native-write disabled/gated connector states.
+- Rollback and Doctor evidence summaries now have explicit `:check` gates for relaunch-survival, cleanup-domain, Off-mode, frontend repair-copy, and post-write verification proof.
 - Aider/Cursor and other unpromoted provider/editor native writes remain guarded behind seven-stage readiness.
 - Connector readiness local evidence now checks all gated native-write connectors (`aider`, `amazon_q`, `continue`, `cursor`, `grok_cli`) for the seven-stage lifecycle contract and disabled automation before release evidence can pass.
 

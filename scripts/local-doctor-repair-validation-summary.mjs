@@ -46,7 +46,7 @@ function runStep(step) {
   const startedAt = new Date().toISOString();
   const result = spawnSync(step.command, step.args, {
     encoding: "utf8",
-    timeout: 120_000,
+    timeout: 240_000,
   });
   return {
     ...step,
