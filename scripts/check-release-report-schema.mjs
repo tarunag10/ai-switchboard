@@ -66,6 +66,9 @@ const requiredReleaseReportPaths = [
   "localValidation.repoMemoryMcp.summaryPath",
   "localValidation.repoMemoryMcp.jsonPath",
   "localValidation.repoMemoryMcp.passed",
+  "localValidation.repoMemoryMcp.budgetedPackVerified",
+  "localValidation.repoMemoryMcp.graphQueriesVerified",
+  "localValidation.repoMemoryMcp.staleIndexHealthVerified",
   "localValidation.repoMemoryMcp.readOnly",
   "localValidation.repoMemoryMcp.modifiesRepository",
   "localValidation.repoMemoryMcp.requiredCommand",
@@ -232,6 +235,21 @@ if (Number(report.localValidation.measuredSavingsBenchmark.totals.savedTokens) <
 }
 if (report.localValidation.measuredSavingsBenchmark.requiredCommand !== "npm run savings:benchmark") {
   fail("localValidation.measuredSavingsBenchmark.requiredCommand must be npm run savings:benchmark");
+}
+if (report.localValidation.repoMemoryMcp.budgetedPackVerified !== true) {
+  fail("localValidation.repoMemoryMcp.budgetedPackVerified must be true");
+}
+if (report.localValidation.repoMemoryMcp.graphQueriesVerified !== true) {
+  fail("localValidation.repoMemoryMcp.graphQueriesVerified must be true");
+}
+if (report.localValidation.repoMemoryMcp.staleIndexHealthVerified !== true) {
+  fail("localValidation.repoMemoryMcp.staleIndexHealthVerified must be true");
+}
+if (!markdownReport.includes("Repo Memory MCP budgeted pack verified: yes")) {
+  fail(`${markdownReportPath} must include Repo Memory MCP budgeted pack evidence`);
+}
+if (!markdownReport.includes("Repo Memory MCP graph queries verified: yes")) {
+  fail(`${markdownReportPath} must include Repo Memory MCP graph query evidence`);
 }
 
 requireType(report, "status", "string");

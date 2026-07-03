@@ -482,6 +482,12 @@ function buildLocalValidationEvidence() {
       jsonPresent: repoMemoryMcpJson.present,
       generatedLine: repoMemoryMcpSummary.generatedLine,
       passed: repoMemoryMcpPassed,
+      budgetedPackVerified:
+        repoMemoryMcpJson.body?.budgetedPackVerified === true,
+      graphQueriesVerified:
+        repoMemoryMcpJson.body?.graphQueriesVerified === true,
+      staleIndexHealthVerified:
+        repoMemoryMcpJson.body?.staleIndexHealthVerified === true,
       readOnly: repoMemoryMcpJson.body?.readOnly === true,
       modifiesRepository: repoMemoryMcpJson.body?.modifiesRepository === true,
       relaunchSurvivalEvidence:
@@ -752,6 +758,9 @@ ${localValidation.repoMemoryMcp.generatedLine ? `- ${localValidation.repoMemoryM
 - Repo Memory MCP relaunch survival evidence: ${localValidation.repoMemoryMcp.relaunchSurvivalEvidence ?? "unknown"}
 - Repo Memory MCP tool count: ${localValidation.repoMemoryMcp.toolCount}
 - Repo Memory MCP validation steps: ${localValidation.repoMemoryMcp.stepCount}
+- Repo Memory MCP budgeted pack verified: ${localValidation.repoMemoryMcp.budgetedPackVerified ? "yes" : "no"}
+- Repo Memory MCP graph queries verified: ${localValidation.repoMemoryMcp.graphQueriesVerified ? "yes" : "no"}
+- Repo Memory MCP stale-index health verified: ${localValidation.repoMemoryMcp.staleIndexHealthVerified ? "yes" : "no"}
 - Repo Memory MCP command: ${localValidation.repoMemoryMcp.requiredCommand}
 - Local-only network summary present: ${localValidation.localOnlyNetwork.summaryPresent ? "yes" : "no"} (${localValidation.localOnlyNetwork.summaryPath})
 - Local-only network JSON present: ${localValidation.localOnlyNetwork.jsonPresent ? "yes" : "no"} (${localValidation.localOnlyNetwork.jsonPath})

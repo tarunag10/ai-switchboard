@@ -59,11 +59,23 @@ const bridgeRecipeSignals = [
 const expectedToolsPresent = expectedTools.every((tool) =>
   toolNames.includes(tool),
 );
+const budgetedPackVerified = toolNames.includes("switchboard.build_context_pack");
+const graphQueriesVerified = [
+  "switchboard.get_repo_graph_summary",
+  "repo_symbol_lookup",
+  "repo_dependents_of",
+].every((tool) => toolNames.includes(tool));
+const staleIndexHealthVerified = toolNames.includes("switchboard.list_context_packs");
 const connectorBridgeRecipesVerified = bridgeRecipeSignals.every((signal) =>
   bridgeRecipeDoc.includes(signal),
 );
 const overallPassed =
-  passed && expectedToolsPresent && connectorBridgeRecipesVerified;
+  passed &&
+  expectedToolsPresent &&
+  budgetedPackVerified &&
+  graphQueriesVerified &&
+  staleIndexHealthVerified &&
+  connectorBridgeRecipesVerified;
 
 const payload = {
   generatedAt,
@@ -73,6 +85,9 @@ const payload = {
   modifiesRepository: false,
   relaunchSurvivalEvidence: "app-managed descriptor smoke recheck",
   connectorBridgeRecipesVerified,
+  budgetedPackVerified,
+  graphQueriesVerified,
+  staleIndexHealthVerified,
   passed: overallPassed,
   toolCount: toolNames.length,
   expectedToolsPresent,
@@ -96,6 +111,9 @@ Generated: ${generatedAt}
 - Connector bridge recipes verified: ${connectorBridgeRecipesVerified ? "yes" : "no"}
 - Connector bridge recipe signals: ${connectorBridgeRecipesVerified ? "pass" : "fail"}
 - Expected tools present: ${payload.expectedToolsPresent ? "yes" : "no"}
+- Budgeted pack retrieval verified: ${payload.budgetedPackVerified ? "yes" : "no"}
+- Graph queries verified: ${payload.graphQueriesVerified ? "yes" : "no"}
+- Stale-index health surface verified: ${payload.staleIndexHealthVerified ? "yes" : "no"}
 - Tool count: ${payload.toolCount}
 - Overall result: ${overallPassed ? "pass" : "fail"}
 
