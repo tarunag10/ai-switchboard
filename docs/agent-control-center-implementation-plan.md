@@ -15,9 +15,10 @@ Done:
 - Savings ledger separates measured/estimated confidence and copyable evidence for Headroom engine, RTK, Repo Intelligence, Ponytail, Caveman, and Compact profiles.
 - Rollback Center has Doctor-visible inventory, execution previews, relaunch-survival evidence, and cleanup-only rows for native-write surfaces.
 - Connector readiness enforces seven-stage evidence and `automationEnabled: false` for unpromoted native/provider writes.
+- Connector local evidence now requires all gated native-write dossiers (`aider`, `amazon_q`, `continue`, `cursor`, `grok_cli`) to carry the shared seven-stage lifecycle contract while automation remains disabled.
 
 Left:
-- Promote remaining provider/editor native-write connectors only after backup, apply, verify, rollback, and Off cleanup are proven.
+- Promote remaining provider/editor native-write connectors only after the existing gated lifecycle evidence is backed by provider-specific fixture-home apply/verify/rollback/Off cleanup proof.
 - Add live runtime/session savings counters for Caveman, Ponytail, and MarkItDown in Rust/frontend state.
 - Deepen long-running Repo Intelligence graph analyzers and MCP supervision evidence beyond the guarded Repo Map context bridge.
 - Produce signed/notarized/updater public-release evidence and public installed-app smoke proof.

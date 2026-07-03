@@ -102,8 +102,11 @@ const steps = [
   {
     id: "connector-readiness-validation",
     label: "Connector readiness validation",
-    command: "npm run smoke:connectors:local",
-    commands: [["npm", ["run", "smoke:connectors:local"]]],
+    command: "npm run smoke:connectors:local && npm run smoke:connectors:local:check",
+    commands: [
+      ["npm", ["run", "smoke:connectors:local"]],
+      ["npm", ["run", "smoke:connectors:local:check"]],
+    ],
     summaryPath: "dist/local-connector-readiness-summary.md",
   },
   {

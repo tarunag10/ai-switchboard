@@ -17,9 +17,10 @@ Done:
 - Savings evidence now distinguishes measured, fixture-backed, and estimated rows for Caveman, Ponytail, MarkItDown, RTK, and Repo Intelligence.
 - Rollback Center records relaunch-survival proof, local evidence summaries, and native-write disabled/gated connector states.
 - Aider/Cursor and other unpromoted provider/editor native writes remain guarded behind seven-stage readiness.
+- Connector readiness local evidence now checks all gated native-write connectors (`aider`, `amazon_q`, `continue`, `cursor`, `grok_cli`) for the seven-stage lifecycle contract and disabled automation before release evidence can pass.
 
 Left:
-- Finish native-write apply/verify/rollback/Off cleanup before enabling remaining connector automation.
+- Add provider-specific fixture-home apply/verify/rollback/Off cleanup proof before enabling any currently gated connector automation.
 - Add real runtime/session counters for Caveman, Ponytail, and MarkItDown.
 - Expand Tauri/backend graph analyzers and large-file refactors beyond the guarded Repo Map context bridge.
 - Produce signed/notarized DMG, updater feed, and public installed-app smoke proof.

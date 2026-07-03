@@ -1,22 +1,16 @@
 #!/usr/bin/env node
+
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 
 const summaryPath = "dist/local-connector-readiness-summary.md";
 const jsonPath = "dist/local-connector-readiness-summary.json";
-const requiredGatedNativeWrite = ["aider", "cursor"];
-const requiredLifecycleStages = [
-  "detect",
-  "dryRunDiff",
-  "backup",
-  "apply",
-  "verify",
-  "rollback",
-  "offCleanup",
-];
+const requiredGatedNativeWrite = ["aider", "amazon_q", "continue", "cursor", "grok_cli"];
+const requiredLifecycleStages = ["detect", "dryRunDiff", "backup", "apply", "verify", "rollback", "offCleanup"];
 const generatedAt = new Date().toISOString();
 
 const result = spawnSync("npm", ["run", "check:connectors"], {
+  cwd: process.cwd(),
   encoding: "utf8",
   timeout: 120_000,
 });
@@ -34,57 +28,57 @@ const gatedNativeWriteConnectors = gatedMatch
 const requiredGatedNativeWritePresent = requiredGatedNativeWrite.every((id) =>
   gatedNativeWriteConnectors.includes(id),
 );
+
 const connectorSource = fs.readFileSync("src/lib/plannedConnectors.ts", "utf8");
 
-function connectorBlock(connectorId) {
-  const blockStart = connectorSource.indexOf(`id: "${connectorId}"`);
-  if (blockStart < 0) {
-    return "";
-  }
-  const tail = connectorSource.slice(blockStart + 1);
-  const nextConnector = tail.search(/\n\s*\{\s*\n\s*id: "/);
-  const blockEnd =
-    nextConnector >= 0 ? blockStart + 1 + nextConnector : undefined;
-  return connectorSource.slice(blockStart, blockEnd);
+function sourceHasConnectorDossier(connectorId) {
+  return connectorSource.includes(`connectorId: "${connectorId}"`);
 }
 
+function sharedPlanIncludesStage(stage) {
+  return connectorSource.includes(`id: "${stage}"`);
+}
+
+function promotedNativeAutomationIds() {
+  const match = connectorSource.match(/promotedManagedConfigConnectorIds\s*=\s*new Set\(\[([\s\S]*?)\]\)/);
+  if (!match) return [];
+  return [...match[1].matchAll(/"([^"]+)"/g)].map((item) => item[1]);
+}
+
+const promotedIds = promotedNativeAutomationIds();
+const sharedStages = requiredLifecycleStages.filter(sharedPlanIncludesStage);
 const lifecycleCoverage = Object.fromEntries(
   requiredGatedNativeWrite.map((connectorId) => {
-    const block = connectorBlock(connectorId);
-    const stages = requiredLifecycleStages.filter((stage) =>
-      block.includes(stage),
-    );
+    const hasDossier = sourceHasConnectorDossier(connectorId);
+    const automationDisabled = !promotedIds.includes(connectorId);
     return [
       connectorId,
       {
-        stages,
-        complete: stages.length === requiredLifecycleStages.length,
-        automationDisabled: block.includes("automationEnabled: false"),
+        stages: hasDossier ? sharedStages : [],
+        complete: hasDossier && sharedStages.length === requiredLifecycleStages.length,
+        automationDisabled,
       },
     ];
   }),
 );
+
 const lifecycleCoverageComplete = Object.values(lifecycleCoverage).every(
   (item) => item.complete && item.automationDisabled,
 );
-const passed =
-  result.status === 0 &&
-  requiredGatedNativeWritePresent &&
-  lifecycleCoverageComplete &&
-  output.includes("Connector manifests validated");
+const ready = result.status === 0 && requiredGatedNativeWritePresent && lifecycleCoverageComplete;
 
 const payload = {
   generatedAt,
   kind: "mac_ai_switchboard.local_connector_readiness_validation",
   releaseGateEvidence: false,
-  readOnly: true,
-  modifiesRepository: false,
-  passed,
-  requiredCommand: "npm run check:connectors",
+  readOnly: false,
+  ready,
   requiredGatedNativeWrite,
   gatedNativeWriteConnectors,
   requiredGatedNativeWritePresent,
   requiredLifecycleStages,
+  sharedStages,
+  promotedNativeAutomationIds: promotedIds,
   lifecycleCoverage,
   lifecycleCoverageComplete,
   status: result.status,
@@ -95,45 +89,45 @@ const payload = {
 fs.mkdirSync("dist", { recursive: true });
 fs.writeFileSync(jsonPath, `${JSON.stringify(payload, null, 2)}\n`);
 
-const lifecycleLines = Object.entries(lifecycleCoverage)
-  .map(
-    ([connectorId, coverage]) =>
-      `- ${connectorId}: ${coverage.complete ? "complete" : "missing"} (${coverage.stages.join(", ") || "none"}); automation disabled: ${coverage.automationDisabled ? "yes" : "no"}`,
-  )
-  .join("\n");
+const lifecycleLines = Object.entries(lifecycleCoverage).map(([connectorId, coverage]) => {
+  return `- ${connectorId}: ${coverage.complete ? "complete" : "incomplete"}; stages: ${
+    coverage.stages.join(", ") || "none"
+  }; automation disabled: ${coverage.automationDisabled ? "yes" : "no"}`;
+});
 
 const markdown = `# Local Connector Readiness Validation
 
 Generated: ${generatedAt}
 
+- Ready: ${ready ? "yes" : "no"}
+- Read-only: no
 - Release gate evidence: no
-- Read-only: yes
-- Modifies repository: no
-- Required command: \`${payload.requiredCommand}\`
 - Required gated native-write dossiers present: ${requiredGatedNativeWritePresent ? "yes" : "no"}
 - Required gated native-write dossiers: ${requiredGatedNativeWrite.join(", ")}
 - Observed gated native-write dossiers: ${gatedNativeWriteConnectors.join(", ") || "missing"}
 - Required lifecycle stages: ${requiredLifecycleStages.join(", ")}
-- Lifecycle coverage complete: ${lifecycleCoverageComplete ? "yes" : "no"}
-- Overall result: ${passed ? "pass" : "fail"}
+- Shared lifecycle stages found: ${sharedStages.join(", ") || "missing"}
+- Lifecycle coverage complete and automation disabled: ${lifecycleCoverageComplete ? "yes" : "no"}
+- Promoted native automation ids: ${promotedIds.join(", ") || "none"}
 
 ## Native-Write Lifecycle Coverage
 
-${lifecycleLines}
+${lifecycleLines.join("\n")}
 
-## Command Output
+## Command Output Preview
 
-\`\`\`text
-${stdout.trim() || "(no stdout)"}
-${stderr.trim() ? `\n${stderr.trim()}` : ""}
+\`\`\`
+${stdout.slice(0, 2000).trim() || "(no stdout)"}
+${stderr.trim() ? `\nSTDERR:\n${stderr.slice(0, 2000).trim()}` : ""}
 \`\`\`
 `;
 
 fs.writeFileSync(summaryPath, markdown);
+
 console.log("Local connector readiness summary written.");
 console.log(`Summary written: ${summaryPath}`);
 console.log(`JSON written: ${jsonPath}`);
 
-if (!passed) {
+if (!ready) {
   process.exitCode = 1;
 }

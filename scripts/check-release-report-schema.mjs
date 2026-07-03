@@ -299,7 +299,7 @@ if (report.localValidation.connectorReadiness.passed) {
   if (report.localValidation.connectorReadiness.requiredGatedNativeWritePresent !== true) {
     fail("localValidation.connectorReadiness.requiredGatedNativeWritePresent must be true when connector readiness evidence passes");
   }
-  for (const connectorId of ["aider", "cursor"]) {
+  for (const connectorId of ["aider", "amazon_q", "continue", "cursor", "grok_cli"]) {
     if (!report.localValidation.connectorReadiness.gatedNativeWriteConnectors.includes(connectorId)) {
       fail(`localValidation.connectorReadiness.gatedNativeWriteConnectors must include ${connectorId} when connector readiness evidence passes`);
     }
