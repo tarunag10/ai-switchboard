@@ -78,6 +78,7 @@ const overallPassed =
   connectorBridgeRecipesVerified;
 
 const payload = {
+  schemaVersion: 1,
   generatedAt,
   kind: "mac_ai_switchboard.local_repo_memory_mcp_validation",
   releaseGateEvidence: false,

@@ -6,6 +6,7 @@ Created / updated:
 - Repo Map one-click generation is built with repo picker/history, per-tool progress, tooling preflight, Graphify partial-success handling, generated artifacts, open-artifact actions, and token-savings artifacts.
 - Repo Map now feeds Repo Intelligence context: Agent Session handoffs, CLI exports, Repo Memory MCP recipes, freshness/age/staleness warnings, and `check:repo-intelligence-map`.
 - Repo Memory MCP has read-only evidence checks, bounded graph/query proof, stale-index health, app-managed descriptor recheck, and local-only release readiness evidence.
+- Repo Intelligence and Repo Memory MCP local evidence are schema-versioned; Repo Intelligence now has a dedicated local checker wired into aggregate evidence and release-readiness reporting.
 - Savings evidence is stronger: RTK/Repo Intelligence measured rows, Caveman/Ponytail/MarkItDown backend attribution contract checks, fixture/local-only classification, and public-proof exclusion for local-only artifacts.
 - Frontend savings ledger coverage now proves Caveman, Ponytail, and MarkItDown add-on attribution events render as source-specific session rows.
 - Doctor repair, Rollback Center, connector readiness, repo-memory MCP, runtime savings, deployment, release report, and public release proof check scripts exist and are wired as local validation evidence.

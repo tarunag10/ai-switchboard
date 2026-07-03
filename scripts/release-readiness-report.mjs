@@ -467,6 +467,7 @@ function buildLocalValidationEvidence() {
       summaryPresent: repoIntelligenceSummary.present,
       jsonPresent: repoIntelligenceJson.present,
       generatedLine: repoIntelligenceSummary.generatedLine,
+      schemaVersion: repoIntelligenceJson.body?.schemaVersion ?? null,
       passed: repoIntelligencePassed,
       readOnly: repoIntelligenceJson.body?.readOnly === true,
       modifiesRepository: repoIntelligenceJson.body?.modifiesRepository === true,
@@ -475,7 +476,8 @@ function buildLocalValidationEvidence() {
       stepCount: Array.isArray(repoIntelligenceJson.body?.steps)
         ? repoIntelligenceJson.body.steps.length
         : 0,
-      requiredCommand: "npm run smoke:repo-intelligence:local",
+      requiredCommand:
+        "npm run smoke:repo-intelligence:local && npm run smoke:repo-intelligence:local:check",
     },
     measuredSavingsBenchmark: {
       summaryPath: measuredSavingsBenchmarkSummaryPath,
@@ -497,6 +499,7 @@ function buildLocalValidationEvidence() {
       summaryPresent: repoMemoryMcpSummary.present,
       jsonPresent: repoMemoryMcpJson.present,
       generatedLine: repoMemoryMcpSummary.generatedLine,
+      schemaVersion: repoMemoryMcpJson.body?.schemaVersion ?? null,
       passed: repoMemoryMcpPassed,
       budgetedPackVerified:
         repoMemoryMcpJson.body?.budgetedPackVerified === true,

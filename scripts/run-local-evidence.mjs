@@ -70,8 +70,11 @@ const steps = [
   {
     id: "repo-intelligence-validation",
     label: "Repo Intelligence validation",
-    command: "npm run smoke:repo-intelligence:local",
-    commands: [["npm", ["run", "smoke:repo-intelligence:local"]]],
+    command: "npm run smoke:repo-intelligence:local && npm run smoke:repo-intelligence:local:check",
+    commands: [
+      ["npm", ["run", "smoke:repo-intelligence:local"]],
+      ["npm", ["run", "smoke:repo-intelligence:local:check"]],
+    ],
     summaryPath: "dist/local-repo-intelligence-validation-summary.md",
   },
   {

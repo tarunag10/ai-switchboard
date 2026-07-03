@@ -23,6 +23,9 @@ if (!fs.existsSync(reportPath)) {
 
 const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
 
+if (report.schemaVersion !== 1) {
+  fail("schemaVersion must be 1");
+}
 if (report.kind !== "mac_ai_switchboard.local_repo_memory_mcp_validation") {
   fail("unexpected report kind");
 }

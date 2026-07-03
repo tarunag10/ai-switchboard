@@ -39,6 +39,7 @@
     "smoke:doctor-repair:local:check": "node scripts/check-local-doctor-repair-summary.mjs",
     "smoke:uninstall:local": "node scripts/local-uninstall-validation-summary.mjs",
     "smoke:repo-intelligence:local": "node scripts/local-repo-intelligence-validation-summary.mjs",
+    "smoke:repo-intelligence:local:check": "node scripts/check-local-repo-intelligence-summary.mjs",
     "smoke:repo-memory-mcp:local": "node scripts/local-repo-memory-mcp-validation-summary.mjs",
     "smoke:repo-memory-mcp:local:check": "node scripts/check-local-repo-memory-mcp-summary.mjs",
     "smoke:local-only:local": "node scripts/local-only-network-validation-summary.mjs",
