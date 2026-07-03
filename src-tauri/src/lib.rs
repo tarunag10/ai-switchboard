@@ -10235,6 +10235,9 @@ mod tests {
 
     #[test]
     fn fetch_transformations_feed_decodes_proxy_response() {
+        std::env::set_var("HEADROOM_FULL_MESSAGE_LOGGING", "0");
+        let app_storage_temp = tempfile::tempdir().expect("app storage tempdir");
+        let _app_storage = AppStorageEnvGuard::isolated(app_storage_temp.path());
         use std::io::{Read, Write};
         use std::net::TcpListener;
 

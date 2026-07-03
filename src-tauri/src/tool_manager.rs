@@ -5881,6 +5881,32 @@ mod tests {
     use crate::port_conflict;
     use std::net::TcpListener;
 
+    struct AppStorageEnvGuard {
+        prev_xdg: Option<std::ffi::OsString>,
+        _temp_dir: std::path::PathBuf,
+    }
+
+    impl AppStorageEnvGuard {
+        fn new() -> Self {
+            let prev_xdg = std::env::var_os("XDG_DATA_HOME");
+            let temp_dir = unique_temp_dir("app-storage");
+            std::env::set_var("XDG_DATA_HOME", &temp_dir);
+            Self {
+                prev_xdg,
+                _temp_dir: temp_dir,
+            }
+        }
+    }
+
+    impl Drop for AppStorageEnvGuard {
+        fn drop(&mut self) {
+            match self.prev_xdg.take() {
+                Some(value) => std::env::set_var("XDG_DATA_HOME", value),
+                None => std::env::remove_var("XDG_DATA_HOME"),
+            }
+        }
+    }
+
     #[test]
     fn path_with_binary_dir_prepends_parent() {
         let path =
@@ -6820,7 +6846,10 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 
     #[test]
     fn managed_headroom_startup_uses_supported_proxy_args() {
-        std::env::remove_var("HEADROOM_FULL_MESSAGE_LOGGING");
+        std::env::set_var("HEADROOM_FULL_MESSAGE_LOGGING", "0");
+        let _app_storage = AppStorageEnvGuard::new();
+        crate::message_logging::save_settings(&crate::models::MessageLoggingSettings::default())
+            .expect("disable message logging for startup test");
         backend_port::reset_for_tests();
         let default_port = backend_port::DEFAULT_BACKEND_PORT.to_string();
         let entrypoint_args = headroom_entrypoint_startup_args(&SavingsMode::Balanced);

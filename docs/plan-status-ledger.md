@@ -90,3 +90,9 @@ tracks what has been created, what was updated, and what is still left.
 - `npm run release:proof:check`
 - `npm run smoke:savings-anomalies:local`
 - `npm run smoke:savings-anomalies:local:check`
+## 2026-07-03 Evidence Gate Stabilization
+
+- Default-off message logging tests now isolate developer env/app storage, so
+  local persisted settings cannot make `test:desktop` or `evidence:local`
+  fail spuriously.
+- Validation: `npm run test:desktop` and `npm run evidence:local`.
