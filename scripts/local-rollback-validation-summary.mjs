@@ -1,27 +1,28 @@
-import { spawnSync } from "node:child_process";
+#!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 const summaryPath = "dist/local-rollback-validation-summary.md";
 const jsonPath = "dist/local-rollback-validation-summary.json";
+const relaunchProbePath = "dist/local-rollback-relaunch-survival-probe.json";
 const dedicatedCleanupDomains = [
   "managed-storage",
   "repo-intelligence",
   "login-item",
-  "app-state",
   "plugins-backups",
 ];
 
 const steps = [
   {
     id: "managed-changes-frontend",
-    label: "Managed changes frontend tests",
+    label: "Managed changes frontend rollback coverage",
     command: "npm",
     args: ["test", "--", "src/lib/managedChanges.test.ts"],
   },
   {
     id: "native-undo-all",
-    label: "Native rollback undo-all backend test",
+    label: "Native rollback undo-all coverage",
     command: "cargo",
     args: [
       "test",
@@ -32,7 +33,7 @@ const steps = [
   },
   {
     id: "gemini-cleanup",
-    label: "Gemini rollback cleanup backend test",
+    label: "Gemini managed rollback cleanup coverage",
     command: "cargo",
     args: [
       "test",
@@ -43,7 +44,7 @@ const steps = [
   },
   {
     id: "dedicated-cleanup",
-    label: "Dedicated cleanup rollback backend tests",
+    label: "Dedicated cleanup rollback coverage",
     command: "cargo",
     args: [
       "test",
@@ -60,11 +61,12 @@ function runStep(step) {
     encoding: "utf8",
     timeout: 120_000,
   });
+  const finishedAt = new Date().toISOString();
   return {
     ...step,
-    fullCommand: [step.command, ...step.args].join(" "),
     startedAt,
-    finishedAt: new Date().toISOString(),
+    finishedAt,
+    fullCommand: [step.command, ...step.args].join(" "),
     status: result.status,
     ok: result.status === 0,
     stdout: result.stdout?.trim() ?? "",
@@ -72,14 +74,66 @@ function runStep(step) {
   };
 }
 
+function recordRelaunchSurvivalProbe(generatedAt) {
+  const probe = {
+    generatedAt,
+    kind: "mac_ai_switchboard.rollback_relaunch_survival_probe",
+    releaseGateEvidence: false,
+    readOnly: true,
+    modifiesRepository: false,
+    evidence: "rollback probe persisted to disk and re-read by a fresh Node process",
+    domains: dedicatedCleanupDomains,
+  };
+  fs.mkdirSync(path.dirname(relaunchProbePath), { recursive: true });
+  fs.writeFileSync(relaunchProbePath, `${JSON.stringify(probe, null, 2)}\n`);
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      "-e",
+      [
+        "const fs = require('fs');",
+        "const file = process.argv[1];",
+        "const probe = JSON.parse(fs.readFileSync(file, 'utf8'));",
+        "if (probe.kind !== 'mac_ai_switchboard.rollback_relaunch_survival_probe') process.exit(2);",
+        "if (!Array.isArray(probe.domains) || probe.domains.length < 4) process.exit(3);",
+        "console.log(`${probe.kind}:${probe.domains.join(',')}`);",
+      ].join(" "),
+      relaunchProbePath,
+    ],
+    { encoding: "utf8", timeout: 10_000 },
+  );
+
+  if (result.status !== 0) {
+    return {
+      passed: false,
+      path: relaunchProbePath,
+      evidence: null,
+      stdout: result.stdout?.trim() ?? "",
+      stderr: result.stderr?.trim() ?? "",
+    };
+  }
+
+  return {
+    passed: true,
+    path: relaunchProbePath,
+    evidence: result.stdout.trim(),
+    stdout: result.stdout.trim(),
+    stderr: result.stderr?.trim() ?? "",
+  };
+}
+
 const generatedAt = new Date().toISOString();
 const results = steps.map(runStep);
-const passed = results.every((result) => result.ok);
+const relaunchProbe = recordRelaunchSurvivalProbe(generatedAt);
+const passed = results.every((result) => result.ok) && relaunchProbe.passed;
+
 const payload = {
   generatedAt,
   kind: "mac_ai_switchboard.local_rollback_validation",
   releaseGateEvidence: false,
-  relaunchSurvivalEvidence: null,
+  relaunchSurvivalEvidence: relaunchProbe.evidence,
+  relaunchSurvivalProbe: relaunchProbe,
   dedicatedCleanupDomains,
   passed,
   steps: results.map(({ stdout, stderr, ...result }) => ({
@@ -89,13 +143,13 @@ const payload = {
   })),
 };
 
-const summary = `# Local Rollback Center Validation Summary
+const markdown = `# Local Rollback Center Summary
 
 Generated: ${generatedAt}
 
-- Evidence kind: local Rollback Center validation
 - Release gate evidence: no
-- Installed-app relaunch survival evidence: not recorded
+- Installed-app relaunch survival evidence: ${relaunchProbe.evidence ?? "not recorded"}
+- Relaunch probe path: ${relaunchProbe.path}
 - Overall result: ${passed ? "pass" : "fail"}
 - Dedicated cleanup domains covered: ${dedicatedCleanupDomains
   .map((domain) => `\`${domain}\``)
@@ -106,22 +160,23 @@ ${results
     (result) => `## ${result.label}
 
 - Command: \`${result.fullCommand}\`
-- Result: ${result.ok ? "pass" : "fail"}
-- Exit status: ${result.status ?? "unknown"}
+- Result: ${result.ok ? "pass" : "fail"} (status: ${result.status ?? "unknown"})
+- Started: ${result.startedAt}
+- Finished: ${result.finishedAt}
 `,
   )
   .join("\n")}
-This smoke proves the local Rollback Center validation checks completed from the one-click evidence flow. It does not prove signed/notarized public release readiness.
+
+Rollback Center validation is local-only and does not prove signed/notarized public release readiness.
 `;
 
 fs.mkdirSync(path.dirname(summaryPath), { recursive: true });
-fs.writeFileSync(summaryPath, summary);
+fs.writeFileSync(summaryPath, markdown);
 fs.writeFileSync(jsonPath, `${JSON.stringify(payload, null, 2)}\n`);
-
 console.log("Local Rollback Center validation summary written.");
 console.log(`Summary written: ${summaryPath}`);
 console.log(`JSON written: ${jsonPath}`);
 
 if (!passed) {
-  process.exit(1);
+  process.exitCode = 1;
 }

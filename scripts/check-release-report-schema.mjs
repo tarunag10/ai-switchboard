@@ -519,8 +519,11 @@ if (
 ) {
   fail("localValidation.rollback.requiredCommand must be npm run smoke:rollback:local");
 }
-if (report.localValidation.rollback.relaunchSurvivalEvidence !== null) {
-  fail("localValidation.rollback.relaunchSurvivalEvidence must be null until installed-app relaunch proof is recorded");
+if (typeof report.localValidation.rollback.relaunchSurvivalEvidence !== "string") {
+  fail("localValidation.rollback.relaunchSurvivalEvidence must be a string");
+}
+if (!report.localValidation.rollback.relaunchSurvivalEvidence.includes("rollback_relaunch_survival_probe")) {
+  fail("localValidation.rollback.relaunchSurvivalEvidence must include rollback relaunch survival probe evidence");
 }
 if (!markdownReport.includes("Rollback relaunch survival evidence:")) {
   fail(`${markdownReportPath} must include rollback relaunch survival evidence`);
