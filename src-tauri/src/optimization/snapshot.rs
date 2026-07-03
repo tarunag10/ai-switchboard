@@ -1,5 +1,5 @@
 use chrono::Utc;
-use serde::Serialize;
+use std::collections::BTreeMap;
 
 use super::cache_metrics::CacheTokenMetrics;
 use super::compaction::{decide_preemptive_compaction, CompactionInput};
@@ -7,92 +7,19 @@ use super::model_routing::{decide_model_route, ModelRouteInput};
 use super::redundancy::build_redundancy_report;
 use super::rtk_presets::all_presets;
 use super::session_packs::{plan_agent_session_pack, AgentSessionStartInput};
+use super::snapshot_types::{
+    AgentPackSnapshot, CompactionSignalSnapshot, ModelRoutingSnapshot, OptimizationSnapshot,
+    PromptCacheSegmentSnapshot, RedundancyFindingSnapshot, RtkPresetSnapshot, TokenXraySnapshot,
+};
+use super::telemetry::{self, TelemetrySnapshot};
 use super::token_xray::{build_token_xray, TokenXrayInput};
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct OptimizationSnapshot {
-    pub(crate) generated_at: String,
-    pub(crate) prompt_cache_segments: Vec<PromptCacheSegmentSnapshot>,
-    pub(crate) token_xray: TokenXraySnapshot,
-    pub(crate) redundancy: Vec<RedundancyFindingSnapshot>,
-    pub(crate) routing: Vec<ModelRoutingSnapshot>,
-    pub(crate) compaction: CompactionSignalSnapshot,
-    pub(crate) agent_pack: AgentPackSnapshot,
-    pub(crate) rtk_presets: Vec<RtkPresetSnapshot>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct PromptCacheSegmentSnapshot {
-    pub(crate) id: String,
-    pub(crate) label: String,
-    pub(crate) tokens: u64,
-    pub(crate) cacheable_tokens: u64,
-    pub(crate) hit_tokens: u64,
-    pub(crate) changes_per_session: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct TokenXraySnapshot {
-    pub(crate) original_tokens: u64,
-    pub(crate) optimized_tokens: u64,
-    pub(crate) system_tokens: u64,
-    pub(crate) user_tokens: u64,
-    pub(crate) tool_tokens: u64,
-    pub(crate) pack_tokens: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct RedundancyFindingSnapshot {
-    pub(crate) id: String,
-    pub(crate) label: String,
-    pub(crate) duplicate_tokens: u64,
-    pub(crate) locations: Vec<String>,
-    pub(crate) action: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct ModelRoutingSnapshot {
-    pub(crate) task: String,
-    pub(crate) current_model: String,
-    pub(crate) selected_model: String,
-    pub(crate) fallback_model: String,
-    pub(crate) reason: String,
-    pub(crate) estimated_savings_percent: u8,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct CompactionSignalSnapshot {
-    pub(crate) should_compact: bool,
-    pub(crate) context_used_percent: f64,
-    pub(crate) threshold_percent: u8,
-    pub(crate) reason: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct AgentPackSnapshot {
-    pub(crate) source: String,
-    pub(crate) injected: bool,
-    pub(crate) last_injected_at: Option<String>,
-    pub(crate) status: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct RtkPresetSnapshot {
-    pub(crate) id: String,
-    pub(crate) label: String,
-    pub(crate) command: String,
-    pub(crate) focus: String,
-}
-
 pub(crate) fn build_optimization_snapshot() -> OptimizationSnapshot {
+    let telemetry = telemetry::snapshot();
+    if telemetry.has_observations() {
+        return build_live_optimization_snapshot(telemetry);
+    }
+
     let prompt_cache_segments = vec![
         PromptCacheSegmentSnapshot {
             id: "system".to_string(),
@@ -248,12 +175,136 @@ pub(crate) fn build_optimization_snapshot() -> OptimizationSnapshot {
     }
 }
 
+fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> OptimizationSnapshot {
+    let cache_metrics = telemetry.cache_metrics;
+    let bucket_tokens = telemetry.token_buckets.iter().fold(
+        BTreeMap::<String, u64>::new(),
+        |mut totals, bucket| {
+            *totals
+                .entry(bucket.bucket.to_ascii_lowercase())
+                .or_default() += bucket.tokens;
+            totals
+        },
+    );
+    let bucket_total = bucket_tokens.values().copied().sum::<u64>();
+    let original_tokens = bucket_total.saturating_add(cache_metrics.total_tokens());
+    let optimized_tokens = original_tokens.saturating_sub(cache_metrics.cache_read_tokens);
+
+    let prompt_cache_segments = vec![PromptCacheSegmentSnapshot {
+        id: "observed-cache".to_string(),
+        label: "Observed prompt cache".to_string(),
+        tokens: cache_metrics.prompt_tokens,
+        cacheable_tokens: cache_metrics
+            .cache_creation_tokens
+            .saturating_add(cache_metrics.cache_read_tokens),
+        hit_tokens: cache_metrics.cache_read_tokens,
+        changes_per_session: 0,
+    }];
+
+    let mut hashes_by_value = BTreeMap::<String, Vec<_>>::new();
+    for hash in telemetry.redundancy_hashes {
+        hashes_by_value
+            .entry(hash.content_sha256.clone())
+            .or_default()
+            .push(hash);
+    }
+    let redundancy = hashes_by_value
+        .into_iter()
+        .filter_map(|(content_sha256, records)| {
+            if records.len() < 2 {
+                return None;
+            }
+            Some(RedundancyFindingSnapshot {
+                id: format!("duplicate-{}", &content_sha256[..12]),
+                label: "Duplicate payload hash".to_string(),
+                duplicate_tokens: records.iter().map(|record| record.estimated_tokens).sum(),
+                locations: records.into_iter().map(|record| record.source_id).collect(),
+                action: "Deduplicate repeated payload before routing".to_string(),
+            })
+        })
+        .collect();
+
+    let routing = telemetry
+        .routing_decisions
+        .into_iter()
+        .map(|decision| ModelRoutingSnapshot {
+            task: decision.task,
+            current_model: decision.current_model,
+            selected_model: decision.selected_model,
+            fallback_model: decision.fallback_model,
+            reason: decision.reason,
+            estimated_savings_percent: decision.estimated_savings_percent,
+        })
+        .collect();
+
+    let compaction = telemetry.compaction_decision.map_or(
+        CompactionSignalSnapshot {
+            should_compact: false,
+            context_used_percent: if original_tokens == 0 {
+                0.0
+            } else {
+                ((original_tokens.min(24_000) as f64) / 24_000.0) * 100.0
+            },
+            threshold_percent: 72,
+            reason: "No compaction decision observed yet".to_string(),
+        },
+        |decision| CompactionSignalSnapshot {
+            should_compact: decision.should_compact,
+            context_used_percent: f64::from(decision.context_used_percent),
+            threshold_percent: decision.threshold_percent,
+            reason: decision.reason,
+        },
+    );
+
+    OptimizationSnapshot {
+        generated_at: Utc::now().to_rfc3339(),
+        prompt_cache_segments,
+        token_xray: TokenXraySnapshot {
+            original_tokens,
+            optimized_tokens,
+            system_tokens: bucket_tokens.get("system").copied().unwrap_or_default(),
+            user_tokens: bucket_tokens.get("user").copied().unwrap_or_default(),
+            tool_tokens: bucket_tokens
+                .get("tool")
+                .or_else(|| bucket_tokens.get("tool_output"))
+                .copied()
+                .unwrap_or_default(),
+            pack_tokens: bucket_tokens
+                .get("pack")
+                .or_else(|| bucket_tokens.get("session_pack"))
+                .copied()
+                .unwrap_or_default(),
+        },
+        redundancy,
+        routing,
+        compaction,
+        agent_pack: AgentPackSnapshot {
+            source: "observed".to_string(),
+            injected: false,
+            last_injected_at: None,
+            status: "No agent pack decision observed yet".to_string(),
+        },
+        rtk_presets: telemetry
+            .rtk_presets
+            .into_iter()
+            .map(|preset| RtkPresetSnapshot {
+                id: preset.id,
+                label: preset.label,
+                command: preset.command,
+                focus: preset.focus,
+            })
+            .collect(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn snapshot_covers_all_requested_feature_groups() {
+        let _guard = telemetry::test_guard();
+        telemetry::reset_for_tests();
         let snapshot = build_optimization_snapshot();
 
         assert_eq!(snapshot.prompt_cache_segments.len(), 3);
@@ -262,5 +313,47 @@ mod tests {
         assert!(snapshot.agent_pack.injected);
         assert_eq!(snapshot.rtk_presets.len(), 4);
         assert!(snapshot.token_xray.original_tokens > snapshot.token_xray.optimized_tokens);
+    }
+
+    #[test]
+    fn snapshot_uses_live_telemetry_when_observed() {
+        let _guard = telemetry::test_guard();
+        telemetry::reset_for_tests();
+        telemetry::record_prompt_cache_metrics(CacheTokenMetrics {
+            prompt_tokens: 100,
+            completion_tokens: 20,
+            cache_creation_tokens: 40,
+            cache_read_tokens: 30,
+        });
+        telemetry::record_token_xray_bucket("system", 10);
+        telemetry::record_token_xray_bucket("tool", 5);
+        telemetry::record_redundancy_hash(
+            "request-a",
+            "abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd",
+            12,
+        );
+        telemetry::record_redundancy_hash(
+            "request-b",
+            "abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abcd",
+            8,
+        );
+        telemetry::record_routing_decision(telemetry::RoutingDecisionRecord {
+            task: "lint".to_string(),
+            current_model: "frontier".to_string(),
+            selected_model: "fast/local".to_string(),
+            fallback_model: "frontier".to_string(),
+            reason: "observed route".to_string(),
+            estimated_savings_percent: 42,
+        });
+
+        let snapshot = build_optimization_snapshot();
+
+        assert_eq!(snapshot.prompt_cache_segments.len(), 1);
+        assert_eq!(snapshot.prompt_cache_segments[0].hit_tokens, 30);
+        assert_eq!(snapshot.token_xray.system_tokens, 10);
+        assert_eq!(snapshot.token_xray.tool_tokens, 5);
+        assert_eq!(snapshot.redundancy[0].duplicate_tokens, 20);
+        assert_eq!(snapshot.routing[0].selected_model, "fast/local");
+        telemetry::reset_for_tests();
     }
 }

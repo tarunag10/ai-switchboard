@@ -27,6 +27,7 @@ use base64::Engine;
 use crate::backend_port;
 use crate::bearer::{BearerToken, BEARER_TOKEN_TTL};
 use crate::models::{CodexPlanTier, CodexRateLimitSnapshot, CodexUsageWindow};
+use crate::optimization::telemetry;
 
 pub const INTERCEPT_PORT: u16 = 6767;
 
@@ -245,6 +246,13 @@ async fn handle(
     let is_codex = find_header_end(&buf)
         .and_then(|end| parse_request_head(&buf[..end + 4]))
         .is_some_and(|head| is_openai_path(&head.path));
+    if is_codex {
+        telemetry::record_redundancy_payload_hash(
+            "codex-proxy-request",
+            &buf,
+            estimate_tokens_from_bytes(buf.len()),
+        );
+    }
 
     // Scan headers for a Bearer token and capture it. When the token's
     // value differs from what was previously in the slot — or the slot was
@@ -393,6 +401,10 @@ fn is_headroom_compression_refusal_response(head: &[u8]) -> bool {
         && lower.contains("compression_refused")
         && lower.contains("headroom:")
         && lower.contains("compression timeout")
+}
+
+fn estimate_tokens_from_bytes(byte_len: usize) -> u64 {
+    ((byte_len as u64).saturating_add(3)) / 4
 }
 
 /// Parse the `x-codex-*` rate-limit headers out of a raw HTTP response head

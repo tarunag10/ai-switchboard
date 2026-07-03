@@ -3563,6 +3563,30 @@ fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
         .codex_bypass
         .load(std::sync::atomic::Ordering::Acquire);
     let mut issues = Vec::new();
+    if state.tool_manager.caveman_receipt_exists() {
+        let caveman_level = state.tool_manager.caveman_level();
+        match client_adapters::caveman_integration_matches_level(&caveman_level) {
+            Ok(false) => issues.push(crate::models::DoctorIssue {
+                id: "caveman_profile_mismatch".to_string(),
+                title: "Caveman profile is not active in agent guidance".to_string(),
+                body: format!(
+                    "Caveman is installed at `{caveman_level}`, but the managed Claude/Codex guidance does not match that profile. Use the Addons Caveman level control or Doctor repair before relying on Compact Chinese or Caveman savings in this session."
+                ),
+                severity: crate::models::DoctorSeverity::Warning,
+                repair_action: Some("set_caveman_level".to_string()),
+            }),
+            Err(err) => issues.push(crate::models::DoctorIssue {
+                id: "caveman_profile_check_failed".to_string(),
+                title: "Caveman profile could not be verified".to_string(),
+                body: format!(
+                    "Caveman is installed, but Switchboard could not verify the managed Claude/Codex guidance: {err}"
+                ),
+                severity: crate::models::DoctorSeverity::Warning,
+                repair_action: Some("set_caveman_level".to_string()),
+            }),
+            Ok(true) => {}
+        }
+    }
     let connectors =
         client_adapters::list_client_connectors(&state.cached_clients()).unwrap_or_default();
     let managed_connectors = connectors.iter().filter(|client| {
