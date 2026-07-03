@@ -8,12 +8,13 @@ Created / updated:
 - Connector readiness proof now covers gated native-write lifecycle evidence, including automation-disabled safety for `aider`, `amazon_q`, `continue`, `cursor`, and `grok_cli`.
 - Repo Map UX reports install/tooling issues for missing `uv`, `npx`, `cargo`, and Graphviz, and handles partial-success output.
 - Savings evidence is classified so fixture/local-only savings cannot masquerade as public release proof.
+- Frontend savings ledger coverage now proves Caveman, Ponytail, and MarkItDown add-on attribution events render as source-specific session rows.
 - Local evidence checks exist for Doctor repair, Rollback Center, Repo Memory MCP, connector readiness, and runtime savings attribution.
 
 Still left:
 - Produce real signed/notarized DMG, updater feed, and public installed-app smoke evidence.
 - Promote provider/editor native-write connectors only after provider-specific apply, verify, rollback, Off cleanup, and relaunch-survival proof.
-- Finish frontend-visible runtime/session attribution for Caveman, Ponytail, and MarkItDown if the UI still hides backend-measured add-on events.
+- Deepen durable add-on health/history beyond the current bounded Caveman/Ponytail/MarkItDown session ledger rows.
 - Refactor large files opportunistically when touched: `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/src/tool_manager.rs`, and `src/App.tsx`.
 
 ## Current Plan Rollup - 2026-07-03

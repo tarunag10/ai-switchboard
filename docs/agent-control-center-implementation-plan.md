@@ -8,11 +8,12 @@ Created / updated:
 - Rollback Center has local evidence for managed records, rollback inventory, Doctor integration, connector cleanup boundaries, and relaunch-survival validation.
 - Release readiness distinguishes unsigned/local evidence from signed/public evidence and reports signing, notarization, updater, and public installed-smoke blockers.
 - Savings attribution has measured-attribution contracts, confidence/caveat classification, and local-only evidence separation.
+- Frontend savings ledger tests now cover source-specific Caveman, Ponytail, and MarkItDown session attribution rows.
 - Connector readiness has promoted/read-only paths plus gated native-write evidence for unpromoted provider/editor connectors.
 
 Still left:
 - Promote remaining provider/editor native-write connectors only after real provider-specific apply, verify, rollback, Off cleanup, and relaunch-survival proof.
-- Confirm frontend-visible live runtime/session savings rows for Caveman, Ponytail, and MarkItDown.
+- Deepen durable add-on health/history beyond the current frontend-visible Caveman/Ponytail/MarkItDown session ledger rows.
 - Extend Repo Intelligence with deeper long-running graph analyzers and supervised MCP operations.
 - Produce signed/notarized/updater public-release evidence and public installed-app smoke proof.
 - Keep planned maintainability refactors scoped to touched areas in `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/src/tool_manager.rs`, and `src/App.tsx`.

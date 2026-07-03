@@ -444,6 +444,7 @@ describe("savings calculator", () => {
       {
         cavemanSavings: buildAddonSavingsEstimate(480, 180),
         ponytailSavings: buildAddonSavingsEstimate(1_400, 520),
+        markitdownSavings: buildAddonSavingsEstimate(3_200, 900),
         attributionEvents: [
           {
             schemaVersion: 1,
@@ -475,12 +476,28 @@ describe("savings calculator", () => {
               "Estimated Ponytail plugin registered with 2 agent hosts: Claude Code, Codex.",
             ],
           },
+          {
+            schemaVersion: 1,
+            id: "markitdown-event-1",
+            observedAt: "2026-06-25T10:07:00Z",
+            scope: "session",
+            source: "markitdown",
+            confidence: "estimated",
+            deltaTokensSaved: 2_300,
+            deltaUsd: 0,
+            totalTokensSent: 0,
+            requestDelta: 1,
+            evidence: [
+              "Estimated MarkItDown hook registered for 3 managed document paths.",
+            ],
+          },
         ],
       },
     );
 
     const caveman = rows.find((row) => row.source === "caveman");
     const ponytail = rows.find((row) => row.source === "ponytail");
+    const markitdown = rows.find((row) => row.source === "markitdown");
 
     expect(caveman).toMatchObject({
       id: "caveman_attribution_events",
@@ -508,6 +525,19 @@ describe("savings calculator", () => {
     expect(ponytail?.detail).toContain("1 estimated Ponytail session event");
     expect(ponytail?.detail).toContain("plugin registered with 2 agent hosts");
     expect(rows.filter((row) => row.source === "ponytail")).toHaveLength(1);
+    expect(markitdown).toMatchObject({
+      id: "markitdown_attribution_events",
+      label: "MarkItDown",
+      confidence: "estimated",
+      savedTokens: 2_300,
+      savedUsd: null,
+      recordedAt: "2026-06-25T10:07:00Z",
+      caveat:
+        "Estimated from a smoke-tested managed MarkItDown hook or instruction-file change; not a per-document provider bill.",
+    });
+    expect(markitdown?.detail).toContain("1 estimated MarkItDown session event");
+    expect(markitdown?.detail).toContain("hook registered for 3 managed document paths");
+    expect(rows.filter((row) => row.source === "markitdown")).toHaveLength(1);
   });
 
   it("uses durable estimated backend attribution events for source breakdown rows", () => {

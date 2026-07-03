@@ -7,11 +7,12 @@ Created / updated:
 - Repo Map now feeds Repo Intelligence context: Agent Session handoffs, CLI exports, Repo Memory MCP recipes, freshness/age/staleness warnings, and `check:repo-intelligence-map`.
 - Repo Memory MCP has read-only evidence checks, bounded graph/query proof, stale-index health, app-managed descriptor recheck, and local-only release readiness evidence.
 - Savings evidence is stronger: RTK/Repo Intelligence measured rows, Caveman/Ponytail/MarkItDown backend attribution contract checks, fixture/local-only classification, and public-proof exclusion for local-only artifacts.
+- Frontend savings ledger coverage now proves Caveman, Ponytail, and MarkItDown add-on attribution events render as source-specific session rows.
 - Doctor repair, Rollback Center, connector readiness, repo-memory MCP, runtime savings, deployment, release report, and public release proof check scripts exist and are wired as local validation evidence.
 - Connector readiness documents promoted routing for Gemini/OpenCode/Windsurf/Zed, Goose read-only Memory MCP bridge, and gated native/provider proof for Aider, Cursor, Continue, Grok/xAI CLI, Qwen Code, and Amazon Q.
 
 Still left:
-- Make Caveman/Ponytail/MarkItDown runtime/session attribution fully visible in the frontend savings ledger if current UI does not surface the backend contract.
+- Deepen durable add-on health/history beyond the current bounded Caveman/Ponytail/MarkItDown session ledger rows.
 - Finish provider-specific native-write apply/verify/rollback/Off-cleanup proof before enabling gated native writes.
 - Deepen Repo Intelligence graph analyzers and long-running MCP supervision beyond current guarded local evidence.
 - Produce signed/notarized DMG, updater feed, and public installed-app smoke proof.
