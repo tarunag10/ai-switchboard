@@ -69,7 +69,7 @@ Still left:
 - Continue reducing large-file risk in `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/src/tool_manager.rs`, and `src/App.tsx`.
 - Produce signed/notarized/updater release evidence and final public installed-app smoke proof.
 
-This plan turns Mac AI Switchboard into a local-first agent control center: pick a repo, pick an agent, verify local setup, hand over bounded context, and prove what the app changed or saved.
+This plan turns AI Switchboard for Mac into a local-first agent control center: pick a repo, pick an agent, verify local setup, hand over bounded context, and prove what the app changed or saved.
 
 The work should ship in small slices. Each slice must leave the app usable, keep config changes reversible, and preserve the boundary between local ad-hoc evidence and public signed release readiness.
 

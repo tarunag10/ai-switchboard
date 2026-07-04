@@ -32,9 +32,9 @@ Use Repo Memory MCP after indexing a real local repo from the Repo Intelligence 
 
 Recommended agent flow:
 
-1. Index or refresh the repo in Mac AI Switchboard.
+1. Index or refresh the repo in AI Switchboard for Mac.
 2. Click **Prepare MCP** in the Mode Inspector if Repo Memory MCP is not configured; the app installs it, starts it, and runs the same read-only smoke before marking it active.
-3. Relaunch Mac AI Switchboard normally; previously verified app-managed read-only MCP descriptors are smoke-checked again automatically. Use **Start MCP** only when you want to retry immediately after a failed or stale check.
+3. Relaunch AI Switchboard for Mac normally; previously verified app-managed read-only MCP descriptors are smoke-checked again automatically. Use **Start MCP** only when you want to retry immediately after a failed or stale check.
 4. Run `npm run check:repo-memory-mcp` manually only when you want extra terminal proof of the read-only tool contract.
 5. Ask the agent to request a bounded context pack with `repo_context_pack`.
 6. Use `repo_symbol_lookup` or `repo_dependents_of` only for targeted follow-up.
@@ -77,7 +77,7 @@ Use these recipes only after **Prepare MCP** reports an app-managed, read-only, 
 
 #### Claude Code
 
-- Preferred path: let Mac AI Switchboard install the app-managed `repo-memory` descriptor, then restart Claude Code so it reloads MCP servers.
+- Preferred path: let AI Switchboard for Mac install the app-managed `repo-memory` descriptor, then restart Claude Code so it reloads MCP servers.
 - Verification: open a fresh Claude Code session and ask it to call `repo_context_pack` for a small implementation pack. If the tool is unavailable, run `npm run check:repo-memory-mcp` and use **Prepare MCP** again.
 - Boundary: do not edit Claude model, subscription, shell routing, or Headroom proxy settings while testing Repo Memory MCP.
 
@@ -112,7 +112,7 @@ Use these recipes only after **Prepare MCP** reports an app-managed, read-only, 
 - If descriptor detail says **not app-managed** or **not read-only**, click
   **Prepare MCP**. Do not ask agents to use MCP context until the app restores
   the app-managed read-only descriptor and the smoke check passes.
-- If it says **Verifying**, Mac AI Switchboard is re-running the read-only smoke check for a previous app session. Click **Start MCP** only if you want to retry immediately.
+- If it says **Verifying**, AI Switchboard for Mac is re-running the read-only smoke check for a previous app session. Click **Start MCP** only if you want to retry immediately.
 - If `npm run check:repo-memory-mcp` fails, do not ask agents to use MCP context until the tool list and `repo_context_pack` smoke pass.
 - If a repo was moved, deleted, or became stale, clear or refresh the Repo Intelligence index before using MCP output.
 

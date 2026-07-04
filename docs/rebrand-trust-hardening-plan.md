@@ -1,5 +1,7 @@
 # Mac AI Switchboard Rebrand and Trust Hardening Plan
 
+Status: superseded historical plan. Current public naming lives in `docs/ai-switchboard-platform-rebrand-implementation-plan.md`; remaining Mac AI Switchboard references below document the earlier compatibility stage.
+
 Mac AI Switchboard has started moving away from the upstream Headroom desktop shell, but the product still contains mixed identity, legal, runtime, account, and support surfaces. This plan turns that cleanup into a staged implementation roadmap.
 
 The goal is not to hide Headroom. Headroom is still a real underlying optimization engine and should remain visible where that is technically accurate. The goal is to make the app identity, legal surfaces, user controls, and release evidence belong to Mac AI Switchboard.

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Add Codex Memory, Claude Memory, and a unified Agent Memory Inspector to Mac AI Switchboard so users can see, compact, deduplicate, and safely manage the instructions and memory files that agents use before a session starts.
+Add Codex Memory, Claude Memory, and a unified Agent Memory Inspector to AI Switchboard for Mac so users can see, compact, deduplicate, and safely manage the instructions and memory files that agents use before a session starts.
 
 The product should treat memory as a local, inspectable optimization layer, not as an invisible automatic write path. The first release should detect and preview memory state, explain token cost and risk, then offer one-click apply with rollback only after the user approves.
 

@@ -1,10 +1,10 @@
 # Plan Status Ledger
 
-Updated: 2026-07-03
+Updated: 2026-07-04
 
 ## AI Switchboard Platform Rebrand
 
-Status: in progress
+Status: complete for the platform rebrand docs/evidence slice
 Plan: `docs/ai-switchboard-platform-rebrand-implementation-plan.md`
 
 Goal: move the product identity from Mac AI Switchboard to AI Switchboard / Switchboard while preserving macOS install compatibility, CLI visibility, cross-platform roadmap clarity, and accurate attribution for Headroom, RTK, Caveman, Ponytail, MarkItDown, and other integrated tools.
@@ -26,8 +26,9 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - CI email noise for the working branch was reduced by narrowing workflow push branches while preserving main/PR CI intent.
 - Local evidence stability was improved: default-off message logging tests now isolate env/app-storage state, and Repo Intelligence local smoke has a longer timeout for Rust compile/test reality.
 - Fable security plan is committed and reflected in the current roadmap status.
-- Public documentation rebrand is in progress for AI Switchboard / Switchboard / AI Switchboard for Mac while preserving Headroom, RTK, Caveman, Ponytail, MarkItDown, and legacy compatibility wording.
+- Public documentation rebrand uses AI Switchboard / Switchboard / AI Switchboard for Mac while preserving Headroom, RTK, Caveman, Ponytail, MarkItDown, and legacy compatibility wording.
 - Website/download-flow rebrand copy now positions the product as AI Switchboard / AI Switchboard for Mac while preserving GitHub Release updater URLs and `Mac-AI-Switchboard_<version>.dmg` compatibility artifact names.
+- Final rebrand release evidence is recorded in `docs/ai-switchboard-rebrand-release-evidence.md`, including track commits, stale-name review scope, and release evidence commands.
 
 ## Left
 
@@ -44,6 +45,14 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 
 - `065ebb2` - Stabilize local evidence message logging tests.
 - `f0e4094` - Mount Repo Map view in the app and add the mount guard.
+- `b71c9c17` - Add AI Switchboard rebrand audit.
+- `2fd696e7` - Add AI Switchboard platform rebrand plan.
+- `57fd78a1` - Update public docs for AI Switchboard rebrand.
+- `39191f02` - Update app copy for AI Switchboard rebrand.
+- `0597a72c` - Preserve runtime compatibility during rebrand.
+- `03a90a60` - Add Switchboard CLI platform docs.
+- `34b01f25` - Reposition website as AI Switchboard.
+- `bff1a99c` - Update public support labels for AI Switchboard.
 
 ## Current Validation Commands
 
@@ -53,4 +62,6 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - `npm run evidence:local`
 - `npm run build`
 - `npm run release:report && npm run release:report:check`
+- `npm run check:branding`
+- `rg -n "Mac AI Switchboard|Mac-AI-Switchboard|mac-ai-switchboard|Headroom|RTK|Caveman|Ponytail|MarkItDown" README.md docs src src-tauri package.json scripts`
 - `git diff --check`
