@@ -18,7 +18,11 @@ use crate::client_connectors::{
     planned_sidecar_spec, PlannedClientSpec, PlannedSidecarSpec, PLANNED_CLIENT_SPECS,
     PLANNED_CONFIG_CREATION_STEPS, PLANNED_SIDECAR_SPECS,
 };
-use crate::client_paths::{home_dir, planned_sidecar_routing_path, SWITCHBOARD_ROUTING_FILE};
+use crate::client_paths::{
+    home_dir, opencode_config_path, planned_sidecar_routing_path, windsurf_config_path,
+    zed_config_path, OPENCODE_CONFIG_FILE, SWITCHBOARD_ROUTING_FILE, WINDSURF_CONFIG_FILE,
+    ZED_CONFIG_FILE,
+};
 use crate::models::{
     ClientConnectorAutomationStage, ClientConnectorConfigDryRunPreview, ClientConnectorStatus,
     ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus, CodexDbRestoreResult,
@@ -39,13 +43,10 @@ const GEMINI_BASE_URL_ENV_KEY: &str = "GOOGLE_GEMINI_BASE_URL";
 const GEMINI_COMPAT_BASE_URL_ENV_KEY: &str = "GEMINI_BASE_URL";
 const GEMINI_API_KEY_ENV_KEY: &str = "GEMINI_API_KEY";
 const GEMINI_HEADROOM_API_KEY_VALUE: &str = "headroom-local";
-const OPENCODE_CONFIG_FILE: &str = "opencode.json";
 const OPENCODE_HEADROOM_PROVIDER_ID: &str = "headroom";
 const CURSOR_CONFIG_FILE: &str = "settings.json";
 const CURSOR_MARKER_PREFIX: &str = "headroom:cursor";
-const WINDSURF_CONFIG_FILE: &str = "settings.json";
 const WINDSURF_MARKER_PREFIX: &str = "headroom:windsurf";
-const ZED_CONFIG_FILE: &str = "settings.json";
 const ZED_MARKER_PREFIX: &str = "headroom:zed";
 const LEGACY_MARKER_PREFIX: &str = "headroom";
 const MARKER_PREFIX: &str = "headroom";
@@ -1036,13 +1037,6 @@ fn managed_connector_config_locations(client_id: &str) -> Vec<String> {
     }
 }
 
-fn opencode_config_path() -> PathBuf {
-    home_dir()
-        .join(".config")
-        .join("opencode")
-        .join(OPENCODE_CONFIG_FILE)
-}
-
 fn opencode_headroom_provider_value() -> Value {
     serde_json::json!({
         "npm": "@ai-sdk/openai",
@@ -1192,15 +1186,6 @@ fn remove_opencode_provider_config() -> Result<()> {
     Ok(())
 }
 
-fn windsurf_config_path() -> PathBuf {
-    home_dir()
-        .join("Library")
-        .join("Application Support")
-        .join("Windsurf")
-        .join("User")
-        .join(WINDSURF_CONFIG_FILE)
-}
-
 fn windsurf_config_backup_pattern() -> String {
     let path = windsurf_config_path();
     let file_name = path
@@ -1317,10 +1302,6 @@ fn remove_windsurf_provider_config() -> Result<Vec<String>> {
     .with_context(|| format!("writing {}", path.display()))?;
 
     Ok(vec![path.display().to_string()])
-}
-
-fn zed_config_path() -> PathBuf {
-    home_dir().join(".config").join("zed").join(ZED_CONFIG_FILE)
 }
 
 fn zed_config_backup_pattern() -> String {
@@ -6641,6 +6622,7 @@ mod tests {
         upsert_managed_block, write_file_if_changed, ClientSetupState, ShellFamily,
         MANAGED_CLIENT_SPECS,
     };
+    use crate::client_paths::{zed_config_path, OPENCODE_CONFIG_FILE};
     use rusqlite::Connection;
 
     #[test]
@@ -8682,7 +8664,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             .path()
             .join(".config")
             .join("opencode")
-            .join(super::OPENCODE_CONFIG_FILE);
+            .join(OPENCODE_CONFIG_FILE);
         fs::create_dir_all(sidecar.parent().unwrap()).expect("create opencode dir");
         fs::write(&sidecar, "# opencode user note\nkeep this\n").expect("seed sidecar");
         fs::write(
@@ -10597,7 +10579,7 @@ js_repl = false\n",
 
     #[test]
     fn zed_config_path_returns_user_home_config_json() {
-        let path = super::zed_config_path();
+        let path = zed_config_path();
         assert!(path.to_string_lossy().contains(".config"));
         assert!(path.to_string_lossy().contains("zed"));
         assert!(path.to_string_lossy().ends_with("settings.json"));
