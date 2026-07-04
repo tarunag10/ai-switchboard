@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-07-05
+
+### Progressive disclosure UX rollout
+
+- Collapsed Doctor, Add-ons, Usage/Savings, Repo Intelligence, and Repo Map technical evidence behind accessible Details or Learn more controls while keeping primary actions visible.
+- Added coverage that connector dry-run evidence, savings source breakdowns, Repo Intelligence verification copy, and graph diagnostics stay hidden until expanded.
+
+### Home and Learning details cleanup
+
+- Collapsed Home Mode Inspector implementation details behind a single Details control while keeping row status and repair buttons visible.
+- Shortened the Project learnings setup note and moved the connector setup path behind Details, with focused UI coverage.
+
 ## 2026-07-02
 
 ### Managed connector end-to-end verifier
