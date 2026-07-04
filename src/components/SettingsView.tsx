@@ -67,13 +67,13 @@ const connectorSetupDetails: Record<string, string> = {
   codex:
     "Headroom writes a managed provider block to ~/.codex/config.toml and exports OPENAI_BASE_URL in shell profiles so Codex connects through Headroom.",
   gemini_cli:
-    "Headroom writes managed Gemini CLI shell routing exports and a rollback dossier so Gemini CLI connects through Mac AI Switchboard while preserving user config.",
+    "Headroom writes managed Gemini CLI shell routing exports and a rollback dossier so Gemini CLI connects through Switchboard while preserving user config.",
   opencode:
-    "Headroom writes a managed OpenCode provider in ~/.config/opencode/opencode.json and a rollback dossier so OpenCode connects through Mac AI Switchboard.",
+    "Headroom writes a managed OpenCode provider in ~/.config/opencode/opencode.json and a rollback dossier so OpenCode connects through Switchboard.",
   cursor:
     "Cursor is tracked as a gated editor connector. Guided setup is shown first because Cursor settings and account behavior can vary by release channel.",
   grok_cli:
-    "Grok / xAI CLI is tracked as a gated provider connector. Mac AI Switchboard will keep model and account compatibility visible before routing it.",
+    "Grok / xAI CLI is tracked as a gated provider connector. Switchboard will keep model and account compatibility visible before routing it.",
   aider:
     "Aider is tracked as a gated agent connector. RTK-only mode can already reduce noisy shell output while provider wrapping is built.",
   continue:
@@ -92,13 +92,13 @@ const connectorSetupDetails: Record<string, string> = {
 
 const connectorUnavailableReasons: Record<string, string> = {
   claude_code:
-    "Claude Code was not detected. Install Claude Code, then reopen Mac AI Switchboard.",
+    "Claude Code was not detected. Install Claude Code, then reopen AI Switchboard for Mac.",
   codex:
-    "Codex was not detected. Install the Codex CLI, then reopen Mac AI Switchboard.",
+    "Codex was not detected. Install the Codex CLI, then reopen AI Switchboard for Mac.",
   gemini_cli:
-    "Gemini CLI was not detected. Install Gemini CLI, then reopen Mac AI Switchboard.",
+    "Gemini CLI was not detected. Install Gemini CLI, then reopen AI Switchboard for Mac.",
   opencode:
-    "OpenCode was not detected. Install OpenCode, then reopen Mac AI Switchboard.",
+    "OpenCode was not detected. Install OpenCode, then reopen AI Switchboard for Mac.",
   cursor: "Cursor setup is gated until editor-settings backup, verify, rollback, and Off cleanup coverage is promoted.",
   grok_cli: "Grok / xAI CLI setup is gated until model/account guardrails and reversible provider routing are proven.",
   aider: "Aider setup is gated until wrapper/env backup, verify, rollback, and Off cleanup coverage is promoted.",
@@ -107,8 +107,8 @@ const connectorUnavailableReasons: Record<string, string> = {
   qwen_code: "Qwen Code setup is gated until model/account guardrails and reversible provider routing are proven.",
   amazon_q:
     "Amazon Q Developer CLI setup is gated until credential-safe profile handling and reversible routing are proven.",
-  windsurf: "Windsurf was not detected. Install Windsurf, then reopen Mac AI Switchboard.",
-  zed_ai: "Zed was not detected. Install Zed, then reopen Mac AI Switchboard.",
+  windsurf: "Windsurf was not detected. Install Windsurf, then reopen AI Switchboard for Mac.",
+  zed_ai: "Zed was not detected. Install Zed, then reopen AI Switchboard for Mac.",
 };
 
 interface ReleaseEvidenceResult {
@@ -389,7 +389,7 @@ function getPlannedConnectorNextStep(
   plannedConnector: ConnectorDossier,
 ) {
   if (!connector.installed) {
-    return "Install the tool first, then Mac AI Switchboard will detect it here.";
+    return "Install the tool first, then Switchboard will detect it here.";
   }
 
   if (plannedConnector.setupPhase === "Managed") {
@@ -420,7 +420,7 @@ function formatBackendConnectorConfigPlan(
   }
 
   return [
-    "# Mac AI Switchboard Connector Config Creation Plan",
+    "# AI Switchboard Connector Config Creation Plan",
     "",
     `## ${connector.name}`,
     "- Automation enabled: no",
@@ -546,7 +546,7 @@ export function SettingsView({
             <span className="settings-account-badge">Local-free</span>
           </div>
           <p className="settings-account-notice">
-            Mac AI Switchboard does not include remote account, billing,
+            AI Switchboard does not include remote account, billing,
             checkout, or paid pricing APIs. Provider model calls still use the
             accounts you configure in Claude, Codex, or other tools.
           </p>
@@ -561,7 +561,7 @@ export function SettingsView({
             <div>
               <h3>Settings import/export</h3>
               <p>
-                Move safe Mac AI Switchboard preferences without carrying
+                Move safe AI Switchboard for Mac preferences without carrying
                 secrets, local paths, message logs, billing state, or token
                 history.
               </p>
@@ -825,7 +825,7 @@ export function SettingsView({
                         <p className="connector-tooltip">
                           {connectorSetupHint ??
                             connectorSetupDetails[connector.clientId] ??
-                            "Mac AI Switchboard applies local connector configuration."}
+                            "Switchboard applies local connector configuration."}
                         </p>
                       ) : null}
                       {plannedConnector ? (
@@ -1146,7 +1146,7 @@ export function SettingsView({
           <div className="runtime-status">
             <div className="runtime-status__topline">
               <span className="runtime-status__section-title">
-                Mac AI Switchboard app ({appSemver})
+                AI Switchboard for Mac app ({appSemver})
                 {appUpdateConfig?.betaChannelEnabled ? (
                   <span className="runtime-status__channel-pill">
                     beta channel
@@ -1470,7 +1470,7 @@ export function SettingsView({
             </div>
             <div>
               <p>
-                Automatically launch Mac AI Switchboard whenever you login or restart.
+                Automatically launch AI Switchboard for Mac whenever you log in or restart.
               </p>
             </div>
             <div className="connector-item__controls">
@@ -1494,7 +1494,7 @@ export function SettingsView({
             <div>
               <h3>Rollback Center</h3>
               <p>
-                Managed local changes Mac AI Switchboard can disclose or undo
+                Managed local changes Switchboard can disclose or undo
                 with guarded restore or cleanup previews.
               </p>
             </div>
@@ -1810,9 +1810,9 @@ export function SettingsView({
             </div>
           </div>
           <p>
-            Reverses Mac AI Switchboard changes: removes routing hooks, managed
+            Reverses AI Switchboard for Mac changes: removes routing hooks, managed
             runtime storage, app state, login item, known Keychain entries, and
-            managed config blocks. Mac AI Switchboard will quit when done.
+            managed config blocks. AI Switchboard for Mac will quit when done.
           </p>
           <button
             className="secondary-button secondary-button--small"
@@ -1822,7 +1822,7 @@ export function SettingsView({
             }}
             type="button"
           >
-            Uninstall Mac AI Switchboard
+            Uninstall AI Switchboard for Mac
           </button>
         </article>
 
@@ -1842,7 +1842,7 @@ export function SettingsView({
           onClick={() => void invoke("quit_headroom")}
           type="button"
         >
-          Quit Mac AI Switchboard
+          Quit AI Switchboard for Mac
         </button>
       </section>
     </div>

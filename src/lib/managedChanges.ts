@@ -289,7 +289,7 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
   {
     id: "managed-storage",
     kind: "managed_storage",
-    owner: "Mac AI Switchboard runtime",
+    owner: "AI Switchboard runtime",
     text: "Managed runtime storage, logs, caches, receipts, setup state, and legacy runtime folders.",
     paths: ["~/Library/Application Support/Headroom", "~/.headroom"],
     markerId: "managed storage path",
@@ -327,7 +327,7 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
   {
     id: "app-state",
     kind: "app_state",
-    owner: "Mac AI Switchboard app state",
+    owner: "AI Switchboard app state",
     text: "App preferences, caches, logs, and known Keychain entries.",
     paths: [
       "~/Library/Preferences/com.tarunagarwal.mac-ai-switchboard*",
@@ -646,7 +646,7 @@ export function buildManagedRollbackPlans(
 
 export function formatManagedRollbackPlan(plan: ManagedRollbackPlan): string {
   return [
-    `Mac AI Switchboard rollback plan: ${plan.owner}`,
+    `AI Switchboard rollback plan: ${plan.owner}`,
     `Kind: ${plan.kind}`,
     `Mode: ${plan.mode}`,
     `Status: ${plan.status}`,
@@ -806,7 +806,7 @@ export function formatManagedRollbackExecutionPreview(
   preview: ManagedRollbackExecutionPreview,
 ): string {
   return [
-    `Mac AI Switchboard rollback execution preview: ${preview.plan.owner}`,
+    `AI Switchboard rollback execution preview: ${preview.plan.owner}`,
     `Native write status: ${preview.nativeWriteStatus}`,
     `Execution status: ${preview.executionStatus}`,
     `Undo-all order: ${preview.undoAllOrder}`,
@@ -825,7 +825,7 @@ export function formatManagedRollbackUndoAllPreview(
   preview: ManagedRollbackUndoAllPreview = buildManagedRollbackUndoAllPreview(),
 ): string {
   return [
-    "Mac AI Switchboard undo-all rollback preview",
+    "AI Switchboard undo-all rollback preview",
     "Native write status: not_executed",
     `Executable native rows: ${preview.executable.length}`,
     `Manual or cleanup rows: ${preview.manual.length}`,
@@ -856,7 +856,7 @@ export function formatManagedRollbackInventory(
 ): string {
   const plans = buildManagedRollbackPlans(records);
   return [
-    "Mac AI Switchboard Rollback Center inventory",
+    "AI Switchboard Rollback Center inventory",
     "No files are changed by this report.",
     "",
     ...plans.flatMap((plan) => [
@@ -887,7 +887,7 @@ export function formatManagedFootprintReport(
   ).sort();
 
   return [
-    "Mac AI Switchboard managed footprint",
+    "AI Switchboard managed footprint",
     `Generated: ${report.generatedAt}`,
     "No file contents, secret values, or keychain values are included.",
     "",

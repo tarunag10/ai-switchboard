@@ -28,7 +28,7 @@ describe("release readiness checklist", () => {
   it("formats a safe release command copy when no report is loaded", () => {
     const copy = formatReleaseReadinessCommandCopy();
 
-    expect(copy).toContain("Mac AI Switchboard release readiness command");
+    expect(copy).toContain("AI Switchboard release readiness command");
     expect(copy).toContain("Refresh report: npm run release:ready");
     expect(copy).toContain(
       "Strict public-release gate: npm run release:ready -- --strict",
@@ -672,7 +672,7 @@ describe("release readiness checklist", () => {
       "dist/release-readiness-report.json",
     );
 
-    expect(snapshot).toContain("# Mac AI Switchboard Release Readiness");
+    expect(snapshot).toContain("# AI Switchboard Release Readiness");
     expect(snapshot).toContain("Source: dist/release-readiness-report.json");
     expect(snapshot).toContain("Status: blocked");
     expect(snapshot).toContain("## Commands");

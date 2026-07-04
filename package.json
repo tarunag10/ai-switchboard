@@ -1,7 +1,10 @@
 {
   "name": "mac-ai-switchboard",
   "version": "0.0.0",
-  "description": "Local-first Mac switchboard for AI coding-agent routing, token savings, and repo context packs.",
+  "description": "Local-first AI Switchboard CLI and macOS app for coding-agent routing, token savings, and repo context packs.",
+  "bin": {
+    "switchboard": "./bin/switchboard.mjs"
+  },
   "author": "Tarun Agarwal",
   "private": false,
   "type": "module",
@@ -52,9 +55,11 @@
     "smoke:repo-memory-mcp:local:check": "node scripts/check-local-repo-memory-mcp-summary.mjs",
     "smoke:local-only:local": "node scripts/local-only-network-validation-summary.mjs",
     "smoke:local-only:local:check": "node scripts/check-local-only-network-summary.mjs",
+    "switchboard": "node bin/switchboard.mjs",
     "repo:intelligence": "node scripts/repo-intelligence.mjs",
     "check:repo-memory-mcp": "node scripts/check-repo-memory-mcp.mjs",
     "check:repo-intelligence-map": "node scripts/check-repo-intelligence-map-context.mjs",
+    "check:switchboard-cli": "node scripts/check-switchboard-cli.mjs",
     "benchmarks": "node scripts/run-benchmarks.mjs",
     "check:connectors": "node scripts/check-planned-connectors.mjs && node scripts/check-connector-manifests.mjs",
     "check:branding": "node scripts/check-branding-assets.mjs",

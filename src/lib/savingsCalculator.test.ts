@@ -1160,7 +1160,7 @@ describe("savings calculator", () => {
     });
     const text = formatSavingsLedgerShareText(rows, "lifetime", recordedAt);
 
-    expect(text).toContain("Mac AI Switchboard savings ledger (lifetime)");
+    expect(text).toContain("AI Switchboard savings ledger (lifetime)");
     expect(text).toContain("Recorded: 2026-06-27T10:00:00.000Z");
     expect(text).toContain("Confidence filter: all rows");
     expect(text).toContain(
@@ -1360,7 +1360,7 @@ describe("savings calculator", () => {
     const rows = buildSavingsCalculatorBreakdown(dashboard, "session");
     const text = formatSavingsCalculatorShareText(summary, rows);
 
-    expect(text).toContain("Mac AI Switchboard savings (current app session)");
+    expect(text).toContain("AI Switchboard savings (current app session)");
     expect(text).toContain(
       `Scope definition: ${savingsCalculatorScopeDefinition("session")}`,
     );
@@ -1420,7 +1420,7 @@ describe("savings calculator", () => {
     });
     const text = formatSavingsCalculatorShareText(summary, rows);
 
-    expect(text).toContain("Mac AI Switchboard savings (lifetime)");
+    expect(text).toContain("AI Switchboard savings (lifetime)");
     expect(text).toContain(
       `Scope definition: ${savingsCalculatorScopeDefinition("lifetime")}`,
     );

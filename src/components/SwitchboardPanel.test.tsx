@@ -494,7 +494,7 @@ describe("SwitchboardPanel", () => {
     expect(
       screen.getByRole("heading", { name: "Headroom only" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Mac AI Switchboard cloud setup")).toBeInTheDocument();
+    expect(screen.getByText("AI Switchboard cloud setup")).toBeInTheDocument();
     expect(
       screen.getAllByText(
         /Update, support, and optional telemetry destinations are enabled/,
@@ -598,7 +598,7 @@ describe("SwitchboardPanel", () => {
 
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0][0]).toContain(
-      "Mac AI Switchboard mode state",
+      "AI Switchboard mode state",
     );
     expect(writeText.mock.calls[0][0]).toContain(
       "Requested mode: Full optimization",

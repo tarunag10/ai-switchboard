@@ -248,7 +248,7 @@ describe("managedChangeRecords", () => {
   it("formats a complete rollback-center inventory for support handoff", () => {
     const text = formatManagedRollbackInventory();
 
-    expect(text).toContain("Mac AI Switchboard Rollback Center inventory");
+    expect(text).toContain("AI Switchboard Rollback Center inventory");
     expect(text).toContain("No files are changed by this report.");
     expect(text).toContain("## Claude Code routing");
     expect(text).toContain("Mode: backup_restore");
@@ -308,7 +308,7 @@ describe("managedChangeRecords", () => {
     )!;
     const text = formatManagedRollbackPlan(buildManagedRollbackPlan(record));
 
-    expect(text).toContain("Mac AI Switchboard rollback plan: Codex routing");
+    expect(text).toContain("AI Switchboard rollback plan: Codex routing");
     expect(text).toContain("Kind: client_config");
     expect(text).toContain("Mode: backup_restore");
     expect(text).toContain("Status: ready_for_review");
@@ -372,7 +372,7 @@ describe("managedChangeRecords", () => {
     );
 
     expect(text).toContain(
-      "Mac AI Switchboard rollback execution preview: Codex routing",
+      "AI Switchboard rollback execution preview: Codex routing",
     );
     expect(text).toContain("Native write status: not_executed");
     expect(text).toContain("Execution status: blocked_until_confirmed");
@@ -381,7 +381,7 @@ describe("managedChangeRecords", () => {
     expect(text).toContain(
       "Confirmation phrase: Restore headroom:codex_cli for Codex routing",
     );
-    expect(text).toContain("Mac AI Switchboard rollback plan: Codex routing");
+    expect(text).toContain("AI Switchboard rollback plan: Codex routing");
     expect(text).toContain("Ordered restore steps:");
     expect(text).toContain("1. Load the target file");
   });
@@ -439,7 +439,7 @@ describe("managedChangeRecords", () => {
   it("formats undo-all preview without claiming native writes ran", () => {
     const text = formatManagedRollbackUndoAllPreview();
 
-    expect(text).toContain("Mac AI Switchboard undo-all rollback preview");
+    expect(text).toContain("AI Switchboard undo-all rollback preview");
     expect(text).toContain("Native write status: not_executed");
     expect(text).toContain("Executable native rows: 12");
     expect(text).toContain("Codex routing (codex-routing)");
@@ -777,7 +777,7 @@ describe("managedChangeRecords", () => {
       ],
     });
 
-    expect(text).toContain("Mac AI Switchboard managed footprint");
+    expect(text).toContain("AI Switchboard managed footprint");
     expect(text).toContain("## client_config");
     expect(text).toContain("Path: ~/.codex/config.toml");
     expect(text).toContain("Keychain service: mac-ai-switchboard");

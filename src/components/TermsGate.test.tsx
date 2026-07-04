@@ -107,12 +107,12 @@ describe("TermsGate", () => {
     expect(
       screen.getByRole("heading", {
         level: 1,
-        name: "Mac AI Switchboard Terms of Use",
+        name: "AI Switchboard Terms of Use",
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: "Mac AI Switchboard Privacy Notice",
+        name: "AI Switchboard Privacy Notice",
       }),
     ).toBeInTheDocument();
     expect(

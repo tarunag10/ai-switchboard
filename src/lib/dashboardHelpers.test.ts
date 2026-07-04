@@ -772,7 +772,7 @@ describe("dashboard helpers", () => {
         "- Marker: mac-ai-switchboard:gemini_cli",
         "- Backup: /Users/test/.gemini.mac-ai-switchboard.bak",
         "- Current managed block: none detected",
-        "- Proposed managed block: Mac AI Switchboard provider routing for Gemini CLI",
+        "- Proposed managed block: AI Switchboard provider routing for Gemini CLI",
         "- Apply blocked: detection, dry-run diff, backup, verify, rollback, and Off cleanup evidence are incomplete",
         "- Writes: none; preview only; apply stays disabled",
         "- Rollback: Restore the previous provider settings or remove only Switchboard-managed shell routing.",
@@ -797,7 +797,7 @@ describe("dashboard helpers", () => {
           backupPath: "/Users/test/.gemini.mac-ai-switchboard.bak",
           currentState: "No Switchboard-managed Gemini provider routing detected.",
           proposedState:
-            "Add Mac AI Switchboard local provider routing for Gemini CLI after explicit consent.",
+            "Add AI Switchboard local provider routing for Gemini CLI after explicit consent.",
           applyBlockedReason:
             "Gemini CLI automation is disabled until backup, verify, rollback, and Off cleanup gates pass.",
           rollbackPreview:
@@ -816,7 +816,7 @@ describe("dashboard helpers", () => {
         "- Marker: mac-ai-switchboard:gemini_cli",
         "- Backup: /Users/test/.gemini.mac-ai-switchboard.bak",
         "- Current managed block: No Switchboard-managed Gemini provider routing detected.",
-        "- Proposed managed block: Add Mac AI Switchboard local provider routing for Gemini CLI after explicit consent.",
+        "- Proposed managed block: Add AI Switchboard local provider routing for Gemini CLI after explicit consent.",
         "- Apply blocked: Gemini CLI automation is disabled until backup, verify, rollback, and Off cleanup gates pass.",
         "- Writes: none; preview only; apply stays disabled",
         "- Rollback: Restore the Gemini config backup or remove only the Switchboard-managed provider block.",

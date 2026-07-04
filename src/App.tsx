@@ -420,13 +420,13 @@ const connectorSetupDetails: Record<string, string> = {
   codex:
     "Headroom writes a managed provider block to ~/.codex/config.toml and exports OPENAI_BASE_URL in shell profiles so Codex connects through Headroom.",
   gemini_cli:
-    "Headroom writes managed Gemini CLI shell routing exports and a rollback dossier so Gemini CLI connects through Mac AI Switchboard while preserving user config.",
+    "Headroom writes managed Gemini CLI shell routing exports and a rollback dossier so Gemini CLI connects through Switchboard while preserving user config.",
   opencode:
-    "Headroom writes a managed OpenCode provider in ~/.config/opencode/opencode.json and a rollback dossier so OpenCode connects through Mac AI Switchboard.",
+    "Headroom writes a managed OpenCode provider in ~/.config/opencode/opencode.json and a rollback dossier so OpenCode connects through Switchboard.",
   cursor:
     "Cursor is tracked as a gated editor connector. Guided setup is shown first because Cursor settings and account behavior can vary by release channel.",
   grok_cli:
-    "Grok / xAI CLI is tracked as a gated provider connector. Mac AI Switchboard will keep model and account compatibility visible before routing it.",
+    "Grok / xAI CLI is tracked as a gated provider connector. Switchboard will keep model and account compatibility visible before routing it.",
   aider:
     "Aider is tracked as a gated agent connector. RTK-only mode can already reduce noisy shell output while provider wrapping is built.",
   continue:
@@ -447,13 +447,13 @@ const connectorSupportWarnings: Record<string, string> = {};
 
 const connectorUnavailableReasons: Record<string, string> = {
   claude_code:
-    "Claude Code was not detected. Install Claude Code, then reopen Mac AI Switchboard.",
+    "Claude Code was not detected. Install Claude Code, then reopen AI Switchboard for Mac.",
   codex:
-    "Codex was not detected. Install the Codex CLI, then reopen Mac AI Switchboard.",
+    "Codex was not detected. Install the Codex CLI, then reopen AI Switchboard for Mac.",
   gemini_cli:
-    "Gemini CLI was not detected. Install Gemini CLI, then reopen Mac AI Switchboard.",
+    "Gemini CLI was not detected. Install Gemini CLI, then reopen AI Switchboard for Mac.",
   opencode:
-    "OpenCode was not detected. Install OpenCode, then reopen Mac AI Switchboard.",
+    "OpenCode was not detected. Install OpenCode, then reopen AI Switchboard for Mac.",
   cursor: "Cursor setup is gated until editor-settings backup, verify, rollback, and Off cleanup coverage is promoted.",
   grok_cli: "Grok / xAI CLI setup is gated until model/account guardrails and reversible provider routing are proven.",
   aider: "Aider setup is gated until wrapper/env backup, verify, rollback, and Off cleanup coverage is promoted.",
@@ -462,8 +462,8 @@ const connectorUnavailableReasons: Record<string, string> = {
   qwen_code: "Qwen Code setup is gated until model/account guardrails and reversible provider routing are proven.",
   amazon_q:
     "Amazon Q Developer CLI setup is gated until credential-safe profile handling and reversible routing are proven.",
-  windsurf: "Windsurf was not detected. Install Windsurf, then reopen Mac AI Switchboard.",
-  zed_ai: "Zed was not detected. Install Zed, then reopen Mac AI Switchboard.",
+  windsurf: "Windsurf was not detected. Install Windsurf, then reopen AI Switchboard for Mac.",
+  zed_ai: "Zed was not detected. Install Zed, then reopen AI Switchboard for Mac.",
 };
 
 const launcherConnectorFallback: ClientConnectorStatus[] = [
@@ -960,7 +960,7 @@ function SavingsCalculatorCard({
       </div>
       {!hasUsage ? (
         <p className="savings-calculator__empty">
-          Run a connected coding agent through Mac AI Switchboard and this card
+          Run a connected coding agent through Switchboard and this card
           will update automatically.
         </p>
       ) : null}
@@ -1856,7 +1856,7 @@ const repoAgentHandoffGroups = repoAgentHandoffProfiles.reduce<
 function sampleManagedBlock(record: ManagedChangeRecord) {
   return [
     `# >>> ${record.markerId} >>>`,
-    `# Managed by Mac AI Switchboard for ${record.owner}.`,
+    `# Managed by AI Switchboard for ${record.owner}.`,
     "# Actual write paths fill this block from the connector adapter dry-run.",
     `# <<< ${record.markerId} <<<`,
   ].join("\n");
@@ -2880,7 +2880,7 @@ function PlannedConnectorRoadmap({
 }
 
 function buildUpgradeIssueUrl(failure: RuntimeUpgradeFailure): string {
-  const subject = `Mac AI Switchboard engine update issue (${failure.targetHeadroomVersion}, ${failure.failurePhase})`;
+  const subject = `AI Switchboard engine update issue (${failure.targetHeadroomVersion}, ${failure.failurePhase})`;
   const diagnosticLines = [
     `App version: ${failure.appVersion}`,
     `Target Headroom: ${failure.targetHeadroomVersion}`,
@@ -3525,7 +3525,7 @@ export default function App() {
     );
     void invoke("show_notification", {
       title: "Upgrade your Headroom plan",
-      body: `Your ${sourceLabel} usage needs the Headroom ${recommendedLabel} plan, above your current ${paidLabel} plan. Upgrade to keep unlimited optimization.`,
+      body: `Your ${sourceLabel} usage needs the Switchboard ${recommendedLabel} plan, above your current ${paidLabel} plan. Upgrade to keep unlimited optimization.`,
     }).catch(() => {});
     window.localStorage.setItem(STORAGE_KEY, mismatch.recommendedTier);
   }, [
@@ -3692,7 +3692,7 @@ export default function App() {
           return;
         }
         setStartupPercent(100);
-        setStartupCopy("Mac AI Switchboard is ready.");
+        setStartupCopy("AI Switchboard is ready.");
         setStartupReady(true);
       }, 120);
     };
@@ -4786,7 +4786,7 @@ export default function App() {
     }
 
     const fallbackFootprint = [
-      "# Mac AI Switchboard first-run footprint",
+      "# AI Switchboard for Mac first-run footprint",
       "",
       "Pre-install preview. Some paths are written only after you opt in to the relevant mode or connector.",
       "",
@@ -4919,7 +4919,7 @@ export default function App() {
     plannedConnector: ConnectorDossier,
   ) {
     if (!connector.installed) {
-      return "Install the tool first, then Mac AI Switchboard will detect it here.";
+      return "Install the tool first, then Switchboard will detect it here.";
     }
 
     if (plannedConnector.setupPhase === "Managed") {
@@ -4950,7 +4950,7 @@ export default function App() {
     }
 
     return [
-      "# Mac AI Switchboard Connector Config Creation Plan",
+      "# AI Switchboard Connector Config Creation Plan",
       "",
       `## ${connector.name}`,
       "- Automation enabled: no",
@@ -5846,7 +5846,7 @@ export default function App() {
       setPricingStatus(status);
       setAuthCode("");
       setAuthCodeRequestedFor(null);
-      setAuthFlowSuccess("Headroom account connected.");
+      setAuthFlowSuccess("Switchboard account connected.");
       setPendingUpgradePlanId(null);
       setActiveView(safeTrayViewForMode("upgrade", localOnlyMode));
       await refreshConnectors();
@@ -6983,7 +6983,7 @@ export default function App() {
         showSpinner={bootstrapping}
       >
         <h1>
-          Mac AI Switchboard keeps coding-agent work lean, local, and
+          AI Switchboard keeps coding-agent work lean, local, and
           reversible.
         </h1>
         <div className="intro-shell__checklist">
@@ -7080,7 +7080,7 @@ export default function App() {
                 ? "Installing local engine…"
                 : bootstrapProgress.failed
                   ? "Try again"
-                  : "Install Mac AI Switchboard"}
+                  : "Install AI Switchboard for Mac"}
             </button>
             {!bootstrapping && (
               <div className="install-disclosure">
@@ -7232,7 +7232,7 @@ export default function App() {
                       <p className="connector-tooltip">
                         {plannedConnector?.notes ??
                           connectorSetupDetails[connector.clientId] ??
-                          "Mac AI Switchboard applies local connector configuration."}
+                          "Switchboard applies local connector configuration."}
                       </p>
                     ) : null}
                     {openConnectorWarningId === connector.clientId &&
@@ -7476,7 +7476,7 @@ export default function App() {
       >
         <div className="post-install__lead">
           <h1>
-            Mac AI Switchboard is ready
+            AI Switchboard is ready
             <br />
             in the menu bar
           </h1>
@@ -7490,7 +7490,7 @@ export default function App() {
           ) : (
             <>
               <p>
-                Mac AI Switchboard will trim prompt bloat whenever you use
+                Switchboard will trim prompt bloat whenever you use
                 enabled clients such as Claude Code or Codex.
               </p>
               <div className="post-install__metrics">
@@ -7680,7 +7680,7 @@ export default function App() {
         return {
           tone: "disabled",
           title:
-            "No coding tools connected — Mac AI Switchboard isn't reducing token use.",
+            "No coding tools connected — Switchboard isn't reducing token use.",
         } as const;
       }
       if (connectorPhase === "verifying") {
@@ -7693,12 +7693,12 @@ export default function App() {
       if (kompressWarming) {
         return {
           tone: "healthy",
-          title: "Mac AI Switchboard is running while finishing setup.",
+          title: "AI Switchboard is running while finishing setup.",
         } as const;
       }
       return {
         tone: "healthy",
-        title: "Mac AI Switchboard is running and trimming prompt bloat.",
+        title: "AI Switchboard is running and trimming prompt bloat.",
       } as const;
     }
 
@@ -7710,11 +7710,11 @@ export default function App() {
       tone: disconnected ? "disconnected" : "degraded",
       title: disconnected
         ? runtimeIssues.length > 0
-          ? `Mac AI Switchboard is not hooked up right now: ${runtimeIssues.join(", ")}.`
-          : "Mac AI Switchboard is not hooked up right now."
+          ? `AI Switchboard is not hooked up right now: ${runtimeIssues.join(", ")}.`
+          : "AI Switchboard is not hooked up right now."
         : runtimeIssues.length > 0
-          ? `Mac AI Switchboard needs attention: ${runtimeIssues.join(", ")}.`
-          : "Mac AI Switchboard is running, but something needs attention.",
+          ? `AI Switchboard needs attention: ${runtimeIssues.join(", ")}.`
+          : "AI Switchboard is running, but something needs attention.",
     } as const;
   })();
 
@@ -7727,9 +7727,9 @@ export default function App() {
             return calloutBanner.title;
           }
           if (calloutBanner.tone === "disconnected") {
-            return `Mac AI Switchboard is not hooked up right now: ${primaryIssue}.`;
+            return `AI Switchboard is not hooked up right now: ${primaryIssue}.`;
           }
-          return `Mac AI Switchboard needs attention: ${primaryIssue}.`;
+          return `AI Switchboard needs attention: ${primaryIssue}.`;
         })();
   const showRuntimeRestartAction = shouldOfferRuntimeRestartAction(
     calloutBanner.tone,
@@ -8145,7 +8145,7 @@ export default function App() {
   const pendingUpgradePlanLabel = upgradePlanIntentLabel(pendingUpgradePlanId);
   const upgradeAuthMessage = pendingUpgradePlanLabel
     ? `Sign in with email to upgrade to the ${pendingUpgradePlanLabel} plan`
-    : "Sign in with email to unlock your 7-day Headroom trial";
+    : "Sign in with email to unlock your 7-day Switchboard trial";
   const accountDisplayEmail = (() => {
     const enteredEmail = authEmail.trim();
     return (
@@ -8177,7 +8177,7 @@ export default function App() {
     if (pricingBusy && !pricingStatus) {
       return {
         tone: "neutral" as const,
-        message: "Loading your Headroom access...",
+        message: "Loading your Switchboard access...",
       };
     }
     if (!pricingStatus) {
@@ -8191,7 +8191,7 @@ export default function App() {
         return {
           tone: "expired" as const,
           message:
-            "Your 72-hour Headroom access expired. Create an account to extend to 7 days.",
+            "Your 72-hour Switchboard access expired. Create an account to extend to 7 days.",
           actionLabel: "Sign up",
           onAction: openUpgradeAuthView,
         };
@@ -8212,7 +8212,7 @@ export default function App() {
         tone: "neutral" as const,
         message:
           pricingStatus.accountSyncError ??
-          "Headroom account connected. Syncing your trial and plan details...",
+          "Switchboard account connected. Syncing your trial and plan details...",
       };
     }
     if (pricingStatus.account?.subscriptionActive) {
@@ -8228,7 +8228,7 @@ export default function App() {
           : "7 days";
       return {
         tone: "warning" as const,
-        message: `${daysLabel} of trial to go. Upgrade to continue using Headroom without limits.`,
+        message: `${daysLabel} of trial to go. Upgrade to continue using Switchboard without limits.`,
         actionLabel: "Upgrade",
         onAction: () => void handleUpgradeAction(upgradeDefaultPlanId),
       };
@@ -8237,7 +8237,7 @@ export default function App() {
       tone: pricingStatus.optimizationAllowed
         ? ("warning" as const)
         : ("expired" as const),
-      message: `Trial expired. In the free plan you can only use Headroom for ${weeklyLimitPercentLabel} of your weekly Claude Code / Codex limits. Upgrade to use Headroom without limits.`,
+      message: `Trial expired. In the free plan you can only use Switchboard for ${weeklyLimitPercentLabel} of your weekly Claude Code / Codex limits. Upgrade to use Switchboard without limits.`,
       actionLabel: "Upgrade",
       onAction: () => void handleUpgradeAction(upgradeDefaultPlanId),
     };
@@ -8279,7 +8279,7 @@ export default function App() {
             </button>
           </div>
           <p className="pricing-auth-card__legal">
-            By signing in, you agree to the Mac AI Switchboard Terms of Use
+            By signing in, you agree to the AI Switchboard Terms of Use
             shown at launch.
           </p>
         </>
@@ -8357,7 +8357,7 @@ export default function App() {
       {upgradeOverlay}
       <aside className="tray-sidebar">
         <div className="tray-sidebar__logo">
-          <img src={macAiSwitchboardLogo} alt="Mac AI Switchboard" />
+          <img src={macAiSwitchboardLogo} alt="AI Switchboard" />
         </div>
         <nav className="tray-nav" aria-label="Tray navigation">
           {navItems.map((item) => (
@@ -8419,8 +8419,8 @@ export default function App() {
                 </h2>
                 <p className="tier-mismatch-banner__message">
                   {tierMismatch.clamped
-                    ? `Your Headroom ${upgradePlanIntentLabel(tierMismatch.paidTier)} plan no longer matches your ${tierRecommendationSourceLabel(tierMismatch.recommendedSource)} usage, which needs ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}, so weekly usage limits now apply. Upgrade to restore unlimited optimization.`
-                    : `You're on the Headroom ${upgradePlanIntentLabel(tierMismatch.paidTier)} plan but your ${tierRecommendationSourceLabel(tierMismatch.recommendedSource)} usage needs ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}. Upgrade to match.`}
+                    ? `Your Switchboard ${upgradePlanIntentLabel(tierMismatch.paidTier)} plan no longer matches your ${tierRecommendationSourceLabel(tierMismatch.recommendedSource)} usage, which needs ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}, so weekly usage limits now apply. Upgrade to restore unlimited optimization.`
+                    : `You're on the Switchboard ${upgradePlanIntentLabel(tierMismatch.paidTier)} plan but your ${tierRecommendationSourceLabel(tierMismatch.recommendedSource)} usage needs ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}. Upgrade to match.`}
                 </p>
                 {upgradeActionError && upgradeActionBusy === null ? (
                   <p className="tier-mismatch-banner__error" role="status">
@@ -8460,7 +8460,7 @@ export default function App() {
                 savingsDashboard.lifetimeEstimatedTokensSaved < 1_000_000 && (
                   <p className="callout-banner__subtitle">
                     Now use your connected tools as normal, and check back later
-                    to see how much you are saving by using Headroom.
+                    to see how much you are saving with Switchboard.
                   </p>
                 )}
               {showRuntimeRestartAction ? (
@@ -8554,10 +8554,10 @@ export default function App() {
               >
                 <div className="connector-nudge__body">
                   <p className="connector-nudge__title">
-                    Headroom now supports Codex
+                    Switchboard now supports Codex
                   </p>
                   <p className="connector-nudge__message">
-                    Route Codex through Headroom to trim its token costs too,
+                    Route Codex through Switchboard to trim its token costs too,
                     the same way it already does for Claude Code.
                   </p>
                 </div>
@@ -8824,7 +8824,7 @@ export default function App() {
               <div>
                 <h1>Doctor</h1>
                 <p className="repo-intelligence-view__subtitle">
-                  Inspect Mac AI Switchboard setup, run fixes, copy reports, and
+                  Inspect AI Switchboard setup, run fixes, copy reports, and
                   repair local routing drift.
                 </p>
               </div>
@@ -10033,7 +10033,7 @@ export default function App() {
                 <span className="settings-account-badge">Local-free</span>
               </div>
               <p className="settings-account-notice">
-                Mac AI Switchboard does not include remote account, billing,
+                AI Switchboard does not include remote account, billing,
                 checkout, or paid pricing APIs. Provider model calls still use
                 the accounts you configure in Claude, Codex, or other tools.
               </p>
@@ -10048,7 +10048,7 @@ export default function App() {
                 <div>
                   <h3>Settings import/export</h3>
                   <p>
-                    Move safe Mac AI Switchboard preferences without carrying
+                    Move safe AI Switchboard for Mac preferences without carrying
                     secrets, local paths, message logs, billing state, or token
                     history.
                   </p>
@@ -10323,7 +10323,7 @@ export default function App() {
                           <p className="connector-tooltip">
                             {connectorSetupHint ??
                               connectorSetupDetails[connector.clientId] ??
-                              "Mac AI Switchboard applies local connector configuration."}
+                              "Switchboard applies local connector configuration."}
                           </p>
                         ) : null}
                         {plannedConnector ? (
@@ -10649,7 +10649,7 @@ export default function App() {
               <div className="runtime-status">
                 <div className="runtime-status__topline">
                   <span className="runtime-status__section-title">
-                    Mac AI Switchboard app ({appSemver})
+                    AI Switchboard for Mac app ({appSemver})
                     {appUpdateConfig?.betaChannelEnabled ? (
                       <span className="runtime-status__channel-pill">
                         beta channel
@@ -10989,7 +10989,7 @@ export default function App() {
                 </div>
                 <div>
                   <p>
-                    Automatically launch Mac AI Switchboard whenever you login or restart.
+                    Automatically launch AI Switchboard for Mac whenever you log in or restart.
                   </p>
                 </div>
                 <div className="connector-item__controls">
@@ -11018,7 +11018,7 @@ export default function App() {
                 <div>
                   <h3>Rollback Center</h3>
                   <p>
-                    Managed local changes Mac AI Switchboard can disclose or
+                    Managed local changes Switchboard can disclose or
                     undo with guarded restore or cleanup previews.
                   </p>
                 </div>
@@ -11340,9 +11340,9 @@ export default function App() {
                 </div>
               </div>
               <p>
-                Reverses Mac AI Switchboard changes: removes routing hooks,
+                Reverses AI Switchboard for Mac changes: removes routing hooks,
                 managed runtime storage, app state, login item, known Keychain
-                entries, and managed config blocks. Mac AI Switchboard will quit
+                entries, and managed config blocks. AI Switchboard for Mac will quit
                 when done.
               </p>
               <button
@@ -11353,7 +11353,7 @@ export default function App() {
                 }}
                 type="button"
               >
-                Uninstall Mac AI Switchboard
+                Uninstall AI Switchboard for Mac
               </button>
             </article>
 
@@ -11373,7 +11373,7 @@ export default function App() {
               onClick={() => void invoke("quit_headroom")}
               type="button"
             >
-              Quit Mac AI Switchboard
+              Quit AI Switchboard for Mac
             </button>
           </section>
         </div>
@@ -11601,12 +11601,12 @@ export default function App() {
               <h3>
                 {appUpdateReadyToRestart
                   ? `Restart to finish updating ${appUpdateAvailable.version}`
-                  : `Mac AI Switchboard ${appUpdateAvailable.version} is available`}
+                  : `AI Switchboard for Mac ${appUpdateAvailable.version} is available`}
               </h3>
               <p>
                 {appUpdateReadyToRestart
-                  ? "The new version has been installed. Restart Mac AI Switchboard when you are ready to switch over."
-                  : "Mac AI Switchboard found a new release in the background. Nothing will install until you confirm it here."}
+                  ? "The new version has been installed. Restart AI Switchboard for Mac when you are ready to switch over."
+                  : "AI Switchboard for Mac found a new release in the background. Nothing will install until you confirm it here."}
               </p>
               <ul className="api-key-guide">
                 <li>Current version: {appUpdateAvailable.currentVersion}</li>

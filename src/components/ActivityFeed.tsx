@@ -162,8 +162,8 @@ export function ActivityFeed({
             <h1>Activity (beta)</h1>
           </div>
           <p className="activity-card__blurb">
-            Compressions, learnings, RTK saves, and records — everything Headroom is
-            doing.
+            Compressions, learnings, RTK saves, and records — everything
+            Switchboard is doing locally.
           </p>
           <div className="activity-card__actions">
             <button
@@ -266,9 +266,9 @@ export function ActivityFeed({
           <div className="activity-feed__empty-icon activity-feed__empty-icon--waiting" aria-hidden="true">
             <WifiSlash weight="duotone" />
           </div>
-          <p className="activity-feed__empty-title">Waiting for the Headroom proxy</p>
+          <p className="activity-feed__empty-title">Waiting for the local proxy</p>
           <p className="activity-feed__empty-body">
-            Headroom will reconnect as soon as the proxy is back online.
+            Switchboard will reconnect as soon as the Headroom runtime is back online.
           </p>
         </div>
       ) : (

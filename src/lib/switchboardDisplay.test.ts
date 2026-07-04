@@ -178,7 +178,7 @@ describe("switchboardDisplay", () => {
       summary: "RTK command compression is active.",
     });
 
-    expect(text).toContain("Mac AI Switchboard mode state");
+    expect(text).toContain("AI Switchboard mode state");
     expect(text).toContain("Requested mode: RTK only");
     expect(text).toContain("Active mode: RTK only");
     expect(text).toContain("Needs attention: no");

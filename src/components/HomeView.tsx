@@ -189,8 +189,8 @@ export function HomeView({
             </h2>
             <p className="tier-mismatch-banner__message">
               {tierMismatch.clamped
-                ? `Your Headroom ${upgradePlanIntentLabel(tierMismatch.paidTier)} plan no longer matches your ${tierRecommendationSourceLabel(tierMismatch.recommendedSource)} usage, which needs ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}, so weekly usage limits now apply. Upgrade to restore unlimited optimization.`
-                : `You're on the Headroom ${upgradePlanIntentLabel(tierMismatch.paidTier)} plan but your ${tierRecommendationSourceLabel(tierMismatch.recommendedSource)} usage needs ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}. Upgrade to match.`}
+                ? `Your Switchboard ${upgradePlanIntentLabel(tierMismatch.paidTier)} plan no longer matches your ${tierRecommendationSourceLabel(tierMismatch.recommendedSource)} usage, which needs ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}, so weekly usage limits now apply. Upgrade to restore unlimited optimization.`
+                : `You're on the Switchboard ${upgradePlanIntentLabel(tierMismatch.paidTier)} plan but your ${tierRecommendationSourceLabel(tierMismatch.recommendedSource)} usage needs ${upgradePlanIntentLabel(tierMismatch.recommendedTier)}. Upgrade to match.`}
             </p>
             {upgradeActionError && upgradeActionBusy === null ? (
               <p className="tier-mismatch-banner__error" role="status">
@@ -230,7 +230,7 @@ export function HomeView({
             savingsDashboard.lifetimeEstimatedTokensSaved < 1_000_000 && (
               <p className="callout-banner__subtitle">
                 Now use your connected tools as normal, and check back later
-                to see how much you are saving by using Headroom.
+                to see how much you are saving with Switchboard.
               </p>
             )}
           {showRuntimeRestartAction ? (
@@ -324,10 +324,10 @@ export function HomeView({
           >
             <div className="connector-nudge__body">
               <p className="connector-nudge__title">
-                Headroom now supports Codex
+                Switchboard now supports Codex
               </p>
               <p className="connector-nudge__message">
-                Route Codex through Headroom to trim its token costs too,
+                Route Codex through Switchboard to trim its token costs too,
                 the same way it already does for Claude Code.
               </p>
             </div>

@@ -279,7 +279,7 @@ export function savingsCalculatorScopeLabel(scope: SavingsCalculatorScope) {
 export function savingsCalculatorScopeDefinition(scope: SavingsCalculatorScope) {
   switch (scope) {
     case "session":
-      return "Current app session includes live Headroom and backend attribution counters since this Mac AI Switchboard launch. It is reset on app restart and is not a repo total.";
+      return "Current app session includes live Headroom and backend attribution counters since this AI Switchboard for Mac launch. It is reset on app restart and is not a repo total.";
     case "repo":
       return "Current repo includes Repo Intelligence context-pack estimates for the indexed repository only. Runtime and RTK traffic are excluded until backend repo-scoped history exists.";
     case "today":
@@ -1152,7 +1152,7 @@ export function formatSavingsLedgerShareText(
       : ["- No ledger rows yet."];
 
   return [
-    `Mac AI Switchboard savings ledger (${scopeLabel})`,
+    `AI Switchboard savings ledger (${scopeLabel})`,
     `Recorded: ${recordedAt}`,
     `Confidence filter: ${filter === "all" ? "all rows" : filter}`,
     `Scope definition: ${savingsCalculatorScopeDefinition(scope)}`,
@@ -1182,7 +1182,7 @@ export function formatSavingsCalculatorShareText(
   });
 
   return [
-    `Mac AI Switchboard savings (${scopeLabel})`,
+    `AI Switchboard savings (${scopeLabel})`,
     `Scope definition: ${savingsCalculatorScopeDefinition(summary.scope)}`,
     `Saved: ${formatTokens(summary.savedTokens)} tokens / ${formatUsd(summary.savedUsd)}`,
     `Requests: ${formatTokens(summary.requests)}`,

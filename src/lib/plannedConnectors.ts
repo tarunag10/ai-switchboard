@@ -1100,8 +1100,8 @@ export function formatPlannedConnectorConfigCreationPlansMarkdown(
 ) {
   const title =
     connectors.length === 1
-      ? "# Mac AI Switchboard Connector Config Creation Plan"
-      : "# Mac AI Switchboard Connector Config Creation Plans";
+      ? "# AI Switchboard Connector Config Creation Plan"
+      : "# AI Switchboard Connector Config Creation Plans";
 
   return [
     title,
@@ -1169,7 +1169,7 @@ export function getPlannedConnectorSetupGuide(
         label: "Check Gemini CLI",
         command: "command -v gemini && gemini --help",
         notes:
-          "Use this only to confirm the CLI is present. Mac AI Switchboard will add provider routing once reversible Gemini config support lands.",
+          "Use this only to confirm the CLI is present. Switchboard will add provider routing once reversible Gemini config support lands.",
       };
     case "opencode":
       return {
@@ -1204,7 +1204,7 @@ export function getPlannedConnectorSetupGuide(
         label: "Inspect Continue config",
         command: "open ~/.continue",
         notes:
-          "Review configured providers manually. Mac AI Switchboard will only edit Continue once backup and restore coverage exists.",
+          "Review configured providers manually. Switchboard will only edit Continue once backup and restore coverage exists.",
       };
     case "goose":
       return {
@@ -1415,7 +1415,7 @@ export function getPlannedConnectorReadinessBadges(
 
 export function getPlannedConnectorSetupChecklistScript() {
   const lines = [
-    "# Mac AI Switchboard connector detection checks",
+    "# AI Switchboard connector detection checks",
     "# Read-only: these commands only inspect local app/CLI availability.",
     ...plannedConnectors.flatMap((connector) => {
       const guide = getPlannedConnectorSetupGuide(connector.id);

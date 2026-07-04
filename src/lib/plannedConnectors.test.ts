@@ -551,7 +551,7 @@ describe("planned connectors", () => {
     ]);
 
     expect(markdown).toContain(
-      "# Mac AI Switchboard Connector Config Creation Plans",
+      "# AI Switchboard Connector Config Creation Plans",
     );
     expect(markdown).toContain("Automation stays disabled");
     expect(markdown).toContain("## Aider");
@@ -573,7 +573,7 @@ describe("planned connectors", () => {
     ]);
 
     expect(markdown).toContain(
-      "# Mac AI Switchboard Connector Config Creation Plan",
+      "# AI Switchboard Connector Config Creation Plan",
     );
     expect(markdown).not.toContain("## Grok / xAI CLI");
     expect(markdown).toContain("## Aider");

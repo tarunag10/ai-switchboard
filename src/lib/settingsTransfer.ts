@@ -132,7 +132,7 @@ export function parseSettingsImport(text: string): SettingsImportPreview {
     return {
       valid: false,
       title: "Settings import is not valid JSON",
-      detail: "Paste a Mac AI Switchboard settings export JSON bundle.",
+      detail: "Paste an AI Switchboard for Mac settings export JSON bundle.",
       safePreferences: {},
       migrationActions: [],
       manualItems: [],

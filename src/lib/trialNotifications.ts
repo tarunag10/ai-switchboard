@@ -51,10 +51,10 @@ async function maybeFireGraceNotification(
   const hoursLeft = Math.max(0, Math.round((graceEndsAt - now) / (60 * 60 * 1000)));
   const body =
     hoursLeft <= 2
-      ? `Less than ${hoursLeft + 1} hour(s) left. Create a Headroom account to start your 7-day trial.`
+      ? `Less than ${hoursLeft + 1} hour(s) left. Create a Switchboard account to start your 7-day trial.`
       : `${hoursLeft} hours left in your 72-hour access window. Create an account to unlock a 7-day trial.`;
 
-  await sendNotification("Start Your Headroom Trial", body, "signup");
+  await sendNotification("Start Your Switchboard Trial", body, "signup");
   localStorage.setItem(GRACE_THRESHOLD_KEY, String(nextIndex));
 }
 
@@ -72,10 +72,10 @@ async function maybeFireTrialExpiryNotification(
 
   const body =
     daysLeft === 1
-      ? "Your Headroom trial ends tomorrow. Upgrade today to keep optimization enabled."
-      : `Your Headroom trial ends in ${daysLeft} days. Upgrade to keep optimization enabled.`;
+      ? "Your Switchboard trial ends tomorrow. Upgrade today to keep optimization enabled."
+      : `Your Switchboard trial ends in ${daysLeft} days. Upgrade to keep optimization enabled.`;
 
-  await sendNotification("Headroom Trial Ending Soon", body, "billing");
+  await sendNotification("Switchboard Trial Ending Soon", body, "billing");
   localStorage.setItem(TRIAL_EXPIRY_DATE_KEY, today);
 }
 

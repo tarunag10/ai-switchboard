@@ -303,7 +303,7 @@ export function formatLocalReleaseEvidenceSequenceCopy() {
 
 export function formatReleaseReadinessCommandCopy() {
   return [
-    "Mac AI Switchboard release readiness command",
+    "AI Switchboard release readiness command",
     `Refresh report: ${releaseReadinessCommand}`,
     "Strict public-release gate: npm run release:ready -- --strict",
     "Report source after running: dist/release-readiness-report.json",
@@ -1075,7 +1075,7 @@ export function formatReleaseReadinessReportSnapshot(
   ].filter(Boolean);
 
   return [
-    "# Mac AI Switchboard Release Readiness",
+    "# AI Switchboard Release Readiness",
     "",
     `Source: ${reportPath}`,
     `Generated: ${report.generatedAt ?? "unknown"}`,

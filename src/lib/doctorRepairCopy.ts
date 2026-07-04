@@ -227,7 +227,7 @@ export function formatDoctorTimelineShareText(
   const sorted = sortDoctorTimelineEvents(events);
   if (sorted.length === 0) {
     return [
-      "Mac AI Switchboard Doctor timeline",
+      "AI Switchboard Doctor timeline",
       "No Doctor timeline events recorded.",
       "",
       repoIntelligenceDoctorAvailabilityGates(),
@@ -235,7 +235,7 @@ export function formatDoctorTimelineShareText(
   }
 
   return [
-    "Mac AI Switchboard Doctor timeline",
+    "AI Switchboard Doctor timeline",
     `Events: ${sorted.length}`,
     "",
     ...sorted.flatMap((event, index) => [
@@ -464,7 +464,7 @@ export function repoIntelligenceDoctorAvailabilityGates(): string {
     "- Corrupt index: clear_repo_index removes only Switchboard managed index metadata, then the repo must be re-indexed.",
     "- Moved repo path: clear the saved index or re-index the new local path before handoff.",
     "- Evidence to copy: API availability, graph availability, indexHealth, parserHealth, indexer/parser versions, indexed/skipped counts, secret exclusion, and read-only safety.",
-    "- Repo Memory MCP lifecycle: install through Mac AI Switchboard before agent consumption.",
+    "- Repo Memory MCP lifecycle: install through Switchboard before agent consumption.",
     `- Repo Memory MCP install action: ${repoMemoryMcpInstallCommand}.`,
     `- Repo Memory MCP smoke check: ${repoMemoryMcpVerifyCommand}.`,
     "- Repo Memory MCP tools must stay read-only: repo_context_pack, repo_symbol_lookup, and repo_dependents_of.",
@@ -513,7 +513,7 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
 
 export function formatDoctorReportShareText(report: DoctorReport): string {
   const lines = [
-    "Mac AI Switchboard Doctor report",
+    "AI Switchboard Doctor report",
     `Status: ${report.status}`,
     `Summary: ${report.summary}`,
     `Issues: ${report.issues.length}`,
@@ -562,7 +562,7 @@ export function formatVerifyOffModeShareText(report: DoctorReport): string {
   );
 
   return [
-    "Mac AI Switchboard Verify Off report",
+    "AI Switchboard Verify Off report",
     `Status: ${offModeIssue ? "active routing evidence found" : "clean"}`,
     `Doctor status: ${report.status}`,
     `Doctor summary: ${report.summary}`,

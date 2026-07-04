@@ -55,7 +55,7 @@ export function TermsGate({ requiredVersion, onAccepted }: TermsGateProps) {
         </h1>
         <p className="terms-gate__copy">
           Please review and accept the bundled legal notices to continue using
-          Mac AI Switchboard.
+          AI Switchboard for Mac.
         </p>
         <div className="terms-gate__terms" aria-label="Legal notices">
           <section aria-labelledby="terms-gate-terms-title">
@@ -78,7 +78,7 @@ export function TermsGate({ requiredVersion, onAccepted }: TermsGateProps) {
             onChange={(event) => setChecked(event.currentTarget.checked)}
           />
           <span>
-            I have read and accept the Mac AI Switchboard Terms of Use and
+            I have read and accept the AI Switchboard Terms of Use and
             Privacy Notice.
           </span>
         </label>

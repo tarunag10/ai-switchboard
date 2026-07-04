@@ -9,12 +9,12 @@ export interface UninstallDisclosureItem {
   backupPath: string | null;
 }
 
-export const uninstallDisclosureTitle = "Uninstall Mac AI Switchboard?";
+export const uninstallDisclosureTitle = "Uninstall AI Switchboard for Mac?";
 
 export const uninstallCleanupDisclosureItems: UninstallDisclosureItem[] = [
   {
     id: "macos-current-bundle-data",
-    text: "Remove current Mac AI Switchboard preferences, caches, WebKit data, HTTP storage, saved state, logs, and launch agent.",
+    text: "Remove current AI Switchboard for Mac preferences, caches, WebKit data, HTTP storage, saved state, logs, and launch agent.",
     paths: [
       "~/Library/Preferences/com.tarunagarwal.mac-ai-switchboard.plist",
       "~/Library/Caches/com.tarunagarwal.mac-ai-switchboard",
@@ -51,13 +51,13 @@ export const uninstallDisclosureItems: UninstallDisclosureItem[] =
     .concat(uninstallCleanupDisclosureItems);
 
 export const uninstallDisclosureFooter =
-  "You can reinstall later by launching Mac AI Switchboard again. Use Off mode instead if you only want to stop routing without deleting runtime files.";
+  "You can reinstall later by launching AI Switchboard for Mac again. Use Off mode instead if you only want to stop routing without deleting runtime files.";
 
 export function formatUninstallDryRunReport(
   items: UninstallDisclosureItem[] = uninstallDisclosureItems,
 ) {
   return [
-    "Mac AI Switchboard uninstall dry-run",
+    "AI Switchboard for Mac uninstall dry-run",
     "No files are changed by this report.",
     "Managed footprint source: Rollback Center inventory.",
     `Items: ${items.length}`,
@@ -79,7 +79,7 @@ export function formatBackendUninstallDryRunReport(
   report: UninstallDryRunReport,
 ) {
   return [
-    "Mac AI Switchboard uninstall dry-run",
+    "AI Switchboard for Mac uninstall dry-run",
     "No files are changed by this report.",
     `Generated: ${report.generatedAt}`,
     `Targets: ${report.targets.length}`,

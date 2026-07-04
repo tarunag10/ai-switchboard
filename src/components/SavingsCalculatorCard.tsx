@@ -237,7 +237,7 @@ export function SavingsCalculatorCard({
       </div>
       {!hasUsage ? (
         <p className="savings-calculator__empty">
-          Run a connected coding agent through Mac AI Switchboard and this card
+          Run a connected coding agent through Switchboard and this card
           will update automatically.
         </p>
       ) : null}

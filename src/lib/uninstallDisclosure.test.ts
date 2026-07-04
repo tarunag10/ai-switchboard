@@ -10,9 +10,9 @@ import {
 import { managedChangeRecords } from "./managedChanges";
 
 describe("uninstallDisclosure", () => {
-  it("uses Mac AI Switchboard product naming", () => {
-    expect(uninstallDisclosureTitle).toBe("Uninstall Mac AI Switchboard?");
-    expect(uninstallDisclosureFooter).toContain("Mac AI Switchboard");
+  it("uses AI Switchboard for Mac product naming", () => {
+    expect(uninstallDisclosureTitle).toBe("Uninstall AI Switchboard for Mac?");
+    expect(uninstallDisclosureFooter).toContain("AI Switchboard for Mac");
     expect(uninstallDisclosureFooter).toContain("Off mode");
   });
 
@@ -87,7 +87,7 @@ describe("uninstallDisclosure", () => {
   it("formats a copyable uninstall dry-run report from the managed footprint", () => {
     const report = formatUninstallDryRunReport();
 
-    expect(report).toContain("Mac AI Switchboard uninstall dry-run");
+    expect(report).toContain("AI Switchboard for Mac uninstall dry-run");
     expect(report).toContain("No files are changed by this report.");
     expect(report).toContain(
       "Managed footprint source: Rollback Center inventory.",

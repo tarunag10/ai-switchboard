@@ -90,10 +90,10 @@ export function remoteServicesCopy(
     .join(", ");
   return {
     label: "Local-only",
-    detail: `Mac AI Switchboard local-only mode is on. Diagnostics, analytics, update, and support endpoints stay paused: ${paused}. Account and paid pricing APIs are not part of this app.`,
+    detail: `AI Switchboard local-only mode is on. Diagnostics, analytics, update, and support endpoints stay paused: ${paused}. Account and paid pricing APIs are not part of this app.`,
   };
 }
 
 export function localOnlySetupLabel(localOnly: boolean): string {
-  return localOnly ? "Local-only Mac setup" : "Mac AI Switchboard cloud setup";
+  return localOnly ? "Local-only Mac setup" : "AI Switchboard cloud setup";
 }

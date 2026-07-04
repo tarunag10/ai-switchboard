@@ -50,7 +50,7 @@ export function switchboardModeSafetyNotes(mode: SwitchboardMode): string[] {
   switch (mode) {
     case "full":
       return [
-        "Client routing and RTK shell compression are both managed by Mac AI Switchboard.",
+        "Client routing and RTK shell compression are both managed by Switchboard.",
         "Use Doctor if a supported client is installed but not verified.",
       ];
     case "headroom":
@@ -219,7 +219,7 @@ export function formatSwitchboardModeShareText({
   );
 
   return [
-    "Mac AI Switchboard mode state",
+    "AI Switchboard mode state",
     `Requested mode: ${requestedLabel}`,
     `Active mode: ${activeLabel}`,
     `Needs attention: ${needsAttention ? "yes" : "no"}`,

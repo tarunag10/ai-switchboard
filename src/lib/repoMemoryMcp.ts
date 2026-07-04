@@ -174,7 +174,7 @@ export function repoMemoryMcpLifecycle(
     return {
       state: "restart_required",
       status: "Verifying",
-      detail: `Repo Memory MCP was active in a previous app process. Mac AI Switchboard will re-run the read-only smoke check automatically; click Start MCP if you want to retry now.${started}${checked}${serviceDetail}`,
+      detail: `Repo Memory MCP was active in a previous app process. Switchboard will re-run the read-only smoke check automatically; click Start MCP if you want to retry now.${started}${checked}${serviceDetail}`,
       installCommand: repoMemoryMcpInstallCommand,
       startCommand: repoMemoryMcpStartCommand,
       stopCommand: repoMemoryMcpStopCommand,
@@ -256,7 +256,7 @@ export function repoMemoryMcpLifecycle(
   if (input.configured === false) {
     const detail =
       input.error?.trim() ||
-      "Repo Memory MCP is not configured. Use Prepare MCP from Mac AI Switchboard to install it, start it, and verify the read-only tool contract.";
+      "Repo Memory MCP is not configured. Use Prepare MCP from Switchboard to install it, start it, and verify the read-only tool contract.";
     return {
       state: "needs_attention",
       status: "Needs attention",

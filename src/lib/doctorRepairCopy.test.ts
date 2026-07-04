@@ -162,7 +162,7 @@ describe("doctor repair copy", () => {
       ],
     });
 
-    expect(text).toContain("Mac AI Switchboard Verify Off report");
+    expect(text).toContain("AI Switchboard Verify Off report");
     expect(text).toContain("Status: active routing evidence found");
     expect(text).toContain("Checks: active engine, enabled clients, RTK routing evidence");
     expect(text).toContain("Headroom engine is still reachable");
@@ -276,7 +276,7 @@ describe("doctor repair copy", () => {
       ],
     });
 
-    expect(text).toContain("Mac AI Switchboard Doctor report");
+    expect(text).toContain("AI Switchboard Doctor report");
     expect(text).toContain("Status: warning");
     expect(text).toContain("Action: automatic / Install RTK");
     expect(text).toContain("Action: manual / Gated setup");
@@ -436,7 +436,7 @@ describe("doctor repair copy", () => {
       },
     ]);
 
-    expect(text).toContain("Mac AI Switchboard Doctor timeline");
+    expect(text).toContain("AI Switchboard Doctor timeline");
     expect(text).toContain("Events: 2");
     expect(text).toContain("1. Rolled back Codex routing");
     expect(text).toContain("Kind: Rollback");

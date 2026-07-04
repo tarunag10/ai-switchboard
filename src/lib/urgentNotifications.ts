@@ -10,7 +10,7 @@ const RUNTIME_DOWN_KEY = "headroom_urgent_runtime_down_date";
 // no threshold is crossed, a generic reminder. One key keeps the two mutually
 // exclusive so a gated free user gets at most one upgrade nudge per ~24h.
 const DAILY_NUDGE_KEY = "headroom_urgent_nudge_date";
-const NUDGE_REMINDER_TITLE = "Mac AI Switchboard is ready when you are";
+const NUDGE_REMINDER_TITLE = "AI Switchboard is ready when you are";
 const NUDGE_REMINDER_BODY =
   "You're on the free plan. Upgrade to keep the Headroom engine optimizing every prompt.";
 
@@ -41,9 +41,9 @@ export async function maybeFireUrgentPricingNotifications(
   if (status.needsAuthentication) {
     await fireOncePerDay(
       NEEDS_AUTH_KEY,
-      "Mac AI Switchboard needs you to sign in",
+      "AI Switchboard needs you to sign in",
       status.gateMessage ||
-        "Sign in to Mac AI Switchboard to keep optimization running.",
+        "Sign in to AI Switchboard to keep optimization running.",
       "signin"
     );
     return;
@@ -54,7 +54,7 @@ export async function maybeFireUrgentPricingNotifications(
       OPTIMIZATION_BLOCKED_KEY,
       "Headroom engine optimization is off",
       status.gateMessage ||
-        "Your current plan has optimization disabled. Open Mac AI Switchboard to review.",
+        "Your current plan has optimization disabled. Open AI Switchboard to review.",
       "billing"
     );
     return;
@@ -66,7 +66,7 @@ export async function maybeFireUrgentPricingNotifications(
       CODEX_OPTIMIZATION_BLOCKED_KEY,
       "Headroom engine optimization is off",
       codex.gateMessage ||
-        "Codex optimization is paused. Open Mac AI Switchboard to review.",
+        "Codex optimization is paused. Open AI Switchboard to review.",
       "billing"
     );
     return;
@@ -146,11 +146,11 @@ export async function maybeFireUrgentRuntimeNotification(
     ? `The Headroom engine isn't running. ${runtime.startupErrorHint}`
     : runtime.startupError
     ? `The Headroom engine isn't running: ${runtime.startupError}`
-    : "The Headroom engine isn't running. Open Mac AI Switchboard to restart it.";
+    : "The Headroom engine isn't running. Open AI Switchboard for Mac to restart it.";
 
   await fireOncePerDay(
     RUNTIME_DOWN_KEY,
-    "Mac AI Switchboard engine stopped running",
+    "AI Switchboard engine stopped running",
     body,
     "runtime"
   );

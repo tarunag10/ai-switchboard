@@ -12,7 +12,7 @@ describe("remote services copy", () => {
     expect(remoteServicesCopy(false)).toEqual({
       label: "Local-only",
       detail:
-        "Mac AI Switchboard local-only mode is on. Diagnostics, analytics, update, and support endpoints stay paused: Sentry diagnostics, Microsoft Clarity analytics, Product analytics, Tauri update feed, External support links. Account and paid pricing APIs are not part of this app.",
+        "AI Switchboard local-only mode is on. Diagnostics, analytics, update, and support endpoints stay paused: Sentry diagnostics, Microsoft Clarity analytics, Product analytics, Tauri update feed, External support links. Account and paid pricing APIs are not part of this app.",
     });
   });
 
@@ -59,6 +59,6 @@ describe("remote services copy", () => {
 
   it("uses explicit setup labels for local-only and cloud-capable modes", () => {
     expect(localOnlySetupLabel(true)).toBe("Local-only Mac setup");
-    expect(localOnlySetupLabel(false)).toBe("Mac AI Switchboard cloud setup");
+    expect(localOnlySetupLabel(false)).toBe("AI Switchboard cloud setup");
   });
 });

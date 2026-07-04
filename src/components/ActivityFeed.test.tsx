@@ -81,7 +81,7 @@ describe("ActivityFeed", () => {
     const markup = renderToStaticMarkup(
       <ActivityFeed feed={{ ...baseFeed, proxyReachable: false }} error={null} />
     );
-    expect(markup).toContain("Waiting for the Headroom proxy");
+    expect(markup).toContain("Waiting for the local proxy");
     expect(markup).not.toContain("activity-feed__list");
   });
 
@@ -95,7 +95,7 @@ describe("ActivityFeed", () => {
     };
     const markup = renderToStaticMarkup(<ActivityFeed feed={feed} error={null} />);
     expect(markup).toContain("activity-feed__list");
-    expect(markup).not.toContain("Waiting for the Headroom proxy");
+    expect(markup).not.toContain("Waiting for the local proxy");
   });
 
   it("renders a placeholder card for every kind when proxy is up but no events", () => {

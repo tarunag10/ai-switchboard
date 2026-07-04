@@ -8,11 +8,11 @@ describe("SettingsLegalPanel", () => {
     render(<SettingsLegalPanel requiredTermsVersion={2} />);
 
     expect(
-      screen.getByRole("heading", { name: "Mac AI Switchboard Terms of Use" }),
+      screen.getByRole("heading", { name: "AI Switchboard Terms of Use" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: "Mac AI Switchboard Privacy Notice",
+        name: "AI Switchboard Privacy Notice",
       }),
     ).toBeInTheDocument();
     expect(

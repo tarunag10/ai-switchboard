@@ -160,10 +160,10 @@ export async function maybeFireStaleAppUpdateNotification(
 
   try {
     await invokeFn("show_notification", {
-      title: "Mac AI Switchboard update waiting",
-      body: `Mac AI Switchboard ${availableUpdate.version} has been out for ${Math.floor(
+      title: "AI Switchboard update waiting",
+      body: `AI Switchboard for Mac ${availableUpdate.version} has been out for ${Math.floor(
         ageDays
-      )} days. Open Mac AI Switchboard to install it.`,
+      )} days. Open AI Switchboard for Mac to install it.`,
       action: "update",
     });
     localStorage.setItem(STALE_UPDATE_NOTIFIED_KEY, availableUpdate.version);
@@ -175,7 +175,7 @@ export async function maybeFireStaleAppUpdateNotification(
 export function getAppUpdateInstallStatusCopy(
   availableUpdate: AvailableAppUpdate | null
 ): string | null {
-  return availableUpdate ? `Downloading Mac AI Switchboard ${availableUpdate.version}…` : null;
+  return availableUpdate ? `Downloading AI Switchboard for Mac ${availableUpdate.version}…` : null;
 }
 
 export function formatAppUpdateProgressCopy(
@@ -183,16 +183,16 @@ export function formatAppUpdateProgressCopy(
   progress: AppUpdateProgress
 ): string {
   if (progress.phase === "installing") {
-    return `Installing Mac AI Switchboard ${version}…`;
+    return `Installing AI Switchboard for Mac ${version}…`;
   }
 
   const downloadedMb = progress.downloaded / 1_000_000;
   if (progress.total && progress.total > 0) {
     const totalMb = progress.total / 1_000_000;
     const pct = Math.min(100, Math.round((progress.downloaded / progress.total) * 100));
-    return `Downloading Mac AI Switchboard ${version}: ${downloadedMb.toFixed(1)} MB of ${totalMb.toFixed(1)} MB (${pct}%)…`;
+    return `Downloading AI Switchboard for Mac ${version}: ${downloadedMb.toFixed(1)} MB of ${totalMb.toFixed(1)} MB (${pct}%)…`;
   }
-  return `Downloading Mac AI Switchboard ${version}: ${downloadedMb.toFixed(1)} MB…`;
+  return `Downloading AI Switchboard for Mac ${version}: ${downloadedMb.toFixed(1)} MB…`;
 }
 
 export async function runAppUpdateInstall({
@@ -226,7 +226,7 @@ export async function runAppUpdateInstall({
     return {
       readyToRestart: true,
       showDialog: true,
-      statusCopy: `Mac AI Switchboard ${availableUpdate.version} is installed and ready to restart.`,
+      statusCopy: `AI Switchboard for Mac ${availableUpdate.version} is installed and ready to restart.`,
     };
   } catch (error) {
     Sentry.captureException(error, { tags: { flow: "app_update_install" } });

@@ -251,7 +251,7 @@ describe("SwitchboardDoctorPanel", () => {
 
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0][0]).toContain(
-      "Mac AI Switchboard Doctor report",
+      "AI Switchboard Doctor report",
     );
     expect(writeText.mock.calls[0][0]).toContain(
       "Action: automatic / Reset Codex",
@@ -284,7 +284,7 @@ describe("SwitchboardDoctorPanel", () => {
 
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0][0]).toContain(
-      "Mac AI Switchboard Doctor timeline",
+      "AI Switchboard Doctor timeline",
     );
     expect(writeText.mock.calls[0][0]).toContain("Doctor status: warning");
     expect(writeText.mock.calls[0][0]).toContain("Latest repair completed");
@@ -351,7 +351,7 @@ describe("SwitchboardDoctorPanel", () => {
 
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0][0]).toContain(
-      "Mac AI Switchboard Rollback Center inventory",
+      "AI Switchboard Rollback Center inventory",
     );
     expect(writeText.mock.calls[0][0]).toContain(
       "No files are changed by this report.",
@@ -460,7 +460,7 @@ describe("SwitchboardDoctorPanel", () => {
 
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(writeText.mock.calls[0][0]).toContain(
-      "Mac AI Switchboard Verify Off report",
+      "AI Switchboard Verify Off report",
     );
     expect(writeText.mock.calls[0][0]).toContain(
       "Status: active routing evidence found",

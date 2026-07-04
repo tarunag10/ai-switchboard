@@ -864,7 +864,7 @@ export function formatConnectorConfigDryRunPreview(
     `- Marker: ${markerId}`,
     `- Backup: ${backupPath}`,
     "- Current managed block: none detected",
-    `- Proposed managed block: Mac AI Switchboard provider routing for ${connector.name}`,
+    `- Proposed managed block: AI Switchboard provider routing for ${connector.name}`,
     "- Apply blocked: detection, dry-run diff, backup, verify, rollback, and Off cleanup evidence are incomplete",
     "- Writes: none; preview only; apply stays disabled",
     `- Rollback: ${safetyDossier?.rollbackStrategy ?? "Remove only Switchboard-managed routing."}`,
