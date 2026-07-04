@@ -8,6 +8,7 @@ use sha2::{Digest, Sha256};
 use crate::keychain;
 
 const DEVICE_KEYCHAIN_SERVICE: &str = "com.tarunagarwal.mac-ai-switchboard.device";
+const DEVICE_KEYCHAIN_COMPAT_SERVICE: &str = "com.tarunagarwal.ai-switchboard.device";
 const MACHINE_ID_DIGEST_ACCOUNT: &str = "machine-id-digest";
 
 static CACHED: Mutex<Option<DeviceIdentity>> = Mutex::new(None);
@@ -34,9 +35,11 @@ pub fn current() -> DeviceIdentity {
 }
 
 fn load_or_compute_machine_id_digest() -> String {
-    if let Ok(Some(cached)) =
-        keychain::read_secret(DEVICE_KEYCHAIN_SERVICE, MACHINE_ID_DIGEST_ACCOUNT)
-    {
+    if let Ok(Some(cached)) = keychain::read_migrated_secret(
+        DEVICE_KEYCHAIN_SERVICE,
+        DEVICE_KEYCHAIN_COMPAT_SERVICE,
+        MACHINE_ID_DIGEST_ACCOUNT,
+    ) {
         let trimmed = cached.trim();
         if !trimmed.is_empty() {
             return trimmed.to_string();
@@ -162,6 +165,18 @@ mod tests {
     #[test]
     fn truncate_hex_caps_length() {
         assert_eq!(truncate_hex(&sha256_hex("x"), 16).len(), 16);
+    }
+
+    #[test]
+    fn keychain_services_keep_legacy_primary_with_switchboard_alias() {
+        assert_eq!(
+            DEVICE_KEYCHAIN_SERVICE,
+            "com.tarunagarwal.mac-ai-switchboard.device"
+        );
+        assert_eq!(
+            DEVICE_KEYCHAIN_COMPAT_SERVICE,
+            "com.tarunagarwal.ai-switchboard.device"
+        );
     }
 
     #[test]

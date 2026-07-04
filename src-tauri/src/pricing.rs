@@ -18,6 +18,7 @@ use crate::state::AppState;
 use crate::storage::{app_data_dir, config_file};
 
 const SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE: &str = "com.tarunagarwal.mac-ai-switchboard.account";
+const SWITCHBOARD_ACCOUNT_COMPAT_KEYCHAIN_SERVICE: &str = "com.tarunagarwal.ai-switchboard.account";
 const SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT: &str = "session-token";
 const LOCAL_ONLY_REMOTE_SERVICES_ERROR: &str =
     "Remote account and billing services are disabled in local-only mode.";
@@ -2164,8 +2165,9 @@ fn local_state_path() -> PathBuf {
 }
 
 fn read_session_token() -> Result<Option<String>, String> {
-    keychain::read_secret(
+    keychain::read_migrated_secret(
         SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+        SWITCHBOARD_ACCOUNT_COMPAT_KEYCHAIN_SERVICE,
         SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
     )
     .map(|value| value.and_then(non_empty_string))
@@ -2182,6 +2184,10 @@ fn write_session_token(token: &str) -> Result<(), String> {
 fn clear_session_token() -> Result<(), String> {
     keychain::delete_secret(
         SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+        SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
+    )?;
+    keychain::delete_secret(
+        SWITCHBOARD_ACCOUNT_COMPAT_KEYCHAIN_SERVICE,
         SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
     )
 }
@@ -2312,6 +2318,18 @@ mod tests {
         HeadroomAccountProfile, HeadroomPricingStatus, PricingGateReason, TierMismatch,
         TierRecommendationSource,
     };
+
+    #[test]
+    fn account_keychain_services_keep_legacy_primary_with_switchboard_alias() {
+        assert_eq!(
+            super::SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+            "com.tarunagarwal.mac-ai-switchboard.account"
+        );
+        assert_eq!(
+            super::SWITCHBOARD_ACCOUNT_COMPAT_KEYCHAIN_SERVICE,
+            "com.tarunagarwal.ai-switchboard.account"
+        );
+    }
 
     #[allow(clippy::too_many_arguments)]
     fn evaluate_pricing_status(

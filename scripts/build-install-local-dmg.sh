@@ -19,17 +19,25 @@ case "${ARCH_NAME}" in
   *) DMG_ARCH="${ARCH_NAME}" ;;
 esac
 
-RAW_DMG="src-tauri/target/release/bundle/dmg/Mac AI Switchboard_${APP_VERSION}_${DMG_ARCH}.dmg"
+APP_NAME_CANDIDATES=("AI Switchboard for Mac" "Mac AI Switchboard" "Mac Switchboard")
+RAW_DMG=""
+for app_name in "${APP_NAME_CANDIDATES[@]}"; do
+  candidate="src-tauri/target/release/bundle/dmg/${app_name}_${APP_VERSION}_${DMG_ARCH}.dmg"
+  if [[ -f "${candidate}" ]]; then
+    RAW_DMG="${candidate}"
+    break
+  fi
+done
 LOCAL_DIR="dist/release-artifacts"
 LOCAL_DMG="${LOCAL_DIR}/Mac-AI-Switchboard_${APP_VERSION}-local-unsigned-${DMG_ARCH}.dmg"
-APP_DEST="/Applications/Mac AI Switchboard.app"
-MOUNT_POINT="/Volumes/Mac AI Switchboard"
+APP_DEST="${MAC_AI_SWITCHBOARD_LOCAL_APP_DEST:-/Applications/AI Switchboard for Mac.app}"
+LEGACY_APP_DEST="/Applications/Mac AI Switchboard.app"
 
 echo "Building local unsigned/ad-hoc DMG..."
 CI=true npx tauri build --bundles dmg --ci
 
-if [[ ! -f "${RAW_DMG}" ]]; then
-  echo "Expected DMG not found: ${RAW_DMG}" >&2
+if [[ -z "${RAW_DMG}" ]]; then
+  echo "Expected DMG not found for any app name: ${APP_NAME_CANDIDATES[*]}" >&2
   echo "Available DMGs:" >&2
   find src-tauri/target/release/bundle/dmg -maxdepth 1 -name "*.dmg" -print >&2
   exit 1
@@ -40,26 +48,41 @@ cp -f "${RAW_DMG}" "${LOCAL_DMG}"
 shasum -a 256 "${LOCAL_DMG}" | tee "${LOCAL_DMG}.sha256"
 hdiutil verify "${LOCAL_DMG}"
 
-if mount | grep -q "on ${MOUNT_POINT} "; then
-  hdiutil detach "${MOUNT_POINT}" >/dev/null
-fi
+for app_name in "${APP_NAME_CANDIDATES[@]}"; do
+  if mount | grep -q "on /Volumes/${app_name} "; then
+    hdiutil detach "/Volumes/${app_name}" >/dev/null
+  fi
+done
 
 hdiutil attach "${LOCAL_DMG}" -nobrowse -readonly
-trap 'hdiutil detach "${MOUNT_POINT}" >/dev/null 2>&1 || true' EXIT
+MOUNT_POINT=""
+DMG_APP=""
+for app_name in "${APP_NAME_CANDIDATES[@]}"; do
+  candidate_mount="/Volumes/${app_name}"
+  candidate_app="${candidate_mount}/${app_name}.app"
+  if [[ -d "${candidate_app}" ]]; then
+    MOUNT_POINT="${candidate_mount}"
+    DMG_APP="${candidate_app}"
+    break
+  fi
+done
+trap 'if [[ -n "${MOUNT_POINT}" ]]; then hdiutil detach "${MOUNT_POINT}" >/dev/null 2>&1 || true; fi' EXIT
 
-if [[ ! -d "${MOUNT_POINT}/Mac AI Switchboard.app" ]]; then
-  echo "Mounted DMG does not contain Mac AI Switchboard.app." >&2
+if [[ -z "${DMG_APP}" ]]; then
+  echo "Mounted DMG does not contain a compatible Switchboard app bundle." >&2
   exit 1
 fi
 
-if pgrep -f "${APP_DEST}/Contents/MacOS/mac-ai-switchboard" >/dev/null 2>&1; then
+if pgrep -f "${APP_DEST}/Contents/MacOS/mac-ai-switchboard" >/dev/null 2>&1 || \
+  pgrep -f "${LEGACY_APP_DEST}/Contents/MacOS/mac-ai-switchboard" >/dev/null 2>&1; then
   osascript -e 'tell application id "com.tarunagarwal.mac-ai-switchboard" to quit' >/dev/null 2>&1 || true
   sleep 2
 fi
 pkill -f "${APP_DEST}/Contents/MacOS/mac-ai-switchboard" >/dev/null 2>&1 || true
+pkill -f "${LEGACY_APP_DEST}/Contents/MacOS/mac-ai-switchboard" >/dev/null 2>&1 || true
 
 rm -rf "${APP_DEST}"
-ditto "${MOUNT_POINT}/Mac AI Switchboard.app" "${APP_DEST}"
+ditto "${DMG_APP}" "${APP_DEST}"
 codesign --force --deep --sign - "${APP_DEST}"
 codesign --verify --deep --strict --verbose=2 "${APP_DEST}"
 
