@@ -2329,7 +2329,7 @@ pub fn remove_managed_runtime_storage() -> Vec<String> {
     removed
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
 pub fn macos_app_state_paths() -> Vec<PathBuf> {
     let lib = home_dir().join("Library");
     let mut paths = vec![
@@ -2360,12 +2360,12 @@ pub fn macos_app_state_paths() -> Vec<PathBuf> {
     paths
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(not(target_os = "macos"), not(test)))]
 pub fn macos_app_state_paths() -> Vec<PathBuf> {
     Vec::new()
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
 pub fn remove_macos_app_state() -> Vec<String> {
     let mut removed = Vec::new();
     removed.extend(remove_macos_preferences());
@@ -2376,7 +2376,7 @@ pub fn remove_macos_app_state() -> Vec<String> {
     removed
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(not(target_os = "macos"), not(test)))]
 pub fn remove_macos_app_state() -> Vec<String> {
     Vec::new()
 }
@@ -2834,7 +2834,7 @@ fn remove_macos_launch_agents() -> Vec<String> {
     removed
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
 fn remove_macos_preferences() -> Vec<String> {
     let mut removed = Vec::new();
     let prefs_dir = home_dir().join("Library").join("Preferences");
@@ -2862,7 +2862,7 @@ fn remove_macos_preferences() -> Vec<String> {
     removed
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
 fn remove_macos_caches() -> Vec<String> {
     let mut removed = Vec::new();
     let caches_base = home_dir().join("Library").join("Caches");
@@ -2878,7 +2878,7 @@ fn remove_macos_caches() -> Vec<String> {
     removed
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
 fn remove_macos_logs() -> Vec<String> {
     let mut removed = Vec::new();
     let logs_base = home_dir().join("Library").join("Logs");
@@ -2897,7 +2897,7 @@ fn remove_macos_logs() -> Vec<String> {
 /// Sweep the per-bundle-id directories macOS creates for a GUI app outside the
 /// Caches/Preferences locations already handled above: the WKWebView data
 /// store, HTTP cookie/storage caches, and saved window state.
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
 fn remove_macos_bundle_dirs() -> Vec<String> {
     let mut removed = Vec::new();
     let lib = home_dir().join("Library");
