@@ -14,6 +14,7 @@ import {
   loadOptimizationSnapshot,
   OptimizationSnapshot
 } from "../lib/optimization";
+import { AgentSessionPanel } from "./AgentSessionPanel";
 import { RedundancyPanel } from "./RedundancyPanel";
 import { RoutingDecisionList, TokenXrayPanel } from "./TokenXrayPanel";
 
@@ -104,6 +105,7 @@ export function OptimizationDashboard() {
 
       <TokenXrayPanel snapshot={snapshot.tokenXray} />
       <RedundancyPanel findings={snapshot.redundancy} />
+      <AgentSessionPanel />
       <RoutingDecisionList decisions={snapshot.routing} />
 
       <section className="optimize-minimal" aria-labelledby="pack-rtk-title">
