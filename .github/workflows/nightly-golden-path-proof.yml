@@ -36,6 +36,9 @@ jobs:
       - name: Run golden path scaffold
         run: ./scripts/nightly-golden-path-proof.sh
 
+      - name: Check proof
+        run: npm run nightly:proof:check
+
       - name: Upload proof artifact
         if: always()
         uses: actions/upload-artifact@v4

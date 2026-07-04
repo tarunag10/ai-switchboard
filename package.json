@@ -76,7 +76,8 @@
     "savings:runtime:check": "node scripts/check-runtime-savings-attribution.mjs",
     "release:proof": "node scripts/public-release-proof-summary.mjs",
     "release:proof:check": "node scripts/check-public-release-proof-summary.mjs",
-    "check:repo-map-mounted": "node scripts/check-repo-map-mounted.mjs"
+    "check:repo-map-mounted": "node scripts/check-repo-map-mounted.mjs",
+    "nightly:proof:check": "node scripts/check-nightly-golden-path-proof.mjs"
   },
   "dependencies": {
     "@microsoft/clarity": "^1.0.2",
