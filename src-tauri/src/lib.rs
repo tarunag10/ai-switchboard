@@ -1,6 +1,7 @@
 mod activity_commands;
 mod activity_facts;
 mod analytics;
+mod app_update_commands;
 mod backend_port;
 mod bearer;
 mod claude_cli;
@@ -41,17 +42,13 @@ mod state;
 mod storage;
 mod tool_manager;
 
-use std::future::Future;
 use std::path::Path;
-use std::pin::Pin;
 use std::process::Command;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use parking_lot::Mutex;
 
 use chrono::{Local, Utc};
-use serde::Serialize;
 use serde_json::{json, Value};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
 #[cfg(target_os = "macos")]
@@ -61,7 +58,6 @@ use tauri::{
 };
 use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
-use tauri_plugin_updater::{Update, UpdaterExt};
 
 use crate::models::{
     ActivityFeedResponse, BootstrapProgress, ClientConnectorStatus, ClientSetupResult,
@@ -71,20 +67,13 @@ use crate::models::{
 };
 use crate::state::AppState;
 
-const UPDATER_PUBLIC_KEY: Option<&str> = option_env!("HEADROOM_UPDATER_PUBLIC_KEY");
-const UPDATER_ENDPOINTS: Option<&str> = option_env!("HEADROOM_UPDATER_ENDPOINTS");
-const UPDATER_STAGING_ENDPOINTS: Option<&str> = option_env!("HEADROOM_UPDATER_STAGING_ENDPOINTS");
 const SENTRY_DSN: Option<&str> = option_env!("HEADROOM_SENTRY_DSN");
-const BETA_CHANNEL_ENV: &str = "HEADROOM_BETA_CHANNEL";
-const BETA_CHANNEL_SENTINEL: &str = "beta_channel";
 const AUTOSTART_LAUNCH_ARG: &str = "--autostart";
 const HEADROOM_DASHBOARD_URL: &str = "http://127.0.0.1:6767/dashboard";
 const MAIN_WINDOW_WIDTH: u32 = 760;
 const MAIN_WINDOW_HEIGHT: u32 = 560;
 const TRAY_WINDOW_VERTICAL_GAP: i32 = 10;
 const MAIN_WINDOW_BLUR_HIDE_DELAY_MS: u64 = 150;
-
-type InstallPendingUpdateFuture = Pin<Box<dyn Future<Output = Result<(), String>> + Send>>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum QuitSource {
@@ -99,100 +88,6 @@ impl QuitSource {
             Self::TrayMenu => "tray_menu",
         }
     }
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase", tag = "phase")]
-enum AppUpdateProgress {
-    #[serde(rename = "downloading")]
-    Downloading { downloaded: u64, total: Option<u64> },
-    #[serde(rename = "installing")]
-    Installing,
-}
-
-const APP_UPDATE_PROGRESS_EVENT: &str = "app-update://progress";
-
-type AppUpdateProgressEmitter = Arc<dyn Fn(AppUpdateProgress) + Send + Sync + 'static>;
-
-#[cfg(test)]
-fn noop_app_update_progress_emitter() -> AppUpdateProgressEmitter {
-    Arc::new(|_| {})
-}
-
-trait InstallableAppUpdate: Send {
-    fn metadata(&self) -> AvailableAppUpdate;
-    fn install(self, progress: AppUpdateProgressEmitter) -> InstallPendingUpdateFuture;
-}
-
-struct TauriPendingUpdate(Update);
-
-impl InstallableAppUpdate for TauriPendingUpdate {
-    fn metadata(&self) -> AvailableAppUpdate {
-        let published_at = self.0.date.as_ref().and_then(|date| {
-            date.format(&time::format_description::well_known::Rfc3339)
-                .ok()
-        });
-
-        AvailableAppUpdate {
-            current_version: self.0.current_version.clone(),
-            version: self.0.version.clone(),
-            published_at,
-            notes: self.0.body.clone(),
-        }
-    }
-
-    fn install(self, progress: AppUpdateProgressEmitter) -> InstallPendingUpdateFuture {
-        Box::pin(async move {
-            let downloaded = Arc::new(AtomicU64::new(0));
-            let on_chunk_downloaded = Arc::clone(&downloaded);
-            let on_chunk_progress = Arc::clone(&progress);
-            let on_finish_progress = Arc::clone(&progress);
-            self.0
-                .download_and_install(
-                    move |chunk_len, content_length| {
-                        let total = on_chunk_downloaded
-                            .fetch_add(chunk_len as u64, Ordering::Relaxed)
-                            + chunk_len as u64;
-                        on_chunk_progress(AppUpdateProgress::Downloading {
-                            downloaded: total,
-                            total: content_length,
-                        });
-                    },
-                    move || {
-                        on_finish_progress(AppUpdateProgress::Installing);
-                    },
-                )
-                .await
-                .map_err(|err| err.to_string())
-        })
-    }
-}
-
-struct PendingAppUpdate(Mutex<Option<TauriPendingUpdate>>);
-
-#[derive(Debug, Clone)]
-struct ReleaseUpdaterConfig {
-    pubkey: String,
-    endpoints: Vec<reqwest::Url>,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-struct AppUpdateConfiguration {
-    enabled: bool,
-    current_version: String,
-    endpoint_count: usize,
-    configuration_error: Option<String>,
-    beta_channel_enabled: bool,
-}
-
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-struct AvailableAppUpdate {
-    current_version: String,
-    version: String,
-    published_at: Option<String>,
-    notes: Option<String>,
 }
 
 static ZERO_SPEND_ALERT_FIRED: AtomicBool = AtomicBool::new(false);
@@ -354,222 +249,6 @@ async fn record_measured_savings_attribution(
     .map_err(|err| err.to_string())?
 }
 
-#[tauri::command]
-fn get_app_update_configuration(app: AppHandle) -> AppUpdateConfiguration {
-    let current_version = app.package_info().version.to_string();
-    let beta_channel_enabled = beta_channel_enabled();
-    match release_updater_config(&current_version, beta_channel_enabled) {
-        Ok(Some(config)) => AppUpdateConfiguration {
-            enabled: true,
-            current_version,
-            endpoint_count: config.endpoints.len(),
-            configuration_error: None,
-            beta_channel_enabled,
-        },
-        Ok(None) => AppUpdateConfiguration {
-            enabled: false,
-            current_version,
-            endpoint_count: 0,
-            configuration_error: None,
-            beta_channel_enabled,
-        },
-        Err(ref err) => {
-            sentry::capture_message(
-                &format!("app update configuration error: {err}"),
-                sentry::Level::Error,
-            );
-            AppUpdateConfiguration {
-                enabled: false,
-                current_version,
-                endpoint_count: 0,
-                configuration_error: Some(err.clone()),
-                beta_channel_enabled,
-            }
-        }
-    }
-}
-
-#[tauri::command]
-async fn check_for_app_update(
-    app: AppHandle,
-    pending_update: State<'_, PendingAppUpdate>,
-) -> Result<Option<AvailableAppUpdate>, String> {
-    let current_version = app.package_info().version.to_string();
-    let config = release_updater_config(&current_version, beta_channel_enabled())?
-        .ok_or_else(|| "Update checks are not configured in this build.".to_string())?;
-
-    let updater = app
-        .updater_builder()
-        .pubkey(config.pubkey)
-        .endpoints(config.endpoints)
-        .map_err(|err| err.to_string())?
-        .build()
-        .map_err(|err| err.to_string())?;
-
-    let checked_update = updater
-        .check()
-        .await
-        .map(|update| update.map(TauriPendingUpdate))
-        .map_err(|err| err.to_string());
-
-    store_checked_update(checked_update, &pending_update.0)
-}
-
-#[tauri::command]
-async fn install_app_update(
-    app: AppHandle,
-    pending_update: State<'_, PendingAppUpdate>,
-) -> Result<(), String> {
-    let emitter_app = app.clone();
-    let emitter: AppUpdateProgressEmitter = Arc::new(move |event| {
-        let _ = emitter_app.emit(APP_UPDATE_PROGRESS_EVENT, &event);
-    });
-    install_pending_update(&pending_update.0, emitter).await
-}
-
-fn store_checked_update<U>(
-    checked_update: Result<Option<U>, String>,
-    pending_update: &Mutex<Option<U>>,
-) -> Result<Option<AvailableAppUpdate>, String>
-where
-    U: InstallableAppUpdate,
-{
-    let update = checked_update?;
-    let mut pending = pending_update.lock();
-
-    if let Some(update) = update {
-        let metadata = update.metadata();
-        *pending = Some(update);
-        Ok(Some(metadata))
-    } else {
-        *pending = None;
-        Ok(None)
-    }
-}
-
-async fn install_pending_update<U>(
-    pending_update: &Mutex<Option<U>>,
-    progress: AppUpdateProgressEmitter,
-) -> Result<(), String>
-where
-    U: InstallableAppUpdate,
-{
-    let update = {
-        let mut pending = pending_update.lock();
-        pending
-            .take()
-            .ok_or_else(|| "No downloaded update is ready to install.".to_string())?
-    };
-
-    update.install(progress).await
-}
-
-#[tauri::command]
-fn restart_app(app: AppHandle) {
-    // Tauri 2.x has an open bug on macOS (tauri-apps/tauri#13923, #11392)
-    // where `request_restart()` and `restart()` exit the process but never
-    // relaunch — especially with `tauri-plugin-single-instance` loaded.
-    // Workaround: spawn a detached relauncher via `open -n` against this
-    // app's .app bundle (which is in-place updated by the updater).
-    //
-    // The relauncher is armed BEFORE the teardown below, because that teardown
-    // can block the main thread for a long time (stop_headroom() does a
-    // `child.wait()` with no timeout on the Python backend, and
-    // analytics::shutdown() joins a worker whose last act is a network flush) —
-    // observed as "Headroom is not responding". A previous version used a blind
-    // `sleep 1` before `open -n`, which raced that teardown: if we hadn't
-    // exited (and released the single-instance lock) within 1s, the new
-    // instance saw the lock held, focused the dying old window, and bailed —
-    // so the app was killed but never came back.
-    //
-    // Instead the relauncher waits for THIS pid to actually die (lock released)
-    // before launching, and force-kills us after a deadline if teardown truly
-    // deadlocks, so the lock is always freed and the new instance can boot.
-    #[cfg(target_os = "macos")]
-    {
-        match current_app_bundle_path() {
-            Some(bundle) => {
-                let pid = std::process::id();
-                let quoted = shell_quote_path(&bundle);
-                // The relauncher runs AFTER this process exits, so the Rust
-                // logger is gone by the time `open` runs. Have the script append
-                // its own outcome (open's exit code) to the desktop log so a
-                // field failure is diagnosable instead of silent. A non-zero rc
-                // points at the launch itself (Gatekeeper, App Translocation,
-                // a missing/stale bundle); rc=0 with no relaunch points at the
-                // freshly-installed build crashing on its own startup.
-                let log_quoted = shell_quote_path(&logging::log_path());
-                log::info!("restart_app: relaunching via `open -n` against bundle {bundle:?}");
-                let cmd = format!(
-                    "alive=1; \
-                     for i in $(seq 1 100); do \
-                       if ! kill -0 {pid} 2>/dev/null; then alive=0; break; fi; \
-                       sleep 0.1; \
-                     done; \
-                     if [ \"$alive\" = 1 ]; then kill -9 {pid} 2>/dev/null; sleep 0.5; fi; \
-                     /usr/bin/open -n {quoted}; rc=$?; \
-                     echo \"$(date '+%Y-%m-%d %H:%M:%S') relauncher: open -n {quoted} exited rc=$rc (alive=$alive)\" >> {log_quoted}",
-                    pid = pid,
-                    quoted = quoted,
-                    log_quoted = log_quoted,
-                );
-                match Command::new("/bin/sh").arg("-c").arg(cmd).spawn() {
-                    Ok(_) => log::info!("restart_app: relauncher spawned"),
-                    Err(err) => log::error!("restart_app: failed to spawn relauncher: {err}"),
-                }
-            }
-            None => {
-                // No enclosing .app bundle (dev build, or an app launched from a
-                // path with no `.app` ancestor). `open -n` has nothing to target;
-                // the app will quit without relaunching.
-                log::error!(
-                    "restart_app: current_app_bundle_path() returned None (current_exe={:?}); cannot relaunch",
-                    std::env::current_exe()
-                );
-            }
-        }
-    }
-
-    // Stop the proxy before relaunching so the new build starts a fresh proxy
-    // with current args (otherwise the orphan keeps serving traffic and the
-    // new desktop reuses it via the reachability check). Without this, any
-    // proxy-arg change shipped by an upgrade silently never takes effect.
-    {
-        let state: tauri::State<'_, AppState> = app.state();
-        state.stop_headroom();
-    }
-    analytics::shutdown(&app);
-
-    #[cfg(target_os = "macos")]
-    {
-        app.exit(0);
-        return;
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        app.request_restart();
-    }
-}
-
-/// Walks up from `current_exe` to find the enclosing `.app` bundle path.
-#[cfg(target_os = "macos")]
-fn current_app_bundle_path() -> Option<std::path::PathBuf> {
-    let exe = std::env::current_exe().ok()?;
-    exe.ancestors()
-        .find(|p| p.extension().is_some_and(|ext| ext == "app"))
-        .map(|p| p.to_path_buf())
-}
-
-#[cfg(target_os = "macos")]
-fn shell_quote_path(path: &std::path::Path) -> String {
-    let s = path.to_string_lossy();
-    // POSIX single-quote escaping: anything inside '...' is literal except
-    // ', which we close-escape-open. Safe against spaces / special chars in
-    // the bundle path (e.g. `/Applications/Headroom RC.app`).
-    format!("'{}'", s.replace('\'', "'\\''"))
-}
-
 /// Best-effort: schedule the running `.app` bundle to be moved to the user's
 /// Trash once this process exits. Returns the bundle path that was scheduled,
 /// or `None` if there is no enclosing bundle, it is App-Translocated, or the
@@ -583,7 +262,7 @@ fn shell_quote_path(path: &std::path::Path) -> String {
 /// permission and keeps the uninstall recoverable.
 #[cfg(target_os = "macos")]
 fn schedule_app_bundle_trash() -> Option<std::path::PathBuf> {
-    let bundle = current_app_bundle_path()?;
+    let bundle = app_update_commands::current_app_bundle_path()?;
 
     // App Translocation: the app was launched quarantined (e.g. straight from a
     // DMG, never moved to /Applications) and runs from a randomized read-only
@@ -597,8 +276,8 @@ fn schedule_app_bundle_trash() -> Option<std::path::PathBuf> {
     }
 
     let pid = std::process::id();
-    let quoted = shell_quote_path(&bundle);
-    let log_quoted = shell_quote_path(&logging::log_path());
+    let quoted = app_update_commands::shell_quote_path(&bundle);
+    let log_quoted = app_update_commands::shell_quote_path(&logging::log_path());
     let cmd = format!(
         "alive=1; \
          for i in $(seq 1 100); do \
@@ -628,32 +307,6 @@ fn schedule_app_bundle_trash() -> Option<std::path::PathBuf> {
 }
 
 #[tauri::command]
-fn show_app_update_notification(app: AppHandle, version: String) -> Result<(), String> {
-    show_app_update_notification_impl(&app, &version)
-}
-
-fn app_update_notification_body(version: &str) -> String {
-    let trimmed = version.trim();
-    let lead = if trimmed.is_empty() {
-        "A Mac AI Switchboard update is ready to install.".to_string()
-    } else {
-        format!("Mac AI Switchboard {trimmed} is ready to install.")
-    };
-
-    format!("{lead} Open Mac AI Switchboard to review the release and install it.")
-}
-
-fn show_app_update_notification_impl(app: &AppHandle, version: &str) -> Result<(), String> {
-    let body = app_update_notification_body(version);
-    show_notification_impl(
-        app,
-        "Mac AI Switchboard Update Available",
-        &body,
-        Some("update".into()),
-    )
-}
-
-#[tauri::command]
 fn show_notification(
     app: AppHandle,
     title: String,
@@ -664,7 +317,7 @@ fn show_notification(
 }
 
 #[cfg(target_os = "macos")]
-fn show_notification_impl(
+pub(crate) fn show_notification_impl(
     app: &AppHandle,
     title: &str,
     body: &str,
@@ -693,7 +346,7 @@ fn show_notification_impl(
 }
 
 #[cfg(not(target_os = "macos"))]
-fn show_notification_impl(
+pub(crate) fn show_notification_impl(
     app: &AppHandle,
     title: &str,
     body: &str,
@@ -3898,7 +3551,7 @@ pub fn run() {
         })
         .on_window_event(|window, event| handle_window_event(window, event))
         .manage(state)
-        .manage(PendingAppUpdate(Mutex::new(None)))
+        .manage(app_update_commands::PendingAppUpdate(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             get_dashboard_state,
             get_savings_attribution_events,
@@ -3929,14 +3582,14 @@ pub fn run() {
             repo_intelligence_commands::get_agent_handoff,
             repo_intelligence_commands::get_index_freshness,
             repo_intelligence_commands::clear_repo_index,
-            get_app_update_configuration,
+            app_update_commands::get_app_update_configuration,
             release_evidence::load_release_readiness_report,
             release_evidence::refresh_release_readiness_report,
             release_evidence::run_release_evidence_command,
-            check_for_app_update,
-            install_app_update,
-            restart_app,
-            show_app_update_notification,
+            app_update_commands::check_for_app_update,
+            app_update_commands::install_app_update,
+            app_update_commands::restart_app,
+            app_update_commands::show_app_update_notification,
             show_notification,
             install_addon,
             set_addon_enabled,
@@ -4066,146 +3719,6 @@ fn lifetime_token_milestone_kind(milestone_tokens_saved: u64) -> &'static str {
         10_000_000 => "first_10m",
         _ => "repeating_10m",
     }
-}
-
-fn is_prerelease_version(version: &str) -> bool {
-    version.contains('-')
-}
-
-fn beta_channel_enabled_from(env: Option<&str>, sentinel_exists: bool) -> bool {
-    let env_yes = matches!(
-        env.map(str::trim).map(str::to_ascii_lowercase).as_deref(),
-        Some("1") | Some("true") | Some("yes")
-    );
-    env_yes || sentinel_exists
-}
-
-fn beta_channel_enabled() -> bool {
-    let env = std::env::var(BETA_CHANNEL_ENV).ok();
-    let sentinel_exists = crate::storage::app_data_dir()
-        .join(BETA_CHANNEL_SENTINEL)
-        .exists();
-    beta_channel_enabled_from(env.as_deref(), sentinel_exists)
-}
-
-fn select_updater_endpoints<'a>(
-    configured_stable: Option<&'a str>,
-    configured_staging: Option<&'a str>,
-    prefer_staging: bool,
-) -> Option<&'a str> {
-    if prefer_staging {
-        configured_staging.or(configured_stable)
-    } else {
-        configured_stable
-    }
-}
-
-fn release_updater_config(
-    current_version: &str,
-    beta_channel_enabled: bool,
-) -> Result<Option<ReleaseUpdaterConfig>, String> {
-    resolve_release_updater_config(
-        current_version,
-        beta_channel_enabled,
-        UPDATER_PUBLIC_KEY,
-        UPDATER_ENDPOINTS,
-        UPDATER_STAGING_ENDPOINTS,
-        cfg!(debug_assertions),
-    )
-}
-
-fn resolve_release_updater_config(
-    current_version: &str,
-    beta_channel_enabled: bool,
-    configured_pubkey: Option<&str>,
-    configured_stable: Option<&str>,
-    configured_staging: Option<&str>,
-    _debug_assertions: bool,
-) -> Result<Option<ReleaseUpdaterConfig>, String> {
-    let configured_pubkey = configured_pubkey
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
-    let configured_stable = configured_stable
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
-    let configured_staging = configured_staging
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
-
-    let prefer_staging = is_prerelease_version(current_version) || beta_channel_enabled;
-    let configured_endpoints =
-        select_updater_endpoints(configured_stable, configured_staging, prefer_staging);
-
-    match (configured_pubkey, configured_endpoints) {
-        (Some(pubkey), Some(endpoint_spec)) => {
-            build_release_updater_config(pubkey, endpoint_spec).map(Some)
-        }
-        (Some(_), None) => Err(
-            "Updater public key is configured, but HEADROOM_UPDATER_ENDPOINTS is missing."
-                .to_string(),
-        ),
-        (None, Some(_)) => Err(
-            "HEADROOM_UPDATER_ENDPOINTS is configured, but HEADROOM_UPDATER_PUBLIC_KEY is missing."
-                .to_string(),
-        ),
-        (None, None) => Ok(None),
-    }
-}
-
-fn build_release_updater_config(
-    pubkey: &str,
-    endpoint_spec: &str,
-) -> Result<ReleaseUpdaterConfig, String> {
-    let endpoints = parse_updater_endpoint_list(endpoint_spec)?;
-
-    if endpoints.is_empty() {
-        return Err("HEADROOM_UPDATER_ENDPOINTS did not include any valid URLs.".into());
-    }
-
-    Ok(ReleaseUpdaterConfig {
-        pubkey: pubkey.to_string(),
-        endpoints,
-    })
-}
-
-fn parse_updater_endpoint_list(raw: &str) -> Result<Vec<reqwest::Url>, String> {
-    let values = if let Ok(json) = serde_json::from_str::<Vec<String>>(raw) {
-        let values = json
-            .into_iter()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty())
-            .collect::<Vec<_>>();
-        if !values.is_empty() {
-            values
-        } else {
-            Vec::new()
-        }
-    } else {
-        raw.split(|ch| ch == ',' || ch == '\n')
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(ToOwned::to_owned)
-            .collect::<Vec<_>>()
-    };
-
-    if values.is_empty() {
-        return Err(
-            "HEADROOM_UPDATER_ENDPOINTS must be a JSON array or comma-separated list of HTTPS URLs."
-                .into(),
-        );
-    }
-
-    values
-        .into_iter()
-        .map(|value| {
-            let url = reqwest::Url::parse(&value)
-                .map_err(|err| format!("Invalid updater URL {value}: {err}"))?;
-            if url.scheme() != "https" {
-                return Err(format!("Updater endpoint {} must use HTTPS.", url.as_str()));
-            }
-            Ok(url)
-        })
-        .collect()
 }
 
 pub fn headroom_memory_db_path() -> std::path::PathBuf {
@@ -5910,26 +5423,29 @@ fn compute_tray_window_position(
 #[cfg(test)]
 mod tests {
     use super::{
-        aggregate_live_learnings, app_quit_requested_properties, app_update_notification_body,
-        auto_resume_backoff, beta_channel_enabled_from, build_release_updater_config,
+        aggregate_live_learnings, app_quit_requested_properties, auto_resume_backoff,
         build_watchdog_give_up_report, check_headroom_learn_prereqs, classify_bootstrap_failure,
         classify_upgrade_error, clear_repo_intelligence_index, compute_tray_window_position,
         count_memories_created_today, cpu_rate_indicates_burn, debounced_tray_runtime_visual,
         delete_applied_pattern, empty_live_learnings_for_projects, extract_llm_failure_warnings,
-        fetch_transformations_feed_from, install_pending_update, is_disk_full_signal,
-        is_endpoint_protection_signal, is_network_download_signal, is_port_conflict_failure,
-        is_prerelease_version, lifetime_token_milestone_kind, noop_app_update_progress_emitter,
-        parse_live_learnings, parse_updater_endpoint_list, pattern_matches_project,
-        physical_rect_from_rect, read_applied_patterns_for_project, readyz_failed_checks_csv,
-        readyz_failure_has_core_unhealthy, readyz_failure_is_upstream_only,
-        resolve_release_updater_config, select_updater_endpoints, store_checked_update,
-        watchdog_should_be_up, zero_spend_affected_days, AppUpdateProgress,
-        AppUpdateProgressEmitter, AvailableAppUpdate, BootstrapFailureKind, DailySavingsPoint,
-        HeadroomLearnPrereqStatus, InstallPendingUpdateFuture, InstallableAppUpdate, LearnAgent,
-        MonitorBounds, PhysicalRect, QuitSource, TrayRuntimeVisual,
+        fetch_transformations_feed_from, is_disk_full_signal, is_endpoint_protection_signal,
+        is_network_download_signal, is_port_conflict_failure, lifetime_token_milestone_kind,
+        parse_live_learnings, pattern_matches_project, physical_rect_from_rect,
+        read_applied_patterns_for_project, readyz_failed_checks_csv,
+        readyz_failure_has_core_unhealthy, readyz_failure_is_upstream_only, watchdog_should_be_up,
+        zero_spend_affected_days, BootstrapFailureKind, DailySavingsPoint,
+        HeadroomLearnPrereqStatus, LearnAgent, MonitorBounds, PhysicalRect, QuitSource,
+        TrayRuntimeVisual,
     };
     use crate::activity_commands::{
         parse_request_count_from_stats_body, parse_request_counts_by_agent,
+    };
+    use crate::app_update_commands::{
+        app_update_notification_body, beta_channel_enabled_from, build_release_updater_config,
+        install_pending_update, is_prerelease_version, noop_app_update_progress_emitter,
+        parse_updater_endpoint_list, resolve_release_updater_config, select_updater_endpoints,
+        store_checked_update, AppUpdateProgress, AppUpdateProgressEmitter, AvailableAppUpdate,
+        InstallPendingUpdateFuture, InstallableAppUpdate,
     };
     use crate::models::{
         ManagedRollbackExecutionStatus, RepoFileIndexEntry, RepoIndexMetadata,
