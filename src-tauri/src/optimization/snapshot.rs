@@ -1,7 +1,7 @@
 use chrono::Utc;
 use std::collections::BTreeMap;
 
-use super::action_policy::{actionable_compaction_decision, load_action_policy, PromptSegmentPlan};
+use super::action_policy::{actionable_compaction_decision, load_action_policy};
 use super::cache_metrics::CacheTokenMetrics;
 use super::compaction::{decide_preemptive_compaction, CompactionInput};
 use super::model_routing::{decide_model_route, ModelRouteInput};

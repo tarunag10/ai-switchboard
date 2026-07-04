@@ -685,6 +685,19 @@ pub struct SavingsAttributionEvent {
     pub evidence: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavingsAttributionCounter {
+    pub source: SavingsAttributionSource,
+    pub scope: SavingsAttributionScope,
+    pub event_count: u64,
+    pub measured_event_count: u64,
+    pub inferred_event_count: u64,
+    pub delta_tokens_saved: u64,
+    pub total_tokens_sent: u64,
+    pub last_seen_at: Option<DateTime<Utc>>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DashboardState {

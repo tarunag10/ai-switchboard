@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
 
-const requiredSources = ["Caveman", "Ponytail", "Markitdown"];
+const requiredSources = ["Caveman", "Ponytail", "Markitdown", "CompactChinese"];
 const summaryPath = "dist/runtime-savings-attribution-summary.md";
 const jsonPath = "dist/runtime-savings-attribution-summary.json";
 
@@ -39,6 +39,7 @@ const tests = [
   "savings_tracker_appends_measured_rtk_attribution_events_from_deltas",
   "addon_attribution_event_records_caveman_and_compact_chinese",
   "addon_attribution_event_records_estimated_ponytail_host_registration",
+  "savings_attribution_counters_group_addon_sources",
 ];
 
 const testResults = tests.map((testName) => {

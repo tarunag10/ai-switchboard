@@ -55,8 +55,9 @@ use crate::models::{
     ManagedRollbackUndoAllPreview, MessageLoggingSettings, PurgeResult, RepoAgentHandoffResponse,
     RepoContextPackResponse, RepoDependentsResponse, RepoIndexFreshnessResponse,
     RepoIntelligenceManifestResponse, RepoIntelligenceSummary, RepoSymbolSearchResponse,
-    RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionEvent, SavingsMode, SwitchboardMode,
-    SwitchboardState, TransformationFeedResponse, UninstallDryRunReport,
+    RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionCounter, SavingsAttributionEvent,
+    SavingsMode, SwitchboardMode, SwitchboardState, TransformationFeedResponse,
+    UninstallDryRunReport,
 };
 use crate::state::AppState;
 
@@ -644,6 +645,18 @@ async fn get_savings_attribution_events(
     tauri::async_runtime::spawn_blocking(move || {
         let state: State<'_, AppState> = app.state();
         state.savings_attribution_events()
+    })
+    .await
+    .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+async fn get_savings_attribution_counters(
+    app: AppHandle,
+) -> Result<Vec<SavingsAttributionCounter>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        state.savings_attribution_counters()
     })
     .await
     .map_err(|err| err.to_string())
@@ -6930,6 +6943,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_dashboard_state,
             get_savings_attribution_events,
+            get_savings_attribution_counters,
             record_measured_savings_attribution,
             preview_managed_config_apply,
             execute_managed_config_apply,
