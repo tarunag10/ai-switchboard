@@ -3932,21 +3932,8 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
         })
         .take(7)
         .collect::<Vec<_>>();
-    let dry_run_previews = connectors
-        .iter()
-        .filter_map(|client| {
-            client.config_dry_run_preview.as_ref().map(|preview| {
-                format!(
-                    "{} target {} marker {} confirmation {}",
-                    client.name, preview.target, preview.marker, preview.confirmation_phrase
-                )
-            })
-        })
-        .take(3)
-        .collect::<Vec<_>>();
-
     let mut parts = vec![format!(
-        "{names} detected. Mac AI Switchboard can identify these retained connectors and expose gated connector readiness evidence, but keeps native/provider routing manual until their backup, verify, rollback, and Off mode cleanup evidence is promoted."
+        "{names} detected, but automatic provider routing is not enabled for these tools yet. Mac AI Switchboard can identify them and show setup evidence, while provider/model settings remain manual until backup, verify, rollback, and Off mode cleanup coverage is promoted."
     )];
 
     if !sources.is_empty() {
@@ -3962,26 +3949,17 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
     if !evidence.is_empty() {
         parts.push(format!("Detection evidence: {}.", evidence.join(" | ")));
     }
-    if !gates.is_empty() {
-        parts.push(format!("Automation gates: {}.", gates.join(" | ")));
-    }
     if !manual_workflow.is_empty() {
         parts.push(format!("Manual workflow: {}.", manual_workflow.join(" | ")));
     }
-    if !config_steps.is_empty() {
-        parts.push(format!(
-            "Config creation plan: {}.",
-            config_steps.join(" -> ")
-        ));
-    }
-    if !dry_run_previews.is_empty() {
-        parts.push(format!(
-            "Dry-run preview evidence: {}.",
-            dry_run_previews.join(" | ")
-        ));
+    if !gates.is_empty() || !config_steps.is_empty() {
+        parts.push(
+            "Why setup is gated: Switchboard must first prove exact backups, consented apply, Doctor verification, safe rollback, and Off mode cleanup for these native settings."
+                .to_string(),
+        );
     }
     parts.push(
-        "Safe today: use RTK-only mode or Repo Intelligence packs; do not enable automatic provider routing yet."
+        "Safe today: use RTK-only mode or Repo Intelligence packs; review provider and model settings manually."
             .to_string(),
     );
 
@@ -4060,17 +4038,12 @@ mod doctor_tests {
         assert!(body.contains("Backend checks: PATH: gemini, ~/.gemini."));
         assert!(body.contains("Config locations watched: ~/.gemini."));
         assert!(body.contains("Detection evidence: Detected at /opt/homebrew/bin/gemini."));
-        assert!(body.contains("Automation gates: Back up provider settings"));
         assert!(body.contains("Manual workflow: Use RTK-only mode"));
-        assert!(body.contains("Config creation plan: Detect config surface -> Show dry-run diff"));
-        assert!(body.contains("Dry-run preview evidence: Gemini CLI target /Users/test/.gemini"));
-        assert!(body.contains("marker mac-ai-switchboard:gemini_cli"));
-        assert!(body.contains("confirmation APPLY GEMINI CLI CONFIG"));
+        assert!(body.contains("automatic provider routing is not enabled"));
+        assert!(body.contains("Why setup is gated"));
+        assert!(body.contains("exact backups, consented apply, Doctor verification"));
         assert!(body.contains("Safe today: use RTK-only mode or Repo Intelligence packs"));
-        assert!(body.contains("expose gated connector readiness evidence"));
-        assert!(body.contains("retained connectors"));
-        assert!(body.contains("keeps native/provider routing manual"));
-        assert!(body.contains("until their backup, verify, rollback, and Off mode cleanup"));
+        assert!(body.contains("review provider and model settings manually"));
     }
 
     fn test_runtime_status(

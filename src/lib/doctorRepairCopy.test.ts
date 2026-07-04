@@ -280,11 +280,11 @@ describe("doctor repair copy", () => {
     expect(text).toContain("Status: warning");
     expect(text).toContain("Action: automatic / Install RTK");
     expect(text).toContain("Action: manual / Gated setup");
-    expect(text).toContain("retained connector native/provider routing");
-    expect(text).toContain("native/provider routing manual");
+    expect(text).toContain("automatic provider routing is not set up yet");
+    expect(text).toContain("backup coverage needed");
     expect(text).toContain("Connector config readiness dossiers");
     expect(text).toContain(
-      "Open Settings and review each connector's detection evidence",
+      "Open Settings to review each detected connector's evidence",
     );
     expect(text).toContain("Repo Intelligence local API contract");
     expect(text).toContain("get_repo_manifest");
@@ -352,9 +352,8 @@ describe("doctor repair copy", () => {
   it("explains connector readiness coverage and gated native routing in Doctor", () => {
     const guidance = plannedConnectorDoctorGuidance();
 
-    expect(guidance).toContain("native/provider routing manual");
-    expect(guidance).toContain("native/provider routing manual");
-    expect(guidance).toContain("retained connector native/provider routing");
+    expect(guidance).toContain("automatic provider routing is not set up yet");
+    expect(guidance).toContain("backup coverage needed");
     expect(guidance).toContain("backup, verify, rollback");
     expect(guidance).not.toContain("connector-specific backup");
     expect(guidance).toContain("manual guide");

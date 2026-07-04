@@ -352,10 +352,10 @@ export function plannedConnectorDoctorGuidance(): string {
   );
 
   return [
-    "Open Settings and review each connector's detection evidence, readiness stages, safety badges, and manual guide.",
-    `Doctor keeps native/provider routing manual because the next automation gate is ${firstBlockedStage.toLowerCase()}.`,
+    "Open Settings to review each detected connector's evidence, safety badges, and manual guide.",
+    `These tools are detected, but automatic provider routing is not set up yet. The next missing safety step is ${firstBlockedStage.toLowerCase()}.`,
     `Look for ${Array.from(badgeLabels).join(", ")} before choosing a workflow.`,
-    "Use RTK-only mode or Repo Intelligence packs; keep retained connector native/provider routing manual until backup, verify, rollback, and Off mode cleanup evidence is promoted.",
+    "Use RTK-only mode or Repo Intelligence packs for these tools until Switchboard has backup, verify, rollback, and Off mode cleanup coverage for their native settings.",
   ].join(" ");
 }
 

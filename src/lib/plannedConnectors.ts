@@ -1294,11 +1294,11 @@ export function getPlannedConnectorReadinessContract(
     ),
     readinessStage(
       "backupImplemented",
-      "Backup Implemented",
+      isManagedConnector ? "Backup Implemented" : "Backup Coverage Needed",
       isManagedConnector ? "ready" : "blocked",
       isManagedConnector
         ? "Managed setup creates a rollback backup before editing settings."
-        : "No gated connector can write config until exact backup coverage exists.",
+        : "Detected only. Automatic setup stays off until Switchboard can create an exact backup before any settings change.",
     ),
     readinessStage(
       "applyImplemented",
