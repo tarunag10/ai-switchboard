@@ -42,6 +42,7 @@ mod repo_intelligence_commands;
 mod repo_map;
 mod repo_memory_commands;
 mod rollback_commands;
+mod runtime_commands;
 mod state;
 mod storage;
 mod switchboard_commands;
@@ -65,8 +66,8 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 
 use crate::models::{
-    ActivityFeedResponse, BootstrapProgress, DashboardState, HeadroomLearnPrereqStatus,
-    HeadroomLearnStatus, RuntimeStatus, RuntimeUpgradeProgress, TransformationFeedResponse,
+    ActivityFeedResponse, DashboardState, HeadroomLearnPrereqStatus, HeadroomLearnStatus,
+    TransformationFeedResponse,
 };
 use crate::state::AppState;
 
@@ -1348,54 +1349,6 @@ pub(crate) fn classify_upgrade_error(err: &anyhow::Error) -> Option<String> {
 }
 
 #[tauri::command]
-fn get_bootstrap_progress(state: State<'_, AppState>) -> BootstrapProgress {
-    state.bootstrap_progress()
-}
-
-#[tauri::command]
-fn get_runtime_upgrade_progress(state: State<'_, AppState>) -> RuntimeUpgradeProgress {
-    state.runtime_upgrade_progress()
-}
-
-#[tauri::command]
-fn retry_runtime_upgrade(app: AppHandle) -> Result<(), String> {
-    let app_clone = app.clone();
-    std::thread::spawn(move || {
-        let state: tauri::State<'_, AppState> = app_clone.state();
-        state.retry_runtime_upgrade(&app_clone, false);
-    });
-    Ok(())
-}
-
-/// User-initiated recovery path. Same flow as `retry_runtime_upgrade` but
-/// skips the in-place upgrade attempt and goes straight to atomic rebuild.
-/// Surfaced as the "Retry with full rebuild" button on a boot-validation
-/// failure: the in-place pip succeeded (smoke test passed) but the proxy
-/// never booted, which usually means stale native libs from the previous
-/// pin survived the upgrade. The rebuild path nukes the venv and starts
-/// fresh, fixing the broken state at the cost of re-downloading wheels.
-#[tauri::command]
-fn retry_runtime_upgrade_with_rebuild(app: AppHandle) -> Result<(), String> {
-    let app_clone = app.clone();
-    std::thread::spawn(move || {
-        let state: tauri::State<'_, AppState> = app_clone.state();
-        state.retry_runtime_upgrade(&app_clone, true);
-    });
-    Ok(())
-}
-
-#[tauri::command]
-fn dismiss_runtime_upgrade_failure(state: State<'_, AppState>) -> Result<(), String> {
-    state.dismiss_upgrade_failure();
-    Ok(())
-}
-
-#[tauri::command]
-fn get_runtime_status(state: State<'_, AppState>) -> RuntimeStatus {
-    state.runtime_status()
-}
-
-#[tauri::command]
 fn get_headroom_learn_status(
     state: State<'_, AppState>,
     project_path: Option<String>,
@@ -2471,12 +2424,12 @@ pub fn run() {
             repo_memory_commands::stop_repo_memory_mcp,
             bootstrap_runtime,
             start_bootstrap,
-            get_bootstrap_progress,
-            get_runtime_upgrade_progress,
-            retry_runtime_upgrade,
-            retry_runtime_upgrade_with_rebuild,
-            dismiss_runtime_upgrade_failure,
-            get_runtime_status,
+            runtime_commands::get_bootstrap_progress,
+            runtime_commands::get_runtime_upgrade_progress,
+            runtime_commands::retry_runtime_upgrade,
+            runtime_commands::retry_runtime_upgrade_with_rebuild,
+            runtime_commands::dismiss_runtime_upgrade_failure,
+            runtime_commands::get_runtime_status,
             switchboard_commands::get_switchboard_state,
             switchboard_commands::get_doctor_report,
             switchboard_commands::run_doctor_repair,
