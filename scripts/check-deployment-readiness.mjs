@@ -542,12 +542,16 @@ const requiredSourceSignals = {
     "Top directories",
     "Likely tests",
     "Symbols",
-    "Savings anomaly alerts",
     "AddonHealthStrip",
     "Settings import/export",
     "Settings migration actions",
     "Copy settings export",
     "Apply safe preferences",
+  ],
+  "src/components/SavingsCalculatorCard.tsx": [
+    "Savings calculator",
+    "Savings anomaly alerts",
+    "savings-calculator__details-button",
   ],
   "src/components/ClientSavingsTrendsCard.tsx": [
     "ClientSavingsTrendsCard",
