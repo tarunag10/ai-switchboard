@@ -33,7 +33,7 @@ pub const INTERCEPT_PORT: u16 = 6767;
 
 const HEADER_READ_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_HEADER_BYTES: usize = 64 * 1024;
-const CODEX_HEADROOM_PREFLIGHT_MAX_BYTES: usize = 768 * 1024;
+const HEADROOM_PREFLIGHT_MAX_BYTES: usize = 768 * 1024;
 const ACCEPT_ERROR_BACKOFF: Duration = Duration::from_millis(100);
 const PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -46,6 +46,7 @@ const CODEX_USAGE_POLL_TIMEOUT: Duration = Duration::from_secs(10);
 /// Epoch-seconds of the last usage-poll attempt; throttles the fire-and-forget
 /// GET to at most one per `CODEX_USAGE_POLL_MIN_INTERVAL_SECS`.
 static CODEX_USAGE_LAST_POLL: AtomicU64 = AtomicU64::new(0);
+static HEADROOM_COMPRESSION_BYPASS: AtomicBool = AtomicBool::new(false);
 
 /// Shared state written by the intercept layer.
 pub type SharedToken = Arc<Mutex<Option<BearerToken>>>;
@@ -284,9 +285,9 @@ async fn handle(
         maybe_spawn_codex_usage_poll(&buf, &codex_slot);
     }
 
-    if is_codex && codex_request_should_bypass_headroom(&buf) {
+    if request_should_bypass_headroom(&buf) {
         log::warn!(
-            "Codex request exceeds Headroom preflight size; routing direct so Codex can compact/retry"
+            "Request exceeds Headroom preflight size; routing direct so the client can compact/retry"
         );
         forward_direct_to_anthropic(client, buf, &upstream_base).await;
         return;
@@ -295,7 +296,12 @@ async fn handle(
     // When the pricing gate has bypassed Headroom, the Python proxy on
     // `backend_addr` is intentionally stopped. Forward direct to Anthropic so
     // already-running CC sessions stay alive while optimization is off.
-    if bypass.load(Ordering::Acquire) {
+    if bypass.load(std::sync::atomic::Ordering::Acquire) {
+        forward_direct_to_anthropic(client, buf, &upstream_base).await;
+        return;
+    }
+
+    if HEADROOM_COMPRESSION_BYPASS.load(Ordering::Acquire) {
         forward_direct_to_anthropic(client, buf, &upstream_base).await;
         return;
     }
@@ -304,7 +310,7 @@ async fn handle(
     // forward Codex traffic straight to OpenAI (unoptimized) while leaving the
     // Python backend up for Claude. `forward_direct_to_anthropic` routes
     // OpenAI paths to OPENAI_DIRECT_BASE, so it does the right thing here.
-    if is_codex && codex_bypass.load(Ordering::Acquire) {
+    if is_codex && codex_bypass.load(std::sync::atomic::Ordering::Acquire) {
         forward_direct_to_anthropic(client, buf, &upstream_base).await;
         return;
     }
@@ -333,28 +339,16 @@ async fn handle(
         return;
     }
 
-    // For Codex (OpenAI) requests, sniff the backend response head so we can
-    // capture the `x-codex-*` rate-limit headers that feed the usage gauge.
-    // Codex always streams, so the Python backend's own capture (non-streaming
-    // only) never fires for it — this proxy is the only component left in the
-    // response path that sees those headers. Every other client (Claude) keeps
-    // the untouched zero-copy splice.
-    if is_codex {
-        splice_with_codex_capture(client, backend, &codex_slot, &codex_bypass).await;
-    } else {
-        let _ = tokio::io::copy_bidirectional(&mut client, &mut backend).await;
-    }
+    splice_with_headroom_capture(client, backend, is_codex, &codex_slot, &codex_bypass).await;
 }
 
-/// Splice client <-> backend while sniffing the backend's response head for
-/// `x-codex-*` rate-limit headers. Only the response head is read up-front (the
-/// body/SSE bytes that follow are spliced through verbatim), so streaming
-/// responses are neither buffered nor delayed beyond their header block. On any
-/// read error before the head completes, whatever was read is still forwarded,
-/// so the response is never corrupted.
-async fn splice_with_codex_capture(
+/// Splice client <-> backend while sniffing the backend's response head.
+/// Codex still gets rate-limit capture; every client gets compression-refusal
+/// fail-open so Headroom cannot block native client compaction/retry flows.
+async fn splice_with_headroom_capture(
     mut client: TcpStream,
     mut backend: TcpStream,
+    is_codex: bool,
     codex_slot: &CodexRateLimitSlot,
     codex_bypass: &BypassFlag,
 ) {
@@ -377,14 +371,13 @@ async fn splice_with_codex_capture(
         .await;
 
         if matches!(read_head, Ok(Ok(()))) {
-            if let Some(snapshot) = parse_codex_rate_limit_headers(&head) {
-                *codex_slot.lock() = Some(snapshot);
+            if is_codex {
+                if let Some(snapshot) = parse_codex_rate_limit_headers(&head) {
+                    *codex_slot.lock() = Some(snapshot);
+                }
             }
             if is_headroom_compression_refusal_response(&head) {
-                log::warn!(
-"Headroom refused Codex compression for an oversized request; enabling Codex direct bypass for subsequent requests"
-);
-                codex_bypass.store(true, Ordering::Release);
+                enable_compression_fail_open(is_codex, codex_bypass);
             }
         }
 
@@ -418,6 +411,16 @@ async fn splice_with_codex_capture(
     tokio::join!(upstream, downstream);
 }
 
+fn enable_compression_fail_open(is_codex: bool, codex_bypass: &BypassFlag) {
+    log::warn!(
+        "Headroom refused compression for an oversized request; enabling direct fail-open for subsequent requests"
+    );
+    HEADROOM_COMPRESSION_BYPASS.store(true, Ordering::Release);
+    if is_codex {
+        codex_bypass.store(true, std::sync::atomic::Ordering::Release);
+    }
+}
+
 fn is_headroom_compression_refusal_response(head: &[u8]) -> bool {
     let Ok(text) = std::str::from_utf8(head) else {
         return false;
@@ -429,9 +432,17 @@ fn is_headroom_compression_refusal_response(head: &[u8]) -> bool {
         && lower.contains("compression timeout")
 }
 
-fn codex_request_should_bypass_headroom(request_head: &[u8]) -> bool {
+fn request_should_bypass_headroom(request_head: &[u8]) -> bool {
+    let Some(parsed) =
+        find_header_end(request_head).and_then(|end| parse_request_head(&request_head[..end + 4]))
+    else {
+        return false;
+    };
+    if is_local_proxy_path(&parsed.path) {
+        return false;
+    }
     request_content_length(request_head)
-        .map(|content_length| content_length > CODEX_HEADROOM_PREFLIGHT_MAX_BYTES)
+        .map(|content_length| content_length > HEADROOM_PREFLIGHT_MAX_BYTES)
         .unwrap_or(false)
 }
 
@@ -1178,13 +1189,13 @@ fn extract_bearer(buf: &[u8]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        bearer_value_changed, codex_request_should_bypass_headroom,
-        codex_snapshot_from_usage_payload, codex_window_label, decode_codex_plan_tier,
-        extract_bearer, extract_header_value, find_header_end,
+        bearer_value_changed, codex_snapshot_from_usage_payload, codex_window_label,
+        decode_codex_plan_tier, extract_bearer, extract_header_value, find_header_end,
         is_headroom_compression_refusal_response, is_hop_by_hop_request_header,
         is_hop_by_hop_response_header, is_local_proxy_path, is_openai_path,
         parse_codex_rate_limit_headers, parse_request_head, read_http_headers,
-        request_is_loopback_safe, run, stamp_codex_client_header, BypassFlag, SharedToken,
+        request_is_loopback_safe, request_should_bypass_headroom, run, stamp_codex_client_header,
+        BypassFlag, SharedToken,
     };
     use crate::backend_port;
     use crate::bearer::BearerToken;
@@ -2215,18 +2226,34 @@ mod tests {
         assert_eq!(codex_window_label(90), "1h30m");
     }
     #[test]
-    fn codex_preflight_bypasses_large_requests() {
+    fn headroom_preflight_bypasses_large_api_requests() {
         let request =
             b"POST /v1/responses HTTP/1.1\r\nHost: api.openai.com\r\nContent-Length: 1048576\r\n\r\n";
 
-        assert!(codex_request_should_bypass_headroom(request));
+        assert!(request_should_bypass_headroom(request));
     }
 
     #[test]
-    fn codex_preflight_keeps_small_requests_on_headroom() {
+    fn headroom_preflight_keeps_small_api_requests_on_headroom() {
         let request =
             b"POST /v1/responses HTTP/1.1\r\nHost: api.openai.com\r\nContent-Length: 4096\r\n\r\n";
 
-        assert!(!codex_request_should_bypass_headroom(request));
+        assert!(!request_should_bypass_headroom(request));
+    }
+
+    #[test]
+    fn compression_refusal_fail_open_is_not_codex_only() {
+        super::HEADROOM_COMPRESSION_BYPASS.store(false, std::sync::atomic::Ordering::Release);
+        let codex_bypass = BypassFlag::default();
+
+        super::enable_compression_fail_open(false, &codex_bypass);
+        assert!(super::HEADROOM_COMPRESSION_BYPASS.load(std::sync::atomic::Ordering::Acquire));
+        assert!(!codex_bypass.load(std::sync::atomic::Ordering::Acquire));
+
+        super::HEADROOM_COMPRESSION_BYPASS.store(false, std::sync::atomic::Ordering::Release);
+        super::enable_compression_fail_open(true, &codex_bypass);
+        assert!(super::HEADROOM_COMPRESSION_BYPASS.load(std::sync::atomic::Ordering::Acquire));
+        assert!(codex_bypass.load(std::sync::atomic::Ordering::Acquire));
+        super::HEADROOM_COMPRESSION_BYPASS.store(false, std::sync::atomic::Ordering::Release);
     }
 }
