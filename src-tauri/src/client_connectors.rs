@@ -1,3 +1,37 @@
+use serde::Deserialize;
+
+use crate::models::ClientConnectorSupportStatus;
+
+pub(crate) const CONNECTOR_MANIFEST_JSON: &str = include_str!("../../connectors/manifest.json");
+
+#[derive(Debug, Clone, Deserialize)]
+pub(crate) struct ConnectorManifest {
+    pub(crate) id: String,
+    pub(crate) name: String,
+    pub(crate) category: String,
+    pub(crate) support_status: String,
+    pub(crate) detection: ConnectorManifestDetection,
+    pub(crate) config: Option<ConnectorManifestConfig>,
+    pub(crate) automation_gates: Vec<String>,
+    pub(crate) manual_workflow: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(crate) struct ConnectorManifestDetection {
+    #[serde(default)]
+    pub(crate) binaries: Vec<String>,
+    #[serde(default)]
+    pub(crate) paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub(crate) struct ConnectorManifestConfig {
+    #[serde(default)]
+    pub(crate) locations: Vec<String>,
+    #[serde(default)]
+    pub(crate) forbidden_reads: Vec<String>,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct PlannedSidecarSpec {
     pub(crate) id: &'static str,
@@ -68,6 +102,49 @@ pub(crate) fn planned_sidecar_spec(client_id: &str) -> Option<&'static PlannedSi
     PLANNED_SIDECAR_SPECS
         .iter()
         .find(|spec| spec.id == client_id)
+}
+
+pub(crate) fn connector_manifests() -> Vec<ConnectorManifest> {
+    serde_json::from_str(CONNECTOR_MANIFEST_JSON).unwrap_or_default()
+}
+
+pub(crate) fn connector_manifest(client_id: &str) -> Option<ConnectorManifest> {
+    connector_manifests()
+        .into_iter()
+        .find(|manifest| manifest.id == client_id)
+}
+
+pub(crate) fn manifest_support_status(
+    manifest: Option<&ConnectorManifest>,
+) -> ClientConnectorSupportStatus {
+    match manifest.map(|item| item.support_status.as_str()) {
+        Some("managed") => ClientConnectorSupportStatus::Managed,
+        _ => ClientConnectorSupportStatus::Planned,
+    }
+}
+
+pub(crate) fn manifest_detection_sources(manifest: &ConnectorManifest) -> Vec<String> {
+    manifest
+        .detection
+        .binaries
+        .iter()
+        .map(|binary| format!("PATH: {binary}"))
+        .chain(manifest.detection.paths.iter().cloned())
+        .collect()
+}
+
+pub(crate) fn manifest_config_locations(manifest: Option<&ConnectorManifest>) -> Vec<String> {
+    manifest
+        .and_then(|item| item.config.as_ref())
+        .map(|config| config.locations.clone())
+        .unwrap_or_default()
+}
+
+pub(crate) fn manifest_forbidden_reads(manifest: Option<&ConnectorManifest>) -> Vec<String> {
+    manifest
+        .and_then(|item| item.config.as_ref())
+        .map(|config| config.forbidden_reads.clone())
+        .unwrap_or_default()
 }
 
 fn normalized_connector_id(client_id: &str) -> &str {

@@ -11,17 +11,20 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
-use crate::client_connectors::{planned_sidecar_spec, PlannedSidecarSpec, PLANNED_SIDECAR_SPECS};
+use crate::client_connectors::{
+    connector_manifest, manifest_config_locations, manifest_detection_sources,
+    manifest_forbidden_reads, manifest_support_status, planned_sidecar_spec, PlannedSidecarSpec,
+    PLANNED_SIDECAR_SPECS,
+};
 use crate::models::{
     ClientConnectorAutomationStage, ClientConnectorConfigCreationStep,
-    ClientConnectorConfigDryRunPreview, ClientConnectorStatus, ClientConnectorSupportStatus,
-    ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus, CodexDbRestoreResult,
-    CodexThreadRetaggingMode, CodexThreadRetaggingReport, CodexThreadRetaggingRunReport,
-    CodexThreadRetaggingSettings, ManagedConfigApplyPreview, ManagedConfigApplyResult,
-    ManagedFootprintItem, ManagedFootprintReport, ManagedRollbackExecutionResult,
-    ManagedRollbackExecutionStatus, ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult,
-    ManagedRollbackUndoAllPreview, SavingsMode, SwitchboardMode, UninstallDryRunReport,
-    UninstallTarget,
+    ClientConnectorConfigDryRunPreview, ClientConnectorStatus, ClientHealth, ClientSetupResult,
+    ClientSetupVerification, ClientStatus, CodexDbRestoreResult, CodexThreadRetaggingMode,
+    CodexThreadRetaggingReport, CodexThreadRetaggingRunReport, CodexThreadRetaggingSettings,
+    ManagedConfigApplyPreview, ManagedConfigApplyResult, ManagedFootprintItem,
+    ManagedFootprintReport, ManagedRollbackExecutionResult, ManagedRollbackExecutionStatus,
+    ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview,
+    SavingsMode, SwitchboardMode, UninstallDryRunReport, UninstallTarget,
 };
 use crate::storage::{app_data_dir, config_file, LEGACY_STORAGE_DIR_NAME};
 
@@ -42,7 +45,6 @@ const WINDSURF_MARKER_PREFIX: &str = "headroom:windsurf";
 const ZED_CONFIG_FILE: &str = "settings.json";
 const ZED_MARKER_PREFIX: &str = "headroom:zed";
 const SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md";
-const CONNECTOR_MANIFEST_JSON: &str = include_str!("../../connectors/manifest.json");
 const LEGACY_MARKER_PREFIX: &str = "headroom";
 const MARKER_PREFIX: &str = "headroom";
 const SWITCHBOARD_MARKER_PREFIX: &str = "mac-ai-switchboard";
@@ -90,34 +92,6 @@ struct PlannedClientSpec {
     config_locations: &'static [&'static str],
     automation_gates: &'static [&'static str],
     manual_workflow: &'static [&'static str],
-}
-
-#[derive(Debug, Clone, Deserialize)]
-struct ConnectorManifest {
-    id: String,
-    name: String,
-    category: String,
-    support_status: String,
-    detection: ConnectorManifestDetection,
-    config: Option<ConnectorManifestConfig>,
-    automation_gates: Vec<String>,
-    manual_workflow: Vec<String>,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-struct ConnectorManifestDetection {
-    #[serde(default)]
-    binaries: Vec<String>,
-    #[serde(default)]
-    paths: Vec<String>,
-}
-
-#[derive(Debug, Clone, Default, Deserialize)]
-struct ConnectorManifestConfig {
-    #[serde(default)]
-    locations: Vec<String>,
-    #[serde(default)]
-    forbidden_reads: Vec<String>,
 }
 
 const PLANNED_CONFIG_CREATION_STEPS: [&str; 7] = [
@@ -370,47 +344,6 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         ],
     },
 ];
-
-fn connector_manifests() -> Vec<ConnectorManifest> {
-    serde_json::from_str(CONNECTOR_MANIFEST_JSON).unwrap_or_default()
-}
-
-fn connector_manifest(client_id: &str) -> Option<ConnectorManifest> {
-    connector_manifests()
-        .into_iter()
-        .find(|manifest| manifest.id == client_id)
-}
-
-fn manifest_support_status(manifest: Option<&ConnectorManifest>) -> ClientConnectorSupportStatus {
-    match manifest.map(|item| item.support_status.as_str()) {
-        Some("managed") => ClientConnectorSupportStatus::Managed,
-        _ => ClientConnectorSupportStatus::Planned,
-    }
-}
-
-fn manifest_detection_sources(manifest: &ConnectorManifest) -> Vec<String> {
-    manifest
-        .detection
-        .binaries
-        .iter()
-        .map(|binary| format!("PATH: {binary}"))
-        .chain(manifest.detection.paths.iter().cloned())
-        .collect()
-}
-
-fn manifest_config_locations(manifest: Option<&ConnectorManifest>) -> Vec<String> {
-    manifest
-        .and_then(|item| item.config.as_ref())
-        .map(|config| config.locations.clone())
-        .unwrap_or_default()
-}
-
-fn manifest_forbidden_reads(manifest: Option<&ConnectorManifest>) -> Vec<String> {
-    manifest
-        .and_then(|item| item.config.as_ref())
-        .map(|config| config.forbidden_reads.clone())
-        .unwrap_or_default()
-}
 
 fn planned_config_creation_step_details(
     spec: &PlannedClientSpec,
@@ -7153,6 +7086,7 @@ mod tests {
 
     use serde_json::json;
 
+    use crate::client_connectors::CONNECTOR_MANIFEST_JSON;
     use crate::models::{
         ClientConnectorSupportStatus, ClientHealth, ClientStatus, CodexThreadRetaggingMode,
         CodexThreadRetaggingSettings, ManagedRollbackExecutionStatus, SwitchboardMode,
@@ -7171,8 +7105,8 @@ mod tests {
         set_codex_thread_retagging_settings, shell_block_contains_in_files,
         shell_block_contains_text_in_files, shell_double_quote, strip_headroom_hook_from_settings,
         upsert_managed_block, write_file_if_changed, ClientSetupState, ShellFamily,
-        CONNECTOR_MANIFEST_JSON, MANAGED_CLIENT_SPECS, PLANNED_CLIENT_SPECS,
-        PLANNED_CONFIG_CREATION_STEPS, PLANNED_CONFIG_CREATION_STEP_IDS,
+        MANAGED_CLIENT_SPECS, PLANNED_CLIENT_SPECS, PLANNED_CONFIG_CREATION_STEPS,
+        PLANNED_CONFIG_CREATION_STEP_IDS,
     };
     use rusqlite::Connection;
 
