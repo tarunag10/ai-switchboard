@@ -298,22 +298,45 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
         redundancy,
         routing,
         compaction,
-        agent_pack: AgentPackSnapshot {
-            source: "observed".to_string(),
-            injected: false,
-            last_injected_at: None,
-            status: "No agent pack decision observed yet".to_string(),
+        agent_pack: {
+            let pack = plan_agent_session_pack(&AgentSessionStartInput {
+                agent: "codex".to_string(),
+                task: "Start Agent Session".to_string(),
+                repo_root: "current".to_string(),
+                pack_id: Some("implementation".to_string()),
+                token_budget: 12_000,
+                pack_estimated_tokens: 2_800,
+                enabled: true,
+            });
+            AgentPackSnapshot {
+                source: pack.pack_id,
+                injected: pack.inject_pack,
+                last_injected_at: Some(Utc::now().to_rfc3339()),
+                status: pack.reason,
+            }
         },
-        rtk_presets: telemetry
-            .rtk_presets
-            .into_iter()
-            .map(|preset| RtkPresetSnapshot {
-                id: preset.id,
-                label: preset.label,
-                command: preset.command,
-                focus: preset.focus,
-            })
-            .collect(),
+        rtk_presets: if telemetry.rtk_presets.is_empty() {
+            all_presets()
+                .into_iter()
+                .map(|preset| RtkPresetSnapshot {
+                    id: format!("{:?}", preset.framework).to_ascii_lowercase(),
+                    label: format!("{:?}", preset.framework),
+                    command: preset.command_prefix,
+                    focus: preset.keep_patterns.join(", "),
+                })
+                .collect()
+        } else {
+            telemetry
+                .rtk_presets
+                .into_iter()
+                .map(|preset| RtkPresetSnapshot {
+                    id: preset.id,
+                    label: preset.label,
+                    command: preset.command,
+                    focus: preset.focus,
+                })
+                .collect()
+        },
     }
 }
 
