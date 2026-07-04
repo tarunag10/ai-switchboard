@@ -163,6 +163,19 @@ Read-only foundation: the app now ships a read-only foundation for local repo in
 
 Useful commands:
 
+Prefer the Switchboard CLI for new docs and handoffs:
+
+```bash
+npm run switchboard -- repo-intelligence <repo-path>
+npm run switchboard -- repo-intelligence <repo-path> --manifest
+npm run switchboard -- repo-intelligence <repo-path> --list-agents
+npm run switchboard -- repo-intelligence <repo-path> --pack implementation --format markdown
+npm run switchboard -- repo-intelligence <repo-path> --agent codex --format markdown
+npm run switchboard -- repo-intelligence <repo-path> --agent gemini --format json
+```
+
+The legacy npm script remains supported:
+
 ```bash
 npm run repo:intelligence -- <repo-path>
 npm run repo:intelligence -- <repo-path> --manifest
@@ -237,7 +250,7 @@ EOF
 npm run tauri dev
 ```
 
-See [docs/install.md](docs/install.md) for the current install and smoke-test checklist.
+See [docs/install.md](docs/install.md) for the current install and smoke-test checklist. See [docs/platform-support.md](docs/platform-support.md) for macOS, Linux, and Windows support status.
 
 For a local macOS-only unsigned test build, run:
 

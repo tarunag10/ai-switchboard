@@ -19,7 +19,7 @@ The goal is to make Mac AI Switchboard useful before an agent burns tokens readi
 ## Build Slices
 
 1. **Read-only local indexer**
-   - CLI foundation: run `npm run repo:intelligence -- <repo-path>` to produce local file roles, token estimates, and bounded context packs.
+   - CLI foundation: run `npm run switchboard -- repo-intelligence <repo-path>` to produce local file roles, token estimates, and bounded context packs. `npm run repo:intelligence -- <repo-path>` remains supported for existing automation.
 
 - App workflow: open the dedicated Repo Intelligence sidebar view, enter a local repo path, and click **Index**.
   - Persistence: the latest successful summary is saved under Mac AI Switchboard managed config storage, not inside the user repo.

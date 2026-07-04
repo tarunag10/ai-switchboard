@@ -112,3 +112,20 @@ Connector support is intentionally explicit: Claude Code, Codex, Gemini CLI, Ope
 For oversized Codex payload failures such as `413 Payload Too Large`, see [Codex Compression Troubleshooting](codex-compression-troubleshooting.md).
 
 If Codex reports `The '' model is not supported when using Codex with a ChatGPT account`, treat it as a Codex model/provider configuration issue rather than a Headroom compression issue. Use Doctor to repair the Codex provider block, then choose a Codex-supported ChatGPT model before retrying.
+
+## CLI Preview
+
+The `switchboard` CLI is a repo-local preview for cross-platform Repo Intelligence workflows:
+
+```bash
+npm run switchboard -- repo-intelligence <repo-path> --manifest
+npm run switchboard -- repo-intelligence <repo-path> --agent codex --format markdown
+```
+
+The compatibility path remains supported:
+
+```bash
+npm run repo:intelligence -- <repo-path> --manifest
+```
+
+Linux and Windows support is CLI-preview only. Desktop app packaging, runtime management, repair, uninstall, bundle, and keychain workflows remain macOS-only. See [Platform support](platform-support.md).
