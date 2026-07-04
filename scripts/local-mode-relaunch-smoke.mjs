@@ -148,6 +148,37 @@ if (!fs.existsSync(appPath)) {
   process.exit(1);
 }
 
+if (process.env.MAC_AI_SWITCHBOARD_SKIP_OPEN === "1") {
+  const generatedAt = new Date().toISOString();
+  const payload = {
+    schemaVersion: 1,
+    evidenceType: "mac_ai_switchboard.local_mode_relaunch_smoke",
+    releaseGateEvidence: false,
+    generatedAt,
+    skipped: true,
+    skipReason: "MAC_AI_SWITCHBOARD_SKIP_OPEN=1",
+    appPath,
+    appName,
+  };
+  const markdown = `# Local Mode Relaunch Smoke
+
+- Generated: ${generatedAt}
+- Result: skipped
+- Reason: MAC_AI_SWITCHBOARD_SKIP_OPEN=1
+- App path: ${appPath}
+- App name: ${appName}
+
+This CI lane does not open GUI applications. Run \`npm run smoke:mode-relaunch:local -- --confirm\` on a local Mac for strict Off/RTK relaunch evidence.
+`;
+  fs.mkdirSync(path.dirname(summaryPath), { recursive: true });
+  fs.writeFileSync(summaryPath, markdown);
+  fs.writeFileSync(jsonPath, `${JSON.stringify(payload, null, 2)}\n`);
+  console.log("Local mode relaunch smoke skipped because MAC_AI_SWITCHBOARD_SKIP_OPEN=1.");
+  console.log(`Summary written: ${summaryPath}`);
+  console.log(`JSON written: ${jsonPath}`);
+  process.exit(0);
+}
+
 const generatedAt = new Date().toISOString();
 const originalExists = fs.existsSync(configPath);
 const originalConfig = originalExists ? fs.readFileSync(configPath, "utf8") : null;
