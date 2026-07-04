@@ -283,12 +283,12 @@ export function SwitchboardDoctorPanel({
           </small>
         </div>
         <div>
-          <span>Manual checks</span>
+          <span>Approval checks</span>
           <strong>{manualCount}</strong>
           <small>
             {manualCount > 0
               ? "Review guidance; no file changes will run from these rows."
-              : "No manual follow-up is needed right now."}
+              : "No approval follow-up is needed right now."}
           </small>
         </div>
         {hasOffModeVerification ? (
@@ -365,9 +365,9 @@ export function SwitchboardDoctorPanel({
           aria-label="Doctor triage summary"
         >
           <span>{repairableCount} automatic</span>
-          <span>{manualCount} manual</span>
+          <span>{manualCount} approval</span>
           {canRepair && manualCount > 0 ? (
-            <strong>Repair all will leave manual steps visible.</strong>
+            <strong>Auto-fix will leave approval-only steps visible.</strong>
           ) : null}
         </div>
       ) : null}
@@ -480,7 +480,7 @@ export function SwitchboardDoctorPanel({
 
       {manualIssues.length > 0 ? (
         <div className="switchboard-doctor__issues">
-          <h3>Manual review</h3>
+          <h3>Needs approval</h3>
           {manualIssues.map(renderIssue)}
         </div>
       ) : null}
