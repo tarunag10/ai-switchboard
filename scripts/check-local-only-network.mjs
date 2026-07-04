@@ -5,7 +5,7 @@ const packagePath = "package.json";
 
 const requiredRegistrySignals = [
   "## Local-Only Boundary",
-  "Mac AI Switchboard does not include a remote account, billing, checkout, or paid",
+  "AI Switchboard does not include a remote account, billing, checkout, or paid",
   "Tauri updater feeds",
   "Sentry diagnostics",
   "Aptabase analytics",
