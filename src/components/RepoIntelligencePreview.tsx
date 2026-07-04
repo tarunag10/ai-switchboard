@@ -25,7 +25,7 @@ import {
   type RepoSavingsEstimate,
 } from "../lib/repoIntelligence";
 
-const repoIntelligencePreview = buildRepoIntelligenceSummary([
+export const repoIntelligencePreview = buildRepoIntelligenceSummary([
   { path: "src/App.tsx", bytes: 184_000 },
   { path: "src/lib/dashboardHelpers.ts", bytes: 28_000 },
   { path: "src/lib/repoIntelligence.ts", bytes: 7_400 },
