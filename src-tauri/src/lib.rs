@@ -20,6 +20,7 @@ mod local_mode;
 mod logging;
 mod memory_scrubber;
 mod message_logging;
+mod message_settings_commands;
 mod models;
 mod optimization;
 mod port_conflict;
@@ -58,14 +59,13 @@ use tauri_plugin_updater::{Update, UpdaterExt};
 use crate::models::{
     ActivityFeedResponse, BillingPeriod, BootstrapProgress, ClaudeAccountProfile,
     ClaudeCodeProject, ClaudeUsage, ClientConnectorStatus, ClientSetupResult,
-    ClientSetupVerification, CodexDbRestoreResult, CodexThreadRetaggingSettings, DailySavingsPoint,
-    DashboardState, HeadroomAuthCodeRequest, HeadroomLearnPrereqStatus, HeadroomLearnStatus,
-    HeadroomPricingStatus, HeadroomSubscriptionTier, ManagedConfigApplyPreview,
-    ManagedConfigApplyResult, ManagedFootprintReport, ManagedRollbackExecutionResult,
-    ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview,
-    MessageLoggingSettings, PurgeResult, RuntimeStatus, RuntimeUpgradeProgress,
-    SavingsAttributionCounter, SavingsAttributionEvent, SavingsMode, SwitchboardMode,
-    SwitchboardState, TransformationFeedResponse, UninstallDryRunReport,
+    ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
+    HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
+    HeadroomSubscriptionTier, ManagedConfigApplyPreview, ManagedConfigApplyResult,
+    ManagedFootprintReport, ManagedRollbackExecutionResult, ManagedRollbackPreview,
+    ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview, RuntimeStatus,
+    RuntimeUpgradeProgress, SavingsAttributionCounter, SavingsAttributionEvent, SavingsMode,
+    SwitchboardMode, SwitchboardState, TransformationFeedResponse, UninstallDryRunReport,
 };
 use crate::state::AppState;
 
@@ -3084,56 +3084,6 @@ async fn get_transformations_feed(limit: Option<u32>) -> TransformationFeedRespo
     })
 }
 
-#[tauri::command]
-fn get_message_logging_settings() -> MessageLoggingSettings {
-    message_logging::load_settings()
-}
-
-#[tauri::command]
-fn set_message_logging_settings(
-    settings: MessageLoggingSettings,
-) -> Result<MessageLoggingSettings, String> {
-    message_logging::save_settings(&settings).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn enable_full_message_logging(hours: u32) -> Result<MessageLoggingSettings, String> {
-    let settings = MessageLoggingSettings::enabled_for(hours);
-    message_logging::save_settings(&settings).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn disable_full_message_logging() -> Result<MessageLoggingSettings, String> {
-    let settings = MessageLoggingSettings {
-        full_message_logging: false,
-        full_message_logging_expires_at: None,
-        message_log_retention_hours: 24,
-    };
-    message_logging::save_settings(&settings).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn purge_message_logs(state: State<'_, AppState>) -> PurgeResult {
-    state.purge_message_logs()
-}
-
-#[tauri::command]
-fn get_codex_thread_retagging_settings() -> CodexThreadRetaggingSettings {
-    codex_threads::get_codex_thread_retagging_settings()
-}
-
-#[tauri::command]
-fn set_codex_thread_retagging_settings(
-    settings: CodexThreadRetaggingSettings,
-) -> Result<CodexThreadRetaggingSettings, String> {
-    codex_threads::set_codex_thread_retagging_settings(settings).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn restore_codex_thread_db_backup(path: String) -> Result<CodexDbRestoreResult, String> {
-    codex_threads::restore_codex_thread_db_backup(&path).map_err(|err| err.to_string())
-}
-
 /// Read-only snapshot of the activity feed. Observation — fetching the proxy,
 /// writing to ActivityFacts, persisting — happens on a dedicated background
 /// timer (see `spawn_activity_observer`), so this command never mutates state.
@@ -4523,14 +4473,14 @@ pub fn run() {
             reactivate_headroom_subscription,
             get_headroom_billing_portal_url,
             get_activity_feed,
-            get_message_logging_settings,
-            set_message_logging_settings,
-            enable_full_message_logging,
-            disable_full_message_logging,
-            purge_message_logs,
-            get_codex_thread_retagging_settings,
-            set_codex_thread_retagging_settings,
-            restore_codex_thread_db_backup,
+            message_settings_commands::get_message_logging_settings,
+            message_settings_commands::set_message_logging_settings,
+            message_settings_commands::enable_full_message_logging,
+            message_settings_commands::disable_full_message_logging,
+            message_settings_commands::purge_message_logs,
+            message_settings_commands::get_codex_thread_retagging_settings,
+            message_settings_commands::set_codex_thread_retagging_settings,
+            message_settings_commands::restore_codex_thread_db_backup,
             list_live_learnings,
             list_live_learnings_for_projects,
             delete_live_learning,
