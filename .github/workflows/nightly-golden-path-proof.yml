@@ -44,4 +44,5 @@ jobs:
           path: |
             dist/nightly-golden-path-proof.md
             dist/nightly-optimization-telemetry-proof.json
+            dist/nightly-optimization-telemetry.sqlite
           if-no-files-found: error
