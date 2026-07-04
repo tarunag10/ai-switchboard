@@ -2,6 +2,21 @@
 
 **A local-first Mac menu bar switchboard for Claude Code, Codex, Headroom, RTK, and copyable context packs for other coding agents.**
 
+## Current Feature Snapshot
+
+Mac AI Switchboard now ships as more than a routing toggle. The current `main` branch includes:
+
+- **One-click optimization modes**: Full optimization, Headroom only, RTK only, and Off, with reversible Doctor repair flows.
+- **Codex + Claude routing**: managed local routing through Headroom where supported, with oversized-turn safety handling and Codex repair guidance.
+- **Prompt-cache optimization groundwork**: provider cache metric parsing, cache-read ratio calculation, stable-prefix ordering, and optimization snapshots.
+- **Preemptive compaction planning**: threshold-based compaction decisions before oversized requests turn into hard 413 failures.
+- **Repo Intelligence + Agent Session packs**: local repository indexing, copyable context packs, agent handoffs, freshness warnings, CLI exports, and read-only MCP documentation.
+- **Savings attribution**: RTK command-output savings, Repo Intelligence token-avoidance estimates, add-on attribution rows for MarkItDown, Ponytail, Caveman, and Compact Chinese profiles.
+- **Redundancy/model-routing primitives**: backend modules for duplicate payload detection and cheaper-model routing policy decisions.
+- **Retro switchboard UI**: the menu bar app now has a compact switchboard-style theme with brass controls, visible scroll behavior, and menubar-width layout fixes.
+
+Still in progress: notarized public release evidence, public installed-app smoke proof, full live Token X-ray, deeper live redundancy reporting, long-running Repo Memory MCP supervision, and durable runtime savings counters for every add-on.
+
 [![Repository](https://img.shields.io/badge/GitHub-tarunag10%2Fmac--ai--switchboard-blue?style=for-the-badge&logo=github)](https://github.com/tarunag10/mac-ai-switchboard)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
