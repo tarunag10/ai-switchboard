@@ -185,6 +185,8 @@ if [[ "${LIVE_PROOF}" == "1" ]]; then
   fi
 
   MAC_AI_SWITCHBOARD_SKIP_OPEN=1 npm run evidence:local >"${DIST_DIR}/local-evidence-run.log" 2>&1
+  LIVE_NIGHTLY_PROOF=0 "${BASH_SOURCE[0]}" >/dev/null
+  perl -0pi -e 's/live_proof_requested: 0/live_proof_requested: 1/' "${REPORT_MD}"
   {
     echo
     echo "## GitHub Live Evidence"
