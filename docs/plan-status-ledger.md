@@ -4,12 +4,12 @@ Updated: 2026-07-03
 
 ## AI Switchboard Platform Rebrand
 
-Status: planned
+Status: in progress
 Plan: `docs/ai-switchboard-platform-rebrand-implementation-plan.md`
 
 Goal: move the product identity from Mac AI Switchboard to AI Switchboard / Switchboard while preserving macOS install compatibility, CLI visibility, cross-platform roadmap clarity, and accurate attribution for Headroom, RTK, Caveman, Ponytail, MarkItDown, and other integrated tools.
 
-This is the current done/left ledger for the Mac AI Switchboard roadmap, including the Repo Map/token-compression work, Fable security hardening, local evidence gates, and release-readiness work.
+This is the current done/left ledger for the AI Switchboard roadmap, including the Repo Map/token-compression work, Fable security hardening, local evidence gates, and release-readiness work.
 
 ## Done
 
@@ -26,6 +26,7 @@ This is the current done/left ledger for the Mac AI Switchboard roadmap, includi
 - CI email noise for the working branch was reduced by narrowing workflow push branches while preserving main/PR CI intent.
 - Local evidence stability was improved: default-off message logging tests now isolate env/app-storage state, and Repo Intelligence local smoke has a longer timeout for Rust compile/test reality.
 - Fable security plan is committed and reflected in the current roadmap status.
+- Public documentation rebrand is in progress for AI Switchboard / Switchboard / AI Switchboard for Mac while preserving Headroom, RTK, Caveman, Ponytail, MarkItDown, and legacy compatibility wording.
 
 ## Left
 

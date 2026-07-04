@@ -30,7 +30,7 @@ The model error is a Codex model/provider configuration issue. Use Doctor to rep
 1. Stop starting new Codex goals until one active session is stable.
 2. Compact or summarize the largest active Codex conversation.
 3. Retry Codex normally; oversized Codex turns auto-route around Headroom so Codex can compact or retry with its native flow.
-4. Switch Mac AI Switchboard to **RTK only** if several heavy Codex sessions are active at the same time.
+4. Switch AI Switchboard for Mac to **RTK only** if several heavy Codex sessions are active at the same time.
 5. If the error mentions a model unsupported with a ChatGPT account, run Doctor and use **Repair Codex** instead of treating it as a compression issue.
 
 ## Prevention
@@ -46,7 +46,7 @@ Switchboard should warn before failure: **Full: one main Codex session**, **RTK 
 
 ## Recommended App Behavior
 
-Mac AI Switchboard should keep these behaviors explicit:
+AI Switchboard for Mac should keep these behaviors explicit:
 
 1. If a Codex request is large enough to risk `413 compression_refused`, Switchboard routes it around Headroom before the backend refusal path.
 2. Doctor should show **Reset Codex** only for stale fallback bypass state, not for normal automatic recovery.

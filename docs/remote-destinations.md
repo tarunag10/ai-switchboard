@@ -9,7 +9,7 @@ Local-only builds must leave app-owned remote services disabled. If a new
 app-owned remote destination is added, add it to this registry before release.
 Add a local-only guard or explain why the call is strictly user-initiated.
 
-Mac AI Switchboard does not include a remote account, billing, checkout, or paid
+AI Switchboard does not include a remote account, billing, checkout, or paid
 app-owned analytics destination in local-only mode.
 
 Provider traffic is not an app-owned analytics or account destination. Provider

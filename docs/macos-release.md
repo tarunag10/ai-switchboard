@@ -1,13 +1,13 @@
 # macOS Release and App Updates
 
-Mac AI Switchboard is set up for outside-the-App-Store macOS distribution with:
+AI Switchboard for Mac is set up for outside-the-App-Store macOS distribution with:
 
 - Tauri's official updater plugin
 - signed updater artifacts
 - user-confirmed install prompts
 - Apple code signing and notarization
 
-For the user-facing install path and first-run footprint, see [Installing Mac AI Switchboard](install.md).
+For the user-facing install path and first-run footprint, see [Installing AI Switchboard for Mac](install.md).
 
 ## Build a signed DMG locally
 
@@ -37,7 +37,7 @@ Run `npm run release:ready` when you want a sequential release-readiness check b
 Release env checks reject copied template placeholders such as `REPLACE_WITH_*`, `your-*`, and `/absolute/path/...`. Copy `.env.example` into a private `.env.local`, replace every placeholder with a real local value, and keep `.env.local` out of git.
 Run `npm run release:check` before publishing. The release gate runs release environment preflight, semantic color checks, a production frontend build, frontend coverage, Rust formatting, and desktop tests.
 Run `npm run smoke:preflight` before handing a DMG to a tester; it confirms the installed-app smoke checklist covers Switchboard modes, degraded-mode Doctor guidance, managed connector automation gates, manual workflow, config creation plan, managed connector readiness evidence, pause/resume, Repo Intelligence agent handoffs, connector readiness payload in agent handoffs, Savings calculator copyable summary, and Codex optimization.
-Treat the build as blocked until `npm run release:ready -- --strict` is clear, the DMG is signed/notarized, `/Applications/Mac AI Switchboard.app/Contents/Info.plist` exists from the DMG install, the beta smoke checklist has been run on that installed app, and `npm run smoke:installed -- --confirm` has written `dist/installed-smoke-summary.md`. The installed smoke summary records the SHA-256 of `docs/beta-smoke-test.md`; rerun installed smoke whenever the checklist changes so release readiness does not accept stale evidence.
+Treat the build as blocked until `npm run release:ready -- --strict` is clear, the DMG is signed/notarized, the current compatibility bundle `/Applications/Mac AI Switchboard.app/Contents/Info.plist` exists from the DMG install, the beta smoke checklist has been run on that installed app, and `npm run smoke:installed -- --confirm` has written `dist/installed-smoke-summary.md`. The installed smoke summary records the SHA-256 of `docs/beta-smoke-test.md`; rerun installed smoke whenever the checklist changes so release readiness does not accept stale evidence.
 
 Stable GitHub releases upload `SHA256SUMS.txt` and `sbom-summary.json` after
 the Tauri action publishes the DMG/updater assets. These integrity artifacts do
@@ -46,7 +46,7 @@ verify and audit.
 
 For local unsigned/ad-hoc testing only, use `npm run evidence:local` when you want the same one-command local evidence sequence exposed by the app's **Run local evidence** button. It runs desktop validation, static smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, Doctor repair validation, uninstall dry-run validation, Repo Intelligence validation, and a release report refresh, then writes `dist/local-evidence-summary.md`. This command does not run signing, notarization, updater publication, or the strict public-release gate.
 
-Use `npm run build:mac:local-install` when you only want the local install step. It builds a local DMG, copies it to `dist/release-artifacts`, installs `/Applications/Mac AI Switchboard.app`, ad-hoc signs the installed app, runs `npm run smoke:installed:local`, then opens the installed app. Set `MAC_AI_SWITCHBOARD_SKIP_OPEN=1` for automated evidence runs that should not launch the app window. The local smoke command writes `dist/local-installed-smoke-summary.md` and JSON metadata for the bundle, checksum, local code signature, Gatekeeper status, and running process. When the installed app is running, the same local smoke also records whether the loopback app listener (`127.0.0.1:6767`) and Headroom engine proxy (`127.0.0.1:6768`) report healthy `/readyz` status. Do not use local summaries as public release evidence.
+Use `npm run build:mac:local-install` when you only want the local install step. It builds a local DMG, copies it to `dist/release-artifacts`, installs the current compatibility bundle at `/Applications/Mac AI Switchboard.app`, ad-hoc signs the installed app, runs `npm run smoke:installed:local`, then opens the installed app. Set `MAC_AI_SWITCHBOARD_SKIP_OPEN=1` for automated evidence runs that should not launch the app window. The local smoke command writes `dist/local-installed-smoke-summary.md` and JSON metadata for the bundle, checksum, local code signature, Gatekeeper status, and running process. When the installed app is running, the same local smoke also records whether the loopback app listener (`127.0.0.1:6767`) and Headroom engine proxy (`127.0.0.1:6768`) report healthy `/readyz` status. Do not use local summaries as public release evidence.
 
 If you want a universal build, install both Rust macOS targets first and then run:
 
@@ -97,7 +97,7 @@ Required for notarization, choose one mode:
 - Apple ID mode:
   `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`
 
-Recommended for production builds of Mac AI Switchboard so auto-update stays enabled:
+Recommended for production builds of AI Switchboard for Mac so auto-update stays enabled:
 
 - `HEADROOM_UPDATER_PUBLIC_KEY`
   The public half of the Tauri updater signing keypair.
@@ -189,9 +189,9 @@ For a small app, the simplest setup is:
 
 You can later move the updater feed to S3 or another CDN without changing app code, as long as the published endpoint URL stays valid and the signatures match the embedded public key.
 
-## User experience in Mac AI Switchboard
+## User experience in AI Switchboard for Mac
 
-Mac AI Switchboard does not auto-install updates silently.
+AI Switchboard for Mac does not auto-install updates silently.
 
 Current behavior:
 

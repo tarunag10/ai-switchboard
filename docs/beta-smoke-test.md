@@ -4,15 +4,15 @@ After installing a new beta (`-rc.N`) build, paste this file into Claude Code an
 
 ## Setup
 
-These checks assume the installed bundle is `/Applications/Mac AI Switchboard.app`.
+These checks assume the current compatibility bundle is `/Applications/Mac AI Switchboard.app`.
 
-1. Quit and relaunch Mac AI Switchboard from Applications.
+1. Quit and relaunch AI Switchboard for Mac from Applications.
 2. Confirm the tray icon appears in the menu bar.
 3. Open the dashboard window once (so the proxy is fully booted).
 
 ## Switchboard checks
 
-Run these from the tray Home view before the client-specific passes. These checks verify the local-first Mac AI Switchboard layer, not only the underlying Headroom proxy.
+Run these from the tray Home view before the client-specific passes. These checks verify the local-first AI Switchboard for Mac layer, not only the underlying Headroom proxy.
 
 ### S1. Local-only shell is focused on Mac controls
 
@@ -222,7 +222,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' "http://127.0.0.1:6767/livez"
 
 Expect: at least one `127.0.0.1:67XX` line in the 6768-6790 range, and the curl returns `200`.
 
-Then, force a fallback. Quit Mac AI Switchboard, hold 6768 with a Python blocker (`nc -l` exits after one connection, so the proxy's first probe frees the port before fallback can trigger), relaunch, and confirm the proxy comes up on a different port. The proxy on a fallback port boots cold (memory tools / model load), so poll `/livez` for up to 90s instead of a fixed sleep:
+Then, force a fallback. Quit AI Switchboard for Mac, hold 6768 with a Python blocker (`nc -l` exits after one connection, so the proxy's first probe frees the port before fallback can trigger), relaunch, and confirm the proxy comes up on a different port. The proxy on a fallback port boots cold (memory tools / model load), so poll `/livez` for up to 90s instead of a fixed sleep:
 
 ```bash
 osascript -e 'quit app "Mac AI Switchboard"' 2>/dev/null; sleep 2
@@ -240,13 +240,13 @@ lsof -iTCP -sTCP:LISTEN -nP 2>/dev/null | awk -v IGNORECASE=1 '$1 ~ /(headroom|p
 kill $BLOCK_PID 2>/dev/null
 ```
 
-Expect: `livez=200`, a `127.0.0.1:67XX` line where `XX` is NOT `68` (the fallback worked). After the test, quit + relaunch Mac AI Switchboard so the next session goes back to 6768.
+Expect: `livez=200`, a `127.0.0.1:67XX` line where `XX` is NOT `68` (the fallback worked). After the test, quit and relaunch AI Switchboard for Mac so the next session goes back to 6768.
 
 If the fallback is missing, check `~/Library/Application Support/Mac AI Switchboard/headroom/logs/` first for a `[backend_port]` warning line that names the occupant and the chosen fallback port. Upgraded installs may also have preserved legacy logs under `~/Library/Application Support/Headroom/headroom/logs/`.
 
 ### 10. Free local mode has no account gate
 
-Mac AI Switchboard is free. The app should not require sign-in, checkout, or a pricing API before optimization works.
+AI Switchboard is free. The app should not require sign-in, checkout, or a pricing API before optimization works.
 
 ```bash
 defaults read /Applications/Mac\ AI\ Switchboard.app/Contents/Info.plist CFBundleIdentifier

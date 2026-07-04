@@ -1,10 +1,10 @@
-# Mac AI Switchboard
+# AI Switchboard
 
-**A local-first Mac menu bar switchboard for Claude Code, Codex, Headroom, RTK, and copyable context packs for other coding agents.**
+**A local-first coding-agent switchboard for Claude Code, Codex, Headroom, RTK, and copyable context packs for other agents.**
 
 ## Current Feature Snapshot
 
-Mac AI Switchboard now ships as more than a routing toggle. The current `main` branch includes:
+AI Switchboard now ships as more than a routing toggle. The current `main` branch includes:
 
 - **One-click optimization modes**: Full optimization, Headroom only, RTK only, and Off, with reversible Doctor repair flows.
 - **Codex + Claude routing**: managed local routing through Headroom where supported, with oversized-turn safety handling and Codex repair guidance.
@@ -23,7 +23,7 @@ These captures show the current menu bar UI surface and live setup/status panels
 
 | Switchboard status | Repo Intelligence / Agent Session | Add-ons / optimization stack |
 | --- | --- | --- |
-| ![Mac AI Switchboard current status](docs/screenshots/switchboard-current-status.png) | ![Repo Intelligence agent session handoff](docs/screenshots/repo-intelligence-agent-session.png) | ![Add-ons optimization stack status](docs/screenshots/addons-optimization-stack.png) |
+| ![AI Switchboard for Mac current status](docs/screenshots/switchboard-current-status.png) | ![Repo Intelligence agent session handoff](docs/screenshots/repo-intelligence-agent-session.png) | ![Add-ons optimization stack status](docs/screenshots/addons-optimization-stack.png) |
 
 [![Repository](https://img.shields.io/badge/GitHub-tarunag10%2Fmac--ai--switchboard-blue?style=for-the-badge&logo=github)](https://github.com/tarunag10/mac-ai-switchboard)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
@@ -53,9 +53,9 @@ PR and release materials:
 - [Test workflow](.github/workflows/test.yml)
 - [Vendor wheel build workflow](.github/workflows/build-vendor-wheels.yml)
 
-Mac AI Switchboard is a privacy-first Mac utility for turning local coding-agent optimizations on and off. It manages supported client routing, shell-output compression, local add-ons, Doctor repairs, and read-only repo context packs from one app.
+AI Switchboard is a privacy-first platform for turning local coding-agent optimizations on and off. The macOS app, **AI Switchboard for Mac**, manages supported client routing, shell-output compression, local add-ons, Doctor repairs, and read-only repo context packs from one menu bar app.
 
-The app is **local-first**, not offline-only. Claude, OpenAI, and other provider model calls still go to the configured remote APIs. Switchboard state, reversible client config edits, Doctor repair data, add-on setup, telemetry defaults, and Repo Intelligence metadata stay on your Mac.
+Switchboard is **local-first**, not offline-only. Claude, OpenAI, and other provider model calls still go to the configured remote APIs. Switchboard state, reversible client config edits, Doctor repair data, add-on setup, telemetry defaults, and Repo Intelligence metadata stay on your Mac.
 
 Current status: active productization branch. The standalone repository is public, but signed release artifacts are not published yet. Build from source for now.
 
@@ -129,13 +129,13 @@ that is a Codex model/provider configuration problem, not the usual Headroom com
 
 Headroom is the managed local optimization runtime used by Switchboard for proxy routing and prompt/context compression. Switchboard installs it into app-owned storage and controls whether supported clients route through it.
 
-The app identity is **Mac AI Switchboard**. New primary app storage is:
+The public macOS app name is **AI Switchboard for Mac**. Current compatibility builds may still use the legacy **Mac AI Switchboard** bundle, command, and storage names while the platform rebrand is staged. Primary app storage is:
 
 ```text
 ~/Library/Application Support/Mac AI Switchboard
 ```
 
-On first launch after upgrading from older builds, Switchboard copies legacy `~/Library/Application Support/Headroom` storage into the new app storage path and records `config/migrations.json`. The legacy directory is preserved for one-release compatibility with existing runtimes, logs, receipts, backups, cleanup paths, and reversible client setup state.
+On first launch after upgrading from older builds, Switchboard copies legacy `~/Library/Application Support/Headroom` storage into the app storage path and records `config/migrations.json`. The legacy directory is preserved for one-release compatibility with existing runtimes, logs, receipts, backups, cleanup paths, and reversible client setup state.
 
 ### RTK
 
@@ -216,10 +216,10 @@ See [Threat Model](docs/threat-model.md) for the local proxy bind/auth boundary,
 
 ## Installing
 
-Normal users will install a signed DMG once releases are published:
+Normal macOS users will install a signed DMG once releases are published:
 
-1. Download `Mac-AI-Switchboard_<version>.dmg` from GitHub Releases.
-2. Drag **Mac AI Switchboard** into **Applications**.
+1. Download the current AI Switchboard for Mac DMG from GitHub Releases. During the compatibility window, artifacts may still be named `Mac-AI-Switchboard_<version>.dmg`.
+2. Drag **AI Switchboard for Mac** into **Applications**. Current compatibility bundles may still appear as **Mac AI Switchboard** in Finder and `/Applications`.
 3. Launch the app and approve local runtime install on first run.
 4. Choose **Full optimization**, **Headroom only**, **RTK only**, or **Off**.
 
@@ -239,7 +239,7 @@ npm run tauri dev
 
 See [docs/install.md](docs/install.md) for the current install and smoke-test checklist.
 
-For a local Mac-only unsigned test build, run:
+For a local macOS-only unsigned test build, run:
 
 ```bash
 npm run build:mac:local-install
@@ -247,7 +247,7 @@ npm run build:mac:local-install
 
 Unsigned DMGs are local build output under `src-tauri/target/release/bundle/dmg/`. They are useful for internal testing, but they are ignored by git and should not be treated as public release artifacts.
 
-The local install command installs, ad-hoc signs, smoke-checks, and opens `/Applications/Mac AI Switchboard.app`. For automation that should not open the app window, run `MAC_AI_SWITCHBOARD_SKIP_OPEN=1 npm run build:mac:local-install`.
+The local install command installs, ad-hoc signs, smoke-checks, and opens the current compatibility app bundle at `/Applications/Mac AI Switchboard.app`. For automation that should not open the app window, run `MAC_AI_SWITCHBOARD_SKIP_OPEN=1 npm run build:mac:local-install`.
 
 ## Development
 
@@ -264,7 +264,7 @@ VITE_HEADROOM_LOCAL_ONLY="1"
 VITE_HEADROOM_REMOTE_TELEMETRY="0"
 ```
 
-Remote telemetry, support, and update services are off by default. Mac AI Switchboard does not include a remote account, billing, checkout, or paid pricing API.
+Remote telemetry, support, and update services are off by default. AI Switchboard does not include a remote account, billing, checkout, or paid pricing API.
 
 Useful checks:
 

@@ -1,6 +1,6 @@
-# Installing Mac AI Switchboard
+# Installing AI Switchboard for Mac
 
-Mac AI Switchboard is designed to be installed as a normal macOS DMG app. Signed, notarized public release artifacts are not published yet, so early testers should build from source or use a locally built unsigned DMG.
+AI Switchboard for Mac is designed to be installed as a normal macOS DMG app. Signed, notarized public release artifacts are not published yet, so early testers should build from source or use a locally built unsigned DMG.
 
 The app is local-first, not offline-only. Claude, OpenAI, and other model calls still go to the configured provider accounts. Switchboard mode, client config edits, Doctor repairs, add-ons, telemetry defaults, and Repo Intelligence metadata live on your Mac.
 
@@ -8,8 +8,8 @@ The app is local-first, not offline-only. Claude, OpenAI, and other model calls 
 
 Once releases are published:
 
-1. Download `Mac-AI-Switchboard_<version>.dmg` from GitHub Releases.
-2. Open the DMG and drag **Mac AI Switchboard** into **Applications**.
+1. Download the current AI Switchboard for Mac DMG from GitHub Releases. During the compatibility window, artifacts may still be named `Mac-AI-Switchboard_<version>.dmg`.
+2. Open the DMG and drag **AI Switchboard for Mac** into **Applications**. Current compatibility bundles may still appear as **Mac AI Switchboard** in Finder and `/Applications`.
 3. Launch the app from Applications.
 4. On first launch, approve the local runtime install. The app downloads a self-contained Python runtime and managed tools into `~/Library/Application Support/Mac AI Switchboard`.
 5. Choose **Full optimization**, **Headroom only**, **RTK only**, or **Off mode**.
@@ -34,14 +34,14 @@ Use this path for development and testing only. A source run does not replace a 
 
 ## Local Unsigned DMG
 
-For a local Mac-only test build:
+For a local macOS-only test build:
 
 ```bash
 npm install
 npm run build:mac:local-install
 ```
 
-That script builds a local DMG, installs `/Applications/Mac AI Switchboard.app`, ad-hoc signs the installed bundle for local execution, runs `npm run smoke:installed:local`, and opens the installed app. Set `MAC_AI_SWITCHBOARD_SKIP_OPEN=1` when you want the same local evidence without launching the app window.
+That script builds a local DMG, installs the current compatibility bundle at `/Applications/Mac AI Switchboard.app`, ad-hoc signs the installed bundle for local execution, runs `npm run smoke:installed:local`, and opens the installed app. Set `MAC_AI_SWITCHBOARD_SKIP_OPEN=1` when you want the same local evidence without launching the app window.
 
 Local unsigned DMGs are build output, not source artifacts. They are ignored by git under `src-tauri/target/` and should not be committed as a substitute for a GitHub Release.
 
@@ -80,13 +80,13 @@ Do not share a public DMG until all gates are true:
 3. Rust backend validation ready: `npm run fmt:desktop` and `npm run test:desktop` pass locally or in CI for the release commit.
 4. Updater signing is configured with `HEADROOM_UPDATER_PUBLIC_KEY` and `HEADROOM_UPDATER_ENDPOINTS`.
 5. `npm run smoke:preflight` passes and writes `dist/smoke-preflight-summary.md`.
-6. The DMG is installed as `/Applications/Mac AI Switchboard.app`, with `Contents/Info.plist` present inside the app bundle.
+6. The DMG is installed as the current compatibility bundle at `/Applications/Mac AI Switchboard.app`, with `Contents/Info.plist` present inside the app bundle.
 7. `docs/beta-smoke-test.md` is run against the installed app.
 8. `npm run smoke:installed -- --confirm` records `dist/installed-smoke-summary.md`, including Switchboard modes, degraded-mode Doctor guidance, managed connector automation gates, manual workflow, config creation plan, Repo Intelligence recipes, Savings calculator copyable summary, per-tool agent handoffs, and Codex compression recovery.
 
 ## First-Run Footprint
 
-Mac AI Switchboard may write:
+AI Switchboard for Mac may write:
 
 - `~/Library/Application Support/Mac AI Switchboard` for managed runtimes, tools, logs, receipts, backups, caches, and Repo Intelligence summaries.
 - `~/Library/Application Support/Headroom` may remain as preserved legacy storage after first-launch migration.
@@ -99,7 +99,7 @@ Managed edits are fenced and reversible. Use **Off** mode or Doctor repair flows
 
 Before uninstalling, use **Settings -> Uninstall -> Copy dry-run** or run
 `mac-ai-switchboard --uninstall-dry-run` from a local build to preview the
-managed cleanup targets. The report includes legacy Headroom and current Mac AI
+managed cleanup targets. The report includes legacy Headroom and current
 Switchboard bundle IDs, app support storage, LaunchAgents, macOS WebKit/cache
 data, managed shell/config blocks, managed backups, and Switchboard-owned
 Keychain service metadata. See [Recovery and Uninstall](recovery.md) for the
