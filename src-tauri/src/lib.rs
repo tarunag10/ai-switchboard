@@ -24,6 +24,7 @@ mod message_logging;
 mod message_settings_commands;
 mod models;
 mod optimization;
+mod optimization_commands;
 mod port_conflict;
 mod pricing;
 mod process_runner;
@@ -2627,34 +2628,6 @@ async fn set_savings_mode(app: AppHandle, mode: SavingsMode) -> Result<Switchboa
     build_switchboard_state(&state)
 }
 
-#[tauri::command]
-fn get_optimization_snapshot() -> optimization::OptimizationSnapshot {
-    optimization::snapshot::build_optimization_snapshot()
-}
-
-#[tauri::command]
-fn run_preemptive_compaction() -> optimization::compaction_action::PreemptiveCompactionReceipt {
-    optimization::compaction_action::run_preemptive_compaction()
-}
-
-#[tauri::command]
-fn get_optimization_action_policy() -> optimization::action_policy::OptimizationActionPolicy {
-    optimization::action_policy::load_action_policy()
-}
-
-#[tauri::command]
-fn set_optimization_action_policy(
-    policy: optimization::action_policy::OptimizationActionPolicy,
-) -> Result<optimization::action_policy::OptimizationActionPolicy, String> {
-    optimization::action_policy::save_action_policy(&policy)
-}
-
-#[tauri::command]
-fn validate_model_routing(
-) -> Result<optimization::model_routing_validation::ModelRoutingValidationReceipt, String> {
-    optimization::model_routing_validation::validate_model_routing()
-}
-
 /// Debug-only: force the proxy intercept's bypass flag on/off so a developer
 /// can manually exercise the gated path (Python proxy stopped, traffic routed
 /// direct to api.anthropic.com) without crossing the real disable threshold.
@@ -4377,11 +4350,11 @@ pub fn run() {
             get_headroom_logs,
             get_headroom_request_count,
             get_headroom_request_counts_by_agent,
-            get_optimization_snapshot,
-            run_preemptive_compaction,
-            get_optimization_action_policy,
-            set_optimization_action_policy,
-            validate_model_routing,
+            optimization_commands::get_optimization_snapshot,
+            optimization_commands::run_preemptive_compaction,
+            optimization_commands::get_optimization_action_policy,
+            optimization_commands::set_optimization_action_policy,
+            optimization_commands::validate_model_routing,
             get_rtk_activity,
             get_tool_logs,
             get_claude_code_projects,
