@@ -28,15 +28,20 @@ for app_name in "${APP_NAME_CANDIDATES[@]}"; do
     break
   fi
 done
+shopt -s nullglob
 if [[ -z "${RAW_DMG}" ]]; then
-  RAW_DMG="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -type f -name "*_${APP_VERSION}_${DMG_ARCH}.dmg" -print -quit 2>/dev/null || true)"
+  dmg_matches=(src-tauri/target/release/bundle/dmg/*_"${APP_VERSION}"_"${DMG_ARCH}".dmg)
+  RAW_DMG="${dmg_matches[0]:-}"
 fi
 if [[ -z "${RAW_DMG}" ]]; then
-  RAW_DMG="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -type f -name "*_${APP_VERSION}_*.dmg" -print -quit 2>/dev/null || true)"
+  dmg_matches=(src-tauri/target/release/bundle/dmg/*_"${APP_VERSION}"_*.dmg)
+  RAW_DMG="${dmg_matches[0]:-}"
 fi
 if [[ -z "${RAW_DMG}" ]]; then
-  RAW_DMG="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -type f -name "*.dmg" -print -quit 2>/dev/null || true)"
+  dmg_matches=(src-tauri/target/release/bundle/dmg/*.dmg)
+  RAW_DMG="${dmg_matches[0]:-}"
 fi
+shopt -u nullglob
 LOCAL_DIR="dist/release-artifacts"
 LOCAL_DMG="${LOCAL_DIR}/Mac-AI-Switchboard_${APP_VERSION}-local-unsigned-${DMG_ARCH}.dmg"
 APP_DEST="${MAC_AI_SWITCHBOARD_LOCAL_APP_DEST:-/Applications/AI Switchboard for Mac.app}"
