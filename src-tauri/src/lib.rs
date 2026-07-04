@@ -5085,6 +5085,18 @@ fn get_optimization_snapshot() -> optimization::OptimizationSnapshot {
     optimization::snapshot::build_optimization_snapshot()
 }
 
+#[tauri::command]
+fn get_optimization_action_policy() -> optimization::action_policy::OptimizationActionPolicy {
+    optimization::action_policy::load_action_policy()
+}
+
+#[tauri::command]
+fn set_optimization_action_policy(
+    policy: optimization::action_policy::OptimizationActionPolicy,
+) -> Result<optimization::action_policy::OptimizationActionPolicy, String> {
+    optimization::action_policy::save_action_policy(&policy)
+}
+
 /// Debug-only: force the proxy intercept's bypass flag on/off so a developer
 /// can manually exercise the gated path (Python proxy stopped, traffic routed
 /// direct to api.anthropic.com) without crossing the real disable threshold.
@@ -6967,6 +6979,8 @@ pub fn run() {
             get_headroom_request_count,
             get_headroom_request_counts_by_agent,
             get_optimization_snapshot,
+            get_optimization_action_policy,
+            set_optimization_action_policy,
             get_rtk_activity,
             get_tool_logs,
             get_claude_code_projects,

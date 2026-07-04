@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::storage::{app_data_dir, config_file};
+
 use super::compaction::{decide_preemptive_compaction, CompactionDecision, CompactionInput};
 use super::model_routing::{decide_model_route, ModelRouteDecision, ModelRouteInput};
 
@@ -68,6 +70,27 @@ pub(crate) fn actionable_model_route(
     let mut gated_input = input.clone();
     gated_input.enabled = policy.model_routing_enabled && input.enabled;
     decide_model_route(&gated_input)
+}
+
+pub(crate) fn load_action_policy() -> OptimizationActionPolicy {
+    let path = config_file(&app_data_dir(), "optimization-action-policy.json");
+    let Ok(raw) = std::fs::read(&path) else {
+        return OptimizationActionPolicy::default();
+    };
+    serde_json::from_slice(&raw).unwrap_or_default()
+}
+
+pub(crate) fn save_action_policy(
+    policy: &OptimizationActionPolicy,
+) -> Result<OptimizationActionPolicy, String> {
+    let path = config_file(&app_data_dir(), "optimization-action-policy.json");
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|err| format!("create {}: {err}", parent.display()))?;
+    }
+    let bytes = serde_json::to_vec_pretty(policy).map_err(|err| err.to_string())?;
+    std::fs::write(&path, bytes).map_err(|err| format!("write {}: {err}", path.display()))?;
+    Ok(policy.clone())
 }
 
 #[cfg(test)]
