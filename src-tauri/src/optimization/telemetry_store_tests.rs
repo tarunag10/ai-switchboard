@@ -1,6 +1,6 @@
 use tempfile::tempdir;
 
-use super::telemetry::{RedundancyHashRecord, RoutingDecisionRecord};
+use super::telemetry::{RedundancyHashRecord, RoutingDecisionRecord, RtkPresetMetadata};
 use super::telemetry_store::*;
 use super::CacheTokenMetrics;
 
@@ -113,6 +113,32 @@ fn redundancy_hashes_round_trip_through_sqlite() {
     assert_eq!(records.len(), 1);
     assert_eq!(records[0].source_id, "AGENTS.md");
     assert_eq!(records[0].estimated_tokens, 12);
+
+    match previous_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+}
+
+#[test]
+fn rtk_preset_metadata_round_trip_through_sqlite() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let home = tempdir().expect("temp home");
+    let previous_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", home.path());
+
+    reset_for_tests();
+    record_rtk_preset_metadata(&RtkPresetMetadata {
+        id: "pytest".to_string(),
+        label: "pytest".to_string(),
+        command: "rtk pytest".to_string(),
+        focus: "failure-only test output".to_string(),
+    });
+
+    let metadata = recent_rtk_preset_metadata(8);
+    assert_eq!(metadata.len(), 1);
+    assert_eq!(metadata[0].id, "pytest");
+    assert_eq!(metadata[0].command, "rtk pytest");
 
     match previous_home {
         Some(value) => std::env::set_var("HOME", value),

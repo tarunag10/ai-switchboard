@@ -4,7 +4,8 @@ use rusqlite::{params, Connection};
 
 use super::cache_metrics::CacheTokenMetrics;
 use super::telemetry::{
-    CompactionDecisionRecord, RedundancyHashRecord, RoutingDecisionRecord, TokenBucketMetrics,
+    CompactionDecisionRecord, RedundancyHashRecord, RoutingDecisionRecord, RtkPresetMetadata,
+    TokenBucketMetrics,
 };
 
 const DB_FILE: &str = "optimization_telemetry.sqlite";
@@ -58,6 +59,14 @@ fn open_connection() -> rusqlite::Result<Connection> {
             source_id TEXT NOT NULL,
             content_sha256 TEXT NOT NULL,
             estimated_tokens INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS rtk_preset_metadata_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            preset_id TEXT NOT NULL,
+            label TEXT NOT NULL,
+            command TEXT NOT NULL,
+            focus TEXT NOT NULL
         );",
     )?;
     Ok(conn)
@@ -312,6 +321,66 @@ fn try_recent_redundancy_hashes(limit: usize) -> rusqlite::Result<Vec<Redundancy
     Ok(records)
 }
 
+pub(crate) fn record_rtk_preset_metadata(metadata: &RtkPresetMetadata) {
+    if metadata.id.trim().is_empty() {
+        return;
+    }
+    if let Err(error) = try_record_rtk_preset_metadata(metadata) {
+        log::warn!("optimization RTK preset telemetry persist failed: {error}");
+    }
+}
+
+fn try_record_rtk_preset_metadata(metadata: &RtkPresetMetadata) -> rusqlite::Result<()> {
+    let conn = open_connection()?;
+    conn.execute(
+        "INSERT INTO rtk_preset_metadata_events (
+            preset_id,
+            label,
+            command,
+            focus
+        ) VALUES (?1, ?2, ?3, ?4)",
+        params![
+            metadata.id,
+            metadata.label,
+            metadata.command,
+            metadata.focus
+        ],
+    )?;
+    Ok(())
+}
+
+pub(crate) fn recent_rtk_preset_metadata(limit: usize) -> Vec<RtkPresetMetadata> {
+    try_recent_rtk_preset_metadata(limit).unwrap_or_else(|error| {
+        log::warn!("optimization RTK preset telemetry read failed: {error}");
+        Vec::new()
+    })
+}
+
+fn try_recent_rtk_preset_metadata(limit: usize) -> rusqlite::Result<Vec<RtkPresetMetadata>> {
+    let conn = open_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT preset_id, label, command, focus
+        FROM rtk_preset_metadata_events
+        ORDER BY id DESC
+        LIMIT ?1",
+    )?;
+    let rows = stmt.query_map([limit as i64], |row| {
+        Ok(RtkPresetMetadata {
+            id: row.get(0)?,
+            label: row.get(1)?,
+            command: row.get(2)?,
+            focus: row.get(3)?,
+        })
+    })?;
+
+    let mut metadata = Vec::new();
+    for row in rows {
+        metadata.push(row?);
+    }
+    metadata.reverse();
+    Ok(metadata)
+}
+
 pub(crate) fn prompt_cache_totals() -> CacheTokenMetrics {
     try_prompt_cache_totals().unwrap_or_else(|error| {
         log::warn!("optimization telemetry read failed: {error}");
@@ -348,5 +417,6 @@ pub(crate) fn reset_for_tests() {
         let _ = conn.execute("DELETE FROM routing_decisions", []);
         let _ = conn.execute("DELETE FROM token_xray_bucket_events", []);
         let _ = conn.execute("DELETE FROM redundancy_hash_events", []);
+        let _ = conn.execute("DELETE FROM rtk_preset_metadata_events", []);
     }
 }

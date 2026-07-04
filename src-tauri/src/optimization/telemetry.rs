@@ -169,6 +169,7 @@ pub(crate) fn record_routing_decision(decision: RoutingDecisionRecord) {
 }
 
 pub(crate) fn record_rtk_preset_metadata(metadata: RtkPresetMetadata) {
+    telemetry_store::record_rtk_preset_metadata(&metadata);
     with_collector(|collector| {
         push_bounded(&mut collector.rtk_presets, metadata, MAX_RTK_PRESETS);
     });
@@ -204,7 +205,14 @@ pub(crate) fn snapshot() -> TelemetrySnapshot {
             } else {
                 routing_memory
             },
-            rtk_presets: collector.rtk_presets.iter().cloned().collect(),
+            rtk_presets: {
+                let memory: Vec<_> = collector.rtk_presets.iter().cloned().collect();
+                if memory.is_empty() {
+                    telemetry_store::recent_rtk_preset_metadata(MAX_RTK_PRESETS)
+                } else {
+                    memory
+                }
+            },
         }
     })
 }
@@ -331,5 +339,22 @@ mod tests {
         let snapshot = snapshot();
         assert_eq!(snapshot.redundancy_hashes.len(), 1);
         assert_eq!(snapshot.redundancy_hashes[0].source_id, "AGENTS.md");
+    }
+    #[test]
+    fn snapshot_restores_rtk_preset_metadata_from_sqlite() {
+        let _guard = test_guard();
+        reset_for_tests();
+
+        record_rtk_preset_metadata(RtkPresetMetadata {
+            id: "pytest".to_string(),
+            label: "pytest".to_string(),
+            command: "rtk pytest".to_string(),
+            focus: "failure-only test output".to_string(),
+        });
+        with_collector(|collector| collector.rtk_presets.clear());
+
+        let snapshot = snapshot();
+        assert_eq!(snapshot.rtk_presets.len(), 1);
+        assert_eq!(snapshot.rtk_presets[0].id, "pytest");
     }
 }
