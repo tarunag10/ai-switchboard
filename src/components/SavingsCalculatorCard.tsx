@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Calculator, Copy } from "@phosphor-icons/react";
 import {
   buildAddonSavingsEstimate,
@@ -106,8 +106,10 @@ export function SavingsCalculatorCard({
       : `${percent1(summary.savingsPct)}%`;
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
   const [ledgerFilter, setLedgerFilter] =
     useState<SavingsLedgerConfidenceFilter>("all");
+  const detailsId = useId();
   const ledgerRecordedAt = ledgerRows[0]?.recordedAt ?? new Date().toISOString();
   const filteredLedger = buildFilteredSavingsLedger(
     ledgerRows,
@@ -241,133 +243,157 @@ export function SavingsCalculatorCard({
           will update automatically.
         </p>
       ) : null}
-      <div
-        className="savings-calculator__breakdown"
-        aria-label="Savings source breakdown"
-      >
-        {breakdownRows.map((row) => (
-          <div className="savings-calculator__breakdown-row" key={row.id}>
-            <div>
-              <strong>{row.label}</strong>
-              <span>
-                {row.detail} Source: {row.source}. Confidence:{" "}
-                {row.confidence}.
-              </span>
-            </div>
-            <div className="savings-calculator__breakdown-value">
-              <strong>{compactNumber(row.savedTokens)}</strong>
-              <span>
-                {row.savedUsd === null
-                  ? "tokens"
-                  : `${currencyExact(row.savedUsd)} estimate`}
-              </span>
-            </div>
-          </div>
-        ))}
+      <div className="savings-calculator__details-toggle">
+        <div>
+          <strong>Source details</strong>
+          <span>Breakdown, confidence, and ledger attribution</span>
+        </div>
+        <button
+          type="button"
+          className="savings-calculator__details-button"
+          aria-expanded={showDetails}
+          aria-controls={detailsId}
+          onClick={() => setShowDetails((current) => !current)}
+        >
+          {showDetails ? "Hide details" : "Learn more"}
+        </button>
       </div>
-      <div className="savings-calculator__ledger" aria-label="Savings ledger">
-        <div className="savings-calculator__ledger-head">
-          <div>
-            <span>Ledger</span>
-            <strong>{savingsCalculatorScopeLabel(scope)}</strong>
-            <p>{savingsCalculatorScopeDefinition(scope)}</p>
-          </div>
-          <div
-            className="savings-calculator__ledger-filters"
-            role="group"
-            aria-label="Ledger confidence filter"
-          >
-            {savingsLedgerConfidenceFilters.map((filter) => (
-              <button
-                key={filter}
-                type="button"
-                className={`savings-calculator__ledger-filter${
-                  ledgerFilter === filter ? " is-active" : ""
-                }`}
-                onClick={() => setLedgerFilter(filter)}
-              >
-                {filter === "all" ? "All" : filter}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="savings-calculator__ledger-summary">
-          <span>
-            Sources <strong>{filteredLedger.groups.length}</strong>
-          </span>
-          <span>
-            Rows <strong>{compactNumber(filteredLedger.summary.rowCount)}</strong>
-          </span>
-          <span>
-            Tokens{" "}
-            <strong>{compactNumber(filteredLedger.summary.totalTokens)}</strong>
-          </span>
-          <span>
-            Confidence{" "}
-            <strong>
-              {formatSavingsLedgerConfidenceBreakdown(filteredLedger.summary)}
-            </strong>
-          </span>
-          <span>
-            Attribution{" "}
-            <strong>
-              {formatSavingsLedgerAttributionSummary(filteredLedger.summary)}
-            </strong>
-          </span>
-          {scope === "session" ? (
-            <span>
-              Backend events{" "}
-              <strong>{compactNumber(measuredSessionAttributionEvents)}</strong>
-            </span>
-          ) : null}
-        </div>
-        {anomalyAlerts.length > 0 ? (
-          <div
-            className="savings-calculator__anomalies"
-            aria-label="Savings anomaly alerts"
-          >
-            <strong>Savings anomaly alerts</strong>
-            <span>{formatSavingsAnomalyAlerts(anomalyAlerts)}</span>
-          </div>
-        ) : null}
-        <div className="savings-calculator__ledger-list">
-          {filteredLedger.groups.length > 0 ? (
-            filteredLedger.groups.map((group) => (
-              <div
-                className="savings-calculator__ledger-row"
-                key={group.source}
-              >
-                <div>
-                  <strong>{group.label}</strong>
-                  <span>
-                    {group.confidence} · {group.rowCount} row
-                    {group.rowCount === 1 ? "" : "s"}
-                  </span>
-                </div>
-                <div>
-                  <strong>{compactNumber(group.totalTokens)}</strong>
-                  <span>
-                    {group.measuredTokens > 0
-                      ? `${compactNumber(group.measuredTokens)} measured`
-                      : group.estimatedTokens > 0
-                        ? `${compactNumber(group.estimatedTokens)} estimated`
-                        : `${compactNumber(group.inferredTokens)} inferred`}
-                  </span>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="savings-calculator__ledger-row">
+      <div
+        id={detailsId}
+        className="savings-calculator__details"
+        hidden={!showDetails}
+      >
+        <div
+          className="savings-calculator__breakdown"
+          aria-label="Savings source breakdown"
+        >
+          {breakdownRows.map((row) => (
+            <div className="savings-calculator__breakdown-row" key={row.id}>
               <div>
-                <strong>{ledgerEmptyState.title}</strong>
-                <span>{ledgerEmptyState.detail}</span>
+                <strong>{row.label}</strong>
+                <span>
+                  {row.detail} Source: {row.source}. Confidence:{" "}
+                  {row.confidence}.
+                </span>
               </div>
-              <div>
-                <strong>0</strong>
-                <span>{formatDateTime(ledgerRecordedAt)}</span>
+              <div className="savings-calculator__breakdown-value">
+                <strong>{compactNumber(row.savedTokens)}</strong>
+                <span>
+                  {row.savedUsd === null
+                    ? "tokens"
+                    : `${currencyExact(row.savedUsd)} estimate`}
+                </span>
               </div>
             </div>
-          )}
+          ))}
+        </div>
+        <div className="savings-calculator__ledger" aria-label="Savings ledger">
+          <div className="savings-calculator__ledger-head">
+            <div>
+              <span>Ledger</span>
+              <strong>{savingsCalculatorScopeLabel(scope)}</strong>
+              <p>{savingsCalculatorScopeDefinition(scope)}</p>
+            </div>
+            <div
+              className="savings-calculator__ledger-filters"
+              role="group"
+              aria-label="Ledger confidence filter"
+            >
+              {savingsLedgerConfidenceFilters.map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  className={`savings-calculator__ledger-filter${
+                    ledgerFilter === filter ? " is-active" : ""
+                  }`}
+                  onClick={() => setLedgerFilter(filter)}
+                >
+                  {filter === "all" ? "All" : filter}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="savings-calculator__ledger-summary">
+            <span>
+              Sources <strong>{filteredLedger.groups.length}</strong>
+            </span>
+            <span>
+              Rows{" "}
+              <strong>{compactNumber(filteredLedger.summary.rowCount)}</strong>
+            </span>
+            <span>
+              Tokens{" "}
+              <strong>{compactNumber(filteredLedger.summary.totalTokens)}</strong>
+            </span>
+            <span>
+              Confidence{" "}
+              <strong>
+                {formatSavingsLedgerConfidenceBreakdown(filteredLedger.summary)}
+              </strong>
+            </span>
+            <span>
+              Attribution{" "}
+              <strong>
+                {formatSavingsLedgerAttributionSummary(filteredLedger.summary)}
+              </strong>
+            </span>
+            {scope === "session" ? (
+              <span>
+                Backend events{" "}
+                <strong>
+                  {compactNumber(measuredSessionAttributionEvents)}
+                </strong>
+              </span>
+            ) : null}
+          </div>
+          {anomalyAlerts.length > 0 ? (
+            <div
+              className="savings-calculator__anomalies"
+              aria-label="Savings anomaly alerts"
+            >
+              <strong>Savings anomaly alerts</strong>
+              <span>{formatSavingsAnomalyAlerts(anomalyAlerts)}</span>
+            </div>
+          ) : null}
+          <div className="savings-calculator__ledger-list">
+            {filteredLedger.groups.length > 0 ? (
+              filteredLedger.groups.map((group) => (
+                <div
+                  className="savings-calculator__ledger-row"
+                  key={group.source}
+                >
+                  <div>
+                    <strong>{group.label}</strong>
+                    <span>
+                      {group.confidence} · {group.rowCount} row
+                      {group.rowCount === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  <div>
+                    <strong>{compactNumber(group.totalTokens)}</strong>
+                    <span>
+                      {group.measuredTokens > 0
+                        ? `${compactNumber(group.measuredTokens)} measured`
+                        : group.estimatedTokens > 0
+                          ? `${compactNumber(group.estimatedTokens)} estimated`
+                          : `${compactNumber(group.inferredTokens)} inferred`}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="savings-calculator__ledger-row">
+                <div>
+                  <strong>{ledgerEmptyState.title}</strong>
+                  <span>{ledgerEmptyState.detail}</span>
+                </div>
+                <div>
+                  <strong>0</strong>
+                  <span>{formatDateTime(ledgerRecordedAt)}</span>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </article>

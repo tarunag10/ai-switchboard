@@ -96,6 +96,9 @@ export function RepoIntelligencePreview({
   const [indexing, setIndexing] = useState(false);
   const [indexError, setIndexError] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
+  const [showVerificationDetails, setShowVerificationDetails] = useState(false);
+  const [showModeReasoning, setShowModeReasoning] = useState(false);
+  const [showGraphDiagnostics, setShowGraphDiagnostics] = useState(false);
   const isPreview = summary === repoIntelligencePreview;
   const hasRealIndex = !isPreview;
   const indexFreshness = getRepoIndexFreshness(summary);
@@ -122,6 +125,9 @@ export function RepoIntelligencePreview({
     sessionPreparation,
     hasRealIndex,
   );
+  const verificationDetailsId = "repo-intelligence-verification-details";
+  const modeReasoningId = "repo-intelligence-mode-reasoning";
+  const graphDiagnosticsId = "repo-intelligence-graph-diagnostics";
 
   useEffect(() => {
     let cancelled = false;
@@ -620,37 +626,71 @@ export function RepoIntelligencePreview({
             {sessionDisplayState.sampleContextWarning}
           </p>
         ) : null}
-        <p className="repo-intelligence-session__detail">
-          {sessionDisplayState.copyDetail} Doctor still verifies runtime and
-          connector health before any app-managed setup.
-        </p>
-        <div
-          className="repo-intelligence-session__safety"
-          aria-label="Agent session copy safety proof"
-        >
-          <span>
-            {sessionPreparation.copySafety.hasRealIndex
-              ? "Real index"
-              : "Sample blocked"}
-          </span>
-          <span>
-            {sessionPreparation.copySafety.allowsCopy
-              ? "Copy allowed"
-              : "Copy disabled"}
-          </span>
-          <span>
-            {sessionPreparation.copySafety.excludesSecretLikePaths
-              ? "Secrets excluded"
-              : "Secrets unchecked"}
-          </span>
-          <span>
-            {sessionPreparation.copySafety.skippedFileCount.toLocaleString()}{" "}
-            skipped
-          </span>
+        <div className="repo-intelligence-disclosure">
+          <button
+            aria-controls={verificationDetailsId}
+            aria-expanded={showVerificationDetails}
+            className="repo-intelligence-disclosure__button"
+            onClick={() => setShowVerificationDetails((open) => !open)}
+            type="button"
+          >
+            {showVerificationDetails ? "Hide details" : "Details"}
+          </button>
+          {showVerificationDetails ? (
+            <div
+              className="repo-intelligence-disclosure__panel"
+              id={verificationDetailsId}
+            >
+              <p className="repo-intelligence-session__detail">
+                {sessionDisplayState.copyDetail} Doctor still verifies runtime
+                and connector health before any app-managed setup.
+              </p>
+              <div
+                className="repo-intelligence-session__safety"
+                aria-label="Agent session copy safety proof"
+              >
+                <span>
+                  {sessionPreparation.copySafety.hasRealIndex
+                    ? "Real index"
+                    : "Sample blocked"}
+                </span>
+                <span>
+                  {sessionPreparation.copySafety.allowsCopy
+                    ? "Copy allowed"
+                    : "Copy disabled"}
+                </span>
+                <span>
+                  {sessionPreparation.copySafety.excludesSecretLikePaths
+                    ? "Secrets excluded"
+                    : "Secrets unchecked"}
+                </span>
+                <span>
+                  {sessionPreparation.copySafety.skippedFileCount.toLocaleString()}{" "}
+                  skipped
+                </span>
+              </div>
+            </div>
+          ) : null}
         </div>
-        <p className="repo-intelligence-session__detail">
-          {sessionPreparation.recommendedModeReason}
-        </p>
+        <div className="repo-intelligence-disclosure">
+          <button
+            aria-controls={modeReasoningId}
+            aria-expanded={showModeReasoning}
+            className="repo-intelligence-disclosure__button"
+            onClick={() => setShowModeReasoning((open) => !open)}
+            type="button"
+          >
+            {showModeReasoning ? "Hide reasoning" : "Learn more"}
+          </button>
+          {showModeReasoning ? (
+            <p
+              className="repo-intelligence-session__detail repo-intelligence-disclosure__panel"
+              id={modeReasoningId}
+            >
+              {sessionPreparation.recommendedModeReason}
+            </p>
+          ) : null}
+        </div>
       </div>
       <div
         className="repo-intelligence-savings"
@@ -680,96 +720,117 @@ export function RepoIntelligencePreview({
         </div>
       </div>
       {summary.graph ? (
-        <div
-          className="repo-intelligence-graph"
-          aria-label="Repo Intelligence graph summary"
-        >
-          <div>
-            <span>Top directories</span>
-            <strong>
-              {summary.graph.topDirectories
-                .slice(0, 3)
-                .map((node) => `${node.label} (${node.count})`)
-                .join(", ") || "None"}
-            </strong>
+        <div>
+          <div
+            className="repo-intelligence-graph"
+            aria-label="Repo Intelligence graph summary"
+          >
+            <div>
+              <span>Top directories</span>
+              <strong>
+                {summary.graph.topDirectories
+                  .slice(0, 3)
+                  .map((node) => `${node.label} (${node.count})`)
+                  .join(", ") || "None"}
+              </strong>
+            </div>
+            <div>
+              <span>Languages</span>
+              <strong>
+                {summary.graph.topLanguages
+                  .slice(0, 3)
+                  .map((node) => node.label)
+                  .join(", ") || "Unknown"}
+              </strong>
+            </div>
+            <div>
+              <span>Entrypoints</span>
+              <strong>{summary.graph.entrypoints.length}</strong>
+            </div>
+            <div>
+              <span>Likely tests</span>
+              <strong>{summary.graph.likelyTests.length}</strong>
+            </div>
           </div>
-          <div>
-            <span>Languages</span>
-            <strong>
-              {summary.graph.topLanguages
-                .slice(0, 3)
-                .map((node) => node.label)
-                .join(", ") || "Unknown"}
-            </strong>
-          </div>
-          <div>
-            <span>Entrypoints</span>
-            <strong>{summary.graph.entrypoints.length}</strong>
-          </div>
-          <div>
-            <span>Likely tests</span>
-            <strong>{summary.graph.likelyTests.length}</strong>
-          </div>
-          <div className="repo-intelligence-graph__wide">
-            <span>Test relationships</span>
-            <strong>{summary.graph.testRelationships?.length ?? 0}</strong>
-            <em>
-              {summary.graph.testRelationships
-                ?.slice(0, 2)
-                .map((edge) => `${edge.testPath} -> ${edge.sourcePath}`)
-                .join(", ") || "No source/test links yet"}
-            </em>
-          </div>
-          <div>
-            <span>Dependency hubs</span>
-            <strong>{summary.graph.dependencyHubs?.length ?? 0}</strong>
-            <em>
-              {summary.graph.dependencyHubs
-                ?.slice(0, 2)
-                .map((file) => file.path)
-                .join(", ") || "No hub files yet"}
-            </em>
-          </div>
-          <div>
-            <span>Import edges</span>
-            <strong>{summary.graph.importEdges?.length ?? 0}</strong>
-            <em>
-              {summary.graph.importEdges
-                ?.slice(0, 2)
-                .map((edge) => `${edge.from} -> ${edge.to}`)
-                .join(", ") || "No path links yet"}
-            </em>
-          </div>
-          <div>
-            <span>Reverse hubs</span>
-            <strong>{summary.graph.reverseDependencyHubs?.length ?? 0}</strong>
-            <em>
-              {summary.graph.reverseDependencyHubs
-                ?.slice(0, 2)
-                .map((node) => `${node.label} (${node.count})`)
-                .join(", ") || "No reverse hubs yet"}
-            </em>
-          </div>
-          <div>
-            <span>Symbols</span>
-            <strong>{summary.graph.symbols?.length ?? 0}</strong>
-            <em>
-              {summary.graph.symbols
-                ?.slice(0, 3)
-                .map((symbol) => `${symbol.name} (${symbol.kind})`)
-                .join(", ") || "No symbols yet"}
-            </em>
-          </div>
-          <div className="repo-intelligence-graph__wide">
-            <span>Agent graph signal</span>
-            <strong>
-              {`${summary.graph.dependencyHubs?.length ?? 0} hubs · ${
-                summary.graph.importEdges?.length ?? 0
-              } edges · ${summary.graph.reverseDependencyHubs?.length ?? 0} reverse hubs · ${
-                summary.graph.symbols?.length ?? 0
-              } symbols`}
-            </strong>
-            <em>Copied into manifests and handoffs without file contents.</em>
+          <div className="repo-intelligence-disclosure repo-intelligence-disclosure--graph">
+            <button
+              aria-controls={graphDiagnosticsId}
+              aria-expanded={showGraphDiagnostics}
+              className="repo-intelligence-disclosure__button"
+              onClick={() => setShowGraphDiagnostics((open) => !open)}
+              type="button"
+            >
+              {showGraphDiagnostics ? "Hide diagnostics" : "Learn more"}
+            </button>
+            {showGraphDiagnostics ? (
+              <div
+                className="repo-intelligence-graph repo-intelligence-graph--diagnostics repo-intelligence-disclosure__panel"
+                id={graphDiagnosticsId}
+                aria-label="Repo Intelligence graph diagnostics"
+              >
+                <div className="repo-intelligence-graph__wide">
+                  <span>Test relationships</span>
+                  <strong>{summary.graph.testRelationships?.length ?? 0}</strong>
+                  <em>
+                    {summary.graph.testRelationships
+                      ?.slice(0, 2)
+                      .map((edge) => `${edge.testPath} -> ${edge.sourcePath}`)
+                      .join(", ") || "No source/test links yet"}
+                  </em>
+                </div>
+                <div>
+                  <span>Dependency hubs</span>
+                  <strong>{summary.graph.dependencyHubs?.length ?? 0}</strong>
+                  <em>
+                    {summary.graph.dependencyHubs
+                      ?.slice(0, 2)
+                      .map((file) => file.path)
+                      .join(", ") || "No hub files yet"}
+                  </em>
+                </div>
+                <div>
+                  <span>Import edges</span>
+                  <strong>{summary.graph.importEdges?.length ?? 0}</strong>
+                  <em>
+                    {summary.graph.importEdges
+                      ?.slice(0, 2)
+                      .map((edge) => `${edge.from} -> ${edge.to}`)
+                      .join(", ") || "No path links yet"}
+                  </em>
+                </div>
+                <div>
+                  <span>Reverse hubs</span>
+                  <strong>{summary.graph.reverseDependencyHubs?.length ?? 0}</strong>
+                  <em>
+                    {summary.graph.reverseDependencyHubs
+                      ?.slice(0, 2)
+                      .map((node) => `${node.label} (${node.count})`)
+                      .join(", ") || "No reverse hubs yet"}
+                  </em>
+                </div>
+                <div>
+                  <span>Symbols</span>
+                  <strong>{summary.graph.symbols?.length ?? 0}</strong>
+                  <em>
+                    {summary.graph.symbols
+                      ?.slice(0, 3)
+                      .map((symbol) => `${symbol.name} (${symbol.kind})`)
+                      .join(", ") || "No symbols yet"}
+                  </em>
+                </div>
+                <div className="repo-intelligence-graph__wide">
+                  <span>Agent graph signal</span>
+                  <strong>
+                    {`${summary.graph.dependencyHubs?.length ?? 0} hubs · ${
+                      summary.graph.importEdges?.length ?? 0
+                    } edges · ${summary.graph.reverseDependencyHubs?.length ?? 0} reverse hubs · ${
+                      summary.graph.symbols?.length ?? 0
+                    } symbols`}
+                  </strong>
+                  <em>Copied into manifests and handoffs without file contents.</em>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

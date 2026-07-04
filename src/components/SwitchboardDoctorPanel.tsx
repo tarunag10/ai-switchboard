@@ -92,6 +92,8 @@ export function SwitchboardDoctorPanel({
   const [retaggingSettings, setRetaggingSettings] =
     useState<CodexThreadRetaggingSettings | null>(null);
   const [retaggingBusy, setRetaggingBusy] = useState(false);
+  const [showRetaggingDetails, setShowRetaggingDetails] = useState(false);
+  const [showConnectorDetails, setShowConnectorDetails] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -334,8 +336,7 @@ export function SwitchboardDoctorPanel({
           <span>Codex history retagging</span>
           <strong>{retaggingSettings?.codexThreadRetagging ?? "ask"}</strong>
           <small>
-            Enables SQLite thread-provider retagging only after consent. Every
-            write creates a sibling backup; unknown schemas are skipped.
+            Choose when Switchboard may update older Codex thread labels.
           </small>
         </div>
         <div className="switchboard-doctor__segmented">
@@ -357,6 +358,24 @@ export function SwitchboardDoctorPanel({
             ),
           )}
         </div>
+        <button
+          type="button"
+          className="switchboard-doctor__details-toggle"
+          aria-expanded={showRetaggingDetails}
+          aria-controls="doctor-retagging-details"
+          onClick={() => setShowRetaggingDetails((visible) => !visible)}
+        >
+          {showRetaggingDetails ? "Hide details" : "Show details"}
+        </button>
+        {showRetaggingDetails ? (
+          <p
+            id="doctor-retagging-details"
+            className="switchboard-doctor__details-copy"
+          >
+            Retagging only runs after consent. Every write creates a sibling
+            backup, and unknown thread database schemas are skipped.
+          </p>
+        ) : null}
       </section>
 
       {report.issues.length > 0 ? (
@@ -439,25 +458,40 @@ export function SwitchboardDoctorPanel({
             <strong>Connector setup status</strong>
             <span>{connectorPreviewRows.length} manual</span>
           </div>
-          <div className="switchboard-doctor__connector-preview-grid">
-            {connectorPreviewRows.slice(0, 6).map((connector) => (
-              <div
-                className="switchboard-doctor__connector-preview-row"
-                key={connector.id}
-              >
-                <div>
-                  <strong>{connector.name}</strong>
-                  <span>{connector.setupPhase}</span>
-                </div>
-                <p>{connector.nextBlockedGate}</p>
-                <small>{connector.dryRunPreview}</small>
-              </div>
-            ))}
-          </div>
           <p className="switchboard-doctor__connector-preview-note">
-            Automatic setup stays off for these tools until backup, verification,
-            rollback, and Off cleanup are proven.
+            Detected connectors are visible in Settings. Automatic setup stays
+            off until each one has proven backup, verification, rollback, and
+            Off cleanup.
           </p>
+          <button
+            type="button"
+            className="switchboard-doctor__details-toggle"
+            aria-expanded={showConnectorDetails}
+            aria-controls="doctor-connector-details"
+            onClick={() => setShowConnectorDetails((visible) => !visible)}
+          >
+            {showConnectorDetails ? "Hide details" : "Show details"}
+          </button>
+          {showConnectorDetails ? (
+            <div
+              id="doctor-connector-details"
+              className="switchboard-doctor__connector-preview-grid"
+            >
+              {connectorPreviewRows.slice(0, 6).map((connector) => (
+                <div
+                  className="switchboard-doctor__connector-preview-row"
+                  key={connector.id}
+                >
+                  <div>
+                    <strong>{connector.name}</strong>
+                    <span>{connector.setupPhase}</span>
+                  </div>
+                  <p>{connector.nextBlockedGate}</p>
+                  <small>{connector.dryRunPreview}</small>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

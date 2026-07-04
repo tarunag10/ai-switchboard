@@ -1,4 +1,5 @@
 import { Terminal } from "@phosphor-icons/react";
+import { useId, useState } from "react";
 import type { PlannedAddon } from "../lib/plannedAddons";
 import type { PlannedConnector } from "../lib/plannedConnectors";
 import { plannedConnectors } from "../lib/plannedConnectors";
@@ -13,6 +14,8 @@ export function PlannedAddonCard({
   onCopyConnectorConfigPlan?: (connector: PlannedConnector) => void;
   onOpenRepoIntelligence?: () => void;
 }) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const detailsId = useId();
   const showConnectorRoadmap = addon.id === "agent_connectors";
   const showRepoIntelligencePreview = addon.id === "repo_intelligence";
   const isRepoIntelligence = addon.id === "repo_intelligence";
@@ -36,39 +39,6 @@ export function PlannedAddonCard({
             <li key={bullet}>{bullet}</li>
           ))}
         </ul>
-        <div className="addon-card__evidence-grid">
-          <section>
-            <h4>Health checks</h4>
-            <ul>
-              {addon.healthChecks.map((check) => (
-                <li key={check}>{check}</li>
-              ))}
-            </ul>
-          </section>
-          <section>
-            <h4>Savings sources</h4>
-            <ul>
-              {addon.savingsSources.map((source) => (
-                <li key={source}>{source}</li>
-              ))}
-            </ul>
-          </section>
-        </div>
-        {addon.verificationCommand ? (
-          <p className="addon-card__verification">
-            <Terminal size={13} weight="duotone" />
-            <code>{addon.verificationCommand}</code>
-          </p>
-        ) : null}
-        {showConnectorRoadmap ? (
-          <PlannedConnectorRoadmap
-            connectors={plannedConnectors}
-            onCopyConfigPlan={
-              onCopyConnectorConfigPlan ??
-              (() => undefined)
-            }
-          />
-        ) : null}
         {showRepoIntelligencePreview ? (
           <div className="repo-intelligence-addon-cta">
             <strong>Dedicated workspace is available.</strong>
@@ -85,8 +55,56 @@ export function PlannedAddonCard({
             </button>
           </div>
         ) : null}
+        <div
+          className="addon-card__details"
+          hidden={!detailsOpen}
+          id={detailsId}
+        >
+          <div className="addon-card__evidence-grid">
+            <section>
+              <h4>Health checks</h4>
+              <ul>
+                {addon.healthChecks.map((check) => (
+                  <li key={check}>{check}</li>
+                ))}
+              </ul>
+            </section>
+            <section>
+              <h4>Savings sources</h4>
+              <ul>
+                {addon.savingsSources.map((source) => (
+                  <li key={source}>{source}</li>
+                ))}
+              </ul>
+            </section>
+          </div>
+          {addon.verificationCommand ? (
+            <p className="addon-card__verification">
+              <Terminal size={13} weight="duotone" />
+              <code>{addon.verificationCommand}</code>
+            </p>
+          ) : null}
+          {showConnectorRoadmap ? (
+            <PlannedConnectorRoadmap
+              connectors={plannedConnectors}
+              onCopyConfigPlan={
+                onCopyConnectorConfigPlan ??
+                (() => undefined)
+              }
+            />
+          ) : null}
+        </div>
       </div>
       <div className="addon-card__actions">
+        <button
+          type="button"
+          className="addon-card__action"
+          aria-controls={detailsId}
+          aria-expanded={detailsOpen}
+          onClick={() => setDetailsOpen((open) => !open)}
+        >
+          {detailsOpen ? "Hide details" : "Learn more"}
+        </button>
         <button type="button" className="addon-card__action" disabled>
           {isRepoIntelligence ? "Open from sidebar" : "Copy readiness plan"}
         </button>

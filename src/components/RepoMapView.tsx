@@ -133,6 +133,8 @@ export function RepoMapView({
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [openNotice, setOpenNotice] = useState<string | null>(null);
   const [history, setHistory] = useState<RepoMapHistoryItem[]>(() => readHistory());
+  const [showToolInstallDetails, setShowToolInstallDetails] = useState(false);
+  const [showGraphDiagnostics, setShowGraphDiagnostics] = useState(false);
 
   const tone = statusTone(repoMap);
   const graphifyReady = repoMap.tools.graphify.nodeCount > 0;
@@ -288,6 +290,8 @@ export function RepoMapView({
   });
   const missingPreflightTools =
     preflight?.tools.filter((tool) => !tool.available) ?? [];
+  const toolInstallDetailsId = "repo-map-tool-install-details";
+  const graphDiagnosticsId = "repo-map-graph-diagnostics";
 
   return (
     <section className="repo-map-view" aria-labelledby="repo-map-title">
@@ -375,16 +379,33 @@ export function RepoMapView({
       </div>
 
       {missingPreflightTools.length > 0 ? (
-        <div className="repo-map-preflight-fixes" aria-label="Repo map tool install checks">
-          <strong>Tool install checks</strong>
-          <ul>
-            {missingPreflightTools.map((tool) => (
-              <li key={`${tool.label}-${tool.installHint}`}>
-                <span>{tool.label}</span>
-                <code>{tool.installHint}</code>
-              </li>
-            ))}
-          </ul>
+        <div className="repo-map-disclosure">
+          <button
+            aria-controls={toolInstallDetailsId}
+            aria-expanded={showToolInstallDetails}
+            className="repo-map-disclosure__button"
+            onClick={() => setShowToolInstallDetails((open) => !open)}
+            type="button"
+          >
+            {showToolInstallDetails ? "Hide install checks" : "Details"}
+          </button>
+          {showToolInstallDetails ? (
+            <div
+              className="repo-map-preflight-fixes repo-map-disclosure__panel"
+              id={toolInstallDetailsId}
+              aria-label="Repo map tool install checks"
+            >
+              <strong>Tool install checks</strong>
+              <ul>
+                {missingPreflightTools.map((tool) => (
+                  <li key={`${tool.label}-${tool.installHint}`}>
+                    <span>{tool.label}</span>
+                    <code>{tool.installHint}</code>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -425,55 +446,72 @@ export function RepoMapView({
         ))}
       </div>
 
-      <div className="repo-map-layout">
-        <article className="repo-map-panel">
-          <div className="repo-map-panel__header">
-            <GitBranch size={18} weight="duotone" />
-            <h2>Tool Status</h2>
-          </div>
-          <ul className="repo-map-tool-list">
-            {toolRuns.map(([id, label]) => {
-              const run = repoMap.toolRuns?.[id];
-              const status = run?.status ?? "not-run";
-              return (
-                <li className={`repo-map-tool-list__item repo-map-tool-list__item--${status}`} key={id}>
-                  <span>{label}</span>
-                  <strong>{status}</strong>
-                  {run?.remediation ? <small>{run.remediation}</small> : null}
-                </li>
-              );
-            })}
-          </ul>
-        </article>
+      <div className="repo-map-disclosure">
+        <button
+          aria-controls={graphDiagnosticsId}
+          aria-expanded={showGraphDiagnostics}
+          className="repo-map-disclosure__button"
+          onClick={() => setShowGraphDiagnostics((open) => !open)}
+          type="button"
+        >
+          {showGraphDiagnostics ? "Hide diagnostics" : "Learn more"}
+        </button>
+        {showGraphDiagnostics ? (
+          <div
+            className="repo-map-layout repo-map-disclosure__panel"
+            id={graphDiagnosticsId}
+            aria-label="Repo map graph diagnostics"
+          >
+            <article className="repo-map-panel">
+              <div className="repo-map-panel__header">
+                <GitBranch size={18} weight="duotone" />
+                <h2>Tool Status</h2>
+              </div>
+              <ul className="repo-map-tool-list">
+                {toolRuns.map(([id, label]) => {
+                  const run = repoMap.toolRuns?.[id];
+                  const status = run?.status ?? "not-run";
+                  return (
+                    <li className={`repo-map-tool-list__item repo-map-tool-list__item--${status}`} key={id}>
+                      <span>{label}</span>
+                      <strong>{status}</strong>
+                      {run?.remediation ? <small>{run.remediation}</small> : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </article>
 
-        <article className="repo-map-panel">
-          <div className="repo-map-panel__header">
-            <FileCode size={18} weight="duotone" />
-            <h2>Tool Checks</h2>
-          </div>
-          <ul className="repo-map-tool-list">
-            {(preflight?.tools ?? []).map((tool) => (
-              <li
-                className={`repo-map-tool-list__item repo-map-tool-list__item--${
-                  tool.available ? "ok" : "warning"
-                }`}
-                key={tool.id}
-              >
-                <span>{tool.label}</span>
-                <strong>{tool.available ? "ready" : "missing"}</strong>
-                {tool.installHint ? (
-                  <button
-                    className="repo-map-tool-list__copy"
-                    onClick={() => copyInstallHint(tool.installHint ?? "")}
-                    type="button"
+            <article className="repo-map-panel">
+              <div className="repo-map-panel__header">
+                <FileCode size={18} weight="duotone" />
+                <h2>Tool Checks</h2>
+              </div>
+              <ul className="repo-map-tool-list">
+                {(preflight?.tools ?? []).map((tool) => (
+                  <li
+                    className={`repo-map-tool-list__item repo-map-tool-list__item--${
+                      tool.available ? "ok" : "warning"
+                    }`}
+                    key={tool.id}
                   >
-                    Copy fix
-                  </button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </article>
+                    <span>{tool.label}</span>
+                    <strong>{tool.available ? "ready" : "missing"}</strong>
+                    {tool.installHint ? (
+                      <button
+                        className="repo-map-tool-list__copy"
+                        onClick={() => copyInstallHint(tool.installHint ?? "")}
+                        type="button"
+                      >
+                        Copy fix
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </article>
+          </div>
+        ) : null}
       </div>
 
       <div className="repo-map-layout">

@@ -202,6 +202,18 @@ describe("SwitchboardDoctorPanel", () => {
     );
 
     expect(await screen.findByText("disabled")).toBeInTheDocument();
+    expect(
+      screen.getByText("Choose when Switchboard may update older Codex thread labels."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Every write creates a sibling backup/i),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show details" }));
+
+    expect(
+      screen.getByText(/Every write creates a sibling backup/i),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "enabled" }));
 
@@ -496,6 +508,29 @@ describe("SwitchboardDoctorPanel", () => {
         onRepair={vi.fn()}
       />,
     );
+
+    expect(screen.getByText("Connector setup status")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Detected connectors are visible in Settings/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Connector ID: cursor")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Dry-run preview: target User/settings.json; marker mac-ai-switchboard:cursor",
+      ),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", { name: "Show details" })[1]);
+
+    expect(screen.getByText("Cursor")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Backup Coverage Needed").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        "Dry-run target: User/settings.json; marker: mac-ai-switchboard:cursor",
+      ),
+    ).toBeInTheDocument();
 
     await user.click(
       screen.getByRole("button", { name: "Connector details" }),
