@@ -82,6 +82,7 @@ function installedSmokeActions(report) {
 }
 
 run("npm", ["run", "check:branding"]);
+run("npm", ["run", "check:local-only-network"]);
 run("npm", ["run", "release:report"]);
 run("npm", ["run", "release:report:check"]);
 

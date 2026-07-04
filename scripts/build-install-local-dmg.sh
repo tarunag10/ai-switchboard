@@ -52,11 +52,11 @@ if [[ ! -d "${MOUNT_POINT}/Mac AI Switchboard.app" ]]; then
   exit 1
 fi
 
-if pgrep -f "${APP_DEST}/Contents/MacOS/headroom-desktop" >/dev/null 2>&1; then
+if pgrep -f "${APP_DEST}/Contents/MacOS/mac-ai-switchboard" >/dev/null 2>&1; then
   osascript -e 'tell application id "com.tarunagarwal.mac-ai-switchboard" to quit' >/dev/null 2>&1 || true
   sleep 2
 fi
-pkill -f "${APP_DEST}/Contents/MacOS/headroom-desktop" >/dev/null 2>&1 || true
+pkill -f "${APP_DEST}/Contents/MacOS/mac-ai-switchboard" >/dev/null 2>&1 || true
 
 rm -rf "${APP_DEST}"
 ditto "${MOUNT_POINT}/Mac AI Switchboard.app" "${APP_DEST}"
@@ -64,6 +64,13 @@ codesign --force --deep --sign - "${APP_DEST}"
 codesign --verify --deep --strict --verbose=2 "${APP_DEST}"
 
 npm run smoke:installed:local
+
+if [[ "${MAC_AI_SWITCHBOARD_SKIP_OPEN:-0}" != "1" ]]; then
+  open "${APP_DEST}"
+  echo "Opened ${APP_DEST}"
+else
+  echo "Skipped opening ${APP_DEST} because MAC_AI_SWITCHBOARD_SKIP_OPEN=1"
+fi
 
 echo "Local app installed at ${APP_DEST}"
 echo "Local DMG copied to ${LOCAL_DMG}"

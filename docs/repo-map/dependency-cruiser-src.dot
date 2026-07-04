@@ -1,0 +1,77 @@
+strict digraph "dependency-cruiser output"{
+    rankdir="LR" splines="true" overlap="false" nodesep="0.16" ranksep="0.18" fontname="Helvetica-bold" fontsize="9" style="rounded,bold,filled" fillcolor="#ffffff" compound="true"
+    node [shape="box" style="rounded, filled" height="0.2" color="black" fillcolor="#ffffcc" fontcolor="black" fontname="Helvetica" fontsize="9"]
+    edge [arrowhead="normal" arrowsize="0.6" penwidth="2.0" color="#00000033" fontname="Helvetica" fontsize="9"]
+
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/ActivityFeed" [label=<ActivityFeed> tooltip="ActivityFeed" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/LauncherShell" [label=<LauncherShell> tooltip="LauncherShell" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/OptimizePanel" [label=<OptimizePanel> tooltip="OptimizePanel" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/RepoMapView" [label=<RepoMapView> tooltip="RepoMapView" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsLegalPanel" [label=<SettingsLegalPanel> tooltip="SettingsLegalPanel" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SwitchboardDoctorPanel" [label=<SwitchboardDoctorPanel> tooltip="SwitchboardDoctorPanel" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SwitchboardPanel" [label=<SwitchboardPanel> tooltip="SwitchboardPanel" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/TermsGate" [label=<TermsGate> tooltip="TermsGate" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/analytics" [label=<analytics> tooltip="analytics" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/appHelpers" [label=<appHelpers> tooltip="appHelpers" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/appUpdate" [label=<appUpdate> tooltip="appUpdate" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/bootstrapSentry" [label=<bootstrapSentry> tooltip="bootstrapSentry" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/dashboardHelpers" [label=<dashboardHelpers> tooltip="dashboardHelpers" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/doctorRepairCopy" [label=<doctorRepairCopy> tooltip="doctorRepairCopy" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/launcherHelpers" [label=<launcherHelpers> tooltip="launcherHelpers" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/localMode" [label=<localMode> tooltip="localMode" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/managedChanges" [label=<managedChanges> tooltip="managedChanges" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/mockData" [label=<mockData> tooltip="mockData" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/plannedAddons" [label=<plannedAddons> tooltip="plannedAddons" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/plannedConnectors" [label=<plannedConnectors> tooltip="plannedConnectors" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/pricing" [label=<pricing> tooltip="pricing" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/releaseReadiness" [label=<releaseReadiness> tooltip="releaseReadiness" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/repoIntelligence" [label=<repoIntelligence> tooltip="repoIntelligence" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/repoMemoryMcp" [label=<repoMemoryMcp> tooltip="repoMemoryMcp" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/savingsCalculator" [label=<savingsCalculator> tooltip="savingsCalculator" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/settingsTransfer" [label=<settingsTransfer> tooltip="settingsTransfer" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/switchboardDisplay" [label=<switchboardDisplay> tooltip="switchboardDisplay" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/tauriRuntime" [label=<tauriRuntime> tooltip="tauriRuntime" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/trayHelpers" [label=<trayHelpers> tooltip="trayHelpers" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/trialNotifications" [label=<trialNotifications> tooltip="trialNotifications" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/types" [label=<types> tooltip="types" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/uninstallDisclosure" [label=<uninstallDisclosure> tooltip="uninstallDisclosure" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/urgentNotifications" [label=<urgentNotifications> tooltip="urgentNotifications" ] } }
+    subgraph "cluster_src" {label="src" "src/App.tsx" [label=<App.tsx> tooltip="App.tsx" URL="src/App.tsx" fillcolor="#bbfeff"] }
+    "src/App.tsx" -> "src/assets/mac-ai-switchboard-logo.png"
+    "src/App.tsx" -> "./components/ActivityFeed"
+    "src/App.tsx" -> "./components/LauncherShell"
+    "src/App.tsx" -> "./components/OptimizePanel"
+    "src/App.tsx" -> "./components/RepoMapView"
+    "src/App.tsx" -> "./components/SettingsLegalPanel"
+    "src/App.tsx" -> "./components/SwitchboardDoctorPanel"
+    "src/App.tsx" -> "./components/SwitchboardPanel"
+    "src/App.tsx" -> "./components/TermsGate"
+    "src/App.tsx" -> "./lib/analytics"
+    "src/App.tsx" -> "./lib/appHelpers"
+    "src/App.tsx" -> "./lib/appUpdate"
+    "src/App.tsx" -> "./lib/bootstrapSentry"
+    "src/App.tsx" -> "./lib/dashboardHelpers"
+    "src/App.tsx" -> "./lib/doctorRepairCopy"
+    "src/App.tsx" -> "./lib/launcherHelpers"
+    "src/App.tsx" -> "./lib/localMode"
+    "src/App.tsx" -> "./lib/managedChanges"
+    "src/App.tsx" -> "./lib/mockData"
+    "src/App.tsx" -> "./lib/plannedAddons"
+    "src/App.tsx" -> "./lib/plannedConnectors"
+    "src/App.tsx" -> "./lib/pricing"
+    "src/App.tsx" -> "./lib/releaseReadiness"
+    "src/App.tsx" -> "./lib/repoIntelligence"
+    "src/App.tsx" -> "./lib/repoMemoryMcp"
+    "src/App.tsx" -> "./lib/savingsCalculator"
+    "src/App.tsx" -> "./lib/settingsTransfer"
+    "src/App.tsx" -> "./lib/switchboardDisplay"
+    "src/App.tsx" -> "./lib/tauriRuntime"
+    "src/App.tsx" -> "./lib/trayHelpers"
+    "src/App.tsx" -> "./lib/trialNotifications"
+    "src/App.tsx" -> "./lib/types"
+    "src/App.tsx" -> "./lib/uninstallDisclosure"
+    "src/App.tsx" -> "./lib/urgentNotifications"
+    "src/App.tsx" -> "✖"
+    subgraph "cluster_src" {label="src" subgraph "cluster_src/assets" {label="assets" "src/assets/mac-ai-switchboard-logo.png" [label=<mac-ai-switchboard-logo.png> tooltip="mac-ai-switchboard-logo.png" URL="src/assets/mac-ai-switchboard-logo.png" ] } }
+    "✖" [label=<✖> tooltip="✖" ]
+}

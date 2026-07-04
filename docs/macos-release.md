@@ -28,16 +28,25 @@ npm run build:mac:dmg
 
 This produces a signed `Mac-AI-Switchboard_<version>.dmg` in `src-tauri/target/release/bundle/dmg/`.
 Run `npm run release:env` before publishing from a local Mac. It checks Node/npm, Rust/cargo/rustup, Xcode command-line tools, signing/notarization environment variables, and updater settings before the heavier release gate starts. Use `node scripts/check-release-env.mjs --json` or `npm --silent run release:env:json` when automation needs structured `ok`, `blockers`, and `warnings` output.
-Run `npm run release:ready` when you want a sequential release-readiness check before packaging. It runs the branding guard, `release:report`, validates `dist/release-readiness-report.json`, and prints concrete next actions. The underlying `release:report` command writes `dist/release-readiness-report.md` and `dist/release-readiness-report.json` with environment blockers, warnings, Rust backend validation status, installed-app smoke status, and next steps. If Rust validation is blocked, the report includes the exact unblock sequence: check `rustup`, check `cargo`, add macOS Rust targets, then run `npm run fmt:desktop` and `npm run test:desktop`. Feature branches can also use the **Rust Tauri Validation** GitHub Actions workflow for backend formatting/tests without Apple signing secrets.
+Run `npm run release:proof` after or alongside `release:ready` to write `dist/public-release-proof-summary.md` and `.json`; the proof is allowed to be blocked, but it must list the exact signed DMG, notarization, updater feed, static smoke, and public installed-smoke evidence still missing.
+
+Run `npm run release:ready` when you want a sequential release-readiness check before packaging. It runs the branding guard, local-only network certification, `release:report`, validates `dist/release-readiness-report.json`, and prints concrete next actions. The underlying `release:report` command writes `dist/release-readiness-report.md` and `dist/release-readiness-report.json` with environment blockers, warnings, Rust backend validation status, installed-app smoke status, and next steps. If Rust validation is blocked, the report includes the exact unblock sequence: check `rustup`, check `cargo`, add macOS Rust targets, then run `npm run fmt:desktop` and `npm run test:desktop`. Feature branches can also use the **Rust Tauri Validation** GitHub Actions workflow for backend formatting/tests without Apple signing secrets.
 
 `npm run test:desktop` runs Rust tests serially because several backend tests intentionally exercise shared shell/env/config state. Keep that release gate serial unless those tests are isolated.
 
 Release env checks reject copied template placeholders such as `REPLACE_WITH_*`, `your-*`, and `/absolute/path/...`. Copy `.env.example` into a private `.env.local`, replace every placeholder with a real local value, and keep `.env.local` out of git.
 Run `npm run release:check` before publishing. The release gate runs release environment preflight, semantic color checks, a production frontend build, frontend coverage, Rust formatting, and desktop tests.
-Run `npm run smoke:preflight` before handing a DMG to a tester; it confirms the installed-app smoke checklist covers Switchboard modes, degraded-mode Doctor guidance, planned connector automation gates and manual workflow, pause/resume, Repo Intelligence agent handoffs, Savings calculator copyable summary, and Codex optimization.
+Run `npm run smoke:preflight` before handing a DMG to a tester; it confirms the installed-app smoke checklist covers Switchboard modes, degraded-mode Doctor guidance, managed connector automation gates, manual workflow, config creation plan, managed connector readiness evidence, pause/resume, Repo Intelligence agent handoffs, connector readiness payload in agent handoffs, Savings calculator copyable summary, and Codex optimization.
 Treat the build as blocked until `npm run release:ready -- --strict` is clear, the DMG is signed/notarized, `/Applications/Mac AI Switchboard.app/Contents/Info.plist` exists from the DMG install, the beta smoke checklist has been run on that installed app, and `npm run smoke:installed -- --confirm` has written `dist/installed-smoke-summary.md`. The installed smoke summary records the SHA-256 of `docs/beta-smoke-test.md`; rerun installed smoke whenever the checklist changes so release readiness does not accept stale evidence.
 
-For local unsigned/ad-hoc testing only, use `npm run build:mac:local-install`. It builds a local DMG, copies it to `dist/release-artifacts`, installs `/Applications/Mac AI Switchboard.app`, ad-hoc signs the installed app, then runs `npm run smoke:installed:local`. The local smoke command writes `dist/local-installed-smoke-summary.md` and JSON metadata for the bundle, checksum, local code signature, Gatekeeper status, and running process. Do not use that local summary as public release evidence.
+Stable GitHub releases upload `SHA256SUMS.txt` and `sbom-summary.json` after
+the Tauri action publishes the DMG/updater assets. These integrity artifacts do
+not replace Apple signing or notarization; they make release contents easier to
+verify and audit.
+
+For local unsigned/ad-hoc testing only, use `npm run evidence:local` when you want the same one-command local evidence sequence exposed by the app's **Run local evidence** button. It runs desktop validation, static smoke preflight, local DMG build/install, local installed smoke, local Off/RTK relaunch smoke, Rollback Center validation, Doctor repair validation, uninstall dry-run validation, Repo Intelligence validation, and a release report refresh, then writes `dist/local-evidence-summary.md`. This command does not run signing, notarization, updater publication, or the strict public-release gate.
+
+Use `npm run build:mac:local-install` when you only want the local install step. It builds a local DMG, copies it to `dist/release-artifacts`, installs `/Applications/Mac AI Switchboard.app`, ad-hoc signs the installed app, runs `npm run smoke:installed:local`, then opens the installed app. Set `MAC_AI_SWITCHBOARD_SKIP_OPEN=1` for automated evidence runs that should not launch the app window. The local smoke command writes `dist/local-installed-smoke-summary.md` and JSON metadata for the bundle, checksum, local code signature, Gatekeeper status, and running process. When the installed app is running, the same local smoke also records whether the loopback app listener (`127.0.0.1:6767`) and Headroom engine proxy (`127.0.0.1:6768`) report healthy `/readyz` status. Do not use local summaries as public release evidence.
 
 If you want a universal build, install both Rust macOS targets first and then run:
 
@@ -88,7 +97,7 @@ Required for notarization, choose one mode:
 - Apple ID mode:
   `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID`
 
-Recommended for production builds of Headroom so auto-update stays enabled:
+Recommended for production builds of Mac AI Switchboard so auto-update stays enabled:
 
 - `HEADROOM_UPDATER_PUBLIC_KEY`
   The public half of the Tauri updater signing keypair.
@@ -180,9 +189,9 @@ For a small app, the simplest setup is:
 
 You can later move the updater feed to S3 or another CDN without changing app code, as long as the published endpoint URL stays valid and the signatures match the embedded public key.
 
-## User experience in Headroom
+## User experience in Mac AI Switchboard
 
-Headroom does not auto-install updates silently.
+Mac AI Switchboard does not auto-install updates silently.
 
 Current behavior:
 

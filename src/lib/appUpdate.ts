@@ -3,6 +3,7 @@ import { listen, type Event, type UnlistenFn } from "@tauri-apps/api/event";
 import * as Sentry from "@sentry/react";
 
 import { describeInvokeError } from "./appHelpers";
+import { hasTauriEventRuntime } from "./tauriRuntime";
 import type { AppUpdateConfiguration, AvailableAppUpdate } from "./types";
 
 export type AppUpdateInvoker = <T>(
@@ -20,6 +21,9 @@ export type AppUpdateProgressListener = (
 ) => Promise<UnlistenFn>;
 
 const APP_UPDATE_PROGRESS_EVENT = "app-update://progress";
+
+const listenForAppUpdateProgress: AppUpdateProgressListener = (event, handler) =>
+  hasTauriEventRuntime() ? listen(event, handler) : Promise.resolve(() => {});
 
 export interface AppUpdateStatePatch {
   config?: AppUpdateConfiguration;
@@ -171,7 +175,7 @@ export async function maybeFireStaleAppUpdateNotification(
 export function getAppUpdateInstallStatusCopy(
   availableUpdate: AvailableAppUpdate | null
 ): string | null {
-  return availableUpdate ? `Downloading Headroom ${availableUpdate.version}…` : null;
+  return availableUpdate ? `Downloading Mac AI Switchboard ${availableUpdate.version}…` : null;
 }
 
 export function formatAppUpdateProgressCopy(
@@ -179,22 +183,22 @@ export function formatAppUpdateProgressCopy(
   progress: AppUpdateProgress
 ): string {
   if (progress.phase === "installing") {
-    return `Installing Headroom ${version}…`;
+    return `Installing Mac AI Switchboard ${version}…`;
   }
 
   const downloadedMb = progress.downloaded / 1_000_000;
   if (progress.total && progress.total > 0) {
     const totalMb = progress.total / 1_000_000;
     const pct = Math.min(100, Math.round((progress.downloaded / progress.total) * 100));
-    return `Downloading Headroom ${version}: ${downloadedMb.toFixed(1)} MB of ${totalMb.toFixed(1)} MB (${pct}%)…`;
+    return `Downloading Mac AI Switchboard ${version}: ${downloadedMb.toFixed(1)} MB of ${totalMb.toFixed(1)} MB (${pct}%)…`;
   }
-  return `Downloading Headroom ${version}: ${downloadedMb.toFixed(1)} MB…`;
+  return `Downloading Mac AI Switchboard ${version}: ${downloadedMb.toFixed(1)} MB…`;
 }
 
 export async function runAppUpdateInstall({
   availableUpdate,
   invokeFn = invoke,
-  listenFn = listen as AppUpdateProgressListener,
+  listenFn = listenForAppUpdateProgress,
   onProgress,
 }: {
   availableUpdate: AvailableAppUpdate | null;
@@ -222,7 +226,7 @@ export async function runAppUpdateInstall({
     return {
       readyToRestart: true,
       showDialog: true,
-      statusCopy: `Headroom ${availableUpdate.version} is installed and ready to restart.`,
+      statusCopy: `Mac AI Switchboard ${availableUpdate.version} is installed and ready to restart.`,
     };
   } catch (error) {
     Sentry.captureException(error, { tags: { flow: "app_update_install" } });

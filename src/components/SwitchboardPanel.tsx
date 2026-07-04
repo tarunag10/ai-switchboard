@@ -18,7 +18,13 @@ import {
   switchboardModeLabel,
   switchboardModeSafetyNotes,
 } from "../lib/switchboardDisplay";
-import type { SavingsMode, SwitchboardMode } from "../lib/types";
+import type {
+  ClientConnectorStatus,
+  DailySavingsPoint,
+  SavingsMode,
+  SwitchboardMode,
+  UsageEvent,
+} from "../lib/types";
 
 interface SwitchboardPanelProps {
   mode: SwitchboardMode;
@@ -30,10 +36,24 @@ interface SwitchboardPanelProps {
   headroomDetail: string;
   rtkStatus: string;
   rtkDetail: string;
+  connectors?: ClientConnectorStatus[];
+  recentUsage?: UsageEvent[];
+  savedHistory?: DailySavingsPoint[];
+  inspectorRows?: Array<{
+    label: string;
+    status: string;
+    detail: string;
+    actionLabel?: string;
+    actionBusyLabel?: string;
+    actionDisabled?: boolean;
+    onAction?: () => void;
+  }>;
   remoteServicesEnabled: boolean;
   savingsMode: SavingsMode;
   savingsModeBusy: SavingsMode | null;
   paused: boolean;
+  runtimeActionVisible?: boolean;
+  runtimeActionLabel?: string;
   resuming: boolean;
   modeBusy: SwitchboardMode | null;
   modeError: string | null;
@@ -62,10 +82,16 @@ export function SwitchboardPanel({
   headroomDetail,
   rtkStatus,
   rtkDetail,
+  connectors = [],
+  recentUsage = [],
+  savedHistory = [],
+  inspectorRows = [],
   remoteServicesEnabled,
   savingsMode,
   savingsModeBusy,
   paused,
+  runtimeActionVisible = paused,
+  runtimeActionLabel,
   resuming,
   modeBusy,
   modeError,
@@ -87,11 +113,19 @@ export function SwitchboardPanel({
   const modeFootprint = switchboardModeFootprint(mode);
   const setupLabel = localOnlySetupLabel(localOnly);
   const remoteCopy = remoteServicesCopy(remoteServicesEnabled);
-  const codexGuidance = codexConcurrencyGuidance(mode, headroomDetail);
+  const codexGuidance = codexConcurrencyGuidance(
+    mode,
+    headroomDetail,
+    recentUsage,
+    savedHistory,
+  );
+  const showStaleShellWarning = Boolean(needsAttention);
   const savingsModeCopy =
     savingsMode === "aggressive"
       ? "Lower thresholds and stronger compression for noisy context."
       : "Preserves cache-friendly context with conservative compression.";
+  const visibleConnectors = connectors.slice(0, 8);
+  const hiddenConnectorCount = Math.max(0, connectors.length - visibleConnectors.length);
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
 
@@ -179,6 +213,49 @@ export function SwitchboardPanel({
         })}
       </div>
       <p className="switchboard-panel__mode-effect">{modeEffect}</p>
+      {connectors.length > 0 ? (
+        <div className="switchboard-panel__connectors" aria-label="Managed coding agents">
+          <div className="switchboard-panel__connectors-head">
+            <span>Coding agents</span>
+            <button type="button" onClick={onManageClients}>
+              Manage
+            </button>
+          </div>
+          <div className="switchboard-panel__connector-row">
+            {visibleConnectors.map((connector) => {
+              const state = connector.enabled
+                ? connector.verified
+                  ? "on"
+                  : "attention"
+                : connector.installed
+                  ? "detected"
+                  : "off";
+              return (
+                <span
+                  className={`switchboard-panel__connector-pill switchboard-panel__connector-pill--${state}`}
+                  key={connector.clientId}
+                  title={
+                    connector.enabled
+                      ? connector.verified
+                        ? "Enabled and verified"
+                        : "Enabled, needs verification"
+                      : connector.installed
+                        ? "Detected, not enabled"
+                        : "Not detected"
+                  }
+                >
+                  {connector.name}
+                </span>
+              );
+            })}
+            {hiddenConnectorCount > 0 ? (
+              <span className="switchboard-panel__connector-pill switchboard-panel__connector-pill--more">
+                +{hiddenConnectorCount}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       <div className="switchboard-panel__savings-mode">
         <div>
           <span>Savings profile</span>
@@ -238,6 +315,33 @@ export function SwitchboardPanel({
     <strong>{rtkStatus}</strong>
     <small>{rtkDetail}</small>
   </div>
+  {showStaleShellWarning ? (
+    <div>
+      <span>Stale shells</span>
+      <strong>Restart shells</strong>
+      <small>
+        Terminals or editors opened before this mode change can retain old
+        ANTHROPIC_BASE_URL, OPENAI_BASE_URL, or PATH exports until restarted.
+      </small>
+    </div>
+  ) : null}
+  {inspectorRows.map((row) => (
+    <div key={row.label}>
+      <span>{row.label}</span>
+      <strong>{row.status}</strong>
+      <small>{row.detail}</small>
+      {row.onAction && row.actionLabel ? (
+        <button
+          type="button"
+          className="switchboard-panel__inspector-action"
+          disabled={row.actionDisabled}
+          onClick={row.onAction}
+        >
+          {row.actionBusyLabel ?? row.actionLabel}
+        </button>
+      ) : null}
+    </div>
+  ))}
   <div>
     <span>Remote services</span>
     <strong>{remoteCopy.label}</strong>
@@ -270,7 +374,20 @@ className="switchboard-panel__footprint"
         <div className="switchboard-panel__recommendation">
           <div>
             <strong>{codexGuidance.title}</strong>
+            <span
+              className={`switchboard-panel__recommendation-risk switchboard-panel__recommendation-risk--${codexGuidance.riskTone}`}
+            >
+              {codexGuidance.riskLabel}
+            </span>
             <p>{codexGuidance.body}</p>
+            <ul
+              className="switchboard-panel__recommendation-evidence"
+              aria-label="Codex context pressure evidence"
+            >
+              {codexGuidance.evidence.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
             <div
               className="switchboard-panel__recommendation-policies"
               aria-label="Codex parallel-session policy"
@@ -321,14 +438,16 @@ className="switchboard-panel__footprint"
         </div>
       </div>
       <div className="switchboard-panel__actions">
-        {paused ? (
+        {runtimeActionVisible ? (
           <button
             type="button"
             className="switchboard-panel__action switchboard-panel__action--primary"
             onClick={onResume}
             disabled={resuming}
           >
-            {resuming ? "Restarting…" : "Resume Headroom"}
+            {resuming
+              ? "Restarting…"
+              : runtimeActionLabel ?? (paused ? "Resume runtime" : "Start runtime")}
           </button>
         ) : null}
         <button

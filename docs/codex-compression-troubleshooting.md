@@ -40,6 +40,7 @@ The model error is a Codex model/provider configuration issue. Use Doctor to rep
 3. Compact long-running Codex sessions before starting another active goal.
 4. Avoid running multiple noisy build/test/log-heavy tasks through Headroom at the same time.
 5. Keep Doctor visible after mode changes; it shows whether Codex is temporarily bypassing Headroom and whether routing can be reset.
+6. Enable Codex history retagging only after reviewing the SQLite backup and restore notes in `docs/recovery.md`.
 
 Switchboard should warn before failure: **Full: one main Codex session**, **RTK only: 2+ heavy sessions**, **After 413: compact, then reset Codex in Doctor**, and **Unsupported model: Repair Codex setup**. Use **Switch to RTK only** before opening several heavy active Codex chats or goals.
 

@@ -1,8 +1,7 @@
 import type { DashboardState } from "./types";
-import packageJson from "../../package.json";
 
 export const mockDashboard: DashboardState = {
-  appVersion: packageJson.version,
+  appVersion: "0.0.0",
   launchExperience: "first_run",
   bootstrapComplete: false,
   pythonRuntimeInstalled: false,

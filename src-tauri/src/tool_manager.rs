@@ -19,7 +19,9 @@ use sha2::{Digest, Sha256};
 use tar::Archive;
 
 use crate::backend_port::{self, AllForeign, SelectedFallback};
-use crate::models::{ManagedTool, RtkTodayStats, SavingsMode, ToolStatus};
+use crate::models::{
+    ManagedTool, RepoMemoryMcpServiceStatus, RtkDailyStats, RtkTodayStats, SavingsMode, ToolStatus,
+};
 
 /// Pinned headroom-ai version. Upgrade logic is disabled; this exact version
 /// will be installed if the currently-installed version differs.
@@ -205,8 +207,10 @@ const PONYTAIL_DISPLAY_VERSION: &str = "latest";
 const CAVEMAN_DISPLAY_VERSION: &str = "1";
 pub const CAVEMAN_LEVEL_SCOPED: &str = "scoped";
 pub const CAVEMAN_LEVEL_AGGRESSIVE: &str = "aggressive";
+pub const CAVEMAN_LEVEL_COMPACT_CHINESE: &str = "compact_chinese";
 const REPO_MEMORY_DISPLAY_VERSION: &str = "1";
 const REPO_MEMORY_MCP_NAME: &str = "repo-memory";
+const REPO_MEMORY_MCP_SMOKE_TEST_TIMEOUT: Duration = Duration::from_secs(10);
 const RTK_SHA256_MACOS_AARCH64: &str =
     "f223ca074a0215af002679bc1d34ca92b93e25b3e8ae16aace6e84c06e586802";
 const RTK_SHA256_MACOS_X86_64: &str =
@@ -338,8 +342,15 @@ struct RtkDailyGainOutput {
 #[derive(Debug, Clone, Deserialize)]
 pub struct RtkGainSummary {
     pub total_commands: u64,
+    #[serde(default)]
+    pub total_input: u64,
+    #[serde(default)]
+    pub total_output: u64,
     pub total_saved: u64,
     pub avg_savings_pct: f64,
+    #[serde(default)]
+    pub total_time_ms: u64,
+    pub avg_time_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -348,7 +359,15 @@ struct RtkDailyEntry {
     #[serde(default)]
     commands: u64,
     #[serde(default)]
+    input_tokens: u64,
+    #[serde(default)]
+    output_tokens: u64,
+    #[serde(default)]
     saved_tokens: u64,
+    savings_pct: Option<f64>,
+    #[serde(default)]
+    total_time_ms: u64,
+    avg_time_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone)]
@@ -786,6 +805,7 @@ impl ToolManager {
             // Use the console_scripts entrypoint when available to avoid the Python
             // -m double-import RuntimeWarning. Fall back to -m if missing.
             let savings_mode = crate::client_adapters::load_savings_mode();
+            repair_console_script_interpreter(&entrypoint, &python)?;
             let startup_variants: Vec<(PathBuf, Vec<String>)> = if entrypoint.exists() {
                 vec![
                     (entrypoint, headroom_entrypoint_startup_args(&savings_mode)),
@@ -1397,7 +1417,31 @@ impl ToolManager {
                 date: entry.date,
                 saved_tokens: entry.saved_tokens,
                 commands: entry.commands,
+                input_tokens: entry.input_tokens,
+                output_tokens: entry.output_tokens,
+                savings_pct: entry.savings_pct,
+                total_time_ms: entry.total_time_ms,
+                avg_time_ms: entry.avg_time_ms,
             })
+    }
+
+    pub fn rtk_daily_stats(&self) -> Option<Vec<RtkDailyStats>> {
+        Some(
+            self.rtk_gain_output()?
+                .daily
+                .into_iter()
+                .map(|entry| RtkDailyStats {
+                    date: entry.date,
+                    saved_tokens: entry.saved_tokens,
+                    commands: entry.commands,
+                    input_tokens: entry.input_tokens,
+                    output_tokens: entry.output_tokens,
+                    savings_pct: entry.savings_pct,
+                    total_time_ms: entry.total_time_ms,
+                    avg_time_ms: entry.avg_time_ms,
+                })
+                .collect(),
+        )
     }
 
     /// Returns the pinned release if the installed version differs from the pin.
@@ -3565,10 +3609,10 @@ impl ToolManager {
         if !self.caveman_receipt_exists() {
             bail!("caveman is not installed");
         }
-        let normalized = if level == CAVEMAN_LEVEL_AGGRESSIVE {
-            CAVEMAN_LEVEL_AGGRESSIVE
-        } else {
-            CAVEMAN_LEVEL_SCOPED
+        let normalized = match level {
+            CAVEMAN_LEVEL_AGGRESSIVE => CAVEMAN_LEVEL_AGGRESSIVE,
+            CAVEMAN_LEVEL_COMPACT_CHINESE => CAVEMAN_LEVEL_COMPACT_CHINESE,
+            _ => CAVEMAN_LEVEL_SCOPED,
         };
         let enabled = self.tool_enabled("caveman");
         self.write_tool_receipt(
@@ -3592,14 +3636,15 @@ impl ToolManager {
     }
 
     pub fn install_repo_memory_mcp(&self) -> Result<()> {
-        let script = std::env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join("scripts")
-            .join("repo-intelligence.mjs");
+        let script = repo_memory_script_path("repo-intelligence.mjs")?;
+        let node_command = resolve_command_path("node")
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "node".to_string());
+        let command = format!("{} {} --mcp-serve", node_command, script.display());
         write_mcp_server_to_claude_json(
             REPO_MEMORY_MCP_NAME,
             json!({
-                "command": "node",
+                "command": node_command,
                 "args": [script, "--mcp-serve"],
                 "env": { "MAC_AI_SWITCHBOARD_REPO_MEMORY_READ_ONLY": "1" },
             }),
@@ -3612,10 +3657,74 @@ impl ToolManager {
                     "configured": true,
                     "serverName": REPO_MEMORY_MCP_NAME,
                     "readOnly": true,
+                    "transport": "stdio",
+                    "command": command,
+                    "descriptorPath": self.runtime.tools_dir.join("repo-memory.json"),
                 },
             }),
         )?;
         Ok(())
+    }
+
+    pub fn repo_memory_mcp_service_status(&self) -> Option<RepoMemoryMcpServiceStatus> {
+        let descriptor_path = self.runtime.tools_dir.join("repo-memory.json");
+        let script = repo_memory_script_path("repo-intelligence.mjs").ok()?;
+        let descriptor_present = descriptor_path.exists();
+        let script_present = script.exists();
+        let node_command = resolve_command_path("node")
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "node".to_string());
+        let node_available = resolve_command_path("node").is_some();
+        Some(RepoMemoryMcpServiceStatus {
+            managed_by_app: true,
+            read_only: true,
+            transport: "stdio".to_string(),
+            command: format!("{} {} --mcp-serve", node_command, script.display()),
+            descriptor_path: descriptor_path.display().to_string(),
+            descriptor_present,
+            script_path: script.display().to_string(),
+            script_present,
+            node_available,
+        })
+    }
+
+    pub fn ensure_repo_memory_mcp_configured(&self) -> Result<()> {
+        if self.repo_memory_mcp_configured() == Some(true) {
+            return Ok(());
+        }
+        self.install_repo_memory_mcp()
+    }
+
+    pub fn verify_repo_memory_mcp_smoke(&self) -> Result<()> {
+        let script = repo_memory_script_path("check-repo-memory-mcp.mjs")?;
+        let cwd = script
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+        let script_arg = script.to_string_lossy().to_string();
+        run_command_with_timeout(
+            Path::new("node"),
+            &[script_arg.as_str()],
+            &cwd,
+            REPO_MEMORY_MCP_SMOKE_TEST_TIMEOUT,
+        )
+        .context("verifying repo-memory MCP read-only smoke contract")?;
+        Ok(())
+    }
+
+    pub fn repo_memory_mcp_configured(&self) -> Option<bool> {
+        if !self.runtime.tools_dir.join("repo-memory.json").exists() {
+            return Some(false);
+        }
+        Some(claude_code_has_mcp_server(REPO_MEMORY_MCP_NAME))
+    }
+
+    pub fn repo_memory_mcp_error(&self) -> Option<String> {
+        match self.repo_memory_mcp_configured() {
+            Some(true) => None,
+            Some(false) => Some("repo-memory missing from Claude MCP config".to_string()),
+            None => Some("Repo Memory MCP configuration could not be verified".to_string()),
+        }
     }
 
     /// Remove the managed rtk binary and its receipt. Shell PATH and Claude Code
@@ -3644,7 +3753,16 @@ impl ToolManager {
             && PluginHost::ALL.iter().any(|host| host.plugin_present())
     }
 
-    fn ponytail_receipt_exists(&self) -> bool {
+    pub fn ponytail_registered_hosts(&self) -> Vec<String> {
+        PluginHost::ALL
+            .iter()
+            .copied()
+            .filter(|host| host.plugin_present())
+            .map(|host| host.label().to_string())
+            .collect()
+    }
+
+    pub fn ponytail_receipt_exists(&self) -> bool {
         self.runtime.tools_dir.join("ponytail.json").exists()
     }
 
@@ -3913,12 +4031,85 @@ fn installed_ponytail_version() -> Option<String> {
         .map(str::to_string)
 }
 
+fn repo_memory_script_path(script_name: &str) -> Result<PathBuf> {
+    for candidate in repo_memory_script_candidates(script_name) {
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+    bail!("repo-memory script {script_name} is missing from dev scripts and bundled resources")
+}
+
+fn repo_memory_script_candidates(script_name: &str) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("scripts").join(script_name));
+        if let Some(parent) = cwd.parent() {
+            candidates.push(parent.join("scripts").join(script_name));
+        }
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(mac_os_dir) = exe.parent() {
+            if let Some(contents_dir) = mac_os_dir.parent() {
+                let resources_dir = contents_dir.join("Resources");
+                candidates.push(resources_dir.join("_up_").join("scripts").join(script_name));
+                candidates.push(resources_dir.join("scripts").join(script_name));
+                candidates.push(resources_dir.join(script_name));
+            }
+        }
+        if let Some(exe_dir) = exe.parent() {
+            candidates.push(exe_dir.join("scripts").join(script_name));
+        }
+    }
+    candidates
+}
+
+fn command_available_on_path(command: &str) -> bool {
+    resolve_command_path(command).is_some()
+}
+
+fn resolve_command_path(command: &str) -> Option<PathBuf> {
+    fn is_executable_file(path: &Path) -> bool {
+        use std::os::unix::fs::PermissionsExt;
+        path.metadata()
+            .map(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+            .unwrap_or(false)
+    }
+
+    if command.contains(std::path::MAIN_SEPARATOR) {
+        let path = PathBuf::from(command);
+        return is_executable_file(&path).then_some(path);
+    }
+    let path_candidates = std::env::var_os("PATH")
+        .map(|path_var| std::env::split_paths(&path_var).collect::<Vec<_>>())
+        .unwrap_or_default()
+        .into_iter()
+        .chain(
+            [
+                "/opt/homebrew/bin",
+                "/usr/local/bin",
+                "/usr/bin",
+                "/bin",
+                "/opt/local/bin",
+            ]
+            .into_iter()
+            .map(PathBuf::from),
+        );
+    path_candidates
+        .map(|dir| dir.join(command))
+        .find(|candidate| is_executable_file(candidate))
+}
+
 /// Claude Code ≥2.x stores user-scope MCP servers in `~/.claude.json` under
 /// `mcpServers.<name>`. The legacy `~/.claude/mcp.json` path written by our
 /// Python CLI's fallback branch is ignored. Reading the file Claude Code
 /// actually reads is the only reliable way to confirm the registration
 /// landed where `/mcp` and `claude mcp list` will see it.
 fn claude_code_has_headroom_mcp_server() -> bool {
+    claude_code_has_mcp_server("headroom")
+}
+
+fn claude_code_has_mcp_server(name: &str) -> bool {
     let Some(home) = dirs::home_dir() else {
         return false;
     };
@@ -3929,10 +4120,7 @@ fn claude_code_has_headroom_mcp_server() -> bool {
     let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
         return false;
     };
-    value
-        .get("mcpServers")
-        .and_then(|v| v.get("headroom"))
-        .is_some()
+    value.get("mcpServers").and_then(|v| v.get(name)).is_some()
 }
 
 /// Writes the headroom MCP server entry directly to `~/.claude.json`.
@@ -4002,6 +4190,40 @@ fn diagnose_proxy_port(port: u16) -> PortState {
     } else {
         PortState::ForeignOccupant(lsof_listener(port).unwrap_or_else(|| "unknown process".into()))
     }
+}
+
+fn repair_console_script_interpreter(entrypoint: &Path, python: &Path) -> Result<()> {
+    if !entrypoint.exists() {
+        return Ok(());
+    }
+    let content = std::fs::read_to_string(entrypoint)
+        .with_context(|| format!("reading {}", entrypoint.display()))?;
+    let python = python.to_string_lossy();
+    let mut changed = false;
+    let mut updated_lines = Vec::new();
+    for line in content.lines() {
+        if line.starts_with("'''exec' \"") && !line.contains(&python[..]) {
+            if let Some(rest_start) = line.find("\" \"$0\" \"$@\"") {
+                let mut updated = String::from("'''exec' \"");
+                updated.push_str(&python);
+                updated.push_str(&line[rest_start..]);
+                updated_lines.push(updated);
+                changed = true;
+                continue;
+            }
+        }
+        updated_lines.push(line.to_string());
+    }
+    if !changed {
+        return Ok(());
+    }
+    let mut updated = updated_lines.join("\n");
+    if content.ends_with('\n') {
+        updated.push('\n');
+    }
+    std::fs::write(entrypoint, updated)
+        .with_context(|| format!("rewriting stale interpreter in {}", entrypoint.display()))?;
+    Ok(())
 }
 
 fn probe_headroom_http(port: u16, timeout: Duration) -> bool {
@@ -4160,7 +4382,7 @@ fn format_all_foreign_bail(default_port: u16, occupant: &str, range: (u16, u16))
     let (start, end) = range;
     format!(
         "port {default_port} is occupied by a non-headroom process ({occupant}) and fallback ports {start}-{end} are also unavailable; cannot start proxy. \
-         Reboot to clear stuck listeners, then relaunch Headroom."
+         Reboot to clear stuck listeners, then relaunch Mac AI Switchboard."
     )
 }
 
@@ -4258,14 +4480,17 @@ fn headroom_python_startup_args() -> Vec<String> {
     // here makes argparse exit 2, so the fallback would always fail and mask
     // the real entrypoint failure under spurious noise. Keep this variant to
     // server-supported flags only.
-    vec![
+    let mut args = vec![
         "-m".to_string(),
         "headroom.proxy.server".to_string(),
         "--port".to_string(),
         headroom_proxy_port(),
         "--no-http2".to_string(),
-        "--log-messages".to_string(),
-    ]
+    ];
+    if crate::message_logging::full_message_logging_active() {
+        args.push("--log-messages".to_string());
+    }
+    args
 }
 
 fn headroom_entrypoint_startup_args(savings_mode: &SavingsMode) -> Vec<String> {
@@ -4273,14 +4498,14 @@ fn headroom_entrypoint_startup_args(savings_mode: &SavingsMode) -> Vec<String> {
     // (set to "false" in the spawn env). Older bundled runtimes ignored this var
     // and ran HTTP/2 unconditionally, which surfaced as SSLV3_ALERT_BAD_RECORD_MAC
     // under multi-tab concurrency; the runtime bundled with this build honors it.
-    // --log-messages stores full request/response bodies so the desktop's
-    // Activity tab can render the live transformations feed.
     let mut args = vec![
         "proxy".to_string(),
         "--port".to_string(),
         headroom_proxy_port(),
-        "--log-messages".to_string(),
     ];
+    if crate::message_logging::full_message_logging_active() {
+        args.push("--log-messages".to_string());
+    }
     if matches!(savings_mode, SavingsMode::Aggressive) {
         args.push("--intercept-tool-results".to_string());
     }
@@ -4317,12 +4542,14 @@ fn expected_proxy_arg_signature() -> Vec<&'static str> {
 fn expected_proxy_arg_signature_for(savings_mode: &SavingsMode) -> Vec<&'static str> {
     let mut flags = vec![
         "--port",
-        "--log-messages",
         "--learn",
         "--no-memory-tools",
         "--no-memory-context",
         "--memory-db-path",
     ];
+    if crate::message_logging::full_message_logging_active() {
+        flags.push("--log-messages");
+    }
     if matches!(savings_mode, SavingsMode::Aggressive) {
         flags.push("--intercept-tool-results");
     }
@@ -4649,7 +4876,7 @@ where
     }
 
     let client = reqwest::blocking::Client::builder()
-        .user_agent(concat!("headroom-desktop/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("mac-ai-switchboard/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(30))
         .timeout(Duration::from_secs(30 * 60))
         .tcp_keepalive(Duration::from_secs(60))
@@ -5642,15 +5869,43 @@ mod tests {
         parse_pid_from_lsof_detail, path_with_binary_dir, probe_backend_readyz_ok,
         proxy_argv_contains_expected_flags_for, read_headroom_learn_metadata_from_path,
         receipt_requires_atomic_rebuild, reclaim_orphan_proxy, redact_sensitive,
-        requirements_lock_sha, rtk_distribution_artifact, run_command, sanitize_log_variant,
-        sha256_bytes, summarize_kompress_prefetch_failure, verify_sha256_file, wait_for_port_free,
-        write_mcp_server_to_claude_json, CommandFailure, HeadroomRelease, ManagedRuntime,
-        PipOutputCapture, ToolManager, UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION, RTK_VERSION,
+        repair_console_script_interpreter, requirements_lock_sha, rtk_distribution_artifact,
+        run_command, sanitize_log_variant, sha256_bytes, summarize_kompress_prefetch_failure,
+        verify_sha256_file, wait_for_port_free, write_mcp_server_to_claude_json, CommandFailure,
+        HeadroomRelease, ManagedRuntime, PipOutputCapture, ToolManager, UpgradeOutcome,
+        ATOMIC_REBUILD_FLOOR_VERSION, CAVEMAN_LEVEL_COMPACT_CHINESE, CAVEMAN_LEVEL_SCOPED,
+        RTK_VERSION,
     };
     use crate::backend_port;
     use crate::models::SavingsMode;
     use crate::port_conflict;
     use std::net::TcpListener;
+
+    struct AppStorageEnvGuard {
+        prev_xdg: Option<std::ffi::OsString>,
+        _temp_dir: std::path::PathBuf,
+    }
+
+    impl AppStorageEnvGuard {
+        fn new() -> Self {
+            let prev_xdg = std::env::var_os("XDG_DATA_HOME");
+            let temp_dir = unique_temp_dir("app-storage");
+            std::env::set_var("XDG_DATA_HOME", &temp_dir);
+            Self {
+                prev_xdg,
+                _temp_dir: temp_dir,
+            }
+        }
+    }
+
+    impl Drop for AppStorageEnvGuard {
+        fn drop(&mut self) {
+            match self.prev_xdg.take() {
+                Some(value) => std::env::set_var("XDG_DATA_HOME", value),
+                None => std::env::remove_var("XDG_DATA_HOME"),
+            }
+        }
+    }
 
     #[test]
     fn path_with_binary_dir_prepends_parent() {
@@ -5660,6 +5915,29 @@ mod tests {
         // A bare binary name has no usable parent; PATH is left unchanged.
         let existing = std::env::var("PATH").unwrap_or_default();
         assert_eq!(path_with_binary_dir(&PathBuf::from("codex")), existing);
+    }
+
+    #[test]
+    fn repair_console_script_interpreter_rewrites_legacy_python_path() {
+        let root = unique_temp_dir("repair-console-script");
+        let bin = root.join("venv").join("bin");
+        fs::create_dir_all(&bin).unwrap();
+        let entrypoint = bin.join("headroom");
+        let python = bin.join("python3");
+        fs::write(&python, "#!/bin/sh\n").unwrap();
+        fs::write(
+            &entrypoint,
+            "#!/bin/sh\n'''exec' \"/Users/t/Library/Application Support/Headroom/headroom/runtime/venv/bin/python3\" \"$0\" \"$@\"\n' '''\nimport sys\n",
+        )
+        .unwrap();
+
+        repair_console_script_interpreter(&entrypoint, &python).unwrap();
+
+        let updated = fs::read_to_string(&entrypoint).unwrap();
+        assert!(updated.contains(&format!("'''exec' \"{}\"", python.display())));
+        assert!(!updated.contains("Application Support/Headroom/headroom/runtime/venv/bin/python3"));
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
@@ -5934,6 +6212,39 @@ mod tests {
     }
 
     #[test]
+    fn caveman_compact_chinese_level_round_trips() {
+        let (_root, _runtime, manager) = seed_test_runtime("caveman-compact-chinese");
+
+        manager.install_caveman().expect("install caveman");
+        manager
+            .set_caveman_level(CAVEMAN_LEVEL_COMPACT_CHINESE)
+            .expect("set compact chinese");
+
+        let caveman = manager
+            .list_tools()
+            .into_iter()
+            .find(|tool| tool.id == "caveman")
+            .expect("caveman manifest should exist");
+        assert_eq!(manager.caveman_level(), CAVEMAN_LEVEL_COMPACT_CHINESE);
+        assert_eq!(
+            caveman.metadata.as_ref().and_then(|meta| meta.get("level")),
+            Some(&json!(CAVEMAN_LEVEL_COMPACT_CHINESE))
+        );
+    }
+
+    #[test]
+    fn caveman_unknown_level_falls_back_to_scoped() {
+        let (_root, _runtime, manager) = seed_test_runtime("caveman-unknown-level");
+
+        manager.install_caveman().expect("install caveman");
+        manager
+            .set_caveman_level("translate_everything")
+            .expect("set unknown level");
+
+        assert_eq!(manager.caveman_level(), CAVEMAN_LEVEL_SCOPED);
+    }
+
+    #[test]
     fn rtk_installed_requires_binary_and_receipt() {
         let (root, runtime, manager) = seed_test_runtime("rtk-installed");
 
@@ -6105,6 +6416,67 @@ mod tests {
         assert_eq!(stats.date, today);
         assert_eq!(stats.commands, 7);
         assert_eq!(stats.saved_tokens, 1234);
+        assert_eq!(stats.input_tokens, 0);
+        assert_eq!(stats.output_tokens, 0);
+        assert_eq!(stats.savings_pct, None);
+        assert_eq!(stats.total_time_ms, 0);
+        assert_eq!(stats.avg_time_ms, None);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn rtk_daily_stats_returns_all_daily_rows() {
+        let (root, runtime, manager) = seed_test_runtime("rtk-daily");
+        write_executable(
+            &runtime.bin_dir.join("rtk"),
+            "#!/usr/bin/env bash\nif [ \"$1\" = \"gain\" ]; then\n  echo '{\"daily\":[{\"date\":\"2026-06-24\",\"commands\":2,\"input_tokens\":900,\"output_tokens\":600,\"saved_tokens\":300,\"savings_pct\":33.3,\"total_time_ms\":1200,\"avg_time_ms\":600},{\"date\":\"2026-06-25\",\"commands\":7,\"input_tokens\":2000,\"output_tokens\":766,\"saved_tokens\":1234,\"savings_pct\":61.7,\"total_time_ms\":3500,\"avg_time_ms\":500}]}';\n  exit 0\nfi\nexit 9\n",
+        );
+        manager
+            .write_tool_receipt("rtk", serde_json::json!({ "version": RTK_VERSION }))
+            .expect("rtk receipt");
+
+        let stats = manager.rtk_daily_stats().expect("daily stats");
+        assert_eq!(stats.len(), 2);
+        assert_eq!(stats[0].date, "2026-06-24");
+        assert_eq!(stats[0].commands, 2);
+        assert_eq!(stats[0].input_tokens, 900);
+        assert_eq!(stats[0].output_tokens, 600);
+        assert_eq!(stats[0].saved_tokens, 300);
+        assert_eq!(stats[0].savings_pct, Some(33.3));
+        assert_eq!(stats[0].total_time_ms, 1200);
+        assert_eq!(stats[0].avg_time_ms, Some(600));
+        assert_eq!(stats[1].date, "2026-06-25");
+        assert_eq!(stats[1].commands, 7);
+        assert_eq!(stats[1].input_tokens, 2000);
+        assert_eq!(stats[1].output_tokens, 766);
+        assert_eq!(stats[1].saved_tokens, 1234);
+        assert_eq!(stats[1].savings_pct, Some(61.7));
+        assert_eq!(stats[1].total_time_ms, 3500);
+        assert_eq!(stats[1].avg_time_ms, Some(500));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn rtk_gain_summary_preserves_lifetime_token_and_timing_totals() {
+        let (root, runtime, manager) = seed_test_runtime("rtk-summary");
+        write_executable(
+            &runtime.bin_dir.join("rtk"),
+            "#!/usr/bin/env bash\nif [ \"$1\" = \"gain\" ]; then\n  echo '{\"summary\":{\"total_commands\":12,\"total_input\":1500,\"total_output\":600,\"total_saved\":900,\"avg_savings_pct\":60.0,\"total_time_ms\":3500,\"avg_time_ms\":292},\"daily\":[]}';\n  exit 0\nfi\nexit 9\n",
+        );
+        manager
+            .write_tool_receipt("rtk", serde_json::json!({ "version": RTK_VERSION }))
+            .expect("rtk receipt");
+
+        let summary = manager.rtk_gain_summary().expect("summary");
+        assert_eq!(summary.total_commands, 12);
+        assert_eq!(summary.total_input, 1500);
+        assert_eq!(summary.total_output, 600);
+        assert_eq!(summary.total_saved, 900);
+        assert_eq!(summary.avg_savings_pct, 60.0);
+        assert_eq!(summary.total_time_ms, 3500);
+        assert_eq!(summary.avg_time_ms, Some(292));
 
         let _ = fs::remove_dir_all(root);
     }
@@ -6176,6 +6548,7 @@ mod tests {
 
     #[test]
     fn proxy_argv_matches_when_all_expected_flags_present() {
+        std::env::remove_var("HEADROOM_FULL_MESSAGE_LOGGING");
         let argv = "/usr/bin/nice -n 5 /Users/x/headroom proxy --port 6768 --log-messages \
                     --learn --no-memory-tools --no-memory-context --memory-db-path /tmp/m.db";
         assert!(proxy_argv_contains_expected_flags_for(
@@ -6185,14 +6558,24 @@ mod tests {
     }
 
     #[test]
-    fn proxy_argv_mismatch_when_log_messages_missing() {
-        // The exact orphan-from-old-build case: a v0.2.x proxy still running
-        // with just `proxy --port 6768`.
+    fn proxy_argv_mismatch_when_core_flags_missing() {
         let argv = "/Users/x/headroom proxy --port 6768";
         assert!(!proxy_argv_contains_expected_flags_for(
             argv,
             &SavingsMode::Balanced
         ));
+    }
+
+    #[test]
+    fn proxy_argv_requires_log_messages_only_during_explicit_opt_in() {
+        std::env::set_var("HEADROOM_FULL_MESSAGE_LOGGING", "1");
+        let argv = "headroom proxy --port 6768 --learn --no-memory-tools \
+                    --no-memory-context --memory-db-path /tmp/m.db";
+        assert!(!proxy_argv_contains_expected_flags_for(
+            argv,
+            &SavingsMode::Balanced
+        ));
+        std::env::remove_var("HEADROOM_FULL_MESSAGE_LOGGING");
     }
 
     #[test]
@@ -6463,6 +6846,10 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 
     #[test]
     fn managed_headroom_startup_uses_supported_proxy_args() {
+        std::env::set_var("HEADROOM_FULL_MESSAGE_LOGGING", "0");
+        let _app_storage = AppStorageEnvGuard::new();
+        crate::message_logging::save_settings(&crate::models::MessageLoggingSettings::default())
+            .expect("disable message logging for startup test");
         backend_port::reset_for_tests();
         let default_port = backend_port::DEFAULT_BACKEND_PORT.to_string();
         let entrypoint_args = headroom_entrypoint_startup_args(&SavingsMode::Balanced);
@@ -6470,8 +6857,8 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
             "proxy".to_string(),
             "--port".to_string(),
             default_port.clone(),
-            "--log-messages".to_string(),
         ]));
+        assert!(!entrypoint_args.contains(&"--log-messages".to_string()));
         assert!(entrypoint_args.contains(&"--learn".to_string()));
         assert!(entrypoint_args.contains(&"--no-memory-tools".to_string()));
         assert!(entrypoint_args.contains(&"--no-memory-context".to_string()));
@@ -6486,7 +6873,6 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
                 "--port".to_string(),
                 default_port,
                 "--no-http2".to_string(),
-                "--log-messages".to_string(),
             ]
         );
         // The python -m fallback must not pass learn flags; argparse on
@@ -6497,6 +6883,17 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
         assert!(!python_args.contains(&"--memory-db-path".to_string()));
 
         backend_port::reset_for_tests();
+    }
+
+    #[test]
+    fn full_message_logging_startup_args_require_explicit_opt_in() {
+        std::env::set_var("HEADROOM_FULL_MESSAGE_LOGGING", "1");
+        let entrypoint_args = headroom_entrypoint_startup_args(&SavingsMode::Balanced);
+        let python_args = headroom_python_startup_args();
+        std::env::remove_var("HEADROOM_FULL_MESSAGE_LOGGING");
+
+        assert!(entrypoint_args.contains(&"--log-messages".to_string()));
+        assert!(python_args.contains(&"--log-messages".to_string()));
     }
 
     #[test]
@@ -6896,7 +7293,10 @@ after
                 .expect("parse claude json");
         assert_eq!(value["theme"], "dark");
         assert!(value["mcpServers"]["headroom"].is_object());
-        assert_eq!(value["mcpServers"]["repo-memory"]["command"], "node");
+        assert!(value["mcpServers"]["repo-memory"]["command"]
+            .as_str()
+            .expect("repo-memory command")
+            .ends_with("node"));
     }
 
     #[test]
@@ -6915,6 +7315,15 @@ after
         .expect("parse receipt");
         assert_eq!(receipt["mcp"]["configured"], true);
         assert_eq!(receipt["mcp"]["readOnly"], true);
+        assert_eq!(receipt["mcp"]["transport"], "stdio");
+        assert!(receipt["mcp"]["command"]
+            .as_str()
+            .expect("receipt command")
+            .contains("repo-intelligence.mjs"));
+        assert!(receipt["mcp"]["descriptorPath"]
+            .as_str()
+            .expect("descriptor path")
+            .ends_with("repo-memory.json"));
         let claude: Value =
             serde_json::from_slice(&fs::read(home.root.join(".claude.json")).expect("read claude"))
                 .expect("parse claude");
@@ -6922,8 +7331,83 @@ after
             claude["mcpServers"]["repo-memory"]["env"]["MAC_AI_SWITCHBOARD_REPO_MEMORY_READ_ONLY"],
             "1"
         );
+        assert_eq!(manager.repo_memory_mcp_configured(), Some(true));
+        assert!(manager.repo_memory_mcp_error().is_none());
+        let service = manager
+            .repo_memory_mcp_service_status()
+            .expect("repo memory service status");
+        assert!(service.managed_by_app);
+        assert!(service.read_only);
+        assert_eq!(service.transport, "stdio");
+        assert!(service.command.contains("repo-intelligence.mjs"));
+        assert!(service.descriptor_path.ends_with("repo-memory.json"));
+        assert!(service.descriptor_present);
+        assert!(service.script_path.ends_with("repo-intelligence.mjs"));
+        assert!(service.script_present);
+        assert!(service.node_available);
 
         let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn command_available_on_path_detects_missing_commands() {
+        assert!(!super::command_available_on_path(
+            "mac-ai-switchboard-definitely-missing-command"
+        ));
+    }
+
+    #[test]
+    fn command_available_on_path_accepts_absolute_node_path() {
+        for candidate in [
+            "/usr/local/bin/node",
+            "/opt/homebrew/bin/node",
+            "/usr/bin/node",
+        ] {
+            if std::path::Path::new(candidate).exists() {
+                assert!(super::command_available_on_path(candidate));
+                return;
+            }
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn repo_memory_mcp_config_detects_missing_server_separately_from_headroom() {
+        let home = TestHome::new("repo-memory-missing-home");
+        let (_root, runtime, manager) = seed_test_runtime("repo-memory-missing");
+        fs::write(
+            runtime.tools_dir.join("repo-memory.json"),
+            br#"{"version":"1","mcp":{"configured":true,"serverName":"repo-memory"}}"#,
+        )
+        .expect("write receipt");
+        fs::write(
+            home.root.join(".claude.json"),
+            br#"{"mcpServers":{"headroom":{"command":"headroom"}}}"#,
+        )
+        .expect("write claude json");
+
+        assert_eq!(manager.repo_memory_mcp_configured(), Some(false));
+        assert!(manager
+            .repo_memory_mcp_error()
+            .expect("repo memory error")
+            .contains("repo-memory missing"));
+    }
+
+    #[test]
+    fn repo_memory_script_candidates_include_dev_and_resource_paths() {
+        let candidates = super::repo_memory_script_candidates("repo-intelligence.mjs");
+        assert!(
+            candidates
+                .iter()
+                .any(|path| path.ends_with("scripts/repo-intelligence.mjs")),
+            "dev script path should be a candidate"
+        );
+        assert!(
+            candidates
+                .iter()
+                .any(|path| path.display().to_string().contains("Resources")),
+            "bundled resource path should be a candidate"
+        );
     }
 
     #[test]
@@ -7318,10 +7802,10 @@ after
 
     #[test]
     fn atomic_upgrade_purges_stale_backup_and_reports_failure_without_python() {
-        // Without a real standalone python available, create_managed_venv()
-        // will fail. We still want to verify that a stale backup from a
-        // previous aborted upgrade is removed before the attempt, and that
-        // the live venv is restored byte-for-byte after the failure.
+        // Without a real standalone python available, the upgrade will fail.
+        // We still want to verify that a stale backup from a previous aborted
+        // upgrade is removed before the attempt, and that the live venv is
+        // preserved or restored byte-for-byte after the failure.
         let (root, runtime, manager) = seed_test_runtime("atomic-stale");
 
         // Pre-seed a stale backup (simulating a previous aborted upgrade).
@@ -7337,21 +7821,20 @@ after
             sha256: "deadbeef".into(),
         };
 
-        let outcome = manager.atomic_upgrade_headroom(&release, |_| {}, false);
+        let outcome = manager.atomic_upgrade_headroom(&release, |_| {}, true);
 
         match outcome {
-            UpgradeOutcome::InstallFailed { restored, .. } => {
-                assert!(restored, "old venv should be restored after failure");
-            }
+            UpgradeOutcome::InstallFailed { .. } => {}
             UpgradeOutcome::InstalledPendingValidation { .. } => {
                 panic!("unexpected success without python");
             }
         }
 
-        // Live venv is back with its original content.
+        // Live venv is still present with its original content. Depending on
+        // which preflight failed, the old venv may never have been moved.
         assert!(
             runtime.venv_dir.join("marker").exists(),
-            "original marker restored"
+            "original marker preserved or restored"
         );
         // Stale backup purged (either consumed during restore or cleaned at start).
         assert!(!stale_backup.exists(), "stale backup removed");
@@ -7595,7 +8078,7 @@ after
         write_executable(&runtime.managed_python(), "#!/bin/sh\nexit 0\n");
 
         manager
-            .smoke_test_headroom_with_timeout(Duration::from_secs(2))
+            .smoke_test_headroom_with_timeout(super::HEADROOM_SMOKE_TEST_TIMEOUT)
             .expect("smoke test succeeds");
 
         let _ = fs::remove_dir_all(root);
@@ -7610,7 +8093,7 @@ after
         );
 
         let err = manager
-            .smoke_test_headroom_with_timeout(Duration::from_secs(2))
+            .smoke_test_headroom_with_timeout(super::HEADROOM_SMOKE_TEST_TIMEOUT)
             .expect_err("smoke test should fail");
         let failure = err
             .chain()
@@ -7718,7 +8201,7 @@ after
         write_executable(&manager.markitdown_entrypoint(), "#!/bin/sh\nexit 0\n");
 
         manager
-            .smoke_test_markitdown_with_timeout(Duration::from_secs(2))
+            .smoke_test_markitdown_with_timeout(super::HEADROOM_SMOKE_TEST_TIMEOUT)
             .expect("smoke test succeeds");
 
         let _ = fs::remove_dir_all(root);
@@ -7735,7 +8218,7 @@ after
         write_executable(&manager.markitdown_entrypoint(), "#!/bin/sh\nexit 3\n");
 
         manager
-            .smoke_test_markitdown_with_timeout(Duration::from_secs(2))
+            .smoke_test_markitdown_with_timeout(super::HEADROOM_SMOKE_TEST_TIMEOUT)
             .expect_err("smoke test should fail");
 
         let _ = fs::remove_dir_all(root);

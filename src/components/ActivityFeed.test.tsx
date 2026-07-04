@@ -58,6 +58,25 @@ describe("ActivityFeed", () => {
     expect(markup).not.toContain("activity-feed__list");
   });
 
+  it("redacts secret-like values from formatted request messages", () => {
+    const formatted = formatRequestMessages([
+      {
+        role: "user",
+        content:
+          "sk-ant-test sk-proj-test ghp_abcdef github_pat_abcdef Authorization: Bearer abcdefghijklmnop BEGIN PRIVATE KEY AuthKey_123.p8 OPENAI_API_KEY"
+      }
+    ]);
+
+    expect(formatted).not.toContain("sk-ant-test");
+    expect(formatted).not.toContain("sk-proj-test");
+    expect(formatted).not.toContain("ghp_abcdef");
+    expect(formatted).not.toContain("github_pat_abcdef");
+    expect(formatted).not.toContain("abcdefghijklmnop");
+    expect(formatted).not.toContain("BEGIN PRIVATE KEY");
+    expect(formatted).not.toContain("AuthKey_123.p8");
+    expect(formatted).toContain("[REDACTED]");
+  });
+
   it("shows the waiting state when proxy is not reachable and no events", () => {
     const markup = renderToStaticMarkup(
       <ActivityFeed feed={{ ...baseFeed, proxyReachable: false }} error={null} />

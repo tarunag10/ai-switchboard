@@ -17,8 +17,14 @@ npm run release:env:selftest
 echo "Checking installed-app smoke preflight..."
 npm run smoke:preflight
 
-echo "Checking planned connector registry parity..."
+echo "Checking repo-memory MCP read-only contract..."
+npm run check:repo-memory-mcp
+
+echo "Checking connector registry parity..."
 npm run check:connectors
+
+echo "Checking for tracked local artifacts..."
+npm run check:local-artifacts
 
 echo "Checking semantic color tokens..."
 npm run check:colors
@@ -26,8 +32,14 @@ npm run check:colors
 echo "Checking governance docs..."
 npm run check:governance
 
+echo "Checking local-only network boundary..."
+npm run check:local-only-network
+
 echo "Building production frontend..."
 npm run build
+
+echo "Checking local-free build privacy..."
+npm run check:local-build-privacy
 
 echo "Running frontend coverage..."
 npm run test:coverage

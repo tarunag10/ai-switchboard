@@ -32,8 +32,10 @@ const CODEX_NUDGE_TITLES: Record<number, string> = {
 };
 
 export async function maybeFireUrgentPricingNotifications(
-  status: HeadroomPricingStatus
+  status: HeadroomPricingStatus,
+  options: { localOnlyMode?: boolean } = {}
 ): Promise<void> {
+  if (options.localOnlyMode) return;
   if (await isWindowVisible()) return;
 
   if (status.needsAuthentication) {

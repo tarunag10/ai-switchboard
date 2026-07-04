@@ -1,0 +1,134 @@
+[
+  {
+    "id": "claude_code",
+    "name": "Claude Code",
+    "category": "cli",
+    "support_status": "managed",
+    "detection": { "binaries": ["claude"], "paths": ["~/.claude"] },
+    "config": { "locations": ["~/.claude/settings.json", "~/.claude/settings.local.json"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
+    "automation_gates": ["Back up managed settings before edits.", "Verify managed shell and hook config.", "Rollback restores the previous settings backup without touching unrelated config.", "Off mode removes only Switchboard-owned blocks."],
+    "manual_workflow": ["Install Claude Code.", "Enable Claude Code routing from Switchboard.", "Use Doctor repair if managed config drifts."]
+  },
+  {
+    "id": "codex",
+    "name": "Codex",
+    "category": "cli",
+    "support_status": "managed",
+    "detection": { "binaries": ["codex"], "paths": ["~/.codex"] },
+    "config": { "locations": ["~/.codex/config.toml", "~/.codex/AGENTS.md"], "forbidden_reads": ["auth.json", "*token*", "*secret*"] },
+    "automation_gates": ["Back up provider config before edits.", "Verify Codex provider block and proxy URL in Doctor.", "Rollback restores the previous provider config backup.", "Codex SQLite retagging requires explicit opt-in.", "Off mode removes only managed provider blocks."],
+    "manual_workflow": ["Install Codex.", "Enable Codex routing from Switchboard.", "Review retagging backup/restore notes before opting in."]
+  },
+  {
+    "id": "gemini_cli",
+    "name": "Gemini CLI",
+    "category": "cli",
+    "support_status": "managed",
+    "detection": { "binaries": ["gemini"], "paths": ["~/.gemini", "~/.config/gemini"] },
+    "config": { "locations": ["shell profile managed blocks"], "forbidden_reads": ["*token*", "*secret*"] },
+    "automation_gates": ["Back up shell/profile targets before managed edits.", "Write only Switchboard-owned shell blocks.", "Verify Gemini base-url exports.", "Rollback removes managed blocks or restores backup evidence.", "Off mode removes local proxy routing without account changes."],
+    "manual_workflow": ["Confirm Gemini CLI is installed.", "Toggle the connector on from Settings.", "Use Doctor repair if managed routing drifts."]
+  },
+  {
+    "id": "opencode",
+    "name": "OpenCode",
+    "category": "cli",
+    "support_status": "managed",
+    "detection": { "binaries": ["opencode", "open-code"], "paths": ["~/.opencode", "~/.config/opencode"] },
+    "config": { "locations": ["~/.config/opencode/opencode.json"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
+    "automation_gates": ["Back up provider settings before edits.", "Verify managed provider baseURL.", "Rollback restores provider settings from backup.", "Off mode removes only Switchboard-owned provider entries."],
+    "manual_workflow": ["Confirm OpenCode is installed.", "Toggle the connector on from Settings.", "Use Doctor repair if provider config drifts."]
+  },
+  {
+    "id": "cursor",
+    "name": "Cursor",
+    "category": "editor",
+    "support_status": "planned",
+    "detection": { "binaries": ["cursor"], "paths": ["/Applications/Cursor.app", "~/Library/Application Support/Cursor"] },
+    "config": { "locations": ["~/Library/Application Support/Cursor/User/settings.json", "~/Library/Application Support/Cursor/User/globalStorage"], "forbidden_reads": ["*token*", "*secret*", "auth.json", "state.vscdb"] },
+    "automation_gates": ["Detect the active Cursor user profile and settings surface before proposing provider changes.", "Show a dry-run diff and keep account-specific model choices visible before routing.", "Back up Cursor settings without reading extension-managed secrets or global state databases.", "Require exact user consent before any native/provider write is enabled.", "Verify Cursor routing through Doctor evidence after a managed write.", "Rollback restores the exact profile backup without touching unrelated editor or extension config.", "Off mode removes only Switchboard-owned Cursor routing markers."],
+    "manual_workflow": ["Open Cursor settings.", "Review provider and model settings manually.", "Use Repo Intelligence packs as copyable context."]
+  },
+  {
+    "id": "grok_cli",
+    "name": "Grok / xAI CLI",
+    "category": "cli",
+    "support_status": "planned",
+    "detection": { "binaries": ["grok", "xai"], "paths": ["~/.config/xai"] },
+    "config": { "locations": ["~/.config/xai"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
+    "automation_gates": ["Detect stable xAI CLI surface.", "Add Doctor guardrails for unsupported model/account combinations.", "Keep API key account state outside managed app storage."],
+    "manual_workflow": ["Confirm whether grok or xai exists locally.", "Use RTK-only mode for command output savings.", "Keep model selection manual."]
+  },
+  {
+    "id": "aider",
+    "name": "Aider",
+    "category": "agent",
+    "support_status": "planned",
+    "detection": { "binaries": ["aider"], "paths": ["~/.aider.conf.yml", "~/.config/aider"] },
+    "config": { "locations": ["~/.aider.conf.yml", "~/.config/aider"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
+    "automation_gates": ["Detect provider configuration without exposing secrets.", "Route through a reversible environment wrapper first.", "Expose Repo Intelligence packs without writing into the repo by default."],
+    "manual_workflow": ["Confirm Aider is installed.", "Use copied Repo Intelligence packs.", "Keep provider config manual until native promotion evidence exists."]
+  },
+  {
+    "id": "continue",
+    "name": "Continue",
+    "category": "editor",
+    "support_status": "planned",
+    "detection": { "binaries": [], "paths": ["~/.continue"] },
+    "config": { "locations": ["~/.continue"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
+    "automation_gates": ["Detect active Continue config without reading secrets.", "Back up provider settings before edits.", "Verify Off mode restores exact previous config."],
+    "manual_workflow": ["Use copied context packs.", "Keep provider setup manual.", "Revisit once MCP/provider bridge behavior is verified."]
+  },
+  {
+    "id": "goose",
+    "name": "Goose",
+    "category": "agent",
+    "support_status": "managed",
+    "detection": { "binaries": ["goose"], "paths": ["~/.config/goose"] },
+    "config": { "locations": ["~/Library/Application Support/Headroom/config/repo-memory-mcp.json", "~/.config/goose"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
+    "automation_gates": ["Detect Goose and install only the app-managed Repo Memory MCP bridge; provider routing stays manual.", "Back up and verify the managed MCP descriptor before Goose handoff.", "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata, never Goose provider credentials."],
+    "manual_workflow": ["Prepare Repo Memory MCP from Mode Inspector for Goose context handoff.", "Keep Goose provider and model routing manual.", "Use Doctor to verify, repair, rollback, or clean up only the managed MCP bridge."]
+  },
+  {
+    "id": "qwen_code",
+    "name": "Qwen Code",
+    "category": "cli",
+    "support_status": "managed",
+    "detection": { "binaries": ["qwen-code", "qwen"], "paths": ["~/.qwen"] },
+    "config": { "locations": ["~/.qwen", "~/.config/qwen"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
+    "automation_gates": ["Detect provider/model settings read-only.", "Back up the Switchboard-owned sidecar before edits.", "Verify Qwen sidecar routing in Doctor without reading account secrets.", "Rollback removes only the Switchboard-owned Qwen sidecar marker.", "Off mode removes managed routing without touching account state."],
+    "manual_workflow": ["Confirm local CLI availability.", "Use copied packs/session handoffs.", "Keep account and model setup manual."]
+  },
+  {
+    "id": "amazon_q",
+    "name": "Amazon Q Developer CLI",
+    "category": "cli",
+    "support_status": "planned",
+    "detection": { "binaries": ["q"], "paths": ["~/.aws/amazonq"] },
+    "config": { "locations": ["~/.aws/amazonq"], "forbidden_reads": ["credentials", "*token*", "*secret*", "sso"] },
+    "automation_gates": ["Do not read AWS credentials or SSO cache.", "Detect supported config surfaces read-only.", "Keep account state outside managed app storage."],
+    "manual_workflow": ["Use copied verification packs.", "Keep AWS auth setup manual.", "Delay provider routing until credential boundaries are proven."]
+  },
+  {
+    "id": "windsurf",
+    "name": "Windsurf",
+    "category": "editor",
+    "support_status": "managed",
+    "detection": { "binaries": [], "paths": ["/Applications/Windsurf.app", "~/Library/Application Support/Windsurf"] },
+    "config": { "locations": ["~/Library/Application Support/Windsurf/User/settings.json"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
+    "automation_gates": ["Back up Windsurf settings.json before edits.", "Verify managed anthropic.baseUrl routing.", "Rollback restores settings.json from backup.", "Off mode removes only Switchboard-owned managed markers."],
+    "manual_workflow": ["Confirm Windsurf is installed.", "Toggle the connector on from Settings.", "Use Doctor repair if provider config drifts."]
+  },
+  {
+    "id": "zed_ai",
+    "name": "Zed AI",
+    "category": "editor",
+    "support_status": "managed",
+    "detection": { "binaries": ["zed"], "paths": ["~/.config/zed"] },
+    "config": { "locations": ["~/.config/zed"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
+    "automation_gates": ["Detect Zed settings.json before injecting routing block.", "Preserve unknown settings losslessly.", "Restore settings from backup.", "Verify managed provider routing after apply.", "Off mode removes the managed routing block on disconnect."],
+    "manual_workflow": ["Restart Zed to pick up the injected routing block.", "Verify a prompt routes through Headroom."]
+
+
+  }
+]

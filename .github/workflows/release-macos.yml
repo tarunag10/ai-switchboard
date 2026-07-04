@@ -291,6 +291,44 @@ jobs:
           includeUpdaterJson: true
           args: --target aarch64-apple-darwin
 
+      - name: Upload checksum and SBOM artifacts
+        if: steps.release_guard.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: v${{ steps.release_guard.outputs.package_version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          workdir="$(mktemp -d)"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$workdir"
+          (
+            cd "$workdir"
+            shasum -a 256 * > SHA256SUMS.txt
+          )
+          node - <<'NODE' > "$workdir/sbom-summary.json"
+          const fs = require("fs");
+          const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const packageLock = JSON.parse(fs.readFileSync("package-lock.json", "utf8"));
+          const cargoLock = fs.readFileSync("src-tauri/Cargo.lock", "utf8");
+          const npmPackages = Object.entries(packageLock.packages || {})
+            .filter(([name]) => name)
+            .map(([name, meta]) => ({ type: "npm", name: name.replace(/^node_modules\//, ""), version: meta.version || null }));
+          const rustPackages = [...cargoLock.matchAll(/\[\[package\]\]\nname = "([^"]+)"\nversion = "([^"]+)"/g)]
+            .map(([, name, version]) => ({ type: "cargo", name, version }));
+          console.log(JSON.stringify({
+            bomFormat: "Mac AI Switchboard dependency summary",
+            specVersion: "0.1",
+            app: { name: packageJson.name, version: packageJson.version },
+            generatedAt: new Date().toISOString(),
+            components: [...npmPackages, ...rustPackages],
+          }, null, 2));
+          NODE
+          gh release upload "$RELEASE_TAG" \
+            "$workdir/SHA256SUMS.txt" \
+            "$workdir/sbom-summary.json" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+
       - name: Mirror stable artifacts to rolling staging release
         if: steps.release_guard.outputs.should_release == 'true'
         env:

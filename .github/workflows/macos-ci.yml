@@ -1,0 +1,58 @@
+name: macOS CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  macos-desktop:
+    name: macOS desktop validation
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Frontend build
+        run: npm run build
+
+      - name: Local artifact guard
+        run: npm run check:local-artifacts
+
+      - name: Local privacy guard
+        run: node scripts/check-local-build-privacy.mjs
+
+      - name: Connector registry guard
+        run: npm run check:connectors
+
+      - name: Rust format
+        run: npm run fmt:desktop
+
+      - name: Rust check
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Desktop focused tests
+        run: |
+          cargo test --manifest-path src-tauri/Cargo.toml headroom_stats_snapshot -- --test-threads=1
+          cargo test --manifest-path src-tauri/Cargo.toml qwen_connector_exposes_managed_sidecar_without_provider_writes -- --test-threads=1

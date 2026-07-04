@@ -32,7 +32,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.getByText("1 manual")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "No automatic repair is available yet. Follow the issue guidance, then re-run Doctor.",
+        "Open or install a supported managed client, then use Connectors or Doctor to apply reversible managed setup. Doctor repair becomes available after a supported client is detected.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -49,7 +49,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
           issues: [
             {
               id: "planned_connectors_detected",
-              title: "Planned coding tools detected",
+              title: "Gated connector readiness detected",
               body: "Gemini CLI detected.",
               severity: "warning",
               repairAction: null,
@@ -87,15 +87,28 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.getByText("2 automatic")).toBeInTheDocument();
     expect(screen.getByText("2 manual")).toBeInTheDocument();
     expect(
+      screen.getByText(/review each connector's detection evidence/i),
+    ).toBeInTheDocument();
+    expect(
+    screen.getByLabelText("Connector readiness preview"),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      "Dry-run target: User/settings.json; marker: mac-ai-switchboard:cursor",
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Connector readiness")).toBeInTheDocument();
+    expect(screen.getByText(/RTK-only mode/i)).toBeInTheDocument();
+    expect(
       screen.getByText(
-        "Open Settings, review detected evidence and each planned connector guide. Use RTK-only mode or Repo Intelligence packs; keep provider routing manual until backup, restore, and Off mode cleanup are available.",
+        "Clear the saved Repo Intelligence index, then open Addons and index an available local repo when ready.",
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText(
-        "Clears the saved Repo Intelligence summary so a stale or missing repo path no longer appears in Doctor. Re-index from Addons when ready.",
+      screen.getByText(
+        "Clear the stale saved Repo Intelligence index, then open Addons and re-index the repo before copying packs into another agent.",
       ),
-    ).toHaveLength(2);
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
         "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.",
@@ -104,6 +117,44 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.getAllByRole("button", { name: "Clear index" })).toHaveLength(
       2,
     );
+  });
+
+  it("treats corrupt Repo Intelligence storage as automatic cleanup", () => {
+    const onRepair = vi.fn();
+
+    render(
+      <SwitchboardDoctorPanel
+        report={{
+          status: "warning",
+          summary: "Repo Intelligence storage needs cleanup.",
+          issues: [
+            {
+              id: "repo_intelligence_storage_corrupt",
+              title: "Repo Intelligence index cannot be read",
+              body: "The saved Repo Intelligence index could not be parsed.",
+              severity: "warning",
+              repairAction: "clear_repo_intelligence_index",
+            },
+          ],
+        }}
+        busyAction={null}
+        error={null}
+        successMessage={null}
+        onRepair={onRepair}
+      />,
+    );
+
+    expect(screen.getByText("1 automatic")).toBeInTheDocument();
+    expect(screen.getByText("0 manual")).toBeInTheDocument();
+    expect(screen.getByText("Auto repair")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Use Clear index to remove the corrupt or unreadable saved Repo Intelligence summary from Switchboard managed storage, then open Addons and re-index a local repo before copying packs into another agent.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Clear index" }),
+    ).toBeInTheDocument();
   });
 
   it("warns repair all will leave manual follow-up", () => {
@@ -122,7 +173,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
             },
             {
               id: "planned_connectors_detected",
-              title: "Planned coding tools detected",
+              title: "Gated connector readiness detected",
               body: "Gemini CLI detected.",
               severity: "warning",
               repairAction: null,

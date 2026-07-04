@@ -1,5 +1,6 @@
 import {
   aggregateClientConnectors,
+  connectorSupportsAutomaticSetup,
   getEnabledSupportedConnectors,
 } from "./dashboardHelpers";
 import type { ClientConnectorStatus, LaunchExperience } from "./types";
@@ -31,8 +32,9 @@ export type AutoConfigureStep =
 export interface ProxyVerificationRowState {
   clientId: string;
   name: string;
-  state: "processing" | "waiting" | "verified";
+  state: "processing" | "waiting" | "testing" | "verified";
   message: string;
+  oneClickSupported: boolean;
 }
 
 export function isValidEmailAddress(email: string) {
@@ -73,7 +75,7 @@ export function getLauncherAutoConfigureDecision(
   connectors: ClientConnectorStatus[]
 ): LauncherAutoConfigureDecision {
   const installed = aggregateClientConnectors(connectors).filter(
-    (connector) => connector.installed && (connector.supportStatus ?? "managed") === "managed"
+    (connector) => connector.installed && connectorSupportsAutomaticSetup(connector)
   );
   if (installed.length === 0) {
     return "show_client_setup";
@@ -117,7 +119,7 @@ export function nextAutoConfigureStep(
         (connector) =>
           connector.installed &&
           !connector.enabled &&
-          (connector.supportStatus ?? "managed") === "managed"
+          connectorSupportsAutomaticSetup(connector)
       )
       .map((connector) => connector.clientId);
     if (clientIds.length === 0) {
@@ -152,6 +154,15 @@ export function buildInitialProxyVerificationRows(
       clientId: connector.clientId,
       name: connector.name,
       state: "processing",
-      message: `Waiting for a ${connector.name} prompt...`
+      message: ["claude_code", "codex"].includes(connector.clientId)
+        ? `Ready to send a ${connector.name} test prompt.`
+        : `Open ${connector.name} and send one tiny prompt to verify routing.`,
+      oneClickSupported: ["claude_code", "codex"].includes(connector.clientId)
     }));
+}
+
+export function hasPendingOneClickProxyVerification(
+  rows: ProxyVerificationRowState[]
+): boolean {
+  return rows.some((row) => row.oneClickSupported && row.state !== "verified");
 }

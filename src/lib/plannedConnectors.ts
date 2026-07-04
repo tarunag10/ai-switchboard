@@ -1,9 +1,74 @@
+import connectorManifestJson from "../../connectors/manifest.json";
+
+export type ConnectorSupportStatus =
+  | "managed"
+  | "guided"
+  | "detected"
+  | "planned"
+  | "unsupported";
+
+export interface ConnectorManifest {
+  id: string;
+  name: string;
+  category: "cli" | "editor" | "agent" | "runtime";
+  support_status: ConnectorSupportStatus;
+  detection: {
+    binaries?: string[];
+    paths?: string[];
+  };
+  config?: {
+    locations?: string[];
+    forbidden_reads?: string[];
+  };
+  automation_gates: string[];
+  manual_workflow: string[];
+}
+
+export interface ConnectorSupportMatrixRow {
+  id: string;
+  name: string;
+  category: ConnectorManifest["category"];
+  supportStatus: ConnectorSupportStatus;
+  detectionSources: string[];
+  configLocations: string[];
+  automationGateCount: number;
+  manualWorkflow: string[];
+}
+
+export const connectorManifests =
+  connectorManifestJson as ConnectorManifest[];
+
+const connectorManifestById = new Map(
+  connectorManifests.map((manifest) => [manifest.id, manifest]),
+);
+
+export function getConnectorManifest(id: string): ConnectorManifest | null {
+  return connectorManifestById.get(id) ?? null;
+}
+
+export function connectorSupportMatrixRows(): ConnectorSupportMatrixRow[] {
+  return connectorManifests.map((manifest) => ({
+    id: manifest.id,
+    name: manifest.name,
+    category: manifest.category,
+    supportStatus: manifest.support_status,
+    detectionSources: [
+      ...(manifest.detection.binaries ?? []).map((binary) => `PATH: ${binary}`),
+      ...(manifest.detection.paths ?? []),
+    ],
+    configLocations: manifest.config?.locations ?? [],
+    automationGateCount: manifest.automation_gates.length,
+    manualWorkflow: manifest.manual_workflow,
+  }));
+}
+
 export interface PlannedConnector {
   id: string;
   name: string;
   category: "cli" | "editor" | "agent";
-  statusLabel: "Planned";
-  setupPhase: "Detect" | "Guide" | "Adapt";
+  supportStatus: ConnectorSupportStatus;
+  statusLabel: "Gated" | "Managed" | "Managed MCP" | "Managed sidecar";
+  setupPhase: "Detect" | "Guide" | "Adapt" | "Managed" | "Managed MCP";
   integrationTarget: string;
   notes: string;
   capabilityBadges: string[];
@@ -16,9 +81,20 @@ export interface PlannedConnector {
   manualWorkflow: string[];
 }
 
+export type ManagedConnectorDossier = Omit<
+  PlannedConnector,
+  "statusLabel" | "setupPhase"
+> & {
+  supportStatus: "managed";
+  statusLabel: "Managed";
+  setupPhase: "Managed";
+};
+
+export type ConnectorDossier = PlannedConnector | ManagedConnectorDossier;
+
 export interface PlannedConnectorCapability {
   label: string;
-  state: "Available now" | "Manual today" | "Planned";
+  state: "Available now" | "Manual today" | "Gated";
   detail: string;
 }
 
@@ -38,43 +114,123 @@ export interface PlannedConnectorSetupGuide {
   notes: string;
 }
 
-export const plannedConnectors: PlannedConnector[] = [
+export type PlannedConnectorReadinessStageId =
+  | "detected"
+  | "manualGuide"
+  | "backupImplemented"
+  | "applyImplemented"
+  | "verifyImplemented"
+  | "rollbackImplemented"
+  | "offCleanupImplemented";
+
+export interface PlannedConnectorReadinessStage {
+  id: PlannedConnectorReadinessStageId;
+  label: string;
+  state: "ready" | "blocked";
+  evidence: string;
+}
+
+export interface PlannedConnectorReadinessContract {
+  connectorId: string;
+  connectorName: string;
+  setupPhase: PlannedConnector["setupPhase"] | "Managed";
+  automationEnabled: boolean;
+  nextBlockedStage: PlannedConnectorReadinessStageId | null;
+  stages: PlannedConnectorReadinessStage[];
+}
+
+export type PlannedConnectorReadinessBadgeKind =
+  | "manual-only"
+  | "automation-gated"
+  | "verified-automation"
+  | "unsupported-account-model";
+
+export interface PlannedConnectorReadinessBadge {
+  kind: PlannedConnectorReadinessBadgeKind;
+  label: string;
+  detail: string;
+}
+
+export interface PlannedConnectorSafetyDossier {
+  connectorId: string;
+  configPathStrategy: string;
+  providerSemantics: string;
+  accountCaveat: string;
+  rollbackStrategy: string;
+}
+
+export interface PlannedConnectorConfigCreationStep {
+  id:
+    | "detect"
+    | "dryRunDiff"
+    | "backup"
+    | "apply"
+    | "verify"
+    | "rollback"
+    | "offCleanup";
+  label: string;
+  detail: string;
+  requiredEvidence: string[];
+}
+
+export interface PlannedConnectorConfigCreationPlan {
+  connectorId: string;
+  connectorName: string;
+  automationEnabled: boolean;
+  safetyNote: string;
+  steps: PlannedConnectorConfigCreationStep[];
+}
+
+export const plannedConnectorReadinessStageOrder: PlannedConnectorReadinessStageId[] =
+  [
+    "detected",
+    "manualGuide",
+    "backupImplemented",
+    "applyImplemented",
+    "verifyImplemented",
+    "rollbackImplemented",
+    "offCleanupImplemented",
+  ];
+
+export const managedConnectorDossiers: ManagedConnectorDossier[] = [
   {
     id: "gemini_cli",
     name: "Gemini CLI",
     category: "cli",
-    statusLabel: "Planned",
-    setupPhase: "Guide",
-    integrationTarget: "Reversible local config base-url routing adapter.",
+    supportStatus: "managed",
+    statusLabel: "Managed",
+    setupPhase: "Managed",
+    integrationTarget: "Managed shell base-url routing adapter.",
     notes:
-      "Detect installed CLI first, then add Headroom routing only when provider configuration supports local proxy.",
+      "Switchboard manages Gemini CLI routing through shell exports, Doctor verification, rollback, restore, and Off cleanup.",
     capabilityBadges: [
-      "CLI detection",
-      "RTK-safe today",
-      "Provider routing pending",
+      "Managed routing",
+      "Doctor verified",
+      "Rollback ready",
     ],
-    supportedModes: ["RTK only", "Off"],
+    supportedModes: ["Full", "Headroom", "Off"],
     safeToday:
-      "Detect binary and use RTK around verbose Gemini shell runs; provider routing remains manual.",
+      "Enable the connector to write managed Gemini CLI routing exports and rollback evidence.",
     firstAutomation:
-      "Add a read-only config probe that reports detected provider surface and model/account compatibility.",
+      "Doctor re-applies the managed shell routing block if verification drifts.",
     capabilityRows: [
       {
-        label: "Detection",
+        label: "Managed routing",
         state: "Available now",
         detail:
-          "Switchboard can surface the installed Gemini CLI without editing files.",
+          "Switchboard writes managed Gemini CLI base-url and proxy API-key shell exports.",
       },
       {
-        label: "Token-saving shell output",
+        label: "Verification",
         state: "Available now",
-        detail: "RTK-only mode can be used around noisy Gemini commands today.",
+        detail:
+          "Doctor verifies the managed shell exports and sibling rollback backup.",
       },
       {
-        label: "Provider routing",
-        state: "Planned",
+        label: "Rollback",
+        state: "Available now",
         detail:
-          "Automatic base-url routing waits for backed-up Gemini config support.",
+          "Off mode removes only Switchboard-owned Gemini shell routing exports.",
       },
     ],
     configSurfaces: [
@@ -83,92 +239,196 @@ export const plannedConnectors: PlannedConnector[] = [
       "shell environment",
     ],
     automationGates: [
-      "Detect a stable Gemini config file or documented provider flag.",
-      "Back up and restore provider settings before enabling setup.",
-      "Verify Off mode removes local proxy routing without changing account state.",
+      "Write only Switchboard-owned shell blocks and sibling rollback backups.",
+      "Verify GOOGLE_GEMINI_BASE_URL, GEMINI_BASE_URL, and GEMINI_API_KEY routing exports.",
+      "Off mode removes local proxy routing without changing account state.",
     ],
     manualWorkflow: [
       "Confirm the Gemini CLI binary is installed.",
-      "Use RTK-only mode around noisy Gemini shell commands.",
-      "Keep provider routing manual until the Doctor can verify account and model compatibility.",
+      "Toggle the connector on from Settings.",
+      "Use Doctor repair if managed Gemini routing drifts.",
     ],
   },
   {
     id: "opencode",
     name: "OpenCode",
     category: "cli",
-    statusLabel: "Planned",
-    setupPhase: "Adapt",
-    integrationTarget:
-      "Reversible provider config adapter plus RTK shell-output support.",
+    supportStatus: "managed",
+    statusLabel: "Managed",
+    setupPhase: "Managed",
+    integrationTarget: "Managed OpenCode provider config adapter.",
     notes:
-      "Keep off-mode cleanup symmetric with Claude Code and Codex before enabling automatic setup.",
+      "Switchboard manages an OpenCode headroom provider with backups, Doctor verification, rollback, restore, and Off cleanup.",
     capabilityBadges: [
-      "CLI detection",
-      "RTK-safe today",
-      "Backup/restore pending",
+      "Managed provider",
+      "Doctor verified",
+      "Rollback ready",
     ],
-    supportedModes: ["RTK only", "Off"],
+    supportedModes: ["Full", "Headroom", "Off"],
     safeToday:
-      "Detect binary and compact command output while provider config handling stays untouched.",
+      "Enable the connector to write the managed OpenCode provider and rollback evidence.",
     firstAutomation:
-      "Ship backup/restore for the active provider config path before enabling Headroom routing.",
+      "Doctor re-applies the managed provider block if verification drifts.",
     capabilityRows: [
       {
-        label: "Detection",
-        state: "Available now",
-        detail: "Switchboard can identify a local OpenCode binary.",
-      },
-      {
-        label: "Token-saving shell output",
+        label: "Managed provider",
         state: "Available now",
         detail:
-          "RTK can compact command output while OpenCode adapter work continues.",
+          "Switchboard writes a Headroom provider in ~/.config/opencode/opencode.json.",
       },
       {
-        label: "Config edits",
-        state: "Planned",
+        label: "Verification",
+        state: "Available now",
         detail:
-          "Automatic setup is gated on backup, restore, and Off mode cleanup.",
+          "Doctor verifies the OpenCode provider baseURL and sibling rollback backup.",
+      },
+      {
+        label: "Rollback",
+        state: "Available now",
+        detail:
+          "Off mode removes only the Switchboard-owned OpenCode provider from native config.",
       },
     ],
     configSurfaces: ["OpenCode binary", "provider config", "shell environment"],
     automationGates: [
-      "Identify the active provider config path without guessing.",
-      "Create timestamped backups before any provider edits.",
-      "Prove Off mode restores the exact previous provider config.",
+      "Create timestamped backups before provider edits.",
+      "Verify the managed headroom provider points at the local proxy.",
+      "Prove Off mode removes only the Switchboard-owned provider config.",
     ],
     manualWorkflow: [
       "Confirm OpenCode is installed.",
-      "Run OpenCode commands through RTK when output is noisy.",
-      "Leave provider config edits manual until backup and restore checks ship.",
+      "Toggle the connector on from Settings.",
+      "Use Doctor repair if managed config drifts.",
     ],
   },
+  {
+    id: "windsurf",
+    name: "Windsurf",
+    category: "editor",
+    supportStatus: "managed",
+    statusLabel: "Managed",
+    setupPhase: "Managed",
+    integrationTarget: "Managed Windsurf editor settings routing adapter.",
+    notes: "Switchboard manages Windsurf editor settings routing with backups, Doctor verification, rollback, and Off cleanup.",
+    capabilityBadges: [
+      "Managed routing",
+      "Doctor verified",
+      "Rollback ready",
+    ],
+    supportedModes: ["Full", "Headroom", "Off"],
+    safeToday: "Enable the connector to write managed Windsurf editor settings routing and rollback evidence.",
+    firstAutomation: "Doctor re-applies the managed Windsurf routing block if verification drifts.",
+    capabilityRows: [
+      {
+        label: "Managed routing",
+        state: "Available now",
+        detail: "Switchboard writes managed Windsurf editor settings routing.",
+      },
+      {
+        label: "Verification",
+        state: "Available now",
+        detail: "Doctor verifies the managed Windsurf settings block and sibling rollback backup.",
+      },
+      {
+        label: "Rollback",
+        state: "Available now",
+        detail: "Off mode removes only Switchboard-owned Windsurf config blocks.",
+      },
+    ],
+    configSurfaces: ["Windsurf app bundle", "user settings", "profile settings"],
+    automationGates: [
+      "Back up Windsurf settings before edits.",
+      "Verify managed Windsurf routing block.",
+      "Rollback restores settings from backup.",
+      "Off mode removes only Switchboard-owned managed blocks.",
+    ],
+    manualWorkflow: [
+      "Confirm Windsurf is installed.",
+      "Toggle the connector on from Settings.",
+      "Use Doctor repair if managed config drifts.",
+    ],
+  },
+  {
+    id: "zed_ai",
+    name: "Zed AI",
+    category: "editor",
+    supportStatus: "managed",
+    statusLabel: "Managed",
+    setupPhase: "Managed",
+    integrationTarget: "Managed Zed assistant settings routing adapter.",
+    notes: "Writes managed assistant settings routing to ~/.config/zed/settings.json with full backup/verify/rollback.",
+    capabilityBadges: [
+      "Managed routing",
+      "Doctor verified",
+      "Rollback ready",
+    ],
+    supportedModes: ["Full", "Headroom", "Off"],
+    safeToday: "Enable the connector to write the managed Zed routing block and rollback evidence.",
+    firstAutomation: "Doctor re-applies the managed routing block if verification drifts.",
+    capabilityRows: [
+      {
+        label: "Managed routing",
+        state: "Available now",
+        detail: "Switchboard writes a managed routing block to ~/.config/zed/settings.json.",
+      },
+      {
+        label: "Verification",
+        state: "Available now",
+        detail: "Doctor verifies the managed Zed settings block and sibling rollback backup.",
+      },
+      {
+        label: "Rollback",
+        state: "Available now",
+        detail: "Off mode removes only the Switchboard-owned routing block.",
+      },
+    ],
+    configSurfaces: [
+      "Zed app bundle",
+      "~/.config/zed/settings.json",
+      "~/Library/Application Support/Zed",
+    ],
+    automationGates: [
+      "Detect Zed settings.json before injecting routing block.",
+      "Preserve unknown settings losslessly.",
+      "Restore settings from backup.",
+      "Verify managed assistant settings routing after apply.",
+      "Clean up managed routing block on disconnect.",
+    ],
+    manualWorkflow: [
+      "Toggle the connector on from Settings.",
+      "Restart Zed to pick up the injected routing block.",
+      "Verify a prompt routes through Headroom.",
+    ],
+  },
+];
+
+export const plannedConnectors: PlannedConnector[] = [
   {
     id: "cursor",
     name: "Cursor",
     category: "editor",
-    statusLabel: "Planned",
+    supportStatus: "planned",
+    statusLabel: "Gated",
     setupPhase: "Guide",
     integrationTarget:
-      "Editor settings/profile detection with opt-in local proxy routing where supported.",
+      "Fixture-home Cursor settings discovery and dry-run diff preview; native/provider writes stay blocked.",
     notes:
-      "Treat as guided setup first because Cursor settings and extension behavior can vary by account release channel.",
+      "Treat as gated setup: detect User/settings.json and globalStorage safely, show the dry-run plan, then keep provider and model changes manual until reversible writes are proven.",
     capabilityBadges: [
       "App detection",
       "Guided setup",
-      "Settings backup pending",
+      "Settings discovery",
     ],
     supportedModes: ["Repo packs", "Guided setup", "Off"],
     safeToday:
       "Show Cursor as a guided editor target and let users copy Repo Intelligence packs into sessions.",
     firstAutomation:
-      "Add profile-aware settings discovery with a dry-run diff before any settings write.",
+      "Profile-aware settings discovery and dry-run diff preview are available; backup, exact consent, verify, rollback, and Off cleanup still gate native writes.",
     capabilityRows: [
       {
         label: "App detection",
         state: "Available now",
-        detail: "Switchboard can show Cursor as a planned editor connector.",
+        detail: "Switchboard can show Cursor as a gated editor connector.",
       },
       {
         label: "Manual setup",
@@ -178,28 +438,33 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Settings adapter",
-        state: "Planned",
+        state: "Available now",
         detail:
-          "Automatic edits wait for profile-aware backups and restore tests.",
+          "Settings file discovery is available; writes still wait for parse, backup, restore, and Off cleanup tests.",
       },
     ],
-    configSurfaces: ["Cursor app bundle", "user settings", "profile settings"],
+    configSurfaces: ["Cursor app bundle", "User/settings.json", "User/globalStorage", "profile settings"],
     automationGates: [
       "Detect the active Cursor profile before reading settings.",
-      "Back up settings without touching extension-managed secrets.",
-      "Keep account-specific model choices visible before routing.",
+      "Back up Cursor settings without reading extension-managed secrets or global state databases.",
+      "Require exact user consent before any native/provider write is enabled.",
+      "Verify Cursor routing through Doctor evidence after a managed write.",
+      "Rollback restores the exact profile backup without touching unrelated editor or extension config.",
+      "Off mode removes only Switchboard-owned Cursor routing markers.",
     ],
     manualWorkflow: [
       "Open Cursor settings from the setup guide.",
       "Review provider/model settings manually.",
       "Use Repo Intelligence packs as copyable context until editor handoff is stable.",
-    ],
+          "Native-write lifecycle remains gated with automationEnabled: false until detect, dryRunDiff, backup, apply, verify, rollback, and offCleanup are proven in fixture-home tests.",
+],
   },
   {
     id: "grok_cli",
     name: "Grok / xAI CLI",
     category: "cli",
-    statusLabel: "Planned",
+    supportStatus: "planned",
+    statusLabel: "Gated",
     setupPhase: "Detect",
     integrationTarget:
       "Provider/base-url adapter once a stable local CLI surface is identified.",
@@ -207,8 +472,8 @@ export const plannedConnectors: PlannedConnector[] = [
       "Track separately from generic OpenAI-compatible clients so account/model constraints stay visible in Doctor.",
     capabilityBadges: [
       "CLI detection",
-      "Model guardrails pending",
-      "Provider routing pending",
+      "Model guardrails gated",
+      "Provider routing gated",
     ],
     supportedModes: ["RTK only", "Off"],
     safeToday:
@@ -223,13 +488,13 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Model guardrails",
-        state: "Planned",
+        state: "Gated",
         detail:
           "Doctor should prevent unsupported model/account combinations before routing.",
       },
       {
         label: "Provider routing",
-        state: "Planned",
+        state: "Gated",
         detail:
           "Automatic setup waits for a stable OpenAI-compatible local config surface.",
       },
@@ -254,13 +519,14 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "aider",
     name: "Aider",
     category: "agent",
-    statusLabel: "Planned",
+    supportStatus: "planned",
+    statusLabel: "Gated",
     setupPhase: "Adapt",
     integrationTarget:
       "Local environment/provider wrapper plus Repo Intelligence context packs.",
     notes:
       "Good fit for RTK and future repo graph context because it is frequently used inside long coding sessions.",
-    capabilityBadges: ["CLI detection", "RTK-safe today", "Repo packs planned"],
+    capabilityBadges: ["CLI detection", "RTK-safe today", "Repo packs gated"],
     supportedModes: ["RTK only", "Repo packs", "Off"],
     safeToday:
       "Use RTK for noisy verification commands and copy implementation or handoff packs into Aider.",
@@ -280,7 +546,7 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Provider wrapper",
-        state: "Planned",
+        state: "Gated",
         detail:
           "Automatic provider environment wrapping waits for reversible setup state.",
       },
@@ -299,13 +565,15 @@ export const plannedConnectors: PlannedConnector[] = [
       "Confirm Aider is installed.",
       "Copy implementation or handoff packs into long Aider sessions.",
       "Use RTK-only mode for noisy verification commands.",
-    ],
+          "Native-write lifecycle remains gated with automationEnabled: false until detect, dryRunDiff, backup, apply, verify, rollback, and offCleanup are proven in fixture-home tests.",
+],
   },
   {
     id: "continue",
     name: "Continue",
     category: "editor",
-    statusLabel: "Planned",
+    supportStatus: "planned",
+    statusLabel: "Gated",
     setupPhase: "Guide",
     integrationTarget: "Local config adapter with explicit backup and restore.",
     notes:
@@ -313,7 +581,7 @@ export const plannedConnectors: PlannedConnector[] = [
     capabilityBadges: [
       "Config detection",
       "Guided setup",
-      "Backup/restore pending",
+      "Backup/restore gated",
     ],
     supportedModes: ["Repo packs", "Guided setup", "Off"],
     safeToday:
@@ -334,7 +602,7 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Config adapter",
-        state: "Planned",
+        state: "Gated",
         detail:
           "Automatic edits wait for multi-provider backup and restore coverage.",
       },
@@ -359,22 +627,23 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "goose",
     name: "Goose",
     category: "agent",
-    statusLabel: "Planned",
-    setupPhase: "Adapt",
+    supportStatus: "managed",
+    statusLabel: "Managed MCP",
+    setupPhase: "Managed MCP",
     integrationTarget:
-      "Local provider adapter and MCP/Repo Intelligence handoff.",
+      "Managed Repo Memory MCP bridge; provider routing remains manual.",
     notes:
-      "Useful target once Switchboard has a stable connector capability model for agent-style tools.",
+      "Managed only for local read-only Repo Memory MCP context handoff; Goose provider/model configuration stays user-owned and reversible cleanup stays inside Switchboard metadata.",
     capabilityBadges: [
-      "CLI detection",
-      "MCP handoff planned",
-      "Repo packs planned",
+      "Managed MCP",
+      "Doctor verified",
+      "Provider manual",
     ],
     supportedModes: ["RTK only", "Repo packs", "Off"],
     safeToday:
-      "Detect Goose and copy Repo Intelligence packs into sessions while MCP handoff remains planned.",
+      "Prepare the app-managed read-only Repo Memory MCP bridge for Goose while provider and model routing remain manual.",
     firstAutomation:
-      "Prototype a read-only MCP handoff manifest before managing provider configuration.",
+      "Install and smoke-check the app-managed Repo Memory MCP descriptor before any Goose provider routing work.",
     capabilityRows: [
       {
         label: "Detection",
@@ -382,50 +651,55 @@ export const plannedConnectors: PlannedConnector[] = [
         detail: "Switchboard can check for a local Goose command.",
       },
       {
-        label: "Repo context",
-        state: "Manual today",
+        label: "Repo Memory MCP",
+        state: "Available now",
         detail:
-          "Copy Repo Intelligence packs into Goose sessions while adapter work lands.",
+          "Mode Inspector prepares and smoke-checks the app-managed read-only Repo Memory MCP bridge for Goose handoffs.",
       },
       {
         label: "MCP handoff",
-        state: "Planned",
+        state: "Available now",
         detail:
-          "Automatic MCP and provider handoff waits for tested connector state.",
+          "Goose can use Switchboard's managed context bridge without Switchboard editing Goose provider credentials.",
       },
     ],
-    configSurfaces: ["Goose binary", "provider config", "MCP handoff"],
+    configSurfaces: [
+      "Goose binary",
+      "Repo Memory MCP descriptor",
+      "user-owned provider config",
+    ],
     automationGates: [
-      "Detect Goose provider configuration safely.",
-      "Confirm MCP handoff shape before adding managed setup.",
-      "Verify Off mode removes local provider routing and leaves MCP config intact.",
+      "Install only the app-managed Repo Memory MCP descriptor after Goose detection.",
+      "Verify the read-only MCP smoke contract before advertising Goose handoff readiness.",
+      "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata; provider routing stays manual.",
     ],
     manualWorkflow: [
       "Confirm Goose is installed.",
-      "Copy Repo Intelligence packs into Goose sessions today.",
-      "Wait for managed MCP handoff before enabling automatic provider setup.",
+      "Prepare Repo Memory MCP from Mode Inspector for managed context handoff.",
+      "Keep Goose provider and model routing manual until native provider surfaces are proven.",
     ],
   },
   {
     id: "qwen_code",
     name: "Qwen Code",
     category: "cli",
-    statusLabel: "Planned",
-    setupPhase: "Guide",
+    supportStatus: "managed",
+    statusLabel: "Managed sidecar",
+    setupPhase: "Managed",
     integrationTarget:
-      "CLI detection plus read-only Repo Intelligence handoff before reversible provider routing.",
+      "CLI detection plus Switchboard-owned sidecar routing before any native provider config writes.",
     notes:
-      "Treat as provider/account-sensitive coding CLI until model account compatibility can be checked without editing config.",
+      "Treat as sidecar-only managed: Qwen provider/model config stays user-owned until native config writes are proven.",
     capabilityBadges: [
       "CLI detection",
       "Repo packs today",
-      "Provider routing pending",
+      "Sidecar-only routing managed",
     ],
-    supportedModes: ["RTK only", "Repo packs", "Off"],
+    supportedModes: ["Full", "Headroom", "Off"],
     safeToday:
       "Detect local Qwen Code command copy bounded Repo Intelligence packs into sessions.",
     firstAutomation:
-      "Add read-only provider/model probe reversible environment wrapper before routing through Headroom.",
+      "Apply Switchboard-owned sidecar routing only; keep Qwen provider/model config manual.",
     capabilityRows: [
       {
         label: "Detection",
@@ -434,13 +708,13 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Repo context",
-        state: "Manual today",
+        state: "Available now",
         detail:
           "Use Repo Intelligence implementation packs with Qwen Code today.",
       },
       {
-        label: "Provider routing",
-        state: "Planned",
+        label: "Sidecar routing",
+        state: "Available now",
         detail:
           "Automatic routing waits model/account guardrails restore coverage.",
       },
@@ -465,7 +739,8 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "amazon_q",
     name: "Amazon Q Developer CLI",
     category: "cli",
-    statusLabel: "Planned",
+    supportStatus: "planned",
+    statusLabel: "Gated",
     setupPhase: "Detect",
     integrationTarget:
       "Local CLI detection verification-pack handoff without changing AWS or provider state.",
@@ -474,7 +749,7 @@ export const plannedConnectors: PlannedConnector[] = [
     capabilityBadges: [
       "CLI detection",
       "Repo packs today",
-      "Credential-safe pending",
+      "Credential-safe gated",
     ],
     supportedModes: ["RTK only", "Repo packs", "Off"],
     safeToday:
@@ -495,7 +770,7 @@ export const plannedConnectors: PlannedConnector[] = [
       },
       {
         label: "Credential guardrails",
-        state: "Planned",
+        state: "Gated",
         detail:
           "Automatic setup waits AWS profile-safe detection restore policy.",
       },
@@ -516,124 +791,340 @@ export const plannedConnectors: PlannedConnector[] = [
       "Do not route provider traffic automatically until credential guardrails ship.",
     ],
   },
-  {
-    id: "windsurf",
-    name: "Windsurf",
-    category: "editor",
-    statusLabel: "Planned",
-    setupPhase: "Guide",
-    integrationTarget:
-      "Editor detection copyable Repo Intelligence handoff before settings adapter.",
-    notes:
-      "Start guided editor settings account surfaces vary by release channel.",
-    capabilityBadges: [
-      "App detection",
-      "Repo packs today",
-      "Settings backup pending",
-    ],
-    supportedModes: ["Repo packs", "Guided setup", "Off"],
-    safeToday:
-      "Open Windsurf paste Repo Intelligence handoff packs into assistant manually.",
-    firstAutomation:
-      "Add settings discovery dry-run profile-aware backup before any provider edits.",
-    capabilityRows: [
-      {
-        label: "App detection",
-        state: "Available now",
-        detail: "Switchboard can guide users toward Windsurf app surface.",
-      },
-      {
-        label: "Repo context",
-        state: "Manual today",
-        detail:
-          "Use handoff packs in Windsurf assistant without writing settings.",
-      },
-      {
-        label: "Settings adapter",
-        state: "Planned",
-        detail:
-          "Automatic edits wait settings backup restore Off mode cleanup.",
-      },
-    ],
-    configSurfaces: [
-      "Windsurf app bundle",
-      "user settings",
-      "profile settings",
-    ],
-    automationGates: [
-      "Detect active Windsurf settings location before reading.",
-      "Back up settings without touching account secrets.",
-      "Verify Off mode restores exact prior settings.",
-    ],
-    manualWorkflow: [
-      "Open Windsurf manually.",
-      "Paste Repo Intelligence handoff packs into assistant.",
-      "Wait settings backup restore coverage before automatic routing.",
-    ],
-  },
-  {
-    id: "zed_ai",
-    name: "Zed AI",
-    category: "editor",
-    statusLabel: "Planned",
-    setupPhase: "Guide",
-    integrationTarget:
-      "Editor detection read-only context handoff before provider settings support.",
-    notes:
-      "Keep provider/account selection manual until Zed settings parsing restore lossless.",
-    capabilityBadges: [
-      "App detection",
-      "Repo packs today",
-      "Settings backup pending",
-    ],
-    supportedModes: ["Repo packs", "Guided setup", "Off"],
-    safeToday:
-      "Open Zed paste bounded Repo Intelligence handoffs into assistant manually.",
-    firstAutomation:
-      "Parse Zed assistant settings read-only show dry-run diff before edits.",
-    capabilityRows: [
-      {
-        label: "App detection",
-        state: "Available now",
-        detail: "Switchboard can guide users toward Zed app surface.",
-      },
-      {
-        label: "Repo context",
-        state: "Manual today",
-        detail:
-          "Use Repo Intelligence handoff packs in Zed AI without config writes.",
-      },
-      {
-        label: "Settings adapter",
-        state: "Planned",
-        detail:
-          "Automatic routing waits lossless settings parse restore coverage.",
-      },
-    ],
-    configSurfaces: [
-      "Zed app bundle",
-      "assistant settings",
-      "provider settings",
-    ],
-    automationGates: [
-      "Detect Zed assistant settings without guessing paths.",
-      "Back up provider settings before any local proxy route.",
-      "Verify Off mode restores exact previous assistant settings.",
-    ],
-    manualWorkflow: [
-      "Open Zed manually.",
-      "Paste Repo Intelligence handoff packs into Zed AI.",
-      "Keep model/provider settings manual until restore checks ship.",
-    ],
-  },
 ];
 
+export const promotedSidecarConnectorIds = new Set([
+  "cursor",
+  "grok_cli",
+  "aider",
+  "continue",
+  "goose",
+  "qwen_code",
+  "amazon_q",
+]);
+
+export const managedMcpBridgeConnectorIds = new Set(["goose"]);
+
+function hasManagedNativeConfigAutomation(connector: ConnectorDossier): boolean {
+  return (
+    connector.supportStatus === "managed" &&
+    connector.setupPhase === "Managed" &&
+    !managedMcpBridgeConnectorIds.has(connector.id)
+  );
+}
+
+export const pendingPlannedConnectors: PlannedConnector[] =
+  plannedConnectors.filter(
+    (connector) =>
+      connector.statusLabel === "Gated" &&
+      !hasManagedNativeConfigAutomation(connector) &&
+      !managedMcpBridgeConnectorIds.has(connector.id),
+  );
+
+const plannedConnectorSafetyDossiers: Record<
+  string,
+  PlannedConnectorSafetyDossier
+> = {
+  gemini_cli: {
+    connectorId: "gemini_cli",
+    configPathStrategy:
+      "Detect PATH: gemini first, then apply Switchboard-managed shell/base-url exports with sibling rollback backups.",
+    providerSemantics:
+      "Route Gemini CLI through the local Headroom-compatible base-url surface managed by Switchboard.",
+    accountCaveat:
+      "Model and account compatibility must stay visible; no account tokens are stored by Switchboard.",
+    rollbackStrategy:
+      "Restore the previous provider settings or remove only Switchboard-managed shell routing.",
+  },
+  opencode: {
+    connectorId: "opencode",
+    configPathStrategy:
+      "Detect PATH: opencode, then identify the active provider config path before any write.",
+    providerSemantics:
+      "Provider config may be file-based or environment-based, so setup starts with a dry-run diff.",
+    accountCaveat:
+      "Secrets stay in the user's existing provider store and must not be copied into Switchboard state.",
+    rollbackStrategy:
+      "Restore the timestamped provider-config backup and clear managed environment overrides.",
+  },
+  cursor: {
+    connectorId: "cursor",
+    configPathStrategy:
+      "Find the active Cursor app/profile settings surface before reading user settings.",
+    providerSemantics:
+      "Editor routing depends on profile and release-channel settings, not a single global base URL.",
+    accountCaveat:
+      "Account-specific model choices remain user-controlled until Doctor can explain compatibility.",
+    rollbackStrategy:
+      "Restore the exact profile settings backup without touching extension-managed secrets.",
+  },
+  grok_cli: {
+    connectorId: "grok_cli",
+    configPathStrategy:
+      "Detect PATH: grok or PATH: xai and avoid guessing hidden provider files.",
+    providerSemantics:
+      "Only offer OpenAI-compatible routing after a stable xAI CLI provider surface is detected.",
+    accountCaveat:
+      "Unsupported model/account combinations require Doctor guardrails before setup is offered.",
+    rollbackStrategy:
+      "Remove managed shell routing and leave API key/account state outside app storage.",
+  },
+  aider: {
+    connectorId: "aider",
+    configPathStrategy:
+      "Detect PATH: aider and prefer a one-launch environment wrapper over saved config edits.",
+    providerSemantics:
+      "Provider routing should be scoped to a reversible environment wrapper before persistent config support.",
+    accountCaveat:
+      "Existing provider secrets remain in the user's shell or provider config and are never copied.",
+    rollbackStrategy:
+      "Drop the wrapper environment and leave the user's Aider/provider files unchanged.",
+  },
+  continue: {
+    connectorId: "continue",
+    configPathStrategy:
+      "Open or parse the Continue config folder only after preserving unknown provider fields.",
+    providerSemantics:
+      "Continue may contain multiple providers, so local routing must preserve every non-managed entry.",
+    accountCaveat:
+      "Provider credentials and account selections stay visible and user-owned during guided setup.",
+    rollbackStrategy:
+      "Restore the exact config backup or remove only the marked Switchboard provider entry.",
+  },
+  goose: {
+    connectorId: "goose",
+    configPathStrategy:
+      "Detect PATH: goose and use the app-managed Repo Memory MCP descriptor for read-only context handoff.",
+    providerSemantics:
+      "Repo Memory MCP handoff is managed and read-only; Goose provider/model routing remains manual.",
+    accountCaveat:
+      "Provider account state remains outside Switchboard until compatibility checks are explicit.",
+    rollbackStrategy:
+      "Rollback removes only Switchboard-owned MCP bridge metadata while preserving Goose provider configuration.",
+  },
+  qwen_code: {
+    connectorId: "qwen_code",
+    configPathStrategy:
+      "Detect PATH: qwen-code or PATH: qwen, then probe provider/model settings read-only.",
+    providerSemantics:
+      "Use Repo Intelligence handoff first; route provider traffic only after model guardrails exist.",
+    accountCaveat:
+      "Qwen account and model compatibility must be verified without editing config.",
+    rollbackStrategy:
+      "Remove managed shell routing and restore provider settings from the exact backup.",
+  },
+  amazon_q: {
+    connectorId: "amazon_q",
+    configPathStrategy:
+      "Detect PATH: q and avoid reading AWS credentials, SSO caches, or profile secrets.",
+    providerSemantics:
+      "Treat Amazon Q as credential-sensitive; handoff packs are safe before provider routing.",
+    accountCaveat:
+      "AWS profile, SSO, and credential state must remain outside Switchboard storage.",
+    rollbackStrategy:
+      "Remove managed routing without modifying AWS config, credentials, SSO cache, or profiles.",
+  },
+  windsurf: {
+    connectorId: "windsurf",
+    configPathStrategy:
+      "Detect the Windsurf app and active settings location before applying managed editor settings routing.",
+    providerSemantics:
+      "Manage only the Switchboard editor settings routing block while preserving unrelated Windsurf settings.",
+    accountCaveat:
+      "Switchboard preserves unrelated account and model settings while managing only its editor settings routing block.",
+    rollbackStrategy:
+      "Restore the active settings backup and remove only Switchboard-managed editor settings routing entries.",
+  },
+  zed_ai: {
+    connectorId: "zed_ai",
+    configPathStrategy:
+      "Detect the Zed app settings file at ~/.config/zed/settings.json before applying managed assistant settings routing.",
+    providerSemantics:
+      "Assistant settings routing must preserve Zed assistant settings and any non-managed providers.",
+    accountCaveat:
+      "Switchboard preserves unrelated provider/account settings while managing only its local proxy routing entry.",
+    rollbackStrategy:
+      "Restore assistant settings from backup and remove only Switchboard-managed local proxy routing entries.",
+  },
+};
+
 export function getPlannedConnector(id: string) {
-  return plannedConnectors.find((connector) => connector.id === id) ?? null;
+  return (
+    plannedConnectors.find((connector) => connector.id === id) ??
+    managedConnectorDossiers.find((connector) => connector.id === id) ??
+    null
+  );
+}
+
+export function getPlannedConnectorSafetyDossier(
+  id: string,
+): PlannedConnectorSafetyDossier | null {
+  return plannedConnectorSafetyDossiers[id] ?? null;
+}
+
+export function getPlannedConnectorSafetyDossiers(
+  connectors: PlannedConnector[] = pendingPlannedConnectors,
+) {
+  return connectors.map((connector) => {
+    const dossier = getPlannedConnectorSafetyDossier(connector.id);
+    if (!dossier) {
+      throw new Error(`Missing safety dossier for ${connector.id}.`);
+    }
+    return dossier;
+  });
+}
+
+export function formatPlannedConnectorSafetyDossierMarkdown(
+  connector: PlannedConnector,
+) {
+  const dossier = getPlannedConnectorSafetyDossier(connector.id);
+  if (!dossier) {
+    return "";
+  }
+
+  return [
+    `## ${connector.name}`,
+    `- Config paths: ${dossier.configPathStrategy}`,
+    `- Provider/base-url semantics: ${dossier.providerSemantics}`,
+    `- Account caveat: ${dossier.accountCaveat}`,
+    `- Rollback strategy: ${dossier.rollbackStrategy}`,
+  ].join("\n");
+}
+
+export function getPlannedConnectorConfigCreationPlan(
+  connector: ConnectorDossier,
+): PlannedConnectorConfigCreationPlan {
+  const dossier = getPlannedConnectorSafetyDossier(connector.id);
+  if (!dossier) {
+    throw new Error(`Missing safety dossier for ${connector.id}.`);
+  }
+
+  const steps: PlannedConnectorConfigCreationStep[] = [
+    {
+      id: "detect",
+      label: "Detect config surface",
+      detail: dossier.configPathStrategy,
+      requiredEvidence: [
+        "Read-only binary or app detection result.",
+        "Detected config, settings, profile, or environment surface documented without writes.",
+      ],
+    },
+    {
+      id: "dryRunDiff",
+      label: "Show dry-run diff",
+      detail:
+        "Preview a copyable dry-run artifact with target path, before/after provider intent, managed marker boundary, rollback preview, and confirmation phrase before any file, profile, or environment edit.",
+      requiredEvidence: [
+        "User-visible dry-run diff artifact showing target, before/after local proxy/provider change, managed marker boundary, rollback preview, and confirmation phrase.",
+        "No files, profiles, credentials, or account state changed by the preview.",
+      ],
+    },
+    {
+      id: "backup",
+      label: "Create backup",
+      detail:
+        "Write a timestamped backup beside the edited config or record an environment-wrapper restore point.",
+      requiredEvidence: [
+        "Timestamped backup path or environment-wrapper restore point.",
+        "Fixture-home restore test proving unknown fields and unrelated provider entries are preserved.",
+      ],
+    },
+    {
+      id: "apply",
+      label: "Apply with consent",
+      detail: dossier.providerSemantics,
+      requiredEvidence: [
+        "Explicit user consent captured for the connector and config surface.",
+        "Managed marker or wrapper boundary proving only Switchboard-owned routing was applied.",
+      ],
+    },
+    {
+      id: "verify",
+      label: "Verify in Doctor",
+      detail: dossier.accountCaveat,
+      requiredEvidence: [
+        "Doctor check confirming account/model guardrails without storing secrets.",
+        "Compatibility or caveat message visible before routing is considered supported.",
+      ],
+    },
+    {
+      id: "rollback",
+      label: "Rollback safely",
+      detail: dossier.rollbackStrategy,
+      requiredEvidence: [
+        "Fixture-home rollback test restoring the exact backup or removing only managed wrapper state.",
+        "Post-rollback diff proving unrelated user settings are unchanged.",
+      ],
+    },
+    {
+      id: "offCleanup",
+      label: "Clean up in Off mode",
+      detail:
+        "Off mode removes only Switchboard-managed routing and leaves unrelated user config untouched.",
+      requiredEvidence: [
+        "Fixture-home Off-mode cleanup showing managed routing removed.",
+        "Doctor verification that the connector returns to manual or RTK-only mode.",
+      ],
+    },
+  ];
+
+  if (hasManagedNativeConfigAutomation(connector)) {
+    return {
+      connectorId: connector.id,
+      connectorName: connector.name,
+      automationEnabled: true,
+      safetyNote:
+        "Managed routing is enabled with backup, apply, verify, rollback, and Off cleanup evidence.",
+      steps,
+    };
+  }
+
+  return {
+    connectorId: connector.id,
+    connectorName: connector.name,
+    automationEnabled: false,
+    safetyNote:
+      "Config creation remains gated until every step has tests and Doctor evidence.",
+    steps,
+  };
+}
+
+export function getPlannedConnectorConfigCreationPlans(
+  connectors: ConnectorDossier[] = pendingPlannedConnectors,
+) {
+  return connectors.map(getPlannedConnectorConfigCreationPlan);
+}
+
+export function formatPlannedConnectorConfigCreationPlansMarkdown(
+  connectors: ConnectorDossier[] = pendingPlannedConnectors,
+) {
+  const title =
+    connectors.length === 1
+      ? "# Mac AI Switchboard Connector Config Creation Plan"
+      : "# Mac AI Switchboard Connector Config Creation Plans";
+
+  return [
+    title,
+    "",
+    "Automation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested.",
+    "",
+    ...getPlannedConnectorConfigCreationPlans(connectors).flatMap((plan) => [
+      `## ${plan.connectorName}`,
+      `- Automation enabled: ${plan.automationEnabled ? "yes" : "no"}`,
+      `- Safety note: ${plan.safetyNote}`,
+      ...plan.steps.map(
+        (step) =>
+          `- ${step.label}: ${step.detail} Required evidence: ${step.requiredEvidence.join(" ")}`,
+      ),
+      "",
+    ]),
+  ]
+    .join("\n")
+    .trimEnd();
 }
 
 export function summarizePlannedConnectorSupport(
-  connectors: PlannedConnector[] = plannedConnectors,
+  connectors: ConnectorDossier[] = pendingPlannedConnectors,
 ): PlannedConnectorSupportSummary {
   const capabilityRows = connectors.flatMap((connector) =>
     connector.capabilityRows.map((capability) => ({
@@ -647,15 +1138,15 @@ export function summarizePlannedConnectorSupport(
   const manualToday = capabilityRows.filter(
     (capability) => capability.state === "Manual today",
   );
-  const planned = capabilityRows.filter(
-    (capability) => capability.state === "Planned",
+  const gated = capabilityRows.filter(
+    (capability) => capability.state === "Gated",
   );
 
   return {
     connectorCount: connectors.length,
     safeTodayCount: safeToday.length,
     manualTodayCount: manualToday.length,
-    plannedCount: planned.length,
+    plannedCount: gated.length,
     automationGateCount: connectors.reduce(
       (total, connector) => total + connector.automationGates.length,
       0,
@@ -663,7 +1154,7 @@ export function summarizePlannedConnectorSupport(
     safeTodayLabels: safeToday.map(
       (capability) => `${capability.connectorName}: ${capability.label}`,
     ),
-    plannedLabels: planned.map(
+    plannedLabels: gated.map(
       (capability) => `${capability.connectorName}: ${capability.label}`,
     ),
   };
@@ -741,23 +1232,190 @@ export function getPlannedConnectorSetupGuide(
         label: "Open Windsurf",
         command: "open -a Windsurf",
         notes:
-          "Open Windsurf and paste Repo Intelligence handoffs manually. Automatic settings edits wait backup and restore coverage.",
+          "Open Windsurf after enabling the connector to verify managed editor settings routing through Switchboard.",
       };
     case "zed_ai":
       return {
         label: "Open Zed",
         command: "open -a Zed",
         notes:
-          "Open Zed and paste Repo Intelligence handoffs manually. Provider settings remain manual until restore checks ship.",
+          "Open Zed after enabling the connector to verify managed assistant settings routing through Switchboard.",
       };
     default:
       return null;
   }
 }
 
+function readinessStage(
+  id: PlannedConnectorReadinessStageId,
+  label: string,
+  state: PlannedConnectorReadinessStage["state"],
+  evidence: string,
+): PlannedConnectorReadinessStage {
+  return { id, label, state, evidence };
+}
+
+export function getPlannedConnectorReadinessContract(
+  connector: ConnectorDossier,
+): PlannedConnectorReadinessContract {
+  const setupGuide = getPlannedConnectorSetupGuide(connector.id);
+  const isManagedConnector =
+    connector.supportStatus === "managed" && connector.setupPhase === "Managed";
+  const hasDetection = connector.capabilityRows.some(
+    (capability) =>
+      capability.label.toLowerCase().includes("detection") &&
+      capability.state === "Available now",
+  );
+  const hasManualGuide =
+    connector.manualWorkflow.length >= 3 && setupGuide !== null;
+  const managedEvidence = (label: string) =>
+    connector.capabilityRows.find(
+      (capability) =>
+        capability.label.toLowerCase().includes(label) &&
+        capability.state === "Available now",
+    )?.detail;
+
+  const stages: PlannedConnectorReadinessStage[] = [
+    readinessStage(
+      "detected",
+      "Detected",
+      hasDetection || isManagedConnector ? "ready" : "blocked",
+      hasDetection || isManagedConnector
+        ? "Connector detection or managed setup evidence is available now."
+        : "Add read-only detection before any setup path.",
+    ),
+    readinessStage(
+      "manualGuide",
+      "Manual Guide",
+      hasManualGuide ? "ready" : "blocked",
+      hasManualGuide
+        ? setupGuide.notes
+        : "Add a manual setup guide before automation is offered.",
+    ),
+    readinessStage(
+      "backupImplemented",
+      "Backup Implemented",
+      isManagedConnector ? "ready" : "blocked",
+      isManagedConnector
+        ? "Managed setup creates a rollback backup before editing settings."
+        : "No gated connector can write config until exact backup coverage exists.",
+    ),
+    readinessStage(
+      "applyImplemented",
+      "Apply Implemented",
+      isManagedConnector ? "ready" : "blocked",
+      managedEvidence("routing") ??
+        "Automatic setup is disabled until a reversible apply path exists.",
+    ),
+    readinessStage(
+      "verifyImplemented",
+      "Verify Implemented",
+      isManagedConnector ? "ready" : "blocked",
+      managedEvidence("verification") ??
+        "Doctor verification must prove the connector state after setup.",
+    ),
+    readinessStage(
+      "rollbackImplemented",
+      "Rollback Implemented",
+      isManagedConnector ? "ready" : "blocked",
+      managedEvidence("rollback") ??
+        "Rollback must restore previous config without touching unrelated settings.",
+    ),
+    readinessStage(
+      "offCleanupImplemented",
+      "Off Cleanup Implemented",
+      isManagedConnector ? "ready" : "blocked",
+      isManagedConnector
+        ? "Off mode removes only Switchboard-owned managed routing."
+        : "Off mode cleanup must remove managed routing before automation is enabled.",
+    ),
+  ];
+  const nextBlockedStage =
+    stages.find((stage) => stage.state === "blocked")?.id ?? null;
+
+  return {
+    connectorId: connector.id,
+    connectorName: connector.name,
+    setupPhase: connector.setupPhase,
+    automationEnabled: nextBlockedStage === null,
+    nextBlockedStage,
+    stages,
+  };
+}
+
+export function getPlannedConnectorReadinessContracts(
+  connectors: ConnectorDossier[] = plannedConnectors,
+) {
+  return connectors.map(getPlannedConnectorReadinessContract);
+}
+
+export function getPlannedConnectorReadinessBadges(
+  connector: ConnectorDossier,
+): PlannedConnectorReadinessBadge[] {
+  const readiness = getPlannedConnectorReadinessContract(connector);
+  const notes = [
+    connector.notes,
+    connector.safeToday,
+    connector.firstAutomation,
+    ...connector.configSurfaces,
+    ...connector.automationGates,
+    ...connector.manualWorkflow,
+  ].join(" ");
+  const hasAccountOrModelCaveat =
+    /\b(account|model|credential|credentials|profile|AWS|SSO|secrets?)\b/i.test(
+      notes,
+    );
+
+  const badges: PlannedConnectorReadinessBadge[] = [];
+  if (
+    connector.setupPhase === "Detect" ||
+    connector.setupPhase === "Guide" ||
+    connector.supportedModes.includes("Guided setup") ||
+    connector.supportedModes.includes("Repo packs")
+  ) {
+    badges.push({
+      kind: "manual-only",
+      label: "Manual only",
+      detail:
+        "Safe today through detection, guided setup, RTK, or Repo Intelligence handoff without config writes.",
+    });
+  }
+
+  if (!readiness.automationEnabled) {
+    const nextStage = readiness.stages.find(
+      (stage) => stage.id === readiness.nextBlockedStage,
+    );
+    badges.push({
+      kind: "automation-gated",
+      label: "Automation gated",
+      detail: nextStage
+        ? `Blocked until ${nextStage.label.toLowerCase()} is implemented.`
+        : "Blocked until every readiness stage is implemented.",
+    });
+  } else {
+    badges.push({
+      kind: "verified-automation",
+      label: "Verified automation",
+      detail:
+        "Backup, apply, verify, rollback, and Off cleanup coverage are complete.",
+    });
+  }
+
+  if (hasAccountOrModelCaveat) {
+    badges.push({
+      kind: "unsupported-account-model",
+      label: "Unsupported account/model",
+      detail:
+        "Account, credential, profile, or model compatibility needs Doctor guardrails before routing.",
+    });
+  }
+
+  return badges;
+}
+
 export function getPlannedConnectorSetupChecklistScript() {
   const lines = [
-    "# Mac AI Switchboard planned-tool detection checks",
+    "# Mac AI Switchboard connector detection checks",
     "# Read-only: these commands only inspect local app/CLI availability.",
     ...plannedConnectors.flatMap((connector) => {
       const guide = getPlannedConnectorSetupGuide(connector.id);

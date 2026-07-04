@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - staging
+      - "feature/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libxdo-dev \
+            pkg-config \
+            wget
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Check tracked local artifacts
+        run: npm run check:local-artifacts
+
+      - name: Check deployment readiness contract
+        run: npm run check:deployment
+
+      - name: Check connector registry
+        run: npm run check:connectors
+
+      - name: Check governance docs
+        run: npm run check:governance
+
+      - name: Check Rust formatting
+        run: npm run fmt:desktop
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Check local-free build privacy
+        run: npm run check:local-build-privacy
+
+      - name: Run frontend coverage
+        run: npm run test:coverage
+
+      - name: Run Rust tests
+        run: cargo nextest run --manifest-path src-tauri/Cargo.toml

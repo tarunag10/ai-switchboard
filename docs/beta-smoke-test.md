@@ -37,7 +37,7 @@ If Codex is one of the routed Headroom clients in Full optimization or Headroom 
 
 Create a degraded setup by requesting Full optimization while either RTK or client routing is missing. The easiest safe path is to uninstall or disable RTK from Addons, then request Full optimization.
 
-Expect: Switchboard still shows the requested mode, but the attention line reports the active mode and says to run Doctor. Doctor lists the missing dependency instead of leaving the mode change looking stuck, and degraded-mode guidance says to run automatic repairs, complete remaining manual connector steps, then re-run Doctor until requested mode becomes active.
+Expect: Switchboard still shows the requested mode, but the attention line reports the active mode and says to run Doctor. Doctor lists the missing dependency instead of leaving the mode change looking stuck, and degraded-mode guidance says to run automatic repairs for runtime, managed clients, or RTK, keep only retained connector native-routing gates manual until backup/verify/rollback/Off cleanup evidence is promoted, then re-run Doctor until requested mode becomes active.
 
 ### S4. Doctor repairs missing RTK
 
@@ -71,21 +71,21 @@ The '' model is not supported when using Codex with a ChatGPT account.
 
 Expect: this is treated as a Codex routing/config problem, not as an RTK compression problem. Doctor should flag Codex routing config if the managed provider block or proxy URL is stale, and **Repair Codex** should re-apply the reversible Codex setup.
 
-### S8. Planned connectors are visible but manual
+### S8. Managed connectors are visible with native config gates
 
 Open Settings and inspect the coding tool connector list.
 
-Expect: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI all appear when detected or known to the connector registry. Each planned connector shows a **Planned** badge, setup phase, category, safe mode chips such as RTK only or Repo packs, backend detection evidence, copyable manual setup guide, and disabled switch. Cards explain what is safe today and the first automation step before config writes. Doctor may show **Planned coding tools detected**, but it must be a manual step with no **Repair all** action for those tools. If a report mixes repairable and manual items, Doctor says **Repair all will leave manual steps visible.** Launcher auto-setup and proxy verification should include only managed connectors such as Claude Code and Codex.
+Expect: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI all appear when detected or known to the connector registry. Each managed connector shows setup phase, category, safe mode chips such as RTK only or Repo packs, backend detection evidence, copyable manual setup guide, sidecar lifecycle state, and native config gate status. Promoted managed routing connectors show routing lifecycle readiness evidence when detected; Goose shows managed Repo Memory MCP bridge readiness while provider routing stays manual. Cards explain what is safe today and the first native config automation step before third-party config writes. Doctor may show connector native config gates as a **Manual workflow** for connectors whose native write path is still gated, but those manual native-write gates must have no **Repair all** action. Promoted managed routing drift should show repairable actions. If a report mixes repairable and manual items, Doctor says **Repair all will leave manual steps visible.** Launcher auto-setup and proxy verification should include only managed routing connectors.
 
-Expect: planned connector cards and Doctor evidence include **Automation gates** and **Manual workflow** before any future config-writing support is allowed.
+Expect: managed connector cards and Doctor evidence include **Automation gates**, **Manual workflow**, native config gate status, **Config creation plan**, and managed connector readiness evidence before future native config-writing support is promoted.
 
 ### S9. Repo Intelligence index health
 
-Open Addons, enter a local repo path in the Repo Intelligence card, and click **Index**.
+Open **Repo Intelligence** from the sidebar, enter a local repo path, and click **Index**.
 
 Expect: card shows indexed signals, context packs, repo path, indexed timestamp, graph summary top directories, languages, entrypoints, likely tests, dependency hubs, import edges, reverse hubs, symbols, combined agent graph signal.
 
-Expect: latest Repo Intelligence summary reloads from managed app storage. If the indexed repo folder is moved or deleted, Doctor shows **Clear index** as an automatic cleanup for the stale or missing saved summary. **Repair all** may clear that saved summary, but it must not guess a replacement repo path or mutate the repo. Re-indexing remains a deliberate Addons action.
+Expect: latest Repo Intelligence summary reloads from managed app storage. If the indexed repo folder is moved or deleted, Doctor shows **Clear index** as an automatic cleanup for the stale or missing saved summary. **Repair all** may clear that saved summary, but it must not guess a replacement repo path or mutate the repo. Re-indexing remains a deliberate Repo Intelligence action. Re-indexing remains a deliberate Addons action only when entering from the Addons status card.
 
 Click **Copy pack**.
 
@@ -95,9 +95,13 @@ Click **Copy agent manifest**.
 
 Expect: JSON manifest is copied for external coding agents. It includes `mac_ai_switchboard.repo_intelligence_manifest`, implementation/verification/handoff pack ids, per-pack commands, token savings, and read-only safety flags.
 
+In **Start session**, choose an agent and task, then click **Copy full handoff**.
+
+Expect: the copied session handoff matches the selected task pack, shows freshness and recommended mode, marks promoted managed-routing targets as not manual-provider-routed, and keeps manual routing only for connectors whose readiness state still requires it. CLI parity is `npm run repo:intelligence -- <repo> --session --agent codex --task verification --headroom-healthy --rtk-healthy --format markdown`; JSON output uses `mac_ai_switchboard.agent_session_preparation`.
+
 In **Agent handoffs**, expect grouped sections for Primary agents, CLI agents, Editor agents, and Chat agents. Claude Code and Codex should appear in Primary agents. Click **Claude Code**, **Codex**, **Gemini CLI**, **Cursor**, and newer targets such as **Qwen Code**, **Amazon Q Developer CLI**, **Windsurf**, or **Zed AI**.
 
-Expect: Markdown action copies a ready-to-paste bounded handoff for that tool, selects the expected implementation, verification, or handoff pack, includes token savings and graph summary, and does not write third-party config. JSON action copies a `mac_ai_switchboard.repo_agent_handoff` payload with agent id, selected pack, file list, graph hints, token savings, and read-only safety flags.
+Expect: Markdown action copies a ready-to-paste bounded handoff for that tool, selects the expected implementation, verification, or handoff pack, includes token savings and graph summary, and does not write third-party config. Managed connector targets include **Connector Config Readiness** with managed connector config readiness, next gate, evidence requirements, config path strategy, account caveat, and rollback strategy. JSON action copies a `mac_ai_switchboard.repo_agent_handoff` payload with agent id, selected pack, file list, graph hints, token savings, read-only safety flags, and the same connector readiness payload.
 
 Click **Clear** in the Repo Intelligence card.
 
@@ -154,7 +158,7 @@ If enabled, have Claude call `mcp__headroom__headroom_retrieve` with any small q
 
 ### 5. Tray → Dashboard renders
 
-Click the tray icon, open the dashboard. Expect savings chart, per-client stats, and the Savings calculator to render without a blank/error state. Toggle Session / Overall and confirm the source breakdown names Headroom, Repo Intelligence, and RTK when those data sources are available. Click **Copy** in the Savings calculator and confirm the clipboard summary includes the selected scope, saved tokens, estimated dollars, reduction, equation, and sources.
+Click the tray icon, open the dashboard. Expect savings chart, per-client stats, and the Savings calculator to render without a blank/error state. Toggle Session / Overall and confirm the source breakdown names Headroom, Repo Intelligence, and RTK when those data sources are available. Click **Copy** in the Savings calculator and confirm the clipboard ledger includes the selected scope, timestamp, source ids, saved tokens, estimated dollars, confidence labels, and caveats that keep measured, estimated, and inferred rows separate.
 
 ### 6. Pause / resume cleanly strips and restores interception
 
@@ -238,7 +242,7 @@ kill $BLOCK_PID 2>/dev/null
 
 Expect: `livez=200`, a `127.0.0.1:67XX` line where `XX` is NOT `68` (the fallback worked). After the test, quit + relaunch Mac AI Switchboard so the next session goes back to 6768.
 
-If the fallback is missing, check `~/Library/Application Support/Headroom/headroom/logs/` for a `[backend_port]` warning line that names the occupant and the chosen fallback port.
+If the fallback is missing, check `~/Library/Application Support/Mac AI Switchboard/headroom/logs/` first for a `[backend_port]` warning line that names the occupant and the chosen fallback port. Upgraded installs may also have preserved legacy logs under `~/Library/Application Support/Headroom/headroom/logs/`.
 
 ### 10. Free local mode has no account gate
 
@@ -305,11 +309,11 @@ rtk proxy curl -s http://127.0.0.1:6767/stats | jq .summary
 Every `rtk` invocation in this doc (checks 3, 7, C2, and above) has the same PATH caveat as check 3: when Claude Code or Codex runs them through their shell tool, `rtk` is not on PATH because the non-login shell never sources `~/.zprofile`. Either wrap the command in `zsh -lc '...'`, or call the binary by its managed path:
 
 ```bash
-"$HOME/Library/Application Support/Headroom/headroom/bin/rtk" proxy curl -s http://127.0.0.1:6767/stats | jq .summary
+"$HOME/Library/Application Support/Mac AI Switchboard/headroom/bin/rtk" proxy curl -s http://127.0.0.1:6767/stats | jq .summary
 ```
 
 ## When something fails
 
-- Proxy log silent → check `~/Library/Application Support/Headroom/headroom/logs/` for a newer log file or a crash file. This compatibility storage path remains named Headroom until a dedicated state migration is implemented.
+- Proxy log silent → check `~/Library/Application Support/Mac AI Switchboard/headroom/logs/` for a newer log file or a crash file. Upgraded installs may also retain preserved legacy logs under `~/Library/Application Support/Headroom/headroom/logs/`.
 - RTK missing → check the managed block in `~/.zshrc` / `~/.zprofile` is intact and the shell has been reloaded.
 - MCP tool missing → restart Claude Code; the MCP server registration happens at session start.

@@ -30,6 +30,88 @@ pub struct ManagedTool {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ManagedFootprintItem {
+    pub id: String,
+    pub category: String,
+    pub path: String,
+    pub exists: bool,
+    pub managed: bool,
+    pub action: String,
+    pub reversible: bool,
+    pub backup_paths: Vec<String>,
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedFootprintReport {
+    pub generated_at: DateTime<Utc>,
+    pub items: Vec<ManagedFootprintItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UninstallTarget {
+    pub id: String,
+    pub category: String,
+    pub path: String,
+    pub exists: bool,
+    pub managed: bool,
+    pub action: String,
+    pub requires_confirmation: bool,
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UninstallDryRunReport {
+    pub generated_at: DateTime<Utc>,
+    pub targets: Vec<UninstallTarget>,
+    pub removed_on_uninstall: Vec<String>,
+    pub preserved: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum CodexThreadRetaggingMode {
+    Ask,
+    Enabled,
+    Disabled,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexThreadRetaggingSettings {
+    pub codex_thread_retagging: CodexThreadRetaggingMode,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexThreadRetaggingReport {
+    pub path: String,
+    pub from_provider: String,
+    pub to_provider: String,
+    pub rows_changed: usize,
+    pub backup_path: Option<String>,
+    pub skipped_reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexThreadRetaggingRunReport {
+    pub mode: CodexThreadRetaggingMode,
+    pub reports: Vec<CodexThreadRetaggingReport>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexDbRestoreResult {
+    pub restored_path: String,
+    pub backup_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PipelineStageMetric {
     pub stage_id: String,
     pub stage_name: String,
@@ -91,7 +173,7 @@ pub struct DailyInsight {
     pub related_workspace: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RepoFileRole {
     Source,
@@ -128,6 +210,90 @@ pub struct RepoContextPack {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RepoFileRank {
+    pub path: String,
+    pub score: f64,
+    pub estimated_tokens: u64,
+    pub reasons: Vec<String>,
+    pub risks: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoTaskContextPack {
+    pub id: String,
+    pub task: String,
+    pub budget_tokens: u64,
+    pub files: Vec<RepoFileRank>,
+    pub tests: Vec<RepoFileRank>,
+    pub commands: Vec<String>,
+    pub omitted: Vec<RepoFileRank>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoContextPackGraphBrief {
+    pub available: bool,
+    pub dependency_hub_count: usize,
+    pub import_edge_count: usize,
+    pub reverse_dependency_hub_count: usize,
+    pub symbol_count: usize,
+    pub symbol_edge_count: usize,
+    #[serde(default)]
+    pub graph_input_paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoContextPackSafety {
+    pub read_only: bool,
+    pub excludes_secret_like_paths: bool,
+    pub modifies_repository: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoContextPackResponse {
+    pub repo_root: String,
+    pub indexed_at: String,
+    pub pack: RepoContextPack,
+    pub index_metadata: Option<RepoIndexMetadata>,
+    pub index_freshness: RepoIndexFreshnessResponse,
+    pub graph_brief: RepoContextPackGraphBrief,
+    pub safety: RepoContextPackSafety,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RepoIndexFreshnessStatus {
+    None,
+    Fresh,
+    UnchangedCache,
+    ChangedCache,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoIndexFreshnessResponse {
+    pub repo_root: Option<String>,
+    pub indexed_at: Option<String>,
+    pub status: RepoIndexFreshnessStatus,
+    pub label: String,
+    pub detail: String,
+    pub api_available: bool,
+    pub graph_available: bool,
+    pub index_health: String,
+    pub parser_health: String,
+    pub indexer_version: Option<String>,
+    pub parser_version: Option<String>,
+    pub indexed_file_count: Option<u64>,
+    pub skipped_file_count: Option<u64>,
+    pub safety: RepoContextPackSafety,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepoGraphNode {
     pub label: String,
     pub count: u64,
@@ -142,6 +308,9 @@ pub enum RepoGraphEdgeKind {
     EntrypointToConfig,
     SourceToDependencyHub,
     SymbolReference,
+    ImportReference,
+    PackageDependency,
+    CallReference,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -162,6 +331,7 @@ pub enum RepoSymbolKind {
     Enum,
     Trait,
     Const,
+    Heading,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -173,6 +343,140 @@ pub struct RepoSymbol {
     pub line: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoSymbolSearchResponse {
+    pub repo_root: String,
+    pub indexed_at: String,
+    pub query: Option<String>,
+    pub limit: usize,
+    pub symbols: Vec<RepoSymbol>,
+    pub safety: RepoContextPackSafety,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoDependentsResponse {
+    pub repo_root: String,
+    pub indexed_at: String,
+    pub target: String,
+    pub limit: usize,
+    pub edges: Vec<RepoGraphEdge>,
+    pub safety: RepoContextPackSafety,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoAgentHandoffAgent {
+    pub id: String,
+    pub label: String,
+    pub tool_kind: String,
+    pub guidance: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoAgentHandoffSafety {
+    pub read_only: bool,
+    pub excludes_secret_like_paths: bool,
+    pub modifies_repository: bool,
+    pub manual_provider_routing: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoAgentConfigReadinessGate {
+    pub id: String,
+    pub label: String,
+    pub required_evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoAgentConfigReadinessNextGate {
+    pub id: String,
+    pub label: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoAgentConfigReadinessDossier {
+    pub config_path_strategy: String,
+    pub account_caveat: String,
+    pub rollback_strategy: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoAgentConfigReadiness {
+    pub planned_connector_id: String,
+    pub planned_connector_name: String,
+    pub automation_enabled: bool,
+    pub safety_note: String,
+    pub next_gate: RepoAgentConfigReadinessNextGate,
+    pub safety_dossier: RepoAgentConfigReadinessDossier,
+    pub gated_steps: Vec<RepoAgentConfigReadinessGate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoAgentHandoffResponse {
+    pub schema_version: u64,
+    pub kind: String,
+    pub repo_root: String,
+    pub indexed_at: String,
+    pub agent: RepoAgentHandoffAgent,
+    pub pack: RepoContextPack,
+    pub graph_brief: RepoContextPackGraphBrief,
+    pub index_freshness: RepoIndexFreshnessResponse,
+    pub safety: RepoAgentHandoffSafety,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config_readiness: Option<RepoAgentConfigReadiness>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoManifestPackSummary {
+    pub id: String,
+    pub title: String,
+    pub purpose: String,
+    pub file_count: usize,
+    pub estimated_tokens: u64,
+    pub savings_vs_full_scan_pct: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoManifestQuery {
+    pub id: String,
+    pub description: String,
+    pub command: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoManifestTotals {
+    pub total_files: u64,
+    pub indexed_files: u64,
+    pub skipped_files: u64,
+    pub estimated_full_scan_tokens: u64,
+    pub indexer_version: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoIntelligenceManifestResponse {
+    pub schema_version: u64,
+    pub kind: String,
+    pub repo_root: String,
+    pub indexed_at: String,
+    pub totals: RepoManifestTotals,
+    pub graph_brief: RepoContextPackGraphBrief,
+    pub packs: Vec<RepoManifestPackSummary>,
+    pub queries: Vec<RepoManifestQuery>,
+    pub safety: RepoContextPackSafety,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -197,6 +501,53 @@ pub struct RepoGraphSummary {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RepoFileIndexEntry {
+    pub path: String,
+    pub bytes: u64,
+    pub modified_unix_ms: u64,
+    pub fingerprint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoSkippedIndexEntry {
+    pub path: String,
+    pub role: RepoFileRole,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoGraphInputEntry {
+    pub path: String,
+    pub role: RepoFileRole,
+    pub language: String,
+    pub bytes: u64,
+    pub fingerprint: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoIndexMetadata {
+    pub schema_version: u64,
+    pub indexer_version: String,
+    pub parser_version: String,
+    pub cache_key: String,
+    pub cache_state: String,
+    pub generated_at: String,
+    pub previous_indexed_at: Option<String>,
+    pub file_count: u64,
+    pub indexed_file_count: u64,
+    pub skipped_file_count: u64,
+    pub file_fingerprints: Vec<RepoFileIndexEntry>,
+    #[serde(default)]
+    pub skipped_files: Vec<RepoSkippedIndexEntry>,
+    #[serde(default)]
+    pub graph_inputs: Vec<RepoGraphInputEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RepoIntelligenceSummary {
     pub indexed_at: String,
     pub repo_root: String,
@@ -207,6 +558,8 @@ pub struct RepoIntelligenceSummary {
     pub skipped_files: u64,
     pub estimated_full_scan_tokens: u64,
     pub role_counts: std::collections::BTreeMap<String, u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index_metadata: Option<RepoIndexMetadata>,
     pub graph: Option<RepoGraphSummary>,
     pub packs: Vec<RepoContextPack>,
 }
@@ -288,6 +641,48 @@ pub struct HourlySavingsPoint {
     pub total_tokens_sent: u64,
     #[serde(default)]
     pub by_provider: Vec<ProviderSavingsPoint>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SavingsAttributionSource {
+    HeadroomEngine,
+    Rtk,
+    RepoIntelligence,
+    Caveman,
+    Ponytail,
+    Markitdown,
+    CompactChinese,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SavingsAttributionScope {
+    Session,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SavingsAttributionConfidence {
+    Measured,
+    Estimated,
+    Inferred,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavingsAttributionEvent {
+    pub schema_version: u8,
+    pub id: String,
+    pub observed_at: DateTime<Utc>,
+    pub scope: SavingsAttributionScope,
+    pub source: SavingsAttributionSource,
+    pub confidence: SavingsAttributionConfidence,
+    pub delta_tokens_saved: u64,
+    pub delta_usd: f64,
+    pub total_tokens_sent: u64,
+    pub request_delta: usize,
+    pub evidence: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -378,10 +773,136 @@ pub struct ClientConnectorStatus {
     pub automation_gates: Vec<String>,
     #[serde(default)]
     pub manual_workflow: Vec<String>,
+    #[serde(default)]
+    pub config_creation_steps: Vec<String>,
+    #[serde(default)]
+    pub config_creation_step_details: Vec<ClientConnectorConfigCreationStep>,
+    #[serde(default)]
+    pub config_dry_run_preview: Option<ClientConnectorConfigDryRunPreview>,
+    #[serde(default)]
+    pub automation_path: Vec<ClientConnectorAutomationStage>,
     pub installed: bool,
     pub enabled: bool,
     pub verified: bool,
+    #[serde(default)]
+    pub setup_verification: Option<ClientSetupVerification>,
     pub last_configured_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientConnectorConfigCreationStep {
+    pub id: String,
+    pub label: String,
+    pub detail: String,
+    pub required_evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientConnectorConfigDryRunPreview {
+    pub target: String,
+    pub marker: String,
+    pub backup_path: String,
+    pub current_state: String,
+    pub proposed_state: String,
+    pub apply_blocked_reason: String,
+    pub rollback_preview: String,
+    pub confirmation_phrase: String,
+    pub writes: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClientConnectorAutomationStage {
+    pub id: String,
+    pub label: String,
+    pub status: String,
+    pub evidence: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum ManagedRollbackExecutionStatus {
+    Ready,
+    Blocked,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedRollbackPreview {
+    pub record_id: String,
+    pub owner: String,
+    pub target_path: String,
+    pub marker: String,
+    pub backup_path: Option<String>,
+    pub marker_present: bool,
+    pub backup_exists: bool,
+    pub status: ManagedRollbackExecutionStatus,
+    pub confirmation_phrase: String,
+    pub proposed_action: String,
+    pub blocked_reason: Option<String>,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedConfigApplyPreview {
+    pub record_id: String,
+    pub owner: String,
+    pub target_path: String,
+    pub marker: String,
+    pub backup_path: String,
+    pub status: ManagedRollbackExecutionStatus,
+    pub confirmation_phrase: String,
+    pub current_state: String,
+    pub proposed_state: String,
+    pub rollback_preview: String,
+    pub blocked_reason: Option<String>,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedConfigApplyResult {
+    pub record_id: String,
+    pub owner: String,
+    pub target_path: String,
+    pub changed: bool,
+    pub backup_path: Option<String>,
+    pub marker: String,
+    pub verification: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedRollbackExecutionResult {
+    pub record_id: String,
+    pub owner: String,
+    pub target_path: String,
+    pub restored_from: String,
+    pub safety_backup_path: Option<String>,
+    pub marker: String,
+    pub verification: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedRollbackUndoAllPreview {
+    pub status: ManagedRollbackExecutionStatus,
+    pub confirmation_phrase: String,
+    pub ready: Vec<ManagedRollbackPreview>,
+    pub blocked: Vec<ManagedRollbackPreview>,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagedRollbackUndoAllExecutionResult {
+    pub confirmation_phrase: String,
+    pub executed: Vec<ManagedRollbackExecutionResult>,
+    pub blocked: Vec<ManagedRollbackPreview>,
+    pub verification: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -402,8 +923,14 @@ pub struct RtkRuntimeStatus {
     pub path_configured: bool,
     pub hook_configured: bool,
     pub total_commands: Option<u64>,
+    pub total_input: Option<u64>,
+    pub total_output: Option<u64>,
     pub total_saved: Option<u64>,
     pub avg_savings_pct: Option<f64>,
+    pub total_time_ms: Option<u64>,
+    pub avg_time_ms: Option<u64>,
+    #[serde(default)]
+    pub daily: Vec<RtkDailyStats>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -420,9 +947,21 @@ pub struct RuntimeStatus {
     /// banner + Resume button.
     pub auto_paused: bool,
     pub proxy_reachable: bool,
+    pub proxy_bind_address: String,
+    pub proxy_auth_status: String,
+    pub proxy_auth_detail: String,
     pub headroom_pid: Option<u32>,
+    pub launch_agent_status: LaunchAgentRuntimeStatus,
+    pub backend_status: BackendRuntimeStatus,
     pub mcp_configured: Option<bool>,
     pub mcp_error: Option<String>,
+    pub repo_memory_mcp_configured: Option<bool>,
+    pub repo_memory_mcp_error: Option<String>,
+    pub repo_memory_mcp_active: bool,
+    pub repo_memory_mcp_last_started_at: Option<DateTime<Utc>>,
+    pub repo_memory_mcp_last_checked_at: Option<DateTime<Utc>>,
+    pub repo_memory_mcp_supervision_status: String,
+    pub repo_memory_mcp_service: Option<RepoMemoryMcpServiceStatus>,
     pub ml_installed: Option<bool>,
     pub kompress_enabled: Option<bool>,
     pub headroom_learn_supported: bool,
@@ -431,6 +970,46 @@ pub struct RuntimeStatus {
     pub startup_error_hint: Option<String>,
     pub runtime_upgrade_failure: Option<RuntimeUpgradeFailure>,
     pub rtk: RtkRuntimeStatus,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoMemoryMcpServiceStatus {
+    pub managed_by_app: bool,
+    pub read_only: bool,
+    pub transport: String,
+    pub command: String,
+    pub descriptor_path: String,
+    pub descriptor_present: bool,
+    pub script_path: String,
+    pub script_present: bool,
+    pub node_available: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchAgentRuntimeStatus {
+    pub installed: bool,
+    pub path: Option<String>,
+    pub label: String,
+    pub loaded: Option<bool>,
+    pub load_detail: Option<String>,
+    pub legacy_installed: bool,
+    pub legacy_path: Option<String>,
+    pub legacy_label: String,
+    pub legacy_loaded: Option<bool>,
+    pub legacy_load_detail: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackendRuntimeStatus {
+    pub reachable: bool,
+    pub bind_address: String,
+    pub port: u16,
+    pub default_port: u16,
+    pub fallback_range_start: u16,
+    pub fallback_range_end: u16,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -617,8 +1196,26 @@ pub struct TransformationFeedEvent {
 #[serde(rename_all = "camelCase")]
 pub struct TransformationFeedResponse {
     pub log_full_messages: bool,
+    pub full_message_logging_expires_at: Option<DateTime<Utc>>,
+    pub message_log_retention_hours: u32,
     pub transformations: Vec<TransformationFeedEvent>,
     pub proxy_reachable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageLoggingSettings {
+    pub full_message_logging: bool,
+    pub full_message_logging_expires_at: Option<DateTime<Utc>>,
+    pub message_log_retention_hours: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PurgeResult {
+    pub purged: bool,
+    pub removed_paths: Vec<String>,
+    pub notes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -652,6 +1249,24 @@ pub struct RtkTodayStats {
     pub date: String,
     pub saved_tokens: u64,
     pub commands: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub savings_pct: Option<f64>,
+    pub total_time_ms: u64,
+    pub avg_time_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RtkDailyStats {
+    pub date: String,
+    pub saved_tokens: u64,
+    pub commands: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub savings_pct: Option<f64>,
+    pub total_time_ms: u64,
+    pub avg_time_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]

@@ -17,23 +17,26 @@ const requiredSignals = {
     "Copy report",
     "degraded-mode guidance",
     "re-run Doctor until requested mode becomes active",
-    "Planned connectors are visible but manual",
+    "Managed connectors are visible with native config gates",
 "backend detection evidence",
 "Automation gates",
 "Manual workflow",
+  "managed connector readiness evidence",
     "RTK only or Repo packs",
     "Repair all will leave manual steps visible",
     "copyable manual setup guide",
 "Copy agent manifest",
 "Agent handoffs",
 "mac_ai_switchboard.repo_agent_handoff",
+"Connector Config Readiness",
+"managed connector config readiness",
 "ready-to-paste bounded handoff",
     "Clear index",
     "Re-indexing remains a deliberate Addons action",
     "Release readiness visible in Settings",
 "npm run smoke:installed -- --confirm",
 "Contents/Info.plist",
-    "Launcher auto-setup and proxy verification should include only managed connectors",
+    "Launcher auto-setup and proxy verification should include only managed routing connectors",
 "Codex traffic is actively optimized",
 "Pause / resume",
 "Savings calculator",
@@ -52,10 +55,14 @@ const requiredSignals = {
   "scripts/repo-intelligence.mjs": [
     "--manifest",
     "--agent <id>",
+    "--session",
+    "--task <type>",
     "--list-agents",
     "--format json",
+    "mac_ai_switchboard.agent_session_preparation",
     "mac_ai_switchboard.repo_intelligence_manifest",
     "mac_ai_switchboard.repo_agent_handoff",
+    "buildAgentSessionPreparation",
     "formatAgentHandoffMarkdown",
     "excludesSecretLikePaths",
   ],
@@ -115,10 +122,10 @@ Generated: ${generatedAt}
 ## Required Installed-App Smoke Areas
 
 - Switchboard modes: Full optimization, Headroom only, RTK only, Off
-- Doctor repairs: runtime, Codex setup, RTK, planned connector manual warnings with detection evidence, and Repo Intelligence stale/missing-index warnings
-- Planned connectors: Gemini CLI, OpenCode, Cursor, Grok / xAI CLI, Aider, Continue, Goose; each stays disabled and manual with safe RTK-only or Repo Intelligence pack guidance
-- Repo Intelligence: local repo index, persisted latest summary, copy bounded context pack, copy individual task pack, copy agent manifest, copy per-tool Markdown and JSON agent handoffs, clear saved index, context-pack preview, per-pack copy
-- Savings calculator: Session / Overall scopes, copyable summary, saved tokens, estimated dollars, reduction, equation, source breakdown
+- Doctor repairs: runtime, Codex setup, RTK, managed connector native config warnings with detection evidence, config creation plan, managed connector readiness evidence, and Repo Intelligence stale/missing-index warnings
+- Managed connectors are visible with native config gates: Gemini CLI, OpenCode, Windsurf, and Zed AI show routing lifecycle readiness evidence when detected (promoted managed routing connectors show routing lifecycle readiness evidence); Goose shows managed Repo Memory MCP bridge readiness while provider routing stays manual; Cursor, Grok / xAI CLI, Aider, Continue, Qwen Code, and Amazon Q Developer CLI keep native config mutation gated with safe RTK-only or Repo Intelligence pack guidance, copyable manual setup guide, and copyable config creation plan. Coverage includes Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI.
+- Repo Intelligence: local repo index, persisted latest summary, copy bounded context pack, copy individual task pack, copy agent manifest, copy per-tool Markdown and JSON agent handoffs, Connector readiness payload in agent handoffs, clear saved index, context-pack preview, per-pack copy
+- Savings calculator: Session / Overall scopes, copyable confidence-labelled ledger, saved tokens, estimated dollars, reduction, equation, source breakdown
 - Local-first behavior: remote services gated, Off mode reversible cleanup
 - Codex resilience: compression refusal reset and model/provider repair
 

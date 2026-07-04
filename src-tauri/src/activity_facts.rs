@@ -290,6 +290,15 @@ impl ActivityFacts {
         })
     }
 
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn reset_for_message_log_purge(&mut self) {
+        let path = self.path.clone();
+        *self = Self::empty(path);
+    }
+
     fn empty(path: PathBuf) -> Self {
         Self {
             path,

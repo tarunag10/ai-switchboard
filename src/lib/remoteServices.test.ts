@@ -10,9 +10,9 @@ import {
 describe("remote services copy", () => {
   it("labels local-only remote services fully off", () => {
     expect(remoteServicesCopy(false)).toEqual({
-      label: "Off",
+      label: "Local-only",
       detail:
-        "Blocked in local-only mode: Headroom account API, Headroom pricing and trial API, Sentry diagnostics, Microsoft Clarity analytics, Aptabase analytics, Tauri update feed, External support links.",
+        "Mac AI Switchboard local-only mode is on. Diagnostics, analytics, update, and support endpoints stay paused: Sentry diagnostics, Microsoft Clarity analytics, Product analytics, Tauri update feed, External support links. Account and paid pricing APIs are not part of this app.",
     });
   });
 
@@ -20,17 +20,17 @@ describe("remote services copy", () => {
     expect(remoteServicesCopy(true)).toEqual({
       label: "Available",
       detail:
-        "Account, pricing, update, support, and optional telemetry destinations are enabled.",
+        "Update, support, and optional telemetry destinations are enabled. Account and paid pricing APIs are not part of this app.",
     });
   });
 
   it("keeps local-only blocked destination registry explicit", () => {
-    expect(remoteServiceDestinations.map((destination) => destination.id)).toEqual([
-      "headroom_account_api",
-      "headroom_pricing_api",
+    expect(
+      remoteServiceDestinations.map((destination) => destination.id),
+    ).toEqual([
       "sentry",
       "clarity",
-      "aptabase",
+      "product_analytics",
       "tauri_updater",
       "support_links",
     ]);
@@ -40,22 +40,25 @@ describe("remote services copy", () => {
     expect(allowedRemoteDestinations(true)).toEqual([]);
   });
 
-  it("documents env and endpoint evidence for every remote destination", () => {
+  it("documents endpoint evidence for every remote destination without bundling operator env names", () => {
     expect(
       remoteServiceDestinations.every(
         (destination) =>
-          destination.endpointExample.length > 0 && destination.source.length > 0,
+          destination.endpointExample.length > 0 &&
+          destination.source.length > 0,
       ),
     ).toBe(true);
     expect(
-      remoteServiceDestinations
-        .filter((destination) => destination.kind !== "support")
-        .every((destination) => Boolean(destination.envVar)),
+      remoteServiceDestinations.every(
+        (destination) =>
+          !destination.id.includes("account") &&
+          !destination.id.includes("pricing"),
+      ),
     ).toBe(true);
   });
 
   it("uses explicit setup labels for local-only and cloud-capable modes", () => {
     expect(localOnlySetupLabel(true)).toBe("Local-only Mac setup");
-    expect(localOnlySetupLabel(false)).toBe("Headroom cloud setup");
+    expect(localOnlySetupLabel(false)).toBe("Mac AI Switchboard cloud setup");
   });
 });

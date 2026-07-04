@@ -1,4 +1,5 @@
-import { useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { Bell, WifiSlash } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 import { formatDateTime, formatRelativeTime } from "../lib/dashboardHelpers";
@@ -13,6 +14,8 @@ import type {
   TrainSuggestionEvent,
   TransformationFeedEvent,
   TransformationRequestMessage,
+  MessageLoggingSettings,
+  PurgeResult,
   WeeklyRecapEvent
 } from "../lib/types";
 
@@ -82,10 +85,71 @@ export function ActivityFeed({
   onNavigateToOptimize
 }: ActivityFeedProps) {
   const { tiles } = feed;
+  const [messageLoggingSettings, setMessageLoggingSettings] =
+    useState<MessageLoggingSettings | null>(null);
+  const [messageLoggingWarningOpen, setMessageLoggingWarningOpen] = useState(false);
+  const [messageLoggingConfirm, setMessageLoggingConfirm] = useState(false);
+  const [messageLoggingHours, setMessageLoggingHours] = useState(1);
+  const [messageLoggingNotice, setMessageLoggingNotice] = useState<string | null>(null);
   // "Waiting for proxy" only fires when we've got nothing to show AND the
   // proxy isn't answering. If any slot is populated (persisted state from a
   // prior session), fall through to render it even while the proxy is down.
   const hasAnyTile = Object.values(tiles).some((v) => v != null);
+
+  useEffect(() => {
+    let cancelled = false;
+    invoke<MessageLoggingSettings>("get_message_logging_settings")
+      .then((settings) => {
+        if (!cancelled) setMessageLoggingSettings(settings);
+      })
+      .catch(() => {
+        if (!cancelled) setMessageLoggingSettings(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function enableMessageLogging() {
+    if (!messageLoggingConfirm) return;
+    const settings =
+      messageLoggingHours < 1
+        ? await invoke<MessageLoggingSettings>("set_message_logging_settings", {
+            settings: {
+              fullMessageLogging: true,
+              fullMessageLoggingExpiresAt: new Date(
+                Date.now() + messageLoggingHours * 60 * 60 * 1000
+              ).toISOString(),
+              messageLogRetentionHours: 24
+            }
+          })
+        : await invoke<MessageLoggingSettings>("enable_full_message_logging", {
+            hours: messageLoggingHours
+          });
+    setMessageLoggingSettings(settings);
+    setMessageLoggingWarningOpen(false);
+    setMessageLoggingConfirm(false);
+    setMessageLoggingNotice(
+      messageLoggingHours < 1
+        ? "Full message logging enabled for 15 minutes."
+        : `Full message logging enabled for ${messageLoggingHours} hour(s).`
+    );
+  }
+
+  async function disableMessageLogging() {
+    const settings = await invoke<MessageLoggingSettings>("disable_full_message_logging");
+    setMessageLoggingSettings(settings);
+    setMessageLoggingNotice("Full message logging disabled.");
+  }
+
+  async function purgeMessageLogs() {
+    const result = await invoke<PurgeResult>("purge_message_logs");
+    setMessageLoggingNotice(
+      result.purged
+        ? `Message logs purged: ${result.removedPaths.join(", ") || "activity facts reset"}.`
+        : "No persisted message logs found to purge."
+    );
+  }
 
   return (
     <>
@@ -101,8 +165,94 @@ export function ActivityFeed({
             Compressions, learnings, RTK saves, and records — everything Headroom is
             doing.
           </p>
+          <div className="activity-card__actions">
+            <button
+              type="button"
+              className="secondary-button secondary-button--small"
+              onClick={() =>
+                messageLoggingSettings?.fullMessageLogging
+                  ? void disableMessageLogging()
+                  : setMessageLoggingWarningOpen(true)
+              }
+            >
+              {messageLoggingSettings?.fullMessageLogging
+                ? "Disable full message logging"
+                : "Enable full message logging"}
+            </button>
+            <button
+              type="button"
+              className="secondary-button secondary-button--small"
+              onClick={() => void purgeMessageLogs()}
+            >
+              Purge message logs
+            </button>
+          </div>
+          {messageLoggingSettings?.fullMessageLogging ? (
+            <p className="activity-card__privacy-note">
+              Full message logging is on until{" "}
+              {messageLoggingSettings.fullMessageLoggingExpiresAt
+                ? formatDateTime(messageLoggingSettings.fullMessageLoggingExpiresAt)
+                : "manually disabled"}
+              .
+            </p>
+          ) : (
+            <p className="activity-card__privacy-note">
+              Full message logging is off by default. Purge before sharing diagnostics.
+            </p>
+          )}
+          {messageLoggingNotice ? (
+            <p className="activity-card__privacy-note">{messageLoggingNotice}</p>
+          ) : null}
         </header>
       </article>
+      {messageLoggingWarningOpen ? (
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal-card activity-card__modal" role="dialog" aria-modal="true">
+            <h2>Enable full message logging?</h2>
+            <p>
+              This can store prompts, source snippets, file paths, provider payloads,
+              and secrets if they are present in requests. Display/export redaction is
+              best effort, not a guarantee.
+            </p>
+            <label className="activity-card__field">
+              Expiration
+              <select
+                value={messageLoggingHours}
+                onChange={(event) => setMessageLoggingHours(Number(event.currentTarget.value))}
+              >
+                <option value={0.25}>15 minutes</option>
+                <option value={1}>1 hour</option>
+                <option value={24}>24 hours</option>
+              </select>
+            </label>
+            <label className="activity-card__consent">
+              <input
+                type="checkbox"
+                checked={messageLoggingConfirm}
+                onChange={(event) => setMessageLoggingConfirm(event.currentTarget.checked)}
+              />
+              <span>I understand raw request and compressed-message payloads may be stored locally.</span>
+            </label>
+            <div className="activity-card__actions">
+              <button
+                type="button"
+                className="secondary-button secondary-button--small"
+                onClick={() => setMessageLoggingWarningOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={!messageLoggingConfirm}
+                onClick={() => void enableMessageLogging()}
+              >
+                Enable temporarily
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {error ? (
         <p className="loading-copy">{error}</p>
       ) : !loaded ? (
@@ -296,12 +446,33 @@ function flattenContent(c: unknown): string {
 }
 
 export function formatRequestMessages(messages: TransformationRequestMessage[]): string {
-  return messages
+  return redactSensitiveMessageText(messages
     .map((m) => {
       const role = (m.role ?? "").trim() || "(unknown)";
       return `${role}:\n${messageText(m)}`;
     })
-    .join("\n\n");
+    .join("\n\n"));
+}
+
+export function redactSensitiveMessageText(input: string): string {
+  let output = input;
+  const patterns = [
+    /sk-ant-[A-Za-z0-9_-]+/g,
+    /sk-proj-[A-Za-z0-9_-]+/g,
+    /ghp_[A-Za-z0-9_]+/g,
+    /github_pat_[A-Za-z0-9_]+/g,
+    /Authorization:\s*Bearer\s+[A-Za-z0-9._~+/=-]+/gi,
+    /Bearer\s+[A-Za-z0-9._~+/=-]{8,}/g,
+    /[A-Za-z0-9_.-]+\.(?:p8|pem|p12)\b/g,
+    /BEGIN PRIVATE KEY/g,
+    /AWS_SECRET_ACCESS_KEY/g,
+    /ANTHROPIC_API_KEY/g,
+    /OPENAI_API_KEY/g
+  ];
+  for (const pattern of patterns) {
+    output = output.replace(pattern, "[REDACTED]");
+  }
+  return output;
 }
 
 export type DiffLine = { type: "same" | "add" | "del"; text: string };
@@ -991,4 +1162,3 @@ function WeeklyRecapRow({ event }: { event: WeeklyRecapEvent }) {
     </li>
   );
 }
-

@@ -7,6 +7,40 @@ const reportPath = "dist/release-readiness-report.md";
 const jsonPath = "dist/release-readiness-report.json";
 const smokeSummaryPath = "dist/smoke-preflight-summary.md";
 const installedSmokeSummaryPath = "dist/installed-smoke-summary.md";
+const localInstalledSmokeSummaryPath = "dist/local-installed-smoke-summary.md";
+const localInstalledSmokeJsonPath = "dist/local-installed-smoke-summary.json";
+const localModeRelaunchSummaryPath =
+  "dist/local-mode-relaunch-smoke-summary.md";
+const localModeRelaunchJsonPath =
+  "dist/local-mode-relaunch-smoke-summary.json";
+const localRollbackSummaryPath = "dist/local-rollback-validation-summary.md";
+const localRollbackJsonPath = "dist/local-rollback-validation-summary.json";
+const localDoctorRepairSummaryPath =
+  "dist/local-doctor-repair-validation-summary.md";
+const localDoctorRepairJsonPath =
+  "dist/local-doctor-repair-validation-summary.json";
+const localUninstallSummaryPath = "dist/local-uninstall-validation-summary.md";
+const localUninstallJsonPath = "dist/local-uninstall-validation-summary.json";
+const localRepoIntelligenceSummaryPath =
+  "dist/local-repo-intelligence-validation-summary.md";
+const localRepoIntelligenceJsonPath =
+  "dist/local-repo-intelligence-validation-summary.json";
+const localRepoMemoryMcpSummaryPath =
+  "dist/local-repo-memory-mcp-validation-summary.md";
+const localRepoMemoryMcpJsonPath =
+  "dist/local-repo-memory-mcp-validation-summary.json";
+const measuredSavingsBenchmarkSummaryPath =
+  "dist/measured-savings-benchmark.md";
+const measuredSavingsBenchmarkJsonPath =
+  "dist/measured-savings-benchmark.json";
+const localConnectorReadinessSummaryPath =
+  "dist/local-connector-readiness-summary.md";
+const localConnectorReadinessJsonPath =
+  "dist/local-connector-readiness-summary.json";
+const localOnlyNetworkSummaryPath =
+  "dist/local-only-network-validation-summary.md";
+const localOnlyNetworkJsonPath =
+  "dist/local-only-network-validation-summary.json";
 const betaSmokeDoc = "docs/beta-smoke-test.md";
 const appPath = "/Applications/Mac AI Switchboard.app";
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
@@ -15,11 +49,14 @@ const staticSmokeRequiredEvidence = [
   "Switchboard copyable state",
   "Doctor automatic manual triage",
   "Doctor copyable report",
-  "Planned connector automation gates",
-  "Planned connector manual workflow",
+  "Managed connector automation gates",
+  "Managed connector native config gate",
+  "Managed connector config creation plan",
+  "Managed connector readiness evidence",
   "Repo Intelligence context packs",
-  "Savings calculator copyable summary",
+  "Savings calculator copyable ledger",
   "Per-tool agent handoffs",
+  "Connector readiness payload in agent handoffs",
   "Installed app metadata check",
 ];
 const installedSmokeRequiredEvidence = [
@@ -27,12 +64,59 @@ const installedSmokeRequiredEvidence = [
   "Switchboard copyable state",
   "Doctor automatic/manual triage repair actions",
   "Doctor copyable report",
-  "Planned connector automation gates and manual workflow",
+  "Managed connector automation gates, manual workflow, config creation plan, and managed connector readiness evidence",
   "Repo Intelligence recipes and local context packs",
-  "Savings calculator copyable summary",
+  "Savings calculator copyable ledger",
   "Per-tool agent handoffs",
+  "Connector readiness payload in agent handoffs",
   "Codex compression recovery",
 ];
+const connectorManifestPath = "connectors/manifest.json";
+
+function buildManagedConnectorReadiness() {
+  const manifest = JSON.parse(fs.readFileSync(connectorManifestPath, "utf8"));
+  const connectors = Array.isArray(manifest) ? manifest : manifest.connectors;
+  if (!Array.isArray(connectors)) {
+    throw new Error(`${connectorManifestPath} must contain a connector array`);
+  }
+
+  const managed = connectors
+    .filter((connector) => connector.support_status === "managed")
+    .map((connector) => ({
+      id: connector.id,
+      name: connector.name,
+      category: connector.category,
+      configLocations: connector.config?.locations ?? [],
+      gates: connector.automation_gates ?? [],
+    }));
+  const gated = connectors.filter(
+    (connector) => connector.support_status !== "managed",
+  );
+
+  return {
+    manifestPath: connectorManifestPath,
+    managedCount: managed.length,
+    gatedCount: gated.length,
+    managed,
+  };
+}
+
+function renderManagedConnectorReadiness(readiness) {
+  const managedRows = readiness.managed.map(
+    (connector) =>
+      `- ${connector.name}: ${connector.category}, ${connector.configLocations.length} config surface${connector.configLocations.length === 1 ? "" : "s"}, ${connector.gates.length} automation gate${connector.gates.length === 1 ? "" : "s"}`,
+  );
+
+  return [
+    "## Managed Connector Readiness",
+    "",
+    `- Source: ${readiness.manifestPath}`,
+    `- Managed connectors: ${readiness.managedCount}`,
+    `- Gated/guided connectors retained: ${readiness.gatedCount}`,
+    ...managedRows,
+    "- Full per-tool dossiers are available from Doctor's connector dossier copy action.",
+  ].join("\n");
+}
 function runReleaseEnv() {
   const result = spawnSync(
     process.execPath,
@@ -81,6 +165,30 @@ function readSummaryStatus(summaryPath) {
     generatedLine: firstGeneratedLine,
     body,
   };
+}
+
+function readJsonStatus(jsonPath) {
+  if (!fs.existsSync(jsonPath)) {
+    return {
+      present: false,
+      body: null,
+      parseError: null,
+    };
+  }
+
+  try {
+    return {
+      present: true,
+      body: JSON.parse(fs.readFileSync(jsonPath, "utf8")),
+      parseError: null,
+    };
+  } catch (error) {
+    return {
+      present: true,
+      body: null,
+      parseError: error.message,
+    };
+  }
 }
 
 function currentFileSha256(filePath) {
@@ -176,18 +284,294 @@ function buildInstalledSmoke(
 }
 
 function buildStaticSmokePreflight(smokeSummary) {
-  const ready = smokeSummary.present;
+  const missingEvidence = staticSmokeRequiredEvidence.filter(
+    (item) => !smokeSummary.body.includes(item),
+  );
+  const evidenceReady = smokeSummary.present && missingEvidence.length === 0;
 
   return {
-    ready,
+    ready: evidenceReady,
     smokeSummaryPath,
     smokeSummaryPresent: smokeSummary.present,
     generatedLine: smokeSummary.generatedLine,
     requiredCommand: "npm run smoke:preflight",
     requiredEvidence: staticSmokeRequiredEvidence,
+    missingEvidence,
+    evidenceReady,
+    message: evidenceReady
+      ? "Static smoke preflight summary present with every required evidence line. Keep it with release evidence."
+      : "Run npm run smoke:preflight before handing a DMG to a tester, and make sure it includes every required evidence line.",
+  };
+}
+
+function buildLocalValidationEvidence() {
+  const localInstalledSummary = readSummaryStatus(localInstalledSmokeSummaryPath);
+  const localInstalledJson = readJsonStatus(localInstalledSmokeJsonPath);
+  const modeRelaunchSummary = readSummaryStatus(localModeRelaunchSummaryPath);
+  const modeRelaunchJson = readJsonStatus(localModeRelaunchJsonPath);
+  const rollbackSummary = readSummaryStatus(localRollbackSummaryPath);
+  const rollbackJson = readJsonStatus(localRollbackJsonPath);
+  const doctorSummary = readSummaryStatus(localDoctorRepairSummaryPath);
+  const doctorJson = readJsonStatus(localDoctorRepairJsonPath);
+  const uninstallSummary = readSummaryStatus(localUninstallSummaryPath);
+  const uninstallJson = readJsonStatus(localUninstallJsonPath);
+  const repoIntelligenceSummary = readSummaryStatus(
+    localRepoIntelligenceSummaryPath,
+  );
+  const repoIntelligenceJson = readJsonStatus(localRepoIntelligenceJsonPath);
+  const repoMemoryMcpSummary = readSummaryStatus(localRepoMemoryMcpSummaryPath);
+  const repoMemoryMcpJson = readJsonStatus(localRepoMemoryMcpJsonPath);
+  const measuredSavingsBenchmarkSummary = readSummaryStatus(
+    measuredSavingsBenchmarkSummaryPath,
+  );
+  const measuredSavingsBenchmarkJson = readJsonStatus(
+    measuredSavingsBenchmarkJsonPath,
+  );
+  const localConnectorReadinessSummary = readSummaryStatus(
+    localConnectorReadinessSummaryPath,
+  );
+  const localConnectorReadinessJson = readJsonStatus(
+    localConnectorReadinessJsonPath,
+  );
+  const localOnlyNetworkSummary = readSummaryStatus(localOnlyNetworkSummaryPath);
+  const localOnlyNetworkJson = readJsonStatus(localOnlyNetworkJsonPath);
+  const modeRelaunchPassed = modeRelaunchJson.body?.passed === true;
+  const rollbackPassed = rollbackJson.body?.passed === true;
+  const doctorRepairPassed = doctorJson.body?.passed === true;
+  const uninstallPassed = uninstallJson.body?.passed === true;
+  const repoIntelligencePassed = repoIntelligenceJson.body?.passed === true;
+  const repoMemoryMcpPassed = repoMemoryMcpJson.body?.passed === true;
+  const measuredSavingsBenchmarkPassed =
+    Number(measuredSavingsBenchmarkJson.body?.totals?.savedTokens ?? 0) > 0;
+  const localConnectorReadinessPassed =
+    localConnectorReadinessJson.body?.passed === true;
+  const localOnlyNetworkPassed = localOnlyNetworkJson.body?.passed === true;
+  const localInstalledAppPresent = localInstalledJson.body?.app?.present === true;
+  const localInstalledMetadataMatches =
+    localInstalledJson.body?.app?.metadataMatches === true;
+  const localInstalledDmgVerified =
+    localInstalledJson.body?.dmg?.hdiutilVerifyOk === true;
+  const localInstalledCodesignVerified =
+    localInstalledJson.body?.signing?.codesignVerifyOk === true;
+  const localInstalledRuntimeChecked =
+    localInstalledJson.body?.runtimeHealth?.checked === true;
+  const localInstalledAppListenerReady =
+    localInstalledJson.body?.runtimeHealth?.appListener?.ready === true;
+  const localInstalledEngineProxyReady =
+    localInstalledJson.body?.runtimeHealth?.engineProxy?.ready === true;
+  const localInstalledPassed =
+    localInstalledAppPresent &&
+    localInstalledMetadataMatches &&
+    localInstalledDmgVerified &&
+    localInstalledCodesignVerified;
+  const ready =
+    localInstalledPassed &&
+    modeRelaunchPassed &&
+    rollbackPassed &&
+    doctorRepairPassed &&
+    uninstallPassed &&
+    repoIntelligencePassed &&
+    repoMemoryMcpPassed &&
+    localOnlyNetworkPassed;
+
+  return {
+    ready,
+    releaseGateEvidence: false,
+    localInstalled: {
+      summaryPath: localInstalledSmokeSummaryPath,
+      jsonPath: localInstalledSmokeJsonPath,
+      summaryPresent: localInstalledSummary.present,
+      jsonPresent: localInstalledJson.present,
+      generatedLine: localInstalledSummary.generatedLine,
+      passed: localInstalledPassed,
+      parseError: localInstalledJson.parseError,
+      kind: localInstalledJson.body?.kind ?? null,
+      appPresent: localInstalledAppPresent,
+      metadataMatches: localInstalledMetadataMatches,
+      dmgVerified: localInstalledDmgVerified,
+      codesignVerified: localInstalledCodesignVerified,
+      runtimeHealthChecked: localInstalledRuntimeChecked,
+      appListenerReady: localInstalledAppListenerReady,
+      engineProxyReady: localInstalledEngineProxyReady,
+      requiredCommand: "npm run smoke:installed:local",
+    },
+    modeRelaunch: {
+      summaryPath: localModeRelaunchSummaryPath,
+      jsonPath: localModeRelaunchJsonPath,
+      summaryPresent: modeRelaunchSummary.present,
+      jsonPresent: modeRelaunchJson.present,
+      generatedLine: modeRelaunchSummary.generatedLine,
+      passed: modeRelaunchPassed,
+      parseError: modeRelaunchJson.parseError,
+      kind: modeRelaunchJson.body?.kind ?? null,
+      modeCount: Array.isArray(modeRelaunchJson.body?.modes)
+        ? modeRelaunchJson.body.modes.length
+        : 0,
+      offModeProxyDown:
+        modeRelaunchJson.body?.modes?.find((mode) => mode.mode === "off")
+          ?.proxyListening === false,
+      rtkModeProxyDown:
+        modeRelaunchJson.body?.modes?.find((mode) => mode.mode === "rtk")
+          ?.proxyListening === false,
+      restored: modeRelaunchJson.body?.restored === true,
+      requiredCommand: "npm run smoke:mode-relaunch:local -- --confirm",
+    },
+    rollback: {
+      summaryPath: localRollbackSummaryPath,
+      jsonPath: localRollbackJsonPath,
+      summaryPresent: rollbackSummary.present,
+      jsonPresent: rollbackJson.present,
+      generatedLine: rollbackSummary.generatedLine,
+      passed: rollbackPassed,
+      parseError: rollbackJson.parseError,
+      kind: rollbackJson.body?.kind ?? null,
+      stepCount: Array.isArray(rollbackJson.body?.steps)
+        ? rollbackJson.body.steps.length
+        : 0,
+      relaunchSurvivalEvidence:
+        rollbackJson.body?.relaunchSurvivalEvidence ?? null,
+      requiredCommand: "npm run smoke:rollback:local",
+    },
+    doctorRepair: {
+      summaryPath: localDoctorRepairSummaryPath,
+      jsonPath: localDoctorRepairJsonPath,
+      summaryPresent: doctorSummary.present,
+      jsonPresent: doctorJson.present,
+      generatedLine: doctorSummary.generatedLine,
+      passed: doctorRepairPassed,
+      parseError: doctorJson.parseError,
+      kind: doctorJson.body?.kind ?? null,
+      stepCount: Array.isArray(doctorJson.body?.steps)
+        ? doctorJson.body.steps.length
+        : 0,
+      requiredCommand: "npm run smoke:doctor-repair:local",
+    },
+    uninstall: {
+      summaryPath: localUninstallSummaryPath,
+      jsonPath: localUninstallJsonPath,
+      summaryPresent: uninstallSummary.present,
+      jsonPresent: uninstallJson.present,
+      generatedLine: uninstallSummary.generatedLine,
+      schemaVersion: uninstallJson.body?.schemaVersion ?? null,
+      passed: uninstallPassed,
+      destructive: uninstallJson.body?.destructive === true,
+      parseError: uninstallJson.parseError,
+      kind: uninstallJson.body?.kind ?? null,
+      stepCount: Array.isArray(uninstallJson.body?.steps)
+        ? uninstallJson.body.steps.length
+        : 0,
+      requiredCommand:
+        "npm run smoke:uninstall:local && npm run smoke:uninstall:local:check",
+    },
+    repoIntelligence: {
+      summaryPath: localRepoIntelligenceSummaryPath,
+      jsonPath: localRepoIntelligenceJsonPath,
+      summaryPresent: repoIntelligenceSummary.present,
+      jsonPresent: repoIntelligenceJson.present,
+      generatedLine: repoIntelligenceSummary.generatedLine,
+      schemaVersion: repoIntelligenceJson.body?.schemaVersion ?? null,
+      passed: repoIntelligencePassed,
+      readOnly: repoIntelligenceJson.body?.readOnly === true,
+      modifiesRepository: repoIntelligenceJson.body?.modifiesRepository === true,
+      parseError: repoIntelligenceJson.parseError,
+      kind: repoIntelligenceJson.body?.kind ?? null,
+      stepCount: Array.isArray(repoIntelligenceJson.body?.steps)
+        ? repoIntelligenceJson.body.steps.length
+        : 0,
+      requiredCommand:
+        "npm run smoke:repo-intelligence:local && npm run smoke:repo-intelligence:local:check",
+    },
+    measuredSavingsBenchmark: {
+      summaryPath: measuredSavingsBenchmarkSummaryPath,
+      jsonPath: measuredSavingsBenchmarkJsonPath,
+      summaryPresent: measuredSavingsBenchmarkSummary.present,
+      jsonPresent: measuredSavingsBenchmarkJson.present,
+      generatedLine: measuredSavingsBenchmarkSummary.generatedLine ?? null,
+      passed: measuredSavingsBenchmarkPassed,
+      kind: measuredSavingsBenchmarkJson.body?.kind ?? null,
+      releaseGateEvidence: measuredSavingsBenchmarkJson.body?.releaseGateEvidence ?? null,
+      measurementClass: measuredSavingsBenchmarkJson.body?.measurementClass ?? null,
+      totals: measuredSavingsBenchmarkJson.body?.totals ?? null,
+      rows: measuredSavingsBenchmarkJson.body?.rows ?? [],
+      requiredCommand: "npm run savings:benchmark && npm run savings:benchmark:check",
+    },
+    repoMemoryMcp: {
+      summaryPath: localRepoMemoryMcpSummaryPath,
+      jsonPath: localRepoMemoryMcpJsonPath,
+      summaryPresent: repoMemoryMcpSummary.present,
+      jsonPresent: repoMemoryMcpJson.present,
+      generatedLine: repoMemoryMcpSummary.generatedLine,
+      schemaVersion: repoMemoryMcpJson.body?.schemaVersion ?? null,
+      passed: repoMemoryMcpPassed,
+      budgetedPackVerified:
+        repoMemoryMcpJson.body?.budgetedPackVerified === true,
+      graphQueriesVerified:
+        repoMemoryMcpJson.body?.graphQueriesVerified === true,
+      staleIndexHealthVerified:
+        repoMemoryMcpJson.body?.staleIndexHealthVerified === true,
+      readOnly: repoMemoryMcpJson.body?.readOnly === true,
+      modifiesRepository: repoMemoryMcpJson.body?.modifiesRepository === true,
+      relaunchSurvivalEvidence:
+        repoMemoryMcpJson.body?.relaunchSurvivalEvidence ?? null,
+      connectorBridgeRecipesVerified:
+        repoMemoryMcpJson.body?.connectorBridgeRecipesVerified === true,
+      expectedToolsPresent:
+        repoMemoryMcpJson.body?.expectedToolsPresent === true,
+      parseError: repoMemoryMcpJson.parseError,
+      kind: repoMemoryMcpJson.body?.kind ?? null,
+      toolCount: Number.isFinite(repoMemoryMcpJson.body?.toolCount)
+        ? repoMemoryMcpJson.body.toolCount
+        : 0,
+      stepCount: Array.isArray(repoMemoryMcpJson.body?.steps)
+        ? repoMemoryMcpJson.body.steps.length
+        : 0,
+      requiredCommand: "npm run smoke:repo-memory-mcp:local",
+    },
+    connectorReadiness: {
+      summaryPath: localConnectorReadinessSummaryPath,
+      jsonPath: localConnectorReadinessJsonPath,
+      summaryPresent: localConnectorReadinessSummary.present,
+      jsonPresent: localConnectorReadinessJson.present,
+      generatedLine: localConnectorReadinessSummary.generatedLine ?? null,
+      passed: localConnectorReadinessPassed,
+      readOnly: localConnectorReadinessJson.body?.readOnly === true,
+      modifiesRepository:
+        localConnectorReadinessJson.body?.modifiesRepository === true,
+      requiredGatedNativeWritePresent:
+        localConnectorReadinessJson.body?.requiredGatedNativeWritePresent === true,
+      gatedNativeWriteConnectors:
+        localConnectorReadinessJson.body?.gatedNativeWriteConnectors ?? [],
+      lifecycleCoverageComplete:
+        localConnectorReadinessJson.body?.lifecycleCoverageComplete === true,
+      lifecycleCoverage:
+        localConnectorReadinessJson.body?.lifecycleCoverage ?? {},
+      requiredCommand:
+        localConnectorReadinessJson.body?.requiredCommand ??
+        "npm run check:connectors",
+    },
+    localOnlyNetwork: {
+      summaryPath: localOnlyNetworkSummaryPath,
+      jsonPath: localOnlyNetworkJsonPath,
+      summaryPresent: localOnlyNetworkSummary.present,
+      jsonPresent: localOnlyNetworkJson.present,
+      generatedLine: localOnlyNetworkSummary.generatedLine,
+      schemaVersion: localOnlyNetworkJson.body?.schemaVersion ?? null,
+      passed: localOnlyNetworkPassed,
+      localOnly: localOnlyNetworkJson.body?.localOnly === true,
+      appOwnedRemoteCallsBlocked:
+        localOnlyNetworkJson.body?.appOwnedRemoteCallsBlocked === true,
+      coverage: localOnlyNetworkJson.body?.coverage ?? null,
+      parseError: localOnlyNetworkJson.parseError,
+      kind: localOnlyNetworkJson.body?.kind ?? null,
+      stepCount: Array.isArray(localOnlyNetworkJson.body?.steps)
+        ? localOnlyNetworkJson.body.steps.length
+        : 0,
+      requiredCommand:
+        "npm run smoke:local-only:local && npm run smoke:local-only:local:check",
+    },
     message: ready
-      ? "Static smoke preflight summary present. Keep it with release evidence."
-      : "Run npm run smoke:preflight before handing a DMG to a tester.",
+      ? "Local installed smoke, mode relaunch, Doctor repair, Rollback Center, uninstall dry-run, Repo Intelligence, Repo Memory MCP, and local-only network validation summaries passed. This is local-only evidence and does not replace signed installed-app smoke."
+      : "Run npm run smoke:installed:local, npm run smoke:mode-relaunch:local -- --confirm, npm run smoke:rollback:local, npm run smoke:doctor-repair:local, npm run smoke:uninstall:local, npm run smoke:repo-intelligence:local, npm run smoke:repo-memory-mcp:local, and npm run smoke:local-only:local to refresh local install, relaunch, survival, cleanup, repo-context, MCP bridge, and local-only network evidence before public installed-smoke proof.",
   };
 }
 
@@ -213,6 +597,12 @@ function buildShareableDmgGate(
     backendValidation.ready &&
     staticSmokePreflightReady &&
     installedAppSmokeReady;
+  const publicDmgBlockers = [
+    signedAndNotarized ? null : "signed/notarized DMG",
+    updaterFeedReady ? null : "updater feed",
+    staticSmokePreflightReady ? null : "static smoke preflight",
+    installedAppSmokeReady ? null : "public installed-app smoke",
+  ].filter(Boolean);
 
   return {
     ready,
@@ -224,8 +614,30 @@ function buildShareableDmgGate(
     installedAppSmokeReady,
     message: ready
       ? "All shareable DMG gates are clear."
-      : "Do not share a public DMG until every gate is clear.",
+      : `Public DMG blocked until ${publicDmgBlockers.join(", ")} evidence is ready.`,
   };
+}
+
+function missingLocalEvidenceLabels(localValidation) {
+  return [
+    localValidation.localInstalled?.passed ? null : "local installed smoke",
+    localValidation.modeRelaunch?.passed ? null : "Off/RTK relaunch smoke",
+    localValidation.rollback?.passed ? null : "Rollback Center validation",
+    localValidation.rollback?.relaunchSurvivalEvidence
+      ? null
+      : "Rollback Center relaunch survival evidence",
+    localValidation.doctorRepair?.passed ? null : "Doctor repair validation",
+    localValidation.uninstall?.passed ? null : "uninstall dry-run validation",
+    localValidation.repoIntelligence?.passed ? null : "Repo Intelligence validation",
+    localValidation.measuredSavingsBenchmark?.passed
+      ? null
+      : "measured savings benchmark",
+    localValidation.repoMemoryMcp?.passed ? null : "Repo Memory MCP validation",
+    localValidation.connectorReadiness?.passed
+      ? null
+      : "connector readiness validation",
+    localValidation.localOnlyNetwork?.passed ? null : "local-only network validation",
+  ].filter(Boolean);
 }
 
 const releaseEnv = runReleaseEnv();
@@ -240,11 +652,16 @@ const installedSmoke = buildInstalledSmoke(
   bundleMetadataPresent,
   installedSmokeSummary,
 );
+const localValidation = buildLocalValidationEvidence();
 const shareableDmgGate = buildShareableDmgGate(
   releaseEnv,
   backendValidation,
   staticSmokePreflight,
   installedSmoke,
+);
+const managedConnectorReadiness = buildManagedConnectorReadiness();
+const managedConnectorReadinessSummary = renderManagedConnectorReadiness(
+  managedConnectorReadiness,
 );
 const generatedAt = new Date().toISOString();
 const status =
@@ -266,7 +683,9 @@ const payload = {
   backendValidation,
   staticSmokePreflight,
   installedSmoke,
+  localValidation,
   shareableDmgGate,
+  managedConnectorReadiness,
   releaseEnv,
 };
 
@@ -299,6 +718,8 @@ ${listItems(releaseEnv.warnings, "None. Recommended release settings are present
 ${staticSmokePreflight.generatedLine ? `- ${staticSmokePreflight.generatedLine}` : "- Smoke preflight summary has not been generated in this checkout."}
 - Required command: ${staticSmokePreflight.requiredCommand}
 - Required evidence: ${staticSmokePreflight.requiredEvidence.join(", ")}
+- Missing evidence: ${staticSmokePreflight.missingEvidence.length ? staticSmokePreflight.missingEvidence.join(", ") : "none"}
+- Static smoke evidence ready: ${staticSmokePreflight.evidenceReady ? "yes" : "no"}
 - ${staticSmokePreflight.message}
 
 ## Installed App Smoke
@@ -316,6 +737,101 @@ ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Instal
 - Installed smoke evidence ready: ${installedSmoke.evidenceReady ? "yes" : "no"}
 - ${installedSmoke.message}
 
+## Local Doctor and Rollback Validation
+
+- Release gate evidence: ${localValidation.releaseGateEvidence ? "yes" : "no"}
+- Local validation ready: ${localValidation.ready ? "yes" : "no"}
+- Local installed smoke summary present: ${localValidation.localInstalled.summaryPresent ? "yes" : "no"} (${localValidation.localInstalled.summaryPath})
+- Local installed smoke JSON present: ${localValidation.localInstalled.jsonPresent ? "yes" : "no"} (${localValidation.localInstalled.jsonPath})
+${localValidation.localInstalled.generatedLine ? `- ${localValidation.localInstalled.generatedLine}` : "- Local installed smoke summary has not been generated in this checkout."}
+- Local installed validation passed: ${localValidation.localInstalled.passed ? "yes" : "no"}
+- Local installed app present: ${localValidation.localInstalled.appPresent ? "yes" : "no"}
+- Local installed metadata matches: ${localValidation.localInstalled.metadataMatches ? "yes" : "no"}
+- Local installed DMG verified: ${localValidation.localInstalled.dmgVerified ? "yes" : "no"}
+- Local installed codesign verified: ${localValidation.localInstalled.codesignVerified ? "yes" : "no"}
+- Local installed runtime health checked: ${localValidation.localInstalled.runtimeHealthChecked ? "yes" : "no"}
+- Local installed app listener ready: ${localValidation.localInstalled.appListenerReady ? "yes" : "no"}
+- Local installed Headroom engine proxy ready: ${localValidation.localInstalled.engineProxyReady ? "yes" : "no"}
+- Local installed command: ${localValidation.localInstalled.requiredCommand}
+- Mode relaunch summary present: ${localValidation.modeRelaunch.summaryPresent ? "yes" : "no"} (${localValidation.modeRelaunch.summaryPath})
+- Mode relaunch JSON present: ${localValidation.modeRelaunch.jsonPresent ? "yes" : "no"} (${localValidation.modeRelaunch.jsonPath})
+${localValidation.modeRelaunch.generatedLine ? `- ${localValidation.modeRelaunch.generatedLine}` : "- Mode relaunch smoke summary has not been generated in this checkout."}
+- Mode relaunch validation passed: ${localValidation.modeRelaunch.passed ? "yes" : "no"}
+- Mode relaunch checked modes: ${localValidation.modeRelaunch.modeCount}
+- Mode relaunch Off proxy down: ${localValidation.modeRelaunch.offModeProxyDown ? "yes" : "unknown"}
+- Mode relaunch RTK proxy down: ${localValidation.modeRelaunch.rtkModeProxyDown ? "yes" : "unknown"}
+- Mode relaunch config restored: ${localValidation.modeRelaunch.restored ? "yes" : "unknown"}
+- Mode relaunch command: ${localValidation.modeRelaunch.requiredCommand}
+- Rollback summary present: ${localValidation.rollback.summaryPresent ? "yes" : "no"} (${localValidation.rollback.summaryPath})
+- Rollback JSON present: ${localValidation.rollback.jsonPresent ? "yes" : "no"} (${localValidation.rollback.jsonPath})
+${localValidation.rollback.generatedLine ? `- ${localValidation.rollback.generatedLine}` : "- Rollback validation summary has not been generated in this checkout."}
+- Rollback validation passed: ${localValidation.rollback.passed ? "yes" : "no"}
+- Rollback validation steps: ${localValidation.rollback.stepCount}
+- Rollback relaunch survival evidence: ${localValidation.rollback.relaunchSurvivalEvidence ?? "missing"}
+- Rollback command: ${localValidation.rollback.requiredCommand}
+- Doctor repair summary present: ${localValidation.doctorRepair.summaryPresent ? "yes" : "no"} (${localValidation.doctorRepair.summaryPath})
+- Doctor repair JSON present: ${localValidation.doctorRepair.jsonPresent ? "yes" : "no"} (${localValidation.doctorRepair.jsonPath})
+${localValidation.doctorRepair.generatedLine ? `- ${localValidation.doctorRepair.generatedLine}` : "- Doctor repair validation summary has not been generated in this checkout."}
+- Doctor repair validation passed: ${localValidation.doctorRepair.passed ? "yes" : "no"}
+- Doctor repair validation steps: ${localValidation.doctorRepair.stepCount}
+- Doctor repair command: ${localValidation.doctorRepair.requiredCommand}
+- Uninstall summary present: ${localValidation.uninstall.summaryPresent ? "yes" : "no"} (${localValidation.uninstall.summaryPath})
+- Uninstall JSON present: ${localValidation.uninstall.jsonPresent ? "yes" : "no"} (${localValidation.uninstall.jsonPath})
+${localValidation.uninstall.generatedLine ? `- ${localValidation.uninstall.generatedLine}` : "- Uninstall validation summary has not been generated in this checkout."}
+- Uninstall validation passed: ${localValidation.uninstall.passed ? "yes" : "no"}
+- Uninstall validation destructive: ${localValidation.uninstall.destructive === false ? "no" : "unknown"}
+- Uninstall validation steps: ${localValidation.uninstall.stepCount}
+- Uninstall command: ${localValidation.uninstall.requiredCommand}
+- Repo Intelligence summary present: ${localValidation.repoIntelligence.summaryPresent ? "yes" : "no"} (${localValidation.repoIntelligence.summaryPath})
+- Repo Intelligence JSON present: ${localValidation.repoIntelligence.jsonPresent ? "yes" : "no"} (${localValidation.repoIntelligence.jsonPath})
+${localValidation.repoIntelligence.generatedLine ? `- ${localValidation.repoIntelligence.generatedLine}` : "- Repo Intelligence validation summary has not been generated in this checkout."}
+- Repo Intelligence validation passed: ${localValidation.repoIntelligence.passed ? "yes" : "no"}
+- Repo Intelligence validation read-only: ${localValidation.repoIntelligence.readOnly === true ? "yes" : "unknown"}
+- Repo Intelligence modifies repository: ${localValidation.repoIntelligence.modifiesRepository === false ? "no" : "unknown"}
+- Repo Intelligence validation steps: ${localValidation.repoIntelligence.stepCount}
+- Repo Intelligence command: ${localValidation.repoIntelligence.requiredCommand}
+- Measured savings benchmark summary present: ${localValidation.measuredSavingsBenchmark.summaryPresent ? "yes" : "no"} (${localValidation.measuredSavingsBenchmark.summaryPath})
+- Measured savings benchmark JSON present: ${localValidation.measuredSavingsBenchmark.jsonPresent ? "yes" : "no"} (${localValidation.measuredSavingsBenchmark.jsonPath})
+${localValidation.measuredSavingsBenchmark.generatedLine ? `- ${localValidation.measuredSavingsBenchmark.generatedLine}` : "- Measured savings benchmark generated timestamp not in summary"}
+- Measured savings benchmark saved tokens: ${localValidation.measuredSavingsBenchmark.totals?.savedTokens ?? "missing"}
+- Measured savings benchmark source rows: ${localValidation.measuredSavingsBenchmark.rows.map((row) => `${row.source}:${row.savedTokens}`).join(", ") || "missing"}
+- Measured savings benchmark command: ${localValidation.measuredSavingsBenchmark.requiredCommand}
+- Repo Memory MCP summary present: ${localValidation.repoMemoryMcp.summaryPresent ? "yes" : "no"} (${localValidation.repoMemoryMcp.summaryPath})
+- Repo Memory MCP JSON present: ${localValidation.repoMemoryMcp.jsonPresent ? "yes" : "no"} (${localValidation.repoMemoryMcp.jsonPath})
+${localValidation.repoMemoryMcp.generatedLine ? `- ${localValidation.repoMemoryMcp.generatedLine}` : "- Repo Memory MCP validation summary has not been generated in this checkout."}
+- Repo Memory MCP validation passed: ${localValidation.repoMemoryMcp.passed ? "yes" : "no"}
+- Repo Memory MCP validation read-only: ${localValidation.repoMemoryMcp.readOnly === true ? "yes" : "unknown"}
+- Repo Memory MCP modifies repository: ${localValidation.repoMemoryMcp.modifiesRepository === false ? "no" : "unknown"}
+- Repo Memory MCP expected tools present: ${localValidation.repoMemoryMcp.expectedToolsPresent ? "yes" : "unknown"}
+- Repo Memory MCP connector bridge recipes verified: ${localValidation.repoMemoryMcp.connectorBridgeRecipesVerified ? "yes" : "unknown"}
+- Repo Memory MCP relaunch survival evidence: ${localValidation.repoMemoryMcp.relaunchSurvivalEvidence ?? "unknown"}
+- Repo Memory MCP tool count: ${localValidation.repoMemoryMcp.toolCount}
+- Repo Memory MCP validation steps: ${localValidation.repoMemoryMcp.stepCount}
+- Repo Memory MCP budgeted pack verified: ${localValidation.repoMemoryMcp.budgetedPackVerified ? "yes" : "no"}
+- Repo Memory MCP graph queries verified: ${localValidation.repoMemoryMcp.graphQueriesVerified ? "yes" : "no"}
+- Repo Memory MCP stale-index health verified: ${localValidation.repoMemoryMcp.staleIndexHealthVerified ? "yes" : "no"}
+- Repo Memory MCP command: ${localValidation.repoMemoryMcp.requiredCommand}
+- Connector readiness summary present: ${localValidation.connectorReadiness.summaryPresent ? "yes" : "no"} (${localValidation.connectorReadiness.summaryPath})
+- Connector readiness JSON present: ${localValidation.connectorReadiness.jsonPresent ? "yes" : "no"} (${localValidation.connectorReadiness.jsonPath})
+${localValidation.connectorReadiness.generatedLine ? `- ${localValidation.connectorReadiness.generatedLine}` : "- Connector readiness summary has not been generated in this checkout."}
+- Connector readiness required gated native-write dossiers present: ${localValidation.connectorReadiness.requiredGatedNativeWritePresent ? "yes" : "no"}
+- Connector readiness gated native-write dossiers: ${localValidation.connectorReadiness.gatedNativeWriteConnectors.join(", ") || "missing"}
+- Connector readiness lifecycle coverage complete: ${localValidation.connectorReadiness.lifecycleCoverageComplete ? "yes" : "no"}
+- Connector readiness command: ${localValidation.connectorReadiness.requiredCommand}
+- Local-only network summary present: ${localValidation.localOnlyNetwork.summaryPresent ? "yes" : "no"} (${localValidation.localOnlyNetwork.summaryPath})
+- Local-only network JSON present: ${localValidation.localOnlyNetwork.jsonPresent ? "yes" : "no"} (${localValidation.localOnlyNetwork.jsonPath})
+${localValidation.localOnlyNetwork.generatedLine ? `- ${localValidation.localOnlyNetwork.generatedLine}` : "- Local-only network validation summary has not been generated in this checkout."}
+- Local-only network validation passed: ${localValidation.localOnlyNetwork.passed ? "yes" : "no"}
+- Local-only network mode: ${localValidation.localOnlyNetwork.localOnly ? "yes" : "unknown"}
+- App-owned remote calls blocked: ${localValidation.localOnlyNetwork.appOwnedRemoteCallsBlocked ? "yes" : "unknown"}
+- Local-only network guard surfaces: ${localValidation.localOnlyNetwork.coverage?.guardSurfaces ?? "unknown"}
+- Local-only network app-owned remote-service surfaces: ${localValidation.localOnlyNetwork.coverage?.appOwnedRemoteServiceSurfaces ?? "unknown"}
+- Local-only network provider-traffic surfaces: ${localValidation.localOnlyNetwork.coverage?.providerTrafficSurfaces ?? "unknown"}
+- Local-only network managed-download surfaces: ${localValidation.localOnlyNetwork.coverage?.managedDownloadSurfaces ?? "unknown"}
+- Local-only network validation steps: ${localValidation.localOnlyNetwork.stepCount}
+- Local-only network command: ${localValidation.localOnlyNetwork.requiredCommand}
+- ${localValidation.message}
+
 ## Shareable DMG Gates
 
 - Environment clear: ${shareableDmgGate.environmentClear ? "yes" : "no"}
@@ -324,7 +840,10 @@ ${installedSmoke.generatedLine ? `- ${installedSmoke.generatedLine}` : "- Instal
 - Updater feed ready: ${shareableDmgGate.updaterFeedReady ? "yes" : "no"}
 - Static smoke preflight ready: ${shareableDmgGate.staticSmokePreflightReady ? "yes" : "no"}
 - Installed-app smoke ready: ${shareableDmgGate.installedAppSmokeReady ? "yes" : "no"}
+- Missing local evidence: ${missingLocalEvidenceLabels(localValidation).join(", ") || "none"}
 - ${shareableDmgGate.message}
+
+${managedConnectorReadinessSummary}
 
 ## Next Steps
 

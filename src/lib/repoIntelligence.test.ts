@@ -1,20 +1,47 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildAgentSessionPreparation,
+  buildAgentSessionDisplayState,
   buildRepoIntelligenceSummary,
+  buildRepoTaskContextPack,
   buildRepoAgentManifest,
   buildRepoAgentHandoffPayload,
   classifyRepoFile,
   estimateRepoIntelligenceSavings,
   estimateRepoTokens,
+  formatAgentSessionPreparationJson,
+  formatAgentSessionSelectedPackMarkdown,
+  formatAgentSessionSummaryMarkdown,
   formatRepoAgentManifestJson,
   formatRepoAgentHandoffMarkdown,
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
+  getRepoIndexFreshness,
   isSecretLikeRepoPath,
+  normalizeRepoIndexRequest,
+  recommendAgentSessionMode,
+  repoAgentPackLabel,
 } from "./repoIntelligence";
 
 describe("repoIntelligence", () => {
+  it("validates repo index requests before invoking the app indexer", () => {
+    expect(normalizeRepoIndexRequest("")).toEqual({
+      repoPath: "",
+      error: "Enter a local repository folder path first.",
+    });
+    expect(normalizeRepoIndexRequest("   ")).toEqual({
+      repoPath: "",
+      error: "Enter a local repository folder path first.",
+    });
+    expect(
+      normalizeRepoIndexRequest("  /Users/me/Developer/app  "),
+    ).toEqual({
+      repoPath: "/Users/me/Developer/app",
+      error: null,
+    });
+  });
+
   it("estimates tokens from bytes conservatively", () => {
     expect(estimateRepoTokens(0)).toBe(1);
     expect(estimateRepoTokens(400)).toBe(100);
@@ -32,10 +59,20 @@ describe("repoIntelligence", () => {
 
   it("excludes secret-like paths from default context packs", () => {
     expect(isSecretLikeRepoPath(".env.local")).toBe(true);
+    expect(isSecretLikeRepoPath(".envrc")).toBe(true);
+    expect(isSecretLikeRepoPath(".git-credentials")).toBe(true);
+    expect(isSecretLikeRepoPath(".netrc")).toBe(true);
+    expect(isSecretLikeRepoPath(".cargo/credentials.toml")).toBe(true);
+    expect(isSecretLikeRepoPath(".config/gh/hosts.yml")).toBe(true);
+    expect(isSecretLikeRepoPath(".ssh/config")).toBe(true);
+    expect(isSecretLikeRepoPath(".aws/credentials")).toBe(true);
     expect(isSecretLikeRepoPath(".private_keys/AuthKey_ABC123XYZ.p8")).toBe(
       true,
     );
     expect(isSecretLikeRepoPath("config/service-account.pem")).toBe(true);
+    expect(isSecretLikeRepoPath(".claude/settings.local.json")).toBe(true);
+    expect(isSecretLikeRepoPath(".playwright-mcp/console.log")).toBe(true);
+    expect(isSecretLikeRepoPath("headroom_memory.db")).toBe(true);
 
     const envFile = classifyRepoFile(".env.local", 100);
     expect(envFile.role).toBe("config");
@@ -45,7 +82,17 @@ describe("repoIntelligence", () => {
     const summary = buildRepoIntelligenceSummary([
       { path: "src/App.tsx", bytes: 4000 },
       { path: ".env.local", bytes: 400 },
+      { path: ".envrc", bytes: 80 },
+      { path: ".git-credentials", bytes: 90 },
+      { path: ".netrc", bytes: 90 },
+      { path: ".cargo/credentials.toml", bytes: 90 },
+      { path: ".config/gh/hosts.yml", bytes: 90 },
+      { path: ".ssh/config", bytes: 90 },
+      { path: ".aws/credentials", bytes: 90 },
       { path: ".private_keys/AuthKey_ABC123XYZ.p8", bytes: 800 },
+      { path: ".claude/settings.local.json", bytes: 120 },
+      { path: ".playwright-mcp/console.log", bytes: 900 },
+      { path: "headroom_memory.db", bytes: 9000 },
     ]);
     const packedPaths = summary.packs.flatMap((pack) =>
       pack.files.map((file) => file.path),
@@ -53,7 +100,20 @@ describe("repoIntelligence", () => {
 
     expect(packedPaths).toContain("src/App.tsx");
     expect(packedPaths).not.toContain(".env.local");
+    expect(packedPaths).not.toContain(".envrc");
+    expect(packedPaths).not.toContain(".git-credentials");
+    expect(packedPaths).not.toContain(".netrc");
+    expect(packedPaths).not.toContain(".cargo/credentials.toml");
+    expect(packedPaths).not.toContain(".config/gh/hosts.yml");
+    expect(packedPaths).not.toContain(".ssh/config");
+    expect(packedPaths).not.toContain(".aws/credentials");
     expect(packedPaths).not.toContain(".private_keys/AuthKey_ABC123XYZ.p8");
+    expect(packedPaths).not.toContain(".claude/settings.local.json");
+    expect(packedPaths).not.toContain(".playwright-mcp/console.log");
+    expect(packedPaths).not.toContain("headroom_memory.db");
+    expect(
+      summary.indexMetadata?.fileFingerprints.map((entry) => entry.path),
+    ).toEqual(["src/App.tsx"]);
   });
 
   it("builds bounded context packs with savings estimates", () => {
@@ -68,29 +128,350 @@ describe("repoIntelligence", () => {
 
     expect(summary.totalFiles).toBe(6);
     expect(summary.indexedFiles).toBe(5);
-    expect(summary.indexerVersion).toBe("path-graph-v2");
+    expect(summary.indexerVersion).toBe("path-graph-v8");
     expect(summary.roleCounts.generated).toBe(1);
-    expect(summary.packs).toHaveLength(3);
+    expect(summary.indexMetadata).toMatchObject({
+      schemaVersion: 1,
+      indexerVersion: "path-graph-v8",
+      parserVersion: "metadata-fingerprint-v1",
+      cacheState: "new",
+      fileCount: 6,
+      indexedFileCount: 5,
+      skippedFileCount: 1,
+    });
+    expect(summary.indexMetadata?.cacheKey).toEqual(expect.any(String));
+    expect(summary.indexMetadata?.fileFingerprints).toHaveLength(5);
+    expect(summary.indexMetadata?.fileFingerprints[0]).toEqual(
+      expect.objectContaining({
+        path: expect.any(String),
+        fingerprint: expect.any(String),
+      }),
+    );
+    expect(summary.indexMetadata?.skippedFiles).toEqual([
+      expect.objectContaining({
+        path: "dist/bundle.js",
+        role: "generated",
+        reasons: expect.arrayContaining(["generated or dependency output"]),
+      }),
+    ]);
+    expect(summary.indexMetadata?.graphInputs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "src/App.tsx",
+          role: "source",
+          fingerprint: expect.any(String),
+        }),
+        expect.objectContaining({
+          path: "package.json",
+          role: "config",
+          fingerprint: expect.any(String),
+        }),
+      ]),
+    );
+    expect(summary.packs.map((pack) => pack.id)).toEqual([
+      "implementation",
+      "verification",
+      "handoff",
+      "risk_review",
+      "release_handoff",
+    ]);
     expect(summary.packs[0].id).toBe("implementation");
     expect(summary.packs[0].files.map((file) => file.path)).toContain(
       "src/App.tsx",
     );
+    expect(
+      summary.packs
+        .find((pack) => pack.id === "risk_review")
+        ?.files.map((file) => file.path),
+    ).toEqual(
+      expect.arrayContaining([
+        "src/App.tsx",
+        "src/App.test.tsx",
+        "package.json",
+      ]),
+    );
+    expect(
+      summary.packs
+        .find((pack) => pack.id === "release_handoff")
+        ?.files.map((file) => file.path),
+    ).toEqual(
+      expect.arrayContaining([
+        "src/App.test.tsx",
+        "docs/install.md",
+        "package.json",
+      ]),
+    );
     expect(summary.packs[0].savingsVsFullScanPct).toBeGreaterThan(50);
+    expect(summary.taskPacks?.map((pack) => pack.id)).toEqual([
+      "task_implementation",
+      "task_verification",
+    ]);
+  });
+
+  it("extracts CSS and HTML asset graph edges and symbols", () => {
+    const summary = buildRepoIntelligenceSummary([
+      {
+        path: "src/styles.css",
+        bytes: 300,
+        content:
+          "@import './theme.css';\n.app-shell { color: var(--ink); }\n.logo { background: url('/src/logo.css'); }\n",
+      },
+      {
+        path: "src/theme.css",
+        bytes: 120,
+        content: ":root { --ink: #111; }\n",
+      },
+      {
+        path: "src/logo.css",
+        bytes: 120,
+        content: ".logo-mark { display: block; }\n",
+      },
+      {
+        path: "index.html",
+        bytes: 400,
+        content:
+          '<html><head><link rel="stylesheet" href="/src/styles.css"></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>',
+      },
+      {
+        path: "src/main.tsx",
+        bytes: 500,
+        content: "export function boot() { return null; }\n",
+      },
+    ]);
+
+    expect(summary.indexerVersion).toBe("path-graph-v8");
+    expect(summary.graph).toBeDefined();
+    const graph = summary.graph!;
+    expect(graph.importEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          from: "src/styles.css",
+          to: "src/theme.css",
+          kind: "import_reference",
+          reason: "source imports ./theme.css",
+        }),
+        expect.objectContaining({
+          from: "src/styles.css",
+          to: "src/logo.css",
+          kind: "import_reference",
+          reason: "source imports src/logo.css",
+        }),
+        expect.objectContaining({
+          from: "index.html",
+          to: "src/styles.css",
+          kind: "import_reference",
+          reason: "source imports src/styles.css",
+        }),
+        expect.objectContaining({
+          from: "index.html",
+          to: "src/main.tsx",
+          kind: "import_reference",
+          reason: "source imports src/main.tsx",
+        }),
+      ]),
+    );
+    expect(graph.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          file: "src/styles.css",
+          name: ".app-shell",
+          kind: "const",
+        }),
+        expect.objectContaining({
+          file: "index.html",
+          name: "html",
+          kind: "const",
+        }),
+      ]),
+    );
+  });
+
+  it("builds task-aware context packs with reasons and omitted files", () => {
+    const summary = buildRepoIntelligenceSummary([
+      {
+        path: "src/components/ReleaseReadinessPanel.tsx",
+        bytes: 1200,
+      },
+      {
+        path: "src/components/ReleaseReadinessPanel.test.tsx",
+        bytes: 900,
+      },
+      { path: "src/lib/releaseReadiness.ts", bytes: 2000 },
+      { path: "src/lib/savingsCalculator.ts", bytes: 2600 },
+      { path: "docs/macos-release.md", bytes: 800 },
+      { path: ".env.local", bytes: 100 },
+      { path: "dist/bundle.js", bytes: 20000 },
+    ]);
+
+    const files = summary.packs.flatMap((contextPack) => contextPack.files);
+    const pack = buildRepoTaskContextPack(
+      files,
+      summary.graph,
+      "release readiness",
+      "release readiness panel smoke evidence",
+      900,
+    );
+
+    expect(pack.id).toBe("task_release_readiness");
+    expect(pack.files[0].path).toContain("ReleaseReadinessPanel");
+    expect(pack.files[0].reasons.join(" ")).toContain("release");
+    expect(pack.tests.map((file) => file.path)).toContain(
+      "src/components/ReleaseReadinessPanel.test.tsx",
+    );
+    expect(pack.omitted.every((file) => !file.path.includes(".env"))).toBe(
+      true,
+    );
+    expect(pack.commands).toEqual(
+      expect.arrayContaining(["npm run smoke:preflight"]),
+    );
+  });
+
+  it("derives index freshness copy from persistent metadata", () => {
+    expect(getRepoIndexFreshness({})).toMatchObject({
+      status: "none",
+      apiAvailable: true,
+      graphAvailable: false,
+      indexHealth: "metadata_missing",
+      parserHealth: "unavailable",
+      indexerVersion: null,
+      parserVersion: null,
+      indexedFileCount: null,
+      skippedFileCount: null,
+    });
+    expect(
+      getRepoIndexFreshness({
+        indexedAt: "2026-06-27T10:00:00Z",
+      }).status,
+    ).toBe("unknown");
+
+    const baseMetadata = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "package.json", bytes: 800 },
+    ]).indexMetadata;
+
+    expect(
+      getRepoIndexFreshness({
+        indexedAt: "2026-06-27T10:00:00Z",
+        indexerVersion: "path-graph-v8",
+        indexMetadata: baseMetadata,
+        graph: buildRepoIntelligenceSummary([
+          { path: "src/App.tsx", bytes: 4000 },
+          { path: "package.json", bytes: 800 },
+        ]).graph,
+      }),
+    ).toMatchObject({
+      status: "fresh",
+      label: "Fresh local index",
+      apiAvailable: true,
+      graphAvailable: true,
+      indexHealth: "new",
+      parserHealth: "current",
+      indexerVersion: "path-graph-v8",
+      parserVersion: "metadata-fingerprint-v1",
+      indexedFileCount: 2,
+      skippedFileCount: 0,
+    });
+    expect(
+      getRepoIndexFreshness({
+        indexedAt: "2026-06-27T10:00:00Z",
+        indexMetadata: {
+          ...baseMetadata!,
+          cacheState: "unchanged",
+          previousIndexedAt: "2026-06-27T09:00:00Z",
+        },
+      }),
+    ).toMatchObject({
+      status: "unchanged_cache",
+      label: "Unchanged local index",
+    });
+    expect(
+      getRepoIndexFreshness({
+        indexedAt: "2026-06-27T10:00:00Z",
+        indexMetadata: { ...baseMetadata!, cacheState: "changed" },
+      }),
+    ).toMatchObject({ status: "changed_cache", label: "Changed local index" });
   });
 
   it("builds a bounded repo graph summary for agent context", () => {
     const summary = buildRepoIntelligenceSummary([
-      { path: "src/App.tsx", bytes: 4000 },
-      { path: "src/main.tsx", bytes: 1400 },
+      {
+        path: "src/App.tsx",
+        bytes: 4000,
+        content:
+          'import React from "react";\nimport { helper } from "./lib/helper";\nexport default function App() { helper(); return null; }\nexport const loadPanel = async () => true;',
+      },
+      { path: "src/main.tsx", bytes: 1400, content: 'import "./App";' },
       { path: "src/App.test.tsx", bytes: 2000 },
-      { path: "src-tauri/src/lib.rs", bytes: 5000 },
+      {
+        path: "src/lib/helper.ts",
+        bytes: 900,
+        content:
+          "export function helper() { return true; }\nexport const makeHelper = () => helper();",
+      },
+      {
+        path: "src-tauri/src/lib.rs",
+        bytes: 5000,
+        content: "mod state;\nuse crate::state::AppState;\npub(crate) fn run_app() {}\n",
+      },
+      {
+        path: "src-tauri/src/state.rs",
+        bytes: 3200,
+        content: "pub struct AppState;\npub fn load_state() {}\n",
+      },
+      {
+        path: "src-tauri/src/consumer.rs",
+        bytes: 1400,
+        content: "use crate::state::AppState;\npub fn consume_state() {}\n",
+      },
+      {
+        path: "scripts/tools.py",
+        bytes: 700,
+        content: "async def collect_context():\n    return []\nclass ToolRunner:\n    pass",
+      },
+      {
+        path: "src/worker.py",
+        bytes: 700,
+        content:
+          "from services.worker_helpers import run_job\nfrom .local_helpers import build_job\n",
+      },
+      { path: "src/services/__init__.py", bytes: 80, content: "" },
+      {
+        path: "src/services/worker_helpers.py",
+        bytes: 300,
+        content: "def run_job():\n    return True\n",
+      },
+      {
+        path: "src/local_helpers.py",
+        bytes: 240,
+        content: "def build_job():\n    return {}\n",
+      },
+      {
+        path: "Sources/Switchboard/AppView.swift",
+        bytes: 900,
+        content:
+          "import SwiftUI\npublic struct AppView: View {\n  var body: some View { Text(\"Hi\") }\n}\nfinal class AppViewModel {}\nfunc makeAppView() -> AppView { AppView() }\n",
+      },
       { path: "scripts/release.mjs", bytes: 1200 },
-      { path: "package.json", bytes: 800 },
+      {
+        path: "scripts/release.sh",
+        bytes: 600,
+        content: "set -e\n./build.sh\nbash scripts/smoke.sh\n",
+      },
+      { path: "scripts/build.sh", bytes: 200, content: "echo build\n" },
+      { path: "scripts/smoke.sh", bytes: 200, content: "echo smoke\n" },
+      {
+        path: "package.json",
+        bytes: 800,
+        content:
+          '{"scripts":{"build":"vite build && bash scripts/release.sh","smoke":"npm run build && scripts/smoke.sh"},"dependencies":{"react":"18.3.1"}}',
+      },
       { path: "package-lock.json", bytes: 1600 },
       { path: ".env.local", bytes: 200 },
     ]);
 
-    expect(summary.graph?.topDirectories[0].label).toBe("src");
+    expect(summary.graph?.topDirectories.map((node) => node.label)).toContain(
+      "src",
+    );
     expect(summary.graph?.topLanguages.map((node) => node.label)).toContain(
       "React",
     );
@@ -99,6 +480,15 @@ describe("repoIntelligence", () => {
     );
     expect(summary.graph?.likelyTests.map((file) => file.path)).toContain(
       "src/App.test.tsx",
+    );
+    expect(summary.graph?.testRelationships).toEqual(
+      expect.arrayContaining([
+        {
+          testPath: "src/App.test.tsx",
+          sourcePath: "src/App.tsx",
+          reason: "test filename matches source module",
+        },
+      ]),
     );
     expect(summary.graph?.configHubs.map((file) => file.path)).toContain(
       "package.json",
@@ -121,19 +511,143 @@ describe("repoIntelligence", () => {
           to: "package.json",
           kind: "entrypoint_to_config",
         }),
+        expect.objectContaining({
+          from: "src/App.tsx",
+          to: "src/lib/helper.ts",
+          kind: "import_reference",
+        }),
+        expect.objectContaining({
+          from: "src/App.tsx",
+          to: "package.json",
+          kind: "package_dependency",
+          reason: "source imports package react",
+        }),
+        expect.objectContaining({
+          from: "scripts/release.sh",
+          to: "scripts/build.sh",
+          kind: "import_reference",
+          reason: "script invokes ./build.sh",
+        }),
+        expect.objectContaining({
+          from: "scripts/release.sh",
+          to: "scripts/smoke.sh",
+          kind: "import_reference",
+          reason: "script invokes scripts/smoke.sh",
+        }),
+        expect.objectContaining({
+          from: "package.json",
+          to: "scripts/release.sh",
+          kind: "import_reference",
+          reason: "package script build invokes scripts/release.sh",
+        }),
+        expect.objectContaining({
+          from: "package.json",
+          to: "scripts/smoke.sh",
+          kind: "import_reference",
+          reason: "package script smoke invokes scripts/smoke.sh",
+        }),
+        expect.objectContaining({
+          from: "package.json",
+          to: "package.json#script:build",
+          kind: "import_reference",
+          reason: "package script smoke runs script build",
+        }),
+        expect.objectContaining({
+          from: "src/worker.py",
+          to: "src/services/worker_helpers.py",
+          kind: "import_reference",
+          reason: "source imports py:services/worker_helpers",
+        }),
+        expect.objectContaining({
+          from: "src/worker.py",
+          to: "src/local_helpers.py",
+          kind: "import_reference",
+          reason: "source imports py:.local_helpers",
+        }),
       ]),
     );
     expect(
       summary.graph?.reverseDependencyHubs?.map((node) => node.label),
     ).toContain("package.json");
-    expect(summary.graph?.symbols?.map((symbol) => symbol.name)).toContain(
-      "App",
+    expect(summary.graph?.symbols?.map((symbol) => symbol.name)).toEqual(
+      expect.arrayContaining([
+        "App",
+        "loadPanel",
+        "makeHelper",
+        "run_app",
+        "AppState",
+        "collect_context",
+        "ToolRunner",
+        "run_job",
+        "build_job",
+        "AppView",
+        "AppViewModel",
+        "makeAppView",
+      ]),
+    );
+    expect(summary.graph?.topLanguages.map((node) => node.label)).toContain(
+      "Swift",
+    );
+    expect(summary.graph?.importEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          from: "src-tauri/src/lib.rs",
+          to: "src-tauri/src/state.rs",
+          kind: "import_reference",
+          reason: "source imports ./state",
+        }),
+        expect.objectContaining({
+          from: "src-tauri/src/consumer.rs",
+          to: "src-tauri/src/state.rs",
+          kind: "import_reference",
+          reason: "source imports crate:state::AppState",
+        }),
+      ]),
     );
     expect(summary.graph?.symbolEdges).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           kind: "symbol_reference",
           to: "src/App.tsx#App",
+        }),
+        expect.objectContaining({
+          from: "src/App.tsx",
+          to: "src/lib/helper.ts#helper",
+          kind: "call_reference",
+        }),
+      ]),
+    );
+  });
+
+  it("extracts Markdown heading symbols with hierarchy", () => {
+    const summary = buildRepoIntelligenceSummary([
+      {
+        path: "docs/architecture.md",
+        bytes: 900,
+        content:
+          "# Architecture\n\n## Runtime\n\n### Proxy\n\n## Repo Intelligence\n",
+      },
+    ]);
+
+    expect(summary.graph?.symbols).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "Architecture",
+          kind: "heading",
+          file: "docs/architecture.md",
+          parent: null,
+        }),
+        expect.objectContaining({
+          name: "Proxy",
+          kind: "heading",
+          file: "docs/architecture.md",
+          parent: "Runtime",
+        }),
+        expect.objectContaining({
+          name: "Repo Intelligence",
+          kind: "heading",
+          file: "docs/architecture.md",
+          parent: "Architecture",
         }),
       ]),
     );
@@ -159,12 +673,15 @@ describe("repoIntelligence", () => {
     expect(markdown).toContain("## Repo Graph Summary");
     expect(markdown).toContain("Top directories");
     expect(markdown).toContain("Likely tests");
+    expect(markdown).toContain("Test relationships");
     expect(markdown).toContain("Dependency hubs");
     expect(markdown).toContain("Import and dependency edges");
     expect(markdown).toContain("Reverse dependency hubs");
     expect(markdown).toContain("Symbols");
     expect(markdown).toContain("- package.json");
     expect(markdown).toContain("## Implementation Pack");
+    expect(markdown).toContain("## Risk Review Pack");
+    expect(markdown).toContain("## Release Handoff Pack");
     expect(markdown).toContain("src/App.tsx");
     expect(markdown).toContain("Estimated savings vs full scan");
   });
@@ -207,7 +724,24 @@ describe("repoIntelligence", () => {
     expect(manifest.kind).toBe("mac_ai_switchboard.repo_intelligence_manifest");
     expect(manifest.schemaVersion).toBe(1);
     expect(manifest.generatedAt).toBe("2026-06-25T10:00:00Z");
-    expect(manifest.totals.indexerVersion).toBe("path-graph-v2");
+    expect(manifest.totals.indexerVersion).toBe("path-graph-v8");
+    expect(manifest.totals.indexMetadata?.cacheState).toBe("new");
+    expect(manifest.totals.indexMetadata?.fileFingerprints.length).toBe(4);
+    expect(manifest.totals.indexMetadata?.skippedFiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "<secret-like path>",
+          reasons: expect.arrayContaining(["secret-like path excluded"]),
+        }),
+        expect.objectContaining({ path: "package-lock.json" }),
+      ]),
+    );
+    expect(manifest.totals.indexMetadata?.graphInputs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ path: "src/App.tsx", role: "source" }),
+        expect.objectContaining({ path: "package.json", role: "config" }),
+      ]),
+    );
     expect(manifest.safety).toEqual({
       readOnly: true,
       excludesSecretLikePaths: true,
@@ -217,6 +751,8 @@ describe("repoIntelligence", () => {
       "implementation",
       "verification",
       "handoff",
+      "risk_review",
+      "release_handoff",
     ]);
     expect(manifest.packs[0].command).toContain(
       "--pack implementation --format markdown",
@@ -232,11 +768,85 @@ describe("repoIntelligence", () => {
     expect(manifest.agentRecipes[0].tools).toContain("Aider");
     expect(manifest.agentRecipes[2].tools).toContain("Cursor");
     expect(manifest.agentRecipes[2].instruction).toContain(
-      "provider routing remains manual",
+      "follow each connector readiness state",
     );
     expect(manifest.agentRecipes[0].command).toContain(
       "--pack implementation --format markdown",
     );
+    expect(manifest.agentSessionRecipes).toHaveLength(13);
+    expect(
+      manifest.agentSessionRecipes.map((recipe) => recipe.id),
+    ).toContain("gemini");
+    expect(
+      manifest.agentSessionRecipes.map((recipe) => recipe.id),
+    ).toContain("zed");
+    const codexSessionRecipe = manifest.agentSessionRecipes.find(
+      (recipe) => recipe.id === "codex",
+    );
+    expect(codexSessionRecipe).toEqual(
+      expect.objectContaining({
+        label: "Codex",
+        taskType: "verification",
+        readOnly: true,
+        manualProviderRouting: false,
+        configReadiness: null,
+      }),
+    );
+    expect(codexSessionRecipe?.command).toContain(
+      "--session --agent codex --task verification --format markdown",
+    );
+    const geminiSessionRecipe = manifest.agentSessionRecipes.find(
+      (recipe) => recipe.id === "gemini",
+    );
+    expect(geminiSessionRecipe).toEqual(
+      expect.objectContaining({
+        label: "Gemini CLI",
+        taskType: "implementation",
+        readOnly: true,
+        manualProviderRouting: false,
+        configReadiness: {
+          plannedConnectorId: "gemini_cli",
+          nextGate: "Detect config surface",
+          automationEnabled: true,
+          managedMcpBridge: false,
+          supportStatus: "managed_routing",
+        },
+      }),
+    );
+    expect(geminiSessionRecipe?.command).toContain(
+      "--session --agent gemini --task implementation --format markdown",
+    );
+    const gooseSessionRecipe = manifest.agentSessionRecipes.find(
+      (recipe) => recipe.id === "goose",
+    );
+    expect(gooseSessionRecipe).toEqual(
+      expect.objectContaining({
+        label: "Goose",
+        taskType: "verification",
+        readOnly: true,
+        manualProviderRouting: true,
+        configReadiness: {
+          plannedConnectorId: "goose",
+          nextGate: "Detect config surface",
+          automationEnabled: false,
+          managedMcpBridge: true,
+          supportStatus: "managed_mcp",
+        },
+      }),
+    );
+    expect(gooseSessionRecipe?.command).toContain(
+      "--session --agent goose --task verification --format markdown",
+    );
+    expect(manifest.apiQueries.map((query) => query.command)).toEqual([
+      "get_repo_manifest",
+      "get_repo_pack",
+      "get_agent_handoff",
+      "get_index_freshness",
+      "clear_repo_index",
+      "search_repo_intelligence_symbols",
+      "get_repo_intelligence_dependents",
+    ]);
+    expect(manifest.apiQueries.every((query) => query.readOnly)).toBe(true);
     expect(manifest.graph.available).toBe(true);
     expect(manifest.graph.dependencyHubCount).toBe(1);
     expect(manifest.graph.symbolCount).toBeGreaterThan(0);
@@ -301,8 +911,77 @@ describe("repoIntelligence", () => {
       readOnly: true,
       excludesSecretLikePaths: true,
       modifiesRepository: false,
-      manualProviderRouting: true,
+      manualProviderRouting: false,
     });
+    expect(payload.configReadiness).toEqual(
+      expect.objectContaining({
+        plannedConnectorId: "gemini_cli",
+        plannedConnectorName: "Gemini CLI",
+        automationEnabled: true,
+      }),
+    );
+
+    const cursorPayload = buildRepoAgentHandoffPayload(summary, "cursor");
+    expect(cursorPayload.configReadiness).toEqual(
+      expect.objectContaining({
+        plannedConnectorId: "cursor",
+        plannedConnectorName: "Cursor",
+      }),
+    );
+    expect(
+      cursorPayload.configReadiness?.safetyDossier.configPathStrategy,
+    ).toContain("Cursor app/profile");
+    expect(cursorPayload.configReadiness?.dryRunPreview).toMatchObject({
+      target: "User/settings.json",
+      marker: "mac-ai-switchboard:cursor",
+      applyBlockedReason:
+        "Config creation remains gated until every step has tests and Doctor evidence.",
+    });
+    const cursorGatedSteps = Object.fromEntries(
+      cursorPayload.configReadiness?.gatedSteps.map((step) => [
+        step.id,
+        step,
+      ]) ?? [],
+    );
+    expect(cursorPayload.configReadiness).toMatchObject({
+      automationEnabled: false,
+      supportStatus: "gated_native_write",
+    });
+    expect(cursorGatedSteps.apply?.requiredEvidence).toContain(
+      "Explicit user consent captured for the connector and config surface.",
+    );
+    expect(cursorGatedSteps.verify?.requiredEvidence).toContain(
+      "Doctor check confirming account/model guardrails without storing secrets.",
+    );
+    expect(cursorGatedSteps.offCleanup?.requiredEvidence).toContain(
+      "Doctor verification that the connector returns to manual or RTK-only mode.",
+    );
+
+    const windsurfPayload = buildRepoAgentHandoffPayload(summary, "windsurf");
+    expect(windsurfPayload.safety.manualProviderRouting).toBe(false);
+    expect(windsurfPayload.agent.guidance).toContain(
+      "managed editor settings routing is handled",
+    );
+    expect(windsurfPayload.configReadiness).toEqual(
+      expect.objectContaining({
+        plannedConnectorId: "windsurf",
+        plannedConnectorName: "Windsurf",
+        automationEnabled: true,
+      }),
+    );
+
+    const zedPayload = buildRepoAgentHandoffPayload(summary, "zed");
+    expect(zedPayload.safety.manualProviderRouting).toBe(false);
+    expect(zedPayload.agent.guidance).toContain(
+      "managed assistant settings routing is handled",
+    );
+    expect(zedPayload.configReadiness).toEqual(
+      expect.objectContaining({
+        plannedConnectorId: "zed_ai",
+        plannedConnectorName: "Zed AI",
+        automationEnabled: true,
+      }),
+    );
   });
 
   it("formats agent-specific bounded handoffs for popular coding tools", () => {
@@ -319,23 +998,569 @@ describe("repoIntelligence", () => {
     expect(claude).toContain("# Claude Code Handoff");
     expect(claude).toContain("Selected pack: Implementation Pack");
     expect(claude).toContain("bounded repo context");
+    expect(claude).not.toContain("Connector Config Readiness");
 
     const codex = formatRepoAgentHandoffMarkdown(summary, "codex");
     expect(codex).toContain("# Codex Handoff");
     expect(codex).toContain("Selected pack: Verification Pack");
     expect(codex).toContain("repeated broad repo discovery");
+    expect(codex).not.toContain("Connector Config Readiness");
 
     const gemini = formatRepoAgentHandoffMarkdown(summary, "gemini");
     expect(gemini).toContain("# Gemini CLI Handoff");
     expect(gemini).toContain("Selected pack: Implementation Pack");
     expect(gemini).toContain("Secret-like paths");
+    expect(gemini).toContain("Connector Config Readiness");
+    expect(gemini).toContain("Automation enabled: yes");
     expect(gemini).toContain("src/App.tsx");
     expect(gemini).not.toContain(".env.local");
 
     const cursor = formatRepoAgentHandoffMarkdown(summary, "cursor");
     expect(cursor).toContain("# Cursor Handoff");
     expect(cursor).toContain("Selected pack: Handoff Pack");
+    expect(cursor).toContain("Connector readiness: Cursor (cursor)");
+    expect(cursor).toContain("Dry-run target: User/settings.json");
+    expect(cursor).toContain("Dry-run marker: mac-ai-switchboard:cursor");
     expect(cursor).toContain("docs/install.md");
+  });
+
+  it("recommends conservative switchboard modes for agent sessions", () => {
+    expect(
+      recommendAgentSessionMode({
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+      }),
+    ).toMatchObject({
+      mode: "full",
+      reason: "Headroom engine and RTK are healthy.",
+    });
+
+    expect(
+      recommendAgentSessionMode({
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: false,
+      }).mode,
+    ).toBe("rtk");
+
+    expect(
+      recommendAgentSessionMode({
+        headroomHealthy: true,
+        rtkHealthy: false,
+        providerRoutingSafe: false,
+      }).mode,
+    ).toBe("off");
+
+    expect(
+      recommendAgentSessionMode({
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+        cleanPassThrough: true,
+      }).mode,
+    ).toBe("off");
+  });
+
+  it("builds agent session preparation from a fresh local index", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+
+    const preparation = buildAgentSessionPreparation(summary, {
+      target: "codex",
+      taskType: "verification",
+      generatedAt: "2026-06-25T10:05:00Z",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+      },
+    });
+
+    expect(preparation.target.label).toBe("Codex");
+    expect(preparation.taskType).toBe("verification");
+    expect(preparation.packId).toBe("verification");
+    expect(preparation.copyStatus).toBe("ready");
+    expect(preparation.copySafety).toMatchObject({
+      hasRealIndex: true,
+      allowsCopy: true,
+      blocksSampleContext: false,
+      excludesSecretLikePaths: true,
+      freshnessStatus: "fresh",
+      skippedFileCount: 0,
+      reason: "Fresh local index",
+    });
+    expect(preparation.copyArtifacts).toEqual([
+      {
+        id: "session_summary",
+        label: "Session summary",
+        format: "markdown",
+        available: true,
+        blockedReason: null,
+      },
+      {
+        id: "full_handoff",
+        label: "Full handoff",
+        format: "markdown",
+        available: true,
+        blockedReason: null,
+      },
+      {
+        id: "selected_pack",
+        label: "Selected pack",
+        format: "markdown",
+        available: true,
+        blockedReason: null,
+      },
+      {
+        id: "json_payload",
+        label: "JSON payload",
+        format: "json",
+        available: true,
+        blockedReason: null,
+      },
+    ]);
+    expect(preparation.recommendedMode).toBe("full");
+    expect(preparation.handoffMarkdown).toContain("# Codex Handoff");
+    expect(preparation.handoffMarkdown).toContain(
+      "Index freshness: Fresh local index",
+    );
+    expect(preparation.handoffPayload?.pack.id).toBe("verification");
+    expect(preparation.handoffPayload?.indexFreshness.status).toBe("fresh");
+    expect(preparation.taskContext).toMatchObject({
+      id: "task_verification",
+      task: "verification",
+      budgetTokens: 6000,
+    });
+    expect(preparation.taskContext?.commands).toContain("npm test");
+    expect(preparation.configReadiness).toBeNull();
+    expect(preparation.manifest.generatedAt).toBe("2026-06-25T10:05:00Z");
+    expect(preparation.manifest.taskPacks?.[0]).toMatchObject({
+      id: "task_implementation",
+      fileCount: expect.any(Number),
+      commandCount: expect.any(Number),
+    });
+
+    const json = formatAgentSessionPreparationJson(preparation);
+    expect(json).toContain('"kind": "mac_ai_switchboard.repo_agent_handoff"');
+    expect(json).toContain('"id": "codex"');
+
+    const sessionSummary = formatAgentSessionSummaryMarkdown(preparation);
+    expect(sessionSummary).toContain("# Start Agent Session Summary: Codex");
+    expect(sessionSummary).toContain("Selected pack: Verification pack");
+    expect(sessionSummary).toContain("Estimated tokens avoided:");
+    expect(sessionSummary).toContain("Secret-like paths excluded: yes");
+    expect(sessionSummary).toContain("## Task-Aware Context");
+    expect(sessionSummary).toContain("Suggested commands:");
+
+    const packMarkdown = formatAgentSessionSelectedPackMarkdown(
+      summary,
+      preparation,
+    );
+    expect(packMarkdown).toContain("# Verification Pack: /Users/me/app");
+    expect(packMarkdown).toContain("Estimated tokens avoided:");
+  });
+
+  it("builds custom task context from a session query and budget", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/lib/releaseReadiness.ts", bytes: 1200 },
+      { path: "src/lib/releaseReadiness.test.ts", bytes: 900 },
+      { path: "src/lib/repoIntelligence.ts", bytes: 2000 },
+      { path: "docs/macos-release.md", bytes: 800 },
+      { path: "package.json", bytes: 700 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+
+    const preparation = buildAgentSessionPreparation(summary, {
+      target: "codex",
+      taskType: "verification",
+      taskQuery: "release readiness schema smoke evidence",
+      budgetTokens: 1_000,
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+      },
+    });
+
+    expect(preparation.taskContext).toMatchObject({
+      task: "verification",
+      budgetTokens: 1_000,
+    });
+    expect(preparation.taskContext?.files[0].path).toContain(
+      "releaseReadiness",
+    );
+    expect(preparation.taskContext?.commands).toEqual(
+      expect.arrayContaining(["npm run smoke:preflight"]),
+    );
+    expect(
+      new Set(preparation.taskContext?.files.map((file) => file.path)).size,
+    ).toBe(preparation.taskContext?.files.length);
+    expect(formatAgentSessionSummaryMarkdown(preparation)).toContain(
+      "releaseReadiness",
+    );
+  });
+
+  it("exposes connector readiness in agent session preparation", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+
+    const preparation = buildAgentSessionPreparation(summary, {
+      target: "cursor",
+      taskType: "implementation",
+      generatedAt: "2026-06-25T10:05:00Z",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: false,
+      },
+    });
+
+    expect(preparation.configReadiness).toEqual(
+      expect.objectContaining({
+        plannedConnectorId: "cursor",
+        plannedConnectorName: "Cursor",
+        automationEnabled: false,
+        nextGate: {
+          id: "detect",
+          label: "Detect config surface",
+        },
+      }),
+    );
+    expect(preparation.handoffPayload?.configReadiness).toBe(
+      preparation.configReadiness,
+    );
+    expect(
+      preparation.configReadiness?.gatedSteps.find(
+        (step) => step.id === "dryRunDiff",
+      )?.requiredEvidence.join(" "),
+    ).toContain("dry-run diff artifact");
+
+    const json = formatAgentSessionPreparationJson(preparation);
+    expect(json).toContain('"configReadiness"');
+    expect(json).toContain('"plannedConnectorId": "cursor"');
+
+    const sessionSummary = formatAgentSessionSummaryMarkdown(preparation);
+    expect(sessionSummary).toContain("## Connector Config Readiness");
+    expect(sessionSummary).toContain("Connector readiness: Cursor (cursor)");
+    expect(sessionSummary).toContain("Next gate: Detect config surface");
+    expect(sessionSummary).toContain("Dry-run target: User/settings.json");
+    expect(sessionSummary).toContain("Dry-run marker: mac-ai-switchboard:cursor");
+
+    const display = buildAgentSessionDisplayState(preparation, true);
+    expect(display.connectorReadinessLabel).toBe("Cursor config gated");
+    expect(display.connectorReadinessDetailLabel).toBe(
+      "Next gate: Detect config surface; automation enabled: no; dry-run target: User/settings.json; marker: mac-ai-switchboard:cursor",
+    );
+  });
+
+  it("builds risk review and release handoff agent sessions", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+
+    const riskReview = buildAgentSessionPreparation(summary, {
+      target: "codex",
+      taskType: "risk_review",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+      },
+    });
+    const releaseHandoff = buildAgentSessionPreparation(summary, {
+      target: "codex",
+      taskType: "release_handoff",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+      },
+    });
+
+    expect(riskReview.packId).toBe("risk_review");
+    expect(riskReview.handoffPayload?.pack.title).toBe("Risk Review Pack");
+    expect(releaseHandoff.packId).toBe("release_handoff");
+    expect(releaseHandoff.handoffPayload?.pack.title).toBe(
+      "Release Handoff Pack",
+    );
+  });
+
+  it("warns when agent session preparation uses a changed cached index", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "package.json", bytes: 800 },
+    ]);
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+    summary.indexMetadata = {
+      ...summary.indexMetadata!,
+      cacheState: "changed",
+      previousIndexedAt: "2026-06-25T09:00:00Z",
+    };
+
+    const preparation = buildAgentSessionPreparation(summary, {
+      target: "gemini",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: false,
+      },
+    });
+
+    expect(preparation.copyStatus).toBe("warn");
+    expect(preparation.copySafety).toMatchObject({
+      hasRealIndex: true,
+      allowsCopy: true,
+      blocksSampleContext: false,
+      excludesSecretLikePaths: true,
+      freshnessStatus: "changed_cache",
+    });
+    expect(preparation.copyDetail).toContain("Changed local index");
+    expect(preparation.recommendedMode).toBe("rtk");
+    expect(preparation.handoffMarkdown).toContain("# Gemini CLI Handoff");
+    expect(preparation.handoffMarkdown).toContain(
+      "Warning: Changed local index",
+    );
+    expect(preparation.handoffMarkdown).toContain(
+      "Refresh before relying on this handoff for current code.",
+    );
+    expect(preparation.handoffPayload?.indexFreshness.status).toBe(
+      "changed_cache",
+    );
+  });
+
+  it("blocks agent session copying until a real repo index exists", () => {
+    const preparation = buildAgentSessionPreparation(
+      {
+        totalFiles: 0,
+        indexedFiles: 0,
+        estimatedFullScanTokens: 0,
+        roleCounts: {
+          source: 0,
+          test: 0,
+          config: 0,
+          docs: 0,
+          asset: 0,
+          lockfile: 0,
+          generated: 0,
+          unknown: 0,
+        },
+        packs: [],
+      },
+      {
+        target: "cursor",
+        modeInputs: {
+          headroomHealthy: false,
+          rtkHealthy: false,
+          providerRoutingSafe: true,
+        },
+      },
+    );
+
+    expect(preparation.copyStatus).toBe("blocked");
+    expect(preparation.copySafety).toMatchObject({
+      hasRealIndex: false,
+      allowsCopy: false,
+      blocksSampleContext: true,
+      excludesSecretLikePaths: true,
+      freshnessStatus: "none",
+      skippedFileCount: 0,
+    });
+    expect(preparation.copySafety.reason).toContain("Index a real local repo");
+    expect(preparation.copyDetail).toContain("Index a real local repo");
+    expect(preparation.recommendedMode).toBe("off");
+    expect(preparation.handoffMarkdown).toBeNull();
+    expect(preparation.handoffPayload).toBeNull();
+    expect(preparation.configReadiness).toBeNull();
+    expect(preparation.copyArtifacts.every((artifact) => !artifact.available))
+      .toBe(true);
+    expect(
+      preparation.copyArtifacts.map((artifact) => artifact.blockedReason),
+    ).toEqual([
+      "Index a real local repo before copying agent context.",
+      "Index a real local repo before copying agent context.",
+      "Index a real local repo before copying agent context.",
+      "Index a real local repo before copying agent context.",
+    ]);
+    expect(formatAgentSessionPreparationJson(preparation)).toBeNull();
+    expect(formatAgentSessionSummaryMarkdown(preparation)).toBeNull();
+    expect(formatAgentSessionSelectedPackMarkdown({
+      totalFiles: 0,
+      indexedFiles: 0,
+      estimatedFullScanTokens: 0,
+      roleCounts: preparation.manifest.totals.roleCounts,
+      packs: [],
+    }, preparation)).toBeNull();
+  });
+
+  it("builds Start Agent Session display state for copy controls", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000 },
+      { path: "src/App.test.tsx", bytes: 2000 },
+      { path: "docs/install.md", bytes: 1200 },
+      { path: "package.json", bytes: 800 },
+    ]);
+    summary.repoRoot = "/Users/me/app";
+    summary.indexedAt = "2026-06-25T10:00:00Z";
+
+    const readyPreparation = buildAgentSessionPreparation(summary, {
+      target: "codex",
+      taskType: "verification",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: true,
+      },
+    });
+    const readyDisplay = buildAgentSessionDisplayState(
+      readyPreparation,
+      true,
+    );
+
+    expect(readyDisplay).toMatchObject({
+      targetLabel: "Codex",
+      packLabel: "Verification pack",
+      modeLabel: "Full optimization",
+      freshnessLabel: "Fresh local index",
+      freshnessDetailLabel:
+        "API ready · graph ready · index new · parser metadata-fingerprint-v1 (current) · 4 indexed · 0 skipped",
+      contextLabel: "Local repo index",
+      selectedPackTokensLabel: "700",
+      tokensAvoidedLabel: "1,300",
+      skippedFilesLabel: "0 skipped",
+      secretExclusionLabel: "Secret-like paths excluded",
+      connectorReadinessLabel: null,
+      connectorReadinessDetailLabel: null,
+      sampleContextWarning: null,
+      copyStatus: "ready",
+      canCopySummary: true,
+      canCopyHandoff: true,
+      canCopySelectedPack: true,
+      canCopyJson: true,
+    });
+
+    summary.indexMetadata = {
+      ...summary.indexMetadata!,
+      cacheState: "changed",
+      previousIndexedAt: "2026-06-25T09:00:00Z",
+    };
+    const stalePreparation = buildAgentSessionPreparation(summary, {
+      target: "cursor",
+      taskType: "implementation",
+      modeInputs: {
+        headroomHealthy: true,
+        rtkHealthy: true,
+        providerRoutingSafe: false,
+      },
+    });
+    const staleDisplay = buildAgentSessionDisplayState(
+      stalePreparation,
+      true,
+    );
+
+    expect(staleDisplay.copyStatus).toBe("warn");
+    expect(staleDisplay.freshnessLabel).toBe("Changed local index");
+    expect(staleDisplay.freshnessLabel).not.toBe("Fresh local index");
+    expect(staleDisplay.freshnessDetailLabel).toBe(
+      "API ready · graph ready · index changed · parser metadata-fingerprint-v1 (current) · 4 indexed · 0 skipped · Repo metadata changed since the previous saved index.",
+    );
+    expect(staleDisplay.modeLabel).toBe("RTK only");
+    expect(staleDisplay.copyDetail).toContain("Changed local index");
+    expect(staleDisplay.connectorReadinessLabel).toBe("Cursor config gated");
+    expect(staleDisplay.connectorReadinessDetailLabel).toBe(
+      "Next gate: Detect config surface; automation enabled: no; dry-run target: User/settings.json; marker: mac-ai-switchboard:cursor",
+    );
+    expect(staleDisplay.canCopyHandoff).toBe(true);
+    expect(staleDisplay.canCopySummary).toBe(true);
+    expect(staleDisplay.canCopySelectedPack).toBe(true);
+    expect(staleDisplay.canCopyJson).toBe(true);
+
+    const artifactBlockedDisplay = buildAgentSessionDisplayState(
+      {
+        ...readyPreparation,
+        copyArtifacts: readyPreparation.copyArtifacts.map((artifact) =>
+          artifact.id === "selected_pack"
+            ? {
+                ...artifact,
+                available: false,
+                blockedReason: "Selected pack unavailable.",
+              }
+            : artifact,
+        ),
+      },
+      true,
+    );
+
+    expect(artifactBlockedDisplay.canCopyHandoff).toBe(true);
+    expect(artifactBlockedDisplay.canCopySelectedPack).toBe(false);
+    expect(artifactBlockedDisplay.canCopyJson).toBe(true);
+
+    const blockedDisplay = buildAgentSessionDisplayState(
+      buildAgentSessionPreparation(
+        {
+          totalFiles: 0,
+          indexedFiles: 0,
+          estimatedFullScanTokens: 0,
+          roleCounts: readyPreparation.manifest.totals.roleCounts,
+          packs: [],
+        },
+        {
+          target: "cursor",
+          modeInputs: {
+            headroomHealthy: false,
+            rtkHealthy: false,
+            providerRoutingSafe: true,
+          },
+        },
+      ),
+      false,
+    );
+
+    expect(blockedDisplay).toMatchObject({
+      targetLabel: "Cursor",
+      packLabel: "Handoff pack",
+      modeLabel: "Off",
+      contextLabel: "Sample preview",
+      selectedPackTokensLabel: "0",
+      tokensAvoidedLabel: "0",
+      skippedFilesLabel: "0 skipped",
+      secretExclusionLabel: "Secret-like paths excluded",
+      copyStatus: "blocked",
+      canCopySummary: false,
+      canCopyHandoff: false,
+      canCopySelectedPack: false,
+      canCopyJson: false,
+    });
+    expect(blockedDisplay.sampleContextWarning).toContain(
+      "Sample preview packs are blocked",
+    );
+  });
+
+  it("labels agent session packs consistently", () => {
+    expect(repoAgentPackLabel("implementation")).toBe("Implementation pack");
+    expect(repoAgentPackLabel("verification")).toBe("Verification pack");
+    expect(repoAgentPackLabel("handoff")).toBe("Handoff pack");
+    expect(repoAgentPackLabel("risk_review")).toBe("Risk review pack");
+    expect(repoAgentPackLabel("release_handoff")).toBe("Release handoff pack");
   });
 
   it("calculates best-pack and all-pack token savings", () => {

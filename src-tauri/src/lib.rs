@@ -10,7 +10,9 @@ mod keychain;
 mod local_mode;
 mod logging;
 mod memory_scrubber;
+mod message_logging;
 mod models;
+mod optimization;
 mod port_conflict;
 mod pricing;
 mod proxy_intercept;
@@ -20,16 +22,17 @@ mod storage;
 mod tool_manager;
 
 use std::future::Future;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
 
 use chrono::{DateTime, Local, Utc};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
 #[cfg(target_os = "macos")]
@@ -44,10 +47,16 @@ use tauri_plugin_updater::{Update, UpdaterExt};
 use crate::models::{
     ActivityFeedResponse, BillingPeriod, BootstrapProgress, ClaudeAccountProfile,
     ClaudeCodeProject, ClaudeUsage, ClientConnectorStatus, ClientSetupResult,
-    ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
-    HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
-    HeadroomSubscriptionTier, RepoIntelligenceSummary, RuntimeStatus, RuntimeUpgradeProgress,
-    SavingsMode, SwitchboardMode, SwitchboardState, TransformationFeedResponse,
+    ClientSetupVerification, CodexDbRestoreResult, CodexThreadRetaggingSettings, DailySavingsPoint,
+    DashboardState, HeadroomAuthCodeRequest, HeadroomLearnPrereqStatus, HeadroomLearnStatus,
+    HeadroomPricingStatus, HeadroomSubscriptionTier, ManagedConfigApplyPreview,
+    ManagedConfigApplyResult, ManagedFootprintReport, ManagedRollbackExecutionResult,
+    ManagedRollbackExecutionStatus, ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult,
+    ManagedRollbackUndoAllPreview, MessageLoggingSettings, PurgeResult, RepoAgentHandoffResponse,
+    RepoContextPackResponse, RepoDependentsResponse, RepoIndexFreshnessResponse,
+    RepoIntelligenceManifestResponse, RepoIntelligenceSummary, RepoSymbolSearchResponse,
+    RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionEvent, SavingsMode, SwitchboardMode,
+    SwitchboardState, TransformationFeedResponse, UninstallDryRunReport,
 };
 use crate::state::AppState;
 
@@ -66,10 +75,33 @@ const MAIN_WINDOW_BLUR_HIDE_DELAY_MS: u64 = 150;
 
 type InstallPendingUpdateFuture = Pin<Box<dyn Future<Output = Result<(), String>> + Send>>;
 
+fn tail(value: &str, max_chars: usize) -> String {
+    let chars: Vec<char> = value.chars().collect();
+    if chars.len() <= max_chars {
+        value.to_string()
+    } else {
+        chars[chars.len().saturating_sub(max_chars)..]
+            .iter()
+            .collect()
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum QuitSource {
     SettingsButton,
     TrayMenu,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ConnectorSmokeTestResult {
+    client_id: String,
+    supported: bool,
+    launched: bool,
+    success: bool,
+    summary: String,
+    stdout_tail: String,
+    stderr_tail: String,
 }
 
 impl QuitSource {
@@ -175,6 +207,31 @@ struct AvailableAppUpdate {
     notes: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct ReleaseReadinessReportPayload {
+    report_path: String,
+    report: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct ReleaseEvidenceCommandResult {
+    command_id: String,
+    label: String,
+    command: String,
+    summary_path: Option<String>,
+    stdout: String,
+    stderr: String,
+}
+
+struct ReleaseEvidenceCommandSpec {
+    label: &'static str,
+    command: &'static str,
+    steps: &'static [(&'static str, &'static [&'static str])],
+    summary_path: Option<&'static str>,
+}
+
 static ZERO_SPEND_ALERT_FIRED: AtomicBool = AtomicBool::new(false);
 
 // Set when the watchdog has captured a Sentry event for the current "down
@@ -241,9 +298,15 @@ fn check_zero_spend_anomaly(dashboard: &DashboardState) {
 }
 
 #[tauri::command]
-fn build_repo_intelligence_summary(repo_path: String) -> Result<RepoIntelligenceSummary, String> {
+fn build_repo_intelligence_summary(
+    state: State<'_, AppState>,
+    repo_path: String,
+) -> Result<RepoIntelligenceSummary, String> {
     let summary = repo_intelligence::summarize_repo(repo_path).map_err(|err| err.to_string())?;
     repo_intelligence::save_latest_summary(&summary).map_err(|err| err.to_string())?;
+    if let Err(err) = state.record_repo_intelligence_attribution(&summary) {
+        log::warn!("could not record Repo Intelligence attribution event: {err:#}");
+    }
     Ok(summary)
 }
 
@@ -254,6 +317,292 @@ fn get_latest_repo_intelligence_summary() -> Result<Option<RepoIntelligenceSumma
 
 #[tauri::command]
 fn clear_repo_intelligence_summary() -> Result<bool, String> {
+    repo_intelligence::clear_latest_summary().map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn get_repo_intelligence_context_pack(
+    pack_id: Option<String>,
+) -> Result<Option<RepoContextPackResponse>, String> {
+    repo_intelligence::latest_context_pack(pack_id.as_deref()).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn search_repo_intelligence_symbols(
+    query: Option<String>,
+    limit: Option<usize>,
+) -> Result<Option<RepoSymbolSearchResponse>, String> {
+    repo_intelligence::latest_symbol_search(query.as_deref(), limit).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn get_repo_intelligence_dependents(
+    target: String,
+    limit: Option<usize>,
+) -> Result<Option<RepoDependentsResponse>, String> {
+    repo_intelligence::latest_dependents_search(&target, limit).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn get_repo_intelligence_manifest() -> Result<Option<RepoIntelligenceManifestResponse>, String> {
+    repo_intelligence::latest_manifest().map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn get_repo_manifest() -> Result<Option<RepoIntelligenceManifestResponse>, String> {
+    repo_intelligence::latest_manifest().map_err(|err| err.to_string())
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RepoMapGenerationResponse {
+    repo_path: String,
+    out_dir: String,
+    readme_path: String,
+    compact_context_path: String,
+    map: Value,
+    compact_context: String,
+    tool_log: Value,
+    stdout_tail: String,
+    stderr_tail: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RepoMapPreflightTool {
+    id: String,
+    label: String,
+    available: bool,
+    detail: String,
+    install_hint: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RepoMapPreflightResponse {
+    repo_path: String,
+    exists: bool,
+    is_directory: bool,
+    has_package_json: bool,
+    has_cargo_manifest: bool,
+    tools: Vec<RepoMapPreflightTool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RepoMapArtifactRequest {
+    repo_path: Option<String>,
+    artifact: String,
+}
+
+fn repo_map_default_repo() -> Result<PathBuf, String> {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(Path::to_path_buf)
+        .ok_or_else(|| "Could not resolve app repository root.".to_string())
+}
+
+fn repo_map_target_repo(repo_path: Option<String>) -> Result<PathBuf, String> {
+    let target_repo = repo_path
+        .map(PathBuf::from)
+        .unwrap_or(repo_map_default_repo()?);
+    if !target_repo.exists() {
+        return Err(format!(
+            "Repository path does not exist: {}.",
+            target_repo.display()
+        ));
+    }
+    if !target_repo.is_dir() {
+        return Err(format!(
+            "Repository path is not a directory: {}.",
+            target_repo.display()
+        ));
+    }
+    Ok(target_repo)
+}
+
+fn probe_repo_map_tool(
+    id: &str,
+    label: &str,
+    command: &str,
+    install_hint: Option<&str>,
+) -> RepoMapPreflightTool {
+    let output = Command::new("/bin/zsh").args(["-lc", command]).output();
+    match output {
+        Ok(output) if output.status.success() => RepoMapPreflightTool {
+            id: id.to_string(),
+            label: label.to_string(),
+            available: true,
+            detail: tail(&String::from_utf8_lossy(&output.stdout), 240),
+            install_hint: None,
+        },
+        Ok(output) => RepoMapPreflightTool {
+            id: id.to_string(),
+            label: label.to_string(),
+            available: false,
+            detail: tail(&String::from_utf8_lossy(&output.stderr), 360),
+            install_hint: install_hint.map(str::to_string),
+        },
+        Err(err) => RepoMapPreflightTool {
+            id: id.to_string(),
+            label: label.to_string(),
+            available: false,
+            detail: err.to_string(),
+            install_hint: install_hint.map(str::to_string),
+        },
+    }
+}
+
+#[tauri::command]
+async fn preflight_repo_map(repo_path: Option<String>) -> Result<RepoMapPreflightResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let target_repo = repo_path
+            .map(PathBuf::from)
+            .unwrap_or(repo_map_default_repo()?);
+        let exists = target_repo.exists();
+        let is_directory = target_repo.is_dir();
+        let has_package_json = target_repo.join("package.json").exists();
+        let has_cargo_manifest = target_repo.join("src-tauri/Cargo.toml").exists()
+            || target_repo.join("Cargo.toml").exists();
+        Ok(RepoMapPreflightResponse {
+            repo_path: target_repo.display().to_string(),
+            exists,
+            is_directory,
+            has_package_json,
+            has_cargo_manifest,
+            tools: vec![
+                probe_repo_map_tool("node", "Node.js", "node --version", Some("Install Node.js 22+.")),
+                probe_repo_map_tool("npx", "npx", "npx --version", Some("Install Node.js/npm so npx is available.")),
+                probe_repo_map_tool("uv", "uv", "uv --version", Some("Install uv: brew install uv")),
+                probe_repo_map_tool(
+                    "graphify",
+                    "Graphify",
+                    "uvx --from 'graphifyy[openai]' graphify --help >/dev/null && echo graphify-ready",
+                    Some("Install on demand with uvx --from 'graphifyy[openai]' graphify --help"),
+                ),
+                probe_repo_map_tool("cargo", "Cargo", "cargo --version", Some("Install Rust via rustup.")),
+                probe_repo_map_tool("graphviz", "Graphviz", "which gvpr", Some("Optional SVG export: brew install graphviz")),
+            ],
+        })
+    })
+    .await
+    .map_err(|err| format!("Repo map preflight failed: {err}"))?
+}
+
+#[tauri::command]
+async fn generate_repo_map(repo_path: Option<String>) -> Result<RepoMapGenerationResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let app_repo = repo_map_default_repo()?;
+        let target_repo = repo_map_target_repo(repo_path)?;
+        let script_path = app_repo.join("scripts/generate-repo-map.mjs");
+        if !script_path.exists() {
+            return Err(format!(
+                "Repo map generator missing at {}.",
+                script_path.display()
+            ));
+        }
+        if !target_repo.exists() {
+            return Err(format!(
+                "Repository path does not exist: {}.",
+                target_repo.display()
+            ));
+        }
+
+        let output = Command::new("node")
+            .arg(&script_path)
+            .arg("--repo")
+            .arg(&target_repo)
+            .arg("--out")
+            .arg("docs/repo-map")
+            .arg("--run-tools")
+            .current_dir(&target_repo)
+            .output()
+            .map_err(|err| format!("Failed to start repo map generator: {err}"))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let out_dir = target_repo.join("docs/repo-map");
+        let readme_path = out_dir.join("README.md");
+        let map_path = out_dir.join("repo-map.json");
+        let compact_context_path = out_dir.join("COMPACT_CONTEXT.md");
+        let tool_log_path = out_dir.join("tool-log.json");
+
+        if !map_path.exists() {
+            return Err(format!(
+                "Repo map generation did not produce {}. {}",
+                map_path.display(),
+                tail(&stderr, 1200)
+            ));
+        }
+
+        let map_text = std::fs::read_to_string(&map_path)
+            .map_err(|err| format!("Failed to read {}: {err}", map_path.display()))?;
+        let map: Value = serde_json::from_str(&map_text)
+            .map_err(|err| format!("Failed to parse {}: {err}", map_path.display()))?;
+        let compact_context = std::fs::read_to_string(&compact_context_path).unwrap_or_default();
+        let tool_log_text = std::fs::read_to_string(&tool_log_path).unwrap_or_else(|_| "[]".into());
+        let tool_log: Value = serde_json::from_str(&tool_log_text).unwrap_or_else(|_| json!([]));
+
+        Ok(RepoMapGenerationResponse {
+            repo_path: target_repo.display().to_string(),
+            out_dir: out_dir.display().to_string(),
+            readme_path: readme_path.display().to_string(),
+            compact_context_path: compact_context_path.display().to_string(),
+            map,
+            compact_context,
+            tool_log,
+            stdout_tail: tail(&stdout, 2000),
+            stderr_tail: tail(&stderr, 2000),
+        })
+    })
+    .await
+    .map_err(|err| format!("Repo map worker failed: {err}"))?
+}
+
+#[tauri::command]
+fn open_repo_map_artifact(request: RepoMapArtifactRequest) -> Result<bool, String> {
+    let target_repo = repo_map_target_repo(request.repo_path)?;
+    let relative = match request.artifact.as_str() {
+        "folder" => PathBuf::from("docs/repo-map"),
+        "readme" => PathBuf::from("docs/repo-map/README.md"),
+        "compactContext" => PathBuf::from("docs/repo-map/COMPACT_CONTEXT.md"),
+        "graphTree" => PathBuf::from("graphify-out/GRAPH_TREE.html"),
+        "graphJson" => PathBuf::from("graphify-out/graph.json"),
+        "repoMapJson" => PathBuf::from("docs/repo-map/repo-map.json"),
+        other => return Err(format!("Unsupported repo map artifact: {other}.")),
+    };
+    let path = target_repo.join(relative);
+    if !path.exists() {
+        return Err(format!("Artifact does not exist: {}.", path.display()));
+    }
+    Command::new("open")
+        .arg(&path)
+        .status()
+        .map_err(|err| format!("Failed to open {}: {err}", path.display()))?;
+    Ok(true)
+}
+
+#[tauri::command]
+fn get_repo_pack(pack_id: Option<String>) -> Result<Option<RepoContextPackResponse>, String> {
+    repo_intelligence::latest_context_pack(pack_id.as_deref()).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn get_agent_handoff(
+    agent_id: String,
+    task_type: Option<String>,
+) -> Result<Option<RepoAgentHandoffResponse>, String> {
+    repo_intelligence::latest_agent_handoff(&agent_id, task_type.as_deref())
+        .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn get_index_freshness() -> Result<RepoIndexFreshnessResponse, String> {
+    repo_intelligence::latest_index_freshness().map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn clear_repo_index() -> Result<bool, String> {
     repo_intelligence::clear_latest_summary().map_err(|err| err.to_string())
 }
 
@@ -289,6 +638,567 @@ async fn get_dashboard_state(app: AppHandle) -> Result<DashboardState, String> {
 }
 
 #[tauri::command]
+async fn get_savings_attribution_events(
+    app: AppHandle,
+) -> Result<Vec<SavingsAttributionEvent>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state: State<'_, AppState> = app.state();
+        state.savings_attribution_events()
+    })
+    .await
+    .map_err(|err| err.to_string())
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MeasuredSavingsAttributionRequest {
+    source: crate::models::SavingsAttributionSource,
+    label: String,
+    baseline_tokens: u64,
+    optimized_tokens: u64,
+    #[serde(default = "default_request_delta")]
+    request_delta: usize,
+    #[serde(default)]
+    detail: String,
+}
+
+fn default_request_delta() -> usize {
+    1
+}
+
+#[tauri::command]
+async fn record_measured_savings_attribution(
+    app: AppHandle,
+    request: MeasuredSavingsAttributionRequest,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state: State<'_, AppState> = app.state();
+        state
+            .record_measured_addon_attribution(
+                request.source,
+                &request.label,
+                request.baseline_tokens,
+                request.optimized_tokens,
+                request.request_delta,
+                request.detail,
+            )
+            .map_err(|err| err.to_string())
+    })
+    .await
+    .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+fn preview_managed_rollback(record_id: String) -> Result<ManagedRollbackPreview, String> {
+    client_adapters::preview_managed_rollback(&record_id).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn execute_managed_rollback(
+    record_id: String,
+    backup_path: String,
+    confirmation_phrase: String,
+) -> Result<ManagedRollbackExecutionResult, String> {
+    client_adapters::execute_managed_rollback(&record_id, &backup_path, &confirmation_phrase)
+        .map_err(|err| err.to_string())
+}
+
+const REPO_INTELLIGENCE_ROLLBACK_RECORD_ID: &str = "repo-intelligence";
+const REPO_INTELLIGENCE_ROLLBACK_OWNER: &str = "Repo Intelligence";
+const REPO_INTELLIGENCE_ROLLBACK_MARKER: &str = "repo-intelligence-latest.json";
+const REPO_INTELLIGENCE_ROLLBACK_CONFIRMATION: &str =
+    "Clear repo-intelligence-latest.json for Repo Intelligence";
+const LOGIN_ITEM_ROLLBACK_RECORD_ID: &str = "login-item";
+const LOGIN_ITEM_ROLLBACK_OWNER: &str = "Launch at login";
+const LOGIN_ITEM_ROLLBACK_MARKER: &str = "com.tarunagarwal.mac-ai-switchboard";
+const LOGIN_ITEM_ROLLBACK_CONFIRMATION: &str =
+    "Remove com.tarunagarwal.mac-ai-switchboard LaunchAgent for Launch at login";
+const PLUGINS_ROLLBACK_RECORD_ID: &str = "plugins-backups";
+const PLUGINS_ROLLBACK_OWNER: &str = "Add-ons";
+const PLUGINS_ROLLBACK_MARKER: &str = "headroom:addon";
+const PLUGINS_ROLLBACK_CONFIRMATION: &str = "Remove headroom:addon for Add-ons";
+const MANAGED_STORAGE_ROLLBACK_RECORD_ID: &str = "managed-storage";
+const MANAGED_STORAGE_ROLLBACK_OWNER: &str = "Mac AI Switchboard runtime";
+const MANAGED_STORAGE_ROLLBACK_MARKER: &str = "managed storage path";
+const MANAGED_STORAGE_ROLLBACK_CONFIRMATION: &str =
+    "Delete managed storage for Mac AI Switchboard runtime";
+const APP_STATE_ROLLBACK_RECORD_ID: &str = "app-state";
+const APP_STATE_ROLLBACK_OWNER: &str = "Mac AI Switchboard app state";
+const APP_STATE_ROLLBACK_MARKER: &str = "com.tarunagarwal.mac-ai-switchboard";
+const APP_STATE_ROLLBACK_CONFIRMATION: &str =
+    "Delete com.tarunagarwal.mac-ai-switchboard app state";
+
+fn display_paths(paths: &[PathBuf]) -> String {
+    paths
+        .iter()
+        .map(|path| path.display().to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn any_path_exists(paths: &[PathBuf]) -> bool {
+    paths.iter().any(|path| path.exists())
+}
+
+fn repo_intelligence_summary_path_string() -> String {
+    repo_intelligence::latest_summary_path()
+        .display()
+        .to_string()
+}
+
+fn launch_agent_cleanup_paths() -> Vec<PathBuf> {
+    let launch_agents_dir = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .or_else(dirs::home_dir)
+        .unwrap_or_else(std::env::temp_dir)
+        .join("Library")
+        .join("LaunchAgents");
+    vec![
+        launch_agents_dir.join("com.tarunagarwal.mac-ai-switchboard.plist"),
+        launch_agents_dir.join("Headroom.plist"),
+    ]
+}
+
+fn launch_agent_target_summary(paths: &[PathBuf]) -> String {
+    display_paths(paths)
+}
+
+fn remove_launch_agent_files(paths: &[PathBuf]) -> Result<Vec<String>, String> {
+    let mut removed = Vec::new();
+    for path in paths {
+        if !path.exists() {
+            continue;
+        }
+        #[cfg(target_os = "macos")]
+        {
+            let _ = Command::new("launchctl")
+                .args(["unload", "-w"])
+                .arg(path)
+                .output();
+        }
+        std::fs::remove_file(path)
+            .map_err(|err| format!("removing {} failed: {err}", path.display()))?;
+        removed.push(path.display().to_string());
+    }
+    Ok(removed)
+}
+
+#[tauri::command]
+fn preview_dedicated_cleanup_rollback(
+    app: AppHandle,
+    record_id: String,
+) -> Result<ManagedRollbackPreview, String> {
+    let state: tauri::State<'_, AppState> = app.state();
+    preview_dedicated_cleanup_rollback_inner(Some(&state), record_id)
+}
+
+fn preview_dedicated_cleanup_rollback_inner(
+    state: Option<&AppState>,
+    record_id: String,
+) -> Result<ManagedRollbackPreview, String> {
+    match record_id.as_str() {
+        REPO_INTELLIGENCE_ROLLBACK_RECORD_ID => {
+            let target_path = repo_intelligence::latest_summary_path();
+            let marker_present = target_path.exists();
+            Ok(ManagedRollbackPreview {
+                record_id,
+                owner: REPO_INTELLIGENCE_ROLLBACK_OWNER.to_string(),
+                target_path: target_path.display().to_string(),
+                marker: REPO_INTELLIGENCE_ROLLBACK_MARKER.to_string(),
+                backup_path: None,
+                marker_present,
+                backup_exists: true,
+                status: if marker_present {
+                    ManagedRollbackExecutionStatus::Ready
+                } else {
+                    ManagedRollbackExecutionStatus::Blocked
+                },
+                confirmation_phrase: REPO_INTELLIGENCE_ROLLBACK_CONFIRMATION.to_string(),
+                proposed_action:
+                    "Remove only the Switchboard-managed Repo Intelligence latest-summary metadata."
+                        .to_string(),
+                blocked_reason: if marker_present {
+                    None
+                } else {
+                    Some("No saved Repo Intelligence summary exists in managed storage.".to_string())
+                },
+                evidence: vec![
+                    "Dedicated cleanup row: repo-intelligence.".to_string(),
+                    "Cleanup calls the existing Clear index path used by Doctor and the Repo Intelligence add-on card.".to_string(),
+                    "User repositories are not modified; only Switchboard managed summary metadata is removed.".to_string(),
+                ],
+            })
+        }
+        LOGIN_ITEM_ROLLBACK_RECORD_ID => {
+            let paths = launch_agent_cleanup_paths();
+            let marker_present = paths.iter().any(|path| path.exists());
+            Ok(ManagedRollbackPreview {
+                record_id,
+                owner: LOGIN_ITEM_ROLLBACK_OWNER.to_string(),
+                target_path: launch_agent_target_summary(&paths),
+                marker: LOGIN_ITEM_ROLLBACK_MARKER.to_string(),
+                backup_path: None,
+                marker_present,
+                backup_exists: true,
+                status: if marker_present {
+                    ManagedRollbackExecutionStatus::Ready
+                } else {
+                    ManagedRollbackExecutionStatus::Blocked
+                },
+                confirmation_phrase: LOGIN_ITEM_ROLLBACK_CONFIRMATION.to_string(),
+                proposed_action:
+                    "Disable app autostart and remove only Switchboard-managed LaunchAgent plist files."
+                        .to_string(),
+                blocked_reason: if marker_present {
+                    None
+                } else {
+                    Some("No app-managed LaunchAgent plist exists in managed locations.".to_string())
+                },
+                evidence: vec![
+                    "Dedicated cleanup row: login-item.".to_string(),
+                    "Cleanup targets only com.tarunagarwal.mac-ai-switchboard.plist and legacy Headroom.plist in ~/Library/LaunchAgents.".to_string(),
+                    "launchctl unload is best-effort on macOS before file removal.".to_string(),
+                ],
+            })
+        }
+        PLUGINS_ROLLBACK_RECORD_ID => {
+            let receipt_present = state
+                .map(|state| state.tool_manager.ponytail_receipt_exists())
+                .unwrap_or(false);
+            let registered_hosts = state
+                .map(|state| state.tool_manager.ponytail_registered_hosts())
+                .unwrap_or_default();
+            Ok(ManagedRollbackPreview {
+                record_id,
+                owner: PLUGINS_ROLLBACK_OWNER.to_string(),
+                target_path: "Ponytail plugin receipt and app-managed host registrations"
+                    .to_string(),
+                marker: PLUGINS_ROLLBACK_MARKER.to_string(),
+                backup_path: None,
+                marker_present: receipt_present,
+                backup_exists: true,
+                status: if receipt_present {
+                    ManagedRollbackExecutionStatus::Ready
+                } else {
+                    ManagedRollbackExecutionStatus::Blocked
+                },
+                confirmation_phrase: PLUGINS_ROLLBACK_CONFIRMATION.to_string(),
+                proposed_action:
+                    "Remove only the Switchboard-receipted Ponytail plugin registration."
+                        .to_string(),
+                blocked_reason: if receipt_present {
+                    None
+                } else {
+                    Some(
+                        "No Switchboard Ponytail receipt exists; plugin config may be user-owned."
+                            .to_string(),
+                    )
+                },
+                evidence: vec![
+                    "Dedicated cleanup row: plugins-backups.".to_string(),
+                    "Cleanup calls the existing Ponytail uninstall path, which is no-op without the app receipt.".to_string(),
+                    format!(
+                        "Currently registered hosts: {}.",
+                        if registered_hosts.is_empty() {
+                            "none detected".to_string()
+                        } else {
+                            registered_hosts.join(", ")
+                        }
+                    ),
+                    "Managed backup-file sweeping remains manual until a stricter backup allowlist exists.".to_string(),
+                ],
+            })
+        }
+        MANAGED_STORAGE_ROLLBACK_RECORD_ID => {
+            let paths = client_adapters::managed_runtime_storage_paths();
+            let marker_present = any_path_exists(&paths);
+            Ok(ManagedRollbackPreview {
+                record_id,
+                owner: MANAGED_STORAGE_ROLLBACK_OWNER.to_string(),
+                target_path: display_paths(&paths),
+                marker: MANAGED_STORAGE_ROLLBACK_MARKER.to_string(),
+                backup_path: None,
+                marker_present,
+                backup_exists: true,
+                status: if marker_present {
+                    ManagedRollbackExecutionStatus::Ready
+                } else {
+                    ManagedRollbackExecutionStatus::Blocked
+                },
+                confirmation_phrase: MANAGED_STORAGE_ROLLBACK_CONFIRMATION.to_string(),
+                proposed_action:
+                    "Delete only Switchboard-managed runtime storage and legacy runtime folders."
+                        .to_string(),
+                blocked_reason: if marker_present {
+                    None
+                } else {
+                    Some("No managed runtime storage paths exist.".to_string())
+                },
+                evidence: vec![
+                    "Dedicated cleanup row: managed-storage.".to_string(),
+                    "Cleanup targets app support storage, legacy Headroom app support storage, and ~/.headroom runtime files.".to_string(),
+                    "User repositories, provider credentials, shell profiles, LaunchAgents, and app preferences are not modified by this row.".to_string(),
+                ],
+            })
+        }
+        APP_STATE_ROLLBACK_RECORD_ID => {
+            let paths = client_adapters::macos_app_state_paths();
+            let keychain_labels = client_adapters::known_keychain_entry_labels();
+            let marker_present = any_path_exists(&paths);
+            Ok(ManagedRollbackPreview {
+                record_id,
+                owner: APP_STATE_ROLLBACK_OWNER.to_string(),
+                target_path: if keychain_labels.is_empty() {
+                    display_paths(&paths)
+                } else {
+                    format!(
+                        "{}; {}",
+                        display_paths(&paths),
+                        keychain_labels.join(", ")
+                    )
+                },
+                marker: APP_STATE_ROLLBACK_MARKER.to_string(),
+                backup_path: None,
+                marker_present,
+                backup_exists: true,
+                status: if marker_present {
+                    ManagedRollbackExecutionStatus::Ready
+                } else {
+                    ManagedRollbackExecutionStatus::Blocked
+                },
+                confirmation_phrase: APP_STATE_ROLLBACK_CONFIRMATION.to_string(),
+                proposed_action:
+                    "Delete only Switchboard app preferences, caches, logs, WebKit/HTTP storage, saved state, and known keychain entries."
+                        .to_string(),
+                blocked_reason: if marker_present {
+                    None
+                } else {
+                    Some("No Switchboard app-state files exist in managed macOS locations.".to_string())
+                },
+                evidence: vec![
+                    "Dedicated cleanup row: app-state.".to_string(),
+                    "Cleanup targets app bundle-id preferences, caches, logs, WebKit/HTTP storage, saved state, and known app keychain labels.".to_string(),
+                    "Runtime storage, user repositories, shell profiles, provider configs, and LaunchAgents are not modified by this row.".to_string(),
+                ],
+            })
+        }
+        _ => Err(format!(
+            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID}, {LOGIN_ITEM_ROLLBACK_RECORD_ID}, {PLUGINS_ROLLBACK_RECORD_ID}, {MANAGED_STORAGE_ROLLBACK_RECORD_ID}, and {APP_STATE_ROLLBACK_RECORD_ID}."
+        )),
+    }
+}
+
+#[tauri::command]
+fn execute_dedicated_cleanup_rollback(
+    app: AppHandle,
+    record_id: String,
+    confirmation_phrase: String,
+) -> Result<ManagedRollbackExecutionResult, String> {
+    if record_id == LOGIN_ITEM_ROLLBACK_RECORD_ID {
+        let _ = app.autolaunch().disable();
+    }
+    let state: tauri::State<'_, AppState> = app.state();
+    execute_dedicated_cleanup_rollback_inner(Some(&state), record_id, confirmation_phrase)
+}
+
+fn execute_dedicated_cleanup_rollback_inner(
+    state: Option<&AppState>,
+    record_id: String,
+    confirmation_phrase: String,
+) -> Result<ManagedRollbackExecutionResult, String> {
+    let preview = preview_dedicated_cleanup_rollback_inner(state, record_id.clone())?;
+    if confirmation_phrase != preview.confirmation_phrase {
+        return Err("Rollback confirmation phrase does not match.".to_string());
+    }
+    if preview.status != ManagedRollbackExecutionStatus::Ready {
+        return Err(preview
+            .blocked_reason
+            .unwrap_or_else(|| "Dedicated cleanup rollback is not ready.".to_string()));
+    }
+
+    match record_id.as_str() {
+        REPO_INTELLIGENCE_ROLLBACK_RECORD_ID => {
+            clear_repo_intelligence_index()?;
+            let still_present = repo_intelligence::latest_summary_path().exists();
+            if still_present {
+                return Err("Repo Intelligence summary is still present after cleanup.".to_string());
+            }
+
+            Ok(ManagedRollbackExecutionResult {
+                record_id,
+                owner: REPO_INTELLIGENCE_ROLLBACK_OWNER.to_string(),
+                target_path: repo_intelligence_summary_path_string(),
+                restored_from:
+                    "Switchboard-managed Repo Intelligence latest-summary metadata removed."
+                        .to_string(),
+                safety_backup_path: None,
+                marker: REPO_INTELLIGENCE_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact cleanup confirmation phrase matched.".to_string(),
+                    "Existing Clear index cleanup path completed.".to_string(),
+                    "Repo Intelligence latest-summary file was absent after cleanup.".to_string(),
+                    "User repositories were not modified by this cleanup.".to_string(),
+                ],
+            })
+        }
+        LOGIN_ITEM_ROLLBACK_RECORD_ID => {
+            let paths = launch_agent_cleanup_paths();
+            let removed = remove_launch_agent_files(&paths)?;
+            if paths.iter().any(|path| path.exists()) {
+                return Err("A managed LaunchAgent plist is still present after cleanup.".to_string());
+            }
+            Ok(ManagedRollbackExecutionResult {
+                record_id,
+                owner: LOGIN_ITEM_ROLLBACK_OWNER.to_string(),
+                target_path: launch_agent_target_summary(&paths),
+                restored_from: if removed.is_empty() {
+                    "No managed LaunchAgent plist was present.".to_string()
+                } else {
+                    format!("Removed managed LaunchAgent plist files: {}", removed.join(", "))
+                },
+                safety_backup_path: None,
+                marker: LOGIN_ITEM_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact cleanup confirmation phrase matched.".to_string(),
+                    "Tauri autostart disable was requested before file cleanup.".to_string(),
+                    "Managed LaunchAgent plist files were absent after cleanup.".to_string(),
+                    "No shell, client, repo, Keychain, or runtime storage files were modified by this cleanup.".to_string(),
+                ],
+            })
+        }
+        PLUGINS_ROLLBACK_RECORD_ID => {
+            let state = state.ok_or_else(|| {
+                "Plugin cleanup requires app state to access the managed Ponytail receipt."
+                    .to_string()
+            })?;
+            let before_hosts = state.tool_manager.ponytail_registered_hosts();
+            state
+                .tool_manager
+                .uninstall_ponytail()
+                .map_err(|err| err.to_string())?;
+            if state.tool_manager.ponytail_receipt_exists() {
+                return Err("Ponytail receipt is still present after cleanup.".to_string());
+            }
+            Ok(ManagedRollbackExecutionResult {
+                record_id,
+                owner: PLUGINS_ROLLBACK_OWNER.to_string(),
+                target_path: "Ponytail plugin receipt and app-managed host registrations"
+                    .to_string(),
+                restored_from: "Switchboard-receipted Ponytail plugin registration removed."
+                    .to_string(),
+                safety_backup_path: None,
+                marker: PLUGINS_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact cleanup confirmation phrase matched.".to_string(),
+                    "Existing Ponytail uninstall path completed.".to_string(),
+                    "Ponytail receipt was absent after cleanup.".to_string(),
+                    format!(
+                        "Previously registered hosts: {}.",
+                        if before_hosts.is_empty() {
+                            "none detected".to_string()
+                        } else {
+                            before_hosts.join(", ")
+                        }
+                    ),
+                    "No add-on backup files were swept without a stricter allowlist.".to_string(),
+                ],
+            })
+        }
+        MANAGED_STORAGE_ROLLBACK_RECORD_ID => {
+            let paths = client_adapters::managed_runtime_storage_paths();
+            let removed = client_adapters::remove_managed_runtime_storage();
+            if any_path_exists(&paths) {
+                return Err("A managed runtime storage path is still present after cleanup.".to_string());
+            }
+            Ok(ManagedRollbackExecutionResult {
+                record_id,
+                owner: MANAGED_STORAGE_ROLLBACK_OWNER.to_string(),
+                target_path: display_paths(&paths),
+                restored_from: if removed.is_empty() {
+                    "No managed runtime storage path was present.".to_string()
+                } else {
+                    format!("Removed managed runtime storage paths: {}", removed.join(", "))
+                },
+                safety_backup_path: None,
+                marker: MANAGED_STORAGE_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact cleanup confirmation phrase matched.".to_string(),
+                    "Managed runtime storage cleanup completed.".to_string(),
+                    "App support storage, legacy storage, and ~/.headroom were absent after cleanup.".to_string(),
+                    "App preferences, keychain entries, LaunchAgents, shell profiles, provider configs, and user repositories were not modified by this row.".to_string(),
+                ],
+            })
+        }
+        APP_STATE_ROLLBACK_RECORD_ID => {
+            let paths = client_adapters::macos_app_state_paths();
+            let removed = client_adapters::remove_macos_app_state();
+            if any_path_exists(&paths) {
+                return Err("A managed app-state path is still present after cleanup.".to_string());
+            }
+            Ok(ManagedRollbackExecutionResult {
+                record_id,
+                owner: APP_STATE_ROLLBACK_OWNER.to_string(),
+                target_path: display_paths(&paths),
+                restored_from: if removed.is_empty() {
+                    "No managed app-state file was present.".to_string()
+                } else {
+                    format!("Removed managed app-state paths: {}", removed.join(", "))
+                },
+                safety_backup_path: None,
+                marker: APP_STATE_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact cleanup confirmation phrase matched.".to_string(),
+                    "App-state cleanup completed.".to_string(),
+                    "Managed app preferences, caches, logs, WebKit/HTTP storage, and saved state were absent after cleanup.".to_string(),
+                    "Known app keychain labels were requested for deletion without reading secret values.".to_string(),
+                    "Runtime storage, LaunchAgents, shell profiles, provider configs, and user repositories were not modified by this row.".to_string(),
+                ],
+            })
+        }
+        _ => Err(format!(
+            "Dedicated cleanup rollback is currently enabled only for {REPO_INTELLIGENCE_ROLLBACK_RECORD_ID}, {LOGIN_ITEM_ROLLBACK_RECORD_ID}, {PLUGINS_ROLLBACK_RECORD_ID}, {MANAGED_STORAGE_ROLLBACK_RECORD_ID}, and {APP_STATE_ROLLBACK_RECORD_ID}."
+        )),
+    }
+}
+
+#[tauri::command]
+fn preview_managed_config_apply(record_id: String) -> Result<ManagedConfigApplyPreview, String> {
+    client_adapters::preview_managed_config_apply(&record_id).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn execute_managed_config_apply(
+    record_id: String,
+    confirmation_phrase: String,
+) -> Result<ManagedConfigApplyResult, String> {
+    client_adapters::execute_managed_config_apply(&record_id, &confirmation_phrase)
+        .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn preview_managed_rollback_undo_all() -> ManagedRollbackUndoAllPreview {
+    client_adapters::preview_managed_rollback_undo_all()
+}
+
+#[tauri::command]
+fn execute_managed_rollback_undo_all(
+    confirmation_phrase: String,
+) -> Result<ManagedRollbackUndoAllExecutionResult, String> {
+    client_adapters::execute_managed_rollback_undo_all(&confirmation_phrase)
+        .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn get_managed_footprint() -> ManagedFootprintReport {
+    client_adapters::get_managed_footprint()
+}
+
+#[tauri::command]
+fn get_uninstall_dry_run_report() -> UninstallDryRunReport {
+    client_adapters::uninstall_dry_run_report()
+}
+
+#[tauri::command]
 fn get_app_update_configuration(app: AppHandle) -> AppUpdateConfiguration {
     let current_version = app.package_info().version.to_string();
     let beta_channel_enabled = beta_channel_enabled();
@@ -321,6 +1231,221 @@ fn get_app_update_configuration(app: AppHandle) -> AppUpdateConfiguration {
             }
         }
     }
+}
+
+fn load_release_readiness_report_from(
+    path: &Path,
+) -> Result<ReleaseReadinessReportPayload, String> {
+    let report_path = path.to_string_lossy().into_owned();
+    match std::fs::read_to_string(path) {
+        Ok(raw) => {
+            let report = serde_json::from_str(&raw)
+                .map_err(|err| format!("release readiness report is invalid JSON: {err}"))?;
+            Ok(ReleaseReadinessReportPayload {
+                report_path,
+                report: Some(report),
+            })
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            Ok(ReleaseReadinessReportPayload {
+                report_path,
+                report: None,
+            })
+        }
+        Err(err) => Err(format!("failed to read release readiness report: {err}")),
+    }
+}
+
+#[tauri::command]
+fn load_release_readiness_report() -> Result<ReleaseReadinessReportPayload, String> {
+    let path = std::env::current_dir()
+        .map_err(|err| err.to_string())?
+        .join("dist/release-readiness-report.json");
+    load_release_readiness_report_from(&path)
+}
+
+#[tauri::command]
+fn refresh_release_readiness_report() -> Result<ReleaseReadinessReportPayload, String> {
+    let cwd = std::env::current_dir().map_err(|err| err.to_string())?;
+    let output = Command::new("npm")
+        .args(["run", "release:ready", "--", "--json"])
+        .current_dir(&cwd)
+        .output()
+        .map_err(|err| format!("failed to run npm run release:ready: {err}"))?;
+    if !output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let detail = [stdout, stderr]
+            .into_iter()
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        return Err(if detail.is_empty() {
+            format!("npm run release:ready failed with status {}", output.status)
+        } else {
+            format!(
+                "npm run release:ready failed with status {}:\n{}",
+                output.status, detail
+            )
+        });
+    }
+
+    load_release_readiness_report_from(&cwd.join("dist/release-readiness-report.json"))
+}
+
+#[tauri::command]
+fn run_release_evidence_command(
+    command_id: String,
+) -> Result<ReleaseEvidenceCommandResult, String> {
+    const STATIC_PREFLIGHT_STEPS: &[(&str, &[&str])] = &[("npm", &["run", "smoke:preflight"])];
+    const DESKTOP_VALIDATION_STEPS: &[(&str, &[&str])] = &[
+        ("npm", &["run", "fmt:desktop"]),
+        ("npm", &["run", "test:desktop"]),
+    ];
+    const LOCAL_INSTALLED_SMOKE_STEPS: &[(&str, &[&str])] =
+        &[("npm", &["run", "smoke:installed:local"])];
+    const LOCAL_MODE_RELAUNCH_SMOKE_STEPS: &[(&str, &[&str])] = &[(
+        "npm",
+        &["run", "smoke:mode-relaunch:local", "--", "--confirm"],
+    )];
+    const ROLLBACK_CENTER_VALIDATION_STEPS: &[(&str, &[&str])] =
+        &[("npm", &["run", "smoke:rollback:local"])];
+    const DOCTOR_REPAIR_VALIDATION_STEPS: &[(&str, &[&str])] =
+        &[("npm", &["run", "smoke:doctor-repair:local"])];
+    const UNINSTALL_VALIDATION_STEPS: &[(&str, &[&str])] =
+        &[("npm", &["run", "smoke:uninstall:local"])];
+    const REPO_INTELLIGENCE_VALIDATION_STEPS: &[(&str, &[&str])] =
+        &[("npm", &["run", "smoke:repo-intelligence:local"])];
+    const REPO_MEMORY_MCP_VALIDATION_STEPS: &[(&str, &[&str])] =
+        &[("npm", &["run", "smoke:repo-memory-mcp:local"])];
+    const LOCAL_ONLY_NETWORK_VALIDATION_STEPS: &[(&str, &[&str])] =
+        &[("npm", &["run", "smoke:local-only:local"])];
+    const LOCAL_DMG_BUILD_INSTALL_STEPS: &[(&str, &[&str])] =
+        &[("npm", &["run", "build:mac:local-install"])];
+    const RELEASE_REPORT_STEPS: &[(&str, &[&str])] = &[("npm", &["run", "release:report"])];
+
+    let spec = match command_id.as_str() {
+        "static-preflight" => ReleaseEvidenceCommandSpec {
+            label: "Static smoke preflight",
+            command: "npm run smoke:preflight",
+            steps: STATIC_PREFLIGHT_STEPS,
+            summary_path: Some("dist/smoke-preflight-summary.md"),
+        },
+        "desktop-validation" => ReleaseEvidenceCommandSpec {
+            label: "Desktop validation",
+            command: "npm run fmt:desktop && npm run test:desktop",
+            steps: DESKTOP_VALIDATION_STEPS,
+            summary_path: None,
+        },
+        "local-installed-smoke" => ReleaseEvidenceCommandSpec {
+            label: "Local installed smoke",
+            command: "npm run smoke:installed:local",
+            steps: LOCAL_INSTALLED_SMOKE_STEPS,
+            summary_path: Some("dist/local-installed-smoke-summary.md"),
+        },
+        "local-mode-relaunch-smoke" => ReleaseEvidenceCommandSpec {
+            label: "Local mode relaunch smoke",
+            command: "npm run smoke:mode-relaunch:local -- --confirm",
+            steps: LOCAL_MODE_RELAUNCH_SMOKE_STEPS,
+            summary_path: Some("dist/local-mode-relaunch-smoke-summary.md"),
+        },
+        "rollback-center-validation" => ReleaseEvidenceCommandSpec {
+            label: "Rollback Center validation",
+            command: "npm run smoke:rollback:local",
+            steps: ROLLBACK_CENTER_VALIDATION_STEPS,
+            summary_path: Some("dist/local-rollback-validation-summary.md"),
+        },
+        "doctor-repair-validation" => ReleaseEvidenceCommandSpec {
+            label: "Doctor repair validation",
+            command: "npm run smoke:doctor-repair:local",
+            steps: DOCTOR_REPAIR_VALIDATION_STEPS,
+            summary_path: Some("dist/local-doctor-repair-validation-summary.md"),
+        },
+        "uninstall-validation" => ReleaseEvidenceCommandSpec {
+            label: "Uninstall dry-run validation",
+            command: "npm run smoke:uninstall:local",
+            steps: UNINSTALL_VALIDATION_STEPS,
+            summary_path: Some("dist/local-uninstall-validation-summary.md"),
+        },
+        "repo-intelligence-validation" => ReleaseEvidenceCommandSpec {
+            label: "Repo Intelligence validation",
+            command: "npm run smoke:repo-intelligence:local",
+            steps: REPO_INTELLIGENCE_VALIDATION_STEPS,
+            summary_path: Some("dist/local-repo-intelligence-validation-summary.md"),
+        },
+        "repo-memory-mcp-validation" => ReleaseEvidenceCommandSpec {
+            label: "Repo Memory MCP validation",
+            command: "npm run smoke:repo-memory-mcp:local",
+            steps: REPO_MEMORY_MCP_VALIDATION_STEPS,
+            summary_path: Some("dist/local-repo-memory-mcp-validation-summary.md"),
+        },
+        "local-only-network-validation" => ReleaseEvidenceCommandSpec {
+            label: "Local-only network validation",
+            command: "npm run smoke:local-only:local",
+            steps: LOCAL_ONLY_NETWORK_VALIDATION_STEPS,
+            summary_path: Some("dist/local-only-network-validation-summary.md"),
+        },
+        "local-dmg-build-install" => ReleaseEvidenceCommandSpec {
+            label: "Local DMG build/install",
+            command: "npm run build:mac:local-install",
+            steps: LOCAL_DMG_BUILD_INSTALL_STEPS,
+            summary_path: Some("dist/local-installed-smoke-summary.md"),
+        },
+        "release-report" => ReleaseEvidenceCommandSpec {
+            label: "Release readiness report",
+            command: "npm run release:report",
+            steps: RELEASE_REPORT_STEPS,
+            summary_path: Some("dist/release-readiness-report.md"),
+        },
+        _ => {
+            return Err(
+                "Release evidence execution is currently enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, rollback-center-validation, doctor-repair-validation, uninstall-validation, repo-intelligence-validation, repo-memory-mcp-validation, local-only-network-validation, and release-report."
+                    .to_string(),
+            )
+        }
+    };
+
+    let cwd = std::env::current_dir().map_err(|err| err.to_string())?;
+    let mut combined_stdout = Vec::new();
+    let mut combined_stderr = Vec::new();
+    for (program, args) in spec.steps {
+        let step_label = format!("{} {}", program, args.join(" "));
+        let output = Command::new(program)
+            .args(*args)
+            .current_dir(&cwd)
+            .output()
+            .map_err(|err| format!("failed to run {step_label}: {err}"))?;
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        combined_stdout.push(format!("$ {step_label}\n{stdout}"));
+        if !stderr.trim().is_empty() {
+            combined_stderr.push(format!("$ {step_label}\n{stderr}"));
+        }
+        if !output.status.success() {
+            let detail = [stdout.trim(), stderr.trim()]
+                .into_iter()
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<_>>()
+                .join("\n");
+            return Err(if detail.is_empty() {
+                format!("{step_label} failed with status {}", output.status)
+            } else {
+                format!(
+                    "{step_label} failed with status {}:\n{}",
+                    output.status, detail
+                )
+            });
+        }
+    }
+
+    Ok(ReleaseEvidenceCommandResult {
+        command_id,
+        label: spec.label.to_string(),
+        command: spec.command.to_string(),
+        summary_path: spec.summary_path.map(str::to_string),
+        stdout: combined_stdout.join("\n"),
+        stderr: combined_stderr.join("\n"),
+    })
 }
 
 #[tauri::command]
@@ -650,7 +1775,7 @@ async fn install_addon(state: State<'_, AppState>, id: String) -> Result<Dashboa
                 .tool_manager
                 .install_markitdown()
                 .map_err(|err| err.to_string())?;
-            client_adapters::enable_markitdown_integration(
+            let (changed_files, backup_files) = client_adapters::enable_markitdown_integration(
                 &state.tool_manager.markitdown_entrypoint(),
                 &state.tool_manager.markitdown_shim_path(),
                 &state.tool_manager.managed_python(),
@@ -658,6 +1783,7 @@ async fn install_addon(state: State<'_, AppState>, id: String) -> Result<Dashboa
             .map_err(|err| {
                 format!("markitdown installed but enabling integration failed: {err:#}")
             })?;
+            let _ = state.record_markitdown_attribution(&changed_files, &backup_files);
             Ok(state.dashboard())
         }
         "rtk" => {
@@ -678,6 +1804,8 @@ async fn install_addon(state: State<'_, AppState>, id: String) -> Result<Dashboa
                 .tool_manager
                 .install_ponytail()
                 .map_err(|err| err.to_string())?;
+            let hosts = state.tool_manager.ponytail_registered_hosts();
+            let _ = state.record_ponytail_attribution(&hosts);
             Ok(state.dashboard())
         }
         "caveman" => {
@@ -685,10 +1813,12 @@ async fn install_addon(state: State<'_, AppState>, id: String) -> Result<Dashboa
                 .tool_manager
                 .install_caveman()
                 .map_err(|err| err.to_string())?;
-            client_adapters::enable_caveman_integration(&state.tool_manager.caveman_level())
+            let level = state.tool_manager.caveman_level();
+            let (changed_files, backup_files) = client_adapters::enable_caveman_integration(&level)
                 .map_err(|err| {
                     format!("caveman installed but enabling guidance failed: {err:#}")
                 })?;
+            let _ = state.record_caveman_attribution(&level, &changed_files, &backup_files);
             Ok(state.dashboard())
         }
         other => Err(format!("unknown addon: {other}")),
@@ -708,12 +1838,13 @@ async fn set_addon_enabled(
                 .set_markitdown_enabled(enabled)
                 .map_err(|err| err.to_string())?;
             if enabled {
-                client_adapters::enable_markitdown_integration(
+                let (changed_files, backup_files) = client_adapters::enable_markitdown_integration(
                     &state.tool_manager.markitdown_entrypoint(),
                     &state.tool_manager.markitdown_shim_path(),
                     &state.tool_manager.managed_python(),
                 )
                 .map_err(|err| err.to_string())?;
+                let _ = state.record_markitdown_attribution(&changed_files, &backup_files);
             } else {
                 client_adapters::disable_markitdown_integration(
                     &state.tool_manager.markitdown_shim_path(),
@@ -727,6 +1858,10 @@ async fn set_addon_enabled(
                 .tool_manager
                 .set_ponytail_enabled(enabled)
                 .map_err(|err| err.to_string())?;
+            if enabled {
+                let hosts = state.tool_manager.ponytail_registered_hosts();
+                let _ = state.record_ponytail_attribution(&hosts);
+            }
             Ok(state.dashboard())
         }
         "caveman" => {
@@ -735,8 +1870,11 @@ async fn set_addon_enabled(
                 .set_caveman_enabled(enabled)
                 .map_err(|err| err.to_string())?;
             if enabled {
-                client_adapters::enable_caveman_integration(&state.tool_manager.caveman_level())
-                    .map_err(|err| err.to_string())?;
+                let level = state.tool_manager.caveman_level();
+                let (changed_files, backup_files) =
+                    client_adapters::enable_caveman_integration(&level)
+                        .map_err(|err| err.to_string())?;
+                let _ = state.record_caveman_attribution(&level, &changed_files, &backup_files);
             } else {
                 client_adapters::disable_caveman_integration().map_err(|err| err.to_string())?;
             }
@@ -808,8 +1946,10 @@ async fn set_caveman_level(
             .iter()
             .any(|tool| tool.id == "caveman" && tool.enabled)
     {
-        client_adapters::enable_caveman_integration(&state.tool_manager.caveman_level())
-            .map_err(|err| err.to_string())?;
+        let level = state.tool_manager.caveman_level();
+        let (changed_files, backup_files) =
+            client_adapters::enable_caveman_integration(&level).map_err(|err| err.to_string())?;
+        let _ = state.record_caveman_attribution(&level, &changed_files, &backup_files);
     }
     Ok(state.dashboard())
 }
@@ -824,17 +1964,44 @@ fn install_repo_memory_mcp(state: State<'_, AppState>) -> Result<DashboardState,
 }
 
 #[tauri::command]
+fn start_repo_memory_mcp(state: State<'_, AppState>) -> Result<DashboardState, String> {
+    state
+        .start_repo_memory_mcp()
+        .map_err(|err| err.to_string())?;
+    Ok(state.dashboard())
+}
+
+#[tauri::command]
+fn stop_repo_memory_mcp(state: State<'_, AppState>) -> Result<DashboardState, String> {
+    state
+        .stop_repo_memory_mcp()
+        .map_err(|err| err.to_string())?;
+    Ok(state.dashboard())
+}
+
+#[tauri::command]
 fn bootstrap_runtime(state: State<'_, AppState>) -> Result<DashboardState, String> {
     state
         .tool_manager
         .bootstrap_all()
         .map_err(|err| err.to_string())?;
-    if let Err(err) = client_adapters::ensure_rtk_integrations(
-        &state.tool_manager.rtk_entrypoint(),
-        &state.tool_manager.managed_python(),
-    ) {
-        log::warn!("RTK integrations failed after bootstrap_runtime: {err:#}");
+
+    if saved_switchboard_mode_wants_rtk() {
+        if let Err(err) = client_adapters::ensure_rtk_integrations(
+            &state.tool_manager.rtk_entrypoint(),
+            &state.tool_manager.managed_python(),
+        ) {
+            log::warn!("RTK integrations failed after bootstrap_runtime: {err:#}");
+        }
     }
+
+    if !saved_switchboard_mode_wants_headroom() {
+        state.stop_headroom();
+        state.set_runtime_paused(true);
+        state.set_runtime_auto_paused(false);
+        return Ok(state.dashboard());
+    }
+
     state
         .ensure_headroom_running()
         .map_err(|err| format!("bootstrap complete but failed to start headroom: {err}"))?;
@@ -1075,14 +2242,14 @@ fn user_message_for(kind: BootstrapFailureKind) -> &'static str {
              antivirus is inspecting HTTPS traffic. Set the REQUESTS_CA_BUNDLE \
              environment variable to your organization's CA bundle, or disable TLS \
              inspection for pypi.org, files.pythonhosted.org, and github.com, then \
-             restart the app. Contact support@extraheadroom.com if you need help."
+             restart the app. Open a GitHub Issue from Support if you need help."
         }
         BootstrapFailureKind::NoUsableTempDir => {
             "Installation failed: Headroom can't create temporary files on this Mac. \
              This usually means your disk is full, or security software (like an MDM \
              profile or endpoint protection) is blocking writes to /tmp and \
              /var/folders. Free up disk space, restart your Mac, and try again. \
-             If it still fails, contact support@extraheadroom.com."
+             If it still fails, open a GitHub Issue from Support."
         }
         BootstrapFailureKind::NetworkDownload => {
             "Couldn't reach the download server. This is usually a temporary \
@@ -1090,12 +2257,12 @@ fn user_message_for(kind: BootstrapFailureKind) -> &'static str {
              internet connection and click Try again. If it keeps failing, a \
              firewall, VPN, or corporate proxy may be blocking pypi.org and \
              files.pythonhosted.org - try another network or contact \
-             support@extraheadroom.com."
+             the Support page."
         }
         BootstrapFailureKind::Other => {
             "Installation failed: Headroom couldn't download a required file. \
              Check your internet connection, then click Try again. \
-             If this keeps happening, contact support at support@extraheadroom.com."
+             If this keeps happening, open a GitHub Issue from Support."
         }
     }
 }
@@ -1995,17 +3162,36 @@ fn switchboard_mode_label(mode: &SwitchboardMode) -> &'static str {
 }
 
 fn saved_switchboard_mode_wants_headroom() -> bool {
+    switchboard_mode_wants_headroom(client_adapters::load_switchboard_mode().as_ref())
+}
+
+fn saved_switchboard_mode_wants_rtk() -> bool {
+    switchboard_mode_wants_rtk(client_adapters::load_switchboard_mode().as_ref())
+}
+
+fn switchboard_mode_wants_headroom(mode: Option<&SwitchboardMode>) -> bool {
     matches!(
-        client_adapters::load_switchboard_mode(),
+        mode,
         Some(SwitchboardMode::Headroom | SwitchboardMode::Full) | None
     )
 }
 
-fn saved_switchboard_mode_wants_rtk() -> bool {
+fn switchboard_mode_wants_rtk(mode: Option<&SwitchboardMode>) -> bool {
     matches!(
-        client_adapters::load_switchboard_mode(),
+        mode,
         Some(SwitchboardMode::Rtk | SwitchboardMode::Full) | None
     )
+}
+
+fn doctor_repair_action_restores_headroom(action: &str) -> bool {
+    matches!(
+        action,
+        "repair_runtime" | "repair_client_setups" | "repair_codex_setup" | "repair_all"
+    ) || action.starts_with("repair_client_setup:")
+}
+
+fn switchboard_mode_blocks_doctor_repair(mode: Option<&SwitchboardMode>, action: &str) -> bool {
+    !switchboard_mode_wants_headroom(mode) && doctor_repair_action_restores_headroom(action)
 }
 
 fn infer_switchboard_mode(
@@ -2132,12 +3318,275 @@ async fn get_switchboard_state(state: State<'_, AppState>) -> Result<Switchboard
     build_switchboard_state(&state)
 }
 
+fn repo_intelligence_saved_paths_missing(summary: &crate::models::RepoIntelligenceSummary) -> bool {
+    let Some(metadata) = summary.index_metadata.as_ref() else {
+        return false;
+    };
+    if metadata.file_fingerprints.is_empty() {
+        return false;
+    }
+    let repo_root = Path::new(&summary.repo_root);
+    metadata
+        .file_fingerprints
+        .iter()
+        .all(|entry| !repo_root.join(&entry.path).exists())
+}
+
+fn repo_intelligence_doctor_issue(
+    summary: &crate::models::RepoIntelligenceSummary,
+    now: DateTime<Utc>,
+) -> Option<crate::models::DoctorIssue> {
+    if !Path::new(&summary.repo_root).is_dir() {
+        return Some(crate::models::DoctorIssue {
+            id: "repo_intelligence_repo_missing".to_string(),
+            title: "Repo Intelligence index points to a missing folder".to_string(),
+            body: format!(
+                "The last indexed repo path is no longer available: {}. Repair will clear this saved index; then re-index an available local repository from the Repo Intelligence add-on card.",
+                summary.repo_root
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("clear_repo_intelligence_index".to_string()),
+        });
+    }
+
+    if repo_intelligence_saved_paths_missing(summary) {
+        return Some(crate::models::DoctorIssue {
+            id: "repo_intelligence_repo_moved".to_string(),
+            title: "Repo Intelligence index no longer matches this folder".to_string(),
+            body: format!(
+                "The saved Repo Intelligence file map no longer matches files under {}. The repo may have moved, been replaced, or been cleaned. Repair will clear this saved index; then re-index the current local repository before copying packs or agent handoffs.",
+                summary.repo_root
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("clear_repo_intelligence_index".to_string()),
+        });
+    }
+
+    let freshness = repo_intelligence::build_index_freshness_response(Some(summary));
+    let indexer_health = if freshness.indexer_version.as_deref()
+        == Some(repo_intelligence::current_indexer_version())
+    {
+        "current"
+    } else {
+        "version_mismatch"
+    };
+    if freshness.parser_health == "version_mismatch"
+        || freshness.index_health == "metadata_missing"
+        || indexer_health == "version_mismatch"
+    {
+        return Some(crate::models::DoctorIssue {
+            id: "repo_intelligence_index_health".to_string(),
+            title: "Repo Intelligence parser/index health needs refresh".to_string(),
+            body: format!(
+                "The saved Repo Intelligence index for {} reports index health '{}', parser health '{}', and indexer health '{}'. Repair will clear this saved index; then re-index the current local repository so Doctor and agent handoffs use the current parser/index contract.",
+                summary.repo_root, freshness.index_health, freshness.parser_health, indexer_health
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("clear_repo_intelligence_index".to_string()),
+        });
+    }
+
+    let stale = DateTime::parse_from_rfc3339(&summary.indexed_at)
+        .map(|indexed_at| {
+            now.signed_duration_since(indexed_at.with_timezone(&Utc))
+                .num_days()
+                >= 7
+        })
+        .unwrap_or(false);
+    if stale {
+        return Some(crate::models::DoctorIssue {
+            id: "repo_intelligence_stale".to_string(),
+            title: "Repo Intelligence index is stale".to_string(),
+            body: format!(
+                "The last Repo Intelligence index for {} is more than 7 days old. Repair will clear the stale saved index; then re-index it before relying on context packs for agent handoff.",
+                summary.repo_root
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("clear_repo_intelligence_index".to_string()),
+        });
+    }
+
+    None
+}
+
+fn repo_memory_mcp_doctor_issue(runtime: &RuntimeStatus) -> Option<crate::models::DoctorIssue> {
+    if runtime.repo_memory_mcp_configured == Some(false) {
+        return Some(crate::models::DoctorIssue {
+            id: "repo_memory_mcp_not_configured".to_string(),
+            title: "Repo Memory MCP is not configured".to_string(),
+            body: runtime
+                .repo_memory_mcp_error
+                .clone()
+                .unwrap_or_else(|| {
+                    "Repo Memory MCP is required before supported agents can request read-only Repo Intelligence packs through MCP. Repair will install the app-managed read-only repo-memory server, then run the start/smoke check before marking it active.".to_string()
+                }),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("install_repo_memory_mcp".to_string()),
+        });
+    }
+
+    let (id, title, body) = match runtime.repo_memory_mcp_supervision_status.as_str() {
+        "smoke_failed" => (
+            "repo_memory_mcp_smoke_failed",
+            "Repo Memory MCP smoke check failed",
+            "Repo Memory MCP is configured, but the read-only smoke check failed. Repair will reinstall the app-managed descriptor, start the MCP session, and re-run the smoke contract before supported agents rely on repo context.",
+        ),
+        "stale_config" => (
+            "repo_memory_mcp_stale_config",
+            "Repo Memory MCP config is stale",
+            "Repo Memory MCP was marked active, but the app-managed MCP descriptor is missing or unsafe. Repair will restore the read-only descriptor and re-run the start/smoke check.",
+        ),
+        "service_unhealthy" => (
+            "repo_memory_mcp_service_unhealthy",
+            "Repo Memory MCP service is unhealthy",
+            "Repo Memory MCP is configured, but the current descriptor, script, or Node runtime evidence is not healthy. Repair will restore the app-managed read-only descriptor and re-run the start/smoke check.",
+        ),
+        "restart_required" | "unknown_active" | "active" => (
+            "repo_memory_mcp_needs_verification",
+            "Repo Memory MCP needs verification",
+            "Repo Memory MCP has active session state without current app-process smoke proof. Repair will run the app-managed Prepare MCP flow before agents consume repo-memory tools.",
+        ),
+        _ => return None,
+    };
+
+    Some(crate::models::DoctorIssue {
+        id: id.to_string(),
+        title: title.to_string(),
+        body: body.to_string(),
+        severity: crate::models::DoctorSeverity::Warning,
+        repair_action: Some("install_repo_memory_mcp".to_string()),
+    })
+}
+
+fn codex_routing_doctor_issue(
+    connectors: &[ClientConnectorStatus],
+    desired_mode: &SwitchboardMode,
+    provider_block_matches: bool,
+) -> Option<crate::models::DoctorIssue> {
+    if !matches!(
+        desired_mode,
+        SwitchboardMode::Full | SwitchboardMode::Headroom
+    ) {
+        return None;
+    }
+
+    let codex = connectors
+        .iter()
+        .find(|client| client.client_id == "codex")?;
+    if !codex.installed {
+        return None;
+    }
+    if codex.verified && provider_block_matches {
+        return None;
+    }
+
+    let body = if codex.enabled {
+        "Codex routing is repair ready: its model provider, shell export, or proxy URL no longer matches the managed Headroom setup. This can cause direct routing, empty model-provider errors, or unsupported-model errors. Repair will re-apply the reversible Codex setup and verify the managed provider evidence."
+    } else {
+        "Codex routing is repair ready: Codex is detected on this Mac, but Switchboard has not applied its reversible managed setup. Repair will add the reversible OPENAI_BASE_URL shell export and Headroom-managed provider block, then verify the setup."
+    };
+
+    Some(crate::models::DoctorIssue {
+        id: "codex_provider_mismatch".to_string(),
+        title: "Codex routing config needs repair".to_string(),
+        body: body.to_string(),
+        severity: crate::models::DoctorSeverity::Warning,
+        repair_action: Some("repair_codex_setup".to_string()),
+    })
+}
+
+fn unrouted_managed_connector_issues(
+    connectors: &[ClientConnectorStatus],
+    desired_mode: &SwitchboardMode,
+) -> Vec<crate::models::DoctorIssue> {
+    if !matches!(
+        desired_mode,
+        SwitchboardMode::Full | SwitchboardMode::Headroom
+    ) {
+        return Vec::new();
+    }
+
+    connectors
+        .iter()
+        .filter(|client| {
+            client.client_id != "codex"
+                && client.installed
+                && !client.enabled
+                && matches!(
+                    client.support_status,
+                    crate::models::ClientConnectorSupportStatus::Managed
+                )
+        })
+        .map(|client| crate::models::DoctorIssue {
+            id: format!("{}_routing_not_configured", client.client_id),
+            title: format!("{} routing is repair ready", client.name),
+            body: format!(
+                "{} is installed on this Mac, but Switchboard has not applied its reversible managed routing setup. Repair will re-apply this managed client setup, preserve user-owned config outside Switchboard markers, and verify routing evidence.",
+                client.name
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some(format!("repair_client_setup:{}", client.client_id)),
+        })
+        .collect()
+}
+
+fn unverified_managed_connector_issues(
+    connectors: &[ClientConnectorStatus],
+) -> Vec<crate::models::DoctorIssue> {
+    connectors
+        .iter()
+        .filter(|client| {
+            client.enabled
+                && !client.verified
+                && client.client_id != "codex"
+                && matches!(
+                    client.support_status,
+                    crate::models::ClientConnectorSupportStatus::Managed
+                )
+        })
+        .map(|connector| crate::models::DoctorIssue {
+            id: format!("{}_routing_config_mismatch", connector.client_id),
+            title: format!("{} routing config needs repair", connector.name),
+            body: format!(
+                "{} is marked as connected, but its managed routing config no longer verifies. Repair will re-apply the reversible managed setup and preserve user-owned config outside Switchboard markers.",
+                connector.name
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some(format!("repair_client_setup:{}", connector.client_id)),
+        })
+        .collect()
+}
+
 fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
     let runtime = state.runtime_status();
     let codex_direct_bypass = state
         .codex_bypass
         .load(std::sync::atomic::Ordering::Acquire);
     let mut issues = Vec::new();
+    if state.tool_manager.caveman_receipt_exists() {
+        let caveman_level = state.tool_manager.caveman_level();
+        match client_adapters::caveman_integration_matches_level(&caveman_level) {
+            Ok(false) => issues.push(crate::models::DoctorIssue {
+                id: "caveman_profile_mismatch".to_string(),
+                title: "Caveman profile is not active in agent guidance".to_string(),
+                body: format!(
+                    "Caveman is installed at `{caveman_level}`, but the managed Claude/Codex guidance does not match that profile. Use the Addons Caveman level control or Doctor repair before relying on Compact Chinese or Caveman savings in this session."
+                ),
+                severity: crate::models::DoctorSeverity::Warning,
+                repair_action: Some("set_caveman_level".to_string()),
+            }),
+            Err(err) => issues.push(crate::models::DoctorIssue {
+                id: "caveman_profile_check_failed".to_string(),
+                title: "Caveman profile could not be verified".to_string(),
+                body: format!(
+                    "Caveman is installed, but Switchboard could not verify the managed Claude/Codex guidance: {err}"
+                ),
+                severity: crate::models::DoctorSeverity::Warning,
+                repair_action: Some("set_caveman_level".to_string()),
+            }),
+            Ok(true) => {}
+        }
+    }
     let connectors =
         client_adapters::list_client_connectors(&state.cached_clients()).unwrap_or_default();
     let managed_connectors = connectors.iter().filter(|client| {
@@ -2170,12 +3619,16 @@ fn build_doctor_report(state: &AppState) -> crate::models::DoctorReport {
         push_off_mode_doctor_issue(&mut issues, &runtime, enabled_clients);
     }
 
+    if let Some(issue) = repo_memory_mcp_doctor_issue(&runtime) {
+        issues.push(issue);
+    }
+
     if desired_mode != inferred_mode {
         issues.push(crate::models::DoctorIssue {
             id: "switchboard_mode_degraded".to_string(),
             title: "Requested optimization is degraded".to_string(),
             body: format!(
-                "{} is requested, but {} is active. Doctor lists missing local pieces below; repair automatic items, then keep manual connector steps visible.",
+                "{} is requested, but {} is active. Doctor lists missing local pieces below; repair managed connector items, then keep only retained connector native-routing gates manual until their backup, verify, rollback, and Off cleanup evidence is promoted.",
                 switchboard_mode_label(&desired_mode),
                 switchboard_mode_label(&inferred_mode)
             ),
@@ -2220,29 +3673,60 @@ repair_action: Some("reset_codex_bypass".to_string()),
 });
     }
 
-    let codex_connector_enabled = connectors
+    if runtime.proxy_reachable && runtime.proxy_auth_status != "authenticated" {
+        issues.push(crate::models::DoctorIssue {
+            id: "proxy_loopback_unauthenticated".to_string(),
+            title: "Proxy is loopback-only, not authenticated".to_string(),
+            body: format!(
+                "The local proxy is bound to {} and rejects browser Origin/non-loopback Host requests, but managed clients do not yet send a per-session auth token. Treat localhost as local-process trust, not a security boundary.",
+                runtime.proxy_bind_address
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: None,
+        });
+    }
+
+    let codex_provider_block_matches =
+        client_adapters::codex_provider_block_matches().unwrap_or(false);
+    if let Some(issue) =
+        codex_routing_doctor_issue(&connectors, &desired_mode, codex_provider_block_matches)
+    {
+        issues.push(issue);
+    }
+    issues.extend(unrouted_managed_connector_issues(
+        &connectors,
+        &desired_mode,
+    ));
+
+    if connectors
         .iter()
-        .any(|client| client.client_id == "codex" && client.enabled);
-    if codex_connector_enabled
+        .any(|client| client.client_id == "codex" && client.enabled)
         && matches!(
             desired_mode,
             SwitchboardMode::Full | SwitchboardMode::Headroom
         )
-        && !client_adapters::codex_provider_block_matches().unwrap_or(false)
     {
-        issues.push(crate::models::DoctorIssue {
-id: "codex_provider_mismatch".to_string(),
-title: "Codex routing config needs repair".to_string(),
-body: "Codex is marked as connected, but its model provider or proxy URL no longer matches the managed Headroom setup. This can cause empty or unsupported-model errors. Repair will re-apply the reversible Codex setup.".to_string(),
-severity: crate::models::DoctorSeverity::Warning,
-repair_action: Some("repair_codex_setup".to_string()),
-        });
+        let retagging = client_adapters::get_codex_thread_retagging_settings();
+        if !matches!(
+            retagging.codex_thread_retagging,
+            crate::models::CodexThreadRetaggingMode::Enabled
+        ) {
+            issues.push(crate::models::DoctorIssue {
+                id: "codex_thread_retagging_opt_in_required".to_string(),
+                title: "Codex history retagging needs consent".to_string(),
+                body: "Codex is routed through Headroom, but Switchboard will not edit Codex SQLite history until retagging is explicitly enabled. History may appear split between native and Headroom providers; enable retagging only after reviewing the backup and restore notes.".to_string(),
+                severity: crate::models::DoctorSeverity::Warning,
+                repair_action: None,
+            });
+        }
     }
+
+    issues.extend(unverified_managed_connector_issues(&connectors));
 
     if !planned_installed.is_empty() {
         issues.push(crate::models::DoctorIssue {
             id: "planned_connectors_detected".to_string(),
-            title: "Planned coding tools detected".to_string(),
+            title: "Gated coding tools detected".to_string(),
             body: planned_connector_doctor_body(&planned_installed),
             severity: crate::models::DoctorSeverity::Warning,
             repair_action: None,
@@ -2253,59 +3737,33 @@ repair_action: Some("repair_codex_setup".to_string()),
         desired_mode,
         SwitchboardMode::Full | SwitchboardMode::Headroom
     ) && enabled_clients == 0
+        && installed_clients == 0
     {
-        let repair_action = if installed_clients > 0 {
-            Some("repair_client_setups".to_string())
-        } else {
-            None
-        };
         issues.push(crate::models::DoctorIssue {
 id: "no_headroom_clients".to_string(),
 title: "No clients are routed through Headroom".to_string(),
-body: if installed_clients > 0 {
-"Installed coding clients were found, but none are currently configured to use Headroom. Repair will re-apply reversible client setup.".to_string()
-} else {
-"No supported coding clients were detected yet. Install or open Codex, Claude Code, or a supported editor, then return to connect it.".to_string()
-},
+body: "No supported coding clients were detected yet. Install or open Codex, Claude Code, or a supported editor, then return to connect it.".to_string(),
 severity: crate::models::DoctorSeverity::Warning,
-repair_action,
+repair_action: None,
 });
     }
 
-    if let Ok(Some(summary)) = repo_intelligence::load_latest_summary() {
-        let repo_missing = !Path::new(&summary.repo_root).is_dir();
-        let stale = DateTime::parse_from_rfc3339(&summary.indexed_at)
-            .map(|indexed_at| {
-                Utc::now()
-                    .signed_duration_since(indexed_at.with_timezone(&Utc))
-                    .num_days()
-                    >= 7
-            })
-            .unwrap_or(false);
-
-        if repo_missing {
-            issues.push(crate::models::DoctorIssue {
-id: "repo_intelligence_repo_missing".to_string(),
-title: "Repo Intelligence index points to a missing folder".to_string(),
-body: format!(
-"The last indexed repo path is no longer available: {}. Repair will clear this saved index; then re-index an available local repository from the Repo Intelligence add-on card.",
-summary.repo_root
-),
-severity: crate::models::DoctorSeverity::Warning,
-repair_action: Some("clear_repo_intelligence_index".to_string()),
-});
-        } else if stale {
-            issues.push(crate::models::DoctorIssue {
-id: "repo_intelligence_stale".to_string(),
-title: "Repo Intelligence index is stale".to_string(),
-body: format!(
-"The last Repo Intelligence index for {} is more than 7 days old. Repair will clear the stale saved index; then re-index it before relying on context packs for agent handoff.",
-summary.repo_root
-),
-severity: crate::models::DoctorSeverity::Warning,
-repair_action: Some("clear_repo_intelligence_index".to_string()),
-});
+    match repo_intelligence::load_latest_summary() {
+        Ok(Some(summary)) => {
+            if let Some(issue) = repo_intelligence_doctor_issue(&summary, Utc::now()) {
+                issues.push(issue);
+            }
         }
+        Ok(None) => {}
+        Err(err) => issues.push(crate::models::DoctorIssue {
+            id: "repo_intelligence_storage_corrupt".to_string(),
+            title: "Repo Intelligence index cannot be read".to_string(),
+            body: format!(
+                "The saved Repo Intelligence index could not be parsed or read: {err}. Repair will clear the saved index; then re-index a local repository before copying packs or agent handoffs."
+            ),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: Some("clear_repo_intelligence_index".to_string()),
+        }),
     }
 
     if matches!(desired_mode, SwitchboardMode::Full | SwitchboardMode::Rtk)
@@ -2344,7 +3802,14 @@ repair_action: Some("repair_rtk_integrations".to_string()),
             !tool.enabled || !matches!(tool.status, crate::models::ToolStatus::Healthy)
         })
     };
-    if tool_needs_repair("caveman") {
+    let caveman_level = state.tool_manager.caveman_level();
+    let caveman_guidance_drifted = state.tool_manager.caveman_receipt_exists()
+        && tools
+            .iter()
+            .find(|tool| tool.id == "caveman")
+            .is_some_and(|tool| tool.enabled)
+        && !client_adapters::caveman_integration_matches_level(&caveman_level).unwrap_or(false);
+    if tool_needs_repair("caveman") || caveman_guidance_drifted {
         issues.push(crate::models::DoctorIssue {
             id: "caveman_guidance_inactive".to_string(),
             title: "Caveman guidance is not active".to_string(),
@@ -2439,9 +3904,36 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
         .flat_map(|client| client.manual_workflow.iter().map(String::as_str))
         .take(3)
         .collect::<Vec<_>>();
+    let config_steps = connectors
+        .iter()
+        .flat_map(|client| {
+            if client.config_creation_step_details.is_empty() {
+                client.config_creation_steps.clone()
+            } else {
+                client
+                    .config_creation_step_details
+                    .iter()
+                    .map(|step| step.label.clone())
+                    .collect()
+            }
+        })
+        .take(7)
+        .collect::<Vec<_>>();
+    let dry_run_previews = connectors
+        .iter()
+        .filter_map(|client| {
+            client.config_dry_run_preview.as_ref().map(|preview| {
+                format!(
+                    "{} target {} marker {} confirmation {}",
+                    client.name, preview.target, preview.marker, preview.confirmation_phrase
+                )
+            })
+        })
+        .take(3)
+        .collect::<Vec<_>>();
 
     let mut parts = vec![format!(
-        "{names} detected. Mac AI Switchboard can identify these tools but keeps routing manual until backup, restore, and Off mode cleanup are implemented."
+        "{names} detected. Mac AI Switchboard can identify these retained connectors and expose gated connector readiness evidence, but keeps native/provider routing manual until their backup, verify, rollback, and Off mode cleanup evidence is promoted."
     )];
 
     if !sources.is_empty() {
@@ -2462,6 +3954,18 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
     }
     if !manual_workflow.is_empty() {
         parts.push(format!("Manual workflow: {}.", manual_workflow.join(" | ")));
+    }
+    if !config_steps.is_empty() {
+        parts.push(format!(
+            "Config creation plan: {}.",
+            config_steps.join(" -> ")
+        ));
+    }
+    if !dry_run_previews.is_empty() {
+        parts.push(format!(
+            "Dry-run preview evidence: {}.",
+            dry_run_previews.join(" | ")
+        ));
     }
     parts.push(
         "Safe today: use RTK-only mode or Repo Intelligence packs; do not enable automatic provider routing yet."
@@ -2491,9 +3995,51 @@ mod doctor_tests {
                 "Back up provider settings before any routing change.".to_string()
             ],
             manual_workflow: vec!["Use RTK-only mode for noisy output.".to_string()],
+            config_creation_steps: vec![
+                "Detect config surface".to_string(),
+                "Show dry-run diff".to_string(),
+                "Create backup".to_string(),
+                "Apply with consent".to_string(),
+                "Verify in Doctor".to_string(),
+                "Rollback safely".to_string(),
+                "Clean up in Off mode".to_string(),
+            ],
+            config_creation_step_details: Vec::new(),
+            config_dry_run_preview: Some(crate::models::ClientConnectorConfigDryRunPreview {
+                target: "/Users/test/.gemini".to_string(),
+                marker: "mac-ai-switchboard:gemini_cli".to_string(),
+                backup_path: "/Users/test/.gemini.mac-ai-switchboard.bak".to_string(),
+                current_state: "No Switchboard-managed Gemini provider routing detected."
+                    .to_string(),
+                proposed_state:
+                    "Add Mac AI Switchboard local provider routing after explicit consent."
+                        .to_string(),
+                apply_blocked_reason:
+                    "Gemini CLI automation is disabled until backup, verify, rollback, and Off cleanup gates pass."
+                        .to_string(),
+                rollback_preview:
+                    "Restore the Gemini config backup or remove only the managed block.".to_string(),
+                confirmation_phrase: "APPLY GEMINI CLI CONFIG".to_string(),
+                writes: Vec::new(),
+            }),
+            automation_path: vec![
+                crate::models::ClientConnectorAutomationStage {
+                    id: "detect".to_string(),
+                    label: "Detect config surface".to_string(),
+                    status: "ready".to_string(),
+                    evidence: "Gemini CLI has local detection evidence.".to_string(),
+                },
+                crate::models::ClientConnectorAutomationStage {
+                    id: "dryRunDiff".to_string(),
+                    label: "Show dry-run diff".to_string(),
+                    status: "ready".to_string(),
+                    evidence: "Blocked preview is ready.".to_string(),
+                },
+            ],
             installed: true,
             enabled: false,
             verified: false,
+            setup_verification: None,
             last_configured_at: None,
         }]);
 
@@ -2503,8 +4049,15 @@ mod doctor_tests {
         assert!(body.contains("Detection evidence: Detected at /opt/homebrew/bin/gemini."));
         assert!(body.contains("Automation gates: Back up provider settings"));
         assert!(body.contains("Manual workflow: Use RTK-only mode"));
+        assert!(body.contains("Config creation plan: Detect config surface -> Show dry-run diff"));
+        assert!(body.contains("Dry-run preview evidence: Gemini CLI target /Users/test/.gemini"));
+        assert!(body.contains("marker mac-ai-switchboard:gemini_cli"));
+        assert!(body.contains("confirmation APPLY GEMINI CLI CONFIG"));
         assert!(body.contains("Safe today: use RTK-only mode or Repo Intelligence packs"));
-        assert!(body.contains("keeps routing manual"));
+        assert!(body.contains("expose gated connector readiness evidence"));
+        assert!(body.contains("retained connectors"));
+        assert!(body.contains("keeps native/provider routing manual"));
+        assert!(body.contains("until their backup, verify, rollback, and Off mode cleanup"));
     }
 
     fn test_runtime_status(
@@ -2521,9 +4074,43 @@ mod doctor_tests {
             paused: false,
             auto_paused: false,
             proxy_reachable,
+            proxy_bind_address: "127.0.0.1:6767".to_string(),
+            proxy_auth_status: "loopback_validated_unauthenticated".to_string(),
+            proxy_auth_detail: "Loopback-only test fixture.".to_string(),
             headroom_pid: if running { Some(42) } else { None },
+            launch_agent_status: crate::models::LaunchAgentRuntimeStatus {
+                installed: false,
+                path: None,
+                label: "com.tarunagarwal.mac-ai-switchboard".to_string(),
+                loaded: Some(false),
+                load_detail: Some(
+                    "launchctl does not report test LaunchAgent as loaded.".to_string(),
+                ),
+                legacy_installed: false,
+                legacy_path: None,
+                legacy_label: "Headroom".to_string(),
+                legacy_loaded: Some(false),
+                legacy_load_detail: Some(
+                    "launchctl does not report legacy test LaunchAgent as loaded.".to_string(),
+                ),
+            },
+            backend_status: crate::models::BackendRuntimeStatus {
+                reachable: running,
+                bind_address: "127.0.0.1:6768".to_string(),
+                port: 6768,
+                default_port: 6768,
+                fallback_range_start: 6769,
+                fallback_range_end: 6790,
+            },
             mcp_configured: None,
             mcp_error: None,
+            repo_memory_mcp_configured: None,
+            repo_memory_mcp_error: None,
+            repo_memory_mcp_active: false,
+            repo_memory_mcp_last_started_at: None,
+            repo_memory_mcp_last_checked_at: None,
+            repo_memory_mcp_supervision_status: "unknown".to_string(),
+            repo_memory_mcp_service: None,
             ml_installed: None,
             kompress_enabled: None,
             headroom_learn_supported: true,
@@ -2538,8 +4125,68 @@ mod doctor_tests {
                 path_configured: false,
                 hook_configured: false,
                 total_commands: None,
+                total_input: None,
+                total_output: None,
                 total_saved: None,
                 avg_savings_pct: None,
+                total_time_ms: None,
+                avg_time_ms: None,
+                daily: Vec::new(),
+            },
+        }
+    }
+
+    fn test_connector_status(
+        id: &str,
+        name: &str,
+        support_status: crate::models::ClientConnectorSupportStatus,
+        installed: bool,
+        enabled: bool,
+        verified: bool,
+    ) -> ClientConnectorStatus {
+        ClientConnectorStatus {
+            client_id: id.to_string(),
+            name: name.to_string(),
+            support_status,
+            setup_phase: "managed".to_string(),
+            setup_hint: "Automatic reversible setup.".to_string(),
+            category: "cli".to_string(),
+            detection_sources: vec!["test".to_string()],
+            detection_evidence: vec!["detected".to_string()],
+            config_locations: vec!["~/.config/test".to_string()],
+            automation_gates: Vec::new(),
+            manual_workflow: Vec::new(),
+            config_creation_steps: Vec::new(),
+            config_creation_step_details: Vec::new(),
+            config_dry_run_preview: None,
+            automation_path: Vec::new(),
+            installed,
+            enabled,
+            verified,
+            setup_verification: None,
+            last_configured_at: None,
+        }
+    }
+
+    fn test_client_setup_result(client_id: &str, verified: bool) -> ClientSetupResult {
+        ClientSetupResult {
+            client_id: client_id.to_string(),
+            applied: true,
+            already_configured: false,
+            summary: "Client configuration updated to route through Headroom.".to_string(),
+            changed_files: vec!["~/.zshrc".to_string()],
+            backup_files: Vec::new(),
+            next_steps: Vec::new(),
+            verification: crate::models::ClientSetupVerification {
+                client_id: client_id.to_string(),
+                verified,
+                proxy_reachable: true,
+                checks: Vec::new(),
+                failures: if verified {
+                    Vec::new()
+                } else {
+                    vec![format!("{client_id} verification failed")]
+                },
             },
         }
     }
@@ -2548,6 +4195,257 @@ mod doctor_tests {
     fn off_mode_violations_empty_when_runtime_clients_and_rtk_are_off() {
         let runtime = test_runtime_status(false, false, false);
         assert!(off_mode_violations(&runtime, 0).is_empty());
+    }
+
+    #[test]
+    fn switchboard_mode_intent_disables_everything_in_off_mode() {
+        assert!(!switchboard_mode_wants_headroom(Some(
+            &SwitchboardMode::Off
+        )));
+        assert!(!switchboard_mode_wants_rtk(Some(&SwitchboardMode::Off)));
+    }
+
+    #[test]
+    fn switchboard_mode_intent_keeps_rtk_only_without_headroom() {
+        assert!(!switchboard_mode_wants_headroom(Some(
+            &SwitchboardMode::Rtk
+        )));
+        assert!(switchboard_mode_wants_rtk(Some(&SwitchboardMode::Rtk)));
+    }
+
+    #[test]
+    fn switchboard_mode_intent_defaults_to_full_optimization() {
+        assert!(switchboard_mode_wants_headroom(None));
+        assert!(switchboard_mode_wants_rtk(None));
+    }
+
+    #[test]
+    fn off_mode_blocks_doctor_repairs_that_restore_headroom() {
+        for action in [
+            "repair_runtime",
+            "repair_client_setups",
+            "repair_client_setup:gemini_cli",
+            "repair_codex_setup",
+            "repair_all",
+        ] {
+            assert!(
+                switchboard_mode_blocks_doctor_repair(Some(&SwitchboardMode::Off), action),
+                "{action} should be blocked in Off mode"
+            );
+        }
+    }
+
+    #[test]
+    fn rtk_only_blocks_doctor_repairs_that_restore_headroom() {
+        for action in [
+            "repair_runtime",
+            "repair_client_setups",
+            "repair_client_setup:opencode",
+            "repair_codex_setup",
+            "repair_all",
+        ] {
+            assert!(
+                switchboard_mode_blocks_doctor_repair(Some(&SwitchboardMode::Rtk), action),
+                "{action} should be blocked in RTK-only mode"
+            );
+        }
+    }
+
+    #[test]
+    fn headroom_modes_allow_headroom_repair_actions() {
+        for mode in [SwitchboardMode::Headroom, SwitchboardMode::Full] {
+            for action in [
+                "repair_runtime",
+                "repair_client_setups",
+                "repair_client_setup:windsurf",
+                "repair_codex_setup",
+                "repair_all",
+            ] {
+                assert!(
+                    !switchboard_mode_blocks_doctor_repair(Some(&mode), action),
+                    "{action} should be allowed in {}",
+                    switchboard_mode_label(&mode)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn repair_all_actions_skip_duplicate_managed_client_repairs() {
+        let issue = |id: &str, action: Option<&str>| crate::models::DoctorIssue {
+            id: id.to_string(),
+            title: id.to_string(),
+            body: id.to_string(),
+            severity: crate::models::DoctorSeverity::Warning,
+            repair_action: action.map(str::to_string),
+        };
+        let report = crate::models::DoctorReport {
+            status: crate::models::DoctorSeverity::Warning,
+            summary: "repairable".to_string(),
+            issues: vec![
+                issue("runtime", Some("repair_runtime")),
+                issue("all_clients", Some("repair_client_setups")),
+                issue("gemini_a", Some("repair_client_setup:gemini_cli")),
+                issue("gemini_b", Some("repair_client_setup:gemini_cli")),
+                issue("opencode", Some("repair_client_setup:opencode")),
+                issue("manual", None),
+                issue("off_mode", Some("verify_off_mode")),
+                issue("rtk_a", Some("repair_rtk_runtime")),
+                issue("rtk_b", Some("repair_rtk_runtime")),
+            ],
+        };
+
+        assert_eq!(
+            normalized_repair_all_actions(&report),
+            vec![
+                "repair_runtime".to_string(),
+                "repair_client_setups".to_string(),
+                "repair_rtk_runtime".to_string(),
+            ],
+        );
+    }
+
+    #[test]
+    fn repair_all_failure_summary_reports_every_failed_action() {
+        let failures = vec![
+            "repair_client_setups: Gemini CLI verification failed".to_string(),
+            "repair_rtk_runtime: rtk install failed".to_string(),
+        ];
+
+        let error = summarize_doctor_repair_all_failures(&failures)
+            .expect_err("failures should be reported");
+
+        assert!(error.contains("repair_all completed with failures"));
+        assert!(error.contains("repair_client_setups: Gemini CLI verification failed"));
+        assert!(error.contains("repair_rtk_runtime: rtk install failed"));
+    }
+
+    #[test]
+    fn repair_all_failure_summary_allows_successful_runs() {
+        summarize_doctor_repair_all_failures(&[]).expect("empty failures should pass");
+    }
+
+    #[test]
+    fn doctor_client_repair_reports_failed_post_write_verification() {
+        let result = ClientSetupResult {
+            client_id: "gemini_cli".to_string(),
+            applied: true,
+            already_configured: false,
+            summary: "Client configuration updated to route through Headroom.".to_string(),
+            changed_files: vec!["~/.zshrc".to_string()],
+            backup_files: Vec::new(),
+            next_steps: Vec::new(),
+            verification: crate::models::ClientSetupVerification {
+                client_id: "gemini_cli".to_string(),
+                verified: false,
+                proxy_reachable: true,
+                checks: Vec::new(),
+                failures: vec![
+                    "Gemini GEMINI_BASE_URL export was not found in shell profiles.".to_string(),
+                    "Switchboard-managed Gemini CLI sidecar was not found.".to_string(),
+                ],
+            },
+        };
+
+        let error = ensure_doctor_client_repair_verified(&result)
+            .expect_err("Doctor repair should fail when post-write verification fails");
+
+        assert!(error.contains("gemini_cli repair applied but verification still failed"));
+        assert!(error.contains("GEMINI_BASE_URL export was not found"));
+        assert!(error.contains("sidecar was not found"));
+    }
+
+    #[test]
+    fn managed_client_batch_repair_attempts_all_installed_managed_connectors() {
+        let connectors = vec![
+            test_connector_status(
+                "gemini_cli",
+                "Gemini CLI",
+                crate::models::ClientConnectorSupportStatus::Managed,
+                true,
+                false,
+                false,
+            ),
+            test_connector_status(
+                "opencode",
+                "OpenCode",
+                crate::models::ClientConnectorSupportStatus::Managed,
+                true,
+                false,
+                false,
+            ),
+            test_connector_status(
+                "cursor",
+                "Cursor",
+                crate::models::ClientConnectorSupportStatus::Planned,
+                true,
+                false,
+                false,
+            ),
+        ];
+        let mut attempted = Vec::new();
+
+        let batch = run_managed_client_repair_batch(&connectors, |connector| {
+            attempted.push(connector.client_id.clone());
+            if connector.client_id == "gemini_cli" {
+                Ok(test_client_setup_result(&connector.client_id, false))
+            } else {
+                Ok(test_client_setup_result(&connector.client_id, true))
+            }
+        })
+        .expect("batch should run");
+
+        assert_eq!(attempted, vec!["gemini_cli", "opencode"]);
+        assert_eq!(batch.repaired, 1);
+        assert_eq!(batch.failures.len(), 1);
+        assert!(batch.failures[0].contains("Gemini CLI"));
+        assert!(batch.failures[0].contains("verification failed"));
+
+        let error = summarize_managed_client_repair_batch(&batch)
+            .expect_err("partial failure should stay visible");
+        assert!(error.contains("repaired 1 managed client(s)"));
+        assert!(error.contains("Gemini CLI"));
+    }
+
+    #[test]
+    fn managed_client_batch_repair_reports_no_installed_supported_clients() {
+        let connectors = vec![test_connector_status(
+            "cursor",
+            "Cursor",
+            crate::models::ClientConnectorSupportStatus::Planned,
+            true,
+            false,
+            false,
+        )];
+
+        let error = run_managed_client_repair_batch(&connectors, |_connector| {
+            Ok(test_client_setup_result("cursor", true))
+        })
+        .expect_err("no managed clients should fail");
+
+        assert_eq!(error, "no installed supported clients found to repair");
+    }
+
+    #[test]
+    fn non_headroom_doctor_repairs_remain_available_in_off_and_rtk_modes() {
+        for mode in [SwitchboardMode::Off, SwitchboardMode::Rtk] {
+            for action in [
+                "verify_off_mode",
+                "reset_codex_bypass",
+                "repair_rtk_integrations",
+                "repair_rtk_runtime",
+                "repair_caveman_guidance",
+                "repair_ponytail_plugin",
+                "clear_repo_intelligence_index",
+                "install_repo_memory_mcp",
+            ] {
+                assert!(
+                    !switchboard_mode_blocks_doctor_repair(Some(&mode), action),
+                    "{action} should remain available in {}",
+                    switchboard_mode_label(&mode)
+                );
+            }
+        }
     }
 
     #[test]
@@ -2570,6 +4468,187 @@ mod doctor_tests {
         ));
         assert_eq!(issues[0].repair_action.as_deref(), Some("verify_off_mode"));
     }
+
+    #[test]
+    fn repo_memory_mcp_doctor_issue_is_repairable_when_unconfigured() {
+        let mut runtime = test_runtime_status(true, true, true);
+        runtime.mcp_configured = Some(true);
+        runtime.mcp_error = None;
+        runtime.repo_memory_mcp_configured = Some(false);
+        runtime.repo_memory_mcp_error =
+            Some("repo-memory missing from Claude MCP config".to_string());
+
+        let issue = repo_memory_mcp_doctor_issue(&runtime).expect("repo memory issue");
+
+        assert_eq!(issue.id, "repo_memory_mcp_not_configured");
+        assert_eq!(
+            issue.repair_action.as_deref(),
+            Some("install_repo_memory_mcp")
+        );
+        assert!(issue.body.contains("repo-memory missing"));
+
+        runtime.repo_memory_mcp_configured = Some(true);
+        assert!(repo_memory_mcp_doctor_issue(&runtime).is_none());
+    }
+
+    #[test]
+    fn repo_memory_mcp_doctor_issue_surfaces_failed_supervision() {
+        let mut runtime = test_runtime_status(true, true, true);
+        runtime.mcp_configured = Some(true);
+        runtime.repo_memory_mcp_configured = Some(true);
+
+        runtime.repo_memory_mcp_supervision_status = "smoke_failed".to_string();
+        let smoke_issue = repo_memory_mcp_doctor_issue(&runtime).expect("smoke issue");
+        assert_eq!(smoke_issue.id, "repo_memory_mcp_smoke_failed");
+        assert_eq!(
+            smoke_issue.repair_action.as_deref(),
+            Some("install_repo_memory_mcp")
+        );
+        assert!(smoke_issue.body.contains("read-only smoke check failed"));
+
+        runtime.repo_memory_mcp_supervision_status = "stale_config".to_string();
+        let stale_issue = repo_memory_mcp_doctor_issue(&runtime).expect("stale issue");
+        assert_eq!(stale_issue.id, "repo_memory_mcp_stale_config");
+        assert!(stale_issue.body.contains("descriptor is missing or unsafe"));
+
+        runtime.repo_memory_mcp_supervision_status = "service_unhealthy".to_string();
+        let service_issue = repo_memory_mcp_doctor_issue(&runtime).expect("service issue");
+        assert_eq!(service_issue.id, "repo_memory_mcp_service_unhealthy");
+        assert!(service_issue.body.contains("descriptor, script, or Node"));
+        assert_eq!(
+            service_issue.repair_action.as_deref(),
+            Some("install_repo_memory_mcp")
+        );
+
+        runtime.repo_memory_mcp_supervision_status = "active".to_string();
+        let active_issue = repo_memory_mcp_doctor_issue(&runtime).expect("active issue");
+        assert_eq!(active_issue.id, "repo_memory_mcp_needs_verification");
+        assert!(active_issue
+            .body
+            .contains("without current app-process smoke proof"));
+
+        runtime.repo_memory_mcp_supervision_status = "verified_active".to_string();
+        assert!(repo_memory_mcp_doctor_issue(&runtime).is_none());
+    }
+
+    #[test]
+    fn codex_routing_issue_repairs_detected_but_unrouted_codex() {
+        let connectors = vec![test_connector_status(
+            "codex",
+            "Codex",
+            crate::models::ClientConnectorSupportStatus::Managed,
+            true,
+            false,
+            false,
+        )];
+
+        let issue = codex_routing_doctor_issue(&connectors, &SwitchboardMode::Full, false)
+            .expect("unrouted Codex should be repairable");
+
+        assert_eq!(issue.id, "codex_provider_mismatch");
+        assert_eq!(issue.repair_action.as_deref(), Some("repair_codex_setup"));
+        assert!(issue.body.contains("Codex routing is repair ready"));
+        assert!(issue.body.contains("reversible managed setup"));
+        assert!(issue.body.contains("OPENAI_BASE_URL"));
+    }
+
+    #[test]
+    fn unrouted_managed_connector_issue_repairs_second_direct_tool() {
+        let connectors = vec![
+            test_connector_status(
+                "codex",
+                "Codex",
+                crate::models::ClientConnectorSupportStatus::Managed,
+                true,
+                true,
+                true,
+            ),
+            test_connector_status(
+                "gemini_cli",
+                "Gemini CLI",
+                crate::models::ClientConnectorSupportStatus::Managed,
+                true,
+                false,
+                false,
+            ),
+        ];
+
+        let issues = unrouted_managed_connector_issues(&connectors, &SwitchboardMode::Full);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].id, "gemini_cli_routing_not_configured");
+        assert_eq!(issues[0].title, "Gemini CLI routing is repair ready");
+        assert_eq!(
+            issues[0].repair_action.as_deref(),
+            Some("repair_client_setup:gemini_cli")
+        );
+        assert!(issues[0].body.contains("this managed client setup"));
+        assert!(issues[0].body.contains("preserve user-owned config"));
+    }
+
+    #[test]
+    fn unrouted_planned_connector_stays_manual() {
+        let connectors = vec![test_connector_status(
+            "aider",
+            "Aider",
+            crate::models::ClientConnectorSupportStatus::Planned,
+            true,
+            false,
+            false,
+        )];
+
+        let issues = unrouted_managed_connector_issues(&connectors, &SwitchboardMode::Full);
+
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn unverified_managed_connector_issue_repairs_only_that_tool() {
+        let connectors = vec![
+            test_connector_status(
+                "gemini_cli",
+                "Gemini CLI",
+                crate::models::ClientConnectorSupportStatus::Managed,
+                true,
+                true,
+                false,
+            ),
+            test_connector_status(
+                "opencode",
+                "OpenCode",
+                crate::models::ClientConnectorSupportStatus::Managed,
+                true,
+                true,
+                true,
+            ),
+        ];
+
+        let issues = unverified_managed_connector_issues(&connectors);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].id, "gemini_cli_routing_config_mismatch");
+        assert_eq!(
+            issues[0].repair_action.as_deref(),
+            Some("repair_client_setup:gemini_cli")
+        );
+        assert!(issues[0].body.contains("no longer verifies"));
+    }
+
+    #[test]
+    fn unverified_planned_connector_stays_manual() {
+        let connectors = vec![test_connector_status(
+            "cursor",
+            "Cursor",
+            crate::models::ClientConnectorSupportStatus::Planned,
+            true,
+            true,
+            false,
+        )];
+
+        let issues = unverified_managed_connector_issues(&connectors);
+
+        assert!(issues.is_empty());
+    }
 }
 
 #[tauri::command]
@@ -2585,6 +4664,84 @@ fn repair_runtime(state: &AppState) -> Result<(), String> {
     Ok(())
 }
 
+fn ensure_doctor_client_repair_verified(result: &ClientSetupResult) -> Result<(), String> {
+    if result.verification.verified {
+        return Ok(());
+    }
+
+    let details = if result.verification.failures.is_empty() {
+        "post-repair verification returned no passing evidence".to_string()
+    } else {
+        result.verification.failures.join("; ")
+    };
+    Err(format!(
+        "{} repair applied but verification still failed: {details}",
+        result.client_id
+    ))
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct ManagedClientRepairBatch {
+    repaired: usize,
+    failures: Vec<String>,
+}
+
+fn summarize_managed_client_repair_batch(batch: &ManagedClientRepairBatch) -> Result<(), String> {
+    if batch.repaired == 0 && batch.failures.is_empty() {
+        return Err("no installed supported clients found to repair".to_string());
+    }
+    if batch.failures.is_empty() {
+        return Ok(());
+    }
+
+    let prefix = if batch.repaired == 0 {
+        "managed client repair failed".to_string()
+    } else {
+        format!(
+            "repaired {} managed client(s), but some repairs failed",
+            batch.repaired
+        )
+    };
+    Err(format!("{prefix}: {}", batch.failures.join(" | ")))
+}
+
+fn run_managed_client_repair_batch<F>(
+    connectors: &[crate::models::ClientConnectorStatus],
+    mut repair: F,
+) -> Result<ManagedClientRepairBatch, String>
+where
+    F: FnMut(&crate::models::ClientConnectorStatus) -> Result<ClientSetupResult, String>,
+{
+    let mut batch = ManagedClientRepairBatch {
+        repaired: 0,
+        failures: Vec::new(),
+    };
+    let mut saw_installed_managed = false;
+
+    for connector in connectors.iter().filter(|connector| {
+        connector.installed
+            && matches!(
+                connector.support_status,
+                crate::models::ClientConnectorSupportStatus::Managed
+            )
+    }) {
+        saw_installed_managed = true;
+        match repair(connector).and_then(|result| {
+            ensure_doctor_client_repair_verified(&result)?;
+            Ok(result)
+        }) {
+            Ok(_) => batch.repaired += 1,
+            Err(err) => batch.failures.push(format!("{}: {}", connector.name, err)),
+        }
+    }
+
+    if !saw_installed_managed {
+        return Err("no installed supported clients found to repair".to_string());
+    }
+
+    Ok(batch)
+}
+
 fn repair_client_setups(state: &AppState) -> Result<(), String> {
     state
         .codex_bypass
@@ -2592,21 +4749,41 @@ fn repair_client_setups(state: &AppState) -> Result<(), String> {
     state.resume_runtime().map_err(|err| err.to_string())?;
     let connectors = client_adapters::list_client_connectors(&state.cached_clients())
         .map_err(|err| err.to_string())?;
-    let managed_installed = connectors.iter().filter(|connector| {
-        connector.installed
-            && matches!(
-                connector.support_status,
-                crate::models::ClientConnectorSupportStatus::Managed
-            )
-    });
-    let mut repaired = 0usize;
-    for connector in managed_installed {
+    let batch = run_managed_client_repair_batch(&connectors, |connector| {
+        client_adapters::apply_client_setup(&connector.client_id).map_err(|err| err.to_string())
+    })?;
+    if batch.repaired > 0 {
+        state.invalidate_runtime_status_cache();
+    }
+    summarize_managed_client_repair_batch(&batch)
+}
+
+fn repair_managed_client_setup(state: &AppState, client_id: &str) -> Result<(), String> {
+    if client_id.trim().is_empty() {
+        return Err("client id is required for managed client repair".to_string());
+    }
+    state
+        .codex_bypass
+        .store(false, std::sync::atomic::Ordering::Release);
+    state.resume_runtime().map_err(|err| err.to_string())?;
+    let connectors = client_adapters::list_client_connectors(&state.cached_clients())
+        .map_err(|err| err.to_string())?;
+    let connector = connectors
+        .iter()
+        .find(|connector| connector.client_id == client_id)
+        .ok_or_else(|| format!("managed client not found: {client_id}"))?;
+    if !connector.installed {
+        return Err(format!("{} is not installed", connector.name));
+    }
+    if !matches!(
+        connector.support_status,
+        crate::models::ClientConnectorSupportStatus::Managed
+    ) {
+        return Err(format!("{} is not a managed connector", connector.name));
+    }
+    let result =
         client_adapters::apply_client_setup(&connector.client_id).map_err(|err| err.to_string())?;
-        repaired += 1;
-    }
-    if repaired == 0 {
-        return Err("no installed supported clients found to repair".to_string());
-    }
+    ensure_doctor_client_repair_verified(&result)?;
     state.invalidate_runtime_status_cache();
     Ok(())
 }
@@ -2616,7 +4793,8 @@ fn repair_codex_setup(state: &AppState) -> Result<(), String> {
         .codex_bypass
         .store(false, std::sync::atomic::Ordering::Release);
     state.resume_runtime().map_err(|err| err.to_string())?;
-    client_adapters::apply_client_setup("codex").map_err(|err| err.to_string())?;
+    let result = client_adapters::apply_client_setup("codex").map_err(|err| err.to_string())?;
+    ensure_doctor_client_repair_verified(&result)?;
     state.invalidate_runtime_status_cache();
     Ok(())
 }
@@ -2673,6 +4851,8 @@ fn repair_ponytail_plugin(state: &AppState) -> Result<(), String> {
             .set_ponytail_enabled(true)
             .map_err(|err| err.to_string())?;
     }
+    let hosts = state.tool_manager.ponytail_registered_hosts();
+    let _ = state.record_ponytail_attribution(&hosts);
     Ok(())
 }
 
@@ -2682,76 +4862,130 @@ fn clear_repo_intelligence_index() -> Result<(), String> {
         .map_err(|err| err.to_string())
 }
 
-#[tauri::command]
-async fn run_doctor_repair(
-    state: State<'_, AppState>,
-    action: String,
-) -> Result<crate::models::DoctorReport, String> {
-    match action.as_str() {
-        "verify_off_mode" => Ok(build_doctor_report(&state)),
+fn repair_repo_memory_mcp(state: &AppState) -> Result<(), String> {
+    state
+        .tool_manager
+        .install_repo_memory_mcp()
+        .map_err(|err| err.to_string())?;
+    state
+        .start_repo_memory_mcp()
+        .map_err(|err| err.to_string())?;
+    state.invalidate_runtime_status_cache();
+    Ok(())
+}
+
+fn normalized_repair_all_actions(report: &crate::models::DoctorReport) -> Vec<String> {
+    let has_all_client_repair = report
+        .issues
+        .iter()
+        .any(|issue| issue.repair_action.as_deref() == Some("repair_client_setups"));
+    let mut actions = Vec::new();
+    let mut repaired_client_ids = Vec::new();
+
+    for action in report
+        .issues
+        .iter()
+        .filter_map(|issue| issue.repair_action.as_deref())
+    {
+        if action == "verify_off_mode" {
+            continue;
+        }
+
+        if action.starts_with("repair_client_setup:") {
+            if has_all_client_repair {
+                continue;
+            }
+            let client_id = action
+                .strip_prefix("repair_client_setup:")
+                .unwrap_or_default()
+                .to_string();
+            if repaired_client_ids.iter().any(|seen| seen == &client_id) {
+                continue;
+            }
+            repaired_client_ids.push(client_id);
+        }
+
+        if actions.iter().any(|seen| seen == action) {
+            continue;
+        }
+        actions.push(action.to_string());
+    }
+
+    actions
+}
+
+fn summarize_doctor_repair_all_failures(failures: &[String]) -> Result<(), String> {
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "repair_all completed with failures: {}",
+            failures.join(" | ")
+        ))
+    }
+}
+
+fn run_single_doctor_repair_action(state: &AppState, action: &str) -> Result<(), String> {
+    match action {
         "reset_codex_bypass" => {
             state
                 .codex_bypass
                 .store(false, std::sync::atomic::Ordering::Release);
             state.invalidate_runtime_status_cache();
-            Ok(build_doctor_report(&state))
+            Ok(())
         }
-        "repair_runtime" => {
-            repair_runtime(&state)?;
-            Ok(build_doctor_report(&state))
+        "repair_runtime" => repair_runtime(state),
+        "repair_client_setups" => repair_client_setups(state),
+        action if action.starts_with("repair_client_setup:") => {
+            let client_id = action
+                .strip_prefix("repair_client_setup:")
+                .unwrap_or_default();
+            repair_managed_client_setup(state, client_id)
         }
-        "repair_client_setups" => {
-            repair_client_setups(&state)?;
-            Ok(build_doctor_report(&state))
-        }
-        "repair_codex_setup" => {
-            repair_codex_setup(&state)?;
-            Ok(build_doctor_report(&state))
-        }
-        "repair_rtk_integrations" => {
-            repair_rtk_integrations(&state)?;
-            Ok(build_doctor_report(&state))
-        }
-        "repair_rtk_runtime" => {
-            repair_rtk_runtime(&state)?;
-            Ok(build_doctor_report(&state))
-        }
-        "repair_caveman_guidance" => {
-            repair_caveman_guidance(&state)?;
-            Ok(build_doctor_report(&state))
-        }
-        "repair_ponytail_plugin" => {
-            repair_ponytail_plugin(&state)?;
-            Ok(build_doctor_report(&state))
-        }
-        "clear_repo_intelligence_index" => {
-            clear_repo_intelligence_index()?;
-            Ok(build_doctor_report(&state))
-        }
+        "repair_codex_setup" => repair_codex_setup(state),
+        "repair_rtk_integrations" => repair_rtk_integrations(state),
+        "repair_rtk_runtime" => repair_rtk_runtime(state),
+        "repair_caveman_guidance" => repair_caveman_guidance(state),
+        "repair_ponytail_plugin" => repair_ponytail_plugin(state),
+        "clear_repo_intelligence_index" => clear_repo_intelligence_index(),
+        "install_repo_memory_mcp" => repair_repo_memory_mcp(state),
+        other => Err(format!("unknown doctor repair action: {other}")),
+    }
+}
+
+#[tauri::command]
+async fn run_doctor_repair(
+    state: State<'_, AppState>,
+    action: String,
+) -> Result<crate::models::DoctorReport, String> {
+    let saved_mode = client_adapters::load_switchboard_mode();
+    if switchboard_mode_blocks_doctor_repair(saved_mode.as_ref(), action.as_str()) {
+        let mode_label = saved_mode
+            .as_ref()
+            .map(switchboard_mode_label)
+            .unwrap_or("current mode");
+        return Err(format!(
+            "{mode_label} is requested, so Doctor will not run {action} because it can restore Headroom routing. Choose Headroom only or Full optimization first."
+        ));
+    }
+
+    match action.as_str() {
+        "verify_off_mode" => Ok(build_doctor_report(&state)),
         "repair_all" => {
             let report = build_doctor_report(&state);
-            for issue in report.issues {
-                match issue.repair_action.as_deref() {
-                    Some("reset_codex_bypass") => {
-                        state
-                            .codex_bypass
-                            .store(false, std::sync::atomic::Ordering::Release);
-                        state.invalidate_runtime_status_cache();
-                    }
-                    Some("repair_runtime") => repair_runtime(&state)?,
-                    Some("repair_client_setups") => repair_client_setups(&state)?,
-                    Some("repair_codex_setup") => repair_codex_setup(&state)?,
-                    Some("repair_rtk_integrations") => repair_rtk_integrations(&state)?,
-                    Some("repair_rtk_runtime") => repair_rtk_runtime(&state)?,
-                    Some("repair_caveman_guidance") => repair_caveman_guidance(&state)?,
-                    Some("repair_ponytail_plugin") => repair_ponytail_plugin(&state)?,
-                    Some("clear_repo_intelligence_index") => clear_repo_intelligence_index()?,
-                    _ => {}
+            let mut failures = Vec::new();
+            for action in normalized_repair_all_actions(&report) {
+                if let Err(err) = run_single_doctor_repair_action(&state, &action) {
+                    failures.push(format!("{action}: {err}"));
                 }
             }
+            summarize_doctor_repair_all_failures(&failures)?;
             Ok(build_doctor_report(&state))
         }
-        other => Err(format!("unknown doctor repair action: {other}")),
+        other => {
+            run_single_doctor_repair_action(&state, other)?;
+            Ok(build_doctor_report(&state))
+        }
     }
 }
 
@@ -2762,6 +4996,10 @@ async fn set_switchboard_mode(
 ) -> Result<SwitchboardState, String> {
     let state: tauri::State<'_, AppState> = app.state();
     client_adapters::write_switchboard_mode(mode.clone()).map_err(|err| err.to_string())?;
+    if matches!(mode, SwitchboardMode::Full) {
+        let full_policy = optimization::action_policy::OptimizationActionPolicy::default();
+        optimization::action_policy::save_action_policy(&full_policy)?;
+    }
 
     match mode {
         SwitchboardMode::Off => {
@@ -2844,6 +5082,23 @@ async fn set_savings_mode(app: AppHandle, mode: SavingsMode) -> Result<Switchboa
         Some(json!({ "mode": format!("{mode:?}").to_ascii_lowercase() })),
     );
     build_switchboard_state(&state)
+}
+
+#[tauri::command]
+fn get_optimization_snapshot() -> optimization::OptimizationSnapshot {
+    optimization::snapshot::build_optimization_snapshot()
+}
+
+#[tauri::command]
+fn get_optimization_action_policy() -> optimization::action_policy::OptimizationActionPolicy {
+    optimization::action_policy::load_action_policy()
+}
+
+#[tauri::command]
+fn set_optimization_action_policy(
+    policy: optimization::action_policy::OptimizationActionPolicy,
+) -> Result<optimization::action_policy::OptimizationActionPolicy, String> {
+    optimization::action_policy::save_action_policy(&policy)
 }
 
 /// Debug-only: force the proxy intercept's bypass flag on/off so a developer
@@ -3189,11 +5444,64 @@ fn get_headroom_learn_prereq_status(
 #[tauri::command]
 async fn get_transformations_feed(limit: Option<u32>) -> TransformationFeedResponse {
     let limit = limit.unwrap_or(50).min(100);
+    let settings = message_logging::load_settings();
     fetch_transformations_feed(limit).unwrap_or_else(|_| TransformationFeedResponse {
         log_full_messages: false,
+        full_message_logging_expires_at: settings.full_message_logging_expires_at,
+        message_log_retention_hours: settings.message_log_retention_hours,
         transformations: Vec::new(),
         proxy_reachable: false,
     })
+}
+
+#[tauri::command]
+fn get_message_logging_settings() -> MessageLoggingSettings {
+    message_logging::load_settings()
+}
+
+#[tauri::command]
+fn set_message_logging_settings(
+    settings: MessageLoggingSettings,
+) -> Result<MessageLoggingSettings, String> {
+    message_logging::save_settings(&settings).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn enable_full_message_logging(hours: u32) -> Result<MessageLoggingSettings, String> {
+    let settings = MessageLoggingSettings::enabled_for(hours);
+    message_logging::save_settings(&settings).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn disable_full_message_logging() -> Result<MessageLoggingSettings, String> {
+    let settings = MessageLoggingSettings {
+        full_message_logging: false,
+        full_message_logging_expires_at: None,
+        message_log_retention_hours: 24,
+    };
+    message_logging::save_settings(&settings).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn purge_message_logs(state: State<'_, AppState>) -> PurgeResult {
+    state.purge_message_logs()
+}
+
+#[tauri::command]
+fn get_codex_thread_retagging_settings() -> CodexThreadRetaggingSettings {
+    client_adapters::get_codex_thread_retagging_settings()
+}
+
+#[tauri::command]
+fn set_codex_thread_retagging_settings(
+    settings: CodexThreadRetaggingSettings,
+) -> Result<CodexThreadRetaggingSettings, String> {
+    client_adapters::set_codex_thread_retagging_settings(settings).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+fn restore_codex_thread_db_backup(path: String) -> Result<CodexDbRestoreResult, String> {
+    client_adapters::restore_codex_thread_db_backup(&path).map_err(|err| err.to_string())
 }
 
 /// Read-only snapshot of the activity feed. Observation — fetching the proxy,
@@ -3625,18 +5933,12 @@ async fn open_headroom_dashboard() -> Result<(), String> {
 }
 
 fn open_external_link_impl(url: &str) -> Result<(), String> {
-    let trimmed = url.trim();
-    if !(trimmed.starts_with("http://")
-        || trimmed.starts_with("https://")
-        || trimmed.starts_with("mailto:"))
-    {
-        return Err("Only http, https, and mailto links are supported.".into());
-    }
+    let trimmed = validate_external_link_url(url)?;
 
     #[cfg(target_os = "macos")]
     let mut command = {
         let mut command = Command::new("open");
-        command.arg(trimmed);
+        command.arg(&trimmed);
         command
     };
 
@@ -3645,9 +5947,9 @@ fn open_external_link_impl(url: &str) -> Result<(), String> {
         for opener in ["xdg-open", "gio", "kde-open5", "wslview"] {
             let mut command = Command::new(opener);
             if opener == "gio" {
-                command.args(["open", trimmed]);
+                command.args(["open", &trimmed]);
             } else {
-                command.arg(trimmed);
+                command.arg(&trimmed);
             }
             match command.status() {
                 Ok(status) if status.success() => return Ok(()),
@@ -3668,7 +5970,7 @@ fn open_external_link_impl(url: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     let mut command = {
         let mut command = Command::new("cmd");
-        command.args(["/C", "start", "", trimmed]);
+        command.args(["/C", "start", "", trimmed.as_str()]);
         command
     };
 
@@ -3683,6 +5985,68 @@ fn open_external_link_impl(url: &str) -> Result<(), String> {
         } else {
             Err(format!("External link opener exited with {status}."))
         }
+    }
+}
+
+fn validate_external_link_url(raw: &str) -> Result<String, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err("External link is empty.".into());
+    }
+    if trimmed.contains('\n') || trimmed.contains('\r') {
+        return Err("External links cannot contain line breaks.".into());
+    }
+
+    if trimmed.starts_with("mailto:") {
+        let address = trimmed.trim_start_matches("mailto:");
+        if address.is_empty() || address.contains('?') || address.contains('/') {
+            return Err("Only simple mailto links are supported.".into());
+        }
+        return Ok(trimmed.to_string());
+    }
+
+    let parsed =
+        reqwest::Url::parse(trimmed).map_err(|_| "External link URL is invalid.".to_string())?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err("Only http, https, and mailto links are supported.".into());
+    }
+    if parsed.username() != "" || parsed.password().is_some() {
+        return Err("External links cannot include embedded credentials.".into());
+    }
+
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| "External link must include a host.".to_string())?;
+    if is_blocked_external_link_host(host) {
+        return Err("External link host is not allowed.".into());
+    }
+
+    Ok(trimmed.to_string())
+}
+
+fn is_blocked_external_link_host(host: &str) -> bool {
+    let normalized = host
+        .trim_matches(|ch| ch == '[' || ch == ']')
+        .trim_end_matches('.')
+        .to_ascii_lowercase();
+    if matches!(normalized.as_str(), "localhost" | "localhost.localdomain") {
+        return true;
+    }
+    if normalized.ends_with(".localhost") || normalized.ends_with(".local") {
+        return true;
+    }
+    match normalized.parse::<std::net::IpAddr>() {
+        Ok(std::net::IpAddr::V4(ip)) => {
+            ip.is_loopback()
+                || ip.is_private()
+                || ip.is_link_local()
+                || ip.is_broadcast()
+                || ip.is_unspecified()
+        }
+        Ok(std::net::IpAddr::V6(ip)) => {
+            ip.is_loopback() || ip.is_unspecified() || ip.is_unique_local()
+        }
+        Err(_) => false,
     }
 }
 
@@ -3702,6 +6066,7 @@ async fn submit_contact_request(
     email: String,
     message: Option<String>,
 ) -> Result<(), String> {
+    reject_contact_request_in_local_only()?;
     let trimmed = email.trim();
     if trimmed.is_empty() || !trimmed.contains('@') {
         return Err("Enter a valid email address.".to_string());
@@ -3738,14 +6103,28 @@ async fn submit_contact_request(
     }
 }
 
+fn reject_contact_request_in_local_only() -> Result<(), String> {
+    if local_mode::enabled() {
+        Err("Support/contact requests are disabled in local-only mode.".to_string())
+    } else {
+        Ok(())
+    }
+}
+
 // Scheme + host allowlist for the contact form endpoint. The URL reaches this
 // Tauri command from the webview, so we must not assume it is trustworthy —
 // an SSRF primitive here would let a compromised frame POST to arbitrary
 // hosts, including loopback services.
 fn validate_contact_request_url(raw: &str) -> Option<reqwest::Url> {
-    const ALLOWED_HOSTS: &[&str] = &["extraheadroom.com", "www.extraheadroom.com"];
+    const ALLOWED_HOSTS: &[&str] = &["github.com"];
+    if raw.contains('\n') || raw.contains('\r') {
+        return None;
+    }
     let parsed = reqwest::Url::parse(raw).ok()?;
     if parsed.scheme() != "https" {
+        return None;
+    }
+    if parsed.username() != "" || parsed.password().is_some() {
         return None;
     }
     let host = parsed.host_str()?;
@@ -3833,6 +6212,116 @@ async fn apply_client_setup(
 #[tauri::command]
 async fn verify_client_setup(client_id: String) -> Result<ClientSetupVerification, String> {
     client_adapters::verify_client_setup(&client_id).map_err(|err| err.to_string())
+}
+
+fn connector_smoke_working_dir() -> std::path::PathBuf {
+    dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."))
+}
+
+fn tail_text(value: &str, max_chars: usize) -> String {
+    let char_count = value.chars().count();
+    if char_count <= max_chars {
+        return value.to_string();
+    }
+    value
+        .chars()
+        .skip(char_count.saturating_sub(max_chars))
+        .collect()
+}
+
+fn shell_single_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
+}
+
+fn connector_smoke_shell_command(client_id: &str, prompt: &str) -> Option<String> {
+    let quoted_prompt = shell_single_quote(prompt);
+    match client_id {
+        "codex" => Some(format!(
+            "codex exec --ephemeral --sandbox read-only --skip-git-repo-check --ignore-rules {quoted_prompt}"
+        )),
+        "claude_code" => Some(format!(
+            "claude --print --no-session-persistence --permission-mode dontAsk --tools '' --output-format text {quoted_prompt}"
+        )),
+        _ => None,
+    }
+}
+
+fn connector_smoke_command(client_id: &str, prompt: &str) -> Option<Command> {
+    let shell_command = connector_smoke_shell_command(client_id, prompt)?;
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    let mut command = Command::new(shell);
+    command.args(["-lc", &shell_command]);
+    Some(command)
+}
+
+#[tauri::command]
+async fn run_connector_smoke_test(client_id: String) -> Result<ConnectorSmokeTestResult, String> {
+    let prompt = "Reply with exactly: switchboard verification ok";
+    let Some(mut command) = connector_smoke_command(&client_id, prompt) else {
+        return Ok(ConnectorSmokeTestResult {
+            client_id,
+            supported: false,
+            launched: false,
+            success: false,
+            summary: "One-click test is available for Claude Code and Codex. For this connector, send a tiny prompt manually and watch this screen for verification.".into(),
+            stdout_tail: String::new(),
+            stderr_tail: String::new(),
+        });
+    };
+
+    command.current_dir(connector_smoke_working_dir());
+    command.env("NO_COLOR", "1");
+    command.stdout(std::process::Stdio::piped());
+    command.stderr(std::process::Stdio::piped());
+
+    let mut child = command
+        .spawn()
+        .map_err(|err| format!("Could not launch {client_id} smoke test: {err}"))?;
+
+    let deadline = Instant::now() + Duration::from_secs(90);
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(250));
+            }
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!(
+                    "{client_id} smoke test timed out after 90 seconds."
+                ));
+            }
+            Err(err) => return Err(format!("{client_id} smoke test failed to run: {err}")),
+        }
+    }
+
+    let output = child
+        .wait_with_output()
+        .map_err(|err| format!("Could not collect {client_id} smoke test output: {err}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    let success = output.status.success();
+    Ok(ConnectorSmokeTestResult {
+        client_id,
+        supported: true,
+        launched: true,
+        success,
+        summary: if success {
+            "Test prompt sent. Waiting for the local proxy to confirm the request.".into()
+        } else {
+            format!(
+                "Test prompt exited with status {}. Open the connector and send a tiny prompt manually.",
+                output
+                    .status
+                    .code()
+                    .map(|code| code.to_string())
+                    .unwrap_or_else(|| "terminated".into())
+            )
+        },
+        stdout_tail: tail_text(&stdout, 800),
+        stderr_tail: tail_text(&stderr, 1200),
+    })
 }
 
 #[tauri::command]
@@ -3955,15 +6444,7 @@ fn uninstall_and_quit(app: AppHandle) -> Result<Vec<String>, String> {
     // listing Headroom as a background item even if the user later reinstalls.
     let _ = app.autolaunch().disable();
 
-    let mut removed = client_adapters::perform_full_cleanup();
-
-    // Trash the running .app bundle itself once we exit. Best-effort and
-    // macOS-only; everything above only removed Headroom's on-disk footprint
-    // (config, runtime, caches), not the application.
-    #[cfg(target_os = "macos")]
-    if let Some(bundle) = schedule_app_bundle_trash() {
-        removed.push(bundle.display().to_string());
-    }
+    let removed = append_scheduled_app_bundle_cleanup(client_adapters::perform_full_cleanup());
 
     analytics::track_event(
         &app,
@@ -3984,6 +6465,22 @@ fn uninstall_and_quit(app: AppHandle) -> Result<Vec<String>, String> {
     });
 
     Ok(removed)
+}
+
+#[cfg(target_os = "macos")]
+fn append_scheduled_app_bundle_cleanup(mut removed: Vec<String>) -> Vec<String> {
+    // Trash the running .app bundle itself once we exit. Best-effort and
+    // macOS-only; everything above only removed Headroom's on-disk footprint
+    // (config, runtime, caches), not the application.
+    if let Some(bundle) = schedule_app_bundle_trash() {
+        removed.push(bundle.display().to_string());
+    }
+    removed
+}
+
+#[cfg(not(target_os = "macos"))]
+fn append_scheduled_app_bundle_cleanup(removed: Vec<String>) -> Vec<String> {
+    removed
 }
 
 #[tauri::command]
@@ -4042,6 +6539,166 @@ pub fn run() {
     // Initialize the panic-safe file logger after Sentry so warn!/error!
     // records flow into Sentry too. Failure here cannot abort startup.
     let _ = logging::init();
+
+    let args = std::env::args().collect::<Vec<_>>();
+
+    if args.iter().any(|arg| arg == "--print-managed-footprint") {
+        match serde_json::to_string_pretty(&client_adapters::get_managed_footprint()) {
+            Ok(report) => {
+                println!("{report}");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to build managed footprint report: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--uninstall-dry-run") {
+        match serde_json::to_string_pretty(&client_adapters::uninstall_dry_run_report()) {
+            Ok(report) => {
+                println!("{report}");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to build uninstall dry-run report: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--disable-routing") {
+        match client_adapters::clear_client_setups() {
+            Ok(()) => {
+                println!("disabled managed routing");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to disable managed routing: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--disable-rtk") {
+        let runtime = tool_manager::ManagedRuntime::bootstrap_root(&storage::app_data_dir());
+        match client_adapters::set_rtk_enabled(
+            false,
+            &runtime.bin_dir.join("rtk"),
+            &runtime.venv_dir.join("bin").join("python"),
+        ) {
+            Ok(()) => {
+                println!("disabled managed RTK integration");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to disable RTK integration: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--disable-markitdown") {
+        let runtime = tool_manager::ManagedRuntime::bootstrap_root(&storage::app_data_dir());
+        match client_adapters::disable_markitdown_integration(&runtime.bin_dir.join("markitdown")) {
+            Ok(changed) => {
+                println!("disabled managed MarkItDown integration changed={changed}");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to disable MarkItDown integration: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--disable-caveman") {
+        match client_adapters::disable_caveman_integration() {
+            Ok(changed) => {
+                println!("disabled managed Caveman integration changed={changed}");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to disable Caveman integration: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--uninstall-managed-config") {
+        let removed = client_adapters::perform_full_cleanup();
+        match serde_json::to_string_pretty(&removed) {
+            Ok(report) => {
+                println!("{report}");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to serialize cleanup report: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--purge-logs") {
+        let activity_facts = storage::config_file(&storage::app_data_dir(), "activity-facts.json");
+        match serde_json::to_string_pretty(&message_logging::purge_message_logs(&activity_facts)) {
+            Ok(report) => {
+                println!("{report}");
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("failed to serialize log purge report: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if args.iter().any(|arg| arg == "--doctor-reset") {
+        let routing = client_adapters::clear_client_setups();
+        let activity_facts = storage::config_file(&storage::app_data_dir(), "activity-facts.json");
+        let purge = message_logging::purge_message_logs(&activity_facts);
+        match routing {
+            Ok(()) => {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&purge)
+                        .unwrap_or_else(|_| "{\"logsPurged\":true}".to_string())
+                );
+                std::process::exit(0);
+            }
+            Err(err) => {
+                eprintln!("doctor reset partially failed while disabling routing: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    if let Some(index) = args
+        .iter()
+        .position(|arg| arg == "--restore-codex-thread-db-backup")
+    {
+        let Some(path) = args.get(index + 1) else {
+            eprintln!("missing path for --restore-codex-thread-db-backup");
+            std::process::exit(2);
+        };
+        match client_adapters::restore_codex_thread_db_backup(path) {
+            Ok(result) => match serde_json::to_string_pretty(&result) {
+                Ok(report) => {
+                    println!("{report}");
+                    std::process::exit(0);
+                }
+                Err(err) => {
+                    eprintln!("failed to serialize Codex restore result: {err}");
+                    std::process::exit(1);
+                }
+            },
+            Err(err) => {
+                eprintln!("failed to restore Codex thread DB backup: {err}");
+                std::process::exit(1);
+            }
+        }
+    }
 
     // Raise the open-file soft limit to the hard limit. macOS launches GUI apps
     // with RLIMIT_NOFILE soft = 256, which the intercept proxy exhausts under
@@ -4143,6 +6800,7 @@ pub fn run() {
             // channel forever). On panic we log + report and resume the
             // recv loop on the next signal.
             let (fresh_bearer_tx, fresh_bearer_rx) = std::sync::mpsc::channel::<()>();
+            state.set_fresh_bearer_notifier(fresh_bearer_tx.clone());
             let app_handle_for_pusher = app.handle().clone();
             std::thread::Builder::new()
                 .name("identity-pusher".into())
@@ -4173,14 +6831,7 @@ pub fn run() {
             let wants_headroom = saved_switchboard_mode_wants_headroom();
             if wants_headroom {
                 // Start the intercept layer before anything else touches port 6767.
-                proxy_intercept::spawn(
-                    std::sync::Arc::clone(&state.claude_bearer_token),
-                    std::sync::Arc::clone(&state.codex_rate_limits),
-                    std::sync::Arc::clone(&state.codex_plan_tier),
-                    std::sync::Arc::clone(&state.proxy_bypass),
-                    std::sync::Arc::clone(&state.codex_bypass),
-                    fresh_bearer_tx,
-                );
+                state.ensure_proxy_intercept_running();
             }
             if state.should_present_on_launch() && !launched_from_autostart {
                 let _ = show_launcher_window(app.handle());
@@ -4272,10 +6923,37 @@ pub fn run() {
         .manage(PendingAppUpdate(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             get_dashboard_state,
+            get_savings_attribution_events,
+            record_measured_savings_attribution,
+            preview_managed_config_apply,
+            execute_managed_config_apply,
+            preview_managed_rollback,
+            execute_managed_rollback,
+            preview_dedicated_cleanup_rollback,
+            execute_dedicated_cleanup_rollback,
+            get_managed_footprint,
+            get_uninstall_dry_run_report,
+            preview_managed_rollback_undo_all,
+            execute_managed_rollback_undo_all,
             build_repo_intelligence_summary,
             get_latest_repo_intelligence_summary,
+            get_repo_intelligence_context_pack,
+            search_repo_intelligence_symbols,
+            get_repo_intelligence_dependents,
+            get_repo_intelligence_manifest,
             clear_repo_intelligence_summary,
+            get_repo_manifest,
+            preflight_repo_map,
+            generate_repo_map,
+            open_repo_map_artifact,
+            get_repo_pack,
+            get_agent_handoff,
+            get_index_freshness,
+            clear_repo_index,
             get_app_update_configuration,
+            load_release_readiness_report,
+            refresh_release_readiness_report,
+            run_release_evidence_command,
             check_for_app_update,
             install_app_update,
             restart_app,
@@ -4286,6 +6964,8 @@ pub fn run() {
             uninstall_addon,
             set_caveman_level,
             install_repo_memory_mcp,
+            start_repo_memory_mcp,
+            stop_repo_memory_mcp,
             bootstrap_runtime,
             start_bootstrap,
             get_bootstrap_progress,
@@ -4302,6 +6982,9 @@ pub fn run() {
             get_headroom_logs,
             get_headroom_request_count,
             get_headroom_request_counts_by_agent,
+            get_optimization_snapshot,
+            get_optimization_action_policy,
+            set_optimization_action_policy,
             get_rtk_activity,
             get_tool_logs,
             get_claude_code_projects,
@@ -4317,6 +7000,14 @@ pub fn run() {
             reactivate_headroom_subscription,
             get_headroom_billing_portal_url,
             get_activity_feed,
+            get_message_logging_settings,
+            set_message_logging_settings,
+            enable_full_message_logging,
+            disable_full_message_logging,
+            purge_message_logs,
+            get_codex_thread_retagging_settings,
+            set_codex_thread_retagging_settings,
+            restore_codex_thread_db_backup,
             list_live_learnings,
             list_live_learnings_for_projects,
             delete_live_learning,
@@ -4329,6 +7020,7 @@ pub fn run() {
             start_headroom_learn,
             apply_client_setup,
             verify_client_setup,
+            run_connector_smoke_test,
             get_client_connectors,
             disable_client_setup,
             clear_client_setups,
@@ -4676,11 +7368,31 @@ fn fetch_transformations_feed_from(
         return Err(format!("proxy returned HTTP {}", response.status()));
     }
     let raw: RawTransformationsFeedResponse = response.json().map_err(|err| err.to_string())?;
+    let settings = message_logging::load_settings();
+    let transformations = raw
+        .transformations
+        .into_iter()
+        .map(redact_transformation_feed_event)
+        .collect();
     Ok(TransformationFeedResponse {
-        log_full_messages: raw.log_full_messages,
-        transformations: raw.transformations,
+        log_full_messages: raw.log_full_messages && settings.full_message_logging,
+        full_message_logging_expires_at: settings.full_message_logging_expires_at,
+        message_log_retention_hours: settings.message_log_retention_hours,
+        transformations,
         proxy_reachable: true,
     })
+}
+
+fn redact_transformation_feed_event(
+    mut event: crate::models::TransformationFeedEvent,
+) -> crate::models::TransformationFeedEvent {
+    event.request_messages = event
+        .request_messages
+        .map(crate::message_logging::redact_value);
+    event.compressed_messages = event
+        .compressed_messages
+        .map(crate::message_logging::redact_value);
+    event
 }
 
 struct HeadroomLearnRunResult {
@@ -5011,10 +7723,33 @@ fn execute_headroom_learn_run(
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let show =
         tauri::menu::MenuItem::with_id(app, "show", "Show Mac AI Switchboard", true, None::<&str>)?;
+    let release_readiness = tauri::menu::MenuItem::with_id(
+        app,
+        "release-readiness",
+        "Release Readiness",
+        true,
+        None::<&str>,
+    )?;
+    let rollback_center = tauri::menu::MenuItem::with_id(
+        app,
+        "rollback-center",
+        "Rollback Center",
+        true,
+        None::<&str>,
+    )?;
     let quit =
         tauri::menu::MenuItem::with_id(app, "quit", "Quit Mac AI Switchboard", true, None::<&str>)?;
     let separator = tauri::menu::PredefinedMenuItem::separator(app)?;
-    let menu = tauri::menu::Menu::with_items(app, &[&show, &separator, &quit])?;
+    let menu = tauri::menu::Menu::with_items(
+        app,
+        &[
+            &show,
+            &release_readiness,
+            &rollback_center,
+            &separator,
+            &quit,
+        ],
+    )?;
     let popup_menu = menu.clone();
     let mut tray_builder = tauri::tray::TrayIconBuilder::with_id("headroom-tray")
         .menu(&menu)
@@ -5055,6 +7790,18 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
                     let _ = show_main_window(app, None);
                     let app_bg = app.clone();
                     std::thread::spawn(move || ensure_runtime_ready_for_tray(&app_bg));
+                } else {
+                    let _ = show_launcher_window(app);
+                }
+            }
+            "release-readiness" | "rollback-center" => {
+                if onboarding_complete(app) {
+                    let _ = hide_launcher_window(app);
+                    let _ = show_main_window(app, None);
+                    let _ = app.emit(
+                        "notification-clicked",
+                        serde_json::json!({ "action": event.id.as_ref() }),
+                    );
                 } else {
                     let _ = show_launcher_window(app);
                 }
@@ -5514,6 +8261,17 @@ fn spawn_proxy_watchdog(app: AppHandle) {
             log::info!(
                 "watchdog: proxy unreachable (failure {consecutive_failures}/{MAX_CONSECUTIVE_FAILURES}, bypass={bypass_active}), attempting restart"
             );
+
+            // If the Python backend is still accepting loopback connections
+            // but the client-facing 6767 intercept is gone, restarting Python
+            // does not help: clients are pointed at the Rust front door. Respawn
+            // the intercept in-process and let the next poll confirm readiness.
+            if state::proxy_port_accepts_connection() && !state::intercept_port_accepts_connection()
+            {
+                state.ensure_proxy_intercept_running();
+                consecutive_failures = 0;
+                continue;
+            }
 
             if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
                 // Before pausing, probe the backend directly on its loopback
@@ -6182,25 +8940,97 @@ mod tests {
         aggregate_live_learnings, app_quit_requested_properties, app_update_notification_body,
         auto_resume_backoff, beta_channel_enabled_from, build_release_updater_config,
         build_watchdog_give_up_report, check_headroom_learn_prereqs, classify_bootstrap_failure,
-        classify_upgrade_error, compute_tray_window_position, count_memories_created_today,
-        cpu_rate_indicates_burn, debounced_tray_runtime_visual, delete_applied_pattern,
-        empty_live_learnings_for_projects, extract_llm_failure_warnings,
+        classify_upgrade_error, clear_repo_intelligence_index, compute_tray_window_position,
+        count_memories_created_today, cpu_rate_indicates_burn, debounced_tray_runtime_visual,
+        delete_applied_pattern, empty_live_learnings_for_projects, extract_llm_failure_warnings,
         fetch_transformations_feed_from, install_pending_update, is_disk_full_signal,
         is_endpoint_protection_signal, is_network_download_signal, is_port_conflict_failure,
-        is_prerelease_version, lifetime_token_milestone_kind, noop_app_update_progress_emitter,
-        parse_live_learnings, parse_request_count_from_stats_body, parse_request_counts_by_agent,
+        is_prerelease_version, lifetime_token_milestone_kind, load_release_readiness_report_from,
+        noop_app_update_progress_emitter, parse_live_learnings,
+        parse_request_count_from_stats_body, parse_request_counts_by_agent,
         parse_updater_endpoint_list, pattern_matches_project, physical_rect_from_rect,
         read_applied_patterns_for_project, readyz_failed_checks_csv,
         readyz_failure_has_core_unhealthy, readyz_failure_is_upstream_only,
-        resolve_release_updater_config, select_updater_endpoints, store_checked_update,
-        watchdog_should_be_up, zero_spend_affected_days, AppUpdateProgress,
-        AppUpdateProgressEmitter, AvailableAppUpdate, BootstrapFailureKind, DailySavingsPoint,
-        HeadroomLearnPrereqStatus, InstallPendingUpdateFuture, InstallableAppUpdate, LearnAgent,
-        MonitorBounds, PhysicalRect, QuitSource, TrayRuntimeVisual,
+        repo_intelligence_doctor_issue, resolve_release_updater_config, select_updater_endpoints,
+        shell_single_quote, store_checked_update, watchdog_should_be_up, zero_spend_affected_days,
+        AppUpdateProgress, AppUpdateProgressEmitter, AvailableAppUpdate, BootstrapFailureKind,
+        DailySavingsPoint, HeadroomLearnPrereqStatus, InstallPendingUpdateFuture,
+        InstallableAppUpdate, LearnAgent, MonitorBounds, PhysicalRect, QuitSource,
+        TrayRuntimeVisual,
     };
+    use crate::models::{
+        ManagedRollbackExecutionStatus, RepoFileIndexEntry, RepoIndexMetadata,
+        RepoIntelligenceSummary,
+    };
+    use crate::repo_intelligence;
+    use crate::state::AppState;
+    use chrono::{TimeZone, Utc};
     use parking_lot::Mutex;
-    use serde_json::json;
+    use serde_json::{json, Value};
+    use std::collections::BTreeMap;
     use std::sync::Arc;
+
+    struct LocalOnlyEnvGuard {
+        prev_local: Option<std::ffi::OsString>,
+        prev_remote: Option<std::ffi::OsString>,
+    }
+
+    impl LocalOnlyEnvGuard {
+        fn enabled() -> Self {
+            let prev_local = std::env::var_os("HEADROOM_LOCAL_ONLY");
+            let prev_remote = std::env::var_os("HEADROOM_REMOTE_SERVICES");
+            std::env::set_var("HEADROOM_LOCAL_ONLY", "1");
+            std::env::remove_var("HEADROOM_REMOTE_SERVICES");
+            Self {
+                prev_local,
+                prev_remote,
+            }
+        }
+    }
+
+    impl Drop for LocalOnlyEnvGuard {
+        fn drop(&mut self) {
+            match self.prev_local.take() {
+                Some(value) => std::env::set_var("HEADROOM_LOCAL_ONLY", value),
+                None => std::env::remove_var("HEADROOM_LOCAL_ONLY"),
+            }
+            match self.prev_remote.take() {
+                Some(value) => std::env::set_var("HEADROOM_REMOTE_SERVICES", value),
+                None => std::env::remove_var("HEADROOM_REMOTE_SERVICES"),
+            }
+        }
+    }
+
+    struct AppStorageEnvGuard {
+        prev_xdg: Option<std::ffi::OsString>,
+        prev_home: Option<std::ffi::OsString>,
+    }
+
+    impl AppStorageEnvGuard {
+        fn isolated(root: &std::path::Path) -> Self {
+            let prev_xdg = std::env::var_os("XDG_DATA_HOME");
+            let prev_home = std::env::var_os("HOME");
+            std::env::set_var("XDG_DATA_HOME", root);
+            std::env::set_var("HOME", root);
+            Self {
+                prev_xdg,
+                prev_home,
+            }
+        }
+    }
+
+    impl Drop for AppStorageEnvGuard {
+        fn drop(&mut self) {
+            match self.prev_xdg.take() {
+                Some(value) => std::env::set_var("XDG_DATA_HOME", value),
+                None => std::env::remove_var("XDG_DATA_HOME"),
+            }
+            match self.prev_home.take() {
+                Some(value) => std::env::set_var("HOME", value),
+                None => std::env::remove_var("HOME"),
+            }
+        }
+    }
     use tauri::{LogicalPosition, LogicalSize, PhysicalSize, Position, Rect, Size};
 
     const TEST_UPDATER_PUBLIC_KEY: &str = "test-updater-public-key";
@@ -6243,6 +9073,395 @@ mod tests {
             actual_cost_usd: cost_usd,
             total_tokens_sent: tokens_sent,
         }
+    }
+
+    fn repo_summary_fixture(repo_root: String, indexed_at: &str) -> RepoIntelligenceSummary {
+        RepoIntelligenceSummary {
+            indexed_at: indexed_at.to_string(),
+            repo_root,
+            indexer_version: Some(repo_intelligence::current_indexer_version().to_string()),
+            total_files: 1,
+            indexed_files: 1,
+            skipped_files: 0,
+            estimated_full_scan_tokens: 10,
+            role_counts: BTreeMap::new(),
+            index_metadata: Some(RepoIndexMetadata {
+                schema_version: 1,
+                indexer_version: repo_intelligence::current_indexer_version().to_string(),
+                parser_version: "metadata-fingerprint-v1".to_string(),
+                cache_key: "test".to_string(),
+                cache_state: "unchanged".to_string(),
+                generated_at: indexed_at.to_string(),
+                previous_indexed_at: None,
+                file_count: 1,
+                indexed_file_count: 1,
+                skipped_file_count: 0,
+                file_fingerprints: vec![RepoFileIndexEntry {
+                    path: "src/App.tsx".to_string(),
+                    bytes: 10,
+                    modified_unix_ms: 0,
+                    fingerprint: "abc123".to_string(),
+                }],
+                skipped_files: Vec::new(),
+                graph_inputs: Vec::new(),
+            }),
+            graph: None,
+            packs: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn repo_intelligence_doctor_issue_reports_missing_moved_and_healthy_indexes() {
+        let now = Utc
+            .with_ymd_and_hms(2026, 6, 28, 12, 0, 0)
+            .single()
+            .expect("valid time");
+        let missing = repo_summary_fixture(
+            "/tmp/mac-ai-switchboard-missing-repo-for-doctor".to_string(),
+            "2026-06-28T10:00:00Z",
+        );
+        let missing_issue = repo_intelligence_doctor_issue(&missing, now).expect("missing issue");
+        assert_eq!(missing_issue.id, "repo_intelligence_repo_missing");
+        assert_eq!(
+            missing_issue.repair_action.as_deref(),
+            Some("clear_repo_intelligence_index")
+        );
+
+        let moved_root = tempfile::tempdir().expect("create moved repo root");
+        let moved = repo_summary_fixture(
+            moved_root.path().to_string_lossy().to_string(),
+            "2026-06-28T10:00:00Z",
+        );
+        let moved_issue = repo_intelligence_doctor_issue(&moved, now).expect("moved issue");
+        assert_eq!(moved_issue.id, "repo_intelligence_repo_moved");
+        assert!(moved_issue.body.contains("file map no longer matches"));
+        assert_eq!(
+            moved_issue.repair_action.as_deref(),
+            Some("clear_repo_intelligence_index")
+        );
+
+        std::fs::create_dir_all(moved_root.path().join("src")).expect("create src");
+        std::fs::write(moved_root.path().join("src/App.tsx"), "export {}\n")
+            .expect("write indexed file");
+        assert!(
+            repo_intelligence_doctor_issue(&moved, now).is_none(),
+            "existing indexed file should keep the saved index healthy"
+        );
+
+        let mut missing_metadata = moved.clone();
+        missing_metadata.index_metadata = None;
+        let missing_metadata_issue =
+            repo_intelligence_doctor_issue(&missing_metadata, now).expect("metadata issue");
+        assert_eq!(missing_metadata_issue.id, "repo_intelligence_index_health");
+        assert!(missing_metadata_issue.body.contains("metadata_missing"));
+        assert!(missing_metadata_issue.body.contains("unavailable"));
+
+        let mut parser_mismatch = moved.clone();
+        parser_mismatch
+            .index_metadata
+            .as_mut()
+            .expect("fixture metadata")
+            .parser_version = "older-parser-v0".to_string();
+        let parser_mismatch_issue =
+            repo_intelligence_doctor_issue(&parser_mismatch, now).expect("parser issue");
+        assert_eq!(parser_mismatch_issue.id, "repo_intelligence_index_health");
+        assert!(parser_mismatch_issue.body.contains("version_mismatch"));
+
+        let mut indexer_mismatch = moved.clone();
+        indexer_mismatch.indexer_version = Some("path-graph-v2".to_string());
+        let indexer_mismatch_issue =
+            repo_intelligence_doctor_issue(&indexer_mismatch, now).expect("indexer issue");
+        assert_eq!(indexer_mismatch_issue.id, "repo_intelligence_index_health");
+        assert!(indexer_mismatch_issue.body.contains("indexer health"));
+        assert!(indexer_mismatch_issue.body.contains("version_mismatch"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn clear_repo_intelligence_index_repairs_corrupt_saved_summary() {
+        let scratch = tempfile::tempdir().expect("scratch");
+        let _guard = AppStorageEnvGuard::isolated(scratch.path());
+        let path = crate::storage::config_file(
+            &crate::storage::app_data_dir(),
+            "repo-intelligence-latest.json",
+        );
+        std::fs::create_dir_all(path.parent().expect("summary parent"))
+            .expect("create repo intelligence config dir");
+        std::fs::write(&path, b"{not valid json").expect("write corrupt summary");
+
+        let corrupt = crate::repo_intelligence::load_latest_summary()
+            .expect_err("corrupt summary should be unreadable");
+        assert!(corrupt
+            .to_string()
+            .contains("parsing repo intelligence summary"));
+
+        clear_repo_intelligence_index().expect("clear corrupt repo index");
+
+        assert!(!path.exists());
+        assert!(crate::repo_intelligence::load_latest_summary()
+            .expect("cleared summary should read as none")
+            .is_none());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn dedicated_cleanup_rollback_clears_only_repo_intelligence_summary() {
+        let scratch = tempfile::tempdir().expect("scratch");
+        let _guard = AppStorageEnvGuard::isolated(scratch.path());
+        let repo = tempfile::tempdir().expect("repo");
+        let source = repo.path().join("src").join("App.tsx");
+        std::fs::create_dir_all(source.parent().expect("source parent"))
+            .expect("create source parent");
+        std::fs::write(&source, "export const untouched = true;\n").expect("write source");
+        let before = std::fs::read_to_string(&source).expect("read source before");
+        let summary = repo_summary_fixture(
+            repo.path().to_string_lossy().to_string(),
+            "2026-06-28T10:00:00Z",
+        );
+        crate::repo_intelligence::save_latest_summary(&summary).expect("save summary");
+
+        let preview =
+            super::preview_dedicated_cleanup_rollback_inner(None, "repo-intelligence".to_string())
+                .expect("preview");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Clear repo-intelligence-latest.json for Repo Intelligence"
+        );
+        assert!(preview.marker_present);
+        assert!(preview.backup_path.is_none());
+        assert!(preview
+            .evidence
+            .join(" ")
+            .contains("User repositories are not modified"));
+
+        let result = super::execute_dedicated_cleanup_rollback_inner(
+            None,
+            "repo-intelligence".to_string(),
+            "Clear repo-intelligence-latest.json for Repo Intelligence".to_string(),
+        )
+        .expect("execute cleanup");
+        assert_eq!(result.record_id, "repo-intelligence");
+        assert_eq!(
+            result.restored_from,
+            "Switchboard-managed Repo Intelligence latest-summary metadata removed."
+        );
+        assert!(result.safety_backup_path.is_none());
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("User repositories were not modified"));
+        assert!(!crate::repo_intelligence::latest_summary_path().exists());
+        assert_eq!(
+            std::fs::read_to_string(&source).expect("read source after"),
+            before
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn dedicated_cleanup_rollback_removes_managed_launch_agents_only() {
+        let scratch = tempfile::tempdir().expect("scratch");
+        let _guard = AppStorageEnvGuard::isolated(scratch.path());
+        let launch_agents = scratch.path().join("Library").join("LaunchAgents");
+        std::fs::create_dir_all(&launch_agents).expect("create launch agents");
+        let managed = launch_agents.join("com.tarunagarwal.mac-ai-switchboard.plist");
+        let legacy = launch_agents.join("Headroom.plist");
+        let unrelated = launch_agents.join("com.example.other.plist");
+        std::fs::write(&managed, "<plist>managed</plist>\n").expect("write managed");
+        std::fs::write(&legacy, "<plist>legacy</plist>\n").expect("write legacy");
+        std::fs::write(&unrelated, "<plist>keep</plist>\n").expect("write unrelated");
+
+        let preview =
+            super::preview_dedicated_cleanup_rollback_inner(None, "login-item".to_string())
+                .expect("preview");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Remove com.tarunagarwal.mac-ai-switchboard LaunchAgent for Launch at login"
+        );
+        assert!(preview.target_path.contains("com.tarunagarwal"));
+        assert!(preview.target_path.contains("Headroom.plist"));
+        assert!(preview
+            .evidence
+            .join(" ")
+            .contains("~/Library/LaunchAgents"));
+
+        let result = super::execute_dedicated_cleanup_rollback_inner(
+            None,
+            "login-item".to_string(),
+            "Remove com.tarunagarwal.mac-ai-switchboard LaunchAgent for Launch at login"
+                .to_string(),
+        )
+        .expect("execute cleanup");
+        assert_eq!(result.record_id, "login-item");
+        assert!(result.restored_from.contains("LaunchAgent"));
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("No shell, client, repo, Keychain, or runtime storage"));
+        assert!(!managed.exists());
+        assert!(!legacy.exists());
+        assert!(unrelated.exists());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn dedicated_cleanup_rollback_removes_ponytail_receipt_only() {
+        let scratch = tempfile::tempdir().expect("scratch");
+        let _guard = AppStorageEnvGuard::isolated(scratch.path());
+        let state = AppState::new_in(scratch.path().join("state")).expect("app state");
+        let tools_dir = state
+            .tool_manager
+            .managed_python()
+            .ancestors()
+            .nth(4)
+            .expect("managed python under headroom root")
+            .join("tools");
+        std::fs::create_dir_all(&tools_dir).expect("create tools");
+        let ponytail_receipt = tools_dir.join("ponytail.json");
+        let unrelated = tools_dir.join("markitdown.json");
+        std::fs::write(&ponytail_receipt, br#"{"version":"latest","enabled":true}"#)
+            .expect("write ponytail receipt");
+        std::fs::write(&unrelated, br#"{"version":"keep"}"#).expect("write unrelated receipt");
+
+        let preview = super::preview_dedicated_cleanup_rollback_inner(
+            Some(&state),
+            "plugins-backups".to_string(),
+        )
+        .expect("preview");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Remove headroom:addon for Add-ons"
+        );
+        assert!(preview
+            .evidence
+            .join(" ")
+            .contains("no-op without the app receipt"));
+
+        let result = super::execute_dedicated_cleanup_rollback_inner(
+            Some(&state),
+            "plugins-backups".to_string(),
+            "Remove headroom:addon for Add-ons".to_string(),
+        )
+        .expect("execute cleanup");
+        assert_eq!(result.record_id, "plugins-backups");
+        assert!(result.restored_from.contains("Ponytail"));
+        assert!(!ponytail_receipt.exists());
+        assert!(unrelated.exists());
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("No add-on backup files were swept"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn dedicated_cleanup_rollback_removes_managed_runtime_storage_only() {
+        let scratch = tempfile::tempdir().expect("scratch");
+        let _guard = AppStorageEnvGuard::isolated(scratch.path());
+        let app_dir = crate::storage::app_data_dir();
+        let legacy_dir = app_dir
+            .parent()
+            .expect("app data parent")
+            .join(crate::storage::LEGACY_STORAGE_DIR_NAME);
+        let dot_headroom = scratch.path().join(".headroom");
+        let preferences = scratch
+            .path()
+            .join("Library")
+            .join("Preferences")
+            .join("com.tarunagarwal.mac-ai-switchboard.plist");
+        std::fs::create_dir_all(&app_dir).expect("create app storage");
+        std::fs::write(app_dir.join("runtime.json"), "{}").expect("write app storage");
+        std::fs::create_dir_all(&legacy_dir).expect("create legacy storage");
+        std::fs::write(legacy_dir.join("legacy.json"), "{}").expect("write legacy storage");
+        std::fs::create_dir_all(&dot_headroom).expect("create dot runtime");
+        std::fs::write(dot_headroom.join("receipt.json"), "{}").expect("write dot runtime");
+        std::fs::create_dir_all(preferences.parent().expect("prefs parent")).expect("create prefs");
+        std::fs::write(&preferences, "prefs").expect("write prefs");
+
+        let preview =
+            super::preview_dedicated_cleanup_rollback_inner(None, "managed-storage".to_string())
+                .expect("preview");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Delete managed storage for Mac AI Switchboard runtime"
+        );
+
+        let result = super::execute_dedicated_cleanup_rollback_inner(
+            None,
+            "managed-storage".to_string(),
+            preview.confirmation_phrase,
+        )
+        .expect("execute cleanup");
+
+        assert!(!app_dir.exists());
+        assert!(!legacy_dir.exists());
+        assert!(!dot_headroom.exists());
+        assert!(preferences.exists());
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("App support storage"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn dedicated_cleanup_rollback_removes_app_state_only() {
+        let scratch = tempfile::tempdir().expect("scratch");
+        let _guard = AppStorageEnvGuard::isolated(scratch.path());
+        let app_dir = crate::storage::app_data_dir();
+        std::fs::create_dir_all(&app_dir).expect("create app storage");
+        std::fs::write(app_dir.join("runtime.json"), "{}").expect("write app storage");
+        let library = scratch.path().join("Library");
+        let preferences = library
+            .join("Preferences")
+            .join("com.tarunagarwal.mac-ai-switchboard.plist");
+        let caches = library
+            .join("Caches")
+            .join("com.tarunagarwal.mac-ai-switchboard");
+        let logs = library.join("Logs").join("Mac AI Switchboard");
+        let webkit = library
+            .join("WebKit")
+            .join("com.tarunagarwal.mac-ai-switchboard");
+        for path in [
+            preferences.clone(),
+            caches.join("cache.db"),
+            logs.join("app.log"),
+            webkit.join("data"),
+        ] {
+            std::fs::create_dir_all(path.parent().expect("state parent"))
+                .expect("create state parent");
+            std::fs::write(path, "state").expect("write state file");
+        }
+
+        let preview =
+            super::preview_dedicated_cleanup_rollback_inner(None, "app-state".to_string())
+                .expect("preview");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Delete com.tarunagarwal.mac-ai-switchboard app state"
+        );
+
+        let result = super::execute_dedicated_cleanup_rollback_inner(
+            None,
+            "app-state".to_string(),
+            preview.confirmation_phrase,
+        )
+        .expect("execute cleanup");
+
+        assert!(!preferences.exists());
+        assert!(!caches.exists());
+        assert!(!logs.exists());
+        assert!(!webkit.exists());
+        assert!(app_dir.exists());
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("App-state cleanup completed"));
     }
 
     #[test]
@@ -6378,6 +9597,98 @@ mod tests {
         let insecure = parse_updater_endpoint_list("http://updates.example.com/latest.json")
             .expect_err("http endpoint should fail");
         assert!(insecure.contains("must use HTTPS"));
+    }
+
+    #[test]
+    fn external_link_validator_accepts_documented_public_links() {
+        assert_eq!(
+            super::validate_external_link_url(
+                " https://github.com/tarunag10/mac-ai-switchboard/issues ",
+            )
+            .expect("repo issues link"),
+            "https://github.com/tarunag10/mac-ai-switchboard/issues"
+        );
+        assert_eq!(
+            super::validate_external_link_url("https://developers.openai.com/codex/cli")
+                .expect("codex docs link"),
+            "https://developers.openai.com/codex/cli"
+        );
+        assert_eq!(
+            super::validate_external_link_url("mailto:hello@example.com").expect("simple mailto"),
+            "mailto:hello@example.com"
+        );
+    }
+
+    #[test]
+    fn external_link_validator_rejects_ssrf_and_injection_shapes() {
+        for raw in [
+            "file:///etc/passwd",
+            "http://127.0.0.1:6767/stats",
+            "http://localhost:6767/stats",
+            "https://10.0.0.4/admin",
+            "https://172.16.0.2/admin",
+            "https://192.168.1.2/admin",
+            "https://[::1]/admin",
+            "https://user:pass@example.com/path",
+            "https://github.com/tarunag10/mac-ai-switchboard/issues\nhttps://evil.example",
+            "mailto:hello@example.com?subject=Injected",
+        ] {
+            assert!(
+                super::validate_external_link_url(raw).is_err(),
+                "{raw} should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn local_only_blocks_contact_request_before_url_or_email_validation() {
+        let _local_only = LocalOnlyEnvGuard::enabled();
+        let err = super::reject_contact_request_in_local_only()
+            .expect_err("local-only blocks contact requests");
+
+        assert_eq!(
+            err,
+            "Support/contact requests are disabled in local-only mode."
+        );
+    }
+
+    #[test]
+    fn contact_request_url_validator_rejects_ssrf_and_injection_shapes() {
+        assert!(super::validate_contact_request_url(
+            "https://github.com/tarunag10/mac-ai-switchboard/issues",
+        )
+        .is_some());
+        for raw in [
+            "http://github.com/tarunag10/mac-ai-switchboard/issues",
+            "https://127.0.0.1/contact",
+            "https://localhost/contact",
+            "https://10.0.0.4/contact",
+            "https://user:pass@github.com/tarunag10/mac-ai-switchboard/issues",
+            "https://github.com.evil.example/contact",
+            "https://github.com/tarunag10/mac-ai-switchboard/issues\nhttps://evil.example",
+        ] {
+            assert!(
+                super::validate_contact_request_url(raw).is_none(),
+                "{raw} should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn connector_smoke_shell_command_uses_login_shell_safe_fixed_prompts() {
+        assert_eq!(shell_single_quote("don't drift"), "'don'\"'\"'t drift'");
+        let codex = super::connector_smoke_shell_command("codex", "say it's ok")
+            .expect("codex smoke supported");
+        assert!(codex.starts_with("codex exec --ephemeral --sandbox read-only"));
+        assert!(codex.contains("--skip-git-repo-check --ignore-rules"));
+        assert!(codex.ends_with("'say it'\"'\"'s ok'"));
+
+        let claude = super::connector_smoke_shell_command("claude_code", "verify")
+            .expect("claude smoke supported");
+        assert!(claude.starts_with("claude --print --no-session-persistence"));
+        assert!(claude.contains("--tools '' --output-format text 'verify'"));
+        assert!(super::connector_smoke_shell_command("cursor", "verify").is_none());
     }
 
     #[test]
@@ -6973,6 +10284,9 @@ mod tests {
 
     #[test]
     fn fetch_transformations_feed_decodes_proxy_response() {
+        std::env::set_var("HEADROOM_FULL_MESSAGE_LOGGING", "0");
+        let app_storage_temp = tempfile::tempdir().expect("app storage tempdir");
+        let _app_storage = AppStorageEnvGuard::isolated(app_storage_temp.path());
         use std::io::{Read, Write};
         use std::net::TcpListener;
 
@@ -6994,7 +10308,11 @@ mod tests {
                     "input_tokens_optimized": 250,
                     "tokens_saved": 750,
                     "savings_percent": 75.0,
-                    "transforms_applied": ["interceptor:ast-grep"]
+                    "transforms_applied": ["interceptor:ast-grep"],
+                    "request_messages": [{
+                        "role": "user",
+                        "content": "sk-ant-test Authorization: Bearer abcdefghijklmnop"
+                    }]
                 }]
             })
             .to_string();
@@ -7011,13 +10329,18 @@ mod tests {
         server.join().unwrap();
 
         assert!(result.proxy_reachable);
-        assert!(result.log_full_messages);
+        assert!(!result.log_full_messages);
+        assert_eq!(result.message_log_retention_hours, 24);
         assert_eq!(result.transformations.len(), 1);
         let event = &result.transformations[0];
         assert_eq!(event.request_id.as_deref(), Some("req-1"));
         assert_eq!(event.provider.as_deref(), Some("anthropic"));
         assert_eq!(event.tokens_saved, Some(750));
         assert_eq!(event.transforms_applied, vec!["interceptor:ast-grep"]);
+        let redacted = serde_json::to_string(&event.request_messages).unwrap();
+        assert!(!redacted.contains("sk-ant-test"));
+        assert!(!redacted.contains("abcdefghijklmnop"));
+        assert!(redacted.contains("[REDACTED]"));
     }
 
     #[test]
@@ -7966,6 +11289,55 @@ Some unrelated content.
         assert!(
             hint.contains("endpoint protection"),
             "expected EDR hint, got: {hint}"
+        );
+    }
+
+    #[test]
+    fn load_release_readiness_report_reads_json_when_present() {
+        let path = std::env::temp_dir().join(format!(
+            "mac-ai-switchboard-release-readiness-{}.json",
+            std::process::id()
+        ));
+        std::fs::write(&path, r#"{"status":"blocked"}"#).unwrap();
+
+        let payload = load_release_readiness_report_from(&path).unwrap();
+
+        assert_eq!(payload.report_path, path.to_string_lossy());
+        assert_eq!(
+            payload
+                .report
+                .unwrap()
+                .get("status")
+                .and_then(Value::as_str),
+            Some("blocked")
+        );
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn load_release_readiness_report_tolerates_missing_file() {
+        let path = std::env::temp_dir().join(format!(
+            "mac-ai-switchboard-missing-release-readiness-{}.json",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+
+        let payload = load_release_readiness_report_from(&path).unwrap();
+
+        assert_eq!(payload.report_path, path.to_string_lossy());
+        assert!(payload.report.is_none());
+    }
+
+    #[test]
+    fn release_evidence_command_rejects_unallowlisted_commands() {
+        let err = crate::run_release_evidence_command("build-mac-dmg".to_string()).unwrap_err();
+
+        assert!(
+            err.contains(
+                "enabled only for static-preflight, desktop-validation, local-dmg-build-install, local-installed-smoke, local-mode-relaunch-smoke, rollback-center-validation, doctor-repair-validation, uninstall-validation, repo-intelligence-validation, repo-memory-mcp-validation, local-only-network-validation, and release-report"
+            ),
+            "unexpected error: {err}"
         );
     }
 }

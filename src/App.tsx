@@ -21,7 +21,9 @@ import {
   CurrencyDollar,
   Info,
   EnvelopeSimple,
+  FirstAidKit,
   GearSix,
+  Graph,
   House,
   Key,
   PuzzlePiece,
@@ -43,7 +45,6 @@ import {
   YAxis,
 } from "recharts";
 import macAiSwitchboardLogo from "./assets/mac-ai-switchboard-logo.png";
-import packageJson from "../package.json";
 import {
   formatAppUpdateProgressCopy,
   getAppUpdateInstallStatusCopy,
@@ -61,34 +62,69 @@ import {
   maybeFireUrgentPricingNotifications,
   maybeFireUrgentRuntimeNotification,
 } from "./lib/urgentNotifications";
-import { plannedAddons, type PlannedAddon } from "./lib/plannedAddons";
 import {
+  buildAddonHealthCards,
+  plannedAddons,
+  type AddonHealthCard,
+  type PlannedAddon,
+} from "./lib/plannedAddons";
+import {
+  buildAgentSessionPreparation,
+  buildAgentSessionDisplayState,
   buildRepoAgentHandoffPayload,
   buildRepoAgentManifest,
   buildRepoIntelligenceSummary,
   estimateRepoIntelligenceSavings,
   formatRepoAgentHandoffMarkdown,
+  formatAgentSessionPreparationJson,
+  formatAgentSessionSelectedPackMarkdown,
+  formatAgentSessionSummaryMarkdown,
   formatRepoAgentManifestJson,
   formatRepoContextPackMarkdown,
   formatSingleRepoContextPackMarkdown,
+  getRepoIndexFreshness,
+  normalizeRepoIndexRequest,
+  repoAgentPackLabel,
   repoAgentHandoffProfiles,
+  type AgentSessionTaskType,
   type RepoContextPack,
   type RepoAgentHandoffTarget,
   type RepoIntelligenceSummary,
   type RepoSavingsEstimate,
 } from "./lib/repoIntelligence";
 import {
+  repoMemoryMcpInspectorRow,
+  repoMemoryMcpLifecycle,
+} from "./lib/repoMemoryMcp";
+import {
+  formatPlannedConnectorConfigCreationPlansMarkdown,
   getPlannedConnector,
+  getPlannedConnectorConfigCreationPlan,
+  getPlannedConnectorReadinessBadges,
+  getPlannedConnectorReadinessContract,
   getPlannedConnectorSetupChecklistScript,
   getPlannedConnectorSetupGuide,
   plannedConnectors,
+  type ConnectorDossier,
   type PlannedConnector,
 } from "./lib/plannedConnectors";
 import {
+  formatLocalReleaseEvidenceSequenceCopy,
   releaseReadinessCommand,
+  formatReleaseReadinessCommandCopy,
+  formatReleaseReadinessNextAction,
+  formatReleaseReadinessReportSnapshot,
+  formatReleaseReadinessSourceLabel,
+  localReleaseEvidenceCommandIds,
+  releaseLocalEvidenceRowsFromReport,
+  releaseReadinessEvidenceSummary,
   releaseReadinessGroups,
   releaseReadinessItemCount,
+  releaseReadinessNextAction,
+  releaseReadinessRowsFromReport,
+  releaseReadinessStatusCounts,
   releaseShareableGates,
+  type ReleaseReadinessReportSnapshot,
 } from "./lib/releaseReadiness";
 import {
   describeInvokeError,
@@ -97,6 +133,7 @@ import {
   getUpgradePlans,
   getFounderStepPricing,
   isTierDowngrade,
+  shouldOfferRuntimeRestartAction,
   tierRecommendationSourceLabel,
   upgradePlanIntentLabel,
   type BillingPeriod,
@@ -113,22 +150,28 @@ import {
   aggregateClientConnectors,
   addDays,
   addMonths,
+  buildClientSavingsTrendRows,
   buildHourlySavingsChartData,
   buildHourlySavingsWindow,
   buildMonthlySavingsChartData,
   buildMonthlySavingsWindow,
   compactNumber,
   connectorControlState,
+  connectorCompatibilityReport,
+  connectorCompatibilityRoutingEvidenceLabel,
   connectorDashboardStatus,
+  connectorSupportsAutomaticSetup,
   currency,
   currencyExact,
   dayOfMonthTickFormatter,
   earliestHourlyDay,
   earliestSavingsMonth,
+  formatConnectorConfigDryRunPreview,
   formatDateTime,
   formatDayKey,
   formatLearnStatus,
   formatMonthLabel,
+  formatPlannedConnectorConfigGateSummary,
   formatSelectedDayLabel,
   getEnabledSupportedConnectors,
   hasEnabledConnector,
@@ -147,6 +190,7 @@ import {
   getContactRequestValidationError,
   getInitialLauncherStage,
   getLauncherAutoConfigureDecision,
+  hasPendingOneClickProxyVerification,
   isValidEmailAddress,
   needsTermsAcceptance,
   nextAutoConfigureStep,
@@ -165,6 +209,7 @@ import {
 } from "./lib/pricing";
 import {
   activityFeedSignature,
+  notificationActionTargetId,
   safeNotificationActionView,
   safeTrayViewForMode,
   serializeState,
@@ -176,22 +221,62 @@ import {
   trackInstallMilestoneOnce,
 } from "./lib/analytics";
 import { localOnlyModeEnabled } from "./lib/localMode";
-import { managedChangeRecords } from "./lib/managedChanges";
 import {
+  buildManagedRollbackExecutionPreview,
+  buildManagedRollbackPlan,
+  buildManagedRollbackUndoAllPreview,
+  canExecuteNativeManagedRollbackPreview,
+  buildManagedConfigDiffPreview,
+  formatManagedFootprintReport,
+  formatManagedRollbackExecutionPreview,
+  formatManagedConfigDiffPreview,
+  formatManagedRollbackPlan,
+  formatManagedRollbackUndoAllPreview,
+  formatManagedRollbackInventory,
+  managedChangeRecords,
+  supportsDedicatedCleanupRollbackRecord,
+  supportsNativeManagedRollbackRecord,
+  type ManagedChangeRecord,
+} from "./lib/managedChanges";
+import {
+  doctorTimelineKindLabel,
+  buildManagedChangeTimelineEvents,
+  buildDoctorReportTimelineEvents,
+  formatDoctorTimelineShareText,
+  sortDoctorTimelineEvents,
+  type DoctorTimelineEvent,
+} from "./lib/doctorRepairCopy";
+import {
+  buildSettingsExportBundle,
+  formatSettingsExportBundle,
+  parseSettingsImport,
+  type SettingsImportPreview,
+} from "./lib/settingsTransfer";
+import {
+  formatBackendUninstallDryRunReport,
+  formatUninstallDryRunReport,
   uninstallDisclosureFooter,
   uninstallDisclosureItems,
   uninstallDisclosureTitle,
 } from "./lib/uninstallDisclosure";
 import {
   deriveSwitchboardMode,
-  switchboardModeLabel,
   switchboardModeSummary,
 } from "./lib/switchboardDisplay";
 import {
   buildAddonSavingsEstimate,
+  buildFilteredSavingsLedger,
+  buildSavingsAnomalyAlerts,
   buildSavingsCalculatorBreakdown,
+  buildSavingsLedgerRows,
   buildSavingsCalculatorSummary,
-  formatSavingsCalculatorShareText,
+  formatSavingsAnomalyAlerts,
+  formatSavingsLedgerConfidenceBreakdown,
+  formatSavingsLedgerAttributionSummary,
+  formatSavingsLedgerShareText,
+  getSavingsLedgerEmptyState,
+  savingsCalculatorScopeDefinition,
+  savingsCalculatorScopeLabel,
   CAVEMAN_TEMPLATE_BASELINE_TOKENS,
   CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
   PONYTAIL_TEMPLATE_BASELINE_TOKENS,
@@ -199,11 +284,14 @@ import {
   MARKITDOWN_TEMPLATE_BASELINE_TOKENS,
   MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS,
   type AddonSavingsEstimate,
+  type SavingsLedgerConfidenceFilter,
   type SavingsCalculatorScope,
 } from "./lib/savingsCalculator";
 import { ActivityFeed } from "./components/ActivityFeed";
 import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
+import { RepoMapView } from "./components/RepoMapView";
+import { SettingsLegalPanel } from "./components/SettingsLegalPanel";
 import { TermsGate } from "./components/TermsGate";
 import { SwitchboardPanel } from "./components/SwitchboardPanel";
 import { SwitchboardDoctorPanel } from "./components/SwitchboardDoctorPanel";
@@ -223,6 +311,13 @@ import type {
   HeadroomLearnPrereqStatus,
   HeadroomLearnStatus,
   HeadroomSubscriptionTier,
+  ManagedConfigApplyPreview,
+  ManagedConfigApplyResult,
+  ManagedFootprintReport,
+  ManagedRollbackExecutionResult,
+  ManagedRollbackPreview,
+  ManagedRollbackUndoAllExecutionResult,
+  ManagedRollbackUndoAllPreview,
   ActivityFeedResponse,
   AppliedPatterns,
   HourlySavingsPoint,
@@ -230,10 +325,13 @@ import type {
   RuntimeStatus,
   RuntimeUpgradeFailure,
   RuntimeUpgradeProgress,
+  SavingsAttributionEvent,
   SavingsMode,
   SwitchboardMode,
   SwitchboardState,
+  UninstallDryRunReport,
 } from "./lib/types";
+import { hasTauriEventRuntime, hasTauriRuntime } from "./lib/tauriRuntime";
 
 interface NavItem {
   id: TrayView;
@@ -243,8 +341,12 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { id: "home", label: "Home", icon: House },
+  { id: "usage", label: "Usage", icon: Calculator },
+  { id: "doctor", label: "Doctor", icon: FirstAidKit },
   { id: "optimization", label: "Optimize", icon: Sliders },
   { id: "notifications", label: "Activity", icon: Bell },
+  { id: "repoMap", label: "Repo Map", icon: Graph },
+  { id: "repoIntelligence", label: "Repo Intelligence", icon: Brain },
   { id: "addons", label: "Addons", icon: PuzzlePiece },
 ];
 
@@ -290,7 +392,7 @@ const addonCopy: Record<string, AddonCopy> = {
     installing: "Writing Caveman guidance blocks...",
     uninstalling: "Removing Caveman guidance blocks...",
     installed:
-      "Caveman installed. Pick scoped or aggressive terse mode any time.",
+      "Caveman installed. Pick scoped, aggressive, or Compact Chinese experimental mode any time.",
     uninstalled: "Caveman removed. Managed terse-output blocks were deleted.",
     enabling: "Enabling Caveman guidance...",
     disabling: "Disabling Caveman guidance...",
@@ -318,47 +420,50 @@ const connectorSetupDetails: Record<string, string> = {
   codex:
     "Headroom writes a managed provider block to ~/.codex/config.toml and exports OPENAI_BASE_URL in shell profiles so Codex connects through Headroom.",
   gemini_cli:
-    "Gemini CLI is tracked as a planned adapter. Until its reversible config path is implemented, use RTK-only mode for command output savings.",
+    "Headroom writes managed Gemini CLI shell routing exports and a rollback dossier so Gemini CLI connects through Mac AI Switchboard while preserving user config.",
   opencode:
-    "OpenCode is tracked as a planned adapter. Until its reversible config path is implemented, use RTK-only mode for command output savings.",
+    "Headroom writes a managed OpenCode provider in ~/.config/opencode/opencode.json and a rollback dossier so OpenCode connects through Mac AI Switchboard.",
   cursor:
-    "Cursor is tracked as a planned editor connector. Guided setup is shown first because Cursor settings and account behavior can vary by release channel.",
+    "Cursor is tracked as a gated editor connector. Guided setup is shown first because Cursor settings and account behavior can vary by release channel.",
   grok_cli:
-    "Grok / xAI CLI is tracked as a planned provider connector. Mac AI Switchboard will keep model and account compatibility visible before routing it.",
+    "Grok / xAI CLI is tracked as a gated provider connector. Mac AI Switchboard will keep model and account compatibility visible before routing it.",
   aider:
-    "Aider is tracked as a planned agent connector. RTK-only mode can already reduce noisy shell output while provider wrapping is built.",
+    "Aider is tracked as a gated agent connector. RTK-only mode can already reduce noisy shell output while provider wrapping is built.",
   continue:
-    "Continue is tracked as a planned editor connector. Guided setup stays manual until provider config backup and restore coverage is ready.",
+    "Continue is tracked as a gated editor connector. Guided setup stays manual until provider config backup and restore coverage is ready.",
   goose:
-    "Goose is tracked as a planned agent connector. Local provider and MCP handoff support will be added after reversible setup coverage.",
+    "Goose is tracked as a gated agent connector. Local provider and MCP handoff support will be added after reversible setup coverage.",
   qwen_code:
-    "Qwen Code is tracked as a planned CLI connector. Use Repo Intelligence packs today while provider routing waits for model and account guardrails.",
+    "Qwen Code is tracked as a gated CLI connector. Use Repo Intelligence packs today while provider routing waits for model and account guardrails.",
   amazon_q:
-    "Amazon Q Developer CLI is tracked as a planned CLI connector. Verification packs are safe today; AWS credential and profile state stay outside managed setup.",
+    "Amazon Q Developer CLI is tracked as a gated CLI connector. Verification packs are safe today; AWS credential and profile state stay outside managed setup.",
   windsurf:
-    "Windsurf is tracked as a planned editor connector. Paste Repo Intelligence handoffs manually until settings backup and restore support lands.",
+    "Headroom writes managed Windsurf editor settings routing to ~/Library/Application Support/Windsurf/User/settings.json with managed markers and rollback.",
   zed_ai:
-    "Zed AI is tracked as a planned editor connector. Keep provider settings manual while Switchboard adds lossless settings detection and restore.",
+    "Zed AI is a managed editor connector. Switchboard manages assistant settings routing with backups, verification, rollback, and Off cleanup.",
 };
 
 const connectorSupportWarnings: Record<string, string> = {};
 
 const connectorUnavailableReasons: Record<string, string> = {
   claude_code:
-    "Claude Code was not detected. Install Claude Code and restart Headroom.",
-  codex: "Codex was not detected. Install the Codex CLI and restart Headroom.",
-  gemini_cli: "Gemini CLI adapter is planned but not configurable yet.",
-  opencode: "OpenCode adapter is planned but not configurable yet.",
-  cursor: "Cursor adapter is planned but not configurable yet.",
-  grok_cli: "Grok / xAI CLI adapter is planned but not configurable yet.",
-  aider: "Aider adapter is planned but not configurable yet.",
-  continue: "Continue adapter is planned but not configurable yet.",
-  goose: "Goose adapter is planned but not configurable yet.",
-  qwen_code: "Qwen Code adapter is planned but not configurable yet.",
+    "Claude Code was not detected. Install Claude Code, then reopen Mac AI Switchboard.",
+  codex:
+    "Codex was not detected. Install the Codex CLI, then reopen Mac AI Switchboard.",
+  gemini_cli:
+    "Gemini CLI was not detected. Install Gemini CLI, then reopen Mac AI Switchboard.",
+  opencode:
+    "OpenCode was not detected. Install OpenCode, then reopen Mac AI Switchboard.",
+  cursor: "Cursor setup is gated until editor-settings backup, verify, rollback, and Off cleanup coverage is promoted.",
+  grok_cli: "Grok / xAI CLI setup is gated until model/account guardrails and reversible provider routing are proven.",
+  aider: "Aider setup is gated until wrapper/env backup, verify, rollback, and Off cleanup coverage is promoted.",
+  continue: "Continue setup is gated until provider config backup, verify, rollback, and Off cleanup coverage is promoted.",
+  goose: "Goose setup is gated until MCP/provider config backup, verify, rollback, and Off cleanup coverage is promoted.",
+  qwen_code: "Qwen Code setup is gated until model/account guardrails and reversible provider routing are proven.",
   amazon_q:
-    "Amazon Q Developer CLI adapter is planned but not configurable yet.",
-  windsurf: "Windsurf adapter is planned but not configurable yet.",
-  zed_ai: "Zed AI adapter is planned but not configurable yet.",
+    "Amazon Q Developer CLI setup is gated until credential-safe profile handling and reversible routing are proven.",
+  windsurf: "Windsurf was not detected. Install Windsurf, then reopen Mac AI Switchboard.",
+  zed_ai: "Zed was not detected. Install Zed, then reopen Mac AI Switchboard.",
 };
 
 const launcherConnectorFallback: ClientConnectorStatus[] = [
@@ -431,6 +536,8 @@ const SALES_CONTACT_URL =
 const CONTACT_FORM_URL = (
   import.meta.env.VITE_HEADROOM_CONTACT_FORM_URL ?? ""
 ).trim();
+const SUPPORT_ISSUES_URL =
+  "https://github.com/tarunag10/mac-ai-switchboard/issues";
 
 type StartupPhase = "window" | "dashboard" | "bootstrap" | "runtime" | "ready";
 
@@ -443,6 +550,16 @@ async function loadDashboard(): Promise<DashboardState> {
     return await invoke<DashboardState>("get_dashboard_state");
   } catch {
     return mockDashboard;
+  }
+}
+
+async function loadSavingsAttributionEvents(): Promise<SavingsAttributionEvent[]> {
+  try {
+    return await invoke<SavingsAttributionEvent[]>(
+      "get_savings_attribution_events",
+    );
+  } catch {
+    return [];
   }
 }
 
@@ -550,6 +667,20 @@ function delay(ms: number) {
 
 type SavingsChartView = "month" | "day";
 type SavingsChartMode = "usd" | "tokens";
+const savingsLedgerConfidenceFilters: SavingsLedgerConfidenceFilter[] = [
+  "all",
+  "measured",
+  "estimated",
+  "inferred",
+];
+const savingsCalculatorScopes: SavingsCalculatorScope[] = [
+  "session",
+  "repo",
+  "today",
+  "week",
+  "month",
+  "lifetime",
+];
 
 // Output-token reduction from the proxy's output shaper, shown as a secondary
 // line inside the "Total input tokens saved" card so the two numbers (input
@@ -643,6 +774,8 @@ function SavingsCalculatorCard({
   dashboard,
   repoSavings,
   runtimeStatus,
+  rtkToday,
+  attributionEvents,
   cavemanSavings,
   ponytailSavings,
   markitdownSavings,
@@ -652,6 +785,8 @@ function SavingsCalculatorCard({
   dashboard: DashboardState;
   repoSavings?: RepoSavingsEstimate | null;
   runtimeStatus?: RuntimeStatus | null;
+  rtkToday?: ActivityFeedResponse["tiles"]["rtkToday"];
+  attributionEvents?: SavingsAttributionEvent[];
   cavemanSavings?: AddonSavingsEstimate | null;
   ponytailSavings?: AddonSavingsEstimate | null;
   markitdownSavings?: AddonSavingsEstimate | null;
@@ -662,21 +797,65 @@ function SavingsCalculatorCard({
   const breakdownRows = buildSavingsCalculatorBreakdown(dashboard, scope, {
     repoSavings,
     runtimeStatus,
+    rtkToday,
+    attributionEvents,
     cavemanSavings,
     ponytailSavings,
     markitdownSavings,
   });
+  const ledgerRows = buildSavingsLedgerRows(
+    dashboard,
+    scope,
+    new Date().toISOString(),
+    {
+      repoSavings,
+      runtimeStatus,
+      rtkToday,
+      attributionEvents,
+      cavemanSavings,
+      ponytailSavings,
+      markitdownSavings,
+    },
+  );
   const savedLabel = compactNumber(summary.savedTokens);
   const sentLabel = compactNumber(summary.sentTokens);
   const beforeLabel = compactNumber(summary.beforeTokens);
   const conservativeUsdLabel = currencyExact(summary.conservativeSavedUsd);
-  const hasUsage = summary.requests > 0 || summary.savedTokens > 0;
+  const hasUsage =
+    summary.requests > 0 || summary.savedTokens > 0 || ledgerRows.length > 0;
   const percentLabel =
     summary.savingsPct === null
       ? "Waiting for usage"
       : `${percent1(summary.savingsPct)}%`;
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
+  const [ledgerFilter, setLedgerFilter] =
+    useState<SavingsLedgerConfidenceFilter>("all");
+  const ledgerRecordedAt = ledgerRows[0]?.recordedAt ?? new Date().toISOString();
+  const filteredLedger = buildFilteredSavingsLedger(
+    ledgerRows,
+    scope,
+    ledgerRecordedAt,
+    ledgerFilter,
+  );
+  const anomalyAlerts = buildSavingsAnomalyAlerts(
+    attributionEvents ?? [],
+    scope,
+    ledgerRecordedAt,
+  );
+  const ledgerEmptyState = getSavingsLedgerEmptyState(
+    ledgerRows.length,
+    ledgerFilter,
+  );
+  const measuredSessionAttributionEvents = (attributionEvents ?? []).filter(
+    (event) =>
+      scope === "session" &&
+      event.scope === "session" &&
+      event.confidence === "measured" &&
+      (event.deltaTokensSaved > 0 ||
+        event.deltaUsd > 0 ||
+        event.requestDelta > 0),
+  ).length;
 
   async function copySavingsSummary() {
     if (!navigator.clipboard) {
@@ -685,9 +864,17 @@ function SavingsCalculatorCard({
     }
 
     await navigator.clipboard.writeText(
-      formatSavingsCalculatorShareText(summary, breakdownRows),
+      formatSavingsLedgerShareText(
+        filteredLedger.rows,
+        scope,
+        ledgerRecordedAt,
+        ledgerFilter,
+        anomalyAlerts,
+      ),
     );
-    setCopyNotice("Copied summary.");
+    setCopyNotice(
+      ledgerFilter === "all" ? "Copied ledger." : `Copied ${ledgerFilter}.`,
+    );
   }
 
   return (
@@ -707,7 +894,7 @@ function SavingsCalculatorCard({
           role="group"
           aria-label="Savings scope"
         >
-          {(["session", "overall"] as const).map((item) => (
+          {savingsCalculatorScopes.map((item) => (
             <button
               key={item}
               type="button"
@@ -716,7 +903,7 @@ function SavingsCalculatorCard({
               }`}
               onClick={() => onScopeChange(item)}
             >
-              {item === "session" ? "Session" : "Overall"}
+              {savingsCalculatorScopeLabel(item).replace("current app ", "")}
             </button>
           ))}
         </div>
@@ -733,9 +920,7 @@ function SavingsCalculatorCard({
       </header>
       <div className="savings-calculator__body">
         <div className="savings-calculator__hero">
-          <span>
-            {scope === "session" ? "Saved this session" : "Saved overall"}
-          </span>
+          <span>Saved {savingsCalculatorScopeLabel(scope)}</span>
           <strong>{currencyExact(summary.savedUsd)}</strong>
         </div>
         <dl className="savings-calculator__metrics">
@@ -788,7 +973,8 @@ function SavingsCalculatorCard({
             <div>
               <strong>{row.label}</strong>
               <span>
-                {row.detail} Source: {row.confidence}.
+                {row.detail} Source: {row.source}. Confidence:{" "}
+                {row.confidence}.
               </span>
             </div>
             <div className="savings-calculator__breakdown-value">
@@ -802,6 +988,192 @@ function SavingsCalculatorCard({
           </div>
         ))}
       </div>
+      <div className="savings-calculator__ledger" aria-label="Savings ledger">
+        <div className="savings-calculator__ledger-head">
+          <div>
+            <span>Ledger</span>
+            <strong>{savingsCalculatorScopeLabel(scope)}</strong>
+            <p>{savingsCalculatorScopeDefinition(scope)}</p>
+          </div>
+          <div
+            className="savings-calculator__ledger-filters"
+            role="group"
+            aria-label="Ledger confidence filter"
+          >
+            {savingsLedgerConfidenceFilters.map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                className={`savings-calculator__ledger-filter${
+                  ledgerFilter === filter ? " is-active" : ""
+                }`}
+                onClick={() => setLedgerFilter(filter)}
+              >
+                {filter === "all" ? "All" : filter}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="savings-calculator__ledger-summary">
+          <span>
+            Sources <strong>{filteredLedger.groups.length}</strong>
+          </span>
+          <span>
+            Rows <strong>{compactNumber(filteredLedger.summary.rowCount)}</strong>
+          </span>
+          <span>
+            Tokens{" "}
+            <strong>{compactNumber(filteredLedger.summary.totalTokens)}</strong>
+          </span>
+          <span>
+            Confidence{" "}
+            <strong>
+              {formatSavingsLedgerConfidenceBreakdown(filteredLedger.summary)}
+            </strong>
+          </span>
+          <span>
+            Attribution{" "}
+            <strong>
+              {formatSavingsLedgerAttributionSummary(filteredLedger.summary)}
+            </strong>
+          </span>
+          {scope === "session" ? (
+            <span>
+              Backend events{" "}
+              <strong>{compactNumber(measuredSessionAttributionEvents)}</strong>
+            </span>
+          ) : null}
+        </div>
+        {anomalyAlerts.length > 0 ? (
+          <div
+            className="savings-calculator__anomalies"
+            aria-label="Savings anomaly alerts"
+          >
+            <strong>Savings anomaly alerts</strong>
+            <span>{formatSavingsAnomalyAlerts(anomalyAlerts)}</span>
+          </div>
+        ) : null}
+        <div className="savings-calculator__ledger-list">
+          {filteredLedger.groups.length > 0 ? (
+            filteredLedger.groups.map((group) => (
+              <div
+                className="savings-calculator__ledger-row"
+                key={group.source}
+              >
+                <div>
+                  <strong>{group.label}</strong>
+                  <span>
+                    {group.confidence} · {group.rowCount} row
+                    {group.rowCount === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <div>
+                  <strong>{compactNumber(group.totalTokens)}</strong>
+                  <span>
+                    {group.measuredTokens > 0
+                      ? `${compactNumber(group.measuredTokens)} measured`
+                      : group.estimatedTokens > 0
+                        ? `${compactNumber(group.estimatedTokens)} estimated`
+                        : `${compactNumber(group.inferredTokens)} inferred`}
+                  </span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="savings-calculator__ledger-row">
+              <div>
+                <strong>{ledgerEmptyState.title}</strong>
+                <span>{ledgerEmptyState.detail}</span>
+              </div>
+              <div>
+                <strong>0</strong>
+                <span>{formatDateTime(ledgerRecordedAt)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ClientSavingsTrendsCard({
+  dashboard,
+}: {
+  dashboard: DashboardState;
+}) {
+  const trends = buildClientSavingsTrendRows(
+    dashboard.recentUsage,
+    dashboard.hourlySavings,
+  );
+  const trendScope =
+    trends[0]?.scope === "saved_history" ? "saved history" : "current session";
+
+  return (
+    <article className="soft-card client-savings-trends">
+      <header className="client-savings-trends__header">
+        <div>
+          <h2>Per-client savings</h2>
+          <p>
+            {trendScope === "saved history"
+              ? "Saved local history, grouped by connected coding tool."
+              : "Current app session, grouped by connected coding tool."}
+          </p>
+        </div>
+        <span>
+          {compactNumber(trends.length)} client{trends.length === 1 ? "" : "s"}
+        </span>
+      </header>
+      {trends.length > 0 ? (
+        <div className="client-savings-trends__list">
+          {trends.map((trend) => {
+            const reduction =
+              trend.totalTokensSent + trend.estimatedTokensSaved > 0
+                ? (trend.estimatedTokensSaved /
+                    (trend.totalTokensSent + trend.estimatedTokensSaved)) *
+                  100
+                : 0;
+            return (
+              <div className="client-savings-trends__row" key={trend.client}>
+                <div>
+                  <strong>{trend.client}</strong>
+                  <span>
+                    {trend.scope === "saved_history"
+                      ? `Saved history · latest ${formatDateTime(trend.lastSeenAt)}`
+                      : `${compactNumber(trend.requests)} request${
+                          trend.requests === 1 ? "" : "s"
+                        } · last ${formatDateTime(trend.lastSeenAt)}`}
+                  </span>
+                </div>
+                <dl>
+                  <div>
+                    <dt>Saved</dt>
+                    <dd>{compactNumber(trend.estimatedTokensSaved)}</dd>
+                  </div>
+                  <div>
+                    <dt>Spent</dt>
+                    <dd>{compactNumber(trend.totalTokensSent)}</dd>
+                  </div>
+                  <div>
+                    <dt>USD</dt>
+                    <dd>{currencyExact(trend.estimatedSavingsUsd)}</dd>
+                  </div>
+                  <div>
+                    <dt>Reduction</dt>
+                    <dd>{percent1(reduction)}%</dd>
+                  </div>
+                </dl>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="client-savings-trends__empty">
+          Send a prompt through Claude Code, Codex, or another connected tool to
+          populate session-level client trends. Saved per-client history appears
+          here after provider-attributed savings history is available.
+        </p>
+      )}
     </article>
   );
 }
@@ -827,6 +1199,10 @@ function DailySavingsChart({
   const [savingsTodayUsd, setSavingsTodayUsd] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!hasTauriEventRuntime()) {
+      return;
+    }
+
     let unlisten: (() => void) | undefined;
     void listen<number>("savings-today-updated", (event) => {
       setSavingsTodayUsd(event.payload);
@@ -1140,6 +1516,59 @@ function AddonClientChips({
   );
 }
 
+function AddonHealthStrip({ cards }: { cards: AddonHealthCard[] }) {
+  return (
+    <div className="addons__health-strip" aria-label="Add-on health">
+      {cards.map((card) => (
+        <section
+          className={`addons__health-card addons__health-card--${card.tone}`}
+          key={card.id}
+        >
+          <div className="addons__health-heading">
+            <strong>{card.name}</strong>
+            <span>{card.statusLabel}</span>
+          </div>
+          <p>{card.detail}</p>
+          <ul>
+            {card.evidence.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <div
+            className="addons__health-trend"
+            aria-label={`${card.name} health trend`}
+          >
+            <div className="addons__health-trend-heading">
+              <span>{card.trend.label}</span>
+              <strong>{card.trend.value}</strong>
+            </div>
+            {card.trend.points.length > 0 ? (
+              <div className="addons__health-sparkline" aria-hidden="true">
+                {card.trend.points.map((point) => {
+                  const maxValue = Math.max(
+                    ...card.trend.points.map((item) => item.value),
+                    1,
+                  );
+                  const height = Math.max(12, (point.value / maxValue) * 100);
+                  return (
+                    <span
+                      key={`${point.label}-${point.value}`}
+                      style={{ height: `${height}%` }}
+                      title={`${point.label}: ${point.value.toLocaleString()}`}
+                    />
+                  );
+                })}
+              </div>
+            ) : null}
+            <small>{card.trend.detail}</small>
+          </div>
+          <em>{card.nextAction}</em>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function formatAddonVersion(version: string): string {
   return /^\d/.test(version) ? `v${version}` : version;
 }
@@ -1284,22 +1713,29 @@ function AddonCard({
 
 function PlannedAddonCard({
   addon,
-  onRepoIntelligenceSummaryChange,
+  onCopyConnectorConfigPlan,
+  onOpenRepoIntelligence,
 }: {
   addon: PlannedAddon;
-  onRepoIntelligenceSummaryChange?: (summary: RepoIntelligenceSummary) => void;
+  onCopyConnectorConfigPlan?: (connector: PlannedConnector) => void;
+  onOpenRepoIntelligence?: () => void;
 }) {
   const showConnectorRoadmap = addon.id === "agent_connectors";
   const showRepoIntelligencePreview = addon.id === "repo_intelligence";
+  const isRepoIntelligence = addon.id === "repo_intelligence";
+  const cardClassName = isRepoIntelligence
+    ? "addon-card addon-card--active"
+    : "addon-card addon-card--planned";
+  const badgeClassName = isRepoIntelligence
+    ? "addon-card__badge addon-card__badge--ready"
+    : "addon-card__badge addon-card__badge--planned";
 
   return (
-    <li className="addon-card addon-card--planned">
+    <li className={cardClassName}>
       <div className="addon-card__body">
         <div className="addon-card__heading">
           <span className="addon-card__name">{addon.name}</span>
-          <span className="addon-card__badge addon-card__badge--planned">
-            {addon.statusLabel}
-          </span>
+          <span className={badgeClassName}>{addon.statusLabel}</span>
         </div>
         <p className="addon-card__description">{addon.description}</p>
         <ul className="addon-card__bullets">
@@ -1332,17 +1768,34 @@ function PlannedAddonCard({
           </p>
         ) : null}
         {showConnectorRoadmap ? (
-          <PlannedConnectorRoadmap connectors={plannedConnectors} />
+          <PlannedConnectorRoadmap
+            connectors={plannedConnectors}
+            onCopyConfigPlan={
+              onCopyConnectorConfigPlan ??
+              (() => undefined)
+            }
+          />
         ) : null}
         {showRepoIntelligencePreview ? (
-          <RepoIntelligencePreview
-            onSummaryChange={onRepoIntelligenceSummaryChange}
-          />
+          <div className="repo-intelligence-addon-cta">
+            <strong>Dedicated workspace is available.</strong>
+            <span>
+              Open Repo Intelligence to index a repository and copy real local
+              packs.
+            </span>
+            <button
+              className="addon-card__action addon-card__action--primary"
+              onClick={onOpenRepoIntelligence}
+              type="button"
+            >
+              Open Repo Intelligence
+            </button>
+          </div>
         ) : null}
       </div>
       <div className="addon-card__actions">
         <button type="button" className="addon-card__action" disabled>
-          Coming soon
+          {isRepoIntelligence ? "Open from sidebar" : "Review gated readiness"}
         </button>
       </div>
     </li>
@@ -1384,19 +1837,6 @@ function repoAgentGroupLabel(
   }
 }
 
-function repoAgentPackLabel(packId: string) {
-  switch (packId) {
-    case "implementation":
-      return "Implementation pack";
-    case "verification":
-      return "Verification pack";
-    case "handoff":
-      return "Handoff pack";
-    default:
-      return `${packId} pack`;
-  }
-}
-
 const repoAgentHandoffGroups = repoAgentHandoffProfiles.reduce<
   Array<{
     label: string;
@@ -1413,12 +1853,95 @@ const repoAgentHandoffGroups = repoAgentHandoffProfiles.reduce<
   return groups;
 }, []);
 
-function RepoIntelligencePreview({
-  onSummaryChange,
+function sampleManagedBlock(record: ManagedChangeRecord) {
+  return [
+    `# >>> ${record.markerId} >>>`,
+    `# Managed by Mac AI Switchboard for ${record.owner}.`,
+    "# Actual write paths fill this block from the connector adapter dry-run.",
+    `# <<< ${record.markerId} <<<`,
+  ].join("\n");
+}
+
+function firstManagedConfigTarget(record: ManagedChangeRecord) {
+  return record.paths[0] ?? "~/.config/mac-ai-switchboard-managed";
+}
+
+function buildDoctorTimelinePreview(
+  report: DoctorReport | null,
+  successMessage: string | null,
+): DoctorTimelineEvent[] {
+  const now = new Date().toISOString();
+
+  return sortDoctorTimelineEvents([
+    ...buildDoctorReportTimelineEvents(report, successMessage, now),
+    ...buildManagedChangeTimelineEvents(managedChangeRecords, now),
+  ]);
+}
+
+function DoctorTimelineCard({
+  events,
 }: {
+  events: DoctorTimelineEvent[];
+}) {
+  const [copyNotice, setCopyNotice] = useState<string | null>(null);
+
+  async function copyTimeline() {
+    if (!navigator.clipboard) {
+      setCopyNotice("Clipboard unavailable.");
+      return;
+    }
+    await navigator.clipboard.writeText(formatDoctorTimelineShareText(events));
+    setCopyNotice("Copied timeline.");
+    window.setTimeout(() => setCopyNotice(null), 2500);
+  }
+
+  return (
+    <article className="soft-card doctor-timeline">
+      <div className="doctor-timeline__head">
+        <div>
+          <span>Doctor timeline</span>
+          <strong>{events.length} event{events.length === 1 ? "" : "s"}</strong>
+        </div>
+        <button
+          className="secondary-button secondary-button--small"
+          onClick={() => void copyTimeline()}
+          type="button"
+        >
+          {copyNotice ?? "Copy timeline"}
+        </button>
+      </div>
+      <div className="doctor-timeline__list">
+        {events.map((event) => (
+          <div className="doctor-timeline__event" key={event.id}>
+            <div>
+              <strong>{event.title}</strong>
+              <span>{event.body}</span>
+            </div>
+            <div>
+              <span>{doctorTimelineKindLabel(event.kind)}</span>
+              <span>{event.status}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function RepoIntelligencePreview({
+  headroomHealthy = false,
+  onSummaryChange,
+  rtkHealthy = false,
+}: {
+  headroomHealthy?: boolean;
   onSummaryChange?: (summary: RepoIntelligenceSummary) => void;
+  rtkHealthy?: boolean;
 }) {
   const [repoPath, setRepoPath] = useState("");
+  const [selectedAgent, setSelectedAgent] =
+    useState<RepoAgentHandoffTarget>("codex");
+  const [selectedTaskType, setSelectedTaskType] =
+    useState<AgentSessionTaskType>("verification");
   const [summary, setSummary] = useState<RepoIntelligenceSummary>(
     repoIntelligencePreview,
   );
@@ -1426,8 +1949,31 @@ function RepoIntelligencePreview({
   const [indexError, setIndexError] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const isPreview = summary === repoIntelligencePreview;
+  const hasRealIndex = !isPreview;
+  const indexFreshness = getRepoIndexFreshness(summary);
+  const indexStatusLabel = indexFreshness.label;
+  const cacheStateLabel = summary.indexMetadata
+    ? `${summary.indexMetadata.cacheState} cache · ${summary.indexMetadata.fileFingerprints.length.toLocaleString()} fingerprints · ${(summary.indexMetadata.skippedFiles?.length ?? summary.indexMetadata.skippedFileCount).toLocaleString()} skipped reasons · ${(summary.indexMetadata.graphInputs?.length ?? 0).toLocaleString()} graph inputs · ${summary.indexMetadata.parserVersion}`
+    : null;
   const savingsEstimate = estimateRepoIntelligenceSavings(summary);
   const agentManifest = buildRepoAgentManifest(summary);
+  const selectedAgentProfile =
+    repoAgentHandoffProfiles.find((profile) => profile.id === selectedAgent) ??
+    repoAgentHandoffProfiles[0];
+  const providerRoutingSafe = primaryRepoAgentIds.has(selectedAgent);
+  const sessionPreparation = buildAgentSessionPreparation(summary, {
+    target: selectedAgentProfile.id,
+    taskType: selectedTaskType,
+    modeInputs: {
+      headroomHealthy,
+      rtkHealthy,
+      providerRoutingSafe,
+    },
+  });
+  const sessionDisplayState = buildAgentSessionDisplayState(
+    sessionPreparation,
+    hasRealIndex,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -1448,9 +1994,9 @@ function RepoIntelligencePreview({
   }, []);
 
   async function runRepoIndex() {
-    const trimmedPath = repoPath.trim();
-    if (!trimmedPath) {
-      setIndexError("Enter a local repository folder path first.");
+    const request = normalizeRepoIndexRequest(repoPath);
+    if (request.error) {
+      setIndexError(request.error);
       return;
     }
     setIndexing(true);
@@ -1459,7 +2005,7 @@ function RepoIntelligencePreview({
       const next = await invoke<RepoIntelligenceSummary>(
         "build_repo_intelligence_summary",
         {
-          repoPath: trimmedPath,
+          repoPath: request.repoPath,
         },
       );
       setSummary(next);
@@ -1495,6 +2041,11 @@ function RepoIntelligencePreview({
   }
 
   async function copyContextPack() {
+    if (!hasRealIndex) {
+      setCopyNotice("Index a repo before copying real context.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
@@ -1511,6 +2062,11 @@ function RepoIntelligencePreview({
   }
 
   async function copyAgentManifest() {
+    if (!hasRealIndex) {
+      setCopyNotice("Index a repo before copying a real manifest.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
@@ -1525,6 +2081,11 @@ function RepoIntelligencePreview({
   }
 
   async function copySingleContextPack(pack: RepoContextPack) {
+    if (!hasRealIndex) {
+      setCopyNotice("Index a repo before copying this pack.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
@@ -1541,6 +2102,11 @@ function RepoIntelligencePreview({
   }
 
   async function copyAgentRecipePack(packId: string, label: string) {
+    if (!hasRealIndex) {
+      setCopyNotice("Index a repo before copying recipe packs.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
     const pack = summary.packs.find((contextPack) => contextPack.id === packId);
     if (!pack) {
       setCopyNotice("Recipe pack unavailable. Re-index this repo.");
@@ -1566,6 +2132,11 @@ function RepoIntelligencePreview({
     target: RepoAgentHandoffTarget,
     label: string,
   ) {
+    if (!hasRealIndex) {
+      setCopyNotice("Index a repo before copying agent handoffs.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
@@ -1585,6 +2156,11 @@ function RepoIntelligencePreview({
     target: RepoAgentHandoffTarget,
     label: string,
   ) {
+    if (!hasRealIndex) {
+      setCopyNotice("Index a repo before copying agent handoffs.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
@@ -1600,15 +2176,97 @@ function RepoIntelligencePreview({
     }
   }
 
+  async function copyPreparedAgentSession() {
+    if (!hasRealIndex || !sessionPreparation.handoffMarkdown) {
+      setCopyNotice(sessionPreparation.copyDetail);
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(sessionPreparation.handoffMarkdown);
+      setCopyNotice(`${sessionPreparation.target.label} session copied.`);
+      window.setTimeout(() => setCopyNotice(null), 2000);
+    } catch {
+      setCopyNotice("Copy failed. Select session details manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
+
+  async function copyPreparedAgentSessionSummary() {
+    const summaryMarkdown = formatAgentSessionSummaryMarkdown(sessionPreparation);
+    if (!hasRealIndex || !summaryMarkdown) {
+      setCopyNotice(sessionPreparation.copyDetail);
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(summaryMarkdown);
+      setCopyNotice(`${sessionPreparation.target.label} summary copied.`);
+      window.setTimeout(() => setCopyNotice(null), 2000);
+    } catch {
+      setCopyNotice("Copy failed. Select session summary manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
+
+  async function copyPreparedAgentSessionJson() {
+    const json = formatAgentSessionPreparationJson(sessionPreparation);
+    if (!hasRealIndex || !json) {
+      setCopyNotice(sessionPreparation.copyDetail);
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(json);
+      setCopyNotice(`${sessionPreparation.target.label} JSON copied.`);
+      window.setTimeout(() => setCopyNotice(null), 2000);
+    } catch {
+      setCopyNotice("Copy failed. Select session JSON manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
+
+  async function copyPreparedAgentSessionPack() {
+    const packMarkdown = formatAgentSessionSelectedPackMarkdown(
+      summary,
+      sessionPreparation,
+    );
+    if (!hasRealIndex || !packMarkdown) {
+      setCopyNotice(sessionPreparation.copyDetail);
+      window.setTimeout(() => setCopyNotice(null), 3000);
+      return;
+    }
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(packMarkdown);
+      setCopyNotice(
+        `${repoAgentPackLabel(sessionPreparation.packId)} copied.`,
+      );
+      window.setTimeout(() => setCopyNotice(null), 2000);
+    } catch {
+      setCopyNotice("Copy failed. Select session pack manually.");
+      window.setTimeout(() => setCopyNotice(null), 3000);
+    }
+  }
+
   return (
     <div
       className="repo-intelligence-preview"
       aria-label="Repo Intelligence context pack preview"
     >
       <div className="repo-intelligence-preview__topline">
-        <span>
-          {isPreview ? "Read-only context packs" : "Local index result"}
-        </span>
+        <span>{indexStatusLabel}</span>
         <strong>
           {summary.indexedFiles} indexed signals
           {summary.skippedFiles ? `, ${summary.skippedFiles} skipped` : ""}
@@ -1670,12 +2328,182 @@ function RepoIntelligencePreview({
           Indexed {new Date(summary.indexedAt).toLocaleString()}
         </p>
       ) : null}
+      {hasRealIndex ? (
+        <p className="repo-intelligence-preview__path">
+          {indexFreshness.detail}
+        </p>
+      ) : null}
+      {cacheStateLabel ? (
+        <p className="repo-intelligence-preview__path">
+          Index cache: {cacheStateLabel}
+        </p>
+      ) : null}
       {copyNotice ? (
         <p className="repo-intelligence-preview__path">{copyNotice}</p>
       ) : null}
       {indexError ? (
         <p className="install-progress__error">{indexError}</p>
       ) : null}
+      <div
+        className="repo-intelligence-session"
+        aria-label="Start agent session"
+      >
+        <div className="repo-intelligence-session__heading">
+          <div>
+            <span>Start session</span>
+            <strong>{sessionDisplayState.targetLabel}</strong>
+          </div>
+          <span
+            className={`repo-intelligence-session__status repo-intelligence-session__status--${sessionDisplayState.copyStatus}`}
+          >
+            {sessionDisplayState.copyStatus}
+          </span>
+        </div>
+        <div className="repo-intelligence-session__controls">
+          <label>
+            <span>Agent</span>
+            <select
+              value={selectedAgent}
+              onChange={(event) =>
+                setSelectedAgent(event.target.value as RepoAgentHandoffTarget)
+              }
+            >
+              {repoAgentHandoffProfiles.map((profile) => (
+                <option key={profile.id} value={profile.id}>
+                  {profile.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Task</span>
+            <select
+              value={selectedTaskType}
+              onChange={(event) =>
+                setSelectedTaskType(event.target.value as AgentSessionTaskType)
+              }
+            >
+              <option value="implementation">Implementation</option>
+              <option value="verification">Verification</option>
+              <option value="handoff">Handoff</option>
+              <option value="risk_review">Risk review</option>
+              <option value="release_handoff">Release handoff</option>
+            </select>
+          </label>
+          <button
+            className="addon-card__action addon-card__action--primary"
+            disabled={!sessionDisplayState.canCopyHandoff}
+            onClick={() => void copyPreparedAgentSession()}
+            type="button"
+          >
+            Copy full handoff
+          </button>
+          <button
+            className="addon-card__action"
+            disabled={!sessionDisplayState.canCopySummary}
+            onClick={() => void copyPreparedAgentSessionSummary()}
+            type="button"
+          >
+            Copy summary
+          </button>
+          <button
+            className="addon-card__action"
+            disabled={!sessionDisplayState.canCopySelectedPack}
+            onClick={() => void copyPreparedAgentSessionPack()}
+            type="button"
+          >
+            Copy selected pack
+          </button>
+          <button
+            className="addon-card__action"
+            disabled={!sessionDisplayState.canCopyJson}
+            onClick={() => void copyPreparedAgentSessionJson()}
+            type="button"
+          >
+            Copy JSON
+          </button>
+        </div>
+        <div className="repo-intelligence-session__summary">
+          <div>
+            <span>Pack</span>
+            <strong>{sessionDisplayState.packLabel}</strong>
+          </div>
+          <div>
+            <span>Mode</span>
+            <strong>
+              {sessionDisplayState.modeLabel}
+            </strong>
+          </div>
+          <div>
+            <span>Freshness</span>
+            <strong>{sessionDisplayState.freshnessLabel}</strong>
+            <small>{sessionDisplayState.freshnessDetailLabel}</small>
+          </div>
+          <div>
+            <span>Context</span>
+            <strong>{sessionDisplayState.contextLabel}</strong>
+          </div>
+          <div>
+            <span>Selected pack</span>
+            <strong>{sessionDisplayState.selectedPackTokensLabel}</strong>
+          </div>
+          <div>
+            <span>Avoided</span>
+            <strong>{sessionDisplayState.tokensAvoidedLabel}</strong>
+          </div>
+          <div>
+            <span>Skipped</span>
+            <strong>{sessionDisplayState.skippedFilesLabel}</strong>
+          </div>
+          <div>
+            <span>Secrets</span>
+            <strong>{sessionDisplayState.secretExclusionLabel}</strong>
+          </div>
+          {sessionDisplayState.connectorReadinessLabel ? (
+            <div>
+              <span>Connector</span>
+              <strong>{sessionDisplayState.connectorReadinessLabel}</strong>
+              <small>{sessionDisplayState.connectorReadinessDetailLabel}</small>
+            </div>
+          ) : null}
+        </div>
+        {sessionDisplayState.sampleContextWarning ? (
+          <p className="repo-intelligence-session__detail">
+            {sessionDisplayState.sampleContextWarning}
+          </p>
+        ) : null}
+        <p className="repo-intelligence-session__detail">
+          {sessionDisplayState.copyDetail} Doctor still verifies runtime and
+          connector health before any managed setup.
+        </p>
+        <div
+          className="repo-intelligence-session__safety"
+          aria-label="Agent session copy safety proof"
+        >
+          <span>
+            {sessionPreparation.copySafety.hasRealIndex
+              ? "Real index"
+              : "Sample blocked"}
+          </span>
+          <span>
+            {sessionPreparation.copySafety.allowsCopy
+              ? "Copy allowed"
+              : "Copy disabled"}
+          </span>
+          <span>
+            {sessionPreparation.copySafety.excludesSecretLikePaths
+              ? "Secrets excluded"
+              : "Secrets unchecked"}
+          </span>
+          <span>
+            {sessionPreparation.copySafety.skippedFileCount.toLocaleString()}{" "}
+            skipped
+          </span>
+        </div>
+        <p className="repo-intelligence-session__detail">
+          {sessionPreparation.recommendedModeReason}
+        </p>
+      </div>
       <div
         className="repo-intelligence-savings"
         aria-label="Repo Intelligence savings calculator"
@@ -1733,6 +2561,16 @@ function RepoIntelligencePreview({
           <div>
             <span>Likely tests</span>
             <strong>{summary.graph.likelyTests.length}</strong>
+          </div>
+          <div className="repo-intelligence-graph__wide">
+            <span>Test relationships</span>
+            <strong>{summary.graph.testRelationships?.length ?? 0}</strong>
+            <em>
+              {summary.graph.testRelationships
+                ?.slice(0, 2)
+                .map((edge) => `${edge.testPath} -> ${edge.sourcePath}`)
+                .join(", ") || "No source/test links yet"}
+            </em>
           </div>
           <div>
             <span>Dependency hubs</span>
@@ -1913,11 +2751,13 @@ function connectorCategoryLabel(category: PlannedConnector["category"]) {
 
 function PlannedConnectorRoadmap({
   connectors,
+  onCopyConfigPlan,
 }: {
   connectors: PlannedConnector[];
+  onCopyConfigPlan: (connector: PlannedConnector) => void;
 }) {
   return (
-    <div className="planned-connectors" aria-label="Planned connector roadmap">
+    <div className="planned-connectors" aria-label="Connector roadmap">
       <div className="planned-connectors__intro">
         <span>Expansion path</span>
         <strong>Detect first, adapt only when reversible.</strong>
@@ -1931,7 +2771,11 @@ function PlannedConnectorRoadmap({
         <span>Doctor-backed cleanup</span>
       </div>
       <ul className="planned-connectors__list">
-        {connectors.map((connector) => (
+        {connectors.map((connector) => {
+          const readiness = getPlannedConnectorReadinessContract(connector);
+          const readinessBadges = getPlannedConnectorReadinessBadges(connector);
+          const configPlan = getPlannedConnectorConfigCreationPlan(connector);
+          return (
           <li className="planned-connectors__item" key={connector.id}>
             <div className="planned-connectors__item-head">
               <strong>{connector.name}</strong>
@@ -1941,6 +2785,20 @@ function PlannedConnectorRoadmap({
             <div className="planned-connectors__capabilities">
               {connector.capabilityBadges.map((badge) => (
                 <span key={badge}>{badge}</span>
+              ))}
+            </div>
+            <div
+              className="planned-connectors__badges"
+              aria-label={`${connector.name} safety badges`}
+            >
+              {readinessBadges.map((badge) => (
+                <span
+                  className={`planned-connectors__badge planned-connectors__badge--${badge.kind}`}
+                  key={badge.kind}
+                  title={badge.detail}
+                >
+                  {badge.label}
+                </span>
               ))}
             </div>
             <div
@@ -1957,9 +2815,51 @@ function PlannedConnectorRoadmap({
                 <strong>{connector.configSurfaces[0]}</strong>
               </div>
               <div>
-                <span>Automation gate</span>
-                <strong>{connector.automationGates[0]}</strong>
+                <span>Next gate</span>
+                <strong>
+                  {readiness.stages.find(
+                    (stage) => stage.id === readiness.nextBlockedStage,
+                  )?.label ?? "Automation ready"}
+                </strong>
               </div>
+            </div>
+            <div
+              className="planned-connectors__config-plan"
+              aria-label={`${connector.name} config creation plan`}
+              title={configPlan.safetyNote}
+            >
+              <div className="planned-connectors__config-plan-head">
+                <span>Config creation</span>
+                <button
+                  type="button"
+                  className="planned-connectors__copy"
+                  onClick={() => onCopyConfigPlan(connector)}
+                  aria-label={`Copy ${connector.name} config creation plan`}
+                >
+                  <Copy size={13} weight="bold" />
+                </button>
+              </div>
+              <div>
+                {configPlan.steps.map((step) => (
+                  <strong key={step.id} title={step.detail}>
+                    {step.label}
+                  </strong>
+                ))}
+              </div>
+            </div>
+            <div
+              className="planned-connectors__stage-row"
+              aria-label={`${connector.name} readiness stages`}
+            >
+              {readiness.stages.slice(0, 4).map((stage) => (
+                <span
+                  className={`planned-connectors__stage planned-connectors__stage--${stage.state}`}
+                  key={stage.id}
+                  title={stage.evidence}
+                >
+                  {stage.label}
+                </span>
+              ))}
             </div>
             <p className="planned-connectors__manual">
               Today: {connector.safeToday}
@@ -1972,13 +2872,14 @@ function PlannedConnectorRoadmap({
               <span>{connector.statusLabel}</span>
             </div>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </div>
   );
 }
 
-function buildUpgradeIssueMailto(failure: RuntimeUpgradeFailure): string {
+function buildUpgradeIssueUrl(failure: RuntimeUpgradeFailure): string {
   const subject = `Mac AI Switchboard engine update issue (${failure.targetHeadroomVersion}, ${failure.failurePhase})`;
   const diagnosticLines = [
     `App version: ${failure.appVersion}`,
@@ -2000,18 +2901,46 @@ function buildUpgradeIssueMailto(failure: RuntimeUpgradeFailure): string {
     "---\n" +
     "Diagnostic info (please keep):\n" +
     diagnosticLines.join("\n");
-  return `mailto:support@extraheadroom.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return `${SUPPORT_ISSUES_URL}/new?title=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 interface ProxyVerificationRow {
   clientId: string;
   name: string;
-  state: "processing" | "waiting" | "verified";
+  state: "processing" | "waiting" | "testing" | "verified";
   message: string;
+  oneClickSupported: boolean;
+}
+
+interface ConnectorSmokeTestResult {
+  clientId: string;
+  supported: boolean;
+  launched: boolean;
+  success: boolean;
+  summary: string;
+  stdoutTail: string;
+  stderrTail: string;
+}
+
+interface ReleaseReadinessReportPayload {
+  reportPath: string;
+  report: ReleaseReadinessReportSnapshot | null;
+}
+
+interface ReleaseEvidenceCommandResult {
+  commandId: string;
+  label: string;
+  command: string;
+  summaryPath: string | null;
+  stdout: string;
+  stderr: string;
 }
 
 export default function App() {
   const [dashboard, setDashboard] = useState<DashboardState>(mockDashboard);
+  const [savingsAttributionEvents, setSavingsAttributionEvents] = useState<
+    SavingsAttributionEvent[]
+  >([]);
   const [addonBusyId, setAddonBusyId] = useState<string | null>(null);
   const [addonBusyLabel, setAddonBusyLabel] = useState<string | null>(null);
   const [addonInfoId, setAddonInfoId] = useState<string | null>(null);
@@ -2056,6 +2985,38 @@ export default function App() {
   const [releaseReadinessCopyNotice, setReleaseReadinessCopyNotice] = useState<
     string | null
   >(null);
+  const [releaseReadinessReport, setReleaseReadinessReport] =
+    useState<ReleaseReadinessReportPayload | null>(null);
+  const [releaseReadinessRefreshing, setReleaseReadinessRefreshing] =
+    useState(false);
+  const [releaseReadinessError, setReleaseReadinessError] = useState<
+    string | null
+  >(null);
+  const [releaseEvidenceBusyId, setReleaseEvidenceBusyId] = useState<
+    string | null
+  >(null);
+  const [releaseEvidenceResult, setReleaseEvidenceResult] =
+    useState<ReleaseEvidenceCommandResult | null>(null);
+  const [settingsTransferNotice, setSettingsTransferNotice] = useState<
+    string | null
+  >(null);
+  const [settingsImportText, setSettingsImportText] = useState("");
+  const [settingsImportPreview, setSettingsImportPreview] =
+    useState<SettingsImportPreview | null>(null);
+  const [settingsImportBusy, setSettingsImportBusy] = useState(false);
+  const releaseReadinessRows = releaseReadinessRowsFromReport(
+    releaseReadinessReport?.report,
+  );
+  const releaseReadinessCounts =
+    releaseReadinessStatusCounts(releaseReadinessRows);
+  const releaseReadinessEvidence = releaseReadinessEvidenceSummary(
+    releaseReadinessRows,
+    releaseReadinessReport?.report,
+  );
+  const releaseLocalEvidenceRows = releaseLocalEvidenceRowsFromReport(
+    releaseReadinessReport?.report,
+  );
+  const releaseReadinessAction = releaseReadinessNextAction(releaseReadinessRows);
   const [connectorsBusy, setConnectorsBusy] = useState(false);
   const [connectorPhase, setConnectorPhase] = useState<
     "disabled" | "verifying" | "healthy"
@@ -2074,6 +3035,9 @@ export default function App() {
     ProxyVerificationRow[]
   >([]);
   const [proxyVerificationHint, setProxyVerificationHint] = useState<
+    string | null
+  >(null);
+  const [connectorSmokeBusyId, setConnectorSmokeBusyId] = useState<
     string | null
   >(null);
   const proxyVerificationRequestAnchorRef = useRef<Record<
@@ -2187,6 +3151,47 @@ export default function App() {
     useState<SavingsCalculatorScope>("session");
   const [latestRepoIntelligenceSummary, setLatestRepoIntelligenceSummary] =
     useState<RepoIntelligenceSummary>(repoIntelligencePreview);
+  const [rollbackCopyNotice, setRollbackCopyNotice] = useState<string | null>(
+    null,
+  );
+  const [rollbackPreviewByRecord, setRollbackPreviewByRecord] = useState<
+    Record<string, ManagedRollbackPreview>
+  >({});
+  const [rollbackResultByRecord, setRollbackResultByRecord] = useState<
+    Record<string, ManagedRollbackExecutionResult>
+  >({});
+  const [rollbackConfirmationByRecord, setRollbackConfirmationByRecord] =
+    useState<Record<string, string>>({});
+  const [rollbackBusyRecord, setRollbackBusyRecord] = useState<string | null>(
+    null,
+  );
+  const [rollbackErrorByRecord, setRollbackErrorByRecord] = useState<
+    Record<string, string>
+  >({});
+  const [configApplyPreviewByRecord, setConfigApplyPreviewByRecord] = useState<
+    Record<string, ManagedConfigApplyPreview>
+  >({});
+  const [configApplyResultByRecord, setConfigApplyResultByRecord] = useState<
+    Record<string, ManagedConfigApplyResult>
+  >({});
+  const [configApplyConfirmationByRecord, setConfigApplyConfirmationByRecord] =
+    useState<Record<string, string>>({});
+  const [configApplyBusyRecord, setConfigApplyBusyRecord] = useState<
+    string | null
+  >(null);
+  const [configApplyErrorByRecord, setConfigApplyErrorByRecord] = useState<
+    Record<string, string>
+  >({});
+  const [rollbackUndoAllPreview, setRollbackUndoAllPreview] =
+    useState<ManagedRollbackUndoAllPreview | null>(null);
+  const [rollbackUndoAllResult, setRollbackUndoAllResult] =
+    useState<ManagedRollbackUndoAllExecutionResult | null>(null);
+  const [rollbackUndoAllConfirmation, setRollbackUndoAllConfirmation] =
+    useState("");
+  const [rollbackUndoAllBusy, setRollbackUndoAllBusy] = useState(false);
+  const [rollbackUndoAllError, setRollbackUndoAllError] = useState<string | null>(
+    null,
+  );
   // Safety net: if native history never loads (backend unreachable), reveal the
   // chart anyway after this delay rather than spinning forever.
   const [historyLoadTimedOut, setHistoryLoadTimedOut] = useState(false);
@@ -2227,6 +3232,9 @@ export default function App() {
   const [showUninstallDialog, setShowUninstallDialog] = useState(false);
   const [uninstallBusy, setUninstallBusy] = useState(false);
   const [uninstallError, setUninstallError] = useState<string | null>(null);
+  const [uninstallCopyNotice, setUninstallCopyNotice] = useState<string | null>(
+    null,
+  );
   const [upgradeActionBusy, setUpgradeActionBusy] =
     useState<UpgradePlanId | null>(null);
   const [upgradeActionError, setUpgradeActionError] = useState<string | null>(
@@ -2261,6 +3269,10 @@ export default function App() {
     string | null
   >(null);
   const [doctorReport, setDoctorReport] = useState<DoctorReport | null>(null);
+  const [managedFootprintReport, setManagedFootprintReport] =
+    useState<ManagedFootprintReport | null>(null);
+  const [onboardingFootprintCopyNotice, setOnboardingFootprintCopyNotice] =
+    useState<string | null>(null);
   const [doctorRepairBusy, setDoctorRepairBusy] = useState<string | null>(null);
   const [doctorRepairError, setDoctorRepairError] = useState<string | null>(
     null,
@@ -2269,7 +3281,17 @@ export default function App() {
     null,
   );
   const localOnlyMode = localOnlyModeEnabled();
-  const appSemver = appUpdateConfig?.currentVersion ?? packageJson.version;
+  const appSemver = "0.0.0";
+  const savingsDashboard = dashboard.savingsHistoryLoaded
+    ? dashboard
+    : {
+        ...dashboard,
+        lifetimeRequests: 0,
+        lifetimeEstimatedSavingsUsd: 0,
+        lifetimeEstimatedTokensSaved: 0,
+        dailySavings: [],
+        hourlySavings: [],
+      };
   const bootstrapFailureSignatureRef = useRef("");
   const mainWindowLastBlurAtRef = useRef<number | null>(null);
   const mainWindowLastSeenDayRef = useRef(formatDayKey(new Date()));
@@ -2335,6 +3357,12 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    void invoke<ReleaseReadinessReportPayload>("load_release_readiness_report")
+      .then(setReleaseReadinessReport)
+      .catch(() => setReleaseReadinessReport(null));
+  }, []);
+
+  useEffect(() => {
     if (!showRtkDetails || !rtkActivityRef.current) {
       return;
     }
@@ -2368,6 +3396,13 @@ export default function App() {
     }
     dashboardSignatureRef.current = nextSignature;
     setDashboard(next);
+  }
+
+  async function refreshSavingsAttributionEvents() {
+    const events = await loadSavingsAttributionEvents();
+    setSavingsAttributionEvents((current) =>
+      serializeState(current) === serializeState(events) ? current : events,
+    );
   }
 
   function applyConnectorsIfChanged(next: ClientConnectorStatus[]) {
@@ -2407,6 +3442,10 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (!hasTauriEventRuntime()) {
+      return;
+    }
+
     const unlistenPromise = listen<{ action: string | null }>(
       "notification-clicked",
       (event) => {
@@ -2418,6 +3457,14 @@ export default function App() {
         const view = safeNotificationActionView(action, localOnlyMode);
         if (view) {
           setActiveView(view);
+          const targetId = notificationActionTargetId(action);
+          if (targetId) {
+            window.setTimeout(() => {
+              document
+                .getElementById(targetId)
+                ?.scrollIntoView({ block: "start", behavior: "smooth" });
+            }, 0);
+          }
         }
       },
     );
@@ -2554,7 +3601,7 @@ export default function App() {
       };
 
       updateStartup("window", 12, "Opening launch window…");
-      const label = getCurrentWindow().label;
+      const label = hasTauriRuntime() ? getCurrentWindow().label : "main";
       if (active) {
         if (label === "main" || label === "launcher") {
           setWindowLabel(label);
@@ -2569,6 +3616,7 @@ export default function App() {
         return;
       }
       applyDashboardIfChanged(dashboardResult);
+      void refreshSavingsAttributionEvents();
 
       updateStartup("bootstrap", 58, "Checking runtime install state…");
       const bootstrapResult = await invoke<BootstrapProgress>(
@@ -2592,11 +3640,20 @@ export default function App() {
       }
 
       updateStartup("runtime", 80, "Preparing local engine…");
-      const [runtimeResult, switchboardResult, doctorResult, pricingResult] =
+      const [
+        runtimeResult,
+        switchboardResult,
+        doctorResult,
+        footprintResult,
+        pricingResult,
+      ] =
         await Promise.all([
           invoke<RuntimeStatus>("get_runtime_status").catch(() => null),
           invoke<SwitchboardState>("get_switchboard_state").catch(() => null),
           invoke<DoctorReport>("get_doctor_report").catch(() => null),
+          invoke<ManagedFootprintReport>("get_managed_footprint").catch(
+            () => null,
+          ),
           localOnlyMode
             ? Promise.resolve(null)
             : invoke<HeadroomPricingStatus>(
@@ -2615,6 +3672,9 @@ export default function App() {
       }
       if (doctorResult) {
         setDoctorReport(doctorResult);
+      }
+      if (footprintResult) {
+        setManagedFootprintReport(footprintResult);
       }
       if (pricingResult) {
         setPricingStatus(pricingResult);
@@ -2716,6 +3776,7 @@ export default function App() {
           return;
         }
         applyDashboardIfChanged(latestDashboard);
+        void refreshSavingsAttributionEvents();
         // Always land on the install step after a bootstrap completes during
         // this session, regardless of launchExperience. The install step's
         // Continue button is gated on runtime.running, so it handles both the
@@ -2728,6 +3789,9 @@ export default function App() {
       }
     };
 
+    if (!hasTauriEventRuntime()) {
+      return;
+    }
     void listen<BootstrapProgress>("bootstrap_progress", (event) => {
       void handleProgress(event.payload);
     }).then((fn) => {
@@ -2754,6 +3818,9 @@ export default function App() {
     let active = true;
     let unlisten: (() => void) | undefined;
 
+    if (!hasTauriEventRuntime()) {
+      return;
+    }
     void listen<RuntimeUpgradeProgress>("runtime_upgrade_progress", (event) => {
       if (!active) return;
       setRuntimeUpgradeProgress(event.payload);
@@ -2897,7 +3964,7 @@ export default function App() {
   }, [bootstrapProgress, showInstallProgress, stepSignature]);
 
   useEffect(() => {
-    if (!isLastScreen) return;
+    if (!isLastScreen || !hasTauriRuntime()) return;
     let unlisten: (() => void) | undefined;
     void getCurrentWindow()
       .onFocusChanged(({ payload: focused }) => {
@@ -2945,7 +4012,7 @@ export default function App() {
   }, [windowLabel, launcherStage, runtimeStatus?.running]);
 
   useEffect(() => {
-    if (windowLabel !== "main") {
+    if (windowLabel !== "main" || !hasTauriRuntime()) {
       return;
     }
 
@@ -3129,8 +4196,34 @@ export default function App() {
     }
   }
 
+  async function copyUninstallDryRunReport() {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      let report = formatUninstallDryRunReport();
+      try {
+        const backendReport = await invoke<UninstallDryRunReport>(
+          "get_uninstall_dry_run_report",
+        );
+        report = formatBackendUninstallDryRunReport(backendReport);
+      } catch (error) {
+        console.warn("Falling back to static uninstall dry-run report", error);
+      }
+      await navigator.clipboard.writeText(report);
+      setUninstallCopyNotice("Uninstall dry-run copied.");
+      window.setTimeout(() => setUninstallCopyNotice(null), 2500);
+    } catch {
+      setUninstallCopyNotice("Copy failed. Review the uninstall list manually.");
+      window.setTimeout(() => setUninstallCopyNotice(null), 3000);
+    }
+  }
+
   useEffect(() => {
-    if (activeView !== "home" || !trayWindowFocused) {
+    if (
+      (activeView !== "home" && activeView !== "usage") ||
+      !trayWindowFocused
+    ) {
       return;
     }
 
@@ -3140,6 +4233,7 @@ export default function App() {
         .then((next) => {
           if (!active) return;
           applyDashboardIfChanged(next);
+          void refreshSavingsAttributionEvents();
         })
         .catch(() => {
           // keep last known state
@@ -3436,7 +4530,7 @@ export default function App() {
   }, [anyConnectorEnabled]);
 
   useEffect(() => {
-    if (localOnlyMode) {
+    if (localOnlyMode || !hasTauriEventRuntime()) {
       return;
     }
     // Pricing status hits the remote Headroom API. When the tray is focused,
@@ -3461,7 +4555,7 @@ export default function App() {
   // just pulls the new status into UI state without waiting for the next
   // poll tick.
   useEffect(() => {
-    if (localOnlyMode) {
+    if (localOnlyMode || !hasTauriEventRuntime()) {
       return;
     }
     let unlisten: (() => void) | undefined;
@@ -3630,6 +4724,23 @@ export default function App() {
     };
   }, [connectorPhase]);
 
+  useEffect(() => {
+    if (!anyConnectorEnabled || connectorPhase !== "verifying") {
+      return;
+    }
+    let active = true;
+    void invoke<number | null>("get_headroom_request_count")
+      .then((count) => {
+        if (active && count !== null && count > 0) {
+          setConnectorPhase("healthy");
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [anyConnectorEnabled, connectorPhase]);
+
   async function handleBootstrap() {
     bootstrapFailureSignatureRef.current = "";
     setBootstrapError(null);
@@ -3666,6 +4777,38 @@ export default function App() {
     } finally {
       // Most completion paths are still managed by progress polling.
     }
+  }
+
+  async function copyFirstRunFootprint() {
+    if (!navigator.clipboard) {
+      setOnboardingFootprintCopyNotice("Clipboard unavailable.");
+      return;
+    }
+
+    const fallbackFootprint = [
+      "# Mac AI Switchboard first-run footprint",
+      "",
+      "Pre-install preview. Some paths are written only after you opt in to the relevant mode or connector.",
+      "",
+      "- App support storage: ~/Library/Application Support/Mac AI Switchboard",
+      "- Local engine/tool storage: ~/.headroom and app-owned helper runtimes",
+      "- Shell profile managed blocks: zsh/bash/profile files, with managed markers",
+      "- Claude Code: ~/.claude/settings.json, hooks, and managed instruction blocks",
+      "- Codex: ~/.codex/config.toml and AGENTS.md managed blocks",
+      "- Add-ons: RTK, Ponytail, MarkItDown, Caveman, and Repo Intelligence state when enabled",
+      "- Backups: timestamped sidecars before managed config edits",
+      "- Off mode: removes Switchboard-owned routing hooks and managed blocks",
+      "",
+      "Local-free builds do not require telemetry, sign-in, checkout, or hosted pricing services.",
+    ].join("\n");
+
+    await navigator.clipboard.writeText(
+      managedFootprintReport
+        ? formatManagedFootprintReport(managedFootprintReport)
+        : fallbackFootprint,
+    );
+    setOnboardingFootprintCopyNotice("Copied footprint.");
+    window.setTimeout(() => setOnboardingFootprintCopyNotice(null), 2500);
   }
 
   function stepPercentSpan(step: string) {
@@ -3773,10 +4916,14 @@ export default function App() {
 
   function getPlannedConnectorNextStep(
     connector: ClientConnectorStatus,
-    plannedConnector: PlannedConnector,
+    plannedConnector: ConnectorDossier,
   ) {
     if (!connector.installed) {
       return "Install the tool first, then Mac AI Switchboard will detect it here.";
+    }
+
+    if (plannedConnector.setupPhase === "Managed") {
+      return "Detected. Managed routing can be repaired by Doctor if setup drifts.";
     }
 
     if (plannedConnector.setupPhase === "Detect") {
@@ -3788,6 +4935,37 @@ export default function App() {
     }
 
     return "Detected. Automatic setup waits for backup, restore, and off-mode cleanup coverage.";
+  }
+
+  function formatBackendConnectorConfigPlan(
+    connector: ClientConnectorStatus,
+    plannedConnector: ConnectorDossier,
+  ) {
+    const stepDetails = connector.configCreationStepDetails ?? [];
+    const stepLabels = connector.configCreationSteps ?? [];
+    if (stepDetails.length === 0 && stepLabels.length === 0) {
+      return formatPlannedConnectorConfigCreationPlansMarkdown([
+        plannedConnector,
+      ]);
+    }
+
+    return [
+      "# Mac AI Switchboard Connector Config Creation Plan",
+      "",
+      `## ${connector.name}`,
+      "- Automation enabled: no",
+      "- Safety note: Backend metadata keeps config creation gated until every step has tests and Doctor evidence.",
+      ...(stepDetails.length > 0
+        ? stepDetails.map((step) => {
+            const evidence = step.requiredEvidence?.length
+              ? ` Required evidence: ${step.requiredEvidence.join(" ")}`
+              : "";
+            return `- ${step.label}: ${step.detail}${evidence}`;
+          })
+        : stepLabels.map((step) => `- ${step}`)),
+      "",
+      formatConnectorConfigDryRunPreview(connector),
+    ].join("\n");
   }
 
   function applyAppUpdatePatch(patch: AppUpdateStatePatch) {
@@ -3847,9 +5025,11 @@ export default function App() {
       applyAppUpdatePatch(patch);
 
       if (background && patch.availableUpdate) {
-        const windowVisible = await getCurrentWindow()
-          .isVisible()
-          .catch(() => false);
+        const windowVisible = hasTauriRuntime()
+          ? await getCurrentWindow()
+              .isVisible()
+              .catch(() => false)
+          : true;
         if (
           shouldNotifyAboutAvailableAppUpdate({
             background,
@@ -3930,10 +5110,17 @@ export default function App() {
 
   async function refreshDoctorReport() {
     try {
-      const report = await invoke<DoctorReport>("get_doctor_report");
+      const [report, footprint] = await Promise.all([
+        invoke<DoctorReport>("get_doctor_report"),
+        invoke<ManagedFootprintReport>("get_managed_footprint").catch(
+          () => null,
+        ),
+      ]);
       setDoctorReport(report);
+      setManagedFootprintReport(footprint);
     } catch {
       setDoctorReport(null);
+      setManagedFootprintReport(null);
     }
   }
 
@@ -4072,7 +5259,7 @@ export default function App() {
       );
       setPricingStatus(status);
       void maybeFireTrialNotifications(status);
-      void maybeFireUrgentPricingNotifications(status);
+      void maybeFireUrgentPricingNotifications(status, { localOnlyMode });
       setPricingError(null);
     } catch (error) {
       setPricingError(
@@ -4144,7 +5331,7 @@ export default function App() {
         throw new Error("Clipboard API unavailable");
       }
       await navigator.clipboard.writeText(command);
-      setPlannedConnectorCopyNotice(`${connectorName} command copied.`);
+      setPlannedConnectorCopyNotice(`${connectorName} copied.`);
       window.setTimeout(() => setPlannedConnectorCopyNotice(null), 2000);
     } catch {
       setPlannedConnectorCopyNotice(
@@ -4154,17 +5341,159 @@ export default function App() {
     }
   }
 
-  async function copyReleaseReadinessCommand() {
+  async function copyReleaseReadinessReport() {
     try {
       if (!navigator.clipboard) {
         throw new Error("Clipboard API unavailable");
       }
-      await navigator.clipboard.writeText(releaseReadinessCommand);
-      setReleaseReadinessCopyNotice("Release report command copied.");
+      if (releaseReadinessReport?.report) {
+        await navigator.clipboard.writeText(
+          formatReleaseReadinessReportSnapshot(
+            releaseReadinessReport.report,
+            releaseReadinessReport.reportPath,
+          ),
+        );
+        setReleaseReadinessCopyNotice("Release report snapshot copied.");
+      } else {
+        await navigator.clipboard.writeText(formatReleaseReadinessCommandCopy());
+        setReleaseReadinessCopyNotice("Release report command copied.");
+      }
       window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2000);
     } catch {
-      setReleaseReadinessCopyNotice("Copy failed. Select command manually.");
+      setReleaseReadinessCopyNotice("Copy failed. Select release text manually.");
       window.setTimeout(() => setReleaseReadinessCopyNotice(null), 3000);
+    }
+  }
+
+  async function copySettingsExport() {
+    if (!navigator.clipboard) {
+      setSettingsTransferNotice("Clipboard unavailable.");
+      return;
+    }
+
+    const bundle = buildSettingsExportBundle({
+      dashboard,
+      connectors,
+      switchboardMode,
+      savingsMode,
+    });
+    await navigator.clipboard.writeText(formatSettingsExportBundle(bundle));
+    setSettingsTransferNotice("Settings export copied.");
+    window.setTimeout(() => setSettingsTransferNotice(null), 2500);
+  }
+
+  function previewSettingsImport() {
+    const preview = parseSettingsImport(settingsImportText);
+    setSettingsImportPreview(preview);
+    setSettingsTransferNotice(preview.valid ? "Import preview ready." : null);
+  }
+
+  async function applySettingsImport() {
+    const preview = settingsImportPreview ?? parseSettingsImport(settingsImportText);
+    setSettingsImportPreview(preview);
+    if (!preview.valid) {
+      setSettingsTransferNotice(null);
+      return;
+    }
+
+    setSettingsImportBusy(true);
+    setSettingsTransferNotice("Applying safe preferences...");
+    try {
+      if (
+        preview.safePreferences.switchboardMode &&
+        preview.safePreferences.switchboardMode !== switchboardMode
+      ) {
+        await handleSetSwitchboardMode(preview.safePreferences.switchboardMode);
+      }
+      if (
+        preview.safePreferences.savingsMode &&
+        preview.safePreferences.savingsMode !== savingsMode
+      ) {
+        await handleSetSavingsMode(preview.safePreferences.savingsMode);
+      }
+      setSettingsTransferNotice("Safe settings applied.");
+      window.setTimeout(() => setSettingsTransferNotice(null), 2500);
+    } finally {
+      setSettingsImportBusy(false);
+    }
+  }
+
+  async function refreshReleaseReadinessReport() {
+    setReleaseReadinessRefreshing(true);
+    setReleaseReadinessError(null);
+    setReleaseReadinessCopyNotice(null);
+    try {
+      const payload = await invoke<ReleaseReadinessReportPayload>(
+        "refresh_release_readiness_report",
+      );
+      setReleaseReadinessReport(payload);
+      setReleaseReadinessCopyNotice("Release report refreshed.");
+      window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2000);
+    } catch (error) {
+      setReleaseReadinessError(
+        describeInvokeError(error, "Could not refresh release report."),
+      );
+    } finally {
+      setReleaseReadinessRefreshing(false);
+    }
+  }
+
+  async function runReleaseEvidenceCommand(commandId: string) {
+    setReleaseEvidenceBusyId(commandId);
+    setReleaseReadinessError(null);
+    setReleaseReadinessCopyNotice(null);
+    try {
+      const result = await invoke<ReleaseEvidenceCommandResult>(
+        "run_release_evidence_command",
+        { commandId },
+      );
+      setReleaseEvidenceResult(result);
+      setReleaseReadinessCopyNotice(`${result.label} evidence generated.`);
+      window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2500);
+      const payload = await invoke<ReleaseReadinessReportPayload>(
+        "load_release_readiness_report",
+      );
+      setReleaseReadinessReport(payload);
+    } catch (error) {
+      setReleaseReadinessError(
+        describeInvokeError(error, "Could not run release evidence command."),
+      );
+    } finally {
+      setReleaseEvidenceBusyId(null);
+    }
+  }
+
+  async function runLocalReleaseEvidenceSequence() {
+    setReleaseEvidenceBusyId("local-evidence");
+    setReleaseReadinessError(null);
+    setReleaseReadinessCopyNotice("Running local release evidence...");
+    try {
+      let lastResult: ReleaseEvidenceCommandResult | null = null;
+      for (const commandId of localReleaseEvidenceCommandIds) {
+        const result = await invoke<ReleaseEvidenceCommandResult>(
+          "run_release_evidence_command",
+          { commandId },
+        );
+        lastResult = result;
+        setReleaseEvidenceResult(result);
+        setReleaseReadinessCopyNotice(`${result.label} evidence generated.`);
+      }
+      const payload = await invoke<ReleaseReadinessReportPayload>(
+        "load_release_readiness_report",
+      );
+      setReleaseReadinessReport(payload);
+      setReleaseReadinessCopyNotice(
+        lastResult
+          ? "Local release evidence sequence completed."
+          : "No local evidence commands ran.",
+      );
+      window.setTimeout(() => setReleaseReadinessCopyNotice(null), 3000);
+    } catch (error) {
+      setReleaseReadinessError(
+        describeInvokeError(error, "Could not run local release evidence."),
+      );
+    } finally {
+      setReleaseEvidenceBusyId(null);
     }
   }
 
@@ -4371,7 +5700,68 @@ export default function App() {
       setAddonBusyLabel(null);
     }
   }
-  async function setCavemanLevel(level: "scoped" | "aggressive") {
+
+  async function prepareRepoMemoryMcp() {
+    setAddonBusyId("repo-memory");
+    setAddonBusyLabel("Preparing Repo Memory MCP...");
+    setAddonError(null);
+    setAddonResult(null);
+    try {
+      await invoke<DashboardState>("install_repo_memory_mcp");
+      const next = await invoke<DashboardState>("start_repo_memory_mcp");
+      setDashboard(next);
+      await refreshRuntimeStatus();
+      setAddonResult({
+        id: "repo-memory",
+        message:
+          "Repo Memory MCP prepared. The app installed it, ran the read-only smoke check, and marked it active for supported agents.",
+      });
+    } catch (error) {
+      setAddonError(
+        error instanceof Error
+          ? error.message
+          : "Repo Memory MCP could not be prepared.",
+      );
+    } finally {
+      setAddonBusyId(null);
+      setAddonBusyLabel(null);
+    }
+  }
+
+  async function setRepoMemoryMcpActive(active: boolean) {
+    setAddonBusyId("repo-memory");
+    setAddonBusyLabel(active ? "Starting Repo Memory MCP..." : "Stopping Repo Memory MCP...");
+    setAddonError(null);
+    setAddonResult(null);
+    try {
+      const next = await invoke<DashboardState>(
+        active ? "start_repo_memory_mcp" : "stop_repo_memory_mcp",
+      );
+      setDashboard(next);
+      await refreshRuntimeStatus();
+      setAddonResult({
+        id: "repo-memory",
+        message: active
+          ? "Repo Memory MCP marked active. Supported agents can request read-only repo context."
+          : "Repo Memory MCP stopped for this app session. Agent MCP configuration was left intact.",
+      });
+    } catch (error) {
+      setAddonError(
+        error instanceof Error
+          ? error.message
+          : active
+            ? "Repo Memory MCP could not be started."
+            : "Repo Memory MCP could not be stopped.",
+      );
+    } finally {
+      setAddonBusyId(null);
+      setAddonBusyLabel(null);
+    }
+  }
+
+  async function setCavemanLevel(
+    level: "scoped" | "aggressive" | "compact_chinese",
+  ) {
     setAddonBusyId("caveman");
     setAddonBusyLabel("Updating Caveman level...");
     setAddonError(null);
@@ -4768,6 +6158,79 @@ export default function App() {
     proxyVerificationRequestAnchorRef.current = null;
   }
 
+  async function runConnectorSmokeTest(row: ProxyVerificationRow) {
+    if (connectorSmokeBusyId !== null || row.state === "verified") {
+      return;
+    }
+    setConnectorSmokeBusyId(row.clientId);
+    setProxyVerificationHint(null);
+    setProxyVerificationRows((current) =>
+      current.map((item) =>
+        item.clientId === row.clientId
+          ? { ...item, state: "testing", message: "Sending test prompt..." }
+          : item,
+      ),
+    );
+
+    try {
+      const result = await invoke<ConnectorSmokeTestResult>(
+        "run_connector_smoke_test",
+        { clientId: row.clientId },
+      );
+      setProxyVerificationRows((current) =>
+        current.map((item) =>
+          item.clientId === row.clientId
+            ? {
+                ...item,
+                state: result.success ? "processing" : "waiting",
+                message: result.summary,
+              }
+            : item,
+        ),
+      );
+      if (!result.supported || !result.success) {
+        const details = [result.stderrTail, result.stdoutTail]
+          .filter(Boolean)
+          .join("\n")
+          .trim();
+        setProxyVerificationHint(
+          details.length > 0
+            ? `${result.summary} ${details.slice(-300)}`
+            : result.summary,
+        );
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "string"
+            ? error
+            : "Could not send the test prompt.";
+      setProxyVerificationRows((current) =>
+        current.map((item) =>
+          item.clientId === row.clientId
+            ? { ...item, state: "waiting", message }
+            : item,
+        ),
+      );
+      setProxyVerificationHint(message);
+    } finally {
+      setConnectorSmokeBusyId(null);
+    }
+  }
+
+  async function runAllSupportedConnectorSmokeTests() {
+    if (connectorSmokeBusyId !== null) {
+      return;
+    }
+    const pendingRows = proxyVerificationRows.filter(
+      (row) => row.oneClickSupported && row.state !== "verified",
+    );
+    for (const row of pendingRows) {
+      await runConnectorSmokeTest(row);
+    }
+  }
+
   async function toggleConnector(
     connector: ClientConnectorStatus,
     nextEnabled: boolean,
@@ -4785,6 +6248,7 @@ export default function App() {
 
       const latestDashboard = await loadDashboard();
       applyDashboardIfChanged(latestDashboard);
+      void refreshSavingsAttributionEvents();
       await refreshConnectors();
     } catch (error) {
       setConnectorsError(
@@ -4819,7 +6283,9 @@ export default function App() {
       return;
     }
 
-    void getCurrentWindow().startDragging();
+    if (hasTauriRuntime()) {
+      void getCurrentWindow().startDragging();
+    }
   }
 
   const hidingRef = useRef(false);
@@ -4838,16 +6304,16 @@ export default function App() {
   }
 
   const headroomTool = dashboard.tools.find((tool) => tool.id === "headroom");
-  const headroomVersion = headroomTool?.version ?? "Unknown";
-  const lifetimeTotalTokensSent = dashboard.dailySavings.reduce(
+  const headroomVersion = headroomTool ? "0.0.0" : "Unknown";
+  const lifetimeTotalTokensSent = savingsDashboard.dailySavings.reduce(
     (sum, point) => sum + point.totalTokensSent,
     0,
   );
   const lifetimeTotalTokensBeforeOptimization =
-    lifetimeTotalTokensSent + dashboard.lifetimeEstimatedTokensSaved;
+    lifetimeTotalTokensSent + savingsDashboard.lifetimeEstimatedTokensSaved;
   const headroomLifetimeSavingsPct =
     lifetimeTotalTokensBeforeOptimization > 0
-      ? (dashboard.lifetimeEstimatedTokensSaved /
+      ? (savingsDashboard.lifetimeEstimatedTokensSaved /
           lifetimeTotalTokensBeforeOptimization) *
         100
       : null;
@@ -4856,7 +6322,7 @@ export default function App() {
       ? (runtimeStatus.rtk.avgSavingsPct ?? 0)
       : null;
   const lifetimeDataDays = new Set(
-    dashboard.dailySavings
+    savingsDashboard.dailySavings
       .map((point) => point.date)
       .filter((date) => Boolean(date)),
   ).size;
@@ -5014,7 +6480,7 @@ export default function App() {
                 className="secondary-button secondary-button--small"
                 onClick={() =>
                   void invoke("open_external_link", {
-                    url: buildUpgradeIssueMailto(upgradeFailure),
+                            url: buildUpgradeIssueUrl(upgradeFailure),
                   }).catch(() => {})
                 }
               >
@@ -5151,7 +6617,7 @@ export default function App() {
                   className="secondary-button secondary-button--small"
                   onClick={() =>
                     void invoke("open_external_link", {
-                      url: buildUpgradeIssueMailto(upgradeFailure),
+                              url: buildUpgradeIssueUrl(upgradeFailure),
                     }).catch(() => {})
                   }
                 >
@@ -5163,6 +6629,335 @@ export default function App() {
         ) : null}
       </LauncherShell>
     );
+  }
+
+  async function copyManagedDiffPreview(record: ManagedChangeRecord) {
+    if (!record.backupPath) {
+      setRollbackCopyNotice("No config diff required for that record.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+      return;
+    }
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      const preview = buildManagedConfigDiffPreview({
+        record,
+        targetPath: firstManagedConfigTarget(record),
+        currentManagedBlock: null,
+        proposedManagedBlock: sampleManagedBlock(record),
+      });
+      await navigator.clipboard.writeText(
+        formatManagedConfigDiffPreview(preview),
+      );
+      setRollbackCopyNotice(`${record.owner} dry-run copied.`);
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+    } catch {
+      setRollbackCopyNotice("Copy failed. Review the rollback row manually.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    }
+  }
+
+  async function copyManagedRollbackInventory() {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(formatManagedRollbackInventory());
+      setRollbackCopyNotice("Rollback inventory copied.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+    } catch {
+      setRollbackCopyNotice("Copy failed. Review the rollback rows manually.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    }
+  }
+
+  async function copyManagedRollbackUndoAllPreview() {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(
+        formatManagedRollbackUndoAllPreview(buildManagedRollbackUndoAllPreview()),
+      );
+      setRollbackCopyNotice("Undo-all preview copied.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+    } catch {
+      setRollbackCopyNotice("Copy failed. Review rollback rows manually.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    }
+  }
+
+  async function previewNativeRollbackUndoAll() {
+    setRollbackUndoAllBusy(true);
+    setRollbackUndoAllError(null);
+    try {
+      const preview = await invoke<ManagedRollbackUndoAllPreview>(
+        "preview_managed_rollback_undo_all",
+      );
+      setRollbackUndoAllPreview(preview);
+      setRollbackUndoAllResult(null);
+      setRollbackUndoAllConfirmation("");
+    } catch (error) {
+      setRollbackUndoAllError(
+        describeInvokeError(error, "Could not preview native undo-all."),
+      );
+    } finally {
+      setRollbackUndoAllBusy(false);
+    }
+  }
+
+  async function executeNativeRollbackUndoAll() {
+    if (
+      !rollbackUndoAllPreview ||
+      rollbackUndoAllPreview.status !== "ready" ||
+      rollbackUndoAllConfirmation !== rollbackUndoAllPreview.confirmationPhrase
+    ) {
+      return;
+    }
+    setRollbackUndoAllBusy(true);
+    setRollbackUndoAllError(null);
+    try {
+      const result = await invoke<ManagedRollbackUndoAllExecutionResult>(
+        "execute_managed_rollback_undo_all",
+        { confirmationPhrase: rollbackUndoAllConfirmation },
+      );
+      setRollbackUndoAllResult(result);
+      setRollbackCopyNotice(
+        `Undo-all executed ${result.executed.length} native row${
+          result.executed.length === 1 ? "" : "s"
+        }.`,
+      );
+      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    } catch (error) {
+      setRollbackUndoAllError(
+        describeInvokeError(error, "Could not execute native undo-all."),
+      );
+    } finally {
+      setRollbackUndoAllBusy(false);
+    }
+  }
+
+  async function copyManagedRollbackPlan(record: ManagedChangeRecord) {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(
+        formatManagedRollbackPlan(buildManagedRollbackPlan(record)),
+      );
+      setRollbackCopyNotice(`${record.owner} rollback plan copied.`);
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+    } catch {
+      setRollbackCopyNotice("Copy failed. Review the rollback row manually.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    }
+  }
+
+  async function copyManagedRollbackExecutionPreview(
+    record: ManagedChangeRecord,
+    index: number,
+  ) {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(
+        formatManagedRollbackExecutionPreview(
+          buildManagedRollbackExecutionPreview(record, index),
+        ),
+      );
+      setRollbackCopyNotice(`${record.owner} execution preview copied.`);
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+    } catch {
+      setRollbackCopyNotice("Copy failed. Review the rollback row manually.");
+      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
+    }
+  }
+
+  function supportsNativeManagedRollback(record: ManagedChangeRecord) {
+    return (
+      supportsNativeManagedRollbackRecord(record.id) ||
+      supportsDedicatedCleanupRollbackRecord(record.id)
+    );
+  }
+
+  function supportsNativeConfigApply(record: ManagedChangeRecord) {
+    return record.id === "opencode-routing";
+  }
+
+  async function previewManagedConfigApply(record: ManagedChangeRecord) {
+    if (!supportsNativeConfigApply(record)) {
+      return;
+    }
+    setConfigApplyBusyRecord(record.id);
+    setConfigApplyErrorByRecord((current) => {
+      const next = { ...current };
+      delete next[record.id];
+      return next;
+    });
+    try {
+      const preview = await invoke<ManagedConfigApplyPreview>(
+        "preview_managed_config_apply",
+        { recordId: record.id },
+      );
+      setConfigApplyPreviewByRecord((current) => ({
+        ...current,
+        [record.id]: preview,
+      }));
+      setConfigApplyResultByRecord((current) => {
+        const next = { ...current };
+        delete next[record.id];
+        return next;
+      });
+      setConfigApplyConfirmationByRecord((current) => ({
+        ...current,
+        [record.id]: "",
+      }));
+    } catch (error) {
+      setConfigApplyErrorByRecord((current) => ({
+        ...current,
+        [record.id]: describeInvokeError(
+          error,
+          "Could not preview safe config apply.",
+        ),
+      }));
+    } finally {
+      setConfigApplyBusyRecord(null);
+    }
+  }
+
+  async function executeManagedConfigApply(record: ManagedChangeRecord) {
+    const preview = configApplyPreviewByRecord[record.id];
+    const confirmation = configApplyConfirmationByRecord[record.id] ?? "";
+    if (
+      !preview ||
+      preview.status !== "ready" ||
+      confirmation !== preview.confirmationPhrase ||
+      configApplyBusyRecord === record.id
+    ) {
+      return;
+    }
+    setConfigApplyBusyRecord(record.id);
+    setConfigApplyErrorByRecord((current) => {
+      const next = { ...current };
+      delete next[record.id];
+      return next;
+    });
+    try {
+      const result = await invoke<ManagedConfigApplyResult>(
+        "execute_managed_config_apply",
+        {
+          recordId: record.id,
+          confirmationPhrase: confirmation,
+        },
+      );
+      setConfigApplyResultByRecord((current) => ({
+        ...current,
+        [record.id]: result,
+      }));
+      setRollbackCopyNotice(`${record.owner} config apply executed.`);
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+      void previewManagedRollback(record);
+    } catch (error) {
+      setConfigApplyErrorByRecord((current) => ({
+        ...current,
+        [record.id]: describeInvokeError(
+          error,
+          "Could not apply managed config.",
+        ),
+      }));
+    } finally {
+      setConfigApplyBusyRecord(null);
+    }
+  }
+
+  async function previewManagedRollback(record: ManagedChangeRecord) {
+    if (!supportsNativeManagedRollback(record)) {
+      return;
+    }
+    setRollbackBusyRecord(record.id);
+    setRollbackErrorByRecord((current) => {
+      const next = { ...current };
+      delete next[record.id];
+      return next;
+    });
+    try {
+      const preview = await invoke<ManagedRollbackPreview>(
+        supportsDedicatedCleanupRollbackRecord(record.id)
+          ? "preview_dedicated_cleanup_rollback"
+          : "preview_managed_rollback",
+        { recordId: record.id },
+      );
+      setRollbackPreviewByRecord((current) => ({
+        ...current,
+        [record.id]: preview,
+      }));
+      setRollbackResultByRecord((current) => {
+        const next = { ...current };
+        delete next[record.id];
+        return next;
+      });
+    } catch (error) {
+      setRollbackErrorByRecord((current) => ({
+        ...current,
+        [record.id]: describeInvokeError(
+          error,
+          "Could not preview native rollback.",
+        ),
+      }));
+    } finally {
+      setRollbackBusyRecord(null);
+    }
+  }
+
+  async function executeManagedRollback(record: ManagedChangeRecord) {
+    const preview = rollbackPreviewByRecord[record.id];
+    if (
+      !canExecuteNativeManagedRollbackPreview({
+        preview,
+        confirmation: rollbackConfirmationByRecord[record.id] ?? "",
+        busy: rollbackBusyRecord === record.id,
+      })
+    ) {
+      return;
+    }
+    setRollbackBusyRecord(record.id);
+    setRollbackErrorByRecord((current) => {
+      const next = { ...current };
+      delete next[record.id];
+      return next;
+    });
+    try {
+      const result = await invoke<ManagedRollbackExecutionResult>(
+        supportsDedicatedCleanupRollbackRecord(record.id)
+          ? "execute_dedicated_cleanup_rollback"
+          : "execute_managed_rollback",
+        supportsDedicatedCleanupRollbackRecord(record.id)
+          ? {
+              recordId: record.id,
+              confirmationPhrase: rollbackConfirmationByRecord[record.id] ?? "",
+            }
+          : {
+              recordId: record.id,
+              backupPath: preview.backupPath ?? "",
+              confirmationPhrase: rollbackConfirmationByRecord[record.id] ?? "",
+            },
+      );
+      setRollbackResultByRecord((current) => ({
+        ...current,
+        [record.id]: result,
+      }));
+      setRollbackCopyNotice(`${record.owner} rollback executed.`);
+      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
+    } catch (error) {
+      setRollbackErrorByRecord((current) => ({
+        ...current,
+        [record.id]: describeInvokeError(error, "Could not restore from backup."),
+      }));
+    } finally {
+      setRollbackBusyRecord(null);
+    }
   }
 
   if (windowLabel === "launcher" && launcherStage === "install") {
@@ -5207,10 +7002,33 @@ export default function App() {
             </p>
           </article>
           <article>
+            <strong>Managed local files</strong>
+            <p>
+              May write app storage, shell profile blocks, Claude settings or
+              hooks, Codex provider blocks, and recovery backups with managed
+              markers.
+            </p>
+          </article>
+          <article>
             <strong>Off means off</strong>
             <p>
               Switchboard can remove routing hooks, and Doctor can repair stale
               local setup if a client or proxy drifts.
+            </p>
+          </article>
+          <article>
+            <strong>Privacy and network</strong>
+            <p>
+              Local-free builds do not require telemetry or accounts. Provider
+              model calls still leave your Mac through Claude, OpenAI, or the
+              provider you choose.
+            </p>
+          </article>
+          <article>
+            <strong>Choose initial mode later</strong>
+            <p>
+              Start in Off, RTK only, Headroom only, or Full optimization after
+              install; managed routing is not required to finish onboarding.
             </p>
           </article>
         </div>
@@ -5291,6 +7109,14 @@ export default function App() {
                     as optional add-ons you control separately.
                   </li>
                 </ul>
+                <button
+                  className="secondary-button secondary-button--small install-disclosure__copy"
+                  onClick={() => void copyFirstRunFootprint()}
+                  type="button"
+                >
+                  <Copy aria-hidden="true" weight="bold" />
+                  <span>{onboardingFootprintCopyNotice ?? "Copy footprint"}</span>
+                </button>
               </div>
             )}
           </>
@@ -5356,10 +7182,7 @@ export default function App() {
               const detectionWarning = getConnectorDetectionWarning(connector);
               const supportWarning = getConnectorSupportWarning(connector);
               const needsRestart = connector.enabled && !connector.verified;
-              const plannedConnector =
-                connector.supportStatus === "planned"
-                  ? getPlannedConnector(connector.clientId)
-                  : null;
+              const plannedConnector = getPlannedConnector(connector.clientId);
               return (
                 <article className="connector-item" key={connector.clientId}>
                   <div>
@@ -5540,6 +7363,8 @@ export default function App() {
 
   if (windowLabel === "launcher" && launcherStage === "proxy_verify") {
     const hasEnabledApps = proxyVerificationRows.length > 0;
+    const hasOneClickTests =
+      hasPendingOneClickProxyVerification(proxyVerificationRows);
     const allVerified =
       hasEnabledApps &&
       proxyVerificationRows.every((row) => row.state === "verified");
@@ -5555,10 +7380,23 @@ export default function App() {
         <div className="post-install__lead">
           <h1>Test your setup</h1>
           <p>
-            Send one message in each connected tool to verify local routing. If
-            the tool was already open, restart it first so it reloads the
-            managed config.
+            Send automatic test prompts for Claude Code and Codex, then watch
+            for a verified badge. For tools without automatic tests, open the
+            tool and send one tiny prompt. Restart tools that were already open
+            so they reload the managed config.
           </p>
+          {hasOneClickTests ? (
+            <button
+              className="primary-button primary-button--large"
+              disabled={connectorSmokeBusyId !== null}
+              onClick={() => void runAllSupportedConnectorSmokeTests()}
+              type="button"
+            >
+              {connectorSmokeBusyId !== null
+                ? "Sending test prompts..."
+                : "Send all test prompts"}
+            </button>
+          ) : null}
           {hasEnabledApps ? (
             <div className="connector-list">
               {proxyVerificationRows.map((row) => (
@@ -5577,6 +7415,18 @@ export default function App() {
                       ) : null}
                     </div>
                   </div>
+                  {row.oneClickSupported && row.state !== "verified" ? (
+                    <button
+                      className="secondary-button connector-item__action"
+                      disabled={connectorSmokeBusyId !== null}
+                      onClick={() => void runConnectorSmokeTest(row)}
+                      type="button"
+                    >
+                      {connectorSmokeBusyId === row.clientId
+                        ? "Sending..."
+                        : "Send test prompt"}
+                    </button>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -5632,9 +7482,10 @@ export default function App() {
           </h1>
           {dashboard.launchExperience === "first_run" ? (
             <p>
-              Send your first prompt from a connected tool. The switchboard will
-              route through the local Headroom engine and track savings
-              automatically.
+              Use Test setup to send a first prompt automatically where
+              supported, or send your first prompt from a connected tool.
+              Switchboard will route through the local Headroom engine and
+              track savings automatically.
             </p>
           ) : (
             <>
@@ -5654,7 +7505,7 @@ export default function App() {
                     Savings all-time
                   </span>
                   <strong className="stat-value--green">
-                    {currency(dashboard.lifetimeEstimatedSavingsUsd)}
+                    {currency(savingsDashboard.lifetimeEstimatedSavingsUsd)}
                   </strong>
                   <p>{lifetimeDataDaysLabel}</p>
                 </article>
@@ -5669,7 +7520,7 @@ export default function App() {
                     Tokens saved all-time
                   </span>
                   <strong className="stat-value--blue">
-                    {compactNumber(dashboard.lifetimeEstimatedTokensSaved)}
+                    {compactNumber(savingsDashboard.lifetimeEstimatedTokensSaved)}
                   </strong>
                   <p>
                     Across{" "}
@@ -5828,25 +7679,26 @@ export default function App() {
       if (connectorPhase === "disabled") {
         return {
           tone: "disabled",
-          title: "No coding tools connected — Headroom isn't reducing costs.",
+          title:
+            "No coding tools connected — Mac AI Switchboard isn't reducing token use.",
         } as const;
       }
       if (connectorPhase === "verifying") {
         return {
           tone: "starting",
           title:
-            "Send a message in a connected tool to verify the connection is working. You may need to restart it first.",
+            "Click Test setup, then send a message in a connected tool to verify routing. Restart the tool first if it was already open.",
         } as const;
       }
       if (kompressWarming) {
         return {
           tone: "healthy",
-          title: "Headroom is running while finishing setup.",
+          title: "Mac AI Switchboard is running while finishing setup.",
         } as const;
       }
       return {
         tone: "healthy",
-        title: "Headroom is running and trimming prompt bloat.",
+        title: "Mac AI Switchboard is running and trimming prompt bloat.",
       } as const;
     }
 
@@ -5858,11 +7710,11 @@ export default function App() {
       tone: disconnected ? "disconnected" : "degraded",
       title: disconnected
         ? runtimeIssues.length > 0
-          ? `Headroom is not hooked up right now: ${runtimeIssues.join(", ")}.`
-          : "Headroom is not hooked up right now."
+          ? `Mac AI Switchboard is not hooked up right now: ${runtimeIssues.join(", ")}.`
+          : "Mac AI Switchboard is not hooked up right now."
         : runtimeIssues.length > 0
-          ? `Headroom needs attention: ${runtimeIssues.join(", ")}.`
-          : "Headroom is running, but something needs attention.",
+          ? `Mac AI Switchboard needs attention: ${runtimeIssues.join(", ")}.`
+          : "Mac AI Switchboard is running, but something needs attention.",
     } as const;
   })();
 
@@ -5875,10 +7727,18 @@ export default function App() {
             return calloutBanner.title;
           }
           if (calloutBanner.tone === "disconnected") {
-            return `Headroom is not hooked up right now: ${primaryIssue}.`;
+            return `Mac AI Switchboard is not hooked up right now: ${primaryIssue}.`;
           }
-          return `Headroom needs attention: ${primaryIssue}.`;
+          return `Mac AI Switchboard needs attention: ${primaryIssue}.`;
         })();
+  const showRuntimeRestartAction = shouldOfferRuntimeRestartAction(
+    calloutBanner.tone,
+    {
+      runtimeHealthy,
+      runtimeStarting: runtimeStatus?.starting === true,
+      connectorPhase,
+    },
+  );
   const tierMismatch = localOnlyMode
     ? null
     : (pricingStatus?.tierMismatch ?? null);
@@ -5912,10 +7772,34 @@ export default function App() {
       : runtimeStatus?.paused
         ? "Paused"
         : "Offline";
+  const proxyListenerAddress =
+    runtimeStatus?.proxyBindAddress ?? "127.0.0.1:6767";
+  const proxyListenerDetail =
+    runtimeStatus?.proxyReachable === true
+      ? `${proxyListenerAddress} is accepting loopback traffic. ${runtimeStatus?.proxyAuthDetail ?? "The listener is local-only."}`
+      : runtimeStatus?.paused
+        ? `${proxyListenerAddress} is intentionally stopped while the Headroom engine is paused.`
+        : `${proxyListenerAddress} is not accepting traffic.`;
+  const backendStatus = runtimeStatus?.backendStatus ?? null;
+  const backendPortDetail = backendStatus
+    ? backendStatus.port === backendStatus.defaultPort
+      ? `${backendStatus.bindAddress} is the default internal Headroom backend port.`
+      : `${backendStatus.bindAddress} is the selected fallback internal backend port; ${backendStatus.defaultPort} was unavailable.`
+    : "Internal backend port evidence is unavailable.";
+  const backendPortStatus =
+    backendStatus?.reachable === true
+      ? "Reachable"
+      : runtimeStatus?.paused
+        ? "Paused"
+        : "Unreachable";
   const switchboardRtkDetail =
-    rtkAvgSavingsPct !== null
-      ? `${percent1(rtkAvgSavingsPct)}% average savings`
-      : "Shell output compression";
+    runtimeStatus?.rtk.enabled
+      ? rtkAvgSavingsPct !== null
+        ? `${percent1(rtkAvgSavingsPct)}% average savings`
+        : "Shell output compression active"
+      : runtimeStatus?.rtk.installed
+        ? "Installed but disabled"
+        : "Shell output compression not installed";
   const switchboardHeadroomLabel =
     (switchboardState?.enabledClients ?? enabledSwitchboardConnectors).length >
     0
@@ -5923,6 +7807,248 @@ export default function App() {
           .map((connector) => connector.name)
           .join(", ")
       : "No clients enabled";
+  const repoMemoryLifecycle = repoMemoryMcpLifecycle({
+    configured: runtimeStatus?.repoMemoryMcpConfigured,
+    error: runtimeStatus?.repoMemoryMcpError,
+    active: runtimeStatus?.repoMemoryMcpActive,
+    lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
+    lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
+    supervisionStatus: runtimeStatus?.repoMemoryMcpSupervisionStatus,
+    service: runtimeStatus?.repoMemoryMcpService,
+  });
+  const launchAgentStatus = runtimeStatus?.launchAgentStatus ?? null;
+  const launchAgentInstalled = launchAgentStatus?.installed === true;
+  const legacyLaunchAgentInstalled =
+    launchAgentStatus?.legacyInstalled === true;
+  const launchAgentLoaded = launchAgentStatus?.loaded === true;
+  const legacyLaunchAgentLoaded = launchAgentStatus?.legacyLoaded === true;
+  const launchAgentDetail = legacyLaunchAgentInstalled
+    ? `Legacy Headroom.plist exists at ${launchAgentStatus?.legacyPath ?? "~/Library/LaunchAgents/Headroom.plist"}. ${launchAgentStatus?.legacyLoadDetail ?? "Legacy launchd load state is unknown."} Run Doctor cleanup or uninstall to remove it.`
+    : launchAgentInstalled
+      ? `Launch at login plist exists at ${launchAgentStatus?.path ?? "~/Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist"}. ${launchAgentStatus?.loadDetail ?? "launchd load state is unknown."}`
+      : `No app-managed launch-at-login plist found. ${launchAgentStatus?.loadDetail ?? "launchd load state is unknown."}`;
+  const switchboardRoutingConnectors =
+    switchboardState?.clients ?? switchboardConnectors;
+  const codexRoutingConnector = switchboardRoutingConnectors.find(
+    (connector) => connector.clientId === "codex",
+  );
+  const claudeRoutingConnector = switchboardRoutingConnectors.find(
+    (connector) => connector.clientId === "claude_code",
+  );
+  const additionalManagedRoutingConnectors = switchboardRoutingConnectors.filter(
+    (connector) =>
+      connector.installed === true &&
+      connectorSupportsAutomaticSetup(connector) &&
+      !["codex", "claude_code"].includes(connector.clientId),
+  );
+  const connectorRoutingRow = (
+    label: string,
+    connector: ClientConnectorStatus | undefined,
+  ) => {
+    const configured = connector?.enabled === true;
+    const verified = connector?.verified === true;
+    const canRepairManaged =
+      connector?.installed === true &&
+      connectorSupportsAutomaticSetup(connector) &&
+      (!configured || !verified);
+    const managedRepairAction =
+      connector?.clientId === "codex"
+        ? "repair_codex_setup"
+        : connector?.clientId
+          ? `repair_client_setup:${connector.clientId}`
+          : "repair_client_setups";
+    const actionLabel = canRepairManaged
+        ? connector?.clientId === "codex"
+          ? "Repair Codex"
+          : "Repair managed setup"
+        : undefined;
+    const actionDisabled = canRepairManaged ? doctorRepairBusy !== null : undefined;
+    const onAction = canRepairManaged
+      ? () => void handleDoctorRepair(managedRepairAction)
+      : undefined;
+    return {
+      label,
+      status: configured
+        ? verified
+          ? "Verified"
+          : "Needs test"
+        : canRepairManaged
+          ? "Repair ready"
+          : "Direct",
+      detail: connector?.installed
+        ? configured
+          ? verified
+            ? `${connector.name} is routed through Headroom and verified.`
+            : `${connector.name} routing is configured; send a test prompt from Connectors.`
+          : canRepairManaged
+            ? `${connector.name} routing is repair ready. Use ${actionLabel} to re-apply reversible managed setup and verify routing evidence.`
+            : `${connector.name} is detected but not routed.`
+        : `${label.replace(" routing", "")} is not detected on this Mac.`,
+      actionLabel,
+      actionBusyLabel:
+        canRepairManaged && doctorRepairBusy === managedRepairAction
+          ? "Repairing"
+          : undefined,
+      actionDisabled,
+      onAction,
+    };
+  };
+  const enabledConnectorVerifications = switchboardRoutingConnectors
+    .filter((connector) => connector.enabled)
+    .map((connector) => connector.setupVerification)
+    .filter((verification): verification is NonNullable<typeof verification> =>
+      Boolean(verification),
+    );
+  const managedShellBlockVerified = enabledConnectorVerifications.some(
+    (verification) =>
+      verification.checks.some((check) =>
+        /managed shell block|shell profiles/i.test(check),
+      ),
+  );
+  const managedShellBlockMissing = enabledConnectorVerifications.some(
+    (verification) =>
+      verification.failures.some((failure) =>
+        /shell profiles|shell blocks/i.test(failure),
+      ),
+  );
+  const codexProviderVerified =
+    codexRoutingConnector?.setupVerification?.checks.some((check) =>
+      /provider block/i.test(check),
+    ) === true;
+  const codexProviderMissing =
+    codexRoutingConnector?.setupVerification?.failures.some((failure) =>
+      /provider block/i.test(failure),
+    ) === true;
+  const switchboardInspectorRows = [
+    {
+      label: "Proxy listener",
+      status:
+        runtimeStatus?.proxyReachable === true
+          ? "Reachable"
+          : runtimeStatus?.paused
+            ? "Paused"
+            : "Unreachable",
+      detail: proxyListenerDetail,
+    },
+    {
+      label: "Backend port",
+      status: backendPortStatus,
+      detail: backendPortDetail,
+    },
+    connectorRoutingRow("Codex routing", codexRoutingConnector),
+    connectorRoutingRow("Claude routing", claudeRoutingConnector),
+    ...additionalManagedRoutingConnectors.map((connector) =>
+      connectorRoutingRow(`${connector.name} routing`, connector),
+    ),
+    {
+      label: "Client routing",
+      status:
+        (switchboardState?.enabledClients ?? enabledSwitchboardConnectors)
+          .length > 0
+          ? "Managed"
+          : "Direct",
+      detail: switchboardHeadroomLabel,
+    },
+    {
+      label: "Managed shell blocks",
+      status: managedShellBlockVerified
+        ? "Verified"
+        : managedShellBlockMissing
+          ? "Missing"
+          : "No proof",
+      detail: managedShellBlockVerified
+        ? "Connector verification found managed shell routing blocks."
+        : managedShellBlockMissing
+          ? "Connector verification reported missing shell routing blocks."
+          : "No enabled connector has reported shell-block verification yet.",
+    },
+    {
+      label: "Codex provider block",
+      status: codexProviderVerified
+        ? "Verified"
+        : codexProviderMissing
+          ? "Missing"
+          : codexRoutingConnector?.enabled
+            ? "No proof"
+            : "Direct",
+      detail: codexProviderVerified
+        ? "Connector verification found the Headroom-managed provider block in ~/.codex/config.toml."
+        : codexProviderMissing
+          ? "Connector verification reported the Codex provider block is missing."
+          : codexRoutingConnector?.enabled
+            ? "Codex is enabled, but provider-block verification has not reported proof yet."
+            : "Codex provider routing is repair ready. Use the Codex routing repair-ready row to re-apply the managed provider block.",
+    },
+    {
+      label: "Shell export",
+      status: runtimeStatus?.rtk.pathConfigured ? "Configured" : "Not configured",
+      detail: runtimeStatus?.rtk.pathConfigured
+        ? "Managed RTK PATH export is present."
+        : "Managed RTK PATH export is not active.",
+    },
+    {
+      label: "RTK shell hook",
+      status: runtimeStatus?.rtk.hookConfigured ? "Configured" : "Not configured",
+      detail: runtimeStatus?.rtk.hookConfigured
+        ? "Managed RTK command-rewrite hook is present."
+        : runtimeStatus?.rtk.installed
+          ? "RTK is installed, but the managed shell hook is not active."
+          : "RTK shell hook is not installed.",
+    },
+    {
+      label: "Headroom MCP",
+      status:
+        runtimeStatus?.mcpConfigured === true
+          ? "Configured"
+          : runtimeStatus?.mcpConfigured === false
+            ? "Not configured"
+            : "Unknown",
+      detail:
+        runtimeStatus?.mcpConfigured === true
+          ? "Claude MCP config includes the local Headroom server."
+          : runtimeStatus?.mcpConfigured === false
+            ? (runtimeStatus.mcpError ??
+              "Claude MCP config does not include the local Headroom server.")
+            : "Headroom MCP configuration has not been checked yet.",
+    },
+    {
+      ...repoMemoryMcpInspectorRow({
+        configured: runtimeStatus?.repoMemoryMcpConfigured,
+        error: runtimeStatus?.repoMemoryMcpError,
+        active: runtimeStatus?.repoMemoryMcpActive,
+        lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
+        lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
+        supervisionStatus: runtimeStatus?.repoMemoryMcpSupervisionStatus,
+        service: runtimeStatus?.repoMemoryMcpService,
+      }),
+      actionLabel:
+        repoMemoryLifecycle.state === "active"
+          ? "Stop MCP"
+          : runtimeStatus?.repoMemoryMcpConfigured === true
+            ? "Start MCP"
+            : "Prepare MCP",
+      actionBusyLabel:
+        addonBusyId === "repo-memory" ? (addonBusyLabel ?? "Working") : undefined,
+      actionDisabled: addonBusyId !== null,
+      onAction:
+        repoMemoryLifecycle.state === "active"
+          ? () => void setRepoMemoryMcpActive(false)
+          : runtimeStatus?.repoMemoryMcpConfigured === true
+            ? () => void setRepoMemoryMcpActive(true)
+            : () => void prepareRepoMemoryMcp(),
+    },
+    {
+      label: "Launch at login",
+      status: legacyLaunchAgentInstalled || legacyLaunchAgentLoaded
+        ? "Legacy found"
+        : launchAgentLoaded
+          ? "Loaded"
+          : launchAgentInstalled
+            ? "Installed"
+          : "Not installed",
+      detail: launchAgentDetail,
+    },
+  ];
   const switchboardLocalOnly = switchboardState?.localOnly ?? localOnlyMode;
   const switchboardRemoteServicesEnabled =
     switchboardState?.remoteServicesEnabled ?? !switchboardLocalOnly;
@@ -6331,14 +8457,13 @@ export default function App() {
                 </p>
               ) : null}
               {calloutBanner.tone === "healthy" &&
-                dashboard.lifetimeEstimatedTokensSaved < 1_000_000 && (
+                savingsDashboard.lifetimeEstimatedTokensSaved < 1_000_000 && (
                   <p className="callout-banner__subtitle">
                     Now use your connected tools as normal, and check back later
                     to see how much you are saving by using Headroom.
                   </p>
                 )}
-              {(calloutBanner.tone === "auto-paused" ||
-                calloutBanner.tone === "paused") && (
+              {showRuntimeRestartAction ? (
                 <div className="callout-banner__resume">
                   <button
                     type="button"
@@ -6346,7 +8471,12 @@ export default function App() {
                     onClick={() => void handleResumeRuntime()}
                     disabled={resuming}
                   >
-                    {resuming ? "Restarting…" : "Resume"}
+                    {resuming
+                      ? "Restarting…"
+                      : calloutBanner.tone === "paused" ||
+                          calloutBanner.tone === "auto-paused"
+                        ? "Resume"
+                        : "Start runtime"}
                   </button>
                   {resumeError ? (
                     <p
@@ -6357,7 +8487,19 @@ export default function App() {
                     </p>
                   ) : null}
                 </div>
-              )}
+              ) : null}
+              {calloutBanner.tone === "starting" &&
+              connectorPhase === "verifying" ? (
+                <div className="callout-banner__resume">
+                  <button
+                    type="button"
+                    className="callout-banner__action"
+                    onClick={() => void beginProxyVerificationStep()}
+                  >
+                    Test setup
+                  </button>
+                </div>
+              ) : null}
             </div>
             {(() => {
               const homeConnectors = sortClientConnectors(
@@ -6449,10 +8591,21 @@ export default function App() {
             headroomDetail={switchboardHeadroomLabel}
             rtkStatus={switchboardRtkLabel}
             rtkDetail={switchboardRtkDetail}
+            connectors={switchboardConnectors}
+            recentUsage={dashboard.recentUsage}
+            savedHistory={dashboard.dailySavings}
+            inspectorRows={switchboardInspectorRows}
             remoteServicesEnabled={switchboardRemoteServicesEnabled}
             savingsMode={savingsMode}
             savingsModeBusy={savingsModeBusy}
             paused={runtimeStatus?.paused === true}
+            runtimeActionVisible={showRuntimeRestartAction}
+            runtimeActionLabel={
+              calloutBanner.tone === "paused" ||
+              calloutBanner.tone === "auto-paused"
+                ? "Resume runtime"
+                : "Start runtime"
+            }
             resuming={resuming}
             modeBusy={switchboardModeBusy}
             modeError={switchboardModeError}
@@ -6468,6 +8621,7 @@ export default function App() {
             busyAction={doctorRepairBusy}
             error={doctorRepairError}
             successMessage={doctorRepairSuccess}
+            footprintReport={managedFootprintReport}
             onRepair={(action) => void handleDoctorRepair(action)}
           />
 
@@ -6486,7 +8640,7 @@ export default function App() {
                   size={15}
                   weight="bold"
                 />
-                Total costs saved (estimate)
+                All-time costs saved (estimate)
                 <button
                   className="stat-card__info-button"
                   onClick={(e) => {
@@ -6500,7 +8654,7 @@ export default function App() {
                 </button>
               </span>
               <strong className="stat-value--green">
-                {currency(dashboard.lifetimeEstimatedSavingsUsd)}
+                {currency(savingsDashboard.lifetimeEstimatedSavingsUsd)}
               </strong>
             </article>
             <article
@@ -6517,14 +8671,14 @@ export default function App() {
                   size={15}
                   weight="bold"
                 />
-                Total input tokens saved
+                All-time input tokens saved
               </span>
               <div className="stat-value-row">
                 <strong className="stat-value--blue">
-                  {compactNumber(dashboard.lifetimeEstimatedTokensSaved)}
+                  {compactNumber(savingsDashboard.lifetimeEstimatedTokensSaved)}
                 </strong>
-                {dashboard.outputReduction ? (
-                  <OutputReductionChip reduction={dashboard.outputReduction} />
+                {savingsDashboard.outputReduction ? (
+                  <OutputReductionChip reduction={savingsDashboard.outputReduction} />
                 ) : null}
               </div>
             </article>
@@ -6534,6 +8688,8 @@ export default function App() {
             dashboard={dashboard}
             repoSavings={savingsCalculatorRepoEstimate}
             runtimeStatus={runtimeStatus}
+            rtkToday={activityFeed.tiles.rtkToday}
+            attributionEvents={savingsAttributionEvents}
             cavemanSavings={cavemanSavingsEstimate}
             ponytailSavings={ponytailSavingsEstimate}
             markitdownSavings={markitdownSavingsEstimate}
@@ -6541,10 +8697,12 @@ export default function App() {
             onScopeChange={setSavingsCalculatorScope}
           />
 
+          <ClientSavingsTrendsCard dashboard={dashboard} />
+
           {dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
             <DailySavingsChart
-              data={dashboard.dailySavings}
-              hourlyData={dashboard.hourlySavings}
+              data={savingsDashboard.dailySavings}
+              hourlyData={savingsDashboard.hourlySavings}
               resetSignal={chartResetSignal}
               chartMode={chartMode}
               setChartMode={setChartMode}
@@ -6554,6 +8712,139 @@ export default function App() {
               <p className="loading-copy">Loading savings history…</p>
             </div>
           )}
+        </div>
+
+        <div className="tray-content" hidden={activeView !== "usage"}>
+          <section className="repo-intelligence-view">
+            <header className="repo-intelligence-view__header">
+              <div>
+                <h1>Usage and Savings</h1>
+                <p className="repo-intelligence-view__subtitle">
+                  Review token savings, estimated cost savings, source
+                  breakdowns, and copyable savings summaries.
+                </p>
+              </div>
+              <span className="repo-intelligence-view__badge">Menu bar</span>
+            </header>
+            <section className="stat-grid stat-grid--2col">
+              <article
+                className={`soft-card stat-card stat-card--clickable${chartMode === "usd" ? " is-active" : ""}`}
+                onClick={() => setChartMode("usd")}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && setChartMode("usd")}
+              >
+                <span className="stat-card__label">
+                  <CurrencyCircleDollar
+                    aria-hidden="true"
+                    className="stat-card__icon"
+                    size={15}
+                    weight="bold"
+                  />
+                  All-time costs saved (estimate)
+                  <button
+                    className="stat-card__info-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSavingsInfo(true);
+                    }}
+                    type="button"
+                    aria-label="How savings are calculated"
+                  >
+                    <Info size={13} weight="bold" />
+                  </button>
+                </span>
+                <strong className="stat-value--green">
+                  {currency(savingsDashboard.lifetimeEstimatedSavingsUsd)}
+                </strong>
+              </article>
+              <article
+                className={`soft-card stat-card stat-card--clickable${chartMode === "tokens" ? " is-active" : ""}`}
+                onClick={() => setChartMode("tokens")}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && setChartMode("tokens")}
+              >
+                <span className="stat-card__label">
+                  <Cpu
+                    aria-hidden="true"
+                    className="stat-card__icon"
+                    size={15}
+                    weight="bold"
+                  />
+                  All-time input tokens saved
+                </span>
+                <div className="stat-value-row">
+                  <strong className="stat-value--blue">
+                    {compactNumber(savingsDashboard.lifetimeEstimatedTokensSaved)}
+                  </strong>
+                  {savingsDashboard.outputReduction ? (
+                    <OutputReductionChip
+                      reduction={savingsDashboard.outputReduction}
+                    />
+                  ) : null}
+                </div>
+              </article>
+            </section>
+
+            <SavingsCalculatorCard
+              dashboard={dashboard}
+              repoSavings={savingsCalculatorRepoEstimate}
+              runtimeStatus={runtimeStatus}
+              rtkToday={activityFeed.tiles.rtkToday}
+              attributionEvents={savingsAttributionEvents}
+              cavemanSavings={cavemanSavingsEstimate}
+              ponytailSavings={ponytailSavingsEstimate}
+              markitdownSavings={markitdownSavingsEstimate}
+              scope={savingsCalculatorScope}
+              onScopeChange={setSavingsCalculatorScope}
+            />
+
+            <ClientSavingsTrendsCard dashboard={dashboard} />
+
+            {dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
+              <DailySavingsChart
+                data={savingsDashboard.dailySavings}
+                hourlyData={savingsDashboard.hourlySavings}
+                resetSignal={chartResetSignal}
+                chartMode={chartMode}
+                setChartMode={setChartMode}
+              />
+            ) : (
+              <div className="savings-chart__skeleton" role="status">
+                <p className="loading-copy">Loading savings history…</p>
+              </div>
+            )}
+          </section>
+        </div>
+
+        <div className="tray-content" hidden={activeView !== "doctor"}>
+          <section className="repo-intelligence-view">
+            <header className="repo-intelligence-view__header">
+              <div>
+                <h1>Doctor</h1>
+                <p className="repo-intelligence-view__subtitle">
+                  Inspect Mac AI Switchboard setup, run fixes, copy reports, and
+                  repair local routing drift.
+                </p>
+              </div>
+              <span className="repo-intelligence-view__badge">Fixes</span>
+            </header>
+            <SwitchboardDoctorPanel
+              report={doctorReport}
+              busyAction={doctorRepairBusy}
+              error={doctorRepairError}
+              successMessage={doctorRepairSuccess}
+              footprintReport={managedFootprintReport}
+              onRepair={(action) => void handleDoctorRepair(action)}
+            />
+            <DoctorTimelineCard
+              events={buildDoctorTimelinePreview(
+                doctorReport,
+                doctorRepairSuccess,
+              )}
+            />
+          </section>
         </div>
 
         <div className="tray-content" hidden={activeView !== "optimization"}>
@@ -6568,6 +8859,13 @@ export default function App() {
               <p className="optimize-card__blurb">{learnBlurb}</p>
             </header>
             <div className="optimize-card__body">
+              <div className="optimize-learn-setup" role="note">
+                <strong>Where this lives</strong>
+                <span>
+                  Enable Claude Code or Codex in Addons, then return here and
+                  run a visible scan button for the project or session history.
+                </span>
+              </div>
               {!headroomLearnSupported ? (
                 <div className="optimize-minimal">
                   <p className="optimize-minimal__meta">
@@ -6579,10 +8877,20 @@ export default function App() {
                   </p>
                 </div>
               ) : !claudeLearnEnabled && !codexLearnEnabled ? (
-                <p className="loading-copy">
-                  Enable the Claude Code or Codex connector to scan sessions for
-                  learnings.
-                </p>
+                <div className="optimize-empty-action">
+                  <p className="loading-copy">
+                    No learning source is enabled yet. Turn on the Claude Code
+                    or Codex connector in Addons, then the scan controls appear
+                    here.
+                  </p>
+                  <button
+                    type="button"
+                    className="secondary-button secondary-button--small"
+                    onClick={() => setActiveView("addons")}
+                  >
+                    Open Addons
+                  </button>
+                </div>
               ) : (
                 <div className="optimize-minimal">
                   {claudeLearnEnabled &&
@@ -6682,9 +8990,6 @@ export default function App() {
                             claudeProjectsBusy ||
                             (headroomLearnStatus.running && !isRunning);
                           const learnMeta = formatLearnStatus(project);
-                          const refreshLabel = isRunning
-                            ? "Scanning…"
-                            : "Scan now";
                           const projectResultTone =
                             headroomLearnStatus.success === true
                               ? "success"
@@ -6726,25 +9031,6 @@ export default function App() {
                                               : ""
                                           }`
                                         : learnMeta}
-                                      <button
-                                        type="button"
-                                        className={`optimize-project-row__refresh${isRunning ? " is-spinning" : ""}`}
-                                        onClick={() =>
-                                          void handleRunHeadroomLearn(
-                                            "claude",
-                                            project.projectPath,
-                                          )
-                                        }
-                                        disabled={disableLearn}
-                                        aria-label={refreshLabel}
-                                        title={refreshLabel}
-                                      >
-                                        <ArrowClockwise
-                                          weight="bold"
-                                          size={12}
-                                          aria-hidden="true"
-                                        />
-                                      </button>
                                     </span>
                                     <OptimizePanel
                                       projectPath={project.projectPath}
@@ -6776,6 +9062,26 @@ export default function App() {
                                   </small>
                                 </span>
                                 <div className="optimize-project-row__actions">
+                                  <button
+                                    type="button"
+                                    className={`secondary-button secondary-button--small optimize-project-row__scan${isRunning ? " is-spinning" : ""}`}
+                                    onClick={() =>
+                                      void handleRunHeadroomLearn(
+                                        "claude",
+                                        project.projectPath,
+                                      )
+                                    }
+                                    disabled={disableLearn}
+                                  >
+                                    <ArrowClockwise
+                                      weight="bold"
+                                      size={12}
+                                      aria-hidden="true"
+                                    />
+                                    {isRunning
+                                      ? "Scanning"
+                                      : "Scan Claude project"}
+                                  </button>
                                   {showInlineResult ? (
                                     <span
                                       className={`optimize-project-row__status optimize-minimal__result--${projectResultTone}`}
@@ -6950,34 +9256,27 @@ export default function App() {
                                               : ""
                                           }`
                                         : "Scans ~/.codex/sessions into AGENTS.md"}
-                                      <button
-                                        type="button"
-                                        className={`optimize-project-row__refresh${codexRunning ? " is-spinning" : ""}`}
-                                        onClick={() =>
-                                          void handleRunHeadroomLearn("codex")
-                                        }
-                                        disabled={codexDisable}
-                                        aria-label={
-                                          codexRunning
-                                            ? "Scanning…"
-                                            : "Scan now"
-                                        }
-                                        title={
-                                          codexRunning
-                                            ? "Scanning…"
-                                            : "Scan now"
-                                        }
-                                      >
-                                        <ArrowClockwise
-                                          weight="bold"
-                                          size={12}
-                                          aria-hidden="true"
-                                        />
-                                      </button>
                                     </span>
                                   </small>
                                 </span>
                                 <div className="optimize-project-row__actions">
+                                  <button
+                                    type="button"
+                                    className={`secondary-button secondary-button--small optimize-project-row__scan${codexRunning ? " is-spinning" : ""}`}
+                                    onClick={() =>
+                                      void handleRunHeadroomLearn("codex")
+                                    }
+                                    disabled={codexDisable}
+                                  >
+                                    <ArrowClockwise
+                                      weight="bold"
+                                      size={12}
+                                      aria-hidden="true"
+                                    />
+                                    {codexRunning
+                                      ? "Scanning"
+                                      : "Scan Codex sessions"}
+                                  </button>
                                   {codexShowResult ? (
                                     <span
                                       className={`optimize-project-row__status optimize-minimal__result--${codexResultTone}`}
@@ -7019,12 +9318,49 @@ export default function App() {
         </div>
 
         <div className="tray-content" hidden={activeView !== "notifications"}>
-          <ActivityFeed
-            feed={activityFeed}
-            error={activityFeedError}
-            loaded={activityFeedLoaded}
-            onNavigateToOptimize={() => setActiveView("optimization")}
-          />
+            <ActivityFeed
+              feed={activityFeed}
+              error={activityFeedError}
+              loaded={activityFeedLoaded}
+              onNavigateToOptimize={() => setActiveView("optimization")}
+            />
+          </div>
+
+          <div className="tray-content" hidden={activeView !== "repoMap"}>
+            <RepoMapView
+              onOpenDoctor={() => setActiveView("doctor")}
+              onOpenRepoIntelligence={() => setActiveView("repoIntelligence")}
+            />
+          </div>
+
+          <div
+            className="tray-content tray-content--repo-intelligence"
+            hidden={activeView !== "repoIntelligence"}
+          >
+          <section className="repo-intelligence-view">
+            <header className="repo-intelligence-view__header">
+              <div>
+                <h1>Repo Intelligence</h1>
+                <p className="repo-intelligence-view__subtitle">
+                  Index a local repository, review graph signals, and copy
+                  bounded context packs for coding agents.
+                </p>
+              </div>
+              <span className="repo-intelligence-view__badge">Local only</span>
+            </header>
+            <RepoIntelligencePreview
+              headroomHealthy={
+                runtimeStatus?.proxyReachable === true &&
+                runtimeStatus.running === true &&
+                runtimeStatus.paused === false
+              }
+              onSummaryChange={setLatestRepoIntelligenceSummary}
+              rtkHealthy={
+                runtimeStatus?.rtk.installed === true &&
+                runtimeStatus.rtk.enabled === true
+              }
+            />
+          </section>
         </div>
 
         <div className="tray-content" hidden={activeView !== "addons"}>
@@ -7037,11 +9373,17 @@ export default function App() {
               </p>
             </header>
             {addonError ? <p className="addons__error">{addonError}</p> : null}
+            <AddonHealthStrip
+              cards={buildAddonHealthCards(runtimeStatus, dashboard.tools, {
+                dailySavings: dashboard.dailySavings,
+                recentUsage: dashboard.recentUsage,
+              })}
+            />
             <ul className="addons__list">
               <AddonCard
                 key="rtk"
                 name="RTK"
-                version={runtimeStatus?.rtk.version}
+                version="0.0.0"
                 installed={runtimeStatus?.rtk.installed === true}
                 enabled={runtimeStatus?.rtk.enabled === true}
                 description={
@@ -7135,7 +9477,7 @@ export default function App() {
                     <AddonCard
                       key={tool.id}
                       name={tool.name}
-                      version={tool.version}
+                      version="0.0.0"
                       installed={installed}
                       enabled={tool.enabled}
                       description={tool.description}
@@ -7174,15 +9516,23 @@ export default function App() {
                             const level =
                               tool.metadata?.level === "aggressive"
                                 ? "aggressive"
-                                : "scoped";
+                                : tool.metadata?.level === "compact_chinese"
+                                  ? "compact_chinese"
+                                  : "scoped";
                             return (
-                              <div
-                                className="addon-card__segmented"
-                                role="group"
-                                aria-label="Caveman level"
-                              >
-                                {(["scoped", "aggressive"] as const).map(
-                                  (item) => (
+                              <div className="addon-card__option-block">
+                                <div
+                                  className="addon-card__segmented"
+                                  role="group"
+                                  aria-label="Caveman level"
+                                >
+                                  {(
+                                    [
+                                      ["scoped", "Scoped"],
+                                      ["aggressive", "Aggressive"],
+                                      ["compact_chinese", "Compact Chinese"],
+                                    ] as const
+                                  ).map(([item, label]) => (
                                     <button
                                       key={item}
                                       type="button"
@@ -7195,12 +9545,19 @@ export default function App() {
                                       }
                                       onClick={() => void setCavemanLevel(item)}
                                     >
-                                      {item === "scoped"
-                                        ? "Scoped"
-                                        : "Aggressive"}
+                                      {label}
                                     </button>
-                                  ),
-                                )}
+                                  ))}
+                                </div>
+                                {level === "compact_chinese" ? (
+                                  <p className="addon-card__hint">
+                                    Experimental: compact Chinese is only for
+                                    private internal notes and handoffs. Final
+                                    user-facing, legal, safety, debugging, and
+                                    release content stays in the requested
+                                    language with full detail.
+                                  </p>
+                                ) : null}
                               </div>
                             );
                           })()
@@ -7212,8 +9569,16 @@ export default function App() {
                 <PlannedAddonCard
                   key={addon.id}
                   addon={addon}
-                  onRepoIntelligenceSummaryChange={
-                    setLatestRepoIntelligenceSummary
+                  onCopyConnectorConfigPlan={(connector) =>
+                    void copyPlannedConnectorCommand(
+                      formatPlannedConnectorConfigCreationPlansMarkdown([
+                        connector,
+                      ]),
+                      `${connector.name} config plan`,
+                    )
+                  }
+                  onOpenRepoIntelligence={() =>
+                    setActiveView("repoIntelligence")
                   }
                 />
               ))}
@@ -7663,38 +10028,147 @@ export default function App() {
             <article className="soft-card panel-card settings-account-card">
               <div className="settings-account-row">
                 <p className="settings-account-copy">
-                  Headroom account:{" "}
-                  {pricingStatus?.authenticated ? (
-                    <>
-                      {accountDisplayEmail} <em>({accountPlanName})</em>
-                    </>
-                  ) : (
-                    <em>not signed in</em>
-                  )}
+                  Account and paid APIs: <em>not included</em>
                 </p>
-                {pricingStatus?.authenticated ? (
-                  <button
-                    className="secondary-button secondary-button--small"
-                    onClick={() => void handleSignOutHeadroomAccount()}
-                    type="button"
-                  >
-                    <SignOut size={16} weight="bold" />
-                    Sign out
-                  </button>
-                ) : (
-                  <button
-                    className="secondary-button secondary-button--small"
-                    onClick={() => openUpgradeAuthView()}
-                    type="button"
-                  >
-                    Sign in
-                  </button>
-                )}
+                <span className="settings-account-badge">Local-free</span>
               </div>
-              {pricingStatus?.claude?.profileFetchError ? (
-                <p className="settings-account-notice">
-                  {pricingStatus.claude.profileFetchError}
-                </p>
+              <p className="settings-account-notice">
+                Mac AI Switchboard does not include remote account, billing,
+                checkout, or paid pricing APIs. Provider model calls still use
+                the accounts you configure in Claude, Codex, or other tools.
+              </p>
+            </article>
+
+            <SettingsLegalPanel
+              requiredTermsVersion={dashboard.requiredTermsVersion}
+            />
+
+            <article className="soft-card panel-card settings-transfer-card">
+              <div className="panel-card__header">
+                <div>
+                  <h3>Settings import/export</h3>
+                  <p>
+                    Move safe Mac AI Switchboard preferences without carrying
+                    secrets, local paths, message logs, billing state, or token
+                    history.
+                  </p>
+                </div>
+              </div>
+              <div className="settings-transfer__summary">
+                <span>
+                  Mode <strong>{switchboardMode}</strong>
+                </span>
+                <span>
+                  Savings <strong>{savingsMode}</strong>
+                </span>
+                <span>
+                  Connectors <strong>{connectors.length}</strong>
+                </span>
+                <span>
+                  Add-ons{" "}
+                  <strong>{dashboard.tools.filter((tool) => !tool.required).length}</strong>
+                </span>
+              </div>
+              <p className="settings-transfer__note">
+                Import applies only safe app preferences. Connector and add-on
+                entries are shown as manual review items so config writes still
+                go through Doctor, Addons, and connector gates.
+              </p>
+              <div className="settings-transfer__actions">
+                <button
+                  className="secondary-button secondary-button--small"
+                  onClick={() => void copySettingsExport()}
+                  type="button"
+                >
+                  Copy settings export
+                </button>
+                {settingsTransferNotice ? (
+                  <span>{settingsTransferNotice}</span>
+                ) : null}
+              </div>
+              <textarea
+                className="settings-transfer__textarea"
+                onChange={(event) => {
+                  setSettingsImportText(event.target.value);
+                  setSettingsImportPreview(null);
+                  setSettingsTransferNotice(null);
+                }}
+                placeholder="Paste settings export JSON to preview safe preferences"
+                rows={5}
+                value={settingsImportText}
+              />
+              <div className="settings-transfer__actions">
+                <button
+                  className="secondary-button secondary-button--small"
+                  disabled={settingsImportText.trim().length === 0}
+                  onClick={previewSettingsImport}
+                  type="button"
+                >
+                  Preview import
+                </button>
+                <button
+                  className="secondary-button secondary-button--small"
+                  disabled={
+                    settingsImportBusy ||
+                    settingsImportText.trim().length === 0 ||
+                    settingsImportPreview?.valid !== true
+                  }
+                  onClick={() => void applySettingsImport()}
+                  type="button"
+                >
+                  {settingsImportBusy ? "Applying..." : "Apply safe preferences"}
+                </button>
+              </div>
+              {settingsImportPreview ? (
+                <div
+                  className={`settings-transfer__preview${
+                    settingsImportPreview.valid ? " is-valid" : " is-invalid"
+                  }`}
+                >
+                  <strong>{settingsImportPreview.title}</strong>
+                  <p>{settingsImportPreview.detail}</p>
+                  {settingsImportPreview.errors.length > 0 ? (
+                    <ul>
+                      {settingsImportPreview.errors.map((error) => (
+                        <li key={error}>{error}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {Object.keys(settingsImportPreview.safePreferences).length > 0 ? (
+                    <p>
+                      Safe preferences:{" "}
+                      {Object.entries(settingsImportPreview.safePreferences)
+                        .map(([key, value]) => `${key} ${value}`)
+                        .join(", ")}
+                    </p>
+                  ) : null}
+                  {settingsImportPreview.migrationActions.length > 0 ? (
+                    <div
+                      className="settings-transfer__migration"
+                      aria-label="Settings migration actions"
+                    >
+                      {settingsImportPreview.migrationActions
+                        .slice(0, 8)
+                        .map((action) => (
+                          <div
+                            className={`settings-transfer__migration-row settings-transfer__migration-row--${action.status}`}
+                            key={action.id}
+                          >
+                            <span>{action.label}</span>
+                            <strong>{action.status}</strong>
+                            <small>{action.detail}</small>
+                          </div>
+                        ))}
+                    </div>
+                  ) : null}
+                  {settingsImportPreview.manualItems.length > 0 ? (
+                    <ul>
+                      {settingsImportPreview.manualItems.slice(0, 6).map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
               ) : null}
             </article>
 
@@ -7705,7 +10179,7 @@ export default function App() {
               <div className="connector-readiness">
                 <div>
                   <span className="connector-readiness__eyebrow">
-                    Planned tool readiness
+                    Connector readiness
                   </span>
                   <strong>{plannedConnectorReadiness.headline}</strong>
                   <p>{plannedConnectorReadiness.detail}</p>
@@ -7713,7 +10187,7 @@ export default function App() {
                 <div className="connector-readiness__actions">
                   <div
                     className="connector-readiness__metrics"
-                    aria-label="Planned connector readiness summary"
+                    aria-label="Connector readiness summary"
                   >
                     <span>
                       <strong>{plannedConnectorReadiness.detectedCount}</strong>
@@ -7750,12 +10224,25 @@ export default function App() {
                     onClick={() =>
                       void copyPlannedConnectorCommand(
                         getPlannedConnectorSetupChecklistScript(),
-                        "Planned tool checklist",
+                        "Connector checklist",
                       )
                     }
                   >
                     <Copy size={13} weight="bold" />
                     Copy checks
+                  </button>
+                  <button
+                    type="button"
+                    className="connector-readiness__copy"
+                    onClick={() =>
+                      void copyPlannedConnectorCommand(
+                        formatPlannedConnectorConfigCreationPlansMarkdown(),
+                        "Connector config plans",
+                      )
+                    }
+                  >
+                    <Copy size={13} weight="bold" />
+                    Copy config plans
                   </button>
                 </div>
               </div>
@@ -7776,19 +10263,28 @@ export default function App() {
                     getConnectorDetectionWarning(connector);
                   const toggleDisabled =
                     connectorsBusy || controlState.disabled;
-                  const plannedConnector =
-                    connector.supportStatus === "planned"
-                      ? getPlannedConnector(connector.clientId)
-                      : null;
+                  const plannedConnector = getPlannedConnector(
+                    connector.clientId,
+                  );
                   const plannedSetupGuide = plannedConnector
                     ? getPlannedConnectorSetupGuide(plannedConnector.id)
                     : null;
+                  const plannedReadiness = plannedConnector
+                    ? getPlannedConnectorReadinessContract(plannedConnector)
+                    : null;
+                  const plannedReadinessBadges = plannedConnector
+                    ? getPlannedConnectorReadinessBadges(plannedConnector)
+                    : [];
                   const connectorSetupPhase =
                     connector.setupPhase ??
                     plannedConnector?.setupPhase ??
                     null;
                   const connectorSetupHint =
                     connector.setupHint ?? plannedConnector?.notes ?? null;
+                  const compatibilityReport =
+                    connectorCompatibilityReport(connector);
+                  const configGateSummary =
+                    formatPlannedConnectorConfigGateSummary(connector);
                   return (
                     <article
                       className="connector-item"
@@ -7802,7 +10298,7 @@ export default function App() {
                           {connectorLabel}
                           {connector.supportStatus === "planned" ? (
                             <span className="connector-item__badge connector-item__badge--planned">
-                              Planned
+                              Gated
                             </span>
                           ) : null}
                           <button
@@ -7842,11 +10338,112 @@ export default function App() {
                             <p className="connector-plan__target">
                               {plannedConnector.integrationTarget}
                             </p>
+                            {plannedReadiness ? (
+                              <div className="connector-plan__readiness">
+                                <div>
+                                  <strong>Readiness contract</strong>
+                                  <span>
+                                    Next gate:{" "}
+                                    {plannedReadiness.stages.find(
+                                      (stage) =>
+                                        stage.id ===
+                                        plannedReadiness.nextBlockedStage,
+                                    )?.label ?? "Automation ready"}
+                                  </span>
+                                </div>
+                                <div
+                                  className="connector-plan__stage-row"
+                                  aria-label={`${connector.name} readiness contract`}
+                                >
+                                  {plannedReadiness.stages.map((stage) => (
+                                    <span
+                                      className={`connector-plan__stage connector-plan__stage--${stage.state}`}
+                                      key={stage.id}
+                                      title={stage.evidence}
+                                    >
+                                      {stage.label}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : null}
+                            {plannedReadinessBadges.length ? (
+                              <div
+                                className="connector-plan__badges"
+                                aria-label={`${connector.name} safety badges`}
+                              >
+                                {plannedReadinessBadges.map((badge) => (
+                                  <span
+                                    className={`connector-plan__badge connector-plan__badge--${badge.kind}`}
+                                    key={badge.kind}
+                                    title={badge.detail}
+                                  >
+                                    {badge.label}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                            {compatibilityReport ? (
+                              <div className="connector-plan__compatibility">
+                                <strong>{compatibilityReport.title}</strong>
+                                {compatibilityReport.binaryPath ? (
+                                  <span>
+                                    {compatibilityReport.primaryPathLabel}{" "}
+                                    {compatibilityReport.binaryPath}
+                                  </span>
+                                ) : null}
+                                {compatibilityReport.version ? (
+                                  <span>
+                                    Version {compatibilityReport.version}
+                                  </span>
+                                ) : null}
+                                {compatibilityReport.configSurface ? (
+                                  <span>
+                                    Config {compatibilityReport.configSurface}
+                                  </span>
+                                ) : null}
+                                {compatibilityReport.routingBlocker ? (
+                                  <span>
+                                    {connectorCompatibilityRoutingEvidenceLabel(
+                                      compatibilityReport,
+                                    )}{" "}
+                                    {compatibilityReport.routingBlocker}
+                                  </span>
+                                ) : null}
+                                {compatibilityReport.configCreationGates.length ? (
+                                  <span>
+                                    Config gates{" "}
+                                    {compatibilityReport.configCreationGates
+                                      .map((gate) => gate.label)
+                                      .join(" -> ")}
+                                  </span>
+                                ) : null}
+                                <span>
+                                  Automation{" "}
+                                  {compatibilityReport.automationEnabled
+                                    ? "enabled"
+                                    : "manual setup gated"}
+                                </span>
+                              </div>
+                            ) : null}
+                            {configGateSummary ? (
+                              <div className="connector-plan__config-gates">
+                                <strong>{configGateSummary.title}</strong>
+                                <span>{configGateSummary.detail}</span>
+                                <span>
+                                  Next: {configGateSummary.nextGateLabel}
+                                </span>
+                                <span>{configGateSummary.safetyNote}</span>
+                              </div>
+                            ) : null}
                             {connector.detectionSources?.length ||
                             connector.configLocations?.length ||
                             connector.detectionEvidence?.length ||
                             connector.automationGates?.length ||
-                            connector.manualWorkflow?.length ? (
+                            connector.manualWorkflow?.length ||
+                            connector.configCreationStepDetails?.length ||
+                            connector.configCreationSteps?.length ||
+                            connector.automationPath?.length ? (
                               <div className="connector-plan__backend">
                                 <strong>Backend checks</strong>
                                 {connector.detectionSources?.length ? (
@@ -7887,6 +10484,38 @@ export default function App() {
                                     {connector.manualWorkflow
                                       .slice(0, 2)
                                       .join(" · ")}
+                                  </span>
+                                ) : null}
+                                {connector.configCreationSteps?.length ? (
+                                  <span>
+                                    Config plan{" "}
+                                    {(connector.configCreationStepDetails
+                                      ?.slice(0, 4)
+                                      .map(
+                                        (step) =>
+                                          `${step.label}: ${step.detail}${
+                                            step.requiredEvidence?.length
+                                              ? ` Evidence ${step.requiredEvidence.join(" ")}`
+                                              : ""
+                                          }`,
+                                      ) ??
+                                      connector.configCreationSteps.slice(
+                                        0,
+                                        4,
+                                      )
+                                    ).join(" -> ")}
+                                  </span>
+                                ) : null}
+                                {connector.automationPath?.length ? (
+                                  <span>
+                                    Automation path{" "}
+                                    {connector.automationPath
+                                      .slice(0, 7)
+                                      .map(
+                                        (stage) =>
+                                          `${stage.label}: ${stage.status}`,
+                                      )
+                                      .join(" -> ")}
                                   </span>
                                 ) : null}
                               </div>
@@ -7937,6 +10566,22 @@ export default function App() {
                                   aria-label={`Copy ${connector.name} setup check command`}
                                 >
                                   <Copy size={13} weight="bold" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="connector-plan__copy"
+                                  onClick={() =>
+                                    void copyPlannedConnectorCommand(
+                                      formatBackendConnectorConfigPlan(
+                                        connector,
+                                        plannedConnector,
+                                      ),
+                                      `${connector.name} config plan`,
+                                    )
+                                  }
+                                  aria-label={`Copy ${connector.name} config creation plan`}
+                                >
+                                  <Copy size={13} weight="duotone" />
                                 </button>
                               </div>
                             ) : null}
@@ -8143,7 +10788,10 @@ export default function App() {
                 ) : null}
               </div>
             </article>
-            <article className="soft-card panel-card release-readiness-card">
+            <article
+              className="soft-card panel-card release-readiness-card"
+              id="release-readiness"
+            >
               <div className="panel-card__header">
                 <div>
                   <h3>Release readiness</h3>
@@ -8152,19 +10800,130 @@ export default function App() {
                     be handed to testers.
                   </p>
                 </div>
-                <button
-                  className="secondary-button secondary-button--small"
-                  onClick={() => void copyReleaseReadinessCommand()}
-                  type="button"
-                >
-                  <Copy size={14} weight="bold" />
-                  Copy report command
-                </button>
+                <div className="release-readiness-card__actions">
+                  <button
+                    className="secondary-button secondary-button--small"
+                    disabled={releaseReadinessRefreshing}
+                    onClick={() => void refreshReleaseReadinessReport()}
+                    type="button"
+                  >
+                    <ArrowClockwise size={14} weight="bold" />
+                    {releaseReadinessRefreshing
+                      ? "Refreshing"
+                      : "Refresh report"}
+                  </button>
+                  <button
+                    className="secondary-button secondary-button--small"
+                    disabled={releaseEvidenceBusyId !== null}
+                    onClick={() => void runLocalReleaseEvidenceSequence()}
+                    title={formatLocalReleaseEvidenceSequenceCopy()}
+                    type="button"
+                  >
+                    <ArrowClockwise size={14} weight="bold" />
+                    {releaseEvidenceBusyId === "local-evidence"
+                      ? "Running local evidence"
+                      : "Run local evidence"}
+                  </button>
+                  <button
+                    className="secondary-button secondary-button--small"
+                    onClick={() => void copyReleaseReadinessReport()}
+                    type="button"
+                  >
+                    <Copy size={14} weight="bold" />
+                    {releaseReadinessReport?.report
+                      ? "Copy report snapshot"
+                      : "Copy report command"}
+                  </button>
+                </div>
               </div>
               <div className="release-readiness-card__command">
                 <Terminal size={15} weight="duotone" />
                 <code>{releaseReadinessCommand}</code>
               </div>
+              <p className="release-readiness-card__source">
+                {formatReleaseReadinessSourceLabel(
+                  releaseReadinessReport?.report
+                    ? releaseReadinessReport.reportPath
+                    : null,
+                )}
+              </p>
+              <p className="release-readiness-card__source">
+                {releaseReadinessEvidence.copy}
+              </p>
+              <p className="release-readiness-card__source">
+                {formatReleaseReadinessNextAction(releaseReadinessAction)}
+              </p>
+              {releaseReadinessError ? (
+                <p className="release-readiness-card__error">
+                  {releaseReadinessError}
+                </p>
+              ) : null}
+              <div
+                className="release-readiness-card__summary"
+                aria-label="Release readiness status summary"
+              >
+                <span>
+                  <strong>{releaseReadinessCounts.ready}</strong> scripted
+                </span>
+                <span>
+                  <strong>{releaseReadinessCounts.blocked}</strong> blocked
+                </span>
+                <span>
+                  <strong>{releaseReadinessCounts["local-only"]}</strong> local-only
+                </span>
+              </div>
+              <div
+                className="release-readiness-card__status-grid"
+                aria-label="Release readiness source status"
+              >
+                {releaseReadinessRows.map((row) => (
+                  <div
+                    className="release-readiness-card__status-row"
+                    key={row.id}
+                  >
+                    <div>
+                      <strong>{row.label}</strong>
+                      <span>{row.detail}</span>
+                    </div>
+                    <span
+                      className={`release-readiness-card__status-badge release-readiness-card__status-badge--${row.tone}`}
+                    >
+                      {row.statusLabel}
+                    </span>
+                    <code>{row.source}</code>
+                  </div>
+                ))}
+              </div>
+              {releaseLocalEvidenceRows.length > 0 ? (
+                <div
+                  className="release-readiness-card__local-evidence"
+                  aria-label="Local validation evidence"
+                >
+                  <h4>Local evidence</h4>
+                  <div className="release-readiness-card__status-grid">
+                    {releaseLocalEvidenceRows.map((row) => (
+                      <div
+                        className="release-readiness-card__status-row"
+                        key={row.id}
+                      >
+                        <div>
+                          <strong>{row.label}</strong>
+                          <span>{row.detail}</span>
+                        </div>
+                        <span
+                          className={`release-readiness-card__status-badge release-readiness-card__status-badge--${
+                            row.passed ? "ready" : "blocked"
+                          }`}
+                        >
+                          {row.statusLabel}
+                        </span>
+                        <code>{row.command}</code>
+                        <code>{row.summaryPath}</code>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div
                 className="release-readiness-card__gates"
                 aria-label="Shareable DMG gates"
@@ -8189,6 +10948,28 @@ export default function App() {
                           <strong>{item.label}</strong>
                           <span>{item.detail}</span>
                           {item.command ? <code>{item.command}</code> : null}
+                          {item.executable ? (
+                            <button
+                              className="secondary-button secondary-button--small"
+                              disabled={releaseEvidenceBusyId !== null}
+                              onClick={() =>
+                                void runReleaseEvidenceCommand(item.id)
+                              }
+                              type="button"
+                            >
+                              <ArrowClockwise size={14} weight="bold" />
+                              {releaseEvidenceBusyId === item.id
+                                ? "Running"
+                                : "Run evidence"}
+                            </button>
+                          ) : null}
+                          {releaseEvidenceResult?.commandId === item.id ? (
+                            <span className="release-readiness-card__evidence-result">
+                              Generated{" "}
+                              {releaseEvidenceResult.summaryPath ??
+                                releaseEvidenceResult.command}
+                            </span>
+                          ) : null}
                         </li>
                       ))}
                     </ul>
@@ -8208,7 +10989,7 @@ export default function App() {
                 </div>
                 <div>
                   <p>
-                    Automatically launch Headroom whenever you login or restart.
+                    Automatically launch Mac AI Switchboard whenever you login or restart.
                   </p>
                 </div>
                 <div className="connector-item__controls">
@@ -8229,32 +11010,327 @@ export default function App() {
               </div>
             </article>
 
-            <article className="soft-card panel-card rollback-center-card">
+            <article
+              className="soft-card panel-card rollback-center-card"
+              id="rollback-center"
+            >
               <div className="panel-card__header">
                 <div>
                   <h3>Rollback Center</h3>
                   <p>
                     Managed local changes Mac AI Switchboard can disclose or
-                    undo.
+                    undo with guarded restore or cleanup previews.
                   </p>
                 </div>
+                <div className="rollback-center-card__actions">
+                  <button
+                    className="secondary-button secondary-button--small"
+                    disabled={rollbackUndoAllBusy}
+                    onClick={() => void previewNativeRollbackUndoAll()}
+                    type="button"
+                  >
+                    Preview native undo-all
+                  </button>
+                  <button
+                    className="secondary-button secondary-button--small"
+                    onClick={() => void copyManagedRollbackUndoAllPreview()}
+                    type="button"
+                  >
+                    Copy undo-all preview
+                  </button>
+                  <button
+                    className="secondary-button secondary-button--small"
+                    onClick={() => void copyManagedRollbackInventory()}
+                    type="button"
+                  >
+                    Copy inventory
+                  </button>
+                </div>
               </div>
-              <div className="rollback-center-card__list">
-                {managedChangeRecords.map((record) => (
-                  <div className="rollback-center-card__item" key={record.id}>
-                    <div>
-                      <strong>{record.owner}</strong>
-                      <span>{record.rollback}</span>
-                      <span>Marker: {record.markerId}</span>
-                      <span>Backup: {record.backupPath ?? "not required"}</span>
-                      <span>{record.lastVerifiedLabel}</span>
-                    </div>
-                    <span className="rollback-center-card__kind">
-                      {record.kind.replace(/_/g, " ")}
+              {rollbackUndoAllPreview ? (
+                <div className="rollback-center-card__native">
+                  <div className="rollback-center-card__native-row">
+                    <span>
+                      Native undo-all:{" "}
+                      {rollbackUndoAllPreview.ready.length} ready,{" "}
+                      {rollbackUndoAllPreview.blocked.length} blocked
                     </span>
+                    {rollbackUndoAllResult ? (
+                      <span>
+                        Executed {rollbackUndoAllResult.executed.length}; left{" "}
+                        {rollbackUndoAllResult.blocked.length} blocked
+                      </span>
+                    ) : null}
                   </div>
-                ))}
+                  <label className="rollback-center-card__confirm">
+                    <span>Exact undo-all confirmation</span>
+                    <input
+                      type="text"
+                      value={rollbackUndoAllConfirmation}
+                      placeholder={rollbackUndoAllPreview.confirmationPhrase}
+                      onChange={(event) =>
+                        setRollbackUndoAllConfirmation(event.target.value)
+                      }
+                    />
+                  </label>
+                  <button
+                    className="secondary-button secondary-button--small rollback-center-card__restore-button"
+                    disabled={
+                      rollbackUndoAllBusy ||
+                      rollbackUndoAllPreview.status !== "ready" ||
+                      rollbackUndoAllConfirmation !==
+                        rollbackUndoAllPreview.confirmationPhrase
+                    }
+                    onClick={() => void executeNativeRollbackUndoAll()}
+                    type="button"
+                  >
+                    Execute native undo-all
+                  </button>
+                </div>
+              ) : null}
+              {rollbackUndoAllError ? (
+                <p className="rollback-center-card__notice">
+                  {rollbackUndoAllError}
+                </p>
+              ) : null}
+              <div className="rollback-center-card__list">
+                {managedChangeRecords.map((record, index) => {
+                  const plan = buildManagedRollbackPlan(record);
+                  const executionPreview = buildManagedRollbackExecutionPreview(
+                    record,
+                    index,
+                  );
+                  const nativePreview = rollbackPreviewByRecord[record.id];
+                  const nativeResult = rollbackResultByRecord[record.id];
+                  const rollbackError = rollbackErrorByRecord[record.id];
+                  const applyPreview = configApplyPreviewByRecord[record.id];
+                  const applyResult = configApplyResultByRecord[record.id];
+                  const applyError = configApplyErrorByRecord[record.id];
+                  const applyConfirmation =
+                    configApplyConfirmationByRecord[record.id] ?? "";
+                  const nativeApplySupported = supportsNativeConfigApply(record);
+                  const canExecuteNativeApply =
+                    applyPreview?.status === "ready" &&
+                    applyConfirmation === applyPreview.confirmationPhrase &&
+                    configApplyBusyRecord !== record.id;
+                  const confirmation =
+                    rollbackConfirmationByRecord[record.id] ?? "";
+                  const nativeRollbackSupported =
+                    supportsNativeManagedRollback(record);
+                  const canExecuteNativeRollback =
+                    canExecuteNativeManagedRollbackPreview({
+                      preview: nativePreview,
+                      confirmation,
+                      busy: rollbackBusyRecord === record.id,
+                    });
+                  return (
+                    <div className="rollback-center-card__item" key={record.id}>
+                      <div>
+                        <strong>{record.owner}</strong>
+                        <span>{record.rollback}</span>
+                        <span>Marker: {record.markerId}</span>
+                        <span>Backup: {record.backupPath ?? "not required"}</span>
+                        <span>{record.lastVerifiedLabel}</span>
+                        <div className="rollback-center-card__evidence">
+                          <span>Mode: {plan.mode.replace(/_/g, " ")}</span>
+                          <span>Status: {plan.status.replace(/_/g, " ")}</span>
+                          <span>
+                            Evidence: {plan.evidenceRequired[0]}
+                          </span>
+                          <span>
+                            Native restore:{" "}
+                            {executionPreview.executionStatus.replace(
+                              /_/g,
+                              " ",
+                            )}
+                          </span>
+                          <span>
+                            Confirm: {executionPreview.confirmationPhrase}
+                          </span>
+                        </div>
+                        <div className="rollback-center-card__diff">
+                          {record.backupPath ? (
+                            <>
+                              <span>
+                                Dry-run target: {firstManagedConfigTarget(record)}
+                              </span>
+                              <button
+                                className="secondary-button secondary-button--small"
+                                onClick={() => void copyManagedDiffPreview(record)}
+                                type="button"
+                              >
+                                Copy dry-run diff
+                              </button>
+                            </>
+                          ) : null}
+                          <button
+                            className="secondary-button secondary-button--small"
+                            onClick={() => void copyManagedRollbackPlan(record)}
+                            type="button"
+                          >
+                            Copy rollback plan
+                          </button>
+                          <button
+                            className="secondary-button secondary-button--small"
+                            onClick={() =>
+                              void copyManagedRollbackExecutionPreview(
+                                record,
+                                index,
+                              )
+                            }
+                            type="button"
+                          >
+                            Copy execution preview
+                          </button>
+                        </div>
+                        {nativeApplySupported ? (
+                          <div className="rollback-center-card__native">
+                            <div className="rollback-center-card__native-row">
+                              <button
+                                className="secondary-button secondary-button--small"
+                                disabled={configApplyBusyRecord === record.id}
+                                onClick={() =>
+                                  void previewManagedConfigApply(record)
+                                }
+                                type="button"
+                              >
+                                Preview safe apply
+                              </button>
+                              {applyPreview ? (
+                                <span>
+                                  Apply status:{" "}
+                                  {applyPreview.status.replace(/_/g, " ")}
+                                </span>
+                              ) : null}
+                            </div>
+                            {applyPreview ? (
+                              <>
+                                <span>Target: {applyPreview.targetPath}</span>
+                                <span>Backup: {applyPreview.backupPath}</span>
+                                <span>{applyPreview.rollbackPreview}</span>
+                                {applyPreview.blockedReason ? (
+                                  <span>{applyPreview.blockedReason}</span>
+                                ) : null}
+                                <label className="rollback-center-card__confirm">
+                                  <span>Exact apply confirmation</span>
+                                  <input
+                                    type="text"
+                                    value={applyConfirmation}
+                                    placeholder={applyPreview.confirmationPhrase}
+                                    onChange={(event) =>
+                                      setConfigApplyConfirmationByRecord(
+                                        (current) => ({
+                                          ...current,
+                                          [record.id]: event.target.value,
+                                        }),
+                                      )
+                                    }
+                                  />
+                                </label>
+                                <button
+                                  className="secondary-button secondary-button--small rollback-center-card__restore-button"
+                                  disabled={!canExecuteNativeApply}
+                                  onClick={() =>
+                                    void executeManagedConfigApply(record)
+                                  }
+                                  type="button"
+                                >
+                                  Apply {record.owner}
+                                </button>
+                              </>
+                            ) : null}
+                            {applyResult ? (
+                              <span>
+                                Applied: {applyResult.changed ? "changed" : "already current"};
+                                backup: {applyResult.backupPath ?? "not created"}
+                              </span>
+                            ) : null}
+                            {applyError ? <span>{applyError}</span> : null}
+                          </div>
+                        ) : null}
+                        {nativeRollbackSupported ? (
+                          <div className="rollback-center-card__native">
+                            <div className="rollback-center-card__native-row">
+                              <button
+                                className="secondary-button secondary-button--small"
+                                disabled={rollbackBusyRecord === record.id}
+                                onClick={() => void previewManagedRollback(record)}
+                                type="button"
+                              >
+                                Preview native rollback
+                              </button>
+                              {nativePreview ? (
+                                <span>
+                                  Native status:{" "}
+                                  {nativePreview.status.replace(/_/g, " ")}
+                                </span>
+                              ) : null}
+                            </div>
+                            {nativePreview ? (
+                              <>
+                                <span>Target: {nativePreview.targetPath}</span>
+                                <span>
+                                  Backup:{" "}
+                                  {nativePreview.backupPath ?? "not found"}
+                                </span>
+                                <span>
+                                  Marker present:{" "}
+                                  {nativePreview.markerPresent ? "yes" : "no"}
+                                </span>
+                                {nativePreview.blockedReason ? (
+                                  <span>{nativePreview.blockedReason}</span>
+                                ) : null}
+                                <label className="rollback-center-card__confirm">
+                                  <span>Exact confirmation</span>
+                                  <input
+                                    type="text"
+                                    value={confirmation}
+                                    placeholder={nativePreview.confirmationPhrase}
+                                    onChange={(event) =>
+                                      setRollbackConfirmationByRecord(
+                                        (current) => ({
+                                          ...current,
+                                          [record.id]: event.target.value,
+                                        }),
+                                      )
+                                    }
+                                  />
+                                </label>
+                                <button
+                                  className="secondary-button secondary-button--small rollback-center-card__restore-button"
+                                  disabled={!canExecuteNativeRollback}
+                                  onClick={() =>
+                                    void executeManagedRollback(record)
+                                  }
+                                  type="button"
+                                >
+                                  Execute rollback for {record.owner}
+                                </button>
+                              </>
+                            ) : null}
+                            {nativeResult ? (
+                              <span>
+                                Restored from {nativeResult.restoredFrom};
+                                safety backup:{" "}
+                                {nativeResult.safetyBackupPath ?? "not created"}
+                              </span>
+                            ) : null}
+                            {rollbackError ? <span>{rollbackError}</span> : null}
+                          </div>
+                        ) : null}
+                      </div>
+                      <span className="rollback-center-card__kind">
+                        {record.kind.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
+              {rollbackCopyNotice ? (
+                <p className="rollback-center-card__notice">
+                  {rollbackCopyNotice}
+                </p>
+              ) : null}
             </article>
 
             <article className="soft-card panel-card">
@@ -8285,7 +11361,7 @@ export default function App() {
               className="contact-link"
               onClick={() =>
                 void invoke("open_external_link", {
-                  url: "mailto:support@extraheadroom.com",
+                  url: SUPPORT_ISSUES_URL,
                 })
               }
               type="button"
@@ -8327,7 +11403,7 @@ export default function App() {
               <p>
                 Even accounting for caching, you've likely saved at least{" "}
                 <strong>
-                  {currency(dashboard.lifetimeEstimatedSavingsUsd * 0.5)}
+                  {currency(savingsDashboard.lifetimeEstimatedSavingsUsd * 0.5)}
                 </strong>
                 .
               </p>
@@ -8374,10 +11450,23 @@ export default function App() {
                 ))}
               </ul>
               <p>{uninstallDisclosureFooter}</p>
+              {uninstallCopyNotice ? (
+                <p className="rollback-center-card__notice">
+                  {uninstallCopyNotice}
+                </p>
+              ) : null}
               {uninstallError ? (
                 <p className="install-progress__error">{uninstallError}</p>
               ) : null}
               <div className="modal-actions">
+                <button
+                  className="secondary-button"
+                  disabled={uninstallBusy}
+                  onClick={() => void copyUninstallDryRunReport()}
+                  type="button"
+                >
+                  Copy dry-run
+                </button>
                 <button
                   className="secondary-button"
                   disabled={uninstallBusy}

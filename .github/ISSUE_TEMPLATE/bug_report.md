@@ -16,8 +16,9 @@ What happened?
 - Apple Silicon or Intel:
 - App version or commit:
 - Switchboard mode:
-- Savings profile:
+- Active tools/add-ons: Headroom / RTK / MarkItDown / Ponytail / Repo Intelligence / other:
 - Local-only mode enabled:
+- Installed from: source dev run / local unsigned DMG / signed DMG:
 
 ## Steps to Reproduce
 
@@ -33,8 +34,13 @@ What did you expect?
 
 What happened instead?
 
+## Doctor / Packaging Evidence
+
+- Doctor status or repair shown:
+- Relevant command, if packaging/build related:
+- DMG path and checksum, if install related:
+
 ## Logs or Screenshots
 
-Paste only redacted logs. Do not include API keys, model-provider tokens,
-Apple credentials, updater keys, private endpoints, or keychain values.
-
+Paste only redacted logs. Do not include API keys, model-provider tokens, Apple
+credentials, updater keys, private endpoints, or keychain values.

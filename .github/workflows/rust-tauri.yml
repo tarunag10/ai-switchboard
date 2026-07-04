@@ -7,7 +7,9 @@ on:
     branches:
       - main
       - staging
-      - tarun/local-switchboard
+
+permissions:
+  contents: read
 
 jobs:
   rust-tauri:
@@ -49,6 +51,9 @@ jobs:
 
       - name: Check Rust formatting
         run: npm run fmt:desktop
+
+      - name: Run Rust clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml
 
       - name: Run Rust tests
         run: cargo nextest run --manifest-path src-tauri/Cargo.toml

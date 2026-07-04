@@ -18,4 +18,12 @@ describe("local mode", () => {
 
     expect(localOnlyModeEnabled()).toBe(false);
   });
+
+  it("treats the local-free build flavor as local-only", async () => {
+    vi.stubEnv("VITE_HEADROOM_BUILD_FLAVOR", "local-free");
+    vi.stubEnv("VITE_HEADROOM_REMOTE_SERVICES", "1");
+    const { localOnlyModeEnabled } = await import("./localMode");
+
+    expect(localOnlyModeEnabled()).toBe(true);
+  });
 });

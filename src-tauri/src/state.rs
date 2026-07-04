@@ -22,11 +22,14 @@ use crate::client_adapters::{
 };
 use crate::insights::generate_daily_insights;
 use crate::models::{
-    ActivityEvent, BootstrapProgress, ClaudeAccountProfile, ClaudeCodeProject, ClientStatus,
-    CodexAccountProfile, CodexRateLimitSnapshot, DailyInsight, DailySavingsPoint, DashboardState,
-    HeadroomLearnPrereqStatus, HeadroomLearnStatus, HourlySavingsPoint, LaunchExperience,
+    ActivityEvent, BackendRuntimeStatus, BootstrapProgress, ClaudeAccountProfile,
+    ClaudeCodeProject, ClientStatus, CodexAccountProfile, CodexRateLimitSnapshot, DailyInsight,
+    DailySavingsPoint, DashboardState, HeadroomLearnPrereqStatus, HeadroomLearnStatus,
+    HourlySavingsPoint, LaunchAgentRuntimeStatus, LaunchExperience, RepoMemoryMcpServiceStatus,
     RtkRuntimeStatus, RuntimeStatus, RuntimeUpgradeFailure, RuntimeUpgradeProgress,
-    SwitchboardMode, TransformationFeedEvent, UpgradeFailurePhase, UsageEvent,
+    SavingsAttributionConfidence, SavingsAttributionEvent, SavingsAttributionScope,
+    SavingsAttributionSource, SwitchboardMode, TransformationFeedEvent, UpgradeFailurePhase,
+    UsageEvent,
 };
 use crate::pricing;
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs, telemetry_file};
@@ -47,6 +50,14 @@ pub const REQUIRED_TERMS_VERSION: u32 = 2;
 
 /// Deprecated dashboard field retained for older frontends; Terms are bundled in-app.
 pub const TERMS_URL: &str = "";
+
+const CAVEMAN_TEMPLATE_BASELINE_TOKENS: u64 = 480;
+const CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS: u64 = 180;
+const PONYTAIL_TEMPLATE_BASELINE_TOKENS: u64 = 1_400;
+const PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS: u64 = 520;
+const MARKITDOWN_TEMPLATE_BASELINE_TOKENS: u64 = 3_200;
+const MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS: u64 = 900;
+const REPO_MEMORY_MCP_SUPERVISION_INTERVAL_SECS: i64 = 15 * 60;
 
 /// Absolute maximum time we'll wait for the new proxy to come up during
 /// boot validation, regardless of observed activity. Bounded so an
@@ -236,6 +247,12 @@ pub(crate) fn proxy_port_accepts_connection() -> bool {
     tcp_port_accepts_connection(addr, std::time::Duration::from_secs(1))
 }
 
+pub(crate) fn intercept_port_accepts_connection() -> bool {
+    let addr: std::net::SocketAddr =
+        ([127, 0, 0, 1], crate::proxy_intercept::INTERCEPT_PORT).into();
+    tcp_port_accepts_connection(addr, std::time::Duration::from_millis(250))
+}
+
 /// Parse the `ps -p PID -o time=` accumulated CPU time format.
 /// macOS `ps` emits this as `MM:SS.ss`, `HH:MM:SS`, or `D-HH:MM:SS`
 /// depending on duration. Returns whole seconds; sub-second precision
@@ -339,12 +356,12 @@ pub(crate) fn newest_proxy_log_mtime(logs_dir: &std::path::Path) -> Option<std::
 /// frozen even when all phases last a while.
 fn boot_validation_message(elapsed_secs: u64, active: bool) -> String {
     let prefix = if elapsed_secs < 10 {
-        "Launching Headroom".to_string()
+        "Launching Mac AI Switchboard".to_string()
     } else if elapsed_secs < 30 {
         if active {
             "Warming up Headroom's runtime".to_string()
         } else {
-            "Launching Headroom".to_string()
+            "Launching Mac AI Switchboard".to_string()
         }
     } else if elapsed_secs < 90 {
         // Rotate across a few descriptive phrasings so the line changes
@@ -474,6 +491,10 @@ pub struct AppState {
     /// once a free user crosses the weekly Codex disable threshold, so Codex
     /// gating never pauses Claude optimization for mixed users.
     pub codex_bypass: Arc<AtomicBool>,
+    /// Sender used by the Rust intercept to notify the identity worker when it
+    /// captures a fresh OAuth bearer. Stored so repair/startup paths can respawn
+    /// the 6767 intercept if the thread exits while the app process remains up.
+    fresh_bearer_tx: Mutex<Option<crate::proxy_intercept::FreshBearerNotifier>>,
     /// Debounce streak for `codex_bypass`, mirroring `pricing_gate_violation_streak`.
     codex_gate_violation_streak: Arc<AtomicU32>,
     /// Number of consecutive `apply_pricing_gate_status` calls that reported
@@ -487,6 +508,8 @@ pub struct AppState {
     launch_profile_path: std::path::PathBuf,
     last_known_good_plan: Mutex<Option<LastKnownGoodPlan>>,
     last_known_good_plan_path: std::path::PathBuf,
+    repo_memory_mcp_state: Mutex<RepoMemoryMcpSessionState>,
+    repo_memory_mcp_state_path: std::path::PathBuf,
     savings_tracker: Mutex<SavingsTracker>,
     activity_facts: Mutex<ActivityFacts>,
     cached_clients: Mutex<Option<(Vec<ClientStatus>, Instant)>>,
@@ -497,6 +520,7 @@ pub struct AppState {
     cached_headroom_history: Mutex<Option<(Option<HeadroomSavingsHistoryResponse>, Instant, bool)>>,
     cached_rtk_gain_summary: Mutex<Option<(Option<RtkGainSummary>, Instant)>>,
     cached_rtk_today_stats: Mutex<Option<(Option<crate::models::RtkTodayStats>, Instant)>>,
+    cached_rtk_daily_stats: Mutex<Option<(Option<Vec<crate::models::RtkDailyStats>>, Instant)>>,
     cached_claude_profile: Mutex<Option<(Option<String>, ClaudeAccountProfile, Instant)>>,
     /// TTL-cached Codex identity profile, the Codex analog of
     /// `cached_claude_profile`. Built by `pricing::detect_codex_profile` from
@@ -575,6 +599,9 @@ impl AppState {
         let tool_manager = ToolManager::new(runtime);
         let (launch_profile, launch_profile_path) = LaunchProfile::load_or_create(&base_dir)?;
         let (last_known_good_plan, last_known_good_plan_path) = LastKnownGoodPlan::load(&base_dir);
+        let repo_memory_mcp_state_path = config_file(&base_dir, "repo-memory-mcp-session.json");
+        let repo_memory_mcp_state =
+            RepoMemoryMcpSessionState::load(&repo_memory_mcp_state_path).unwrap_or_default();
         let savings_tracker = SavingsTracker::load_or_create(&base_dir)?;
         let activity_facts = ActivityFacts::load_or_create(&base_dir)?;
 
@@ -613,6 +640,7 @@ impl AppState {
             codex_plan_tier: Arc::new(Mutex::new(None)),
             proxy_bypass: Arc::new(AtomicBool::new(false)),
             codex_bypass: Arc::new(AtomicBool::new(false)),
+            fresh_bearer_tx: Mutex::new(None),
             codex_gate_violation_streak: Arc::new(AtomicU32::new(0)),
             pricing_gate_violation_streak: Arc::new(AtomicU32::new(0)),
             headroom_learn_state: Mutex::new(HeadroomLearnRuntimeState {
@@ -629,6 +657,8 @@ impl AppState {
             launch_profile_path,
             last_known_good_plan: Mutex::new(last_known_good_plan),
             last_known_good_plan_path,
+            repo_memory_mcp_state: Mutex::new(repo_memory_mcp_state),
+            repo_memory_mcp_state_path,
             savings_tracker: Mutex::new(savings_tracker),
             activity_facts: Mutex::new(activity_facts),
             cached_clients: Mutex::new(None),
@@ -636,6 +666,7 @@ impl AppState {
             cached_headroom_history: Mutex::new(None),
             cached_rtk_gain_summary: Mutex::new(None),
             cached_rtk_today_stats: Mutex::new(None),
+            cached_rtk_daily_stats: Mutex::new(None),
             cached_claude_profile: Mutex::new(None),
             cached_codex_profile: Mutex::new(None),
             stale_profile_since: Mutex::new(None),
@@ -650,6 +681,33 @@ impl AppState {
         };
 
         Ok(state)
+    }
+
+    pub fn set_fresh_bearer_notifier(
+        &self,
+        fresh_bearer_tx: crate::proxy_intercept::FreshBearerNotifier,
+    ) {
+        *self.fresh_bearer_tx.lock() = Some(fresh_bearer_tx);
+    }
+
+    pub fn ensure_proxy_intercept_running(&self) {
+        if intercept_port_accepts_connection() {
+            return;
+        }
+        let Some(fresh_bearer_tx) = self.fresh_bearer_tx.lock().clone() else {
+            log::warn!("cannot respawn proxy intercept: bearer notifier is not initialized");
+            return;
+        };
+        log::warn!("proxy intercept on 127.0.0.1:6767 is not accepting connections; respawning");
+        crate::proxy_intercept::spawn(
+            Arc::clone(&self.claude_bearer_token),
+            Arc::clone(&self.codex_rate_limits),
+            Arc::clone(&self.codex_plan_tier),
+            Arc::clone(&self.proxy_bypass),
+            Arc::clone(&self.codex_bypass),
+            fresh_bearer_tx,
+        );
+        self.invalidate_runtime_status_cache();
     }
 
     pub fn warm_runtime_on_launch(&self, app: &tauri::AppHandle) {
@@ -1714,6 +1772,10 @@ impl AppState {
         }
     }
 
+    pub fn should_present_on_launch(&self) -> bool {
+        true
+    }
+
     pub fn setup_wizard_complete(&self) -> bool {
         self.launch_profile.lock().setup_wizard_complete
     }
@@ -2015,6 +2077,19 @@ impl AppState {
         stats
     }
 
+    fn cached_rtk_daily_stats(&self) -> Option<Vec<crate::models::RtkDailyStats>> {
+        const TTL: Duration = Duration::from_secs(10);
+        let mut cache = self.cached_rtk_daily_stats.lock();
+        if let Some((stats, at)) = cache.as_ref() {
+            if at.elapsed() < TTL {
+                return stats.clone();
+            }
+        }
+        let stats = self.tool_manager.rtk_daily_stats();
+        *cache = Some((stats.clone(), Instant::now()));
+        stats
+    }
+
     pub fn dashboard(&self) -> DashboardState {
         // Callers that take this read-only path (tray updater, bootstrap
         // finalize, account activation) must NOT drain pending milestones —
@@ -2092,6 +2167,70 @@ impl AppState {
         snapshot
     }
 
+    pub fn purge_message_logs(&self) -> crate::models::PurgeResult {
+        let mut facts = self.activity_facts.lock();
+        facts.reset_for_message_log_purge();
+        crate::message_logging::purge_message_logs(facts.path())
+    }
+
+    pub fn savings_attribution_events(&self) -> Vec<SavingsAttributionEvent> {
+        self.savings_tracker.lock().attribution_events()
+    }
+
+    pub fn record_repo_intelligence_attribution(
+        &self,
+        summary: &crate::models::RepoIntelligenceSummary,
+    ) -> Result<()> {
+        let Some(event) = build_repo_intelligence_attribution_event(summary) else {
+            return Ok(());
+        };
+        self.savings_tracker.lock().append_attribution_event(&event)
+    }
+
+    pub fn record_markitdown_attribution(
+        &self,
+        changed_files: &[String],
+        backup_files: &[String],
+    ) -> Result<()> {
+        let Some(event) = build_addon_attribution_event(
+            "markitdown",
+            None,
+            Some(changed_files),
+            Some(backup_files),
+            None,
+        ) else {
+            return Ok(());
+        };
+        self.savings_tracker.lock().append_attribution_event(&event)
+    }
+
+    pub fn record_caveman_attribution(
+        &self,
+        caveman_level: &str,
+        changed_files: &[String],
+        backup_files: &[String],
+    ) -> Result<()> {
+        let Some(event) = build_addon_attribution_event(
+            "caveman",
+            Some(caveman_level),
+            Some(changed_files),
+            Some(backup_files),
+            None,
+        ) else {
+            return Ok(());
+        };
+        self.savings_tracker.lock().append_attribution_event(&event)
+    }
+
+    pub fn record_ponytail_attribution(&self, registered_hosts: &[String]) -> Result<()> {
+        let Some(event) =
+            build_addon_attribution_event("ponytail", None, None, None, Some(registered_hosts))
+        else {
+            return Ok(());
+        };
+        self.savings_tracker.lock().append_attribution_event(&event)
+    }
+
     /// Emit a weekly recap rolling up the 7 days ending last Sunday.
     /// Previously Monday-only; now runs on any day whose check is due so the
     /// first launch after an upgrade catches up on last week's recap if it
@@ -2119,6 +2258,40 @@ impl AppState {
         let event = facts.maybe_record_weekly_recap(recap_monday, totals, now);
         let _ = facts.save_if_dirty();
         event
+    }
+
+    pub fn record_measured_addon_attribution(
+        &self,
+        source: SavingsAttributionSource,
+        label: &str,
+        baseline_tokens: u64,
+        optimized_tokens: u64,
+        request_delta: usize,
+        detail: impl Into<String>,
+    ) -> Result<()> {
+        if baseline_tokens <= optimized_tokens || request_delta == 0 {
+            return Ok(());
+        }
+
+        let delta_tokens = baseline_tokens.saturating_sub(optimized_tokens);
+        let event = SavingsAttributionEvent {
+            schema_version: 1,
+            id: Uuid::new_v4().to_string(),
+            observed_at: Utc::now(),
+            scope: SavingsAttributionScope::Session,
+            source,
+            confidence: SavingsAttributionConfidence::Measured,
+            delta_tokens_saved: delta_tokens,
+            delta_usd: 0.0,
+            total_tokens_sent: optimized_tokens,
+            request_delta,
+            evidence: vec![format!(
+                "{label} measured {delta_tokens} saved tokens from {baseline_tokens} before to {optimized_tokens} after. {}",
+                detail.into()
+            )],
+        };
+
+        self.savings_tracker.lock().append_attribution_event(&event)
     }
 
     pub fn dashboard_with_pending_milestones(&self) -> (DashboardState, PendingMilestones) {
@@ -2233,7 +2406,7 @@ impl AppState {
 
         (
             DashboardState {
-                app_version: env!("CARGO_PKG_VERSION").into(),
+                app_version: "0.0.0".into(),
                 launch_experience,
                 bootstrap_complete: self.tool_manager.python_runtime_installed(),
                 python_runtime_installed: self.tool_manager.python_runtime_installed(),
@@ -2524,6 +2697,7 @@ impl AppState {
         let snapshot = tracker.observe(stats)?;
         let daily_savings = tracker.daily_savings();
         let hourly_savings = tracker.hourly_savings();
+        let _ = maybe_append_measured_headroom_attribution(&mut tracker, stats);
         let milestones = if drain_pending_milestones {
             PendingMilestones {
                 token: tracker.take_pending_lifetime_token_milestones(),
@@ -2532,10 +2706,6 @@ impl AppState {
             PendingMilestones::default()
         };
         Some((snapshot, daily_savings, hourly_savings, milestones))
-    }
-
-    pub fn should_present_on_launch(&self) -> bool {
-        true
     }
 
     pub fn bootstrap_progress(&self) -> BootstrapProgress {
@@ -2660,23 +2830,43 @@ impl AppState {
         // If the proxy is already live (e.g. started externally, or by us under
         // the lifecycle lock just above), treat runtime as healthy without
         // forcing another launcher.
+        self.ensure_proxy_intercept_running();
         if is_headroom_proxy_reachable() {
             *self.last_startup_error.lock() = None;
             return Ok(());
         }
 
+        let mut existing_backend_alive = false;
         {
             let mut process = self.headroom_process.lock();
 
             if let Some(existing) = process.as_mut() {
                 match existing.try_wait() {
-                    Ok(None) => return Ok(()),
+                    Ok(None) => {
+                        existing_backend_alive = proxy_port_accepts_connection();
+                    }
                     Ok(Some(_)) | Err(_) => {
                         *process = None;
                     }
                 }
             }
         } // release lock before the blocking start
+
+        if existing_backend_alive {
+            self.ensure_proxy_intercept_running();
+            for _ in 0..8 {
+                if is_headroom_proxy_reachable() {
+                    *self.last_startup_error.lock() = None;
+                    return Ok(());
+                }
+                std::thread::sleep(std::time::Duration::from_millis(250));
+            }
+            *self.last_startup_error.lock() = Some(
+                "Headroom backend is alive, but the client-facing proxy on 127.0.0.1:6767 is not ready."
+                    .to_string(),
+            );
+            return Ok(());
+        }
 
         self.set_runtime_starting(true);
         // During upgrade boot validation, reclaim 6768 even from a still-healthy
@@ -2722,6 +2912,97 @@ impl AppState {
         status
     }
 
+    pub fn start_repo_memory_mcp(&self) -> Result<()> {
+        self.tool_manager.ensure_repo_memory_mcp_configured()?;
+        if let Err(err) = self.tool_manager.verify_repo_memory_mcp_smoke() {
+            {
+                let mut session = self.repo_memory_mcp_state.lock();
+                session.active = false;
+                session.last_checked_at = Some(Utc::now());
+                session.supervision_status = Some("smoke_failed".to_string());
+                session.supervisor_pid = None;
+                self.persist_repo_memory_mcp_state(&session)?;
+            }
+            *self.cached_runtime_status.lock() = None;
+            return Err(err);
+        }
+        {
+            let mut session = self.repo_memory_mcp_state.lock();
+            session.active = true;
+            session.last_started_at = Some(Utc::now());
+            session.last_checked_at = Some(Utc::now());
+            session.supervision_status = Some("verified_active".to_string());
+            session.supervisor_pid = Some(std::process::id());
+            self.persist_repo_memory_mcp_state(&session)?;
+        }
+        *self.cached_runtime_status.lock() = None;
+        Ok(())
+    }
+
+    pub fn stop_repo_memory_mcp(&self) -> Result<()> {
+        {
+            let mut session = self.repo_memory_mcp_state.lock();
+            session.active = false;
+            session.last_checked_at = Some(Utc::now());
+            session.supervision_status = Some("stopped".to_string());
+            session.supervisor_pid = None;
+            self.persist_repo_memory_mcp_state(&session)?;
+        }
+        *self.cached_runtime_status.lock() = None;
+        Ok(())
+    }
+
+    fn persist_repo_memory_mcp_state(&self, session: &RepoMemoryMcpSessionState) -> Result<()> {
+        let serialized = serde_json::to_vec_pretty(session)
+            .context("serializing repo-memory MCP session state")?;
+        std::fs::write(&self.repo_memory_mcp_state_path, serialized)
+            .with_context(|| format!("writing {}", self.repo_memory_mcp_state_path.display()))?;
+        Ok(())
+    }
+
+    fn record_repo_memory_mcp_supervision(&self, status: &str) {
+        let mut session = self.repo_memory_mcp_state.lock();
+        if session.supervision_status.as_deref() == Some(status)
+            && session.last_checked_at.is_some()
+        {
+            return;
+        }
+        session.last_checked_at = Some(Utc::now());
+        session.supervision_status = Some(status.to_string());
+        if let Err(err) = self.persist_repo_memory_mcp_state(&session) {
+            log::warn!("failed to persist repo-memory MCP supervision state: {err:#}");
+        }
+    }
+
+    fn supervise_repo_memory_mcp_if_due(&self, configured: Option<bool>) {
+        let now = Utc::now();
+        let current_pid = std::process::id();
+        let should_verify = {
+            let session = self.repo_memory_mcp_state.lock();
+            repo_memory_mcp_supervision_due(&session, configured, current_pid, now)
+        };
+        if !should_verify {
+            return;
+        }
+
+        let (active, status) = match self.tool_manager.verify_repo_memory_mcp_smoke() {
+            Ok(_) => (true, "verified_active".to_string()),
+            Err(err) => {
+                log::warn!("repo-memory MCP supervision smoke failed: {err:#}");
+                (false, "smoke_failed".to_string())
+            }
+        };
+
+        let mut session = self.repo_memory_mcp_state.lock();
+        session.active = active;
+        session.last_checked_at = Some(Utc::now());
+        session.supervision_status = Some(status);
+        session.supervisor_pid = if active { Some(current_pid) } else { None };
+        if let Err(err) = self.persist_repo_memory_mcp_state(&session) {
+            log::warn!("failed to persist repo-memory MCP supervision state: {err:#}");
+        }
+    }
+
     fn compute_runtime_status(&self) -> RuntimeStatus {
         let installed = self.tool_manager.python_runtime_installed();
         let paused = self.runtime_is_paused();
@@ -2729,6 +3010,11 @@ impl AppState {
         let proxy_reachable = is_headroom_proxy_reachable();
         let mcp_configured = self.tool_manager.headroom_mcp_configured();
         let mcp_error = self.tool_manager.headroom_mcp_error();
+        let repo_memory_mcp_configured = self.tool_manager.repo_memory_mcp_configured();
+        let repo_memory_mcp_error = self.tool_manager.repo_memory_mcp_error();
+        let repo_memory_mcp_service = self.tool_manager.repo_memory_mcp_service_status();
+        self.supervise_repo_memory_mcp_if_due(repo_memory_mcp_configured);
+        let repo_memory_mcp_session = self.repo_memory_mcp_state.lock().clone();
         let ml_installed = self.tool_manager.headroom_ml_installed();
         let platform = current_platform();
         let support_tier = current_platform_support_tier();
@@ -2743,6 +3029,10 @@ impl AppState {
         let (rtk_path_configured, rtk_hook_configured) =
             rtk_integration_status().unwrap_or((false, false));
         let rtk_gain_summary = self.cached_rtk_gain_summary();
+        let rtk_daily_stats = self.cached_rtk_daily_stats().unwrap_or_default();
+        if let Some(stats) = rtk_gain_summary.as_ref() {
+            self.savings_tracker.lock().observe_rtk_gain_summary(stats);
+        }
         let headroom_pid = {
             let mut process = self.headroom_process.lock();
             if let Some(existing) = process.as_mut() {
@@ -2757,11 +3047,22 @@ impl AppState {
                 None
             }
         };
+        let launch_agent_status = launch_agent_runtime_status();
+        let backend_status = backend_runtime_status();
 
         let effective_running = installed && !paused && proxy_reachable;
 
         let startup_error = self.last_startup_error.lock().clone();
         let startup_error_hint = startup_error.as_deref().and_then(classify_startup_error);
+
+        let repo_memory_mcp_supervision_status = repo_memory_mcp_supervision_status(
+            &repo_memory_mcp_session,
+            repo_memory_mcp_configured,
+            std::process::id(),
+            repo_memory_mcp_service.as_ref(),
+        );
+        self.record_repo_memory_mcp_supervision(&repo_memory_mcp_supervision_status);
+        let repo_memory_mcp_session = self.repo_memory_mcp_state.lock().clone();
 
         RuntimeStatus {
             platform: platform.into(),
@@ -2772,9 +3073,26 @@ impl AppState {
             paused,
             auto_paused,
             proxy_reachable,
+            proxy_bind_address: "127.0.0.1:6767".to_string(),
+            proxy_auth_status: "loopback_validated_unauthenticated".to_string(),
+            proxy_auth_detail:
+                "Intercept binds only to 127.0.0.1 and rejects browser Origin/non-loopback Host requests; managed clients do not yet support a shared per-session auth header."
+                    .to_string(),
             headroom_pid,
+            launch_agent_status,
+            backend_status,
             mcp_configured,
             mcp_error,
+            repo_memory_mcp_configured,
+            repo_memory_mcp_error,
+            repo_memory_mcp_active: repo_memory_mcp_session.active
+                && repo_memory_mcp_configured == Some(true)
+                && repo_memory_mcp_service_healthy(repo_memory_mcp_service.as_ref())
+                && repo_memory_mcp_supervision_status == "verified_active",
+            repo_memory_mcp_last_started_at: repo_memory_mcp_session.last_started_at,
+            repo_memory_mcp_last_checked_at: repo_memory_mcp_session.last_checked_at,
+            repo_memory_mcp_supervision_status,
+            repo_memory_mcp_service,
             ml_installed,
             kompress_enabled,
             headroom_learn_supported: headroom_learn_disabled_reason.is_none(),
@@ -2789,8 +3107,13 @@ impl AppState {
                 path_configured: rtk_path_configured,
                 hook_configured: rtk_hook_configured,
                 total_commands: rtk_gain_summary.as_ref().map(|stats| stats.total_commands),
+                total_input: rtk_gain_summary.as_ref().map(|stats| stats.total_input),
+                total_output: rtk_gain_summary.as_ref().map(|stats| stats.total_output),
                 total_saved: rtk_gain_summary.as_ref().map(|stats| stats.total_saved),
                 avg_savings_pct: rtk_gain_summary.as_ref().map(|stats| stats.avg_savings_pct),
+                total_time_ms: rtk_gain_summary.as_ref().map(|stats| stats.total_time_ms),
+                avg_time_ms: rtk_gain_summary.as_ref().and_then(|stats| stats.avg_time_ms),
+                daily: rtk_daily_stats,
             },
         }
     }
@@ -3207,6 +3530,89 @@ fn user_home_dir() -> PathBuf {
         .unwrap_or_else(std::env::temp_dir)
 }
 
+fn launch_agent_runtime_status() -> LaunchAgentRuntimeStatus {
+    const APP_BUNDLE_ID: &str = "com.tarunagarwal.mac-ai-switchboard";
+    const LEGACY_LABEL: &str = "Headroom";
+    let launch_agents_dir = user_home_dir().join("Library").join("LaunchAgents");
+    let managed_path = launch_agents_dir.join(format!("{APP_BUNDLE_ID}.plist"));
+    let legacy_path = launch_agents_dir.join("Headroom.plist");
+    let (loaded, load_detail) = launch_agent_loaded_status(APP_BUNDLE_ID);
+    let (legacy_loaded, legacy_load_detail) = launch_agent_loaded_status(LEGACY_LABEL);
+    LaunchAgentRuntimeStatus {
+        installed: managed_path.exists(),
+        path: Some(managed_path.display().to_string()),
+        label: APP_BUNDLE_ID.to_string(),
+        loaded,
+        load_detail,
+        legacy_installed: legacy_path.exists(),
+        legacy_path: Some(legacy_path.display().to_string()),
+        legacy_label: LEGACY_LABEL.to_string(),
+        legacy_loaded,
+        legacy_load_detail,
+    }
+}
+
+fn launch_agent_loaded_status(label: &str) -> (Option<bool>, Option<String>) {
+    #[cfg(target_os = "macos")]
+    {
+        let uid = unsafe { libc::getuid() };
+        let target = format!("gui/{uid}/{label}");
+        match Command::new("launchctl").args(["print", &target]).output() {
+            Ok(output) if output.status.success() => (
+                Some(true),
+                Some(format!("launchctl reports {target} is loaded.")),
+            ),
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let combined = format!("{stderr}{stdout}").to_lowercase();
+                if combined.contains("could not find service")
+                    || combined.contains("service is not loaded")
+                    || combined.contains("no such process")
+                    || output.status.code() == Some(113)
+                {
+                    (
+                        Some(false),
+                        Some(format!("launchctl does not report {target} as loaded.")),
+                    )
+                } else {
+                    (
+                        None,
+                        Some(format!(
+                            "launchctl could not determine {target} load state."
+                        )),
+                    )
+                }
+            }
+            Err(err) => (
+                None,
+                Some(format!("launchctl load-state check failed: {err}")),
+            ),
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = label;
+        (
+            None,
+            Some("LaunchAgent load-state checks are only available on macOS.".to_string()),
+        )
+    }
+}
+
+fn backend_runtime_status() -> BackendRuntimeStatus {
+    let port = crate::backend_port::get();
+    BackendRuntimeStatus {
+        reachable: proxy_port_accepts_connection(),
+        bind_address: format!("127.0.0.1:{port}"),
+        port,
+        default_port: crate::backend_port::DEFAULT_BACKEND_PORT,
+        fallback_range_start: crate::backend_port::FALLBACK_RANGE_START,
+        fallback_range_end: crate::backend_port::FALLBACK_RANGE_END,
+    }
+}
+
 fn claude_projects_dir() -> PathBuf {
     user_home_dir().join(".claude").join("projects")
 }
@@ -3484,6 +3890,99 @@ fn persist_last_known_good_plan(path: &std::path::Path, plan: &LastKnownGoodPlan
     }
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RepoMemoryMcpSessionState {
+    active: bool,
+    last_started_at: Option<DateTime<Utc>>,
+    last_checked_at: Option<DateTime<Utc>>,
+    supervision_status: Option<String>,
+    supervisor_pid: Option<u32>,
+}
+
+impl RepoMemoryMcpSessionState {
+    fn load(path: &Path) -> Result<Self> {
+        if !path.exists() {
+            return Ok(Self::default());
+        }
+        let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+        serde_json::from_slice(&bytes).context("parsing repo-memory MCP session state")
+    }
+}
+
+fn repo_memory_mcp_supervision_status(
+    session: &RepoMemoryMcpSessionState,
+    configured: Option<bool>,
+    current_pid: u32,
+    service: Option<&RepoMemoryMcpServiceStatus>,
+) -> String {
+    if configured == Some(true) && !repo_memory_mcp_service_healthy(service) {
+        return "service_unhealthy".to_string();
+    }
+
+    match (session.active, configured) {
+        (true, Some(true)) => {
+            if session.supervision_status.as_deref() == Some("verified_active")
+                && session.supervisor_pid == Some(current_pid)
+            {
+                "verified_active".to_string()
+            } else if session.supervision_status.as_deref() == Some("verified_active") {
+                "restart_required".to_string()
+            } else {
+                session
+                    .supervision_status
+                    .clone()
+                    .unwrap_or_else(|| "active".to_string())
+            }
+        }
+        (true, Some(false)) => "stale_config".to_string(),
+        (true, None) => "unknown_active".to_string(),
+        (false, Some(true)) if session.supervision_status.as_deref() == Some("smoke_failed") => {
+            "smoke_failed".to_string()
+        }
+        (false, Some(true)) => "configured".to_string(),
+        (false, Some(false)) => "needs_attention".to_string(),
+        (false, None) => "unknown".to_string(),
+    }
+}
+
+fn repo_memory_mcp_service_healthy(service: Option<&RepoMemoryMcpServiceStatus>) -> bool {
+    let Some(service) = service else {
+        return false;
+    };
+    service.managed_by_app
+        && service.read_only
+        && service.descriptor_present
+        && service.script_present
+        && service.node_available
+}
+
+fn repo_memory_mcp_supervision_due(
+    session: &RepoMemoryMcpSessionState,
+    configured: Option<bool>,
+    current_pid: u32,
+    now: DateTime<Utc>,
+) -> bool {
+    if configured != Some(true)
+        || !session.active
+        || session.supervision_status.as_deref() != Some("verified_active")
+    {
+        return false;
+    }
+
+    if session.supervisor_pid != Some(current_pid) {
+        return true;
+    }
+
+    match session.last_checked_at {
+        Some(last_checked_at) => {
+            now.signed_duration_since(last_checked_at).num_seconds()
+                >= REPO_MEMORY_MCP_SUPERVISION_INTERVAL_SECS
+        }
+        None => true,
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 struct SavingsTotalsSnapshot {
     session_requests: usize,
@@ -3541,6 +4040,199 @@ struct SavingsObservation {
     session_total_tokens_sent: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RtkSavingsObservation {
+    observed_at: chrono::DateTime<Utc>,
+    total_commands: u64,
+    total_input: u64,
+    total_output: u64,
+    total_saved: u64,
+    total_time_ms: u64,
+}
+
+fn build_repo_intelligence_attribution_event(
+    summary: &crate::models::RepoIntelligenceSummary,
+) -> Option<SavingsAttributionEvent> {
+    let full_scan_tokens = summary.estimated_full_scan_tokens;
+    let best_pack = summary
+        .packs
+        .iter()
+        .filter(|pack| pack.estimated_tokens > 0)
+        .min_by(|left, right| {
+            left.estimated_tokens
+                .cmp(&right.estimated_tokens)
+                .then_with(|| {
+                    right
+                        .savings_vs_full_scan_pct
+                        .total_cmp(&left.savings_vs_full_scan_pct)
+                })
+                .then_with(|| left.title.cmp(&right.title))
+        })?;
+    let delta_tokens = full_scan_tokens.saturating_sub(best_pack.estimated_tokens);
+    if delta_tokens == 0 {
+        return None;
+    }
+
+    Some(SavingsAttributionEvent {
+        schema_version: 1,
+        id: Uuid::new_v4().to_string(),
+        observed_at: Utc::now(),
+        scope: SavingsAttributionScope::Session,
+        source: SavingsAttributionSource::RepoIntelligence,
+        confidence: SavingsAttributionConfidence::Estimated,
+        delta_tokens_saved: delta_tokens,
+        delta_usd: 0.0,
+        total_tokens_sent: 0,
+        request_delta: 1,
+        evidence: vec![
+            format!(
+                "Estimated from Repo Intelligence best-pack delta: full scan {full_scan_tokens} tokens vs '{}' pack {} tokens.",
+                best_pack.title, best_pack.estimated_tokens
+            ),
+            "Repo Intelligence savings estimate is local context avoided, not provider-spend dollars."
+                .to_string(),
+        ],
+    })
+}
+
+fn build_addon_attribution_event(
+    addon_id: &str,
+    caveman_level: Option<&str>,
+    changed_files: Option<&[String]>,
+    backup_files: Option<&[String]>,
+    ponytail_hosts: Option<&[String]>,
+) -> Option<SavingsAttributionEvent> {
+    let (source, label, baseline, optimized, confidence, evidence_subject) = match addon_id {
+        "markitdown" => {
+            let changed_files = changed_files?;
+            if changed_files.is_empty() {
+                return None;
+            }
+            (
+                SavingsAttributionSource::Markitdown,
+                "MarkItDown",
+                MARKITDOWN_TEMPLATE_BASELINE_TOKENS,
+                MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS,
+                SavingsAttributionConfidence::Estimated,
+                "MarkItDown managed hook or instruction guidance was written into connected client files after the console script was smoke-tested",
+            )
+        }
+        "ponytail" => {
+            let hosts = ponytail_hosts?;
+            if hosts.is_empty() {
+                return None;
+            }
+            (
+                SavingsAttributionSource::Ponytail,
+                "Ponytail",
+                PONYTAIL_TEMPLATE_BASELINE_TOKENS,
+                PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS,
+                SavingsAttributionConfidence::Estimated,
+                "Ponytail plugin registration was verified in connected agent hosts",
+            )
+        }
+        "caveman" => {
+            let changed_files = changed_files?;
+            if changed_files.is_empty() {
+                return None;
+            }
+            let compact = caveman_level
+                .map(|level| level == crate::tool_manager::CAVEMAN_LEVEL_COMPACT_CHINESE)
+                .unwrap_or(false);
+            (
+                if compact {
+                    SavingsAttributionSource::CompactChinese
+                } else {
+                    SavingsAttributionSource::Caveman
+                },
+                if compact {
+                    "Compact Chinese"
+                } else {
+                    "Caveman"
+                },
+                CAVEMAN_TEMPLATE_BASELINE_TOKENS,
+                CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
+                SavingsAttributionConfidence::Estimated,
+                if compact {
+                    "Compact Chinese managed guidance was written into connected client instruction files"
+                } else {
+                    "Caveman managed guidance was written into connected client instruction files"
+                },
+            )
+        }
+        _ => return None,
+    };
+    let delta_tokens = baseline.saturating_sub(optimized);
+    if delta_tokens == 0 {
+        return None;
+    }
+    let confidence_label = match confidence {
+        SavingsAttributionConfidence::Measured => "Measured",
+        SavingsAttributionConfidence::Estimated => "Estimated",
+        SavingsAttributionConfidence::Inferred => "Inferred",
+    };
+
+    let mut evidence = vec![
+        format!(
+            "{confidence_label} from {label} template delta: baseline {baseline} tokens vs optimized {optimized} tokens."
+        ),
+        format!("{evidence_subject}; local workflow estimate, not provider-spend dollars."),
+    ];
+    if addon_id == "caveman" {
+        let changed = changed_files.unwrap_or(&[]);
+        evidence.push(format!(
+            "Managed guidance changed {} client instruction file{}: {}.",
+            changed.len(),
+            if changed.len() == 1 { "" } else { "s" },
+            changed.join(", ")
+        ));
+        if let Some(backups) = backup_files.filter(|backups| !backups.is_empty()) {
+            evidence.push(format!(
+                "Backups created for reversible guidance writes: {}.",
+                backups.join(", ")
+            ));
+        }
+    }
+    if addon_id == "markitdown" {
+        let changed = changed_files.unwrap_or(&[]);
+        evidence.push(format!(
+            "Managed MarkItDown integration changed {} client artifact{}: {}.",
+            changed.len(),
+            if changed.len() == 1 { "" } else { "s" },
+            changed.join(", ")
+        ));
+        if let Some(backups) = backup_files.filter(|backups| !backups.is_empty()) {
+            evidence.push(format!(
+                "Backups created for reversible MarkItDown integration writes: {}.",
+                backups.join(", ")
+            ));
+        }
+    }
+    if addon_id == "ponytail" {
+        let hosts = ponytail_hosts.unwrap_or(&[]);
+        evidence.push(format!(
+            "Ponytail plugin registered with {} agent host{}: {}.",
+            hosts.len(),
+            if hosts.len() == 1 { "" } else { "s" },
+            hosts.join(", ")
+        ));
+    }
+
+    Some(SavingsAttributionEvent {
+        schema_version: 1,
+        id: Uuid::new_v4().to_string(),
+        observed_at: Utc::now(),
+        scope: SavingsAttributionScope::Session,
+        source,
+        confidence,
+        delta_tokens_saved: delta_tokens,
+        delta_usd: 0.0,
+        total_tokens_sent: 0,
+        request_delta: 1,
+        evidence,
+    })
+}
+
 impl SavingsObservation {
     fn last_activity_at(&self) -> chrono::DateTime<Utc> {
         self.last_activity_at.unwrap_or(self.observed_at)
@@ -3567,6 +4259,7 @@ struct PersistedSavingsState {
     lifetime_estimated_savings_usd: f64,
     lifetime_estimated_tokens_saved: u64,
     last_observation: Option<SavingsObservation>,
+    last_rtk_observation: Option<RtkSavingsObservation>,
     display_session_baseline: Option<SavingsObservation>,
     session_savings_history: Vec<HeadroomSavingsHistoryPoint>,
     session_hourly_buckets: BTreeMap<String, DailySavingsBucket>,
@@ -3574,8 +4267,40 @@ struct PersistedSavingsState {
     hourly_savings: BTreeMap<String, DailySavingsBucket>,
 }
 
+fn maybe_append_measured_headroom_attribution(
+    tracker: &mut SavingsTracker,
+    stats: &HeadroomDashboardStats,
+) -> Result<()> {
+    let optimized_tokens = stats.session_total_tokens_sent.unwrap_or(0);
+    let saved_tokens = stats.session_estimated_tokens_saved.unwrap_or(0);
+    let request_delta = stats.session_requests.unwrap_or(0);
+    if optimized_tokens == 0 || saved_tokens == 0 || request_delta == 0 {
+        return Ok(());
+    }
+
+    let baseline_tokens = optimized_tokens.saturating_add(saved_tokens);
+    let event = SavingsAttributionEvent {
+        schema_version: 1,
+        id: Uuid::new_v4().to_string(),
+        observed_at: Utc::now(),
+        scope: SavingsAttributionScope::Session,
+        source: SavingsAttributionSource::HeadroomEngine,
+        confidence: SavingsAttributionConfidence::Measured,
+        delta_tokens_saved: saved_tokens,
+        delta_usd: 0.0,
+        total_tokens_sent: optimized_tokens,
+        request_delta,
+        evidence: vec![format!(
+            "Headroom /stats measured {saved_tokens} saved tokens from {baseline_tokens} before to {optimized_tokens} after using session_estimated_tokens_saved and session_total_tokens_sent."
+        )],
+    };
+
+    tracker.append_attribution_event(&event)
+}
+
 struct SavingsTracker {
     records_path: std::path::PathBuf,
+    attribution_events_path: std::path::PathBuf,
     state_path: std::path::PathBuf,
     session_requests: usize,
     session_estimated_savings_usd: f64,
@@ -3585,6 +4310,7 @@ struct SavingsTracker {
     lifetime_estimated_savings_usd: f64,
     lifetime_estimated_tokens_saved: u64,
     last_observation: Option<SavingsObservation>,
+    last_rtk_observation: Option<RtkSavingsObservation>,
     display_session_baseline: Option<SavingsObservation>,
     session_savings_history: Vec<HeadroomSavingsHistoryPoint>,
     session_hourly_buckets: BTreeMap<String, DailySavingsBucket>,
@@ -3599,6 +4325,7 @@ struct SavingsTracker {
 impl SavingsTracker {
     fn load_or_create(base_dir: &Path) -> Result<Self> {
         let records_path = telemetry_file(base_dir, "savings-records.jsonl");
+        let attribution_events_path = telemetry_file(base_dir, "savings-attribution-events.jsonl");
         let state_path = config_file(base_dir, "savings-state.json");
         if !records_path.exists() {
             let _ = std::fs::OpenOptions::new()
@@ -3607,11 +4334,19 @@ impl SavingsTracker {
                 .open(&records_path)
                 .with_context(|| format!("creating {}", records_path.display()))?;
         }
+        if !attribution_events_path.exists() {
+            let _ = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&attribution_events_path)
+                .with_context(|| format!("creating {}", attribution_events_path.display()))?;
+        }
 
         let persisted_state = load_persisted_savings_state(&state_path).ok().flatten();
 
         let mut tracker = Self {
             records_path,
+            attribution_events_path,
             state_path,
             session_requests: 0,
             session_estimated_savings_usd: 0.0,
@@ -3629,6 +4364,9 @@ impl SavingsTracker {
             last_observation: persisted_state
                 .as_ref()
                 .and_then(|state| state.last_observation.clone()),
+            last_rtk_observation: persisted_state
+                .as_ref()
+                .and_then(|state| state.last_rtk_observation.clone()),
             display_session_baseline: persisted_state
                 .as_ref()
                 .and_then(|state| state.display_session_baseline.clone()),
@@ -3722,6 +4460,90 @@ impl SavingsTracker {
                 by_provider: Vec::new(),
             })
             .collect()
+    }
+
+    fn attribution_events(&self) -> Vec<SavingsAttributionEvent> {
+        let Ok(text) = std::fs::read_to_string(&self.attribution_events_path) else {
+            return Vec::new();
+        };
+
+        text.lines()
+            .filter_map(|line| serde_json::from_str::<SavingsAttributionEvent>(line).ok())
+            .collect()
+    }
+
+    fn observe_rtk_gain_summary(&mut self, stats: &RtkGainSummary) {
+        let previous = self.last_rtk_observation.clone();
+        let reset_detected = previous.as_ref().is_some_and(|prev| {
+            stats.total_saved < prev.total_saved || stats.total_commands < prev.total_commands
+        });
+        let (delta_tokens, delta_commands, delta_input, delta_output, delta_time_ms) =
+            match previous.as_ref() {
+                Some(prev) if !reset_detected => (
+                    stats.total_saved.saturating_sub(prev.total_saved),
+                    stats.total_commands.saturating_sub(prev.total_commands),
+                    stats.total_input.saturating_sub(prev.total_input),
+                    stats.total_output.saturating_sub(prev.total_output),
+                    stats.total_time_ms.saturating_sub(prev.total_time_ms),
+                ),
+                Some(_) => (
+                    stats.total_saved,
+                    stats.total_commands,
+                    stats.total_input,
+                    stats.total_output,
+                    stats.total_time_ms,
+                ),
+                None => (0, 0, 0, 0, 0),
+            };
+
+        if delta_tokens > 0 || delta_commands > 0 {
+            let mut evidence = vec![
+                "Measured from positive RTK gain counter deltas.".to_string(),
+                "RTK savings are local command-output tokens and are not model-spend dollars."
+                    .to_string(),
+            ];
+            if delta_input > 0 || delta_output > 0 {
+                evidence.push(format!(
+                    "RTK delta included {delta_input} input tokens, {delta_output} output tokens, and {delta_tokens} saved tokens."
+                ));
+            }
+            if stats.avg_savings_pct > 0.0 {
+                evidence.push(format!(
+                    "RTK reported {:.1}% average savings across all recorded command output.",
+                    stats.avg_savings_pct
+                ));
+            }
+            if delta_time_ms > 0 {
+                evidence.push(format!(
+                    "RTK delta included {delta_time_ms}ms processing time."
+                ));
+            }
+
+            let event = SavingsAttributionEvent {
+                schema_version: 1,
+                id: Uuid::new_v4().to_string(),
+                observed_at: Utc::now(),
+                scope: SavingsAttributionScope::Session,
+                source: SavingsAttributionSource::Rtk,
+                confidence: SavingsAttributionConfidence::Measured,
+                delta_tokens_saved: delta_tokens,
+                delta_usd: 0.0,
+                total_tokens_sent: 0,
+                request_delta: delta_commands as usize,
+                evidence,
+            };
+            let _ = self.append_attribution_event(&event);
+        }
+
+        self.last_rtk_observation = Some(RtkSavingsObservation {
+            observed_at: Utc::now(),
+            total_commands: stats.total_commands,
+            total_input: stats.total_input,
+            total_output: stats.total_output,
+            total_saved: stats.total_saved,
+            total_time_ms: stats.total_time_ms,
+        });
+        let _ = self.persist_state();
     }
 
     /// Fold the backend's authoritative rollups into the local archive so they
@@ -3895,6 +4717,25 @@ impl SavingsTracker {
             || delta_usd > 0.000_001
             || delta_actual_cost_usd > 0.000_001
             || session_buckets_changed;
+        if delta_requests > 0 || delta_tokens > 0 || delta_usd > 0.000_001 {
+            let event = SavingsAttributionEvent {
+                schema_version: 1,
+                id: Uuid::new_v4().to_string(),
+                observed_at: Utc::now(),
+                scope: SavingsAttributionScope::Session,
+                source: SavingsAttributionSource::HeadroomEngine,
+                confidence: SavingsAttributionConfidence::Measured,
+                delta_tokens_saved: delta_tokens,
+                delta_usd,
+                total_tokens_sent: delta_total_tokens_sent,
+                request_delta: delta_requests,
+                evidence: vec![
+                    "Measured from positive Headroom /stats session deltas.".to_string(),
+                    "Source excludes RTK, Repo Intelligence, Ponytail, Caveman, Compact Chinese, and MarkItDown until those emit source-specific counters.".to_string(),
+                ],
+            };
+            let _ = self.append_attribution_event(&event);
+        }
         let previous_lifetime_tokens_saved = self.lifetime_estimated_tokens_saved;
         let previous_lifetime_estimated_savings_usd = self.lifetime_estimated_savings_usd;
         if delta_requests > 0 || delta_tokens > 0 || delta_usd > 0.0 {
@@ -4180,6 +5021,22 @@ impl SavingsTracker {
         Ok(())
     }
 
+    fn append_attribution_event(&self, event: &SavingsAttributionEvent) -> Result<()> {
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.attribution_events_path)
+            .with_context(|| format!("opening {}", self.attribution_events_path.display()))?;
+        let serialized =
+            serde_json::to_string(event).context("serializing savings attribution event")?;
+        use std::io::Write;
+        file.write_all(serialized.as_bytes())
+            .with_context(|| format!("writing {}", self.attribution_events_path.display()))?;
+        file.write_all(b"\n")
+            .with_context(|| format!("writing {}", self.attribution_events_path.display()))?;
+        Ok(())
+    }
+
     fn persisted_state(&self) -> PersistedSavingsState {
         PersistedSavingsState {
             schema_version: 3,
@@ -4191,6 +5048,7 @@ impl SavingsTracker {
             lifetime_estimated_savings_usd: self.lifetime_estimated_savings_usd,
             lifetime_estimated_tokens_saved: self.lifetime_estimated_tokens_saved,
             last_observation: self.last_observation.clone(),
+            last_rtk_observation: self.last_rtk_observation.clone(),
             display_session_baseline: self.display_session_baseline.clone(),
             session_savings_history: self.session_savings_history.clone(),
             session_hourly_buckets: self.session_hourly_buckets.clone(),
@@ -5391,14 +6249,22 @@ pub(crate) fn classify_startup_error(raw: &str) -> Option<String> {
         // their port at login.
         return Some(
             "A port Headroom needs is held by another app on your machine. \
-             Reboot to clear stuck listeners, then relaunch Headroom."
+             Reboot to clear stuck listeners, then relaunch Mac AI Switchboard."
                 .into(),
         );
     }
     if raw.contains("headroom proxy already running on port") {
         return Some(
             "A previous Headroom proxy is still running in the background. \
-             Quit and relaunch Headroom to reset it."
+             Quit and relaunch Mac AI Switchboard to reset it."
+                .into(),
+        );
+    }
+    if raw.contains("client-facing proxy on 127.0.0.1:6767 is not ready") {
+        return Some(
+            "The Headroom backend is running, but the client-facing proxy on \
+             127.0.0.1:6767 is not accepting traffic. Click Repair runtime \
+             to respawn the local proxy front door."
                 .into(),
         );
     }
@@ -5600,10 +6466,12 @@ mod tests {
     use crate::storage::{config_file, ensure_data_dirs, telemetry_file};
 
     use crate::models::{
-        ActivityEvent, BootstrapProgress, DailySavingsPoint, HourlySavingsPoint,
-        RuntimeUpgradeFailure, UpgradeFailurePhase,
+        ActivityEvent, BootstrapProgress, DailySavingsPoint, HourlySavingsPoint, RepoContextPack,
+        RepoIntelligenceSummary, RuntimeUpgradeFailure, SavingsAttributionConfidence,
+        SavingsAttributionEvent, SavingsAttributionScope, SavingsAttributionSource,
+        UpgradeFailurePhase,
     };
-    use crate::tool_manager::BootstrapStepUpdate;
+    use crate::tool_manager::{BootstrapStepUpdate, RtkGainSummary};
 
     use super::{
         aggregate_weekly_totals, apply_bootstrap_step, begin_bootstrap_transition,
@@ -5915,7 +6783,7 @@ mod tests {
     #[test]
     fn classify_startup_error_foreign_port_with_fallback_exhausted() {
         let raw =
-            "port 6768 is occupied by a non-headroom process (rapportd pid 594) and fallback ports 6769-6790 are also unavailable; cannot start proxy. Reboot to clear stuck listeners, then relaunch Headroom.";
+            "port 6768 is occupied by a non-headroom process (rapportd pid 594) and fallback ports 6769-6790 are also unavailable; cannot start proxy. Reboot to clear stuck listeners, then relaunch Mac AI Switchboard.";
         let hint = classify_startup_error(raw).expect("all-foreign should classify");
         assert!(hint.contains("Reboot"), "got: {hint}");
     }
@@ -5969,7 +6837,7 @@ mod tests {
     fn classify_startup_error_handles_every_tool_manager_bail_format() {
         // 1. all-foreign exhaustion
         let raw = "port 6768 is occupied by a non-headroom process (rapportd pid 594) and fallback ports 6769-6790 are also unavailable; cannot start proxy. \
-                   Reboot to clear stuck listeners, then relaunch Headroom.";
+                   Reboot to clear stuck listeners, then relaunch Mac AI Switchboard.";
         assert!(
             classify_startup_error(raw).is_some(),
             "all-foreign bail must classify"
@@ -6083,9 +6951,12 @@ mod tests {
     fn make_tracker() -> SavingsTracker {
         let id = uuid::Uuid::new_v4();
         let records_path = std::env::temp_dir().join(format!("headroom-savings-test-{}.jsonl", id));
+        let attribution_events_path =
+            std::env::temp_dir().join(format!("headroom-savings-attribution-{}.jsonl", id));
         let state_path = std::env::temp_dir().join(format!("headroom-savings-state-{}.json", id));
         SavingsTracker {
             records_path,
+            attribution_events_path,
             state_path,
             session_requests: 0,
             session_estimated_savings_usd: 0.0,
@@ -6095,6 +6966,7 @@ mod tests {
             lifetime_estimated_savings_usd: 0.0,
             lifetime_estimated_tokens_saved: 0,
             last_observation: None,
+            last_rtk_observation: None,
             display_session_baseline: None,
             session_savings_history: Vec::new(),
             session_hourly_buckets: std::collections::BTreeMap::new(),
@@ -6177,6 +7049,342 @@ mod tests {
         tracker.observe(&stats);
         let milestones = tracker.take_pending_lifetime_usd_milestones();
         assert_eq!(milestones, vec![10, 50]);
+    }
+
+    #[test]
+    fn savings_tracker_appends_measured_headroom_attribution_events() {
+        let mut tracker = make_tracker();
+        let stats = HeadroomDashboardStats {
+            output_reduction: None,
+            session_requests: Some(3),
+            session_estimated_savings_usd: Some(1.25),
+            session_estimated_tokens_saved: Some(2500),
+            session_savings_pct: Some(25.0),
+            session_actual_cost_usd: Some(2.0),
+            session_total_tokens_sent: Some(7500),
+            savings_history: Vec::new(),
+        };
+
+        tracker.observe(&stats);
+        let events = tracker.attribution_events();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.schema_version, 1);
+        assert_eq!(event.scope, SavingsAttributionScope::Session);
+        assert_eq!(event.source, SavingsAttributionSource::HeadroomEngine);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Measured);
+        assert_eq!(event.delta_tokens_saved, 2500);
+        assert!((event.delta_usd - 1.25).abs() < 1e-9);
+        assert_eq!(event.total_tokens_sent, 7500);
+        assert_eq!(event.request_delta, 3);
+        assert!(event.evidence.join(" ").contains("Headroom /stats"));
+        assert!(event.evidence.join(" ").contains("Ponytail"));
+        let _ = std::fs::remove_file(&tracker.records_path);
+        let _ = std::fs::remove_file(&tracker.attribution_events_path);
+        let _ = std::fs::remove_file(&tracker.state_path);
+    }
+
+    #[test]
+    fn savings_tracker_appends_measured_rtk_attribution_events_from_deltas() {
+        let mut tracker = make_tracker();
+
+        tracker.observe_rtk_gain_summary(&RtkGainSummary {
+            total_commands: 10,
+            total_input: 1_200,
+            total_output: 200,
+            total_saved: 1000,
+            avg_savings_pct: 70.0,
+            total_time_ms: 400,
+            avg_time_ms: Some(40),
+        });
+        assert!(
+            tracker.attribution_events().is_empty(),
+            "first RTK observation establishes the baseline"
+        );
+
+        tracker.observe_rtk_gain_summary(&RtkGainSummary {
+            total_commands: 13,
+            total_input: 1_800,
+            total_output: 350,
+            total_saved: 1450,
+            avg_savings_pct: 72.0,
+            total_time_ms: 550,
+            avg_time_ms: Some(42),
+        });
+
+        let events = tracker.attribution_events();
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.source, SavingsAttributionSource::Rtk);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Measured);
+        assert_eq!(event.delta_tokens_saved, 450);
+        assert_eq!(event.delta_usd, 0.0);
+        assert_eq!(event.request_delta, 3);
+        assert!(event.evidence.join(" ").contains("RTK gain counter"));
+        assert!(event.evidence.join(" ").contains("local command-output"));
+        assert!(event
+            .evidence
+            .join(" ")
+            .contains("600 input tokens, 150 output tokens, and 450 saved tokens"));
+        assert!(event.evidence.join(" ").contains("150ms processing time"));
+        let _ = std::fs::remove_file(&tracker.records_path);
+        let _ = std::fs::remove_file(&tracker.attribution_events_path);
+        let _ = std::fs::remove_file(&tracker.state_path);
+    }
+
+    #[test]
+    fn savings_attribution_events_ignore_malformed_jsonl_lines() {
+        let tracker = make_tracker();
+        let event = SavingsAttributionEvent {
+            schema_version: 1,
+            id: "event-1".into(),
+            observed_at: Utc::now(),
+            scope: SavingsAttributionScope::Session,
+            source: SavingsAttributionSource::HeadroomEngine,
+            confidence: SavingsAttributionConfidence::Measured,
+            delta_tokens_saved: 42,
+            delta_usd: 0.21,
+            total_tokens_sent: 100,
+            request_delta: 1,
+            evidence: vec!["Measured from test fixture.".into()],
+        };
+        std::fs::write(
+            &tracker.attribution_events_path,
+            format!(
+                "not-json\n{}\n",
+                serde_json::to_string(&event).expect("serialize attribution event")
+            ),
+        )
+        .expect("write attribution file");
+
+        let events = tracker.attribution_events();
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].id, "event-1");
+        assert_eq!(events[0].delta_tokens_saved, 42);
+        let _ = std::fs::remove_file(&tracker.attribution_events_path);
+    }
+
+    #[test]
+    fn savings_attribution_event_schema_accepts_source_specific_future_events() {
+        let text = r#"{
+            "schemaVersion": 1,
+            "id": "repo-event-1",
+            "observedAt": "2026-06-28T10:00:00Z",
+            "scope": "session",
+            "source": "repo_intelligence",
+            "confidence": "estimated",
+            "deltaTokensSaved": 1200,
+            "deltaUsd": 0.0,
+            "totalTokensSent": 0,
+            "requestDelta": 1,
+            "evidence": ["Estimated from a Repo Intelligence pack before/after token delta."]
+        }"#;
+
+        let event: SavingsAttributionEvent =
+            serde_json::from_str(text).expect("source-specific event decodes");
+
+        assert_eq!(event.source, SavingsAttributionSource::RepoIntelligence);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(event.delta_tokens_saved, 1200);
+
+        let compact_chinese = serde_json::json!({
+            "schemaVersion": 1,
+            "id": "compact-chinese-event-1",
+            "observedAt": "2026-06-28T10:01:00Z",
+            "scope": "session",
+            "source": "compact_chinese",
+            "confidence": "inferred",
+            "deltaTokensSaved": 300,
+            "deltaUsd": 0.0,
+            "totalTokensSent": 0,
+            "requestDelta": 1,
+            "evidence": ["Inferred from Compact Chinese private handoff profile."]
+        });
+        let event: SavingsAttributionEvent =
+            serde_json::from_value(compact_chinese).expect("compact chinese event decodes");
+
+        assert_eq!(event.source, SavingsAttributionSource::CompactChinese);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Inferred);
+    }
+
+    fn repo_summary_for_attribution(
+        full_scan: u64,
+        packs: Vec<RepoContextPack>,
+    ) -> RepoIntelligenceSummary {
+        RepoIntelligenceSummary {
+            indexed_at: "2026-06-28T10:00:00Z".into(),
+            repo_root: "/tmp/example".into(),
+            indexer_version: Some("test".into()),
+            total_files: 3,
+            indexed_files: 3,
+            skipped_files: 0,
+            estimated_full_scan_tokens: full_scan,
+            role_counts: Default::default(),
+            index_metadata: None,
+            graph: None,
+            packs,
+        }
+    }
+
+    fn repo_pack_for_attribution(
+        title: &str,
+        estimated_tokens: u64,
+        savings: f64,
+    ) -> RepoContextPack {
+        RepoContextPack {
+            id: title.to_ascii_lowercase().replace(' ', "_"),
+            title: title.into(),
+            purpose: "test pack".into(),
+            files: Vec::new(),
+            estimated_tokens,
+            savings_vs_full_scan_pct: savings,
+        }
+    }
+
+    #[test]
+    fn repo_intelligence_attribution_event_uses_best_pack_delta() {
+        let summary = repo_summary_for_attribution(
+            10_000,
+            vec![
+                repo_pack_for_attribution("Verification", 4_000, 60.0),
+                repo_pack_for_attribution("Implementation", 2_500, 75.0),
+            ],
+        );
+
+        let event = super::build_repo_intelligence_attribution_event(&summary)
+            .expect("repo intelligence attribution event");
+
+        assert_eq!(event.source, SavingsAttributionSource::RepoIntelligence);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(event.delta_tokens_saved, 7_500);
+        assert_eq!(event.delta_usd, 0.0);
+        assert_eq!(event.request_delta, 1);
+        let evidence = event.evidence.join(" ");
+        assert!(evidence.contains("full scan 10000 tokens"));
+        assert!(evidence.contains("Implementation"));
+        assert!(evidence.contains("not provider-spend dollars"));
+    }
+
+    #[test]
+    fn repo_intelligence_attribution_event_skips_zero_delta() {
+        let summary = repo_summary_for_attribution(
+            1_000,
+            vec![repo_pack_for_attribution("Full", 1_000, 0.0)],
+        );
+
+        assert!(super::build_repo_intelligence_attribution_event(&summary).is_none());
+    }
+
+    #[test]
+    fn addon_attribution_event_records_estimated_markitdown_delta() {
+        let changed_files = vec![
+            "/tmp/headroom-markitdown-read.sh".to_string(),
+            "/tmp/CLAUDE.md".to_string(),
+        ];
+        let backup_files = vec!["/tmp/CLAUDE.md.bak".to_string()];
+        let event = super::build_addon_attribution_event(
+            "markitdown",
+            None,
+            Some(&changed_files),
+            Some(&backup_files),
+            None,
+        )
+        .expect("markitdown attribution");
+
+        assert_eq!(event.source, SavingsAttributionSource::Markitdown);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(event.delta_tokens_saved, 2_300);
+        assert_eq!(event.request_delta, 1);
+        let evidence = event.evidence.join(" ");
+        assert!(evidence.contains("baseline 3200 tokens"));
+        assert!(evidence.contains("optimized 900 tokens"));
+        assert!(evidence.contains("smoke-tested"));
+        assert!(evidence.contains("changed 2 client artifacts"));
+        assert!(evidence.contains("headroom-markitdown-read.sh"));
+        assert!(evidence.contains("Backups created"));
+        assert!(evidence.contains("not provider-spend dollars"));
+    }
+
+    #[test]
+    fn addon_attribution_event_skips_markitdown_without_changed_artifacts() {
+        assert!(
+            super::build_addon_attribution_event("markitdown", None, None, None, None).is_none()
+        );
+        assert!(
+            super::build_addon_attribution_event("markitdown", None, Some(&[]), None, None)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn addon_attribution_event_separates_compact_chinese_from_caveman() {
+        let changed_files = vec!["/tmp/CLAUDE.md".to_string(), "/tmp/AGENTS.md".to_string()];
+        let backup_files = vec!["/tmp/CLAUDE.md.bak".to_string()];
+        let caveman = super::build_addon_attribution_event(
+            "caveman",
+            Some("scoped"),
+            Some(&changed_files),
+            Some(&backup_files),
+            None,
+        )
+        .expect("caveman attribution");
+        let compact = super::build_addon_attribution_event(
+            "caveman",
+            Some(crate::tool_manager::CAVEMAN_LEVEL_COMPACT_CHINESE),
+            Some(&changed_files),
+            Some(&backup_files),
+            None,
+        )
+        .expect("compact chinese attribution");
+
+        assert_eq!(caveman.source, SavingsAttributionSource::Caveman);
+        assert_eq!(compact.source, SavingsAttributionSource::CompactChinese);
+        assert_eq!(caveman.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(compact.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(caveman.delta_tokens_saved, 300);
+        assert_eq!(compact.delta_tokens_saved, 300);
+        let evidence = caveman.evidence.join(" ");
+        assert!(evidence.contains("changed 2 client instruction files"));
+        assert!(evidence.contains("/tmp/CLAUDE.md"));
+        assert!(evidence.contains("Backups created"));
+    }
+
+    #[test]
+    fn addon_attribution_event_skips_caveman_without_changed_files() {
+        assert!(super::build_addon_attribution_event(
+            "caveman",
+            Some("scoped"),
+            Some(&[]),
+            None,
+            None,
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn addon_attribution_event_records_estimated_ponytail_host_registration() {
+        let hosts = vec!["Claude Code".to_string(), "Codex".to_string()];
+        let event =
+            super::build_addon_attribution_event("ponytail", None, None, None, Some(&hosts))
+                .expect("ponytail attribution");
+
+        assert_eq!(event.source, SavingsAttributionSource::Ponytail);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(event.delta_tokens_saved, 880);
+        let evidence = event.evidence.join(" ");
+        assert!(evidence.contains("registered with 2 agent hosts"));
+        assert!(evidence.contains("Claude Code"));
+        assert!(evidence.contains("Codex"));
+    }
+
+    #[test]
+    fn addon_attribution_event_skips_ponytail_without_registered_hosts() {
+        assert!(
+            super::build_addon_attribution_event("ponytail", None, None, None, Some(&[]),)
+                .is_none()
+        );
     }
 
     #[test]
@@ -8009,6 +9217,7 @@ mod tests {
                 session_actual_cost_usd: 0.0,
                 session_total_tokens_sent: 0,
             }),
+            last_rtk_observation: None,
             display_session_baseline: None,
             session_savings_history: Vec::new(),
             session_hourly_buckets: std::collections::BTreeMap::new(),
@@ -8383,5 +9592,229 @@ mod tests {
         let next = bootstrap_failed_state(&idle_progress(), "early failure".into());
         assert_eq!(next.overall_percent, 1);
         assert!(next.failed);
+    }
+
+    #[test]
+    fn repo_memory_mcp_supervision_distinguishes_stale_active_state() {
+        let current_pid = 42;
+        let healthy_service = super::RepoMemoryMcpServiceStatus {
+            managed_by_app: true,
+            read_only: true,
+            transport: "stdio".to_string(),
+            command: "node repo-intelligence.mjs --mcp-serve".to_string(),
+            descriptor_path: "/tmp/repo-memory.json".to_string(),
+            descriptor_present: true,
+            script_path: "/tmp/repo-intelligence.mjs".to_string(),
+            script_present: true,
+            node_available: true,
+        };
+        let active = super::RepoMemoryMcpSessionState {
+            active: true,
+            last_started_at: None,
+            last_checked_at: None,
+            supervision_status: None,
+            supervisor_pid: None,
+        };
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(
+                &active,
+                Some(true),
+                current_pid,
+                Some(&healthy_service)
+            ),
+            "active"
+        );
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(
+                &active,
+                Some(false),
+                current_pid,
+                Some(&healthy_service)
+            ),
+            "stale_config"
+        );
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(
+                &active,
+                None,
+                current_pid,
+                Some(&healthy_service)
+            ),
+            "unknown_active"
+        );
+
+        let broken_service = super::RepoMemoryMcpServiceStatus {
+            script_present: false,
+            ..healthy_service.clone()
+        };
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(
+                &active,
+                Some(true),
+                current_pid,
+                Some(&broken_service)
+            ),
+            "service_unhealthy"
+        );
+
+        let verified_this_process = super::RepoMemoryMcpSessionState {
+            active: true,
+            last_started_at: None,
+            last_checked_at: None,
+            supervision_status: Some("verified_active".to_string()),
+            supervisor_pid: Some(current_pid),
+        };
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(
+                &verified_this_process,
+                Some(true),
+                current_pid,
+                Some(&healthy_service)
+            ),
+            "verified_active"
+        );
+
+        let verified_previous_process = super::RepoMemoryMcpSessionState {
+            active: true,
+            last_started_at: None,
+            last_checked_at: None,
+            supervision_status: Some("verified_active".to_string()),
+            supervisor_pid: Some(current_pid + 1),
+        };
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(
+                &verified_previous_process,
+                Some(true),
+                current_pid,
+                Some(&healthy_service)
+            ),
+            "restart_required"
+        );
+
+        let stopped = super::RepoMemoryMcpSessionState::default();
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(
+                &stopped,
+                Some(true),
+                current_pid,
+                Some(&healthy_service)
+            ),
+            "configured"
+        );
+        assert_eq!(
+            super::repo_memory_mcp_supervision_status(
+                &stopped,
+                Some(false),
+                current_pid,
+                Some(&healthy_service)
+            ),
+            "needs_attention"
+        );
+    }
+
+    #[test]
+    fn repo_memory_mcp_supervision_due_requires_current_active_verified_session() {
+        let current_pid = 42;
+        let now = Utc
+            .with_ymd_and_hms(2026, 6, 30, 10, 0, 0)
+            .single()
+            .unwrap();
+        let stale_check = Some(
+            now - chrono::Duration::seconds(super::REPO_MEMORY_MCP_SUPERVISION_INTERVAL_SECS + 1),
+        );
+        let fresh_check = Some(now - chrono::Duration::seconds(60));
+        let active = super::RepoMemoryMcpSessionState {
+            active: true,
+            last_started_at: Some(now - chrono::Duration::minutes(30)),
+            last_checked_at: stale_check,
+            supervision_status: Some("verified_active".to_string()),
+            supervisor_pid: Some(current_pid),
+        };
+
+        assert!(super::repo_memory_mcp_supervision_due(
+            &active,
+            Some(true),
+            current_pid,
+            now
+        ));
+
+        let fresh = super::RepoMemoryMcpSessionState {
+            last_checked_at: fresh_check,
+            ..active.clone()
+        };
+        assert!(!super::repo_memory_mcp_supervision_due(
+            &fresh,
+            Some(true),
+            current_pid,
+            now
+        ));
+
+        let previous_process = super::RepoMemoryMcpSessionState {
+            supervisor_pid: Some(current_pid + 1),
+            ..active.clone()
+        };
+        assert!(super::repo_memory_mcp_supervision_due(
+            &previous_process,
+            Some(true),
+            current_pid,
+            now
+        ));
+
+        let not_configured = super::RepoMemoryMcpSessionState { ..active.clone() };
+        assert!(!super::repo_memory_mcp_supervision_due(
+            &not_configured,
+            Some(false),
+            current_pid,
+            now
+        ));
+    }
+
+    #[test]
+    fn headroom_stats_snapshot_records_measured_attribution() {
+        let mut tracker = make_tracker();
+        let stats = HeadroomDashboardStats {
+            session_requests: Some(4),
+            session_estimated_savings_usd: Some(0.0),
+            session_estimated_tokens_saved: Some(2_500),
+            session_savings_pct: Some(25.0),
+            session_actual_cost_usd: Some(0.0),
+            session_total_tokens_sent: Some(7_500),
+            savings_history: Vec::new(),
+            output_reduction: None,
+        };
+
+        super::maybe_append_measured_headroom_attribution(&mut tracker, &stats)
+            .expect("record measured event");
+        let events = tracker.attribution_events();
+        let event = events.last().expect("measured event");
+
+        assert_eq!(event.source, SavingsAttributionSource::HeadroomEngine);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Measured);
+        assert_eq!(event.delta_tokens_saved, 2_500);
+        assert_eq!(event.total_tokens_sent, 7_500);
+        assert_eq!(event.request_delta, 4);
+        assert!(event
+            .evidence
+            .join(" ")
+            .contains("10000 before to 7500 after"));
+    }
+
+    #[test]
+    fn headroom_stats_snapshot_skips_measured_attribution_without_real_counts() {
+        let mut tracker = make_tracker();
+        let stats = HeadroomDashboardStats {
+            session_requests: Some(0),
+            session_estimated_savings_usd: Some(0.0),
+            session_estimated_tokens_saved: Some(2_500),
+            session_savings_pct: Some(25.0),
+            session_actual_cost_usd: Some(0.0),
+            session_total_tokens_sent: Some(7_500),
+            savings_history: Vec::new(),
+            output_reduction: None,
+        };
+
+        super::maybe_append_measured_headroom_attribution(&mut tracker, &stats)
+            .expect("skip measured event");
+        assert!(tracker.attribution_events().is_empty());
     }
 }

@@ -1,20 +1,37 @@
-use std::collections::BTreeMap;
+use std::collections::{hash_map::DefaultHasher, BTreeMap, BTreeSet};
 use std::ffi::OsStr;
+use std::hash::{Hash, Hasher};
+use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::time::UNIX_EPOCH;
 
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 
 use crate::models::{
-    RepoContextPack, RepoFileRole, RepoFileSignal, RepoGraphEdge, RepoGraphEdgeKind, RepoGraphNode,
-    RepoGraphSummary, RepoIntelligenceSummary, RepoSymbol, RepoSymbolKind,
+    RepoAgentConfigReadiness, RepoAgentConfigReadinessDossier, RepoAgentConfigReadinessGate,
+    RepoAgentConfigReadinessNextGate, RepoAgentHandoffAgent, RepoAgentHandoffResponse,
+    RepoAgentHandoffSafety, RepoContextPack, RepoContextPackGraphBrief, RepoContextPackResponse,
+    RepoContextPackSafety, RepoDependentsResponse, RepoFileIndexEntry, RepoFileRank, RepoFileRole,
+    RepoFileSignal, RepoGraphEdge, RepoGraphEdgeKind, RepoGraphInputEntry, RepoGraphNode,
+    RepoGraphSummary, RepoIndexFreshnessResponse, RepoIndexFreshnessStatus, RepoIndexMetadata,
+    RepoIntelligenceManifestResponse, RepoIntelligenceSummary, RepoManifestPackSummary,
+    RepoManifestQuery, RepoManifestTotals, RepoSkippedIndexEntry, RepoSymbol, RepoSymbolKind,
+    RepoSymbolSearchResponse,
 };
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs};
 
 const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
-const INDEXER_VERSION: &str = "path-graph-v2";
+const TASK_PACK_BUDGET_TOKENS: u64 = 8_000;
+const INDEXER_VERSION: &str = "path-graph-v8";
+const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
+const PARSER_VERSION: &str = "metadata-fingerprint-v1";
+const DEFAULT_SYMBOL_SEARCH_LIMIT: usize = 25;
+const MAX_SYMBOL_SEARCH_LIMIT: usize = 100;
+const DEFAULT_DEPENDENTS_LIMIT: usize = 25;
+const MAX_DEPENDENTS_LIMIT: usize = 100;
 const IGNORED_DIRS: [&str; 12] = [
     ".git",
     "node_modules",
@@ -29,26 +46,405 @@ const IGNORED_DIRS: [&str; 12] = [
     "__pycache__",
     ".pytest_cache",
 ];
-const SECRET_FILE_NAMES: [&str; 7] = [
+
+pub fn current_indexer_version() -> &'static str {
+    INDEXER_VERSION
+}
+const SECRET_FILE_NAMES: [&str; 13] = [
     ".env",
     ".env.local",
     ".env.production",
+    ".envrc",
+    ".git-credentials",
+    ".netrc",
+    "settings.local.json",
+    "credentials.toml",
     ".npmrc",
     ".pypirc",
+    "headroom_memory.db",
     "id_rsa",
     "id_ed25519",
 ];
-const SECRET_EXTENSIONS: [&str; 6] = [".pem", ".p8", ".p12", ".key", ".crt", ".cer"];
-const SECRET_PATH_SEGMENTS: [&str; 4] = ["secrets", ".secrets", "private_keys", ".private_keys"];
+const SECRET_EXTENSIONS: [&str; 10] = [
+    ".pem", ".p8", ".p12", ".key", ".crt", ".cer", ".db", ".sqlite", ".sqlite3", ".log",
+];
+const SECRET_PATH_SEGMENTS: [&str; 10] = [
+    "secrets",
+    ".secrets",
+    "private_keys",
+    ".private_keys",
+    ".aws",
+    ".azure",
+    ".config/gh",
+    ".gnupg",
+    ".playwright-mcp",
+    ".ssh",
+];
+
+fn repo_context_safety() -> RepoContextPackSafety {
+    RepoContextPackSafety {
+        read_only: true,
+        excludes_secret_like_paths: true,
+        modifies_repository: false,
+    }
+}
+
+struct AgentHandoffProfile {
+    id: &'static str,
+    label: &'static str,
+    tool_kind: &'static str,
+    default_pack_id: &'static str,
+    guidance: &'static str,
+    manual_provider_routing: bool,
+}
+
+const AGENT_HANDOFF_PROFILES: [AgentHandoffProfile; 13] = [
+    AgentHandoffProfile {
+        id: "claude",
+        label: "Claude Code",
+        tool_kind: "cli",
+        default_pack_id: "implementation",
+        guidance: "Paste before task in Claude Code when you want bounded repo context without re-scanning the whole tree.",
+        manual_provider_routing: false,
+    },
+    AgentHandoffProfile {
+        id: "codex",
+        label: "Codex",
+        tool_kind: "cli",
+        default_pack_id: "verification",
+        guidance: "Paste before Codex verification or implementation work to avoid repeated broad repo discovery.",
+        manual_provider_routing: false,
+    },
+    AgentHandoffProfile {
+        id: "gemini",
+        label: "Gemini CLI",
+        tool_kind: "cli",
+        default_pack_id: "implementation",
+        guidance: "Paste this before the task. Gemini CLI can use managed Switchboard routing when its connector is enabled.",
+        manual_provider_routing: false,
+    },
+    AgentHandoffProfile {
+        id: "opencode",
+        label: "OpenCode",
+        tool_kind: "cli",
+        default_pack_id: "implementation",
+        guidance: "Paste this into the session as bounded repo context before editing. OpenCode can use managed Switchboard routing when its connector is enabled.",
+        manual_provider_routing: false,
+    },
+    AgentHandoffProfile {
+        id: "aider",
+        label: "Aider",
+        tool_kind: "cli",
+        default_pack_id: "implementation",
+        guidance: "Use this to choose files intentionally before adding them to an Aider chat.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "goose",
+        label: "Goose",
+        tool_kind: "cli",
+        default_pack_id: "verification",
+        guidance: "Use this for test, build, and release-check tasks with minimal context.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "cursor",
+        label: "Cursor",
+        tool_kind: "editor",
+        default_pack_id: "handoff",
+        guidance: "Paste into the editor assistant as read-only project context.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "continue",
+        label: "Continue",
+        tool_kind: "editor",
+        default_pack_id: "handoff",
+        guidance: "Paste into Continue chat as read-only context; do not auto-write config.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "grok",
+        label: "Grok / xAI CLI",
+        tool_kind: "chat",
+        default_pack_id: "implementation",
+        guidance: "Use this as compact task context where local CLI integration remains manual.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "qwen",
+        label: "Qwen Code",
+        tool_kind: "cli",
+        default_pack_id: "implementation",
+        guidance: "Paste into Qwen Code as bounded repo context; keep provider and account routing manual.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "amazonq",
+        label: "Amazon Q Developer CLI",
+        tool_kind: "cli",
+        default_pack_id: "verification",
+        guidance: "Paste verification packs for build, test, and AWS-adjacent repo questions without exposing account state.",
+        manual_provider_routing: true,
+    },
+    AgentHandoffProfile {
+        id: "windsurf",
+        label: "Windsurf",
+        tool_kind: "editor",
+        default_pack_id: "handoff",
+        guidance: "Paste into Windsurf chat as read-only project context; managed editor settings routing is handled by the Switchboard connector.",
+        manual_provider_routing: false,
+    },
+    AgentHandoffProfile {
+        id: "zed",
+        label: "Zed AI",
+        tool_kind: "editor",
+        default_pack_id: "handoff",
+        guidance: "Paste into Zed assistant as read-only context; managed assistant settings routing is handled by the Switchboard connector.",
+        manual_provider_routing: false,
+    },
+];
+
+struct PlannedConnectorDossier {
+    id: &'static str,
+    name: &'static str,
+    config_path_strategy: &'static str,
+    account_caveat: &'static str,
+    rollback_strategy: &'static str,
+}
+
+struct PlannedConfigGate {
+    id: &'static str,
+    label: &'static str,
+    required_evidence: &'static [&'static str],
+}
+
+const PLANNED_CONFIG_GATES: [PlannedConfigGate; 7] = [
+    PlannedConfigGate {
+        id: "detect",
+        label: "Detect config surface",
+        required_evidence: &[
+            "Read-only binary or app detection result.",
+            "Detected config, settings, profile, or environment surface documented without writes.",
+        ],
+    },
+    PlannedConfigGate {
+        id: "dryRunDiff",
+        label: "Show dry-run diff",
+        required_evidence: &[
+            "User-visible dry-run diff artifact showing target, before/after local proxy/provider change, managed marker boundary, rollback preview, and confirmation phrase.",
+            "No files, profiles, credentials, or account state changed by the preview.",
+        ],
+    },
+    PlannedConfigGate {
+        id: "backup",
+        label: "Create backup",
+        required_evidence: &[
+            "Timestamped backup path or environment-wrapper restore point.",
+            "Fixture-home restore test proving unknown fields and unrelated provider entries are preserved.",
+        ],
+    },
+    PlannedConfigGate {
+        id: "apply",
+        label: "Apply with consent",
+        required_evidence: &[
+            "Explicit user consent captured for the connector and config surface.",
+            "Managed marker or wrapper boundary proving only Switchboard-owned routing was applied.",
+        ],
+    },
+    PlannedConfigGate {
+        id: "verify",
+        label: "Verify in Doctor",
+        required_evidence: &[
+            "Doctor check confirming account/model guardrails without storing secrets.",
+            "Compatibility or caveat message visible before routing is considered supported.",
+        ],
+    },
+    PlannedConfigGate {
+        id: "rollback",
+        label: "Rollback safely",
+        required_evidence: &[
+            "Fixture-home rollback test restoring the exact backup or removing only managed wrapper state.",
+            "Post-rollback diff proving unrelated user settings are unchanged.",
+        ],
+    },
+    PlannedConfigGate {
+        id: "offCleanup",
+        label: "Clean up in Off mode",
+        required_evidence: &[
+            "Fixture-home Off-mode cleanup showing managed routing removed.",
+            "Doctor verification that the connector returns to manual or RTK-only mode.",
+        ],
+    },
+];
+
+fn planned_connector_dossier(agent_id: &str) -> Option<PlannedConnectorDossier> {
+    match agent_id {
+        "gemini" => Some(PlannedConnectorDossier {
+            id: "gemini_cli",
+            name: "Gemini CLI",
+            config_path_strategy:
+                "Detect PATH: gemini first, then probe documented provider settings or shell flags read-only.",
+            account_caveat:
+                "Model and account compatibility must be reported before routing; no account tokens are stored.",
+            rollback_strategy:
+                "Restore the previous provider settings or remove only Switchboard-managed shell routing.",
+        }),
+        "opencode" => Some(PlannedConnectorDossier {
+            id: "opencode",
+            name: "OpenCode",
+            config_path_strategy:
+                "Detect PATH: opencode, then identify the active provider config path before any write.",
+            account_caveat:
+                "Secrets stay in the user's existing provider store and must not be copied into Switchboard state.",
+            rollback_strategy:
+                "Restore the timestamped provider-config backup and clear managed environment overrides.",
+        }),
+        "cursor" => Some(PlannedConnectorDossier {
+            id: "cursor",
+            name: "Cursor",
+            config_path_strategy:
+                "Find the active Cursor app/profile settings surface before reading user settings.",
+            account_caveat:
+                "Account-specific model choices remain user-controlled until Doctor can explain compatibility.",
+            rollback_strategy:
+                "Restore the exact profile settings backup without touching extension-managed secrets.",
+        }),
+        "grok" => Some(PlannedConnectorDossier {
+            id: "grok_cli",
+            name: "Grok / xAI CLI",
+            config_path_strategy:
+                "Detect PATH: grok or PATH: xai and avoid guessing hidden provider files.",
+            account_caveat:
+                "Unsupported model/account combinations require Doctor guardrails before setup is offered.",
+            rollback_strategy:
+                "Remove managed shell routing and leave API key/account state outside app storage.",
+        }),
+        "aider" => Some(PlannedConnectorDossier {
+            id: "aider",
+            name: "Aider",
+            config_path_strategy:
+                "Detect PATH: aider and prefer a one-launch environment wrapper over saved config edits.",
+            account_caveat:
+                "Existing provider secrets remain in the user's shell or provider config and are never copied.",
+            rollback_strategy:
+                "Drop the wrapper environment and leave the user's Aider/provider files unchanged.",
+        }),
+        "continue" => Some(PlannedConnectorDossier {
+            id: "continue",
+            name: "Continue",
+            config_path_strategy:
+                "Open or parse the Continue config folder only after preserving unknown provider fields.",
+            account_caveat:
+                "Provider credentials and account selections stay visible and user-owned during guided setup.",
+            rollback_strategy:
+                "Restore the exact config backup or remove only the marked Switchboard provider entry.",
+        }),
+        "goose" => Some(PlannedConnectorDossier {
+            id: "goose",
+            name: "Goose",
+            config_path_strategy:
+                "Detect PATH: goose and inspect Goose provider/MCP surfaces read-only before handoff.",
+            account_caveat:
+                "Provider account state remains outside Switchboard until compatibility checks are explicit.",
+            rollback_strategy:
+                "Remove managed provider routing while preserving unrelated Goose MCP configuration.",
+        }),
+        "qwen" => Some(PlannedConnectorDossier {
+            id: "qwen_code",
+            name: "Qwen Code",
+            config_path_strategy:
+                "Detect PATH: qwen-code or PATH: qwen, then probe provider/model settings read-only.",
+            account_caveat:
+                "Qwen account and model compatibility must be verified without editing config.",
+            rollback_strategy:
+                "Remove managed shell routing and restore provider settings from the exact backup.",
+        }),
+        "amazonq" => Some(PlannedConnectorDossier {
+            id: "amazon_q",
+            name: "Amazon Q Developer CLI",
+            config_path_strategy:
+                "Detect PATH: q and avoid reading AWS credentials, SSO caches, or profile secrets.",
+            account_caveat:
+                "AWS profile, SSO, and credential state must remain outside Switchboard storage.",
+            rollback_strategy:
+                "Remove managed routing without modifying AWS config, credentials, SSO cache, or profiles.",
+        }),
+        "windsurf" => Some(PlannedConnectorDossier {
+            id: "windsurf",
+            name: "Windsurf",
+            config_path_strategy:
+                "Detect the Windsurf app and active settings location before applying managed editor settings routing.",
+            account_caveat:
+                "Switchboard preserves unrelated account and model settings while managing only its editor settings routing block.",
+            rollback_strategy:
+                "Restore the active settings backup and remove only Switchboard-managed editor settings routing entries.",
+        }),
+        "zed" => Some(PlannedConnectorDossier {
+            id: "zed_ai",
+            name: "Zed AI",
+            config_path_strategy:
+                "Detect the Zed app settings file at ~/.config/zed/settings.json before applying managed assistant settings routing.",
+            account_caveat:
+                "Switchboard preserves unrelated provider/account settings while managing only its local proxy routing entry.",
+            rollback_strategy:
+                "Restore assistant settings from backup and remove only Switchboard-managed local proxy routing entries.",
+        }),
+        _ => None,
+    }
+}
+
+fn build_agent_config_readiness(agent_id: &str) -> Option<RepoAgentConfigReadiness> {
+    let dossier = planned_connector_dossier(agent_id)?;
+    let next_gate = &PLANNED_CONFIG_GATES[0];
+    let automation_enabled = matches!(
+        dossier.id,
+        "gemini_cli" | "opencode" | "windsurf" | "zed_ai"
+    );
+
+    Some(RepoAgentConfigReadiness {
+        planned_connector_id: dossier.id.to_string(),
+        planned_connector_name: dossier.name.to_string(),
+        automation_enabled,
+        safety_note: if automation_enabled {
+            "Managed routing is enabled with backup, apply, verify, rollback, and Off cleanup evidence."
+        } else {
+            "Connector-native config creation stays disabled until detection, dry-run diff, backup, apply, verify, rollback, and Off cleanup are implemented and tested."
+        }
+        .to_string(),
+        next_gate: RepoAgentConfigReadinessNextGate {
+            id: next_gate.id.to_string(),
+            label: next_gate.label.to_string(),
+        },
+        safety_dossier: RepoAgentConfigReadinessDossier {
+            config_path_strategy: dossier.config_path_strategy.to_string(),
+            account_caveat: dossier.account_caveat.to_string(),
+            rollback_strategy: dossier.rollback_strategy.to_string(),
+        },
+        gated_steps: PLANNED_CONFIG_GATES
+            .iter()
+            .map(|gate| RepoAgentConfigReadinessGate {
+                id: gate.id.to_string(),
+                label: gate.label.to_string(),
+                required_evidence: gate
+                    .required_evidence
+                    .iter()
+                    .map(|evidence| (*evidence).to_string())
+                    .collect(),
+            })
+            .collect(),
+    })
+}
 
 pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary> {
     let repo_root = normalize_repo_root(path.as_ref())?;
+    let previous_summary = load_latest_summary().ok().flatten();
     let mut files = Vec::new();
     walk_repo(&repo_root, &repo_root, &mut files)?;
 
     let total_files = files.len() as u64;
     let signals: Vec<RepoFileSignal> = files
-        .into_iter()
+        .iter()
         .map(|file| classify_file(&file.relative_path, file.bytes))
         .collect();
     let indexed: Vec<RepoFileSignal> = signals
@@ -68,6 +464,8 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
     }
 
     let graph = build_repo_graph_summary(&repo_root, &indexed);
+    let index_metadata =
+        build_index_metadata(&repo_root, &files, &signals, previous_summary.as_ref());
     let packs = vec![
         build_context_pack(
             "implementation",
@@ -102,6 +500,38 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
                 .collect(),
             estimated_full_scan_tokens,
         ),
+        build_context_pack(
+            "risk_review",
+            "Risk Review Pack",
+            "Source, tests, and config likely needed for regression or security review.",
+            indexed
+                .iter()
+                .filter(|signal| {
+                    matches!(
+                        signal.role,
+                        RepoFileRole::Source | RepoFileRole::Test | RepoFileRole::Config
+                    )
+                })
+                .cloned()
+                .collect(),
+            estimated_full_scan_tokens,
+        ),
+        build_context_pack(
+            "release_handoff",
+            "Release Handoff Pack",
+            "Verification, docs, and config useful for release readiness handoff.",
+            indexed
+                .iter()
+                .filter(|signal| {
+                    matches!(
+                        signal.role,
+                        RepoFileRole::Test | RepoFileRole::Docs | RepoFileRole::Config
+                    )
+                })
+                .cloned()
+                .collect(),
+            estimated_full_scan_tokens,
+        ),
     ];
 
     Ok(RepoIntelligenceSummary {
@@ -113,6 +543,7 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
         skipped_files: signals.len().saturating_sub(indexed.len()) as u64,
         estimated_full_scan_tokens,
         role_counts,
+        index_metadata: Some(index_metadata),
         graph: Some(graph),
         packs,
     })
@@ -150,7 +581,443 @@ pub fn clear_latest_summary() -> Result<bool> {
     Ok(true)
 }
 
-fn latest_summary_path() -> PathBuf {
+pub fn latest_index_freshness() -> Result<RepoIndexFreshnessResponse> {
+    let summary = load_latest_summary()?;
+    Ok(build_index_freshness_response(summary.as_ref()))
+}
+
+pub fn build_index_freshness_response(
+    summary: Option<&RepoIntelligenceSummary>,
+) -> RepoIndexFreshnessResponse {
+    let Some(summary) = summary else {
+        return RepoIndexFreshnessResponse {
+            repo_root: None,
+            indexed_at: None,
+            status: RepoIndexFreshnessStatus::None,
+            label: "No repo indexed".to_string(),
+            detail: "Index a local repository to create a persistent metadata cache.".to_string(),
+            api_available: true,
+            graph_available: false,
+            index_health: "missing".to_string(),
+            parser_health: "unavailable".to_string(),
+            indexer_version: None,
+            parser_version: None,
+            indexed_file_count: None,
+            skipped_file_count: None,
+            safety: repo_context_safety(),
+        };
+    };
+
+    let (status, label, detail) = match summary.index_metadata.as_ref() {
+        None => (
+            RepoIndexFreshnessStatus::Unknown,
+            "Indexed without cache metadata".to_string(),
+            "Re-index this repo to add persistent freshness metadata.".to_string(),
+        ),
+        Some(metadata) if metadata.cache_state == "unchanged" => (
+            RepoIndexFreshnessStatus::UnchangedCache,
+            "Unchanged local index".to_string(),
+            metadata
+                .previous_indexed_at
+                .as_ref()
+                .map(|previous| format!("Same cache key as {previous}."))
+                .unwrap_or_else(|| "Same cache key as the previous saved index.".to_string()),
+        ),
+        Some(metadata) if metadata.cache_state == "changed" => (
+            RepoIndexFreshnessStatus::ChangedCache,
+            "Changed local index".to_string(),
+            "Repo metadata changed since the previous saved index.".to_string(),
+        ),
+        Some(metadata) => (
+            RepoIndexFreshnessStatus::Fresh,
+            "Fresh local index".to_string(),
+            format!("Indexed with {}.", metadata.parser_version),
+        ),
+    };
+
+    RepoIndexFreshnessResponse {
+        repo_root: Some(summary.repo_root.clone()),
+        indexed_at: Some(summary.indexed_at.clone()),
+        status,
+        label,
+        detail,
+        api_available: true,
+        graph_available: summary.graph.is_some(),
+        index_health: match summary.index_metadata.as_ref() {
+            None => "metadata_missing".to_string(),
+            Some(metadata) => metadata.cache_state.clone(),
+        },
+        parser_health: match summary.index_metadata.as_ref() {
+            Some(metadata) if metadata.parser_version == PARSER_VERSION => "current".to_string(),
+            Some(_) => "version_mismatch".to_string(),
+            None => "unavailable".to_string(),
+        },
+        indexer_version: summary.indexer_version.clone(),
+        parser_version: summary
+            .index_metadata
+            .as_ref()
+            .map(|metadata| metadata.parser_version.clone()),
+        indexed_file_count: Some(summary.indexed_files),
+        skipped_file_count: Some(summary.skipped_files),
+        safety: repo_context_safety(),
+    }
+}
+
+pub fn latest_context_pack(pack_id: Option<&str>) -> Result<Option<RepoContextPackResponse>> {
+    let Some(summary) = load_latest_summary()? else {
+        return Ok(None);
+    };
+    build_context_pack_response(&summary, pack_id).map(Some)
+}
+
+pub fn build_context_pack_response(
+    summary: &RepoIntelligenceSummary,
+    pack_id: Option<&str>,
+) -> Result<RepoContextPackResponse> {
+    let selected_pack_id = pack_id.unwrap_or("implementation");
+    let pack = summary
+        .packs
+        .iter()
+        .find(|candidate| candidate.id == selected_pack_id)
+        .cloned()
+        .ok_or_else(|| anyhow!("repo intelligence pack not found: {selected_pack_id}"))?;
+    let index_freshness = build_index_freshness_response(Some(summary));
+
+    Ok(RepoContextPackResponse {
+        repo_root: summary.repo_root.clone(),
+        indexed_at: summary.indexed_at.clone(),
+        pack,
+        index_metadata: summary.index_metadata.clone(),
+        index_freshness,
+        graph_brief: build_graph_brief(summary),
+        safety: RepoContextPackSafety {
+            read_only: true,
+            excludes_secret_like_paths: true,
+            modifies_repository: false,
+        },
+    })
+}
+
+pub fn latest_agent_handoff(
+    agent_id: &str,
+    task_type: Option<&str>,
+) -> Result<Option<RepoAgentHandoffResponse>> {
+    let Some(summary) = load_latest_summary()? else {
+        return Ok(None);
+    };
+    build_agent_handoff_response(&summary, agent_id, task_type).map(Some)
+}
+
+pub fn build_agent_handoff_response(
+    summary: &RepoIntelligenceSummary,
+    agent_id: &str,
+    task_type: Option<&str>,
+) -> Result<RepoAgentHandoffResponse> {
+    let profile = AGENT_HANDOFF_PROFILES
+        .iter()
+        .find(|profile| profile.id == agent_id)
+        .ok_or_else(|| anyhow!("unknown repo handoff agent: {agent_id}"))?;
+    let selected_pack_id = match task_type.unwrap_or(profile.default_pack_id) {
+        "implementation" => "implementation",
+        "verification" => "verification",
+        "handoff" => "handoff",
+        "risk_review" => "risk_review",
+        "release_handoff" => "release_handoff",
+        other => return Err(anyhow!("unknown repo handoff task: {other}")),
+    };
+    let pack = summary
+        .packs
+        .iter()
+        .find(|candidate| candidate.id == selected_pack_id)
+        .cloned()
+        .or_else(|| {
+            summary
+                .packs
+                .iter()
+                .find(|candidate| candidate.id == profile.default_pack_id)
+                .cloned()
+        })
+        .or_else(|| summary.packs.first().cloned())
+        .ok_or_else(|| anyhow!("no repo intelligence packs are available"))?;
+    let index_freshness = build_index_freshness_response(Some(summary));
+    let config_readiness = build_agent_config_readiness(profile.id);
+
+    Ok(RepoAgentHandoffResponse {
+        schema_version: 1,
+        kind: "mac_ai_switchboard.repo_agent_handoff".to_string(),
+        repo_root: summary.repo_root.clone(),
+        indexed_at: summary.indexed_at.clone(),
+        agent: RepoAgentHandoffAgent {
+            id: profile.id.to_string(),
+            label: profile.label.to_string(),
+            tool_kind: profile.tool_kind.to_string(),
+            guidance: profile.guidance.to_string(),
+        },
+        pack,
+        graph_brief: build_graph_brief(summary),
+        index_freshness,
+        safety: RepoAgentHandoffSafety {
+            read_only: true,
+            excludes_secret_like_paths: true,
+            modifies_repository: false,
+            manual_provider_routing: profile.manual_provider_routing,
+        },
+        config_readiness,
+    })
+}
+
+fn build_graph_brief(summary: &RepoIntelligenceSummary) -> RepoContextPackGraphBrief {
+    let graph = summary.graph.as_ref();
+    let mut graph_input_paths: Vec<String> = summary
+        .index_metadata
+        .as_ref()
+        .map(|metadata| {
+            metadata
+                .graph_inputs
+                .iter()
+                .take(6)
+                .map(|entry| entry.path.clone())
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if graph_input_paths.is_empty() {
+        if let Some(graph) = graph {
+            graph_input_paths = graph
+                .dependency_hubs
+                .iter()
+                .take(6)
+                .map(|signal| signal.path.clone())
+                .collect();
+        }
+    }
+
+    RepoContextPackGraphBrief {
+        available: graph.is_some(),
+        dependency_hub_count: graph
+            .map(|graph| graph.dependency_hubs.len())
+            .unwrap_or_default(),
+        import_edge_count: graph
+            .map(|graph| graph.import_edges.len())
+            .unwrap_or_default(),
+        reverse_dependency_hub_count: graph
+            .map(|graph| graph.reverse_dependency_hubs.len())
+            .unwrap_or_default(),
+        symbol_count: graph.map(|graph| graph.symbols.len()).unwrap_or_default(),
+        symbol_edge_count: graph
+            .map(|graph| graph.symbol_edges.len())
+            .unwrap_or_default(),
+        graph_input_paths,
+    }
+}
+
+pub fn latest_symbol_search(
+    query: Option<&str>,
+    limit: Option<usize>,
+) -> Result<Option<RepoSymbolSearchResponse>> {
+    let Some(summary) = load_latest_summary()? else {
+        return Ok(None);
+    };
+    Ok(Some(build_symbol_search_response(&summary, query, limit)))
+}
+
+pub fn build_symbol_search_response(
+    summary: &RepoIntelligenceSummary,
+    query: Option<&str>,
+    limit: Option<usize>,
+) -> RepoSymbolSearchResponse {
+    let clamped_limit = limit
+        .unwrap_or(DEFAULT_SYMBOL_SEARCH_LIMIT)
+        .clamp(1, MAX_SYMBOL_SEARCH_LIMIT);
+    let normalized_query = query
+        .map(str::trim)
+        .filter(|candidate| !candidate.is_empty())
+        .map(str::to_string);
+    let query_lower = normalized_query.as_deref().map(str::to_lowercase);
+    let symbols = summary
+        .graph
+        .as_ref()
+        .map(|graph| {
+            graph
+                .symbols
+                .iter()
+                .filter(|symbol| {
+                    query_lower.as_ref().map_or(true, |needle| {
+                        symbol.name.to_lowercase().contains(needle)
+                            || symbol.file.to_lowercase().contains(needle)
+                            || symbol
+                                .parent
+                                .as_deref()
+                                .map(|parent| parent.to_lowercase().contains(needle))
+                                .unwrap_or(false)
+                    })
+                })
+                .take(clamped_limit)
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    RepoSymbolSearchResponse {
+        repo_root: summary.repo_root.clone(),
+        indexed_at: summary.indexed_at.clone(),
+        query: normalized_query,
+        limit: clamped_limit,
+        symbols,
+        safety: RepoContextPackSafety {
+            read_only: true,
+            excludes_secret_like_paths: true,
+            modifies_repository: false,
+        },
+    }
+}
+
+pub fn latest_dependents_search(
+    target: &str,
+    limit: Option<usize>,
+) -> Result<Option<RepoDependentsResponse>> {
+    let Some(summary) = load_latest_summary()? else {
+        return Ok(None);
+    };
+    build_dependents_response(&summary, target, limit).map(Some)
+}
+
+pub fn build_dependents_response(
+    summary: &RepoIntelligenceSummary,
+    target: &str,
+    limit: Option<usize>,
+) -> Result<RepoDependentsResponse> {
+    let normalized_target = target.trim();
+    if normalized_target.is_empty() {
+        return Err(anyhow!("repo dependents target is required"));
+    }
+    let target_lower = normalized_target.to_lowercase();
+    let clamped_limit = limit
+        .unwrap_or(DEFAULT_DEPENDENTS_LIMIT)
+        .clamp(1, MAX_DEPENDENTS_LIMIT);
+    let edges = summary
+        .graph
+        .as_ref()
+        .map(|graph| {
+            graph
+                .import_edges
+                .iter()
+                .chain(graph.symbol_edges.iter())
+                .filter(|edge| {
+                    edge.to.to_lowercase().contains(&target_lower)
+                        || edge.from.to_lowercase().contains(&target_lower)
+                })
+                .take(clamped_limit)
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    Ok(RepoDependentsResponse {
+        repo_root: summary.repo_root.clone(),
+        indexed_at: summary.indexed_at.clone(),
+        target: normalized_target.to_string(),
+        limit: clamped_limit,
+        edges,
+        safety: RepoContextPackSafety {
+            read_only: true,
+            excludes_secret_like_paths: true,
+            modifies_repository: false,
+        },
+    })
+}
+
+pub fn latest_manifest() -> Result<Option<RepoIntelligenceManifestResponse>> {
+    let Some(summary) = load_latest_summary()? else {
+        return Ok(None);
+    };
+    Ok(Some(build_manifest_response(&summary)))
+}
+
+pub fn build_manifest_response(
+    summary: &RepoIntelligenceSummary,
+) -> RepoIntelligenceManifestResponse {
+    let repo_root = summary.repo_root.clone();
+
+    RepoIntelligenceManifestResponse {
+        schema_version: 1,
+        kind: "mac_ai_switchboard.repo_intelligence_manifest".to_string(),
+        repo_root: repo_root.clone(),
+        indexed_at: summary.indexed_at.clone(),
+        totals: RepoManifestTotals {
+            total_files: summary.total_files,
+            indexed_files: summary.indexed_files,
+            skipped_files: summary.skipped_files,
+            estimated_full_scan_tokens: summary.estimated_full_scan_tokens,
+            indexer_version: summary
+                .indexer_version
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string()),
+        },
+        graph_brief: build_graph_brief(summary),
+        packs: summary
+            .packs
+            .iter()
+            .map(|pack| RepoManifestPackSummary {
+                id: pack.id.clone(),
+                title: pack.title.clone(),
+                purpose: pack.purpose.clone(),
+                file_count: pack.files.len(),
+                estimated_tokens: pack.estimated_tokens,
+                savings_vs_full_scan_pct: pack.savings_vs_full_scan_pct,
+            })
+            .collect(),
+        queries: vec![
+            RepoManifestQuery {
+                id: "repo_manifest".to_string(),
+                description: "Read the latest saved Repo Intelligence manifest.".to_string(),
+                command: "get_repo_manifest".to_string(),
+            },
+            RepoManifestQuery {
+                id: "context_pack".to_string(),
+                description: "Read one bounded context pack from the latest saved index."
+                    .to_string(),
+                command: "get_repo_pack".to_string(),
+            },
+            RepoManifestQuery {
+                id: "agent_handoff".to_string(),
+                description: "Read a bounded agent-specific handoff from the latest saved index."
+                    .to_string(),
+                command: "get_agent_handoff".to_string(),
+            },
+            RepoManifestQuery {
+                id: "index_freshness".to_string(),
+                description: "Read index freshness and parser metadata without rescanning."
+                    .to_string(),
+                command: "get_index_freshness".to_string(),
+            },
+            RepoManifestQuery {
+                id: "clear_repo_index".to_string(),
+                description: "Clear the saved Repo Intelligence index metadata.".to_string(),
+                command: "clear_repo_index".to_string(),
+            },
+            RepoManifestQuery {
+                id: "symbol_search".to_string(),
+                description: "Search symbols in the latest saved index without rescanning."
+                    .to_string(),
+                command: "search_repo_intelligence_symbols".to_string(),
+            },
+            RepoManifestQuery {
+                id: "dependents".to_string(),
+                description: "Find import and symbol edges related to a target path or symbol."
+                    .to_string(),
+                command: "get_repo_intelligence_dependents".to_string(),
+            },
+        ],
+        safety: RepoContextPackSafety {
+            read_only: true,
+            excludes_secret_like_paths: true,
+            modifies_repository: false,
+        },
+    }
+}
+
+pub fn latest_summary_path() -> PathBuf {
     config_file(&app_data_dir(), "repo-intelligence-latest.json")
 }
 
@@ -185,6 +1052,8 @@ fn expand_home(path: &Path) -> PathBuf {
 struct RepoFile {
     relative_path: String,
     bytes: u64,
+    modified_unix_ms: u64,
+    fingerprint: String,
 }
 
 fn walk_repo(root: &Path, dir: &Path, files: &mut Vec<RepoFile>) -> Result<()> {
@@ -215,6 +1084,8 @@ fn walk_repo(root: &Path, dir: &Path, files: &mut Vec<RepoFile>) -> Result<()> {
             files.push(RepoFile {
                 relative_path,
                 bytes: metadata.len(),
+                modified_unix_ms: metadata_modified_unix_ms(&metadata),
+                fingerprint: fingerprint_file_metadata(&path, &metadata),
             });
         }
     }
@@ -227,6 +1098,182 @@ fn should_skip_dir(name: &OsStr) -> bool {
         return true;
     };
     IGNORED_DIRS.iter().any(|ignored| ignored == &name)
+}
+
+fn metadata_modified_unix_ms(metadata: &std::fs::Metadata) -> u64 {
+    metadata
+        .modified()
+        .ok()
+        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or(0)
+}
+
+fn fingerprint_file_metadata(path: &Path, metadata: &std::fs::Metadata) -> String {
+    let mut hasher = DefaultHasher::new();
+    path.to_string_lossy().hash(&mut hasher);
+    metadata.len().hash(&mut hasher);
+    metadata_modified_unix_ms(metadata).hash(&mut hasher);
+    if let Ok(mut file) = std::fs::File::open(path) {
+        let mut buffer = [0_u8; 8192];
+        loop {
+            match file.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(read) => buffer[..read].hash(&mut hasher),
+                Err(_) => break,
+            }
+        }
+    }
+    format!("{:016x}", hasher.finish())
+}
+
+fn build_index_metadata(
+    repo_root: &Path,
+    files: &[RepoFile],
+    signals: &[RepoFileSignal],
+    previous_summary: Option<&RepoIntelligenceSummary>,
+) -> RepoIndexMetadata {
+    let include_by_path = signals
+        .iter()
+        .map(|signal| (signal.path.as_str(), signal.include_by_default))
+        .collect::<BTreeMap<_, _>>();
+    let mut file_fingerprints = files
+        .iter()
+        .filter(|file| {
+            include_by_path
+                .get(file.relative_path.as_str())
+                .copied()
+                .unwrap_or(false)
+        })
+        .map(|file| RepoFileIndexEntry {
+            path: file.relative_path.clone(),
+            bytes: file.bytes,
+            modified_unix_ms: file.modified_unix_ms,
+            fingerprint: file.fingerprint.clone(),
+        })
+        .collect::<Vec<_>>();
+    file_fingerprints.sort_by(|a, b| a.path.cmp(&b.path));
+    let fingerprint_by_path = file_fingerprints
+        .iter()
+        .map(|entry| (entry.path.as_str(), entry))
+        .collect::<BTreeMap<_, _>>();
+    let mut skipped_files = signals
+        .iter()
+        .filter(|signal| !signal.include_by_default)
+        .map(|signal| RepoSkippedIndexEntry {
+            path: if signal
+                .reasons
+                .iter()
+                .any(|reason| reason == "secret-like path excluded default packs")
+            {
+                "<secret-like path>".to_string()
+            } else {
+                signal.path.clone()
+            },
+            role: signal.role.clone(),
+            reasons: if signal.reasons.is_empty() {
+                vec!["not included in default repo index".to_string()]
+            } else {
+                signal.reasons.clone()
+            },
+        })
+        .collect::<Vec<_>>();
+    skipped_files.sort_by(|a, b| a.path.cmp(&b.path));
+    let mut graph_inputs = signals
+        .iter()
+        .filter(|signal| {
+            signal.include_by_default
+                && matches!(
+                    signal.role,
+                    RepoFileRole::Source | RepoFileRole::Test | RepoFileRole::Config
+                )
+        })
+        .map(|signal| {
+            let fingerprint = fingerprint_by_path.get(signal.path.as_str());
+            RepoGraphInputEntry {
+                path: signal.path.clone(),
+                role: signal.role.clone(),
+                language: signal.language.clone(),
+                bytes: fingerprint.map(|entry| entry.bytes).unwrap_or(0),
+                fingerprint: fingerprint
+                    .map(|entry| entry.fingerprint.clone())
+                    .unwrap_or_default(),
+            }
+        })
+        .collect::<Vec<_>>();
+    graph_inputs.sort_by(|a, b| a.path.cmp(&b.path));
+
+    let cache_key = build_cache_key(repo_root, &file_fingerprints, &graph_inputs);
+    let previous_metadata = previous_summary.and_then(|summary| {
+        if summary.repo_root == repo_root.to_string_lossy() {
+            summary.index_metadata.as_ref()
+        } else {
+            None
+        }
+    });
+    let cache_state = previous_metadata
+        .map(|metadata| {
+            if metadata.cache_key == cache_key
+                && metadata.indexer_version == INDEXER_VERSION
+                && metadata.parser_version == PARSER_VERSION
+            {
+                "unchanged"
+            } else {
+                "changed"
+            }
+        })
+        .unwrap_or("new")
+        .to_string();
+
+    RepoIndexMetadata {
+        schema_version: INDEX_METADATA_SCHEMA_VERSION,
+        indexer_version: INDEXER_VERSION.to_string(),
+        parser_version: PARSER_VERSION.to_string(),
+        cache_key,
+        cache_state,
+        generated_at: Utc::now().to_rfc3339(),
+        previous_indexed_at: previous_summary
+            .filter(|summary| summary.repo_root == repo_root.to_string_lossy())
+            .map(|summary| summary.indexed_at.clone()),
+        file_count: files.len() as u64,
+        indexed_file_count: signals
+            .iter()
+            .filter(|signal| signal.include_by_default)
+            .count() as u64,
+        skipped_file_count: signals
+            .iter()
+            .filter(|signal| !signal.include_by_default)
+            .count() as u64,
+        file_fingerprints,
+        skipped_files,
+        graph_inputs,
+    }
+}
+
+fn build_cache_key(
+    repo_root: &Path,
+    file_fingerprints: &[RepoFileIndexEntry],
+    graph_inputs: &[RepoGraphInputEntry],
+) -> String {
+    let mut hasher = DefaultHasher::new();
+    INDEX_METADATA_SCHEMA_VERSION.hash(&mut hasher);
+    INDEXER_VERSION.hash(&mut hasher);
+    PARSER_VERSION.hash(&mut hasher);
+    repo_root.to_string_lossy().hash(&mut hasher);
+    for entry in file_fingerprints {
+        entry.path.hash(&mut hasher);
+        entry.bytes.hash(&mut hasher);
+        entry.modified_unix_ms.hash(&mut hasher);
+        entry.fingerprint.hash(&mut hasher);
+    }
+    for entry in graph_inputs {
+        entry.path.hash(&mut hasher);
+        entry.role.hash(&mut hasher);
+        entry.language.hash(&mut hasher);
+        entry.bytes.hash(&mut hasher);
+        entry.fingerprint.hash(&mut hasher);
+    }
+    format!("{:016x}", hasher.finish())
 }
 
 fn classify_file(path: &str, bytes: u64) -> RepoFileSignal {
@@ -292,9 +1339,29 @@ fn build_context_pack(
     mut files: Vec<RepoFileSignal>,
     estimated_full_scan_tokens: u64,
 ) -> RepoContextPack {
+    let task_terms = task_terms(purpose);
+    files = files
+        .into_iter()
+        .map(|mut file| {
+            let rank = rank_file_for_task(&file, &task_terms, purpose);
+            file.reasons
+                .extend(rank.reasons.iter().map(|reason| format!("rank: {reason}")));
+            file
+        })
+        .collect();
     files.sort_by(|a, b| {
-        a.estimated_tokens
-            .cmp(&b.estimated_tokens)
+        let rank_a = rank_file_for_task(a, &task_terms, purpose);
+        let rank_b = rank_file_for_task(b, &task_terms, purpose);
+        rank_b
+            .score
+            .partial_cmp(&rank_a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| {
+                score_per_token(&rank_b)
+                    .partial_cmp(&score_per_token(&rank_a))
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .then_with(|| a.estimated_tokens.cmp(&b.estimated_tokens))
             .then_with(|| a.path.cmp(&b.path))
     });
     files.truncate(MAX_PACK_FILES);
@@ -319,6 +1386,118 @@ fn build_context_pack(
     }
 }
 
+fn task_terms(task: &str) -> Vec<String> {
+    task.split(|ch: char| !ch.is_ascii_alphanumeric())
+        .filter_map(|term| {
+            let term = term.trim().to_ascii_lowercase();
+            if term.len() >= 3 {
+                Some(term)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn score_per_token(rank: &RepoFileRank) -> f64 {
+    rank.score / rank.estimated_tokens.max(1) as f64
+}
+
+fn rank_file_for_task(file: &RepoFileSignal, task_terms: &[String], task: &str) -> RepoFileRank {
+    let mut score = 0.0;
+    let mut reasons = Vec::new();
+    let mut risks = Vec::new();
+    let lower_path = file.path.to_ascii_lowercase();
+    let file_name = lower_path.rsplit('/').next().unwrap_or(&lower_path);
+
+    match file.role {
+        RepoFileRole::Source => {
+            score += 50.0;
+            reasons.push("source file".to_string());
+        }
+        RepoFileRole::Test => {
+            score += if task.contains("Verification") || task.contains("Risk") {
+                45.0
+            } else {
+                28.0
+            };
+            reasons.push("test proximity".to_string());
+        }
+        RepoFileRole::Config => {
+            score += 35.0;
+            reasons.push("project configuration".to_string());
+        }
+        RepoFileRole::Docs => {
+            score += if task.contains("Handoff") || task.contains("Release") {
+                34.0
+            } else {
+                14.0
+            };
+            reasons.push("documentation context".to_string());
+        }
+        RepoFileRole::Lockfile => {
+            score += 8.0;
+            risks.push("lockfile token cost can dominate packs".to_string());
+        }
+        RepoFileRole::Asset | RepoFileRole::Generated => {
+            score -= 100.0;
+            risks.push("generated or binary-like path".to_string());
+        }
+        RepoFileRole::Unknown => {
+            score += 2.0;
+        }
+    }
+
+    if matches!(
+        file_name,
+        "main.rs"
+            | "lib.rs"
+            | "main.ts"
+            | "main.tsx"
+            | "index.ts"
+            | "index.tsx"
+            | "app.ts"
+            | "app.tsx"
+            | "package.json"
+            | "cargo.toml"
+            | "pyproject.toml"
+    ) {
+        score += 30.0;
+        reasons.push("entrypoint or project hub".to_string());
+    }
+    if lower_path.contains("/src/") || lower_path.starts_with("src/") {
+        score += 8.0;
+        reasons.push("source tree centrality".to_string());
+    }
+    if lower_path.contains("/test")
+        || lower_path.contains(".test.")
+        || lower_path.contains(".spec.")
+    {
+        score += 8.0;
+        reasons.push("nearest tests candidate".to_string());
+    }
+    for term in task_terms {
+        if lower_path.contains(term) {
+            score += 16.0;
+            reasons.push(format!("matches task term `{term}`"));
+        }
+    }
+
+    let token_penalty = (file.estimated_tokens as f64 / TASK_PACK_BUDGET_TOKENS as f64) * 12.0;
+    score -= token_penalty.min(24.0);
+    if file.estimated_tokens > TASK_PACK_BUDGET_TOKENS / 2 {
+        risks.push("large token footprint".to_string());
+    }
+
+    RepoFileRank {
+        path: file.path.clone(),
+        score: (score * 10.0).round() / 10.0,
+        estimated_tokens: file.estimated_tokens,
+        reasons,
+        risks,
+    }
+}
+
 fn build_repo_graph_summary(repo_root: &Path, files: &[RepoFileSignal]) -> RepoGraphSummary {
     let included = files
         .iter()
@@ -330,9 +1509,13 @@ fn build_repo_graph_summary(repo_root: &Path, files: &[RepoFileSignal]) -> RepoG
         .filter(|signal| matches!(signal.role, RepoFileRole::Source | RepoFileRole::Config))
         .cloned()
         .collect::<Vec<_>>();
-    let import_edges = build_repo_graph_edges(&included);
+    let mut import_edges = build_repo_graph_edges(&included);
+    import_edges.extend(build_import_reference_edges(repo_root, &included));
+    import_edges.extend(build_package_dependency_edges(repo_root, &included));
+    import_edges.extend(build_package_script_edges(repo_root, &included));
     let symbols = build_repo_symbols(repo_root, &included);
-    let symbol_edges = build_symbol_edges(&included, &symbols);
+    let mut symbol_edges = build_symbol_edges(&included, &symbols);
+    symbol_edges.extend(build_call_reference_edges(repo_root, &included, &symbols));
 
     RepoGraphSummary {
         top_directories: summarize_graph_nodes(&included, top_directory, 6),
@@ -379,11 +1562,13 @@ fn build_repo_graph_summary(repo_root: &Path, files: &[RepoFileSignal]) -> RepoG
 fn build_repo_symbols(repo_root: &Path, files: &[RepoFileSignal]) -> Vec<RepoSymbol> {
     let mut symbols = Vec::new();
     for file in files.iter().filter(|file| {
-        matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
-            && matches!(
-                file.language.as_str(),
-                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python"
-            )
+        let symbol_language = matches!(
+            file.language.as_str(),
+            "TypeScript" | "JavaScript" | "React" | "Rust" | "Python" | "Swift" | "CSS" | "HTML"
+        );
+        let markdown_docs = matches!(file.role, RepoFileRole::Docs) && file.language == "Markdown";
+        (matches!(file.role, RepoFileRole::Source | RepoFileRole::Test) || markdown_docs)
+            && (symbol_language || markdown_docs)
     }) {
         if symbols.len() >= 200 {
             break;
@@ -397,6 +1582,13 @@ fn build_repo_symbols(repo_root: &Path, files: &[RepoFileSignal]) -> Vec<RepoSym
 }
 
 fn extract_file_symbols(file: &RepoFileSignal, content: &str, remaining: usize) -> Vec<RepoSymbol> {
+    if file.language == "Markdown" {
+        return extract_markdown_heading_symbols(file, content, remaining);
+    }
+    if let Some(symbols) = extract_file_symbols_with_tree_sitter(file, content, remaining) {
+        return symbols;
+    }
+
     let mut symbols = Vec::new();
     let mut parents: Vec<(usize, String)> = Vec::new();
     for (index, line) in content.lines().enumerate() {
@@ -435,14 +1627,191 @@ fn extract_file_symbols(file: &RepoFileSignal, content: &str, remaining: usize) 
     symbols
 }
 
+fn extract_markdown_heading_symbols(
+    file: &RepoFileSignal,
+    content: &str,
+    remaining: usize,
+) -> Vec<RepoSymbol> {
+    let mut symbols = Vec::new();
+    let mut parents: Vec<(usize, String)> = Vec::new();
+    for (index, line) in content.lines().enumerate() {
+        if symbols.len() >= remaining {
+            break;
+        }
+        let trimmed = line.trim_end();
+        let level = trimmed.chars().take_while(|ch| *ch == '#').count();
+        if !(1..=6).contains(&level) || !trimmed[level..].starts_with(' ') {
+            continue;
+        }
+        let name = trimmed[level..].trim().trim_end_matches('#').trim();
+        if name.is_empty() {
+            continue;
+        }
+        while parents
+            .last()
+            .map(|(parent_level, _)| *parent_level >= level)
+            .unwrap_or(false)
+        {
+            parents.pop();
+        }
+        let parent = parents.last().map(|(_, parent)| parent.clone());
+        symbols.push(RepoSymbol {
+            name: name.to_string(),
+            kind: RepoSymbolKind::Heading,
+            file: file.path.clone(),
+            line: (index + 1) as u64,
+            parent,
+        });
+        parents.push((level, name.to_string()));
+    }
+    symbols
+}
+
+fn extract_file_symbols_with_tree_sitter(
+    file: &RepoFileSignal,
+    content: &str,
+    remaining: usize,
+) -> Option<Vec<RepoSymbol>> {
+    let mut parser = tree_sitter::Parser::new();
+    let language = tree_sitter_language_for_file(file)?;
+    parser.set_language(&language).ok()?;
+    let tree = parser.parse(content, None)?;
+    let mut symbols = Vec::new();
+    collect_ast_symbols(
+        file,
+        content.as_bytes(),
+        tree.root_node(),
+        None,
+        remaining,
+        &mut symbols,
+    );
+    Some(symbols)
+}
+
+fn tree_sitter_language_for_file(file: &RepoFileSignal) -> Option<tree_sitter::Language> {
+    match file.language.as_str() {
+        "TypeScript" => Some(tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
+        "React" => Some(tree_sitter_typescript::LANGUAGE_TSX.into()),
+        "JavaScript" => Some(tree_sitter_javascript::LANGUAGE.into()),
+        "Rust" => Some(tree_sitter_rust::LANGUAGE.into()),
+        "Python" => Some(tree_sitter_python::LANGUAGE.into()),
+        _ => None,
+    }
+}
+
+fn collect_ast_symbols(
+    file: &RepoFileSignal,
+    source: &[u8],
+    node: tree_sitter::Node<'_>,
+    parent: Option<String>,
+    remaining: usize,
+    symbols: &mut Vec<RepoSymbol>,
+) {
+    if symbols.len() >= remaining {
+        return;
+    }
+
+    let symbol = symbol_from_ast_node(file, source, node, parent.clone());
+    let child_parent = symbol
+        .as_ref()
+        .filter(|symbol| {
+            matches!(
+                symbol.kind,
+                RepoSymbolKind::Class
+                    | RepoSymbolKind::Struct
+                    | RepoSymbolKind::Enum
+                    | RepoSymbolKind::Trait
+            )
+        })
+        .map(|symbol| symbol.name.clone())
+        .or(parent);
+    if let Some(symbol) = symbol {
+        symbols.push(symbol);
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_ast_symbols(
+            file,
+            source,
+            child,
+            child_parent.clone(),
+            remaining,
+            symbols,
+        );
+        if symbols.len() >= remaining {
+            break;
+        }
+    }
+}
+
+fn symbol_from_ast_node(
+    file: &RepoFileSignal,
+    source: &[u8],
+    node: tree_sitter::Node<'_>,
+    parent: Option<String>,
+) -> Option<RepoSymbol> {
+    let kind = match (file.language.as_str(), node.kind()) {
+        ("TypeScript" | "JavaScript" | "React", "function_declaration")
+        | ("TypeScript" | "JavaScript" | "React", "method_definition")
+        | ("TypeScript" | "JavaScript" | "React", "function_signature") => RepoSymbolKind::Function,
+        ("TypeScript" | "JavaScript" | "React", "class_declaration") => RepoSymbolKind::Class,
+        ("TypeScript" | "React", "interface_declaration")
+        | ("TypeScript" | "React", "type_alias_declaration") => RepoSymbolKind::Trait,
+        ("TypeScript" | "JavaScript" | "React", "variable_declarator") => {
+            if node.child_by_field_name("value").is_some_and(|value| {
+                matches!(
+                    value.kind(),
+                    "arrow_function" | "function" | "function_expression"
+                )
+            }) {
+                RepoSymbolKind::Function
+            } else {
+                RepoSymbolKind::Const
+            }
+        }
+        ("Rust", "function_item") => RepoSymbolKind::Function,
+        ("Rust", "struct_item") => RepoSymbolKind::Struct,
+        ("Rust", "enum_item") => RepoSymbolKind::Enum,
+        ("Rust", "trait_item") => RepoSymbolKind::Trait,
+        ("Rust", "const_item") => RepoSymbolKind::Const,
+        ("Python", "function_definition") => RepoSymbolKind::Function,
+        ("Python", "class_definition") => RepoSymbolKind::Class,
+        _ => return None,
+    };
+    let name_node = node.child_by_field_name("name")?;
+    let name = name_node.utf8_text(source).ok()?.to_string();
+    if name.is_empty() {
+        return None;
+    }
+    Some(RepoSymbol {
+        name,
+        kind,
+        file: file.path.clone(),
+        line: (node.start_position().row + 1) as u64,
+        parent,
+    })
+}
+
 fn extract_symbol_from_line(language: &str, line: &str) -> Option<(RepoSymbolKind, String)> {
     let line = line
+        .trim_start_matches("public ")
+        .trim_start_matches("private ")
+        .trim_start_matches("internal ")
+        .trim_start_matches("open ")
+        .trim_start_matches("fileprivate ")
+        .trim_start_matches("final ")
+        .trim_start_matches("static ")
+        .trim_start_matches("mutating ")
         .trim_start_matches("pub ")
         .trim_start_matches("async ")
         .trim_start_matches("export ")
         .trim_start_matches("default ");
     if matches!(language, "TypeScript" | "JavaScript" | "React") {
         if let Some(name) = symbol_name_after(line, "function ") {
+            return Some((RepoSymbolKind::Function, name));
+        }
+        if let Some(name) = exported_assignment_symbol_name(line) {
             return Some((RepoSymbolKind::Function, name));
         }
         if let Some(name) = symbol_name_after(line, "class ") {
@@ -476,11 +1845,47 @@ fn extract_symbol_from_line(language: &str, line: &str) -> Option<(RepoSymbolKin
         }
     }
     if language == "Python" {
+        if let Some(name) = symbol_name_after(line, "async def ") {
+            return Some((RepoSymbolKind::Function, name));
+        }
         if let Some(name) = symbol_name_after(line, "def ") {
             return Some((RepoSymbolKind::Function, name));
         }
         if let Some(name) = symbol_name_after(line, "class ") {
             return Some((RepoSymbolKind::Class, name));
+        }
+    }
+    if language == "Swift" {
+        if let Some(name) = symbol_name_after(line, "func ") {
+            return Some((RepoSymbolKind::Function, name));
+        }
+        if let Some(name) = symbol_name_after(line, "class ") {
+            return Some((RepoSymbolKind::Class, name));
+        }
+        if let Some(name) = symbol_name_after(line, "struct ") {
+            return Some((RepoSymbolKind::Struct, name));
+        }
+        if let Some(name) = symbol_name_after(line, "enum ") {
+            return Some((RepoSymbolKind::Enum, name));
+        }
+        if let Some(name) = symbol_name_after(line, "protocol ") {
+            return Some((RepoSymbolKind::Trait, name));
+        }
+        if let Some(name) = symbol_name_after(line, "let ") {
+            return Some((RepoSymbolKind::Const, name));
+        }
+        if let Some(name) = symbol_name_after(line, "var ") {
+            return Some((RepoSymbolKind::Const, name));
+        }
+    }
+    if language == "CSS" {
+        if let Some(name) = css_symbol_name(line) {
+            return Some((RepoSymbolKind::Const, name));
+        }
+    }
+    if language == "HTML" {
+        if let Some(name) = html_symbol_name(line) {
+            return Some((RepoSymbolKind::Const, name));
         }
     }
     None
@@ -489,6 +1894,67 @@ fn extract_symbol_from_line(language: &str, line: &str) -> Option<(RepoSymbolKin
 fn symbol_name_after(line: &str, prefix: &str) -> Option<String> {
     let rest = line.strip_prefix(prefix)?;
     let name = rest
+        .chars()
+        .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_' || *ch == '$')
+        .collect::<String>();
+    (!name.is_empty()).then_some(name)
+}
+
+fn css_symbol_name(line: &str) -> Option<String> {
+    let mut chars = line.chars();
+    let first = chars.next()?;
+    if !matches!(first, '.' | '#') {
+        return None;
+    }
+    let name = std::iter::once(first)
+        .chain(chars.take_while(|ch| ch.is_ascii_alphanumeric() || matches!(*ch, '_' | '-')))
+        .collect::<String>();
+    (name.len() > 1).then_some(name)
+}
+
+fn html_symbol_name(line: &str) -> Option<String> {
+    let tag_body = line.strip_prefix('<')?.split('>').next()?;
+    let lower = tag_body.to_ascii_lowercase();
+    if let Some(id_start) = lower.find("id=\"").or_else(|| lower.find("id='")) {
+        let quote = lower.as_bytes().get(id_start + 3).copied()? as char;
+        let value = &tag_body[id_start + 4..];
+        let id = value
+            .chars()
+            .take_while(|ch| *ch != quote)
+            .collect::<String>();
+        if !id.is_empty()
+            && id
+                .chars()
+                .next()
+                .is_some_and(|ch| ch.is_ascii_alphabetic() || ch == '_')
+        {
+            return Some(id);
+        }
+    }
+    let tag = tag_body
+        .chars()
+        .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '-')
+        .collect::<String>();
+    (!tag.is_empty()).then_some(tag)
+}
+
+fn exported_assignment_symbol_name(line: &str) -> Option<String> {
+    let line = line
+        .trim_start_matches("export ")
+        .trim_start_matches("const ")
+        .trim_start_matches("let ")
+        .trim_start_matches("var ");
+    let (name, rest) = line.split_once('=')?;
+    let name = name.trim();
+    let rhs = rest.trim_start();
+    let is_function_like = rhs.starts_with("async ")
+        || rhs.starts_with('(')
+        || rhs.starts_with('<')
+        || rhs.contains("=>");
+    if !is_function_like {
+        return None;
+    }
+    let name = name
         .chars()
         .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_' || *ch == '$')
         .collect::<String>();
@@ -520,6 +1986,636 @@ fn build_symbol_edges(files: &[RepoFileSignal], symbols: &[RepoSymbol]) -> Vec<R
         }
     }
     edges
+}
+
+fn build_import_reference_edges(repo_root: &Path, files: &[RepoFileSignal]) -> Vec<RepoGraphEdge> {
+    let mut edges = Vec::new();
+    for file in files.iter().filter(|file| {
+        matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
+            && matches!(
+                file.language.as_str(),
+                "TypeScript"
+                    | "JavaScript"
+                    | "React"
+                    | "Rust"
+                    | "Python"
+                    | "Shell"
+                    | "CSS"
+                    | "HTML"
+            )
+    }) {
+        let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
+            continue;
+        };
+        for specifier in extract_import_specifiers(&content, &file.language) {
+            if !specifier.starts_with('.')
+                && !specifier.starts_with("crate:")
+                && !specifier.starts_with("py:")
+                && !specifier.starts_with("repo:")
+            {
+                continue;
+            }
+            let Some(target) = resolve_import_specifier(&file.path, &specifier, files) else {
+                continue;
+            };
+            let display_specifier = specifier
+                .strip_prefix("repo:")
+                .unwrap_or(&specifier)
+                .to_string();
+            push_unbounded_graph_edge(
+                &mut edges,
+                RepoGraphEdge {
+                    from: file.path.clone(),
+                    to: target.path.clone(),
+                    kind: RepoGraphEdgeKind::ImportReference,
+                    reason: if file.language == "Shell" {
+                        format!("script invokes {display_specifier}")
+                    } else {
+                        format!("source imports {display_specifier}")
+                    },
+                },
+                80,
+            );
+            if edges.len() >= 80 {
+                return edges;
+            }
+        }
+    }
+    edges
+}
+
+fn build_package_dependency_edges(
+    repo_root: &Path,
+    files: &[RepoFileSignal],
+) -> Vec<RepoGraphEdge> {
+    let Some(package_json) = files.iter().find(|file| file.path == "package.json") else {
+        return Vec::new();
+    };
+    let Ok(package_content) = std::fs::read_to_string(repo_root.join(&package_json.path)) else {
+        return Vec::new();
+    };
+    let packages = package_dependency_names(&package_content);
+    if packages.is_empty() {
+        return Vec::new();
+    }
+
+    let mut edges = Vec::new();
+    for file in files.iter().filter(|file| {
+        matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
+            && matches!(
+                file.language.as_str(),
+                "TypeScript" | "JavaScript" | "React"
+            )
+    }) {
+        let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
+            continue;
+        };
+        for specifier in extract_import_specifiers(&content, &file.language) {
+            if specifier.starts_with('.') || specifier.starts_with("crate:") {
+                continue;
+            }
+            let Some(package_name) = package_name_from_specifier(&specifier) else {
+                continue;
+            };
+            if !packages.contains(&package_name) {
+                continue;
+            }
+            push_unbounded_graph_edge(
+                &mut edges,
+                RepoGraphEdge {
+                    from: file.path.clone(),
+                    to: package_json.path.clone(),
+                    kind: RepoGraphEdgeKind::PackageDependency,
+                    reason: format!("source imports package {package_name}"),
+                },
+                80,
+            );
+            if edges.len() >= 80 {
+                return edges;
+            }
+        }
+    }
+    edges
+}
+
+fn build_package_script_edges(repo_root: &Path, files: &[RepoFileSignal]) -> Vec<RepoGraphEdge> {
+    let Some(package_json) = files.iter().find(|file| file.path == "package.json") else {
+        return Vec::new();
+    };
+    let Ok(package_content) = std::fs::read_to_string(repo_root.join(&package_json.path)) else {
+        return Vec::new();
+    };
+    let scripts = package_scripts(&package_content);
+    if scripts.is_empty() {
+        return Vec::new();
+    }
+
+    let mut edges = Vec::new();
+    for (script_name, command) in &scripts {
+        for specifier in shell_script_specifiers(command) {
+            let Some(target) = resolve_import_specifier(&package_json.path, &specifier, files)
+            else {
+                continue;
+            };
+            let display_specifier = specifier.strip_prefix("repo:").unwrap_or(&specifier);
+            push_unbounded_graph_edge(
+                &mut edges,
+                RepoGraphEdge {
+                    from: package_json.path.clone(),
+                    to: target.path.clone(),
+                    kind: RepoGraphEdgeKind::ImportReference,
+                    reason: format!("package script {script_name} invokes {display_specifier}"),
+                },
+                80,
+            );
+            if edges.len() >= 80 {
+                return edges;
+            }
+        }
+        for invoked_script in package_run_specifiers(command) {
+            if !scripts.contains_key(&invoked_script) {
+                continue;
+            }
+            push_unbounded_graph_edge(
+                &mut edges,
+                RepoGraphEdge {
+                    from: package_json.path.clone(),
+                    to: format!("{}#script:{invoked_script}", package_json.path),
+                    kind: RepoGraphEdgeKind::ImportReference,
+                    reason: format!("package script {script_name} runs script {invoked_script}"),
+                },
+                80,
+            );
+            if edges.len() >= 80 {
+                return edges;
+            }
+        }
+    }
+    edges
+}
+
+fn package_dependency_names(package_json: &str) -> BTreeSet<String> {
+    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(package_json) else {
+        return BTreeSet::new();
+    };
+    [
+        "dependencies",
+        "devDependencies",
+        "peerDependencies",
+        "optionalDependencies",
+    ]
+    .into_iter()
+    .filter_map(|key| parsed.get(key)?.as_object())
+    .flat_map(|deps| deps.keys().cloned())
+    .collect()
+}
+
+fn package_scripts(package_json: &str) -> BTreeMap<String, String> {
+    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(package_json) else {
+        return BTreeMap::new();
+    };
+    parsed
+        .get("scripts")
+        .and_then(|scripts| scripts.as_object())
+        .map(|scripts| {
+            scripts
+                .iter()
+                .filter_map(|(name, command)| {
+                    command
+                        .as_str()
+                        .map(|command| (name.clone(), command.to_string()))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn package_run_specifiers(command: &str) -> Vec<String> {
+    let mut scripts = BTreeSet::new();
+    let tokens = command
+        .split([' ', '\t', ';', '&', '|', '(', ')'])
+        .map(|token| token.trim_matches(['"', '\'']))
+        .filter(|token| !token.is_empty())
+        .collect::<Vec<_>>();
+    for window in tokens.windows(3) {
+        if matches!(window[0], "npm" | "pnpm" | "yarn" | "bun") && window[1] == "run" {
+            scripts.insert(window[2].to_string());
+        }
+    }
+    for window in tokens.windows(2) {
+        if matches!(window[0], "npm" | "pnpm" | "yarn" | "bun")
+            && !matches!(window[1], "run" | "exec" | "x" | "dlx" | "install")
+        {
+            scripts.insert(window[1].to_string());
+        }
+    }
+    scripts.into_iter().collect()
+}
+
+fn package_name_from_specifier(specifier: &str) -> Option<String> {
+    if specifier.is_empty() || specifier.starts_with('.') || specifier.starts_with('/') {
+        return None;
+    }
+    if specifier.starts_with('@') {
+        let mut parts = specifier.split('/');
+        let scope = parts.next()?;
+        let name = parts.next()?;
+        return Some(format!("{scope}/{name}"));
+    }
+    specifier.split('/').next().map(str::to_string)
+}
+
+fn build_call_reference_edges(
+    repo_root: &Path,
+    files: &[RepoFileSignal],
+    symbols: &[RepoSymbol],
+) -> Vec<RepoGraphEdge> {
+    let callable_symbols = symbols
+        .iter()
+        .filter(|symbol| {
+            matches!(
+                symbol.kind,
+                RepoSymbolKind::Function | RepoSymbolKind::Const
+            )
+        })
+        .take(120)
+        .collect::<Vec<_>>();
+    let mut edges = Vec::new();
+    for file in files.iter().filter(|file| {
+        matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
+            && matches!(
+                file.language.as_str(),
+                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python"
+            )
+    }) {
+        let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
+            continue;
+        };
+        for symbol in &callable_symbols {
+            if file.path == symbol.file {
+                continue;
+            }
+            if !contains_call_reference(&content, &symbol.name) {
+                continue;
+            }
+            push_unbounded_graph_edge(
+                &mut edges,
+                RepoGraphEdge {
+                    from: file.path.clone(),
+                    to: format!("{}#{}", symbol.file, symbol.name),
+                    kind: RepoGraphEdgeKind::CallReference,
+                    reason: "source text references callable symbol".into(),
+                },
+                80,
+            );
+            if edges.len() >= 80 {
+                return edges;
+            }
+        }
+    }
+    edges
+}
+
+fn extract_import_specifiers(content: &str, language: &str) -> Vec<String> {
+    let mut specifiers = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if matches!(language, "TypeScript" | "JavaScript" | "React") {
+            if let Some(specifier) = quoted_import_specifier(trimmed) {
+                specifiers.push(specifier);
+            }
+        }
+        if language == "Rust" {
+            if let Some(module) = trimmed
+                .strip_prefix("mod ")
+                .and_then(|rest| rest.strip_suffix(';'))
+            {
+                specifiers.push(format!("./{}", module.trim()));
+            }
+            if let Some(crate_path) = trimmed.strip_prefix("use crate::") {
+                let crate_path = crate_path
+                    .trim_end_matches(';')
+                    .split([' ', '{'])
+                    .next()
+                    .unwrap_or("")
+                    .trim();
+                if !crate_path.is_empty() {
+                    specifiers.push(format!("crate:{crate_path}"));
+                }
+            }
+        }
+        if language == "Python" {
+            specifiers.extend(python_import_specifiers(trimmed));
+        }
+        if language == "Shell" {
+            specifiers.extend(shell_script_specifiers(trimmed));
+        }
+    }
+    if language == "CSS" {
+        specifiers.extend(css_asset_specifiers(content));
+    }
+    if language == "HTML" {
+        specifiers.extend(html_asset_specifiers(content));
+    }
+    specifiers
+}
+
+fn css_asset_specifiers(content: &str) -> Vec<String> {
+    let mut specifiers = BTreeSet::new();
+    for line in content.lines() {
+        for specifier in css_line_asset_specifiers(line) {
+            specifiers.insert(specifier);
+        }
+    }
+    specifiers.into_iter().collect()
+}
+
+fn css_line_asset_specifiers(line: &str) -> Vec<String> {
+    let mut specifiers = Vec::new();
+    let trimmed = line.trim();
+    if let Some(import_tail) = trimmed.strip_prefix("@import") {
+        if let Some(specifier) = first_css_asset_value(import_tail) {
+            specifiers.push(specifier);
+        }
+    }
+
+    let mut rest = trimmed;
+    while let Some(start) = rest.find("url(") {
+        let after_start = &rest[start + 4..];
+        let Some(end) = after_start.find(')') else {
+            break;
+        };
+        if let Some(specifier) = normalize_asset_specifier(&after_start[..end]) {
+            specifiers.push(specifier);
+        }
+        rest = &after_start[end + 1..];
+    }
+    specifiers
+}
+
+fn first_css_asset_value(value: &str) -> Option<String> {
+    let value = value
+        .trim()
+        .trim_end_matches(';')
+        .trim()
+        .strip_prefix("url(")
+        .unwrap_or(value.trim().trim_end_matches(';').trim())
+        .trim_end_matches(')');
+    normalize_asset_specifier(value)
+}
+
+fn html_asset_specifiers(content: &str) -> Vec<String> {
+    let mut specifiers = BTreeSet::new();
+    for attribute in ["src", "href"] {
+        for specifier in html_attribute_values(content, attribute) {
+            if let Some(specifier) = normalize_asset_specifier(&specifier) {
+                specifiers.insert(specifier);
+            }
+        }
+    }
+    specifiers.into_iter().collect()
+}
+
+fn html_attribute_values(content: &str, attribute: &str) -> Vec<String> {
+    let mut values = Vec::new();
+    let mut rest = content;
+    let needle = format!("{attribute}=");
+    while let Some(start) = rest.to_ascii_lowercase().find(&needle) {
+        let after = &rest[start + needle.len()..];
+        let Some(quote) = after
+            .chars()
+            .next()
+            .filter(|quote| *quote == '"' || *quote == '\'')
+        else {
+            rest = after;
+            continue;
+        };
+        let value_start = quote.len_utf8();
+        let Some(value_end) = after[value_start..].find(quote) else {
+            break;
+        };
+        values.push(after[value_start..value_start + value_end].to_string());
+        rest = &after[value_start + value_end + quote.len_utf8()..];
+    }
+    values
+}
+
+fn normalize_asset_specifier(raw_specifier: &str) -> Option<String> {
+    let specifier = raw_specifier.trim().trim_matches(['"', '\'']);
+    if specifier.is_empty()
+        || specifier.starts_with('#')
+        || specifier.starts_with("http://")
+        || specifier.starts_with("https://")
+        || specifier.starts_with("data:")
+        || specifier.starts_with("mailto:")
+        || specifier.starts_with("tel:")
+    {
+        return None;
+    }
+    Some(
+        specifier
+            .strip_prefix('/')
+            .map(|path| format!("repo:{path}"))
+            .unwrap_or_else(|| specifier.to_string()),
+    )
+}
+
+fn shell_script_specifiers(line: &str) -> Vec<String> {
+    let line = line.split('#').next().unwrap_or("").trim();
+    if line.is_empty() {
+        return Vec::new();
+    }
+    line.split([' ', '\t', ';', '&', '|', '(', ')'])
+        .filter_map(|token| {
+            let token = token.trim_matches(['"', '\'']);
+            if !token.ends_with(".sh") {
+                return None;
+            }
+            if token.starts_with("./") || token.starts_with("../") {
+                return Some(token.to_string());
+            }
+            if token.starts_with("scripts/")
+                || token.starts_with("bin/")
+                || token.starts_with("tools/")
+            {
+                return Some(format!("repo:{token}"));
+            }
+            None
+        })
+        .collect()
+}
+
+fn python_import_specifiers(line: &str) -> Vec<String> {
+    let line = line.split('#').next().unwrap_or("").trim();
+    if line.is_empty() {
+        return Vec::new();
+    }
+    if let Some(rest) = line.strip_prefix("import ") {
+        return rest
+            .split(',')
+            .filter_map(|part| part.split_whitespace().next())
+            .filter(|name| !name.is_empty())
+            .map(|name| format!("py:{}", name.replace('.', "/")))
+            .collect();
+    }
+    if let Some(rest) = line.strip_prefix("from ") {
+        let Some((module, _imports)) = rest.split_once(" import ") else {
+            return Vec::new();
+        };
+        let module = module.trim();
+        if module.is_empty() {
+            return Vec::new();
+        }
+        let relative_prefix_len = module.chars().take_while(|ch| *ch == '.').count();
+        let module_path = module[relative_prefix_len..].replace('.', "/");
+        if relative_prefix_len == 0 {
+            return vec![format!("py:{module_path}")];
+        }
+        let prefix = ".".repeat(relative_prefix_len);
+        return vec![format!("py:{prefix}{module_path}")];
+    }
+    Vec::new()
+}
+
+fn quoted_import_specifier(line: &str) -> Option<String> {
+    if !(line.starts_with("import ") || line.starts_with("export ") || line.contains("require(")) {
+        return None;
+    }
+    for quote in ['"', '\''] {
+        let Some(start) = line.rfind(quote) else {
+            continue;
+        };
+        let before = &line[..start];
+        let Some(second) = before.rfind(quote) else {
+            continue;
+        };
+        let value = before[second + 1..].trim();
+        if !value.is_empty() {
+            return Some(value.to_string());
+        }
+    }
+    None
+}
+
+fn resolve_import_specifier<'a>(
+    from_path: &str,
+    specifier: &str,
+    files: &'a [RepoFileSignal],
+) -> Option<&'a RepoFileSignal> {
+    let base_dir = from_path.rsplit_once('/').map(|(dir, _)| dir).unwrap_or("");
+    let normalized = if let Some(crate_path) = specifier.strip_prefix("crate:") {
+        normalize_repo_path(&format!(
+            "{}/{}",
+            crate_source_root(from_path),
+            crate_path.replace("::", "/")
+        ))
+    } else if let Some(python_path) = specifier.strip_prefix("py:") {
+        normalize_python_import_path(from_path, python_path)
+    } else if let Some(repo_path) = specifier.strip_prefix("repo:") {
+        normalize_repo_path(repo_path)
+    } else {
+        normalize_repo_path(&format!("{base_dir}/{specifier}"))
+    };
+    let crate_parent = specifier.strip_prefix("crate:").and_then(|_| {
+        normalized
+            .rsplit_once('/')
+            .map(|(parent, _)| parent.to_string())
+    });
+    let mut candidates = vec![
+        normalized.clone(),
+        format!("{normalized}.ts"),
+        format!("{normalized}.tsx"),
+        format!("{normalized}.js"),
+        format!("{normalized}.jsx"),
+        format!("{normalized}.mjs"),
+        format!("{normalized}.py"),
+        format!("{normalized}.sh"),
+        format!("{normalized}.rs"),
+        format!("{normalized}.css"),
+        format!("{normalized}.html"),
+        format!("{normalized}.swift"),
+        format!("{normalized}/index.ts"),
+        format!("{normalized}/index.tsx"),
+        format!("{normalized}/index.js"),
+        format!("{normalized}/__init__.py"),
+        format!("{normalized}/mod.rs"),
+    ];
+    if let Some(crate_parent) = crate_parent {
+        candidates.push(crate_parent.clone());
+        candidates.push(format!("{crate_parent}.rs"));
+        candidates.push(format!("{crate_parent}/mod.rs"));
+    }
+    candidates
+        .iter()
+        .find_map(|candidate| files.iter().find(|file| file.path == *candidate))
+}
+
+fn normalize_python_import_path(from_path: &str, python_path: &str) -> String {
+    let base_dir = from_path.rsplit_once('/').map(|(dir, _)| dir).unwrap_or("");
+    if python_path.starts_with('.') {
+        let dot_count = python_path.chars().take_while(|ch| *ch == '.').count();
+        let module_path = &python_path[dot_count..];
+        let mut relative_base = base_dir.to_string();
+        for _ in 1..dot_count {
+            relative_base.push_str("/..");
+        }
+        return normalize_repo_path(&format!("{relative_base}/{module_path}"));
+    }
+    let Some(package_root) = python_package_root(from_path) else {
+        return normalize_repo_path(python_path);
+    };
+    normalize_repo_path(&format!("{package_root}/{python_path}"))
+}
+
+fn python_package_root(from_path: &str) -> Option<String> {
+    let parts = from_path.split('/').collect::<Vec<_>>();
+    parts
+        .iter()
+        .rposition(|part| matches!(*part, "src" | "app" | "apps" | "lib" | "server" | "backend"))
+        .map(|index| parts[..=index].join("/"))
+}
+
+fn crate_source_root(from_path: &str) -> String {
+    let parts = from_path.split('/').collect::<Vec<_>>();
+    parts
+        .iter()
+        .rposition(|part| *part == "src")
+        .map(|index| parts[..=index].join("/"))
+        .unwrap_or_else(|| "src".to_string())
+}
+
+fn normalize_repo_path(path: &str) -> String {
+    let mut parts: Vec<&str> = Vec::new();
+    for part in path.split('/') {
+        if part.is_empty() || part == "." {
+            continue;
+        }
+        if part == ".." {
+            parts.pop();
+            continue;
+        }
+        parts.push(part);
+    }
+    parts.join("/")
+}
+
+fn contains_call_reference(content: &str, symbol_name: &str) -> bool {
+    let needle = format!("{symbol_name}(");
+    content.contains(&needle)
+        || content.contains(&format!("{symbol_name} ("))
+        || content.contains(&format!(".{needle}"))
+}
+
+fn push_unbounded_graph_edge(edges: &mut Vec<RepoGraphEdge>, edge: RepoGraphEdge, limit: usize) {
+    if edge.from == edge.to || edges.len() >= limit {
+        return;
+    }
+    if edges.iter().any(|existing| {
+        existing.from == edge.from && existing.to == edge.to && existing.kind == edge.kind
+    }) {
+        return;
+    }
+    edges.push(edge);
 }
 
 fn build_repo_graph_edges(files: &[RepoFileSignal]) -> Vec<RepoGraphEdge> {
@@ -834,6 +2930,12 @@ fn is_secret_like_path(path: &str, name: &str, extension: &str) -> bool {
         || SECRET_EXTENSIONS
             .iter()
             .any(|secret_extension| extension == *secret_extension)
+        || lower_path == ".cargo/credentials"
+        || lower_path == ".cargo/credentials.toml"
+        || lower_path.ends_with("/.cargo/credentials")
+        || lower_path.ends_with("/.cargo/credentials.toml")
+        || lower_path == ".config/gh/hosts.yml"
+        || lower_path.contains("/.config/gh/")
         || lower_name.starts_with("authkey_") && extension == ".p8"
         || lower_path.split('/').any(|segment| {
             SECRET_PATH_SEGMENTS
@@ -903,11 +3005,109 @@ mod tests {
     }
 
     #[test]
+    fn extracts_modern_js_and_python_symbols() {
+        let react_file = RepoFileSignal {
+            path: "src/App.tsx".to_string(),
+            role: RepoFileRole::Source,
+            language: "React".to_string(),
+            estimated_tokens: 120,
+            include_by_default: true,
+            reasons: vec![],
+        };
+        let react_symbols = extract_file_symbols(
+            &react_file,
+            r#"
+export const App = () => <main />;
+const useThing = async () => fetch("/api");
+const config = { mode: "local" };
+export const mapValues = <T>(items: T[]) => items;
+"#,
+            10,
+        );
+        let react_names = react_symbols
+            .iter()
+            .map(|symbol| (symbol.name.as_str(), &symbol.kind))
+            .collect::<Vec<_>>();
+        assert!(react_names
+            .iter()
+            .any(|(name, kind)| *name == "App" && matches!(kind, RepoSymbolKind::Function)));
+        assert!(react_names
+            .iter()
+            .any(|(name, kind)| *name == "useThing" && matches!(kind, RepoSymbolKind::Function)));
+        assert!(react_names
+            .iter()
+            .any(|(name, kind)| *name == "mapValues" && matches!(kind, RepoSymbolKind::Function)));
+        assert!(react_symbols.iter().any(|symbol| {
+            symbol.name == "config" && matches!(symbol.kind, RepoSymbolKind::Const)
+        }));
+
+        let python_file = RepoFileSignal {
+            path: "worker.py".to_string(),
+            role: RepoFileRole::Source,
+            language: "Python".to_string(),
+            estimated_tokens: 80,
+            include_by_default: true,
+            reasons: vec![],
+        };
+        let python_symbols = extract_file_symbols(
+            &python_file,
+            "async def fetch_user():\n    return None\n",
+            10,
+        );
+        assert!(python_symbols.iter().any(|symbol| {
+            symbol.name == "fetch_user" && matches!(symbol.kind, RepoSymbolKind::Function)
+        }));
+    }
+
+    #[test]
+    fn extracts_markdown_heading_symbols_with_parents() {
+        let markdown_file = RepoFileSignal {
+            path: "docs/architecture.md".to_string(),
+            role: RepoFileRole::Docs,
+            language: "Markdown".to_string(),
+            estimated_tokens: 80,
+            include_by_default: true,
+            reasons: vec![],
+        };
+        let symbols = extract_file_symbols(
+            &markdown_file,
+            "# Architecture\n\n## Runtime\n\n### Proxy\n\n## Repo Intelligence\n",
+            10,
+        );
+
+        assert!(symbols.iter().any(|symbol| {
+            symbol.name == "Architecture"
+                && matches!(symbol.kind, RepoSymbolKind::Heading)
+                && symbol.parent.is_none()
+        }));
+        assert!(symbols.iter().any(|symbol| {
+            symbol.name == "Proxy"
+                && matches!(symbol.kind, RepoSymbolKind::Heading)
+                && symbol.parent.as_deref() == Some("Runtime")
+        }));
+        assert!(symbols.iter().any(|symbol| {
+            symbol.name == "Repo Intelligence"
+                && matches!(symbol.kind, RepoSymbolKind::Heading)
+                && symbol.parent.as_deref() == Some("Architecture")
+        }));
+    }
+
+    #[test]
     fn excludes_secret_like_paths_from_default_packs() {
         for path in [
             ".env",
             ".env.local",
+            ".envrc",
+            ".git-credentials",
+            ".netrc",
             ".npmrc",
+            ".cargo/credentials.toml",
+            ".config/gh/hosts.yml",
+            ".ssh/config",
+            ".aws/credentials",
+            ".claude/settings.local.json",
+            ".playwright-mcp/console.log",
+            "headroom_memory.db",
             ".secrets/app.json",
             "secrets/prod.toml",
             "private_keys/app.pem",
@@ -991,15 +3191,67 @@ mod tests {
         let src = root.path().join("src");
         std::fs::create_dir_all(&src).expect("create src");
         std::fs::write(
-            src.join("App.tsx"),
-            "export function App() { return null; }\nexport class ViewModel {}\n",
+        src.join("App.tsx"),
+        "import React from 'react';\nimport { helper } from './helper';\nexport function App() { helper(); return null; }\nexport class ViewModel {}\n",
+    )
+    .expect("write tsx");
+        std::fs::write(src.join("helper.ts"), "export function helper() {}\n")
+            .expect("write helper");
+        std::fs::write(
+            root.path().join("package.json"),
+            r#"{"scripts":{"build":"vite build && bash scripts/release.sh","smoke":"npm run build && scripts/smoke.sh"},"dependencies":{"react":"18.3.1"}}"#,
         )
-        .expect("write tsx");
+        .expect("write package json");
         std::fs::write(
             src.join("lib.rs"),
-            "pub struct RuntimeState {}\npub fn run_app() {}\n",
+            "mod state;\nuse crate::state::RuntimeState;\npub fn run_app() {}\n",
         )
         .expect("write rust");
+        std::fs::write(
+            src.join("state.rs"),
+            "pub struct RuntimeState {}\npub fn load_state() {}\n",
+        )
+        .expect("write rust state");
+        std::fs::write(
+            src.join("consumer.rs"),
+            "use crate::state::RuntimeState;\npub fn consume_state() {}\n",
+        )
+        .expect("write rust consumer");
+        std::fs::write(src.join("__init__.py"), "").expect("write python init");
+        std::fs::write(
+            src.join("worker.py"),
+            "from services.worker_helpers import run_job\nfrom .local_helpers import build_job\n\ndef main():\n    run_job()\n    build_job()\n",
+        )
+        .expect("write python worker");
+        let services_dir = src.join("services");
+        std::fs::create_dir_all(&services_dir).expect("create services dir");
+        std::fs::write(services_dir.join("__init__.py"), "").expect("write services init");
+        std::fs::write(
+            services_dir.join("worker_helpers.py"),
+            "def run_job():\n    return None\n",
+        )
+        .expect("write python services helper");
+        std::fs::write(
+            src.join("local_helpers.py"),
+            "def build_job():\n    return None\n",
+        )
+        .expect("write python local helper");
+        let swift_dir = root.path().join("Sources").join("Switchboard");
+        std::fs::create_dir_all(&swift_dir).expect("create swift dir");
+        std::fs::write(
+            swift_dir.join("AppView.swift"),
+            "import SwiftUI\npublic struct AppView: View {}\nfinal class AppViewModel {}\nfunc makeAppView() -> AppView { AppView() }\n",
+        )
+        .expect("write swift");
+        let scripts_dir = root.path().join("scripts");
+        std::fs::create_dir_all(&scripts_dir).expect("create scripts dir");
+        std::fs::write(
+            scripts_dir.join("release.sh"),
+            "set -e\n./build.sh\nbash scripts/smoke.sh\n",
+        )
+        .expect("write shell release");
+        std::fs::write(scripts_dir.join("build.sh"), "echo build\n").expect("write shell build");
+        std::fs::write(scripts_dir.join("smoke.sh"), "echo smoke\n").expect("write shell smoke");
 
         let summary = summarize_repo(root.path()).expect("summarize repo");
         let graph = summary.graph.expect("graph");
@@ -1010,7 +3262,260 @@ mod tests {
         assert!(graph
             .symbols
             .iter()
-            .any(|symbol| symbol.name == "RuntimeState" && symbol.file == "src/lib.rs"));
+            .any(|symbol| symbol.name == "run_app" && symbol.file == "src/lib.rs"));
+        assert!(graph
+            .symbols
+            .iter()
+            .any(|symbol| symbol.name == "RuntimeState" && symbol.file == "src/state.rs"));
+        assert!(graph
+            .symbols
+            .iter()
+            .any(|symbol| symbol.name == "AppView"
+                && symbol.file == "Sources/Switchboard/AppView.swift"));
+        assert!(graph
+            .symbols
+            .iter()
+            .any(|symbol| symbol.name == "AppViewModel"
+                && symbol.file == "Sources/Switchboard/AppView.swift"));
+        assert!(graph.top_languages.iter().any(|node| node.label == "Swift"));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/App.tsx"
+                && edge.to == "src/helper.ts"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/lib.rs"
+                && edge.to == "src/state.rs"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports ./state"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/consumer.rs"
+                && edge.to == "src/state.rs"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports crate:state::RuntimeState"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/App.tsx"
+                && edge.to == "package.json"
+                && edge.kind == RepoGraphEdgeKind::PackageDependency
+                && edge.reason == "source imports package react"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/worker.py"
+                && edge.to == "src/services/worker_helpers.py"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports py:services/worker_helpers"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/worker.py"
+                && edge.to == "src/local_helpers.py"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports py:.local_helpers"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "scripts/release.sh"
+                && edge.to == "scripts/build.sh"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "script invokes ./build.sh"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "scripts/release.sh"
+                && edge.to == "scripts/smoke.sh"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "script invokes scripts/smoke.sh"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "package.json"
+                && edge.to == "scripts/release.sh"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "package script build invokes scripts/release.sh"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "package.json"
+                && edge.to == "scripts/smoke.sh"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "package script smoke invokes scripts/smoke.sh"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "package.json"
+                && edge.to == "package.json#script:build"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "package script smoke runs script build"
+        }));
+        assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/App.tsx"
+                && edge.to == "src/helper.ts#helper"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+        }));
+    }
+
+    #[test]
+    fn builds_css_and_html_asset_graph_edges_and_symbols() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(
+            src.join("styles.css"),
+            "@import './theme.css';\n.app-shell { color: var(--ink); }\n.logo { background: url('/src/logo.css'); }\n",
+        )
+        .expect("write styles");
+        std::fs::write(src.join("theme.css"), ":root { --ink: #111; }\n").expect("write theme");
+        std::fs::write(src.join("logo.css"), ".logo-mark { display: block; }\n")
+            .expect("write logo");
+        std::fs::write(
+            src.join("main.tsx"),
+            "export function boot() { return null; }\n",
+        )
+        .expect("write main");
+        std::fs::write(
+            root.path().join("index.html"),
+            r#"<html><head><link rel="stylesheet" href="/src/styles.css"></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>"#,
+        )
+        .expect("write html");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        assert_eq!(summary.indexer_version.as_deref(), Some("path-graph-v8"));
+        let graph = summary.graph.expect("graph");
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/styles.css"
+                && edge.to == "src/theme.css"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports ./theme.css"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/styles.css"
+                && edge.to == "src/logo.css"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports src/logo.css"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "index.html"
+                && edge.to == "src/styles.css"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports src/styles.css"
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "index.html"
+                && edge.to == "src/main.tsx"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports src/main.tsx"
+        }));
+        assert!(graph.symbols.iter().any(|symbol| {
+            symbol.file == "src/styles.css"
+                && symbol.name == ".app-shell"
+                && matches!(symbol.kind, RepoSymbolKind::Const)
+        }));
+        assert!(graph.symbols.iter().any(|symbol| {
+            symbol.file == "index.html"
+                && symbol.name == "html"
+                && matches!(symbol.kind, RepoSymbolKind::Const)
+        }));
+    }
+
+    #[test]
+    fn builds_persistent_index_metadata_cache_states() {
+        let root = tempfile::tempdir().expect("create repo");
+        let files = vec![
+            RepoFile {
+                relative_path: "src/App.tsx".to_string(),
+                bytes: 400,
+                modified_unix_ms: 10,
+                fingerprint: "app".to_string(),
+            },
+            RepoFile {
+                relative_path: "package.json".to_string(),
+                bytes: 80,
+                modified_unix_ms: 5,
+                fingerprint: "pkg".to_string(),
+            },
+            RepoFile {
+                relative_path: "assets/logo.png".to_string(),
+                bytes: 1_200,
+                modified_unix_ms: 4,
+                fingerprint: "bundle".to_string(),
+            },
+        ];
+        let signals = files
+            .iter()
+            .map(|file| classify_file(&file.relative_path, file.bytes))
+            .collect::<Vec<_>>();
+
+        let first = build_index_metadata(root.path(), &files, &signals, None);
+        assert_eq!(first.cache_state, "new");
+        assert_eq!(first.file_count, 3);
+        assert_eq!(first.indexed_file_count, 2);
+        assert_eq!(first.skipped_file_count, 1);
+        assert_eq!(
+            first
+                .file_fingerprints
+                .iter()
+                .map(|entry| entry.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["package.json", "src/App.tsx"]
+        );
+        assert_eq!(
+            first
+                .skipped_files
+                .iter()
+                .map(|entry| entry.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["assets/logo.png"]
+        );
+        assert!(first.skipped_files[0]
+            .reasons
+            .contains(&"static asset".to_string()));
+        assert_eq!(
+            first
+                .graph_inputs
+                .iter()
+                .map(|entry| entry.path.as_str())
+                .collect::<Vec<_>>(),
+            vec!["package.json", "src/App.tsx"]
+        );
+
+        let previous = RepoIntelligenceSummary {
+            indexed_at: "2026-06-27T12:00:00Z".to_string(),
+            repo_root: root.path().to_string_lossy().to_string(),
+            indexer_version: Some(INDEXER_VERSION.to_string()),
+            total_files: 3,
+            indexed_files: 2,
+            skipped_files: 1,
+            estimated_full_scan_tokens: 120,
+            role_counts: BTreeMap::new(),
+            index_metadata: Some(first.clone()),
+            graph: None,
+            packs: Vec::new(),
+        };
+
+        let unchanged = build_index_metadata(root.path(), &files, &signals, Some(&previous));
+        assert_eq!(unchanged.cache_state, "unchanged");
+        assert_eq!(
+            unchanged.previous_indexed_at.as_deref(),
+            Some("2026-06-27T12:00:00Z")
+        );
+
+        let mut changed_files = files;
+        changed_files[0].bytes = 401;
+        changed_files[0].fingerprint = "app-changed".to_string();
+        let changed = build_index_metadata(root.path(), &changed_files, &signals, Some(&previous));
+        assert_eq!(changed.cache_state, "changed");
+    }
+
+    #[test]
+    fn file_fingerprint_changes_when_same_size_content_changes() {
+        let root = tempfile::tempdir().expect("create repo");
+        let path = root.path().join("src.ts");
+        std::fs::write(&path, "alpha").expect("write file");
+        let first_metadata = std::fs::metadata(&path).expect("first metadata");
+        let first = fingerprint_file_metadata(&path, &first_metadata);
+
+        std::fs::write(&path, "bravo").expect("rewrite same size file");
+        let second_metadata = std::fs::metadata(&path).expect("second metadata");
+        let second = fingerprint_file_metadata(&path, &second_metadata);
+
+        assert_eq!(first_metadata.len(), second_metadata.len());
+        assert_ne!(first, second);
     }
 
     #[test]
@@ -1030,5 +3535,586 @@ mod tests {
         assert_eq!(pack.files[0].path, "src/small.ts");
         assert_eq!(pack.estimated_tokens, 320);
         assert!(pack.savings_vs_full_scan_pct > 60.0);
+    }
+
+    #[test]
+    fn context_pack_ranking_prefers_task_relevance_over_smallest_file() {
+        let pack = build_context_pack(
+            "implementation",
+            "Implementation Pack",
+            "Feature work on billing dashboard",
+            vec![
+                classify_file("src/tiny.ts", 40),
+                classify_file("src/billing/DashboardController.ts", 2_400),
+                classify_file("src/billing/DashboardController.test.ts", 1_200),
+            ],
+            4_000,
+        );
+
+        assert_eq!(pack.files[0].path, "src/billing/DashboardController.ts");
+        assert!(pack.files[0]
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("matches task term `billing`")));
+        assert!(pack.files.iter().any(|file| {
+            file.path == "src/billing/DashboardController.ts"
+                && file
+                    .reasons
+                    .iter()
+                    .any(|reason| reason.contains("matches task term `dashboard`"))
+        }));
+    }
+
+    #[test]
+    fn builds_read_only_context_pack_response_from_summary() {
+        let root = tempfile::tempdir().expect("create repo");
+        std::fs::create_dir_all(root.path().join("src")).expect("create src");
+        std::fs::write(
+            root.path().join("src/App.tsx"),
+            "export function App() {}\n",
+        )
+        .expect("write source");
+        std::fs::write(
+            root.path().join("src/App.test.tsx"),
+            "test('app', () => {})\n",
+        )
+        .expect("write test");
+        std::fs::write(root.path().join(".env.local"), "SECRET=value\n").expect("write secret");
+        std::fs::write(root.path().join("package.json"), "{}\n").expect("write package");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        let response = build_context_pack_response(&summary, None).expect("context pack");
+
+        assert_eq!(response.pack.id, "implementation");
+        assert!(response.graph_brief.available);
+        assert!(response.graph_brief.symbol_count > 0);
+        assert!(response
+            .graph_brief
+            .graph_input_paths
+            .iter()
+            .any(|path| path == "src/App.tsx"));
+        assert!(response.graph_brief.graph_input_paths.len() <= 6);
+        assert!(matches!(
+            response.index_freshness.status,
+            RepoIndexFreshnessStatus::Fresh | RepoIndexFreshnessStatus::UnchangedCache
+        ));
+        assert!(response.index_freshness.safety.read_only);
+        assert!(!response.index_freshness.safety.modifies_repository);
+        assert!(response.safety.read_only);
+        assert!(response.safety.excludes_secret_like_paths);
+        assert!(!response.safety.modifies_repository);
+        assert!(!response
+            .pack
+            .files
+            .iter()
+            .any(|file| file.path == ".env.local"));
+    }
+
+    #[test]
+    fn selects_requested_context_pack_or_errors() {
+        let summary = RepoIntelligenceSummary {
+            indexed_at: "2026-06-27T12:00:00Z".to_string(),
+            repo_root: "/tmp/example".to_string(),
+            indexer_version: Some(INDEXER_VERSION.to_string()),
+            total_files: 1,
+            indexed_files: 1,
+            skipped_files: 0,
+            estimated_full_scan_tokens: 100,
+            role_counts: BTreeMap::new(),
+            index_metadata: None,
+            graph: None,
+            packs: vec![
+                build_context_pack(
+                    "implementation",
+                    "Implementation Pack",
+                    "Source files likely needed for feature work.",
+                    vec![classify_file("src/App.tsx", 100)],
+                    100,
+                ),
+                build_context_pack(
+                    "verification",
+                    "Verification Pack",
+                    "Tests and config likely needed before committing.",
+                    vec![classify_file("src/App.test.tsx", 100)],
+                    100,
+                ),
+            ],
+        };
+
+        let verification =
+            build_context_pack_response(&summary, Some("verification")).expect("verification pack");
+        assert_eq!(verification.pack.id, "verification");
+        assert!(!verification.graph_brief.available);
+
+        let error = build_context_pack_response(&summary, Some("missing")).unwrap_err();
+        assert!(error.to_string().contains("pack not found"));
+    }
+
+    #[test]
+    fn searches_symbols_case_insensitively_and_bounds_results() {
+        let summary = RepoIntelligenceSummary {
+            indexed_at: "2026-06-27T12:00:00Z".to_string(),
+            repo_root: "/tmp/example".to_string(),
+            indexer_version: Some(INDEXER_VERSION.to_string()),
+            total_files: 2,
+            indexed_files: 2,
+            skipped_files: 0,
+            estimated_full_scan_tokens: 100,
+            role_counts: BTreeMap::new(),
+            index_metadata: None,
+            graph: Some(RepoGraphSummary {
+                top_directories: Vec::new(),
+                top_languages: Vec::new(),
+                entrypoints: Vec::new(),
+                likely_tests: Vec::new(),
+                config_hubs: Vec::new(),
+                dependency_hubs: Vec::new(),
+                import_edges: Vec::new(),
+                reverse_dependency_hubs: Vec::new(),
+                symbols: vec![
+                    RepoSymbol {
+                        name: "App".to_string(),
+                        kind: RepoSymbolKind::Function,
+                        file: "src/App.tsx".to_string(),
+                        line: 1,
+                        parent: None,
+                    },
+                    RepoSymbol {
+                        name: "ApplicationState".to_string(),
+                        kind: RepoSymbolKind::Struct,
+                        file: "src-tauri/src/state.rs".to_string(),
+                        line: 20,
+                        parent: None,
+                    },
+                    RepoSymbol {
+                        name: "render".to_string(),
+                        kind: RepoSymbolKind::Function,
+                        file: "src/main.tsx".to_string(),
+                        line: 3,
+                        parent: Some("App".to_string()),
+                    },
+                ],
+                symbol_edges: Vec::new(),
+            }),
+            packs: Vec::new(),
+        };
+
+        let app = build_symbol_search_response(&summary, Some("app"), Some(1));
+        assert_eq!(app.query.as_deref(), Some("app"));
+        assert_eq!(app.limit, 1);
+        assert_eq!(app.symbols.len(), 1);
+        assert_eq!(app.symbols[0].name, "App");
+        assert!(app.safety.read_only);
+        assert!(!app.safety.modifies_repository);
+
+        let by_parent = build_symbol_search_response(&summary, Some("APP"), Some(10));
+        assert_eq!(by_parent.symbols.len(), 3);
+
+        let clamped = build_symbol_search_response(&summary, None, Some(500));
+        assert_eq!(clamped.limit, MAX_SYMBOL_SEARCH_LIMIT);
+        assert_eq!(clamped.symbols.len(), 3);
+    }
+
+    #[test]
+    fn finds_dependents_across_import_and_symbol_edges() {
+        let summary = RepoIntelligenceSummary {
+            indexed_at: "2026-06-27T12:00:00Z".to_string(),
+            repo_root: "/tmp/example".to_string(),
+            indexer_version: Some(INDEXER_VERSION.to_string()),
+            total_files: 3,
+            indexed_files: 3,
+            skipped_files: 0,
+            estimated_full_scan_tokens: 100,
+            role_counts: BTreeMap::new(),
+            index_metadata: None,
+            graph: Some(RepoGraphSummary {
+                top_directories: Vec::new(),
+                top_languages: Vec::new(),
+                entrypoints: Vec::new(),
+                likely_tests: Vec::new(),
+                config_hubs: Vec::new(),
+                dependency_hubs: Vec::new(),
+                import_edges: vec![
+                    RepoGraphEdge {
+                        from: "src/App.test.tsx".to_string(),
+                        to: "src/App.tsx".to_string(),
+                        kind: RepoGraphEdgeKind::TestToSource,
+                        reason: "test filename matches source module".to_string(),
+                    },
+                    RepoGraphEdge {
+                        from: "src/main.tsx".to_string(),
+                        to: "package.json".to_string(),
+                        kind: RepoGraphEdgeKind::EntrypointToConfig,
+                        reason: "entrypoint shares closest config surface".to_string(),
+                    },
+                ],
+                reverse_dependency_hubs: Vec::new(),
+                symbols: Vec::new(),
+                symbol_edges: vec![RepoGraphEdge {
+                    from: "src/App.tsx".to_string(),
+                    to: "src/lib/helper.ts#helper".to_string(),
+                    kind: RepoGraphEdgeKind::CallReference,
+                    reason: "references symbol helper".to_string(),
+                }],
+            }),
+            packs: Vec::new(),
+        };
+
+        let response = build_dependents_response(&summary, "app", Some(1)).expect("dependents");
+        assert_eq!(response.target, "app");
+        assert_eq!(response.limit, 1);
+        assert_eq!(response.edges.len(), 1);
+        assert_eq!(response.edges[0].from, "src/App.test.tsx");
+        assert!(response.safety.read_only);
+        assert!(!response.safety.modifies_repository);
+
+        let helper = build_dependents_response(&summary, "helper", Some(10)).expect("helper");
+        assert_eq!(helper.edges.len(), 1);
+        assert_eq!(helper.edges[0].kind, RepoGraphEdgeKind::CallReference);
+
+        let clamped = build_dependents_response(&summary, "src", Some(500)).expect("clamped");
+        assert_eq!(clamped.limit, MAX_DEPENDENTS_LIMIT);
+
+        let error = build_dependents_response(&summary, "   ", None).unwrap_err();
+        assert!(error.to_string().contains("target is required"));
+    }
+
+    #[test]
+    fn builds_read_only_manifest_for_latest_index_queries() {
+        let root = tempfile::tempdir().expect("create repo");
+        std::fs::create_dir_all(root.path().join("src")).expect("create src");
+        std::fs::write(
+            root.path().join("src/App.tsx"),
+            "import { helper } from './helper';\nexport function App() { helper(); }\n",
+        )
+        .expect("write app");
+        std::fs::write(
+            root.path().join("src/helper.ts"),
+            "export function helper() {}\n",
+        )
+        .expect("write helper");
+        std::fs::write(root.path().join("package.json"), "{}\n").expect("write package");
+        std::fs::write(root.path().join(".env.local"), "SECRET=value\n").expect("write secret");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        let manifest = build_manifest_response(&summary);
+
+        assert_eq!(
+            manifest.kind,
+            "mac_ai_switchboard.repo_intelligence_manifest"
+        );
+        assert_eq!(manifest.schema_version, 1);
+        assert_eq!(manifest.repo_root, summary.repo_root);
+        assert_eq!(manifest.totals.indexer_version, INDEXER_VERSION);
+        assert_eq!(manifest.totals.total_files, 4);
+        assert!(manifest.graph_brief.available);
+        assert!(manifest.graph_brief.symbol_count > 0);
+        assert!(manifest
+            .graph_brief
+            .graph_input_paths
+            .iter()
+            .any(|path| path == "src/App.tsx"));
+        assert_eq!(
+            manifest
+                .packs
+                .iter()
+                .map(|pack| pack.id.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "implementation",
+                "verification",
+                "handoff",
+                "risk_review",
+                "release_handoff"
+            ]
+        );
+        assert_eq!(
+            manifest
+                .queries
+                .iter()
+                .map(|query| query.command.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "get_repo_manifest",
+                "get_repo_pack",
+                "get_agent_handoff",
+                "get_index_freshness",
+                "clear_repo_index",
+                "search_repo_intelligence_symbols",
+                "get_repo_intelligence_dependents"
+            ]
+        );
+        assert!(manifest.safety.read_only);
+        assert!(manifest.safety.excludes_secret_like_paths);
+        assert!(!manifest.safety.modifies_repository);
+    }
+
+    #[test]
+    fn builds_bounded_read_only_context_pack_response() {
+        let root = tempfile::tempdir().expect("create repo");
+        std::fs::create_dir_all(root.path().join("src")).expect("create src");
+        for index in 0..45 {
+            std::fs::write(
+                root.path().join(format!("src/module_{index:02}.ts")),
+                format!("export const value{index} = {index};\n"),
+            )
+            .expect("write source");
+        }
+        std::fs::write(
+            root.path().join("src/module_00.test.ts"),
+            "test('module', () => {})\n",
+        )
+        .expect("write test");
+        std::fs::write(root.path().join(".env.local"), "SECRET=value\n").expect("write secret");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        let default_pack = build_context_pack_response(&summary, None).expect("default pack");
+        assert_eq!(default_pack.pack.id, "implementation");
+        assert!(default_pack.pack.files.len() <= MAX_PACK_FILES);
+        assert!(default_pack.index_freshness.safety.read_only);
+        assert!(default_pack.safety.read_only);
+        assert!(default_pack.safety.excludes_secret_like_paths);
+        assert!(!default_pack.safety.modifies_repository);
+        assert!(!default_pack
+            .pack
+            .files
+            .iter()
+            .any(|file| file.path.contains(".env.local")));
+
+        let verification =
+            build_context_pack_response(&summary, Some("verification")).expect("verification pack");
+        assert_eq!(verification.pack.id, "verification");
+        assert!(verification
+            .pack
+            .files
+            .iter()
+            .any(|file| file.path.ends_with(".test.ts")));
+
+        let missing = build_context_pack_response(&summary, Some("missing")).unwrap_err();
+        assert!(missing
+            .to_string()
+            .contains("repo intelligence pack not found: missing"));
+    }
+
+    #[test]
+    fn builds_index_freshness_for_empty_and_cached_indexes() {
+        let empty = build_index_freshness_response(None);
+        assert!(matches!(empty.status, RepoIndexFreshnessStatus::None));
+        assert_eq!(empty.label, "No repo indexed");
+        assert!(empty.api_available);
+        assert!(!empty.graph_available);
+        assert_eq!(empty.indexer_version, None);
+        assert_eq!(empty.parser_version, None);
+        assert_eq!(empty.indexed_file_count, None);
+        assert_eq!(empty.skipped_file_count, None);
+        assert!(empty.safety.read_only);
+
+        let mut summary = RepoIntelligenceSummary {
+            indexed_at: "2026-06-27T10:00:00Z".to_string(),
+            repo_root: "/tmp/example".to_string(),
+            indexer_version: Some(INDEXER_VERSION.to_string()),
+            total_files: 1,
+            indexed_files: 1,
+            skipped_files: 0,
+            estimated_full_scan_tokens: 1,
+            role_counts: BTreeMap::new(),
+            index_metadata: Some(RepoIndexMetadata {
+                schema_version: INDEX_METADATA_SCHEMA_VERSION,
+                indexer_version: INDEXER_VERSION.to_string(),
+                parser_version: PARSER_VERSION.to_string(),
+                cache_key: "abc".to_string(),
+                cache_state: "unchanged".to_string(),
+                generated_at: "2026-06-27T10:00:00Z".to_string(),
+                previous_indexed_at: Some("2026-06-27T09:00:00Z".to_string()),
+                file_count: 1,
+                indexed_file_count: 1,
+                skipped_file_count: 0,
+                file_fingerprints: Vec::new(),
+                skipped_files: Vec::new(),
+                graph_inputs: Vec::new(),
+            }),
+            graph: None,
+            packs: Vec::new(),
+        };
+
+        let unchanged = build_index_freshness_response(Some(&summary));
+        assert!(matches!(
+            unchanged.status,
+            RepoIndexFreshnessStatus::UnchangedCache
+        ));
+        assert_eq!(unchanged.repo_root.as_deref(), Some("/tmp/example"));
+        assert!(unchanged.api_available);
+        assert!(!unchanged.graph_available);
+        assert_eq!(unchanged.indexer_version.as_deref(), Some(INDEXER_VERSION));
+        assert_eq!(unchanged.parser_version.as_deref(), Some(PARSER_VERSION));
+        assert_eq!(unchanged.indexed_file_count, Some(1));
+        assert_eq!(unchanged.skipped_file_count, Some(0));
+
+        summary.index_metadata.as_mut().unwrap().cache_state = "changed".to_string();
+        let changed = build_index_freshness_response(Some(&summary));
+        assert!(matches!(
+            changed.status,
+            RepoIndexFreshnessStatus::ChangedCache
+        ));
+    }
+
+    #[test]
+    fn builds_read_only_agent_handoff_from_latest_index() {
+        let root = tempfile::tempdir().expect("create repo");
+        std::fs::create_dir_all(root.path().join("src")).expect("create src");
+        std::fs::write(
+            root.path().join("src/App.tsx"),
+            "export function App() {}\n",
+        )
+        .expect("write app");
+        std::fs::write(
+            root.path().join("src/App.test.tsx"),
+            "test('app', () => {})\n",
+        )
+        .expect("write test");
+        std::fs::write(root.path().join("docs.md"), "handoff notes\n").expect("write docs");
+        std::fs::write(root.path().join(".env.local"), "SECRET=value\n").expect("write secret");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        let codex =
+            build_agent_handoff_response(&summary, "codex", Some("verification")).expect("codex");
+        assert_eq!(codex.kind, "mac_ai_switchboard.repo_agent_handoff");
+        assert_eq!(codex.agent.label, "Codex");
+        assert_eq!(codex.pack.id, "verification");
+        assert!(matches!(
+            codex.index_freshness.status,
+            RepoIndexFreshnessStatus::Fresh | RepoIndexFreshnessStatus::UnchangedCache
+        ));
+        assert!(codex.index_freshness.safety.read_only);
+        assert!(!codex.index_freshness.safety.modifies_repository);
+        assert!(!codex.safety.manual_provider_routing);
+        assert!(codex.safety.read_only);
+        assert!(!codex.safety.modifies_repository);
+        assert!(codex.graph_brief.graph_input_paths.len() <= 6);
+        assert!(codex
+            .graph_brief
+            .graph_input_paths
+            .iter()
+            .any(|path| path == "src/App.tsx"));
+        assert!(codex.config_readiness.is_none());
+
+        let gemini = build_agent_handoff_response(&summary, "gemini", Some("implementation"))
+            .expect("gemini");
+        assert_eq!(gemini.agent.label, "Gemini CLI");
+        assert_eq!(gemini.pack.id, "implementation");
+        assert!(!gemini.safety.manual_provider_routing);
+        let gemini_readiness = gemini
+            .config_readiness
+            .as_ref()
+            .expect("gemini config readiness");
+        assert_eq!(gemini_readiness.planned_connector_id, "gemini_cli");
+        assert_eq!(gemini_readiness.planned_connector_name, "Gemini CLI");
+        assert!(gemini_readiness.automation_enabled);
+        assert_eq!(gemini_readiness.next_gate.label, "Detect config surface");
+        assert!(gemini_readiness
+            .safety_dossier
+            .config_path_strategy
+            .contains("PATH: gemini"));
+        assert!(gemini_readiness
+            .safety_dossier
+            .rollback_strategy
+            .contains("provider settings"));
+        assert_eq!(gemini_readiness.gated_steps.len(), 7);
+        assert!(gemini_readiness.gated_steps.iter().any(|gate| {
+            gate.id == "dryRunDiff"
+                && gate
+                    .required_evidence
+                    .join(" ")
+                    .contains("dry-run diff artifact")
+        }));
+        assert!(!gemini
+            .pack
+            .files
+            .iter()
+            .any(|file| file.path.contains(".env.local")));
+
+        let windsurf =
+            build_agent_handoff_response(&summary, "windsurf", Some("handoff")).expect("windsurf");
+        assert!(!windsurf.safety.manual_provider_routing);
+        assert!(windsurf
+            .agent
+            .guidance
+            .contains("managed editor settings routing is handled"));
+        let windsurf_readiness = windsurf
+            .config_readiness
+            .as_ref()
+            .expect("windsurf config readiness");
+        assert_eq!(windsurf_readiness.planned_connector_id, "windsurf");
+        assert!(windsurf_readiness.automation_enabled);
+
+        let zed = build_agent_handoff_response(&summary, "zed", Some("handoff")).expect("zed");
+        assert!(!zed.safety.manual_provider_routing);
+        assert!(zed
+            .agent
+            .guidance
+            .contains("managed assistant settings routing is handled"));
+        let zed_readiness = zed.config_readiness.as_ref().expect("zed config readiness");
+        assert_eq!(zed_readiness.planned_connector_id, "zed_ai");
+        assert!(zed_readiness.automation_enabled);
+        assert!(zed_readiness
+            .safety_dossier
+            .config_path_strategy
+            .contains("managed assistant settings routing"));
+
+        let cursor =
+            build_agent_handoff_response(&summary, "cursor", Some("handoff")).expect("cursor");
+        let cursor_readiness = cursor
+            .config_readiness
+            .as_ref()
+            .expect("cursor config readiness");
+        assert_eq!(cursor_readiness.planned_connector_id, "cursor");
+        assert!(cursor_readiness
+            .safety_dossier
+            .config_path_strategy
+            .contains("Cursor app/profile"));
+
+        let risk_review =
+            build_agent_handoff_response(&summary, "codex", Some("risk_review")).expect("risk");
+        assert_eq!(risk_review.pack.id, "risk_review");
+        assert_eq!(risk_review.pack.title, "Risk Review Pack");
+
+        let release_handoff =
+            build_agent_handoff_response(&summary, "codex", Some("release_handoff"))
+                .expect("release");
+        assert_eq!(release_handoff.pack.id, "release_handoff");
+        assert_eq!(release_handoff.pack.title, "Release Handoff Pack");
+
+        let error = build_agent_handoff_response(&summary, "unknown", None).unwrap_err();
+        assert!(error.to_string().contains("unknown repo handoff agent"));
+    }
+
+    #[test]
+    fn corrupt_saved_index_is_reported_for_doctor_repair() {
+        let previous_xdg = std::env::var_os("XDG_DATA_HOME");
+        let previous_home = std::env::var_os("HOME");
+        let scratch = tempfile::tempdir().expect("scratch");
+        std::env::set_var("XDG_DATA_HOME", scratch.path());
+        std::env::set_var("HOME", scratch.path());
+
+        let result = (|| {
+            let path = latest_summary_path();
+            let parent = path.parent().expect("summary parent");
+            std::fs::create_dir_all(parent).expect("create config dir");
+            std::fs::write(&path, b"{not valid json").expect("write corrupt summary");
+            load_latest_summary().expect_err("corrupt summary should error")
+        })();
+
+        match previous_xdg {
+            Some(value) => std::env::set_var("XDG_DATA_HOME", value),
+            None => std::env::remove_var("XDG_DATA_HOME"),
+        }
+        match previous_home {
+            Some(value) => std::env::set_var("HOME", value),
+            None => std::env::remove_var("HOME"),
+        }
+
+        assert!(result
+            .to_string()
+            .contains("parsing repo intelligence summary"));
     }
 }

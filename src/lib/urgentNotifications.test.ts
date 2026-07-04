@@ -96,7 +96,18 @@ function makeRuntime(overrides: Partial<RuntimeStatus> = {}): RuntimeStatus {
     paused: false,
     autoPaused: false,
     proxyReachable: true,
+    headroomPid: null,
+    mcpConfigured: null,
+    mcpError: null,
+    repoMemoryMcpActive: false,
+    repoMemoryMcpLastStartedAt: null,
+    mlInstalled: null,
+    kompressEnabled: null,
     headroomLearnSupported: true,
+    headroomLearnDisabledReason: null,
+    startupError: null,
+    startupErrorHint: null,
+    runtimeUpgradeFailure: null,
     rtk: {
       installed: true,
       enabled: true,
@@ -130,6 +141,23 @@ describe("maybeFireUrgentPricingNotifications", () => {
     );
 
     expect(invokeMock).not.toHaveBeenCalled();
+  });
+
+  it("does not fire pricing or billing notifications in local-only mode", async () => {
+    isVisibleMock.mockResolvedValue(false);
+    installStorage();
+
+    await maybeFireUrgentPricingNotifications(
+      makePricing({
+        needsAuthentication: true,
+        optimizationAllowed: false,
+        gateMessage: "Remote account required.",
+      }),
+      { localOnlyMode: true },
+    );
+
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(localStorage.setItem).not.toHaveBeenCalled();
   });
 
   it("treats isVisible failures as visible to avoid spamming", async () => {

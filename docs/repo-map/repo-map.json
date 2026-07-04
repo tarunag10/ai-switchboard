@@ -1,0 +1,654 @@
+{
+  "generatedAt": "2026-07-02T15:19:21.485Z",
+  "tools": {
+    "graphify": {
+      "status": "partial-success",
+      "files": [
+        "graphify-out/graph.json",
+        "graphify-out/GRAPH_TREE.html",
+        "graphify-out/README.md"
+      ],
+      "nodeCount": 4015,
+      "linkCount": 11057,
+      "nodeTypes": {
+        "code": 3698,
+        "document": 317
+      }
+    },
+    "madge": {
+      "file": "docs/repo-map/madge-src.json",
+      "moduleCount": 108,
+      "edgeCount": 210,
+      "cycles": 0
+    },
+    "dependencyCruiser": {
+      "file": "docs/repo-map/dependency-cruiser-src.json",
+      "moduleCount": 36,
+      "edgeCount": 35
+    },
+    "cargoMetadata": {
+      "file": "docs/repo-map/cargo-metadata.json",
+      "dependencyCount": 39
+    }
+  },
+  "toolRuns": {
+    "graphify": {
+      "status": "warning",
+      "detail": "[graphify] chunk 2/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] chunk 1/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] chunk 3/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] WARNING: 3/3 semantic chunk(s) failed — see errors above. Partial results returned.\n[graphify extract] error: all semantic chunks failed for backend 'gemini' (96 uncached files) - see per-chunk errors above. If you see 'requires the X package', run `pip install X` and retry.\n ",
+      "remediation": "Graphify wrote graphify-out/graph.json, but semantic extraction reported errors. The map is usable; retry later or inspect tool-log.json for backend/API failures."
+    },
+    "madge": {
+      "status": "ok",
+      "detail": "Completed.",
+      "remediation": null
+    },
+    "dependencyCruiser": {
+      "status": "ok",
+      "detail": "Completed.",
+      "remediation": null
+    },
+    "cargoMetadata": {
+      "status": "ok",
+      "detail": "Completed.",
+      "remediation": null
+    }
+  },
+  "inventory": {
+    "frontendFiles": 106,
+    "rustFiles": 23,
+    "docs": 23,
+    "scripts": 33
+  },
+  "frontend": {
+    "topFanOut": [
+      {
+        "file": "App.tsx",
+        "imports": 34
+      },
+      {
+        "file": "components/HomeView.tsx",
+        "imports": 13
+      },
+      {
+        "file": "components/AddonsView.tsx",
+        "imports": 8
+      },
+      {
+        "file": "components/SettingsView.tsx",
+        "imports": 6
+      },
+      {
+        "file": "components/SwitchboardPanel.tsx",
+        "imports": 5
+      },
+      {
+        "file": "lib/doctorRepairCopy.ts",
+        "imports": 5
+      },
+      {
+        "file": "components/DailySavingsChart.tsx",
+        "imports": 4
+      },
+      {
+        "file": "components/OptimizationView.tsx",
+        "imports": 4
+      },
+      {
+        "file": "components/SavingsCalculatorCard.tsx",
+        "imports": 4
+      },
+      {
+        "file": "components/ActivityFeed.tsx",
+        "imports": 3
+      },
+      {
+        "file": "components/PlannedAddonCard.tsx",
+        "imports": 3
+      },
+      {
+        "file": "components/SwitchboardDoctorPanel.tsx",
+        "imports": 3
+      },
+      {
+        "file": "components/UpgradeView.tsx",
+        "imports": 3
+      },
+      {
+        "file": "lib/appUpdate.ts",
+        "imports": 3
+      },
+      {
+        "file": "lib/bootstrapSentry.ts",
+        "imports": 3
+      },
+      {
+        "file": "lib/dashboardHelpers.test.ts",
+        "imports": 3
+      },
+      {
+        "file": "main.tsx",
+        "imports": 3
+      },
+      {
+        "file": "components/ActivityFeed.test.tsx",
+        "imports": 2
+      },
+      {
+        "file": "components/AddonCard.tsx",
+        "imports": 2
+      },
+      {
+        "file": "components/AddonClientChips.tsx",
+        "imports": 2
+      }
+    ],
+    "topFolderEdges": [
+      {
+        "edge": "src/App.tsx -> ./lib",
+        "count": 25
+      },
+      {
+        "edge": "src/App.tsx -> ./components",
+        "count": 8
+      },
+      {
+        "edge": "src/App.tsx -> src/assets",
+        "count": 1
+      },
+      {
+        "edge": "src/App.tsx -> ✖",
+        "count": 1
+      }
+    ]
+  },
+  "tauri": {
+    "commandCount": 115,
+    "handlerCount": 115,
+    "invokedCommandCount": 77,
+    "missingRustCommand": [],
+    "missingHandler": [],
+    "uncalledHandlerCount": 38,
+    "uncalledHandlers": [
+      "#[cfg(debug_assertions)",
+      "bootstrap_runtime",
+      "check_for_app_update",
+      "clear_client_setups",
+      "clear_repo_index",
+      "delete_live_learning",
+      "execute_dedicated_cleanup_rollback",
+      "execute_managed_rollback",
+      "get_agent_handoff",
+      "get_app_update_configuration",
+      "get_claude_profile",
+      "get_claude_usage",
+      "get_headroom_request_counts_by_agent",
+      "get_index_freshness",
+      "get_repo_intelligence_context_pack",
+      "get_repo_intelligence_dependents",
+      "get_repo_intelligence_manifest",
+      "get_repo_manifest",
+      "get_repo_pack",
+      "get_tool_logs",
+      "get_transformations_feed",
+      "install_addon",
+      "install_app_update",
+      "list_applied_patterns_for_projects",
+      "list_live_learnings",
+      "list_live_learnings_for_projects",
+      "pause_headroom",
+      "preview_dedicated_cleanup_rollback",
+      "preview_managed_rollback",
+      "restore_codex_thread_db_backup",
+      "search_repo_intelligence_symbols",
+      "set_addon_enabled",
+      "show_app_update_notification",
+      "show_dashboard_window",
+      "start_headroom",
+      "stop_repo_memory_mcp",
+      "uninstall_addon",
+      "verify_client_setup"
+    ]
+  },
+  "dependencies": {
+    "npmDirect": [
+      "@microsoft/clarity",
+      "@phosphor-icons/react",
+      "@sentry/react",
+      "@tauri-apps/api",
+      "react",
+      "react-dom",
+      "recharts"
+    ],
+    "npmDev": [
+      "@tauri-apps/cli",
+      "@testing-library/jest-dom",
+      "@testing-library/react",
+      "@testing-library/user-event",
+      "@types/react",
+      "@types/react-dom",
+      "@vitejs/plugin-react",
+      "@vitest/coverage-v8",
+      "jsdom",
+      "postcss",
+      "typescript",
+      "vite",
+      "vitest"
+    ],
+    "cargoDirect": [
+      {
+        "name": "anyhow",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "base64",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "chrono",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "dirs",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "flate2",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "image",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "json5",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "libc",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "log",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "os_info",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "parking_lot",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "rand",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "reqwest",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "rusqlite",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "sentry",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "serde",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "serde_json",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "sha2",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "sys-locale",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tar",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tauri",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tauri-plugin-autostart",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tauri-plugin-deep-link",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tauri-plugin-notification",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tauri-plugin-single-instance",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tauri-plugin-updater",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "time",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tokio",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tree-sitter",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tree-sitter-javascript",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tree-sitter-python",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tree-sitter-rust",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tree-sitter-typescript",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "uuid",
+        "kind": "runtime",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "serial_test",
+        "kind": "dev",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tempfile",
+        "kind": "dev",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "toml",
+        "kind": "dev",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "tauri-build",
+        "kind": "build",
+        "target": "all",
+        "optional": false
+      },
+      {
+        "name": "mac-notification-sys",
+        "kind": "runtime",
+        "target": "cfg(target_os = \"macos\")",
+        "optional": false
+      }
+    ]
+  },
+  "scripts": [
+    {
+      "name": "dev",
+      "command": "vite"
+    },
+    {
+      "name": "app:run",
+      "command": "./script/build_and_run.sh"
+    },
+    {
+      "name": "build",
+      "command": "tsc && vite build"
+    },
+    {
+      "name": "build:mac:dmg",
+      "command": "./scripts/build-macos-dmg.sh"
+    },
+    {
+      "name": "build:mac:local-install",
+      "command": "./scripts/build-install-local-dmg.sh"
+    },
+    {
+      "name": "preview",
+      "command": "vite preview"
+    },
+    {
+      "name": "tauri",
+      "command": "tauri"
+    },
+    {
+      "name": "test",
+      "command": "vitest run"
+    },
+    {
+      "name": "test:frontend",
+      "command": "vitest run"
+    },
+    {
+      "name": "test:coverage",
+      "command": "vitest run --coverage.enabled --coverage.provider=v8"
+    },
+    {
+      "name": "test:desktop",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1"
+    },
+    {
+      "name": "fmt:desktop",
+      "command": "cargo fmt --manifest-path src-tauri/Cargo.toml --check"
+    },
+    {
+      "name": "test:all",
+      "command": "npm run test:frontend && npm run test:desktop"
+    },
+    {
+      "name": "release:check",
+      "command": "./scripts/verify-release.sh"
+    },
+    {
+      "name": "release:env",
+      "command": "node scripts/check-release-env.mjs"
+    },
+    {
+      "name": "release:env:json",
+      "command": "node scripts/check-release-env.mjs --json"
+    },
+    {
+      "name": "release:env:selftest",
+      "command": "node scripts/check-release-env-selftest.mjs"
+    },
+    {
+      "name": "release:report",
+      "command": "node scripts/release-readiness-report.mjs"
+    },
+    {
+      "name": "release:report:check",
+      "command": "node scripts/check-release-report-schema.mjs"
+    },
+    {
+      "name": "release:ready",
+      "command": "node scripts/check-release-readiness.mjs"
+    },
+    {
+      "name": "release:ready:strict",
+      "command": "node scripts/check-release-readiness.mjs --strict"
+    },
+    {
+      "name": "evidence:local",
+      "command": "node scripts/run-local-evidence.mjs"
+    },
+    {
+      "name": "smoke:preflight",
+      "command": "node scripts/smoke-preflight.mjs"
+    },
+    {
+      "name": "smoke:installed",
+      "command": "node scripts/installed-smoke-summary.mjs"
+    },
+    {
+      "name": "smoke:installed:local",
+      "command": "node scripts/local-installed-smoke-summary.mjs"
+    },
+    {
+      "name": "smoke:mode-relaunch:local",
+      "command": "node scripts/local-mode-relaunch-smoke.mjs"
+    },
+    {
+      "name": "smoke:rollback:local",
+      "command": "node scripts/local-rollback-validation-summary.mjs"
+    },
+    {
+      "name": "smoke:doctor-repair:local",
+      "command": "node scripts/local-doctor-repair-validation-summary.mjs"
+    },
+    {
+      "name": "smoke:uninstall:local",
+      "command": "node scripts/local-uninstall-validation-summary.mjs"
+    },
+    {
+      "name": "smoke:repo-intelligence:local",
+      "command": "node scripts/local-repo-intelligence-validation-summary.mjs"
+    },
+    {
+      "name": "smoke:repo-memory-mcp:local",
+      "command": "node scripts/local-repo-memory-mcp-validation-summary.mjs"
+    },
+    {
+      "name": "smoke:local-only:local",
+      "command": "node scripts/local-only-network-validation-summary.mjs"
+    },
+    {
+      "name": "repo:intelligence",
+      "command": "node scripts/repo-intelligence.mjs"
+    },
+    {
+      "name": "check:repo-memory-mcp",
+      "command": "node scripts/check-repo-memory-mcp.mjs"
+    },
+    {
+      "name": "benchmarks",
+      "command": "node scripts/run-benchmarks.mjs"
+    },
+    {
+      "name": "check:connectors",
+      "command": "node scripts/check-planned-connectors.mjs && node scripts/check-connector-manifests.mjs"
+    },
+    {
+      "name": "check:branding",
+      "command": "node scripts/check-branding-assets.mjs"
+    },
+    {
+      "name": "check:colors",
+      "command": "./scripts/check-colors.sh"
+    },
+    {
+      "name": "check:local-artifacts",
+      "command": "./scripts/check-no-local-artifacts.sh"
+    },
+    {
+      "name": "check:local-build-privacy",
+      "command": "node scripts/check-local-build-privacy.mjs"
+    },
+    {
+      "name": "check:local-only-network",
+      "command": "node scripts/check-local-only-network.mjs"
+    },
+    {
+      "name": "check:governance",
+      "command": "node scripts/check-governance-docs.mjs"
+    },
+    {
+      "name": "check:deployment",
+      "command": "node scripts/check-deployment-readiness.mjs"
+    }
+  ],
+  "tokenSavings": {
+    "compactContextEstimatedTokens": 300,
+    "broadScanEstimatedTokens": 1118472,
+    "estimatedTokensAvoided": 1118172,
+    "method": "Approximate chars/4 estimate comparing bounded repo map context to readable source files capped at 500 files."
+  }
+}

@@ -95,6 +95,36 @@ export interface HourlySavingsPoint {
   byProvider: ProviderSavingsPoint[];
 }
 
+export interface SavingsAttributionEvent {
+  schemaVersion: number;
+  id: string;
+  observedAt: string;
+  scope: "session";
+  source:
+    | "headroom_engine"
+    | "rtk"
+    | "repo_intelligence"
+    | "caveman"
+    | "ponytail"
+    | "markitdown"
+    | "compact_chinese";
+  confidence: "measured" | "estimated" | "inferred";
+  deltaTokensSaved: number;
+  deltaUsd: number;
+  totalTokensSent: number;
+  requestDelta: number;
+  evidence: string[];
+}
+
+export interface MeasuredSavingsAttributionRequest {
+  source: SavingsAttributionEvent["source"];
+  label: string;
+  baselineTokens: number;
+  optimizedTokens: number;
+  requestDelta?: number;
+  detail?: string;
+}
+
 export interface DashboardState {
   appVersion: string;
   launchExperience: LaunchExperience;
@@ -174,10 +204,175 @@ export interface ClientConnectorStatus {
   configLocations?: string[];
   automationGates?: string[];
   manualWorkflow?: string[];
+  configCreationSteps?: string[];
+  configCreationStepDetails?: ClientConnectorConfigCreationStep[];
+  configDryRunPreview?: ClientConnectorConfigDryRunPreview | null;
+  automationPath?: ClientConnectorAutomationStage[];
   installed: boolean;
   enabled: boolean;
   verified: boolean;
+  setupVerification?: ClientSetupVerification | null;
   lastConfiguredAt?: string | null;
+}
+
+export interface ClientConnectorConfigCreationStep {
+  id: string;
+  label: string;
+  detail: string;
+  requiredEvidence?: string[];
+}
+
+export interface ClientConnectorConfigDryRunPreview {
+  target: string;
+  marker: string;
+  backupPath: string;
+  currentState: string;
+  proposedState: string;
+  applyBlockedReason: string;
+  rollbackPreview: string;
+  confirmationPhrase: string;
+  writes: string[];
+}
+
+export interface ClientConnectorAutomationStage {
+  id: string;
+  label: string;
+  status: "ready" | "blocked" | string;
+  evidence: string;
+}
+
+export interface ManagedRollbackPreview {
+  recordId: string;
+  owner: string;
+  targetPath: string;
+  marker: string;
+  backupPath: string | null;
+  markerPresent: boolean;
+  backupExists: boolean;
+  status: "ready" | "blocked";
+  confirmationPhrase: string;
+  proposedAction: string;
+  blockedReason: string | null;
+  evidence: string[];
+}
+
+export interface ManagedRollbackExecutionResult {
+  recordId: string;
+  owner: string;
+  targetPath: string;
+  restoredFrom: string;
+  safetyBackupPath: string | null;
+  marker: string;
+  verification: string[];
+}
+
+export interface ManagedConfigApplyPreview {
+  recordId: string;
+  owner: string;
+  targetPath: string;
+  marker: string;
+  backupPath: string;
+  status: "ready" | "blocked";
+  confirmationPhrase: string;
+  currentState: string;
+  proposedState: string;
+  rollbackPreview: string;
+  blockedReason: string | null;
+  evidence: string[];
+}
+
+export interface ManagedConfigApplyResult {
+  recordId: string;
+  owner: string;
+  targetPath: string;
+  changed: boolean;
+  backupPath: string | null;
+  marker: string;
+  verification: string[];
+}
+
+export interface ManagedFootprintItem {
+  id: string;
+  category: string;
+  path: string;
+  exists: boolean;
+  managed: boolean;
+  action: string;
+  reversible: boolean;
+  backupPaths: string[];
+  notes: string[];
+}
+
+export interface ManagedFootprintReport {
+  generatedAt: string;
+  items: ManagedFootprintItem[];
+}
+
+export interface UninstallTarget {
+  id: string;
+  category: string;
+  path: string;
+  exists: boolean;
+  managed: boolean;
+  action: string;
+  requiresConfirmation: boolean;
+  notes: string[];
+}
+
+export interface UninstallDryRunReport {
+  generatedAt: string;
+  targets: UninstallTarget[];
+  removedOnUninstall: string[];
+  preserved: string[];
+}
+
+export type CodexThreadRetaggingMode = "ask" | "enabled" | "disabled";
+
+export interface CodexThreadRetaggingSettings {
+  codexThreadRetagging: CodexThreadRetaggingMode;
+}
+
+export interface CodexThreadRetaggingReport {
+  path: string;
+  fromProvider: string;
+  toProvider: string;
+  rowsChanged: number;
+  backupPath?: string | null;
+  skippedReason?: string | null;
+}
+
+export interface CodexThreadRetaggingRunReport {
+  mode: CodexThreadRetaggingMode;
+  reports: CodexThreadRetaggingReport[];
+}
+
+export interface CodexDbRestoreResult {
+  restoredPath: string;
+  backupPath: string;
+}
+
+export interface ManagedRollbackUndoAllPreview {
+  status: "ready" | "blocked";
+  confirmationPhrase: string;
+  ready: ManagedRollbackPreview[];
+  blocked: ManagedRollbackPreview[];
+  evidence: string[];
+}
+
+export interface ManagedRollbackUndoAllExecutionResult {
+  confirmationPhrase: string;
+  executed: ManagedRollbackExecutionResult[];
+  blocked: ManagedRollbackPreview[];
+  verification: string[];
+}
+
+export interface ReleaseEvidenceCommandResult {
+  commandId: string;
+  label: string;
+  command: string;
+  summaryPath: string | null;
+  stdout: string;
+  stderr: string;
 }
 
 export interface RuntimeStatus {
@@ -192,9 +387,49 @@ export interface RuntimeStatus {
    *  banner + Resume button. */
   autoPaused: boolean;
   proxyReachable: boolean;
+  proxyBindAddress?: string | null;
+  proxyAuthStatus?: string | null;
+  proxyAuthDetail?: string | null;
   headroomPid?: number | null;
+  launchAgentStatus?: {
+    installed: boolean;
+    path?: string | null;
+    label: string;
+    loaded?: boolean | null;
+    loadDetail?: string | null;
+    legacyInstalled: boolean;
+    legacyPath?: string | null;
+    legacyLabel: string;
+    legacyLoaded?: boolean | null;
+    legacyLoadDetail?: string | null;
+  } | null;
+  backendStatus?: {
+    reachable: boolean;
+    bindAddress: string;
+    port: number;
+    defaultPort: number;
+    fallbackRangeStart: number;
+    fallbackRangeEnd: number;
+  } | null;
   mcpConfigured?: boolean | null;
   mcpError?: string | null;
+  repoMemoryMcpConfigured?: boolean | null;
+  repoMemoryMcpError?: string | null;
+  repoMemoryMcpActive?: boolean | null;
+  repoMemoryMcpLastStartedAt?: string | null;
+  repoMemoryMcpLastCheckedAt?: string | null;
+  repoMemoryMcpSupervisionStatus?: string | null;
+  repoMemoryMcpService?: {
+    managedByApp: boolean;
+    readOnly: boolean;
+    transport: string;
+    command: string;
+    descriptorPath: string;
+    descriptorPresent: boolean;
+    scriptPath: string;
+    scriptPresent: boolean;
+    nodeAvailable: boolean;
+  } | null;
   mlInstalled?: boolean | null;
   kompressEnabled?: boolean | null;
   headroomLearnSupported: boolean;
@@ -209,8 +444,13 @@ export interface RuntimeStatus {
     pathConfigured: boolean;
     hookConfigured: boolean;
     totalCommands?: number | null;
+    totalInput?: number | null;
+    totalOutput?: number | null;
     totalSaved?: number | null;
     avgSavingsPct?: number | null;
+    totalTimeMs?: number | null;
+    avgTimeMs?: number | null;
+    daily?: RtkDailyStats[];
   };
 }
 
@@ -364,8 +604,22 @@ export interface TransformationFeedEvent {
 
 export interface TransformationFeedResponse {
   logFullMessages: boolean;
+  fullMessageLoggingExpiresAt?: string | null;
+  messageLogRetentionHours: number;
   proxyReachable: boolean;
   transformations: TransformationFeedEvent[];
+}
+
+export interface MessageLoggingSettings {
+  fullMessageLogging: boolean;
+  fullMessageLoggingExpiresAt: string | null;
+  messageLogRetentionHours: number;
+}
+
+export interface PurgeResult {
+  purged: boolean;
+  removedPaths: string[];
+  notes: string[];
 }
 
 export interface LiveLearning {
@@ -391,6 +645,22 @@ export interface RtkTodayStats {
   date: string;
   savedTokens: number;
   commands: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  savingsPct?: number | null;
+  totalTimeMs?: number;
+  avgTimeMs?: number | null;
+}
+
+export interface RtkDailyStats {
+  date: string;
+  savedTokens: number;
+  commands: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  savingsPct?: number | null;
+  totalTimeMs?: number;
+  avgTimeMs?: number | null;
 }
 
 export type RecordTag = "daily" | "weekly" | "allTime";

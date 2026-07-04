@@ -22,13 +22,10 @@ describe("planned connector mode readiness", () => {
 
     expect(repoPackTools).toEqual([
       "cursor",
-      "aider",
-      "continue",
-      "goose",
-      "qwen_code",
-      "amazon_q",
-      "windsurf",
-      "zed_ai",
-    ]);
+    "aider",
+    "continue",
+    "goose",
+    "amazon_q",
+  ]);
   });
 });

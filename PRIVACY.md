@@ -1,96 +1,37 @@
 # Privacy Notice
 
-Mac AI Switchboard is a local-first desktop utility for managing AI coding-tool
-routing, local helper runtimes, shell-output compression, add-ons, and related
-diagnostics on your Mac.
-
-This notice describes the public repository's intended privacy model. It is not
-legal advice and may need review before public distribution in a specific
-jurisdiction.
+Mac AI Switchboard is a local-first developer tool for AI coding-tool routing, runtimes, shell-output compression, add-ons, and diagnostics.
 
 ## Local-First, Not Offline-Only
 
-Mac AI Switchboard is local-first. App state, routing mode, local diagnostics,
-reversible client setup evidence, RTK settings, add-on state, and Repo
-Intelligence metadata are intended to live on your Mac.
+The app keeps routing state, mode state, diagnostics, RTK/Repo Intelligence metadata, Doctor evidence, managed-file receipts, and health checks on the local Mac by default. Local-first does not mean offline-only: Claude, OpenAI, Anthropic, and other model-provider traffic still goes to whichever provider-owned tool or endpoint the user configures.
 
-The app is not offline-only. When you use Claude, OpenAI, Anthropic, or another
-model provider, your coding client may still send requests to that provider
-under your account and that provider's terms.
+## Local Data
 
-## Local Data the App May Read
+The app may store savings history, health receipts, telemetry-style local counters, Headroom/RTK/Repo Intelligence pack metadata, logs, diagnostics paths, provider-routing diagnostics, and message-logging artifacts when those features are enabled.
 
-Depending on enabled features, the app may read local files such as:
-
-- App configuration and runtime state.
-- Shell startup files used for RTK integration.
-- Claude Code, Codex, MCP, LaunchAgent, and supported client configuration
-  files.
-- Headroom-managed runtime files, receipts, logs, and health evidence.
-- Repository files selected for read-only Repo Intelligence indexing.
-- Local diagnostics needed for Doctor repair workflows.
-
-Managed edits should be reversible where possible and visible through app
-diagnostics.
-
-## Local Data the App May Store
-
-The app may store local state such as:
-
-- Selected switchboard mode.
-- Selected savings profile.
-- Runtime health and repair receipts.
-- Local telemetry-style savings records.
-- Headroom and RTK installation status.
-- Repo Intelligence summaries and context packs.
-- Logs and diagnostic evidence.
-
-Diagnostics can include local paths, command metadata, token counts, runtime
-status, and provider-routing evidence. Review diagnostics before sharing them.
+Message logging and diagnostics are intended for debugging. They may include compressed-message paths, provider responses, and diagnostic state. Secret-like values are scrubbed defensively, including common API keys, GitHub tokens, auth headers, `.p8`, `.pem`, `.p12`, and similar filenames.
 
 ## Secrets
 
-Provider API keys, Apple signing credentials, updater private keys, and personal
-tokens should not be pasted into issues, pull requests, logs, exported
-diagnostics, or screenshots.
-
-Secrets should remain in macOS Keychain or provider-owned tools when possible.
-If a secret is exposed, rotate it immediately through the provider that issued
-it.
+Provider API keys, signing tokens, and private credentials should not be pasted into issues, requests, logs, diagnostics, or screenshots. Provider-owned tools may expose provider-issued credentials to their own storage. Mac AI Switchboard should use macOS Keychain or provider-owned storage where appropriate.
 
 ## Remote Services
 
-The free public app is intended to run without sign-in, checkout, pricing APIs,
-or required hosted services.
+The free public build can be used without sign-in, checkout, pricing, telemetry, support, analytics, or update-network access. Local-only builds disable account, pricing, telemetry, support, analytics, and update-network surfaces.
 
-Local-only mode should avoid account, pricing, telemetry, support, analytics,
-and update-network calls unless a remote feature is explicitly enabled by the
-operator of a fork or build.
+Official signed updater feeds and optional Sentry, Aptabase, and Microsoft Clarity analytics are only used when configured for a build that opts into remote services.
 
-Optional remote destinations may include:
-
-- Model-provider APIs used by your coding clients.
-- Tauri update feeds for official signed releases.
-- Sentry diagnostics if configured.
-- Microsoft Clarity analytics if configured.
-- Aptabase analytics if configured.
-- Support/contact links if configured.
-
-Official public builds should disclose which destinations are enabled.
+Usage and pricing helpers may query provider-owned account usage endpoints when the user enables those features. Codex usage checks currently depend on the upstream ChatGPT usage endpoint at `https://chatgpt.com/backend-api/wham/usage`; treat it as unofficial provider surface, not app-owned telemetry. It should remain disabled in local-only builds and documented in remote-destination inventories.
 
 ## Repo Intelligence
 
-Repo Intelligence is intended to be local and read-only by default. It may index
-selected repository files, estimate tokens, classify paths, and generate context
-packs. Generated packs may contain source excerpts or metadata from the selected
-repository, so review them before sharing.
+Repo Intelligence is read-only by default. It indexes local repository metadata, estimates token counts, builds bounded context packs, and excludes secret-like paths and generated/vendor-heavy surfaces where configured. Sharing context packs is a user action.
 
 ## Children
 
-Mac AI Switchboard is a developer tool and is not intended for children.
+Mac AI Switchboard is a developer tool and is not directed to children.
 
 ## Changes
 
-Privacy behavior can change as the app evolves. Material privacy changes should
-be documented in this file, release notes, or both.
-
+This notice may evolve with the app. Material changes should be documented in release notes or product docs.

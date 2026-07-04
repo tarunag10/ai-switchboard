@@ -123,7 +123,7 @@ impl AnalyticsClient {
                 "engineName": self.system_props.engine_name,
                 "engineVersion": self.system_props.engine_version,
                 "appVersion": self.app_version,
-                "sdkVersion": "headroom-desktop"
+                "sdkVersion": "mac-ai-switchboard"
             },
             "props": props_value
         });

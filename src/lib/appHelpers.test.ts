@@ -6,6 +6,7 @@ import {
   getPlanRenewalPriceLabel,
   getUpgradePlans,
   isTierDowngrade,
+  shouldOfferRuntimeRestartAction,
   upgradePlanIntentLabel,
 } from "./appHelpers";
 
@@ -24,6 +25,49 @@ describe("app helpers", () => {
     expect(describeInvokeError({ message: "typed message" }, "fallback")).toBe("typed message");
     expect(describeInvokeError({ error: "nested error" }, "fallback")).toBe("nested error");
     expect(describeInvokeError({ message: "   " }, "fallback")).toBe("fallback");
+  });
+
+  it("offers a one-click runtime restart for disconnected runtime states", () => {
+    expect(
+      shouldOfferRuntimeRestartAction("disconnected", {
+        runtimeHealthy: false,
+        connectorPhase: "healthy",
+      }),
+    ).toBe(true);
+    expect(
+      shouldOfferRuntimeRestartAction("degraded", {
+        runtimeHealthy: false,
+        connectorPhase: "healthy",
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps setup verification on the Test setup path", () => {
+    expect(
+      shouldOfferRuntimeRestartAction("starting", {
+        runtimeHealthy: true,
+        connectorPhase: "verifying",
+      }),
+    ).toBe(false);
+    expect(
+      shouldOfferRuntimeRestartAction("disconnected", {
+        runtimeHealthy: false,
+        runtimeStarting: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps paused runtime states resumable", () => {
+    expect(
+      shouldOfferRuntimeRestartAction("paused", {
+        runtimeHealthy: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldOfferRuntimeRestartAction("auto-paused", {
+        runtimeHealthy: false,
+      }),
+    ).toBe(true);
   });
 
   it("returns the next lower visible plan for paid subscriptions", () => {

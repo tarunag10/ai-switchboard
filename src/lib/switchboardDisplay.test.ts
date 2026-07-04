@@ -43,6 +43,8 @@ function runtime(overrides: Partial<RuntimeStatus> = {}): RuntimeStatus {
     headroomPid: 123,
     mcpConfigured: true,
     mcpError: null,
+    repoMemoryMcpActive: false,
+    repoMemoryMcpLastStartedAt: null,
     mlInstalled: null,
     kompressEnabled: true,
     headroomLearnSupported: true,

@@ -12,7 +12,9 @@ const publicDocFiles = [
   "TERMS.md",
   "CODE_OF_CONDUCT.md",
   "SUPPORT.md",
+  "docs/remote-destinations.md",
   "docs/repository-settings.md",
+  "docs/connectors.md",
 ];
 
 const requiredFiles = [
@@ -57,7 +59,9 @@ if (failures.length === 0) {
     failures.push("CONTRIBUTING.md does not confirm MIT contribution terms");
   }
   if (!contributing.includes("@tarunag10")) {
-    failures.push("CONTRIBUTING.md does not name the maintainer approval owner");
+    failures.push(
+      "CONTRIBUTING.md does not name the maintainer approval owner",
+    );
   }
 
   const governance = read("GOVERNANCE.md");
@@ -89,6 +93,45 @@ if (failures.length === 0) {
     }
   }
 
+  const remoteDestinations = read("docs/remote-destinations.md");
+  for (const phrase of [
+    "Local-Only Boundary",
+    "App-Owned Remote Destinations",
+    "HEADROOM_UPDATER_ENDPOINTS",
+    "HEADROOM_SENTRY_DSN",
+    "VITE_SENTRY_DSN",
+    "HEADROOM_APTABASE_APP_KEY",
+    "VITE_CLARITY_PROJECT_ID",
+    "GitHub Issues",
+    "Provider Traffic",
+    "Change Control",
+  ]) {
+    if (!remoteDestinations.includes(phrase)) {
+      failures.push(`docs/remote-destinations.md does not mention ${phrase}`);
+    }
+  }
+
+  const connectors = read("docs/connectors.md");
+  for (const phrase of [
+    "Status Labels",
+    "Support Matrix",
+    "Managed",
+    "Guided",
+    "Detected",
+    "Gated",
+    "Limited managed adapter",
+    "Claude Code",
+    "Codex",
+    "Cursor",
+    "Windsurf",
+    "OpenCode",
+    "Automation Gates",
+  ]) {
+    if (!connectors.includes(phrase)) {
+      failures.push(`docs/connectors.md does not mention ${phrase}`);
+    }
+  }
+
   const terms = read("TERMS.md");
   for (const phrase of ["MIT License", "No Warranty", "Maintainer Approval"]) {
     if (!terms.includes(phrase)) {
@@ -98,7 +141,9 @@ if (failures.length === 0) {
 
   const pullRequestTemplate = read(".github/pull_request_template.md");
   if (!pullRequestTemplate.includes("@tarunag10")) {
-    failures.push(".github/pull_request_template.md does not require @tarunag10 approval");
+    failures.push(
+      ".github/pull_request_template.md does not require @tarunag10 approval",
+    );
   }
 
   const repositorySettings = read("docs/repository-settings.md");

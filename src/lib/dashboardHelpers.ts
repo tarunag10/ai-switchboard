@@ -1,12 +1,18 @@
 import {
+  getPlannedConnector,
+  getPlannedConnectorConfigCreationPlan,
+  getPlannedConnectorSafetyDossier,
+  managedConnectorDossiers,
   plannedConnectors,
   summarizePlannedConnectorSupport,
 } from "./plannedConnectors";
+import type { PlannedConnectorConfigCreationStep } from "./plannedConnectors";
 import type {
   ClientConnectorStatus,
   DailySavingsPoint,
   HourlySavingsPoint,
-  ProviderSavingsPoint
+  ProviderSavingsPoint,
+  UsageEvent
 } from "./types";
 
 export interface SavingsChartDatum {
@@ -195,6 +201,116 @@ export interface ProviderSavingsDisplay {
   totalTokensSent: number;
 }
 
+export interface ClientSavingsTrend {
+  client: string;
+  scope: "session" | "saved_history";
+  requests: number;
+  estimatedInputTokens: number;
+  estimatedOutputTokens: number;
+  totalTokensSent: number;
+  estimatedTokensSaved: number;
+  estimatedSavingsUsd: number;
+  lastSeenAt: string;
+}
+
+function clientSortKey(client: string) {
+  const normalized = client.toLowerCase();
+  if (normalized.includes("claude")) {
+    return "0";
+  }
+  if (normalized.includes("codex")) {
+    return "1";
+  }
+  return `2:${normalized}`;
+}
+
+export function buildClientSavingsTrends(events: UsageEvent[]): ClientSavingsTrend[] {
+  const groups = new Map<string, ClientSavingsTrend>();
+
+  for (const event of events) {
+    const existing = groups.get(event.client) ?? {
+      client: event.client,
+      scope: "session",
+      requests: 0,
+      estimatedInputTokens: 0,
+      estimatedOutputTokens: 0,
+      totalTokensSent: 0,
+      estimatedTokensSaved: 0,
+      estimatedSavingsUsd: 0,
+      lastSeenAt: event.timestamp,
+    };
+    const sentTokens =
+      Math.max(0, event.estimatedInputTokens) +
+      Math.max(0, event.estimatedOutputTokens);
+    const stageTokensSaved = event.stages.reduce(
+      (sum, stage) => sum + Math.max(0, stage.estimatedTokensSaved),
+      0,
+    );
+
+    existing.requests += 1;
+    existing.estimatedInputTokens += Math.max(0, event.estimatedInputTokens);
+    existing.estimatedOutputTokens += Math.max(0, event.estimatedOutputTokens);
+    existing.totalTokensSent += sentTokens;
+    existing.estimatedTokensSaved += stageTokensSaved;
+    existing.estimatedSavingsUsd += Math.max(0, event.estimatedCostSavingsUsd);
+    if (event.timestamp > existing.lastSeenAt) {
+      existing.lastSeenAt = event.timestamp;
+    }
+    groups.set(event.client, existing);
+  }
+
+  return [...groups.values()].sort((left, right) => {
+    const byKey = clientSortKey(left.client).localeCompare(clientSortKey(right.client));
+    return byKey !== 0 ? byKey : right.totalTokensSent - left.totalTokensSent;
+  });
+}
+
+export function buildPersistentClientSavingsTrends(
+  hourlySavings: HourlySavingsPoint[],
+): ClientSavingsTrend[] {
+  const groups = new Map<string, ClientSavingsTrend>();
+
+  for (const point of hourlySavings) {
+    for (const provider of point.byProvider ?? []) {
+      for (const display of mergeProviderSavingsForDisplay([provider])) {
+        const existing = groups.get(display.label) ?? {
+          client: display.label,
+          scope: "saved_history",
+          requests: 0,
+          estimatedInputTokens: 0,
+          estimatedOutputTokens: 0,
+          totalTokensSent: 0,
+          estimatedTokensSaved: 0,
+          estimatedSavingsUsd: 0,
+          lastSeenAt: point.hour,
+        };
+        existing.totalTokensSent += Math.max(0, display.totalTokensSent);
+        existing.estimatedTokensSaved += Math.max(0, display.estimatedTokensSaved);
+        existing.estimatedSavingsUsd += Math.max(0, display.estimatedSavingsUsd);
+        if (point.hour > existing.lastSeenAt) {
+          existing.lastSeenAt = point.hour;
+        }
+        groups.set(display.label, existing);
+      }
+    }
+  }
+
+  return [...groups.values()].sort((left, right) => {
+    const byKey = clientSortKey(left.client).localeCompare(clientSortKey(right.client));
+    return byKey !== 0 ? byKey : right.totalTokensSent - left.totalTokensSent;
+  });
+}
+
+export function buildClientSavingsTrendRows(
+  events: UsageEvent[],
+  hourlySavings: HourlySavingsPoint[] = [],
+): ClientSavingsTrend[] {
+  const sessionRows = buildClientSavingsTrends(events);
+  return sessionRows.length > 0
+    ? sessionRows
+    : buildPersistentClientSavingsTrends(hourlySavings);
+}
+
 // Fold the upstream per-provider breakdown into the two connectors the desktop
 // supports. Anything that isn't OpenAI/Codex is attributed to Claude Code,
 // including legacy "unknown" buckets from before per-provider attribution
@@ -372,6 +488,7 @@ export function formatLearnStatus(project: {
 const KNOWN_CONNECTOR_IDS = new Set([
   "claude_code",
   "codex",
+  ...managedConnectorDossiers.map((connector) => connector.id),
   ...plannedConnectors.map((connector) => connector.id),
 ]);
 
@@ -406,25 +523,31 @@ export interface PlannedConnectorReadinessSummary {
 export function summarizePlannedConnectorReadiness(
   connectors: ClientConnectorStatus[]
 ): PlannedConnectorReadinessSummary {
-  const planned = aggregateClientConnectors(connectors).filter(
-    (connector) => connector.supportStatus === "planned"
+  const readinessConnectors = aggregateClientConnectors(connectors).filter(
+    (connector) => getPlannedConnector(connector.clientId) !== null
   );
-  const detected = planned.filter((connector) => connector.installed);
-  const notDetected = planned.filter((connector) => !connector.installed);
+  const detected = readinessConnectors.filter((connector) => connector.installed);
+  const notDetected = readinessConnectors.filter((connector) => !connector.installed);
+  const managedDetectedCount = detected.filter(
+    (connector) => connectorSupportsAutomaticSetup(connector)
+  ).length;
 
   const detectedNames = detected.map((connector) => connector.name);
   const notDetectedNames = notDetected.map((connector) => connector.name);
-  const supportSummary = summarizePlannedConnectorSupport();
+  const supportSummary = summarizePlannedConnectorSupport([
+    ...managedConnectorDossiers,
+    ...plannedConnectors,
+  ]);
   const detectedCopy =
-    detectedNames.length > 0 ? detectedNames.join(", ") : "No planned tools";
+    detectedNames.length > 0 ? detectedNames.join(", ") : "No connector tools";
   const notDetectedCopy =
     notDetectedNames.length > 0
       ? notDetectedNames.join(", ")
-      : "all planned tools detected";
+      : "all connector tools detected";
 
   return {
     detectedCount: detected.length,
-    manualOnlyCount: planned.length,
+    manualOnlyCount: readinessConnectors.length - managedDetectedCount,
     notDetectedCount: notDetected.length,
     safeTodayCount: supportSummary.safeTodayCount,
     plannedCapabilityCount: supportSummary.plannedCount,
@@ -433,13 +556,13 @@ export function summarizePlannedConnectorReadiness(
     notDetectedNames,
     headline:
       detected.length > 0
-        ? `${detected.length} planned tool${detected.length === 1 ? "" : "s"} detected locally`
-        : "No planned coding tools detected yet",
+        ? `${detected.length} connector tool${detected.length === 1 ? "" : "s"} detected locally`
+        : "No connector coding tools detected yet",
     detail:
-      `${detectedCopy} are read-only today. Not found: ${notDetectedCopy}. ` +
+      `${detectedCopy} have connector readiness evidence. Not found: ${notDetectedCopy}. ` +
       `${supportSummary.safeTodayCount} safe capabilities are available now; ` +
       `${supportSummary.plannedCount} remain gated behind ${supportSummary.automationGateCount} backup, restore, and Off mode checks. ` +
-      "Automatic routing stays locked until backup, restore, and Off mode cleanup ship."
+      "Promoted managed routes can be repaired now; unpromoted native routing stays locked until backup, restore, and Off mode cleanup ship."
   };
 }
 
@@ -461,8 +584,8 @@ export function connectorControlState(connector: ClientConnectorStatus): {
 } {
   if (!connectorSupportsAutomaticSetup(connector)) {
     const releaseCopy = connector.installed
-      ? "is detected, but automatic routing is not available yet"
-      : "support is planned for a later release";
+      ? "is detected, and managed routing remains gated until reversible setup evidence is proven"
+      : "setup is gated until reversible routing evidence is proven";
     const hint = connector.setupHint
       ? ` ${connector.setupHint}`
       : " Use RTK-only mode for command output savings today.";
@@ -494,8 +617,8 @@ export function connectorDashboardStatus(connector: ClientConnectorStatus): {
 } {
   if (!connectorSupportsAutomaticSetup(connector)) {
     return connector.installed
-      ? { label: connector.setupPhase ?? "Planned", tone: "pending" }
-      : { label: "Coming soon", tone: "idle" };
+      ? { label: connector.setupPhase ?? "Gated", tone: "pending" }
+      : { label: "Gated", tone: "idle" };
   }
   if (!connector.enabled) {
     return connector.installed
@@ -517,4 +640,234 @@ export function connectorSupportsAutomaticSetup(
     (connector.setupPhase ?? "managed") === "managed" &&
     (connector.supportStatus ?? "managed") === "managed"
   );
+}
+
+export interface ConnectorCompatibilityReport {
+  title: string;
+  primaryPathLabel: string;
+  binaryPath: string | null;
+  version: string | null;
+  configSurface: string | null;
+  routingBlocker: string | null;
+  automationEnabled: boolean;
+  configCreationGates: Array<
+    Pick<PlannedConnectorConfigCreationStep, "id" | "label">
+  >;
+  otherEvidence: string[];
+}
+
+export function connectorCompatibilityRoutingEvidenceLabel(
+  report: ConnectorCompatibilityReport,
+) {
+  return report.routingBlocker?.startsWith("Provider routing blocked") ||
+    report.routingBlocker?.startsWith("Settings routing blocked")
+    ? "Blocked"
+    : "Routing evidence";
+}
+
+function evidenceValue(evidence: string, prefix: string) {
+  return evidence.startsWith(prefix) ? evidence.slice(prefix.length).trim() : null;
+}
+
+export const plannedConnectorCompatibilityReportConfigs: Partial<
+  Record<
+    string,
+    {
+      label: string;
+      primaryPathLabel: string;
+      pathPrefix: string;
+      versionPrefix: string | null;
+      configPrefix: string;
+    }
+  >
+> = {
+  amazon_q: {
+    label: "Amazon Q",
+    primaryPathLabel: "Binary",
+    pathPrefix: "Amazon Q binary:",
+    versionPrefix: "Amazon Q version:",
+    configPrefix: "Amazon Q config surface:"
+  },
+  aider: {
+    label: "Aider",
+    primaryPathLabel: "Binary",
+    pathPrefix: "Aider binary:",
+    versionPrefix: "Aider version:",
+    configPrefix: "Aider config surface:"
+  },
+  cursor: {
+    label: "Cursor",
+    primaryPathLabel: "App",
+    pathPrefix: "Cursor app:",
+    versionPrefix: null,
+    configPrefix: "Cursor profile settings:"
+  },
+  continue: {
+    label: "Continue",
+    primaryPathLabel: "Command",
+    pathPrefix: "Continue command:",
+    versionPrefix: null,
+    configPrefix: "Continue config folder:"
+  },
+  gemini_cli: {
+    label: "Gemini",
+    primaryPathLabel: "Binary",
+    pathPrefix: "Gemini binary:",
+    versionPrefix: "Gemini version:",
+    configPrefix: "Gemini config surface:"
+  },
+  goose: {
+    label: "Goose",
+    primaryPathLabel: "Binary",
+    pathPrefix: "Goose binary:",
+    versionPrefix: "Goose version:",
+    configPrefix: "Goose config surface:"
+  },
+  grok_cli: {
+    label: "Grok / xAI",
+    primaryPathLabel: "Binary",
+    pathPrefix: "Grok / xAI binary:",
+    versionPrefix: "Grok / xAI version:",
+    configPrefix: "Grok / xAI config surface:"
+  },
+  qwen_code: {
+    label: "Qwen Code",
+    primaryPathLabel: "Binary",
+    pathPrefix: "Qwen Code binary:",
+    versionPrefix: "Qwen Code version:",
+    configPrefix: "Qwen Code config surface:"
+  },
+};
+
+export function connectorCompatibilityReport(
+  connector: ClientConnectorStatus
+): ConnectorCompatibilityReport | null {
+  const reportConfig =
+    plannedConnectorCompatibilityReportConfigs[connector.clientId];
+  if (!reportConfig) {
+    return null;
+  }
+
+  const evidence = connector.detectionEvidence ?? [];
+  const binaryPath =
+    evidence.map((item) => evidenceValue(item, reportConfig.pathPrefix)).find(Boolean) ??
+    null;
+  const version = reportConfig.versionPrefix
+    ? evidence.map((item) => evidenceValue(item, reportConfig.versionPrefix!)).find(Boolean) ??
+      null
+    : null;
+  const configSurface =
+    evidence
+      .map((item) => evidenceValue(item, reportConfig.configPrefix))
+      .find(Boolean) ?? null;
+  const routingBlocker =
+    evidence.find(
+      (item) =>
+        item.startsWith("Provider routing blocked") ||
+        item.startsWith("Settings routing blocked") ||
+        item.startsWith("Managed shell/base-url routing") ||
+        item.startsWith("Managed provider routing") ||
+        item.startsWith("Managed Windsurf settings routing") ||
+        item.startsWith("Managed Zed settings routing")
+    ) ?? null;
+  const knownEvidence = new Set(
+    [
+      binaryPath ? `${reportConfig.pathPrefix} ${binaryPath}` : null,
+      version && reportConfig.versionPrefix ? `${reportConfig.versionPrefix} ${version}` : null,
+      configSurface ? `${reportConfig.configPrefix} ${configSurface}` : null,
+      routingBlocker
+    ].filter((item): item is string => item !== null)
+  );
+  const otherEvidence = evidence.filter((item) => !knownEvidence.has(item));
+  const plannedConnector = getPlannedConnector(connector.clientId);
+  const configCreationPlan = plannedConnector
+    ? getPlannedConnectorConfigCreationPlan(plannedConnector)
+    : null;
+
+  if (!binaryPath && !version && !configSurface && !routingBlocker) {
+    return null;
+  }
+
+  return {
+    title: `${reportConfig.label} compatibility report`,
+    primaryPathLabel: reportConfig.primaryPathLabel,
+    binaryPath,
+    version,
+    configSurface,
+    routingBlocker,
+    automationEnabled: configCreationPlan?.automationEnabled ?? false,
+    configCreationGates:
+      configCreationPlan?.steps.map(({ id, label }) => ({
+        id,
+        label,
+      })) ?? [],
+    otherEvidence
+  };
+}
+
+export function formatPlannedConnectorConfigGateSummary(
+  connector: ClientConnectorStatus
+) {
+  const plannedConnector = getPlannedConnector(connector.clientId);
+  if (!plannedConnector) {
+    return null;
+  }
+
+  const plan = getPlannedConnectorConfigCreationPlan(plannedConnector);
+  const gateLabels = plan.steps.map((step) => step.label);
+  const nextGate = plan.steps.find((step) => step.id === "detect") ?? plan.steps[0];
+
+  return {
+    title: "Config creation gates",
+    detail: `${gateLabels.length} gates required before automatic setup: ${gateLabels.join(" -> ")}`,
+    nextGateLabel: nextGate.label,
+    automationEnabled: plan.automationEnabled,
+    safetyNote: plan.safetyNote,
+  };
+}
+
+export function formatConnectorConfigDryRunPreview(
+  connector: ClientConnectorStatus
+) {
+  if (connector.configDryRunPreview) {
+    const preview = connector.configDryRunPreview;
+    return [
+      "## Dry-run diff preview",
+      `- Target: ${preview.target}`,
+      `- Marker: ${preview.marker}`,
+      `- Backup: ${preview.backupPath}`,
+      `- Current managed block: ${preview.currentState}`,
+      `- Proposed managed block: ${preview.proposedState}`,
+      `- Apply blocked: ${preview.applyBlockedReason}`,
+      `- Writes: ${preview.writes.length ? preview.writes.join(", ") : "none; preview only; apply stays disabled"}`,
+      `- Rollback: ${preview.rollbackPreview}`,
+      `- Confirmation phrase: ${preview.confirmationPhrase}`,
+    ].join("\n");
+  }
+
+  const report = connectorCompatibilityReport(connector);
+  const safetyDossier = getPlannedConnectorSafetyDossier(connector.clientId);
+  const target =
+    report?.configSurface ??
+    connector.configLocations?.find((location) => location.trim().length > 0) ??
+    "not detected yet";
+  const markerId = `mac-ai-switchboard:${connector.clientId}`;
+  const backupPath =
+    target === "not detected yet" ? "blocked until target is detected" : `${target}.mac-ai-switchboard.bak`;
+  const gates = report?.configCreationGates.length
+    ? report.configCreationGates.map((gate) => gate.label).join(" -> ")
+    : "Detect config surface -> Show dry-run diff -> Create backup -> Apply with consent -> Verify in Doctor -> Rollback safely -> Clean up in Off mode";
+
+  return [
+    "## Dry-run diff preview",
+    `- Target: ${target}`,
+    `- Marker: ${markerId}`,
+    `- Backup: ${backupPath}`,
+    "- Current managed block: none detected",
+    `- Proposed managed block: Mac AI Switchboard provider routing for ${connector.name}`,
+    "- Apply blocked: detection, dry-run diff, backup, verify, rollback, and Off cleanup evidence are incomplete",
+    "- Writes: none; preview only; apply stays disabled",
+    `- Rollback: ${safetyDossier?.rollbackStrategy ?? "Remove only Switchboard-managed routing."}`,
+    `- Gates: ${gates}`,
+  ].join("\n");
 }

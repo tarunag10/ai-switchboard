@@ -6,6 +6,7 @@ import {
   getContactRequestValidationError,
   getInitialLauncherStage,
   getLauncherAutoConfigureDecision,
+  hasPendingOneClickProxyVerification,
   isValidEmailAddress,
   needsTermsAcceptance,
   nextAutoConfigureStep,
@@ -88,6 +89,18 @@ describe("launcher helpers", () => {
         { clientId: "codex", name: "Codex", installed: true, enabled: false, verified: false }
       ])
     ).toBe("apply_client_setup");
+    expect(
+      getLauncherAutoConfigureDecision([
+        {
+          clientId: "goose",
+          name: "Goose",
+          setupPhase: "adapt",
+          installed: true,
+          enabled: false,
+          verified: false
+        }
+      ])
+    ).toBe("show_client_setup");
   });
 
   it("builds initial proxy verification rows from enabled installed Claude connectors", () => {
@@ -114,9 +127,42 @@ describe("launcher helpers", () => {
         clientId: "claude_code",
         name: "Claude Code",
         state: "processing",
-        message: "Waiting for a Claude Code prompt..."
+        message: "Ready to send a Claude Code test prompt.",
+        oneClickSupported: true
       }
     ]);
+  });
+
+  it("marks one-click verification only for supported pending connector rows", () => {
+    expect(
+      hasPendingOneClickProxyVerification([
+        {
+          clientId: "claude_code",
+          name: "Claude Code",
+          state: "processing",
+          message: "Ready",
+          oneClickSupported: true
+        }
+      ])
+    ).toBe(true);
+    expect(
+      hasPendingOneClickProxyVerification([
+        {
+          clientId: "claude_code",
+          name: "Claude Code",
+          state: "verified",
+          message: "Request received",
+          oneClickSupported: true
+        },
+        {
+          clientId: "cursor",
+          name: "Cursor",
+          state: "waiting",
+          message: "Manual",
+          oneClickSupported: false
+        }
+      ])
+    ).toBe(false);
   });
 
   describe("getInitialLauncherStage", () => {
@@ -183,6 +229,21 @@ describe("launcher helpers", () => {
           { clientId: "codex", name: "Codex", installed: false, enabled: false, verified: false }
         ])
       ).toEqual({ kind: "apply", clientIds: ["codex"] });
+    });
+
+    it("does not auto-apply detected gated connectors that omit support status", () => {
+      expect(
+        nextAutoConfigureStep("apply_client_setup", [
+          {
+            clientId: "goose",
+            name: "Goose",
+            setupPhase: "adapt",
+            installed: true,
+            enabled: false,
+            verified: false
+          }
+        ])
+      ).toEqual({ kind: "show_client_setup" });
     });
 
     it("falls back to manual setup when apply_client_setup has no detected connector", () => {

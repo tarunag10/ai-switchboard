@@ -8,17 +8,44 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 use crate::models::{
-    ClientConnectorStatus, ClientConnectorSupportStatus, ClientHealth, ClientSetupResult,
-    ClientSetupVerification, ClientStatus, SavingsMode, SwitchboardMode,
+    ClientConnectorAutomationStage, ClientConnectorConfigCreationStep,
+    ClientConnectorConfigDryRunPreview, ClientConnectorStatus, ClientConnectorSupportStatus,
+    ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus, CodexDbRestoreResult,
+    CodexThreadRetaggingMode, CodexThreadRetaggingReport, CodexThreadRetaggingRunReport,
+    CodexThreadRetaggingSettings, ManagedConfigApplyPreview, ManagedConfigApplyResult,
+    ManagedFootprintItem, ManagedFootprintReport, ManagedRollbackExecutionResult,
+    ManagedRollbackExecutionStatus, ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult,
+    ManagedRollbackUndoAllPreview, SavingsMode, SwitchboardMode, UninstallDryRunReport,
+    UninstallTarget,
 };
-use crate::storage::{app_data_dir, config_file};
+use crate::storage::{app_data_dir, config_file, LEGACY_STORAGE_DIR_NAME};
 
 // Raw proxy base — use provider-specific constants below when configuring client endpoints.
 const HEADROOM_PROXY_URL: &str = "http://127.0.0.1:6767";
 const HEADROOM_ANTHROPIC_BASE_URL: &str = "http://127.0.0.1:6767";
 const HEADROOM_OPENAI_BASE_URL: &str = "http://127.0.0.1:6767/v1";
+const GEMINI_BASE_URL_ENV_KEY: &str = "GOOGLE_GEMINI_BASE_URL";
+const GEMINI_COMPAT_BASE_URL_ENV_KEY: &str = "GEMINI_BASE_URL";
+const GEMINI_API_KEY_ENV_KEY: &str = "GEMINI_API_KEY";
+const GEMINI_HEADROOM_API_KEY_VALUE: &str = "headroom-local";
+const OPENCODE_CONFIG_FILE: &str = "opencode.json";
+const OPENCODE_HEADROOM_PROVIDER_ID: &str = "headroom";
+const CURSOR_CONFIG_FILE: &str = "settings.json";
+const CURSOR_MARKER_PREFIX: &str = "headroom:cursor";
+const WINDSURF_CONFIG_FILE: &str = "settings.json";
+const WINDSURF_MARKER_PREFIX: &str = "headroom:windsurf";
+const ZED_CONFIG_FILE: &str = "settings.json";
+const ZED_MARKER_PREFIX: &str = "headroom:zed";
+const SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md";
+const CONNECTOR_MANIFEST_JSON: &str = include_str!("../../connectors/manifest.json");
+const LEGACY_MARKER_PREFIX: &str = "headroom";
+const MARKER_PREFIX: &str = "headroom";
+const SWITCHBOARD_MARKER_PREFIX: &str = "mac-ai-switchboard";
+const APP_BUNDLE_ID: &str = "com.tarunagarwal.mac-ai-switchboard";
 const ZSH_PROFILE_FILE: &str = ".zprofile";
 const ZSH_RC_FILE: &str = ".zshrc";
 const BASH_PROFILE_FILE: &str = ".bash_profile";
@@ -64,24 +91,137 @@ struct PlannedClientSpec {
     manual_workflow: &'static [&'static str],
 }
 
+#[derive(Debug, Clone, Copy)]
+struct PlannedSidecarSpec {
+    id: &'static str,
+    name: &'static str,
+    config_dir: &'static [&'static str],
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ConnectorManifest {
+    id: String,
+    name: String,
+    category: String,
+    support_status: String,
+    detection: ConnectorManifestDetection,
+    config: Option<ConnectorManifestConfig>,
+    automation_gates: Vec<String>,
+    manual_workflow: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+struct ConnectorManifestDetection {
+    #[serde(default)]
+    binaries: Vec<String>,
+    #[serde(default)]
+    paths: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+struct ConnectorManifestConfig {
+    #[serde(default)]
+    locations: Vec<String>,
+    #[serde(default)]
+    forbidden_reads: Vec<String>,
+}
+
+const PLANNED_SIDECAR_SPECS: [PlannedSidecarSpec; 11] = [
+    PlannedSidecarSpec {
+        id: "gemini_cli",
+        name: "Gemini CLI",
+        config_dir: &[".gemini"],
+    },
+    PlannedSidecarSpec {
+        id: "opencode",
+        name: "OpenCode",
+        config_dir: &[".config", "opencode"],
+    },
+    PlannedSidecarSpec {
+        id: "cursor",
+        name: "Cursor",
+        config_dir: &["Library", "Application Support", "Cursor"],
+    },
+    PlannedSidecarSpec {
+        id: "grok_cli",
+        name: "Grok / xAI CLI",
+        config_dir: &[".config", "xai"],
+    },
+    PlannedSidecarSpec {
+        id: "aider",
+        name: "Aider",
+        config_dir: &[".config", "aider"],
+    },
+    PlannedSidecarSpec {
+        id: "continue",
+        name: "Continue",
+        config_dir: &[".continue"],
+    },
+    PlannedSidecarSpec {
+        id: "goose",
+        name: "Goose",
+        config_dir: &[".config", "goose"],
+    },
+    PlannedSidecarSpec {
+        id: "qwen_code",
+        name: "Qwen Code",
+        config_dir: &[".qwen"],
+    },
+    PlannedSidecarSpec {
+        id: "amazon_q",
+        name: "Amazon Q Developer CLI",
+        config_dir: &[".aws", "amazonq"],
+    },
+    PlannedSidecarSpec {
+        id: "windsurf",
+        name: "Windsurf",
+        config_dir: &["Library", "Application Support", "Windsurf"],
+    },
+    PlannedSidecarSpec {
+        id: "zed_ai",
+        name: "Zed AI",
+        config_dir: &[".config", "zed"],
+    },
+];
+
+const PLANNED_CONFIG_CREATION_STEPS: [&str; 7] = [
+    "Detect config surface",
+    "Show dry-run diff",
+    "Create backup",
+    "Apply with consent",
+    "Verify in Doctor",
+    "Rollback safely",
+    "Clean up in Off mode",
+];
+
+const PLANNED_CONFIG_CREATION_STEP_IDS: [&str; 7] = [
+    "detect",
+    "dryRunDiff",
+    "backup",
+    "apply",
+    "verify",
+    "rollback",
+    "offCleanup",
+];
+
 const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
     PlannedClientSpec {
         id: "gemini_cli",
         name: "Gemini CLI",
         category: "cli",
-        setup_phase: "guide",
-        setup_hint: "Manual guide only. Reversible Gemini provider routing is planned once config support is verified.",
+        setup_phase: "adapt",
+        setup_hint: "Managed shell/base-url routing with sibling rollback backups, Doctor verification, rollback, and Off mode cleanup.",
         detection_sources: &["PATH: gemini", "~/.gemini", "~/.config/gemini"],
         config_locations: &["~/.gemini", "~/.config/gemini"],
         automation_gates: &[
-            "Detect stable Gemini provider config or documented local proxy flag.",
-            "Back up provider settings before any routing change.",
-            "Verify Off mode restores Gemini without changing account state.",
+            "Detect Gemini CLI and Gemini provider config surfaces before applying routing.",
+            "Write only Switchboard-managed shell/base-url routing and sibling rollback backups.",
+            "Verify Doctor repair, model/account compatibility visibility, and Off mode cleanup preserve account state.",
         ],
         manual_workflow: &[
             "Confirm Gemini CLI is installed.",
-            "Use RTK-only mode for noisy Gemini shell output.",
-            "Keep provider routing manual until Doctor can verify model/account compatibility.",
+            "Toggle the connector on from Settings.",
+            "Use Doctor repair if managed Gemini routing drifts.",
         ],
     },
     PlannedClientSpec {
@@ -89,7 +229,7 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         name: "OpenCode",
         category: "cli",
         setup_phase: "adapt",
-        setup_hint: "Manual guide only. Automatic setup waits for backed-up provider config edits and Off mode cleanup.",
+        setup_hint: "Managed provider routing with backup, Doctor verification, rollback, and Off mode cleanup.",
         detection_sources: &["PATH: opencode", "PATH: open-code", "~/.opencode", "~/.config/opencode"],
         config_locations: &["~/.opencode", "~/.config/opencode"],
         automation_gates: &[
@@ -99,8 +239,8 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         ],
         manual_workflow: &[
             "Confirm OpenCode is installed.",
-            "Run OpenCode commands through RTK when output is noisy.",
-            "Leave provider config edits manual until restore checks ship.",
+            "Toggle the connector on from Settings.",
+            "Use Doctor repair if managed OpenCode routing drifts.",
         ],
     },
     PlannedClientSpec {
@@ -110,11 +250,18 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         setup_phase: "guide",
         setup_hint: "Manual guide only. Cursor routing stays opt-in until account-specific settings are safely detected.",
         detection_sources: &["PATH: cursor", "/Applications/Cursor.app", "~/Library/Application Support/Cursor"],
-        config_locations: &["~/Library/Application Support/Cursor"],
+        config_locations: &[
+            "~/Library/Application Support/Cursor/User/settings.json",
+            "~/Library/Application Support/Cursor/User/globalStorage",
+        ],
         automation_gates: &[
-            "Detect active Cursor profile before reading settings.",
-            "Back up settings without touching extension-managed secrets.",
-            "Keep account-specific model choices visible before routing.",
+            "Detect the active Cursor user profile and settings surface before proposing provider changes.",
+            "Show a dry-run diff and keep account-specific model choices visible before routing.",
+            "Back up Cursor settings without reading extension-managed secrets or global state databases.",
+            "Require exact user consent before any native/provider write is enabled.",
+            "Verify Cursor routing through Doctor evidence after a managed write.",
+            "Rollback restores the exact profile backup without touching unrelated editor or extension config.",
+            "Off mode removes only Switchboard-owned Cursor routing markers.",
         ],
         manual_workflow: &[
             "Open Cursor settings.",
@@ -183,27 +330,30 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         id: "goose",
         name: "Goose",
         category: "agent",
-        setup_phase: "adapt",
-        setup_hint: "Manual guide only. Provider routing and MCP handoff support are planned after reversible setup coverage.",
+        setup_phase: "managed mcp",
+        setup_hint: "Managed MCP bridge only. Repo Memory MCP handoff is read-only; provider routing remains manual until reversible setup coverage.",
         detection_sources: &["PATH: goose", "~/.config/goose"],
-        config_locations: &["~/.config/goose"],
+        config_locations: &[
+            "~/Library/Application Support/Headroom/config/repo-memory-mcp.json",
+            "~/.config/goose",
+        ],
         automation_gates: &[
-            "Detect Goose provider configuration safely.",
-            "Confirm MCP handoff shape before adding managed setup.",
-            "Verify Off mode removes local provider routing and leaves MCP config intact.",
+            "Install only the app-managed Repo Memory MCP descriptor after Goose detection.",
+            "Verify the read-only MCP smoke contract before advertising Goose handoff readiness.",
+            "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata; provider routing stays manual.",
         ],
         manual_workflow: &[
             "Confirm Goose is installed.",
-            "Copy Repo Intelligence packs into Goose sessions today.",
-            "Wait for managed MCP handoff before enabling automatic provider setup.",
+            "Prepare Repo Memory MCP from Mode Inspector for managed context handoff.",
+            "Keep Goose provider and model routing manual until native provider surfaces are proven.",
         ],
     },
     PlannedClientSpec {
         id: "qwen_code",
         name: "Qwen Code",
         category: "cli",
-        setup_phase: "detect",
-        setup_hint: "Detection only. Keep provider routing manual until Qwen config and account behavior are verified.",
+        setup_phase: "managed",
+        setup_hint: "Managed Switchboard-owned sidecar setup with Doctor verify, rollback, and Off mode cleanup; native provider/account config remains manual.",
         detection_sources: &["PATH: qwen", "PATH: qwen-code", "~/.qwen", "~/.config/qwen"],
         config_locations: &["~/.qwen", "~/.config/qwen"],
         automation_gates: &[
@@ -240,31 +390,31 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         id: "windsurf",
         name: "Windsurf",
         category: "editor",
-        setup_phase: "guide",
-        setup_hint: "Manual guide only. Editor provider configs need backup and restore coverage before writes.",
+        setup_phase: "adapt",
+        setup_hint: "Managed editor settings routing with backup, Doctor verification, rollback, and Off mode cleanup.",
         detection_sources: &[
             "PATH: windsurf",
             "~/Library/Application Support/Windsurf",
             "/Applications/Windsurf.app",
         ],
-        config_locations: &["~/Library/Application Support/Windsurf"],
+        config_locations: &["~/Library/Application Support/Windsurf/User/settings.json"],
         automation_gates: &[
-            "Identify provider config format without dropping unknown fields.",
-            "Back up editor settings before any routing change.",
-            "Verify Off mode restores the exact prior editor provider state.",
+            "Back up Windsurf settings before managed routing edits.",
+            "Verify managed Windsurf routing points at Headroom.",
+            "Verify Off mode removes only Switchboard-owned managed markers.",
         ],
         manual_workflow: &[
-            "Open Windsurf and keep provider setup manual.",
-            "Paste handoff packs as read-only project context.",
-            "Use Switchboard only for local RTK and Repo Intelligence support today.",
+            "Confirm Windsurf is installed.",
+            "Toggle the connector on from Settings.",
+            "Use Doctor repair if managed Windsurf routing drifts.",
         ],
     },
     PlannedClientSpec {
         id: "zed_ai",
         name: "Zed AI",
         category: "editor",
-        setup_phase: "guide",
-        setup_hint: "Manual guide only. Zed assistant settings require explicit backup/restore support first.",
+        setup_phase: "adapt",
+        setup_hint: "Managed editor settings routing with backup, Doctor verification, rollback, and Off mode cleanup.",
         detection_sources: &[
             "PATH: zed",
             "~/.config/zed",
@@ -273,17 +423,332 @@ const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         ],
         config_locations: &["~/.config/zed", "~/Library/Application Support/Zed"],
         automation_gates: &[
-            "Parse Zed assistant settings without losing user options.",
-            "Back up exact settings before managed provider routing.",
-            "Verify Off mode removes only Switchboard-owned changes.",
+            "Detect Zed settings before injecting managed routing.",
+            "Preserve unknown settings losslessly.",
+            "Verify Off mode removes only Switchboard-owned managed routing.",
         ],
         manual_workflow: &[
-            "Open Zed assistant settings manually.",
-            "Paste Repo Intelligence handoff packs into AI chat.",
-            "Keep model/provider choice manual until Doctor can verify it safely.",
+            "Confirm Zed is installed.",
+            "Toggle the connector on from Settings.",
+            "Use Doctor repair if managed Zed routing drifts.",
         ],
     },
 ];
+
+fn connector_manifests() -> Vec<ConnectorManifest> {
+    serde_json::from_str(CONNECTOR_MANIFEST_JSON).unwrap_or_default()
+}
+
+fn connector_manifest(client_id: &str) -> Option<ConnectorManifest> {
+    connector_manifests()
+        .into_iter()
+        .find(|manifest| manifest.id == client_id)
+}
+
+fn manifest_support_status(manifest: Option<&ConnectorManifest>) -> ClientConnectorSupportStatus {
+    match manifest.map(|item| item.support_status.as_str()) {
+        Some("managed") => ClientConnectorSupportStatus::Managed,
+        _ => ClientConnectorSupportStatus::Planned,
+    }
+}
+
+fn manifest_detection_sources(manifest: &ConnectorManifest) -> Vec<String> {
+    manifest
+        .detection
+        .binaries
+        .iter()
+        .map(|binary| format!("PATH: {binary}"))
+        .chain(manifest.detection.paths.iter().cloned())
+        .collect()
+}
+
+fn manifest_config_locations(manifest: Option<&ConnectorManifest>) -> Vec<String> {
+    manifest
+        .and_then(|item| item.config.as_ref())
+        .map(|config| config.locations.clone())
+        .unwrap_or_default()
+}
+
+fn manifest_forbidden_reads(manifest: Option<&ConnectorManifest>) -> Vec<String> {
+    manifest
+        .and_then(|item| item.config.as_ref())
+        .map(|config| config.forbidden_reads.clone())
+        .unwrap_or_default()
+}
+
+fn planned_config_creation_step_details(
+    spec: &PlannedClientSpec,
+    forbidden_reads: &[String],
+) -> Vec<ClientConnectorConfigCreationStep> {
+    let detect_detail = format!(
+        "Read-only probe only: inspect {} and watch {} without creating or modifying config.",
+        spec.detection_sources.join(", "),
+        spec.config_locations.join(", ")
+    );
+    let forbidden_boundary = if forbidden_reads.is_empty() {
+        String::new()
+    } else {
+        format!(
+            " Forbidden reads excluded from dry-run and backup probes: {}.",
+            forbidden_reads.join(", ")
+        )
+    };
+    let dry_run_detail = format!(
+        "Preview a copyable dry-run artifact with target path, before/after provider intent, managed marker boundary, rollback preview, and confirmation phrase before any file, profile, or environment edit.{forbidden_boundary}"
+    );
+    let backup_detail = spec
+        .automation_gates
+        .iter()
+        .find(|gate| gate.to_lowercase().contains("back up"))
+        .copied()
+        .unwrap_or("Create a timestamped backup before any managed setup.")
+        .to_string();
+    let apply_detail = format!(
+        "Apply stays disabled for {} until the dry-run diff, backup, verify, rollback, and Off cleanup gates all pass.",
+        spec.name
+    );
+    let verify_detail = spec
+        .automation_gates
+        .iter()
+        .find(|gate| {
+            let gate = gate.to_lowercase();
+            gate.contains("doctor")
+                || gate.contains("verify")
+                || gate.contains("guardrails")
+                || gate.contains("compatibility")
+        })
+        .copied()
+        .unwrap_or("Doctor verification must prove the connector state after setup.")
+        .to_string();
+    let rollback_detail = spec
+        .automation_gates
+        .iter()
+        .find(|gate| {
+            let gate = gate.to_lowercase();
+            gate.contains("restore") || gate.contains("off mode") || gate.contains("unchanged")
+        })
+        .copied()
+        .unwrap_or("Rollback must restore previous config without touching unrelated settings.")
+        .to_string();
+    let off_cleanup_detail = format!(
+        "Off cleanup removes only Switchboard-managed routing; manual workflow remains: {}",
+        spec.manual_workflow.join(" ")
+    );
+    let details = [
+        detect_detail,
+        dry_run_detail,
+        backup_detail,
+        apply_detail,
+        verify_detail,
+        rollback_detail,
+        off_cleanup_detail,
+    ];
+    let required_evidence = [
+        vec![
+            "Read-only binary or app detection result.".to_string(),
+            "Detected config, settings, profile, or environment surface documented without writes."
+                .to_string(),
+        ],
+        vec![
+            "User-visible dry-run diff artifact showing target, before/after local proxy/provider change, managed marker boundary, rollback preview, and confirmation phrase."
+                .to_string(),
+            "No files, profiles, credentials, or account state changed by the preview.".to_string(),
+        ],
+        vec![
+            "Timestamped backup path or environment-wrapper restore point.".to_string(),
+            "Fixture-home restore test proving unknown fields and unrelated provider entries are preserved."
+                .to_string(),
+        ],
+        vec![
+            format!("Explicit user consent captured for {}.", spec.name),
+            "Managed marker or wrapper boundary proving only Switchboard-owned routing was applied."
+                .to_string(),
+        ],
+        vec![
+            "Doctor check confirming account/model guardrails without storing secrets.".to_string(),
+            "Compatibility or caveat message visible before routing is considered supported."
+                .to_string(),
+        ],
+        vec![
+            "Fixture-home rollback test restoring the exact backup or removing only managed wrapper state."
+                .to_string(),
+            "Post-rollback diff proving unrelated user settings are unchanged.".to_string(),
+        ],
+        vec![
+            "Fixture-home Off-mode cleanup showing managed routing removed.".to_string(),
+            "Doctor verification that the connector returns to manual or RTK-only mode.".to_string(),
+        ],
+    ];
+
+    PLANNED_CONFIG_CREATION_STEP_IDS
+        .iter()
+        .zip(PLANNED_CONFIG_CREATION_STEPS.iter())
+        .zip(details)
+        .zip(required_evidence)
+        .map(
+            |(((id, label), detail), required_evidence)| ClientConnectorConfigCreationStep {
+                id: (*id).to_string(),
+                label: (*label).to_string(),
+                detail,
+                required_evidence,
+            },
+        )
+        .collect()
+}
+
+fn detected_config_surface<'a>(
+    spec: &'a PlannedClientSpec,
+    detection_evidence: &'a [String],
+) -> Option<String> {
+    if detection_evidence
+        .iter()
+        .any(|item| item == "Not detected on machine yet.")
+    {
+        return None;
+    }
+
+    for item in detection_evidence {
+        for label in [
+            "config surface:",
+            "config folder:",
+            "profile settings:",
+            "assistant settings:",
+            "settings:",
+        ] {
+            if let Some((_, value)) = item.split_once(label) {
+                let value = value.trim();
+                if !value.is_empty() && value != "none detected yet." {
+                    return Some(value.to_string());
+                }
+            }
+        }
+    }
+
+    spec.config_locations
+        .first()
+        .map(|location| location.to_string())
+}
+
+fn planned_connector_dry_run_preview(
+    spec: &PlannedClientSpec,
+    detection_evidence: &[String],
+) -> Option<ClientConnectorConfigDryRunPreview> {
+    let target = detected_config_surface(spec, detection_evidence)?;
+
+    Some(ClientConnectorConfigDryRunPreview {
+        target: target.clone(),
+        marker: format!("mac-ai-switchboard:{}", spec.id),
+        backup_path: format!("{target}.mac-ai-switchboard.bak"),
+        current_state: format!(
+            "No Switchboard-managed {} provider routing detected.",
+            spec.name
+        ),
+        proposed_state: format!(
+            "Preview only: no files are written. after explicit consent, add Mac AI Switchboard local provider routing for {}.",
+            spec.name
+        ),
+        apply_blocked_reason: format!(
+            "{} automation is disabled until backup, verify, rollback, and Off cleanup gates pass.",
+            spec.name
+        ),
+        rollback_preview:
+            format!("Restore the {} config backup or remove only the Switchboard-managed provider block.", spec.name),
+        confirmation_phrase: format!("APPLY {} CONFIG", spec.name.to_uppercase()),
+        writes: Vec::new(),
+    })
+}
+
+fn planned_connector_automation_path(
+    spec: &PlannedClientSpec,
+    installed: bool,
+    preview: Option<&ClientConnectorConfigDryRunPreview>,
+    enabled: bool,
+    verified: bool,
+) -> Vec<ClientConnectorAutomationStage> {
+    let step_details = planned_config_creation_step_details(spec, &[]);
+    let sidecar_spec = planned_sidecar_spec(spec.id);
+    step_details
+        .into_iter()
+        .map(|step| {
+            let status = match step.id.as_str() {
+                "detect" if installed => "ready",
+                "detect" => "blocked",
+                "dryRunDiff" if preview.is_some() => "ready",
+                "backup" | "apply" | "rollback" | "offCleanup"
+                    if sidecar_spec.is_some() && enabled =>
+                {
+                    "ready"
+                }
+                "verify" if sidecar_spec.is_some() && verified => "ready",
+                _ => "blocked",
+            };
+            let evidence = match step.id.as_str() {
+                "detect" if installed => {
+                    format!("{} has local detection evidence; no config writes performed.", spec.name)
+                }
+                "detect" => {
+                    format!("{} is not detected locally yet; install or expose it on PATH first.", spec.name)
+                }
+                "dryRunDiff" if let Some(preview) = preview => format!(
+                    "Blocked preview ready for {} with target {}, marker {}, backup {}, and confirmation phrase {}.",
+                    spec.name, preview.target, preview.marker, preview.backup_path, preview.confirmation_phrase
+                ),
+                "dryRunDiff" => {
+                    "Dry-run preview is blocked until a connector config surface is detected.".to_string()
+                }
+                "backup" if sidecar_spec.is_some() && enabled => format!(
+                    "{} sidecar writes use Headroom timestamped backups when {} already exists.",
+                    spec.name,
+                    planned_sidecar_routing_path(spec.id)
+                        .map(|path| path.display().to_string())
+                        .unwrap_or_else(|_| "the connector sidecar".to_string())
+                ),
+                "apply" if sidecar_spec.is_some() && enabled => format!(
+                    "{} sidecar is present at {} with the Switchboard-managed marker.",
+                    spec.name,
+                    planned_sidecar_routing_path(spec.id)
+                        .map(|path| path.display().to_string())
+                        .unwrap_or_else(|_| "the connector sidecar".to_string())
+                ),
+                "verify" if sidecar_spec.is_some() && verified => {
+                    format!(
+                        "Doctor verified the {} sidecar marker and local proxy endpoint reference.",
+                        spec.name
+                    )
+                }
+                "rollback" if sidecar_spec.is_some() && enabled => {
+                    format!(
+                        "Rollback removes only the Switchboard-managed {} sidecar block.",
+                        spec.name
+                    )
+                }
+                "offCleanup" if sidecar_spec.is_some() && enabled => {
+                    format!(
+                        "Off mode cleanup is wired through disable_client_setup for the {} sidecar.",
+                        spec.name
+                    )
+                }
+                _ => step.required_evidence.join(" "),
+            };
+            ClientConnectorAutomationStage {
+                id: step.id,
+                label: step.label,
+                status: status.to_string(),
+                evidence,
+            }
+        })
+        .collect()
+}
+
+fn planned_connector_has_implemented_setup(client_id: &str) -> bool {
+    planned_sidecar_spec(client_id).is_some()
+        && matches!(
+            connector_manifest(client_id)
+                .as_ref()
+                .map(|manifest| manifest.support_status.as_str()),
+            Some("managed")
+        )
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ShellFamily {
@@ -480,7 +945,70 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
                 .insert(state_id.clone(), serialize_paths(&shell_targets));
             // Pull existing native threads into the headroom-provider menu so the
             // Codex history list stays whole once it routes through Headroom.
-            retag_codex_thread_providers(CODEX_NATIVE_PROVIDER, CODEX_HEADROOM_PROVIDER);
+            let _ = retag_codex_thread_providers(CODEX_NATIVE_PROVIDER, CODEX_HEADROOM_PROVIDER);
+        }
+        "gemini_cli" => {
+            let shell_targets = resolve_client_shell_targets(&state, client_id)?;
+            let env_block = format!(
+                "export {GEMINI_BASE_URL_ENV_KEY}={HEADROOM_PROXY_URL}\nexport {GEMINI_COMPAT_BASE_URL_ENV_KEY}={HEADROOM_PROXY_URL}\nexport {GEMINI_API_KEY_ENV_KEY}={GEMINI_HEADROOM_API_KEY_VALUE}"
+            );
+            let mut updates = configure_shell_block(&shell_targets, "gemini_cli", &env_block)?;
+            let (changed, backup) = configure_planned_switchboard_sidecar(client_id)?;
+            if changed {
+                updates.0.push(
+                    planned_sidecar_routing_path(client_id)?
+                        .display()
+                        .to_string(),
+                );
+            }
+            if let Some(backup) = backup {
+                updates.1.push(backup.display().to_string());
+            }
+            changed_files.extend(updates.0);
+            backup_files.extend(updates.1);
+            state
+                .managed_shell_files
+                .insert(state_id.clone(), serialize_paths(&shell_targets));
+        }
+        "opencode" => {
+            let mut updates = configure_opencode_provider_config()?;
+            let (changed, backup) = configure_planned_switchboard_sidecar(client_id)?;
+            if changed {
+                updates.0.push(
+                    planned_sidecar_routing_path(client_id)?
+                        .display()
+                        .to_string(),
+                );
+            }
+            if let Some(backup) = backup {
+                updates.1.push(backup.display().to_string());
+            }
+            changed_files.extend(updates.0);
+            backup_files.extend(updates.1);
+        }
+        "windsurf" => {
+            let updates = configure_windsurf_provider_config()?;
+            changed_files.extend(updates.0);
+            backup_files.extend(updates.1);
+        }
+        "zed_ai" => {
+            let updates = configure_zed_provider_config()?;
+            changed_files.extend(updates.0);
+            backup_files.extend(updates.1);
+        }
+        other if planned_sidecar_spec(other).is_some() => {
+            if !planned_connector_has_implemented_setup(other) {
+                return Err(anyhow!(
+                    "Automatic setup is not supported yet for {other}. Use the guided workflow until backup, verify, rollback, and Off mode coverage are promoted."
+                ));
+            }
+            let (changed, backup) = configure_planned_switchboard_sidecar(other)?;
+            if changed {
+                changed_files.push(planned_sidecar_routing_path(other)?.display().to_string());
+            }
+            if let Some(backup) = backup {
+                backup_files.push(backup.display().to_string());
+            }
         }
         other => return Err(anyhow!("Automatic setup is not supported yet for {other}.",)),
     }
@@ -490,7 +1018,16 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
     write_setup_state(&state)?;
 
     let already_configured = changed_files.is_empty();
-    let summary = if already_configured {
+    let summary = if let Some(sidecar) = planned_sidecar_spec(client_id) {
+        if already_configured {
+            format!("{} Switchboard sidecar was already present.", sidecar.name)
+        } else {
+            format!(
+                "{} Switchboard sidecar written for reversible routing intent.",
+                sidecar.name
+            )
+        }
+    } else if already_configured {
         "Client was already configured for Headroom.".to_string()
     } else {
         "Client configuration updated to route through Headroom.".to_string()
@@ -511,6 +1048,17 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
                 "Run one {} prompt and verify activity appears in Headroom.",
                 match normalized_setup_id(client_id) {
                     "codex_cli" => "Codex",
+                    "gemini_cli" => "Gemini CLI",
+                    "opencode" => "OpenCode",
+                    "cursor" => "Cursor",
+                    "grok_cli" => "Grok / xAI CLI",
+                    "aider" => "Aider",
+                    "continue" => "Continue",
+                    "goose" => "Goose",
+                    "qwen_code" => "Qwen Code",
+                    "amazon_q" => "Amazon Q Developer CLI",
+                    "windsurf" => "Windsurf",
+                    "zed_ai" => "Zed AI",
                     _ => "Claude Code",
                 }
             ),
@@ -617,6 +1165,160 @@ pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
                     .push("Codex OPENAI_BASE_URL export was not found in shell profiles.".into());
             }
         }
+        "gemini_cli" => {
+            let state = load_setup_state();
+            let shell_targets = resolve_client_shell_targets(&state, client_id)?;
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("Unknown planned sidecar {client_id}"))?;
+            let sidecar_path = planned_sidecar_routing_path(client_id)?;
+            let sidecar_ok = planned_switchboard_sidecar_matches(client_id)?;
+            let google_base_ok = shell_block_contains_in_files(
+                &shell_targets,
+                "gemini_cli",
+                GEMINI_BASE_URL_ENV_KEY,
+                HEADROOM_PROXY_URL,
+            )?;
+            let compat_base_ok = shell_block_contains_in_files(
+                &shell_targets,
+                "gemini_cli",
+                GEMINI_COMPAT_BASE_URL_ENV_KEY,
+                HEADROOM_PROXY_URL,
+            )?;
+            let api_key_ok = shell_block_contains_in_files(
+                &shell_targets,
+                "gemini_cli",
+                GEMINI_API_KEY_ENV_KEY,
+                GEMINI_HEADROOM_API_KEY_VALUE,
+            )?;
+
+            if sidecar_ok {
+                checks.push(format!(
+                    "Found Switchboard-managed {} sidecar at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Switchboard-managed {} sidecar was not found at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            }
+            if google_base_ok {
+                checks.push(format!(
+                    "Found Gemini {} export pointing to Headroom.",
+                    GEMINI_BASE_URL_ENV_KEY
+                ));
+            } else {
+                failures.push(format!(
+                    "Gemini {} export was not found in shell profiles.",
+                    GEMINI_BASE_URL_ENV_KEY
+                ));
+            }
+            if compat_base_ok {
+                checks.push(format!(
+                    "Found Gemini compatibility {} export pointing to Headroom.",
+                    GEMINI_COMPAT_BASE_URL_ENV_KEY
+                ));
+            } else {
+                failures.push(format!(
+                    "Gemini compatibility {} export was not found in shell profiles.",
+                    GEMINI_COMPAT_BASE_URL_ENV_KEY
+                ));
+            }
+            if api_key_ok {
+                checks.push(format!(
+                    "Found Gemini {} export for local Headroom proxy auth.",
+                    GEMINI_API_KEY_ENV_KEY
+                ));
+            } else {
+                failures.push(format!(
+                    "Gemini {} export was not found in shell profiles.",
+                    GEMINI_API_KEY_ENV_KEY
+                ));
+            }
+        }
+        "opencode" => {
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("Unknown planned sidecar {client_id}"))?;
+            let sidecar_path = planned_sidecar_routing_path(client_id)?;
+            let sidecar_ok = planned_switchboard_sidecar_matches(client_id)?;
+            let provider_ok = opencode_provider_config_matches()?;
+
+            if sidecar_ok {
+                checks.push(format!(
+                    "Found Switchboard-managed {} sidecar at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Switchboard-managed {} sidecar was not found at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            }
+            if provider_ok {
+                checks.push(format!(
+                    "Found OpenCode provider {} pointing to Headroom.",
+                    OPENCODE_HEADROOM_PROVIDER_ID
+                ));
+            } else {
+                failures.push(format!(
+                    "OpenCode provider {} was not found in {}.",
+                    OPENCODE_HEADROOM_PROVIDER_ID,
+                    opencode_config_path().display()
+                ));
+            }
+        }
+        "windsurf" => {
+            let provider_ok = windsurf_provider_config_matches()?;
+            if provider_ok {
+                checks.push(format!(
+                    "Found Windsurf managed routing config in {}.",
+                    windsurf_config_path().display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Windsurf managed routing config was not found in {}.",
+                    windsurf_config_path().display()
+                ));
+            }
+        }
+        "zed_ai" => {
+            let provider_ok = zed_provider_config_matches()?;
+            if provider_ok {
+                checks.push(format!(
+                    "Found Zed managed routing config in {}.",
+                    zed_config_path().display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Zed managed routing config was not found in {}.",
+                    zed_config_path().display()
+                ));
+            }
+        }
+        other if planned_sidecar_spec(other).is_some() => {
+            let sidecar = planned_sidecar_spec(other)
+                .ok_or_else(|| anyhow!("Unknown planned sidecar {other}"))?;
+            let sidecar_path = planned_sidecar_routing_path(other)?;
+            let sidecar_ok = planned_switchboard_sidecar_matches(other)?;
+
+            if sidecar_ok {
+                checks.push(format!(
+                    "Found Switchboard-managed {} sidecar at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Switchboard-managed {} sidecar was not found at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            }
+        }
         other => return Err(anyhow!("Verification is not supported yet for {other}.",)),
     }
 
@@ -654,6 +1356,7 @@ pub fn list_client_connectors(
     let mut connectors = MANAGED_CLIENT_SPECS
         .iter()
         .map(|spec| {
+            let manifest = connector_manifest(spec.id);
             let installed = detected_clients
                 .iter()
                 .find(|client| client.id == spec.id)
@@ -666,86 +1369,238 @@ pub fn list_client_connectors(
                 || setup_state
                     .remembered_clients
                     .contains_key(normalized_setup_id(spec.id));
-            let verified = if enabled {
-                verify_client_setup(spec.id)
-                    .map(|result| result.verified)
-                    .unwrap_or(false)
+            let setup_verification = if enabled {
+                verify_client_setup(spec.id).ok()
             } else {
-                false
+                None
             };
+            let verified = setup_verification
+                .as_ref()
+                .map(|result| result.verified)
+                .unwrap_or(false);
 
             ClientConnectorStatus {
                 client_id: spec.id.to_string(),
-                name: spec.name.to_string(),
-                support_status: ClientConnectorSupportStatus::Managed,
+                name: manifest
+                    .as_ref()
+                    .map(|item| item.name.clone())
+                    .unwrap_or_else(|| spec.name.to_string()),
+                support_status: manifest_support_status(manifest.as_ref()),
                 setup_phase: "managed".to_string(),
                 setup_hint: "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.".to_string(),
-                category: "managed".to_string(),
-                detection_sources: vec!["App state and local config".to_string()],
+                category: manifest
+                    .as_ref()
+                    .map(|item| item.category.clone())
+                    .unwrap_or_else(|| "managed".to_string()),
+                detection_sources: manifest
+                    .as_ref()
+                    .map(manifest_detection_sources)
+                    .unwrap_or_else(|| vec!["App state and local config".to_string()]),
                 detection_evidence: detected_clients
                     .iter()
                     .find(|client| client.id == spec.id)
                     .map(|client| client.notes.clone())
                     .unwrap_or_default(),
-                config_locations: managed_connector_config_locations(spec.id),
-                automation_gates: vec![
-                    "Timestamped backups are created before managed config edits.".to_string(),
-                    "Verification confirms the connector routes through Headroom.".to_string(),
-                    "Off mode removes managed routing blocks and preserves user config.".to_string(),
-                ],
-                manual_workflow: vec![
-                    "Toggle the connector on from Settings.".to_string(),
-                    "Use Doctor repair if verification reports a drifted config.".to_string(),
-                    "Switch to Off mode to remove managed routing.".to_string(),
-                ],
+                config_locations: {
+                    let manifest_locations = manifest_config_locations(manifest.as_ref());
+                    if manifest_locations.is_empty() {
+                        managed_connector_config_locations(spec.id)
+                    } else {
+                        manifest_locations
+                    }
+                },
+                automation_gates: manifest
+                    .as_ref()
+                    .map(|item| item.automation_gates.clone())
+                    .unwrap_or_else(|| {
+                        vec![
+                            "Timestamped backups are created before managed config edits."
+                                .to_string(),
+                            "Verification confirms the connector routes through Headroom."
+                                .to_string(),
+                            "Off mode removes managed routing blocks and preserves user config."
+                                .to_string(),
+                        ]
+                    }),
+                manual_workflow: manifest
+                    .as_ref()
+                    .map(|item| item.manual_workflow.clone())
+                    .unwrap_or_else(|| {
+                        vec![
+                            "Toggle the connector on from Settings.".to_string(),
+                            "Use Doctor repair if verification reports a drifted config."
+                                .to_string(),
+                            "Switch to Off mode to remove managed routing.".to_string(),
+                        ]
+                    }),
+                config_creation_steps: Vec::new(),
+                config_creation_step_details: Vec::new(),
+                config_dry_run_preview: None,
+                automation_path: Vec::new(),
                 installed,
                 enabled,
                 verified,
+                setup_verification,
                 last_configured_at: configured_timestamp(&setup_state, spec.id),
             }
         })
         .collect::<Vec<_>>();
 
     connectors.extend(PLANNED_CLIENT_SPECS.iter().map(|spec| {
+        let manifest = connector_manifest(spec.id);
         let detected_client = detected_clients.iter().find(|client| client.id == spec.id);
         let installed = detected_client
             .map(|client| client.installed)
             .unwrap_or(false);
+        let detection_evidence = detected_client
+            .map(|client| client.notes.clone())
+            .unwrap_or_else(|| vec!["Not checked yet.".to_string()]);
+        let config_dry_run_preview = planned_connector_dry_run_preview(spec, &detection_evidence);
+        let has_implemented_setup = planned_connector_has_implemented_setup(spec.id);
+        let enabled = has_implemented_setup && is_configured(&setup_state, spec.id);
+        let setup_verification = if enabled {
+            verify_client_setup(spec.id).ok()
+        } else {
+            None
+        };
+        let verified = setup_verification
+            .as_ref()
+            .map(|result| result.verified)
+            .unwrap_or(false);
+        let automation_path = planned_connector_automation_path(
+            spec,
+            installed,
+            config_dry_run_preview.as_ref(),
+            enabled,
+            verified,
+        );
+        let support_status = manifest_support_status(manifest.as_ref());
+        let setup_phase = if has_implemented_setup {
+            "managed"
+        } else {
+            spec.setup_phase
+        };
+        let setup_hint = if has_implemented_setup {
+            "Automatic reversible setup, verification, repair, restore, and off-mode cleanup are supported."
+        } else {
+            spec.setup_hint
+        };
+        let automation_gates = if has_implemented_setup {
+            manifest
+                .as_ref()
+                .map(|item| item.automation_gates.clone())
+                .unwrap_or_else(|| {
+                    vec![
+                        "Timestamped backups are created before managed config edits.".to_string(),
+                        "Verification confirms managed routing config points to Headroom."
+                            .to_string(),
+                        "Off mode removes only Switchboard-managed routing and preserves user config."
+                            .to_string(),
+                    ]
+                })
+        } else {
+            manifest
+                .as_ref()
+                .map(|item| item.automation_gates.clone())
+                .unwrap_or_else(|| {
+                    spec.automation_gates
+                        .iter()
+                        .map(|gate| gate.to_string())
+                        .collect()
+                })
+        };
+        let manual_workflow = if has_implemented_setup {
+            manifest
+                .as_ref()
+                .map(|item| item.manual_workflow.clone())
+                .unwrap_or_else(|| {
+                    vec![
+                        "Toggle the connector on from Settings.".to_string(),
+                        "Use Doctor repair if verification reports a drifted config."
+                            .to_string(),
+                        "Switch to Off mode to remove managed routing.".to_string(),
+                    ]
+                })
+        } else {
+            manifest
+                .as_ref()
+                .map(|item| item.manual_workflow.clone())
+                .unwrap_or_else(|| {
+                    spec.manual_workflow
+                        .iter()
+                        .map(|step| step.to_string())
+                        .collect()
+                })
+        };
+        let config_creation_steps = if has_implemented_setup {
+            Vec::new()
+        } else {
+            PLANNED_CONFIG_CREATION_STEPS
+                .iter()
+                .map(|step| step.to_string())
+                .collect()
+        };
+        let forbidden_reads = manifest_forbidden_reads(manifest.as_ref());
+        let config_creation_step_details = if has_implemented_setup {
+            Vec::new()
+        } else {
+            planned_config_creation_step_details(spec, &forbidden_reads)
+        };
+        let config_dry_run_preview = if has_implemented_setup {
+            None
+        } else {
+            config_dry_run_preview
+        };
 
         ClientConnectorStatus {
             client_id: spec.id.to_string(),
-            name: spec.name.to_string(),
-            support_status: ClientConnectorSupportStatus::Planned,
-            setup_phase: spec.setup_phase.to_string(),
-            setup_hint: spec.setup_hint.to_string(),
-            category: spec.category.to_string(),
-            detection_sources: spec
-                .detection_sources
-                .iter()
-                .map(|source| source.to_string())
-                .collect(),
-            detection_evidence: detected_client
-                .map(|client| client.notes.clone())
-                .unwrap_or_else(|| vec!["Not checked yet.".to_string()]),
-            config_locations: spec
-                .config_locations
-                .iter()
-                .map(|location| location.to_string())
-                .collect(),
-            automation_gates: spec
-                .automation_gates
-                .iter()
-                .map(|gate| gate.to_string())
-                .collect(),
-            manual_workflow: spec
-                .manual_workflow
-                .iter()
-                .map(|step| step.to_string())
-                .collect(),
+            name: manifest
+                .as_ref()
+                .map(|item| item.name.clone())
+                .unwrap_or_else(|| spec.name.to_string()),
+            support_status,
+            setup_phase: setup_phase.to_string(),
+            setup_hint: setup_hint.to_string(),
+            category: manifest
+                .as_ref()
+                .map(|item| item.category.clone())
+                .unwrap_or_else(|| spec.category.to_string()),
+            detection_sources: manifest
+                .as_ref()
+                .map(manifest_detection_sources)
+                .unwrap_or_else(|| {
+                    spec.detection_sources
+                        .iter()
+                        .map(|source| source.to_string())
+                        .collect()
+                }),
+            detection_evidence,
+            config_locations: {
+                let manifest_locations = manifest_config_locations(manifest.as_ref());
+                if manifest_locations.is_empty() {
+                    spec.config_locations
+                        .iter()
+                        .map(|location| location.to_string())
+                        .collect()
+                } else {
+                    manifest_locations
+                }
+            },
+            automation_gates,
+            manual_workflow,
+            config_creation_steps,
+            config_creation_step_details,
+            config_dry_run_preview,
+            automation_path: if has_implemented_setup {
+                Vec::new()
+            } else {
+                automation_path
+            },
             installed,
-            enabled: false,
-            verified: false,
-            last_configured_at: None,
+            enabled,
+            verified,
+            setup_verification,
+            last_configured_at: configured_timestamp(&setup_state, spec.id),
         }
     }));
 
@@ -765,6 +1620,466 @@ fn managed_connector_config_locations(client_id: &str) -> Vec<String> {
         _ => Vec::new(),
     }
 }
+
+fn planned_sidecar_spec(client_id: &str) -> Option<&'static PlannedSidecarSpec> {
+    PLANNED_SIDECAR_SPECS
+        .iter()
+        .find(|spec| spec.id == normalized_setup_id(client_id))
+}
+
+fn planned_sidecar_routing_path(client_id: &str) -> Result<PathBuf> {
+    let spec = planned_sidecar_spec(client_id)
+        .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+    let mut path = home_dir();
+    for part in spec.config_dir {
+        path = path.join(part);
+    }
+    Ok(path.join(SWITCHBOARD_ROUTING_FILE))
+}
+
+fn opencode_config_path() -> PathBuf {
+    home_dir()
+        .join(".config")
+        .join("opencode")
+        .join(OPENCODE_CONFIG_FILE)
+}
+
+fn opencode_headroom_provider_value() -> Value {
+    serde_json::json!({
+        "npm": "@ai-sdk/openai",
+        "name": "Mac AI Switchboard",
+        "options": {
+            "baseURL": HEADROOM_OPENAI_BASE_URL
+        },
+        "models": {
+            "headroom": {
+                "name": "Headroom Router"
+            }
+        }
+    })
+}
+
+fn short_state_hash(value: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(value.as_bytes());
+    let digest = hasher.finalize();
+    digest
+        .iter()
+        .take(6)
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+fn opencode_apply_confirmation_phrase(current_state: &str) -> String {
+    format!(
+        "Apply {OPENCODE_ROLLBACK_MARKER} to {} after reviewing {}",
+        opencode_config_path().display(),
+        short_state_hash(current_state)
+    )
+}
+
+fn opencode_config_backup_pattern() -> String {
+    let path = opencode_config_path();
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(OPENCODE_CONFIG_FILE);
+    format!("{}.headroom-backup-*", file_name)
+}
+
+fn opencode_next_provider_config() -> Result<(Value, bool)> {
+    let path = opencode_config_path();
+    let mut root = if path.exists() {
+        let raw = std::fs::read_to_string(&path)
+            .with_context(|| format!("reading {}", path.display()))?;
+        parse_json_object(&raw, &path)?
+    } else {
+        serde_json::Map::new()
+    };
+    let provider_value = root
+        .entry("provider".to_string())
+        .or_insert_with(|| Value::Object(Default::default()));
+    if !provider_value.is_object() {
+        return Err(anyhow!(
+            "{} provider key must be an object before Switchboard can manage OpenCode.",
+            path.display()
+        ));
+    }
+    let provider = provider_value
+        .as_object_mut()
+        .ok_or_else(|| anyhow!("unable to write OpenCode provider settings"))?;
+    let next = opencode_headroom_provider_value();
+    let changed = match provider.get(OPENCODE_HEADROOM_PROVIDER_ID) {
+        Some(existing) if existing == &next => false,
+        _ => {
+            provider.insert(OPENCODE_HEADROOM_PROVIDER_ID.to_string(), next);
+            true
+        }
+    };
+    Ok((Value::Object(root), changed))
+}
+
+fn configure_opencode_provider_config() -> Result<(Vec<String>, Vec<String>)> {
+    let path = opencode_config_path();
+    let (next_config, changed) = opencode_next_provider_config()?;
+    if !changed {
+        return Ok((Vec::new(), Vec::new()));
+    }
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    let backup = backup_if_exists(&path)?;
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&next_config).context("serializing OpenCode provider config")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+
+    Ok((
+        vec![path.display().to_string()],
+        backup
+            .into_iter()
+            .map(|path| path.display().to_string())
+            .collect(),
+    ))
+}
+
+fn opencode_provider_config_matches() -> Result<bool> {
+    let path = opencode_config_path();
+    if !path.exists() {
+        return Ok(false);
+    }
+    let raw =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let root = parse_json_object(&raw, &path)?;
+    let provider = root
+        .get("provider")
+        .and_then(|value| value.as_object())
+        .and_then(|providers| providers.get(OPENCODE_HEADROOM_PROVIDER_ID));
+    Ok(provider == Some(&opencode_headroom_provider_value()))
+}
+
+fn remove_opencode_provider_config() -> Result<()> {
+    let path = opencode_config_path();
+    if !path.exists() {
+        return Ok(());
+    }
+    let raw =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let mut root = parse_json_object(&raw, &path)?;
+    let Some(provider_obj) = root
+        .get_mut("provider")
+        .and_then(|value| value.as_object_mut())
+    else {
+        return Ok(());
+    };
+    match provider_obj.get(OPENCODE_HEADROOM_PROVIDER_ID) {
+        Some(existing) if existing == &opencode_headroom_provider_value() => {}
+        _ => return Ok(()),
+    }
+    provider_obj.remove(OPENCODE_HEADROOM_PROVIDER_ID);
+    if provider_obj.is_empty() {
+        root.remove("provider");
+    }
+    let _ = backup_if_exists(&path)?;
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&Value::Object(root))
+            .context("serializing OpenCode provider cleanup")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+    Ok(())
+}
+
+fn windsurf_config_path() -> PathBuf {
+    home_dir()
+        .join("Library")
+        .join("Application Support")
+        .join("Windsurf")
+        .join("User")
+        .join(WINDSURF_CONFIG_FILE)
+}
+
+fn windsurf_config_backup_pattern() -> String {
+    let path = windsurf_config_path();
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(WINDSURF_CONFIG_FILE);
+    format!("{}.headroom-backup-*", file_name)
+}
+
+fn windsurf_apply_confirmation_phrase(current_state: &str) -> String {
+    format!(
+        "Apply {WINDSURF_ROLLBACK_MARKER} to {} after reviewing {}",
+        windsurf_config_path().display(),
+        short_state_hash(current_state)
+    )
+}
+
+fn windsurf_next_provider_config() -> Result<(Value, bool)> {
+    let path = windsurf_config_path();
+    let mut root = if path.exists() {
+        let raw = std::fs::read_to_string(&path)
+            .with_context(|| format!("reading {}", path.display()))?;
+        parse_json_object(&raw, &path)?
+    } else {
+        serde_json::Map::new()
+    };
+
+    let mut changed = false;
+    changed |= set_json_string(
+        &mut root,
+        &format!("// >>> {WINDSURF_MARKER_PREFIX} >>>"),
+        "Managed by Mac AI Switchboard for Windsurf.",
+    );
+    changed |= set_json_string(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
+    changed |= set_json_string(
+        &mut root,
+        &format!("// <<< {WINDSURF_MARKER_PREFIX} <<<"),
+        "End of managed block.",
+    );
+
+    Ok((Value::Object(root), changed))
+}
+
+fn configure_windsurf_provider_config() -> Result<(Vec<String>, Vec<String>)> {
+    let path = windsurf_config_path();
+    let (next_config, changed) = windsurf_next_provider_config()?;
+    if !changed {
+        return Ok((Vec::new(), Vec::new()));
+    }
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    let backup = backup_if_exists(&path)?;
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&next_config).context("serializing Windsurf provider config")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+
+    Ok((
+        vec![path.display().to_string()],
+        backup
+            .into_iter()
+            .map(|path| path.display().to_string())
+            .collect(),
+    ))
+}
+
+fn windsurf_provider_config_matches() -> Result<bool> {
+    let path = windsurf_config_path();
+    if !path.exists() {
+        return Ok(false);
+    }
+    let raw =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let root = parse_json_object(&raw, &path)?;
+    let start_marker = format!("// >>> {WINDSURF_MARKER_PREFIX} >>>");
+    let end_marker = format!("// <<< {WINDSURF_MARKER_PREFIX} <<<");
+    Ok(root.get(&start_marker).is_some()
+        && root.get(&end_marker).is_some()
+        && root.get("anthropic.baseUrl").and_then(|v| v.as_str())
+            == Some(HEADROOM_ANTHROPIC_BASE_URL))
+}
+
+fn remove_windsurf_provider_config() -> Result<Vec<String>> {
+    let path = windsurf_config_path();
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let raw =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let mut root = parse_json_object(&raw, &path)?;
+
+    let start_marker = format!("// >>> {WINDSURF_MARKER_PREFIX} >>>");
+    let end_marker = format!("// <<< {WINDSURF_MARKER_PREFIX} <<<");
+    let mut changed = false;
+    changed |= root.remove(&start_marker).is_some();
+    changed |=
+        remove_json_key_if_matches(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
+    changed |= root.remove(&end_marker).is_some();
+
+    if !changed {
+        return Ok(Vec::new());
+    }
+
+    let _ = backup_if_exists(&path)?;
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&Value::Object(root))
+            .context("serializing Windsurf config for connector removal")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+
+    Ok(vec![path.display().to_string()])
+}
+
+fn zed_config_path() -> PathBuf {
+    home_dir().join(".config").join("zed").join(ZED_CONFIG_FILE)
+}
+
+fn zed_config_backup_pattern() -> String {
+    let path = zed_config_path();
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(ZED_CONFIG_FILE);
+    format!("{}.headroom-backup-*", file_name)
+}
+
+fn zed_apply_confirmation_phrase(current_state: &str) -> String {
+    format!(
+        "Apply {ZED_ROLLBACK_MARKER} to {} after reviewing {}",
+        zed_config_path().display(),
+        short_state_hash(current_state)
+    )
+}
+
+fn zed_next_provider_config() -> Result<(Value, bool)> {
+    let path = zed_config_path();
+    let mut root = if path.exists() {
+        let raw = std::fs::read_to_string(&path)
+            .with_context(|| format!("reading {}", path.display()))?;
+        parse_json_object(&raw, &path)?
+    } else {
+        serde_json::Map::new()
+    };
+
+    let mut changed = false;
+    changed |= set_json_string(
+        &mut root,
+        &format!("// >>> {ZED_MARKER_PREFIX} >>>"),
+        "Managed by Mac AI Switchboard for Zed.",
+    );
+    changed |= set_json_string(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
+    changed |= set_json_string(
+        &mut root,
+        &format!("// <<< {ZED_MARKER_PREFIX} <<<"),
+        "End of managed block.",
+    );
+
+    Ok((Value::Object(root), changed))
+}
+
+fn configure_zed_provider_config() -> Result<(Vec<String>, Vec<String>)> {
+    let path = zed_config_path();
+    let (next_config, changed) = zed_next_provider_config()?;
+    if !changed {
+        return Ok((Vec::new(), Vec::new()));
+    }
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    let backup = backup_if_exists(&path)?;
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&next_config).context("serializing Zed provider config")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+
+    Ok((
+        vec![path.display().to_string()],
+        backup
+            .into_iter()
+            .map(|path| path.display().to_string())
+            .collect(),
+    ))
+}
+
+fn zed_provider_config_matches() -> Result<bool> {
+    let path = zed_config_path();
+    if !path.exists() {
+        return Ok(false);
+    }
+    let raw =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let root = parse_json_object(&raw, &path)?;
+    let start_marker = format!("// >>> {ZED_MARKER_PREFIX} >>>");
+    let end_marker = format!("// <<< {ZED_MARKER_PREFIX} <<<");
+    Ok(root.get(&start_marker).is_some()
+        && root.get(&end_marker).is_some()
+        && root.get("anthropic.baseUrl").and_then(|v| v.as_str())
+            == Some(HEADROOM_ANTHROPIC_BASE_URL))
+}
+
+fn remove_zed_provider_config() -> Result<Vec<String>> {
+    let path = zed_config_path();
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let raw =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let mut root = parse_json_object(&raw, &path)?;
+
+    let start_marker = format!("// >>> {ZED_MARKER_PREFIX} >>>");
+    let end_marker = format!("// <<< {ZED_MARKER_PREFIX} <<<");
+    let mut changed = false;
+    changed |= root.remove(&start_marker).is_some();
+    changed |=
+        remove_json_key_if_matches(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
+    changed |= root.remove(&end_marker).is_some();
+
+    if !changed {
+        return Ok(Vec::new());
+    }
+
+    let _ = backup_if_exists(&path)?;
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&Value::Object(root))
+            .context("serializing Zed config for connector removal")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+
+    Ok(vec![path.display().to_string()])
+}
+
+fn build_planned_switchboard_sidecar_body(spec: &PlannedSidecarSpec) -> String {
+    format!(
+        "Managed by Mac AI Switchboard.\n\
+         Purpose: reversible {} routing-intent sidecar while active provider config support remains gated.\n\
+         Proxy base: {HEADROOM_OPENAI_BASE_URL}\n\
+         Boundary: this file does not mutate account state, secrets, or undocumented provider config.\n\
+         Next promotion gate: replace this sidecar with a documented {} config edit after dry-run, backup, verify, rollback, and Off cleanup pass.",
+        spec.name, spec.name
+    )
+}
+
+fn configure_planned_switchboard_sidecar(client_id: &str) -> Result<(bool, Option<PathBuf>)> {
+    let spec = planned_sidecar_spec(client_id)
+        .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+    let path = planned_sidecar_routing_path(client_id)?;
+    upsert_managed_block(
+        &path,
+        spec.id,
+        &build_planned_switchboard_sidecar_body(spec),
+    )
+}
+
+fn planned_switchboard_sidecar_matches(client_id: &str) -> Result<bool> {
+    let spec = planned_sidecar_spec(client_id)
+        .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+    let path = planned_sidecar_routing_path(client_id)?;
+    if !path.exists() {
+        return Ok(false);
+    }
+
+    let content =
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    Ok(content.contains(&format!("# >>> headroom:{} >>>", spec.id))
+        && content.contains(&format!("# <<< headroom:{} <<<", spec.id))
+        && content.contains(HEADROOM_OPENAI_BASE_URL)
+        && content.contains(&format!("reversible {} routing-intent sidecar", spec.name)))
+}
+
 pub fn disable_client_setup(client_id: &str) -> Result<()> {
     let mut state = load_setup_state();
 
@@ -774,7 +2089,7 @@ pub fn disable_client_setup(client_id: &str) -> Result<()> {
             disable_codex_gui()?;
             // Hand the threads back to the native-provider menu so the full
             // history stays visible once Codex no longer routes through Headroom.
-            retag_codex_thread_providers(CODEX_HEADROOM_PROVIDER, CODEX_NATIVE_PROVIDER);
+            let _ = retag_codex_thread_providers(CODEX_HEADROOM_PROVIDER, CODEX_NATIVE_PROVIDER);
         }
         "codex_gui" => {
             disable_codex_gui()?;
@@ -799,6 +2114,30 @@ pub fn disable_client_setup(client_id: &str) -> Result<()> {
             }
         }
         "vscode" => remove_vscode_connector_keys()?,
+        "gemini_cli" => {
+            let shell_targets = resolve_client_shell_targets_for_cleanup(&state, client_id)?;
+            remove_shell_block(&shell_targets, "gemini_cli")?;
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+            let _ = remove_managed_block(&planned_sidecar_routing_path(client_id)?, sidecar.id)?;
+        }
+        "opencode" => {
+            remove_opencode_provider_config()?;
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+            let _ = remove_managed_block(&planned_sidecar_routing_path(client_id)?, sidecar.id)?;
+        }
+        "windsurf" => {
+            remove_windsurf_provider_config()?;
+        }
+        "zed_ai" => {
+            remove_zed_provider_config()?;
+        }
+        other if planned_sidecar_spec(other).is_some() => {
+            let sidecar = planned_sidecar_spec(other)
+                .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {other}."))?;
+            let _ = remove_managed_block(&planned_sidecar_routing_path(other)?, sidecar.id)?;
+        }
         other => {
             return Err(anyhow!(
                 "Automatic setup disable is not supported yet for {other}.",
@@ -845,6 +2184,11 @@ pub fn clear_client_setups() -> Result<()> {
         let _ = disable_client_setup(spec.id);
     }
     let _ = disable_client_setup("codex_gui");
+    for spec in PLANNED_SIDECAR_SPECS {
+        if pre.configured_clients.contains_key(spec.id) {
+            let _ = disable_client_setup(spec.id);
+        }
+    }
 
     // Re-save the remembered snapshot so restore_client_setups works on next launch.
     if !snapshot_clients.is_empty() {
@@ -934,31 +2278,15 @@ pub fn perform_full_cleanup() -> Vec<String> {
         let _ = std::fs::remove_file(&setup_state);
     }
 
-    let app_dir = app_data_dir();
-    if app_dir.exists() {
-        match remove_dir_all_retry(&app_dir) {
-            Ok(_) => removed.push(app_dir.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", app_dir.display()),
-        }
-    }
-
-    let dot_headroom = home_dir().join(".headroom");
-    if dot_headroom.exists() {
-        match std::fs::remove_dir_all(&dot_headroom) {
-            Ok(_) => removed.push(dot_headroom.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", dot_headroom.display()),
-        }
-    }
+    removed.extend(remove_managed_runtime_storage());
 
     #[cfg(target_os = "macos")]
     {
         removed.extend(remove_macos_launch_agents());
-        removed.extend(remove_macos_preferences());
-        removed.extend(remove_macos_caches());
-        removed.extend(remove_macos_logs());
-        removed.extend(remove_macos_bundle_dirs());
+        removed.extend(remove_macos_app_state());
     }
 
+    #[cfg(not(target_os = "macos"))]
     remove_known_keychain_entries();
 
     // Sweep `<basename>.headroom-backup-*` and `<basename>.nommer-backup-*`
@@ -966,6 +2294,101 @@ pub fn perform_full_cleanup() -> Vec<String> {
     // Without this, stale backups remain in ~/.claude, ~/.claude/hooks,
     // ~/.codex, ~/Library/Application Support/Code/User, and the user's
     // shell rc directory after uninstall.
+    for target in managed_backup_targets() {
+        removed.extend(sweep_managed_backups(&target));
+    }
+
+    removed
+}
+
+pub fn managed_runtime_storage_paths() -> Vec<PathBuf> {
+    let app_dir = app_data_dir();
+    let legacy_dir = app_dir
+        .parent()
+        .map(|parent| parent.join(LEGACY_STORAGE_DIR_NAME))
+        .unwrap_or_else(|| {
+            home_dir()
+                .join("Library")
+                .join("Application Support")
+                .join(LEGACY_STORAGE_DIR_NAME)
+        });
+    vec![app_dir, legacy_dir, home_dir().join(".headroom")]
+}
+
+pub fn remove_managed_runtime_storage() -> Vec<String> {
+    let mut removed = Vec::new();
+    for path in managed_runtime_storage_paths() {
+        if !path.exists() {
+            continue;
+        }
+        match remove_dir_all_retry(&path) {
+            Ok(_) => removed.push(path.display().to_string()),
+            Err(err) => log::warn!("cleanup: removing {} failed: {err}", path.display()),
+        }
+    }
+    removed
+}
+
+#[cfg(target_os = "macos")]
+pub fn macos_app_state_paths() -> Vec<PathBuf> {
+    let lib = home_dir().join("Library");
+    let mut paths = vec![
+        lib.join("Caches").join(APP_BUNDLE_ID),
+        lib.join("WebKit").join(APP_BUNDLE_ID),
+        lib.join("HTTPStorages").join(APP_BUNDLE_ID),
+        lib.join("HTTPStorages")
+            .join(format!("{APP_BUNDLE_ID}.binarycookies")),
+        lib.join("Saved Application State")
+            .join(format!("{APP_BUNDLE_ID}.savedState")),
+    ];
+    for log_dir in ["Headroom", "Mac AI Switchboard"] {
+        paths.push(lib.join("Logs").join(log_dir));
+    }
+    let prefs_dir = lib.join("Preferences");
+    if let Ok(entries) = std::fs::read_dir(&prefs_dir) {
+        for entry in entries.flatten() {
+            let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+                continue;
+            };
+            if name.starts_with(APP_BUNDLE_ID) {
+                paths.push(entry.path());
+            }
+        }
+    } else {
+        paths.push(prefs_dir.join(format!("{APP_BUNDLE_ID}.plist")));
+    }
+    paths
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn macos_app_state_paths() -> Vec<PathBuf> {
+    Vec::new()
+}
+
+#[cfg(target_os = "macos")]
+pub fn remove_macos_app_state() -> Vec<String> {
+    let mut removed = Vec::new();
+    removed.extend(remove_macos_preferences());
+    removed.extend(remove_macos_caches());
+    removed.extend(remove_macos_logs());
+    removed.extend(remove_macos_bundle_dirs());
+    remove_known_keychain_entries();
+    removed
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn remove_macos_app_state() -> Vec<String> {
+    Vec::new()
+}
+
+pub fn known_keychain_entry_labels() -> Vec<String> {
+    known_keychain_entries()
+        .iter()
+        .map(|(service, account)| format!("keychain://{service}/{account}"))
+        .collect()
+}
+
+fn managed_backup_targets() -> Vec<PathBuf> {
     let mut backup_targets: Vec<PathBuf> = claude_settings_candidates();
     backup_targets.push(headroom_rtk_hook_path());
     backup_targets.push(headroom_markitdown_hook_path());
@@ -979,11 +2402,183 @@ pub fn perform_full_cleanup() -> Vec<String> {
             .join("settings.json"),
     );
     backup_targets.extend(all_shell_paths());
-    for target in backup_targets {
-        removed.extend(sweep_managed_backups(&target));
+    backup_targets
+}
+
+pub fn uninstall_dry_run_report() -> UninstallDryRunReport {
+    let targets = uninstall_targets();
+    UninstallDryRunReport {
+        generated_at: Utc::now(),
+        removed_on_uninstall: targets
+            .iter()
+            .filter(|target| target.managed)
+            .map(|target| target.path.clone())
+            .collect(),
+        preserved: vec![
+            "User repositories and source files are never deleted.".to_string(),
+            "Provider credentials, AWS credentials, SSO cache, and user profiles are not modified."
+                .to_string(),
+            "Unmanaged shell/profile content outside Switchboard marker blocks is preserved."
+                .to_string(),
+            "Legacy Headroom storage is preserved during migration, but removed during explicit uninstall."
+                .to_string(),
+        ],
+        targets,
+    }
+}
+
+fn uninstall_targets() -> Vec<UninstallTarget> {
+    let mut targets = Vec::new();
+
+    let home = home_dir();
+    for settings_path in claude_settings_candidates() {
+        push_uninstall_target(
+            &mut targets,
+            "claude-settings-hooks",
+            "client-config",
+            settings_path,
+            true,
+            "Strip managed Claude Code hook entries and routing keys only.",
+            false,
+            vec!["User-owned Claude settings remain in place.".to_string()],
+        );
+    }
+    push_uninstall_target(
+        &mut targets,
+        "codex-config",
+        "client-config",
+        codex_config_toml_path(),
+        true,
+        "Remove managed Codex provider/routing blocks only.",
+        false,
+        vec!["User-owned Codex config remains in place.".to_string()],
+    );
+    push_uninstall_target(
+        &mut targets,
+        "codex-agents-rules",
+        "client-config",
+        rtk_codex_agents_path(),
+        true,
+        "Remove managed RTK/Caveman instruction blocks only.",
+        false,
+        vec!["Both headroom: and mac-ai-switchboard: marker blocks are recognized.".to_string()],
+    );
+    for shell_path in all_shell_paths() {
+        push_uninstall_target(
+            &mut targets,
+            "shell-routing-blocks",
+            "shell-profile",
+            shell_path,
+            true,
+            "Remove managed shell export blocks only.",
+            false,
+            vec!["Unmanaged shell profile content is preserved.".to_string()],
+        );
+    }
+    push_uninstall_target(
+        &mut targets,
+        "rtk-hook",
+        "managed-hook",
+        headroom_rtk_hook_path(),
+        true,
+        "Delete the managed RTK hook script.",
+        false,
+        Vec::new(),
+    );
+    push_uninstall_target(
+        &mut targets,
+        "markitdown-hook",
+        "managed-hook",
+        headroom_markitdown_hook_path(),
+        true,
+        "Delete the managed MarkItDown hook script.",
+        false,
+        Vec::new(),
+    );
+    push_uninstall_target(
+        &mut targets,
+        "app-support-current",
+        "app-storage",
+        app_data_dir(),
+        true,
+        "Delete Mac AI Switchboard app support storage after explicit uninstall confirmation.",
+        true,
+        vec![
+            "Contains local runtime state, logs, memory DB, and Repo Intelligence cache."
+                .to_string(),
+        ],
+    );
+    let app_support = home.join("Library").join("Application Support");
+    push_uninstall_target(
+        &mut targets,
+        "app-support-legacy",
+        "app-storage",
+        app_support.join(LEGACY_STORAGE_DIR_NAME),
+        true,
+        "Delete legacy Headroom app support storage after explicit uninstall confirmation.",
+        true,
+        vec!["Migration keeps this folder intact until uninstall.".to_string()],
+    );
+    push_uninstall_target(
+        &mut targets,
+        "dot-headroom-runtime",
+        "runtime",
+        home.join(".headroom"),
+        true,
+        "Delete managed local runtime files.",
+        true,
+        Vec::new(),
+    );
+
+    extend_macos_uninstall_targets(&mut targets);
+
+    for target in managed_backup_targets() {
+        let Some(parent) = target.parent() else {
+            continue;
+        };
+        let Some(file_name) = target.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        for prefix in [
+            format!("{file_name}.headroom-backup-*"),
+            format!("{file_name}.nommer-backup-*"),
+        ] {
+            push_uninstall_target(
+                &mut targets,
+                "managed-backups",
+                "backup",
+                parent.join(prefix),
+                true,
+                "Delete managed backup siblings created by Switchboard/Headroom.",
+                false,
+                vec!["Only matching backup file names are removed.".to_string()],
+            );
+        }
     }
 
-    removed
+    targets
+}
+
+fn push_uninstall_target(
+    targets: &mut Vec<UninstallTarget>,
+    id: &str,
+    category: &str,
+    path: PathBuf,
+    managed: bool,
+    action: &str,
+    requires_confirmation: bool,
+    notes: Vec<String>,
+) {
+    targets.push(UninstallTarget {
+        id: id.to_string(),
+        category: category.to_string(),
+        exists: path.exists(),
+        path: path.display().to_string(),
+        managed,
+        action: action.to_string(),
+        requires_confirmation,
+        notes,
+    });
 }
 
 /// Remove sibling backup files that `backup_if_exists` (or its predecessor
@@ -1098,14 +2693,127 @@ fn remove_pre_tool_use_markers(settings_path: &Path, markers: &[&str]) -> Result
     Ok(true)
 }
 
+fn extend_macos_uninstall_targets(targets: &mut Vec<UninstallTarget>) {
+    let home = home_dir();
+    let lib = home.join("Library");
+    let launch_agents_dir = lib.join("LaunchAgents");
+    for name in [
+        format!("{APP_BUNDLE_ID}.plist"),
+        "Headroom.plist".to_string(),
+    ] {
+        push_uninstall_target(
+            targets,
+            "launch-agent",
+            "launch-agent",
+            launch_agents_dir.join(name),
+            true,
+            "Unload and delete managed login item launch agent.",
+            false,
+            Vec::new(),
+        );
+    }
+
+    for bundle_id in [APP_BUNDLE_ID] {
+        push_uninstall_target(
+            targets,
+            "preferences",
+            "macos-app-data",
+            lib.join("Preferences").join(format!("{bundle_id}.plist")),
+            true,
+            "Delete managed app preferences for this bundle ID.",
+            false,
+            Vec::new(),
+        );
+        push_uninstall_target(
+            targets,
+            "caches",
+            "macos-app-data",
+            lib.join("Caches").join(bundle_id),
+            true,
+            "Delete managed app cache data.",
+            false,
+            Vec::new(),
+        );
+        push_uninstall_target(
+            targets,
+            "webkit-data",
+            "macos-app-data",
+            lib.join("WebKit").join(bundle_id),
+            true,
+            "Delete managed WebKit data for the app.",
+            false,
+            Vec::new(),
+        );
+        push_uninstall_target(
+            targets,
+            "http-storage",
+            "macos-app-data",
+            lib.join("HTTPStorages").join(bundle_id),
+            true,
+            "Delete managed HTTP storage for the app.",
+            false,
+            Vec::new(),
+        );
+        push_uninstall_target(
+            targets,
+            "http-cookies",
+            "macos-app-data",
+            lib.join("HTTPStorages")
+                .join(format!("{bundle_id}.binarycookies")),
+            true,
+            "Delete managed HTTP cookie storage for the app.",
+            false,
+            Vec::new(),
+        );
+        push_uninstall_target(
+            targets,
+            "saved-state",
+            "macos-app-data",
+            lib.join("Saved Application State")
+                .join(format!("{bundle_id}.savedState")),
+            true,
+            "Delete managed saved window state.",
+            false,
+            Vec::new(),
+        );
+    }
+    for log_dir in ["Headroom", "Mac AI Switchboard"] {
+        push_uninstall_target(
+            targets,
+            "logs",
+            "macos-app-data",
+            lib.join("Logs").join(log_dir),
+            true,
+            "Delete managed app logs.",
+            false,
+            Vec::new(),
+        );
+    }
+    for (service, account) in known_keychain_entries() {
+        push_uninstall_target(
+            targets,
+            "keychain-entry",
+            "keychain",
+            PathBuf::from(format!("keychain://{service}/{account}")),
+            true,
+            "Delete managed keychain entry metadata without exposing the secret value.",
+            false,
+            Vec::new(),
+        );
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn remove_macos_launch_agents() -> Vec<String> {
     let mut removed = Vec::new();
     let launch_agents_dir = home_dir().join("Library").join("LaunchAgents");
 
     // Bundle-id-style plist (tauri-plugin-autostart default) and the
-    // "Headroom.plist" name some older builds shipped. Either can exist.
-    let candidates = ["com.extraheadroom.headroom.plist", "Headroom.plist"];
+    // "Headroom.plist" name some older local builds shipped. Either can exist.
+    let candidates = [
+        format!("{APP_BUNDLE_ID}.plist"),
+        "Headroom.plist".to_string(),
+    ];
 
     for name in candidates {
         let path = launch_agents_dir.join(name);
@@ -1137,7 +2845,7 @@ fn remove_macos_preferences() -> Vec<String> {
         let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
             continue;
         };
-        if !name.starts_with("com.extraheadroom.headroom") {
+        if !name.starts_with(APP_BUNDLE_ID) {
             continue;
         }
         let path = entry.path();
@@ -1157,14 +2865,14 @@ fn remove_macos_preferences() -> Vec<String> {
 #[cfg(target_os = "macos")]
 fn remove_macos_caches() -> Vec<String> {
     let mut removed = Vec::new();
-    let caches_dir = home_dir()
-        .join("Library")
-        .join("Caches")
-        .join("com.extraheadroom.headroom");
-    if caches_dir.exists() {
-        match std::fs::remove_dir_all(&caches_dir) {
-            Ok(_) => removed.push(caches_dir.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", caches_dir.display()),
+    let caches_base = home_dir().join("Library").join("Caches");
+    for bundle_id in [APP_BUNDLE_ID] {
+        let caches_dir = caches_base.join(bundle_id);
+        if caches_dir.exists() {
+            match std::fs::remove_dir_all(&caches_dir) {
+                Ok(_) => removed.push(caches_dir.display().to_string()),
+                Err(err) => log::warn!("cleanup: removing {} failed: {err}", caches_dir.display()),
+            }
         }
     }
     removed
@@ -1173,11 +2881,14 @@ fn remove_macos_caches() -> Vec<String> {
 #[cfg(target_os = "macos")]
 fn remove_macos_logs() -> Vec<String> {
     let mut removed = Vec::new();
-    let logs_dir = home_dir().join("Library").join("Logs").join("Headroom");
-    if logs_dir.exists() {
-        match std::fs::remove_dir_all(&logs_dir) {
-            Ok(_) => removed.push(logs_dir.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", logs_dir.display()),
+    let logs_base = home_dir().join("Library").join("Logs");
+    for log_dir in ["Headroom", "Mac AI Switchboard"] {
+        let logs_dir = logs_base.join(log_dir);
+        if logs_dir.exists() {
+            match std::fs::remove_dir_all(&logs_dir) {
+                Ok(_) => removed.push(logs_dir.display().to_string()),
+                Err(err) => log::warn!("cleanup: removing {} failed: {err}", logs_dir.display()),
+            }
         }
     }
     removed
@@ -1190,35 +2901,45 @@ fn remove_macos_logs() -> Vec<String> {
 fn remove_macos_bundle_dirs() -> Vec<String> {
     let mut removed = Vec::new();
     let lib = home_dir().join("Library");
-    let targets = [
-        lib.join("WebKit").join("com.extraheadroom.headroom"),
-        lib.join("HTTPStorages").join("com.extraheadroom.headroom"),
-        lib.join("HTTPStorages")
-            .join("com.extraheadroom.headroom.binarycookies"),
-        lib.join("Saved Application State")
-            .join("com.extraheadroom.headroom.savedState"),
-    ];
-    for path in targets {
-        if !path.exists() {
-            continue;
-        }
-        let result = if path.is_dir() {
-            std::fs::remove_dir_all(&path)
-        } else {
-            std::fs::remove_file(&path)
-        };
-        match result {
-            Ok(_) => removed.push(path.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", path.display()),
+    for bundle_id in [APP_BUNDLE_ID] {
+        let targets = [
+            lib.join("WebKit").join(bundle_id),
+            lib.join("HTTPStorages").join(bundle_id),
+            lib.join("HTTPStorages")
+                .join(format!("{bundle_id}.binarycookies")),
+            lib.join("Saved Application State")
+                .join(format!("{bundle_id}.savedState")),
+        ];
+        for path in targets {
+            if !path.exists() {
+                continue;
+            }
+            let result = if path.is_dir() {
+                std::fs::remove_dir_all(&path)
+            } else {
+                std::fs::remove_file(&path)
+            };
+            match result {
+                Ok(_) => removed.push(path.display().to_string()),
+                Err(err) => log::warn!("cleanup: removing {} failed: {err}", path.display()),
+            }
         }
     }
     removed
 }
 
-/// Delete every keychain entry Headroom is known to write. Accounts are
+/// Delete every keychain entry Mac AI Switchboard is known to write. Accounts are
 /// captured alongside services because macOS keychain queries require both.
 fn remove_known_keychain_entries() {
-    const ENTRIES: &[(&str, &str)] = &[
+    for (service, account) in known_keychain_entries() {
+        if let Err(err) = crate::keychain::delete_secret(service, account) {
+            log::warn!("cleanup: deleting keychain {service}/{account} failed: {err}");
+        }
+    }
+}
+
+fn known_keychain_entries() -> &'static [(&'static str, &'static str)] {
+    &[
         (
             "com.tarunagarwal.mac-ai-switchboard.account",
             "session-token",
@@ -1227,17 +2948,7 @@ fn remove_known_keychain_entries() {
             "com.tarunagarwal.mac-ai-switchboard.device",
             "machine-id-digest",
         ),
-        ("com.extraheadroom.headroom.account", "session-token"),
-        ("com.extraheadroom.headroom.device", "machine-id-digest"),
-        ("com.extraheadroom.headroom.headroom-learn", "openai"),
-        ("com.extraheadroom.headroom.headroom-learn", "anthropic"),
-        ("com.extraheadroom.headroom.headroom-learn", "gemini"),
-    ];
-    for (service, account) in ENTRIES {
-        if let Err(err) = crate::keychain::delete_secret(service, account) {
-            log::warn!("cleanup: deleting keychain {service}/{account} failed: {err}");
-        }
-    }
+    ]
 }
 
 /// Re-applies setup for all clients that were active at the last pause or quit.
@@ -1631,22 +3342,34 @@ fn caveman_codex_agents_path() -> PathBuf {
 /// Terse-output guidance body keyed by level. Scoped is the conservative
 /// default: terse only where short output is safe, never hiding required
 /// legal, safety, or debugging detail. Aggressive asks for terseness broadly.
+/// Compact Chinese is experimental and only for internal working notes.
 fn build_caveman_nudge(level: &str) -> String {
-    if level == "aggressive" {
-        "## Terse output (Switchboard Caveman, aggressive)\n\
-         Default to terse output everywhere. Lead with the answer or result; cut\n\
-         preamble, restated questions, and summaries of what you just did. Prefer\n\
-         fragments and short synonyms. Still include any legal, safety, or\n\
-         debugging detail the task actually requires -- brevity never overrides\n\
-         correctness or required disclosure."
-            .to_string()
-    } else {
-        "## Terse output (Switchboard Caveman, scoped)\n\
-         For command summaries, PR notes, and handoffs, keep output terse: lead\n\
-         with the result and drop preamble and self-summaries. Do NOT shorten\n\
-         legal, safety, or debugging content -- keep those complete even when the\n\
-         surrounding prose is terse."
-            .to_string()
+    match level {
+        "aggressive" => "## Terse output (Switchboard Caveman, aggressive)\n\
+             Default to terse output everywhere. Lead with the answer or result; cut\n\
+             preamble, restated questions, and summaries of what you just did. Prefer\n\
+             fragments and short synonyms. Still include any legal, safety, or\n\
+             debugging detail the task actually requires -- brevity never overrides\n\
+             correctness or required disclosure."
+            .to_string(),
+        "compact_chinese" => {
+            "## Terse output (Switchboard Caveman, compact Chinese experimental)\n\
+             Use compact Chinese only for private internal planning notes, scratch\n\
+             handoffs, and hidden working prompts when that reduces tokens. Keep all\n\
+             user-visible replies, commit messages, PR notes, legal, safety,\n\
+             debugging, and release-readiness content in the user's requested\n\
+             language with complete required detail. Never translate code, commands,\n\
+             file paths, identifiers, error text, secrets, citations, or quoted\n\
+             source material. If compact Chinese could make verification ambiguous,\n\
+             use terse English instead."
+                .to_string()
+        }
+        _ => "## Terse output (Switchboard Caveman, scoped)\n\
+             For command summaries, PR notes, and handoffs, keep output terse: lead\n\
+             with the result and drop preamble and self-summaries. Do NOT shorten\n\
+             legal, safety, or debugging content -- keep those complete even when the\n\
+             surrounding prose is terse."
+            .to_string(),
     }
 }
 
@@ -1682,6 +3405,21 @@ pub fn enable_caveman_integration(level: &str) -> Result<(Vec<String>, Vec<Strin
     }
 
     Ok((changed_files, backup_files))
+}
+
+pub fn caveman_integration_matches_level(level: &str) -> Result<bool> {
+    let expected = build_caveman_nudge(level);
+    if is_claude_code_enabled()
+        && !managed_block_contains_text(&caveman_claude_md_path(), "caveman", &expected)?
+    {
+        return Ok(false);
+    }
+    if is_codex_enabled()
+        && !managed_block_contains_text(&caveman_codex_agents_path(), "caveman", &expected)?
+    {
+        return Ok(false);
+    }
+    Ok(true)
 }
 
 /// Removes the managed Caveman block from every client instruction file. Runs
@@ -2097,11 +3835,11 @@ const CODEX_TABLE_BLOCK_ID: &str = "codex_cli_provider";
 // `openai -> headroom` on connect, `headroom -> openai` on disconnect/quit.
 const CODEX_HEADROOM_PROVIDER: &str = "headroom";
 const CODEX_NATIVE_PROVIDER: &str = "openai";
+const CODEX_RETAGGING_SETTINGS_FILE: &str = "codex-retagging.json";
 
 /// Codex store-schema versions this build has been verified against. Discovered
-/// stores with a version outside this set are still retagged (best-effort) but
-/// logged, so a Codex store bump is visible before it can silently split the
-/// history menu for everyone.
+/// stores with a version outside this set are skipped until verified, so a Codex
+/// store bump is visible before Switchboard writes an unknown private DB.
 const KNOWN_CODEX_STORE_VERSIONS: &[u32] = &[5];
 
 /// Directories Codex is known to keep its state store in: the v148 GUI uses
@@ -2173,12 +3911,96 @@ fn discover_codex_state_dbs() -> Vec<(PathBuf, u32)> {
     out
 }
 
+impl Default for CodexThreadRetaggingSettings {
+    fn default() -> Self {
+        Self {
+            codex_thread_retagging: CodexThreadRetaggingMode::Ask,
+        }
+    }
+}
+
+fn codex_retagging_settings_path() -> PathBuf {
+    config_file(&app_data_dir(), CODEX_RETAGGING_SETTINGS_FILE)
+}
+
+pub fn get_codex_thread_retagging_settings() -> CodexThreadRetaggingSettings {
+    let path = codex_retagging_settings_path();
+    let Ok(raw) = std::fs::read_to_string(&path) else {
+        return CodexThreadRetaggingSettings::default();
+    };
+    serde_json::from_str::<CodexThreadRetaggingSettings>(&raw).unwrap_or_else(|err| {
+        log::warn!(
+            "codex retag: reading {} failed, falling back to ask mode: {err}",
+            path.display()
+        );
+        CodexThreadRetaggingSettings::default()
+    })
+}
+
+pub fn set_codex_thread_retagging_settings(
+    settings: CodexThreadRetaggingSettings,
+) -> Result<CodexThreadRetaggingSettings> {
+    let path = codex_retagging_settings_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("creating {}", parent.display()))?;
+    }
+    std::fs::write(
+        &path,
+        serde_json::to_vec_pretty(&settings).context("serializing Codex retagging settings")?,
+    )
+    .with_context(|| format!("writing {}", path.display()))?;
+    Ok(settings)
+}
+
+fn codex_retagging_backup_path(path: &Path) -> PathBuf {
+    let timestamp = Utc::now().format("%Y%m%dT%H%M%SZ");
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("state.sqlite");
+    path.with_file_name(format!("{name}.switchboard-backup-{timestamp}"))
+}
+
+fn backup_codex_db(path: &Path) -> Result<PathBuf> {
+    let backup = codex_retagging_backup_path(path);
+    std::fs::copy(path, &backup)
+        .with_context(|| format!("creating Codex thread DB backup {}", backup.display()))?;
+    Ok(backup)
+}
+
+fn codex_skip_report(
+    path: &Path,
+    from: &str,
+    to: &str,
+    reason: impl Into<String>,
+) -> CodexThreadRetaggingReport {
+    CodexThreadRetaggingReport {
+        path: path.display().to_string(),
+        from_provider: from.to_string(),
+        to_provider: to.to_string(),
+        rows_changed: 0,
+        backup_path: None,
+        skipped_reason: Some(reason.into()),
+    }
+}
+
 /// Best-effort retag of Codex thread provider tags so the history menu stays
 /// whole across the Headroom proxy boundary. Never fails the caller: a missing
 /// store, a missing `threads` table, or a DB locked by a running Codex is logged
 /// and skipped. Only rows whose `model_provider` equals `from` are touched, so
 /// third-party providers are left alone.
-fn retag_codex_thread_providers(from: &str, to: &str) {
+fn retag_codex_thread_providers(from: &str, to: &str) -> CodexThreadRetaggingRunReport {
+    let settings = get_codex_thread_retagging_settings();
+    let mode = settings.codex_thread_retagging.clone();
+    if mode != CodexThreadRetaggingMode::Enabled {
+        log::info!("codex retag {from}->{to}: skipped because mode is {mode:?}");
+        return CodexThreadRetaggingRunReport {
+            mode,
+            reports: Vec::new(),
+        };
+    }
+
     let stores = discover_codex_state_dbs();
     if stores.is_empty() {
         // Only a signal when a sqlite thread store is actually expected: the
@@ -2194,36 +4016,77 @@ fn retag_codex_thread_providers(from: &str, to: &str) {
                 dirs = codex_state_dirs(),
             );
         }
-        return;
+        return CodexThreadRetaggingRunReport {
+            mode,
+            reports: Vec::new(),
+        };
     }
+    let mut reports = Vec::new();
     for (path, version) in stores {
         if !KNOWN_CODEX_STORE_VERSIONS.contains(&version) {
             log::warn!(
                 "codex retag: store version {version} at {} is outside the known \
-                 set {KNOWN_CODEX_STORE_VERSIONS:?}; retagging anyway. Verify the \
-                 history menu still works and add {version} to \
-                 KNOWN_CODEX_STORE_VERSIONS.",
+                 set {KNOWN_CODEX_STORE_VERSIONS:?}; skipping until the user \
+                 explicitly restores compatibility or this version is verified.",
                 path.display(),
             );
+            reports.push(codex_skip_report(
+                &path,
+                from,
+                to,
+                format!("unknown Codex store version {version}"),
+            ));
+            continue;
         }
+        let backup = match backup_codex_db(&path) {
+            Ok(path) => path,
+            Err(e) => {
+                log::warn!(
+                    "codex retag {from}->{to} skipped for {}: backup failed: {e}",
+                    path.display()
+                );
+                reports.push(codex_skip_report(
+                    &path,
+                    from,
+                    to,
+                    format!("backup failed: {e}"),
+                ));
+                continue;
+            }
+        };
         match retag_one_codex_db(&path, from, to) {
-            Ok(0) => {}
-            Ok(n) => log::info!(
-                "codex retag {from}->{to}: {n} thread(s) in {}",
-                path.display()
-            ),
-            Err(e) => log::warn!(
-                "codex retag {from}->{to} skipped for {}: {e}",
-                path.display()
-            ),
+            Ok(n) => {
+                if n > 0 {
+                    log::info!(
+                        "codex retag {from}->{to}: {n} thread(s) in {}",
+                        path.display()
+                    );
+                }
+                reports.push(CodexThreadRetaggingReport {
+                    path: path.display().to_string(),
+                    from_provider: from.to_string(),
+                    to_provider: to.to_string(),
+                    rows_changed: n,
+                    backup_path: Some(backup.display().to_string()),
+                    skipped_reason: None,
+                });
+            }
+            Err(e) => {
+                log::warn!(
+                    "codex retag {from}->{to} skipped for {}: {e}",
+                    path.display()
+                );
+                reports.push(codex_skip_report(&path, from, to, e.to_string()));
+            }
         }
     }
+    CodexThreadRetaggingRunReport { mode, reports }
 }
 
 fn retag_one_codex_db(path: &Path, from: &str, to: &str) -> rusqlite::Result<usize> {
     use rusqlite::OptionalExtension;
 
-    let conn = rusqlite::Connection::open(path)?;
+    let mut conn = rusqlite::Connection::open(path)?;
     conn.busy_timeout(Duration::from_millis(750))?;
     // No-op (without erroring) on builds whose store lacks the threads table.
     let has_table = conn
@@ -2237,10 +4100,65 @@ fn retag_one_codex_db(path: &Path, from: &str, to: &str) -> rusqlite::Result<usi
     if !has_table {
         return Ok(0);
     }
-    conn.execute(
+    let has_column = conn
+        .query_row("PRAGMA table_info(threads)", [], |_| Ok(()))
+        .optional()?
+        .is_some()
+        && {
+            let mut stmt = conn.prepare("PRAGMA table_info(threads)")?;
+            let mut rows = stmt.query([])?;
+            let mut found = false;
+            while let Some(row) = rows.next()? {
+                let name: String = row.get(1)?;
+                if name == "model_provider" {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        };
+    if !has_column {
+        return Ok(0);
+    }
+    let tx = conn.transaction()?;
+    let changed = tx.execute(
         "UPDATE threads SET model_provider = ?2 WHERE model_provider = ?1",
         rusqlite::params![from, to],
-    )
+    )?;
+    tx.commit()?;
+    Ok(changed)
+}
+
+pub fn restore_codex_thread_db_backup(path: &str) -> Result<CodexDbRestoreResult> {
+    let backup = PathBuf::from(path);
+    if !backup.exists() {
+        return Err(anyhow!(
+            "Codex thread DB backup does not exist: {}",
+            backup.display()
+        ));
+    }
+    let file_name = backup
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| anyhow!("Invalid Codex backup path: {}", backup.display()))?;
+    let Some(original_name) = file_name.split(".switchboard-backup-").next() else {
+        return Err(anyhow!("Invalid Switchboard backup name: {file_name}"));
+    };
+    if original_name == file_name {
+        return Err(anyhow!("Not a Switchboard Codex DB backup: {file_name}"));
+    }
+    let original = backup.with_file_name(original_name);
+    std::fs::copy(&backup, &original).with_context(|| {
+        format!(
+            "restoring Codex thread DB from {} to {}",
+            backup.display(),
+            original.display()
+        )
+    })?;
+    Ok(CodexDbRestoreResult {
+        restored_path: original.display().to_string(),
+        backup_path: backup.display().to_string(),
+    })
 }
 
 /// Retag Codex threads back to the native provider. Exposed for the app-quit
@@ -2308,7 +4226,11 @@ fn codex_provider_table_body(requires_openai_auth: bool) -> String {
 }
 
 fn codex_marker_block(block_id: &str, body: &str) -> String {
-    format!("# >>> headroom:{block_id} >>>\n{body}\n# <<< headroom:{block_id} <<<\n")
+    format!(
+        "{}\n{body}\n{}\n",
+        managed_marker_start(MARKER_PREFIX, block_id),
+        managed_marker_end(MARKER_PREFIX, block_id)
+    )
 }
 
 /// Remove every Headroom-managed artifact from Codex `config.toml` text: both
@@ -2352,8 +4274,24 @@ fn strip_legacy_codex_headroom_provider_table(content: &str) -> String {
 
 /// Pure-text removal of a single `# >>> headroom:<id> >>> ... <<<` block.
 fn strip_marker_block(content: &str, block_id: &str) -> String {
-    let start = format!("# >>> headroom:{block_id} >>>");
-    let end = format!("# <<< headroom:{block_id} <<<");
+    strip_marker_block_with_prefix(
+        &strip_marker_block_with_prefix(content, block_id, SWITCHBOARD_MARKER_PREFIX),
+        block_id,
+        LEGACY_MARKER_PREFIX,
+    )
+}
+
+fn managed_marker_start(prefix: &str, block_id: &str) -> String {
+    format!("# >>> {prefix}:{block_id} >>>")
+}
+
+fn managed_marker_end(prefix: &str, block_id: &str) -> String {
+    format!("# <<< {prefix}:{block_id} <<<")
+}
+
+fn strip_marker_block_with_prefix(content: &str, block_id: &str, prefix: &str) -> String {
+    let start = managed_marker_start(prefix, block_id);
+    let end = managed_marker_end(prefix, block_id);
     let (Some(start_idx), Some(end_idx)) = (content.find(&start), content.find(&end)) else {
         return content.to_string();
     };
@@ -2433,9 +4371,1049 @@ pub fn codex_provider_block_matches() -> Result<bool> {
     Ok(root_ok && table_ok)
 }
 
+const CODEX_ROLLBACK_RECORD_ID: &str = "codex-routing";
+const CODEX_ROLLBACK_OWNER: &str = "Codex routing";
+const CODEX_ROLLBACK_MARKER: &str = "headroom:codex_cli";
+const OPENCODE_ROLLBACK_RECORD_ID: &str = "opencode-routing";
+const OPENCODE_ROLLBACK_OWNER: &str = "OpenCode routing";
+const OPENCODE_ROLLBACK_MARKER: &str = "headroom:opencode";
+const GEMINI_ROLLBACK_RECORD_ID: &str = "gemini-routing";
+const GEMINI_ROLLBACK_OWNER: &str = "Gemini CLI routing";
+const GEMINI_ROLLBACK_MARKER: &str = "headroom:gemini_cli";
+const ZED_ROLLBACK_RECORD_ID: &str = "zed-ai-routing";
+const ZED_ROLLBACK_OWNER: &str = "Zed routing";
+const ZED_ROLLBACK_MARKER: &str = "headroom:zed";
+const ZED_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: zed-ai-routing.",
+    "Backup must live next to ~/.config/zed/settings.json and use *.headroom-backup-*.",
+    "Current config must still contain the managed Zed markers before restore.",
+    "Relaunch-survival evidence requires re-reading restored config from disk after write.",
+];
+const WINDSURF_ROLLBACK_RECORD_ID: &str = "windsurf-routing";
+const WINDSURF_ROLLBACK_OWNER: &str = "Windsurf routing";
+const WINDSURF_ROLLBACK_MARKER: &str = "headroom:windsurf";
+const WINDSURF_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: windsurf-routing.",
+    "Backup must live next to ~/Library/Application Support/Windsurf/User/settings.json and use *.headroom-backup-*.",
+    "Current config must still contain the managed Windsurf markers before restore.",
+    "Relaunch-survival evidence requires re-reading restored config from disk after write.",
+];
+const MANAGED_ROLLBACK_UNDO_ALL_CONFIRMATION: &str =
+    "Undo all ready Switchboard native rollback rows";
+const NATIVE_MANAGED_ROLLBACK_RECORD_IDS: &[&str] = &[
+    CODEX_ROLLBACK_RECORD_ID,
+    GEMINI_ROLLBACK_RECORD_ID,
+    OPENCODE_ROLLBACK_RECORD_ID,
+    ZED_ROLLBACK_RECORD_ID,
+    "cursor-routing",
+    "grok-routing",
+    "aider-routing",
+    "continue-routing",
+    "goose-routing",
+    "qwen-code-routing",
+    "amazon-q-routing",
+    "windsurf-routing",
+];
+
+struct ManagedRollbackTarget {
+    record_id: &'static str,
+    owner: &'static str,
+    marker: &'static str,
+    target_path: fn() -> PathBuf,
+    marker_matches: fn() -> Result<bool>,
+    backup_required: bool,
+    proposed_action: &'static str,
+    evidence: &'static [&'static str],
+}
+
+const CODEX_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: codex-routing.",
+    "Backup must live next to ~/.codex/config.toml and use *.headroom-backup-*.",
+    "Current config must still contain the managed Codex marker before restore.",
+    "Relaunch-survival evidence requires re-reading restored config from disk after write.",
+];
+
+const OPENCODE_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: opencode-routing.",
+    "Backup must live next to ~/.config/opencode/opencode.json and use *.headroom-backup-*.",
+    "Current config must still contain the managed OpenCode Headroom provider before restore.",
+    "Relaunch-survival evidence requires re-reading restored config from disk after write.",
+];
+
+const GEMINI_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: gemini-routing.",
+    "Cleanup removes only Switchboard-owned Gemini shell and sidecar blocks.",
+    "Current shell profile or sidecar must still contain the managed Gemini marker before cleanup.",
+    "Relaunch-survival evidence requires re-reading managed files from disk after cleanup.",
+];
+
+fn gemini_routing_marker_matches() -> Result<bool> {
+    let state = load_setup_state();
+    let shell_targets = resolve_client_shell_targets_for_cleanup(&state, "gemini_cli")?;
+    let shell_matches =
+        shell_block_contains_text_in_files(&shell_targets, "gemini_cli", GEMINI_BASE_URL_ENV_KEY)?;
+    let sidecar_matches = planned_switchboard_sidecar_matches("gemini_cli").unwrap_or(false);
+    Ok(shell_matches || sidecar_matches)
+}
+
+fn managed_rollback_target(record_id: &str) -> Result<ManagedRollbackTarget> {
+    match record_id {
+        CODEX_ROLLBACK_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: CODEX_ROLLBACK_RECORD_ID,
+            owner: CODEX_ROLLBACK_OWNER,
+            marker: CODEX_ROLLBACK_MARKER,
+            target_path: codex_config_toml_path,
+            marker_matches: codex_provider_block_matches,
+            backup_required: true,
+            proposed_action:
+                "Restore the Codex config from the selected sibling backup after creating a fresh safety backup.",
+            evidence: CODEX_ROLLBACK_EVIDENCE,
+        }),
+        OPENCODE_ROLLBACK_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: OPENCODE_ROLLBACK_RECORD_ID,
+            owner: OPENCODE_ROLLBACK_OWNER,
+            marker: OPENCODE_ROLLBACK_MARKER,
+            target_path: opencode_config_path,
+            marker_matches: opencode_provider_config_matches,
+            backup_required: true,
+            proposed_action:
+                "Restore the OpenCode provider config from the selected sibling backup after creating a fresh safety backup.",
+            evidence: OPENCODE_ROLLBACK_EVIDENCE,
+        }),
+        GEMINI_ROLLBACK_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: GEMINI_ROLLBACK_RECORD_ID,
+            owner: GEMINI_ROLLBACK_OWNER,
+            marker: GEMINI_ROLLBACK_MARKER,
+            target_path: || {
+                planned_sidecar_routing_path("gemini_cli")
+                    .unwrap_or_else(|_| home_dir().join(".gemini").join(SWITCHBOARD_ROUTING_FILE))
+            },
+            marker_matches: gemini_routing_marker_matches,
+            backup_required: false,
+            proposed_action:
+                "Remove only the Switchboard-owned Gemini shell routing and sidecar blocks after creating per-file safety backups.",
+            evidence: GEMINI_ROLLBACK_EVIDENCE,
+        }),
+        WINDSURF_ROLLBACK_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: WINDSURF_ROLLBACK_RECORD_ID,
+            owner: WINDSURF_ROLLBACK_OWNER,
+            marker: WINDSURF_ROLLBACK_MARKER,
+            target_path: windsurf_config_path,
+            marker_matches: windsurf_provider_config_matches,
+            backup_required: true,
+            proposed_action:
+                "Restore the Windsurf settings from the selected sibling backup after creating a fresh safety backup.",
+            evidence: WINDSURF_ROLLBACK_EVIDENCE,
+        }),
+        ZED_ROLLBACK_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: ZED_ROLLBACK_RECORD_ID,
+            owner: ZED_ROLLBACK_OWNER,
+            marker: ZED_ROLLBACK_MARKER,
+            target_path: zed_config_path,
+            marker_matches: zed_provider_config_matches,
+            backup_required: true,
+            proposed_action:
+                "Restore the Zed settings from the selected sibling backup after creating a fresh safety backup.",
+            evidence: ZED_ROLLBACK_EVIDENCE,
+        }),
+        _ => Err(anyhow!(
+            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {GEMINI_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {ZED_ROLLBACK_RECORD_ID}."
+        )),
+    }
+}
+
+fn managed_rollback_confirmation_phrase(target: &ManagedRollbackTarget) -> String {
+    format!("Restore {} for {}", target.marker, target.owner)
+}
+
+struct SidecarRollbackTarget {
+    record_id: &'static str,
+    client_id: &'static str,
+    owner: &'static str,
+    marker: &'static str,
+}
+
+fn sidecar_rollback_target(record_id: &str) -> Option<SidecarRollbackTarget> {
+    match record_id {
+        "cursor-routing" => Some(SidecarRollbackTarget {
+            record_id: "cursor-routing",
+            client_id: "cursor",
+            owner: "Cursor routing",
+            marker: "headroom:cursor",
+        }),
+        "grok-routing" => Some(SidecarRollbackTarget {
+            record_id: "grok-routing",
+            client_id: "grok_cli",
+            owner: "Grok / xAI CLI routing",
+            marker: "headroom:grok_cli",
+        }),
+        "aider-routing" => Some(SidecarRollbackTarget {
+            record_id: "aider-routing",
+            client_id: "aider",
+            owner: "Aider routing",
+            marker: "headroom:aider",
+        }),
+        "continue-routing" => Some(SidecarRollbackTarget {
+            record_id: "continue-routing",
+            client_id: "continue",
+            owner: "Continue routing",
+            marker: "headroom:continue",
+        }),
+        "goose-routing" => Some(SidecarRollbackTarget {
+            record_id: "goose-routing",
+            client_id: "goose",
+            owner: "Goose routing",
+            marker: "headroom:goose",
+        }),
+        "qwen-code-routing" => Some(SidecarRollbackTarget {
+            record_id: "qwen-code-routing",
+            client_id: "qwen_code",
+            owner: "Qwen Code routing",
+            marker: "headroom:qwen_code",
+        }),
+        "amazon-q-routing" => Some(SidecarRollbackTarget {
+            record_id: "amazon-q-routing",
+            client_id: "amazon_q",
+            owner: "Amazon Q Developer CLI routing",
+            marker: "headroom:amazon_q",
+        }),
+        _ => None,
+    }
+}
+
+fn sidecar_rollback_confirmation_phrase(target: &SidecarRollbackTarget) -> String {
+    format!("Restore {} for {}", target.marker, target.owner)
+}
+
+fn preview_sidecar_rollback(target: SidecarRollbackTarget) -> Result<ManagedRollbackPreview> {
+    let sidecar = planned_sidecar_spec(target.client_id).ok_or_else(|| {
+        anyhow!(
+            "No Switchboard sidecar is configured for {}.",
+            target.client_id
+        )
+    })?;
+    let target_path = planned_sidecar_routing_path(target.client_id)?;
+    let marker_present = target_path.exists()
+        && planned_switchboard_sidecar_matches(target.client_id).unwrap_or(false);
+    let blocked_reason = if marker_present {
+        None
+    } else {
+        Some(format!(
+            "Managed {} marker is not present in the sidecar config.",
+            target.owner
+        ))
+    };
+
+    Ok(ManagedRollbackPreview {
+        record_id: target.record_id.to_string(),
+        owner: target.owner.to_string(),
+        target_path: target_path.display().to_string(),
+        marker: target.marker.to_string(),
+        backup_path: None,
+        marker_present,
+        backup_exists: true,
+        status: if blocked_reason.is_none() {
+            ManagedRollbackExecutionStatus::Ready
+        } else {
+            ManagedRollbackExecutionStatus::Blocked
+        },
+        confirmation_phrase: sidecar_rollback_confirmation_phrase(&target),
+        proposed_action: format!(
+            "Remove only the Switchboard-owned {} sidecar block after creating a per-file safety backup.",
+            sidecar.name
+        ),
+        blocked_reason,
+        evidence: vec![
+            format!("Allowlisted rollback execution row: {}.", target.record_id),
+            format!(
+                "Cleanup removes only the Switchboard-owned {} sidecar block.",
+                sidecar.name
+            ),
+            "Current sidecar must still contain the managed marker before cleanup.".to_string(),
+        ],
+    })
+}
+
+fn execute_sidecar_rollback(
+    target: SidecarRollbackTarget,
+    confirmation_phrase: &str,
+) -> Result<ManagedRollbackExecutionResult> {
+    let expected_confirmation = sidecar_rollback_confirmation_phrase(&target);
+    if confirmation_phrase != expected_confirmation {
+        return Err(anyhow!("Rollback confirmation phrase does not match."));
+    }
+    let target_path = planned_sidecar_routing_path(target.client_id)?;
+    if !target_path.exists() || !planned_switchboard_sidecar_matches(target.client_id)? {
+        return Err(anyhow!(
+            "Managed {} marker is missing or has drifted; refusing rollback.",
+            target.owner
+        ));
+    }
+    let sidecar = planned_sidecar_spec(target.client_id).ok_or_else(|| {
+        anyhow!(
+            "No Switchboard sidecar is configured for {}.",
+            target.client_id
+        )
+    })?;
+    let (removed, safety_backup) = remove_managed_block_with_backup(&target_path, sidecar.id)?;
+    if !removed {
+        return Err(anyhow!(
+            "Managed {} marker disappeared before rollback could remove it.",
+            target.owner
+        ));
+    }
+    let mut state = load_setup_state();
+    let state_id = normalized_setup_id(target.client_id);
+    state.configured_clients.remove(state_id);
+    state.remembered_clients.remove(state_id);
+    state.managed_shell_files.remove(state_id);
+    state.remembered_shell_files.remove(state_id);
+    write_setup_state(&state)?;
+    if target_path.exists() {
+        let _ = std::fs::read_to_string(&target_path)
+            .with_context(|| format!("re-reading {}", target_path.display()))?;
+        if planned_switchboard_sidecar_matches(target.client_id)? {
+            return Err(anyhow!(
+                "Managed {} marker is still present after rollback.",
+                target.owner
+            ));
+        }
+    }
+
+    Ok(ManagedRollbackExecutionResult {
+        record_id: target.record_id.to_string(),
+        owner: target.owner.to_string(),
+        target_path: target_path.display().to_string(),
+        restored_from: format!(
+            "Switchboard-owned {} sidecar block removed.",
+            target.client_id
+        ),
+        safety_backup_path: safety_backup.map(|path| path.display().to_string()),
+        marker: target.marker.to_string(),
+        verification: vec![
+            "Exact confirmation phrase matched.".to_string(),
+            format!(
+                "Managed {} marker was present before cleanup.",
+                target.owner
+            ),
+            "A fresh sidecar safety backup was created before cleanup.".to_string(),
+            format!(
+                "Setup state was cleared for {} Off-mode parity.",
+                target.client_id
+            ),
+            "Relaunch-survival evidence: sidecar file was re-read from disk after cleanup."
+                .to_string(),
+        ],
+    })
+}
+
+fn latest_headroom_backup_for(path: &Path) -> Option<PathBuf> {
+    let dir = path.parent()?;
+    let file_name = path.file_name()?.to_str()?;
+    let prefix = format!("{file_name}.headroom-backup-");
+    let mut backups = std::fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|candidate| {
+            candidate
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.starts_with(&prefix))
+                .unwrap_or(false)
+        })
+        .collect::<Vec<_>>();
+    backups.sort();
+    backups.pop()
+}
+
+fn validate_managed_rollback_backup_path(target_path: &Path, backup_path: &Path) -> Result<()> {
+    let target_dir = target_path
+        .parent()
+        .ok_or_else(|| anyhow!("Rollback target path has no parent directory."))?;
+    let backup_parent = backup_path
+        .parent()
+        .ok_or_else(|| anyhow!("Rollback backup path has no parent directory."))?;
+    if backup_parent != target_dir {
+        return Err(anyhow!(
+            "Rollback backup must live next to the managed config."
+        ));
+    }
+    let target_file = target_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| anyhow!("Rollback target path has no file name."))?;
+    let expected_prefix = format!("{target_file}.headroom-backup-");
+    let backup_name = backup_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| anyhow!("Rollback backup path has no file name."))?;
+    if !backup_name.starts_with(&expected_prefix) {
+        return Err(anyhow!(
+            "Rollback backup must use the Switchboard headroom-backup naming pattern."
+        ));
+    }
+    if !backup_path.exists() {
+        return Err(anyhow!("Rollback backup file does not exist."));
+    }
+    Ok(())
+}
+
+pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigApplyPreview> {
+    match record_id {
+        OPENCODE_ROLLBACK_RECORD_ID => {
+            let path = opencode_config_path();
+            let current_state = if path.exists() {
+                std::fs::read_to_string(&path)
+                    .with_context(|| format!("reading {}", path.display()))?
+            } else {
+                "{}".to_string()
+            };
+            let (next_config, changed) = opencode_next_provider_config()?;
+            let proposed_state = serde_json::to_string_pretty(&next_config)
+                .context("serializing OpenCode provider preview")?;
+            Ok(ManagedConfigApplyPreview {
+                record_id: OPENCODE_ROLLBACK_RECORD_ID.to_string(),
+                owner: OPENCODE_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                marker: OPENCODE_ROLLBACK_MARKER.to_string(),
+                backup_path: opencode_config_backup_pattern(),
+                status: ManagedRollbackExecutionStatus::Ready,
+                confirmation_phrase: opencode_apply_confirmation_phrase(&current_state),
+                current_state,
+                proposed_state,
+                rollback_preview:
+                    "Restore the sibling *.headroom-backup-* file through Rollback Center."
+                        .to_string(),
+                blocked_reason: None,
+                evidence: vec![
+                    "OpenCode provider config is allowlisted for native safe apply.".to_string(),
+                    "Preview preserves unmanaged JSON fields outside provider.headroom.".to_string(),
+                    format!("Preview changed: {changed}."),
+                    "Apply creates a sibling backup, writes the proposed JSON, verifies the provider, and can roll back from the backup.".to_string(),
+                ],
+            })
+        }
+        ZED_ROLLBACK_RECORD_ID => {
+            let path = zed_config_path();
+            let current_state = if path.exists() {
+                std::fs::read_to_string(&path)
+                    .with_context(|| format!("reading {}", path.display()))?
+            } else {
+                "{}".to_string()
+            };
+            let (next_config, changed) = zed_next_provider_config()?;
+            let proposed_state = serde_json::to_string_pretty(&next_config)
+                .context("serializing Zed provider preview")?;
+            Ok(ManagedConfigApplyPreview {
+                record_id: ZED_ROLLBACK_RECORD_ID.to_string(),
+                owner: ZED_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                marker: ZED_ROLLBACK_MARKER.to_string(),
+                backup_path: zed_config_backup_pattern(),
+                status: ManagedRollbackExecutionStatus::Ready,
+                confirmation_phrase: zed_apply_confirmation_phrase(&current_state),
+                current_state,
+                proposed_state,
+                rollback_preview:
+                    "Restore the sibling *.headroom-backup-* file through Rollback Center."
+                        .to_string(),
+                blocked_reason: None,
+                evidence: vec![
+                    "Zed provider config is allowlisted for native safe apply.".to_string(),
+                    "Preview preserves unmanaged JSON fields outside provider routing.".to_string(),
+                    format!("Preview changed: {changed}."),
+                    "Apply creates a sibling backup, writes the proposed JSON, verifies the provider, and can roll back from the backup.".to_string(),
+                ],
+            })
+        }
+        WINDSURF_ROLLBACK_RECORD_ID => {
+            let path = windsurf_config_path();
+            let current_state = if path.exists() {
+                std::fs::read_to_string(&path)
+                    .with_context(|| format!("reading {}", path.display()))?
+            } else {
+                "{}".to_string()
+            };
+            let (next_config, changed) = windsurf_next_provider_config()?;
+            let proposed_state = serde_json::to_string_pretty(&next_config)
+                .context("serializing Windsurf provider preview")?;
+            let confirmation = windsurf_apply_confirmation_phrase(&current_state);
+            Ok(ManagedConfigApplyPreview {
+                record_id: WINDSURF_ROLLBACK_RECORD_ID.to_string(),
+                owner: WINDSURF_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                marker: WINDSURF_ROLLBACK_MARKER.to_string(),
+                backup_path: windsurf_config_backup_pattern(),
+                status: ManagedRollbackExecutionStatus::Ready,
+                confirmation_phrase: confirmation,
+                current_state,
+                proposed_state,
+                rollback_preview:
+                    "Restore the sibling *.headroom-backup-* file through Rollback Center."
+                        .to_string(),
+                blocked_reason: None,
+                evidence: vec![
+                    "Windsurf settings.json is allowlisted for native safe apply.".to_string(),
+                    "Preview preserves unmanaged JSON fields outside managed markers.".to_string(),
+                    format!("Preview changed: {changed}."),
+                    "Apply creates a sibling backup, writes the proposed JSON, verifies the markers, and can roll back from the backup.".to_string(),
+                ],
+            })
+        }
+        _ => Err(anyhow!(
+            "Managed config apply is currently promoted only for {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
+        )),
+    }
+}
+
+pub fn execute_managed_config_apply(
+    record_id: &str,
+    confirmation_phrase: &str,
+) -> Result<ManagedConfigApplyResult> {
+    let preview = preview_managed_config_apply(record_id)?;
+    if confirmation_phrase != preview.confirmation_phrase {
+        return Err(anyhow!(
+            "Managed config apply confirmation phrase does not match."
+        ));
+    }
+    match record_id {
+        OPENCODE_ROLLBACK_RECORD_ID => {
+            let path = opencode_config_path();
+            let (changed_files, backup_files) = configure_opencode_provider_config()?;
+            if !opencode_provider_config_matches()? {
+                return Err(anyhow!(
+                    "OpenCode provider config verification failed after apply."
+                ));
+            }
+            Ok(ManagedConfigApplyResult {
+                record_id: OPENCODE_ROLLBACK_RECORD_ID.to_string(),
+                owner: OPENCODE_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                changed: changed_files
+                    .iter()
+                    .any(|changed| changed == &path.display().to_string()),
+                backup_path: backup_files.first().cloned(),
+                marker: OPENCODE_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact confirmation phrase matched the dry-run preview.".to_string(),
+                    "Sibling backup was created before writing when a prior config existed."
+                        .to_string(),
+                    "OpenCode provider.headroom matches the Switchboard-managed provider."
+                        .to_string(),
+                    "Rollback Center can restore the selected sibling backup.".to_string(),
+                ],
+            })
+        }
+        ZED_ROLLBACK_RECORD_ID => {
+            let path = zed_config_path();
+            let (changed_files, backup_files) = configure_zed_provider_config()?;
+            if !zed_provider_config_matches()? {
+                return Err(anyhow!(
+                    "Zed provider config verification failed after apply."
+                ));
+            }
+            Ok(ManagedConfigApplyResult {
+                record_id: ZED_ROLLBACK_RECORD_ID.to_string(),
+                owner: ZED_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                changed: changed_files
+                    .iter()
+                    .any(|changed| changed == &path.display().to_string()),
+                backup_path: backup_files.first().cloned(),
+                marker: ZED_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact confirmation phrase matched the dry-run preview.".to_string(),
+                    "Sibling backup was created before writing when a prior config existed."
+                        .to_string(),
+                    "Zed managed routing block matches the Switchboard-managed config."
+                        .to_string(),
+                    "Rollback Center can restore the selected sibling backup.".to_string(),
+                ],
+            })
+        }
+        WINDSURF_ROLLBACK_RECORD_ID => {
+            let path = windsurf_config_path();
+            let (changed_files, backup_files) = configure_windsurf_provider_config()?;
+            if !windsurf_provider_config_matches()? {
+                return Err(anyhow!(
+                    "Windsurf provider config verification failed after apply."
+                ));
+            }
+            Ok(ManagedConfigApplyResult {
+                record_id: WINDSURF_ROLLBACK_RECORD_ID.to_string(),
+                owner: WINDSURF_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                changed: changed_files
+                    .iter()
+                    .any(|changed| changed == &path.display().to_string()),
+                backup_path: backup_files.first().cloned(),
+                marker: WINDSURF_ROLLBACK_MARKER.to_string(),
+                verification: vec![
+                    "Exact confirmation phrase matched the dry-run preview.".to_string(),
+                    "Sibling backup was created before writing when a prior config existed."
+                        .to_string(),
+                    "Windsurf managed markers and anthropic.baseUrl match the Switchboard-managed values."
+                        .to_string(),
+                    "Rollback Center can restore the selected sibling backup.".to_string(),
+                ],
+            })
+        }
+        _ => Err(anyhow!(
+            "Managed config apply is currently promoted only for {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
+        )),
+    }
+}
+
+pub fn preview_managed_rollback(record_id: &str) -> Result<ManagedRollbackPreview> {
+    if matches!(
+        record_id,
+        CODEX_ROLLBACK_RECORD_ID
+            | OPENCODE_ROLLBACK_RECORD_ID
+            | GEMINI_ROLLBACK_RECORD_ID
+            | WINDSURF_ROLLBACK_RECORD_ID
+            | ZED_ROLLBACK_RECORD_ID
+    ) {
+        return preview_native_managed_rollback(record_id);
+    }
+
+    if let Some(target) = sidecar_rollback_target(record_id) {
+        return preview_sidecar_rollback(target);
+    }
+
+    preview_native_managed_rollback(record_id)
+}
+
+fn preview_native_managed_rollback(record_id: &str) -> Result<ManagedRollbackPreview> {
+    let target = managed_rollback_target(record_id)?;
+    let target_path = (target.target_path)();
+    let marker_present = (!target.backup_required || target_path.exists())
+        && (target.marker_matches)().unwrap_or(false);
+    let backup_path = target
+        .backup_required
+        .then(|| latest_headroom_backup_for(&target_path))
+        .flatten();
+    let backup_exists =
+        !target.backup_required || backup_path.as_ref().is_some_and(|path| path.exists());
+    let blocked_reason = if !marker_present {
+        Some(format!(
+            "Managed {} marker is not present in the target config.",
+            target.owner
+        ))
+    } else if target.backup_required && !backup_exists {
+        Some(format!(
+            "No sibling Switchboard backup was found for the {} config.",
+            target.owner
+        ))
+    } else {
+        None
+    };
+
+    Ok(ManagedRollbackPreview {
+        record_id: target.record_id.to_string(),
+        owner: target.owner.to_string(),
+        target_path: target_path.display().to_string(),
+        marker: target.marker.to_string(),
+        backup_path: backup_path.map(|path| path.display().to_string()),
+        marker_present,
+        backup_exists,
+        status: if blocked_reason.is_none() {
+            ManagedRollbackExecutionStatus::Ready
+        } else {
+            ManagedRollbackExecutionStatus::Blocked
+        },
+        confirmation_phrase: managed_rollback_confirmation_phrase(&target),
+        proposed_action: target.proposed_action.to_string(),
+        blocked_reason,
+        evidence: target
+            .evidence
+            .iter()
+            .map(|item| (*item).to_string())
+            .collect(),
+    })
+}
+
+pub fn execute_managed_rollback(
+    record_id: &str,
+    backup_path: &str,
+    confirmation_phrase: &str,
+) -> Result<ManagedRollbackExecutionResult> {
+    if matches!(
+        record_id,
+        CODEX_ROLLBACK_RECORD_ID
+            | OPENCODE_ROLLBACK_RECORD_ID
+            | GEMINI_ROLLBACK_RECORD_ID
+            | WINDSURF_ROLLBACK_RECORD_ID
+            | ZED_ROLLBACK_RECORD_ID
+    ) {
+        return execute_native_managed_rollback(record_id, backup_path, confirmation_phrase);
+    }
+
+    if let Some(target) = sidecar_rollback_target(record_id) {
+        return execute_sidecar_rollback(target, confirmation_phrase);
+    }
+
+    execute_native_managed_rollback(record_id, backup_path, confirmation_phrase)
+}
+
+fn execute_native_managed_rollback(
+    record_id: &str,
+    backup_path: &str,
+    confirmation_phrase: &str,
+) -> Result<ManagedRollbackExecutionResult> {
+    let target = managed_rollback_target(record_id)?;
+    let expected_confirmation = managed_rollback_confirmation_phrase(&target);
+    if confirmation_phrase != expected_confirmation {
+        return Err(anyhow!("Rollback confirmation phrase does not match."));
+    }
+
+    let target_path = (target.target_path)();
+    if target.backup_required && !target_path.exists() {
+        return Err(anyhow!("Rollback config target does not exist."));
+    }
+    if !(target.marker_matches)()? {
+        return Err(anyhow!(
+            "Managed {} marker is missing or has drifted; refusing rollback.",
+            target.owner
+        ));
+    }
+    let (restored_from, safety_backup, verification) = if target.backup_required {
+        let backup_path = PathBuf::from(backup_path);
+        validate_managed_rollback_backup_path(&target_path, &backup_path)?;
+
+        let safety_backup = backup_if_exists(&target_path)?;
+        std::fs::copy(&backup_path, &target_path).with_context(|| {
+            format!(
+                "restoring {} from {}",
+                target_path.display(),
+                backup_path.display()
+            )
+        })?;
+        let _ = std::fs::read_to_string(&target_path)
+            .with_context(|| format!("re-reading {}", target_path.display()))?;
+        (
+            backup_path.display().to_string(),
+            safety_backup.map(|path| path.display().to_string()),
+            vec![
+                "Exact confirmation phrase matched.".to_string(),
+                "Backup path was validated as a sibling Switchboard backup.".to_string(),
+                "A fresh safety backup was created before restore.".to_string(),
+                "Relaunch-survival evidence: restored config was re-read from disk after write."
+                    .to_string(),
+            ],
+        )
+    } else {
+        disable_client_setup("gemini_cli")?;
+        if target_path.exists() {
+            let _ = std::fs::read_to_string(&target_path)
+                .with_context(|| format!("re-reading {}", target_path.display()))?;
+        }
+        (
+            "Switchboard-owned Gemini shell and sidecar blocks removed.".to_string(),
+            None,
+            vec![
+                "Exact confirmation phrase matched.".to_string(),
+                "Managed Gemini marker was present before cleanup.".to_string(),
+                "Cleanup used disable_client_setup for Gemini Off-mode parity.".to_string(),
+                "Relaunch-survival evidence: Gemini shell and sidecar files were re-read from disk after cleanup."
+                    .to_string(),
+            ],
+        )
+    };
+
+    Ok(ManagedRollbackExecutionResult {
+        record_id: target.record_id.to_string(),
+        owner: target.owner.to_string(),
+        target_path: target_path.display().to_string(),
+        restored_from,
+        safety_backup_path: safety_backup,
+        marker: target.marker.to_string(),
+        verification,
+    })
+}
+
+pub fn preview_managed_rollback_undo_all() -> ManagedRollbackUndoAllPreview {
+    let mut ready = Vec::new();
+    let mut blocked = Vec::new();
+
+    for record_id in NATIVE_MANAGED_ROLLBACK_RECORD_IDS {
+        match preview_managed_rollback(record_id) {
+            Ok(preview) if preview.status == ManagedRollbackExecutionStatus::Ready => {
+                ready.push(preview)
+            }
+            Ok(preview) => blocked.push(preview),
+            Err(err) => blocked.push(ManagedRollbackPreview {
+                record_id: (*record_id).to_string(),
+                owner: (*record_id).to_string(),
+                target_path: String::new(),
+                marker: String::new(),
+                backup_path: None,
+                marker_present: false,
+                backup_exists: false,
+                status: ManagedRollbackExecutionStatus::Blocked,
+                confirmation_phrase: String::new(),
+                proposed_action: "No native rollback preview could be prepared.".to_string(),
+                blocked_reason: Some(err.to_string()),
+                evidence: vec![format!(
+                    "Undo-all preview failed while checking {record_id}; no files were modified."
+                )],
+            }),
+        }
+    }
+
+    ManagedRollbackUndoAllPreview {
+        status: if ready.is_empty() {
+            ManagedRollbackExecutionStatus::Blocked
+        } else {
+            ManagedRollbackExecutionStatus::Ready
+        },
+        confirmation_phrase: MANAGED_ROLLBACK_UNDO_ALL_CONFIRMATION.to_string(),
+        evidence: vec![
+            "Undo-all preview is limited to allowlisted native rollback rows.".to_string(),
+            "Each ready row already passed its per-row marker and backup readiness checks."
+                .to_string(),
+            "Execution re-previews rows immediately before modifying files.".to_string(),
+            "Blocked rows are reported and left untouched.".to_string(),
+        ],
+        ready,
+        blocked,
+    }
+}
+
+pub fn execute_managed_rollback_undo_all(
+    confirmation_phrase: &str,
+) -> Result<ManagedRollbackUndoAllExecutionResult> {
+    if confirmation_phrase != MANAGED_ROLLBACK_UNDO_ALL_CONFIRMATION {
+        return Err(anyhow!("Undo-all confirmation phrase does not match."));
+    }
+
+    let preview = preview_managed_rollback_undo_all();
+    if preview.ready.is_empty() {
+        return Err(anyhow!("No native rollback rows are ready to execute."));
+    }
+
+    let mut executed = Vec::new();
+    let mut verification = vec![
+        "Undo-all confirmation phrase matched.".to_string(),
+        "Rows were re-previewed before execution.".to_string(),
+        "Only rows with ready native previews were executed.".to_string(),
+    ];
+
+    for row in &preview.ready {
+        let result = execute_managed_rollback(
+            &row.record_id,
+            row.backup_path.as_deref().unwrap_or(""),
+            &row.confirmation_phrase,
+        )
+        .with_context(|| format!("executing native rollback row {}", row.record_id))?;
+        verification.push(format!("Executed {} ({})", row.owner, row.record_id));
+        executed.push(result);
+    }
+
+    Ok(ManagedRollbackUndoAllExecutionResult {
+        confirmation_phrase: MANAGED_ROLLBACK_UNDO_ALL_CONFIRMATION.to_string(),
+        executed,
+        blocked: preview.blocked,
+        verification,
+    })
+}
+
+pub fn get_managed_footprint() -> ManagedFootprintReport {
+    let mut items = Vec::new();
+    let app_dir = app_data_dir();
+    let legacy_app_dir = app_dir
+        .parent()
+        .map(|parent| parent.join(crate::storage::LEGACY_STORAGE_DIR_NAME))
+        .unwrap_or_else(|| home_dir().join("Library/Application Support/Headroom"));
+
+    push_footprint_item(
+        &mut items,
+        "app-storage",
+        "storage",
+        app_dir,
+        true,
+        "Primary app support storage for runtimes, receipts, logs, backups, and indexes.",
+        true,
+        vec![],
+        vec!["Contains local state, not secrets values in this report.".to_string()],
+    );
+    push_footprint_item(
+        &mut items,
+        "legacy-storage",
+        "storage",
+        legacy_app_dir,
+        true,
+        "Preserved legacy Headroom storage copied forward during migration.",
+        true,
+        vec![],
+        vec!["Left intact for compatibility; not deleted by migration.".to_string()],
+    );
+    push_footprint_item(
+        &mut items,
+        "claude-settings",
+        "client_config",
+        claude_settings_path(),
+        false,
+        "Claude Code settings may contain managed env and hook references.",
+        true,
+        vec!["*.headroom-backup-* next to edited config".to_string()],
+        vec!["Report does not read or include setting values.".to_string()],
+    );
+    push_footprint_item(
+        &mut items,
+        "claude-rtk-hook",
+        "client_config",
+        headroom_rtk_hook_path(),
+        true,
+        "Managed Claude Code RTK PreToolUse hook.",
+        true,
+        vec!["*.headroom-backup-* next to edited hook".to_string()],
+        vec![],
+    );
+    push_footprint_item(
+        &mut items,
+        "claude-markitdown-hook",
+        "client_config",
+        headroom_markitdown_hook_path(),
+        true,
+        "Managed Claude Code MarkItDown PreToolUse hook.",
+        true,
+        vec!["*.headroom-backup-* next to edited hook".to_string()],
+        vec![],
+    );
+    push_footprint_item(
+        &mut items,
+        "codex-config",
+        "client_config",
+        codex_config_toml_path(),
+        false,
+        "Codex config may contain managed provider and routing blocks.",
+        true,
+        vec!["*.headroom-backup-* next to edited config".to_string()],
+        vec!["Report does not read or include provider values.".to_string()],
+    );
+
+    for shell in ALL_SHELL_FILES {
+        push_footprint_item(
+            &mut items,
+            &format!("shell-{shell}"),
+            "shell_profile",
+            shell_path(shell),
+            false,
+            "Shell profile may contain Switchboard-managed routing or RTK blocks.",
+            true,
+            vec!["*.headroom-backup-* next to edited shell profile".to_string()],
+            vec![],
+        );
+    }
+
+    for spec in PLANNED_SIDECAR_SPECS {
+        if let Ok(path) = planned_sidecar_routing_path(spec.id) {
+            push_footprint_item(
+                &mut items,
+                &format!("{}-sidecar", spec.id),
+                "connector_sidecar",
+                path,
+                true,
+                &format!("Managed {} routing-intent sidecar.", spec.name),
+                true,
+                vec!["*.headroom-backup-* next to edited sidecar".to_string()],
+                vec!["Sidecar contains no account secrets by design.".to_string()],
+            );
+        }
+    }
+
+    push_footprint_item(
+        &mut items,
+        "app-log",
+        "logs",
+        crate::logging::log_path(),
+        true,
+        "Desktop app log file.",
+        true,
+        vec![],
+        vec!["Logs may include local paths; copy report excludes log contents.".to_string()],
+    );
+    push_footprint_item(
+        &mut items,
+        "memory-db",
+        "local_database",
+        crate::storage::memory_db_path(&app_data_dir()),
+        true,
+        "Local memory database.",
+        true,
+        vec![],
+        vec!["Database contents are not included in this report.".to_string()],
+    );
+    push_footprint_item(
+        &mut items,
+        "launch-agent",
+        "launch_agent",
+        home_dir().join("Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist"),
+        false,
+        "Launch at login agent if enabled.",
+        true,
+        vec![],
+        vec![],
+    );
+    for service in ["mac-ai-switchboard", "headroom-desktop", "headroom"] {
+        items.push(ManagedFootprintItem {
+            id: format!("keychain-{service}"),
+            category: "keychain".to_string(),
+            path: format!("Keychain service: {service}"),
+            exists: false,
+            managed: true,
+            action:
+                "May store app/session secrets under this service name; values are never reported."
+                    .to_string(),
+            reversible: true,
+            backup_paths: vec![],
+            notes: vec!["Existence is not probed to avoid touching secret material.".to_string()],
+        });
+    }
+
+    ManagedFootprintReport {
+        generated_at: Utc::now(),
+        items,
+    }
+}
+
+fn push_footprint_item(
+    items: &mut Vec<ManagedFootprintItem>,
+    id: &str,
+    category: &str,
+    path: PathBuf,
+    managed: bool,
+    action: &str,
+    reversible: bool,
+    backup_paths: Vec<String>,
+    notes: Vec<String>,
+) {
+    items.push(ManagedFootprintItem {
+        id: id.to_string(),
+        category: category.to_string(),
+        exists: path.exists(),
+        path: path.display().to_string(),
+        managed,
+        action: action.to_string(),
+        reversible,
+        backup_paths,
+        notes,
+    });
+}
+
 fn marker_block_contains(content: &str, block_id: &str, needle: &str) -> bool {
-    let start = format!("# >>> headroom:{block_id} >>>");
-    let end = format!("# <<< headroom:{block_id} <<<");
+    marker_block_contains_with_prefix(content, block_id, needle, MARKER_PREFIX)
+}
+
+fn marker_block_contains_with_prefix(
+    content: &str,
+    block_id: &str,
+    needle: &str,
+    prefix: &str,
+) -> bool {
+    let start = managed_marker_start(prefix, block_id);
+    let end = managed_marker_end(prefix, block_id);
     match (content.find(&start), content.find(&end)) {
         (Some(start_idx), Some(end_idx)) if start_idx < end_idx => {
             content[start_idx..end_idx].contains(needle)
@@ -2540,8 +5518,10 @@ fn upsert_managed_block(
         String::new()
     };
 
-    let start = format!("# >>> headroom:{block_id} >>>");
-    let end = format!("# <<< headroom:{block_id} <<<");
+    let start = managed_marker_start(MARKER_PREFIX, block_id);
+    let end = managed_marker_end(MARKER_PREFIX, block_id);
+    let legacy_start = managed_marker_start(LEGACY_MARKER_PREFIX, block_id);
+    let legacy_end = managed_marker_end(LEGACY_MARKER_PREFIX, block_id);
     let block = format!("{start}\n{block_body}\n{end}\n");
     let updated =
         if let (Some(start_idx), Some(end_idx)) = (existing.find(&start), existing.find(&end)) {
@@ -2553,6 +5533,19 @@ fn upsert_managed_block(
                 // `block` already ends in `\n`; if the surviving suffix also
                 // starts with `\n`, drop one to avoid blank-line padding
                 // accumulating between managed blocks on repeat applies.
+                let suffix = &existing[end_with_marker..];
+                let suffix = suffix.strip_prefix('\n').unwrap_or(suffix);
+                rebuilt.push_str(suffix);
+            }
+            rebuilt
+        } else if let (Some(start_idx), Some(end_idx)) =
+            (existing.find(&legacy_start), existing.find(&legacy_end))
+        {
+            let end_with_marker = end_idx + legacy_end.len();
+            let mut rebuilt = String::with_capacity(existing.len() + block.len());
+            rebuilt.push_str(&existing[..start_idx]);
+            rebuilt.push_str(&block);
+            if end_with_marker < existing.len() {
                 let suffix = &existing[end_with_marker..];
                 let suffix = suffix.strip_prefix('\n').unwrap_or(suffix);
                 rebuilt.push_str(suffix);
@@ -2635,18 +5628,39 @@ fn remove_shell_block(shell_targets: &[PathBuf], block_id: &str) -> Result<()> {
 }
 
 fn remove_managed_block(file_path: &Path, block_id: &str) -> Result<bool> {
+    remove_managed_block_with_backup(file_path, block_id).map(|(removed, _backup)| removed)
+}
+
+fn remove_managed_block_with_backup(
+    file_path: &Path,
+    block_id: &str,
+) -> Result<(bool, Option<PathBuf>)> {
     if !file_path.exists() {
-        return Ok(false);
+        return Ok((false, None));
     }
 
     let existing = std::fs::read_to_string(file_path)
         .with_context(|| format!("reading {}", file_path.display()))?;
-    let start = format!("# >>> headroom:{block_id} >>>");
-    let end = format!("# <<< headroom:{block_id} <<<");
+    let new_start = managed_marker_start(SWITCHBOARD_MARKER_PREFIX, block_id);
+    let new_end = managed_marker_end(SWITCHBOARD_MARKER_PREFIX, block_id);
+    let legacy_start = managed_marker_start(LEGACY_MARKER_PREFIX, block_id);
+    let legacy_end = managed_marker_end(LEGACY_MARKER_PREFIX, block_id);
 
-    let (Some(start_idx), Some(end_idx)) = (existing.find(&start), existing.find(&end)) else {
-        return Ok(false);
+    let (_start, end, start_idx, end_idx) = if let (Some(start_idx), Some(end_idx)) =
+        (existing.find(&new_start), existing.find(&new_end))
+    {
+        (new_start, new_end, start_idx, end_idx)
+    } else if let (Some(start_idx), Some(end_idx)) =
+        (existing.find(&legacy_start), existing.find(&legacy_end))
+    {
+        (legacy_start, legacy_end, start_idx, end_idx)
+    } else {
+        return Ok((false, None));
     };
+
+    if start_idx >= end_idx {
+        return Ok((false, None));
+    }
 
     let end_with_marker = end_idx + end.len();
     let tail = existing[end_with_marker..].trim_start_matches('\n');
@@ -2660,10 +5674,10 @@ fn remove_managed_block(file_path: &Path, block_id: &str) -> Result<bool> {
         rebuilt.push('\n');
     }
 
-    let _ = backup_if_exists(file_path)?;
+    let backup = backup_if_exists(file_path)?;
     std::fs::write(file_path, rebuilt)
         .with_context(|| format!("writing {}", file_path.display()))?;
-    Ok(true)
+    Ok((true, backup))
 }
 
 fn backup_if_exists(path: &Path) -> Result<Option<PathBuf>> {
@@ -2672,7 +5686,15 @@ fn backup_if_exists(path: &Path) -> Result<Option<PathBuf>> {
     }
 
     let stamp = Utc::now().format("%Y%m%d%H%M%S");
-    let backup_path = PathBuf::from(format!("{}.headroom-backup-{}", path.display(), stamp));
+    let mut backup_path = PathBuf::from(format!("{}.headroom-backup-{}", path.display(), stamp));
+    if backup_path.exists() {
+        backup_path = PathBuf::from(format!(
+            "{}.headroom-backup-{}-{}",
+            path.display(),
+            stamp,
+            Uuid::new_v4()
+        ));
+    }
     std::fs::copy(path, &backup_path)
         .with_context(|| format!("creating backup {}", backup_path.display()))?;
 
@@ -2955,6 +5977,24 @@ fn file_has_managed_block(file_path: &Path, block_id: &str) -> Result<bool> {
     let start = format!("# >>> headroom:{block_id} >>>");
     let end = format!("# <<< headroom:{block_id} <<<");
     Ok(content.contains(&start) && content.contains(&end))
+}
+
+fn managed_block_contains_text(
+    file_path: &Path,
+    block_id: &str,
+    expected_text: &str,
+) -> Result<bool> {
+    if !file_path.exists() {
+        return Ok(false);
+    }
+    let content = std::fs::read_to_string(file_path)
+        .with_context(|| format!("reading {}", file_path.display()))?;
+    let start = format!("# >>> headroom:{block_id} >>>");
+    let end = format!("# <<< headroom:{block_id} <<<");
+    let (Some(start_idx), Some(end_idx)) = (content.find(&start), content.find(&end)) else {
+        return Ok(false);
+    };
+    Ok(content[start_idx..end_idx].contains(expected_text))
 }
 
 fn shell_path(name: &str) -> PathBuf {
@@ -3359,154 +6399,654 @@ fn codex_user_state_exists() -> bool {
         || codex_root.join("sessions").exists()
 }
 
-/// Locate the Codex CLI binary the same way [`detect_codex_client`] does: known
-/// install locations first, then a PATH lookup. Used as the Headroom Learn
-/// analysis backend (`codex exec`) for Codex sessions.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PlannedCliCompatibilityReport {
+    label: &'static str,
+    binary_path: Option<PathBuf>,
+    version: Option<String>,
+    config_surfaces: Vec<PathBuf>,
+    routing_blocker: &'static str,
+}
+
+fn read_cli_version(path: &Path) -> Option<String> {
+    let output = Command::new(path).arg("--version").output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let version = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .next()
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    if version.is_empty() {
+        None
+    } else {
+        Some(version)
+    }
+}
+
+fn planned_cli_compatibility_report(
+    label: &'static str,
+    binary_path: Option<PathBuf>,
+    config_candidates: &[PathBuf],
+    routing_blocker: &'static str,
+) -> PlannedCliCompatibilityReport {
+    let config_surfaces = config_candidates
+        .iter()
+        .filter(|path| path.exists())
+        .cloned()
+        .collect::<Vec<_>>();
+    let version = binary_path.as_deref().and_then(read_cli_version);
+
+    PlannedCliCompatibilityReport {
+        label,
+        binary_path,
+        version,
+        config_surfaces,
+        routing_blocker,
+    }
+}
+
+fn planned_cli_compatibility_evidence(report: &PlannedCliCompatibilityReport) -> Vec<String> {
+    let mut evidence = Vec::new();
+    if let Some(path) = &report.binary_path {
+        evidence.push(format!("{} binary: {}", report.label, path.display()));
+    }
+    evidence.push(match &report.version {
+        Some(version) => format!("{} version: {version}", report.label),
+        None => format!("{} version: unavailable from --version.", report.label),
+    });
+    if report.config_surfaces.is_empty() {
+        evidence.push(format!(
+            "{} config surface: none detected yet.",
+            report.label
+        ));
+    } else {
+        evidence.push(format!(
+            "{} config surface: {}",
+            report.label,
+            report
+                .config_surfaces
+                .iter()
+                .map(|path| path.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    evidence.push(report.routing_blocker.to_string());
+    evidence
+}
+
+/// Detect Gemini CLI without mutating config. The compatibility report is
+/// surfaced as planned-connector evidence while routing remains manual.
 fn detect_gemini_cli_client() -> ClientStatus {
-    detect_planned_client(
-        "gemini_cli",
-        "Gemini CLI",
-        &["gemini"],
-        &[
-            home_dir().join(".gemini"),
-            home_dir().join(".config").join("gemini"),
-        ],
-        "Detected, but the Headroom adapter is not implemented yet. For now use RTK-only mode for shell-output savings.",
-    )
+    let executable = common_cli_candidate_paths(&["gemini"])
+        .into_iter()
+        .find(|path| path.exists())
+        .or_else(|| find_on_path(&["gemini"]));
+    let config_candidates = [
+        home_dir().join(".gemini"),
+        home_dir().join(".config").join("gemini"),
+    ];
+    let report = planned_cli_compatibility_report(
+        "Gemini",
+        executable.clone(),
+        &config_candidates,
+        "Managed shell/base-url routing uses Switchboard-owned shell blocks, sibling rollback backups, Doctor verification, rollback, and Off mode cleanup.",
+    );
+    let installed = executable.is_some() || !report.config_surfaces.is_empty();
+    let mut notes = if installed {
+        planned_cli_compatibility_evidence(&report)
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected. Switchboard can manage Gemini CLI shell/base-url routing while keeping account and model choices user-owned."
+                .into(),
+        );
+    }
+
+    let mut status = ClientStatus {
+        id: "gemini_cli".into(),
+        name: "Gemini CLI".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    };
+    append_gemini_manual_routing_note(&mut status);
+    status
+}
+
+fn append_gemini_manual_routing_note(status: &mut ClientStatus) {
+    if status.installed {
+        status.notes.push(
+            "Gemini routing is managed through reversible shell/base-url exports with backup, Doctor verification, rollback evidence, and Off mode cleanup."
+                .into(),
+        );
+    }
 }
 
 fn detect_opencode_client() -> ClientStatus {
-    detect_planned_client(
-        "opencode",
+    let executable = common_cli_candidate_paths(&["opencode", "open-code"])
+        .into_iter()
+        .find(|path| path.exists())
+        .or_else(|| find_on_path(&["opencode", "open-code"]));
+    let config_candidates = [
+        home_dir().join(".opencode"),
+        home_dir().join(".config").join("opencode"),
+    ];
+    let report = planned_cli_compatibility_report(
         "OpenCode",
-        &["opencode", "open-code"],
-        &[
-            home_dir().join(".opencode"),
-            home_dir().join(".config").join("opencode"),
-        ],
-        "Detected, but the Headroom adapter is not implemented yet. For now use RTK-only mode for shell-output savings.",
-    )
+        executable.clone(),
+        &config_candidates,
+        "Managed provider routing uses the active OpenCode config path with backup, Doctor verification, rollback, and Off mode cleanup.",
+    );
+    let installed = executable.is_some() || !report.config_surfaces.is_empty();
+    let mut notes = if installed {
+        planned_cli_compatibility_evidence(&report)
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected. Switchboard can manage OpenCode provider routing with backup, verification, rollback, and Off mode cleanup."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "opencode".into(),
+        name: "OpenCode".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_cursor_client() -> ClientStatus {
-    detect_planned_client(
-        "cursor",
-        "Cursor",
-        &["cursor"],
-        &[
-            home_dir()
-                .join("Library")
-                .join("Application Support")
-                .join("Cursor"),
-            PathBuf::from("/Applications/Cursor.app"),
-        ],
-        "Detected, but Headroom adapter not implemented yet. use guided setup until Cursor routing is verified.",
-    )
+    let app_path = PathBuf::from("/Applications/Cursor.app");
+    let command_path = find_on_path(&["cursor"]);
+    let profile_candidates = [home_dir()
+        .join("Library")
+        .join("Application Support")
+        .join("Cursor")];
+    let profile_surfaces = profile_candidates
+        .iter()
+        .filter(|path| path.exists())
+        .cloned()
+        .collect::<Vec<_>>();
+    let settings_files = discover_editor_settings_files(&profile_surfaces);
+    let installed = app_path.exists() || command_path.is_some() || !profile_surfaces.is_empty();
+    let mut notes = if installed {
+        let mut evidence = Vec::new();
+        if app_path.exists() {
+            evidence.push(format!("Cursor app: {}", app_path.display()));
+        } else if let Some(path) = command_path {
+            evidence.push(format!("Cursor app: command {}", path.display()));
+        }
+        if profile_surfaces.is_empty() {
+            evidence.push("Cursor profile settings: none detected yet.".into());
+        } else {
+            evidence.push(format!(
+                "Cursor profile settings: {}",
+                profile_surfaces
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        if settings_files.is_empty() {
+            evidence.push("Cursor settings files: none detected yet.".into());
+        } else {
+            evidence.push(format!(
+                "Cursor settings files: {}",
+                settings_files
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        evidence.push(
+            "Settings routing blocked until profile settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                .into(),
+        );
+        evidence
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter not implemented yet. use guided setup until Cursor routing is verified."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "cursor".into(),
+        name: "Cursor".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_grok_cli_client() -> ClientStatus {
-    detect_planned_client(
-        "grok_cli",
-        "Grok / xAI CLI",
-        &["grok", "xai"],
-        &[home_dir().join(".config").join("xai")],
-        "Detected, but Headroom adapter not implemented yet. keep provider/model compatibility visible in Doctor.",
-    )
+    let executable = common_cli_candidate_paths(&["grok", "xai"])
+        .into_iter()
+        .find(|path| path.exists())
+        .or_else(|| find_on_path(&["grok", "xai"]));
+    let config_candidates = [home_dir().join(".config").join("xai")];
+    let report = planned_cli_compatibility_report(
+        "Grok / xAI",
+        executable.clone(),
+        &config_candidates,
+        "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+    );
+    let installed = executable.is_some() || !report.config_surfaces.is_empty();
+    let mut notes = if installed {
+        planned_cli_compatibility_evidence(&report)
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter not implemented yet. keep provider/model compatibility visible in Doctor."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "grok_cli".into(),
+        name: "Grok / xAI CLI".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_aider_client() -> ClientStatus {
-    detect_planned_client(
-        "aider",
+    let executable = common_cli_candidate_paths(&["aider"])
+        .into_iter()
+        .find(|path| path.exists())
+        .or_else(|| find_on_path(&["aider"]));
+    let config_candidates = [
+        home_dir().join(".aider.conf.yml"),
+        home_dir().join(".config").join("aider"),
+    ];
+    let report = planned_cli_compatibility_report(
         "Aider",
-        &["aider"],
-        &[
-            home_dir().join(".aider.conf.yml"),
-            home_dir().join(".config").join("aider"),
-        ],
-        "Detected, but Headroom adapter not implemented yet. use RTK-only mode shell-output savings for now.",
-    )
+        executable.clone(),
+        &config_candidates,
+        "Provider routing blocked until reversible environment wrapper, backup, verify, rollback, and Off mode cleanup exist.",
+    );
+    let installed = executable.is_some() || !report.config_surfaces.is_empty();
+    let mut notes = if installed {
+        planned_cli_compatibility_evidence(&report)
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter not implemented yet. use RTK-only mode shell-output savings for now."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "aider".into(),
+        name: "Aider".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_continue_client() -> ClientStatus {
-    detect_planned_client(
-        "continue",
-        "Continue",
-        &["continue"],
-        &[
-            home_dir().join(".continue"),
-            home_dir().join(".config").join("continue"),
-        ],
-        "Detected, but Headroom adapter not implemented yet. guided setup is safest because provider configs can vary.",
-    )
+    let command_path = find_on_path(&["continue"]);
+    let config_candidates = [
+        home_dir().join(".continue"),
+        home_dir().join(".config").join("continue"),
+    ];
+    let config_surfaces = config_candidates
+        .iter()
+        .filter(|path| path.exists())
+        .cloned()
+        .collect::<Vec<_>>();
+    let installed = command_path.is_some() || !config_surfaces.is_empty();
+    let mut notes = if installed {
+        let mut evidence = Vec::new();
+        if let Some(path) = command_path {
+            evidence.push(format!("Continue command: {}", path.display()));
+        }
+        if config_surfaces.is_empty() {
+            evidence.push("Continue config folder: none detected yet.".into());
+        } else {
+            evidence.push(format!(
+                "Continue config folder: {}",
+                config_surfaces
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        evidence.push(
+            "Settings routing blocked until multi-provider parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                .into(),
+        );
+        evidence
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter not implemented yet. guided setup is safest because provider configs can vary."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "continue".into(),
+        name: "Continue".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_goose_client() -> ClientStatus {
-    detect_planned_client(
-        "goose",
+    let executable = common_cli_candidate_paths(&["goose"])
+        .into_iter()
+        .find(|path| path.exists())
+        .or_else(|| find_on_path(&["goose"]));
+    let config_candidates = [home_dir().join(".config").join("goose")];
+    let report = planned_cli_compatibility_report(
         "Goose",
-        &["goose"],
-        &[home_dir().join(".config").join("goose")],
-        "Detected, but Headroom adapter not implemented yet. use RTK-only mode until provider routing is reversible.",
-    )
+        executable.clone(),
+        &config_candidates,
+        "Provider routing blocked until MCP handoff shape, backup, verify, rollback, and Off mode cleanup exist.",
+    );
+    let installed = executable.is_some() || !report.config_surfaces.is_empty();
+    let mut notes = if installed {
+        planned_cli_compatibility_evidence(&report)
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter not implemented yet. use RTK-only mode until provider routing is reversible."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "goose".into(),
+        name: "Goose".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_qwen_code_client() -> ClientStatus {
-    detect_planned_client(
-        "qwen_code",
+    let executable = common_cli_candidate_paths(&["qwen", "qwen-code"])
+        .into_iter()
+        .find(|path| path.exists())
+        .or_else(|| find_on_path(&["qwen", "qwen-code"]));
+    let config_candidates = [
+        home_dir().join(".qwen"),
+        home_dir().join(".config").join("qwen"),
+    ];
+    let report = planned_cli_compatibility_report(
         "Qwen Code",
-        &["qwen", "qwen-code"],
-        &[
-            home_dir().join(".qwen"),
-            home_dir().join(".config").join("qwen"),
-        ],
-        "Detected, but Headroom adapter is not implemented yet. Use copy-only Repo Intelligence handoffs and RTK-only shell savings.",
-    )
+        executable.clone(),
+        &config_candidates,
+        "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+    );
+    let installed = executable.is_some() || !report.config_surfaces.is_empty();
+    let mut notes = if installed {
+        planned_cli_compatibility_evidence(&report)
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter is not implemented yet. Use copy-only Repo Intelligence handoffs and RTK-only shell savings."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "qwen_code".into(),
+        name: "Qwen Code".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_amazon_q_client() -> ClientStatus {
-    detect_planned_client(
-        "amazon_q",
-        "Amazon Q Developer CLI",
-        &["q"],
-        &[
-            home_dir().join(".aws").join("amazonq"),
-            home_dir().join(".config").join("amazon-q"),
-        ],
-        "Detected, but Headroom adapter is not implemented yet. Keep AWS and Amazon Q account state manual.",
-    )
+    let executable = common_cli_candidate_paths(&["q"])
+        .into_iter()
+        .find(|path| path.exists())
+        .or_else(|| find_on_path(&["q"]));
+    let config_candidates = [
+        home_dir().join(".aws").join("amazonq"),
+        home_dir().join(".config").join("amazon-q"),
+    ];
+    let report = planned_cli_compatibility_report(
+        "Amazon Q",
+        executable.clone(),
+        &config_candidates,
+        "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+    );
+    let installed = executable.is_some() || !report.config_surfaces.is_empty();
+    let mut notes = if installed {
+        planned_cli_compatibility_evidence(&report)
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected, but Headroom adapter is not implemented yet. Keep AWS and Amazon Q account state manual."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "amazon_q".into(),
+        name: "Amazon Q Developer CLI".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_windsurf_client() -> ClientStatus {
-    detect_planned_client(
-        "windsurf",
-        "Windsurf",
-        &["windsurf"],
-        &[
-            home_dir()
-                .join("Library")
-                .join("Application Support")
-                .join("Windsurf"),
-            PathBuf::from("/Applications/Windsurf.app"),
-        ],
-        "Detected, but Headroom adapter is not implemented yet. Use guided setup and copy-only handoff packs.",
-    )
+    let app_path = PathBuf::from("/Applications/Windsurf.app");
+    let command_path = find_on_path(&["windsurf"]);
+    let settings_candidates = [home_dir()
+        .join("Library")
+        .join("Application Support")
+        .join("Windsurf")];
+    let settings_surfaces = settings_candidates
+        .iter()
+        .filter(|path| path.exists())
+        .cloned()
+        .collect::<Vec<_>>();
+    let settings_files = discover_editor_settings_files(&settings_surfaces);
+    let installed = app_path.exists() || command_path.is_some() || !settings_surfaces.is_empty();
+    let mut notes = if installed {
+        let mut evidence = Vec::new();
+        if app_path.exists() {
+            evidence.push(format!("Windsurf app: {}", app_path.display()));
+        } else if let Some(path) = command_path {
+            evidence.push(format!("Windsurf app: command {}", path.display()));
+        }
+        if settings_surfaces.is_empty() {
+            evidence.push("Windsurf settings: none detected yet.".into());
+        } else {
+            evidence.push(format!(
+                "Windsurf settings: {}",
+                settings_surfaces
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        if settings_files.is_empty() {
+            evidence.push("Windsurf settings files: none detected yet.".into());
+        } else {
+            evidence.push(format!(
+                "Windsurf settings files: {}",
+                settings_files
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        evidence.push(
+            "Managed Windsurf settings routing uses settings parse, dry-run diff, backup, Doctor verification, rollback, and Off mode cleanup."
+                .into(),
+        );
+        evidence
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected. Switchboard can manage Windsurf editor settings routing with backup, verification, rollback, and Off mode cleanup."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "windsurf".into(),
+        name: "Windsurf".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_zed_ai_client() -> ClientStatus {
-    detect_planned_client(
-        "zed_ai",
-        "Zed AI",
-        &["zed"],
-        &[
-            home_dir().join(".config").join("zed"),
-            home_dir()
-                .join("Library")
-                .join("Application Support")
-                .join("Zed"),
-            PathBuf::from("/Applications/Zed.app"),
-        ],
-        "Detected, but Headroom adapter is not implemented yet. Keep Zed assistant settings manual and use copy-only handoffs.",
-    )
+    let app_path = PathBuf::from("/Applications/Zed.app");
+    let command_path = find_on_path(&["zed"]);
+    let settings_candidates = [
+        home_dir().join(".config").join("zed"),
+        home_dir()
+            .join("Library")
+            .join("Application Support")
+            .join("Zed"),
+    ];
+    let settings_surfaces = settings_candidates
+        .iter()
+        .filter(|path| path.exists())
+        .cloned()
+        .collect::<Vec<_>>();
+    let installed = app_path.exists() || command_path.is_some() || !settings_surfaces.is_empty();
+    let mut notes = if installed {
+        let mut evidence = Vec::new();
+        if app_path.exists() {
+            evidence.push(format!("Zed app: {}", app_path.display()));
+        } else if let Some(path) = command_path {
+            evidence.push(format!("Zed app: command {}", path.display()));
+        }
+        if settings_surfaces.is_empty() {
+            evidence.push("Zed assistant settings: none detected yet.".into());
+        } else {
+            evidence.push(format!(
+                "Zed assistant settings: {}",
+                settings_surfaces
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        evidence.push(
+            "Managed Zed settings routing uses lossless settings parse, dry-run diff, backup, Doctor verification, rollback, and Off mode cleanup."
+                .into(),
+        );
+        evidence
+    } else {
+        vec!["Not detected on machine yet.".into()]
+    };
+    if installed {
+        notes.push(
+            "Detected. Switchboard can manage Zed assistant settings routing with backup, verification, rollback, and Off mode cleanup."
+                .into(),
+        );
+    }
+
+    ClientStatus {
+        id: "zed_ai".into(),
+        name: "Zed AI".into(),
+        installed,
+        configured: false,
+        health: if installed {
+            ClientHealth::Attention
+        } else {
+            ClientHealth::NotDetected
+        },
+        notes,
+    }
 }
 
 fn detect_planned_client(
@@ -3589,6 +7129,29 @@ pub(crate) fn codex_logged_in() -> bool {
     codex_home().join("auth.json").is_file()
 }
 
+fn discover_editor_settings_files(profile_roots: &[PathBuf]) -> Vec<PathBuf> {
+    let relative_candidates = [
+        PathBuf::from("User").join("settings.json"),
+        PathBuf::from("User").join("settings.jsonc"),
+        PathBuf::from("settings.json"),
+        PathBuf::from("settings.jsonc"),
+        PathBuf::from("profiles").join("User").join("settings.json"),
+        PathBuf::from("profiles")
+            .join("User")
+            .join("settings.jsonc"),
+    ];
+    let mut candidates = Vec::new();
+    for root in profile_roots {
+        for relative in &relative_candidates {
+            let path = root.join(relative);
+            if path.is_file() {
+                candidates.push(path);
+            }
+        }
+    }
+    dedupe_paths(candidates)
+}
+
 fn parse_json_object(raw: &str, path: &Path) -> Result<serde_json::Map<String, Value>> {
     let value: Value = match serde_json::from_str(raw) {
         Ok(value) => value,
@@ -3661,21 +7224,25 @@ mod tests {
     use serde_json::json;
 
     use crate::models::{
-        ClientConnectorSupportStatus, ClientHealth, ClientStatus, SwitchboardMode,
+        ClientConnectorSupportStatus, ClientHealth, ClientStatus, CodexThreadRetaggingMode,
+        CodexThreadRetaggingSettings, ManagedRollbackExecutionStatus, SwitchboardMode,
     };
 
     use super::{
         build_headroom_markitdown_hook, build_headroom_rtk_hook, build_markitdown_codex_nudge,
         build_markitdown_office_nudge, claude_code_user_state_exists, claude_hook_present_in_value,
-        codex_home, codex_sqlite_store_expected, codex_store_version,
-        default_shell_targets_for_family, discover_codex_state_dbs, entry_contains_hook,
-        find_on_path_entries, list_client_connectors, normalize_setup_state, normalized_setup_id,
-        nvm_binary_candidates, parse_json_object, remove_managed_block,
-        remove_pre_tool_use_markers, retag_codex_thread_providers, retag_codex_threads_to_headroom,
-        retag_one_codex_db, serialize_paths, shell_block_contains_in_files,
+        codex_home, codex_retagging_settings_path, codex_sqlite_store_expected,
+        codex_store_version, default_shell_targets_for_family, discover_codex_state_dbs,
+        entry_contains_hook, find_on_path_entries, get_codex_thread_retagging_settings,
+        list_client_connectors, normalize_setup_state, normalized_setup_id, nvm_binary_candidates,
+        parse_json_object, planned_connector_has_implemented_setup, remove_managed_block,
+        remove_pre_tool_use_markers, restore_codex_thread_db_backup, retag_codex_thread_providers,
+        retag_codex_threads_to_headroom, retag_one_codex_db, serialize_paths,
+        set_codex_thread_retagging_settings, shell_block_contains_in_files,
         shell_block_contains_text_in_files, shell_double_quote, strip_headroom_hook_from_settings,
         upsert_managed_block, write_file_if_changed, ClientSetupState, ShellFamily,
-        PLANNED_CLIENT_SPECS,
+        CONNECTOR_MANIFEST_JSON, MANAGED_CLIENT_SPECS, PLANNED_CLIENT_SPECS,
+        PLANNED_CONFIG_CREATION_STEPS, PLANNED_CONFIG_CREATION_STEP_IDS,
     };
     use rusqlite::Connection;
 
@@ -3752,10 +7319,96 @@ mod tests {
     }
 
     #[test]
+    fn connector_registry_uses_manifest_owned_identity_and_status() {
+        let detected_clients = vec![
+            ClientStatus {
+                id: "claude_code".into(),
+                name: "Claude Code".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Healthy,
+                notes: vec!["Claude config present".into()],
+            },
+            ClientStatus {
+                id: "gemini_cli".into(),
+                name: "Gemini CLI".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec!["Gemini binary present".into()],
+            },
+        ];
+        let connectors = list_client_connectors(&detected_clients).expect("list connectors");
+        let manifests = serde_json::from_str::<Vec<serde_json::Value>>(CONNECTOR_MANIFEST_JSON)
+            .expect("valid connector manifest");
+        let rust_ids = MANAGED_CLIENT_SPECS
+            .iter()
+            .map(|spec| spec.id)
+            .chain(PLANNED_CLIENT_SPECS.iter().map(|spec| spec.id))
+            .collect::<BTreeSet<_>>();
+
+        for manifest in manifests {
+            let id = manifest["id"].as_str().expect("manifest id");
+            assert!(rust_ids.contains(id), "{id} missing from Rust registry");
+            let connector = connectors
+                .iter()
+                .find(|connector| connector.client_id == id)
+                .unwrap_or_else(|| panic!("{id} missing from connector status"));
+            assert_eq!(connector.name, manifest["name"].as_str().unwrap());
+            assert_eq!(connector.category, manifest["category"].as_str().unwrap());
+            let expected_status = match manifest["support_status"].as_str().unwrap() {
+                "managed" => ClientConnectorSupportStatus::Managed,
+                _ => ClientConnectorSupportStatus::Planned,
+            };
+            assert_eq!(connector.support_status, expected_status);
+        }
+    }
+
+    #[test]
+    fn manifest_managed_connectors_have_implemented_setup_paths() {
+        let manifests = serde_json::from_str::<Vec<serde_json::Value>>(CONNECTOR_MANIFEST_JSON)
+            .expect("valid connector manifest");
+        let managed_ids = manifests
+            .iter()
+            .filter(|manifest| manifest["support_status"].as_str() == Some("managed"))
+            .map(|manifest| manifest["id"].as_str().expect("manifest id"))
+            .collect::<BTreeSet<_>>();
+
+        assert_eq!(
+            managed_ids,
+            BTreeSet::from([
+                "claude_code",
+                "codex",
+                "gemini_cli",
+                "goose",
+                "opencode",
+                "qwen_code",
+                "windsurf",
+                "zed_ai",
+            ])
+        );
+
+        for id in managed_ids {
+            if id == "goose" {
+                continue;
+            }
+            let native_managed = MANAGED_CLIENT_SPECS.iter().any(|spec| spec.id == id);
+            let promoted_planned = planned_connector_has_implemented_setup(id);
+            assert!(
+                native_managed || promoted_planned,
+                "{id} is manifest-managed but has no apply/verify/repair setup path"
+            );
+        }
+    }
+
+    #[test]
     fn planned_connector_registry_includes_backend_detection_metadata() {
         for spec in PLANNED_CLIENT_SPECS {
             assert!(matches!(spec.category, "cli" | "editor" | "agent"));
-            assert!(matches!(spec.setup_phase, "detect" | "guide" | "adapt"));
+            assert!(matches!(
+                spec.setup_phase,
+                "detect" | "guide" | "adapt" | "managed" | "managed mcp"
+            ));
             assert!(
                 !spec.detection_sources.is_empty(),
                 "{} should have detection sources",
@@ -3766,25 +7419,114 @@ mod tests {
                 "{} should have config locations",
                 spec.id
             );
-            assert!(
-                spec.setup_hint.contains("Manual guide")
-                    || spec.setup_hint.contains("Detection only"),
-                "{} should stay manual until reversible adapters exist",
-                spec.id
-            );
+            if planned_connector_has_implemented_setup(spec.id) {
+                assert!(
+                    spec.setup_hint.contains("Managed")
+                        || (spec.id == "goose" && spec.setup_hint.contains("Managed MCP")),
+                    "{} should describe its managed setup lifecycle",
+                    spec.id
+                );
+            } else {
+                assert!(
+                    spec.setup_hint.contains("Manual guide")
+                        || spec.setup_hint.contains("Detection only"),
+                    "{} should stay manual until reversible adapters exist",
+                    spec.id
+                );
+            }
         }
+        let gemini = PLANNED_CLIENT_SPECS
+            .iter()
+            .find(|spec| spec.id == "gemini_cli")
+            .expect("Gemini spec");
+        let gemini_copy = format!(
+            "{} {}",
+            gemini.setup_hint,
+            gemini.automation_gates.join(" ")
+        );
+        assert!(gemini_copy.contains("sibling rollback backups"));
+        assert!(!gemini_copy.contains("sidecar evidence"));
     }
 
     #[test]
+    fn editor_settings_discovery_finds_user_settings_without_writing() {
+        let root = unique_temp_dir("editor-settings-discovery");
+        let cursor_root = root.join("Cursor");
+        let windsurf_root = root.join("Windsurf");
+        fs::create_dir_all(cursor_root.join("User")).expect("create cursor user");
+        fs::create_dir_all(windsurf_root.join("profiles").join("User"))
+            .expect("create windsurf profile");
+        let cursor_settings = cursor_root.join("User").join("settings.json");
+        let windsurf_settings = windsurf_root
+            .join("profiles")
+            .join("User")
+            .join("settings.jsonc");
+        fs::write(&cursor_settings, "{}").expect("write cursor settings");
+        fs::write(&windsurf_settings, "{}").expect("write windsurf settings");
+
+        let discovered =
+            super::discover_editor_settings_files(&[cursor_root.clone(), windsurf_root.clone()]);
+
+        assert!(discovered.contains(&cursor_settings));
+        assert!(discovered.contains(&windsurf_settings));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn planned_connectors_are_detected_but_not_enabled_or_verified() {
+        let _home = TestHome::new();
         let detected_clients = vec![
+        ClientStatus {
+            id: "gemini_cli".into(),
+            name: "Gemini CLI".into(),
+            installed: true,
+            configured: false,
+            health: ClientHealth::Attention,
+            notes: vec![
+                "Gemini binary: /opt/homebrew/bin/gemini".into(),
+                "Gemini version: gemini 0.2.1".into(),
+                "Gemini config surface: /Users/test/.gemini".into(),
+                "Provider routing blocked until stable config surface, backup, verify, rollback, and Off mode cleanup exist.".into(),
+            ],
+        },
             ClientStatus {
-                id: "gemini_cli".into(),
-                name: "Gemini CLI".into(),
+                id: "opencode".into(),
+                name: "OpenCode".into(),
                 installed: true,
                 configured: false,
                 health: ClientHealth::Attention,
-                notes: vec!["Detected at /opt/homebrew/bin/gemini".into()],
+                notes: vec![
+                    "OpenCode binary: /opt/homebrew/bin/opencode".into(),
+                    "OpenCode version: opencode 1.0.0".into(),
+                    "OpenCode config surface: /Users/test/.config/opencode".into(),
+                    "Provider routing blocked until active config path, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
+            ClientStatus {
+                id: "grok_cli".into(),
+                name: "Grok / xAI CLI".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Grok / xAI binary: /opt/homebrew/bin/xai".into(),
+                    "Grok / xAI version: xai 0.4.0".into(),
+                    "Grok / xAI config surface: /Users/test/.config/xai".into(),
+                    "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
+            ClientStatus {
+                id: "cursor".into(),
+                name: "Cursor".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Cursor app: /Applications/Cursor.app".into(),
+                    "Cursor profile settings: /Users/test/Library/Application Support/Cursor".into(),
+                    "Settings routing blocked until profile settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
             },
             ClientStatus {
                 id: "aider".into(),
@@ -3792,7 +7534,88 @@ mod tests {
                 installed: true,
                 configured: false,
                 health: ClientHealth::Attention,
-                notes: vec!["Detected data at ~/.aider.conf.yml.".into()],
+                notes: vec![
+                    "Aider binary: /opt/homebrew/bin/aider".into(),
+                    "Aider version: aider 0.84.0".into(),
+                    "Aider config surface: /Users/test/.aider.conf.yml".into(),
+                    "Provider routing blocked until reversible environment wrapper, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
+            ClientStatus {
+                id: "continue".into(),
+                name: "Continue".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Continue command: /opt/homebrew/bin/continue".into(),
+                    "Continue config folder: /Users/test/.continue".into(),
+                    "Settings routing blocked until multi-provider parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
+            ClientStatus {
+                id: "goose".into(),
+                name: "Goose".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Goose binary: /opt/homebrew/bin/goose".into(),
+                    "Goose version: goose 1.2.0".into(),
+                    "Goose config surface: /Users/test/.config/goose".into(),
+                    "Provider routing blocked until MCP handoff shape, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
+            ClientStatus {
+                id: "qwen_code".into(),
+                name: "Qwen Code".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Qwen Code binary: /opt/homebrew/bin/qwen-code".into(),
+                    "Qwen Code version: qwen-code 0.9.0".into(),
+                    "Qwen Code config surface: /Users/test/.qwen".into(),
+                    "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
+            ClientStatus {
+                id: "amazon_q".into(),
+                name: "Amazon Q Developer CLI".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Amazon Q binary: /opt/homebrew/bin/q".into(),
+                    "Amazon Q version: q 1.11.0".into(),
+                    "Amazon Q config surface: /Users/test/.aws/amazonq".into(),
+                    "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                ],
+            },
+            ClientStatus {
+                id: "windsurf".into(),
+                name: "Windsurf".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Windsurf app: /Applications/Windsurf.app".into(),
+                    "Windsurf settings: /Users/test/Library/Application Support/Windsurf"
+                        .into(),
+                    "Managed Windsurf settings routing uses settings parse, dry-run diff, backup, Doctor verification, rollback, and Off mode cleanup.".into(),
+                ],
+            },
+            ClientStatus {
+                id: "zed_ai".into(),
+                name: "Zed AI".into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![
+                    "Zed app: /Applications/Zed.app".into(),
+                    "Zed assistant settings: /Users/test/.config/zed".into(),
+                    "Managed Zed settings routing uses lossless settings parse, dry-run diff, backup, Doctor verification, rollback, and Off mode cleanup.".into(),
+                ],
             },
         ];
 
@@ -3802,7 +7625,13 @@ mod tests {
             .filter(|connector| connector.support_status == ClientConnectorSupportStatus::Planned)
             .collect::<Vec<_>>();
 
-        assert_eq!(planned.len(), PLANNED_CLIENT_SPECS.len());
+        assert_eq!(
+            planned
+                .iter()
+                .map(|connector| connector.client_id.as_str())
+                .collect::<BTreeSet<_>>(),
+            BTreeSet::from(["aider", "amazon_q", "continue", "cursor", "grok_cli",])
+        );
 
         for connector in planned {
             assert!(!connector.enabled);
@@ -3812,15 +7641,172 @@ mod tests {
             assert!(!connector.detection_sources.is_empty());
             assert!(!connector.detection_evidence.is_empty());
             assert!(!connector.config_locations.is_empty());
+            assert_eq!(
+                connector.config_creation_steps,
+                PLANNED_CONFIG_CREATION_STEPS
+                    .iter()
+                    .map(|step| step.to_string())
+                    .collect::<Vec<_>>()
+            );
+            assert_eq!(
+                connector
+                    .config_creation_step_details
+                    .iter()
+                    .map(|step| step.id.as_str())
+                    .collect::<Vec<_>>(),
+                PLANNED_CONFIG_CREATION_STEP_IDS
+            );
+            assert!(connector
+                .config_creation_step_details
+                .iter()
+                .all(|step| !step.label.is_empty()
+                    && step.detail.len() > 30
+                    && step.required_evidence.len() >= 2
+                    && step
+                        .required_evidence
+                        .iter()
+                        .all(|evidence| evidence.len() > 30)));
+            let dry_run = connector
+                .config_creation_step_details
+                .iter()
+                .find(|step| step.id == "dryRunDiff")
+                .expect("gated connector dry-run step");
+            let dry_run_copy =
+                format!("{} {}", dry_run.detail, dry_run.required_evidence.join(" "));
+            for snippet in [
+                "target path",
+                "before/after",
+                "managed marker boundary",
+                "rollback preview",
+                "confirmation phrase",
+            ] {
+                assert!(dry_run_copy.contains(snippet));
+            }
+            let preview = connector
+                .config_dry_run_preview
+                .as_ref()
+                .expect("gated connector dry-run preview");
+            assert_eq!(
+                preview.marker,
+                format!("mac-ai-switchboard:{}", connector.client_id)
+            );
+            assert!(preview.backup_path.ends_with(".mac-ai-switchboard.bak"));
+            assert!(preview.current_state.contains(&connector.name));
+            assert!(preview.proposed_state.contains("Preview only"));
+            assert!(preview.proposed_state.contains("no files are written"));
+            assert!(preview.apply_blocked_reason.contains(&connector.name));
+            assert!(preview
+                .apply_blocked_reason
+                .contains("backup, verify, rollback, and Off cleanup"));
+            assert!(preview.rollback_preview.contains("remove only"));
+            assert_eq!(
+                preview.confirmation_phrase,
+                format!("APPLY {} CONFIG", connector.name.to_uppercase())
+            );
+            assert!(preview.writes.is_empty());
+            assert_eq!(connector.automation_path.len(), 7);
+            assert_eq!(
+                connector
+                    .automation_path
+                    .iter()
+                    .map(|stage| stage.id.as_str())
+                    .collect::<Vec<_>>(),
+                PLANNED_CONFIG_CREATION_STEP_IDS
+            );
+            assert_eq!(connector.automation_path[0].status, "ready");
+            assert_eq!(connector.automation_path[1].status, "ready");
+            assert!(connector
+                .automation_path
+                .iter()
+                .skip(2)
+                .all(|stage| stage.status == "blocked"));
+            assert!(connector.automation_path[1]
+                .evidence
+                .contains(&preview.confirmation_phrase));
         }
+
+        let gemini = connectors
+            .iter()
+            .find(|connector| connector.client_id == "gemini_cli")
+            .expect("gemini connector");
+        assert_eq!(gemini.support_status, ClientConnectorSupportStatus::Managed);
+        assert_eq!(gemini.setup_phase, "managed");
+        assert!(gemini.config_creation_steps.is_empty());
+        assert!(gemini.config_creation_step_details.is_empty());
+        assert!(gemini.config_dry_run_preview.is_none());
+        assert!(gemini.automation_path.is_empty());
+        assert!(!gemini.enabled);
+        assert!(!gemini.verified);
+
+        let opencode = connectors
+            .iter()
+            .find(|connector| connector.client_id == "opencode")
+            .expect("opencode connector");
+        assert_eq!(
+            opencode.support_status,
+            ClientConnectorSupportStatus::Managed
+        );
+        assert_eq!(opencode.setup_phase, "managed");
+        assert!(opencode.config_creation_steps.is_empty());
+        assert!(opencode.config_creation_step_details.is_empty());
+        assert!(opencode.config_dry_run_preview.is_none());
+        assert!(opencode.automation_path.is_empty());
+        assert!(!opencode.enabled);
+        assert!(!opencode.verified);
+
+        let managed = connectors
+            .iter()
+            .filter(|connector| connector.support_status == ClientConnectorSupportStatus::Managed)
+            .collect::<Vec<_>>();
+        assert!(managed
+            .iter()
+            .all(|connector| connector.config_creation_steps.is_empty()
+                && connector.config_creation_step_details.is_empty()));
 
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "gemini_cli"
+                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Gemini binary: /opt/homebrew/bin/gemini".to_string())
+                && connector
+                    .detection_evidence
+                    .contains(&"Gemini version: gemini 0.2.1".to_string())
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "opencode"
+                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"OpenCode binary: /opt/homebrew/bin/opencode".to_string())
+                && connector
+                    .detection_evidence
+                    .contains(&"OpenCode version: opencode 1.0.0".to_string())
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "grok_cli"
                 && connector.support_status == ClientConnectorSupportStatus::Planned
                 && connector.installed
                 && connector
                     .detection_evidence
-                    .contains(&"Detected at /opt/homebrew/bin/gemini".to_string())
+                    .contains(&"Grok / xAI binary: /opt/homebrew/bin/xai".to_string())
+                && connector
+                    .detection_evidence
+                    .contains(&"Grok / xAI version: xai 0.4.0".to_string())
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "cursor"
+                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Cursor app: /Applications/Cursor.app".to_string())
+                && connector.detection_evidence.contains(
+                    &"Settings routing blocked until profile settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                        .to_string()
+                )
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "aider"
@@ -3828,8 +7814,266 @@ mod tests {
                 && connector.installed
                 && connector
                     .detection_evidence
-                    .contains(&"Detected data at ~/.aider.conf.yml.".to_string())
+                    .contains(&"Aider binary: /opt/homebrew/bin/aider".to_string())
+                && connector
+                    .detection_evidence
+                    .contains(&"Aider version: aider 0.84.0".to_string())
         }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "continue"
+                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Continue command: /opt/homebrew/bin/continue".to_string())
+                && connector.detection_evidence.contains(
+                    &"Settings routing blocked until multi-provider parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                        .to_string()
+                )
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "goose"
+                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Goose binary: /opt/homebrew/bin/goose".to_string())
+                && connector
+                    .detection_evidence
+                    .contains(&"Goose version: goose 1.2.0".to_string())
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "qwen_code"
+                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Qwen Code binary: /opt/homebrew/bin/qwen-code".to_string())
+                && connector
+                    .detection_evidence
+                    .contains(&"Qwen Code version: qwen-code 0.9.0".to_string())
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "amazon_q"
+                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Amazon Q binary: /opt/homebrew/bin/q".to_string())
+                && connector
+                    .detection_evidence
+                    .contains(&"Amazon Q version: q 1.11.0".to_string())
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "windsurf"
+                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Windsurf app: /Applications/Windsurf.app".to_string())
+                && connector.detection_evidence.contains(
+                    &"Managed Windsurf settings routing uses settings parse, dry-run diff, backup, Doctor verification, rollback, and Off mode cleanup."
+                        .to_string()
+                )
+        }));
+        assert!(connectors.iter().any(|connector| {
+            connector.client_id == "zed_ai"
+                && connector.support_status == ClientConnectorSupportStatus::Managed
+                && connector.installed
+                && connector
+                    .detection_evidence
+                    .contains(&"Zed app: /Applications/Zed.app".to_string())
+                && connector.detection_evidence.contains(
+                    &"Managed Zed settings routing uses lossless settings parse, dry-run diff, backup, Doctor verification, rollback, and Off mode cleanup."
+                        .to_string()
+                )
+        }));
+    }
+
+    #[test]
+    fn gemini_compatibility_evidence_reports_version_config_and_managed_routing() {
+        let report = super::PlannedCliCompatibilityReport {
+            label: "Gemini",
+            binary_path: Some(PathBuf::from("/opt/homebrew/bin/gemini")),
+            version: Some("gemini 0.2.1".to_string()),
+            config_surfaces: vec![PathBuf::from("/Users/test/.gemini")],
+            routing_blocker:
+                "Managed shell/base-url routing uses Switchboard-owned shell blocks, sibling rollback backups, Doctor verification, rollback, and Off mode cleanup.",
+        };
+
+        let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
+
+        assert!(evidence.contains("Gemini binary: /opt/homebrew/bin/gemini"));
+        assert!(evidence.contains("Gemini version: gemini 0.2.1"));
+        assert!(evidence.contains("Gemini config surface: /Users/test/.gemini"));
+        assert!(evidence.contains("Managed shell/base-url routing"));
+        assert!(evidence.contains("sibling rollback backups"));
+        assert!(!evidence.contains("sidecar evidence"));
+        assert!(evidence.contains("Doctor verification"));
+        assert!(evidence.contains("backup"));
+        assert!(evidence.contains("rollback"));
+        assert!(evidence.contains("Off mode cleanup"));
+    }
+
+    #[test]
+    fn opencode_compatibility_evidence_reports_version_config_and_managed_routing() {
+        let report = super::PlannedCliCompatibilityReport {
+            label: "OpenCode",
+            binary_path: Some(PathBuf::from("/opt/homebrew/bin/opencode")),
+            version: Some("opencode 1.0.0".to_string()),
+            config_surfaces: vec![PathBuf::from("/Users/test/.config/opencode")],
+            routing_blocker:
+                "Managed provider routing uses the active OpenCode config path with backup, Doctor verification, rollback, and Off mode cleanup.",
+        };
+
+        let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
+
+        assert!(evidence.contains("OpenCode binary: /opt/homebrew/bin/opencode"));
+        assert!(evidence.contains("OpenCode version: opencode 1.0.0"));
+        assert!(evidence.contains("OpenCode config surface: /Users/test/.config/opencode"));
+        assert!(evidence.contains("Managed provider routing"));
+        assert!(evidence.contains("active OpenCode config path"));
+        assert!(evidence.contains("Doctor verification"));
+        assert!(evidence.contains("backup"));
+        assert!(evidence.contains("rollback"));
+        assert!(evidence.contains("Off mode cleanup"));
+    }
+
+    #[test]
+    fn grok_compatibility_evidence_reports_model_account_blocker() {
+        let report = super::PlannedCliCompatibilityReport {
+            label: "Grok / xAI",
+            binary_path: Some(PathBuf::from("/opt/homebrew/bin/xai")),
+            version: Some("xai 0.4.0".to_string()),
+            config_surfaces: vec![PathBuf::from("/Users/test/.config/xai")],
+            routing_blocker:
+                "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+        };
+
+        let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
+
+        assert!(evidence.contains("Grok / xAI binary: /opt/homebrew/bin/xai"));
+        assert!(evidence.contains("Grok / xAI version: xai 0.4.0"));
+        assert!(evidence.contains("Grok / xAI config surface: /Users/test/.config/xai"));
+        assert!(evidence.contains("model/account guardrails"));
+        assert!(evidence.contains("backup"));
+        assert!(evidence.contains("verify"));
+        assert!(evidence.contains("rollback"));
+        assert!(evidence.contains("Off mode cleanup"));
+    }
+
+    #[test]
+    fn aider_compatibility_evidence_reports_environment_wrapper_blocker() {
+        let report = super::PlannedCliCompatibilityReport {
+            label: "Aider",
+            binary_path: Some(PathBuf::from("/opt/homebrew/bin/aider")),
+            version: Some("aider 0.84.0".to_string()),
+            config_surfaces: vec![PathBuf::from("/Users/test/.aider.conf.yml")],
+            routing_blocker:
+                "Provider routing blocked until reversible environment wrapper, backup, verify, rollback, and Off mode cleanup exist.",
+        };
+
+        let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
+
+        assert!(evidence.contains("Aider binary: /opt/homebrew/bin/aider"));
+        assert!(evidence.contains("Aider version: aider 0.84.0"));
+        assert!(evidence.contains("Aider config surface: /Users/test/.aider.conf.yml"));
+        assert!(evidence.contains("reversible environment wrapper"));
+        assert!(evidence.contains("backup"));
+        assert!(evidence.contains("verify"));
+        assert!(evidence.contains("rollback"));
+        assert!(evidence.contains("Off mode cleanup"));
+    }
+
+    #[test]
+    fn goose_compatibility_evidence_reports_mcp_handoff_blocker() {
+        let report = super::PlannedCliCompatibilityReport {
+            label: "Goose",
+            binary_path: Some(PathBuf::from("/opt/homebrew/bin/goose")),
+            version: Some("goose 1.2.0".to_string()),
+            config_surfaces: vec![PathBuf::from("/Users/test/.config/goose")],
+            routing_blocker:
+                "Provider routing blocked until MCP handoff shape, backup, verify, rollback, and Off mode cleanup exist.",
+        };
+
+        let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
+
+        assert!(evidence.contains("Goose binary: /opt/homebrew/bin/goose"));
+        assert!(evidence.contains("Goose version: goose 1.2.0"));
+        assert!(evidence.contains("Goose config surface: /Users/test/.config/goose"));
+        assert!(evidence.contains("MCP handoff shape"));
+        assert!(evidence.contains("backup"));
+        assert!(evidence.contains("verify"));
+        assert!(evidence.contains("rollback"));
+        assert!(evidence.contains("Off mode cleanup"));
+    }
+
+    #[test]
+    fn qwen_compatibility_evidence_reports_model_account_blocker() {
+        let report = super::PlannedCliCompatibilityReport {
+            label: "Qwen Code",
+            binary_path: Some(PathBuf::from("/opt/homebrew/bin/qwen-code")),
+            version: Some("qwen-code 0.9.0".to_string()),
+            config_surfaces: vec![PathBuf::from("/Users/test/.qwen")],
+            routing_blocker:
+                "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+        };
+
+        let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
+
+        assert!(evidence.contains("Qwen Code binary: /opt/homebrew/bin/qwen-code"));
+        assert!(evidence.contains("Qwen Code version: qwen-code 0.9.0"));
+        assert!(evidence.contains("Qwen Code config surface: /Users/test/.qwen"));
+        assert!(evidence.contains("model/account guardrails"));
+        assert!(evidence.contains("backup"));
+        assert!(evidence.contains("verify"));
+        assert!(evidence.contains("rollback"));
+        assert!(evidence.contains("Off mode cleanup"));
+    }
+
+    #[test]
+    fn amazon_q_compatibility_evidence_reports_account_guardrail_blocker() {
+        let report = super::PlannedCliCompatibilityReport {
+            label: "Amazon Q",
+            binary_path: Some(PathBuf::from("/opt/homebrew/bin/q")),
+            version: Some("q 1.11.0".to_string()),
+            config_surfaces: vec![PathBuf::from("/Users/test/.aws/amazonq")],
+            routing_blocker:
+                "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+        };
+
+        let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
+
+        assert!(evidence.contains("Amazon Q binary: /opt/homebrew/bin/q"));
+        assert!(evidence.contains("Amazon Q version: q 1.11.0"));
+        assert!(evidence.contains("Amazon Q config surface: /Users/test/.aws/amazonq"));
+        assert!(evidence.contains("AWS/account guardrails"));
+        assert!(evidence.contains("backup"));
+        assert!(evidence.contains("verify"));
+        assert!(evidence.contains("rollback"));
+        assert!(evidence.contains("Off mode cleanup"));
+    }
+
+    #[test]
+    fn gemini_detection_reports_managed_routing_lifecycle() {
+        let mut status = ClientStatus {
+            id: "gemini_cli".into(),
+            name: "Gemini CLI".into(),
+            installed: true,
+            configured: false,
+            health: ClientHealth::Attention,
+            notes: vec!["Detected at /opt/homebrew/bin/gemini".into()],
+        };
+
+        super::append_gemini_manual_routing_note(&mut status);
+
+        let notes = status.notes.join(" ");
+        assert!(notes.contains("Gemini routing is managed"));
+        assert!(notes.contains("reversible shell/base-url exports"));
+        assert!(notes.contains("Doctor verification"));
+        assert!(notes.contains("backup"));
+        assert!(notes.contains("rollback"));
+        assert!(notes.contains("Off mode cleanup"));
     }
 
     #[test]
@@ -4692,7 +8936,10 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
     /// RAII-style guard that snapshots HOME / XDG_DATA_HOME / SHELL, points
     /// them at a fresh tempdir, and restores them on drop. Used to keep
     /// lifecycle tests from touching the developer's real profile.
+    static TEST_HOME_LOCK: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+
     struct TestHome {
+        _lock: std::sync::MutexGuard<'static, ()>,
         _tmp: tempfile::TempDir,
         home: PathBuf,
         prev_home: Option<std::ffi::OsString>,
@@ -4703,6 +8950,10 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     impl TestHome {
         fn new() -> Self {
+            let lock = TEST_HOME_LOCK
+                .get_or_init(|| std::sync::Mutex::new(()))
+                .lock()
+                .expect("lock test home env");
             let tmp = tempfile::tempdir().expect("create temp home");
             let home = tmp.path().to_path_buf();
             let prev_home = std::env::var_os("HOME");
@@ -4722,6 +8973,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             crate::storage::ensure_data_dirs(&crate::storage::app_data_dir())
                 .expect("ensure_data_dirs in test home");
             TestHome {
+                _lock: lock,
                 _tmp: tmp,
                 home,
                 prev_home,
@@ -4764,6 +9016,533 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let rtk = super::default_headroom_rtk_path();
         fs::create_dir_all(rtk.parent().unwrap()).unwrap();
         fs::write(&rtk, "#!/bin/sh\n").unwrap();
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn gemini_setup_writes_verifies_and_cleans_sidecar_only() {
+        let home = TestHome::new();
+        let sidecar = home
+            .path()
+            .join(".gemini")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(sidecar.parent().unwrap()).expect("create gemini dir");
+        fs::write(&sidecar, "# user note\nkeep this\n").expect("seed sidecar");
+
+        let result = super::apply_client_setup("gemini_cli").expect("apply gemini setup");
+        assert!(result.applied);
+        assert!(!result.already_configured);
+        assert!(result
+            .changed_files
+            .contains(&home.path().join(".zprofile").display().to_string()));
+        assert!(result
+            .changed_files
+            .contains(&sidecar.display().to_string()));
+        assert_eq!(result.backup_files.len(), 1);
+        assert!(result.verification.verified);
+        assert!(result.summary.contains("Switchboard sidecar written"));
+
+        let content = fs::read_to_string(&sidecar).expect("read sidecar");
+        assert!(content.contains("# user note\nkeep this"));
+        assert!(content.contains("# >>> headroom:gemini_cli >>>"));
+        assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
+        let shell_content = fs::read_to_string(home.path().join(".zprofile")).expect("read shell");
+        assert!(shell_content.contains("GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:6767"));
+        assert!(shell_content.contains("GEMINI_BASE_URL=http://127.0.0.1:6767"));
+
+        let detected_clients = vec![ClientStatus {
+            id: "gemini_cli".into(),
+            name: "Gemini CLI".into(),
+            installed: true,
+            configured: false,
+            health: ClientHealth::Attention,
+            notes: vec![
+                "Gemini binary: /opt/homebrew/bin/gemini".into(),
+                format!(
+                    "Gemini config surface: {}",
+                    home.path().join(".gemini").display()
+                ),
+            ],
+        }];
+        let connectors = list_client_connectors(&detected_clients).expect("list connectors");
+        let gemini = connectors
+            .iter()
+            .find(|connector| connector.client_id == "gemini_cli")
+            .expect("gemini connector");
+        assert!(gemini.enabled);
+        assert!(gemini.verified);
+        assert!(gemini.last_configured_at.is_some());
+        assert!(gemini
+            .automation_path
+            .iter()
+            .all(|stage| stage.status == "ready"));
+
+        super::disable_client_setup("gemini_cli").expect("disable gemini setup");
+        let content = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
+        assert_eq!(content, "# user note\nkeep this\n");
+        let shell_content = fs::read_to_string(home.path().join(".zprofile")).expect("read shell");
+        assert!(!shell_content.contains("GOOGLE_GEMINI_BASE_URL"));
+        let verification =
+            super::verify_client_setup("gemini_cli").expect("verify cleaned gemini setup");
+        assert!(!verification.verified);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn gemini_managed_rollback_removes_shell_and_sidecar_blocks() {
+        let home = TestHome::new();
+        let sidecar = home
+            .path()
+            .join(".gemini")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(sidecar.parent().unwrap()).expect("create gemini dir");
+        fs::write(&sidecar, "# user note\nkeep this\n").expect("seed sidecar");
+
+        super::apply_client_setup("gemini_cli").expect("apply gemini setup");
+
+        let preview =
+            super::preview_managed_rollback("gemini-routing").expect("preview gemini rollback");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.backup_path.is_none());
+        assert!(preview.backup_exists);
+        assert!(preview.marker_present);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Restore headroom:gemini_cli for Gemini CLI routing"
+        );
+
+        let result = super::execute_managed_rollback(
+            "gemini-routing",
+            "",
+            "Restore headroom:gemini_cli for Gemini CLI routing",
+        )
+        .expect("execute gemini rollback");
+        assert_eq!(
+            result.restored_from,
+            "Switchboard-owned Gemini shell and sidecar blocks removed."
+        );
+
+        let content = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
+        assert_eq!(content, "# user note\nkeep this\n");
+        let shell_content = fs::read_to_string(home.path().join(".zprofile")).expect("read shell");
+        assert!(!shell_content.contains("GOOGLE_GEMINI_BASE_URL"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn sidecar_managed_rollback_removes_existing_cursor_sidecar_block_only() {
+        let home = TestHome::new();
+        let sidecar = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Cursor")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(sidecar.parent().unwrap()).expect("create cursor dir");
+        fs::write(&sidecar, "# cursor user note\nkeep this\n").expect("seed sidecar");
+
+        super::configure_planned_switchboard_sidecar("cursor").expect("seed cursor sidecar");
+
+        let preview =
+            super::preview_managed_rollback("cursor-routing").expect("preview cursor rollback");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.backup_path.is_none());
+        assert!(preview.backup_exists);
+        assert!(preview.marker_present);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Restore headroom:cursor for Cursor routing"
+        );
+        assert!(preview.proposed_action.contains("Cursor sidecar block"));
+        assert!(preview
+            .evidence
+            .join(" ")
+            .contains("Current sidecar must still contain"));
+
+        let result = super::execute_managed_rollback(
+            "cursor-routing",
+            "",
+            "Restore headroom:cursor for Cursor routing",
+        )
+        .expect("execute cursor rollback");
+        assert_eq!(
+            result.restored_from,
+            "Switchboard-owned cursor sidecar block removed."
+        );
+        let safety_backup = result
+            .safety_backup_path
+            .as_ref()
+            .expect("sidecar rollback reports safety backup");
+        assert!(
+            safety_backup.contains(".headroom-backup-"),
+            "unexpected safety backup path: {safety_backup}"
+        );
+        assert!(std::path::Path::new(safety_backup).exists());
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("fresh sidecar safety backup"));
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("Relaunch-survival evidence"));
+
+        let content = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
+        assert_eq!(content, "# cursor user note\nkeep this\n");
+        assert!(!super::planned_switchboard_sidecar_matches("cursor")
+            .expect("check cleaned cursor sidecar"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn promoted_editor_rollback_records_use_native_targets_not_sidecars() {
+        let _home = TestHome::new();
+
+        assert!(super::sidecar_rollback_target("windsurf-routing").is_none());
+        assert!(super::sidecar_rollback_target("zed-ai-routing").is_none());
+
+        let windsurf =
+            super::preview_managed_rollback("windsurf-routing").expect("preview windsurf rollback");
+        assert_eq!(windsurf.record_id, "windsurf-routing");
+        assert_eq!(windsurf.marker, "headroom:windsurf");
+        assert!(windsurf
+            .target_path
+            .ends_with("Library/Application Support/Windsurf/User/settings.json"));
+        assert!(windsurf
+            .proposed_action
+            .contains("Restore the Windsurf settings"));
+
+        let zed = super::preview_managed_rollback("zed-ai-routing").expect("preview zed rollback");
+        assert_eq!(zed.record_id, "zed-ai-routing");
+        assert_eq!(zed.marker, "headroom:zed");
+        assert!(zed.target_path.ends_with(".config/zed/settings.json"));
+        assert!(zed.proposed_action.contains("Restore the Zed settings"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_undo_all_executes_ready_native_rows_only() {
+        let home = TestHome::new();
+        let gemini_sidecar = home
+            .path()
+            .join(".gemini")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(gemini_sidecar.parent().unwrap()).expect("create gemini dir");
+        fs::write(&gemini_sidecar, "# gemini user note\nkeep this\n").expect("seed gemini");
+        let cursor_sidecar = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Cursor")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(cursor_sidecar.parent().unwrap()).expect("create cursor dir");
+        fs::write(&cursor_sidecar, "# cursor user note\nkeep this\n").expect("seed cursor");
+
+        super::apply_client_setup("gemini_cli").expect("apply gemini setup");
+        super::configure_planned_switchboard_sidecar("cursor").expect("seed cursor sidecar");
+
+        let preview = super::preview_managed_rollback_undo_all();
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        let ready_ids = preview
+            .ready
+            .iter()
+            .map(|row| row.record_id.as_str())
+            .collect::<Vec<_>>();
+        assert!(ready_ids.contains(&"gemini-routing"));
+        assert!(ready_ids.contains(&"cursor-routing"));
+        assert!(
+            !preview.blocked.is_empty(),
+            "unused native rows should remain blocked"
+        );
+
+        let result = super::execute_managed_rollback_undo_all(
+            "Undo all ready Switchboard native rollback rows",
+        )
+        .expect("execute undo-all");
+        let executed_ids = result
+            .executed
+            .iter()
+            .map(|row| row.record_id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(executed_ids, vec!["gemini-routing", "cursor-routing"]);
+        let cursor_result = result
+            .executed
+            .iter()
+            .find(|row| row.record_id == "cursor-routing")
+            .expect("cursor rollback result");
+        assert!(cursor_result.safety_backup_path.is_some());
+        assert_eq!(
+            fs::read_to_string(&gemini_sidecar).expect("read cleaned gemini"),
+            "# gemini user note\nkeep this\n"
+        );
+        assert_eq!(
+            fs::read_to_string(&cursor_sidecar).expect("read cleaned cursor"),
+            "# cursor user note\nkeep this\n"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn opencode_setup_writes_verifies_and_cleans_native_routing_only() {
+        let home = TestHome::new();
+        let sidecar = home
+            .path()
+            .join(".config")
+            .join("opencode")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        let config = home
+            .path()
+            .join(".config")
+            .join("opencode")
+            .join(super::OPENCODE_CONFIG_FILE);
+        fs::create_dir_all(sidecar.parent().unwrap()).expect("create opencode dir");
+        fs::write(&sidecar, "# opencode user note\nkeep this\n").expect("seed sidecar");
+        fs::write(
+            &config,
+            r#"{"provider":{"custom":{"name":"Custom"}},"theme":"system"}"#,
+        )
+        .expect("seed opencode config");
+
+        let result = super::apply_client_setup("opencode").expect("apply opencode setup");
+        assert!(result.applied);
+        assert!(!result.already_configured);
+        assert!(result.changed_files.contains(&config.display().to_string()));
+        assert!(result
+            .changed_files
+            .contains(&sidecar.display().to_string()));
+        assert_eq!(result.backup_files.len(), 2);
+        assert!(result.verification.verified);
+        assert!(result
+            .summary
+            .contains("OpenCode Switchboard sidecar written"));
+
+        let content = fs::read_to_string(&sidecar).expect("read sidecar");
+        assert!(content.contains("# opencode user note\nkeep this"));
+        assert!(content.contains("# >>> headroom:opencode >>>"));
+        assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
+        let config_value: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&config).expect("read config"))
+                .expect("parse config");
+        assert_eq!(config_value["theme"], "system");
+        assert_eq!(config_value["provider"]["custom"]["name"], "Custom");
+        assert_eq!(
+            config_value["provider"]["headroom"]["options"]["baseURL"],
+            super::HEADROOM_OPENAI_BASE_URL
+        );
+
+        let detected_clients = vec![ClientStatus {
+            id: "opencode".into(),
+            name: "OpenCode".into(),
+            installed: true,
+            configured: false,
+            health: ClientHealth::Attention,
+            notes: vec![
+                "OpenCode binary: /opt/homebrew/bin/opencode".into(),
+                format!(
+                    "OpenCode config surface: {}",
+                    home.path().join(".config").join("opencode").display()
+                ),
+            ],
+        }];
+        let connectors = list_client_connectors(&detected_clients).expect("list connectors");
+        let opencode = connectors
+            .iter()
+            .find(|connector| connector.client_id == "opencode")
+            .expect("opencode connector");
+        assert!(opencode.enabled);
+        assert!(opencode.verified);
+        assert!(opencode.last_configured_at.is_some());
+        assert!(opencode
+            .automation_path
+            .iter()
+            .all(|stage| stage.status == "ready"));
+
+        super::disable_client_setup("opencode").expect("disable opencode setup");
+        let content = fs::read_to_string(&sidecar).expect("read cleaned sidecar");
+        assert_eq!(content, "# opencode user note\nkeep this\n");
+        let config_value: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&config).expect("read config"))
+                .expect("parse config");
+        assert!(config_value["provider"]["headroom"].is_null());
+        assert_eq!(config_value["provider"]["custom"]["name"], "Custom");
+        let verification =
+            super::verify_client_setup("opencode").expect("verify cleaned opencode setup");
+        assert!(!verification.verified);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn windsurf_setup_writes_verifies_and_off_cleanup_removes_native_routing_only() {
+        let home = TestHome::new();
+        let windsurf_dir = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Windsurf")
+            .join("User");
+        fs::create_dir_all(&windsurf_dir).unwrap();
+        let settings_json = windsurf_dir.join("settings.json");
+        fs::write(
+            &settings_json,
+            r#"{"workbench.colorTheme":"Quiet Light","assistant":{"defaultModel":"claude-3-5-sonnet"}}"#,
+        )
+        .unwrap();
+
+        let result = super::apply_client_setup("windsurf").expect("apply windsurf setup");
+        assert!(result.applied);
+        assert!(!result.already_configured);
+        assert!(result
+            .changed_files
+            .contains(&settings_json.display().to_string()));
+        assert_eq!(result.backup_files.len(), 1);
+        assert!(result.verification.verified);
+
+        let configured: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&settings_json).expect("read settings"))
+                .expect("parse settings");
+        assert_eq!(configured["workbench.colorTheme"], "Quiet Light");
+        assert_eq!(configured["assistant"]["defaultModel"], "claude-3-5-sonnet");
+        assert_eq!(
+            configured["anthropic.baseUrl"],
+            super::HEADROOM_ANTHROPIC_BASE_URL
+        );
+        assert!(configured
+            .get(format!("// >>> {} >>>", super::WINDSURF_MARKER_PREFIX))
+            .is_some());
+
+        super::disable_client_setup("windsurf").expect("disable windsurf setup");
+        let cleaned: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&settings_json).expect("read cleaned"))
+                .expect("parse cleaned settings");
+        assert_eq!(cleaned["workbench.colorTheme"], "Quiet Light");
+        assert_eq!(cleaned["assistant"]["defaultModel"], "claude-3-5-sonnet");
+        assert!(cleaned.get("anthropic.baseUrl").is_none());
+        assert!(cleaned
+            .get(format!("// >>> {} >>>", super::WINDSURF_MARKER_PREFIX))
+            .is_none());
+        assert!(cleaned
+            .get(format!("// <<< {} <<<", super::WINDSURF_MARKER_PREFIX))
+            .is_none());
+
+        let verification =
+            super::verify_client_setup("windsurf").expect("verify cleaned windsurf setup");
+        assert!(!verification.verified);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn zed_setup_writes_verifies_and_off_cleanup_removes_native_routing_only() {
+        let home = TestHome::new();
+        let zed_dir = home.path().join(".config").join("zed");
+        fs::create_dir_all(&zed_dir).unwrap();
+        let settings_json = zed_dir.join("settings.json");
+        fs::write(
+            &settings_json,
+            r#"{"theme":"One Dark","assistant":{"default_model":"claude-3-5-sonnet"}}"#,
+        )
+        .unwrap();
+
+        let result = super::apply_client_setup("zed_ai").expect("apply zed setup");
+        assert!(result.applied);
+        assert!(!result.already_configured);
+        assert!(result
+            .changed_files
+            .contains(&settings_json.display().to_string()));
+        assert!(result.backup_files.len() == 1);
+        assert!(result.verification.verified);
+
+        let configured: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&settings_json).expect("read settings"))
+                .expect("parse settings");
+        assert_eq!(configured["theme"], "One Dark");
+        assert_eq!(
+            configured["assistant"]["default_model"],
+            "claude-3-5-sonnet"
+        );
+        assert_eq!(
+            configured["anthropic.baseUrl"],
+            super::HEADROOM_ANTHROPIC_BASE_URL
+        );
+        assert!(configured
+            .get(format!("// >>> {} >>>", super::ZED_MARKER_PREFIX))
+            .is_some());
+
+        super::disable_client_setup("zed_ai").expect("disable zed setup");
+        let cleaned: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&settings_json).expect("read cleaned"))
+                .expect("parse cleaned settings");
+        assert_eq!(cleaned["theme"], "One Dark");
+        assert_eq!(cleaned["assistant"]["default_model"], "claude-3-5-sonnet");
+        assert!(cleaned.get("anthropic.baseUrl").is_none());
+        assert!(cleaned
+            .get(format!("// >>> {} >>>", super::ZED_MARKER_PREFIX))
+            .is_none());
+        assert!(cleaned
+            .get(format!("// <<< {} <<<", super::ZED_MARKER_PREFIX))
+            .is_none());
+
+        let verification = super::verify_client_setup("zed_ai").expect("verify cleaned zed setup");
+        assert!(!verification.verified);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn remaining_planned_connectors_block_automatic_sidecar_setup() {
+        let home = TestHome::new();
+        let connectors = [
+            ("grok_cli", "Grok / xAI CLI"),
+            ("amazon_q", "Amazon Q Developer CLI"),
+        ];
+
+        for (client_id, name) in connectors {
+            let sidecar =
+                super::planned_sidecar_routing_path(client_id).expect("sidecar path available");
+            fs::create_dir_all(sidecar.parent().unwrap()).expect("create sidecar parent");
+            fs::write(&sidecar, format!("# {client_id} user note\nkeep this\n"))
+                .expect("seed sidecar");
+
+            let error = super::apply_client_setup(client_id)
+                .expect_err("gated connector setup should be blocked");
+            assert!(
+                error.to_string().contains("guided workflow"),
+                "{client_id} should explain the guided workflow gate"
+            );
+            let content = fs::read_to_string(&sidecar).expect("read sidecar");
+            assert_eq!(
+                content,
+                format!("# {client_id} user note\nkeep this\n"),
+                "{client_id} setup block should preserve user content"
+            );
+
+            let detected_clients = vec![ClientStatus {
+                id: client_id.into(),
+                name: name.into(),
+                installed: true,
+                configured: false,
+                health: ClientHealth::Attention,
+                notes: vec![format!("{name} config surface: {}", sidecar.display())],
+            }];
+            let listed = list_client_connectors(&detected_clients).expect("list connectors");
+            let connector = listed
+                .iter()
+                .find(|connector| connector.client_id == client_id)
+                .unwrap_or_else(|| panic!("{client_id} connector listed"));
+            assert_eq!(
+                connector.support_status,
+                ClientConnectorSupportStatus::Planned,
+                "{client_id} should stay gated until manifest promotion"
+            );
+            assert!(!connector.enabled, "{client_id} should not be enabled");
+            assert!(!connector.verified, "{client_id} should not be verified");
+            assert_eq!(connector.config_creation_steps.len(), 7);
+            assert!(connector.config_dry_run_preview.is_some());
+            assert_eq!(connector.automation_path.len(), 7);
+        }
+
+        assert!(
+            !home.path().join(".aws").join("credentials").exists(),
+            "Amazon Q sidecar setup must not create AWS credentials"
+        );
     }
 
     fn read_settings_json(path: &Path) -> serde_json::Value {
@@ -4818,6 +9597,44 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             fs::read_to_string(home.path().join(".codex").join("AGENTS.md")).expect("read codex");
         assert!(agents.contains("Switchboard Caveman, aggressive"));
         assert!(!agents.contains("Switchboard Caveman, scoped"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn caveman_integration_match_detects_stale_level_body() {
+        let _home = TestHome::new();
+        seed_caveman_clients_configured();
+
+        super::enable_caveman_integration("scoped").expect("enable scoped");
+
+        assert!(
+            super::caveman_integration_matches_level("scoped").expect("check scoped"),
+            "scoped body should match"
+        );
+        assert!(
+            !super::caveman_integration_matches_level("compact_chinese")
+                .expect("check compact chinese"),
+            "compact Chinese should not match stale scoped body"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn caveman_compact_chinese_profile_is_internal_only() {
+        let home = TestHome::new();
+        seed_caveman_clients_configured();
+
+        super::enable_caveman_integration("compact_chinese").expect("enable compact chinese");
+
+        let agents =
+            fs::read_to_string(home.path().join(".codex").join("AGENTS.md")).expect("read codex");
+        assert!(agents.contains("Switchboard Caveman, compact Chinese experimental"));
+        assert!(agents.contains("private internal planning notes"));
+        assert!(agents.contains("user-visible replies"));
+        assert!(agents.contains("legal, safety"));
+        assert!(agents.contains("debugging"));
+        assert!(agents.contains("release-readiness"));
+        assert!(agents.contains("Never translate code"));
     }
 
     #[test]
@@ -5274,6 +10091,510 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    fn managed_rollback_preview_and_execute_restores_codex_backup() {
+        let home = TestHome::new();
+        fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
+        fs::write(home.path().join(".zshenv"), "# user zshenv\n").unwrap();
+        let codex_dir = home.path().join(".codex");
+        fs::create_dir_all(&codex_dir).unwrap();
+        let config_toml = codex_dir.join("config.toml");
+        let original = "model = \"gpt-5\"\n[profiles.default]\napproval_policy = \"never\"\n";
+        fs::write(&config_toml, original).unwrap();
+
+        super::apply_client_setup("codex").expect("apply codex");
+        let preview = super::preview_managed_rollback("codex-routing").expect("preview rollback");
+
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.marker_present);
+        assert!(preview.backup_exists);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Restore headroom:codex_cli for Codex routing"
+        );
+        let backup_path = preview.backup_path.expect("backup path");
+
+        let result = super::execute_managed_rollback(
+            "codex-routing",
+            &backup_path,
+            "Restore headroom:codex_cli for Codex routing",
+        )
+        .expect("execute rollback");
+
+        assert_eq!(result.record_id, "codex-routing");
+        assert_eq!(result.restored_from, backup_path);
+        assert!(
+            result.safety_backup_path.is_some(),
+            "fresh safety backup is created before restore"
+        );
+        assert_eq!(fs::read_to_string(&config_toml).unwrap(), original);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_rejects_backup_outside_codex_config_directory() {
+        let home = TestHome::new();
+        fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
+        fs::write(home.path().join(".zshenv"), "# user zshenv\n").unwrap();
+        let codex_dir = home.path().join(".codex");
+        fs::create_dir_all(&codex_dir).unwrap();
+        fs::write(codex_dir.join("config.toml"), "model = \"gpt-5\"\n").unwrap();
+        super::apply_client_setup("codex").expect("apply codex");
+        let wrong_backup = home.path().join("config.toml.headroom-backup-wrong");
+        fs::write(&wrong_backup, "model = \"gpt-4\"\n").unwrap();
+
+        let err = super::execute_managed_rollback(
+            "codex-routing",
+            wrong_backup.to_str().unwrap(),
+            "Restore headroom:codex_cli for Codex routing",
+        )
+        .expect_err("wrong backup must be rejected");
+
+        assert!(
+            err.to_string().contains("must live next to"),
+            "unexpected error: {err:#}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_rejects_missing_codex_marker() {
+        let home = TestHome::new();
+        fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
+        fs::write(home.path().join(".zshenv"), "# user zshenv\n").unwrap();
+        let codex_dir = home.path().join(".codex");
+        fs::create_dir_all(&codex_dir).unwrap();
+        let config_toml = codex_dir.join("config.toml");
+        fs::write(&config_toml, "model = \"gpt-5\"\n").unwrap();
+        super::apply_client_setup("codex").expect("apply codex");
+        let preview = super::preview_managed_rollback("codex-routing").expect("preview");
+        let backup_path = preview.backup_path.expect("backup");
+        fs::write(&config_toml, "model = \"gpt-5\"\n").unwrap();
+
+        let err = super::execute_managed_rollback(
+            "codex-routing",
+            &backup_path,
+            "Restore headroom:codex_cli for Codex routing",
+        )
+        .expect_err("missing marker must be rejected");
+
+        assert!(
+            err.to_string().contains("marker is missing"),
+            "unexpected error: {err:#}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_preview_and_execute_restores_opencode_backup() {
+        let home = TestHome::new();
+        let opencode_dir = home.path().join(".config").join("opencode");
+        fs::create_dir_all(&opencode_dir).unwrap();
+        let config_json = opencode_dir.join("opencode.json");
+        let original = serde_json::json!({
+            "provider": {
+                "openai": {
+                    "npm": "@ai-sdk/openai",
+                    "name": "OpenAI",
+                    "options": {
+                        "baseURL": "https://api.openai.com/v1"
+                    }
+                }
+            },
+            "theme": "system"
+        });
+        fs::write(
+            &config_json,
+            serde_json::to_vec_pretty(&original).expect("serialize original opencode"),
+        )
+        .unwrap();
+
+        super::apply_client_setup("opencode").expect("apply opencode");
+        let preview =
+            super::preview_managed_rollback("opencode-routing").expect("preview rollback");
+
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.marker_present);
+        assert!(preview.backup_exists);
+        assert!(preview
+            .evidence
+            .join(" ")
+            .contains("Relaunch-survival evidence"));
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Restore headroom:opencode for OpenCode routing"
+        );
+        let backup_path = preview.backup_path.expect("backup path");
+
+        let result = super::execute_managed_rollback(
+            "opencode-routing",
+            &backup_path,
+            "Restore headroom:opencode for OpenCode routing",
+        )
+        .expect("execute rollback");
+
+        assert_eq!(result.record_id, "opencode-routing");
+        assert_eq!(result.restored_from, backup_path);
+        assert!(
+            result.safety_backup_path.is_some(),
+            "fresh safety backup is created before restore"
+        );
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("Relaunch-survival evidence"));
+        let restored: serde_json::Value =
+            serde_json::from_slice(&fs::read(&config_json).unwrap()).unwrap();
+        assert_eq!(restored, original);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_config_apply_preview_and_execute_promotes_opencode_safely() {
+        let home = TestHome::new();
+        let opencode_dir = home.path().join(".config").join("opencode");
+        fs::create_dir_all(&opencode_dir).unwrap();
+        let config_json = opencode_dir.join("opencode.json");
+        let original = serde_json::json!({
+            "provider": {
+                "openai": {
+                    "name": "OpenAI",
+                    "options": {
+                        "baseURL": "https://api.openai.com/v1"
+                    }
+                }
+            },
+            "theme": "system"
+        });
+        fs::write(
+            &config_json,
+            serde_json::to_vec_pretty(&original).expect("serialize original opencode"),
+        )
+        .unwrap();
+
+        let preview =
+            super::preview_managed_config_apply("opencode-routing").expect("preview apply");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.confirmation_phrase.starts_with(&format!(
+            "Apply headroom:opencode to {} after reviewing ",
+            config_json.display()
+        )));
+        assert!(preview.current_state.contains("OpenAI"));
+        assert!(preview.proposed_state.contains("Mac AI Switchboard"));
+        assert!(preview.proposed_state.contains("\"theme\": \"system\""));
+        assert!(preview.rollback_preview.contains("Rollback Center"));
+
+        let result =
+            super::execute_managed_config_apply("opencode-routing", &preview.confirmation_phrase)
+                .expect("execute apply");
+        assert!(result.changed);
+        assert!(result.backup_path.is_some());
+        assert!(result
+            .verification
+            .join(" ")
+            .contains("provider.headroom matches"));
+        assert!(super::opencode_provider_config_matches().expect("verify opencode"));
+
+        let applied: serde_json::Value =
+            serde_json::from_slice(&fs::read(&config_json).unwrap()).unwrap();
+        assert_eq!(applied["theme"], "system");
+        assert_eq!(
+            applied["provider"]["openai"],
+            original["provider"]["openai"]
+        );
+        assert_eq!(
+            applied["provider"]["headroom"]["options"]["baseURL"],
+            super::HEADROOM_OPENAI_BASE_URL
+        );
+
+        let rollback = super::execute_managed_rollback(
+            "opencode-routing",
+            result.backup_path.as_deref().expect("backup"),
+            "Restore headroom:opencode for OpenCode routing",
+        )
+        .expect("rollback applied config");
+        assert_eq!(rollback.record_id, "opencode-routing");
+        let restored: serde_json::Value =
+            serde_json::from_slice(&fs::read(&config_json).unwrap()).unwrap();
+        assert_eq!(restored, original);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_config_apply_preview_and_execute_promotes_zed_rollback_safely() {
+        let home = TestHome::new();
+        let zed_dir = home.path().join(".config").join("zed");
+        fs::create_dir_all(&zed_dir).unwrap();
+        let settings_json = zed_dir.join("settings.json");
+        let original = serde_json::json!({
+            "theme": "One Dark",
+            "assistant": { "default_model": "claude-3-5-sonnet" }
+        });
+        fs::write(
+            &settings_json,
+            serde_json::to_vec_pretty(&original).unwrap(),
+        )
+        .unwrap();
+
+        let preview =
+            super::preview_managed_config_apply("zed-ai-routing").expect("preview zed apply");
+        assert_eq!(preview.record_id, "zed-ai-routing");
+        assert!(preview.target_path.ends_with(".config/zed/settings.json"));
+        assert!(preview.current_state.contains("One Dark"));
+        assert!(preview.proposed_state.contains("anthropic.baseUrl"));
+        assert!(preview.rollback_preview.contains("Rollback Center"));
+
+        let result =
+            super::execute_managed_config_apply("zed-ai-routing", &preview.confirmation_phrase)
+                .expect("execute zed apply");
+        assert!(result.changed);
+        assert!(result.backup_path.is_some());
+        assert!(super::zed_provider_config_matches().expect("verify zed"));
+
+        let applied: serde_json::Value =
+            serde_json::from_slice(&fs::read(&settings_json).unwrap()).unwrap();
+        assert_eq!(applied["theme"], "One Dark");
+        assert_eq!(applied["assistant"]["default_model"], "claude-3-5-sonnet");
+        assert_eq!(
+            applied["anthropic.baseUrl"],
+            super::HEADROOM_ANTHROPIC_BASE_URL
+        );
+
+        let rollback_preview =
+            super::preview_managed_rollback("zed-ai-routing").expect("preview zed rollback");
+        assert_eq!(rollback_preview.record_id, "zed-ai-routing");
+        assert_eq!(rollback_preview.marker, "headroom:zed");
+        assert!(rollback_preview.backup_path.is_some());
+        assert!(rollback_preview
+            .proposed_action
+            .contains("Restore the Zed settings"));
+
+        let rollback = super::execute_managed_rollback(
+            "zed-ai-routing",
+            result.backup_path.as_deref().expect("backup"),
+            "Restore headroom:zed for Zed routing",
+        )
+        .expect("rollback applied zed config");
+        assert_eq!(rollback.record_id, "zed-ai-routing");
+        let restored: serde_json::Value =
+            serde_json::from_slice(&fs::read(&settings_json).unwrap()).unwrap();
+        assert_eq!(restored, original);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_config_apply_preview_and_execute_promotes_windsurf_rollback_safely() {
+        let home = TestHome::new();
+        let windsurf_dir = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Windsurf")
+            .join("User");
+        fs::create_dir_all(&windsurf_dir).unwrap();
+        let settings_json = windsurf_dir.join("settings.json");
+        let original = serde_json::json!({
+            "workbench.colorTheme": "Quiet Light",
+            "assistant": { "defaultModel": "claude-3-5-sonnet" }
+        });
+        fs::write(
+            &settings_json,
+            serde_json::to_vec_pretty(&original).unwrap(),
+        )
+        .unwrap();
+
+        let preview = super::preview_managed_config_apply("windsurf-routing")
+            .expect("preview windsurf apply");
+        assert_eq!(preview.record_id, "windsurf-routing");
+        assert!(preview
+            .target_path
+            .ends_with("Application Support/Windsurf/User/settings.json"));
+        assert!(preview.current_state.contains("Quiet Light"));
+        assert!(preview.proposed_state.contains("anthropic.baseUrl"));
+        assert!(preview.rollback_preview.contains("Rollback Center"));
+
+        let result =
+            super::execute_managed_config_apply("windsurf-routing", &preview.confirmation_phrase)
+                .expect("execute windsurf apply");
+        assert!(result.changed);
+        assert!(result.backup_path.is_some());
+        assert!(super::windsurf_provider_config_matches().expect("verify windsurf"));
+
+        let applied: serde_json::Value =
+            serde_json::from_slice(&fs::read(&settings_json).unwrap()).unwrap();
+        assert_eq!(applied["workbench.colorTheme"], "Quiet Light");
+        assert_eq!(applied["assistant"]["defaultModel"], "claude-3-5-sonnet");
+        assert_eq!(
+            applied["anthropic.baseUrl"],
+            super::HEADROOM_ANTHROPIC_BASE_URL
+        );
+
+        let rollback_preview =
+            super::preview_managed_rollback("windsurf-routing").expect("preview windsurf rollback");
+        assert_eq!(rollback_preview.record_id, "windsurf-routing");
+        assert_eq!(rollback_preview.marker, "headroom:windsurf");
+        assert!(rollback_preview.backup_path.is_some());
+        assert!(rollback_preview
+            .proposed_action
+            .contains("Restore the Windsurf settings"));
+
+        let rollback = super::execute_managed_rollback(
+            "windsurf-routing",
+            result.backup_path.as_deref().expect("backup"),
+            "Restore headroom:windsurf for Windsurf routing",
+        )
+        .expect("rollback applied windsurf config");
+        assert_eq!(rollback.record_id, "windsurf-routing");
+        let restored: serde_json::Value =
+            serde_json::from_slice(&fs::read(&settings_json).unwrap()).unwrap();
+        assert_eq!(restored, original);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_config_apply_rejects_wrong_confirmation_for_opencode() {
+        let _home = TestHome::new();
+        let err = super::execute_managed_config_apply("opencode-routing", "Apply OpenCode")
+            .expect_err("wrong confirmation must be rejected");
+        assert!(
+            err.to_string().contains("confirmation phrase"),
+            "unexpected error: {err:#}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_config_apply_rejects_opencode_drift_after_preview() {
+        let home = TestHome::new();
+        let opencode_dir = home.path().join(".config").join("opencode");
+        fs::create_dir_all(&opencode_dir).unwrap();
+        let config_json = opencode_dir.join("opencode.json");
+        fs::write(&config_json, r#"{"provider":{},"theme":"system"}"#).unwrap();
+
+        let preview =
+            super::preview_managed_config_apply("opencode-routing").expect("preview apply");
+        fs::write(&config_json, r#"{"provider":{},"theme":"midnight"}"#).unwrap();
+
+        let err =
+            super::execute_managed_config_apply("opencode-routing", &preview.confirmation_phrase)
+                .expect_err("post-preview drift must be rejected");
+
+        assert!(
+            err.to_string().contains("confirmation phrase"),
+            "unexpected error: {err:#}"
+        );
+        let current: serde_json::Value =
+            serde_json::from_slice(&fs::read(&config_json).unwrap()).unwrap();
+        assert_eq!(current["theme"], "midnight");
+        assert!(current["provider"].as_object().unwrap().is_empty());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_rejects_backup_outside_opencode_config_directory() {
+        let home = TestHome::new();
+        let opencode_dir = home.path().join(".config").join("opencode");
+        fs::create_dir_all(&opencode_dir).unwrap();
+        fs::write(opencode_dir.join("opencode.json"), "{}").unwrap();
+        super::apply_client_setup("opencode").expect("apply opencode");
+        let wrong_backup = home.path().join("opencode.json.headroom-backup-wrong");
+        fs::write(&wrong_backup, "{}").unwrap();
+
+        let err = super::execute_managed_rollback(
+            "opencode-routing",
+            wrong_backup.to_str().unwrap(),
+            "Restore headroom:opencode for OpenCode routing",
+        )
+        .expect_err("wrong backup must be rejected");
+
+        assert!(
+            err.to_string().contains("must live next to"),
+            "unexpected error: {err:#}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_rejects_backup_outside_promoted_editor_config_directories() {
+        let home = TestHome::new();
+
+        let windsurf_dir = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Windsurf")
+            .join("User");
+        fs::create_dir_all(&windsurf_dir).unwrap();
+        fs::write(windsurf_dir.join("settings.json"), "{}").unwrap();
+        super::apply_client_setup("windsurf").expect("apply windsurf");
+        let wrong_windsurf_backup = home.path().join("settings.json.headroom-backup-wrong");
+        fs::write(&wrong_windsurf_backup, "{}").unwrap();
+
+        let windsurf_err = super::execute_managed_rollback(
+            "windsurf-routing",
+            wrong_windsurf_backup.to_str().unwrap(),
+            "Restore headroom:windsurf for Windsurf routing",
+        )
+        .expect_err("wrong Windsurf backup must be rejected");
+
+        assert!(
+            windsurf_err.to_string().contains("must live next to"),
+            "unexpected error: {windsurf_err:#}"
+        );
+
+        let zed_dir = home.path().join(".config").join("zed");
+        fs::create_dir_all(&zed_dir).unwrap();
+        fs::write(zed_dir.join("settings.json"), "{}").unwrap();
+        super::apply_client_setup("zed_ai").expect("apply zed");
+        let wrong_zed_backup = home.path().join("settings.json.headroom-backup-wrong");
+        fs::write(&wrong_zed_backup, "{}").unwrap();
+
+        let zed_preview =
+            super::preview_managed_rollback("zed-ai-routing").expect("preview zed rollback");
+        assert!(zed_preview
+            .evidence
+            .contains(&"Allowlisted rollback execution row: zed-ai-routing.".to_string()));
+
+        let zed_err = super::execute_managed_rollback(
+            "zed-ai-routing",
+            wrong_zed_backup.to_str().unwrap(),
+            "Restore headroom:zed for Zed routing",
+        )
+        .expect_err("wrong Zed backup must be rejected");
+
+        assert!(
+            zed_err.to_string().contains("must live next to"),
+            "unexpected error: {zed_err:#}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_rollback_rejects_missing_opencode_provider() {
+        let home = TestHome::new();
+        let opencode_dir = home.path().join(".config").join("opencode");
+        fs::create_dir_all(&opencode_dir).unwrap();
+        let config_json = opencode_dir.join("opencode.json");
+        fs::write(&config_json, "{}").unwrap();
+        super::apply_client_setup("opencode").expect("apply opencode");
+        let preview = super::preview_managed_rollback("opencode-routing").expect("preview");
+        let backup_path = preview.backup_path.expect("backup");
+        fs::write(&config_json, "{}").unwrap();
+
+        let err = super::execute_managed_rollback(
+            "opencode-routing",
+            &backup_path,
+            "Restore headroom:opencode for OpenCode routing",
+        )
+        .expect_err("missing provider must be rejected");
+
+        assert!(
+            err.to_string().contains("marker is missing"),
+            "unexpected error: {err:#}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn apply_codex_emits_requires_openai_auth_for_chatgpt_users() {
         let home = TestHome::new();
         fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
@@ -5589,6 +10910,13 @@ js_repl = false\n",
         .unwrap()
     }
 
+    fn enable_codex_retagging() {
+        set_codex_thread_retagging_settings(CodexThreadRetaggingSettings {
+            codex_thread_retagging: CodexThreadRetaggingMode::Enabled,
+        })
+        .unwrap();
+    }
+
     #[test]
     fn retag_one_codex_db_moves_only_matching_provider() {
         let tmp = tempfile::tempdir().unwrap();
@@ -5666,6 +10994,7 @@ js_repl = false\n",
         let db = home.path().join(".codex").join("state_5.sqlite");
         std::fs::create_dir_all(db.parent().unwrap()).unwrap();
         seed_codex_threads_db(&db, &[("a", "openai"), ("b", "openai"), ("c", "anthropic")]);
+        enable_codex_retagging();
 
         retag_codex_threads_to_headroom();
 
@@ -5726,17 +11055,383 @@ js_repl = false\n",
     #[test]
     #[serial_test::serial]
     fn retag_handles_unknown_store_version() {
-        // Future-proofing: a Codex store-version bump (here state_99) must still
-        // retag, not silently no-op for every user at once.
+        // Future-proofing: a Codex store-version bump (here state_99) must not
+        // write until the schema version is verified.
         let home = TestHome::new();
         let db = home.path().join(".codex").join("state_99.sqlite");
         std::fs::create_dir_all(db.parent().unwrap()).unwrap();
         seed_codex_threads_db(&db, &[("a", "openai"), ("b", "openai"), ("c", "anthropic")]);
+        enable_codex_retagging();
 
-        retag_codex_threads_to_headroom();
+        let report = retag_codex_thread_providers("openai", "headroom");
 
-        assert_eq!(provider_count(&db, "headroom"), 2);
-        assert_eq!(provider_count(&db, "openai"), 0);
+        assert_eq!(report.reports.len(), 1);
+        assert_eq!(report.reports[0].rows_changed, 0);
+        assert!(report.reports[0]
+            .skipped_reason
+            .as_deref()
+            .unwrap_or_default()
+            .contains("unknown Codex store version"));
+        assert_eq!(provider_count(&db, "headroom"), 0);
+        assert_eq!(provider_count(&db, "openai"), 2);
         assert_eq!(provider_count(&db, "anthropic"), 1);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn codex_retagging_defaults_to_ask_and_does_not_write() {
+        let home = TestHome::new();
+        let db = home.path().join(".codex").join("state_5.sqlite");
+        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+        seed_codex_threads_db(&db, &[("a", "openai"), ("b", "openai")]);
+
+        let settings = get_codex_thread_retagging_settings();
+        assert_eq!(
+            settings.codex_thread_retagging,
+            CodexThreadRetaggingMode::Ask
+        );
+        let report = retag_codex_thread_providers("openai", "headroom");
+
+        assert_eq!(report.mode, CodexThreadRetaggingMode::Ask);
+        assert!(report.reports.is_empty());
+        assert_eq!(provider_count(&db, "openai"), 2);
+        assert!(!codex_retagging_settings_path().exists());
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn enabled_codex_retagging_creates_backup_and_can_restore() {
+        let home = TestHome::new();
+        let db = home.path().join(".codex").join("state_5.sqlite");
+        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+        seed_codex_threads_db(&db, &[("a", "openai"), ("b", "openai"), ("c", "anthropic")]);
+        enable_codex_retagging();
+
+        let report = retag_codex_thread_providers("openai", "headroom");
+
+        assert_eq!(report.mode, CodexThreadRetaggingMode::Enabled);
+        assert_eq!(report.reports.len(), 1);
+        let backup = report.reports[0].backup_path.as_ref().expect("backup path");
+        assert!(Path::new(backup).exists());
+        assert_eq!(report.reports[0].rows_changed, 2);
+        assert_eq!(provider_count(&db, "headroom"), 2);
+
+        let restored = restore_codex_thread_db_backup(backup).unwrap();
+        assert_eq!(restored.restored_path, db.display().to_string());
+        assert_eq!(provider_count(&db, "openai"), 2);
+        assert_eq!(provider_count(&db, "headroom"), 0);
+        assert_eq!(provider_count(&db, "anthropic"), 1);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_footprint_report_is_redacted_and_lists_core_surfaces() {
+        let home = TestHome::new();
+        std::fs::create_dir_all(home.path().join(".codex")).unwrap();
+        std::fs::write(
+            home.path().join(".codex").join("config.toml"),
+            "secret = true",
+        )
+        .unwrap();
+
+        let report = super::get_managed_footprint();
+        let ids = report
+            .items
+            .iter()
+            .map(|item| item.id.as_str())
+            .collect::<BTreeSet<_>>();
+
+        assert!(ids.contains("app-storage"));
+        assert!(ids.contains("legacy-storage"));
+        assert!(ids.contains("codex-config"));
+        assert!(ids.contains("claude-settings"));
+        assert!(ids.contains("launch-agent"));
+        assert!(ids.contains("keychain-mac-ai-switchboard"));
+        assert!(ids.contains("gemini_cli-sidecar"));
+
+        let serialized = serde_json::to_string(&report).unwrap();
+        assert!(!serialized.contains("secret = true"));
+        assert!(!serialized.contains("sk-"));
+        assert!(serialized.contains("Keychain service: mac-ai-switchboard"));
+        assert!(serialized.contains("*.headroom-backup-*"));
+        assert!(!serialized.contains("*.headroom.bak"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn managed_footprint_marks_existing_paths_without_reading_values() {
+        let home = TestHome::new();
+        let sidecar = home
+            .path()
+            .join(".gemini")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        std::fs::create_dir_all(sidecar.parent().unwrap()).unwrap();
+        std::fs::write(&sidecar, "token = sk-test").unwrap();
+
+        let report = super::get_managed_footprint();
+        let gemini = report
+            .items
+            .iter()
+            .find(|item| item.id == "gemini_cli-sidecar")
+            .expect("gemini footprint");
+
+        assert!(gemini.exists);
+        assert!(gemini.managed);
+        assert!(gemini.reversible);
+        assert!(!serde_json::to_string(&report).unwrap().contains("sk-test"));
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn uninstall_dry_run_lists_current_cleanup_targets() {
+        let home = TestHome::new();
+        let current_storage = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Mac AI Switchboard");
+        std::fs::create_dir_all(&current_storage).unwrap();
+
+        let report = super::uninstall_dry_run_report();
+        let serialized = serde_json::to_string(&report).unwrap();
+
+        assert!(serialized.contains("Mac AI Switchboard"));
+        assert!(serialized.contains(super::APP_BUNDLE_ID));
+        assert!(serialized.contains("keychain://com.tarunagarwal.mac-ai-switchboard.account"));
+        assert!(serialized.contains("User repositories and source files are never deleted."));
+        assert!(!serialized.contains("session-token="));
+
+        let app_storage = report
+            .targets
+            .iter()
+            .find(|target| target.id == "app-support-current")
+            .expect("current app storage target");
+        assert!(app_storage.exists);
+        assert!(app_storage.managed);
+        assert!(app_storage.requires_confirmation);
+    }
+
+    #[test]
+    fn zed_config_path_returns_user_home_config_json() {
+        let path = super::zed_config_path();
+        assert!(path.to_string_lossy().contains(".config"));
+        assert!(path.to_string_lossy().contains("zed"));
+        assert!(path.to_string_lossy().ends_with("settings.json"));
+    }
+
+    #[test]
+    fn zed_config_backup_pattern_matches_timestamped_backups() {
+        let pattern = super::zed_config_backup_pattern();
+        assert!(pattern.contains("settings.json"));
+        assert!(pattern.contains("headroom-backup-"));
+    }
+
+    #[test]
+    fn cursor_connector_has_fixture_home_dry_run_preview() {
+        let detected_clients = Vec::new();
+        let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
+        let cursor = connectors
+            .iter()
+            .find(|connector| connector.client_id == "cursor")
+            .expect("cursor connector");
+
+        assert_eq!(cursor.support_status, ClientConnectorSupportStatus::Planned);
+        assert_eq!(cursor.automation_gates.len(), 7);
+        assert!(cursor
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("state.vscdb")));
+        assert!(cursor
+            .config_locations
+            .iter()
+            .any(|location| location.contains("Cursor/User/settings.json")));
+        assert!(cursor
+            .config_locations
+            .iter()
+            .any(|location| location.contains("Cursor/User/globalStorage")));
+
+        let preview = cursor
+            .config_dry_run_preview
+            .as_ref()
+            .expect("cursor dry-run preview");
+        assert!(preview.target.contains("Cursor/User/settings.json"));
+        assert!(preview.marker.contains("cursor"));
+        assert!(preview.rollback_preview.contains("Switchboard-managed"));
+    }
+
+    #[test]
+    fn grok_connector_keeps_native_writes_gated_with_manifest_forbidden_reads() {
+        let detected_clients = Vec::new();
+        let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
+        let grok = connectors
+            .iter()
+            .find(|connector| connector.client_id == "grok_cli")
+            .expect("grok connector");
+
+        assert_eq!(grok.support_status, ClientConnectorSupportStatus::Planned);
+        assert!(!grok.enabled);
+        assert!(grok
+            .config_locations
+            .iter()
+            .any(|location| location.contains(".config/xai")));
+        assert!(grok
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("auth.json")));
+        assert!(grok
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("*token*")));
+
+        let preview = grok
+            .config_dry_run_preview
+            .as_ref()
+            .expect("grok dry-run preview");
+        assert!(preview.target.contains(".config/xai"));
+        assert!(preview.marker.contains("grok_cli"));
+        assert!(preview
+            .apply_blocked_reason
+            .contains("automation is disabled"));
+    }
+
+    #[test]
+    fn continue_connector_keeps_native_writes_gated_with_manifest_forbidden_reads() {
+        let detected_clients = Vec::new();
+        let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
+        let continue_connector = connectors
+            .iter()
+            .find(|connector| connector.client_id == "continue")
+            .expect("continue connector");
+
+        assert_eq!(
+            continue_connector.support_status,
+            ClientConnectorSupportStatus::Planned
+        );
+        assert!(!continue_connector.enabled);
+        assert!(!continue_connector.verified);
+        assert!(continue_connector
+            .config_locations
+            .iter()
+            .any(|location| location.contains(".continue")));
+        assert!(continue_connector
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("auth.json")));
+        assert!(continue_connector
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("*token*")));
+        assert!(continue_connector
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("*secret*")));
+
+        let preview = continue_connector
+            .config_dry_run_preview
+            .as_ref()
+            .expect("continue dry-run preview");
+        assert!(preview.target.contains(".continue"));
+        assert!(preview.marker.contains("continue"));
+        assert!(!preview.apply_blocked_reason.is_empty());
+    }
+
+    #[test]
+    fn qwen_connector_exposes_managed_sidecar_without_provider_writes() {
+        let _home = TestHome::new();
+        let detected_clients = Vec::new();
+        let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
+        let qwen = connectors
+            .iter()
+            .find(|connector| connector.client_id == "qwen_code")
+            .expect("qwen connector");
+
+        assert_eq!(qwen.support_status, ClientConnectorSupportStatus::Managed);
+        assert!(!qwen.enabled);
+        assert!(!qwen.verified);
+        assert!(qwen
+            .config_locations
+            .iter()
+            .any(|location| location.contains(".qwen")));
+        assert!(qwen
+            .config_locations
+            .iter()
+            .any(|location| location.contains(".config/qwen")));
+        assert!(qwen.config_creation_step_details.is_empty());
+
+        assert!(qwen.config_dry_run_preview.is_none());
+    }
+
+    #[test]
+    fn qwen_connector_applies_and_disables_switchboard_owned_sidecar_only() {
+        let _home = TestHome::new();
+
+        let result = super::apply_client_setup("qwen_code").expect("apply qwen sidecar");
+        assert!(result.applied);
+        assert!(!result.already_configured);
+        assert_eq!(result.client_id, "qwen_code");
+        assert!(result
+            .changed_files
+            .iter()
+            .any(|path| path.contains("mac-ai-switchboard-routing.md")));
+
+        let routing_path =
+            super::planned_sidecar_routing_path("qwen_code").expect("qwen sidecar path");
+        let body = std::fs::read_to_string(&routing_path).expect("read qwen sidecar");
+        assert!(body.contains("headroom:qwen_code"));
+        assert!(body.contains("reversible Qwen Code routing-intent sidecar"));
+        assert!(
+            super::verify_client_setup("qwen_code")
+                .expect("verify qwen sidecar")
+                .verified
+        );
+
+        super::disable_client_setup("qwen_code").expect("disable qwen sidecar");
+        assert!(
+            !super::verify_client_setup("qwen_code")
+                .expect("verify removed qwen sidecar")
+                .verified
+        );
+        assert!(routing_path.exists());
+        let cleaned = std::fs::read_to_string(&routing_path).expect("read cleaned qwen sidecar");
+        assert!(!cleaned.contains("headroom:qwen_code"));
+    }
+
+    #[test]
+    fn aider_connector_keeps_native_writes_gated_with_manifest_forbidden_reads() {
+        let detected_clients = Vec::new();
+        let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
+        let aider = connectors
+            .iter()
+            .find(|connector| connector.client_id == "aider")
+            .expect("aider connector");
+
+        assert_eq!(aider.support_status, ClientConnectorSupportStatus::Planned);
+        assert!(!aider.enabled);
+        assert!(aider
+            .config_locations
+            .iter()
+            .any(|location| location.contains(".aider.conf.yml")));
+        assert!(aider
+            .config_locations
+            .iter()
+            .any(|location| location.contains(".config/aider")));
+        assert!(aider
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("auth.json")));
+        assert!(aider
+            .config_creation_step_details
+            .iter()
+            .any(|step| step.detail.contains("*secret*")));
+
+        let preview = aider
+            .config_dry_run_preview
+            .as_ref()
+            .expect("aider dry-run preview");
+        assert!(preview.target.contains(".aider.conf.yml"));
+        assert!(preview.marker.contains("aider"));
+        assert!(preview
+            .apply_blocked_reason
+            .contains("automation is disabled"));
     }
 }

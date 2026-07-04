@@ -17,13 +17,12 @@ use crate::models::{
 use crate::state::AppState;
 use crate::storage::{app_data_dir, config_file};
 
-const HEADROOM_ACCOUNT_KEYCHAIN_SERVICE: &str = "com.tarunagarwal.mac-ai-switchboard.account";
-const LEGACY_HEADROOM_ACCOUNT_KEYCHAIN_SERVICE: &str = "com.extraheadroom.headroom.account";
-const HEADROOM_ACCOUNT_SESSION_ACCOUNT: &str = "session-token";
-#[cfg(debug_assertions)]
-const DEFAULT_ACCOUNT_API_BASE_URL: &str = "http://127.0.0.1:3000/api/v1";
-#[cfg(not(debug_assertions))]
-const DEFAULT_ACCOUNT_API_BASE_URL: &str = "https://extraheadroom.com/api/v1";
+const SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE: &str = "com.tarunagarwal.mac-ai-switchboard.account";
+const SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT: &str = "session-token";
+const LOCAL_ONLY_REMOTE_SERVICES_ERROR: &str =
+    "Remote account and billing services are disabled in local-only mode.";
+const REMOTE_ACCOUNT_API_DISABLED_ERROR: &str =
+    "Remote account, billing, and paid plan APIs have been removed from Mac AI Switchboard.";
 const LOCAL_GRACE_PERIOD_HOURS: i64 = 72;
 const TIER_MISMATCH_GRACE_DAYS: i64 = 14;
 // Set to true in dev builds to skip sign-in requirement (indefinite trial)
@@ -494,50 +493,8 @@ enum RemoteAccountSyncError {
 }
 
 pub fn get_pricing_status(state: &AppState) -> Result<HeadroomPricingStatus, String> {
-    if local_mode::enabled() {
-        return Ok(free_local_pricing_status(state));
-    }
-
-    let local_state = reconcile_local_state_with_server(state)?;
-    let local_grace_ends_at = local_state.first_seen_at + Duration::hours(LOCAL_GRACE_PERIOD_HOURS);
-    let local_grace_active = Utc::now() < local_grace_ends_at;
-    let session_token = read_session_token()?;
-    let identity = IdentityPayload::for_state(state);
-    let (authenticated, account, account_sync_error, promo) =
-        if let Some(token) = session_token.as_deref() {
-            let envelope_result = fetch_remote_account(token, &identity);
-            let promo = envelope_result
-                .as_ref()
-                .map(|e| build_promo(e.active_percent_off, &e.pricing_ladder))
-                .unwrap_or_default();
-            let account_result = envelope_result.map(|e| e.account);
-            let (auth, acc, err) = merge_background_account_sync(Some(token), account_result);
-            (auth, acc, err, promo)
-        } else {
-            let promo = fetch_public_config()
-                .map(|c| build_promo(c.active_percent_off, &c.pricing_ladder))
-                .unwrap_or_default();
-            (false, None, None, promo)
-        };
-
-    let claude = detect_claude_profile(state);
-    let last_known_good_plan_tier = state.last_known_good_plan_tier();
-    let codex_plan = crate::client_adapters::is_codex_enabled().then(|| state.codex_plan_tier());
-    let tier_mismatch = resolve_tier_mismatch(account.as_ref(), &claude, codex_plan);
-
-    let mut status = evaluate_pricing_status_with_mismatch(
-        authenticated,
-        local_state.first_seen_at,
-        local_grace_ends_at,
-        local_grace_active,
-        account_sync_error,
-        account,
-        claude,
-        promo,
-        last_known_good_plan_tier,
-        tier_mismatch,
-    );
-    status.codex = fetch_codex_usage(state, status.account.as_ref());
+    let mut status = free_local_pricing_status(state);
+    status.codex = fetch_codex_usage(state, None);
     Ok(status)
 }
 
@@ -718,7 +675,9 @@ fn format_codex_nudge_message(weekly_usage: f64, disable: f64, level: u8) -> Str
 }
 
 pub fn request_auth_code(state: &AppState, email: &str) -> Result<HeadroomAuthCodeRequest, String> {
-    request_auth_code_with_base_url(state, email, &api_base_url())
+    let _ = state;
+    let _ = email;
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 /// Test-only seam: `request_auth_code` against a parameterized base URL so a
@@ -775,7 +734,8 @@ pub fn verify_auth_code(
     code: &str,
     invite_code: Option<&str>,
 ) -> Result<HeadroomPricingStatus, String> {
-    verify_auth_code_with_base_url(state, email, code, invite_code, &api_base_url())
+    let _ = (state, email, code, invite_code);
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 /// Test-only seam: `verify_auth_code` against a parameterized base URL so a
@@ -850,7 +810,8 @@ pub fn activate_account(
     state: &AppState,
     lifetime_tokens_saved: u64,
 ) -> Result<HeadroomPricingStatus, String> {
-    activate_account_with_base_url(state, lifetime_tokens_saved, &api_base_url())
+    let _ = (state, lifetime_tokens_saved);
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 /// Test-only seam: `activate_account` against a parameterized base URL so a
@@ -860,6 +821,7 @@ pub(crate) fn activate_account_with_base_url(
     lifetime_tokens_saved: u64,
     base_url: &str,
 ) -> Result<HeadroomPricingStatus, String> {
+    reject_remote_services_in_local_only()?;
     let token = read_session_token()?
         .ok_or_else(|| "Sign in to Headroom before activating desktop access.".to_string())?;
     let identity = IdentityPayload::for_state(state);
@@ -923,33 +885,15 @@ pub(crate) fn activate_account_with_base_url(
 /// the feedback email for users who were below the threshold at sign-up.
 /// Silently no-ops if the user is not signed in or the request fails.
 pub fn report_milestone(milestone_tokens_saved: u64) {
-    if local_mode::enabled() {
-        return;
-    }
-
-    let token = match read_session_token() {
-        Ok(Some(t)) => t,
-        _ => return,
-    };
-    let client = match http_client() {
-        Ok(c) => c,
-        Err(_) => return,
-    };
-    let identity = IdentityPayload::device_only();
-    let builder = client
-        .post(api_url("desktop/milestones"))
-        .header("Authorization", format!("Bearer {token}"));
-    let _ = identity
-        .apply_headers(builder)
-        .json(&serde_json::json!({ "milestone_tokens_saved": milestone_tokens_saved }))
-        .send();
+    let _ = milestone_tokens_saved;
 }
 
 pub fn create_checkout_session(
     subscription_tier: HeadroomSubscriptionTier,
     billing_period: BillingPeriod,
 ) -> Result<String, String> {
-    create_checkout_session_with_base_url(subscription_tier, billing_period, &api_base_url())
+    let _ = (subscription_tier, billing_period);
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 /// Test-only seam: `create_checkout_session` against a parameterized base URL.
@@ -958,6 +902,7 @@ pub(crate) fn create_checkout_session_with_base_url(
     billing_period: BillingPeriod,
     base_url: &str,
 ) -> Result<String, String> {
+    reject_remote_services_in_local_only()?;
     let token = read_session_token()?
         .ok_or_else(|| "Sign in to Headroom before starting checkout.".to_string())?;
     let response = http_client()?
@@ -988,15 +933,16 @@ pub(crate) fn create_checkout_session_with_base_url(
 
     response
         .json::<CheckoutSessionResponse>()
-        .map(|body| body.url)
         .map_err(|err| format!("Could not parse checkout response: {err}"))
+        .and_then(|body| validate_payment_redirect_url(&body.url, &["buy.polar.sh"]))
 }
 
 pub fn change_subscription_plan(
     subscription_tier: HeadroomSubscriptionTier,
     billing_period: BillingPeriod,
 ) -> Result<(), String> {
-    change_subscription_plan_with_base_url(subscription_tier, billing_period, &api_base_url())
+    let _ = (subscription_tier, billing_period);
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 /// Test-only seam: `change_subscription_plan` against a parameterized base URL.
@@ -1005,6 +951,7 @@ pub(crate) fn change_subscription_plan_with_base_url(
     billing_period: BillingPeriod,
     base_url: &str,
 ) -> Result<(), String> {
+    reject_remote_services_in_local_only()?;
     let token = read_session_token()?
         .ok_or_else(|| "Sign in to Headroom before changing your plan.".to_string())?;
     let response = http_client()?
@@ -1037,10 +984,11 @@ pub(crate) fn change_subscription_plan_with_base_url(
 }
 
 pub fn reactivate_subscription() -> Result<(), String> {
-    reactivate_subscription_with_base_url(&api_base_url())
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 pub(crate) fn reactivate_subscription_with_base_url(base_url: &str) -> Result<(), String> {
+    reject_remote_services_in_local_only()?;
     let token = read_session_token()?
         .ok_or_else(|| "Sign in to Headroom before reactivating your plan.".to_string())?;
     let response = http_client()?
@@ -1069,7 +1017,8 @@ pub(crate) fn reactivate_subscription_with_base_url(base_url: &str) -> Result<()
 }
 
 pub fn get_billing_portal_url(target: Option<String>) -> Result<String, String> {
-    get_billing_portal_url_with_base_url(&api_base_url(), target.as_deref())
+    let _ = target;
+    Err(REMOTE_ACCOUNT_API_DISABLED_ERROR.into())
 }
 
 /// Test-only seam: `get_billing_portal_url` against a parameterized base URL.
@@ -1077,6 +1026,7 @@ pub(crate) fn get_billing_portal_url_with_base_url(
     base_url: &str,
     target: Option<&str>,
 ) -> Result<String, String> {
+    reject_remote_services_in_local_only()?;
     let token = read_session_token()?
         .ok_or_else(|| "Sign in to Headroom before accessing billing.".to_string())?;
     let mut request = http_client()?
@@ -1107,8 +1057,41 @@ pub(crate) fn get_billing_portal_url_with_base_url(
 
     response
         .json::<BillingPortalResponse>()
-        .map(|body| body.url)
         .map_err(|err| format!("Could not parse billing portal response: {err}"))
+        .and_then(|body| validate_payment_redirect_url(&body.url, &["billing.polar.sh"]))
+}
+
+fn validate_payment_redirect_url(raw: &str, allowed_hosts: &[&str]) -> Result<String, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Err("Payment redirect URL is empty.".to_string());
+    }
+    if trimmed.contains('\n') || trimmed.contains('\r') {
+        return Err("Payment redirect URL cannot contain line breaks.".to_string());
+    }
+    let parsed =
+        reqwest::Url::parse(trimmed).map_err(|_| "Payment redirect URL is invalid.".to_string())?;
+    if parsed.scheme() != "https" {
+        return Err("Payment redirect URL must use HTTPS.".to_string());
+    }
+    if parsed.username() != "" || parsed.password().is_some() {
+        return Err("Payment redirect URL cannot include embedded credentials.".to_string());
+    }
+    let host = parsed
+        .host_str()
+        .ok_or_else(|| "Payment redirect URL must include a host.".to_string())?;
+    if !allowed_hosts.contains(&host) {
+        return Err("Payment redirect host is not allowed.".to_string());
+    }
+    Ok(trimmed.to_string())
+}
+
+fn reject_remote_services_in_local_only() -> Result<(), String> {
+    if local_mode::enabled() {
+        Err(LOCAL_ONLY_REMOTE_SERVICES_ERROR.to_string())
+    } else {
+        Ok(())
+    }
 }
 
 pub fn fetch_claude_usage(state: &AppState) -> Result<ClaudeUsage, String> {
@@ -2181,26 +2164,25 @@ fn local_state_path() -> PathBuf {
 }
 
 fn read_session_token() -> Result<Option<String>, String> {
-    keychain::read_migrated_secret(
-        HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-        LEGACY_HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-        HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+    keychain::read_secret(
+        SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+        SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
     )
     .map(|value| value.and_then(non_empty_string))
 }
 
 fn write_session_token(token: &str) -> Result<(), String> {
     keychain::write_secret(
-        HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-        HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+        SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+        SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
         token.trim(),
     )
 }
 
 fn clear_session_token() -> Result<(), String> {
     keychain::delete_secret(
-        HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-        HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+        SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+        SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
     )
 }
 
@@ -2259,19 +2241,7 @@ fn http_client() -> Result<Client, String> {
 }
 
 fn api_url(path: &str) -> String {
-    join_url(&api_base_url(), path)
-}
-
-fn api_base_url() -> String {
-    // Runtime override is only honored in debug builds. In release builds an
-    // attacker with persistence on the user's machine (e.g. a launchd plist)
-    // could otherwise redirect every billing/auth call to a rogue host.
-    #[cfg(debug_assertions)]
-    let runtime_env = std::env::var("HEADROOM_ACCOUNT_API_BASE_URL").ok();
-    #[cfg(not(debug_assertions))]
-    let runtime_env: Option<String> = None;
-
-    resolve_account_api_base_url(runtime_env, option_env!("HEADROOM_ACCOUNT_API_BASE_URL"))
+    join_url("", path)
 }
 
 fn join_url(base: &str, path: &str) -> String {
@@ -2280,16 +2250,6 @@ fn join_url(base: &str, path: &str) -> String {
         base.trim_end_matches('/'),
         path.trim_start_matches('/')
     )
-}
-
-fn resolve_account_api_base_url(
-    runtime_env: Option<String>,
-    compile_time_env: Option<&str>,
-) -> String {
-    runtime_env
-        .and_then(non_empty_string)
-        .or_else(|| compile_time_env.and_then(|value| non_empty_string(value.to_string())))
-        .unwrap_or_else(|| DEFAULT_ACCOUNT_API_BASE_URL.to_string())
 }
 
 fn non_empty_string(value: String) -> Option<String> {
@@ -2343,10 +2303,9 @@ mod tests {
         codex_billing_type, decode_jwt_payload, detect_plan_tier_from_profile,
         detect_tier_mismatch, evaluate_pricing_status_with_mismatch, is_identity_complete,
         merge_background_account_sync, plan_tier_header_value, remote_account_to_profile,
-        resolve_account_api_base_url, ClaudeOauthProfile, ClaudeOauthProfileAccount,
-        ClaudeOauthProfileOrganization, HeadroomSubscriptionTier, IdentityFingerprint,
-        IdentityPayload, LocalPricingState, PricingPromo, RemoteAccountResponse,
-        RemoteAccountSyncError, DEFAULT_ACCOUNT_API_BASE_URL,
+        ClaudeOauthProfile, ClaudeOauthProfileAccount, ClaudeOauthProfileOrganization,
+        HeadroomSubscriptionTier, IdentityFingerprint, IdentityPayload, LocalPricingState,
+        PricingPromo, RemoteAccountResponse, RemoteAccountSyncError,
     };
     use crate::models::{
         BillingPeriod, ClaudeAccountProfile, ClaudeAuthMethod, ClaudePlanTier, CodexPlanTier,
@@ -2738,30 +2697,6 @@ mod tests {
     }
 
     #[test]
-    fn runtime_env_overrides_compile_time_env() {
-        let resolved = resolve_account_api_base_url(
-            Some("https://runtime.example/api/v1".into()),
-            Some("https://compile.example/api/v1"),
-        );
-
-        assert_eq!(resolved, "https://runtime.example/api/v1");
-    }
-
-    #[test]
-    fn compile_time_env_used_when_runtime_missing() {
-        let resolved = resolve_account_api_base_url(None, Some("https://compile.example/api/v1"));
-
-        assert_eq!(resolved, "https://compile.example/api/v1");
-    }
-
-    #[test]
-    fn blank_values_fall_back_to_default() {
-        let resolved = resolve_account_api_base_url(Some("   ".into()), Some(" "));
-
-        assert_eq!(resolved, DEFAULT_ACCOUNT_API_BASE_URL);
-    }
-
-    #[test]
     fn unauthorized_background_sync_keeps_local_session_authenticated() {
         let (authenticated, account, error) = merge_background_account_sync(
             Some("session-token"),
@@ -2802,15 +2737,6 @@ mod tests {
                 .and_then(|value| value.subscription_tier.clone()),
             Some(HeadroomSubscriptionTier::Pro)
         ));
-    }
-
-    #[test]
-    fn release_default_points_at_production_api() {
-        #[cfg(not(debug_assertions))]
-        assert_eq!(
-            DEFAULT_ACCOUNT_API_BASE_URL,
-            "https://extraheadroom.com/api/v1"
-        );
     }
 
     fn empty_claude_profile(plan_tier: ClaudePlanTier) -> ClaudeAccountProfile {
@@ -3986,8 +3912,8 @@ mod tests {
 
         // Session token should have been written to the (debug) keychain.
         let stored = crate::keychain::read_secret(
-            super::HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-            super::HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+            super::SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+            super::SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
         )
         .expect("read session token");
         assert_eq!(stored.as_deref(), Some("session-xyz"));
@@ -4028,6 +3954,70 @@ mod tests {
         _scratch: tempfile::TempDir,
         prev_home: Option<std::ffi::OsString>,
         prev_xdg: Option<std::ffi::OsString>,
+        prev_local: Option<std::ffi::OsString>,
+        prev_remote: Option<std::ffi::OsString>,
+    }
+
+    struct LocalOnlyEnvGuard {
+        prev_local: Option<std::ffi::OsString>,
+        prev_remote: Option<std::ffi::OsString>,
+    }
+
+    struct RemoteServicesEnvGuard {
+        prev_local: Option<std::ffi::OsString>,
+        prev_remote: Option<std::ffi::OsString>,
+    }
+
+    impl LocalOnlyEnvGuard {
+        fn enabled() -> Self {
+            let prev_local = std::env::var_os("HEADROOM_LOCAL_ONLY");
+            let prev_remote = std::env::var_os("HEADROOM_REMOTE_SERVICES");
+            std::env::set_var("HEADROOM_LOCAL_ONLY", "1");
+            std::env::remove_var("HEADROOM_REMOTE_SERVICES");
+            Self {
+                prev_local,
+                prev_remote,
+            }
+        }
+    }
+
+    impl Drop for LocalOnlyEnvGuard {
+        fn drop(&mut self) {
+            match self.prev_local.take() {
+                Some(value) => std::env::set_var("HEADROOM_LOCAL_ONLY", value),
+                None => std::env::remove_var("HEADROOM_LOCAL_ONLY"),
+            }
+            match self.prev_remote.take() {
+                Some(value) => std::env::set_var("HEADROOM_REMOTE_SERVICES", value),
+                None => std::env::remove_var("HEADROOM_REMOTE_SERVICES"),
+            }
+        }
+    }
+
+    impl RemoteServicesEnvGuard {
+        fn enabled() -> Self {
+            let prev_local = std::env::var_os("HEADROOM_LOCAL_ONLY");
+            let prev_remote = std::env::var_os("HEADROOM_REMOTE_SERVICES");
+            std::env::remove_var("HEADROOM_LOCAL_ONLY");
+            std::env::set_var("HEADROOM_REMOTE_SERVICES", "1");
+            Self {
+                prev_local,
+                prev_remote,
+            }
+        }
+    }
+
+    impl Drop for RemoteServicesEnvGuard {
+        fn drop(&mut self) {
+            match self.prev_local.take() {
+                Some(value) => std::env::set_var("HEADROOM_LOCAL_ONLY", value),
+                None => std::env::remove_var("HEADROOM_LOCAL_ONLY"),
+            }
+            match self.prev_remote.take() {
+                Some(value) => std::env::set_var("HEADROOM_REMOTE_SERVICES", value),
+                None => std::env::remove_var("HEADROOM_REMOTE_SERVICES"),
+            }
+        }
     }
 
     impl AuthedTestEnv {
@@ -4035,13 +4025,17 @@ mod tests {
             let scratch = tempfile::tempdir().expect("scratch tempdir");
             let prev_home = std::env::var_os("HOME");
             let prev_xdg = std::env::var_os("XDG_DATA_HOME");
+            let prev_local = std::env::var_os("HEADROOM_LOCAL_ONLY");
+            let prev_remote = std::env::var_os("HEADROOM_REMOTE_SERVICES");
             std::env::set_var("HOME", scratch.path());
             std::env::set_var("XDG_DATA_HOME", scratch.path().join(".local").join("share"));
+            std::env::remove_var("HEADROOM_LOCAL_ONLY");
+            std::env::set_var("HEADROOM_REMOTE_SERVICES", "1");
             crate::storage::ensure_data_dirs(&crate::storage::app_data_dir())
                 .expect("ensure_data_dirs in scratch");
             crate::keychain::write_secret(
-                super::HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-                super::HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+                super::SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+                super::SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
                 session_token,
             )
             .expect("seed session token");
@@ -4049,6 +4043,8 @@ mod tests {
                 _scratch: scratch,
                 prev_home,
                 prev_xdg,
+                prev_local,
+                prev_remote,
             }
         }
     }
@@ -4062,6 +4058,14 @@ mod tests {
             match self.prev_xdg.take() {
                 Some(v) => std::env::set_var("XDG_DATA_HOME", v),
                 None => std::env::remove_var("XDG_DATA_HOME"),
+            }
+            match self.prev_local.take() {
+                Some(v) => std::env::set_var("HEADROOM_LOCAL_ONLY", v),
+                None => std::env::remove_var("HEADROOM_LOCAL_ONLY"),
+            }
+            match self.prev_remote.take() {
+                Some(v) => std::env::set_var("HEADROOM_REMOTE_SERVICES", v),
+                None => std::env::remove_var("HEADROOM_REMOTE_SERVICES"),
             }
         }
     }
@@ -4119,8 +4123,8 @@ mod tests {
 
         // Session token should be cleared after 401.
         let stored = crate::keychain::read_secret(
-            super::HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-            super::HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+            super::SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+            super::SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
         )
         .expect("read after 401");
         assert!(stored.is_none(), "session token cleared after 401");
@@ -4131,6 +4135,7 @@ mod tests {
     #[test]
     #[serial_test::serial]
     fn activate_account_requires_session_token() {
+        let _remote_services = RemoteServicesEnvGuard::enabled();
         // No AuthedTestEnv → no token in keychain. Override HOME so any
         // keychain read still goes to a tempdir, not the dev profile.
         let scratch = tempfile::tempdir().expect("scratch");
@@ -4158,6 +4163,39 @@ mod tests {
 
     #[test]
     #[serial_test::serial]
+    fn local_only_blocks_remote_account_and_billing_entrypoints_before_auth() {
+        let _local_only = LocalOnlyEnvGuard::enabled();
+        let (state, dir) = temp_app_state();
+        let base_url = "http://127.0.0.1:1";
+
+        let activation = super::activate_account_with_base_url(&state, 0, base_url)
+            .expect_err("local-only blocks activation");
+        let checkout = super::create_checkout_session_with_base_url(
+            HeadroomSubscriptionTier::Pro,
+            BillingPeriod::Annual,
+            base_url,
+        )
+        .expect_err("local-only blocks checkout");
+        let change_plan = super::change_subscription_plan_with_base_url(
+            HeadroomSubscriptionTier::Pro,
+            BillingPeriod::Annual,
+            base_url,
+        )
+        .expect_err("local-only blocks plan changes");
+        let reactivate = super::reactivate_subscription_with_base_url(base_url)
+            .expect_err("local-only blocks reactivation");
+        let billing = super::get_billing_portal_url_with_base_url(base_url, Some("subscription"))
+            .expect_err("local-only blocks billing portal");
+
+        for err in [activation, checkout, change_plan, reactivate, billing] {
+            assert_eq!(err, super::LOCAL_ONLY_REMOTE_SERVICES_ERROR);
+        }
+
+        drop_state(dir);
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn create_checkout_session_returns_url_from_response() {
         let _env = AuthedTestEnv::new("session-xyz");
         let (port, server) = spawn_canned_response_server(
@@ -4174,6 +4212,37 @@ mod tests {
         server.join().unwrap();
 
         assert_eq!(url, "https://buy.polar.sh/abc123");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn create_checkout_session_rejects_untrusted_redirect_urls() {
+        for value in [
+            "http://buy.polar.sh/abc123",
+            "https://127.0.0.1:6767/checkout",
+            "https://user:pass@buy.polar.sh/abc123",
+            "https://buy.polar.sh.evil.example/abc123",
+            "https://buy.polar.sh/abc123\nhttps://evil.example",
+        ] {
+            let _env = AuthedTestEnv::new("session-xyz");
+            let (port, server) = spawn_canned_response_server(
+                serde_json::json!({ "url": value }),
+                "HTTP/1.1 200 OK",
+            );
+
+            let err = super::create_checkout_session_with_base_url(
+                HeadroomSubscriptionTier::Pro,
+                BillingPeriod::Annual,
+                &format!("http://127.0.0.1:{port}"),
+            )
+            .expect_err("untrusted redirect should fail");
+            server.join().unwrap();
+
+            assert!(
+                err.contains("Payment redirect"),
+                "{value} should fail with payment redirect error, got {err}"
+            );
+        }
     }
 
     #[test]
@@ -4231,8 +4300,8 @@ mod tests {
         assert!(err.contains("session expired"));
 
         let stored = crate::keychain::read_secret(
-            super::HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-            super::HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+            super::SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+            super::SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
         )
         .unwrap();
         assert!(stored.is_none());
@@ -4278,8 +4347,8 @@ mod tests {
         assert!(err.contains("session expired"));
 
         let stored = crate::keychain::read_secret(
-            super::HEADROOM_ACCOUNT_KEYCHAIN_SERVICE,
-            super::HEADROOM_ACCOUNT_SESSION_ACCOUNT,
+            super::SWITCHBOARD_ACCOUNT_KEYCHAIN_SERVICE,
+            super::SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT,
         )
         .unwrap();
         assert!(stored.is_none());
@@ -4300,6 +4369,36 @@ mod tests {
         server.join().unwrap();
 
         assert_eq!(url, "https://billing.polar.sh/customer/abc");
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn get_billing_portal_url_rejects_untrusted_redirect_urls() {
+        for value in [
+            "http://billing.polar.sh/customer/abc",
+            "https://localhost:6767/customer/abc",
+            "https://user:pass@billing.polar.sh/customer/abc",
+            "https://billing.polar.sh.evil.example/customer/abc",
+            "https://billing.polar.sh/customer/abc\r\nhttps://evil.example",
+        ] {
+            let _env = AuthedTestEnv::new("session-xyz");
+            let (port, server) = spawn_canned_response_server(
+                serde_json::json!({ "url": value }),
+                "HTTP/1.1 200 OK",
+            );
+
+            let err = super::get_billing_portal_url_with_base_url(
+                &format!("http://127.0.0.1:{port}"),
+                None,
+            )
+            .expect_err("untrusted redirect should fail");
+            server.join().unwrap();
+
+            assert!(
+                err.contains("Payment redirect"),
+                "{value} should fail with payment redirect error, got {err}"
+            );
+        }
     }
 
     #[test]

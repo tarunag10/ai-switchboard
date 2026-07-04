@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mac AI Switchboard Connector Manifest",
+  "type": "object",
+  "required": ["id", "name", "category", "support_status", "detection", "automation_gates", "manual_workflow"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
+    "name": { "type": "string", "minLength": 1 },
+    "category": { "enum": ["cli", "editor", "agent", "runtime"] },
+    "support_status": { "enum": ["managed", "guided", "detected", "planned", "unsupported"] },
+    "detection": {
+      "type": "object",
+      "properties": {
+        "binaries": { "type": "array", "items": { "type": "string" } },
+        "paths": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "config": {
+      "type": "object",
+      "properties": {
+        "locations": { "type": "array", "items": { "type": "string" } },
+        "forbidden_reads": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "automation_gates": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "manual_workflow": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+  },
+  "additionalProperties": false
+}

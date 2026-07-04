@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   activityFeedSignature,
+  notificationActionTargetId,
   notificationActionView,
   safeNotificationActionView,
   safeTrayViewForMode,
@@ -50,6 +51,13 @@ describe("notificationActionView", () => {
     expect(notificationActionView("connectors")).toBe("settings");
   });
 
+  it("routes release and rollback evidence actions to settings", () => {
+    expect(notificationActionView("release")).toBe("settings");
+    expect(notificationActionView("release-readiness")).toBe("settings");
+    expect(notificationActionView("rollback")).toBe("settings");
+    expect(notificationActionView("rollback-center")).toBe("settings");
+  });
+
   it("routes optimize/activity actions to their respective views", () => {
     expect(notificationActionView("optimize")).toBe("optimization");
     expect(notificationActionView("activity")).toBe("notifications");
@@ -62,6 +70,20 @@ describe("notificationActionView", () => {
   });
 });
 
+describe("notificationActionTargetId", () => {
+  it("maps release and rollback actions to settings card anchors", () => {
+    expect(notificationActionTargetId("release")).toBe("release-readiness");
+    expect(notificationActionTargetId("release-readiness")).toBe("release-readiness");
+    expect(notificationActionTargetId("rollback")).toBe("rollback-center");
+    expect(notificationActionTargetId("rollback-center")).toBe("rollback-center");
+  });
+
+  it("ignores actions without section targets", () => {
+    expect(notificationActionTargetId("runtime")).toBeNull();
+    expect(notificationActionTargetId(null)).toBeNull();
+  });
+});
+
 describe("safeTrayViewForMode", () => {
   it("redirects upgrade views to home in local-only mode", () => {
     expect(safeTrayViewForMode("upgrade", true)).toBe("home");
@@ -71,6 +93,9 @@ describe("safeTrayViewForMode", () => {
   it("keeps local utility views in local-only mode", () => {
     expect(safeTrayViewForMode("home", true)).toBe("home");
     expect(safeTrayViewForMode("optimization", true)).toBe("optimization");
+    expect(safeTrayViewForMode("repoIntelligence", true)).toBe(
+      "repoIntelligence",
+    );
     expect(safeTrayViewForMode("settings", true)).toBe("settings");
   });
 
@@ -89,6 +114,8 @@ describe("safeNotificationActionView", () => {
 
   it("keeps local notification actions in local-only mode", () => {
     expect(safeNotificationActionView("runtime", true)).toBe("settings");
+    expect(safeNotificationActionView("release-readiness", true)).toBe("settings");
+    expect(safeNotificationActionView("rollback-center", true)).toBe("settings");
     expect(safeNotificationActionView("activity", true)).toBe("notifications");
   });
 

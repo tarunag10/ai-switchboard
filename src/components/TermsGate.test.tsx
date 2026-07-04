@@ -9,7 +9,9 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 import { TermsGate } from "./TermsGate";
 
-function renderGate(overrides: Partial<React.ComponentProps<typeof TermsGate>> = {}) {
+function renderGate(
+  overrides: Partial<React.ComponentProps<typeof TermsGate>> = {},
+) {
   const onAccepted = overrides.onAccepted ?? vi.fn();
   const props: React.ComponentProps<typeof TermsGate> = {
     requiredVersion: 3,
@@ -37,14 +39,21 @@ describe("TermsGate", () => {
 
   it("does not invoke accept_terms while box is unchecked", async () => {
     renderGate();
-    await userEvent.click(screen.getByRole("button", { name: "Accept & Continue" }));
-    expect(invokeMock).not.toHaveBeenCalledWith("accept_terms", expect.anything());
+    await userEvent.click(
+      screen.getByRole("button", { name: "Accept & Continue" }),
+    );
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "accept_terms",
+      expect.anything(),
+    );
   });
 
   it("persists acceptance with the required version and calls onAccepted", async () => {
     const { onAccepted } = renderGate({ requiredVersion: 5 });
     await userEvent.click(screen.getByRole("checkbox"));
-    await userEvent.click(screen.getByRole("button", { name: "Accept & Continue" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Accept & Continue" }),
+    );
 
     expect(invokeMock).toHaveBeenCalledWith("accept_terms", { version: 5 });
     await vi.waitFor(() => expect(onAccepted).toHaveBeenCalledTimes(1));
@@ -66,7 +75,9 @@ describe("TermsGate", () => {
     const saving = screen.getByRole("button", { name: "Saving..." });
     expect(saving).toBeDisabled();
     await userEvent.click(saving);
-    const acceptCalls = invokeMock.mock.calls.filter(([cmd]) => cmd === "accept_terms");
+    const acceptCalls = invokeMock.mock.calls.filter(
+      ([cmd]) => cmd === "accept_terms",
+    );
     expect(acceptCalls).toHaveLength(1);
 
     resolveAccept();
@@ -77,11 +88,15 @@ describe("TermsGate", () => {
     invokeMock.mockRejectedValueOnce(new Error("keychain write failed"));
     const { onAccepted } = renderGate();
     await userEvent.click(screen.getByRole("checkbox"));
-    await userEvent.click(screen.getByRole("button", { name: "Accept & Continue" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Accept & Continue" }),
+    );
 
     expect(onAccepted).not.toHaveBeenCalled();
     await vi.waitFor(() =>
-      expect(screen.getByRole("button", { name: "Accept & Continue" })).toBeEnabled()
+      expect(
+        screen.getByRole("button", { name: "Accept & Continue" }),
+      ).toBeEnabled(),
     );
   });
 
@@ -93,15 +108,19 @@ describe("TermsGate", () => {
       screen.getByRole("heading", {
         level: 1,
         name: "Mac AI Switchboard Terms of Use",
-      })
+      }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Mac AI Switchboard Privacy Notice" })
+      screen.getByRole("heading", {
+        name: "Mac AI Switchboard Privacy Notice",
+      }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Local-only mode should avoid/i)).toBeInTheDocument();
     expect(
-      screen.getByLabelText(/Terms of Use and Privacy Notice/i)
+      screen.getByText(/Local-only mode should avoid/i),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/extraheadroom\.com/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByLabelText(/Terms of Use and Privacy Notice/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 });

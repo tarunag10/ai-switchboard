@@ -27,6 +27,7 @@ use base64::Engine;
 use crate::backend_port;
 use crate::bearer::{BearerToken, BEARER_TOKEN_TTL};
 use crate::models::{CodexPlanTier, CodexRateLimitSnapshot, CodexUsageWindow};
+use crate::optimization::telemetry;
 
 pub const INTERCEPT_PORT: u16 = 6767;
 
@@ -245,6 +246,13 @@ async fn handle(
     let is_codex = find_header_end(&buf)
         .and_then(|end| parse_request_head(&buf[..end + 4]))
         .is_some_and(|head| is_openai_path(&head.path));
+    if is_codex {
+        telemetry::record_redundancy_payload_hash(
+            "codex-proxy-request",
+            &buf,
+            estimate_tokens_from_bytes(buf.len()),
+        );
+    }
 
     // Scan headers for a Bearer token and capture it. When the token's
     // value differs from what was previously in the slot — or the slot was
@@ -374,6 +382,23 @@ async fn splice_with_codex_capture(
         // Forward the head bytes we read (full head on success, partial on
         // timeout/EOF — `read_http_headers` may also include leading body bytes
         // it over-read), then splice the rest of the response through.
+        if let Some(content_length) = bounded_json_response_len(&head) {
+            let mut body = vec![0_u8; content_length];
+            if backend_rd.read_exact(&mut body).await.is_ok() {
+                if let Some(metrics) =
+                    crate::optimization::provider_usage::parse_provider_cache_metrics(&body)
+                {
+                    telemetry::record_prompt_cache_metrics(metrics);
+                }
+                if client_wr.write_all(&head).await.is_err() {
+                    return;
+                }
+                let _ = client_wr.write_all(&body).await;
+                let _ = client_wr.shutdown().await;
+                return;
+            }
+        }
+
         if client_wr.write_all(&head).await.is_err() {
             return;
         }
@@ -393,6 +418,31 @@ fn is_headroom_compression_refusal_response(head: &[u8]) -> bool {
         && lower.contains("compression_refused")
         && lower.contains("headroom:")
         && lower.contains("compression timeout")
+}
+
+fn bounded_json_response_len(head: &[u8]) -> Option<usize> {
+    const MAX_CAPTURE_BYTES: usize = 1024 * 1024;
+
+    let text = std::str::from_utf8(head).ok()?.to_ascii_lowercase();
+    if !text.starts_with("http/1.1 200") || text.contains("text/event-stream") {
+        return None;
+    }
+    if !text.contains("content-type: application/json") {
+        return None;
+    }
+
+    for line in text.lines() {
+        let Some(value) = line.strip_prefix("content-length:") else {
+            continue;
+        };
+        let len = value.trim().parse::<usize>().ok()?;
+        return (len <= MAX_CAPTURE_BYTES).then_some(len);
+    }
+    None
+}
+
+fn estimate_tokens_from_bytes(byte_len: usize) -> u64 {
+    ((byte_len as u64).saturating_add(3)) / 4
 }
 
 /// Parse the `x-codex-*` rate-limit headers out of a raw HTTP response head
@@ -644,7 +694,7 @@ fn maybe_spawn_codex_usage_poll(buf: &[u8], codex_slot: &CodexRateLimitSlot) {
     }
 
     let user_agent =
-        extract_header_value(buf, "user-agent").unwrap_or_else(|| "headroom-desktop".to_string());
+        extract_header_value(buf, "user-agent").unwrap_or_else(|| "mac-ai-switchboard".to_string());
     let slot = codex_slot.clone();
     tokio::task::spawn_blocking(move || {
         if let Some(snapshot) = fetch_codex_usage_snapshot(&token, &account_id, &user_agent) {

@@ -1,0 +1,14 @@
+title = "Mac AI Switchboard Gitleaks policy"
+
+[allowlist]
+description = "Allow documented placeholders and test fixtures."
+regexes = [
+  '''REPLACE_WITH_[A-Z0-9_]+''',
+  '''your-account-api\.example\.com''',
+  '''hello@example\.com''',
+  '''untrusted comment: minisign public key''',
+]
+paths = [
+  '''docs/.*''',
+  '''src-tauri/tauri\.conf\.json''',
+]

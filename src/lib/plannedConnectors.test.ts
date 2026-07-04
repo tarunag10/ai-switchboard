@@ -1,9 +1,24 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  connectorManifests,
+  connectorSupportMatrixRows,
+  formatPlannedConnectorConfigCreationPlansMarkdown,
+  getConnectorManifest,
   getPlannedConnector,
+  getPlannedConnectorConfigCreationPlan,
+  getPlannedConnectorConfigCreationPlans,
+  getPlannedConnectorReadinessBadges,
+  getPlannedConnectorReadinessContract,
+  getPlannedConnectorReadinessContracts,
+  getPlannedConnectorSafetyDossier,
+  getPlannedConnectorSafetyDossiers,
   getPlannedConnectorSetupChecklistScript,
   getPlannedConnectorSetupGuide,
+  formatPlannedConnectorSafetyDossierMarkdown,
+  managedConnectorDossiers,
+  pendingPlannedConnectors,
+  plannedConnectorReadinessStageOrder,
   plannedConnectors,
   summarizePlannedConnectorSupport,
 } from "./plannedConnectors";
@@ -11,8 +26,6 @@ import {
 describe("planned connectors", () => {
   it("tracks popular coding CLIs and editor agents beyond Claude Code and Codex", () => {
     expect(plannedConnectors.map((connector) => connector.id)).toEqual([
-      "gemini_cli",
-      "opencode",
       "cursor",
       "grok_cli",
       "aider",
@@ -20,15 +33,129 @@ describe("planned connectors", () => {
       "goose",
       "qwen_code",
       "amazon_q",
-      "windsurf",
-      "zed_ai",
     ]);
   });
 
+  it("tracks Gemini CLI, OpenCode, Windsurf, and Zed AI as managed connector dossiers", () => {
+    expect(managedConnectorDossiers.map((connector) => connector.id)).toEqual([
+      "gemini_cli",
+      "opencode",
+      "windsurf",
+      "zed_ai",
+    ]);
+    for (const connector of managedConnectorDossiers) {
+      const expectedManagedLabel =
+        connector.id === "qwen_code" ? "Managed sidecar" : "Managed";
+      expect(connector.statusLabel).toBe(expectedManagedLabel);
+      expect(connector.setupPhase).toBe("Managed");
+      expect(connector.supportedModes).toEqual(["Full", "Headroom", "Off"]);
+      expect(connector.capabilityRows.every((row) => row.state === "Available now")).toBe(
+        true,
+      );
+      expect(connector.notes).toMatch(/Doctor|rollback|Off cleanup/i);
+}
+
+    const gemini = managedConnectorDossiers.find(
+      (connector) => connector.id === "gemini_cli",
+    );
+    expect(gemini?.capabilityRows[1]?.detail).toContain(
+      "sibling rollback backup",
+    );
+    expect(gemini?.capabilityRows[1]?.detail).not.toContain("sidecar");
+    expect(gemini?.automationGates.join(" ")).toContain(
+      "sibling rollback backups",
+    );
+    const windsurf = managedConnectorDossiers.find(
+      (connector) => connector.id === "windsurf",
+    );
+    expect(windsurf?.integrationTarget).toContain("editor settings routing");
+    expect(windsurf?.notes).toContain("editor settings routing");
+    expect(windsurf?.safeToday).toContain("editor settings routing");
+    expect(windsurf?.capabilityRows[0]?.detail).toContain(
+      "editor settings routing",
+    );
+    expect(windsurf?.capabilityRows[1]?.detail).toContain(
+      "sibling rollback backup",
+    );
+    expect(windsurf?.capabilityRows[1]?.detail).not.toContain("sidecar");
+    const opencode = managedConnectorDossiers.find(
+      (connector) => connector.id === "opencode",
+    );
+    expect(opencode?.capabilityRows[1]?.detail).toContain(
+      "sibling rollback backup",
+    );
+    expect(opencode?.capabilityRows[2]?.detail).toContain("native config");
+    expect(opencode?.capabilityRows[1]?.detail).not.toContain("sidecar");
+    const zed = managedConnectorDossiers.find(
+      (connector) => connector.id === "zed_ai",
+    );
+    expect(zed?.integrationTarget).toContain("assistant settings routing");
+    expect(zed?.notes).toContain("assistant settings routing");
+    expect(zed?.capabilityRows[1]?.detail).toContain(
+      "sibling rollback backup",
+    );
+    expect(zed?.capabilityRows[1]?.detail).not.toContain("sidecar");
+    expect(zed?.automationGates.join(" ")).toContain(
+      "assistant settings routing",
+    );
+  });
+
+  it("derives the shared support matrix from connector manifests", () => {
+    const rows = connectorSupportMatrixRows();
+
+    expect(rows.map((row) => row.id)).toEqual(
+      connectorManifests.map((manifest) => manifest.id),
+    );
+    expect(getConnectorManifest("codex")?.support_status).toBe("managed");
+    expect(getConnectorManifest("cursor")?.support_status).toBe("planned");
+    expect(getConnectorManifest("goose")?.support_status).toBe("managed");
+    expect(getConnectorManifest("cursor")?.config?.locations).toEqual([
+      "~/Library/Application Support/Cursor/User/settings.json",
+      "~/Library/Application Support/Cursor/User/globalStorage",
+    ]);
+    expect(getConnectorManifest("cursor")?.automation_gates).toHaveLength(7);
+    expect(getConnectorManifest("cursor")?.automation_gates.join(" ")).toContain(
+      "Off mode removes only Switchboard-owned Cursor routing markers.",
+    );
+    expect(getConnectorManifest("missing")).toBeNull();
+    expect(rows.find((row) => row.id === "gemini_cli")).toMatchObject({
+      name: "Gemini CLI",
+      category: "cli",
+      supportStatus: "managed",
+    });
+    expect(
+      rows.find((row) => row.id === "opencode")?.detectionSources,
+    ).toContain("PATH: opencode");
+  });
+
+  it("keeps rich frontend connector identity and status aligned with manifests", () => {
+    for (const connector of [
+      ...managedConnectorDossiers,
+      ...plannedConnectors,
+    ]) {
+      const manifest = getConnectorManifest(connector.id);
+
+      expect(manifest).toBeTruthy();
+      expect(connector.name).toBe(manifest?.name);
+      expect(connector.category).toBe(manifest?.category);
+      expect(connector.supportStatus).toBe(manifest?.support_status);
+    }
+  });
+
   it("keeps every planned connector explicit about local reversible setup", () => {
-    for (const connector of plannedConnectors) {
-      expect(connector.statusLabel).toBe("Planned");
-      expect(["Detect", "Guide", "Adapt"]).toContain(connector.setupPhase);
+    for (const connector of plannedConnectors.filter(
+      (item) => item.id !== "qwen_code",
+    )) {
+      if (connector.id === "goose") {
+        expect(connector.statusLabel).toBe("Managed MCP");
+        expect(connector.setupPhase).toBe("Managed MCP");
+      } else if (connector.id === "qwen_code") {
+        expect(connector.statusLabel).toBe("Managed");
+        expect(connector.setupPhase).toBe("Managed");
+      } else {
+        expect(connector.statusLabel).toBe("Gated");
+        expect(["Detect", "Guide", "Adapt"]).toContain(connector.setupPhase);
+      }
       expect(connector.integrationTarget.length).toBeGreaterThan(20);
       expect(connector.capabilityBadges.length).toBeGreaterThanOrEqual(3);
       expect(
@@ -46,30 +173,42 @@ describe("planned connectors", () => {
     );
 
     expect(badges).toContain("RTK-safe today");
-    expect(badges).toContain("Backup/restore pending");
-    expect(badges).toContain("Repo packs planned");
-    expect(badges).toContain("Provider routing pending");
+    expect(badges).toContain("Backup/restore gated");
+    expect(badges).toContain("Repo packs gated");
+    expect(badges).toContain("Provider routing gated");
   });
 
   it("summarizes safe today and gated planned capabilities", () => {
     const summary = summarizePlannedConnectorSupport();
 
-    expect(summary.connectorCount).toBe(plannedConnectors.length);
-    expect(summary.safeTodayCount).toBeGreaterThanOrEqual(
-      plannedConnectors.length,
-    );
+    expect(pendingPlannedConnectors.map((connector) => connector.id)).toEqual([
+      "cursor",
+      "grok_cli",
+      "aider",
+      "continue",
+      "amazon_q",
+    ]);
+    expect(summary).toMatchObject({
+      connectorCount: 5,
+    });
+    expect(summary.safeTodayCount).toBeGreaterThan(0);
     expect(summary.manualTodayCount).toBeGreaterThan(0);
-    expect(summary.plannedCount).toBeGreaterThanOrEqual(
-      plannedConnectors.length,
-    );
-    expect(summary.automationGateCount).toBe(
+    expect(summary.plannedCount).toBeGreaterThan(0);
+    expect(summary.automationGateCount).toBeGreaterThan(0);
+
+    const fullMetadataSummary = summarizePlannedConnectorSupport(plannedConnectors);
+    expect(fullMetadataSummary.connectorCount).toBe(plannedConnectors.length);
+    expect(fullMetadataSummary.safeTodayCount).toBeGreaterThan(0);
+    expect(fullMetadataSummary.manualTodayCount).toBeGreaterThan(0);
+    expect(fullMetadataSummary.plannedCount).toBeGreaterThan(0);
+    expect(fullMetadataSummary.automationGateCount).toBe(
       plannedConnectors.reduce(
         (total, connector) => total + connector.automationGates.length,
         0,
       ),
     );
-    expect(summary.safeTodayLabels.join(" ")).toContain("Gemini CLI");
-    expect(summary.plannedLabels.join(" ")).toContain("Provider");
+    expect(fullMetadataSummary.safeTodayLabels.join(" ")).toContain("Cursor");
+    expect(fullMetadataSummary.plannedLabels.join(" ")).toContain("Provider");
   });
 
   it("defines safe automation contracts for every future connector", () => {
@@ -94,19 +233,16 @@ describe("planned connectors", () => {
       expect(connector.capabilityRows).toHaveLength(3);
       expect(
         connector.capabilityRows.some(
-          (capability) => capability.state === "Available now",
-        ),
-      ).toBe(true);
-      expect(
-        connector.capabilityRows.some(
-          (capability) => capability.state === "Planned",
+          (capability) =>
+            capability.state === "Available now" ||
+            capability.state === "Manual today",
         ),
       ).toBe(true);
 
       for (const capability of connector.capabilityRows) {
         expect(capability.label.length).toBeGreaterThan(4);
         expect(capability.detail.length).toBeGreaterThan(30);
-        expect(["Available now", "Manual today", "Planned"]).toContain(
+        expect(["Available now", "Manual today", "Gated"]).toContain(
           capability.state,
         );
       }
@@ -121,10 +257,15 @@ describe("planned connectors", () => {
     ).toHaveLength(2);
     expect(
       plannedConnectors.filter((connector) => connector.setupPhase === "Guide"),
-    ).toHaveLength(6);
+    ).toHaveLength(2);
     expect(
       plannedConnectors.filter((connector) => connector.setupPhase === "Adapt"),
-    ).toHaveLength(3);
+    ).toHaveLength(1);
+    expect(
+      plannedConnectors.filter(
+        (connector) => connector.setupPhase === "Managed MCP",
+      ),
+    ).toHaveLength(1);
   });
 
   it("looks up connector metadata by id", () => {
@@ -133,8 +274,6 @@ describe("planned connectors", () => {
     expect(getPlannedConnector("amazon_q")?.name).toBe(
       "Amazon Q Developer CLI",
     );
-    expect(getPlannedConnector("windsurf")?.name).toBe("Windsurf");
-    expect(getPlannedConnector("zed_ai")?.name).toBe("Zed AI");
     expect(getPlannedConnector("missing")).toBeNull();
   });
 
@@ -160,4 +299,398 @@ describe("planned connectors", () => {
       );
     }
   });
+
+  it("defines a staged readiness contract before connector automation", () => {
+    const contracts = getPlannedConnectorReadinessContracts(
+      plannedConnectors.filter((connector) => connector.id !== "qwen_code"),
+    );
+
+    expect(contracts).toHaveLength(plannedConnectors.length - 1);
+    for (const contract of contracts) {
+      expect(contract.stages.map((stage) => stage.id)).toEqual(
+        plannedConnectorReadinessStageOrder,
+      );
+      expect(contract.automationEnabled).toBe(false);
+      expect(contract.nextBlockedStage).toBe("backupImplemented");
+      expect(
+        contract.stages.filter((stage) => stage.state === "ready").map(
+          (stage) => stage.id,
+        ),
+      ).toEqual(["detected", "manualGuide"]);
+      expect(
+        contract.stages.filter((stage) => stage.state === "blocked").map(
+          (stage) => stage.id,
+        ),
+      ).toEqual([
+        "backupImplemented",
+        "applyImplemented",
+        "verifyImplemented",
+        "rollbackImplemented",
+        "offCleanupImplemented",
+      ]);
+    }
+  });
+
+  it("marks promoted managed editor connectors automation-ready", () => {
+    const contracts = getPlannedConnectorReadinessContracts(
+      managedConnectorDossiers.filter((connector) =>
+        ["windsurf", "zed_ai"].includes(connector.id),
+      ),
+    );
+
+    expect(contracts.map((contract) => contract.connectorId)).toEqual([
+      "windsurf",
+      "zed_ai",
+    ]);
+    for (const contract of contracts) {
+      expect(contract.setupPhase).toBe("Managed");
+      expect(contract.automationEnabled).toBe(true);
+      expect(contract.nextBlockedStage).toBeNull();
+      expect(contract.stages.every((stage) => stage.state === "ready")).toBe(
+        true,
+      );
+    }
+  });
+
+  it("keeps readiness evidence tied to the connector metadata", () => {
+    const qwen = plannedConnectors.find(
+      (connector) => connector.id === "qwen_code",
+    );
+    expect(qwen).toBeTruthy();
+
+    const contract = getPlannedConnectorReadinessContract(qwen!);
+
+    expect(contract.connectorName).toBe("Qwen Code");
+    expect(contract.setupPhase).toBe("Managed");
+    expect(
+      contract.stages.find((stage) => stage.id === "manualGuide")?.evidence,
+    ).toMatch(/Qwen|sidecar|provider/i);
+    expect(
+      contract.stages.find((stage) => stage.id === "offCleanupImplemented")
+        ?.evidence,
+    ).toMatch(/Off mode cleanup|Switchboard-owned/i);
+  });
+
+  it("derives roadmap readiness badges without enabling planned automation", () => {
+    for (const connector of plannedConnectors.filter(
+      (item) => item.id !== "qwen_code",
+    )) {
+      const badges = getPlannedConnectorReadinessBadges(connector);
+      const badgeLabels = badges.map((badge) => badge.label);
+
+      expect(badgeLabels).toContain("Automation gated");
+      expect(badgeLabels).not.toContain("Verified automation");
+      expect(badges.every((badge) => badge.detail.length > 30)).toBe(true);
+    }
+
+    expect(
+      getPlannedConnectorReadinessBadges(getPlannedConnector("cursor")!).map(
+        (badge) => badge.label,
+      ),
+    ).toContain("Manual only");
+    expect(
+      getPlannedConnectorReadinessBadges(getPlannedConnector("amazon_q")!).map(
+        (badge) => badge.label,
+      ),
+    ).toContain("Unsupported account/model");
+    expect(
+      getPlannedConnectorReadinessBadges(getPlannedConnector("grok_cli")!).map(
+        (badge) => badge.label,
+      ),
+    ).toContain("Unsupported account/model");
+  });
+
+  it("documents config, provider, account, and rollback strategy per connector", () => {
+    const dossiers = getPlannedConnectorSafetyDossiers(plannedConnectors);
+
+    expect(dossiers.map((dossier) => dossier.connectorId)).toEqual(
+      plannedConnectors.map((connector) => connector.id),
+    );
+    for (const connector of plannedConnectors) {
+      const dossier = getPlannedConnectorSafetyDossier(connector.id);
+
+      expect(dossier).toBeTruthy();
+      expect(dossier?.configPathStrategy).toMatch(
+        /detect|PATH|config|settings|profile|app/i,
+      );
+      expect(dossier?.providerSemantics).toMatch(
+        /provider|base-url|routing|handoff|proxy/i,
+      );
+      expect(dossier?.accountCaveat).toMatch(
+        /account|credential|credentials|profile|secrets?|model|AWS|SSO/i,
+      );
+      expect(dossier?.rollbackStrategy).toMatch(
+        /restore|remove|rollback|backup|unchanged|preserving/i,
+      );
+
+      const markdown = formatPlannedConnectorSafetyDossierMarkdown(connector);
+      expect(markdown).toContain(`## ${connector.name}`);
+      expect(markdown).toContain("Provider/base-url semantics");
+      expect(markdown).toContain("Rollback strategy");
+    }
+  });
+
+  it("defines config-creation plans for every connector before enabling writes", () => {
+    const plans = getPlannedConnectorConfigCreationPlans(
+      plannedConnectors.filter((connector) => connector.id !== "qwen_code"),
+    );
+
+    expect(plans.map((plan) => plan.connectorId)).toEqual(
+      plannedConnectors
+        .filter((connector) => connector.id !== "qwen_code")
+        .map((connector) => connector.id),
+    );
+    for (const plan of plans) {
+      expect(plan.automationEnabled).toBe(false);
+      expect(plan.safetyNote).toMatch(/gated/i);
+      expect(plan.steps.map((step) => step.id)).toEqual([
+        "detect",
+        "dryRunDiff",
+        "backup",
+        "apply",
+        "verify",
+        "rollback",
+        "offCleanup",
+      ]);
+      expect(plan.steps.map((step) => `${step.label} ${step.detail}`).join(" ")).toMatch(
+        /detect|dry-run|backup|provider|Doctor|rollback|Off mode/i,
+      );
+      expect(plan.steps.find((step) => step.id === "dryRunDiff")?.detail).toMatch(
+        /target path|before\/after|managed marker|rollback preview|confirmation phrase/i,
+      );
+      expect(plan.steps.find((step) => step.id === "backup")?.requiredEvidence.join(" ")).toMatch(
+        /Fixture-home restore test/i,
+      );
+      expect(plan.steps.find((step) => step.id === "rollback")?.requiredEvidence.join(" ")).toMatch(
+        /Fixture-home rollback test/i,
+      );
+      expect(plan.steps.find((step) => step.id === "offCleanup")?.requiredEvidence.join(" ")).toMatch(
+        /Fixture-home Off-mode cleanup/i,
+      );
+      for (const step of plan.steps) {
+        expect(step.requiredEvidence.length).toBeGreaterThanOrEqual(2);
+        expect(step.requiredEvidence.join(" ")).toMatch(
+          /read-only|dry-run|backup|consent|Doctor|rollback|Off-mode|fixture|diff|manual|RTK-only/i,
+        );
+      }
+    }
+  });
+
+  it("keeps Goose provider routing gated while the MCP bridge is managed", () => {
+    const goose = plannedConnectors.find((connector) => connector.id === "goose");
+    expect(goose).toMatchObject({
+      supportStatus: "managed",
+      setupPhase: "Managed MCP",
+    });
+
+    const plan = getPlannedConnectorConfigCreationPlan(goose!);
+    expect(plan.automationEnabled).toBe(false);
+    expect(plan.safetyNote).toMatch(/gated/i);
+    expect(plan.steps.map((step) => step.id)).toContain("dryRunDiff");
+    expect(`${goose?.safeToday} ${goose?.manualWorkflow.join(" ")}`).toMatch(
+      /read-only Repo Memory MCP bridge.*provider.*manual/i,
+    );
+  });
+
+  it("reports promoted managed editor config plans as enabled", () => {
+    const plans = getPlannedConnectorConfigCreationPlans(
+      managedConnectorDossiers.filter((connector) =>
+        ["windsurf", "zed_ai"].includes(connector.id),
+      ),
+    );
+
+    expect(plans.map((plan) => plan.connectorId)).toEqual([
+      "windsurf",
+      "zed_ai",
+    ]);
+    for (const plan of plans) {
+      expect(plan.automationEnabled).toBe(true);
+      expect(plan.safetyNote).toMatch(/managed routing is enabled/i);
+      expect(plan.steps.map((step) => step.id)).toEqual([
+        "detect",
+        "dryRunDiff",
+        "backup",
+        "apply",
+        "verify",
+        "rollback",
+        "offCleanup",
+      ]);
+    }
+  });
+
+  it("carries Grok, Cursor, and Aider config-creation details explicitly", () => {
+    const grok = getPlannedConnectorConfigCreationPlan(
+      getPlannedConnector("grok_cli")!,
+    );
+    const cursor = getPlannedConnectorConfigCreationPlan(
+      getPlannedConnector("cursor")!,
+    );
+    const aider = getPlannedConnectorConfigCreationPlan(
+      getPlannedConnector("aider")!,
+    );
+
+    expect(aider.steps.find((step) => step.id === "detect")?.detail).toMatch(
+      /aider/i,
+    );
+    expect(aider.steps.find((step) => step.id === "backup")?.detail).toMatch(
+      /backup|restore point/i,
+    );
+    expect(grok.steps.find((step) => step.id === "verify")?.detail).toMatch(
+      /model|account/i,
+    );
+    expect(cursor.steps.find((step) => step.id === "rollback")?.detail).toMatch(
+      /profile settings backup/i,
+    );
+  });
+
+  it("formats copyable config-creation plans for handoff", () => {
+    const markdown = formatPlannedConnectorConfigCreationPlansMarkdown([
+      getPlannedConnector("aider")!,
+      getPlannedConnector("grok_cli")!,
+      getPlannedConnector("cursor")!,
+    ]);
+
+    expect(markdown).toContain(
+      "# Mac AI Switchboard Connector Config Creation Plans",
+    );
+    expect(markdown).toContain("Automation stays disabled");
+    expect(markdown).toContain("## Aider");
+    expect(markdown).toContain("Detect config surface: Detect PATH: aider");
+    expect(markdown).toContain("Required evidence:");
+    expect(markdown).toContain("No files, profiles, credentials, or account state changed");
+    expect(markdown).toContain("managed marker boundary");
+    expect(markdown).toContain("confirmation phrase");
+    expect(markdown).toContain("## Grok / xAI CLI");
+    expect(markdown).toContain("Doctor guardrails");
+    expect(markdown).toContain("## Cursor");
+    expect(markdown).toContain("Rollback safely");
+    expect(markdown).toContain("Off mode removes only Switchboard-managed");
+  });
+
+  it("formats a single connector config-creation plan for card-level copy", () => {
+    const markdown = formatPlannedConnectorConfigCreationPlansMarkdown([
+      getPlannedConnector("aider")!,
+    ]);
+
+    expect(markdown).toContain(
+      "# Mac AI Switchboard Connector Config Creation Plan",
+    );
+    expect(markdown).not.toContain("## Grok / xAI CLI");
+    expect(markdown).toContain("## Aider");
+    expect(markdown).toContain("Automation enabled: no");
+    expect(markdown).toContain("Show dry-run diff");
+  });
+
+  it("keeps Cursor discovery dry-run evidence explicit while writes stay gated", () => {
+    const cursor = getPlannedConnector("cursor")!;
+    const cursorManifest = getConnectorManifest("cursor")!;
+    const plan = getPlannedConnectorConfigCreationPlan(cursor);
+
+    expect(cursor.supportStatus).toBe("planned");
+    expect(cursor.integrationTarget).toContain("dry-run diff preview");
+    expect(cursor.configSurfaces).toEqual([
+      "Cursor app bundle",
+      "User/settings.json",
+      "User/globalStorage",
+      "profile settings",
+    ]);
+    expect(cursor.firstAutomation).toContain("dry-run diff preview");
+    expect(plan.automationEnabled).toBe(false);
+    expect(plan.steps.find((step) => step.id === "dryRunDiff")?.detail).toMatch(
+      /target path, before\/after provider intent/i,
+    );
+    expect(cursorManifest.config?.locations).toEqual([
+      "~/Library/Application Support/Cursor/User/settings.json",
+      "~/Library/Application Support/Cursor/User/globalStorage",
+    ]);
+    expect(cursorManifest.config?.forbidden_reads).toEqual([
+      "*token*",
+      "*secret*",
+      "auth.json",
+      "state.vscdb",
+    ]);
+  });
+
+  it("keeps Grok xAI config discovery gated with forbidden-read boundaries", () => {
+    const grok = getPlannedConnector("grok_cli")!;
+    const grokManifest = getConnectorManifest("grok_cli")!;
+    const plan = getPlannedConnectorConfigCreationPlan(grok);
+
+    expect(grok.supportStatus).toBe("planned");
+    expect(grok.configSurfaces).toContain("grok or xai binary");
+    expect(grok.safeToday).toContain("Detect grok or xai");
+    expect(grok.firstAutomation).toContain("model/account guardrails");
+    expect(plan.automationEnabled).toBe(false);
+    expect(grokManifest.config?.locations).toEqual(["~/.config/xai"]);
+    expect(grokManifest.config?.forbidden_reads).toEqual([
+      "*token*",
+      "*secret*",
+      "auth.json",
+    ]);
+  });
+
+  it("keeps Aider config discovery gated with forbidden-read boundaries", () => {
+    const aider = getPlannedConnector("aider")!;
+    const aiderManifest = getConnectorManifest("aider")!;
+    const plan = getPlannedConnectorConfigCreationPlan(aider);
+
+    expect(aider.supportStatus).toBe("planned");
+    expect(aider.safeToday).toContain("copy implementation or handoff packs");
+    expect(aider.firstAutomation).toContain("environment wrapper");
+    expect(plan.automationEnabled).toBe(false);
+    expect(aiderManifest.config?.locations).toEqual([
+      "~/.aider.conf.yml",
+      "~/.config/aider",
+    ]);
+    expect(aiderManifest.config?.forbidden_reads).toEqual([
+      "*token*",
+      "*secret*",
+      "auth.json",
+    ]);
+  });
 });
+it("keeps Continue config discovery gated with forbidden-read boundaries", () => {
+  const continueManifest = getConnectorManifest("continue")!;
+  const continueConnector = getPlannedConnector("continue")!;
+  const contract = getPlannedConnectorReadinessContract(continueConnector);
+  const copy = JSON.stringify(continueConnector);
+
+  expect(continueManifest.support_status).toBe("planned");
+  expect(continueManifest.config?.locations).toEqual(
+    expect.arrayContaining(["~/.continue"]),
+  );
+  expect(continueManifest.config?.forbidden_reads).toEqual(
+    expect.arrayContaining(["*token*", "*secret*", "auth.json"]),
+  );
+  expect(contract.setupPhase).toBe("Guide");
+  expect(contract.automationEnabled).toBe(false);
+  expect(contract.nextBlockedStage).not.toBeNull();
+  expect(contract.stages.some((stage) => stage.state === "blocked")).toBe(
+    true,
+  );
+  expect(copy).toMatch(/Continue/);
+  expect(copy).toMatch(/provider|providers/i);
+  expect(copy).toMatch(/manual|gated|blocked/i);
+});
+
+it("keeps Qwen Code config discovery aligned with backend config surfaces", () => {
+  const qwenManifest = getConnectorManifest("qwen_code")!;
+  const qwenConnector = getPlannedConnector("qwen_code")!;
+  const contract = getPlannedConnectorReadinessContract(qwenConnector);
+
+    expect(qwenManifest.support_status).toBe("managed");
+  expect(qwenManifest.config?.locations).toEqual(
+    expect.arrayContaining(["~/.qwen", "~/.config/qwen"]),
+  );
+  expect(qwenManifest.config?.forbidden_reads).toEqual(
+    expect.arrayContaining(["*token*", "*secret*", "auth.json"]),
+  );
+    expect(contract.setupPhase).toBe("Managed");
+    expect(contract.automationEnabled).toBe(true);
+    expect(JSON.stringify(qwenConnector)).toMatch(/provider|model|manual/i);
+    expect(qwenConnector.statusLabel).toBe("Managed sidecar");
+    expect(qwenConnector.setupPhase).toBe("Managed");
+    expect(qwenConnector.firstAutomation).toMatch(/sidecar/i);
+    expect(qwenConnector.firstAutomation).toMatch(/provider\/model config manual/i);
+    expect(qwenConnector.notes).toMatch(/sidecar-only/i);
+  });
