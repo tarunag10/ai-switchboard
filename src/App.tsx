@@ -7,7 +7,6 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
   type ReactElement,
-  type ReactNode,
 } from "react";
 import {
   ArrowClockwise,
@@ -65,7 +64,6 @@ import {
 import {
   buildAddonHealthCards,
   plannedAddons,
-  type AddonHealthCard,
 } from "./lib/plannedAddons";
 import {
   buildAgentSessionPreparation,
@@ -286,6 +284,8 @@ import {
   type SavingsCalculatorScope,
 } from "./lib/savingsCalculator";
 import { ActivityFeed } from "./components/ActivityFeed";
+import { AddonCard } from "./components/AddonCard";
+import { AddonHealthStrip } from "./components/AddonHealthStrip";
 import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
 import { PlannedAddonCard } from "./components/PlannedAddonCard";
@@ -1481,233 +1481,6 @@ function DailySavingsChart({
 
 function renderConnectorLogo(clientId: string) {
   return <Sparkle className="client-logo__glyph" size={20} weight="duotone" />;
-}
-
-function AddonClientChips({
-  connectors,
-}: {
-  connectors: ClientConnectorStatus[];
-}) {
-  const clients = sortClientConnectors(aggregateClientConnectors(connectors));
-  if (clients.length === 0) {
-    return null;
-  }
-  return (
-    <div className="addon-card__clients">
-      {clients.map((connector) => {
-        const status = connectorDashboardStatus(connector);
-        return (
-          <span
-            className="callout-banner__chip"
-            key={connector.clientId}
-            title={status.label}
-          >
-            <span
-              className={`callout-banner__chip-dot callout-banner__chip-dot--${status.tone}`}
-              aria-hidden="true"
-            />
-            <span className="callout-banner__chip-name">{connector.name}</span>
-            <span className="visually-hidden">{status.label}</span>
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function AddonHealthStrip({ cards }: { cards: AddonHealthCard[] }) {
-  return (
-    <div className="addons__health-strip" aria-label="Add-on health">
-      {cards.map((card) => (
-        <section
-          className={`addons__health-card addons__health-card--${card.tone}`}
-          key={card.id}
-        >
-          <div className="addons__health-heading">
-            <strong>{card.name}</strong>
-            <span>{card.statusLabel}</span>
-          </div>
-          <p>{card.detail}</p>
-          <ul>
-            {card.evidence.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          <div
-            className="addons__health-trend"
-            aria-label={`${card.name} health trend`}
-          >
-            <div className="addons__health-trend-heading">
-              <span>{card.trend.label}</span>
-              <strong>{card.trend.value}</strong>
-            </div>
-            {card.trend.points.length > 0 ? (
-              <div className="addons__health-sparkline" aria-hidden="true">
-                {card.trend.points.map((point) => {
-                  const maxValue = Math.max(
-                    ...card.trend.points.map((item) => item.value),
-                    1,
-                  );
-                  const height = Math.max(12, (point.value / maxValue) * 100);
-                  return (
-                    <span
-                      key={`${point.label}-${point.value}`}
-                      style={{ height: `${height}%` }}
-                      title={`${point.label}: ${point.value.toLocaleString()}`}
-                    />
-                  );
-                })}
-              </div>
-            ) : null}
-            <small>{card.trend.detail}</small>
-          </div>
-          <em>{card.nextAction}</em>
-        </section>
-      ))}
-    </div>
-  );
-}
-
-function formatAddonVersion(version: string): string {
-  return /^\d/.test(version) ? `v${version}` : version;
-}
-
-function AddonCard({
-  name,
-  version,
-  installed,
-  enabled,
-  description,
-  copy,
-  infoOpen,
-  onToggleInfo,
-  busy,
-  busyLabel,
-  resultMessage,
-  onDismissResult,
-  sourceUrl,
-  onOpenSource,
-  connectors,
-  showClients,
-  actionsDisabled,
-  onInstall,
-  onToggleEnabled,
-  onUninstall,
-  children,
-}: {
-  name: string;
-  version?: string | null;
-  installed: boolean;
-  enabled: boolean;
-  description: ReactNode;
-  copy?: AddonCopy;
-  infoOpen: boolean;
-  onToggleInfo: () => void;
-  busy: boolean;
-  busyLabel: string | null;
-  resultMessage: string | null;
-  onDismissResult: () => void;
-  sourceUrl: string;
-  onOpenSource: () => void;
-  connectors: ClientConnectorStatus[];
-  showClients: boolean;
-  actionsDisabled: boolean;
-  onInstall: () => void;
-  onToggleEnabled: () => void;
-  onUninstall: () => void;
-  children?: ReactNode;
-}) {
-  return (
-    <li className="addon-card">
-      <div className="addon-card__body">
-        <div className="addon-card__heading">
-          <span className="addon-card__name">{name}</span>
-          {installed && version ? (
-            <span className="addon-card__version">
-              {formatAddonVersion(version)}
-            </span>
-          ) : null}
-          {copy ? (
-            <button
-              type="button"
-              className="addon-card__info"
-              aria-label={`What ${name} does`}
-              aria-expanded={infoOpen}
-              onClick={onToggleInfo}
-            >
-              i
-            </button>
-          ) : null}
-          {installed ? (
-            <span
-              className={`addon-card__badge addon-card__badge--${enabled ? "on" : "off"}`}
-            >
-              {enabled ? "Enabled" : "Disabled"}
-            </span>
-          ) : null}
-        </div>
-        {infoOpen && copy ? (
-          <p className="addon-card__info-text">{copy.whatItDoes}</p>
-        ) : null}
-        <p className="addon-card__description">{description}</p>
-        {showClients ? <AddonClientChips connectors={connectors} /> : null}
-        <button
-          type="button"
-          className="addon-card__link"
-          onClick={onOpenSource}
-        >
-          {sourceUrl}
-        </button>
-        {busy && busyLabel ? (
-          <p className="addon-card__progress">{busyLabel}</p>
-        ) : resultMessage ? (
-          <p className="addon-card__result">
-            {resultMessage}
-            <button
-              type="button"
-              className="addon-card__result-dismiss"
-              aria-label="Dismiss"
-              onClick={onDismissResult}
-            >
-              ×
-            </button>
-          </p>
-        ) : null}
-        {children}
-      </div>
-      <div className="addon-card__actions">
-        {!installed ? (
-          <button
-            type="button"
-            className="addon-card__action addon-card__action--primary"
-            disabled={actionsDisabled}
-            onClick={onInstall}
-          >
-            Install
-          </button>
-        ) : (
-          <>
-            <button
-              type="button"
-              className="addon-card__action"
-              disabled={actionsDisabled}
-              onClick={onToggleEnabled}
-            >
-              {enabled ? "Disable" : "Enable"}
-            </button>
-            <button
-              type="button"
-              className="addon-card__action addon-card__action--danger"
-              disabled={actionsDisabled}
-              onClick={onUninstall}
-            >
-              Uninstall
-            </button>
-          </>
-        )}
-      </div>
-    </li>
-  );
 }
 
 const repoIntelligencePreview = buildRepoIntelligenceSummary([

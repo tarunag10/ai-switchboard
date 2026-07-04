@@ -544,13 +544,17 @@ const requiredSourceSignals = {
     "Symbols",
     "Savings anomaly alerts",
     "AddonHealthStrip",
-    "Add-on health",
     "Settings import/export",
     "Settings migration actions",
     "Copy settings export",
     "Apply safe preferences",
     "ClientSavingsTrendsCard",
     "Per-client savings",
+  ],
+  "src/components/AddonHealthStrip.tsx": [
+    "Add-on health",
+    "addons__health-card",
+    "addons__health-trend",
   ],
   "src/lib/dashboardHelpers.test.ts": [
     "builds per-client savings trends from recent usage events",
