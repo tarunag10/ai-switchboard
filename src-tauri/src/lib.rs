@@ -14,6 +14,7 @@ mod client_paths;
 mod client_setup_commands;
 mod codex_threads;
 mod connector_smoke;
+mod dashboard_commands;
 mod dedicated_cleanup_rollback;
 mod device;
 mod doctor;
@@ -61,9 +62,9 @@ use tauri_plugin_autostart::ManagerExt;
 
 use crate::models::{
     ActivityFeedResponse, BootstrapProgress, ClientConnectorStatus, ClientSetupResult,
-    DailySavingsPoint, DashboardState, HeadroomLearnPrereqStatus, HeadroomLearnStatus,
-    RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionCounter, SavingsAttributionEvent,
-    SavingsMode, SwitchboardMode, SwitchboardState, TransformationFeedResponse,
+    DashboardState, HeadroomLearnPrereqStatus, HeadroomLearnStatus, RuntimeStatus,
+    RuntimeUpgradeProgress, SavingsMode, SwitchboardMode, SwitchboardState,
+    TransformationFeedResponse,
 };
 use crate::state::AppState;
 
@@ -90,8 +91,6 @@ impl QuitSource {
     }
 }
 
-static ZERO_SPEND_ALERT_FIRED: AtomicBool = AtomicBool::new(false);
-
 // Set when the watchdog has captured a Sentry event for the current "down
 // episode". Reset whenever the proxy is observed reachable again, so a
 // subsequent crash re-fires.
@@ -109,145 +108,6 @@ static PORT_CONFLICT_CAPTURED: AtomicBool = AtomicBool::new(false);
 // `configured_clients` is already empty, leaving nothing for the next launch's
 // `restore_client_setups()` to bring back.
 static EXIT_CLEAR_DONE: AtomicBool = AtomicBool::new(false);
-
-// Spend fields (actual_cost_usd, total_tokens_sent) were added to SavingsRecord in
-// schema v6, shipped in 0.2.40 on 2026-04-13. Records written before that date
-// deserialize those fields as 0 via #[serde(default)], producing false positives.
-const SPEND_SCHEMA_CUTOFF_DATE: &str = "2026-04-13";
-
-// Trigger on compression *dollar* savings, not the all-layers token total.
-// `estimated_tokens_saved` folds in CLI context-tool filtering (RTK / lean-ctx),
-// whose tokens are avoided before they ever reach a model request -- so they
-// legitimately produce savings with zero tokens_sent and zero cost, tripping
-// this probe on days dominated by that layer. `estimated_savings_usd` is
-// proxy-compression-only (the proxy prices it at the model rate and excludes CLI
-// filtering and prefix-cache discounts), so it is > 0 iff a real model request
-// was compressed -- which implies tokens were sent and a cost incurred. Zero
-// spend against it is the genuine pipeline anomaly.
-fn zero_spend_affected_days(daily_savings: &[DailySavingsPoint]) -> Vec<&str> {
-    daily_savings
-        .iter()
-        .filter(|p| {
-            p.date.as_str() >= SPEND_SCHEMA_CUTOFF_DATE
-                && p.estimated_savings_usd > 0.000_001
-                && p.actual_cost_usd == 0.0
-                && p.total_tokens_sent == 0
-        })
-        .map(|p| p.date.as_str())
-        .collect()
-}
-
-fn check_zero_spend_anomaly(dashboard: &DashboardState) {
-    if ZERO_SPEND_ALERT_FIRED.load(Ordering::Relaxed) {
-        return;
-    }
-    let affected_days = zero_spend_affected_days(&dashboard.daily_savings);
-    if affected_days.is_empty() {
-        return;
-    }
-    ZERO_SPEND_ALERT_FIRED.store(true, Ordering::Relaxed);
-    sentry::capture_message(
-        &format!(
-            "graph shows compression savings but zero tokens spent on days: {}",
-            affected_days.join(", ")
-        ),
-        sentry::Level::Warning,
-    );
-}
-
-#[tauri::command]
-async fn get_dashboard_state(app: AppHandle) -> Result<DashboardState, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let state: State<'_, AppState> = app.state();
-        let (dashboard, pending_milestones) = state.dashboard_with_pending_milestones();
-
-        for milestone_tokens_saved in &pending_milestones.token {
-            analytics::track_event(
-                &app,
-                "lifetime_tokens_saved_milestone_reached",
-                Some(json!({
-                    "milestone_tokens_saved": *milestone_tokens_saved,
-                    "milestone_millions": milestone_tokens_saved / 1_000_000,
-                    "milestone_kind": lifetime_token_milestone_kind(*milestone_tokens_saved),
-                    "lifetime_tokens_saved": dashboard.lifetime_estimated_tokens_saved,
-                    "lifetime_requests": dashboard.lifetime_requests,
-                    "launch_count": state.launch_count(),
-                    "launch_experience": state.launch_experience_label()
-                })),
-            );
-            pricing::report_milestone(*milestone_tokens_saved);
-        }
-
-        check_zero_spend_anomaly(&dashboard);
-
-        dashboard
-    })
-    .await
-    .map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-async fn get_savings_attribution_events(
-    app: AppHandle,
-) -> Result<Vec<SavingsAttributionEvent>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let state: State<'_, AppState> = app.state();
-        state.savings_attribution_events()
-    })
-    .await
-    .map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-async fn get_savings_attribution_counters(
-    app: AppHandle,
-) -> Result<Vec<SavingsAttributionCounter>, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let state = app.state::<AppState>();
-        state.savings_attribution_counters()
-    })
-    .await
-    .map_err(|err| err.to_string())
-}
-
-#[derive(Debug, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct MeasuredSavingsAttributionRequest {
-    source: crate::models::SavingsAttributionSource,
-    label: String,
-    baseline_tokens: u64,
-    optimized_tokens: u64,
-    #[serde(default = "default_request_delta")]
-    request_delta: usize,
-    #[serde(default)]
-    detail: String,
-}
-
-fn default_request_delta() -> usize {
-    1
-}
-
-#[tauri::command]
-async fn record_measured_savings_attribution(
-    app: AppHandle,
-    request: MeasuredSavingsAttributionRequest,
-) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let state: State<'_, AppState> = app.state();
-        state
-            .record_measured_addon_attribution(
-                request.source,
-                &request.label,
-                request.baseline_tokens,
-                request.optimized_tokens,
-                request.request_delta,
-                request.detail,
-            )
-            .map_err(|err| err.to_string())
-    })
-    .await
-    .map_err(|err| err.to_string())?
-}
 
 /// Best-effort: schedule the running `.app` bundle to be moved to the user's
 /// Trash once this process exits. Returns the bundle path that was scheduled,
@@ -3553,10 +3413,10 @@ pub fn run() {
         .manage(state)
         .manage(app_update_commands::PendingAppUpdate(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
-            get_dashboard_state,
-            get_savings_attribution_events,
-            get_savings_attribution_counters,
-            record_measured_savings_attribution,
+            dashboard_commands::get_dashboard_state,
+            dashboard_commands::get_savings_attribution_events,
+            dashboard_commands::get_savings_attribution_counters,
+            dashboard_commands::record_measured_savings_attribution,
             rollback_commands::preview_managed_config_apply,
             rollback_commands::execute_managed_config_apply,
             rollback_commands::preview_managed_rollback,
@@ -3710,15 +3570,6 @@ pub fn run() {
                 codex_threads::retag_codex_threads_to_native();
             }
         });
-}
-
-fn lifetime_token_milestone_kind(milestone_tokens_saved: u64) -> &'static str {
-    match milestone_tokens_saved {
-        1_000_000 => "first_1m",
-        5_000_000 => "first_5m",
-        10_000_000 => "first_10m",
-        _ => "repeating_10m",
-    }
 }
 
 pub fn headroom_memory_db_path() -> std::path::PathBuf {
@@ -5429,11 +5280,10 @@ mod tests {
         count_memories_created_today, cpu_rate_indicates_burn, debounced_tray_runtime_visual,
         delete_applied_pattern, empty_live_learnings_for_projects, extract_llm_failure_warnings,
         fetch_transformations_feed_from, is_disk_full_signal, is_endpoint_protection_signal,
-        is_network_download_signal, is_port_conflict_failure, lifetime_token_milestone_kind,
-        parse_live_learnings, pattern_matches_project, physical_rect_from_rect,
-        read_applied_patterns_for_project, readyz_failed_checks_csv,
-        readyz_failure_has_core_unhealthy, readyz_failure_is_upstream_only, watchdog_should_be_up,
-        zero_spend_affected_days, BootstrapFailureKind, DailySavingsPoint,
+        is_network_download_signal, is_port_conflict_failure, parse_live_learnings,
+        pattern_matches_project, physical_rect_from_rect, read_applied_patterns_for_project,
+        readyz_failed_checks_csv, readyz_failure_has_core_unhealthy,
+        readyz_failure_is_upstream_only, watchdog_should_be_up, BootstrapFailureKind,
         HeadroomLearnPrereqStatus, LearnAgent, MonitorBounds, PhysicalRect, QuitSource,
         TrayRuntimeVisual,
     };
@@ -5447,8 +5297,9 @@ mod tests {
         store_checked_update, AppUpdateProgress, AppUpdateProgressEmitter, AvailableAppUpdate,
         InstallPendingUpdateFuture, InstallableAppUpdate,
     };
+    use crate::dashboard_commands::{lifetime_token_milestone_kind, zero_spend_affected_days};
     use crate::models::{
-        ManagedRollbackExecutionStatus, RepoFileIndexEntry, RepoIndexMetadata,
+        DailySavingsPoint, ManagedRollbackExecutionStatus, RepoFileIndexEntry, RepoIndexMetadata,
         RepoIntelligenceSummary,
     };
     use crate::repo_intelligence;
