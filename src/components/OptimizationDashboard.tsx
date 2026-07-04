@@ -152,7 +152,7 @@ function PreemptiveCompactionButton() {
         <h2 id="preemptive-compaction-title">Preemptive Compaction</h2>
       </div>
       <p className="optimize-minimal__meta">
-        One click records the live threshold check and queues Switchboard's prevention path before
+        One click records the current threshold check and queues Switchboard's prevention path before
         clients hit an oversized-context failure.
       </p>
       <button
@@ -187,7 +187,7 @@ function PromptCacheClientProofList({
         <h2 id="cache-proof-title">Cache Proof</h2>
       </div>
       <p className="optimize-minimal__meta">
-        Provider cache reads by client. This is the live proof for prompt-cache efficiency.
+        Provider cache reads by client. Rows appear only after provider usage telemetry is recorded.
       </p>
       {clients.length === 0 ? (
         <p className="optimize-minimal__meta">No provider cache telemetry yet.</p>
@@ -309,7 +309,7 @@ export function OptimizationDashboard() {
             <div>
               <h2 id="optimization-dashboard-title">AI Switchboard Optimization</h2>
               <p className="optimize-minimal__meta">
-                {snapshot.source === "tauri" ? "Live Tauri telemetry" : "Local fallback telemetry"}.
+                {snapshot.source === "tauri" ? "Live Tauri telemetry" : "No live Tauri telemetry yet"}.
               </p>
               {snapshot.bypass.any ? (
                 <p className="optimize-minimal__meta" role="alert">

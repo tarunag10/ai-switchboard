@@ -12,7 +12,7 @@ use super::snapshot_enrichment::{
     fallback_prompt_cache_clients, fallback_token_buckets, live_prompt_cache_clients,
     live_token_buckets, percent_u8,
 };
-use super::snapshot_policy::{order_prompt_cache_segments, route_to_snapshot};
+use super::snapshot_policy::order_prompt_cache_segments;
 use super::snapshot_types::PromptCacheClientSnapshot;
 use super::snapshot_types::{
     AgentPackSnapshot, CompactionSignalSnapshot, CompressionBypassSnapshot, ModelRoutingSnapshot,
@@ -287,14 +287,7 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
         });
 
     let routing = if telemetry.routing_decisions.is_empty() {
-        vec![route_to_snapshot(ModelRouteInput {
-            client: "observed-session".to_string(),
-            task: "general".to_string(),
-            requested_model: "frontier".to_string(),
-            cheap_model: "fast/local".to_string(),
-            capable_model: "frontier".to_string(),
-            enabled: true,
-        })]
+        Vec::new()
     } else {
         telemetry
             .routing_decisions
@@ -415,9 +408,34 @@ mod tests {
     use super::*;
 
     #[test]
+    fn snapshot_without_live_data_uses_empty_metrics_by_default() {
+        let _guard = telemetry::test_guard();
+        telemetry::reset_for_tests();
+        let previous_demo = std::env::var_os("AI_SWITCHBOARD_DEMO_OPTIMIZATION");
+        std::env::remove_var("AI_SWITCHBOARD_DEMO_OPTIMIZATION");
+
+        with_isolated_home(|| {
+            let snapshot = build_optimization_snapshot();
+
+            assert!(snapshot.prompt_cache_clients.is_empty());
+            assert!(snapshot.routing.is_empty());
+            assert!(snapshot.redundancy.is_empty());
+            assert_eq!(snapshot.token_xray.original_tokens, 0);
+            assert_eq!(snapshot.token_xray.optimized_tokens, 0);
+        });
+
+        match previous_demo {
+            Some(value) => std::env::set_var("AI_SWITCHBOARD_DEMO_OPTIMIZATION", value),
+            None => std::env::remove_var("AI_SWITCHBOARD_DEMO_OPTIMIZATION"),
+        }
+    }
+
+    #[test]
     fn snapshot_covers_all_requested_feature_groups() {
         let _guard = telemetry::test_guard();
         telemetry::reset_for_tests();
+        let previous_demo = std::env::var_os("AI_SWITCHBOARD_DEMO_OPTIMIZATION");
+        std::env::set_var("AI_SWITCHBOARD_DEMO_OPTIMIZATION", "1");
         with_isolated_home(|| {
             let snapshot = build_optimization_snapshot();
 
@@ -429,6 +447,10 @@ mod tests {
             assert!(snapshot.prompt_cache_clients.len() <= 1);
             assert!(snapshot.token_xray.original_tokens >= snapshot.token_xray.optimized_tokens);
         });
+        match previous_demo {
+            Some(value) => std::env::set_var("AI_SWITCHBOARD_DEMO_OPTIMIZATION", value),
+            None => std::env::remove_var("AI_SWITCHBOARD_DEMO_OPTIMIZATION"),
+        }
     }
 
     #[test]

@@ -150,32 +150,7 @@ const fallbackBypass: CompressionBypassSnapshot = {
   any: false,
 };
 
-const fallbackSegments: PromptCacheSegment[] = [
-  {
-    id: "repo-map",
-    label: "Repo map + policy",
-    tokens: 7800,
-    cacheableTokens: 7200,
-    hitTokens: 6100,
-    misses: 2
-  },
-  {
-    id: "agent-pack",
-    label: "Start Agent Session pack",
-    tokens: 2800,
-    cacheableTokens: 2300,
-    hitTokens: 1700,
-    misses: 1
-  },
-  {
-    id: "volatile-turn",
-    label: "Latest user turn",
-    tokens: 1600,
-    cacheableTokens: 250,
-    hitTokens: 80,
-    misses: 3
-  }
-];
+const fallbackSegments: PromptCacheSegment[] = [];
 
 
 export const fallbackOptimizationSnapshot: OptimizationSnapshot =
@@ -236,6 +211,9 @@ function fallbackTokenBuckets(snapshot: TokenXraySnapshot): TokenXrayBucket[] {
     { id: "pack", label: "Repo pack", tokens: snapshot.packTokens, source: "derived" },
   ];
   const total = rows.reduce((sum, row) => sum + row.tokens, 0);
+  if (total === 0) {
+    return [];
+  }
   return rows.map((row) => ({
     ...row,
     percent: Math.max(0, Math.min(100, Math.round((row.tokens / Math.max(total, 1)) * 100))),
@@ -245,31 +223,7 @@ function fallbackTokenBuckets(snapshot: TokenXraySnapshot): TokenXrayBucket[] {
 function normalizeRedundancy(
   findings: Partial<RedundancyFinding>[] | undefined,
 ): RedundancyFinding[] {
-  const rows =
-    findings && findings.length > 0
-      ? findings
-      : [
-          {
-            id: "duplicated-rules",
-            label: "Repeated tool and edit rules",
-            duplicateTokens: 1180,
-            locations: ["AGENTS.md", "session history"],
-            action: "Deduplicate stable instruction block.",
-            readCount: 3,
-            duplicatePercent: 35,
-            proof: "fallback duplicate hash across instruction and session history",
-          },
-          {
-            id: "stale-recap",
-            label: "Old rollout recap repeated",
-            duplicateTokens: 740,
-            locations: ["memory", "session recap"],
-            action: "Replace with latest repo pack.",
-            readCount: 2,
-            duplicatePercent: 22,
-            proof: "fallback duplicate hash across memory and session recap",
-          },
-        ];
+  const rows = findings && findings.length > 0 ? findings : [];
 
   return rows.map((finding) => ({
     id: finding.id ?? "redundancy",
@@ -299,41 +253,23 @@ export function normalizeOptimizationSnapshot(
     promptCacheClients: normalizePromptCacheClients(raw.promptCacheClients),
     tokenXray,
     redundancy: normalizeRedundancy(raw.redundancy),
-    routing:
-      raw.routing && raw.routing.length > 0
-        ? raw.routing
-        : [
-            {
-              task: "Repo scan",
-              selectedModel: "fast/local",
-              fallbackModel: "frontier",
-              reason: "Deterministic search, low reasoning risk.",
-              estimatedSavingsPercent: 64
-            },
-            {
-              task: "Patch planning",
-              selectedModel: "frontier",
-              fallbackModel: "fast/local",
-              reason: "Cross-file judgment and conflict risk.",
-              estimatedSavingsPercent: 18
-            }
-          ],
+    routing: raw.routing && raw.routing.length > 0 ? raw.routing : [],
     compaction: {
-      state: raw.compaction?.state ?? (tokenXray.optimizedTokens > 12000 ? "watch" : "good"),
-      contextUsedPercent: raw.compaction?.contextUsedPercent ?? 58,
-      triggerAtPercent: raw.compaction?.triggerAtPercent ?? 72,
+      state: raw.compaction?.state ?? "watch",
+      contextUsedPercent: raw.compaction?.contextUsedPercent ?? 0,
+      triggerAtPercent: raw.compaction?.triggerAtPercent ?? 90,
       nextAction:
         raw.compaction?.nextAction ??
-        "Pre-compact after the next tool burst if cache misses rise."
+        "No live context threshold check has been recorded yet."
     },
     agentPack: {
-      enabled: raw.agentPack?.enabled ?? true,
+      enabled: raw.agentPack?.enabled ?? false,
       packName: raw.agentPack?.packName ?? "Start Agent Session",
       lastInjectedAt: raw.agentPack?.lastInjectedAt ?? null,
-      status: raw.agentPack?.status ?? "good",
+      status: raw.agentPack?.status ?? "watch",
       message:
         raw.agentPack?.message ??
-        "Pack headers are ready for session injection."
+        "No live agent-pack injection telemetry has been recorded yet."
     },
     bypass: normalizeCompressionBypass(raw.bypass),
     rtkPresets:
@@ -442,4 +378,3 @@ export async function runPreemptiveCompaction(): Promise<PreemptiveCompactionRec
     };
   }
 }
-
