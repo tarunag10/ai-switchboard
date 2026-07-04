@@ -10,6 +10,8 @@ LIVE_PROOF="${LIVE_NIGHTLY_PROOF:-0}"
 
 mkdir -p "${DIST_DIR}"
 
+"${ROOT_DIR}/scripts/nightly-config-byte-proof.sh"
+
 telemetry_input="$(mktemp)"
 trap 'rm -f "${telemetry_input}"' EXIT
 
@@ -153,6 +155,7 @@ fi
   echo "- live_proof_requested: ${LIVE_PROOF}"
   echo "- telemetry_report_json: ${REPORT_JSON}"
   echo "- persisted_ledger_sqlite: ${LEDGER_DB}"
+  echo "- config_byte_proof: ${DIST_DIR}/nightly-config-byte-proof.json"
   echo
   echo "## Persisted Telemetry Rows"
   echo
