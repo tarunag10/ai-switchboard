@@ -152,6 +152,7 @@ pub(crate) fn record_redundancy_payload_hash(
 }
 
 pub(crate) fn record_compaction_decision(decision: CompactionDecisionRecord) {
+    telemetry_store::record_compaction_decision(&decision);
     with_collector(|collector| {
         collector.compaction_decision = Some(decision);
     });
@@ -329,6 +330,31 @@ mod tests {
             assert_eq!(snapshot.routing_decisions[0].selected_model, "gpt-5-mini");
         });
     }
+
+    #[test]
+    fn snapshot_restores_compaction_decision_from_sqlite() {
+        let _guard = test_guard();
+        with_isolated_home(|| {
+            reset_for_tests();
+
+            record_compaction_decision(CompactionDecisionRecord {
+                should_compact: true,
+                context_used_percent: 88,
+                threshold_percent: 72,
+                reason: "preemptive threshold exceeded".to_string(),
+            });
+            with_collector(|collector| collector.compaction_decision = None);
+
+            let snapshot = snapshot();
+            let decision = snapshot
+                .compaction_decision
+                .expect("compaction decision should restore from sqlite");
+            assert!(decision.should_compact);
+            assert_eq!(decision.context_used_percent, 88);
+            assert_eq!(decision.threshold_percent, 72);
+        });
+    }
+
     #[test]
     fn snapshot_restores_token_xray_buckets_from_sqlite() {
         let _guard = test_guard();
