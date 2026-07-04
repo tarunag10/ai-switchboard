@@ -17,9 +17,9 @@ pub(crate) struct OptimizationActionPolicy {
 impl Default for OptimizationActionPolicy {
     fn default() -> Self {
         Self {
-            prompt_cache_reorder_enabled: false,
-            preemptive_compaction_enabled: false,
-            model_routing_enabled: false,
+            prompt_cache_reorder_enabled: true,
+            preemptive_compaction_enabled: true,
+            model_routing_enabled: true,
             max_prompt_reorder_items: 24,
         }
     }
@@ -98,7 +98,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn prompt_cache_reorder_is_disabled_by_default() {
+    fn prompt_cache_reorder_is_enabled_by_default() {
         let segments = vec![
             PromptSegmentPlan {
                 id: "user".to_string(),
@@ -116,7 +116,7 @@ mod tests {
 
         assert_eq!(
             plan_prompt_cache_order(&OptimizationActionPolicy::default(), &segments),
-            vec!["user".to_string(), "system".to_string()]
+            vec!["system".to_string(), "user".to_string()]
         );
     }
 
@@ -158,7 +158,7 @@ mod tests {
     }
 
     #[test]
-    fn compaction_action_is_disabled_by_default() {
+    fn compaction_action_is_enabled_by_default() {
         let decision = actionable_compaction_decision(
             &OptimizationActionPolicy::default(),
             CompactionInput {
@@ -169,7 +169,7 @@ mod tests {
             },
         );
 
-        assert!(!decision.should_compact);
-        assert_eq!(decision.reason, "preemptive_compaction_disabled");
+        assert!(decision.should_compact);
+        assert_eq!(decision.reason, "projected_context_crosses_threshold");
     }
 }

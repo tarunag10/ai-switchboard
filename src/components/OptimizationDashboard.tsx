@@ -61,6 +61,23 @@ function OptimizationActionPanel() {
     }
   }
 
+  async function enableAll() {
+    if (!policy) return;
+    const nextPolicy = {
+      ...policy,
+      promptCacheReorderEnabled: true,
+      preemptiveCompactionEnabled: true,
+      modelRoutingEnabled: true,
+    };
+    setPolicy(nextPolicy);
+    setSaving(true);
+    try {
+      setPolicy(await saveOptimizationActionPolicy(nextPolicy));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   if (!policy) return null;
 
   return (
@@ -72,7 +89,14 @@ function OptimizationActionPanel() {
             Controls that allow Switchboard to move from observe-only to guarded actions.
           </p>
         </div>
-        <span className="optimize-minimal__meta">{saving ? "Saving" : "Ready"}</span>
+        <button
+          className="secondary-button secondary-button--small"
+          type="button"
+          onClick={() => void enableAll()}
+          disabled={saving}
+        >
+          Enable all
+        </button>
       </div>
       <div className="optimize-projects">
         <button

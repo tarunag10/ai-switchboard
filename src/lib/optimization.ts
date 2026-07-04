@@ -242,9 +242,9 @@ export async function loadOptimizationSnapshot(): Promise<OptimizationSnapshot> 
 }
 
 export const defaultOptimizationActionPolicy: OptimizationActionPolicy = {
-  promptCacheReorderEnabled: false,
-  preemptiveCompactionEnabled: false,
-  modelRoutingEnabled: false,
+  promptCacheReorderEnabled: true,
+  preemptiveCompactionEnabled: true,
+  modelRoutingEnabled: true,
   maxPromptReorderItems: 24,
 };
 
