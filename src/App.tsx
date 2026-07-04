@@ -10328,7 +10328,17 @@ export default function App() {
                               "Switchboard applies local connector configuration."}
                           </p>
                         ) : null}
-                        {plannedConnector ? (
+                        <p className="connector-item__summary">
+                          {connector.enabled
+                            ? connector.verified
+                              ? "Enabled and verified."
+                              : "Enabled; verification still needs attention."
+                            : connectorSupportsAutomaticSetup(connector)
+                              ? "Automatic setup is available."
+                              : "Detected or supported as manual setup."}
+                        </p>
+                        {openConnectorHelpId === connector.clientId &&
+                        plannedConnector ? (
                           <div className="connector-plan">
                             <div className="connector-plan__meta">
                               <span>{connectorSetupPhase}</span>
