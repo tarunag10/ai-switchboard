@@ -39,6 +39,10 @@ pub(crate) fn build_optimization_snapshot() -> OptimizationSnapshot {
         return build_live_optimization_snapshot(telemetry);
     }
 
+    if !demo_optimization_fallbacks_enabled() {
+        return build_live_optimization_snapshot(TelemetrySnapshot::default());
+    }
+
     let prompt_cache_segments = order_prompt_cache_segments(vec![
         PromptCacheSegmentSnapshot {
             id: "system".to_string(),
