@@ -27,9 +27,9 @@ use crate::models::{
     DailySavingsPoint, DashboardState, HeadroomLearnPrereqStatus, HeadroomLearnStatus,
     HourlySavingsPoint, LaunchAgentRuntimeStatus, LaunchExperience, RepoMemoryMcpServiceStatus,
     RtkRuntimeStatus, RuntimeStatus, RuntimeUpgradeFailure, RuntimeUpgradeProgress,
-    SavingsAttributionConfidence, SavingsAttributionEvent, SavingsAttributionScope,
-    SavingsAttributionSource, SwitchboardMode, TransformationFeedEvent, UpgradeFailurePhase,
-    UsageEvent,
+    SavingsAttributionConfidence, SavingsAttributionCounter, SavingsAttributionEvent,
+    SavingsAttributionScope, SavingsAttributionSource, SwitchboardMode, TransformationFeedEvent,
+    UpgradeFailurePhase, UsageEvent,
 };
 use crate::pricing;
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs, telemetry_file};
@@ -2175,6 +2175,10 @@ impl AppState {
 
     pub fn savings_attribution_events(&self) -> Vec<SavingsAttributionEvent> {
         self.savings_tracker.lock().attribution_events()
+    }
+
+    pub fn savings_attribution_counters(&self) -> Vec<SavingsAttributionCounter> {
+        aggregate_savings_attribution_counters(&self.savings_tracker.lock().attribution_events())
     }
 
     pub fn record_repo_intelligence_attribution(
@@ -5069,6 +5073,55 @@ impl SavingsTracker {
 /// The Monday of the week that contains `d`, or `d` itself if it already is
 /// a Monday. Used by the weekly recap: the recap for `d` covers the 7 days
 /// ending the day before this Monday.
+fn aggregate_savings_attribution_counters(
+    events: &[SavingsAttributionEvent],
+) -> Vec<SavingsAttributionCounter> {
+    let mut counters: Vec<SavingsAttributionCounter> = Vec::new();
+    for event in events {
+        let index = counters
+            .iter()
+            .position(|counter| counter.source == event.source && counter.scope == event.scope);
+        let entry = if let Some(index) = index {
+            &mut counters[index]
+        } else {
+            counters.push(SavingsAttributionCounter {
+                source: event.source.clone(),
+                scope: event.scope.clone(),
+                event_count: 0,
+                measured_event_count: 0,
+                inferred_event_count: 0,
+                delta_tokens_saved: 0,
+                total_tokens_sent: 0,
+                last_seen_at: None,
+            });
+            counters.last_mut().expect("counter just pushed")
+        };
+        entry.event_count = entry.event_count.saturating_add(1);
+        match event.confidence {
+            SavingsAttributionConfidence::Measured => {
+                entry.measured_event_count = entry.measured_event_count.saturating_add(1);
+            }
+            SavingsAttributionConfidence::Estimated | SavingsAttributionConfidence::Inferred => {
+                entry.inferred_event_count = entry.inferred_event_count.saturating_add(1);
+            }
+        }
+        entry.delta_tokens_saved = entry
+            .delta_tokens_saved
+            .saturating_add(event.delta_tokens_saved);
+        entry.total_tokens_sent = entry
+            .total_tokens_sent
+            .saturating_add(event.total_tokens_sent);
+        if entry
+            .last_seen_at
+            .map(|last| event.observed_at > last)
+            .unwrap_or(true)
+        {
+            entry.last_seen_at = Some(event.observed_at);
+        }
+    }
+    counters
+}
+
 fn most_recent_monday(d: chrono::NaiveDate) -> chrono::NaiveDate {
     let days_past = d.weekday().num_days_from_monday() as u64;
     d.checked_sub_days(chrono::Days::new(days_past))
@@ -7361,6 +7414,48 @@ mod tests {
             None,
         )
         .is_none());
+    }
+
+    #[test]
+    fn savings_attribution_counters_group_addon_sources() {
+        let now = Utc::now();
+        let events = vec![
+            SavingsAttributionEvent {
+                schema_version: 1,
+                id: "evt-1".to_string(),
+                observed_at: now,
+                scope: SavingsAttributionScope::Session,
+                source: SavingsAttributionSource::Caveman,
+                confidence: SavingsAttributionConfidence::Measured,
+                delta_tokens_saved: 120,
+                delta_usd: 0.0,
+                total_tokens_sent: 1_000,
+                request_delta: 1,
+                evidence: vec!["measured caveman delta".to_string()],
+            },
+            SavingsAttributionEvent {
+                schema_version: 1,
+                id: "evt-2".to_string(),
+                observed_at: now,
+                scope: SavingsAttributionScope::Session,
+                source: SavingsAttributionSource::Caveman,
+                confidence: SavingsAttributionConfidence::Estimated,
+                delta_tokens_saved: 80,
+                delta_usd: 0.0,
+                total_tokens_sent: 500,
+                request_delta: 1,
+                evidence: vec!["estimated caveman delta".to_string()],
+            },
+        ];
+
+        let counters = super::aggregate_savings_attribution_counters(&events);
+        assert_eq!(counters.len(), 1);
+        assert_eq!(counters[0].source, SavingsAttributionSource::Caveman);
+        assert_eq!(counters[0].event_count, 2);
+        assert_eq!(counters[0].measured_event_count, 1);
+        assert_eq!(counters[0].inferred_event_count, 1);
+        assert_eq!(counters[0].delta_tokens_saved, 200);
+        assert_eq!(counters[0].total_tokens_sent, 1_500);
     }
 
     #[test]
