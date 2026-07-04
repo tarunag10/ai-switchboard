@@ -252,6 +252,18 @@ fn sha256_hex(payload: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    fn with_isolated_home<T>(run: impl FnOnce() -> T) -> T {
+        let home = tempfile::tempdir().expect("temp home");
+        let previous_home = std::env::var_os("HOME");
+        std::env::set_var("HOME", home.path());
+        let result = run();
+        match previous_home {
+            Some(value) => std::env::set_var("HOME", value),
+            None => std::env::remove_var("HOME"),
+        }
+        result
+    }
     use super::*;
 
     #[test]
@@ -299,62 +311,70 @@ mod tests {
     #[test]
     fn snapshot_restores_routing_decisions_from_sqlite() {
         let _guard = test_guard();
-        reset_for_tests();
+        with_isolated_home(|| {
+            reset_for_tests();
 
-        record_routing_decision(RoutingDecisionRecord {
-            task: "lint fix".to_string(),
-            current_model: "gpt-5".to_string(),
-            selected_model: "gpt-5-mini".to_string(),
-            fallback_model: "gpt-5".to_string(),
-            reason: "low-risk edit".to_string(),
-            estimated_savings_percent: 35,
+            record_routing_decision(RoutingDecisionRecord {
+                task: "lint fix".to_string(),
+                current_model: "gpt-5".to_string(),
+                selected_model: "gpt-5-mini".to_string(),
+                fallback_model: "gpt-5".to_string(),
+                reason: "low-risk edit".to_string(),
+                estimated_savings_percent: 35,
+            });
+            with_collector(|collector| collector.routing_decisions.clear());
+
+            let snapshot = snapshot();
+            assert_eq!(snapshot.routing_decisions.len(), 1);
+            assert_eq!(snapshot.routing_decisions[0].selected_model, "gpt-5-mini");
         });
-        with_collector(|collector| collector.routing_decisions.clear());
-
-        let snapshot = snapshot();
-        assert_eq!(snapshot.routing_decisions.len(), 1);
-        assert_eq!(snapshot.routing_decisions[0].selected_model, "gpt-5-mini");
     }
     #[test]
     fn snapshot_restores_token_xray_buckets_from_sqlite() {
         let _guard = test_guard();
-        reset_for_tests();
+        with_isolated_home(|| {
+            reset_for_tests();
 
-        record_token_xray_bucket("tool", 21);
-        with_collector(|collector| collector.token_buckets.clear());
+            record_token_xray_bucket("tool", 21);
+            with_collector(|collector| collector.token_buckets.clear());
 
-        let snapshot = snapshot();
-        assert_eq!(snapshot.token_buckets.len(), 1);
-        assert_eq!(snapshot.token_buckets[0].bucket, "tool");
-        assert_eq!(snapshot.token_buckets[0].tokens, 21);
+            let snapshot = snapshot();
+            assert_eq!(snapshot.token_buckets.len(), 1);
+            assert_eq!(snapshot.token_buckets[0].bucket, "tool");
+            assert_eq!(snapshot.token_buckets[0].tokens, 21);
+        });
     }
     #[test]
     fn snapshot_restores_redundancy_hashes_from_sqlite() {
         let _guard = test_guard();
-        reset_for_tests();
+        with_isolated_home(|| {
+            reset_for_tests();
 
-        record_redundancy_hash("AGENTS.md", "abc123".repeat(11), 12);
-        with_collector(|collector| collector.redundancy_hashes.clear());
+            record_redundancy_hash("AGENTS.md", "a".repeat(64), 12);
+            with_collector(|collector| collector.redundancy_hashes.clear());
 
-        let snapshot = snapshot();
-        assert_eq!(snapshot.redundancy_hashes.len(), 1);
-        assert_eq!(snapshot.redundancy_hashes[0].source_id, "AGENTS.md");
+            let snapshot = snapshot();
+            assert_eq!(snapshot.redundancy_hashes.len(), 1);
+            assert_eq!(snapshot.redundancy_hashes[0].source_id, "AGENTS.md");
+        });
     }
     #[test]
     fn snapshot_restores_rtk_preset_metadata_from_sqlite() {
         let _guard = test_guard();
-        reset_for_tests();
+        with_isolated_home(|| {
+            reset_for_tests();
 
-        record_rtk_preset_metadata(RtkPresetMetadata {
-            id: "pytest".to_string(),
-            label: "pytest".to_string(),
-            command: "rtk pytest".to_string(),
-            focus: "failure-only test output".to_string(),
+            record_rtk_preset_metadata(RtkPresetMetadata {
+                id: "pytest".to_string(),
+                label: "pytest".to_string(),
+                command: "rtk pytest".to_string(),
+                focus: "failure-only test output".to_string(),
+            });
+            with_collector(|collector| collector.rtk_presets.clear());
+
+            let snapshot = snapshot();
+            assert_eq!(snapshot.rtk_presets.len(), 1);
+            assert_eq!(snapshot.rtk_presets[0].id, "pytest");
         });
-        with_collector(|collector| collector.rtk_presets.clear());
-
-        let snapshot = snapshot();
-        assert_eq!(snapshot.rtk_presets.len(), 1);
-        assert_eq!(snapshot.rtk_presets[0].id, "pytest");
     }
 }
