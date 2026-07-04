@@ -31,6 +31,33 @@
   --chip-bg: rgba(224, 169, 68, 0.12);
 }
 
+/* Side-conversation UI fix: keep nav focus treatment inside the item so it
+   does not overlap the detail pane text, and improve contrast on brass buttons. */
+.tray-nav__item,
+.app-nav .tray-nav__item,
+.launcher-nav .tray-nav__item {
+  position: relative;
+}
+
+.tray-nav__item:focus,
+.tray-nav__item:focus-visible,
+.app-nav .tray-nav__item:focus,
+.app-nav .tray-nav__item:focus-visible,
+.launcher-nav .tray-nav__item:focus,
+.launcher-nav .tray-nav__item:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 2px rgba(74, 42, 13, 0.62),
+    0 6px 18px rgba(20, 12, 6, 0.2);
+}
+
+.primary-button,
+.switchboard-panel__action--primary,
+.switchboard-doctor__repair {
+  color: #2f1d0d;
+  text-shadow: none;
+}
+
 .tray-shell::-webkit-scrollbar {
   width: 10px;
   height: 10px;
