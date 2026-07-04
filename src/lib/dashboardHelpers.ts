@@ -561,8 +561,8 @@ export function summarizePlannedConnectorReadiness(
     detail:
       `${detectedCopy} have connector readiness evidence. Not found: ${notDetectedCopy}. ` +
       `${supportSummary.safeTodayCount} safe capabilities are available now; ` +
-      `${supportSummary.plannedCount} remain gated behind ${supportSummary.automationGateCount} backup, restore, and Off mode checks. ` +
-      "Promoted managed routes can be repaired now; unpromoted native routing stays locked until backup, restore, and Off mode cleanup ship."
+      `${supportSummary.plannedCount} still need safe setup coverage before Switchboard can edit native settings. ` +
+      "Managed routes can be repaired now; detected-only tools keep provider and model setup manual."
   };
 }
 
@@ -584,8 +584,8 @@ export function connectorControlState(connector: ClientConnectorStatus): {
 } {
   if (!connectorSupportsAutomaticSetup(connector)) {
     const releaseCopy = connector.installed
-      ? "is detected, and managed routing remains gated until reversible setup evidence is proven"
-      : "setup is gated until reversible routing evidence is proven";
+      ? "is detected, but automatic provider setup is off for now"
+      : "automatic provider setup is not available yet";
     const hint = connector.setupHint
       ? ` ${connector.setupHint}`
       : " Use RTK-only mode for command output savings today.";
@@ -868,6 +868,6 @@ export function formatConnectorConfigDryRunPreview(
     "- Apply blocked: detection, dry-run diff, backup, verify, rollback, and Off cleanup evidence are incomplete",
     "- Writes: none; preview only; apply stays disabled",
     `- Rollback: ${safetyDossier?.rollbackStrategy ?? "Remove only Switchboard-managed routing."}`,
-    `- Gates: ${gates}`,
+    `- Safety checks: ${gates}`,
   ].join("\n");
 }

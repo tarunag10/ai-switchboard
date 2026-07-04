@@ -467,7 +467,7 @@ describe("SwitchboardDoctorPanel", () => {
     );
   });
 
-  it("copies gated connector readiness dossiers when connector evidence is present", async () => {
+  it("copies connector setup details when connector evidence is present", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -498,7 +498,7 @@ describe("SwitchboardDoctorPanel", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "Connector dossiers" }),
+      screen.getByRole("button", { name: "Connector details" }),
     );
 
     expect(writeText).toHaveBeenCalledTimes(1);
@@ -512,6 +512,6 @@ describe("SwitchboardDoctorPanel", () => {
     expect(writeText.mock.calls[0][0]).toContain(
       "Dry-run preview: target User/settings.json; marker mac-ai-switchboard:cursor",
     );
-    expect(screen.getByText("Copied connector dossiers.")).toBeInTheDocument();
+    expect(screen.getByText("Copied connector details.")).toBeInTheDocument();
   });
 });

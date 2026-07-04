@@ -211,7 +211,7 @@ export function SwitchboardDoctorPanel({
     }
 
     await navigator.clipboard.writeText(formatPlannedConnectorDoctorDossiers());
-    setCopyNotice("Copied connector dossiers.");
+    setCopyNotice("Copied connector details.");
   }
 
   async function copyRollbackCenter() {
@@ -421,10 +421,10 @@ export function SwitchboardDoctorPanel({
               type="button"
               className="switchboard-doctor__copy"
               onClick={copyConnectorDossiers}
-              title="Copy connector readiness dossiers"
+              title="Copy connector setup details"
             >
               <Copy aria-hidden="true" weight="bold" />
-              <span>Connector dossiers</span>
+              <span>Connector details</span>
             </button>
           ) : null}
         </div>
@@ -436,8 +436,8 @@ export function SwitchboardDoctorPanel({
           aria-label="Connector readiness preview"
         >
           <div className="switchboard-doctor__connector-preview-head">
-            <strong>Connector readiness</strong>
-            <span>{connectorPreviewRows.length} gated</span>
+            <strong>Connector setup status</strong>
+            <span>{connectorPreviewRows.length} manual</span>
           </div>
           <div className="switchboard-doctor__connector-preview-grid">
             {connectorPreviewRows.slice(0, 6).map((connector) => (
@@ -455,7 +455,8 @@ export function SwitchboardDoctorPanel({
             ))}
           </div>
           <p className="switchboard-doctor__connector-preview-note">
-            Config automation stays off until every dossier gate is verified.
+            Automatic setup stays off for these tools until backup, verification,
+            rollback, and Off cleanup are proven.
           </p>
         </div>
       ) : null}

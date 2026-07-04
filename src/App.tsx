@@ -420,23 +420,23 @@ const connectorSetupDetails: Record<string, string> = {
   codex:
     "Headroom writes a managed provider block to ~/.codex/config.toml and exports OPENAI_BASE_URL in shell profiles so Codex connects through Headroom.",
   gemini_cli:
-    "Headroom writes managed Gemini CLI shell routing exports and a rollback dossier so Gemini CLI connects through Switchboard while preserving user config.",
+    "Switchboard can configure Gemini CLI with managed shell routing, backup, Doctor verification, rollback, and Off cleanup.",
   opencode:
-    "Headroom writes a managed OpenCode provider in ~/.config/opencode/opencode.json and a rollback dossier so OpenCode connects through Switchboard.",
+    "Switchboard can configure OpenCode with a managed provider entry, backup, Doctor verification, rollback, and Off cleanup.",
   cursor:
-    "Cursor is tracked as a gated editor connector. App-guided setup is shown first because Cursor settings and account behavior can vary by release channel.",
+    "Cursor is detected and shown with a manual guide. Switchboard does not change Cursor provider settings yet because profile and account behavior can vary by release channel.",
   grok_cli:
-    "Grok / xAI CLI is tracked as a gated provider connector. Switchboard will keep model and account compatibility visible before routing it.",
+    "Grok / xAI CLI is detected and shown with a manual guide. Switchboard keeps model and account choices manual until compatibility checks are proven.",
   aider:
-    "Aider is tracked as a gated agent connector. RTK-only mode can already reduce noisy shell output while provider wrapping is built.",
+    "Aider is detected when installed. RTK-only mode can already reduce noisy shell output while provider setup remains manual.",
   continue:
-    "Continue is tracked as a gated editor connector. App-guided setup requires approval until provider config backup and restore coverage is ready.",
+    "Continue is detected when installed. Provider setup stays manual until Switchboard can preserve and restore Continue config safely.",
   goose:
-    "Goose is tracked as a gated agent connector. Local provider and MCP handoff support will be added after reversible setup coverage.",
+    "Goose can use the managed Repo Memory MCP bridge for read-only context handoff; Goose provider and model setup stay manual.",
   qwen_code:
-    "Qwen Code is tracked as a gated CLI connector. Use Repo Intelligence packs today while provider routing waits for model and account guardrails.",
+    "Qwen Code has a Switchboard-owned sidecar path for handoff/routing evidence. Account and model setup stay manual.",
   amazon_q:
-    "Amazon Q Developer CLI is tracked as a gated CLI connector. Verification packs are safe today; AWS credential and profile state stay outside managed setup.",
+    "Amazon Q Developer CLI is detected when installed. Verification packs are safe today; AWS credentials, SSO, and profiles stay manual.",
   windsurf:
     "Headroom writes managed Windsurf editor settings routing to ~/Library/Application Support/Windsurf/User/settings.json with managed markers and rollback.",
   zed_ai:
@@ -454,14 +454,14 @@ const connectorUnavailableReasons: Record<string, string> = {
     "Gemini CLI was not detected. Install Gemini CLI, then reopen AI Switchboard for Mac.",
   opencode:
     "OpenCode was not detected. Install OpenCode, then reopen AI Switchboard for Mac.",
-  cursor: "Cursor setup is gated until editor-settings backup, verify, rollback, and Off cleanup coverage is promoted.",
-  grok_cli: "Grok / xAI CLI setup is gated until model/account guardrails and reversible provider routing are proven.",
-  aider: "Aider setup is gated until wrapper/env backup, verify, rollback, and Off cleanup coverage is promoted.",
-  continue: "Continue setup is gated until provider config backup, verify, rollback, and Off cleanup coverage is promoted.",
-  goose: "Goose setup is gated until MCP/provider config backup, verify, rollback, and Off cleanup coverage is promoted.",
-  qwen_code: "Qwen Code setup is gated until model/account guardrails and reversible provider routing are proven.",
+  cursor: "Cursor automatic setup is off for now. Open Cursor settings and keep provider/model choices manual.",
+  grok_cli: "Grok / xAI CLI automatic setup is off for now. Keep model and account choices manual.",
+  aider: "Aider automatic setup is off for now. Use RTK-only mode or copied Repo Intelligence packs.",
+  continue: "Continue automatic setup is off for now. Review provider config manually.",
+  goose: "Goose provider setup is manual. Switchboard only manages the Repo Memory MCP bridge.",
+  qwen_code: "Qwen Code account and model setup are manual. Switchboard only manages its own sidecar evidence.",
   amazon_q:
-    "Amazon Q Developer CLI setup is gated until credential-safe profile handling and reversible routing are proven.",
+    "Amazon Q automatic setup is off for now. Keep AWS credentials, SSO, and profiles manual.",
   windsurf: "Windsurf was not detected. Install Windsurf, then reopen AI Switchboard for Mac.",
   zed_ai: "Zed was not detected. Install Zed, then reopen AI Switchboard for Mac.",
 };
@@ -1795,7 +1795,7 @@ function PlannedAddonCard({
       </div>
       <div className="addon-card__actions">
         <button type="button" className="addon-card__action" disabled>
-          {isRepoIntelligence ? "Open from sidebar" : "Review gated readiness"}
+          {isRepoIntelligence ? "Open from sidebar" : "Review setup status"}
         </button>
       </div>
     </li>
@@ -4954,7 +4954,7 @@ export default function App() {
       "",
       `## ${connector.name}`,
       "- Automation enabled: no",
-      "- Safety note: Backend metadata keeps config creation gated until every step has tests and Doctor evidence.",
+      "- Safety note: Automatic setup stays off until every step has tests and Doctor evidence.",
       ...(stepDetails.length > 0
         ? stepDetails.map((step) => {
             const evidence = step.requiredEvidence?.length
@@ -10474,7 +10474,7 @@ export default function App() {
                                 ) : null}
                                 {connector.automationGates?.length ? (
                                   <span>
-                                    Gates{" "}
+                                    Safety checks needed{" "}
                                     {connector.automationGates
                                       .slice(0, 2)
                                       .join(" · ")}
@@ -10490,22 +10490,9 @@ export default function App() {
                                 ) : null}
                                 {connector.configCreationSteps?.length ? (
                                   <span>
-                                    Config plan{" "}
-                                    {(connector.configCreationStepDetails
-                                      ?.slice(0, 4)
-                                      .map(
-                                        (step) =>
-                                          `${step.label}: ${step.detail}${
-                                            step.requiredEvidence?.length
-                                              ? ` Evidence ${step.requiredEvidence.join(" ")}`
-                                              : ""
-                                          }`,
-                                      ) ??
-                                      connector.configCreationSteps.slice(
-                                        0,
-                                        4,
-                                      )
-                                    ).join(" -> ")}
+                                    Automatic setup off until safe backup,
+                                    apply, verification, rollback, and Off
+                                    cleanup are available.
                                   </span>
                                 ) : null}
                                 {connector.automationPath?.length ? (

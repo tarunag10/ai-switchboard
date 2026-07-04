@@ -602,14 +602,14 @@ describe("dashboard helpers", () => {
     ).toBe(false);
   });
 
-  it("disables gated connector controls with RTK-only guidance", () => {
+  it("disables manual connector controls with RTK-only guidance", () => {
     expect(
       connectorControlState({
         clientId: "cursor",
         name: "Cursor",
         supportStatus: "planned",
         setupHint:
-          "Approval-gated guide only. Reversible Cursor profile routing remains gated.",
+          "Manual guide only. Cursor provider setup stays manual for now.",
         installed: true,
         enabled: false,
         verified: false,
@@ -617,7 +617,7 @@ describe("dashboard helpers", () => {
     ).toEqual({
       disabled: true,
       reason:
-        "Cursor is detected, and managed routing remains gated until reversible setup evidence is proven. Approval-gated guide only. Reversible Cursor profile routing remains gated.",
+        "Cursor is detected, but automatic provider setup is off for now. Manual guide only. Cursor provider setup stays manual for now.",
     });
 
     expect(
@@ -632,7 +632,7 @@ describe("dashboard helpers", () => {
     ).toEqual({
       disabled: true,
       reason:
-        "Grok / xAI CLI setup is gated until reversible routing evidence is proven. Use RTK-only mode for command output savings today.",
+        "Grok / xAI CLI automatic provider setup is not available yet. Use RTK-only mode for command output savings today.",
     });
 
     expect(
@@ -776,7 +776,7 @@ describe("dashboard helpers", () => {
         "- Apply blocked: detection, dry-run diff, backup, verify, rollback, and Off cleanup evidence are incomplete",
         "- Writes: none; preview only; apply stays disabled",
         "- Rollback: Restore the previous provider settings or remove only Switchboard-managed shell routing.",
-        `- Gates: ${expectedConfigCreationGates.map((gate) => gate.label).join(" -> ")}`,
+        `- Safety checks: ${expectedConfigCreationGates.map((gate) => gate.label).join(" -> ")}`,
       ].join("\n"),
     );
   });
@@ -1315,7 +1315,7 @@ describe("mergeProviderSavingsForDisplay", () => {
       notDetectedNames: ["Aider"],
       headline: "3 connector tools detected locally",
       detail:
-        "Gemini CLI, Grok / xAI CLI, Cursor have connector readiness evidence. Not found: Aider. 24 safe capabilities are available now; 5 remain gated behind 39 backup, restore, and Off mode checks. Promoted managed routes can be repaired now; unpromoted native routing stays locked until backup, restore, and Off mode cleanup ship.",
+        "Gemini CLI, Grok / xAI CLI, Cursor have connector readiness evidence. Not found: Aider. 24 safe capabilities are available now; 5 still need safe setup coverage before Switchboard can edit native settings. Managed routes can be repaired now; detected-only tools keep provider and model setup manual.",
     });
   });
 });
