@@ -10597,6 +10597,25 @@ export default function App() {
                       </div>
                       <div className="connector-item__controls">
                         <button
+                          className="connector-item__action connector-item__action--primary"
+                          disabled={toggleDisabled}
+                          onClick={() =>
+                            void toggleConnector(connector, !connector.enabled)
+                          }
+                          title={
+                            controlState.reason ??
+                            unavailableReason ??
+                            undefined
+                          }
+                          type="button"
+                        >
+                          {connector.enabled
+                            ? "Disable"
+                            : connectorSupportsAutomaticSetup(connector)
+                              ? "Enable"
+                              : "Manual setup"}
+                        </button>
+                        <button
                           aria-checked={connector.enabled}
                           aria-label={`${connector.enabled ? "Disable" : "Enable"} ${connector.name} connector`}
                           className={`connector-switch${connector.enabled ? " is-on" : ""}`}
