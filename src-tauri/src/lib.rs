@@ -18,6 +18,7 @@ mod insights;
 mod keychain;
 mod local_mode;
 mod logging;
+mod managed_files;
 mod memory_scrubber;
 mod message_logging;
 mod message_settings_commands;
