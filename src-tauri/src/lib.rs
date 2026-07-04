@@ -4996,6 +4996,10 @@ async fn set_switchboard_mode(
 ) -> Result<SwitchboardState, String> {
     let state: tauri::State<'_, AppState> = app.state();
     client_adapters::write_switchboard_mode(mode.clone()).map_err(|err| err.to_string())?;
+    if matches!(mode, SwitchboardMode::Full) {
+        let full_policy = optimization::action_policy::OptimizationActionPolicy::default();
+        optimization::action_policy::save_action_policy(&full_policy)?;
+    }
 
     match mode {
         SwitchboardMode::Off => {
