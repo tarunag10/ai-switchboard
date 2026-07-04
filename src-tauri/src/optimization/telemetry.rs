@@ -154,12 +154,13 @@ pub(crate) fn record_compaction_decision(decision: CompactionDecisionRecord) {
 }
 
 pub(crate) fn record_routing_decision(decision: RoutingDecisionRecord) {
+    telemetry_store::record_routing_decision(&decision);
     with_collector(|collector| {
         push_bounded(
             &mut collector.routing_decisions,
             decision,
             MAX_ROUTING_DECISIONS,
-        );
+        )
     });
 }
 
@@ -170,16 +171,23 @@ pub(crate) fn record_rtk_preset_metadata(metadata: RtkPresetMetadata) {
 }
 
 pub(crate) fn snapshot() -> TelemetrySnapshot {
-    with_collector(|collector| TelemetrySnapshot {
-        cache_metrics: telemetry_store::prompt_cache_totals(),
-        token_buckets: collector.token_buckets.iter().cloned().collect(),
-        redundancy_hashes: collector.redundancy_hashes.iter().cloned().collect(),
-        compaction_decision: collector
-            .compaction_decision
-            .clone()
-            .or_else(telemetry_store::latest_compaction_decision),
-        routing_decisions: collector.routing_decisions.iter().cloned().collect(),
-        rtk_presets: collector.rtk_presets.iter().cloned().collect(),
+    with_collector(|collector| {
+        let routing_memory: Vec<_> = collector.routing_decisions.iter().cloned().collect();
+        TelemetrySnapshot {
+            cache_metrics: telemetry_store::prompt_cache_totals(),
+            token_buckets: collector.token_buckets.iter().cloned().collect(),
+            redundancy_hashes: collector.redundancy_hashes.iter().cloned().collect(),
+            compaction_decision: collector
+                .compaction_decision
+                .clone()
+                .or_else(telemetry_store::latest_compaction_decision),
+            routing_decisions: if routing_memory.is_empty() {
+                telemetry_store::recent_routing_decisions(MAX_ROUTING_DECISIONS)
+            } else {
+                routing_memory
+            },
+            rtk_presets: collector.rtk_presets.iter().cloned().collect(),
+        }
     })
 }
 
@@ -261,5 +269,24 @@ mod tests {
         assert_eq!(metrics.completion_tokens, 3);
         assert_eq!(metrics.cache_creation_tokens, 3);
         assert_eq!(metrics.cache_read_tokens, 10);
+    }
+    #[test]
+    fn snapshot_restores_routing_decisions_from_sqlite() {
+        let _guard = test_guard();
+        reset_for_tests();
+
+        record_routing_decision(RoutingDecisionRecord {
+            task: "lint fix".to_string(),
+            current_model: "gpt-5".to_string(),
+            selected_model: "gpt-5-mini".to_string(),
+            fallback_model: "gpt-5".to_string(),
+            reason: "low-risk edit".to_string(),
+            estimated_savings_percent: 35,
+        });
+        with_collector(|collector| collector.routing_decisions.clear());
+
+        let snapshot = snapshot();
+        assert_eq!(snapshot.routing_decisions.len(), 1);
+        assert_eq!(snapshot.routing_decisions[0].selected_model, "gpt-5-mini");
     }
 }

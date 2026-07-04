@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use rusqlite::{params, Connection};
 
 use super::cache_metrics::CacheTokenMetrics;
-use super::telemetry::CompactionDecisionRecord;
+use super::telemetry::{CompactionDecisionRecord, RoutingDecisionRecord};
 
 const DB_FILE: &str = "optimization_telemetry.sqlite";
 
@@ -33,6 +33,16 @@ fn open_connection() -> rusqlite::Result<Connection> {
             context_used_percent INTEGER NOT NULL,
             threshold_percent INTEGER NOT NULL,
             reason TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS routing_decisions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            task TEXT NOT NULL,
+            current_model TEXT NOT NULL,
+            selected_model TEXT NOT NULL,
+            fallback_model TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            estimated_savings_percent INTEGER NOT NULL
         );",
     )?;
     Ok(conn)
@@ -120,6 +130,69 @@ fn try_latest_compaction_decision() -> rusqlite::Result<Option<CompactionDecisio
     Ok(None)
 }
 
+pub(crate) fn record_routing_decision(decision: &RoutingDecisionRecord) {
+    if let Err(error) = try_record_routing_decision(decision) {
+        log::warn!("optimization routing telemetry persist failed: {error}");
+    }
+}
+
+fn try_record_routing_decision(decision: &RoutingDecisionRecord) -> rusqlite::Result<()> {
+    let conn = open_connection()?;
+    conn.execute(
+        "INSERT INTO routing_decisions (
+            task,
+            current_model,
+            selected_model,
+            fallback_model,
+            reason,
+            estimated_savings_percent
+        ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            decision.task,
+            decision.current_model,
+            decision.selected_model,
+            decision.fallback_model,
+            decision.reason,
+            decision.estimated_savings_percent as i64
+        ],
+    )?;
+    Ok(())
+}
+
+pub(crate) fn recent_routing_decisions(limit: usize) -> Vec<RoutingDecisionRecord> {
+    try_recent_routing_decisions(limit).unwrap_or_else(|error| {
+        log::warn!("optimization routing telemetry read failed: {error}");
+        Vec::new()
+    })
+}
+
+fn try_recent_routing_decisions(limit: usize) -> rusqlite::Result<Vec<RoutingDecisionRecord>> {
+    let conn = open_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT task, current_model, selected_model, fallback_model, reason, estimated_savings_percent
+        FROM routing_decisions
+        ORDER BY id DESC
+        LIMIT ?1",
+    )?;
+    let rows = stmt.query_map([limit as i64], |row| {
+        Ok(RoutingDecisionRecord {
+            task: row.get(0)?,
+            current_model: row.get(1)?,
+            selected_model: row.get(2)?,
+            fallback_model: row.get(3)?,
+            reason: row.get(4)?,
+            estimated_savings_percent: row.get::<_, i64>(5)?.clamp(0, 100) as u8,
+        })
+    })?;
+
+    let mut decisions = Vec::new();
+    for row in rows {
+        decisions.push(row?);
+    }
+    decisions.reverse();
+    Ok(decisions)
+}
+
 pub(crate) fn prompt_cache_totals() -> CacheTokenMetrics {
     try_prompt_cache_totals().unwrap_or_else(|error| {
         log::warn!("optimization telemetry read failed: {error}");
@@ -153,6 +226,7 @@ pub(crate) fn reset_for_tests() {
     if let Ok(conn) = open_connection() {
         let _ = conn.execute("DELETE FROM prompt_cache_events", []);
         let _ = conn.execute("DELETE FROM compaction_decisions", []);
+        let _ = conn.execute("DELETE FROM routing_decisions", []);
     }
 }
 
@@ -193,6 +267,32 @@ mod tests {
                 cache_creation_tokens: 15,
             }
         );
+
+        match previous_home {
+            Some(value) => std::env::set_var("HOME", value),
+            None => std::env::remove_var("HOME"),
+        }
+    }
+    #[test]
+    fn routing_decisions_round_trip_through_sqlite() {
+        let home = tempdir().expect("temp home");
+        let previous_home = std::env::var_os("HOME");
+        std::env::set_var("HOME", home.path());
+
+        reset_for_tests();
+        record_routing_decision(&RoutingDecisionRecord {
+            task: "commit message".to_string(),
+            current_model: "gpt-5".to_string(),
+            selected_model: "gpt-5-mini".to_string(),
+            fallback_model: "gpt-5".to_string(),
+            reason: "trivial task".to_string(),
+            estimated_savings_percent: 42,
+        });
+
+        let decisions = recent_routing_decisions(8);
+        assert_eq!(decisions.len(), 1);
+        assert_eq!(decisions[0].selected_model, "gpt-5-mini");
+        assert_eq!(decisions[0].estimated_savings_percent, 42);
 
         match previous_home {
             Some(value) => std::env::set_var("HOME", value),

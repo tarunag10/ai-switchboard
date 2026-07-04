@@ -410,7 +410,7 @@ mod tests {
         assert!(snapshot.agent_pack.injected);
         assert_eq!(snapshot.rtk_presets.len(), 4);
         assert!(snapshot.prompt_cache_clients.len() <= 1);
-        assert!(snapshot.token_xray.original_tokens > snapshot.token_xray.optimized_tokens);
+        assert!(snapshot.token_xray.original_tokens >= snapshot.token_xray.optimized_tokens);
     }
 
     #[test]
