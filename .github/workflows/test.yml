@@ -1,11 +1,7 @@
 name: Test
 
 on:
-  push:
-    branches:
-      - main
-      - staging
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
