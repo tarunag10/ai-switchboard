@@ -34,15 +34,6 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import macAiSwitchboardLogo from "./assets/mac-ai-switchboard-logo.png";
 import {
   formatAppUpdateProgressCopy,
@@ -144,13 +135,6 @@ import {
 } from "./lib/bootstrapSentry";
 import {
   aggregateClientConnectors,
-  addDays,
-  addMonths,
-  buildClientSavingsTrendRows,
-  buildHourlySavingsChartData,
-  buildHourlySavingsWindow,
-  buildMonthlySavingsChartData,
-  buildMonthlySavingsWindow,
   compactNumber,
   connectorControlState,
   connectorCompatibilityReport,
@@ -159,26 +143,16 @@ import {
   connectorSupportsAutomaticSetup,
   currency,
   currencyExact,
-  dayOfMonthTickFormatter,
-  earliestHourlyDay,
-  earliestSavingsMonth,
   formatConnectorConfigDryRunPreview,
   formatDateTime,
   formatDayKey,
   formatLearnStatus,
-  formatMonthLabel,
   formatPlannedConnectorConfigGateSummary,
-  formatSelectedDayLabel,
   getEnabledSupportedConnectors,
   hasEnabledConnector,
-  hourOfDayTickFormatter,
-  mergeProviderSavingsForDisplay,
   percent1,
   sortClientConnectors,
-  startOfDay,
-  startOfMonth,
   summarizePlannedConnectorReadiness,
-  type SavingsChartDatum,
 } from "./lib/dashboardHelpers";
 import {
   buildInitialProxyVerificationRows,
@@ -286,10 +260,14 @@ import {
 import { ActivityFeed } from "./components/ActivityFeed";
 import { AddonCard } from "./components/AddonCard";
 import { AddonHealthStrip } from "./components/AddonHealthStrip";
+import { ClientSavingsTrendsCard } from "./components/ClientSavingsTrendsCard";
+import { DailySavingsChart } from "./components/DailySavingsChart";
 import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
+import { OutputReductionChip } from "./components/OutputReductionChip";
 import { PlannedAddonCard } from "./components/PlannedAddonCard";
 import { RepoMapView } from "./components/RepoMapView";
+import type { SavingsChartMode } from "./components/SavingsChartTooltip";
 import { SettingsLegalPanel } from "./components/SettingsLegalPanel";
 import { TermsGate } from "./components/TermsGate";
 import { SwitchboardPanel } from "./components/SwitchboardPanel";
@@ -562,110 +540,12 @@ async function loadSavingsAttributionEvents(): Promise<SavingsAttributionEvent[]
   }
 }
 
-function SavingsChartTooltip({
-  active,
-  payload,
-  chartMode,
-}: {
-  active?: boolean;
-  payload?: ReadonlyArray<{ payload?: SavingsChartDatum }>;
-  chartMode: SavingsChartMode;
-}) {
-  const point = payload?.[0]?.payload;
-  if (!active || !point) {
-    return null;
-  }
-
-  const providerSavings = mergeProviderSavingsForDisplay(
-    point.byProvider ?? [],
-  );
-
-  return (
-    <div className="savings-chart__tooltip">
-      <strong>{point.bucketLabel}</strong>
-      {providerSavings.length > 0 ? (
-        // Hourly buckets carry per-provider attribution: show Saved/Spent per
-        // connector instead of the bucket total (which would be redundant).
-        providerSavings.map((provider) => (
-          <div className="savings-chart__tooltip-group" key={provider.label}>
-            <span className="savings-chart__tooltip-label">
-              {provider.label}
-            </span>
-            <span className="savings-chart__tooltip-item">
-              <i
-                aria-hidden="true"
-                className={`savings-chart__tooltip-dot savings-chart__tooltip-dot--${
-                  chartMode === "usd" ? "saved-usd" : "saved-tokens"
-                }`}
-              />
-              {chartMode === "usd"
-                ? `Saved ${currencyExact(provider.estimatedSavingsUsd)}`
-                : `Saved ${compactNumber(provider.estimatedTokensSaved)} tokens`}
-            </span>
-            <span className="savings-chart__tooltip-item">
-              <i
-                aria-hidden="true"
-                className={`savings-chart__tooltip-dot savings-chart__tooltip-dot--${
-                  chartMode === "usd" ? "actual-usd" : "actual-tokens"
-                }`}
-              />
-              {chartMode === "usd"
-                ? `Spent ${currencyExact(provider.actualCostUsd)}`
-                : `Spent ${compactNumber(provider.totalTokensSent)} tokens`}
-            </span>
-          </div>
-        ))
-      ) : // Monthly buckets (and pre-attribution hourly buckets) have no provider
-      // dimension: fall back to the aggregate bucket total.
-      chartMode === "usd" ? (
-        <div className="savings-chart__tooltip-group">
-          <span className="savings-chart__tooltip-label">Dollars</span>
-          <span className="savings-chart__tooltip-item">
-            <i
-              aria-hidden="true"
-              className="savings-chart__tooltip-dot savings-chart__tooltip-dot--saved-usd"
-            />
-            Saved {currencyExact(point.estimatedSavingsUsd)}
-          </span>
-          <span className="savings-chart__tooltip-item">
-            <i
-              aria-hidden="true"
-              className="savings-chart__tooltip-dot savings-chart__tooltip-dot--actual-usd"
-            />
-            Spent {currencyExact(point.actualCostUsd)}
-          </span>
-        </div>
-      ) : (
-        <div className="savings-chart__tooltip-group">
-          <span className="savings-chart__tooltip-label">Tokens</span>
-          <span className="savings-chart__tooltip-item">
-            <i
-              aria-hidden="true"
-              className="savings-chart__tooltip-dot savings-chart__tooltip-dot--saved-tokens"
-            />
-            Saved {compactNumber(point.estimatedTokensSaved)} tokens
-          </span>
-          <span className="savings-chart__tooltip-item">
-            <i
-              aria-hidden="true"
-              className="savings-chart__tooltip-dot savings-chart__tooltip-dot--actual-tokens"
-            />
-            Spent {compactNumber(point.totalTokensSent)} tokens
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function delay(ms: number) {
   return new Promise<void>((resolve) => {
     window.setTimeout(resolve, ms);
   });
 }
 
-type SavingsChartView = "month" | "day";
-type SavingsChartMode = "usd" | "tokens";
 const savingsLedgerConfidenceFilters: SavingsLedgerConfidenceFilter[] = [
   "all",
   "measured",
@@ -680,94 +560,6 @@ const savingsCalculatorScopes: SavingsCalculatorScope[] = [
   "month",
   "lifetime",
 ];
-
-// Output-token reduction from the proxy's output shaper, shown as a secondary
-// line inside the "Total input tokens saved" card so the two numbers (input
-// tokens saved vs. output tokens not emitted) read as distinct. The line shows
-// just the headline percent; clicking it opens a popover with the method
-// ("estimated"/"measured"), confidence band, request count, and a note that
-// output savings are counterfactual. Caller renders this only when `reduction`
-// is present (the backend returns null until a verbosity baseline is seeded).
-// The parent card is itself clickable, so the trigger stops event propagation.
-function OutputReductionChip({ reduction }: { reduction: OutputReduction }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const isMeasured = reduction.method === "measured";
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: Event) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setOpen(false);
-    };
-    const onKey = (e: Event) => {
-      if ((e as KeyboardEvent).key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  return (
-    <div className="output-chip" ref={ref}>
-      <button
-        type="button"
-        className={`output-chip__button${open ? " is-open" : ""}`}
-        aria-expanded={open}
-        aria-label="Output token reduction details"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
-        onKeyDown={(e) => e.stopPropagation()}
-      >
-        <span className="output-chip__dot" aria-hidden="true" />
-        Output −{percent1(reduction.reductionPercent)}%
-      </button>
-      {open ? (
-        <div
-          className="output-chip__popover"
-          role="dialog"
-          aria-label="Output reduction details"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="output-chip__pop-head">
-            <span className="output-chip__pop-title">
-              Output token reduction
-            </span>
-            <span className="output-chip__pop-badge">
-              {isMeasured ? "measured" : "estimated"}
-            </span>
-          </div>
-          <div className="output-chip__pop-value">
-            {percent1(reduction.reductionPercent)}%
-          </div>
-          <dl className="output-chip__pop-stats">
-            <div>
-              <dt>95% CI</dt>
-              <dd>
-                {percent1(reduction.ciLowPercent)}–
-                {percent1(reduction.ciHighPercent)}%
-              </dd>
-            </div>
-            <div>
-              <dt>Requests</dt>
-              <dd>{compactNumber(reduction.requests)}</dd>
-            </div>
-          </dl>
-          <p className="output-chip__pop-note">
-            {isMeasured
-              ? "Output tokens the model didn't emit because the shaper steered verbosity / routed effort down — measured against an unshaped A/B holdout."
-              : "Output tokens the model didn't emit because the shaper steered verbosity / routed effort down. Output savings are counterfactual, so this is an estimate vs a learned baseline."}
-          </p>
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 function SavingsCalculatorCard({
   dashboard,
@@ -1093,389 +885,6 @@ function SavingsCalculatorCard({
         </div>
       </div>
     </article>
-  );
-}
-
-function ClientSavingsTrendsCard({
-  dashboard,
-}: {
-  dashboard: DashboardState;
-}) {
-  const trends = buildClientSavingsTrendRows(
-    dashboard.recentUsage,
-    dashboard.hourlySavings,
-  );
-  const trendScope =
-    trends[0]?.scope === "saved_history" ? "saved history" : "current session";
-
-  return (
-    <article className="soft-card client-savings-trends">
-      <header className="client-savings-trends__header">
-        <div>
-          <h2>Per-client savings</h2>
-          <p>
-            {trendScope === "saved history"
-              ? "Saved local history, grouped by connected coding tool."
-              : "Current app session, grouped by connected coding tool."}
-          </p>
-        </div>
-        <span>
-          {compactNumber(trends.length)} client{trends.length === 1 ? "" : "s"}
-        </span>
-      </header>
-      {trends.length > 0 ? (
-        <div className="client-savings-trends__list">
-          {trends.map((trend) => {
-            const reduction =
-              trend.totalTokensSent + trend.estimatedTokensSaved > 0
-                ? (trend.estimatedTokensSaved /
-                    (trend.totalTokensSent + trend.estimatedTokensSaved)) *
-                  100
-                : 0;
-            return (
-              <div className="client-savings-trends__row" key={trend.client}>
-                <div>
-                  <strong>{trend.client}</strong>
-                  <span>
-                    {trend.scope === "saved_history"
-                      ? `Saved history · latest ${formatDateTime(trend.lastSeenAt)}`
-                      : `${compactNumber(trend.requests)} request${
-                          trend.requests === 1 ? "" : "s"
-                        } · last ${formatDateTime(trend.lastSeenAt)}`}
-                  </span>
-                </div>
-                <dl>
-                  <div>
-                    <dt>Saved</dt>
-                    <dd>{compactNumber(trend.estimatedTokensSaved)}</dd>
-                  </div>
-                  <div>
-                    <dt>Spent</dt>
-                    <dd>{compactNumber(trend.totalTokensSent)}</dd>
-                  </div>
-                  <div>
-                    <dt>USD</dt>
-                    <dd>{currencyExact(trend.estimatedSavingsUsd)}</dd>
-                  </div>
-                  <div>
-                    <dt>Reduction</dt>
-                    <dd>{percent1(reduction)}%</dd>
-                  </div>
-                </dl>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="client-savings-trends__empty">
-          Send a prompt through Claude Code, Codex, or another connected tool to
-          populate session-level client trends. Saved per-client history appears
-          here after provider-attributed savings history is available.
-        </p>
-      )}
-    </article>
-  );
-}
-
-function DailySavingsChart({
-  data,
-  hourlyData,
-  resetSignal,
-  chartMode,
-  setChartMode,
-}: {
-  data: DailySavingsPoint[];
-  hourlyData: HourlySavingsPoint[];
-  resetSignal: number;
-  chartMode: SavingsChartMode;
-  setChartMode: (mode: SavingsChartMode) => void;
-}) {
-  const currentMonth = startOfMonth(new Date());
-  const today = startOfDay(new Date());
-  const [visibleMonth, setVisibleMonth] = useState(() => currentMonth);
-  const [visibleDay, setVisibleDay] = useState(() => today);
-  const [view, setView] = useState<SavingsChartView>("day");
-  const [savingsTodayUsd, setSavingsTodayUsd] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!hasTauriEventRuntime()) {
-      return;
-    }
-
-    let unlisten: (() => void) | undefined;
-    void listen<number>("savings-today-updated", (event) => {
-      setSavingsTodayUsd(event.payload);
-    }).then((fn) => {
-      unlisten = fn;
-    });
-    return () => unlisten?.();
-  }, []);
-  const firstSavingsMonth = earliestSavingsMonth(data);
-  const firstHourlyDay = earliestHourlyDay(hourlyData);
-  const monthlyData = buildMonthlySavingsChartData(
-    buildMonthlySavingsWindow(data, visibleMonth),
-  );
-  const hourlyChartData = buildHourlySavingsChartData(
-    buildHourlySavingsWindow(hourlyData, visibleDay),
-  );
-  const chartData = view === "month" ? monthlyData : hourlyChartData;
-  const canViewPreviousMonth = firstSavingsMonth
-    ? visibleMonth > firstSavingsMonth
-    : false;
-  const canViewNextMonth = visibleMonth < currentMonth;
-  const canViewPreviousDay = firstHourlyDay
-    ? visibleDay > firstHourlyDay
-    : false;
-  const canViewNextDay = visibleDay < today;
-  const label =
-    view === "month"
-      ? formatMonthLabel(visibleMonth)
-      : formatSelectedDayLabel(visibleDay);
-
-  useEffect(() => {
-    const now = new Date();
-    setVisibleMonth(startOfMonth(now));
-    setVisibleDay(startOfDay(now));
-  }, [resetSignal]);
-
-  return (
-    <div className="savings-chart">
-      <section
-        aria-label={
-          view === "month"
-            ? `Monthly history for ${label}`
-            : `Hourly history for ${label}`
-        }
-        className="savings-chart__panel"
-      >
-        <div className="savings-chart__panel-header">
-          <div className="savings-chart__title-row">
-            <strong>History</strong>
-            <div className="savings-chart__toggle" aria-label="Metric">
-              <button
-                className={`savings-chart__toggle-button${chartMode === "usd" ? " is-active" : ""}`}
-                onClick={() => setChartMode("usd")}
-                type="button"
-              >
-                $
-              </button>
-              <button
-                className={`savings-chart__toggle-button${chartMode === "tokens" ? " is-active" : ""}`}
-                onClick={() => setChartMode("tokens")}
-                type="button"
-              >
-                tokens
-              </button>
-            </div>
-          </div>
-          <div className="savings-chart__nav">
-            <div className="savings-chart__toggle" aria-label="History view">
-              <button
-                className={`savings-chart__toggle-button${view === "month" ? " is-active" : ""}`}
-                onClick={() => setView("month")}
-                type="button"
-              >
-                month
-              </button>
-              <button
-                className={`savings-chart__toggle-button${view === "day" ? " is-active" : ""}`}
-                onClick={() => setView("day")}
-                type="button"
-              >
-                day
-              </button>
-            </div>
-            <button
-              className="savings-chart__nav-button"
-              disabled={
-                view === "month" ? !canViewPreviousMonth : !canViewPreviousDay
-              }
-              onClick={() =>
-                view === "month"
-                  ? setVisibleMonth((current) => addMonths(current, -1))
-                  : setVisibleDay((current) => addDays(current, -1))
-              }
-              type="button"
-            >
-              Prev
-            </button>
-            <span className="savings-chart__range-label">{label}</span>
-            <button
-              className="savings-chart__nav-button"
-              disabled={view === "month" ? !canViewNextMonth : !canViewNextDay}
-              onClick={() =>
-                view === "month"
-                  ? setVisibleMonth((current) => addMonths(current, 1))
-                  : setVisibleDay((current) => addDays(current, 1))
-              }
-              type="button"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-        <div className="savings-chart__canvas savings-chart__canvas--combined">
-          <div className="savings-chart__overlay" aria-hidden="true">
-            <span className="savings-chart__overlay-total">
-              {chartMode === "usd"
-                ? currency(
-                    Math.max(
-                      0,
-                      view === "day" &&
-                        visibleDay >= today &&
-                        savingsTodayUsd !== null
-                        ? savingsTodayUsd
-                        : chartData.reduce(
-                            (s, d) => s + d.estimatedSavingsUsd,
-                            0,
-                          ),
-                    ),
-                  )
-                : compactNumber(
-                    Math.max(
-                      0,
-                      chartData.reduce((s, d) => s + d.estimatedTokensSaved, 0),
-                    ),
-                  )}
-            </span>
-            <span className="savings-chart__overlay-label">
-              {view === "day" ? "saved today" : "saved this month"}
-            </span>
-          </div>
-          <ResponsiveContainer height="100%" width="100%">
-            <BarChart
-              barCategoryGap="5%"
-              barGap={1}
-              data={chartData}
-              margin={{ top: 64, right: 2, left: 2, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient
-                  id="actualUsdGradient"
-                  x1="0"
-                  x2="0"
-                  y1="0"
-                  y2="1"
-                >
-                  <stop offset="0%" stopColor="#c96a30" />
-                  <stop offset="100%" stopColor="#ED834E" />
-                </linearGradient>
-                <linearGradient
-                  id="savingsUsdGradient"
-                  x1="0"
-                  x2="0"
-                  y1="0"
-                  y2="1"
-                >
-                  <stop offset="0%" stopColor="#3a7f74" />
-                  <stop offset="100%" stopColor="#4F9E91" />
-                </linearGradient>
-                <linearGradient
-                  id="actualTokensGradient"
-                  x1="0"
-                  x2="0"
-                  y1="0"
-                  y2="1"
-                >
-                  <stop offset="0%" stopColor="#c96a30" />
-                  <stop offset="100%" stopColor="#ED834E" />
-                </linearGradient>
-                <linearGradient
-                  id="savingsTokensGradient"
-                  x1="0"
-                  x2="0"
-                  y1="0"
-                  y2="1"
-                >
-                  <stop offset="0%" stopColor="#d4b832" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#EBCC6E" stopOpacity="0.25" />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                stroke="rgba(36, 31, 29, 0.06)"
-                strokeDasharray="2 8"
-                vertical={false}
-              />
-              <XAxis
-                axisLine={false}
-                dataKey="bucketKey"
-                interval={0}
-                minTickGap={view === "month" ? 8 : 8}
-                tickFormatter={
-                  view === "month"
-                    ? dayOfMonthTickFormatter
-                    : hourOfDayTickFormatter
-                }
-                tick={{ fill: "#7a7169", fontSize: 10 }}
-                tickLine={false}
-              />
-              <YAxis hide yAxisId="usd" />
-              <YAxis hide yAxisId="tokens" />
-              <Tooltip
-                content={(props) => (
-                  <SavingsChartTooltip {...props} chartMode={chartMode} />
-                )}
-                cursor={{ fill: "rgba(36, 31, 29, 0.05)" }}
-              />
-              {chartMode === "usd" && (
-                <>
-                  <Bar
-                    dataKey="actualCostUsd"
-                    fill="url(#actualUsdGradient)"
-                    maxBarSize={16}
-                    stackId="usd"
-                    yAxisId="usd"
-                  />
-                  <Bar
-                    dataKey="estimatedSavingsUsd"
-                    fill="url(#savingsUsdGradient)"
-                    maxBarSize={16}
-                    radius={[1, 1, 0, 0]}
-                    stackId="usd"
-                    yAxisId="usd"
-                  />
-                </>
-              )}
-              {chartMode === "tokens" && (
-                <>
-                  <Bar
-                    dataKey="totalTokensSent"
-                    fill="url(#actualTokensGradient)"
-                    maxBarSize={16}
-                    stackId="tokens"
-                    yAxisId="tokens"
-                  />
-                  <Bar
-                    dataKey="estimatedTokensSaved"
-                    fill="url(#savingsTokensGradient)"
-                    maxBarSize={16}
-                    stackId="tokens"
-                    yAxisId="tokens"
-                    shape={(props: any) => {
-                      const { x, y, width, height, fill } = props;
-                      if (!width || !height) return <g />;
-                      const sw = 1.5;
-                      return (
-                        <rect
-                          x={x + sw / 2}
-                          y={y + sw / 2}
-                          width={Math.max(0, width - sw)}
-                          height={Math.max(0, height - sw)}
-                          fill={fill}
-                          stroke="#EBCC6E"
-                          strokeWidth={sw}
-                          rx={1}
-                        />
-                      );
-                    }}
-                  />
-                </>
-              )}
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
-    </div>
   );
 }
 

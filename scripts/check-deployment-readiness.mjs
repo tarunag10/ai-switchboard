@@ -548,8 +548,15 @@ const requiredSourceSignals = {
     "Settings migration actions",
     "Copy settings export",
     "Apply safe preferences",
+  ],
+  "src/components/ClientSavingsTrendsCard.tsx": [
     "ClientSavingsTrendsCard",
     "Per-client savings",
+  ],
+  "src/components/DailySavingsChart.tsx": [
+    "DailySavingsChart",
+    "savings-chart__toggle",
+    "SavingsChartTooltip",
   ],
   "src/components/AddonHealthStrip.tsx": [
     "Add-on health",
