@@ -5357,8 +5357,13 @@ select {
 
 .optimize-card__blurb {
   margin: 0;
+  max-width: 760px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-overlay);
   font-size: var(--text-sm);
-  color: var(--text-secondary);
+  color: var(--text-primary);
   line-height: 1.4;
 }
 
@@ -5377,10 +5382,10 @@ select {
   gap: 4px;
   padding: 10px 12px;
   margin-bottom: 12px;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
-  background: var(--surface-sunken);
-  color: var(--text-secondary);
+  background: var(--surface-overlay);
+  color: var(--text-primary);
   font-size: var(--text-xs);
   line-height: 1.4;
 }
@@ -9999,9 +10004,15 @@ html.window-hiding {
 
 .repo-intelligence-preview__controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(180px, 1fr) repeat(3, minmax(96px, auto));
   gap: 8px;
   align-items: center;
+}
+
+.repo-intelligence-preview__controls button {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
 }
 
 .repo-intelligence-preview__input {
@@ -10102,8 +10113,14 @@ html.window-hiding {
 }
 
 .repo-intelligence-session__controls {
-  grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) auto;
+  grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) minmax(120px, auto);
   align-items: end;
+}
+
+.repo-intelligence-session__controls button {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
 }
 
 .repo-intelligence-session__controls select {
@@ -10357,7 +10374,7 @@ html.window-hiding {
 
 .repo-intelligence-handoff-group__buttons {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(156px, 1fr));
   gap: 6px;
 }
 
@@ -10418,6 +10435,7 @@ html.window-hiding {
 }
 
 .repo-intelligence-handoff__actions button {
+  min-width: 0;
   min-height: 26px;
   padding: 4px 6px;
   border: 1px solid var(--border-subtle);
@@ -10426,6 +10444,8 @@ html.window-hiding {
   color: var(--text-primary);
   font-size: var(--text-xxs);
   font-weight: 800;
+  overflow-wrap: anywhere;
+  white-space: normal;
   cursor: pointer;
 }
 
@@ -10545,7 +10565,7 @@ html.window-hiding {
   }
 
   .repo-intelligence-handoffs__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .settings-transfer__summary {
