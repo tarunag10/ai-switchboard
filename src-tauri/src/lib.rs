@@ -29,6 +29,7 @@ mod optimization;
 mod optimization_commands;
 mod port_conflict;
 mod pricing;
+mod pricing_commands;
 mod process_runner;
 mod proxy_intercept;
 mod release_evidence;
@@ -63,12 +64,10 @@ use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_updater::{Update, UpdaterExt};
 
 use crate::models::{
-    ActivityFeedResponse, BillingPeriod, BootstrapProgress, ClientConnectorStatus,
-    ClientSetupResult, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
-    HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
-    HeadroomSubscriptionTier, RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionCounter,
-    SavingsAttributionEvent, SavingsMode, SwitchboardMode, SwitchboardState,
-    TransformationFeedResponse,
+    ActivityFeedResponse, BootstrapProgress, ClientConnectorStatus, ClientSetupResult,
+    DailySavingsPoint, DashboardState, HeadroomLearnPrereqStatus, HeadroomLearnStatus,
+    RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionCounter, SavingsAttributionEvent,
+    SavingsMode, SwitchboardMode, SwitchboardState, TransformationFeedResponse,
 };
 use crate::state::AppState;
 
@@ -2665,120 +2664,6 @@ fn debug_force_proxy_bypass(state: State<'_, AppState>, on: bool) -> Result<bool
 }
 
 #[tauri::command]
-async fn get_headroom_pricing_status(
-    state: State<'_, AppState>,
-) -> Result<HeadroomPricingStatus, String> {
-    let status = pricing::get_pricing_status(&state)?;
-    // Reconcile the runtime with the freshly evaluated status. Bridges the
-    // gap between "user just upgraded" (subscription_active flips on) and
-    // "Headroom optimization actually resumes" — without this, the pricing
-    // gate's bypass flag would stay set and Python would stay down until
-    // the next app launch.
-    state.apply_pricing_gate_status(&status);
-    state.apply_codex_pricing_gate_status(status.codex.as_ref());
-    Ok(status)
-}
-
-#[tauri::command]
-async fn request_headroom_auth_code(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    email: String,
-) -> Result<HeadroomAuthCodeRequest, String> {
-    let request = pricing::request_auth_code(&state, &email)?;
-    analytics::track_event(&app, "auth_code_requested", None);
-    Ok(request)
-}
-
-#[tauri::command]
-async fn verify_headroom_auth_code(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    email: String,
-    code: String,
-    invite_code: Option<String>,
-) -> Result<HeadroomPricingStatus, String> {
-    let used_invite_code = invite_code
-        .as_ref()
-        .is_some_and(|value| !value.trim().is_empty());
-    let status = pricing::verify_auth_code(&state, &email, &code, invite_code.as_deref())?;
-    // Reconcile the runtime with the freshly evaluated status. Mirrors
-    // `get_headroom_pricing_status` so a user who signs up after grace
-    // expiry doesn't have to wait for the next 60s pricing poll for
-    // Python to come back online.
-    state.apply_pricing_gate_status(&status);
-    state.apply_codex_pricing_gate_status(status.codex.as_ref());
-    analytics::track_event(
-        &app,
-        "auth_verified",
-        Some(json!({ "invite_code_used": used_invite_code })),
-    );
-    Ok(status)
-}
-
-#[tauri::command]
-async fn sign_out_headroom_account() -> Result<(), String> {
-    pricing::sign_out()
-}
-
-#[tauri::command]
-async fn activate_headroom_account(
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> Result<HeadroomPricingStatus, String> {
-    let lifetime_tokens_saved = state.dashboard().lifetime_estimated_tokens_saved;
-    let status = pricing::activate_account(&state, lifetime_tokens_saved)?;
-    analytics::track_event(&app, "account_activated", None);
-    Ok(status)
-}
-
-#[tauri::command]
-async fn create_headroom_checkout_session(
-    app: AppHandle,
-    subscription_tier: HeadroomSubscriptionTier,
-    billing_period: BillingPeriod,
-) -> Result<String, String> {
-    let url = pricing::create_checkout_session(subscription_tier.clone(), billing_period)?;
-    analytics::track_event(
-        &app,
-        "checkout_started",
-        Some(json!({
-            "subscription_tier": subscription_tier_label(&subscription_tier)
-        })),
-    );
-    Ok(url)
-}
-
-#[tauri::command]
-async fn change_headroom_subscription_plan(
-    app: AppHandle,
-    subscription_tier: HeadroomSubscriptionTier,
-    billing_period: BillingPeriod,
-) -> Result<(), String> {
-    pricing::change_subscription_plan(subscription_tier.clone(), billing_period)?;
-    analytics::track_event(
-        &app,
-        "subscription_plan_changed",
-        Some(json!({
-            "subscription_tier": subscription_tier_label(&subscription_tier)
-        })),
-    );
-    Ok(())
-}
-
-#[tauri::command]
-async fn reactivate_headroom_subscription(app: AppHandle) -> Result<(), String> {
-    pricing::reactivate_subscription()?;
-    analytics::track_event(&app, "subscription_reactivated", None);
-    Ok(())
-}
-
-#[tauri::command]
-async fn get_headroom_billing_portal_url(target: Option<String>) -> Result<String, String> {
-    pricing::get_billing_portal_url(target)
-}
-
-#[tauri::command]
 fn get_headroom_learn_status(
     state: State<'_, AppState>,
     project_path: Option<String>,
@@ -4086,15 +3971,15 @@ pub fn run() {
             activity_commands::get_claude_code_projects,
             activity_commands::get_claude_usage,
             activity_commands::get_claude_profile,
-            get_headroom_pricing_status,
-            request_headroom_auth_code,
-            verify_headroom_auth_code,
-            sign_out_headroom_account,
-            activate_headroom_account,
-            create_headroom_checkout_session,
-            change_headroom_subscription_plan,
-            reactivate_headroom_subscription,
-            get_headroom_billing_portal_url,
+            pricing_commands::get_headroom_pricing_status,
+            pricing_commands::request_headroom_auth_code,
+            pricing_commands::verify_headroom_auth_code,
+            pricing_commands::sign_out_headroom_account,
+            pricing_commands::activate_headroom_account,
+            pricing_commands::create_headroom_checkout_session,
+            pricing_commands::change_headroom_subscription_plan,
+            pricing_commands::reactivate_headroom_subscription,
+            pricing_commands::get_headroom_billing_portal_url,
             get_activity_feed,
             message_settings_commands::get_message_logging_settings,
             message_settings_commands::set_message_logging_settings,
@@ -4172,14 +4057,6 @@ pub fn run() {
                 codex_threads::retag_codex_threads_to_native();
             }
         });
-}
-
-fn subscription_tier_label(tier: &HeadroomSubscriptionTier) -> &'static str {
-    match tier {
-        HeadroomSubscriptionTier::Pro => "pro",
-        HeadroomSubscriptionTier::Max5x => "max5x",
-        HeadroomSubscriptionTier::Max20x => "max20x",
-    }
 }
 
 fn lifetime_token_milestone_kind(milestone_tokens_saved: u64) -> &'static str {
