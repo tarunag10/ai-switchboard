@@ -16,6 +16,9 @@ target
 headroom_memory.db
 memory.db
 mac-ai-switchboard-audit.md
+console-errors.md
+mobile-*.png
+graphify-out/
 src-tauri/target
 src-tauri/gen
 announcement-recordings

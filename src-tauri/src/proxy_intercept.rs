@@ -46,7 +46,9 @@ const CODEX_USAGE_POLL_TIMEOUT: Duration = Duration::from_secs(10);
 /// Epoch-seconds of the last usage-poll attempt; throttles the fire-and-forget
 /// GET to at most one per `CODEX_USAGE_POLL_MIN_INTERVAL_SECS`.
 static CODEX_USAGE_LAST_POLL: AtomicU64 = AtomicU64::new(0);
-static HEADROOM_COMPRESSION_BYPASS: AtomicBool = AtomicBool::new(false);
+static HEADROOM_COMPRESSION_BYPASS_MASK: AtomicU64 = AtomicU64::new(0);
+const HEADROOM_COMPRESSION_BYPASS_ANTHROPIC: u64 = 1;
+const HEADROOM_COMPRESSION_BYPASS_OPENAI: u64 = 1 << 1;
 
 /// Shared state written by the intercept layer.
 pub type SharedToken = Arc<Mutex<Option<BearerToken>>>;
@@ -301,7 +303,7 @@ async fn handle(
         return;
     }
 
-    if HEADROOM_COMPRESSION_BYPASS.load(Ordering::Acquire) {
+    if headroom_compression_bypass_active(is_codex) {
         forward_direct_to_anthropic(client, buf, &upstream_base).await;
         return;
     }
@@ -415,10 +417,22 @@ fn enable_compression_fail_open(is_codex: bool, codex_bypass: &BypassFlag) {
     log::warn!(
         "Headroom refused compression for an oversized request; enabling direct fail-open for subsequent requests"
     );
-    HEADROOM_COMPRESSION_BYPASS.store(true, Ordering::Release);
+    HEADROOM_COMPRESSION_BYPASS_MASK.fetch_or(compression_bypass_bit(is_codex), Ordering::AcqRel);
     if is_codex {
         codex_bypass.store(true, std::sync::atomic::Ordering::Release);
     }
+}
+
+fn compression_bypass_bit(is_codex: bool) -> u64 {
+    if is_codex {
+        HEADROOM_COMPRESSION_BYPASS_OPENAI
+    } else {
+        HEADROOM_COMPRESSION_BYPASS_ANTHROPIC
+    }
+}
+
+fn headroom_compression_bypass_active(is_codex: bool) -> bool {
+    HEADROOM_COMPRESSION_BYPASS_MASK.load(Ordering::Acquire) & compression_bypass_bit(is_codex) != 0
 }
 
 fn is_headroom_compression_refusal_response(head: &[u8]) -> bool {
@@ -2242,18 +2256,22 @@ mod tests {
     }
 
     #[test]
-    fn compression_refusal_fail_open_is_not_codex_only() {
-        super::HEADROOM_COMPRESSION_BYPASS.store(false, std::sync::atomic::Ordering::Release);
-        let codex_bypass = BypassFlag::default();
+    fn compression_refusal_fail_open_is_scoped_by_client_class() {
+        let codex_bypass = Arc::new(AtomicBool::new(false));
 
+        super::HEADROOM_COMPRESSION_BYPASS_MASK.store(0, std::sync::atomic::Ordering::Release);
+        codex_bypass.store(false, std::sync::atomic::Ordering::Release);
         super::enable_compression_fail_open(false, &codex_bypass);
-        assert!(super::HEADROOM_COMPRESSION_BYPASS.load(std::sync::atomic::Ordering::Acquire));
+        assert!(super::headroom_compression_bypass_active(false));
+        assert!(!super::headroom_compression_bypass_active(true));
         assert!(!codex_bypass.load(std::sync::atomic::Ordering::Acquire));
 
-        super::HEADROOM_COMPRESSION_BYPASS.store(false, std::sync::atomic::Ordering::Release);
+        super::HEADROOM_COMPRESSION_BYPASS_MASK.store(0, std::sync::atomic::Ordering::Release);
+        codex_bypass.store(false, std::sync::atomic::Ordering::Release);
         super::enable_compression_fail_open(true, &codex_bypass);
-        assert!(super::HEADROOM_COMPRESSION_BYPASS.load(std::sync::atomic::Ordering::Acquire));
+        assert!(super::headroom_compression_bypass_active(true));
+        assert!(!super::headroom_compression_bypass_active(false));
         assert!(codex_bypass.load(std::sync::atomic::Ordering::Acquire));
-        super::HEADROOM_COMPRESSION_BYPASS.store(false, std::sync::atomic::Ordering::Release);
+        super::HEADROOM_COMPRESSION_BYPASS_MASK.store(0, std::sync::atomic::Ordering::Release);
     }
 }
