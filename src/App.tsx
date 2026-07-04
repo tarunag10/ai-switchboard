@@ -118,6 +118,11 @@ import {
   reportBootstrapFailure,
 } from "./lib/bootstrapSentry";
 import {
+  animatedBootstrapOverallPercent,
+  bootstrapEtaCopy,
+  bootstrapStepProgress,
+} from "./lib/bootstrapProgress";
+import {
   aggregateClientConnectors,
   compactNumber,
   connectorControlState,
@@ -2431,86 +2436,23 @@ export default function App() {
     window.setTimeout(() => setOnboardingFootprintCopyNotice(null), 2500);
   }
 
-  function stepPercentSpan(step: string) {
-    switch (step) {
-      case "Preparing install":
-        return 13;
-      case "Downloading Python":
-        return 13;
-      case "Creating environment":
-        return 17;
-      case "Installing Headroom":
-        return 20;
-      case "Finalizing":
-        return 4;
-      default:
-        return 8;
-    }
-  }
-
-  function getStepProgress(progress: BootstrapProgress) {
-    if (progress.complete) {
-      return 1;
-    }
-    if (!progress.running || !stepStartedAtMs) {
-      return 0;
-    }
-
-    const elapsedSeconds = Math.max(0, (Date.now() - stepStartedAtMs) / 1000);
-    const eta = Math.max(
-      8,
-      stepEtaSeedSeconds || progress.currentStepEtaSeconds || 20,
-    );
-    const linear = Math.min(0.96, elapsedSeconds / eta);
-
-    if (elapsedSeconds <= eta) {
-      return linear;
-    }
-
-    const overtime = elapsedSeconds - eta;
-    const creep = Math.min(0.995, linear + overtime / (eta * 10));
-    return creep;
-  }
-
   function animatedOverallPercent(progress: BootstrapProgress) {
-    if (progress.complete || progress.failed || !progress.running) {
-      return progress.overallPercent;
-    }
-
-    const span = stepPercentSpan(progress.currentStep);
-    const animated = stepBasePercent + span * getStepProgress(progress);
-    return Math.min(99, Math.max(progress.overallPercent, animated));
+    return animatedBootstrapOverallPercent(progress, {
+      stepBasePercent,
+      stepEtaSeedSeconds,
+      stepStartedAtMs,
+    });
   }
 
   function etaCopy(seconds: number, progress: BootstrapProgress) {
-    if (!showInstallProgress) {
-      return "ETA: starts after install";
-    }
-    if (progress.complete) {
-      return "ETA: complete";
-    }
-    if (progress.failed) {
-      return "ETA: unavailable";
-    }
-
-    const elapsedSeconds = stepStartedAtMs
-      ? Math.max(0, Math.round((Date.now() - stepStartedAtMs) / 1000))
-      : 0;
-    const baselineEta = Math.max(stepEtaSeedSeconds, seconds);
-    const remainingSeconds = Math.max(0, baselineEta - elapsedSeconds);
-
-    if (remainingSeconds <= 0 && progress.running) {
-      return "ETA: finishing up";
-    }
-    if (remainingSeconds <= 0) {
-      return "ETA: --";
-    }
-    if (remainingSeconds < 60) {
-      return `ETA: ${remainingSeconds}s`;
-    }
-    const mins = Math.floor(remainingSeconds / 60);
-    const secs = remainingSeconds % 60;
-    return `ETA: ${mins}m ${secs}s`;
+    return bootstrapEtaCopy({
+      currentStepEtaSeconds: seconds,
+      progress,
+      showInstallProgress,
+      stepBasePercent,
+      stepEtaSeedSeconds,
+      stepStartedAtMs,
+    });
   }
 
   function canConfigureConnectorWithoutDetection(
@@ -4505,7 +4447,13 @@ export default function App() {
   }
 
   if (windowLabel === "launcher" && launcherStage === "install") {
-    const stepProgress = Math.round(getStepProgress(bootstrapProgress) * 100);
+    const stepProgress = Math.round(
+      bootstrapStepProgress(bootstrapProgress, {
+        stepBasePercent,
+        stepEtaSeedSeconds,
+        stepStartedAtMs,
+      }) * 100,
+    );
     const renderPercent = animatedOverallPercent(bootstrapProgress);
     const installComplete =
       bootstrapProgress.complete || dashboard.bootstrapComplete;
