@@ -10,7 +10,7 @@ use crate::models::{
 };
 use crate::repo_intelligence;
 use crate::state::AppState;
-use crate::{switchboard_mode_label, switchboard_mode_wants_headroom};
+use crate::switchboard_commands::{switchboard_mode_label, switchboard_mode_wants_headroom};
 
 pub(crate) fn doctor_repair_action_restores_headroom(action: &str) -> bool {
     matches!(
@@ -714,6 +714,7 @@ fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]) -> String
 mod doctor_tests {
     use super::*;
     use crate::models::ClientSetupResult;
+    use crate::switchboard_commands::switchboard_mode_wants_rtk;
 
     #[test]
     fn planned_connector_doctor_body_includes_backend_metadata() {
@@ -933,9 +934,7 @@ mod doctor_tests {
         assert!(!switchboard_mode_wants_headroom(Some(
             &SwitchboardMode::Off
         )));
-        assert!(!crate::switchboard_mode_wants_rtk(Some(
-            &SwitchboardMode::Off
-        )));
+        assert!(!switchboard_mode_wants_rtk(Some(&SwitchboardMode::Off)));
     }
 
     #[test]
@@ -943,15 +942,13 @@ mod doctor_tests {
         assert!(!switchboard_mode_wants_headroom(Some(
             &SwitchboardMode::Rtk
         )));
-        assert!(crate::switchboard_mode_wants_rtk(Some(
-            &SwitchboardMode::Rtk
-        )));
+        assert!(switchboard_mode_wants_rtk(Some(&SwitchboardMode::Rtk)));
     }
 
     #[test]
     fn switchboard_mode_intent_defaults_to_full_optimization() {
         assert!(switchboard_mode_wants_headroom(None));
-        assert!(crate::switchboard_mode_wants_rtk(None));
+        assert!(switchboard_mode_wants_rtk(None));
     }
 
     #[test]
@@ -1031,7 +1028,7 @@ mod doctor_tests {
         };
 
         assert_eq!(
-            crate::normalized_repair_all_actions(&report),
+            crate::switchboard_commands::normalized_repair_all_actions(&report),
             vec![
                 "repair_runtime".to_string(),
                 "repair_client_setups".to_string(),
@@ -1047,7 +1044,7 @@ mod doctor_tests {
             "repair_rtk_runtime: rtk install failed".to_string(),
         ];
 
-        let error = crate::summarize_doctor_repair_all_failures(&failures)
+        let error = crate::switchboard_commands::summarize_doctor_repair_all_failures(&failures)
             .expect_err("failures should be reported");
 
         assert!(error.contains("repair_all completed with failures"));
@@ -1057,7 +1054,8 @@ mod doctor_tests {
 
     #[test]
     fn repair_all_failure_summary_allows_successful_runs() {
-        crate::summarize_doctor_repair_all_failures(&[]).expect("empty failures should pass");
+        crate::switchboard_commands::summarize_doctor_repair_all_failures(&[])
+            .expect("empty failures should pass");
     }
 
     #[test]
@@ -1082,7 +1080,7 @@ mod doctor_tests {
             },
         };
 
-        let error = crate::ensure_doctor_client_repair_verified(&result)
+        let error = crate::switchboard_commands::ensure_doctor_client_repair_verified(&result)
             .expect_err("Doctor repair should fail when post-write verification fails");
 
         assert!(error.contains("gemini_cli repair applied but verification still failed"));
@@ -1120,14 +1118,17 @@ mod doctor_tests {
         ];
         let mut attempted = Vec::new();
 
-        let batch = crate::run_managed_client_repair_batch(&connectors, |connector| {
-            attempted.push(connector.client_id.clone());
-            if connector.client_id == "gemini_cli" {
-                Ok(test_client_setup_result(&connector.client_id, false))
-            } else {
-                Ok(test_client_setup_result(&connector.client_id, true))
-            }
-        })
+        let batch = crate::switchboard_commands::run_managed_client_repair_batch(
+            &connectors,
+            |connector| {
+                attempted.push(connector.client_id.clone());
+                if connector.client_id == "gemini_cli" {
+                    Ok(test_client_setup_result(&connector.client_id, false))
+                } else {
+                    Ok(test_client_setup_result(&connector.client_id, true))
+                }
+            },
+        )
         .expect("batch should run");
 
         assert_eq!(attempted, vec!["gemini_cli", "opencode"]);
@@ -1136,7 +1137,7 @@ mod doctor_tests {
         assert!(batch.failures[0].contains("Gemini CLI"));
         assert!(batch.failures[0].contains("verification failed"));
 
-        let error = crate::summarize_managed_client_repair_batch(&batch)
+        let error = crate::switchboard_commands::summarize_managed_client_repair_batch(&batch)
             .expect_err("partial failure should stay visible");
         assert!(error.contains("repaired 1 managed client(s)"));
         assert!(error.contains("Gemini CLI"));
@@ -1153,9 +1154,10 @@ mod doctor_tests {
             false,
         )];
 
-        let error = crate::run_managed_client_repair_batch(&connectors, |_connector| {
-            Ok(test_client_setup_result("cursor", true))
-        })
+        let error = crate::switchboard_commands::run_managed_client_repair_batch(
+            &connectors,
+            |_connector| Ok(test_client_setup_result("cursor", true)),
+        )
         .expect_err("no managed clients should fail");
 
         assert_eq!(error, "no installed supported clients found to repair");
