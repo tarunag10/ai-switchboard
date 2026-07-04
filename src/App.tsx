@@ -123,6 +123,13 @@ import {
   bootstrapStepProgress,
 } from "./lib/bootstrapProgress";
 import {
+  CLAUDE_CODE_INSTALL_DOCS_URL,
+  CLAUDE_CODE_INSTALL_CURL_CMD,
+  CODEX_CLI_INSTALL_CMD,
+  CODEX_CLI_LOGIN_CMD,
+  CODEX_INSTALL_DOCS_URL,
+} from "./lib/cliInstallCommands";
+import {
   aggregateClientConnectors,
   compactNumber,
   connectorControlState,
@@ -430,15 +437,6 @@ const idleHeadroomLearnPrereqStatus: HeadroomLearnPrereqStatus = {
   codexCliPath: null,
   codexLoggedIn: false,
 };
-
-const CLAUDE_CODE_INSTALL_DOCS_URL =
-  "https://docs.claude.com/en/docs/claude-code/setup";
-const CLAUDE_CODE_INSTALL_CURL_CMD =
-  "curl -fsSL https://claude.ai/install.sh | bash";
-const CODEX_CLI_INSTALL_CMD = "npm install -g @openai/codex";
-const CODEX_CLI_LOGIN_CMD = "codex login";
-const CODEX_INSTALL_DOCS_URL = "https://developers.openai.com/codex/cli";
-const CODEX_INSTALL_NPM_CMD = "npm i -g @openai/codex";
 
 const SALES_CONTACT_URL =
   (import.meta.env.VITE_HEADROOM_SALES_CONTACT_URL ?? "").trim() ||

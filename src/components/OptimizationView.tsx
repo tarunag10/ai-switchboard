@@ -8,14 +8,14 @@ import type {
 } from "../lib/types";
 import type { TrayView } from "../lib/trayHelpers";
 import { formatLearnStatus } from "../lib/dashboardHelpers";
+import {
+  CLAUDE_CODE_INSTALL_CURL_CMD,
+  CODEX_CLI_INSTALL_CMD,
+  CODEX_CLI_LOGIN_CMD,
+  CODEX_INSTALL_DOCS_URL,
+} from "../lib/cliInstallCommands";
 import { OptimizationDashboard } from "./OptimizationDashboard";
 import { OptimizePanel } from "./OptimizePanel";
-
-const CLAUDE_CODE_INSTALL_CURL_CMD =
-  "curl -fsSL https://claude.ai/install.sh | bash";
-const CODEX_CLI_INSTALL_CMD = "npm install -g @openai/codex";
-const CODEX_CLI_LOGIN_CMD = "codex login";
-const CODEX_INSTALL_DOCS_URL = "https://developers.openai.com/codex/cli";
 
 export interface OptimizationViewProps {
   activeView: TrayView;
