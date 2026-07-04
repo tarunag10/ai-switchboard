@@ -4,6 +4,7 @@ mod backend_port;
 mod bearer;
 mod claude_cli;
 mod client_adapters;
+mod client_connector_status;
 mod client_connectors;
 mod client_paths;
 mod device;

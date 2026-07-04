@@ -11,12 +11,15 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+use crate::client_connector_status::{
+    managed_connector_config_locations, planned_connector_automation_path, MANAGED_CLIENT_SPECS,
+};
 use crate::client_connectors::{
     connector_manifest, manifest_config_locations, manifest_detection_sources,
     manifest_forbidden_reads, manifest_support_status, planned_config_creation_step_details,
     planned_connector_dry_run_preview, planned_connector_has_implemented_setup,
-    planned_sidecar_spec, PlannedClientSpec, PlannedSidecarSpec, PLANNED_CLIENT_SPECS,
-    PLANNED_CONFIG_CREATION_STEPS, PLANNED_SIDECAR_SPECS,
+    planned_sidecar_spec, PlannedSidecarSpec, PLANNED_CLIENT_SPECS, PLANNED_CONFIG_CREATION_STEPS,
+    PLANNED_SIDECAR_SPECS,
 };
 use crate::client_paths::{
     home_dir, opencode_config_path, planned_sidecar_routing_path, windsurf_config_path,
@@ -24,14 +27,13 @@ use crate::client_paths::{
     ZED_CONFIG_FILE,
 };
 use crate::models::{
-    ClientConnectorAutomationStage, ClientConnectorConfigDryRunPreview, ClientConnectorStatus,
-    ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus, CodexDbRestoreResult,
-    CodexThreadRetaggingMode, CodexThreadRetaggingReport, CodexThreadRetaggingRunReport,
-    CodexThreadRetaggingSettings, ManagedConfigApplyPreview, ManagedConfigApplyResult,
-    ManagedFootprintItem, ManagedFootprintReport, ManagedRollbackExecutionResult,
-    ManagedRollbackExecutionStatus, ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult,
-    ManagedRollbackUndoAllPreview, SavingsMode, SwitchboardMode, UninstallDryRunReport,
-    UninstallTarget,
+    ClientConnectorStatus, ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus,
+    CodexDbRestoreResult, CodexThreadRetaggingMode, CodexThreadRetaggingReport,
+    CodexThreadRetaggingRunReport, CodexThreadRetaggingSettings, ManagedConfigApplyPreview,
+    ManagedConfigApplyResult, ManagedFootprintItem, ManagedFootprintReport,
+    ManagedRollbackExecutionResult, ManagedRollbackExecutionStatus, ManagedRollbackPreview,
+    ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview, SavingsMode,
+    SwitchboardMode, UninstallDryRunReport, UninstallTarget,
 };
 use crate::storage::{app_data_dir, config_file, LEGACY_STORAGE_DIR_NAME};
 
@@ -66,105 +68,6 @@ const ALL_SHELL_FILES: [&str; 6] = [
     POSIX_PROFILE_FILE,
     BASH_RC_FILE,
 ];
-
-#[derive(Debug, Clone, Copy)]
-struct ManagedClientSpec {
-    id: &'static str,
-    name: &'static str,
-}
-
-const MANAGED_CLIENT_SPECS: [ManagedClientSpec; 2] = [
-    ManagedClientSpec {
-        id: "claude_code",
-        name: "Claude Code",
-    },
-    ManagedClientSpec {
-        id: "codex",
-        name: "Codex",
-    },
-];
-
-fn planned_connector_automation_path(
-    spec: &PlannedClientSpec,
-    installed: bool,
-    preview: Option<&ClientConnectorConfigDryRunPreview>,
-    enabled: bool,
-    verified: bool,
-) -> Vec<ClientConnectorAutomationStage> {
-    let step_details = planned_config_creation_step_details(spec, &[]);
-    let sidecar_spec = planned_sidecar_spec(spec.id);
-    step_details
-        .into_iter()
-        .map(|step| {
-            let status = match step.id.as_str() {
-                "detect" if installed => "ready",
-                "detect" => "blocked",
-                "dryRunDiff" if preview.is_some() => "ready",
-                "backup" | "apply" | "rollback" | "offCleanup"
-                    if sidecar_spec.is_some() && enabled =>
-                {
-                    "ready"
-                }
-                "verify" if sidecar_spec.is_some() && verified => "ready",
-                _ => "blocked",
-            };
-            let evidence = match step.id.as_str() {
-                "detect" if installed => {
-                    format!("{} has local detection evidence; no config writes performed.", spec.name)
-                }
-                "detect" => {
-                    format!("{} is not detected locally yet; install or expose it on PATH first.", spec.name)
-                }
-                "dryRunDiff" if let Some(preview) = preview => format!(
-                    "Blocked preview ready for {} with target {}, marker {}, backup {}, and confirmation phrase {}.",
-                    spec.name, preview.target, preview.marker, preview.backup_path, preview.confirmation_phrase
-                ),
-                "dryRunDiff" => {
-                    "Dry-run preview is blocked until a connector config surface is detected.".to_string()
-                }
-                "backup" if sidecar_spec.is_some() && enabled => format!(
-                    "{} sidecar writes use Headroom timestamped backups when {} already exists.",
-                    spec.name,
-                    planned_sidecar_routing_path(spec.id)
-                        .map(|path| path.display().to_string())
-                        .unwrap_or_else(|_| "the connector sidecar".to_string())
-                ),
-                "apply" if sidecar_spec.is_some() && enabled => format!(
-                    "{} sidecar is present at {} with the Switchboard-managed marker.",
-                    spec.name,
-                    planned_sidecar_routing_path(spec.id)
-                        .map(|path| path.display().to_string())
-                        .unwrap_or_else(|_| "the connector sidecar".to_string())
-                ),
-                "verify" if sidecar_spec.is_some() && verified => {
-                    format!(
-                        "Doctor verified the {} sidecar marker and local proxy endpoint reference.",
-                        spec.name
-                    )
-                }
-                "rollback" if sidecar_spec.is_some() && enabled => {
-                    format!(
-                        "Rollback removes only the Switchboard-managed {} sidecar block.",
-                        spec.name
-                    )
-                }
-                "offCleanup" if sidecar_spec.is_some() && enabled => {
-                    format!(
-                        "Off mode cleanup is wired through disable_client_setup for the {} sidecar.",
-                        spec.name
-                    )
-                }
-                _ => step.required_evidence.join(" "),
-            };
-            ClientConnectorAutomationStage {
-                id: step.id,
-                label: step.label,
-                status: status.to_string(),
-                evidence,
-            }
-        })
-        .collect()
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ShellFamily {
@@ -1021,20 +924,6 @@ pub fn list_client_connectors(
     }));
 
     Ok(connectors)
-}
-
-fn managed_connector_config_locations(client_id: &str) -> Vec<String> {
-    match client_id {
-        "claude_code" => vec![
-            "~/.claude/settings.json".to_string(),
-            "~/.claude/settings.local.json".to_string(),
-        ],
-        "codex" => vec![
-            "~/.codex/config.toml".to_string(),
-            "~/.codex/AGENTS.md".to_string(),
-        ],
-        _ => Vec::new(),
-    }
 }
 
 fn opencode_headroom_provider_value() -> Value {
@@ -6620,8 +6509,8 @@ mod tests {
         set_codex_thread_retagging_settings, shell_block_contains_in_files,
         shell_block_contains_text_in_files, shell_double_quote, strip_headroom_hook_from_settings,
         upsert_managed_block, write_file_if_changed, ClientSetupState, ShellFamily,
-        MANAGED_CLIENT_SPECS,
     };
+    use crate::client_connector_status::MANAGED_CLIENT_SPECS;
     use crate::client_paths::{zed_config_path, OPENCODE_CONFIG_FILE};
     use rusqlite::Connection;
 

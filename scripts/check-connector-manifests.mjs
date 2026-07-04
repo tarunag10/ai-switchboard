@@ -5,6 +5,7 @@ const manifestPath = "connectors/manifest.json";
 const schemaPath = "schemas/connector.schema.json";
 const rustPaths = [
   "src-tauri/src/client_adapters.rs",
+  "src-tauri/src/client_connector_status.rs",
   "src-tauri/src/client_connectors.rs",
 ];
 const frontendPath = "src/lib/plannedConnectors.ts";
