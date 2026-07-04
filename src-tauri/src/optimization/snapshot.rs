@@ -1,6 +1,10 @@
 use chrono::Utc;
 use std::collections::BTreeMap;
 
+use super::action_policy::{
+    actionable_compaction_decision, actionable_model_route, load_action_policy,
+    plan_prompt_cache_order, PromptSegmentPlan,
+};
 use super::cache_metrics::CacheTokenMetrics;
 use super::compaction::{decide_preemptive_compaction, CompactionInput};
 use super::model_routing::{decide_model_route, ModelRouteInput};
@@ -224,37 +228,53 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
         })
         .collect();
 
-    let routing = telemetry
-        .routing_decisions
-        .into_iter()
-        .map(|decision| ModelRoutingSnapshot {
-            task: decision.task,
-            current_model: decision.current_model,
-            selected_model: decision.selected_model,
-            fallback_model: decision.fallback_model,
-            reason: decision.reason,
-            estimated_savings_percent: decision.estimated_savings_percent,
+    let compaction_input = CompactionInput {
+        context_tokens: original_tokens,
+        context_window_tokens: 200_000,
+        projected_next_turn_tokens: bucket_tokens.get("history").copied().unwrap_or_default(),
+        threshold_percent: 72,
+    };
+    let compaction = telemetry
+        .compaction_decision
+        .map(|record| super::snapshot_types::CompactionSignalSnapshot {
+            should_compact: record.should_compact,
+            context_used_percent: f64::from(record.context_used_percent),
+            threshold_percent: record.threshold_percent,
+            reason: record.reason,
         })
-        .collect();
+        .unwrap_or_else(|| {
+            let decision = actionable_compaction_decision(&load_action_policy(), compaction_input);
+            super::snapshot_types::CompactionSignalSnapshot {
+                should_compact: decision.should_compact,
+                context_used_percent: decision.utilization_percent,
+                threshold_percent: 72,
+                reason: decision.reason,
+            }
+        });
 
-    let compaction = telemetry.compaction_decision.map_or(
-        CompactionSignalSnapshot {
-            should_compact: false,
-            context_used_percent: if original_tokens == 0 {
-                0.0
-            } else {
-                ((original_tokens.min(24_000) as f64) / 24_000.0) * 100.0
-            },
-            threshold_percent: 72,
-            reason: "No compaction decision observed yet".to_string(),
-        },
-        |decision| CompactionSignalSnapshot {
-            should_compact: decision.should_compact,
-            context_used_percent: f64::from(decision.context_used_percent),
-            threshold_percent: decision.threshold_percent,
-            reason: decision.reason,
-        },
-    );
+    let routing = if telemetry.routing_decisions.is_empty() {
+        vec![route_to_snapshot(ModelRouteInput {
+            client: "observed-session".to_string(),
+            task: "general".to_string(),
+            requested_model: "frontier".to_string(),
+            cheap_model: "fast/local".to_string(),
+            capable_model: "frontier".to_string(),
+            enabled: true,
+        })]
+    } else {
+        telemetry
+            .routing_decisions
+            .into_iter()
+            .map(|record| ModelRoutingSnapshot {
+                task: record.task,
+                current_model: record.current_model,
+                selected_model: record.selected_model,
+                fallback_model: record.fallback_model,
+                reason: record.reason,
+                estimated_savings_percent: record.estimated_savings_percent,
+            })
+            .collect()
+    };
 
     OptimizationSnapshot {
         generated_at: Utc::now().to_rfc3339(),
@@ -294,6 +314,48 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
                 focus: preset.focus,
             })
             .collect(),
+    }
+}
+
+fn order_prompt_cache_segments(
+    segments: Vec<PromptCacheSegmentSnapshot>,
+) -> Vec<PromptCacheSegmentSnapshot> {
+    let policy = load_action_policy();
+    let plans: Vec<_> = segments
+        .iter()
+        .enumerate()
+        .map(|(index, segment)| PromptSegmentPlan {
+            id: segment.id.clone(),
+            stable: segment.changes_per_session <= 1
+                || segment.id.contains("system")
+                || segment.id.contains("repo"),
+            cacheable_tokens: segment.cacheable_tokens,
+            original_index: index,
+        })
+        .collect();
+    let ordered_ids = plan_prompt_cache_order(&policy, &plans);
+    ordered_ids
+        .into_iter()
+        .filter_map(|id| segments.iter().find(|segment| segment.id == id).cloned())
+        .collect()
+}
+
+fn route_with_policy(input: ModelRouteInput) -> super::model_routing::ModelRouteDecision {
+    actionable_model_route(&load_action_policy(), &input)
+}
+
+fn route_to_snapshot(input: ModelRouteInput) -> ModelRoutingSnapshot {
+    let current_model = input.requested_model.clone();
+    let fallback_model = input.capable_model.clone();
+    let task = input.task.clone();
+    let decision = route_with_policy(input);
+    ModelRoutingSnapshot {
+        task,
+        current_model,
+        selected_model: decision.selected_model,
+        fallback_model,
+        reason: decision.reason,
+        estimated_savings_percent: if decision.observe_only { 0 } else { 35 },
     }
 }
 

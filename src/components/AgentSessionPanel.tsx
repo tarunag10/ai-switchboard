@@ -17,7 +17,6 @@ export function AgentSessionPanel() {
   const [packId, setPackId] = useState(agent?.packs[0]?.id ?? "");
   const [budget, setBudget] = useState(agent?.defaultBudget ?? 16_000);
   const [task, setTask] = useState("Implement the next scoped optimization slice.");
-  const [enabled, setEnabled] = useState(true);
   const [copied, setCopied] = useState(false);
 
   const activePackId =
@@ -26,14 +25,14 @@ export function AgentSessionPanel() {
     agentId: agent?.id ?? "codex",
     task,
     tokenBudget: budget,
-    enabled,
+    enabled: true,
     preferredPackId: activePackId,
     candidates: agent?.packs ?? [],
   };
   const preparation = prepareStartAgentSessionPack(request);
   const payload = useMemo(
     () => buildAgentSessionPayload(request),
-    [agent?.id, activePackId, budget, enabled, task],
+    [agent?.id, activePackId, budget, task],
   );
   const selectedPack = agent?.packs.find((pack) => pack.id === activePackId);
   const canCopy = preparation.inject && payload.length > 0;
@@ -130,8 +129,8 @@ export function AgentSessionPanel() {
             <span className="optimize-project-row__name">Inject stable prefix</span>
             <input
               type="checkbox"
-              checked={enabled}
-              onChange={(event) => setEnabled(event.target.checked)}
+              checked
+            readOnly
             />
           </span>
         </label>
