@@ -6,13 +6,17 @@ import {
   Lightning,
   Package,
   TerminalWindow,
-  WarningCircle
+  WarningCircle,
 } from "@phosphor-icons/react";
+
 import {
   formatCompactNumber,
   getPromptCacheAction,
+  loadOptimizationActionPolicy,
   loadOptimizationSnapshot,
-  OptimizationSnapshot
+  saveOptimizationActionPolicy,
+  type OptimizationActionPolicy,
+  type OptimizationSnapshot,
 } from "../lib/optimization";
 import { AgentSessionPanel } from "./AgentSessionPanel";
 import { RedundancyPanel } from "./RedundancyPanel";
@@ -23,6 +27,78 @@ function statusIcon(status: string) {
     return <WarningCircle weight="duotone" aria-hidden="true" />;
   }
   return <CheckCircle weight="duotone" aria-hidden="true" />;
+}
+
+
+function OptimizationActionPanel() {
+  const [policy, setPolicy] = useState<OptimizationActionPolicy | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadOptimizationActionPolicy().then((nextPolicy) => {
+      if (!cancelled) setPolicy(nextPolicy);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function toggle(key: keyof Pick<
+    OptimizationActionPolicy,
+    | "promptCacheReorderEnabled"
+    | "preemptiveCompactionEnabled"
+    | "modelRoutingEnabled"
+  >) {
+    if (!policy) return;
+    const nextPolicy = { ...policy, [key]: !policy[key] };
+    setPolicy(nextPolicy);
+    setSaving(true);
+    try {
+      setPolicy(await saveOptimizationActionPolicy(nextPolicy));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!policy) return null;
+
+  return (
+    <section className="optimize-minimal" aria-labelledby="optimization-action-title">
+      <div className="optimize-card__head">
+        <div>
+          <h2 id="optimization-action-title">Action Policy</h2>
+          <p className="optimize-minimal__meta">
+            Controls that allow Switchboard to move from observe-only to guarded actions.
+          </p>
+        </div>
+        <span className="optimize-minimal__meta">{saving ? "Saving" : "Ready"}</span>
+      </div>
+      <div className="optimize-projects">
+        <button
+          className="secondary-button secondary-button--small"
+          type="button"
+          onClick={() => void toggle("promptCacheReorderEnabled")}
+        >
+          Prompt cache reorder: {policy.promptCacheReorderEnabled ? "on" : "off"}
+        </button>
+        <button
+          className="secondary-button secondary-button--small"
+          type="button"
+          onClick={() => void toggle("preemptiveCompactionEnabled")}
+        >
+          Preemptive compaction: {policy.preemptiveCompactionEnabled ? "on" : "off"}
+        </button>
+        <button
+          className="secondary-button secondary-button--small"
+          type="button"
+          onClick={() => void toggle("modelRoutingEnabled")}
+        >
+          Model routing: {policy.modelRoutingEnabled ? "on" : "off"}
+        </button>
+      </div>
+    </section>
+  );
 }
 
 export function OptimizationDashboard() {
@@ -103,6 +179,7 @@ export function OptimizationDashboard() {
         </p>
       </div>
 
+      <OptimizationActionPanel />
       <TokenXrayPanel snapshot={snapshot.tokenXray} />
       <RedundancyPanel findings={snapshot.redundancy} />
       <AgentSessionPanel />

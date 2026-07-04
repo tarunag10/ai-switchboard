@@ -67,6 +67,13 @@ export interface OptimizationSnapshot {
   source: "tauri" | "fallback";
 }
 
+export interface OptimizationActionPolicy {
+  promptCacheReorderEnabled: boolean;
+  preemptiveCompactionEnabled: boolean;
+  modelRoutingEnabled: boolean;
+  maxPromptReorderItems: number;
+}
+
 export interface RawOptimizationSnapshot {
   promptCacheSegments?: PromptCacheSegment[];
   tokenXray?: Partial<TokenXraySnapshot>;
@@ -232,6 +239,29 @@ export async function loadOptimizationSnapshot(): Promise<OptimizationSnapshot> 
   } catch {
     return fallbackOptimizationSnapshot;
   }
+}
+
+export const defaultOptimizationActionPolicy: OptimizationActionPolicy = {
+  promptCacheReorderEnabled: false,
+  preemptiveCompactionEnabled: false,
+  modelRoutingEnabled: false,
+  maxPromptReorderItems: 24,
+};
+
+export async function loadOptimizationActionPolicy(): Promise<OptimizationActionPolicy> {
+  try {
+    return await invoke<OptimizationActionPolicy>("get_optimization_action_policy");
+  } catch {
+    return defaultOptimizationActionPolicy;
+  }
+}
+
+export async function saveOptimizationActionPolicy(
+  policy: OptimizationActionPolicy,
+): Promise<OptimizationActionPolicy> {
+  return invoke<OptimizationActionPolicy>("set_optimization_action_policy", {
+    policy,
+  });
 }
 
 function normalizeTokenXray(
