@@ -1,4 +1,5 @@
 import { ArrowClockwise, Brain, Terminal } from "@phosphor-icons/react";
+import { useState } from "react";
 import type {
   ClaudeCodeProject,
   HeadroomLearnPrereqStatus,
@@ -74,6 +75,8 @@ export function OptimizationView({
   claudeProjectsError,
   learnBlurb,
 }: OptimizationViewProps) {
+  const [showSetupDetails, setShowSetupDetails] = useState(false);
+
   return (
     <div className="tray-content" hidden={activeView !== "optimization"}>
       <article className="soft-card optimize-card">
@@ -89,11 +92,25 @@ export function OptimizationView({
         <div className="optimize-card__body">
           <OptimizationDashboard />
           <div className="optimize-learn-setup" role="note">
-            <strong>Where this lives</strong>
-            <span>
-              Enable Claude Code or Codex in Addons, then return here and
-              run a visible scan button for the project or session history.
-            </span>
+            <div>
+              <strong>Learning setup</strong>
+              <span>Use enabled connectors to scan project or session history.</span>
+            </div>
+            <button
+              type="button"
+              className="optimize-learn-setup__details"
+              aria-expanded={showSetupDetails}
+              aria-controls="optimization-setup-details"
+              onClick={() => setShowSetupDetails((open) => !open)}
+            >
+              {showSetupDetails ? "Hide details" : "Details"}
+            </button>
+            {showSetupDetails ? (
+              <p id="optimization-setup-details">
+                Enable Claude Code or Codex in Addons, then return here and run
+                a visible scan button for the project or session history.
+              </p>
+            ) : null}
           </div>
           {!headroomLearnSupported ? (
             <div className="optimize-minimal">

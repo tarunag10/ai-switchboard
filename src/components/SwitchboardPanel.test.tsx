@@ -105,7 +105,8 @@ function renderPanel(
 }
 
 describe("SwitchboardPanel", () => {
-  it("renders the current mode and local-only status", () => {
+  it("renders the current mode and local-only status", async () => {
+    const user = userEvent.setup();
     renderPanel();
 
     expect(
@@ -135,6 +136,16 @@ describe("SwitchboardPanel", () => {
     expect(screen.getAllByText("82.5% average savings").length).toBeGreaterThan(
       0,
     );
+    expect(
+      inspector.queryByText("Managed RTK PATH export is present."),
+    ).not.toBeInTheDocument();
+
+    const detailsButton = inspector.getByRole("button", { name: "Details" });
+    expect(detailsButton).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(detailsButton);
+
+    expect(detailsButton).toHaveAttribute("aria-expanded", "true");
     expect(
       inspector.getByText("Managed RTK PATH export is present."),
     ).toBeInTheDocument();
@@ -296,6 +307,14 @@ describe("SwitchboardPanel", () => {
     const inspector = within(screen.getByLabelText("Mode Inspector"));
     expect(inspector.getByText("Gemini CLI routing")).toBeInTheDocument();
     expect(
+      inspector.queryByText(
+        "Gemini CLI routing is repair ready. Use Auto-fix app-managed setup to re-apply reversible app-managed setup and verify routing evidence.",
+      ),
+    ).not.toBeInTheDocument();
+
+    await user.click(inspector.getByRole("button", { name: "Details" }));
+
+    expect(
       inspector.getByText(
         "Gemini CLI routing is repair ready. Use Auto-fix app-managed setup to re-apply reversible app-managed setup and verify routing evidence.",
       ),
@@ -308,7 +327,8 @@ describe("SwitchboardPanel", () => {
     expect(onAction).toHaveBeenCalledTimes(1);
   });
 
-  it("points direct Codex provider rows back to repair-ready routing", () => {
+  it("points direct Codex provider rows back to repair-ready routing", async () => {
+    const user = userEvent.setup();
     renderPanel({
       inspectorRows: [
         {
@@ -321,6 +341,14 @@ describe("SwitchboardPanel", () => {
     });
 
     const inspector = within(screen.getByLabelText("Mode Inspector"));
+    expect(
+      inspector.queryByText(
+        "Codex provider routing is repair ready. Use the Codex routing repair-ready row to re-apply the managed provider block.",
+      ),
+    ).not.toBeInTheDocument();
+
+    await user.click(inspector.getByRole("button", { name: "Details" }));
+
     expect(
       inspector.getByText(
         "Codex provider routing is repair ready. Use the Codex routing repair-ready row to re-apply the managed provider block.",
@@ -372,7 +400,8 @@ describe("SwitchboardPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("surfaces stale shell restart guidance when mode evidence needs attention", () => {
+  it("surfaces stale shell restart guidance when mode evidence needs attention", async () => {
+    const user = userEvent.setup();
     renderPanel({
       mode: "off",
       effectiveMode: "full",
@@ -387,6 +416,12 @@ describe("SwitchboardPanel", () => {
     const inspector = within(screen.getByLabelText("Mode Inspector"));
     expect(inspector.getByText("Stale shells")).toBeInTheDocument();
     expect(inspector.getByText("Restart shells")).toBeInTheDocument();
+    expect(
+      inspector.queryByText(/ANTHROPIC_BASE_URL, OPENAI_BASE_URL, or PATH/),
+    ).not.toBeInTheDocument();
+
+    await user.click(inspector.getByRole("button", { name: "Details" }));
+
     expect(
       inspector.getByText(/ANTHROPIC_BASE_URL, OPENAI_BASE_URL, or PATH/),
     ).toBeInTheDocument();

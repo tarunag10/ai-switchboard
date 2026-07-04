@@ -132,6 +132,7 @@ export function SwitchboardPanel({
   const hiddenConnectorCount = Math.max(0, connectors.length - visibleConnectors.length);
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
+  const [showInspectorDetails, setShowInspectorDetails] = useState(false);
 
   async function copySwitchboardState() {
     if (!navigator.clipboard) {
@@ -320,6 +321,18 @@ export function SwitchboardPanel({
         ))}
 </ul>
 <div className="switchboard-panel__inspector" aria-label="Mode Inspector">
+  <div className="switchboard-panel__inspector-head">
+    <span>Mode Inspector</span>
+    <button
+      type="button"
+      className="switchboard-panel__inspector-details"
+      aria-expanded={showInspectorDetails}
+      aria-controls="switchboard-mode-inspector-details"
+      onClick={() => setShowInspectorDetails((open) => !open)}
+    >
+      {showInspectorDetails ? "Hide details" : "Details"}
+    </button>
+  </div>
   <div>
     <span>Requested</span>
     <strong>{modeLabel}</strong>
@@ -331,44 +344,51 @@ export function SwitchboardPanel({
   <div>
     <span>Headroom engine</span>
     <strong>{proxyStatus}</strong>
-    <small>{headroomDetail}</small>
+    {showInspectorDetails ? <small>{headroomDetail}</small> : null}
   </div>
   <div>
     <span>RTK hook</span>
     <strong>{rtkStatus}</strong>
-    <small>{rtkDetail}</small>
+    {showInspectorDetails ? <small>{rtkDetail}</small> : null}
   </div>
   {showStaleShellWarning ? (
     <div>
       <span>Stale shells</span>
       <strong>Restart shells</strong>
-      <small>
-        Terminals or editors opened before this mode change can retain old
-        ANTHROPIC_BASE_URL, OPENAI_BASE_URL, or PATH exports until restarted.
-      </small>
-    </div>
-  ) : null}
-  {inspectorRows.map((row) => (
-    <div key={row.label}>
-      <span>{row.label}</span>
-      <strong>{row.status}</strong>
-      <small>{row.detail}</small>
-      {row.onAction && row.actionLabel ? (
-        <button
-          type="button"
-          className="switchboard-panel__inspector-action"
-          disabled={row.actionDisabled}
-          onClick={row.onAction}
-        >
-          {row.actionBusyLabel ?? row.actionLabel}
-        </button>
+      {showInspectorDetails ? (
+        <small>
+          Terminals or editors opened before this mode change can retain old
+          ANTHROPIC_BASE_URL, OPENAI_BASE_URL, or PATH exports until restarted.
+        </small>
       ) : null}
     </div>
-  ))}
+  ) : null}
+  <div
+    id="switchboard-mode-inspector-details"
+    className="switchboard-panel__inspector-detail-rows"
+  >
+    {inspectorRows.map((row) => (
+      <div key={row.label}>
+        <span>{row.label}</span>
+        <strong>{row.status}</strong>
+        {showInspectorDetails ? <small>{row.detail}</small> : null}
+        {row.onAction && row.actionLabel ? (
+          <button
+            type="button"
+            className="switchboard-panel__inspector-action"
+            disabled={row.actionDisabled}
+            onClick={row.onAction}
+          >
+            {row.actionBusyLabel ?? row.actionLabel}
+          </button>
+        ) : null}
+      </div>
+    ))}
+  </div>
   <div>
     <span>Remote services</span>
     <strong>{remoteCopy.label}</strong>
-    <small>{remoteCopy.detail}</small>
+    {showInspectorDetails ? <small>{remoteCopy.detail}</small> : null}
   </div>
 </div>
 <div
