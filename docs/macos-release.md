@@ -185,6 +185,8 @@ For a small app, the simplest setup is:
 - GitHub Releases for DMG and updater artifacts
 - a stable `latest.json` release asset URL
 
+Website and release-page download CTAs should present the product as **AI Switchboard for Mac** and link to the GitHub Release asset. Do not rename compatibility artifact paths in this slice: `Mac-AI-Switchboard_<version>.dmg`, `/Applications/Mac AI Switchboard.app`, and the existing updater endpoint stay valid until a tested migration replaces them.
+
 `latest.json` should follow Tauri's static updater format and include the macOS platform entry, the signed update bundle URL, and the bundle signature.
 
 You can later move the updater feed to S3 or another CDN without changing app code, as long as the published endpoint URL stays valid and the signatures match the embedded public key.

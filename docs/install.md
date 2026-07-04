@@ -14,6 +14,8 @@ Once releases are published:
 4. On first launch, approve the local runtime install. The app downloads a self-contained Python runtime and managed tools into `~/Library/Application Support/Mac AI Switchboard`.
 5. Choose **Full optimization**, **Headroom only**, **RTK only**, or **Off mode**.
 
+Public website/download copy should say **Download AI Switchboard for Mac** and link to the current GitHub Release. Keep the compatibility note visible anywhere the raw asset filename is shown: DMGs may still be named `Mac-AI-Switchboard_<version>.dmg` until updater, smoke-test, and install automation have a proven migration path.
+
 ## Current Source Install
 
 Until a signed DMG is published:

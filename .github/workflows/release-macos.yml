@@ -282,7 +282,7 @@ jobs:
         with:
           projectPath: .
           tagName: v__VERSION__
-          releaseName: Mac AI Switchboard v__VERSION__
+          releaseName: AI Switchboard for Mac v__VERSION__
           releaseBody: ${{ steps.release_notes.outputs.body }}
           generateReleaseNotes: false
           releaseDraft: false
@@ -342,7 +342,7 @@ jobs:
           gh release delete staging-rolling --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
           gh release create staging-rolling \
             --repo "$GITHUB_REPOSITORY" \
-            --title "Mac AI Switchboard staging (rolling)" \
+            --title "AI Switchboard for Mac staging (rolling)" \
             --notes "Rolling pointer to the latest build. Current: ${STABLE_TAG} (stable)." \
             --prerelease \
             --target "$GITHUB_SHA" \

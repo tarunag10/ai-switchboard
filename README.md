@@ -57,7 +57,7 @@ AI Switchboard is a privacy-first platform for turning local coding-agent optimi
 
 Switchboard is **local-first**, not offline-only. Claude, OpenAI, and other provider model calls still go to the configured remote APIs. Switchboard state, reversible client config edits, Doctor repair data, add-on setup, telemetry defaults, and Repo Intelligence metadata stay on your Mac.
 
-Current status: active productization branch. The standalone repository is public, but signed release artifacts are not published yet. Build from source for now.
+Current status: active productization branch. The standalone repository is public, but signed release artifacts are not published yet. Build from source for now; the public download flow will point users to GitHub Releases once signed/notarized DMGs are ready.
 
 For local development, run `npm run app:run` or use the Codex desktop **Run** action. Both point at `script/build_and_run.sh`, which stops any existing app process and launches the Tauri development build. Use `script/build_and_run.sh --verify` when you want a one-command launch health check.
 
@@ -301,6 +301,8 @@ research/                    Tool compatibility and planning notes
 ## Release Flow
 
 Updates ship outside the App Store through Tauri's updater and GitHub Releases. Local DMG builds and release workflows run validation before artifacts are published. See [docs/macos-release.md](docs/macos-release.md).
+
+Public download surfaces should use **AI Switchboard** for the platform and **AI Switchboard for Mac** for the macOS app. Link downloads to GitHub Releases rather than committing or mirroring local DMGs. During the compatibility window, release assets may still use `Mac-AI-Switchboard_<version>.dmg` names so updater feeds, installed-app smoke checks, and existing automation keep working.
 
 Maintainer commands:
 

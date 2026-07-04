@@ -228,6 +228,9 @@ const requiredDocSignals = {
   ],
   "docs/install.md": [
     "Mac-AI-Switchboard_<version>.dmg",
+    "Download AI Switchboard for Mac",
+    "GitHub Release",
+    "compatibility note visible",
     "Applications",
     "local-first, not offline-only",
     "Full optimization",
@@ -260,6 +263,9 @@ const requiredDocSignals = {
     "staging-rolling",
     "latest.json",
     "GitHub Releases",
+    "AI Switchboard for Mac",
+    "Do not rename compatibility artifact paths",
+    "Mac-AI-Switchboard_<version>.dmg",
     "npm run smoke:preflight",
     "/Applications/Mac AI Switchboard.app",
     "Treat the build as blocked",
@@ -913,6 +919,8 @@ const workflowSignals = {
     "tauri-apps/tauri-action",
     "latest.json",
     "releases/latest/download/latest.json",
+    "AI Switchboard for Mac v__VERSION__",
+    "AI Switchboard for Mac staging (rolling)",
   ],
   ".github/workflows/release-macos-staging.yml": [
     "branches:",
@@ -929,6 +937,8 @@ const workflowSignals = {
     "tauri-apps/tauri-action",
     "latest.json",
     "releases/download/staging-rolling/latest.json",
+    "AI Switchboard for Mac v__VERSION__ (staging)",
+    "AI Switchboard for Mac staging (rolling)",
   ],
 };
 
