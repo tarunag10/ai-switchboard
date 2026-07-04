@@ -66,7 +66,6 @@ import {
   buildAddonHealthCards,
   plannedAddons,
   type AddonHealthCard,
-  type PlannedAddon,
 } from "./lib/plannedAddons";
 import {
   buildAgentSessionPreparation,
@@ -104,7 +103,6 @@ import {
   getPlannedConnectorReadinessContract,
   getPlannedConnectorSetupChecklistScript,
   getPlannedConnectorSetupGuide,
-  plannedConnectors,
   type ConnectorDossier,
   type PlannedConnector,
 } from "./lib/plannedConnectors";
@@ -290,6 +288,7 @@ import {
 import { ActivityFeed } from "./components/ActivityFeed";
 import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
+import { PlannedAddonCard } from "./components/PlannedAddonCard";
 import { RepoMapView } from "./components/RepoMapView";
 import { SettingsLegalPanel } from "./components/SettingsLegalPanel";
 import { TermsGate } from "./components/TermsGate";
@@ -1711,97 +1710,6 @@ function AddonCard({
   );
 }
 
-function PlannedAddonCard({
-  addon,
-  onCopyConnectorConfigPlan,
-  onOpenRepoIntelligence,
-}: {
-  addon: PlannedAddon;
-  onCopyConnectorConfigPlan?: (connector: PlannedConnector) => void;
-  onOpenRepoIntelligence?: () => void;
-}) {
-  const showConnectorRoadmap = addon.id === "agent_connectors";
-  const showRepoIntelligencePreview = addon.id === "repo_intelligence";
-  const isRepoIntelligence = addon.id === "repo_intelligence";
-  const cardClassName = isRepoIntelligence
-    ? "addon-card addon-card--active"
-    : "addon-card addon-card--planned";
-  const badgeClassName = isRepoIntelligence
-    ? "addon-card__badge addon-card__badge--ready"
-    : "addon-card__badge addon-card__badge--planned";
-
-  return (
-    <li className={cardClassName}>
-      <div className="addon-card__body">
-        <div className="addon-card__heading">
-          <span className="addon-card__name">{addon.name}</span>
-          <span className={badgeClassName}>{addon.statusLabel}</span>
-        </div>
-        <p className="addon-card__description">{addon.description}</p>
-        <ul className="addon-card__bullets">
-          {addon.bullets.map((bullet) => (
-            <li key={bullet}>{bullet}</li>
-          ))}
-        </ul>
-        <div className="addon-card__evidence-grid">
-          <section>
-            <h4>Health checks</h4>
-            <ul>
-              {addon.healthChecks.map((check) => (
-                <li key={check}>{check}</li>
-              ))}
-            </ul>
-          </section>
-          <section>
-            <h4>Savings sources</h4>
-            <ul>
-              {addon.savingsSources.map((source) => (
-                <li key={source}>{source}</li>
-              ))}
-            </ul>
-          </section>
-        </div>
-        {addon.verificationCommand ? (
-          <p className="addon-card__verification">
-            <Terminal size={13} weight="duotone" />
-            <code>{addon.verificationCommand}</code>
-          </p>
-        ) : null}
-        {showConnectorRoadmap ? (
-          <PlannedConnectorRoadmap
-            connectors={plannedConnectors}
-            onCopyConfigPlan={
-              onCopyConnectorConfigPlan ??
-              (() => undefined)
-            }
-          />
-        ) : null}
-        {showRepoIntelligencePreview ? (
-          <div className="repo-intelligence-addon-cta">
-            <strong>Dedicated workspace is available.</strong>
-            <span>
-              Open Repo Intelligence to index a repository and copy real local
-              packs.
-            </span>
-            <button
-              className="addon-card__action addon-card__action--primary"
-              onClick={onOpenRepoIntelligence}
-              type="button"
-            >
-              Open Repo Intelligence
-            </button>
-          </div>
-        ) : null}
-      </div>
-      <div className="addon-card__actions">
-        <span className="addon-card__action-status">
-          {isRepoIntelligence ? "Use the open action above" : "Details include readiness"}
-        </span>
-      </div>
-    </li>
-  );
-}
-
 const repoIntelligencePreview = buildRepoIntelligenceSummary([
   { path: "src/App.tsx", bytes: 184_000 },
   { path: "src/lib/dashboardHelpers.ts", bytes: 28_000 },
@@ -2734,147 +2642,6 @@ function RepoIntelligencePreview({
           ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-function connectorCategoryLabel(category: PlannedConnector["category"]) {
-  switch (category) {
-    case "cli":
-      return "CLI";
-    case "editor":
-      return "Editor";
-    case "agent":
-      return "Agent";
-  }
-}
-
-function PlannedConnectorRoadmap({
-  connectors,
-  onCopyConfigPlan,
-}: {
-  connectors: PlannedConnector[];
-  onCopyConfigPlan: (connector: PlannedConnector) => void;
-}) {
-  return (
-    <div className="planned-connectors" aria-label="Connector roadmap">
-      <div className="planned-connectors__intro">
-        <span>Expansion path</span>
-        <strong>Detect first, adapt only when reversible.</strong>
-      </div>
-      <div
-        className="planned-connectors__steps"
-        aria-label="Connector setup phases"
-      >
-        <span>Read-only detection</span>
-        <span>Guided setup</span>
-        <span>Doctor-backed cleanup</span>
-      </div>
-      <ul className="planned-connectors__list">
-        {connectors.map((connector) => {
-          const readiness = getPlannedConnectorReadinessContract(connector);
-          const readinessBadges = getPlannedConnectorReadinessBadges(connector);
-          const configPlan = getPlannedConnectorConfigCreationPlan(connector);
-          return (
-          <li className="planned-connectors__item" key={connector.id}>
-            <div className="planned-connectors__item-head">
-              <strong>{connector.name}</strong>
-              <span>{connectorCategoryLabel(connector.category)}</span>
-            </div>
-            <p>{connector.integrationTarget}</p>
-            <div className="planned-connectors__capabilities">
-              {connector.capabilityBadges.map((badge) => (
-                <span key={badge}>{badge}</span>
-              ))}
-            </div>
-            <div
-              className="planned-connectors__badges"
-              aria-label={`${connector.name} safety badges`}
-            >
-              {readinessBadges.map((badge) => (
-                <span
-                  className={`planned-connectors__badge planned-connectors__badge--${badge.kind}`}
-                  key={badge.kind}
-                  title={badge.detail}
-                >
-                  {badge.label}
-                </span>
-              ))}
-            </div>
-            <div
-              className="planned-connectors__modes"
-              aria-label={`${connector.name} supported modes`}
-            >
-              {connector.supportedModes.map((mode) => (
-                <span key={mode}>{mode}</span>
-              ))}
-            </div>
-            <div className="planned-connectors__readiness">
-              <div>
-                <span>Config surface</span>
-                <strong>{connector.configSurfaces[0]}</strong>
-              </div>
-              <div>
-                <span>Next gate</span>
-                <strong>
-                  {readiness.stages.find(
-                    (stage) => stage.id === readiness.nextBlockedStage,
-                  )?.label ?? "Automation ready"}
-                </strong>
-              </div>
-            </div>
-            <div
-              className="planned-connectors__config-plan"
-              aria-label={`${connector.name} config creation plan`}
-              title={configPlan.safetyNote}
-            >
-              <div className="planned-connectors__config-plan-head">
-                <span>Config creation</span>
-                <button
-                  type="button"
-                  className="planned-connectors__copy"
-                  onClick={() => onCopyConfigPlan(connector)}
-                  aria-label={`Copy ${connector.name} config creation plan`}
-                >
-                  <Copy size={13} weight="bold" />
-                </button>
-              </div>
-              <div>
-                {configPlan.steps.map((step) => (
-                  <strong key={step.id} title={step.detail}>
-                    {step.label}
-                  </strong>
-                ))}
-              </div>
-            </div>
-            <div
-              className="planned-connectors__stage-row"
-              aria-label={`${connector.name} readiness stages`}
-            >
-              {readiness.stages.slice(0, 4).map((stage) => (
-                <span
-                  className={`planned-connectors__stage planned-connectors__stage--${stage.state}`}
-                  key={stage.id}
-                  title={stage.evidence}
-                >
-                  {stage.label}
-                </span>
-              ))}
-            </div>
-            <p className="planned-connectors__manual">
-              Today: {connector.safeToday}
-            </p>
-            <p className="planned-connectors__manual">
-              Next: {connector.firstAutomation}
-            </p>
-            <div className="planned-connectors__meta">
-              <span>{connector.setupPhase}</span>
-              <span>{connector.statusLabel}</span>
-            </div>
-          </li>
-          );
-        })}
-      </ul>
     </div>
   );
 }
