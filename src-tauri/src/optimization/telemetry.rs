@@ -107,12 +107,13 @@ pub(crate) fn record_token_xray_bucket(bucket: impl Into<String>, tokens: u64) {
     if bucket.trim().is_empty() || tokens == 0 {
         return;
     }
+    telemetry_store::record_token_xray_bucket(&bucket, tokens);
     with_collector(|collector| {
         push_bounded(
             &mut collector.token_buckets,
             TokenBucketMetrics { bucket, tokens },
             MAX_TOKEN_BUCKETS,
-        );
+        )
     });
 }
 
@@ -175,7 +176,14 @@ pub(crate) fn snapshot() -> TelemetrySnapshot {
         let routing_memory: Vec<_> = collector.routing_decisions.iter().cloned().collect();
         TelemetrySnapshot {
             cache_metrics: telemetry_store::prompt_cache_totals(),
-            token_buckets: collector.token_buckets.iter().cloned().collect(),
+            token_buckets: {
+                let memory: Vec<_> = collector.token_buckets.iter().cloned().collect();
+                if memory.is_empty() {
+                    telemetry_store::token_xray_bucket_totals()
+                } else {
+                    memory
+                }
+            },
             redundancy_hashes: collector.redundancy_hashes.iter().cloned().collect(),
             compaction_decision: collector
                 .compaction_decision
@@ -288,5 +296,18 @@ mod tests {
         let snapshot = snapshot();
         assert_eq!(snapshot.routing_decisions.len(), 1);
         assert_eq!(snapshot.routing_decisions[0].selected_model, "gpt-5-mini");
+    }
+    #[test]
+    fn snapshot_restores_token_xray_buckets_from_sqlite() {
+        let _guard = test_guard();
+        reset_for_tests();
+
+        record_token_xray_bucket("tool", 21);
+        with_collector(|collector| collector.token_buckets.clear());
+
+        let snapshot = snapshot();
+        assert_eq!(snapshot.token_buckets.len(), 1);
+        assert_eq!(snapshot.token_buckets[0].bucket, "tool");
+        assert_eq!(snapshot.token_buckets[0].tokens, 21);
     }
 }

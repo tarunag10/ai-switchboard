@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use rusqlite::{params, Connection};
 
 use super::cache_metrics::CacheTokenMetrics;
-use super::telemetry::{CompactionDecisionRecord, RoutingDecisionRecord};
+use super::telemetry::{CompactionDecisionRecord, RoutingDecisionRecord, TokenBucketMetrics};
 
 const DB_FILE: &str = "optimization_telemetry.sqlite";
 
@@ -43,6 +43,12 @@ fn open_connection() -> rusqlite::Result<Connection> {
             fallback_model TEXT NOT NULL,
             reason TEXT NOT NULL,
             estimated_savings_percent INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS token_xray_bucket_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            bucket TEXT NOT NULL,
+            tokens INTEGER NOT NULL
         );",
     )?;
     Ok(conn)
@@ -193,6 +199,53 @@ fn try_recent_routing_decisions(limit: usize) -> rusqlite::Result<Vec<RoutingDec
     Ok(decisions)
 }
 
+pub(crate) fn record_token_xray_bucket(bucket: &str, tokens: u64) {
+    if bucket.trim().is_empty() || tokens == 0 {
+        return;
+    }
+    if let Err(error) = try_record_token_xray_bucket(bucket, tokens) {
+        log::warn!("optimization token x-ray telemetry persist failed: {error}");
+    }
+}
+
+fn try_record_token_xray_bucket(bucket: &str, tokens: u64) -> rusqlite::Result<()> {
+    let conn = open_connection()?;
+    conn.execute(
+        "INSERT INTO token_xray_bucket_events (bucket, tokens) VALUES (?1, ?2)",
+        params![bucket, tokens as i64],
+    )?;
+    Ok(())
+}
+
+pub(crate) fn token_xray_bucket_totals() -> Vec<TokenBucketMetrics> {
+    try_token_xray_bucket_totals().unwrap_or_else(|error| {
+        log::warn!("optimization token x-ray telemetry read failed: {error}");
+        Vec::new()
+    })
+}
+
+fn try_token_xray_bucket_totals() -> rusqlite::Result<Vec<TokenBucketMetrics>> {
+    let conn = open_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT bucket, COALESCE(SUM(tokens), 0)
+        FROM token_xray_bucket_events
+        GROUP BY bucket
+        ORDER BY bucket ASC",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(TokenBucketMetrics {
+            bucket: row.get(0)?,
+            tokens: row.get::<_, i64>(1)?.max(0) as u64,
+        })
+    })?;
+
+    let mut buckets = Vec::new();
+    for row in rows {
+        buckets.push(row?);
+    }
+    Ok(buckets)
+}
+
 pub(crate) fn prompt_cache_totals() -> CacheTokenMetrics {
     try_prompt_cache_totals().unwrap_or_else(|error| {
         log::warn!("optimization telemetry read failed: {error}");
@@ -227,6 +280,7 @@ pub(crate) fn reset_for_tests() {
         let _ = conn.execute("DELETE FROM prompt_cache_events", []);
         let _ = conn.execute("DELETE FROM compaction_decisions", []);
         let _ = conn.execute("DELETE FROM routing_decisions", []);
+        let _ = conn.execute("DELETE FROM token_xray_bucket_events", []);
     }
 }
 
@@ -238,6 +292,7 @@ mod tests {
 
     #[test]
     fn prompt_cache_metrics_round_trip_through_sqlite() {
+        let _guard = crate::optimization::telemetry::test_guard();
         let home = tempdir().expect("temp home");
         let previous_home = std::env::var_os("HOME");
         std::env::set_var("HOME", home.path());
@@ -275,6 +330,7 @@ mod tests {
     }
     #[test]
     fn routing_decisions_round_trip_through_sqlite() {
+        let _guard = crate::optimization::telemetry::test_guard();
         let home = tempdir().expect("temp home");
         let previous_home = std::env::var_os("HOME");
         std::env::set_var("HOME", home.path());
@@ -293,6 +349,32 @@ mod tests {
         assert_eq!(decisions.len(), 1);
         assert_eq!(decisions[0].selected_model, "gpt-5-mini");
         assert_eq!(decisions[0].estimated_savings_percent, 42);
+
+        match previous_home {
+            Some(value) => std::env::set_var("HOME", value),
+            None => std::env::remove_var("HOME"),
+        }
+    }
+    #[test]
+    fn token_xray_buckets_round_trip_through_sqlite() {
+        let _guard = crate::optimization::telemetry::test_guard();
+        let home = tempdir().expect("temp home");
+        let previous_home = std::env::var_os("HOME");
+        std::env::set_var("HOME", home.path());
+
+        reset_for_tests();
+        record_token_xray_bucket("tool", 12);
+        record_token_xray_bucket("tool", 8);
+        record_token_xray_bucket("history", 5);
+
+        let buckets = token_xray_bucket_totals();
+        assert_eq!(buckets.len(), 2);
+        assert!(buckets
+            .iter()
+            .any(|bucket| bucket.bucket == "tool" && bucket.tokens == 20));
+        assert!(buckets
+            .iter()
+            .any(|bucket| bucket.bucket == "history" && bucket.tokens == 5));
 
         match previous_home {
             Some(value) => std::env::set_var("HOME", value),
