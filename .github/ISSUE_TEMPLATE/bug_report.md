@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a reproducible Mac AI Switchboard problem
+about: Report a reproducible AI Switchboard problem
 title: "[Bug]: "
 labels: bug
 assignees: ""

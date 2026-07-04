@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest a local-first Mac AI Switchboard improvement
+about: Suggest a local-first AI Switchboard improvement
 title: "[Feature]: "
 labels: enhancement
 assignees: ""

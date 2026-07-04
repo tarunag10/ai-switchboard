@@ -316,7 +316,7 @@ jobs:
           const rustPackages = [...cargoLock.matchAll(/\[\[package\]\]\nname = "([^"]+)"\nversion = "([^"]+)"/g)]
             .map(([, name, version]) => ({ type: "cargo", name, version }));
           console.log(JSON.stringify({
-            bomFormat: "Mac AI Switchboard dependency summary",
+            bomFormat: "AI Switchboard dependency summary",
             specVersion: "0.1",
             app: { name: packageJson.name, version: packageJson.version },
             generatedAt: new Date().toISOString(),
