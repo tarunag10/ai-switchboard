@@ -34,6 +34,7 @@ Visible docs:
 - [Plan status ledger](docs/plan-status-ledger.md)
 - [Product roadmap plan](docs/product-roadmap-plan.md)
 - [Agent Control Center implementation plan](docs/agent-control-center-implementation-plan.md)
+- [Agent Memory implementation plan](docs/agent-memory-implementation-plan.md)
 - [Fable security implementation plan](docs/fable-security-implementation-plan.md)
 - [Adapter lifecycle](docs/adapter-lifecycle.md)
 - [Benchmarks](docs/benchmarks.md)
