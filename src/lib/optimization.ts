@@ -62,12 +62,23 @@ export interface CompactionSignal {
   nextAction: string;
 }
 
+interface RawCompactionSignal extends Partial<CompactionSignal> {
+  shouldCompact?: boolean;
+  thresholdPercent?: number;
+  reason?: string;
+}
+
 export interface AgentPackInjectionStatus {
   enabled: boolean;
   packName: string;
   lastInjectedAt: string | null;
   status: OptimizationHealth;
   message: string;
+}
+
+interface RawAgentPackInjectionStatus extends Partial<AgentPackInjectionStatus> {
+  source?: string;
+  injected?: boolean;
 }
 
 export interface RtkPreset {
@@ -137,8 +148,8 @@ export interface RawOptimizationSnapshot {
   tokenXray?: Partial<TokenXraySnapshot>;
   redundancy?: RedundancyFinding[];
   routing?: ModelRoutingDecision[];
-  compaction?: Partial<CompactionSignal>;
-  agentPack?: Partial<AgentPackInjectionStatus>;
+  compaction?: RawCompactionSignal;
+  agentPack?: RawAgentPackInjectionStatus;
   bypass?: Partial<CompressionBypassSnapshot> | null;
   rtkPresets?: RtkPreset[];
   generatedAt?: string;
@@ -247,6 +258,14 @@ export function normalizeOptimizationSnapshot(
       : fallbackSegments
   );
   const tokenXray = normalizeTokenXray(raw.tokenXray, promptCache);
+  const rawCompaction = raw.compaction;
+  const compactionReason = rawCompaction?.nextAction ?? rawCompaction?.reason;
+  const compactionUsed = rawCompaction?.contextUsedPercent ?? 0;
+  const compactionState =
+    rawCompaction?.state ?? (rawCompaction?.shouldCompact ? "blocked" : compactionUsed > 0 ? "good" : "watch");
+  const rawAgentPack = raw.agentPack;
+  const agentPackEnabled = rawAgentPack?.enabled ?? rawAgentPack?.injected ?? false;
+  const agentPackName = rawAgentPack?.packName ?? rawAgentPack?.source ?? "Start Agent Session";
 
   return {
     promptCache,
@@ -255,20 +274,18 @@ export function normalizeOptimizationSnapshot(
     redundancy: normalizeRedundancy(raw.redundancy),
     routing: raw.routing && raw.routing.length > 0 ? raw.routing : [],
     compaction: {
-      state: raw.compaction?.state ?? "watch",
-      contextUsedPercent: raw.compaction?.contextUsedPercent ?? 0,
-      triggerAtPercent: raw.compaction?.triggerAtPercent ?? 90,
-      nextAction:
-        raw.compaction?.nextAction ??
-        "No live context threshold check has been recorded yet."
+      state: compactionState,
+      contextUsedPercent: compactionUsed,
+      triggerAtPercent: rawCompaction?.triggerAtPercent ?? rawCompaction?.thresholdPercent ?? 90,
+      nextAction: compactionReason ?? "No live context threshold check has been recorded yet."
     },
     agentPack: {
-      enabled: raw.agentPack?.enabled ?? false,
-      packName: raw.agentPack?.packName ?? "Start Agent Session",
-      lastInjectedAt: raw.agentPack?.lastInjectedAt ?? null,
-      status: raw.agentPack?.status ?? "watch",
+      enabled: agentPackEnabled,
+      packName: agentPackName,
+      lastInjectedAt: rawAgentPack?.lastInjectedAt ?? null,
+      status: rawAgentPack?.status ?? (agentPackEnabled ? "good" : "watch"),
       message:
-        raw.agentPack?.message ??
+        rawAgentPack?.message ??
         "No live agent-pack injection telemetry has been recorded yet."
     },
     bypass: normalizeCompressionBypass(raw.bypass),
@@ -340,18 +357,16 @@ function normalizeTokenXray(
   tokenXray: Partial<TokenXraySnapshot> | undefined,
   promptCache: PromptCacheEfficiency
 ): TokenXraySnapshot {
-  const originalTokens = tokenXray?.originalTokens ?? promptCache.totalTokens + 3200;
-  const optimizedTokens =
-    tokenXray?.optimizedTokens ??
-    Math.max(originalTokens - promptCache.estimatedTokensSaved, 0);
+  const originalTokens = tokenXray?.originalTokens ?? promptCache.totalTokens;
+  const optimizedTokens = tokenXray?.optimizedTokens ?? originalTokens;
 
   const snapshot: TokenXraySnapshot = {
     originalTokens,
     optimizedTokens,
-    systemTokens: tokenXray?.systemTokens ?? Math.round(optimizedTokens * 0.28),
-    userTokens: tokenXray?.userTokens ?? Math.round(optimizedTokens * 0.34),
-    toolTokens: tokenXray?.toolTokens ?? Math.round(optimizedTokens * 0.24),
-    packTokens: tokenXray?.packTokens ?? Math.round(optimizedTokens * 0.14),
+    systemTokens: tokenXray?.systemTokens ?? 0,
+    userTokens: tokenXray?.userTokens ?? 0,
+    toolTokens: tokenXray?.toolTokens ?? 0,
+    packTokens: tokenXray?.packTokens ?? 0,
     buckets: tokenXray?.buckets ?? [],
   };
   if (snapshot.buckets.length === 0) {

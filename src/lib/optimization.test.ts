@@ -89,6 +89,38 @@ describe("optimization helpers", () => {
     expect(snapshot.promptCacheClients).toEqual([]);
   });
 
+  it("keeps token x-ray empty when no live telemetry exists", () => {
+    const snapshot = normalizeOptimizationSnapshot({});
+
+    expect(snapshot.tokenXray.originalTokens).toBe(0);
+    expect(snapshot.tokenXray.optimizedTokens).toBe(0);
+    expect(snapshot.tokenXray.buckets).toEqual([]);
+  });
+
+  it("normalizes backend compaction and agent pack schema", () => {
+    const snapshot = normalizeOptimizationSnapshot({
+      compaction: {
+        shouldCompact: true,
+        contextUsedPercent: 88,
+        thresholdPercent: 72,
+        reason: "preemptive threshold exceeded",
+      },
+      agentPack: {
+        source: "repo-pack",
+        injected: true,
+        lastInjectedAt: "2026-07-04T00:00:00.000Z",
+        status: "good",
+      },
+    });
+
+    expect(snapshot.compaction.state).toBe("blocked");
+    expect(snapshot.compaction.contextUsedPercent).toBe(88);
+    expect(snapshot.compaction.triggerAtPercent).toBe(72);
+    expect(snapshot.compaction.nextAction).toBe("preemptive threshold exceeded");
+    expect(snapshot.agentPack.enabled).toBe(true);
+    expect(snapshot.agentPack.packName).toBe("repo-pack");
+  });
+
   it("loads Tauri telemetry when available", async () => {
     invokeMock.mockResolvedValue({
       promptCacheSegments: [
