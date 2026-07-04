@@ -32,6 +32,7 @@ mod release_evidence;
 mod repo_intelligence;
 mod repo_intelligence_commands;
 mod repo_map;
+mod rollback_commands;
 mod state;
 mod storage;
 mod tool_manager;
@@ -63,11 +64,9 @@ use crate::models::{
     ClaudeCodeProject, ClaudeUsage, ClientConnectorStatus, ClientSetupResult,
     ClientSetupVerification, DailySavingsPoint, DashboardState, HeadroomAuthCodeRequest,
     HeadroomLearnPrereqStatus, HeadroomLearnStatus, HeadroomPricingStatus,
-    HeadroomSubscriptionTier, ManagedConfigApplyPreview, ManagedConfigApplyResult,
-    ManagedFootprintReport, ManagedRollbackExecutionResult, ManagedRollbackPreview,
-    ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview, RuntimeStatus,
-    RuntimeUpgradeProgress, SavingsAttributionCounter, SavingsAttributionEvent, SavingsMode,
-    SwitchboardMode, SwitchboardState, TransformationFeedResponse, UninstallDryRunReport,
+    HeadroomSubscriptionTier, RuntimeStatus, RuntimeUpgradeProgress, SavingsAttributionCounter,
+    SavingsAttributionEvent, SavingsMode, SwitchboardMode, SwitchboardState,
+    TransformationFeedResponse,
 };
 use crate::state::AppState;
 
@@ -352,83 +351,6 @@ async fn record_measured_savings_attribution(
     })
     .await
     .map_err(|err| err.to_string())?
-}
-
-#[tauri::command]
-fn preview_managed_rollback(record_id: String) -> Result<ManagedRollbackPreview, String> {
-    client_adapters::preview_managed_rollback(&record_id).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn execute_managed_rollback(
-    record_id: String,
-    backup_path: String,
-    confirmation_phrase: String,
-) -> Result<ManagedRollbackExecutionResult, String> {
-    client_adapters::execute_managed_rollback(&record_id, &backup_path, &confirmation_phrase)
-        .map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn preview_dedicated_cleanup_rollback(
-    app: AppHandle,
-    record_id: String,
-) -> Result<ManagedRollbackPreview, String> {
-    let state: tauri::State<'_, AppState> = app.state();
-    dedicated_cleanup_rollback::preview_dedicated_cleanup_rollback_inner(Some(&state), record_id)
-}
-
-#[tauri::command]
-fn execute_dedicated_cleanup_rollback(
-    app: AppHandle,
-    record_id: String,
-    confirmation_phrase: String,
-) -> Result<ManagedRollbackExecutionResult, String> {
-    if dedicated_cleanup_rollback::is_login_item_record(&record_id) {
-        let _ = app.autolaunch().disable();
-    }
-    let state: tauri::State<'_, AppState> = app.state();
-    dedicated_cleanup_rollback::execute_dedicated_cleanup_rollback_inner(
-        Some(&state),
-        record_id,
-        confirmation_phrase,
-    )
-}
-#[tauri::command]
-fn preview_managed_config_apply(record_id: String) -> Result<ManagedConfigApplyPreview, String> {
-    client_adapters::preview_managed_config_apply(&record_id).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn execute_managed_config_apply(
-    record_id: String,
-    confirmation_phrase: String,
-) -> Result<ManagedConfigApplyResult, String> {
-    client_adapters::execute_managed_config_apply(&record_id, &confirmation_phrase)
-        .map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn preview_managed_rollback_undo_all() -> ManagedRollbackUndoAllPreview {
-    client_adapters::preview_managed_rollback_undo_all()
-}
-
-#[tauri::command]
-fn execute_managed_rollback_undo_all(
-    confirmation_phrase: String,
-) -> Result<ManagedRollbackUndoAllExecutionResult, String> {
-    client_adapters::execute_managed_rollback_undo_all(&confirmation_phrase)
-        .map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn get_managed_footprint() -> ManagedFootprintReport {
-    client_footprint::get_managed_footprint()
-}
-
-#[tauri::command]
-fn get_uninstall_dry_run_report() -> UninstallDryRunReport {
-    client_footprint::uninstall_dry_run_report()
 }
 
 #[tauri::command]
@@ -4398,16 +4320,16 @@ pub fn run() {
             get_savings_attribution_events,
             get_savings_attribution_counters,
             record_measured_savings_attribution,
-            preview_managed_config_apply,
-            execute_managed_config_apply,
-            preview_managed_rollback,
-            execute_managed_rollback,
-            preview_dedicated_cleanup_rollback,
-            execute_dedicated_cleanup_rollback,
-            get_managed_footprint,
-            get_uninstall_dry_run_report,
-            preview_managed_rollback_undo_all,
-            execute_managed_rollback_undo_all,
+            rollback_commands::preview_managed_config_apply,
+            rollback_commands::execute_managed_config_apply,
+            rollback_commands::preview_managed_rollback,
+            rollback_commands::execute_managed_rollback,
+            rollback_commands::preview_dedicated_cleanup_rollback,
+            rollback_commands::execute_dedicated_cleanup_rollback,
+            rollback_commands::get_managed_footprint,
+            rollback_commands::get_uninstall_dry_run_report,
+            rollback_commands::preview_managed_rollback_undo_all,
+            rollback_commands::execute_managed_rollback_undo_all,
             repo_intelligence_commands::build_repo_intelligence_summary,
             repo_intelligence_commands::get_latest_repo_intelligence_summary,
             repo_intelligence_commands::get_repo_intelligence_context_pack,
