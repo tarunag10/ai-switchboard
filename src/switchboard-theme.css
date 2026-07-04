@@ -1,0 +1,530 @@
+:root {
+  --switchboard-ink: #f8ead0;
+  --switchboard-muted: #b99f77;
+  --switchboard-panel: #211914;
+  --switchboard-brass: #e0a944;
+  --switchboard-brass-2: #f2cf73;
+  --switchboard-copper: #c96f43;
+  --switchboard-coral: #e46d56;
+  --switchboard-teal: #3ab8a5;
+  --switchboard-blue: #6aa7d8;
+  --switchboard-line: rgba(242, 207, 115, 0.22);
+  --switchboard-shadow: rgba(9, 6, 4, 0.56);
+  --surface-app: transparent;
+  --surface-raised: rgba(54, 38, 28, 0.94);
+  --surface-card: rgba(54, 38, 28, 0.94);
+  --surface-overlay: rgba(41, 29, 22, 0.98);
+  --surface-sidebar: rgba(32, 23, 17, 0.88);
+  --surface-sunken: rgba(13, 9, 7, 0.42);
+  --fill-hover: rgba(224, 169, 68, 0.13);
+  --fill-active: rgba(224, 169, 68, 0.2);
+  --border-default: rgba(224, 169, 68, 0.22);
+  --border-strong: rgba(242, 207, 115, 0.36);
+  --text-primary: var(--switchboard-ink);
+  --text-secondary: #d9c3a0;
+  --text-muted: var(--switchboard-muted);
+  --accent: var(--switchboard-brass);
+  --success: var(--switchboard-teal);
+  --success-strong: #57d8c2;
+  --warning: var(--switchboard-brass-2);
+  --danger: var(--switchboard-coral);
+  --chip-bg: rgba(224, 169, 68, 0.12);
+}
+
+.tray-shell::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.tray-shell::-webkit-scrollbar-track {
+  background: rgba(17, 11, 8, 0.72);
+}
+
+.tray-shell::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(242, 207, 115, 0.88), rgba(201, 111, 67, 0.84));
+  border: 2px solid rgba(17, 11, 8, 0.9);
+  border-radius: 999px;
+}
+
+@media (max-width: 520px) {
+  .tray-content > * {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  .tray-content [class*="grid"],
+  .tray-content [class*="cards"],
+  .tray-content [class*="summary"],
+  .tray-content [class*="metrics"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Menubar popovers are narrow; keep clipped labels reachable. */
+.tray-shell {
+  height: 100vh;
+  max-width: 100vw;
+  overflow: scroll;
+  scrollbar-color: rgba(242, 207, 115, 0.62) rgba(17, 11, 8, 0.7);
+}
+
+.tray-content {
+  max-height: 100vh;
+  min-width: 0;
+  overflow-y: scroll;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(242, 207, 115, 0.62) rgba(17, 11, 8, 0.7);
+  scrollbar-gutter: stable both-edges;
+}
+
+.tray-content > * {
+  min-width: min(380px, 100%);
+}
+
+.tray-content::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.tray-content::-webkit-scrollbar-track {
+  background: rgba(17, 11, 8, 0.7);
+  border-left: 1px solid rgba(224, 169, 68, 0.2);
+}
+
+.tray-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(242, 207, 115, 0.9), rgba(201, 111, 67, 0.86));
+  border: 2px solid rgba(17, 11, 8, 0.88);
+  border-radius: 999px;
+}
+
+.tray-content::-webkit-scrollbar-corner {
+  background: rgba(17, 11, 8, 0.86);
+}
+
+@media (max-width: 520px) {
+  .tray-content > * {
+    min-width: 360px;
+  }
+}
+
+html,
+body {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px) 0 0 / 36px 36px,
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 5px),
+    linear-gradient(135deg, #17100d 0%, #281a13 44%, #121718 100%);
+  color: var(--switchboard-ink);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent 0 18px, rgba(224, 169, 68, 0.08) 18px 20px, transparent 20px 42px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 18%, rgba(0, 0, 0, 0.18));
+  mix-blend-mode: screen;
+  opacity: 0.5;
+}
+
+.app-shell {
+  max-width: 1260px;
+  padding: 28px;
+}
+
+.app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 16px;
+  z-index: -1;
+  border: 1px solid rgba(242, 207, 115, 0.18);
+  border-radius: 8px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 0 80px rgba(0, 0, 0, 0.34);
+}
+
+.app-shell::after {
+  content: "";
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+  width: 116px;
+  height: 116px;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.22;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 11px, rgba(242, 207, 115, 0.38) 11px 13px),
+    repeating-linear-gradient(0deg, transparent 0 11px, rgba(58, 184, 165, 0.24) 11px 13px);
+  mask-image: linear-gradient(135deg, transparent, #000 26%, #000 72%, transparent);
+}
+
+.primary-button,
+.secondary-button,
+.switchboard-panel__action,
+.optimize-project-row button,
+.tray-nav__item,
+button {
+  border-radius: 7px;
+}
+
+.primary-button,
+.switchboard-panel__action--primary {
+  color: #1b1009;
+  border: 1px solid rgba(255, 233, 170, 0.76);
+  background:
+    linear-gradient(180deg, var(--switchboard-brass-2), var(--switchboard-brass) 54%, var(--switchboard-copper));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    0 8px 20px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(80, 41, 13, 0.24);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.primary-button:hover,
+.switchboard-panel__action--primary:hover {
+  background:
+    linear-gradient(180deg, #ffe393, #eab64e 52%, #d57a45);
+  transform: translateY(-1px);
+}
+
+.primary-button:focus-visible,
+.secondary-button:focus-visible,
+.switchboard-panel__mode:focus-visible,
+.tray-nav__item:focus-visible {
+  outline: 2px solid var(--switchboard-blue);
+  outline-offset: 3px;
+}
+
+.secondary-button,
+.switchboard-panel__action {
+  color: var(--switchboard-ink);
+  border: 1px solid rgba(224, 169, 68, 0.36);
+  background:
+    linear-gradient(180deg, rgba(88, 62, 43, 0.96), rgba(41, 29, 22, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.secondary-button:hover,
+.switchboard-panel__action:hover {
+  border-color: rgba(242, 207, 115, 0.62);
+  background:
+    linear-gradient(180deg, rgba(110, 76, 48, 0.98), rgba(52, 36, 26, 0.98));
+}
+
+.primary-button--success,
+.primary-button--install {
+  color: #091817;
+  border-color: rgba(133, 255, 230, 0.7);
+  background:
+    linear-gradient(180deg, #74ead7, var(--switchboard-teal) 58%, #247f74);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.tray-nav,
+.app-nav,
+.home-nav,
+.launcher-nav {
+  border: 1px solid rgba(224, 169, 68, 0.2);
+  background:
+    linear-gradient(180deg, rgba(50, 35, 25, 0.94), rgba(25, 17, 13, 0.92));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 16px 34px var(--switchboard-shadow);
+}
+
+.tray-nav__item,
+.app-nav button,
+.home-nav button {
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+}
+
+.tray-nav__item.is-active,
+.app-nav button.is-active,
+.home-nav button.is-active {
+  color: var(--switchboard-ink);
+  border-color: rgba(242, 207, 115, 0.48);
+  background:
+    linear-gradient(180deg, rgba(224, 169, 68, 0.22), rgba(201, 111, 67, 0.14));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.switchboard-panel,
+.optimize-card,
+.optimize-minimal,
+.home-sector,
+.activity-card,
+.upgrade-plan-card,
+.settings-card,
+.release-readiness-card,
+.repo-map-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(224, 169, 68, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(54, 38, 28, 0.96), rgba(28, 20, 16, 0.96)),
+    repeating-linear-gradient(90deg, transparent 0 18px, rgba(255, 255, 255, 0.024) 18px 19px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.32),
+    0 16px 36px var(--switchboard-shadow);
+}
+
+.switchboard-panel::before,
+.optimize-card::before,
+.optimize-minimal::before,
+.home-sector::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--switchboard-line), transparent);
+}
+
+.switchboard-panel::after,
+.optimize-card::after,
+.optimize-minimal::after,
+.home-sector::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff3be 0 14%, var(--switchboard-brass) 15% 46%, #5d3519 47% 100%);
+  box-shadow: -18px 0 0 rgba(58, 184, 165, 0.82);
+}
+
+.switchboard-panel__head,
+.optimize-card__head,
+.optimize-minimal__head {
+  border-bottom: 1px solid rgba(224, 169, 68, 0.18);
+}
+
+.switchboard-panel__eyebrow,
+.optimize-minimal__eyebrow,
+.eyebrow {
+  color: var(--switchboard-brass-2);
+  letter-spacing: 0.08em;
+}
+
+.switchboard-panel__badge,
+.status-badge,
+.optimize-project-row__badge {
+  color: var(--switchboard-brass-2);
+  border: 1px solid rgba(242, 207, 115, 0.35);
+  background:
+    linear-gradient(180deg, rgba(224, 169, 68, 0.16), rgba(31, 21, 15, 0.55));
+}
+
+.switchboard-panel__badge--full,
+.switchboard-panel__badge--headroom,
+.switchboard-panel__footprint-state--on {
+  color: #94f5de;
+  border-color: rgba(58, 184, 165, 0.48);
+  background:
+    linear-gradient(180deg, rgba(58, 184, 165, 0.18), rgba(18, 51, 48, 0.58));
+}
+
+.switchboard-panel__modes {
+  padding: 8px;
+  border: 1px solid rgba(224, 169, 68, 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(17, 12, 10, 0.62), rgba(60, 41, 28, 0.32)),
+    repeating-linear-gradient(90deg, transparent 0 32px, rgba(224, 169, 68, 0.08) 32px 33px);
+}
+
+.switchboard-panel__mode {
+  min-height: 76px;
+  border: 1px solid rgba(185, 159, 119, 0.28);
+  background:
+    radial-gradient(circle at 18px 18px, rgba(185, 159, 119, 0.24) 0 5px, transparent 6px),
+    linear-gradient(180deg, rgba(57, 41, 30, 0.94), rgba(28, 20, 15, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -8px 16px rgba(0, 0, 0, 0.14);
+}
+
+.switchboard-panel__mode svg {
+  color: var(--switchboard-brass);
+  filter: drop-shadow(0 0 8px rgba(224, 169, 68, 0.22));
+}
+
+.switchboard-panel__mode.is-active {
+  color: var(--switchboard-ink);
+  border-color: rgba(242, 207, 115, 0.66);
+  background:
+    radial-gradient(circle at 18px 18px, #f5cf71 0 5px, transparent 6px),
+    linear-gradient(180deg, rgba(95, 63, 35, 0.98), rgba(42, 28, 18, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 0 1px rgba(224, 169, 68, 0.18),
+    0 12px 24px rgba(0, 0, 0, 0.28);
+}
+
+.callout-banner,
+.switchboard-panel__savings-mode,
+.pricing-status-card,
+.pricing-auth-card {
+  color: var(--switchboard-ink);
+  border: 1px solid rgba(224, 169, 68, 0.24);
+  background:
+    linear-gradient(180deg, rgba(54, 38, 28, 0.96), rgba(26, 18, 14, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 14px 32px rgba(0, 0, 0, 0.34);
+}
+
+.callout-banner__subtitle,
+.switchboard-panel__savings-mode span,
+.switchboard-panel__savings-mode small,
+.pricing-status-card p,
+.pricing-auth-card p {
+  color: var(--text-secondary);
+}
+
+.callout-banner__action {
+  color: #1b1009;
+  border: 1px solid rgba(255, 233, 170, 0.68);
+  background:
+    linear-gradient(180deg, var(--switchboard-brass-2), var(--switchboard-brass) 58%, var(--switchboard-copper));
+}
+
+.switchboard-panel__savings-option {
+  color: var(--text-secondary);
+  border-color: rgba(224, 169, 68, 0.2);
+  background: rgba(18, 13, 10, 0.38);
+}
+
+.switchboard-panel__savings-option.is-active {
+  color: var(--switchboard-ink);
+  border-color: rgba(242, 207, 115, 0.48);
+  background:
+    linear-gradient(180deg, rgba(224, 169, 68, 0.22), rgba(201, 111, 67, 0.16));
+}
+
+.switchboard-panel__grid,
+.optimize-projects,
+.install-progress {
+  border-color: rgba(224, 169, 68, 0.18);
+}
+
+.switchboard-panel__item,
+.optimize-project-row,
+.install-progress__step {
+  border: 1px solid rgba(224, 169, 68, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(0, 0, 0, 0.08));
+}
+
+.switchboard-panel__item::before,
+.optimize-project-row::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: #15100d;
+  box-shadow:
+    inset 0 0 0 2px rgba(242, 207, 115, 0.36),
+    0 0 10px rgba(224, 169, 68, 0.1);
+}
+
+.runtime-status__indicator,
+.status-dot,
+.addon-health-strip__dot {
+  box-shadow: 0 0 14px currentColor;
+}
+
+input,
+select,
+textarea {
+  color: var(--switchboard-ink);
+  border-color: rgba(224, 169, 68, 0.28);
+  background: rgba(14, 10, 8, 0.62);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(106, 167, 216, 0.72);
+  box-shadow: 0 0 0 3px rgba(106, 167, 216, 0.18);
+}
+
+code,
+pre {
+  color: #f4d79a;
+  border-color: rgba(224, 169, 68, 0.2);
+  background: rgba(11, 8, 7, 0.64);
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    padding: 16px;
+  }
+
+  .app-shell::before {
+    inset: 8px;
+  }
+
+  .switchboard-panel__mode {
+    min-height: 68px;
+  }
+
+  .switchboard-panel__savings-mode {
+    display: grid;
+    gap: 10px;
+  }
+
+  .switchboard-panel__savings-options {
+    justify-self: stretch;
+    width: 100%;
+  }
+
+  .switchboard-panel__savings-option {
+    flex: 1;
+  }
+}
+
+@media (max-width: 520px) {
+  .app-shell {
+    padding: 12px;
+  }
+
+  .tray-shell,
+  .switchboard-panel,
+  .optimize-panel,
+  .agent-session-panel,
+  .settings-view {
+    border-radius: 14px;
+  }
+
+  .switchboard-panel__mode,
+  .switchboard-panel__savings-mode,
+  .runtime-card,
+  .pricing-status-card {
+    padding: 12px;
+  }
+
+  button,
+  .button,
+  .switchboard-panel__savings-option {
+    min-height: 38px;
+  }
+}

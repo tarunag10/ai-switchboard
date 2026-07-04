@@ -5,6 +5,7 @@ import Clarity from "@microsoft/clarity";
 import App from "./App";
 import { remoteTelemetryEnabled } from "./lib/localMode";
 import "./styles.css";
+import "./switchboard-theme.css";
 
 const telemetryEnabled = remoteTelemetryEnabled();
 const isEEA = Intl.DateTimeFormat().resolvedOptions().timeZone.startsWith("Europe/");
