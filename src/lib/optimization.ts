@@ -122,6 +122,15 @@ export interface OptimizationActionPolicy {
   maxPromptReorderItems: number;
 }
 
+export interface PreemptiveCompactionReceipt {
+  recordedAt: string;
+  triggered: boolean;
+  contextUsedPercent: number;
+  thresholdPercent: number;
+  reason: string;
+  action: string;
+}
+
 export interface RawOptimizationSnapshot {
   promptCacheSegments?: PromptCacheSegment[];
   promptCacheClients?: PromptCacheClientProof[];
@@ -418,3 +427,19 @@ function normalizeTokenXray(
 export async function validateModelRouting(): Promise<ModelRoutingValidationReceipt> {
   return invoke<ModelRoutingValidationReceipt>("validate_model_routing");
 }
+
+export async function runPreemptiveCompaction(): Promise<PreemptiveCompactionReceipt> {
+  try {
+    return await invoke<PreemptiveCompactionReceipt>("run_preemptive_compaction");
+  } catch {
+    return {
+      recordedAt: new Date().toISOString(),
+      triggered: false,
+      contextUsedPercent: 0,
+      thresholdPercent: 90,
+      reason: "Local preview only",
+      action: "Open AI Switchboard to run preemptive compaction.",
+    };
+  }
+}
+

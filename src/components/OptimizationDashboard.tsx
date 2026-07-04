@@ -11,6 +11,7 @@ import {
 import {
   type OptimizationActionPolicy,
   type ModelRoutingValidationReceipt,
+  type PreemptiveCompactionReceipt,
   type OptimizationSnapshot,
   type PromptCacheClientProof,
   formatCompactNumber,
@@ -18,6 +19,7 @@ import {
   loadOptimizationActionPolicy,
   loadOptimizationSnapshot,
   saveOptimizationActionPolicy,
+  runPreemptiveCompaction,
   validateModelRouting,
 } from "../lib/optimization";
 import { AgentSessionPanel } from "./AgentSessionPanel";
@@ -127,6 +129,49 @@ function OptimizationActionPanel() {
   );
 }
 
+
+function PreemptiveCompactionButton() {
+  const [receipt, setReceipt] = useState<PreemptiveCompactionReceipt | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function run() {
+    setBusy(true);
+    try {
+      setReceipt(await runPreemptiveCompaction());
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="optimize-minimal" aria-labelledby="preemptive-compaction-title">
+      <div className="optimize-card__title-row">
+        <span className="optimize-card__title-icon" aria-hidden="true">
+          <ArrowClockwise weight="duotone" />
+        </span>
+        <h2 id="preemptive-compaction-title">Preemptive Compaction</h2>
+      </div>
+      <p className="optimize-minimal__meta">
+        One click records the live threshold check and queues Switchboard's prevention path before
+        clients hit an oversized-context failure.
+      </p>
+      <button
+        className="secondary-button secondary-button--small"
+        type="button"
+        onClick={() => run()}
+        disabled={busy}
+      >
+        <ArrowClockwise weight="bold" size={12} aria-hidden="true" />
+        {busy ? "Running" : "Run compaction"}
+      </button>
+      {receipt ? (
+        <p className="optimize-minimal__meta" role="status">
+          {receipt.action} {receipt.contextUsedPercent}% used; trigger at {receipt.thresholdPercent}%.
+        </p>
+      ) : null}
+    </section>
+  );
+}
 
 function PromptCacheClientProofList({
   clients,
@@ -320,6 +365,7 @@ export function OptimizationDashboard() {
       </div>
 
       <OptimizationActionPanel />
+      <PreemptiveCompactionButton />
       <PromptCacheClientProofList clients={snapshot.promptCacheClients} />
       <TokenXrayPanel snapshot={snapshot.tokenXray} />
       <RedundancyPanel findings={snapshot.redundancy} />

@@ -5103,6 +5103,11 @@ fn get_optimization_snapshot() -> optimization::OptimizationSnapshot {
 }
 
 #[tauri::command]
+fn run_preemptive_compaction() -> optimization::compaction_action::PreemptiveCompactionReceipt {
+    optimization::compaction_action::run_preemptive_compaction()
+}
+
+#[tauri::command]
 fn get_optimization_action_policy() -> optimization::action_policy::OptimizationActionPolicy {
     optimization::action_policy::load_action_policy()
 }
@@ -7003,6 +7008,7 @@ pub fn run() {
             get_headroom_request_count,
             get_headroom_request_counts_by_agent,
             get_optimization_snapshot,
+            run_preemptive_compaction,
             get_optimization_action_policy,
             set_optimization_action_policy,
             validate_model_routing,
