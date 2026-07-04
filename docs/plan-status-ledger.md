@@ -2,6 +2,13 @@
 
 Updated: 2026-07-03
 
+## AI Switchboard Platform Rebrand
+
+Status: planned
+Plan: `docs/ai-switchboard-platform-rebrand-implementation-plan.md`
+
+Goal: move the product identity from Mac AI Switchboard to AI Switchboard / Switchboard while preserving macOS install compatibility, CLI visibility, cross-platform roadmap clarity, and accurate attribution for Headroom, RTK, Caveman, Ponytail, MarkItDown, and other integrated tools.
+
 This is the current done/left ledger for the Mac AI Switchboard roadmap, including the Repo Map/token-compression work, Fable security hardening, local evidence gates, and release-readiness work.
 
 ## Done
