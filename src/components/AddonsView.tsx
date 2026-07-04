@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   ClientConnectorStatus,
   DashboardState,
@@ -37,7 +37,7 @@ export interface AddonsViewProps {
   rtkBusy: boolean;
   openExternalLink: (url: string) => Promise<void>;
   runAddonAction: (
-    action: string,
+    action: "install_addon" | "uninstall_addon" | "set_addon_enabled",
     id: string,
     enabled?: boolean,
   ) => Promise<void>;
@@ -76,6 +76,13 @@ export function AddonsView({
   const [showRtkDetails, setShowRtkDetails] = useState(false);
   const [rtkActivityLines, setRtkActivityLines] = useState<string[]>([]);
   const rtkActivityRef = useRef<HTMLPreElement | null>(null);
+
+  useEffect(() => {
+    if (!showRtkDetails || !rtkActivityRef.current) {
+      return;
+    }
+    rtkActivityRef.current.scrollTop = rtkActivityRef.current.scrollHeight;
+  }, [showRtkDetails, rtkActivityLines]);
 
   return (
     <div className="tray-content" hidden={activeView !== "addons"}>
