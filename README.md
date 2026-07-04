@@ -17,6 +17,14 @@ Mac AI Switchboard now ships as more than a routing toggle. The current `main` b
 
 Still in progress: notarized public release evidence, public installed-app smoke proof, full live Token X-ray, deeper live redundancy reporting, long-running Repo Memory MCP supervision, and durable runtime savings counters for every add-on.
 
+## Current App Screenshots
+
+These captures show the current menu bar UI surface and live setup/status panels.
+
+| Switchboard status | Repo Intelligence / Agent Session | Add-ons / optimization stack |
+| --- | --- | --- |
+| ![Mac AI Switchboard current status](docs/screenshots/switchboard-current-status.png) | ![Repo Intelligence agent session handoff](docs/screenshots/repo-intelligence-agent-session.png) | ![Add-ons optimization stack status](docs/screenshots/addons-optimization-stack.png) |
+
 [![Repository](https://img.shields.io/badge/GitHub-tarunag10%2Fmac--ai--switchboard-blue?style=for-the-badge&logo=github)](https://github.com/tarunag10/mac-ai-switchboard)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 
