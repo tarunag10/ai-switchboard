@@ -3,7 +3,10 @@ import fs from "node:fs";
 
 const manifestPath = "connectors/manifest.json";
 const schemaPath = "schemas/connector.schema.json";
-const rustPath = "src-tauri/src/client_adapters.rs";
+const rustPaths = [
+  "src-tauri/src/client_adapters.rs",
+  "src-tauri/src/client_connectors.rs",
+];
 const frontendPath = "src/lib/plannedConnectors.ts";
 
 const allowedStatus = new Set(["managed", "guided", "detected", "planned", "unsupported"]);
@@ -69,7 +72,7 @@ function parseManifest() {
 }
 
 function rustConnectorIds() {
-  const source = read(rustPath);
+  const source = rustPaths.map(read).join("\n");
   const ids = new Set();
   for (const block of source.matchAll(/ManagedClientSpec\s*\{[\s\S]*?id:\s*"([^"]+)"/g)) {
     ids.add(block[1]);

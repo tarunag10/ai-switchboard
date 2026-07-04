@@ -441,13 +441,15 @@ const requiredSourceSignals = {
     "automation_gates",
     "manual_workflow",
   ],
-  "src-tauri/src/client_adapters.rs": [
+  "src-tauri/src/client_connectors.rs": [
     "struct PlannedClientSpec",
     "detection_sources",
-    "detection_evidence",
     "config_locations",
     "automation_gates",
     "manual_workflow",
+  ],
+  "src-tauri/src/client_adapters.rs": [
+    "detection_evidence",
     "planned_connector_registry_includes_backend_detection_metadata",
     "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.",
     "Mac AI Switchboard is known to write",

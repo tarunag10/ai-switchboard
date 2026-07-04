@@ -4,6 +4,7 @@ const frontendPath = "src/lib/plannedConnectors.ts";
 const connectorManifestPath = "connectors/manifest.json";
 const appPath = "src/App.tsx";
 const backendPath = "src-tauri/src/client_adapters.rs";
+const backendRegistryPath = "src-tauri/src/client_connectors.rs";
 const cliPath = "scripts/repo-intelligence.mjs";
 const repoApiPath = "src-tauri/src/repo_intelligence.rs";
 const repoIntelligenceUiPath = "src/lib/repoIntelligence.ts";
@@ -559,6 +560,8 @@ const connectorManifestById = new Map(
 );
 const appSource = readFile(appPath);
 const backendSource = readFile(backendPath);
+const backendRegistrySource = readFile(backendRegistryPath);
+const backendContractSource = `${backendSource}\n${backendRegistrySource}`;
 const cliSource = readFile(cliPath);
 const repoApiSource = readFile(repoApiPath);
 const repoIntelligenceUiSource = readFile(repoIntelligenceUiPath);
@@ -571,7 +574,7 @@ const allFrontendConnectors = new Map([
   ...managedFrontendConnectors,
   ...frontendConnectors,
 ]);
-const backendConnectors = extractBackendConnectors(backendSource);
+const backendConnectors = extractBackendConnectors(backendRegistrySource);
 const frontendIds = uniqueSorted([...frontendConnectors.keys()]);
 const managedFrontendIds = uniqueSorted([...managedFrontendConnectors.keys()]);
 const managedFrontendIdSet = new Set(managedFrontendIds);
@@ -599,7 +602,7 @@ if (frontendOnly.length > 0 || backendOnly.length > 0) {
     console.error(`Only in ${frontendPath}: ${frontendOnly.join(", ")}`);
   }
   if (backendOnly.length > 0) {
-    console.error(`Only in ${backendPath}: ${backendOnly.join(", ")}`);
+    console.error(`Only in ${backendRegistryPath}: ${backendOnly.join(", ")}`);
   }
   process.exit(1);
 }
@@ -611,12 +614,12 @@ if (allFrontendIds.length === 0) {
 
 const metadataErrors = [];
 metadataErrors.push(...validateConfigCreationPlanContract(frontendSource));
-metadataErrors.push(...validateBackendConfigCreationPlanContract(backendSource));
+metadataErrors.push(...validateBackendConfigCreationPlanContract(backendContractSource));
 metadataErrors.push(
   ...validateCursorDryRunContract({
     manifest: connectorManifestById,
     frontendSource,
-    backendSource,
+    backendSource: backendContractSource,
     repoIntelligenceSource: repoIntelligenceUiSource,
     doctorCopySource,
   }),
@@ -636,7 +639,7 @@ metadataErrors.push(
     allFrontendConnectors,
   ),
 );
-if (!appSource.includes("configPlan.steps.map((step) =>")) {
+if (!appSource.includes("stepDetails.map((step) =>")) {
   metadataErrors.push("connector readiness UI must render every config creation step");
 }
 if (!appSource.includes("connector.configCreationStepDetails")) {
