@@ -24,7 +24,7 @@ pub(crate) fn build_optimization_snapshot() -> OptimizationSnapshot {
         return build_live_optimization_snapshot(telemetry);
     }
 
-    let prompt_cache_segments = vec![
+    let prompt_cache_segments = order_prompt_cache_segments(vec![
         PromptCacheSegmentSnapshot {
             id: "system".to_string(),
             label: "System prompt".to_string(),
@@ -49,7 +49,7 @@ pub(crate) fn build_optimization_snapshot() -> OptimizationSnapshot {
             hit_tokens: 80,
             changes_per_session: 3,
         },
-    ];
+    ]);
 
     let cache_metrics = CacheTokenMetrics {
         prompt_tokens: 12_200,
@@ -194,7 +194,7 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
     let original_tokens = bucket_total.saturating_add(cache_metrics.total_tokens());
     let optimized_tokens = original_tokens.saturating_sub(cache_metrics.cache_read_tokens);
 
-    let prompt_cache_segments = vec![PromptCacheSegmentSnapshot {
+    let prompt_cache_segments = order_prompt_cache_segments(vec![PromptCacheSegmentSnapshot {
         id: "observed-cache".to_string(),
         label: "Observed prompt cache".to_string(),
         tokens: cache_metrics.prompt_tokens,
@@ -203,7 +203,7 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
             .saturating_add(cache_metrics.cache_read_tokens),
         hit_tokens: cache_metrics.cache_read_tokens,
         changes_per_session: 0,
-    }];
+    }]);
 
     let mut hashes_by_value = BTreeMap::<String, Vec<_>>::new();
     for hash in telemetry.redundancy_hashes {
