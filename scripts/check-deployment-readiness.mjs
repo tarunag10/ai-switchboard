@@ -812,7 +812,7 @@ const requiredSourceSignals = {
     "contents: read",
     "npm run fmt:desktop",
     "cargo clippy --manifest-path src-tauri/Cargo.toml",
-    "cargo nextest run --manifest-path src-tauri/Cargo.toml",
+    "cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1",
     "libwebkit2gtk-4.1-dev",
   ],
   ".github/workflows/test.yml": [
@@ -832,7 +832,7 @@ const requiredSourceSignals = {
     "npm run build",
     "npm run check:local-build-privacy",
     "npm run test:frontend",
-    "cargo nextest run --manifest-path src-tauri/Cargo.toml",
+    "cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1",
   ],
   ".github/workflows/security.yml": [
     "name: Security",
