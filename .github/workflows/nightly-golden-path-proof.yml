@@ -1,0 +1,47 @@
+name: Nightly Golden Path Proof
+
+on:
+  workflow_dispatch:
+    inputs:
+      live_proof:
+        description: "Request the live install/replay/uninstall path once it is safe."
+        required: false
+        default: "0"
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    name: Golden path scaffold
+    runs-on: macos-latest
+    timeout-minutes: 15
+    env:
+      LIVE_NIGHTLY_PROOF: ${{ inputs.live_proof || vars.LIVE_NIGHTLY_PROOF || '0' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run golden path scaffold
+        run: ./scripts/nightly-golden-path-proof.sh
+
+      - name: Upload proof artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-golden-path-proof
+          path: |
+            dist/nightly-golden-path-proof.md
+            dist/nightly-optimization-telemetry-proof.json
+          if-no-files-found: error
