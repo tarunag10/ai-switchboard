@@ -452,6 +452,8 @@ const requiredSourceSignals = {
     "detection_evidence",
     "planned_connector_registry_includes_backend_detection_metadata",
     "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.",
+  ],
+  "src-tauri/src/client_cleanup.rs": [
     "Mac AI Switchboard is known to write",
   ],
   "src-tauri/src/pricing.rs": [
@@ -1036,9 +1038,6 @@ const forbiddenUserCopy = {
   "src-tauri/src/pricing.rs": [
     "HEADROOM_ACCOUNT_KEYCHAIN_SERVICE",
     "HEADROOM_ACCOUNT_SESSION_ACCOUNT",
-  ],
-  "src-tauri/src/client_adapters.rs": [
-    "Delete every keychain entry Headroom is known to write",
   ],
 };
 

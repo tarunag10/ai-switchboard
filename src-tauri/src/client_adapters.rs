@@ -11,6 +11,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
+use crate::client_cleanup;
 use crate::client_connector_status::{
     managed_connector_config_locations, planned_connector_automation_path, MANAGED_CLIENT_SPECS,
 };
@@ -21,9 +22,7 @@ use crate::client_connectors::{
     planned_sidecar_spec, PlannedSidecarSpec, PLANNED_CLIENT_SPECS, PLANNED_CONFIG_CREATION_STEPS,
     PLANNED_SIDECAR_SPECS,
 };
-use crate::client_footprint::{
-    known_keychain_entries, managed_backup_targets, managed_runtime_storage_paths, APP_BUNDLE_ID,
-};
+use crate::client_footprint::managed_backup_targets;
 use crate::client_paths::{
     all_shell_paths, claude_settings_candidates, claude_settings_path, codex_config_toml_path,
     headroom_markitdown_hook_path, headroom_rtk_hook_path, home_dir, opencode_config_path,
@@ -1464,25 +1463,6 @@ pub fn clear_client_setups() -> Result<()> {
 ///
 /// Returns the list of paths that were successfully removed (useful for
 /// surfacing to the user). Per-step failures are logged and skipped.
-/// `remove_dir_all`, retrying on transient `ENOTEMPTY`. A backend/proxy
-/// process killed in `stop_headroom` may still flush a log line into the
-/// directory tree mid-walk, re-creating an entry so the final `rmdir` fails
-/// with "Directory not empty". A short backoff lets the writer finish.
-fn remove_dir_all_retry(path: &Path) -> std::io::Result<()> {
-    let mut last = Ok(());
-    for attempt in 0..5 {
-        match std::fs::remove_dir_all(path) {
-            Ok(()) => return Ok(()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(e) => {
-                last = Err(e);
-                std::thread::sleep(Duration::from_millis(100 * (attempt + 1)));
-            }
-        }
-    }
-    last
-}
-
 pub fn perform_full_cleanup() -> Vec<String> {
     let mut removed: Vec<String> = Vec::new();
 
@@ -1532,16 +1512,16 @@ pub fn perform_full_cleanup() -> Vec<String> {
         let _ = std::fs::remove_file(&setup_state);
     }
 
-    removed.extend(remove_managed_runtime_storage());
+    removed.extend(client_cleanup::remove_managed_runtime_storage());
 
     #[cfg(target_os = "macos")]
     {
-        removed.extend(remove_macos_launch_agents());
-        removed.extend(remove_macos_app_state());
+        removed.extend(client_cleanup::remove_macos_launch_agents());
+        removed.extend(client_cleanup::remove_macos_app_state());
     }
 
     #[cfg(not(target_os = "macos"))]
-    remove_known_keychain_entries();
+    client_cleanup::remove_known_keychain_entries();
 
     // Sweep `<basename>.headroom-backup-*` and `<basename>.nommer-backup-*`
     // siblings created by `backup_if_exists` for every file we ever mutated.
@@ -1549,73 +1529,9 @@ pub fn perform_full_cleanup() -> Vec<String> {
     // ~/.codex, ~/Library/Application Support/Code/User, and the user's
     // shell rc directory after uninstall.
     for target in managed_backup_targets() {
-        removed.extend(sweep_managed_backups(&target));
+        removed.extend(client_cleanup::sweep_managed_backups(&target));
     }
 
-    removed
-}
-
-pub fn remove_managed_runtime_storage() -> Vec<String> {
-    let mut removed = Vec::new();
-    for path in managed_runtime_storage_paths() {
-        if !path.exists() {
-            continue;
-        }
-        match remove_dir_all_retry(&path) {
-            Ok(_) => removed.push(path.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", path.display()),
-        }
-    }
-    removed
-}
-
-#[cfg(any(target_os = "macos", test))]
-pub fn remove_macos_app_state() -> Vec<String> {
-    let mut removed = Vec::new();
-    removed.extend(remove_macos_preferences());
-    removed.extend(remove_macos_caches());
-    removed.extend(remove_macos_logs());
-    removed.extend(remove_macos_bundle_dirs());
-    remove_known_keychain_entries();
-    removed
-}
-
-#[cfg(all(not(target_os = "macos"), not(test)))]
-pub fn remove_macos_app_state() -> Vec<String> {
-    Vec::new()
-}
-
-/// Remove sibling backup files that `backup_if_exists` (or its predecessor
-/// "nommer") created next to `target`. Filenames look like
-/// `<basename>.headroom-backup-<timestamp>` and `<basename>.nommer-backup-<timestamp>`.
-/// Returns the paths removed.
-fn sweep_managed_backups(target: &Path) -> Vec<String> {
-    let mut removed = Vec::new();
-    let Some(parent) = target.parent() else {
-        return removed;
-    };
-    let Some(file_name) = target.file_name().and_then(|n| n.to_str()) else {
-        return removed;
-    };
-    let headroom_prefix = format!("{}.headroom-backup-", file_name);
-    let nommer_prefix = format!("{}.nommer-backup-", file_name);
-
-    let Ok(entries) = std::fs::read_dir(parent) else {
-        return removed;
-    };
-    for entry in entries.flatten() {
-        let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
-            continue;
-        };
-        if !name.starts_with(&headroom_prefix) && !name.starts_with(&nommer_prefix) {
-            continue;
-        }
-        let path = entry.path();
-        match std::fs::remove_file(&path) {
-            Ok(_) => removed.push(path.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", path.display()),
-        }
-    }
     removed
 }
 
@@ -1687,141 +1603,6 @@ fn remove_pre_tool_use_markers(settings_path: &Path, markers: &[&str]) -> Result
     .with_context(|| format!("writing {}", settings_path.display()))?;
 
     Ok(true)
-}
-
-#[cfg(target_os = "macos")]
-fn remove_macos_launch_agents() -> Vec<String> {
-    let mut removed = Vec::new();
-    let launch_agents_dir = home_dir().join("Library").join("LaunchAgents");
-
-    // Bundle-id-style plist (tauri-plugin-autostart default) and the
-    // "Headroom.plist" name some older local builds shipped. Either can exist.
-    let candidates = [
-        format!("{APP_BUNDLE_ID}.plist"),
-        "Headroom.plist".to_string(),
-    ];
-
-    for name in candidates {
-        let path = launch_agents_dir.join(name);
-        if !path.exists() {
-            continue;
-        }
-        // Best-effort unload before deletion so launchd forgets the job.
-        let _ = Command::new("launchctl")
-            .args(["unload", "-w"])
-            .arg(&path)
-            .output();
-        match std::fs::remove_file(&path) {
-            Ok(_) => removed.push(path.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", path.display()),
-        }
-    }
-
-    removed
-}
-
-#[cfg(any(target_os = "macos", test))]
-fn remove_macos_preferences() -> Vec<String> {
-    let mut removed = Vec::new();
-    let prefs_dir = home_dir().join("Library").join("Preferences");
-    let Ok(entries) = std::fs::read_dir(&prefs_dir) else {
-        return removed;
-    };
-    for entry in entries.flatten() {
-        let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
-            continue;
-        };
-        if !name.starts_with(APP_BUNDLE_ID) {
-            continue;
-        }
-        let path = entry.path();
-        let result = if path.is_dir() {
-            std::fs::remove_dir_all(&path)
-        } else {
-            std::fs::remove_file(&path)
-        };
-        match result {
-            Ok(_) => removed.push(path.display().to_string()),
-            Err(err) => log::warn!("cleanup: removing {} failed: {err}", path.display()),
-        }
-    }
-    removed
-}
-
-#[cfg(any(target_os = "macos", test))]
-fn remove_macos_caches() -> Vec<String> {
-    let mut removed = Vec::new();
-    let caches_base = home_dir().join("Library").join("Caches");
-    for bundle_id in [APP_BUNDLE_ID] {
-        let caches_dir = caches_base.join(bundle_id);
-        if caches_dir.exists() {
-            match std::fs::remove_dir_all(&caches_dir) {
-                Ok(_) => removed.push(caches_dir.display().to_string()),
-                Err(err) => log::warn!("cleanup: removing {} failed: {err}", caches_dir.display()),
-            }
-        }
-    }
-    removed
-}
-
-#[cfg(any(target_os = "macos", test))]
-fn remove_macos_logs() -> Vec<String> {
-    let mut removed = Vec::new();
-    let logs_base = home_dir().join("Library").join("Logs");
-    for log_dir in ["Headroom", "Mac AI Switchboard"] {
-        let logs_dir = logs_base.join(log_dir);
-        if logs_dir.exists() {
-            match std::fs::remove_dir_all(&logs_dir) {
-                Ok(_) => removed.push(logs_dir.display().to_string()),
-                Err(err) => log::warn!("cleanup: removing {} failed: {err}", logs_dir.display()),
-            }
-        }
-    }
-    removed
-}
-
-/// Sweep the per-bundle-id directories macOS creates for a GUI app outside the
-/// Caches/Preferences locations already handled above: the WKWebView data
-/// store, HTTP cookie/storage caches, and saved window state.
-#[cfg(any(target_os = "macos", test))]
-fn remove_macos_bundle_dirs() -> Vec<String> {
-    let mut removed = Vec::new();
-    let lib = home_dir().join("Library");
-    for bundle_id in [APP_BUNDLE_ID] {
-        let targets = [
-            lib.join("WebKit").join(bundle_id),
-            lib.join("HTTPStorages").join(bundle_id),
-            lib.join("HTTPStorages")
-                .join(format!("{bundle_id}.binarycookies")),
-            lib.join("Saved Application State")
-                .join(format!("{bundle_id}.savedState")),
-        ];
-        for path in targets {
-            if !path.exists() {
-                continue;
-            }
-            let result = if path.is_dir() {
-                std::fs::remove_dir_all(&path)
-            } else {
-                std::fs::remove_file(&path)
-            };
-            match result {
-                Ok(_) => removed.push(path.display().to_string()),
-                Err(err) => log::warn!("cleanup: removing {} failed: {err}", path.display()),
-            }
-        }
-    }
-    removed
-}
-
-/// Delete every keychain entry Mac AI Switchboard is known to write. Accounts are
-/// captured alongside services because macOS keychain queries require both.
-fn remove_known_keychain_entries() {
-    for (service, account) in known_keychain_entries() {
-        if let Err(err) = crate::keychain::delete_secret(service, account) {
-            log::warn!("cleanup: deleting keychain {service}/{account} failed: {err}");
-        }
-    }
 }
 
 /// Re-applies setup for all clients that were active at the last pause or quit.
@@ -9445,48 +9226,6 @@ js_repl = false\n",
             .get("features")
             .and_then(|f| f.get("model_provider"))
             .is_none());
-    }
-
-    #[test]
-    fn sweep_managed_backups_removes_headroom_and_nommer_siblings_only() {
-        let tmp = tempfile::tempdir().expect("tempdir");
-        let target = tmp.path().join("settings.json");
-        fs::write(&target, "{}").unwrap();
-
-        let headroom_backup = tmp
-            .path()
-            .join("settings.json.headroom-backup-20260101000000");
-        let nommer_backup = tmp
-            .path()
-            .join("settings.json.nommer-backup-20250101000000");
-        let unrelated = tmp.path().join("settings.json.bak");
-        let other_target_backup = tmp
-            .path()
-            .join("config.toml.headroom-backup-20260101000000");
-        fs::write(&headroom_backup, "old").unwrap();
-        fs::write(&nommer_backup, "older").unwrap();
-        fs::write(&unrelated, "user-owned").unwrap();
-        fs::write(&other_target_backup, "different file's backup").unwrap();
-
-        let removed = super::sweep_managed_backups(&target);
-
-        assert_eq!(removed.len(), 2, "removed: {removed:?}");
-        assert!(!headroom_backup.exists(), "headroom backup should be gone");
-        assert!(!nommer_backup.exists(), "nommer backup should be gone");
-        assert!(unrelated.exists(), "unrelated .bak should survive");
-        assert!(
-            other_target_backup.exists(),
-            "another file's backup should survive"
-        );
-        assert!(target.exists(), "target file itself should survive");
-    }
-
-    #[test]
-    fn sweep_managed_backups_is_quiet_when_parent_missing() {
-        let tmp = tempfile::tempdir().expect("tempdir");
-        let missing = tmp.path().join("does-not-exist").join("settings.json");
-        let removed = super::sweep_managed_backups(&missing);
-        assert!(removed.is_empty());
     }
 
     #[test]

@@ -4,6 +4,7 @@ mod backend_port;
 mod bearer;
 mod claude_cli;
 mod client_adapters;
+mod client_cleanup;
 mod client_connector_status;
 mod client_connectors;
 mod client_footprint;
@@ -1123,7 +1124,7 @@ fn execute_dedicated_cleanup_rollback_inner(
         }
         MANAGED_STORAGE_ROLLBACK_RECORD_ID => {
             let paths = client_footprint::managed_runtime_storage_paths();
-            let removed = client_adapters::remove_managed_runtime_storage();
+            let removed = client_cleanup::remove_managed_runtime_storage();
             if any_path_exists(&paths) {
                 return Err("A managed runtime storage path is still present after cleanup.".to_string());
             }
@@ -1148,7 +1149,7 @@ fn execute_dedicated_cleanup_rollback_inner(
         }
         APP_STATE_ROLLBACK_RECORD_ID => {
             let paths = client_footprint::macos_app_state_paths();
-            let removed = client_adapters::remove_macos_app_state();
+            let removed = client_cleanup::remove_macos_app_state();
             if any_path_exists(&paths) {
                 return Err("A managed app-state path is still present after cleanup.".to_string());
             }
