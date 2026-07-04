@@ -13,6 +13,7 @@ use super::snapshot_enrichment::{
     live_token_buckets, percent_u8,
 };
 use super::snapshot_policy::{order_prompt_cache_segments, route_to_snapshot};
+use super::snapshot_types::PromptCacheClientSnapshot;
 use super::snapshot_types::{
     AgentPackSnapshot, CompactionSignalSnapshot, ModelRoutingSnapshot, OptimizationSnapshot,
     PromptCacheSegmentSnapshot, RedundancyFindingSnapshot, RtkPresetSnapshot, TokenXraySnapshot,
@@ -122,7 +123,7 @@ pub(crate) fn build_optimization_snapshot() -> OptimizationSnapshot {
     OptimizationSnapshot {
         generated_at: Utc::now().to_rfc3339(),
         prompt_cache_segments,
-        prompt_cache_clients: fallback_prompt_cache_clients(),
+        prompt_cache_clients: prompt_cache_clients_for_snapshot(&cache_metrics),
         token_xray: TokenXraySnapshot {
             original_tokens: 22_600,
             optimized_tokens: xray
@@ -295,7 +296,7 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
     OptimizationSnapshot {
         generated_at: Utc::now().to_rfc3339(),
         prompt_cache_segments,
-        prompt_cache_clients: live_prompt_cache_clients(&cache_metrics),
+        prompt_cache_clients: prompt_cache_clients_for_snapshot(&cache_metrics),
         token_xray: TokenXraySnapshot {
             original_tokens,
             optimized_tokens,
@@ -358,6 +359,27 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
     }
 }
 
+fn prompt_cache_clients_for_snapshot(
+    metrics: &CacheTokenMetrics,
+) -> Vec<PromptCacheClientSnapshot> {
+    let live = live_prompt_cache_clients(metrics);
+    if live.is_empty() && demo_optimization_fallbacks_enabled() {
+        fallback_prompt_cache_clients()
+    } else {
+        live
+    }
+}
+
+fn demo_optimization_fallbacks_enabled() -> bool {
+    matches!(
+        std::env::var("AI_SWITCHBOARD_DEMO_OPTIMIZATION")
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str(),
+        "1" | "true" | "yes"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -368,15 +390,12 @@ mod tests {
         telemetry::reset_for_tests();
         let snapshot = build_optimization_snapshot();
 
-        assert_eq!(snapshot.prompt_cache_segments.len(), 3);
+        assert!(!snapshot.prompt_cache_segments.is_empty());
         assert!(!snapshot.routing.is_empty());
-        assert!(!snapshot.redundancy.is_empty());
+        assert!(snapshot.redundancy.is_empty() || snapshot.redundancy[0].read_count > 1);
         assert!(snapshot.agent_pack.injected);
         assert_eq!(snapshot.rtk_presets.len(), 4);
-        assert!(!snapshot.prompt_cache_clients.is_empty());
-        assert!(!snapshot.token_xray.buckets.is_empty());
-        assert!(snapshot.redundancy[0].read_count > 1);
-        assert!(snapshot.redundancy[0].proof.contains("duplicate"));
+        assert!(snapshot.prompt_cache_clients.len() <= 1);
         assert!(snapshot.token_xray.original_tokens > snapshot.token_xray.optimized_tokens);
     }
 

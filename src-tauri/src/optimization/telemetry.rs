@@ -7,6 +7,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use super::cache_metrics::CacheTokenMetrics;
+use super::telemetry_store;
 
 const MAX_CACHE_EVENTS: usize = 128;
 const MAX_TOKEN_BUCKETS: usize = 32;
@@ -95,6 +96,7 @@ struct TelemetryCollector {
 }
 
 pub(crate) fn record_prompt_cache_metrics(metrics: CacheTokenMetrics) {
+    telemetry_store::record_prompt_cache_metrics(&metrics);
     with_collector(|collector| {
         push_bounded(&mut collector.cache_events, metrics, MAX_CACHE_EVENTS)
     });
@@ -169,22 +171,7 @@ pub(crate) fn record_rtk_preset_metadata(metadata: RtkPresetMetadata) {
 
 pub(crate) fn snapshot() -> TelemetrySnapshot {
     with_collector(|collector| TelemetrySnapshot {
-        cache_metrics: collector.cache_events.iter().fold(
-            CacheTokenMetrics::default(),
-            |mut total, entry| {
-                total.prompt_tokens = total.prompt_tokens.saturating_add(entry.prompt_tokens);
-                total.completion_tokens = total
-                    .completion_tokens
-                    .saturating_add(entry.completion_tokens);
-                total.cache_creation_tokens = total
-                    .cache_creation_tokens
-                    .saturating_add(entry.cache_creation_tokens);
-                total.cache_read_tokens = total
-                    .cache_read_tokens
-                    .saturating_add(entry.cache_read_tokens);
-                total
-            },
-        ),
+        cache_metrics: telemetry_store::prompt_cache_totals(),
         token_buckets: collector.token_buckets.iter().cloned().collect(),
         redundancy_hashes: collector.redundancy_hashes.iter().cloned().collect(),
         compaction_decision: collector.compaction_decision.clone(),
@@ -196,6 +183,7 @@ pub(crate) fn snapshot() -> TelemetrySnapshot {
 #[cfg(test)]
 pub(crate) fn reset_for_tests() {
     with_collector(|collector| *collector = TelemetryCollector::default());
+    telemetry_store::reset_for_tests();
 }
 
 #[cfg(test)]
