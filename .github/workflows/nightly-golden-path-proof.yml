@@ -59,6 +59,7 @@ jobs:
           name: nightly-live-evidence
           path: |
             dist/local-evidence-summary.md
+            dist/local-evidence-run.log
             dist/local-installed-smoke-summary.md
             dist/local-uninstall-validation-summary.md
           if-no-files-found: error

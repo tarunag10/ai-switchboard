@@ -184,7 +184,7 @@ if [[ "${LIVE_PROOF}" == "1" ]]; then
     exit 1
   fi
 
-  MAC_AI_SWITCHBOARD_SKIP_OPEN=1 npm run evidence:local
+  MAC_AI_SWITCHBOARD_SKIP_OPEN=1 npm run evidence:local >"${DIST_DIR}/local-evidence-run.log" 2>&1
   {
     echo
     echo "## GitHub Live Evidence"
