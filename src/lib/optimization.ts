@@ -90,6 +90,24 @@ export interface OptimizationSnapshot {
   source: "tauri" | "fallback";
 }
 
+
+export interface ModelRoutingValidationCheck {
+  client: string;
+  task: string;
+  requestedModel: string;
+  selectedModel: string;
+  fallbackModel: string;
+  status: string;
+  reason: string;
+  observeOnly: boolean;
+}
+
+export interface ModelRoutingValidationReceipt {
+  generatedAt: string;
+  policyEnabled: boolean;
+  checks: ModelRoutingValidationCheck[];
+}
+
 export interface OptimizationActionPolicy {
   promptCacheReorderEnabled: boolean;
   preemptiveCompactionEnabled: boolean;
@@ -387,4 +405,8 @@ function normalizeTokenXray(
     snapshot.buckets = fallbackTokenBuckets(snapshot);
   }
   return snapshot;
+}
+
+export async function validateModelRouting(): Promise<ModelRoutingValidationReceipt> {
+  return invoke<ModelRoutingValidationReceipt>("validate_model_routing");
 }

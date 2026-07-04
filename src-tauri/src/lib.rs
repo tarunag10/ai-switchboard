@@ -5101,6 +5101,12 @@ fn set_optimization_action_policy(
     optimization::action_policy::save_action_policy(&policy)
 }
 
+#[tauri::command]
+fn validate_model_routing(
+) -> Result<optimization::model_routing_validation::ModelRoutingValidationReceipt, String> {
+    optimization::model_routing_validation::validate_model_routing()
+}
+
 /// Debug-only: force the proxy intercept's bypass flag on/off so a developer
 /// can manually exercise the gated path (Python proxy stopped, traffic routed
 /// direct to api.anthropic.com) without crossing the real disable threshold.
@@ -6985,6 +6991,7 @@ pub fn run() {
             get_optimization_snapshot,
             get_optimization_action_policy,
             set_optimization_action_policy,
+            validate_model_routing,
             get_rtk_activity,
             get_tool_logs,
             get_claude_code_projects,

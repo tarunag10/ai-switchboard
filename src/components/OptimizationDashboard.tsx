@@ -10,6 +10,7 @@ import {
 } from "@phosphor-icons/react";
 import {
   type OptimizationActionPolicy,
+  type ModelRoutingValidationReceipt,
   type OptimizationSnapshot,
   type PromptCacheClientProof,
   formatCompactNumber,
@@ -17,6 +18,7 @@ import {
   loadOptimizationActionPolicy,
   loadOptimizationSnapshot,
   saveOptimizationActionPolicy,
+  validateModelRouting,
 } from "../lib/optimization";
 import { AgentSessionPanel } from "./AgentSessionPanel";
 import { RedundancyPanel } from "./RedundancyPanel";
@@ -165,6 +167,66 @@ function PromptCacheClientProofList({
   );
 }
 
+
+function RoutingValidationPanel() {
+  const [receipt, setReceipt] = useState<ModelRoutingValidationReceipt | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function runValidation() {
+    setBusy(true);
+    setError(null);
+    try {
+      setReceipt(await validateModelRouting());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="optimize-minimal" aria-labelledby="routing-validation-title">
+      <div className="optimize-card__title-row">
+        <span className="optimize-card__title-icon" aria-hidden="true">
+          <TerminalWindow weight="duotone" />
+        </span>
+        <h2 id="routing-validation-title">Routing Validation</h2>
+      </div>
+      <p className="optimize-minimal__meta">
+        One-click read-only proof that managed clients route trivial work to the cheaper model candidate.
+      </p>
+      <button
+        className="secondary-button secondary-button--small"
+        type="button"
+        onClick={() => void runValidation()}
+        disabled={busy}
+      >
+        <ArrowClockwise weight="bold" size={12} aria-hidden="true" />
+        {busy ? "Validating" : "Validate routing"}
+      </button>
+      {error ? <p className="optimize-minimal__meta">{error}</p> : null}
+      {receipt ? (
+        <div className="optimize-projects">
+          {receipt.checks.map((check) => (
+            <div key={`${check.client}-${check.task}`} className="optimize-project-row">
+              <div className="optimize-project-row__main">
+                <span className="optimize-project-row__name">{check.client}</span>
+                <span className="optimize-project-row__training">
+                  {check.status}: {check.selectedModel}
+                </span>
+                <span className="optimize-minimal__meta">{check.reason}</span>
+              </div>
+              <span className="optimize-project-row__training">
+                fallback {check.fallbackModel}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
 export function OptimizationDashboard() {
   const [snapshot, setSnapshot] = useState<OptimizationSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -249,6 +311,7 @@ export function OptimizationDashboard() {
       <RedundancyPanel findings={snapshot.redundancy} />
       <AgentSessionPanel />
       <RoutingDecisionList decisions={snapshot.routing} />
+      <RoutingValidationPanel />
 
       <section className="optimize-minimal" aria-labelledby="pack-rtk-title">
         <div className="optimize-card__title-row">
