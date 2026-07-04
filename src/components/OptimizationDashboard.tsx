@@ -8,15 +8,15 @@ import {
   TerminalWindow,
   WarningCircle,
 } from "@phosphor-icons/react";
-
 import {
+  type OptimizationActionPolicy,
+  type OptimizationSnapshot,
+  type PromptCacheClientProof,
   formatCompactNumber,
   getPromptCacheAction,
   loadOptimizationActionPolicy,
   loadOptimizationSnapshot,
   saveOptimizationActionPolicy,
-  type OptimizationActionPolicy,
-  type OptimizationSnapshot,
 } from "../lib/optimization";
 import { AgentSessionPanel } from "./AgentSessionPanel";
 import { RedundancyPanel } from "./RedundancyPanel";
@@ -125,6 +125,46 @@ function OptimizationActionPanel() {
   );
 }
 
+
+function PromptCacheClientProofList({
+  clients,
+}: {
+  clients: PromptCacheClientProof[];
+}) {
+  if (clients.length === 0) {
+    return null;
+  }
+  return (
+    <section className="optimize-minimal" aria-labelledby="cache-proof-title">
+      <div className="optimize-card__title-row">
+        <span className="optimize-card__title-icon" aria-hidden="true">
+          <Database weight="duotone" />
+        </span>
+        <h2 id="cache-proof-title">Cache Proof</h2>
+      </div>
+      <p className="optimize-minimal__meta">
+        Provider cache reads by client. This is the live proof for prompt-cache efficiency.
+      </p>
+      <div className="optimize-projects">
+        {clients.map((client) => (
+          <div key={`${client.client}-${client.provider}`} className="optimize-project-row">
+            <div className="optimize-project-row__main">
+              <span className="optimize-project-row__name">{client.client}</span>
+              <span className="optimize-project-row__training">
+                {client.provider} {client.efficiencyPercent}% efficient
+              </span>
+              <span className="optimize-minimal__meta">{client.proof}</span>
+            </div>
+            <span className="optimize-project-row__training">
+              {client.cacheReadTokens.toLocaleString()} cache hits
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function OptimizationDashboard() {
   const [snapshot, setSnapshot] = useState<OptimizationSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
@@ -204,6 +244,7 @@ export function OptimizationDashboard() {
       </div>
 
       <OptimizationActionPanel />
+      <PromptCacheClientProofList clients={snapshot.promptCacheClients} />
       <TokenXrayPanel snapshot={snapshot.tokenXray} />
       <RedundancyPanel findings={snapshot.redundancy} />
       <AgentSessionPanel />

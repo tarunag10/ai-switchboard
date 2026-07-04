@@ -1,16 +1,18 @@
 use chrono::Utc;
 use std::collections::BTreeMap;
 
-use super::action_policy::{
-    actionable_compaction_decision, actionable_model_route, load_action_policy,
-    plan_prompt_cache_order, PromptSegmentPlan,
-};
+use super::action_policy::{actionable_compaction_decision, load_action_policy, PromptSegmentPlan};
 use super::cache_metrics::CacheTokenMetrics;
 use super::compaction::{decide_preemptive_compaction, CompactionInput};
 use super::model_routing::{decide_model_route, ModelRouteInput};
 use super::redundancy::build_redundancy_report;
 use super::rtk_presets::all_presets;
 use super::session_packs::{plan_agent_session_pack, AgentSessionStartInput};
+use super::snapshot_enrichment::{
+    fallback_prompt_cache_clients, fallback_token_buckets, live_prompt_cache_clients,
+    live_token_buckets, percent_u8,
+};
+use super::snapshot_policy::{order_prompt_cache_segments, route_to_snapshot};
 use super::snapshot_types::{
     AgentPackSnapshot, CompactionSignalSnapshot, ModelRoutingSnapshot, OptimizationSnapshot,
     PromptCacheSegmentSnapshot, RedundancyFindingSnapshot, RtkPresetSnapshot, TokenXraySnapshot,
@@ -120,6 +122,7 @@ pub(crate) fn build_optimization_snapshot() -> OptimizationSnapshot {
     OptimizationSnapshot {
         generated_at: Utc::now().to_rfc3339(),
         prompt_cache_segments,
+        prompt_cache_clients: fallback_prompt_cache_clients(),
         token_xray: TokenXraySnapshot {
             original_tokens: 22_600,
             optimized_tokens: xray
@@ -129,6 +132,7 @@ pub(crate) fn build_optimization_snapshot() -> OptimizationSnapshot {
             user_tokens: 4_700,
             tool_tokens: 3_300,
             pack_tokens: 2_800,
+            buckets: fallback_token_buckets(),
         },
         redundancy: vec![RedundancyFindingSnapshot {
             id: "duplicate-instructions".to_string(),
@@ -136,6 +140,9 @@ pub(crate) fn build_optimization_snapshot() -> OptimizationSnapshot {
             duplicate_tokens: redundancy.repeated_tokens,
             locations: vec!["AGENTS.md".to_string(), "session history".to_string()],
             action: "Prefer cached session prefix and repo pack injection".to_string(),
+            read_count: 3,
+            duplicate_percent: 35,
+            proof: "fallback duplicate hash across session history and repo pack".to_string(),
         }],
         routing: vec![
             ModelRoutingSnapshot {
@@ -218,12 +225,21 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
             if records.len() < 2 {
                 return None;
             }
+            let read_count = records.len() as u64;
+            let duplicate_tokens = records.iter().map(|record| record.estimated_tokens).sum();
+            let locations: Vec<String> = records
+                .iter()
+                .map(|record| record.source_id.clone())
+                .collect();
             Some(RedundancyFindingSnapshot {
                 id: format!("duplicate-{}", &content_sha256[..12]),
                 label: "Duplicate payload hash".to_string(),
-                duplicate_tokens: records.iter().map(|record| record.estimated_tokens).sum(),
-                locations: records.into_iter().map(|record| record.source_id).collect(),
+                duplicate_tokens,
+                locations,
                 action: "Deduplicate repeated payload before routing".to_string(),
+                read_count,
+                duplicate_percent: percent_u8(duplicate_tokens, original_tokens.max(1)),
+                proof: format!("same content hash observed {read_count} times"),
             })
         })
         .collect();
@@ -279,6 +295,7 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
     OptimizationSnapshot {
         generated_at: Utc::now().to_rfc3339(),
         prompt_cache_segments,
+        prompt_cache_clients: live_prompt_cache_clients(&cache_metrics),
         token_xray: TokenXraySnapshot {
             original_tokens,
             optimized_tokens,
@@ -294,6 +311,7 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
                 .or_else(|| bucket_tokens.get("session_pack"))
                 .copied()
                 .unwrap_or_default(),
+            buckets: live_token_buckets(&bucket_tokens),
         },
         redundancy,
         routing,
@@ -340,48 +358,6 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
     }
 }
 
-fn order_prompt_cache_segments(
-    segments: Vec<PromptCacheSegmentSnapshot>,
-) -> Vec<PromptCacheSegmentSnapshot> {
-    let policy = load_action_policy();
-    let plans: Vec<_> = segments
-        .iter()
-        .enumerate()
-        .map(|(index, segment)| PromptSegmentPlan {
-            id: segment.id.clone(),
-            stable: segment.changes_per_session <= 1
-                || segment.id.contains("system")
-                || segment.id.contains("repo"),
-            cacheable_tokens: segment.cacheable_tokens,
-            original_index: index,
-        })
-        .collect();
-    let ordered_ids = plan_prompt_cache_order(&policy, &plans);
-    ordered_ids
-        .into_iter()
-        .filter_map(|id| segments.iter().find(|segment| segment.id == id).cloned())
-        .collect()
-}
-
-fn route_with_policy(input: ModelRouteInput) -> super::model_routing::ModelRouteDecision {
-    actionable_model_route(&load_action_policy(), &input)
-}
-
-fn route_to_snapshot(input: ModelRouteInput) -> ModelRoutingSnapshot {
-    let current_model = input.requested_model.clone();
-    let fallback_model = input.capable_model.clone();
-    let task = input.task.clone();
-    let decision = route_with_policy(input);
-    ModelRoutingSnapshot {
-        task,
-        current_model,
-        selected_model: decision.selected_model,
-        fallback_model,
-        reason: decision.reason,
-        estimated_savings_percent: if decision.observe_only { 0 } else { 35 },
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -397,6 +373,10 @@ mod tests {
         assert!(!snapshot.redundancy.is_empty());
         assert!(snapshot.agent_pack.injected);
         assert_eq!(snapshot.rtk_presets.len(), 4);
+        assert!(!snapshot.prompt_cache_clients.is_empty());
+        assert!(!snapshot.token_xray.buckets.is_empty());
+        assert!(snapshot.redundancy[0].read_count > 1);
+        assert!(snapshot.redundancy[0].proof.contains("duplicate"));
         assert!(snapshot.token_xray.original_tokens > snapshot.token_xray.optimized_tokens);
     }
 
@@ -435,6 +415,14 @@ mod tests {
 
         assert_eq!(snapshot.prompt_cache_segments.len(), 1);
         assert_eq!(snapshot.prompt_cache_segments[0].hit_tokens, 30);
+        assert_eq!(snapshot.prompt_cache_clients[0].cache_read_tokens, 30);
+        assert!(snapshot
+            .token_xray
+            .buckets
+            .iter()
+            .any(|bucket| bucket.id == "system"));
+        assert!(snapshot.redundancy[0].read_count >= 2);
+        assert!(snapshot.redundancy[0].proof.contains("hash"));
         assert_eq!(snapshot.token_xray.system_tokens, 10);
         assert_eq!(snapshot.token_xray.tool_tokens, 5);
         assert_eq!(snapshot.redundancy[0].duplicate_tokens, 20);

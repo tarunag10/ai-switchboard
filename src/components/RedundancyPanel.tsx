@@ -36,6 +36,7 @@ export function RedundancyPanel({ findings }: RedundancyPanelProps) {
               <span className="optimize-minimal__meta">
                 <Scissors weight="duotone" aria-hidden="true" /> {finding.action}
               </span>
+              <span className="optimize-minimal__meta">{finding.proof}</span>
             </div>
           </div>
         ))}

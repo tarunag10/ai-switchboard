@@ -8,6 +8,14 @@ import {
 
 export type OptimizationHealth = "good" | "watch" | "blocked";
 
+export interface TokenXrayBucket {
+  id: string;
+  label: string;
+  tokens: number;
+  percent: number;
+  source: string;
+}
+
 export interface TokenXraySnapshot {
   originalTokens: number;
   optimizedTokens: number;
@@ -15,6 +23,7 @@ export interface TokenXraySnapshot {
   userTokens: number;
   toolTokens: number;
   packTokens: number;
+  buckets: TokenXrayBucket[];
 }
 
 export interface RedundancyFinding {
@@ -23,6 +32,19 @@ export interface RedundancyFinding {
   duplicateTokens: number;
   locations: string[];
   action: string;
+  readCount: number;
+  duplicatePercent: number;
+  proof: string;
+}
+
+export interface PromptCacheClientProof {
+  client: string;
+  provider: string;
+  promptTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  efficiencyPercent: number;
+  proof: string;
 }
 
 export interface ModelRoutingDecision {
@@ -57,6 +79,7 @@ export interface RtkPreset {
 
 export interface OptimizationSnapshot {
   promptCache: PromptCacheEfficiency;
+  promptCacheClients: PromptCacheClientProof[];
   tokenXray: TokenXraySnapshot;
   redundancy: RedundancyFinding[];
   routing: ModelRoutingDecision[];
@@ -76,6 +99,7 @@ export interface OptimizationActionPolicy {
 
 export interface RawOptimizationSnapshot {
   promptCacheSegments?: PromptCacheSegment[];
+  promptCacheClients?: PromptCacheClientProof[];
   tokenXray?: Partial<TokenXraySnapshot>;
   redundancy?: RedundancyFinding[];
   routing?: ModelRoutingDecision[];
@@ -112,6 +136,27 @@ const fallbackSegments: PromptCacheSegment[] = [
   }
 ];
 
+
+const fallbackPromptCacheClients: PromptCacheClientProof[] = [
+  {
+    client: "Codex",
+    provider: "OpenAI",
+    promptTokens: 12200,
+    cacheReadTokens: 7800,
+    cacheCreationTokens: 2100,
+    efficiencyPercent: 64,
+    proof: "Fallback sample until provider usage telemetry arrives",
+  },
+  {
+    client: "Claude Code",
+    provider: "Anthropic",
+    promptTokens: 8100,
+    cacheReadTokens: 4600,
+    cacheCreationTokens: 1900,
+    efficiencyPercent: 57,
+    proof: "Fallback sample until provider usage telemetry arrives",
+  },
+];
 export const fallbackOptimizationSnapshot: OptimizationSnapshot =
   normalizeOptimizationSnapshot({}, "fallback");
 
@@ -131,6 +176,79 @@ export function formatCompactNumber(value: number): string {
   }).format(value);
 }
 
+
+function normalizePromptCacheClients(
+  clients: PromptCacheClientProof[] | undefined,
+): PromptCacheClientProof[] {
+  if (!clients || clients.length === 0) {
+    return fallbackPromptCacheClients;
+  }
+  return clients.map((client) => ({
+    client: client.client,
+    provider: client.provider,
+    promptTokens: Math.max(0, client.promptTokens ?? 0),
+    cacheReadTokens: Math.max(0, client.cacheReadTokens ?? 0),
+    cacheCreationTokens: Math.max(0, client.cacheCreationTokens ?? 0),
+    efficiencyPercent: Math.max(0, Math.min(100, client.efficiencyPercent ?? 0)),
+    proof: client.proof,
+  }));
+}
+
+function fallbackTokenBuckets(snapshot: TokenXraySnapshot): TokenXrayBucket[] {
+  const rows = [
+    { id: "system", label: "System prompts", tokens: snapshot.systemTokens, source: "derived" },
+    { id: "user", label: "User/history", tokens: snapshot.userTokens, source: "derived" },
+    { id: "tool", label: "Tool output", tokens: snapshot.toolTokens, source: "derived" },
+    { id: "pack", label: "Repo pack", tokens: snapshot.packTokens, source: "derived" },
+  ];
+  const total = rows.reduce((sum, row) => sum + row.tokens, 0);
+  return rows.map((row) => ({
+    ...row,
+    percent: Math.max(0, Math.min(100, Math.round((row.tokens / Math.max(total, 1)) * 100))),
+  }));
+}
+
+function normalizeRedundancy(
+  findings: Partial<RedundancyFinding>[] | undefined,
+): RedundancyFinding[] {
+  const rows =
+    findings && findings.length > 0
+      ? findings
+      : [
+          {
+            id: "duplicated-rules",
+            label: "Repeated tool and edit rules",
+            duplicateTokens: 1180,
+            locations: ["AGENTS.md", "session history"],
+            action: "Deduplicate stable instruction block.",
+            readCount: 3,
+            duplicatePercent: 35,
+            proof: "fallback duplicate hash across instruction and session history",
+          },
+          {
+            id: "stale-recap",
+            label: "Old rollout recap repeated",
+            duplicateTokens: 740,
+            locations: ["memory", "session recap"],
+            action: "Replace with latest repo pack.",
+            readCount: 2,
+            duplicatePercent: 22,
+            proof: "fallback duplicate hash across memory and session recap",
+          },
+        ];
+
+  return rows.map((finding) => ({
+    id: finding.id ?? "redundancy",
+    label: finding.label ?? "Duplicate content",
+    duplicateTokens: Math.max(0, finding.duplicateTokens ?? 0),
+    locations: finding.locations ?? [],
+    action: finding.action ?? "Avoid re-reading unchanged content.",
+    readCount: Math.max(0, finding.readCount ?? finding.locations?.length ?? 0),
+    duplicatePercent: Math.max(0, Math.min(100, finding.duplicatePercent ?? 0)),
+    proof: finding.proof ?? "same content hash observed more than once",
+  }));
+}
+
 export function normalizeOptimizationSnapshot(
   raw: RawOptimizationSnapshot,
   source: OptimizationSnapshot["source"] = "tauri"
@@ -144,26 +262,9 @@ export function normalizeOptimizationSnapshot(
 
   return {
     promptCache,
+    promptCacheClients: normalizePromptCacheClients(raw.promptCacheClients),
     tokenXray,
-    redundancy:
-      raw.redundancy && raw.redundancy.length > 0
-        ? raw.redundancy
-        : [
-            {
-              id: "duplicated-rules",
-              label: "Repeated tool and edit rules",
-              duplicateTokens: 1180,
-              locations: ["AGENTS.md", "Start Agent pack"],
-              action: "Keep one canonical rule block and inject references."
-            },
-            {
-              id: "stale-recap",
-              label: "Old rollout recap repeated in prompt",
-              duplicateTokens: 740,
-              locations: ["memory", "session prelude"],
-              action: "Use compact memory citations instead of full recap text."
-            }
-          ],
+    redundancy: normalizeRedundancy(raw.redundancy),
     routing:
       raw.routing && raw.routing.length > 0
         ? raw.routing
@@ -273,12 +374,17 @@ function normalizeTokenXray(
     tokenXray?.optimizedTokens ??
     Math.max(originalTokens - promptCache.estimatedTokensSaved, 0);
 
-  return {
+  const snapshot: TokenXraySnapshot = {
     originalTokens,
     optimizedTokens,
     systemTokens: tokenXray?.systemTokens ?? Math.round(optimizedTokens * 0.28),
     userTokens: tokenXray?.userTokens ?? Math.round(optimizedTokens * 0.34),
     toolTokens: tokenXray?.toolTokens ?? Math.round(optimizedTokens * 0.24),
-    packTokens: tokenXray?.packTokens ?? Math.round(optimizedTokens * 0.14)
+    packTokens: tokenXray?.packTokens ?? Math.round(optimizedTokens * 0.14),
+    buckets: tokenXray?.buckets ?? [],
   };
+  if (snapshot.buckets.length === 0) {
+    snapshot.buckets = fallbackTokenBuckets(snapshot);
+  }
+  return snapshot;
 }

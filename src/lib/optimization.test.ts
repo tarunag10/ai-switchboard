@@ -67,7 +67,10 @@ describe("optimization helpers", () => {
           label: "Duplicate prompt",
           duplicateTokens: 250,
           locations: ["A", "B"],
-          action: "Remove duplicate."
+          action: "Remove duplicate.",
+          readCount: 2,
+          duplicatePercent: 12,
+          proof: "same content hash observed twice",
         }
       ]
     });

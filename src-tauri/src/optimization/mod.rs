@@ -8,6 +8,8 @@ pub(crate) mod redundancy;
 pub(crate) mod rtk_presets;
 pub(crate) mod session_packs;
 pub(crate) mod snapshot;
+pub(crate) mod snapshot_enrichment;
+pub(crate) mod snapshot_policy;
 pub(crate) mod snapshot_types;
 pub(crate) mod telemetry;
 pub(crate) mod token_estimator;
