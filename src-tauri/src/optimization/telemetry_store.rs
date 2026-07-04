@@ -87,7 +87,9 @@ fn try_prompt_cache_totals() -> rusqlite::Result<CacheTokenMetrics> {
 
 #[cfg(test)]
 pub(crate) fn reset_for_tests() {
-    let _ = std::fs::remove_file(db_path());
+    if let Ok(conn) = open_connection() {
+        let _ = conn.execute("DELETE FROM prompt_cache_events", []);
+    }
 }
 
 #[cfg(test)]

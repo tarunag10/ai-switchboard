@@ -11,9 +11,17 @@ pub(crate) struct OptimizationSnapshot {
     pub(crate) routing: Vec<ModelRoutingSnapshot>,
     pub(crate) compaction: CompactionSignalSnapshot,
     pub(crate) agent_pack: AgentPackSnapshot,
+    pub(crate) bypass: CompressionBypassSnapshot,
     pub(crate) rtk_presets: Vec<RtkPresetSnapshot>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct CompressionBypassSnapshot {
+    pub(crate) anthropic: bool,
+    pub(crate) openai: bool,
+    pub(crate) any: bool,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct PromptCacheSegmentSnapshot {

@@ -77,6 +77,12 @@ export interface RtkPreset {
   purpose: string;
 }
 
+export interface CompressionBypassSnapshot {
+  anthropic: boolean;
+  openai: boolean;
+  any: boolean;
+}
+
 export interface OptimizationSnapshot {
   promptCache: PromptCacheEfficiency;
   promptCacheClients: PromptCacheClientProof[];
@@ -85,6 +91,7 @@ export interface OptimizationSnapshot {
   routing: ModelRoutingDecision[];
   compaction: CompactionSignal;
   agentPack: AgentPackInjectionStatus;
+  bypass: CompressionBypassSnapshot;
   rtkPresets: RtkPreset[];
   generatedAt: string;
   source: "tauri" | "fallback";
@@ -123,9 +130,16 @@ export interface RawOptimizationSnapshot {
   routing?: ModelRoutingDecision[];
   compaction?: Partial<CompactionSignal>;
   agentPack?: Partial<AgentPackInjectionStatus>;
+  bypass?: Partial<CompressionBypassSnapshot> | null;
   rtkPresets?: RtkPreset[];
   generatedAt?: string;
 }
+
+const fallbackBypass: CompressionBypassSnapshot = {
+  anthropic: false,
+  openai: false,
+  any: false,
+};
 
 const fallbackSegments: PromptCacheSegment[] = [
   {
@@ -155,26 +169,6 @@ const fallbackSegments: PromptCacheSegment[] = [
 ];
 
 
-const fallbackPromptCacheClients: PromptCacheClientProof[] = [
-  {
-    client: "Codex",
-    provider: "OpenAI",
-    promptTokens: 12200,
-    cacheReadTokens: 7800,
-    cacheCreationTokens: 2100,
-    efficiencyPercent: 64,
-    proof: "Fallback sample until provider usage telemetry arrives",
-  },
-  {
-    client: "Claude Code",
-    provider: "Anthropic",
-    promptTokens: 8100,
-    cacheReadTokens: 4600,
-    cacheCreationTokens: 1900,
-    efficiencyPercent: 57,
-    proof: "Fallback sample until provider usage telemetry arrives",
-  },
-];
 export const fallbackOptimizationSnapshot: OptimizationSnapshot =
   normalizeOptimizationSnapshot({}, "fallback");
 
@@ -195,11 +189,24 @@ export function formatCompactNumber(value: number): string {
 }
 
 
+function normalizeCompressionBypass(
+  bypass?: Partial<CompressionBypassSnapshot> | null,
+): CompressionBypassSnapshot {
+  const anthropic = Boolean(bypass?.anthropic);
+  const openai = Boolean(bypass?.openai);
+
+  return {
+    anthropic,
+    openai,
+    any: Boolean(bypass?.any) || anthropic || openai,
+  };
+}
+
 function normalizePromptCacheClients(
   clients: PromptCacheClientProof[] | undefined,
 ): PromptCacheClientProof[] {
   if (!clients || clients.length === 0) {
-    return fallbackPromptCacheClients;
+    return [];
   }
   return clients.map((client) => ({
     client: client.client,
@@ -319,6 +326,7 @@ export function normalizeOptimizationSnapshot(
         raw.agentPack?.message ??
         "Pack headers are ready for session injection."
     },
+    bypass: normalizeCompressionBypass(raw.bypass),
     rtkPresets:
       raw.rtkPresets && raw.rtkPresets.length > 0
         ? raw.rtkPresets

@@ -81,6 +81,14 @@ describe("optimization helpers", () => {
     expect(getPromptCacheAction(snapshot)).toMatch(/Pin reusable headers/);
   });
 
+  it("preserves empty provider cache telemetry", () => {
+    const snapshot = normalizeOptimizationSnapshot({
+      promptCacheClients: [],
+    });
+
+    expect(snapshot.promptCacheClients).toEqual([]);
+  });
+
   it("loads Tauri telemetry when available", async () => {
     invokeMock.mockResolvedValue({
       promptCacheSegments: [

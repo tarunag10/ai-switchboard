@@ -431,7 +431,7 @@ fn compression_bypass_bit(is_codex: bool) -> u64 {
     }
 }
 
-fn headroom_compression_bypass_active(is_codex: bool) -> bool {
+pub(crate) fn headroom_compression_bypass_active(is_codex: bool) -> bool {
     HEADROOM_COMPRESSION_BYPASS_MASK.load(Ordering::Acquire) & compression_bypass_bit(is_codex) != 0
 }
 

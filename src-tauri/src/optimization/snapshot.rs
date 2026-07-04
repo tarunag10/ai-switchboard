@@ -15,11 +15,23 @@ use super::snapshot_enrichment::{
 use super::snapshot_policy::{order_prompt_cache_segments, route_to_snapshot};
 use super::snapshot_types::PromptCacheClientSnapshot;
 use super::snapshot_types::{
-    AgentPackSnapshot, CompactionSignalSnapshot, ModelRoutingSnapshot, OptimizationSnapshot,
-    PromptCacheSegmentSnapshot, RedundancyFindingSnapshot, RtkPresetSnapshot, TokenXraySnapshot,
+    AgentPackSnapshot, CompactionSignalSnapshot, CompressionBypassSnapshot, ModelRoutingSnapshot,
+    OptimizationSnapshot, PromptCacheSegmentSnapshot, RedundancyFindingSnapshot, RtkPresetSnapshot,
+    TokenXraySnapshot,
 };
 use super::telemetry::{self, TelemetrySnapshot};
 use super::token_xray::{build_token_xray, TokenXrayInput};
+
+fn compression_bypass_snapshot() -> CompressionBypassSnapshot {
+    let anthropic = crate::proxy_intercept::headroom_compression_bypass_active(false);
+    let openai = crate::proxy_intercept::headroom_compression_bypass_active(true);
+
+    CompressionBypassSnapshot {
+        anthropic,
+        openai,
+        any: anthropic || openai,
+    }
+}
 
 pub(crate) fn build_optimization_snapshot() -> OptimizationSnapshot {
     let telemetry = telemetry::snapshot();
@@ -175,6 +187,7 @@ pub(crate) fn build_optimization_snapshot() -> OptimizationSnapshot {
             last_injected_at: Some(Utc::now().to_rfc3339()),
             status: agent_pack.reason,
         },
+        bypass: compression_bypass_snapshot(),
         rtk_presets: all_presets()
             .into_iter()
             .map(|preset| RtkPresetSnapshot {
@@ -334,6 +347,7 @@ fn build_live_optimization_snapshot(telemetry: TelemetrySnapshot) -> Optimizatio
                 status: pack.reason,
             }
         },
+        bypass: compression_bypass_snapshot(),
         rtk_presets: if telemetry.rtk_presets.is_empty() {
             all_presets()
                 .into_iter()

@@ -133,9 +133,6 @@ function PromptCacheClientProofList({
 }: {
   clients: PromptCacheClientProof[];
 }) {
-  if (clients.length === 0) {
-    return null;
-  }
   return (
     <section className="optimize-minimal" aria-labelledby="cache-proof-title">
       <div className="optimize-card__title-row">
@@ -147,22 +144,26 @@ function PromptCacheClientProofList({
       <p className="optimize-minimal__meta">
         Provider cache reads by client. This is the live proof for prompt-cache efficiency.
       </p>
-      <div className="optimize-projects">
-        {clients.map((client) => (
-          <div key={`${client.client}-${client.provider}`} className="optimize-project-row">
-            <div className="optimize-project-row__main">
-              <span className="optimize-project-row__name">{client.client}</span>
+      {clients.length === 0 ? (
+        <p className="optimize-minimal__meta">No provider cache telemetry yet.</p>
+      ) : (
+        <div className="optimize-projects">
+          {clients.map((client) => (
+            <div key={`${client.client}-${client.provider}`} className="optimize-project-row">
+              <div className="optimize-project-row__main">
+                <span className="optimize-project-row__name">{client.client}</span>
+                <span className="optimize-project-row__training">
+                  {client.provider} {client.efficiencyPercent}% efficient
+                </span>
+                <span className="optimize-minimal__meta">{client.proof}</span>
+              </div>
               <span className="optimize-project-row__training">
-                {client.provider} {client.efficiencyPercent}% efficient
+                {client.cacheReadTokens.toLocaleString()} cache hits
               </span>
-              <span className="optimize-minimal__meta">{client.proof}</span>
             </div>
-            <span className="optimize-project-row__training">
-              {client.cacheReadTokens.toLocaleString()} cache hits
-            </span>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -261,10 +262,23 @@ export function OptimizationDashboard() {
               <Lightning weight="duotone" />
             </span>
             <div>
-              <h2 id="optimization-dashboard-title">Codex Optimization</h2>
+              <h2 id="optimization-dashboard-title">AI Switchboard Optimization</h2>
               <p className="optimize-minimal__meta">
                 {snapshot.source === "tauri" ? "Live Tauri telemetry" : "Local fallback telemetry"}.
               </p>
+              {snapshot.bypass.any ? (
+                <p className="optimize-minimal__meta" role="alert">
+                  Compression fail-open is active for{" "}
+                  {[
+                    snapshot.bypass.anthropic ? "Claude/Anthropic" : null,
+                    snapshot.bypass.openai ? "Codex/OpenAI" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" and ")}
+                  . Native compaction remains unblocked, but Switchboard savings are paused for that
+                  client.
+                </p>
+              ) : null}
             </div>
           </div>
           <button
