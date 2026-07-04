@@ -25,6 +25,7 @@ mod models;
 mod optimization;
 mod port_conflict;
 mod pricing;
+mod process_runner;
 mod proxy_intercept;
 mod release_evidence;
 mod repo_intelligence;
@@ -1198,7 +1199,7 @@ fn classify_bootstrap_failure(err: &anyhow::Error) -> BootstrapFailureKind {
     // CommandFailure, so fall back to the formatted error chain for those.
     let cmd_failure = err
         .chain()
-        .find_map(|e| e.downcast_ref::<tool_manager::CommandFailure>());
+        .find_map(|e| e.downcast_ref::<process_runner::CommandFailure>());
     let haystack = match cmd_failure {
         Some(failure) => format!("{}\n{}", failure.stdout, failure.stderr),
         None => format!("{err:#}"),
@@ -1291,7 +1292,7 @@ fn capture_bootstrap_failure(err: &anyhow::Error, kind: BootstrapFailureKind) {
     let technical_err = format!("{err:#}");
     let cmd_failure = err
         .chain()
-        .find_map(|e| e.downcast_ref::<tool_manager::CommandFailure>());
+        .find_map(|e| e.downcast_ref::<process_runner::CommandFailure>());
 
     // Match against stderr (where the real signal lives for CommandFailure)
     // in addition to the error chain. For non-CommandFailure paths the
@@ -1828,7 +1829,7 @@ pub(crate) fn capture_upgrade_failure(
     let technical_err = format!("{err:#}");
     let cmd_failure = err
         .chain()
-        .find_map(|e| e.downcast_ref::<tool_manager::CommandFailure>());
+        .find_map(|e| e.downcast_ref::<process_runner::CommandFailure>());
 
     // ENOSPC is environmental — the user can't fix it by retrying, and the
     // pip log dump bloats Sentry with thousands of "Requirement already
@@ -8019,8 +8020,8 @@ mod tests {
 
     // ── classify_bootstrap_failure ───────────────────────────────────────────
 
-    fn make_command_failure(stderr: &str) -> crate::tool_manager::CommandFailure {
-        crate::tool_manager::CommandFailure {
+    fn make_command_failure(stderr: &str) -> crate::process_runner::CommandFailure {
+        crate::process_runner::CommandFailure {
             program: "/usr/bin/pip".into(),
             args: vec!["install".into()],
             stdout: String::new(),
