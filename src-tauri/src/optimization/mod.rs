@@ -15,6 +15,8 @@ pub(crate) mod snapshot_policy;
 pub(crate) mod snapshot_types;
 pub(crate) mod telemetry;
 pub(crate) mod telemetry_store;
+#[cfg(test)]
+mod telemetry_store_tests;
 pub(crate) mod token_estimator;
 pub(crate) mod token_ledger;
 pub(crate) mod token_xray;

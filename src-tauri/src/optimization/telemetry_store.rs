@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use rusqlite::{params, Connection};
 
 use super::cache_metrics::CacheTokenMetrics;
-use super::telemetry::{CompactionDecisionRecord, RoutingDecisionRecord, TokenBucketMetrics};
+use super::telemetry::{
+    CompactionDecisionRecord, RedundancyHashRecord, RoutingDecisionRecord, TokenBucketMetrics,
+};
 
 const DB_FILE: &str = "optimization_telemetry.sqlite";
 
@@ -49,6 +51,13 @@ fn open_connection() -> rusqlite::Result<Connection> {
             recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             bucket TEXT NOT NULL,
             tokens INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS redundancy_hash_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            source_id TEXT NOT NULL,
+            content_sha256 TEXT NOT NULL,
+            estimated_tokens INTEGER NOT NULL
         );",
     )?;
     Ok(conn)
@@ -246,6 +255,63 @@ fn try_token_xray_bucket_totals() -> rusqlite::Result<Vec<TokenBucketMetrics>> {
     Ok(buckets)
 }
 
+pub(crate) fn record_redundancy_hash(record: &RedundancyHashRecord) {
+    if record.source_id.trim().is_empty() || record.content_sha256.trim().is_empty() {
+        return;
+    }
+    if let Err(error) = try_record_redundancy_hash(record) {
+        log::warn!("optimization redundancy telemetry persist failed: {error}");
+    }
+}
+
+fn try_record_redundancy_hash(record: &RedundancyHashRecord) -> rusqlite::Result<()> {
+    let conn = open_connection()?;
+    conn.execute(
+        "INSERT INTO redundancy_hash_events (
+            source_id,
+            content_sha256,
+            estimated_tokens
+        ) VALUES (?1, ?2, ?3)",
+        params![
+            record.source_id,
+            record.content_sha256,
+            record.estimated_tokens as i64
+        ],
+    )?;
+    Ok(())
+}
+
+pub(crate) fn recent_redundancy_hashes(limit: usize) -> Vec<RedundancyHashRecord> {
+    try_recent_redundancy_hashes(limit).unwrap_or_else(|error| {
+        log::warn!("optimization redundancy telemetry read failed: {error}");
+        Vec::new()
+    })
+}
+
+fn try_recent_redundancy_hashes(limit: usize) -> rusqlite::Result<Vec<RedundancyHashRecord>> {
+    let conn = open_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT source_id, content_sha256, estimated_tokens
+        FROM redundancy_hash_events
+        ORDER BY id DESC
+        LIMIT ?1",
+    )?;
+    let rows = stmt.query_map([limit as i64], |row| {
+        Ok(RedundancyHashRecord {
+            source_id: row.get(0)?,
+            content_sha256: row.get(1)?,
+            estimated_tokens: row.get::<_, i64>(2)?.max(0) as u64,
+        })
+    })?;
+
+    let mut records = Vec::new();
+    for row in rows {
+        records.push(row?);
+    }
+    records.reverse();
+    Ok(records)
+}
+
 pub(crate) fn prompt_cache_totals() -> CacheTokenMetrics {
     try_prompt_cache_totals().unwrap_or_else(|error| {
         log::warn!("optimization telemetry read failed: {error}");
@@ -281,104 +347,6 @@ pub(crate) fn reset_for_tests() {
         let _ = conn.execute("DELETE FROM compaction_decisions", []);
         let _ = conn.execute("DELETE FROM routing_decisions", []);
         let _ = conn.execute("DELETE FROM token_xray_bucket_events", []);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use tempfile::tempdir;
-
-    use super::*;
-
-    #[test]
-    fn prompt_cache_metrics_round_trip_through_sqlite() {
-        let _guard = crate::optimization::telemetry::test_guard();
-        let home = tempdir().expect("temp home");
-        let previous_home = std::env::var_os("HOME");
-        std::env::set_var("HOME", home.path());
-
-        let first = CacheTokenMetrics {
-            prompt_tokens: 100,
-            completion_tokens: 20,
-            cache_read_tokens: 40,
-            cache_creation_tokens: 10,
-        };
-        let second = CacheTokenMetrics {
-            prompt_tokens: 50,
-            completion_tokens: 10,
-            cache_read_tokens: 25,
-            cache_creation_tokens: 5,
-        };
-
-        record_prompt_cache_metrics(&first);
-        record_prompt_cache_metrics(&second);
-
-        assert_eq!(
-            prompt_cache_totals(),
-            CacheTokenMetrics {
-                prompt_tokens: 150,
-                completion_tokens: 30,
-                cache_read_tokens: 65,
-                cache_creation_tokens: 15,
-            }
-        );
-
-        match previous_home {
-            Some(value) => std::env::set_var("HOME", value),
-            None => std::env::remove_var("HOME"),
-        }
-    }
-    #[test]
-    fn routing_decisions_round_trip_through_sqlite() {
-        let _guard = crate::optimization::telemetry::test_guard();
-        let home = tempdir().expect("temp home");
-        let previous_home = std::env::var_os("HOME");
-        std::env::set_var("HOME", home.path());
-
-        reset_for_tests();
-        record_routing_decision(&RoutingDecisionRecord {
-            task: "commit message".to_string(),
-            current_model: "gpt-5".to_string(),
-            selected_model: "gpt-5-mini".to_string(),
-            fallback_model: "gpt-5".to_string(),
-            reason: "trivial task".to_string(),
-            estimated_savings_percent: 42,
-        });
-
-        let decisions = recent_routing_decisions(8);
-        assert_eq!(decisions.len(), 1);
-        assert_eq!(decisions[0].selected_model, "gpt-5-mini");
-        assert_eq!(decisions[0].estimated_savings_percent, 42);
-
-        match previous_home {
-            Some(value) => std::env::set_var("HOME", value),
-            None => std::env::remove_var("HOME"),
-        }
-    }
-    #[test]
-    fn token_xray_buckets_round_trip_through_sqlite() {
-        let _guard = crate::optimization::telemetry::test_guard();
-        let home = tempdir().expect("temp home");
-        let previous_home = std::env::var_os("HOME");
-        std::env::set_var("HOME", home.path());
-
-        reset_for_tests();
-        record_token_xray_bucket("tool", 12);
-        record_token_xray_bucket("tool", 8);
-        record_token_xray_bucket("history", 5);
-
-        let buckets = token_xray_bucket_totals();
-        assert_eq!(buckets.len(), 2);
-        assert!(buckets
-            .iter()
-            .any(|bucket| bucket.bucket == "tool" && bucket.tokens == 20));
-        assert!(buckets
-            .iter()
-            .any(|bucket| bucket.bucket == "history" && bucket.tokens == 5));
-
-        match previous_home {
-            Some(value) => std::env::set_var("HOME", value),
-            None => std::env::remove_var("HOME"),
-        }
+        let _ = conn.execute("DELETE FROM redundancy_hash_events", []);
     }
 }

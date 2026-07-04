@@ -127,16 +127,19 @@ pub(crate) fn record_redundancy_hash(
     if source_id.trim().is_empty() || content_sha256.trim().is_empty() {
         return;
     }
+
+    let record = RedundancyHashRecord {
+        source_id,
+        content_sha256,
+        estimated_tokens,
+    };
+    telemetry_store::record_redundancy_hash(&record);
     with_collector(|collector| {
         push_bounded(
             &mut collector.redundancy_hashes,
-            RedundancyHashRecord {
-                source_id,
-                content_sha256,
-                estimated_tokens,
-            },
+            record,
             MAX_REDUNDANCY_HASHES,
-        );
+        )
     });
 }
 
@@ -184,7 +187,14 @@ pub(crate) fn snapshot() -> TelemetrySnapshot {
                     memory
                 }
             },
-            redundancy_hashes: collector.redundancy_hashes.iter().cloned().collect(),
+            redundancy_hashes: {
+                let memory: Vec<_> = collector.redundancy_hashes.iter().cloned().collect();
+                if memory.is_empty() {
+                    telemetry_store::recent_redundancy_hashes(MAX_REDUNDANCY_HASHES)
+                } else {
+                    memory
+                }
+            },
             compaction_decision: collector
                 .compaction_decision
                 .clone()
@@ -309,5 +319,17 @@ mod tests {
         assert_eq!(snapshot.token_buckets.len(), 1);
         assert_eq!(snapshot.token_buckets[0].bucket, "tool");
         assert_eq!(snapshot.token_buckets[0].tokens, 21);
+    }
+    #[test]
+    fn snapshot_restores_redundancy_hashes_from_sqlite() {
+        let _guard = test_guard();
+        reset_for_tests();
+
+        record_redundancy_hash("AGENTS.md", "abc123".repeat(11), 12);
+        with_collector(|collector| collector.redundancy_hashes.clear());
+
+        let snapshot = snapshot();
+        assert_eq!(snapshot.redundancy_hashes.len(), 1);
+        assert_eq!(snapshot.redundancy_hashes[0].source_id, "AGENTS.md");
     }
 }
