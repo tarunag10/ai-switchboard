@@ -19,7 +19,7 @@ case "${ARCH_NAME}" in
   *) DMG_ARCH="${ARCH_NAME}" ;;
 esac
 
-APP_NAME_CANDIDATES=("AI Switchboard for Mac" "Mac AI Switchboard" "Mac Switchboard")
+APP_NAME_CANDIDATES=("AI Switchboard for Mac" "AI Switchboard" "Mac AI Switchboard" "Mac Switchboard" Switchboard)
 RAW_DMG=""
 for app_name in "${APP_NAME_CANDIDATES[@]}"; do
   candidate="src-tauri/target/release/bundle/dmg/${app_name}_${APP_VERSION}_${DMG_ARCH}.dmg"
