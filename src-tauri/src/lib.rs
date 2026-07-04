@@ -27,6 +27,7 @@ mod pricing;
 mod proxy_intercept;
 mod release_evidence;
 mod repo_intelligence;
+mod repo_intelligence_commands;
 mod repo_map;
 mod state;
 mod storage;
@@ -62,9 +63,7 @@ use crate::models::{
     HeadroomPricingStatus, HeadroomSubscriptionTier, ManagedConfigApplyPreview,
     ManagedConfigApplyResult, ManagedFootprintReport, ManagedRollbackExecutionResult,
     ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview,
-    MessageLoggingSettings, PurgeResult, RepoAgentHandoffResponse, RepoContextPackResponse,
-    RepoDependentsResponse, RepoIndexFreshnessResponse, RepoIntelligenceManifestResponse,
-    RepoIntelligenceSummary, RepoSymbolSearchResponse, RuntimeStatus, RuntimeUpgradeProgress,
+    MessageLoggingSettings, PurgeResult, RuntimeStatus, RuntimeUpgradeProgress,
     SavingsAttributionCounter, SavingsAttributionEvent, SavingsMode, SwitchboardMode,
     SwitchboardState, TransformationFeedResponse, UninstallDryRunReport,
 };
@@ -257,86 +256,6 @@ fn check_zero_spend_anomaly(dashboard: &DashboardState) {
         ),
         sentry::Level::Warning,
     );
-}
-
-#[tauri::command]
-fn build_repo_intelligence_summary(
-    state: State<'_, AppState>,
-    repo_path: String,
-) -> Result<RepoIntelligenceSummary, String> {
-    let summary = repo_intelligence::summarize_repo(repo_path).map_err(|err| err.to_string())?;
-    repo_intelligence::save_latest_summary(&summary).map_err(|err| err.to_string())?;
-    if let Err(err) = state.record_repo_intelligence_attribution(&summary) {
-        log::warn!("could not record Repo Intelligence attribution event: {err:#}");
-    }
-    Ok(summary)
-}
-
-#[tauri::command]
-fn get_latest_repo_intelligence_summary() -> Result<Option<RepoIntelligenceSummary>, String> {
-    repo_intelligence::load_latest_summary().map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn clear_repo_intelligence_summary() -> Result<bool, String> {
-    repo_intelligence::clear_latest_summary().map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn get_repo_intelligence_context_pack(
-    pack_id: Option<String>,
-) -> Result<Option<RepoContextPackResponse>, String> {
-    repo_intelligence::latest_context_pack(pack_id.as_deref()).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn search_repo_intelligence_symbols(
-    query: Option<String>,
-    limit: Option<usize>,
-) -> Result<Option<RepoSymbolSearchResponse>, String> {
-    repo_intelligence::latest_symbol_search(query.as_deref(), limit).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn get_repo_intelligence_dependents(
-    target: String,
-    limit: Option<usize>,
-) -> Result<Option<RepoDependentsResponse>, String> {
-    repo_intelligence::latest_dependents_search(&target, limit).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn get_repo_intelligence_manifest() -> Result<Option<RepoIntelligenceManifestResponse>, String> {
-    repo_intelligence::latest_manifest().map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn get_repo_manifest() -> Result<Option<RepoIntelligenceManifestResponse>, String> {
-    repo_intelligence::latest_manifest().map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn get_repo_pack(pack_id: Option<String>) -> Result<Option<RepoContextPackResponse>, String> {
-    repo_intelligence::latest_context_pack(pack_id.as_deref()).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn get_agent_handoff(
-    agent_id: String,
-    task_type: Option<String>,
-) -> Result<Option<RepoAgentHandoffResponse>, String> {
-    repo_intelligence::latest_agent_handoff(&agent_id, task_type.as_deref())
-        .map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn get_index_freshness() -> Result<RepoIndexFreshnessResponse, String> {
-    repo_intelligence::latest_index_freshness().map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-fn clear_repo_index() -> Result<bool, String> {
-    repo_intelligence::clear_latest_summary().map_err(|err| err.to_string())
 }
 
 #[tauri::command]
@@ -4537,21 +4456,21 @@ pub fn run() {
             get_uninstall_dry_run_report,
             preview_managed_rollback_undo_all,
             execute_managed_rollback_undo_all,
-            build_repo_intelligence_summary,
-            get_latest_repo_intelligence_summary,
-            get_repo_intelligence_context_pack,
-            search_repo_intelligence_symbols,
-            get_repo_intelligence_dependents,
-            get_repo_intelligence_manifest,
-            clear_repo_intelligence_summary,
-            get_repo_manifest,
+            repo_intelligence_commands::build_repo_intelligence_summary,
+            repo_intelligence_commands::get_latest_repo_intelligence_summary,
+            repo_intelligence_commands::get_repo_intelligence_context_pack,
+            repo_intelligence_commands::search_repo_intelligence_symbols,
+            repo_intelligence_commands::get_repo_intelligence_dependents,
+            repo_intelligence_commands::get_repo_intelligence_manifest,
+            repo_intelligence_commands::clear_repo_intelligence_summary,
+            repo_intelligence_commands::get_repo_manifest,
             repo_map::preflight_repo_map,
             repo_map::generate_repo_map,
             repo_map::open_repo_map_artifact,
-            get_repo_pack,
-            get_agent_handoff,
-            get_index_freshness,
-            clear_repo_index,
+            repo_intelligence_commands::get_repo_pack,
+            repo_intelligence_commands::get_agent_handoff,
+            repo_intelligence_commands::get_index_freshness,
+            repo_intelligence_commands::clear_repo_index,
             get_app_update_configuration,
             release_evidence::load_release_readiness_report,
             release_evidence::refresh_release_readiness_report,
