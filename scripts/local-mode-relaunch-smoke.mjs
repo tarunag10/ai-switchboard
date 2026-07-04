@@ -3,8 +3,15 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-const appPath = "/Applications/Mac AI Switchboard.app";
-const appName = "Mac AI Switchboard";
+const appCandidates = [
+  { path: "/Applications/AI Switchboard for Mac.app", name: "AI Switchboard for Mac" },
+  { path: "/Applications/AI Switchboard.app", name: "AI Switchboard" },
+  { path: "/Applications/Mac AI Switchboard.app", name: "Mac AI Switchboard" },
+  { path: "/Applications/Mac Switchboard.app", name: "Mac Switchboard" },
+];
+const installedApp = appCandidates.find((candidate) => fs.existsSync(candidate.path)) ?? appCandidates[0];
+const appPath = installedApp.path;
+const appName = installedApp.name;
 const appProcess = "mac-ai-switchboard";
 const interceptPort = "6767";
 const proxyPort = "6768";
