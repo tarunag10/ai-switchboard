@@ -40,6 +40,7 @@ mod release_evidence;
 mod repo_intelligence;
 mod repo_intelligence_commands;
 mod repo_map;
+mod repo_memory_commands;
 mod rollback_commands;
 mod state;
 mod storage;
@@ -219,31 +220,6 @@ pub(crate) fn show_notification_impl(
         .body(body)
         .show()
         .map_err(|e| format!("Could not show notification: {e}"))
-}
-
-#[tauri::command]
-fn install_repo_memory_mcp(state: State<'_, AppState>) -> Result<DashboardState, String> {
-    state
-        .tool_manager
-        .install_repo_memory_mcp()
-        .map_err(|err| err.to_string())?;
-    Ok(state.dashboard())
-}
-
-#[tauri::command]
-fn start_repo_memory_mcp(state: State<'_, AppState>) -> Result<DashboardState, String> {
-    state
-        .start_repo_memory_mcp()
-        .map_err(|err| err.to_string())?;
-    Ok(state.dashboard())
-}
-
-#[tauri::command]
-fn stop_repo_memory_mcp(state: State<'_, AppState>) -> Result<DashboardState, String> {
-    state
-        .stop_repo_memory_mcp()
-        .map_err(|err| err.to_string())?;
-    Ok(state.dashboard())
 }
 
 #[tauri::command]
@@ -2490,9 +2466,9 @@ pub fn run() {
             addon_commands::set_addon_enabled,
             addon_commands::uninstall_addon,
             addon_commands::set_caveman_level,
-            install_repo_memory_mcp,
-            start_repo_memory_mcp,
-            stop_repo_memory_mcp,
+            repo_memory_commands::install_repo_memory_mcp,
+            repo_memory_commands::start_repo_memory_mcp,
+            repo_memory_commands::stop_repo_memory_mcp,
             bootstrap_runtime,
             start_bootstrap,
             get_bootstrap_progress,
