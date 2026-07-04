@@ -5,6 +5,7 @@ mod bearer;
 mod claude_cli;
 mod client_adapters;
 mod client_connectors;
+mod client_paths;
 mod device;
 mod insights;
 mod keychain;

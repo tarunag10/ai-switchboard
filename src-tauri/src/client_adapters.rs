@@ -18,6 +18,7 @@ use crate::client_connectors::{
     planned_sidecar_spec, PlannedClientSpec, PlannedSidecarSpec, PLANNED_CLIENT_SPECS,
     PLANNED_CONFIG_CREATION_STEPS, PLANNED_SIDECAR_SPECS,
 };
+use crate::client_paths::{home_dir, planned_sidecar_routing_path, SWITCHBOARD_ROUTING_FILE};
 use crate::models::{
     ClientConnectorAutomationStage, ClientConnectorConfigDryRunPreview, ClientConnectorStatus,
     ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus, CodexDbRestoreResult,
@@ -46,7 +47,6 @@ const WINDSURF_CONFIG_FILE: &str = "settings.json";
 const WINDSURF_MARKER_PREFIX: &str = "headroom:windsurf";
 const ZED_CONFIG_FILE: &str = "settings.json";
 const ZED_MARKER_PREFIX: &str = "headroom:zed";
-const SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md";
 const LEGACY_MARKER_PREFIX: &str = "headroom";
 const MARKER_PREFIX: &str = "headroom";
 const SWITCHBOARD_MARKER_PREFIX: &str = "mac-ai-switchboard";
@@ -1034,16 +1034,6 @@ fn managed_connector_config_locations(client_id: &str) -> Vec<String> {
         ],
         _ => Vec::new(),
     }
-}
-
-fn planned_sidecar_routing_path(client_id: &str) -> Result<PathBuf> {
-    let spec = planned_sidecar_spec(client_id)
-        .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
-    let mut path = home_dir();
-    for part in spec.config_dir {
-        path = path.join(part);
-    }
-    Ok(path.join(SWITCHBOARD_ROUTING_FILE))
 }
 
 fn opencode_config_path() -> PathBuf {
@@ -5570,12 +5560,6 @@ json.dump({{"hookSpecificOutput": {{"hookEventName": "PreToolUse", "permissionDe
     )
 }
 
-fn home_dir() -> PathBuf {
-    dirs::home_dir()
-        .or_else(|| std::env::var_os("HOME").map(PathBuf::from))
-        .unwrap_or_else(|| std::env::temp_dir())
-}
-
 /// Codex's home directory. Mirrors the Codex CLI and the upstream Headroom
 /// proxy: honor `$CODEX_HOME` when set, else `~/.codex`. Staying in sync with
 /// the proxy matters — if the two layers disagree on where Codex lives, the
@@ -6636,6 +6620,7 @@ mod tests {
         planned_connector_has_implemented_setup, CONNECTOR_MANIFEST_JSON, PLANNED_CLIENT_SPECS,
         PLANNED_CONFIG_CREATION_STEPS, PLANNED_CONFIG_CREATION_STEP_IDS,
     };
+    use crate::client_paths::{planned_sidecar_routing_path, SWITCHBOARD_ROUTING_FILE};
     use crate::models::{
         ClientConnectorSupportStatus, ClientHealth, ClientStatus, CodexThreadRetaggingMode,
         CodexThreadRetaggingSettings, ManagedRollbackExecutionStatus, SwitchboardMode,
@@ -8434,10 +8419,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
     #[serial_test::serial]
     fn gemini_setup_writes_verifies_and_cleans_sidecar_only() {
         let home = TestHome::new();
-        let sidecar = home
-            .path()
-            .join(".gemini")
-            .join(super::SWITCHBOARD_ROUTING_FILE);
+        let sidecar = home.path().join(".gemini").join(SWITCHBOARD_ROUTING_FILE);
         fs::create_dir_all(sidecar.parent().unwrap()).expect("create gemini dir");
         fs::write(&sidecar, "# user note\nkeep this\n").expect("seed sidecar");
 
@@ -8503,10 +8485,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
     #[serial_test::serial]
     fn gemini_managed_rollback_removes_shell_and_sidecar_blocks() {
         let home = TestHome::new();
-        let sidecar = home
-            .path()
-            .join(".gemini")
-            .join(super::SWITCHBOARD_ROUTING_FILE);
+        let sidecar = home.path().join(".gemini").join(SWITCHBOARD_ROUTING_FILE);
         fs::create_dir_all(sidecar.parent().unwrap()).expect("create gemini dir");
         fs::write(&sidecar, "# user note\nkeep this\n").expect("seed sidecar");
 
@@ -8549,7 +8528,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             .join("Library")
             .join("Application Support")
             .join("Cursor")
-            .join(super::SWITCHBOARD_ROUTING_FILE);
+            .join(SWITCHBOARD_ROUTING_FILE);
         fs::create_dir_all(sidecar.parent().unwrap()).expect("create cursor dir");
         fs::write(&sidecar, "# cursor user note\nkeep this\n").expect("seed sidecar");
 
@@ -8635,10 +8614,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
     #[serial_test::serial]
     fn managed_rollback_undo_all_executes_ready_native_rows_only() {
         let home = TestHome::new();
-        let gemini_sidecar = home
-            .path()
-            .join(".gemini")
-            .join(super::SWITCHBOARD_ROUTING_FILE);
+        let gemini_sidecar = home.path().join(".gemini").join(SWITCHBOARD_ROUTING_FILE);
         fs::create_dir_all(gemini_sidecar.parent().unwrap()).expect("create gemini dir");
         fs::write(&gemini_sidecar, "# gemini user note\nkeep this\n").expect("seed gemini");
         let cursor_sidecar = home
@@ -8646,7 +8622,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             .join("Library")
             .join("Application Support")
             .join("Cursor")
-            .join(super::SWITCHBOARD_ROUTING_FILE);
+            .join(SWITCHBOARD_ROUTING_FILE);
         fs::create_dir_all(cursor_sidecar.parent().unwrap()).expect("create cursor dir");
         fs::write(&cursor_sidecar, "# cursor user note\nkeep this\n").expect("seed cursor");
 
@@ -8701,7 +8677,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             .path()
             .join(".config")
             .join("opencode")
-            .join(super::SWITCHBOARD_ROUTING_FILE);
+            .join(SWITCHBOARD_ROUTING_FILE);
         let config = home
             .path()
             .join(".config")
@@ -8907,8 +8883,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         ];
 
         for (client_id, name) in connectors {
-            let sidecar =
-                super::planned_sidecar_routing_path(client_id).expect("sidecar path available");
+            let sidecar = planned_sidecar_routing_path(client_id).expect("sidecar path available");
             fs::create_dir_all(sidecar.parent().unwrap()).expect("create sidecar parent");
             fs::write(&sidecar, format!("# {client_id} user note\nkeep this\n"))
                 .expect("seed sidecar");
@@ -10573,10 +10548,7 @@ js_repl = false\n",
     #[serial_test::serial]
     fn managed_footprint_marks_existing_paths_without_reading_values() {
         let home = TestHome::new();
-        let sidecar = home
-            .path()
-            .join(".gemini")
-            .join(super::SWITCHBOARD_ROUTING_FILE);
+        let sidecar = home.path().join(".gemini").join(SWITCHBOARD_ROUTING_FILE);
         std::fs::create_dir_all(sidecar.parent().unwrap()).unwrap();
         std::fs::write(&sidecar, "token = sk-test").unwrap();
 
@@ -10786,8 +10758,7 @@ js_repl = false\n",
             .iter()
             .any(|path| path.contains("mac-ai-switchboard-routing.md")));
 
-        let routing_path =
-            super::planned_sidecar_routing_path("qwen_code").expect("qwen sidecar path");
+        let routing_path = planned_sidecar_routing_path("qwen_code").expect("qwen sidecar path");
         let body = std::fs::read_to_string(&routing_path).expect("read qwen sidecar");
         assert!(body.contains("headroom:qwen_code"));
         assert!(body.contains("reversible Qwen Code routing-intent sidecar"));
