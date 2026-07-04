@@ -16,7 +16,7 @@ import {
   shouldOfferRuntimeRestartAction,
   type UpgradePlanId,
 } from "../lib/appHelpers";
-import { shouldShowCodexNudge } from "../lib/trayHelpers";
+import { shouldShowCodexNudge, type TrayView } from "../lib/trayHelpers";
 import type {
   ClientConnectorStatus,
   DashboardState,
@@ -42,6 +42,7 @@ import { OutputReductionChip } from "./OutputReductionChip";
 import type { SavingsChartMode } from "./SavingsChartTooltip";
 
 export interface HomeViewProps {
+  hidden?: boolean;
   tierMismatch: TierMismatch | null;
   upgradeActionError: string | null;
   upgradeActionBusy: UpgradePlanId | null;
@@ -93,7 +94,7 @@ export interface HomeViewProps {
   switchboardRemoteServicesEnabled: boolean;
   handleSetSwitchboardMode: (mode: SwitchboardMode) => void;
   handleSetSavingsMode: (mode: SavingsMode) => void;
-  setActiveView: (view: string) => void;
+  setActiveView: (view: TrayView) => void;
   doctorReport: DoctorReport | null;
   doctorRepairBusy: string | null;
   doctorRepairError: string | null;
@@ -117,6 +118,7 @@ export interface HomeViewProps {
 }
 
 export function HomeView({
+  hidden = false,
   tierMismatch,
   upgradeActionError,
   upgradeActionBusy,
@@ -180,7 +182,7 @@ export function HomeView({
   chartResetSignal,
 }: HomeViewProps) {
   return (
-    <div className="tray-content">
+    <div className="tray-content" hidden={hidden}>
       {tierMismatch ? (
         <section className="tier-mismatch-banner" role="alert">
           <div className="tier-mismatch-banner__body">
@@ -382,9 +384,108 @@ export function HomeView({
         onSetMode={(mode) => void handleSetSwitchboardMode(mode)}
         onSetSavingsMode={(mode) => void handleSetSavingsMode(mode)}
         onResume={() => void handleResumeRuntime()}
+        onAutoFixSetup={() => void handleDoctorRepair("repair_all")}
+        autoFixBusy={doctorRepairBusy === "repair_all"}
         onManageClients={() => setActiveView("settings")}
         onManageRtk={() => setActiveView("addons")}
       />
+
+      <SwitchboardDoctorPanel
+        report={doctorReport}
+        busyAction={doctorRepairBusy}
+        error={doctorRepairError}
+        successMessage={doctorRepairSuccess}
+        footprintReport={managedFootprintReport}
+        onRepair={(action) => void handleDoctorRepair(action)}
+      />
+
+      <section className="stat-grid stat-grid--2col">
+        <article
+          className={`soft-card stat-card stat-card--clickable${chartMode === "usd" ? " is-active" : ""}`}
+          onClick={() => setChartMode("usd")}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === "Enter" && setChartMode("usd")}
+        >
+          <span className="stat-card__label">
+            <CurrencyCircleDollar
+              aria-hidden="true"
+              className="stat-card__icon"
+              size={15}
+              weight="bold"
+            />
+            All-time costs saved (estimate)
+            <button
+              className="stat-card__info-button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSavingsInfo(true);
+              }}
+              type="button"
+              aria-label="How savings are calculated"
+            >
+              <Info size={13} weight="bold" />
+            </button>
+          </span>
+          <strong className="stat-value--green">
+            {currency(savingsDashboard.lifetimeEstimatedSavingsUsd)}
+          </strong>
+        </article>
+        <article
+          className={`soft-card stat-card stat-card--clickable${chartMode === "tokens" ? " is-active" : ""}`}
+          onClick={() => setChartMode("tokens")}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === "Enter" && setChartMode("tokens")}
+        >
+          <span className="stat-card__label">
+            <Cpu
+              aria-hidden="true"
+              className="stat-card__icon"
+              size={15}
+              weight="bold"
+            />
+            All-time input tokens saved
+          </span>
+          <div className="stat-value-row">
+            <strong className="stat-value--blue">
+              {compactNumber(savingsDashboard.lifetimeEstimatedTokensSaved)}
+            </strong>
+            {savingsDashboard.outputReduction ? (
+              <OutputReductionChip reduction={savingsDashboard.outputReduction} />
+            ) : null}
+          </div>
+        </article>
+      </section>
+
+      <SavingsCalculatorCard
+        dashboard={dashboard}
+        repoSavings={savingsCalculatorRepoEstimate}
+        runtimeStatus={runtimeStatus}
+        rtkToday={activityFeed.tiles.rtkToday}
+        attributionEvents={savingsAttributionEvents}
+        cavemanSavings={cavemanSavingsEstimate}
+        ponytailSavings={ponytailSavingsEstimate}
+        markitdownSavings={markitdownSavingsEstimate}
+        scope={savingsCalculatorScope}
+        onScopeChange={setSavingsCalculatorScope}
+      />
+
+      <ClientSavingsTrendsCard dashboard={dashboard} />
+
+      {dashboard.savingsHistoryLoaded || historyLoadTimedOut ? (
+        <DailySavingsChart
+          data={savingsDashboard.dailySavings}
+          hourlyData={savingsDashboard.hourlySavings}
+          resetSignal={chartResetSignal}
+          chartMode={chartMode}
+          setChartMode={setChartMode}
+        />
+      ) : (
+        <div className="savings-chart__skeleton" role="status">
+          <p className="loading-copy">Loading savings history...</p>
+        </div>
+      )}
 
       <section className="home-sector-grid" aria-label="Switchboard sectors">
         <button
