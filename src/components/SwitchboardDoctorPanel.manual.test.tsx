@@ -9,7 +9,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
       <SwitchboardDoctorPanel
         report={{
           status: "warning",
-          summary: "Manual setup required.",
+          summary: "Approval required.",
           issues: [
             {
               id: "no_headroom_clients",
@@ -27,12 +27,12 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
       />,
     );
 
-    expect(screen.getByText("Manual step")).toBeInTheDocument();
+    expect(screen.getByText("Approval needed")).toBeInTheDocument();
     expect(screen.getByText("0 automatic")).toBeInTheDocument();
-    expect(screen.getByText("1 manual")).toBeInTheDocument();
+    expect(screen.getByText("1 approval")).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Open or install a supported managed client, then use Connectors or Doctor to apply reversible managed setup. Doctor repair becomes available after a supported client is detected.",
+        "Open or install a supported app-managed client, then use Auto-fix setup or Doctor to apply reversible setup. Doctor repair becomes available after a supported client is detected.",
       ),
     ).toBeInTheDocument();
     expect(
@@ -85,7 +85,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     );
 
     expect(screen.getByText("2 automatic")).toBeInTheDocument();
-    expect(screen.getByText("2 manual")).toBeInTheDocument();
+    expect(screen.getByText("2 approval")).toBeInTheDocument();
     expect(
       screen.getByText(/review each connector's detection evidence/i),
     ).toBeInTheDocument();
@@ -145,7 +145,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     );
 
     expect(screen.getByText("1 automatic")).toBeInTheDocument();
-    expect(screen.getByText("0 manual")).toBeInTheDocument();
+    expect(screen.getByText("0 approval")).toBeInTheDocument();
     expect(screen.getByText("Auto repair")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -157,7 +157,7 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     ).toBeInTheDocument();
   });
 
-  it("warns repair all will leave manual follow-up", () => {
+  it("warns repair all will leave approval follow-up", () => {
     render(
       <SwitchboardDoctorPanel
         report={{
@@ -188,9 +188,9 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     );
 
     expect(screen.getByText("1 automatic")).toBeInTheDocument();
-    expect(screen.getByText("1 manual")).toBeInTheDocument();
+    expect(screen.getByText("1 approval")).toBeInTheDocument();
     expect(
-      screen.getByText("Repair all will leave manual steps visible."),
+      screen.getByText("Auto-fix will leave approval-only steps visible."),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Repair all" }),

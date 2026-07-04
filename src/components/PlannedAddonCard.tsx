@@ -88,7 +88,7 @@ export function PlannedAddonCard({
       </div>
       <div className="addon-card__actions">
         <button type="button" className="addon-card__action" disabled>
-          {isRepoIntelligence ? "Open from sidebar" : "Review gated readiness"}
+          {isRepoIntelligence ? "Open from sidebar" : "Copy readiness plan"}
         </button>
       </div>
     </li>

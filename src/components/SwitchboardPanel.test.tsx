@@ -93,11 +93,12 @@ function renderPanel(
     resuming: false,
     modeBusy: null,
     modeError: null,
-    onSetMode: vi.fn(),
-    onSetSavingsMode: vi.fn(),
-    onResume: vi.fn(),
-    onManageClients: vi.fn(),
-    onManageRtk: vi.fn(),
+  onSetMode: vi.fn(),
+  onSetSavingsMode: vi.fn(),
+  onResume: vi.fn(),
+  onAutoFixSetup: vi.fn(),
+  onManageClients: vi.fn(),
+  onManageRtk: vi.fn(),
     ...overrides,
   };
   return { ...render(<SwitchboardPanel {...props} />), props };
@@ -285,8 +286,8 @@ describe("SwitchboardPanel", () => {
           label: "Gemini CLI routing",
           status: "Repair ready",
           detail:
-            "Gemini CLI routing is repair ready. Use Repair managed setup to re-apply reversible managed setup and verify routing evidence.",
-          actionLabel: "Repair managed setup",
+            "Gemini CLI routing is repair ready. Use Auto-fix app-managed setup to re-apply reversible app-managed setup and verify routing evidence.",
+          actionLabel: "Auto-fix app-managed setup",
           onAction,
         },
       ],
@@ -296,12 +297,12 @@ describe("SwitchboardPanel", () => {
     expect(inspector.getByText("Gemini CLI routing")).toBeInTheDocument();
     expect(
       inspector.getByText(
-        "Gemini CLI routing is repair ready. Use Repair managed setup to re-apply reversible managed setup and verify routing evidence.",
+        "Gemini CLI routing is repair ready. Use Auto-fix app-managed setup to re-apply reversible app-managed setup and verify routing evidence.",
       ),
     ).toBeInTheDocument();
 
     await user.click(
-      inspector.getByRole("button", { name: "Repair managed setup" }),
+      inspector.getByRole("button", { name: "Auto-fix app-managed setup" }),
     );
 
     expect(onAction).toHaveBeenCalledTimes(1);

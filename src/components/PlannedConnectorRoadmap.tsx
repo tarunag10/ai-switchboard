@@ -35,7 +35,7 @@ export function PlannedConnectorRoadmap({
         aria-label="Connector setup phases"
       >
         <span>Read-only detection</span>
-        <span>Guided setup</span>
+        <span>App-guided setup</span>
         <span>Doctor-backed cleanup</span>
       </div>
       <ul className="planned-connectors__list">

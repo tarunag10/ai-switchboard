@@ -15,7 +15,7 @@ describe("doctor repair classification", () => {
     expect(doctorIssueActionKind(undefined)).toBe("manual");
     expect(doctorIssueActionLabel("repair_runtime")).toBe("Auto repair");
     expect(doctorIssueActionLabel("verify_off_mode")).toBe("Verification");
-    expect(doctorIssueActionLabel(null)).toBe("Manual step");
+    expect(doctorIssueActionLabel(null)).toBe("Approval needed");
     expect(doctorIssueActionHint(null)).toContain("No automatic repair");
   });
 

@@ -434,7 +434,7 @@ export const plannedConnectors: PlannedConnector[] = [
         label: "Manual setup",
         state: "Manual today",
         detail:
-          "Open Cursor settings and review model/provider routing manually.",
+          "Open Cursor settings and review model/provider routing with approval.",
       },
       {
         label: "Settings adapter",
@@ -454,7 +454,7 @@ export const plannedConnectors: PlannedConnector[] = [
     ],
     manualWorkflow: [
       "Open Cursor settings from the setup guide.",
-      "Review provider/model settings manually.",
+      "Review provider/model settings with approval.",
       "Use Repo Intelligence packs as copyable context until editor handoff is stable.",
           "Native-write lifecycle remains gated with automationEnabled: false until detect, dryRunDiff, backup, apply, verify, rollback, and offCleanup are proven in fixture-home tests.",
 ],
@@ -585,7 +585,7 @@ export const plannedConnectors: PlannedConnector[] = [
     ],
     supportedModes: ["Repo packs", "Guided setup", "Off"],
     safeToday:
-      "Guide users to review Continue provider config and copy Repo Intelligence packs manually.",
+      "Guide users to review Continue provider config and use Repo Intelligence packs.",
     firstAutomation:
       "Parse the provider list losslessly, back it up, and show an exact restore plan before writes.",
     capabilityRows: [
@@ -619,7 +619,7 @@ export const plannedConnectors: PlannedConnector[] = [
     ],
     manualWorkflow: [
       "Open the Continue config folder.",
-      "Review configured providers manually.",
+      "Review configured providers with approval.",
       "Use Repo Intelligence packs beside Continue until the adapter can preserve every provider entry.",
     ],
   },
@@ -1183,7 +1183,7 @@ export function getPlannedConnectorSetupGuide(
         label: "Open Cursor settings",
         command: "open -a Cursor",
         notes:
-          "Open Cursor and review model/provider settings manually. Automatic routing waits for account-safe settings detection.",
+          "Open Cursor and review model/provider settings with approval. Automatic routing waits for account-safe settings detection.",
       };
     case "grok_cli":
       return {
@@ -1204,7 +1204,7 @@ export function getPlannedConnectorSetupGuide(
         label: "Inspect Continue config",
         command: "open ~/.continue",
         notes:
-          "Review configured providers manually. Switchboard will only edit Continue once backup and restore coverage exists.",
+          "Review configured providers with approval. Switchboard will only edit Continue once backup and restore coverage exists.",
       };
     case "goose":
       return {

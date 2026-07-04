@@ -82,7 +82,7 @@ describe("SwitchboardDoctorPanel", () => {
     expect(screen.getByText("Ready")).toBeInTheDocument();
     expect(screen.getByText("No issues.")).toBeInTheDocument();
     expect(
-      screen.getByText("No manual follow-up is needed right now."),
+      screen.getByText("No approval follow-up is needed right now."),
     ).toBeInTheDocument();
     expect(screen.queryByText(/manual-only warnings/i)).not.toBeInTheDocument();
   });
@@ -127,9 +127,9 @@ describe("SwitchboardDoctorPanel", () => {
       "switchboard-doctor--warning",
     );
     expect(screen.getByText("6 automatic")).toBeInTheDocument();
-    expect(screen.getByText("0 manual")).toBeInTheDocument();
+    expect(screen.getByText("0 approval")).toBeInTheDocument();
     expect(
-      screen.queryByText("Repair all will leave manual steps visible."),
+      screen.queryByText("Auto-fix will leave approval-only steps visible."),
     ).not.toBeInTheDocument();
     expect(screen.getByText("Codex is in fallback direct routing")).toBeInTheDocument();
     expect(
@@ -163,7 +163,7 @@ describe("SwitchboardDoctorPanel", () => {
       screen.getByRole("button", { name: "Restart Headroom" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Repair all managed clients" }),
+      screen.getByRole("button", { name: "Auto-fix all app-managed clients" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Repair Codex" }),
@@ -440,7 +440,7 @@ describe("SwitchboardDoctorPanel", () => {
     );
 
     expect(screen.getByText("0 automatic")).toBeInTheDocument();
-    expect(screen.getByText("0 manual")).toBeInTheDocument();
+    expect(screen.getByText("0 approval")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Verification" }),
     ).toBeInTheDocument();
@@ -448,7 +448,7 @@ describe("SwitchboardDoctorPanel", () => {
       "switchboard-doctor__action-kind--verification",
     );
     expect(
-      screen.queryByRole("heading", { name: "Manual review" }),
+      screen.queryByRole("heading", { name: "Needs approval" }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Repair all" }),

@@ -25,8 +25,8 @@ describe("doctor repair copy", () => {
     ["repair_runtime", "Restart Headroom"],
     ["reset_codex_bypass", "Reset Codex"],
     ["repair_codex_setup", "Repair Codex"],
-    ["repair_client_setups", "Repair all managed clients"],
-    ["repair_client_setup:gemini_cli", "Repair managed setup"],
+    ["repair_client_setups", "Auto-fix all app-managed clients"],
+    ["repair_client_setup:gemini_cli", "Auto-fix app-managed setup"],
     ["repair_rtk_integrations", "Repair RTK"],
     ["repair_rtk_runtime", "Install RTK"],
     ["clear_repo_intelligence_index", "Clear index"],
@@ -604,7 +604,7 @@ describe("doctor repair copy", () => {
       ),
     ).toMatchObject({
       kind: "connector_setup",
-      target: "manual follow-up",
+      target: "approval follow-up",
     });
     expect(
       events.find((event) => event.id === "doctor-issue-repo_intelligence_stale"),

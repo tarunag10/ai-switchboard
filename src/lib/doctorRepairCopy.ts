@@ -47,7 +47,7 @@ export interface DoctorTimelineEvent {
 
 export function doctorRepairLabel(action: string): string {
   if (action.startsWith("repair_client_setup:")) {
-    return "Repair managed setup";
+    return "Auto-fix app-managed setup";
   }
 
   switch (action) {
@@ -60,7 +60,7 @@ export function doctorRepairLabel(action: string): string {
     case "repair_codex_setup":
       return "Repair Codex";
     case "repair_client_setups":
-      return "Repair all managed clients";
+      return "Auto-fix all app-managed clients";
     case "repair_rtk_integrations":
       return "Repair RTK";
     case "repair_rtk_runtime":
@@ -177,7 +177,7 @@ export function buildDoctorReportTimelineEvents(
       occurredAt: observedAt,
       status: issue.severity,
       actor: "doctor",
-      target: issue.repairAction ? repairLabel : "manual follow-up",
+      target: issue.repairAction ? repairLabel : "approval follow-up",
     });
   }
 
@@ -310,7 +310,7 @@ export function doctorIssueActionLabel(
   if (kind === "verification") {
     return "Verification";
   }
-  return "Manual step";
+  return "Approval needed";
 }
 
 export function doctorIssueActionLabelForIssue(issue: DoctorIssue): string {
@@ -502,7 +502,7 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
     case "off_mode_not_clean":
       return "Run Verify Off after disabling routing or restarting affected shells; Doctor will re-check active engine, client, and RTK evidence.";
     case "no_headroom_clients":
-      return "Open or install a supported managed client, then use Connectors or Doctor to apply reversible managed setup. Doctor repair becomes available after a supported client is detected.";
+      return "Open or install a supported app-managed client, then use Auto-fix setup or Doctor to apply reversible setup. Doctor repair becomes available after a supported client is detected.";
     default:
       if (doctorIssueActionKind(issue.repairAction) === "automatic") {
         return doctorRepairHint(issue.repairAction as string);

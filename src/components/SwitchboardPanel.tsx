@@ -60,6 +60,8 @@ interface SwitchboardPanelProps {
   onSetMode: (mode: SwitchboardMode) => void;
   onSetSavingsMode: (mode: SavingsMode) => void;
   onResume: () => void;
+  onAutoFixSetup?: () => void;
+  autoFixBusy?: boolean;
   onManageClients: () => void;
   onManageRtk: () => void;
 }
@@ -98,6 +100,8 @@ export function SwitchboardPanel({
   onSetMode,
   onSetSavingsMode,
   onResume,
+  onAutoFixSetup,
+  autoFixBusy = false,
   onManageClients,
   onManageRtk,
 }: SwitchboardPanelProps) {
@@ -213,6 +217,25 @@ export function SwitchboardPanel({
         })}
       </div>
       <p className="switchboard-panel__mode-effect">{modeEffect}</p>
+      <div className="switchboard-panel__automation">
+        <div>
+          <strong>One-click automation</strong>
+          <small>
+            Managed means Switchboard writes, verifies, backs up, and can roll
+            back only the local config it owns.
+          </small>
+        </div>
+        {onAutoFixSetup ? (
+          <button
+            type="button"
+            className="switchboard-panel__action switchboard-panel__action--primary"
+            onClick={onAutoFixSetup}
+            disabled={autoFixBusy}
+          >
+            {autoFixBusy ? "Auto-fixing" : "Auto-fix setup"}
+          </button>
+        ) : null}
+      </div>
       {connectors.length > 0 ? (
         <div className="switchboard-panel__connectors" aria-label="Managed coding agents">
           <div className="switchboard-panel__connectors-head">

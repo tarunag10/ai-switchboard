@@ -424,13 +424,13 @@ const connectorSetupDetails: Record<string, string> = {
   opencode:
     "Headroom writes a managed OpenCode provider in ~/.config/opencode/opencode.json and a rollback dossier so OpenCode connects through Switchboard.",
   cursor:
-    "Cursor is tracked as a gated editor connector. Guided setup is shown first because Cursor settings and account behavior can vary by release channel.",
+    "Cursor is tracked as a gated editor connector. App-guided setup is shown first because Cursor settings and account behavior can vary by release channel.",
   grok_cli:
     "Grok / xAI CLI is tracked as a gated provider connector. Switchboard will keep model and account compatibility visible before routing it.",
   aider:
     "Aider is tracked as a gated agent connector. RTK-only mode can already reduce noisy shell output while provider wrapping is built.",
   continue:
-    "Continue is tracked as a gated editor connector. Guided setup stays manual until provider config backup and restore coverage is ready.",
+    "Continue is tracked as a gated editor connector. App-guided setup requires approval until provider config backup and restore coverage is ready.",
   goose:
     "Goose is tracked as a gated agent connector. Local provider and MCP handoff support will be added after reversible setup coverage.",
   qwen_code:
@@ -2056,7 +2056,7 @@ function RepoIntelligencePreview({
       setCopyNotice("Context pack copied.");
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select pack details manually.");
+      setCopyNotice("Copy failed. Pack details remain visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -2075,7 +2075,7 @@ function RepoIntelligencePreview({
       setCopyNotice("Agent manifest copied.");
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select manifest manually.");
+      setCopyNotice("Copy failed. Manifest details remain visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -2096,7 +2096,7 @@ function RepoIntelligencePreview({
       setCopyNotice(`${pack.title} copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select pack details manually.");
+      setCopyNotice("Copy failed. Pack details remain visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -2123,7 +2123,7 @@ function RepoIntelligencePreview({
       setCopyNotice(`${label} copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select pack details manually.");
+      setCopyNotice("Copy failed. Pack details remain visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -2147,7 +2147,7 @@ function RepoIntelligencePreview({
       setCopyNotice(`${label} handoff copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select handoff details manually.");
+      setCopyNotice("Copy failed. Handoff details remain visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -2171,7 +2171,7 @@ function RepoIntelligencePreview({
       setCopyNotice(`${label} JSON handoff copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select JSON handoff manually.");
+      setCopyNotice("Copy failed. JSON handoff remains visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -2190,7 +2190,7 @@ function RepoIntelligencePreview({
       setCopyNotice(`${sessionPreparation.target.label} session copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select session details manually.");
+      setCopyNotice("Copy failed. Session details remain visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -2210,7 +2210,7 @@ function RepoIntelligencePreview({
       setCopyNotice(`${sessionPreparation.target.label} summary copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select session summary manually.");
+      setCopyNotice("Copy failed. Session summary remains visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -2230,7 +2230,7 @@ function RepoIntelligencePreview({
       setCopyNotice(`${sessionPreparation.target.label} JSON copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select session JSON manually.");
+      setCopyNotice("Copy failed. Session JSON remains visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -2255,7 +2255,7 @@ function RepoIntelligencePreview({
       );
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select session pack manually.");
+      setCopyNotice("Copy failed. Session pack remains visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -2727,7 +2727,7 @@ function RepoIntelligencePreview({
                   }
                   type="button"
                 >
-                  Copy recipe pack
+                  Copy agent-ready pack
                 </button>
               ) : null}
             </article>
@@ -4214,7 +4214,7 @@ export default function App() {
       setUninstallCopyNotice("Uninstall dry-run copied.");
       window.setTimeout(() => setUninstallCopyNotice(null), 2500);
     } catch {
-      setUninstallCopyNotice("Copy failed. Review the uninstall list manually.");
+      setUninstallCopyNotice("Copy failed. Uninstall list remains visible.");
       window.setTimeout(() => setUninstallCopyNotice(null), 3000);
     }
   }
@@ -5316,7 +5316,7 @@ export default function App() {
       window.setTimeout(() => setLearnInstallCopyNotice(null), 2000);
     } catch {
       setLearnInstallCopyNotice(
-        "Copy failed. Select the command and copy manually.",
+        "Copy failed. Command remains visible below.",
       );
       window.setTimeout(() => setLearnInstallCopyNotice(null), 3000);
     }
@@ -5335,7 +5335,7 @@ export default function App() {
       window.setTimeout(() => setPlannedConnectorCopyNotice(null), 2000);
     } catch {
       setPlannedConnectorCopyNotice(
-        "Copy failed. Select the command manually.",
+        "Copy failed. Command remains visible below.",
       );
       window.setTimeout(() => setPlannedConnectorCopyNotice(null), 3000);
     }
@@ -5360,7 +5360,7 @@ export default function App() {
       }
       window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2000);
     } catch {
-      setReleaseReadinessCopyNotice("Copy failed. Select release text manually.");
+      setReleaseReadinessCopyNotice("Copy failed. Release text remains visible below.");
       window.setTimeout(() => setReleaseReadinessCopyNotice(null), 3000);
     }
   }
@@ -6653,7 +6653,7 @@ export default function App() {
       setRollbackCopyNotice(`${record.owner} dry-run copied.`);
       window.setTimeout(() => setRollbackCopyNotice(null), 2500);
     } catch {
-      setRollbackCopyNotice("Copy failed. Review the rollback row manually.");
+      setRollbackCopyNotice("Copy failed. Rollback row remains visible.");
       window.setTimeout(() => setRollbackCopyNotice(null), 3000);
     }
   }
@@ -6667,7 +6667,7 @@ export default function App() {
       setRollbackCopyNotice("Rollback inventory copied.");
       window.setTimeout(() => setRollbackCopyNotice(null), 2500);
     } catch {
-      setRollbackCopyNotice("Copy failed. Review the rollback rows manually.");
+      setRollbackCopyNotice("Copy failed. Rollback rows remain visible.");
       window.setTimeout(() => setRollbackCopyNotice(null), 3000);
     }
   }
@@ -6683,7 +6683,7 @@ export default function App() {
       setRollbackCopyNotice("Undo-all preview copied.");
       window.setTimeout(() => setRollbackCopyNotice(null), 2500);
     } catch {
-      setRollbackCopyNotice("Copy failed. Review rollback rows manually.");
+      setRollbackCopyNotice("Copy failed. Rollback rows remain visible.");
       window.setTimeout(() => setRollbackCopyNotice(null), 3000);
     }
   }
@@ -6749,7 +6749,7 @@ export default function App() {
       setRollbackCopyNotice(`${record.owner} rollback plan copied.`);
       window.setTimeout(() => setRollbackCopyNotice(null), 2500);
     } catch {
-      setRollbackCopyNotice("Copy failed. Review the rollback row manually.");
+      setRollbackCopyNotice("Copy failed. Rollback row remains visible.");
       window.setTimeout(() => setRollbackCopyNotice(null), 3000);
     }
   }
@@ -6770,7 +6770,7 @@ export default function App() {
       setRollbackCopyNotice(`${record.owner} execution preview copied.`);
       window.setTimeout(() => setRollbackCopyNotice(null), 2500);
     } catch {
-      setRollbackCopyNotice("Copy failed. Review the rollback row manually.");
+      setRollbackCopyNotice("Copy failed. Rollback row remains visible.");
       window.setTimeout(() => setRollbackCopyNotice(null), 3000);
     }
   }
@@ -7860,7 +7860,7 @@ export default function App() {
     const actionLabel = canRepairManaged
         ? connector?.clientId === "codex"
           ? "Repair Codex"
-          : "Repair managed setup"
+          : "Auto-fix app-managed setup"
         : undefined;
     const actionDisabled = canRepairManaged ? doctorRepairBusy !== null : undefined;
     const onAction = canRepairManaged
@@ -7881,7 +7881,7 @@ export default function App() {
             ? `${connector.name} is routed through Headroom and verified.`
             : `${connector.name} routing is configured; send a test prompt from Connectors.`
           : canRepairManaged
-            ? `${connector.name} routing is repair ready. Use ${actionLabel} to re-apply reversible managed setup and verify routing evidence.`
+            ? `${connector.name} routing is repair ready. Use ${actionLabel} to re-apply reversible app-managed setup and verify routing evidence.`
             : `${connector.name} is detected but not routed.`
         : `${label.replace(" routing", "")} is not detected on this Mac.`,
       actionLabel,
@@ -8608,13 +8608,15 @@ export default function App() {
             }
             resuming={resuming}
             modeBusy={switchboardModeBusy}
-            modeError={switchboardModeError}
-            onSetMode={(mode) => void handleSetSwitchboardMode(mode)}
-            onSetSavingsMode={(mode) => void handleSetSavingsMode(mode)}
-            onResume={() => void handleResumeRuntime()}
-            onManageClients={() => setActiveView("settings")}
-            onManageRtk={() => setActiveView("addons")}
-          />
+              modeError={switchboardModeError}
+              onSetMode={(mode) => void handleSetSwitchboardMode(mode)}
+              onSetSavingsMode={(mode) => void handleSetSavingsMode(mode)}
+              onResume={() => void handleResumeRuntime()}
+              onAutoFixSetup={() => void handleDoctorRepair("repair_all")}
+              autoFixBusy={doctorRepairBusy === "repair_all"}
+              onManageClients={() => setActiveView("settings")}
+              onManageRtk={() => setActiveView("addons")}
+            />
 
           <SwitchboardDoctorPanel
             report={doctorReport}
@@ -10071,7 +10073,7 @@ export default function App() {
               </div>
               <p className="settings-transfer__note">
                 Import applies only safe app preferences. Connector and add-on
-                entries are shown as manual review items so config writes still
+                entries are shown as approval-review items so config writes still
                 go through Doctor, Addons, and connector gates.
               </p>
               <div className="settings-transfer__actions">
@@ -10197,7 +10199,7 @@ export default function App() {
                       <strong>
                         {plannedConnectorReadiness.manualOnlyCount}
                       </strong>
-                      manual
+                  approval
                     </span>
                     <span>
                       <strong>
@@ -10422,7 +10424,7 @@ export default function App() {
                                   Automation{" "}
                                   {compatibilityReport.automationEnabled
                                     ? "enabled"
-                                    : "manual setup gated"}
+                                    : "approval required"}
                                 </span>
                               </div>
                             ) : null}
@@ -10480,7 +10482,7 @@ export default function App() {
                                 ) : null}
                                 {connector.manualWorkflow?.length ? (
                                   <span>
-                                    Manual{" "}
+                                    Approval needed{" "}
                                     {connector.manualWorkflow
                                       .slice(0, 2)
                                       .join(" · ")}

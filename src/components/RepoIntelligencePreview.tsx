@@ -204,7 +204,7 @@ export function RepoIntelligencePreview({
       setCopyNotice("Context pack copied.");
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select pack details manually.");
+      setCopyNotice("Copy failed. Pack details remain visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -223,7 +223,7 @@ export function RepoIntelligencePreview({
       setCopyNotice("Agent manifest copied.");
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select manifest manually.");
+      setCopyNotice("Copy failed. Manifest details remain visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -244,7 +244,7 @@ export function RepoIntelligencePreview({
       setCopyNotice(`${pack.title} copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select pack details manually.");
+      setCopyNotice("Copy failed. Pack details remain visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -271,7 +271,7 @@ export function RepoIntelligencePreview({
       setCopyNotice(`${label} copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select pack details manually.");
+      setCopyNotice("Copy failed. Pack details remain visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -295,7 +295,7 @@ export function RepoIntelligencePreview({
       setCopyNotice(`${label} handoff copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select handoff details manually.");
+      setCopyNotice("Copy failed. Handoff details remain visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -319,7 +319,7 @@ export function RepoIntelligencePreview({
       setCopyNotice(`${label} JSON handoff copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select JSON handoff manually.");
+      setCopyNotice("Copy failed. JSON handoff remains visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -338,7 +338,7 @@ export function RepoIntelligencePreview({
       setCopyNotice(`${sessionPreparation.target.label} session copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select session details manually.");
+      setCopyNotice("Copy failed. Session details remain visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -358,7 +358,7 @@ export function RepoIntelligencePreview({
       setCopyNotice(`${sessionPreparation.target.label} summary copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select session summary manually.");
+      setCopyNotice("Copy failed. Session summary remains visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -378,7 +378,7 @@ export function RepoIntelligencePreview({
       setCopyNotice(`${sessionPreparation.target.label} JSON copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select session JSON manually.");
+      setCopyNotice("Copy failed. Session JSON remains visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -403,7 +403,7 @@ export function RepoIntelligencePreview({
       );
       window.setTimeout(() => setCopyNotice(null), 2000);
     } catch {
-      setCopyNotice("Copy failed. Select session pack manually.");
+      setCopyNotice("Copy failed. Session pack remains visible below.");
       window.setTimeout(() => setCopyNotice(null), 3000);
     }
   }
@@ -622,7 +622,7 @@ export function RepoIntelligencePreview({
         ) : null}
         <p className="repo-intelligence-session__detail">
           {sessionDisplayState.copyDetail} Doctor still verifies runtime and
-          connector health before any managed setup.
+          connector health before any app-managed setup.
         </p>
         <div
           className="repo-intelligence-session__safety"
@@ -875,7 +875,7 @@ export function RepoIntelligencePreview({
                   }
                   type="button"
                 >
-                  Copy recipe pack
+                  Copy agent-ready pack
                 </button>
               ) : null}
             </article>
