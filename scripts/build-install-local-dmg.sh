@@ -20,28 +20,31 @@ case "${ARCH_NAME}" in
 esac
 
 APP_NAME_CANDIDATES=("AI Switchboard for Mac" "AI Switchboard" "Mac AI Switchboard" "Mac Switchboard" Switchboard)
-RAW_DMG=""
-for app_name in "${APP_NAME_CANDIDATES[@]}"; do
-  candidate="src-tauri/target/release/bundle/dmg/${app_name}_${APP_VERSION}_${DMG_ARCH}.dmg"
-  if [[ -f "${candidate}" ]]; then
-    RAW_DMG="${candidate}"
-    break
-  fi
-done
-shopt -s nullglob
-if [[ -z "${RAW_DMG}" ]]; then
+
+discover_raw_dmg() {
+  local app_name candidate
+  for app_name in "${APP_NAME_CANDIDATES[@]}"; do
+    candidate="src-tauri/target/release/bundle/dmg/${app_name}_${APP_VERSION}_${DMG_ARCH}.dmg"
+    if [[ -f "${candidate}" ]]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  local dmg_matches=()
+  shopt -s nullglob
   dmg_matches=(src-tauri/target/release/bundle/dmg/*_"${APP_VERSION}"_"${DMG_ARCH}".dmg)
-  RAW_DMG="${dmg_matches[0]:-}"
-fi
-if [[ -z "${RAW_DMG}" ]]; then
-  dmg_matches=(src-tauri/target/release/bundle/dmg/*_"${APP_VERSION}"_*.dmg)
-  RAW_DMG="${dmg_matches[0]:-}"
-fi
-if [[ -z "${RAW_DMG}" ]]; then
-  dmg_matches=(src-tauri/target/release/bundle/dmg/*.dmg)
-  RAW_DMG="${dmg_matches[0]:-}"
-fi
-shopt -u nullglob
+  if [[ ${#dmg_matches[@]} -eq 0 ]]; then
+    dmg_matches=(src-tauri/target/release/bundle/dmg/*_"${APP_VERSION}"_*.dmg)
+  fi
+  if [[ ${#dmg_matches[@]} -eq 0 ]]; then
+    dmg_matches=(src-tauri/target/release/bundle/dmg/*.dmg)
+  fi
+  shopt -u nullglob
+
+  printf '%s\n' "${dmg_matches[0]:-}"
+}
+
 LOCAL_DIR="dist/release-artifacts"
 LOCAL_DMG="${LOCAL_DIR}/Mac-AI-Switchboard_${APP_VERSION}-local-unsigned-${DMG_ARCH}.dmg"
 APP_DEST="${MAC_AI_SWITCHBOARD_LOCAL_APP_DEST:-/Applications/AI Switchboard for Mac.app}"
@@ -50,6 +53,7 @@ LEGACY_APP_DEST="/Applications/Mac AI Switchboard.app"
 echo "Building local unsigned/ad-hoc DMG..."
 CI=true npx tauri build --bundles dmg --ci
 
+RAW_DMG="$(discover_raw_dmg)"
 if [[ -z "${RAW_DMG}" ]]; then
   echo "Expected DMG not found for any app name: ${APP_NAME_CANDIDATES[*]}" >&2
   echo "Available DMGs:" >&2
