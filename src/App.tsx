@@ -203,11 +203,10 @@ import {
   type ManagedChangeRecord,
 } from "./lib/managedChanges";
 import {
-  buildManagedChangeTimelineEvents,
-  buildDoctorReportTimelineEvents,
-  sortDoctorTimelineEvents,
-  type DoctorTimelineEvent,
-} from "./lib/doctorRepairCopy";
+  buildDoctorTimelinePreview,
+  buildUpgradeIssueUrl,
+  sampleManagedBlock,
+} from "./lib/appSupport";
 import {
   buildSettingsExportBundle,
   formatSettingsExportBundle,
@@ -290,7 +289,6 @@ import type {
   HourlySavingsPoint,
   OutputReduction,
   RuntimeStatus,
-  RuntimeUpgradeFailure,
   RuntimeUpgradeProgress,
   SavingsAttributionEvent,
   SavingsMode,
@@ -479,52 +477,6 @@ function delay(ms: number) {
 
 function renderConnectorLogo(clientId: string) {
   return <Sparkle className="client-logo__glyph" size={20} weight="duotone" />;
-}
-
-function sampleManagedBlock(record: ManagedChangeRecord) {
-  return [
-    `# >>> ${record.markerId} >>>`,
-    `# Managed by AI Switchboard for ${record.owner}.`,
-    "# Actual write paths fill this block from the connector adapter dry-run.",
-    `# <<< ${record.markerId} <<<`,
-  ].join("\n");
-}
-
-function buildDoctorTimelinePreview(
-  report: DoctorReport | null,
-  successMessage: string | null,
-): DoctorTimelineEvent[] {
-  const now = new Date().toISOString();
-
-  return sortDoctorTimelineEvents([
-    ...buildDoctorReportTimelineEvents(report, successMessage, now),
-    ...buildManagedChangeTimelineEvents(managedChangeRecords, now),
-  ]);
-}
-
-function buildUpgradeIssueUrl(failure: RuntimeUpgradeFailure): string {
-  const subject = `AI Switchboard engine update issue (${failure.targetHeadroomVersion}, ${failure.failurePhase})`;
-  const diagnosticLines = [
-    `App version: ${failure.appVersion}`,
-    `Target Headroom: ${failure.targetHeadroomVersion}`,
-    failure.fallbackHeadroomVersion
-      ? `Fallback running: ${failure.fallbackHeadroomVersion}`
-      : null,
-    `Failure phase: ${failure.failurePhase}`,
-    `Attempts: ${failure.attempts}`,
-    `First attempt: ${failure.firstAttemptAt}`,
-    `Last attempt: ${failure.lastAttemptAt}`,
-    `Rollback restored: ${failure.rollbackRestored ? "yes" : "no"}`,
-    "",
-    "Error:",
-    failure.errorMessage,
-  ].filter((line): line is string => line !== null);
-  const body =
-    "What were you doing when this happened?\n\n\n" +
-    "---\n" +
-    "Diagnostic info (please keep):\n" +
-    diagnosticLines.join("\n");
-  return `${SUPPORT_ISSUES_URL}/new?title=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 interface ProxyVerificationRow {
@@ -3975,7 +3927,10 @@ export default function App() {
                 className="secondary-button secondary-button--small"
                 onClick={() =>
                   void invoke("open_external_link", {
-                            url: buildUpgradeIssueUrl(upgradeFailure),
+                            url: buildUpgradeIssueUrl(
+                              SUPPORT_ISSUES_URL,
+                              upgradeFailure,
+                            ),
                   }).catch(() => {})
                 }
               >
@@ -4112,7 +4067,10 @@ export default function App() {
                   className="secondary-button secondary-button--small"
                   onClick={() =>
                     void invoke("open_external_link", {
-                              url: buildUpgradeIssueUrl(upgradeFailure),
+                              url: buildUpgradeIssueUrl(
+                                SUPPORT_ISSUES_URL,
+                                upgradeFailure,
+                              ),
                     }).catch(() => {})
                   }
                 >
