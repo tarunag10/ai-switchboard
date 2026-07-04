@@ -175,12 +175,24 @@ fi
 } >"${REPORT_MD}"
 
 if [[ "${LIVE_PROOF}" == "1" ]]; then
+  if [[ "${GITHUB_ACTIONS:-}" != "true" ]]; then
+    {
+      echo
+      echo "Live proof requested, but it is only enabled on ephemeral GitHub macOS runners."
+    } >>"${REPORT_MD}"
+    echo "LIVE_NIGHTLY_PROOF=1 is only enabled on GitHub Actions." >&2
+    exit 1
+  fi
+
+  MAC_AI_SWITCHBOARD_SKIP_OPEN=1 npm run evidence:local
   {
     echo
-    echo "Live proof requested, but install/enable/replay/uninstall is still guarded until it is isolated from user config."
+    echo "## GitHub Live Evidence"
+    echo
+    echo "- local_evidence_summary: ${DIST_DIR}/local-evidence-summary.md"
+    echo "- installed_smoke_summary: ${DIST_DIR}/local-installed-smoke-summary.md"
+    echo "- uninstall_dry_run_summary: ${DIST_DIR}/local-uninstall-validation-summary.md"
   } >>"${REPORT_MD}"
-  echo "LIVE_NIGHTLY_PROOF=1 is not enabled until the live path is non-invasive." >&2
-  exit 1
 fi
 
 echo "Nightly golden-path proof passed."

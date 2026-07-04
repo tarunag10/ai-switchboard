@@ -17,7 +17,7 @@ jobs:
   proof:
     name: Golden path scaffold
     runs-on: macos-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
     env:
       LIVE_NIGHTLY_PROOF: ${{ inputs.live_proof || vars.LIVE_NIGHTLY_PROOF || '0' }}
 
@@ -50,4 +50,15 @@ jobs:
             dist/nightly-optimization-telemetry.sqlite
             dist/nightly-config-byte-proof.md
             dist/nightly-config-byte-proof.json
+          if-no-files-found: error
+
+      - name: Upload live evidence
+        uses: actions/upload-artifact@v4
+        if: ${{ env.LIVE_NIGHTLY_PROOF == '1' }}
+        with:
+          name: nightly-live-evidence
+          path: |
+            dist/local-evidence-summary.md
+            dist/local-installed-smoke-summary.md
+            dist/local-uninstall-validation-summary.md
           if-no-files-found: error
