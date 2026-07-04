@@ -3,6 +3,7 @@ import fs from "node:fs";
 const frontendPath = "src/lib/plannedConnectors.ts";
 const connectorManifestPath = "connectors/manifest.json";
 const appPath = "src/App.tsx";
+const settingsConnectorCopyPath = "src/lib/settingsConnectorCopy.ts";
 const backendPath = "src-tauri/src/client_adapters.rs";
 const backendRegistryPath = "src-tauri/src/client_connectors.rs";
 const cliPath = "scripts/repo-intelligence.mjs";
@@ -559,6 +560,8 @@ const connectorManifestById = new Map(
   connectorManifests.map((connector) => [connector.id, connector]),
 );
 const appSource = readFile(appPath);
+const settingsConnectorCopySource = readFile(settingsConnectorCopyPath);
+const connectorUiSource = `${appSource}\n${settingsConnectorCopySource}`;
 const backendSource = readFile(backendPath);
 const backendRegistrySource = readFile(backendRegistryPath);
 const backendContractSource = `${backendSource}\n${backendRegistrySource}`;
@@ -639,13 +642,13 @@ metadataErrors.push(
     allFrontendConnectors,
   ),
 );
-if (!appSource.includes("stepDetails.map((step) =>")) {
+if (!connectorUiSource.includes("stepDetails.map((step) =>")) {
   metadataErrors.push("connector readiness UI must render every config creation step");
 }
-if (!appSource.includes("connector.configCreationStepDetails")) {
+if (!connectorUiSource.includes("connector.configCreationStepDetails")) {
   metadataErrors.push("connector readiness UI must render structured config creation step details");
 }
-if (appSource.includes("configPlan.steps.slice(")) {
+if (connectorUiSource.includes("configPlan.steps.slice(")) {
   metadataErrors.push("connector readiness UI must not truncate config creation steps");
 }
 for (const id of allFrontendIds) {
