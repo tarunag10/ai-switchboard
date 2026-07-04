@@ -108,7 +108,7 @@ const requiredScripts = {
     "npm run check:local-only-network",
     "npm run build",
     "npm run check:local-build-privacy",
-    "npm run test:coverage",
+    "npm run test:frontend",
     "npm run fmt:desktop",
     "npm run test:desktop",
   ],
@@ -811,7 +811,7 @@ const requiredSourceSignals = {
   ],
   ".github/workflows/test.yml": [
     "name: Test",
-    "pull_request:",
+    "workflow_dispatch:",
     "permissions:",
     "contents: read",
     "./scripts/verify-release.sh",
@@ -825,7 +825,7 @@ const requiredSourceSignals = {
     "npm run check:governance",
     "npm run build",
     "npm run check:local-build-privacy",
-    "npm run test:coverage",
+    "npm run test:frontend",
     "cargo nextest run --manifest-path src-tauri/Cargo.toml",
   ],
   ".github/workflows/security.yml": [

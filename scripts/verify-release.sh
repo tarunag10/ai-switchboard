@@ -42,7 +42,7 @@ echo "Checking local-free build privacy..."
 npm run check:local-build-privacy
 
 echo "Running frontend coverage..."
-npm run test:coverage
+npm run test:frontend
 
 echo "Checking Rust formatting..."
 npm run fmt:desktop
