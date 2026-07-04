@@ -3,6 +3,7 @@ use std::path::Path;
 use chrono::{DateTime, Utc};
 
 use crate::client_adapters;
+use crate::codex_threads;
 use crate::models::{
     ClientConnectorStatus, DoctorIssue, DoctorReport, DoctorSeverity, RuntimeStatus,
     SwitchboardMode,
@@ -464,7 +465,7 @@ repair_action: Some("reset_codex_bypass".to_string()),
             SwitchboardMode::Full | SwitchboardMode::Headroom
         )
     {
-        let retagging = client_adapters::get_codex_thread_retagging_settings();
+        let retagging = codex_threads::get_codex_thread_retagging_settings();
         if !matches!(
             retagging.codex_thread_retagging,
             crate::models::CodexThreadRetaggingMode::Enabled

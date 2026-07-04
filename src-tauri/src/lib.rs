@@ -9,6 +9,7 @@ mod client_connector_status;
 mod client_connectors;
 mod client_footprint;
 mod client_paths;
+mod codex_threads;
 mod dedicated_cleanup_rollback;
 mod device;
 mod doctor;
@@ -3689,19 +3690,19 @@ fn purge_message_logs(state: State<'_, AppState>) -> PurgeResult {
 
 #[tauri::command]
 fn get_codex_thread_retagging_settings() -> CodexThreadRetaggingSettings {
-    client_adapters::get_codex_thread_retagging_settings()
+    codex_threads::get_codex_thread_retagging_settings()
 }
 
 #[tauri::command]
 fn set_codex_thread_retagging_settings(
     settings: CodexThreadRetaggingSettings,
 ) -> Result<CodexThreadRetaggingSettings, String> {
-    client_adapters::set_codex_thread_retagging_settings(settings).map_err(|err| err.to_string())
+    codex_threads::set_codex_thread_retagging_settings(settings).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
 fn restore_codex_thread_db_backup(path: String) -> Result<CodexDbRestoreResult, String> {
-    client_adapters::restore_codex_thread_db_backup(&path).map_err(|err| err.to_string())
+    codex_threads::restore_codex_thread_db_backup(&path).map_err(|err| err.to_string())
 }
 
 /// Read-only snapshot of the activity feed. Observation — fetching the proxy,
@@ -4882,7 +4883,7 @@ pub fn run() {
             eprintln!("missing path for --restore-codex-thread-db-backup");
             std::process::exit(2);
         };
-        match client_adapters::restore_codex_thread_db_backup(path) {
+        match codex_threads::restore_codex_thread_db_backup(path) {
             Ok(result) => match serde_json::to_string_pretty(&result) {
                 Ok(report) => {
                     println!("{report}");
@@ -5060,7 +5061,7 @@ pub fn run() {
                     // Codex history menu stays empty after an update restart. Mirror
                     // the quit retag whenever Codex is still configured.
                     if client_adapters::is_codex_enabled() {
-                        client_adapters::retag_codex_threads_to_headroom();
+                        codex_threads::retag_codex_threads_to_headroom();
                     }
                 });
             }
@@ -5276,7 +5277,7 @@ pub fn run() {
                 // quit / signals skip exit_headroom -> clear_client_setups, so
                 // this is the only retag they get; the next launch re-applies the
                 // headroom tag via restore_client_setups. Best-effort.
-                client_adapters::retag_codex_threads_to_native();
+                codex_threads::retag_codex_threads_to_native();
             }
         });
 }
