@@ -174,7 +174,10 @@ pub(crate) fn snapshot() -> TelemetrySnapshot {
         cache_metrics: telemetry_store::prompt_cache_totals(),
         token_buckets: collector.token_buckets.iter().cloned().collect(),
         redundancy_hashes: collector.redundancy_hashes.iter().cloned().collect(),
-        compaction_decision: collector.compaction_decision.clone(),
+        compaction_decision: collector
+            .compaction_decision
+            .clone()
+            .or_else(telemetry_store::latest_compaction_decision),
         routing_decisions: collector.routing_decisions.iter().cloned().collect(),
         rtk_presets: collector.rtk_presets.iter().cloned().collect(),
     })

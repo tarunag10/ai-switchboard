@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use rusqlite::{params, Connection};
 
 use super::cache_metrics::CacheTokenMetrics;
+use super::telemetry::CompactionDecisionRecord;
 
 const DB_FILE: &str = "optimization_telemetry.sqlite";
 
@@ -24,6 +25,14 @@ fn open_connection() -> rusqlite::Result<Connection> {
             completion_tokens INTEGER NOT NULL,
             cache_read_tokens INTEGER NOT NULL,
             cache_creation_tokens INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS compaction_decisions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            should_compact INTEGER NOT NULL,
+            context_used_percent INTEGER NOT NULL,
+            threshold_percent INTEGER NOT NULL,
+            reason TEXT NOT NULL
         );",
     )?;
     Ok(conn)
@@ -55,6 +64,60 @@ fn try_record_prompt_cache_metrics(metrics: &CacheTokenMetrics) -> rusqlite::Res
         ],
     )?;
     Ok(())
+}
+
+pub(crate) fn record_compaction_decision(decision: &CompactionDecisionRecord) {
+    if let Err(error) = try_record_compaction_decision(decision) {
+        log::warn!("optimization compaction telemetry persist failed: {error}");
+    }
+}
+
+fn try_record_compaction_decision(decision: &CompactionDecisionRecord) -> rusqlite::Result<()> {
+    let conn = open_connection()?;
+    conn.execute(
+        "INSERT INTO compaction_decisions (
+            should_compact,
+            context_used_percent,
+            threshold_percent,
+            reason
+        ) VALUES (?1, ?2, ?3, ?4)",
+        params![
+            i64::from(decision.should_compact),
+            decision.context_used_percent as i64,
+            decision.threshold_percent as i64,
+            decision.reason
+        ],
+    )?;
+    Ok(())
+}
+
+pub(crate) fn latest_compaction_decision() -> Option<CompactionDecisionRecord> {
+    try_latest_compaction_decision().unwrap_or_else(|error| {
+        log::warn!("optimization compaction telemetry read failed: {error}");
+        None
+    })
+}
+
+fn try_latest_compaction_decision() -> rusqlite::Result<Option<CompactionDecisionRecord>> {
+    let conn = open_connection()?;
+    let mut stmt = conn.prepare(
+        "SELECT should_compact, context_used_percent, threshold_percent, reason
+        FROM compaction_decisions
+        ORDER BY id DESC
+        LIMIT 1",
+    )?;
+    let mut rows = stmt.query([])?;
+
+    if let Some(row) = rows.next()? {
+        return Ok(Some(CompactionDecisionRecord {
+            should_compact: row.get::<_, i64>(0)? != 0,
+            context_used_percent: row.get::<_, i64>(1)?.clamp(0, 100) as u8,
+            threshold_percent: row.get::<_, i64>(2)?.clamp(0, 100) as u8,
+            reason: row.get(3)?,
+        }));
+    }
+
+    Ok(None)
 }
 
 pub(crate) fn prompt_cache_totals() -> CacheTokenMetrics {
@@ -89,6 +152,7 @@ fn try_prompt_cache_totals() -> rusqlite::Result<CacheTokenMetrics> {
 pub(crate) fn reset_for_tests() {
     if let Ok(conn) = open_connection() {
         let _ = conn.execute("DELETE FROM prompt_cache_events", []);
+        let _ = conn.execute("DELETE FROM compaction_decisions", []);
     }
 }
 
