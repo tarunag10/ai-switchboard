@@ -8,6 +8,20 @@ pub(crate) const SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md
 pub(crate) const OPENCODE_CONFIG_FILE: &str = "opencode.json";
 pub(crate) const WINDSURF_CONFIG_FILE: &str = "settings.json";
 pub(crate) const ZED_CONFIG_FILE: &str = "settings.json";
+pub(crate) const ZSH_PROFILE_FILE: &str = ".zprofile";
+pub(crate) const ZSH_RC_FILE: &str = ".zshrc";
+pub(crate) const BASH_PROFILE_FILE: &str = ".bash_profile";
+pub(crate) const BASH_LOGIN_FILE: &str = ".bash_login";
+pub(crate) const POSIX_PROFILE_FILE: &str = ".profile";
+pub(crate) const BASH_RC_FILE: &str = ".bashrc";
+pub(crate) const ALL_SHELL_FILES: [&str; 6] = [
+    ZSH_PROFILE_FILE,
+    ZSH_RC_FILE,
+    BASH_PROFILE_FILE,
+    BASH_LOGIN_FILE,
+    POSIX_PROFILE_FILE,
+    BASH_RC_FILE,
+];
 
 pub(crate) fn home_dir() -> PathBuf {
     dirs::home_dir()
@@ -23,6 +37,48 @@ pub(crate) fn planned_sidecar_routing_path(client_id: &str) -> Result<PathBuf> {
         path = path.join(part);
     }
     Ok(path.join(SWITCHBOARD_ROUTING_FILE))
+}
+
+pub(crate) fn shell_path(name: &str) -> PathBuf {
+    home_dir().join(name)
+}
+
+pub(crate) fn all_shell_paths() -> Vec<PathBuf> {
+    ALL_SHELL_FILES.into_iter().map(shell_path).collect()
+}
+
+pub(crate) fn claude_settings_path() -> PathBuf {
+    home_dir().join(".claude").join("settings.json")
+}
+
+pub(crate) fn claude_settings_candidates() -> Vec<PathBuf> {
+    let claude_dir = home_dir().join(".claude");
+    vec![
+        claude_dir.join("settings.json"),
+        claude_dir.join("settings.local.json"),
+    ]
+}
+
+pub(crate) fn headroom_rtk_hook_path() -> PathBuf {
+    home_dir()
+        .join(".claude")
+        .join("hooks")
+        .join("headroom-rtk-rewrite.sh")
+}
+
+pub(crate) fn headroom_markitdown_hook_path() -> PathBuf {
+    home_dir()
+        .join(".claude")
+        .join("hooks")
+        .join("headroom-markitdown-read.sh")
+}
+
+pub(crate) fn codex_config_toml_path() -> PathBuf {
+    home_dir().join(".codex").join("config.toml")
+}
+
+pub(crate) fn rtk_codex_agents_path() -> PathBuf {
+    home_dir().join(".codex").join("AGENTS.md")
 }
 
 pub(crate) fn opencode_config_path() -> PathBuf {

@@ -25,9 +25,12 @@ use crate::client_footprint::{
     known_keychain_entries, managed_runtime_storage_paths, APP_BUNDLE_ID,
 };
 use crate::client_paths::{
-    home_dir, opencode_config_path, planned_sidecar_routing_path, windsurf_config_path,
-    zed_config_path, OPENCODE_CONFIG_FILE, SWITCHBOARD_ROUTING_FILE, WINDSURF_CONFIG_FILE,
-    ZED_CONFIG_FILE,
+    all_shell_paths, claude_settings_candidates, claude_settings_path, codex_config_toml_path,
+    headroom_markitdown_hook_path, headroom_rtk_hook_path, home_dir, opencode_config_path,
+    planned_sidecar_routing_path, rtk_codex_agents_path, shell_path, windsurf_config_path,
+    zed_config_path, ALL_SHELL_FILES, BASH_LOGIN_FILE, BASH_PROFILE_FILE, BASH_RC_FILE,
+    OPENCODE_CONFIG_FILE, POSIX_PROFILE_FILE, SWITCHBOARD_ROUTING_FILE, WINDSURF_CONFIG_FILE,
+    ZED_CONFIG_FILE, ZSH_PROFILE_FILE, ZSH_RC_FILE,
 };
 use crate::models::{
     ClientConnectorStatus, ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus,
@@ -56,21 +59,6 @@ const ZED_MARKER_PREFIX: &str = "headroom:zed";
 const LEGACY_MARKER_PREFIX: &str = "headroom";
 const MARKER_PREFIX: &str = "headroom";
 const SWITCHBOARD_MARKER_PREFIX: &str = "mac-ai-switchboard";
-const ZSH_PROFILE_FILE: &str = ".zprofile";
-const ZSH_RC_FILE: &str = ".zshrc";
-const BASH_PROFILE_FILE: &str = ".bash_profile";
-const BASH_LOGIN_FILE: &str = ".bash_login";
-const POSIX_PROFILE_FILE: &str = ".profile";
-const BASH_RC_FILE: &str = ".bashrc";
-const ALL_SHELL_FILES: [&str; 6] = [
-    ZSH_PROFILE_FILE,
-    ZSH_RC_FILE,
-    BASH_PROFILE_FILE,
-    BASH_LOGIN_FILE,
-    POSIX_PROFILE_FILE,
-    BASH_RC_FILE,
-];
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ShellFamily {
     Zsh,
@@ -150,10 +138,6 @@ fn ensure_rtk_integrations_for_targets(
     }
 
     Ok((changed_files, backup_files))
-}
-
-fn rtk_codex_agents_path() -> PathBuf {
-    codex_home().join("AGENTS.md")
 }
 
 /// Codex nudge: Codex has no command-rewrite hook, so it routes shell commands
@@ -1829,14 +1813,6 @@ fn sweep_managed_backups(target: &Path) -> Vec<String> {
     removed
 }
 
-fn claude_settings_candidates() -> Vec<PathBuf> {
-    let claude_dir = home_dir().join(".claude");
-    vec![
-        claude_dir.join("settings.json"),
-        claude_dir.join("settings.local.json"),
-    ]
-}
-
 /// Remove the PreToolUse entry pointing at `headroom-rtk-rewrite.sh`. Drops
 /// the `PreToolUse` array if it becomes empty, and the `hooks` object if it
 /// has no remaining event arrays. Returns true if the file was modified.
@@ -3005,10 +2981,6 @@ fn remove_legacy_vscode_base_url_keys() -> Result<(Vec<String>, Vec<String>)> {
             .map(|path| path.display().to_string())
             .collect(),
     ))
-}
-
-fn codex_config_toml_path() -> PathBuf {
-    codex_home().join("config.toml")
 }
 
 // The managed Codex config is split across two marker blocks so each lands in
@@ -5157,10 +5129,6 @@ fn dedupe_strings(values: &mut Vec<String>) {
     values.retain(|value| seen.insert(value.clone()));
 }
 
-fn all_shell_paths() -> Vec<PathBuf> {
-    ALL_SHELL_FILES.into_iter().map(shell_path).collect()
-}
-
 fn is_profile_file(path: &Path) -> bool {
     matches!(
         path.file_name().and_then(|name| name.to_str()),
@@ -5196,28 +5164,6 @@ fn managed_block_contains_text(
         return Ok(false);
     };
     Ok(content[start_idx..end_idx].contains(expected_text))
-}
-
-fn shell_path(name: &str) -> PathBuf {
-    home_dir().join(name)
-}
-
-fn claude_settings_path() -> PathBuf {
-    home_dir().join(".claude").join("settings.json")
-}
-
-fn headroom_rtk_hook_path() -> PathBuf {
-    home_dir()
-        .join(".claude")
-        .join("hooks")
-        .join("headroom-rtk-rewrite.sh")
-}
-
-fn headroom_markitdown_hook_path() -> PathBuf {
-    home_dir()
-        .join(".claude")
-        .join("hooks")
-        .join("headroom-markitdown-read.sh")
 }
 
 /// PreToolUse(Read) hook: when Claude reads a PDF, convert it to Markdown via
