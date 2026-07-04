@@ -22,26 +22,25 @@ use crate::client_connectors::{
     PLANNED_SIDECAR_SPECS,
 };
 use crate::client_footprint::{
-    known_keychain_entries, managed_runtime_storage_paths, APP_BUNDLE_ID,
+    known_keychain_entries, managed_backup_targets, managed_runtime_storage_paths, APP_BUNDLE_ID,
 };
 use crate::client_paths::{
     all_shell_paths, claude_settings_candidates, claude_settings_path, codex_config_toml_path,
     headroom_markitdown_hook_path, headroom_rtk_hook_path, home_dir, opencode_config_path,
     planned_sidecar_routing_path, rtk_codex_agents_path, shell_path, windsurf_config_path,
-    zed_config_path, ALL_SHELL_FILES, BASH_LOGIN_FILE, BASH_PROFILE_FILE, BASH_RC_FILE,
-    OPENCODE_CONFIG_FILE, POSIX_PROFILE_FILE, SWITCHBOARD_ROUTING_FILE, WINDSURF_CONFIG_FILE,
-    ZED_CONFIG_FILE, ZSH_PROFILE_FILE, ZSH_RC_FILE,
+    zed_config_path, BASH_LOGIN_FILE, BASH_PROFILE_FILE, BASH_RC_FILE, OPENCODE_CONFIG_FILE,
+    POSIX_PROFILE_FILE, SWITCHBOARD_ROUTING_FILE, WINDSURF_CONFIG_FILE, ZED_CONFIG_FILE,
+    ZSH_PROFILE_FILE, ZSH_RC_FILE,
 };
 use crate::models::{
     ClientConnectorStatus, ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus,
     CodexDbRestoreResult, CodexThreadRetaggingMode, CodexThreadRetaggingReport,
     CodexThreadRetaggingRunReport, CodexThreadRetaggingSettings, ManagedConfigApplyPreview,
-    ManagedConfigApplyResult, ManagedFootprintItem, ManagedFootprintReport,
-    ManagedRollbackExecutionResult, ManagedRollbackExecutionStatus, ManagedRollbackPreview,
-    ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview, SavingsMode,
-    SwitchboardMode, UninstallDryRunReport, UninstallTarget,
+    ManagedConfigApplyResult, ManagedRollbackExecutionResult, ManagedRollbackExecutionStatus,
+    ManagedRollbackPreview, ManagedRollbackUndoAllExecutionResult, ManagedRollbackUndoAllPreview,
+    SavingsMode, SwitchboardMode,
 };
-use crate::storage::{app_data_dir, config_file, LEGACY_STORAGE_DIR_NAME};
+use crate::storage::{app_data_dir, config_file};
 
 // Raw proxy base — use provider-specific constants below when configuring client endpoints.
 const HEADROOM_PROXY_URL: &str = "http://127.0.0.1:6767";
@@ -1586,199 +1585,6 @@ pub fn remove_macos_app_state() -> Vec<String> {
     Vec::new()
 }
 
-fn managed_backup_targets() -> Vec<PathBuf> {
-    let mut backup_targets: Vec<PathBuf> = claude_settings_candidates();
-    backup_targets.push(headroom_rtk_hook_path());
-    backup_targets.push(headroom_markitdown_hook_path());
-    backup_targets.push(codex_config_toml_path());
-    backup_targets.push(
-        home_dir()
-            .join("Library")
-            .join("Application Support")
-            .join("Code")
-            .join("User")
-            .join("settings.json"),
-    );
-    backup_targets.extend(all_shell_paths());
-    backup_targets
-}
-
-pub fn uninstall_dry_run_report() -> UninstallDryRunReport {
-    let targets = uninstall_targets();
-    UninstallDryRunReport {
-        generated_at: Utc::now(),
-        removed_on_uninstall: targets
-            .iter()
-            .filter(|target| target.managed)
-            .map(|target| target.path.clone())
-            .collect(),
-        preserved: vec![
-            "User repositories and source files are never deleted.".to_string(),
-            "Provider credentials, AWS credentials, SSO cache, and user profiles are not modified."
-                .to_string(),
-            "Unmanaged shell/profile content outside Switchboard marker blocks is preserved."
-                .to_string(),
-            "Legacy Headroom storage is preserved during migration, but removed during explicit uninstall."
-                .to_string(),
-        ],
-        targets,
-    }
-}
-
-fn uninstall_targets() -> Vec<UninstallTarget> {
-    let mut targets = Vec::new();
-
-    let home = home_dir();
-    for settings_path in claude_settings_candidates() {
-        push_uninstall_target(
-            &mut targets,
-            "claude-settings-hooks",
-            "client-config",
-            settings_path,
-            true,
-            "Strip managed Claude Code hook entries and routing keys only.",
-            false,
-            vec!["User-owned Claude settings remain in place.".to_string()],
-        );
-    }
-    push_uninstall_target(
-        &mut targets,
-        "codex-config",
-        "client-config",
-        codex_config_toml_path(),
-        true,
-        "Remove managed Codex provider/routing blocks only.",
-        false,
-        vec!["User-owned Codex config remains in place.".to_string()],
-    );
-    push_uninstall_target(
-        &mut targets,
-        "codex-agents-rules",
-        "client-config",
-        rtk_codex_agents_path(),
-        true,
-        "Remove managed RTK/Caveman instruction blocks only.",
-        false,
-        vec!["Both headroom: and mac-ai-switchboard: marker blocks are recognized.".to_string()],
-    );
-    for shell_path in all_shell_paths() {
-        push_uninstall_target(
-            &mut targets,
-            "shell-routing-blocks",
-            "shell-profile",
-            shell_path,
-            true,
-            "Remove managed shell export blocks only.",
-            false,
-            vec!["Unmanaged shell profile content is preserved.".to_string()],
-        );
-    }
-    push_uninstall_target(
-        &mut targets,
-        "rtk-hook",
-        "managed-hook",
-        headroom_rtk_hook_path(),
-        true,
-        "Delete the managed RTK hook script.",
-        false,
-        Vec::new(),
-    );
-    push_uninstall_target(
-        &mut targets,
-        "markitdown-hook",
-        "managed-hook",
-        headroom_markitdown_hook_path(),
-        true,
-        "Delete the managed MarkItDown hook script.",
-        false,
-        Vec::new(),
-    );
-    push_uninstall_target(
-        &mut targets,
-        "app-support-current",
-        "app-storage",
-        app_data_dir(),
-        true,
-        "Delete Mac AI Switchboard app support storage after explicit uninstall confirmation.",
-        true,
-        vec![
-            "Contains local runtime state, logs, memory DB, and Repo Intelligence cache."
-                .to_string(),
-        ],
-    );
-    let app_support = home.join("Library").join("Application Support");
-    push_uninstall_target(
-        &mut targets,
-        "app-support-legacy",
-        "app-storage",
-        app_support.join(LEGACY_STORAGE_DIR_NAME),
-        true,
-        "Delete legacy Headroom app support storage after explicit uninstall confirmation.",
-        true,
-        vec!["Migration keeps this folder intact until uninstall.".to_string()],
-    );
-    push_uninstall_target(
-        &mut targets,
-        "dot-headroom-runtime",
-        "runtime",
-        home.join(".headroom"),
-        true,
-        "Delete managed local runtime files.",
-        true,
-        Vec::new(),
-    );
-
-    extend_macos_uninstall_targets(&mut targets);
-
-    for target in managed_backup_targets() {
-        let Some(parent) = target.parent() else {
-            continue;
-        };
-        let Some(file_name) = target.file_name().and_then(|name| name.to_str()) else {
-            continue;
-        };
-        for prefix in [
-            format!("{file_name}.headroom-backup-*"),
-            format!("{file_name}.nommer-backup-*"),
-        ] {
-            push_uninstall_target(
-                &mut targets,
-                "managed-backups",
-                "backup",
-                parent.join(prefix),
-                true,
-                "Delete managed backup siblings created by Switchboard/Headroom.",
-                false,
-                vec!["Only matching backup file names are removed.".to_string()],
-            );
-        }
-    }
-
-    targets
-}
-
-fn push_uninstall_target(
-    targets: &mut Vec<UninstallTarget>,
-    id: &str,
-    category: &str,
-    path: PathBuf,
-    managed: bool,
-    action: &str,
-    requires_confirmation: bool,
-    notes: Vec<String>,
-) {
-    targets.push(UninstallTarget {
-        id: id.to_string(),
-        category: category.to_string(),
-        exists: path.exists(),
-        path: path.display().to_string(),
-        managed,
-        action: action.to_string(),
-        requires_confirmation,
-        notes,
-    });
-}
-
 /// Remove sibling backup files that `backup_if_exists` (or its predecessor
 /// "nommer") created next to `target`. Filenames look like
 /// `<basename>.headroom-backup-<timestamp>` and `<basename>.nommer-backup-<timestamp>`.
@@ -1881,116 +1687,6 @@ fn remove_pre_tool_use_markers(settings_path: &Path, markers: &[&str]) -> Result
     .with_context(|| format!("writing {}", settings_path.display()))?;
 
     Ok(true)
-}
-
-fn extend_macos_uninstall_targets(targets: &mut Vec<UninstallTarget>) {
-    let home = home_dir();
-    let lib = home.join("Library");
-    let launch_agents_dir = lib.join("LaunchAgents");
-    for name in [
-        format!("{APP_BUNDLE_ID}.plist"),
-        "Headroom.plist".to_string(),
-    ] {
-        push_uninstall_target(
-            targets,
-            "launch-agent",
-            "launch-agent",
-            launch_agents_dir.join(name),
-            true,
-            "Unload and delete managed login item launch agent.",
-            false,
-            Vec::new(),
-        );
-    }
-
-    for bundle_id in [APP_BUNDLE_ID] {
-        push_uninstall_target(
-            targets,
-            "preferences",
-            "macos-app-data",
-            lib.join("Preferences").join(format!("{bundle_id}.plist")),
-            true,
-            "Delete managed app preferences for this bundle ID.",
-            false,
-            Vec::new(),
-        );
-        push_uninstall_target(
-            targets,
-            "caches",
-            "macos-app-data",
-            lib.join("Caches").join(bundle_id),
-            true,
-            "Delete managed app cache data.",
-            false,
-            Vec::new(),
-        );
-        push_uninstall_target(
-            targets,
-            "webkit-data",
-            "macos-app-data",
-            lib.join("WebKit").join(bundle_id),
-            true,
-            "Delete managed WebKit data for the app.",
-            false,
-            Vec::new(),
-        );
-        push_uninstall_target(
-            targets,
-            "http-storage",
-            "macos-app-data",
-            lib.join("HTTPStorages").join(bundle_id),
-            true,
-            "Delete managed HTTP storage for the app.",
-            false,
-            Vec::new(),
-        );
-        push_uninstall_target(
-            targets,
-            "http-cookies",
-            "macos-app-data",
-            lib.join("HTTPStorages")
-                .join(format!("{bundle_id}.binarycookies")),
-            true,
-            "Delete managed HTTP cookie storage for the app.",
-            false,
-            Vec::new(),
-        );
-        push_uninstall_target(
-            targets,
-            "saved-state",
-            "macos-app-data",
-            lib.join("Saved Application State")
-                .join(format!("{bundle_id}.savedState")),
-            true,
-            "Delete managed saved window state.",
-            false,
-            Vec::new(),
-        );
-    }
-    for log_dir in ["Headroom", "Mac AI Switchboard"] {
-        push_uninstall_target(
-            targets,
-            "logs",
-            "macos-app-data",
-            lib.join("Logs").join(log_dir),
-            true,
-            "Delete managed app logs.",
-            false,
-            Vec::new(),
-        );
-    }
-    for (service, account) in known_keychain_entries() {
-        push_uninstall_target(
-            targets,
-            "keychain-entry",
-            "keychain",
-            PathBuf::from(format!("keychain://{service}/{account}")),
-            true,
-            "Delete managed keychain entry metadata without exposing the secret value.",
-            false,
-            Vec::new(),
-        );
-    }
 }
 
 #[cfg(target_os = "macos")]
@@ -4391,190 +4087,6 @@ pub fn execute_managed_rollback_undo_all(
     })
 }
 
-pub fn get_managed_footprint() -> ManagedFootprintReport {
-    let mut items = Vec::new();
-    let app_dir = app_data_dir();
-    let legacy_app_dir = app_dir
-        .parent()
-        .map(|parent| parent.join(crate::storage::LEGACY_STORAGE_DIR_NAME))
-        .unwrap_or_else(|| home_dir().join("Library/Application Support/Headroom"));
-
-    push_footprint_item(
-        &mut items,
-        "app-storage",
-        "storage",
-        app_dir,
-        true,
-        "Primary app support storage for runtimes, receipts, logs, backups, and indexes.",
-        true,
-        vec![],
-        vec!["Contains local state, not secrets values in this report.".to_string()],
-    );
-    push_footprint_item(
-        &mut items,
-        "legacy-storage",
-        "storage",
-        legacy_app_dir,
-        true,
-        "Preserved legacy Headroom storage copied forward during migration.",
-        true,
-        vec![],
-        vec!["Left intact for compatibility; not deleted by migration.".to_string()],
-    );
-    push_footprint_item(
-        &mut items,
-        "claude-settings",
-        "client_config",
-        claude_settings_path(),
-        false,
-        "Claude Code settings may contain managed env and hook references.",
-        true,
-        vec!["*.headroom-backup-* next to edited config".to_string()],
-        vec!["Report does not read or include setting values.".to_string()],
-    );
-    push_footprint_item(
-        &mut items,
-        "claude-rtk-hook",
-        "client_config",
-        headroom_rtk_hook_path(),
-        true,
-        "Managed Claude Code RTK PreToolUse hook.",
-        true,
-        vec!["*.headroom-backup-* next to edited hook".to_string()],
-        vec![],
-    );
-    push_footprint_item(
-        &mut items,
-        "claude-markitdown-hook",
-        "client_config",
-        headroom_markitdown_hook_path(),
-        true,
-        "Managed Claude Code MarkItDown PreToolUse hook.",
-        true,
-        vec!["*.headroom-backup-* next to edited hook".to_string()],
-        vec![],
-    );
-    push_footprint_item(
-        &mut items,
-        "codex-config",
-        "client_config",
-        codex_config_toml_path(),
-        false,
-        "Codex config may contain managed provider and routing blocks.",
-        true,
-        vec!["*.headroom-backup-* next to edited config".to_string()],
-        vec!["Report does not read or include provider values.".to_string()],
-    );
-
-    for shell in ALL_SHELL_FILES {
-        push_footprint_item(
-            &mut items,
-            &format!("shell-{shell}"),
-            "shell_profile",
-            shell_path(shell),
-            false,
-            "Shell profile may contain Switchboard-managed routing or RTK blocks.",
-            true,
-            vec!["*.headroom-backup-* next to edited shell profile".to_string()],
-            vec![],
-        );
-    }
-
-    for spec in PLANNED_SIDECAR_SPECS {
-        if let Ok(path) = planned_sidecar_routing_path(spec.id) {
-            push_footprint_item(
-                &mut items,
-                &format!("{}-sidecar", spec.id),
-                "connector_sidecar",
-                path,
-                true,
-                &format!("Managed {} routing-intent sidecar.", spec.name),
-                true,
-                vec!["*.headroom-backup-* next to edited sidecar".to_string()],
-                vec!["Sidecar contains no account secrets by design.".to_string()],
-            );
-        }
-    }
-
-    push_footprint_item(
-        &mut items,
-        "app-log",
-        "logs",
-        crate::logging::log_path(),
-        true,
-        "Desktop app log file.",
-        true,
-        vec![],
-        vec!["Logs may include local paths; copy report excludes log contents.".to_string()],
-    );
-    push_footprint_item(
-        &mut items,
-        "memory-db",
-        "local_database",
-        crate::storage::memory_db_path(&app_data_dir()),
-        true,
-        "Local memory database.",
-        true,
-        vec![],
-        vec!["Database contents are not included in this report.".to_string()],
-    );
-    push_footprint_item(
-        &mut items,
-        "launch-agent",
-        "launch_agent",
-        home_dir().join("Library/LaunchAgents/com.tarunagarwal.mac-ai-switchboard.plist"),
-        false,
-        "Launch at login agent if enabled.",
-        true,
-        vec![],
-        vec![],
-    );
-    for service in ["mac-ai-switchboard", "headroom-desktop", "headroom"] {
-        items.push(ManagedFootprintItem {
-            id: format!("keychain-{service}"),
-            category: "keychain".to_string(),
-            path: format!("Keychain service: {service}"),
-            exists: false,
-            managed: true,
-            action:
-                "May store app/session secrets under this service name; values are never reported."
-                    .to_string(),
-            reversible: true,
-            backup_paths: vec![],
-            notes: vec!["Existence is not probed to avoid touching secret material.".to_string()],
-        });
-    }
-
-    ManagedFootprintReport {
-        generated_at: Utc::now(),
-        items,
-    }
-}
-
-fn push_footprint_item(
-    items: &mut Vec<ManagedFootprintItem>,
-    id: &str,
-    category: &str,
-    path: PathBuf,
-    managed: bool,
-    action: &str,
-    reversible: bool,
-    backup_paths: Vec<String>,
-    notes: Vec<String>,
-) {
-    items.push(ManagedFootprintItem {
-        id: id.to_string(),
-        category: category.to_string(),
-        exists: path.exists(),
-        path: path.display().to_string(),
-        managed,
-        action: action.to_string(),
-        reversible,
-        backup_paths,
-        notes,
-    });
-}
-
 fn marker_block_contains(content: &str, block_id: &str, needle: &str) -> bool {
     marker_block_contains_with_prefix(content, block_id, needle, MARKER_PREFIX)
 }
@@ -6389,6 +5901,7 @@ mod tests {
         upsert_managed_block, write_file_if_changed, ClientSetupState, ShellFamily,
     };
     use crate::client_connector_status::MANAGED_CLIENT_SPECS;
+    use crate::client_footprint;
     use crate::client_paths::{zed_config_path, OPENCODE_CONFIG_FILE};
     use rusqlite::Connection;
 
@@ -10270,7 +9783,7 @@ js_repl = false\n",
         )
         .unwrap();
 
-        let report = super::get_managed_footprint();
+        let report = client_footprint::get_managed_footprint();
         let ids = report
             .items
             .iter()
@@ -10301,7 +9814,7 @@ js_repl = false\n",
         std::fs::create_dir_all(sidecar.parent().unwrap()).unwrap();
         std::fs::write(&sidecar, "token = sk-test").unwrap();
 
-        let report = super::get_managed_footprint();
+        let report = client_footprint::get_managed_footprint();
         let gemini = report
             .items
             .iter()
@@ -10325,11 +9838,11 @@ js_repl = false\n",
             .join("Mac AI Switchboard");
         std::fs::create_dir_all(&current_storage).unwrap();
 
-        let report = super::uninstall_dry_run_report();
+        let report = client_footprint::uninstall_dry_run_report();
         let serialized = serde_json::to_string(&report).unwrap();
 
         assert!(serialized.contains("Mac AI Switchboard"));
-        assert!(serialized.contains(super::APP_BUNDLE_ID));
+        assert!(serialized.contains(client_footprint::APP_BUNDLE_ID));
         assert!(serialized.contains("keychain://com.tarunagarwal.mac-ai-switchboard.account"));
         assert!(serialized.contains("User repositories and source files are never deleted."));
         assert!(!serialized.contains("session-token="));

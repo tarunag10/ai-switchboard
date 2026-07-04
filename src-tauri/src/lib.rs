@@ -1207,12 +1207,12 @@ fn execute_managed_rollback_undo_all(
 
 #[tauri::command]
 fn get_managed_footprint() -> ManagedFootprintReport {
-    client_adapters::get_managed_footprint()
+    client_footprint::get_managed_footprint()
 }
 
 #[tauri::command]
 fn get_uninstall_dry_run_report() -> UninstallDryRunReport {
-    client_adapters::uninstall_dry_run_report()
+    client_footprint::uninstall_dry_run_report()
 }
 
 #[tauri::command]
@@ -6544,7 +6544,7 @@ pub fn run() {
     let args = std::env::args().collect::<Vec<_>>();
 
     if args.iter().any(|arg| arg == "--print-managed-footprint") {
-        match serde_json::to_string_pretty(&client_adapters::get_managed_footprint()) {
+        match serde_json::to_string_pretty(&client_footprint::get_managed_footprint()) {
             Ok(report) => {
                 println!("{report}");
                 std::process::exit(0);
@@ -6557,7 +6557,7 @@ pub fn run() {
     }
 
     if args.iter().any(|arg| arg == "--uninstall-dry-run") {
-        match serde_json::to_string_pretty(&client_adapters::uninstall_dry_run_report()) {
+        match serde_json::to_string_pretty(&client_footprint::uninstall_dry_run_report()) {
             Ok(report) => {
                 println!("{report}");
                 std::process::exit(0);
