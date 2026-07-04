@@ -12,6 +12,11 @@
 - Collapsed Home Mode Inspector implementation details behind a single Details control while keeping row status and repair buttons visible.
 - Shortened the Project learnings setup note and moved the connector setup path behind Details, with focused UI coverage.
 
+### Button wiring audit
+
+- Replaced disabled planned add-on action buttons with non-clickable readiness status text so unavailable actions no longer look broken.
+- Refreshed Doctor manual-guidance readiness coverage after the progressive-disclosure wording changes.
+
 ## 2026-07-02
 
 ### Managed connector end-to-end verifier

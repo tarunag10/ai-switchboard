@@ -485,7 +485,7 @@ const requiredSourceSignals = {
     "1 automatic",
     "1 approval",
     "separates manual connector guidance from automatic Repo Intelligence cleanup",
-    "review each connector's detection evidence",
+    "review each detected connector's evidence",
     "saved Repo Intelligence summary",
   ],
   "src/lib/releaseReadiness.ts": [

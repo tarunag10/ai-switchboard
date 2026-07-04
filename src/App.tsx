@@ -1794,9 +1794,9 @@ function PlannedAddonCard({
         ) : null}
       </div>
       <div className="addon-card__actions">
-        <button type="button" className="addon-card__action" disabled>
-          {isRepoIntelligence ? "Open from sidebar" : "Review setup status"}
-        </button>
+        <span className="addon-card__action-status">
+          {isRepoIntelligence ? "Use the open action above" : "Details include readiness"}
+        </span>
       </div>
     </li>
   );

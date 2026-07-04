@@ -45,6 +45,7 @@ describe("PlannedAddonCard", () => {
     expect(screen.getByText("Health checks")).toBeVisible();
     expect(screen.getByText("Savings sources")).toBeVisible();
     expect(screen.getByText("npm run smoke:preflight")).toBeVisible();
+    expect(screen.getByText("Details include readiness")).toBeVisible();
   });
 
   it("keeps the Repo Intelligence action available while details are closed", () => {
@@ -60,6 +61,7 @@ describe("PlannedAddonCard", () => {
     expect(
       screen.getByRole("button", { name: "Open Repo Intelligence" }),
     ).toBeVisible();
+    expect(screen.getByText("Use the open action above")).toBeVisible();
     expect(screen.getByText("npm run smoke:preflight")).not.toBeVisible();
   });
 });

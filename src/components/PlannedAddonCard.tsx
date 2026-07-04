@@ -105,9 +105,9 @@ export function PlannedAddonCard({
         >
           {detailsOpen ? "Hide details" : "Learn more"}
         </button>
-        <button type="button" className="addon-card__action" disabled>
-          {isRepoIntelligence ? "Open from sidebar" : "Copy readiness plan"}
-        </button>
+        <span className="addon-card__action-status">
+          {isRepoIntelligence ? "Use the open action above" : "Details include readiness"}
+        </span>
       </div>
     </li>
   );

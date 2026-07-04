@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { SwitchboardDoctorPanel } from "./SwitchboardDoctorPanel";
@@ -40,7 +41,8 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("separates manual connector guidance from automatic Repo Intelligence cleanup", () => {
+  it("separates manual connector guidance from automatic Repo Intelligence cleanup", async () => {
+    const user = userEvent.setup();
     render(
       <SwitchboardDoctorPanel
         report={{
@@ -87,17 +89,24 @@ describe("SwitchboardDoctorPanel manual issue guidance", () => {
     expect(screen.getByText("2 automatic")).toBeInTheDocument();
     expect(screen.getByText("2 approval")).toBeInTheDocument();
     expect(
-      screen.getByText(/review each connector's detection evidence/i),
+      screen.getByText(/review each detected connector's evidence/i),
     ).toBeInTheDocument();
     expect(
-    screen.getByLabelText("Connector readiness preview"),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText(
-      "Dry-run target: User/settings.json; marker: mac-ai-switchboard:cursor",
-    ),
-  ).toBeInTheDocument();
-  expect(screen.getByText("Connector readiness")).toBeInTheDocument();
+      screen.getByLabelText("Connector readiness preview"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Dry-run target: User/settings.json; marker: mac-ai-switchboard:cursor",
+      ),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", { name: "Show details" })[1]);
+
+    expect(
+      screen.getByText(
+        "Dry-run target: User/settings.json; marker: mac-ai-switchboard:cursor",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText(/RTK-only mode/i)).toBeInTheDocument();
     expect(
       screen.getByText(
