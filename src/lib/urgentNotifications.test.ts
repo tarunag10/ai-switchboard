@@ -180,7 +180,7 @@ describe("maybeFireUrgentPricingNotifications", () => {
     );
 
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Mac AI Switchboard needs you to sign in",
+      title: "AI Switchboard needs you to sign in",
       body: "Sign in required.",
       action: "signin",
     });
@@ -195,8 +195,8 @@ describe("maybeFireUrgentPricingNotifications", () => {
     );
 
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Mac AI Switchboard needs you to sign in",
-      body: "Sign in to Mac AI Switchboard to keep optimization running.",
+      title: "AI Switchboard needs you to sign in",
+      body: "Sign in to AI Switchboard to keep optimization running.",
       action: "signin",
     });
   });
@@ -385,7 +385,7 @@ describe("maybeFireUrgentPricingNotifications", () => {
 
     expect(invokeMock).toHaveBeenCalledTimes(1);
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Mac AI Switchboard is ready when you are",
+      title: "AI Switchboard is ready when you are",
       body: "You're on the free plan. Upgrade to keep the Headroom engine optimizing every prompt.",
       action: "billing",
     });
@@ -574,8 +574,8 @@ describe("maybeFireUrgentRuntimeNotification", () => {
     );
 
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Mac AI Switchboard engine stopped running",
-      body: "The Headroom engine isn't running. Open Mac AI Switchboard to restart it.",
+      title: "AI Switchboard engine stopped running",
+      body: "The Headroom engine isn't running. Open AI Switchboard for Mac to restart it.",
       action: "runtime",
     });
   });
@@ -589,7 +589,7 @@ describe("maybeFireUrgentRuntimeNotification", () => {
     );
 
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Mac AI Switchboard engine stopped running",
+      title: "AI Switchboard engine stopped running",
       body: "The Headroom engine isn't running: port 6767 busy",
       action: "runtime",
     });
@@ -608,7 +608,7 @@ describe("maybeFireUrgentRuntimeNotification", () => {
     );
 
     expect(invokeMock).toHaveBeenCalledWith("show_notification", {
-      title: "Mac AI Switchboard engine stopped running",
+      title: "AI Switchboard engine stopped running",
       body: "The Headroom engine isn't running. Wait a moment and click Retry.",
       action: "runtime",
     });
