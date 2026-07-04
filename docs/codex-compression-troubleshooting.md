@@ -29,8 +29,8 @@ The model error is a Codex model/provider configuration issue. Use Doctor to rep
 
 1. Stop starting new Codex goals until one active session is stable.
 2. Compact or summarize the largest active Codex conversation.
-3. Switch Mac AI Switchboard to **RTK only** if work must continue immediately.
-4. Run Doctor and use **Reset Codex** after compacting context to route Codex through Headroom again.
+3. Retry Codex normally; oversized Codex turns auto-route around Headroom so Codex can compact or retry with its native flow.
+4. Switch Mac AI Switchboard to **RTK only** if several heavy Codex sessions are active at the same time.
 5. If the error mentions a model unsupported with a ChatGPT account, run Doctor and use **Repair Codex** instead of treating it as a compression issue.
 
 ## Prevention
@@ -39,17 +39,17 @@ The model error is a Codex model/provider configuration issue. Use Doctor to rep
 2. Use **RTK only** when running several heavy Codex chats or goals in parallel.
 3. Compact long-running Codex sessions before starting another active goal.
 4. Avoid running multiple noisy build/test/log-heavy tasks through Headroom at the same time.
-5. Keep Doctor visible after mode changes; it shows whether Codex is temporarily bypassing Headroom and whether routing can be reset.
+5. Keep Doctor visible after mode changes; it shows stale fallback bypass state only when manual repair is still useful.
 6. Enable Codex history retagging only after reviewing the SQLite backup and restore notes in `docs/recovery.md`.
 
-Switchboard should warn before failure: **Full: one main Codex session**, **RTK only: 2+ heavy sessions**, **After 413: compact, then reset Codex in Doctor**, and **Unsupported model: Repair Codex setup**. Use **Switch to RTK only** before opening several heavy active Codex chats or goals.
+Switchboard should warn before failure: **Full: one main Codex session**, **RTK only: 2+ heavy sessions**, **Large turns auto-route around 413**, and **Unsupported model: Repair Codex setup**. Use **Switch to RTK only** before opening several heavy active Codex chats or goals.
 
 ## Recommended App Behavior
 
 Mac AI Switchboard should keep these behaviors explicit:
 
-1. If Headroom returns `413 compression_refused`, Codex can temporarily bypass Headroom so work continues.
-2. Doctor should show **Reset Codex** after the user compacts context.
+1. If a Codex request is large enough to risk `413 compression_refused`, Switchboard routes it around Headroom before the backend refusal path.
+2. Doctor should show **Reset Codex** only for stale fallback bypass state, not for normal automatic recovery.
 3. **RTK only** should remain the safe fallback for multiple active Codex goals.
 4. Unsupported Codex model/provider errors should stay separate from Headroom compression errors.
 

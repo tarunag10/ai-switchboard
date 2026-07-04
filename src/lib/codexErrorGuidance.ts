@@ -13,15 +13,15 @@ export interface CodexErrorGuidance {
 
 const COMPRESSION_REFUSED_GUIDANCE: CodexErrorGuidance = {
   kind: "compression_refused",
-  title: "Codex request too large for Headroom compression",
+  title: "Codex auto-routed around Headroom compression",
   summary:
-    "This is the Headroom 413 path: Headroom timed out while compacting an oversized request, so the switchboard can temporarily bypass Codex routing.",
+    "Switchboard preflights oversized Codex turns and routes them direct so Codex can use its native compact/retry flow.",
   action:
-    "Compact the Codex conversation, switch to RTK only for parallel heavy goals, then reset the Codex bypass when you want Headroom routing again.",
+    "Retry Codex normally. Run Doctor only if this keeps happening after the automatic route change.",
   steps: [
-    "Compact or close the largest Codex conversation.",
-    "Use RTK only while running several active Codex chats or goals.",
-    "Run Doctor and reset the Codex bypass before returning to Full optimization.",
+    "Continue the Codex conversation; Switchboard will bypass oversized turns automatically.",
+    "Use Compact Conversation if Codex itself asks for room.",
+    "Run Doctor Codex optimization only if repeated failures continue.",
   ],
 };
 

@@ -3277,7 +3277,7 @@ switchboard_mode_label(&effective_mode)
             SwitchboardMode::Full | SwitchboardMode::Headroom
         )
     {
-        "Codex is temporarily bypassing Headroom after an oversized compression refusal. Compact context or switch to RTK only, then re-enable Headroom."
+        "Codex is in fallback direct routing. Oversized turns auto-route before Headroom refusal; reset only after confirming the conversation is compact enough for optimized routing."
 .to_string()
     } else {
         match desired_mode {
@@ -3666,8 +3666,8 @@ repair_action: Some("repair_runtime".to_string()),
     {
         issues.push(crate::models::DoctorIssue {
 id: "codex_direct_bypass".to_string(),
-title: "Codex is bypassing Headroom".to_string(),
-body: "Headroom refused compression for an oversized Codex request, so Codex is temporarily going direct. Compact the conversation context, then reset this bypass to route Codex through Headroom again.".to_string(),
+                    title: "Codex is in fallback direct routing".to_string(),
+                    body: "Codex is using direct routing after a fallback bypass. Oversized Codex turns now auto-route before Headroom refusal; reset this only after confirming the conversation is compact enough for optimized routing.".to_string(),
 severity: crate::models::DoctorSeverity::Warning,
 repair_action: Some("reset_codex_bypass".to_string()),
 });

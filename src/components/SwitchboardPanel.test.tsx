@@ -235,7 +235,7 @@ describe("SwitchboardPanel", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "If Codex was bypassed after a 413 compression_refused error, run Doctor to reset the bypass.",
+        "Oversized Codex turns auto-route around Headroom so Codex can compact or retry normally.",
       ),
     ).toBeInTheDocument();
     expect(

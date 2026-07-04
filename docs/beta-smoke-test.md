@@ -31,7 +31,7 @@ Click each mode button without leaving Home:
 
 Expect: the mode effect line changes to describe exactly what will be routed or left alone. The selected mode badge matches the requested mode. The local footprint matrix changes with each mode and shows **Client routing**, **Shell output**, and **Repo packs** as On, Off, or Local. Click **Copy state** and confirm the clipboard includes requested mode, active mode, attention state, effect, safety notes, and local footprint.
 
-If Codex is one of the routed Headroom clients in Full optimization or Headroom only, expect the Switchboard panel to show **Running several Codex goals?** with policy chips for **Full: one main Codex session**, **RTK only: 2+ heavy sessions**, **After 413: compact, then reset Codex in Doctor**, and **Unsupported model: Repair Codex setup**. The **Switch to RTK only** action should request RTK only mode.
+If Codex is one of the routed Headroom clients in Full optimization or Headroom only, expect the Switchboard panel to show **Running several Codex goals?** with policy chips for **Full: one main Codex session**, **RTK only: 2+ heavy sessions**, **Large turns auto-route around 413**, and **Unsupported model: Repair Codex setup**. The **Switch to RTK only** action should request RTK only mode.
 
 ### S3. Requested mode vs active mode is honest
 
@@ -59,7 +59,7 @@ If Codex hits:
 unexpected status 413 Payload Too Large: compression_refused
 ```
 
-Expect: Codex temporarily bypasses Headroom so work can continue. After compacting context or switching to **RTK only**, Doctor shows the Codex bypass issue and **Reset Codex** routes Codex through Headroom again. Click **Copy report** and confirm clipboard text includes Doctor status, issue severity, automatic/manual action labels, and guidance. If this happens with several active Codex chats or goals, follow [Codex Compression Troubleshooting](codex-compression-troubleshooting.md).
+Expect: Oversized Codex turns auto-route around Headroom before a compression refusal. Doctor shows **Reset Codex** only for stale fallback direct-routing state. Click **Copy report** and confirm clipboard text includes Doctor status, issue severity, automatic/manual action labels, and guidance. If this happens with several active Codex chats or goals, follow [Codex Compression Troubleshooting](codex-compression-troubleshooting.md).
 
 ### S7. Codex model/provider mismatch is repairable
 

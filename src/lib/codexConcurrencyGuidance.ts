@@ -102,13 +102,13 @@ export function codexConcurrencyGuidance(
     policies: [
       "Full: one main Codex session",
       "RTK only: 2+ heavy sessions",
-      "After 413: compact, then reset Codex in Doctor",
+      "Large turns auto-route around 413",
       "Unsupported model: Repair Codex setup",
     ],
     steps: [
       "Switch to RTK only before opening several active Codex chats or goals.",
       "Compact or close stale Codex conversations before turning Headroom routing back on.",
-      "If Codex was bypassed after a 413 compression_refused error, run Doctor to reset the bypass.",
+      "Oversized Codex turns auto-route around Headroom so Codex can compact or retry normally.",
       "If Codex says the model is unsupported with a ChatGPT account, use Doctor's Repair Codex action instead.",
     ],
     recommendedMode: "rtk",

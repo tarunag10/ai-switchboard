@@ -39,7 +39,7 @@ describe("doctor repair copy", () => {
 
   it("uses Codex-specific hints for Codex repair actions", () => {
     expect(doctorRepairHint("reset_codex_bypass")).toContain(
-      "Compact the Codex conversation",
+      "Retry Codex normally",
     );
     expect(doctorRepairHint("repair_codex_setup")).toContain(
       "Codex-supported ChatGPT model",

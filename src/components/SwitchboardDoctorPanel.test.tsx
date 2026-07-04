@@ -23,8 +23,8 @@ const warningReport: DoctorReport = {
     },
     {
       id: "codex_direct_bypass",
-      title: "Codex is bypassing Headroom",
-      body: "Compact the conversation context, then reset this bypass.",
+      title: "Codex is in fallback direct routing",
+      body: "Oversized Codex turns auto-route before Headroom refusal. Reset only after confirming the conversation is compact enough for optimized routing.",
       severity: "warning",
       repairAction: "reset_codex_bypass",
     },
@@ -131,13 +131,13 @@ describe("SwitchboardDoctorPanel", () => {
     expect(
       screen.queryByText("Repair all will leave manual steps visible."),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Codex is bypassing Headroom")).toBeInTheDocument();
+    expect(screen.getByText("Codex is in fallback direct routing")).toBeInTheDocument();
     expect(
       screen.getByText("Codex routing config needs repair"),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Compact the Codex conversation, switch to RTK only for parallel heavy goals, then reset the Codex bypass when you want Headroom routing again.",
+        "Oversized Codex turns auto-route before Headroom refusal. Reset only after confirming the conversation is compact enough for optimized routing.",
       ),
     ).toBeInTheDocument();
     expect(

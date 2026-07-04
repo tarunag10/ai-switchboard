@@ -78,7 +78,7 @@ Doctor currently repairs:
 - Headroom runtime reachability.
 - Reversible Claude Code and Codex setup for supported installed tools.
 - RTK installation and shell integration.
-- Codex direct-bypass state after Headroom returns `413 compression_refused`.
+- Codex oversized-turn preflight that routes around Headroom before `413 compression_refused`.
 - Repo Intelligence stale or missing index warnings.
 - Repo Memory MCP configuration for read-only agent access to Repo Intelligence packs.
 - Managed connector status, dry-run evidence, and safe manual workflow guidance.
@@ -89,7 +89,7 @@ For real-world Codex compression failures such as:
 unexpected status 413 Payload Too Large: compression_refused
 ```
 
-Switchboard can temporarily let Codex bypass Headroom so work can continue. After compacting the conversation or switching to **RTK only**, use Doctor to reset the bypass and route through Headroom again. See [Codex Compression Troubleshooting](docs/codex-compression-troubleshooting.md).
+Switchboard preflights oversized Codex turns and routes them around Headroom before a compression refusal. Doctor still exposes Reset Codex for stale fallback direct-routing state. See [Codex Compression Troubleshooting](docs/codex-compression-troubleshooting.md).
 
 If Codex instead reports:
 

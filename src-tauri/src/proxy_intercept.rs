@@ -33,6 +33,7 @@ pub const INTERCEPT_PORT: u16 = 6767;
 
 const HEADER_READ_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_HEADER_BYTES: usize = 64 * 1024;
+const CODEX_HEADROOM_PREFLIGHT_MAX_BYTES: usize = 768 * 1024;
 const ACCEPT_ERROR_BACKOFF: Duration = Duration::from_millis(100);
 const PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -283,6 +284,14 @@ async fn handle(
         maybe_spawn_codex_usage_poll(&buf, &codex_slot);
     }
 
+    if is_codex && codex_request_should_bypass_headroom(&buf) {
+        log::warn!(
+            "Codex request exceeds Headroom preflight size; routing direct so Codex can compact/retry"
+        );
+        forward_direct_to_anthropic(client, buf, &upstream_base).await;
+        return;
+    }
+
     // When the pricing gate has bypassed Headroom, the Python proxy on
     // `backend_addr` is intentionally stopped. Forward direct to Anthropic so
     // already-running CC sessions stay alive while optimization is off.
@@ -418,6 +427,26 @@ fn is_headroom_compression_refusal_response(head: &[u8]) -> bool {
         && lower.contains("compression_refused")
         && lower.contains("headroom:")
         && lower.contains("compression timeout")
+}
+
+fn codex_request_should_bypass_headroom(request_head: &[u8]) -> bool {
+    request_content_length(request_head)
+        .map(|content_length| content_length > CODEX_HEADROOM_PREFLIGHT_MAX_BYTES)
+        .unwrap_or(false)
+}
+
+fn request_content_length(request_head: &[u8]) -> Option<usize> {
+    let end = find_header_end(request_head)?;
+    let text = std::str::from_utf8(&request_head[..end + 4]).ok()?;
+    for line in text.lines() {
+        let Some((name, value)) = line.split_once(':') else {
+            continue;
+        };
+        if name.eq_ignore_ascii_case("content-length") {
+            return value.trim().parse::<usize>().ok();
+        }
+    }
+    None
 }
 
 fn bounded_json_response_len(head: &[u8]) -> Option<usize> {
@@ -1149,8 +1178,9 @@ fn extract_bearer(buf: &[u8]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        bearer_value_changed, codex_snapshot_from_usage_payload, codex_window_label,
-        decode_codex_plan_tier, extract_bearer, extract_header_value, find_header_end,
+        bearer_value_changed, codex_request_should_bypass_headroom,
+        codex_snapshot_from_usage_payload, codex_window_label, decode_codex_plan_tier,
+        extract_bearer, extract_header_value, find_header_end,
         is_headroom_compression_refusal_response, is_hop_by_hop_request_header,
         is_hop_by_hop_response_header, is_local_proxy_path, is_openai_path,
         parse_codex_rate_limit_headers, parse_request_head, read_http_headers,
@@ -2183,5 +2213,20 @@ mod tests {
         assert_eq!(codex_window_label(300), "5h");
         assert_eq!(codex_window_label(10080), "168h");
         assert_eq!(codex_window_label(90), "1h30m");
+    }
+    #[test]
+    fn codex_preflight_bypasses_large_requests() {
+        let request =
+            b"POST /v1/responses HTTP/1.1\r\nHost: api.openai.com\r\nContent-Length: 1048576\r\n\r\n";
+
+        assert!(codex_request_should_bypass_headroom(request));
+    }
+
+    #[test]
+    fn codex_preflight_keeps_small_requests_on_headroom() {
+        let request =
+            b"POST /v1/responses HTTP/1.1\r\nHost: api.openai.com\r\nContent-Length: 4096\r\n\r\n";
+
+        assert!(!codex_request_should_bypass_headroom(request));
     }
 }
