@@ -6,6 +6,7 @@ mod claude_cli;
 mod client_adapters;
 mod client_connector_status;
 mod client_connectors;
+mod client_footprint;
 mod client_paths;
 mod device;
 mod insights;
@@ -926,7 +927,7 @@ fn preview_dedicated_cleanup_rollback_inner(
             })
         }
         MANAGED_STORAGE_ROLLBACK_RECORD_ID => {
-            let paths = client_adapters::managed_runtime_storage_paths();
+            let paths = client_footprint::managed_runtime_storage_paths();
             let marker_present = any_path_exists(&paths);
             Ok(ManagedRollbackPreview {
                 record_id,
@@ -958,8 +959,8 @@ fn preview_dedicated_cleanup_rollback_inner(
             })
         }
         APP_STATE_ROLLBACK_RECORD_ID => {
-            let paths = client_adapters::macos_app_state_paths();
-            let keychain_labels = client_adapters::known_keychain_entry_labels();
+            let paths = client_footprint::macos_app_state_paths();
+            let keychain_labels = client_footprint::known_keychain_entry_labels();
             let marker_present = any_path_exists(&paths);
             Ok(ManagedRollbackPreview {
                 record_id,
@@ -1121,7 +1122,7 @@ fn execute_dedicated_cleanup_rollback_inner(
             })
         }
         MANAGED_STORAGE_ROLLBACK_RECORD_ID => {
-            let paths = client_adapters::managed_runtime_storage_paths();
+            let paths = client_footprint::managed_runtime_storage_paths();
             let removed = client_adapters::remove_managed_runtime_storage();
             if any_path_exists(&paths) {
                 return Err("A managed runtime storage path is still present after cleanup.".to_string());
@@ -1146,7 +1147,7 @@ fn execute_dedicated_cleanup_rollback_inner(
             })
         }
         APP_STATE_ROLLBACK_RECORD_ID => {
-            let paths = client_adapters::macos_app_state_paths();
+            let paths = client_footprint::macos_app_state_paths();
             let removed = client_adapters::remove_macos_app_state();
             if any_path_exists(&paths) {
                 return Err("A managed app-state path is still present after cleanup.".to_string());

@@ -21,6 +21,9 @@ use crate::client_connectors::{
     planned_sidecar_spec, PlannedSidecarSpec, PLANNED_CLIENT_SPECS, PLANNED_CONFIG_CREATION_STEPS,
     PLANNED_SIDECAR_SPECS,
 };
+use crate::client_footprint::{
+    known_keychain_entries, managed_runtime_storage_paths, APP_BUNDLE_ID,
+};
 use crate::client_paths::{
     home_dir, opencode_config_path, planned_sidecar_routing_path, windsurf_config_path,
     zed_config_path, OPENCODE_CONFIG_FILE, SWITCHBOARD_ROUTING_FILE, WINDSURF_CONFIG_FILE,
@@ -53,7 +56,6 @@ const ZED_MARKER_PREFIX: &str = "headroom:zed";
 const LEGACY_MARKER_PREFIX: &str = "headroom";
 const MARKER_PREFIX: &str = "headroom";
 const SWITCHBOARD_MARKER_PREFIX: &str = "mac-ai-switchboard";
-const APP_BUNDLE_ID: &str = "com.tarunagarwal.mac-ai-switchboard";
 const ZSH_PROFILE_FILE: &str = ".zprofile";
 const ZSH_RC_FILE: &str = ".zshrc";
 const BASH_PROFILE_FILE: &str = ".bash_profile";
@@ -1570,20 +1572,6 @@ pub fn perform_full_cleanup() -> Vec<String> {
     removed
 }
 
-pub fn managed_runtime_storage_paths() -> Vec<PathBuf> {
-    let app_dir = app_data_dir();
-    let legacy_dir = app_dir
-        .parent()
-        .map(|parent| parent.join(LEGACY_STORAGE_DIR_NAME))
-        .unwrap_or_else(|| {
-            home_dir()
-                .join("Library")
-                .join("Application Support")
-                .join(LEGACY_STORAGE_DIR_NAME)
-        });
-    vec![app_dir, legacy_dir, home_dir().join(".headroom")]
-}
-
 pub fn remove_managed_runtime_storage() -> Vec<String> {
     let mut removed = Vec::new();
     for path in managed_runtime_storage_paths() {
@@ -1596,42 +1584,6 @@ pub fn remove_managed_runtime_storage() -> Vec<String> {
         }
     }
     removed
-}
-
-#[cfg(any(target_os = "macos", test))]
-pub fn macos_app_state_paths() -> Vec<PathBuf> {
-    let lib = home_dir().join("Library");
-    let mut paths = vec![
-        lib.join("Caches").join(APP_BUNDLE_ID),
-        lib.join("WebKit").join(APP_BUNDLE_ID),
-        lib.join("HTTPStorages").join(APP_BUNDLE_ID),
-        lib.join("HTTPStorages")
-            .join(format!("{APP_BUNDLE_ID}.binarycookies")),
-        lib.join("Saved Application State")
-            .join(format!("{APP_BUNDLE_ID}.savedState")),
-    ];
-    for log_dir in ["Headroom", "Mac AI Switchboard"] {
-        paths.push(lib.join("Logs").join(log_dir));
-    }
-    let prefs_dir = lib.join("Preferences");
-    if let Ok(entries) = std::fs::read_dir(&prefs_dir) {
-        for entry in entries.flatten() {
-            let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
-                continue;
-            };
-            if name.starts_with(APP_BUNDLE_ID) {
-                paths.push(entry.path());
-            }
-        }
-    } else {
-        paths.push(prefs_dir.join(format!("{APP_BUNDLE_ID}.plist")));
-    }
-    paths
-}
-
-#[cfg(all(not(target_os = "macos"), not(test)))]
-pub fn macos_app_state_paths() -> Vec<PathBuf> {
-    Vec::new()
 }
 
 #[cfg(any(target_os = "macos", test))]
@@ -1648,13 +1600,6 @@ pub fn remove_macos_app_state() -> Vec<String> {
 #[cfg(all(not(target_os = "macos"), not(test)))]
 pub fn remove_macos_app_state() -> Vec<String> {
     Vec::new()
-}
-
-pub fn known_keychain_entry_labels() -> Vec<String> {
-    known_keychain_entries()
-        .iter()
-        .map(|(service, account)| format!("keychain://{service}/{account}"))
-        .collect()
 }
 
 fn managed_backup_targets() -> Vec<PathBuf> {
@@ -2205,19 +2150,6 @@ fn remove_known_keychain_entries() {
             log::warn!("cleanup: deleting keychain {service}/{account} failed: {err}");
         }
     }
-}
-
-fn known_keychain_entries() -> &'static [(&'static str, &'static str)] {
-    &[
-        (
-            "com.tarunagarwal.mac-ai-switchboard.account",
-            "session-token",
-        ),
-        (
-            "com.tarunagarwal.mac-ai-switchboard.device",
-            "machine-id-digest",
-        ),
-    ]
 }
 
 /// Re-applies setup for all clients that were active at the last pause or quit.
