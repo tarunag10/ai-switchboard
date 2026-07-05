@@ -2476,7 +2476,7 @@ impl AppState {
         if let Some(cached) = self.cached_headroom_learn_prereq.lock().clone() {
             return cached;
         }
-        let status = crate::detect_headroom_learn_prereq_status();
+        let status = crate::learning_commands::detect_headroom_learn_prereq_status();
         *self.cached_headroom_learn_prereq.lock() = Some(status.clone());
         status
     }
