@@ -19,6 +19,7 @@
     "components/SettingsLegalPanel.tsx",
     "components/SettingsOpenLoginCard.tsx",
     "components/SettingsTransferCard.tsx",
+    "components/SettingsUninstallCard.tsx",
     "components/TermsGate.tsx",
     "components/TraySidebar.tsx",
     "lib/analytics.ts",
@@ -236,12 +237,17 @@
     "lib/settingsTransfer.ts",
     "lib/types.ts"
   ],
+  "components/SettingsUninstallCard.test.tsx": [
+    "components/SettingsUninstallCard.tsx"
+  ],
+  "components/SettingsUninstallCard.tsx": [],
   "components/SettingsView.tsx": [
     "components/SettingsConnectorPanel.tsx",
     "components/SettingsFooterActions.tsx",
     "components/SettingsLegalPanel.tsx",
     "components/SettingsOpenLoginCard.tsx",
     "components/SettingsReleaseReadinessCard.tsx",
+    "components/SettingsUninstallCard.tsx",
     "lib/dashboardHelpers.ts",
     "lib/managedChanges.ts",
     "lib/releaseReadiness.ts",

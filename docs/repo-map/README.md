@@ -1,6 +1,6 @@
 # Mac AI Switchboard Repo Map
 
-Generated: 2026-07-05T13:50:31.103Z
+Generated: 2026-07-05T13:55:17.745Z
 
 ## Artifacts
 
@@ -15,13 +15,13 @@ Generated: 2026-07-05T13:50:31.103Z
 ## Tool Results
 
 - Graphify: partial-success; 4015 nodes, 11057 links.
-- Madge: 148 frontend modules, 290 import edges, no cycles found.
-- dependency-cruiser: 47 modules, 46 edges.
+- Madge: 150 frontend modules, 293 import edges, no cycles found.
+- dependency-cruiser: 48 modules, 47 edges.
 - Cargo metadata: 39 direct Rust dependencies.
 
 ## Shape
 
-- Frontend source files: 146
+- Frontend source files: 148
 - Rust source files: 81
 - Docs: 35
 - Scripts: 59
@@ -57,9 +57,9 @@ proxy, adapters, storage, analytics"]
 
 ## Frontend Hotspots
 
-- `App.tsx`: imports 46
+- `App.tsx`: imports 47
 - `components/HomeView.tsx`: imports 13
-- `components/SettingsView.tsx`: imports 10
+- `components/SettingsView.tsx`: imports 11
 - `components/AddonsView.tsx`: imports 8
 - `components/OptimizationView.tsx`: imports 6
 - `components/SwitchboardPanel.tsx`: imports 5
@@ -81,7 +81,7 @@ proxy, adapters, storage, analytics"]
 ## Strongest Folder-Level Edges
 
 - `src/App.tsx -> ./lib`: 27
-- `src/App.tsx -> ./components`: 19
+- `src/App.tsx -> ./components`: 20
 
 ## Tauri Command Wiring
 
