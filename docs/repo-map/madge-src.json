@@ -222,6 +222,12 @@
     "components/SettingsOpenLoginCard.tsx"
   ],
   "components/SettingsOpenLoginCard.tsx": [],
+  "components/SettingsReleaseReadinessCard.test.tsx": [
+    "components/SettingsReleaseReadinessCard.tsx"
+  ],
+  "components/SettingsReleaseReadinessCard.tsx": [
+    "lib/releaseReadiness.ts"
+  ],
   "components/SettingsTransferCard.test.tsx": [
     "components/SettingsTransferCard.tsx",
     "lib/settingsTransfer.ts"
@@ -235,6 +241,7 @@
     "components/SettingsFooterActions.tsx",
     "components/SettingsLegalPanel.tsx",
     "components/SettingsOpenLoginCard.tsx",
+    "components/SettingsReleaseReadinessCard.tsx",
     "lib/dashboardHelpers.ts",
     "lib/managedChanges.ts",
     "lib/releaseReadiness.ts",

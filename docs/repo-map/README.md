@@ -1,6 +1,6 @@
 # Mac AI Switchboard Repo Map
 
-Generated: 2026-07-05T13:35:56.588Z
+Generated: 2026-07-05T13:43:55.296Z
 
 ## Artifacts
 
@@ -15,13 +15,13 @@ Generated: 2026-07-05T13:35:56.588Z
 ## Tool Results
 
 - Graphify: partial-success; 4015 nodes, 11057 links.
-- Madge: 146 frontend modules, 287 import edges, no cycles found.
+- Madge: 148 frontend modules, 290 import edges, no cycles found.
 - dependency-cruiser: 47 modules, 46 edges.
 - Cargo metadata: 39 direct Rust dependencies.
 
 ## Shape
 
-- Frontend source files: 144
+- Frontend source files: 146
 - Rust source files: 81
 - Docs: 35
 - Scripts: 59
@@ -59,7 +59,7 @@ proxy, adapters, storage, analytics"]
 
 - `App.tsx`: imports 46
 - `components/HomeView.tsx`: imports 13
-- `components/SettingsView.tsx`: imports 9
+- `components/SettingsView.tsx`: imports 10
 - `components/AddonsView.tsx`: imports 8
 - `components/OptimizationView.tsx`: imports 6
 - `components/SwitchboardPanel.tsx`: imports 5
