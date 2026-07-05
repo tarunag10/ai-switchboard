@@ -47,6 +47,7 @@ mod repo_map;
 mod repo_memory_commands;
 mod rollback_commands;
 mod runtime_commands;
+mod runtime_diagnostics;
 mod runtime_distribution;
 mod runtime_probe;
 mod state;
@@ -345,7 +346,7 @@ fn capture_watchdog_give_up(
             std::thread::sleep(std::time::Duration::from_secs(4));
             let elapsed = started.elapsed().as_secs_f64();
             crate::runtime_probe::tracked_process_cpu_time_secs(pid)
-                .map(|after| runtime_commands::cpu_rate_indicates_burn(before, after, elapsed))
+                .map(|after| runtime_diagnostics::cpu_rate_indicates_burn(before, after, elapsed))
                 .unwrap_or(false)
         }
         _ => false,
@@ -357,7 +358,7 @@ fn capture_watchdog_give_up(
             .map(|d| d.as_secs())
     });
 
-    let report = runtime_commands::build_watchdog_give_up_report(
+    let report = runtime_diagnostics::build_watchdog_give_up_report(
         consecutive_failures,
         bypass_active,
         upgrade_in_progress,
@@ -1993,7 +1994,7 @@ fn spawn_proxy_watchdog(app: AppHandle) {
             // perfectly healthy proxy can miss that window. Re-probe the
             // backend's /readyz directly with a 5s budget — if it answers, the
             // process is alive and merely busy, so don't count it as down.
-            let tolerant_outcome = runtime_commands::probe_backend_readyz_outcome_with_timeout(
+            let tolerant_outcome = runtime_diagnostics::probe_backend_readyz_outcome_with_timeout(
                 std::time::Duration::from_secs(5),
             );
             if tolerant_outcome == "ok" {
@@ -2007,7 +2008,7 @@ fn spawn_proxy_watchdog(app: AppHandle) {
             // process itself is alive and healthy — only the cached upstream
             // probe is down (network blip / sleep-wake). /readyz is a readiness
             // signal, not a liveness one; don't count it as the process dying.
-            if runtime_commands::readyz_failure_is_upstream_only(&tolerant_outcome) {
+            if runtime_diagnostics::readyz_failure_is_upstream_only(&tolerant_outcome) {
                 log::info!(
                     "watchdog: backend /readyz 503 with only upstream unhealthy (transient connectivity); not counting failure"
                 );
@@ -2044,7 +2045,7 @@ fn spawn_proxy_watchdog(app: AppHandle) {
                 // process: reset the counter and keep probing. We're already
                 // 15s into the down episode, so one extra POLL of patience is
                 // cheap compared to auto-pausing a process that just came up.
-                let backend_readyz_outcome = runtime_commands::probe_backend_readyz_outcome();
+                let backend_readyz_outcome = runtime_diagnostics::probe_backend_readyz_outcome();
                 if backend_readyz_outcome == "ok" {
                     log::info!(
                         "watchdog: backend /readyz answers ok after {consecutive_failures} intercept failures; skipping auto-pause and resetting counter"
@@ -2058,7 +2059,7 @@ fn spawn_proxy_watchdog(app: AppHandle) {
                 // nothing, and the process self-heals on the next 30s upstream
                 // re-check — so keep it up instead of auto-pausing. Backstops
                 // the same guard at the tolerant re-probe above.
-                if runtime_commands::readyz_failure_is_upstream_only(&backend_readyz_outcome) {
+                if runtime_diagnostics::readyz_failure_is_upstream_only(&backend_readyz_outcome) {
                     log::info!(
                         "watchdog: backend /readyz 503 (upstream-only) after {consecutive_failures} failures; process healthy, skipping auto-pause"
                     );
@@ -2080,7 +2081,9 @@ fn spawn_proxy_watchdog(app: AppHandle) {
                 // to the give-up path below.
                 if (backend_readyz_outcome == "timeout"
                     || backend_readyz_outcome == "http_503"
-                    || runtime_commands::readyz_failure_has_core_unhealthy(&backend_readyz_outcome))
+                    || runtime_diagnostics::readyz_failure_has_core_unhealthy(
+                        &backend_readyz_outcome,
+                    ))
                     && !hung_kill_attempted
                 {
                     log::info!(
@@ -2181,7 +2184,7 @@ fn spawn_proxy_watchdog(app: AppHandle) {
                 // `runtime.auto_paused` branch at the top of the loop.
                 auto_pause_next_retry = Some(
                     std::time::Instant::now()
-                        + runtime_commands::auto_resume_backoff(auto_pause_failed),
+                        + runtime_diagnostics::auto_resume_backoff(auto_pause_failed),
                 );
                 auto_pause_failed = auto_pause_failed.saturating_add(1);
                 consecutive_failures = 0;
@@ -2405,11 +2408,11 @@ mod tests {
         RepoFileIndexEntry, RepoIndexMetadata, RepoIntelligenceSummary,
     };
     use crate::repo_intelligence;
-    use crate::runtime_commands::{
+    use crate::runtime_commands::watchdog_should_be_up;
+    use crate::runtime_diagnostics::{
         auto_resume_backoff, build_watchdog_give_up_report, classify_bootstrap_failure,
         cpu_rate_indicates_burn, is_network_download_signal, readyz_failed_checks_csv,
-        readyz_failure_has_core_unhealthy, readyz_failure_is_upstream_only, watchdog_should_be_up,
-        BootstrapFailureKind,
+        readyz_failure_has_core_unhealthy, readyz_failure_is_upstream_only, BootstrapFailureKind,
     };
     use crate::state::AppState;
     use crate::tray_runtime::{debounced_tray_runtime_visual, TrayRuntimeVisual};
