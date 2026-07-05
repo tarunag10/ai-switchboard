@@ -1431,7 +1431,7 @@ fn run_activity_observation(app: &AppHandle) {
         .iter()
         .filter(|p| p.sessions_today > 0)
         .map(|p| {
-            let applied = read_applied_patterns_for_project(&p.project_path);
+            let applied = learning_commands::read_applied_patterns_for_project(&p.project_path);
             crate::activity_facts::LearningsProjectInput {
                 project_path: p.project_path.clone(),
                 project_display_name: p.display_name.clone(),
@@ -1559,68 +1559,6 @@ async fn delete_live_learning(state: State<'_, AppState>, memory_id: String) -> 
     }
     state.invalidate_memory_export_cache();
     Ok(())
-}
-
-#[tauri::command]
-async fn list_applied_patterns(
-    project_path: String,
-) -> Result<crate::models::AppliedPatterns, String> {
-    Ok(read_applied_patterns_for_project(&project_path))
-}
-
-#[tauri::command]
-async fn list_applied_patterns_for_projects(
-    project_paths: Vec<String>,
-) -> Result<std::collections::HashMap<String, crate::models::AppliedPatterns>, String> {
-    let mut out = std::collections::HashMap::with_capacity(project_paths.len());
-    for p in project_paths {
-        let patterns = read_applied_patterns_for_project(&p);
-        out.insert(p, patterns);
-    }
-    Ok(out)
-}
-
-fn read_applied_patterns_for_project(project_path: &str) -> crate::models::AppliedPatterns {
-    let claude_md = std::path::PathBuf::from(project_path).join("CLAUDE.md");
-    let memory_md = crate::tool_manager::claude_project_memory_file(project_path);
-
-    crate::models::AppliedPatterns {
-        claude_md: read_applied_block(&claude_md),
-        memory_md: read_applied_block(&memory_md),
-    }
-}
-
-#[tauri::command]
-async fn delete_applied_pattern(
-    project_path: String,
-    file_kind: String,
-    section_title: String,
-    bullet_text: String,
-) -> Result<(), String> {
-    let path = match file_kind.as_str() {
-        "claude" => std::path::PathBuf::from(&project_path).join("CLAUDE.md"),
-        "memory" => crate::tool_manager::claude_project_memory_file(&project_path),
-        other => return Err(format!("Unknown file_kind: {other}")),
-    };
-    if !path.exists() {
-        return Err(format!("{} does not exist.", path.display()));
-    }
-    let content =
-        std::fs::read_to_string(&path).map_err(|err| format!("read {}: {err}", path.display()))?;
-    let updated =
-        crate::tool_manager::delete_applied_bullet(&content, &section_title, &bullet_text);
-    if updated == content {
-        return Ok(()); // no-op; nothing to write
-    }
-    std::fs::write(&path, updated).map_err(|err| format!("write {}: {err}", path.display()))?;
-    Ok(())
-}
-
-fn read_applied_block(path: &std::path::Path) -> Vec<crate::models::AppliedSection> {
-    match std::fs::read_to_string(path) {
-        Ok(content) => crate::tool_manager::parse_headroom_learn_block(&content),
-        Err(_) => Vec::new(),
-    }
 }
 
 /// Shells `headroom memory export --db-path <db>` and returns raw JSON stdout.
@@ -2435,9 +2373,9 @@ pub fn run() {
             list_live_learnings,
             list_live_learnings_for_projects,
             delete_live_learning,
-            list_applied_patterns,
-            list_applied_patterns_for_projects,
-            delete_applied_pattern,
+            learning_commands::list_applied_patterns,
+            learning_commands::list_applied_patterns_for_projects,
+            learning_commands::delete_applied_pattern,
             learning_commands::get_headroom_learn_status,
             learning_commands::get_headroom_learn_prereq_status,
             get_transformations_feed,
@@ -4207,11 +4145,10 @@ mod tests {
         aggregate_live_learnings, app_quit_requested_properties, auto_resume_backoff,
         build_watchdog_give_up_report, check_headroom_learn_prereqs, classify_bootstrap_failure,
         classify_upgrade_error, compute_tray_window_position, count_memories_created_today,
-        cpu_rate_indicates_burn, debounced_tray_runtime_visual, delete_applied_pattern,
-        empty_live_learnings_for_projects, extract_llm_failure_warnings,
-        fetch_transformations_feed_from, is_disk_full_signal, is_endpoint_protection_signal,
-        is_network_download_signal, is_port_conflict_failure, parse_live_learnings,
-        pattern_matches_project, physical_rect_from_rect, read_applied_patterns_for_project,
+        cpu_rate_indicates_burn, debounced_tray_runtime_visual, empty_live_learnings_for_projects,
+        extract_llm_failure_warnings, fetch_transformations_feed_from, is_disk_full_signal,
+        is_endpoint_protection_signal, is_network_download_signal, is_port_conflict_failure,
+        parse_live_learnings, pattern_matches_project, physical_rect_from_rect,
         readyz_failed_checks_csv, readyz_failure_has_core_unhealthy,
         readyz_failure_is_upstream_only, watchdog_should_be_up, BootstrapFailureKind,
         HeadroomLearnPrereqStatus, LearnAgent, MonitorBounds, PhysicalRect, QuitSource,
@@ -4232,6 +4169,7 @@ mod tests {
         InstallPendingUpdateFuture, InstallableAppUpdate,
     };
     use crate::dashboard_commands::{lifetime_token_milestone_kind, zero_spend_affected_days};
+    use crate::learning_commands::{delete_applied_pattern, read_applied_patterns_for_project};
     use crate::models::{
         DailySavingsPoint, ManagedRollbackExecutionStatus, RepoFileIndexEntry, RepoIndexMetadata,
         RepoIntelligenceSummary,
