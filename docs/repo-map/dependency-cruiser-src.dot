@@ -41,6 +41,7 @@ strict digraph "dependency-cruiser output"{
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/releaseReadiness" [label=<releaseReadiness> tooltip="releaseReadiness" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/repoIntelligence" [label=<repoIntelligence> tooltip="repoIntelligence" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/repoMemoryMcp" [label=<repoMemoryMcp> tooltip="repoMemoryMcp" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/rollbackCopyController" [label=<rollbackCopyController> tooltip="rollbackCopyController" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/savingsCalculator" [label=<savingsCalculator> tooltip="savingsCalculator" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/settingsConnectorCopy" [label=<settingsConnectorCopy> tooltip="settingsConnectorCopy" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/settingsTransfer" [label=<settingsTransfer> tooltip="settingsTransfer" ] } }
@@ -90,6 +91,7 @@ strict digraph "dependency-cruiser output"{
     "src/App.tsx" -> "./lib/releaseReadiness"
     "src/App.tsx" -> "./lib/repoIntelligence"
     "src/App.tsx" -> "./lib/repoMemoryMcp"
+    "src/App.tsx" -> "./lib/rollbackCopyController"
     "src/App.tsx" -> "./lib/savingsCalculator"
     "src/App.tsx" -> "./lib/settingsConnectorCopy"
     "src/App.tsx" -> "./lib/settingsTransfer"

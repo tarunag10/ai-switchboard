@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-05T14:27:12.526Z",
+  "generatedAt": "2026-07-05T14:35:12.291Z",
   "tools": {
     "graphify": {
       "status": "partial-success",
@@ -17,14 +17,14 @@
     },
     "madge": {
       "file": "docs/repo-map/madge-src.json",
-      "moduleCount": 152,
-      "edgeCount": 297,
+      "moduleCount": 154,
+      "edgeCount": 301,
       "cycles": 0
     },
     "dependencyCruiser": {
       "file": "docs/repo-map/dependency-cruiser-src.json",
-      "moduleCount": 49,
-      "edgeCount": 48
+      "moduleCount": 50,
+      "edgeCount": 49
     },
     "cargoMetadata": {
       "file": "docs/repo-map/cargo-metadata.json",
@@ -34,7 +34,7 @@
   "toolRuns": {
     "graphify": {
       "status": "warning",
-      "detail": "[graphify] chunk 2/3 failed: Error code: 404\n[graphify] chunk 1/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] chunk 3/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] WARNING: 3/3 semantic chunk(s) failed — see errors above. Partial results returned.\n[graphify extract] error: all semantic chunks failed for backend 'gemini' (109 uncached files) - see per-chunk errors above. If you see 'requires the X package', run `pip install X` and retry.\n ",
+      "detail": "[graphify] chunk 2/3 failed: Error code: 404\n[graphify] chunk 3/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] chunk 1/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] WARNING: 3/3 semantic chunk(s) failed — see errors above. Partial results returned.\n[graphify extract] error: all semantic chunks failed for backend 'gemini' (109 uncached files) - see per-chunk errors above. If you see 'requires the X package', run `pip install X` and retry.\n ",
       "remediation": "Graphify wrote graphify-out/graph.json, but semantic extraction reported errors. The map is usable; retry later or inspect tool-log.json for backend/API failures."
     },
     "madge": {
@@ -54,7 +54,7 @@
     }
   },
   "inventory": {
-    "frontendFiles": 150,
+    "frontendFiles": 152,
     "rustFiles": 82,
     "docs": 35,
     "scripts": 59
@@ -63,7 +63,7 @@
     "topFanOut": [
       {
         "file": "App.tsx",
-        "imports": 48
+        "imports": 49
       },
       {
         "file": "components/HomeView.tsx",
@@ -145,7 +145,7 @@
     "topFolderEdges": [
       {
         "edge": "src/App.tsx -> ./lib",
-        "count": 28
+        "count": 29
       },
       {
         "edge": "src/App.tsx -> ./components",
@@ -747,8 +747,8 @@
   ],
   "tokenSavings": {
     "compactContextEstimatedTokens": 307,
-    "broadScanEstimatedTokens": 1161669,
-    "estimatedTokensAvoided": 1161362,
+    "broadScanEstimatedTokens": 1163163,
+    "estimatedTokensAvoided": 1162856,
     "method": "Approximate chars/4 estimate comparing bounded repo map context to readable source files capped at 500 files."
   }
 }

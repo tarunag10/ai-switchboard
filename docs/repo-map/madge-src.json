@@ -40,6 +40,7 @@
     "lib/releaseReadiness.ts",
     "lib/repoIntelligence.ts",
     "lib/repoMemoryMcp.ts",
+    "lib/rollbackCopyController.ts",
     "lib/savingsCalculator.ts",
     "lib/settingsConnectorCopy.ts",
     "lib/settingsTransfer.ts",
@@ -490,6 +491,13 @@
     "lib/repoMemoryMcp.ts"
   ],
   "lib/repoMemoryMcp.ts": [],
+  "lib/rollbackCopyController.test.ts": [
+    "lib/managedChanges.ts",
+    "lib/rollbackCopyController.ts"
+  ],
+  "lib/rollbackCopyController.ts": [
+    "lib/managedChanges.ts"
+  ],
   "lib/savingsCalculator.test.ts": [
     "lib/savingsCalculator.ts",
     "lib/types.ts"
