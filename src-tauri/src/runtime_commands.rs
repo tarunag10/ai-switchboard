@@ -259,6 +259,171 @@ pub(crate) fn capture_bootstrap_failure(err: &anyhow::Error, kind: BootstrapFail
     }
 }
 
+/// Pure payload for watchdog give-up capture. Built before any Sentry side
+/// effects so it can be unit-tested.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct WatchdogGiveUpReport {
+    pub message: String,
+    pub tracked_child_exit_status: String,
+    pub bypass_active: bool,
+    pub runtime_upgrade_in_progress: bool,
+    pub consecutive_failures: u32,
+    pub log_tail: Option<String>,
+    pub last_startup_error: Option<String>,
+    pub tracked_pid: Option<u32>,
+    pub port_accepts_tcp: bool,
+    pub process_cpu_secs: Option<u64>,
+    pub log_silent_secs: Option<u64>,
+    pub backend_readyz_outcome: String,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn build_watchdog_give_up_report(
+    consecutive_failures: u32,
+    bypass_active: bool,
+    runtime_upgrade_in_progress: bool,
+    exit_status: Option<String>,
+    log_tail: Option<String>,
+    last_startup_error: Option<String>,
+    tracked_pid: Option<u32>,
+    port_accepts_tcp: bool,
+    process_cpu_secs: Option<u64>,
+    log_silent_secs: Option<u64>,
+    backend_readyz_outcome: String,
+) -> WatchdogGiveUpReport {
+    WatchdogGiveUpReport {
+        message: format!(
+            "proxy_unreachable_post_boot (auto_paused after {consecutive_failures} failures)"
+        ),
+        tracked_child_exit_status: exit_status
+            .unwrap_or_else(|| "still_alive_or_untracked".to_string()),
+        bypass_active,
+        runtime_upgrade_in_progress,
+        consecutive_failures,
+        log_tail: log_tail.filter(|s| !s.is_empty()),
+        last_startup_error: last_startup_error.filter(|s| !s.is_empty()),
+        tracked_pid,
+        port_accepts_tcp,
+        process_cpu_secs,
+        log_silent_secs,
+        backend_readyz_outcome,
+    }
+}
+
+/// Probe `/readyz` on the backend port directly (bypassing the Rust intercept
+/// on 6767) and classify the outcome for inclusion in watchdog decisions.
+pub(crate) fn probe_backend_readyz_outcome() -> String {
+    probe_backend_readyz_outcome_with_timeout(std::time::Duration::from_millis(1500))
+}
+
+/// Same probe as [`probe_backend_readyz_outcome`] but with a caller-chosen
+/// timeout. The watchdog uses a longer budget to confirm a failure before
+/// counting a strike.
+pub(crate) fn probe_backend_readyz_outcome_with_timeout(timeout: std::time::Duration) -> String {
+    let port = crate::backend_port::get();
+    let client = match reqwest::blocking::Client::builder()
+        .timeout(timeout)
+        .build()
+    {
+        Ok(c) => c,
+        Err(err) => return format!("error: {err}"),
+    };
+    let url = format!("http://127.0.0.1:{port}/readyz");
+    match client.get(&url).send() {
+        Ok(response) => {
+            let status = response.status();
+            if status.is_success() {
+                "ok".to_string()
+            } else if status.as_u16() == 503 {
+                match response.text() {
+                    Ok(body) => match serde_json::from_str::<serde_json::Value>(&body) {
+                        Ok(json) => {
+                            let csv = readyz_failed_checks_csv(&json);
+                            if csv.is_empty() {
+                                "http_503".to_string()
+                            } else {
+                                format!("http_503:{csv}")
+                            }
+                        }
+                        Err(_) => "http_503".to_string(),
+                    },
+                    Err(_) => "http_503".to_string(),
+                }
+            } else {
+                format!("http_{}", status.as_u16())
+            }
+        }
+        Err(err) => {
+            if err.is_timeout() {
+                "timeout".to_string()
+            } else if err.is_connect() {
+                "refused".to_string()
+            } else {
+                format!("error: {err}")
+            }
+        }
+    }
+}
+
+/// Comma-joined, sorted names of the unhealthy components in a `/readyz`
+/// payload. Empty when the body has no `checks` object or every check is ready.
+pub(crate) fn readyz_failed_checks_csv(body: &serde_json::Value) -> String {
+    let Some(checks) = body.get("checks").and_then(|c| c.as_object()) else {
+        return String::new();
+    };
+    let mut failed: Vec<&str> = checks
+        .iter()
+        .filter(|(_, v)| v.get("ready").and_then(|r| r.as_bool()) == Some(false))
+        .map(|(name, _)| name.as_str())
+        .collect();
+    failed.sort_unstable();
+    failed.join(",")
+}
+
+fn parse_readyz_failed_checks(outcome: &str) -> Option<Vec<&str>> {
+    outcome
+        .strip_prefix("http_503:")
+        .map(|rest| rest.split(',').filter(|s| !s.is_empty()).collect())
+}
+
+pub(crate) fn readyz_failure_is_upstream_only(outcome: &str) -> bool {
+    matches!(parse_readyz_failed_checks(outcome), Some(checks) if checks == ["upstream"])
+}
+
+pub(crate) fn readyz_failure_has_core_unhealthy(outcome: &str) -> bool {
+    parse_readyz_failed_checks(outcome)
+        .map(|checks| checks.iter().any(|c| *c != "upstream"))
+        .unwrap_or(false)
+}
+
+/// Whether two cumulative CPU samples (`ps -o time=`, whole seconds) taken
+/// `elapsed_secs` apart represent a process actively burning CPU.
+pub(crate) fn cpu_rate_indicates_burn(before: u64, after: u64, elapsed_secs: f64) -> bool {
+    elapsed_secs > 0.0 && (after.saturating_sub(before) as f64) / elapsed_secs > 0.5
+}
+
+/// All inputs must be in their ready state for the proxy to be supposed-up.
+pub(crate) fn watchdog_should_be_up(
+    installed: bool,
+    paused: bool,
+    starting: bool,
+    upgrading: bool,
+    bypass: bool,
+) -> bool {
+    installed && !paused && !starting && !upgrading && !bypass
+}
+
+/// Backoff schedule for the self-heal auto-resume loop after watchdog give-up.
+pub(crate) fn auto_resume_backoff(failed_attempts: u32) -> std::time::Duration {
+    let secs = match failed_attempts {
+        0 => 30,
+        1 => 60,
+        2 => 120,
+        _ => 300,
+    };
+    std::time::Duration::from_secs(secs)
+}
+
 #[tauri::command]
 pub fn get_bootstrap_progress(state: State<'_, AppState>) -> BootstrapProgress {
     state.bootstrap_progress()

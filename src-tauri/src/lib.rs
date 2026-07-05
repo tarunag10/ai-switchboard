@@ -430,200 +430,6 @@ pub(crate) fn capture_headroom_start_failure(context: &str, err: &anyhow::Error)
     }
 }
 
-/// Pure payload for `capture_watchdog_give_up`. Built before any Sentry side
-/// effects so it can be unit-tested.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct WatchdogGiveUpReport {
-    pub message: String,
-    pub tracked_child_exit_status: String,
-    pub bypass_active: bool,
-    pub runtime_upgrade_in_progress: bool,
-    pub consecutive_failures: u32,
-    pub log_tail: Option<String>,
-    /// Last error returned by `ensure_headroom_running` during this down
-    /// episode, if any. Distinguishes "spawn keeps erroring" (Some) from
-    /// "spawn returned Ok but `/readyz` never came back" (None) — the two
-    /// failure modes look identical without this field.
-    pub last_startup_error: Option<String>,
-    /// PID of the tracked Python child at give-up time, if we own a Child
-    /// handle. Useful for ad-hoc correlation with external `ps`/Activity
-    /// Monitor snapshots the user can attach to a bug report.
-    pub tracked_pid: Option<u32>,
-    /// Whether the backend loopback port still accepts a TCP connection.
-    /// Distinguishes "process gone, port closed" (false) from "process
-    /// alive but event loop wedged" (true) — the kernel completes
-    /// `accept()` even when uvicorn can't service HTTP. See
-    /// `state::tcp_port_accepts_connection` for full semantics.
-    pub port_accepts_tcp: bool,
-    /// Accumulated CPU seconds for the tracked PID at give-up time.
-    /// None when no tracked child or `ps` failed. Combined with
-    /// `log_silent_secs`, lets us see whether the child was burning CPU
-    /// silently (sync compute) vs idle/blocked (deadlock, await never
-    /// resolving).
-    pub process_cpu_secs: Option<u64>,
-    /// Seconds since the newest `headroom-proxy*.log` file was last
-    /// modified. None when there is no proxy log on disk yet, or the
-    /// mtime is in the future (clock skew).
-    pub log_silent_secs: Option<u64>,
-    /// Outcome of probing `/readyz` directly on the backend port at
-    /// give-up time. Disambiguates intercept-layer failures (intercept
-    /// fails, backend `ok`) from Python-layer failures (both fail).
-    /// One of: `ok`, `timeout`, `refused`, `http_<status>`, `error: <msg>`.
-    pub backend_readyz_outcome: String,
-}
-
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn build_watchdog_give_up_report(
-    consecutive_failures: u32,
-    bypass_active: bool,
-    runtime_upgrade_in_progress: bool,
-    exit_status: Option<String>,
-    log_tail: Option<String>,
-    last_startup_error: Option<String>,
-    tracked_pid: Option<u32>,
-    port_accepts_tcp: bool,
-    process_cpu_secs: Option<u64>,
-    log_silent_secs: Option<u64>,
-    backend_readyz_outcome: String,
-) -> WatchdogGiveUpReport {
-    WatchdogGiveUpReport {
-        message: format!(
-            "proxy_unreachable_post_boot (auto_paused after {consecutive_failures} failures)"
-        ),
-        tracked_child_exit_status: exit_status
-            .unwrap_or_else(|| "still_alive_or_untracked".to_string()),
-        bypass_active,
-        runtime_upgrade_in_progress,
-        consecutive_failures,
-        log_tail: log_tail.filter(|s| !s.is_empty()),
-        last_startup_error: last_startup_error.filter(|s| !s.is_empty()),
-        tracked_pid,
-        port_accepts_tcp,
-        process_cpu_secs,
-        log_silent_secs,
-        backend_readyz_outcome,
-    }
-}
-
-/// Probe `/readyz` on the backend port directly (bypassing the Rust
-/// intercept on 6767) and classify the outcome for inclusion in a
-/// give-up Sentry event. 1.5s timeout matches `is_headroom_proxy_reachable`
-/// so a `timeout` here corresponds to the same wait the watchdog already
-/// experienced.
-fn probe_backend_readyz_outcome() -> String {
-    probe_backend_readyz_outcome_with_timeout(std::time::Duration::from_millis(1500))
-}
-
-/// Same probe as [`probe_backend_readyz_outcome`] but with a caller-chosen
-/// timeout. The watchdog uses a longer (5s) budget to confirm a failure before
-/// counting a strike, so a niced backend that's merely slow under heavy
-/// compression load isn't mistaken for a dead one.
-fn probe_backend_readyz_outcome_with_timeout(timeout: std::time::Duration) -> String {
-    let port = crate::backend_port::get();
-    let client = match reqwest::blocking::Client::builder()
-        .timeout(timeout)
-        .build()
-    {
-        Ok(c) => c,
-        Err(err) => return format!("error: {err}"),
-    };
-    let url = format!("http://127.0.0.1:{port}/readyz");
-    match client.get(&url).send() {
-        Ok(response) => {
-            let status = response.status();
-            if status.is_success() {
-                "ok".to_string()
-            } else if status.as_u16() == 503 {
-                // 503 = readiness failure: the process is alive and answering,
-                // but a component check is false. Parse the body's per-check
-                // breakdown so the watchdog can tell a transient upstream blip
-                // (`http_503:upstream`) apart from a wedged core component and
-                // route them differently. Falls back to bare "http_503" when the
-                // body can't be read or parsed.
-                match response.text() {
-                    Ok(body) => match serde_json::from_str::<serde_json::Value>(&body) {
-                        Ok(json) => {
-                            let csv = readyz_failed_checks_csv(&json);
-                            if csv.is_empty() {
-                                "http_503".to_string()
-                            } else {
-                                format!("http_503:{csv}")
-                            }
-                        }
-                        Err(_) => "http_503".to_string(),
-                    },
-                    Err(_) => "http_503".to_string(),
-                }
-            } else {
-                format!("http_{}", status.as_u16())
-            }
-        }
-        Err(err) => {
-            if err.is_timeout() {
-                "timeout".to_string()
-            } else if err.is_connect() {
-                "refused".to_string()
-            } else {
-                format!("error: {err}")
-            }
-        }
-    }
-}
-
-/// Comma-joined, sorted names of the unhealthy components in a `/readyz`
-/// payload — those whose `checks.<name>.ready` is `false`. Empty when the body
-/// has no `checks` object or every check is ready.
-fn readyz_failed_checks_csv(body: &serde_json::Value) -> String {
-    let Some(checks) = body.get("checks").and_then(|c| c.as_object()) else {
-        return String::new();
-    };
-    let mut failed: Vec<&str> = checks
-        .iter()
-        .filter(|(_, v)| v.get("ready").and_then(|r| r.as_bool()) == Some(false))
-        .map(|(name, _)| name.as_str())
-        .collect();
-    failed.sort_unstable();
-    failed.join(",")
-}
-
-/// Failing-check names parsed out of a `http_503:<a>,<b>` outcome string.
-/// `None` for any other outcome (including a bare `http_503` whose body
-/// couldn't be parsed), so callers treat unknown 503s as the conservative
-/// give-up default.
-fn parse_readyz_failed_checks(outcome: &str) -> Option<Vec<&str>> {
-    outcome
-        .strip_prefix("http_503:")
-        .map(|rest| rest.split(',').filter(|s| !s.is_empty()).collect())
-}
-
-/// True when `/readyz` returned 503 and the *only* unhealthy component is the
-/// upstream-connectivity probe. The proxy process is healthy; this is a
-/// transient network/upstream blip (the upstream check is cached 30s) that
-/// self-heals on the next refresh. Tearing Python down and bypassing routes to
-/// the same unreachable upstream, so it buys nothing.
-fn readyz_failure_is_upstream_only(outcome: &str) -> bool {
-    matches!(parse_readyz_failed_checks(outcome), Some(checks) if checks == ["upstream"])
-}
-
-/// True when `/readyz` returned 503 with at least one *core* component
-/// (startup, http_client, cache, rate_limiter, memory) unhealthy — a wedged
-/// backend that a restart may clear, distinct from a pure upstream blip.
-fn readyz_failure_has_core_unhealthy(outcome: &str) -> bool {
-    parse_readyz_failed_checks(outcome)
-        .map(|checks| checks.iter().any(|c| *c != "upstream"))
-        .unwrap_or(false)
-}
-
-/// Whether two cumulative CPU samples (`ps -o time=`, whole seconds) taken
-/// `elapsed_secs` apart represent a process actively burning CPU. Uses the
-/// *rate*, not the delta: `ps` reports whole seconds, so a single incidental
-/// tick at a second boundary reads as +1, which over a short window looks like
-/// activity. Require >0.5 CPU-sec/sec so a real spin (~1.0) passes while a lone
-/// boundary tick (~0.25 over a ~4s window) does not.
-fn cpu_rate_indicates_burn(before: u64, after: u64, elapsed_secs: f64) -> bool {
-    elapsed_secs > 0.0 && (after.saturating_sub(before) as f64) / elapsed_secs > 0.5
-}
-
 /// Capture once per "down episode" when the watchdog gives up on restarting
 /// the proxy. Fires before stop_headroom tears down the tracked child handle
 /// and proxy log, so the payload reflects the failure we're recovering from.
@@ -669,7 +475,7 @@ fn capture_watchdog_give_up(
             std::thread::sleep(std::time::Duration::from_secs(4));
             let elapsed = started.elapsed().as_secs_f64();
             crate::state::tracked_process_cpu_time_secs(pid)
-                .map(|after| cpu_rate_indicates_burn(before, after, elapsed))
+                .map(|after| runtime_commands::cpu_rate_indicates_burn(before, after, elapsed))
                 .unwrap_or(false)
         }
         _ => false,
@@ -681,7 +487,7 @@ fn capture_watchdog_give_up(
             .map(|d| d.as_secs())
     });
 
-    let report = build_watchdog_give_up_report(
+    let report = runtime_commands::build_watchdog_give_up_report(
         consecutive_failures,
         bypass_active,
         upgrade_in_progress,
@@ -2185,38 +1991,6 @@ fn spawn_tray_runtime_icon_updater(app: AppHandle) {
 
 /// Should the watchdog expect the Python proxy to be reachable right now?
 ///
-/// All five inputs are required to be in their "ready" state for the proxy
-/// to be supposed-up. Pulled out as a pure function so the truth table is
-/// trivially testable — every clause is load-bearing and removing one
-/// silently turns the watchdog into a thrash loop. Specifically `bypass`
-/// being false matters: when the pricing gate has flipped on `proxy_bypass`
-/// the Rust intercept is routing direct to api.anthropic.com, so a missing
-/// Python is intentional, not a failure.
-fn watchdog_should_be_up(
-    installed: bool,
-    paused: bool,
-    starting: bool,
-    upgrading: bool,
-    bypass: bool,
-) -> bool {
-    installed && !paused && !starting && !upgrading && !bypass
-}
-
-/// Backoff schedule for the self-heal auto-resume loop after the watchdog has
-/// given up and auto-paused. Keyed by the number of failed resume attempts so
-/// far: 30s, 1m, 2m, then a 5m cap for all later attempts. Retries continue
-/// indefinitely at the cap so a transient outage (laptop slept on battery,
-/// transient network) self-heals whenever it clears, without hammering restart.
-fn auto_resume_backoff(failed_attempts: u32) -> std::time::Duration {
-    let secs = match failed_attempts {
-        0 => 30,
-        1 => 60,
-        2 => 120,
-        _ => 300,
-    };
-    std::time::Duration::from_secs(secs)
-}
-
 /// Every 5s, check whether the Python proxy is actually reachable while the
 /// app thinks the runtime should be up. If it isn't, try to restart via
 /// `ensure_headroom_running`. After 3 consecutive failures (~15s down) we
@@ -2315,7 +2089,7 @@ fn spawn_proxy_watchdog(app: AppHandle) {
             let bypass_active = state
                 .proxy_bypass
                 .load(std::sync::atomic::Ordering::Acquire);
-            let should_be_up = watchdog_should_be_up(
+            let should_be_up = runtime_commands::watchdog_should_be_up(
                 runtime.installed,
                 runtime.paused,
                 runtime.starting,
@@ -2377,8 +2151,9 @@ fn spawn_proxy_watchdog(app: AppHandle) {
             // perfectly healthy proxy can miss that window. Re-probe the
             // backend's /readyz directly with a 5s budget — if it answers, the
             // process is alive and merely busy, so don't count it as down.
-            let tolerant_outcome =
-                probe_backend_readyz_outcome_with_timeout(std::time::Duration::from_secs(5));
+            let tolerant_outcome = runtime_commands::probe_backend_readyz_outcome_with_timeout(
+                std::time::Duration::from_secs(5),
+            );
             if tolerant_outcome == "ok" {
                 log::info!(
                     "watchdog: backend /readyz answered on tolerant 5s re-probe; not counting failure"
@@ -2390,7 +2165,7 @@ fn spawn_proxy_watchdog(app: AppHandle) {
             // process itself is alive and healthy — only the cached upstream
             // probe is down (network blip / sleep-wake). /readyz is a readiness
             // signal, not a liveness one; don't count it as the process dying.
-            if readyz_failure_is_upstream_only(&tolerant_outcome) {
+            if runtime_commands::readyz_failure_is_upstream_only(&tolerant_outcome) {
                 log::info!(
                     "watchdog: backend /readyz 503 with only upstream unhealthy (transient connectivity); not counting failure"
                 );
@@ -2426,7 +2201,7 @@ fn spawn_proxy_watchdog(app: AppHandle) {
                 // process: reset the counter and keep probing. We're already
                 // 15s into the down episode, so one extra POLL of patience is
                 // cheap compared to auto-pausing a process that just came up.
-                let backend_readyz_outcome = probe_backend_readyz_outcome();
+                let backend_readyz_outcome = runtime_commands::probe_backend_readyz_outcome();
                 if backend_readyz_outcome == "ok" {
                     log::info!(
                         "watchdog: backend /readyz answers ok after {consecutive_failures} intercept failures; skipping auto-pause and resetting counter"
@@ -2440,7 +2215,7 @@ fn spawn_proxy_watchdog(app: AppHandle) {
                 // nothing, and the process self-heals on the next 30s upstream
                 // re-check — so keep it up instead of auto-pausing. Backstops
                 // the same guard at the tolerant re-probe above.
-                if readyz_failure_is_upstream_only(&backend_readyz_outcome) {
+                if runtime_commands::readyz_failure_is_upstream_only(&backend_readyz_outcome) {
                     log::info!(
                         "watchdog: backend /readyz 503 (upstream-only) after {consecutive_failures} failures; process healthy, skipping auto-pause"
                     );
@@ -2462,7 +2237,7 @@ fn spawn_proxy_watchdog(app: AppHandle) {
                 // to the give-up path below.
                 if (backend_readyz_outcome == "timeout"
                     || backend_readyz_outcome == "http_503"
-                    || readyz_failure_has_core_unhealthy(&backend_readyz_outcome))
+                    || runtime_commands::readyz_failure_has_core_unhealthy(&backend_readyz_outcome))
                     && !hung_kill_attempted
                 {
                     log::info!(
@@ -2561,8 +2336,10 @@ fn spawn_proxy_watchdog(app: AppHandle) {
                 // Arm the self-heal: first retry after 30s, backing off on
                 // repeated failures (auto_resume_backoff). The retry runs in the
                 // `runtime.auto_paused` branch at the top of the loop.
-                auto_pause_next_retry =
-                    Some(std::time::Instant::now() + auto_resume_backoff(auto_pause_failed));
+                auto_pause_next_retry = Some(
+                    std::time::Instant::now()
+                        + runtime_commands::auto_resume_backoff(auto_pause_failed),
+                );
                 auto_pause_failed = auto_pause_failed.saturating_add(1);
                 consecutive_failures = 0;
                 continue;
@@ -3078,12 +2855,10 @@ fn compute_tray_window_position(
 #[cfg(test)]
 mod tests {
     use super::{
-        app_quit_requested_properties, auto_resume_backoff, build_watchdog_give_up_report,
-        classify_upgrade_error, compute_tray_window_position, cpu_rate_indicates_burn,
+        app_quit_requested_properties, classify_upgrade_error, compute_tray_window_position,
         debounced_tray_runtime_visual, is_disk_full_signal, is_endpoint_protection_signal,
-        is_port_conflict_failure, physical_rect_from_rect, readyz_failed_checks_csv,
-        readyz_failure_has_core_unhealthy, readyz_failure_is_upstream_only, watchdog_should_be_up,
-        MonitorBounds, PhysicalRect, QuitSource, TrayRuntimeVisual,
+        is_port_conflict_failure, physical_rect_from_rect, MonitorBounds, PhysicalRect, QuitSource,
+        TrayRuntimeVisual,
     };
     use crate::activity_commands::{
         count_memories_created_today, fetch_transformations_feed_from,
@@ -3112,7 +2887,10 @@ mod tests {
     };
     use crate::repo_intelligence;
     use crate::runtime_commands::{
-        classify_bootstrap_failure, is_network_download_signal, BootstrapFailureKind,
+        auto_resume_backoff, build_watchdog_give_up_report, classify_bootstrap_failure,
+        cpu_rate_indicates_burn, is_network_download_signal, readyz_failed_checks_csv,
+        readyz_failure_has_core_unhealthy, readyz_failure_is_upstream_only, watchdog_should_be_up,
+        BootstrapFailureKind,
     };
     use crate::state::AppState;
     use chrono::{TimeZone, Utc};
