@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-05T13:03:58.849Z",
+  "generatedAt": "2026-07-05T13:12:10.273Z",
   "tools": {
     "graphify": {
       "status": "partial-success",
@@ -55,7 +55,7 @@
   },
   "inventory": {
     "frontendFiles": 142,
-    "rustFiles": 79,
+    "rustFiles": 80,
     "docs": 35,
     "scripts": 59
   },
@@ -747,8 +747,8 @@
   ],
   "tokenSavings": {
     "compactContextEstimatedTokens": 307,
-    "broadScanEstimatedTokens": 1157990,
-    "estimatedTokensAvoided": 1157683,
+    "broadScanEstimatedTokens": 1158078,
+    "estimatedTokensAvoided": 1157771,
     "method": "Approximate chars/4 estimate comparing bounded repo map context to readable source files capped at 500 files."
   }
 }
