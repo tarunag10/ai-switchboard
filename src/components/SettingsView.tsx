@@ -24,6 +24,7 @@ import {
   supportsNativeManagedRollback,
 } from "../lib/settingsConnectorCopy";
 import { SettingsLegalPanel } from "./SettingsLegalPanel";
+import { SettingsOpenLoginCard } from "./SettingsOpenLoginCard";
 import { SettingsConnectorPanel } from "./SettingsConnectorPanel";
 import { SettingsFooterActions } from "./SettingsFooterActions";
 import type {
@@ -894,32 +895,11 @@ export function SettingsView({
             </p>
           ) : null}
         </article>
-        <article className="soft-card panel-card">
-          <div className="panel-card__header">
-            <div>
-              <h3>Open on login</h3>
-            </div>
-            <div>
-              <p>
-                Automatically launch AI Switchboard for Mac whenever you log in
-                or restart.
-              </p>
-            </div>
-            <div className="connector-item__controls">
-              <button
-                aria-checked={autostartEnabled === true}
-                aria-label={`${autostartEnabled ? "Disable" : "Enable"} open on login`}
-                className={`connector-switch${autostartEnabled ? " is-on" : ""}`}
-                disabled={autostartBusy || autostartEnabled === null}
-                onClick={() => void handleAutostartToggle(!autostartEnabled)}
-                role="switch"
-                type="button"
-              >
-                <span className="connector-switch__thumb" />
-              </button>
-            </div>
-          </div>
-        </article>
+        <SettingsOpenLoginCard
+          autostartBusy={autostartBusy}
+          autostartEnabled={autostartEnabled}
+          onToggle={handleAutostartToggle}
+        />
 
         <article className="soft-card panel-card rollback-center-card">
           <div className="panel-card__header">
