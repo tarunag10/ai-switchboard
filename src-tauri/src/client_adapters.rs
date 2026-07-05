@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -25,11 +25,12 @@ use crate::client_connectors::{
 use crate::client_footprint::managed_backup_targets;
 use crate::client_paths::{
     all_shell_paths, claude_settings_candidates, claude_settings_path, codex_config_toml_path,
-    headroom_markitdown_hook_path, headroom_rtk_hook_path, home_dir, opencode_config_path,
-    planned_sidecar_routing_path, rtk_codex_agents_path, shell_path, windsurf_config_path,
-    zed_config_path, BASH_LOGIN_FILE, BASH_PROFILE_FILE, BASH_RC_FILE, OPENCODE_CONFIG_FILE,
-    POSIX_PROFILE_FILE, SWITCHBOARD_ROUTING_FILE, WINDSURF_CONFIG_FILE, ZED_CONFIG_FILE,
-    ZSH_PROFILE_FILE, ZSH_RC_FILE,
+    dedupe_paths, dedupe_strings, default_shell_targets_for_family, detect_shell_family,
+    discover_managed_shell_targets, headroom_markitdown_hook_path, headroom_rtk_hook_path,
+    home_dir, is_profile_file, opencode_config_path, planned_sidecar_routing_path,
+    resolve_default_shell_targets, rtk_codex_agents_path, serialize_paths,
+    shell_targets_from_state, windsurf_config_path, zed_config_path, OPENCODE_CONFIG_FILE,
+    SWITCHBOARD_ROUTING_FILE, WINDSURF_CONFIG_FILE, ZED_CONFIG_FILE,
 };
 use crate::managed_files::{
     backup_if_exists, managed_marker_end, managed_marker_start, marker_block_contains,
@@ -58,13 +59,6 @@ const CURSOR_MARKER_PREFIX: &str = "headroom:cursor";
 const WINDSURF_MARKER_PREFIX: &str = "headroom:windsurf";
 const ZED_MARKER_PREFIX: &str = "headroom:zed";
 const MARKER_PREFIX: &str = "headroom";
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ShellFamily {
-    Zsh,
-    Bash,
-    Posix,
-}
-
 pub fn detect_clients() -> Vec<ClientStatus> {
     let setup_state = load_setup_state();
 
@@ -3678,145 +3672,6 @@ fn is_headroom_proxy_reachable() -> bool {
     })
 }
 
-fn resolve_default_shell_targets() -> Vec<PathBuf> {
-    let mut targets =
-        discover_managed_shell_targets(&["managed_rtk", "claude_code"]).unwrap_or_default();
-    if targets.is_empty() {
-        targets = default_shell_targets_for_family(detect_shell_family());
-    }
-    dedupe_paths(targets)
-}
-
-fn detect_shell_family() -> ShellFamily {
-    if let Some(shell_name) = std::env::var_os("SHELL")
-        .and_then(|value| value.into_string().ok())
-        .and_then(|value| {
-            Path::new(&value)
-                .file_name()
-                .and_then(|name| name.to_str())
-                .map(|name| name.to_ascii_lowercase())
-        })
-    {
-        if shell_name.contains("zsh") {
-            return ShellFamily::Zsh;
-        }
-        if shell_name.contains("bash") {
-            return ShellFamily::Bash;
-        }
-        if shell_name == "sh" {
-            return ShellFamily::Posix;
-        }
-    }
-
-    let has_zsh_files = [ZSH_PROFILE_FILE, ZSH_RC_FILE]
-        .into_iter()
-        .map(shell_path)
-        .any(|path| path.exists());
-    let has_bash_files = [
-        BASH_PROFILE_FILE,
-        BASH_LOGIN_FILE,
-        POSIX_PROFILE_FILE,
-        BASH_RC_FILE,
-    ]
-    .into_iter()
-    .map(shell_path)
-    .any(|path| path.exists());
-
-    match (has_zsh_files, has_bash_files) {
-        (true, false) => ShellFamily::Zsh,
-        (false, true) => ShellFamily::Bash,
-        _ if cfg!(target_os = "macos") => ShellFamily::Zsh,
-        _ => ShellFamily::Bash,
-    }
-}
-
-fn default_shell_targets_for_family(shell_family: ShellFamily) -> Vec<PathBuf> {
-    match shell_family {
-        ShellFamily::Zsh => {
-            dedupe_paths(vec![shell_path(ZSH_PROFILE_FILE), shell_path(ZSH_RC_FILE)])
-        }
-        ShellFamily::Bash => dedupe_paths(vec![
-            preferred_bash_profile_path(),
-            shell_path(BASH_RC_FILE),
-        ]),
-        ShellFamily::Posix => vec![shell_path(POSIX_PROFILE_FILE)],
-    }
-}
-
-fn preferred_bash_profile_path() -> PathBuf {
-    [BASH_PROFILE_FILE, BASH_LOGIN_FILE, POSIX_PROFILE_FILE]
-        .into_iter()
-        .map(shell_path)
-        .find(|path| path.exists())
-        .unwrap_or_else(|| shell_path(BASH_PROFILE_FILE))
-}
-
-fn discover_managed_shell_targets(block_ids: &[&str]) -> Result<Vec<PathBuf>> {
-    let mut discovered = Vec::new();
-    for file in all_shell_paths() {
-        for block_id in block_ids {
-            if file_has_managed_block(&file, block_id)? {
-                discovered.push(file.clone());
-                break;
-            }
-        }
-    }
-    Ok(dedupe_paths(discovered))
-}
-
-fn shell_targets_from_state(serialized_paths: Option<&Vec<String>>) -> Vec<PathBuf> {
-    serialized_paths
-        .into_iter()
-        .flatten()
-        .map(PathBuf::from)
-        .collect::<Vec<_>>()
-}
-
-fn serialize_paths(paths: &[PathBuf]) -> Vec<String> {
-    let mut serialized = paths
-        .iter()
-        .map(|path| path.display().to_string())
-        .collect::<Vec<_>>();
-    dedupe_strings(&mut serialized);
-    serialized
-}
-
-fn dedupe_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
-    let mut seen = BTreeSet::new();
-    let mut deduped = Vec::new();
-    for path in paths {
-        let key = path.display().to_string();
-        if seen.insert(key) {
-            deduped.push(path);
-        }
-    }
-    deduped
-}
-
-fn dedupe_strings(values: &mut Vec<String>) {
-    let mut seen = BTreeSet::new();
-    values.retain(|value| seen.insert(value.clone()));
-}
-
-fn is_profile_file(path: &Path) -> bool {
-    matches!(
-        path.file_name().and_then(|name| name.to_str()),
-        Some(ZSH_PROFILE_FILE | BASH_PROFILE_FILE | BASH_LOGIN_FILE | POSIX_PROFILE_FILE)
-    )
-}
-
-fn file_has_managed_block(file_path: &Path, block_id: &str) -> Result<bool> {
-    if !file_path.exists() {
-        return Ok(false);
-    }
-
-    let content = std::fs::read_to_string(file_path)
-        .with_context(|| format!("reading {}", file_path.display()))?;
-    let start = format!("# >>> headroom:{block_id} >>>");
-    let end = format!("# <<< headroom:{block_id} <<<");
-    Ok(content.contains(&start) && content.contains(&end))
-}
-
 fn managed_block_contains_text(
     file_path: &Path,
     block_id: &str,
@@ -5003,7 +4858,7 @@ mod tests {
         parse_json_object, remove_managed_block, remove_pre_tool_use_markers, serialize_paths,
         shell_block_contains_in_files, shell_block_contains_text_in_files, shell_double_quote,
         strip_headroom_hook_from_settings, upsert_managed_block, write_file_if_changed,
-        ClientSetupState, ShellFamily,
+        ClientSetupState,
     };
     use crate::client_connector_status::MANAGED_CLIENT_SPECS;
     use crate::client_footprint;
@@ -5882,8 +5737,8 @@ mod tests {
 
     #[test]
     fn shell_targets_include_profile_and_rc_for_supported_shells() {
-        let zsh_targets = default_shell_targets_for_family(ShellFamily::Zsh);
-        let bash_targets = default_shell_targets_for_family(ShellFamily::Bash);
+        let zsh_targets = default_shell_targets_for_family(crate::client_paths::ShellFamily::Zsh);
+        let bash_targets = default_shell_targets_for_family(crate::client_paths::ShellFamily::Bash);
 
         assert!(zsh_targets.iter().any(|path| path.ends_with(".zprofile")));
         assert!(zsh_targets.iter().any(|path| path.ends_with(".zshrc")));
