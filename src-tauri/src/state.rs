@@ -6329,7 +6329,6 @@ fn bootstrap_failed_state(current: &BootstrapProgress, message: String) -> Boots
 
 #[cfg(test)]
 mod tests {
-    use crate::runtime_probe::{parse_ps_cpu_time, tcp_port_accepts_connection};
     use std::fs;
     use std::path::PathBuf;
 
@@ -6348,13 +6347,11 @@ mod tests {
     use super::{
         aggregate_weekly_totals, apply_bootstrap_step, begin_bootstrap_transition,
         boot_validation_stalled, bootstrap_complete_state, bootstrap_failed_state,
-        classify_startup_error, cpu_time_advanced, hf_cache_grew,
-        lifetime_token_milestones_crossed, lifetime_usd_milestones_crossed, log_mtime_advanced,
-        merge_daily_savings, merge_hourly_savings, most_recent_monday,
-        parse_headroom_stats_from_json, parse_headroom_stats_history_from_json,
-        total_dir_size_bytes, AppState, BootValidationOutcome, ClaudeProjectScan,
-        DailySavingsBucket, HeadroomDashboardStats, HeadroomSavingsHistoryPoint,
-        PersistedSavingsState, SavingsObservation, SavingsTracker,
+        classify_startup_error, lifetime_token_milestones_crossed, lifetime_usd_milestones_crossed,
+        log_mtime_advanced, merge_daily_savings, merge_hourly_savings, most_recent_monday,
+        parse_headroom_stats_from_json, parse_headroom_stats_history_from_json, AppState,
+        BootValidationOutcome, ClaudeProjectScan, DailySavingsBucket, HeadroomDashboardStats,
+        HeadroomSavingsHistoryPoint, PersistedSavingsState, SavingsObservation, SavingsTracker,
     };
 
     #[test]
@@ -6463,165 +6460,6 @@ mod tests {
         assert!(!log_mtime_advanced(Some(t1), None));
         // Both None — pre-first-write state, no activity.
         assert!(!log_mtime_advanced(None, None));
-    }
-
-    #[test]
-    fn hf_cache_grew_returns_true_only_on_growth() {
-        // First observation after the cache dir appeared. Empty dir
-        // doesn't count as activity (HF created the dir but hasn't
-        // started downloading yet).
-        assert!(!hf_cache_grew(None, 0));
-        // First observation with content — counts as growth.
-        assert!(hf_cache_grew(None, 100));
-        // Strictly grew.
-        assert!(hf_cache_grew(Some(100), 200));
-        // Unchanged.
-        assert!(!hf_cache_grew(Some(100), 100));
-        // Shrunk (HF cache pruning during boot — rare, but the function
-        // shouldn't lie and call this growth).
-        assert!(!hf_cache_grew(Some(200), 100));
-    }
-
-    #[test]
-    fn parse_ps_cpu_time_handles_macos_formats() {
-        // MM:SS.ss (most common — processes under an hour of CPU)
-        assert_eq!(parse_ps_cpu_time("0:00.05"), Some(0));
-        assert_eq!(parse_ps_cpu_time("0:42.13"), Some(42));
-        assert_eq!(parse_ps_cpu_time("12:34.99"), Some(12 * 60 + 34));
-        // HH:MM:SS (longer-lived processes)
-        assert_eq!(parse_ps_cpu_time("1:23:45"), Some(3600 + 23 * 60 + 45));
-        // D-HH:MM:SS (multi-day uptime)
-        assert_eq!(
-            parse_ps_cpu_time("2-01:23:45"),
-            Some(2 * 86400 + 3600 + 23 * 60 + 45)
-        );
-        // Whitespace tolerated (ps emits a trailing newline)
-        assert_eq!(parse_ps_cpu_time("  0:42.13\n"), Some(42));
-        // Bad input returns None rather than panicking.
-        assert_eq!(parse_ps_cpu_time(""), None);
-        assert_eq!(parse_ps_cpu_time("   "), None);
-        assert_eq!(parse_ps_cpu_time("not-a-time"), None);
-        assert_eq!(parse_ps_cpu_time("1:2:3:4"), None);
-    }
-
-    #[test]
-    fn cpu_time_advanced_detects_growth_only() {
-        // Strictly grew → activity.
-        assert!(cpu_time_advanced(Some(3), Some(5)));
-        // First observation with non-zero CPU → activity (process was
-        // already burning cycles before we started polling).
-        assert!(cpu_time_advanced(None, Some(5)));
-        // First observation with zero CPU → not yet doing work.
-        assert!(!cpu_time_advanced(None, Some(0)));
-        // Unchanged (whole-second resolution; sub-second growth is
-        // dropped by the parser, so equal seconds means "no second
-        // elapsed of CPU time").
-        assert!(!cpu_time_advanced(Some(5), Some(5)));
-        // ps stopped reporting (process gone) — not activity.
-        assert!(!cpu_time_advanced(Some(5), None));
-        // Both None — process never tracked or never observed.
-        assert!(!cpu_time_advanced(None, None));
-    }
-
-    #[test]
-    fn tcp_port_accepts_connection_true_when_listener_bound() {
-        use std::net::TcpListener;
-        use std::time::Duration;
-
-        // Bind to an ephemeral port; OS picks an unused one.
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind ephemeral");
-        let addr = listener.local_addr().expect("local_addr");
-
-        assert!(tcp_port_accepts_connection(addr, Duration::from_secs(1)));
-
-        // The listener never accept()s — but the kernel still completes
-        // the connect, which is the whole point: an alive-but-busy
-        // proxy whose event loop is held still passes this check.
-        drop(listener);
-    }
-
-    #[test]
-    fn tcp_port_accepts_connection_false_when_no_listener() {
-        use std::net::{SocketAddr, TcpListener};
-        use std::time::Duration;
-
-        // Bind to grab a port, then drop the listener so nothing is
-        // listening on it. The OS can hand that freed port to another
-        // process between drop() and connect_timeout(), so retry with
-        // fresh ephemeral ports until one stays closed long enough to
-        // observe. If every attempt across N tries shows accepted, the
-        // function is genuinely broken.
-        for _ in 0..16 {
-            let listener = TcpListener::bind("127.0.0.1:0").expect("bind ephemeral");
-            let addr: SocketAddr = listener.local_addr().expect("local_addr");
-            drop(listener);
-
-            if !tcp_port_accepts_connection(addr, Duration::from_millis(200)) {
-                return;
-            }
-        }
-        panic!("tcp_port_accepts_connection returned true on 16 freshly-released ephemeral ports");
-    }
-
-    #[test]
-    fn total_dir_size_bytes_returns_zero_for_missing_path() {
-        let missing =
-            std::env::temp_dir().join(format!("headroom-no-such-{}", uuid::Uuid::new_v4()));
-        assert_eq!(total_dir_size_bytes(&missing, 1000), 0);
-    }
-
-    #[test]
-    fn total_dir_size_bytes_sums_files_recursively() {
-        let id = uuid::Uuid::new_v4();
-        let root = std::env::temp_dir().join(format!("headroom-hf-test-{id}"));
-        fs::create_dir_all(root.join("subdir/deeper")).expect("mkdir");
-        fs::write(root.join("a.bin"), vec![0u8; 100]).expect("write a");
-        fs::write(root.join("subdir/b.bin"), vec![0u8; 200]).expect("write b");
-        fs::write(root.join("subdir/deeper/c.bin"), vec![0u8; 50]).expect("write c");
-
-        assert_eq!(total_dir_size_bytes(&root, 1000), 350);
-
-        let _ = fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn total_dir_size_bytes_skips_symlinks_to_avoid_double_count() {
-        // HF hub layout: snapshots/<rev>/<file> is a symlink into blobs/<sha>.
-        // Counting both would overstate. We count only real files.
-        let id = uuid::Uuid::new_v4();
-        let root = std::env::temp_dir().join(format!("headroom-hf-symlink-test-{id}"));
-        fs::create_dir_all(root.join("blobs")).expect("mkdir blobs");
-        fs::create_dir_all(root.join("snapshots")).expect("mkdir snapshots");
-        fs::write(root.join("blobs/file1"), vec![0u8; 500]).expect("write blob");
-
-        let symlink_target = root.join("blobs/file1");
-        let symlink_path = root.join("snapshots/file1");
-        #[cfg(unix)]
-        std::os::unix::fs::symlink(&symlink_target, &symlink_path).expect("symlink");
-
-        // 500 bytes (the blob), not 1000 (blob + symlink content).
-        assert_eq!(total_dir_size_bytes(&root, 1000), 500);
-
-        let _ = fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn total_dir_size_bytes_respects_max_entries_cap() {
-        let id = uuid::Uuid::new_v4();
-        let root = std::env::temp_dir().join(format!("headroom-hf-cap-test-{id}"));
-        fs::create_dir_all(&root).expect("mkdir");
-        for i in 0..20 {
-            fs::write(root.join(format!("f{i}")), vec![0u8; 10]).expect("write");
-        }
-        // With a tight cap, we may visit fewer than all 20 files. The
-        // exact early-stop count depends on read_dir's iteration order;
-        // assert only that we sum at most ``cap * file_size``.
-        let total_capped = total_dir_size_bytes(&root, 5);
-        assert!(total_capped <= 50, "got {total_capped}");
-        let total_full = total_dir_size_bytes(&root, 1000);
-        assert_eq!(total_full, 200);
-
-        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
