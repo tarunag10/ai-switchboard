@@ -30,6 +30,7 @@
     "lib/bootstrapSentry.ts",
     "lib/cliInstallCommands.ts",
     "lib/dashboardHelpers.ts",
+    "lib/doctorRepairController.ts",
     "lib/launcherHelpers.ts",
     "lib/localMode.ts",
     "lib/managedChanges.ts",
@@ -374,6 +375,13 @@
   ],
   "lib/doctorRepairClassification.test.ts": [
     "lib/doctorRepairCopy.ts"
+  ],
+  "lib/doctorRepairController.test.ts": [
+    "lib/doctorRepairController.ts",
+    "lib/types.ts"
+  ],
+  "lib/doctorRepairController.ts": [
+    "lib/types.ts"
   ],
   "lib/doctorRepairCopy.test.ts": [
     "lib/doctorRepairCopy.ts",
