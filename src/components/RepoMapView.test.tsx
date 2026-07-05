@@ -25,10 +25,7 @@ describe("RepoMapView progressive disclosure", () => {
   it("keeps health cards visible while graph diagnostics are collapsed", async () => {
     const user = userEvent.setup();
     render(
-      <RepoMapView
-        onOpenDoctor={vi.fn()}
-        onOpenRepoIntelligence={vi.fn()}
-      />,
+      <RepoMapView onOpenDoctor={vi.fn()} onOpenRepoIntelligence={vi.fn()} />,
     );
 
     expect(screen.getByText("Graphify graph")).toBeInTheDocument();
@@ -43,5 +40,26 @@ describe("RepoMapView progressive disclosure", () => {
     expect(diagnosticsButton).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("Tool Status")).toBeInTheDocument();
     expect(screen.getByText("Tool Checks")).toBeInTheDocument();
+  });
+
+  it("calls footer navigation callbacks", async () => {
+    const user = userEvent.setup();
+    const onOpenDoctor = vi.fn();
+    const onOpenRepoIntelligence = vi.fn();
+
+    render(
+      <RepoMapView
+        onOpenDoctor={onOpenDoctor}
+        onOpenRepoIntelligence={onOpenRepoIntelligence}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /open repo intelligence/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /open doctor/i }));
+
+    expect(onOpenRepoIntelligence).toHaveBeenCalledTimes(1);
+    expect(onOpenDoctor).toHaveBeenCalledTimes(1);
   });
 });
