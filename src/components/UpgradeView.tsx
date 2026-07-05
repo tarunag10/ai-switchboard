@@ -3,12 +3,13 @@ import {
   getFounderStepPricing,
   type BillingPeriod,
   type PricingAudience,
+  type UpgradePlan,
   type UpgradePlanId,
 } from "../lib/appHelpers";
-import { isValidEmailAddress } from "../lib/launcherHelpers";
 import type { HeadroomPricingStatus } from "../lib/types";
 
 export interface UpgradeViewProps {
+  hidden?: boolean;
   pricingAudience: PricingAudience;
   setPricingAudience: (audience: PricingAudience) => void;
   setUpgradeActionError: (error: string | null) => void;
@@ -26,51 +27,11 @@ export interface UpgradeViewProps {
   upgradeActionBusy: UpgradePlanId | null;
   upgradePlansState: {
     featuredPlanId: UpgradePlanId;
-    plans: Array<{
-      id: UpgradePlanId;
-      name: string;
-      tagline: string;
-      price: string;
-      originalPrice?: string;
-      billingLines: [string, string];
-      purchaseInfo?: {
-        cancelAtPeriodEnd: boolean;
-        endsOn?: string;
-        renewsOn?: string;
-        paidPerMonthLabel?: string;
-        discountPct?: number;
-      };
-      ctaLabel: string;
-      ctaTone?: string;
-      ctaVariant?: string;
-      disabled?: boolean;
-      features: string[];
-      centeredPriceLabel?: string;
-    }>;
+    plans: UpgradePlan[];
   };
-  visibleUpgradePlans: Array<{
-    id: UpgradePlanId;
-    name: string;
-    tagline: string;
-    price: string;
-    originalPrice?: string;
-    billingLines: [string, string];
-    purchaseInfo?: {
-      cancelAtPeriodEnd: boolean;
-      endsOn?: string;
-      renewsOn?: string;
-      paidPerMonthLabel?: string;
-      discountPct?: number;
-    };
-    ctaLabel: string;
-    ctaTone?: string;
-    ctaVariant?: string;
-    disabled?: boolean;
-    features: string[];
-    centeredPriceLabel?: string;
-  }>;
+  visibleUpgradePlans: UpgradePlan[];
   activeHeadroomPlanId: UpgradePlanId | null;
-  handleContactSubmit: (event: React.FormEvent) => void;
+  handleContactSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   contactEmail: string;
   setContactEmail: (email: string) => void;
   contactSubmitError: string | null;
@@ -92,6 +53,7 @@ export interface UpgradeViewProps {
 }
 
 export function UpgradeView({
+  hidden = false,
   pricingAudience,
   setPricingAudience,
   setUpgradeActionError,
@@ -126,7 +88,7 @@ export function UpgradeView({
   reactivateError,
 }: UpgradeViewProps) {
   return (
-    <div className="tray-content tray-content--upgrade">
+    <div className="tray-content tray-content--upgrade" hidden={hidden}>
       <section className="upgrade-hero">
         <h1>Plans based on your AI subscription</h1>
         <div
