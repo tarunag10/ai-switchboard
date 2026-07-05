@@ -31,9 +31,9 @@ use crate::process_runner::{
 pub(crate) use crate::runtime_distribution::{
     available_disk_bytes, bootstrap_requirements_lock, download_to_path,
     download_to_path_with_progress, pip_line_to_progress, python_distribution_artifact,
-    requirements_lock_sha, rtk_distribution_artifact, HeadroomRelease, PipOutputCapture,
-    RuntimeMaintenanceKind, UpgradeOutcome, HEADROOM_PINNED_SHA256, HEADROOM_PINNED_VERSION,
-    HEADROOM_PINNED_WHEEL_URL, RTK_VERSION,
+    requirements_lock_sha, rtk_distribution_artifact, HeadroomRelease, InPlaceUpgradeContext,
+    PipOutputCapture, RuntimeMaintenanceKind, UpgradeOutcome, HEADROOM_PINNED_SHA256,
+    HEADROOM_PINNED_VERSION, HEADROOM_PINNED_WHEEL_URL, RTK_VERSION,
 };
 #[cfg(test)]
 use crate::runtime_distribution::{
@@ -4679,11 +4679,6 @@ fn headroom_propagated_proxy_log_path() -> Option<PathBuf> {
     } else {
         None
     }
-}
-
-pub(crate) struct InPlaceUpgradeContext {
-    pub(crate) previous_version: String,
-    pub(crate) previous_lock_backup: Option<PathBuf>,
 }
 
 /// Best-effort free-bytes query for the volume backing `path`. Returns None

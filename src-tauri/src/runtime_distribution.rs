@@ -1,7 +1,7 @@
 use anyhow::{bail, Context, Result};
 use sha2::{Digest, Sha256};
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use crate::tool_manager::BootstrapStepUpdate;
@@ -76,6 +76,16 @@ pub enum UpgradeOutcome {
         restored: bool,
         error: anyhow::Error,
     },
+}
+
+/// State required to perform (and roll back) an in-place upgrade — i.e. an
+/// upgrade that mutates the live venv instead of rebuilding it. When
+/// `previous_lock_backup` is `Some`, the dep lock has churned and the file at
+/// that path is the pre-upgrade lock content, used by rollback and recovery
+/// to `pip install --upgrade -r <backup>` back to the prior pin set.
+pub(crate) struct InPlaceUpgradeContext {
+    pub(crate) previous_version: String,
+    pub(crate) previous_lock_backup: Option<PathBuf>,
 }
 
 /// Bounded ring buffer collecting pip stdout/stderr lines for post-mortem
