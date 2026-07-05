@@ -1,6 +1,6 @@
 # Mac AI Switchboard Repo Map
 
-Generated: 2026-07-05T12:51:39.413Z
+Generated: 2026-07-05T12:56:47.792Z
 
 ## Artifacts
 
@@ -86,9 +86,9 @@ proxy, adapters, storage, analytics"]
 ## Tauri Command Wiring
 
 - Frontend invokes: 82
-- Rust commands declared: 122
+- Rust commands declared: 121
 - Commands in invoke handler: 122
-- Invoked commands missing a Rust command: none
+- Invoked commands missing a Rust command: `start_bootstrap`
 - Invoked commands missing from invoke handler: none
 - Handler commands not called by current frontend scan: 40
 
