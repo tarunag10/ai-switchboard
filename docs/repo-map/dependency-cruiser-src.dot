@@ -14,6 +14,7 @@ strict digraph "dependency-cruiser output"{
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/OutputReductionChip" [label=<OutputReductionChip> tooltip="OutputReductionChip" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/RepoIntelligencePreview" [label=<RepoIntelligencePreview> tooltip="RepoIntelligencePreview" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/RepoMapView" [label=<RepoMapView> tooltip="RepoMapView" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/RollbackCenter" [label=<RollbackCenter> tooltip="RollbackCenter" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SavingsCalculatorCard" [label=<SavingsCalculatorCard> tooltip="SavingsCalculatorCard" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SavingsChartTooltip" [label=<SavingsChartTooltip> tooltip="SavingsChartTooltip" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsConnectorPanel" [label=<SettingsConnectorPanel> tooltip="SettingsConnectorPanel" ] } }
@@ -64,6 +65,7 @@ strict digraph "dependency-cruiser output"{
     "src/App.tsx" -> "./components/OutputReductionChip"
     "src/App.tsx" -> "./components/RepoIntelligencePreview"
     "src/App.tsx" -> "./components/RepoMapView"
+    "src/App.tsx" -> "./components/RollbackCenter"
     "src/App.tsx" -> "./components/SavingsCalculatorCard"
     "src/App.tsx" -> "./components/SavingsChartTooltip"
     "src/App.tsx" -> "./components/SettingsConnectorPanel"

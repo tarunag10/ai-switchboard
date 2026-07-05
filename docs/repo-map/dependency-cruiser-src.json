@@ -180,6 +180,22 @@
           "valid": true
         },
         {
+          "module": "./components/RollbackCenter",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/RollbackCenter",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
           "module": "./components/SavingsCalculatorCard",
           "moduleSystem": "es6",
           "dynamic": false,
@@ -969,6 +985,22 @@
       "valid": true
     },
     {
+      "source": "./components/RollbackCenter",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
       "source": "./components/SavingsCalculatorCard",
       "followable": false,
       "coreModule": false,
@@ -1583,8 +1615,8 @@
     "warn": 0,
     "info": 0,
     "ignore": 0,
-    "totalCruised": 50,
-    "totalDependenciesCruised": 49,
+    "totalCruised": 51,
+    "totalDependenciesCruised": 50,
     "optionsUsed": {
       "baseDir": "/Users/tarunagarwal/Developer/Codex-Repos/mac-ai-switchboard",
       "combinedDependencies": false,

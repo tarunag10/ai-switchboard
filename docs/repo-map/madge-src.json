@@ -13,6 +13,7 @@
     "components/OutputReductionChip.tsx",
     "components/RepoIntelligencePreview.tsx",
     "components/RepoMapView.tsx",
+    "components/RollbackCenter.tsx",
     "components/SavingsCalculatorCard.tsx",
     "components/SavingsChartTooltip.tsx",
     "components/SettingsConnectorPanel.tsx",
@@ -185,6 +186,17 @@
     "../docs/repo-map/repo-map.json",
     "lib/repoMapJob.ts",
     "lib/repoMapProgress.ts"
+  ],
+  "components/RollbackCenter.test.tsx": [
+    "components/RollbackCenter.tsx"
+  ],
+  "components/RollbackCenter.tsx": [
+    "lib/appHelpers.ts",
+    "lib/appSupport.ts",
+    "lib/managedChanges.ts",
+    "lib/rollbackCopyController.ts",
+    "lib/settingsConnectorCopy.ts",
+    "lib/types.ts"
   ],
   "components/SavingsCalculatorCard.tsx": [
     "lib/dashboardHelpers.ts",
