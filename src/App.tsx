@@ -2,7 +2,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type ElementType,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
@@ -10,7 +9,6 @@ import {
 } from "react";
 import {
   ArrowClockwise,
-  Bell,
   Brain,
   Calculator,
   CaretLeft,
@@ -20,21 +18,14 @@ import {
   CurrencyDollar,
   Info,
   EnvelopeSimple,
-  FirstAidKit,
-  GearSix,
-  Graph,
-  House,
   Key,
-  PuzzlePiece,
   SignOut,
-  Sliders,
   Sparkle,
   Terminal,
 } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import macAiSwitchboardLogo from "./assets/mac-ai-switchboard-logo.png";
 import {
   formatAppUpdateProgressCopy,
   getAppUpdateInstallStatusCopy,
@@ -248,6 +239,7 @@ import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
 import { OutputReductionChip } from "./components/OutputReductionChip";
 import { RepoMapView } from "./components/RepoMapView";
+import { TraySidebar } from "./components/TraySidebar";
 import { SavingsCalculatorCard } from "./components/SavingsCalculatorCard";
 import type { SavingsChartMode } from "./components/SavingsChartTooltip";
 import { SettingsLegalPanel } from "./components/SettingsLegalPanel";
@@ -289,23 +281,6 @@ import type {
   UninstallDryRunReport,
 } from "./lib/types";
 import { hasTauriEventRuntime, hasTauriRuntime } from "./lib/tauriRuntime";
-
-interface NavItem {
-  id: TrayView;
-  label: string;
-  icon: ElementType;
-}
-
-const navItems: NavItem[] = [
-  { id: "home", label: "Home", icon: House },
-  { id: "usage", label: "Usage", icon: Calculator },
-  { id: "doctor", label: "Doctor", icon: FirstAidKit },
-  { id: "optimization", label: "Optimize", icon: Sliders },
-  { id: "notifications", label: "Activity", icon: Bell },
-  { id: "repoMap", label: "Repo Map", icon: Graph },
-  { id: "repoIntelligence", label: "Repo Intelligence", icon: Brain },
-  { id: "addons", label: "Addons", icon: PuzzlePiece },
-];
 
 interface AddonCopy {
   whatItDoes: string;
@@ -5785,59 +5760,11 @@ export default function App() {
   return (
     <main className="tray-shell">
       {upgradeOverlay}
-      <aside className="tray-sidebar">
-        <div className="tray-sidebar__logo">
-          <img src={macAiSwitchboardLogo} alt="AI Switchboard" />
-        </div>
-        <nav className="tray-nav" aria-label="Tray navigation">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              className={`tray-nav__item${activeView === item.id ? " is-active" : ""}`}
-              onClick={() => setActiveView(item.id)}
-              type="button"
-            >
-              <span className="tray-nav__icon" aria-hidden="true">
-                <item.icon
-                  className="tray-nav__icon-svg"
-                  size={26}
-                  weight={activeView === item.id ? "fill" : "regular"}
-                />
-              </span>
-              <span className="tray-nav__text">
-                <strong>{item.label}</strong>
-              </span>
-            </button>
-          ))}
-        </nav>
-        <div className="tray-sidebar__footer">
-          {!localOnlyMode ? (
-            <button
-              className={`upgrade-pill${activeView === "upgrade" || activeView === "upgradeAuth" ? " is-active" : ""}`}
-              onMouseDown={() => setActiveView("upgrade")}
-              type="button"
-            >
-              Upgrade
-            </button>
-          ) : null}
-          <button
-            className={`tray-nav__item${activeView === "settings" ? " is-active" : ""}`}
-            onMouseDown={() => setActiveView("settings")}
-            type="button"
-          >
-            <span className="tray-nav__icon" aria-hidden="true">
-              <GearSix
-                className="tray-nav__icon-svg"
-                size={26}
-                weight={activeView === "settings" ? "fill" : "regular"}
-              />
-            </span>
-            <span className="tray-nav__text">
-              <strong>Settings</strong>
-            </span>
-          </button>
-        </div>
-      </aside>
+      <TraySidebar
+        activeView={activeView}
+        localOnlyMode={localOnlyMode}
+        onSelectView={setActiveView}
+      />
 
       <section className="tray-panel">
         <HomeView

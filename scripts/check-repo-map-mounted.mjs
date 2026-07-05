@@ -7,6 +7,7 @@ function fail(message) {
 }
 
 const appSource = fs.readFileSync("src/App.tsx", "utf8");
+const traySidebarSource = fs.readFileSync("src/components/TraySidebar.tsx", "utf8");
 
 const requiredSnippets = [
   {
@@ -14,8 +15,8 @@ const requiredSnippets = [
     snippet: 'RepoMapView } from "./components/RepoMapView";',
   },
   {
-    label: "Repo Map nav item",
-    snippet: '{ id: "repoMap", label: "Repo Map"',
+    label: "TraySidebar import",
+    snippet: 'TraySidebar } from "./components/TraySidebar";',
   },
   {
     label: "Repo Map content pane",
@@ -31,6 +32,14 @@ for (const { label, snippet } of requiredSnippets) {
   if (!appSource.includes(snippet)) {
     fail(`missing ${label}`);
   }
+}
+
+if (!appSource.includes("<TraySidebar")) {
+  fail("missing TraySidebar render");
+}
+
+if (!traySidebarSource.includes('{ id: "repoMap", label: "Repo Map"')) {
+  fail("missing Repo Map nav item");
 }
 
 console.log("Repo Map mount OK: sidebar route renders RepoMapView.");
