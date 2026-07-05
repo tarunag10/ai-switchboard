@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use tauri::State;
 
-use crate::models::{ClaudeAccountProfile, ClaudeCodeProject, ClaudeUsage};
+use crate::models::{ActivityFeedResponse, ClaudeAccountProfile, ClaudeCodeProject, ClaudeUsage};
 use crate::pricing;
 use crate::state::AppState;
 
@@ -16,6 +16,16 @@ pub async fn get_headroom_logs(
         .tool_manager
         .read_headroom_log_tail(limit)
         .map_err(|err| err.to_string())
+}
+
+/// Read-only snapshot of the activity feed. Observation writes happen on the
+/// background observer, so this IPC path stays read-only and quick.
+#[tauri::command]
+pub fn get_activity_feed(state: State<'_, AppState>) -> ActivityFeedResponse {
+    ActivityFeedResponse {
+        tiles: state.activity_feed_snapshot(),
+        proxy_reachable: crate::state::headroom_proxy_reachable(),
+    }
 }
 
 /// Authoritative "did the proxy receive a request" signal for the connector

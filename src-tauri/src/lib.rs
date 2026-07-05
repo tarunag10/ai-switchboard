@@ -66,8 +66,7 @@ use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 
 use crate::models::{
-    ActivityFeedResponse, DashboardState, HeadroomLearnPrereqStatus, HeadroomLearnStatus,
-    TransformationFeedResponse,
+    DashboardState, HeadroomLearnPrereqStatus, HeadroomLearnStatus, TransformationFeedResponse,
 };
 use crate::state::AppState;
 
@@ -1380,19 +1379,6 @@ async fn get_transformations_feed(limit: Option<u32>) -> TransformationFeedRespo
     })
 }
 
-/// Read-only snapshot of the activity feed. Observation — fetching the proxy,
-/// writing to ActivityFacts, persisting — happens on a dedicated background
-/// timer (see `spawn_activity_observer`), so this command never mutates state.
-/// That keeps the IPC hot path short: one in-memory lock + a cheap /readyz
-/// ping to the local proxy.
-#[tauri::command]
-fn get_activity_feed(state: State<'_, AppState>) -> ActivityFeedResponse {
-    ActivityFeedResponse {
-        tiles: state.activity_feed_snapshot(),
-        proxy_reachable: crate::state::headroom_proxy_reachable(),
-    }
-}
-
 /// Observation cadence for background activity milestones. A modest delay is
 /// fine here; foreground Activity still polls separately, and the
 /// memory-export path is intentionally kept away from tight loops.
@@ -2457,7 +2443,7 @@ pub fn run() {
             pricing_commands::change_headroom_subscription_plan,
             pricing_commands::reactivate_headroom_subscription,
             pricing_commands::get_headroom_billing_portal_url,
-            get_activity_feed,
+            activity_commands::get_activity_feed,
             message_settings_commands::get_message_logging_settings,
             message_settings_commands::set_message_logging_settings,
             message_settings_commands::enable_full_message_logging,
