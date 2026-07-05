@@ -8,6 +8,7 @@ mod backend_port;
 mod bearer;
 mod claude_cli;
 mod claude_sessions;
+mod cli_discovery;
 mod client_adapters;
 mod client_cleanup;
 mod client_connector_status;
