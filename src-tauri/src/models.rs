@@ -691,6 +691,10 @@ pub struct SavingsAttributionCounter {
     pub source: SavingsAttributionSource,
     pub scope: SavingsAttributionScope,
     pub event_count: u64,
+    /// Sum of per-source runtime/session units represented by the event rows.
+    /// For Headroom this is requests, RTK commands, Repo Intelligence packs, and
+    /// add-ons use durable evidence units such as changed files or verified hosts.
+    pub runtime_event_count: u64,
     pub measured_event_count: u64,
     pub inferred_event_count: u64,
     pub delta_tokens_saved: u64,
@@ -997,6 +1001,10 @@ pub struct RepoMemoryMcpServiceStatus {
     pub script_path: String,
     pub script_present: bool,
     pub node_available: bool,
+    #[serde(default)]
+    pub healthy: bool,
+    #[serde(default)]
+    pub issues: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

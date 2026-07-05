@@ -116,6 +116,18 @@ export interface SavingsAttributionEvent {
   evidence: string[];
 }
 
+export interface SavingsAttributionCounter {
+  source: SavingsAttributionEvent["source"];
+  scope: SavingsAttributionEvent["scope"];
+  eventCount: number;
+  runtimeEventCount: number;
+  measuredEventCount: number;
+  inferredEventCount: number;
+  deltaTokensSaved: number;
+  totalTokensSent: number;
+  lastSeenAt: string | null;
+}
+
 export interface MeasuredSavingsAttributionRequest {
   source: SavingsAttributionEvent["source"];
   label: string;

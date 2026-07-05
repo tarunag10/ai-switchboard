@@ -2,7 +2,15 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-const appPath = "/Applications/Mac AI Switchboard.app";
+const appPathCandidates = [
+  "/Applications/AI Switchboard for Mac.app",
+  "/Applications/AI Switchboard.app",
+  "/Applications/Mac AI Switchboard.app",
+  "/Applications/Mac Switchboard.app",
+];
+const appPath =
+  appPathCandidates.find((candidate) => fs.existsSync(candidate)) ??
+  appPathCandidates[0];
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
 const betaSmokeDoc = "docs/beta-smoke-test.md";
 const preflightSummaryPath = "dist/smoke-preflight-summary.md";

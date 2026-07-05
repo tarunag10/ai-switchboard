@@ -313,6 +313,7 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
     "opencode",
     ...managedMcpBridgeConnectorIds,
     "qwen_code",
+    "amazon_q",
     "windsurf",
     "zed_ai",
   ];
@@ -356,6 +357,12 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
       "qwen_connector_applies_and_disables_switchboard_owned_sidecar_only",
       'planned_sidecar_routing_path("qwen_code")',
     ],
+    amazon_q: [
+      '"amazon_q"',
+      "configure_planned_switchboard_sidecar",
+      "amazon_q_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+      "client_id: \"amazon_q\"",
+    ],
     windsurf: [
       '"windsurf" => {',
       "configure_windsurf_provider_config",
@@ -376,7 +383,7 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
     }
   }
 
-  for (const id of ["cursor", "grok_cli", "aider", "continue", "goose", "amazon_q"]) {
+  for (const id of ["cursor", "grok_cli", "aider", "continue", "goose"]) {
     if (managedMcpBridgeConnectorIdSet.has(id)) {
       continue;
     }

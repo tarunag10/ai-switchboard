@@ -37,6 +37,11 @@ use crate::models::{
     UsageEvent,
 };
 use crate::pricing;
+use crate::runtime_boot_validation::boot_validation_message;
+pub use crate::runtime_boot_validation::BootValidationOutcome;
+pub(crate) use crate::runtime_boot_validation::{
+    boot_validation_stalled, log_mtime_advanced, newest_proxy_log_mtime,
+};
 use crate::runtime_probe::{
     cpu_time_advanced, hf_cache_grew, hf_hub_cache_dir, intercept_port_accepts_connection,
     probe_proxy_livez, proxy_port_accepts_connection, total_dir_size_bytes,
@@ -137,96 +142,6 @@ pub fn runtime_upgrade_disabled_by_env() -> bool {
 /// through the intercept layer on 6767 as a last resort — which also succeeds
 /// if the proxy is alive but too CPU-saturated to answer a direct probe
 /// quickly, since the intercept has its own retry + longer timeout path.
-fn log_mtime_advanced(
-    prev: Option<std::time::SystemTime>,
-    current: Option<std::time::SystemTime>,
-) -> bool {
-    current.is_some() && current != prev
-}
-
-/// Whether the HF cache grew since the last poll. The first
-/// observation (no prev) counts as growth iff the directory has
-/// any content — that handles the "cache appeared partway through
-/// boot" case where the dir didn't exist when we started but does
-/// now. A shrink (which can happen if HF prunes its cache during
-/// boot — rare but possible) is *not* growth.
-fn boot_validation_stalled(
-    elapsed: std::time::Duration,
-    activity_age: std::time::Duration,
-    grace: std::time::Duration,
-    silence: std::time::Duration,
-) -> bool {
-    elapsed > grace && activity_age > silence
-}
-
-/// Newest mtime of any `headroom-proxy*.log` file in the logs directory, as
-/// a "is the proxy doing anything" signal. Returns None if no logs yet.
-pub(crate) fn newest_proxy_log_mtime(logs_dir: &std::path::Path) -> Option<std::time::SystemTime> {
-    let entries = std::fs::read_dir(logs_dir).ok()?;
-    let mut newest: Option<std::time::SystemTime> = None;
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-        if !name_str.starts_with("headroom-proxy") || !name_str.ends_with(".log") {
-            continue;
-        }
-        if let Ok(meta) = entry.metadata() {
-            if let Ok(mtime) = meta.modified() {
-                newest = Some(match newest {
-                    Some(prev) if prev > mtime => prev,
-                    _ => mtime,
-                });
-            }
-        }
-    }
-    newest
-}
-
-/// User-facing message shown during boot validation. Evolves with elapsed
-/// time and whether the proxy log is actively being written to. Cycles
-/// through a rotating set of sub-messages per phase so the UI never looks
-/// frozen even when all phases last a while.
-fn boot_validation_message(elapsed_secs: u64, active: bool) -> String {
-    let prefix = if elapsed_secs < 10 {
-        "Launching Mac AI Switchboard".to_string()
-    } else if elapsed_secs < 30 {
-        if active {
-            "Warming up Headroom's runtime".to_string()
-        } else {
-            "Launching Mac AI Switchboard".to_string()
-        }
-    } else if elapsed_secs < 90 {
-        // Rotate across a few descriptive phrasings so the line changes
-        // every ~10 seconds instead of repeating identically.
-        let rotation = (elapsed_secs / 10) % 3;
-        match rotation {
-            0 => "Preparing Headroom's ML subsystems".to_string(),
-            1 => "Loading optimization pipeline".to_string(),
-            _ => "Initializing caches and request handlers".to_string(),
-        }
-    } else if elapsed_secs < 240 {
-        let rotation = (elapsed_secs / 15) % 3;
-        match rotation {
-            0 => "Downloading Headroom's ML models (first-run only)".to_string(),
-            1 => "Fetching model weights from Hugging Face".to_string(),
-            _ => "Preparing model caches for first-time use".to_string(),
-        }
-    } else {
-        "Finishing up the first-run download — slower connections may take several more minutes"
-            .to_string()
-    };
-
-    let hint = if active {
-        " · activity detected"
-    } else if elapsed_secs > 60 {
-        " · this is normal for a first-time upgrade"
-    } else {
-        ""
-    };
-
-    format!("{prefix}… ({}s elapsed{})", elapsed_secs, hint)
-}
-
 /// Reasons `ensure_headroom_running` may have returned `Ok(())` without
 /// actually spawning a tracked child. Captured immediately after the call so
 /// a "Stalled" / "NotStarted" Sentry event can attribute the silent no-op.
@@ -239,39 +154,6 @@ struct PostSpawnSnapshot {
     runtime_paused: bool,
     proxy_reachable: bool,
     ensure_error: Option<String>,
-}
-
-/// Outcome of the boot-validation loop.
-#[derive(Debug)]
-pub enum BootValidationOutcome {
-    /// Proxy reachable via /livez within the max timeout.
-    Reachable,
-    /// Proxy process exited before becoming reachable.
-    ProcessExited,
-    /// No log activity for long enough that we consider the proxy stalled.
-    Stalled,
-    /// Hit the absolute max without reachability or obvious failure.
-    TimedOut,
-    /// `ensure_headroom_running` short-circuited or errored — there is no
-    /// tracked child to wait on AND no externally-reachable proxy on :6768.
-    /// Reported instead of `Stalled` so we don't burn ~120s waiting for a
-    /// process that was never going to start.
-    NotStarted,
-}
-
-impl BootValidationOutcome {
-    pub fn is_ok(&self) -> bool {
-        matches!(self, BootValidationOutcome::Reachable)
-    }
-    pub fn label(&self) -> &'static str {
-        match self {
-            BootValidationOutcome::Reachable => "reachable",
-            BootValidationOutcome::ProcessExited => "process_exited",
-            BootValidationOutcome::Stalled => "stalled",
-            BootValidationOutcome::TimedOut => "timed_out",
-            BootValidationOutcome::NotStarted => "not_started",
-        }
-    }
 }
 
 pub struct AppState {
@@ -3477,66 +3359,70 @@ fn build_addon_attribution_event(
     backup_files: Option<&[String]>,
     ponytail_hosts: Option<&[String]>,
 ) -> Option<SavingsAttributionEvent> {
-    let (source, label, baseline, optimized, confidence, evidence_subject) = match addon_id {
-        "markitdown" => {
-            let changed_files = changed_files?;
-            if changed_files.is_empty() {
-                return None;
-            }
-            (
+    let (source, label, baseline, optimized, confidence, evidence_subject, runtime_event_count) =
+        match addon_id {
+            "markitdown" => {
+                let changed_files = changed_files?;
+                if changed_files.is_empty() {
+                    return None;
+                }
+                (
                 SavingsAttributionSource::Markitdown,
                 "MarkItDown",
                 MARKITDOWN_TEMPLATE_BASELINE_TOKENS,
                 MARKITDOWN_TEMPLATE_OPTIMIZED_TOKENS,
                 SavingsAttributionConfidence::Estimated,
                 "MarkItDown managed hook or instruction guidance was written into connected client files after the console script was smoke-tested",
+                changed_files.len(),
             )
-        }
-        "ponytail" => {
-            let hosts = ponytail_hosts?;
-            if hosts.is_empty() {
-                return None;
             }
-            (
-                SavingsAttributionSource::Ponytail,
-                "Ponytail",
-                PONYTAIL_TEMPLATE_BASELINE_TOKENS,
-                PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS,
-                SavingsAttributionConfidence::Estimated,
-                "Ponytail plugin registration was verified in connected agent hosts",
-            )
-        }
-        "caveman" => {
-            let changed_files = changed_files?;
-            if changed_files.is_empty() {
-                return None;
+            "ponytail" => {
+                let hosts = ponytail_hosts?;
+                if hosts.is_empty() {
+                    return None;
+                }
+                (
+                    SavingsAttributionSource::Ponytail,
+                    "Ponytail",
+                    PONYTAIL_TEMPLATE_BASELINE_TOKENS,
+                    PONYTAIL_TEMPLATE_OPTIMIZED_TOKENS,
+                    SavingsAttributionConfidence::Estimated,
+                    "Ponytail plugin registration was verified in connected agent hosts",
+                    hosts.len(),
+                )
             }
-            let compact = caveman_level
-                .map(|level| level == crate::tool_manager::CAVEMAN_LEVEL_COMPACT_CHINESE)
-                .unwrap_or(false);
-            (
-                if compact {
-                    SavingsAttributionSource::CompactChinese
-                } else {
-                    SavingsAttributionSource::Caveman
-                },
-                if compact {
-                    "Compact Chinese"
-                } else {
-                    "Caveman"
-                },
-                CAVEMAN_TEMPLATE_BASELINE_TOKENS,
-                CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
-                SavingsAttributionConfidence::Estimated,
-                if compact {
-                    "Compact Chinese managed guidance was written into connected client instruction files"
-                } else {
-                    "Caveman managed guidance was written into connected client instruction files"
-                },
-            )
-        }
-        _ => return None,
-    };
+            "caveman" => {
+                let changed_files = changed_files?;
+                if changed_files.is_empty() {
+                    return None;
+                }
+                let compact = caveman_level
+                    .map(|level| level == crate::tool_manager::CAVEMAN_LEVEL_COMPACT_CHINESE)
+                    .unwrap_or(false);
+                (
+                    if compact {
+                        SavingsAttributionSource::CompactChinese
+                    } else {
+                        SavingsAttributionSource::Caveman
+                    },
+                    if compact {
+                        "Compact Chinese"
+                    } else {
+                        "Caveman"
+                    },
+                    CAVEMAN_TEMPLATE_BASELINE_TOKENS,
+                    CAVEMAN_TEMPLATE_OPTIMIZED_TOKENS,
+                    SavingsAttributionConfidence::Estimated,
+                    if compact {
+                        "Compact Chinese managed guidance was written into connected client instruction files"
+                    } else {
+                        "Caveman managed guidance was written into connected client instruction files"
+                    },
+                    changed_files.len(),
+                )
+            }
+            _ => return None,
+        };
     let delta_tokens = baseline.saturating_sub(optimized);
     if delta_tokens == 0 {
         return None;
@@ -3603,7 +3489,7 @@ fn build_addon_attribution_event(
         delta_tokens_saved: delta_tokens,
         delta_usd: 0.0,
         total_tokens_sent: 0,
-        request_delta: 1,
+        request_delta: runtime_event_count.max(1),
         evidence,
     })
 }
@@ -4459,6 +4345,7 @@ fn aggregate_savings_attribution_counters(
                 source: event.source.clone(),
                 scope: event.scope.clone(),
                 event_count: 0,
+                runtime_event_count: 0,
                 measured_event_count: 0,
                 inferred_event_count: 0,
                 delta_tokens_saved: 0,
@@ -4468,6 +4355,9 @@ fn aggregate_savings_attribution_counters(
             counters.last_mut().expect("counter just pushed")
         };
         entry.event_count = entry.event_count.saturating_add(1);
+        entry.runtime_event_count = entry
+            .runtime_event_count
+            .saturating_add(event.request_delta as u64);
         match event.confidence {
             SavingsAttributionConfidence::Measured => {
                 entry.measured_event_count = entry.measured_event_count.saturating_add(1);
@@ -6374,7 +6264,7 @@ mod tests {
         assert_eq!(event.source, SavingsAttributionSource::Markitdown);
         assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
         assert_eq!(event.delta_tokens_saved, 2_300);
-        assert_eq!(event.request_delta, 1);
+        assert_eq!(event.request_delta, 2);
         let evidence = event.evidence.join(" ");
         assert!(evidence.contains("baseline 3200 tokens"));
         assert!(evidence.contains("optimized 900 tokens"));
@@ -6422,7 +6312,9 @@ mod tests {
         assert_eq!(caveman.confidence, SavingsAttributionConfidence::Estimated);
         assert_eq!(compact.confidence, SavingsAttributionConfidence::Estimated);
         assert_eq!(caveman.delta_tokens_saved, 300);
+        assert_eq!(caveman.request_delta, 2);
         assert_eq!(compact.delta_tokens_saved, 300);
+        assert_eq!(compact.request_delta, 2);
         let evidence = caveman.evidence.join(" ");
         assert!(evidence.contains("changed 2 client instruction files"));
         assert!(evidence.contains("/tmp/CLAUDE.md"));
@@ -6477,6 +6369,7 @@ mod tests {
         assert_eq!(counters.len(), 1);
         assert_eq!(counters[0].source, SavingsAttributionSource::Caveman);
         assert_eq!(counters[0].event_count, 2);
+        assert_eq!(counters[0].runtime_event_count, 2);
         assert_eq!(counters[0].measured_event_count, 1);
         assert_eq!(counters[0].inferred_event_count, 1);
         assert_eq!(counters[0].delta_tokens_saved, 200);
@@ -6493,6 +6386,7 @@ mod tests {
         assert_eq!(event.source, SavingsAttributionSource::Ponytail);
         assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
         assert_eq!(event.delta_tokens_saved, 880);
+        assert_eq!(event.request_delta, 2);
         let evidence = event.evidence.join(" ");
         assert!(evidence.contains("registered with 2 agent hosts"));
         assert!(evidence.contains("Claude Code"));
@@ -8727,6 +8621,8 @@ mod tests {
             script_path: "/tmp/repo-intelligence.mjs".to_string(),
             script_present: true,
             node_available: true,
+            healthy: true,
+            issues: Vec::new(),
         };
         let active = super::repo_memory_mcp::RepoMemoryMcpSessionState {
             active: true,
@@ -8765,8 +8661,14 @@ mod tests {
 
         let broken_service = crate::models::RepoMemoryMcpServiceStatus {
             script_present: false,
+            healthy: false,
+            issues: vec!["script_missing".to_string()],
             ..healthy_service.clone()
         };
+        assert!(!super::repo_memory_mcp::repo_memory_mcp_service_healthy(
+            Some(&broken_service)
+        ));
+        assert_eq!(broken_service.issues, vec!["script_missing"]);
         assert_eq!(
             super::repo_memory_mcp::repo_memory_mcp_supervision_status(
                 &active,

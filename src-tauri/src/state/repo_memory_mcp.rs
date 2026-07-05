@@ -166,6 +166,8 @@ pub(super) fn repo_memory_mcp_service_healthy(
     };
     service.managed_by_app
         && service.read_only
+        && service.healthy
+        && service.issues.is_empty()
         && service.descriptor_present
         && service.script_present
         && service.node_available

@@ -103,11 +103,11 @@
     "id": "amazon_q",
     "name": "Amazon Q Developer CLI",
     "category": "cli",
-    "support_status": "planned",
+    "support_status": "managed",
     "detection": { "binaries": ["q"], "paths": ["~/.aws/amazonq"] },
     "config": { "locations": ["~/.aws/amazonq"], "forbidden_reads": ["credentials", "*token*", "*secret*", "sso"] },
-    "automation_gates": ["Do not read AWS credentials or SSO cache.", "Detect supported config surfaces read-only.", "Keep account state outside managed app storage."],
-    "manual_workflow": ["Use copied verification packs.", "Keep AWS auth setup manual.", "Delay provider routing until credential boundaries are proven."]
+    "automation_gates": ["Do not read AWS credentials, profiles, or SSO cache.", "Back up the Switchboard-owned sidecar before managed edits.", "Write only the Switchboard-owned sidecar marker inside Amazon Q config storage.", "Verify Amazon Q sidecar routing in Doctor without reading account secrets.", "Rollback removes only the Switchboard-owned Amazon Q sidecar marker.", "Off mode removes managed routing without touching AWS account state."],
+    "manual_workflow": ["Confirm Amazon Q Developer CLI is installed.", "Toggle the connector on from Settings to create the managed sidecar.", "Keep AWS auth, provider, and workspace selection manual."]
   },
   {
     "id": "windsurf",

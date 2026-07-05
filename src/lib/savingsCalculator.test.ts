@@ -216,7 +216,9 @@ describe("savings calculator", () => {
             deltaUsd: 0.25,
             totalTokensSent: 900,
             requestDelta: 1,
-            evidence: ["Measured from positive Headroom /stats session deltas."],
+            evidence: [
+              "Measured from positive Headroom /stats session deltas.",
+            ],
           },
           {
             schemaVersion: 1,
@@ -247,7 +249,9 @@ describe("savings calculator", () => {
     });
     expect(headroom?.detail).toContain("2 measured Headroom session events");
     expect(headroom?.detail).toContain("3 requests");
-    expect(rows.filter((row) => row.source === "headroom_engine")).toHaveLength(1);
+    expect(rows.filter((row) => row.source === "headroom_engine")).toHaveLength(
+      1,
+    );
   });
 
   it("uses measured backend attribution events for the session RTK ledger row", () => {
@@ -414,7 +418,9 @@ describe("savings calculator", () => {
             deltaUsd: 0,
             totalTokensSent: 0,
             requestDelta: 1,
-            evidence: ["Measured from a copied Repo Intelligence context-pack delta."],
+            evidence: [
+              "Measured from a copied Repo Intelligence context-pack delta.",
+            ],
           },
         ],
       },
@@ -431,9 +437,13 @@ describe("savings calculator", () => {
       recordedAt: "2026-06-25T10:04:00Z",
       caveat: "Observed from append-only backend attribution events.",
     });
-    expect(repo?.detail).toContain("1 measured Repo Intelligence session event");
-    expect(repo?.detail).toContain("1 request");
-    expect(rows.filter((row) => row.source === "repo_intelligence")).toHaveLength(1);
+    expect(repo?.detail).toContain(
+      "1 measured Repo Intelligence session event",
+    );
+    expect(repo?.detail).toContain("1 pack");
+    expect(
+      rows.filter((row) => row.source === "repo_intelligence"),
+    ).toHaveLength(1);
   });
 
   it("uses durable estimated backend attribution events for session add-on ledger rows", () => {
@@ -456,7 +466,7 @@ describe("savings calculator", () => {
             deltaTokensSaved: 300,
             deltaUsd: 0,
             totalTokensSent: 0,
-            requestDelta: 1,
+            requestDelta: 2,
             evidence: [
               "Estimated Caveman managed guidance changed 2 client instruction files.",
             ],
@@ -471,7 +481,7 @@ describe("savings calculator", () => {
             deltaTokensSaved: 880,
             deltaUsd: 0,
             totalTokensSent: 0,
-            requestDelta: 1,
+            requestDelta: 2,
             evidence: [
               "Estimated Ponytail plugin registered with 2 agent hosts: Claude Code, Codex.",
             ],
@@ -486,7 +496,7 @@ describe("savings calculator", () => {
             deltaTokensSaved: 2_300,
             deltaUsd: 0,
             totalTokensSent: 0,
-            requestDelta: 1,
+            requestDelta: 3,
             evidence: [
               "Estimated MarkItDown hook registered for 3 managed document paths.",
             ],
@@ -509,8 +519,12 @@ describe("savings calculator", () => {
       caveat:
         "Estimated from changed Caveman-managed instruction files and the audited terse-output template delta.",
     });
-    expect(caveman?.detail).toContain("1 estimated Caveman session event");
-    expect(caveman?.detail).toContain("managed guidance changed 2 client instruction files");
+    expect(caveman?.detail).toContain(
+      "1 estimated Caveman session event across 2 evidence units",
+    );
+    expect(caveman?.detail).toContain(
+      "managed guidance changed 2 client instruction files",
+    );
     expect(rows.filter((row) => row.source === "caveman")).toHaveLength(1);
     expect(ponytail).toMatchObject({
       id: "ponytail_attribution_events",
@@ -522,7 +536,9 @@ describe("savings calculator", () => {
       caveat:
         "Estimated from verified Ponytail plugin registration in connected agent hosts; not runtime-measured output.",
     });
-    expect(ponytail?.detail).toContain("1 estimated Ponytail session event");
+    expect(ponytail?.detail).toContain(
+      "1 estimated Ponytail session event across 2 evidence units",
+    );
     expect(ponytail?.detail).toContain("plugin registered with 2 agent hosts");
     expect(rows.filter((row) => row.source === "ponytail")).toHaveLength(1);
     expect(markitdown).toMatchObject({
@@ -535,48 +551,56 @@ describe("savings calculator", () => {
       caveat:
         "Estimated from a smoke-tested managed MarkItDown hook or instruction-file change; not a per-document provider bill.",
     });
-    expect(markitdown?.detail).toContain("1 estimated MarkItDown session event");
-    expect(markitdown?.detail).toContain("hook registered for 3 managed document paths");
+    expect(markitdown?.detail).toContain(
+      "1 estimated MarkItDown session event across 3 evidence units",
+    );
+    expect(markitdown?.detail).toContain(
+      "hook registered for 3 managed document paths",
+    );
     expect(rows.filter((row) => row.source === "markitdown")).toHaveLength(1);
   });
 
   it("uses durable estimated backend attribution events for source breakdown rows", () => {
-    const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "session", {
-      cavemanSavings: buildAddonSavingsEstimate(480, 180),
-      ponytailSavings: buildAddonSavingsEstimate(1_400, 520),
-      attributionEvents: [
-        {
-          schemaVersion: 1,
-          id: "caveman-event-1",
-          observedAt: "2026-06-25T10:05:00Z",
-          scope: "session",
-          source: "caveman",
-          confidence: "estimated",
-          deltaTokensSaved: 300,
-          deltaUsd: 0,
-          totalTokensSent: 0,
-          requestDelta: 1,
-          evidence: [
-            "Estimated Caveman managed guidance changed 2 client instruction files.",
-          ],
-        },
-        {
-          schemaVersion: 1,
-          id: "ponytail-event-1",
-          observedAt: "2026-06-25T10:06:00Z",
-          scope: "session",
-          source: "ponytail",
-          confidence: "estimated",
-          deltaTokensSaved: 880,
-          deltaUsd: 0,
-          totalTokensSent: 0,
-          requestDelta: 1,
-          evidence: [
-            "Estimated Ponytail plugin registered with 2 agent hosts: Claude Code, Codex.",
-          ],
-        },
-      ],
-    });
+    const rows = buildSavingsCalculatorBreakdown(
+      dashboardFixture(),
+      "session",
+      {
+        cavemanSavings: buildAddonSavingsEstimate(480, 180),
+        ponytailSavings: buildAddonSavingsEstimate(1_400, 520),
+        attributionEvents: [
+          {
+            schemaVersion: 1,
+            id: "caveman-event-1",
+            observedAt: "2026-06-25T10:05:00Z",
+            scope: "session",
+            source: "caveman",
+            confidence: "estimated",
+            deltaTokensSaved: 300,
+            deltaUsd: 0,
+            totalTokensSent: 0,
+            requestDelta: 2,
+            evidence: [
+              "Estimated Caveman managed guidance changed 2 client instruction files.",
+            ],
+          },
+          {
+            schemaVersion: 1,
+            id: "ponytail-event-1",
+            observedAt: "2026-06-25T10:06:00Z",
+            scope: "session",
+            source: "ponytail",
+            confidence: "estimated",
+            deltaTokensSaved: 880,
+            deltaUsd: 0,
+            totalTokensSent: 0,
+            requestDelta: 2,
+            evidence: [
+              "Estimated Ponytail plugin registered with 2 agent hosts: Claude Code, Codex.",
+            ],
+          },
+        ],
+      },
+    );
 
     const caveman = rows.find((row) => row.source === "caveman");
     const ponytail = rows.find((row) => row.source === "ponytail");
@@ -586,13 +610,17 @@ describe("savings calculator", () => {
       confidence: "estimated",
       savedTokens: 300,
     });
-    expect(caveman?.detail).toContain("managed guidance changed 2 client instruction files");
+    expect(caveman?.detail).toContain(
+      "managed guidance changed 2 client instruction files",
+    );
+    expect(caveman?.detail).toContain("2 evidence units");
     expect(ponytail).toMatchObject({
       id: "ponytail_attribution_events",
       confidence: "estimated",
       savedTokens: 880,
     });
     expect(ponytail?.detail).toContain("plugin registered with 2 agent hosts");
+    expect(ponytail?.detail).toContain("2 evidence units");
     expect(rows.filter((row) => row.source === "caveman")).toHaveLength(1);
     expect(rows.filter((row) => row.source === "ponytail")).toHaveLength(1);
   });
@@ -652,7 +680,9 @@ describe("savings calculator", () => {
       },
     });
 
-    expect(buildSavingsCalculatorSummary(dashboardFixture(), "repo")).toMatchObject({
+    expect(
+      buildSavingsCalculatorSummary(dashboardFixture(), "repo"),
+    ).toMatchObject({
       savedTokens: 0,
       savedUsd: 0,
       requests: 0,
@@ -724,52 +754,56 @@ describe("savings calculator", () => {
   });
 
   it("appends inferred add-on rows when their estimates avoid tokens", () => {
-    const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "lifetime", {
-      runtimeStatus: {
-        platform: "darwin",
-        supportTier: "supported",
-        installed: true,
-        running: true,
-        starting: false,
-        paused: false,
-        autoPaused: false,
-        proxyReachable: true,
-        headroomLearnSupported: true,
-        rtk: {
+    const rows = buildSavingsCalculatorBreakdown(
+      dashboardFixture(),
+      "lifetime",
+      {
+        runtimeStatus: {
+          platform: "darwin",
+          supportTier: "supported",
           installed: true,
-          enabled: true,
-          pathConfigured: true,
-          hookConfigured: true,
-          totalCommands: 12,
-          totalInput: 1_500,
-          totalOutput: 600,
-          totalSaved: 900,
-          avgSavingsPct: 72,
-          totalTimeMs: 3_500,
-          avgTimeMs: 292,
+          running: true,
+          starting: false,
+          paused: false,
+          autoPaused: false,
+          proxyReachable: true,
+          headroomLearnSupported: true,
+          rtk: {
+            installed: true,
+            enabled: true,
+            pathConfigured: true,
+            hookConfigured: true,
+            totalCommands: 12,
+            totalInput: 1_500,
+            totalOutput: 600,
+            totalSaved: 900,
+            avgSavingsPct: 72,
+            totalTimeMs: 3_500,
+            avgTimeMs: 292,
+          },
         },
-      },
-      repoSavings: {
-        fullScanTokens: 10_000,
-        bestPackTokens: 2_000,
-        bestPackTokensAvoided: 8_000,
-        bestPackSavingsPct: 80,
-        allPacksTokens: 4_000,
-        allPacksTokensAvoided: 6_000,
-        allPacksSavingsPct: 60,
-        bestPack: {
-          id: "implementation",
-          title: "Implementation Pack",
-          purpose: "Feature work",
-          estimatedTokens: 2_000,
-          savingsVsFullScanPct: 80,
-          files: [],
+        repoSavings: {
+          fullScanTokens: 10_000,
+          bestPackTokens: 2_000,
+          bestPackTokensAvoided: 8_000,
+          bestPackSavingsPct: 80,
+          allPacksTokens: 4_000,
+          allPacksTokensAvoided: 6_000,
+          allPacksSavingsPct: 60,
+          bestPack: {
+            id: "implementation",
+            title: "Implementation Pack",
+            purpose: "Feature work",
+            estimatedTokens: 2_000,
+            savingsVsFullScanPct: 80,
+            files: [],
+          },
         },
+        cavemanSavings: buildAddonSavingsEstimate(480, 180),
+        ponytailSavings: buildAddonSavingsEstimate(1_400, 520),
+        markitdownSavings: buildAddonSavingsEstimate(3_200, 900),
       },
-      cavemanSavings: buildAddonSavingsEstimate(480, 180),
-      ponytailSavings: buildAddonSavingsEstimate(1_400, 520),
-      markitdownSavings: buildAddonSavingsEstimate(3_200, 900),
-    });
+    );
 
     expect(rows.map((row) => row.id)).toEqual([
       "headroom",
@@ -792,10 +826,14 @@ describe("savings calculator", () => {
   });
 
   it("omits add-on rows when the estimate is missing or avoids no tokens", () => {
-    const rows = buildSavingsCalculatorBreakdown(dashboardFixture(), "lifetime", {
-      cavemanSavings: buildAddonSavingsEstimate(200, 200),
-      ponytailSavings: null,
-    });
+    const rows = buildSavingsCalculatorBreakdown(
+      dashboardFixture(),
+      "lifetime",
+      {
+        cavemanSavings: buildAddonSavingsEstimate(200, 200),
+        ponytailSavings: null,
+      },
+    );
 
     expect(rows.map((row) => row.id)).toEqual(["headroom"]);
   });
@@ -957,47 +995,52 @@ describe("savings calculator", () => {
 
   it("groups ledger rows by source and preserves the time window", () => {
     const recordedAt = "2026-06-27T10:00:00.000Z";
-    const rows = buildSavingsLedgerRows(dashboardFixture(), "lifetime", recordedAt, {
-      runtimeStatus: {
-        platform: "darwin",
-        supportTier: "supported",
-        installed: true,
-        running: true,
-        starting: false,
-        paused: false,
-        autoPaused: false,
-        proxyReachable: true,
-        headroomLearnSupported: true,
-        rtk: {
+    const rows = buildSavingsLedgerRows(
+      dashboardFixture(),
+      "lifetime",
+      recordedAt,
+      {
+        runtimeStatus: {
+          platform: "darwin",
+          supportTier: "supported",
           installed: true,
-          enabled: true,
-          pathConfigured: true,
-          hookConfigured: true,
-          totalCommands: 12,
-          totalInput: 1_500,
-          totalOutput: 600,
-          totalSaved: 900,
-          totalTimeMs: 3_500,
+          running: true,
+          starting: false,
+          paused: false,
+          autoPaused: false,
+          proxyReachable: true,
+          headroomLearnSupported: true,
+          rtk: {
+            installed: true,
+            enabled: true,
+            pathConfigured: true,
+            hookConfigured: true,
+            totalCommands: 12,
+            totalInput: 1_500,
+            totalOutput: 600,
+            totalSaved: 900,
+            totalTimeMs: 3_500,
+          },
+        },
+        repoSavings: {
+          fullScanTokens: 10_000,
+          bestPackTokens: 2_500,
+          bestPackTokensAvoided: 7_500,
+          bestPackSavingsPct: 75,
+          allPacksTokens: 4_000,
+          allPacksTokensAvoided: 6_000,
+          allPacksSavingsPct: 60,
+          bestPack: {
+            id: "implementation",
+            title: "Implementation pack",
+            purpose: "Build next slice",
+            estimatedTokens: 2_500,
+            savingsVsFullScanPct: 75,
+            files: [],
+          },
         },
       },
-      repoSavings: {
-        fullScanTokens: 10_000,
-        bestPackTokens: 2_500,
-        bestPackTokensAvoided: 7_500,
-        bestPackSavingsPct: 75,
-        allPacksTokens: 4_000,
-        allPacksTokensAvoided: 6_000,
-        allPacksSavingsPct: 60,
-        bestPack: {
-          id: "implementation",
-          title: "Implementation pack",
-          purpose: "Build next slice",
-          estimatedTokens: 2_500,
-          savingsVsFullScanPct: 75,
-          files: [],
-        },
-      },
-    });
+    );
     const groups = groupSavingsLedgerRowsBySource(rows, "lifetime", recordedAt);
 
     expect(groups.map((group) => group.source)).toEqual([
@@ -1030,11 +1073,7 @@ describe("savings calculator", () => {
 
   it("returns no source groups for an empty ledger", () => {
     expect(
-      groupSavingsLedgerRowsBySource(
-        [],
-        "session",
-        "2026-06-27T10:00:00.000Z",
-      ),
+      groupSavingsLedgerRowsBySource([], "session", "2026-06-27T10:00:00.000Z"),
     ).toEqual([]);
   });
 
@@ -1053,52 +1092,59 @@ describe("savings calculator", () => {
 
   it("filters ledger rows by confidence before grouping and copying", () => {
     const recordedAt = "2026-06-27T10:00:00.000Z";
-    const rows = buildSavingsLedgerRows(dashboardFixture(), "lifetime", recordedAt, {
-      runtimeStatus: {
-        platform: "darwin",
-        supportTier: "supported",
-        installed: true,
-        running: true,
-        starting: false,
-        paused: false,
-        autoPaused: false,
-        proxyReachable: true,
-        headroomLearnSupported: true,
-        rtk: {
+    const rows = buildSavingsLedgerRows(
+      dashboardFixture(),
+      "lifetime",
+      recordedAt,
+      {
+        runtimeStatus: {
+          platform: "darwin",
+          supportTier: "supported",
           installed: true,
-          enabled: true,
-          pathConfigured: true,
-          hookConfigured: true,
-          totalCommands: 12,
-          totalInput: 1_500,
-          totalOutput: 600,
-          totalSaved: 900,
-          totalTimeMs: 3_500,
+          running: true,
+          starting: false,
+          paused: false,
+          autoPaused: false,
+          proxyReachable: true,
+          headroomLearnSupported: true,
+          rtk: {
+            installed: true,
+            enabled: true,
+            pathConfigured: true,
+            hookConfigured: true,
+            totalCommands: 12,
+            totalInput: 1_500,
+            totalOutput: 600,
+            totalSaved: 900,
+            totalTimeMs: 3_500,
+          },
         },
-      },
-      repoSavings: {
-        fullScanTokens: 10_000,
-        bestPackTokens: 2_500,
-        bestPackTokensAvoided: 7_500,
-        bestPackSavingsPct: 75,
-        allPacksTokens: 4_000,
-        allPacksTokensAvoided: 6_000,
-        allPacksSavingsPct: 60,
-        bestPack: {
-          id: "implementation",
-          title: "Implementation pack",
-          purpose: "Build next slice",
-          estimatedTokens: 2_500,
-          savingsVsFullScanPct: 75,
-          files: [],
+        repoSavings: {
+          fullScanTokens: 10_000,
+          bestPackTokens: 2_500,
+          bestPackTokensAvoided: 7_500,
+          bestPackSavingsPct: 75,
+          allPacksTokens: 4_000,
+          allPacksTokensAvoided: 6_000,
+          allPacksSavingsPct: 60,
+          bestPack: {
+            id: "implementation",
+            title: "Implementation pack",
+            purpose: "Build next slice",
+            estimatedTokens: 2_500,
+            savingsVsFullScanPct: 75,
+            files: [],
+          },
         },
+        ponytailSavings: buildAddonSavingsEstimate(1_400, 520),
       },
-      ponytailSavings: buildAddonSavingsEstimate(1_400, 520),
-    });
+    );
 
-    expect(filterSavingsLedgerRowsByConfidence(rows, "measured").map((row) => row.source)).toEqual([
-      "rtk",
-    ]);
+    expect(
+      filterSavingsLedgerRowsByConfidence(rows, "measured").map(
+        (row) => row.source,
+      ),
+    ).toEqual(["rtk"]);
 
     const inferred = buildFilteredSavingsLedger(
       rows,
@@ -1133,31 +1179,36 @@ describe("savings calculator", () => {
 
   it("formats a copyable savings ledger with confidence caveats", () => {
     const recordedAt = "2026-06-27T10:00:00.000Z";
-    const rows = buildSavingsLedgerRows(dashboardFixture(), "lifetime", recordedAt, {
-      runtimeStatus: {
-        platform: "darwin",
-        supportTier: "supported",
-        installed: true,
-        running: true,
-        starting: false,
-        paused: false,
-        autoPaused: false,
-        proxyReachable: true,
-        headroomLearnSupported: true,
-        rtk: {
+    const rows = buildSavingsLedgerRows(
+      dashboardFixture(),
+      "lifetime",
+      recordedAt,
+      {
+        runtimeStatus: {
+          platform: "darwin",
+          supportTier: "supported",
           installed: true,
-          enabled: true,
-          pathConfigured: true,
-          hookConfigured: true,
-          totalCommands: 12,
-          totalInput: 1_500,
-          totalOutput: 600,
-          totalSaved: 900,
-          totalTimeMs: 3_500,
+          running: true,
+          starting: false,
+          paused: false,
+          autoPaused: false,
+          proxyReachable: true,
+          headroomLearnSupported: true,
+          rtk: {
+            installed: true,
+            enabled: true,
+            pathConfigured: true,
+            hookConfigured: true,
+            totalCommands: 12,
+            totalInput: 1_500,
+            totalOutput: 600,
+            totalSaved: 900,
+            totalTimeMs: 3_500,
+          },
         },
+        markitdownSavings: buildAddonSavingsEstimate(3_200, 900),
       },
-      markitdownSavings: buildAddonSavingsEstimate(3_200, 900),
-    });
+    );
     const text = formatSavingsLedgerShareText(rows, "lifetime", recordedAt);
 
     expect(text).toContain("AI Switchboard savings ledger (lifetime)");
@@ -1327,10 +1378,12 @@ describe("savings calculator", () => {
       ]),
     );
     expect(
-      alerts.find((alert) => alert.id === "headroom_engine_low_savings")?.detail,
+      alerts.find((alert) => alert.id === "headroom_engine_low_savings")
+        ?.detail,
     ).toContain("saved only 1.0% across 90,000 sent tokens");
     expect(
-      alerts.find((alert) => alert.id === "repo_intelligence_cost_growth")?.detail,
+      alerts.find((alert) => alert.id === "repo_intelligence_cost_growth")
+        ?.detail,
     ).toContain("cost estimate increased by $0.08");
   });
 

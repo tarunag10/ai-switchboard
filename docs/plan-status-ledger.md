@@ -1,6 +1,6 @@
 # Plan Status Ledger
 
-Updated: 2026-07-04
+Updated: 2026-07-05
 
 ## AI Switchboard Platform Rebrand
 
@@ -29,16 +29,21 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - Public documentation rebrand uses AI Switchboard / Switchboard / AI Switchboard for Mac while preserving Headroom, RTK, Caveman, Ponytail, MarkItDown, and legacy compatibility wording.
 - Website/download-flow rebrand copy now positions the product as AI Switchboard / AI Switchboard for Mac while preserving GitHub Release updater URLs and `Mac-AI-Switchboard_<version>.dmg` compatibility artifact names.
 - Final rebrand release evidence is recorded in `docs/ai-switchboard-rebrand-release-evidence.md`, including track commits, stale-name review scope, and release evidence commands.
+- Public release `v0.0.0` has a verified signed/notarized Apple Silicon DMG and checksum on GitHub. The public DMG was downloaded, checksum-verified, `hdiutil`-verified, installed as `/Applications/AI Switchboard for Mac.app`, accepted by Gatekeeper as Notarized Developer ID, and validated with `xcrun stapler validate`.
+- Public installed-app smoke evidence was refreshed from the installed release app with `npm run smoke:preflight` and `npm run smoke:installed -- --confirm`; local uninstall dry-run proof passes with the longer backend evidence timeout.
+- Amazon Q Developer CLI now has a managed Switchboard-owned sidecar lifecycle with fixture-home apply, Doctor verify/repair, rollback, and Off cleanup coverage while AWS auth/provider/workspace state stays manual.
+- Repo Intelligence graphing moved to `path-graph-v9` with tree-sitter-assisted multiline imports and AST call-reference edges for supported source languages.
+- Caveman, Compact Chinese, Ponytail, and MarkItDown attribution now carry runtime evidence-unit counts into backend counters and frontend session rows.
 
 ## Left
 
 - Native repo folder picker for Repo Map. Current UI accepts a path text field; next slice should add a deliberate macOS/Tauri folder picker dependency or backend picker command.
 - Streaming/background Repo Map job UX. Current progress is step/status based; long runs still need live logs or event polling per tool.
-- Deeper language-aware Repo Intelligence parsers and graph analyzers beyond the current tree-sitter/fallback symbol extraction and graph-input evidence.
-- More real runtime/session counters for Caveman, Ponytail, and MarkItDown beyond current fixture/proxy/local attribution contracts.
-- Native/provider write promotion for Cursor, Aider, Continue, Qwen, Amazon Q, and Grok/xAI. Each needs provider-specific fixture-home apply, verify, rollback, Doctor repair, Off cleanup, and relaunch-survival proof before enabling.
-- Signed/notarized public release lane: Developer ID signing, notarized DMG, updater feed proof, checksums/SBOM, public installed-app smoke, public uninstall proof, and public release gate evidence.
-- Reboot-level signed installed-app Doctor/Rollback/uninstall proof. Current proof is local-only/ad-hoc.
+- Deeper task-specific Repo Intelligence graph ranking beyond the current parser-assisted graph edges.
+- More real runtime/session counters for add-ons beyond current event-backed evidence-unit counts.
+- Native/provider write promotion for Cursor, Aider, Continue, Qwen, and Grok/xAI. Each still needs provider-specific fixture-home apply, verify, rollback, Doctor repair, Off cleanup, and relaunch-survival proof before enabling.
+- Public updater feed proof and updater signature assets. The signed/notarized public DMG, checksum, and installed-app smoke proof are now reconciled.
+- Reboot-level signed installed-app Doctor/Rollback/uninstall proof. Current uninstall proof is non-destructive local dry-run evidence.
 - Optional gateway/add-on integrations remain guided/gated only: LiteLLM semantic cache lifecycle, self-hosted Langfuse observability, Cloudflare Gateway, and Kong evidence.
 
 ## Latest Commits

@@ -6,12 +6,7 @@ import type { SavingsAttributionEvent } from "./types";
 import type { RepoSavingsEstimate } from "./repoIntelligence";
 
 export type SavingsCalculatorScope =
-  | "session"
-  | "repo"
-  | "today"
-  | "week"
-  | "month"
-  | "lifetime";
+  "session" | "repo" | "today" | "week" | "month" | "lifetime";
 
 export type SavingsCalculatorBreakdownKind =
   | "runtime"
@@ -121,9 +116,7 @@ export interface SavingsLedgerSourceGroup extends SavingsLedgerSummary {
   confidence: SavingsCalculatorConfidence;
 }
 
-export type SavingsLedgerConfidenceFilter =
-  | "all"
-  | SavingsCalculatorConfidence;
+export type SavingsLedgerConfidenceFilter = "all" | SavingsCalculatorConfidence;
 
 export interface FilteredSavingsLedger {
   filter: SavingsLedgerConfidenceFilter;
@@ -172,6 +165,24 @@ function formatDurationMs(value: number) {
   }).format(value / 1000)}s`;
 }
 
+function savingsAttributionUnitLabel(source: SavingsLedgerSource) {
+  if (source === "rtk") {
+    return "command";
+  }
+  if (source === "repo_intelligence") {
+    return "pack";
+  }
+  if (
+    source === "caveman" ||
+    source === "compact_chinese" ||
+    source === "ponytail" ||
+    source === "markitdown"
+  ) {
+    return "evidence unit";
+  }
+  return "request";
+}
+
 function formatPercent(value: number | null) {
   if (value === null) {
     return "waiting for usage";
@@ -185,7 +196,8 @@ function formatPercent(value: number | null) {
 
 const confidenceCaveat: Record<SavingsCalculatorConfidence, string> = {
   measured: "Observed from local counters for this source.",
-  estimated: "Estimated from saved history or cost model; not a per-request proof.",
+  estimated:
+    "Estimated from saved history or cost model; not a per-request proof.",
   inferred: "Modelled from a template, context-pack, or workflow delta.",
 };
 
@@ -276,7 +288,9 @@ export function savingsCalculatorScopeLabel(scope: SavingsCalculatorScope) {
   }
 }
 
-export function savingsCalculatorScopeDefinition(scope: SavingsCalculatorScope) {
+export function savingsCalculatorScopeDefinition(
+  scope: SavingsCalculatorScope,
+) {
   switch (scope) {
     case "session":
       return "Current app session includes live Headroom and backend attribution counters since this AI Switchboard for Mac launch. It is reset on app restart and is not a repo total.";
@@ -436,11 +450,11 @@ export function buildSavingsCalculatorSummary(
             (date) =>
               date >= trailingWeekStartDateKey() && date <= currentDateKey(),
           )
-      : scope === "month"
-        ? summarizeDailySavings(dashboard, (date) =>
-            date.startsWith(currentMonthKey()),
-          )
-        : null;
+        : scope === "month"
+          ? summarizeDailySavings(dashboard, (date) =>
+              date.startsWith(currentMonthKey()),
+            )
+          : null;
   const historyReady = dashboard.savingsHistoryLoaded;
   const savedTokens =
     scopedDailySavings?.savedTokens ??
@@ -451,10 +465,14 @@ export function buildSavingsCalculatorSummary(
   const sentTokens =
     scopedDailySavings?.sentTokens ??
     (historyReady
-      ? dashboard.dailySavings.reduce((sum, point) => sum + point.totalTokensSent, 0)
+      ? dashboard.dailySavings.reduce(
+          (sum, point) => sum + point.totalTokensSent,
+          0,
+        )
       : 0);
   const beforeTokens = sentTokens + savedTokens;
-  const savingsPct = beforeTokens > 0 ? (savedTokens / beforeTokens) * 100 : null;
+  const savingsPct =
+    beforeTokens > 0 ? (savedTokens / beforeTokens) * 100 : null;
 
   return {
     scope,
@@ -470,11 +488,11 @@ export function buildSavingsCalculatorSummary(
         ? "Tracked switchboard usage today"
         : scope === "week"
           ? "Tracked switchboard usage this week"
-        : scope === "month"
-          ? "Tracked switchboard usage this month"
-          : dashboard.savingsHistoryLoaded
-            ? "All tracked switchboard usage"
-            : "Waiting for saved local history",
+          : scope === "month"
+            ? "Tracked switchboard usage this month"
+            : dashboard.savingsHistoryLoaded
+              ? "All tracked switchboard usage"
+              : "Waiting for saved local history",
   };
 }
 
@@ -500,7 +518,7 @@ export function buildSavingsCalculatorBreakdown(
           ? "Runtime compression measured in this app session."
           : scope === "repo"
             ? "Runtime savings are not attributed to a repo until backend repo-scoped history ships."
-          : "Runtime compression recorded across saved history.",
+            : "Runtime compression recorded across saved history.",
     });
   }
 
@@ -577,7 +595,8 @@ export function buildSavingsCalculatorBreakdown(
           outputTokens: 0,
           totalTimeMs: 0,
         };
-  const rtkWindowSaved = rtkScopedDaily.savedTokens + fallbackRtkToday.savedTokens;
+  const rtkWindowSaved =
+    rtkScopedDaily.savedTokens + fallbackRtkToday.savedTokens;
   const rtkWindowCommands = rtkScopedDaily.commands + fallbackRtkToday.commands;
   const rtkWindowInput =
     rtkScopedDaily.inputTokens + fallbackRtkToday.inputTokens;
@@ -641,7 +660,10 @@ export function buildSavingsCalculatorBreakdown(
     });
   }
 
-  const ponytailSaved = Math.max(0, options.ponytailSavings?.tokensAvoided ?? 0);
+  const ponytailSaved = Math.max(
+    0,
+    options.ponytailSavings?.tokensAvoided ?? 0,
+  );
   if (ponytailSaved > 0) {
     rows.push({
       id: "ponytail",
@@ -716,6 +738,9 @@ function backendAttributionBreakdownRows(
         .flatMap((event) => event.evidence)
         .filter(Boolean)[0];
       const evidenceDetail = firstEvidence ? ` Evidence: ${firstEvidence}` : "";
+      const unitLabel = savingsAttributionUnitLabel(
+        source as SavingsLedgerSource,
+      );
       return [
         {
           id: meta.id,
@@ -725,7 +750,7 @@ function backendAttributionBreakdownRows(
           confidence: strongestConfidence,
           savedTokens,
           savedUsd: savedUsd > 0 ? savedUsd : null,
-          detail: `${sourceEvents.length.toLocaleString()} ${strongestConfidence} ${meta.label} session event${sourceEvents.length === 1 ? "" : "s"} across ${requests.toLocaleString()} ${source === "rtk" ? "command" : "request"}${requests === 1 ? "" : "s"}.${evidenceDetail}`,
+          detail: `${sourceEvents.length.toLocaleString()} ${strongestConfidence} ${meta.label} session event${sourceEvents.length === 1 ? "" : "s"} across ${requests.toLocaleString()} ${unitLabel}${requests === 1 ? "" : "s"}.${evidenceDetail}`,
         },
       ];
     })
@@ -807,6 +832,9 @@ function backendAttributionRows(
         .filter(Boolean);
       const evidenceDetail =
         eventEvidence.length > 0 ? ` Evidence: ${eventEvidence[0]}` : "";
+      const unitLabel = savingsAttributionUnitLabel(
+        source as SavingsLedgerSource,
+      );
 
       return [
         {
@@ -817,7 +845,7 @@ function backendAttributionRows(
           confidence: strongestConfidence,
           savedTokens,
           savedUsd: savedUsd > 0 ? savedUsd : null,
-          detail: `${eventCount.toLocaleString()} ${strongestConfidence} ${meta.label} session event${eventCount === 1 ? "" : "s"} across ${requests.toLocaleString()} ${source === "rtk" ? "command" : "request"}${requests === 1 ? "" : "s"}.${evidenceDetail}`,
+          detail: `${eventCount.toLocaleString()} ${strongestConfidence} ${meta.label} session event${eventCount === 1 ? "" : "s"} across ${requests.toLocaleString()} ${unitLabel}${requests === 1 ? "" : "s"}.${evidenceDetail}`,
           scope,
           recordedAt: latestObservedAt,
           caveat:
@@ -934,7 +962,11 @@ export function buildSavingsAnomalyAlerts(
         totalTokensSent + totalTokensSaved > 0
           ? totalTokensSaved / (totalTokensSent + totalTokensSaved)
           : 0;
-      if (totalTokensSent >= 50_000 && savingsRatio > 0 && savingsRatio < 0.02) {
+      if (
+        totalTokensSent >= 50_000 &&
+        savingsRatio > 0 &&
+        savingsRatio < 0.02
+      ) {
         alerts.push({
           id: `${source}_low_savings`,
           source,

@@ -13,6 +13,10 @@ function fail(message) {
 }
 
 const libSource = fs.readFileSync("src-tauri/src/lib.rs", "utf8");
+const dashboardCommandsSource = fs.readFileSync(
+  "src-tauri/src/dashboard_commands.rs",
+  "utf8",
+);
 const stateSource = fs.readFileSync("src-tauri/src/state.rs", "utf8");
 const modelsSource = fs.readFileSync("src-tauri/src/models.rs", "utf8");
 
@@ -24,7 +28,7 @@ for (const source of requiredSources) {
 if (!libSource.includes("record_measured_savings_attribution")) {
   fail("Tauri command record_measured_savings_attribution missing");
 }
-if (!libSource.includes("record_measured_addon_attribution")) {
+if (!dashboardCommandsSource.includes("record_measured_addon_attribution")) {
   fail("Tauri command does not call record_measured_addon_attribution");
 }
 if (!stateSource.includes("SavingsAttributionConfidence::Measured")) {
@@ -32,6 +36,15 @@ if (!stateSource.includes("SavingsAttributionConfidence::Measured")) {
 }
 if (!stateSource.includes("baseline_tokens.saturating_sub(optimized_tokens)")) {
   fail("state does not compute measured before/after token delta");
+}
+if (!modelsSource.includes("runtime_event_count")) {
+  fail("SavingsAttributionCounter missing runtime_event_count");
+}
+if (
+  !stateSource.includes("entry.runtime_event_count") ||
+  !stateSource.includes("event.request_delta as u64")
+) {
+  fail("state does not aggregate event-backed runtime counter units");
 }
 
 const tests = [
@@ -71,6 +84,7 @@ const payload = {
   measuredCommandExposed: true,
   measuredConfidenceRecorded: true,
   beforeAfterDeltaRecorded: true,
+  runtimeCountersRecorded: true,
   tests: testResults,
   passed,
 };
@@ -89,11 +103,15 @@ Generated: ${payload.generatedAt}
 - Measured command exposed: yes
 - Measured confidence recorded: yes
 - Before/after token delta recorded: yes
+- Runtime counter units recorded: yes
 - Tests: ${tests.join(", ")}
 
 \`\`\`
 ${testResults
-  .map((result) => `${result.id}: ${result.ok ? "ok" : `failed status ${result.status}`}`)
+  .map(
+    (result) =>
+      `${result.id}: ${result.ok ? "ok" : `failed status ${result.status}`}`,
+  )
   .join("\n")}
 \`\`\`
 `,
@@ -103,4 +121,6 @@ if (!passed) {
   fail("targeted Rust savings attribution tests failed");
 }
 
-console.log(`Runtime savings attribution contract OK (${requiredSources.join(", ")}).`);
+console.log(
+  `Runtime savings attribution contract OK (${requiredSources.join(", ")}).`,
+);

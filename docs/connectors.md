@@ -28,7 +28,7 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | Continue | Gated | No | No | Yes | Editor/extension config remains manual. |
 | Goose | Managed MCP | Yes | No | Yes | Read-only Repo Memory MCP bridge; provider routing remains manual. |
 | Qwen Code | Gated | No | No | Yes | Detection and handoff only until lifecycle tests exist. |
-| Amazon Q Developer CLI | Gated | No | No | Yes | Detection and handoff only until lifecycle tests exist. |
+| Amazon Q Developer CLI | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; AWS auth/provider/workspace state remains manual. |
 | Zed AI | Managed | Yes | No | Yes | Managed assistant settings routing with backup, Doctor verification, rollback, and Off cleanup. |
 | Grok / xAI CLI | Gated | No | No | Yes | Detection and config semantics need more evidence before native/provider writes. |
 

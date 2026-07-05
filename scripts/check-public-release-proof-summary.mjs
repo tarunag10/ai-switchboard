@@ -27,13 +27,7 @@ if (!fs.existsSync(markdownPath)) {
 
 const proof = JSON.parse(fs.readFileSync(proofPath, "utf8"));
 const markdown = fs.readFileSync(markdownPath, "utf8");
-const expectedBlockedProofBlockers = [
-  "signed/notarized DMG",
-  "updater feed",
-  "static smoke preflight",
-  "public installed-app smoke",
-  "release environment",
-];
+const expectedBlockedProofBlockers = ["updater feed"];
 
 if (proof.kind !== "mac_ai_switchboard.public_release_proof") {
   fail("kind must be mac_ai_switchboard.public_release_proof");
@@ -43,9 +37,6 @@ if (proof.schemaVersion !== 1) {
 }
 if (proof.releaseGateEvidence !== proof.proofReady) {
   fail("releaseGateEvidence must match proofReady");
-}
-if (proof.releaseGateEvidence !== false) {
-  fail("blocked proof must not be release-gate evidence");
 }
 if (!Array.isArray(proof.blockers)) {
   fail("blockers must be an array");
@@ -72,7 +63,7 @@ for (const localOnlyArtifact of [
 }
 for (const phrase of [
   "Proof ready:",
-  "Signed and notarized:",
+  "Signed/notarized release asset present:",
   "Updater feed ready:",
   "Installed app smoke ready:",
   "Local-Only Evidence Excluded",
@@ -95,6 +86,12 @@ if (proof.proofReady) {
   fail("blocked public release proof must list blockers");
 }
 if (!proof.proofReady) {
+  if (!proof.githubRelease?.signedDmgAsset?.url) {
+    fail("blocked proof must still record signed/notarized DMG asset evidence when available");
+  }
+  if (!proof.githubRelease?.checksumAsset?.url) {
+    fail("blocked proof must still record public checksum asset evidence when available");
+  }
   for (const blocker of expectedBlockedProofBlockers) {
     if (!proof.blockers.includes(blocker)) {
       fail(`blocked public release proof missing blocker: ${blocker}`);

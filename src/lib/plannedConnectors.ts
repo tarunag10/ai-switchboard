@@ -739,28 +739,30 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "amazon_q",
     name: "Amazon Q Developer CLI",
     category: "cli",
-    supportStatus: "planned",
-    statusLabel: "Gated",
-    setupPhase: "Detect",
+    supportStatus: "managed",
+    statusLabel: "Managed",
+    setupPhase: "Managed",
     integrationTarget:
-      "Local CLI detection verification-pack handoff without changing AWS or provider state.",
+      "Switchboard-owned routing-intent sidecar with Doctor verification, rollback, and Off cleanup; AWS auth/provider/workspace state stays manual.",
     notes:
-      "Keep AWS account credentials profile state outside managed switchboard storage.",
+      "Managed sidecar automation never reads AWS credentials, profiles, or SSO cache.",
     capabilityBadges: [
-      "CLI detection",
+      "Managed sidecar",
+      "Doctor repair",
+      "Rollback",
       "Repo packs today",
-      "Credential-safe gated",
     ],
-    supportedModes: ["RTK only", "Repo packs", "Off"],
+    supportedModes: ["Full optimization", "RTK only", "Repo packs", "Off"],
     safeToday:
-      "Detect Amazon Q CLI use verification packs build/test questions.",
+      "Create the Switchboard-owned sidecar and keep Amazon Q account/provider/workspace choices manual.",
     firstAutomation:
-      "Add read-only provider status detection that never reads or stores AWS secrets.",
+      "Sidecar apply, verify, rollback, Doctor repair, and Off cleanup are covered by fixture-home tests.",
     capabilityRows: [
       {
-        label: "Detection",
+        label: "Managed sidecar",
         state: "Available now",
-        detail: "Switchboard can check whether q present on PATH.",
+        detail:
+          "Switchboard writes only its owned routing marker in Amazon Q config storage.",
       },
       {
         label: "Repo context",
@@ -777,18 +779,18 @@ export const plannedConnectors: PlannedConnector[] = [
     ],
     configSurfaces: [
       "Amazon Q CLI binary",
-      "AWS profile state",
-      "shell environment",
+      "Doctor verification",
+      "rollback and Off cleanup",
     ],
     automationGates: [
-      "Detect q command without reading credentials.",
-      "Keep AWS profile SSO state outside app storage.",
-      "Prove Off mode does not alter AWS config or credentials.",
+      "Detect q command without reading credentials, profiles, or SSO cache.",
+      "Write only the Switchboard-owned routing-intent sidecar.",
+      "Verify Doctor repair, rollback, and Off cleanup leave AWS account state untouched.",
     ],
     manualWorkflow: [
       "Confirm Amazon Q Developer CLI is installed.",
-      "Use Repo Intelligence verification packs build test work.",
-      "Do not route provider traffic automatically until credential guardrails ship.",
+      "Toggle the connector on from Settings to create the managed sidecar.",
+      "Keep AWS authentication, provider, and workspace selection manual.",
     ],
   },
 ];

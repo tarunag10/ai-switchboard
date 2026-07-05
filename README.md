@@ -15,7 +15,7 @@ AI Switchboard now ships as more than a routing toggle. The current `main` branc
 - **Redundancy/model-routing primitives**: backend modules for duplicate payload detection and cheaper-model routing policy decisions.
 - **Retro switchboard UI**: the menu bar app now has a compact switchboard-style theme with brass controls, visible scroll behavior, and menubar-width layout fixes.
 
-Still in progress: notarized public release evidence, public installed-app smoke proof, full live Token X-ray, deeper live redundancy reporting, long-running Repo Memory MCP supervision, and durable runtime savings counters for every add-on.
+Still in progress: updater feed proof, reboot-level public installed-app Doctor/Rollback/uninstall proof, full live Token X-ray, deeper live redundancy reporting, and broader long-running Repo Memory MCP supervision.
 
 ## Current App Screenshots
 
@@ -57,7 +57,7 @@ AI Switchboard is a privacy-first platform for turning local coding-agent optimi
 
 Switchboard is **local-first**, not offline-only. Claude, OpenAI, and other provider model calls still go to the configured remote APIs. Switchboard state, reversible client config edits, Doctor repair data, add-on setup, telemetry defaults, and Repo Intelligence metadata stay on your Mac.
 
-Current status: active productization branch. The standalone repository is public, but signed release artifacts are not published yet. Build from source for now; the public download flow will point users to GitHub Releases once signed/notarized DMGs are ready.
+Current status: active productization branch. The standalone repository is public and GitHub release `v0.0.0` now carries the signed/notarized Apple Silicon DMG `Mac-AI-Switchboard_0.0.0-signed-notarized-aarch64.dmg` plus checksum. Updater feed proof remains blocked until signed updater metadata is published.
 
 For local development, run `npm run app:run` or use the Codex desktop **Run** action. Both point at `script/build_and_run.sh`, which stops any existing app process and launches the Tauri development build. Use `script/build_and_run.sh --verify` when you want a one-command launch health check.
 
@@ -65,7 +65,7 @@ For local development, run `npm run app:run` or use the Codex desktop **Run** ac
 
 Created so far: Start Agent Session, Claude/Codex managed routing, one-click Claude/Codex connector verification prompts, bounded Gemini/OpenCode adapter work, managed connector sidecar coverage, read-only Repo Intelligence APIs, expanded lightweight symbol parsing, repo-memory MCP lifecycle/supervision evidence, savings attribution ledger, safe config dry-runs, Doctor timeline/repair copy, Rollback Center native restore/cleanup, guarded native undo-all for ready rollback rows, release-readiness evidence surfaces, Caveman profiles including opt-in Compact Chinese, and trust-hardening guards for remote destinations, local-only account flows, external links, and app-owned branding.
 
-Still left: provider-specific native config writes beyond sidecars, real long-running repo-memory MCP process supervision, deeper tree-sitter/language-aware Repo Intelligence graphs, stronger measured counters for add-ons where runtime evidence exists, user-approved safe config writes with verification/rollback, relaunch-survival evidence for Rollback Center, signed/notarized public DMG evidence in-app, and remaining legal/privacy/network-audit/public-release hardening.
+Still left: provider-specific native config writes beyond the promoted Amazon Q sidecar, real long-running repo-memory MCP process supervision beyond service-health checks, deeper Repo Intelligence graph ranking, user-approved safe config writes with verification/rollback for more connectors, reboot-level Rollback/Doctor/uninstall proof, updater-feed publication, and remaining legal/privacy/network-audit hardening.
 
 ## What It Controls
 

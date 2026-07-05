@@ -42,7 +42,15 @@ const localOnlyNetworkSummaryPath =
 const localOnlyNetworkJsonPath =
   "dist/local-only-network-validation-summary.json";
 const betaSmokeDoc = "docs/beta-smoke-test.md";
-const appPath = "/Applications/Mac AI Switchboard.app";
+const appPathCandidates = [
+  "/Applications/AI Switchboard for Mac.app",
+  "/Applications/AI Switchboard.app",
+  "/Applications/Mac AI Switchboard.app",
+  "/Applications/Mac Switchboard.app",
+];
+const appPath =
+  appPathCandidates.find((candidate) => fs.existsSync(candidate)) ??
+  appPathCandidates[0];
 const appInfoPlistPath = path.join(appPath, "Contents", "Info.plist");
 const staticSmokeRequiredEvidence = [
   "Switchboard modes",

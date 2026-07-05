@@ -9,15 +9,16 @@ Goose is the first connector marked managed specifically for this bridge: Switch
 - Transport: stdio MCP served by `scripts/repo-intelligence.mjs --mcp-serve`.
 - Service descriptor: the app writes `repo-memory.json` with the managed stdio
   command, descriptor path, repo-memory script path, descriptor presence,
-  script presence, Node command availability, read-only flag, and app-managed
-  ownership so Mode Inspector can show durable service wiring separately from
-  active supervision. If descriptor evidence is not app-managed, not read-only,
-  or not runnable, Mode Inspector downgrades Repo Memory MCP to **Needs
-  attention** before agent handoffs.
+  script presence, Node command availability, read-only flag, healthy flag,
+  issue codes, and app-managed ownership so Mode Inspector can show durable
+  service wiring separately from active supervision. If descriptor evidence is
+  not app-managed, not read-only, not runnable, or reports
+  `descriptor_missing`, `script_missing`, or `node_missing`, Mode Inspector
+  downgrades Repo Memory MCP to **Needs attention** before agent handoffs.
 - Prepare action: **Prepare MCP** in the Mode Inspector, backed by `install_repo_memory_mcp` followed by `start_repo_memory_mcp`. It installs the app-managed config, runs the read-only smoke contract, and records the current app process before marking MCP active.
 - Session controls: **Start MCP** and **Stop MCP** in the Mode Inspector, backed by `start_repo_memory_mcp` and `stop_repo_memory_mcp`. Start re-runs the read-only smoke contract for configured or failed states; these controls do not claim a separate background daemon is running.
 - Relaunch recovery: when the previous app process had already verified an app-managed read-only Repo Memory MCP descriptor, the next app launch automatically re-runs the smoke check during runtime refresh before advertising MCP as active again. Unsafe, missing, or never-prepared descriptors still require **Prepare MCP**.
-- Supervision: while the same app process owns an active Repo Memory MCP session, runtime status polling periodically re-runs the read-only smoke check. A failed recheck downgrades the lifecycle to **Smoke failed** so agents do not rely on stale MCP handoffs. Runtime status also checks the managed descriptor, script, and Node command evidence before telling agents the MCP service is safe to use; broken service evidence downgrades to **Needs attention** even if a previous smoke check passed.
+- Supervision: while the same app process owns an active Repo Memory MCP session, runtime status polling periodically re-runs the read-only smoke check. A failed recheck downgrades the lifecycle to **Smoke failed** so agents do not rely on stale MCP handoffs. Runtime status also checks the managed descriptor, script, Node command evidence, healthy flag, and issue codes before telling agents the MCP service is safe to use; broken service evidence downgrades to **Needs attention** even if a previous smoke check passed.
 - Optional terminal verification: `npm run check:repo-memory-mcp`.
 - One-click evidence verification: the app's **Run local evidence** flow now runs `npm run smoke:repo-memory-mcp:local` as a separate local-only report row. It writes `dist/local-repo-memory-mcp-validation-summary.md` and `.json` with read-only tool, bounded response, seeded secret exclusion, app-managed descriptor recheck, and connector bridge recipe evidence.
 - Tools: `repo_context_pack`, `repo_symbol_lookup`, and `repo_dependents_of`.

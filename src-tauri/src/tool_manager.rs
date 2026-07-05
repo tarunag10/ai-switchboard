@@ -3225,6 +3225,17 @@ impl ToolManager {
             .map(|path| path.display().to_string())
             .unwrap_or_else(|| "node".to_string());
         let node_available = resolve_command_path("node").is_some();
+        let healthy = descriptor_present && script_present && node_available;
+        let mut issues = Vec::new();
+        if !descriptor_present {
+            issues.push("descriptor_missing".to_string());
+        }
+        if !script_present {
+            issues.push("script_missing".to_string());
+        }
+        if !node_available {
+            issues.push("node_missing".to_string());
+        }
         Some(RepoMemoryMcpServiceStatus {
             managed_by_app: true,
             read_only: true,
@@ -3235,6 +3246,8 @@ impl ToolManager {
             script_path: script.display().to_string(),
             script_present,
             node_available,
+            healthy,
+            issues,
         })
     }
 

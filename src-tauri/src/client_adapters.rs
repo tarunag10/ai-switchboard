@@ -4476,7 +4476,7 @@ fn detect_qwen_code_client() -> ClientStatus {
         "Qwen Code",
         executable.clone(),
         &config_candidates,
-        "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+        "Managed sidecar routing-intent setup uses a Switchboard-owned config marker with Doctor verification, rollback, and Off mode cleanup while model/account choices remain manual.",
     );
     let installed = executable.is_some() || !report.config_surfaces.is_empty();
     let mut notes = if installed {
@@ -4486,7 +4486,7 @@ fn detect_qwen_code_client() -> ClientStatus {
     };
     if installed {
         notes.push(
-            "Detected, but Headroom adapter is not implemented yet. Use copy-only Repo Intelligence handoffs and RTK-only shell savings."
+            "Detected. Switchboard can manage the Qwen Code routing-intent sidecar while keeping model and account setup manual."
                 .into(),
         );
     }
@@ -4518,7 +4518,7 @@ fn detect_amazon_q_client() -> ClientStatus {
         "Amazon Q",
         executable.clone(),
         &config_candidates,
-        "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+        "Managed sidecar routing-intent setup uses a Switchboard-owned config marker with Doctor verification, rollback, and Off mode cleanup while AWS auth, provider, and workspace choices remain manual.",
     );
     let installed = executable.is_some() || !report.config_surfaces.is_empty();
     let mut notes = if installed {
@@ -4528,7 +4528,7 @@ fn detect_amazon_q_client() -> ClientStatus {
     };
     if installed {
         notes.push(
-            "Detected, but Headroom adapter is not implemented yet. Keep AWS and Amazon Q account state manual."
+            "Detected. Switchboard can manage the Amazon Q routing-intent sidecar while keeping AWS and Amazon Q account state manual."
                 .into(),
         );
     }
@@ -5002,6 +5002,7 @@ mod tests {
                 "goose",
                 "opencode",
                 "qwen_code",
+                "amazon_q",
                 "windsurf",
                 "zed_ai",
             ])
@@ -5195,7 +5196,7 @@ mod tests {
                     "Qwen Code binary: /opt/homebrew/bin/qwen-code".into(),
                     "Qwen Code version: qwen-code 0.9.0".into(),
                     "Qwen Code config surface: /Users/test/.qwen".into(),
-                    "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                    "Managed sidecar routing-intent setup uses a Switchboard-owned config marker with Doctor verification, rollback, and Off mode cleanup while model/account choices remain manual.".into(),
                 ],
             },
             ClientStatus {
@@ -5208,7 +5209,7 @@ mod tests {
                     "Amazon Q binary: /opt/homebrew/bin/q".into(),
                     "Amazon Q version: q 1.11.0".into(),
                     "Amazon Q config surface: /Users/test/.aws/amazonq".into(),
-                    "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                    "Managed sidecar routing-intent setup uses a Switchboard-owned config marker with Doctor verification, rollback, and Off mode cleanup while AWS auth, provider, and workspace choices remain manual.".into(),
                 ],
             },
             ClientStatus {
@@ -5249,7 +5250,7 @@ mod tests {
                 .iter()
                 .map(|connector| connector.client_id.as_str())
                 .collect::<BTreeSet<_>>(),
-            BTreeSet::from(["aider", "amazon_q", "continue", "cursor", "grok_cli",])
+            BTreeSet::from(["aider", "continue", "cursor", "grok_cli",])
         );
 
         for connector in planned {
@@ -5474,7 +5475,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "amazon_q"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -5628,14 +5629,14 @@ mod tests {
     }
 
     #[test]
-    fn qwen_compatibility_evidence_reports_model_account_blocker() {
+    fn qwen_compatibility_evidence_reports_managed_sidecar_lifecycle() {
         let report = super::PlannedCliCompatibilityReport {
             label: "Qwen Code",
             binary_path: Some(PathBuf::from("/opt/homebrew/bin/qwen-code")),
             version: Some("qwen-code 0.9.0".to_string()),
             config_surfaces: vec![PathBuf::from("/Users/test/.qwen")],
             routing_blocker:
-                "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+                "Managed sidecar routing-intent setup uses a Switchboard-owned config marker with Doctor verification, rollback, and Off mode cleanup while model/account choices remain manual.",
         };
 
         let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
@@ -5643,22 +5644,22 @@ mod tests {
         assert!(evidence.contains("Qwen Code binary: /opt/homebrew/bin/qwen-code"));
         assert!(evidence.contains("Qwen Code version: qwen-code 0.9.0"));
         assert!(evidence.contains("Qwen Code config surface: /Users/test/.qwen"));
-        assert!(evidence.contains("model/account guardrails"));
-        assert!(evidence.contains("backup"));
-        assert!(evidence.contains("verify"));
+        assert!(evidence.contains("Managed sidecar routing-intent setup"));
+        assert!(evidence.contains("Switchboard-owned config marker"));
+        assert!(evidence.contains("Doctor verification"));
         assert!(evidence.contains("rollback"));
         assert!(evidence.contains("Off mode cleanup"));
     }
 
     #[test]
-    fn amazon_q_compatibility_evidence_reports_account_guardrail_blocker() {
+    fn amazon_q_compatibility_evidence_reports_managed_sidecar_lifecycle() {
         let report = super::PlannedCliCompatibilityReport {
             label: "Amazon Q",
             binary_path: Some(PathBuf::from("/opt/homebrew/bin/q")),
             version: Some("q 1.11.0".to_string()),
             config_surfaces: vec![PathBuf::from("/Users/test/.aws/amazonq")],
             routing_blocker:
-                "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
+                "Managed sidecar routing-intent setup uses a Switchboard-owned config marker with Doctor verification, rollback, and Off mode cleanup while AWS auth, provider, and workspace choices remain manual.",
         };
 
         let evidence = super::planned_cli_compatibility_evidence(&report).join(" ");
@@ -5666,9 +5667,9 @@ mod tests {
         assert!(evidence.contains("Amazon Q binary: /opt/homebrew/bin/q"));
         assert!(evidence.contains("Amazon Q version: q 1.11.0"));
         assert!(evidence.contains("Amazon Q config surface: /Users/test/.aws/amazonq"));
-        assert!(evidence.contains("AWS/account guardrails"));
-        assert!(evidence.contains("backup"));
-        assert!(evidence.contains("verify"));
+        assert!(evidence.contains("Managed sidecar routing-intent setup"));
+        assert!(evidence.contains("Switchboard-owned config marker"));
+        assert!(evidence.contains("Doctor verification"));
         assert!(evidence.contains("rollback"));
         assert!(evidence.contains("Off mode cleanup"));
     }
@@ -6808,6 +6809,108 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    fn amazon_q_sidecar_lifecycle_applies_repairs_rolls_back_and_disables() {
+        let home = TestHome::new();
+        let sidecar = home
+            .path()
+            .join(".aws")
+            .join("amazonq")
+            .join(SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(sidecar.parent().unwrap()).expect("create amazon q dir");
+        fs::write(&sidecar, "# amazon q user note\nkeep this\n").expect("seed sidecar");
+
+        let result = super::apply_client_setup("amazon_q").expect("apply amazon q setup");
+        assert!(result.applied);
+        assert!(!result.already_configured);
+        assert_eq!(result.changed_files, vec![sidecar.display().to_string()]);
+        assert_eq!(result.backup_files.len(), 1);
+        assert!(result.verification.verified);
+        assert!(result.summary.contains("Amazon Q Developer CLI"));
+
+        let content = fs::read_to_string(&sidecar).expect("read amazon q sidecar");
+        assert!(content.contains("# amazon q user note\nkeep this"));
+        assert!(content.contains("# >>> headroom:amazon_q >>>"));
+        assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
+        assert!(content.contains("Amazon Q Developer CLI routing-intent sidecar"));
+
+        let connectors = list_client_connectors(&[ClientStatus {
+            id: "amazon_q".into(),
+            name: "Amazon Q Developer CLI".into(),
+            installed: true,
+            configured: false,
+            health: ClientHealth::Attention,
+            notes: vec![format!(
+                "Amazon Q config surface: {}",
+                sidecar.parent().unwrap().display()
+            )],
+        }])
+        .expect("list connectors");
+        let amazon_q = connectors
+            .iter()
+            .find(|connector| connector.client_id == "amazon_q")
+            .expect("amazon q connector");
+        assert_eq!(
+            amazon_q.support_status,
+            ClientConnectorSupportStatus::Managed
+        );
+        assert!(amazon_q.enabled);
+        assert!(amazon_q.verified);
+        assert!(amazon_q.config_creation_steps.is_empty());
+        assert!(amazon_q.automation_path.is_empty());
+
+        let drifted = content.replace(super::HEADROOM_OPENAI_BASE_URL, "http://127.0.0.1:1");
+        fs::write(&sidecar, drifted).expect("drift amazon q sidecar");
+        let verification =
+            super::verify_client_setup("amazon_q").expect("verify drifted amazon q setup");
+        assert!(!verification.verified);
+        assert!(verification
+            .failures
+            .join(" ")
+            .contains("Switchboard-managed Amazon Q Developer CLI sidecar was not found"));
+
+        let repaired = super::apply_client_setup("amazon_q").expect("repair amazon q setup");
+        assert!(repaired.verification.verified);
+        assert!(fs::read_to_string(&sidecar)
+            .expect("read repaired amazon q sidecar")
+            .contains(super::HEADROOM_OPENAI_BASE_URL));
+
+        let preview =
+            super::preview_managed_rollback("amazon-q-routing").expect("preview amazon q rollback");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.marker_present);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Restore headroom:amazon_q for Amazon Q Developer CLI routing"
+        );
+
+        let rollback = super::execute_managed_rollback(
+            "amazon-q-routing",
+            "",
+            "Restore headroom:amazon_q for Amazon Q Developer CLI routing",
+        )
+        .expect("execute amazon q rollback");
+        assert_eq!(
+            rollback.restored_from,
+            "Switchboard-owned amazon_q sidecar block removed."
+        );
+        assert_eq!(
+            fs::read_to_string(&sidecar).expect("read rolled back amazon q sidecar"),
+            "# amazon q user note\nkeep this\n"
+        );
+
+        super::apply_client_setup("amazon_q").expect("reapply amazon q setup");
+        super::disable_client_setup("amazon_q").expect("disable amazon q setup");
+        assert_eq!(
+            fs::read_to_string(&sidecar).expect("read disabled amazon q sidecar"),
+            "# amazon q user note\nkeep this\n"
+        );
+        let verification =
+            super::verify_client_setup("amazon_q").expect("verify disabled amazon q setup");
+        assert!(!verification.verified);
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn promoted_editor_rollback_records_use_native_targets_not_sidecars() {
         let _home = TestHome::new();
 
@@ -7099,10 +7202,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
     #[serial_test::serial]
     fn remaining_planned_connectors_block_automatic_sidecar_setup() {
         let home = TestHome::new();
-        let connectors = [
-            ("grok_cli", "Grok / xAI CLI"),
-            ("amazon_q", "Amazon Q Developer CLI"),
-        ];
+        let connectors = [("grok_cli", "Grok / xAI CLI")];
 
         for (client_id, name) in connectors {
             let sidecar = planned_sidecar_routing_path(client_id).expect("sidecar path available");

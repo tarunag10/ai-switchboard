@@ -1,6 +1,6 @@
 # AI Switchboard Rebrand Release Evidence
 
-Updated: 2026-07-04
+Updated: 2026-07-05
 
 Scope: slice 8 from `docs/ai-switchboard-platform-rebrand-execution-tracks.md`.
 
@@ -38,3 +38,19 @@ git diff --check
 ```
 
 Release blockers that still need signed/public infrastructure remain outside this docs slice: Developer ID signing, notarization, updater feed proof, checksums/SBOM, public installed-app smoke, public uninstall proof, and public release gate evidence.
+
+## Public Release Truth - 2026-07-05
+
+Verified live release:
+
+- GitHub release: `v0.0.0` (`AI Switchboard for Mac 0.0.0`)
+- Public DMG asset: `Mac-AI-Switchboard_0.0.0-signed-notarized-aarch64.dmg`
+- Public checksum asset: `Mac-AI-Switchboard_0.0.0-signed-notarized-aarch64.dmg.sha256`
+- Asset digest: `sha256:705b90e69deffbadf11e5f9566e40b393debec440d37b89636b621306e549eab`
+- Local verification: downloaded the GitHub release asset, verified the checksum, ran `hdiutil verify`, installed `/Applications/AI Switchboard for Mac.app`, and verified Gatekeeper/Developer ID notarization plus `xcrun stapler validate`.
+- Installed smoke evidence: `npm run smoke:preflight` and `npm run smoke:installed -- --confirm` generated fresh local `dist/` summaries for the public installed app.
+
+Remaining public-release blockers:
+
+- Updater feed proof: no signed `latest.json` or updater signature asset is present in the live release yet.
+- Reboot-level public Doctor/Rollback/uninstall proof: local non-destructive uninstall proof passes, but reboot-level destructive/uninstall survival remains intentionally separate.

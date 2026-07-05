@@ -1148,6 +1148,28 @@ mod doctor_tests {
     }
 
     #[test]
+    fn unrouted_managed_sidecar_connector_issue_repairs_amazon_q() {
+        let connectors = vec![test_connector_status(
+            "amazon_q",
+            "Amazon Q Developer CLI",
+            crate::models::ClientConnectorSupportStatus::Managed,
+            true,
+            false,
+            false,
+        )];
+
+        let issues = unrouted_managed_connector_issues(&connectors, &SwitchboardMode::Full);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].id, "amazon_q_routing_not_configured");
+        assert_eq!(
+            issues[0].repair_action.as_deref(),
+            Some("repair_client_setup:amazon_q")
+        );
+        assert!(issues[0].body.contains("this managed client setup"));
+    }
+
+    #[test]
     fn unrouted_planned_connector_stays_manual() {
         let connectors = vec![test_connector_status(
             "aider",

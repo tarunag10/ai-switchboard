@@ -3,11 +3,12 @@
 Canonical status: see [plan-status-ledger.md](plan-status-ledger.md) for the
 current done/left checklist. It includes the latest Repo Map UI mount,
 evidence-gate stabilization, Fable security hardening, and signed-release
-blockers as of 2026-07-03.
+blockers as of 2026-07-05.
 
 ## Updated Status - 2026-07-03
 
 Created / updated:
+
 - Repo Map one-click generation is built with repo picker/history, per-tool progress, tooling preflight, Graphify partial-success handling, generated artifacts, open-artifact actions, and token-savings artifacts.
 - Repo Map now feeds Repo Intelligence context: Agent Session handoffs, CLI exports, Repo Memory MCP recipes, freshness/age/staleness warnings, and `check:repo-intelligence-map`.
 - Repo Memory MCP has read-only evidence checks, bounded graph/query proof, stale-index health, app-managed descriptor recheck, and local-only release readiness evidence.
@@ -20,17 +21,23 @@ Created / updated:
 - Local-only network evidence is schema-versioned, checked as app-owned remote-call blocked local proof, and wired into aggregate/release-readiness validation.
 - Connector readiness documents promoted routing for Gemini/OpenCode/Windsurf/Zed, Goose read-only Memory MCP bridge, and gated native/provider proof for Aider, Cursor, Continue, Grok/xAI CLI, Qwen Code, and Amazon Q.
 - Local connector readiness proof is schema-tagged and now checks local-only/non-release status, native-write readiness semantics, successful connector scan status, and full shared lifecycle stage coverage.
+- Release truth reconciliation now records live GitHub release `v0.0.0`, the signed/notarized Apple Silicon DMG, public checksum, installed-app smoke from `/Applications/AI Switchboard for Mac.app`, and local uninstall dry-run proof while keeping updater feed proof blocked.
+- Amazon Q Developer CLI has been promoted to a managed Switchboard-owned sidecar lifecycle with Doctor repair, rollback, and Off cleanup tests while AWS account/provider/workspace state remains manual.
+- Repo Intelligence graph version `path-graph-v9` adds tree-sitter-assisted multiline imports and AST call-reference edges.
+- Caveman, Compact Chinese, Ponytail, and MarkItDown savings attribution records runtime evidence-unit counts in backend counters and frontend session rows.
 
 Still left:
-- Deepen durable add-on health/history beyond the current bounded Caveman/Ponytail/MarkItDown session ledger rows.
-- Finish provider-specific native-write apply/verify/rollback/Off-cleanup proof before enabling gated native writes.
-- Deepen Repo Intelligence graph analyzers and long-running MCP supervision beyond current guarded local evidence.
-- Produce signed/notarized DMG, updater feed, and public installed-app smoke proof.
+
+- Deepen durable add-on health/history beyond the current event-backed Caveman/Ponytail/MarkItDown session ledger rows.
+- Finish provider-specific native-write apply/verify/rollback/Off-cleanup proof for the remaining gated connectors.
+- Deepen Repo Intelligence task ranking and long-running MCP supervision beyond current guarded local evidence.
+- Produce signed updater feed proof and reboot-level public uninstall/Doctor/Rollback proof. Signed/notarized DMG, checksum, and installed smoke proof are now reconciled.
 - Continue large-file refactors only as touched: `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/src/tool_manager.rs`, `src/App.tsx`.
 
 ## Current Plan Rollup - 2026-07-03
 
 Created:
+
 - Product roadmap status for Repo Map/token compression, Repo Intelligence, Repo Memory MCP, savings, connectors, Rollback Center, and release evidence.
 - One-click public release proof summary workflow for blocked/ready release evidence.
 - Public release proof now points at the real static preflight artifact and explicitly excludes local-only smoke, rollback, Doctor, connector, and fixture savings summaries from public release proof.
@@ -38,6 +45,7 @@ Created:
 - Deployment governance checks covering remote destinations, workflow branch policy, local rollback evidence, and release proof scripts.
 
 Done:
+
 - Repo Map one-click generation covers Graphify, Madge, dependency-cruiser, Cargo, and Tauri evidence with partial-success handling and token-savings artifacts.
 - Repo Map background generation now has a tested progress state model for preflight, queued/running tools, partial-success warnings, and generator startup failures.
 - Repo Map renders that progress model as per-tool generation chips while the background job is active.
@@ -51,14 +59,15 @@ Done:
 - Rollback Center records relaunch-survival proof, local evidence summaries, and native-write disabled/gated connector states.
 - Rollback and Doctor evidence summaries now have explicit `:check` gates for relaunch-survival, cleanup-domain, Off-mode, frontend repair-copy, and post-write verification proof.
 - Aider/Cursor and other unpromoted provider/editor native writes remain guarded behind seven-stage readiness.
-- Connector readiness local evidence now checks all gated native-write connectors (`aider`, `amazon_q`, `continue`, `cursor`, `grok_cli`) for the seven-stage lifecycle contract and disabled automation before release evidence can pass.
+- Connector readiness local evidence now checks gated native-write connectors for the seven-stage lifecycle contract and disabled automation before release evidence can pass; Amazon Q has moved to a managed sidecar lifecycle.
 
 Left:
-- Add provider-specific fixture-home apply/verify/rollback/Off cleanup proof before enabling any currently gated connector automation.
-- Surface the backend runtime/session Caveman, Ponytail, and MarkItDown attribution contract in frontend session reporting.
-- Expand Tauri/backend graph analyzers and large-file refactors beyond the guarded Repo Map context bridge.
-- Produce signed/notarized DMG, updater feed, and public installed-app smoke proof.
-- Keep release proof blocked until real signing/notarization/updater evidence exists.
+
+- Add provider-specific fixture-home apply/verify/rollback/Off cleanup proof before enabling the remaining gated connector automation.
+- Deepen backend runtime/session Caveman, Ponytail, and MarkItDown attribution beyond current evidence-unit counters.
+- Expand task-specific Repo Intelligence graph ranking and continue large-file refactors beyond the guarded Repo Map context bridge.
+- Produce signed updater feed proof and reboot-level public installed-app Doctor/Rollback/uninstall proof.
+- Keep release proof blocked only on the updater feed until signed updater metadata exists.
 
 ## Current Status - 2026-07-03
 
@@ -80,7 +89,6 @@ Still left:
 - Large-file refactors across the Tauri backend and main app shell.
 - Signed/notarized DMG, updater, and public installed-app smoke proof.
 
-
 This plan expands the rebrand and trust-hardening work into a broader product roadmap for Mac AI Switchboard. The goal is to make the app trustworthy enough to install, clear enough to debug, and useful enough to become the local control center for coding-agent optimization on macOS.
 
 Mac AI Switchboard should stay local-first. The app can route Claude, Codex, and future agent traffic to remote model providers when the user chooses those tools, but switchboard state, config edits, Doctor checks, savings attribution, repo context packs, and add-on health should remain inspectable on the user's Mac.
@@ -97,7 +105,7 @@ Shipped:
 - Gemini has managed shell base-url routing. OpenCode has promoted provider-config routing with preview, exact confirmation, backup, apply, verify, rollback, and Off cleanup coverage.
 - Cursor now surfaces detected editor settings files as evidence while native writes remain blocked. Windsurf and Zed have promoted managed editor-settings routing with backup, verification, rollback, and Off cleanup.
 - Repo Intelligence Start Agent Session, read-only packs, handoffs, CLI exports, and repo-memory MCP smoke transport are usable.
-- Repo Intelligence graph version `path-graph-v8` adds stylesheet and HTML asset dependency edges plus CSS/HTML symbols on top of visible test/source relationships, Markdown heading symbols with parent hierarchy, shell script invocation edges, Python local import-reference edges, and TypeScript/JavaScript/React package-dependency edges back to `package.json`, so context packs can show web entrypoint links, verification links, docs anchors, shell workflow relationships, Python module relationships, and source-to-installed-package relationships in addition to local imports and call references.
+- Repo Intelligence graph version `path-graph-v9` adds tree-sitter-assisted multiline import and AST call references for supported source languages plus stylesheet and HTML asset dependency edges and CSS/HTML symbols on top of visible test/source relationships, Markdown heading symbols with parent hierarchy, shell script invocation edges, Python local import-reference edges, and TypeScript/JavaScript/React package-dependency edges back to `package.json`, so context packs can show web entrypoint links, verification links, docs anchors, shell workflow relationships, Python module relationships, parser-derived call sites, and source-to-installed-package relationships in addition to local imports and fallback text call references.
 - Doctor now treats stale Repo Intelligence indexer versions as index-health issues, so graph analyzer upgrades ask users to clear/re-index before relying on context packs.
 - Repo Memory MCP active state is now process-bound but self-healing: after app relaunch, the app automatically re-runs the read-only smoke check for a previously verified app-managed descriptor. For new setup, Mode Inspector's Prepare MCP action installs, starts, and smoke-checks the app-managed server in one click.
 - Repo Memory MCP runtime status now exposes the managed stdio service descriptor separately from app-process smoke supervision, including command, descriptor path, read-only flag, and app-managed ownership.
@@ -142,6 +150,7 @@ Shipped:
 - Repo Intelligence frontend and CLI/MCP graphing now include CSS `@import`/`url(...)`, HTML script/style/image links, and CSS/HTML symbols, so one-click packs can follow web asset entrypoints without broad file dumps.
 - Doctor now treats corrupt Repo Intelligence saved summaries as one-click Clear index repairs, with backend proof that only Switchboard managed index metadata is removed before re-indexing.
 - Add-on health cards now include bounded trend evidence: Headroom uses recent optimized usage or saved local history, RTK uses per-day command-output history, and MarkItDown/Ponytail explicitly show current-only history until durable counters exist.
+- Caveman, Ponytail, and MarkItDown add-on attribution now carries durable runtime counter units in backend counters: changed instruction files/artifacts for Caveman and MarkItDown, and verified agent-host registrations for Ponytail.
 - Codex context-pressure guidance now uses saved local daily token history as fallback evidence after relaunch, while still labeling session-only Codex events separately from broader local history.
 - Savings anomaly alerts now cover output growth, low savings ratio on high-token sessions, and session cost-growth estimates instead of only showing backend output-growth warnings.
 - Doctor now surfaces Repo Memory MCP smoke-failed, stale-config, service-unhealthy, and unverified-active supervision states as Prepare MCP repairs, so unsafe MCP handoffs are visible instead of relying on configured-state alone.
@@ -396,7 +405,7 @@ Suggested commit:
 
 Goal: make the app ready for real testers with app-owned assets and recorded evidence.
 
-Status: local evidence is shipped; public evidence is not. The app has app-owned iconset provenance, branding guards, local unsigned DMG build/install, local installed smoke, and release-readiness reports. The remaining work is signed/notarized public release evidence and uninstall proof.
+Status: local evidence is shipped and the public `v0.0.0` Apple Silicon DMG/checksum/install proof is reconciled. The app has app-owned iconset provenance, branding guards, local unsigned DMG build/install, public signed/notarized DMG verification, installed smoke, and release-readiness reports. The remaining work is signed updater feed proof plus reboot-level public Doctor/Rollback/uninstall proof.
 
 Tasks:
 

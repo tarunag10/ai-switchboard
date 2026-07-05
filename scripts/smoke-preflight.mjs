@@ -4,7 +4,15 @@ import path from "node:path";
 const betaSmokeDoc = "docs/beta-smoke-test.md";
 const installDoc = "docs/install.md";
 const releaseDoc = "docs/macos-release.md";
-const appPath = "/Applications/Mac AI Switchboard.app";
+const appPathCandidates = [
+  "/Applications/AI Switchboard for Mac.app",
+  "/Applications/AI Switchboard.app",
+  "/Applications/Mac AI Switchboard.app",
+  "/Applications/Mac Switchboard.app",
+];
+const appPath =
+  appPathCandidates.find((candidate) => fs.existsSync(candidate)) ??
+  appPathCandidates[0];
 const summaryPath = "dist/smoke-preflight-summary.md";
 const releaseReportPath = "dist/release-readiness-report.md";
 

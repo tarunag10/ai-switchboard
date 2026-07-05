@@ -48,6 +48,7 @@ mod repo_intelligence_commands;
 mod repo_map;
 mod repo_memory_commands;
 mod rollback_commands;
+mod runtime_boot_validation;
 mod runtime_commands;
 mod runtime_diagnostics;
 mod runtime_distribution;
@@ -1471,7 +1472,7 @@ mod tests {
             index_metadata: Some(RepoIndexMetadata {
                 schema_version: 1,
                 indexer_version: repo_intelligence::current_indexer_version().to_string(),
-                parser_version: "metadata-fingerprint-v1".to_string(),
+                parser_version: "tree-sitter-graph-v2".to_string(),
                 cache_key: "test".to_string(),
                 cache_state: "unchanged".to_string(),
                 generated_at: indexed_at.to_string(),

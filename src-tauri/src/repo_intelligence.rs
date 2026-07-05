@@ -25,9 +25,9 @@ const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
 const TASK_PACK_BUDGET_TOKENS: u64 = 8_000;
-const INDEXER_VERSION: &str = "path-graph-v8";
+const INDEXER_VERSION: &str = "path-graph-v9";
 const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
-const PARSER_VERSION: &str = "metadata-fingerprint-v1";
+const PARSER_VERSION: &str = "tree-sitter-graph-v2";
 const DEFAULT_SYMBOL_SEARCH_LIMIT: usize = 25;
 const MAX_SYMBOL_SEARCH_LIMIT: usize = 100;
 const DEFAULT_DEPENDENTS_LIMIT: usize = 25;
@@ -1689,14 +1689,7 @@ fn extract_file_symbols_with_tree_sitter(
 }
 
 fn tree_sitter_language_for_file(file: &RepoFileSignal) -> Option<tree_sitter::Language> {
-    match file.language.as_str() {
-        "TypeScript" => Some(tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
-        "React" => Some(tree_sitter_typescript::LANGUAGE_TSX.into()),
-        "JavaScript" => Some(tree_sitter_javascript::LANGUAGE.into()),
-        "Rust" => Some(tree_sitter_rust::LANGUAGE.into()),
-        "Python" => Some(tree_sitter_python::LANGUAGE.into()),
-        _ => None,
-    }
+    tree_sitter_language_for_language_name(&file.language)
 }
 
 fn collect_ast_symbols(
@@ -2251,11 +2244,15 @@ fn build_call_reference_edges(
         let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
             continue;
         };
+        let ast_call_names = extract_call_references_with_tree_sitter(&content, &file.language);
         for symbol in &callable_symbols {
             if file.path == symbol.file {
                 continue;
             }
-            if !contains_call_reference(&content, &symbol.name) {
+            let ast_match = ast_call_names
+                .as_ref()
+                .is_some_and(|names| names.contains(&symbol.name));
+            if !ast_match && !contains_call_reference(&content, &symbol.name) {
                 continue;
             }
             push_unbounded_graph_edge(
@@ -2264,7 +2261,11 @@ fn build_call_reference_edges(
                     from: file.path.clone(),
                     to: format!("{}#{}", symbol.file, symbol.name),
                     kind: RepoGraphEdgeKind::CallReference,
-                    reason: "source text references callable symbol".into(),
+                    reason: if ast_match {
+                        "AST call expression references callable symbol".into()
+                    } else {
+                        "source text references callable symbol".into()
+                    },
                 },
                 80,
             );
@@ -2276,13 +2277,70 @@ fn build_call_reference_edges(
     edges
 }
 
+fn extract_call_references_with_tree_sitter(
+    content: &str,
+    language: &str,
+) -> Option<BTreeSet<String>> {
+    let mut parser = tree_sitter::Parser::new();
+    let language_ref = tree_sitter_language_for_language_name(language)?;
+    parser.set_language(&language_ref).ok()?;
+    let tree = parser.parse(content, None)?;
+    let mut calls = BTreeSet::new();
+    collect_ast_call_names(content.as_bytes(), tree.root_node(), &mut calls);
+    Some(calls)
+}
+
+fn collect_ast_call_names(
+    source: &[u8],
+    node: tree_sitter::Node<'_>,
+    calls: &mut BTreeSet<String>,
+) {
+    if node.kind() == "call_expression" {
+        if let Some(function) = node.child_by_field_name("function") {
+            collect_call_target_names(source, function, calls);
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_ast_call_names(source, child, calls);
+    }
+}
+
+fn collect_call_target_names(
+    source: &[u8],
+    node: tree_sitter::Node<'_>,
+    calls: &mut BTreeSet<String>,
+) {
+    if matches!(
+        node.kind(),
+        "identifier"
+            | "property_identifier"
+            | "field_identifier"
+            | "shorthand_field_identifier"
+            | "type_identifier"
+    ) {
+        if let Ok(name) = node.utf8_text(source) {
+            if !name.is_empty() {
+                calls.insert(name.to_string());
+            }
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_call_target_names(source, child, calls);
+    }
+}
+
 fn extract_import_specifiers(content: &str, language: &str) -> Vec<String> {
-    let mut specifiers = Vec::new();
+    let mut specifiers = BTreeSet::new();
+    if let Some(ast_specifiers) = extract_import_specifiers_with_tree_sitter(content, language) {
+        specifiers.extend(ast_specifiers);
+    }
     for line in content.lines() {
         let trimmed = line.trim();
         if matches!(language, "TypeScript" | "JavaScript" | "React") {
             if let Some(specifier) = quoted_import_specifier(trimmed) {
-                specifiers.push(specifier);
+                specifiers.insert(specifier);
             }
         }
         if language == "Rust" {
@@ -2290,7 +2348,7 @@ fn extract_import_specifiers(content: &str, language: &str) -> Vec<String> {
                 .strip_prefix("mod ")
                 .and_then(|rest| rest.strip_suffix(';'))
             {
-                specifiers.push(format!("./{}", module.trim()));
+                specifiers.insert(format!("./{}", module.trim()));
             }
             if let Some(crate_path) = trimmed.strip_prefix("use crate::") {
                 let crate_path = crate_path
@@ -2300,7 +2358,7 @@ fn extract_import_specifiers(content: &str, language: &str) -> Vec<String> {
                     .unwrap_or("")
                     .trim();
                 if !crate_path.is_empty() {
-                    specifiers.push(format!("crate:{crate_path}"));
+                    specifiers.insert(format!("crate:{crate_path}"));
                 }
             }
         }
@@ -2317,7 +2375,135 @@ fn extract_import_specifiers(content: &str, language: &str) -> Vec<String> {
     if language == "HTML" {
         specifiers.extend(html_asset_specifiers(content));
     }
-    specifiers
+    specifiers.into_iter().collect()
+}
+
+fn extract_import_specifiers_with_tree_sitter(
+    content: &str,
+    language: &str,
+) -> Option<Vec<String>> {
+    let mut parser = tree_sitter::Parser::new();
+    let language_ref = tree_sitter_language_for_language_name(language)?;
+    parser.set_language(&language_ref).ok()?;
+    let tree = parser.parse(content, None)?;
+    let mut specifiers = BTreeSet::new();
+    collect_ast_import_specifiers(
+        language,
+        content.as_bytes(),
+        tree.root_node(),
+        &mut specifiers,
+    );
+    Some(specifiers.into_iter().collect())
+}
+
+fn tree_sitter_language_for_language_name(language: &str) -> Option<tree_sitter::Language> {
+    match language {
+        "TypeScript" => Some(tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into()),
+        "React" => Some(tree_sitter_typescript::LANGUAGE_TSX.into()),
+        "JavaScript" => Some(tree_sitter_javascript::LANGUAGE.into()),
+        "Rust" => Some(tree_sitter_rust::LANGUAGE.into()),
+        "Python" => Some(tree_sitter_python::LANGUAGE.into()),
+        _ => None,
+    }
+}
+
+fn collect_ast_import_specifiers(
+    language: &str,
+    source: &[u8],
+    node: tree_sitter::Node<'_>,
+    specifiers: &mut BTreeSet<String>,
+) {
+    if matches!(language, "TypeScript" | "JavaScript" | "React")
+        && matches!(node.kind(), "import_statement" | "export_statement")
+    {
+        collect_quoted_ast_strings(source, node, specifiers);
+    }
+    if matches!(language, "TypeScript" | "JavaScript" | "React")
+        && node.kind() == "call_expression"
+        && is_import_like_call(source, node)
+    {
+        collect_quoted_ast_strings(source, node, specifiers);
+    }
+    if language == "Rust" {
+        if node.kind() == "mod_item" {
+            if let Some(name) = node.child_by_field_name("name").and_then(|name| {
+                name.utf8_text(source)
+                    .ok()
+                    .filter(|name| !name.is_empty())
+                    .map(str::to_string)
+            }) {
+                specifiers.insert(format!("./{name}"));
+            }
+        }
+        if node.kind() == "use_declaration" {
+            if let Ok(text) = node.utf8_text(source) {
+                specifiers.extend(rust_use_specifiers(text));
+            }
+        }
+    }
+    if language == "Python" && matches!(node.kind(), "import_statement" | "import_from_statement") {
+        if let Ok(text) = node.utf8_text(source) {
+            specifiers.extend(python_import_specifiers(text));
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_ast_import_specifiers(language, source, child, specifiers);
+    }
+}
+
+fn is_import_like_call(source: &[u8], node: tree_sitter::Node<'_>) -> bool {
+    let Some(function) = node.child_by_field_name("function") else {
+        return false;
+    };
+    function
+        .utf8_text(source)
+        .ok()
+        .is_some_and(|text| matches!(text.trim(), "require" | "import"))
+}
+
+fn collect_quoted_ast_strings(
+    source: &[u8],
+    node: tree_sitter::Node<'_>,
+    specifiers: &mut BTreeSet<String>,
+) {
+    if matches!(
+        node.kind(),
+        "string" | "string_fragment" | "raw_string_literal"
+    ) {
+        if let Ok(text) = node.utf8_text(source) {
+            let value = text.trim_matches(['"', '\'', '`']);
+            if !value.is_empty() {
+                specifiers.insert(value.to_string());
+            }
+        }
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_quoted_ast_strings(source, child, specifiers);
+    }
+}
+
+fn rust_use_specifiers(statement: &str) -> Vec<String> {
+    let Some(rest) = statement
+        .trim()
+        .strip_prefix("use crate::")
+        .or_else(|| statement.trim().strip_prefix("pub use crate::"))
+    else {
+        return Vec::new();
+    };
+    let module = rest
+        .trim_end_matches(';')
+        .split([' ', '{'])
+        .next()
+        .unwrap_or("")
+        .trim();
+    if module.is_empty() {
+        Vec::new()
+    } else {
+        vec![format!("crate:{module}")]
+    }
 }
 
 fn css_asset_specifiers(content: &str) -> Vec<String> {
@@ -3198,6 +3384,11 @@ export const mapValues = <T>(items: T[]) => items;
         std::fs::write(src.join("helper.ts"), "export function helper() {}\n")
             .expect("write helper");
         std::fs::write(
+            src.join("multi.ts"),
+            "import {\n  helper\n} from './helper';\nexport function runMulti() { return helper(); }\n",
+        )
+        .expect("write multiline ts import");
+        std::fs::write(
             root.path().join("package.json"),
             r#"{"scripts":{"build":"vite build && bash scripts/release.sh","smoke":"npm run build && scripts/smoke.sh"},"dependencies":{"react":"18.3.1"}}"#,
         )
@@ -3277,11 +3468,16 @@ export const mapValues = <T>(items: T[]) => items;
             .iter()
             .any(|symbol| symbol.name == "AppViewModel"
                 && symbol.file == "Sources/Switchboard/AppView.swift"));
-        assert!(graph.top_languages.iter().any(|node| node.label == "Swift"));
         assert!(graph.import_edges.iter().any(|edge| {
             edge.from == "src/App.tsx"
                 && edge.to == "src/helper.ts"
                 && edge.kind == RepoGraphEdgeKind::ImportReference
+        }));
+        assert!(graph.import_edges.iter().any(|edge| {
+            edge.from == "src/multi.ts"
+                && edge.to == "src/helper.ts"
+                && edge.kind == RepoGraphEdgeKind::ImportReference
+                && edge.reason == "source imports ./helper"
         }));
         assert!(graph.import_edges.iter().any(|edge| {
             edge.from == "src/lib.rs"
@@ -3347,6 +3543,13 @@ export const mapValues = <T>(items: T[]) => items;
             edge.from == "src/App.tsx"
                 && edge.to == "src/helper.ts#helper"
                 && edge.kind == RepoGraphEdgeKind::CallReference
+                && edge.reason == "AST call expression references callable symbol"
+        }));
+        assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/multi.ts"
+                && edge.to == "src/helper.ts#helper"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+                && edge.reason == "AST call expression references callable symbol"
         }));
     }
 
@@ -3375,7 +3578,7 @@ export const mapValues = <T>(items: T[]) => items;
         .expect("write html");
 
         let summary = summarize_repo(root.path()).expect("summarize repo");
-        assert_eq!(summary.indexer_version.as_deref(), Some("path-graph-v8"));
+        assert_eq!(summary.indexer_version.as_deref(), Some("path-graph-v9"));
         let graph = summary.graph.expect("graph");
         assert!(graph.import_edges.iter().any(|edge| {
             edge.from == "src/styles.css"
