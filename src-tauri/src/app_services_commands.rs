@@ -1,140 +1,21 @@
-use std::process::Command;
-
 use serde_json::Value;
 use tauri::AppHandle;
 
 use crate::analytics;
+use crate::external_open;
 use crate::local_mode;
 
 const HEADROOM_DASHBOARD_URL: &str = "http://127.0.0.1:6767/dashboard";
 
 #[tauri::command]
 pub async fn open_headroom_dashboard() -> Result<(), String> {
-    open_external_link_impl(HEADROOM_DASHBOARD_URL)
+    external_open::open_external_link(HEADROOM_DASHBOARD_URL)
         .map_err(|err| format!("Failed to open Headroom dashboard: {err}"))
-}
-
-fn open_external_link_impl(url: &str) -> Result<(), String> {
-    let trimmed = validate_external_link_url(url)?;
-
-    #[cfg(target_os = "macos")]
-    let mut command = {
-        let mut command = Command::new("open");
-        command.arg(&trimmed);
-        command
-    };
-
-    #[cfg(target_os = "linux")]
-    {
-        for opener in ["xdg-open", "gio", "kde-open5", "wslview"] {
-            let mut command = Command::new(opener);
-            if opener == "gio" {
-                command.args(["open", &trimmed]);
-            } else {
-                command.arg(&trimmed);
-            }
-            match command.status() {
-                Ok(status) if status.success() => return Ok(()),
-                Ok(_) => continue,
-                Err(err) if err.kind() == std::io::ErrorKind::NotFound => continue,
-                Err(err) => {
-                    return Err(format!(
-                        "Could not launch external link with {opener}: {err}"
-                    ))
-                }
-            }
-        }
-        return Err(
-            "No URL opener found. Install xdg-utils (provides xdg-open) to open links.".into(),
-        );
-    }
-
-    #[cfg(target_os = "windows")]
-    let mut command = {
-        let mut command = Command::new("cmd");
-        command.args(["/C", "start", "", trimmed.as_str()]);
-        command
-    };
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        let status = command
-            .status()
-            .map_err(|err| format!("Could not launch external link: {err}"))?;
-
-        if status.success() {
-            Ok(())
-        } else {
-            Err(format!("External link opener exited with {status}."))
-        }
-    }
-}
-
-pub(crate) fn validate_external_link_url(raw: &str) -> Result<String, String> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return Err("External link is empty.".into());
-    }
-    if trimmed.contains('\n') || trimmed.contains('\r') {
-        return Err("External links cannot contain line breaks.".into());
-    }
-
-    if trimmed.starts_with("mailto:") {
-        let address = trimmed.trim_start_matches("mailto:");
-        if address.is_empty() || address.contains('?') || address.contains('/') {
-            return Err("Only simple mailto links are supported.".into());
-        }
-        return Ok(trimmed.to_string());
-    }
-
-    let parsed =
-        reqwest::Url::parse(trimmed).map_err(|_| "External link URL is invalid.".to_string())?;
-    if !matches!(parsed.scheme(), "http" | "https") {
-        return Err("Only http, https, and mailto links are supported.".into());
-    }
-    if parsed.username() != "" || parsed.password().is_some() {
-        return Err("External links cannot include embedded credentials.".into());
-    }
-
-    let host = parsed
-        .host_str()
-        .ok_or_else(|| "External link must include a host.".to_string())?;
-    if is_blocked_external_link_host(host) {
-        return Err("External link host is not allowed.".into());
-    }
-
-    Ok(trimmed.to_string())
-}
-
-fn is_blocked_external_link_host(host: &str) -> bool {
-    let normalized = host
-        .trim_matches(|ch| ch == '[' || ch == ']')
-        .trim_end_matches('.')
-        .to_ascii_lowercase();
-    if matches!(normalized.as_str(), "localhost" | "localhost.localdomain") {
-        return true;
-    }
-    if normalized.ends_with(".localhost") || normalized.ends_with(".local") {
-        return true;
-    }
-    match normalized.parse::<std::net::IpAddr>() {
-        Ok(std::net::IpAddr::V4(ip)) => {
-            ip.is_loopback()
-                || ip.is_private()
-                || ip.is_link_local()
-                || ip.is_broadcast()
-                || ip.is_unspecified()
-        }
-        Ok(std::net::IpAddr::V6(ip)) => {
-            ip.is_loopback() || ip.is_unspecified() || ip.is_unique_local()
-        }
-        Err(_) => false,
-    }
 }
 
 #[tauri::command]
 pub async fn open_external_link(url: String) -> Result<(), String> {
-    open_external_link_impl(&url)
+    external_open::open_external_link(&url)
 }
 
 #[tauri::command]

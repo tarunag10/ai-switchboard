@@ -21,6 +21,7 @@ mod dashboard_commands;
 mod dedicated_cleanup_rollback;
 mod device;
 mod doctor;
+mod external_open;
 mod insights;
 mod keychain;
 mod learning_commands;
@@ -2381,7 +2382,6 @@ mod tests {
     };
     use crate::app_services_commands::{
         reject_contact_request_in_local_only, validate_contact_request_url,
-        validate_external_link_url,
     };
     // Local-only contact guard certification signal:
     // reject_contact_request_in_local_only()? returns
@@ -3065,44 +3065,6 @@ mod tests {
     }
 
     #[test]
-    fn external_link_validator_accepts_documented_public_links() {
-        assert_eq!(
-            validate_external_link_url(" https://github.com/tarunag10/mac-ai-switchboard/issues ",)
-                .expect("repo issues link"),
-            "https://github.com/tarunag10/mac-ai-switchboard/issues"
-        );
-        assert_eq!(
-            validate_external_link_url("https://developers.openai.com/codex/cli")
-                .expect("codex docs link"),
-            "https://developers.openai.com/codex/cli"
-        );
-        assert_eq!(
-            validate_external_link_url("mailto:hello@example.com").expect("simple mailto"),
-            "mailto:hello@example.com"
-        );
-    }
-
-    #[test]
-    fn external_link_validator_rejects_ssrf_and_injection_shapes() {
-        for raw in [
-            "file:///etc/passwd",
-            "http://127.0.0.1:6767/stats",
-            "http://localhost:6767/stats",
-            "https://10.0.0.4/admin",
-            "https://172.16.0.2/admin",
-            "https://192.168.1.2/admin",
-            "https://[::1]/admin",
-            "https://user:pass@example.com/path",
-            "https://github.com/tarunag10/mac-ai-switchboard/issues\nhttps://evil.example",
-            "mailto:hello@example.com?subject=Injected",
-        ] {
-            assert!(
-                validate_external_link_url(raw).is_err(),
-                "{raw} should be rejected"
-            );
-        }
-    }
-
     #[test]
     #[serial_test::serial]
     fn local_only_blocks_contact_request_before_url_or_email_validation() {

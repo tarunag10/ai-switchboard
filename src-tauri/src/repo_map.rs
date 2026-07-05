@@ -4,6 +4,8 @@ use std::process::Command;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::external_open;
+
 fn tail(value: &str, max_chars: usize) -> String {
     let chars: Vec<char> = value.chars().collect();
     if chars.len() <= max_chars {
@@ -266,9 +268,7 @@ pub fn open_repo_map_artifact(request: RepoMapArtifactRequest) -> Result<bool, S
     if !path.exists() {
         return Err(format!("Artifact does not exist: {}.", path.display()));
     }
-    Command::new("open")
-        .arg(&path)
-        .status()
-        .map_err(|err| format!("Failed to open {}: {err}", path.display()))?;
+    external_open::open_local_path(&path)
+        .map_err(|err| format!("Failed to open artifact: {err}"))?;
     Ok(true)
 }
