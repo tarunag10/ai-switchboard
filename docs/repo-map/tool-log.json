@@ -2,16 +2,16 @@
   {
     "label": "graphify",
     "command": "uvx --from 'graphifyy[openai]' graphify . --no-cluster",
-    "startedAt": "2026-07-05T12:14:13.308Z",
+    "startedAt": "2026-07-05T12:25:57.627Z",
     "exitCode": 1,
     "signal": null,
     "error": null,
-    "stderr": "[graphify] chunk 2/3 failed: Error code: 404\n[graphify] chunk 1/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] chunk 3/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] WARNING: 3/3 semantic chunk(s) failed — see errors above. Partial results returned.\n[graphify extract] error: all semantic chunks failed for backend 'gemini' (109 uncached files) - see per-chunk errors above. If you see 'requires the X package', run `pip install X` and retry.\n"
+    "stderr": "[graphify] chunk 2/3 failed: Error code: 404\n[graphify] chunk 3/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] chunk 1/3 failed: <html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body>\r\n<center><h1>502 Bad Gateway</h1></center>\r\n<hr><center>cloudflare</center>\r\n</body>\r\n</html>\n[graphify] WARNING: 3/3 semantic chunk(s) failed — see errors above. Partial results returned.\n[graphify extract] error: all semantic chunks failed for backend 'gemini' (109 uncached files) - see per-chunk errors above. If you see 'requires the X package', run `pip install X` and retry.\n"
   },
   {
     "label": "madge-json",
     "command": "npx --yes madge src --extensions ts,tsx --ts-config tsconfig.json --json",
-    "startedAt": "2026-07-05T12:14:43.384Z",
+    "startedAt": "2026-07-05T12:26:27.262Z",
     "exitCode": 0,
     "signal": null,
     "error": null,
@@ -20,7 +20,7 @@
   {
     "label": "dependency-cruiser-json",
     "command": "npx --yes dependency-cruiser src/App.tsx --no-config --exclude '^node_modules' --output-type json",
-    "startedAt": "2026-07-05T12:14:45.441Z",
+    "startedAt": "2026-07-05T12:26:29.537Z",
     "exitCode": 0,
     "signal": null,
     "error": null,
@@ -29,7 +29,7 @@
   {
     "label": "dependency-cruiser-dot",
     "command": "npx --yes dependency-cruiser src/App.tsx --no-config --exclude '^node_modules' --output-type dot",
-    "startedAt": "2026-07-05T12:14:47.086Z",
+    "startedAt": "2026-07-05T12:26:31.190Z",
     "exitCode": 0,
     "signal": null,
     "error": null,
@@ -38,7 +38,7 @@
   {
     "label": "cargo-metadata",
     "command": "cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1",
-    "startedAt": "2026-07-05T12:14:48.448Z",
+    "startedAt": "2026-07-05T12:26:32.696Z",
     "exitCode": 0,
     "signal": null,
     "error": null,
