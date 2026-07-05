@@ -54,7 +54,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use parking_lot::Mutex;
 
-use chrono::{Local, Utc};
+use chrono::Local;
 use serde_json::{json, Value};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
 #[cfg(target_os = "macos")]
@@ -65,7 +65,7 @@ use tauri::{
 use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 
-use crate::models::{DashboardState, TransformationFeedResponse};
+use crate::models::DashboardState;
 use crate::state::AppState;
 
 const SENTRY_DSN: Option<&str> = option_env!("HEADROOM_SENTRY_DSN");
@@ -1345,41 +1345,9 @@ pub(crate) fn classify_upgrade_error(err: &anyhow::Error) -> Option<String> {
     None
 }
 
-#[tauri::command]
-async fn get_transformations_feed(limit: Option<u32>) -> TransformationFeedResponse {
-    let limit = limit.unwrap_or(50).min(100);
-    let settings = message_logging::load_settings();
-    fetch_transformations_feed(limit).unwrap_or_else(|_| TransformationFeedResponse {
-        log_full_messages: false,
-        full_message_logging_expires_at: settings.full_message_logging_expires_at,
-        message_log_retention_hours: settings.message_log_retention_hours,
-        transformations: Vec::new(),
-        proxy_reachable: false,
-    })
-}
-
-/// Observation cadence for background activity milestones. A modest delay is
-/// fine here; foreground Activity still polls separately, and the
-/// memory-export path is intentionally kept away from tight loops.
-const ACTIVITY_OBSERVER_INTERVAL: std::time::Duration = std::time::Duration::from_secs(20);
 /// Rescan cadence for the Claude projects cache. This keeps Optimize mostly
 /// warm without doing filesystem-heavy project scans every minute forever.
 const CLAUDE_PROJECTS_WARM_INTERVAL: std::time::Duration = std::time::Duration::from_secs(75);
-/// Matches the frontend's `ACTIVITY_FEED_WINDOW` in App.tsx so the observer
-/// sees the same transformations the UI will display.
-const ACTIVITY_OBSERVER_LIMIT: u32 = 150;
-
-fn spawn_activity_observer(app: AppHandle) {
-    std::thread::spawn(move || {
-        // Small warm-up so we don't race with runtime bring-up; the first
-        // proxy fetch lands a few seconds after the proxy is actually up.
-        std::thread::sleep(std::time::Duration::from_secs(3));
-        loop {
-            run_activity_observation(&app);
-            std::thread::sleep(ACTIVITY_OBSERVER_INTERVAL);
-        }
-    });
-}
 
 /// Keeps `list_claude_code_projects` cache warm on a background thread so the
 /// IPC path never pays the projects-dir scan (hundreds of `stat` calls plus
@@ -1397,80 +1365,6 @@ fn spawn_claude_projects_warmer(app: AppHandle) {
             std::thread::sleep(CLAUDE_PROJECTS_WARM_INTERVAL);
         }
     });
-}
-
-fn run_activity_observation(app: &AppHandle) {
-    let state: tauri::State<'_, AppState> = app.state();
-
-    let _ = state.maybe_emit_weekly_recap();
-
-    if let Ok(feed) = fetch_transformations_feed(ACTIVITY_OBSERVER_LIMIT) {
-        let _ = state.observe_activity_from_transformations(&feed.transformations);
-    }
-
-    let projects = state.list_claude_code_projects().unwrap_or_default();
-
-    // Memory.db "patterns today" comes from the export JSON's `created_at`
-    // field. Everything else (reminders / learnings today) is derived from
-    // per-project CLAUDE.md + MEMORY.md bullet diffs.
-    let memory_path = headroom_memory_db_path();
-    let patterns_today = if memory_path.exists() {
-        learning_commands::memory_export_cached(&state, &memory_path)
-            .ok()
-            .and_then(|stdout| count_memories_created_today(&stdout, Utc::now()).ok())
-            .unwrap_or(0) as u32
-    } else {
-        0
-    };
-
-    // Collect current bullet sets for every project the user has touched
-    // today, so `observe_learnings_today` has a baseline regardless of which
-    // one ends up being "most active".
-    let project_inputs: Vec<crate::activity_facts::LearningsProjectInput> = projects
-        .iter()
-        .filter(|p| p.sessions_today > 0)
-        .map(|p| {
-            let applied = learning_commands::read_applied_patterns_for_project(&p.project_path);
-            crate::activity_facts::LearningsProjectInput {
-                project_path: p.project_path.clone(),
-                project_display_name: p.display_name.clone(),
-                claude_md_bullets: flatten_applied_bullets(&applied.claude_md),
-                memory_md_bullets: flatten_applied_bullets(&applied.memory_md),
-            }
-        })
-        .collect();
-
-    // Most active = highest sessions_today; ties broken by most recent
-    // last_worked_at so the chip tracks what the user is working on right now.
-    let active_project_path = projects
-        .iter()
-        .filter(|p| p.sessions_today > 0)
-        .max_by(|a, b| {
-            a.sessions_today
-                .cmp(&b.sessions_today)
-                .then(a.last_worked_at.cmp(&b.last_worked_at))
-        })
-        .map(|p| p.project_path.clone());
-
-    let _ = state.observe_learnings_today(
-        patterns_today,
-        project_inputs,
-        active_project_path.as_deref(),
-    );
-
-    // No point nudging the user to run Train if the claude CLI isn't installed —
-    // they'd just hit an install prompt. The Optimize tab surfaces the install
-    // UI in that case; let them fix prereqs first.
-    if state.headroom_learn_prereq_status().claude_cli_available {
-        let _ = state.observe_train_suggestions(&projects);
-    }
-}
-
-fn flatten_applied_bullets(sections: &[crate::models::AppliedSection]) -> Vec<String> {
-    sections
-        .iter()
-        .flat_map(|sec| sec.bullets.iter().cloned())
-        .collect()
 }
 
 #[tauri::command]
@@ -1906,7 +1800,7 @@ pub fn run() {
             spawn_tray_runtime_icon_updater(app.handle().clone());
             spawn_tray_savings_updater(app.handle().clone());
             spawn_proxy_watchdog(app.handle().clone());
-            spawn_activity_observer(app.handle().clone());
+            activity_commands::spawn_activity_observer(app.handle().clone());
             spawn_claude_projects_warmer(app.handle().clone());
             let state: tauri::State<'_, AppState> = app.state();
             let app_handle = app.handle().clone();
@@ -2158,7 +2052,7 @@ pub fn run() {
             learning_commands::get_headroom_learn_status,
             learning_commands::get_headroom_learn_prereq_status,
             learning_commands::start_headroom_learn,
-            get_transformations_feed,
+            activity_commands::get_transformations_feed,
             client_setup_commands::apply_client_setup,
             client_setup_commands::verify_client_setup,
             connector_smoke::run_connector_smoke_test,
@@ -2221,102 +2115,6 @@ pub fn run() {
 
 pub fn headroom_memory_db_path() -> std::path::PathBuf {
     crate::storage::memory_db_path(&crate::storage::app_data_dir())
-}
-
-/// Count entries in a `headroom memory export` JSON payload whose `created_at`
-/// parses into the same UTC day as `now`. The export writes `created_at` as an
-/// RFC3339-ish string without a timezone suffix (`2026-04-21T10:00:00`); we
-/// treat those as UTC, matching the rest of the activity pipeline.
-fn count_memories_created_today(
-    json: &str,
-    now: chrono::DateTime<chrono::Utc>,
-) -> Result<usize, String> {
-    let raw: Vec<serde_json::Value> =
-        serde_json::from_str(json.trim()).map_err(|err| err.to_string())?;
-    let today = now.date_naive();
-    Ok(raw
-        .into_iter()
-        .filter_map(|v| {
-            v.get("created_at")
-                .and_then(|c| c.as_str())
-                .and_then(parse_memory_created_at)
-        })
-        .filter(|dt| dt.date_naive() == today)
-        .count())
-}
-
-fn parse_memory_created_at(raw: &str) -> Option<chrono::DateTime<chrono::Utc>> {
-    if raw.is_empty() {
-        return None;
-    }
-    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(raw) {
-        return Some(dt.with_timezone(&chrono::Utc));
-    }
-    // The export omits timezone info (`2026-04-21T10:00:00`); treat as UTC.
-    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(raw, "%Y-%m-%dT%H:%M:%S") {
-        return Some(chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
-            naive,
-            chrono::Utc,
-        ));
-    }
-    if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(raw, "%Y-%m-%dT%H:%M:%S%.f") {
-        return Some(chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(
-            naive,
-            chrono::Utc,
-        ));
-    }
-    None
-}
-
-fn fetch_transformations_feed(limit: u32) -> Result<TransformationFeedResponse, String> {
-    fetch_transformations_feed_from("http://127.0.0.1:6767", limit)
-}
-
-#[derive(serde::Deserialize)]
-struct RawTransformationsFeedResponse {
-    log_full_messages: bool,
-    transformations: Vec<crate::models::TransformationFeedEvent>,
-}
-
-fn fetch_transformations_feed_from(
-    base_url: &str,
-    limit: u32,
-) -> Result<TransformationFeedResponse, String> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_millis(2000))
-        .build()
-        .map_err(|err| err.to_string())?;
-    let url = format!("{base_url}/transformations/feed?limit={limit}");
-    let response = client.get(url).send().map_err(|err| err.to_string())?;
-    if !response.status().is_success() {
-        return Err(format!("proxy returned HTTP {}", response.status()));
-    }
-    let raw: RawTransformationsFeedResponse = response.json().map_err(|err| err.to_string())?;
-    let settings = message_logging::load_settings();
-    let transformations = raw
-        .transformations
-        .into_iter()
-        .map(redact_transformation_feed_event)
-        .collect();
-    Ok(TransformationFeedResponse {
-        log_full_messages: raw.log_full_messages && settings.full_message_logging,
-        full_message_logging_expires_at: settings.full_message_logging_expires_at,
-        message_log_retention_hours: settings.message_log_retention_hours,
-        transformations,
-        proxy_reachable: true,
-    })
-}
-
-fn redact_transformation_feed_event(
-    mut event: crate::models::TransformationFeedEvent,
-) -> crate::models::TransformationFeedEvent {
-    event.request_messages = event
-        .request_messages
-        .map(crate::message_logging::redact_value);
-    event.compressed_messages = event
-        .compressed_messages
-        .map(crate::message_logging::redact_value);
-    event
 }
 
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
@@ -3538,14 +3336,14 @@ mod tests {
     use super::{
         app_quit_requested_properties, auto_resume_backoff, build_watchdog_give_up_report,
         classify_bootstrap_failure, classify_upgrade_error, compute_tray_window_position,
-        count_memories_created_today, cpu_rate_indicates_burn, debounced_tray_runtime_visual,
-        fetch_transformations_feed_from, is_disk_full_signal, is_endpoint_protection_signal,
-        is_network_download_signal, is_port_conflict_failure, physical_rect_from_rect,
-        readyz_failed_checks_csv, readyz_failure_has_core_unhealthy,
+        cpu_rate_indicates_burn, debounced_tray_runtime_visual, is_disk_full_signal,
+        is_endpoint_protection_signal, is_network_download_signal, is_port_conflict_failure,
+        physical_rect_from_rect, readyz_failed_checks_csv, readyz_failure_has_core_unhealthy,
         readyz_failure_is_upstream_only, watchdog_should_be_up, BootstrapFailureKind,
         MonitorBounds, PhysicalRect, QuitSource, TrayRuntimeVisual,
     };
     use crate::activity_commands::{
+        count_memories_created_today, fetch_transformations_feed_from,
         parse_request_count_from_stats_body, parse_request_counts_by_agent,
     };
     use crate::app_services_commands::{
