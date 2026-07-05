@@ -5385,8 +5385,8 @@ mod tests {
         bootstrap_complete_state, bootstrap_failed_state, lifetime_token_milestones_crossed,
         lifetime_usd_milestones_crossed, log_mtime_advanced, merge_daily_savings,
         merge_hourly_savings, most_recent_monday, parse_headroom_stats_from_json,
-        parse_headroom_stats_history_from_json, AppState, BootValidationOutcome,
-        ClaudeProjectScan, DailySavingsBucket, HeadroomDashboardStats, HeadroomSavingsHistoryPoint,
+        parse_headroom_stats_history_from_json, AppState, BootValidationOutcome, ClaudeProjectScan,
+        DailySavingsBucket, HeadroomDashboardStats, HeadroomSavingsHistoryPoint,
         PersistedSavingsState, SavingsObservation, SavingsTracker,
     };
 

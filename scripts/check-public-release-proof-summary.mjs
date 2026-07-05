@@ -9,6 +9,8 @@ const requiredArtifactKeys = [
   "staticSmokeSummary",
   "signedDmg",
   "updaterFeed",
+  "updaterSignatureAssets",
+  "rebootLevelInstalledProof",
 ];
 
 function fail(message) {
@@ -27,7 +29,10 @@ if (!fs.existsSync(markdownPath)) {
 
 const proof = JSON.parse(fs.readFileSync(proofPath, "utf8"));
 const markdown = fs.readFileSync(markdownPath, "utf8");
-const expectedBlockedProofBlockers = ["updater feed"];
+const expectedBlockedProofBlockers = [
+  "updater feed/signature assets",
+  "reboot-level installed proof",
+];
 
 if (proof.kind !== "mac_ai_switchboard.public_release_proof") {
   fail("kind must be mac_ai_switchboard.public_release_proof");
@@ -63,14 +68,28 @@ for (const localOnlyArtifact of [
 }
 for (const phrase of [
   "Proof ready:",
+  "Evidence Reconciliation",
   "Signed/notarized release asset present:",
-  "Updater feed ready:",
+  "Updater feed/signature ready:",
   "Installed app smoke ready:",
+  "Reboot-level installed proof ready:",
   "Local-Only Evidence Excluded",
 ]) {
   if (!markdown.includes(phrase)) {
     fail(`${markdownPath} must include ${phrase}`);
   }
+}
+if (proof.evidenceReconciliation?.completedToday?.signedNotarizedDmgAsset !== Boolean(proof.githubRelease?.signedDmgAsset?.url && proof.githubRelease?.checksumAsset?.url)) {
+  fail("evidenceReconciliation.completedToday.signedNotarizedDmgAsset must match live DMG/checksum evidence");
+}
+if (proof.evidenceReconciliation?.completedToday?.publicChecksumAsset !== Boolean(proof.githubRelease?.checksumAsset?.url)) {
+  fail("evidenceReconciliation.completedToday.publicChecksumAsset must match checksum evidence");
+}
+if (typeof proof.evidenceReconciliation?.remainingProof?.updaterFeedAndSignatureAssets !== "boolean") {
+  fail("evidenceReconciliation.remainingProof.updaterFeedAndSignatureAssets must be boolean");
+}
+if (typeof proof.evidenceReconciliation?.remainingProof?.rebootLevelInstalledProof !== "boolean") {
+  fail("evidenceReconciliation.remainingProof.rebootLevelInstalledProof must be boolean");
 }
 
 if (proof.proofReady) {
@@ -91,6 +110,13 @@ if (!proof.proofReady) {
   }
   if (!proof.githubRelease?.checksumAsset?.url) {
     fail("blocked proof must still record public checksum asset evidence when available");
+  }
+  if (
+    proof.blockers.includes("updater feed/signature assets") &&
+    proof.githubRelease?.updaterFeedAsset?.url &&
+    proof.githubRelease?.updaterSignatureAssets?.length > 0
+  ) {
+    fail("updater feed/signature blocker cannot be present when live updater feed/signature evidence exists");
   }
   for (const blocker of expectedBlockedProofBlockers) {
     if (!proof.blockers.includes(blocker)) {

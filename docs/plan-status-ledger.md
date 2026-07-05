@@ -1,6 +1,6 @@
 # Plan Status Ledger
 
-Updated: 2026-07-05
+Updated: 2026-07-06
 
 ## AI Switchboard Platform Rebrand
 
@@ -31,19 +31,21 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - Final rebrand release evidence is recorded in `docs/ai-switchboard-rebrand-release-evidence.md`, including track commits, stale-name review scope, and release evidence commands.
 - Public release `v0.0.0` has a verified signed/notarized Apple Silicon DMG and checksum on GitHub. The public DMG was downloaded, checksum-verified, `hdiutil`-verified, installed as `/Applications/AI Switchboard for Mac.app`, accepted by Gatekeeper as Notarized Developer ID, and validated with `xcrun stapler validate`.
 - Public installed-app smoke evidence was refreshed from the installed release app with `npm run smoke:preflight` and `npm run smoke:installed -- --confirm`; local uninstall dry-run proof passes with the longer backend evidence timeout.
+- Public release proof now reconciles completed live release assets separately from remaining proof: `npm run release:proof` records the `v0.0.0` signed/notarized DMG and checksum as completed live evidence while keeping updater feed/signature assets, current checkout static/installed smoke summaries, and reboot-level installed proof blocked until their artifacts exist.
 - Amazon Q Developer CLI now has a managed Switchboard-owned sidecar lifecycle with fixture-home apply, Doctor verify/repair, rollback, and Off cleanup coverage while AWS auth/provider/workspace state stays manual.
+- Continue now has a managed Switchboard-owned sidecar lifecycle with fixture-home apply, Doctor verify/repair, rollback, and Off cleanup coverage while provider config stays manual.
+- Repo Map now has a native macOS/Tauri folder picker and supervised run-status surface with elapsed time, active tool step, and captured stdout/stderr tails after completion.
 - Repo Intelligence graphing moved to `path-graph-v9` with tree-sitter-assisted multiline imports and AST call-reference edges for supported source languages.
 - Caveman, Compact Chinese, Ponytail, and MarkItDown attribution now carry runtime evidence-unit counts into backend counters and frontend session rows.
 
 ## Left
 
-- Native repo folder picker for Repo Map. Current UI accepts a path text field; next slice should add a deliberate macOS/Tauri folder picker dependency or backend picker command.
-- Streaming/background Repo Map job UX. Current progress is step/status based; long runs still need live logs or event polling per tool.
+- Repo Map backend event streaming remains future work. Current UX now supervises long runs with elapsed time, active step, and captured output tails, but does not stream per-tool stdout while the backend command is still running.
 - Deeper task-specific Repo Intelligence graph ranking beyond the current parser-assisted graph edges.
 - More real runtime/session counters for add-ons beyond current event-backed evidence-unit counts.
-- Native/provider write promotion for Cursor, Continue, and Grok/xAI, plus Goose provider routing. Aider, Qwen, and Amazon Q now have managed Switchboard-owned sidecar lifecycles while provider/account state remains manual.
-- Public updater feed proof and updater signature assets. The signed/notarized public DMG, checksum, and installed-app smoke proof are now reconciled.
-- Reboot-level signed installed-app Doctor/Rollback/uninstall proof. Current uninstall proof is non-destructive local dry-run evidence.
+- Native/provider write promotion for Cursor and Grok/xAI, plus Goose provider routing. Aider, Continue, Qwen, and Amazon Q now have managed Switchboard-owned sidecar lifecycles while provider/account state remains manual.
+- Public updater feed proof and updater signature assets. The signed/notarized public DMG and checksum are complete live release evidence, but `latest.json` and updater `.sig` assets are still missing from the public release proof.
+- Reboot-level signed installed-app Doctor/Rollback/uninstall proof. Current uninstall proof is non-destructive local dry-run evidence, and no `dist/reboot-level-installed-proof-summary.md` artifact exists in this checkout yet.
 - Optional gateway/add-on integrations remain guided/gated only: LiteLLM semantic cache lifecycle, self-hosted Langfuse observability, Cloudflare Gateway, and Kong evidence.
 
 ## Latest Commits

@@ -693,6 +693,18 @@
   gap: 8px;
 }
 
+.repo-map-run-status {
+  gap: 10px;
+}
+
+.repo-map-run-status__meta {
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  gap: 10px;
+}
+
 .repo-map-progress__step {
   border: 1px solid var(--border-default);
   border-radius: 999px;
@@ -723,6 +735,25 @@
 
 .repo-map-progress__step--pending {
   opacity: 0.72;
+}
+
+.repo-map-run-output {
+  display: grid;
+  gap: 10px;
+}
+
+.repo-map-run-output pre {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  margin: 6px 0 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .repo-map-tool-list,

@@ -44,6 +44,18 @@ function formatGeneratedAt(value: string): string {
   }).format(date);
 }
 
+function formatElapsedSeconds(seconds: number): string {
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  if (minutes === 0) return `${remainder}s`;
+  return `${minutes}m ${remainder.toString().padStart(2, "0")}s`;
+}
+
+function compactLogTail(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : "No output captured.";
+}
+
 function statusTone(map: RepoMapSnapshot): "healthy" | "warning" {
   return map.tauri.missingRustCommand.length === 0 &&
     map.tauri.missingHandler.length === 0 &&
@@ -65,6 +77,8 @@ export function RepoMapView({
   const [preflightBusy, setPreflightBusy] = useState(false);
   const [pickerBusy, setPickerBusy] = useState(false);
   const [generateBusy, setGenerateBusy] = useState(false);
+  const [generationStartedAt, setGenerationStartedAt] = useState<number | null>(null);
+  const [generationElapsedSeconds, setGenerationElapsedSeconds] = useState(0);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [openNotice, setOpenNotice] = useState<string | null>(null);
@@ -73,6 +87,7 @@ export function RepoMapView({
   );
   const [showToolInstallDetails, setShowToolInstallDetails] = useState(false);
   const [showGraphDiagnostics, setShowGraphDiagnostics] = useState(false);
+  const [showRunOutput, setShowRunOutput] = useState(false);
 
   const tone = statusTone(repoMap);
   const graphifyReady = repoMap.tools.graphify.nodeCount > 0;
@@ -87,6 +102,18 @@ export function RepoMapView({
     void runPreflight(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!generateBusy || generationStartedAt === null) return undefined;
+    const tick = () => {
+      setGenerationElapsedSeconds(
+        Math.max(0, Math.floor((Date.now() - generationStartedAt) / 1000)),
+      );
+    };
+    tick();
+    const interval = window.setInterval(tick, 1000);
+    return () => window.clearInterval(interval);
+  }, [generateBusy, generationStartedAt]);
 
   const upsertHistory = (result: RepoMapGenerationResponse) => {
     const next = upsertRepoMapHistory(history, result);
@@ -132,9 +159,12 @@ export function RepoMapView({
 
   const runGeneration = async () => {
     setGenerateBusy(true);
+    setGenerationStartedAt(Date.now());
+    setGenerationElapsedSeconds(0);
     setGenerateError(null);
     setCopyNotice(null);
     setOpenNotice(null);
+    setShowRunOutput(true);
     try {
       const result = await repoMapTauriAdapter.generate(repoPath.trim() || null);
       setGeneration(result);
@@ -235,6 +265,11 @@ export function RepoMapView({
     preflightTools: preflight?.tools,
     toolRuns: generation?.map.toolRuns ?? repoMap.toolRuns,
   });
+  const activeGenerationStep =
+    generationSteps.find((step) => step.state === "running") ??
+    generationSteps.find((step) => step.state === "warning") ??
+    generationSteps[generationSteps.length - 1];
+  const runOutputId = "repo-map-run-output";
   const missingPreflightTools =
     preflight?.tools.filter((tool) => !tool.available) ?? [];
   const toolInstallDetailsId = "repo-map-tool-install-details";
@@ -372,20 +407,64 @@ export function RepoMapView({
       ) : null}
 
       {generateBusy ? (
-        <div className="repo-map-progress" aria-label="Repo map generation progress">
-          {generationSteps.map((step) => (
-            <span
-              className={
-                step.state === "running"
-                  ? "repo-map-progress__step repo-map-progress__step--active"
-                  : `repo-map-progress__step repo-map-progress__step--${step.state}`
-              }
-              key={step.id}
-              title={step.detail}
+        <article className="repo-map-panel repo-map-run-status" aria-live="polite">
+          <div className="repo-map-panel__header">
+            <ArrowClockwise
+              className="is-spinning"
+              size={18}
+              weight="duotone"
+            />
+            <h2>{activeGenerationStep?.label ?? "Generating"}</h2>
+          </div>
+          <div className="repo-map-run-status__meta">
+            <span>{formatElapsedSeconds(generationElapsedSeconds)}</span>
+            <span>{activeGenerationStep?.detail ?? "Running"}</span>
+          </div>
+          <div className="repo-map-progress" aria-label="Repo map generation progress">
+            {generationSteps.map((step) => (
+              <span
+                className={
+                  step.state === "running"
+                    ? "repo-map-progress__step repo-map-progress__step--active"
+                    : `repo-map-progress__step repo-map-progress__step--${step.state}`
+                }
+                key={step.id}
+                title={step.detail}
+              >
+                {step.label}
+              </span>
+            ))}
+          </div>
+        </article>
+      ) : null}
+
+      {generation ? (
+        <div className="repo-map-disclosure">
+          <button
+            aria-controls={runOutputId}
+            aria-expanded={showRunOutput}
+            className="repo-map-disclosure__button"
+            onClick={() => setShowRunOutput((open) => !open)}
+            type="button"
+          >
+            {showRunOutput ? "Hide run output" : "Run output"}
+          </button>
+          {showRunOutput ? (
+            <div
+              className="repo-map-run-output repo-map-disclosure__panel"
+              id={runOutputId}
+              aria-label="Repo map run output"
             >
-              {step.label}
-            </span>
-          ))}
+              <div>
+                <strong>stdout</strong>
+                <pre>{compactLogTail(generation.stdoutTail)}</pre>
+              </div>
+              <div>
+                <strong>stderr</strong>
+                <pre>{compactLogTail(generation.stderrTail)}</pre>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

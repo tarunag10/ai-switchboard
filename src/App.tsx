@@ -120,11 +120,6 @@ import {
   reportBootstrapFailure,
 } from "./lib/bootstrapSentry";
 import {
-  animatedBootstrapOverallPercent,
-  bootstrapEtaCopy,
-  bootstrapStepProgress,
-} from "./lib/bootstrapProgress";
-import {
   CLAUDE_CODE_INSTALL_DOCS_URL,
   CLAUDE_CODE_INSTALL_CURL_CMD,
   CODEX_CLI_INSTALL_CMD,
@@ -248,6 +243,7 @@ import { ActivityFeed } from "./components/ActivityFeed";
 import { AddonsView } from "./components/AddonsView";
 import { DoctorView } from "./components/DoctorView";
 import { HomeView } from "./components/HomeView";
+import { LauncherInstallStep } from "./components/LauncherInstallStep";
 import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
 import { RepoMapView } from "./components/RepoMapView";
@@ -2314,25 +2310,6 @@ export default function App() {
     window.setTimeout(() => setOnboardingFootprintCopyNotice(null), 2500);
   }
 
-  function animatedOverallPercent(progress: BootstrapProgress) {
-    return animatedBootstrapOverallPercent(progress, {
-      stepBasePercent,
-      stepEtaSeedSeconds,
-      stepStartedAtMs,
-    });
-  }
-
-  function etaCopy(seconds: number, progress: BootstrapProgress) {
-    return bootstrapEtaCopy({
-      currentStepEtaSeconds: seconds,
-      progress,
-      showInstallProgress,
-      stepBasePercent,
-      stepEtaSeedSeconds,
-      stepStartedAtMs,
-    });
-  }
-
   function canConfigureConnectorWithoutDetection(
     connector: ClientConnectorStatus,
   ) {
@@ -3952,201 +3929,25 @@ export default function App() {
       </LauncherShell>
     );
   }
-
-
-
   if (windowLabel === "launcher" && launcherStage === "install") {
-    const stepProgress = Math.round(
-      bootstrapStepProgress(bootstrapProgress, {
-        stepBasePercent,
-        stepEtaSeedSeconds,
-        stepStartedAtMs,
-      }) * 100,
-    );
-    const renderPercent = animatedOverallPercent(bootstrapProgress);
-    const installComplete =
-      bootstrapProgress.complete || dashboard.bootstrapComplete;
-    const statusCopy = showInstallProgress
-      ? `${bootstrapProgress.message} ${
-          bootstrapProgress.running && !bootstrapProgress.complete
-            ? `(${stepProgress}% of this step)`
-            : ""
-        }`.trim()
-      : "";
-
     return (
-      <LauncherShell
-        shellClassName="intro-shell"
-        spinnerClassName="intro-shell__spinner"
-        copyClassName="intro-shell__copy intro-shell__copy--first-run"
+      <LauncherInstallStep
+        appSemver={appSemver}
+        bootstrapping={bootstrapping}
+        bootstrapError={bootstrapError}
+        bootstrapProgress={bootstrapProgress}
+        bootstrapComplete={dashboard.bootstrapComplete}
+        copyFirstRunFootprint={copyFirstRunFootprint}
+        handleBootstrap={handleBootstrap}
+        handleFirstLaunchContinue={handleFirstLaunchContinue}
         onMouseDown={handleLauncherSurfaceMouseDown}
-        version={appSemver}
-        showSpinner={bootstrapping}
-      >
-        <h1>
-          AI Switchboard keeps coding-agent work lean, local, and
-          reversible.
-        </h1>
-        <div className="intro-shell__checklist">
-          <article>
-            <strong>Local-first</strong>
-            <p>
-              Routing, client setup, Doctor repairs, and add-ons run on your
-              Mac. Model calls still go to your normal provider accounts.
-            </p>
-          </article>
-          <article>
-            <strong>Self-contained runtime</strong>
-            <p>
-              Installs Headroom helper tools into app-owned storage without
-              changing your system Python.
-            </p>
-          </article>
-          <article>
-            <strong>Managed local files</strong>
-            <p>
-              May write app storage, shell profile blocks, Claude settings or
-              hooks, Codex provider blocks, and recovery backups with managed
-              markers.
-            </p>
-          </article>
-          <article>
-            <strong>Off means off</strong>
-            <p>
-              Switchboard can remove routing hooks, and Doctor can repair stale
-              local setup if a client or proxy drifts.
-            </p>
-          </article>
-          <article>
-            <strong>Privacy and network</strong>
-            <p>
-              Local-free builds do not require telemetry or accounts. Provider
-              model calls still leave your Mac through Claude, OpenAI, or the
-              provider you choose.
-            </p>
-          </article>
-          <article>
-            <strong>Choose initial mode later</strong>
-            <p>
-              Start in Off, RTK only, Headroom only, or Full optimization after
-              install; managed routing is not required to finish onboarding.
-            </p>
-          </article>
-        </div>
-        {installComplete ? (
-          <>
-            {runtimeStatus?.running !== true ? (
-              <>
-                <p className="launcher-install-notice">
-                  Starting the local Headroom engine for the first time (this
-                  can take 1-2 minutes)…
-                </p>
-                <button
-                  className="primary-button primary-button--large primary-button--install launcher-step1-continue"
-                  disabled
-                  type="button"
-                >
-                  Starting engine…
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="launcher-install-notice">
-                  Local switchboard runtime is ready
-                </p>
-                <button
-                  className="primary-button primary-button--large primary-button--success launcher-step1-continue"
-                  onClick={() => void handleFirstLaunchContinue()}
-                  type="button"
-                >
-                  Continue
-                </button>
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            {!bootstrapping && (
-              <p className="install-pre-notice">
-                Takes a minute or two to install the local engine.
-              </p>
-            )}
-            <button
-              className="primary-button primary-button--large primary-button--install"
-              disabled={bootstrapping}
-              onClick={() => void handleBootstrap()}
-              type="button"
-            >
-              {bootstrapping
-                ? "Installing local engine…"
-                : bootstrapProgress.failed
-                  ? "Try again"
-                  : "Install AI Switchboard for Mac"}
-            </button>
-            {!bootstrapping && (
-              <div className="install-disclosure">
-                <p className="install-disclosure__lead">
-                  Clicking Install will:
-                </p>
-                <ul className="install-disclosure__list">
-                  <li>
-                    Download a self-contained Python runtime (~2 GB) to{" "}
-                    <code>~/.headroom</code>. Your system Python is untouched.
-                  </li>
-                  <li>
-                    Ask before routing supported coding clients through the
-                    local proxy: Claude Code via <code>ANTHROPIC_BASE_URL</code>{" "}
-                    and <code>~/.claude/settings.json</code>; Codex via{" "}
-                    <code>OPENAI_BASE_URL</code> and a managed provider block in{" "}
-                    <code>~/.codex/config.toml</code>.
-                  </li>
-                  <li>
-                    Write timestamped backups before local config edits. Off
-                    mode removes routing hooks; Doctor can re-apply or repair
-                    stale setup.
-                  </li>
-                  <li>
-                    Keep RTK, Ponytail, MarkItDown, and future Repo Intelligence
-                    as optional add-ons you control separately.
-                  </li>
-                </ul>
-                <button
-                  className="secondary-button secondary-button--small install-disclosure__copy"
-                  onClick={() => void copyFirstRunFootprint()}
-                  type="button"
-                >
-                  <Copy aria-hidden="true" weight="bold" />
-                  <span>{onboardingFootprintCopyNotice ?? "Copy footprint"}</span>
-                </button>
-              </div>
-            )}
-          </>
-        )}
-        <div className="install-progress-shell">
-          {showInstallProgress ? (
-            <div className="install-progress" aria-live="polite">
-              <div className="install-progress__bar-track">
-                <div
-                  className="install-progress__bar-fill"
-                  style={{ width: `${renderPercent}%` }}
-                />
-              </div>
-              <div className="install-progress__meta">
-                <p>{statusCopy}</p>
-                <span>
-                  {etaCopy(
-                    bootstrapProgress.currentStepEtaSeconds,
-                    bootstrapProgress,
-                  )}
-                </span>
-              </div>
-              {bootstrapError ? (
-                <p className="install-progress__error">{bootstrapError}</p>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </LauncherShell>
+        onboardingFootprintCopyNotice={onboardingFootprintCopyNotice}
+        runtimeStatus={runtimeStatus}
+        showInstallProgress={showInstallProgress}
+        stepBasePercent={stepBasePercent}
+        stepEtaSeedSeconds={stepEtaSeedSeconds}
+        stepStartedAtMs={stepStartedAtMs}
+      />
     );
   }
 

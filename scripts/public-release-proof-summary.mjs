@@ -5,6 +5,7 @@ import fs from "node:fs";
 const summaryPath = "dist/public-release-proof-summary.md";
 const jsonPath = "dist/public-release-proof-summary.json";
 const releaseReportPath = "dist/release-readiness-report.json";
+const rebootLevelInstalledProofPath = "dist/reboot-level-installed-proof-summary.md";
 const generatedAt = new Date().toISOString();
 const releaseTag = process.env.MAC_AI_SWITCHBOARD_RELEASE_TAG || "v0.0.0";
 const releaseRepo =
@@ -60,19 +61,25 @@ const signedDmgAsset = githubRelease?.assets?.find(
 const checksumAsset = githubRelease?.assets?.find(
   (asset) => signedDmgAsset && asset.name === `${signedDmgAsset.name}.sha256`,
 );
-const updaterFeedAsset = githubRelease?.assets?.find((asset) =>
-  /^latest\.json$|\.json\.sig$|\.tar\.gz\.sig$/.test(asset.name),
-);
+const updaterFeedAsset = githubRelease?.assets?.find((asset) => asset.name === "latest.json");
+const updaterSignatureAssets =
+  githubRelease?.assets?.filter((asset) => /\.sig$/.test(asset.name)) ?? [];
 
 const reportStep = run("npm", ["run", "release:report"]);
 const releaseReport = readJson(releaseReportPath);
 const gate = releaseReport?.shareableDmgGate ?? {};
+const liveSignedDmgReady = Boolean(signedDmgAsset && checksumAsset);
+const updaterFeedProofReady = Boolean(
+  (updaterFeedAsset && updaterSignatureAssets.length > 0) || gate.updaterFeedReady,
+);
+const rebootLevelInstalledProofReady = fs.existsSync(rebootLevelInstalledProofPath);
 const blockers = [
   signedDmgAsset ? null : "signed/notarized DMG",
   checksumAsset ? null : "public checksum",
-  updaterFeedAsset || gate.updaterFeedReady ? null : "updater feed",
+  updaterFeedProofReady ? null : "updater feed/signature assets",
   gate.staticSmokePreflightReady ? null : "static smoke preflight",
   gate.installedAppSmokeReady ? null : "public installed-app smoke",
+  rebootLevelInstalledProofReady ? null : "reboot-level installed proof",
 ].filter(Boolean);
 const proofReady = blockers.length === 0;
 
@@ -108,6 +115,11 @@ const releaseSnapshot = githubRelease
             digest: updaterFeedAsset.digest,
           }
         : null,
+      updaterSignatureAssets: updaterSignatureAssets.map((asset) => ({
+        name: asset.name,
+        url: asset.url,
+        digest: asset.digest,
+      })),
     }
   : null;
 
@@ -128,6 +140,25 @@ const payload = {
       "dist/*.dmg with Developer ID signature and notarization ticket",
     updaterFeed:
       updaterFeedAsset?.url ?? "signed latest.json from configured updater endpoint",
+    updaterSignatureAssets:
+      updaterSignatureAssets.length > 0
+        ? updaterSignatureAssets.map((asset) => asset.url)
+        : "signed updater .sig assets from the release or configured updater endpoint",
+    rebootLevelInstalledProof: rebootLevelInstalledProofPath,
+  },
+  evidenceReconciliation: {
+    completedToday: {
+      signedNotarizedDmgAsset: liveSignedDmgReady,
+      publicChecksumAsset: Boolean(checksumAsset),
+    },
+    remainingProof: {
+      updaterFeedAndSignatureAssets: !updaterFeedProofReady,
+      staticSmokePreflight: !gate.staticSmokePreflightReady,
+      publicInstalledAppSmoke: !gate.installedAppSmokeReady,
+      rebootLevelInstalledProof: !rebootLevelInstalledProofReady,
+    },
+    note:
+      "Live release metadata can prove the signed/notarized DMG asset and checksum separately from updater feed/signature and reboot-level installed proof.",
   },
   localOnlyEvidenceExcluded: [
     "dist/local-installed-smoke-summary.md",
@@ -169,6 +200,20 @@ Generated: ${generatedAt}
 }
 - Public checksum asset: ${checksumAsset ? checksumAsset.name : "missing"}
 - Updater feed asset: ${updaterFeedAsset ? updaterFeedAsset.name : "missing"}
+- Updater signature assets: ${
+  updaterSignatureAssets.length > 0
+    ? updaterSignatureAssets.map((asset) => asset.name).join(", ")
+    : "missing"
+}
+
+## Evidence Reconciliation
+
+- Completed signed/notarized DMG asset proof today: ${liveSignedDmgReady ? "yes" : "no"}
+- Completed public checksum proof today: ${checksumAsset ? "yes" : "no"}
+- Remaining updater feed/signature proof: ${updaterFeedProofReady ? "no" : "yes"}
+- Remaining static smoke preflight proof: ${gate.staticSmokePreflightReady ? "no" : "yes"}
+- Remaining public installed-app smoke proof: ${gate.installedAppSmokeReady ? "no" : "yes"}
+- Remaining reboot-level installed proof: ${rebootLevelInstalledProofReady ? "no" : "yes"}
 
 ## Required Artifacts
 
@@ -177,15 +222,18 @@ Generated: ${generatedAt}
 - Static smoke summary: \`${payload.requiredArtifacts.staticSmokeSummary}\`
 - Signed DMG: \`${payload.requiredArtifacts.signedDmg}\`
 - Updater feed: \`${payload.requiredArtifacts.updaterFeed}\`
+- Updater signature assets: \`${Array.isArray(payload.requiredArtifacts.updaterSignatureAssets) ? payload.requiredArtifacts.updaterSignatureAssets.join(", ") : payload.requiredArtifacts.updaterSignatureAssets}\`
+- Reboot-level installed proof: \`${payload.requiredArtifacts.rebootLevelInstalledProof}\`
 
 ## Gate Snapshot
 
 - Environment clear: ${gate.environmentClear ? "yes" : "no"}
 - Backend validation ready: ${gate.backendValidationReady ? "yes" : "no"}
 - Signed/notarized release asset present: ${signedDmgAsset ? "yes" : "no"}
-- Updater feed ready: ${updaterFeedAsset || gate.updaterFeedReady ? "yes" : "no"}
+- Updater feed/signature ready: ${updaterFeedProofReady ? "yes" : "no"}
 - Static smoke preflight ready: ${gate.staticSmokePreflightReady ? "yes" : "no"}
 - Installed app smoke ready: ${gate.installedAppSmokeReady ? "yes" : "no"}
+- Reboot-level installed proof ready: ${rebootLevelInstalledProofReady ? "yes" : "no"}
 
 ## Local-Only Evidence Excluded
 
