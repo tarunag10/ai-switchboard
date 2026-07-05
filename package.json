@@ -49,6 +49,8 @@
     "smoke:doctor-repair:local:check": "node scripts/check-local-doctor-repair-summary.mjs",
     "smoke:uninstall:local": "node scripts/local-uninstall-validation-summary.mjs",
     "smoke:uninstall:local:check": "node scripts/check-local-uninstall-summary.mjs",
+    "smoke:reboot-level:local": "node scripts/reboot-level-installed-proof-summary.mjs",
+    "smoke:reboot-level:local:check": "node scripts/check-reboot-level-installed-proof-summary.mjs",
     "smoke:repo-intelligence:local": "node scripts/local-repo-intelligence-validation-summary.mjs",
     "smoke:repo-intelligence:local:check": "node scripts/check-local-repo-intelligence-summary.mjs",
     "smoke:repo-memory-mcp:local": "node scripts/local-repo-memory-mcp-validation-summary.mjs",

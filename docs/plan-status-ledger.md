@@ -34,18 +34,18 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - Public release proof now reconciles completed live release assets separately from remaining proof: `npm run release:proof` records the `v0.0.0` signed/notarized DMG and checksum as completed live evidence while keeping updater feed/signature assets, current checkout static/installed smoke summaries, and reboot-level installed proof blocked until their artifacts exist.
 - Amazon Q Developer CLI now has a managed Switchboard-owned sidecar lifecycle with fixture-home apply, Doctor verify/repair, rollback, and Off cleanup coverage while AWS auth/provider/workspace state stays manual.
 - Continue now has a managed Switchboard-owned sidecar lifecycle with fixture-home apply, Doctor verify/repair, rollback, and Off cleanup coverage while provider config stays manual.
-- Repo Map now has a native macOS/Tauri folder picker and supervised run-status surface with elapsed time, active tool step, and captured stdout/stderr tails after completion.
+- Repo Map now has a native macOS/Tauri folder picker, supervised run-status surface, and backend `repo_map_generation_event` streaming for live status/stdout/stderr while map generation is running.
 - Repo Intelligence graphing moved to `path-graph-v9` with tree-sitter-assisted multiline imports, AST call-reference edges, task-term graph affinity, and reverse-dependency hub ranking for context packs.
 - Caveman, Compact Chinese, Ponytail, and MarkItDown attribution now carry runtime evidence-unit counts into backend counters and frontend session rows, with estimated add-on counters separated from inferred counters.
 
 ## Left
 
-- Repo Map backend event streaming remains future work. Current UX now supervises long runs with elapsed time, active step, and captured output tails, but does not stream per-tool stdout while the backend command is still running.
+- Repo Map can still deepen per-tool progress semantics beyond current backend status/stdout/stderr events.
 - Repo Intelligence backend MCP supervision can still deepen beyond current graph-affinity and reverse-dependency ranking.
 - Add-on counters can still move from durable estimated file/host evidence toward true before/after token measurements for Caveman, Ponytail, and MarkItDown sessions.
 - Native/provider write promotion for Cursor and Grok/xAI, plus Goose provider routing. Aider, Continue, Qwen, and Amazon Q now have managed Switchboard-owned sidecar lifecycles while provider/account state remains manual.
 - Public updater feed proof and updater signature assets. The signed/notarized public DMG and checksum are complete live release evidence, but `latest.json` and updater `.sig` assets are still missing from the public release proof.
-- Reboot-level signed installed-app Doctor/Rollback/uninstall proof. Current uninstall proof is non-destructive local dry-run evidence, and no `dist/reboot-level-installed-proof-summary.md` artifact exists in this checkout yet.
+- Reboot-level signed installed-app Doctor/Rollback/uninstall proof. Current uninstall proof is non-destructive local dry-run evidence, and `npm run smoke:reboot-level:local` now records the proof as blocked unless current installed-app trust, supporting Doctor/Rollback/uninstall evidence, and a real post-reboot marker are all present.
 - Optional gateway/add-on integrations remain guided/gated only: LiteLLM semantic cache lifecycle, self-hosted Langfuse observability, Cloudflare Gateway, and Kong evidence.
 
 ## Latest Commits
@@ -67,6 +67,7 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - `npm run smoke:repo-intelligence:local && npm run smoke:repo-intelligence:local:check`
 - `npm run test:desktop`
 - `npm run evidence:local`
+- `npm run smoke:reboot-level:local || true && npm run smoke:reboot-level:local:check`
 - `npm run build`
 - `npm run release:report && npm run release:report:check`
 - `npm run check:branding`

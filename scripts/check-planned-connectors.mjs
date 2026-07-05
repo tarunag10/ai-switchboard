@@ -410,6 +410,59 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
   return errors;
 }
 
+function validateGooseManagedMcpBridgeContract({
+  manifestById,
+  frontendSource,
+  backendSource,
+  docsSource,
+}) {
+  const errors = [];
+  const goose = manifestById.get("goose");
+  if (!goose) {
+    return ["goose manifest missing"];
+  }
+
+  const manifestText = JSON.stringify(goose);
+  for (const snippet of [
+    "Repo Memory MCP bridge",
+    "native provider routing stays manual and unmodified",
+    "Switchboard-owned MCP bridge metadata",
+  ]) {
+    if (!manifestText.includes(snippet)) {
+      errors.push(`goose manifest must keep MCP-only boundary "${snippet}"`);
+    }
+  }
+
+  for (const [label, source] of [
+    ["frontend", frontendSource],
+    ["backend", backendSource],
+    ["docs", docsSource],
+  ]) {
+    for (const snippet of [
+      "Managed MCP",
+      "Repo Memory MCP",
+      "provider routing remains manual",
+    ]) {
+      if (!source.includes(snippet)) {
+        errors.push(`goose ${label} contract missing "${snippet}"`);
+      }
+    }
+  }
+
+  for (const forbidden of [
+    "Goose routing",
+    "local provider and MCP handoff support is enabled",
+  ]) {
+    if (backendSource.includes(forbidden) || frontendSource.includes(forbidden)) {
+      errors.push(
+        `goose MCP bridge contract must not advertise provider routing with "${forbidden}"`,
+      );
+    }
+  }
+
+  return errors;
+}
+
 function validateCliConnectorDossierContract(source, connectorIds) {
   const errors = [];
   const dossierBody = source.match(
@@ -591,6 +644,7 @@ const repoApiSource = readFile(repoApiPath);
 const repoIntelligenceUiSource = readFile(repoIntelligenceUiPath);
 const doctorCopySource = readFile(doctorCopyPath);
 const compatibilityMatrixSource = readFile(compatibilityMatrixPath);
+const docsSource = readFile("docs/connectors.md");
 const frontendConnectors = extractFrontendConnectors(frontendSource);
 const managedFrontendConnectors = extractManagedFrontendConnectors(frontendSource);
 const promotedSidecarIds = extractPromotedSidecarConnectorIds(frontendSource);
@@ -654,6 +708,14 @@ metadataErrors.push(
     connectorManifestById,
     manifestManagedIds,
   ),
+);
+metadataErrors.push(
+  ...validateGooseManagedMcpBridgeContract({
+    manifestById: connectorManifestById,
+    frontendSource,
+    backendSource: backendContractSource,
+    docsSource,
+  }),
 );
 metadataErrors.push(...validateCliConnectorDossierContract(cliSource, allFrontendIds));
 metadataErrors.push(...validateRepoApiConnectorDossierContract(repoApiSource));

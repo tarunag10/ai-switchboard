@@ -1,8 +1,11 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::sync::{Arc, Mutex};
+use std::{io::BufRead, io::BufReader, thread};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use tauri::Emitter;
 
 use crate::external_open;
 
@@ -29,6 +32,15 @@ pub(crate) struct RepoMapGenerationResponse {
     tool_log: Value,
     stdout_tail: String,
     stderr_tail: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RepoMapGenerationEvent {
+    repo_path: String,
+    phase: &'static str,
+    stream: &'static str,
+    message: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -117,6 +129,24 @@ fn probe_repo_map_tool(
     }
 }
 
+fn emit_repo_map_generation_event(
+    app: &tauri::AppHandle,
+    repo_path: &Path,
+    phase: &'static str,
+    stream: &'static str,
+    message: impl Into<String>,
+) {
+    let _ = app.emit(
+        "repo_map_generation_event",
+        RepoMapGenerationEvent {
+            repo_path: repo_path.display().to_string(),
+            phase,
+            stream,
+            message: message.into(),
+        },
+    );
+}
+
 #[tauri::command]
 pub async fn preflight_repo_map(
     repo_path: Option<String>,
@@ -182,6 +212,7 @@ pub async fn preflight_repo_map(
 
 #[tauri::command]
 pub async fn generate_repo_map(
+    app: tauri::AppHandle,
     repo_path: Option<String>,
 ) -> Result<RepoMapGenerationResponse, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -201,7 +232,15 @@ pub async fn generate_repo_map(
             ));
         }
 
-        let output = Command::new("node")
+        emit_repo_map_generation_event(
+            &app,
+            &target_repo,
+            "started",
+            "status",
+            "Starting Repo Map generator.",
+        );
+
+        let mut child = Command::new("node")
             .arg(&script_path)
             .arg("--repo")
             .arg(&target_repo)
@@ -209,11 +248,72 @@ pub async fn generate_repo_map(
             .arg("docs/repo-map")
             .arg("--run-tools")
             .current_dir(&target_repo)
-            .output()
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .map_err(|err| format!("Failed to start repo map generator: {err}"))?;
 
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let stdout_buffer = Arc::new(Mutex::new(String::new()));
+        let stderr_buffer = Arc::new(Mutex::new(String::new()));
+        let mut readers = Vec::new();
+
+        if let Some(stdout) = child.stdout.take() {
+            let app = app.clone();
+            let repo = target_repo.clone();
+            let buffer = Arc::clone(&stdout_buffer);
+            readers.push(thread::spawn(move || {
+                for line in BufReader::new(stdout).lines().map_while(|line| line.ok()) {
+                    if let Ok(mut output) = buffer.lock() {
+                        output.push_str(&line);
+                        output.push('\n');
+                    }
+                    emit_repo_map_generation_event(&app, &repo, "running", "stdout", line);
+                }
+            }));
+        }
+        if let Some(stderr) = child.stderr.take() {
+            let app = app.clone();
+            let repo = target_repo.clone();
+            let buffer = Arc::clone(&stderr_buffer);
+            readers.push(thread::spawn(move || {
+                for line in BufReader::new(stderr).lines().map_while(|line| line.ok()) {
+                    if let Ok(mut output) = buffer.lock() {
+                        output.push_str(&line);
+                        output.push('\n');
+                    }
+                    emit_repo_map_generation_event(&app, &repo, "running", "stderr", line);
+                }
+            }));
+        }
+
+        let status = child
+            .wait()
+            .map_err(|err| format!("Repo map generator wait failed: {err}"))?;
+        for reader in readers {
+            let _ = reader.join();
+        }
+
+        let stdout = stdout_buffer
+            .lock()
+            .map(|output| output.clone())
+            .unwrap_or_default();
+        let stderr = stderr_buffer
+            .lock()
+            .map(|output| output.clone())
+            .unwrap_or_default();
+        if !status.success() {
+            emit_repo_map_generation_event(
+                &app,
+                &target_repo,
+                "failed",
+                "status",
+                format!("Repo Map generator exited with {status}."),
+            );
+            return Err(format!(
+                "Repo map generator exited with {status}. {}",
+                tail(&stderr, 1200)
+            ));
+        }
         let out_dir = target_repo.join("docs/repo-map");
         let readme_path = out_dir.join("README.md");
         let map_path = out_dir.join("repo-map.json");
@@ -235,6 +335,14 @@ pub async fn generate_repo_map(
         let compact_context = std::fs::read_to_string(&compact_context_path).unwrap_or_default();
         let tool_log_text = std::fs::read_to_string(&tool_log_path).unwrap_or_else(|_| "[]".into());
         let tool_log: Value = serde_json::from_str(&tool_log_text).unwrap_or_else(|_| json!([]));
+
+        emit_repo_map_generation_event(
+            &app,
+            &target_repo,
+            "finished",
+            "status",
+            "Repo Map artifacts are ready.",
+        );
 
         Ok(RepoMapGenerationResponse {
             repo_path: target_repo.display().to_string(),

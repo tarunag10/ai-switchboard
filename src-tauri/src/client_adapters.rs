@@ -8,7 +8,6 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 use crate::cli_discovery;
 use crate::client_cleanup;
@@ -29,9 +28,21 @@ use crate::client_paths::{
     discover_managed_shell_targets, headroom_markitdown_hook_path, headroom_rtk_hook_path,
     home_dir, is_profile_file, opencode_config_path, planned_sidecar_routing_path,
     resolve_default_shell_targets, rtk_codex_agents_path, serialize_paths,
-    shell_targets_from_state, windsurf_config_path, zed_config_path, OPENCODE_CONFIG_FILE,
-    SWITCHBOARD_ROUTING_FILE, WINDSURF_CONFIG_FILE, ZED_CONFIG_FILE,
+    shell_targets_from_state, windsurf_config_path, zed_config_path, SWITCHBOARD_ROUTING_FILE,
 };
+use crate::client_provider_configs::{
+    configure_opencode_provider_config, configure_windsurf_provider_config,
+    configure_zed_provider_config, opencode_apply_confirmation_phrase,
+    opencode_config_backup_pattern, opencode_next_provider_config,
+    opencode_provider_config_matches, remove_opencode_provider_config,
+    remove_windsurf_provider_config, remove_zed_provider_config,
+    windsurf_apply_confirmation_phrase, windsurf_config_backup_pattern,
+    windsurf_next_provider_config, windsurf_provider_config_matches, zed_apply_confirmation_phrase,
+    zed_config_backup_pattern, zed_next_provider_config, zed_provider_config_matches,
+    HEADROOM_ANTHROPIC_BASE_URL, HEADROOM_OPENAI_BASE_URL, OPENCODE_HEADROOM_PROVIDER_ID,
+};
+#[cfg(test)]
+use crate::client_provider_configs::{WINDSURF_MARKER_PREFIX, ZED_MARKER_PREFIX};
 use crate::managed_files::{
     backup_if_exists, managed_marker_end, managed_marker_start, marker_block_contains,
     parse_json_object, remove_managed_block, remove_managed_block_with_backup, remove_shell_block,
@@ -47,17 +58,12 @@ use crate::storage::{app_data_dir, config_file};
 
 // Raw proxy base — use provider-specific constants below when configuring client endpoints.
 const HEADROOM_PROXY_URL: &str = "http://127.0.0.1:6767";
-const HEADROOM_ANTHROPIC_BASE_URL: &str = "http://127.0.0.1:6767";
-const HEADROOM_OPENAI_BASE_URL: &str = "http://127.0.0.1:6767/v1";
 const GEMINI_BASE_URL_ENV_KEY: &str = "GOOGLE_GEMINI_BASE_URL";
 const GEMINI_COMPAT_BASE_URL_ENV_KEY: &str = "GEMINI_BASE_URL";
 const GEMINI_API_KEY_ENV_KEY: &str = "GEMINI_API_KEY";
 const GEMINI_HEADROOM_API_KEY_VALUE: &str = "headroom-local";
-const OPENCODE_HEADROOM_PROVIDER_ID: &str = "headroom";
 const CURSOR_CONFIG_FILE: &str = "settings.json";
 const CURSOR_MARKER_PREFIX: &str = "headroom:cursor";
-const WINDSURF_MARKER_PREFIX: &str = "headroom:windsurf";
-const ZED_MARKER_PREFIX: &str = "headroom:zed";
 const MARKER_PREFIX: &str = "headroom";
 pub fn detect_clients() -> Vec<ClientStatus> {
     let setup_state = load_setup_state();
@@ -317,7 +323,13 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
 
     let already_configured = changed_files.is_empty();
     let summary = if let Some(sidecar) = planned_sidecar_spec(client_id) {
-        if already_configured {
+        if sidecar.id == "goose" && already_configured {
+            "Goose Repo Memory MCP bridge metadata was already present; provider routing remains manual."
+                .to_string()
+        } else if sidecar.id == "goose" {
+            "Goose Repo Memory MCP bridge metadata written; provider routing remains manual."
+                .to_string()
+        } else if already_configured {
             format!("{} Switchboard sidecar was already present.", sidecar.name)
         } else {
             format!(
@@ -340,29 +352,39 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
         summary,
         changed_files,
         backup_files,
-        next_steps: vec![
-            "Restart your terminal/editor session to pick up environment changes.".into(),
-            format!(
-                "Run one {} prompt and verify activity appears in Headroom.",
-                match normalized_setup_id(client_id) {
-                    "codex_cli" => "Codex",
-                    "gemini_cli" => "Gemini CLI",
-                    "opencode" => "OpenCode",
-                    "cursor" => "Cursor",
-                    "grok_cli" => "Grok / xAI CLI",
-                    "aider" => "Aider",
-                    "continue" => "Continue",
-                    "goose" => "Goose",
-                    "qwen_code" => "Qwen Code",
-                    "amazon_q" => "Amazon Q Developer CLI",
-                    "windsurf" => "Windsurf",
-                    "zed_ai" => "Zed AI",
-                    _ => "Claude Code",
-                }
-            ),
-        ],
+        next_steps: client_setup_next_steps(client_id),
         verification,
     })
+}
+
+fn client_setup_next_steps(client_id: &str) -> Vec<String> {
+    if normalized_setup_id(client_id) == "goose" {
+        return vec![
+            "Prepare the Repo Memory MCP handoff from Mode Inspector.".into(),
+            "Keep Goose provider and model routing manual until native provider lifecycle coverage is promoted.".into(),
+        ];
+    }
+
+    vec![
+        "Restart your terminal/editor session to pick up environment changes.".into(),
+        format!(
+            "Run one {} prompt and verify activity appears in Headroom.",
+            match normalized_setup_id(client_id) {
+                "codex_cli" => "Codex",
+                "gemini_cli" => "Gemini CLI",
+                "opencode" => "OpenCode",
+                "cursor" => "Cursor",
+                "grok_cli" => "Grok / xAI CLI",
+                "aider" => "Aider",
+                "continue" => "Continue",
+                "qwen_code" => "Qwen Code",
+                "amazon_q" => "Amazon Q Developer CLI",
+                "windsurf" => "Windsurf",
+                "zed_ai" => "Zed AI",
+                _ => "Claude Code",
+            }
+        ),
+    ]
 }
 
 pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
@@ -911,392 +933,17 @@ pub fn list_client_connectors(
     Ok(connectors)
 }
 
-fn opencode_headroom_provider_value() -> Value {
-    serde_json::json!({
-        "npm": "@ai-sdk/openai",
-        "name": "Mac AI Switchboard",
-        "options": {
-            "baseURL": HEADROOM_OPENAI_BASE_URL
-        },
-        "models": {
-            "headroom": {
-                "name": "Headroom Router"
-            }
-        }
-    })
-}
-
-fn short_state_hash(value: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(value.as_bytes());
-    let digest = hasher.finalize();
-    digest
-        .iter()
-        .take(6)
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
-}
-
-fn opencode_apply_confirmation_phrase(current_state: &str) -> String {
-    format!(
-        "Apply {OPENCODE_ROLLBACK_MARKER} to {} after reviewing {}",
-        opencode_config_path().display(),
-        short_state_hash(current_state)
-    )
-}
-
-fn opencode_config_backup_pattern() -> String {
-    let path = opencode_config_path();
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or(OPENCODE_CONFIG_FILE);
-    format!("{}.headroom-backup-*", file_name)
-}
-
-fn opencode_next_provider_config() -> Result<(Value, bool)> {
-    let path = opencode_config_path();
-    let mut root = if path.exists() {
-        let raw = std::fs::read_to_string(&path)
-            .with_context(|| format!("reading {}", path.display()))?;
-        parse_json_object(&raw, &path)?
-    } else {
-        serde_json::Map::new()
-    };
-    let provider_value = root
-        .entry("provider".to_string())
-        .or_insert_with(|| Value::Object(Default::default()));
-    if !provider_value.is_object() {
-        return Err(anyhow!(
-            "{} provider key must be an object before Switchboard can manage OpenCode.",
-            path.display()
-        ));
-    }
-    let provider = provider_value
-        .as_object_mut()
-        .ok_or_else(|| anyhow!("unable to write OpenCode provider settings"))?;
-    let next = opencode_headroom_provider_value();
-    let changed = match provider.get(OPENCODE_HEADROOM_PROVIDER_ID) {
-        Some(existing) if existing == &next => false,
-        _ => {
-            provider.insert(OPENCODE_HEADROOM_PROVIDER_ID.to_string(), next);
-            true
-        }
-    };
-    Ok((Value::Object(root), changed))
-}
-
-fn configure_opencode_provider_config() -> Result<(Vec<String>, Vec<String>)> {
-    let path = opencode_config_path();
-    let (next_config, changed) = opencode_next_provider_config()?;
-    if !changed {
-        return Ok((Vec::new(), Vec::new()));
-    }
-
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("creating {}", parent.display()))?;
-    }
-    let backup = backup_if_exists(&path)?;
-    std::fs::write(
-        &path,
-        serde_json::to_vec_pretty(&next_config).context("serializing OpenCode provider config")?,
-    )
-    .with_context(|| format!("writing {}", path.display()))?;
-
-    Ok((
-        vec![path.display().to_string()],
-        backup
-            .into_iter()
-            .map(|path| path.display().to_string())
-            .collect(),
-    ))
-}
-
-fn opencode_provider_config_matches() -> Result<bool> {
-    let path = opencode_config_path();
-    if !path.exists() {
-        return Ok(false);
-    }
-    let raw =
-        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-    let root = parse_json_object(&raw, &path)?;
-    let provider = root
-        .get("provider")
-        .and_then(|value| value.as_object())
-        .and_then(|providers| providers.get(OPENCODE_HEADROOM_PROVIDER_ID));
-    Ok(provider == Some(&opencode_headroom_provider_value()))
-}
-
-fn remove_opencode_provider_config() -> Result<()> {
-    let path = opencode_config_path();
-    if !path.exists() {
-        return Ok(());
-    }
-    let raw =
-        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-    let mut root = parse_json_object(&raw, &path)?;
-    let Some(provider_obj) = root
-        .get_mut("provider")
-        .and_then(|value| value.as_object_mut())
-    else {
-        return Ok(());
-    };
-    match provider_obj.get(OPENCODE_HEADROOM_PROVIDER_ID) {
-        Some(existing) if existing == &opencode_headroom_provider_value() => {}
-        _ => return Ok(()),
-    }
-    provider_obj.remove(OPENCODE_HEADROOM_PROVIDER_ID);
-    if provider_obj.is_empty() {
-        root.remove("provider");
-    }
-    let _ = backup_if_exists(&path)?;
-    std::fs::write(
-        &path,
-        serde_json::to_vec_pretty(&Value::Object(root))
-            .context("serializing OpenCode provider cleanup")?,
-    )
-    .with_context(|| format!("writing {}", path.display()))?;
-    Ok(())
-}
-
-fn windsurf_config_backup_pattern() -> String {
-    let path = windsurf_config_path();
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or(WINDSURF_CONFIG_FILE);
-    format!("{}.headroom-backup-*", file_name)
-}
-
-fn windsurf_apply_confirmation_phrase(current_state: &str) -> String {
-    format!(
-        "Apply {WINDSURF_ROLLBACK_MARKER} to {} after reviewing {}",
-        windsurf_config_path().display(),
-        short_state_hash(current_state)
-    )
-}
-
-fn windsurf_next_provider_config() -> Result<(Value, bool)> {
-    let path = windsurf_config_path();
-    let mut root = if path.exists() {
-        let raw = std::fs::read_to_string(&path)
-            .with_context(|| format!("reading {}", path.display()))?;
-        parse_json_object(&raw, &path)?
-    } else {
-        serde_json::Map::new()
-    };
-
-    let mut changed = false;
-    changed |= set_json_string(
-        &mut root,
-        &format!("// >>> {WINDSURF_MARKER_PREFIX} >>>"),
-        "Managed by Mac AI Switchboard for Windsurf.",
-    );
-    changed |= set_json_string(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
-    changed |= set_json_string(
-        &mut root,
-        &format!("// <<< {WINDSURF_MARKER_PREFIX} <<<"),
-        "End of managed block.",
-    );
-
-    Ok((Value::Object(root), changed))
-}
-
-fn configure_windsurf_provider_config() -> Result<(Vec<String>, Vec<String>)> {
-    let path = windsurf_config_path();
-    let (next_config, changed) = windsurf_next_provider_config()?;
-    if !changed {
-        return Ok((Vec::new(), Vec::new()));
-    }
-
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("creating {}", parent.display()))?;
-    }
-    let backup = backup_if_exists(&path)?;
-    std::fs::write(
-        &path,
-        serde_json::to_vec_pretty(&next_config).context("serializing Windsurf provider config")?,
-    )
-    .with_context(|| format!("writing {}", path.display()))?;
-
-    Ok((
-        vec![path.display().to_string()],
-        backup
-            .into_iter()
-            .map(|path| path.display().to_string())
-            .collect(),
-    ))
-}
-
-fn windsurf_provider_config_matches() -> Result<bool> {
-    let path = windsurf_config_path();
-    if !path.exists() {
-        return Ok(false);
-    }
-    let raw =
-        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-    let root = parse_json_object(&raw, &path)?;
-    let start_marker = format!("// >>> {WINDSURF_MARKER_PREFIX} >>>");
-    let end_marker = format!("// <<< {WINDSURF_MARKER_PREFIX} <<<");
-    Ok(root.get(&start_marker).is_some()
-        && root.get(&end_marker).is_some()
-        && root.get("anthropic.baseUrl").and_then(|v| v.as_str())
-            == Some(HEADROOM_ANTHROPIC_BASE_URL))
-}
-
-fn remove_windsurf_provider_config() -> Result<Vec<String>> {
-    let path = windsurf_config_path();
-    if !path.exists() {
-        return Ok(Vec::new());
-    }
-    let raw =
-        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-    let mut root = parse_json_object(&raw, &path)?;
-
-    let start_marker = format!("// >>> {WINDSURF_MARKER_PREFIX} >>>");
-    let end_marker = format!("// <<< {WINDSURF_MARKER_PREFIX} <<<");
-    let mut changed = false;
-    changed |= root.remove(&start_marker).is_some();
-    changed |=
-        remove_json_key_if_matches(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
-    changed |= root.remove(&end_marker).is_some();
-
-    if !changed {
-        return Ok(Vec::new());
-    }
-
-    let _ = backup_if_exists(&path)?;
-    std::fs::write(
-        &path,
-        serde_json::to_vec_pretty(&Value::Object(root))
-            .context("serializing Windsurf config for connector removal")?,
-    )
-    .with_context(|| format!("writing {}", path.display()))?;
-
-    Ok(vec![path.display().to_string()])
-}
-
-fn zed_config_backup_pattern() -> String {
-    let path = zed_config_path();
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or(ZED_CONFIG_FILE);
-    format!("{}.headroom-backup-*", file_name)
-}
-
-fn zed_apply_confirmation_phrase(current_state: &str) -> String {
-    format!(
-        "Apply {ZED_ROLLBACK_MARKER} to {} after reviewing {}",
-        zed_config_path().display(),
-        short_state_hash(current_state)
-    )
-}
-
-fn zed_next_provider_config() -> Result<(Value, bool)> {
-    let path = zed_config_path();
-    let mut root = if path.exists() {
-        let raw = std::fs::read_to_string(&path)
-            .with_context(|| format!("reading {}", path.display()))?;
-        parse_json_object(&raw, &path)?
-    } else {
-        serde_json::Map::new()
-    };
-
-    let mut changed = false;
-    changed |= set_json_string(
-        &mut root,
-        &format!("// >>> {ZED_MARKER_PREFIX} >>>"),
-        "Managed by Mac AI Switchboard for Zed.",
-    );
-    changed |= set_json_string(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
-    changed |= set_json_string(
-        &mut root,
-        &format!("// <<< {ZED_MARKER_PREFIX} <<<"),
-        "End of managed block.",
-    );
-
-    Ok((Value::Object(root), changed))
-}
-
-fn configure_zed_provider_config() -> Result<(Vec<String>, Vec<String>)> {
-    let path = zed_config_path();
-    let (next_config, changed) = zed_next_provider_config()?;
-    if !changed {
-        return Ok((Vec::new(), Vec::new()));
-    }
-
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("creating {}", parent.display()))?;
-    }
-    let backup = backup_if_exists(&path)?;
-    std::fs::write(
-        &path,
-        serde_json::to_vec_pretty(&next_config).context("serializing Zed provider config")?,
-    )
-    .with_context(|| format!("writing {}", path.display()))?;
-
-    Ok((
-        vec![path.display().to_string()],
-        backup
-            .into_iter()
-            .map(|path| path.display().to_string())
-            .collect(),
-    ))
-}
-
-fn zed_provider_config_matches() -> Result<bool> {
-    let path = zed_config_path();
-    if !path.exists() {
-        return Ok(false);
-    }
-    let raw =
-        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-    let root = parse_json_object(&raw, &path)?;
-    let start_marker = format!("// >>> {ZED_MARKER_PREFIX} >>>");
-    let end_marker = format!("// <<< {ZED_MARKER_PREFIX} <<<");
-    Ok(root.get(&start_marker).is_some()
-        && root.get(&end_marker).is_some()
-        && root.get("anthropic.baseUrl").and_then(|v| v.as_str())
-            == Some(HEADROOM_ANTHROPIC_BASE_URL))
-}
-
-fn remove_zed_provider_config() -> Result<Vec<String>> {
-    let path = zed_config_path();
-    if !path.exists() {
-        return Ok(Vec::new());
-    }
-    let raw =
-        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-    let mut root = parse_json_object(&raw, &path)?;
-
-    let start_marker = format!("// >>> {ZED_MARKER_PREFIX} >>>");
-    let end_marker = format!("// <<< {ZED_MARKER_PREFIX} <<<");
-    let mut changed = false;
-    changed |= root.remove(&start_marker).is_some();
-    changed |=
-        remove_json_key_if_matches(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
-    changed |= root.remove(&end_marker).is_some();
-
-    if !changed {
-        return Ok(Vec::new());
-    }
-
-    let _ = backup_if_exists(&path)?;
-    std::fs::write(
-        &path,
-        serde_json::to_vec_pretty(&Value::Object(root))
-            .context("serializing Zed config for connector removal")?,
-    )
-    .with_context(|| format!("writing {}", path.display()))?;
-
-    Ok(vec![path.display().to_string()])
-}
-
 fn build_planned_switchboard_sidecar_body(spec: &PlannedSidecarSpec) -> String {
+    if spec.id == "goose" {
+        return format!(
+            "Managed by Mac AI Switchboard.\n\
+             Purpose: reversible Goose Repo Memory MCP bridge marker; provider routing remains manual and gated.\n\
+             Reference proxy base: {HEADROOM_OPENAI_BASE_URL}\n\
+             Boundary: this file does not mutate account state, secrets, models, or Goose provider config.\n\
+             Next promotion gate: add documented Goose provider config edits only after dry-run, backup, verify, rollback, and Off cleanup pass."
+        );
+    }
+
     format!(
         "Managed by Mac AI Switchboard.\n\
          Purpose: reversible {} routing-intent sidecar while active provider config support remains gated.\n\
@@ -1328,10 +975,16 @@ fn planned_switchboard_sidecar_matches(client_id: &str) -> Result<bool> {
 
     let content =
         std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
+    let expected_purpose = if spec.id == "goose" {
+        "reversible Goose Repo Memory MCP bridge marker".to_string()
+    } else {
+        format!("reversible {} routing-intent sidecar", spec.name)
+    };
+
     Ok(content.contains(&format!("# >>> headroom:{} >>>", spec.id))
         && content.contains(&format!("# <<< headroom:{} <<<", spec.id))
         && content.contains(HEADROOM_OPENAI_BASE_URL)
-        && content.contains(&format!("reversible {} routing-intent sidecar", spec.name)))
+        && content.contains(&expected_purpose))
 }
 
 pub fn disable_client_setup(client_id: &str) -> Result<()> {
@@ -2830,7 +2483,7 @@ fn sidecar_rollback_target(record_id: &str) -> Option<SidecarRollbackTarget> {
         "goose-routing" => Some(SidecarRollbackTarget {
             record_id: "goose-routing",
             client_id: "goose",
-            owner: "Goose routing",
+            owner: "Goose MCP bridge",
             marker: "headroom:goose",
         }),
         "qwen-code-routing" => Some(SidecarRollbackTarget {
@@ -3047,7 +2700,10 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
                 marker: OPENCODE_ROLLBACK_MARKER.to_string(),
                 backup_path: opencode_config_backup_pattern(),
                 status: ManagedRollbackExecutionStatus::Ready,
-                confirmation_phrase: opencode_apply_confirmation_phrase(&current_state),
+                confirmation_phrase: opencode_apply_confirmation_phrase(
+                    OPENCODE_ROLLBACK_MARKER,
+                    &current_state,
+                ),
                 current_state,
                 proposed_state,
                 rollback_preview:
@@ -3080,7 +2736,10 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
                 marker: ZED_ROLLBACK_MARKER.to_string(),
                 backup_path: zed_config_backup_pattern(),
                 status: ManagedRollbackExecutionStatus::Ready,
-                confirmation_phrase: zed_apply_confirmation_phrase(&current_state),
+                confirmation_phrase: zed_apply_confirmation_phrase(
+                    ZED_ROLLBACK_MARKER,
+                    &current_state,
+                ),
                 current_state,
                 proposed_state,
                 rollback_preview:
@@ -3106,7 +2765,8 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
             let (next_config, changed) = windsurf_next_provider_config()?;
             let proposed_state = serde_json::to_string_pretty(&next_config)
                 .context("serializing Windsurf provider preview")?;
-            let confirmation = windsurf_apply_confirmation_phrase(&current_state);
+            let confirmation =
+                windsurf_apply_confirmation_phrase(WINDSURF_ROLLBACK_MARKER, &current_state);
             Ok(ManagedConfigApplyPreview {
                 record_id: WINDSURF_ROLLBACK_RECORD_ID.to_string(),
                 owner: WINDSURF_ROLLBACK_OWNER.to_string(),
@@ -4996,6 +4656,8 @@ mod tests {
         assert_eq!(
             managed_ids,
             BTreeSet::from([
+                "aider",
+                "continue",
                 "claude_code",
                 "codex",
                 "gemini_cli",
@@ -7102,6 +6764,75 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         );
         let verification =
             super::verify_client_setup("continue").expect("verify disabled continue setup");
+        assert!(!verification.verified);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn goose_mcp_bridge_lifecycle_keeps_provider_routing_manual() {
+        let home = TestHome::new();
+        let sidecar = home
+            .path()
+            .join(".config")
+            .join("goose")
+            .join(SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(sidecar.parent().unwrap()).expect("create goose dir");
+        fs::write(&sidecar, "# goose user note\nkeep this\n").expect("seed sidecar");
+
+        let result = super::apply_client_setup("goose").expect("apply goose setup");
+        assert!(result.applied);
+        assert!(!result.already_configured);
+        assert_eq!(result.changed_files, vec![sidecar.display().to_string()]);
+        assert_eq!(result.backup_files.len(), 1);
+        assert!(result.verification.verified);
+        assert!(result.summary.contains("Repo Memory MCP bridge"));
+        assert!(result.summary.contains("provider routing remains manual"));
+        assert!(result
+            .next_steps
+            .iter()
+            .any(|step| step.contains("provider and model routing manual")));
+
+        let content = fs::read_to_string(&sidecar).expect("read goose sidecar");
+        assert!(content.contains("# goose user note\nkeep this"));
+        assert!(content.contains("# >>> headroom:goose >>>"));
+        assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
+        assert!(content.contains("Repo Memory MCP bridge marker"));
+        assert!(content.contains("provider routing remains manual and gated"));
+        assert!(content
+            .contains("does not mutate account state, secrets, models, or Goose provider config"));
+
+        let preview =
+            super::preview_managed_rollback("goose-routing").expect("preview goose rollback");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.marker_present);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Restore headroom:goose for Goose MCP bridge"
+        );
+
+        let rollback = super::execute_managed_rollback(
+            "goose-routing",
+            "",
+            "Restore headroom:goose for Goose MCP bridge",
+        )
+        .expect("execute goose rollback");
+        assert_eq!(
+            rollback.restored_from,
+            "Switchboard-owned goose sidecar block removed."
+        );
+        assert_eq!(
+            fs::read_to_string(&sidecar).expect("read rolled back goose sidecar"),
+            "# goose user note\nkeep this\n"
+        );
+
+        super::apply_client_setup("goose").expect("reapply goose setup");
+        super::disable_client_setup("goose").expect("disable goose setup");
+        assert_eq!(
+            fs::read_to_string(&sidecar).expect("read disabled goose sidecar"),
+            "# goose user note\nkeep this\n"
+        );
+        let verification =
+            super::verify_client_setup("goose").expect("verify disabled goose setup");
         assert!(!verification.verified);
     }
 

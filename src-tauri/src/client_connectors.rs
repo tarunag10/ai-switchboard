@@ -260,7 +260,7 @@ pub(crate) const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         name: "Goose",
         category: "agent",
         setup_phase: "managed mcp",
-        setup_hint: "Managed MCP bridge only. Repo Memory MCP handoff is read-only; provider routing remains manual until reversible setup coverage.",
+        setup_hint: "Managed MCP bridge only. Repo Memory MCP handoff is read-only; native provider routing remains manual until fixture-home apply/verify/rollback/Doctor/Off coverage and provider semantics are safe.",
         detection_sources: &["PATH: goose", "~/.config/goose"],
         config_locations: &[
             "~/Library/Application Support/Headroom/config/repo-memory-mcp.json",
@@ -269,7 +269,7 @@ pub(crate) const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         automation_gates: &[
             "Install only the app-managed Repo Memory MCP descriptor after Goose detection.",
             "Verify the read-only MCP smoke contract before advertising Goose handoff readiness.",
-            "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata; provider routing stays manual.",
+            "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata; native provider routing stays manual and unmodified.",
         ],
         manual_workflow: &[
             "Confirm Goose is installed.",

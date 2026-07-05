@@ -91,6 +91,19 @@ if (typeof proof.evidenceReconciliation?.remainingProof?.updaterFeedAndSignature
 if (typeof proof.evidenceReconciliation?.remainingProof?.rebootLevelInstalledProof !== "boolean") {
   fail("evidenceReconciliation.remainingProof.rebootLevelInstalledProof must be boolean");
 }
+if (
+  proof.rebootLevelInstalledProof &&
+  proof.rebootLevelInstalledProof.proofReady !== true &&
+  !proof.blockers.includes("reboot-level installed proof")
+) {
+  fail("blocked reboot-level proof artifact must not satisfy public release proof");
+}
+if (
+  proof.rebootLevelInstalledProof?.proofReady === true &&
+  proof.rebootLevelInstalledProof?.releaseGateEvidence !== true
+) {
+  fail("ready reboot-level proof must carry releaseGateEvidence true");
+}
 
 if (proof.proofReady) {
   if (proof.blockers.length !== 0) {

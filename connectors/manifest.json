@@ -86,7 +86,7 @@
     "support_status": "managed",
     "detection": { "binaries": ["goose"], "paths": ["~/.config/goose"] },
     "config": { "locations": ["~/Library/Application Support/Headroom/config/repo-memory-mcp.json", "~/.config/goose"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
-    "automation_gates": ["Detect Goose and install only the app-managed Repo Memory MCP bridge; provider routing stays manual.", "Back up and verify the managed MCP descriptor before Goose handoff.", "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata, never Goose provider credentials."],
+    "automation_gates": ["Detect Goose and install only the app-managed Repo Memory MCP bridge; native provider routing stays manual and unmodified.", "Back up and verify the managed MCP descriptor before Goose handoff.", "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata, never Goose provider credentials."],
     "manual_workflow": ["Prepare Repo Memory MCP from Mode Inspector for Goose context handoff.", "Keep Goose provider and model routing manual.", "Use Doctor to verify, repair, rollback, or clean up only the managed MCP bridge."]
   },
   {

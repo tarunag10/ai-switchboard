@@ -6,6 +6,7 @@ const summaryPath = "dist/public-release-proof-summary.md";
 const jsonPath = "dist/public-release-proof-summary.json";
 const releaseReportPath = "dist/release-readiness-report.json";
 const rebootLevelInstalledProofPath = "dist/reboot-level-installed-proof-summary.md";
+const rebootLevelInstalledProofJsonPath = "dist/reboot-level-installed-proof-summary.json";
 const generatedAt = new Date().toISOString();
 const releaseTag = process.env.MAC_AI_SWITCHBOARD_RELEASE_TAG || "v0.0.0";
 const releaseRepo =
@@ -67,12 +68,17 @@ const updaterSignatureAssets =
 
 const reportStep = run("npm", ["run", "release:report"]);
 const releaseReport = readJson(releaseReportPath);
+const rebootLevelInstalledProof = readJson(rebootLevelInstalledProofJsonPath);
 const gate = releaseReport?.shareableDmgGate ?? {};
 const liveSignedDmgReady = Boolean(signedDmgAsset && checksumAsset);
 const updaterFeedProofReady = Boolean(
   (updaterFeedAsset && updaterSignatureAssets.length > 0) || gate.updaterFeedReady,
 );
-const rebootLevelInstalledProofReady = fs.existsSync(rebootLevelInstalledProofPath);
+const rebootLevelInstalledProofReady =
+  fs.existsSync(rebootLevelInstalledProofPath) &&
+  rebootLevelInstalledProof?.kind === "mac_ai_switchboard.reboot_level_installed_proof" &&
+  rebootLevelInstalledProof?.proofReady === true &&
+  rebootLevelInstalledProof?.releaseGateEvidence === true;
 const blockers = [
   signedDmgAsset ? null : "signed/notarized DMG",
   checksumAsset ? null : "public checksum",
@@ -146,6 +152,15 @@ const payload = {
         : "signed updater .sig assets from the release or configured updater endpoint",
     rebootLevelInstalledProof: rebootLevelInstalledProofPath,
   },
+  rebootLevelInstalledProof: rebootLevelInstalledProof
+    ? {
+        path: rebootLevelInstalledProofJsonPath,
+        proofReady: rebootLevelInstalledProof.proofReady === true,
+        releaseGateEvidence: rebootLevelInstalledProof.releaseGateEvidence === true,
+        blockers: rebootLevelInstalledProof.blockers ?? [],
+        rebootMarker: rebootLevelInstalledProof.rebootMarker ?? null,
+      }
+    : null,
   evidenceReconciliation: {
     completedToday: {
       signedNotarizedDmgAsset: liveSignedDmgReady,

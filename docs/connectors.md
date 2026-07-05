@@ -26,7 +26,7 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | Windsurf | Managed | Yes | No | Yes | Managed editor settings routing with backup, Doctor verification, rollback, and Off cleanup. |
 | Aider | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; provider config remains manual. |
 | Continue | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; provider config remains manual. |
-| Goose | Managed MCP | Yes | No | Yes | Read-only Repo Memory MCP bridge; provider routing remains manual. |
+| Goose | Managed MCP | MCP only | No | Yes | Read-only Repo Memory MCP bridge; native provider routing remains manual and unmodified. |
 | Qwen Code | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; account/model setup remains manual. |
 | Amazon Q Developer CLI | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; AWS auth/provider/workspace state remains manual. |
 | Zed AI | Managed | Yes | No | Yes | Managed assistant settings routing with backup, Doctor verification, rollback, and Off cleanup. |

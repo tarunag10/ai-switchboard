@@ -9,6 +9,7 @@ import {
   MagnifyingGlass,
   WarningCircle,
 } from "@phosphor-icons/react";
+import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useMemo, useState } from "react";
 import repoMapSnapshot from "../../docs/repo-map/repo-map.json";
@@ -29,6 +30,13 @@ import { buildRepoMapProgressSteps } from "../lib/repoMapProgress";
 interface RepoMapViewProps {
   onOpenRepoIntelligence: () => void;
   onOpenDoctor: () => void;
+}
+
+interface RepoMapGenerationEvent {
+  repoPath: string;
+  phase: "started" | "running" | "finished" | "failed";
+  stream: "status" | "stdout" | "stderr";
+  message: string;
 }
 
 function formatNumber(value: number): string {
@@ -79,6 +87,9 @@ export function RepoMapView({
   const [generateBusy, setGenerateBusy] = useState(false);
   const [generationStartedAt, setGenerationStartedAt] = useState<number | null>(null);
   const [generationElapsedSeconds, setGenerationElapsedSeconds] = useState(0);
+  const [liveGenerationEvents, setLiveGenerationEvents] = useState<
+    RepoMapGenerationEvent[]
+  >([]);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [openNotice, setOpenNotice] = useState<string | null>(null);
@@ -114,6 +125,35 @@ export function RepoMapView({
     const interval = window.setInterval(tick, 1000);
     return () => window.clearInterval(interval);
   }, [generateBusy, generationStartedAt]);
+
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen<RepoMapGenerationEvent>(
+      "repo_map_generation_event",
+      (event) => {
+        if (disposed) return;
+        const payload = event.payload;
+        if (payload.repoPath !== repoPath && payload.repoPath !== generation?.repoPath) {
+          return;
+        }
+        setLiveGenerationEvents((events) => [...events, payload].slice(-80));
+        if (payload.phase === "started" || payload.phase === "running") {
+          setShowRunOutput(true);
+        }
+      },
+    ).then((cleanup) => {
+      if (disposed) {
+        cleanup();
+      } else {
+        unlisten = cleanup;
+      }
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [generation?.repoPath, repoPath]);
 
   const upsertHistory = (result: RepoMapGenerationResponse) => {
     const next = upsertRepoMapHistory(history, result);
@@ -161,6 +201,7 @@ export function RepoMapView({
     setGenerateBusy(true);
     setGenerationStartedAt(Date.now());
     setGenerationElapsedSeconds(0);
+    setLiveGenerationEvents([]);
     setGenerateError(null);
     setCopyNotice(null);
     setOpenNotice(null);
@@ -270,6 +311,17 @@ export function RepoMapView({
     generationSteps.find((step) => step.state === "warning") ??
     generationSteps[generationSteps.length - 1];
   const runOutputId = "repo-map-run-output";
+  const liveStdout = liveGenerationEvents
+    .filter((event) => event.stream === "stdout")
+    .map((event) => event.message)
+    .join("\n");
+  const liveStderr = liveGenerationEvents
+    .filter((event) => event.stream === "stderr")
+    .map((event) => event.message)
+    .join("\n");
+  const liveStatus = liveGenerationEvents
+    .filter((event) => event.stream === "status")
+    .slice(-4);
   const missingPreflightTools =
     preflight?.tools.filter((tool) => !tool.available) ?? [];
   const toolInstallDetailsId = "repo-map-tool-install-details";
@@ -438,7 +490,7 @@ export function RepoMapView({
         </article>
       ) : null}
 
-      {generation ? (
+      {generation || liveGenerationEvents.length > 0 ? (
         <div className="repo-map-disclosure">
           <button
             aria-controls={runOutputId}
@@ -455,13 +507,34 @@ export function RepoMapView({
               id={runOutputId}
               aria-label="Repo map run output"
             >
+              {liveStatus.length > 0 ? (
+                <div className="repo-map-run-output__status">
+                  <strong>status</strong>
+                  <ul>
+                    {liveStatus.map((event, index) => (
+                      <li key={`${event.phase}-${index}`}>
+                        <span>{event.phase}</span>
+                        <small>{event.message}</small>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <div>
-                <strong>stdout</strong>
-                <pre>{compactLogTail(generation.stdoutTail)}</pre>
+                <strong>{generateBusy ? "live stdout" : "stdout"}</strong>
+                <pre>
+                  {compactLogTail(
+                    generateBusy ? liveStdout : generation?.stdoutTail ?? liveStdout,
+                  )}
+                </pre>
               </div>
               <div>
-                <strong>stderr</strong>
-                <pre>{compactLogTail(generation.stderrTail)}</pre>
+                <strong>{generateBusy ? "live stderr" : "stderr"}</strong>
+                <pre>
+                  {compactLogTail(
+                    generateBusy ? liveStderr : generation?.stderrTail ?? liveStderr,
+                  )}
+                </pre>
               </div>
             </div>
           ) : null}

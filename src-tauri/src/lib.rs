@@ -16,6 +16,7 @@ mod client_connector_status;
 mod client_connectors;
 mod client_footprint;
 mod client_paths;
+mod client_provider_configs;
 mod client_setup_commands;
 mod codex_threads;
 mod connector_smoke;

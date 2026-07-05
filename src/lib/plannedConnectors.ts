@@ -643,7 +643,7 @@ export const plannedConnectors: PlannedConnector[] = [
     safeToday:
       "Prepare the app-managed read-only Repo Memory MCP bridge for Goose while provider and model routing remain manual.",
     firstAutomation:
-      "Install and smoke-check the app-managed Repo Memory MCP descriptor before any Goose provider routing work.",
+      "Install and smoke-check only the app-managed Repo Memory MCP descriptor; Goose provider routing waits for separate fixture-home lifecycle proof.",
     capabilityRows: [
       {
         label: "Detection",
@@ -671,7 +671,7 @@ export const plannedConnectors: PlannedConnector[] = [
     automationGates: [
       "Install only the app-managed Repo Memory MCP descriptor after Goose detection.",
       "Verify the read-only MCP smoke contract before advertising Goose handoff readiness.",
-      "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata; provider routing stays manual.",
+      "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata; native provider routing stays manual and unmodified.",
     ],
     manualWorkflow: [
       "Confirm Goose is installed.",
@@ -821,6 +821,19 @@ export const pendingPlannedConnectors: PlannedConnector[] =
       connector.statusLabel === "Gated" &&
       !hasManagedNativeConfigAutomation(connector) &&
       !managedMcpBridgeConnectorIds.has(connector.id),
+  );
+
+export const doctorPreviewConnectorIds = new Set([
+  "cursor",
+  "grok_cli",
+  "aider",
+  "continue",
+  "amazon_q",
+]);
+
+export const doctorPreviewConnectors: PlannedConnector[] =
+  plannedConnectors.filter((connector) =>
+    doctorPreviewConnectorIds.has(connector.id),
   );
 
 const plannedConnectorSafetyDossiers: Record<
@@ -1213,7 +1226,7 @@ export function getPlannedConnectorSetupGuide(
         label: "Check Goose",
         command: "command -v goose && goose --help",
         notes:
-          "Confirms Goose is present before local provider and MCP handoff support is enabled.",
+          "Confirms Goose is present before the read-only Repo Memory MCP bridge is prepared; provider routing remains manual.",
       };
     case "qwen_code":
       return {

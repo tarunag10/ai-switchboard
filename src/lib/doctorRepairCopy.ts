@@ -9,6 +9,7 @@ import {
   getPlannedConnectorReadinessBadges,
   getPlannedConnectorReadinessContract,
   getPlannedConnectorSafetyDossier,
+  doctorPreviewConnectors,
   pendingPlannedConnectors,
 } from "./plannedConnectors";
 import type { DoctorIssue, DoctorReport } from "./types";
@@ -416,7 +417,7 @@ export function formatPlannedConnectorDoctorDossiers(): string {
 }
 
 export function plannedConnectorDoctorPreviewRows(): PlannedConnectorDoctorPreviewRow[] {
-  return pendingPlannedConnectors.map((connector) => {
+  return doctorPreviewConnectors.map((connector) => {
     const readiness = getPlannedConnectorReadinessContract(connector);
     const dossier = getPlannedConnectorSafetyDossier(connector.id);
     const nextBlockedGate =
