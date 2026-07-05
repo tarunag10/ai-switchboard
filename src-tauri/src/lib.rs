@@ -44,6 +44,7 @@ mod repo_map;
 mod repo_memory_commands;
 mod rollback_commands;
 mod runtime_commands;
+mod runtime_probe;
 mod state;
 mod storage;
 mod switchboard_commands;
@@ -460,8 +461,9 @@ fn capture_watchdog_give_up(
         .lock()
         .as_ref()
         .map(|child| child.id());
-    let port_accepts_tcp = crate::state::proxy_port_accepts_connection();
-    let process_cpu_secs = tracked_pid.and_then(crate::state::tracked_process_cpu_time_secs);
+    let port_accepts_tcp = crate::runtime_probe::proxy_port_accepts_connection();
+    let process_cpu_secs =
+        tracked_pid.and_then(crate::runtime_probe::tracked_process_cpu_time_secs);
     // CPU *rate*, not cumulative. `process_cpu_secs` is lifetime CPU
     // (`ps -o time=`); any long-lived-but-now-idle process carries a large
     // cumulative value, so using it as a deadlock proxy mislabels a healthy
@@ -473,7 +475,7 @@ fn capture_watchdog_give_up(
             let started = std::time::Instant::now();
             std::thread::sleep(std::time::Duration::from_secs(4));
             let elapsed = started.elapsed().as_secs_f64();
-            crate::state::tracked_process_cpu_time_secs(pid)
+            crate::runtime_probe::tracked_process_cpu_time_secs(pid)
                 .map(|after| runtime_commands::cpu_rate_indicates_burn(before, after, elapsed))
                 .unwrap_or(false)
         }
@@ -2153,7 +2155,8 @@ fn spawn_proxy_watchdog(app: AppHandle) {
             // but the client-facing 6767 intercept is gone, restarting Python
             // does not help: clients are pointed at the Rust front door. Respawn
             // the intercept in-process and let the next poll confirm readiness.
-            if state::proxy_port_accepts_connection() && !state::intercept_port_accepts_connection()
+            if runtime_probe::proxy_port_accepts_connection()
+                && !runtime_probe::intercept_port_accepts_connection()
             {
                 state.ensure_proxy_intercept_running();
                 consecutive_failures = 0;
