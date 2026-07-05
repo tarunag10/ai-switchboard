@@ -18,6 +18,7 @@ strict digraph "dependency-cruiser output"{
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SavingsChartTooltip" [label=<SavingsChartTooltip> tooltip="SavingsChartTooltip" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsConnectorPanel" [label=<SettingsConnectorPanel> tooltip="SettingsConnectorPanel" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsLegalPanel" [label=<SettingsLegalPanel> tooltip="SettingsLegalPanel" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsOpenLoginCard" [label=<SettingsOpenLoginCard> tooltip="SettingsOpenLoginCard" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsTransferCard" [label=<SettingsTransferCard> tooltip="SettingsTransferCard" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/TermsGate" [label=<TermsGate> tooltip="TermsGate" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/TraySidebar" [label=<TraySidebar> tooltip="TraySidebar" ] } }
@@ -64,6 +65,7 @@ strict digraph "dependency-cruiser output"{
     "src/App.tsx" -> "./components/SavingsChartTooltip"
     "src/App.tsx" -> "./components/SettingsConnectorPanel"
     "src/App.tsx" -> "./components/SettingsLegalPanel"
+    "src/App.tsx" -> "./components/SettingsOpenLoginCard"
     "src/App.tsx" -> "./components/SettingsTransferCard"
     "src/App.tsx" -> "./components/TermsGate"
     "src/App.tsx" -> "./components/TraySidebar"

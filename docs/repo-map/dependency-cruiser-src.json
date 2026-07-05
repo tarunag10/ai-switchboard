@@ -244,6 +244,22 @@
           "valid": true
         },
         {
+          "module": "./components/SettingsOpenLoginCard",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/SettingsOpenLoginCard",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
           "module": "./components/SettingsTransferCard",
           "moduleSystem": "es6",
           "dynamic": false,
@@ -969,6 +985,22 @@
       "valid": true
     },
     {
+      "source": "./components/SettingsOpenLoginCard",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
       "source": "./components/SettingsTransferCard",
       "followable": false,
       "coreModule": false,
@@ -1455,8 +1487,8 @@
     "warn": 0,
     "info": 0,
     "ignore": 0,
-    "totalCruised": 46,
-    "totalDependenciesCruised": 45,
+    "totalCruised": 47,
+    "totalDependenciesCruised": 46,
     "optionsUsed": {
       "baseDir": "/Users/tarunagarwal/Developer/Codex-Repos/mac-ai-switchboard",
       "combinedDependencies": false,
