@@ -1504,6 +1504,11 @@ fn rank_file_for_task(
         score += graph_affinity.score;
         reasons.extend(graph_affinity.reasons);
     }
+    let reverse_dependency_importance = reverse_dependency_importance(file, graph);
+    if reverse_dependency_importance.score > 0.0 {
+        score += reverse_dependency_importance.score;
+        reasons.extend(reverse_dependency_importance.reasons);
+    }
 
     let token_penalty = (file.estimated_tokens as f64 / TASK_PACK_BUDGET_TOKENS as f64) * 12.0;
     score -= token_penalty.min(24.0);
@@ -1594,6 +1599,44 @@ fn task_graph_affinity(
     }
     affinity.score = affinity.score.min(48.0);
     affinity
+}
+
+fn reverse_dependency_importance(
+    file: &RepoFileSignal,
+    graph: Option<&RepoGraphSummary>,
+) -> RepoTaskGraphAffinity {
+    let Some(graph) = graph else {
+        return RepoTaskGraphAffinity::default();
+    };
+    let Some(hub) = graph
+        .reverse_dependency_hubs
+        .iter()
+        .find(|hub| hub.label == file.path)
+    else {
+        return RepoTaskGraphAffinity::default();
+    };
+    if hub.count == 0 {
+        return RepoTaskGraphAffinity::default();
+    }
+
+    let mut importance = RepoTaskGraphAffinity::default();
+    importance.score = (8.0 + (hub.count as f64 * 4.0)).min(28.0);
+    let examples = hub.examples.iter().take(2).cloned().collect::<Vec<_>>();
+    importance.reasons.push(if examples.is_empty() {
+        format!(
+            "graph: reverse dependency hub with {} incoming reference{}",
+            hub.count,
+            if hub.count == 1 { "" } else { "s" }
+        )
+    } else {
+        format!(
+            "graph: reverse dependency hub with {} incoming reference{} from {}",
+            hub.count,
+            if hub.count == 1 { "" } else { "s" },
+            examples.join(", ")
+        )
+    });
+    importance
 }
 
 fn graph_edge_file_path(target: &str) -> &str {
@@ -3939,6 +3982,63 @@ export const mapValues = <T>(items: T[]) => items;
                     .reasons
                     .iter()
                     .any(|reason| reason.contains("connected to task-matching"))
+        }));
+    }
+
+    #[test]
+    fn context_pack_ranking_uses_reverse_dependency_importance() {
+        let files = vec![
+            classify_file("src/feature_panel.ts", 120),
+            classify_file("src/core_engine.ts", 140),
+            classify_file("src/sidecar.ts", 120),
+        ];
+        let graph = RepoGraphSummary {
+            top_directories: Vec::new(),
+            top_languages: Vec::new(),
+            entrypoints: Vec::new(),
+            likely_tests: Vec::new(),
+            config_hubs: Vec::new(),
+            dependency_hubs: Vec::new(),
+            import_edges: vec![
+                RepoGraphEdge {
+                    from: "src/feature_panel.ts".to_string(),
+                    to: "src/core_engine.ts".to_string(),
+                    kind: RepoGraphEdgeKind::ImportReference,
+                    reason: "feature panel imports core engine".to_string(),
+                },
+                RepoGraphEdge {
+                    from: "src/sidecar.ts".to_string(),
+                    to: "src/core_engine.ts".to_string(),
+                    kind: RepoGraphEdgeKind::ImportReference,
+                    reason: "sidecar imports core engine".to_string(),
+                },
+            ],
+            reverse_dependency_hubs: vec![RepoGraphNode {
+                label: "src/core_engine.ts".to_string(),
+                count: 2,
+                estimated_tokens: 140,
+                examples: vec![
+                    "src/feature_panel.ts".to_string(),
+                    "src/sidecar.ts".to_string(),
+                ],
+            }],
+            symbols: Vec::new(),
+            symbol_edges: Vec::new(),
+        };
+
+        let pack = build_context_pack(
+            "implementation",
+            "Implementation Pack",
+            "Implementation work",
+            files,
+            2_000,
+            Some(&graph),
+        );
+
+        assert_eq!(pack.files[0].path, "src/core_engine.ts");
+        assert!(pack.files[0].reasons.iter().any(|reason| {
+            reason.contains("graph: reverse dependency hub with 2 incoming references")
+                && reason.contains("src/feature_panel.ts")
         }));
     }
 

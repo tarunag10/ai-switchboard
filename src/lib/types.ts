@@ -122,6 +122,7 @@ export interface SavingsAttributionCounter {
   eventCount: number;
   runtimeEventCount: number;
   measuredEventCount: number;
+  estimatedEventCount: number;
   inferredEventCount: number;
   deltaTokensSaved: number;
   totalTokensSent: number;

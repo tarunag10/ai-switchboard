@@ -3997,6 +3997,7 @@ fn aggregate_savings_attribution_counters(
                 event_count: 0,
                 runtime_event_count: 0,
                 measured_event_count: 0,
+                estimated_event_count: 0,
                 inferred_event_count: 0,
                 delta_tokens_saved: 0,
                 total_tokens_sent: 0,
@@ -4012,7 +4013,10 @@ fn aggregate_savings_attribution_counters(
             SavingsAttributionConfidence::Measured => {
                 entry.measured_event_count = entry.measured_event_count.saturating_add(1);
             }
-            SavingsAttributionConfidence::Estimated | SavingsAttributionConfidence::Inferred => {
+            SavingsAttributionConfidence::Estimated => {
+                entry.estimated_event_count = entry.estimated_event_count.saturating_add(1);
+            }
+            SavingsAttributionConfidence::Inferred => {
                 entry.inferred_event_count = entry.inferred_event_count.saturating_add(1);
             }
         }
@@ -6022,7 +6026,8 @@ mod tests {
         assert_eq!(counters[0].event_count, 2);
         assert_eq!(counters[0].runtime_event_count, 2);
         assert_eq!(counters[0].measured_event_count, 1);
-        assert_eq!(counters[0].inferred_event_count, 1);
+        assert_eq!(counters[0].estimated_event_count, 1);
+        assert_eq!(counters[0].inferred_event_count, 0);
         assert_eq!(counters[0].delta_tokens_saved, 200);
         assert_eq!(counters[0].total_tokens_sent, 1_500);
     }

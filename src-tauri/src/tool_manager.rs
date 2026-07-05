@@ -130,11 +130,17 @@ mod caveman;
 mod headroom_receipt;
 mod markitdown;
 mod ponytail;
+mod repo_memory;
 mod rtk;
 
 #[cfg(test)]
 use headroom_receipt::parse_major_minor_patch;
 use headroom_receipt::{receipt_requires_atomic_rebuild, ATOMIC_REBUILD_FLOOR_VERSION};
+use repo_memory::{
+    claude_code_has_headroom_mcp_server, claude_code_has_mcp_server, resolve_command_path,
+    script_path as repo_memory_script_path, write_headroom_to_claude_json,
+    write_mcp_server_to_claude_json,
+};
 pub use rtk::RtkGainSummary;
 
 #[derive(Debug, Clone)]
@@ -3226,137 +3232,6 @@ impl ToolManager {
     }
 }
 
-fn repo_memory_script_path(script_name: &str) -> Result<PathBuf> {
-    for candidate in repo_memory_script_candidates(script_name) {
-        if candidate.exists() {
-            return Ok(candidate);
-        }
-    }
-    bail!("repo-memory script {script_name} is missing from dev scripts and bundled resources")
-}
-
-fn repo_memory_script_candidates(script_name: &str) -> Vec<PathBuf> {
-    let mut candidates = Vec::new();
-    if let Ok(cwd) = std::env::current_dir() {
-        candidates.push(cwd.join("scripts").join(script_name));
-        if let Some(parent) = cwd.parent() {
-            candidates.push(parent.join("scripts").join(script_name));
-        }
-    }
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(mac_os_dir) = exe.parent() {
-            if let Some(contents_dir) = mac_os_dir.parent() {
-                let resources_dir = contents_dir.join("Resources");
-                candidates.push(resources_dir.join("_up_").join("scripts").join(script_name));
-                candidates.push(resources_dir.join("scripts").join(script_name));
-                candidates.push(resources_dir.join(script_name));
-            }
-        }
-        if let Some(exe_dir) = exe.parent() {
-            candidates.push(exe_dir.join("scripts").join(script_name));
-        }
-    }
-    candidates
-}
-
-fn command_available_on_path(command: &str) -> bool {
-    resolve_command_path(command).is_some()
-}
-
-fn resolve_command_path(command: &str) -> Option<PathBuf> {
-    fn is_executable_file(path: &Path) -> bool {
-        use std::os::unix::fs::PermissionsExt;
-        path.metadata()
-            .map(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
-            .unwrap_or(false)
-    }
-
-    if command.contains(std::path::MAIN_SEPARATOR) {
-        let path = PathBuf::from(command);
-        return is_executable_file(&path).then_some(path);
-    }
-    let path_candidates = std::env::var_os("PATH")
-        .map(|path_var| std::env::split_paths(&path_var).collect::<Vec<_>>())
-        .unwrap_or_default()
-        .into_iter()
-        .chain(
-            [
-                "/opt/homebrew/bin",
-                "/usr/local/bin",
-                "/usr/bin",
-                "/bin",
-                "/opt/local/bin",
-            ]
-            .into_iter()
-            .map(PathBuf::from),
-        );
-    path_candidates
-        .map(|dir| dir.join(command))
-        .find(|candidate| is_executable_file(candidate))
-}
-
-/// Claude Code ≥2.x stores user-scope MCP servers in `~/.claude.json` under
-/// `mcpServers.<name>`. The legacy `~/.claude/mcp.json` path written by our
-/// Python CLI's fallback branch is ignored. Reading the file Claude Code
-/// actually reads is the only reliable way to confirm the registration
-/// landed where `/mcp` and `claude mcp list` will see it.
-fn claude_code_has_headroom_mcp_server() -> bool {
-    claude_code_has_mcp_server("headroom")
-}
-
-fn claude_code_has_mcp_server(name: &str) -> bool {
-    let Some(home) = dirs::home_dir() else {
-        return false;
-    };
-    let path = home.join(".claude.json");
-    let Ok(bytes) = std::fs::read(&path) else {
-        return false;
-    };
-    let Ok(value) = serde_json::from_slice::<Value>(&bytes) else {
-        return false;
-    };
-    value.get("mcpServers").and_then(|v| v.get(name)).is_some()
-}
-
-/// Writes the headroom MCP server entry directly to `~/.claude.json`.
-/// Used when `claude mcp add` is unavailable (e.g. bare GUI PATH). Preserves
-/// all existing keys; only merges `mcpServers.headroom`.
-fn write_headroom_to_claude_json(entrypoint: &Path, proxy_url: &str) -> Result<()> {
-    write_mcp_server_to_claude_json(
-        "headroom",
-        json!({
-            "command": entrypoint,
-            "args": ["mcp", "serve"],
-            "env": { "HEADROOM_PROXY_URL": proxy_url },
-        }),
-    )
-}
-
-fn write_mcp_server_to_claude_json(name: &str, server: Value) -> Result<()> {
-    let Some(home) = dirs::home_dir() else {
-        anyhow::bail!("home directory not available");
-    };
-    let path = home.join(".claude.json");
-    let mut config: Value = if path.exists() {
-        std::fs::read(&path)
-            .ok()
-            .and_then(|b| serde_json::from_slice(&b).ok())
-            .unwrap_or_else(|| json!({}))
-    } else {
-        json!({})
-    };
-    let root = config
-        .as_object_mut()
-        .context("~/.claude.json root is not JSON object")?;
-    root.entry("mcpServers")
-        .or_insert_with(|| json!({}))
-        .as_object_mut()
-        .context("~/.claude.json mcpServers is not JSON object")?
-        .insert(name.into(), server);
-    std::fs::write(&path, serde_json::to_vec_pretty(&config)?)
-        .with_context(|| format!("writing {}", path.display()))
-}
-
 fn is_local_proxy_reachable() -> bool {
     // Check headroom's actual backend port, not the intercept port (6767),
     // because the intercept starts before headroom and would always be reachable.
@@ -4168,9 +4043,9 @@ mod tests {
         reclaim_orphan_proxy, redact_sensitive, repair_console_script_interpreter,
         requirements_lock_sha, rtk_distribution_artifact, run_command, sanitize_log_variant,
         sha256_bytes, summarize_kompress_prefetch_failure, verify_sha256_file, wait_for_port_free,
-        write_mcp_server_to_claude_json, CommandFailure, HeadroomRelease, ManagedRuntime,
-        PipOutputCapture, ToolManager, UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION,
-        CAVEMAN_LEVEL_COMPACT_CHINESE, CAVEMAN_LEVEL_SCOPED, RTK_VERSION,
+        CommandFailure, HeadroomRelease, ManagedRuntime, PipOutputCapture, ToolManager,
+        UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION, CAVEMAN_LEVEL_COMPACT_CHINESE,
+        CAVEMAN_LEVEL_SCOPED, RTK_VERSION,
     };
     use crate::backend_port;
     use crate::models::SavingsMode;
@@ -5323,34 +5198,6 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 
     #[test]
     #[serial_test::serial]
-    fn mcp_server_merge_preserves_existing_claude_json() {
-        let home = TestHome::new("repo-memory-mcp-home");
-        let claude_json = home.root.join(".claude.json");
-        fs::write(
-            &claude_json,
-            br#"{"theme":"dark","mcpServers":{"headroom":{"command":"headroom"}}}"#,
-        )
-        .expect("write claude json");
-
-        write_mcp_server_to_claude_json(
-            "repo-memory",
-            json!({"command":"node","args":["repo-intelligence.mjs","--mcp-serve"]}),
-        )
-        .expect("write repo memory mcp");
-
-        let value: Value =
-            serde_json::from_slice(&fs::read(&claude_json).expect("read claude json"))
-                .expect("parse claude json");
-        assert_eq!(value["theme"], "dark");
-        assert!(value["mcpServers"]["headroom"].is_object());
-        assert!(value["mcpServers"]["repo-memory"]["command"]
-            .as_str()
-            .expect("repo-memory command")
-            .ends_with("node"));
-    }
-
-    #[test]
-    #[serial_test::serial]
     fn install_repo_memory_mcp_writes_receipt_and_server() {
         let home = TestHome::new("repo-memory-install-home");
         let (root, runtime, manager) = seed_test_runtime("repo-memory-install");
@@ -5400,27 +5247,6 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
     }
 
     #[test]
-    fn command_available_on_path_detects_missing_commands() {
-        assert!(!super::command_available_on_path(
-            "mac-ai-switchboard-definitely-missing-command"
-        ));
-    }
-
-    #[test]
-    fn command_available_on_path_accepts_absolute_node_path() {
-        for candidate in [
-            "/usr/local/bin/node",
-            "/opt/homebrew/bin/node",
-            "/usr/bin/node",
-        ] {
-            if std::path::Path::new(candidate).exists() {
-                assert!(super::command_available_on_path(candidate));
-                return;
-            }
-        }
-    }
-
-    #[test]
     #[serial_test::serial]
     fn repo_memory_mcp_config_detects_missing_server_separately_from_headroom() {
         let home = TestHome::new("repo-memory-missing-home");
@@ -5441,23 +5267,6 @@ S(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
             .repo_memory_mcp_error()
             .expect("repo memory error")
             .contains("repo-memory missing"));
-    }
-
-    #[test]
-    fn repo_memory_script_candidates_include_dev_and_resource_paths() {
-        let candidates = super::repo_memory_script_candidates("repo-intelligence.mjs");
-        assert!(
-            candidates
-                .iter()
-                .any(|path| path.ends_with("scripts/repo-intelligence.mjs")),
-            "dev script path should be a candidate"
-        );
-        assert!(
-            candidates
-                .iter()
-                .any(|path| path.display().to_string().contains("Resources")),
-            "bundled resource path should be a candidate"
-        );
     }
 
     #[test]

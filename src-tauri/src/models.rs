@@ -696,6 +696,7 @@ pub struct SavingsAttributionCounter {
     /// add-ons use durable evidence units such as changed files or verified hosts.
     pub runtime_event_count: u64,
     pub measured_event_count: u64,
+    pub estimated_event_count: u64,
     pub inferred_event_count: u64,
     pub delta_tokens_saved: u64,
     pub total_tokens_sent: u64,

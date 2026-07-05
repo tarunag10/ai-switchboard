@@ -40,6 +40,9 @@ if (!stateSource.includes("baseline_tokens.saturating_sub(optimized_tokens)")) {
 if (!modelsSource.includes("runtime_event_count")) {
   fail("SavingsAttributionCounter missing runtime_event_count");
 }
+if (!modelsSource.includes("estimated_event_count")) {
+  fail("SavingsAttributionCounter missing estimated_event_count");
+}
 if (
   !stateSource.includes("entry.runtime_event_count") ||
   !stateSource.includes("event.request_delta as u64")
