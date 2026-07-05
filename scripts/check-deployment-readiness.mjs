@@ -413,9 +413,6 @@ const requiredSourceSignals = {
   "src/lib/uninstallDisclosure.test.ts": [
     "keeps stable ids for modal rendering",
   ],
-  "src-tauri/src/lib.rs": [
-    "doctor::infer_switchboard_mode(&runtime, enabled_clients.len())",
-  ],
   "src-tauri/src/doctor.rs": [
     "infer_switchboard_mode",
     "infer_switchboard_mode(&runtime, enabled_clients)",
@@ -537,12 +534,12 @@ const requiredSourceSignals = {
     "detectionEvidence",
     "Evidence",
     "Release readiness",
-    "AddonHealthStrip",
     "Settings import/export",
     "Settings migration actions",
     "Copy settings export",
     "Apply safe preferences",
   ],
+  "src/components/AddonsView.tsx": ["AddonHealthStrip"],
   "src/components/RepoIntelligencePreview.tsx": [
     "Copy agent manifest",
     "repo-intelligence-recipes",
