@@ -5794,7 +5794,7 @@ export default function App() {
             <button
               key={item.id}
               className={`tray-nav__item${activeView === item.id ? " is-active" : ""}`}
-              onMouseDown={() => setActiveView(item.id)}
+              onClick={() => setActiveView(item.id)}
               type="button"
             >
               <span className="tray-nav__icon" aria-hidden="true">

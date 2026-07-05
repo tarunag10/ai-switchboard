@@ -9,73 +9,26 @@ import {
   MagnifyingGlass,
   WarningCircle,
 } from "@phosphor-icons/react";
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import repoMapSnapshot from "../../docs/repo-map/repo-map.json";
+import {
+  DEFAULT_REPO_MAP_REPO_PATH,
+  normalizeRepoMapError,
+  readRepoMapHistory,
+  repoMapTauriAdapter,
+  type RepoMapGenerationResponse,
+  type RepoMapHistoryItem,
+  type RepoMapPreflightResponse,
+  type RepoMapSnapshot,
+  upsertRepoMapHistory,
+  writeRepoMapHistory,
+} from "../lib/repoMapJob";
 import { buildRepoMapProgressSteps } from "../lib/repoMapProgress";
-
-type RepoMapSnapshot = typeof repoMapSnapshot & {
-  toolRuns?: Record<string, RepoMapToolRunStatus>;
-  tokenSavings?: RepoMapTokenSavings;
-};
-
-interface RepoMapToolRunStatus {
-  status: "ok" | "warning" | "not-run";
-  detail: string;
-  remediation: string | null;
-}
-
-interface RepoMapTokenSavings {
-  compactContextEstimatedTokens: number;
-  broadScanEstimatedTokens: number;
-  estimatedTokensAvoided: number;
-  method: string;
-}
 
 interface RepoMapViewProps {
   onOpenRepoIntelligence: () => void;
   onOpenDoctor: () => void;
 }
-
-interface RepoMapGenerationResponse {
-  repoPath: string;
-  outDir: string;
-  readmePath: string;
-  compactContextPath: string;
-  map: RepoMapSnapshot;
-  compactContext: string;
-  toolLog: unknown;
-  stdoutTail: string;
-  stderrTail: string;
-}
-
-interface RepoMapPreflightTool {
-  id: string;
-  label: string;
-  available: boolean;
-  detail: string;
-  installHint: string | null;
-}
-
-interface RepoMapPreflightResponse {
-  repoPath: string;
-  exists: boolean;
-  isDirectory: boolean;
-  hasPackageJson: boolean;
-  hasCargoManifest: boolean;
-  tools: RepoMapPreflightTool[];
-}
-
-interface RepoMapHistoryItem {
-  repoPath: string;
-  generatedAt: string;
-  outDir: string;
-  graphNodes: number;
-  estimatedTokensAvoided: number;
-}
-
-const HISTORY_KEY = "mac-ai-switchboard:repoMapHistory";
-const DEFAULT_REPO_PATH = "/Users/tarunagarwal/Developer/Codex-Repos/mac-ai-switchboard";
 
 function formatNumber(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);
@@ -98,25 +51,6 @@ function statusTone(map: RepoMapSnapshot): "healthy" | "warning" {
     : "warning";
 }
 
-function readHistory(): RepoMapHistoryItem[] {
-  try {
-    const raw = window.localStorage.getItem(HISTORY_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.slice(0, 8) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeHistory(items: RepoMapHistoryItem[]) {
-  try {
-    window.localStorage.setItem(HISTORY_KEY, JSON.stringify(items.slice(0, 8)));
-  } catch {
-    // History is a convenience only.
-  }
-}
-
 export function RepoMapView({
   onOpenDoctor,
   onOpenRepoIntelligence,
@@ -124,7 +58,7 @@ export function RepoMapView({
   const [repoMap, setRepoMap] = useState<RepoMapSnapshot>(
     repoMapSnapshot as unknown as RepoMapSnapshot,
   );
-  const [repoPath, setRepoPath] = useState(DEFAULT_REPO_PATH);
+  const [repoPath, setRepoPath] = useState(DEFAULT_REPO_MAP_REPO_PATH);
   const [generation, setGeneration] = useState<RepoMapGenerationResponse | null>(null);
   const [preflight, setPreflight] = useState<RepoMapPreflightResponse | null>(null);
   const [preflightBusy, setPreflightBusy] = useState(false);
@@ -132,7 +66,9 @@ export function RepoMapView({
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [openNotice, setOpenNotice] = useState<string | null>(null);
-  const [history, setHistory] = useState<RepoMapHistoryItem[]>(() => readHistory());
+  const [history, setHistory] = useState<RepoMapHistoryItem[]>(() =>
+    readRepoMapHistory(window.localStorage),
+  );
   const [showToolInstallDetails, setShowToolInstallDetails] = useState(false);
   const [showGraphDiagnostics, setShowGraphDiagnostics] = useState(false);
 
@@ -151,29 +87,20 @@ export function RepoMapView({
   }, []);
 
   const upsertHistory = (result: RepoMapGenerationResponse) => {
-    const item: RepoMapHistoryItem = {
-      repoPath: result.repoPath,
-      generatedAt: result.map.generatedAt,
-      outDir: result.outDir,
-      graphNodes: result.map.tools.graphify.nodeCount,
-      estimatedTokensAvoided: result.map.tokenSavings?.estimatedTokensAvoided ?? 0,
-    };
-    const next = [item, ...history.filter((entry) => entry.repoPath !== item.repoPath)].slice(0, 8);
+    const next = upsertRepoMapHistory(history, result);
     setHistory(next);
-    writeHistory(next);
+    writeRepoMapHistory(window.localStorage, next);
   };
 
   const runPreflight = async (showNotice = true) => {
     setPreflightBusy(true);
     setGenerateError(null);
     try {
-      const result = await invoke<RepoMapPreflightResponse>("preflight_repo_map", {
-        repoPath: repoPath.trim() || null,
-      });
+      const result = await repoMapTauriAdapter.preflight(repoPath.trim() || null);
       setPreflight(result);
       if (showNotice) setCopyNotice("Preflight complete.");
     } catch (error) {
-      setGenerateError(error instanceof Error ? error.message : String(error));
+      setGenerateError(normalizeRepoMapError(error));
     } finally {
       setPreflightBusy(false);
     }
@@ -185,16 +112,14 @@ export function RepoMapView({
     setCopyNotice(null);
     setOpenNotice(null);
     try {
-      const result = await invoke<RepoMapGenerationResponse>("generate_repo_map", {
-        repoPath: repoPath.trim() || null,
-      });
+      const result = await repoMapTauriAdapter.generate(repoPath.trim() || null);
       setGeneration(result);
       setRepoMap(result.map);
       setRepoPath(result.repoPath);
       upsertHistory(result);
       void runPreflight(false);
     } catch (error) {
-      setGenerateError(error instanceof Error ? error.message : String(error));
+      setGenerateError(normalizeRepoMapError(error));
     } finally {
       setGenerateBusy(false);
     }
@@ -225,12 +150,10 @@ export function RepoMapView({
     setOpenNotice(null);
     setGenerateError(null);
     try {
-      await invoke<boolean>("open_repo_map_artifact", {
-        request: { repoPath: selectedRepo, artifact },
-      });
+      await repoMapTauriAdapter.openArtifact({ repoPath: selectedRepo, artifact });
       setOpenNotice("Opened artifact.");
     } catch (error) {
-      setGenerateError(error instanceof Error ? error.message : String(error));
+      setGenerateError(normalizeRepoMapError(error));
     }
   };
 
