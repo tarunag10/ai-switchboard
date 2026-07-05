@@ -52,6 +52,7 @@ mod runtime_commands;
 mod runtime_diagnostics;
 mod runtime_distribution;
 mod runtime_probe;
+mod startup_error;
 mod state;
 mod storage;
 mod switchboard_commands;

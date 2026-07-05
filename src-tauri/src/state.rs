@@ -42,6 +42,7 @@ use crate::runtime_probe::{
     probe_proxy_livez, proxy_port_accepts_connection, total_dir_size_bytes,
     tracked_process_cpu_time_secs,
 };
+use crate::startup_error::classify_startup_error;
 use crate::storage::{app_data_dir, config_file, ensure_data_dirs, telemetry_file};
 use crate::tool_manager::{
     BootstrapStepUpdate, HeadroomRelease, ManagedRuntime, RtkGainSummary, RuntimeMaintenanceKind,
@@ -5936,64 +5937,6 @@ pub(crate) fn headroom_proxy_reachable() -> bool {
     is_headroom_proxy_reachable()
 }
 
-/// Turn a raw `last_startup_error` string (the anyhow chain from
-/// `start_headroom_background`) into a short user-friendly explanation plus a
-/// suggested next step. Returns `None` for shapes we don't recognize, in which
-/// case the UI falls back to a generic "open logs" prompt.
-pub(crate) fn classify_startup_error(raw: &str) -> Option<String> {
-    // High-confidence endpoint protection signature: SIGKILL with no
-    // app-side cause, dlopen-not-permitted, fresh-extension permission
-    // denial, etc. Defer to the shared matcher in lib.rs so this list
-    // doesn't drift from the install-time classifier.
-    if crate::is_endpoint_protection_signal(raw) {
-        return Some(crate::endpoint_protection_hint_runtime());
-    }
-    if raw.contains("is occupied by a non-headroom process") {
-        // Only reaches here when even the fallback port range was unavailable
-        // (`tool_manager` scans 6768..=6790 before bailing). At that point the
-        // user has 23 unrelated daemons in that range — a reboot is the only
-        // realistic remediation, since common offenders like rapportd reset
-        // their port at login.
-        return Some(
-            "A port Headroom needs is held by another app on your machine. \
-             Reboot to clear stuck listeners, then relaunch Mac AI Switchboard."
-                .into(),
-        );
-    }
-    if raw.contains("headroom proxy already running on port") {
-        return Some(
-            "A previous Headroom proxy is still running in the background. \
-             Quit and relaunch Mac AI Switchboard to reset it."
-                .into(),
-        );
-    }
-    if raw.contains("client-facing proxy on 127.0.0.1:6767 is not ready") {
-        return Some(
-            "The Headroom backend is running, but the client-facing proxy on \
-             127.0.0.1:6767 is not accepting traffic. Click Repair runtime \
-             to respawn the local proxy front door."
-                .into(),
-        );
-    }
-    if raw.contains("never opened port") {
-        return Some(
-            "The Headroom runtime took too long to start. \
-             On first launch, macOS Gatekeeper can scan the bundled Python runtime for ~1-2 minutes. \
-             Wait a moment and click Retry. If it keeps failing, open Headroom logs from Settings."
-                .into(),
-        );
-    }
-    if raw.contains("exited with status") && raw.contains("before opening port") {
-        return Some(
-            "The Headroom Python runtime crashed at startup. \
-             Open engine logs from Settings to see the traceback, \
-             or reinstall the runtime from Settings > Advanced."
-                .into(),
-        );
-    }
-    None
-}
-
 fn is_headroom_proxy_reachable() -> bool {
     let client = match reqwest::blocking::Client::builder()
         .timeout(Duration::from_millis(1500))
@@ -6183,8 +6126,8 @@ mod tests {
     use super::{
         aggregate_weekly_totals, apply_bootstrap_step, begin_bootstrap_transition,
         boot_validation_stalled, bootstrap_complete_state, bootstrap_failed_state,
-        classify_startup_error, lifetime_token_milestones_crossed, lifetime_usd_milestones_crossed,
-        log_mtime_advanced, merge_daily_savings, merge_hourly_savings, most_recent_monday,
+        lifetime_token_milestones_crossed, lifetime_usd_milestones_crossed, log_mtime_advanced,
+        merge_daily_savings, merge_hourly_savings, most_recent_monday,
         parse_headroom_stats_from_json, parse_headroom_stats_history_from_json, AppState,
         BootValidationOutcome, ClaudeProjectScan, DailySavingsBucket, HeadroomDashboardStats,
         HeadroomSavingsHistoryPoint, PersistedSavingsState, SavingsObservation, SavingsTracker,
@@ -6296,133 +6239,6 @@ mod tests {
         assert!(!log_mtime_advanced(Some(t1), None));
         // Both None — pre-first-write state, no activity.
         assert!(!log_mtime_advanced(None, None));
-    }
-
-    #[test]
-    fn classify_startup_error_port_timeout() {
-        let raw = "unable to keep headroom running in background (prior attempts: \
-            /Users/x/venv/bin/headroom proxy --port 6768 never opened port 6768 within 60000ms): \
-            /Users/x/venv/bin/python3 -m headroom.proxy.server --port 6768 --no-http2 never opened port 6768 within 60000ms";
-        let hint = classify_startup_error(raw).expect("timeout should classify");
-        assert!(hint.contains("Gatekeeper"), "got: {hint}");
-        assert!(hint.contains("Retry"));
-    }
-
-    #[test]
-    fn classify_startup_error_python_crash() {
-        let raw = "unable to keep headroom running in background (prior attempts: \
-            /home/h/venv/bin/headroom proxy --port 6768 exited with status exit status: 1 before opening port 6768): \
-            /home/h/venv/bin/python3 -m headroom.proxy.server --port 6768 --no-http2 exited with status exit status: 1 before opening port 6768";
-        let hint = classify_startup_error(raw).expect("crash should classify");
-        assert!(hint.contains("crashed at startup"), "got: {hint}");
-        assert!(hint.contains("logs"));
-    }
-
-    #[test]
-    fn classify_startup_error_foreign_port() {
-        let raw =
-            "port 6768 is occupied by a non-headroom process (pid 1234 node); cannot start proxy.";
-        let hint = classify_startup_error(raw).expect("foreign port should classify");
-        assert!(hint.contains("Reboot"), "got: {hint}");
-    }
-
-    #[test]
-    fn classify_startup_error_foreign_port_with_fallback_exhausted() {
-        let raw =
-            "port 6768 is occupied by a non-headroom process (rapportd pid 594) and fallback ports 6769-6790 are also unavailable; cannot start proxy. Reboot to clear stuck listeners, then relaunch Mac AI Switchboard.";
-        let hint = classify_startup_error(raw).expect("all-foreign should classify");
-        assert!(hint.contains("Reboot"), "got: {hint}");
-    }
-
-    #[test]
-    fn classify_startup_error_endpoint_protection_signal_kill() {
-        let raw = "unable to keep headroom running in background (prior attempts: \
-                   /Users/x/venv/bin/headroom proxy --port 6768 exited with signal=9): \
-                   /Users/x/venv/bin/python3 -m headroom.proxy.server exited with signal=9";
-        let hint = classify_startup_error(raw).expect("SIGKILL should classify");
-        assert!(
-            hint.contains("endpoint protection"),
-            "expected EDR hint, got: {hint}"
-        );
-        assert!(hint.contains("Retry"), "hint should be actionable: {hint}");
-    }
-
-    #[test]
-    fn classify_startup_error_endpoint_protection_dlopen_blocked() {
-        let raw = "ImportError: dlopen(/Users/x/Library/Application Support/Headroom/headroom/runtime/venv/\
-                   lib/python3.12/site-packages/torch/lib/libtorch.dylib, 0x0006): tried: '...' \
-                   (operation not permitted)";
-        let hint = classify_startup_error(raw).expect("dlopen-blocked should classify");
-        assert!(
-            hint.contains("endpoint protection"),
-            "expected EDR hint, got: {hint}"
-        );
-    }
-
-    #[test]
-    fn classify_startup_error_endpoint_protection_takes_priority_over_port_path() {
-        // SIGKILL while waiting on the port could surface as both a
-        // port-timeout AND a kill signature. EDR wins because it points to
-        // the actual root cause; otherwise the user spends time on a
-        // network/firewall red herring.
-        let raw = "unable to keep headroom running in background (prior attempts: \
-                   /venv/bin/headroom proxy --port 6768 never opened port 6768 within 60000ms: \
-                   Killed: 9)";
-        let hint = classify_startup_error(raw).expect("should classify");
-        assert!(
-            hint.contains("endpoint protection"),
-            "expected EDR to win over port hint, got: {hint}"
-        );
-    }
-
-    /// Defensive: classify_startup_error must NOT regress on any of the
-    /// bail strings that tool_manager actually produces. If the message
-    /// shape drifts (e.g. someone tweaks the bail wording), this test
-    /// fails and forces the classifier to be updated alongside.
-    #[test]
-    fn classify_startup_error_handles_every_tool_manager_bail_format() {
-        // 1. all-foreign exhaustion
-        let raw = "port 6768 is occupied by a non-headroom process (rapportd pid 594) and fallback ports 6769-6790 are also unavailable; cannot start proxy. \
-                   Reboot to clear stuck listeners, then relaunch Mac AI Switchboard.";
-        assert!(
-            classify_startup_error(raw).is_some(),
-            "all-foreign bail must classify"
-        );
-
-        // 2. stale headroom proxy
-        let raw = "headroom proxy already running on port 6768 (likely a stale process from a prior session). \
-                   Run `lsof -iTCP:6768 -sTCP:LISTEN` to find and kill it, then retry.";
-        assert!(
-            classify_startup_error(raw).is_some(),
-            "stale proxy bail must classify"
-        );
-
-        // 3. spawn timeout (port never opened) — phrased generically over
-        //    whatever port the proxy ended up on, so test with a fallback port.
-        let raw = "never opened port 6770 within 60000ms";
-        assert!(
-            classify_startup_error(raw).is_some(),
-            "spawn timeout must classify on any port"
-        );
-
-        // 4. python crash
-        let raw = "exited with status 1 before opening port 6770";
-        assert!(
-            classify_startup_error(raw).is_some(),
-            "python crash must classify on any port"
-        );
-    }
-
-    #[test]
-    fn classify_startup_error_stale_headroom() {
-        let raw = "headroom proxy already running on port 6768 (likely a stale process from a prior session).";
-        let hint = classify_startup_error(raw).expect("stale should classify");
-        assert!(hint.contains("relaunch"), "got: {hint}");
-    }
-
-    #[test]
-    fn classify_startup_error_unknown_returns_none() {
-        assert!(classify_startup_error("some other error").is_none());
     }
 
     #[test]
