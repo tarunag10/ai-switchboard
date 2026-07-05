@@ -35,14 +35,14 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - Amazon Q Developer CLI now has a managed Switchboard-owned sidecar lifecycle with fixture-home apply, Doctor verify/repair, rollback, and Off cleanup coverage while AWS auth/provider/workspace state stays manual.
 - Continue now has a managed Switchboard-owned sidecar lifecycle with fixture-home apply, Doctor verify/repair, rollback, and Off cleanup coverage while provider config stays manual.
 - Repo Map now has a native macOS/Tauri folder picker and supervised run-status surface with elapsed time, active tool step, and captured stdout/stderr tails after completion.
-- Repo Intelligence graphing moved to `path-graph-v9` with tree-sitter-assisted multiline imports and AST call-reference edges for supported source languages.
-- Caveman, Compact Chinese, Ponytail, and MarkItDown attribution now carry runtime evidence-unit counts into backend counters and frontend session rows.
+- Repo Intelligence graphing moved to `path-graph-v9` with tree-sitter-assisted multiline imports, AST call-reference edges, task-term graph affinity, and reverse-dependency hub ranking for context packs.
+- Caveman, Compact Chinese, Ponytail, and MarkItDown attribution now carry runtime evidence-unit counts into backend counters and frontend session rows, with estimated add-on counters separated from inferred counters.
 
 ## Left
 
 - Repo Map backend event streaming remains future work. Current UX now supervises long runs with elapsed time, active step, and captured output tails, but does not stream per-tool stdout while the backend command is still running.
-- Deeper task-specific Repo Intelligence graph ranking beyond the current parser-assisted graph edges.
-- More real runtime/session counters for add-ons beyond current event-backed evidence-unit counts.
+- Repo Intelligence backend MCP supervision can still deepen beyond current graph-affinity and reverse-dependency ranking.
+- Add-on counters can still move from durable estimated file/host evidence toward true before/after token measurements for Caveman, Ponytail, and MarkItDown sessions.
 - Native/provider write promotion for Cursor and Grok/xAI, plus Goose provider routing. Aider, Continue, Qwen, and Amazon Q now have managed Switchboard-owned sidecar lifecycles while provider/account state remains manual.
 - Public updater feed proof and updater signature assets. The signed/notarized public DMG and checksum are complete live release evidence, but `latest.json` and updater `.sig` assets are still missing from the public release proof.
 - Reboot-level signed installed-app Doctor/Rollback/uninstall proof. Current uninstall proof is non-destructive local dry-run evidence, and no `dist/reboot-level-installed-proof-summary.md` artifact exists in this checkout yet.
