@@ -183,18 +183,23 @@ const invokes = allTsText.flatMap(({ file, text }) =>
   })),
 );
 const commands = allRustText.flatMap(({ file, text }) =>
-  [...text.matchAll(/#\[tauri::command\]\s*(?:async\s+)?(?:pub\s+)?fn\s+([a-zA-Z0-9_]+)/g)].map((match) => ({
+  [...text.matchAll(/#\[tauri::command\]\s*(?:(?:pub|async)\s+)*fn\s+([a-zA-Z0-9_]+)/g)].map((match) => ({
     file,
     command: match[1],
   })),
 );
 const handlerText = readText("src-tauri/src/lib.rs");
+const normalizeCommandName = (name) =>
+  name
+    .replace(/\/\/.*$/, "")
+    .trim()
+    .split("::")
+    .pop()
+    ?.trim() ?? "";
 const handlerCommands = [...handlerText.matchAll(/generate_handler!\s*\[\s*([\s\S]*?)\s*\]/g)]
   .flatMap((match) => match[1].split(","))
-  .map((name) => name.trim())
+  .map(normalizeCommandName)
   .filter(Boolean)
-  .map((name) => name.replace(/\/\/.*$/, "").trim())
-  .filter(Boolean);
 
 const commandSet = new Set(commands.map((item) => item.command));
 const handlerSet = new Set(handlerCommands);

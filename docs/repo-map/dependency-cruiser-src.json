@@ -37,6 +37,86 @@
           "valid": true
         },
         {
+          "module": "./components/AddonsView",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/AddonsView",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./components/ClientSavingsTrendsCard",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/ClientSavingsTrendsCard",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./components/DailySavingsChart",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/DailySavingsChart",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./components/DoctorTimelineCard",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/DoctorTimelineCard",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./components/HomeView",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/HomeView",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
           "module": "./components/LauncherShell",
           "moduleSystem": "es6",
           "dynamic": false,
@@ -69,6 +149,38 @@
           "valid": true
         },
         {
+          "module": "./components/OutputReductionChip",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/OutputReductionChip",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./components/RepoIntelligencePreview",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/RepoIntelligencePreview",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
           "module": "./components/RepoMapView",
           "moduleSystem": "es6",
           "dynamic": false,
@@ -77,6 +189,38 @@
             "unknown"
           ],
           "resolved": "./components/RepoMapView",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./components/SavingsCalculatorCard",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/SavingsCalculatorCard",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./components/SavingsChartTooltip",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/SavingsChartTooltip",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -109,22 +253,6 @@
             "unknown"
           ],
           "resolved": "./components/SwitchboardDoctorPanel",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": true,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "module": "./components/SwitchboardPanel",
-          "moduleSystem": "es6",
-          "dynamic": false,
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "unknown"
-          ],
-          "resolved": "./components/SwitchboardPanel",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -181,6 +309,22 @@
           "valid": true
         },
         {
+          "module": "./lib/appSupport",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./lib/appSupport",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
           "module": "./lib/appUpdate",
           "moduleSystem": "es6",
           "dynamic": false,
@@ -189,6 +333,22 @@
             "unknown"
           ],
           "resolved": "./lib/appUpdate",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./lib/bootstrapProgress",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./lib/bootstrapProgress",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -213,14 +373,14 @@
           "valid": true
         },
         {
-          "module": "./lib/dashboardHelpers",
+          "module": "./lib/cliInstallCommands",
           "moduleSystem": "es6",
           "dynamic": false,
           "exoticallyRequired": false,
           "dependencyTypes": [
             "unknown"
           ],
-          "resolved": "./lib/dashboardHelpers",
+          "resolved": "./lib/cliInstallCommands",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -229,14 +389,14 @@
           "valid": true
         },
         {
-          "module": "./lib/doctorRepairCopy",
+          "module": "./lib/dashboardHelpers",
           "moduleSystem": "es6",
           "dynamic": false,
           "exoticallyRequired": false,
           "dependencyTypes": [
             "unknown"
           ],
-          "resolved": "./lib/doctorRepairCopy",
+          "resolved": "./lib/dashboardHelpers",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -301,22 +461,6 @@
             "unknown"
           ],
           "resolved": "./lib/mockData",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": true,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "module": "./lib/plannedAddons",
-          "moduleSystem": "es6",
-          "dynamic": false,
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "unknown"
-          ],
-          "resolved": "./lib/plannedAddons",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -413,6 +557,22 @@
             "unknown"
           ],
           "resolved": "./lib/savingsCalculator",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./lib/settingsConnectorCopy",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./lib/settingsConnectorCopy",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -603,6 +763,86 @@
       "valid": true
     },
     {
+      "source": "./components/AddonsView",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "./components/ClientSavingsTrendsCard",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "./components/DailySavingsChart",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "./components/DoctorTimelineCard",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "./components/HomeView",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
       "source": "./components/LauncherShell",
       "followable": false,
       "coreModule": false,
@@ -635,7 +875,71 @@
       "valid": true
     },
     {
+      "source": "./components/OutputReductionChip",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "./components/RepoIntelligencePreview",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
       "source": "./components/RepoMapView",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "./components/SavingsCalculatorCard",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "./components/SavingsChartTooltip",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -668,22 +972,6 @@
     },
     {
       "source": "./components/SwitchboardDoctorPanel",
-      "followable": false,
-      "coreModule": false,
-      "couldNotResolve": true,
-      "matchesDoNotFollow": false,
-      "dependencyTypes": [
-        "unknown"
-      ],
-      "dependencies": [],
-      "dependents": [
-        "src/App.tsx"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "./components/SwitchboardPanel",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -747,7 +1035,39 @@
       "valid": true
     },
     {
+      "source": "./lib/appSupport",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
       "source": "./lib/appUpdate",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "./lib/bootstrapProgress",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -779,7 +1099,7 @@
       "valid": true
     },
     {
-      "source": "./lib/dashboardHelpers",
+      "source": "./lib/cliInstallCommands",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -795,7 +1115,7 @@
       "valid": true
     },
     {
-      "source": "./lib/doctorRepairCopy",
+      "source": "./lib/dashboardHelpers",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -860,22 +1180,6 @@
     },
     {
       "source": "./lib/mockData",
-      "followable": false,
-      "coreModule": false,
-      "couldNotResolve": true,
-      "matchesDoNotFollow": false,
-      "dependencyTypes": [
-        "unknown"
-      ],
-      "dependencies": [],
-      "dependents": [
-        "src/App.tsx"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "./lib/plannedAddons",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -972,6 +1276,22 @@
     },
     {
       "source": "./lib/savingsCalculator",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "./lib/settingsConnectorCopy",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -1137,8 +1457,8 @@
     "warn": 0,
     "info": 0,
     "ignore": 0,
-    "totalCruised": 36,
-    "totalDependenciesCruised": 35,
+    "totalCruised": 46,
+    "totalDependenciesCruised": 45,
     "optionsUsed": {
       "baseDir": "/Users/tarunagarwal/Developer/Codex-Repos/mac-ai-switchboard",
       "combinedDependencies": false,

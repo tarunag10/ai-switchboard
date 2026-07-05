@@ -458,12 +458,18 @@ pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
                 checks
                     .push("Found Headroom-managed provider block in ~/.codex/config.toml.".into());
             }
+            if toml_ok && !shell_ok {
+                checks.push(
+                    "Codex shell OPENAI_BASE_URL export was not found; config.toml provider routing is active."
+                        .into(),
+                );
+            }
             if !toml_ok {
                 failures.push(
                     "Headroom-managed provider block was not found in ~/.codex/config.toml.".into(),
                 );
             }
-            if !shell_ok {
+            if !shell_ok && !toml_ok {
                 failures
                     .push("Codex OPENAI_BASE_URL export was not found in shell profiles.".into());
             }
@@ -7840,6 +7846,41 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         assert!(
             !combined_after.contains("OPENAI_BASE_URL=http://127.0.0.1:6767/v1"),
             "shell export removed on disable, got:\n{combined_after}"
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn verify_codex_accepts_config_provider_without_shell_export() {
+        let home = TestHome::new();
+        fs::write(home.path().join(".zshrc"), "# user zshrc\n").unwrap();
+        fs::write(home.path().join(".zshenv"), "# user zshenv\n").unwrap();
+        super::apply_client_setup("codex").expect("apply_client_setup succeeds");
+        for shell_profile in [
+            ".zshrc",
+            ".zshenv",
+            ".zprofile",
+            ".bashrc",
+            ".bash_profile",
+            ".profile",
+        ] {
+            fs::write(home.path().join(shell_profile), "# user shell profile\n").unwrap();
+        }
+
+        let verification =
+            super::verify_client_setup("codex").expect("verify_client_setup succeeds");
+        assert!(
+            verification.failures.is_empty(),
+            "config-provider-only routing should pass, got: {:?}",
+            verification.failures
+        );
+        assert!(
+            verification
+                .checks
+                .iter()
+                .any(|check| check.contains("config.toml provider routing is active")),
+            "verification should report config-only routing evidence, got: {:?}",
+            verification.checks
         );
     }
 

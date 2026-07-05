@@ -4,30 +4,40 @@
   "App.tsx": [
     "assets/mac-ai-switchboard-logo.png",
     "components/ActivityFeed.tsx",
+    "components/AddonsView.tsx",
+    "components/ClientSavingsTrendsCard.tsx",
+    "components/DailySavingsChart.tsx",
+    "components/DoctorTimelineCard.tsx",
+    "components/HomeView.tsx",
     "components/LauncherShell.tsx",
     "components/OptimizePanel.tsx",
+    "components/OutputReductionChip.tsx",
+    "components/RepoIntelligencePreview.tsx",
     "components/RepoMapView.tsx",
+    "components/SavingsCalculatorCard.tsx",
+    "components/SavingsChartTooltip.tsx",
     "components/SettingsLegalPanel.tsx",
     "components/SwitchboardDoctorPanel.tsx",
-    "components/SwitchboardPanel.tsx",
     "components/TermsGate.tsx",
     "lib/analytics.ts",
     "lib/appHelpers.ts",
+    "lib/appSupport.ts",
     "lib/appUpdate.ts",
+    "lib/bootstrapProgress.ts",
     "lib/bootstrapSentry.ts",
+    "lib/cliInstallCommands.ts",
     "lib/dashboardHelpers.ts",
-    "lib/doctorRepairCopy.ts",
     "lib/launcherHelpers.ts",
     "lib/localMode.ts",
     "lib/managedChanges.ts",
     "lib/mockData.ts",
-    "lib/plannedAddons.ts",
     "lib/plannedConnectors.ts",
     "lib/pricing.ts",
     "lib/releaseReadiness.ts",
     "lib/repoIntelligence.ts",
     "lib/repoMemoryMcp.ts",
     "lib/savingsCalculator.ts",
+    "lib/settingsConnectorCopy.ts",
     "lib/settingsTransfer.ts",
     "lib/switchboardDisplay.ts",
     "lib/tauriRuntime.ts",
@@ -68,6 +78,10 @@
     "lib/trayHelpers.ts",
     "lib/types.ts"
   ],
+  "components/AgentSessionPanel.tsx": [
+    "lib/agentSessionPacks.ts",
+    "lib/optimization.ts"
+  ],
   "components/ClientSavingsTrendsCard.tsx": [
     "lib/dashboardHelpers.ts",
     "lib/types.ts"
@@ -102,8 +116,19 @@
   "components/LauncherShell.tsx": [
     "assets/mac-ai-switchboard-logo.png"
   ],
+  "components/OptimizationDashboard.tsx": [
+    "components/AgentSessionPanel.tsx",
+    "components/RedundancyPanel.tsx",
+    "components/TokenXrayPanel.tsx",
+    "lib/optimization.ts"
+  ],
+  "components/OptimizationView.test.tsx": [
+    "components/OptimizationView.tsx"
+  ],
   "components/OptimizationView.tsx": [
+    "components/OptimizationDashboard.tsx",
     "components/OptimizePanel.tsx",
+    "lib/cliInstallCommands.ts",
     "lib/dashboardHelpers.ts",
     "lib/trayHelpers.ts",
     "lib/types.ts"
@@ -119,6 +144,10 @@
     "lib/dashboardHelpers.ts",
     "lib/types.ts"
   ],
+  "components/PlannedAddonCard.test.tsx": [
+    "components/PlannedAddonCard.tsx",
+    "lib/plannedAddons.ts"
+  ],
   "components/PlannedAddonCard.tsx": [
     "components/PlannedConnectorRoadmap.tsx",
     "lib/plannedAddons.ts",
@@ -127,11 +156,21 @@
   "components/PlannedConnectorRoadmap.tsx": [
     "lib/plannedConnectors.ts"
   ],
+  "components/RedundancyPanel.tsx": [
+    "lib/optimization.ts"
+  ],
+  "components/RepoIntelligencePreview.test.tsx": [
+    "components/RepoIntelligencePreview.tsx"
+  ],
   "components/RepoIntelligencePreview.tsx": [
     "lib/repoIntelligence.ts"
   ],
+  "components/RepoMapView.test.tsx": [
+    "components/RepoMapView.tsx"
+  ],
   "components/RepoMapView.tsx": [
-    "../docs/repo-map/repo-map.json"
+    "../docs/repo-map/repo-map.json",
+    "lib/repoMapProgress.ts"
   ],
   "components/SavingsCalculatorCard.tsx": [
     "lib/dashboardHelpers.ts",
@@ -146,6 +185,12 @@
     "components/SectionCard.tsx"
   ],
   "components/SectionCard.tsx": [],
+  "components/SettingsConnectorPanel.tsx": [
+    "lib/dashboardHelpers.ts",
+    "lib/plannedConnectors.ts",
+    "lib/settingsConnectorCopy.ts",
+    "lib/types.ts"
+  ],
   "components/SettingsLegalPanel.test.tsx": [
     "components/SettingsLegalPanel.tsx"
   ],
@@ -154,11 +199,12 @@
     "lib/legalText.ts"
   ],
   "components/SettingsView.tsx": [
+    "components/SettingsConnectorPanel.tsx",
     "components/SettingsLegalPanel.tsx",
     "lib/dashboardHelpers.ts",
     "lib/managedChanges.ts",
-    "lib/plannedConnectors.ts",
     "lib/releaseReadiness.ts",
+    "lib/settingsConnectorCopy.ts",
     "lib/types.ts"
   ],
   "components/SwitchboardDoctorPanel.manual.test.tsx": [
@@ -183,6 +229,9 @@
     "lib/switchboardDisplay.ts",
     "lib/types.ts"
   ],
+  "components/SwitchboardPanelAutomation.test.tsx": [
+    "components/SwitchboardPanel.tsx"
+  ],
   "components/TermsGate.test.tsx": [
     "components/TermsGate.tsx"
   ],
@@ -190,11 +239,18 @@
     "assets/mac-ai-switchboard-logo.png",
     "lib/legalText.ts"
   ],
+  "components/TokenXrayPanel.tsx": [
+    "lib/optimization.ts"
+  ],
   "components/UpgradeView.tsx": [
     "lib/appHelpers.ts",
     "lib/launcherHelpers.ts",
     "lib/types.ts"
   ],
+  "lib/agentSessionPacks.test.ts": [
+    "lib/agentSessionPacks.ts"
+  ],
+  "lib/agentSessionPacks.ts": [],
   "lib/analytics.test.ts": [
     "lib/analytics.ts"
   ],
@@ -207,6 +263,15 @@
   "lib/appHelpers.ts": [
     "lib/types.ts"
   ],
+  "lib/appSupport.test.ts": [
+    "lib/appSupport.ts",
+    "lib/types.ts"
+  ],
+  "lib/appSupport.ts": [
+    "lib/doctorRepairCopy.ts",
+    "lib/managedChanges.ts",
+    "lib/types.ts"
+  ],
   "lib/appUpdate.test.ts": [
     "lib/appUpdate.ts",
     "lib/types.ts"
@@ -214,6 +279,13 @@
   "lib/appUpdate.ts": [
     "lib/appHelpers.ts",
     "lib/tauriRuntime.ts",
+    "lib/types.ts"
+  ],
+  "lib/bootstrapProgress.test.ts": [
+    "lib/bootstrapProgress.ts",
+    "lib/types.ts"
+  ],
+  "lib/bootstrapProgress.ts": [
     "lib/types.ts"
   ],
   "lib/bootstrapSentry.test.ts": [
@@ -225,6 +297,7 @@
     "lib/localMode.ts",
     "lib/types.ts"
   ],
+  "lib/cliInstallCommands.ts": [],
   "lib/codexConcurrencyGuidance.test.ts": [
     "lib/codexConcurrencyGuidance.ts",
     "lib/types.ts"
@@ -289,6 +362,13 @@
     "lib/modelPricing.ts"
   ],
   "lib/modelPricing.ts": [],
+  "lib/optimization.test.ts": [
+    "lib/optimization.ts",
+    "lib/promptCache.ts"
+  ],
+  "lib/optimization.ts": [
+    "lib/promptCache.ts"
+  ],
   "lib/plannedAddons.test.ts": [
     "lib/plannedAddons.ts",
     "lib/types.ts"
@@ -312,6 +392,7 @@
   "lib/pricing.ts": [
     "lib/types.ts"
   ],
+  "lib/promptCache.ts": [],
   "lib/releaseReadiness.test.ts": [
     "lib/releaseReadiness.ts"
   ],
@@ -333,6 +414,10 @@
     "lib/types.ts"
   ],
   "lib/repoIntelligenceCli.test.ts": [],
+  "lib/repoMapProgress.test.ts": [
+    "lib/repoMapProgress.ts"
+  ],
+  "lib/repoMapProgress.ts": [],
   "lib/repoMemoryMcp.test.ts": [
     "lib/repoMemoryMcp.ts"
   ],
@@ -343,6 +428,18 @@
   ],
   "lib/savingsCalculator.ts": [
     "lib/repoIntelligence.ts",
+    "lib/types.ts"
+  ],
+  "lib/settingsConnectorCopy.test.ts": [
+    "lib/managedChanges.ts",
+    "lib/plannedConnectors.ts",
+    "lib/settingsConnectorCopy.ts",
+    "lib/types.ts"
+  ],
+  "lib/settingsConnectorCopy.ts": [
+    "lib/dashboardHelpers.ts",
+    "lib/managedChanges.ts",
+    "lib/plannedConnectors.ts",
     "lib/types.ts"
   ],
   "lib/settingsTransfer.test.ts": [
@@ -403,9 +500,11 @@
   "main.tsx": [
     "App.tsx",
     "lib/localMode.ts",
-    "styles.css"
+    "styles.css",
+    "switchboard-theme.css"
   ],
   "styles.css": [],
+  "switchboard-theme.css": [],
   "test/setup.ts": [],
   "vite-env.d.ts": []
 }

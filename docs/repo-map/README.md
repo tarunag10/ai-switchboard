@@ -1,6 +1,6 @@
 # Mac AI Switchboard Repo Map
 
-Generated: 2026-07-02T15:19:21.485Z
+Generated: 2026-07-05T10:51:00.742Z
 
 ## Artifacts
 
@@ -15,16 +15,16 @@ Generated: 2026-07-02T15:19:21.485Z
 ## Tool Results
 
 - Graphify: partial-success; 4015 nodes, 11057 links.
-- Madge: 108 frontend modules, 210 import edges, no cycles found.
-- dependency-cruiser: 36 modules, 35 edges.
+- Madge: 133 frontend modules, 264 import edges, no cycles found.
+- dependency-cruiser: 46 modules, 45 edges.
 - Cargo metadata: 39 direct Rust dependencies.
 
 ## Shape
 
-- Frontend source files: 106
-- Rust source files: 23
-- Docs: 23
-- Scripts: 33
+- Frontend source files: 131
+- Rust source files: 75
+- Docs: 35
+- Scripts: 59
 
 ## Main Runtime Flow
 
@@ -57,42 +57,42 @@ proxy, adapters, storage, analytics"]
 
 ## Frontend Hotspots
 
-- `App.tsx`: imports 34
+- `App.tsx`: imports 44
 - `components/HomeView.tsx`: imports 13
 - `components/AddonsView.tsx`: imports 8
-- `components/SettingsView.tsx`: imports 6
+- `components/SettingsView.tsx`: imports 7
+- `components/OptimizationView.tsx`: imports 6
 - `components/SwitchboardPanel.tsx`: imports 5
 - `lib/doctorRepairCopy.ts`: imports 5
 - `components/DailySavingsChart.tsx`: imports 4
-- `components/OptimizationView.tsx`: imports 4
+- `components/OptimizationDashboard.tsx`: imports 4
 - `components/SavingsCalculatorCard.tsx`: imports 4
+- `components/SettingsConnectorPanel.tsx`: imports 4
+- `lib/settingsConnectorCopy.test.ts`: imports 4
+- `lib/settingsConnectorCopy.ts`: imports 4
+- `main.tsx`: imports 4
 - `components/ActivityFeed.tsx`: imports 3
 - `components/PlannedAddonCard.tsx`: imports 3
 - `components/SwitchboardDoctorPanel.tsx`: imports 3
 - `components/UpgradeView.tsx`: imports 3
+- `lib/appSupport.ts`: imports 3
 - `lib/appUpdate.ts`: imports 3
-- `lib/bootstrapSentry.ts`: imports 3
-- `lib/dashboardHelpers.test.ts`: imports 3
-- `main.tsx`: imports 3
-- `components/ActivityFeed.test.tsx`: imports 2
-- `components/AddonCard.tsx`: imports 2
-- `components/AddonClientChips.tsx`: imports 2
 
 ## Strongest Folder-Level Edges
 
-- `src/App.tsx -> ./lib`: 25
-- `src/App.tsx -> ./components`: 8
+- `src/App.tsx -> ./lib`: 27
+- `src/App.tsx -> ./components`: 16
 - `src/App.tsx -> src/assets`: 1
 - `src/App.tsx -> ✖`: 1
 
 ## Tauri Command Wiring
 
-- Frontend invokes: 77
-- Rust commands declared: 115
-- Commands in invoke handler: 115
+- Frontend invokes: 82
+- Rust commands declared: 122
+- Commands in invoke handler: 122
 - Invoked commands missing a Rust command: none
 - Invoked commands missing from invoke handler: none
-- Handler commands not called by current frontend scan: 38
+- Handler commands not called by current frontend scan: 40
 
 ## Direct Dependencies
 
