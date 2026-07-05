@@ -1,6 +1,6 @@
 # Repo Map Compact Context
 
-Generated: 2026-07-05T13:26:30.830Z
+Generated: 2026-07-05T13:35:56.588Z
 Repository: /Users/tarunagarwal/Developer/Codex-Repos/mac-ai-switchboard
 
 ## Health
@@ -10,7 +10,7 @@ Madge: 146 modules, 287 edges, 0 cycles.
 dependency-cruiser: 47 modules, 46 edges.
 Cargo metadata: 39 direct Rust dependencies.
 Tauri invoke wiring: 82 frontend invokes, 121 Rust commands, 1 missing Rust commands, 0 missing handlers.
-Estimated token savings: 1158158 tokens avoided versus broad source scan.
+Estimated token savings: 1158202 tokens avoided versus broad source scan.
 
 ## Frontend Hotspots
 
