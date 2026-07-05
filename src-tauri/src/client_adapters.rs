@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
+use crate::cli_discovery;
 use crate::client_cleanup;
 use crate::client_connector_status::{
     managed_connector_config_locations, planned_connector_automation_path, MANAGED_CLIENT_SPECS,
@@ -4130,10 +4131,7 @@ fn claude_code_user_state_exists(home: &Path) -> bool {
 }
 
 fn detect_codex_client(configured: bool) -> ClientStatus {
-    let executable = codex_candidate_paths()
-        .into_iter()
-        .find(|path| path.exists())
-        .or_else(|| find_on_path(&["codex"]));
+    let executable = cli_discovery::detect_codex_cli();
 
     let detected = executable
         .as_ref()
@@ -4173,32 +4171,6 @@ fn detect_codex_client(configured: bool) -> ClientStatus {
         health: ClientHealth::NotDetected,
         notes: vec!["Not detected on this machine yet.".into()],
     }
-}
-
-fn codex_candidate_paths() -> Vec<PathBuf> {
-    let home = home_dir();
-    let binary_names = ["codex"];
-    let mut candidates = vec![
-        PathBuf::from("/usr/local/bin/codex"),
-        PathBuf::from("/opt/homebrew/bin/codex"),
-    ];
-
-    let user_bin_dirs = vec![
-        home.join(".local").join("bin"),
-        home.join(".cargo").join("bin"),
-        home.join("bin"),
-        home.join(".npm-global").join("bin"),
-        home.join(".yarn").join("bin"),
-        home.join(".volta").join("bin"),
-        home.join(".bun").join("bin"),
-        home.join(".asdf").join("shims"),
-        home.join(".mise").join("shims"),
-        home.join(".nodenv").join("shims"),
-    ];
-
-    candidates.extend(binary_candidates_in_dirs(&user_bin_dirs, &binary_names));
-    candidates.extend(nvm_binary_candidates(&home, &binary_names));
-    dedupe_paths(candidates)
 }
 
 fn codex_user_state_exists() -> bool {
@@ -4925,10 +4897,7 @@ fn common_cli_candidate_paths(binary_names: &[&str]) -> Vec<PathBuf> {
 }
 
 pub(crate) fn detect_codex_cli() -> Option<PathBuf> {
-    codex_candidate_paths()
-        .into_iter()
-        .find(|path| path.exists())
-        .or_else(|| find_on_path(&["codex"]))
+    cli_discovery::detect_codex_cli()
 }
 
 /// True once the user has signed in to Codex with their ChatGPT account — the
