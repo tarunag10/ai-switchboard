@@ -38,6 +38,7 @@
     "lib/mockData.ts",
     "lib/plannedConnectors.ts",
     "lib/pricing.ts",
+    "lib/releaseEvidenceController.ts",
     "lib/releaseReadiness.ts",
     "lib/repoIntelligence.ts",
     "lib/repoMemoryMcp.ts",
@@ -468,6 +469,14 @@
     "lib/types.ts"
   ],
   "lib/promptCache.ts": [],
+  "lib/releaseEvidenceController.test.ts": [
+    "lib/releaseEvidenceController.ts",
+    "lib/releaseReadiness.ts"
+  ],
+  "lib/releaseEvidenceController.ts": [
+    "lib/appHelpers.ts",
+    "lib/releaseReadiness.ts"
+  ],
   "lib/releaseReadiness.test.ts": [
     "lib/releaseReadiness.ts"
   ],

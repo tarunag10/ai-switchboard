@@ -39,6 +39,7 @@ strict digraph "dependency-cruiser output"{
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/mockData" [label=<mockData> tooltip="mockData" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/plannedConnectors" [label=<plannedConnectors> tooltip="plannedConnectors" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/pricing" [label=<pricing> tooltip="pricing" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/releaseEvidenceController" [label=<releaseEvidenceController> tooltip="releaseEvidenceController" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/releaseReadiness" [label=<releaseReadiness> tooltip="releaseReadiness" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/repoIntelligence" [label=<repoIntelligence> tooltip="repoIntelligence" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/repoMemoryMcp" [label=<repoMemoryMcp> tooltip="repoMemoryMcp" ] } }
@@ -90,6 +91,7 @@ strict digraph "dependency-cruiser output"{
     "src/App.tsx" -> "./lib/mockData"
     "src/App.tsx" -> "./lib/plannedConnectors"
     "src/App.tsx" -> "./lib/pricing"
+    "src/App.tsx" -> "./lib/releaseEvidenceController"
     "src/App.tsx" -> "./lib/releaseReadiness"
     "src/App.tsx" -> "./lib/repoIntelligence"
     "src/App.tsx" -> "./lib/repoMemoryMcp"
