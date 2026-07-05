@@ -1,6 +1,6 @@
 # Mac AI Switchboard Repo Map
 
-Generated: 2026-07-05T12:26:33.501Z
+Generated: 2026-07-05T12:44:34.160Z
 
 ## Artifacts
 
@@ -22,7 +22,7 @@ Generated: 2026-07-05T12:26:33.501Z
 ## Shape
 
 - Frontend source files: 140
-- Rust source files: 78
+- Rust source files: 79
 - Docs: 35
 - Scripts: 59
 

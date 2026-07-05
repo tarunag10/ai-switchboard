@@ -2,7 +2,7 @@
   {
     "label": "graphify",
     "command": "uvx --from 'graphifyy[openai]' graphify . --no-cluster",
-    "startedAt": "2026-07-05T12:25:57.627Z",
+    "startedAt": "2026-07-05T12:43:57.410Z",
     "exitCode": 1,
     "signal": null,
     "error": null,
@@ -11,7 +11,7 @@
   {
     "label": "madge-json",
     "command": "npx --yes madge src --extensions ts,tsx --ts-config tsconfig.json --json",
-    "startedAt": "2026-07-05T12:26:27.262Z",
+    "startedAt": "2026-07-05T12:44:27.771Z",
     "exitCode": 0,
     "signal": null,
     "error": null,
@@ -20,7 +20,7 @@
   {
     "label": "dependency-cruiser-json",
     "command": "npx --yes dependency-cruiser src/App.tsx --no-config --exclude '^node_modules' --output-type json",
-    "startedAt": "2026-07-05T12:26:29.537Z",
+    "startedAt": "2026-07-05T12:44:30.257Z",
     "exitCode": 0,
     "signal": null,
     "error": null,
@@ -29,7 +29,7 @@
   {
     "label": "dependency-cruiser-dot",
     "command": "npx --yes dependency-cruiser src/App.tsx --no-config --exclude '^node_modules' --output-type dot",
-    "startedAt": "2026-07-05T12:26:31.190Z",
+    "startedAt": "2026-07-05T12:44:31.844Z",
     "exitCode": 0,
     "signal": null,
     "error": null,
@@ -38,7 +38,7 @@
   {
     "label": "cargo-metadata",
     "command": "cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1",
-    "startedAt": "2026-07-05T12:26:32.696Z",
+    "startedAt": "2026-07-05T12:44:33.325Z",
     "exitCode": 0,
     "signal": null,
     "error": null,
