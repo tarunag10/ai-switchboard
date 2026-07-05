@@ -26,6 +26,7 @@ import {
 import { SettingsLegalPanel } from "./SettingsLegalPanel";
 import { SettingsOpenLoginCard } from "./SettingsOpenLoginCard";
 import { SettingsReleaseReadinessCard } from "./SettingsReleaseReadinessCard";
+import { SettingsUninstallCard } from "./SettingsUninstallCard";
 import { SettingsConnectorPanel } from "./SettingsConnectorPanel";
 import { SettingsFooterActions } from "./SettingsFooterActions";
 import type {
@@ -1061,29 +1062,12 @@ export function SettingsView({
           ) : null}
         </article>
 
-        <article className="soft-card panel-card">
-          <div className="panel-card__header">
-            <div>
-              <h3>Uninstall</h3>
-            </div>
-          </div>
-          <p>
-            Reverses AI Switchboard for Mac changes: removes routing hooks,
-            managed runtime storage, app state, login item, known Keychain
-            entries, and managed config blocks. AI Switchboard for Mac will quit
-            when done.
-          </p>
-          <button
-            className="secondary-button secondary-button--small"
-            onClick={() => {
-              setUninstallError(null);
-              setShowUninstallDialog(true);
-            }}
-            type="button"
-          >
-            Uninstall AI Switchboard for Mac
-          </button>
-        </article>
+        <SettingsUninstallCard
+          onOpenUninstallDialog={() => {
+            setUninstallError(null);
+            setShowUninstallDialog(true);
+          }}
+        />
 
         <SettingsFooterActions supportUrl={SUPPORT_ISSUES_URL} />
       </section>
