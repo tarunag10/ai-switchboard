@@ -7,7 +7,7 @@ strict digraph "dependency-cruiser output"{
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/AddonsView" [label=<AddonsView> tooltip="AddonsView" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/ClientSavingsTrendsCard" [label=<ClientSavingsTrendsCard> tooltip="ClientSavingsTrendsCard" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/DailySavingsChart" [label=<DailySavingsChart> tooltip="DailySavingsChart" ] } }
-    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/DoctorTimelineCard" [label=<DoctorTimelineCard> tooltip="DoctorTimelineCard" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/DoctorView" [label=<DoctorView> tooltip="DoctorView" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/HomeView" [label=<HomeView> tooltip="HomeView" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/LauncherShell" [label=<LauncherShell> tooltip="LauncherShell" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/OptimizePanel" [label=<OptimizePanel> tooltip="OptimizePanel" ] } }
@@ -16,9 +16,11 @@ strict digraph "dependency-cruiser output"{
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/RepoMapView" [label=<RepoMapView> tooltip="RepoMapView" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SavingsCalculatorCard" [label=<SavingsCalculatorCard> tooltip="SavingsCalculatorCard" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SavingsChartTooltip" [label=<SavingsChartTooltip> tooltip="SavingsChartTooltip" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsConnectorPanel" [label=<SettingsConnectorPanel> tooltip="SettingsConnectorPanel" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsLegalPanel" [label=<SettingsLegalPanel> tooltip="SettingsLegalPanel" ] } }
-    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SwitchboardDoctorPanel" [label=<SwitchboardDoctorPanel> tooltip="SwitchboardDoctorPanel" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsTransferCard" [label=<SettingsTransferCard> tooltip="SettingsTransferCard" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/TermsGate" [label=<TermsGate> tooltip="TermsGate" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/TraySidebar" [label=<TraySidebar> tooltip="TraySidebar" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/analytics" [label=<analytics> tooltip="analytics" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/appHelpers" [label=<appHelpers> tooltip="appHelpers" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/appSupport" [label=<appSupport> tooltip="appSupport" ] } }
@@ -47,12 +49,11 @@ strict digraph "dependency-cruiser output"{
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/uninstallDisclosure" [label=<uninstallDisclosure> tooltip="uninstallDisclosure" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/urgentNotifications" [label=<urgentNotifications> tooltip="urgentNotifications" ] } }
     subgraph "cluster_src" {label="src" "src/App.tsx" [label=<App.tsx> tooltip="App.tsx" URL="src/App.tsx" fillcolor="#bbfeff"] }
-    "src/App.tsx" -> "src/assets/mac-ai-switchboard-logo.png"
     "src/App.tsx" -> "./components/ActivityFeed"
     "src/App.tsx" -> "./components/AddonsView"
     "src/App.tsx" -> "./components/ClientSavingsTrendsCard"
     "src/App.tsx" -> "./components/DailySavingsChart"
-    "src/App.tsx" -> "./components/DoctorTimelineCard"
+    "src/App.tsx" -> "./components/DoctorView"
     "src/App.tsx" -> "./components/HomeView"
     "src/App.tsx" -> "./components/LauncherShell"
     "src/App.tsx" -> "./components/OptimizePanel"
@@ -61,9 +62,11 @@ strict digraph "dependency-cruiser output"{
     "src/App.tsx" -> "./components/RepoMapView"
     "src/App.tsx" -> "./components/SavingsCalculatorCard"
     "src/App.tsx" -> "./components/SavingsChartTooltip"
+    "src/App.tsx" -> "./components/SettingsConnectorPanel"
     "src/App.tsx" -> "./components/SettingsLegalPanel"
-    "src/App.tsx" -> "./components/SwitchboardDoctorPanel"
+    "src/App.tsx" -> "./components/SettingsTransferCard"
     "src/App.tsx" -> "./components/TermsGate"
+    "src/App.tsx" -> "./components/TraySidebar"
     "src/App.tsx" -> "./lib/analytics"
     "src/App.tsx" -> "./lib/appHelpers"
     "src/App.tsx" -> "./lib/appSupport"
@@ -91,7 +94,4 @@ strict digraph "dependency-cruiser output"{
     "src/App.tsx" -> "./lib/types"
     "src/App.tsx" -> "./lib/uninstallDisclosure"
     "src/App.tsx" -> "./lib/urgentNotifications"
-    "src/App.tsx" -> "✖"
-    subgraph "cluster_src" {label="src" subgraph "cluster_src/assets" {label="assets" "src/assets/mac-ai-switchboard-logo.png" [label=<mac-ai-switchboard-logo.png> tooltip="mac-ai-switchboard-logo.png" URL="src/assets/mac-ai-switchboard-logo.png" ] } }
-    "✖" [label=<✖> tooltip="✖" ]
 }

@@ -4,23 +4,6 @@
       "source": "src/App.tsx",
       "dependencies": [
         {
-          "module": "./assets/mac-ai-switchboard-logo.png",
-          "moduleSystem": "es6",
-          "dynamic": false,
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "local",
-            "import"
-          ],
-          "resolved": "src/assets/mac-ai-switchboard-logo.png",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": false,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
           "module": "./components/ActivityFeed",
           "moduleSystem": "es6",
           "dynamic": false,
@@ -85,14 +68,14 @@
           "valid": true
         },
         {
-          "module": "./components/DoctorTimelineCard",
+          "module": "./components/DoctorView",
           "moduleSystem": "es6",
           "dynamic": false,
           "exoticallyRequired": false,
           "dependencyTypes": [
             "unknown"
           ],
-          "resolved": "./components/DoctorTimelineCard",
+          "resolved": "./components/DoctorView",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -229,6 +212,22 @@
           "valid": true
         },
         {
+          "module": "./components/SettingsConnectorPanel",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/SettingsConnectorPanel",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
           "module": "./components/SettingsLegalPanel",
           "moduleSystem": "es6",
           "dynamic": false,
@@ -245,14 +244,14 @@
           "valid": true
         },
         {
-          "module": "./components/SwitchboardDoctorPanel",
+          "module": "./components/SettingsTransferCard",
           "moduleSystem": "es6",
           "dynamic": false,
           "exoticallyRequired": false,
           "dependencyTypes": [
             "unknown"
           ],
-          "resolved": "./components/SwitchboardDoctorPanel",
+          "resolved": "./components/SettingsTransferCard",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -269,6 +268,22 @@
             "unknown"
           ],
           "resolved": "./components/TermsGate",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./components/TraySidebar",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/TraySidebar",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -707,42 +722,9 @@
           "matchesDoNotFollow": false,
           "circular": false,
           "valid": true
-        },
-        {
-          "module": "✖",
-          "moduleSystem": "es6",
-          "dynamic": false,
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "unknown"
-          ],
-          "resolved": "✖",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": true,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
         }
       ],
       "dependents": [],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "src/assets/mac-ai-switchboard-logo.png",
-      "followable": false,
-      "coreModule": false,
-      "couldNotResolve": false,
-      "matchesDoNotFollow": false,
-      "dependencyTypes": [
-        "local",
-        "import"
-      ],
-      "dependencies": [],
-      "dependents": [
-        "src/App.tsx"
-      ],
       "orphan": false,
       "valid": true
     },
@@ -811,7 +793,7 @@
       "valid": true
     },
     {
-      "source": "./components/DoctorTimelineCard",
+      "source": "./components/DoctorView",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -955,6 +937,22 @@
       "valid": true
     },
     {
+      "source": "./components/SettingsConnectorPanel",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
       "source": "./components/SettingsLegalPanel",
       "followable": false,
       "coreModule": false,
@@ -971,7 +969,7 @@
       "valid": true
     },
     {
-      "source": "./components/SwitchboardDoctorPanel",
+      "source": "./components/SettingsTransferCard",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -988,6 +986,22 @@
     },
     {
       "source": "./components/TermsGate",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "./components/TraySidebar",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -1420,22 +1434,6 @@
     },
     {
       "source": "./lib/urgentNotifications",
-      "followable": false,
-      "coreModule": false,
-      "couldNotResolve": true,
-      "matchesDoNotFollow": false,
-      "dependencyTypes": [
-        "unknown"
-      ],
-      "dependencies": [],
-      "dependents": [
-        "src/App.tsx"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "✖",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,

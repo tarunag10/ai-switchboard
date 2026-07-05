@@ -1,6 +1,6 @@
 # Mac AI Switchboard Repo Map
 
-Generated: 2026-07-05T10:51:00.742Z
+Generated: 2026-07-05T11:51:13.586Z
 
 ## Artifacts
 
@@ -15,14 +15,14 @@ Generated: 2026-07-05T10:51:00.742Z
 ## Tool Results
 
 - Graphify: partial-success; 4015 nodes, 11057 links.
-- Madge: 133 frontend modules, 264 import edges, no cycles found.
+- Madge: 142 frontend modules, 282 import edges, no cycles found.
 - dependency-cruiser: 46 modules, 45 edges.
 - Cargo metadata: 39 direct Rust dependencies.
 
 ## Shape
 
-- Frontend source files: 131
-- Rust source files: 75
+- Frontend source files: 140
+- Rust source files: 76
 - Docs: 35
 - Scripts: 59
 
@@ -57,7 +57,7 @@ proxy, adapters, storage, analytics"]
 
 ## Frontend Hotspots
 
-- `App.tsx`: imports 44
+- `App.tsx`: imports 45
 - `components/HomeView.tsx`: imports 13
 - `components/AddonsView.tsx`: imports 8
 - `components/SettingsView.tsx`: imports 7
@@ -73,17 +73,15 @@ proxy, adapters, storage, analytics"]
 - `main.tsx`: imports 4
 - `components/ActivityFeed.tsx`: imports 3
 - `components/PlannedAddonCard.tsx`: imports 3
+- `components/RepoMapView.tsx`: imports 3
+- `components/SettingsConnectorPanel.test.tsx`: imports 3
 - `components/SwitchboardDoctorPanel.tsx`: imports 3
 - `components/UpgradeView.tsx`: imports 3
-- `lib/appSupport.ts`: imports 3
-- `lib/appUpdate.ts`: imports 3
 
 ## Strongest Folder-Level Edges
 
 - `src/App.tsx -> ./lib`: 27
-- `src/App.tsx -> ./components`: 16
-- `src/App.tsx -> src/assets`: 1
-- `src/App.tsx -> ✖`: 1
+- `src/App.tsx -> ./components`: 18
 
 ## Tauri Command Wiring
 

@@ -1,20 +1,20 @@
 # Repo Map Compact Context
 
-Generated: 2026-07-05T10:51:00.742Z
+Generated: 2026-07-05T11:51:13.586Z
 Repository: /Users/tarunagarwal/Developer/Codex-Repos/mac-ai-switchboard
 
 ## Health
 
 Graphify: 4015 nodes, 11057 links.
-Madge: 133 modules, 264 edges, 0 cycles.
+Madge: 142 modules, 282 edges, 0 cycles.
 dependency-cruiser: 46 modules, 45 edges.
 Cargo metadata: 39 direct Rust dependencies.
 Tauri invoke wiring: 82 frontend invokes, 122 Rust commands, 0 missing Rust commands, 0 missing handlers.
-Estimated token savings: 1158509 tokens avoided versus broad source scan.
+Estimated token savings: 1156361 tokens avoided versus broad source scan.
 
 ## Frontend Hotspots
 
-- App.tsx: 44 imports
+- App.tsx: 45 imports
 - components/HomeView.tsx: 13 imports
 - components/AddonsView.tsx: 8 imports
 - components/SettingsView.tsx: 7 imports

@@ -2,12 +2,11 @@
   "../connectors/manifest.json": [],
   "../docs/repo-map/repo-map.json": [],
   "App.tsx": [
-    "assets/mac-ai-switchboard-logo.png",
     "components/ActivityFeed.tsx",
     "components/AddonsView.tsx",
     "components/ClientSavingsTrendsCard.tsx",
     "components/DailySavingsChart.tsx",
-    "components/DoctorTimelineCard.tsx",
+    "components/DoctorView.tsx",
     "components/HomeView.tsx",
     "components/LauncherShell.tsx",
     "components/OptimizePanel.tsx",
@@ -16,9 +15,11 @@
     "components/RepoMapView.tsx",
     "components/SavingsCalculatorCard.tsx",
     "components/SavingsChartTooltip.tsx",
+    "components/SettingsConnectorPanel.tsx",
     "components/SettingsLegalPanel.tsx",
-    "components/SwitchboardDoctorPanel.tsx",
+    "components/SettingsTransferCard.tsx",
     "components/TermsGate.tsx",
+    "components/TraySidebar.tsx",
     "lib/analytics.ts",
     "lib/appHelpers.ts",
     "lib/appSupport.ts",
@@ -95,6 +96,14 @@
   "components/DoctorTimelineCard.tsx": [
     "lib/doctorRepairCopy.ts"
   ],
+  "components/DoctorView.test.tsx": [
+    "components/DoctorView.tsx",
+    "lib/types.ts"
+  ],
+  "components/DoctorView.tsx": [
+    "components/DoctorTimelineCard.tsx",
+    "components/SwitchboardDoctorPanel.tsx"
+  ],
   "components/HomeView.tsx": [
     "components/ClientSavingsTrendsCard.tsx",
     "components/DailySavingsChart.tsx",
@@ -170,6 +179,7 @@
   ],
   "components/RepoMapView.tsx": [
     "../docs/repo-map/repo-map.json",
+    "lib/repoMapJob.ts",
     "lib/repoMapProgress.ts"
   ],
   "components/SavingsCalculatorCard.tsx": [
@@ -185,6 +195,11 @@
     "components/SectionCard.tsx"
   ],
   "components/SectionCard.tsx": [],
+  "components/SettingsConnectorPanel.test.tsx": [
+    "components/SettingsConnectorPanel.tsx",
+    "lib/dashboardHelpers.ts",
+    "lib/types.ts"
+  ],
   "components/SettingsConnectorPanel.tsx": [
     "lib/dashboardHelpers.ts",
     "lib/plannedConnectors.ts",
@@ -197,6 +212,14 @@
   "components/SettingsLegalPanel.tsx": [
     "lib/legalResources.ts",
     "lib/legalText.ts"
+  ],
+  "components/SettingsTransferCard.test.tsx": [
+    "components/SettingsTransferCard.tsx",
+    "lib/settingsTransfer.ts"
+  ],
+  "components/SettingsTransferCard.tsx": [
+    "lib/settingsTransfer.ts",
+    "lib/types.ts"
   ],
   "components/SettingsView.tsx": [
     "components/SettingsConnectorPanel.tsx",
@@ -241,6 +264,13 @@
   ],
   "components/TokenXrayPanel.tsx": [
     "lib/optimization.ts"
+  ],
+  "components/TraySidebar.test.tsx": [
+    "components/TraySidebar.tsx"
+  ],
+  "components/TraySidebar.tsx": [
+    "assets/mac-ai-switchboard-logo.png",
+    "lib/trayHelpers.ts"
   ],
   "components/UpgradeView.tsx": [
     "lib/appHelpers.ts",
@@ -414,6 +444,12 @@
     "lib/types.ts"
   ],
   "lib/repoIntelligenceCli.test.ts": [],
+  "lib/repoMapJob.test.ts": [
+    "lib/repoMapJob.ts"
+  ],
+  "lib/repoMapJob.ts": [
+    "../docs/repo-map/repo-map.json"
+  ],
   "lib/repoMapProgress.test.ts": [
     "lib/repoMapProgress.ts"
   ],
