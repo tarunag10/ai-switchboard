@@ -36,6 +36,12 @@ import {
   copyManagedRollbackUndoAllPreview as copyManagedRollbackUndoAllPreviewController,
   type RollbackCopyOptions,
 } from "./lib/rollbackCopyController";
+import {
+  runLocalReleaseEvidenceSequence as runLocalReleaseEvidenceSequenceController,
+  runReleaseEvidenceCommand as runReleaseEvidenceCommandController,
+  type ReleaseEvidenceCommandResult,
+  type ReleaseReadinessReportPayload,
+} from "./lib/releaseEvidenceController";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -478,20 +484,6 @@ interface ConnectorSmokeTestResult {
   summary: string;
   stdoutTail: string;
   stderrTail: string;
-}
-
-interface ReleaseReadinessReportPayload {
-  reportPath: string;
-  report: ReleaseReadinessReportSnapshot | null;
-}
-
-interface ReleaseEvidenceCommandResult {
-  commandId: string;
-  label: string;
-  command: string;
-  summaryPath: string | null;
-  stdout: string;
-  stderr: string;
 }
 
 export default function App() {
@@ -2792,63 +2784,29 @@ export default function App() {
     }
   }
 
+  function releaseEvidenceControllerOptions() {
+    return {
+      invoke,
+      setBusyId: setReleaseEvidenceBusyId,
+      setCopyNotice: setReleaseReadinessCopyNotice,
+      setError: setReleaseReadinessError,
+      setReport: setReleaseReadinessReport,
+      setResult: setReleaseEvidenceResult,
+      setTimeout: window.setTimeout.bind(window),
+    };
+  }
+
   async function runReleaseEvidenceCommand(commandId: string) {
-    setReleaseEvidenceBusyId(commandId);
-    setReleaseReadinessError(null);
-    setReleaseReadinessCopyNotice(null);
-    try {
-      const result = await invoke<ReleaseEvidenceCommandResult>(
-        "run_release_evidence_command",
-        { commandId },
-      );
-      setReleaseEvidenceResult(result);
-      setReleaseReadinessCopyNotice(`${result.label} evidence generated.`);
-      window.setTimeout(() => setReleaseReadinessCopyNotice(null), 2500);
-      const payload = await invoke<ReleaseReadinessReportPayload>(
-        "load_release_readiness_report",
-      );
-      setReleaseReadinessReport(payload);
-    } catch (error) {
-      setReleaseReadinessError(
-        describeInvokeError(error, "Could not run release evidence command."),
-      );
-    } finally {
-      setReleaseEvidenceBusyId(null);
-    }
+    await runReleaseEvidenceCommandController(
+      commandId,
+      releaseEvidenceControllerOptions(),
+    );
   }
 
   async function runLocalReleaseEvidenceSequence() {
-    setReleaseEvidenceBusyId("local-evidence");
-    setReleaseReadinessError(null);
-    setReleaseReadinessCopyNotice("Running local release evidence...");
-    try {
-      let lastResult: ReleaseEvidenceCommandResult | null = null;
-      for (const commandId of localReleaseEvidenceCommandIds) {
-        const result = await invoke<ReleaseEvidenceCommandResult>(
-          "run_release_evidence_command",
-          { commandId },
-        );
-        lastResult = result;
-        setReleaseEvidenceResult(result);
-        setReleaseReadinessCopyNotice(`${result.label} evidence generated.`);
-      }
-      const payload = await invoke<ReleaseReadinessReportPayload>(
-        "load_release_readiness_report",
-      );
-      setReleaseReadinessReport(payload);
-      setReleaseReadinessCopyNotice(
-        lastResult
-          ? "Local release evidence sequence completed."
-          : "No local evidence commands ran.",
-      );
-      window.setTimeout(() => setReleaseReadinessCopyNotice(null), 3000);
-    } catch (error) {
-      setReleaseReadinessError(
-        describeInvokeError(error, "Could not run local release evidence."),
-      );
-    } finally {
-      setReleaseEvidenceBusyId(null);
-    }
+    await runLocalReleaseEvidenceSequenceController(
+      releaseEvidenceControllerOptions(),
+    );
   }
 
   async function autoConfigureConnectorsForLauncher() {
