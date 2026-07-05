@@ -24,6 +24,7 @@ import {
 } from "../lib/settingsConnectorCopy";
 import { SettingsLegalPanel } from "./SettingsLegalPanel";
 import { SettingsConnectorPanel } from "./SettingsConnectorPanel";
+import { SettingsFooterActions } from "./SettingsFooterActions";
 import type {
   AppUpdateConfiguration,
   ClientConnectorStatus,
@@ -682,9 +683,7 @@ export function SettingsView({
               }}
               type="button"
             >
-              {showHeadroomDetails
-                ? "Hide runtime logs"
-                : "Show runtime logs"}
+              {showHeadroomDetails ? "Hide runtime logs" : "Show runtime logs"}
             </button>
             {showHeadroomDetails ? (
               <pre
@@ -1239,24 +1238,7 @@ export function SettingsView({
           </button>
         </article>
 
-        <button
-          className="contact-link"
-          onClick={() =>
-            void invoke("open_external_link", {
-              url: SUPPORT_ISSUES_URL,
-            })
-          }
-          type="button"
-        >
-          Contact us
-        </button>
-        <button
-          className="quit-button"
-          onClick={() => void invoke("quit_headroom")}
-          type="button"
-        >
-          Quit AI Switchboard for Mac
-        </button>
+        <SettingsFooterActions supportUrl={SUPPORT_ISSUES_URL} />
       </section>
     </div>
   );
