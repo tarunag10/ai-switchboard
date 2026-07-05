@@ -22,6 +22,7 @@ mod device;
 mod doctor;
 mod insights;
 mod keychain;
+mod learning_commands;
 mod local_mode;
 mod logging;
 mod managed_files;
@@ -65,9 +66,7 @@ use tauri::{
 use tauri::{Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
 
-use crate::models::{
-    DashboardState, HeadroomLearnPrereqStatus, HeadroomLearnStatus, TransformationFeedResponse,
-};
+use crate::models::{DashboardState, HeadroomLearnPrereqStatus, TransformationFeedResponse};
 use crate::state::AppState;
 
 const SENTRY_DSN: Option<&str> = option_env!("HEADROOM_SENTRY_DSN");
@@ -1348,25 +1347,6 @@ pub(crate) fn classify_upgrade_error(err: &anyhow::Error) -> Option<String> {
 }
 
 #[tauri::command]
-fn get_headroom_learn_status(
-    state: State<'_, AppState>,
-    project_path: Option<String>,
-) -> HeadroomLearnStatus {
-    state.headroom_learn_status(project_path.as_deref())
-}
-
-#[tauri::command]
-fn get_headroom_learn_prereq_status(
-    state: State<'_, AppState>,
-    force: Option<bool>,
-) -> HeadroomLearnPrereqStatus {
-    if force.unwrap_or(false) {
-        state.invalidate_headroom_learn_prereq_cache();
-    }
-    state.headroom_learn_prereq_status()
-}
-
-#[tauri::command]
 async fn get_transformations_feed(limit: Option<u32>) -> TransformationFeedResponse {
     let limit = limit.unwrap_or(50).min(100);
     let settings = message_logging::load_settings();
@@ -2458,8 +2438,8 @@ pub fn run() {
             list_applied_patterns,
             list_applied_patterns_for_projects,
             delete_applied_pattern,
-            get_headroom_learn_status,
-            get_headroom_learn_prereq_status,
+            learning_commands::get_headroom_learn_status,
+            learning_commands::get_headroom_learn_prereq_status,
             get_transformations_feed,
             start_headroom_learn,
             client_setup_commands::apply_client_setup,
