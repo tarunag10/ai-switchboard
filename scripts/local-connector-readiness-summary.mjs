@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 
 const summaryPath = "dist/local-connector-readiness-summary.md";
 const jsonPath = "dist/local-connector-readiness-summary.json";
-const requiredGatedNativeWrite = ["aider", "amazon_q", "continue", "cursor", "grok_cli"];
+const requiredGatedNativeWrite = ["aider", "amazon_q", "cursor", "grok_cli"];
 const requiredLifecycleStages = ["detect", "dryRunDiff", "backup", "apply", "verify", "rollback", "offCleanup"];
 const generatedAt = new Date().toISOString();
 

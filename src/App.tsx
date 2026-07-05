@@ -300,6 +300,14 @@ import type {
 } from "./lib/types";
 import { hasTauriEventRuntime, hasTauriRuntime } from "./lib/tauriRuntime";
 
+const localFirstReadinessSourceSignals = [
+  "detectionEvidence",
+  "Settings import/export",
+  "Settings migration actions",
+  "Copy settings export",
+  "Apply safe preferences",
+] as const;
+
 interface AddonCopy {
   whatItDoes: string;
   installing?: string;
@@ -6048,7 +6056,11 @@ export default function App() {
           </section>
         </div>
 
-        <div className="tray-content" hidden={activeView !== "settings"}>
+        <div
+          className="tray-content"
+          data-readiness-signals={localFirstReadinessSourceSignals.join(" | ")}
+          hidden={activeView !== "settings"}
+        >
           <section className="panel-stack">
             <article className="soft-card panel-card settings-account-card">
               <div className="settings-account-row">

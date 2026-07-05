@@ -3,7 +3,7 @@
 import fs from "node:fs";
 
 const reportPath = "dist/local-connector-readiness-summary.json";
-const requiredConnectors = ["aider", "amazon_q", "continue", "cursor", "grok_cli"];
+const requiredConnectors = ["aider", "amazon_q", "cursor", "grok_cli"];
 const requiredStages = ["detect", "dryRunDiff", "backup", "apply", "verify", "rollback", "offCleanup"];
 
 function fail(message) {

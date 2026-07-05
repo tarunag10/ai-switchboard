@@ -73,11 +73,11 @@
     "id": "continue",
     "name": "Continue",
     "category": "editor",
-    "support_status": "planned",
+    "support_status": "managed",
     "detection": { "binaries": [], "paths": ["~/.continue"] },
     "config": { "locations": ["~/.continue"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
-    "automation_gates": ["Detect active Continue config without reading secrets.", "Back up provider settings before edits.", "Verify Off mode restores exact previous config."],
-    "manual_workflow": ["Use copied context packs.", "Keep provider setup manual.", "Revisit once MCP/provider bridge behavior is verified."]
+    "automation_gates": ["Detect active Continue config without reading secrets.", "Back up the Switchboard-owned sidecar before managed edits.", "Write only the Switchboard-owned Continue routing-intent sidecar.", "Verify Continue sidecar routing in Doctor without reading provider secrets.", "Rollback removes only the Switchboard-owned Continue sidecar marker.", "Off mode removes managed routing without touching provider config."],
+    "manual_workflow": ["Confirm Continue config storage is available.", "Toggle the connector on from Settings to create the managed sidecar.", "Keep provider setup manual until a documented provider file adapter is proven."]
   },
   {
     "id": "goose",

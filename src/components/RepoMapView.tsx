@@ -9,6 +9,7 @@ import {
   MagnifyingGlass,
   WarningCircle,
 } from "@phosphor-icons/react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useEffect, useMemo, useState } from "react";
 import repoMapSnapshot from "../../docs/repo-map/repo-map.json";
 import {
@@ -62,6 +63,7 @@ export function RepoMapView({
   const [generation, setGeneration] = useState<RepoMapGenerationResponse | null>(null);
   const [preflight, setPreflight] = useState<RepoMapPreflightResponse | null>(null);
   const [preflightBusy, setPreflightBusy] = useState(false);
+  const [pickerBusy, setPickerBusy] = useState(false);
   const [generateBusy, setGenerateBusy] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
@@ -103,6 +105,28 @@ export function RepoMapView({
       setGenerateError(normalizeRepoMapError(error));
     } finally {
       setPreflightBusy(false);
+    }
+  };
+
+  const chooseRepoFolder = async () => {
+    setPickerBusy(true);
+    setGenerateError(null);
+    setCopyNotice(null);
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "Choose repository folder",
+      });
+      if (typeof selected !== "string") return;
+      setRepoPath(selected);
+      const result = await repoMapTauriAdapter.preflight(selected);
+      setPreflight(result);
+      setCopyNotice("Repository folder selected.");
+    } catch (error) {
+      setGenerateError(normalizeRepoMapError(error));
+    } finally {
+      setPickerBusy(false);
     }
   };
 
@@ -255,7 +279,16 @@ export function RepoMapView({
           />
           <button
             className="secondary-button"
-            disabled={preflightBusy}
+            disabled={pickerBusy}
+            onClick={() => void chooseRepoFolder()}
+            type="button"
+          >
+            <FolderOpen size={15} weight="bold" />
+            {pickerBusy ? "Opening..." : "Browse"}
+          </button>
+          <button
+            className="secondary-button"
+            disabled={preflightBusy || pickerBusy}
             onClick={() => runPreflight()}
             type="button"
           >

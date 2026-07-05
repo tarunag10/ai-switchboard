@@ -4405,9 +4405,9 @@ fn detect_continue_client() -> ClientStatus {
     };
     if installed {
         notes.push(
-            "Detected, but Headroom adapter not implemented yet. guided setup is safest because provider configs can vary."
-                .into(),
-        );
+                "Managed sidecar routing-intent setup uses a Switchboard-owned config marker with Doctor verification, rollback, and Off mode cleanup while provider choices remain manual."
+                    .into(),
+            );
     }
 
     ClientStatus {
@@ -5170,7 +5170,7 @@ mod tests {
                 notes: vec![
                     "Continue command: /opt/homebrew/bin/continue".into(),
                     "Continue config folder: /Users/test/.continue".into(),
-                    "Settings routing blocked until multi-provider parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.".into(),
+                    "Managed sidecar routing-intent setup uses a Switchboard-owned config marker with Doctor verification, rollback, and Off mode cleanup while provider choices remain manual.".into(),
                 ],
             },
             ClientStatus {
@@ -5250,7 +5250,7 @@ mod tests {
                 .iter()
                 .map(|connector| connector.client_id.as_str())
                 .collect::<BTreeSet<_>>(),
-            BTreeSet::from(["aider", "continue", "cursor", "grok_cli",])
+            BTreeSet::from(["cursor", "grok_cli",])
         );
 
         for connector in planned {
@@ -5441,13 +5441,13 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "continue"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
                     .contains(&"Continue command: /opt/homebrew/bin/continue".to_string())
                 && connector.detection_evidence.contains(
-                    &"Settings routing blocked until multi-provider parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+                    &"Managed sidecar routing-intent setup uses a Switchboard-owned config marker with Doctor verification, rollback, and Off mode cleanup while provider choices remain manual."
                         .to_string()
                 )
         }));
@@ -7004,6 +7004,104 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         );
         let verification =
             super::verify_client_setup("aider").expect("verify disabled aider setup");
+        assert!(!verification.verified);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn continue_sidecar_lifecycle_applies_repairs_rolls_back_and_disables() {
+        let home = TestHome::new();
+        let sidecar = home.path().join(".continue").join(SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(sidecar.parent().unwrap()).expect("create continue dir");
+        fs::write(&sidecar, "# continue user note\nkeep this\n").expect("seed sidecar");
+
+        let result = super::apply_client_setup("continue").expect("apply continue setup");
+        assert!(result.applied);
+        assert!(!result.already_configured);
+        assert_eq!(result.changed_files, vec![sidecar.display().to_string()]);
+        assert_eq!(result.backup_files.len(), 1);
+        assert!(result.verification.verified);
+        assert!(result.summary.contains("Continue"));
+
+        let content = fs::read_to_string(&sidecar).expect("read continue sidecar");
+        assert!(content.contains("# continue user note\nkeep this"));
+        assert!(content.contains("# >>> headroom:continue >>>"));
+        assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
+        assert!(content.contains("Continue routing-intent sidecar"));
+
+        let connectors = list_client_connectors(&[ClientStatus {
+            id: "continue".into(),
+            name: "Continue".into(),
+            installed: true,
+            configured: false,
+            health: ClientHealth::Attention,
+            notes: vec![format!(
+                "Continue config folder: {}",
+                sidecar.parent().unwrap().display()
+            )],
+        }])
+        .expect("list connectors");
+        let continue_connector = connectors
+            .iter()
+            .find(|connector| connector.client_id == "continue")
+            .expect("continue connector");
+        assert_eq!(
+            continue_connector.support_status,
+            ClientConnectorSupportStatus::Managed
+        );
+        assert!(continue_connector.enabled);
+        assert!(continue_connector.verified);
+        assert!(continue_connector.config_creation_steps.is_empty());
+        assert!(continue_connector.automation_path.is_empty());
+
+        let drifted = content.replace(super::HEADROOM_OPENAI_BASE_URL, "http://127.0.0.1:1");
+        fs::write(&sidecar, drifted).expect("drift continue sidecar");
+        let verification =
+            super::verify_client_setup("continue").expect("verify drifted continue setup");
+        assert!(!verification.verified);
+        assert!(verification
+            .failures
+            .join(" ")
+            .contains("Switchboard-managed Continue sidecar was not found"));
+
+        let repaired = super::apply_client_setup("continue").expect("repair continue setup");
+        assert!(repaired.verification.verified);
+        assert!(fs::read_to_string(&sidecar)
+            .expect("read repaired continue sidecar")
+            .contains(super::HEADROOM_OPENAI_BASE_URL));
+
+        let preview =
+            super::preview_managed_rollback("continue-routing").expect("preview continue rollback");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.marker_present);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Restore headroom:continue for Continue routing"
+        );
+
+        let rollback = super::execute_managed_rollback(
+            "continue-routing",
+            "",
+            "Restore headroom:continue for Continue routing",
+        )
+        .expect("execute continue rollback");
+        assert_eq!(
+            rollback.restored_from,
+            "Switchboard-owned continue sidecar block removed."
+        );
+        assert_eq!(
+            fs::read_to_string(&sidecar).expect("read rolled back continue sidecar"),
+            "# continue user note\nkeep this\n"
+        );
+
+        super::apply_client_setup("continue").expect("reapply continue setup");
+        super::disable_client_setup("continue").expect("disable continue setup");
+        assert_eq!(
+            fs::read_to_string(&sidecar).expect("read disabled continue sidecar"),
+            "# continue user note\nkeep this\n"
+        );
+        let verification =
+            super::verify_client_setup("continue").expect("verify disabled continue setup");
         assert!(!verification.verified);
     }
 

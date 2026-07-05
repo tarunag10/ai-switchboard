@@ -612,7 +612,7 @@ mod doctor_tests {
         assert!(body.contains("Config locations watched: ~/.gemini."));
         assert!(body.contains("Detection evidence: Detected at /opt/homebrew/bin/gemini."));
         assert!(body.contains("Manual workflow: Use RTK-only mode"));
-        assert!(body.contains("automatic provider routing is not enabled"));
+        assert!(body.contains("automatic provider routing is not enabled for these tools yet"));
         assert!(body.contains("Why setup is gated"));
         assert!(body.contains("exact backups, consented apply, Doctor verification"));
         assert!(body.contains("Safe today: use RTK-only mode or Repo Intelligence packs"));

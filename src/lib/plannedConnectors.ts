@@ -525,7 +525,7 @@ export const plannedConnectors: PlannedConnector[] = [
     integrationTarget:
       "Switchboard-owned routing-intent sidecar plus Repo Intelligence context packs.",
     notes:
-      "Managed sidecar automation never reads provider secrets or rewrites saved provider config.",
+      "Managed reversible sidecar automation never reads provider secrets or rewrites saved provider config.",
     capabilityBadges: ["Managed sidecar", "Doctor repair", "Rollback"],
     supportedModes: ["Full optimization", "RTK only", "Repo packs", "Off"],
     safeToday:
@@ -571,22 +571,23 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "continue",
     name: "Continue",
     category: "editor",
-    supportStatus: "planned",
-    statusLabel: "Gated",
-    setupPhase: "Guide",
-    integrationTarget: "Local config adapter with explicit backup and restore.",
+    supportStatus: "managed",
+    statusLabel: "Managed sidecar",
+    setupPhase: "Managed",
+    integrationTarget:
+      "Switchboard-owned routing-intent sidecar plus Repo Intelligence context packs.",
     notes:
-      "Start with read-only detection and guided setup because Continue configs often contain multiple providers.",
+      "Managed reversible sidecar automation never reads provider secrets or rewrites saved Continue provider config.",
     capabilityBadges: [
-      "Config detection",
-      "Guided setup",
-      "Backup/restore gated",
+      "Managed sidecar",
+      "Doctor repair",
+      "Rollback",
     ],
-    supportedModes: ["Repo packs", "Guided setup", "Off"],
+    supportedModes: ["Full optimization", "Repo packs", "Off"],
     safeToday:
-      "Guide users to review Continue provider config and use Repo Intelligence packs.",
+      "Create the Switchboard-owned sidecar and keep saved provider config manual.",
     firstAutomation:
-      "Parse the provider list losslessly, back it up, and show an exact restore plan before writes.",
+      "Sidecar apply, verify, rollback, Doctor repair, and Off cleanup are covered by fixture-home tests.",
     capabilityRows: [
       {
         label: "Config detection",
@@ -594,16 +595,16 @@ export const plannedConnectors: PlannedConnector[] = [
         detail: "Switchboard can guide users to the Continue config folder.",
       },
       {
-        label: "Manual setup",
-        state: "Manual today",
+        label: "Managed sidecar",
+        state: "Available now",
         detail:
-          "Review configured providers before choosing any local proxy route.",
+          "Switchboard writes only its owned routing marker in Continue config storage.",
       },
       {
-        label: "Config adapter",
-        state: "Gated",
+        label: "Provider config",
+        state: "Manual today",
         detail:
-          "Automatic edits wait for multi-provider backup and restore coverage.",
+          "Saved Continue provider config remains untouched until a documented provider adapter is proven.",
       },
     ],
     configSurfaces: [
@@ -612,14 +613,14 @@ export const plannedConnectors: PlannedConnector[] = [
       "editor integration",
     ],
     automationGates: [
-      "Parse multi-provider configs without dropping unknown fields.",
-      "Back up the exact config before provider routing changes.",
-      "Offer guided setup before automatic edits.",
+      "Detect active Continue config without reading secrets.",
+      "Write only the Switchboard-owned Continue routing-intent sidecar.",
+      "Verify Doctor repair, rollback, and Off cleanup leave provider config untouched.",
     ],
     manualWorkflow: [
-      "Open the Continue config folder.",
-      "Review configured providers with approval.",
-      "Use Repo Intelligence packs beside Continue until the adapter can preserve every provider entry.",
+      "Confirm Continue config storage is available.",
+      "Toggle the connector on from Settings to create the managed sidecar.",
+      "Keep saved provider config manual until a documented provider file adapter is proven.",
     ],
   },
   {
@@ -873,24 +874,24 @@ const plannedConnectorSafetyDossiers: Record<
   aider: {
     connectorId: "aider",
     configPathStrategy:
-      "Detect PATH: aider and prefer a one-launch environment wrapper over saved config edits.",
+      "Detect PATH: aider and manage only the Switchboard-owned sidecar marker.",
     providerSemantics:
-      "Provider routing should be scoped to a reversible environment wrapper before persistent config support.",
+      "Provider routing stays manual; the managed path records reversible routing intent without changing Aider provider files.",
     accountCaveat:
       "Existing provider secrets remain in the user's shell or provider config and are never copied.",
     rollbackStrategy:
-      "Drop the wrapper environment and leave the user's Aider/provider files unchanged.",
+      "Remove only the Switchboard-owned Aider sidecar marker while preserving user-authored sidecar notes and provider config.",
   },
   continue: {
     connectorId: "continue",
     configPathStrategy:
-      "Open or parse the Continue config folder only after preserving unknown provider fields.",
+      "Detect the Continue config folder, then manage only the Switchboard-owned sidecar marker.",
     providerSemantics:
-      "Continue may contain multiple providers, so local routing must preserve every non-managed entry.",
+      "Provider routing stays manual; the managed path records reversible routing intent without changing Continue provider entries.",
     accountCaveat:
-      "Provider credentials and account selections stay visible and user-owned during guided setup.",
+      "Provider credentials and account selections remain user-owned and are never read or copied into Switchboard storage.",
     rollbackStrategy:
-      "Restore the exact config backup or remove only the marked Switchboard provider entry.",
+      "Remove only the Switchboard-owned Continue sidecar marker while preserving user-authored sidecar notes and provider config.",
   },
   goose: {
     connectorId: "goose",

@@ -20,6 +20,7 @@ import {
   pendingPlannedConnectors,
   plannedConnectorReadinessStageOrder,
   plannedConnectors,
+  promotedSidecarConnectorIds,
   summarizePlannedConnectorSupport,
 } from "./plannedConnectors";
 
@@ -143,14 +144,16 @@ describe("planned connectors", () => {
   });
 
   it("keeps every planned connector explicit about local reversible setup", () => {
-    for (const connector of plannedConnectors.filter(
-      (item) => item.id !== "qwen_code",
-    )) {
+    for (const connector of plannedConnectors) {
       if (connector.id === "goose") {
         expect(connector.statusLabel).toBe("Managed MCP");
         expect(connector.setupPhase).toBe("Managed MCP");
-      } else if (connector.id === "qwen_code") {
-        expect(connector.statusLabel).toBe("Managed");
+      } else if (
+        ["aider", "continue", "qwen_code", "amazon_q"].includes(connector.id)
+      ) {
+        expect(["Managed", "Managed sidecar"]).toContain(
+          connector.statusLabel,
+        );
         expect(connector.setupPhase).toBe("Managed");
       } else {
         expect(connector.statusLabel).toBe("Gated");
@@ -162,7 +165,7 @@ describe("planned connectors", () => {
         connector.capabilityBadges.every((badge) => badge.length > 5),
       ).toBe(true);
       expect(`${connector.integrationTarget} ${connector.notes}`).toMatch(
-        /local|reversible|backup|restore|off-mode|guided/i,
+        /local|reversible|backup|restore|off-mode|guided|Switchboard-owned.*sidecar/i,
       );
     }
   });
@@ -172,9 +175,8 @@ describe("planned connectors", () => {
       (connector) => connector.capabilityBadges,
     );
 
-    expect(badges).toContain("RTK-safe today");
-    expect(badges).toContain("Backup/restore gated");
-    expect(badges).toContain("Repo packs gated");
+    expect(badges).toContain("Managed sidecar");
+    expect(badges).toContain("Doctor repair");
     expect(badges).toContain("Provider routing gated");
   });
 
@@ -184,12 +186,9 @@ describe("planned connectors", () => {
     expect(pendingPlannedConnectors.map((connector) => connector.id)).toEqual([
       "cursor",
       "grok_cli",
-      "aider",
-      "continue",
-      "amazon_q",
     ]);
     expect(summary).toMatchObject({
-      connectorCount: 5,
+      connectorCount: 2,
     });
     expect(summary.safeTodayCount).toBeGreaterThan(0);
     expect(summary.manualTodayCount).toBeGreaterThan(0);
@@ -254,13 +253,13 @@ describe("planned connectors", () => {
       plannedConnectors.filter(
         (connector) => connector.setupPhase === "Detect",
       ),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(
       plannedConnectors.filter((connector) => connector.setupPhase === "Guide"),
-    ).toHaveLength(2);
+    ).toHaveLength(1);
     expect(
       plannedConnectors.filter((connector) => connector.setupPhase === "Adapt"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       plannedConnectors.filter(
         (connector) => connector.setupPhase === "Managed MCP",
@@ -302,10 +301,14 @@ describe("planned connectors", () => {
 
   it("defines a staged readiness contract before connector automation", () => {
     const contracts = getPlannedConnectorReadinessContracts(
-      plannedConnectors.filter((connector) => connector.id !== "qwen_code"),
+      plannedConnectors.filter(
+        (connector) =>
+          connector.statusLabel === "Gated" ||
+          connector.setupPhase === "Managed MCP",
+      ),
     );
 
-    expect(contracts).toHaveLength(plannedConnectors.length - 1);
+    expect(contracts).toHaveLength(3);
     for (const contract of contracts) {
       expect(contract.stages.map((stage) => stage.id)).toEqual(
         plannedConnectorReadinessStageOrder,
@@ -373,7 +376,8 @@ describe("planned connectors", () => {
 
   it("derives roadmap readiness badges without enabling planned automation", () => {
     for (const connector of plannedConnectors.filter(
-      (item) => item.id !== "qwen_code",
+      (item) =>
+        item.statusLabel === "Gated" || item.setupPhase === "Managed MCP",
     )) {
       const badges = getPlannedConnectorReadinessBadges(connector);
       const badgeLabels = badges.map((badge) => badge.label);
@@ -432,12 +436,20 @@ describe("planned connectors", () => {
 
   it("defines config-creation plans for every connector before enabling writes", () => {
     const plans = getPlannedConnectorConfigCreationPlans(
-      plannedConnectors.filter((connector) => connector.id !== "qwen_code"),
+      plannedConnectors.filter(
+        (connector) =>
+          connector.statusLabel === "Gated" ||
+          connector.setupPhase === "Managed MCP",
+      ),
     );
 
     expect(plans.map((plan) => plan.connectorId)).toEqual(
       plannedConnectors
-        .filter((connector) => connector.id !== "qwen_code")
+        .filter(
+          (connector) =>
+            connector.statusLabel === "Gated" ||
+            connector.setupPhase === "Managed MCP",
+        )
         .map((connector) => connector.id),
     );
     for (const plan of plans) {
@@ -577,7 +589,7 @@ describe("planned connectors", () => {
     );
     expect(markdown).not.toContain("## Grok / xAI CLI");
     expect(markdown).toContain("## Aider");
-    expect(markdown).toContain("Automation enabled: no");
+    expect(markdown).toContain("Automation enabled: yes");
     expect(markdown).toContain("Show dry-run diff");
   });
 
@@ -629,15 +641,16 @@ describe("planned connectors", () => {
     ]);
   });
 
-  it("keeps Aider config discovery gated with forbidden-read boundaries", () => {
+  it("keeps Aider sidecar managed with forbidden-read boundaries", () => {
     const aider = getPlannedConnector("aider")!;
     const aiderManifest = getConnectorManifest("aider")!;
     const plan = getPlannedConnectorConfigCreationPlan(aider);
 
-    expect(aider.supportStatus).toBe("planned");
-    expect(aider.safeToday).toContain("copy implementation or handoff packs");
-    expect(aider.firstAutomation).toContain("environment wrapper");
-    expect(plan.automationEnabled).toBe(false);
+    expect(aider.supportStatus).toBe("managed");
+    expect(aider.safeToday).toContain("Switchboard-owned sidecar");
+    expect(aider.firstAutomation).toContain("Sidecar apply");
+    expect(plan.automationEnabled).toBe(true);
+    expect(promotedSidecarConnectorIds.has("aider")).toBe(true);
     expect(aiderManifest.config?.locations).toEqual([
       "~/.aider.conf.yml",
       "~/.config/aider",
@@ -649,28 +662,27 @@ describe("planned connectors", () => {
     ]);
   });
 });
-it("keeps Continue config discovery gated with forbidden-read boundaries", () => {
+it("keeps Continue sidecar managed with forbidden-read boundaries", () => {
   const continueManifest = getConnectorManifest("continue")!;
   const continueConnector = getPlannedConnector("continue")!;
   const contract = getPlannedConnectorReadinessContract(continueConnector);
   const copy = JSON.stringify(continueConnector);
 
-  expect(continueManifest.support_status).toBe("planned");
+  expect(continueManifest.support_status).toBe("managed");
   expect(continueManifest.config?.locations).toEqual(
     expect.arrayContaining(["~/.continue"]),
   );
   expect(continueManifest.config?.forbidden_reads).toEqual(
     expect.arrayContaining(["*token*", "*secret*", "auth.json"]),
   );
-  expect(contract.setupPhase).toBe("Guide");
-  expect(contract.automationEnabled).toBe(false);
-  expect(contract.nextBlockedStage).not.toBeNull();
-  expect(contract.stages.some((stage) => stage.state === "blocked")).toBe(
-    true,
-  );
+  expect(contract.setupPhase).toBe("Managed");
+  expect(contract.automationEnabled).toBe(true);
+  expect(contract.nextBlockedStage).toBeNull();
+  expect(contract.stages.every((stage) => stage.state === "ready")).toBe(true);
+  expect(promotedSidecarConnectorIds.has("continue")).toBe(true);
   expect(copy).toMatch(/Continue/);
   expect(copy).toMatch(/provider|providers/i);
-  expect(copy).toMatch(/manual|gated|blocked/i);
+  expect(copy).toMatch(/manual|managed sidecar|Switchboard-owned/i);
 });
 
 it("keeps Qwen Code config discovery aligned with backend config surfaces", () => {
