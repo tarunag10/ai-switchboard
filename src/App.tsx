@@ -24,6 +24,10 @@ import {
   Terminal,
 } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
+import {
+  refreshDoctorReport as refreshDoctorReportController,
+  runDoctorRepairAction,
+} from "./lib/doctorRepairController";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -2516,19 +2520,11 @@ export default function App() {
   }
 
   async function refreshDoctorReport() {
-    try {
-      const [report, footprint] = await Promise.all([
-        invoke<DoctorReport>("get_doctor_report"),
-        invoke<ManagedFootprintReport>("get_managed_footprint").catch(
-          () => null,
-        ),
-      ]);
-      setDoctorReport(report);
-      setManagedFootprintReport(footprint);
-    } catch {
-      setDoctorReport(null);
-      setManagedFootprintReport(null);
-    }
+    await refreshDoctorReportController({
+      invoke,
+      setDoctorReport,
+      setManagedFootprintReport,
+    });
   }
 
   async function handleSetSwitchboardMode(mode: SwitchboardMode) {
@@ -2588,32 +2584,15 @@ export default function App() {
   }
 
   async function handleDoctorRepair(action: string) {
-    if (doctorRepairBusy !== null) {
-      return;
-    }
-    setDoctorRepairBusy(action);
-    setDoctorRepairError(null);
-    setDoctorRepairSuccess(null);
-    try {
-      const report = await invoke<DoctorReport>("run_doctor_repair", {
-        action,
-      });
-      setDoctorReport(report);
-      setDoctorRepairSuccess(
-        action === "verify_off_mode"
-          ? "Off mode verification refreshed."
-          : report.status === "ok" && report.issues.length === 0
-            ? "Repair complete. Switchboard looks ready."
-            : "Repair finished. Review the remaining Doctor items.",
-      );
-      await refreshSwitchboardState();
-    } catch (error) {
-      setDoctorRepairError(
-        error instanceof Error ? error.message : "Could not run repair.",
-      );
-    } finally {
-      setDoctorRepairBusy(null);
-    }
+    await runDoctorRepairAction(action, {
+      currentBusyAction: doctorRepairBusy,
+      invoke,
+      refreshSwitchboardState,
+      setDoctorRepairBusy,
+      setDoctorRepairError,
+      setDoctorRepairSuccess,
+      setDoctorReport,
+    });
   }
 
   async function refreshRuntimeStatus() {
