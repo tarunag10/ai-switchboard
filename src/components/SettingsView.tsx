@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { type RefObject } from "react";
 import { ArrowClockwise, Copy, Terminal } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
@@ -382,6 +383,23 @@ export function SettingsView({
   copyUninstallDryRunReport,
   SUPPORT_ISSUES_URL,
 }: SettingsViewProps) {
+  const [runtimeActionError, setRuntimeActionError] = useState<string | null>(
+    null,
+  );
+
+  async function openHeadroomDashboard() {
+    setRuntimeActionError(null);
+    try {
+      await invoke("open_headroom_dashboard");
+    } catch (err) {
+      setRuntimeActionError(
+        err instanceof Error
+          ? err.message
+          : "Could not open the Switchboard dashboard.",
+      );
+    }
+  }
+
   return (
     <div className="tray-content">
       <section className="panel-stack">
@@ -589,6 +607,9 @@ export function SettingsView({
                 ) : null}
               </span>
             </div>
+            {runtimeActionError ? (
+              <p className="runtime-status__error">{runtimeActionError}</p>
+            ) : null}
             <div className="runtime-status__grid runtime-status__grid--4">
               {(
                 [
@@ -600,7 +621,7 @@ export function SettingsView({
                     name: "Proxy",
                     ok: runtimeStatus?.proxyReachable === true,
                     suffix: "6767",
-                    onClick: () => void invoke("open_headroom_dashboard"),
+                    onClick: () => void openHeadroomDashboard(),
                   },
                   {
                     name: "MCP",
