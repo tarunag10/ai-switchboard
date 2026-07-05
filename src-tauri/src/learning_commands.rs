@@ -563,7 +563,7 @@ pub async fn list_applied_patterns_for_projects(
 
 pub(crate) fn read_applied_patterns_for_project(project_path: &str) -> AppliedPatterns {
     let claude_md = PathBuf::from(project_path).join("CLAUDE.md");
-    let memory_md = crate::tool_manager::claude_project_memory_file(project_path);
+    let memory_md = crate::headroom_learn::claude_project_memory_file(project_path);
 
     AppliedPatterns {
         claude_md: read_applied_block(&claude_md),
@@ -580,7 +580,7 @@ pub async fn delete_applied_pattern(
 ) -> Result<(), String> {
     let path = match file_kind.as_str() {
         "claude" => PathBuf::from(&project_path).join("CLAUDE.md"),
-        "memory" => crate::tool_manager::claude_project_memory_file(&project_path),
+        "memory" => crate::headroom_learn::claude_project_memory_file(&project_path),
         other => return Err(format!("Unknown file_kind: {other}")),
     };
     if !path.exists() {
@@ -589,7 +589,7 @@ pub async fn delete_applied_pattern(
     let content =
         std::fs::read_to_string(&path).map_err(|err| format!("read {}: {err}", path.display()))?;
     let updated =
-        crate::tool_manager::delete_applied_bullet(&content, &section_title, &bullet_text);
+        crate::headroom_learn::delete_applied_bullet(&content, &section_title, &bullet_text);
     if updated == content {
         return Ok(());
     }
@@ -599,7 +599,7 @@ pub async fn delete_applied_pattern(
 
 fn read_applied_block(path: &Path) -> Vec<AppliedSection> {
     match std::fs::read_to_string(path) {
-        Ok(content) => crate::tool_manager::parse_headroom_learn_block(&content),
+        Ok(content) => crate::headroom_learn::parse_headroom_learn_block(&content),
         Err(_) => Vec::new(),
     }
 }
