@@ -17,6 +17,7 @@
     "components/SavingsChartTooltip.tsx",
     "components/SettingsConnectorPanel.tsx",
     "components/SettingsLegalPanel.tsx",
+    "components/SettingsOpenLoginCard.tsx",
     "components/SettingsTransferCard.tsx",
     "components/TermsGate.tsx",
     "components/TraySidebar.tsx",
@@ -217,6 +218,10 @@
     "lib/legalResources.ts",
     "lib/legalText.ts"
   ],
+  "components/SettingsOpenLoginCard.test.tsx": [
+    "components/SettingsOpenLoginCard.tsx"
+  ],
+  "components/SettingsOpenLoginCard.tsx": [],
   "components/SettingsTransferCard.test.tsx": [
     "components/SettingsTransferCard.tsx",
     "lib/settingsTransfer.ts"
@@ -229,6 +234,7 @@
     "components/SettingsConnectorPanel.tsx",
     "components/SettingsFooterActions.tsx",
     "components/SettingsLegalPanel.tsx",
+    "components/SettingsOpenLoginCard.tsx",
     "lib/dashboardHelpers.ts",
     "lib/managedChanges.ts",
     "lib/releaseReadiness.ts",
