@@ -233,7 +233,7 @@ import { ActivityFeed } from "./components/ActivityFeed";
 import { AddonsView } from "./components/AddonsView";
 import { ClientSavingsTrendsCard } from "./components/ClientSavingsTrendsCard";
 import { DailySavingsChart } from "./components/DailySavingsChart";
-import { DoctorTimelineCard } from "./components/DoctorTimelineCard";
+import { DoctorView } from "./components/DoctorView";
 import { HomeView } from "./components/HomeView";
 import { LauncherShell } from "./components/LauncherShell";
 import { OptimizePanel } from "./components/OptimizePanel";
@@ -244,7 +244,6 @@ import { SavingsCalculatorCard } from "./components/SavingsCalculatorCard";
 import type { SavingsChartMode } from "./components/SavingsChartTooltip";
 import { SettingsLegalPanel } from "./components/SettingsLegalPanel";
 import { TermsGate } from "./components/TermsGate";
-import { SwitchboardDoctorPanel } from "./components/SwitchboardDoctorPanel";
 import type {
   AppUpdateConfiguration,
   AvailableAppUpdate,
@@ -5936,34 +5935,16 @@ export default function App() {
           </section>
         </div>
 
-        <div className="tray-content" hidden={activeView !== "doctor"}>
-          <section className="repo-intelligence-view">
-            <header className="repo-intelligence-view__header">
-              <div>
-                <h1>Doctor</h1>
-                <p className="repo-intelligence-view__subtitle">
-                  Inspect AI Switchboard setup, run fixes, copy reports, and
-                  repair local routing drift.
-                </p>
-              </div>
-              <span className="repo-intelligence-view__badge">Fixes</span>
-            </header>
-            <SwitchboardDoctorPanel
-              report={doctorReport}
-              busyAction={doctorRepairBusy}
-              error={doctorRepairError}
-              successMessage={doctorRepairSuccess}
-              footprintReport={managedFootprintReport}
-              onRepair={(action) => void handleDoctorRepair(action)}
-            />
-            <DoctorTimelineCard
-              events={buildDoctorTimelinePreview(
-                doctorReport,
-                doctorRepairSuccess,
-              )}
-            />
-          </section>
-        </div>
+        <DoctorView
+          hidden={activeView !== "doctor"}
+          report={doctorReport}
+          busyAction={doctorRepairBusy}
+          error={doctorRepairError}
+          successMessage={doctorRepairSuccess}
+          footprintReport={managedFootprintReport}
+          onRepair={(action) => void handleDoctorRepair(action)}
+          timelineEvents={buildDoctorTimelinePreview(doctorReport, doctorRepairSuccess)}
+        />
 
         <div className="tray-content" hidden={activeView !== "optimization"}>
           <article className="soft-card optimize-card">
