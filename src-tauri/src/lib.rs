@@ -1416,7 +1416,7 @@ fn run_activity_observation(app: &AppHandle) {
     // per-project CLAUDE.md + MEMORY.md bullet diffs.
     let memory_path = headroom_memory_db_path();
     let patterns_today = if memory_path.exists() {
-        memory_export_cached(&state, &memory_path)
+        learning_commands::memory_export_cached(&state, &memory_path)
             .ok()
             .and_then(|stdout| count_memories_created_today(&stdout, Utc::now()).ok())
             .unwrap_or(0) as u32
@@ -1472,190 +1472,6 @@ fn flatten_applied_bullets(sections: &[crate::models::AppliedSection]) -> Vec<St
         .iter()
         .flat_map(|sec| sec.bullets.iter().cloned())
         .collect()
-}
-
-#[tauri::command]
-async fn list_live_learnings(
-    state: State<'_, AppState>,
-    project_path: String,
-) -> Result<Vec<crate::models::LiveLearning>, String> {
-    let memory_path = headroom_memory_db_path();
-    if !memory_path.exists() {
-        return Ok(Vec::new());
-    }
-    let stdout = memory_export_cached(&state, &memory_path)?;
-    parse_live_learnings(&stdout, &project_path)
-}
-
-#[tauri::command]
-async fn list_live_learnings_for_projects(
-    state: State<'_, AppState>,
-    project_paths: Vec<String>,
-) -> Result<std::collections::HashMap<String, Vec<crate::models::LiveLearning>>, String> {
-    let memory_path = headroom_memory_db_path();
-    if !memory_path.exists() {
-        return Ok(empty_live_learnings_for_projects(&project_paths));
-    }
-    let stdout = memory_export_cached(&state, &memory_path)?;
-    aggregate_live_learnings(&stdout, &project_paths)
-}
-
-fn empty_live_learnings_for_projects(
-    project_paths: &[String],
-) -> std::collections::HashMap<String, Vec<crate::models::LiveLearning>> {
-    let mut out = std::collections::HashMap::with_capacity(project_paths.len());
-    for p in project_paths {
-        out.insert(p.clone(), Vec::new());
-    }
-    out
-}
-
-fn aggregate_live_learnings(
-    stdout: &str,
-    project_paths: &[String],
-) -> Result<std::collections::HashMap<String, Vec<crate::models::LiveLearning>>, String> {
-    let mut out = std::collections::HashMap::with_capacity(project_paths.len());
-    for p in project_paths {
-        let learnings = parse_live_learnings(stdout, p)?;
-        out.insert(p.clone(), learnings);
-    }
-    Ok(out)
-}
-
-fn memory_export_cached(state: &State<'_, AppState>, memory_path: &Path) -> Result<String, String> {
-    if let Some(cached) = state.cached_memory_export() {
-        return Ok(cached);
-    }
-    let entrypoint = state.tool_manager.headroom_entrypoint();
-    let stdout = run_memory_export(&entrypoint, memory_path)?;
-    state.store_memory_export(stdout.clone());
-    Ok(stdout)
-}
-
-#[tauri::command]
-async fn delete_live_learning(state: State<'_, AppState>, memory_id: String) -> Result<(), String> {
-    let memory_path = headroom_memory_db_path();
-    if !memory_path.exists() {
-        return Err("Memory database does not exist.".into());
-    }
-    let entrypoint = state.tool_manager.headroom_entrypoint();
-    let output = Command::new(&entrypoint)
-        .arg("memory")
-        .arg("delete")
-        .arg(&memory_id)
-        .arg("--force")
-        .arg("--db-path")
-        .arg(&memory_path)
-        .env("PYTHONNOUSERSITE", "1")
-        .output()
-        .map_err(|err| err.to_string())?;
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!(
-            "headroom memory delete failed ({}): {}",
-            output.status,
-            stderr.trim()
-        ));
-    }
-    state.invalidate_memory_export_cache();
-    Ok(())
-}
-
-/// Shells `headroom memory export --db-path <db>` and returns raw JSON stdout.
-fn run_memory_export(entrypoint: &Path, db_path: &Path) -> Result<String, String> {
-    let output = Command::new(entrypoint)
-        .arg("memory")
-        .arg("export")
-        .arg("--db-path")
-        .arg(db_path)
-        .env("PYTHONNOUSERSITE", "1")
-        .output()
-        .map_err(|err| err.to_string())?;
-    if !output.status.success() {
-        return Err(format!("headroom memory export exited {}", output.status));
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
-}
-
-fn parse_live_learnings(
-    json: &str,
-    project_path: &str,
-) -> Result<Vec<crate::models::LiveLearning>, String> {
-    #[derive(serde::Deserialize)]
-    struct Raw {
-        id: String,
-        #[serde(default)]
-        content: String,
-        #[serde(default)]
-        created_at: Option<String>,
-        #[serde(default)]
-        importance: Option<f64>,
-        #[serde(default)]
-        metadata: serde_json::Value,
-        #[serde(default)]
-        entity_refs: Vec<String>,
-    }
-
-    let raws: Vec<Raw> = serde_json::from_str(json.trim()).map_err(|err| err.to_string())?;
-    let mut out: Vec<crate::models::LiveLearning> = Vec::new();
-    for r in raws {
-        let source = r
-            .metadata
-            .get("source")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default();
-        if source != "traffic_learner" {
-            continue;
-        }
-        if !pattern_matches_project(&r.content, &r.entity_refs, project_path) {
-            continue;
-        }
-        let category = r
-            .metadata
-            .get("category")
-            .and_then(|v| v.as_str())
-            .unwrap_or("unknown")
-            .to_string();
-        let evidence_count = r
-            .metadata
-            .get("evidence_count")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(1) as u32;
-        out.push(crate::models::LiveLearning {
-            id: r.id,
-            content: r.content,
-            category,
-            importance: r.importance.unwrap_or(0.5),
-            evidence_count,
-            created_at: r.created_at.unwrap_or_default(),
-        });
-    }
-    out.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-    Ok(out)
-}
-
-/// True if any absolute path in `content` or `entity_refs` is under `project_path`.
-fn pattern_matches_project(content: &str, entity_refs: &[String], project_path: &str) -> bool {
-    let root = project_path.trim_end_matches('/');
-    if root.is_empty() {
-        return false;
-    }
-    let needle_slash = format!("{root}/");
-    if content.contains(root) {
-        // Guard against /x/ab matching /x/a — require either exact or followed by /
-        if content.contains(&needle_slash)
-            || content.contains(&format!("{root}\""))
-            || content.contains(&format!("{root}`"))
-        {
-            return true;
-        }
-    }
-    for r in entity_refs {
-        if r == root || r.starts_with(&needle_slash) {
-            return true;
-        }
-    }
-    false
 }
 
 #[tauri::command]
@@ -2370,9 +2186,9 @@ pub fn run() {
             message_settings_commands::get_codex_thread_retagging_settings,
             message_settings_commands::set_codex_thread_retagging_settings,
             message_settings_commands::restore_codex_thread_db_backup,
-            list_live_learnings,
-            list_live_learnings_for_projects,
-            delete_live_learning,
+            learning_commands::list_live_learnings,
+            learning_commands::list_live_learnings_for_projects,
+            learning_commands::delete_live_learning,
             learning_commands::list_applied_patterns,
             learning_commands::list_applied_patterns_for_projects,
             learning_commands::delete_applied_pattern,
@@ -4142,13 +3958,12 @@ fn compute_tray_window_position(
 #[cfg(test)]
 mod tests {
     use super::{
-        aggregate_live_learnings, app_quit_requested_properties, auto_resume_backoff,
-        build_watchdog_give_up_report, check_headroom_learn_prereqs, classify_bootstrap_failure,
-        classify_upgrade_error, compute_tray_window_position, count_memories_created_today,
-        cpu_rate_indicates_burn, debounced_tray_runtime_visual, empty_live_learnings_for_projects,
-        extract_llm_failure_warnings, fetch_transformations_feed_from, is_disk_full_signal,
-        is_endpoint_protection_signal, is_network_download_signal, is_port_conflict_failure,
-        parse_live_learnings, pattern_matches_project, physical_rect_from_rect,
+        app_quit_requested_properties, auto_resume_backoff, build_watchdog_give_up_report,
+        check_headroom_learn_prereqs, classify_bootstrap_failure, classify_upgrade_error,
+        compute_tray_window_position, count_memories_created_today, cpu_rate_indicates_burn,
+        debounced_tray_runtime_visual, extract_llm_failure_warnings,
+        fetch_transformations_feed_from, is_disk_full_signal, is_endpoint_protection_signal,
+        is_network_download_signal, is_port_conflict_failure, physical_rect_from_rect,
         readyz_failed_checks_csv, readyz_failure_has_core_unhealthy,
         readyz_failure_is_upstream_only, watchdog_should_be_up, BootstrapFailureKind,
         HeadroomLearnPrereqStatus, LearnAgent, MonitorBounds, PhysicalRect, QuitSource,
@@ -4169,7 +3984,10 @@ mod tests {
         InstallPendingUpdateFuture, InstallableAppUpdate,
     };
     use crate::dashboard_commands::{lifetime_token_milestone_kind, zero_spend_affected_days};
-    use crate::learning_commands::{delete_applied_pattern, read_applied_patterns_for_project};
+    use crate::learning_commands::{
+        aggregate_live_learnings, delete_applied_pattern, empty_live_learnings_for_projects,
+        parse_live_learnings, pattern_matches_project, read_applied_patterns_for_project,
+    };
     use crate::models::{
         DailySavingsPoint, ManagedRollbackExecutionStatus, RepoFileIndexEntry, RepoIndexMetadata,
         RepoIntelligenceSummary,
