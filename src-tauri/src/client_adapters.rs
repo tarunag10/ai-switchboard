@@ -4337,7 +4337,7 @@ fn detect_aider_client() -> ClientStatus {
         "Aider",
         executable.clone(),
         &config_candidates,
-        "Provider routing blocked until reversible environment wrapper, backup, verify, rollback, and Off mode cleanup exist.",
+        "Managed sidecar routing-intent setup uses a Switchboard-owned config marker with Doctor verification, rollback, and Off mode cleanup while provider config remains manual.",
     );
     let installed = executable.is_some() || !report.config_surfaces.is_empty();
     let mut notes = if installed {
@@ -4347,7 +4347,7 @@ fn detect_aider_client() -> ClientStatus {
     };
     if installed {
         notes.push(
-            "Detected, but Headroom adapter not implemented yet. use RTK-only mode shell-output savings for now."
+            "Detected. Switchboard can manage the Aider routing-intent sidecar while keeping provider config manual."
                 .into(),
         );
     }
@@ -6911,6 +6911,104 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    fn aider_sidecar_lifecycle_applies_repairs_rolls_back_and_disables() {
+        let home = TestHome::new();
+        let sidecar = home
+            .path()
+            .join(".config")
+            .join("aider")
+            .join(SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(sidecar.parent().unwrap()).expect("create aider dir");
+        fs::write(&sidecar, "# aider user note\nkeep this\n").expect("seed sidecar");
+
+        let result = super::apply_client_setup("aider").expect("apply aider setup");
+        assert!(result.applied);
+        assert!(!result.already_configured);
+        assert_eq!(result.changed_files, vec![sidecar.display().to_string()]);
+        assert_eq!(result.backup_files.len(), 1);
+        assert!(result.verification.verified);
+        assert!(result.summary.contains("Aider"));
+
+        let content = fs::read_to_string(&sidecar).expect("read aider sidecar");
+        assert!(content.contains("# aider user note\nkeep this"));
+        assert!(content.contains("# >>> headroom:aider >>>"));
+        assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
+        assert!(content.contains("Aider routing-intent sidecar"));
+
+        let connectors = list_client_connectors(&[ClientStatus {
+            id: "aider".into(),
+            name: "Aider".into(),
+            installed: true,
+            configured: false,
+            health: ClientHealth::Attention,
+            notes: vec![format!(
+                "Aider config surface: {}",
+                sidecar.parent().unwrap().display()
+            )],
+        }])
+        .expect("list connectors");
+        let aider = connectors
+            .iter()
+            .find(|connector| connector.client_id == "aider")
+            .expect("aider connector");
+        assert_eq!(aider.support_status, ClientConnectorSupportStatus::Managed);
+        assert!(aider.enabled);
+        assert!(aider.verified);
+        assert!(aider.config_creation_steps.is_empty());
+        assert!(aider.automation_path.is_empty());
+
+        let drifted = content.replace(super::HEADROOM_OPENAI_BASE_URL, "http://127.0.0.1:1");
+        fs::write(&sidecar, drifted).expect("drift aider sidecar");
+        let verification = super::verify_client_setup("aider").expect("verify drifted aider setup");
+        assert!(!verification.verified);
+        assert!(verification
+            .failures
+            .join(" ")
+            .contains("Switchboard-managed Aider sidecar was not found"));
+
+        let repaired = super::apply_client_setup("aider").expect("repair aider setup");
+        assert!(repaired.verification.verified);
+        assert!(fs::read_to_string(&sidecar)
+            .expect("read repaired aider sidecar")
+            .contains(super::HEADROOM_OPENAI_BASE_URL));
+
+        let preview =
+            super::preview_managed_rollback("aider-routing").expect("preview aider rollback");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.marker_present);
+        assert_eq!(
+            preview.confirmation_phrase,
+            "Restore headroom:aider for Aider routing"
+        );
+
+        let rollback = super::execute_managed_rollback(
+            "aider-routing",
+            "",
+            "Restore headroom:aider for Aider routing",
+        )
+        .expect("execute aider rollback");
+        assert_eq!(
+            rollback.restored_from,
+            "Switchboard-owned aider sidecar block removed."
+        );
+        assert_eq!(
+            fs::read_to_string(&sidecar).expect("read rolled back aider sidecar"),
+            "# aider user note\nkeep this\n"
+        );
+
+        super::apply_client_setup("aider").expect("reapply aider setup");
+        super::disable_client_setup("aider").expect("disable aider setup");
+        assert_eq!(
+            fs::read_to_string(&sidecar).expect("read disabled aider sidecar"),
+            "# aider user note\nkeep this\n"
+        );
+        let verification =
+            super::verify_client_setup("aider").expect("verify disabled aider setup");
+        assert!(!verification.verified);
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn promoted_editor_rollback_records_use_native_targets_not_sidecars() {
         let _home = TestHome::new();
 
@@ -9110,44 +9208,5 @@ js_repl = false\n",
         assert!(routing_path.exists());
         let cleaned = std::fs::read_to_string(&routing_path).expect("read cleaned qwen sidecar");
         assert!(!cleaned.contains("headroom:qwen_code"));
-    }
-
-    #[test]
-    fn aider_connector_keeps_native_writes_gated_with_manifest_forbidden_reads() {
-        let detected_clients = Vec::new();
-        let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
-        let aider = connectors
-            .iter()
-            .find(|connector| connector.client_id == "aider")
-            .expect("aider connector");
-
-        assert_eq!(aider.support_status, ClientConnectorSupportStatus::Planned);
-        assert!(!aider.enabled);
-        assert!(aider
-            .config_locations
-            .iter()
-            .any(|location| location.contains(".aider.conf.yml")));
-        assert!(aider
-            .config_locations
-            .iter()
-            .any(|location| location.contains(".config/aider")));
-        assert!(aider
-            .config_creation_step_details
-            .iter()
-            .any(|step| step.detail.contains("auth.json")));
-        assert!(aider
-            .config_creation_step_details
-            .iter()
-            .any(|step| step.detail.contains("*secret*")));
-
-        let preview = aider
-            .config_dry_run_preview
-            .as_ref()
-            .expect("aider dry-run preview");
-        assert!(preview.target.contains(".aider.conf.yml"));
-        assert!(preview.marker.contains("aider"));
-        assert!(preview
-            .apply_blocked_reason
-            .contains("automation is disabled"));
     }
 }

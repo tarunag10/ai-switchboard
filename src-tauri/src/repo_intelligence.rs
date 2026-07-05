@@ -477,6 +477,7 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
                 .cloned()
                 .collect(),
             estimated_full_scan_tokens,
+            Some(&graph),
         ),
         build_context_pack(
             "verification",
@@ -488,6 +489,7 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
                 .cloned()
                 .collect(),
             estimated_full_scan_tokens,
+            Some(&graph),
         ),
         build_context_pack(
             "handoff",
@@ -499,6 +501,7 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
                 .cloned()
                 .collect(),
             estimated_full_scan_tokens,
+            Some(&graph),
         ),
         build_context_pack(
             "risk_review",
@@ -515,6 +518,7 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
                 .cloned()
                 .collect(),
             estimated_full_scan_tokens,
+            Some(&graph),
         ),
         build_context_pack(
             "release_handoff",
@@ -531,6 +535,7 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
                 .cloned()
                 .collect(),
             estimated_full_scan_tokens,
+            Some(&graph),
         ),
     ];
 
@@ -1338,20 +1343,21 @@ fn build_context_pack(
     purpose: &str,
     mut files: Vec<RepoFileSignal>,
     estimated_full_scan_tokens: u64,
+    graph: Option<&RepoGraphSummary>,
 ) -> RepoContextPack {
     let task_terms = task_terms(purpose);
     files = files
         .into_iter()
         .map(|mut file| {
-            let rank = rank_file_for_task(&file, &task_terms, purpose);
+            let rank = rank_file_for_task(&file, &task_terms, purpose, graph);
             file.reasons
                 .extend(rank.reasons.iter().map(|reason| format!("rank: {reason}")));
             file
         })
         .collect();
     files.sort_by(|a, b| {
-        let rank_a = rank_file_for_task(a, &task_terms, purpose);
-        let rank_b = rank_file_for_task(b, &task_terms, purpose);
+        let rank_a = rank_file_for_task(a, &task_terms, purpose, graph);
+        let rank_b = rank_file_for_task(b, &task_terms, purpose, graph);
         rank_b
             .score
             .partial_cmp(&rank_a.score)
@@ -1403,7 +1409,18 @@ fn score_per_token(rank: &RepoFileRank) -> f64 {
     rank.score / rank.estimated_tokens.max(1) as f64
 }
 
-fn rank_file_for_task(file: &RepoFileSignal, task_terms: &[String], task: &str) -> RepoFileRank {
+#[derive(Debug, Default)]
+struct RepoTaskGraphAffinity {
+    score: f64,
+    reasons: Vec<String>,
+}
+
+fn rank_file_for_task(
+    file: &RepoFileSignal,
+    task_terms: &[String],
+    task: &str,
+    graph: Option<&RepoGraphSummary>,
+) -> RepoFileRank {
     let mut score = 0.0;
     let mut reasons = Vec::new();
     let mut risks = Vec::new();
@@ -1482,6 +1499,11 @@ fn rank_file_for_task(file: &RepoFileSignal, task_terms: &[String], task: &str) 
             reasons.push(format!("matches task term `{term}`"));
         }
     }
+    let graph_affinity = task_graph_affinity(file, task_terms, graph);
+    if graph_affinity.score > 0.0 {
+        score += graph_affinity.score;
+        reasons.extend(graph_affinity.reasons);
+    }
 
     let token_penalty = (file.estimated_tokens as f64 / TASK_PACK_BUDGET_TOKENS as f64) * 12.0;
     score -= token_penalty.min(24.0);
@@ -1495,6 +1517,102 @@ fn rank_file_for_task(file: &RepoFileSignal, task_terms: &[String], task: &str) 
         estimated_tokens: file.estimated_tokens,
         reasons,
         risks,
+    }
+}
+
+fn task_graph_affinity(
+    file: &RepoFileSignal,
+    task_terms: &[String],
+    graph: Option<&RepoGraphSummary>,
+) -> RepoTaskGraphAffinity {
+    if task_terms.is_empty() {
+        return RepoTaskGraphAffinity::default();
+    }
+    let Some(graph) = graph else {
+        return RepoTaskGraphAffinity::default();
+    };
+
+    let mut affinity = RepoTaskGraphAffinity::default();
+    let mut seen_reasons = BTreeSet::new();
+    for symbol in &graph.symbols {
+        if symbol.file != file.path {
+            continue;
+        }
+        let symbol_key = format!(
+            "{} {} {}",
+            symbol.name,
+            symbol.parent.as_deref().unwrap_or_default(),
+            symbol.file
+        )
+        .to_ascii_lowercase();
+        if let Some(term) = task_terms
+            .iter()
+            .find(|term| symbol_key.contains(term.as_str()))
+        {
+            affinity.score += 18.0;
+            push_unique_affinity_reason(
+                &mut affinity.reasons,
+                &mut seen_reasons,
+                format!("graph: indexed symbol matches task term `{term}`"),
+            );
+        }
+    }
+
+    for edge in graph.import_edges.iter().chain(graph.symbol_edges.iter()) {
+        let edge_to_path = graph_edge_file_path(&edge.to);
+        let counterpart = if edge.from == file.path {
+            Some(edge_to_path)
+        } else if edge_to_path == file.path {
+            Some(edge.from.as_str())
+        } else {
+            None
+        };
+        let Some(counterpart) = counterpart else {
+            continue;
+        };
+        let counterpart_lower = counterpart.to_ascii_lowercase();
+        if task_terms
+            .iter()
+            .any(|term| counterpart_lower.contains(term.as_str()))
+        {
+            affinity.score += match edge.kind {
+                RepoGraphEdgeKind::TestToSource | RepoGraphEdgeKind::ImportReference => 16.0,
+                RepoGraphEdgeKind::CallReference | RepoGraphEdgeKind::SymbolReference => 14.0,
+                RepoGraphEdgeKind::EntrypointToConfig
+                | RepoGraphEdgeKind::SourceToDependencyHub
+                | RepoGraphEdgeKind::PackageDependency => 10.0,
+            };
+            push_unique_affinity_reason(
+                &mut affinity.reasons,
+                &mut seen_reasons,
+                format!(
+                    "graph: connected to task-matching `{counterpart}` via {:?}",
+                    edge.kind
+                ),
+            );
+        }
+    }
+    affinity.score = affinity.score.min(48.0);
+    affinity
+}
+
+fn graph_edge_file_path(target: &str) -> &str {
+    target
+        .split_once('#')
+        .map(|(path, _)| path)
+        .unwrap_or(target)
+}
+
+fn push_unique_affinity_reason(
+    reasons: &mut Vec<String>,
+    seen: &mut BTreeSet<String>,
+    reason: String,
+) {
+    if reasons.len() >= 3 {
+        return;
+    }
+    if seen.insert(reason.clone()) {
+        reasons.push(reason);
     }
 }
 
@@ -3733,6 +3851,7 @@ export const mapValues = <T>(items: T[]) => items;
                 classify_file("src/medium.ts", 400),
             ],
             1_000,
+            None,
         );
 
         assert_eq!(pack.files[0].path, "src/small.ts");
@@ -3752,6 +3871,7 @@ export const mapValues = <T>(items: T[]) => items;
                 classify_file("src/billing/DashboardController.test.ts", 1_200),
             ],
             4_000,
+            None,
         );
 
         assert_eq!(pack.files[0].path, "src/billing/DashboardController.ts");
@@ -3765,6 +3885,60 @@ export const mapValues = <T>(items: T[]) => items;
                     .reasons
                     .iter()
                     .any(|reason| reason.contains("matches task term `dashboard`"))
+        }));
+    }
+
+    #[test]
+    fn context_pack_ranking_uses_graph_affinity_for_task_terms() {
+        let files = vec![
+            classify_file("src/ui/button.ts", 120),
+            classify_file("src/auth/session.test.ts", 600),
+            classify_file("src/session.ts", 700),
+        ];
+        let graph = RepoGraphSummary {
+            top_directories: Vec::new(),
+            top_languages: Vec::new(),
+            entrypoints: Vec::new(),
+            likely_tests: Vec::new(),
+            config_hubs: Vec::new(),
+            dependency_hubs: Vec::new(),
+            import_edges: vec![RepoGraphEdge {
+                from: "src/auth/session.test.ts".to_string(),
+                to: "src/session.ts".to_string(),
+                kind: RepoGraphEdgeKind::TestToSource,
+                reason: "test filename matches source module".to_string(),
+            }],
+            reverse_dependency_hubs: Vec::new(),
+            symbols: vec![RepoSymbol {
+                name: "createAuthSession".to_string(),
+                kind: RepoSymbolKind::Function,
+                file: "src/session.ts".to_string(),
+                line: 1,
+                parent: None,
+            }],
+            symbol_edges: Vec::new(),
+        };
+
+        let pack = build_context_pack(
+            "implementation",
+            "Implementation Pack",
+            "Feature work on auth",
+            files,
+            2_000,
+            Some(&graph),
+        );
+
+        assert_eq!(pack.files[0].path, "src/session.ts");
+        assert!(pack.files[0]
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("graph: indexed symbol matches task term `auth`")));
+        assert!(pack.files.iter().any(|file| {
+            file.path == "src/session.ts"
+                && file
+                    .reasons
+                    .iter()
+                    .any(|reason| reason.contains("connected to task-matching"))
         }));
     }
 
@@ -3833,6 +4007,7 @@ export const mapValues = <T>(items: T[]) => items;
                     "Source files likely needed for feature work.",
                     vec![classify_file("src/App.tsx", 100)],
                     100,
+                    None,
                 ),
                 build_context_pack(
                     "verification",
@@ -3840,6 +4015,7 @@ export const mapValues = <T>(items: T[]) => items;
                     "Tests and config likely needed before committing.",
                     vec![classify_file("src/App.test.tsx", 100)],
                     100,
+                    None,
                 ),
             ],
         };

@@ -312,6 +312,7 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
     "gemini_cli",
     "opencode",
     ...managedMcpBridgeConnectorIds,
+    "aider",
     "qwen_code",
     "amazon_q",
     "windsurf",
@@ -351,6 +352,12 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
       "preview_managed_config_apply(\"opencode-routing\")",
       "managed_rollback_preview_and_execute_restores_opencode_backup",
     ],
+    aider: [
+      '"aider"',
+      "configure_planned_switchboard_sidecar",
+      "aider_sidecar_lifecycle_applies_repairs_rolls_back_and_disables",
+      "client_id: \"aider\"",
+    ],
     qwen_code: [
       '"qwen_code"',
       "configure_planned_switchboard_sidecar",
@@ -383,7 +390,7 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
     }
   }
 
-  for (const id of ["cursor", "grok_cli", "aider", "continue", "goose"]) {
+  for (const id of ["cursor", "grok_cli", "continue", "goose"]) {
     if (managedMcpBridgeConnectorIdSet.has(id)) {
       continue;
     }

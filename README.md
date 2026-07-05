@@ -81,7 +81,8 @@ Still left: provider-specific native config writes beyond the promoted Amazon Q 
 | Cursor                                                                            | Guided                  |                No |          No |        Yes | Copyable packs and settings detection today.                                                |
 | Windsurf                                                                          | Guided                  |                No |          No |        Yes | Copyable packs and settings detection today.                                                |
 | Goose | Managed MCP | Yes | No | Yes | Read-only Repo Memory MCP bridge with provider/model routing still manual. |
-| Aider, Continue, Qwen Code, Amazon Q Developer CLI, Zed AI, Grok / xAI CLI | Detected or planned | No | No | Yes | Manual workflow, detection evidence, and automation gates until reversible setup is proven. |
+| Aider, Qwen Code, Amazon Q Developer CLI, Zed AI | Managed sidecar/editor | Yes | No | Yes | Switchboard-owned routing markers with Doctor verification, rollback, and Off cleanup; provider/account state remains manual. |
+| Continue, Grok / xAI CLI | Gated | No | No | Yes | Manual workflow, detection evidence, and automation gates until reversible setup is proven. |
 | MarkItDown, Ponytail, Caveman                                                     | Add-on                  |                No |     Depends |         No | Local helper add-ons with explicit install/disable flows.                                   |
 
 See [Connector Support](docs/connectors.md) for the status vocabulary and per-tool guardrails.
@@ -221,7 +222,7 @@ Managed config blocks are fenced with `# >>> headroom:... >>>` markers and backu
 
 Rollback Center inventories every managed local footprint with targets, markers, backup expectations, restore mode, evidence requirements, and Off-cleanup boundaries. It also provides guarded execution previews with undo-all order and exact confirmation phrases.
 
-Native rollback execution is currently allowlisted for Codex/OpenCode backup restores, Gemini managed cleanup, and sidecar-backed cleanup rows for Cursor, Grok/xAI CLI, Aider, Continue, Goose, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed. The guarded native undo-all flow executes only ready allowlisted rows and leaves manual or dedicated cleanup rows blocked.
+Native rollback execution is currently allowlisted for Codex/OpenCode backup restores, Gemini managed cleanup, read-only Repo Memory MCP cleanup for Goose, sidecar-backed cleanup rows for Aider, Qwen Code, Amazon Q Developer CLI, and managed editor cleanup rows for Windsurf and Zed. The guarded native undo-all flow executes only ready allowlisted rows and leaves manual or dedicated cleanup rows blocked.
 
 Off mode removes routing hooks and RTK integration. Runtime files, logs, receipts, and keychain entries remain so the next launch is fast. Uninstall cleanup is covered in [docs/install.md](docs/install.md).
 

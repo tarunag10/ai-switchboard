@@ -41,7 +41,7 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - Streaming/background Repo Map job UX. Current progress is step/status based; long runs still need live logs or event polling per tool.
 - Deeper task-specific Repo Intelligence graph ranking beyond the current parser-assisted graph edges.
 - More real runtime/session counters for add-ons beyond current event-backed evidence-unit counts.
-- Native/provider write promotion for Cursor, Aider, Continue, Qwen, and Grok/xAI. Each still needs provider-specific fixture-home apply, verify, rollback, Doctor repair, Off cleanup, and relaunch-survival proof before enabling.
+- Native/provider write promotion for Cursor, Continue, and Grok/xAI, plus Goose provider routing. Aider, Qwen, and Amazon Q now have managed Switchboard-owned sidecar lifecycles while provider/account state remains manual.
 - Public updater feed proof and updater signature assets. The signed/notarized public DMG, checksum, and installed-app smoke proof are now reconciled.
 - Reboot-level signed installed-app Doctor/Rollback/uninstall proof. Current uninstall proof is non-destructive local dry-run evidence.
 - Optional gateway/add-on integrations remain guided/gated only: LiteLLM semantic cache lifecycle, self-hosted Langfuse observability, Cloudflare Gateway, and Kong evidence.

@@ -519,19 +519,19 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "aider",
     name: "Aider",
     category: "agent",
-    supportStatus: "planned",
-    statusLabel: "Gated",
-    setupPhase: "Adapt",
+    supportStatus: "managed",
+    statusLabel: "Managed",
+    setupPhase: "Managed",
     integrationTarget:
-      "Local environment/provider wrapper plus Repo Intelligence context packs.",
+      "Switchboard-owned routing-intent sidecar plus Repo Intelligence context packs.",
     notes:
-      "Good fit for RTK and future repo graph context because it is frequently used inside long coding sessions.",
-    capabilityBadges: ["CLI detection", "RTK-safe today", "Repo packs gated"],
-    supportedModes: ["RTK only", "Repo packs", "Off"],
+      "Managed sidecar automation never reads provider secrets or rewrites saved provider config.",
+    capabilityBadges: ["Managed sidecar", "Doctor repair", "Rollback"],
+    supportedModes: ["Full optimization", "RTK only", "Repo packs", "Off"],
     safeToday:
-      "Use RTK for noisy verification commands and copy implementation or handoff packs into Aider.",
+      "Create the Switchboard-owned sidecar and keep saved provider config manual.",
     firstAutomation:
-      "Add a reversible environment wrapper that points one Aider launch at local routing without editing saved secrets.",
+      "Sidecar apply, verify, rollback, Doctor repair, and Off cleanup are covered by fixture-home tests.",
     capabilityRows: [
       {
         label: "Detection",
@@ -539,16 +539,16 @@ export const plannedConnectors: PlannedConnector[] = [
         detail: "Switchboard can surface a local Aider install.",
       },
       {
-        label: "Repo context",
-        state: "Manual today",
+        label: "Managed sidecar",
+        state: "Available now",
         detail:
-          "Use Repo Intelligence context packs alongside Aider prompts today.",
+          "Switchboard writes only its owned routing marker in Aider config storage.",
       },
       {
-        label: "Provider wrapper",
-        state: "Gated",
+        label: "Provider config",
+        state: "Manual today",
         detail:
-          "Automatic provider environment wrapping waits for reversible setup state.",
+          "Saved Aider provider config remains untouched until a documented provider adapter is proven.",
       },
     ],
     configSurfaces: [
@@ -558,15 +558,14 @@ export const plannedConnectors: PlannedConnector[] = [
     ],
     automationGates: [
       "Detect provider configuration without exposing secrets.",
-      "Route through a reversible environment wrapper first.",
-      "Expose Repo Intelligence packs without writing into the repo by default.",
+      "Write only the Switchboard-owned Aider routing-intent sidecar.",
+      "Verify Doctor repair, rollback, and Off cleanup leave provider config untouched.",
     ],
     manualWorkflow: [
       "Confirm Aider is installed.",
-      "Copy implementation or handoff packs into long Aider sessions.",
-      "Use RTK-only mode for noisy verification commands.",
-          "Native-write lifecycle remains gated with automationEnabled: false until detect, dryRunDiff, backup, apply, verify, rollback, and offCleanup are proven in fixture-home tests.",
-],
+      "Toggle the connector on from Settings to create the managed sidecar.",
+      "Keep saved provider config manual until a documented provider file adapter is proven.",
+    ],
   },
   {
     id: "continue",

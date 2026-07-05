@@ -24,10 +24,10 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | OpenCode | Managed | Yes | No | Yes | Managed provider routing with backup, verify, rollback, and Off cleanup gates. |
 | Cursor | Gated | No | No | Yes | Copyable packs, settings discovery, and dry-run target/marker preview today; native/provider writes remain blocked. |
 | Windsurf | Managed | Yes | No | Yes | Managed editor settings routing with backup, Doctor verification, rollback, and Off cleanup. |
-| Aider | Gated | No | No | Yes | CLI handoffs and manual workflow before managed routing. |
+| Aider | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; provider config remains manual. |
 | Continue | Gated | No | No | Yes | Editor/extension config remains manual. |
 | Goose | Managed MCP | Yes | No | Yes | Read-only Repo Memory MCP bridge; provider routing remains manual. |
-| Qwen Code | Gated | No | No | Yes | Detection and handoff only until lifecycle tests exist. |
+| Qwen Code | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; account/model setup remains manual. |
 | Amazon Q Developer CLI | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; AWS auth/provider/workspace state remains manual. |
 | Zed AI | Managed | Yes | No | Yes | Managed assistant settings routing with backup, Doctor verification, rollback, and Off cleanup. |
 | Grok / xAI CLI | Gated | No | No | Yes | Detection and config semantics need more evidence before native/provider writes. |
