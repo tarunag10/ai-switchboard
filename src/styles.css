@@ -54,6 +54,21 @@
   --warning-tint: rgba(203, 128, 39, 0.12);
   --danger: #c14b24;
   --danger-tint: rgba(193, 75, 36, 0.12);
+  --success: #237a45;
+  --success-border: rgba(16, 185, 129, 0.42);
+  --success-tint: rgba(16, 185, 129, 0.12);
+  --warning-border: rgba(245, 158, 11, 0.44);
+  --warning-chip-tint: rgba(245, 158, 11, 0.12);
+  --info-border: rgba(59, 130, 246, 0.38);
+  --info-tint: rgba(59, 130, 246, 0.1);
+  --danger-border-soft: rgba(248, 113, 113, 0.35);
+  --danger-tint-soft: rgba(248, 113, 113, 0.1);
+  --danger-text-soft: #fecaca;
+  --surface-primary-gradient: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.98),
+    rgba(250, 243, 233, 0.84)
+  );
 
   /* Activity feed badge accents — one hue per event kind */
   --activity-train-strong: #2a5e80;
@@ -370,7 +385,7 @@
 }
 
 .repo-map-hero--warning {
-  background: color-mix(in srgb, var(--surface-raised) 88%, #d97706 12%);
+  background: color-mix(in srgb, var(--surface-raised) 88%, var(--warning) 12%);
 }
 
 .repo-map-hero__icon {
@@ -451,11 +466,11 @@
 }
 
 .repo-map-health-card.is-healthy {
-  border-color: color-mix(in srgb, #22c55e 35%, var(--border-default));
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border-default));
 }
 
 .repo-map-health-card.is-warning {
-  border-color: color-mix(in srgb, #d97706 45%, var(--border-default));
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border-default));
 }
 
 .repo-map-layout {
@@ -588,8 +603,8 @@
 }
 
 .repo-map-preflight .is-ok {
-  border-color: color-mix(in srgb, #22c55e 35%, var(--border-default));
-  color: #237a45;
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border-default));
+  color: var(--success);
 }
 
 .repo-map-preflight .is-warning {
@@ -735,7 +750,7 @@
 }
 
 .repo-map-tool-list__item--ok strong {
-  color: #237a45;
+  color: var(--success);
 }
 
 .repo-map-tool-list__item--warning strong {
@@ -2907,7 +2922,7 @@ select {
 }
 
 .home-sector--primary {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 243, 233, 0.84));
+  background: var(--surface-primary-gradient);
 }
 
 .home-sector__tag {
@@ -3247,18 +3262,18 @@ select {
 }
 
 .switchboard-panel__connector-pill--on {
-  border-color: rgba(16, 185, 129, 0.42);
-  background: rgba(16, 185, 129, 0.12);
+  border-color: var(--success-border);
+  background: var(--success-tint);
 }
 
 .switchboard-panel__connector-pill--attention {
-  border-color: rgba(245, 158, 11, 0.44);
-  background: rgba(245, 158, 11, 0.12);
+  border-color: var(--warning-border);
+  background: var(--warning-chip-tint);
 }
 
 .switchboard-panel__connector-pill--detected {
-  border-color: rgba(59, 130, 246, 0.38);
-  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--info-border);
+  background: var(--info-tint);
 }
 
 .switchboard-panel__connector-pill--off,
@@ -6707,10 +6722,10 @@ details[open] .optimize-minimal__details summary::after {
 .release-readiness-card__error {
   margin: -2px 0 0;
   padding: 9px 10px;
-  border: 1px solid rgba(248, 113, 113, 0.35);
+  border: 1px solid var(--danger-border-soft);
   border-radius: 8px;
-  background: rgba(248, 113, 113, 0.1);
-  color: #fecaca;
+  background: var(--danger-tint-soft);
+  color: var(--danger-text-soft);
   font-size: var(--text-xs);
   overflow-wrap: anywhere;
   white-space: pre-line;

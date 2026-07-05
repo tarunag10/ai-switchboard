@@ -187,7 +187,7 @@ export function HomeView({
         <section className="tier-mismatch-banner" role="alert">
           <div className="tier-mismatch-banner__body">
             <h2 className="tier-mismatch-banner__title">
-              Upgrade your Headroom plan
+              Upgrade your Switchboard plan
             </h2>
             <p className="tier-mismatch-banner__message">
               {tierMismatch.clamped

@@ -44,7 +44,7 @@ fn is_local_free(value: &str) -> bool {
 mod tests {
     use serial_test::serial;
 
-    fn with_env(local: Option<&str>, remote: Option<&str>, f: impl FnOnce()) {
+    fn with_env(local: Option<&str>, remote: Option<&str>, flavor: Option<&str>, f: impl FnOnce()) {
         let previous_local = std::env::var_os("HEADROOM_LOCAL_ONLY");
         let previous_remote = std::env::var_os("HEADROOM_REMOTE_SERVICES");
         let previous_flavor = std::env::var_os("HEADROOM_BUILD_FLAVOR");
@@ -55,6 +55,10 @@ mod tests {
         match remote {
             Some(value) => std::env::set_var("HEADROOM_REMOTE_SERVICES", value),
             None => std::env::remove_var("HEADROOM_REMOTE_SERVICES"),
+        }
+        match flavor {
+            Some(value) => std::env::set_var("HEADROOM_BUILD_FLAVOR", value),
+            None => std::env::remove_var("HEADROOM_BUILD_FLAVOR"),
         }
         f();
         match previous_local {
@@ -74,25 +78,27 @@ mod tests {
     #[test]
     #[serial]
     fn defaults_to_local_only() {
-        with_env(None, None, || assert!(super::enabled()));
+        with_env(None, None, None, || assert!(super::enabled()));
     }
 
     #[test]
     #[serial]
     fn explicit_remote_services_disables_local_only() {
-        with_env(None, Some("1"), || assert!(!super::enabled()));
+        with_env(Some("0"), Some("1"), Some("operator"), || {
+            assert!(!super::enabled());
+        });
     }
 
     #[test]
     #[serial]
     fn explicit_local_only_wins_over_remote_services() {
-        with_env(Some("1"), Some("1"), || assert!(super::enabled()));
+        with_env(Some("1"), Some("1"), None, || assert!(super::enabled()));
     }
 
     #[test]
     #[serial]
     fn local_free_build_flavor_wins_over_remote_services() {
-        with_env(None, Some("1"), || {
+        with_env(None, Some("1"), None, || {
             std::env::set_var("HEADROOM_BUILD_FLAVOR", "local-free");
             assert!(super::enabled());
         });

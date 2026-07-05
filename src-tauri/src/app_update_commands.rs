@@ -287,19 +287,19 @@ where
 pub(crate) fn app_update_notification_body(version: &str) -> String {
     let trimmed = version.trim();
     let lead = if trimmed.is_empty() {
-        "A Mac AI Switchboard update is ready to install.".to_string()
+        "An AI Switchboard for Mac update is ready to install.".to_string()
     } else {
-        format!("Mac AI Switchboard {trimmed} is ready to install.")
+        format!("AI Switchboard for Mac {trimmed} is ready to install.")
     };
 
-    format!("{lead} Open Mac AI Switchboard to review the release and install it.")
+    format!("{lead} Open AI Switchboard for Mac to review the release and install it.")
 }
 
 fn show_app_update_notification_impl(app: &AppHandle, version: &str) -> Result<(), String> {
     let body = app_update_notification_body(version);
     crate::show_notification_impl(
         app,
-        "Mac AI Switchboard Update Available",
+        "AI Switchboard for Mac Update Available",
         &body,
         Some("update".into()),
     )

@@ -463,15 +463,35 @@ mod tests {
     #[test]
     #[serial]
     fn analytics_config_parses_supported_regions() {
+        let prev_local = std::env::var_os("HEADROOM_LOCAL_ONLY");
+        let prev_remote = std::env::var_os("HEADROOM_REMOTE_SERVICES");
+        let prev_flavor = std::env::var_os("HEADROOM_BUILD_FLAVOR");
+        let prev_key = std::env::var_os("HEADROOM_APTABASE_APP_KEY");
+        std::env::set_var("HEADROOM_LOCAL_ONLY", "0");
         std::env::set_var("HEADROOM_REMOTE_SERVICES", "1");
+        std::env::set_var("HEADROOM_BUILD_FLAVOR", "operator");
         std::env::set_var("HEADROOM_APTABASE_APP_KEY", "A-EU-123");
         let config = AnalyticsConfig::from_env().expect("valid config");
         assert_eq!(
             config.ingest_api_url.as_str(),
             "https://eu.aptabase.com/api/v0/events"
         );
-        std::env::remove_var("HEADROOM_APTABASE_APP_KEY");
-        std::env::remove_var("HEADROOM_REMOTE_SERVICES");
+        match prev_local {
+            Some(value) => std::env::set_var("HEADROOM_LOCAL_ONLY", value),
+            None => std::env::remove_var("HEADROOM_LOCAL_ONLY"),
+        }
+        match prev_remote {
+            Some(value) => std::env::set_var("HEADROOM_REMOTE_SERVICES", value),
+            None => std::env::remove_var("HEADROOM_REMOTE_SERVICES"),
+        }
+        match prev_flavor {
+            Some(value) => std::env::set_var("HEADROOM_BUILD_FLAVOR", value),
+            None => std::env::remove_var("HEADROOM_BUILD_FLAVOR"),
+        }
+        match prev_key {
+            Some(value) => std::env::set_var("HEADROOM_APTABASE_APP_KEY", value),
+            None => std::env::remove_var("HEADROOM_APTABASE_APP_KEY"),
+        }
     }
 
     #[test]

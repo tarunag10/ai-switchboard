@@ -579,7 +579,7 @@ export function SettingsView({
             </div>
             <div className="runtime-status__meta">
               <span className="runtime-status__section-title">
-                Headroom CLI ({headroomVersion})
+                Switchboard runtime ({headroomVersion})
                 {headroomLifetimeSavingsPct !== null ? (
                   <span className="runtime-status__section-context">
                     {" "}
@@ -683,8 +683,8 @@ export function SettingsView({
               type="button"
             >
               {showHeadroomDetails
-                ? "Hide headroom logs"
-                : "Show headroom logs"}
+                ? "Hide runtime logs"
+                : "Show runtime logs"}
             </button>
             {showHeadroomDetails ? (
               <pre

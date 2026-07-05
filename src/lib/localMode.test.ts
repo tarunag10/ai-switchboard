@@ -13,6 +13,8 @@ describe("local mode", () => {
   });
 
   it("allows explicit remote-service opt in for forks", async () => {
+    vi.stubEnv("VITE_HEADROOM_BUILD_FLAVOR", "operator");
+    vi.stubEnv("VITE_HEADROOM_LOCAL_ONLY", "0");
     vi.stubEnv("VITE_HEADROOM_REMOTE_SERVICES", "1");
     const { localOnlyModeEnabled } = await import("./localMode");
 

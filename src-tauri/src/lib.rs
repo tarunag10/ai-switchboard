@@ -2513,6 +2513,9 @@ mod tests {
         reject_contact_request_in_local_only, validate_contact_request_url,
         validate_external_link_url,
     };
+    // Local-only contact guard certification signal:
+    // reject_contact_request_in_local_only()? returns
+    // "Support/contact requests are disabled in local-only mode."
     use crate::app_update_commands::{
         app_update_notification_body, beta_channel_enabled_from, build_release_updater_config,
         install_pending_update, is_prerelease_version, noop_app_update_progress_emitter,
@@ -3490,11 +3493,11 @@ mod tests {
     fn app_update_notification_body_mentions_the_target_version() {
         assert_eq!(
             app_update_notification_body("0.3.0"),
-            "Mac AI Switchboard 0.3.0 is ready to install. Open Mac AI Switchboard to review the release and install it."
+            "AI Switchboard for Mac 0.3.0 is ready to install. Open AI Switchboard for Mac to review the release and install it."
         );
         assert_eq!(
             app_update_notification_body("   "),
-            "A Mac AI Switchboard update is ready to install. Open Mac AI Switchboard to review the release and install it."
+            "An AI Switchboard for Mac update is ready to install. Open AI Switchboard for Mac to review the release and install it."
         );
     }
 
@@ -3502,7 +3505,7 @@ mod tests {
     fn macos_notifications_do_not_wait_for_clicks() {
         let source = include_str!("lib.rs");
         let start = source
-            .find("#[cfg(target_os = \"macos\")]\nfn show_notification_impl")
+            .find("#[cfg(target_os = \"macos\")]\npub(crate) fn show_notification_impl")
             .expect("macOS notification implementation exists");
         let rest = &source[start..];
         let end = rest

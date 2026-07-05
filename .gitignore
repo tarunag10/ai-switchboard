@@ -6,6 +6,7 @@ target
 *.log
 .env.local
 .env
+.secrets/
 *.db
 *.db-wal
 *.db-shm

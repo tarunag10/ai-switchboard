@@ -3974,6 +3974,7 @@ mod tests {
         prev_xdg: Option<std::ffi::OsString>,
         prev_local: Option<std::ffi::OsString>,
         prev_remote: Option<std::ffi::OsString>,
+        prev_flavor: Option<std::ffi::OsString>,
     }
 
     struct LocalOnlyEnvGuard {
@@ -3984,6 +3985,7 @@ mod tests {
     struct RemoteServicesEnvGuard {
         prev_local: Option<std::ffi::OsString>,
         prev_remote: Option<std::ffi::OsString>,
+        prev_flavor: Option<std::ffi::OsString>,
     }
 
     impl LocalOnlyEnvGuard {
@@ -4016,11 +4018,14 @@ mod tests {
         fn enabled() -> Self {
             let prev_local = std::env::var_os("HEADROOM_LOCAL_ONLY");
             let prev_remote = std::env::var_os("HEADROOM_REMOTE_SERVICES");
-            std::env::remove_var("HEADROOM_LOCAL_ONLY");
+            let prev_flavor = std::env::var_os("HEADROOM_BUILD_FLAVOR");
+            std::env::set_var("HEADROOM_LOCAL_ONLY", "0");
             std::env::set_var("HEADROOM_REMOTE_SERVICES", "1");
+            std::env::set_var("HEADROOM_BUILD_FLAVOR", "operator");
             Self {
                 prev_local,
                 prev_remote,
+                prev_flavor,
             }
         }
     }
@@ -4035,6 +4040,10 @@ mod tests {
                 Some(value) => std::env::set_var("HEADROOM_REMOTE_SERVICES", value),
                 None => std::env::remove_var("HEADROOM_REMOTE_SERVICES"),
             }
+            match self.prev_flavor.take() {
+                Some(value) => std::env::set_var("HEADROOM_BUILD_FLAVOR", value),
+                None => std::env::remove_var("HEADROOM_BUILD_FLAVOR"),
+            }
         }
     }
 
@@ -4045,10 +4054,12 @@ mod tests {
             let prev_xdg = std::env::var_os("XDG_DATA_HOME");
             let prev_local = std::env::var_os("HEADROOM_LOCAL_ONLY");
             let prev_remote = std::env::var_os("HEADROOM_REMOTE_SERVICES");
+            let prev_flavor = std::env::var_os("HEADROOM_BUILD_FLAVOR");
             std::env::set_var("HOME", scratch.path());
             std::env::set_var("XDG_DATA_HOME", scratch.path().join(".local").join("share"));
-            std::env::remove_var("HEADROOM_LOCAL_ONLY");
+            std::env::set_var("HEADROOM_LOCAL_ONLY", "0");
             std::env::set_var("HEADROOM_REMOTE_SERVICES", "1");
+            std::env::set_var("HEADROOM_BUILD_FLAVOR", "operator");
             crate::storage::ensure_data_dirs(&crate::storage::app_data_dir())
                 .expect("ensure_data_dirs in scratch");
             crate::keychain::write_secret(
@@ -4063,6 +4074,7 @@ mod tests {
                 prev_xdg,
                 prev_local,
                 prev_remote,
+                prev_flavor,
             }
         }
     }
@@ -4084,6 +4096,10 @@ mod tests {
             match self.prev_remote.take() {
                 Some(v) => std::env::set_var("HEADROOM_REMOTE_SERVICES", v),
                 None => std::env::remove_var("HEADROOM_REMOTE_SERVICES"),
+            }
+            match self.prev_flavor.take() {
+                Some(v) => std::env::set_var("HEADROOM_BUILD_FLAVOR", v),
+                None => std::env::remove_var("HEADROOM_BUILD_FLAVOR"),
             }
         }
     }

@@ -6491,7 +6491,7 @@ fn bootstrap_complete_state() -> BootstrapProgress {
         complete: true,
         failed: false,
         current_step: "Install complete".into(),
-        message: "Mac AI Switchboard is ready.".into(),
+        message: "AI Switchboard for Mac is ready.".into(),
         current_step_eta_seconds: 0,
         overall_percent: 100,
     }
