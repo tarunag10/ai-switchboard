@@ -28,6 +28,14 @@ import {
   refreshDoctorReport as refreshDoctorReportController,
   runDoctorRepairAction,
 } from "./lib/doctorRepairController";
+import {
+  copyManagedDiffPreview as copyManagedDiffPreviewController,
+  copyManagedRollbackExecutionPreview as copyManagedRollbackExecutionPreviewController,
+  copyManagedRollbackInventory as copyManagedRollbackInventoryController,
+  copyManagedRollbackPlan as copyManagedRollbackPlanController,
+  copyManagedRollbackUndoAllPreview as copyManagedRollbackUndoAllPreviewController,
+  type RollbackCopyOptions,
+} from "./lib/rollbackCopyController";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -4023,61 +4031,39 @@ export default function App() {
     );
   }
 
+  function rollbackCopyOptions(): RollbackCopyOptions {
+    return {
+      records: managedChangeRecords,
+      setNotice: setRollbackCopyNotice,
+      setTimeout: window.setTimeout.bind(window),
+      writeText: navigator.clipboard?.writeText.bind(navigator.clipboard),
+    };
+  }
+
   async function copyManagedDiffPreview(record: ManagedChangeRecord) {
-    if (!record.backupPath) {
-      setRollbackCopyNotice("No config diff required for that record.");
-      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
-      return;
-    }
-    try {
-      if (!navigator.clipboard) {
-        throw new Error("Clipboard API unavailable");
-      }
-      const preview = buildManagedConfigDiffPreview({
-        record,
-        targetPath: firstManagedConfigTarget(record),
-        currentManagedBlock: null,
-        proposedManagedBlock: sampleManagedBlock(record),
-      });
-      await navigator.clipboard.writeText(
-        formatManagedConfigDiffPreview(preview),
-      );
-      setRollbackCopyNotice(`${record.owner} dry-run copied.`);
-      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
-    } catch {
-      setRollbackCopyNotice("Copy failed. Rollback row remains visible.");
-      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
-    }
+    const previewText = record.backupPath
+      ? formatManagedConfigDiffPreview(
+          buildManagedConfigDiffPreview({
+            record,
+            targetPath: firstManagedConfigTarget(record),
+            currentManagedBlock: null,
+            proposedManagedBlock: sampleManagedBlock(record),
+          }),
+        )
+      : null;
+    await copyManagedDiffPreviewController(
+      record,
+      previewText,
+      rollbackCopyOptions(),
+    );
   }
 
   async function copyManagedRollbackInventory() {
-    try {
-      if (!navigator.clipboard) {
-        throw new Error("Clipboard API unavailable");
-      }
-      await navigator.clipboard.writeText(formatManagedRollbackInventory());
-      setRollbackCopyNotice("Rollback inventory copied.");
-      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
-    } catch {
-      setRollbackCopyNotice("Copy failed. Rollback rows remain visible.");
-      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
-    }
+    await copyManagedRollbackInventoryController(rollbackCopyOptions());
   }
 
   async function copyManagedRollbackUndoAllPreview() {
-    try {
-      if (!navigator.clipboard) {
-        throw new Error("Clipboard API unavailable");
-      }
-      await navigator.clipboard.writeText(
-        formatManagedRollbackUndoAllPreview(buildManagedRollbackUndoAllPreview()),
-      );
-      setRollbackCopyNotice("Undo-all preview copied.");
-      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
-    } catch {
-      setRollbackCopyNotice("Copy failed. Rollback rows remain visible.");
-      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
-    }
+    await copyManagedRollbackUndoAllPreviewController(rollbackCopyOptions());
   }
 
   async function previewNativeRollbackUndoAll() {
@@ -4131,40 +4117,18 @@ export default function App() {
   }
 
   async function copyManagedRollbackPlan(record: ManagedChangeRecord) {
-    try {
-      if (!navigator.clipboard) {
-        throw new Error("Clipboard API unavailable");
-      }
-      await navigator.clipboard.writeText(
-        formatManagedRollbackPlan(buildManagedRollbackPlan(record)),
-      );
-      setRollbackCopyNotice(`${record.owner} rollback plan copied.`);
-      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
-    } catch {
-      setRollbackCopyNotice("Copy failed. Rollback row remains visible.");
-      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
-    }
+    await copyManagedRollbackPlanController(record, rollbackCopyOptions());
   }
 
   async function copyManagedRollbackExecutionPreview(
     record: ManagedChangeRecord,
     index: number,
   ) {
-    try {
-      if (!navigator.clipboard) {
-        throw new Error("Clipboard API unavailable");
-      }
-      await navigator.clipboard.writeText(
-        formatManagedRollbackExecutionPreview(
-          buildManagedRollbackExecutionPreview(record, index),
-        ),
-      );
-      setRollbackCopyNotice(`${record.owner} execution preview copied.`);
-      window.setTimeout(() => setRollbackCopyNotice(null), 2500);
-    } catch {
-      setRollbackCopyNotice("Copy failed. Rollback row remains visible.");
-      window.setTimeout(() => setRollbackCopyNotice(null), 3000);
-    }
+    await copyManagedRollbackExecutionPreviewController(
+      record,
+      index,
+      rollbackCopyOptions(),
+    );
   }
 
   async function previewManagedConfigApply(record: ManagedChangeRecord) {
