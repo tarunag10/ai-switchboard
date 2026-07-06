@@ -18,7 +18,15 @@ const dashboardCommandsSource = fs.readFileSync(
   "utf8",
 );
 const stateSource = fs.readFileSync("src-tauri/src/state.rs", "utf8");
+const stateSavingsSource = fs.readFileSync(
+  "src-tauri/src/state/savings.rs",
+  "utf8",
+);
 const modelsSource = fs.readFileSync("src-tauri/src/models.rs", "utf8");
+const measuredFrontendSource = fs.readFileSync(
+  "src/lib/measuredSavingsAttribution.ts",
+  "utf8",
+);
 
 for (const source of requiredSources) {
   if (!modelsSource.includes(source)) {
@@ -37,6 +45,9 @@ if (!stateSource.includes("SavingsAttributionConfidence::Measured")) {
 if (!stateSource.includes("baseline_tokens.saturating_sub(optimized_tokens)")) {
   fail("state does not compute measured before/after token delta");
 }
+if (!stateSavingsSource.includes("SavingsAttributionConfidence::Measured")) {
+  fail("state savings module does not record measured attribution confidence");
+}
 if (!modelsSource.includes("runtime_event_count")) {
   fail("SavingsAttributionCounter missing runtime_event_count");
 }
@@ -44,8 +55,15 @@ if (!modelsSource.includes("estimated_event_count")) {
   fail("SavingsAttributionCounter missing estimated_event_count");
 }
 if (
-  !stateSource.includes("entry.runtime_event_count") ||
-  !stateSource.includes("event.request_delta as u64")
+  !measuredFrontendSource.includes("record_measured_savings_attribution") ||
+  !measuredFrontendSource.includes("baselineTokens <= optimizedTokens") ||
+  !measuredFrontendSource.includes("MeasuredAddonSavingsSource")
+) {
+  fail("frontend measured add-on attribution wrapper is missing or unsafe");
+}
+if (
+  !stateSavingsSource.includes("entry.runtime_event_count") ||
+  !stateSavingsSource.includes("event.request_delta as u64")
 ) {
   fail("state does not aggregate event-backed runtime counter units");
 }
@@ -85,6 +103,7 @@ const payload = {
   releaseGateEvidence: false,
   requiredSources,
   measuredCommandExposed: true,
+  measuredAddonFrontendWrapper: true,
   measuredConfidenceRecorded: true,
   beforeAfterDeltaRecorded: true,
   runtimeCountersRecorded: true,
@@ -104,6 +123,7 @@ Generated: ${payload.generatedAt}
 - Release gate evidence: no
 - Required sources: ${requiredSources.join(", ")}
 - Measured command exposed: yes
+- Measured add-on frontend wrapper: yes
 - Measured confidence recorded: yes
 - Before/after token delta recorded: yes
 - Runtime counter units recorded: yes

@@ -10,6 +10,7 @@ function renderCard(overrides = {}) {
     formatLocalReleaseEvidenceSequenceCopy: vi.fn(() => "Run local evidence"),
     refreshReleaseReadinessReport: vi.fn(),
     releaseEvidenceBusyId: null,
+    releaseEvidenceResult: null,
     releaseLocalEvidenceRows: [
       {
         id: "local-install",

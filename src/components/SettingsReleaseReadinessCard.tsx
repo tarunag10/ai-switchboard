@@ -6,12 +6,14 @@ import {
   releaseReadinessGroups,
   releaseReadinessItemCount,
   releaseShareableGates,
+  type ReleaseReadinessNextAction,
 } from "../lib/releaseReadiness";
 
 import type { ReleaseReadinessReportSnapshot } from "../lib/releaseReadiness";
 
 export interface ReleaseEvidenceResult {
   commandId: string;
+  command: string;
   summaryPath: string | null;
   stdout: string;
   stderr: string;
@@ -49,8 +51,9 @@ interface ReleaseReadinessCounts {
 
 interface SettingsReleaseReadinessCardProps {
   releaseEvidenceBusyId: string | null;
+  releaseEvidenceResult?: ReleaseEvidenceResult | null;
   releaseLocalEvidenceRows: ReleaseLocalEvidenceRow[];
-  releaseReadinessAction: string;
+  releaseReadinessAction: ReleaseReadinessNextAction | null | string;
   releaseReadinessCommandProp: string;
   releaseReadinessCopyNotice: string | null;
   releaseReadinessCounts: ReleaseReadinessCounts;
@@ -71,6 +74,7 @@ export function SettingsReleaseReadinessCard({
   formatLocalReleaseEvidenceSequenceCopy,
   refreshReleaseReadinessReport,
   releaseEvidenceBusyId,
+  releaseEvidenceResult,
   releaseLocalEvidenceRows,
   releaseReadinessAction,
   releaseReadinessCommandProp,
@@ -84,8 +88,16 @@ export function SettingsReleaseReadinessCard({
   runLocalReleaseEvidenceSequence,
   runReleaseEvidenceCommand,
 }: SettingsReleaseReadinessCardProps) {
+  const releaseReadinessNextActionCopy =
+    typeof releaseReadinessAction === "string"
+      ? releaseReadinessAction
+      : formatReleaseReadinessNextAction(releaseReadinessAction);
+
   return (
-    <article className="soft-card panel-card release-readiness-card">
+    <article
+      className="soft-card panel-card release-readiness-card"
+      id="release-readiness"
+    >
       <div className="panel-card__header">
         <div>
           <h3>Release readiness</h3>
@@ -143,7 +155,7 @@ export function SettingsReleaseReadinessCard({
         {releaseReadinessEvidence.copy}
       </p>
       <p className="release-readiness-card__source">
-        {formatReleaseReadinessNextAction(releaseReadinessAction as any)}
+        {releaseReadinessNextActionCopy}
       </p>
       {releaseReadinessError ? (
         <p className="release-readiness-card__error">{releaseReadinessError}</p>
@@ -241,6 +253,13 @@ export function SettingsReleaseReadinessCard({
                         ? "Running"
                         : "Run evidence"}
                     </button>
+                  ) : null}
+                  {releaseEvidenceResult?.commandId === item.id ? (
+                    <span className="release-readiness-card__evidence-result">
+                      Generated{" "}
+                      {releaseEvidenceResult.summaryPath ??
+                        releaseEvidenceResult.command}
+                    </span>
                   ) : null}
                 </li>
               ))}
