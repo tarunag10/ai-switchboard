@@ -3,7 +3,7 @@
 Canonical status: see [plan-status-ledger.md](plan-status-ledger.md) for the
 current done/left checklist. It includes the latest Repo Map UI mount,
 evidence-gate stabilization, Fable security hardening, and signed-release
-blockers as of 2026-07-05.
+blockers as of 2026-07-06.
 
 ## Updated Status - 2026-07-03
 
@@ -19,9 +19,9 @@ Created / updated:
 - Doctor repair and Rollback Center local evidence are schema-versioned and checked as local-only/non-release proof.
 - Local uninstall evidence is schema-versioned, checked as non-destructive local proof, and wired into aggregate/release-readiness validation.
 - Local-only network evidence is schema-versioned, checked as app-owned remote-call blocked local proof, and wired into aggregate/release-readiness validation.
-- Connector readiness documents promoted routing for Gemini/OpenCode/Windsurf/Zed, Goose read-only Memory MCP bridge, and gated native/provider proof for Aider, Cursor, Continue, Grok/xAI CLI, Qwen Code, and Amazon Q.
+- Connector readiness documents promoted routing for Gemini/OpenCode/Windsurf/Zed, Goose read-only Memory MCP bridge, managed sidecar lifecycles for Aider/Continue/Qwen Code/Amazon Q, and gated native/provider proof for Cursor and Grok/xAI CLI.
 - Local connector readiness proof is schema-tagged and now checks local-only/non-release status, native-write readiness semantics, successful connector scan status, and full shared lifecycle stage coverage.
-- Release truth reconciliation now records live GitHub release `v0.0.0`, the signed/notarized Apple Silicon DMG, public checksum, installed-app smoke from `/Applications/AI Switchboard for Mac.app`, and local uninstall dry-run proof while keeping updater feed proof blocked.
+- Release truth reconciliation now records live GitHub release `v0.0.0`, the signed/notarized Apple Silicon DMG, public checksum, signed updater bundle, updater signature, reachable `latest.json`, static smoke, installed-app trust checks for `/Applications/AI Switchboard for Mac.app`, and local uninstall dry-run proof while keeping public installed smoke and reboot-level proof blocked.
 - Amazon Q Developer CLI has been promoted to a managed Switchboard-owned sidecar lifecycle with Doctor repair, rollback, and Off cleanup tests while AWS account/provider/workspace state remains manual.
 - Repo Intelligence graph version `path-graph-v9` adds tree-sitter-assisted multiline imports and AST call-reference edges.
 - Caveman, Compact Chinese, Ponytail, and MarkItDown savings attribution records runtime evidence-unit counts in backend counters and frontend session rows.
@@ -31,7 +31,7 @@ Still left:
 - Deepen durable add-on health/history beyond the current event-backed Caveman/Ponytail/MarkItDown session ledger rows.
 - Finish provider-specific native-write apply/verify/rollback/Off-cleanup proof for the remaining gated connectors.
 - Deepen Repo Intelligence task ranking and long-running MCP supervision beyond current guarded local evidence.
-- Produce signed updater feed proof and reboot-level public uninstall/Doctor/Rollback proof. Signed/notarized DMG, checksum, and installed smoke proof are now reconciled.
+- Produce public installed smoke confirmation and reboot-level public uninstall/Doctor/Rollback proof. Signed/notarized DMG, checksum, static smoke, updater feed, and updater signature proof are now reconciled.
 - Continue large-file refactors only as touched: `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/src/tool_manager.rs`, `src/App.tsx`.
 
 ## Current Plan Rollup - 2026-07-03
@@ -41,7 +41,7 @@ Created:
 - Product roadmap status for Repo Map/token compression, Repo Intelligence, Repo Memory MCP, savings, connectors, Rollback Center, and release evidence.
 - One-click public release proof summary workflow for blocked/ready release evidence.
 - Public release proof now points at the real static preflight artifact and explicitly excludes local-only smoke, rollback, Doctor, connector, and fixture savings summaries from public release proof.
-- Public release proof is schema-versioned and blocked proof must list the exact public blockers: signed/notarized DMG, updater feed, static smoke preflight, public installed-app smoke, and release environment.
+- Public release proof is schema-versioned and blocked proof must list the exact public blockers: signed/notarized DMG, updater feed, static smoke preflight, public installed-app smoke, reboot-level installed proof, and release environment.
 - Deployment governance checks covering remote destinations, workflow branch policy, local rollback evidence, and release proof scripts.
 
 Done:
@@ -66,8 +66,8 @@ Left:
 - Add provider-specific fixture-home apply/verify/rollback/Off cleanup proof before enabling the remaining gated connector automation.
 - Deepen backend runtime/session Caveman, Ponytail, and MarkItDown attribution beyond current evidence-unit counters.
 - Expand task-specific Repo Intelligence graph ranking and continue large-file refactors beyond the guarded Repo Map context bridge.
-- Produce signed updater feed proof and reboot-level public installed-app Doctor/Rollback/uninstall proof.
-- Keep release proof blocked only on the updater feed until signed updater metadata exists.
+- Produce public installed-app smoke confirmation and reboot-level public installed-app Doctor/Rollback/uninstall proof.
+- Keep release proof blocked only on public installed smoke and reboot-level proof once signed updater metadata exists.
 
 ## Current Status - 2026-07-03
 
@@ -87,7 +87,7 @@ Still left:
 - Native-write promotion for the next connector with real apply/verify/rollback/Off cleanup, not just gated readiness.
 - Live runtime/session counters for Caveman, Ponytail, and MarkItDown.
 - Large-file refactors across the Tauri backend and main app shell.
-- Signed/notarized DMG, updater, and public installed-app smoke proof.
+- Public installed-app smoke and reboot-level proof.
 
 This plan expands the rebrand and trust-hardening work into a broader product roadmap for Mac AI Switchboard. The goal is to make the app trustworthy enough to install, clear enough to debug, and useful enough to become the local control center for coding-agent optimization on macOS.
 
@@ -405,7 +405,7 @@ Suggested commit:
 
 Goal: make the app ready for real testers with app-owned assets and recorded evidence.
 
-Status: local evidence is shipped and the public `v0.0.0` Apple Silicon DMG/checksum/install proof is reconciled. The app has app-owned iconset provenance, branding guards, local unsigned DMG build/install, public signed/notarized DMG verification, installed smoke, and release-readiness reports. The remaining work is signed updater feed proof plus reboot-level public Doctor/Rollback/uninstall proof.
+Status: local evidence is shipped and the public `v0.0.0` Apple Silicon DMG/checksum/updater proof is reconciled. The app has app-owned iconset provenance, branding guards, local unsigned DMG build/install, public signed/notarized DMG verification, reachable signed updater feed, static smoke, and release-readiness reports. The remaining work is public installed-app smoke confirmation plus reboot-level public Doctor/Rollback/uninstall proof.
 
 Tasks:
 
@@ -413,7 +413,7 @@ Tasks:
 - Add a branding guard script for `logoipsum`, removed upstream logo imports, and stale app-name strings.
 - Audit DMG artwork, screenshots, README images, release notes, and app icons.
 - Keep building local DMGs, installing `/Applications/Mac AI Switchboard.app`, and running installed smoke tests after app-behavior slices.
-- Add signed/notarized public DMG install evidence, updater artifact evidence, and uninstall proof before broad testers.
+- Add public installed-app smoke confirmation and reboot-level uninstall proof before broad testers.
 - Keep signed/notarized release readiness separate from local ad-hoc success.
 
 Acceptance checks:

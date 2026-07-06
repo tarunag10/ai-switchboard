@@ -4914,7 +4914,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "aider"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
@@ -8761,7 +8761,7 @@ js_repl = false\n",
     }
 
     #[test]
-    fn continue_connector_keeps_native_writes_gated_with_manifest_forbidden_reads() {
+    fn continue_connector_exposes_managed_sidecar_without_native_writes() {
         let detected_clients = Vec::new();
         let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
         let continue_connector = connectors
@@ -8771,7 +8771,7 @@ js_repl = false\n",
 
         assert_eq!(
             continue_connector.support_status,
-            ClientConnectorSupportStatus::Planned
+            ClientConnectorSupportStatus::Managed
         );
         assert!(!continue_connector.enabled);
         assert!(!continue_connector.verified);
@@ -8779,26 +8779,9 @@ js_repl = false\n",
             .config_locations
             .iter()
             .any(|location| location.contains(".continue")));
-        assert!(continue_connector
-            .config_creation_step_details
-            .iter()
-            .any(|step| step.detail.contains("auth.json")));
-        assert!(continue_connector
-            .config_creation_step_details
-            .iter()
-            .any(|step| step.detail.contains("*token*")));
-        assert!(continue_connector
-            .config_creation_step_details
-            .iter()
-            .any(|step| step.detail.contains("*secret*")));
-
-        let preview = continue_connector
-            .config_dry_run_preview
-            .as_ref()
-            .expect("continue dry-run preview");
-        assert!(preview.target.contains(".continue"));
-        assert!(preview.marker.contains("continue"));
-        assert!(!preview.apply_blocked_reason.is_empty());
+        assert!(continue_connector.config_creation_step_details.is_empty());
+        assert!(continue_connector.config_dry_run_preview.is_none());
+        assert!(continue_connector.automation_path.is_empty());
     }
 
     #[test]

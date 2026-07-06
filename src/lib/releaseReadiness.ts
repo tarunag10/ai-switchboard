@@ -242,8 +242,8 @@ function formatConnectorReadinessSummary() {
   }
 
   return [
-    "## Managed Connector Readiness",
-    `- Managed connectors: ${contracts.length}`,
+    "## Gated Native-Write Connector Readiness",
+    `- Gated native-write connectors: ${contracts.length}`,
     `- Automation ready: ${automationReady}`,
     `- Next blocked gates: ${[...nextBlocked.entries()]
       .map(([label, count]) => `${label} (${count})`)

@@ -181,8 +181,8 @@ const requiredDocSignals = {
     "OpenCode",
     "Cursor",
     "Windsurf",
-    "Aider, Qwen Code, Amazon Q Developer CLI, Zed AI",
-    "Continue, Grok / xAI CLI",
+    "Aider, Continue, Qwen Code, Amazon Q Developer CLI, Zed AI",
+    "Cursor, Grok / xAI CLI",
     "docs/remote-destinations.md",
     "docs/connectors.md",
     "Limited managed adapter",
@@ -528,13 +528,15 @@ const requiredSourceSignals = {
     "dependency_hubs",
     "is_dependency_hub",
   ],
-  "src/App.tsx": [
+  "src/components/SettingsReleaseReadinessCard.tsx": [
     "releaseReadinessGroups",
     "releaseShareableGates",
     "Shareable DMG gates",
+    "Release readiness",
+  ],
+  "src/App.tsx": [
     "detectionEvidence",
     "Evidence",
-    "Release readiness",
     "Settings import/export",
     "Settings migration actions",
     "Copy settings export",

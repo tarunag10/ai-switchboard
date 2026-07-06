@@ -1,6 +1,6 @@
 # AI Switchboard Rebrand Release Evidence
 
-Updated: 2026-07-05
+Updated: 2026-07-06
 
 Scope: slice 8 from `docs/ai-switchboard-platform-rebrand-execution-tracks.md`.
 
@@ -37,9 +37,9 @@ npm run build
 git diff --check
 ```
 
-Release blockers that still need signed/public infrastructure remain outside this docs slice: Developer ID signing, notarization, updater feed proof, checksums/SBOM, public installed-app smoke, public uninstall proof, and public release gate evidence.
+Release blockers that still need public installed evidence remain outside this docs slice: public installed-app smoke, reboot-level public Doctor/Rollback/uninstall proof, and final public release gate evidence.
 
-## Public Release Truth - 2026-07-05
+## Public Release Truth - 2026-07-06
 
 Verified live release:
 
@@ -47,10 +47,14 @@ Verified live release:
 - Public DMG asset: `Mac-AI-Switchboard_0.0.0-signed-notarized-aarch64.dmg`
 - Public checksum asset: `Mac-AI-Switchboard_0.0.0-signed-notarized-aarch64.dmg.sha256`
 - Asset digest: `sha256:705b90e69deffbadf11e5f9566e40b393debec440d37b89636b621306e549eab`
+- Updater feed asset: `latest.json`
+- Updater bundle asset: `AI.Switchboard.for.Mac.app.tar.gz`
+- Updater signature asset: `AI.Switchboard.for.Mac.app.tar.gz.sig`
+- Updater endpoint: `https://github.com/tarunag10/ai-switchboard/releases/latest/download/latest.json`
 - Local verification: downloaded the GitHub release asset, verified the checksum, ran `hdiutil verify`, installed `/Applications/AI Switchboard for Mac.app`, and verified Gatekeeper/Developer ID notarization plus `xcrun stapler validate`.
-- Installed smoke evidence: `npm run smoke:preflight` and `npm run smoke:installed -- --confirm` generated fresh local `dist/` summaries for the public installed app.
+- Static smoke evidence: `npm run smoke:preflight` generated a fresh local `dist/smoke-preflight-summary.md`.
 
 Remaining public-release blockers:
 
-- Updater feed proof: no signed `latest.json` or updater signature asset is present in the live release yet.
+- Public installed-app smoke: the beta checklist still needs explicit tester confirmation before `npm run smoke:installed -- --confirm` can be treated as public release evidence.
 - Reboot-level public Doctor/Rollback/uninstall proof: local non-destructive uninstall proof passes, but reboot-level destructive/uninstall survival remains intentionally separate.

@@ -698,8 +698,8 @@ describe("release readiness checklist", () => {
       "Sharing status: blocked until strict release gate is ready",
     );
     expect(snapshot).toContain("## Status Rows");
-    expect(snapshot).toContain("## Managed Connector Readiness");
-    expect(snapshot).toContain("Managed connectors: 5");
+    expect(snapshot).toContain("## Gated Native-Write Connector Readiness");
+    expect(snapshot).toContain("Gated native-write connectors: 2");
     expect(snapshot).toContain("Automation ready: 0");
     expect(snapshot).toContain("Next blocked gates:");
     expect(snapshot).toContain("Cursor:");

@@ -44,6 +44,8 @@ const requiredGuardSignals = {
   "src-tauri/src/lib.rs": [
     "reject_contact_request_in_local_only()?",
     "Support/contact requests are disabled in local-only mode.",
+  ],
+  "src-tauri/src/external_open.rs": [
     "validate_external_link_url",
   ],
 };

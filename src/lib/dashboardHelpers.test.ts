@@ -656,8 +656,14 @@ describe("dashboard helpers", () => {
   });
 
   it("exposes config creation gates for every planned connector compatibility report", () => {
+    const managedSidecarIds = new Set([
+      "aider",
+      "continue",
+      "qwen_code",
+      "amazon_q",
+    ]);
     for (const connector of plannedConnectors.filter(
-      (item) => item.id !== "qwen_code",
+      (item) => !managedSidecarIds.has(item.id),
     )) {
       const report = connectorCompatibilityReport({
         clientId: connector.id,
@@ -691,9 +697,9 @@ describe("dashboard helpers", () => {
       detail:
         "7 gates required before automatic setup: Detect config surface -> Show dry-run diff -> Create backup -> Apply with consent -> Verify in Doctor -> Rollback safely -> Clean up in Off mode",
       nextGateLabel: "Detect config surface",
-      automationEnabled: false,
+      automationEnabled: true,
       safetyNote:
-        "Config creation remains gated until every step has tests and Doctor evidence.",
+        "Managed routing is enabled with backup, apply, verify, rollback, and Off cleanup evidence.",
     });
     expect(
       formatPlannedConnectorConfigGateSummary({
@@ -710,7 +716,7 @@ describe("dashboard helpers", () => {
     const report = connectorCompatibilityReport({
       clientId: "gemini_cli",
       name: "Gemini CLI",
-      supportStatus: "managed",
+      supportStatus: "planned",
       setupPhase: "guide",
       detectionEvidence: [
         "Gemini binary: /opt/homebrew/bin/gemini",
@@ -829,7 +835,7 @@ describe("dashboard helpers", () => {
     const report = connectorCompatibilityReport({
       clientId: "opencode",
       name: "OpenCode",
-      supportStatus: "managed",
+      supportStatus: "planned",
       setupPhase: "managed",
       detectionEvidence: [
         "OpenCode binary: /opt/homebrew/bin/opencode",
@@ -913,7 +919,7 @@ describe("dashboard helpers", () => {
     const report = connectorCompatibilityReport({
       clientId: "aider",
       name: "Aider",
-      supportStatus: "planned",
+      supportStatus: "managed",
       setupPhase: "adapt",
       detectionEvidence: [
         "Aider binary: /opt/homebrew/bin/aider",
@@ -935,7 +941,7 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.aider.conf.yml",
       routingBlocker:
         "Provider routing blocked until reversible environment wrapper, backup, verify, rollback, and Off mode cleanup exist.",
-      automationEnabled: false,
+      automationEnabled: true,
       configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
     });
@@ -945,7 +951,7 @@ describe("dashboard helpers", () => {
     const report = connectorCompatibilityReport({
       clientId: "continue",
       name: "Continue",
-      supportStatus: "planned",
+      supportStatus: "managed",
       setupPhase: "guide",
       detectionEvidence: [
         "Continue command: /opt/homebrew/bin/continue",
@@ -966,7 +972,7 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.continue",
       routingBlocker:
         "Settings routing blocked until multi-provider parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist.",
-      automationEnabled: false,
+      automationEnabled: true,
       configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
     });
@@ -1062,7 +1068,7 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.aws/amazonq",
       routingBlocker:
         "Provider routing blocked until AWS/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
-      automationEnabled: false,
+      automationEnabled: true,
       configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter is not implemented yet."],
     });
@@ -1308,14 +1314,14 @@ describe("mergeProviderSavingsForDisplay", () => {
       detectedCount: 3,
       manualOnlyCount: 3,
       notDetectedCount: 1,
-      safeTodayCount: 24,
-      plannedCapabilityCount: 5,
+      safeTodayCount: 26,
+      plannedCapabilityCount: 3,
       automationGateCount: 39,
       detectedNames: ["Gemini CLI", "Grok / xAI CLI", "Cursor"],
       notDetectedNames: ["Aider"],
       headline: "3 connector tools detected locally",
       detail:
-        "Gemini CLI, Grok / xAI CLI, Cursor have connector readiness evidence. Not found: Aider. 24 safe capabilities are available now; 5 still need safe setup coverage before Switchboard can edit native settings. Managed routes can be repaired now; detected-only tools keep provider and model setup manual.",
+        "Gemini CLI, Grok / xAI CLI, Cursor have connector readiness evidence. Not found: Aider. 26 safe capabilities are available now; 3 still need safe setup coverage before Switchboard can edit native settings. Managed routes can be repaired now; detected-only tools keep provider and model setup manual.",
     });
   });
 });
