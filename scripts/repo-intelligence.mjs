@@ -989,7 +989,7 @@ function buildGraphSummary(repoRoot, files) {
   ];
   const symbols = buildRepoSymbols(repoRoot, included);
   const symbolEdges = [
-    ...buildSymbolEdges(included, symbols),
+    ...buildSymbolEdges(repoRoot, included, symbols),
     ...buildCallReferenceEdges(repoRoot, included, symbols),
   ];
   return {
@@ -1162,33 +1162,47 @@ function extractSymbolFromLine(language, rawLine) {
   return null;
 }
 
-function buildSymbolEdges(files, symbols) {
+function buildSymbolEdges(repoRoot, files, symbols) {
   const edges = [];
-  for (const symbol of symbols.slice(0, 80)) {
-    for (const file of files) {
+  for (const file of files) {
+    let content = null;
+    for (const symbol of symbols.slice(0, 120)) {
       if (edges.length >= 80) return edges;
       if (file.path === symbol.file) continue;
       const to = `${symbol.file}#${symbol.name}`;
-      if (!file.path.toLowerCase().includes(symbol.name.toLowerCase()))
+      if (file.path.toLowerCase().includes(symbol.name.toLowerCase())) {
+        pushUniqueGraphEdge(edges, {
+          from: file.path,
+          to,
+          kind: "symbol_reference",
+          reason: "file path references indexed symbol name",
+        });
         continue;
-      if (
-        edges.some(
-          (edge) =>
-            edge.from === file.path &&
-            edge.to === to &&
-            edge.kind === "symbol_reference",
-        )
-      )
-        continue;
-      edges.push({
+      }
+      if (content === null) {
+        try {
+          content = fs.readFileSync(path.join(repoRoot, file.path), "utf8");
+        } catch {
+          content = "";
+        }
+      }
+      if (!contentReferencesSymbol(content, symbol.name)) continue;
+      pushUniqueGraphEdge(edges, {
         from: file.path,
         to,
         kind: "symbol_reference",
-        reason: "file path references indexed symbol name",
+        reason: "source text references indexed symbol name",
       });
     }
   }
   return edges;
+}
+
+function contentReferencesSymbol(content, symbolName) {
+  if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(symbolName)) return false;
+  return new RegExp(`\\b${escapeRegExp(symbolName)}\\b`).test(
+    content.slice(0, 200_000),
+  );
 }
 
 function buildImportReferenceEdges(repoRoot, files) {

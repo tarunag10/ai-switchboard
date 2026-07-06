@@ -2335,7 +2335,7 @@ function buildRepoGraphSummary(
   ];
   const symbols = buildRepoSymbols(included, contentByPath);
   const symbolEdges = [
-    ...buildSymbolEdges(included, symbols),
+    ...buildSymbolEdges(included, symbols, contentByPath),
     ...buildCallReferenceEdges(included, symbols, contentByPath),
   ];
   return {
@@ -2546,34 +2546,41 @@ function extractSymbolFromLine(
 function buildSymbolEdges(
   files: RepoFileSignal[],
   symbols: RepoSymbol[],
+  contentByPath: Map<string, string>,
 ): RepoGraphEdge[] {
   const edges: RepoGraphEdge[] = [];
-  for (const symbol of symbols.slice(0, 80)) {
-    for (const file of files) {
+  for (const file of files) {
+    for (const symbol of symbols.slice(0, 120)) {
       if (edges.length >= 80) return edges;
       if (file.path === symbol.file) continue;
       const to = `${symbol.file}#${symbol.name}`;
-      if (!file.path.toLowerCase().includes(symbol.name.toLowerCase()))
-        continue;
-      if (
-        edges.some(
-          (edge) =>
-            edge.from === file.path &&
-            edge.to === to &&
-            edge.kind === "symbol_reference",
-        )
-      ) {
+      if (file.path.toLowerCase().includes(symbol.name.toLowerCase())) {
+        pushUniqueGraphEdge(edges, {
+          from: file.path,
+          to,
+          kind: "symbol_reference",
+          reason: "file path references indexed symbol name",
+        });
         continue;
       }
-      edges.push({
+      const content = contentByPath.get(file.path);
+      if (!content || !contentReferencesSymbol(content, symbol.name)) continue;
+      pushUniqueGraphEdge(edges, {
         from: file.path,
         to,
         kind: "symbol_reference",
-        reason: "file path references indexed symbol name",
+        reason: "source text references indexed symbol name",
       });
     }
   }
   return edges;
+}
+
+function contentReferencesSymbol(content: string, symbolName: string): boolean {
+  if (!/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(symbolName)) return false;
+  return new RegExp(`\\b${escapeRegExp(symbolName)}\\b`).test(
+    content.slice(0, 200_000),
+  );
 }
 
 function buildImportReferenceEdges(

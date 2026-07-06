@@ -611,6 +611,12 @@ describe("repoIntelligence", () => {
           to: "src/App.tsx#App",
         }),
         expect.objectContaining({
+          from: "src-tauri/src/consumer.rs",
+          to: "src-tauri/src/state.rs#AppState",
+          kind: "symbol_reference",
+          reason: "source text references indexed symbol name",
+        }),
+        expect.objectContaining({
           from: "src/App.tsx",
           to: "src/lib/helper.ts#helper",
           kind: "call_reference",
