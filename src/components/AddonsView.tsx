@@ -15,6 +15,7 @@ import { formatPlannedConnectorConfigCreationPlansMarkdown } from "../lib/planne
 import { percent1 } from "../lib/dashboardHelpers";
 import { AddonHealthStrip } from "./AddonHealthStrip";
 import { AddonCard, type AddonCopy } from "./AddonCard";
+import { MeasuredAddonSavingsForm } from "./MeasuredAddonSavingsForm";
 import { PlannedAddonCard } from "./PlannedAddonCard";
 
 export interface AddonsViewProps {
@@ -42,6 +43,7 @@ export interface AddonsViewProps {
     enabled?: boolean,
   ) => Promise<void>;
   handleRtkToggle: (nextEnabled: boolean) => Promise<void>;
+  onMeasuredAddonSavingsRecorded: () => Promise<void>;
   setCavemanLevel: (
     level: "scoped" | "aggressive" | "compact_chinese",
   ) => Promise<void>;
@@ -70,6 +72,7 @@ export function AddonsView({
   openExternalLink,
   runAddonAction,
   handleRtkToggle,
+  onMeasuredAddonSavingsRecorded,
   setCavemanLevel,
   copyPlannedConnectorCommand,
 }: AddonsViewProps) {
@@ -233,6 +236,26 @@ export function AddonsView({
                     void runAddonAction("uninstall_addon", tool.id)
                   }
                 >
+                  {installed &&
+                  tool.enabled &&
+                  (tool.id === "markitdown" ||
+                    tool.id === "ponytail" ||
+                    tool.id === "caveman") ? (
+                    <MeasuredAddonSavingsForm
+                      source={
+                        tool.id === "markitdown"
+                          ? "markitdown"
+                          : tool.id === "ponytail"
+                            ? "ponytail"
+                            : tool.metadata?.level === "compact_chinese"
+                              ? "compact_chinese"
+                              : "caveman"
+                      }
+                      label={tool.name}
+                      disabled={addonBusyId === tool.id}
+                      onRecorded={onMeasuredAddonSavingsRecorded}
+                    />
+                  ) : null}
                   {tool.id === "caveman" && installed && tool.enabled
                     ? (() => {
                         const level =

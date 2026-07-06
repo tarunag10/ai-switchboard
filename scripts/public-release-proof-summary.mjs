@@ -12,6 +12,10 @@ const releaseTag = process.env.MAC_AI_SWITCHBOARD_RELEASE_TAG || "v0.0.0";
 const releaseRepo =
   process.env.MAC_AI_SWITCHBOARD_RELEASE_REPO || "tarunag10/ai-switchboard";
 const defaultUpdaterEndpoint = `https://github.com/${releaseRepo}/releases/latest/download/latest.json`;
+const workflowUpdaterEndpointFiles = [
+  ".github/workflows/release-macos.yml",
+  ".github/workflows/release-macos-staging.yml",
+];
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -63,6 +67,22 @@ function parseUpdaterEndpoints(raw) {
     .split(/[,\n]/)
     .map((value) => value.trim())
     .filter((value) => value.startsWith("https://"));
+}
+
+function workflowUpdaterEndpoints() {
+  const endpoints = [];
+  for (const file of workflowUpdaterEndpointFiles) {
+    if (!fs.existsSync(file)) {
+      continue;
+    }
+    const body = fs.readFileSync(file, "utf8");
+    const matches = body.matchAll(/^\s*HEADROOM_UPDATER_ENDPOINTS:\s*(.+?)\s*$/gm);
+    for (const match of matches) {
+      const rawValue = match[1].trim().replace(/^['"]|['"]$/g, "");
+      endpoints.push(...parseUpdaterEndpoints(rawValue));
+    }
+  }
+  return [...new Set(endpoints)];
 }
 
 function hasUpdaterSignatureMetadata(body) {
@@ -138,8 +158,13 @@ async function buildUpdaterEvidence({
   const configuredEndpoints = parseUpdaterEndpoints(
     process.env.HEADROOM_UPDATER_ENDPOINTS,
   );
+  const workflowConfiguredEndpoints = workflowUpdaterEndpoints();
   const candidateEndpoints =
-    configuredEndpoints.length > 0 ? configuredEndpoints : [defaultUpdaterEndpoint];
+    configuredEndpoints.length > 0
+      ? configuredEndpoints
+      : workflowConfiguredEndpoints.length > 0
+        ? workflowConfiguredEndpoints
+        : [defaultUpdaterEndpoint];
   const checkedEndpoints = await Promise.all(
     candidateEndpoints.map((url) => probeUpdaterEndpoint(url)),
   );
@@ -178,8 +203,16 @@ async function buildUpdaterEvidence({
       digest: asset.digest,
     })),
     configuredEndpoints,
+    workflowConfiguredEndpoints,
     checkedEndpoints,
-    defaultEndpointUsed: configuredEndpoints.length === 0,
+    endpointSource:
+      configuredEndpoints.length > 0
+        ? "environment"
+        : workflowConfiguredEndpoints.length > 0
+          ? "workflow"
+          : "default",
+    defaultEndpointUsed:
+      configuredEndpoints.length === 0 && workflowConfiguredEndpoints.length === 0,
     defaultEndpoint: defaultUpdaterEndpoint,
     releaseUrl: githubRelease?.url ?? null,
   };
@@ -404,7 +437,13 @@ Generated: ${generatedAt}
 ## Updater Evidence
 
 - Default endpoint used: ${updaterEvidence.defaultEndpointUsed ? "yes" : "no"}
+- Endpoint source: ${updaterEvidence.endpointSource}
 - Default endpoint: \`${updaterEvidence.defaultEndpoint}\`
+- Workflow-configured endpoints: ${
+  updaterEvidence.workflowConfiguredEndpoints.length > 0
+    ? updaterEvidence.workflowConfiguredEndpoints.map((url) => `\`${url}\``).join(", ")
+    : "none"
+}
 - Checked endpoints:
 ${updaterEvidence.checkedEndpoints
   .map(

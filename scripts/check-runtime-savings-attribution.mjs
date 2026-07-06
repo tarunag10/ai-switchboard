@@ -27,6 +27,11 @@ const measuredFrontendSource = fs.readFileSync(
   "src/lib/measuredSavingsAttribution.ts",
   "utf8",
 );
+const measuredFormSource = fs.readFileSync(
+  "src/components/MeasuredAddonSavingsForm.tsx",
+  "utf8",
+);
+const addonsViewSource = fs.readFileSync("src/components/AddonsView.tsx", "utf8");
 
 for (const source of requiredSources) {
   if (!modelsSource.includes(source)) {
@@ -60,6 +65,23 @@ if (
   !measuredFrontendSource.includes("MeasuredAddonSavingsSource")
 ) {
   fail("frontend measured add-on attribution wrapper is missing or unsafe");
+}
+const measuredAddonUiPatterns = [
+  "tool.id === \"markitdown\"",
+  "tool.id === \"ponytail\"",
+  "tool.id === \"caveman\"",
+  "<MeasuredAddonSavingsForm",
+  "source={",
+  "tool.metadata?.level === \"compact_chinese\"",
+  "label={tool.name}",
+  "disabled={addonBusyId === tool.id}",
+  "onRecorded={onMeasuredAddonSavingsRecorded}",
+];
+if (
+  !measuredFormSource.includes("recordMeasuredAddonSavings") ||
+  measuredAddonUiPatterns.some((pattern) => !addonsViewSource.includes(pattern))
+) {
+  fail("Addons UI measured sample call site is missing");
 }
 if (
   !stateSavingsSource.includes("entry.runtime_event_count") ||
@@ -104,6 +126,7 @@ const payload = {
   requiredSources,
   measuredCommandExposed: true,
   measuredAddonFrontendWrapper: true,
+  measuredAddonUiCallSite: true,
   measuredConfidenceRecorded: true,
   beforeAfterDeltaRecorded: true,
   runtimeCountersRecorded: true,
@@ -124,6 +147,7 @@ Generated: ${payload.generatedAt}
 - Required sources: ${requiredSources.join(", ")}
 - Measured command exposed: yes
 - Measured add-on frontend wrapper: yes
+- Measured add-on UI call site: yes
 - Measured confidence recorded: yes
 - Before/after token delta recorded: yes
 - Runtime counter units recorded: yes

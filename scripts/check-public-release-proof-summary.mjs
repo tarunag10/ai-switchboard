@@ -88,6 +88,7 @@ for (const phrase of [
   "Proof ready:",
   "Evidence Reconciliation",
   "Updater Evidence",
+  "Endpoint source:",
   "Signed/notarized release asset present:",
   "Updater feed/signature ready:",
   "Remaining updater feed release asset proof:",
@@ -120,6 +121,9 @@ if (!Array.isArray(updaterEvidence?.signatureAssets)) {
 if (!Array.isArray(updaterEvidence?.checkedEndpoints)) {
   fail("updaterEvidence.checkedEndpoints must be an array");
 }
+if (!Array.isArray(updaterEvidence?.workflowConfiguredEndpoints)) {
+  fail("updaterEvidence.workflowConfiguredEndpoints must be an array");
+}
 requireBoolean("updaterEvidence.ready", updaterEvidence?.ready);
 requireBoolean(
   "updaterEvidence.defaultEndpointUsed",
@@ -128,8 +132,18 @@ requireBoolean(
 if (typeof updaterEvidence?.defaultEndpoint !== "string") {
   fail("updaterEvidence.defaultEndpoint must be a string");
 }
+if (!["environment", "workflow", "default"].includes(updaterEvidence?.endpointSource)) {
+  fail("updaterEvidence.endpointSource must be environment, workflow, or default");
+}
 if (updaterEvidence?.defaultEndpointUsed && updaterEvidence.checkedEndpoints.length !== 1) {
   fail("default updater proof must check exactly one default endpoint");
+}
+if (updaterEvidence?.endpointSource === "workflow" && updaterEvidence.workflowConfiguredEndpoints.length === 0) {
+  fail("workflow endpoint source must include workflowConfiguredEndpoints");
+}
+const endpointSourceIsDefault = updaterEvidence?.endpointSource === "default";
+if (endpointSourceIsDefault !== updaterEvidence?.defaultEndpointUsed) {
+  fail("defaultEndpointUsed must match endpointSource default");
 }
 for (const [index, endpoint] of (updaterEvidence?.checkedEndpoints ?? []).entries()) {
   if (typeof endpoint.url !== "string" || !endpoint.url.startsWith("https://")) {

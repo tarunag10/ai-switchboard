@@ -9870,6 +9870,11 @@ html.window-hiding {
   background: var(--surface-sunken);
 }
 
+.addon-card__body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .addon-card__heading {
   display: flex;
   align-items: center;
@@ -10131,6 +10136,64 @@ html.window-hiding {
   color: var(--text-tertiary);
   font-size: var(--text-xs);
   line-height: 1.45;
+}
+
+.addon-card__measured-sample {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  align-items: end;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+  margin-top: 10px;
+  padding: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+
+.addon-card__measured-sample label {
+  display: grid;
+  gap: 4px;
+  color: var(--text-tertiary);
+  font-size: var(--text-xxs);
+  font-weight: 700;
+}
+
+.addon-card__measured-sample input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+}
+
+.addon-card__sample-button {
+  width: 100%;
+  min-height: 30px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.addon-card__sample-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.addon-card__measured-sample p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
 }
 
 .addon-card__actions {
