@@ -8,6 +8,12 @@ on:
       - package.json
       - src-tauri/tauri.conf.json
   workflow_dispatch:
+    inputs:
+      skip_rc_check:
+        description: "Allow a manual release rerun without an ancestor rc."
+        required: false
+        default: "false"
+        type: boolean
 
 concurrency:
   group: macos-release-${{ github.ref }}
@@ -130,8 +136,8 @@ jobs:
           set -euo pipefail
 
           commit_message="$(git log -1 --pretty=%B "${GITHUB_SHA}")"
-          if [[ "$commit_message" == *"[skip-rc-check]"* ]]; then
-            echo "Commit message contains [skip-rc-check]; bypassing rc validation."
+          if [[ "$commit_message" == *"[skip-rc-check]"* || "${{ github.event.inputs.skip_rc_check || 'false' }}" == "true" ]]; then
+            echo "RC validation bypassed by commit message or workflow_dispatch input."
             exit 0
           fi
 
