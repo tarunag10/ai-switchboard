@@ -31,7 +31,7 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - Final rebrand release evidence is recorded in `docs/ai-switchboard-rebrand-release-evidence.md`, including track commits, stale-name review scope, and release evidence commands.
 - Public release `v0.0.0` has a verified signed/notarized Apple Silicon DMG and checksum on GitHub. The public DMG was downloaded, checksum-verified, `hdiutil`-verified, installed as `/Applications/AI Switchboard for Mac.app`, accepted by Gatekeeper as Notarized Developer ID, and validated with `xcrun stapler validate`.
 - Public installed-app smoke evidence was refreshed from the installed release app with `npm run smoke:preflight` and `npm run smoke:installed -- --confirm`; local uninstall dry-run proof passes with the longer backend evidence timeout.
-- Public release proof now reconciles completed live release assets separately from remaining proof: `npm run release:proof` records the `v0.0.0` signed/notarized DMG and checksum as completed live evidence while keeping updater feed/signature assets, current checkout static/installed smoke summaries, and reboot-level installed proof blocked until their artifacts exist.
+- Public release proof now reconciles completed live release assets separately from remaining proof: `npm run release:proof` records the `v0.0.0` signed/notarized DMG and checksum as completed live evidence while machine-checking updater `latest.json`, updater endpoint reachability, updater `.sig` release assets, current checkout static/installed smoke summaries, and reboot-level installed proof as separate blockers.
 - Amazon Q Developer CLI now has a managed Switchboard-owned sidecar lifecycle with fixture-home apply, Doctor verify/repair, rollback, and Off cleanup coverage while AWS auth/provider/workspace state stays manual.
 - Continue now has a managed Switchboard-owned sidecar lifecycle with fixture-home apply, Doctor verify/repair, rollback, and Off cleanup coverage while provider config stays manual.
 - Repo Map now has a native macOS/Tauri folder picker, supervised run-status surface, and backend `repo_map_generation_event` streaming for live status/stdout/stderr while map generation is running.
@@ -44,7 +44,7 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - Repo Intelligence backend MCP supervision can still deepen beyond current graph-affinity and reverse-dependency ranking.
 - Add-on counters can still move from durable estimated file/host evidence toward true before/after token measurements for Caveman, Ponytail, and MarkItDown sessions.
 - Native/provider write promotion for Cursor and Grok/xAI, plus Goose provider routing. Aider, Continue, Qwen, and Amazon Q now have managed Switchboard-owned sidecar lifecycles while provider/account state remains manual.
-- Public updater feed proof and updater signature assets. The signed/notarized public DMG and checksum are complete live release evidence, but `latest.json` and updater `.sig` assets are still missing from the public release proof.
+- Public updater feed proof and updater signature assets. The signed/notarized public DMG and checksum are complete live release evidence, but `npm run release:proof:check` now keeps public proof blocked with exact updater blocker names while the public GitHub release lacks `latest.json`, the stable `latest.json` endpoint is not reachable, and updater `.sig` release assets are absent.
 - Reboot-level signed installed-app Doctor/Rollback/uninstall proof. Current uninstall proof is non-destructive local dry-run evidence, and `npm run smoke:reboot-level:local` now records the proof as blocked unless current installed-app trust, supporting Doctor/Rollback/uninstall evidence, and a real post-reboot marker are all present.
 - Optional gateway/add-on integrations remain guided/gated only: LiteLLM semantic cache lifecycle, self-hosted Langfuse observability, Cloudflare Gateway, and Kong evidence.
 
@@ -70,6 +70,7 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - `npm run smoke:reboot-level:local || true && npm run smoke:reboot-level:local:check`
 - `npm run build`
 - `npm run release:report && npm run release:report:check`
+- `npm run release:proof && npm run release:proof:check`
 - `npm run check:branding`
 - `rg -n "Mac AI Switchboard|Mac-AI-Switchboard|mac-ai-switchboard|Headroom|RTK|Caveman|Ponytail|MarkItDown" README.md docs src src-tauri package.json scripts`
 - `git diff --check`

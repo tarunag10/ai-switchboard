@@ -247,6 +247,7 @@ import { SettingsConnectorPanel } from "./components/SettingsConnectorPanel";
 import { SettingsLegalPanel } from "./components/SettingsLegalPanel";
 import { SettingsOpenLoginCard } from "./components/SettingsOpenLoginCard";
 import { SettingsReleaseReadinessCard } from "./components/SettingsReleaseReadinessCard";
+import { SettingsRuntimeStatusCard } from "./components/SettingsRuntimeStatusCard";
 import { RollbackCenter } from "./components/RollbackCenter";
 import { SavingsInfoDialog } from "./components/SavingsInfoDialog";
 import { SettingsTransferCard } from "./components/SettingsTransferCard";
@@ -5913,154 +5914,42 @@ export default function App() {
                 toggleConnector={toggleConnector}
               />
 
-            <article className="soft-card panel-card">
-              <div className="panel-card__header">
-                <div>
-                  <h3>Tools status</h3>
-                </div>
-              </div>
-              <div className="runtime-status">
-                <div className="runtime-status__topline">
-                  <span className="runtime-status__section-title">
-                    AI Switchboard for Mac app ({appSemver})
-                    {appUpdateConfig?.betaChannelEnabled ? (
-                      <span className="runtime-status__channel-pill">
-                        beta channel
-                      </span>
-                    ) : null}
-                  </span>
-                </div>
-                <div className="runtime-status__section-action-row">
-                  <button
-                    className="secondary-button secondary-button--small"
-                    disabled={appUpdateBusy || appUpdateInstallBusy}
-                    onClick={() => void checkForAppUpdate()}
-                    type="button"
-                  >
-                    {appUpdateBusy ? "Checking…" : "Check for updates"}
-                  </button>
-                  {appUpdateStatusCopy ? (
-                    <p className="app-update-card__summary runtime-status__summary">
-                      {appUpdateStatusCopy}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="runtime-status__meta">
-                  <span className="runtime-status__section-title">
-                    Headroom CLI ({headroomVersion})
-                    {headroomLifetimeSavingsPct !== null ? (
-                      <span className="runtime-status__section-context">
-                        {" "}
-                        ({percent1(headroomLifetimeSavingsPct)}% all-time
-                        savings)
-                      </span>
-                    ) : null}
-                  </span>
-                </div>
-                <div className="runtime-status__grid runtime-status__grid--4">
-                  {(
-                    [
-                      {
-                        name: "Runtime",
-                        ok: runtimeStatus?.running === true,
-                      },
-                      {
-                        name: "Proxy",
-                        ok: runtimeStatus?.proxyReachable === true,
-                        suffix: "6767",
-                        onClick: () => void invoke("open_headroom_dashboard"),
-                      },
-                      {
-                        name: "MCP",
-                        ok:
-                          runtimeStatus?.mcpConfigured === true
-                            ? true
-                            : runtimeStatus?.mcpConfigured === false
-                              ? false
-                              : null,
-                      },
-                      {
-                        name: "Kompress",
-                        ok: kompressWarming
-                          ? null
-                          : runtimeStatus?.kompressEnabled === true
-                            ? true
-                            : runtimeStatus?.kompressEnabled === false
-                              ? false
-                              : null,
-                        suffix: kompressWarming ? "warming up" : undefined,
-                      },
-                    ] as {
-                      name: string;
-                      ok: boolean | null;
-                      suffix?: string;
-                      onClick?: () => void;
-                    }[]
-                  ).map((s) => {
-                    const indicatorClass =
-                      s.ok === true
-                        ? "runtime-status__indicator--ok"
-                        : s.ok === false
-                          ? "runtime-status__indicator--off"
-                          : "runtime-status__indicator--unknown";
-                    const indicatorSymbol =
-                      s.ok === true ? "✔" : s.ok === false ? "✖" : "–";
-                    return (
-                      <span
-                        key={s.name}
-                        className={`runtime-status__item${s.onClick ? " runtime-status__item--clickable" : ""}`}
-                        onClick={s.onClick}
-                        title={
-                          s.ok === null ? `${s.name} status unknown` : undefined
-                        }
-                      >
-                        <span className="runtime-status__label">{s.name}:</span>
-                        <span
-                          className={`runtime-status__indicator ${indicatorClass}`}
-                        >
-                          {indicatorSymbol}
-                        </span>
-                        {s.suffix && (
-                          <span className="runtime-status__suffix">
-                            ({s.suffix})
-                          </span>
-                        )}
-                      </span>
+            <SettingsRuntimeStatusCard
+              appSemver={appSemver}
+              appUpdateBusy={appUpdateBusy}
+              appUpdateConfig={appUpdateConfig}
+              appUpdateInstallBusy={appUpdateInstallBusy}
+              appUpdateStatusCopy={appUpdateStatusCopy}
+              checkForAppUpdate={() => void checkForAppUpdate()}
+              headroomLifetimeSavingsPct={headroomLifetimeSavingsPct}
+              headroomLogLines={headroomLogLines}
+              headroomLogRef={headroomLogRef}
+              headroomVersion={headroomVersion}
+              hideLogsLabel="Hide headroom logs"
+              kompressWarming={kompressWarming}
+              onOpenHeadroomDashboard={() =>
+                void invoke("open_headroom_dashboard")
+              }
+              onToggleHeadroomDetails={() => {
+                const next = !showHeadroomDetails;
+                setShowHeadroomDetails(next);
+                if (next) {
+                  void invoke<string[]>("get_headroom_logs", {
+                    maxLines: 80,
+                  })
+                    .then(setHeadroomLogLines)
+                    .catch(() =>
+                      setHeadroomLogLines([
+                        "Failed to load headroom logs.",
+                      ]),
                     );
-                  })}
-                </div>
-                <button
-                  className="link-button runtime-status__section-action"
-                  onClick={async () => {
-                    const next = !showHeadroomDetails;
-                    setShowHeadroomDetails(next);
-                    if (next) {
-                      try {
-                        const lines = await invoke<string[]>(
-                          "get_headroom_logs",
-                          { maxLines: 80 },
-                        );
-                        setHeadroomLogLines(lines);
-                      } catch {
-                        setHeadroomLogLines(["Failed to load headroom logs."]);
-                      }
-                    }
-                  }}
-                  type="button"
-                >
-                  {showHeadroomDetails
-                    ? "Hide headroom logs"
-                    : "Show headroom logs"}
-                </button>
-                {showHeadroomDetails ? (
-                  <pre className="runtime-log" ref={headroomLogRef}>
-                    {headroomLogLines.length > 0
-                      ? headroomLogLines.join("\n")
-                      : "No log output yet."}
-                  </pre>
-                ) : null}
-              </div>
-            </article>
+                }
+              }}
+              runtimeLabel="Headroom CLI"
+              runtimeStatus={runtimeStatus}
+              showHeadroomDetails={showHeadroomDetails}
+              showLogsLabel="Show headroom logs"
+            />
             <SettingsReleaseReadinessCard
               copyReleaseReadinessReport={() =>
                 void copyReleaseReadinessReport()

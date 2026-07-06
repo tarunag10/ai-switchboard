@@ -18,6 +18,7 @@ mod client_footprint;
 mod client_paths;
 mod client_provider_configs;
 mod client_setup_commands;
+mod client_sidecar_rollbacks;
 mod codex_threads;
 mod connector_smoke;
 mod dashboard_commands;

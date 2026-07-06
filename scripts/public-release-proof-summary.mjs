@@ -11,6 +11,7 @@ const generatedAt = new Date().toISOString();
 const releaseTag = process.env.MAC_AI_SWITCHBOARD_RELEASE_TAG || "v0.0.0";
 const releaseRepo =
   process.env.MAC_AI_SWITCHBOARD_RELEASE_REPO || "tarunag10/ai-switchboard";
+const defaultUpdaterEndpoint = `https://github.com/${releaseRepo}/releases/latest/download/latest.json`;
 
 function run(command, args) {
   const result = spawnSync(command, args, {
@@ -43,6 +44,147 @@ function parseJsonOutput(result) {
   }
 }
 
+function parseUpdaterEndpoints(raw) {
+  const trimmed = raw?.trim();
+  if (!trimmed) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((value) => String(value).trim())
+        .filter((value) => value.startsWith("https://"));
+    }
+  } catch {
+    // Fall through to comma/newline parsing.
+  }
+  return trimmed
+    .split(/[,\n]/)
+    .map((value) => value.trim())
+    .filter((value) => value.startsWith("https://"));
+}
+
+function hasUpdaterSignatureMetadata(body) {
+  if (!body || typeof body !== "object") {
+    return false;
+  }
+  if (typeof body.signature === "string" && body.signature.trim()) {
+    return true;
+  }
+  const platforms = body.platforms;
+  if (!platforms || typeof platforms !== "object") {
+    return false;
+  }
+  return Object.values(platforms).some(
+    (platform) =>
+      platform &&
+      typeof platform === "object" &&
+      typeof platform.signature === "string" &&
+      platform.signature.trim(),
+  );
+}
+
+async function probeUpdaterEndpoint(url) {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        accept: "application/json, text/plain;q=0.9, */*;q=0.5",
+      },
+      redirect: "follow",
+      signal: AbortSignal.timeout(20_000),
+    });
+    const text = await response.text();
+    let json = null;
+    let parseError = null;
+    if (text.trim()) {
+      try {
+        json = JSON.parse(text);
+      } catch (err) {
+        parseError = err instanceof Error ? err.message : String(err);
+      }
+    }
+    return {
+      url,
+      ok: response.ok,
+      status: response.status,
+      finalUrl: response.url,
+      contentType: response.headers.get("content-type") ?? null,
+      hasJsonBody: Boolean(json),
+      hasSignatureMetadata: hasUpdaterSignatureMetadata(json),
+      parseError,
+      bodyPreview: response.ok ? "" : text.slice(0, 500),
+    };
+  } catch (err) {
+    return {
+      url,
+      ok: false,
+      status: null,
+      finalUrl: null,
+      contentType: null,
+      hasJsonBody: false,
+      hasSignatureMetadata: false,
+      parseError: err instanceof Error ? err.message : String(err),
+      bodyPreview: "",
+    };
+  }
+}
+
+async function buildUpdaterEvidence({
+  githubRelease,
+  updaterFeedAsset,
+  updaterSignatureAssets,
+}) {
+  const configuredEndpoints = parseUpdaterEndpoints(
+    process.env.HEADROOM_UPDATER_ENDPOINTS,
+  );
+  const candidateEndpoints =
+    configuredEndpoints.length > 0 ? configuredEndpoints : [defaultUpdaterEndpoint];
+  const checkedEndpoints = await Promise.all(
+    candidateEndpoints.map((url) => probeUpdaterEndpoint(url)),
+  );
+  const feedReleaseAssetReady = Boolean(
+    updaterFeedAsset?.url && updaterFeedAsset.state === "uploaded",
+  );
+  const endpointReady = checkedEndpoints.some((check) => check.ok);
+  const endpointWithSignatureMetadata = checkedEndpoints.some(
+    (check) => check.ok && check.hasSignatureMetadata,
+  );
+  const signatureReleaseAssetsReady = updaterSignatureAssets.length > 0;
+  const blockers = [
+    feedReleaseAssetReady ? null : "updater feed release asset latest.json",
+    endpointReady ? null : "updater feed endpoint latest.json",
+    signatureReleaseAssetsReady ? null : "updater signature release asset",
+    endpointReady && !endpointWithSignatureMetadata
+      ? "updater feed signature metadata"
+      : null,
+  ].filter(Boolean);
+
+  return {
+    ready: blockers.length === 0,
+    blockers,
+    releaseAsset: updaterFeedAsset
+      ? {
+          name: updaterFeedAsset.name,
+          url: updaterFeedAsset.url,
+          state: updaterFeedAsset.state,
+          digest: updaterFeedAsset.digest,
+        }
+      : null,
+    signatureAssets: updaterSignatureAssets.map((asset) => ({
+      name: asset.name,
+      url: asset.url,
+      state: asset.state,
+      digest: asset.digest,
+    })),
+    configuredEndpoints,
+    checkedEndpoints,
+    defaultEndpointUsed: configuredEndpoints.length === 0,
+    defaultEndpoint: defaultUpdaterEndpoint,
+    releaseUrl: githubRelease?.url ?? null,
+  };
+}
+
 const releaseResult = run("gh", [
   "release",
   "view",
@@ -64,16 +206,19 @@ const checksumAsset = githubRelease?.assets?.find(
 );
 const updaterFeedAsset = githubRelease?.assets?.find((asset) => asset.name === "latest.json");
 const updaterSignatureAssets =
-  githubRelease?.assets?.filter((asset) => /\.sig$/.test(asset.name)) ?? [];
+  githubRelease?.assets?.filter((asset) => /\.sig$/.test(asset.name) && asset.state === "uploaded") ?? [];
+const updaterEvidence = await buildUpdaterEvidence({
+  githubRelease,
+  updaterFeedAsset,
+  updaterSignatureAssets,
+});
 
 const reportStep = run("npm", ["run", "release:report"]);
 const releaseReport = readJson(releaseReportPath);
 const rebootLevelInstalledProof = readJson(rebootLevelInstalledProofJsonPath);
 const gate = releaseReport?.shareableDmgGate ?? {};
 const liveSignedDmgReady = Boolean(signedDmgAsset && checksumAsset);
-const updaterFeedProofReady = Boolean(
-  (updaterFeedAsset && updaterSignatureAssets.length > 0) || gate.updaterFeedReady,
-);
+const updaterFeedProofReady = updaterEvidence.ready;
 const rebootLevelInstalledProofReady =
   fs.existsSync(rebootLevelInstalledProofPath) &&
   rebootLevelInstalledProof?.kind === "mac_ai_switchboard.reboot_level_installed_proof" &&
@@ -82,7 +227,7 @@ const rebootLevelInstalledProofReady =
 const blockers = [
   signedDmgAsset ? null : "signed/notarized DMG",
   checksumAsset ? null : "public checksum",
-  updaterFeedProofReady ? null : "updater feed/signature assets",
+  ...updaterEvidence.blockers,
   gate.staticSmokePreflightReady ? null : "static smoke preflight",
   gate.installedAppSmokeReady ? null : "public installed-app smoke",
   rebootLevelInstalledProofReady ? null : "reboot-level installed proof",
@@ -145,11 +290,11 @@ const payload = {
       signedDmgAsset?.url ??
       "dist/*.dmg with Developer ID signature and notarization ticket",
     updaterFeed:
-      updaterFeedAsset?.url ?? "signed latest.json from configured updater endpoint",
+      updaterFeedAsset?.url ?? "latest.json release asset and reachable updater endpoint",
     updaterSignatureAssets:
       updaterSignatureAssets.length > 0
         ? updaterSignatureAssets.map((asset) => asset.url)
-        : "signed updater .sig assets from the release or configured updater endpoint",
+        : "signed updater .sig assets from the public GitHub release",
     rebootLevelInstalledProof: rebootLevelInstalledProofPath,
   },
   rebootLevelInstalledProof: rebootLevelInstalledProof
@@ -167,14 +312,24 @@ const payload = {
       publicChecksumAsset: Boolean(checksumAsset),
     },
     remainingProof: {
-      updaterFeedAndSignatureAssets: !updaterFeedProofReady,
+      updaterFeedReleaseAssetLatestJson: !updaterEvidence.releaseAsset,
+      updaterFeedEndpointLatestJson: !updaterEvidence.checkedEndpoints.some(
+        (check) => check.ok,
+      ),
+      updaterSignatureReleaseAssets: updaterEvidence.signatureAssets.length === 0,
+      updaterFeedSignatureMetadata:
+        updaterEvidence.checkedEndpoints.some((check) => check.ok) &&
+        !updaterEvidence.checkedEndpoints.some(
+          (check) => check.ok && check.hasSignatureMetadata,
+        ),
       staticSmokePreflight: !gate.staticSmokePreflightReady,
       publicInstalledAppSmoke: !gate.installedAppSmokeReady,
       rebootLevelInstalledProof: !rebootLevelInstalledProofReady,
     },
     note:
-      "Live release metadata can prove the signed/notarized DMG asset and checksum separately from updater feed/signature and reboot-level installed proof.",
+      "Live release metadata proves the signed/notarized DMG asset and checksum separately from updater feed assets, updater endpoint reachability, updater signature assets, and reboot-level installed proof.",
   },
+  updaterEvidence,
   localOnlyEvidenceExcluded: [
     "dist/local-installed-smoke-summary.md",
     "dist/local-rollback-validation-summary.md",
@@ -215,20 +370,55 @@ Generated: ${generatedAt}
 }
 - Public checksum asset: ${checksumAsset ? checksumAsset.name : "missing"}
 - Updater feed asset: ${updaterFeedAsset ? updaterFeedAsset.name : "missing"}
+- Updater feed endpoint: ${
+  updaterEvidence.checkedEndpoints.find((check) => check.ok)?.url ?? "missing"
+}
 - Updater signature assets: ${
   updaterSignatureAssets.length > 0
     ? updaterSignatureAssets.map((asset) => asset.name).join(", ")
     : "missing"
 }
+- Updater evidence blockers: ${updaterEvidence.blockers.join(", ") || "none"}
 
 ## Evidence Reconciliation
 
 - Completed signed/notarized DMG asset proof today: ${liveSignedDmgReady ? "yes" : "no"}
 - Completed public checksum proof today: ${checksumAsset ? "yes" : "no"}
-- Remaining updater feed/signature proof: ${updaterFeedProofReady ? "no" : "yes"}
+- Remaining updater feed release asset proof: ${updaterEvidence.releaseAsset ? "no" : "yes"}
+- Remaining updater feed endpoint proof: ${
+  updaterEvidence.checkedEndpoints.some((check) => check.ok) ? "no" : "yes"
+}
+- Remaining updater signature release-asset proof: ${
+  updaterEvidence.signatureAssets.length > 0 ? "no" : "yes"
+}
+- Remaining updater feed signature-metadata proof: ${
+  updaterEvidence.checkedEndpoints.some((check) => check.ok) &&
+  !updaterEvidence.checkedEndpoints.some((check) => check.ok && check.hasSignatureMetadata)
+    ? "yes"
+    : "no"
+}
 - Remaining static smoke preflight proof: ${gate.staticSmokePreflightReady ? "no" : "yes"}
 - Remaining public installed-app smoke proof: ${gate.installedAppSmokeReady ? "no" : "yes"}
 - Remaining reboot-level installed proof: ${rebootLevelInstalledProofReady ? "no" : "yes"}
+
+## Updater Evidence
+
+- Default endpoint used: ${updaterEvidence.defaultEndpointUsed ? "yes" : "no"}
+- Default endpoint: \`${updaterEvidence.defaultEndpoint}\`
+- Checked endpoints:
+${updaterEvidence.checkedEndpoints
+  .map(
+    (check) =>
+      `  - \`${check.url}\`: ${check.ok ? "ok" : "blocked"}${
+        check.status ? ` (${check.status})` : ""
+      }${check.parseError ? `; ${check.parseError}` : ""}`,
+  )
+  .join("\n")}
+- Signature metadata in reachable feed: ${
+  updaterEvidence.checkedEndpoints.some((check) => check.ok && check.hasSignatureMetadata)
+    ? "yes"
+    : "no"
+}
 
 ## Required Artifacts
 

@@ -837,7 +837,7 @@ const generatedPathPatterns = [
   /(^|\/)\.turbo\//,
   /(^|\/)vendor\//,
 ];
-export const repoIntelligenceIndexerVersion = "path-graph-v8";
+export const repoIntelligenceIndexerVersion = "path-graph-v9";
 
 const lockfileNames = new Set([
   "Cargo.lock",

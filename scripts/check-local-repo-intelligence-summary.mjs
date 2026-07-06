@@ -4,6 +4,7 @@ import fs from "node:fs";
 
 const reportPath = "dist/local-repo-intelligence-validation-summary.json";
 const requiredStepIds = ["repo-intelligence-frontend", "repo-intelligence-backend"];
+const requiredIndexerVersion = "path-graph-v9";
 
 function fail(message) {
   console.error(`repo intelligence summary check failed: ${message}`);
@@ -15,6 +16,9 @@ if (!fs.existsSync(reportPath)) {
 }
 
 const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+const backendSource = fs.readFileSync("src-tauri/src/repo_intelligence.rs", "utf8");
+const frontendSource = fs.readFileSync("src/lib/repoIntelligence.ts", "utf8");
+const cliSource = fs.readFileSync("scripts/repo-intelligence.mjs", "utf8");
 
 if (report.schemaVersion !== 1) {
   fail("schemaVersion must be 1");
@@ -36,6 +40,15 @@ if (report.passed !== true) {
 }
 if (!Array.isArray(report.steps)) {
   fail("steps must be an array");
+}
+for (const [label, source] of [
+  ["backend", backendSource],
+  ["frontend", frontendSource],
+  ["CLI", cliSource],
+]) {
+  if (!source.includes(requiredIndexerVersion)) {
+    fail(`${label} indexer version must include ${requiredIndexerVersion}`);
+  }
 }
 
 for (const stepId of requiredStepIds) {
