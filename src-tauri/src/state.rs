@@ -17,8 +17,7 @@ use crate::bearer::{BearerToken, BEARER_TOKEN_TTL};
 pub(crate) use crate::claude_sessions::tail_lines;
 use crate::claude_sessions::{
     build_claude_code_project, claude_projects_dir, decode_project_folder_name,
-    extract_cwd_from_session_file, list_session_jsonl_files, project_display_name,
-    ClaudeProjectScan,
+    extract_cwd_from_session_file, list_session_jsonl_files, ClaudeProjectScan,
 };
 use crate::client_adapters::{
     detect_clients, ensure_rtk_integrations, is_rtk_disabled, rtk_integration_status,
@@ -26,9 +25,9 @@ use crate::client_adapters::{
 use crate::models::{
     ActivityEvent, BackendRuntimeStatus, BootstrapProgress, ClaudeAccountProfile,
     ClaudeCodeProject, ClientStatus, CodexAccountProfile, CodexRateLimitSnapshot,
-    DailySavingsPoint, DashboardState, HeadroomLearnPrereqStatus, HeadroomLearnStatus,
-    HourlySavingsPoint, LaunchAgentRuntimeStatus, LaunchExperience, RtkRuntimeStatus,
-    RuntimeStatus, RuntimeUpgradeFailure, RuntimeUpgradeProgress, SavingsAttributionConfidence,
+    DailySavingsPoint, DashboardState, HeadroomLearnPrereqStatus, HourlySavingsPoint,
+    LaunchAgentRuntimeStatus, LaunchExperience, RtkRuntimeStatus, RuntimeStatus,
+    RuntimeUpgradeFailure, RuntimeUpgradeProgress, SavingsAttributionConfidence,
     SavingsAttributionCounter, SavingsAttributionEvent, SavingsAttributionScope,
     SavingsAttributionSource, SwitchboardMode, TransformationFeedEvent, UpgradeFailurePhase,
     UsageEvent,
@@ -147,7 +146,7 @@ pub struct AppState {
     pub runtime_upgrade_progress: Mutex<RuntimeUpgradeProgress>,
     pub last_startup_error: Mutex<Option<String>>,
     pub bootstrap_progress: Mutex<BootstrapProgress>,
-    pub headroom_learn_state: Mutex<HeadroomLearnRuntimeState>,
+    pub(crate) headroom_learn_state: Mutex<HeadroomLearnRuntimeState>,
     /// Last Claude AI OAuth bearer token seen passing through the proxy intercept.
     /// Only populated when the user runs Claude Code authenticated via Claude AI (not API key).
     /// Wrapped in Arc so the proxy_intercept task can share it without going through AppState.
