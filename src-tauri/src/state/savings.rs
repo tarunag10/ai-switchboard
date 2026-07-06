@@ -2390,3 +2390,551 @@ pub(super) fn merge_hourly_savings(
     }
     by_hour.into_values().collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use chrono::{TimeZone, Utc};
+
+    use crate::models::{
+        RepoContextPack, RepoIntelligenceSummary, SavingsAttributionConfidence,
+        SavingsAttributionEvent, SavingsAttributionScope, SavingsAttributionSource,
+    };
+    use crate::tool_manager::RtkGainSummary;
+
+    use super::{
+        aggregate_savings_attribution_counters, aggregate_weekly_totals,
+        build_addon_attribution_event, build_repo_intelligence_attribution_event,
+        lifetime_usd_milestones_crossed, most_recent_monday, DailySavingsBucket,
+        HeadroomDashboardStats, HeadroomSavingsHistoryPoint, SavingsTracker,
+    };
+
+    fn make_tracker() -> SavingsTracker {
+        let id = uuid::Uuid::new_v4();
+        let records_path = std::env::temp_dir().join(format!("headroom-savings-test-{}.jsonl", id));
+        let attribution_events_path =
+            std::env::temp_dir().join(format!("headroom-savings-attribution-{}.jsonl", id));
+        let state_path = std::env::temp_dir().join(format!("headroom-savings-state-{}.json", id));
+        SavingsTracker {
+            records_path,
+            attribution_events_path,
+            state_path,
+            session_requests: 0,
+            session_estimated_savings_usd: 0.0,
+            session_estimated_tokens_saved: 0,
+            session_savings_pct: 0.0,
+            lifetime_requests: 0,
+            lifetime_estimated_savings_usd: 0.0,
+            lifetime_estimated_tokens_saved: 0,
+            last_observation: None,
+            last_rtk_observation: None,
+            display_session_baseline: None,
+            session_savings_history: Vec::new(),
+            session_hourly_buckets: std::collections::BTreeMap::new(),
+            daily_savings: std::collections::BTreeMap::new(),
+            hourly_savings: std::collections::BTreeMap::new(),
+            pending_lifetime_token_milestones: Vec::new(),
+            pending_lifetime_usd_milestones: Vec::new(),
+            last_written_at: None,
+        }
+    }
+
+    fn history_point_at(
+        year: i32,
+        month: u32,
+        day: u32,
+        hour: u32,
+        total_tokens_saved: u64,
+    ) -> HeadroomSavingsHistoryPoint {
+        HeadroomSavingsHistoryPoint {
+            timestamp: Utc
+                .with_ymd_and_hms(year, month, day, hour, 0, 0)
+                .single()
+                .expect("valid timestamp"),
+            total_tokens_saved,
+        }
+    }
+
+    #[test]
+    fn lifetime_usd_milestones_first_and_repeating() {
+        assert_eq!(lifetime_usd_milestones_crossed(0.0, 5.0), Vec::<u64>::new());
+        assert_eq!(lifetime_usd_milestones_crossed(9.99, 10.01), vec![10]);
+        assert_eq!(
+            lifetime_usd_milestones_crossed(5.0, 120.0),
+            vec![10, 50, 100]
+        );
+        assert_eq!(
+            lifetime_usd_milestones_crossed(200.0, 205.0),
+            Vec::<u64>::new()
+        );
+        assert_eq!(
+            lifetime_usd_milestones_crossed(199.5, 301.0),
+            vec![200, 300]
+        );
+    }
+
+    #[test]
+    fn savings_tracker_queues_pending_usd_milestones_on_observe() {
+        let mut tracker = make_tracker();
+        tracker.lifetime_estimated_savings_usd = 7.5;
+        let stats = HeadroomDashboardStats {
+            output_reduction: None,
+            session_requests: Some(1),
+            session_estimated_savings_usd: Some(60.0),
+            session_estimated_tokens_saved: Some(1),
+            session_savings_pct: Some(1.0),
+            session_actual_cost_usd: Some(0.0),
+            session_total_tokens_sent: Some(0),
+            savings_history: Vec::new(),
+        };
+        tracker.observe(&stats);
+        let milestones = tracker.take_pending_lifetime_usd_milestones();
+        assert_eq!(milestones, vec![10, 50]);
+    }
+
+    #[test]
+    fn savings_tracker_appends_measured_headroom_attribution_events() {
+        let mut tracker = make_tracker();
+        let stats = HeadroomDashboardStats {
+            output_reduction: None,
+            session_requests: Some(3),
+            session_estimated_savings_usd: Some(1.25),
+            session_estimated_tokens_saved: Some(2500),
+            session_savings_pct: Some(25.0),
+            session_actual_cost_usd: Some(2.0),
+            session_total_tokens_sent: Some(7500),
+            savings_history: Vec::new(),
+        };
+
+        tracker.observe(&stats);
+        let events = tracker.attribution_events();
+
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.schema_version, 1);
+        assert_eq!(event.scope, SavingsAttributionScope::Session);
+        assert_eq!(event.source, SavingsAttributionSource::HeadroomEngine);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Measured);
+        assert_eq!(event.delta_tokens_saved, 2500);
+        assert!((event.delta_usd - 1.25).abs() < 1e-9);
+        assert_eq!(event.total_tokens_sent, 7500);
+        assert_eq!(event.request_delta, 3);
+        assert!(event.evidence.join(" ").contains("Headroom /stats"));
+        assert!(event.evidence.join(" ").contains("Ponytail"));
+        let _ = std::fs::remove_file(&tracker.records_path);
+        let _ = std::fs::remove_file(&tracker.attribution_events_path);
+        let _ = std::fs::remove_file(&tracker.state_path);
+    }
+
+    #[test]
+    fn savings_tracker_appends_measured_rtk_attribution_events_from_deltas() {
+        let mut tracker = make_tracker();
+
+        tracker.observe_rtk_gain_summary(&RtkGainSummary {
+            total_commands: 10,
+            total_input: 1_200,
+            total_output: 200,
+            total_saved: 1000,
+            avg_savings_pct: 70.0,
+            total_time_ms: 400,
+            avg_time_ms: Some(40),
+        });
+        assert!(
+            tracker.attribution_events().is_empty(),
+            "first RTK observation establishes the baseline"
+        );
+
+        tracker.observe_rtk_gain_summary(&RtkGainSummary {
+            total_commands: 13,
+            total_input: 1_800,
+            total_output: 350,
+            total_saved: 1450,
+            avg_savings_pct: 72.0,
+            total_time_ms: 550,
+            avg_time_ms: Some(42),
+        });
+
+        let events = tracker.attribution_events();
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.source, SavingsAttributionSource::Rtk);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Measured);
+        assert_eq!(event.delta_tokens_saved, 450);
+        assert_eq!(event.delta_usd, 0.0);
+        assert_eq!(event.request_delta, 3);
+        assert!(event.evidence.join(" ").contains("RTK gain counter"));
+        assert!(event.evidence.join(" ").contains("local command-output"));
+        assert!(event
+            .evidence
+            .join(" ")
+            .contains("600 input tokens, 150 output tokens, and 450 saved tokens"));
+        assert!(event.evidence.join(" ").contains("150ms processing time"));
+        let _ = std::fs::remove_file(&tracker.records_path);
+        let _ = std::fs::remove_file(&tracker.attribution_events_path);
+        let _ = std::fs::remove_file(&tracker.state_path);
+    }
+
+    #[test]
+    fn savings_attribution_events_ignore_malformed_jsonl_lines() {
+        let tracker = make_tracker();
+        let event = SavingsAttributionEvent {
+            schema_version: 1,
+            id: "event-1".into(),
+            observed_at: Utc::now(),
+            scope: SavingsAttributionScope::Session,
+            source: SavingsAttributionSource::HeadroomEngine,
+            confidence: SavingsAttributionConfidence::Measured,
+            delta_tokens_saved: 42,
+            delta_usd: 0.21,
+            total_tokens_sent: 100,
+            request_delta: 1,
+            evidence: vec!["Measured from test fixture.".into()],
+        };
+        std::fs::write(
+            &tracker.attribution_events_path,
+            format!(
+                "not-json\n{}\n",
+                serde_json::to_string(&event).expect("serialize attribution event")
+            ),
+        )
+        .expect("write attribution file");
+
+        let events = tracker.attribution_events();
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].id, "event-1");
+        assert_eq!(events[0].delta_tokens_saved, 42);
+        let _ = std::fs::remove_file(&tracker.attribution_events_path);
+    }
+
+    #[test]
+    fn savings_attribution_event_schema_accepts_source_specific_future_events() {
+        let text = r#"{
+            "schemaVersion": 1,
+            "id": "repo-event-1",
+            "observedAt": "2026-06-28T10:00:00Z",
+            "scope": "session",
+            "source": "repo_intelligence",
+            "confidence": "estimated",
+            "deltaTokensSaved": 1200,
+            "deltaUsd": 0.0,
+            "totalTokensSent": 0,
+            "requestDelta": 1,
+            "evidence": ["Estimated from a Repo Intelligence pack before/after token delta."]
+        }"#;
+
+        let event: SavingsAttributionEvent =
+            serde_json::from_str(text).expect("source-specific event decodes");
+
+        assert_eq!(event.source, SavingsAttributionSource::RepoIntelligence);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(event.delta_tokens_saved, 1200);
+
+        let compact_chinese = serde_json::json!({
+            "schemaVersion": 1,
+            "id": "compact-chinese-event-1",
+            "observedAt": "2026-06-28T10:01:00Z",
+            "scope": "session",
+            "source": "compact_chinese",
+            "confidence": "inferred",
+            "deltaTokensSaved": 300,
+            "deltaUsd": 0.0,
+            "totalTokensSent": 0,
+            "requestDelta": 1,
+            "evidence": ["Inferred from Compact Chinese private handoff profile."]
+        });
+        let event: SavingsAttributionEvent =
+            serde_json::from_value(compact_chinese).expect("compact chinese event decodes");
+
+        assert_eq!(event.source, SavingsAttributionSource::CompactChinese);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Inferred);
+    }
+
+    fn repo_summary_for_attribution(
+        full_scan: u64,
+        packs: Vec<RepoContextPack>,
+    ) -> RepoIntelligenceSummary {
+        RepoIntelligenceSummary {
+            indexed_at: "2026-06-28T10:00:00Z".into(),
+            repo_root: "/tmp/example".into(),
+            indexer_version: Some("test".into()),
+            total_files: 3,
+            indexed_files: 3,
+            skipped_files: 0,
+            estimated_full_scan_tokens: full_scan,
+            role_counts: Default::default(),
+            index_metadata: None,
+            graph: None,
+            packs,
+        }
+    }
+
+    fn repo_pack_for_attribution(
+        title: &str,
+        estimated_tokens: u64,
+        savings: f64,
+    ) -> RepoContextPack {
+        RepoContextPack {
+            id: title.to_ascii_lowercase().replace(' ', "_"),
+            title: title.into(),
+            purpose: "test pack".into(),
+            files: Vec::new(),
+            estimated_tokens,
+            savings_vs_full_scan_pct: savings,
+        }
+    }
+
+    #[test]
+    fn repo_intelligence_attribution_event_uses_best_pack_delta() {
+        let summary = repo_summary_for_attribution(
+            10_000,
+            vec![
+                repo_pack_for_attribution("Verification", 4_000, 60.0),
+                repo_pack_for_attribution("Implementation", 2_500, 75.0),
+            ],
+        );
+
+        let event = build_repo_intelligence_attribution_event(&summary)
+            .expect("repo intelligence attribution event");
+
+        assert_eq!(event.source, SavingsAttributionSource::RepoIntelligence);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(event.delta_tokens_saved, 7_500);
+        assert_eq!(event.delta_usd, 0.0);
+        assert_eq!(event.request_delta, 1);
+        let evidence = event.evidence.join(" ");
+        assert!(evidence.contains("full scan 10000 tokens"));
+        assert!(evidence.contains("Implementation"));
+        assert!(evidence.contains("not provider-spend dollars"));
+    }
+
+    #[test]
+    fn repo_intelligence_attribution_event_skips_zero_delta() {
+        let summary = repo_summary_for_attribution(
+            1_000,
+            vec![repo_pack_for_attribution("Full", 1_000, 0.0)],
+        );
+
+        assert!(build_repo_intelligence_attribution_event(&summary).is_none());
+    }
+
+    #[test]
+    fn addon_attribution_event_records_estimated_markitdown_delta() {
+        let changed_files = vec![
+            "/tmp/headroom-markitdown-read.sh".to_string(),
+            "/tmp/CLAUDE.md".to_string(),
+        ];
+        let backup_files = vec!["/tmp/CLAUDE.md.bak".to_string()];
+        let event = build_addon_attribution_event(
+            "markitdown",
+            None,
+            Some(&changed_files),
+            Some(&backup_files),
+            None,
+        )
+        .expect("markitdown attribution");
+
+        assert_eq!(event.source, SavingsAttributionSource::Markitdown);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(event.delta_tokens_saved, 2_300);
+        assert_eq!(event.request_delta, 2);
+        let evidence = event.evidence.join(" ");
+        assert!(evidence.contains("baseline 3200 tokens"));
+        assert!(evidence.contains("optimized 900 tokens"));
+        assert!(evidence.contains("smoke-tested"));
+        assert!(evidence.contains("changed 2 client artifacts"));
+        assert!(evidence.contains("headroom-markitdown-read.sh"));
+        assert!(evidence.contains("Backups created"));
+        assert!(evidence.contains("not provider-spend dollars"));
+    }
+
+    #[test]
+    fn addon_attribution_event_skips_markitdown_without_changed_artifacts() {
+        assert!(build_addon_attribution_event("markitdown", None, None, None, None).is_none());
+        assert!(build_addon_attribution_event("markitdown", None, Some(&[]), None, None).is_none());
+    }
+
+    #[test]
+    fn addon_attribution_event_separates_compact_chinese_from_caveman() {
+        let changed_files = vec!["/tmp/CLAUDE.md".to_string(), "/tmp/AGENTS.md".to_string()];
+        let backup_files = vec!["/tmp/CLAUDE.md.bak".to_string()];
+        let caveman = build_addon_attribution_event(
+            "caveman",
+            Some("scoped"),
+            Some(&changed_files),
+            Some(&backup_files),
+            None,
+        )
+        .expect("caveman attribution");
+        let compact = build_addon_attribution_event(
+            "caveman",
+            Some(crate::tool_manager::CAVEMAN_LEVEL_COMPACT_CHINESE),
+            Some(&changed_files),
+            Some(&backup_files),
+            None,
+        )
+        .expect("compact chinese attribution");
+
+        assert_eq!(caveman.source, SavingsAttributionSource::Caveman);
+        assert_eq!(compact.source, SavingsAttributionSource::CompactChinese);
+        assert_eq!(caveman.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(compact.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(caveman.delta_tokens_saved, 300);
+        assert_eq!(caveman.request_delta, 2);
+        assert_eq!(compact.delta_tokens_saved, 300);
+        assert_eq!(compact.request_delta, 2);
+        let evidence = caveman.evidence.join(" ");
+        assert!(evidence.contains("changed 2 client instruction files"));
+        assert!(evidence.contains("/tmp/CLAUDE.md"));
+        assert!(evidence.contains("Backups created"));
+    }
+
+    #[test]
+    fn addon_attribution_event_skips_caveman_without_changed_files() {
+        assert!(
+            build_addon_attribution_event("caveman", Some("scoped"), Some(&[]), None, None,)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn savings_attribution_counters_group_addon_sources() {
+        let now = Utc::now();
+        let events = vec![
+            SavingsAttributionEvent {
+                schema_version: 1,
+                id: "evt-1".to_string(),
+                observed_at: now,
+                scope: SavingsAttributionScope::Session,
+                source: SavingsAttributionSource::Caveman,
+                confidence: SavingsAttributionConfidence::Measured,
+                delta_tokens_saved: 120,
+                delta_usd: 0.0,
+                total_tokens_sent: 1_000,
+                request_delta: 1,
+                evidence: vec!["measured caveman delta".to_string()],
+            },
+            SavingsAttributionEvent {
+                schema_version: 1,
+                id: "evt-2".to_string(),
+                observed_at: now,
+                scope: SavingsAttributionScope::Session,
+                source: SavingsAttributionSource::Caveman,
+                confidence: SavingsAttributionConfidence::Estimated,
+                delta_tokens_saved: 80,
+                delta_usd: 0.0,
+                total_tokens_sent: 500,
+                request_delta: 1,
+                evidence: vec!["estimated caveman delta".to_string()],
+            },
+        ];
+
+        let counters = aggregate_savings_attribution_counters(&events);
+        assert_eq!(counters.len(), 1);
+        assert_eq!(counters[0].source, SavingsAttributionSource::Caveman);
+        assert_eq!(counters[0].event_count, 2);
+        assert_eq!(counters[0].runtime_event_count, 2);
+        assert_eq!(counters[0].measured_event_count, 1);
+        assert_eq!(counters[0].estimated_event_count, 1);
+        assert_eq!(counters[0].inferred_event_count, 0);
+        assert_eq!(counters[0].delta_tokens_saved, 200);
+        assert_eq!(counters[0].total_tokens_sent, 1_500);
+    }
+
+    #[test]
+    fn addon_attribution_event_records_estimated_ponytail_host_registration() {
+        let hosts = vec!["Claude Code".to_string(), "Codex".to_string()];
+        let event = build_addon_attribution_event("ponytail", None, None, None, Some(&hosts))
+            .expect("ponytail attribution");
+
+        assert_eq!(event.source, SavingsAttributionSource::Ponytail);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(event.delta_tokens_saved, 880);
+        assert_eq!(event.request_delta, 2);
+        let evidence = event.evidence.join(" ");
+        assert!(evidence.contains("registered with 2 agent hosts"));
+        assert!(evidence.contains("Claude Code"));
+        assert!(evidence.contains("Codex"));
+    }
+
+    #[test]
+    fn addon_attribution_event_skips_ponytail_without_registered_hosts() {
+        assert!(build_addon_attribution_event("ponytail", None, None, None, Some(&[]),).is_none());
+    }
+
+    #[test]
+    fn aggregate_weekly_totals_sums_active_days_in_window() {
+        use std::collections::BTreeMap;
+        let mut daily: BTreeMap<String, DailySavingsBucket> = BTreeMap::new();
+        daily.insert(
+            "2026-04-19".into(), // outside window (Sunday of week before)
+            DailySavingsBucket {
+                estimated_savings_usd: 1.0,
+                estimated_tokens_saved: 50,
+                actual_cost_usd: 0.0,
+                total_tokens_sent: 0,
+            },
+        );
+        daily.insert(
+            "2026-04-20".into(),
+            DailySavingsBucket {
+                estimated_savings_usd: 2.5,
+                estimated_tokens_saved: 200,
+                actual_cost_usd: 0.0,
+                total_tokens_sent: 0,
+            },
+        );
+        daily.insert(
+            "2026-04-23".into(),
+            DailySavingsBucket {
+                estimated_savings_usd: 1.0,
+                estimated_tokens_saved: 100,
+                actual_cost_usd: 0.0,
+                total_tokens_sent: 0,
+            },
+        );
+        daily.insert(
+            "2026-04-26".into(),
+            DailySavingsBucket {
+                estimated_savings_usd: 0.0,
+                estimated_tokens_saved: 0, // zero activity day — not counted
+                actual_cost_usd: 0.0,
+                total_tokens_sent: 0,
+            },
+        );
+        daily.insert(
+            "2026-04-27".into(), // outside window (today Monday)
+            DailySavingsBucket {
+                estimated_savings_usd: 99.0,
+                estimated_tokens_saved: 9999,
+                actual_cost_usd: 0.0,
+                total_tokens_sent: 0,
+            },
+        );
+        let start = chrono::NaiveDate::from_ymd_opt(2026, 4, 20).unwrap();
+        let end = chrono::NaiveDate::from_ymd_opt(2026, 4, 26).unwrap();
+        let totals = aggregate_weekly_totals(&daily, start, end);
+        assert_eq!(totals.active_days, 2);
+        assert_eq!(totals.total_tokens_saved, 300);
+        assert!((totals.total_savings_usd - 3.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn most_recent_monday_maps_every_weekday_to_this_weeks_monday() {
+        use chrono::NaiveDate;
+        // Monday 2026-04-27 — itself.
+        assert_eq!(
+            most_recent_monday(NaiveDate::from_ymd_opt(2026, 4, 27).unwrap()),
+            NaiveDate::from_ymd_opt(2026, 4, 27).unwrap()
+        );
+        // Wednesday 2026-04-29 — back to Monday 27.
+        assert_eq!(
+            most_recent_monday(NaiveDate::from_ymd_opt(2026, 4, 29).unwrap()),
+            NaiveDate::from_ymd_opt(2026, 4, 27).unwrap()
+        );
+        // Sunday 2026-05-03 — back to Monday 27 (6 days back).
+        assert_eq!(
+            most_recent_monday(NaiveDate::from_ymd_opt(2026, 5, 3).unwrap()),
+            NaiveDate::from_ymd_opt(2026, 4, 27).unwrap()
+        );
+    }
+}
