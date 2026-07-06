@@ -1323,7 +1323,7 @@ Managed reference paths:
    cask "mac-ai-switchboard" do
      version "0.5.1"
      sha256 "..."
-     url "https://github.com/tarunag10/mac-ai-switchboard/releases/download/v#{version}/Mac-AI-Switchboard_#{version}_mac.dmg"
+     url "https://github.com/tarunag10/ai-switchboard/releases/download/v#{version}/Mac-AI-Switchboard_#{version}_mac.dmg"
      name "Mac AI Switchboard"
      desc "Local-first Mac switchboard for AI coding agents"
      homepage "https://github.com/tarunag10/mac-ai-switchboard"

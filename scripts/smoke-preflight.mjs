@@ -129,11 +129,22 @@ Generated: ${generatedAt}
 
 ## Required Installed-App Smoke Areas
 
+- Switchboard copyable state
 - Switchboard modes: Full optimization, Headroom only, RTK only, Off
+- Doctor automatic manual triage
+- Doctor copyable report
 - Doctor repairs: runtime, Codex setup, RTK, managed connector native config warnings with detection evidence, config creation plan, managed connector readiness evidence, and Repo Intelligence stale/missing-index warnings
+- Managed connector automation gates
+- Managed connector native config gate
+- Managed connector config creation plan
+- Managed connector readiness evidence
 - Managed connectors are visible with native config gates: Gemini CLI, OpenCode, Windsurf, and Zed AI show routing lifecycle readiness evidence when detected (promoted managed routing connectors show routing lifecycle readiness evidence); Goose shows managed Repo Memory MCP bridge readiness while provider routing stays manual; Cursor, Grok / xAI CLI, Aider, Continue, Qwen Code, and Amazon Q Developer CLI keep native config mutation gated with safe RTK-only or Repo Intelligence pack guidance, copyable manual setup guide, and copyable config creation plan. Coverage includes Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI.
+- Repo Intelligence context packs
 - Repo Intelligence: local repo index, persisted latest summary, copy bounded context pack, copy individual task pack, copy agent manifest, copy per-tool Markdown and JSON agent handoffs, Connector readiness payload in agent handoffs, clear saved index, context-pack preview, per-pack copy
+- Savings calculator copyable ledger
 - Savings calculator: Session / Overall scopes, copyable confidence-labelled ledger, saved tokens, estimated dollars, reduction, equation, source breakdown
+- Per-tool agent handoffs
+- Installed app metadata check
 - Local-first behavior: remote services gated, Off mode reversible cleanup
 - Codex resilience: compression refusal reset and model/provider repair
 

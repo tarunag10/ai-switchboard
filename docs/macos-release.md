@@ -22,7 +22,7 @@ export APPLE_API_ISSUER="your-app-store-connect-issuer-id"
 export APPLE_API_KEY="your-app-store-connect-key-id"
 export APPLE_API_KEY_PATH="$HOME/.private_keys/AuthKey_ABC123XYZ.p8"
 export HEADROOM_UPDATER_PUBLIC_KEY="$(cat .secrets/tauri-updater/public.key)"
-export HEADROOM_UPDATER_ENDPOINTS='["https://github.com/tarunag10/mac-ai-switchboard/releases/latest/download/latest.json"]'
+export HEADROOM_UPDATER_ENDPOINTS='["https://github.com/tarunag10/ai-switchboard/releases/latest/download/latest.json"]'
 npm run build:mac:dmg
 ```
 
@@ -74,7 +74,7 @@ Example:
 
 ```bash
 export HEADROOM_UPDATER_PUBLIC_KEY="$(cat .secrets/tauri-updater/public.key)"
-export HEADROOM_UPDATER_ENDPOINTS='["https://github.com/tarunag10/mac-ai-switchboard/releases/latest/download/latest.json"]'
+export HEADROOM_UPDATER_ENDPOINTS='["https://github.com/tarunag10/ai-switchboard/releases/latest/download/latest.json"]'
 ```
 
 These values are compiled into the release build. If they are missing, Headroom still runs, but update checks stay disabled for that build.
@@ -201,7 +201,7 @@ Current behavior:
 - lets the user manually check from Settings
 - prompts before download/install
 - asks the user to restart after install completes
-- production builds fall back to `https://github.com/tarunag10/mac-ai-switchboard/releases/latest/download/latest.json` when no explicit updater env vars are injected
+- production builds fall back to `https://github.com/tarunag10/ai-switchboard/releases/latest/download/latest.json` when no explicit updater env vars are injected
 
 ## Recommended next step
 
@@ -254,7 +254,7 @@ Both workflows bake **both** endpoints into every build via `HEADROOM_UPDATER_EN
 
 ### Installing the staging build
 
-Download the DMG attached to the rolling [`staging-rolling`](https://github.com/tarunag10/mac-ai-switchboard/releases/tag/staging-rolling) release on the clean test machine and install it once. Because its version has an `-rc.N` suffix, the app polls the staging endpoint from then on and self-updates as new rcs land.
+Download the DMG attached to the rolling [`staging-rolling`](https://github.com/tarunag10/ai-switchboard/releases/tag/staging-rolling) release on the clean test machine and install it once. Because its version has an `-rc.N` suffix, the app polls the staging endpoint from then on and self-updates as new rcs land.
 
 ### Promotion guard
 

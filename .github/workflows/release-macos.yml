@@ -23,8 +23,8 @@ jobs:
     timeout-minutes: 45
 
     env:
-      HEADROOM_UPDATER_ENDPOINTS: '["https://github.com/tarunag10/mac-ai-switchboard/releases/latest/download/latest.json"]'
-      HEADROOM_UPDATER_STAGING_ENDPOINTS: '["https://github.com/tarunag10/mac-ai-switchboard/releases/download/staging-rolling/latest.json"]'
+      HEADROOM_UPDATER_ENDPOINTS: '["https://github.com/tarunag10/ai-switchboard/releases/latest/download/latest.json"]'
+      HEADROOM_UPDATER_STAGING_ENDPOINTS: '["https://github.com/tarunag10/ai-switchboard/releases/download/staging-rolling/latest.json"]'
       HEADROOM_UPDATER_PUBLIC_KEY: ${{ vars.HEADROOM_UPDATER_PUBLIC_KEY }}
       APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
       APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
