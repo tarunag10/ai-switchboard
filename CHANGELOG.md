@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-07-08
+
+### Platform-ready refactor slices
+
+- Split more of the large Mac app surface into smaller controller and runtime modules, including shell target path resolution, runtime diagnostics, Doctor repair orchestration, Rollback Center copy flow, Rollback Center UI, release evidence handling, runtime lifecycle state, state bootstrap, Headroom Learn runtime state, startup error classification, launch profile state, usage savings view, runtime watchdog, RTK, MarkItDown, add-on, repo-memory MCP, and Headroom runtime tool-manager modules.
+- Continued moving command and tool workflow boundaries toward CLI/Linux/Windows reuse by separating learning run commands, activity observer commands, bootstrap runtime commands, tray runtime visuals, savings/proxy runtime helpers, connector path helpers, planned sidecar connector registry, settings connector copy helpers, and upgrade view wiring.
+- Kept generated repo-map topology current after the refactor slices so future agents can find the new module boundaries instead of chasing stale large-file references.
+
+### Repo Intelligence and repo map
+
+- Deepened Repo Intelligence symbol references, repo ranking, graph diagnostics, selected-pack context, handoff/export proof, repo-map event streaming, and proof gates.
+- Added repo-map supervision and release-proof reconciliation so local evidence makes stale or failed map generation easier to spot.
+
+### Tooling, release, and evidence
+
+- Tightened updater endpoint proof, sidecar rollback boundaries, manual release rerun support for updater assets, release evidence reconciliation, and signed/notarized Mac release preparation.
+- Expanded runtime failure reporting, add-on sample measurement, estimated add-on counters, repo-memory helpers, Continue/repo-folder picker flows, and connector/add-on polish across the app.
+
+### UI and UX fixes
+
+- Fixed the tray sidebar grid so Repo Intelligence no longer clips into the content column, aligned tray nav icons/labels with stable hit targets, and added safe top spacing/scroll containment for the Repo Intelligence view.
+- Made the home Auto-fix setup button expose explicit disabled and busy states for accessibility and regression coverage.
+
 ## 2026-07-05
 
 ### Progressive disclosure UX rollout
