@@ -11371,3 +11371,60 @@ html.window-hiding {
     flex: 1 1 0;
   }
 }
+/* UI regression guards for the tray shell. Keep nav hit targets stable even
+   when labels wrap, and keep Repo Intelligence clear of the titlebar chrome. */
+.tray-sidebar {
+  width: 104px;
+  min-width: 104px;
+}
+
+.app-shell:not(.app-shell--launcher) {
+  grid-template-columns: 104px minmax(0, 1fr);
+}
+
+.tray-nav {
+  align-items: stretch;
+}
+
+.tray-nav__item {
+  width: 100%;
+  min-height: 70px;
+  display: grid;
+  grid-template-rows: 30px minmax(16px, auto);
+  place-items: center;
+  align-content: center;
+  row-gap: 5px;
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.tray-nav__icon,
+.tray-nav__icon-svg {
+  display: block;
+  margin: 0 auto;
+}
+
+.tray-nav__text {
+  max-width: 92px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+  font-size: 0.62rem;
+  line-height: 1.1;
+}
+
+.tray-content--repo-intelligence {
+  min-height: 0;
+  overflow-y: auto;
+  scroll-padding-top: 18px;
+  padding-top: max(18px, env(safe-area-inset-top));
+}
+
+.repo-intelligence-view {
+  padding-top: 0;
+}
+
+.repo-intelligence-view__header {
+  align-items: flex-start;
+  gap: 12px;
+}

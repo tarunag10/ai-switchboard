@@ -66,6 +66,9 @@ describe("SwitchboardPanel automation", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Auto-fixing" })).toBeDisabled();
+    const autoFixButton = screen.getByRole("button", { name: "Auto-fixing" });
+    expect(autoFixButton).toBeDisabled();
+    expect(autoFixButton).toHaveAttribute("aria-disabled", "true");
+    expect(autoFixButton).toHaveAttribute("aria-busy", "true");
   });
 });

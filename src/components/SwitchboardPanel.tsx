@@ -51,6 +51,7 @@ interface SwitchboardPanelProps {
   remoteServicesEnabled: boolean;
   savingsMode: SavingsMode;
   savingsModeBusy: SavingsMode | null;
+  autoFixDisabled?: boolean;
   paused: boolean;
   runtimeActionVisible?: boolean;
   runtimeActionLabel?: string;
@@ -91,6 +92,7 @@ export function SwitchboardPanel({
   remoteServicesEnabled,
   savingsMode,
   savingsModeBusy,
+  autoFixDisabled = false,
   paused,
   runtimeActionVisible = paused,
   runtimeActionLabel,
@@ -231,7 +233,9 @@ export function SwitchboardPanel({
             type="button"
             className="switchboard-panel__action switchboard-panel__action--primary"
             onClick={onAutoFixSetup}
-            disabled={autoFixBusy}
+            disabled={autoFixBusy || autoFixDisabled}
+            aria-disabled={autoFixBusy || autoFixDisabled}
+            aria-busy={autoFixBusy}
           >
             {autoFixBusy ? "Auto-fixing" : "Auto-fix setup"}
           </button>
