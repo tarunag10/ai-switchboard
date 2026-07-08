@@ -194,6 +194,11 @@ import {
   type SettingsImportPreview,
 } from "./lib/settingsTransfer";
 import {
+  CONTACT_FORM_URL,
+  SALES_CONTACT_URL,
+  SUPPORT_ISSUES_URL,
+} from "./lib/supportUrls";
+import {
   connectorSetupDetails,
   firstManagedConfigTarget,
   formatBackendConnectorConfigPlan,
@@ -394,15 +399,6 @@ const idleRuntimeUpgradeProgress: RuntimeUpgradeProgress = {
 };
 
 const MAX_UPGRADE_AUTO_RETRIES = 2;
-
-const SALES_CONTACT_URL =
-  (import.meta.env.VITE_HEADROOM_SALES_CONTACT_URL ?? "").trim() ||
-  "mailto:hello@example.com";
-const CONTACT_FORM_URL = (
-  import.meta.env.VITE_HEADROOM_CONTACT_FORM_URL ?? ""
-).trim();
-const SUPPORT_ISSUES_URL =
-  "https://github.com/tarunag10/mac-ai-switchboard/issues";
 
 type StartupPhase = "window" | "dashboard" | "bootstrap" | "runtime" | "ready";
 
