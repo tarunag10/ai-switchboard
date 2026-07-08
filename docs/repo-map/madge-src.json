@@ -49,6 +49,7 @@
     "lib/savingsCalculator.ts",
     "lib/settingsConnectorCopy.ts",
     "lib/settingsTransfer.ts",
+    "lib/supportUrls.ts",
     "lib/switchboardDisplay.ts",
     "lib/tauriRuntime.ts",
     "lib/trayHelpers.ts",
@@ -587,6 +588,10 @@
   "lib/settingsTransfer.ts": [
     "lib/types.ts"
   ],
+  "lib/supportUrls.test.ts": [
+    "lib/supportUrls.ts"
+  ],
+  "lib/supportUrls.ts": [],
   "lib/switchboardDiagnostics.test.ts": [
     "lib/switchboardDiagnostics.ts"
   ],

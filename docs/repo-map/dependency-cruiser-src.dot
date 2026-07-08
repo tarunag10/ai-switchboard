@@ -50,6 +50,7 @@ strict digraph "dependency-cruiser output"{
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/savingsCalculator" [label=<savingsCalculator> tooltip="savingsCalculator" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/settingsConnectorCopy" [label=<settingsConnectorCopy> tooltip="settingsConnectorCopy" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/settingsTransfer" [label=<settingsTransfer> tooltip="settingsTransfer" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/supportUrls" [label=<supportUrls> tooltip="supportUrls" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/switchboardDisplay" [label=<switchboardDisplay> tooltip="switchboardDisplay" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/tauriRuntime" [label=<tauriRuntime> tooltip="tauriRuntime" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/trayHelpers" [label=<trayHelpers> tooltip="trayHelpers" ] } }
@@ -105,6 +106,7 @@ strict digraph "dependency-cruiser output"{
     "src/App.tsx" -> "./lib/savingsCalculator"
     "src/App.tsx" -> "./lib/settingsConnectorCopy"
     "src/App.tsx" -> "./lib/settingsTransfer"
+    "src/App.tsx" -> "./lib/supportUrls"
     "src/App.tsx" -> "./lib/switchboardDisplay"
     "src/App.tsx" -> "./lib/tauriRuntime"
     "src/App.tsx" -> "./lib/trayHelpers"
