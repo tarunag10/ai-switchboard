@@ -5,6 +5,7 @@
 ### Platform-ready refactor slices
 
 - Split more of the large Mac app surface into smaller controller and runtime modules, including shell target path resolution, runtime diagnostics, Doctor repair orchestration, Rollback Center copy flow, Rollback Center UI, release evidence handling, runtime lifecycle state, state bootstrap, Headroom Learn runtime state, startup error classification, launch profile state, usage savings view, runtime watchdog, RTK, MarkItDown, add-on, repo-memory MCP, and Headroom runtime tool-manager modules.
+- Extracted client connector listing into a dedicated Tauri module while preserving the existing adapter export, keeping connector registry/status logic easier to reuse from future CLI and cross-platform tooling.
 - Continued moving command and tool workflow boundaries toward CLI/Linux/Windows reuse by separating learning run commands, activity observer commands, bootstrap runtime commands, tray runtime visuals, savings/proxy runtime helpers, connector path helpers, planned sidecar connector registry, settings connector copy helpers, and upgrade view wiring.
 - Kept generated repo-map topology current after the refactor slices so future agents can find the new module boundaries instead of chasing stale large-file references.
 

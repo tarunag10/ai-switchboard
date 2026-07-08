@@ -12,6 +12,7 @@ mod cli_discovery;
 mod cli_entry;
 mod client_adapters;
 mod client_cleanup;
+mod client_connector_list;
 mod client_connector_status;
 mod client_connectors;
 mod client_footprint;
