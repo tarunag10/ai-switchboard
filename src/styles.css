@@ -11318,7 +11318,7 @@ html.window-hiding {
 
 @media (max-width: 620px) {
   .tray-shell {
-    grid-template-columns: 72px minmax(0, calc(100vw - 72px));
+    grid-template-columns: 104px minmax(0, calc(100vw - 104px));
   }
 
   .tray-content {
@@ -11378,7 +11378,7 @@ html.window-hiding {
   min-width: 104px;
 }
 
-.app-shell:not(.app-shell--launcher) {
+.tray-shell {
   grid-template-columns: 104px minmax(0, 1fr);
 }
 

@@ -21,6 +21,7 @@
 ### UI and UX fixes
 
 - Fixed the tray sidebar grid so Repo Intelligence no longer clips into the content column, aligned tray nav icons/labels with stable hit targets, and added safe top spacing/scroll containment for the Repo Intelligence view.
+- Added a tray layout style guard so the widened sidebar grid, Repo Intelligence top spacing, and sidebar alignment do not silently drift during future refactor slices.
 - Made the home Auto-fix setup button expose explicit disabled and busy states for accessibility and regression coverage.
 
 ## 2026-07-05
