@@ -1,6 +1,6 @@
 # Mac AI Switchboard Repo Map
 
-Generated: 2026-07-05T14:52:12.046Z
+Generated: 2026-07-08T02:21:27.794Z
 
 ## Artifacts
 
@@ -15,16 +15,16 @@ Generated: 2026-07-05T14:52:12.046Z
 ## Tool Results
 
 - Graphify: partial-success; 4015 nodes, 11057 links.
-- Madge: 158 frontend modules, 314 import edges, no cycles found.
-- dependency-cruiser: 52 modules, 51 edges.
-- Cargo metadata: 39 direct Rust dependencies.
+- Madge: 166 frontend modules, 333 import edges, no cycles found.
+- dependency-cruiser: 54 modules, 53 edges.
+- Cargo metadata: 40 direct Rust dependencies.
 
 ## Shape
 
-- Frontend source files: 156
-- Rust source files: 82
+- Frontend source files: 164
+- Rust source files: 106
 - Docs: 35
-- Scripts: 59
+- Scripts: 61
 
 ## Main Runtime Flow
 
@@ -57,10 +57,11 @@ proxy, adapters, storage, analytics"]
 
 ## Frontend Hotspots
 
-- `App.tsx`: imports 51
+- `App.tsx`: imports 53
 - `components/HomeView.tsx`: imports 13
 - `components/SettingsView.tsx`: imports 11
-- `components/AddonsView.tsx`: imports 8
+- `components/AddonsView.tsx`: imports 9
+- `components/UsageSavingsView.tsx`: imports 9
 - `components/OptimizationView.tsx`: imports 6
 - `components/RollbackCenter.tsx`: imports 6
 - `components/SwitchboardPanel.tsx`: imports 5
@@ -73,15 +74,14 @@ proxy, adapters, storage, analytics"]
 - `lib/settingsConnectorCopy.ts`: imports 4
 - `main.tsx`: imports 4
 - `components/ActivityFeed.tsx`: imports 3
+- `components/LauncherInstallStep.tsx`: imports 3
 - `components/PlannedAddonCard.tsx`: imports 3
 - `components/RepoMapView.tsx`: imports 3
-- `components/SettingsConnectorPanel.test.tsx`: imports 3
-- `components/SwitchboardDoctorPanel.tsx`: imports 3
 
 ## Strongest Folder-Level Edges
 
-- `src/App.tsx -> ./lib`: 30
-- `src/App.tsx -> ./components`: 21
+- `src/App.tsx -> ./lib`: 29
+- `src/App.tsx -> ./components`: 24
 
 ## Tauri Command Wiring
 
@@ -94,9 +94,9 @@ proxy, adapters, storage, analytics"]
 
 ## Direct Dependencies
 
-- NPM runtime: @microsoft/clarity, @phosphor-icons/react, @sentry/react, @tauri-apps/api, react, react-dom, recharts
+- NPM runtime: @microsoft/clarity, @phosphor-icons/react, @sentry/react, @tauri-apps/api, @tauri-apps/plugin-dialog, react, react-dom, recharts
 - NPM dev: @tauri-apps/cli, @testing-library/jest-dom, @testing-library/react, @testing-library/user-event, @types/react, @types/react-dom, @vitejs/plugin-react, @vitest/coverage-v8, jsdom, postcss, typescript, vite, vitest
-- Rust runtime/build/dev direct deps: 39
+- Rust runtime/build/dev direct deps: 40
 
 ## Useful Commands
 

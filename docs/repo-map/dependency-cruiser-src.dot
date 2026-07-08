@@ -5,30 +5,32 @@ strict digraph "dependency-cruiser output"{
 
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/ActivityFeed" [label=<ActivityFeed> tooltip="ActivityFeed" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/AddonsView" [label=<AddonsView> tooltip="AddonsView" ] } }
-    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/ClientSavingsTrendsCard" [label=<ClientSavingsTrendsCard> tooltip="ClientSavingsTrendsCard" ] } }
-    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/DailySavingsChart" [label=<DailySavingsChart> tooltip="DailySavingsChart" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/DoctorView" [label=<DoctorView> tooltip="DoctorView" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/HomeView" [label=<HomeView> tooltip="HomeView" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/LauncherInstallStep" [label=<LauncherInstallStep> tooltip="LauncherInstallStep" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/LauncherShell" [label=<LauncherShell> tooltip="LauncherShell" ] } }
-    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/OptimizePanel" [label=<OptimizePanel> tooltip="OptimizePanel" ] } }
-    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/OutputReductionChip" [label=<OutputReductionChip> tooltip="OutputReductionChip" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/OptimizationView" [label=<OptimizationView> tooltip="OptimizationView" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/PricingAuthCard" [label=<PricingAuthCard> tooltip="PricingAuthCard" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/RepoIntelligencePreview" [label=<RepoIntelligencePreview> tooltip="RepoIntelligencePreview" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/RepoMapView" [label=<RepoMapView> tooltip="RepoMapView" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/RollbackCenter" [label=<RollbackCenter> tooltip="RollbackCenter" ] } }
-    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SavingsCalculatorCard" [label=<SavingsCalculatorCard> tooltip="SavingsCalculatorCard" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SavingsChartTooltip" [label=<SavingsChartTooltip> tooltip="SavingsChartTooltip" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SavingsInfoDialog" [label=<SavingsInfoDialog> tooltip="SavingsInfoDialog" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsConnectorPanel" [label=<SettingsConnectorPanel> tooltip="SettingsConnectorPanel" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsLegalPanel" [label=<SettingsLegalPanel> tooltip="SettingsLegalPanel" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsOpenLoginCard" [label=<SettingsOpenLoginCard> tooltip="SettingsOpenLoginCard" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsReleaseReadinessCard" [label=<SettingsReleaseReadinessCard> tooltip="SettingsReleaseReadinessCard" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsRuntimeStatusCard" [label=<SettingsRuntimeStatusCard> tooltip="SettingsRuntimeStatusCard" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsTransferCard" [label=<SettingsTransferCard> tooltip="SettingsTransferCard" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/SettingsUninstallCard" [label=<SettingsUninstallCard> tooltip="SettingsUninstallCard" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/TermsGate" [label=<TermsGate> tooltip="TermsGate" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/TraySidebar" [label=<TraySidebar> tooltip="TraySidebar" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/UpgradeView" [label=<UpgradeView> tooltip="UpgradeView" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./components" {label="components" "./components/UsageSavingsView" [label=<UsageSavingsView> tooltip="UsageSavingsView" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/analytics" [label=<analytics> tooltip="analytics" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/appHelpers" [label=<appHelpers> tooltip="appHelpers" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/appSupport" [label=<appSupport> tooltip="appSupport" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/appUpdate" [label=<appUpdate> tooltip="appUpdate" ] } }
-    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/bootstrapProgress" [label=<bootstrapProgress> tooltip="bootstrapProgress" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/bootstrapSentry" [label=<bootstrapSentry> tooltip="bootstrapSentry" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/cliInstallCommands" [label=<cliInstallCommands> tooltip="cliInstallCommands" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/dashboardHelpers" [label=<dashboardHelpers> tooltip="dashboardHelpers" ] } }
@@ -57,30 +59,32 @@ strict digraph "dependency-cruiser output"{
     subgraph "cluster_src" {label="src" "src/App.tsx" [label=<App.tsx> tooltip="App.tsx" URL="src/App.tsx" fillcolor="#bbfeff"] }
     "src/App.tsx" -> "./components/ActivityFeed"
     "src/App.tsx" -> "./components/AddonsView"
-    "src/App.tsx" -> "./components/ClientSavingsTrendsCard"
-    "src/App.tsx" -> "./components/DailySavingsChart"
     "src/App.tsx" -> "./components/DoctorView"
     "src/App.tsx" -> "./components/HomeView"
+    "src/App.tsx" -> "./components/LauncherInstallStep"
     "src/App.tsx" -> "./components/LauncherShell"
-    "src/App.tsx" -> "./components/OptimizePanel"
-    "src/App.tsx" -> "./components/OutputReductionChip"
+    "src/App.tsx" -> "./components/OptimizationView"
+    "src/App.tsx" -> "./components/PricingAuthCard"
     "src/App.tsx" -> "./components/RepoIntelligencePreview"
     "src/App.tsx" -> "./components/RepoMapView"
     "src/App.tsx" -> "./components/RollbackCenter"
-    "src/App.tsx" -> "./components/SavingsCalculatorCard"
     "src/App.tsx" -> "./components/SavingsChartTooltip"
+    "src/App.tsx" -> "./components/SavingsInfoDialog"
     "src/App.tsx" -> "./components/SettingsConnectorPanel"
     "src/App.tsx" -> "./components/SettingsLegalPanel"
     "src/App.tsx" -> "./components/SettingsOpenLoginCard"
+    "src/App.tsx" -> "./components/SettingsReleaseReadinessCard"
+    "src/App.tsx" -> "./components/SettingsRuntimeStatusCard"
     "src/App.tsx" -> "./components/SettingsTransferCard"
     "src/App.tsx" -> "./components/SettingsUninstallCard"
     "src/App.tsx" -> "./components/TermsGate"
     "src/App.tsx" -> "./components/TraySidebar"
+    "src/App.tsx" -> "./components/UpgradeView"
+    "src/App.tsx" -> "./components/UsageSavingsView"
     "src/App.tsx" -> "./lib/analytics"
     "src/App.tsx" -> "./lib/appHelpers"
     "src/App.tsx" -> "./lib/appSupport"
     "src/App.tsx" -> "./lib/appUpdate"
-    "src/App.tsx" -> "./lib/bootstrapProgress"
     "src/App.tsx" -> "./lib/bootstrapSentry"
     "src/App.tsx" -> "./lib/cliInstallCommands"
     "src/App.tsx" -> "./lib/dashboardHelpers"

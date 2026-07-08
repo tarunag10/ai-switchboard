@@ -4,30 +4,32 @@
   "App.tsx": [
     "components/ActivityFeed.tsx",
     "components/AddonsView.tsx",
-    "components/ClientSavingsTrendsCard.tsx",
-    "components/DailySavingsChart.tsx",
     "components/DoctorView.tsx",
     "components/HomeView.tsx",
+    "components/LauncherInstallStep.tsx",
     "components/LauncherShell.tsx",
-    "components/OptimizePanel.tsx",
-    "components/OutputReductionChip.tsx",
+    "components/OptimizationView.tsx",
+    "components/PricingAuthCard.tsx",
     "components/RepoIntelligencePreview.tsx",
     "components/RepoMapView.tsx",
     "components/RollbackCenter.tsx",
-    "components/SavingsCalculatorCard.tsx",
     "components/SavingsChartTooltip.tsx",
+    "components/SavingsInfoDialog.tsx",
     "components/SettingsConnectorPanel.tsx",
     "components/SettingsLegalPanel.tsx",
     "components/SettingsOpenLoginCard.tsx",
+    "components/SettingsReleaseReadinessCard.tsx",
+    "components/SettingsRuntimeStatusCard.tsx",
     "components/SettingsTransferCard.tsx",
     "components/SettingsUninstallCard.tsx",
     "components/TermsGate.tsx",
     "components/TraySidebar.tsx",
+    "components/UpgradeView.tsx",
+    "components/UsageSavingsView.tsx",
     "lib/analytics.ts",
     "lib/appHelpers.ts",
     "lib/appSupport.ts",
     "lib/appUpdate.ts",
-    "lib/bootstrapProgress.ts",
     "lib/bootstrapSentry.ts",
     "lib/cliInstallCommands.ts",
     "lib/dashboardHelpers.ts",
@@ -78,6 +80,7 @@
   "components/AddonsView.tsx": [
     "components/AddonCard.tsx",
     "components/AddonHealthStrip.tsx",
+    "components/MeasuredAddonSavingsForm.tsx",
     "components/PlannedAddonCard.tsx",
     "lib/dashboardHelpers.ts",
     "lib/plannedAddons.ts",
@@ -125,11 +128,19 @@
     "lib/trayHelpers.ts",
     "lib/types.ts"
   ],
+  "components/LauncherInstallStep.tsx": [
+    "components/LauncherShell.tsx",
+    "lib/bootstrapProgress.ts",
+    "lib/types.ts"
+  ],
   "components/LauncherShell.test.tsx": [
     "components/LauncherShell.tsx"
   ],
   "components/LauncherShell.tsx": [
     "assets/mac-ai-switchboard-logo.png"
+  ],
+  "components/MeasuredAddonSavingsForm.tsx": [
+    "lib/measuredSavingsAttribution.ts"
   ],
   "components/OptimizationDashboard.tsx": [
     "components/AgentSessionPanel.tsx",
@@ -171,6 +182,7 @@
   "components/PlannedConnectorRoadmap.tsx": [
     "lib/plannedConnectors.ts"
   ],
+  "components/PricingAuthCard.tsx": [],
   "components/RedundancyPanel.tsx": [
     "lib/optimization.ts"
   ],
@@ -208,6 +220,7 @@
   "components/SavingsChartTooltip.tsx": [
     "lib/dashboardHelpers.ts"
   ],
+  "components/SavingsInfoDialog.tsx": [],
   "components/SectionCard.test.tsx": [
     "components/SectionCard.tsx"
   ],
@@ -244,6 +257,10 @@
   "components/SettingsReleaseReadinessCard.tsx": [
     "lib/releaseReadiness.ts"
   ],
+  "components/SettingsRuntimeStatusCard.tsx": [
+    "lib/dashboardHelpers.ts",
+    "lib/types.ts"
+  ],
   "components/SettingsTransferCard.test.tsx": [
     "components/SettingsTransferCard.tsx",
     "lib/settingsTransfer.ts"
@@ -262,8 +279,8 @@
     "components/SettingsLegalPanel.tsx",
     "components/SettingsOpenLoginCard.tsx",
     "components/SettingsReleaseReadinessCard.tsx",
+    "components/SettingsRuntimeStatusCard.tsx",
     "components/SettingsUninstallCard.tsx",
-    "lib/dashboardHelpers.ts",
     "lib/managedChanges.ts",
     "lib/releaseReadiness.ts",
     "lib/settingsConnectorCopy.ts",
@@ -313,7 +330,17 @@
   ],
   "components/UpgradeView.tsx": [
     "lib/appHelpers.ts",
-    "lib/launcherHelpers.ts",
+    "lib/types.ts"
+  ],
+  "components/UsageSavingsView.tsx": [
+    "components/ClientSavingsTrendsCard.tsx",
+    "components/DailySavingsChart.tsx",
+    "components/OutputReductionChip.tsx",
+    "components/SavingsCalculatorCard.tsx",
+    "components/SavingsChartTooltip.tsx",
+    "lib/dashboardHelpers.ts",
+    "lib/repoIntelligence.ts",
+    "lib/savingsCalculator.ts",
     "lib/types.ts"
   ],
   "lib/agentSessionPacks.test.ts": [
@@ -426,6 +453,12 @@
     "lib/managedChanges.ts"
   ],
   "lib/managedChanges.ts": [
+    "lib/types.ts"
+  ],
+  "lib/measuredSavingsAttribution.test.ts": [
+    "lib/measuredSavingsAttribution.ts"
+  ],
+  "lib/measuredSavingsAttribution.ts": [
     "lib/types.ts"
   ],
   "lib/mockData.test.ts": [

@@ -36,38 +36,6 @@
           "valid": true
         },
         {
-          "module": "./components/ClientSavingsTrendsCard",
-          "moduleSystem": "es6",
-          "dynamic": false,
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "unknown"
-          ],
-          "resolved": "./components/ClientSavingsTrendsCard",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": true,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "module": "./components/DailySavingsChart",
-          "moduleSystem": "es6",
-          "dynamic": false,
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "unknown"
-          ],
-          "resolved": "./components/DailySavingsChart",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": true,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
           "module": "./components/DoctorView",
           "moduleSystem": "es6",
           "dynamic": false,
@@ -100,6 +68,22 @@
           "valid": true
         },
         {
+          "module": "./components/LauncherInstallStep",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/LauncherInstallStep",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
           "module": "./components/LauncherShell",
           "moduleSystem": "es6",
           "dynamic": false,
@@ -116,14 +100,14 @@
           "valid": true
         },
         {
-          "module": "./components/OptimizePanel",
+          "module": "./components/OptimizationView",
           "moduleSystem": "es6",
           "dynamic": false,
           "exoticallyRequired": false,
           "dependencyTypes": [
             "unknown"
           ],
-          "resolved": "./components/OptimizePanel",
+          "resolved": "./components/OptimizationView",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -132,14 +116,14 @@
           "valid": true
         },
         {
-          "module": "./components/OutputReductionChip",
+          "module": "./components/PricingAuthCard",
           "moduleSystem": "es6",
           "dynamic": false,
           "exoticallyRequired": false,
           "dependencyTypes": [
             "unknown"
           ],
-          "resolved": "./components/OutputReductionChip",
+          "resolved": "./components/PricingAuthCard",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -196,22 +180,6 @@
           "valid": true
         },
         {
-          "module": "./components/SavingsCalculatorCard",
-          "moduleSystem": "es6",
-          "dynamic": false,
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "unknown"
-          ],
-          "resolved": "./components/SavingsCalculatorCard",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": true,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
           "module": "./components/SavingsChartTooltip",
           "moduleSystem": "es6",
           "dynamic": false,
@@ -220,6 +188,22 @@
             "unknown"
           ],
           "resolved": "./components/SavingsChartTooltip",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./components/SavingsInfoDialog",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/SavingsInfoDialog",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -268,6 +252,38 @@
             "unknown"
           ],
           "resolved": "./components/SettingsOpenLoginCard",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./components/SettingsReleaseReadinessCard",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/SettingsReleaseReadinessCard",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./components/SettingsRuntimeStatusCard",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/SettingsRuntimeStatusCard",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -340,6 +356,38 @@
           "valid": true
         },
         {
+          "module": "./components/UpgradeView",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/UpgradeView",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
+          "module": "./components/UsageSavingsView",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./components/UsageSavingsView",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
           "module": "./lib/analytics",
           "moduleSystem": "es6",
           "dynamic": false,
@@ -396,22 +444,6 @@
             "unknown"
           ],
           "resolved": "./lib/appUpdate",
-          "coreModule": false,
-          "followable": false,
-          "couldNotResolve": true,
-          "matchesDoNotFollow": false,
-          "circular": false,
-          "valid": true
-        },
-        {
-          "module": "./lib/bootstrapProgress",
-          "moduleSystem": "es6",
-          "dynamic": false,
-          "exoticallyRequired": false,
-          "dependencyTypes": [
-            "unknown"
-          ],
-          "resolved": "./lib/bootstrapProgress",
           "coreModule": false,
           "followable": false,
           "couldNotResolve": true,
@@ -857,38 +889,6 @@
       "valid": true
     },
     {
-      "source": "./components/ClientSavingsTrendsCard",
-      "followable": false,
-      "coreModule": false,
-      "couldNotResolve": true,
-      "matchesDoNotFollow": false,
-      "dependencyTypes": [
-        "unknown"
-      ],
-      "dependencies": [],
-      "dependents": [
-        "src/App.tsx"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "./components/DailySavingsChart",
-      "followable": false,
-      "coreModule": false,
-      "couldNotResolve": true,
-      "matchesDoNotFollow": false,
-      "dependencyTypes": [
-        "unknown"
-      ],
-      "dependencies": [],
-      "dependents": [
-        "src/App.tsx"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
       "source": "./components/DoctorView",
       "followable": false,
       "coreModule": false,
@@ -921,6 +921,22 @@
       "valid": true
     },
     {
+      "source": "./components/LauncherInstallStep",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
       "source": "./components/LauncherShell",
       "followable": false,
       "coreModule": false,
@@ -937,7 +953,7 @@
       "valid": true
     },
     {
-      "source": "./components/OptimizePanel",
+      "source": "./components/OptimizationView",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -953,7 +969,7 @@
       "valid": true
     },
     {
-      "source": "./components/OutputReductionChip",
+      "source": "./components/PricingAuthCard",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -1017,7 +1033,7 @@
       "valid": true
     },
     {
-      "source": "./components/SavingsCalculatorCard",
+      "source": "./components/SavingsChartTooltip",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -1033,7 +1049,7 @@
       "valid": true
     },
     {
-      "source": "./components/SavingsChartTooltip",
+      "source": "./components/SavingsInfoDialog",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -1082,6 +1098,38 @@
     },
     {
       "source": "./components/SettingsOpenLoginCard",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "./components/SettingsReleaseReadinessCard",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "./components/SettingsRuntimeStatusCard",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -1161,6 +1209,38 @@
       "valid": true
     },
     {
+      "source": "./components/UpgradeView",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
+      "source": "./components/UsageSavingsView",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
       "source": "./lib/analytics",
       "followable": false,
       "coreModule": false,
@@ -1210,22 +1290,6 @@
     },
     {
       "source": "./lib/appUpdate",
-      "followable": false,
-      "coreModule": false,
-      "couldNotResolve": true,
-      "matchesDoNotFollow": false,
-      "dependencyTypes": [
-        "unknown"
-      ],
-      "dependencies": [],
-      "dependents": [
-        "src/App.tsx"
-      ],
-      "orphan": false,
-      "valid": true
-    },
-    {
-      "source": "./lib/bootstrapProgress",
       "followable": false,
       "coreModule": false,
       "couldNotResolve": true,
@@ -1647,8 +1711,8 @@
     "warn": 0,
     "info": 0,
     "ignore": 0,
-    "totalCruised": 52,
-    "totalDependenciesCruised": 51,
+    "totalCruised": 54,
+    "totalDependenciesCruised": 53,
     "optionsUsed": {
       "baseDir": "/Users/tarunagarwal/Developer/Codex-Repos/mac-ai-switchboard",
       "combinedDependencies": false,
