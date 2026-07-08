@@ -35,6 +35,7 @@ strict digraph "dependency-cruiser output"{
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/cliInstallCommands" [label=<cliInstallCommands> tooltip="cliInstallCommands" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/dashboardHelpers" [label=<dashboardHelpers> tooltip="dashboardHelpers" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/doctorRepairController" [label=<doctorRepairController> tooltip="doctorRepairController" ] } }
+    subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/headroomLearnController" [label=<headroomLearnController> tooltip="headroomLearnController" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/launcherHelpers" [label=<launcherHelpers> tooltip="launcherHelpers" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/localMode" [label=<localMode> tooltip="localMode" ] } }
     subgraph "cluster_." {label="." subgraph "cluster_./lib" {label="lib" "./lib/managedChanges" [label=<managedChanges> tooltip="managedChanges" ] } }
@@ -89,6 +90,7 @@ strict digraph "dependency-cruiser output"{
     "src/App.tsx" -> "./lib/cliInstallCommands"
     "src/App.tsx" -> "./lib/dashboardHelpers"
     "src/App.tsx" -> "./lib/doctorRepairController"
+    "src/App.tsx" -> "./lib/headroomLearnController"
     "src/App.tsx" -> "./lib/launcherHelpers"
     "src/App.tsx" -> "./lib/localMode"
     "src/App.tsx" -> "./lib/managedChanges"

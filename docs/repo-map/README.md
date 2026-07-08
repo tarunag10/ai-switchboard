@@ -1,6 +1,6 @@
 # Mac AI Switchboard Repo Map
 
-Generated: 2026-07-08T02:21:27.794Z
+Generated: 2026-07-08T03:58:47.785Z
 
 ## Artifacts
 
@@ -15,13 +15,13 @@ Generated: 2026-07-08T02:21:27.794Z
 ## Tool Results
 
 - Graphify: partial-success; 4015 nodes, 11057 links.
-- Madge: 166 frontend modules, 333 import edges, no cycles found.
-- dependency-cruiser: 54 modules, 53 edges.
+- Madge: 167 frontend modules, 339 import edges, no cycles found.
+- dependency-cruiser: 55 modules, 54 edges.
 - Cargo metadata: 40 direct Rust dependencies.
 
 ## Shape
 
-- Frontend source files: 164
+- Frontend source files: 165
 - Rust source files: 106
 - Docs: 35
 - Scripts: 61
@@ -57,7 +57,7 @@ proxy, adapters, storage, analytics"]
 
 ## Frontend Hotspots
 
-- `App.tsx`: imports 53
+- `App.tsx`: imports 54
 - `components/HomeView.tsx`: imports 13
 - `components/SettingsView.tsx`: imports 11
 - `components/AddonsView.tsx`: imports 9
@@ -66,6 +66,7 @@ proxy, adapters, storage, analytics"]
 - `components/RollbackCenter.tsx`: imports 6
 - `components/SwitchboardPanel.tsx`: imports 5
 - `lib/doctorRepairCopy.ts`: imports 5
+- `lib/headroomLearnController.ts`: imports 5
 - `components/DailySavingsChart.tsx`: imports 4
 - `components/OptimizationDashboard.tsx`: imports 4
 - `components/SavingsCalculatorCard.tsx`: imports 4
@@ -76,11 +77,10 @@ proxy, adapters, storage, analytics"]
 - `components/ActivityFeed.tsx`: imports 3
 - `components/LauncherInstallStep.tsx`: imports 3
 - `components/PlannedAddonCard.tsx`: imports 3
-- `components/RepoMapView.tsx`: imports 3
 
 ## Strongest Folder-Level Edges
 
-- `src/App.tsx -> ./lib`: 29
+- `src/App.tsx -> ./lib`: 30
 - `src/App.tsx -> ./components`: 24
 
 ## Tauri Command Wiring

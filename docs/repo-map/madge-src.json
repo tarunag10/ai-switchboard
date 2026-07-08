@@ -34,6 +34,7 @@
     "lib/cliInstallCommands.ts",
     "lib/dashboardHelpers.ts",
     "lib/doctorRepairController.ts",
+    "lib/headroomLearnController.ts",
     "lib/launcherHelpers.ts",
     "lib/localMode.ts",
     "lib/managedChanges.ts",
@@ -433,6 +434,13 @@
     "lib/managedChanges.ts",
     "lib/plannedConnectors.ts",
     "lib/repoMemoryMcp.ts",
+    "lib/types.ts"
+  ],
+  "lib/headroomLearnController.ts": [
+    "lib/cliInstallCommands.ts",
+    "lib/dashboardHelpers.ts",
+    "lib/launcherHelpers.ts",
+    "lib/trayHelpers.ts",
     "lib/types.ts"
   ],
   "lib/launcherHelpers.test.ts": [

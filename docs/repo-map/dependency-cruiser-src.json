@@ -516,6 +516,22 @@
           "valid": true
         },
         {
+          "module": "./lib/headroomLearnController",
+          "moduleSystem": "es6",
+          "dynamic": false,
+          "exoticallyRequired": false,
+          "dependencyTypes": [
+            "unknown"
+          ],
+          "resolved": "./lib/headroomLearnController",
+          "coreModule": false,
+          "followable": false,
+          "couldNotResolve": true,
+          "matchesDoNotFollow": false,
+          "circular": false,
+          "valid": true
+        },
+        {
           "module": "./lib/launcherHelpers",
           "moduleSystem": "es6",
           "dynamic": false,
@@ -1369,6 +1385,22 @@
       "valid": true
     },
     {
+      "source": "./lib/headroomLearnController",
+      "followable": false,
+      "coreModule": false,
+      "couldNotResolve": true,
+      "matchesDoNotFollow": false,
+      "dependencyTypes": [
+        "unknown"
+      ],
+      "dependencies": [],
+      "dependents": [
+        "src/App.tsx"
+      ],
+      "orphan": false,
+      "valid": true
+    },
+    {
       "source": "./lib/launcherHelpers",
       "followable": false,
       "coreModule": false,
@@ -1711,8 +1743,8 @@
     "warn": 0,
     "info": 0,
     "ignore": 0,
-    "totalCruised": 54,
-    "totalDependenciesCruised": 53,
+    "totalCruised": 55,
+    "totalDependenciesCruised": 54,
     "optionsUsed": {
       "baseDir": "/Users/tarunagarwal/Developer/Codex-Repos/mac-ai-switchboard",
       "combinedDependencies": false,
