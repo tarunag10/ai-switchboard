@@ -13,9 +13,10 @@ AI Switchboard now ships as more than a routing toggle. The current `main` branc
 - **Repo Intelligence + Agent Session packs**: local repository indexing, copyable context packs, agent handoffs, freshness warnings, CLI exports, and read-only MCP documentation.
 - **Savings attribution**: RTK command-output savings, Repo Intelligence token-avoidance estimates, add-on attribution rows for MarkItDown, Ponytail, Caveman, and Compact Chinese profiles.
 - **Redundancy/model-routing primitives**: backend modules for duplicate payload detection and cheaper-model routing policy decisions.
+- **Live Token X-Ray + Daily Briefing**: content-free local session analysis, confidence-labelled savings/context evidence, daily recommendations, 365-day briefing history, secret-free export, and scoped analytics deletion controls.
 - **Retro switchboard UI**: the menu bar app now has a compact switchboard-style theme with brass controls, visible scroll behavior, and menubar-width layout fixes.
 
-Still in progress: public installed-app smoke and reboot-level Doctor/Rollback/uninstall proof, full live Token X-ray, deeper live redundancy reporting, and broader long-running Repo Memory MCP supervision.
+Still in progress: public installed-app smoke and reboot-level Doctor/Rollback/uninstall proof, deeper live redundancy reporting, and broader long-running Repo Memory MCP supervision.
 
 ## Current App Screenshots
 
@@ -35,6 +36,8 @@ Visible docs:
 - [Product roadmap plan](docs/product-roadmap-plan.md)
 - [Agent Control Center implementation plan](docs/agent-control-center-implementation-plan.md)
 - [Agent Memory implementation plan](docs/agent-memory-implementation-plan.md)
+- [Live Token X-Ray and Daily AI Usage Briefing implementation plan](docs/live-token-xray-daily-briefing-implementation-plan.md)
+- [Implementation plan reconciliation](docs/implementation-plan-reconciliation.md)
 - [Fable security implementation plan](docs/fable-security-implementation-plan.md)
 - [Adapter lifecycle](docs/adapter-lifecycle.md)
 - [Benchmarks](docs/benchmarks.md)

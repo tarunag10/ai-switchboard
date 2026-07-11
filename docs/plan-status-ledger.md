@@ -1,6 +1,6 @@
 # Plan Status Ledger
 
-Updated: 2026-07-06
+Updated: 2026-07-11
 
 ## AI Switchboard Platform Rebrand
 
@@ -12,6 +12,8 @@ Goal: move the product identity from Mac AI Switchboard to AI Switchboard / Swit
 This is the current done/left ledger for the AI Switchboard roadmap, including the Repo Map/token-compression work, Fable security hardening, local evidence gates, and release-readiness work.
 
 ## Done
+
+- Live Token X-Ray and Daily AI Usage Briefing are implemented: versioned local read models, deterministic normalization, source-confidence labels, X-Ray freshness/pressure/timeline/anomaly surfaces, daily briefing recommendations, secret-free Markdown/JSON export, 365-day local history, and scoped preview/clear controls. The analytics store is content-free and does not touch the existing savings ledger when cleared. See `docs/live-token-xray-daily-briefing-implementation-plan.md`.
 
 - Repo Map one-click generation is built for the app repo and local repo paths: Graphify, Madge, dependency-cruiser, Cargo metadata, Tauri invoke/handler scan, tool preflight, partial-success handling, generated artifacts, and estimated token-savings output.
 - Repo Map UI is reachable from the sidebar. The existing `RepoMapView` is mounted, and `check:repo-map-mounted` is wired into `evidence:local` so the sidebar route cannot silently disappear again.
@@ -68,6 +70,8 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - `npm run evidence:local`
 - `npm run smoke:reboot-level:local || true && npm run smoke:reboot-level:local:check`
 - `npm run build`
+- `npm run test:frontend`
+- `npm run check:local-only-network`
 - `npm run release:report && npm run release:report:check`
 - `npm run release:proof && npm run release:proof:check`
 - `npm run check:branding`

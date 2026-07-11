@@ -1,7 +1,13 @@
 mod activity_commands;
 mod activity_facts;
 mod addon_commands;
+mod agent_memory;
+mod agent_memory_commands;
 mod analytics;
+mod analytics_commands;
+mod analytics_models;
+mod analytics_normalization;
+mod analytics_store;
 mod app_services_commands;
 mod app_update_commands;
 mod backend_port;
@@ -22,6 +28,7 @@ mod client_setup_commands;
 mod client_sidecar_rollbacks;
 mod codex_threads;
 mod connector_smoke;
+mod daily_briefing;
 mod dashboard_commands;
 mod dedicated_cleanup_rollback;
 mod device;
@@ -62,6 +69,7 @@ mod startup_error;
 mod state;
 mod storage;
 mod switchboard_commands;
+mod token_xray;
 mod tool_manager;
 mod tray_runtime;
 mod tray_window;
@@ -685,6 +693,16 @@ pub fn run() {
         .manage(state)
         .manage(app_update_commands::PendingAppUpdate(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
+            agent_memory_commands::get_agent_memory_snapshot,
+            agent_memory_commands::preview_agent_memory_compaction,
+            agent_memory_commands::apply_agent_memory_compaction,
+            agent_memory_commands::rollback_agent_memory_compaction,
+            analytics_commands::get_token_xray_snapshot,
+            analytics_commands::get_daily_usage_briefing,
+            analytics_commands::export_daily_usage_briefing,
+            analytics_commands::list_daily_usage_briefings,
+            analytics_commands::preview_clear_usage_analytics,
+            analytics_commands::clear_usage_analytics,
             dashboard_commands::get_dashboard_state,
             dashboard_commands::get_savings_attribution_events,
             dashboard_commands::get_savings_attribution_counters,
@@ -1479,6 +1497,11 @@ mod tests {
                 parser_version: "tree-sitter-graph-v2".to_string(),
                 cache_key: "test".to_string(),
                 cache_state: "unchanged".to_string(),
+                index_mode: "cache_reuse".to_string(),
+                reused_file_count: 1,
+                changed_file_count: 0,
+                removed_file_count: 0,
+                rebuild_reason: None,
                 generated_at: indexed_at.to_string(),
                 previous_indexed_at: None,
                 file_count: 1,

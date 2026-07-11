@@ -126,8 +126,16 @@ pub struct ActivityObservation {
 /// quickly, since the intercept has its own retry + longer timeout path.
 pub struct AppState {
     pub tool_manager: ToolManager,
+    /// Dedicated content-free analytics snapshots. This never aliases the
+    /// savings ledger, so clearing analytics cannot remove attribution evidence.
+    analytics_dir: PathBuf,
     pub recent_usage: Mutex<Vec<UsageEvent>>,
     pub headroom_process: Mutex<Option<Child>>,
+    /// App-owned, read-only Repo Memory MCP child. This is deliberately
+    /// separate from the descriptor consumed by external agents: it gives the
+    /// desktop app a concrete lifecycle to supervise without widening the
+    /// descriptor's permissions or taking ownership of an agent's process.
+    repo_memory_mcp_process: Mutex<Option<Child>>,
     lifecycle_lock: Mutex<()>,
     /// Held for the full duration of a runtime upgrade. A second call to
     /// `run_upgrade_with_ui` tries `try_lock` and bails if already held.
@@ -277,8 +285,10 @@ impl AppState {
 
         let state = Self {
             tool_manager,
+            analytics_dir: base_dir.join("analytics"),
             recent_usage: Mutex::new(Vec::new()),
             headroom_process: Mutex::new(None),
+            repo_memory_mcp_process: Mutex::new(None),
             lifecycle_lock: Mutex::new(()),
             upgrade_lock: Mutex::new(()),
             runtime_paused: Mutex::new(false),
@@ -1446,6 +1456,42 @@ impl AppState {
         // doing so silently consumes crossings before `get_dashboard_state`
         // can fire the aptabase event and the in-app notification.
         self.build_dashboard(false).0
+    }
+
+    /// Rebuilds the current local calendar-day briefing from existing evidence,
+    /// then atomically refreshes only the new, content-free analytics snapshot.
+    pub fn daily_usage_briefing(&self) -> crate::analytics_models::DailyUsageBriefingV1 {
+        let briefing = crate::daily_briefing::build_briefing(
+            &self.dashboard(),
+            self.savings_attribution_events(),
+        );
+        if let Err(error) =
+            crate::analytics_store::save_daily_snapshot(&self.analytics_dir, &briefing)
+        {
+            log::warn!("could not persist daily usage briefing: {error:#}");
+        }
+        briefing
+    }
+
+    pub fn list_daily_usage_briefings(
+        &self,
+    ) -> Result<Vec<crate::analytics_models::DailyUsageBriefingV1>> {
+        // Always rebuild the current day before listing historical snapshots so
+        // a relaunch never returns a stale "today" row.
+        self.daily_usage_briefing();
+        crate::analytics_store::list_daily_snapshots(&self.analytics_dir)
+    }
+
+    pub fn preview_clear_usage_analytics(
+        &self,
+    ) -> Result<crate::analytics_store::UsageAnalyticsClearPreviewV1> {
+        crate::analytics_store::preview_clear(&self.analytics_dir)
+    }
+
+    pub fn clear_usage_analytics(
+        &self,
+    ) -> Result<crate::analytics_store::UsageAnalyticsClearPreviewV1> {
+        crate::analytics_store::clear(&self.analytics_dir)
     }
 
     /// Observe a batch of transformations into ActivityFacts (for feed
@@ -4574,6 +4620,7 @@ mod tests {
             last_checked_at: None,
             supervision_status: None,
             supervisor_pid: None,
+            ..Default::default()
         };
         assert_eq!(
             super::repo_memory_mcp::repo_memory_mcp_supervision_status(
@@ -4629,6 +4676,7 @@ mod tests {
             last_checked_at: None,
             supervision_status: Some("verified_active".to_string()),
             supervisor_pid: Some(current_pid),
+            ..Default::default()
         };
         assert_eq!(
             super::repo_memory_mcp::repo_memory_mcp_supervision_status(
@@ -4640,12 +4688,32 @@ mod tests {
             "verified_active"
         );
 
+        let stale_health = super::repo_memory_mcp::RepoMemoryMcpSessionState {
+            last_checked_at: Some(
+                Utc::now()
+                    - chrono::Duration::seconds(
+                        super::repo_memory_mcp::REPO_MEMORY_MCP_STALE_AFTER_SECS + 1,
+                    ),
+            ),
+            ..verified_this_process.clone()
+        };
+        assert_eq!(
+            super::repo_memory_mcp::repo_memory_mcp_supervision_status(
+                &stale_health,
+                Some(true),
+                current_pid,
+                Some(&healthy_service)
+            ),
+            "stale_health"
+        );
+
         let verified_previous_process = super::repo_memory_mcp::RepoMemoryMcpSessionState {
             active: true,
             last_started_at: None,
             last_checked_at: None,
             supervision_status: Some("verified_active".to_string()),
             supervisor_pid: Some(current_pid + 1),
+            ..Default::default()
         };
         assert_eq!(
             super::repo_memory_mcp::repo_memory_mcp_supervision_status(
@@ -4697,6 +4765,7 @@ mod tests {
             last_checked_at: stale_check,
             supervision_status: Some("verified_active".to_string()),
             supervisor_pid: Some(current_pid),
+            ..Default::default()
         };
 
         assert!(super::repo_memory_mcp::repo_memory_mcp_supervision_due(

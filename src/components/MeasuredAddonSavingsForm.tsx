@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 
 import {
   recordMeasuredAddonSavings,
@@ -18,8 +18,11 @@ export function MeasuredAddonSavingsForm({
   onRecorded,
   disabled = false,
 }: MeasuredAddonSavingsFormProps) {
+  const evidenceId = useId();
   const [baselineTokens, setBaselineTokens] = useState("");
   const [optimizedTokens, setOptimizedTokens] = useState("");
+  const [baselineEvidence, setBaselineEvidence] = useState("");
+  const [optimizedEvidence, setOptimizedEvidence] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -32,6 +35,10 @@ export function MeasuredAddonSavingsForm({
         label,
         baselineTokens: Number(baselineTokens),
         optimizedTokens: Number(optimizedTokens),
+        measurementEvidence: {
+          baseline: baselineEvidence,
+          optimized: optimizedEvidence,
+        },
         detail: `${label} before/after token sample recorded from the Addons panel.`,
       });
       if (!result.recorded) {
@@ -42,6 +49,8 @@ export function MeasuredAddonSavingsForm({
       setStatus(`${result.tokensSaved.toLocaleString()} tokens recorded.`);
       setBaselineTokens("");
       setOptimizedTokens("");
+      setBaselineEvidence("");
+      setOptimizedEvidence("");
     } catch (error) {
       setStatus(
         error instanceof Error
@@ -55,9 +64,14 @@ export function MeasuredAddonSavingsForm({
 
   return (
     <div className="addon-card__measured-sample">
-      <label>
+      <p className="addon-card__measurement-note">
+        Measured savings require evidence for both token counts. Until a
+        before/after pair is recorded, this add-on’s savings remain estimated.
+      </p>
+      <label htmlFor={`${evidenceId}-baseline-tokens`}>
         <span>Before</span>
         <input
+          id={`${evidenceId}-baseline-tokens`}
           type="number"
           min="0"
           inputMode="numeric"
@@ -66,9 +80,10 @@ export function MeasuredAddonSavingsForm({
           onChange={(event) => setBaselineTokens(event.currentTarget.value)}
         />
       </label>
-      <label>
+      <label htmlFor={`${evidenceId}-optimized-tokens`}>
         <span>After</span>
         <input
+          id={`${evidenceId}-optimized-tokens`}
           type="number"
           min="0"
           inputMode="numeric"
@@ -77,15 +92,44 @@ export function MeasuredAddonSavingsForm({
           onChange={(event) => setOptimizedTokens(event.currentTarget.value)}
         />
       </label>
+      <label htmlFor={`${evidenceId}-baseline-evidence`}>
+        <span>Baseline evidence</span>
+        <input
+          id={`${evidenceId}-baseline-evidence`}
+          type="text"
+          value={baselineEvidence}
+          disabled={disabled || busy}
+          placeholder="Where the before count came from"
+          onChange={(event) => setBaselineEvidence(event.currentTarget.value)}
+        />
+      </label>
+      <label htmlFor={`${evidenceId}-optimized-evidence`}>
+        <span>Optimized evidence</span>
+        <input
+          id={`${evidenceId}-optimized-evidence`}
+          type="text"
+          value={optimizedEvidence}
+          disabled={disabled || busy}
+          placeholder="Where the after count came from"
+          onChange={(event) => setOptimizedEvidence(event.currentTarget.value)}
+        />
+      </label>
       <button
         type="button"
         className="addon-card__sample-button"
-        disabled={disabled || busy || !baselineTokens || !optimizedTokens}
+        disabled={
+          disabled ||
+          busy ||
+          !baselineTokens ||
+          !optimizedTokens ||
+          !baselineEvidence.trim() ||
+          !optimizedEvidence.trim()
+        }
         onClick={() => void submitMeasuredSample()}
       >
         {busy ? "Recording..." : "Record measured sample"}
       </button>
-      {status ? <p>{status}</p> : null}
+      {status ? <p role="status">{status}</p> : null}
     </div>
   );
 }

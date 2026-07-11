@@ -3,7 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildMeasuredAddonSavingsRequest,
   recordMeasuredAddonSavings,
+  validateAddonMeasurement,
 } from "./measuredSavingsAttribution";
+
+const evidence = {
+  baseline: "Captured the unoptimized handoff token count from the local client.",
+  optimized: "Captured the optimized handoff token count from the same local client.",
+};
 
 describe("measured savings attribution", () => {
   it("builds a measured add-on request with stable labels", () => {
@@ -13,6 +19,7 @@ describe("measured savings attribution", () => {
         baselineTokens: 3_200.9,
         optimizedTokens: 900.2,
         requestDelta: 3,
+        measurementEvidence: evidence,
         detail: "Converted PDF to Markdown before attaching it.",
       }),
     ).toEqual({
@@ -21,7 +28,8 @@ describe("measured savings attribution", () => {
       baselineTokens: 3_200,
       optimizedTokens: 900,
       requestDelta: 3,
-      detail: "Converted PDF to Markdown before attaching it.",
+      detail:
+        "Converted PDF to Markdown before attaching it. Baseline evidence: Captured the unoptimized handoff token count from the local client.. Optimized evidence: Captured the optimized handoff token count from the same local client..",
     });
   });
 
@@ -33,10 +41,71 @@ describe("measured savings attribution", () => {
         baselineTokens: 900,
         optimizedTokens: 420,
       }),
+    ).toBeNull();
+  });
+
+  it("refuses claims without independent before and after evidence", () => {
+    expect(
+      validateAddonMeasurement({
+        source: "caveman",
+        baselineTokens: 300,
+        optimizedTokens: 120,
+      }),
+    ).toEqual({
+      valid: false,
+      confidence: "estimated",
+      reason: "missing_baseline_evidence",
+    });
+    expect(
+      validateAddonMeasurement({
+        source: "ponytail",
+        baselineTokens: 300,
+        optimizedTokens: 120,
+        measurementEvidence: { baseline: "local counter" },
+      }),
+    ).toEqual({
+      valid: false,
+      confidence: "estimated",
+      reason: "missing_optimized_evidence",
+    });
+  });
+
+  it("refuses invalid counters and keeps their confidence estimated", () => {
+    expect(
+      validateAddonMeasurement({
+        source: "markitdown",
+        baselineTokens: Number.NaN,
+        optimizedTokens: 120,
+        measurementEvidence: evidence,
+      }),
     ).toMatchObject({
-      source: "compact_chinese",
-      label: "Compact Chinese private scratch profile",
-      requestDelta: 1,
+      valid: false,
+      confidence: "estimated",
+      reason: "invalid_baseline_tokens",
+    });
+    expect(
+      validateAddonMeasurement({
+        source: "markitdown",
+        baselineTokens: -1,
+        optimizedTokens: 120,
+        measurementEvidence: evidence,
+      }),
+    ).toMatchObject({
+      valid: false,
+      confidence: "estimated",
+      reason: "invalid_baseline_tokens",
+    });
+    expect(
+      validateAddonMeasurement({
+        source: "compact_chinese",
+        baselineTokens: 300,
+        optimizedTokens: 120,
+        measurementEvidence: evidence,
+      }),
+    ).toMatchObject({
+      valid: false,
+      confidence: "estimated",
+      reason: "unsupported_source",
     });
   });
 
@@ -46,6 +115,7 @@ describe("measured savings attribution", () => {
         source: "caveman",
         baselineTokens: 100,
         optimizedTokens: 100,
+        measurementEvidence: evidence,
       }),
     ).toBeNull();
     expect(
@@ -54,6 +124,7 @@ describe("measured savings attribution", () => {
         baselineTokens: 100,
         optimizedTokens: 50,
         requestDelta: 0,
+        measurementEvidence: evidence,
       }),
     ).toBeNull();
   });
@@ -67,6 +138,7 @@ describe("measured savings attribution", () => {
         baselineTokens: 1_400,
         optimizedTokens: 520,
         requestDelta: 2,
+        measurementEvidence: evidence,
         detail: "Measured narrower changed-file handoff.",
       },
       invoke,
@@ -76,6 +148,7 @@ describe("measured savings attribution", () => {
       recorded: true,
       tokensSaved: 880,
       requestDelta: 2,
+      confidence: "measured",
     });
     expect(invoke).toHaveBeenCalledWith("record_measured_savings_attribution", {
       request: {
@@ -84,7 +157,8 @@ describe("measured savings attribution", () => {
         baselineTokens: 1_400,
         optimizedTokens: 520,
         requestDelta: 2,
-        detail: "Measured narrower changed-file handoff.",
+        detail:
+          "Measured narrower changed-file handoff. Baseline evidence: Captured the unoptimized handoff token count from the local client.. Optimized evidence: Captured the optimized handoff token count from the same local client..",
       },
     });
   });
@@ -98,6 +172,7 @@ describe("measured savings attribution", () => {
           source: "caveman",
           baselineTokens: 80,
           optimizedTokens: 120,
+          measurementEvidence: evidence,
         },
         invoke,
       ),
@@ -105,6 +180,7 @@ describe("measured savings attribution", () => {
       recorded: false,
       tokensSaved: 0,
       requestDelta: 1,
+      confidence: "estimated",
       reason: "empty_delta",
     });
 
@@ -115,6 +191,7 @@ describe("measured savings attribution", () => {
           baselineTokens: 120,
           optimizedTokens: 80,
           requestDelta: 0,
+          measurementEvidence: evidence,
         },
         invoke,
       ),
@@ -122,6 +199,7 @@ describe("measured savings attribution", () => {
       recorded: false,
       tokensSaved: 0,
       requestDelta: 0,
+      confidence: "estimated",
       reason: "invalid_request_delta",
     });
 

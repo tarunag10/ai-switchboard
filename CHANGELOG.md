@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Live Token X-Ray and Daily AI Usage Briefing
+
+- Added end-to-end local-first Token X-Ray and Daily Briefing capabilities: versioned read-model contracts, confidence-labelled X-Ray metrics/timeline/anomalies, deterministic recommendations, daily history, secret-free exports, and scoped analytics deletion controls.
+- Added durable content-free daily briefing snapshots with 365-day retention, malformed-file tolerance, and a clear preview that never deletes the savings ledger.
+- Validated the release baseline with frontend/desktop tests, production build, formatting, and diff hygiene. The aggregate local-only guard retains an unrelated existing support-links failure.
+- Kept the analytics boundary content-free: no prompts, responses, source content, tool arguments, terminal output, credentials, or new analytics service are part of this feature.
+
 ## 2026-07-08
 
 ### Platform-ready refactor slices

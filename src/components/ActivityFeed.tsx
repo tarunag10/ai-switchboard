@@ -1,4 +1,9 @@
-import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Bell, WifiSlash } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
@@ -363,6 +368,7 @@ function ExpandableRow({
   children: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const detailId = useId();
   const canExpand = detail != null;
   /* v8 ignore start — interactive handlers require a DOM; SSR tests can pin
      role/aria/class but cannot dispatch click or keyboard events. Same reason
@@ -387,13 +393,16 @@ function ExpandableRow({
       }
       role={canExpand ? "button" : undefined}
       tabIndex={canExpand ? 0 : undefined}
+      aria-controls={canExpand ? detailId : undefined}
       aria-expanded={canExpand ? expanded : undefined}
       onClick={toggle}
       onKeyDown={onKeyDown}
     >
       {children}
       {expanded && detail ? (
-        <div className="activity-feed__detail">{detail}</div>
+        <div className="activity-feed__detail" id={detailId}>
+          {detail}
+        </div>
       ) : null}
     </li>
   );

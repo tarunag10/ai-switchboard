@@ -59,6 +59,10 @@ describe("OptimizationView", () => {
 
     const detailsButton = screen.getByRole("button", { name: "Details" });
     expect(detailsButton).toHaveAttribute("aria-expanded", "false");
+    expect(detailsButton).toHaveAttribute(
+      "aria-controls",
+      "optimization-setup-details",
+    );
 
     await user.click(detailsButton);
 

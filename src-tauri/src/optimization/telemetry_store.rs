@@ -382,13 +382,16 @@ fn try_recent_rtk_preset_metadata(limit: usize) -> rusqlite::Result<Vec<RtkPrese
 }
 
 pub(crate) fn prompt_cache_totals() -> CacheTokenMetrics {
-    try_prompt_cache_totals().unwrap_or_else(|error| {
+    prompt_cache_totals_result().unwrap_or_else(|error| {
         log::warn!("optimization telemetry read failed: {error}");
         CacheTokenMetrics::default()
     })
 }
 
-fn try_prompt_cache_totals() -> rusqlite::Result<CacheTokenMetrics> {
+/// Reads aggregate provider cache metrics without converting storage failures
+/// into a fabricated zero. Consumers that need provenance (such as Token
+/// X-Ray) should use this result directly and surface `unavailable` on error.
+pub(crate) fn prompt_cache_totals_result() -> rusqlite::Result<CacheTokenMetrics> {
     let conn = open_connection()?;
     conn.query_row(
         "SELECT

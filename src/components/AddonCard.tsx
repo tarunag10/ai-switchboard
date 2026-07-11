@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import type { ClientConnectorStatus } from "../lib/types";
 import { AddonClientChips } from "./AddonClientChips";
 
@@ -62,6 +62,8 @@ export function AddonCard({
   onUninstall: () => void;
   children?: ReactNode;
 }) {
+  const infoId = useId();
+
   return (
     <li className="addon-card">
       <div className="addon-card__body">
@@ -77,6 +79,7 @@ export function AddonCard({
               type="button"
               className="addon-card__info"
               aria-label={`What ${name} does`}
+              aria-controls={infoId}
               aria-expanded={infoOpen}
               onClick={onToggleInfo}
             >
@@ -92,7 +95,9 @@ export function AddonCard({
           ) : null}
         </div>
         {infoOpen && copy ? (
-          <p className="addon-card__info-text">{copy.whatItDoes}</p>
+          <p className="addon-card__info-text" id={infoId}>
+            {copy.whatItDoes}
+          </p>
         ) : null}
         <p className="addon-card__description">{description}</p>
         {showClients ? <AddonClientChips connectors={connectors} /> : null}

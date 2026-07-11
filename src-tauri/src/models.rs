@@ -534,6 +534,18 @@ pub struct RepoIndexMetadata {
     pub parser_version: String,
     pub cache_key: String,
     pub cache_state: String,
+    /// `full_rebuild`, `incremental_reuse`, or `cache_reuse`. This describes
+    /// the work performed locally; it never implies a repository write.
+    #[serde(default = "default_repo_index_mode")]
+    pub index_mode: String,
+    #[serde(default)]
+    pub reused_file_count: u64,
+    #[serde(default)]
+    pub changed_file_count: u64,
+    #[serde(default)]
+    pub removed_file_count: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rebuild_reason: Option<String>,
     pub generated_at: String,
     pub previous_indexed_at: Option<String>,
     pub file_count: u64,
@@ -544,6 +556,10 @@ pub struct RepoIndexMetadata {
     pub skipped_files: Vec<RepoSkippedIndexEntry>,
     #[serde(default)]
     pub graph_inputs: Vec<RepoGraphInputEntry>,
+}
+
+fn default_repo_index_mode() -> String {
+    "full_rebuild".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -189,14 +189,18 @@ export function SettingsConnectorPanel({
                         )
                       }
                       type="button"
-                      aria-label={`Show setup details for ${connector.name}`}
+                      aria-controls={`connector-setup-details-${connector.clientId}`}
+                      aria-label={`${openConnectorHelpId === connector.clientId ? "Hide" : "Show"} setup details for ${connector.name}`}
                       aria-expanded={openConnectorHelpId === connector.clientId}
                     >
                       <Info size={11} weight="bold" />
                     </button>
                   </h3>
                   {openConnectorHelpId === connector.clientId ? (
-                    <p className="connector-tooltip">
+                    <p
+                      className="connector-tooltip"
+                      id={`connector-setup-details-${connector.clientId}`}
+                    >
                       {connectorSetupHint ??
                         connectorSetupDetails[connector.clientId] ??
                         "Switchboard applies local connector configuration."}

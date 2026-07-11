@@ -80,6 +80,11 @@ describe("SettingsConnectorPanel", () => {
 
     const helpButton = container.querySelector<HTMLButtonElement>(".connector-help");
     expect(helpButton).not.toBeNull();
+    expect(helpButton).toHaveAttribute(
+      "aria-controls",
+      "connector-setup-details-codex",
+    );
+    expect(screen.getByRole("button", { name: "Enable" })).toBeEnabled();
     await user.click(helpButton!);
     expect(setOpenConnectorHelpId).toHaveBeenCalled();
 

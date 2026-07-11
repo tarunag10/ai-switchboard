@@ -8,6 +8,8 @@ use crate::models::RepoMemoryMcpServiceStatus;
 use crate::state::AppState;
 
 pub(super) const REPO_MEMORY_MCP_SUPERVISION_INTERVAL_SECS: i64 = 15 * 60;
+pub(super) const REPO_MEMORY_MCP_STALE_AFTER_SECS: i64 =
+    REPO_MEMORY_MCP_SUPERVISION_INTERVAL_SECS * 2;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,6 +19,14 @@ pub(super) struct RepoMemoryMcpSessionState {
     pub(super) last_checked_at: Option<DateTime<Utc>>,
     pub(super) supervision_status: Option<String>,
     pub(super) supervisor_pid: Option<u32>,
+    #[serde(default)]
+    pub(super) child_pid: Option<u32>,
+    #[serde(default)]
+    pub(super) restart_count: u32,
+    #[serde(default)]
+    pub(super) last_restart_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub(super) last_exit_at: Option<DateTime<Utc>>,
 }
 
 impl RepoMemoryMcpSessionState {
@@ -33,6 +43,7 @@ impl AppState {
     pub fn start_repo_memory_mcp(&self) -> Result<()> {
         self.tool_manager.ensure_repo_memory_mcp_configured()?;
         if let Err(err) = self.tool_manager.verify_repo_memory_mcp_smoke() {
+            self.stop_repo_memory_mcp_child();
             {
                 let mut session = self.repo_memory_mcp_state.lock();
                 session.active = false;
@@ -44,6 +55,13 @@ impl AppState {
             *self.cached_runtime_status.lock() = None;
             return Err(err);
         }
+        let (child_pid, _spawned) = match self.ensure_repo_memory_mcp_child() {
+            Ok(result) => result,
+            Err(err) => {
+                self.record_repo_memory_mcp_failure("launch_failed");
+                return Err(err);
+            }
+        };
         {
             let mut session = self.repo_memory_mcp_state.lock();
             session.active = true;
@@ -51,6 +69,7 @@ impl AppState {
             session.last_checked_at = Some(Utc::now());
             session.supervision_status = Some("verified_active".to_string());
             session.supervisor_pid = Some(std::process::id());
+            session.child_pid = Some(child_pid);
             self.persist_repo_memory_mcp_state(&session)?;
         }
         *self.cached_runtime_status.lock() = None;
@@ -58,12 +77,14 @@ impl AppState {
     }
 
     pub fn stop_repo_memory_mcp(&self) -> Result<()> {
+        self.stop_repo_memory_mcp_child();
         {
             let mut session = self.repo_memory_mcp_state.lock();
             session.active = false;
             session.last_checked_at = Some(Utc::now());
             session.supervision_status = Some("stopped".to_string());
             session.supervisor_pid = None;
+            session.child_pid = None;
             self.persist_repo_memory_mcp_state(&session)?;
         }
         *self.cached_runtime_status.lock() = None;
@@ -98,26 +119,110 @@ impl AppState {
         let should_verify = {
             let session = self.repo_memory_mcp_state.lock();
             repo_memory_mcp_supervision_due(&session, configured, current_pid, now)
-        };
+        } || self.repo_memory_mcp_child_needs_restart(current_pid);
         if !should_verify {
             return;
         }
 
-        let (active, status) = match self.tool_manager.verify_repo_memory_mcp_smoke() {
-            Ok(_) => (true, "verified_active".to_string()),
-            Err(err) => {
-                log::warn!("repo-memory MCP supervision smoke failed: {err:#}");
-                (false, "smoke_failed".to_string())
-            }
-        };
+        let (active, status, child_pid, restarted) =
+            match self.tool_manager.verify_repo_memory_mcp_smoke() {
+                Ok(_) => match self.ensure_repo_memory_mcp_child() {
+                    Ok((child_pid, restarted)) => (
+                        true,
+                        "verified_active".to_string(),
+                        Some(child_pid),
+                        restarted,
+                    ),
+                    Err(err) => {
+                        log::warn!("repo-memory MCP supervision restart failed: {err:#}");
+                        (false, "launch_failed".to_string(), None, false)
+                    }
+                },
+                Err(err) => {
+                    log::warn!("repo-memory MCP supervision smoke failed: {err:#}");
+                    self.stop_repo_memory_mcp_child();
+                    (false, "smoke_failed".to_string(), None, false)
+                }
+            };
 
         let mut session = self.repo_memory_mcp_state.lock();
         session.active = active;
         session.last_checked_at = Some(Utc::now());
         session.supervision_status = Some(status);
         session.supervisor_pid = if active { Some(current_pid) } else { None };
+        session.child_pid = child_pid;
+        if restarted {
+            session.restart_count = session.restart_count.saturating_add(1);
+            session.last_restart_at = Some(now);
+        }
+        if !active {
+            session.last_exit_at = Some(now);
+        }
         if let Err(err) = self.persist_repo_memory_mcp_state(&session) {
             log::warn!("failed to persist repo-memory MCP supervision state: {err:#}");
+        }
+    }
+
+    fn ensure_repo_memory_mcp_child(&self) -> Result<(u32, bool)> {
+        let mut process = self.repo_memory_mcp_process.lock();
+        if let Some(existing) = process.as_mut() {
+            match existing.try_wait() {
+                Ok(None) => return Ok((existing.id(), false)),
+                Ok(Some(_)) | Err(_) => *process = None,
+            }
+        }
+        let child = self.tool_manager.spawn_repo_memory_mcp()?;
+        let child_pid = child.id();
+        *process = Some(child);
+        Ok((child_pid, true))
+    }
+
+    fn repo_memory_mcp_child_needs_restart(&self, current_pid: u32) -> bool {
+        let session = self.repo_memory_mcp_state.lock().clone();
+        if !session.active || session.supervisor_pid != Some(current_pid) {
+            return session.active && session.supervisor_pid != Some(current_pid);
+        }
+        let mut process = self.repo_memory_mcp_process.lock();
+        match process.as_mut() {
+            Some(child) => match child.try_wait() {
+                Ok(None) => false,
+                Ok(Some(_)) | Err(_) => {
+                    *process = None;
+                    drop(process);
+                    let mut session = self.repo_memory_mcp_state.lock();
+                    session.child_pid = None;
+                    session.last_exit_at = Some(Utc::now());
+                    session.supervision_status = Some("restart_required".to_string());
+                    if let Err(err) = self.persist_repo_memory_mcp_state(&session) {
+                        log::warn!("failed to persist repo-memory MCP exit state: {err:#}");
+                    }
+                    true
+                }
+            },
+            None => true,
+        }
+    }
+
+    fn stop_repo_memory_mcp_child(&self) {
+        let Some(mut child) = self.repo_memory_mcp_process.lock().take() else {
+            return;
+        };
+        if let Err(err) = child.kill() {
+            log::debug!("repo-memory MCP child was already stopped: {err}");
+        }
+        let _ = child.wait();
+    }
+
+    fn record_repo_memory_mcp_failure(&self, status: &str) {
+        let mut session = self.repo_memory_mcp_state.lock();
+        session.active = false;
+        session.last_checked_at = Some(Utc::now());
+        session.last_exit_at = Some(Utc::now());
+        session.supervision_status = Some(status.to_string());
+        session.supervisor_pid = None;
+        session.child_pid = None;
+        if let Err(err) = self.persist_repo_memory_mcp_state(&session) {
+            log::warn!("failed to persist repo-memory MCP failure state: {err:#}");
         }
     }
 }
@@ -130,6 +235,19 @@ pub(super) fn repo_memory_mcp_supervision_status(
 ) -> String {
     if configured == Some(true) && !repo_memory_mcp_service_healthy(service) {
         return "service_unhealthy".to_string();
+    }
+
+    if session.active
+        && session.supervision_status.as_deref() == Some("verified_active")
+        && session
+            .last_checked_at
+            .map(|checked| {
+                Utc::now().signed_duration_since(checked).num_seconds()
+                    > REPO_MEMORY_MCP_STALE_AFTER_SECS
+            })
+            .unwrap_or(false)
+    {
+        return "stale_health".to_string();
     }
 
     match (session.active, configured) {
@@ -151,6 +269,9 @@ pub(super) fn repo_memory_mcp_supervision_status(
         (true, None) => "unknown_active".to_string(),
         (false, Some(true)) if session.supervision_status.as_deref() == Some("smoke_failed") => {
             "smoke_failed".to_string()
+        }
+        (false, Some(true)) if session.supervision_status.as_deref() == Some("launch_failed") => {
+            "launch_failed".to_string()
         }
         (false, Some(true)) => "configured".to_string(),
         (false, Some(false)) => "needs_attention".to_string(),

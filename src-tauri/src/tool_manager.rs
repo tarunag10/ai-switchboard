@@ -2458,6 +2458,30 @@ impl ToolManager {
         Ok(())
     }
 
+    /// Starts an app-owned read-only stdio instance for lifecycle supervision.
+    /// External agents continue to spawn the same descriptor independently;
+    /// this child never receives a broader environment or any write-capable
+    /// tool configuration.
+    pub fn spawn_repo_memory_mcp(&self) -> Result<Child> {
+        let script = repo_memory_script_path("repo-intelligence.mjs")?;
+        let node = resolve_command_path("node").unwrap_or_else(|| PathBuf::from("node"));
+        // The supervised child exists for lifecycle evidence, not as a second
+        // user-facing repository indexer. Keep its startup scan bounded to the
+        // bundled script directory; agents still launch their descriptor in
+        // their chosen repository.
+        let cwd = script.parent().unwrap_or_else(|| Path::new("."));
+        Command::new(node)
+            .arg(&script)
+            .arg("--mcp-serve")
+            .current_dir(cwd)
+            .env("MAC_AI_SWITCHBOARD_REPO_MEMORY_READ_ONLY", "1")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .context("starting app-owned repo-memory MCP stdio child")
+    }
+
     pub fn repo_memory_mcp_configured(&self) -> Option<bool> {
         if !self.runtime.tools_dir.join("repo-memory.json").exists() {
             return Some(false);

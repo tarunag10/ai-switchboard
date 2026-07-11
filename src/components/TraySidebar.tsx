@@ -2,6 +2,7 @@ import {
   Bell,
   Brain,
   Calculator,
+  Eye,
   FirstAidKit,
   GearSix,
   Graph,
@@ -23,6 +24,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: "home", label: "Home", icon: House },
   { id: "usage", label: "Usage", icon: Calculator },
+  { id: "xray", label: "Token X-Ray", icon: Eye },
+  { id: "briefing", label: "Daily Briefing", icon: Graph },
+  { id: "agentMemory", label: "Agent Memory", icon: Brain },
   { id: "doctor", label: "Doctor", icon: FirstAidKit },
   { id: "optimization", label: "Optimize", icon: Sliders },
   { id: "notifications", label: "Activity", icon: Bell },

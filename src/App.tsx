@@ -252,6 +252,9 @@ import { SettingsUninstallCard } from "./components/SettingsUninstallCard";
 import { TermsGate } from "./components/TermsGate";
 import { UpgradeView } from "./components/UpgradeView";
 import { UsageSavingsView } from "./components/UsageSavingsView";
+import { TokenXrayView } from "./components/TokenXrayView";
+import { DailyUsageBriefingView } from "./components/DailyUsageBriefingView";
+import { AgentMemoryInspector } from "./components/AgentMemoryInspector";
 import type {
   AppUpdateConfiguration,
   AvailableAppUpdate,
@@ -4817,6 +4820,15 @@ export default function App() {
           historyLoadTimedOut={historyLoadTimedOut}
           chartResetSignal={chartResetSignal}
         />
+
+        <TokenXrayView hidden={activeView !== "xray"} />
+
+        <DailyUsageBriefingView
+          hidden={activeView !== "briefing"}
+          onNavigate={(view) => setActiveView(view as TrayView)}
+        />
+
+        <AgentMemoryInspector hidden={activeView !== "agentMemory"} />
 
         <DoctorView
           hidden={activeView !== "doctor"}

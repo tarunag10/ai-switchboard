@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useId } from "react";
 import type { OutputReduction } from "../lib/types";
 import { percent1, compactNumber } from "../lib/dashboardHelpers";
 
 export function OutputReductionChip({ reduction }: { reduction: OutputReduction }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const detailsId = useId();
   const isMeasured = reduction.method === "measured";
 
   useEffect(() => {
@@ -29,6 +30,7 @@ export function OutputReductionChip({ reduction }: { reduction: OutputReduction 
       <button
         type="button"
         className={`output-chip__button${open ? " is-open" : ""}`}
+        aria-controls={detailsId}
         aria-expanded={open}
         aria-label="Output token reduction details"
         onClick={(e) => {
@@ -43,6 +45,7 @@ export function OutputReductionChip({ reduction }: { reduction: OutputReduction 
       {open ? (
         <div
           className="output-chip__popover"
+          id={detailsId}
           role="dialog"
           aria-label="Output reduction details"
           onClick={(e) => e.stopPropagation()}

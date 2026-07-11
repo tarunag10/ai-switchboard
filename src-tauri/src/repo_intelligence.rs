@@ -7,6 +7,7 @@ use std::time::UNIX_EPOCH;
 
 use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
 
 use crate::models::{
     RepoAgentConfigReadiness, RepoAgentConfigReadinessDossier, RepoAgentConfigReadinessGate,
@@ -443,8 +444,26 @@ fn build_agent_config_readiness(agent_id: &str) -> Option<RepoAgentConfigReadine
 pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary> {
     let repo_root = normalize_repo_root(path.as_ref())?;
     let previous_summary = load_latest_summary().ok().flatten();
+    let cached_metadata = load_index_metadata_cache()
+        .ok()
+        .and_then(|cache| cache.entry_for(&repo_root).cloned());
     let mut files = Vec::new();
     walk_repo(&repo_root, &repo_root, &mut files)?;
+
+    let previous_for_repo = previous_summary
+        .as_ref()
+        .filter(|summary| summary.repo_root == repo_root.to_string_lossy())
+        .and_then(|summary| summary.index_metadata.as_ref())
+        .or_else(|| cached_metadata.as_ref().map(|entry| &entry.metadata));
+    let previous_indexed_at = previous_summary
+        .as_ref()
+        .filter(|summary| summary.repo_root == repo_root.to_string_lossy())
+        .map(|summary| summary.indexed_at.clone())
+        .or_else(|| {
+            cached_metadata
+                .as_ref()
+                .map(|entry| entry.indexed_at.clone())
+        });
 
     let total_files = files.len() as u64;
     let signals: Vec<RepoFileSignal> = files
@@ -467,9 +486,34 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
             .or_insert(0) += 1;
     }
 
+    let mut index_metadata = build_index_metadata_from_previous(
+        &repo_root,
+        &files,
+        &signals,
+        previous_for_repo,
+        previous_indexed_at,
+    );
+
+    // An exact metadata match means no file parser needs to run again. Reuse
+    // only the same repository's saved result; a metadata record by itself is
+    // deliberately insufficient because it contains no source-derived graph.
+    if index_metadata.cache_state == "unchanged" {
+        if let Some(previous) = previous_summary
+            .as_ref()
+            .filter(|summary| can_reuse_saved_summary(summary, &repo_root, &index_metadata))
+        {
+            let mut reused = previous.clone();
+            index_metadata.index_mode = "cache_reuse".to_string();
+            index_metadata.reused_file_count = index_metadata.indexed_file_count;
+            index_metadata.changed_file_count = 0;
+            index_metadata.removed_file_count = 0;
+            reused.indexed_at = Utc::now().to_rfc3339();
+            reused.index_metadata = Some(index_metadata);
+            return Ok(reused);
+        }
+    }
+
     let graph = build_repo_graph_summary(&repo_root, &indexed);
-    let index_metadata =
-        build_index_metadata(&repo_root, &files, &signals, previous_summary.as_ref());
     let packs = vec![
         build_context_pack(
             "implementation",
@@ -558,6 +602,18 @@ pub fn summarize_repo(path: impl AsRef<Path>) -> Result<RepoIntelligenceSummary>
     })
 }
 
+fn can_reuse_saved_summary(
+    summary: &RepoIntelligenceSummary,
+    repo_root: &Path,
+    metadata: &RepoIndexMetadata,
+) -> bool {
+    summary.repo_root == repo_root.to_string_lossy()
+        && summary
+            .index_metadata
+            .as_ref()
+            .is_some_and(|saved| saved.cache_key == metadata.cache_key)
+}
+
 pub fn save_latest_summary(summary: &RepoIntelligenceSummary) -> Result<()> {
     let app_dir = app_data_dir();
     ensure_data_dirs(&app_dir)?;
@@ -565,6 +621,15 @@ pub fn save_latest_summary(summary: &RepoIntelligenceSummary) -> Result<()> {
     let json = serde_json::to_vec_pretty(summary)?;
     std::fs::write(&path, json)
         .with_context(|| format!("writing repo intelligence summary {}", path.display()))?;
+    if let Some(metadata) = summary.index_metadata.clone() {
+        let mut cache = load_index_metadata_cache().unwrap_or_default();
+        cache.upsert(StoredIndexMetadata {
+            repo_root: summary.repo_root.clone(),
+            indexed_at: summary.indexed_at.clone(),
+            metadata,
+        });
+        save_index_metadata_cache(&cache)?;
+    }
     Ok(())
 }
 
@@ -629,13 +694,29 @@ pub fn build_index_freshness_response(
             metadata
                 .previous_indexed_at
                 .as_ref()
-                .map(|previous| format!("Same cache key as {previous}."))
-                .unwrap_or_else(|| "Same cache key as the previous saved index.".to_string()),
+                .map(|previous| {
+                    format!(
+                        "Reused {} indexed files; same cache key as {previous}.",
+                        metadata.reused_file_count
+                    )
+                })
+                .unwrap_or_else(|| {
+                    format!(
+                        "Reused {} indexed files from the previous saved index.",
+                        metadata.reused_file_count
+                    )
+                }),
         ),
         Some(metadata) if metadata.cache_state == "changed" => (
             RepoIndexFreshnessStatus::ChangedCache,
             "Changed local index".to_string(),
-            "Repo metadata changed since the previous saved index.".to_string(),
+            format!(
+                "{} files reused, {} changed, {} removed; mode: {}.",
+                metadata.reused_file_count,
+                metadata.changed_file_count,
+                metadata.removed_file_count,
+                metadata.index_mode
+            ),
         ),
         Some(metadata) => (
             RepoIndexFreshnessStatus::Fresh,
@@ -1030,6 +1111,73 @@ pub fn latest_summary_path() -> PathBuf {
     config_file(&app_data_dir(), "repo-intelligence-latest.json")
 }
 
+fn index_metadata_cache_path() -> PathBuf {
+    config_file(&app_data_dir(), "repo-intelligence-index-metadata.json")
+}
+
+/// This cache contains only paths, sizes, modification times, fingerprints,
+/// parser/index versions, and index counters. It intentionally stores no file
+/// bodies or excerpts, so it is safe to retain outside the repository.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct IndexMetadataCache {
+    #[serde(default)]
+    entries: Vec<StoredIndexMetadata>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredIndexMetadata {
+    repo_root: String,
+    indexed_at: String,
+    metadata: RepoIndexMetadata,
+}
+
+impl IndexMetadataCache {
+    fn entry_for(&self, repo_root: &Path) -> Option<&StoredIndexMetadata> {
+        let root = repo_root.to_string_lossy();
+        self.entries.iter().find(|entry| entry.repo_root == root)
+    }
+
+    fn upsert(&mut self, entry: StoredIndexMetadata) {
+        self.entries
+            .retain(|existing| existing.repo_root != entry.repo_root);
+        self.entries.push(entry);
+        // Bound local metadata growth without removing the current repo.
+        self.entries.sort_by(|a, b| b.indexed_at.cmp(&a.indexed_at));
+        self.entries.truncate(50);
+    }
+}
+
+fn load_index_metadata_cache() -> Result<IndexMetadataCache> {
+    let path = index_metadata_cache_path();
+    if !path.exists() {
+        return Ok(IndexMetadataCache::default());
+    }
+    let raw = std::fs::read(&path)
+        .with_context(|| format!("reading repo index metadata cache {}", path.display()))?;
+    serde_json::from_slice(&raw)
+        .with_context(|| format!("parsing repo index metadata cache {}", path.display()))
+}
+
+fn save_index_metadata_cache(cache: &IndexMetadataCache) -> Result<()> {
+    let path = index_metadata_cache_path();
+    let parent = path
+        .parent()
+        .context("repo index metadata cache has no parent")?;
+    std::fs::create_dir_all(parent).with_context(|| {
+        format!(
+            "creating repo index metadata directory {}",
+            parent.display()
+        )
+    })?;
+    let temporary = path.with_extension("json.tmp");
+    std::fs::write(&temporary, serde_json::to_vec_pretty(cache)?)
+        .with_context(|| format!("writing repo index metadata cache {}", temporary.display()))?;
+    std::fs::rename(&temporary, &path)
+        .with_context(|| format!("saving repo index metadata cache {}", path.display()))
+}
+
 fn normalize_repo_root(path: &Path) -> Result<PathBuf> {
     let expanded = expand_home(path);
     let canonical = expanded
@@ -1142,6 +1290,24 @@ fn build_index_metadata(
     signals: &[RepoFileSignal],
     previous_summary: Option<&RepoIntelligenceSummary>,
 ) -> RepoIndexMetadata {
+    let previous_summary =
+        previous_summary.filter(|summary| summary.repo_root == repo_root.to_string_lossy());
+    build_index_metadata_from_previous(
+        repo_root,
+        files,
+        signals,
+        previous_summary.and_then(|summary| summary.index_metadata.as_ref()),
+        previous_summary.map(|summary| summary.indexed_at.clone()),
+    )
+}
+
+fn build_index_metadata_from_previous(
+    repo_root: &Path,
+    files: &[RepoFile],
+    signals: &[RepoFileSignal],
+    previous_metadata: Option<&RepoIndexMetadata>,
+    previous_indexed_at: Option<String>,
+) -> RepoIndexMetadata {
     let include_by_path = signals
         .iter()
         .map(|signal| (signal.path.as_str(), signal.include_by_default))
@@ -1213,12 +1379,10 @@ fn build_index_metadata(
     graph_inputs.sort_by(|a, b| a.path.cmp(&b.path));
 
     let cache_key = build_cache_key(repo_root, &file_fingerprints, &graph_inputs);
-    let previous_metadata = previous_summary.and_then(|summary| {
-        if summary.repo_root == repo_root.to_string_lossy() {
-            summary.index_metadata.as_ref()
-        } else {
-            None
-        }
+    let schema_or_parser_mismatch = previous_metadata.is_some_and(|metadata| {
+        metadata.schema_version != INDEX_METADATA_SCHEMA_VERSION
+            || metadata.indexer_version != INDEXER_VERSION
+            || metadata.parser_version != PARSER_VERSION
     });
     let cache_state = previous_metadata
         .map(|metadata| {
@@ -1233,6 +1397,45 @@ fn build_index_metadata(
         })
         .unwrap_or("new")
         .to_string();
+    let previous_fingerprints = previous_metadata
+        .map(|metadata| {
+            metadata
+                .file_fingerprints
+                .iter()
+                .map(|entry| (entry.path.as_str(), entry.fingerprint.as_str()))
+                .collect::<BTreeMap<_, _>>()
+        })
+        .unwrap_or_default();
+    let current_paths = file_fingerprints
+        .iter()
+        .map(|entry| entry.path.as_str())
+        .collect::<BTreeSet<_>>();
+    let reused_file_count = file_fingerprints
+        .iter()
+        .filter(|entry| {
+            previous_fingerprints
+                .get(entry.path.as_str())
+                .is_some_and(|fingerprint| *fingerprint == entry.fingerprint)
+        })
+        .count() as u64;
+    let changed_file_count = file_fingerprints.len() as u64 - reused_file_count;
+    let removed_file_count = previous_fingerprints
+        .keys()
+        .filter(|path| !current_paths.contains(*path))
+        .count() as u64;
+    let (index_mode, rebuild_reason) = if schema_or_parser_mismatch {
+        (
+            "full_rebuild".to_string(),
+            Some("schema_or_parser_version_mismatch".to_string()),
+        )
+    } else if previous_metadata.is_some() {
+        ("incremental_reuse".to_string(), None)
+    } else {
+        (
+            "full_rebuild".to_string(),
+            Some("no_prior_metadata".to_string()),
+        )
+    };
 
     RepoIndexMetadata {
         schema_version: INDEX_METADATA_SCHEMA_VERSION,
@@ -1240,10 +1443,13 @@ fn build_index_metadata(
         parser_version: PARSER_VERSION.to_string(),
         cache_key,
         cache_state,
+        index_mode,
+        reused_file_count,
+        changed_file_count,
+        removed_file_count,
+        rebuild_reason,
         generated_at: Utc::now().to_rfc3339(),
-        previous_indexed_at: previous_summary
-            .filter(|summary| summary.repo_root == repo_root.to_string_lossy())
-            .map(|summary| summary.indexed_at.clone()),
+        previous_indexed_at,
         file_count: files.len() as u64,
         indexed_file_count: signals
             .iter()
@@ -3536,6 +3742,9 @@ export const mapValues = <T>(items: T[]) => items;
 
         let unchanged = build_index_metadata(root.path(), &files, &signals, Some(&previous));
         assert_eq!(unchanged.cache_state, "unchanged");
+        assert_eq!(unchanged.index_mode, "incremental_reuse");
+        assert_eq!(unchanged.reused_file_count, 2);
+        assert_eq!(unchanged.changed_file_count, 0);
         assert_eq!(
             unchanged.previous_indexed_at.as_deref(),
             Some("2026-06-27T12:00:00Z")
@@ -3546,6 +3755,74 @@ export const mapValues = <T>(items: T[]) => items;
         changed_files[0].fingerprint = "app-changed".to_string();
         let changed = build_index_metadata(root.path(), &changed_files, &signals, Some(&previous));
         assert_eq!(changed.cache_state, "changed");
+        assert_eq!(changed.reused_file_count, 1);
+        assert_eq!(changed.changed_file_count, 1);
+    }
+
+    #[test]
+    fn parser_mismatch_forces_safe_full_rebuild_metadata() {
+        let root = tempfile::tempdir().expect("create repo");
+        let files = vec![RepoFile {
+            relative_path: "src/App.tsx".to_string(),
+            bytes: 10,
+            modified_unix_ms: 1,
+            fingerprint: "app".to_string(),
+        }];
+        let signals = files
+            .iter()
+            .map(|file| classify_file(&file.relative_path, file.bytes))
+            .collect::<Vec<_>>();
+        let mut previous_metadata = build_index_metadata(root.path(), &files, &signals, None);
+        previous_metadata.parser_version = "obsolete-parser".to_string();
+
+        let rebuilt = build_index_metadata_from_previous(
+            root.path(),
+            &files,
+            &signals,
+            Some(&previous_metadata),
+            Some("2026-06-27T12:00:00Z".to_string()),
+        );
+
+        assert_eq!(rebuilt.index_mode, "full_rebuild");
+        assert_eq!(
+            rebuilt.rebuild_reason.as_deref(),
+            Some("schema_or_parser_version_mismatch")
+        );
+        assert_eq!(rebuilt.cache_state, "changed");
+    }
+
+    #[test]
+    fn saved_summary_reuse_requires_matching_root_and_cache_key() {
+        let root = tempfile::tempdir().expect("create repo");
+        let files = vec![RepoFile {
+            relative_path: "src/App.tsx".to_string(),
+            bytes: 10,
+            modified_unix_ms: 1,
+            fingerprint: "app".to_string(),
+        }];
+        let signals = files
+            .iter()
+            .map(|file| classify_file(&file.relative_path, file.bytes))
+            .collect::<Vec<_>>();
+        let metadata = build_index_metadata(root.path(), &files, &signals, None);
+        let summary = RepoIntelligenceSummary {
+            indexed_at: "2026-06-27T12:00:00Z".to_string(),
+            repo_root: root.path().to_string_lossy().to_string(),
+            indexer_version: Some(INDEXER_VERSION.to_string()),
+            total_files: 1,
+            indexed_files: 1,
+            skipped_files: 0,
+            estimated_full_scan_tokens: 3,
+            role_counts: BTreeMap::new(),
+            index_metadata: Some(metadata.clone()),
+            graph: None,
+            packs: Vec::new(),
+        };
+
+        assert!(can_reuse_saved_summary(&summary, root.path(), &metadata));
+        let mut changed = metadata.clone();
+        changed.cache_key = "different".to_string();
+        assert!(!can_reuse_saved_summary(&summary, root.path(), &changed));
     }
 
     #[test]
@@ -4085,6 +4362,11 @@ export const mapValues = <T>(items: T[]) => items;
                 parser_version: PARSER_VERSION.to_string(),
                 cache_key: "abc".to_string(),
                 cache_state: "unchanged".to_string(),
+                index_mode: "cache_reuse".to_string(),
+                reused_file_count: 1,
+                changed_file_count: 0,
+                removed_file_count: 0,
+                rebuild_reason: None,
                 generated_at: "2026-06-27T10:00:00Z".to_string(),
                 previous_indexed_at: Some("2026-06-27T09:00:00Z".to_string()),
                 file_count: 1,

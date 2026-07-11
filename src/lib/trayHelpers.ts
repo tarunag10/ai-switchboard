@@ -10,6 +10,9 @@ import type {
 export type TrayView =
   | "home"
   | "usage"
+  | "xray"
+  | "briefing"
+  | "agentMemory"
   | "doctor"
   | "optimization"
   | "health"
