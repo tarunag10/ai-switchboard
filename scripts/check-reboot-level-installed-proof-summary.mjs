@@ -22,7 +22,7 @@ const proof = JSON.parse(fs.readFileSync(proofPath, "utf8"));
 const markdown = fs.readFileSync(markdownPath, "utf8");
 
 if (proof.schemaVersion !== 1) {
-  fail("schemaVersion must be 1");
+  fail("summary schemaVersion must be 1");
 }
 if (proof.kind !== "mac_ai_switchboard.reboot_level_installed_proof") {
   fail("unexpected proof kind");
@@ -48,6 +48,18 @@ if (!proof.rebootMarker?.path) {
 if (proof.proofReady && proof.rebootMarker.matchesCurrentBoot !== true) {
   fail("ready proof requires a marker for the current boot");
 }
+if (proof.proofReady && proof.rebootMarker.installedAppTrustVerified !== true) {
+  fail("ready proof requires the marker's installed-app trust verification");
+}
+if (proof.proofReady && !proof.rebootMarker.armPath) {
+  fail("ready proof requires a recorded pre-reboot arm path");
+}
+if (
+  proof.proofReady &&
+  proof.rebootMarker.armedBootTimeUnixSeconds === proof.rebootMarker.recordedBootTimeUnixSeconds
+) {
+  fail("ready proof requires different armed and recorded boot sessions");
+}
 if (!Array.isArray(proof.supportingArtifacts)) {
   fail("supportingArtifacts must be an array");
 }
@@ -67,6 +79,7 @@ for (const phrase of [
   "Destructive actions: no",
   "Post-reboot marker:",
   "Reboot Marker Requirement",
+  "evidence-gated marker",
 ]) {
   if (!markdown.includes(phrase)) {
     fail(`${markdownPath} must include ${phrase}`);

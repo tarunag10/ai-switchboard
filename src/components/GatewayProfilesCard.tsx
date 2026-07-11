@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import {
   emptyGatewayProfileLocalState,
   gatewayDoctorSummary,
@@ -9,6 +10,8 @@ import {
   parseGatewayProfileLocalState,
   type GatewayProfile,
   type GatewayProfileLocalState,
+  type GatewayReadinessReport,
+  gatewayReadinessSummary,
 } from "../lib/gatewayProfiles";
 
 export function GatewayProfilesCard({
@@ -65,6 +68,9 @@ function GatewayProfileRow({
   setLocalState: React.Dispatch<React.SetStateAction<GatewayProfileLocalState>>;
 }) {
   const [open, setOpen] = useState(false);
+  const [readiness, setReadiness] = useState<GatewayReadinessReport | null>(null);
+  const [readinessError, setReadinessError] = useState<string | null>(null);
+  const [checkingReadiness, setCheckingReadiness] = useState(false);
   const detailsId = useId();
   const status = gatewayProfileStatus(profile);
   const lifecycle = localState.profiles[profile.id] ?? "disabled";
@@ -90,6 +96,22 @@ function GatewayProfileRow({
       receipts: [receipt("evidence-reviewed", `Local evidence review updated for ${label}; no live check was run.`), ...current.receipts].slice(0, 30),
     };
   });
+  const checkReadiness = async (runLocalConnectivity = false) => {
+    setCheckingReadiness(true);
+    setReadinessError(null);
+    try {
+      const report = await invoke<GatewayReadinessReport>("get_gateway_readiness", {
+        profileId: profile.id,
+        runLocalConnectivity,
+      });
+      setReadiness(report);
+    } catch (error) {
+      setReadiness(null);
+      setReadinessError(error instanceof Error ? error.message : "Readiness check could not run.");
+    } finally {
+      setCheckingReadiness(false);
+    }
+  };
 
   return (
     <section className="gateway-profile">
@@ -159,6 +181,28 @@ function GatewayProfileRow({
         <p><strong>Savings evidence:</strong> {profile.savingsEvidence}.</p>
         <p><strong>Local lifecycle:</strong> {lifecycle}. This is a local Switchboard receipt only; it never proves a service is running.</p>
         <p><strong>Doctor evidence:</strong> {gatewayDoctorSummary(profile, localState)}</p>
+        <section className="gateway-profile__readiness" aria-label={`${profile.name} credential-safe readiness`}>
+          <h4>Credential-safe readiness</h4>
+          <p>Checks only whether documented environment variables are present; values are never displayed, stored, or sent. It never proves this profile is live.</p>
+          <button type="button" className="addon-card__action" disabled={checkingReadiness} onClick={() => void checkReadiness()}>
+            {checkingReadiness ? "Checking local readiness…" : "Check redacted readiness"}
+          </button>
+          {profile.id === "litellm-local-cache" && (
+            <button type="button" className="addon-card__action" disabled={checkingReadiness} onClick={() => void checkReadiness(true)}>
+              Run opt-in local proxy preflight
+            </button>
+          )}
+          {readinessError && <p role="alert">{readinessError}</p>}
+          {readiness && <div>
+            <p><strong>Readiness:</strong> {gatewayReadinessSummary(readiness)}</p>
+            <p><strong>Live status:</strong> Not verified. {readiness.guidance}</p>
+            <ul>
+              {[...readiness.configuration, ...readiness.credentials].map((item) => (
+                <li key={item.environmentVariable}>{item.label} ({item.environmentVariable}): {item.present ? "present" : "not detected"}</li>
+              ))}
+            </ul>
+          </div>}
+        </section>
         <ul className="gateway-profile__checks">
           {profile.doctorChecks.map((check) => (
             <li key={check.label}>

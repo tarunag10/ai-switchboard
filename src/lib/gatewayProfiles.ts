@@ -40,6 +40,17 @@ export interface GatewayProfile {
   setupGuidance: string;
 }
 
+/** A redacted, non-persistent readiness report returned by the desktop app. */
+export interface GatewayReadinessReport {
+  profileId: GatewayProfileId;
+  configuration: Array<{ label: string; environmentVariable: string; present: boolean }>;
+  credentials: Array<{ label: string; environmentVariable: string; present: boolean }>;
+  connectivity: { attempted: boolean; status: string; detail: string };
+  /** Always false: a local preflight cannot prove a profile is live. */
+  live: false;
+  guidance: string;
+}
+
 export interface GatewayProfileStatus {
   profileId: GatewayProfileId;
   label: "Guided setup" | "Gated";
@@ -102,6 +113,12 @@ export function gatewayProfileConfigPreview(profile: GatewayProfile): string {
 export function gatewayDoctorSummary(profile: GatewayProfile, state: GatewayProfileLocalState): string {
   const reviewed = state.reviewedChecks[profile.id]?.length ?? 0;
   return `${reviewed}/${profile.doctorChecks.length} evidence items reviewed locally; no endpoint, credential, or live health check was run.`;
+}
+
+export function gatewayReadinessSummary(report: GatewayReadinessReport): string {
+  const configurationPresent = report.configuration.filter((item) => item.present).length;
+  const credentialsPresent = report.credentials.filter((item) => item.present).length;
+  return `${configurationPresent}/${report.configuration.length} configuration and ${credentialsPresent}/${report.credentials.length} credential variables present (values redacted). ${report.connectivity.detail}`;
 }
 
 export const gatewayProfiles: readonly GatewayProfile[] = [

@@ -159,10 +159,13 @@ const staplerValidate = appPresent
   : null;
 const artifacts = supportingArtifacts.map(inspectArtifact);
 const markerMatchesCurrentBoot =
+  marker?.schemaVersion === 2 &&
   marker?.kind === "mac_ai_switchboard.reboot_level_installed_marker" &&
   marker?.appPath === appPath &&
-  marker?.currentBootTimeUnixSeconds === bootTime.unixSeconds &&
-  marker?.recordedAfterManualReboot === true;
+  marker?.recordedBootSession?.bootTimeUnixSeconds === bootTime.unixSeconds &&
+  marker?.armedBootSession?.bootTimeUnixSeconds !== bootTime.unixSeconds &&
+  marker?.recordedAfterManualReboot === true &&
+  marker?.appTrust?.verified === true;
 const trustReady =
   appPresent &&
   metadataPresent &&
@@ -237,6 +240,10 @@ const payload = {
     currentBootTimeUnixSeconds: bootTime.unixSeconds,
     bootTimeCommand: bootTime.command,
     markerGeneratedAt: marker?.generatedAt ?? null,
+    armPath: marker?.armPath ?? null,
+    armedBootTimeUnixSeconds: marker?.armedBootSession?.bootTimeUnixSeconds ?? null,
+    recordedBootTimeUnixSeconds: marker?.recordedBootSession?.bootTimeUnixSeconds ?? null,
+    installedAppTrustVerified: marker?.appTrust?.verified === true,
   },
   supportingArtifacts: artifacts.map(({ check, checkJson, ...artifact }) => artifact),
   note:
@@ -270,7 +277,7 @@ ${artifacts
 
 ## Reboot Marker Requirement
 
-The proof is intentionally blocked until a marker with kind \`mac_ai_switchboard.reboot_level_installed_marker\`, app path \`${appPath}\`, current boot time \`${bootTime.unixSeconds ?? "unknown"}\`, and \`recordedAfterManualReboot: true\` exists at \`${markerPath}\`.
+The proof is intentionally blocked until an evidence-gated marker exists at \`${markerPath}\`. Create its pre-reboot baseline with \`npm run smoke:reboot-level:arm\`, reboot macOS, then run \`npm run smoke:reboot-level:record\`. The recorder writes nothing unless the boot-session identity changed and the installed app passes codesign, Gatekeeper, and notarization stapler validation. Set \`MAC_AI_SWITCHBOARD_PUBLIC_ARTIFACT_PATH\` when a public DMG is available to record its verified checksum too.
 
 This summary does not reboot the machine, uninstall the app, or mutate user files. It only records the current evidence state.
 `;

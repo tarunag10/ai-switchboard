@@ -85,6 +85,7 @@ Do not share a public DMG until all gates are true:
 6. The DMG is installed as the current compatibility bundle at `/Applications/Mac AI Switchboard.app`, with `Contents/Info.plist` present inside the app bundle.
 7. `docs/beta-smoke-test.md` is run against the installed app.
 8. `npm run smoke:installed -- --confirm` records `dist/installed-smoke-summary.md`, including Switchboard modes, degraded-mode Doctor guidance, managed connector automation gates, manual workflow, config creation plan, Repo Intelligence recipes, Savings calculator copyable summary, per-tool agent handoffs, and Codex compression recovery.
+9. Record reboot-level proof without fabricating it: run `npm run smoke:reboot-level:arm`, reboot the Mac, then run `npm run smoke:reboot-level:record`. The record command refuses to create a marker unless the macOS boot session changed and the app installed in `/Applications` passes codesign, Gatekeeper, and notarization-stapler validation. If the release DMG is still available locally, set `MAC_AI_SWITCHBOARD_PUBLIC_ARTIFACT_PATH=/absolute/path/to/release.dmg` for the record command to verify and checksum it. Finally run `npm run smoke:reboot-level:local` and `npm run smoke:reboot-level:local:check`.
 
 ## First-Run Footprint
 

@@ -5,6 +5,7 @@ import {
   gatewayProfileConfigPreview,
   gatewayProfileStatus,
   gatewayProfiles,
+  gatewayReadinessSummary,
   parseGatewayProfileLocalState,
 } from "./gatewayProfiles";
 
@@ -19,6 +20,17 @@ describe("gatewayProfiles", () => {
       expect(profile.rollbackGuidance).not.toHaveLength(0);
       expect(profile.offModeGuidance).not.toHaveLength(0);
     }
+  });
+
+  it("renders redacted readiness without promoting local evidence to live status", () => {
+    expect(gatewayReadinessSummary({
+      profileId: "litellm-local-cache",
+      configuration: [{ label: "URL", environmentVariable: "LITELLM_BASE_URL", present: true }],
+      credentials: [{ label: "Key", environmentVariable: "LITELLM_API_KEY", present: false }],
+      connectivity: { attempted: false, status: "not-run", detail: "No connectivity preflight was run." },
+      live: false,
+      guidance: "Advisory only.",
+    })).toContain("values redacted");
   });
 
   it("keeps remote routing profiles explicitly disclosed and non-managed", () => {

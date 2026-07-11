@@ -34,6 +34,7 @@ mod dedicated_cleanup_rollback;
 mod device;
 mod doctor;
 mod external_open;
+mod gateway_readiness;
 mod headroom_learn;
 mod insights;
 mod keychain;
@@ -705,6 +706,7 @@ pub fn run() {
             analytics_commands::list_daily_usage_briefings,
             analytics_commands::preview_clear_usage_analytics,
             analytics_commands::clear_usage_analytics,
+            gateway_readiness::get_gateway_readiness,
             dashboard_commands::get_dashboard_state,
             dashboard_commands::get_savings_attribution_events,
             dashboard_commands::get_savings_attribution_counters,
