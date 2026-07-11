@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { gatewayProfileStatus, gatewayProfiles } from "./gatewayProfiles";
+import {
+  emptyGatewayProfileLocalState,
+  gatewayDoctorSummary,
+  gatewayProfileConfigPreview,
+  gatewayProfileStatus,
+  gatewayProfiles,
+  parseGatewayProfileLocalState,
+} from "./gatewayProfiles";
 
 describe("gatewayProfiles", () => {
   it("declares boundaries, disclosure, Doctor evidence, and cleanup for every profile", () => {
@@ -34,5 +41,13 @@ describe("gatewayProfiles", () => {
       label: "Gated",
       actionable: false,
     });
+  });
+
+  it("creates content-free preview and local Doctor evidence state", () => {
+    const profile = gatewayProfiles[2];
+    expect(gatewayProfileConfigPreview(profile)).toContain("not applied");
+    expect(gatewayProfileConfigPreview(profile)).toContain("<set-outside-switchboard>");
+    expect(gatewayDoctorSummary(profile, emptyGatewayProfileLocalState())).toContain("no endpoint");
+    expect(parseGatewayProfileLocalState("not-json")).toEqual(emptyGatewayProfileLocalState());
   });
 });

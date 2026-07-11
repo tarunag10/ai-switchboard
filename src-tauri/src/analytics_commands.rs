@@ -4,7 +4,7 @@ use crate::analytics_models::{DailyUsageBriefingV1, TokenXrayLiveUpdateV1, Token
 use crate::analytics_store::UsageAnalyticsClearPreviewV1;
 use crate::daily_briefing::{self, DailyUsageBriefingExportV1};
 use crate::models::{DashboardState, SavingsAttributionEvent};
-use crate::optimization::CacheTokenMetrics;
+use crate::optimization::cache_metrics::CacheTokenMetricsEvidence;
 use crate::state::AppState;
 use crate::token_xray;
 
@@ -17,7 +17,9 @@ pub async fn get_token_xray_snapshot(app: AppHandle) -> Result<TokenXraySnapshot
         xray_snapshot(
             &state.dashboard(),
             state.savings_attribution_events(),
-            crate::optimization::telemetry_store::prompt_cache_totals_result().ok(),
+            crate::optimization::telemetry_store::prompt_cache_totals_evidence_result()
+                .ok()
+                .flatten(),
         )
     })
     .await
@@ -45,7 +47,7 @@ pub async fn get_token_xray_live_update(
 fn xray_snapshot(
     dashboard: &DashboardState,
     attribution: Vec<SavingsAttributionEvent>,
-    cache_metrics: Option<CacheTokenMetrics>,
+    cache_metrics: Option<CacheTokenMetricsEvidence>,
 ) -> TokenXraySnapshotV1 {
     token_xray::build_snapshot_with_cache_metrics(dashboard, attribution, cache_metrics)
 }

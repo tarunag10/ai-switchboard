@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -14,6 +15,15 @@ pub(crate) struct CacheTokenMetrics {
     pub(crate) completion_tokens: u64,
     pub(crate) cache_creation_tokens: u64,
     pub(crate) cache_read_tokens: u64,
+}
+
+/// Aggregate cache counters accompanied by the time of the newest locally
+/// recorded provider response. Keeping this separate from `CacheTokenMetrics`
+/// prevents consumers from mistaking an aggregate for a current request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct CacheTokenMetricsEvidence {
+    pub(crate) metrics: CacheTokenMetrics,
+    pub(crate) observed_at: DateTime<Utc>,
 }
 
 impl CacheTokenMetrics {

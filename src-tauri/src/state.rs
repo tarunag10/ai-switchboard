@@ -1594,7 +1594,9 @@ impl AppState {
         let snapshot = crate::token_xray::build_snapshot_with_cache_metrics(
             &self.dashboard(),
             self.savings_attribution_events(),
-            crate::optimization::telemetry_store::prompt_cache_totals_result().ok(),
+            crate::optimization::telemetry_store::prompt_cache_totals_evidence_result()
+                .ok()
+                .flatten(),
         );
         self.token_xray_update_coalescer
             .lock()
@@ -1718,8 +1720,26 @@ impl AppState {
         request_delta: usize,
         detail: impl Into<String>,
     ) -> Result<()> {
+        if !matches!(
+            source,
+            SavingsAttributionSource::Caveman
+                | SavingsAttributionSource::Ponytail
+                | SavingsAttributionSource::Markitdown
+        ) {
+            return Err(anyhow!(
+                "measured add-on attribution only supports Caveman, Ponytail, and MarkItDown"
+            ));
+        }
         if baseline_tokens <= optimized_tokens || request_delta == 0 {
-            return Ok(());
+            return Err(anyhow!(
+                "measured attribution requires a positive before/after token delta and request count"
+            ));
+        }
+        let detail = detail.into();
+        if detail.trim().is_empty() {
+            return Err(anyhow!(
+                "measured attribution requires explicit baseline and optimized evidence"
+            ));
         }
 
         let delta_tokens = baseline_tokens.saturating_sub(optimized_tokens);
@@ -1736,7 +1756,7 @@ impl AppState {
             request_delta,
             evidence: vec![format!(
                 "{label} measured {delta_tokens} saved tokens from {baseline_tokens} before to {optimized_tokens} after. {}",
-                detail.into()
+                detail.trim()
             )],
         };
 

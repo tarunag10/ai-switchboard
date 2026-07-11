@@ -202,19 +202,19 @@ pub(crate) const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         id: "grok_cli",
         name: "Grok / xAI CLI",
         category: "cli",
-        setup_phase: "detect",
-        setup_hint: "Detection only. Stable Grok / xAI CLI provider behavior must be confirmed before routing.",
+        setup_phase: "managed",
+        setup_hint: "Managed Switchboard-owned sidecar setup with dry-run, exact confirmation, Doctor verification, rollback, and Off mode cleanup; xAI provider, model, and account config remain manual.",
         detection_sources: &["PATH: grok", "PATH: xai", "~/.config/xai"],
         config_locations: &["~/.config/xai"],
         automation_gates: &[
-            "Detect stable xAI CLI surface.",
-            "Add Doctor guardrails for unsupported model/account combinations.",
-            "Keep API key account state outside managed app storage.",
+            "Detect stable xAI CLI surface without reading API keys, account state, or model configuration.",
+            "Write only the Switchboard-owned Grok / xAI routing-intent sidecar after exact state-bound confirmation.",
+            "Verify Doctor repair, rollback, and Off mode cleanup leave xAI provider, model, and account state untouched.",
         ],
         manual_workflow: &[
             "Confirm whether grok or xai exists locally.",
-            "Use RTK-only mode for command output savings.",
-            "Keep model selection manual until compatibility checks are explicit.",
+            "Toggle the connector on from Settings to create the Switchboard-owned sidecar.",
+            "Keep provider and model selection manual until a documented xAI config adapter is proven.",
         ],
     },
     PlannedClientSpec {
@@ -260,21 +260,21 @@ pub(crate) const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         name: "Goose",
         category: "agent",
         setup_phase: "managed mcp",
-        setup_hint: "Managed MCP bridge only. Repo Memory MCP handoff is read-only; native provider routing remains manual until fixture-home apply/verify/rollback/Doctor/Off coverage and provider semantics are safe.",
+        setup_hint: "Managed Switchboard-owned Goose routing-intent sidecar and read-only Repo Memory MCP bridge with dry-run, exact confirmation, Doctor verification, rollback, and Off mode cleanup; native provider routing remains manual.",
         detection_sources: &["PATH: goose", "~/.config/goose"],
         config_locations: &[
             "~/Library/Application Support/Headroom/config/repo-memory-mcp.json",
             "~/.config/goose",
         ],
         automation_gates: &[
-            "Install only the app-managed Repo Memory MCP descriptor after Goose detection.",
-            "Verify the read-only MCP smoke contract before advertising Goose handoff readiness.",
-            "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata; native provider routing stays manual and unmodified.",
+            "Install only the app-managed Repo Memory MCP descriptor and Switchboard-owned Goose sidecar after exact state-bound confirmation.",
+            "Verify the read-only MCP smoke contract and sidecar marker before advertising Goose handoff readiness.",
+            "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata and sidecar; native provider routing stays manual and unmodified.",
         ],
         manual_workflow: &[
             "Confirm Goose is installed.",
-            "Prepare Repo Memory MCP from Mode Inspector for managed context handoff.",
-            "Keep Goose provider and model routing manual until native provider surfaces are proven.",
+            "Toggle the connector on from Settings to prepare the Switchboard-owned sidecar and Repo Memory MCP context handoff.",
+            "Keep Goose provider and model routing manual until a documented provider config adapter is proven.",
         ],
     },
     PlannedClientSpec {
@@ -599,13 +599,14 @@ pub(crate) fn planned_connector_dry_run_preview(
 }
 
 pub(crate) fn planned_connector_has_implemented_setup(client_id: &str) -> bool {
-    planned_sidecar_spec(client_id).is_some()
-        && matches!(
-            connector_manifest(client_id)
-                .as_ref()
-                .map(|manifest| manifest.support_status.as_str()),
-            Some("managed")
-        )
+    matches!(normalized_connector_id(client_id), "goose" | "grok_cli")
+        || planned_sidecar_spec(client_id).is_some()
+            && matches!(
+                connector_manifest(client_id)
+                    .as_ref()
+                    .map(|manifest| manifest.support_status.as_str()),
+                Some("managed")
+            )
 }
 
 fn normalized_connector_id(client_id: &str) -> &str {

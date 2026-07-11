@@ -12,7 +12,7 @@ use crate::client_connectors::{
     planned_connector_dry_run_preview, planned_connector_has_implemented_setup,
     PLANNED_CLIENT_SPECS, PLANNED_CONFIG_CREATION_STEPS,
 };
-use crate::models::{ClientConnectorStatus, ClientStatus};
+use crate::models::{ClientConnectorStatus, ClientConnectorSupportStatus, ClientStatus};
 
 pub fn list_client_connectors(
     detected_clients: &[ClientStatus],
@@ -140,7 +140,11 @@ pub fn list_client_connectors(
             enabled,
             verified,
         );
-        let support_status = manifest_support_status(manifest.as_ref());
+        let support_status = if has_implemented_setup {
+            ClientConnectorSupportStatus::Managed
+        } else {
+            manifest_support_status(manifest.as_ref())
+        };
         let setup_phase = if has_implemented_setup {
             "managed"
         } else {

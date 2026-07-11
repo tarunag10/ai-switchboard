@@ -11,6 +11,7 @@ export type GatewayProfileCategory =
   | "enterprise gateway";
 
 export type GatewayProfileState = "guided" | "gated";
+export type GatewayLifecycleState = "disabled" | "enabled";
 export type GatewayTrafficBoundary = "local" | "remote";
 export type GatewaySavingsEvidence = "estimated" | "external" | "none";
 
@@ -44,6 +45,63 @@ export interface GatewayProfileStatus {
   label: "Guided setup" | "Gated";
   detail: string;
   actionable: boolean;
+}
+
+export interface GatewayProfileReceipt {
+  id: string;
+  profileId: GatewayProfileId;
+  action: "enabled" | "disabled" | "evidence-reviewed";
+  createdAt: string;
+  detail: string;
+}
+
+export interface GatewayProfileLocalState {
+  version: 1;
+  profiles: Partial<Record<GatewayProfileId, GatewayLifecycleState>>;
+  reviewedChecks: Partial<Record<GatewayProfileId, string[]>>;
+  receipts: GatewayProfileReceipt[];
+}
+
+export const gatewayProfileStorageKey = "ai-switchboard.gateway-profiles.v1";
+
+export function emptyGatewayProfileLocalState(): GatewayProfileLocalState {
+  return { version: 1, profiles: {}, reviewedChecks: {}, receipts: [] };
+}
+
+export function parseGatewayProfileLocalState(value: string | null): GatewayProfileLocalState {
+  if (!value) return emptyGatewayProfileLocalState();
+  try {
+    const parsed = JSON.parse(value) as Partial<GatewayProfileLocalState>;
+    if (parsed.version !== 1 || typeof parsed.profiles !== "object" || !parsed.profiles) {
+      return emptyGatewayProfileLocalState();
+    }
+    return {
+      version: 1,
+      profiles: parsed.profiles,
+      reviewedChecks: parsed.reviewedChecks && typeof parsed.reviewedChecks === "object" ? parsed.reviewedChecks : {},
+      receipts: Array.isArray(parsed.receipts) ? parsed.receipts.slice(0, 30) : [],
+    };
+  } catch {
+    return emptyGatewayProfileLocalState();
+  }
+}
+
+export function gatewayProfileConfigPreview(profile: GatewayProfile): string {
+  const label = profile.name.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+  return [
+    `# Switchboard preview only — not applied`,
+    `# ${profile.name}: ${profile.trafficBoundary} boundary`,
+    `# Keep actual URLs and secrets in your secure environment.`,
+    `${label}_ENABLED=1`,
+    profile.canModifyProviderRouting ? `${label}_BASE_URL=<set-outside-switchboard>` : `# No provider routing is changed by this profile.`,
+    profile.needsSecrets ? `${label}_API_KEY=<set-outside-switchboard>` : "# No profile secret is required by Switchboard.",
+    "# Rollback: set ENABLED=0 and remove these manual variables.",
+  ].join("\n");
+}
+
+export function gatewayDoctorSummary(profile: GatewayProfile, state: GatewayProfileLocalState): string {
+  const reviewed = state.reviewedChecks[profile.id]?.length ?? 0;
+  return `${reviewed}/${profile.doctorChecks.length} evidence items reviewed locally; no endpoint, credential, or live health check was run.`;
 }
 
 export const gatewayProfiles: readonly GatewayProfile[] = [

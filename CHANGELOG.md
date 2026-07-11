@@ -6,8 +6,33 @@
 
 - Added end-to-end local-first Token X-Ray and Daily Briefing capabilities: versioned read-model contracts, confidence-labelled X-Ray metrics/timeline/anomalies, deterministic recommendations, daily history, secret-free exports, and scoped analytics deletion controls.
 - Added durable content-free daily briefing snapshots with 365-day retention, malformed-file tolerance, and a clear preview that never deletes the savings ledger.
-- Validated the release baseline with frontend/desktop tests, production build, formatting, and diff hygiene. The aggregate local-only guard retains an unrelated existing support-links failure.
+- Added known-model context-window pressure, provider-cache aggregation, bounded revisioned live updates, and redacted fixture coverage while retaining explicit unavailable states where evidence is not credible.
+- Added timestamped cache telemetry evidence so empty cache telemetry remains unavailable rather than appearing as a fabricated zero, and expanded safe context-limit coverage for supported OpenAI, Claude, and Gemini variants.
+- Validated the release baseline with frontend/desktop tests, production build, formatting, diff hygiene, and local-only network certification.
 - Kept the analytics boundary content-free: no prompts, responses, source content, tool arguments, terminal output, credentials, or new analytics service are part of this feature.
+
+### Agent Memory and Repo Intelligence
+
+- Added Agent Memory discovery for local Codex/Claude instruction sources, Repo Intelligence packs, and Repo Memory metadata, with structural previews, duplicate/cache estimates, secret blocking, and safe summaries that exclude source content and paths.
+- Added Agent Memory compaction preview, exact-confirmation apply, atomic SHA-verified backup receipts, drift/tamper-safe rollback, and strict refusal for secret-blocked, user-managed, global, or otherwise ineligible files.
+- Added content-free Agent Memory session manifests to Codex/Claude handoffs and records estimated attribution only from complete, clear before/after previews.
+- Added bounded, content-free incremental Repo Intelligence index metadata: unchanged repositories can reuse a saved summary, while parser/schema mismatches force a safe full rebuild.
+- Added deterministic graph-aware pack-ranking evidence for task terms, graph matches, and reverse-dependency hubs without writing into indexed repositories.
+- Upgraded Repo Memory MCP from smoke-only status to an app-owned, read-only supervised stdio lifecycle with child/restart/exit evidence, stale-health detection, and safe restart behavior.
+
+### Connector, gateway, and add-on safety
+
+- Added Cursor profile-aware, Switchboard-owned sidecar lifecycle evidence: dry-run preview, state-bound confirmation, backup, disk verification, rollback, and Off cleanup. Cursor provider settings, account state, model selection, global storage, and secret-like content remain untouched until a stable schema is proven.
+- Added Goose and Grok/xAI state-bound sidecar lifecycles with dry-run, exact confirmation, sibling backup, disk verification, rollback, and Off cleanup. Native provider, account, model, and credential configuration remains explicitly gated.
+- Added guided, credential-free gateway profiles for LiteLLM semantic cache, self-hosted Langfuse, Cloudflare AI Gateway, and Kong. They provide privacy boundaries, Doctor evidence, rollback guidance, and copyable manual setup without network calls, installs, config writes, or secret storage.
+- Added local gateway-profile receipts, reversible enable/disable intent, non-secret previews, and explicitly non-live Doctor evidence while retaining the no-network/no-provider-write boundary.
+- Required independent baseline and optimized evidence before Caveman, Ponytail, or MarkItDown savings can be recorded as measured; missing or invalid evidence remains estimated.
+- Added explicit evidence inputs and accessible status feedback to the measured add-on savings form.
+
+### Progressive disclosure and local-only verification
+
+- Completed further progressive-disclosure accessibility work: technical details are collapsed by default, disclosure controls have stable IDs and `aria-controls`, and connector setup actions expose explicit accessible state.
+- Corrected the local-only network guard to verify the canonical app-owned support URL source rather than requiring a duplicated URL in `App.tsx`.
 
 ## 2026-07-08
 

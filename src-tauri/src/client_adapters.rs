@@ -64,6 +64,10 @@ const GEMINI_HEADROOM_API_KEY_VALUE: &str = "headroom-local";
 const CURSOR_MARKER_PREFIX: &str = "headroom:cursor";
 const CURSOR_SIDECAR_APPLY_RECORD_ID: &str = "cursor-sidecar-routing";
 const CURSOR_SIDECAR_OWNER: &str = "Cursor routing sidecar";
+const GOOSE_SIDECAR_APPLY_RECORD_ID: &str = "goose-sidecar-routing";
+const GOOSE_SIDECAR_OWNER: &str = "Goose routing-intent sidecar";
+const GROK_SIDECAR_APPLY_RECORD_ID: &str = "grok-sidecar-routing";
+const GROK_SIDECAR_OWNER: &str = "Grok / xAI CLI routing-intent sidecar";
 const MARKER_PREFIX: &str = "headroom";
 pub fn detect_clients() -> Vec<ClientStatus> {
     let setup_state = load_setup_state();
@@ -753,6 +757,93 @@ fn preview_cursor_sidecar_apply() -> Result<ManagedConfigApplyPreview> {
             "Cursor provider settings schema is not allowlisted; this preview targets only the Switchboard-owned sidecar.".to_string(),
             "Preview does not read Cursor settings.json, globalStorage, credentials, account state, or model selection.".to_string(),
             "Apply creates a sibling backup when a sidecar already exists, writes only the managed marker block, verifies it, and supports rollback and Off cleanup.".to_string(),
+        ],
+    })
+}
+
+fn sidecar_apply_confirmation_phrase(client_id: &str, current_state: &str) -> Result<String> {
+    let mut hasher = Sha256::new();
+    hasher.update(current_state.as_bytes());
+    let hash = hasher
+        .finalize()
+        .iter()
+        .take(6)
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    Ok(format!(
+        "Apply headroom:{client_id} sidecar to {} after reviewing {hash}",
+        planned_sidecar_routing_path(client_id)?.display()
+    ))
+}
+
+fn preview_provider_sidecar_apply(
+    record_id: &str,
+    client_id: &str,
+    owner: &str,
+) -> Result<ManagedConfigApplyPreview> {
+    let spec = planned_sidecar_spec(client_id)
+        .ok_or_else(|| anyhow!("{owner} sidecar is unavailable."))?;
+    let path = planned_sidecar_routing_path(client_id)?;
+    let current_state = if path.exists() {
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?
+    } else {
+        String::new()
+    };
+    let proposed_state = managed_block_updated_content(
+        &current_state,
+        spec.id,
+        &build_planned_switchboard_sidecar_body(spec),
+    );
+    Ok(ManagedConfigApplyPreview {
+        record_id: record_id.to_string(),
+        owner: owner.to_string(),
+        target_path: path.display().to_string(),
+        marker: format!("headroom:{client_id}"),
+        backup_path: format!("{}.headroom-backup-*", SWITCHBOARD_ROUTING_FILE),
+        status: ManagedRollbackExecutionStatus::Ready,
+        confirmation_phrase: sidecar_apply_confirmation_phrase(client_id, &current_state)?,
+        current_state,
+        proposed_state,
+        rollback_preview: format!("Remove only the Switchboard-owned {owner} block through Rollback Center; provider, model, credentials, and account state remain untouched."),
+        blocked_reason: None,
+        evidence: vec![
+            format!("{owner} native provider schema is not allowlisted; this preview targets only the Switchboard-owned sidecar."),
+            "Preview does not read credentials, account state, provider configuration, or model selection.".to_string(),
+            "Apply is state-bound to this preview, creates a sibling backup when needed, re-reads the managed marker, and supports rollback and Off cleanup.".to_string(),
+        ],
+    })
+}
+
+fn execute_provider_sidecar_apply(
+    record_id: &str,
+    client_id: &str,
+    owner: &str,
+    confirmation_phrase: &str,
+) -> Result<ManagedConfigApplyResult> {
+    let preview = preview_provider_sidecar_apply(record_id, client_id, owner)?;
+    if confirmation_phrase != preview.confirmation_phrase {
+        return Err(anyhow!(
+            "Managed config apply confirmation phrase does not match."
+        ));
+    }
+    let path = planned_sidecar_routing_path(client_id)?;
+    let (changed, backup) = configure_planned_switchboard_sidecar(client_id)?;
+    if !planned_switchboard_sidecar_matches(client_id)? {
+        return Err(anyhow!("{owner} verification failed after apply."));
+    }
+    let mut state = load_setup_state();
+    state.configured_clients.insert(
+        normalized_setup_id(client_id).to_string(),
+        Utc::now().to_rfc3339(),
+    );
+    write_setup_state(&state)?;
+    Ok(ManagedConfigApplyResult {
+        record_id: record_id.to_string(), owner: owner.to_string(), target_path: path.display().to_string(),
+        changed, backup_path: backup.map(|path| path.display().to_string()), marker: format!("headroom:{client_id}"),
+        verification: vec![
+            "Exact state-bound confirmation phrase matched the dry-run preview.".to_string(),
+            format!("Only the Switchboard-owned {owner} sidecar was written; provider, model, credentials, and account state were not read or changed."),
+            "Managed sidecar marker was re-read from disk after apply; Rollback Center and Off mode remove only the managed block.".to_string(),
         ],
     })
 }
@@ -2294,6 +2385,8 @@ fn validate_managed_rollback_backup_path(target_path: &Path, backup_path: &Path)
 pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigApplyPreview> {
     match record_id {
         CURSOR_SIDECAR_APPLY_RECORD_ID => preview_cursor_sidecar_apply(),
+        GOOSE_SIDECAR_APPLY_RECORD_ID => preview_provider_sidecar_apply(GOOSE_SIDECAR_APPLY_RECORD_ID, "goose", GOOSE_SIDECAR_OWNER),
+        GROK_SIDECAR_APPLY_RECORD_ID => preview_provider_sidecar_apply(GROK_SIDECAR_APPLY_RECORD_ID, "grok_cli", GROK_SIDECAR_OWNER),
         OPENCODE_ROLLBACK_RECORD_ID => {
             let path = opencode_config_path();
             let current_state = if path.exists() {
@@ -2402,7 +2495,7 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
             })
         }
         _ => Err(anyhow!(
-            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
+            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -2442,6 +2535,8 @@ pub fn execute_managed_config_apply(
                 ],
             })
         }
+        GOOSE_SIDECAR_APPLY_RECORD_ID => execute_provider_sidecar_apply(record_id, "goose", GOOSE_SIDECAR_OWNER, confirmation_phrase),
+        GROK_SIDECAR_APPLY_RECORD_ID => execute_provider_sidecar_apply(record_id, "grok_cli", GROK_SIDECAR_OWNER, confirmation_phrase),
         OPENCODE_ROLLBACK_RECORD_ID => {
             let path = opencode_config_path();
             let (changed_files, backup_files) = configure_opencode_provider_config()?;
@@ -2524,7 +2619,7 @@ pub fn execute_managed_config_apply(
             })
         }
         _ => Err(anyhow!(
-            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
+            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -3601,7 +3696,7 @@ fn detect_grok_cli_client() -> ClientStatus {
     };
     if installed {
         notes.push(
-            "Detected, but Headroom adapter not implemented yet. keep provider/model compatibility visible in Doctor."
+            "Detected. Switchboard can safely manage only its isolated routing-intent sidecar; xAI provider, model, credentials, and account settings remain manual."
                 .into(),
         );
     }
@@ -3730,7 +3825,7 @@ fn detect_goose_client() -> ClientStatus {
         "Goose",
         executable.clone(),
         &config_candidates,
-        "Provider routing blocked until MCP handoff shape, backup, verify, rollback, and Off mode cleanup exist.",
+        "Managed Switchboard-owned routing-intent sidecar and read-only Repo Memory MCP bridge use exact confirmation, Doctor verification, rollback, and Off mode cleanup while provider routing remains manual.",
     );
     let installed = executable.is_some() || !report.config_surfaces.is_empty();
     let mut notes = if installed {
@@ -3740,7 +3835,7 @@ fn detect_goose_client() -> ClientStatus {
     };
     if installed {
         notes.push(
-            "Detected, but Headroom adapter not implemented yet. use RTK-only mode until provider routing is reversible."
+            "Detected. Switchboard can manage its isolated Goose routing-intent sidecar and read-only Repo Memory MCP bridge; provider, model, credentials, and account settings remain manual."
                 .into(),
         );
     }
@@ -6492,6 +6587,72 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
+    fn goose_and_grok_sidecar_apply_requires_exact_current_confirmation_and_preserves_user_content()
+    {
+        let home = TestHome::new();
+        for (record_id, client_id, owner) in [
+            (
+                super::GOOSE_SIDECAR_APPLY_RECORD_ID,
+                "goose",
+                super::GOOSE_SIDECAR_OWNER,
+            ),
+            (
+                super::GROK_SIDECAR_APPLY_RECORD_ID,
+                "grok_cli",
+                super::GROK_SIDECAR_OWNER,
+            ),
+        ] {
+            let sidecar = planned_sidecar_routing_path(client_id).expect("sidecar path");
+            fs::create_dir_all(sidecar.parent().unwrap()).expect("create sidecar parent");
+            fs::write(&sidecar, format!("# {client_id} user note\nkeep this\n"))
+                .expect("seed user content");
+
+            let preview = super::preview_managed_config_apply(record_id).expect("preview");
+            assert!(preview.current_state.contains("keep this"));
+            assert!(preview
+                .proposed_state
+                .contains(&format!("headroom:{client_id}")));
+            assert!(preview
+                .evidence
+                .iter()
+                .any(|item| item.contains("not allowlisted")));
+
+            fs::write(&sidecar, "changed outside Switchboard\n").expect("create stale preview");
+            assert!(
+                super::execute_managed_config_apply(record_id, &preview.confirmation_phrase)
+                    .is_err()
+            );
+            assert_eq!(
+                fs::read_to_string(&sidecar).unwrap(),
+                "changed outside Switchboard\n"
+            );
+
+            let preview = super::preview_managed_config_apply(record_id).expect("fresh preview");
+            let applied =
+                super::execute_managed_config_apply(record_id, &preview.confirmation_phrase)
+                    .expect("apply sidecar");
+            assert_eq!(applied.owner, owner);
+            assert!(super::planned_switchboard_sidecar_matches(client_id).unwrap());
+            assert!(applied
+                .verification
+                .iter()
+                .any(|item| item.contains("credentials")));
+
+            super::disable_client_setup(client_id).expect("off cleanup");
+            let cleaned = fs::read_to_string(&sidecar).expect("read cleanup");
+            assert!(cleaned.contains("changed outside Switchboard"));
+            assert!(!super::planned_switchboard_sidecar_matches(client_id).unwrap());
+        }
+        assert!(!home
+            .path()
+            .join(".config")
+            .join("xai")
+            .join("auth.json")
+            .exists());
+    }
+
+    #[test]
+    #[serial_test::serial]
     fn promoted_editor_rollback_records_use_native_targets_not_sidecars() {
         let _home = TestHome::new();
 
@@ -6781,7 +6942,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
-    fn remaining_planned_connectors_block_automatic_sidecar_setup() {
+    fn grok_sidecar_setup_is_managed_and_never_reads_or_writes_xai_credentials() {
         let home = TestHome::new();
         let connectors = [("grok_cli", "Grok / xAI CLI")];
 
@@ -6791,18 +6952,11 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             fs::write(&sidecar, format!("# {client_id} user note\nkeep this\n"))
                 .expect("seed sidecar");
 
-            let error = super::apply_client_setup(client_id)
-                .expect_err("gated connector setup should be blocked");
-            assert!(
-                error.to_string().contains("guided workflow"),
-                "{client_id} should explain the guided workflow gate"
-            );
+            let result = super::apply_client_setup(client_id).expect("apply managed sidecar setup");
+            assert!(result.verification.verified);
             let content = fs::read_to_string(&sidecar).expect("read sidecar");
-            assert_eq!(
-                content,
-                format!("# {client_id} user note\nkeep this\n"),
-                "{client_id} setup block should preserve user content"
-            );
+            assert!(content.contains(&format!("# {client_id} user note\nkeep this")));
+            assert!(content.contains("routing-intent sidecar"));
 
             let detected_clients = vec![ClientStatus {
                 id: client_id.into(),
@@ -6819,14 +6973,15 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
                 .unwrap_or_else(|| panic!("{client_id} connector listed"));
             assert_eq!(
                 connector.support_status,
-                ClientConnectorSupportStatus::Planned,
-                "{client_id} should stay gated until manifest promotion"
+                ClientConnectorSupportStatus::Managed,
+                "{client_id} sidecar lifecycle is safely managed"
             );
-            assert!(!connector.enabled, "{client_id} should not be enabled");
-            assert!(!connector.verified, "{client_id} should not be verified");
-            assert_eq!(connector.config_creation_steps.len(), 7);
-            assert!(connector.config_dry_run_preview.is_some());
-            assert_eq!(connector.automation_path.len(), 7);
+            assert!(connector.enabled, "{client_id} should be enabled");
+            assert!(connector.verified, "{client_id} should be verified");
+            assert!(connector.config_creation_steps.is_empty());
+            assert!(connector.config_dry_run_preview.is_none());
+            assert!(connector.automation_path.is_empty());
+            super::disable_client_setup(client_id).expect("off cleanup");
         }
 
         assert!(

@@ -10,7 +10,7 @@ use crate::analytics_models::{
 };
 use crate::analytics_normalization::{confidence, normalize};
 use crate::models::{DashboardState, SavingsAttributionEvent, UsageOutcome};
-use crate::optimization::CacheTokenMetrics;
+use crate::optimization::cache_metrics::CacheTokenMetricsEvidence;
 
 const TIMELINE_LIMIT: usize = 50;
 const LIVE_UPDATE_TIMELINE_LIMIT: usize = 12;
@@ -83,7 +83,7 @@ fn update_fingerprint(update: &TokenXrayLiveUpdateV1) -> String {
 pub(crate) fn build_snapshot_with_cache_metrics(
     dashboard: &DashboardState,
     attribution: Vec<SavingsAttributionEvent>,
-    cache_metrics: Option<CacheTokenMetrics>,
+    cache_metrics: Option<CacheTokenMetricsEvidence>,
 ) -> TokenXraySnapshotV1 {
     let normalized = normalize(dashboard, attribution, |_| true, |_| true);
     let latest = normalized.usage.iter().max_by_key(|event| event.timestamp);
@@ -191,16 +191,17 @@ enum CacheMetricKind {
 }
 
 fn cache_metric(
-    cache_metrics: Option<CacheTokenMetrics>,
+    cache_metrics: Option<CacheTokenMetricsEvidence>,
     kind: CacheMetricKind,
-    observed_at: Option<chrono::DateTime<Utc>>,
+    _session_observed_at: Option<chrono::DateTime<Utc>>,
 ) -> TokenMetricV1 {
-    let Some(metrics) = cache_metrics else {
+    let Some(evidence) = cache_metrics else {
         return TokenMetricV1::unavailable(
             "provider_cache_metrics",
             "Provider cache telemetry could not be read locally; no zero was assumed.",
         );
     };
+    let metrics = evidence.metrics;
     let (value, label) = match kind {
         CacheMetricKind::Read => (metrics.cache_read_tokens, "cache-read"),
         CacheMetricKind::Write => (metrics.cache_creation_tokens, "cache-write"),
@@ -209,7 +210,7 @@ fn cache_metric(
         value: Some(value as f64),
         confidence: AnalyticsEvidenceConfidence::Measured,
         source: "provider_cache_metrics_aggregate".into(),
-        observed_at,
+        observed_at: Some(evidence.observed_at),
         caveat: Some(format!(
             "Measured aggregate {label} tokens from locally parsed provider usage; this is not a per-request value."
         )),
@@ -227,6 +228,10 @@ struct KnownModel {
 // "latest") remain unavailable rather than inheriting a provider-wide guess.
 const KNOWN_MODELS: &[KnownModel] = &[
     KnownModel {
+        id: "gemini-2.5-flash-lite",
+        context_limit: 1_048_576,
+    },
+    KnownModel {
         id: "gemini-2.5-flash",
         context_limit: 1_048_576,
     },
@@ -243,6 +248,14 @@ const KNOWN_MODELS: &[KnownModel] = &[
         context_limit: 200_000,
     },
     KnownModel {
+        id: "claude-3-5-haiku",
+        context_limit: 200_000,
+    },
+    KnownModel {
+        id: "claude-3-haiku",
+        context_limit: 200_000,
+    },
+    KnownModel {
         id: "claude-3-7-sonnet",
         context_limit: 200_000,
     },
@@ -253,6 +266,14 @@ const KNOWN_MODELS: &[KnownModel] = &[
     KnownModel {
         id: "claude-opus-4",
         context_limit: 200_000,
+    },
+    KnownModel {
+        id: "gpt-4.1-mini",
+        context_limit: 1_047_576,
+    },
+    KnownModel {
+        id: "gpt-4.1-nano",
+        context_limit: 1_047_576,
     },
     KnownModel {
         id: "gpt-4.1",
@@ -436,6 +457,14 @@ fn opaque_event_id(value: &str) -> String {
 mod tests {
     use super::*;
     use crate::models::{LaunchExperience, UsageEvent};
+    use crate::optimization::CacheTokenMetrics;
+
+    fn cache_evidence(metrics: CacheTokenMetrics) -> CacheTokenMetricsEvidence {
+        CacheTokenMetricsEvidence {
+            metrics,
+            observed_at: Utc::now(),
+        }
+    }
 
     fn dashboard_with_usage(usage: Vec<UsageEvent>) -> DashboardState {
         DashboardState {
@@ -493,16 +522,24 @@ mod tests {
     }
 
     #[test]
+    fn stable_model_variants_use_their_published_context_limit() {
+        let model = known_model("https://api.openai.com/v1/responses/gpt-4.1-mini")
+            .expect("known model variant");
+        assert_eq!(model.id, "gpt-4.1-mini");
+        assert_eq!(model.context_limit, 1_047_576);
+    }
+
+    #[test]
     fn known_model_gets_projected_pressure_and_measured_cache_aggregates() {
         let snapshot = build_snapshot_with_cache_metrics(
             &dashboard_with_usage(vec![usage("https://api.openai.com/gpt-4o", 96_000, 8_000)]),
             vec![],
-            Some(CacheTokenMetrics {
+            Some(cache_evidence(CacheTokenMetrics {
                 prompt_tokens: 100_000,
                 completion_tokens: 8_000,
                 cache_creation_tokens: 2_000,
                 cache_read_tokens: 25_000,
-            }),
+            })),
         );
         assert_eq!(snapshot.model.as_deref(), Some("gpt-4o"));
         assert_eq!(snapshot.context_pressure.limit_tokens, Some(128_000));
@@ -515,6 +552,7 @@ mod tests {
             snapshot.metrics.cache_read_tokens.confidence,
             AnalyticsEvidenceConfidence::Measured
         ));
+        assert!(snapshot.metrics.cache_read_tokens.observed_at.is_some());
     }
 
     #[test]

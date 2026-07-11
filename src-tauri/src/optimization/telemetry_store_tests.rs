@@ -36,6 +36,27 @@ fn prompt_cache_metrics_round_trip_through_sqlite() {
             cache_creation_tokens: 15,
         }
     );
+    let evidence = prompt_cache_totals_evidence_result()
+        .expect("cache evidence query")
+        .expect("recorded rows have evidence");
+    assert_eq!(evidence.metrics.cache_read_tokens, 65);
+
+    match previous_home {
+        Some(value) => std::env::set_var("HOME", value),
+        None => std::env::remove_var("HOME"),
+    }
+}
+
+#[test]
+fn absent_cache_rows_are_unavailable_evidence_not_measured_zero() {
+    let _guard = crate::optimization::telemetry::test_guard();
+    let home = tempdir().expect("temp home");
+    let previous_home = std::env::var_os("HOME");
+    std::env::set_var("HOME", home.path());
+
+    assert!(prompt_cache_totals_evidence_result()
+        .expect("empty cache evidence query")
+        .is_none());
 
     match previous_home {
         Some(value) => std::env::set_var("HOME", value),

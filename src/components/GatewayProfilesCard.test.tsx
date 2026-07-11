@@ -32,4 +32,20 @@ describe("GatewayProfilesCard", () => {
       "Semantic Cache setup and Doctor guide",
     );
   });
+
+  it("records only a local lifecycle receipt and exposes a non-secret config preview", async () => {
+    const onCopyGuidance = vi.fn();
+    render(<GatewayProfilesCard onCopyGuidance={onCopyGuidance} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getAllByRole("button", { name: "Enable local profile" })[0]);
+    await user.click(screen.getAllByRole("button", { name: "View privacy & Doctor" })[0]);
+    expect(screen.getAllByText(/local Switchboard receipt only/i)[0]).toBeVisible();
+
+    await user.click(screen.getAllByRole("button", { name: "Copy config preview" })[0]);
+    expect(onCopyGuidance).toHaveBeenLastCalledWith(
+      expect.stringContaining("not applied"),
+      "Semantic Cache config preview",
+    );
+  });
 });
