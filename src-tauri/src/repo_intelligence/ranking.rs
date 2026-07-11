@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 
 use crate::models::{
-    RepoContextPack, RepoFileRank, RepoFileRole, RepoFileSignal, RepoGraphEdgeKind,
-    RepoGraphSummary,
+    RepoContextPack, RepoContextPackRankingMetadata, RepoContextPackReverseDependencyEvidence,
+    RepoFileRank, RepoFileRole, RepoFileSignal, RepoGraphEdgeKind, RepoGraphSummary,
 };
 
 use super::{MAX_PACK_FILES, TASK_PACK_BUDGET_TOKENS};
@@ -11,23 +11,21 @@ pub(super) fn build_context_pack(
     id: &str,
     title: &str,
     purpose: &str,
-    mut files: Vec<RepoFileSignal>,
+    files: Vec<RepoFileSignal>,
     estimated_full_scan_tokens: u64,
     graph: Option<&RepoGraphSummary>,
 ) -> RepoContextPack {
     let task_terms = task_terms(purpose);
-    files = files
+    let mut ranked_files: Vec<(RepoFileSignal, RepoFileRank)> = files
         .into_iter()
         .map(|mut file| {
             let rank = rank_file_for_task(&file, &task_terms, purpose, graph);
             file.reasons
                 .extend(rank.reasons.iter().map(|reason| format!("rank: {reason}")));
-            file
+            (file, rank)
         })
         .collect();
-    files.sort_by(|a, b| {
-        let rank_a = rank_file_for_task(a, &task_terms, purpose, graph);
-        let rank_b = rank_file_for_task(b, &task_terms, purpose, graph);
+    ranked_files.sort_by(|(a, rank_a), (b, rank_b)| {
         rank_b
             .score
             .partial_cmp(&rank_a.score)
@@ -40,13 +38,18 @@ pub(super) fn build_context_pack(
             .then_with(|| a.estimated_tokens.cmp(&b.estimated_tokens))
             .then_with(|| a.path.cmp(&b.path))
     });
-    files.truncate(MAX_PACK_FILES);
+    ranked_files.truncate(MAX_PACK_FILES);
+    let ranking = build_ranking_metadata(&task_terms, &ranked_files, graph);
+    let files = ranked_files
+        .into_iter()
+        .map(|(file, _)| file)
+        .collect::<Vec<_>>();
     let estimated_tokens = files
         .iter()
         .map(|signal| signal.estimated_tokens)
         .sum::<u64>();
     let savings_vs_full_scan_pct = if estimated_full_scan_tokens > 0 {
-        let saved = 1.0 - (estimated_tokens as f64 / estimated_full_scan_tokens as f64);
+        let saved: f64 = 1.0 - (estimated_tokens as f64 / estimated_full_scan_tokens as f64);
         (saved.max(0.0) * 1000.0).round() / 10.0
     } else {
         0.0
@@ -59,20 +62,88 @@ pub(super) fn build_context_pack(
         files,
         estimated_tokens,
         savings_vs_full_scan_pct,
+        ranking,
     }
 }
 
 fn task_terms(task: &str) -> Vec<String> {
+    let mut seen = BTreeSet::new();
     task.split(|ch: char| !ch.is_ascii_alphanumeric())
         .filter_map(|term| {
             let term = term.trim().to_ascii_lowercase();
-            if term.len() >= 3 {
+            if term.len() >= 3 && seen.insert(term.clone()) {
                 Some(term)
             } else {
                 None
             }
         })
+        .take(8)
         .collect()
+}
+
+fn build_ranking_metadata(
+    task_terms: &[String],
+    ranked_files: &[(RepoFileSignal, RepoFileRank)],
+    graph: Option<&RepoGraphSummary>,
+) -> RepoContextPackRankingMetadata {
+    let graph_task_term_match_count = ranked_files
+        .iter()
+        .filter(|(_, rank)| {
+            rank.reasons
+                .iter()
+                .any(|reason| reason.starts_with("graph: ") && reason.contains("task"))
+        })
+        .count();
+    let reverse_dependency_hubs = graph
+        .map(|graph| {
+            ranked_files
+                .iter()
+                .filter_map(|(file, _)| {
+                    graph
+                        .reverse_dependency_hubs
+                        .iter()
+                        .find(|hub| hub.label == file.path && hub.count > 0)
+                        .map(|hub| RepoContextPackReverseDependencyEvidence {
+                            path: hub.label.clone(),
+                            incoming_references: hub.count,
+                        })
+                })
+                .take(3)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    let mut evidence = Vec::new();
+    if !task_terms.is_empty() {
+        evidence.push(format!("task terms: {}", task_terms.join(", ")));
+    }
+    if graph_task_term_match_count > 0 {
+        evidence.push(format!(
+            "graph task matches: {graph_task_term_match_count} selected file{}",
+            if graph_task_term_match_count == 1 {
+                ""
+            } else {
+                "s"
+            }
+        ));
+    }
+    if !reverse_dependency_hubs.is_empty() {
+        evidence.push(format!(
+            "reverse dependency hubs: {}",
+            reverse_dependency_hubs
+                .iter()
+                .map(|hub| format!("{} ({})", hub.path, hub.incoming_references))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+
+    RepoContextPackRankingMetadata {
+        task_terms: task_terms.to_vec(),
+        graph_task_term_match_count,
+        reverse_dependency_hubs,
+        evidence,
+    }
 }
 
 fn score_per_token(rank: &RepoFileRank) -> f64 {

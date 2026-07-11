@@ -8,6 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use crate::cli_discovery;
 use crate::client_cleanup;
@@ -42,9 +43,9 @@ use crate::client_sidecar_rollbacks::{
     execute_sidecar_rollback, preview_sidecar_rollback, sidecar_rollback_target,
 };
 use crate::managed_files::{
-    backup_if_exists, managed_marker_end, managed_marker_start, marker_block_contains,
-    parse_json_object, remove_managed_block, remove_shell_block, strip_marker_block,
-    upsert_managed_block, write_file_if_changed,
+    backup_if_exists, managed_block_updated_content, managed_marker_end, managed_marker_start,
+    marker_block_contains, parse_json_object, remove_managed_block, remove_shell_block,
+    strip_marker_block, upsert_managed_block, write_file_if_changed,
 };
 use crate::models::{
     ClientHealth, ClientSetupResult, ClientSetupVerification, ClientStatus,
@@ -60,8 +61,9 @@ const GEMINI_BASE_URL_ENV_KEY: &str = "GOOGLE_GEMINI_BASE_URL";
 const GEMINI_COMPAT_BASE_URL_ENV_KEY: &str = "GEMINI_BASE_URL";
 const GEMINI_API_KEY_ENV_KEY: &str = "GEMINI_API_KEY";
 const GEMINI_HEADROOM_API_KEY_VALUE: &str = "headroom-local";
-const CURSOR_CONFIG_FILE: &str = "settings.json";
 const CURSOR_MARKER_PREFIX: &str = "headroom:cursor";
+const CURSOR_SIDECAR_APPLY_RECORD_ID: &str = "cursor-sidecar-routing";
+const CURSOR_SIDECAR_OWNER: &str = "Cursor routing sidecar";
 const MARKER_PREFIX: &str = "headroom";
 pub fn detect_clients() -> Vec<ClientStatus> {
     let setup_state = load_setup_state();
@@ -704,6 +706,55 @@ fn configure_planned_switchboard_sidecar(client_id: &str) -> Result<(bool, Optio
         spec.id,
         &build_planned_switchboard_sidecar_body(spec),
     )
+}
+
+fn cursor_sidecar_confirmation_phrase(current_state: &str) -> Result<String> {
+    let mut hasher = Sha256::new();
+    hasher.update(current_state.as_bytes());
+    let hash = hasher
+        .finalize()
+        .iter()
+        .take(6)
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    Ok(format!(
+        "Apply {CURSOR_MARKER_PREFIX} sidecar to {} after reviewing {hash}",
+        planned_sidecar_routing_path("cursor")?.display()
+    ))
+}
+
+fn preview_cursor_sidecar_apply() -> Result<ManagedConfigApplyPreview> {
+    let spec =
+        planned_sidecar_spec("cursor").ok_or_else(|| anyhow!("Cursor sidecar is unavailable."))?;
+    let path = planned_sidecar_routing_path("cursor")?;
+    let current_state = if path.exists() {
+        std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?
+    } else {
+        String::new()
+    };
+    let proposed_state = managed_block_updated_content(
+        &current_state,
+        spec.id,
+        &build_planned_switchboard_sidecar_body(spec),
+    );
+    Ok(ManagedConfigApplyPreview {
+        record_id: CURSOR_SIDECAR_APPLY_RECORD_ID.to_string(),
+        owner: CURSOR_SIDECAR_OWNER.to_string(),
+        target_path: path.display().to_string(),
+        marker: CURSOR_MARKER_PREFIX.to_string(),
+        backup_path: format!("{}.headroom-backup-*", SWITCHBOARD_ROUTING_FILE),
+        status: ManagedRollbackExecutionStatus::Ready,
+        confirmation_phrase: cursor_sidecar_confirmation_phrase(&current_state)?,
+        current_state,
+        proposed_state,
+        rollback_preview: "Remove only the Switchboard-owned Cursor sidecar block through Rollback Center; Cursor settings, accounts, models, and extension storage remain untouched.".to_string(),
+        blocked_reason: None,
+        evidence: vec![
+            "Cursor provider settings schema is not allowlisted; this preview targets only the Switchboard-owned sidecar.".to_string(),
+            "Preview does not read Cursor settings.json, globalStorage, credentials, account state, or model selection.".to_string(),
+            "Apply creates a sibling backup when a sidecar already exists, writes only the managed marker block, verifies it, and supports rollback and Off cleanup.".to_string(),
+        ],
+    })
 }
 
 pub(crate) fn planned_switchboard_sidecar_matches(client_id: &str) -> Result<bool> {
@@ -2242,6 +2293,7 @@ fn validate_managed_rollback_backup_path(target_path: &Path, backup_path: &Path)
 
 pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigApplyPreview> {
     match record_id {
+        CURSOR_SIDECAR_APPLY_RECORD_ID => preview_cursor_sidecar_apply(),
         OPENCODE_ROLLBACK_RECORD_ID => {
             let path = opencode_config_path();
             let current_state = if path.exists() {
@@ -2350,7 +2402,7 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
             })
         }
         _ => Err(anyhow!(
-            "Managed config apply is currently promoted only for {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
+            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -2366,6 +2418,30 @@ pub fn execute_managed_config_apply(
         ));
     }
     match record_id {
+        CURSOR_SIDECAR_APPLY_RECORD_ID => {
+            let path = planned_sidecar_routing_path("cursor")?;
+            let (changed, backup) = configure_planned_switchboard_sidecar("cursor")?;
+            if !planned_switchboard_sidecar_matches("cursor")? {
+                return Err(anyhow!(
+                    "Cursor Switchboard sidecar verification failed after apply."
+                ));
+            }
+            Ok(ManagedConfigApplyResult {
+                record_id: CURSOR_SIDECAR_APPLY_RECORD_ID.to_string(),
+                owner: CURSOR_SIDECAR_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                changed,
+                backup_path: backup.map(|path| path.display().to_string()),
+                marker: CURSOR_MARKER_PREFIX.to_string(),
+                verification: vec![
+                    "Exact confirmation phrase matched the dry-run preview.".to_string(),
+                    "Only the Switchboard-owned Cursor sidecar was written; Cursor settings, accounts, models, and extension storage were not read or changed.".to_string(),
+                    "Managed sidecar marker was re-read from disk after apply.".to_string(),
+                    "Rollback Center and Off mode remove only the managed sidecar block."
+                        .to_string(),
+                ],
+            })
+        }
         OPENCODE_ROLLBACK_RECORD_ID => {
             let path = opencode_config_path();
             let (changed_files, backup_files) = configure_opencode_provider_config()?;
@@ -2448,7 +2524,7 @@ pub fn execute_managed_config_apply(
             })
         }
         _ => Err(anyhow!(
-            "Managed config apply is currently promoted only for {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
+            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -3477,7 +3553,7 @@ fn detect_cursor_client() -> ClientStatus {
             ));
         }
         evidence.push(
-            "Settings routing blocked until profile settings parse, dry-run diff, backup, verify, rollback, and Off mode cleanup exist."
+            "Cursor settings routing remains blocked because its provider schema is not allowlisted; only the isolated Switchboard sidecar can be applied with preview, exact consent, backup, verification, rollback, and Off cleanup."
                 .into(),
         );
         evidence
@@ -3486,7 +3562,7 @@ fn detect_cursor_client() -> ClientStatus {
     };
     if installed {
         notes.push(
-            "Detected, but Headroom adapter not implemented yet. use guided setup until Cursor routing is verified."
+            "Detected. Cursor provider/account/model settings remain manual; Switchboard can safely manage only its isolated routing-intent sidecar."
                 .into(),
         );
     }
@@ -3999,6 +4075,24 @@ fn discover_editor_settings_files(profile_roots: &[PathBuf]) -> Vec<PathBuf> {
             let path = root.join(relative);
             if path.is_file() {
                 candidates.push(path);
+            }
+        }
+        // Cursor profiles are stored beneath User/profiles/<profile-id>.  Only
+        // inspect the well-known settings filenames: globalStorage and state
+        // databases are intentionally never traversed or read.
+        let profiles_dir = root.join("User").join("profiles");
+        if let Ok(entries) = std::fs::read_dir(profiles_dir) {
+            for entry in entries.flatten() {
+                let profile = entry.path();
+                if !profile.is_dir() {
+                    continue;
+                }
+                for name in ["settings.json", "settings.jsonc"] {
+                    let path = profile.join(name);
+                    if path.is_file() {
+                        candidates.push(path);
+                    }
+                }
             }
         }
     }
@@ -7547,6 +7641,108 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         let restored: serde_json::Value =
             serde_json::from_slice(&fs::read(&config_json).unwrap()).unwrap();
         assert_eq!(restored, original);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn cursor_sidecar_apply_is_profile_aware_and_preserves_user_owned_files() {
+        let home = TestHome::new();
+        let cursor_root = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Cursor");
+        let profile_settings = cursor_root
+            .join("User")
+            .join("profiles")
+            .join("work")
+            .join("settings.json");
+        fs::create_dir_all(profile_settings.parent().unwrap()).unwrap();
+        let profile_contents = r#"{"cursor.model":"user-selected","token":"must-not-read"}"#;
+        fs::write(&profile_settings, profile_contents).unwrap();
+
+        let status = super::detect_cursor_client();
+        assert!(status.installed);
+        assert!(status
+            .notes
+            .iter()
+            .any(|note| note.contains("User/profiles/work/settings.json")));
+        assert_eq!(
+            fs::read_to_string(&profile_settings).unwrap(),
+            profile_contents
+        );
+
+        let sidecar = cursor_root.join(super::SWITCHBOARD_ROUTING_FILE);
+        fs::write(&sidecar, "# user-owned cursor note\nkeep this\n").unwrap();
+        let preview = super::preview_managed_config_apply(super::CURSOR_SIDECAR_APPLY_RECORD_ID)
+            .expect("preview Cursor sidecar apply");
+        assert_eq!(preview.record_id, super::CURSOR_SIDECAR_APPLY_RECORD_ID);
+        assert_eq!(preview.target_path, sidecar.display().to_string());
+        assert!(preview.current_state.contains("user-owned cursor note"));
+        assert!(preview.proposed_state.contains("headroom:cursor"));
+        assert!(!preview.proposed_state.contains("user-selected"));
+        assert!(preview.confirmation_phrase.contains("after reviewing"));
+        assert_eq!(
+            fs::read_to_string(&sidecar).unwrap(),
+            "# user-owned cursor note\nkeep this\n"
+        );
+
+        let result = super::execute_managed_config_apply(
+            super::CURSOR_SIDECAR_APPLY_RECORD_ID,
+            &preview.confirmation_phrase,
+        )
+        .expect("apply Cursor sidecar");
+        assert!(result.changed);
+        assert!(result.backup_path.is_some());
+        assert!(super::planned_switchboard_sidecar_matches("cursor").unwrap());
+        assert_eq!(
+            fs::read_to_string(&profile_settings).unwrap(),
+            profile_contents
+        );
+
+        let rollback = super::execute_managed_rollback(
+            "cursor-routing",
+            "",
+            "Restore headroom:cursor for Cursor routing",
+        )
+        .expect("remove only Cursor sidecar block");
+        assert!(rollback.safety_backup_path.is_some());
+        assert_eq!(
+            fs::read_to_string(&sidecar).unwrap(),
+            "# user-owned cursor note\nkeep this\n"
+        );
+        assert_eq!(
+            fs::read_to_string(&profile_settings).unwrap(),
+            profile_contents
+        );
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn cursor_sidecar_apply_rejects_stale_or_wrong_confirmation() {
+        let home = TestHome::new();
+        let sidecar = home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("Cursor")
+            .join(super::SWITCHBOARD_ROUTING_FILE);
+        fs::create_dir_all(sidecar.parent().unwrap()).unwrap();
+        fs::write(&sidecar, "first\n").unwrap();
+        let preview = super::preview_managed_config_apply(super::CURSOR_SIDECAR_APPLY_RECORD_ID)
+            .expect("preview Cursor sidecar");
+        fs::write(&sidecar, "changed outside Switchboard\n").unwrap();
+
+        let err = super::execute_managed_config_apply(
+            super::CURSOR_SIDECAR_APPLY_RECORD_ID,
+            &preview.confirmation_phrase,
+        )
+        .expect_err("stale confirmation must be rejected");
+        assert!(err.to_string().contains("confirmation phrase"));
+        assert_eq!(
+            fs::read_to_string(&sidecar).unwrap(),
+            "changed outside Switchboard\n"
+        );
     }
 
     #[test]

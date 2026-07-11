@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::{Child, Command};
-use std::sync::atomic::{AtomicBool, AtomicU32};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use parking_lot::Mutex;
@@ -62,7 +62,8 @@ use runtime_maintenance::{
 };
 use savings::{
     aggregate_savings_attribution_counters, aggregate_weekly_totals, build_addon_attribution_event,
-    build_insights, build_repo_intelligence_attribution_event, fetch_headroom_dashboard_stats,
+    build_agent_memory_attribution_event, build_insights,
+    build_repo_intelligence_attribution_event, fetch_headroom_dashboard_stats,
     fetch_headroom_savings_history, local_day_key, maybe_append_measured_headroom_attribution,
     merge_daily_savings, merge_hourly_savings, most_recent_monday, savings_history_cutoff_date,
     HeadroomDashboardStats, HeadroomSavingsHistoryResponse, SavingsTotalsSnapshot, SavingsTracker,
@@ -130,6 +131,11 @@ pub struct AppState {
     /// savings ledger, so clearing analytics cannot remove attribution evidence.
     analytics_dir: PathBuf,
     pub recent_usage: Mutex<Vec<UsageEvent>>,
+    /// Monotonic local evidence revision for polling Token X-Ray updates.
+    /// It contains no request content and advances only after a durable
+    /// attribution write succeeds.
+    token_xray_revision: AtomicU64,
+    token_xray_update_coalescer: Mutex<crate::token_xray::TokenXrayUpdateCoalescer>,
     pub headroom_process: Mutex<Option<Child>>,
     /// App-owned, read-only Repo Memory MCP child. This is deliberately
     /// separate from the descriptor consumed by external agents: it gives the
@@ -287,6 +293,8 @@ impl AppState {
             tool_manager,
             analytics_dir: base_dir.join("analytics"),
             recent_usage: Mutex::new(Vec::new()),
+            token_xray_revision: AtomicU64::new(0),
+            token_xray_update_coalescer: Mutex::new(Default::default()),
             headroom_process: Mutex::new(None),
             repo_memory_mcp_process: Mutex::new(None),
             lifecycle_lock: Mutex::new(()),
@@ -1573,6 +1581,34 @@ impl AppState {
         self.savings_tracker.lock().attribution_events()
     }
 
+    /// Supplies a bounded content-free update when caller evidence changed.
+    /// `None` is intentional for duplicate tracker writes and unchanged polls.
+    pub fn token_xray_live_update(
+        &self,
+        since_revision: Option<u64>,
+    ) -> Option<crate::analytics_models::TokenXrayLiveUpdateV1> {
+        let revision = self.token_xray_revision.load(Ordering::Acquire);
+        if since_revision.is_some_and(|known| known >= revision) {
+            return None;
+        }
+        let snapshot = crate::token_xray::build_snapshot_with_cache_metrics(
+            &self.dashboard(),
+            self.savings_attribution_events(),
+            crate::optimization::telemetry_store::prompt_cache_totals_result().ok(),
+        );
+        self.token_xray_update_coalescer
+            .lock()
+            .project(snapshot, revision)
+    }
+
+    fn append_savings_attribution(&self, event: &SavingsAttributionEvent) -> Result<()> {
+        self.savings_tracker
+            .lock()
+            .append_attribution_event(event)?;
+        self.token_xray_revision.fetch_add(1, Ordering::Release);
+        Ok(())
+    }
+
     pub fn savings_attribution_counters(&self) -> Vec<SavingsAttributionCounter> {
         aggregate_savings_attribution_counters(&self.savings_tracker.lock().attribution_events())
     }
@@ -1584,7 +1620,20 @@ impl AppState {
         let Some(event) = build_repo_intelligence_attribution_event(summary) else {
             return Ok(());
         };
-        self.savings_tracker.lock().append_attribution_event(&event)
+        self.append_savings_attribution(&event)
+    }
+
+    /// Persist an Agent Memory estimate only when a full secret-safe preview
+    /// supplied both before and after token counts. The manifest is structural
+    /// metadata only, so the ledger contains neither paths nor instructions.
+    pub fn record_agent_memory_attribution(
+        &self,
+        manifest: &crate::models::AgentMemorySessionManifest,
+    ) -> Result<()> {
+        let Some(event) = build_agent_memory_attribution_event(manifest) else {
+            return Ok(());
+        };
+        self.append_savings_attribution(&event)
     }
 
     pub fn record_markitdown_attribution(
@@ -1601,7 +1650,7 @@ impl AppState {
         ) else {
             return Ok(());
         };
-        self.savings_tracker.lock().append_attribution_event(&event)
+        self.append_savings_attribution(&event)
     }
 
     pub fn record_caveman_attribution(
@@ -1619,7 +1668,7 @@ impl AppState {
         ) else {
             return Ok(());
         };
-        self.savings_tracker.lock().append_attribution_event(&event)
+        self.append_savings_attribution(&event)
     }
 
     pub fn record_ponytail_attribution(&self, registered_hosts: &[String]) -> Result<()> {
@@ -1628,7 +1677,7 @@ impl AppState {
         else {
             return Ok(());
         };
-        self.savings_tracker.lock().append_attribution_event(&event)
+        self.append_savings_attribution(&event)
     }
 
     /// Emit a weekly recap rolling up the 7 days ending last Sunday.
@@ -1691,7 +1740,7 @@ impl AppState {
             )],
         };
 
-        self.savings_tracker.lock().append_attribution_event(&event)
+        self.append_savings_attribution(&event)
     }
 
     pub fn dashboard_with_pending_milestones(&self) -> (DashboardState, PendingMilestones) {

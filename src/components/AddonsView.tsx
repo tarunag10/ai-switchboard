@@ -17,6 +17,7 @@ import { AddonHealthStrip } from "./AddonHealthStrip";
 import { AddonCard, type AddonCopy } from "./AddonCard";
 import { MeasuredAddonSavingsForm } from "./MeasuredAddonSavingsForm";
 import { PlannedAddonCard } from "./PlannedAddonCard";
+import { GatewayProfilesCard } from "./GatewayProfilesCard";
 
 export interface AddonsViewProps {
   activeView: TrayView;
@@ -327,6 +328,11 @@ export function AddonsView({
               }
             />
           ))}
+          <GatewayProfilesCard
+            onCopyGuidance={(markdown, label) =>
+              void copyPlannedConnectorCommand(markdown, label)
+            }
+          />
         </ul>
       </section>
     </div>

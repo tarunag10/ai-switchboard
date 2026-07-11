@@ -8,6 +8,7 @@ mod discovery;
 mod preview;
 mod rollback;
 mod secret_scan;
+mod session;
 
 pub use discovery::{get_snapshot, AgentMemorySnapshot, AgentMemoryTarget};
 pub use preview::{preview_compaction, AgentMemoryCompactionPreview};
@@ -15,3 +16,4 @@ pub use rollback::{
     apply_compaction, rollback_compaction, AgentMemoryCompactionApplyRequest,
     AgentMemoryCompactionReceipt,
 };
+pub use session::build_session_manifest;

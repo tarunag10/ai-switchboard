@@ -695,9 +695,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             agent_memory_commands::get_agent_memory_snapshot,
             agent_memory_commands::preview_agent_memory_compaction,
+            agent_memory_commands::prepare_agent_memory_session_handoff,
             agent_memory_commands::apply_agent_memory_compaction,
             agent_memory_commands::rollback_agent_memory_compaction,
             analytics_commands::get_token_xray_snapshot,
+            analytics_commands::get_token_xray_live_update,
             analytics_commands::get_daily_usage_briefing,
             analytics_commands::export_daily_usage_briefing,
             analytics_commands::list_daily_usage_briefings,

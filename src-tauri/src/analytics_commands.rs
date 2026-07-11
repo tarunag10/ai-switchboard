@@ -1,6 +1,6 @@
 use tauri::{AppHandle, Manager, State};
 
-use crate::analytics_models::{DailyUsageBriefingV1, TokenXraySnapshotV1};
+use crate::analytics_models::{DailyUsageBriefingV1, TokenXrayLiveUpdateV1, TokenXraySnapshotV1};
 use crate::analytics_store::UsageAnalyticsClearPreviewV1;
 use crate::daily_briefing::{self, DailyUsageBriefingExportV1};
 use crate::models::{DashboardState, SavingsAttributionEvent};
@@ -22,6 +22,22 @@ pub async fn get_token_xray_snapshot(app: AppHandle) -> Result<TokenXraySnapshot
     })
     .await
     .map_err(|error| error.to_string())
+}
+
+/// Returns a compact content-free update only after the caller's revision is
+/// stale and the material projection changed. This is a local polling state,
+/// not provider telemetry, so it never includes prompts or response bodies.
+#[tauri::command]
+pub async fn get_token_xray_live_update(
+    app: AppHandle,
+    since_revision: Option<u64>,
+) -> Result<Option<TokenXrayLiveUpdateV1>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state: State<'_, AppState> = app.state();
+        Ok::<_, String>(state.token_xray_live_update(since_revision))
+    })
+    .await
+    .map_err(|error| error.to_string())?
 }
 
 /// Command-side evidence boundary: a cache storage failure remains absent all

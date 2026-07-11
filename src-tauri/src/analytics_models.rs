@@ -135,6 +135,24 @@ pub struct TokenXraySnapshotV1 {
     pub anomalies: Vec<UsageAnomalyV1>,
 }
 
+/// A compact, content-free projection for polling Token X-Ray changes. This
+/// deliberately excludes source evidence and anomaly detail, which can be
+/// useful in the full local snapshot but are unnecessary for a live refresh.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenXrayLiveUpdateV1 {
+    pub schema_version: u8,
+    pub revision: u64,
+    pub generated_at: DateTime<Utc>,
+    pub agent: Option<String>,
+    pub provider: Option<String>,
+    pub model: Option<String>,
+    pub freshness: AnalyticsFreshness,
+    pub metrics: TokenXrayMetricsV1,
+    pub context_pressure: ContextPressureV1,
+    pub timeline: Vec<TokenXrayEventV1>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BriefingCompletenessV1 {

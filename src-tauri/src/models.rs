@@ -206,6 +206,27 @@ pub struct RepoContextPack {
     pub files: Vec<RepoFileSignal>,
     pub estimated_tokens: u64,
     pub savings_vs_full_scan_pct: f64,
+    #[serde(default)]
+    pub ranking: RepoContextPackRankingMetadata,
+}
+
+/// Bounded, deterministic evidence for why a context pack was ordered as it
+/// was. It contains repository paths and graph counts only; it never reads or
+/// stores file contents.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoContextPackRankingMetadata {
+    pub task_terms: Vec<String>,
+    pub graph_task_term_match_count: usize,
+    pub reverse_dependency_hubs: Vec<RepoContextPackReverseDependencyEvidence>,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoContextPackReverseDependencyEvidence {
+    pub path: String,
+    pub incoming_references: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -434,6 +455,43 @@ pub struct RepoAgentHandoffResponse {
     pub safety: RepoAgentHandoffSafety,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config_readiness: Option<RepoAgentConfigReadiness>,
+    /// Content-free Agent Memory metadata selected for this handoff. This is
+    /// deliberately structural: it never carries instruction text or source
+    /// paths, and secret-blocked sources are omitted before serialization.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory_manifest: Option<AgentMemorySessionManifest>,
+}
+
+/// A source-safe description of memory selected for an agent session. It is
+/// suitable for a copied handoff because it contains no source path, source
+/// content, secret finding detail, or stable identifier derived from a path.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentMemorySessionManifest {
+    pub schema_version: u8,
+    pub kind: String,
+    pub target: String,
+    pub stable_memory_first: bool,
+    pub source_count: usize,
+    pub excluded_secret_source_count: usize,
+    pub safe_preview_available: bool,
+    pub estimated_tokens_before: Option<u64>,
+    pub estimated_tokens_after: Option<u64>,
+    pub estimated_tokens_saved: Option<u64>,
+    pub sources: Vec<AgentMemorySessionSource>,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentMemorySessionSource {
+    /// A handoff-local ordinal, intentionally not a filesystem-derived ID.
+    pub ordinal: usize,
+    pub agent: String,
+    pub scope: String,
+    pub managed_by_switchboard: bool,
+    pub estimated_tokens_before: u64,
+    pub estimated_tokens_after: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -669,6 +727,7 @@ pub enum SavingsAttributionSource {
     Ponytail,
     Markitdown,
     CompactChinese,
+    AgentMemory,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

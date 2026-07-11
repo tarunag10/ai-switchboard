@@ -5,14 +5,77 @@ use sha2::{Digest, Sha256};
 
 use crate::analytics_models::{
     AnalyticsEvidenceConfidence, AnalyticsFreshness, ContextPressureBandV1, ContextPressureV1,
-    TokenMetricV1, TokenXrayEventKindV1, TokenXrayEventV1, TokenXrayMetricsV1, TokenXraySnapshotV1,
-    UsageAnomalyV1,
+    TokenMetricV1, TokenXrayEventKindV1, TokenXrayEventV1, TokenXrayLiveUpdateV1,
+    TokenXrayMetricsV1, TokenXraySnapshotV1, UsageAnomalyV1,
 };
 use crate::analytics_normalization::{confidence, normalize};
 use crate::models::{DashboardState, SavingsAttributionEvent, UsageOutcome};
 use crate::optimization::CacheTokenMetrics;
 
 const TIMELINE_LIMIT: usize = 50;
+const LIVE_UPDATE_TIMELINE_LIMIT: usize = 12;
+
+/// Coalesces content-free live projections by their material values. A caller
+/// may advance its local revision only when this returns an update; repeated
+/// polls and duplicate tracker writes therefore cannot create UI churn.
+#[derive(Default)]
+pub(crate) struct TokenXrayUpdateCoalescer {
+    last_fingerprint: Option<String>,
+}
+
+impl TokenXrayUpdateCoalescer {
+    pub(crate) fn project(
+        &mut self,
+        snapshot: TokenXraySnapshotV1,
+        revision: u64,
+    ) -> Option<TokenXrayLiveUpdateV1> {
+        let update = live_update_projection(snapshot, revision);
+        let fingerprint = update_fingerprint(&update);
+        if self.last_fingerprint.as_deref() == Some(fingerprint.as_str()) {
+            return None;
+        }
+        self.last_fingerprint = Some(fingerprint);
+        Some(update)
+    }
+}
+
+/// Projects a bounded update payload for the local UI. Metrics are cloned as
+/// is so unavailable evidence remains unavailable rather than becoming zero.
+pub(crate) fn live_update_projection(
+    snapshot: TokenXraySnapshotV1,
+    revision: u64,
+) -> TokenXrayLiveUpdateV1 {
+    TokenXrayLiveUpdateV1 {
+        schema_version: snapshot.schema_version,
+        revision,
+        generated_at: snapshot.generated_at,
+        agent: snapshot.agent,
+        provider: snapshot.provider,
+        model: snapshot.model,
+        freshness: snapshot.freshness,
+        metrics: snapshot.metrics,
+        context_pressure: snapshot.context_pressure,
+        timeline: snapshot
+            .timeline
+            .into_iter()
+            .take(LIVE_UPDATE_TIMELINE_LIMIT)
+            .collect(),
+    }
+}
+
+fn update_fingerprint(update: &TokenXrayLiveUpdateV1) -> String {
+    // The generation timestamp and monotonic revision are transport metadata,
+    // not a material usage change. Excluding them is what suppresses duplicate
+    // emissions from repeated reads of unchanged local evidence.
+    let mut comparable = update.clone();
+    comparable.revision = 0;
+    comparable.generated_at =
+        chrono::DateTime::from_timestamp(0, 0).expect("Unix epoch is a valid timestamp");
+    let bytes = serde_json::to_vec(&comparable).expect("live update serializes");
+    let mut digest = Sha256::new();
+    digest.update(bytes);
+    format!("{:x}", digest.finalize())
+}
 
 /// Builds a content-free snapshot from explicitly supplied cache evidence.
 /// Keeping the optional cache result at the boundary prevents a failed local
@@ -495,5 +558,58 @@ mod tests {
         }
         assert_eq!(snapshot.provider.as_deref(), Some("OpenAI"));
         assert_eq!(snapshot.agent.as_deref(), Some("Codex"));
+    }
+
+    #[test]
+    fn live_projection_is_bounded_and_preserves_unavailable_metrics() {
+        let usage = (0..(LIVE_UPDATE_TIMELINE_LIMIT as u64 + 4))
+            .map(|index| usage("https://example.test/model=latest", index + 1, 2))
+            .collect();
+        let snapshot =
+            build_snapshot_with_cache_metrics(&dashboard_with_usage(usage), vec![], None);
+        let update = live_update_projection(snapshot, 7);
+
+        assert_eq!(update.revision, 7);
+        assert_eq!(update.timeline.len(), LIVE_UPDATE_TIMELINE_LIMIT);
+        assert!(update.metrics.cache_read_tokens.value.is_none());
+        assert!(matches!(
+            update.metrics.cache_read_tokens.confidence,
+            AnalyticsEvidenceConfidence::Unavailable
+        ));
+    }
+
+    #[test]
+    fn live_update_coalescer_suppresses_duplicate_projections() {
+        let snapshot = build_snapshot_with_cache_metrics(
+            &dashboard_with_usage(vec![usage("https://api.openai.com/gpt-4o", 10, 2)]),
+            vec![],
+            None,
+        );
+        let mut coalescer = TokenXrayUpdateCoalescer::default();
+
+        assert!(coalescer.project(snapshot.clone(), 1).is_some());
+        assert!(coalescer.project(snapshot, 2).is_none());
+    }
+
+    #[test]
+    fn live_update_coalescer_emits_after_material_usage_change() {
+        let first = build_snapshot_with_cache_metrics(
+            &dashboard_with_usage(vec![usage("https://api.openai.com/gpt-4o", 10, 2)]),
+            vec![],
+            None,
+        );
+        let changed = build_snapshot_with_cache_metrics(
+            &dashboard_with_usage(vec![usage("https://api.openai.com/gpt-4o", 11, 2)]),
+            vec![],
+            None,
+        );
+        let mut coalescer = TokenXrayUpdateCoalescer::default();
+
+        assert!(coalescer.project(first, 1).is_some());
+        let update = coalescer
+            .project(changed, 2)
+            .expect("material usage changes emit an update");
+        assert_eq!(update.revision, 2);
+        assert_eq!(update.metrics.input_tokens.value, Some(11.0));
     }
 }

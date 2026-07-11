@@ -13,7 +13,7 @@ use crate::activity_facts::WeeklyTotals;
 use crate::insights::generate_daily_insights;
 
 use crate::models::{
-    ClientStatus, DailyInsight, DailySavingsPoint, HourlySavingsPoint,
+    AgentMemorySessionManifest, ClientStatus, DailyInsight, DailySavingsPoint, HourlySavingsPoint,
     SavingsAttributionConfidence, SavingsAttributionCounter, SavingsAttributionEvent,
     SavingsAttributionScope, SavingsAttributionSource, UsageEvent,
 };
@@ -136,6 +136,45 @@ pub(super) fn build_repo_intelligence_attribution_event(
             "Repo Intelligence savings estimate is local context avoided, not provider-spend dollars."
                 .to_string(),
         ],
+    })
+}
+
+/// Agent Memory uses local structural estimates, not provider telemetry. An
+/// event exists only when a complete secret-safe preview supplied both token
+/// counts and the compact form is actually shorter. Evidence deliberately
+/// avoids source identifiers and paths because the ledger can be exported.
+pub(super) fn build_agent_memory_attribution_event(
+    manifest: &AgentMemorySessionManifest,
+) -> Option<SavingsAttributionEvent> {
+    if !manifest.safe_preview_available || manifest.excluded_secret_source_count > 0 {
+        return None;
+    }
+    let (Some(before), Some(after)) = (
+        manifest.estimated_tokens_before,
+        manifest.estimated_tokens_after,
+    ) else {
+        return None;
+    };
+    let delta_tokens_saved = before.checked_sub(after)?;
+    if delta_tokens_saved == 0 || manifest.source_count == 0 {
+        return None;
+    }
+
+    Some(SavingsAttributionEvent {
+        schema_version: 1,
+        id: Uuid::new_v4().to_string(),
+        observed_at: Utc::now(),
+        scope: SavingsAttributionScope::Session,
+        source: SavingsAttributionSource::AgentMemory,
+        confidence: SavingsAttributionConfidence::Estimated,
+        delta_tokens_saved,
+        delta_usd: 0.0,
+        total_tokens_sent: after,
+        request_delta: 1,
+        evidence: vec![format!(
+            "Estimated from a safe Agent Memory preview for {} selected source(s): {before} before to {after} after.",
+            manifest.source_count
+        )],
     })
 }
 
@@ -2396,16 +2435,18 @@ mod tests {
     use chrono::{TimeZone, Utc};
 
     use crate::models::{
-        RepoContextPack, RepoIntelligenceSummary, SavingsAttributionConfidence,
-        SavingsAttributionEvent, SavingsAttributionScope, SavingsAttributionSource,
+        AgentMemorySessionManifest, RepoContextPack, RepoIntelligenceSummary,
+        SavingsAttributionConfidence, SavingsAttributionEvent, SavingsAttributionScope,
+        SavingsAttributionSource,
     };
     use crate::tool_manager::RtkGainSummary;
 
     use super::{
         aggregate_savings_attribution_counters, aggregate_weekly_totals,
-        build_addon_attribution_event, build_repo_intelligence_attribution_event,
-        lifetime_usd_milestones_crossed, most_recent_monday, DailySavingsBucket,
-        HeadroomDashboardStats, HeadroomSavingsHistoryPoint, SavingsTracker,
+        build_addon_attribution_event, build_agent_memory_attribution_event,
+        build_repo_intelligence_attribution_event, lifetime_usd_milestones_crossed,
+        most_recent_monday, DailySavingsBucket, HeadroomDashboardStats,
+        HeadroomSavingsHistoryPoint, SavingsTracker,
     };
 
     fn make_tracker() -> SavingsTracker {
@@ -2680,6 +2721,7 @@ mod tests {
             files: Vec::new(),
             estimated_tokens,
             savings_vs_full_scan_pct: savings,
+            ranking: Default::default(),
         }
     }
 
@@ -2715,6 +2757,34 @@ mod tests {
         );
 
         assert!(build_repo_intelligence_attribution_event(&summary).is_none());
+    }
+
+    #[test]
+    fn agent_memory_attribution_requires_a_complete_clear_preview() {
+        let safe = AgentMemorySessionManifest {
+            schema_version: 1,
+            kind: "mac_ai_switchboard.agent_memory_session_manifest".into(),
+            target: "codex".into(),
+            stable_memory_first: true,
+            source_count: 2,
+            excluded_secret_source_count: 0,
+            safe_preview_available: true,
+            estimated_tokens_before: Some(800),
+            estimated_tokens_after: Some(500),
+            estimated_tokens_saved: Some(300),
+            sources: Vec::new(),
+            warnings: Vec::new(),
+        };
+        let event = build_agent_memory_attribution_event(&safe).expect("safe event");
+        assert_eq!(event.source, SavingsAttributionSource::AgentMemory);
+        assert_eq!(event.confidence, SavingsAttributionConfidence::Estimated);
+        assert_eq!(event.delta_tokens_saved, 300);
+        assert_eq!(event.total_tokens_sent, 500);
+        assert!(!event.evidence.join(" ").contains("/"));
+
+        let mut blocked = safe;
+        blocked.excluded_secret_source_count = 1;
+        assert!(build_agent_memory_attribution_event(&blocked).is_none());
     }
 
     #[test]

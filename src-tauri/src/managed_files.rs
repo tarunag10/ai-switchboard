@@ -26,44 +26,7 @@ pub(crate) fn upsert_managed_block(
         String::new()
     };
 
-    let start = managed_marker_start(MARKER_PREFIX, block_id);
-    let end = managed_marker_end(MARKER_PREFIX, block_id);
-    let legacy_start = managed_marker_start(LEGACY_MARKER_PREFIX, block_id);
-    let legacy_end = managed_marker_end(LEGACY_MARKER_PREFIX, block_id);
-    let block = format!("{start}\n{block_body}\n{end}\n");
-    let updated =
-        if let (Some(start_idx), Some(end_idx)) = (existing.find(&start), existing.find(&end)) {
-            let end_with_marker = end_idx + end.len();
-            let mut rebuilt = String::with_capacity(existing.len() + block.len());
-            rebuilt.push_str(&existing[..start_idx]);
-            rebuilt.push_str(&block);
-            if end_with_marker < existing.len() {
-                // `block` already ends in `\n`; if the surviving suffix also
-                // starts with `\n`, drop one to avoid blank-line padding
-                // accumulating between managed blocks on repeat applies.
-                let suffix = &existing[end_with_marker..];
-                let suffix = suffix.strip_prefix('\n').unwrap_or(suffix);
-                rebuilt.push_str(suffix);
-            }
-            rebuilt
-        } else if let (Some(start_idx), Some(end_idx)) =
-            (existing.find(&legacy_start), existing.find(&legacy_end))
-        {
-            let end_with_marker = end_idx + legacy_end.len();
-            let mut rebuilt = String::with_capacity(existing.len() + block.len());
-            rebuilt.push_str(&existing[..start_idx]);
-            rebuilt.push_str(&block);
-            if end_with_marker < existing.len() {
-                let suffix = &existing[end_with_marker..];
-                let suffix = suffix.strip_prefix('\n').unwrap_or(suffix);
-                rebuilt.push_str(suffix);
-            }
-            rebuilt
-        } else if existing.trim().is_empty() {
-            block
-        } else {
-            format!("{}\n{}", existing.trim_end(), block)
-        };
+    let updated = managed_block_updated_content(&existing, block_id, block_body);
 
     if updated == existing {
         return Ok((false, None));
@@ -73,6 +36,46 @@ pub(crate) fn upsert_managed_block(
     std::fs::write(file_path, updated)
         .with_context(|| format!("writing {}", file_path.display()))?;
     Ok((true, backup))
+}
+
+/// Computes an isolated Switchboard marker edit without touching the filesystem.
+/// Config previews use this to make their before/after diff exactly match apply.
+pub(crate) fn managed_block_updated_content(
+    existing: &str,
+    block_id: &str,
+    block_body: &str,
+) -> String {
+    let start = managed_marker_start(MARKER_PREFIX, block_id);
+    let end = managed_marker_end(MARKER_PREFIX, block_id);
+    let legacy_start = managed_marker_start(LEGACY_MARKER_PREFIX, block_id);
+    let legacy_end = managed_marker_end(LEGACY_MARKER_PREFIX, block_id);
+    let block = format!("{start}\n{block_body}\n{end}\n");
+    if let (Some(start_idx), Some(end_idx)) = (existing.find(&start), existing.find(&end)) {
+        replace_marker_block(existing, start_idx, end_idx + end.len(), &block)
+    } else if let (Some(start_idx), Some(end_idx)) =
+        (existing.find(&legacy_start), existing.find(&legacy_end))
+    {
+        replace_marker_block(existing, start_idx, end_idx + legacy_end.len(), &block)
+    } else if existing.trim().is_empty() {
+        block
+    } else {
+        format!("{}\n{}", existing.trim_end(), block)
+    }
+}
+
+fn replace_marker_block(existing: &str, start_idx: usize, end_idx: usize, block: &str) -> String {
+    let mut rebuilt = String::with_capacity(existing.len() + block.len());
+    rebuilt.push_str(&existing[..start_idx]);
+    rebuilt.push_str(block);
+    if end_idx < existing.len() {
+        // `block` already ends in `\n`; avoid accumulating blank padding.
+        rebuilt.push_str(
+            existing[end_idx..]
+                .strip_prefix('\n')
+                .unwrap_or(&existing[end_idx..]),
+        );
+    }
+    rebuilt
 }
 
 pub(crate) fn write_file_if_changed(

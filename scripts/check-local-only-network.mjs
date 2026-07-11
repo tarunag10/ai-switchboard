@@ -62,7 +62,9 @@ const documentedAppOwnedRemoteSignals = [
   },
   {
     id: "support-links",
-    sourcePath: "src/App.tsx",
+    // The app opens this value from App.tsx, but the destination is deliberately
+    // centralized here so every support surface shares one app-owned URL.
+    sourcePath: "src/lib/supportUrls.ts",
     needles: ["https://github.com/tarunag10/mac-ai-switchboard/issues"],
     docsNeedles: ["Support and external links", "user-initiated links"],
   },

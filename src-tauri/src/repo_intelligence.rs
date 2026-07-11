@@ -853,7 +853,22 @@ pub fn build_agent_handoff_response(
             manual_provider_routing: profile.manual_provider_routing,
         },
         config_readiness,
+        // Session handoffs may carry only a structural Agent Memory manifest.
+        // It intentionally omits source paths and instruction text; a failure
+        // to inspect optional local memory must not block an otherwise valid
+        // read-only Repo Intelligence handoff.
+        memory_manifest: agent_memory_target(profile.id).and_then(|target| {
+            crate::agent_memory::build_session_manifest(summary.repo_root.clone(), target).ok()
+        }),
     })
+}
+
+fn agent_memory_target(agent_id: &str) -> Option<crate::agent_memory::AgentMemoryTarget> {
+    match agent_id {
+        "codex" => Some(crate::agent_memory::AgentMemoryTarget::Codex),
+        "claude" => Some(crate::agent_memory::AgentMemoryTarget::Claude),
+        _ => None,
+    }
 }
 
 fn build_graph_brief(summary: &RepoIntelligenceSummary) -> RepoContextPackGraphBrief {
@@ -3888,6 +3903,14 @@ export const mapValues = <T>(items: T[]) => items;
                     .iter()
                     .any(|reason| reason.contains("matches task term `dashboard`"))
         }));
+        assert_eq!(
+            pack.ranking.task_terms,
+            vec!["feature", "work", "billing", "dashboard"]
+        );
+        assert_eq!(
+            pack.ranking.evidence[0],
+            "task terms: feature, work, billing, dashboard"
+        );
     }
 
     #[test]
@@ -3942,6 +3965,12 @@ export const mapValues = <T>(items: T[]) => items;
                     .iter()
                     .any(|reason| reason.contains("connected to task-matching"))
         }));
+        assert_eq!(pack.ranking.graph_task_term_match_count, 1);
+        assert!(pack
+            .ranking
+            .evidence
+            .iter()
+            .any(|evidence| evidence == "graph task matches: 1 selected file"));
     }
 
     #[test]
@@ -3999,6 +4028,68 @@ export const mapValues = <T>(items: T[]) => items;
             reason.contains("graph: reverse dependency hub with 2 incoming references")
                 && reason.contains("src/feature_panel.ts")
         }));
+        assert_eq!(pack.ranking.reverse_dependency_hubs.len(), 1);
+        assert_eq!(
+            pack.ranking.reverse_dependency_hubs[0].path,
+            "src/core_engine.ts"
+        );
+        assert_eq!(
+            pack.ranking.reverse_dependency_hubs[0].incoming_references,
+            2
+        );
+        assert!(pack
+            .ranking
+            .evidence
+            .iter()
+            .any(|evidence| { evidence == "reverse dependency hubs: src/core_engine.ts (2)" }));
+    }
+
+    #[test]
+    fn context_pack_ranking_metadata_is_deterministic_and_deduplicates_task_terms() {
+        let files = vec![
+            classify_file("src/auth/session.ts", 120),
+            classify_file("src/other.ts", 120),
+        ];
+        let graph = RepoGraphSummary {
+            top_directories: Vec::new(),
+            top_languages: Vec::new(),
+            entrypoints: Vec::new(),
+            likely_tests: Vec::new(),
+            config_hubs: Vec::new(),
+            dependency_hubs: Vec::new(),
+            import_edges: Vec::new(),
+            reverse_dependency_hubs: vec![RepoGraphNode {
+                label: "src/auth/session.ts".to_string(),
+                count: 3,
+                estimated_tokens: 120,
+                examples: Vec::new(),
+            }],
+            symbols: Vec::new(),
+            symbol_edges: Vec::new(),
+        };
+
+        let first = build_context_pack(
+            "implementation",
+            "Implementation Pack",
+            "Auth auth session work",
+            files.clone(),
+            1_000,
+            Some(&graph),
+        );
+        let second = build_context_pack(
+            "implementation",
+            "Implementation Pack",
+            "Auth auth session work",
+            files,
+            1_000,
+            Some(&graph),
+        );
+
+        assert_eq!(first.ranking.task_terms, vec!["auth", "session", "work"]);
+        assert_eq!(
+            serde_json::to_value(&first.ranking).expect("serialize first ranking"),
+            serde_json::to_value(&second.ranking).expect("serialize second ranking")
+        );
     }
 
     #[test]
