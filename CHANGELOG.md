@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Plan completion and readiness (2026-07-12)
+
+- Closed the planned implementation slices for Agent Memory, Token X-Ray depth/live updates, incremental and graph-aware Repo Intelligence, supervised Repo Memory MCP, Cursor/Goose/Grok‑xAI sidecars, gateway readiness, add-on measurement guardrails, progressive disclosure, and reboot-proof automation.
+- Added gateway readiness receipts, redacted previews, reversible local intent, and opt-in loopback LiteLLM preflight without credentials, network writes, or provider configuration changes.
+- Added arm/record/check reboot-proof commands that require a real post-reboot marker and keep public installed-app evidence separate from local workflow scaffolding.
+- Kept remaining external gates explicit: true before/after add-on measurements, native provider routing schemas, live gateway infrastructure, and public installed-app/reboot evidence.
+
 ### Live Token X-Ray and Daily AI Usage Briefing
 
 - Added end-to-end local-first Token X-Ray and Daily Briefing capabilities: versioned read-model contracts, confidence-labelled X-Ray metrics/timeline/anomalies, deterministic recommendations, daily history, secret-free exports, and scoped analytics deletion controls.
