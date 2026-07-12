@@ -4,7 +4,23 @@ After installing a new beta (`-rc.N`) build, paste this file into Claude Code an
 
 ## Setup
 
-These checks assume the current compatibility bundle is `/Applications/Mac AI Switchboard.app`.
+The installed bundle name follows the signed DMG's current display name. Resolve it
+before running path-sensitive checks; older installs may still use one of the
+legacy names:
+
+```bash
+APP_PATH=""
+for candidate in \
+  "/Applications/AI Switchboard for Mac.app" \
+  "/Applications/AI Switchboard.app" \
+  "/Applications/Mac AI Switchboard.app" \
+  "/Applications/Mac Switchboard.app"; do
+  if [ -d "$candidate" ]; then APP_PATH="$candidate"; break; fi
+done
+test -n "$APP_PATH" && printf 'Using %s\n' "$APP_PATH"
+```
+
+The current signed app is normally `/Applications/AI Switchboard for Mac.app`.
 
 1. Quit and relaunch AI Switchboard for Mac from Applications.
 2. Confirm the tray icon appears in the menu bar.
@@ -122,8 +138,9 @@ Run these from a Claude Code session and report PASS / FAIL with the observed va
 ### 1. Version matches the new beta
 
 ```bash
-ls /Applications/Mac\ AI\ Switchboard.app/Contents/Info.plist >/dev/null && \
-  /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" /Applications/Mac\ AI\ Switchboard.app/Contents/Info.plist
+test -n "$APP_PATH" && \
+  ls "$APP_PATH/Contents/Info.plist" >/dev/null && \
+  /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist"
 ```
 
 Expect: the `-rc.N` version you just installed.
@@ -249,7 +266,7 @@ If the fallback is missing, check `~/Library/Application Support/Mac AI Switchbo
 AI Switchboard is free. The app should not require sign-in, checkout, or a pricing API before optimization works.
 
 ```bash
-defaults read /Applications/Mac\ AI\ Switchboard.app/Contents/Info.plist CFBundleIdentifier
+defaults read "$APP_PATH/Contents/Info.plist" CFBundleIdentifier
 ```
 
 Expect: `com.tarunagarwal.mac-ai-switchboard`. The UI should not show Upgrade, trial-expired, checkout, or sign-in-required copy.
