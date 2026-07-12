@@ -21,27 +21,32 @@ use crate::client_footprint::managed_backup_targets;
 use crate::client_paths::{
     all_shell_paths, claude_settings_candidates, claude_settings_path, codex_config_toml_path,
     dedupe_paths, dedupe_strings, default_shell_targets_for_family, detect_shell_family,
-    discover_managed_shell_targets, headroom_markitdown_hook_path, headroom_rtk_hook_path,
-    home_dir, is_profile_file, opencode_config_path, planned_sidecar_routing_path,
-    resolve_default_shell_targets, rtk_codex_agents_path, serialize_paths,
-    shell_targets_from_state, windsurf_config_path, zed_config_path, SWITCHBOARD_ROUTING_FILE,
+    discover_managed_shell_targets, grok_config_path, headroom_markitdown_hook_path,
+    headroom_rtk_hook_path, home_dir, is_profile_file, opencode_config_path,
+    planned_sidecar_routing_path, resolve_default_shell_targets, rtk_codex_agents_path,
+    serialize_paths, shell_targets_from_state, windsurf_config_path, zed_config_path,
+    SWITCHBOARD_ROUTING_FILE,
 };
 use crate::client_provider_configs::{
-    configure_opencode_provider_config, configure_windsurf_provider_config,
-    configure_zed_provider_config, opencode_apply_confirmation_phrase,
+    configure_grok_provider_config, configure_opencode_provider_config,
+    configure_windsurf_provider_config, configure_zed_provider_config,
+    grok_apply_confirmation_phrase, grok_config_backup_pattern, grok_next_provider_config,
+    grok_provider_config_matches, opencode_apply_confirmation_phrase,
     opencode_config_backup_pattern, opencode_next_provider_config,
-    opencode_provider_config_matches, remove_opencode_provider_config,
+    opencode_provider_config_matches, remove_grok_provider_config, remove_opencode_provider_config,
     remove_windsurf_provider_config, remove_zed_provider_config,
     windsurf_apply_confirmation_phrase, windsurf_config_backup_pattern,
     windsurf_next_provider_config, windsurf_provider_config_matches, zed_apply_confirmation_phrase,
     zed_config_backup_pattern, zed_next_provider_config, zed_provider_config_matches,
-    HEADROOM_ANTHROPIC_BASE_URL, HEADROOM_OPENAI_BASE_URL, OPENCODE_HEADROOM_PROVIDER_ID,
+    GROK_HEADROOM_BASE_URL, GROK_MARKER_PREFIX, HEADROOM_ANTHROPIC_BASE_URL,
+    HEADROOM_OPENAI_BASE_URL, OPENCODE_HEADROOM_PROVIDER_ID,
 };
 #[cfg(test)]
 use crate::client_provider_configs::{WINDSURF_MARKER_PREFIX, ZED_MARKER_PREFIX};
 use crate::client_sidecar_rollbacks::{
     execute_sidecar_rollback, preview_sidecar_rollback, sidecar_rollback_target,
 };
+use crate::cursor_native::{assess_native_schema, evidence_lines as cursor_native_evidence};
 use crate::managed_files::{
     backup_if_exists, managed_block_updated_content, managed_marker_end, managed_marker_start,
     marker_block_contains, parse_json_object, remove_managed_block, remove_shell_block,
@@ -68,6 +73,9 @@ const GOOSE_SIDECAR_APPLY_RECORD_ID: &str = "goose-sidecar-routing";
 const GOOSE_SIDECAR_OWNER: &str = "Goose routing-intent sidecar";
 const GROK_SIDECAR_APPLY_RECORD_ID: &str = "grok-sidecar-routing";
 const GROK_SIDECAR_OWNER: &str = "Grok / xAI CLI routing-intent sidecar";
+const GROK_ROLLBACK_RECORD_ID: &str = "grok-routing";
+const GROK_ROLLBACK_OWNER: &str = "Grok / xAI CLI routing";
+const GROK_ROLLBACK_MARKER: &str = "headroom:grok";
 const MARKER_PREFIX: &str = "headroom";
 pub fn detect_clients() -> Vec<ClientStatus> {
     let setup_state = load_setup_state();
@@ -294,6 +302,41 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
             changed_files.extend(updates.0);
             backup_files.extend(updates.1);
         }
+        "grok_cli" => {
+            let mut updates = configure_grok_provider_config()?;
+            let (sidecar_changed, sidecar_backup) =
+                configure_planned_switchboard_sidecar(client_id)?;
+            if sidecar_changed {
+                updates.0.push(
+                    planned_sidecar_routing_path(client_id)?
+                        .display()
+                        .to_string(),
+                );
+            }
+            if let Some(backup) = sidecar_backup {
+                updates.1.push(backup.display().to_string());
+            }
+            changed_files.extend(updates.0);
+            backup_files.extend(updates.1);
+        }
+        "goose" => {
+            let (changed, backups) =
+                crate::goose_provider_configs::configure_goose_provider_config()?;
+            changed_files.extend(changed);
+            backup_files.extend(backups);
+            let (sidecar_changed, sidecar_backup) =
+                configure_planned_switchboard_sidecar(client_id)?;
+            if sidecar_changed {
+                changed_files.push(
+                    planned_sidecar_routing_path(client_id)?
+                        .display()
+                        .to_string(),
+                );
+            }
+            if let Some(backup) = sidecar_backup {
+                backup_files.push(backup.display().to_string());
+            }
+        }
         "windsurf" => {
             let updates = configure_windsurf_provider_config()?;
             changed_files.extend(updates.0);
@@ -328,11 +371,15 @@ pub fn apply_client_setup(client_id: &str) -> Result<ClientSetupResult> {
     let already_configured = changed_files.is_empty();
     let summary = if let Some(sidecar) = planned_sidecar_spec(client_id) {
         if sidecar.id == "goose" && already_configured {
-            "Goose Repo Memory MCP bridge metadata was already present; provider routing remains manual."
-                .to_string()
+            "Goose provider routing and Repo Memory MCP bridge were already configured.".to_string()
         } else if sidecar.id == "goose" {
-            "Goose Repo Memory MCP bridge metadata written; provider routing remains manual."
+            "Goose provider routing and Repo Memory MCP bridge were configured; credentials and account state remain manual."
                 .to_string()
+        } else if sidecar.id == "grok_cli" && already_configured {
+            "Grok / xAI native endpoint routing and Switchboard sidecar were already present."
+                .to_string()
+        } else if sidecar.id == "grok_cli" {
+            "Grok / xAI native endpoint routing and Switchboard sidecar were written; credentials, account, and model selection remain manual.".to_string()
         } else if already_configured {
             format!("{} Switchboard sidecar was already present.", sidecar.name)
         } else {
@@ -366,6 +413,13 @@ fn client_setup_next_steps(client_id: &str) -> Vec<String> {
         return vec![
             "Prepare the Repo Memory MCP handoff from Mode Inspector.".into(),
             "Keep Goose provider and model routing manual until native provider lifecycle coverage is promoted.".into(),
+        ];
+    }
+
+    if normalized_setup_id(client_id) == "grok_cli" {
+        return vec![
+            "Keep XAI_API_KEY or Grok login authentication configured manually; Switchboard never stores credentials.".into(),
+            "Run one Grok prompt and verify activity appears in Headroom.".into(),
         ];
     }
 
@@ -495,6 +549,20 @@ pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
                     .push("Codex OPENAI_BASE_URL export was not found in shell profiles.".into());
             }
         }
+        "goose" => {
+            if crate::goose_provider_configs::goose_provider_config_matches()? {
+                checks.push(
+                    "Found Switchboard-managed Goose provider endpoint configuration.".into(),
+                );
+            } else {
+                failures.push("Switchboard-managed Goose provider endpoint configuration was not found or does not match.".into());
+            }
+            if planned_switchboard_sidecar_matches(client_id)? {
+                checks.push(
+                    "Found Switchboard-managed Goose Repo Memory MCP bridge metadata.".into(),
+                );
+            }
+        }
         "gemini_cli" => {
             let state = load_setup_state();
             let shell_targets = resolve_client_shell_targets(&state, client_id)?;
@@ -598,6 +666,40 @@ pub fn verify_client_setup(client_id: &str) -> Result<ClientSetupVerification> {
                     "OpenCode provider {} was not found in {}.",
                     OPENCODE_HEADROOM_PROVIDER_ID,
                     opencode_config_path().display()
+                ));
+            }
+        }
+        "grok_cli" => {
+            let provider_ok = grok_provider_config_matches()?;
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("Unknown planned sidecar {client_id}"))?;
+            let sidecar_path = planned_sidecar_routing_path(client_id)?;
+            let sidecar_ok = planned_switchboard_sidecar_matches(client_id)?;
+            if provider_ok {
+                checks.push(format!(
+                    "Found Grok / xAI native endpoint routing in {} pointing to Headroom.",
+                    grok_config_path().display()
+                ));
+                checks.push(
+                    "Grok provider, model, account, and credential values remain user-controlled; Switchboard manages only [endpoints].models_base_url.".into(),
+                );
+            } else {
+                failures.push(format!(
+                    "Switchboard-managed Grok endpoint routing was not found in {}.",
+                    grok_config_path().display()
+                ));
+            }
+            if sidecar_ok {
+                checks.push(format!(
+                    "Found Switchboard-managed {} sidecar at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
+                ));
+            } else {
+                failures.push(format!(
+                    "Switchboard-managed {} sidecar was not found at {}.",
+                    sidecar.name,
+                    sidecar_path.display()
                 ));
             }
         }
@@ -913,6 +1015,12 @@ pub fn disable_client_setup(client_id: &str) -> Result<()> {
         }
         "opencode" => {
             remove_opencode_provider_config()?;
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+            let _ = remove_managed_block(&planned_sidecar_routing_path(client_id)?, sidecar.id)?;
+        }
+        "grok_cli" => {
+            let _ = remove_grok_provider_config()?;
             let sidecar = planned_sidecar_spec(client_id)
                 .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
             let _ = remove_managed_block(&planned_sidecar_routing_path(client_id)?, sidecar.id)?;
@@ -2244,6 +2352,14 @@ const OPENCODE_ROLLBACK_EVIDENCE: &[&str] = &[
     "Relaunch-survival evidence requires re-reading restored config from disk after write.",
 ];
 
+const GROK_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: grok-routing.",
+    "Backup must live next to ~/.grok/config.toml and use *.headroom-backup-*.",
+    "Current config must still contain the managed Grok [endpoints].models_base_url marker before restore.",
+    "Relaunch-survival evidence requires re-reading restored config from disk after write.",
+    "Switchboard never reads or writes Grok auth.json, API keys, account state, or model selection.",
+];
+
 const GEMINI_ROLLBACK_EVIDENCE: &[&str] = &[
     "Allowlisted rollback execution row: gemini-routing.",
     "Cleanup removes only Switchboard-owned Gemini shell and sidecar blocks.",
@@ -2284,6 +2400,17 @@ fn managed_rollback_target(record_id: &str) -> Result<ManagedRollbackTarget> {
                 "Restore the OpenCode provider config from the selected sibling backup after creating a fresh safety backup.",
             evidence: OPENCODE_ROLLBACK_EVIDENCE,
         }),
+        GROK_ROLLBACK_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: GROK_ROLLBACK_RECORD_ID,
+            owner: GROK_ROLLBACK_OWNER,
+            marker: GROK_ROLLBACK_MARKER,
+            target_path: grok_config_path,
+            marker_matches: grok_provider_config_matches,
+            backup_required: true,
+            proposed_action:
+                "Restore the Grok config from the selected sibling backup after creating a fresh safety backup.",
+            evidence: GROK_ROLLBACK_EVIDENCE,
+        }),
         GEMINI_ROLLBACK_RECORD_ID => Ok(ManagedRollbackTarget {
             record_id: GEMINI_ROLLBACK_RECORD_ID,
             owner: GEMINI_ROLLBACK_OWNER,
@@ -2321,7 +2448,7 @@ fn managed_rollback_target(record_id: &str) -> Result<ManagedRollbackTarget> {
             evidence: ZED_ROLLBACK_EVIDENCE,
         }),
         _ => Err(anyhow!(
-            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {GEMINI_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {ZED_ROLLBACK_RECORD_ID}."
+            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {GEMINI_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {ZED_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -2387,6 +2514,41 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
         CURSOR_SIDECAR_APPLY_RECORD_ID => preview_cursor_sidecar_apply(),
         GOOSE_SIDECAR_APPLY_RECORD_ID => preview_provider_sidecar_apply(GOOSE_SIDECAR_APPLY_RECORD_ID, "goose", GOOSE_SIDECAR_OWNER),
         GROK_SIDECAR_APPLY_RECORD_ID => preview_provider_sidecar_apply(GROK_SIDECAR_APPLY_RECORD_ID, "grok_cli", GROK_SIDECAR_OWNER),
+        GROK_ROLLBACK_RECORD_ID => {
+            let path = grok_config_path();
+            let current_state = if path.exists() {
+                std::fs::read_to_string(&path)
+                    .with_context(|| format!("reading {}", path.display()))?
+            } else {
+                String::new()
+            };
+            let (next_config, changed) = grok_next_provider_config()?;
+            Ok(ManagedConfigApplyPreview {
+                record_id: GROK_ROLLBACK_RECORD_ID.to_string(),
+                owner: GROK_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                marker: GROK_MARKER_PREFIX.to_string(),
+                backup_path: grok_config_backup_pattern(),
+                status: ManagedRollbackExecutionStatus::Ready,
+                confirmation_phrase: grok_apply_confirmation_phrase(
+                    GROK_MARKER_PREFIX,
+                    &current_state,
+                ),
+                current_state,
+                proposed_state: next_config,
+                rollback_preview:
+                    "Restore the sibling *.headroom-backup-* file through Rollback Center."
+                        .to_string(),
+                blocked_reason: None,
+                evidence: vec![
+                    "Installed Grok Build documentation explicitly allowlists [endpoints].models_base_url in ~/.grok/config.toml.".to_string(),
+                    "Preview writes only the non-secret endpoint field and preserves all other TOML content.".to_string(),
+                    format!("Preview changed: {changed}."),
+                    "Apply creates a sibling backup, writes the endpoint, verifies the marker, and can roll back from the backup.".to_string(),
+                    "XAI_API_KEY, auth.json, account state, and model selection remain untouched and manual.".to_string(),
+                ],
+            })
+        }
         OPENCODE_ROLLBACK_RECORD_ID => {
             let path = opencode_config_path();
             let current_state = if path.exists() {
@@ -2495,7 +2657,7 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
             })
         }
         _ => Err(anyhow!(
-            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
+            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -2537,6 +2699,32 @@ pub fn execute_managed_config_apply(
         }
         GOOSE_SIDECAR_APPLY_RECORD_ID => execute_provider_sidecar_apply(record_id, "goose", GOOSE_SIDECAR_OWNER, confirmation_phrase),
         GROK_SIDECAR_APPLY_RECORD_ID => execute_provider_sidecar_apply(record_id, "grok_cli", GROK_SIDECAR_OWNER, confirmation_phrase),
+        GROK_ROLLBACK_RECORD_ID => {
+            let path = grok_config_path();
+            let (changed_files, backup_files) = configure_grok_provider_config()?;
+            if !grok_provider_config_matches()? {
+                return Err(anyhow!(
+                    "Grok native endpoint config verification failed after apply."
+                ));
+            }
+            Ok(ManagedConfigApplyResult {
+                record_id: GROK_ROLLBACK_RECORD_ID.to_string(),
+                owner: GROK_ROLLBACK_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                changed: changed_files
+                    .iter()
+                    .any(|changed| changed == &path.display().to_string()),
+                backup_path: backup_files.first().cloned(),
+                marker: GROK_MARKER_PREFIX.to_string(),
+                verification: vec![
+                    "Exact confirmation phrase matched the dry-run preview.".to_string(),
+                    "Sibling backup was created before writing when a prior config existed.".to_string(),
+                    "Grok [endpoints].models_base_url matches the Switchboard-managed proxy endpoint.".to_string(),
+                    "Provider, model, account, auth.json, and API-key values were not read or changed.".to_string(),
+                    "Rollback Center can restore the selected sibling backup.".to_string(),
+                ],
+            })
+        }
         OPENCODE_ROLLBACK_RECORD_ID => {
             let path = opencode_config_path();
             let (changed_files, backup_files) = configure_opencode_provider_config()?;
@@ -2629,6 +2817,7 @@ pub fn preview_managed_rollback(record_id: &str) -> Result<ManagedRollbackPrevie
         record_id,
         CODEX_ROLLBACK_RECORD_ID
             | OPENCODE_ROLLBACK_RECORD_ID
+            | GROK_ROLLBACK_RECORD_ID
             | GEMINI_ROLLBACK_RECORD_ID
             | WINDSURF_ROLLBACK_RECORD_ID
             | ZED_ROLLBACK_RECORD_ID
@@ -2701,6 +2890,7 @@ pub fn execute_managed_rollback(
         record_id,
         CODEX_ROLLBACK_RECORD_ID
             | OPENCODE_ROLLBACK_RECORD_ID
+            | GROK_ROLLBACK_RECORD_ID
             | GEMINI_ROLLBACK_RECORD_ID
             | WINDSURF_ROLLBACK_RECORD_ID
             | ZED_ROLLBACK_RECORD_ID
@@ -3615,6 +3805,7 @@ fn detect_cursor_client() -> ClientStatus {
         .cloned()
         .collect::<Vec<_>>();
     let settings_files = discover_editor_settings_files(&profile_surfaces);
+    let native_schema = assess_native_schema(&home_dir());
     let installed = app_path.exists() || command_path.is_some() || !profile_surfaces.is_empty();
     let mut notes = if installed {
         let mut evidence = Vec::new();
@@ -3648,9 +3839,9 @@ fn detect_cursor_client() -> ClientStatus {
             ));
         }
         evidence.push(
-            "Cursor settings routing remains blocked because its provider schema is not allowlisted; only the isolated Switchboard sidecar can be applied with preview, exact consent, backup, verification, rollback, and Off cleanup."
-                .into(),
+            "Cursor settings routing remains blocked because its provider schema is not allowlisted; only the isolated Switchboard sidecar can be applied with preview, exact consent, backup, verification, rollback, and Off cleanup.".into(),
         );
+        evidence.extend(cursor_native_evidence(&native_schema));
         evidence
     } else {
         vec!["Not detected on machine yet.".into()]
@@ -4253,7 +4444,9 @@ mod tests {
         planned_connector_has_implemented_setup, CONNECTOR_MANIFEST_JSON, PLANNED_CLIENT_SPECS,
         PLANNED_CONFIG_CREATION_STEPS, PLANNED_CONFIG_CREATION_STEP_IDS,
     };
-    use crate::client_paths::{planned_sidecar_routing_path, SWITCHBOARD_ROUTING_FILE};
+    use crate::client_paths::{
+        grok_config_path, planned_sidecar_routing_path, SWITCHBOARD_ROUTING_FILE,
+    };
     use crate::models::{
         ClientConnectorSupportStatus, ClientHealth, ClientStatus, CodexThreadRetaggingMode,
         CodexThreadRetaggingSettings, ManagedRollbackExecutionStatus, SwitchboardMode,
@@ -4264,10 +4457,10 @@ mod tests {
         build_markitdown_office_nudge, claude_code_user_state_exists, claude_hook_present_in_value,
         codex_home, default_shell_targets_for_family, entry_contains_hook, find_on_path_entries,
         list_client_connectors, normalize_setup_state, normalized_setup_id, nvm_binary_candidates,
-        parse_json_object, remove_managed_block, remove_pre_tool_use_markers, serialize_paths,
-        shell_block_contains_in_files, shell_block_contains_text_in_files, shell_double_quote,
-        strip_headroom_hook_from_settings, upsert_managed_block, write_file_if_changed,
-        ClientSetupState,
+        parse_json_object, planned_switchboard_sidecar_matches, remove_managed_block,
+        remove_pre_tool_use_markers, serialize_paths, shell_block_contains_in_files,
+        shell_block_contains_text_in_files, shell_double_quote, strip_headroom_hook_from_settings,
+        upsert_managed_block, write_file_if_changed, ClientSetupState,
     };
     use crate::client_connector_status::MANAGED_CLIENT_SPECS;
     use crate::client_footprint;
@@ -8782,6 +8975,71 @@ js_repl = false\n",
     }
 
     #[test]
+    #[serial_test::serial]
+    fn grok_native_endpoint_setup_preserves_config_and_supports_rollback_and_off_cleanup() {
+        let home = TestHome::new();
+        let config = grok_config_path();
+        fs::create_dir_all(config.parent().unwrap()).expect("create Grok config parent");
+        let original = "[cli]\nauto_update = false\n\n[models]\ndefault = \"grok-build\"\n\n[model.grok-build]\ncontext_window = 128000\n";
+        fs::write(&config, original).expect("seed Grok config");
+
+        let preview = super::preview_managed_config_apply(super::GROK_ROLLBACK_RECORD_ID)
+            .expect("native Grok preview");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert!(preview.target_path.ends_with(".grok/config.toml"));
+        assert!(preview.proposed_state.contains("[endpoints]"));
+        assert!(preview
+            .proposed_state
+            .contains(super::GROK_HEADROOM_BASE_URL));
+        assert!(preview
+            .evidence
+            .iter()
+            .any(|item| item.contains("models_base_url")));
+
+        let applied = super::execute_managed_config_apply(
+            super::GROK_ROLLBACK_RECORD_ID,
+            &preview.confirmation_phrase,
+        )
+        .expect("apply native Grok endpoint");
+        assert!(applied.changed);
+        assert!(super::grok_provider_config_matches().expect("verify native Grok"));
+        let configured = fs::read_to_string(&config).expect("read configured Grok");
+        assert!(configured.contains("auto_update = false"));
+        assert!(configured.contains("default = \"grok-build\""));
+        assert!(configured.contains("context_window = 128000"));
+        assert!(configured.contains(super::GROK_HEADROOM_BASE_URL));
+        assert!(!configured.contains("auth.json"));
+
+        let rollback = super::preview_managed_rollback(super::GROK_ROLLBACK_RECORD_ID)
+            .expect("native Grok rollback preview");
+        assert_eq!(rollback.status, ManagedRollbackExecutionStatus::Ready);
+        let backup = rollback.backup_path.clone().expect("Grok backup path");
+        let rollback_result = super::execute_managed_rollback(
+            super::GROK_ROLLBACK_RECORD_ID,
+            &backup,
+            &rollback.confirmation_phrase,
+        )
+        .expect("rollback native Grok");
+        assert_eq!(rollback_result.record_id, super::GROK_ROLLBACK_RECORD_ID);
+        assert_eq!(fs::read_to_string(&config).unwrap(), original);
+
+        // Re-apply through the normal connector path to cover sidecar parity,
+        // then Off cleanup must remove only Switchboard-owned artifacts.
+        super::apply_client_setup("grok_cli").expect("apply Grok connector");
+        assert!(
+            super::verify_client_setup("grok_cli")
+                .expect("verify Grok connector")
+                .verified
+        );
+        super::disable_client_setup("grok_cli").expect("disable Grok connector");
+        assert_eq!(fs::read_to_string(&config).unwrap(), original);
+        assert!(!super::grok_provider_config_matches().unwrap());
+        assert!(!planned_switchboard_sidecar_matches("grok_cli").unwrap());
+
+        drop(home);
+    }
+
+    #[test]
     fn cursor_connector_has_fixture_home_dry_run_preview() {
         let detected_clients = Vec::new();
         let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
@@ -8803,7 +9061,11 @@ js_repl = false\n",
         assert!(cursor
             .config_locations
             .iter()
-            .any(|location| location.contains("Cursor/User/globalStorage")));
+            .any(|location| location.contains("Cursor/User/profiles/*/settings.json")));
+        assert!(!cursor
+            .config_locations
+            .iter()
+            .any(|location| location.contains("globalStorage")));
 
         let preview = cursor
             .config_dry_run_preview
@@ -8812,10 +9074,14 @@ js_repl = false\n",
         assert!(preview.target.contains("Cursor/User/settings.json"));
         assert!(preview.marker.contains("cursor"));
         assert!(preview.rollback_preview.contains("Switchboard-managed"));
+        assert!(preview
+            .apply_blocked_reason
+            .contains("does not document a stable on-disk"));
+        assert_eq!(preview.confirmation_phrase, "CURSOR NATIVE SCHEMA GATE");
     }
 
     #[test]
-    fn grok_connector_keeps_native_writes_gated_with_manifest_forbidden_reads() {
+    fn grok_connector_exposes_documented_native_endpoint_and_credential_boundary() {
         let detected_clients = Vec::new();
         let connectors = super::list_client_connectors(&detected_clients).expect("list connectors");
         let grok = connectors
@@ -8823,30 +9089,26 @@ js_repl = false\n",
             .find(|connector| connector.client_id == "grok_cli")
             .expect("grok connector");
 
-        assert_eq!(grok.support_status, ClientConnectorSupportStatus::Planned);
+        assert_eq!(grok.support_status, ClientConnectorSupportStatus::Managed);
         assert!(!grok.enabled);
         assert!(grok
             .config_locations
             .iter()
             .any(|location| location.contains(".config/xai")));
         assert!(grok
-            .config_creation_step_details
+            .config_locations
             .iter()
-            .any(|step| step.detail.contains("auth.json")));
+            .any(|location| location.contains(".grok/config.toml")));
         assert!(grok
-            .config_creation_step_details
+            .automation_gates
             .iter()
-            .any(|step| step.detail.contains("*token*")));
-
-        let preview = grok
-            .config_dry_run_preview
-            .as_ref()
-            .expect("grok dry-run preview");
-        assert!(preview.target.contains(".config/xai"));
-        assert!(preview.marker.contains("grok_cli"));
-        assert!(preview
-            .apply_blocked_reason
-            .contains("automation is disabled"));
+            .any(|gate| gate.contains("models_base_url")));
+        assert!(grok
+            .automation_gates
+            .iter()
+            .any(|gate| gate.contains("XAI_API_KEY")));
+        assert!(grok.config_dry_run_preview.is_none());
+        assert!(grok.config_creation_step_details.is_empty());
     }
 
     #[test]

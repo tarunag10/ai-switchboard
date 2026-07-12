@@ -5,8 +5,8 @@ use chrono::Utc;
 use crate::client_connectors::PLANNED_SIDECAR_SPECS;
 use crate::client_paths::{
     all_shell_paths, claude_settings_candidates, claude_settings_path, codex_config_toml_path,
-    headroom_markitdown_hook_path, headroom_rtk_hook_path, home_dir, planned_sidecar_routing_path,
-    rtk_codex_agents_path, shell_path, ALL_SHELL_FILES,
+    grok_config_path, headroom_markitdown_hook_path, headroom_rtk_hook_path, home_dir,
+    planned_sidecar_routing_path, rtk_codex_agents_path, shell_path, ALL_SHELL_FILES,
 };
 use crate::models::{
     ManagedFootprintItem, ManagedFootprintReport, UninstallDryRunReport, UninstallTarget,
@@ -92,6 +92,7 @@ pub(crate) fn managed_backup_targets() -> Vec<PathBuf> {
     backup_targets.push(headroom_rtk_hook_path());
     backup_targets.push(headroom_markitdown_hook_path());
     backup_targets.push(codex_config_toml_path());
+    backup_targets.push(grok_config_path());
     backup_targets.push(
         home_dir()
             .join("Library")
@@ -151,6 +152,19 @@ fn uninstall_targets() -> Vec<UninstallTarget> {
         "Remove managed Codex provider/routing blocks only.",
         false,
         vec!["User-owned Codex config remains in place.".to_string()],
+    );
+    push_uninstall_target(
+        &mut targets,
+        "grok-config",
+        "client-config",
+        grok_config_path(),
+        true,
+        "Remove only the Switchboard-managed Grok endpoint block; preserve user-owned Grok settings and credentials.",
+        false,
+        vec![
+            "XAI_API_KEY, auth.json, account state, and model selection are never read or deleted."
+                .to_string(),
+        ],
     );
     push_uninstall_target(
         &mut targets,

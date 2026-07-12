@@ -2,12 +2,13 @@
 
 ## Unreleased
 
+- Promoted Grok / xAI CLI native endpoint routing from sidecar-only to a documented, reversible adapter. Switchboard manages only `[endpoints].models_base_url` in `~/.grok/config.toml`, with fixture-home preview/apply/verify/rollback/Off cleanup and sibling backups; credentials, account state, API keys, and model selection remain manual.
 ### Plan completion and readiness (2026-07-12)
 
 - Closed the planned implementation slices for Agent Memory, Token X-Ray depth/live updates, incremental and graph-aware Repo Intelligence, supervised Repo Memory MCP, Cursor/Goose/Grok‑xAI sidecars, gateway readiness, add-on measurement guardrails, progressive disclosure, and reboot-proof automation.
 - Added gateway readiness receipts, redacted previews, reversible local intent, and opt-in loopback LiteLLM preflight without credentials, network writes, or provider configuration changes.
 - Added arm/record/check reboot-proof commands that require a real post-reboot marker and keep public installed-app evidence separate from local workflow scaffolding.
-- Kept remaining external gates explicit: true before/after add-on measurements, native provider routing schemas, live gateway infrastructure, and public installed-app/reboot evidence.
+- Kept remaining external gates explicit: true before/after add-on measurements, still-undocumented native provider routing schemas for Cursor/Goose, live gateway infrastructure, and public installed-app/reboot evidence.
 
 ### Live Token X-Ray and Daily AI Usage Briefing
 
@@ -29,6 +30,7 @@
 
 ### Connector, gateway, and add-on safety
 
+- Added a profile-aware Cursor native-schema assessment backed by the official API-key documentation. It discovers only settings-file paths, records an explicit unsupported-schema gate, and never opens settings contents, `globalStorage`, `storage.json`, `state.vscdb`, account data, credentials, or secrets; native writes stay disabled until a documented file schema and full fixture lifecycle exist.
 - Added Cursor profile-aware, Switchboard-owned sidecar lifecycle evidence: dry-run preview, state-bound confirmation, backup, disk verification, rollback, and Off cleanup. Cursor provider settings, account state, model selection, global storage, and secret-like content remain untouched until a stable schema is proven.
 - Added Goose and Grok/xAI state-bound sidecar lifecycles with dry-run, exact confirmation, sibling backup, disk verification, rollback, and Off cleanup. Native provider, account, model, and credential configuration remains explicitly gated.
 - Added guided, credential-free gateway profiles for LiteLLM semantic cache, self-hosted Langfuse, Cloudflare AI Gateway, and Kong. They provide privacy boundaries, Doctor evidence, rollback guidance, and copyable manual setup without network calls, installs, config writes, or secret storage.

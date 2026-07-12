@@ -6,6 +6,7 @@ use crate::client_connectors::planned_sidecar_spec;
 
 pub(crate) const SWITCHBOARD_ROUTING_FILE: &str = "mac-ai-switchboard-routing.md";
 pub(crate) const OPENCODE_CONFIG_FILE: &str = "opencode.json";
+pub(crate) const GROK_CONFIG_FILE: &str = "config.toml";
 pub(crate) const WINDSURF_CONFIG_FILE: &str = "settings.json";
 pub(crate) const ZED_CONFIG_FILE: &str = "settings.json";
 pub(crate) const ZSH_PROFILE_FILE: &str = ".zprofile";
@@ -86,6 +87,14 @@ pub(crate) fn opencode_config_path() -> PathBuf {
         .join(".config")
         .join("opencode")
         .join(OPENCODE_CONFIG_FILE)
+}
+
+/// Grok Build documents `~/.grok/config.toml` as its native user configuration
+/// surface. Keep this path separate from `~/.config/xai`, which is only the
+/// Switchboard-owned sidecar directory and must never be treated as provider
+/// state.
+pub(crate) fn grok_config_path() -> PathBuf {
+    home_dir().join(".grok").join(GROK_CONFIG_FILE)
 }
 
 pub(crate) fn windsurf_config_path() -> PathBuf {

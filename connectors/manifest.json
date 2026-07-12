@@ -45,7 +45,7 @@
     "category": "editor",
     "support_status": "planned",
     "detection": { "binaries": ["cursor"], "paths": ["/Applications/Cursor.app", "~/Library/Application Support/Cursor"] },
-    "config": { "locations": ["~/Library/Application Support/Cursor/User/settings.json", "~/Library/Application Support/Cursor/User/globalStorage"], "forbidden_reads": ["*token*", "*secret*", "auth.json", "state.vscdb"] },
+    "config": { "locations": ["~/Library/Application Support/Cursor/User/settings.json", "~/Library/Application Support/Cursor/User/profiles/*/settings.json"], "forbidden_reads": ["*token*", "*secret*", "auth.json", "state.vscdb", "globalStorage", "storage.json", "account", "credentials"] },
     "automation_gates": ["Detect the active Cursor user profile and settings surface before proposing provider changes.", "Show a dry-run diff and keep account-specific model choices visible before routing.", "Back up Cursor settings without reading extension-managed secrets or global state databases.", "Require exact user consent before any native/provider write is enabled.", "Verify Cursor routing through Doctor evidence after a managed write.", "Rollback restores the exact profile backup without touching unrelated editor or extension config.", "Off mode removes only Switchboard-owned Cursor routing markers."],
     "manual_workflow": ["Open Cursor settings.", "Review provider and model settings manually.", "Use Repo Intelligence packs as copyable context."]
   },
@@ -55,9 +55,9 @@
     "category": "cli",
     "support_status": "planned",
     "detection": { "binaries": ["grok", "xai"], "paths": ["~/.config/xai"] },
-    "config": { "locations": ["~/.config/xai"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
-    "automation_gates": ["Detect stable xAI CLI surface.", "Add Doctor guardrails for unsupported model/account combinations.", "Keep API key account state outside managed app storage."],
-    "manual_workflow": ["Confirm whether grok or xai exists locally.", "Use RTK-only mode for command output savings.", "Keep model selection manual."]
+    "config": { "locations": ["~/.grok/config.toml", "~/.config/xai"], "forbidden_reads": ["*token*", "*secret*", "auth.json", "*credential*", "*account*"] },
+    "automation_gates": ["Detect the documented Grok Build config.toml surface before applying routing.", "Write only [endpoints].models_base_url to the Switchboard loopback proxy; preserve all provider, model, and account fields.", "Create a sibling backup and verify the managed endpoint marker before advertising native routing.", "Rollback restores the exact config backup and Off mode removes only the Switchboard-owned endpoint block.", "Keep XAI_API_KEY, auth.json, account state, and model selection outside managed app storage."],
+    "manual_workflow": ["Confirm the installed grok binary and review the native config preview.", "Keep XAI_API_KEY or Grok login authentication configured manually.", "Run a Grok prompt and verify activity appears in Headroom."]
   },
   {
     "id": "aider",

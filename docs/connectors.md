@@ -22,7 +22,7 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | Codex | Managed | Yes | Partial | Yes | First-class managed target with provider block and bypass handling. |
 | Gemini CLI | Managed | Yes | No | Yes | Managed shell/base-url routing with sibling rollback backups, Doctor repair, rollback, and Off cleanup. |
 | OpenCode | Managed | Yes | No | Yes | Managed provider routing with backup, verify, rollback, and Off cleanup gates. |
-| Cursor | Gated | No | No | Yes | Copyable packs, settings discovery, and dry-run target/marker preview today; native/provider writes remain blocked. |
+| Cursor | Gated | No | No | Yes | Copyable packs, profile-aware settings discovery, and dry-run target/marker preview today; native/provider writes remain blocked because Cursor documents API-key setup through Settings > Models rather than a stable file-backed provider/model/base-url schema. |
 | Windsurf | Managed | Yes | No | Yes | Managed editor settings routing with backup, Doctor verification, rollback, and Off cleanup. |
 | Aider | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; provider config remains manual. |
 | Continue | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; provider config remains manual. |
@@ -30,7 +30,7 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | Qwen Code | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; account/model setup remains manual. |
 | Amazon Q Developer CLI | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; AWS auth/provider/workspace state remains manual. |
 | Zed AI | Managed | Yes | No | Yes | Managed assistant settings routing with backup, Doctor verification, rollback, and Off cleanup. |
-| Grok / xAI CLI | Gated | No | No | Yes | Detection and config semantics need more evidence before native/provider writes. |
+| Grok / xAI CLI | Managed | Yes | No | Yes | Native routing uses the installed Grok Build documented `[endpoints].models_base_url` field in `~/.grok/config.toml`; credentials, account, and model selection remain manual. |
 
 ## Automation Gates
 
@@ -47,3 +47,11 @@ Before a connector moves to Managed, it must have:
 - Manual recovery docs.
 
 Repo Intelligence packs are safe for every listed tool because they are read-only and copyable. Goose additionally has the managed Repo Memory MCP bridge for read-only context handoff. Provider routing, settings mutation, and account-specific config stay gated connector by connector.
+
+### Grok / xAI native routing evidence
+
+The installed Grok Build documentation (`~/.grok/docs/user-guide/11-custom-models.md`) explicitly documents `~/.grok/config.toml`, `[endpoints]`, and the non-secret `models_base_url` field for an OpenAI-compatible `/v1` endpoint. Switchboard manages only that field, routing it to the local Headroom-compatible proxy with fixture-home dry-run, exact confirmation, sibling backup, Doctor verification, rollback, and Off cleanup. It never reads or writes Grok `auth.json`, API keys, account state, or model selection; `XAI_API_KEY` or `grok login` remains a user-managed prerequisite.
+
+### Cursor native-write evidence gate
+
+Cursor's [official API-key documentation](https://cursor.com/help/models-and-usage/api-keys) describes adding provider keys in **Cursor Settings → Models** for OpenAI, Anthropic, Google, Azure OpenAI, and AWS Bedrock. It does not define a supported on-disk provider/model/base-url schema. Switchboard therefore discovers only documented `settings.json`/`settings.jsonc` profile paths and never reads or writes their contents, `globalStorage`, `storage.json`, `state.vscdb`, account data, credentials, or secrets. The native adapter remains disabled until Cursor publishes an allowlisted file schema and Switchboard has fixture-home detect, dry-run, backup, consented apply, verify, rollback, and Off cleanup proof. The isolated Switchboard-owned sidecar lifecycle remains available.

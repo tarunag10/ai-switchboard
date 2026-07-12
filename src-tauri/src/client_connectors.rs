@@ -1,5 +1,6 @@
 use serde::Deserialize;
 
+use crate::cursor_native::{CURSOR_API_KEYS_DOCS_URL, CURSOR_NATIVE_GATE_REASON};
 use crate::models::{
     ClientConnectorConfigCreationStep, ClientConnectorConfigDryRunPreview,
     ClientConnectorSupportStatus,
@@ -202,19 +203,20 @@ pub(crate) const PLANNED_CLIENT_SPECS: [PlannedClientSpec; 11] = [
         id: "grok_cli",
         name: "Grok / xAI CLI",
         category: "cli",
-        setup_phase: "managed",
-        setup_hint: "Managed Switchboard-owned sidecar setup with dry-run, exact confirmation, Doctor verification, rollback, and Off mode cleanup; xAI provider, model, and account config remain manual.",
-        detection_sources: &["PATH: grok", "PATH: xai", "~/.config/xai"],
-        config_locations: &["~/.config/xai"],
+        setup_phase: "adapt",
+        setup_hint: "Managed native endpoint routing in the documented Grok Build config.toml surface with sibling backup, Doctor verification, rollback, and Off mode cleanup; credentials, account, and model config remain manual.",
+        detection_sources: &["PATH: grok", "PATH: xai", "~/.grok/config.toml", "~/.config/xai"],
+        config_locations: &["~/.grok/config.toml", "~/.config/xai"],
         automation_gates: &[
-            "Detect stable xAI CLI surface without reading API keys, account state, or model configuration.",
-            "Write only the Switchboard-owned Grok / xAI routing-intent sidecar after exact state-bound confirmation.",
-            "Verify Doctor repair, rollback, and Off mode cleanup leave xAI provider, model, and account state untouched.",
+            "Detect the documented Grok Build config.toml surface without reading API keys, account state, or model configuration.",
+            "Write only [endpoints].models_base_url to the Switchboard loopback proxy after exact state-bound confirmation.",
+            "Verify Doctor repair, rollback, and Off mode cleanup leave xAI provider, model, credential, and account state untouched.",
+            "Keep XAI_API_KEY, auth.json, account state, and model selection outside Switchboard-managed storage.",
         ],
         manual_workflow: &[
-            "Confirm whether grok or xai exists locally.",
-            "Toggle the connector on from Settings to create the Switchboard-owned sidecar.",
-            "Keep provider and model selection manual until a documented xAI config adapter is proven.",
+            "Confirm whether grok or xai exists locally and review the native config preview.",
+            "Keep XAI_API_KEY or Grok login authentication configured manually.",
+            "Run a Grok prompt and verify activity appears in Headroom.",
         ],
     },
     PlannedClientSpec {
@@ -572,28 +574,51 @@ pub(crate) fn planned_connector_dry_run_preview(
     detection_evidence: &[String],
 ) -> Option<ClientConnectorConfigDryRunPreview> {
     let target = detected_config_surface(spec, detection_evidence)?;
+    let cursor_gate = spec.id == "cursor";
 
     Some(ClientConnectorConfigDryRunPreview {
         target: target.clone(),
         marker: format!("mac-ai-switchboard:{}", spec.id),
         backup_path: format!("{target}.mac-ai-switchboard.bak"),
-        current_state: format!(
-            "No Switchboard-managed {} provider routing detected.",
-            spec.name
-        ),
-        proposed_state: format!(
-            "Preview only: no files are written. after explicit consent, add Mac AI Switchboard local provider routing for {}.",
-            spec.name
-        ),
-        apply_blocked_reason: format!(
-            "{} automation is disabled until backup, verify, rollback, and Off cleanup gates pass.",
-            spec.name
-        ),
-        rollback_preview: format!(
-            "Restore the {} config backup or remove only the Switchboard-managed provider block.",
-            spec.name
-        ),
-        confirmation_phrase: format!("APPLY {} CONFIG", spec.name.to_uppercase()),
+        current_state: if cursor_gate {
+            "Path-only Cursor settings discovery; settings contents are not read.".to_string()
+        } else {
+            format!(
+                "No Switchboard-managed {} provider routing detected.",
+                spec.name
+            )
+        },
+        proposed_state: if cursor_gate {
+            format!(
+                "Preview only: no files are written. Cursor native provider/model/base-url routing is blocked until a documented file schema exists. See {CURSOR_API_KEYS_DOCS_URL}."
+            )
+        } else {
+            format!(
+                "Preview only: no files are written. after explicit consent, add Mac AI Switchboard local provider routing for {}.",
+                spec.name
+            )
+        },
+        apply_blocked_reason: if cursor_gate {
+            format!("{CURSOR_NATIVE_GATE_REASON} Native writes are disabled; the isolated Switchboard sidecar remains available. See {CURSOR_API_KEYS_DOCS_URL}.")
+        } else {
+            format!(
+                "{} automation is disabled until backup, verify, rollback, and Off cleanup gates pass.",
+                spec.name
+            )
+        },
+        rollback_preview: if cursor_gate {
+            "No Cursor native write is available to roll back; only the isolated Switchboard-owned sidecar can be removed.".to_string()
+        } else {
+            format!(
+                "Restore the {} config backup or remove only the Switchboard-managed provider block.",
+                spec.name
+            )
+        },
+        confirmation_phrase: if cursor_gate {
+            "CURSOR NATIVE SCHEMA GATE".to_string()
+        } else {
+            format!("APPLY {} CONFIG", spec.name.to_uppercase())
+        },
         writes: Vec::new(),
     })
 }
