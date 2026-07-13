@@ -11,7 +11,9 @@ graphify-out
 .config
 .secrets
 benchmarks
-docs
+docs/*
+!docs/repo-map/
+!docs/repo-map/repo-map.json
 fixtures
 research
 tests
