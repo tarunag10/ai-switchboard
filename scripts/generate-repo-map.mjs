@@ -10,7 +10,9 @@ const argValue = (name, fallback) => {
 };
 
 const runTools = args.includes("--run-tools");
-const retryCount = Math.max(0, Number.parseInt(argValue("--retry", "1"), 10) || 0);
+// Retries are opt-in for command-line runs; the UI exposes an explicit Retry
+// action so a failed map never silently re-runs external tooling.
+const retryCount = Math.max(0, Number.parseInt(argValue("--retry", "0"), 10) || 0);
 const retryDelayMs = Math.max(0, Number.parseInt(argValue("--retry-delay-ms", "250"), 10) || 0);
 const root = path.resolve(argValue("--repo", process.cwd()));
 const outDir = path.resolve(root, argValue("--out", path.join("docs", "repo-map")));
