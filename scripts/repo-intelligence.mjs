@@ -993,6 +993,7 @@ function buildGraphSummary(repoRoot, files) {
   const symbolEdges = [
     ...buildSymbolEdges(repoRoot, included, symbols),
     ...buildCallReferenceEdges(repoRoot, included, symbols),
+    ...buildSemanticCallReferenceEdges(repoRoot, included, symbols),
   ];
   return {
     topDirectories: summarizeGraphNodes(
@@ -1409,6 +1410,140 @@ function buildCallReferenceEdges(repoRoot, files, symbols) {
     }
   }
   return edges;
+}
+
+// Resolve static import aliases for the CLI graph as well as the native
+// indexer. This intentionally stays file-local and bounded: no code is
+// executed and dynamic dispatch/type inference is not claimed.
+function buildSemanticCallReferenceEdges(repoRoot, files, symbols) {
+  const byPath = new Map(files.map((file) => [file.path, file]));
+  const edges = [];
+  const callableSymbols = symbols.filter(
+    (symbol) => symbol.kind === "function" || symbol.kind === "const",
+  );
+  for (const file of files.filter(
+    (candidate) =>
+      (candidate.role === "source" || candidate.role === "test") &&
+      ["TypeScript", "JavaScript", "React", "Python", "Rust"].includes(
+        candidate.language,
+      ),
+  )) {
+    let content = "";
+    try {
+      content = fs.readFileSync(path.join(repoRoot, file.path), "utf8");
+    } catch {
+      continue;
+    }
+    const bindings = extractStaticImportBindings(content, file.language);
+    for (const binding of bindings) {
+      const targetFile = resolveImportSpecifier(file.path, binding.specifier, byPath);
+      if (!targetFile) continue;
+      const targetNames = binding.imported
+        ? [binding.imported]
+        : [...content.matchAll(
+            new RegExp(
+              `${escapeRegExp(binding.local)}\\s*\\.\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\(`,
+              "g",
+            ),
+          )].map((match) => match[1]);
+      for (const name of new Set(targetNames)) {
+        const target = callableSymbols.find(
+          (symbol) => symbol.file === targetFile.path && symbol.name === name,
+        );
+        if (!target) continue;
+        const callPattern = binding.imported
+          ? new RegExp(`\\b${escapeRegExp(binding.local)}\\s*\\(`)
+          : new RegExp(
+              `${escapeRegExp(binding.local)}\\s*\\.\\s*${escapeRegExp(name)}\\s*\\(`,
+            );
+        if (!callPattern.test(content)) continue;
+        pushUniqueGraphEdge(edges, {
+          from: file.path,
+          to: `${target.file}#${target.name}`,
+          kind: "call_reference",
+          reason: "source call resolves through local import binding",
+        });
+        if (edges.length >= 160) return edges;
+      }
+    }
+  }
+  return edges;
+}
+
+function extractStaticImportBindings(content, language) {
+  const bindings = [];
+  if (["TypeScript", "JavaScript", "React"].includes(language)) {
+    const joined = content.replace(/[\r\n]/g, " ");
+    for (const match of joined.matchAll(
+      /\bimport\s+(.+?)\s+from\s+["']([^"']+)["']/g,
+    )) {
+      const clause = match[1].trim();
+      const specifier = match[2];
+      const namespace = clause.match(/^\*\s+as\s+([A-Za-z_$][A-Za-z0-9_$]*)/);
+      if (namespace) {
+        bindings.push({ local: namespace[1], imported: null, specifier });
+      }
+      const named = clause.match(/\{([^}]*)\}/)?.[1] ?? "";
+      for (const item of named.split(",")) {
+        const parts = item.trim().split(/\s+as\s+/);
+        if (!parts[0]) continue;
+        bindings.push({
+          local: parts[1] ?? parts[0],
+          imported: parts[0],
+          specifier,
+        });
+      }
+    }
+  }
+  if (language === "Python") {
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.split("#")[0].trim();
+      const from = line.match(/^from\s+([^\s]+)\s+import\s+(.+)$/);
+      if (from) {
+        for (const item of from[2].split(",")) {
+          const parts = item.trim().split(/\s+as\s+/);
+          if (parts[0]) {
+            bindings.push({
+              local: parts[1] ?? parts[0],
+              imported: parts[0] === "*" ? null : parts[0],
+              specifier: `py:${from[1]}`,
+            });
+          }
+        }
+      }
+    }
+  }
+  if (language === "Rust") {
+    for (const rawLine of content.split(/\r?\n/)) {
+      const match = rawLine.trim().match(/^use\s+(?:crate::)([^;]+);/);
+      if (!match) continue;
+      const pathValue = match[1].trim();
+      if (pathValue.includes("::{")) {
+        const [module, memberList] = pathValue.split("::{");
+        for (const item of memberList.replace(/}\s*$/, "").split(",")) {
+          const parts = item.trim().split(/\s+as\s+/);
+          if (!parts[0]) continue;
+          bindings.push({
+            local: parts[1] ?? parts[0],
+            imported: parts[0] === "*" ? null : parts[0],
+            specifier: `crate:${module}`,
+          });
+        }
+      } else {
+        const parts = pathValue.split("::");
+        const member = parts.pop()?.trim() ?? "";
+        const names = member.split(/\s+as\s+/);
+        if (parts.length && names[0]) {
+          bindings.push({
+            local: names[1] ?? names[0],
+            imported: names[0],
+            specifier: `crate:${parts.join("::")}`,
+          });
+        }
+      }
+    }
+  }
+  return bindings;
 }
 
 function extractImportSpecifiers(content, language) {
