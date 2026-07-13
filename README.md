@@ -163,7 +163,7 @@ Caveman is an optional prompt/profile layer for terse internal handoffs and comm
 
 Repo Intelligence is a read-only local indexer and handoff generator. It scans a local repository, classifies files, estimates context size, summarizes implementation/test/config areas, and produces bounded packs for agents.
 
-Read-only foundation: the app now ships a read-only foundation for local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI. Read-only local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI are available before any agent starts reading files. The CLI now exposes an agent-readable `--manifest` for agents that need to discover packs without rescanning the repo, plus `--session` for `mac_ai_switchboard.agent_session_preparation` payloads with freshness, task type, recommended mode, selected handoff, and managed connector readiness.
+Read-only foundation: the app now ships a read-only foundation for local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI. Read-only local repo index, context packs, persisted summary, Doctor warnings, and clear/copy UI are available before any agent starts reading files. The CLI now exposes an agent-readable `--manifest` for agents that need to discover packs without rescanning the repo, plus `--session`/`--start-session` for `mac_ai_switchboard.agent_session_preparation` payloads with freshness, task type, recommended mode, selected handoff, managed connector readiness, and optional budgeted context.
 
 Useful commands:
 
@@ -176,6 +176,7 @@ npm run switchboard -- repo-intelligence <repo-path> --list-agents
 npm run switchboard -- repo-intelligence <repo-path> --pack implementation --format markdown
 npm run switchboard -- repo-intelligence <repo-path> --agent codex --format markdown
 npm run switchboard -- repo-intelligence <repo-path> --agent gemini --format json
+npm run switchboard -- repo-intelligence <repo-path> --start-session --agent codex --budget 6000 --format markdown
 ```
 
 The legacy npm script remains supported:
@@ -187,6 +188,7 @@ npm run repo:intelligence -- <repo-path> --list-agents
 npm run repo:intelligence -- <repo-path> --pack implementation --format markdown
 npm run repo:intelligence -- <repo-path> --agent codex --format markdown
 npm run repo:intelligence -- <repo-path> --session --agent codex --task verification --headroom-healthy --rtk-healthy --format markdown
+npm run repo:intelligence -- <repo-path> --start-session --agent codex --task verification --budget 6000 --format markdown
 npm run repo:intelligence -- <repo-path> --agent gemini --format json
 ```
 

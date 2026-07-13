@@ -608,7 +608,7 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg.startsWith("--agent=")) {
       options.agent = arg.slice("--agent=".length);
-    } else if (arg === "--session") {
+    } else if (arg === "--session" || arg === "--start-session") {
       options.session = true;
     } else if (arg === "--task") {
       options.taskType = argv[index + 1] ?? null;
@@ -675,7 +675,8 @@ function printHelp() {
 Options:
   --pack <id>          Print one context pack: implementation, verification, handoff, risk_review, release_handoff
   --agent <id>         Print agent handoff: claude, codex, gemini, opencode, aider, goose, cursor, continue, grok, qwen, amazonq, windsurf, zed
-  --session            Print Start Agent Session preparation for --agent
+  --session, --start-session
+                       Print Start Agent Session preparation for --agent
   --task <type>        Session task: implementation, verification, handoff, risk_review, release_handoff
   --query <text>       Optional free-form task query for task-aware context ranking
   --budget <tokens>    Optional token budget for task-aware context ranking
@@ -2154,6 +2155,14 @@ function formatSinglePackMarkdown(summary, selectedPack) {
       `- ${file.path} (${file.role}, ${file.language}, ~${file.estimatedTokens.toLocaleString()} tokens)`,
   );
 
+  const budgetLines = selectedPack.budgetTokens
+    ? [
+        `Budget: ${selectedPack.budgetTokens.toLocaleString()} tokens`,
+        `Budget task: ${selectedPack.budgetTask ?? "bounded context"}`,
+        `Files omitted by budget: ${(selectedPack.omittedFileCount ?? 0).toLocaleString()}`,
+      ]
+    : [];
+
   return [
     `# ${selectedPack.title}: ${summary.repoRoot}`,
     "",
@@ -2163,6 +2172,7 @@ function formatSinglePackMarkdown(summary, selectedPack) {
     `Estimated pack tokens: ${selectedPack.estimatedTokens.toLocaleString()}`,
     `Estimated tokens avoided: ${Math.max(0, summary.estimatedFullScanTokens - selectedPack.estimatedTokens).toLocaleString()}`,
     `Estimated savings vs full scan: ${selectedPack.savingsVsFullScanPct.toFixed(1)}%`,
+    ...budgetLines,
     "",
     formatGraphMarkdown(summary.graph),
     "",
@@ -2171,6 +2181,58 @@ function formatSinglePackMarkdown(summary, selectedPack) {
     "## Files",
     ...files,
   ].join("\n");
+}
+
+function buildBudgetedContextPack(summary, selectedPack, args) {
+  const hasBudget = Number.isFinite(args.budget_tokens) || Number.isFinite(args.budgetTokens);
+  const hasTask = typeof args.task === "string" && args.task.trim().length > 0;
+  if (!hasBudget && !hasTask) return selectedPack;
+
+  const budget = normalizedTaskBudget(
+    args.budget_tokens ?? args.budgetTokens,
+    selectedPack.estimatedTokens,
+  );
+  const task = String(args.task ?? selectedPack.id);
+  const taskContext = buildTaskContextPack(
+    selectedPack.files,
+    summary.graph,
+    task,
+    task,
+    budget,
+  );
+  const selectedPaths = new Set(taskContext.files.map((file) => file.path));
+  let files = selectedPack.files.filter((file) => selectedPaths.has(file.path));
+
+  // A pack can contain only low-signal files for an arbitrary task. Preserve
+  // the budget contract by selecting the smallest default file instead of
+  // returning an unbounded pack or an empty response.
+  if (files.length === 0) {
+    const fallback = selectedPack.files
+      .filter((file) => file.includeByDefault)
+      .sort((left, right) => left.estimatedTokens - right.estimatedTokens || left.path.localeCompare(right.path))[0];
+    files = fallback ? [fallback] : [];
+  }
+  const estimatedTokens = files.reduce(
+    (total, file) => total + file.estimatedTokens,
+    0,
+  );
+  return {
+    ...selectedPack,
+    files,
+    estimatedTokens,
+    savingsVsFullScanPct:
+      summary.estimatedFullScanTokens > 0
+        ? Math.max(
+            0,
+            Math.round(
+              (1 - estimatedTokens / summary.estimatedFullScanTokens) * 1000,
+            ) / 10,
+          )
+        : 0,
+    budgetTokens: budget,
+    budgetTask: task,
+    omittedFileCount: Math.max(0, selectedPack.files.length - files.length),
+  };
 }
 
 function formatAgentHandoffMarkdown(summary, agentId, requestedPackId) {
@@ -2783,7 +2845,14 @@ function handleRepoMemoryTool(summary, name, args = {}) {
           candidate.id ===
           (args.packId ?? args.pack_id ?? args.id ?? "implementation"),
       ) ?? summary.packs[0];
-    return mcpTextResult(formatSinglePackMarkdown(summary, pack));
+    return mcpTextResult(
+      formatSinglePackMarkdown(
+        summary,
+        name === "switchboard.build_context_pack"
+          ? buildBudgetedContextPack(summary, pack, args)
+          : pack,
+      ),
+    );
   }
   if (name === "switchboard.get_repo_graph_summary") {
     return mcpTextResult({

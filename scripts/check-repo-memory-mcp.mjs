@@ -126,6 +126,9 @@ function expectText(text, expected, label) {
   }
 }
 
+// Repo Intelligence performs a bounded local index before the stdio server
+// can answer tools/list. Give cold Node/Rust-adjacent environments enough time
+// to finish that work while keeping the outer five-second smoke timeout.
 setTimeout(() => {
   clearTimeout(timeout);
   child.kill();
@@ -169,6 +172,8 @@ setTimeout(() => {
   expectText(legacyPack, "Implementation", "legacy context pack");
   expectText(budgetedPack, "Implementation", "budgeted context pack");
   expectText(budgetedPack, repoRoot, "budgeted context pack");
+  expectText(budgetedPack, "Budget: 120 tokens", "budgeted context pack");
+  expectText(budgetedPack, "Files omitted by budget:", "budgeted context pack");
   expectText(graphSummary, "src", "graph summary");
   expectText(symbolLookup, "src/index.ts", "symbol lookup");
   expectText(dependents, "src/index.ts", "dependents query");
@@ -176,4 +181,4 @@ setTimeout(() => {
   console.log(
     `Repo-memory MCP tools are read-only and queryable (${names.join(", ")}).`,
   );
-}, 250);
+}, 1_500);

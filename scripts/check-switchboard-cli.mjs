@@ -46,6 +46,19 @@ if (!agents.includes("codex") || !agents.includes("gemini")) {
   fail("repo-intelligence wrapper did not return expected agent ids");
 }
 
+const session = run([
+  "repo-intelligence",
+  ".",
+  "--start-session",
+  "--agent",
+  "codex",
+  "--budget",
+  "1200",
+]);
+if (!session.includes('"kind": "mac_ai_switchboard.agent_session_preparation"')) {
+  fail("--start-session alias did not return an agent session preparation");
+}
+
 const readme = readFileSync("README.md", "utf8");
 const platform = readFileSync("docs/platform-support.md", "utf8");
 
