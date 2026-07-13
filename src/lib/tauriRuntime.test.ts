@@ -46,4 +46,11 @@ describe("tauriRuntime", () => {
     expect(hasTauriRuntime()).toBe(true);
     expect(hasTauriEventRuntime()).toBe(true);
   });
+
+  it("does not enable event APIs for a partial browser shim", () => {
+    setTauriInternals({ transformCallback: () => undefined });
+
+    expect(hasTauriRuntime()).toBe(false);
+    expect(hasTauriEventRuntime()).toBe(false);
+  });
 });

@@ -31,5 +31,13 @@ export const hasTauriRuntime = () => {
   return typeof internals?.metadata?.currentWindow?.label === "string";
 };
 
+/**
+ * Event APIs also depend on the current-window metadata. A browser preview
+ * can expose only `transformCallback` (for example, from a compatibility
+ * shim), which is not enough for `listen()` and causes the Tauri bridge to
+ * throw while booting. Keep event listeners behind the same base runtime
+ * check as the window APIs.
+ */
 export const hasTauriEventRuntime = () =>
+  hasTauriRuntime() &&
   typeof getTauriInternals()?.transformCallback === "function";
