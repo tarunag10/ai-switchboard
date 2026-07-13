@@ -22,6 +22,16 @@ const previousToolLog = (() => {
   }
 })();
 const toolLog = runTools ? [] : previousToolLog;
+const toolIdForLabel = (label) =>
+  ({
+    graphify: "graphify",
+    "madge-json": "madge",
+    "dependency-cruiser-json": "dependencyCruiser",
+    "dependency-cruiser-dot": "dependencyCruiser",
+    "cargo-metadata": "cargoMetadata",
+  })[label] ?? label;
+const expectedToolCount =
+  5 + (fs.existsSync(path.join(root, "src-tauri", "Cargo.toml")) ? 1 : 0);
 
 const run = (label, command, options = {}) => {
   const startedAt = new Date().toISOString();
@@ -44,6 +54,25 @@ const run = (label, command, options = {}) => {
   toolLog.push(record);
   if (options.stdoutFile && result.stdout) {
     fs.writeFileSync(path.join(root, options.stdoutFile), result.stdout);
+  }
+  if (runTools) {
+    const completedTools = toolLog.length;
+    const status = result.status === 0 ? "ok" : "warning";
+    const detail =
+      result.error?.message ||
+      result.stderr?.trim() ||
+      `Exited ${result.status ?? result.signal ?? "unknown"}.`;
+    console.log(
+      JSON.stringify({
+        kind: "repo_map_tool_event",
+        toolId: toolIdForLabel(label),
+        status,
+        progressPercent: Math.round((completedTools / expectedToolCount) * 100),
+        completedTools,
+        totalTools: expectedToolCount,
+        message: `${label}: ${detail.slice(0, 360)}`,
+      }),
+    );
   }
   return record;
 };
@@ -207,6 +236,25 @@ const invokeSet = new Set(invokes.map((item) => item.command));
 const missingRustCommand = [...invokeSet].filter((name) => !commandSet.has(name)).sort();
 const missingHandler = [...invokeSet].filter((name) => !handlerSet.has(name)).sort();
 const uncalledHandlers = [...handlerSet].filter((name) => !invokeSet.has(name)).sort();
+
+if (runTools) {
+  const tauriStatus = missingRustCommand.length || missingHandler.length ? "warning" : "ok";
+  const tauriDetail =
+    tauriStatus === "ok"
+      ? `Tauri invoke wiring: ${invokeSet.size} invokes, ${commandSet.size} commands, 0 missing handlers.`
+      : `Tauri invoke wiring has ${missingRustCommand.length} missing commands and ${missingHandler.length} missing handlers.`;
+  console.log(
+    JSON.stringify({
+      kind: "repo_map_tool_event",
+      toolId: "tauriScan",
+      status: tauriStatus,
+      progressPercent: 100,
+      completedTools: expectedToolCount,
+      totalTools: expectedToolCount,
+      message: tauriDetail,
+    }),
+  );
+}
 
 const importsByFolder = depEdges.reduce((acc, edge) => {
   const from = edge.from?.split("/").slice(0, 2).join("/") || "unknown";

@@ -26,6 +26,8 @@ The goal is to make Mac AI Switchboard useful before an agent burns tokens readi
   - Handoff: click **Copy pack** to copy a bounded Markdown summary for another local coding agent without copying file contents.
   - Safety: respect common vendor folders, generated outputs, large files, and secret-like paths.
 
+- Repo Map integration: generation emits content-free per-tool progress events with a stable tool id, bounded percent, completed/total counts, and terminal status. The UI uses these events to distinguish queued versus running tools and keeps partial warnings visible without treating stdout/stderr as semantic evidence.
+
 2. **Graph storage freshness**
    - Persist file hashes, parser versions, last indexed time, file count, symbol count, symbols, likely tests, risk notes, and exact local paths.
    - Include estimated tokens avoided by using graph packs instead of full-file discovery.

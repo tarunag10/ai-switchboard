@@ -31,6 +31,7 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - Privacy/security baseline is hardened: root SQLite/local DB artifacts are ignored/guarded, `headroom_memory.db` was removed from git, `CLAUDE.md` was scrubbed, local-only network proof exists, and public release proof cannot be satisfied by local unsigned evidence.
 - Rollback/Doctor local evidence exists: rollback inventory, managed-record domains, Doctor repair disclosure, Off-mode cleanup, local relaunch evidence, and aggregate local evidence runner coverage.
 - Connector/native-write readiness is selectively gated. Managed/safe paths are documented for Claude, Codex, Gemini CLI, OpenCode, Windsurf, Zed, Goose, and Grok/xAI; Cursor native provider/editor writes remain disabled until a supported schema and full lifecycle proof exist.
+- Goose native endpoint routing now has Rollback Center preview/restore and guarded undo-all evidence with fixture-home backup/verify coverage; only the allowlisted provider fields are eligible, while account, credentials, model selection, and unrelated Goose config remain manual.
 - Cursor, Goose, and Grok/xAI Switchboard-owned sidecar lifecycles are complete with dry-run preview, exact confirmation, sibling backup, disk verification, rollback, and Off cleanup. Goose and Grok/xAI native endpoint adapters write only their documented allowlisted fields; provider credentials, account state, and model selection remain manual.
 - CI email noise for the working branch was reduced by narrowing workflow push branches while preserving main/PR CI intent.
 - Local evidence stability was improved: default-off message logging tests now isolate env/app-storage state, and Repo Intelligence local smoke has a longer timeout for Rust compile/test reality.
@@ -44,6 +45,7 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - Amazon Q Developer CLI now has a managed Switchboard-owned sidecar lifecycle with fixture-home apply, Doctor verify/repair, rollback, and Off cleanup coverage while AWS auth/provider/workspace state stays manual.
 - Continue now has a managed Switchboard-owned sidecar lifecycle with fixture-home apply, Doctor verify/repair, rollback, and Off cleanup coverage while provider config stays manual.
 - Repo Map now has a native macOS/Tauri folder picker, supervised run-status surface, and backend `repo_map_generation_event` streaming for live status/stdout/stderr while map generation is running.
+- Repo Map generation now emits typed per-tool progress evidence (`toolId`, status, bounded percent, completed/total counts) from the local generator; the UI distinguishes queued, running, complete, warning, and failed tools while preserving content-free stdout/stderr boundaries.
 - Repo Intelligence graphing moved to `path-graph-v9` with tree-sitter-assisted multiline imports, bounded symbol-level caller-to-callee AST call-reference edges (plus compatibility file-level edges), task-term graph affinity, and reverse-dependency hub ranking for context packs. Mixed TypeScript/Python/Rust fixtures cover same-file and cross-file call relationships.
 - Caveman, Compact Chinese, Ponytail, and MarkItDown attribution now carry runtime evidence-unit counts into backend counters and frontend session rows, with estimated add-on counters separated from inferred counters.
 - Add-on measurement guardrails are complete: measured savings require an independent, complete before/after evidence pair; missing or invalid evidence remains explicitly estimated.
@@ -53,8 +55,8 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 
 ## Left
 
-- Repo Map can still deepen per-tool progress semantics beyond current backend status/stdout/stderr events.
-- Repo Intelligence can still deepen parser/call-graph coverage, mixed-language fixtures, and per-tool Repo Map progress semantics beyond the current graph-affinity, reverse-dependency, and supervised-MCP slice.
+- Repo Map can still add richer cancellation and retry semantics; typed per-tool progress and bounded aggregate status are shipped.
+- Repo Intelligence can still deepen parser/call-graph semantic resolution beyond the current bounded symbol-level graph, while per-tool Repo Map progress semantics are shipped.
 - Add-on counters can still move from durable estimated file/host evidence toward true before/after token measurements for Caveman, Ponytail, and MarkItDown sessions.
 - Native/provider write promotion is complete for Goose and Grok/xAI endpoint fields with verified allowlists and fixture lifecycle coverage. Cursor remains gated until a documented, supported on-disk provider schema exists; provider/account/model state remains manual everywhere.
 - Public installed-app smoke and reboot-level signed installed-app Doctor/Rollback/uninstall proof. Current uninstall proof is non-destructive local dry-run evidence, and `npm run smoke:reboot-level:local` now records the proof as blocked unless current installed-app trust, current public installed-app smoke evidence, supporting Doctor/Rollback/uninstall evidence, and a real post-reboot marker are all present.

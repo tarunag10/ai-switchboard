@@ -25,7 +25,10 @@ import {
   upsertRepoMapHistory,
   writeRepoMapHistory,
 } from "../lib/repoMapJob";
-import { buildRepoMapProgressSteps } from "../lib/repoMapProgress";
+import {
+  buildRepoMapProgressSteps,
+  buildRepoMapProgressSummary,
+} from "../lib/repoMapProgress";
 import { hasTauriEventRuntime } from "../lib/tauriRuntime";
 
 interface RepoMapViewProps {
@@ -38,6 +41,11 @@ interface RepoMapGenerationEvent {
   phase: "started" | "running" | "finished" | "failed";
   stream: "status" | "stdout" | "stderr";
   message: string;
+  toolId?: string;
+  toolStatus?: "ok" | "warning" | "not-run";
+  progressPercent?: number;
+  completedTools?: number;
+  totalTools?: number;
 }
 
 function formatNumber(value: number): string {
@@ -91,6 +99,15 @@ export function RepoMapView({
   const [liveGenerationEvents, setLiveGenerationEvents] = useState<
     RepoMapGenerationEvent[]
   >([]);
+  const [liveToolRuns, setLiveToolRuns] = useState<
+    Record<string, { status: "ok" | "warning" | "not-run"; detail: string; remediation: null }>
+  >({});
+  const [liveProgressEvidence, setLiveProgressEvidence] = useState<{
+    percent: number;
+    completed: number;
+    total: number;
+    currentToolId: string | null;
+  } | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [openNotice, setOpenNotice] = useState<string | null>(null);
@@ -143,6 +160,22 @@ export function RepoMapView({
           return;
         }
         setLiveGenerationEvents((events) => [...events, payload].slice(-80));
+        if (payload.toolId && payload.toolStatus) {
+          setLiveToolRuns((runs) => ({
+            ...runs,
+            [payload.toolId ?? ""]: {
+              status: payload.toolStatus ?? "not-run",
+              detail: payload.message,
+              remediation: null,
+            },
+          }));
+          setLiveProgressEvidence({
+            percent: Math.max(0, Math.min(100, payload.progressPercent ?? 0)),
+            completed: payload.completedTools ?? 0,
+            total: payload.totalTools ?? 0,
+            currentToolId: payload.toolId,
+          });
+        }
         if (payload.phase === "started" || payload.phase === "running") {
           setShowRunOutput(true);
         }
@@ -207,6 +240,8 @@ export function RepoMapView({
     setGenerationStartedAt(Date.now());
     setGenerationElapsedSeconds(0);
     setLiveGenerationEvents([]);
+    setLiveToolRuns({});
+    setLiveProgressEvidence(null);
     setGenerateError(null);
     setCopyNotice(null);
     setOpenNotice(null);
@@ -305,11 +340,25 @@ export function RepoMapView({
     ] as const,
     [],
   );
+  const observedToolRuns = {
+    ...(repoMap.toolRuns ?? {}),
+    ...(generation?.map.toolRuns ?? {}),
+    ...liveToolRuns,
+  };
   const generationSteps = buildRepoMapProgressSteps({
     generateBusy,
     generateError,
     preflightTools: preflight?.tools,
-    toolRuns: generation?.map.toolRuns ?? repoMap.toolRuns,
+    currentToolId: liveProgressEvidence?.currentToolId,
+    toolRuns: observedToolRuns,
+  });
+  const generationProgress = buildRepoMapProgressSummary(generationSteps, {
+    generateBusy,
+    generateError,
+    currentToolId: liveProgressEvidence?.currentToolId,
+    progressPercent: liveProgressEvidence?.percent,
+    completedTools: liveProgressEvidence?.completed,
+    totalTools: liveProgressEvidence?.total,
   });
   const activeGenerationStep =
     generationSteps.find((step) => step.state === "running") ??
@@ -475,8 +524,15 @@ export function RepoMapView({
           </div>
           <div className="repo-map-run-status__meta">
             <span>{formatElapsedSeconds(generationElapsedSeconds)}</span>
-            <span>{activeGenerationStep?.detail ?? "Running"}</span>
+            <span>
+              {generationProgress.percent}% · {activeGenerationStep?.detail ?? "Running"}
+            </span>
           </div>
+          <progress
+            aria-label="Repo map generation percent"
+            max={100}
+            value={generationProgress.percent}
+          />
           <div className="repo-map-progress" aria-label="Repo map generation progress">
             {generationSteps.map((step) => (
               <span
@@ -582,7 +638,7 @@ export function RepoMapView({
               </div>
               <ul className="repo-map-tool-list">
                 {toolRuns.map(([id, label]) => {
-                  const run = repoMap.toolRuns?.[id];
+                  const run = observedToolRuns[id];
                   const status = run?.status ?? "not-run";
                   return (
                     <li className={`repo-map-tool-list__item repo-map-tool-list__item--${status}`} key={id}>

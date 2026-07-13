@@ -12,13 +12,27 @@ export interface RepoMapPreflightToolLike {
   installHint?: string | null;
 }
 
-export type RepoMapProgressState = "pending" | "running" | "ok" | "warning" | "error";
+export type RepoMapProgressState =
+  | "pending"
+  | "queued"
+  | "running"
+  | "ok"
+  | "warning"
+  | "error";
 
 export interface RepoMapProgressStep {
   id: string;
   label: string;
   state: RepoMapProgressState;
   detail: string;
+}
+
+export interface RepoMapProgressSummary {
+  percent: number;
+  completed: number;
+  total: number;
+  currentToolId: string | null;
+  state: "idle" | "running" | "complete" | "warning" | "error";
 }
 
 const toolLabels = [
@@ -34,6 +48,7 @@ export function buildRepoMapProgressSteps(options: {
   generateError?: string | null;
   preflightTools?: RepoMapPreflightToolLike[] | null;
   toolRuns?: Record<string, RepoMapToolRunLike | undefined> | null;
+  currentToolId?: string | null;
 }): RepoMapProgressStep[] {
   const missingTools = options.preflightTools?.filter((tool) => !tool.available) ?? [];
   const hasToolRuns = Boolean(options.toolRuns && Object.keys(options.toolRuns).length > 0);
@@ -63,7 +78,11 @@ export function buildRepoMapProgressSteps(options: {
     } else if (options.generateError && !run) {
       state = "error";
     } else if (options.generateBusy && !run) {
-      state = "running";
+      const firstPending = toolLabels.find(([toolId]) => !options.toolRuns?.[toolId]);
+      state =
+        options.currentToolId === id || (!options.currentToolId && firstPending?.[0] === id)
+          ? "running"
+          : "queued";
     }
 
     steps.push({
@@ -73,9 +92,53 @@ export function buildRepoMapProgressSteps(options: {
       detail:
         run?.remediation ??
         run?.detail ??
-        (state === "running" ? "Queued or running" : state === "pending" ? "Waiting" : "Completed"),
+        (state === "running"
+          ? "Running"
+          : state === "queued"
+            ? "Queued"
+            : state === "pending"
+              ? "Waiting"
+              : "Completed"),
     });
   }
 
   return steps;
+}
+
+export function buildRepoMapProgressSummary(
+  steps: RepoMapProgressStep[],
+  options: {
+    generateBusy: boolean;
+    generateError?: string | null;
+    currentToolId?: string | null;
+    progressPercent?: number | null;
+    completedTools?: number | null;
+    totalTools?: number | null;
+  },
+): RepoMapProgressSummary {
+  const toolSteps = steps.filter((step) => step.id !== "preflight");
+  const completed =
+    options.completedTools ??
+    toolSteps.filter((step) => step.state === "ok" || step.state === "warning").length;
+  const total = Math.max(options.totalTools ?? toolSteps.length, toolSteps.length, 1);
+  const fallbackPercent = Math.round(Math.min(1, completed / total) * 100);
+  const percent = Math.max(
+    0,
+    Math.min(100, options.progressPercent ?? fallbackPercent),
+  );
+  const currentToolId =
+    options.currentToolId ??
+    toolSteps.find((step) => step.state === "running")?.id ??
+    null;
+  let state: RepoMapProgressSummary["state"] = "idle";
+  if (options.generateError || steps.some((step) => step.state === "error")) {
+    state = "error";
+  } else if (toolSteps.some((step) => step.state === "warning")) {
+    state = options.generateBusy ? "running" : "warning";
+  } else if (options.generateBusy) {
+    state = "running";
+  } else if (completed > 0 && completed >= total) {
+    state = "complete";
+  }
+  return { percent, completed, total, currentToolId, state };
 }

@@ -30,7 +30,7 @@ Created:
 - Repo Memory MCP and connector lifecycle evidence surfaces for app-managed handoffs.
 
 Done:
-- Repo Map integrates generated artifacts, history, artifact-opening checks, partial-success handling, context-pack output, and token-savings accounting.
+- Repo Map integrates generated artifacts, history, artifact-opening checks, partial-success handling, typed per-tool progress/current-tool evidence, context-pack output, and token-savings accounting.
 - Agent Session exports selected-pack, full-handoff, summary, and JSON payloads for Claude Code, Codex, Gemini CLI, OpenCode, Goose, Windsurf, Zed, and gated connector targets.
 - Repo Intelligence exposes read-only manifests, packs, graph-input paths, stale/corrupt/moved index states, and MCP smoke evidence.
 - Repo Memory MCP local evidence now has a dedicated checker enforcing read-only tools, no repository mutation, budgeted context packs, graph queries, stale-index health, connector bridge recipes, and app-managed descriptor recheck evidence.

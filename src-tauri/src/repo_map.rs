@@ -41,6 +41,16 @@ struct RepoMapGenerationEvent {
     phase: &'static str,
     stream: &'static str,
     message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    progress_percent: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    completed_tools: Option<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    total_tools: Option<u8>,
 }
 
 #[derive(Debug, Serialize)]
@@ -143,8 +153,69 @@ fn emit_repo_map_generation_event(
             phase,
             stream,
             message: message.into(),
+            tool_id: None,
+            tool_status: None,
+            progress_percent: None,
+            completed_tools: None,
+            total_tools: None,
         },
     );
+}
+
+fn emit_repo_map_tool_progress_event(
+    app: &tauri::AppHandle,
+    repo_path: &Path,
+    tool_id: String,
+    tool_status: String,
+    progress_percent: u8,
+    completed_tools: u8,
+    total_tools: u8,
+    message: String,
+) {
+    let _ = app.emit(
+        "repo_map_generation_event",
+        RepoMapGenerationEvent {
+            repo_path: repo_path.display().to_string(),
+            phase: "running",
+            stream: "status",
+            message,
+            tool_id: Some(tool_id),
+            tool_status: Some(tool_status),
+            progress_percent: Some(progress_percent.min(100)),
+            completed_tools: Some(completed_tools),
+            total_tools: Some(total_tools.max(1)),
+        },
+    );
+}
+
+fn parse_repo_map_tool_progress(line: &str) -> Option<(String, String, u8, u8, u8, String)> {
+    let payload = serde_json::from_str::<Value>(line).ok()?;
+    if payload.get("kind")?.as_str()? != "repo_map_tool_event" {
+        return None;
+    }
+    let tool_id = payload.get("toolId")?.as_str()?.to_string();
+    let status = payload.get("status")?.as_str()?.to_string();
+    let percent = payload
+        .get("progressPercent")
+        .and_then(Value::as_u64)
+        .unwrap_or(0)
+        .min(100) as u8;
+    let completed = payload
+        .get("completedTools")
+        .and_then(Value::as_u64)
+        .unwrap_or(0)
+        .min(u8::MAX as u64) as u8;
+    let total = payload
+        .get("totalTools")
+        .and_then(Value::as_u64)
+        .unwrap_or(1)
+        .min(u8::MAX as u64) as u8;
+    let message = payload
+        .get("message")
+        .and_then(Value::as_str)
+        .unwrap_or("Tool finished.")
+        .to_string();
+    Some((tool_id, status, percent, completed, total, message))
 }
 
 #[tauri::command]
@@ -267,6 +338,13 @@ pub async fn generate_repo_map(
                         output.push_str(&line);
                         output.push('\n');
                     }
+                    if let Some((tool_id, status, percent, completed, total, message)) =
+                        parse_repo_map_tool_progress(&line)
+                    {
+                        emit_repo_map_tool_progress_event(
+                            &app, &repo, tool_id, status, percent, completed, total, message,
+                        );
+                    }
                     emit_repo_map_generation_event(&app, &repo, "running", "stdout", line);
                 }
             }));
@@ -379,4 +457,28 @@ pub fn open_repo_map_artifact(request: RepoMapArtifactRequest) -> Result<bool, S
     external_open::open_local_path(&path)
         .map_err(|err| format!("Failed to open artifact: {err}"))?;
     Ok(true)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_repo_map_tool_progress;
+
+    #[test]
+    fn parses_bounded_content_free_tool_progress() {
+        let event = parse_repo_map_tool_progress(
+            r#"{"kind":"repo_map_tool_event","toolId":"graphify","status":"warning","progressPercent":140,"completedTools":2,"totalTools":5,"message":"graphify exited 1"}"#,
+        )
+        .expect("tool progress event");
+        assert_eq!(event.0, "graphify");
+        assert_eq!(event.1, "warning");
+        assert_eq!(event.2, 100);
+        assert_eq!(event.3, 2);
+        assert_eq!(event.4, 5);
+        assert_eq!(event.5, "graphify exited 1");
+    }
+
+    #[test]
+    fn ignores_unrelated_generator_output() {
+        assert!(parse_repo_map_tool_progress("Wrote docs/repo-map/repo-map.json").is_none());
+    }
 }

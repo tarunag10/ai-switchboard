@@ -12,6 +12,7 @@
 - Reconnected the `mac-ai-switchboard` Vercel project to `tarunag10/ai-switchboard` and verified the public production aliases with a successful `npm ci`/`npm run build` deployment and browser smoke check.
 - Pinned the transitive development-only `undici` dependency to `7.28.0`, clearing the high-severity audit warning emitted during Vercel installs without changing the production dependency surface.
 - Hardened the optional remote diagnostics boundary: Aptabase analytics now drops raw message/prompt, payload, header, and credential fields with bounded metadata, while Sentry app-update/bootstrap captures use category-only errors and scrubbed context. Added fake-secret regression coverage and updated the telemetry privacy contract.
+- Added Goose native endpoint rollback coverage: Rollback Center now previews and restores the allowlisted provider fields with exact confirmation, creates a fresh safety backup before restore, and keeps unmanaged Goose MCP/provider/account/model state untouched; fixture-home tests cover restore and undo-all boundaries.
 - Added a static AI Switchboard favicon so Vercel/browser requests do not fall through the SPA rewrite as HTML.
 ### Plan completion and readiness (2026-07-12)
 
