@@ -4,15 +4,11 @@ import { execFileSync } from "node:child_process";
 // 1 as "continue with the build". Keep the hosted shell on the latest commit
 // that can affect it, while avoiding deployments for native-only/docs-only
 // slices that otherwise create noisy, unnecessary build notifications.
-const previous = process.env.VERCEL_GIT_PREVIOUS_SHA;
+// Vercel's documented default uses HEAD^; the environment variable is not
+// present for every Git integration path, so keep that fallback instead of
+// treating every commit as a web change.
+const previous = process.env.VERCEL_GIT_PREVIOUS_SHA || "HEAD^";
 const current = process.env.VERCEL_GIT_COMMIT_SHA || "HEAD";
-
-if (!previous) {
-  // A missing baseline is not safe to classify as irrelevant. Build the first
-  // deployment so a new project cannot silently remain on an empty shell.
-  console.log("Vercel build: no previous commit available; continuing");
-  process.exit(1);
-}
 
 let changedFiles;
 try {
@@ -38,6 +34,8 @@ const affectsWebShell = (file) =>
   file === "tsconfig.json" ||
   file === "tsconfig.app.json" ||
   file === "tsconfig.node.json" ||
+  file === "vercel.json" ||
+  file === ".vercelignore" ||
   file.startsWith("src/") ||
   file.startsWith("public/") ||
   file === "connectors/manifest.json" ||
