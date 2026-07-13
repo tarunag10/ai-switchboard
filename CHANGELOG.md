@@ -2,10 +2,13 @@
 
 ## Unreleased
 
+- Reconciled the implementation-plan status ledger and connector lifecycle docs: Goose and Grok / xAI now document their allowlisted native endpoint adapters, Cursor remains schema-gated, Repo Memory MCP supervision is shipped with installed-app proof still external, and the Vercel/browser boundary is recorded as verified. The failed historical Vercel build was traced to an excluded repo-map snapshot on `fe607653`; current deployments build cleanly with the corrected `.vercelignore`.
 - Promoted Grok / xAI CLI native endpoint routing from sidecar-only to a documented, reversible adapter. Switchboard manages only `[endpoints].models_base_url` in `~/.grok/config.toml`, with fixture-home preview/apply/verify/rollback/Off cleanup and sibling backups; credentials, account state, API keys, and model selection remain manual.
 - Hardened the Vercel web-shell boundary: browser previews no longer treat incomplete `__TAURI_INTERNALS__` objects as a desktop or event runtime, and the repository now pins the Vite build contract (`npm ci`, `npm run build`, `dist`) with a SPA fallback and a `.vercelignore` that excludes native sources and local artifacts.
 - Reconnected the `mac-ai-switchboard` Vercel project to `tarunag10/ai-switchboard` and verified the public production aliases with a successful `npm ci`/`npm run build` deployment and browser smoke check.
 - Pinned the transitive development-only `undici` dependency to `7.28.0`, clearing the high-severity audit warning emitted during Vercel installs without changing the production dependency surface.
+- Hardened the optional remote diagnostics boundary: Aptabase analytics now drops raw message/prompt, payload, header, and credential fields with bounded metadata, while Sentry app-update/bootstrap captures use category-only errors and scrubbed context. Added fake-secret regression coverage and updated the telemetry privacy contract.
+- Added a static AI Switchboard favicon so Vercel/browser requests do not fall through the SPA rewrite as HTML.
 ### Plan completion and readiness (2026-07-12)
 
 - Closed the planned implementation slices for Agent Memory, Token X-Ray depth/live updates, incremental and graph-aware Repo Intelligence, supervised Repo Memory MCP, Cursor/Goose/Grok‑xAI sidecars, gateway readiness, add-on measurement guardrails, progressive disclosure, and reboot-proof automation.

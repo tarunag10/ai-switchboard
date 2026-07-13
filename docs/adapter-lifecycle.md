@@ -23,7 +23,10 @@ footprint reporting. The connector manifest must include automation gates for
 backup, verify, rollback, and Off cleanup.
 
 Claude Code and Codex are first-class managed targets. Gemini CLI, OpenCode,
-Windsurf, and Zed AI have promoted managed adapters. Aider and Continue have
-promoted Switchboard-owned sidecar adapters that leave provider config manual.
-Cursor, Grok/xAI, and other unpromoted provider writes stay guided or gated
-until their settings can be parsed and restored losslessly.
+Windsurf, and Zed AI have promoted managed adapters. Goose and Grok / xAI CLI
+now also have promoted, allowlisted native endpoint adapters alongside their
+Switchboard-owned sidecar or Repo Memory MCP lifecycle. Aider, Continue, Qwen
+Code, and Amazon Q have promoted Switchboard-owned sidecar adapters that leave
+provider, account, credential, and model config manual. Cursor native provider
+writes remain guided or gated because no supported on-disk provider schema has
+been published; its isolated Switchboard sidecar remains reversible.

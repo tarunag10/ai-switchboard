@@ -10,6 +10,10 @@ AI Switchboard is the independent product and user-facing control plane. Headroo
 
 - Managed routing, reversible setup, Doctor, rollback, local-only guards, release reporting, Repo Map, Repo Intelligence v1, and read-only Repo Memory MCP are implemented.
 - Connector support is correctly split between managed, sidecar, guided, and gated states.
+- The Vite web shell has a verified Vercel contract (`npm ci`, `npm run build`,
+  `dist`, SPA fallback, and native/local artifact exclusion). Browser previews
+  guard incomplete Tauri globals and event runtimes, so hosted Vercel builds do
+  not attempt desktop-only calls.
 - Token X-Ray and Daily Briefing have an implemented local/content-free foundation, including persistent daily history, exports, and scoped analytics deletion.
 - Platform rebrand documentation/evidence and the signed/notarized v0.0.0 release proof are recorded.
 
@@ -21,7 +25,7 @@ The following implementation-plan slices are complete in the current checkout an
 - Token X-Ray depth and bounded live updates: model/context/cache metadata, projected pressure, event coalescing, recommendation controls, timestamped evidence, and unavailable-state handling.
 - Repo Intelligence incremental index reuse and graph-aware ranking, including task affinity and reverse-dependency hubs.
 - Repo Memory MCP app-owned read-only process supervision with child/restart/exit evidence and stale-health recovery.
-- Cursor, Goose, and Grok/xAI Switchboard-owned sidecar lifecycles with preview, exact confirmation, backup, verification, rollback, and Off cleanup. Goose and Grok/xAI now also have allowlisted native endpoint adapters; Cursor native writes remain gated.
+- Cursor, Goose, and Grok/xAI Switchboard-owned sidecar lifecycles with preview, exact confirmation, backup, verification, rollback, and Off cleanup. Goose and Grok/xAI also have allowlisted native endpoint adapters; Cursor native writes remain gated.
 - Progressive-disclosure and accessibility completion for technical evidence and connector setup actions.
 - Add-on measurement guardrails and explicit evidence inputs. The app records measured savings only for a complete independent baseline/optimized pair and otherwise preserves estimated status.
 - Gateway readiness receipts, redacted previews, reversible local intent, and opt-in loopback LiteLLM preflight; no credentials or external configuration are written.

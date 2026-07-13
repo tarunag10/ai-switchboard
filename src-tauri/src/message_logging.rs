@@ -71,10 +71,9 @@ pub fn purge_message_logs_with_runtime_logs(
                     }
                     match std::fs::remove_file(&path) {
                         Ok(()) => removed_paths.push(path.display().to_string()),
-                        Err(error) => notes.push(format!(
-                            "Failed to remove {}: {error}",
-                            path.display()
-                        )),
+                        Err(error) => {
+                            notes.push(format!("Failed to remove {}: {error}", path.display()))
+                        }
                     }
                 }
             }

@@ -788,10 +788,10 @@ fn build_planned_switchboard_sidecar_body(spec: &PlannedSidecarSpec) -> String {
     if spec.id == "goose" {
         return format!(
             "Managed by Mac AI Switchboard.\n\
-             Purpose: reversible Goose Repo Memory MCP bridge marker; provider routing remains manual and gated.\n\
+             Purpose: reversible Goose Repo Memory MCP bridge marker alongside allowlisted native endpoint routing.\n\
              Reference proxy base: {HEADROOM_OPENAI_BASE_URL}\n\
-             Boundary: this file does not mutate account state, secrets, models, or Goose provider config.\n\
-             Next promotion gate: add documented Goose provider config edits only after dry-run, backup, verify, rollback, and Off cleanup pass."
+             Boundary: native setup writes only documented non-secret OpenAI/Anthropic endpoint fields; account state, secrets, provider credentials, and model selection remain manual.\n\
+             Additional Goose provider fields remain gated until their documented schema and reversible lifecycle are proven."
         );
     }
 
@@ -1017,6 +1017,12 @@ pub fn disable_client_setup(client_id: &str) -> Result<()> {
         }
         "opencode" => {
             remove_opencode_provider_config()?;
+            let sidecar = planned_sidecar_spec(client_id)
+                .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
+            let _ = remove_managed_block(&planned_sidecar_routing_path(client_id)?, sidecar.id)?;
+        }
+        "goose" => {
+            let _ = crate::goose_provider_configs::remove_goose_provider_config()?;
             let sidecar = planned_sidecar_spec(client_id)
                 .ok_or_else(|| anyhow!("No Switchboard sidecar is configured for {client_id}."))?;
             let _ = remove_managed_block(&planned_sidecar_routing_path(client_id)?, sidecar.id)?;
@@ -4606,6 +4612,7 @@ mod tests {
                 "codex",
                 "gemini_cli",
                 "goose",
+                "grok_cli",
                 "opencode",
                 "qwen_code",
                 "amazon_q",
@@ -4856,7 +4863,7 @@ mod tests {
                 .iter()
                 .map(|connector| connector.client_id.as_str())
                 .collect::<BTreeSet<_>>(),
-            BTreeSet::from(["cursor", "grok_cli",])
+            BTreeSet::from(["cursor"])
         );
 
         for connector in planned {
@@ -4921,14 +4928,25 @@ mod tests {
             assert!(preview.proposed_state.contains("Preview only"));
             assert!(preview.proposed_state.contains("no files are written"));
             assert!(preview.apply_blocked_reason.contains(&connector.name));
-            assert!(preview
-                .apply_blocked_reason
-                .contains("backup, verify, rollback, and Off cleanup"));
-            assert!(preview.rollback_preview.contains("remove only"));
-            assert_eq!(
-                preview.confirmation_phrase,
-                format!("APPLY {} CONFIG", connector.name.to_uppercase())
-            );
+            if connector.client_id == "cursor" {
+                assert!(preview
+                    .apply_blocked_reason
+                    .contains("does not document a stable on-disk"));
+            } else {
+                assert!(preview
+                    .apply_blocked_reason
+                    .contains("backup, verify, rollback, and Off cleanup"));
+            }
+            if connector.client_id == "cursor" {
+                assert!(preview.rollback_preview.contains("No Cursor native write"));
+                assert_eq!(preview.confirmation_phrase, "CURSOR NATIVE SCHEMA GATE");
+            } else {
+                assert!(preview.rollback_preview.contains("remove only"));
+                assert_eq!(
+                    preview.confirmation_phrase,
+                    format!("APPLY {} CONFIG", connector.name.to_uppercase())
+                );
+            }
             assert!(preview.writes.is_empty());
             assert_eq!(connector.automation_path.len(), 7);
             assert_eq!(
@@ -6172,6 +6190,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
         prev_xdg: Option<std::ffi::OsString>,
         prev_shell: Option<std::ffi::OsString>,
         prev_codex: Option<std::ffi::OsString>,
+        prev_goose_env: Vec<(&'static str, Option<std::ffi::OsString>)>,
     }
 
     impl TestHome {
@@ -6186,6 +6205,17 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             let prev_xdg = std::env::var_os("XDG_DATA_HOME");
             let prev_shell = std::env::var_os("SHELL");
             let prev_codex = std::env::var_os("CODEX_HOME");
+            let goose_env_keys = [
+                "GOOSE_PROVIDER",
+                "OPENAI_HOST",
+                "OPENAI_BASE_URL",
+                "OPENAI_BASE_PATH",
+                "ANTHROPIC_HOST",
+            ];
+            let prev_goose_env = goose_env_keys
+                .iter()
+                .map(|key| (*key, std::env::var_os(key)))
+                .collect::<Vec<_>>();
             std::env::set_var("HOME", &home);
             std::env::set_var("XDG_DATA_HOME", home.join(".local").join("share"));
             // Force a deterministic shell family so tests don't depend on the
@@ -6194,6 +6224,13 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             // Clear any real CODEX_HOME so codex_home() falls back to the temp
             // $HOME/.codex and the Codex tests stay hermetic on dev machines.
             std::env::remove_var("CODEX_HOME");
+            // Goose treats endpoint environment variables as higher priority
+            // than config.yaml. Clear them for fixture-home lifecycle tests so
+            // the native adapter exercises its documented persisted schema;
+            // the original values are restored by Drop.
+            for (key, _) in &prev_goose_env {
+                std::env::remove_var(key);
+            }
             // Mirror what the app does at startup so write_setup_state has a
             // config dir to land in.
             crate::storage::ensure_data_dirs(&crate::storage::app_data_dir())
@@ -6206,6 +6243,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
                 prev_xdg,
                 prev_shell,
                 prev_codex,
+                prev_goose_env,
             }
         }
 
@@ -6231,6 +6269,12 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             match self.prev_codex.take() {
                 Some(v) => std::env::set_var("CODEX_HOME", v),
                 None => std::env::remove_var("CODEX_HOME"),
+            }
+            for (key, value) in self.prev_goose_env.drain(..) {
+                match value {
+                    Some(value) => std::env::set_var(key, value),
+                    None => std::env::remove_var(key),
+                }
             }
         }
     }
@@ -6713,37 +6757,60 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
 
     #[test]
     #[serial_test::serial]
-    fn goose_mcp_bridge_lifecycle_keeps_provider_routing_manual() {
+    fn goose_native_provider_and_mcp_bridge_lifecycle_preserves_user_state() {
         let home = TestHome::new();
-        let sidecar = home
+        let config = home
             .path()
-            .join(".config")
+            .join("Library")
+            .join("Application Support")
+            .join("Block")
             .join("goose")
-            .join(SWITCHBOARD_ROUTING_FILE);
+            .join("config.yaml");
+        fs::create_dir_all(config.parent().unwrap()).expect("create goose config dir");
+        fs::write(
+            &config,
+            "active_provider: openai\nproviders:\n  openai:\n    enabled: true\n    model: gpt-4o\n    configured: true\nkeep: true\n",
+        )
+        .expect("seed goose config");
+
+        let sidecar = planned_sidecar_routing_path("goose").expect("goose sidecar path");
         fs::create_dir_all(sidecar.parent().unwrap()).expect("create goose dir");
         fs::write(&sidecar, "# goose user note\nkeep this\n").expect("seed sidecar");
 
         let result = super::apply_client_setup("goose").expect("apply goose setup");
         assert!(result.applied);
         assert!(!result.already_configured);
-        assert_eq!(result.changed_files, vec![sidecar.display().to_string()]);
-        assert_eq!(result.backup_files.len(), 1);
+        assert!(result.changed_files.contains(&config.display().to_string()));
+        assert!(result
+            .changed_files
+            .contains(&sidecar.display().to_string()));
+        assert_eq!(result.backup_files.len(), 2);
         assert!(result.verification.verified);
         assert!(result.summary.contains("Repo Memory MCP bridge"));
-        assert!(result.summary.contains("provider routing remains manual"));
+        assert!(result
+            .summary
+            .contains("credentials and account state remain manual"));
         assert!(result
             .next_steps
             .iter()
-            .any(|step| step.contains("provider and model routing manual")));
+            .any(|step| step.contains("allowlisted provider endpoint fields")));
 
         let content = fs::read_to_string(&sidecar).expect("read goose sidecar");
         assert!(content.contains("# goose user note\nkeep this"));
         assert!(content.contains("# >>> headroom:goose >>>"));
         assert!(content.contains(super::HEADROOM_OPENAI_BASE_URL));
         assert!(content.contains("Repo Memory MCP bridge marker"));
-        assert!(content.contains("provider routing remains manual and gated"));
-        assert!(content
-            .contains("does not mutate account state, secrets, models, or Goose provider config"));
+        assert!(content.contains("allowlisted native endpoint routing"));
+        assert!(content.contains(
+            "account state, secrets, provider credentials, and model selection remain manual"
+        ));
+
+        let config_content = fs::read_to_string(&config).expect("read configured goose config");
+        assert!(config_content.contains("active_provider: openai"));
+        assert!(config_content.contains("model: gpt-4o"));
+        assert!(config_content.contains("keep: true"));
+        assert!(config_content.contains(super::HEADROOM_OPENAI_BASE_URL));
+        assert!(config_content.contains("OPENAI_BASE_PATH: v1/chat/completions"));
 
         let preview =
             super::preview_managed_rollback("goose-routing").expect("preview goose rollback");
@@ -6775,6 +6842,11 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             fs::read_to_string(&sidecar).expect("read disabled goose sidecar"),
             "# goose user note\nkeep this\n"
         );
+        let disabled_config = fs::read_to_string(&config).expect("read disabled goose config");
+        assert!(disabled_config.contains("active_provider: openai"));
+        assert!(disabled_config.contains("model: gpt-4o"));
+        assert!(disabled_config.contains("keep: true"));
+        assert!(!disabled_config.contains(super::HEADROOM_OPENAI_BASE_URL));
         let verification =
             super::verify_client_setup("goose").expect("verify disabled goose setup");
         assert!(!verification.verified);
@@ -9075,7 +9147,7 @@ js_repl = false\n",
             .expect("cursor dry-run preview");
         assert!(preview.target.contains("Cursor/User/settings.json"));
         assert!(preview.marker.contains("cursor"));
-        assert!(preview.rollback_preview.contains("Switchboard-managed"));
+        assert!(preview.rollback_preview.contains("Switchboard-owned"));
         assert!(preview
             .apply_blocked_reason
             .contains("does not document a stable on-disk"));

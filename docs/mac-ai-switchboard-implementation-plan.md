@@ -268,8 +268,8 @@ The project aims to support many agentic coding tools, but managed support curre
    | Cursor      | Gated          |                No |          No |        Yes | Settings discovery and dry-run target/marker preview; native writes remain blocked |
    | Aider       | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
    | Continue    | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
-   | Goose       | Managed MCP    |               Yes |          No |        Yes | Read-only Repo Memory MCP bridge, native writes blocked |
-   | Grok / xAI  | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
+   | Goose       | Managed        |               Yes |          No |        Yes | Allowlisted OpenAI/Anthropic endpoint fields plus managed Repo Memory MCP; credentials, account, and model selection remain manual |
+   | Grok / xAI  | Managed        |               Yes |          No |        Yes | Allowlisted `[endpoints].models_base_url` routing; account, credentials, and model selection remain manual |
    | Qwen Code   | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
    | Amazon Q    | Guided         |                No |          No |        Yes | Sidecar/readiness lifecycle, native writes blocked    |
 
@@ -1248,7 +1248,11 @@ Before any adapter becomes managed, it must support:
 
 ## P5.3 Connector expansion order
 
-### Recommended order
+### Recommended next order
+
+Goose and Grok / xAI CLI are complete for their documented allowlisted
+endpoint fields. The remaining order below applies only to new native/provider
+surfaces; unsupported account, credential, and model mutation stays gated.
 
 1. **Cursor**
    - Editor settings are already detected.
@@ -1258,16 +1262,12 @@ Before any adapter becomes managed, it must support:
    - Multi-provider config needs careful unmanaged-config preservation.
    - Good candidate for the next read-only-to-managed promotion after editor settings parsing is safer.
 
-3. **Goose**
-   - Agent/MCP-friendly.
-   - Strong fit for Repo Intelligence handoff.
-
-4. **Aider**
+3. **Aider**
    - CLI-first.
    - Common config files.
    - Good candidate for context packs and wrapper-based env routing.
 
-5. **Grok / xAI CLI, Qwen Code, and Amazon Q**
+4. **Qwen Code and Amazon Q**
    - Keep account, credential, and model guardrails explicit before native writes.
    - Use sidecar/readiness dossiers until provider-specific safe mutation is proven.
 
