@@ -5,6 +5,18 @@ current created/updated/left checklist.
 
 ## Updated Status - 2026-07-03
 
+### Connector readiness update - 2026-07-13
+
+The local readiness contract now separates Switchboard-owned sidecar health
+from native provider/editor writes. Connector cards and handoff payloads expose
+`nativeAutomationEnabled`, `nativeNextBlockedStage`, and
+`nativeWriteEvidence`; only documented, fixture-tested surfaces can report
+promoted native writes. Goose's allowlisted OpenAI/Anthropic endpoint fields
+and Grok/xAI's documented endpoint are promoted, while Cursor, Aider,
+Continue, Qwen Code, and Amazon Q keep native provider state manual or gated.
+Gateway profiles use the same explicit lifecycle vocabulary without claiming
+live external infrastructure.
+
 Created / updated:
 - Agent Session and Repo Intelligence are connected to Repo Map artifacts, selected packs, graph-input paths, freshness states, stale-map warnings, token-savings evidence, and MCP smoke evidence.
 - Mode Inspector / Repo Memory MCP expose install/start/stop style lifecycle evidence, stale-config detection, app-managed descriptor rechecks, and read-only/no-mutation proof.
@@ -385,7 +397,7 @@ Connector config track:
 
 Implementation areas:
 
-- `src/lib/connectorReadiness.ts`
+- `src/lib/plannedConnectors.ts`
 - `src-tauri/src/client_adapters.rs`
 - `src-tauri/src/lib.rs`
 - `research/tool-compatibility-matrix.md`

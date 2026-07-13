@@ -16,6 +16,8 @@
 - Corrected the remaining install support paragraph so managed sidecars and
   promoted native routing surfaces are described separately from gated Cursor
   provider writes.
+- Updated the Agent Control Center plan with the native-write readiness
+  contract and corrected its implementation-module reference.
 - Reconciled progressive-disclosure and architecture documentation with the
   shipped UI and Repo Intelligence evidence: all seven disclosure slices are
   marked complete with source/test references, connector technical evidence is
