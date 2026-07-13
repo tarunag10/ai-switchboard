@@ -95,6 +95,11 @@ for (const profile of profiles) {
 
   const disclosure = stringValue(profile.body, "disclosure");
   if (!disclosure) failures.push(`${profile.id}: disclosure must not be empty`);
+  for (const field of ["name", "privacyCaveat", "rollbackGuidance", "offModeGuidance", "setupGuidance"]) {
+    if (!stringValue(profile.body, field).trim()) {
+      failures.push(`${profile.id}: ${field} must not be empty`);
+    }
+  }
   if (boundary === "remote" && !/remote|gateway|endpoint|trace|export/i.test(disclosure)) {
     failures.push(`${profile.id}: remote profile disclosure is missing the trust boundary`);
   }
@@ -117,12 +122,16 @@ for (const profile of profiles) {
     const lifecycleBody = lifecycle[1];
     const automation = lifecycleBody.match(/\bautomationEnabled:\s*(true|false)/)?.[1];
     const stageStates = [...lifecycleBody.matchAll(/\bid:\s*"([^"]+)"[\s\S]*?\bstate:\s*"([^"]+)"/g)];
+    const stageEvidence = [...lifecycleBody.matchAll(/\bid:\s*"([^"]+)"[\s\S]*?\bevidence:\s*["`]([\s\S]*?)["`]/g)];
     const ids = stageStates.map(([, id]) => id);
     if (ids.length !== lifecycleStageIds.length || ids.some((id, index) => id !== lifecycleStageIds[index])) {
       failures.push(`${profile.id}: lifecycle stages must follow ${lifecycleStageIds.join(", ")} order`);
     }
     for (const [, id, state] of stageStates) {
       if (!allowedLifecycleStates.has(state)) failures.push(`${profile.id}: invalid lifecycle state ${state} for ${id}`);
+    }
+    if (stageEvidence.length !== lifecycleStageIds.length || stageEvidence.some(([, , evidence]) => !evidence.trim())) {
+      failures.push(`${profile.id}: every lifecycle stage must include non-empty evidence`);
     }
     const hasBlockedStage = stageStates.some(([, , state]) => state !== "available");
     if (automation === "true" && hasBlockedStage) {

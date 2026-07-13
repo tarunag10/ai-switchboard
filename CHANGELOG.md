@@ -20,6 +20,8 @@
   contract and corrected its implementation-module reference.
 - Refreshed the plan-status ledger with the governed gateway lifecycle and
   the separate native-versus-sidecar connector readiness boundary.
+- Strengthened the static gateway governance gate to reject empty lifecycle
+  evidence and empty rollback, Off-mode, privacy, or setup guidance.
 - Reconciled progressive-disclosure and architecture documentation with the
   shipped UI and Repo Intelligence evidence: all seven disclosure slices are
   marked complete with source/test references, connector technical evidence is
