@@ -5,6 +5,7 @@
 - Promoted Grok / xAI CLI native endpoint routing from sidecar-only to a documented, reversible adapter. Switchboard manages only `[endpoints].models_base_url` in `~/.grok/config.toml`, with fixture-home preview/apply/verify/rollback/Off cleanup and sibling backups; credentials, account state, API keys, and model selection remain manual.
 - Hardened the Vercel web-shell boundary: browser previews no longer treat incomplete `__TAURI_INTERNALS__` objects as a desktop or event runtime, and the repository now pins the Vite build contract (`npm ci`, `npm run build`, `dist`) with a SPA fallback and a `.vercelignore` that excludes native sources and local artifacts.
 - Reconnected the `mac-ai-switchboard` Vercel project to `tarunag10/ai-switchboard` and verified the public production aliases with a successful `npm ci`/`npm run build` deployment and browser smoke check.
+- Pinned the transitive development-only `undici` dependency to `7.28.0`, clearing the high-severity audit warning emitted during Vercel installs without changing the production dependency surface.
 ### Plan completion and readiness (2026-07-12)
 
 - Closed the planned implementation slices for Agent Memory, Token X-Ray depth/live updates, incremental and graph-aware Repo Intelligence, supervised Repo Memory MCP, Cursor/Goose/Grok‑xAI sidecars, gateway readiness, add-on measurement guardrails, progressive disclosure, and reboot-proof automation.
