@@ -322,6 +322,18 @@ pub async fn generate_repo_map(
             "Starting Repo Map generator.",
         );
 
+        {
+            let active_pid = active_repo_map_pid()
+                .lock()
+                .map_err(|_| "Repo Map generation state is unavailable.")?;
+            if active_pid.is_some() {
+                return Err(
+                    "Repo Map generation is already running; cancel it or wait before retrying."
+                        .to_string(),
+                );
+            }
+        }
+
         let mut child = Command::new("node")
             .arg(&script_path)
             .arg("--repo")
