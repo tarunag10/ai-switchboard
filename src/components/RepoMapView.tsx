@@ -26,6 +26,7 @@ import {
   writeRepoMapHistory,
 } from "../lib/repoMapJob";
 import { buildRepoMapProgressSteps } from "../lib/repoMapProgress";
+import { hasTauriEventRuntime } from "../lib/tauriRuntime";
 
 interface RepoMapViewProps {
   onOpenRepoIntelligence: () => void;
@@ -127,6 +128,10 @@ export function RepoMapView({
   }, [generateBusy, generationStartedAt]);
 
   useEffect(() => {
+    if (!hasTauriEventRuntime()) {
+      return;
+    }
+
     let disposed = false;
     let unlisten: (() => void) | undefined;
     void listen<RepoMapGenerationEvent>(
