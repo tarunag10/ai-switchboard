@@ -24,7 +24,17 @@ const allowedCategories = new Set([
   "remote gateway",
   "enterprise gateway",
 ]);
-const allowedStates = new Set(["guided", "gated"]);
+const allowedStates = new Set(["managed", "guided", "detected", "gated", "unsupported"]);
+const allowedLifecycleStates = new Set(["available", "guided", "blocked"]);
+const lifecycleStageIds = [
+  "detect",
+  "preview",
+  "backup",
+  "apply",
+  "verify",
+  "rollback",
+  "offCleanup",
+];
 const allowedBoundaries = new Set(["local", "remote"]);
 const allowedSavingsEvidence = new Set(["estimated", "external", "none"]);
 const requiredFields = [
@@ -44,6 +54,7 @@ const requiredFields = [
   "offModeGuidance",
   "savingsEvidence",
   "setupGuidance",
+  "lifecycle",
 ];
 
 const property = (body, field) =>
@@ -72,6 +83,7 @@ for (const profile of profiles) {
   const state = stringValue(profile.body, "state");
   const boundary = stringValue(profile.body, "trafficBoundary");
   const savings = stringValue(profile.body, "savingsEvidence");
+  const profileState = stringValue(profile.body, "state");
   if (!allowedCategories.has(category)) failures.push(`${profile.id}: invalid category ${category}`);
   if (!allowedStates.has(state)) failures.push(`${profile.id}: invalid state ${state}`);
   if (!allowedBoundaries.has(boundary)) failures.push(`${profile.id}: invalid trafficBoundary ${boundary}`);
@@ -96,6 +108,32 @@ for (const profile of profiles) {
   const setupGuidance = stringValue(profile.body, "setupGuidance");
   if (needsSecrets && !/secret|token|key|secure|credential/i.test(setupGuidance)) {
     failures.push(`${profile.id}: secret-bearing profile must explain secure secret handling`);
+  }
+
+  const lifecycle = profile.body.match(/\blifecycle:\s*\{([\s\S]*?)\n\s*\},/);
+  if (!lifecycle) {
+    failures.push(`${profile.id}: lifecycle contract is missing`);
+  } else {
+    const lifecycleBody = lifecycle[1];
+    const automation = lifecycleBody.match(/\bautomationEnabled:\s*(true|false)/)?.[1];
+    const stageStates = [...lifecycleBody.matchAll(/\bid:\s*"([^"]+)"[\s\S]*?\bstate:\s*"([^"]+)"/g)];
+    const ids = stageStates.map(([, id]) => id);
+    if (ids.length !== lifecycleStageIds.length || ids.some((id, index) => id !== lifecycleStageIds[index])) {
+      failures.push(`${profile.id}: lifecycle stages must follow ${lifecycleStageIds.join(", ")} order`);
+    }
+    for (const [, id, state] of stageStates) {
+      if (!allowedLifecycleStates.has(state)) failures.push(`${profile.id}: invalid lifecycle state ${state} for ${id}`);
+    }
+    const hasBlockedStage = stageStates.some(([, , state]) => state !== "available");
+    if (automation === "true" && hasBlockedStage) {
+      failures.push(`${profile.id}: automationEnabled requires all lifecycle stages to be available`);
+    }
+    if (profileState === "managed" && automation !== "true") {
+      failures.push(`${profile.id}: managed profiles must enable lifecycle automation`);
+    }
+    if (profileState !== "managed" && automation === "true") {
+      failures.push(`${profile.id}: non-managed profiles may not enable lifecycle automation`);
+    }
   }
 }
 

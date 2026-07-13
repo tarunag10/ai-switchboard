@@ -5,6 +5,8 @@ import {
   gatewayProfileGovernanceIssues,
   gatewayProfileGovernanceIssuesFor,
   gatewayProfileConfigPreview,
+  gatewayProfileLifecycleIssues,
+  gatewayProfileLifecycleSummary,
   gatewayProfileStatus,
   gatewayProfiles,
   gatewayReadinessSummary,
@@ -49,6 +51,24 @@ describe("gatewayProfiles", () => {
       "unsafe-profile: routing profiles must document how routing is restored",
     ]));
     expect(issues.some((issue) => issue.includes("secret handling"))).toBe(true);
+  });
+
+  it("rejects incomplete lifecycle evidence and keeps guided profiles non-automated", () => {
+    const invalid = {
+      ...gatewayProfiles[0],
+      lifecycle: {
+        automationEnabled: true,
+        stages: gatewayProfiles[0].lifecycle.stages.slice(0, 2),
+      },
+    } as GatewayProfile;
+    const issues = gatewayProfileLifecycleIssues(invalid);
+    expect(issues).toEqual(expect.arrayContaining([
+      "litellm-local-cache: lifecycle must declare exactly 7 stages",
+      "litellm-local-cache: non-managed profiles may not enable lifecycle automation",
+    ]));
+    expect(gatewayProfileLifecycleSummary(gatewayProfiles[0])).toContain(
+      "automation is gated at apply",
+    );
   });
 
   it("flags duplicate profile ids in a registry", () => {

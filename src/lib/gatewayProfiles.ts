@@ -10,10 +10,53 @@ export type GatewayProfileCategory =
   | "remote gateway"
   | "enterprise gateway";
 
-export type GatewayProfileState = "guided" | "gated";
+/**
+ * Profile lifecycle state. The registry currently ships only guided/gated
+ * add-ons; the additional states keep the contract explicit for a future
+ * managed integration without making a guided profile look live.
+ */
+export type GatewayProfileState =
+  | "managed"
+  | "guided"
+  | "detected"
+  | "gated"
+  | "unsupported";
 export type GatewayLifecycleState = "disabled" | "enabled";
 export type GatewayTrafficBoundary = "local" | "remote";
 export type GatewaySavingsEvidence = "estimated" | "external" | "none";
+
+export type GatewayLifecycleStageId =
+  | "detect"
+  | "preview"
+  | "backup"
+  | "apply"
+  | "verify"
+  | "rollback"
+  | "offCleanup";
+
+export type GatewayLifecycleStageState = "available" | "guided" | "blocked";
+
+export interface GatewayLifecycleStage {
+  id: GatewayLifecycleStageId;
+  label: string;
+  state: GatewayLifecycleStageState;
+  evidence: string;
+}
+
+export interface GatewayLifecycleContract {
+  automationEnabled: boolean;
+  stages: GatewayLifecycleStage[];
+}
+
+export const gatewayLifecycleStageOrder: GatewayLifecycleStageId[] = [
+  "detect",
+  "preview",
+  "backup",
+  "apply",
+  "verify",
+  "rollback",
+  "offCleanup",
+];
 
 export interface GatewayDoctorCheck {
   label: string;
@@ -38,6 +81,44 @@ export interface GatewayProfile {
   offModeGuidance: string;
   savingsEvidence: GatewaySavingsEvidence;
   setupGuidance: string;
+  /** Explicit lifecycle evidence; guided profiles never imply live setup. */
+  lifecycle: GatewayLifecycleContract;
+}
+
+export function gatewayProfileLifecycleIssues(profile: GatewayProfile): string[] {
+  const issues: string[] = [];
+  const prefix = `${profile.id || "unknown"}:`;
+  const lifecycle = profile.lifecycle;
+  if (!lifecycle || !Array.isArray(lifecycle.stages)) {
+    return [`${prefix} lifecycle stages must be declared`];
+  }
+
+  const ids = lifecycle.stages.map((stage) => stage.id);
+  if (ids.length !== gatewayLifecycleStageOrder.length) {
+    issues.push(`${prefix} lifecycle must declare exactly ${gatewayLifecycleStageOrder.length} stages`);
+  }
+  if (ids.some((id, index) => id !== gatewayLifecycleStageOrder[index])) {
+    issues.push(`${prefix} lifecycle stages must follow detect, preview, backup, apply, verify, rollback, offCleanup order`);
+  }
+  if (new Set(ids).size !== ids.length) {
+    issues.push(`${prefix} lifecycle stages must not contain duplicate ids`);
+  }
+  for (const stage of lifecycle.stages) {
+    if (!stage.label.trim() || !stage.evidence.trim()) {
+      issues.push(`${prefix} every lifecycle stage needs a label and evidence description`);
+    }
+  }
+  const hasBlockedStage = lifecycle.stages.some((stage) => stage.state !== "available");
+  if (lifecycle.automationEnabled && hasBlockedStage) {
+    issues.push(`${prefix} automationEnabled requires every lifecycle stage to be available`);
+  }
+  if (profile.state === "managed" && !lifecycle.automationEnabled) {
+    issues.push(`${prefix} managed profiles must have automationEnabled lifecycle evidence`);
+  }
+  if (profile.state !== "managed" && lifecycle.automationEnabled) {
+    issues.push(`${prefix} non-managed profiles may not enable lifecycle automation`);
+  }
+  return issues;
 }
 
 /**
@@ -84,6 +165,8 @@ export function gatewayProfileGovernanceIssues(profile: GatewayProfile): string[
   if (profile.canModifyProviderRouting && !/route|routing|config|url|gateway/i.test(profile.rollbackGuidance)) {
     issues.push(`${prefix} routing profiles must document how routing is restored`);
   }
+
+  issues.push(...gatewayProfileLifecycleIssues(profile));
 
   return issues;
 }
@@ -183,6 +266,18 @@ export function gatewayReadinessSummary(report: GatewayReadinessReport): string 
   return `${configurationPresent}/${report.configuration.length} configuration and ${credentialsPresent}/${report.credentials.length} credential variables present (values redacted). ${report.connectivity.detail}`;
 }
 
+export function gatewayProfileLifecycleSummary(profile: GatewayProfile): string {
+  const blocked =
+    profile.lifecycle.stages.find((stage) => stage.state === "blocked") ??
+    profile.lifecycle.stages.find((stage) => stage.state !== "available");
+  if (profile.lifecycle.automationEnabled) {
+    return "Managed lifecycle evidence is complete for every stage.";
+  }
+  return blocked
+    ? `Guided lifecycle; automation is gated at ${blocked.label.toLowerCase()}.`
+    : "Guided lifecycle; no live setup or traffic change is implied.";
+}
+
 export const gatewayProfiles: readonly GatewayProfile[] = [
   {
     id: "litellm-local-cache",
@@ -212,6 +307,18 @@ export const gatewayProfiles: readonly GatewayProfile[] = [
     offModeGuidance: "Stop the local proxy and remove its manual environment variables; Switchboard owns no config block.",
     savingsEvidence: "estimated",
     setupGuidance: `# Semantic Cache (manual, local-only)\n# Start/configure LiteLLM and its cache outside Switchboard.\n# Point an agent at your local proxy only after testing it.\n# Keep secrets in your shell or secure store, never in this repository.\n\n# Doctor evidence to collect\n# - local proxy endpoint responds\n# - cache backend configured\n# - cache hits observed before claiming savings`,
+    lifecycle: {
+      automationEnabled: false,
+      stages: [
+        { id: "detect", label: "Detect local proxy", state: "available", evidence: "Read-only environment presence and explicit loopback preflight are available." },
+        { id: "preview", label: "Preview manual setup", state: "available", evidence: "Switchboard can copy a redacted, not-applied configuration preview." },
+        { id: "backup", label: "Back up configuration", state: "guided", evidence: "The user owns LiteLLM files and must create backups outside Switchboard." },
+        { id: "apply", label: "Apply local cache", state: "blocked", evidence: "Switchboard never writes LiteLLM or provider configuration." },
+        { id: "verify", label: "Verify cache health", state: "guided", evidence: "Doctor evidence requires user-provided proxy, backend, and cache-hit proof." },
+        { id: "rollback", label: "Rollback cache setup", state: "guided", evidence: "The user removes manually added environment variables or proxy configuration." },
+        { id: "offCleanup", label: "Clean up in Off mode", state: "guided", evidence: "Off guidance explains how to stop the proxy and remove manual variables." },
+      ],
+    },
   },
   {
     id: "langfuse-export",
@@ -241,6 +348,18 @@ export const gatewayProfiles: readonly GatewayProfile[] = [
     offModeGuidance: "Disable export at the instrumented client; no traces should be sent while disabled.",
     savingsEvidence: "none",
     setupGuidance: `# Self-hosted Langfuse (manual, opt-in)\n# Set endpoint and keys in your secure environment, not in repo files.\n# Send one explicit test trace before enabling production exports.\n\n# Doctor evidence to collect\n# - endpoint reachable\n# - auth accepted\n# - test trace accepted`,
+    lifecycle: {
+      automationEnabled: false,
+      stages: [
+        { id: "detect", label: "Detect endpoint", state: "available", evidence: "Read-only environment presence check reports endpoint and key variables without values." },
+        { id: "preview", label: "Preview export setup", state: "available", evidence: "Switchboard provides copyable setup guidance without sending a trace." },
+        { id: "backup", label: "Back up export settings", state: "guided", evidence: "Instrumentation and secure-store backups remain user-owned." },
+        { id: "apply", label: "Apply trace export", state: "blocked", evidence: "Switchboard does not install instrumentation or change client export settings." },
+        { id: "verify", label: "Verify test trace", state: "guided", evidence: "A user-owned endpoint and explicit test trace are required for live proof." },
+        { id: "rollback", label: "Rollback export", state: "guided", evidence: "Disable export in the instrumented client and revoke keys as needed." },
+        { id: "offCleanup", label: "Clean up in Off mode", state: "guided", evidence: "Off guidance requires the user to disable instrumentation; no traces are sent by Switchboard." },
+      ],
+    },
   },
   {
     id: "cloudflare-ai-gateway",
@@ -270,6 +389,18 @@ export const gatewayProfiles: readonly GatewayProfile[] = [
     offModeGuidance: "Remove the manually added gateway URL and token from the client environment; Switchboard writes nothing.",
     savingsEvidence: "external",
     setupGuidance: `# Cloudflare AI Gateway (manual, remote routing)\n# Configure a client base URL and token outside Switchboard.\n# Test a harmless request before routing real work.\n# Never commit the gateway token or URL with embedded credentials.\n\n# Doctor evidence to collect\n# - endpoint reachable\n# - auth present\n# - harmless passthrough succeeds`,
+    lifecycle: {
+      automationEnabled: false,
+      stages: [
+        { id: "detect", label: "Detect gateway URL", state: "available", evidence: "Read-only environment presence check reports the configured URL without exposing its value." },
+        { id: "preview", label: "Preview remote routing", state: "available", evidence: "Switchboard can copy a redacted remote-routing preview and disclosure." },
+        { id: "backup", label: "Back up client routing", state: "guided", evidence: "The user must back up the client environment or settings before a manual route change." },
+        { id: "apply", label: "Apply remote routing", state: "blocked", evidence: "Guided Cloudflare setup never writes provider or client configuration." },
+        { id: "verify", label: "Verify passthrough", state: "guided", evidence: "A harmless request and user-owned gateway evidence are required; Switchboard does not contact remote gateways." },
+        { id: "rollback", label: "Rollback remote routing", state: "guided", evidence: "Restore the direct provider URL and revoke the gateway token through the client or account owner." },
+        { id: "offCleanup", label: "Clean up in Off mode", state: "guided", evidence: "Remove the manually added URL/token outside Switchboard; no provider files are changed here." },
+      ],
+    },
   },
   {
     id: "kong-enterprise-gateway",
@@ -299,6 +430,18 @@ export const gatewayProfiles: readonly GatewayProfile[] = [
     offModeGuidance: "Follow the enterprise runbook to remove client gateway routing and revoke access as required.",
     savingsEvidence: "none",
     setupGuidance: `# Kong Enterprise Gateway (gated)\n# Use your enterprise gateway runbook. Switchboard does not install, configure,\n# or route Kong traffic. Keep credentials in the enterprise secure store, never\n# in this repository. Document owner, rollback, and approved health evidence\n# before enabling a client-side route.`,
+    lifecycle: {
+      automationEnabled: false,
+      stages: [
+        { id: "detect", label: "Detect enterprise gateway", state: "guided", evidence: "An enterprise operator must provide an approved deployment and ownership signal." },
+        { id: "preview", label: "Preview enterprise route", state: "guided", evidence: "Switchboard only provides a manual dossier; no Kong topology is inspected." },
+        { id: "backup", label: "Back up enterprise route", state: "guided", evidence: "The enterprise change process owns backups and restore points." },
+        { id: "apply", label: "Apply enterprise routing", state: "blocked", evidence: "Kong remains gated; Switchboard never installs or mutates enterprise gateway configuration." },
+        { id: "verify", label: "Verify enterprise health", state: "guided", evidence: "Use an operator-approved health signal without enterprise-only assumptions in Switchboard." },
+        { id: "rollback", label: "Rollback enterprise routing", state: "guided", evidence: "Follow the enterprise runbook to restore direct provider routing." },
+        { id: "offCleanup", label: "Clean up in Off mode", state: "guided", evidence: "The enterprise operator removes client routing and revokes access through the approved process." },
+      ],
+    },
   },
 ] as const;
 

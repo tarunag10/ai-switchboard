@@ -3,6 +3,22 @@
 Status ledger: see [plan-status-ledger.md](plan-status-ledger.md) for the
 current created/updated/left checklist.
 
+## Current local implementation status (2026-07-13)
+
+The credential-free local slice is implemented. `src/lib/gatewayProfiles.ts`
+now carries an explicit seven-stage lifecycle contract (detect, preview,
+backup, apply, verify, rollback, and Off cleanup) for every profile. Governance
+validation rejects missing stages, unsafe ordering, missing evidence, or a
+profile that claims managed automation without complete lifecycle evidence.
+The Add-ons card renders the lifecycle gate summary, local intent receipts,
+redacted environment readiness, and the opt-in loopback LiteLLM preflight.
+
+LiteLLM, Langfuse, Cloudflare AI Gateway, and Kong remain guided/gated and do
+not install services, write provider configuration, contact remote gateways,
+or store secrets. Live cache, trace, passthrough, enterprise health, and
+credential verification still require user-owned infrastructure and are not
+represented as completed by local evidence.
+
 This plan adds optional gateway and observability layers around Mac AI Switchboard without replacing Headroom. The app remains local-first by default: any remote gateway or trace export must be explicit, reversible, and clearly labelled.
 
 ## Goals

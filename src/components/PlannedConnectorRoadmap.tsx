@@ -91,6 +91,15 @@ export function PlannedConnectorRoadmap({
                 </strong>
               </div>
             </div>
+            <p className="planned-connectors__native-boundary">
+              <span>Native provider/editor writes</span>
+              <strong>
+                {readiness.nativeAutomationEnabled
+                  ? "Promoted documented surface"
+                  : `Gated at ${readiness.stages.find((stage) => stage.id === readiness.nativeNextBlockedStage)?.label ?? "manual review"}`}
+              </strong>
+              <small>{readiness.nativeWriteEvidence}</small>
+            </p>
             <div
               className="planned-connectors__config-plan"
               aria-label={`${connector.name} config creation plan`}

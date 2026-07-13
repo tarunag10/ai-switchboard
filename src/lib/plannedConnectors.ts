@@ -134,9 +134,17 @@ export interface PlannedConnectorReadinessContract {
   connectorId: string;
   connectorName: string;
   setupPhase: PlannedConnector["setupPhase"] | "Managed";
+  /** Readiness of the Switchboard-owned sidecar/adapter lifecycle. */
   automationEnabled: boolean;
   nextBlockedStage: PlannedConnectorReadinessStageId | null;
   stages: PlannedConnectorReadinessStage[];
+  /**
+   * Native provider/editor writes are tracked separately from a safe sidecar.
+   * A managed sidecar must never be mistaken for a promoted provider schema.
+   */
+  nativeAutomationEnabled: boolean;
+  nativeNextBlockedStage: PlannedConnectorReadinessStageId | null;
+  nativeWriteEvidence: string;
 }
 
 export type PlannedConnectorReadinessBadgeKind =
@@ -861,13 +869,25 @@ export const promotedSidecarConnectorIds = new Set([
   "amazon_q",
 ]);
 
+/**
+ * Connector-specific native/provider surfaces with documented, fixture-tested
+ * reversible writes. Sidecar automation does not add an id to this set.
+ */
+export const promotedNativeConfigConnectorIds = new Set([
+  "gemini_cli",
+  "opencode",
+  "goose",
+  "grok_cli",
+  "windsurf",
+  "zed_ai",
+]);
+
 export const managedMcpBridgeConnectorIds = new Set(["goose"]);
 
 function hasManagedNativeConfigAutomation(connector: ConnectorDossier): boolean {
   return (
     connector.supportStatus === "managed" &&
-    connector.setupPhase === "Managed" &&
-    !managedMcpBridgeConnectorIds.has(connector.id)
+    connector.setupPhase === "Managed"
   );
 }
 
@@ -1325,6 +1345,39 @@ function readinessStage(
   return { id, label, state, evidence };
 }
 
+export function getPlannedConnectorNativeWriteReadiness(
+  connector: ConnectorDossier,
+): Pick<
+  PlannedConnectorReadinessContract,
+  "nativeAutomationEnabled" | "nativeNextBlockedStage" | "nativeWriteEvidence"
+> {
+  const nativeAutomationEnabled =
+    connector.supportStatus === "managed" &&
+    connector.setupPhase === "Managed" &&
+    promotedNativeConfigConnectorIds.has(connector.id);
+
+  if (nativeAutomationEnabled) {
+    return {
+      nativeAutomationEnabled: true,
+      nativeNextBlockedStage: null,
+      nativeWriteEvidence:
+        "Documented provider/editor routing has fixture-home apply, Doctor verification, rollback, and Off cleanup evidence; credentials, account state, and model selection remain manual.",
+    };
+  }
+
+  const nativeNextBlockedStage: PlannedConnectorReadinessStageId =
+    connector.id === "cursor" ? "backupImplemented" : "applyImplemented";
+  const nativeWriteEvidence =
+    connector.id === "cursor"
+      ? "Cursor has no documented on-disk provider/model/base-url schema; native writes remain disabled while settings discovery and an isolated sidecar stay available."
+      : "Provider/editor native writes remain manual or gated. A Switchboard-owned sidecar does not prove a provider schema or authorize credential/account/model mutation.";
+  return {
+    nativeAutomationEnabled: false,
+    nativeNextBlockedStage,
+    nativeWriteEvidence,
+  };
+}
+
 export function getPlannedConnectorReadinessContract(
   connector: ConnectorDossier,
 ): PlannedConnectorReadinessContract {
@@ -1402,6 +1455,7 @@ export function getPlannedConnectorReadinessContract(
   ];
   const nextBlockedStage =
     stages.find((stage) => stage.state === "blocked")?.id ?? null;
+  const nativeReadiness = getPlannedConnectorNativeWriteReadiness(connector);
 
   return {
     connectorId: connector.id,
@@ -1410,6 +1464,7 @@ export function getPlannedConnectorReadinessContract(
     automationEnabled: nextBlockedStage === null,
     nextBlockedStage,
     stages,
+    ...nativeReadiness,
   };
 }
 

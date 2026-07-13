@@ -48,6 +48,17 @@ Before a connector moves to Managed, it must have:
 
 Repo Intelligence packs are safe for every listed tool because they are read-only and copyable. Goose additionally has the managed Repo Memory MCP bridge for read-only context handoff. Provider routing and account-specific config remain allowlisted field-by-field; credentials, account state, and model selection are never managed.
 
+### Native provider writes versus sidecars
+
+Readiness distinguishes a Switchboard-owned sidecar from a promoted native
+provider/editor schema. A connector may be labelled Managed because its
+sidecar lifecycle is reversible while native provider writes remain manual or
+gated. Only Gemini CLI, OpenCode, Goose's documented endpoint fields, Grok/xAI,
+Windsurf, and Zed currently carry promoted native-write evidence. Aider,
+Continue, Qwen Code, and Amazon Q remain sidecar-only; Cursor remains
+schema-gated. Doctor and connector cards expose the native-write gate
+separately so sidecar health cannot be mistaken for provider compatibility.
+
 ### Goose native routing evidence
 
 Goose's documented `config.yaml` provider surface is allowlisted to the endpoint fields for OpenAI and Anthropic. Switchboard previews the exact field change, requires state-bound confirmation, creates a sibling backup, verifies the on-disk result, and supports rollback and Off cleanup. It refuses unknown providers and never reads or writes API keys, account state, or model selection.

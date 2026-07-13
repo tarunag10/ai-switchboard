@@ -11,6 +11,7 @@ import {
   getPlannedConnectorReadinessBadges,
   getPlannedConnectorReadinessContract,
   getPlannedConnectorReadinessContracts,
+  getPlannedConnectorNativeWriteReadiness,
   getPlannedConnectorSafetyDossier,
   getPlannedConnectorSafetyDossiers,
   getPlannedConnectorSetupChecklistScript,
@@ -485,7 +486,7 @@ describe("planned connectors", () => {
     }
   });
 
-  it("keeps Goose provider routing gated while the MCP bridge is managed", () => {
+  it("keeps Goose native routing allowlisted while the MCP bridge remains read-only", () => {
     const goose = plannedConnectors.find((connector) => connector.id === "goose");
     expect(goose).toMatchObject({
       supportStatus: "managed",
@@ -493,12 +494,31 @@ describe("planned connectors", () => {
     });
 
     const plan = getPlannedConnectorConfigCreationPlan(goose!);
-    expect(plan.automationEnabled).toBe(false);
-    expect(plan.safetyNote).toMatch(/gated/i);
+    expect(plan.automationEnabled).toBe(true);
+    expect(plan.safetyNote).toMatch(/managed routing is enabled/i);
     expect(plan.steps.map((step) => step.id)).toContain("dryRunDiff");
     expect(`${goose?.safeToday} ${goose?.manualWorkflow.join(" ")}`).toMatch(
       /read-only Repo Memory MCP boundary.*credentials.*manual/i,
     );
+  });
+
+  it("separates promoted native writes from managed sidecars", () => {
+    const cursor = getPlannedConnectorNativeWriteReadiness(getPlannedConnector("cursor")!);
+    const aider = getPlannedConnectorNativeWriteReadiness(getPlannedConnector("aider")!);
+    const goose = getPlannedConnectorNativeWriteReadiness(getPlannedConnector("goose")!);
+    const grok = getPlannedConnectorNativeWriteReadiness(getPlannedConnector("grok_cli")!);
+
+    expect(cursor.nativeAutomationEnabled).toBe(false);
+    expect(cursor.nativeNextBlockedStage).toBe("backupImplemented");
+    expect(cursor.nativeWriteEvidence).toMatch(/documented.*schema/i);
+    expect(aider.nativeAutomationEnabled).toBe(false);
+    expect(aider.nativeWriteEvidence).toMatch(/sidecar.*provider schema/i);
+    expect(goose.nativeAutomationEnabled).toBe(true);
+    expect(grok.nativeAutomationEnabled).toBe(true);
+    expect(getPlannedConnectorReadinessContract(getPlannedConnector("aider")!)).toMatchObject({
+      nativeAutomationEnabled: false,
+      nativeNextBlockedStage: "applyImplemented",
+    });
   });
 
   it("reports promoted managed editor config plans as enabled", () => {

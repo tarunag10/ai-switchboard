@@ -5,6 +5,7 @@ import {
   gatewayDoctorSummary,
   gatewayProfileConfigPreview,
   gatewayProfileStorageKey,
+  gatewayProfileLifecycleSummary,
   gatewayProfileStatus,
   gatewayProfiles,
   parseGatewayProfileLocalState,
@@ -178,6 +179,7 @@ function GatewayProfileRow({
         </div>
         <p><strong>Rollback:</strong> {profile.rollbackGuidance}</p>
         <p><strong>Off mode:</strong> {profile.offModeGuidance}</p>
+        <p><strong>Lifecycle gates:</strong> {gatewayProfileLifecycleSummary(profile)}</p>
         <p><strong>Savings evidence:</strong> {profile.savingsEvidence}.</p>
         <p><strong>Local lifecycle:</strong> {lifecycle}. This is a local Switchboard receipt only; it never proves a service is running.</p>
         <p><strong>Doctor evidence:</strong> {gatewayDoctorSummary(profile, localState)}</p>
