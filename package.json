@@ -72,7 +72,7 @@
     "check:local-artifacts": "./scripts/check-no-local-artifacts.sh",
     "check:local-build-privacy": "node scripts/check-local-build-privacy.mjs",
     "check:local-only-network": "node scripts/check-local-only-network.mjs",
-    "check:governance": "node scripts/check-governance-docs.mjs",
+    "check:governance": "node scripts/check-governance-docs.mjs && node scripts/check-gateway-profiles.mjs",
     "check:deployment": "node scripts/check-deployment-readiness.mjs",
     "smoke:connectors:local": "node scripts/local-connector-readiness-summary.mjs",
     "smoke:connectors:local:check": "node scripts/check-local-connector-readiness-summary.mjs",

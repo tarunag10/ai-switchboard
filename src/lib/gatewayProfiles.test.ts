@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   emptyGatewayProfileLocalState,
   gatewayDoctorSummary,
+  gatewayProfileGovernanceIssues,
+  gatewayProfileGovernanceIssuesFor,
   gatewayProfileConfigPreview,
   gatewayProfileStatus,
   gatewayProfiles,
   gatewayReadinessSummary,
   parseGatewayProfileLocalState,
+  type GatewayProfile,
 } from "./gatewayProfiles";
 
 describe("gatewayProfiles", () => {
@@ -20,6 +23,38 @@ describe("gatewayProfiles", () => {
       expect(profile.rollbackGuidance).not.toHaveLength(0);
       expect(profile.offModeGuidance).not.toHaveLength(0);
     }
+  });
+
+  it("passes the trust-boundary governance contract for the shipped registry", () => {
+    expect(gatewayProfileGovernanceIssuesFor(gatewayProfiles)).toEqual([]);
+  });
+
+  it("rejects unsafe profile metadata without contacting a gateway", () => {
+    const invalid = {
+      ...gatewayProfiles[2],
+      id: "unsafe-profile",
+      trafficBoundary: "remote" as const,
+      disclosure: "",
+      setupGuidance: "Configure manually",
+      rollbackGuidance: "Do the thing",
+      supportedClients: [],
+      doctorChecks: [{ label: "", evidence: "" }],
+    } as unknown as GatewayProfile;
+    const issues = gatewayProfileGovernanceIssues(invalid);
+    expect(issues).toEqual(expect.arrayContaining([
+      "unsafe-profile: disclosure must not be empty",
+      "unsafe-profile: supportedClients must contain at least one client",
+      "unsafe-profile: every Doctor check needs a label and evidence description",
+      "unsafe-profile: remote profiles must disclose the remote trust boundary",
+      "unsafe-profile: routing profiles must document how routing is restored",
+    ]));
+    expect(issues.some((issue) => issue.includes("secret handling"))).toBe(true);
+  });
+
+  it("flags duplicate profile ids in a registry", () => {
+    expect(gatewayProfileGovernanceIssuesFor([gatewayProfiles[0], gatewayProfiles[0]])).toContain(
+      "litellm-local-cache: duplicate profile id",
+    );
   });
 
   it("renders redacted readiness without promoting local evidence to live status", () => {

@@ -40,6 +40,68 @@ export interface GatewayProfile {
   setupGuidance: string;
 }
 
+/**
+ * Validate the trust-boundary contract before a profile is rendered or
+ * included in release evidence. Keeping this as a pure read-model check makes
+ * it safe to run in the browser and in tests without touching credentials or
+ * gateway endpoints.
+ */
+export function gatewayProfileGovernanceIssues(profile: GatewayProfile): string[] {
+  const issues: string[] = [];
+  const prefix = `${profile.id || "unknown"}:`;
+  const nonEmpty = (value: string, field: string) => {
+    if (!value.trim()) issues.push(`${prefix} ${field} must not be empty`);
+  };
+
+  nonEmpty(profile.name, "name");
+  nonEmpty(profile.disclosure, "disclosure");
+  nonEmpty(profile.privacyCaveat, "privacyCaveat");
+  nonEmpty(profile.rollbackGuidance, "rollbackGuidance");
+  nonEmpty(profile.offModeGuidance, "offModeGuidance");
+  nonEmpty(profile.setupGuidance, "setupGuidance");
+
+  if (!profile.supportedClients.length) {
+    issues.push(`${prefix} supportedClients must contain at least one client`);
+  }
+  if (!profile.requiredEvidence.length) {
+    issues.push(`${prefix} requiredEvidence must contain at least one item`);
+  }
+  if (!profile.doctorChecks.length) {
+    issues.push(`${prefix} doctorChecks must contain at least one item`);
+  }
+  if (profile.doctorChecks.some((check) => !check.label.trim() || !check.evidence.trim())) {
+    issues.push(`${prefix} every Doctor check needs a label and evidence description`);
+  }
+  if (profile.trafficBoundary === "remote" && !/remote|gateway|endpoint|trace|export/i.test(profile.disclosure)) {
+    issues.push(`${prefix} remote profiles must disclose the remote trust boundary`);
+  }
+  if (profile.trafficBoundary === "local" && profile.canModifyProviderRouting) {
+    issues.push(`${prefix} local profiles may not modify provider routing`);
+  }
+  if (profile.needsSecrets && !/secret|token|key|secure|credential/i.test(profile.setupGuidance)) {
+    issues.push(`${prefix} secret-bearing profiles must explain secure secret handling`);
+  }
+  if (profile.canModifyProviderRouting && !/route|routing|config|url|gateway/i.test(profile.rollbackGuidance)) {
+    issues.push(`${prefix} routing profiles must document how routing is restored`);
+  }
+
+  return issues;
+}
+
+/** Return all governance violations, including duplicate profile identifiers. */
+export function gatewayProfileGovernanceIssuesFor(
+  profiles: readonly GatewayProfile[],
+): string[] {
+  const issues: string[] = [];
+  const seen = new Set<string>();
+  for (const profile of profiles) {
+    if (seen.has(profile.id)) issues.push(`${profile.id}: duplicate profile id`);
+    seen.add(profile.id);
+    issues.push(...gatewayProfileGovernanceIssues(profile));
+  }
+  return issues;
+}
+
 /** A redacted, non-persistent readiness report returned by the desktop app. */
 export interface GatewayReadinessReport {
   profileId: GatewayProfileId;
@@ -220,7 +282,7 @@ export const gatewayProfiles: readonly GatewayProfile[] = [
     needsSecrets: true,
     supportedClients: ["Enterprise-managed clients"],
     disclosure:
-      "Enterprise routing is not managed by Switchboard. A Kong deployment may process prompts and outputs before they reach a provider.",
+      "Remote enterprise gateway routing is not managed by Switchboard. A Kong deployment may process prompts and outputs before they reach a provider.",
     privacyCaveat:
       "Deployment topology, retention, access controls, and rollback ownership must be agreed with the enterprise gateway operator.",
     requiredEvidence: [
@@ -236,7 +298,7 @@ export const gatewayProfiles: readonly GatewayProfile[] = [
     rollbackGuidance: "Use the enterprise change process to restore direct routing; Switchboard has no managed lifecycle for Kong.",
     offModeGuidance: "Follow the enterprise runbook to remove client gateway routing and revoke access as required.",
     savingsEvidence: "none",
-    setupGuidance: `# Kong Enterprise Gateway (gated)\n# Use your enterprise gateway runbook. Switchboard does not install, configure,\n# or route Kong traffic. Document owner, rollback, and approved health evidence\n# before enabling a client-side route.`,
+    setupGuidance: `# Kong Enterprise Gateway (gated)\n# Use your enterprise gateway runbook. Switchboard does not install, configure,\n# or route Kong traffic. Keep credentials in the enterprise secure store, never\n# in this repository. Document owner, rollback, and approved health evidence\n# before enabling a client-side route.`,
   },
 ] as const;
 
