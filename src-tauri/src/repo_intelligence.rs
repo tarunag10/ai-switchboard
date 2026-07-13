@@ -2308,7 +2308,53 @@ fn build_call_reference_edges(
         let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
             continue;
         };
-        let ast_call_names = extract_call_references_with_tree_sitter(&content, &file.language);
+        let ast_call_sites = extract_call_sites_with_tree_sitter(file, &content);
+        let ast_call_names = ast_call_sites.as_ref().map(|sites| {
+            sites
+                .iter()
+                .flat_map(|(_, names)| names.iter().cloned())
+                .collect::<BTreeSet<_>>()
+        });
+
+        // Keep the existing file -> symbol edge for compatibility, while
+        // adding a more useful symbol -> symbol edge whenever the call is
+        // nested in an indexed function/method. The latter turns the bounded
+        // graph from a file-level reference list into an actionable local
+        // call graph without attempting unsafe whole-program resolution.
+        if let Some(call_sites) = ast_call_sites {
+            for (caller, names) in call_sites {
+                for symbol in &callable_symbols {
+                    if !names.contains(&symbol.name) {
+                        continue;
+                    }
+                    let from = caller
+                        .as_ref()
+                        .map(|name| format!("{}#{name}", file.path))
+                        .unwrap_or_else(|| file.path.clone());
+                    push_unbounded_graph_edge(
+                        &mut edges,
+                        RepoGraphEdge {
+                            from,
+                            to: format!("{}#{}", symbol.file, symbol.name),
+                            kind: RepoGraphEdgeKind::CallReference,
+                            reason: if caller.is_some() {
+                                "AST call expression inside indexed symbol".into()
+                            } else {
+                                "AST call expression references callable symbol".into()
+                            },
+                        },
+                        160,
+                    );
+                    if edges.len() >= 160 {
+                        return edges;
+                    }
+                }
+            }
+        }
+
+        // Tree-sitter is intentionally best-effort. Keep the existing text
+        // fallback for malformed/unsupported syntax and for languages where
+        // no parser is available.
         for symbol in &callable_symbols {
             if file.path == symbol.file {
                 continue;
@@ -2331,14 +2377,59 @@ fn build_call_reference_edges(
                         "source text references callable symbol".into()
                     },
                 },
-                80,
+                160,
             );
-            if edges.len() >= 80 {
+            if edges.len() >= 160 {
                 return edges;
             }
         }
     }
     edges
+}
+
+/// Return each parsed call expression together with the nearest indexed
+/// function/method that contains it. A `None` caller represents a top-level
+/// call and intentionally keeps the historical file-level edge shape.
+fn extract_call_sites_with_tree_sitter(
+    file: &RepoFileSignal,
+    content: &str,
+) -> Option<Vec<(Option<String>, BTreeSet<String>)>> {
+    let mut parser = tree_sitter::Parser::new();
+    let language_ref = tree_sitter_language_for_language_name(&file.language)?;
+    parser.set_language(&language_ref).ok()?;
+    let tree = parser.parse(content, None)?;
+    let mut sites = Vec::new();
+    collect_ast_call_sites(file, content.as_bytes(), tree.root_node(), None, &mut sites);
+    Some(sites)
+}
+
+fn collect_ast_call_sites(
+    file: &RepoFileSignal,
+    source: &[u8],
+    node: tree_sitter::Node<'_>,
+    caller: Option<String>,
+    sites: &mut Vec<(Option<String>, BTreeSet<String>)>,
+) {
+    let node_symbol = symbol_from_ast_node(file, source, node, None);
+    let next_caller = node_symbol
+        .filter(|symbol| matches!(symbol.kind, RepoSymbolKind::Function))
+        .map(|symbol| symbol.name)
+        .or(caller);
+
+    if node.kind() == "call_expression" {
+        let mut names = BTreeSet::new();
+        if let Some(function) = node.child_by_field_name("function") {
+            collect_call_target_names(source, function, &mut names);
+        }
+        if !names.is_empty() {
+            sites.push((next_caller.clone(), names));
+        }
+    }
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        collect_ast_call_sites(file, source, child, next_caller.clone(), sites);
+    }
 }
 
 fn extract_call_references_with_tree_sitter(
@@ -3610,11 +3701,63 @@ export const mapValues = <T>(items: T[]) => items;
                 && edge.reason == "AST call expression references callable symbol"
         }));
         assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/App.tsx#App"
+                && edge.to == "src/helper.ts#helper"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+                && edge.reason == "AST call expression inside indexed symbol"
+        }));
+        assert!(graph.symbol_edges.iter().any(|edge| {
             edge.from == "src/multi.ts"
                 && edge.to == "src/helper.ts#helper"
                 && edge.kind == RepoGraphEdgeKind::CallReference
                 && edge.reason == "AST call expression references callable symbol"
         }));
+        assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/multi.ts#runMulti"
+                && edge.to == "src/helper.ts#helper"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+                && edge.reason == "AST call expression inside indexed symbol"
+        }));
+    }
+
+    #[test]
+    fn builds_symbol_level_call_edges_for_mixed_language_sources() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(
+            src.join("worker.py"),
+            "def run_job():\n    return None\n\ndef main():\n    run_job()\n",
+        )
+        .expect("write python worker");
+        std::fs::write(
+            src.join("lib.rs"),
+            "fn load_state() {}\nfn run_app() { load_state(); }\n",
+        )
+        .expect("write rust app");
+        std::fs::write(
+            src.join("helper.ts"),
+            "export function helper() {}\nexport function boot() { helper(); }\n",
+        )
+        .expect("write typescript helper");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        let graph = summary.graph.expect("graph");
+        for (caller, callee) in [
+            ("src/worker.py#main", "src/worker.py#run_job"),
+            ("src/lib.rs#run_app", "src/lib.rs#load_state"),
+            ("src/helper.ts#boot", "src/helper.ts#helper"),
+        ] {
+            assert!(
+                graph.symbol_edges.iter().any(|edge| {
+                    edge.from == caller
+                        && edge.to == callee
+                        && edge.kind == RepoGraphEdgeKind::CallReference
+                        && edge.reason == "AST call expression inside indexed symbol"
+                }),
+                "missing symbol-level call edge {caller} -> {callee}"
+            );
+        }
     }
 
     #[test]
