@@ -834,7 +834,7 @@ describe("repoIntelligence", () => {
         configReadiness: {
           plannedConnectorId: "goose",
           nextGate: "Detect config surface",
-          automationEnabled: false,
+          automationEnabled: true,
           managedMcpBridge: true,
           supportStatus: "managed_mcp",
         },
