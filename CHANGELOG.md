@@ -19,6 +19,8 @@
 - Hid gated connector config paths and safety-reason paragraphs until the
   per-connector setup-details disclosure is opened, with Grok / xAI regression
   coverage preserving accessible technical evidence on demand.
+- Kept Repo Map artifact actions action-first by moving generated output paths
+  and output-directory evidence behind an accessible Show paths disclosure.
 - Added truthful RTK command-family persistence: Switchboard reads RTK's local history database read-only, retains only sanitized first-token families, aggregates weighted input/output/saved tokens and timing, and surfaces latest-observation evidence in the RTK Addons card. Command arguments, project paths, and credentials never enter the dashboard or exports.
 - Deepened Repo Intelligence to `path-graph-v10`: static imported-alias and namespace-member call resolution now covers TypeScript/JavaScript/React, Python, and Rust with fixture-backed symbol edges. Repo Map now supports app-owned cancellation, overlap protection, explicit UI retry, and opt-in bounded CLI retries without mutating indexed repositories.
 - Rebranded native desktop UI, provider-config descriptions, startup/recovery errors, Doctor guidance, watchdog notices, pricing copy, managed connector text, and uninstall confirmations to AI Switchboard. Preserved legacy application-support/log, bundle, keychain, updater, and compatibility identifiers, with existing rollback/cleanup fixtures continuing to cover those paths.
