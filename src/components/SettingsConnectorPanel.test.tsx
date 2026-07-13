@@ -124,6 +124,23 @@ describe("SettingsConnectorPanel", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps gated connector paths and safety reasons collapsed by default", () => {
+    const gatedGrok = {
+      clientId: "grok_cli",
+      name: "Grok / xAI",
+      installed: false,
+      supportStatus: "planned" as const,
+    };
+    const { unmount } = renderPanel(gatedGrok);
+
+    expect(screen.queryByText(/~\/\.grok\/config\.toml/i)).not.toBeInTheDocument();
+
+    unmount();
+    renderPanel(gatedGrok, "grok_cli");
+
+    expect(screen.getAllByText(/~\/\.grok\/config\.toml/i).length).toBeGreaterThan(0);
+  });
+
   it("disables connector toggles while connector state is busy", () => {
     render(
       <SettingsConnectorPanel

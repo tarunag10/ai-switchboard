@@ -81,8 +81,8 @@ Acceptance:
 
 Evidence: Settings connector rows render only status, setup mode, and actions by
 default. Compatibility reports, config gates, backend checks, readiness stages,
-capabilities, and setup commands render only after the per-row details control
-is expanded. The collapsed/expanded contract is covered by
+capabilities, setup commands, gated config paths, and safety reasons render only
+after the per-row details control is expanded. The collapsed/expanded contract is covered by
 `src/components/SettingsConnectorPanel.test.tsx` and the connector helper
 tests.
 

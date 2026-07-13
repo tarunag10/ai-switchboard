@@ -206,6 +206,12 @@ export function SettingsConnectorPanel({
                         "Switchboard applies local connector configuration."}
                     </p>
                   ) : null}
+                  {openConnectorHelpId === connector.clientId &&
+                  (detectionWarning ?? unavailableReason) ? (
+                    <p className="connector-item__reason">
+                      {detectionWarning ?? unavailableReason}
+                    </p>
+                  ) : null}
                   <p className="connector-item__summary">
                     {connector.enabled
                       ? connector.verified
@@ -238,8 +244,14 @@ export function SettingsConnectorPanel({
                                   stage.id ===
                                   plannedReadiness.nextBlockedStage,
                               )?.label ?? "Automation ready"}
-                            </span>
-                          </div>
+                              </span>
+                            </div>
+                          <p className="connector-plan__native-boundary">
+                            <strong>Native provider/editor writes:</strong>{" "}
+                            {plannedReadiness.nativeAutomationEnabled
+                              ? "Promoted for this documented connector surface. Credentials, account state, and model selection remain manual."
+                              : `${plannedReadiness.nativeWriteEvidence} Native gate: ${plannedReadiness.stages.find((stage) => stage.id === plannedReadiness.nativeNextBlockedStage)?.label ?? "manual"}.`}
+                          </p>
                           <div
                             className="connector-plan__stage-row"
                             aria-label={`${connector.name} readiness contract`}
@@ -463,11 +475,6 @@ export function SettingsConnectorPanel({
                     <p className="connector-item__restart">
                       Restart {connector.name} to start routing through
                       Headroom.
-                    </p>
-                  ) : null}
-                  {(detectionWarning ?? unavailableReason) ? (
-                    <p className="connector-item__reason">
-                      {detectionWarning ?? unavailableReason}
                     </p>
                   ) : null}
                 </div>
