@@ -99,6 +99,22 @@ fn command_family(original_cmd: &str, rtk_cmd: &str) -> Option<String> {
     if token.is_empty() || token.len() > 64 {
         return None;
     }
+    let lowercase = token.to_ascii_lowercase();
+    if lowercase.starts_with("sk-")
+        || lowercase.starts_with("sk_")
+        || lowercase.starts_with("xai-")
+        || lowercase.starts_with("ghp_")
+        || lowercase.starts_with("github_pat_")
+        || lowercase.starts_with("bearer")
+        || (token.len() >= 32
+            && token
+                .chars()
+                .filter(|character| character.is_ascii_alphanumeric())
+                .count()
+                >= 28)
+    {
+        return None;
+    }
     if !token.chars().all(|character| {
         character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-' | ':' | '@')
     }) {

@@ -2881,6 +2881,10 @@ mod tests {
             command_family("echo 'secret token'", "rtk echo"),
             Some("echo".into())
         );
+        assert_eq!(
+            command_family("sk-proj_abc123456789012345678901234", "rtk sk-proj"),
+            None
+        );
     }
 
     #[test]
