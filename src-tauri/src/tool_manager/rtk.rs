@@ -53,14 +53,14 @@ struct RtkDailyEntry {
 }
 
 #[derive(Debug, Clone)]
-pub(super) struct RtkHistoryRow {
-    pub(super) timestamp: String,
-    pub(super) original_cmd: String,
-    pub(super) rtk_cmd: String,
-    pub(super) input_tokens: u64,
-    pub(super) output_tokens: u64,
-    pub(super) saved_tokens: u64,
-    pub(super) exec_time_ms: u64,
+pub(crate) struct RtkHistoryRow {
+    pub(crate) timestamp: String,
+    pub(crate) original_cmd: String,
+    pub(crate) rtk_cmd: String,
+    pub(crate) input_tokens: u64,
+    pub(crate) output_tokens: u64,
+    pub(crate) saved_tokens: u64,
+    pub(crate) exec_time_ms: u64,
 }
 
 #[derive(Debug, Default)]
@@ -80,7 +80,7 @@ fn saturating_sqlite_u64(value: i64) -> u64 {
 /// Return a non-sensitive command family from an RTK command row. RTK stores
 /// full shell commands for its own local history; Switchboard deliberately
 /// retains only the first executable token and strips path components.
-pub(super) fn command_family(original_cmd: &str, rtk_cmd: &str) -> Option<String> {
+pub(crate) fn command_family(original_cmd: &str, rtk_cmd: &str) -> Option<String> {
     let candidate = original_cmd
         .split_whitespace()
         .find(|token| !token.contains('=') && *token != "env" && *token != "command")
@@ -123,7 +123,7 @@ pub(super) fn command_family(original_cmd: &str, rtk_cmd: &str) -> Option<String
     Some(token.to_string())
 }
 
-pub(super) fn aggregate_rtk_command_families(
+pub(crate) fn aggregate_rtk_command_families(
     rows: impl IntoIterator<Item = RtkHistoryRow>,
 ) -> Vec<RtkCommandFamilyStats> {
     let mut by_family = BTreeMap::<String, RtkCommandFamilyAccumulator>::new();
@@ -191,7 +191,7 @@ fn rtk_history_db_candidates() -> Vec<PathBuf> {
     paths
 }
 
-pub(super) fn read_rtk_command_families_from_db(path: &Path) -> Option<Vec<RtkCommandFamilyStats>> {
+pub(crate) fn read_rtk_command_families_from_db(path: &Path) -> Option<Vec<RtkCommandFamilyStats>> {
     use rusqlite::{Connection, OpenFlags};
 
     let connection = Connection::open_with_flags(
