@@ -110,6 +110,19 @@ describe("gatewayProfiles", () => {
     });
   });
 
+  it("keeps future detected and unsupported states non-actionable", () => {
+    const detected = { ...gatewayProfiles[0], state: "detected" } as GatewayProfile;
+    const unsupported = { ...gatewayProfiles[0], state: "unsupported" } as GatewayProfile;
+    expect(gatewayProfileStatus(detected)).toMatchObject({
+      label: "Detected",
+      actionable: false,
+    });
+    expect(gatewayProfileStatus(unsupported)).toMatchObject({
+      label: "Unsupported",
+      actionable: false,
+    });
+  });
+
   it("creates content-free preview and local Doctor evidence state", () => {
     const profile = gatewayProfiles[2];
     expect(gatewayProfileConfigPreview(profile)).toContain("not applied");

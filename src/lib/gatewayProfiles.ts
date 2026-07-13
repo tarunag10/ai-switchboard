@@ -198,7 +198,7 @@ export interface GatewayReadinessReport {
 
 export interface GatewayProfileStatus {
   profileId: GatewayProfileId;
-  label: "Guided setup" | "Gated";
+  label: "Managed" | "Guided setup" | "Detected" | "Gated" | "Unsupported";
   detail: string;
   actionable: boolean;
 }
@@ -450,17 +450,41 @@ export function getGatewayProfile(id: GatewayProfileId): GatewayProfile | null {
 }
 
 export function gatewayProfileStatus(profile: GatewayProfile): GatewayProfileStatus {
-  return profile.state === "gated"
-    ? {
+  switch (profile.state) {
+    case "managed":
+      return {
         profileId: profile.id,
-        label: "Gated",
-        detail: "Documentation and evidence only; no install, configuration, or traffic change is available here.",
-        actionable: false,
-      }
-    : {
+        label: "Managed",
+        detail: "Switchboard-owned lifecycle evidence is complete; credentials and user-owned provider state remain outside the profile.",
+        actionable: true,
+      };
+    case "guided":
+      return {
         profileId: profile.id,
         label: "Guided setup",
         detail: "Copy the manual guide, collect Doctor evidence, and make any routing change outside Switchboard.",
         actionable: true,
       };
+    case "detected":
+      return {
+        profileId: profile.id,
+        label: "Detected",
+        detail: "A local surface was detected, but setup and traffic changes remain unavailable.",
+        actionable: false,
+      };
+    case "unsupported":
+      return {
+        profileId: profile.id,
+        label: "Unsupported",
+        detail: "No supported Switchboard workflow is available for this profile.",
+        actionable: false,
+      };
+    case "gated":
+      return {
+        profileId: profile.id,
+        label: "Gated",
+        detail: "Documentation and evidence only; no install, configuration, or traffic change is available here.",
+        actionable: false,
+      };
+  }
 }

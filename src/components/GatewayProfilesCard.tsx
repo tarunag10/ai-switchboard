@@ -135,7 +135,7 @@ function GatewayProfileRow({
         <button
           type="button"
           className="addon-card__action"
-          disabled={profile.state === "gated"}
+          disabled={!status.actionable}
           onClick={() => setLifecycle(lifecycle === "enabled" ? "disabled" : "enabled")}
         >
           {lifecycle === "enabled" ? "Disable local profile" : "Enable local profile"}
