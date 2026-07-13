@@ -123,6 +123,7 @@ export function RepoMapView({
   const [showToolInstallDetails, setShowToolInstallDetails] = useState(false);
   const [showGraphDiagnostics, setShowGraphDiagnostics] = useState(false);
   const [showRunOutput, setShowRunOutput] = useState(false);
+  const [showArtifactPaths, setShowArtifactPaths] = useState(false);
 
   const tone = statusTone(repoMap);
   const graphifyReady = repoMap.tools.graphify.nodeCount > 0;
@@ -400,6 +401,7 @@ export function RepoMapView({
     preflight?.tools.filter((tool) => !tool.available) ?? [];
   const toolInstallDetailsId = "repo-map-tool-install-details";
   const graphDiagnosticsId = "repo-map-graph-diagnostics";
+  const artifactPathsId = "repo-map-artifact-paths";
 
   return (
     <section className="repo-map-view" aria-labelledby="repo-map-title">
@@ -511,7 +513,7 @@ export function RepoMapView({
           <Copy size={15} weight="bold" />
           Copy compact context
         </button>
-        {generation ? <span>{generation.outDir}</span> : null}
+        {generation ? <span>Map ready</span> : null}
         {copyNotice ? <span>{copyNotice}</span> : null}
         {openNotice ? <span>{openNotice}</span> : null}
       </div>
@@ -789,13 +791,31 @@ export function RepoMapView({
             </button>
           ))}
         </div>
-        <div className="repo-map-artifacts">
-          {repoMap.tools.graphify.files.map((file) => (
-            <code key={file}>{file}</code>
-          ))}
-          <code>{repoMap.tools.madge.file}</code>
-          <code>{repoMap.tools.dependencyCruiser.file}</code>
-          <code>{repoMap.tools.cargoMetadata.file}</code>
+        <div className="repo-map-disclosure repo-map-disclosure--artifacts">
+          <button
+            aria-controls={artifactPathsId}
+            aria-expanded={showArtifactPaths}
+            className="repo-map-disclosure__button"
+            onClick={() => setShowArtifactPaths((open) => !open)}
+            type="button"
+          >
+            {showArtifactPaths ? "Hide paths" : "Show paths"}
+          </button>
+          {showArtifactPaths ? (
+            <div
+              className="repo-map-artifacts repo-map-disclosure__panel"
+              id={artifactPathsId}
+              aria-label="Repo map artifact paths"
+            >
+              {generation?.outDir ? <code>{generation.outDir}</code> : null}
+              {repoMap.tools.graphify.files.map((file) => (
+                <code key={file}>{file}</code>
+              ))}
+              <code>{repoMap.tools.madge.file}</code>
+              <code>{repoMap.tools.dependencyCruiser.file}</code>
+              <code>{repoMap.tools.cargoMetadata.file}</code>
+            </div>
+          ) : null}
         </div>
       </article>
 

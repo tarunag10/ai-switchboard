@@ -159,8 +159,10 @@ Acceptance:
 
 Evidence: `RepoIntelligencePreview` keeps Index, copy, clear, session, and pack
 actions visible; verification/mode reasoning and graph diagnostics are hidden
-until Details/Learn more controls are expanded. `RepoIntelligencePreview.test.tsx`
-and `RepoMapView.test.tsx` assert the collapsed ARIA state and expansion.
+until Details/Learn more controls are expanded. `RepoMapView` keeps artifact
+open/copy actions visible while generated paths and run output stay collapsed.
+`RepoIntelligencePreview.test.tsx` and `RepoMapView.test.tsx` assert the
+collapsed ARIA state and expansion.
 
 ### Slice 7: Usage And Savings
 

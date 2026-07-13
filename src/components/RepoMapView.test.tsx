@@ -46,6 +46,25 @@ describe("RepoMapView progressive disclosure", () => {
     expect(screen.getByText("Tool Checks")).toBeInTheDocument();
   });
 
+  it("keeps generated artifact paths collapsed while artifact actions stay visible", async () => {
+    const user = userEvent.setup();
+    render(
+      <RepoMapView onOpenDoctor={vi.fn()} onOpenRepoIntelligence={vi.fn()} />,
+    );
+
+    expect(screen.getByRole("button", { name: "README" })).toBeInTheDocument();
+    expect(screen.queryByText("docs/repo-map/madge-src.json")).not.toBeInTheDocument();
+
+    const pathsButton = getDisclosureButton("repo-map-artifact-paths");
+    expect(pathsButton).toHaveAttribute("aria-expanded", "false");
+    expect(pathsButton).toHaveTextContent("Show paths");
+
+    await user.click(pathsButton!);
+
+    expect(pathsButton).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("docs/repo-map/madge-src.json")).toBeInTheDocument();
+  });
+
   it("calls footer navigation callbacks", async () => {
     const user = userEvent.setup();
     const onOpenDoctor = vi.fn();
