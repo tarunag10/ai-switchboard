@@ -308,6 +308,19 @@ function buildRtkHealthTrend(daily: RtkDailyStats[] = []): AddonHealthTrend {
   };
 }
 
+function rtkCommandFamilyEvidence(
+  families: RuntimeStatus["rtk"]["commandFamilies"] = [],
+) {
+  const rows = (families ?? [])
+    .filter((family) => family.commands > 0)
+    .sort((left, right) => right.savedTokens - left.savedTokens)
+    .slice(0, 5)
+    .map((family) => `${family.family} (${family.commands.toLocaleString()} commands)`);
+  return rows.length > 0
+    ? `Command families (local history): ${rows.join(", ")}.`
+    : "Command-family history is not available yet.";
+}
+
 function managedToolHealth(
   tool: ManagedTool | null,
   id: "markitdown" | "ponytail",
@@ -447,6 +460,7 @@ export function buildAddonHealthCards(
           evidence: [
             `Commands recorded: ${Math.max(0, rtk.totalCommands ?? 0).toLocaleString()}.`,
             `Tokens saved: ${Math.max(0, rtk.totalSaved ?? 0).toLocaleString()}.`,
+            rtkCommandFamilyEvidence(rtk.commandFamilies),
           ],
           trend: buildRtkHealthTrend(rtk.daily ?? []),
           nextAction: "No action needed.",
@@ -464,6 +478,7 @@ export function buildAddonHealthCards(
             `Enabled: ${rtk?.enabled ? "yes" : "no"}.`,
             `PATH configured: ${rtk?.pathConfigured ? "yes" : "no"}.`,
             `Hook configured: ${rtk?.hookConfigured ? "yes" : "no"}.`,
+            rtkCommandFamilyEvidence(rtk?.commandFamilies),
           ],
           trend: buildRtkHealthTrend(rtk?.daily ?? []),
           nextAction: rtk?.installed

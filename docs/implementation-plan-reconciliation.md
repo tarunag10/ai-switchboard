@@ -34,7 +34,7 @@ The following implementation-plan slices are complete in the current checkout an
 
 ## Remaining Build Backlog
 
-1. **Evidence depth**: true before/after token measurements for Caveman, Ponytail, and MarkItDown, plus RTK command-family persistence and richer provider-specific X-Ray metrics where credible APIs expose them.
+1. **Evidence depth**: true before/after token measurements for Caveman, Ponytail, and MarkItDown, plus richer provider-specific X-Ray metrics where credible APIs expose them. RTK command-family persistence now reads RTK's local history database read-only and exposes sanitized weighted family aggregates with timestamps.
 2. **Repo Intelligence depth**: symbol-level caller-to-callee AST call edges now cover TypeScript/JavaScript/React, Rust, and Python with mixed-language fixtures, and Repo Map now exposes typed per-tool progress/current-tool evidence. Remaining depth is richer language-specific semantic resolution plus cancellation/retry semantics.
 3. **Cursor native provider routing gate**: Goose and Grok/xAI endpoint routing are shipped with stable allowlists and full fixture lifecycle proof. Cursor provider/account/model writes remain gated because no supported on-disk schema is published.
 4. **Gateway integrations**: LiteLLM semantic-cache lifecycle, self-hosted Langfuse, Cloudflare Gateway, and Kong live verification require user-controlled infrastructure and credentials. Local readiness is complete.

@@ -1024,6 +1024,26 @@ pub struct RtkRuntimeStatus {
     pub avg_time_ms: Option<u64>,
     #[serde(default)]
     pub daily: Vec<RtkDailyStats>,
+    /// Read-only aggregates from RTK's local command history database. The
+    /// family is the first executable token only; command arguments are never
+    /// returned to the dashboard or exported.
+    #[serde(default)]
+    pub command_families: Vec<RtkCommandFamilyStats>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RtkCommandFamilyStats {
+    pub family: String,
+    pub commands: u64,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub saved_tokens: u64,
+    pub savings_pct: Option<f64>,
+    pub total_time_ms: u64,
+    pub avg_time_ms: Option<u64>,
+    /// Latest RTK history row contributing to this aggregate.
+    pub last_observed_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -303,12 +303,12 @@ Suggested commit:
 
 Goal: give users an exact, scoped answer to "how many tokens or credits did this session save?"
 
-Status: partially shipped. The ledger UI and backend durable events exist with measured, estimated, and inferred confidence labels, the calculator now covers session, repo, today, week, month, and lifetime scopes, RTK gain rows feed measured today/week/month/lifetime ledger rows with input/output/time evidence when available, and scope definitions are visible in-app/copyable so repo and current-session rollups are not conflated. The remaining work is stronger live counters and command-family persistence once RTK exposes command-family data.
+Status: partially shipped. The ledger UI and backend durable events exist with measured, estimated, and inferred confidence labels, the calculator now covers session, repo, today, week, month, and lifetime scopes, RTK gain rows feed measured today/week/month/lifetime ledger rows with input/output/time evidence when available, and scope definitions are visible in-app/copyable so repo and current-session rollups are not conflated. RTK command-family persistence is now consumed read-only from RTK's local history database and shown as sanitized weighted family evidence; stronger live add-on counters and provider-specific X-Ray metrics remain.
 
 Tasks:
 
 - Define savings scopes: current app session, current repo, today, week, month, lifetime: shipped in the calculator and ledger UI.
-- Persist RTK command summaries with timestamps, project path, command family, input tokens, output tokens, saved tokens, and elapsed time.
+- Consume RTK's durable command summaries with timestamps, command family, input/output/saved tokens, and elapsed time through a read-only database reader. Project paths and command arguments are intentionally discarded at the Switchboard boundary to keep the dashboard/export content-free.
 - Persist Headroom engine compression events with client, model, request id, before/after tokens, saved tokens, and estimated cost.
 - Keep the unified savings ledger accurate across Headroom, RTK, Repo Intelligence, MarkItDown, Ponytail, Caveman, Compact Chinese, and future add-ons.
 - Replace inferred add-on rows with measured counters when runtime evidence is trustworthy.

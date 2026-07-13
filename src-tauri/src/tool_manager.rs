@@ -2806,23 +2806,104 @@ mod tests {
     use serde_json::{json, Value};
 
     use super::{
-        bootstrap_requirements_lock_for_target, classify_kompress_prefetch_failure,
-        extract_required_pydantic_core_version, format_all_foreign_bail,
-        format_already_running_bail, headroom_entrypoint_startup_args,
+        aggregate_rtk_command_families, bootstrap_requirements_lock_for_target,
+        classify_kompress_prefetch_failure, command_family, extract_required_pydantic_core_version,
+        format_all_foreign_bail, format_already_running_bail, headroom_entrypoint_startup_args,
         headroom_python_startup_args, looks_like_corrupt_venv_error, parse_major_minor_patch,
         parse_pid_from_lsof_detail, path_with_binary_dir, probe_backend_readyz_ok,
-        proxy_argv_contains_expected_flags_for, receipt_requires_atomic_rebuild,
-        reclaim_orphan_proxy, redact_sensitive, repair_console_script_interpreter,
-        requirements_lock_sha, rtk_distribution_artifact, run_command, sanitize_log_variant,
-        sha256_bytes, summarize_kompress_prefetch_failure, verify_sha256_file, wait_for_port_free,
-        CommandFailure, HeadroomRelease, ManagedRuntime, PipOutputCapture, ToolManager,
-        UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION, CAVEMAN_LEVEL_COMPACT_CHINESE,
-        CAVEMAN_LEVEL_SCOPED, RTK_VERSION,
+        proxy_argv_contains_expected_flags_for, read_rtk_command_families_from_db,
+        receipt_requires_atomic_rebuild, reclaim_orphan_proxy, redact_sensitive,
+        repair_console_script_interpreter, requirements_lock_sha, rtk_distribution_artifact,
+        run_command, sanitize_log_variant, sha256_bytes, summarize_kompress_prefetch_failure,
+        verify_sha256_file, wait_for_port_free, CommandFailure, HeadroomRelease, ManagedRuntime,
+        PipOutputCapture, RtkHistoryRow, ToolManager, UpgradeOutcome, ATOMIC_REBUILD_FLOOR_VERSION,
+        CAVEMAN_LEVEL_COMPACT_CHINESE, CAVEMAN_LEVEL_SCOPED, RTK_VERSION,
     };
     use crate::backend_port;
     use crate::models::SavingsMode;
     use crate::port_conflict;
     use std::net::TcpListener;
+
+    #[test]
+    fn rtk_command_family_aggregation_is_weighted_and_argument_free() {
+        let rows = vec![
+            RtkHistoryRow {
+                timestamp: "2026-07-13T01:00:00Z".into(),
+                original_cmd: "git status --short".into(),
+                rtk_cmd: "rtk git status --short".into(),
+                input_tokens: 100,
+                output_tokens: 40,
+                saved_tokens: 60,
+                exec_time_ms: 10,
+            },
+            RtkHistoryRow {
+                timestamp: "2026-07-13T02:00:00Z".into(),
+                original_cmd: "git diff -- path/with-secret".into(),
+                rtk_cmd: "rtk git diff -- path/with-secret".into(),
+                input_tokens: 900,
+                output_tokens: 300,
+                saved_tokens: 600,
+                exec_time_ms: 20,
+            },
+            RtkHistoryRow {
+                timestamp: "2026-07-13T03:00:00Z".into(),
+                original_cmd: "npm test".into(),
+                rtk_cmd: "rtk npm test".into(),
+                input_tokens: 50,
+                output_tokens: 50,
+                saved_tokens: 0,
+                exec_time_ms: 30,
+            },
+        ];
+
+        let families = aggregate_rtk_command_families(rows);
+        assert_eq!(families.len(), 2);
+        let git = families
+            .iter()
+            .find(|family| family.family == "git")
+            .unwrap();
+        assert_eq!(git.commands, 2);
+        assert_eq!(git.input_tokens, 1_000);
+        assert_eq!(git.output_tokens, 340);
+        assert_eq!(git.saved_tokens, 660);
+        assert_eq!(git.savings_pct, Some(66.0));
+        assert_eq!(git.total_time_ms, 30);
+        assert_eq!(git.avg_time_ms, Some(15));
+        assert_eq!(
+            git.last_observed_at.as_deref(),
+            Some("2026-07-13T02:00:00Z")
+        );
+        assert_eq!(
+            command_family("/usr/bin/cargo test --quiet", "rtk cargo test"),
+            Some("cargo".into())
+        );
+        assert_eq!(
+            command_family("echo 'secret token'", "rtk echo"),
+            Some("echo".into())
+        );
+    }
+
+    #[test]
+    fn rtk_command_family_reader_is_read_only_and_aggregates_history_db() {
+        let path = std::env::temp_dir().join(format!("rtk-history-{}.db", uuid::Uuid::new_v4()));
+        let connection = rusqlite::Connection::open(&path).expect("open test database");
+        connection
+            .execute_batch(
+                "CREATE TABLE commands (id INTEGER PRIMARY KEY, timestamp TEXT NOT NULL, original_cmd TEXT NOT NULL, rtk_cmd TEXT NOT NULL, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, saved_tokens INTEGER NOT NULL, savings_pct REAL NOT NULL, exec_time_ms INTEGER DEFAULT 0); INSERT INTO commands (timestamp, original_cmd, rtk_cmd, input_tokens, output_tokens, saved_tokens, savings_pct, exec_time_ms) VALUES ('2026-07-13T00:00:00Z', 'rg -n pattern src', 'rtk rg', 120, 20, 100, 83.3, 44);",
+            )
+            .expect("seed test database");
+        drop(connection);
+
+        let families = read_rtk_command_families_from_db(&path).expect("read test database");
+        assert_eq!(families[0].family, "rg");
+        assert_eq!(families[0].saved_tokens, 100);
+        assert_eq!(families[0].avg_time_ms, Some(44));
+        assert_eq!(
+            families[0].last_observed_at.as_deref(),
+            Some("2026-07-13T00:00:00Z")
+        );
+        let _ = fs::remove_file(path);
+    }
 
     struct AppStorageEnvGuard {
         prev_xdg: Option<std::ffi::OsString>,

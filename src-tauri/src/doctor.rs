@@ -691,6 +691,7 @@ mod doctor_tests {
                 total_time_ms: None,
                 avg_time_ms: None,
                 daily: Vec::new(),
+                command_families: Vec::new(),
             },
         }
     }

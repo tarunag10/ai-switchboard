@@ -190,6 +190,7 @@ impl AppState {
             rtk_integration_status().unwrap_or((false, false));
         let rtk_gain_summary = self.cached_rtk_gain_summary();
         let rtk_daily_stats = self.cached_rtk_daily_stats().unwrap_or_default();
+        let rtk_command_families = self.cached_rtk_command_families();
         if let Some(stats) = rtk_gain_summary.as_ref() {
             self.savings_tracker.lock().observe_rtk_gain_summary(stats);
         }
@@ -274,6 +275,7 @@ impl AppState {
                 total_time_ms: rtk_gain_summary.as_ref().map(|stats| stats.total_time_ms),
                 avg_time_ms: rtk_gain_summary.as_ref().and_then(|stats| stats.avg_time_ms),
                 daily: rtk_daily_stats,
+                command_families: rtk_command_families,
             },
         }
     }

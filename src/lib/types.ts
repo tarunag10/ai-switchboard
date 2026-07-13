@@ -464,6 +464,7 @@ export interface RuntimeStatus {
     totalTimeMs?: number | null;
     avgTimeMs?: number | null;
     daily?: RtkDailyStats[];
+    commandFamilies?: RtkCommandFamilyStats[];
   };
 }
 
@@ -674,6 +675,18 @@ export interface RtkDailyStats {
   savingsPct?: number | null;
   totalTimeMs?: number;
   avgTimeMs?: number | null;
+}
+
+export interface RtkCommandFamilyStats {
+  family: string;
+  commands: number;
+  inputTokens: number;
+  outputTokens: number;
+  savedTokens: number;
+  savingsPct?: number | null;
+  totalTimeMs: number;
+  avgTimeMs?: number | null;
+  lastObservedAt?: string | null;
 }
 
 export type RecordTag = "daily" | "weekly" | "allTime";

@@ -62,7 +62,7 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - Native/provider write promotion is complete for Goose and Grok/xAI endpoint fields with verified allowlists and fixture lifecycle coverage. Cursor remains gated until a documented, supported on-disk provider schema exists; provider/account/model state remains manual everywhere.
 - Public installed-app smoke and reboot-level signed installed-app Doctor/Rollback/uninstall proof. Current uninstall proof is non-destructive local dry-run evidence, and `npm run smoke:reboot-level:local` now records the proof as blocked unless current installed-app trust, current public installed-app smoke evidence, supporting Doctor/Rollback/uninstall evidence, and a real post-reboot marker are all present.
 - Optional gateway/add-on integrations remain guided/gated only: LiteLLM semantic-cache lifecycle, self-hosted Langfuse observability, Cloudflare Gateway, and Kong live evidence require user infrastructure and credentials. Local readiness and rollback guidance are complete.
-- RTK command-family persistence and richer provider-specific X-Ray metrics remain pending until those tools/providers expose credible durable evidence.
+- RTK command-family persistence is shipped from RTK's local history database: Switchboard reads it read-only, keeps only sanitized first-token families, and exposes weighted token/timing aggregates with the latest observation timestamp. Richer provider-specific X-Ray metrics remain pending until those tools/providers expose credible durable evidence.
 
 ## Latest Commits
 

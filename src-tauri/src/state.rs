@@ -26,8 +26,8 @@ use crate::models::{
     ActivityEvent, BackendRuntimeStatus, BootstrapProgress, ClaudeAccountProfile,
     ClaudeCodeProject, ClientStatus, CodexAccountProfile, CodexRateLimitSnapshot,
     DailySavingsPoint, DashboardState, HeadroomLearnPrereqStatus, HourlySavingsPoint,
-    LaunchAgentRuntimeStatus, LaunchExperience, RtkRuntimeStatus, RuntimeStatus,
-    RuntimeUpgradeFailure, RuntimeUpgradeProgress, SavingsAttributionConfidence,
+    LaunchAgentRuntimeStatus, LaunchExperience, RtkCommandFamilyStats, RtkRuntimeStatus,
+    RuntimeStatus, RuntimeUpgradeFailure, RuntimeUpgradeProgress, SavingsAttributionConfidence,
     SavingsAttributionCounter, SavingsAttributionEvent, SavingsAttributionScope,
     SavingsAttributionSource, SwitchboardMode, TransformationFeedEvent, UpgradeFailurePhase,
     UsageEvent,
@@ -217,6 +217,7 @@ pub struct AppState {
     cached_rtk_gain_summary: Mutex<Option<(Option<RtkGainSummary>, Instant)>>,
     cached_rtk_today_stats: Mutex<Option<(Option<crate::models::RtkTodayStats>, Instant)>>,
     cached_rtk_daily_stats: Mutex<Option<(Option<Vec<crate::models::RtkDailyStats>>, Instant)>>,
+    cached_rtk_command_families: Mutex<Option<(Vec<RtkCommandFamilyStats>, Instant)>>,
     cached_claude_profile: Mutex<Option<(Option<String>, ClaudeAccountProfile, Instant)>>,
     /// TTL-cached Codex identity profile, the Codex analog of
     /// `cached_claude_profile`. Built by `pricing::detect_codex_profile` from
@@ -346,6 +347,7 @@ impl AppState {
             cached_rtk_gain_summary: Mutex::new(None),
             cached_rtk_today_stats: Mutex::new(None),
             cached_rtk_daily_stats: Mutex::new(None),
+            cached_rtk_command_families: Mutex::new(None),
             cached_claude_profile: Mutex::new(None),
             cached_codex_profile: Mutex::new(None),
             stale_profile_since: Mutex::new(None),
@@ -1454,6 +1456,19 @@ impl AppState {
         let stats = self.tool_manager.rtk_daily_stats();
         *cache = Some((stats.clone(), Instant::now()));
         stats
+    }
+
+    fn cached_rtk_command_families(&self) -> Vec<RtkCommandFamilyStats> {
+        const TTL: Duration = Duration::from_secs(10);
+        let mut cache = self.cached_rtk_command_families.lock();
+        if let Some((families, at)) = cache.as_ref() {
+            if at.elapsed() < TTL {
+                return families.clone();
+            }
+        }
+        let families = self.tool_manager.rtk_command_families();
+        *cache = Some((families.clone(), Instant::now()));
+        families
     }
 
     pub fn dashboard(&self) -> DashboardState {
