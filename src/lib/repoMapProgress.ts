@@ -1,4 +1,4 @@
-export type RepoMapToolStatus = "ok" | "warning" | "not-run";
+export type RepoMapToolStatus = "ok" | "warning" | "retrying" | "not-run";
 
 export interface RepoMapToolRunLike {
   status?: RepoMapToolStatus;
@@ -75,6 +75,8 @@ export function buildRepoMapProgressSteps(options: {
       state = "ok";
     } else if (run?.status === "warning") {
       state = "warning";
+    } else if (run?.status === "retrying") {
+      state = "running";
     } else if (options.generateError && !run) {
       state = "error";
     } else if (options.generateBusy && !run) {
@@ -96,8 +98,8 @@ export function buildRepoMapProgressSteps(options: {
           ? "Running"
           : state === "queued"
             ? "Queued"
-            : state === "pending"
-              ? "Waiting"
+          : state === "pending"
+            ? "Waiting"
               : "Completed"),
     });
   }

@@ -1,6 +1,9 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex, OnceLock,
+};
 use std::{io::BufRead, io::BufReader, thread};
 
 use serde::{Deserialize, Serialize};
@@ -8,6 +11,13 @@ use serde_json::{json, Value};
 use tauri::Emitter;
 
 use crate::external_open;
+
+static ACTIVE_REPO_MAP_PID: OnceLock<Mutex<Option<u32>>> = OnceLock::new();
+static REPO_MAP_CANCEL_REQUESTED: AtomicBool = AtomicBool::new(false);
+
+fn active_repo_map_pid() -> &'static Mutex<Option<u32>> {
+    ACTIVE_REPO_MAP_PID.get_or_init(|| Mutex::new(None))
+}
 
 fn tail(value: &str, max_chars: usize) -> String {
     let chars: Vec<char> = value.chars().collect();
@@ -287,6 +297,7 @@ pub async fn generate_repo_map(
     repo_path: Option<String>,
 ) -> Result<RepoMapGenerationResponse, String> {
     tauri::async_runtime::spawn_blocking(move || {
+        REPO_MAP_CANCEL_REQUESTED.store(false, Ordering::SeqCst);
         let app_repo = repo_map_default_repo()?;
         let target_repo = repo_map_target_repo(repo_path)?;
         let script_path = app_repo.join("scripts/generate-repo-map.mjs");
@@ -323,6 +334,9 @@ pub async fn generate_repo_map(
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|err| format!("Failed to start repo map generator: {err}"))?;
+        if let Ok(mut active_pid) = active_repo_map_pid().lock() {
+            *active_pid = Some(child.id());
+        }
 
         let stdout_buffer = Arc::new(Mutex::new(String::new()));
         let stderr_buffer = Arc::new(Mutex::new(String::new()));
@@ -367,6 +381,9 @@ pub async fn generate_repo_map(
         let status = child
             .wait()
             .map_err(|err| format!("Repo map generator wait failed: {err}"))?;
+        if let Ok(mut active_pid) = active_repo_map_pid().lock() {
+            *active_pid = None;
+        }
         for reader in readers {
             let _ = reader.join();
         }
@@ -380,6 +397,16 @@ pub async fn generate_repo_map(
             .map(|output| output.clone())
             .unwrap_or_default();
         if !status.success() {
+            if REPO_MAP_CANCEL_REQUESTED.load(Ordering::SeqCst) {
+                emit_repo_map_generation_event(
+                    &app,
+                    &target_repo,
+                    "cancelled",
+                    "status",
+                    "Repo Map generation cancelled by the user.",
+                );
+                return Err("Repo map generation cancelled.".to_string());
+            }
             emit_repo_map_generation_event(
                 &app,
                 &target_repo,
@@ -436,6 +463,32 @@ pub async fn generate_repo_map(
     })
     .await
     .map_err(|err| format!("Repo map worker failed: {err}"))?
+}
+
+/// Stop the active local generator process. This only targets the child
+/// process owned by the current app instance and never touches repository
+/// files or unrelated processes. A subsequent Generate action is an explicit
+/// retry with a fresh process and fresh tool progress.
+#[tauri::command]
+pub fn cancel_repo_map_generation() -> Result<bool, String> {
+    let pid = active_repo_map_pid()
+        .lock()
+        .map_err(|_| "Repo Map cancellation state is unavailable.")?
+        .to_owned();
+    let Some(pid) = pid else {
+        return Ok(false);
+    };
+    REPO_MAP_CANCEL_REQUESTED.store(true, Ordering::SeqCst);
+    let status = Command::new("/bin/kill")
+        .args(["-TERM", &pid.to_string()])
+        .status()
+        .map_err(|err| format!("Failed to cancel Repo Map generator: {err}"))?;
+    if !status.success() {
+        return Err(format!(
+            "Repo Map generator cancellation exited with {status}."
+        ));
+    }
+    Ok(true)
 }
 
 #[tauri::command]

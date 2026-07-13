@@ -10,6 +10,8 @@ const argValue = (name, fallback) => {
 };
 
 const runTools = args.includes("--run-tools");
+const retryCount = Math.max(0, Number.parseInt(argValue("--retry", "1"), 10) || 0);
+const retryDelayMs = Math.max(0, Number.parseInt(argValue("--retry-delay-ms", "250"), 10) || 0);
 const root = path.resolve(argValue("--repo", process.cwd()));
 const outDir = path.resolve(root, argValue("--out", path.join("docs", "repo-map")));
 fs.mkdirSync(outDir, { recursive: true });
@@ -34,45 +36,62 @@ const expectedToolCount =
   5 + (fs.existsSync(path.join(root, "src-tauri", "Cargo.toml")) ? 1 : 0);
 
 const run = (label, command, options = {}) => {
-  const startedAt = new Date().toISOString();
-  const result = spawnSync(command, {
-    cwd: root,
-    encoding: "utf8",
-    maxBuffer: options.maxBuffer ?? 16 * 1024 * 1024,
-    shell: true,
-    timeout: options.timeoutMs ?? 120_000,
-  });
-  const record = {
-    label,
-    command,
-    startedAt,
-    exitCode: result.status,
-    signal: result.signal,
-    error: result.error?.message ?? null,
-    stderr: (result.stderr ?? "").slice(0, 4000),
-  };
-  toolLog.push(record);
-  if (options.stdoutFile && result.stdout) {
-    fs.writeFileSync(path.join(root, options.stdoutFile), result.stdout);
-  }
-  if (runTools) {
-    const completedTools = toolLog.length;
-    const status = result.status === 0 ? "ok" : "warning";
-    const detail =
-      result.error?.message ||
-      result.stderr?.trim() ||
-      `Exited ${result.status ?? result.signal ?? "unknown"}.`;
-    console.log(
-      JSON.stringify({
-        kind: "repo_map_tool_event",
-        toolId: toolIdForLabel(label),
-        status,
-        progressPercent: Math.round((completedTools / expectedToolCount) * 100),
-        completedTools,
-        totalTools: expectedToolCount,
-        message: `${label}: ${detail.slice(0, 360)}`,
-      }),
-    );
+  const maxAttempts = Math.max(1, (options.retries ?? retryCount) + 1);
+  let record;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const startedAt = new Date().toISOString();
+    const result = spawnSync(command, {
+      cwd: root,
+      encoding: "utf8",
+      maxBuffer: options.maxBuffer ?? 16 * 1024 * 1024,
+      shell: true,
+      timeout: options.timeoutMs ?? 120_000,
+    });
+    record = {
+      label,
+      command,
+      startedAt,
+      attempt,
+      maxAttempts,
+      exitCode: result.status,
+      signal: result.signal,
+      error: result.error?.message ?? null,
+      stderr: (result.stderr ?? "").slice(0, 4000),
+    };
+    toolLog.push(record);
+    if (options.stdoutFile && result.stdout) {
+      fs.writeFileSync(path.join(root, options.stdoutFile), result.stdout);
+    }
+    const succeeded = result.status === 0;
+    if (runTools) {
+      const completedTools = new Set(toolLog.map((item) => item.label)).size;
+      const status = succeeded ? "ok" : attempt < maxAttempts ? "retrying" : "warning";
+      const detail =
+        result.error?.message ||
+        result.stderr?.trim() ||
+        `Exited ${result.status ?? result.signal ?? "unknown"}.`;
+      console.log(
+        JSON.stringify({
+          kind: "repo_map_tool_event",
+          toolId: toolIdForLabel(label),
+          status,
+          progressPercent: Math.round((completedTools / expectedToolCount) * 100),
+          completedTools,
+          totalTools: expectedToolCount,
+          attempt,
+          maxAttempts,
+          message: `${label}: ${
+            attempt < maxAttempts ? `attempt ${attempt}/${maxAttempts} failed; retrying. ` : ""
+          }${detail.slice(0, 360)}`,
+        }),
+      );
+    }
+    if (succeeded || attempt >= maxAttempts) break;
+    if (retryDelayMs > 0) {
+      // Keep retries explicit and bounded; this delay is only local process
+      // coordination and never contacts a remote service.
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, retryDelayMs);
+    }
   }
   return record;
 };
@@ -101,6 +120,9 @@ const toolStatus = (record, successWhen = (item) => item.exitCode === 0) => {
         : null,
   };
 };
+
+const latestToolRecord = (label) =>
+  [...toolLog].reverse().find((item) => item.label === label);
 
 if (runTools) {
   run("graphify", "uvx --from 'graphifyy[openai]' graphify . --no-cluster", {
@@ -306,7 +328,7 @@ const map = {
   },
   toolRuns: {
     graphify: (() => {
-      const record = toolLog.find((item) => item.label === "graphify");
+      const record = latestToolRecord("graphify");
       const status = toolStatus(record, () => graphNodes.length > 0);
       const detail = `${record?.stderr ?? ""} ${record?.error ?? ""}`;
       if (graphNodes.length > 0 && /failed|502|Bad Gateway|error/i.test(detail)) {
@@ -319,9 +341,9 @@ const map = {
       }
       return status;
     })(),
-    madge: toolStatus(toolLog.find((item) => item.label === "madge-json")),
-    dependencyCruiser: toolStatus(toolLog.find((item) => item.label === "dependency-cruiser-json")),
-    cargoMetadata: toolStatus(toolLog.find((item) => item.label === "cargo-metadata")),
+    madge: toolStatus(latestToolRecord("madge-json")),
+    dependencyCruiser: toolStatus(latestToolRecord("dependency-cruiser-json")),
+    cargoMetadata: toolStatus(latestToolRecord("cargo-metadata")),
   },
   inventory: {
     frontendFiles: sourceFiles.length,

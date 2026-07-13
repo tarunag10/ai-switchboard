@@ -30,7 +30,7 @@ const MAX_SCAN_FILES: usize = 2_500;
 const MAX_INDEXED_FILE_BYTES: u64 = 1_000_000;
 const MAX_PACK_FILES: usize = 40;
 const TASK_PACK_BUDGET_TOKENS: u64 = 8_000;
-const INDEXER_VERSION: &str = "path-graph-v9";
+const INDEXER_VERSION: &str = "path-graph-v10";
 const INDEX_METADATA_SCHEMA_VERSION: u64 = 1;
 const PARSER_VERSION: &str = "tree-sitter-graph-v2";
 const DEFAULT_SYMBOL_SEARCH_LIMIT: usize = 25;
@@ -1580,6 +1580,12 @@ fn build_repo_graph_summary(repo_root: &Path, files: &[RepoFileSignal]) -> RepoG
     let symbols = build_repo_symbols(repo_root, &included);
     let mut symbol_edges = build_symbol_edges(&included, &symbols);
     symbol_edges.extend(build_call_reference_edges(repo_root, &included, &symbols));
+    // Name-only call matching remains useful as a bounded fallback, but
+    // imported aliases need language-aware binding resolution to avoid both
+    // missed edges (`import { run as execute }`) and same-name false positives.
+    symbol_edges.extend(build_semantic_call_reference_edges(
+        repo_root, &included, &symbols,
+    ));
 
     RepoGraphSummary {
         top_directories: summarize_graph_nodes(&included, top_directory, 6),
@@ -2385,6 +2391,291 @@ fn build_call_reference_edges(
         }
     }
     edges
+}
+
+#[derive(Debug, Clone)]
+struct RepoImportBinding {
+    /// Name used at the call site.
+    local: String,
+    /// Exported symbol name. `None` denotes a namespace/module binding.
+    imported: Option<String>,
+    /// Import specifier resolved against the indexed file list.
+    specifier: String,
+}
+
+/// Add call edges that are resolved through local import bindings. This is
+/// deliberately a local, bounded resolver: it follows static TS/JS/Python/
+/// Rust import declarations only and never executes code or claims type-level
+/// dispatch. The older name matcher above remains as a compatibility fallback.
+fn build_semantic_call_reference_edges(
+    repo_root: &Path,
+    files: &[RepoFileSignal],
+    symbols: &[RepoSymbol],
+) -> Vec<RepoGraphEdge> {
+    let mut edges = Vec::new();
+    for file in files.iter().filter(|file| {
+        matches!(file.role, RepoFileRole::Source | RepoFileRole::Test)
+            && matches!(
+                file.language.as_str(),
+                "TypeScript" | "JavaScript" | "React" | "Rust" | "Python"
+            )
+    }) {
+        let Ok(content) = std::fs::read_to_string(repo_root.join(&file.path)) else {
+            continue;
+        };
+        let bindings = extract_import_bindings(file, &content);
+        if bindings.is_empty() {
+            continue;
+        }
+        let Some(call_sites) = extract_call_sites_with_tree_sitter(file, &content) else {
+            continue;
+        };
+        for (caller, names) in call_sites {
+            for binding in &bindings {
+                if !names.contains(&binding.local) {
+                    continue;
+                }
+                let Some(target_file) =
+                    resolve_import_specifier(&file.path, &binding.specifier, files)
+                else {
+                    continue;
+                };
+                let target_symbols = symbols.iter().filter(|symbol| {
+                    symbol.file == target_file.path
+                        && match &binding.imported {
+                            Some(imported) => symbol.name == *imported,
+                            None => names
+                                .iter()
+                                .any(|name| name != &binding.local && symbol.name == *name),
+                        }
+                });
+                for target in target_symbols {
+                    let from = caller
+                        .as_ref()
+                        .map(|name| format!("{}#{name}", file.path))
+                        .unwrap_or_else(|| file.path.clone());
+                    push_unbounded_graph_edge(
+                        &mut edges,
+                        RepoGraphEdge {
+                            from,
+                            to: format!("{}#{}", target.file, target.name),
+                            kind: RepoGraphEdgeKind::CallReference,
+                            reason: "AST call expression resolved through local import binding"
+                                .into(),
+                        },
+                        160,
+                    );
+                    if edges.len() >= 160 {
+                        return edges;
+                    }
+                }
+            }
+        }
+    }
+    edges
+}
+
+fn extract_import_bindings(file: &RepoFileSignal, content: &str) -> Vec<RepoImportBinding> {
+    match file.language.as_str() {
+        "TypeScript" | "JavaScript" | "React" => extract_js_import_bindings(content),
+        "Python" => extract_python_import_bindings(content),
+        "Rust" => extract_rust_import_bindings(content),
+        _ => Vec::new(),
+    }
+}
+
+fn extract_js_import_bindings(content: &str) -> Vec<RepoImportBinding> {
+    // Join lines so multiline named imports are handled without a permissive
+    // regex. Split on semicolons; this intentionally only accepts declarations
+    // beginning with `import ` and therefore ignores dynamic import() calls.
+    let joined = content.replace(['\n', '\r'], " ");
+    let mut bindings = Vec::new();
+    for statement in joined.split(';') {
+        let statement = statement.trim();
+        let Some(rest) = statement.strip_prefix("import ") else {
+            continue;
+        };
+        if rest.starts_with('(') {
+            continue;
+        }
+        let Some((clause, source)) = rest.split_once(" from ") else {
+            continue;
+        };
+        let source = source
+            .trim()
+            .trim_end_matches([';', ','])
+            .trim_matches(['"', '\'', '`']);
+        if source.is_empty() {
+            continue;
+        }
+        let clause = clause.trim();
+        if let Some(namespace) = clause.strip_prefix("* as ") {
+            let local = namespace.trim();
+            if !local.is_empty() {
+                bindings.push(RepoImportBinding {
+                    local: local.to_string(),
+                    imported: None,
+                    specifier: source.to_string(),
+                });
+            }
+            continue;
+        }
+        if let Some(open) = clause.find('{') {
+            let close = clause.rfind('}').unwrap_or(clause.len());
+            for item in clause[open + 1..close].split(',') {
+                let parts = item
+                    .split_whitespace()
+                    .filter(|part| *part != "as")
+                    .collect::<Vec<_>>();
+                let Some(imported) = parts.first() else {
+                    continue;
+                };
+                let local = parts.get(1).copied().unwrap_or(imported);
+                bindings.push(RepoImportBinding {
+                    local: local.to_string(),
+                    imported: Some(imported.to_string()),
+                    specifier: source.to_string(),
+                });
+            }
+        }
+        // A default import is a callable binding only when the target exposes
+        // a symbol named `default`; retaining it as an explicit binding lets
+        // future parsers resolve that export without guessing a function.
+        let default_part = clause.split(',').next().unwrap_or("").trim();
+        if !default_part.is_empty()
+            && !default_part.starts_with('{')
+            && !default_part.starts_with('*')
+        {
+            bindings.push(RepoImportBinding {
+                local: default_part.to_string(),
+                imported: Some("default".to_string()),
+                specifier: source.to_string(),
+            });
+        }
+    }
+    bindings
+}
+
+fn extract_python_import_bindings(content: &str) -> Vec<RepoImportBinding> {
+    let mut bindings = Vec::new();
+    for line in content.lines() {
+        let line = line.split('#').next().unwrap_or("").trim();
+        if let Some(rest) = line.strip_prefix("from ") {
+            let Some((module, imported)) = rest.split_once(" import ") else {
+                continue;
+            };
+            let module = module.trim();
+            if module.is_empty() {
+                continue;
+            }
+            let specifier = format!("py:{module}");
+            for item in imported.split(',') {
+                let parts = item
+                    .split_whitespace()
+                    .filter(|part| *part != "as")
+                    .collect::<Vec<_>>();
+                let Some(name) = parts.first() else {
+                    continue;
+                };
+                let local = parts.get(1).copied().unwrap_or(name);
+                if *name == "*" {
+                    bindings.push(RepoImportBinding {
+                        local: local.to_string(),
+                        imported: None,
+                        specifier: specifier.clone(),
+                    });
+                } else {
+                    bindings.push(RepoImportBinding {
+                        local: local.to_string(),
+                        imported: Some(name.to_string()),
+                        specifier: specifier.clone(),
+                    });
+                }
+            }
+            continue;
+        }
+        let Some(rest) = line.strip_prefix("import ") else {
+            continue;
+        };
+        for item in rest.split(',') {
+            let parts = item
+                .split_whitespace()
+                .filter(|part| *part != "as")
+                .collect::<Vec<_>>();
+            let Some(module) = parts.first() else {
+                continue;
+            };
+            let local = parts
+                .get(1)
+                .copied()
+                .unwrap_or(module.rsplit('.').next().unwrap_or(module));
+            bindings.push(RepoImportBinding {
+                local: local.to_string(),
+                imported: None,
+                specifier: format!("py:{module}"),
+            });
+        }
+    }
+    bindings
+}
+
+fn extract_rust_import_bindings(content: &str) -> Vec<RepoImportBinding> {
+    let mut bindings = Vec::new();
+    for line in content.lines() {
+        let line = line.trim().trim_end_matches(';');
+        let Some(path) = line
+            .strip_prefix("use crate::")
+            .or_else(|| line.strip_prefix("pub use crate::"))
+        else {
+            continue;
+        };
+        let path = path.trim();
+        if path.is_empty() {
+            continue;
+        }
+        if let Some((module, members)) = path.split_once("::{") {
+            let module = module.trim();
+            let specifier = format!("crate:{module}");
+            for member in members.trim_end_matches('}').split(',') {
+                let parts = member
+                    .split_whitespace()
+                    .filter(|part| *part != "as")
+                    .collect::<Vec<_>>();
+                let Some(name) = parts.first() else {
+                    continue;
+                };
+                let local = parts.get(1).copied().unwrap_or(name);
+                bindings.push(RepoImportBinding {
+                    local: local.to_string(),
+                    imported: (*name != "*").then(|| name.to_string()),
+                    specifier: specifier.clone(),
+                });
+            }
+            continue;
+        }
+        let mut parts = path.split("::").collect::<Vec<_>>();
+        let Some(member) = parts.pop() else {
+            continue;
+        };
+        let module = parts.join("::");
+        let member_parts = member
+            .split_whitespace()
+            .filter(|part| *part != "as")
+            .collect::<Vec<_>>();
+        let Some(name) = member_parts.first() else {
+            continue;
+        };
+        let local = member_parts.get(1).copied().unwrap_or(name);
+        if module.is_empty() || name.is_empty() {
+            continue;
+        }
+        bindings.push(RepoImportBinding {
+            local: local.to_string(),
+            imported: Some(name.to_string()),
+            specifier: format!("crate:{module}"),
+        });
+    }
+    bindings
 }
 
 /// Return each parsed call expression together with the nearest indexed
@@ -3732,6 +4023,82 @@ export const mapValues = <T>(items: T[]) => items;
     }
 
     #[test]
+    fn resolves_import_aliases_for_typescript_python_and_rust_calls() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(src.join("helpers.ts"), "export function runTask() {}\n")
+            .expect("write typescript helper");
+        std::fs::write(
+            src.join("consumer.ts"),
+            "import { runTask as execute } from './helpers';\nexport function start() { execute(); }\n",
+        )
+        .expect("write typescript consumer");
+        std::fs::write(
+            src.join("py_helpers.py"),
+            "def run_task():\n    return None\n",
+        )
+        .expect("write python helper");
+        std::fs::write(
+            src.join("worker.py"),
+            "from .py_helpers import run_task as execute_task\n\ndef main():\n    execute_task()\n",
+        )
+        .expect("write python consumer");
+        std::fs::write(src.join("state.rs"), "pub fn load_state() {}\n")
+            .expect("write rust helper");
+        std::fs::write(
+            src.join("app.rs"),
+            "use crate::state::load_state as read_state;\nfn boot() { read_state(); }\n",
+        )
+        .expect("write rust consumer");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        let graph = summary.graph.expect("graph");
+        for (caller, callee) in [
+            ("src/consumer.ts#start", "src/helpers.ts#runTask"),
+            ("src/worker.py#main", "src/py_helpers.py#run_task"),
+            ("src/app.rs#boot", "src/state.rs#load_state"),
+        ] {
+            assert!(
+                graph.symbol_edges.iter().any(|edge| {
+                    edge.from == caller
+                        && edge.to == callee
+                        && edge.kind == RepoGraphEdgeKind::CallReference
+                        && edge.reason
+                            == "AST call expression resolved through local import binding"
+                }),
+                "missing semantically resolved call edge {caller} -> {callee}"
+            );
+        }
+    }
+
+    #[test]
+    fn resolves_namespace_import_member_calls_to_target_file_symbols() {
+        let root = tempfile::tempdir().expect("create repo");
+        let src = root.path().join("src");
+        std::fs::create_dir_all(&src).expect("create src");
+        std::fs::write(
+            src.join("utils.ts"),
+            "export function normalize() {}\nexport function parse() {}\n",
+        )
+        .expect("write namespace target");
+        std::fs::write(
+            src.join("entry.ts"),
+            "import * as utils from './utils';\nexport function start() { utils.normalize(); }\n",
+        )
+        .expect("write namespace consumer");
+
+        let summary = summarize_repo(root.path()).expect("summarize repo");
+        let graph = summary.graph.expect("graph");
+        assert!(graph.symbol_edges.iter().any(|edge| {
+            edge.from == "src/entry.ts#start"
+                && edge.to == "src/utils.ts#normalize"
+                && edge.kind == RepoGraphEdgeKind::CallReference
+                && edge.reason == "AST call expression resolved through local import binding"
+        }));
+    }
+
+    #[test]
     fn builds_css_and_html_asset_graph_edges_and_symbols() {
         let root = tempfile::tempdir().expect("create repo");
         let src = root.path().join("src");
@@ -3756,7 +4123,7 @@ export const mapValues = <T>(items: T[]) => items;
         .expect("write html");
 
         let summary = summarize_repo(root.path()).expect("summarize repo");
-        assert_eq!(summary.indexer_version.as_deref(), Some("path-graph-v9"));
+        assert_eq!(summary.indexer_version.as_deref(), Some("path-graph-v10"));
         let graph = summary.graph.expect("graph");
         assert!(graph.import_edges.iter().any(|edge| {
             edge.from == "src/styles.css"

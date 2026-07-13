@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const INDEXER_VERSION = "path-graph-v9";
+const INDEXER_VERSION = "path-graph-v10";
 
 function readRepoMapContext(repoRoot) {
   const mapPath = path.join(repoRoot, "docs/repo-map/repo-map.json");

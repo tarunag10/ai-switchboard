@@ -4,7 +4,7 @@ import fs from "node:fs";
 
 const reportPath = "dist/local-repo-intelligence-validation-summary.json";
 const requiredStepIds = ["repo-intelligence-frontend", "repo-intelligence-backend"];
-const requiredIndexerVersion = "path-graph-v9";
+const requiredIndexerVersion = "path-graph-v10";
 
 function fail(message) {
   console.error(`repo intelligence summary check failed: ${message}`);

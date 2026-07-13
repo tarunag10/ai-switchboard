@@ -104,6 +104,29 @@ describe("buildRepoMapProgressSteps", () => {
     expect(steps.map((step) => step.state)).toEqual(["error", "error", "error", "error", "error", "error"]);
   });
 
+  it("keeps a retrying tool active and does not count it as complete", () => {
+    const steps = buildRepoMapProgressSteps({
+      generateBusy: true,
+      currentToolId: "graphify",
+      toolRuns: {
+        graphify: { status: "retrying", detail: "attempt 1/2 failed; retrying" },
+      },
+    });
+    expect(steps.find((step) => step.id === "graphify")).toMatchObject({
+      state: "running",
+      detail: "attempt 1/2 failed; retrying",
+    });
+    expect(
+      buildRepoMapProgressSummary(steps, {
+        generateBusy: true,
+        currentToolId: "graphify",
+        completedTools: 0,
+        totalTools: 5,
+        progressPercent: 0,
+      }),
+    ).toMatchObject({ state: "running", completed: 0, percent: 0 });
+  });
+
   it("reports bounded aggregate progress and terminal warning state", () => {
     const steps = buildRepoMapProgressSteps({
       generateBusy: false,

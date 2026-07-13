@@ -63,6 +63,7 @@ export interface RepoMapArtifactRequest {
 export interface RepoMapJobAdapter {
   preflight(repoPath: string | null): Promise<RepoMapPreflightResponse>;
   generate(repoPath: string | null): Promise<RepoMapGenerationResponse>;
+  cancel(): Promise<boolean>;
   openArtifact(request: RepoMapArtifactRequest): Promise<boolean>;
 }
 
@@ -76,6 +77,9 @@ export const repoMapTauriAdapter: RepoMapJobAdapter = {
   },
   generate(repoPath) {
     return invoke<RepoMapGenerationResponse>("generate_repo_map", { repoPath });
+  },
+  cancel() {
+    return invoke<boolean>("cancel_repo_map_generation");
   },
   openArtifact(request) {
     return invoke<boolean>("open_repo_map_artifact", { request });
@@ -124,4 +128,3 @@ export function upsertRepoMapHistory(
   const item = createRepoMapHistoryItem(result);
   return [item, ...history.filter((entry) => entry.repoPath !== item.repoPath)].slice(0, 8);
 }
-

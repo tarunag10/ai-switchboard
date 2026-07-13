@@ -8,6 +8,7 @@ import {
   Graph,
   MagnifyingGlass,
   WarningCircle,
+  StopCircle,
 } from "@phosphor-icons/react";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -38,11 +39,11 @@ interface RepoMapViewProps {
 
 interface RepoMapGenerationEvent {
   repoPath: string;
-  phase: "started" | "running" | "finished" | "failed";
+  phase: "started" | "running" | "finished" | "failed" | "cancelled";
   stream: "status" | "stdout" | "stderr";
   message: string;
   toolId?: string;
-  toolStatus?: "ok" | "warning" | "not-run";
+  toolStatus?: "ok" | "warning" | "retrying" | "not-run";
   progressPercent?: number;
   completedTools?: number;
   totalTools?: number;
@@ -100,7 +101,11 @@ export function RepoMapView({
     RepoMapGenerationEvent[]
   >([]);
   const [liveToolRuns, setLiveToolRuns] = useState<
-    Record<string, { status: "ok" | "warning" | "not-run"; detail: string; remediation: null }>
+    Record<string, {
+      status: "ok" | "warning" | "retrying" | "not-run";
+      detail: string;
+      remediation: null;
+    }>
   >({});
   const [liveProgressEvidence, setLiveProgressEvidence] = useState<{
     percent: number;
@@ -109,6 +114,7 @@ export function RepoMapView({
     currentToolId: string | null;
   } | null>(null);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [openNotice, setOpenNotice] = useState<string | null>(null);
   const [history, setHistory] = useState<RepoMapHistoryItem[]>(() =>
@@ -257,6 +263,20 @@ export function RepoMapView({
       setGenerateError(normalizeRepoMapError(error));
     } finally {
       setGenerateBusy(false);
+    }
+  };
+
+  const cancelGeneration = async () => {
+    setCancelBusy(true);
+    try {
+      const cancelled = await repoMapTauriAdapter.cancel();
+      if (!cancelled) {
+        setCopyNotice("No Repo Map generation is currently running.");
+      }
+    } catch (error) {
+      setGenerateError(normalizeRepoMapError(error));
+    } finally {
+      setCancelBusy(false);
     }
   };
 
@@ -466,6 +486,27 @@ export function RepoMapView({
           />
           {generateBusy ? "Generating map..." : "Generate repo map"}
         </button>
+        {generateBusy ? (
+          <button
+            className="secondary-button"
+            disabled={cancelBusy}
+            onClick={() => void cancelGeneration()}
+            type="button"
+          >
+            <StopCircle size={15} weight="bold" />
+            {cancelBusy ? "Cancelling..." : "Cancel"}
+          </button>
+        ) : null}
+        {generateError && !generateBusy ? (
+          <button
+            className="secondary-button"
+            onClick={() => void runGeneration()}
+            type="button"
+          >
+            <ArrowClockwise size={15} weight="bold" />
+            Retry generation
+          </button>
+        ) : null}
         <button className="secondary-button" onClick={copyCompactContext} type="button">
           <Copy size={15} weight="bold" />
           Copy compact context
