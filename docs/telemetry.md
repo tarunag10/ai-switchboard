@@ -39,9 +39,16 @@ Message dumps are redacted before display/export for:
 Redaction should happen before a message payload reaches UI rendering,
 clipboard export, analytics, or Sentry.
 
+Remote diagnostics are metadata-only. Analytics drops raw message/prompt,
+request/response body, header, and credential fields, bounds string metadata,
+and caps each event's property count. Sentry receives category-only errors;
+the global Sentry boundary also removes stacks, breadcrumbs, request data, and
+user context. Local installer and update details remain in the local UI and
+are never sent as exception messages.
+
 ## Purge
 
 Use the `purge_message_logs` command to remove persisted Activity feed facts
-that may contain historical message payloads. After disabling full message
-logging, restart the runtime so the proxy is relaunched without raw message
-capture.
+and app-owned `headroom-*.log` files that may contain historical message
+payloads. After disabling full message logging, restart the runtime so the
+proxy is relaunched without raw message capture.

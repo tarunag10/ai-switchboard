@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/react";
 
 import { describeInvokeError } from "./appHelpers";
 import { hasTauriEventRuntime } from "./tauriRuntime";
+import { safeTelemetryError } from "./telemetryRedaction";
 import type { AppUpdateConfiguration, AvailableAppUpdate } from "./types";
 
 export type AppUpdateInvoker = <T>(
@@ -99,7 +100,9 @@ export async function runAppUpdateCheck({
     };
   } catch (error) {
     if (background) {
-      Sentry.captureException(error, { tags: { flow: "app_update_check" } });
+      Sentry.captureException(safeTelemetryError("app_update_check_failed"), {
+        tags: { flow: "app_update_check" },
+      });
       return {};
     }
     return {
@@ -217,7 +220,9 @@ export async function runAppUpdateInstall({
         onProgress(event.payload);
       });
     } catch (error) {
-      Sentry.captureException(error, { tags: { flow: "app_update_progress_listen" } });
+      Sentry.captureException(safeTelemetryError("app_update_progress_listen_failed"), {
+        tags: { flow: "app_update_progress_listen" },
+      });
     }
   }
 
@@ -229,7 +234,9 @@ export async function runAppUpdateInstall({
       statusCopy: `AI Switchboard for Mac ${availableUpdate.version} is installed and ready to restart.`,
     };
   } catch (error) {
-    Sentry.captureException(error, { tags: { flow: "app_update_install" } });
+    Sentry.captureException(safeTelemetryError("app_update_install_failed"), {
+      tags: { flow: "app_update_install" },
+    });
     return {
       statusCopy: describeInvokeError(error, "Could not install the update."),
     };

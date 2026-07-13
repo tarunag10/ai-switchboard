@@ -13,10 +13,14 @@ use serde_json::{json, Map, Value};
 use tauri::{webview_version, AppHandle, Manager};
 
 use crate::local_mode;
+use crate::message_logging;
 
 const HEADROOM_APTABASE_APP_KEY: Option<&str> = option_env!("HEADROOM_APTABASE_APP_KEY");
 const SESSION_TIMEOUT_SECS: i64 = 4 * 60 * 60;
 const HTTP_REQUEST_TIMEOUT_SECS: u64 = 10;
+const MAX_PROPERTY_COUNT: usize = 32;
+const MAX_PROPERTY_STRING_LEN: usize = 160;
+const MAX_EVENT_NAME_LEN: usize = 80;
 #[cfg(debug_assertions)]
 const DEFAULT_FLUSH_INTERVAL_SECS: u64 = 2;
 #[cfg(not(debug_assertions))]
@@ -325,7 +329,11 @@ fn flush_queue(client: &Client, config: &AnalyticsConfig, queue: &mut VecDeque<V
 }
 
 fn normalize_event_name(name: &str) -> String {
-    name.trim().to_ascii_lowercase()
+    name.trim()
+        .to_ascii_lowercase()
+        .chars()
+        .take(MAX_EVENT_NAME_LEN)
+        .collect()
 }
 
 fn non_empty_string(value: String) -> Option<String> {
@@ -343,9 +351,9 @@ fn sanitize_properties(properties: Option<Value>) -> Option<Value> {
     };
 
     let mut sanitized = Map::new();
-    for (key, value) in object {
+    for (key, value) in object.into_iter().take(MAX_PROPERTY_COUNT) {
         let normalized_key = key.trim();
-        if normalized_key.is_empty() {
+        if normalized_key.is_empty() || is_raw_message_field(normalized_key) {
             continue;
         }
 
@@ -365,17 +373,48 @@ fn sanitize_properties(properties: Option<Value>) -> Option<Value> {
 fn sanitize_value(value: Value) -> Option<Value> {
     match value {
         Value::String(text) => {
-            let trimmed = text.trim();
+            let trimmed = message_logging::redact_text(text.trim());
             if trimmed.is_empty() {
                 None
             } else {
-                Some(Value::String(trimmed.to_string()))
+                let bounded: String = trimmed.chars().take(MAX_PROPERTY_STRING_LEN).collect();
+                Some(Value::String(bounded))
             }
         }
         Value::Number(number) => Some(Value::Number(number)),
         Value::Bool(flag) => Some(Value::String(if flag { "true" } else { "false" }.into())),
         Value::Null | Value::Array(_) | Value::Object(_) => None,
     }
+}
+
+/// Analytics is metadata-only. Drop fields that could carry prompts, message
+/// bodies, request/response payloads, or credentials instead of trying to
+/// scrub arbitrary content after it has entered the event object.
+fn is_raw_message_field(key: &str) -> bool {
+    let normalized = key.trim().to_ascii_lowercase().replace('-', "_");
+    matches!(
+        normalized.as_str(),
+        "message"
+            | "messages"
+            | "prompt"
+            | "prompts"
+            | "content"
+            | "request_body"
+            | "response_body"
+            | "request_payload"
+            | "response_payload"
+            | "body"
+            | "headers"
+            | "authorization"
+            | "api_key"
+            | "apikey"
+            | "access_token"
+            | "refresh_token"
+            | "secret"
+            | "secrets"
+            | "token"
+            | "tokens_raw"
+    )
 }
 
 fn system_properties() -> SystemProperties {
@@ -427,7 +466,7 @@ fn new_session_id() -> String {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
+    use serde_json::{json, Value};
     use serial_test::serial;
 
     use super::{new_session_id, sanitize_properties, AnalyticsConfig};
@@ -458,6 +497,30 @@ mod tests {
     fn sanitize_properties_discards_empty_payloads() {
         assert!(sanitize_properties(Some(json!({ "empty": "   " }))).is_none());
         assert!(sanitize_properties(Some(json!(["not", "an", "object"]))).is_none());
+    }
+
+    #[test]
+    fn sanitize_properties_drops_raw_message_fields_and_bounds_metadata() {
+        let long = "x".repeat(200);
+        let properties = sanitize_properties(Some(json!({
+            "prompt": "do not send this",
+            "request_body": {"messages": ["secret prompt"]},
+            "api_key": "sk-ant-test",
+            "label": format!("Authorization: Bearer abcdefghijklmnop {long}"),
+            "count": 4
+        })))
+        .expect("safe metadata should remain");
+
+        assert_eq!(properties.get("prompt"), None);
+        assert_eq!(properties.get("request_body"), None);
+        assert_eq!(properties.get("api_key"), None);
+        assert_eq!(properties.get("count"), Some(&json!(4)));
+        let label = properties
+            .get("label")
+            .and_then(Value::as_str)
+            .expect("bounded label");
+        assert!(label.len() <= super::MAX_PROPERTY_STRING_LEN);
+        assert!(!label.contains("abcdefghijklmnop"));
     }
 
     #[test]

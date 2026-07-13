@@ -1574,7 +1574,10 @@ impl AppState {
     pub fn purge_message_logs(&self) -> crate::models::PurgeResult {
         let mut facts = self.activity_facts.lock();
         facts.reset_for_message_log_purge();
-        crate::message_logging::purge_message_logs(facts.path())
+        crate::message_logging::purge_message_logs_with_runtime_logs(
+            facts.path(),
+            Some(&self.tool_manager.logs_dir()),
+        )
     }
 
     pub fn savings_attribution_events(&self) -> Vec<SavingsAttributionEvent> {

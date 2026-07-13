@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/react";
 import Clarity from "@microsoft/clarity";
 import App from "./App";
 import { remoteTelemetryEnabled } from "./lib/localMode";
+import { sanitizeSentryEvent } from "./lib/telemetryRedaction";
 import "./styles.css";
 import "./switchboard-theme.css";
 
@@ -25,6 +26,11 @@ if (telemetryEnabled && import.meta.env.VITE_SENTRY_DSN) {
     dsn: import.meta.env.VITE_SENTRY_DSN,
     integrations: [Sentry.browserTracingIntegration()],
     tracesSampleRate: 0.1,
+    // ErrorBoundary and browser integrations can observe errors outside the
+    // explicit category-only capture helpers. Strip raw messages, stacks,
+    // breadcrumbs, request data, and user context before the event leaves the
+    // process.
+    beforeSend: sanitizeSentryEvent,
   });
 }
 

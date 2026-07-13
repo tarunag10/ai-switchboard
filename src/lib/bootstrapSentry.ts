@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/react";
 
 import { describeInvokeError } from "./appHelpers";
 import { remoteTelemetryEnabled } from "./localMode";
+import { safeTelemetryContext, safeTelemetryError } from "./telemetryRedaction";
 import type { BootstrapProgress } from "./types";
 
 export type BootstrapFailurePhase =
@@ -79,8 +80,10 @@ export function reportBootstrapFailure(report: BootstrapFailureReport, cause?: u
     return;
   }
 
-  const error = new Error(report.message);
-  error.name = "BootstrapFailedError";
+  // Keep the original detail in the local UI report only. Remote diagnostics
+  // receive a bounded category and scrubbed step metadata, never a raw
+  // installer/proxy message that could contain paths, URLs, or payload text.
+  const error = safeTelemetryError(`bootstrap_failed:${report.phase}`);
 
   Sentry.withScope((scope) => {
     scope.setLevel("error");
@@ -89,13 +92,19 @@ export function reportBootstrapFailure(report: BootstrapFailureReport, cause?: u
     scope.setTag("bootstrap_source", report.source);
     scope.setFingerprint(["bootstrap_failed", report.phase, report.source]);
     scope.setContext("bootstrap", {
-      currentStep: report.currentStep,
+      currentStep: safeTelemetryContext(report.currentStep, "install_failed"),
       overallPercent: report.overallPercent,
       currentStepEtaSeconds: report.currentStepEtaSeconds,
     });
 
     if (cause !== undefined) {
-      scope.setExtra("cause", describeInvokeError(cause, report.message));
+      scope.setExtra(
+        "cause",
+        safeTelemetryContext(
+          cause instanceof Error ? cause.name : typeof cause,
+          "bootstrap_error"
+        )
+      );
     }
 
     Sentry.captureException(error);

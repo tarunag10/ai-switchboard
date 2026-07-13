@@ -19,6 +19,9 @@ pub fn save_settings(settings: &MessageLoggingSettings) -> Result<MessageLogging
 }
 
 pub fn full_message_logging_active() -> bool {
+    // Test-only override keeps command-line argument coverage deterministic
+    // without allowing a production environment variable to bypass expiry.
+    #[cfg(test)]
     if std::env::var("HEADROOM_FULL_MESSAGE_LOGGING")
         .map(|value| matches!(value.as_str(), "1" | "true" | "yes"))
         .unwrap_or(false)
@@ -29,7 +32,18 @@ pub fn full_message_logging_active() -> bool {
 }
 
 pub fn purge_message_logs(activity_facts_path: &Path) -> PurgeResult {
+    purge_message_logs_with_runtime_logs(activity_facts_path, None)
+}
+
+/// Purge persisted activity facts and app-owned proxy logs that may have been
+/// written while full message logging was explicitly enabled. The optional
+/// runtime directory keeps the CLI's historical one-argument API intact.
+pub fn purge_message_logs_with_runtime_logs(
+    activity_facts_path: &Path,
+    runtime_logs_dir: Option<&Path>,
+) -> PurgeResult {
     let mut removed_paths = Vec::new();
+    let mut notes = Vec::new();
     if activity_facts_path.exists() {
         match std::fs::remove_file(activity_facts_path) {
             Ok(()) => removed_paths.push(activity_facts_path.display().to_string()),
@@ -45,14 +59,43 @@ pub fn purge_message_logs(activity_facts_path: &Path) -> PurgeResult {
             }
         }
     }
+
+    if let Some(logs_dir) = runtime_logs_dir {
+        match std::fs::read_dir(logs_dir) {
+            Ok(entries) => {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if !name.starts_with("headroom-") || !name.ends_with(".log") {
+                        continue;
+                    }
+                    match std::fs::remove_file(&path) {
+                        Ok(()) => removed_paths.push(path.display().to_string()),
+                        Err(error) => notes.push(format!(
+                            "Failed to remove {}: {error}",
+                            path.display()
+                        )),
+                    }
+                }
+            }
+            Err(error) => notes.push(format!(
+                "Could not inspect runtime logs at {}: {error}",
+                logs_dir.display()
+            )),
+        }
+    }
+
+    let mut result_notes = vec![
+        "Persisted Activity feed facts were reset.".to_string(),
+        "App-owned proxy logs were removed when a runtime log directory was provided.".to_string(),
+        "Live proxy memory is not changed; restart the runtime after disabling full message logging."
+            .to_string(),
+    ];
+    result_notes.extend(notes);
     PurgeResult {
         purged: true,
         removed_paths,
-        notes: vec![
-            "Persisted Activity feed facts were reset.".to_string(),
-            "Live proxy memory is not changed; restart the runtime after disabling full message logging."
-                .to_string(),
-        ],
+        notes: result_notes,
     }
 }
 
@@ -266,5 +309,25 @@ mod tests {
         assert!(!redacted.contains("abcdefghijklmnop"));
         assert!(!redacted.contains("AuthKey_123.p8"));
         assert!(redacted.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn purge_removes_activity_facts_and_app_owned_proxy_logs() {
+        let temp = TempDir::new().unwrap();
+        let activity = temp.path().join("activity-facts.json");
+        let logs = temp.path().join("logs");
+        std::fs::create_dir_all(&logs).unwrap();
+        std::fs::write(&activity, b"raw activity").unwrap();
+        std::fs::write(logs.join("headroom-proxy.log"), b"raw prompt").unwrap();
+        std::fs::write(logs.join("headroom-learn.log"), b"diagnostic").unwrap();
+        std::fs::write(logs.join("other.log"), b"keep").unwrap();
+
+        let result = purge_message_logs_with_runtime_logs(&activity, Some(&logs));
+
+        assert!(result.purged);
+        assert!(!activity.exists());
+        assert!(!logs.join("headroom-proxy.log").exists());
+        assert!(!logs.join("headroom-learn.log").exists());
+        assert!(logs.join("other.log").exists());
     }
 }

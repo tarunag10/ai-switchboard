@@ -120,8 +120,8 @@ describe("reportBootstrapFailure", () => {
     expect(Sentry.captureException).toHaveBeenCalledOnce();
     const err = vi.mocked(Sentry.captureException).mock.calls[0][0] as Error;
     expect(err).toBeInstanceOf(Error);
-    expect(err.name).toBe("BootstrapFailedError");
-    expect(err.message).toBe("Installation failed: disk full");
+    expect(err.name).toBe("SwitchboardTelemetryError");
+    expect(err.message).toBe("bootstrap_failed:install_runtime");
   });
 
   it("does not report bootstrap failures in local-only mode", () => {
