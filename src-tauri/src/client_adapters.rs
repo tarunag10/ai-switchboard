@@ -5031,7 +5031,7 @@ mod tests {
         }));
         assert!(connectors.iter().any(|connector| {
             connector.client_id == "grok_cli"
-                && connector.support_status == ClientConnectorSupportStatus::Planned
+                && connector.support_status == ClientConnectorSupportStatus::Managed
                 && connector.installed
                 && connector
                     .detection_evidence
