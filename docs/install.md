@@ -114,7 +114,14 @@ data, managed shell/config blocks, managed backups, and Switchboard-owned
 Keychain service metadata. See [Recovery and Uninstall](recovery.md) for the
 full cleanup boundary.
 
-Connector support is intentionally explicit: Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI have managed setup/verify/repair coverage for routing, and Goose has managed setup/verify/repair coverage for the read-only Repo Memory MCP bridge. Cursor has guided settings discovery plus dry-run target/marker preview while native/provider writes stay blocked. Aider, Continue, Qwen Code, Amazon Q Developer CLI, and Grok / xAI CLI rely on guided or detected workflows unless [Connector Support](connectors.md) says a lifecycle is managed.
+Connector support is intentionally explicit: Claude Code, Codex, Gemini CLI,
+OpenCode, Windsurf, Zed AI, Goose's allowlisted endpoint fields, and Grok/xAI's
+documented endpoint have managed setup/verify/repair coverage for their proven
+routing surfaces. Goose also has managed setup/verify/repair coverage for the
+read-only Repo Memory MCP bridge. Cursor has guided settings discovery plus
+dry-run target/marker preview while native/provider writes stay blocked. Aider,
+Continue, Qwen Code, and Amazon Q Developer CLI retain managed sidecars while
+their native provider state remains manual.
 
 For oversized Codex payload failures such as `413 Payload Too Large`, see [Codex Compression Troubleshooting](codex-compression-troubleshooting.md).
 

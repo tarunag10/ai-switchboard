@@ -13,6 +13,9 @@
 - Reconciled connector architecture, install, and roadmap references so
   Goose's allowlisted endpoint fields and Grok/xAI's documented endpoint are
   not incorrectly described as MCP-only or gated; Cursor remains schema-gated.
+- Corrected the remaining install support paragraph so managed sidecars and
+  promoted native routing surfaces are described separately from gated Cursor
+  provider writes.
 - Reconciled progressive-disclosure and architecture documentation with the
   shipped UI and Repo Intelligence evidence: all seven disclosure slices are
   marked complete with source/test references, connector technical evidence is
