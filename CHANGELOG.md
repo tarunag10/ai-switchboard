@@ -18,6 +18,8 @@
   provider writes.
 - Updated the Agent Control Center plan with the native-write readiness
   contract and corrected its implementation-module reference.
+- Refreshed the plan-status ledger with the governed gateway lifecycle and
+  the separate native-versus-sidecar connector readiness boundary.
 - Reconciled progressive-disclosure and architecture documentation with the
   shipped UI and Repo Intelligence evidence: all seven disclosure slices are
   marked complete with source/test references, connector technical evidence is

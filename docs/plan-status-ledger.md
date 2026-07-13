@@ -52,6 +52,11 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - Add-on measurement guardrails are complete: measured savings require an independent, complete before/after evidence pair; missing or invalid evidence remains explicitly estimated.
 - Progressive-disclosure/accessibility completion is recorded for technical evidence, stable disclosure IDs, and explicit connector setup actions.
 - Gateway readiness is complete for the local slice: redacted previews, reversible intent receipts, Doctor evidence, and opt-in loopback LiteLLM preflight are available without credentials or network writes.
+- Gateway profiles now carry a governed seven-stage lifecycle contract, and
+  connector readiness separately reports promoted native provider/editor
+  writes versus Switchboard-owned sidecars. Goose's allowlisted endpoint
+  fields and Grok/xAI's documented endpoint are promoted; Cursor and the
+  remaining provider schemas stay gated.
 - Reboot-proof automation is complete for the local workflow: arm, record, and check commands require a real post-reboot marker and cannot fabricate installed-app proof.
 
 ## Left
