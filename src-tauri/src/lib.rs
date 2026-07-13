@@ -733,6 +733,7 @@ pub fn run() {
             repo_intelligence_commands::get_repo_manifest,
             repo_map::preflight_repo_map,
             repo_map::generate_repo_map,
+            repo_map::cancel_repo_map_generation,
             repo_map::open_repo_map_artifact,
             repo_intelligence_commands::get_repo_pack,
             repo_intelligence_commands::get_agent_handoff,
