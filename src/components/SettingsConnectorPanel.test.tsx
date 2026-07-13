@@ -31,18 +31,21 @@ const codexConnector: ClientConnectorStatus = {
   lastConfiguredAt: null,
 };
 
-function renderPanel(overrides: Partial<ClientConnectorStatus> = {}) {
+function renderPanel(
+  overrides: Partial<ClientConnectorStatus> = {},
+  openConnectorHelpId: string | null = null,
+) {
   const toggleConnector = vi.fn().mockResolvedValue(undefined);
   const copyPlannedConnectorCommand = vi.fn().mockResolvedValue(undefined);
   const setOpenConnectorHelpId = vi.fn();
 
-  const { container } = render(
+  const { container, unmount } = render(
     <SettingsConnectorPanel
       connectors={[{ ...codexConnector, ...overrides }]}
       connectorsBusy={false}
       connectorsError={null}
       copyPlannedConnectorCommand={copyPlannedConnectorCommand}
-      openConnectorHelpId={null}
+      openConnectorHelpId={openConnectorHelpId}
       plannedConnectorCopyNotice={null}
       plannedConnectorReadiness={readiness}
       setOpenConnectorHelpId={setOpenConnectorHelpId}
@@ -52,6 +55,7 @@ function renderPanel(overrides: Partial<ClientConnectorStatus> = {}) {
 
   return {
     container,
+    unmount,
     copyPlannedConnectorCommand,
     setOpenConnectorHelpId,
     toggleConnector,
@@ -93,6 +97,31 @@ describe("SettingsConnectorPanel", () => {
       expect.objectContaining({ clientId: "codex" }),
       true
     );
+  });
+
+  it("keeps technical connector evidence behind setup-details disclosure", () => {
+    const { unmount } = renderPanel();
+
+    expect(
+      screen.getByRole("button", {
+        name: "Show setup details for Codex",
+      }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByText(/Headroom writes a managed provider block/i),
+    ).not.toBeInTheDocument();
+
+    unmount();
+    renderPanel({}, "codex");
+
+    expect(
+      screen.getByRole("button", {
+        name: "Hide setup details for Codex",
+      }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByText(/Headroom writes a managed provider block/i),
+    ).toBeInTheDocument();
   });
 
   it("disables connector toggles while connector state is busy", () => {

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Reconciled progressive-disclosure and architecture documentation with the
+  shipped UI and Repo Intelligence evidence: all seven disclosure slices are
+  marked complete with source/test references, connector technical evidence is
+  verified as collapsed by default, and architecture docs now describe the
+  persistent fingerprint/parser cache plus app-session Repo Memory MCP
+  supervision without claiming whole-program graph resolution or reboot proof.
 - Added truthful RTK command-family persistence: Switchboard reads RTK's local history database read-only, retains only sanitized first-token families, aggregates weighted input/output/saved tokens and timing, and surfaces latest-observation evidence in the RTK Addons card. Command arguments, project paths, and credentials never enter the dashboard or exports.
 - Deepened Repo Intelligence to `path-graph-v10`: static imported-alias and namespace-member call resolution now covers TypeScript/JavaScript/React, Python, and Rust with fixture-backed symbol edges. Repo Map now supports app-owned cancellation, overlap protection, explicit UI retry, and opt-in bounded CLI retries without mutating indexed repositories.
 - Rebranded native desktop UI, provider-config descriptions, startup/recovery errors, Doctor guidance, watchdog notices, pricing copy, managed connector text, and uninstall confirmations to AI Switchboard. Preserved legacy application-support/log, bundle, keychain, updater, and compatibility identifiers, with existing rollback/cleanup fixtures continuing to cover those paths.

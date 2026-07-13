@@ -40,7 +40,7 @@ Detailed evidence, file paths, config plans, backup/rollback notes, and provider
 
 ### Slice 1: Connector Rows Action First
 
-Status: in progress.
+Status: complete (2026-07-13).
 
 Scope:
 
@@ -55,7 +55,14 @@ Validation:
 - `npm run check:connectors`
 - `npm run check:deployment`
 
+Evidence: `SettingsConnectorPanel` renders an explicit Enable/Disable/Manual
+setup action beside each connector, keeps the switch as an equivalent control,
+and exposes an accessible setup-details button with a stable `aria-controls`
+target. Covered by `src/components/SettingsConnectorPanel.test.tsx`.
+
 ### Slice 2: Connector Details Collapse
+
+Status: complete (2026-07-13).
 
 Scope:
 
@@ -72,7 +79,16 @@ Acceptance:
 - Cursor/Grok/Amazon Q rows no longer show config paths or safety-check paragraphs by default.
 - Managed connectors still show an obvious `Enable` or `Repair` action.
 
+Evidence: Settings connector rows render only status, setup mode, and actions by
+default. Compatibility reports, config gates, backend checks, readiness stages,
+capabilities, and setup commands render only after the per-row details control
+is expanded. The collapsed/expanded contract is covered by
+`src/components/SettingsConnectorPanel.test.tsx` and the connector helper
+tests.
+
 ### Slice 3: Doctor Action-First
+
+Status: complete (2026-07-13).
 
 Scope:
 
@@ -85,7 +101,14 @@ Acceptance:
 - Doctor first screen shows only issue title, severity, action, and short guidance.
 - Evidence/details are one click away.
 
+Evidence: `SwitchboardDoctorPanel` keeps repair, Verify Off, and approval
+actions in the primary triage view while retagging and connector dossiers use
+accessible details controls. Doctor UI/manual tests cover the collapsed state,
+action grouping, and expansion behavior.
+
 ### Slice 4: Home Mode Inspector
+
+Status: complete (2026-07-13).
 
 Scope:
 
@@ -97,7 +120,14 @@ Acceptance:
 
 - Home is usable without reading backend/runtime internals.
 
+Evidence: `SwitchboardPanel` shows mode status and repair actions first; port,
+shell-hook, stale-env, remote-service, and row evidence are behind the Mode
+Inspector Details control (`aria-expanded`/`aria-controls`). Covered by
+`src/components/SwitchboardPanel.test.tsx`.
+
 ### Slice 5: Addons
+
+Status: complete (2026-07-13).
 
 Scope:
 
@@ -108,7 +138,14 @@ Acceptance:
 
 - Addons list scans as local tools with status and action, not a diagnostic report.
 
+Evidence: Addon cards keep Install/Enable/Disable/Uninstall visible while
+descriptions, RTK activity, readiness, and planned-addon evidence use info or
+Learn more disclosures. `AddonCard`, `PlannedAddonCard`, and measured-savings
+tests cover the action-first contract.
+
 ### Slice 6: Repo Intelligence
+
+Status: complete (2026-07-13).
 
 Scope:
 
@@ -120,7 +157,14 @@ Acceptance:
 
 - Repo Intelligence first view shows “index/copy/use” workflow before graph internals.
 
+Evidence: `RepoIntelligencePreview` keeps Index, copy, clear, session, and pack
+actions visible; verification/mode reasoning and graph diagnostics are hidden
+until Details/Learn more controls are expanded. `RepoIntelligencePreview.test.tsx`
+and `RepoMapView.test.tsx` assert the collapsed ARIA state and expansion.
+
 ### Slice 7: Usage And Savings
+
+Status: complete (2026-07-13).
 
 Scope:
 
@@ -130,6 +174,11 @@ Scope:
 Acceptance:
 
 - Usage explains savings at a glance; methodology is available through `Details`.
+
+Evidence: `SavingsCalculatorCard` keeps scope, totals, equation, and copy
+visible while source breakdown, confidence, ledger, and anomaly methodology
+stay behind the Source details disclosure. `OptimizationView.test.tsx` and
+savings calculator tests cover the action-first and copy contracts.
 
 ## Audit Findings
 
