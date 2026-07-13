@@ -71,7 +71,13 @@ See [macOS release docs](macos-release.md) for required secrets and release work
 
 For read-only agent context sharing, see [Repo Memory MCP](repo-memory-mcp.md). It explains the Mode Inspector install action, `npm run check:repo-memory-mcp`, and how supported coding agents should consume bounded Repo Intelligence packs without mutating repos or connector config.
 
-For per-tool support status, see [Connector Support](connectors.md). Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI are managed routing targets; Goose has a managed read-only Repo Memory MCP bridge; other tools stay guided, detected, or gated until their reversible lifecycle is fully proven.
+For per-tool support status, see [Connector Support](connectors.md). Claude
+Code, Codex, Gemini CLI, OpenCode, Windsurf, Zed AI, Goose's allowlisted
+endpoint fields, and Grok/xAI's documented endpoint are managed routing
+targets; Goose also has a managed read-only Repo Memory MCP bridge. Aider,
+Continue, Qwen Code, and Amazon Q remain managed sidecars with native provider
+state manual, while Cursor stays schema-gated until its reversible native
+lifecycle is fully proven.
 
 ## Shareable Build Checklist
 

@@ -19,7 +19,11 @@ Created / updated:
 - Doctor repair and Rollback Center local evidence are schema-versioned and checked as local-only/non-release proof.
 - Local uninstall evidence is schema-versioned, checked as non-destructive local proof, and wired into aggregate/release-readiness validation.
 - Local-only network evidence is schema-versioned, checked as app-owned remote-call blocked local proof, and wired into aggregate/release-readiness validation.
-- Connector readiness documents promoted routing for Gemini/OpenCode/Windsurf/Zed, Goose read-only Memory MCP bridge, managed sidecar lifecycles for Aider/Continue/Qwen Code/Amazon Q, and gated native/provider proof for Cursor and Grok/xAI CLI.
+- Connector readiness documents promoted routing for Gemini/OpenCode/Windsurf/Zed,
+  Goose's allowlisted native endpoint fields plus read-only Memory MCP bridge,
+  Grok/xAI's documented endpoint, managed sidecar lifecycles for
+  Aider/Continue/Qwen Code/Amazon Q, and gated native/provider proof for
+  Cursor.
 - Local connector readiness proof is schema-tagged and now checks local-only/non-release status, native-write readiness semantics, successful connector scan status, and full shared lifecycle stage coverage.
 - Release truth reconciliation now records live GitHub release `v0.0.0`, the signed/notarized Apple Silicon DMG, public checksum, signed updater bundle, updater signature, reachable `latest.json`, static smoke, installed-app trust checks for `/Applications/AI Switchboard for Mac.app`, and local uninstall dry-run proof while keeping public installed smoke and reboot-level proof blocked.
 - Amazon Q Developer CLI has been promoted to a managed Switchboard-owned sidecar lifecycle with Doctor repair, rollback, and Off cleanup tests while AWS account/provider/workspace state remains manual.

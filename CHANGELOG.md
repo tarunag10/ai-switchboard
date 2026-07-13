@@ -10,6 +10,9 @@
   Connector cards and readiness payloads now identify the promoted native
   surfaces (including Goose's allowlisted endpoint fields) and keep Aider,
   Continue, Qwen Code, Amazon Q, and Cursor native writes manual or gated.
+- Reconciled connector architecture, install, and roadmap references so
+  Goose's allowlisted endpoint fields and Grok/xAI's documented endpoint are
+  not incorrectly described as MCP-only or gated; Cursor remains schema-gated.
 - Reconciled progressive-disclosure and architecture documentation with the
   shipped UI and Repo Intelligence evidence: all seven disclosure slices are
   marked complete with source/test references, connector technical evidence is

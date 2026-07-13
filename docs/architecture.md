@@ -35,7 +35,15 @@ Managed connectors are intentionally split into three layers:
 - Frontend contract data in `src/lib/plannedConnectors.ts` explains setup phase, safe modes, readiness stages, automation gates, safety badges, native config gate state, and rollback strategy.
 - Doctor and Settings render those contracts as manual evidence until a connector has dry-run diff, backup, apply, verify, rollback, and Off cleanup coverage.
 
-Gemini CLI, OpenCode, Windsurf, and Zed AI are the promoted native-routing surfaces beyond Claude Code and Codex. Gemini has managed shell base-url env routing, OpenCode has provider config routing, and Windsurf/Zed have editor settings routing, all behind the shared lifecycle. Goose is promoted only for the app-managed read-only Repo Memory MCP bridge. Remaining gated connectors stay manual while provider/editor native config mutation waits for model/account compatibility, fixture-home restore tests, Doctor verification, rollback, and Off cleanup.
+Gemini CLI, OpenCode, Windsurf, Zed AI, Goose's allowlisted endpoint fields,
+and Grok/xAI's documented `models_base_url` are the promoted native-routing
+surfaces beyond Claude Code and Codex. Gemini has managed shell base-url env
+routing, OpenCode has provider config routing, Windsurf/Zed have editor
+settings routing, and Goose also carries a read-only Repo Memory MCP bridge;
+all are behind the shared lifecycle. Remaining gated connectors stay manual
+while provider/editor native config mutation waits for model/account
+compatibility, fixture-home restore tests, Doctor verification, rollback, and
+Off cleanup.
 
 ## Repo Intelligence
 
