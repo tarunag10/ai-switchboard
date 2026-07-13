@@ -402,6 +402,7 @@ const plannedConnectorConfigGateSteps = [
 const promotedManagedConfigConnectorIds = new Set([
   "gemini_cli",
   "opencode",
+  "grok_cli",
   "windsurf",
   "zed_ai",
 ]);
@@ -437,11 +438,11 @@ const plannedConnectorDossiers = {
   grok_cli: {
     name: "Grok / xAI CLI",
     configPathStrategy:
-      "Detect PATH: grok or PATH: xai and avoid guessing hidden provider files.",
+      "Use the documented ~/.grok/config.toml [endpoints] surface while retaining PATH: grok or PATH: xai detection.",
     accountCaveat:
-      "Unsupported model/account combinations require Doctor guardrails before setup is offered.",
+      "XAI_API_KEY/login, account state, and model selection remain user-owned; Switchboard manages only models_base_url.",
     rollbackStrategy:
-      "Remove managed shell routing and leave API key/account state outside app storage.",
+      "Restore the ~/.grok/config.toml sibling backup and remove only the managed endpoint marker.",
   },
   aider: {
     name: "Aider",

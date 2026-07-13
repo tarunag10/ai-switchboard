@@ -25,8 +25,8 @@ pub(crate) fn sidecar_rollback_target(record_id: &str) -> Option<SidecarRollback
             owner: "Cursor routing",
             marker: "headroom:cursor",
         }),
-        "grok-routing" => Some(SidecarRollbackTarget {
-            record_id: "grok-routing",
+        "grok-sidecar-routing" => Some(SidecarRollbackTarget {
+            record_id: "grok-sidecar-routing",
             client_id: "grok_cli",
             owner: "Grok / xAI CLI routing",
             marker: "headroom:grok_cli",

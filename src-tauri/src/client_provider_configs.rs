@@ -468,6 +468,18 @@ fn grok_managed_block_present(raw: &str) -> bool {
     raw.contains(&grok_marker_start()) && raw.contains(&grok_marker_end())
 }
 
+fn grok_managed_block_contains_endpoint(raw: &str) -> bool {
+    let start_marker = grok_marker_start();
+    let end_marker = grok_marker_end();
+    let Some(start) = raw.find(&start_marker) else {
+        return false;
+    };
+    let Some(end_relative) = raw[start..].find(&end_marker) else {
+        return false;
+    };
+    raw[start..start + end_relative].contains(&grok_endpoint_line())
+}
+
 /// Insert or update the single allowlisted endpoint field while leaving all
 /// unrelated TOML bytes untouched. Existing non-Switchboard endpoint values
 /// are refused rather than overwritten.
@@ -483,7 +495,7 @@ pub(super) fn grok_next_provider_config() -> Result<(String, bool)> {
     let end_marker = grok_marker_end();
     let endpoint_line = grok_endpoint_line();
     if grok_managed_block_present(&raw) {
-        if raw.contains(&endpoint_line) {
+        if grok_managed_block_contains_endpoint(&raw) {
             return Ok((raw, false));
         }
         return Err(anyhow!(
@@ -569,7 +581,7 @@ pub(super) fn grok_provider_config_matches() -> Result<bool> {
     }
     let raw =
         std::fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
-    Ok(grok_managed_block_present(&raw) && raw.contains(&grok_endpoint_line()))
+    Ok(grok_managed_block_contains_endpoint(&raw))
 }
 
 pub(super) fn remove_grok_provider_config() -> Result<Vec<String>> {

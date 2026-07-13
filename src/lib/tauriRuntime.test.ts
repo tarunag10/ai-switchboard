@@ -25,13 +25,23 @@ describe("tauriRuntime", () => {
     expect(hasTauriEventRuntime()).toBe(false);
   });
 
-  it("separates window APIs from event listener support", () => {
+  it("requires window metadata before using window APIs", () => {
     setTauriInternals({});
+
+    expect(hasTauriRuntime()).toBe(false);
+    expect(hasTauriEventRuntime()).toBe(false);
+
+    setTauriInternals({
+      metadata: { currentWindow: { label: "main" } },
+    });
 
     expect(hasTauriRuntime()).toBe(true);
     expect(hasTauriEventRuntime()).toBe(false);
 
-    setTauriInternals({ transformCallback: () => undefined });
+    setTauriInternals({
+      metadata: { currentWindow: { label: "main" } },
+      transformCallback: () => undefined,
+    });
 
     expect(hasTauriRuntime()).toBe(true);
     expect(hasTauriEventRuntime()).toBe(true);

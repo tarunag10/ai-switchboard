@@ -3,12 +3,14 @@
 ## Unreleased
 
 - Promoted Grok / xAI CLI native endpoint routing from sidecar-only to a documented, reversible adapter. Switchboard manages only `[endpoints].models_base_url` in `~/.grok/config.toml`, with fixture-home preview/apply/verify/rollback/Off cleanup and sibling backups; credentials, account state, API keys, and model selection remain manual.
+- Hardened the Vercel web-shell boundary: browser previews no longer treat an incomplete `__TAURI_INTERNALS__` object as a desktop runtime, and the repository now pins the Vite build contract (`npm ci`, `npm run build`, `dist`) with a SPA fallback and a `.vercelignore` that excludes native sources and local artifacts.
+- Reconnected the `mac-ai-switchboard` Vercel project to `tarunag10/ai-switchboard` and verified the root checkout with `vercel build`; a production deploy is currently blocked only by the account's Vercel free-tier API deployment quota, not by the application build.
 ### Plan completion and readiness (2026-07-12)
 
 - Closed the planned implementation slices for Agent Memory, Token X-Ray depth/live updates, incremental and graph-aware Repo Intelligence, supervised Repo Memory MCP, Cursor/Goose/Grok‑xAI sidecars, gateway readiness, add-on measurement guardrails, progressive disclosure, and reboot-proof automation.
 - Added gateway readiness receipts, redacted previews, reversible local intent, and opt-in loopback LiteLLM preflight without credentials, network writes, or provider configuration changes.
 - Added arm/record/check reboot-proof commands that require a real post-reboot marker and keep public installed-app evidence separate from local workflow scaffolding.
-- Kept remaining external gates explicit: true before/after add-on measurements, still-undocumented native provider routing schemas for Cursor/Goose, live gateway infrastructure, and public installed-app/reboot evidence.
+- Kept remaining external gates explicit: true before/after add-on measurements, the still-undocumented Cursor native provider schema, live gateway infrastructure, and public installed-app/reboot evidence. Goose and Grok/xAI endpoint adapters now have documented allowlists and fixture lifecycle proof.
 
 ### Live Token X-Ray and Daily AI Usage Briefing
 

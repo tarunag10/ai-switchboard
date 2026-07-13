@@ -53,7 +53,7 @@
     "id": "grok_cli",
     "name": "Grok / xAI CLI",
     "category": "cli",
-    "support_status": "planned",
+    "support_status": "managed",
     "detection": { "binaries": ["grok", "xai"], "paths": ["~/.config/xai"] },
     "config": { "locations": ["~/.grok/config.toml", "~/.config/xai"], "forbidden_reads": ["*token*", "*secret*", "auth.json", "*credential*", "*account*"] },
     "automation_gates": ["Detect the documented Grok Build config.toml surface before applying routing.", "Write only [endpoints].models_base_url to the Switchboard loopback proxy; preserve all provider, model, and account fields.", "Create a sibling backup and verify the managed endpoint marker before advertising native routing.", "Rollback restores the exact config backup and Off mode removes only the Switchboard-owned endpoint block.", "Keep XAI_API_KEY, auth.json, account state, and model selection outside managed app storage."],
@@ -85,9 +85,9 @@
     "category": "agent",
     "support_status": "managed",
     "detection": { "binaries": ["goose"], "paths": ["~/.config/goose"] },
-    "config": { "locations": ["~/Library/Application Support/Headroom/config/repo-memory-mcp.json", "~/.config/goose"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
-    "automation_gates": ["Detect Goose and install only the app-managed Repo Memory MCP bridge; native provider routing stays manual and unmodified.", "Back up and verify the managed MCP descriptor before Goose handoff.", "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata, never Goose provider credentials."],
-    "manual_workflow": ["Prepare Repo Memory MCP from Mode Inspector for Goose context handoff.", "Keep Goose provider and model routing manual.", "Use Doctor to verify, repair, rollback, or clean up only the managed MCP bridge."]
+    "config": { "locations": ["~/Library/Application Support/Block/goose/config.yaml", "~/.config/goose/config.yaml", "OpenAI/Anthropic endpoint fields", "~/Library/Application Support/Headroom/config/repo-memory-mcp.json", "~/.config/goose"], "forbidden_reads": ["*token*", "*secret*", "auth.json"] },
+    "automation_gates": ["Detect the documented Goose config.yaml provider surface without reading secrets.", "Write only allowlisted OpenAI/Anthropic endpoint fields and create a sibling backup before apply.", "Verify native endpoint fields and the managed Repo Memory MCP bridge descriptor before Goose handoff.", "Rollback and Off mode clean up only Switchboard-owned endpoint and MCP bridge metadata, never Goose credentials, account state, or model selection."],
+    "manual_workflow": ["Review the native config preview and prepare Repo Memory MCP from Mode Inspector for Goose context handoff.", "Keep Goose credentials, account state, and model selection configured manually.", "Use Doctor to verify, repair, rollback, or clean up only Switchboard-managed endpoint and MCP fields."]
   },
   {
     "id": "qwen_code",

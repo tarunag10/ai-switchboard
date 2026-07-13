@@ -180,6 +180,18 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     id: "grok-routing",
     kind: "client_config",
     owner: "Grok / xAI CLI routing",
+    text: "Managed Grok / xAI CLI native endpoint routing in ~/.grok/config.toml.",
+    paths: ["~/.grok/config.toml"],
+    markerId: "headroom:grok",
+    backupPath: "next to ~/.grok/config.toml as config.toml.headroom-backup-*",
+    lastVerifiedLabel: "Verified by Doctor connector checks",
+    rollback:
+      "Restore the managed Grok / xAI endpoint config from the selected sibling backup.",
+  },
+  {
+    id: "grok-sidecar-routing",
+    kind: "client_config",
+    owner: "Grok / xAI CLI routing sidecar",
     text: "Managed Grok / xAI CLI Switchboard sidecar dossier.",
     paths: ["~/.config/xai/mac-ai-switchboard-routing.md"],
     markerId: "headroom:grok_cli",

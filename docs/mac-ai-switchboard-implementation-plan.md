@@ -34,7 +34,7 @@ Off mode must remove routing hooks, provider overrides, shell blocks, RTK hooks,
 
 ### 4. Gated support must not be marketed as managed support
 
-Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI are the current managed routing targets. Goose is managed only for the read-only Repo Memory MCP bridge. Cursor is gated with settings discovery and dry-run target/marker preview while native/provider writes remain blocked. Aider, Continue, Amazon Q, Qwen Code, Grok / xAI CLI, and similar tools should remain labelled as guided, detected, or gated until automatic provider setup and cleanup are implemented and tested.
+Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, Zed AI, Goose, and Grok / xAI CLI are the current managed routing targets. Goose's native adapter is limited to documented OpenAI/Anthropic endpoint fields and its read-only Repo Memory MCP bridge; Grok's adapter is limited to `endpoints.models_base_url`. Cursor is gated with settings discovery and dry-run target/marker preview while native/provider writes remain blocked. Aider, Continue, Amazon Q, and Qwen Code remain labelled as guided, detected, or gated until automatic provider setup and cleanup are implemented and tested.
 
 ### 5. Context quality is the long-term moat
 

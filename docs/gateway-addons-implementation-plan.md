@@ -25,7 +25,7 @@ This plan adds optional gateway and observability layers around Mac AI Switchboa
 
 ## Current Baseline
 
-Switchboard already has managed routing for Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, and Zed AI. Goose has a managed read-only Repo Memory MCP bridge while provider routing remains manual. Cursor, Aider, Continue, Qwen Code, Amazon Q Developer CLI, and Grok / xAI CLI retain sidecar/readiness coverage while native/provider writes remain gated.
+Switchboard already has managed routing for Claude Code, Codex, Gemini CLI, OpenCode, Windsurf, Zed AI, Goose, and Grok / xAI CLI. Goose's native writes are limited to documented OpenAI/Anthropic endpoint fields alongside its read-only Repo Memory MCP bridge; Grok's native write is limited to `endpoints.models_base_url`. Cursor, Aider, Continue, Qwen Code, and Amazon Q Developer CLI retain sidecar/readiness coverage while unsupported native/provider writes remain gated.
 
 The existing roadmap already centers reversible routing, Doctor evidence, rollback safety, Repo Intelligence, durable savings attribution, and local-first disclosure. Gateway add-ons should plug into those surfaces rather than create a parallel settings system.
 

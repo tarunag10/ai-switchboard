@@ -23,13 +23,13 @@ export const connectorSetupDetails: Record<string, string> = {
   cursor:
     "Cursor is detected and shown with a manual guide. Switchboard does not change Cursor provider settings yet because profile and account behavior can vary by release channel.",
   grok_cli:
-    "Grok / xAI CLI is detected and shown with a manual guide. Switchboard keeps model and account choices manual until compatibility checks are proven.",
+    "Grok / xAI CLI uses the documented ~/.grok/config.toml [endpoints].models_base_url field for reversible native routing; XAI_API_KEY/login, account state, and model selection remain manual.",
   aider:
     "Aider is detected when installed. RTK-only mode can already reduce noisy shell output while provider setup remains manual.",
   continue:
     "Continue is detected when installed. Provider setup stays manual until Switchboard can preserve and restore Continue config safely.",
   goose:
-    "Goose can use the managed Repo Memory MCP bridge for read-only context handoff; Goose provider and model setup stay manual.",
+    "Goose can use the managed Repo Memory MCP bridge for read-only context handoff; Switchboard manages only allowlisted OpenAI/Anthropic endpoint fields while credentials, account state, and model selection stay manual.",
   qwen_code:
     "Qwen Code has a Switchboard-owned sidecar path for handoff/routing evidence. Account and model setup stay manual.",
   amazon_q:
@@ -52,13 +52,13 @@ export const connectorUnavailableReasons: Record<string, string> = {
   cursor:
     "Cursor automatic setup is off for now. Open Cursor settings and keep provider/model choices manual.",
   grok_cli:
-    "Grok / xAI CLI automatic setup is off for now. Keep model and account choices manual.",
+    "Grok / xAI CLI endpoint routing is managed when ~/.grok/config.toml is available; keep XAI_API_KEY/login, model, and account choices manual.",
   aider:
     "Aider automatic setup is off for now. Use RTK-only mode or copied Repo Intelligence packs.",
   continue:
     "Continue automatic setup is off for now. Review provider config manually.",
   goose:
-    "Goose provider setup is manual. Switchboard only manages the Repo Memory MCP bridge.",
+    "Goose credentials, account state, and model selection stay manual. Switchboard manages only documented endpoint fields and the Repo Memory MCP bridge.",
   qwen_code:
     "Qwen Code account and model setup are manual. Switchboard only manages its own sidecar evidence.",
   amazon_q:
@@ -80,7 +80,7 @@ export function supportsNativeManagedRollback(record: ManagedChangeRecord) {
 }
 
 export function supportsNativeConfigApply(record: ManagedChangeRecord) {
-  return record.id === "opencode-routing";
+  return record.id === "opencode-routing" || record.id === "grok-routing";
 }
 
 export function getConnectorUnavailableReason(

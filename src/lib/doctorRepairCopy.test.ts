@@ -375,7 +375,6 @@ describe("doctor repair copy", () => {
 
     expect(rows.map((row) => row.id)).toEqual([
       "cursor",
-      "grok_cli",
       "aider",
       "continue",
       "amazon_q",

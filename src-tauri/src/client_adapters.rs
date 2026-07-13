@@ -38,11 +38,13 @@ use crate::client_provider_configs::{
     windsurf_apply_confirmation_phrase, windsurf_config_backup_pattern,
     windsurf_next_provider_config, windsurf_provider_config_matches, zed_apply_confirmation_phrase,
     zed_config_backup_pattern, zed_next_provider_config, zed_provider_config_matches,
-    GROK_HEADROOM_BASE_URL, GROK_MARKER_PREFIX, HEADROOM_ANTHROPIC_BASE_URL,
-    HEADROOM_OPENAI_BASE_URL, OPENCODE_HEADROOM_PROVIDER_ID,
+    GROK_MARKER_PREFIX, HEADROOM_ANTHROPIC_BASE_URL, HEADROOM_OPENAI_BASE_URL,
+    OPENCODE_HEADROOM_PROVIDER_ID,
 };
 #[cfg(test)]
-use crate::client_provider_configs::{WINDSURF_MARKER_PREFIX, ZED_MARKER_PREFIX};
+use crate::client_provider_configs::{
+    GROK_HEADROOM_BASE_URL, WINDSURF_MARKER_PREFIX, ZED_MARKER_PREFIX,
+};
 use crate::client_sidecar_rollbacks::{
     execute_sidecar_rollback, preview_sidecar_rollback, sidecar_rollback_target,
 };
@@ -412,7 +414,7 @@ fn client_setup_next_steps(client_id: &str) -> Vec<String> {
     if normalized_setup_id(client_id) == "goose" {
         return vec![
             "Prepare the Repo Memory MCP handoff from Mode Inspector.".into(),
-            "Keep Goose provider and model routing manual until native provider lifecycle coverage is promoted.".into(),
+            "Keep Goose credentials, account state, and model selection configured manually; only the allowlisted provider endpoint fields are managed.".into(),
         ];
     }
 
@@ -8983,8 +8985,8 @@ js_repl = false\n",
         let original = "[cli]\nauto_update = false\n\n[models]\ndefault = \"grok-build\"\n\n[model.grok-build]\ncontext_window = 128000\n";
         fs::write(&config, original).expect("seed Grok config");
 
-        let preview = super::preview_managed_config_apply(super::GROK_ROLLBACK_RECORD_ID)
-            .expect("native Grok preview");
+        let preview =
+            super::preview_managed_config_apply("grok-routing").expect("native Grok preview");
         assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
         assert!(preview.target_path.ends_with(".grok/config.toml"));
         assert!(preview.proposed_state.contains("[endpoints]"));

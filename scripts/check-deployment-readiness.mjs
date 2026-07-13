@@ -451,7 +451,10 @@ const requiredSourceSignals = {
   "src-tauri/src/client_adapters.rs": [
     "detection_evidence",
     "planned_connector_registry_includes_backend_detection_metadata",
-    "Automatic reversible setup, verification, repair, and off-mode cleanup are supported.",
+    "Automatic setup is not supported yet for {other}",
+  ],
+  "src-tauri/src/state/runtime_lifecycle.rs": [
+    "repo_memory_mcp_active: repo_memory_mcp_session.active",
   ],
   "src-tauri/src/client_cleanup.rs": [
     "Mac AI Switchboard is known to write",
@@ -645,7 +648,6 @@ const requiredSourceSignals = {
   "src-tauri/src/state.rs": [
     "repo_memory_mcp_service_healthy",
     "service_unhealthy",
-    "repo_memory_mcp_active: repo_memory_mcp_session.active",
   ],
   "scripts/repo-intelligence.mjs": [
     "buildRepoSymbols",
@@ -693,7 +695,7 @@ const requiredSourceSignals = {
     "safe RTK-only or Repo Intelligence pack guidance",
     "Connector readiness payload in agent handoffs",
     "Qwen Code, Amazon Q Developer CLI, Windsurf, Zed AI",
-    "promoted managed routing connectors show routing lifecycle readiness evidence",
+    "promoted managed routing connectors show routing lifecycle evidence",
     "managed connector readiness evidence",
     "copyable manual setup guide",
     "copy bounded context pack",

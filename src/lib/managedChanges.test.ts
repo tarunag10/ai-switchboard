@@ -31,6 +31,7 @@ describe("managedChangeRecords", () => {
       "opencode-routing",
       "cursor-routing",
       "grok-routing",
+      "grok-sidecar-routing",
       "aider-routing",
       "continue-routing",
       "goose-routing",
@@ -71,7 +72,7 @@ describe("managedChangeRecords", () => {
         )
         .every(
           (record) =>
-            record.backupPath?.includes("*.headroom-backup-*"),
+            record.backupPath?.includes("headroom-backup-"),
         ),
     ).toBe(true);
   });
@@ -206,6 +207,7 @@ describe("managedChangeRecords", () => {
       "opencode-routing",
       "cursor-routing",
       "grok-routing",
+      "grok-sidecar-routing",
       "aider-routing",
       "continue-routing",
       "goose-routing",

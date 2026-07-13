@@ -319,11 +319,11 @@ fn planned_connector_dossier(agent_id: &str) -> Option<PlannedConnectorDossier> 
             id: "grok_cli",
             name: "Grok / xAI CLI",
             config_path_strategy:
-                "Detect PATH: grok or PATH: xai and avoid guessing hidden provider files.",
+                "Use the documented ~/.grok/config.toml [endpoints] surface while retaining PATH: grok or PATH: xai detection; manage only models_base_url.",
             account_caveat:
-                "Unsupported model/account combinations require Doctor guardrails before setup is offered.",
+                "XAI_API_KEY/login, account state, and model selection remain user-owned and are never copied into Switchboard state.",
             rollback_strategy:
-                "Remove managed shell routing and leave API key/account state outside app storage.",
+                "Restore the ~/.grok/config.toml sibling backup and remove only the managed endpoint marker.",
         }),
         "aider" => Some(PlannedConnectorDossier {
             id: "aider",

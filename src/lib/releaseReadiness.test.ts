@@ -699,7 +699,7 @@ describe("release readiness checklist", () => {
     );
     expect(snapshot).toContain("## Status Rows");
     expect(snapshot).toContain("## Gated Native-Write Connector Readiness");
-    expect(snapshot).toContain("Gated native-write connectors: 2");
+    expect(snapshot).toContain("Gated native-write connectors: 1");
     expect(snapshot).toContain("Automation ready: 0");
     expect(snapshot).toContain("Next blocked gates:");
     expect(snapshot).toContain("Cursor:");

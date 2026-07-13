@@ -661,6 +661,7 @@ describe("dashboard helpers", () => {
       "continue",
       "qwen_code",
       "amazon_q",
+      "grok_cli",
     ]);
     for (const connector of plannedConnectors.filter(
       (item) => !managedSidecarIds.has(item.id),
@@ -877,7 +878,7 @@ describe("dashboard helpers", () => {
       configSurface: "/Users/test/.config/xai",
       routingBlocker:
         "Provider routing blocked until model/account guardrails, backup, verify, rollback, and Off mode cleanup exist.",
-      automationEnabled: false,
+      automationEnabled: true,
       configCreationGates: expectedConfigCreationGates,
       otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
     });
@@ -1314,14 +1315,14 @@ describe("mergeProviderSavingsForDisplay", () => {
       detectedCount: 3,
       manualOnlyCount: 3,
       notDetectedCount: 1,
-      safeTodayCount: 26,
-      plannedCapabilityCount: 3,
-      automationGateCount: 39,
+      safeTodayCount: 31,
+      plannedCapabilityCount: 1,
+      automationGateCount: 45,
       detectedNames: ["Gemini CLI", "Grok / xAI CLI", "Cursor"],
       notDetectedNames: ["Aider"],
       headline: "3 connector tools detected locally",
       detail:
-        "Gemini CLI, Grok / xAI CLI, Cursor have connector readiness evidence. Not found: Aider. 26 safe capabilities are available now; 3 still need safe setup coverage before Switchboard can edit native settings. Managed routes can be repaired now; detected-only tools keep provider and model setup manual.",
+        "Gemini CLI, Grok / xAI CLI, Cursor have connector readiness evidence. Not found: Aider. 31 safe capabilities are available now; 1 still need safe setup coverage before Switchboard can edit native settings. Managed routes can be repaired now; detected-only tools keep provider and model setup manual.",
     });
   });
 });

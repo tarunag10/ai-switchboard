@@ -218,7 +218,7 @@ Left:
 
 ### Connector Expansion Risk
 
-- Gemini CLI, OpenCode, Windsurf, and Zed AI now have promoted managed routing surfaces with backup, verification, rollback, and Off cleanup evidence. Goose has the promoted managed read-only Repo Memory MCP bridge. Aider, Qwen Code, and Amazon Q Developer CLI have managed Switchboard-owned sidecar lifecycles while provider/account state remains manual.
+- Gemini CLI, OpenCode, Windsurf, Zed AI, Goose, and Grok / xAI CLI now have promoted managed routing surfaces with backup, verification, rollback, and Off cleanup evidence. Goose's native adapter is limited to documented OpenAI/Anthropic endpoint fields alongside its read-only Repo Memory MCP bridge, and Grok's to `endpoints.models_base_url`. Aider, Qwen Code, and Amazon Q Developer CLI have managed Switchboard-owned sidecar lifecycles while provider/account state remains manual.
 - The remaining connector risk is provider-specific native config mutation for tools whose routing is not yet managed: Cursor, Continue, Grok / xAI CLI, and Goose provider routing still need connector-specific safe writes. Gemini CLI, OpenCode, Windsurf, Zed AI, Aider, Qwen Code, and Amazon Q remain reference paths for promoted managed routing or managed sidecar cleanup.
 - Native config automation should stay gated behind detection, manual-safe instructions, dry-run diffs, backups, Doctor verification, Off-mode cleanup, and fixture-home restore tests.
 

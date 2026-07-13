@@ -26,7 +26,7 @@ Mac AI Switchboard treats connector status as a safety boundary. A tool is not a
 | Windsurf | Managed | Yes | No | Yes | Managed editor settings routing with backup, Doctor verification, rollback, and Off cleanup. |
 | Aider | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; provider config remains manual. |
 | Continue | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; provider config remains manual. |
-| Goose | Managed MCP | MCP only | No | Yes | Read-only Repo Memory MCP bridge; native provider routing remains manual and unmodified. |
+| Goose | Managed | Yes (allowlisted) | No | Yes | Native routing manages only documented OpenAI/Anthropic endpoint fields in Goose `config.yaml`; Repo Memory MCP remains read-only and credentials, account, and model state stay manual. |
 | Qwen Code | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; account/model setup remains manual. |
 | Amazon Q Developer CLI | Managed | Yes | No | Yes | Switchboard-owned sidecar with Doctor verification, rollback, and Off cleanup; AWS auth/provider/workspace state remains manual. |
 | Zed AI | Managed | Yes | No | Yes | Managed assistant settings routing with backup, Doctor verification, rollback, and Off cleanup. |
@@ -46,7 +46,11 @@ Before a connector moves to Managed, it must have:
 - Fixture-home tests for apply, repair, rollback, and cleanup.
 - Manual recovery docs.
 
-Repo Intelligence packs are safe for every listed tool because they are read-only and copyable. Goose additionally has the managed Repo Memory MCP bridge for read-only context handoff. Provider routing, settings mutation, and account-specific config stay gated connector by connector.
+Repo Intelligence packs are safe for every listed tool because they are read-only and copyable. Goose additionally has the managed Repo Memory MCP bridge for read-only context handoff. Provider routing and account-specific config remain allowlisted field-by-field; credentials, account state, and model selection are never managed.
+
+### Goose native routing evidence
+
+Goose's documented `config.yaml` provider surface is allowlisted to the endpoint fields for OpenAI and Anthropic. Switchboard previews the exact field change, requires state-bound confirmation, creates a sibling backup, verifies the on-disk result, and supports rollback and Off cleanup. It refuses unknown providers and never reads or writes API keys, account state, or model selection.
 
 ### Grok / xAI native routing evidence
 

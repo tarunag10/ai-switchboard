@@ -21,7 +21,7 @@ The following implementation-plan slices are complete in the current checkout an
 - Token X-Ray depth and bounded live updates: model/context/cache metadata, projected pressure, event coalescing, recommendation controls, timestamped evidence, and unavailable-state handling.
 - Repo Intelligence incremental index reuse and graph-aware ranking, including task affinity and reverse-dependency hubs.
 - Repo Memory MCP app-owned read-only process supervision with child/restart/exit evidence and stale-health recovery.
-- Cursor, Goose, and Grok/xAI Switchboard-owned sidecar lifecycles with preview, exact confirmation, backup, verification, rollback, and Off cleanup. Native provider/account/model writes remain gated.
+- Cursor, Goose, and Grok/xAI Switchboard-owned sidecar lifecycles with preview, exact confirmation, backup, verification, rollback, and Off cleanup. Goose and Grok/xAI now also have allowlisted native endpoint adapters; Cursor native writes remain gated.
 - Progressive-disclosure and accessibility completion for technical evidence and connector setup actions.
 - Add-on measurement guardrails and explicit evidence inputs. The app records measured savings only for a complete independent baseline/optimized pair and otherwise preserves estimated status.
 - Gateway readiness receipts, redacted previews, reversible local intent, and opt-in loopback LiteLLM preflight; no credentials or external configuration are written.
@@ -31,7 +31,7 @@ The following implementation-plan slices are complete in the current checkout an
 
 1. **Evidence depth**: true before/after token measurements for Caveman, Ponytail, and MarkItDown, plus RTK command-family persistence and richer provider-specific X-Ray metrics where credible APIs expose them.
 2. **Repo Intelligence depth**: richer language-specific parser/call-graph coverage, mixed-language fixtures, and deeper per-tool Repo Map progress semantics.
-3. **Native provider routing**: Cursor, Goose, and Grok/xAI provider/account/model writes remain gated until stable, allowlisted schemas and full lifecycle fixtures are verified. Their safe sidecars are complete.
+3. **Cursor native provider routing gate**: Goose and Grok/xAI endpoint routing are shipped with stable allowlists and full fixture lifecycle proof. Cursor provider/account/model writes remain gated because no supported on-disk schema is published.
 4. **Gateway integrations**: LiteLLM semantic-cache lifecycle, self-hosted Langfuse, Cloudflare Gateway, and Kong live verification require user-controlled infrastructure and credentials. Local readiness is complete.
 5. **Platform extraction**: continue CLI/Linux/Windows boundary work where it is useful; this is roadmap work rather than a blocker for the macOS product.
 

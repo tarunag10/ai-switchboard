@@ -22,10 +22,11 @@ describe("planned connector mode readiness", () => {
 
     expect(repoPackTools).toEqual([
       "cursor",
-    "aider",
-    "continue",
-    "goose",
-    "amazon_q",
-  ]);
+      "grok_cli",
+      "aider",
+      "continue",
+      "goose",
+      "amazon_q",
+    ]);
   });
 });

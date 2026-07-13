@@ -1,0 +1,21 @@
+# Vercel hosts the Vite web shell; native Rust sources and local artifacts
+# are not inputs to `npm run build` and must never be uploaded.
+node_modules
+src-tauri
+dist
+coverage
+graphify-out
+.git
+.codex
+.claude
+.config
+.secrets
+benchmarks
+docs
+fixtures
+research
+tests
+*.db
+*.sqlite
+*.sqlite3
+*.log

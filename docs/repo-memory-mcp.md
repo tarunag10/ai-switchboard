@@ -2,7 +2,7 @@
 
 Repo Memory MCP is the read-only agent-consumption surface for Repo Intelligence. It lets supported local coding agents request bounded repo context without rescanning the project or copying whole files into every session.
 
-Goose is the first connector marked managed specifically for this bridge: Switchboard manages the read-only Repo Memory MCP descriptor, smoke-checks it before handoff, and leaves Goose provider/model configuration manual.
+Goose is managed for this bridge and for its separately allowlisted native endpoint fields: Switchboard manages the read-only Repo Memory MCP descriptor, smoke-checks it before handoff, and leaves Goose credentials, account state, and model selection manual.
 
 ## Current Status
 
@@ -52,9 +52,9 @@ npm run repo:intelligence -- <repo-path> --session --agent codex --task verifica
 
 ## Connector Notes
 
-Claude Code, Codex, Gemini CLI, OpenCode, Aider, Goose, Cursor, Continue, Grok / xAI CLI, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI should consume Repo Intelligence as read-only context. Managed connector readiness dossiers may describe config paths and rollback strategy, but provider/editor native config mutation stays gated behind explicit dry-run, backup, apply, verify, rollback, Doctor repair, and Off cleanup evidence.
+Claude Code, Codex, Gemini CLI, OpenCode, Aider, Goose, Cursor, Continue, Grok / xAI CLI, Qwen Code, Amazon Q Developer CLI, Windsurf, and Zed AI should consume Repo Intelligence as read-only context. Managed connector readiness dossiers may describe config paths and rollback strategy; Goose and Grok/xAI native adapters write only their documented endpoint fields, while unsupported provider/editor mutation stays gated behind explicit dry-run, backup, apply, verify, rollback, Doctor repair, and Off cleanup evidence.
 
-Goose and other MCP-aware tools should keep Repo Memory MCP separate from provider routing. MCP context can be enabled while provider config remains manual or sidecar-only.
+Goose and other MCP-aware tools should keep Repo Memory MCP separate from provider routing. MCP context can be enabled independently; Goose's allowlisted endpoint fields can be managed while credentials, account state, and model selection remain manual.
 
 ### Connector Consumption Matrix
 
@@ -86,7 +86,7 @@ Use these recipes only after **Prepare MCP** reports an app-managed, read-only, 
 
 - Preferred path: register the app-managed `repo-memory.json` descriptor as a read-only MCP server in the Goose MCP surface, or paste the same command/args from Mode Inspector when Goose asks for a stdio server.
 - Verification: ask Goose for `repo_symbol_lookup` on a known symbol before requesting broader context.
-- Boundary: Goose provider/model credentials remain manual. Repo Memory MCP only supplies repository context.
+- Boundary: Goose provider/model credentials, account state, and model selection remain manual. Repo Memory MCP only supplies repository context.
 
 #### Cursor, Windsurf, and Zed
 

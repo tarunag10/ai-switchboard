@@ -194,6 +194,54 @@ export const plannedConnectorReadinessStageOrder: PlannedConnectorReadinessStage
 
 export const managedConnectorDossiers: ManagedConnectorDossier[] = [
   {
+    id: "grok_cli",
+    name: "Grok / xAI CLI",
+    category: "cli",
+    supportStatus: "managed",
+    statusLabel: "Managed",
+    setupPhase: "Managed",
+    integrationTarget:
+      "Documented Grok Build endpoints.models_base_url routing in ~/.grok/config.toml.",
+    notes:
+      "Switchboard manages only the non-secret endpoint field with Doctor verification and rollback; XAI_API_KEY/login, account state, and model selection stay user-controlled.",
+    capabilityBadges: ["Native endpoint routing", "Doctor verified", "Rollback"],
+    supportedModes: ["Full optimization", "RTK only", "Repo packs", "Off"],
+    safeToday:
+      "Route Grok's documented OpenAI-compatible endpoint through Switchboard without touching credentials or account state.",
+    firstAutomation:
+      "Review the config.toml dry-run, confirm the exact endpoint change, and run one Grok prompt through Headroom.",
+    capabilityRows: [
+      {
+        label: "Endpoint routing",
+        state: "Available now",
+        detail:
+          "Switchboard manages only endpoints.models_base_url in ~/.grok/config.toml.",
+      },
+      {
+        label: "Credential boundary",
+        state: "Available now",
+        detail:
+          "XAI_API_KEY, auth.json, account state, and model config are not read or written.",
+      },
+    ],
+    configSurfaces: [
+      "~/.grok/config.toml",
+      "endpoints.models_base_url",
+      "grok or xai binary",
+    ],
+    automationGates: [
+      "Detect the documented Grok Build config.toml surface.",
+      "Create a sibling backup before writing the endpoint block.",
+      "Verify, rollback, and Off cleanup only the Switchboard-owned endpoint marker.",
+      "Keep XAI_API_KEY, auth.json, account state, and model selection outside managed app storage.",
+    ],
+    manualWorkflow: [
+      "Confirm whether grok or xai exists locally and review the native config preview.",
+      "Keep XAI_API_KEY or Grok login authentication configured manually.",
+      "Run a Grok prompt and verify activity appears in Headroom.",
+    ],
+  },
+  {
     id: "gemini_cli",
     name: "Gemini CLI",
     category: "cli",
@@ -413,7 +461,7 @@ export const plannedConnectors: PlannedConnector[] = [
     integrationTarget:
       "Fixture-home Cursor settings discovery and dry-run diff preview; native/provider writes stay blocked.",
     notes:
-      "Treat as gated setup: detect User/settings.json and globalStorage safely, show the dry-run plan, then keep provider and model changes manual until reversible writes are proven.",
+      "Treat as guided, reversible setup: detect User/settings.json and profile settings safely, show the dry-run plan, and keep provider/model changes manual until a supported schema is proven. Never read globalStorage.",
     capabilityBadges: [
       "App detection",
       "Guided setup",
@@ -443,7 +491,7 @@ export const plannedConnectors: PlannedConnector[] = [
           "Settings file discovery is available; writes still wait for parse, backup, restore, and Off cleanup tests.",
       },
     ],
-    configSurfaces: ["Cursor app bundle", "User/settings.json", "User/globalStorage", "profile settings"],
+    configSurfaces: ["Cursor app bundle", "User/settings.json", "User/profiles/*/settings.json", "globalStorage (forbidden)", "profile settings"],
     automationGates: [
       "Detect the active Cursor profile before reading settings.",
       "Back up Cursor settings without reading extension-managed secrets or global state databases.",
@@ -463,23 +511,23 @@ export const plannedConnectors: PlannedConnector[] = [
     id: "grok_cli",
     name: "Grok / xAI CLI",
     category: "cli",
-    supportStatus: "planned",
-    statusLabel: "Gated",
-    setupPhase: "Detect",
+    supportStatus: "managed",
+    statusLabel: "Managed",
+    setupPhase: "Managed",
     integrationTarget:
-      "Provider/base-url adapter once a stable local CLI surface is identified.",
+      "Documented Grok Build endpoints.models_base_url routing in ~/.grok/config.toml with reversible backup and cleanup.",
     notes:
-      "Track separately from generic OpenAI-compatible clients so account/model constraints stay visible in Doctor.",
+      "Switchboard manages only the non-secret endpoint field with Doctor verification and rollback; XAI_API_KEY/login, account state, and model selection stay user-controlled.",
     capabilityBadges: [
-      "CLI detection",
-      "Model guardrails gated",
-      "Provider routing gated",
+      "Native endpoint routing",
+      "Doctor verification",
+      "Rollback",
     ],
-    supportedModes: ["RTK only", "Off"],
+    supportedModes: ["Full optimization", "RTK only", "Repo packs", "Off"],
     safeToday:
-      "Detect grok or xai commands and keep model/provider choices visible instead of auto-routing.",
+      "Route Grok's documented OpenAI-compatible endpoint through Switchboard while preserving credentials, account state, and model selection.",
     firstAutomation:
-      "Add Doctor model/account guardrails before a local provider adapter is offered.",
+      "Review the config.toml dry-run, confirm the exact endpoint change, and run one Grok prompt through Headroom.",
     capabilityRows: [
       {
         label: "Detection",
@@ -487,32 +535,33 @@ export const plannedConnectors: PlannedConnector[] = [
         detail: "Switchboard can check for local grok or xai commands.",
       },
       {
-        label: "Model guardrails",
-        state: "Gated",
+        label: "Endpoint routing",
+        state: "Available now",
         detail:
-          "Doctor should prevent unsupported model/account combinations before routing.",
+          "Switchboard manages only endpoints.models_base_url in ~/.grok/config.toml; credentials and model selection remain manual.",
       },
       {
-        label: "Provider routing",
-        state: "Gated",
+        label: "Credential boundary",
+        state: "Available now",
         detail:
-          "Automatic setup waits for a stable OpenAI-compatible local config surface.",
+          "XAI_API_KEY, auth.json, account state, and model config are not read or written.",
       },
     ],
     configSurfaces: [
+      "~/.grok/config.toml",
+      "endpoints.models_base_url",
       "grok or xai binary",
-      "provider/model flags",
-      "shell environment",
     ],
     automationGates: [
-      "Detect a stable xAI CLI surface.",
-      "Add Doctor guardrails for unsupported model/account combinations.",
-      "Keep API key and account state outside managed app storage.",
+      "Detect the documented Grok Build config.toml surface.",
+      "Create a sibling backup before writing the endpoint block.",
+      "Verify, rollback, and Off cleanup only the Switchboard-owned endpoint marker.",
+      "Keep XAI_API_KEY, auth.json, account state, and model selection outside managed app storage.",
     ],
     manualWorkflow: [
-      "Confirm whether grok or xai exists locally.",
-      "Use RTK-only mode for command output savings.",
-      "Keep model selection manual until compatibility checks are explicit.",
+      "Confirm whether grok or xai exists locally and review the native config preview.",
+      "Keep XAI_API_KEY or Grok login authentication configured manually.",
+      "Run a Grok prompt and verify activity appears in Headroom.",
     ],
   },
   {
@@ -628,22 +677,22 @@ export const plannedConnectors: PlannedConnector[] = [
     name: "Goose",
     category: "agent",
     supportStatus: "managed",
-    statusLabel: "Managed MCP",
-    setupPhase: "Managed MCP",
+    statusLabel: "Managed",
+    setupPhase: "Managed",
     integrationTarget:
-      "Managed Repo Memory MCP bridge; provider routing remains manual.",
+      "Allowlisted Goose provider endpoint fields plus the managed Repo Memory MCP bridge.",
     notes:
-      "Managed only for local read-only Repo Memory MCP context handoff; Goose provider/model configuration stays user-owned and reversible cleanup stays inside Switchboard metadata.",
+      "Switchboard manages only documented OpenAI/Anthropic endpoint fields in Goose config.yaml and the local read-only Repo Memory MCP bridge; credentials, account state, and model selection stay user-owned.",
     capabilityBadges: [
+      "Native endpoint routing",
       "Managed MCP",
       "Doctor verified",
-      "Provider manual",
     ],
-    supportedModes: ["RTK only", "Repo packs", "Off"],
+    supportedModes: ["Full optimization", "RTK only", "Repo packs", "Off"],
     safeToday:
-      "Prepare the app-managed read-only Repo Memory MCP bridge for Goose while provider and model routing remain manual.",
+      "Route Goose's documented OpenAI/Anthropic endpoint fields through Switchboard while preserving credentials, account state, model selection, and the read-only Repo Memory MCP boundary.",
     firstAutomation:
-      "Install and smoke-check only the app-managed Repo Memory MCP descriptor; Goose provider routing waits for separate fixture-home lifecycle proof.",
+      "Review the config.yaml dry-run, confirm the exact endpoint change, and smoke-check the app-managed Repo Memory MCP descriptor.",
     capabilityRows: [
       {
         label: "Detection",
@@ -657,6 +706,12 @@ export const plannedConnectors: PlannedConnector[] = [
           "Mode Inspector prepares and smoke-checks the app-managed read-only Repo Memory MCP bridge for Goose handoffs.",
       },
       {
+        label: "Native endpoint routing",
+        state: "Available now",
+        detail:
+          "Switchboard manages only documented OpenAI/Anthropic endpoint fields in Goose config.yaml; credentials, account state, and model selection remain manual.",
+      },
+      {
         label: "MCP handoff",
         state: "Available now",
         detail:
@@ -665,18 +720,20 @@ export const plannedConnectors: PlannedConnector[] = [
     ],
     configSurfaces: [
       "Goose binary",
+      "Goose config.yaml",
+      "OpenAI/Anthropic endpoint fields",
       "Repo Memory MCP descriptor",
-      "user-owned provider config",
     ],
     automationGates: [
-      "Install only the app-managed Repo Memory MCP descriptor after Goose detection.",
-      "Verify the read-only MCP smoke contract before advertising Goose handoff readiness.",
-      "Rollback and Off mode clean up only Switchboard-owned MCP bridge metadata; native provider routing stays manual and unmodified.",
+      "Detect the documented Goose config.yaml provider surface without reading secrets.",
+      "Write only allowlisted OpenAI/Anthropic endpoint fields and create a sibling backup before apply.",
+      "Verify native endpoint fields and the read-only MCP smoke contract before advertising Goose readiness.",
+      "Rollback and Off mode clean up only Switchboard-owned endpoint and MCP markers; credentials, account state, and model selection remain untouched.",
     ],
     manualWorkflow: [
       "Confirm Goose is installed.",
       "Prepare Repo Memory MCP from Mode Inspector for managed context handoff.",
-      "Keep Goose provider and model routing manual until native provider surfaces are proven.",
+      "Keep Goose credentials, account state, and model selection configured manually.",
     ],
   },
   {
@@ -797,7 +854,6 @@ export const plannedConnectors: PlannedConnector[] = [
 
 export const promotedSidecarConnectorIds = new Set([
   "cursor",
-  "grok_cli",
   "aider",
   "continue",
   "goose",
@@ -825,7 +881,6 @@ export const pendingPlannedConnectors: PlannedConnector[] =
 
 export const doctorPreviewConnectorIds = new Set([
   "cursor",
-  "grok_cli",
   "aider",
   "continue",
   "amazon_q",
@@ -876,13 +931,13 @@ const plannedConnectorSafetyDossiers: Record<
   grok_cli: {
     connectorId: "grok_cli",
     configPathStrategy:
-      "Detect PATH: grok or PATH: xai and avoid guessing hidden provider files.",
+      "Use the documented ~/.grok/config.toml surface while retaining PATH: grok or PATH: xai detection.",
     providerSemantics:
-      "Only offer OpenAI-compatible routing after a stable xAI CLI provider surface is detected.",
+      "Route the documented endpoints.models_base_url field to the local OpenAI-compatible proxy.",
     accountCaveat:
-      "Unsupported model/account combinations require Doctor guardrails before setup is offered.",
+      "XAI_API_KEY/login, account state, and model selection remain manual and are never copied into Switchboard state.",
     rollbackStrategy:
-      "Remove managed shell routing and leave API key/account state outside app storage.",
+      "Restore the ~/.grok/config.toml sibling backup and remove only the managed endpoint marker; leave API key/account state untouched.",
   },
   aider: {
     connectorId: "aider",
@@ -909,13 +964,13 @@ const plannedConnectorSafetyDossiers: Record<
   goose: {
     connectorId: "goose",
     configPathStrategy:
-      "Detect PATH: goose and use the app-managed Repo Memory MCP descriptor for read-only context handoff.",
+      "Detect PATH: goose and the documented config.yaml provider surface without reading secrets.",
     providerSemantics:
-      "Repo Memory MCP handoff is managed and read-only; Goose provider/model routing remains manual.",
+      "Manage only allowlisted OpenAI/Anthropic endpoint fields plus the read-only Repo Memory MCP handoff; credentials, account state, and model selection remain manual.",
     accountCaveat:
-      "Provider account state remains outside Switchboard until compatibility checks are explicit.",
+      "Provider credentials, account state, and model selection remain outside Switchboard.",
     rollbackStrategy:
-      "Rollback removes only Switchboard-owned MCP bridge metadata while preserving Goose provider configuration.",
+      "Rollback removes only Switchboard-owned endpoint and MCP bridge metadata while preserving provider credentials, account state, and model selection.",
   },
   qwen_code: {
     connectorId: "qwen_code",
@@ -1202,10 +1257,10 @@ export function getPlannedConnectorSetupGuide(
       };
     case "grok_cli":
       return {
-        label: "Check xAI CLI",
+        label: "Review Grok routing",
         command: "command -v grok || command -v xai",
         notes:
-          "Confirms whether a local xAI/Grok CLI exists. Provider/model compatibility remains a Doctor check before routing.",
+          "Confirms a local xAI/Grok CLI before reviewing the documented ~/.grok/config.toml endpoint preview. Keep XAI_API_KEY/login and model selection manual.",
       };
     case "aider":
       return {
@@ -1226,7 +1281,7 @@ export function getPlannedConnectorSetupGuide(
         label: "Check Goose",
         command: "command -v goose && goose --help",
         notes:
-          "Confirms Goose is present before the read-only Repo Memory MCP bridge is prepared; provider routing remains manual.",
+          "Confirms Goose is present before allowlisted endpoint routing and the read-only Repo Memory MCP bridge are prepared; credentials and model selection remain manual.",
       };
     case "qwen_code":
       return {

@@ -55,6 +55,7 @@ describe("uninstallDisclosure", () => {
       "opencode-routing",
       "cursor-routing",
       "grok-routing",
+      "grok-sidecar-routing",
       "aider-routing",
       "continue-routing",
       "goose-routing",

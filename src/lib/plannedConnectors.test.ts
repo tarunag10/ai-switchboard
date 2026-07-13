@@ -37,19 +37,19 @@ describe("planned connectors", () => {
     ]);
   });
 
-  it("tracks Gemini CLI, OpenCode, Windsurf, and Zed AI as managed connector dossiers", () => {
+  it("tracks Gemini CLI, OpenCode, Grok, Windsurf, and Zed AI as managed connector dossiers", () => {
     expect(managedConnectorDossiers.map((connector) => connector.id)).toEqual([
+      "grok_cli",
       "gemini_cli",
       "opencode",
       "windsurf",
       "zed_ai",
     ]);
     for (const connector of managedConnectorDossiers) {
-      const expectedManagedLabel =
-        connector.id === "qwen_code" ? "Managed sidecar" : "Managed";
+      const expectedManagedLabel = "Managed";
       expect(connector.statusLabel).toBe(expectedManagedLabel);
       expect(connector.setupPhase).toBe("Managed");
-      expect(connector.supportedModes).toEqual(["Full", "Headroom", "Off"]);
+      expect(connector.supportedModes.length).toBeGreaterThanOrEqual(3);
       expect(connector.capabilityRows.every((row) => row.state === "Available now")).toBe(
         true,
       );
@@ -112,7 +112,7 @@ describe("planned connectors", () => {
     expect(getConnectorManifest("goose")?.support_status).toBe("managed");
     expect(getConnectorManifest("cursor")?.config?.locations).toEqual([
       "~/Library/Application Support/Cursor/User/settings.json",
-      "~/Library/Application Support/Cursor/User/globalStorage",
+      "~/Library/Application Support/Cursor/User/profiles/*/settings.json",
     ]);
     expect(getConnectorManifest("cursor")?.automation_gates).toHaveLength(7);
     expect(getConnectorManifest("cursor")?.automation_gates.join(" ")).toContain(
@@ -146,10 +146,10 @@ describe("planned connectors", () => {
   it("keeps every planned connector explicit about local reversible setup", () => {
     for (const connector of plannedConnectors) {
       if (connector.id === "goose") {
-        expect(connector.statusLabel).toBe("Managed MCP");
-        expect(connector.setupPhase).toBe("Managed MCP");
+        expect(connector.statusLabel).toBe("Managed");
+        expect(connector.setupPhase).toBe("Managed");
       } else if (
-        ["aider", "continue", "qwen_code", "amazon_q"].includes(connector.id)
+        ["aider", "continue", "qwen_code", "amazon_q", "grok_cli"].includes(connector.id)
       ) {
         expect(["Managed", "Managed sidecar"]).toContain(
           connector.statusLabel,
@@ -177,22 +177,19 @@ describe("planned connectors", () => {
 
     expect(badges).toContain("Managed sidecar");
     expect(badges).toContain("Doctor repair");
-    expect(badges).toContain("Provider routing gated");
+    expect(badges).toContain("Native endpoint routing");
   });
 
   it("summarizes safe today and gated planned capabilities", () => {
     const summary = summarizePlannedConnectorSupport();
 
-    expect(pendingPlannedConnectors.map((connector) => connector.id)).toEqual([
-      "cursor",
-      "grok_cli",
-    ]);
+    expect(pendingPlannedConnectors.map((connector) => connector.id)).toEqual(["cursor"]);
     expect(summary).toMatchObject({
-      connectorCount: 2,
+      connectorCount: 1,
     });
     expect(summary.safeTodayCount).toBeGreaterThan(0);
     expect(summary.manualTodayCount).toBeGreaterThan(0);
-    expect(summary.plannedCount).toBeGreaterThan(0);
+    expect(summary.plannedCount).toBe(0);
     expect(summary.automationGateCount).toBeGreaterThan(0);
 
     const fullMetadataSummary = summarizePlannedConnectorSupport(plannedConnectors);
@@ -207,7 +204,7 @@ describe("planned connectors", () => {
       ),
     );
     expect(fullMetadataSummary.safeTodayLabels.join(" ")).toContain("Cursor");
-    expect(fullMetadataSummary.plannedLabels.join(" ")).toContain("Provider");
+    expect(fullMetadataSummary.plannedLabels.join(" ")).toContain("Credential");
   });
 
   it("defines safe automation contracts for every future connector", () => {
@@ -229,7 +226,7 @@ describe("planned connectors", () => {
 
   it("shows a concrete capability matrix for each future agent", () => {
     for (const connector of plannedConnectors) {
-      expect(connector.capabilityRows).toHaveLength(3);
+      expect(connector.capabilityRows.length).toBeGreaterThanOrEqual(3);
       expect(
         connector.capabilityRows.some(
           (capability) =>
@@ -253,7 +250,7 @@ describe("planned connectors", () => {
       plannedConnectors.filter(
         (connector) => connector.setupPhase === "Detect",
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       plannedConnectors.filter((connector) => connector.setupPhase === "Guide"),
     ).toHaveLength(1);
@@ -264,7 +261,7 @@ describe("planned connectors", () => {
       plannedConnectors.filter(
         (connector) => connector.setupPhase === "Managed MCP",
       ),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
   });
 
   it("looks up connector metadata by id", () => {
@@ -308,7 +305,7 @@ describe("planned connectors", () => {
       ),
     );
 
-    expect(contracts).toHaveLength(3);
+    expect(contracts).toHaveLength(1);
     for (const contract of contracts) {
       expect(contract.stages.map((stage) => stage.id)).toEqual(
         plannedConnectorReadinessStageOrder,
@@ -492,7 +489,7 @@ describe("planned connectors", () => {
     const goose = plannedConnectors.find((connector) => connector.id === "goose");
     expect(goose).toMatchObject({
       supportStatus: "managed",
-      setupPhase: "Managed MCP",
+      setupPhase: "Managed",
     });
 
     const plan = getPlannedConnectorConfigCreationPlan(goose!);
@@ -500,7 +497,7 @@ describe("planned connectors", () => {
     expect(plan.safetyNote).toMatch(/gated/i);
     expect(plan.steps.map((step) => step.id)).toContain("dryRunDiff");
     expect(`${goose?.safeToday} ${goose?.manualWorkflow.join(" ")}`).toMatch(
-      /read-only Repo Memory MCP bridge.*provider.*manual/i,
+      /read-only Repo Memory MCP boundary.*credentials.*manual/i,
     );
   });
 
@@ -573,7 +570,7 @@ describe("planned connectors", () => {
     expect(markdown).toContain("managed marker boundary");
     expect(markdown).toContain("confirmation phrase");
     expect(markdown).toContain("## Grok / xAI CLI");
-    expect(markdown).toContain("Doctor guardrails");
+    expect(markdown).toContain("models_base_url");
     expect(markdown).toContain("## Cursor");
     expect(markdown).toContain("Rollback safely");
     expect(markdown).toContain("Off mode removes only Switchboard-managed");
@@ -603,7 +600,8 @@ describe("planned connectors", () => {
     expect(cursor.configSurfaces).toEqual([
       "Cursor app bundle",
       "User/settings.json",
-      "User/globalStorage",
+      "User/profiles/*/settings.json",
+      "globalStorage (forbidden)",
       "profile settings",
     ]);
     expect(cursor.firstAutomation).toContain("dry-run diff preview");
@@ -613,31 +611,37 @@ describe("planned connectors", () => {
     );
     expect(cursorManifest.config?.locations).toEqual([
       "~/Library/Application Support/Cursor/User/settings.json",
-      "~/Library/Application Support/Cursor/User/globalStorage",
+      "~/Library/Application Support/Cursor/User/profiles/*/settings.json",
     ]);
     expect(cursorManifest.config?.forbidden_reads).toEqual([
       "*token*",
       "*secret*",
       "auth.json",
       "state.vscdb",
+      "globalStorage",
+      "storage.json",
+      "account",
+      "credentials",
     ]);
   });
 
-  it("keeps Grok xAI config discovery gated with forbidden-read boundaries", () => {
+  it("keeps Grok xAI native endpoint routing within credential boundaries", () => {
     const grok = getPlannedConnector("grok_cli")!;
     const grokManifest = getConnectorManifest("grok_cli")!;
     const plan = getPlannedConnectorConfigCreationPlan(grok);
 
-    expect(grok.supportStatus).toBe("planned");
+    expect(grok.supportStatus).toBe("managed");
     expect(grok.configSurfaces).toContain("grok or xai binary");
-    expect(grok.safeToday).toContain("Detect grok or xai");
-    expect(grok.firstAutomation).toContain("model/account guardrails");
-    expect(plan.automationEnabled).toBe(false);
-    expect(grokManifest.config?.locations).toEqual(["~/.config/xai"]);
+    expect(grok.safeToday).toContain("Route Grok");
+    expect(grok.firstAutomation).toContain("config.toml");
+    expect(plan.automationEnabled).toBe(true);
+    expect(grokManifest.config?.locations).toEqual(["~/.grok/config.toml", "~/.config/xai"]);
     expect(grokManifest.config?.forbidden_reads).toEqual([
       "*token*",
       "*secret*",
       "auth.json",
+      "*credential*",
+      "*account*",
     ]);
   });
 

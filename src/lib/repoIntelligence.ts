@@ -607,7 +607,7 @@ export const repoAgentHandoffProfiles: RepoAgentHandoffProfile[] = [
     toolKind: "chat",
     defaultPackId: "implementation",
     guidance:
-      "Use this as compact task context where local CLI integration remains manual.",
+      "Use this as compact task context for PATH: grok or PATH: xai. Native routing uses the documented ~/.grok/config.toml [endpoints].models_base_url field; credentials, account state, and model selection remain manual.",
   },
   {
     id: "qwen",

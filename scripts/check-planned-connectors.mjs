@@ -202,7 +202,7 @@ function validateBackendConfigCreationPlanContract(source) {
   }
   if (
     !source.includes("config_creation_step_details")
-    || !source.includes("planned_config_creation_step_details(spec,")
+    || !source.includes("planned_config_creation_step_details(")
   ) {
     errors.push("connector readiness backend metadata must expose structured config_creation_step_details");
   }
@@ -238,7 +238,7 @@ function validateBackendConfigCreationPlanContract(source) {
     gemini_cli: ["PATH: gemini", "Gemini provider config", "model/account compatibility"],
     opencode: ["PATH: opencode", "OpenCode provider config", "exact previous provider config"],
     cursor: ["PATH: cursor", "Cursor profile", "extension-managed secrets"],
-    grok_cli: ["PATH: grok", "PATH: xai", "Doctor guardrails"],
+    grok_cli: ["PATH: grok", "PATH: xai", "models_base_url"],
   })) {
     for (const snippet of snippets) {
       if (!source.includes(snippet)) {
@@ -264,7 +264,8 @@ function validateCursorDryRunContract({
 
   const requiredManifestSnippets = [
     "~/Library/Application Support/Cursor/User/settings.json",
-    "~/Library/Application Support/Cursor/User/globalStorage",
+    "~/Library/Application Support/Cursor/User/profiles/*/settings.json",
+    "globalStorage",
     "state.vscdb",
     "Off mode removes only Switchboard-owned Cursor routing markers.",
   ];
@@ -277,13 +278,13 @@ function validateCursorDryRunContract({
     errors.push(`cursor manifest expected 7 automation gates, found ${cursor.automation_gates.length}`);
   }
 
-  for (const snippet of ["User/settings.json", "User/globalStorage"]) {
+  for (const snippet of ["User/settings.json", "User/profiles/*/settings.json"]) {
     if (!frontendSource.includes(snippet)) {
       errors.push(`cursor frontend contract missing "${snippet}"`);
     }
   }
   for (const [label, source] of [["backend", backendSource]]) {
-    for (const snippet of ["Cursor/User/settings.json", "Cursor/User/globalStorage"]) {
+    for (const snippet of ["Cursor/User/settings.json", "Cursor/User/profiles/*/settings.json"]) {
       if (!source.includes(snippet)) {
         errors.push(`cursor ${label} contract missing "${snippet}"`);
       }
@@ -311,6 +312,7 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
     "codex",
     "gemini_cli",
     "opencode",
+    "grok_cli",
     ...managedMcpBridgeConnectorIds,
     "aider",
     "continue",
@@ -352,6 +354,12 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
       "configure_opencode_provider_config",
       "preview_managed_config_apply(\"opencode-routing\")",
       "managed_rollback_preview_and_execute_restores_opencode_backup",
+    ],
+    grok_cli: [
+      '"grok_cli" => {',
+      "configure_grok_provider_config",
+      "preview_managed_config_apply(\"grok-routing\")",
+      "grok_native_endpoint_setup_preserves_config_and_supports_rollback_and_off_cleanup",
     ],
     aider: [
       '"aider"',
@@ -402,7 +410,7 @@ function validateManagedConnectorEndToEndContract(source, manifestById, managedI
     }
   }
 
-  for (const id of ["cursor", "grok_cli", "goose"]) {
+  for (const id of ["cursor", "goose"]) {
     if (managedMcpBridgeConnectorIdSet.has(id)) {
       continue;
     }
@@ -430,8 +438,8 @@ function validateGooseManagedMcpBridgeContract({
   const manifestText = JSON.stringify(goose);
   for (const snippet of [
     "Repo Memory MCP bridge",
-    "native provider routing stays manual and unmodified",
-    "Switchboard-owned MCP bridge metadata",
+    "OpenAI/Anthropic endpoint fields",
+    "credentials, account state, and model selection",
   ]) {
     if (!manifestText.includes(snippet)) {
       errors.push(`goose manifest must keep MCP-only boundary "${snippet}"`);
@@ -444,9 +452,9 @@ function validateGooseManagedMcpBridgeContract({
     ["docs", docsSource],
   ]) {
     for (const snippet of [
-      "Managed MCP",
       "Repo Memory MCP",
-      "provider routing remains manual",
+      "endpoint",
+      "credentials",
     ]) {
       if (!source.includes(snippet)) {
         errors.push(`goose ${label} contract missing "${snippet}"`);
@@ -454,10 +462,7 @@ function validateGooseManagedMcpBridgeContract({
     }
   }
 
-  for (const forbidden of [
-    "Goose routing",
-    "local provider and MCP handoff support is enabled",
-  ]) {
+  for (const forbidden of ["local provider and MCP handoff support is enabled"]) {
     if (backendSource.includes(forbidden) || frontendSource.includes(forbidden)) {
       errors.push(
         `goose MCP bridge contract must not advertise provider routing with "${forbidden}"`,
@@ -506,7 +511,7 @@ function validateCliConnectorDossierContract(source, connectorIds) {
     gemini_cli: ["Detect PATH: gemini", "provider settings"],
     opencode: ["Detect PATH: opencode", "provider-config backup"],
     cursor: ["Cursor app/profile", "profile settings backup"],
-    grok_cli: ["PATH: grok", "PATH: xai", "Doctor guardrails"],
+    grok_cli: ["PATH: grok", "PATH: xai", "config.toml", "models_base_url"],
     amazon_q: ["AWS credentials", "SSO cache"],
   })) {
     for (const snippet of snippets) {
@@ -551,7 +556,7 @@ function validateRepoApiConnectorDossierContract(source) {
     gemini: ["id: \"gemini_cli\"", "Detect PATH: gemini", "provider settings"],
     opencode: ["id: \"opencode\"", "Detect PATH: opencode", "provider-config backup"],
     cursor: ["id: \"cursor\"", "Cursor app/profile", "profile settings backup"],
-    grok: ["id: \"grok_cli\"", "PATH: grok", "PATH: xai", "Doctor guardrails"],
+    grok: ["id: \"grok_cli\"", "PATH: grok", "PATH: xai", "models_base_url"],
     qwen: ["id: \"qwen_code\"", "PATH: qwen-code", "PATH: qwen"],
     amazonq: ["id: \"amazon_q\"", "AWS credentials", "SSO cache"],
     zed: ["id: \"zed_ai\"", "Zed app"],
