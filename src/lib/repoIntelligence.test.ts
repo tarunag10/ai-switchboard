@@ -128,11 +128,11 @@ describe("repoIntelligence", () => {
 
     expect(summary.totalFiles).toBe(6);
     expect(summary.indexedFiles).toBe(5);
-    expect(summary.indexerVersion).toBe("path-graph-v9");
+    expect(summary.indexerVersion).toBe("path-graph-v10");
     expect(summary.roleCounts.generated).toBe(1);
     expect(summary.indexMetadata).toMatchObject({
       schemaVersion: 1,
-      indexerVersion: "path-graph-v9",
+      indexerVersion: "path-graph-v10",
       parserVersion: "metadata-fingerprint-v1",
       cacheState: "new",
       fileCount: 6,
@@ -239,7 +239,7 @@ describe("repoIntelligence", () => {
       },
     ]);
 
-    expect(summary.indexerVersion).toBe("path-graph-v9");
+    expect(summary.indexerVersion).toBe("path-graph-v10");
     expect(summary.graph).toBeDefined();
     const graph = summary.graph!;
     expect(graph.importEdges).toEqual(
@@ -352,7 +352,7 @@ describe("repoIntelligence", () => {
     expect(
       getRepoIndexFreshness({
         indexedAt: "2026-06-27T10:00:00Z",
-        indexerVersion: "path-graph-v9",
+        indexerVersion: "path-graph-v10",
         indexMetadata: baseMetadata,
         graph: buildRepoIntelligenceSummary([
           { path: "src/App.tsx", bytes: 4000 },
@@ -366,7 +366,7 @@ describe("repoIntelligence", () => {
       graphAvailable: true,
       indexHealth: "new",
       parserHealth: "current",
-      indexerVersion: "path-graph-v9",
+      indexerVersion: "path-graph-v10",
       parserVersion: "metadata-fingerprint-v1",
       indexedFileCount: 2,
       skippedFileCount: 0,
@@ -730,7 +730,7 @@ describe("repoIntelligence", () => {
     expect(manifest.kind).toBe("mac_ai_switchboard.repo_intelligence_manifest");
     expect(manifest.schemaVersion).toBe(1);
     expect(manifest.generatedAt).toBe("2026-06-25T10:00:00Z");
-    expect(manifest.totals.indexerVersion).toBe("path-graph-v9");
+    expect(manifest.totals.indexerVersion).toBe("path-graph-v10");
     expect(manifest.totals.indexMetadata?.cacheState).toBe("new");
     expect(manifest.totals.indexMetadata?.fileFingerprints.length).toBe(4);
     expect(manifest.totals.indexMetadata?.skippedFiles).toEqual(
