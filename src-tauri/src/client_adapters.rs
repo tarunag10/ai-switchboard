@@ -49,6 +49,11 @@ use crate::client_sidecar_rollbacks::{
     execute_sidecar_rollback, preview_sidecar_rollback, sidecar_rollback_target,
 };
 use crate::cursor_native::{assess_native_schema, evidence_lines as cursor_native_evidence};
+use crate::goose_provider_configs::{
+    configure_goose_provider_config, goose_apply_confirmation_phrase, goose_config_backup_pattern,
+    goose_config_path, goose_provider_config_matches, preview_goose_provider_config,
+    GOOSE_NATIVE_APPLY_RECORD_ID, GOOSE_NATIVE_MARKER, GOOSE_NATIVE_OWNER,
+};
 use crate::managed_files::{
     backup_if_exists, managed_block_updated_content, managed_marker_end, managed_marker_start,
     marker_block_contains, parse_json_object, remove_managed_block, remove_shell_block,
@@ -2325,6 +2330,7 @@ const NATIVE_MANAGED_ROLLBACK_RECORD_IDS: &[&str] = &[
     GEMINI_ROLLBACK_RECORD_ID,
     OPENCODE_ROLLBACK_RECORD_ID,
     ZED_ROLLBACK_RECORD_ID,
+    GOOSE_NATIVE_APPLY_RECORD_ID,
     "cursor-routing",
     "grok-routing",
     "aider-routing",
@@ -2373,6 +2379,14 @@ const GEMINI_ROLLBACK_EVIDENCE: &[&str] = &[
     "Cleanup removes only Switchboard-owned Gemini shell and sidecar blocks.",
     "Current shell profile or sidecar must still contain the managed Gemini marker before cleanup.",
     "Relaunch-survival evidence requires re-reading managed files from disk after cleanup.",
+];
+
+const GOOSE_NATIVE_ROLLBACK_EVIDENCE: &[&str] = &[
+    "Allowlisted rollback execution row: goose-provider-routing.",
+    "Backup must live next to Goose config.yaml and use *.headroom-backup-*.",
+    "Current config must still contain the managed Goose endpoint marker before restore.",
+    "Credentials, secrets.yaml, keychain state, account state, and model values remain untouched.",
+    "Relaunch-survival evidence requires re-reading restored config from disk after write.",
 ];
 
 fn gemini_routing_marker_matches() -> Result<bool> {
@@ -2455,8 +2469,19 @@ fn managed_rollback_target(record_id: &str) -> Result<ManagedRollbackTarget> {
                 "Restore the Zed settings from the selected sibling backup after creating a fresh safety backup.",
             evidence: ZED_ROLLBACK_EVIDENCE,
         }),
+        GOOSE_NATIVE_APPLY_RECORD_ID => Ok(ManagedRollbackTarget {
+            record_id: GOOSE_NATIVE_APPLY_RECORD_ID,
+            owner: GOOSE_NATIVE_OWNER,
+            marker: GOOSE_NATIVE_MARKER,
+            target_path: goose_config_path,
+            marker_matches: goose_provider_config_matches,
+            backup_required: true,
+            proposed_action:
+                "Restore the Goose config from the selected sibling backup after creating a fresh safety backup.",
+            evidence: GOOSE_NATIVE_ROLLBACK_EVIDENCE,
+        }),
         _ => Err(anyhow!(
-            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {GEMINI_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {ZED_ROLLBACK_RECORD_ID}."
+            "Managed rollback execution is currently enabled only for {CODEX_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {GEMINI_ROLLBACK_RECORD_ID}, {WINDSURF_ROLLBACK_RECORD_ID}, and {ZED_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -2520,6 +2545,29 @@ fn validate_managed_rollback_backup_path(target_path: &Path, backup_path: &Path)
 pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigApplyPreview> {
     match record_id {
         CURSOR_SIDECAR_APPLY_RECORD_ID => preview_cursor_sidecar_apply(),
+        GOOSE_NATIVE_APPLY_RECORD_ID => {
+            let preview = preview_goose_provider_config()?;
+            Ok(ManagedConfigApplyPreview {
+                record_id: GOOSE_NATIVE_APPLY_RECORD_ID.to_string(),
+                owner: GOOSE_NATIVE_OWNER.to_string(),
+                target_path: preview.path.display().to_string(),
+                marker: GOOSE_NATIVE_MARKER.to_string(),
+                backup_path: goose_config_backup_pattern(),
+                status: if preview.blocked_reason.is_some() {
+                    ManagedRollbackExecutionStatus::Blocked
+                } else {
+                    ManagedRollbackExecutionStatus::Ready
+                },
+                confirmation_phrase: goose_apply_confirmation_phrase(&preview.current_state),
+                current_state: preview.current_state,
+                proposed_state: preview.proposed_state,
+                rollback_preview:
+                    "Restore the sibling *.headroom-backup-* Goose config through Rollback Center."
+                        .to_string(),
+                blocked_reason: preview.blocked_reason,
+                evidence: preview.evidence,
+            })
+        }
         GOOSE_SIDECAR_APPLY_RECORD_ID => preview_provider_sidecar_apply(GOOSE_SIDECAR_APPLY_RECORD_ID, "goose", GOOSE_SIDECAR_OWNER),
         GROK_SIDECAR_APPLY_RECORD_ID => preview_provider_sidecar_apply(GROK_SIDECAR_APPLY_RECORD_ID, "grok_cli", GROK_SIDECAR_OWNER),
         GROK_ROLLBACK_RECORD_ID => {
@@ -2665,7 +2713,7 @@ pub fn preview_managed_config_apply(record_id: &str) -> Result<ManagedConfigAppl
             })
         }
         _ => Err(anyhow!(
-            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
+            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {GROK_ROLLBACK_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -2702,6 +2750,36 @@ pub fn execute_managed_config_apply(
                     "Managed sidecar marker was re-read from disk after apply.".to_string(),
                     "Rollback Center and Off mode remove only the managed sidecar block."
                         .to_string(),
+                ],
+            })
+        }
+        GOOSE_NATIVE_APPLY_RECORD_ID => {
+            let preview = preview_goose_provider_config()?;
+            if let Some(reason) = preview.blocked_reason {
+                return Err(anyhow!("Goose native provider routing is blocked: {reason}"));
+            }
+            let path = preview.path;
+            let (changed_files, backup_files) = configure_goose_provider_config()?;
+            if !goose_provider_config_matches()? {
+                return Err(anyhow!(
+                    "Goose native endpoint config verification failed after apply."
+                ));
+            }
+            Ok(ManagedConfigApplyResult {
+                record_id: GOOSE_NATIVE_APPLY_RECORD_ID.to_string(),
+                owner: GOOSE_NATIVE_OWNER.to_string(),
+                target_path: path.display().to_string(),
+                changed: changed_files
+                    .iter()
+                    .any(|changed| changed == &path.display().to_string()),
+                backup_path: backup_files.first().cloned(),
+                marker: GOOSE_NATIVE_MARKER.to_string(),
+                verification: vec![
+                    "Exact confirmation phrase matched the dry-run preview.".to_string(),
+                    "Sibling backup was created before writing when a prior Goose config existed.".to_string(),
+                    "Only allowlisted OpenAI/Anthropic endpoint fields were changed; provider, model, credentials, and account state remained untouched.".to_string(),
+                    "Goose native endpoint values were re-read from disk after apply.".to_string(),
+                    "Rollback Center can restore the selected sibling backup.".to_string(),
                 ],
             })
         }
@@ -2815,7 +2893,7 @@ pub fn execute_managed_config_apply(
             })
         }
         _ => Err(anyhow!(
-            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
+            "Managed config apply is currently promoted only for {CURSOR_SIDECAR_APPLY_RECORD_ID}, {GOOSE_NATIVE_APPLY_RECORD_ID}, {GOOSE_SIDECAR_APPLY_RECORD_ID}, {GROK_SIDECAR_APPLY_RECORD_ID}, {OPENCODE_ROLLBACK_RECORD_ID}, {ZED_ROLLBACK_RECORD_ID}, and {WINDSURF_ROLLBACK_RECORD_ID}."
         )),
     }
 }
@@ -2826,6 +2904,7 @@ pub fn preview_managed_rollback(record_id: &str) -> Result<ManagedRollbackPrevie
         CODEX_ROLLBACK_RECORD_ID
             | OPENCODE_ROLLBACK_RECORD_ID
             | GROK_ROLLBACK_RECORD_ID
+            | GOOSE_NATIVE_APPLY_RECORD_ID
             | GEMINI_ROLLBACK_RECORD_ID
             | WINDSURF_ROLLBACK_RECORD_ID
             | ZED_ROLLBACK_RECORD_ID
@@ -2899,6 +2978,7 @@ pub fn execute_managed_rollback(
         CODEX_ROLLBACK_RECORD_ID
             | OPENCODE_ROLLBACK_RECORD_ID
             | GROK_ROLLBACK_RECORD_ID
+            | GOOSE_NATIVE_APPLY_RECORD_ID
             | GEMINI_ROLLBACK_RECORD_ID
             | WINDSURF_ROLLBACK_RECORD_ID
             | ZED_ROLLBACK_RECORD_ID
@@ -4455,6 +4535,7 @@ mod tests {
     use crate::client_paths::{
         grok_config_path, planned_sidecar_routing_path, SWITCHBOARD_ROUTING_FILE,
     };
+    use crate::client_provider_configs::HEADROOM_OPENAI_BASE_URL;
     use crate::models::{
         ClientConnectorSupportStatus, ClientHealth, ClientStatus, CodexThreadRetaggingMode,
         CodexThreadRetaggingSettings, ManagedRollbackExecutionStatus, SwitchboardMode,
@@ -9109,6 +9190,68 @@ js_repl = false\n",
         assert_eq!(fs::read_to_string(&config).unwrap(), original);
         assert!(!super::grok_provider_config_matches().unwrap());
         assert!(!planned_switchboard_sidecar_matches("grok_cli").unwrap());
+
+        drop(home);
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn goose_native_endpoint_apply_exposes_rollback_center_restore() {
+        let home = TestHome::new();
+        let config = crate::goose_provider_configs::goose_config_path();
+        fs::create_dir_all(config.parent().unwrap()).expect("create Goose config dir");
+        let original = "active_provider: openai\nproviders:\n  openai:\n    enabled: true\n    model: gpt-4o\n    configured: true\nkeep: true\n";
+        fs::write(&config, original).expect("seed Goose config");
+
+        let preview = super::preview_managed_config_apply(
+            crate::goose_provider_configs::GOOSE_NATIVE_APPLY_RECORD_ID,
+        )
+        .expect("native Goose preview");
+        assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
+        assert_eq!(preview.target_path, config.display().to_string());
+        assert!(preview.proposed_state.contains(HEADROOM_OPENAI_BASE_URL));
+        assert!(preview.evidence.iter().any(|item| {
+            let item = item.to_ascii_lowercase();
+            item.contains("allowlisted") && item.contains("endpoint")
+        }));
+
+        let applied = super::execute_managed_config_apply(
+            crate::goose_provider_configs::GOOSE_NATIVE_APPLY_RECORD_ID,
+            &preview.confirmation_phrase,
+        )
+        .expect("apply native Goose endpoint");
+        assert!(applied.changed);
+        let backup = applied.backup_path.clone().expect("Goose backup path");
+        assert!(crate::goose_provider_configs::goose_provider_config_matches().unwrap());
+        let configured = fs::read_to_string(&config).expect("read configured Goose");
+        assert!(configured.contains("active_provider: openai"));
+        assert!(configured.contains("model: gpt-4o"));
+        assert!(configured.contains("keep: true"));
+        assert!(configured.contains(HEADROOM_OPENAI_BASE_URL));
+        assert!(!configured.contains("secrets.yaml"));
+
+        let rollback_preview = super::preview_managed_rollback(
+            crate::goose_provider_configs::GOOSE_NATIVE_APPLY_RECORD_ID,
+        )
+        .expect("native Goose rollback preview");
+        assert_eq!(
+            rollback_preview.status,
+            ManagedRollbackExecutionStatus::Ready
+        );
+        assert!(rollback_preview.marker_present);
+        assert!(rollback_preview.backup_exists);
+        let rollback = super::execute_managed_rollback(
+            crate::goose_provider_configs::GOOSE_NATIVE_APPLY_RECORD_ID,
+            &backup,
+            &rollback_preview.confirmation_phrase,
+        )
+        .expect("rollback native Goose endpoint");
+        assert_eq!(
+            rollback.record_id,
+            crate::goose_provider_configs::GOOSE_NATIVE_APPLY_RECORD_ID
+        );
+        assert_eq!(fs::read_to_string(&config).unwrap(), original);
+        assert!(!crate::goose_provider_configs::goose_provider_config_matches().unwrap());
 
         drop(home);
     }

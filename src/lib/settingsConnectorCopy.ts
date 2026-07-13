@@ -80,7 +80,11 @@ export function supportsNativeManagedRollback(record: ManagedChangeRecord) {
 }
 
 export function supportsNativeConfigApply(record: ManagedChangeRecord) {
-  return record.id === "opencode-routing" || record.id === "grok-routing";
+  return (
+    record.id === "opencode-routing" ||
+    record.id === "grok-routing" ||
+    record.id === "goose-provider-routing"
+  );
 }
 
 export function getConnectorUnavailableReason(

@@ -35,6 +35,7 @@ describe("managedChangeRecords", () => {
       "aider-routing",
       "continue-routing",
       "goose-routing",
+      "goose-provider-routing",
       "qwen-code-routing",
       "amazon-q-routing",
       "windsurf-routing",
@@ -50,6 +51,7 @@ describe("managedChangeRecords", () => {
       managedChangeRecords.every((record) => record.rollback.length > 0),
     ).toBe(true);
     expect(supportsNativeManagedRollbackRecord("repo-intelligence")).toBe(false);
+    expect(supportsNativeManagedRollbackRecord("goose-provider-routing")).toBe(true);
     expect(supportsDedicatedCleanupRollbackRecord("managed-storage")).toBe(true);
     expect(supportsDedicatedCleanupRollbackRecord("repo-intelligence")).toBe(true);
     expect(supportsDedicatedCleanupRollbackRecord("login-item")).toBe(true);
@@ -211,6 +213,7 @@ describe("managedChangeRecords", () => {
       "aider-routing",
       "continue-routing",
       "goose-routing",
+      "goose-provider-routing",
       "qwen-code-routing",
       "amazon-q-routing",
       "windsurf-routing",
@@ -414,6 +417,7 @@ describe("managedChangeRecords", () => {
       "aider-routing",
       "continue-routing",
       "goose-routing",
+      "goose-provider-routing",
       "qwen-code-routing",
       "amazon-q-routing",
       "windsurf-routing",
@@ -443,7 +447,7 @@ describe("managedChangeRecords", () => {
 
     expect(text).toContain("AI Switchboard undo-all rollback preview");
     expect(text).toContain("Native write status: not_executed");
-    expect(text).toContain("Executable native rows: 12");
+    expect(text).toContain("Executable native rows: 13");
     expect(text).toContain("Codex routing (codex-routing)");
     expect(text).toContain("Gemini CLI routing (gemini-routing)");
     expect(text).toContain("OpenCode routing (opencode-routing)");

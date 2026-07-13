@@ -234,6 +234,21 @@ export const managedChangeRecords: ManagedChangeRecord[] = [
     rollback: "Remove only the managed Goose Repo Memory MCP bridge dossier.",
   },
   {
+    id: "goose-provider-routing",
+    kind: "client_config",
+    owner: "Goose provider routing",
+    text: "Managed Goose allowlisted OpenAI/Anthropic endpoint fields in config.yaml.",
+    paths: [
+      "~/Library/Application Support/Block/goose/config.yaml",
+      "~/.config/goose/config.yaml",
+    ],
+    markerId: "headroom:goose-provider",
+    backupPath: "next to Goose config.yaml as config.yaml.headroom-backup-*",
+    lastVerifiedLabel: "Verified by Doctor connector checks",
+    rollback:
+      "Restore only the selected Goose config backup; credentials, account state, and model selection remain untouched.",
+  },
+  {
     id: "qwen-code-routing",
     kind: "client_config",
     owner: "Qwen Code routing",
@@ -739,6 +754,7 @@ export const nativeRollbackRecordIds = new Set([
   "aider-routing",
   "continue-routing",
   "goose-routing",
+  "goose-provider-routing",
   "qwen-code-routing",
   "amazon-q-routing",
   "windsurf-routing",

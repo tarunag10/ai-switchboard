@@ -105,11 +105,16 @@ describe("settings connector copy", () => {
     const storage = managedChangeRecords.find(
       (record) => record.id === "managed-storage",
     );
+    const goose = managedChangeRecords.find(
+      (record) => record.id === "goose-provider-routing",
+    );
 
     expect(opencode).toBeDefined();
     expect(storage).toBeDefined();
+    expect(goose).toBeDefined();
     expect(firstManagedConfigTarget(opencode!)).toContain("opencode");
     expect(supportsNativeConfigApply(opencode!)).toBe(true);
+    expect(supportsNativeConfigApply(goose!)).toBe(true);
     expect(supportsNativeConfigApply(storage!)).toBe(false);
     expect(supportsNativeManagedRollback(opencode!)).toBe(true);
     expect(supportsNativeManagedRollback(storage!)).toBe(true);
