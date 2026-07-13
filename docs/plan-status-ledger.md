@@ -14,6 +14,7 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 ## Done
 
 - Live Token X-Ray and Daily AI Usage Briefing are implemented: versioned local read models, deterministic normalization, source-confidence labels, X-Ray freshness/pressure/timeline/anomaly surfaces, daily briefing recommendations, secret-free Markdown/JSON export, 365-day local history, and scoped preview/clear controls. The analytics store is content-free and does not touch the existing savings ledger when cleared. See `docs/live-token-xray-daily-briefing-implementation-plan.md`.
+- Analytics retention preview/clear now has one explicit frontend contract (`briefingCount`, `eventCount`, `dayKeys`, `scope`, and `detail`). Detailed normalized event facts are not persisted yet, so `eventCount: 0` is reported honestly instead of treating daily snapshots as events; clearing remains scoped to briefing snapshots and never removes the savings ledger.
 - Token X-Ray depth/live updates are complete: bounded revisioned updates, event coalescing, model/context/cache metadata, projected pressure, timestamped cache evidence, recommendation controls, and explicit unavailable states are covered by fixtures and local checks.
 
 - Agent Memory is complete for the planned local slice: source discovery, secret screening, structural/compaction previews, exact-confirmation apply, SHA-verified backup receipts, drift-safe rollback, session handoffs, and content-free attribution.

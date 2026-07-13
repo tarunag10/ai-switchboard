@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added a commit-aware Vercel Ignore Build Step: native-only and docs-only
+  commits now skip hosted builds, while web-shell and build-input changes still
+  run the full `npm ci`/`npm run build` contract. This reduces noisy deployment
+  attempts without hiding a web build failure.
 - Reconciled the implementation-plan status ledger and connector lifecycle docs: Goose and Grok / xAI now document their allowlisted native endpoint adapters, Cursor remains schema-gated, Repo Memory MCP supervision is shipped with installed-app proof still external, and the Vercel/browser boundary is recorded as verified. The failed historical Vercel build was traced to an excluded repo-map snapshot on `fe607653`; current deployments build cleanly with the corrected `.vercelignore`.
 - Promoted Grok / xAI CLI native endpoint routing from sidecar-only to a documented, reversible adapter. Switchboard manages only `[endpoints].models_base_url` in `~/.grok/config.toml`, with fixture-home preview/apply/verify/rollback/Off cleanup and sibling backups; credentials, account state, API keys, and model selection remain manual.
 - Hardened the Vercel web-shell boundary: browser previews no longer treat incomplete `__TAURI_INTERNALS__` objects as a desktop or event runtime, and the repository now pins the Vite build contract (`npm ci`, `npm run build`, `dist`) with a SPA fallback and a `.vercelignore` that excludes native sources and local artifacts.

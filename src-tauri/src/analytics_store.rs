@@ -13,9 +13,20 @@ pub(crate) const RETENTION_DAYS: i64 = 365;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UsageAnalyticsClearPreviewV1 {
-    pub snapshot_count: u64,
+    /// Number of persisted daily briefing snapshots targeted by this action.
+    ///
+    /// The public read model calls these `briefings`; the field accepts the
+    /// legacy `snapshotCount` spelling when decoding older fixtures, but emits
+    /// only the stable frontend contract (`briefingCount`).
+    #[serde(rename = "briefingCount", alias = "snapshotCount")]
+    pub briefing_count: u64,
+    /// Detailed normalized event facts are not persisted yet. Keep this value
+    /// explicit rather than counting snapshot rows or fabricating request
+    /// events, so the UI cannot imply stronger retention coverage than exists.
+    pub event_count: u64,
     pub day_keys: Vec<String>,
     pub scope: String,
+    pub detail: String,
 }
 
 pub(crate) fn save_daily_snapshot(root: &Path, briefing: &DailyUsageBriefingV1) -> Result<()> {
@@ -61,12 +72,14 @@ pub(crate) fn list_daily_snapshots(root: &Path) -> Result<Vec<DailyUsageBriefing
 pub(crate) fn preview_clear(root: &Path) -> Result<UsageAnalyticsClearPreviewV1> {
     let snapshots = list_daily_snapshots(root)?;
     Ok(UsageAnalyticsClearPreviewV1 {
-        snapshot_count: snapshots.len() as u64,
+        briefing_count: snapshots.len() as u64,
+        event_count: 0,
         day_keys: snapshots
             .into_iter()
             .map(|snapshot| snapshot.day_key)
             .collect(),
         scope: "daily_usage_briefing_snapshots_only".into(),
+        detail: "Deletes content-free daily briefing snapshots only. Detailed normalized event facts are not persisted yet, and the savings attribution ledger is never included in this scope.".into(),
     })
 }
 
@@ -158,8 +171,28 @@ mod tests {
         save_daily_snapshot(temp.path(), &fixture("2026-07-11")).unwrap();
         assert_eq!(list_daily_snapshots(temp.path()).unwrap().len(), 1);
         let preview = clear(temp.path()).unwrap();
-        assert_eq!(preview.snapshot_count, 1);
+        assert_eq!(preview.briefing_count, 1);
+        assert_eq!(preview.event_count, 0);
+        assert!(preview.detail.contains("not persisted yet"));
         assert!(list_daily_snapshots(temp.path()).unwrap().is_empty());
+    }
+
+    #[test]
+    fn clear_preview_serializes_the_frontend_contract_without_claiming_events() {
+        let temp = tempfile::tempdir().unwrap();
+        save_daily_snapshot(temp.path(), &fixture("2026-07-10")).unwrap();
+        save_daily_snapshot(temp.path(), &fixture("2026-07-11")).unwrap();
+
+        let preview = preview_clear(temp.path()).unwrap();
+        let value = serde_json::to_value(preview).unwrap();
+        assert_eq!(value["briefingCount"], 2);
+        assert_eq!(value["eventCount"], 0);
+        assert!(value.get("snapshotCount").is_none());
+        assert_eq!(value["scope"], "daily_usage_briefing_snapshots_only");
+        assert!(value["detail"]
+            .as_str()
+            .unwrap()
+            .contains("Detailed normalized event facts are not persisted yet"));
     }
 
     #[test]

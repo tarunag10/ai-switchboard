@@ -11,7 +11,8 @@ AI Switchboard is the independent product and user-facing control plane. Headroo
 - Managed routing, reversible setup, Doctor, rollback, local-only guards, release reporting, Repo Map, Repo Intelligence v1, and read-only Repo Memory MCP are implemented.
 - Connector support is correctly split between managed, sidecar, guided, and gated states.
 - The Vite web shell has a verified Vercel contract (`npm ci`, `npm run build`,
-  `dist`, SPA fallback, and native/local artifact exclusion). Browser previews
+  `dist`, SPA fallback, native/local artifact exclusion, and a commit-aware
+  ignore step that skips native/docs-only changes). Browser previews
   guard incomplete Tauri globals and event runtimes, so hosted Vercel builds do
   not attempt desktop-only calls.
 - Token X-Ray and Daily Briefing have an implemented local/content-free foundation, including persistent daily history, exports, and scoped analytics deletion.

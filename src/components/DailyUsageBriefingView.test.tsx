@@ -22,6 +22,6 @@ describe("DailyUsageBriefingView history and retention", () => {
     await screen.findByText(/Local usage for 2026-07-11/i);
     fireEvent.click(screen.getByRole("button", { name: /preview local analytics deletion/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: /delete local analytics/i })).toBeInTheDocument());
-    expect(screen.getByText(/2 saved briefings and 8 local analytics events/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 saved briefings and 8 detailed analytics events/i)).toBeInTheDocument();
   });
 });

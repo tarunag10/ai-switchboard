@@ -304,8 +304,11 @@ The first implementation checkpoint exposes these read-only commands:
 - `get_token_xray_snapshot`
 - `get_daily_usage_briefing`
 - `export_daily_usage_briefing`
+- `list_daily_usage_briefings`
+- `preview_clear_usage_analytics`
+- `clear_usage_analytics`
 
-The initial Rust contracts live in `src-tauri/src/analytics_models.rs` and serialize as camelCase version-1 payloads. Export returns a secret-free `{ briefing, markdown }` payload to the caller; it does not write an export file. Follow-on timeline, history, retention, and deletion commands remain gated on the corresponding implementation slices.
+The initial Rust contracts live in `src-tauri/src/analytics_models.rs` and serialize as camelCase version-1 payloads. Export returns a secret-free `{ briefing, markdown }` payload to the caller; it does not write an export file. Retention preview/clear returns `briefingCount`, `eventCount`, `dayKeys`, `scope`, and an explicit `detail` string. `eventCount` is currently `0` because detailed normalized event facts are not persisted yet; the command never counts snapshots as events or touches the savings ledger.
 
 ## Recommendation Engine
 

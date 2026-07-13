@@ -11,7 +11,7 @@ export type BriefingAgent = { id: string; label: string; requests: number; spent
 export type AttentionItem = { id: string; severity: "info" | "warning" | "critical"; title: string; detail: string; destination?: string | null };
 export type Recommendation = { id: string; title: string; evidence: string; destination?: string | null; priority: number };
 export interface DailyUsageBriefing { schemaVersion: number; dayKey: string; timezone: string; generatedAt: number; completeness: "complete" | "partial" | "insufficient-data"; headline: string | null; totals: Record<string, Metric>; agents: BriefingAgent[]; attentionItems: AttentionItem[]; recommendations: Recommendation[]; evidenceCoverage: { measured: number; estimated: number; inferred: number; unavailable: number; detail?: string | null }; }
-export type UsageAnalyticsClearPreview = { briefingCount: number; eventCount: number; detail: string; };
+export type UsageAnalyticsClearPreview = { briefingCount: number; eventCount: number; dayKeys: string[]; scope: string; detail: string; };
 
 const metric = (raw: unknown): Metric => {
   const value = typeof raw === "number" ? raw : typeof (raw as any)?.value === "number" ? (raw as any).value : null;
@@ -42,8 +42,18 @@ export function normalizeBriefing(raw: unknown): DailyUsageBriefing {
 export async function loadTokenXraySnapshot() { return normalizeXray(await invoke("get_token_xray_snapshot")); }
 export async function loadDailyUsageBriefing() { return normalizeBriefing(await invoke("get_daily_usage_briefing")); }
 export async function loadDailyUsageBriefingHistory() { const result = await invoke<unknown[]>("list_daily_usage_briefings"); return list(result).map(normalizeBriefing); }
-export async function previewClearUsageAnalytics(): Promise<UsageAnalyticsClearPreview> { const raw = record(await invoke("preview_clear_usage_analytics")); return { briefingCount: Number(raw.briefingCount ?? raw.briefing_count ?? raw.affectedBriefings ?? 0), eventCount: Number(raw.eventCount ?? raw.event_count ?? raw.affectedEvents ?? 0), detail: raw.detail ?? raw.summary ?? "This only removes local usage analytics. Your savings ledger is not included unless the preview explicitly says so." }; }
-export async function clearUsageAnalytics(): Promise<UsageAnalyticsClearPreview> { const raw = record(await invoke("clear_usage_analytics")); return { briefingCount: Number(raw.briefingCount ?? raw.briefing_count ?? raw.deletedBriefings ?? 0), eventCount: Number(raw.eventCount ?? raw.event_count ?? raw.deletedEvents ?? 0), detail: raw.detail ?? raw.summary ?? "Local usage analytics cleared." }; }
+const normalizeClearPreview = (rawValue: unknown, fallback: string): UsageAnalyticsClearPreview => {
+  const raw = record(rawValue);
+  return {
+    briefingCount: Number(raw.briefingCount ?? raw.briefing_count ?? raw.snapshotCount ?? raw.snapshot_count ?? raw.affectedBriefings ?? raw.deletedBriefings ?? 0),
+    eventCount: Number(raw.eventCount ?? raw.event_count ?? raw.affectedEvents ?? raw.deletedEvents ?? 0),
+    dayKeys: list<string>(raw.dayKeys ?? raw.day_keys),
+    scope: typeof raw.scope === "string" ? raw.scope : "daily_usage_briefing_snapshots_only",
+    detail: typeof raw.detail === "string" ? raw.detail : typeof raw.summary === "string" ? raw.summary : fallback,
+  };
+};
+export async function previewClearUsageAnalytics(): Promise<UsageAnalyticsClearPreview> { return normalizeClearPreview(await invoke("preview_clear_usage_analytics"), "This only removes local usage analytics. Your savings ledger is not included unless the preview explicitly says so."); }
+export async function clearUsageAnalytics(): Promise<UsageAnalyticsClearPreview> { return normalizeClearPreview(await invoke("clear_usage_analytics"), "Local analytics cleared. Detailed normalized event facts are not persisted yet, and the savings ledger was not modified."); }
 export async function exportDailyUsageBriefing(format: "markdown" | "json") { const result = await invoke<{ markdown?: string; json?: string; briefing?: unknown }>("export_daily_usage_briefing"); return format === "markdown" ? result.markdown ?? "" : result.json ?? JSON.stringify(result.briefing ?? {}, null, 2); }
 export function metricLabel(metric: Metric) { return metric.confidence; }
 export function formatMetric(metric: Metric, currency = false) { if (metric.value === null) return "Unavailable"; return currency ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(metric.value) : new Intl.NumberFormat("en-US", { notation: metric.value >= 1000 ? "compact" : "standard", maximumFractionDigits: 1 }).format(metric.value); }
