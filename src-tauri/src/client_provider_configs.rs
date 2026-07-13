@@ -19,7 +19,7 @@ pub(super) const GROK_HEADROOM_BASE_URL: &str = "http://127.0.0.1:6767/v1";
 fn opencode_headroom_provider_value() -> Value {
     serde_json::json!({
         "npm": "@ai-sdk/openai",
-        "name": "Mac AI Switchboard",
+        "name": "AI Switchboard",
         "options": {
             "baseURL": HEADROOM_OPENAI_BASE_URL
         },
@@ -196,7 +196,7 @@ pub(super) fn windsurf_next_provider_config() -> Result<(Value, bool)> {
     changed |= set_json_string(
         &mut root,
         &format!("// >>> {WINDSURF_MARKER_PREFIX} >>>"),
-        "Managed by Mac AI Switchboard for Windsurf.",
+        "Managed by AI Switchboard for Windsurf.",
     );
     changed |= set_json_string(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
     changed |= set_json_string(
@@ -314,7 +314,7 @@ pub(super) fn zed_next_provider_config() -> Result<(Value, bool)> {
     changed |= set_json_string(
         &mut root,
         &format!("// >>> {ZED_MARKER_PREFIX} >>>"),
-        "Managed by Mac AI Switchboard for Zed.",
+        "Managed by AI Switchboard for Zed.",
     );
     changed |= set_json_string(&mut root, "anthropic.baseUrl", HEADROOM_ANTHROPIC_BASE_URL);
     changed |= set_json_string(

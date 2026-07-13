@@ -874,7 +874,7 @@ pub fn headroom_memory_db_path() -> std::path::PathBuf {
 
 fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let show =
-        tauri::menu::MenuItem::with_id(app, "show", "Show Mac AI Switchboard", true, None::<&str>)?;
+        tauri::menu::MenuItem::with_id(app, "show", "Show AI Switchboard", true, None::<&str>)?;
     let release_readiness = tauri::menu::MenuItem::with_id(
         app,
         "release-readiness",
@@ -890,7 +890,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         None::<&str>,
     )?;
     let quit =
-        tauri::menu::MenuItem::with_id(app, "quit", "Quit Mac AI Switchboard", true, None::<&str>)?;
+        tauri::menu::MenuItem::with_id(app, "quit", "Quit AI Switchboard", true, None::<&str>)?;
     let separator = tauri::menu::PredefinedMenuItem::separator(app)?;
     let menu = tauri::menu::Menu::with_items(
         app,
@@ -906,7 +906,7 @@ fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
     let mut tray_builder = tauri::tray::TrayIconBuilder::with_id("headroom-tray")
         .menu(&menu)
         .icon_as_template(false)
-        .tooltip("Mac AI Switchboard")
+        .tooltip("AI Switchboard")
         .show_menu_on_left_click(false)
         .on_tray_icon_event(move |tray, event| {
             if let TrayIconEvent::Click {
@@ -1039,22 +1039,18 @@ fn spawn_tray_runtime_icon_updater(app: AppHandle) {
 
             if let Some(tray) = app.tray_by_id("headroom-tray") {
                 let tooltip = match visual {
-                    tray_runtime::TrayRuntimeVisual::Booting => {
-                        "Mac AI Switchboard — starting engine"
-                    }
-                    tray_runtime::TrayRuntimeVisual::Running => {
-                        "Mac AI Switchboard — engine active"
-                    }
+                    tray_runtime::TrayRuntimeVisual::Booting => "AI Switchboard — starting engine",
+                    tray_runtime::TrayRuntimeVisual::Running => "AI Switchboard — engine active",
                     tray_runtime::TrayRuntimeVisual::Paused => {
-                        "Mac AI Switchboard — engine paused (Claude Code or Codex running normally)"
+                        "AI Switchboard — engine paused (Claude Code or Codex running normally)"
                     }
                     tray_runtime::TrayRuntimeVisual::Unhealthy => {
-                        "Mac AI Switchboard — engine unreachable, attempting restart"
+                        "AI Switchboard — engine unreachable, attempting restart"
                     }
                     tray_runtime::TrayRuntimeVisual::Disconnected => {
-                        "Mac AI Switchboard — Claude Code or Codex not connected"
+                        "AI Switchboard — Claude Code or Codex not connected"
                     }
-                    tray_runtime::TrayRuntimeVisual::Off => "Mac AI Switchboard — off",
+                    tray_runtime::TrayRuntimeVisual::Off => "AI Switchboard — off",
                 };
 
                 let mut icon_changed = false;
@@ -1816,7 +1812,7 @@ mod tests {
         assert_eq!(preview.status, ManagedRollbackExecutionStatus::Ready);
         assert_eq!(
             preview.confirmation_phrase,
-            "Delete managed storage for Mac AI Switchboard runtime"
+            "Delete managed storage for AI Switchboard runtime"
         );
 
         let result = crate::dedicated_cleanup_rollback::execute_dedicated_cleanup_rollback_inner(

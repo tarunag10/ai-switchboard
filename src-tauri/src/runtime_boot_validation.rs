@@ -41,12 +41,12 @@ pub(crate) fn newest_proxy_log_mtime(logs_dir: &Path) -> Option<SystemTime> {
 /// frozen even when all phases last a while.
 pub(crate) fn boot_validation_message(elapsed_secs: u64, active: bool) -> String {
     let prefix = if elapsed_secs < 10 {
-        "Launching Mac AI Switchboard".to_string()
+        "Launching AI Switchboard".to_string()
     } else if elapsed_secs < 30 {
         if active {
             "Warming up Headroom's runtime".to_string()
         } else {
-            "Launching Mac AI Switchboard".to_string()
+            "Launching AI Switchboard".to_string()
         }
     } else if elapsed_secs < 90 {
         // Rotate across a few descriptive phrasings so the line changes

@@ -1,6 +1,6 @@
 # AI Switchboard Rebrand Audit
 
-Status: initial audit for the platform rebrand plan.
+Status: refreshed 2026-07-13; native UI/config/error copy now uses AI Switchboard while compatibility identifiers remain legacy by design.
 
 Use this file as the rename guardrail before changing public copy, bundle names, runtime paths, or connector wording.
 
@@ -60,6 +60,13 @@ These areas need caution and tests before renaming:
 2. Update desktop UI copy and matching frontend tests.
 3. Add runtime compatibility aliases before changing any app support, keychain, bundle, or updater identifier.
 4. Update release evidence and website/download copy after local installed-app smoke remains green.
+
+## Current Native Copy Evidence
+
+- Tray menus, runtime tooltips, startup/recovery errors, pricing notices, watchdog notifications, Doctor guidance, provider-config descriptions, uninstall confirmations, and managed sidecar text use **AI Switchboard** or **AI Switchboard for Mac**.
+- Headroom remains named only when the copy identifies the local optimization engine, runtime, proxy, or engine logs; it is not presented as a Switchboard product or service connection.
+- Legacy `Mac AI Switchboard` application-support/log paths, bundle IDs, keychain labels, updater identifiers, and serialized compatibility fixtures remain unchanged and are covered by existing cleanup/rollback tests.
+- Remaining public proof gates are recorded separately in `docs/ai-switchboard-rebrand-release-evidence.md`; no native copy change claims a signed install or reboot marker that has not been observed.
 
 ## Audit Commands
 

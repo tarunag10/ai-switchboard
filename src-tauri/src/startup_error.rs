@@ -8,14 +8,14 @@ pub(crate) fn classify_startup_error(raw: &str) -> Option<String> {
     if raw.contains("is occupied by a non-headroom process") {
         return Some(
             "A port Headroom needs is held by another app on your machine. \
-             Reboot to clear stuck listeners, then relaunch Mac AI Switchboard."
+             Reboot to clear stuck listeners, then relaunch AI Switchboard."
                 .into(),
         );
     }
     if raw.contains("headroom proxy already running on port") {
         return Some(
             "A previous Headroom proxy is still running in the background. \
-             Quit and relaunch Mac AI Switchboard to reset it."
+             Quit and relaunch AI Switchboard to reset it."
                 .into(),
         );
     }
@@ -31,7 +31,7 @@ pub(crate) fn classify_startup_error(raw: &str) -> Option<String> {
         return Some(
             "The Headroom runtime took too long to start. \
              On first launch, macOS Gatekeeper can scan the bundled Python runtime for ~1-2 minutes. \
-             Wait a moment and click Retry. If it keeps failing, open Headroom logs from Settings."
+             Wait a moment and click Retry. If it keeps failing, open engine logs from Settings."
                 .into(),
         );
     }

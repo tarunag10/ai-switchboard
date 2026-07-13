@@ -351,8 +351,8 @@ pub(crate) fn spawn_proxy_watchdog(app: AppHandle) {
                 analytics::track_event(&app, "runtime_auto_paused", None);
                 let _ = show_notification_impl(
                     &app,
-                    "Mac AI Switchboard paused the engine",
-                    "The Headroom engine could not restart its proxy. Requests are passing through unmodified — Mac AI Switchboard will keep retrying automatically, or open the app and hit Resume.",
+                    "AI Switchboard paused the engine",
+                    "The Headroom engine could not restart its proxy. Requests are passing through unmodified — AI Switchboard will keep retrying automatically, or open the app and hit Resume.",
                     Some("connectors".into()),
                 );
                 auto_pause_next_retry = Some(

@@ -146,7 +146,7 @@ pub(crate) fn planned_connector_doctor_body(connectors: &[ClientConnectorStatus]
         .take(7)
         .collect::<Vec<_>>();
     let mut parts = vec![format!(
-        "{names} detected, but automatic provider routing is not enabled for these tools yet. Mac AI Switchboard can identify them and show setup evidence, while provider/model settings remain manual until backup, verify, rollback, and Off mode cleanup coverage is promoted."
+        "{names} detected, but automatic provider routing is not enabled for these tools yet. AI Switchboard can identify them and show setup evidence, while provider/model settings remain manual until backup, verify, rollback, and Off mode cleanup coverage is promoted."
     )];
 
     if !sources.is_empty() {

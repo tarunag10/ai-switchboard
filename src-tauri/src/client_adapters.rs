@@ -792,7 +792,7 @@ pub use crate::client_connector_list::list_client_connectors;
 fn build_planned_switchboard_sidecar_body(spec: &PlannedSidecarSpec) -> String {
     if spec.id == "goose" {
         return format!(
-            "Managed by Mac AI Switchboard.\n\
+            "Managed by AI Switchboard.\n\
              Purpose: reversible Goose Repo Memory MCP bridge marker alongside allowlisted native endpoint routing.\n\
              Reference proxy base: {HEADROOM_OPENAI_BASE_URL}\n\
              Boundary: native setup writes only documented non-secret OpenAI/Anthropic endpoint fields; account state, secrets, provider credentials, and model selection remain manual.\n\
@@ -801,7 +801,7 @@ fn build_planned_switchboard_sidecar_body(spec: &PlannedSidecarSpec) -> String {
     }
 
     format!(
-        "Managed by Mac AI Switchboard.\n\
+        "Managed by AI Switchboard.\n\
          Purpose: reversible {} routing-intent sidecar while active provider config support remains gated.\n\
          Proxy base: {HEADROOM_OPENAI_BASE_URL}\n\
          Boundary: this file does not mutate account state, secrets, or undocumented provider config.\n\
@@ -8107,7 +8107,7 @@ export ANTHROPIC_BASE_URL=http://127.0.0.1:6767
             config_json.display()
         )));
         assert!(preview.current_state.contains("OpenAI"));
-        assert!(preview.proposed_state.contains("Mac AI Switchboard"));
+        assert!(preview.proposed_state.contains("AI Switchboard"));
         assert!(preview.proposed_state.contains("\"theme\": \"system\""));
         assert!(preview.rollback_preview.contains("Rollback Center"));
 

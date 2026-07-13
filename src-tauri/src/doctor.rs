@@ -576,7 +576,7 @@ mod doctor_tests {
                 current_state: "No Switchboard-managed Gemini provider routing detected."
                     .to_string(),
                 proposed_state:
-                    "Add Mac AI Switchboard local provider routing after explicit consent."
+                    "Add AI Switchboard local provider routing after explicit consent."
                         .to_string(),
                 apply_blocked_reason:
                     "Gemini CLI automation is disabled until backup, verify, rollback, and Off cleanup gates pass."

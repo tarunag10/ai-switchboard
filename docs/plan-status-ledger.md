@@ -1,10 +1,10 @@
 # Plan Status Ledger
 
-Updated: 2026-07-12
+Updated: 2026-07-13
 
 ## AI Switchboard Platform Rebrand
 
-Status: complete for the platform rebrand docs/evidence slice
+Status: substantially complete for shipped copy/docs/compatibility slices; external installed-app and reboot proof gates remain
 Plan: `docs/ai-switchboard-platform-rebrand-implementation-plan.md`
 
 Goal: move the product identity from Mac AI Switchboard to AI Switchboard / Switchboard while preserving macOS install compatibility, CLI visibility, cross-platform roadmap clarity, and accurate attribution for Headroom, RTK, Caveman, Ponytail, MarkItDown, and other integrated tools.
@@ -37,6 +37,7 @@ This is the current done/left ledger for the AI Switchboard roadmap, including t
 - Local evidence stability was improved: default-off message logging tests now isolate env/app-storage state, and Repo Intelligence local smoke has a longer timeout for Rust compile/test reality.
 - Fable security plan is committed and reflected in the current roadmap status.
 - Public documentation rebrand uses AI Switchboard / Switchboard / AI Switchboard for Mac while preserving Headroom, RTK, Caveman, Ponytail, MarkItDown, and legacy compatibility wording.
+- Native desktop copy rebrand now covers tray menus/tooltips, runtime lifecycle messages, startup and port-conflict recovery, Doctor/provider guidance, pricing notices, managed connector descriptions, watchdog notifications, and uninstall confirmations. Legacy storage/log/bundle/keychain identifiers remain unchanged intentionally.
 - Website/download-flow rebrand copy now positions the product as AI Switchboard / AI Switchboard for Mac while preserving GitHub Release updater URLs and `Mac-AI-Switchboard_<version>.dmg` compatibility artifact names.
 - Final rebrand release evidence is recorded in `docs/ai-switchboard-rebrand-release-evidence.md`, including track commits, stale-name review scope, and release evidence commands.
 - Public release `v0.0.0` has a verified signed/notarized Apple Silicon DMG and checksum on GitHub. The public DMG was downloaded, checksum-verified, `hdiutil`-verified, installed as `/Applications/AI Switchboard for Mac.app`, accepted by Gatekeeper as Notarized Developer ID, and validated with `xcrun stapler validate`.

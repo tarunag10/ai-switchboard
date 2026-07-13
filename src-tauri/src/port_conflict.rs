@@ -283,7 +283,7 @@ mod tests {
     /// `is_port_conflict` and `parse_occupant` continue to match.
     const SAMPLE_BAIL_ALL_FOREIGN: &str = "port 6768 is occupied by a non-headroom process \
         (rapportd pid 594) and fallback ports 6769-6790 are also unavailable; cannot start proxy. \
-        Reboot to clear stuck listeners, then relaunch Mac AI Switchboard.";
+        Reboot to clear stuck listeners, then relaunch AI Switchboard.";
 
     #[test]
     fn is_port_conflict_matches_bail_string() {

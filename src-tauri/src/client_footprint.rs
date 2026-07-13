@@ -214,7 +214,7 @@ fn uninstall_targets() -> Vec<UninstallTarget> {
         "app-storage",
         app_data_dir(),
         true,
-        "Delete Mac AI Switchboard app support storage after explicit uninstall confirmation.",
+        "Delete AI Switchboard app support storage after explicit uninstall confirmation.",
         true,
         vec![
             "Contains local runtime state, logs, memory DB, and Repo Intelligence cache."

@@ -25,12 +25,12 @@ const PLUGINS_ROLLBACK_OWNER: &str = "Add-ons";
 const PLUGINS_ROLLBACK_MARKER: &str = "headroom:addon";
 const PLUGINS_ROLLBACK_CONFIRMATION: &str = "Remove headroom:addon for Add-ons";
 const MANAGED_STORAGE_ROLLBACK_RECORD_ID: &str = "managed-storage";
-const MANAGED_STORAGE_ROLLBACK_OWNER: &str = "Mac AI Switchboard runtime";
+const MANAGED_STORAGE_ROLLBACK_OWNER: &str = "AI Switchboard runtime";
 const MANAGED_STORAGE_ROLLBACK_MARKER: &str = "managed storage path";
 const MANAGED_STORAGE_ROLLBACK_CONFIRMATION: &str =
-    "Delete managed storage for Mac AI Switchboard runtime";
+    "Delete managed storage for AI Switchboard runtime";
 const APP_STATE_ROLLBACK_RECORD_ID: &str = "app-state";
-const APP_STATE_ROLLBACK_OWNER: &str = "Mac AI Switchboard app state";
+const APP_STATE_ROLLBACK_OWNER: &str = "AI Switchboard app state";
 const APP_STATE_ROLLBACK_MARKER: &str = "com.tarunagarwal.mac-ai-switchboard";
 const APP_STATE_ROLLBACK_CONFIRMATION: &str =
     "Delete com.tarunagarwal.mac-ai-switchboard app state";

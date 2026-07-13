@@ -80,7 +80,7 @@ use savings::{
 pub const MAX_UPGRADE_AUTO_RETRIES: u32 = 2;
 
 /// Current Terms-of-Service version the user must have accepted to use the app.
-/// BUMP THIS whenever the bundled Mac AI Switchboard Terms of Use change: a release
+/// BUMP THIS whenever the bundled AI Switchboard Terms of Use change: a release
 /// shipping a higher value forces every user to re-accept on first launch,
 /// because their locally-stored `accepted_terms_version` will be lower.
 pub const REQUIRED_TERMS_VERSION: u32 = 2;
@@ -849,9 +849,7 @@ impl AppState {
                 p.current_step = "Done".into();
                 p.message = match maintenance_kind {
                     RuntimeMaintenanceKind::Upgrade => {
-                        format!(
-                            "Headroom engine updated for Mac AI Switchboard {current_app_version}."
-                        )
+                        format!("Headroom engine updated for AI Switchboard {current_app_version}.")
                     }
                     RuntimeMaintenanceKind::RequirementsRepair => {
                         "Headroom engine repair completed.".into()

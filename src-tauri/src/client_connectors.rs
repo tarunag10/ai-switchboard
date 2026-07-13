@@ -602,7 +602,7 @@ pub(crate) fn planned_connector_dry_run_preview(
             )
         } else {
             format!(
-                "Preview only: no files are written. after explicit consent, add Mac AI Switchboard local provider routing for {}.",
+                "Preview only: no files are written. after explicit consent, add AI Switchboard local provider routing for {}.",
                 spec.name
             )
         },

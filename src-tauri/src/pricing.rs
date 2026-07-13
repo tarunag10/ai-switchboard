@@ -23,7 +23,7 @@ const SWITCHBOARD_ACCOUNT_SESSION_ACCOUNT: &str = "session-token";
 const LOCAL_ONLY_REMOTE_SERVICES_ERROR: &str =
     "Remote account and billing services are disabled in local-only mode.";
 const REMOTE_ACCOUNT_API_DISABLED_ERROR: &str =
-    "Remote account, billing, and paid plan APIs have been removed from Mac AI Switchboard.";
+    "Remote account, billing, and paid plan APIs have been removed from AI Switchboard.";
 const LOCAL_GRACE_PERIOD_HOURS: i64 = 72;
 const TIER_MISMATCH_GRACE_DAYS: i64 = 14;
 // Set to true in dev builds to skip sign-in requirement (indefinite trial)
@@ -512,7 +512,7 @@ fn free_local_pricing_status(state: &AppState) -> HeadroomPricingStatus {
         should_nudge: false,
         nudge_level: 0,
         gate_reason: None,
-        gate_message: "Mac AI Switchboard is free. No account or subscription is required.".into(),
+        gate_message: "AI Switchboard is free. No account or subscription is required.".into(),
         nudge_threshold_percent: None,
         effective_nudge_thresholds_percent: None,
         disable_threshold_percent: None,

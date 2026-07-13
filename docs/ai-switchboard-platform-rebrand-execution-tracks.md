@@ -1,6 +1,6 @@
 # AI Switchboard Platform Rebrand Execution Tracks
 
-Status: planned
+Status: shipped for copy, documentation, compatibility, and evidence slices; live installed-app/reboot proof remains external
 Parent plan: `docs/ai-switchboard-platform-rebrand-implementation-plan.md`
 
 This file breaks the platform rebrand into sub-agent-ready tracks and implementation slices. Sub-agents are not launched from this side conversation, but the main implementation thread can use these tracks directly.
