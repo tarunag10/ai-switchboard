@@ -663,6 +663,7 @@ describe("dashboard helpers", () => {
       "amazon_q",
       "grok_cli",
     ]);
+    const promotedNativeIds = new Set(["goose"]);
     for (const connector of plannedConnectors.filter(
       (item) => !managedSidecarIds.has(item.id),
     )) {
@@ -678,7 +679,7 @@ describe("dashboard helpers", () => {
         verified: false,
       });
 
-      expect(report?.automationEnabled).toBe(false);
+      expect(report?.automationEnabled).toBe(promotedNativeIds.has(connector.id));
       expect(report?.configCreationGates).toEqual(expectedConfigCreationGates);
     }
   });
@@ -989,7 +990,7 @@ describe("dashboard helpers", () => {
         "Goose binary: /opt/homebrew/bin/goose",
         "Goose version: goose 1.2.0",
         "Goose config surface: /Users/test/.config/goose",
-        "Provider routing blocked until MCP handoff shape, backup, verify, rollback, and Off mode cleanup exist.",
+        "Provider routing is allowlisted to documented endpoint fields; MCP handoff, backup, verify, rollback, and Off mode cleanup remain explicit.",
         "Detected, but Headroom adapter not implemented yet.",
       ],
       installed: true,
@@ -1003,11 +1004,13 @@ describe("dashboard helpers", () => {
       binaryPath: "/opt/homebrew/bin/goose",
       version: "goose 1.2.0",
       configSurface: "/Users/test/.config/goose",
-      routingBlocker:
-        "Provider routing blocked until MCP handoff shape, backup, verify, rollback, and Off mode cleanup exist.",
-      automationEnabled: false,
+      routingBlocker: null,
+      automationEnabled: true,
       configCreationGates: expectedConfigCreationGates,
-      otherEvidence: ["Detected, but Headroom adapter not implemented yet."],
+      otherEvidence: [
+        "Provider routing is allowlisted to documented endpoint fields; MCP handoff, backup, verify, rollback, and Off mode cleanup remain explicit.",
+        "Detected, but Headroom adapter not implemented yet.",
+      ],
     });
   });
 
