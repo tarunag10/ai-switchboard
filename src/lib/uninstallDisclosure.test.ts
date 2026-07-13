@@ -59,6 +59,7 @@ describe("uninstallDisclosure", () => {
       "aider-routing",
       "continue-routing",
       "goose-routing",
+      "goose-provider-routing",
       "qwen-code-routing",
       "amazon-q-routing",
       "windsurf-routing",
