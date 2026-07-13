@@ -2416,7 +2416,7 @@ fn collect_ast_call_sites(
         .map(|symbol| symbol.name)
         .or(caller);
 
-    if node.kind() == "call_expression" {
+    if matches!(node.kind(), "call_expression" | "call") {
         let mut names = BTreeSet::new();
         if let Some(function) = node.child_by_field_name("function") {
             collect_call_target_names(source, function, &mut names);
@@ -2429,35 +2429,6 @@ fn collect_ast_call_sites(
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         collect_ast_call_sites(file, source, child, next_caller.clone(), sites);
-    }
-}
-
-fn extract_call_references_with_tree_sitter(
-    content: &str,
-    language: &str,
-) -> Option<BTreeSet<String>> {
-    let mut parser = tree_sitter::Parser::new();
-    let language_ref = tree_sitter_language_for_language_name(language)?;
-    parser.set_language(&language_ref).ok()?;
-    let tree = parser.parse(content, None)?;
-    let mut calls = BTreeSet::new();
-    collect_ast_call_names(content.as_bytes(), tree.root_node(), &mut calls);
-    Some(calls)
-}
-
-fn collect_ast_call_names(
-    source: &[u8],
-    node: tree_sitter::Node<'_>,
-    calls: &mut BTreeSet<String>,
-) {
-    if node.kind() == "call_expression" {
-        if let Some(function) = node.child_by_field_name("function") {
-            collect_call_target_names(source, function, calls);
-        }
-    }
-    let mut cursor = node.walk();
-    for child in node.children(&mut cursor) {
-        collect_ast_call_names(source, child, calls);
     }
 }
 
