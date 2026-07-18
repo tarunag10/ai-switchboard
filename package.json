@@ -1,6 +1,6 @@
 {
   "name": "mac-ai-switchboard",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Local-first AI Switchboard CLI and macOS app for coding-agent routing, token savings, and repo context packs.",
   "bin": {
     "switchboard": "./bin/switchboard.mjs"
