@@ -31,6 +31,37 @@ describe("codex error guidance", () => {
     );
   });
 
+  it("classifies missing Responses write authorization as an upstream provider failure", () => {
+    const guidance = classifyCodexError(
+      "unexpected status 401 Unauthorized: You have insufficient permissions for this operation. Missing scopes: api.responses.write.",
+    );
+
+    expect(guidance.kind).toBe("provider_auth_scope_missing");
+    expect(guidance.summary).toContain("upstream provider");
+    expect(guidance.summary).toContain("not token compression");
+    expect(guidance.action).toContain("Responses: Write");
+    expect(guidance.action).toContain("ChatGPT/Codex OAuth");
+    expect(guidance.action).toContain("diagnostic");
+    expect(guidance.action).toContain("will not repair the credential");
+    expect(guidance.steps).toContain(
+      "Use a project API key whose permissions include Responses: Write, or authenticate with ChatGPT/Codex OAuth.",
+    );
+    expect(guidance.steps).toContain(
+      "As a routing diagnostic, bypass Headroom and retry direct; if direct also fails, fix upstream authorization rather than compression.",
+    );
+    expect(guidance.steps).toContain(
+      "Verify the credential's organization and project access without pasting or printing the secret.",
+    );
+  });
+
+  it("recognizes Unauthorized messages that describe a missing scope", () => {
+    const guidance = classifyCodexError(
+      "Unauthorized (401): insufficient permissions; missing scope api.responses.write",
+    );
+
+    expect(guidance.kind).toBe("provider_auth_scope_missing");
+  });
+
   it("falls back for unknown Codex errors", () => {
     const guidance = classifyCodexError("Codex failed unexpectedly.");
 

@@ -374,7 +374,7 @@ pub(super) fn apply_savings_mode_env(command: &mut Command, savings_mode: &Savin
         "HEADROOM_SAVINGS_PROFILE",
         match savings_mode {
             SavingsMode::Balanced => "balanced",
-            SavingsMode::Aggressive => "aggressive",
+            SavingsMode::Aggressive => "agent-90",
         },
     );
     if matches!(savings_mode, SavingsMode::Aggressive) {
@@ -534,4 +534,29 @@ fn headroom_learn_startup_args() -> Vec<String> {
         "--memory-db-path".to_string(),
         crate::headroom_memory_db_path().display().to_string(),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsStr;
+    use std::process::Command;
+
+    use super::apply_savings_mode_env;
+    use crate::models::SavingsMode;
+
+    #[test]
+    fn aggressive_savings_mode_exports_supported_headroom_profile() {
+        let mut command = Command::new("headroom");
+        apply_savings_mode_env(&mut command, &SavingsMode::Aggressive);
+
+        let env_value = |name: &str| {
+            command
+                .get_envs()
+                .find(|(key, _)| *key == OsStr::new(name))
+                .and_then(|(_, value)| value.and_then(OsStr::to_str))
+        };
+
+        assert_eq!(env_value("HEADROOM_SAVINGS_PROFILE"), Some("agent-90"));
+        assert_eq!(env_value("HEADROOM_TARGET_RATIO"), Some("0.45"));
+    }
 }

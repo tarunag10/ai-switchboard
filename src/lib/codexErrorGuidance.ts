@@ -1,6 +1,7 @@
 export type CodexErrorKind =
   | "compression_refused"
   | "unsupported_chatgpt_model"
+  | "provider_auth_scope_missing"
   | "unknown";
 
 export interface CodexErrorGuidance {
@@ -39,6 +40,20 @@ const UNSUPPORTED_CHATGPT_MODEL_GUIDANCE: CodexErrorGuidance = {
   ],
 };
 
+const PROVIDER_AUTH_SCOPE_MISSING_GUIDANCE: CodexErrorGuidance = {
+  kind: "provider_auth_scope_missing",
+  title: "Provider authorization is missing Responses: Write",
+  summary:
+    "The upstream provider rejected the credential or its organization/project authorization. This is an upstream authorization issue, not token compression. Switchboard does not need or display your secret.",
+  action:
+    "Use a valid project key with Responses: Write or ChatGPT/Codex OAuth, then retry. Bypass Headroom or route direct only as a diagnostic; it will not repair the credential.",
+  steps: [
+    "Use a project API key whose permissions include Responses: Write, or authenticate with ChatGPT/Codex OAuth.",
+    "Verify the credential's organization and project access without pasting or printing the secret.",
+    "As a routing diagnostic, bypass Headroom and retry direct; if direct also fails, fix upstream authorization rather than compression.",
+  ],
+};
+
 const UNKNOWN_GUIDANCE: CodexErrorGuidance = {
   kind: "unknown",
   title: "Codex error needs review",
@@ -73,6 +88,14 @@ export function classifyCodexError(
     text.includes("chatgpt account")
   ) {
     return UNSUPPORTED_CHATGPT_MODEL_GUIDANCE;
+  }
+
+  if (
+    (text.includes("401") || text.includes("unauthorized")) &&
+    (text.includes("missing scope") || text.includes("insufficient permission")) &&
+    text.includes("api.responses.write")
+  ) {
+    return PROVIDER_AUTH_SCOPE_MISSING_GUIDANCE;
   }
 
   return UNKNOWN_GUIDANCE;

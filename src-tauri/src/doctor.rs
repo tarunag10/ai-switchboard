@@ -228,6 +228,17 @@ pub(crate) fn build_doctor_report(state: &AppState) -> DoctorReport {
         .codex_bypass
         .load(std::sync::atomic::Ordering::Acquire);
     let mut issues = Vec::new();
+    if crate::proxy_intercept::latest_provider_auth_error().as_deref()
+        == Some("provider_auth_scope_missing")
+    {
+        issues.push(DoctorIssue {
+            id: "provider_auth_scope_missing".to_string(),
+            title: "Provider authorization is missing Responses: Write".to_string(),
+            body: "The upstream provider rejected a Codex Responses request because the active credential or its organization/project authorization is missing api.responses.write. This is not a token-compression failure. Use a project key with Responses: Write or ChatGPT/Codex OAuth; Switchboard will not read, print, or change your secret.".to_string(),
+            severity: DoctorSeverity::Error,
+            repair_action: None,
+        });
+    }
     if state.tool_manager.caveman_receipt_exists() {
         let caveman_level = state.tool_manager.caveman_level();
         match client_adapters::caveman_integration_matches_level(&caveman_level) {

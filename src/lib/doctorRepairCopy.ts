@@ -500,6 +500,8 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
       return "Use Prepare MCP to refresh current app-process smoke proof before relying on Repo Memory MCP handoffs.";
     case "headroom_paused":
       return "Choose Full optimization or Headroom only to resume routing, or stay in Off mode if you want clients to bypass Headroom.";
+    case "provider_auth_scope_missing":
+      return "Fix the upstream organization/project permission or use ChatGPT/Codex OAuth. Bypass Headroom only as a diagnostic; it cannot repair an under-scoped credential. Never paste the credential into Switchboard support or Doctor reports.";
     case "off_mode_not_clean":
       return "Run Verify Off after disabling routing or restarting affected shells; Doctor will re-check active engine, client, and RTK evidence.";
     case "no_headroom_clients":

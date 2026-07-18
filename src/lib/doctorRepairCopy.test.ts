@@ -46,6 +46,20 @@ describe("doctor repair copy", () => {
     );
   });
 
+  it("gives safe guidance for an upstream Responses scope failure", () => {
+    const guidance = doctorIssueGuidance({
+      id: "provider_auth_scope_missing",
+      title: "Provider authorization is missing Responses: Write",
+      body: "The upstream provider rejected the request.",
+      severity: "error",
+      repairAction: null,
+    });
+
+    expect(guidance).toContain("organization/project permission");
+    expect(guidance).toContain("Bypass Headroom only as a diagnostic");
+    expect(guidance).toContain("Never paste the credential");
+  });
+
   it("describes runtime RTK and Repo Intelligence repair actions", () => {
     expect(doctorRepairHint("repair_runtime")).toContain(
       "refreshes switchboard status",

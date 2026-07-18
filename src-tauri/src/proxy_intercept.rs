@@ -56,6 +56,8 @@ static CODEX_USAGE_LAST_POLL: AtomicU64 = AtomicU64::new(0);
 static HEADROOM_COMPRESSION_BYPASS_MASK: AtomicU64 = AtomicU64::new(0);
 const HEADROOM_COMPRESSION_BYPASS_ANTHROPIC: u64 = 1;
 const HEADROOM_COMPRESSION_BYPASS_OPENAI: u64 = 1 << 1;
+static LAST_PROVIDER_AUTH_ERROR: std::sync::OnceLock<Mutex<Option<String>>> =
+    std::sync::OnceLock::new();
 
 /// Shared state written by the intercept layer.
 pub type SharedToken = Arc<Mutex<Option<BearerToken>>>;
@@ -429,7 +431,9 @@ async fn splice_with_headroom_capture(
         // Forward the head bytes we read (full head on success, partial on
         // timeout/EOF — `read_http_headers` may also include leading body bytes
         // it over-read), then splice the rest of the response through.
-        if let Some(content_length) = bounded_json_response_len(&head) {
+        let captured_json_response_len = bounded_json_response_len(&head)
+            .or_else(|| bounded_provider_auth_error_response_len(&head));
+        if let Some(content_length) = captured_json_response_len {
             let header_end = find_header_end(&head)
                 .map(|end| end + 4)
                 .unwrap_or(head.len());
@@ -465,8 +469,20 @@ async fn splice_with_headroom_capture(
                         }
                     }
                 }
+                let provider_auth_error = classify_provider_auth_error(&head, &body);
+                if let Some(error_class) = provider_auth_error {
+                    log_provider_auth_error(error_class);
+                } else if response_is_success(&head) {
+                    clear_provider_auth_error();
+                }
+                let response_head = provider_auth_error
+                    .map(|error_class| annotate_provider_auth_error(&head, error_class))
+                    .unwrap_or_else(|| head.clone());
+                let response_header_end = find_header_end(&response_head)
+                    .map(|end| end + 4)
+                    .unwrap_or(response_head.len());
                 if client_wr
-                    .write_all(&head[..header_end.min(head.len())])
+                    .write_all(&response_head[..response_header_end.min(response_head.len())])
                     .await
                     .is_err()
                 {
@@ -478,7 +494,16 @@ async fn splice_with_headroom_capture(
             }
         }
 
-        if client_wr.write_all(&head).await.is_err() {
+        let provider_auth_error = classify_provider_auth_error(&head, &[]);
+        if let Some(error_class) = provider_auth_error {
+            log_provider_auth_error(error_class);
+        } else if response_is_success(&head) {
+            clear_provider_auth_error();
+        }
+        let response_head = provider_auth_error
+            .map(|error_class| annotate_provider_auth_error(&head, error_class))
+            .unwrap_or(head);
+        if client_wr.write_all(&response_head).await.is_err() {
             return;
         }
         let _ = tokio::io::copy(&mut backend_rd, &mut client_wr).await;
@@ -568,6 +593,83 @@ fn bounded_json_response_len(head: &[u8]) -> Option<usize> {
         return (len <= MAX_CAPTURE_BYTES).then_some(len);
     }
     None
+}
+
+fn bounded_provider_auth_error_response_len(head: &[u8]) -> Option<usize> {
+    const MAX_AUTH_ERROR_CAPTURE_BYTES: usize = 64 * 1024;
+
+    let text = std::str::from_utf8(head).ok()?.to_ascii_lowercase();
+    let status_line = text.lines().next()?;
+    if !(status_line.contains(" 401 ") || status_line.contains(" 403 ")) {
+        return None;
+    }
+    if !text.contains("content-type: application/json") {
+        return None;
+    }
+
+    text.lines()
+        .find_map(|line| line.strip_prefix("content-length:"))
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .filter(|length| *length <= MAX_AUTH_ERROR_CAPTURE_BYTES)
+}
+
+const PROVIDER_AUTH_SCOPE_MISSING: &str = "provider_auth_scope_missing";
+
+fn classify_provider_auth_error(head: &[u8], body: &[u8]) -> Option<&'static str> {
+    let status_line = std::str::from_utf8(head)
+        .ok()?
+        .lines()
+        .next()?
+        .to_ascii_lowercase();
+    if !(status_line.contains(" 401 ") || status_line.contains(" 403 ")) {
+        return None;
+    }
+
+    let mut text = String::from_utf8_lossy(head).to_ascii_lowercase();
+    text.push_str(&String::from_utf8_lossy(body).to_ascii_lowercase());
+    let scope_is_missing = text.contains("api.responses.write")
+        && (text.contains("missing scopes") || text.contains("insufficient permissions"));
+    scope_is_missing.then_some(PROVIDER_AUTH_SCOPE_MISSING)
+}
+
+fn response_is_success(head: &[u8]) -> bool {
+    std::str::from_utf8(head)
+        .ok()
+        .and_then(|text| text.lines().next())
+        .and_then(|line| line.split_whitespace().nth(1))
+        .is_some_and(|status| status.starts_with('2'))
+}
+
+fn provider_auth_error_slot() -> &'static Mutex<Option<String>> {
+    LAST_PROVIDER_AUTH_ERROR.get_or_init(|| Mutex::new(None))
+}
+
+pub(crate) fn latest_provider_auth_error() -> Option<String> {
+    provider_auth_error_slot().lock().clone()
+}
+
+fn clear_provider_auth_error() {
+    *provider_auth_error_slot().lock() = None;
+}
+
+fn log_provider_auth_error(error_class: &str) {
+    *provider_auth_error_slot().lock() = Some(error_class.to_string());
+    log::warn!(
+        "[proxy_intercept] {error_class}: upstream rejected the provider credential; grant the required provider permission or use the correct account/auth mode"
+    );
+}
+
+fn annotate_provider_auth_error(head: &[u8], error_class: &str) -> Vec<u8> {
+    let Some(end) = find_header_end(head) else {
+        return head.to_vec();
+    };
+    let mut annotated = Vec::with_capacity(head.len() + 160);
+    annotated.extend_from_slice(&head[..end]);
+    annotated.extend_from_slice(b"X-Switchboard-Error-Class: ");
+    annotated.extend_from_slice(error_class.as_bytes());
+    annotated.extend_from_slice(b"\r\nX-Switchboard-Error-Action: provider-credentials\r\n");
+    annotated.extend_from_slice(&head[end..]);
+    annotated
 }
 
 struct CachePlan {
@@ -1626,13 +1728,15 @@ fn extract_bearer(buf: &[u8]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        bearer_value_changed, cache_plan_from_request, codex_snapshot_from_usage_payload,
-        codex_window_label, decode_codex_plan_tier, extract_bearer, extract_header_value,
-        find_header_end, is_headroom_compression_refusal_response, is_hop_by_hop_request_header,
+        annotate_provider_auth_error, bearer_value_changed, cache_plan_from_request,
+        classify_provider_auth_error, codex_snapshot_from_usage_payload, codex_window_label,
+        decode_codex_plan_tier, extract_bearer, extract_header_value, find_header_end,
+        is_headroom_compression_refusal_response, is_hop_by_hop_request_header,
         is_hop_by_hop_response_header, is_local_proxy_path, is_openai_path,
         parse_codex_rate_limit_headers, parse_request_head, read_http_headers,
         request_is_loopback_safe, request_should_bypass_headroom, response_allows_cache,
         response_body_allows_cache, run, stamp_codex_client_header, BypassFlag, SharedToken,
+        PROVIDER_AUTH_SCOPE_MISSING,
     };
     use crate::backend_port;
     use crate::bearer::BearerToken;
@@ -1770,6 +1874,39 @@ mod tests {
             br#"{"answer":"password: secret"}"#
         ));
         assert!(!response_body_allows_cache(b"-----BEGIN PRIVATE KEY-----"));
+    }
+
+    #[test]
+    fn classifies_missing_responses_write_scope_without_logging_credentials() {
+        let head = b"HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\nContent-Length: 124\r\n\r\n";
+        let body = br#"{"error":{"message":"You have insufficient permissions for this operation. Missing scopes: api.responses.write."}}"#;
+
+        assert_eq!(
+            classify_provider_auth_error(head, body),
+            Some(PROVIDER_AUTH_SCOPE_MISSING)
+        );
+
+        let annotated = annotate_provider_auth_error(head, PROVIDER_AUTH_SCOPE_MISSING);
+        let annotated_text = String::from_utf8(annotated).expect("annotated head");
+        assert!(annotated_text.contains("X-Switchboard-Error-Class: provider_auth_scope_missing"));
+        assert!(annotated_text.contains("X-Switchboard-Error-Action: provider-credentials"));
+        assert!(!annotated_text.contains("Authorization:"));
+    }
+
+    #[test]
+    fn does_not_classify_unrelated_provider_auth_failures() {
+        let head = b"HTTP/1.1 401 Unauthorized\r\nContent-Type: application/json\r\n\r\n";
+        assert_eq!(
+            classify_provider_auth_error(head, br#"{"error":{"message":"invalid api key"}}"#),
+            None
+        );
+        assert_eq!(
+            classify_provider_auth_error(
+                b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n",
+                br#"{"message":"Missing scopes: api.responses.write"}"#,
+            ),
+            None
+        );
     }
 
     #[test]
