@@ -22,6 +22,8 @@ import {
   type RepoContextPack,
   type RepoAgentHandoffTarget,
   type RepoIntelligenceSummary,
+  type RepoPackCompressionConfig,
+  type RepoPackCompressionMode,
   type RepoSavingsEstimate,
 } from "../lib/repoIntelligence";
 
@@ -90,11 +92,15 @@ export function RepoIntelligencePreview({
     useState<RepoAgentHandoffTarget>("codex");
   const [selectedTaskType, setSelectedTaskType] =
     useState<AgentSessionTaskType>("verification");
+  const [packCompressionMode, setPackCompressionMode] =
+    useState<RepoPackCompressionMode>("off");
   const [summary, setSummary] = useState<RepoIntelligenceSummary>(
     repoIntelligencePreview,
   );
   const [indexing, setIndexing] = useState(false);
   const [indexError, setIndexError] = useState<string | null>(null);
+  const [savedIndexError, setSavedIndexError] = useState<string | null>(null);
+  const [savedIndexLoading, setSavedIndexLoading] = useState(true);
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [showVerificationDetails, setShowVerificationDetails] = useState(false);
   const [showModeReasoning, setShowModeReasoning] = useState(false);
@@ -125,26 +131,39 @@ export function RepoIntelligencePreview({
     sessionPreparation,
     hasRealIndex,
   );
+  const packCompressionConfig: RepoPackCompressionConfig =
+    packCompressionMode === "chonkify"
+      ? { mode: "chonkify", licenseMetadata: "NOASSERTION" }
+      : { mode: "off" };
   const verificationDetailsId = "repo-intelligence-verification-details";
   const modeReasoningId = "repo-intelligence-mode-reasoning";
   const graphDiagnosticsId = "repo-intelligence-graph-diagnostics";
 
+  async function loadSavedRepoIndex() {
+    setSavedIndexLoading(true);
+    setSavedIndexError(null);
+    try {
+      const latest = await invoke<RepoIntelligenceSummary | null>(
+        "get_latest_repo_intelligence_summary",
+      );
+      if (latest) {
+        setSummary(latest);
+        setRepoPath(latest.repoRoot ?? "");
+        onSummaryChange?.(latest);
+      }
+    } catch (error) {
+      setSavedIndexError(
+        error instanceof Error
+          ? error.message
+          : "Saved Repo Intelligence index could not be loaded.",
+      );
+    } finally {
+      setSavedIndexLoading(false);
+    }
+  }
+
   useEffect(() => {
-    let cancelled = false;
-    invoke<RepoIntelligenceSummary | null>(
-      "get_latest_repo_intelligence_summary",
-    )
-      .then((latest) => {
-        if (!cancelled && latest) {
-          setSummary(latest);
-          setRepoPath(latest.repoRoot ?? "");
-          onSummaryChange?.(latest);
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
+    void loadSavedRepoIndex();
   }, []);
 
   async function runRepoIndex() {
@@ -205,7 +224,7 @@ export function RepoIntelligencePreview({
         throw new Error("Clipboard API unavailable");
       }
       await navigator.clipboard.writeText(
-        formatRepoContextPackMarkdown(summary),
+        formatRepoContextPackMarkdown(summary, packCompressionConfig),
       );
       setCopyNotice("Context pack copied.");
       window.setTimeout(() => setCopyNotice(null), 2000);
@@ -245,7 +264,7 @@ export function RepoIntelligencePreview({
         throw new Error("Clipboard API unavailable");
       }
       await navigator.clipboard.writeText(
-        formatSingleRepoContextPackMarkdown(summary, pack),
+        formatSingleRepoContextPackMarkdown(summary, pack, packCompressionConfig),
       );
       setCopyNotice(`${pack.title} copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
@@ -272,7 +291,7 @@ export function RepoIntelligencePreview({
         throw new Error("Clipboard API unavailable");
       }
       await navigator.clipboard.writeText(
-        formatSingleRepoContextPackMarkdown(summary, pack),
+        formatSingleRepoContextPackMarkdown(summary, pack, packCompressionConfig),
       );
       setCopyNotice(`${label} copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
@@ -296,7 +315,7 @@ export function RepoIntelligencePreview({
         throw new Error("Clipboard API unavailable");
       }
       await navigator.clipboard.writeText(
-        formatRepoAgentHandoffMarkdown(summary, target),
+        formatRepoAgentHandoffMarkdown(summary, target, undefined, packCompressionConfig),
       );
       setCopyNotice(`${label} handoff copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
@@ -320,7 +339,7 @@ export function RepoIntelligencePreview({
         throw new Error("Clipboard API unavailable");
       }
       await navigator.clipboard.writeText(
-        JSON.stringify(buildRepoAgentHandoffPayload(summary, target), null, 2),
+        JSON.stringify(buildRepoAgentHandoffPayload(summary, target, undefined, packCompressionConfig), null, 2),
       );
       setCopyNotice(`${label} JSON handoff copied.`);
       window.setTimeout(() => setCopyNotice(null), 2000);
@@ -393,6 +412,7 @@ export function RepoIntelligencePreview({
     const packMarkdown = formatAgentSessionSelectedPackMarkdown(
       summary,
       sessionPreparation,
+      packCompressionConfig,
     );
     if (!hasRealIndex || !packMarkdown) {
       setCopyNotice(sessionPreparation.copyDetail);
@@ -419,8 +439,8 @@ export function RepoIntelligencePreview({
       className="repo-intelligence-preview"
       aria-label="Repo Intelligence context pack preview"
     >
-      <div className="repo-intelligence-preview__topline">
-        <span>{indexStatusLabel}</span>
+      <div className="repo-intelligence-preview__topline" role="status" aria-live="polite" aria-busy={indexing}>
+        <span>{savedIndexLoading ? "Loading saved index…" : indexStatusLabel}</span>
         <strong>
           {summary.indexedFiles} indexed signals
           {summary.skippedFiles ? `, ${summary.skippedFiles} skipped` : ""}
@@ -443,6 +463,18 @@ export function RepoIntelligencePreview({
         >
           {indexing ? "Indexing..." : "Index"}
         </button>
+        <label className="repo-intelligence-preview__compression-control">
+          Pack compression
+          <select
+            aria-label="Repo pack compression mode"
+            disabled={indexing}
+            onChange={(event) => setPackCompressionMode(event.target.value as RepoPackCompressionMode)}
+            value={packCompressionMode}
+          >
+            <option value="off">Native deterministic (recommended)</option>
+            <option value="chonkify">Chonkify (blocked pending license)</option>
+          </select>
+        </label>
         {!isPreview ? (
           <>
             <button
@@ -492,11 +524,29 @@ export function RepoIntelligencePreview({
           Index cache: {cacheStateLabel}
         </p>
       ) : null}
+      <p className="repo-intelligence-preview__path" role="note">
+        {packCompressionMode === "chonkify"
+          ? "Chonkify is selected for evidence preview only. Current license metadata is NOASSERTION, so native deterministic packs remain unchanged and savings stay unclaimed."
+          : "Native deterministic packs are the default. Any future chonkify reduction will retain source spans and be labelled estimated."}
+      </p>
       {copyNotice ? (
-        <p className="repo-intelligence-preview__path">{copyNotice}</p>
+        <p className="repo-intelligence-preview__path" role="status" aria-live="polite">{copyNotice}</p>
+      ) : null}
+      {savedIndexError ? (
+        <div className="repo-intelligence-preview__load-error" role="alert" aria-live="assertive">
+          <p>Could not load the saved Repo Intelligence index: {savedIndexError}</p>
+          <button
+            className="addon-card__action"
+            disabled={savedIndexLoading || indexing}
+            onClick={() => void loadSavedRepoIndex()}
+            type="button"
+          >
+            Retry saved index
+          </button>
+        </div>
       ) : null}
       {indexError ? (
-        <p className="install-progress__error">{indexError}</p>
+        <p className="install-progress__error" role="alert">{indexError}</p>
       ) : null}
       <div
         className="repo-intelligence-session"
@@ -859,13 +909,13 @@ export function RepoIntelligencePreview({
         ))}
       </div>
 
-      <div
+      <section
         className="repo-intelligence-handoffs"
-        aria-label="Agent-specific handoffs"
+        aria-labelledby="repo-intelligence-handoffs-title"
       >
         <div className="repo-intelligence-recipes__heading">
-          <span>Agent handoffs</span>
-          <strong>Ready to paste</strong>
+          <h3 id="repo-intelligence-handoffs-title">Agent handoffs</h3>
+          <strong>{isPreview ? "Index a repo to enable copying" : "Ready to paste"}</strong>
         </div>
         <div className="repo-intelligence-handoffs__grid">
           {repoAgentHandoffGroups.map((group) => (
@@ -910,7 +960,7 @@ export function RepoIntelligencePreview({
             </section>
           ))}
         </div>
-      </div>
+      </section>
 
       <div
         className="repo-intelligence-recipes"

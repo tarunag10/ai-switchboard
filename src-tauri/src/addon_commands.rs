@@ -61,6 +61,20 @@ pub async fn install_addon(
             let _ = state.record_caveman_attribution(&level, &changed_files, &backup_files);
             Ok(state.dashboard())
         }
+        "leanctx" => {
+            state
+                .tool_manager
+                .install_leanctx_sidecar()
+                .map_err(|err| err.to_string())?;
+            Ok(state.dashboard())
+        }
+        "semantic-cache" => {
+            state
+                .semantic_cache
+                .set_enabled(false)
+                .map_err(|err| err.to_string())?;
+            Ok(state.dashboard())
+        }
         other => Err(format!("unknown addon: {other}")),
     }
 }
@@ -120,6 +134,31 @@ pub async fn set_addon_enabled(
             }
             Ok(state.dashboard())
         }
+        "leanctx" => {
+            state
+                .tool_manager
+                .set_leanctx_enabled(enabled)
+                .map_err(|err| err.to_string())?;
+            Ok(state.dashboard())
+        }
+        "semantic-cache" => {
+            if enabled
+                && matches!(
+                    client_adapters::load_switchboard_mode(),
+                    Some(crate::models::SwitchboardMode::Off | crate::models::SwitchboardMode::Rtk)
+                )
+            {
+                return Err(
+                    "Semantic Cache requires Full or Headroom mode; Off and RTK-only modes do not serve cached provider responses."
+                        .into(),
+                );
+            }
+            state
+                .semantic_cache
+                .set_enabled(enabled)
+                .map_err(|err| err.to_string())?;
+            Ok(state.dashboard())
+        }
         other => Err(format!("unknown addon: {other}")),
     }
 }
@@ -168,8 +207,33 @@ pub async fn uninstall_addon(
                 .map_err(|err| err.to_string())?;
             Ok(state.dashboard())
         }
+        "leanctx" => {
+            state
+                .tool_manager
+                .uninstall_leanctx_sidecar()
+                .map_err(|err| err.to_string())?;
+            Ok(state.dashboard())
+        }
+        "semantic-cache" => {
+            state
+                .semantic_cache
+                .set_enabled(false)
+                .map_err(|err| err.to_string())?;
+            state
+                .semantic_cache
+                .clear()
+                .map_err(|err| err.to_string())?;
+            Ok(state.dashboard())
+        }
         other => Err(format!("unknown addon: {other}")),
     }
+}
+
+#[tauri::command]
+pub fn get_leanctx_sidecar_status(
+    state: State<'_, AppState>,
+) -> crate::tool_manager::LeanctxSidecarStatus {
+    state.tool_manager.leanctx_sidecar_status()
 }
 
 #[tauri::command]

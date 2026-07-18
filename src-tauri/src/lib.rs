@@ -49,6 +49,7 @@ mod message_logging;
 mod message_settings_commands;
 mod models;
 mod optimization;
+mod optimization_addons_readiness;
 mod optimization_commands;
 mod port_conflict;
 mod pricing;
@@ -68,6 +69,7 @@ mod runtime_distribution;
 mod runtime_failure_reporting;
 mod runtime_probe;
 mod runtime_watchdog;
+mod semantic_cache;
 mod startup_error;
 mod state;
 mod storage;
@@ -709,6 +711,7 @@ pub fn run() {
             analytics_commands::preview_clear_usage_analytics,
             analytics_commands::clear_usage_analytics,
             gateway_readiness::get_gateway_readiness,
+            optimization_addons_readiness::get_optimization_addon_readiness,
             dashboard_commands::get_dashboard_state,
             dashboard_commands::get_savings_attribution_events,
             dashboard_commands::get_savings_attribution_counters,
@@ -751,6 +754,10 @@ pub fn run() {
             addon_commands::install_addon,
             addon_commands::set_addon_enabled,
             addon_commands::uninstall_addon,
+            addon_commands::get_leanctx_sidecar_status,
+            semantic_cache::get_semantic_cache_status,
+            semantic_cache::set_semantic_cache_enabled,
+            semantic_cache::clear_semantic_cache,
             addon_commands::set_caveman_level,
             repo_memory_commands::install_repo_memory_mcp,
             repo_memory_commands::start_repo_memory_mcp,
@@ -846,6 +853,7 @@ pub fn run() {
             ) {
                 let state: tauri::State<'_, AppState> = app.state();
                 state.stop_headroom();
+                state.tool_manager.stop_leanctx();
                 // Gracefully reverse every client's base-URL override (and shell
                 // blocks) on quit so Claude Code / Codex fall back to talking
                 // directly to their native providers while Headroom is not

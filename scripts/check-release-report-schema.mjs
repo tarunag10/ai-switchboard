@@ -78,6 +78,7 @@ const requiredReleaseReportPaths = [
   "localValidation.connectorReadiness.summaryPresent",
   "localValidation.connectorReadiness.jsonPresent",
   "localValidation.connectorReadiness.passed",
+  "localValidation.connectorReadiness.inventoryParsed",
   "localValidation.connectorReadiness.requiredGatedNativeWritePresent",
   "localValidation.connectorReadiness.gatedNativeWriteConnectors",
   "localValidation.connectorReadiness.lifecycleCoverageComplete",
@@ -92,6 +93,13 @@ const requiredReleaseReportPaths = [
   "localValidation.localOnlyNetwork.requiredCommand",
   "shareableDmgGate.staticSmokePreflightReady",
   "shareableDmgGate.updaterFeedReady",
+  "artifactTrust.ready",
+  "artifactTrust.artifactPresent",
+  "artifactTrust.hdiutilVerifyOk",
+  "artifactTrust.appPresent",
+  "artifactTrust.codesignVerifyOk",
+  "artifactTrust.gatekeeperAccepted",
+  "artifactTrust.notarizationTicketValid",
   "releaseEnv.blockers",
   "releaseEnv.warnings",
 ];
@@ -316,11 +324,15 @@ if (!markdownReport.includes("Repo Memory MCP graph queries verified:")) {
 if (!Array.isArray(report.localValidation.connectorReadiness.gatedNativeWriteConnectors)) {
   fail("localValidation.connectorReadiness.gatedNativeWriteConnectors must be an array");
 }
+requireType(report, "localValidation.connectorReadiness.inventoryParsed", "boolean");
 if (report.localValidation.connectorReadiness.passed) {
+  if (report.localValidation.connectorReadiness.inventoryParsed !== true) {
+    fail("localValidation.connectorReadiness.inventoryParsed must be true when connector readiness evidence passes");
+  }
   if (report.localValidation.connectorReadiness.requiredGatedNativeWritePresent !== true) {
     fail("localValidation.connectorReadiness.requiredGatedNativeWritePresent must be true when connector readiness evidence passes");
   }
-  for (const connectorId of ["aider", "amazon_q", "cursor"]) {
+  for (const connectorId of report.localValidation.connectorReadiness.gatedNativeWriteConnectors) {
     if (!report.localValidation.connectorReadiness.gatedNativeWriteConnectors.includes(connectorId)) {
       fail(`localValidation.connectorReadiness.gatedNativeWriteConnectors must include ${connectorId} when connector readiness evidence passes`);
     }
@@ -737,6 +749,17 @@ if (
   );
 }
 requireType(report, "localValidation.message", "string");
+
+requireObject(report, "artifactTrust");
+requireBooleanFields(report, "artifactTrust", [
+  "ready",
+  "artifactPresent",
+  "hdiutilVerifyOk",
+  "appPresent",
+  "codesignVerifyOk",
+  "gatekeeperAccepted",
+  "notarizationTicketValid",
+]);
 
 requireObject(report, "shareableDmgGate");
 requireBooleanFields(report, "shareableDmgGate", [

@@ -483,9 +483,11 @@ impl ToolManager {
         // `_setup_file_logging`). Proxy-logger INFO lines — including the
         // `Kompress: ENABLED/not installed/disabled` startup markers — go to
         // `~/.headroom/logs/proxy.log` only, never to the stderr stream that
-        // our Tauri-spawned log captures. Probe that file first; fall back to
-        // the spawn-time tool log (covers older headroom versions that do
-        // propagate to stderr).
+        // our Tauri-spawned log captures. The app-managed spawn log is checked
+        // first and is authoritative when present: a persistent proxy.log can
+        // contain an enabled marker from an older Headroom process and must
+        // not make the current process appear compressed. The persistent log
+        // is only a fallback for externally managed Headroom processes.
         // Positive markers: the startup `Kompress: ENABLED` line (cache hit at
         // eager-preload) AND the lazy-load success lines emitted on first use
         // when the model was downloaded after a cold-cache startup. The scan
@@ -498,6 +500,16 @@ impl ToolManager {
         ];
         const KOMPRESS_DISABLED_MARKERS: &[&str] =
             &["kompress: not installed", "kompress: disabled"];
+        if let Some(state) = self.latest_tool_log_marker_state(
+            "headroom",
+            KOMPRESS_ENABLED_MARKERS,
+            KOMPRESS_DISABLED_MARKERS,
+        ) {
+            return Some(state);
+        }
+        if self.latest_tool_log_path("headroom").is_some() {
+            return None;
+        }
         if let Some(path) = headroom_propagated_proxy_log_path() {
             if let Some(state) = self.scan_file_for_marker_state_cached(
                 "headroom-proxy-log",
@@ -509,11 +521,7 @@ impl ToolManager {
             }
         }
 
-        self.latest_tool_log_marker_state(
-            "headroom",
-            KOMPRESS_ENABLED_MARKERS,
-            KOMPRESS_DISABLED_MARKERS,
-        )
+        None
     }
 
     /// True if the Kompress model snapshot is already present in the

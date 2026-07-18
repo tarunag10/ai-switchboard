@@ -199,6 +199,71 @@ function readJsonStatus(jsonPath) {
   }
 }
 
+function runProbe(command, args) {
+  const result = spawnSync(command, args, {
+    encoding: "utf8",
+    timeout: 15_000,
+  });
+  return {
+    available: !result.error,
+    ok: result.status === 0,
+    detail: (result.stderr || result.stdout || result.error?.message || "")
+      .trim()
+      .split("\n")
+      .slice(-1)[0] ?? "",
+  };
+}
+
+function buildArtifactTrustEvidence() {
+  const dmgDirectory = "src-tauri/target/release/bundle/dmg";
+  const dmgPath = fs.existsSync(dmgDirectory)
+    ? fs
+        .readdirSync(dmgDirectory)
+        .filter((name) => name.endsWith(".dmg"))
+        .map((name) => path.join(dmgDirectory, name))
+        .sort()
+        .at(-1) ?? null
+    : null;
+  const artifactPresent = Boolean(dmgPath && fs.existsSync(dmgPath));
+  const appPresent = fs.existsSync(appPath);
+  const dmgVerify = artifactPresent
+    ? runProbe("hdiutil", ["verify", dmgPath])
+    : { available: false, ok: false, detail: "No DMG artifact found." };
+  const codesign = appPresent
+    ? runProbe("codesign", ["--verify", "--deep", "--strict", appPath])
+    : { available: false, ok: false, detail: "Installed app not found." };
+  const gatekeeper = appPresent
+    ? runProbe("spctl", ["--assess", "--type", "execute", appPath])
+    : { available: false, ok: false, detail: "Installed app not found." };
+  const notarization = artifactPresent
+    ? runProbe("xcrun", ["stapler", "validate", dmgPath])
+    : { available: false, ok: false, detail: "No DMG artifact found." };
+
+  return {
+    artifactPath: dmgPath,
+    artifactPresent,
+    hdiutilVerifyOk: dmgVerify.ok,
+    appPath,
+    appPresent,
+    codesignVerifyOk: codesign.ok,
+    gatekeeperAccepted: gatekeeper.ok,
+    notarizationTicketValid: notarization.ok,
+    ready:
+      artifactPresent &&
+      dmgVerify.ok &&
+      appPresent &&
+      codesign.ok &&
+      gatekeeper.ok &&
+      notarization.ok,
+    checks: {
+      dmgVerify,
+      codesign,
+      gatekeeper,
+      notarization,
+    },
+  };
+}
+
 function currentFileSha256(filePath) {
   if (!fs.existsSync(filePath)) {
     return null;
@@ -545,6 +610,8 @@ function buildLocalValidationEvidence() {
       readOnly: localConnectorReadinessJson.body?.readOnly === true,
       modifiesRepository:
         localConnectorReadinessJson.body?.modifiesRepository === true,
+      inventoryParsed:
+        localConnectorReadinessJson.body?.inventoryParsed === true,
       requiredGatedNativeWritePresent:
         localConnectorReadinessJson.body?.requiredGatedNativeWritePresent === true,
       gatedNativeWriteConnectors:
@@ -588,9 +655,13 @@ function buildShareableDmgGate(
   backendValidation,
   staticSmokePreflight,
   installedSmoke,
+  artifactTrust,
 ) {
   const environmentClear = releaseEnv.blockers.length === 0;
-  const signedAndNotarized = environmentClear;
+  // Environment variables authorize a build; they do not prove that the
+  // artifact handed to a user is signed, Gatekeeper-accepted, and notarized.
+  // Keep those claims tied to machine-verifiable artifact probes.
+  const signedAndNotarized = environmentClear && artifactTrust.ready;
   const updaterFeedReady = !releaseEnv.warnings.some((warning) =>
     /HEADROOM_UPDATER_PUBLIC_KEY|HEADROOM_UPDATER_ENDPOINTS/.test(
       warning.label,
@@ -661,11 +732,13 @@ const installedSmoke = buildInstalledSmoke(
   installedSmokeSummary,
 );
 const localValidation = buildLocalValidationEvidence();
+const artifactTrust = buildArtifactTrustEvidence();
 const shareableDmgGate = buildShareableDmgGate(
   releaseEnv,
   backendValidation,
   staticSmokePreflight,
   installedSmoke,
+  artifactTrust,
 );
 const managedConnectorReadiness = buildManagedConnectorReadiness();
 const managedConnectorReadinessSummary = renderManagedConnectorReadiness(
@@ -692,6 +765,7 @@ const payload = {
   staticSmokePreflight,
   installedSmoke,
   localValidation,
+  artifactTrust,
   shareableDmgGate,
   managedConnectorReadiness,
   releaseEnv,
@@ -822,6 +896,7 @@ ${localValidation.repoMemoryMcp.generatedLine ? `- ${localValidation.repoMemoryM
 - Connector readiness summary present: ${localValidation.connectorReadiness.summaryPresent ? "yes" : "no"} (${localValidation.connectorReadiness.summaryPath})
 - Connector readiness JSON present: ${localValidation.connectorReadiness.jsonPresent ? "yes" : "no"} (${localValidation.connectorReadiness.jsonPath})
 ${localValidation.connectorReadiness.generatedLine ? `- ${localValidation.connectorReadiness.generatedLine}` : "- Connector readiness summary has not been generated in this checkout."}
+- Connector readiness inventory parsed: ${localValidation.connectorReadiness.inventoryParsed ? "yes" : "no"}
 - Connector readiness required gated native-write dossiers present: ${localValidation.connectorReadiness.requiredGatedNativeWritePresent ? "yes" : "no"}
 - Connector readiness gated native-write dossiers: ${localValidation.connectorReadiness.gatedNativeWriteConnectors.join(", ") || "missing"}
 - Connector readiness lifecycle coverage complete: ${localValidation.connectorReadiness.lifecycleCoverageComplete ? "yes" : "no"}
@@ -844,6 +919,11 @@ ${localValidation.localOnlyNetwork.generatedLine ? `- ${localValidation.localOnl
 
 - Environment clear: ${shareableDmgGate.environmentClear ? "yes" : "no"}
 - Rust backend validation ready: ${shareableDmgGate.backendValidationReady ? "yes" : "no"}
+- Artifact present: ${artifactTrust.artifactPresent ? "yes" : "no"} (${artifactTrust.artifactPath ?? "missing"})
+- DMG hdiutil verification: ${artifactTrust.hdiutilVerifyOk ? "yes" : "no"}
+- Installed app codesign verification: ${artifactTrust.codesignVerifyOk ? "yes" : "no"}
+- Gatekeeper assessment: ${artifactTrust.gatekeeperAccepted ? "yes" : "no"}
+- Notarization ticket validation: ${artifactTrust.notarizationTicketValid ? "yes" : "no"}
 - Signed and notarized: ${shareableDmgGate.signedAndNotarized ? "yes" : "no"}
 - Updater feed ready: ${shareableDmgGate.updaterFeedReady ? "yes" : "no"}
 - Static smoke preflight ready: ${shareableDmgGate.staticSmokePreflightReady ? "yes" : "no"}

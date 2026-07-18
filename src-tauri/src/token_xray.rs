@@ -457,7 +457,7 @@ fn opaque_event_id(value: &str) -> String {
 mod tests {
     use super::*;
     use crate::models::{LaunchExperience, UsageEvent};
-    use crate::optimization::CacheTokenMetrics;
+    use crate::optimization::cache_metrics::CacheTokenMetrics;
 
     fn cache_evidence(metrics: CacheTokenMetrics) -> CacheTokenMetricsEvidence {
         CacheTokenMetricsEvidence {

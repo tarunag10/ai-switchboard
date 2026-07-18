@@ -67,4 +67,13 @@ describe("RepoIntelligencePreview progressive disclosure", () => {
     expect(graphButton).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("Agent graph signal")).toBeInTheDocument();
   });
+
+  it("labels chonkify as a blocked evidence preview and keeps native packs", async () => {
+    const user = userEvent.setup();
+    render(<RepoIntelligencePreview />);
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Repo pack compression mode" }), "chonkify");
+    expect(screen.getByText(/Chonkify is selected for evidence preview only/i)).toBeInTheDocument();
+    expect(screen.getByText(/license metadata is NOASSERTION/i)).toBeInTheDocument();
+  });
 });

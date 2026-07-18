@@ -73,7 +73,8 @@ impl TokenLedger {
 #[cfg(test)]
 mod tests {
     use super::{TokenLedger, TokenLedgerEntry};
-    use crate::optimization::{CacheTokenMetrics, OptimizationPolicy};
+    use crate::optimization::cache_metrics::CacheTokenMetrics;
+    use crate::optimization::policy::OptimizationPolicy;
 
     #[test]
     fn default_policy_prevents_recording() {

@@ -128,6 +128,7 @@ const REPO_MEMORY_MCP_SMOKE_TEST_TIMEOUT: Duration = Duration::from_secs(10);
 mod caveman;
 mod headroom_receipt;
 mod headroom_runtime;
+mod leanctx;
 mod markitdown;
 mod ponytail;
 mod proxy_runtime;
@@ -137,6 +138,7 @@ mod rtk;
 #[cfg(test)]
 use headroom_receipt::parse_major_minor_patch;
 use headroom_receipt::{receipt_requires_atomic_rebuild, ATOMIC_REBUILD_FLOOR_VERSION};
+pub use leanctx::LeanctxSidecarStatus;
 #[allow(unused_imports)]
 pub use proxy_runtime::running_proxy_argv;
 pub use proxy_runtime::running_proxy_matches_expected_args;
@@ -256,6 +258,7 @@ pub struct ToolManager {
     runtime: ManagedRuntime,
     manifests: Vec<ManagedToolManifest>,
     log_marker_cache: Arc<Mutex<Option<ToolLogMarkerCache>>>,
+    leanctx_process: Arc<Mutex<Option<Child>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -393,6 +396,7 @@ impl ToolManager {
             runtime,
             manifests,
             log_marker_cache: Arc::new(Mutex::new(None)),
+            leanctx_process: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -2349,7 +2353,11 @@ impl ToolManager {
         Ok(())
     }
 
-    fn write_tool_receipt(&self, tool_id: &str, payload: serde_json::Value) -> Result<()> {
+    pub(super) fn write_tool_receipt(
+        &self,
+        tool_id: &str,
+        payload: serde_json::Value,
+    ) -> Result<()> {
         let path = self.runtime.tools_dir.join(format!("{tool_id}.json"));
         std::fs::write(
             &path,
@@ -2359,7 +2367,7 @@ impl ToolManager {
         Ok(())
     }
 
-    fn read_tool_receipt(&self, tool_id: &str) -> Option<Value> {
+    pub(super) fn read_tool_receipt(&self, tool_id: &str) -> Option<Value> {
         let path = self.runtime.tools_dir.join(format!("{tool_id}.json"));
         let bytes = std::fs::read(path).ok()?;
         serde_json::from_slice(&bytes).ok()

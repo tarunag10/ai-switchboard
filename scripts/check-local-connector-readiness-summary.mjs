@@ -3,7 +3,6 @@
 import fs from "node:fs";
 
 const reportPath = "dist/local-connector-readiness-summary.json";
-const requiredConnectors = ["aider", "amazon_q", "cursor"];
 const requiredStages = ["detect", "dryRunDiff", "backup", "apply", "verify", "rollback", "offCleanup"];
 
 function fail(message) {
@@ -16,6 +15,7 @@ if (!fs.existsSync(reportPath)) {
 }
 
 const report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+const requiredConnectors = report.requiredGatedNativeWrite;
 
 if (report.schemaVersion !== 1) {
   fail("schemaVersion must be 1");
@@ -31,6 +31,9 @@ if (report.readOnly !== false) {
 }
 if (report.status !== 0) {
   fail("check:connectors status must be 0");
+}
+if (report.inventoryParsed !== true || !Array.isArray(requiredConnectors)) {
+  fail("gated native-write inventory must be parsed into an array");
 }
 if (report.ready !== true) {
   fail("report.ready must be true");

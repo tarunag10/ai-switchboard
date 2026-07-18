@@ -128,7 +128,7 @@ export function SettingsRuntimeStatusCard({
           </span>
         </div>
         {runtimeActionError ? (
-          <p className="runtime-status__error">{runtimeActionError}</p>
+          <p className="runtime-status__error" role="alert" aria-live="assertive">{runtimeActionError}</p>
         ) : null}
         <div className="runtime-status__grid runtime-status__grid--4">
           {statusItems.map((s) => {
@@ -140,20 +140,44 @@ export function SettingsRuntimeStatusCard({
                   : "runtime-status__indicator--unknown";
             const indicatorSymbol =
               s.ok === true ? "✔" : s.ok === false ? "✖" : "–";
-            return (
-              <span
-                key={s.name}
-                className={`runtime-status__item${s.onClick ? " runtime-status__item--clickable" : ""}`}
-                onClick={s.onClick}
-                title={s.ok === null ? `${s.name} status unknown` : undefined}
-              >
+            const statusText = s.ok === true ? "Running" : s.ok === false ? "Offline" : "Unknown";
+            const statusLabel = `${s.name}: ${statusText}${s.suffix ? `, ${s.suffix}` : ""}`;
+            const itemContent = (
+              <>
                 <span className="runtime-status__label">{s.name}:</span>
-                <span className={`runtime-status__indicator ${indicatorClass}`}>
+                <span className={`runtime-status__indicator ${indicatorClass}`} aria-hidden="true">
                   {indicatorSymbol}
                 </span>
+                <span className="runtime-status__state">{statusText}</span>
                 {s.suffix && (
                   <span className="runtime-status__suffix">({s.suffix})</span>
                 )}
+              </>
+            );
+            if (s.onClick) {
+              return (
+                <button
+                  key={s.name}
+                  aria-label={`${statusLabel}. Open Headroom dashboard`}
+                  className="runtime-status__item runtime-status__item--clickable runtime-status__item-button"
+                  onClick={s.onClick}
+                  title={s.ok === null ? `${s.name} status unknown` : undefined}
+                  type="button"
+                >
+                  {itemContent}
+                </button>
+              );
+            }
+            return (
+              <span
+                key={s.name}
+                className="runtime-status__item"
+                role="status"
+                aria-live="polite"
+                aria-label={statusLabel}
+                title={s.ok === null ? `${s.name} status unknown` : undefined}
+              >
+                {itemContent}
               </span>
             );
           })}

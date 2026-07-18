@@ -127,6 +127,9 @@ pub struct ActivityObservation {
 /// quickly, since the intercept has its own retry + longer timeout path.
 pub struct AppState {
     pub tool_manager: ToolManager,
+    /// Local exact response cache. This is separate from Headroom compression
+    /// and remains disabled until the user explicitly opts in.
+    pub semantic_cache: std::sync::Arc<crate::semantic_cache::SemanticCacheService>,
     /// Dedicated content-free analytics snapshots. This never aliases the
     /// savings ledger, so clearing analytics cannot remove attribution evidence.
     analytics_dir: PathBuf,
@@ -282,6 +285,30 @@ impl AppState {
 
         let runtime = ManagedRuntime::bootstrap_root(&base_dir);
         let tool_manager = ToolManager::new(runtime);
+        let semantic_cache = match crate::semantic_cache::SemanticCacheService::open(
+            base_dir.join("semantic-cache.sqlite3"),
+            base_dir.join("semantic-cache.json"),
+        ) {
+            Ok(service) => std::sync::Arc::new(service),
+            Err(err) => {
+                // A corrupt/locked optional cache must never prevent the
+                // switchboard or provider routing from starting. Fall back to
+                // an empty disabled in-memory cache and leave the disk receipt
+                // for Doctor/log inspection.
+                log::warn!("semantic cache unavailable; using disabled in-memory fallback: {err}");
+                let fallback = crate::semantic_cache::SemanticCacheService::open(
+                    ":memory:",
+                    base_dir.join("semantic-cache-fallback.json"),
+                )
+                .map_err(|fallback_err| {
+                    anyhow::anyhow!("opening semantic cache fallback: {fallback_err}")
+                })?;
+                fallback.set_enabled(false).map_err(|fallback_err| {
+                    anyhow::anyhow!("disabling semantic cache fallback: {fallback_err}")
+                })?;
+                std::sync::Arc::new(fallback)
+            }
+        };
         let (launch_profile, launch_profile_path) = LaunchProfile::load_or_create(&base_dir)?;
         let (last_known_good_plan, last_known_good_plan_path) = LastKnownGoodPlan::load(&base_dir);
         let repo_memory_mcp_state_path = config_file(&base_dir, "repo-memory-mcp-session.json");
@@ -292,6 +319,7 @@ impl AppState {
 
         let state = Self {
             tool_manager,
+            semantic_cache,
             analytics_dir: base_dir.join("analytics"),
             recent_usage: Mutex::new(Vec::new()),
             token_xray_revision: AtomicU64::new(0),
@@ -386,6 +414,7 @@ impl AppState {
             Arc::clone(&self.codex_plan_tier),
             Arc::clone(&self.proxy_bypass),
             Arc::clone(&self.codex_bypass),
+            Arc::clone(&self.semantic_cache),
             fresh_bearer_tx,
         );
         self.invalidate_runtime_status_cache();

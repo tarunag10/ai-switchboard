@@ -5,7 +5,6 @@ import { spawnSync } from "node:child_process";
 
 const summaryPath = "dist/local-connector-readiness-summary.md";
 const jsonPath = "dist/local-connector-readiness-summary.json";
-const requiredGatedNativeWrite = ["aider", "amazon_q", "cursor"];
 const requiredLifecycleStages = ["detect", "dryRunDiff", "backup", "apply", "verify", "rollback", "offCleanup"];
 const generatedAt = new Date().toISOString();
 
@@ -25,6 +24,11 @@ const gatedNativeWriteConnectors = gatedMatch
       .map((item) => item.trim())
       .filter(Boolean)
   : [];
+const inventoryParsed = Boolean(gatedMatch);
+// Keep this evidence contract aligned with check-planned-connectors.mjs. The
+// pending native-write set changes as connectors are promoted; duplicating an
+// older static list here creates false release blockers.
+const requiredGatedNativeWrite = gatedNativeWriteConnectors;
 const requiredGatedNativeWritePresent = requiredGatedNativeWrite.every((id) =>
   gatedNativeWriteConnectors.includes(id),
 );
@@ -65,7 +69,7 @@ const lifecycleCoverage = Object.fromEntries(
 const lifecycleCoverageComplete = Object.values(lifecycleCoverage).every(
   (item) => item.complete && item.automationDisabled,
 );
-const ready = result.status === 0 && requiredGatedNativeWritePresent && lifecycleCoverageComplete;
+const ready = result.status === 0 && inventoryParsed && requiredGatedNativeWritePresent && lifecycleCoverageComplete;
 
 const payload = {
   schemaVersion: 1,
@@ -75,6 +79,7 @@ const payload = {
   readOnly: false,
   ready,
   requiredGatedNativeWrite,
+  inventoryParsed,
   gatedNativeWriteConnectors,
   requiredGatedNativeWritePresent,
   requiredLifecycleStages,

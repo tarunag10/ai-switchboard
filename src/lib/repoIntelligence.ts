@@ -1,5 +1,12 @@
 import type { SwitchboardMode } from "./types";
 import {
+  compressRepoPack,
+  describeRepoPackCompressionState,
+  type RepoPackChonkifyAdapter,
+  type RepoPackCompressionMetadata,
+  type RepoPackSourceFile,
+} from "./repoPackCompression";
+import {
   getPlannedConnector,
   getPlannedConnectorConfigCreationPlan,
   getPlannedConnectorSafetyDossier,
@@ -32,6 +39,24 @@ export interface RepoContextPack {
   files: RepoFileSignal[];
   estimatedTokens: number;
   savingsVsFullScanPct: number;
+}
+
+export type RepoPackCompressionMode = "off" | "chonkify";
+
+export interface RepoPackCompressionConfig {
+  mode?: RepoPackCompressionMode;
+  config?: unknown;
+  licenseMetadata?: string;
+  adapter?: RepoPackChonkifyAdapter<RepoContextPack>;
+  sourceFiles?: readonly RepoPackSourceFile[];
+}
+
+export interface RepoPackCompressionHandoffMetadata {
+  mode: RepoPackCompressionMode;
+  enabled: boolean;
+  blocked: boolean;
+  blockedReason: string | null;
+  metadata: RepoPackCompressionMetadata | null;
 }
 
 export interface RepoFileRank {
@@ -476,6 +501,7 @@ export interface RepoAgentHandoffPayload {
     reverseDependencyHubs: RepoGraphNode[];
   };
   indexFreshness: RepoIndexFreshness;
+  compression?: RepoPackCompressionHandoffMetadata;
   safety: {
     readOnly: true;
     excludesSecretLikePaths: true;
@@ -1202,6 +1228,7 @@ function hashString(value: string): string {
 
 export function formatRepoContextPackMarkdown(
   summary: RepoIntelligenceSummary,
+  compressionConfig?: RepoPackCompressionConfig,
 ): string {
   const title = summary.repoRoot
     ? `# Repo Intelligence Context Pack: ${summary.repoRoot}`
@@ -1216,6 +1243,9 @@ export function formatRepoContextPackMarkdown(
     `Files scanned: ${summary.totalFiles}`,
     `Indexed signals: ${summary.indexedFiles}`,
     `Estimated full scan tokens: ${summary.estimatedFullScanTokens.toLocaleString()}`,
+    compressionConfig
+      ? describeRepoPackCompressionDisclosure(summary.packs[0], compressionConfig)
+      : describeRepoPackCompressionState(),
     "",
   ].filter(Boolean);
   const graphSection = formatRepoGraphMarkdown(summary.graph);
@@ -1246,6 +1276,7 @@ export function formatRepoContextPackMarkdown(
 export function formatSingleRepoContextPackMarkdown(
   summary: RepoIntelligenceSummary,
   pack: RepoContextPack,
+  compressionConfig?: RepoPackCompressionConfig,
 ): string {
   const title = summary.repoRoot
     ? `# ${pack.title}: ${summary.repoRoot}`
@@ -1269,6 +1300,9 @@ export function formatSingleRepoContextPackMarkdown(
     `Estimated pack tokens: ${pack.estimatedTokens.toLocaleString()}`,
     `Estimated tokens avoided: ${Math.max(0, summary.estimatedFullScanTokens - pack.estimatedTokens).toLocaleString()}`,
     `Estimated savings vs full scan: ${pack.savingsVsFullScanPct.toFixed(1)}%`,
+    compressionConfig
+      ? describeRepoPackCompressionDisclosure(pack, compressionConfig)
+      : describeRepoPackCompressionState(),
     "",
     formatRepoGraphMarkdown(summary.graph),
     "",
@@ -1372,6 +1406,7 @@ export function buildRepoAgentHandoffPayload(
   summary: RepoIntelligenceSummary,
   target: RepoAgentHandoffTarget,
   packId?: string,
+  compressionConfig?: RepoPackCompressionConfig,
 ): RepoAgentHandoffPayload {
   const profile = repoAgentHandoffProfiles.find(
     (candidate) => candidate.id === target,
@@ -1392,6 +1427,9 @@ export function buildRepoAgentHandoffPayload(
   }
   const configReadiness = buildRepoAgentConfigReadiness(profile.id);
   const indexFreshness = getRepoIndexFreshness(summary);
+  const compression = compressionConfig
+    ? resolveRepoPackCompression(selectedPack, compressionConfig)
+    : undefined;
 
   return {
     schemaVersion: 1,
@@ -1430,6 +1468,7 @@ export function buildRepoAgentHandoffPayload(
       reverseDependencyHubs: summary.graph?.reverseDependencyHubs ?? [],
     },
     indexFreshness,
+    ...(compression ? { compression } : {}),
     safety: {
       readOnly: true,
       excludesSecretLikePaths: true,
@@ -1444,6 +1483,7 @@ export function formatRepoAgentHandoffMarkdown(
   summary: RepoIntelligenceSummary,
   target: RepoAgentHandoffTarget,
   packId?: string,
+  compressionConfig?: RepoPackCompressionConfig,
 ): string {
   const profile = repoAgentHandoffProfiles.find(
     (candidate) => candidate.id === target,
@@ -1467,9 +1507,13 @@ export function formatRepoAgentHandoffMarkdown(
   const packMarkdown = formatSingleRepoContextPackMarkdown(
     summary,
     selectedPack,
+    compressionConfig,
   );
   const configReadiness = buildRepoAgentConfigReadiness(profile.id);
   const indexFreshness = getRepoIndexFreshness(summary);
+  const compression = compressionConfig
+    ? resolveRepoPackCompression(selectedPack, compressionConfig)
+    : undefined;
   const freshnessWarning =
     indexFreshness.status === "changed_cache" || indexFreshness.status === "unknown"
       ? `Warning: ${indexFreshness.label}. ${indexFreshness.detail} Refresh before relying on this handoff for current code.`
@@ -1502,6 +1546,9 @@ export function formatRepoAgentHandoffMarkdown(
     `Tool kind: ${profile.toolKind}`,
     `Selected pack: ${selectedPack.title}`,
     `Index freshness: ${freshnessWarning}`,
+    ...(compression
+      ? [`Compression mode: ${compression.mode}${compression.blocked ? ` (blocked: ${compression.blockedReason})` : ""}`]
+      : []),
     `Estimated context tokens: ${selectedPack.estimatedTokens.toLocaleString()}`,
     `Estimated tokens avoided: ${Math.max(
       0,
@@ -1521,6 +1568,47 @@ export function formatRepoAgentHandoffMarkdown(
   ]
     .filter((line) => line !== "")
     .join("\n");
+}
+
+/** Resolve the optional compressor without changing the shipped pack by default. */
+export function resolveRepoPackCompression(
+  pack: RepoContextPack,
+  options: RepoPackCompressionConfig = {},
+): RepoPackCompressionHandoffMetadata {
+  const mode = options.mode ?? "off";
+  if (mode === "off") {
+    return { mode, enabled: false, blocked: false, blockedReason: null, metadata: null };
+  }
+  const result = compressRepoPack({
+    currentPack: pack,
+    files: options.sourceFiles ?? [],
+    config: options.config,
+    enabled: true,
+    licenseMetadata: options.licenseMetadata,
+    adapter: options.adapter,
+  });
+  return {
+    mode,
+    enabled: result.enabled,
+    blocked: result.blocked,
+    blockedReason: result.blockedReason,
+    metadata: result.metadata,
+  };
+}
+
+function describeRepoPackCompressionDisclosure(
+  pack: RepoContextPack | undefined,
+  compressionConfig: RepoPackCompressionConfig,
+): string {
+  if (!pack) return describeRepoPackCompressionState();
+  const result = resolveRepoPackCompression(pack, compressionConfig);
+  if (result.blocked) {
+    return `Pack compression: ${result.mode} blocked; native deterministic output preserved. ${result.blockedReason}`;
+  }
+  if (!result.enabled) {
+    return "Pack compression: off; deterministic native Repo Intelligence output is preserved.";
+  }
+  return `Pack compression: ${result.mode} enabled; savings are estimated and source provenance is retained.`;
 }
 
 function packIdForAgentSessionTask(
@@ -1830,6 +1918,7 @@ export function formatAgentSessionSummaryMarkdown(
 export function formatAgentSessionSelectedPackMarkdown(
   summary: RepoIntelligenceSummary,
   preparation: Pick<AgentSessionPreparation, "packId" | "copyStatus">,
+  compressionConfig?: RepoPackCompressionConfig,
 ): string | null {
   if (preparation.copyStatus === "blocked") {
     return null;
@@ -1841,7 +1930,7 @@ export function formatAgentSessionSelectedPackMarkdown(
     return null;
   }
 
-  return formatSingleRepoContextPackMarkdown(summary, pack);
+  return formatSingleRepoContextPackMarkdown(summary, pack, compressionConfig);
 }
 
 export function repoAgentPackLabel(packId: string) {

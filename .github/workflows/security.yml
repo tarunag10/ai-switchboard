@@ -58,16 +58,14 @@ jobs:
         run: cargo install cargo-audit --locked
       - name: Audit Rust dependencies
         working-directory: src-tauri
-        continue-on-error: true
         run: cargo audit
       - name: Install cargo-deny
         run: cargo install cargo-deny --locked
       - name: Check Rust dependency policy
         working-directory: src-tauri
         run: cargo deny check bans licenses sources
-      - name: Report Rust dependency advisories
+      - name: Check Rust dependency advisories
         working-directory: src-tauri
-        continue-on-error: true
         run: cargo deny check advisories
 
   codeql:

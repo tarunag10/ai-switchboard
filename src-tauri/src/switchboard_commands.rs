@@ -478,6 +478,13 @@ pub async fn set_switchboard_mode(
                 .codex_bypass
                 .store(true, std::sync::atomic::Ordering::Release);
             state.stop_headroom();
+            // Off means no optimization layer, including the separate local
+            // exact-response cache. Keep the database for explicit user clear
+            // and auditability, but do not serve cached responses in Off mode.
+            state
+                .semantic_cache
+                .set_enabled(false)
+                .map_err(|err| err.to_string())?;
             client_adapters::clear_client_setups().map_err(|err| err.to_string())?;
             analytics::track_event(&app, "switchboard_mode_off", None);
         }
@@ -494,6 +501,10 @@ pub async fn set_switchboard_mode(
                 .codex_bypass
                 .store(true, std::sync::atomic::Ordering::Release);
             state.stop_headroom();
+            state
+                .semantic_cache
+                .set_enabled(false)
+                .map_err(|err| err.to_string())?;
             client_adapters::clear_client_setups().map_err(|err| err.to_string())?;
             analytics::track_event(&app, "switchboard_mode_rtk", None);
         }

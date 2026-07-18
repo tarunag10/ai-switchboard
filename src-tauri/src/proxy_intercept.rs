@@ -23,17 +23,24 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 use base64::Engine;
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 use crate::backend_port;
 use crate::bearer::{BearerToken, BEARER_TOKEN_TTL};
 use crate::models::{CodexPlanTier, CodexRateLimitSnapshot, CodexUsageWindow};
 use crate::optimization::telemetry;
+use crate::semantic_cache::{
+    CacheHit, CacheNamespace, CacheRequest, CacheResponse, SemanticCacheService,
+};
 
 pub const INTERCEPT_PORT: u16 = 6767;
 
 const HEADER_READ_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_HEADER_BYTES: usize = 64 * 1024;
 const HEADROOM_PREFLIGHT_MAX_BYTES: usize = 768 * 1024;
+const EXACT_CACHE_MAX_REQUEST_BYTES: usize = 1024 * 1024;
+const MAX_DIRECT_REQUEST_BYTES: usize = 16 * 1024 * 1024;
 const ACCEPT_ERROR_BACKOFF: Duration = Duration::from_millis(100);
 const PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -86,6 +93,7 @@ pub fn spawn(
     codex_plan_slot: CodexPlanSlot,
     bypass: BypassFlag,
     codex_bypass: BypassFlag,
+    semantic_cache: Arc<SemanticCacheService>,
     fresh_bearer_tx: FreshBearerNotifier,
 ) {
     let upstream_base = Arc::new(ANTHROPIC_DIRECT_BASE.to_string());
@@ -105,6 +113,7 @@ pub fn spawn(
                     codex_plan_slot,
                     bypass,
                     codex_bypass,
+                    Some(semantic_cache),
                     fresh_bearer_tx,
                     upstream_base,
                 )
@@ -154,6 +163,7 @@ async fn run(
     codex_plan_slot: CodexPlanSlot,
     bypass: BypassFlag,
     codex_bypass: BypassFlag,
+    semantic_cache: Option<Arc<SemanticCacheService>>,
     fresh_bearer_tx: FreshBearerNotifier,
     upstream_base: Arc<String>,
 ) -> std::io::Result<()> {
@@ -167,6 +177,7 @@ async fn run(
                 let codex_plan_slot = codex_plan_slot.clone();
                 let bypass = bypass.clone();
                 let codex_bypass = codex_bypass.clone();
+                let semantic_cache = semantic_cache.clone();
                 let upstream_base = upstream_base.clone();
                 let tx = fresh_bearer_tx.clone();
                 tokio::spawn(handle(
@@ -176,6 +187,7 @@ async fn run(
                     codex_plan_slot,
                     bypass,
                     codex_bypass,
+                    semantic_cache,
                     tx,
                     upstream_base,
                 ));
@@ -210,6 +222,7 @@ async fn handle(
     codex_plan_slot: CodexPlanSlot,
     bypass: BypassFlag,
     codex_bypass: BypassFlag,
+    semantic_cache: Option<Arc<SemanticCacheService>>,
     fresh_bearer_tx: FreshBearerNotifier,
     upstream_base: Arc<String>,
 ) {
@@ -317,6 +330,25 @@ async fn handle(
         return;
     }
 
+    // Exact cache is a separate, explicitly opt-in cost-saving feature. It is
+    // evaluated only after the existing direct-routing gates and only for a
+    // bounded, complete JSON request. A miss keeps the original bytes intact
+    // and proceeds through Headroom; a cache error always falls through.
+    let prepared_cache = if !is_codex || !codex_bypass.load(std::sync::atomic::Ordering::Acquire) {
+        prepare_cache_lookup(&mut client, &mut buf, semantic_cache.as_ref()).await
+    } else {
+        None
+    };
+    if let Some(prepared) = prepared_cache
+        .as_ref()
+        .filter(|prepared| prepared.hit.is_some())
+    {
+        if let Some(hit) = prepared.hit.as_ref() {
+            serve_cached_response(client, hit).await;
+        }
+        return;
+    }
+
     // Forward to the headroom backend.
     let Ok(mut backend) = TcpStream::connect(backend_addr).await else {
         // headroom not up yet — send a 502 so the client gets a clean error.
@@ -341,7 +373,16 @@ async fn handle(
         return;
     }
 
-    splice_with_headroom_capture(client, backend, is_codex, &codex_slot, &codex_bypass).await;
+    splice_with_headroom_capture(
+        client,
+        backend,
+        is_codex,
+        &codex_slot,
+        &codex_bypass,
+        semantic_cache,
+        prepared_cache.map(|prepared| prepared.plan),
+    )
+    .await;
 }
 
 /// Splice client <-> backend while sniffing the backend's response head.
@@ -353,6 +394,8 @@ async fn splice_with_headroom_capture(
     is_codex: bool,
     codex_slot: &CodexRateLimitSlot,
     codex_bypass: &BypassFlag,
+    semantic_cache: Option<Arc<SemanticCacheService>>,
+    cache_plan: Option<CachePlan>,
 ) {
     let (mut client_rd, mut client_wr) = client.split();
     let (mut backend_rd, mut backend_wr) = backend.split();
@@ -387,14 +430,46 @@ async fn splice_with_headroom_capture(
         // timeout/EOF — `read_http_headers` may also include leading body bytes
         // it over-read), then splice the rest of the response through.
         if let Some(content_length) = bounded_json_response_len(&head) {
-            let mut body = vec![0_u8; content_length];
-            if backend_rd.read_exact(&mut body).await.is_ok() {
+            let header_end = find_header_end(&head)
+                .map(|end| end + 4)
+                .unwrap_or(head.len());
+            let embedded_body = head.get(header_end..).unwrap_or_default();
+            let embedded_len = embedded_body.len().min(content_length);
+            let mut body = embedded_body[..embedded_len].to_vec();
+            let remaining = content_length.saturating_sub(body.len());
+            let mut tail = vec![0_u8; remaining];
+            if backend_rd.read_exact(&mut tail).await.is_ok() {
+                body.extend_from_slice(&tail);
                 if let Some(metrics) =
                     crate::optimization::provider_usage::parse_provider_cache_metrics(&body)
                 {
                     telemetry::record_prompt_cache_metrics(metrics);
                 }
-                if client_wr.write_all(&head).await.is_err() {
+                if let (Some(service), Some(plan)) = (semantic_cache.as_ref(), cache_plan.as_ref())
+                {
+                    if response_allows_cache(&head) && response_body_allows_cache(&body) {
+                        if let Ok(body_text) = String::from_utf8(body.clone()) {
+                            service.put(
+                                &plan.request(),
+                                &CacheResponse {
+                                    body: body_text,
+                                    metadata: serde_json::json!({
+                                        "source": "headroom",
+                                        "policy": "exact-v1",
+                                    }),
+                                    ttl_seconds: 300,
+                                    no_cache: false,
+                                    status_code: 200,
+                                },
+                            );
+                        }
+                    }
+                }
+                if client_wr
+                    .write_all(&head[..header_end.min(head.len())])
+                    .await
+                    .is_err()
+                {
                     return;
                 }
                 let _ = client_wr.write_all(&body).await;
@@ -493,6 +568,337 @@ fn bounded_json_response_len(head: &[u8]) -> Option<usize> {
         return (len <= MAX_CAPTURE_BYTES).then_some(len);
     }
     None
+}
+
+struct CachePlan {
+    namespace: CacheNamespace,
+    prompt: String,
+    temperature: f32,
+}
+
+impl CachePlan {
+    fn request(&self) -> CacheRequest<'_> {
+        CacheRequest {
+            namespace: self.namespace.clone(),
+            prompt: &self.prompt,
+            streaming: false,
+            has_tools_or_mcp: false,
+            sensitive_data: false,
+            temperature: self.temperature,
+            repo_state_changed_rapidly: false,
+            open_tool_calls: false,
+            no_cache: false,
+        }
+    }
+}
+
+struct PreparedCacheLookup {
+    plan: CachePlan,
+    hit: Option<CacheHit>,
+}
+
+async fn prepare_cache_lookup(
+    client: &mut TcpStream,
+    buf: &mut Vec<u8>,
+    service: Option<&Arc<SemanticCacheService>>,
+) -> Option<PreparedCacheLookup> {
+    let service = service.filter(|service| service.enabled())?;
+    let header_end = find_header_end(buf)? + 4;
+    let parsed = parse_request_head(&buf[..header_end])?;
+    if parsed.method != "POST"
+        || parsed.content_length.is_none()
+        || request_has_header(buf, "expect")
+        || request_has_header(buf, "transfer-encoding")
+    {
+        return None;
+    }
+    let content_length = parsed.content_length?;
+    if content_length == 0 || content_length > EXACT_CACHE_MAX_REQUEST_BYTES {
+        return None;
+    }
+
+    while buf.len().saturating_sub(header_end) < content_length {
+        let mut chunk = [0_u8; 8192];
+        let read = tokio::time::timeout(HEADER_READ_TIMEOUT, client.read(&mut chunk))
+            .await
+            .ok()?
+            .ok()?;
+        if read == 0 {
+            return None;
+        }
+        buf.extend_from_slice(&chunk[..read]);
+    }
+    let body = &buf[header_end..header_end + content_length];
+    let plan = cache_plan_from_request(&parsed, body)?;
+    let hit = service.get(&plan.request());
+    Some(PreparedCacheLookup { plan, hit })
+}
+
+fn cache_plan_from_request(parsed: &ParsedRequestHead, body: &[u8]) -> Option<CachePlan> {
+    let path = parsed.path.split('?').next().unwrap_or(&parsed.path);
+    if !matches!(
+        path,
+        "/v1/messages" | "/v1/chat/completions" | "/v1/responses"
+    ) {
+        return None;
+    }
+    let content_type = parsed
+        .headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case("content-type"))
+        .map(|(_, value)| value.to_ascii_lowercase())?;
+    if !content_type.contains("application/json") {
+        return None;
+    }
+    if parsed.headers.iter().any(|(name, value)| {
+        (name.eq_ignore_ascii_case("cache-control") && {
+            let value = value.to_ascii_lowercase();
+            value.contains("no-cache") || value.contains("no-store")
+        }) || (name.eq_ignore_ascii_case("x-no-cache") && value.eq_ignore_ascii_case("true"))
+            || (name.eq_ignore_ascii_case("x-switchboard-no-cache")
+                && value.eq_ignore_ascii_case("true"))
+    }) {
+        return None;
+    }
+    let value: Value = serde_json::from_slice(body).ok()?;
+    let object = value.as_object()?;
+    if object
+        .get("stream")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        return None;
+    }
+    if object.get("tools").is_some_and(|value| !value.is_null())
+        || object
+            .get("tool_choice")
+            .is_some_and(|value| !value.is_null())
+        || object
+            .get("functions")
+            .is_some_and(|value| !value.is_null())
+        || object
+            .get("function_call")
+            .is_some_and(|value| !value.is_null())
+        || object
+            .get("parallel_tool_calls")
+            .is_some_and(|value| !value.is_null())
+        || object.get("mcp").is_some_and(|value| !value.is_null())
+        || contains_protected_content(&value)
+    {
+        return None;
+    }
+    let temperature = object.get("temperature").and_then(Value::as_f64)? as f32;
+    if !temperature.is_finite() || temperature > 0.2 {
+        return None;
+    }
+    let body_text = String::from_utf8(body.to_vec()).ok()?;
+    let lowered = body_text.to_ascii_lowercase();
+    // This conservative marker gate is intentionally broad: a false bypass is
+    // preferable to persisting a response for a prompt that may contain a
+    // credential or private key.
+    if contains_cache_sensitive_marker(&lowered) {
+        return None;
+    }
+    let model = object
+        .get("model")
+        .and_then(Value::as_str)
+        .unwrap_or("unknown");
+    let provider = if path == "/v1/messages" {
+        "anthropic"
+    } else {
+        "openai"
+    };
+    let account_material = parsed
+        .headers
+        .iter()
+        .filter(|(name, _)| {
+            name.eq_ignore_ascii_case("authorization")
+                || name.eq_ignore_ascii_case("x-api-key")
+                || name.eq_ignore_ascii_case("api-key")
+                || name.eq_ignore_ascii_case("x-goog-api-key")
+        })
+        .map(|(name, value)| format!("{}:{}", name.to_ascii_lowercase(), value))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let account = if account_material.is_empty() {
+        "anonymous".into()
+    } else {
+        stable_namespace_hash(&account_material)
+    };
+    let workspace = parsed
+        .headers
+        .iter()
+        .find(|(name, _)| name.eq_ignore_ascii_case("x-switchboard-workspace"))
+        .map(|(_, value)| value.chars().take(128).collect::<String>())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "default".into());
+    let mut variant_headers = parsed
+        .headers
+        .iter()
+        .filter(|(name, _)| {
+            !is_hop_by_hop_request_header(name)
+                && !name.eq_ignore_ascii_case("authorization")
+                && !name.eq_ignore_ascii_case("x-api-key")
+                && !name.eq_ignore_ascii_case("api-key")
+                && !name.eq_ignore_ascii_case("x-goog-api-key")
+                && !name.eq_ignore_ascii_case("x-switchboard-workspace")
+        })
+        .map(|(name, value)| format!("{}:{}", name.to_ascii_lowercase(), value))
+        .collect::<Vec<_>>();
+    variant_headers.sort_unstable();
+    let request_variant = stable_namespace_hash(&variant_headers.join("\n"));
+    Some(CachePlan {
+        namespace: CacheNamespace {
+            provider: provider.into(),
+            model: model.chars().take(256).collect(),
+            account,
+            workspace,
+            policy: "exact-v1".into(),
+            request_variant,
+        },
+        prompt: body_text,
+        temperature,
+    })
+}
+
+fn contains_protected_content(value: &Value) -> bool {
+    match value {
+        Value::Array(values) => values.iter().any(contains_protected_content),
+        Value::Object(object) => object.iter().any(|(key, value)| {
+            [
+                "tools",
+                "tool_use",
+                "tool_result",
+                "mcp",
+                "image",
+                "input_image",
+                "input_audio",
+                "audio",
+                "video",
+                "document",
+                "file",
+                "computer_call",
+                "computer_output",
+                "function_call",
+                "function_call_output",
+            ]
+            .iter()
+            .any(|blocked| key.eq_ignore_ascii_case(blocked))
+                || (key.eq_ignore_ascii_case("type")
+                    && value.as_str().is_some_and(|kind| {
+                        matches!(
+                            kind.to_ascii_lowercase().as_str(),
+                            "image"
+                                | "input_image"
+                                | "input_audio"
+                                | "audio"
+                                | "video"
+                                | "document"
+                                | "file"
+                                | "tool_use"
+                                | "tool_result"
+                                | "computer_call"
+                                | "computer_output"
+                                | "function_call"
+                                | "function_call_output"
+                        )
+                    }))
+                || (key.eq_ignore_ascii_case("role")
+                    && value
+                        .as_str()
+                        .is_some_and(|role| role.eq_ignore_ascii_case("tool")))
+                || contains_protected_content(value)
+        }),
+        _ => false,
+    }
+}
+
+fn stable_namespace_hash(value: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(value.as_bytes());
+    format!("sha256:{:x}", hasher.finalize())
+}
+
+fn response_allows_cache(head: &[u8]) -> bool {
+    let lower = String::from_utf8_lossy(head).to_ascii_lowercase();
+    lower.starts_with("http/1.1 200")
+        && !response_cache_control_forbids_cache(&lower)
+        && !response_has_vary_or_cookie(&lower)
+        && !lower.contains("content-encoding:")
+}
+
+fn response_has_vary_or_cookie(lowered_head: &str) -> bool {
+    lowered_head.lines().any(|line| {
+        let Some((name, _)) = line.split_once(':') else {
+            return false;
+        };
+        matches!(name.trim(), "vary" | "set-cookie" | "www-authenticate")
+    })
+}
+
+fn response_cache_control_forbids_cache(lowered_head: &str) -> bool {
+    lowered_head.lines().any(|line| {
+        let Some(value) = line.strip_prefix("cache-control:") else {
+            return false;
+        };
+        value
+            .split(',')
+            .any(|directive| matches!(directive.trim(), "no-store" | "private" | "no-cache"))
+    })
+}
+
+fn response_body_allows_cache(body: &[u8]) -> bool {
+    let Ok(text) = std::str::from_utf8(body) else {
+        return false;
+    };
+    !contains_cache_sensitive_marker(&text.to_ascii_lowercase())
+}
+
+fn contains_cache_sensitive_marker(lowered: &str) -> bool {
+    let compact = lowered
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric())
+        .collect::<String>();
+    [
+        "api_key",
+        "api-key",
+        "password",
+        "private key",
+        "authorization",
+        "client_secret",
+        "access_token",
+        "refresh_token",
+        "-----begin ",
+    ]
+    .iter()
+    .any(|marker| lowered.contains(marker))
+        || [
+            "apikey",
+            "password",
+            "privatesecret",
+            "privatekey",
+            "clientsecret",
+            "accesstoken",
+            "refreshtoken",
+            "authorization",
+            "credential",
+        ]
+        .iter()
+        .any(|marker| compact.contains(marker))
+}
+
+async fn serve_cached_response(mut client: TcpStream, hit: &CacheHit) {
+    let reason = if hit.status_code == 200 { "OK" } else { "" };
+    let head = format!(
+        "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nX-Switchboard-Cache: exact-hit\r\nConnection: close\r\n\r\n",
+        hit.status_code,
+        reason,
+        hit.body.len()
+    );
+    if client.write_all(head.as_bytes()).await.is_ok() {
+        let _ = client.write_all(hit.body.as_bytes()).await;
+        let _ = client.shutdown().await;
+    }
 }
 
 fn estimate_tokens_from_bytes(byte_len: usize) -> u64 {
@@ -839,6 +1245,23 @@ async fn forward_direct_to_anthropic(
     if is_local_proxy_path(&parsed.path) {
         let _ = client
             .write_all(b"HTTP/1.1 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n")
+            .await;
+        return;
+    }
+
+    if request_has_header(&header_buf, "transfer-encoding") {
+        let _ = client
+            .write_all(b"HTTP/1.1 411 Length Required\r\nContent-Length: 0\r\n\r\n")
+            .await;
+        return;
+    }
+
+    if parsed
+        .content_length
+        .is_some_and(|length| length > MAX_DIRECT_REQUEST_BYTES)
+    {
+        let _ = client
+            .write_all(b"HTTP/1.1 413 Payload Too Large\r\nContent-Length: 0\r\n\r\n")
             .await;
         return;
     }
@@ -1203,13 +1626,13 @@ fn extract_bearer(buf: &[u8]) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        bearer_value_changed, codex_snapshot_from_usage_payload, codex_window_label,
-        decode_codex_plan_tier, extract_bearer, extract_header_value, find_header_end,
-        is_headroom_compression_refusal_response, is_hop_by_hop_request_header,
+        bearer_value_changed, cache_plan_from_request, codex_snapshot_from_usage_payload,
+        codex_window_label, decode_codex_plan_tier, extract_bearer, extract_header_value,
+        find_header_end, is_headroom_compression_refusal_response, is_hop_by_hop_request_header,
         is_hop_by_hop_response_header, is_local_proxy_path, is_openai_path,
         parse_codex_rate_limit_headers, parse_request_head, read_http_headers,
-        request_is_loopback_safe, request_should_bypass_headroom, run, stamp_codex_client_header,
-        BypassFlag, SharedToken,
+        request_is_loopback_safe, request_should_bypass_headroom, response_allows_cache,
+        response_body_allows_cache, run, stamp_codex_client_header, BypassFlag, SharedToken,
     };
     use crate::backend_port;
     use crate::bearer::BearerToken;
@@ -1228,6 +1651,125 @@ mod tests {
     fn finds_header_boundary() {
         let request = b"POST /v1/messages HTTP/1.1\r\nHost: localhost\r\n\r\n{\"x\":1}";
         assert_eq!(find_header_end(request), Some(43));
+    }
+
+    #[test]
+    fn exact_cache_accepts_safe_deterministic_json_only() {
+        let body = br#"{"model":"claude-sonnet","messages":[{"role":"user","content":"hello"}],"temperature":0}"#;
+        let head = format!(
+            "POST /v1/messages HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer secret-token\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+            body.len()
+        );
+        let parsed = parse_request_head(head.as_bytes()).expect("request head");
+        let plan = cache_plan_from_request(&parsed, body).expect("cache plan");
+        assert_eq!(plan.namespace.provider, "anthropic");
+        assert_eq!(plan.namespace.model, "claude-sonnet");
+        assert!(!plan.namespace.account.contains("secret-token"));
+    }
+
+    #[test]
+    fn exact_cache_namespaces_api_key_accounts_and_requires_temperature() {
+        let body_without_temperature =
+            br#"{"model":"m","messages":[{"role":"user","content":"hello"}]}"#;
+        let head_without_temperature = format!(
+            "POST /v1/messages HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Api-Key: account-a\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+            body_without_temperature.len()
+        );
+        let parsed_without_temperature =
+            parse_request_head(head_without_temperature.as_bytes()).expect("request head");
+        assert!(
+            cache_plan_from_request(&parsed_without_temperature, body_without_temperature)
+                .is_none()
+        );
+
+        let body =
+            br#"{"model":"m","temperature":0,"messages":[{"role":"user","content":"hello"}]}"#;
+        let make_plan = |account: &str| {
+            let head = format!(
+                "POST /v1/messages HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Api-Key: {account}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+                body.len()
+            );
+            let parsed = parse_request_head(head.as_bytes()).expect("request head");
+            cache_plan_from_request(&parsed, body).expect("cache plan")
+        };
+        assert_ne!(
+            make_plan("account-a").namespace.account,
+            make_plan("account-b").namespace.account
+        );
+        let variant_head = format!(
+            "POST /v1/messages HTTP/1.1\r\nHost: 127.0.0.1\r\nX-Api-Key: account-a\r\nAnthropic-Version: 2023-06-01\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+            body.len()
+        );
+        let variant_parsed = parse_request_head(variant_head.as_bytes()).expect("request head");
+        let variant_plan = cache_plan_from_request(&variant_parsed, body).expect("cache plan");
+        assert_ne!(
+            make_plan("account-a").namespace.request_variant,
+            variant_plan.namespace.request_variant
+        );
+    }
+
+    #[test]
+    fn exact_cache_rejects_streaming_tools_and_sensitive_markers() {
+        let cases = [
+            br#"{"model":"m","stream":true,"messages":[]}"#.as_slice(),
+            br#"{"model":"m","tools":[{"type":"function"}],"messages":[]}"#.as_slice(),
+            br#"{"model":"m","messages":[{"role":"user","content":"password: x"}]}"#.as_slice(),
+        ];
+        for body in cases {
+            let head = format!(
+                "POST /v1/chat/completions HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+                body.len()
+            );
+            let parsed = parse_request_head(head.as_bytes()).expect("request head");
+            assert!(cache_plan_from_request(&parsed, body).is_none());
+        }
+    }
+
+    #[test]
+    fn exact_cache_rejects_multimodal_and_tool_result_value_types() {
+        let cases = [
+            br#"{"model":"m","temperature":0,"messages":[{"role":"user","content":[{"type":"image","source":{"data":"x"}}]}]}"#.as_slice(),
+            br#"{"model":"m","temperature":0,"messages":[{"role":"tool","content":[{"type":"tool_result","content":"done"}]}]}"#.as_slice(),
+            br#"{"model":"m","temperature":0,"input":[{"type":"input_image","image_url":"data:image/png;base64,x"}]}"#.as_slice(),
+        ];
+        for body in cases {
+            let head = format!(
+                "POST /v1/responses HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+                body.len()
+            );
+            let parsed = parse_request_head(head.as_bytes()).expect("request head");
+            assert!(cache_plan_from_request(&parsed, body).is_none());
+        }
+    }
+
+    #[test]
+    fn cached_response_requires_json_200_without_private_or_encoded_body() {
+        assert!(response_allows_cache(
+            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"
+        ));
+        assert!(!response_allows_cache(
+            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nCache-Control: private\r\n\r\n"
+        ));
+        assert!(!response_allows_cache(
+            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Encoding: gzip\r\n\r\n"
+        ));
+        assert!(!response_allows_cache(
+            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nCache-Control: no-cache\r\n\r\n"
+        ));
+        assert!(!response_allows_cache(
+            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nCache-Control: public, no-store\r\n\r\n"
+        ));
+        assert!(!response_allows_cache(
+            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nVary: Authorization\r\n\r\n"
+        ));
+        assert!(!response_allows_cache(
+            b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nSet-Cookie: session=secret\r\n\r\n"
+        ));
+        assert!(response_body_allows_cache(br#"{"answer":"hello"}"#));
+        assert!(!response_body_allows_cache(
+            br#"{"answer":"password: secret"}"#
+        ));
+        assert!(!response_body_allows_cache(b"-----BEGIN PRIVATE KEY-----"));
     }
 
     #[test]
@@ -1357,6 +1899,116 @@ mod tests {
 
     #[tokio::test]
     #[serial(backend_port)]
+    async fn exact_cache_hit_is_served_by_intercept_without_second_backend_request() {
+        let (backend_listener, backend_addr) = bind_ephemeral().await;
+        let backend_task = tokio::spawn(async move {
+            let (mut sock, _) = backend_listener.accept().await.expect("backend accept");
+            let _ = read_until_header_end(&mut sock).await;
+            let body = br#"{"id":"cached","type":"message"}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            sock.write_all(response.as_bytes())
+                .await
+                .expect("response head");
+            sock.write_all(body).await.expect("response body");
+            sock.shutdown().await.expect("backend shutdown");
+        });
+        backend_port::set(backend_addr.port());
+
+        let state_path = std::env::temp_dir().join(format!(
+            "ai-switchboard-proxy-cache-test-{}-{}.json",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let cache = Arc::new(
+            crate::semantic_cache::SemanticCacheService::open(":memory:", &state_path)
+                .expect("cache service"),
+        );
+        cache.set_enabled(true).expect("enable cache");
+
+        let intercept_listener = TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("intercept bind");
+        let intercept_addr = intercept_listener.local_addr().expect("intercept addr");
+        drop(intercept_listener);
+        let token_slot: SharedToken = Arc::new(Mutex::new(None));
+        let upstream_base = Arc::new("https://api.anthropic.com".to_string());
+        let (fresh_bearer_tx, _fresh_bearer_rx) = std::sync::mpsc::channel::<()>();
+        let cache_for_run = cache.clone();
+        let run_task = tokio::spawn(async move {
+            let _ = run(
+                intercept_addr,
+                token_slot,
+                Arc::new(Mutex::new(None)),
+                Arc::new(Mutex::new(None)),
+                Arc::new(AtomicBool::new(false)),
+                Arc::new(AtomicBool::new(false)),
+                Some(cache_for_run),
+                fresh_bearer_tx,
+                upstream_base,
+            )
+            .await;
+        });
+
+        let body = br#"{"model":"claude-sonnet","messages":[{"role":"user","content":"hello"}],"temperature":0}"#;
+        let request = format!(
+            "POST /v1/messages HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nAuthorization: Bearer stable-test-account\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            intercept_addr.port(),
+            body.len(),
+            std::str::from_utf8(body).unwrap()
+        );
+
+        let mut first = None;
+        for _ in 0..50 {
+            if let Ok(client) = TcpStream::connect(intercept_addr).await {
+                first = Some(client);
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        let mut first = first.expect("first client");
+        first
+            .write_all(request.as_bytes())
+            .await
+            .expect("first request");
+        let mut first_response = Vec::new();
+        first
+            .read_to_end(&mut first_response)
+            .await
+            .expect("first response");
+        assert!(first_response.starts_with(b"HTTP/1.1 200"));
+        backend_task.await.expect("backend task");
+
+        let mut second = TcpStream::connect(intercept_addr)
+            .await
+            .expect("second client");
+        second
+            .write_all(request.as_bytes())
+            .await
+            .expect("second request");
+        let mut second_response = Vec::new();
+        second
+            .read_to_end(&mut second_response)
+            .await
+            .expect("cached response");
+        let response_text = String::from_utf8_lossy(&second_response);
+        assert!(response_text.contains("X-Switchboard-Cache: exact-hit"));
+        assert!(response_text.contains("\"id\":\"cached\""));
+        assert_eq!(cache.status().hits, 1);
+
+        run_task.abort();
+        let _ = cache.set_enabled(false);
+        let _ = std::fs::remove_file(state_path);
+        backend_port::reset_for_tests();
+    }
+
+    #[tokio::test]
+    #[serial(backend_port)]
     async fn intercept_captures_bearer_and_forwards_headers_to_backend() {
         // Fake backend: accept one connection, read its header block, hold the
         // connection open long enough for the test to inspect what arrived.
@@ -1397,6 +2049,7 @@ mod tests {
                 Arc::new(Mutex::new(None)),
                 bypass_for_run,
                 Arc::new(AtomicBool::new(false)),
+                None,
                 fresh_bearer_tx,
                 upstream_base,
             )
@@ -1483,6 +2136,7 @@ mod tests {
                 Arc::new(Mutex::new(None)),
                 bypass_for_run,
                 Arc::new(AtomicBool::new(false)),
+                None,
                 fresh_bearer_tx,
                 upstream_base,
             )
@@ -1741,6 +2395,7 @@ mod tests {
                 Arc::new(Mutex::new(None)),
                 bypass,
                 Arc::new(AtomicBool::new(false)),
+                None,
                 fresh_bearer_tx,
                 upstream_base_arc,
             )
@@ -1884,6 +2539,7 @@ mod tests {
                 Arc::new(Mutex::new(None)),
                 bypass,
                 Arc::new(AtomicBool::new(false)),
+                None,
                 fresh_bearer_tx,
                 upstream_base_arc,
             )
@@ -1979,6 +2635,7 @@ mod tests {
                 Arc::new(Mutex::new(None)),
                 bypass_for_run,
                 Arc::new(AtomicBool::new(false)),
+                None,
                 fresh_bearer_tx,
                 upstream_base,
             )

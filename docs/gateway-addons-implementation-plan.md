@@ -3,6 +3,12 @@
 Status ledger: see [plan-status-ledger.md](plan-status-ledger.md) for the
 current created/updated/left checklist.
 
+The broader execution order for text compression, repository-pack compression,
+semantic caching, and pxpipe-style visual compression is defined in
+[Token Optimization Add-ons Implementation Plan](token-optimization-addons-implementation-plan.md).
+This document remains the detailed lifecycle plan for gateway, cache, trace,
+and enterprise add-ons.
+
 ## Current local implementation status (2026-07-13)
 
 The credential-free local slice is implemented. `src/lib/gatewayProfiles.ts`

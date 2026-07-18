@@ -22,6 +22,7 @@ import {
   normalizeRepoIndexRequest,
   recommendAgentSessionMode,
   repoAgentPackLabel,
+  resolveRepoPackCompression,
 } from "./repoIntelligence";
 
 describe("repoIntelligence", () => {
@@ -690,6 +691,57 @@ describe("repoIntelligence", () => {
     expect(markdown).toContain("## Release Handoff Pack");
     expect(markdown).toContain("src/App.tsx");
     expect(markdown).toContain("Estimated savings vs full scan");
+    expect(markdown).toContain("Chonkify remains blocked until license and provenance evidence pass");
+  });
+
+  it("keeps compression off by default and carries an explicit disclosure when requested", () => {
+    const summary = buildRepoIntelligenceSummary([
+      { path: "src/App.tsx", bytes: 4000, content: "export const App = 1;\n" },
+    ]);
+    const pack = summary.packs[0];
+    const off = resolveRepoPackCompression(pack);
+    expect(off).toEqual({
+      mode: "off",
+      enabled: false,
+      blocked: false,
+      blockedReason: null,
+      metadata: null,
+    });
+
+    const adapter = {
+      name: "fixture-chonkify",
+      version: "1.0.0",
+      compress: ({ currentPack }: { currentPack: typeof pack }) => ({
+        pack: currentPack,
+        sourceSpans: [{ repositoryRelativePath: "src/App.tsx", startLine: 1, endLine: 1 }],
+        skippedFiles: [],
+      }),
+    };
+    const blocked = resolveRepoPackCompression(pack, {
+      mode: "chonkify",
+      adapter,
+      sourceFiles: [{ repositoryRelativePath: "src/App.tsx", content: "export const App = 1;\n" }],
+      licenseMetadata: "NOASSERTION",
+    });
+    expect(blocked.blocked).toBe(true);
+    expect(blocked.blockedReason).toContain("NOASSERTION");
+
+    const verified = resolveRepoPackCompression(pack, {
+      mode: "chonkify",
+      adapter,
+      sourceFiles: [{ repositoryRelativePath: "src/App.tsx", content: "export const App = 1;\n" }],
+      licenseMetadata: "MIT",
+      config: { preserve: true },
+    });
+    expect(verified).toMatchObject({ mode: "chonkify", enabled: true, blocked: false });
+    expect(verified.metadata).toMatchObject({
+      sourceContentHash: expect.any(String),
+      configHash: expect.any(String),
+      outputHash: expect.any(String),
+      sourceSpans: [{ repositoryRelativePath: "src/App.tsx", startLine: 1, endLine: 1 }],
+      evidence: { label: "estimated" },
+      license: { status: "verified" },
+    });
   });
 
   it("formats a single task-specific context pack", () => {

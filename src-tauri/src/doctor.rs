@@ -351,6 +351,22 @@ repair_action: Some("reset_codex_bypass".to_string()),
         });
     }
 
+    if matches!(
+        desired_mode,
+        SwitchboardMode::Full | SwitchboardMode::Headroom
+    ) && runtime.running
+        && runtime.proxy_reachable
+        && runtime.kompress_enabled != Some(true)
+    {
+        issues.push(DoctorIssue {
+            id: "headroom_native_compressor_unavailable".to_string(),
+            title: "Headroom native ML compressor is not enabled".to_string(),
+            body: "Headroom is reachable, but its native Kompress compressor has not reported as enabled. Provider routing remains live; Doctor recommends repairing or prefetching the managed runtime before treating native ML savings as measured.".to_string(),
+            severity: DoctorSeverity::Warning,
+            repair_action: Some("repair_runtime".to_string()),
+        });
+    }
+
     let codex_provider_block_matches =
         client_adapters::codex_provider_block_matches().unwrap_or(false);
     if let Some(issue) =

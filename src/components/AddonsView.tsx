@@ -18,6 +18,7 @@ import { AddonCard, type AddonCopy } from "./AddonCard";
 import { MeasuredAddonSavingsForm } from "./MeasuredAddonSavingsForm";
 import { PlannedAddonCard } from "./PlannedAddonCard";
 import { GatewayProfilesCard } from "./GatewayProfilesCard";
+import { OptimizationEngineProfilesCard } from "./OptimizationEngineProfilesCard";
 
 export interface AddonsViewProps {
   activeView: TrayView;
@@ -94,8 +95,9 @@ export function AddonsView({
         <header className="addons__header">
           <h1>Addons</h1>
           <p className="addons__subtitle">
-            Installable local add-ons reduce token use and keep
-            document/context prep under your control.
+            Local add-ons and gated optimization profiles reduce token use while
+            keeping provider routing, context preparation, and cache controls
+            under your control.
           </p>
         </header>
         {addonError ? <p className="addons__error">{addonError}</p> : null}
@@ -329,6 +331,12 @@ export function AddonsView({
             />
           ))}
           <GatewayProfilesCard
+            onCopyGuidance={(markdown, label) =>
+              void copyPlannedConnectorCommand(markdown, label)
+            }
+          />
+          <OptimizationEngineProfilesCard
+            runtimeStatus={runtimeStatus}
             onCopyGuidance={(markdown, label) =>
               void copyPlannedConnectorCommand(markdown, label)
             }

@@ -1,8 +1,8 @@
 use tempfile::tempdir;
 
+use super::cache_metrics::CacheTokenMetrics;
 use super::telemetry::{RedundancyHashRecord, RoutingDecisionRecord, RtkPresetMetadata};
 use super::telemetry_store::*;
-use super::CacheTokenMetrics;
 
 #[test]
 fn prompt_cache_metrics_round_trip_through_sqlite() {

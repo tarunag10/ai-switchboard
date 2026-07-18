@@ -6635,6 +6635,12 @@ details[open] .optimize-minimal__details summary::after {
   justify-content: space-between;
 }
 
+.runtime-status__state {
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--text-xxs);
+}
+
 .runtime-status__meta {
   margin-top: 8px;
 }
@@ -6691,6 +6697,15 @@ details[open] .optimize-minimal__details summary::after {
 
 .runtime-status__item--clickable {
   cursor: pointer;
+}
+
+.runtime-status__item-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
 }
 
 .runtime-status__item--clickable:hover .runtime-status__label {
@@ -9934,6 +9949,38 @@ html.window-hiding {
   color: var(--chip-text);
 }
 
+.gateway-profile__state--running {
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success);
+}
+
+.gateway-profile__state--ready,
+.gateway-profile__state--configured {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+.gateway-profile__state--checking {
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+}
+
+.gateway-profile__state--degraded,
+.gateway-profile__state--blocked {
+  background: var(--warning-tint);
+  color: var(--warning);
+}
+
+.gateway-profile__state--shadow {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text-secondary);
+}
+
+.gateway-profile__state--off {
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+}
+
 .gateway-profile__actions {
   margin-top: 10px;
 }
@@ -9946,6 +9993,68 @@ html.window-hiding {
 
 .gateway-profile__details[hidden] {
   display: none;
+}
+
+.gateway-profile__inline-feedback {
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.gateway-profile__inline-feedback[role="alert"] {
+  color: var(--warning);
+}
+
+.gateway-profile__receipts {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.gateway-profile__receipts-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gateway-profile__receipts-heading p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.gateway-profile__receipt-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gateway-profile__receipt-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  padding: 7px 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.gateway-profile__receipt-list span,
+.gateway-profile__receipt-list time {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.gateway-profile__receipt-list time {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  white-space: nowrap;
 }
 
 .gateway-profile__checks {
@@ -10462,6 +10571,26 @@ html.window-hiding {
   white-space: normal;
 }
 
+.repo-intelligence-preview__compression-control {
+  display: grid;
+  gap: 3px;
+  color: var(--text-secondary);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  min-width: 190px;
+}
+
+.repo-intelligence-preview__compression-control select {
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--text-xs);
+}
+
 .repo-intelligence-preview__input {
   min-width: 0;
   height: 32px;
@@ -10485,6 +10614,24 @@ html.window-hiding {
   font-size: var(--text-xxs);
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+
+.repo-intelligence-preview__load-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border-subtle));
+  border-radius: 8px;
+  background: var(--warning-tint);
+}
+
+.repo-intelligence-preview__load-error p {
+  margin: 0;
+  color: var(--warning);
+  font-size: var(--text-xs);
+  line-height: 1.4;
 }
 
 .repo-intelligence-session {
@@ -10961,6 +11108,15 @@ html.window-hiding {
   text-transform: uppercase;
 }
 
+.repo-intelligence-recipes__heading h3 {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xxs);
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
 .repo-intelligence-recipes__heading strong {
   color: var(--text-primary);
   font-size: var(--text-xs);
@@ -11025,6 +11181,12 @@ html.window-hiding {
 
   .repo-intelligence-preview__controls {
     grid-template-columns: 1fr;
+  }
+
+  .runtime-status__grid--4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow-x: visible;
+    white-space: normal;
   }
 
   .repo-intelligence-session__controls,
