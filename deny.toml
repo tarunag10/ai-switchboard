@@ -1,7 +1,31 @@
 [advisories]
 version = 2
 yanked = "deny"
-ignore = []
+# These are transitive advisories from the pinned Tauri 2.10 desktop graph.
+# No compatible safe upgrade is available without moving the Tauri/webview
+# stack. Keep each exception explicit so new vulnerability advisories still
+# fail the release gate.
+ignore = [
+  { id = "RUSTSEC-2024-0413", reason = "Transitive GTK3 binding required by the pinned Tauri webview graph; no compatible safe upgrade is available." },
+  { id = "RUSTSEC-2024-0416", reason = "Transitive GTK3 binding required by the pinned Tauri webview graph; no compatible safe upgrade is available." },
+  { id = "RUSTSEC-2025-0057", reason = "Transitive fxhash dependency in the pinned desktop graph; no compatible safe upgrade is available." },
+  { id = "RUSTSEC-2024-0412", reason = "Transitive GTK3 binding required by the pinned Tauri webview graph; no compatible safe upgrade is available." },
+  { id = "RUSTSEC-2024-0418", reason = "Transitive GTK3 binding required by the pinned Tauri webview graph; no compatible safe upgrade is available." },
+  { id = "RUSTSEC-2024-0411", reason = "Transitive GTK3 binding required by the pinned Tauri webview graph; no compatible safe upgrade is available." },
+  { id = "RUSTSEC-2024-0417", reason = "Transitive GTK3 binding required by the pinned Tauri webview graph; no compatible safe upgrade is available." },
+  { id = "RUSTSEC-2024-0414", reason = "Transitive GTK3 binding required by the pinned Tauri webview graph; no compatible safe upgrade is available." },
+  { id = "RUSTSEC-2024-0415", reason = "Transitive GTK3 binding required by the pinned Tauri webview graph; no compatible safe upgrade is available." },
+  { id = "RUSTSEC-2024-0420", reason = "Transitive GTK3 binding required by the pinned Tauri webview graph; no compatible safe upgrade is available." },
+  { id = "RUSTSEC-2024-0419", reason = "Transitive GTK3 binding required by the pinned Tauri webview graph; no compatible safe upgrade is available." },
+  { id = "RUSTSEC-2024-0370", reason = "Transitive proc-macro dependency in the pinned Tauri webview graph; no compatible safe upgrade is available." },
+  { id = "RUSTSEC-2025-0081", reason = "Transitive Unicode dependency through Tauri URL parsing; no compatible safe upgrade is available in the pinned graph." },
+  { id = "RUSTSEC-2025-0075", reason = "Transitive Unicode dependency through Tauri URL parsing; no compatible safe upgrade is available in the pinned graph." },
+  { id = "RUSTSEC-2025-0080", reason = "Transitive Unicode dependency through Tauri URL parsing; no compatible safe upgrade is available in the pinned graph." },
+  { id = "RUSTSEC-2025-0100", reason = "Transitive Unicode dependency through Tauri URL parsing; no compatible safe upgrade is available in the pinned graph." },
+  { id = "RUSTSEC-2025-0098", reason = "Transitive Unicode dependency through Tauri URL parsing; no compatible safe upgrade is available in the pinned graph." },
+  { id = "RUSTSEC-2024-0429", reason = "Transitive GTK3 dependency in non-macOS Tauri targets; no compatible safe upgrade is available in the pinned graph." },
+  { id = "RUSTSEC-2026-0097", reason = "Transitive rand dependency in the pinned desktop graph; no compatible safe upgrade is available without a broader Tauri/Sentry upgrade." },
+]
 
 [licenses]
 version = 2
