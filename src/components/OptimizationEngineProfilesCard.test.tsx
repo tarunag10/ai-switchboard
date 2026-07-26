@@ -28,12 +28,21 @@ describe("OptimizationEngineProfilesCard", () => {
     render(<OptimizationEngineProfilesCard onCopyGuidance={vi.fn()} />);
     expect(screen.getByText("Token optimization engines")).toBeInTheDocument();
     expect(screen.getByText("Lean Context")).toBeInTheDocument();
-    expect(screen.getByText("Chonkify")).toBeInTheDocument();
+    expect(screen.getAllByText("Chonkify").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("PXPipe Text/Image")).toBeInTheDocument();
     expect(screen.getByLabelText("Headroom Native state: checking")).toBeInTheDocument();
     expect(screen.getByLabelText("Chonkify state: blocked")).toBeInTheDocument();
     expect(screen.getByText(/Headroom Native is the only live provider compressor/)).toBeInTheDocument();
     expect(screen.getByText(/license and source-provenance evidence is incomplete/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Token optimization evidence and promotion matrix" })).toBeInTheDocument();
+    expect(screen.getAllByText("Design-only").length).toBe(2);
+  });
+
+  it("offers an accessible promotion-gate recheck without enabling blocked engines", async () => {
+    render(<OptimizationEngineProfilesCard onCopyGuidance={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Recheck token optimization promotion gates" }));
+    expect(await screen.findByText(/Promotion gates rechecked at/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Chonkify state: blocked")).toBeInTheDocument();
   });
 
   it("runs only the explicit leanctx readiness command", async () => {

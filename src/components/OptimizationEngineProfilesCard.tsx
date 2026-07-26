@@ -76,6 +76,15 @@ type DisplayState =
 
 type LifecycleReceipt = OptimizationReceipt & { action: string };
 
+const promotionMatrix = [
+  { id: "headroom-native", label: "Headroom Native", mode: "Live", evidence: "Native runtime metric", gate: "Promotion-ready when runtime is healthy and native compression is enabled." },
+  { id: "leanctx", label: "leanctx shadow", mode: "Shadow", evidence: "Benchmark/readiness evidence", gate: "Observe locally; no provider traffic until a reviewed promotion path exists." },
+  { id: "semantic-cache", label: "Semantic cache", mode: "Live cache replay", evidence: "Cache-hit counters", gate: "Eligible exact replays only; savings remain separate from compression." },
+  { id: "chonkify", label: "Chonkify", mode: "Blocked", evidence: "Manual review", gate: "License and source-provenance evidence required." },
+  { id: "llmlingua-2", label: "LLMLingua-2", mode: "Design-only", evidence: "Benchmark required", gate: "Local model, quality baseline, and protected-content gates required." },
+  { id: "pxpipe-text-image", label: "pxpipe", mode: "Design-only", evidence: "Manual review", gate: "Versioned Headroom text_image seam and quality evidence required." },
+] as const;
+
 function displayState(
   engine: OptimizationEngine,
   enabled: boolean,
@@ -181,6 +190,7 @@ export function OptimizationEngineProfilesCard({
   runtimeStatus?: RuntimeStatus | null;
 }) {
   const [localState, setLocalState] = useState<OptimizationEngineLocalState>(loadState);
+  const [gateReviewAt, setGateReviewAt] = useState<number | null>(null);
 
   useEffect(() => {
     window.localStorage.setItem(storageKey, JSON.stringify(localState));
@@ -212,6 +222,31 @@ export function OptimizationEngineProfilesCard({
         </p>
         <p className="addon-card__hint">Headroom Native is the only live provider compressor. Third-party engines are advisory, shadow-only, or blocked until their evidence gates pass.</p>
         <p className="addon-card__hint" aria-label="Optimization engine status summary">{summarizeOptimizationEngineStatus(optimizationEngines)}</p>
+        <section className="gateway-profile__details" aria-labelledby="optimization-promotion-title">
+          <div className="gateway-profile__receipts-heading">
+            <div>
+              <strong id="optimization-promotion-title">Evidence and promotion gates</strong>
+              <p>Promotion is evidence-led. A lifecycle receipt never proves token savings or provider routing.</p>
+            </div>
+            <button
+              type="button"
+              className="addon-card__action"
+              aria-label="Recheck token optimization promotion gates"
+              onClick={() => setGateReviewAt(Date.now())}
+            >
+              Recheck gates
+            </button>
+          </div>
+          <div role="region" aria-label="Token optimization evidence and promotion matrix">
+            <table>
+              <thead><tr><th scope="col">Engine</th><th scope="col">Mode</th><th scope="col">Evidence</th><th scope="col">Promotion gate</th></tr></thead>
+              <tbody>{promotionMatrix.map((item) => <tr key={item.id}>
+                <th scope="row">{item.label}</th><td>{item.mode}</td><td>{item.evidence}</td><td>{item.gate}</td>
+              </tr>)}</tbody>
+            </table>
+          </div>
+          <p className="optimize-minimal__meta" role="status" aria-live="polite">{gateReviewAt ? `Promotion gates rechecked at ${new Date(gateReviewAt).toLocaleTimeString()}. Use each row’s readiness check for current local evidence.` : "No promotion-gate recheck has been run in this view."}</p>
+        </section>
         <div className="gateway-profiles-card__list">
           {optimizationEngines.map((engine) => (
             <OptimizationEngineRow
@@ -225,6 +260,7 @@ export function OptimizationEngineProfilesCard({
               onToggle={recordAction}
               onCopyGuidance={onCopyGuidance}
               runtimeStatus={runtimeStatus}
+              gateReviewAt={gateReviewAt}
             />
           ))}
         </div>
@@ -268,12 +304,14 @@ function OptimizationEngineRow({
   onToggle,
   onCopyGuidance,
   runtimeStatus,
+  gateReviewAt,
 }: {
   engine: OptimizationEngine;
   enabled: boolean;
   onToggle: (engine: OptimizationEngine, enabled: boolean, action?: string) => void;
   onCopyGuidance: (markdown: string, label: string) => void;
   runtimeStatus: RuntimeStatus | null;
+  gateReviewAt: number | null;
 }) {
   const [open, setOpen] = useState(false);
   const [readiness, setReadiness] = useState<OptimizationAddonReadinessReport | null>(null);
@@ -371,6 +409,10 @@ function OptimizationEngineRow({
       setChecking(false);
     }
   };
+
+  useEffect(() => {
+    if (gateReviewAt && supportsReadiness(engine)) void checkReadiness(false);
+  }, [gateReviewAt]);
 
   const effectiveEnabled = engine.id === "leanctx"
     ? (leanctxStatus?.enabled ?? false)

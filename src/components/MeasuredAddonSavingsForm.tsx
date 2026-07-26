@@ -1,9 +1,10 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import {
   recordMeasuredAddonSavings,
   type MeasuredAddonSavingsSource,
 } from "../lib/measuredSavingsAttribution";
+import { loadTokenXraySnapshot, type TokenXraySnapshot } from "../lib/usageAnalytics";
 
 interface MeasuredAddonSavingsFormProps {
   source: MeasuredAddonSavingsSource;
@@ -23,8 +24,64 @@ export function MeasuredAddonSavingsForm({
   const [optimizedTokens, setOptimizedTokens] = useState("");
   const [baselineEvidence, setBaselineEvidence] = useState("");
   const [optimizedEvidence, setOptimizedEvidence] = useState("");
+  const [requestDelta, setRequestDelta] = useState("1");
+  const [xraySnapshot, setXraySnapshot] = useState<TokenXraySnapshot | null>(null);
+  const [xrayError, setXrayError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void loadTokenXraySnapshot()
+      .then((snapshot) => {
+        if (active) setXraySnapshot(snapshot);
+      })
+      .catch(() => {
+        if (active) setXrayError("Token X-Ray input evidence is unavailable.");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const xrayInput = xraySnapshot?.metrics.inputTokens;
+  const canCaptureXray =
+    xrayInput?.value !== null &&
+    xrayInput?.value !== undefined &&
+    xrayInput.confidence !== "unavailable";
+
+  function xrayEvidence(snapshot: TokenXraySnapshot, capturedAt: number) {
+    const input = snapshot.metrics.inputTokens;
+    const observedAt = input.observedAt ?? snapshot.generatedAt;
+    const timestamp = observedAt > 0 ? new Date(observedAt).toISOString() : "unavailable";
+    return `Token X-Ray input metric: ${input.value!.toLocaleString()} tokens · session ${snapshot.sessionId ?? "unavailable"} · provider ${snapshot.provider ?? "unavailable"} · model ${snapshot.model ?? "unavailable"} · observed ${timestamp} · captured ${new Date(capturedAt).toISOString()}`;
+  }
+
+  async function captureXray(side: "baseline" | "optimized") {
+    setStatus(null);
+    try {
+      const snapshot = await loadTokenXraySnapshot();
+      const input = snapshot.metrics.inputTokens;
+      if (input.value === null || input.confidence === "unavailable") {
+        setXraySnapshot(snapshot);
+        setStatus("Token X-Ray input tokens are unavailable; enter a credible counter manually.");
+        return;
+      }
+      setXraySnapshot(snapshot);
+      const capturedAt = Date.now();
+      const evidence = xrayEvidence(snapshot, capturedAt);
+      if (side === "baseline") {
+        setBaselineTokens(String(Math.floor(input.value)));
+        setBaselineEvidence(evidence);
+      } else {
+        setOptimizedTokens(String(Math.floor(input.value)));
+        setOptimizedEvidence(evidence);
+      }
+    } catch {
+      setXrayError("Token X-Ray input evidence is unavailable.");
+      setStatus("Token X-Ray input tokens are unavailable; enter a credible counter manually.");
+    }
+  }
 
   async function submitMeasuredSample() {
     setBusy(true);
@@ -35,6 +92,7 @@ export function MeasuredAddonSavingsForm({
         label,
         baselineTokens: Number(baselineTokens),
         optimizedTokens: Number(optimizedTokens),
+        requestDelta: Number(requestDelta),
         measurementEvidence: {
           baseline: baselineEvidence,
           optimized: optimizedEvidence,
@@ -51,6 +109,7 @@ export function MeasuredAddonSavingsForm({
       setOptimizedTokens("");
       setBaselineEvidence("");
       setOptimizedEvidence("");
+      setRequestDelta("1");
     } catch (error) {
       setStatus(
         error instanceof Error
@@ -92,6 +151,24 @@ export function MeasuredAddonSavingsForm({
           onChange={(event) => setOptimizedTokens(event.currentTarget.value)}
         />
       </label>
+      <div className="addon-card__measurement-capture">
+        <button
+          type="button"
+          className="secondary-button secondary-button--small"
+          disabled={disabled || busy || !canCaptureXray}
+          onClick={() => void captureXray("baseline")}
+        >
+          Capture X-Ray into Before
+        </button>
+        <button
+          type="button"
+          className="secondary-button secondary-button--small"
+          disabled={disabled || busy || !canCaptureXray}
+          onClick={() => void captureXray("optimized")}
+        >
+          Capture X-Ray into After
+        </button>
+      </div>
       <label htmlFor={`${evidenceId}-baseline-evidence`}>
         <span>Baseline evidence</span>
         <input
@@ -114,6 +191,23 @@ export function MeasuredAddonSavingsForm({
           onChange={(event) => setOptimizedEvidence(event.currentTarget.value)}
         />
       </label>
+      <label htmlFor={`${evidenceId}-request-delta`}>
+        <span>Request count / delta</span>
+        <input
+          id={`${evidenceId}-request-delta`}
+          type="number"
+          min="1"
+          step="1"
+          inputMode="numeric"
+          value={requestDelta}
+          disabled={disabled || busy}
+          onChange={(event) => setRequestDelta(event.currentTarget.value)}
+        />
+      </label>
+      <p className="addon-card__measurement-note" role="note">
+        Capture uses only the current local Token X-Ray input metric. It is disabled when that metric is unavailable; credible local or external counters may be entered manually.
+      </p>
+      {xrayError ? <p role="status">{xrayError}</p> : null}
       <button
         type="button"
         className="addon-card__sample-button"

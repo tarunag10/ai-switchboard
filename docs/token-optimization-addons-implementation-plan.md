@@ -533,3 +533,14 @@ separate semantic cache is implemented but opt-in, exact-only, and never part
 of the Full optimization default. The pxpipe design is documented in
 [pxpipe-headroom-integration-plan.md](pxpipe-headroom-integration-plan.md).
 Raw LLMLingua-2 and chonkify remain blocked for live/shipped transformation.
+
+The Addons UI now exposes an explicit promotion matrix and recheck action for
+live, shadow, cache-replay, blocked, and design-only engines. Token X-Ray now
+shows provider-specific metric availability, source, confidence, and caveat
+boundaries without inferring unavailable provider data.
+
+Caveman, Ponytail, and MarkItDown now have a before/after measurement workflow
+that can capture current local Token X-Ray input evidence into a pair, preserve
+session/provider/model/timestamp provenance, accept credible manual counters,
+and record request count/delta. Strict measured-versus-estimated validation
+remains in force.
