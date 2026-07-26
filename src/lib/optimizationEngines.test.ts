@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   optimizationEngineIds,
   optimizationEngines,
+  canActivateOptimizationEngine,
+  filterActivatableOptimizationEngineIds,
+  optimizationEngineActivationBlocker,
   previewOptimizationEngineConfig,
   summarizeOptimizationEngineStatus,
   validateOptimizationEngineGovernance,
@@ -37,5 +40,14 @@ describe("optimization engine registry", () => {
     });
     expect(preview).toEqual({ apiKey: "[redacted]", endpoint: "http://127.0.0.1:6767", nested: "[omitted]" });
     expect(JSON.stringify(preview)).not.toContain("do-not-leak");
+  });
+
+  it("never allows experimental or blocked engines into an activation allowlist", () => {
+    expect(filterActivatableOptimizationEngineIds(["semantic-cache", "leanctx", "llmlingua-2", "chonkify", "pxpipe-text-image"])).toEqual(["semantic-cache"]);
+    expect(canActivateOptimizationEngine("leanctx")).toBe(false);
+    expect(canActivateOptimizationEngine("llmlingua-2")).toBe(false);
+    expect(canActivateOptimizationEngine("chonkify")).toBe(false);
+    expect(canActivateOptimizationEngine("pxpipe-text-image")).toBe(false);
+    expect(optimizationEngineActivationBlocker("pxpipe-text-image")).toMatch(/safe no-op/);
   });
 });

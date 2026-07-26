@@ -539,6 +539,22 @@ live, shadow, cache-replay, blocked, and design-only engines. Token X-Ray now
 shows provider-specific metric availability, source, confidence, and caveat
 boundaries without inferring unavailable provider data.
 
+Leanctx promotion is evidence-gated rather than status-gated. Its managed
+sidecar may probe only a loopback `/capabilities` endpoint and must prove a
+compatible version, protected-content behavior, fail-open behavior, and the
+shadow contract before becoming eligible for review. The provider-routing flag
+remains permanently false: Headroom remains the sole provider proxy.
+
+Semantic cache hardening now enforces exact namespace identity, request-variant
+aware invalidation, conservative no-cache handling, false-hit protection, and
+explicit storage/read/write evidence. Cache replay remains opt-in, local-only,
+separate from compression, and estimated until a provider counterfactual exists.
+
+Chonkify, raw LLMLingua-2, and pxpipe are represented as explicit blocked or
+experimental profiles. Their individual controls and master activation allowlist
+cannot activate them without the required license/provenance, local-model and
+protected-content, or upstream text-image and exact-recall evidence gates.
+
 Caveman, Ponytail, and MarkItDown now have a before/after measurement workflow
 that can capture current local Token X-Ray input evidence into a pair, preserve
 session/provider/model/timestamp provenance, accept credible manual counters,

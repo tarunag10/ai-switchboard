@@ -34,6 +34,8 @@ describe("OptimizationEngineProfilesCard", () => {
     expect(screen.getByLabelText("Chonkify state: blocked")).toBeInTheDocument();
     expect(screen.getByText(/Headroom Native is the only live provider compressor/)).toBeInTheDocument();
     expect(screen.getByText(/license and source-provenance evidence is incomplete/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Individual and master activation are safe no-ops/)).toHaveLength(4);
+    expect(screen.getByRole("button", { name: "Activation unavailable for Chonkify" })).toBeDisabled();
     expect(screen.getByRole("region", { name: "Token optimization evidence and promotion matrix" })).toBeInTheDocument();
     expect(screen.getAllByText("Design-only").length).toBe(2);
   });
@@ -43,6 +45,17 @@ describe("OptimizationEngineProfilesCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Recheck token optimization promotion gates" }));
     expect(await screen.findByText(/Promotion gates rechecked at/)).toBeInTheDocument();
     expect(screen.getByLabelText("Chonkify state: blocked")).toBeInTheDocument();
+  });
+
+  it("does not restore persisted experimental or blocked enablement", () => {
+    window.localStorage.setItem("ai-switchboard.optimization-engines.v1", JSON.stringify({
+      version: 1,
+      enabled: { leanctx: true, chonkify: true, "pxpipe-text-image": true, "semantic-cache": true },
+      receipts: [],
+    }));
+    render(<OptimizationEngineProfilesCard onCopyGuidance={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Activation unavailable for Lean Context" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Enable local profile for Exact Replay Cache" })).toBeInTheDocument();
   });
 
   it("runs only the explicit leanctx readiness command", async () => {

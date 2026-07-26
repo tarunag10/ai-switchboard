@@ -12,6 +12,8 @@ use super::ToolManager;
 pub const LEANCTX_DISPLAY_VERSION: &str = "guided-sidecar-v1";
 const LEANCTX_HEALTH_TIMEOUT: Duration = Duration::from_millis(800);
 const LEANCTX_START_TIMEOUT: Duration = Duration::from_secs(4);
+const LEANCTX_CAPABILITIES_PATH: &str = "/capabilities";
+const REQUIRED_LEANCTX_CAPABILITY: &str = "headroom_compressor_seam";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct LeanctxReceipt {
@@ -28,6 +30,47 @@ struct LeanctxReceipt {
     last_health: Option<String>,
     #[serde(default)]
     last_error: Option<String>,
+    #[serde(default)]
+    promotion: LeanctxPromotionEvidence,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LeanctxPromotionEvidence {
+    capability_version: Option<String>,
+    capability_version_ok: bool,
+    protected_content_ok: bool,
+    fail_open_ok: bool,
+    shadow_contract_ok: bool,
+    live_promotion_allowed: bool,
+    status: String,
+    reasons: Vec<String>,
+}
+
+impl Default for LeanctxPromotionEvidence {
+    fn default() -> Self {
+        Self {
+            capability_version: None,
+            capability_version_ok: false,
+            protected_content_ok: false,
+            fail_open_ok: false,
+            shadow_contract_ok: false,
+            live_promotion_allowed: false,
+            status: "blocked".into(),
+            reasons: vec!["promotion evidence is unavailable".into()],
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LeanctxCapabilitiesResponse {
+    version: Option<String>,
+    #[serde(default)]
+    capabilities: Vec<String>,
+    protected_content: Option<bool>,
+    fail_open: Option<bool>,
+    mode: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -45,6 +88,20 @@ pub struct LeanctxSidecarStatus {
     pub error: Option<String>,
     pub ownership: &'static str,
     pub live_request_routing: bool,
+    pub promotion: LeanctxPromotionStatus,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LeanctxPromotionStatus {
+    pub status: String,
+    pub capability_version: Option<String>,
+    pub capability_version_ok: bool,
+    pub protected_content_ok: bool,
+    pub fail_open_ok: bool,
+    pub shadow_contract_ok: bool,
+    pub live_promotion_allowed: bool,
+    pub reasons: Vec<String>,
 }
 
 fn default_mode() -> String {
@@ -114,6 +171,7 @@ fn config_from_environment() -> Result<LeanctxReceipt> {
         mode: "off".into(),
         last_health: None,
         last_error: None,
+        promotion: LeanctxPromotionEvidence::default(),
     })
 }
 
@@ -146,6 +204,112 @@ fn probe_health(base_url: &str) -> Result<()> {
         bail!("leanctx /health returned HTTP {}", response.status());
     }
     Ok(())
+}
+
+fn capabilities_url(base_url: &str) -> Result<reqwest::Url> {
+    let mut url = parse_loopback_url(base_url)?;
+    url.set_path(LEANCTX_CAPABILITIES_PATH);
+    url.set_query(None);
+    Ok(url)
+}
+
+fn evaluate_promotion_capabilities(
+    capabilities: LeanctxCapabilitiesResponse,
+) -> LeanctxPromotionEvidence {
+    let mut evidence = LeanctxPromotionEvidence {
+        capability_version: capabilities.version.clone(),
+        ..LeanctxPromotionEvidence::default()
+    };
+    evidence.capability_version_ok = capabilities
+        .version
+        .as_deref()
+        .is_some_and(|version| !version.trim().is_empty())
+        && capabilities
+            .capabilities
+            .iter()
+            .any(|capability| capability == REQUIRED_LEANCTX_CAPABILITY);
+    if !evidence.capability_version_ok {
+        evidence.reasons.push(format!(
+            "version and {REQUIRED_LEANCTX_CAPABILITY} capability evidence are required"
+        ));
+    }
+    evidence.protected_content_ok = capabilities.protected_content == Some(true);
+    if !evidence.protected_content_ok {
+        evidence
+            .reasons
+            .push("protected-content handling evidence is required".into());
+    }
+    evidence.fail_open_ok = capabilities.fail_open == Some(true);
+    if !evidence.fail_open_ok {
+        evidence
+            .reasons
+            .push("fail-open evidence is required".into());
+    }
+    evidence.shadow_contract_ok = capabilities.mode.as_deref() == Some("shadow");
+    if !evidence.shadow_contract_ok {
+        evidence
+            .reasons
+            .push("sidecar must explicitly report shadow mode".into());
+    }
+    evidence.live_promotion_allowed = evidence.capability_version_ok
+        && evidence.protected_content_ok
+        && evidence.fail_open_ok
+        && evidence.shadow_contract_ok;
+    evidence.status = if evidence.live_promotion_allowed {
+        "eligible-for-review".into()
+    } else {
+        "blocked".into()
+    };
+    evidence
+}
+
+fn probe_promotion_evidence(base_url: &str) -> LeanctxPromotionEvidence {
+    let client = match reqwest::blocking::Client::builder()
+        .timeout(LEANCTX_HEALTH_TIMEOUT)
+        .build()
+    {
+        Ok(client) => client,
+        Err(err) => {
+            return LeanctxPromotionEvidence {
+                reasons: vec![format!("capability client unavailable: {err}")],
+                ..LeanctxPromotionEvidence::default()
+            };
+        }
+    };
+    let url = match capabilities_url(base_url) {
+        Ok(url) => url,
+        Err(err) => {
+            return LeanctxPromotionEvidence {
+                reasons: vec![format!("capability URL invalid: {err}")],
+                ..LeanctxPromotionEvidence::default()
+            };
+        }
+    };
+    let response = match client.get(url).send() {
+        Ok(response) if response.status().is_success() => response,
+        Ok(response) => {
+            return LeanctxPromotionEvidence {
+                reasons: vec![format!(
+                    "capability endpoint returned HTTP {}",
+                    response.status()
+                )],
+                ..LeanctxPromotionEvidence::default()
+            };
+        }
+        Err(err) => {
+            return LeanctxPromotionEvidence {
+                reasons: vec![format!("capability evidence unavailable: {err}")],
+                ..LeanctxPromotionEvidence::default()
+            };
+        }
+    };
+    match response.json::<LeanctxCapabilitiesResponse>() {
+        Ok(capabilities) => evaluate_promotion_capabilities(capabilities),
+        Err(err) => LeanctxPromotionEvidence {
+            reasons: vec![format!("capability evidence is not valid JSON: {err}")],
+            ..LeanctxPromotionEvidence::default()
+        },
+    }
 }
 
 fn child_running(child: &mut Child) -> bool {
@@ -202,11 +366,16 @@ impl ToolManager {
             receipt.mode = "shadow".into();
             receipt.last_health = Some("healthy".into());
             receipt.last_error = None;
+            receipt.promotion = probe_promotion_evidence(&receipt.base_url);
         } else {
             self.stop_leanctx();
             receipt.enabled = false;
             receipt.mode = "off".into();
             receipt.last_health = None;
+            receipt.promotion = LeanctxPromotionEvidence {
+                reasons: vec!["leanctx is disabled".into()],
+                ..LeanctxPromotionEvidence::default()
+            };
         }
         write_receipt(self, &receipt)?;
         Ok(self.leanctx_sidecar_status())
@@ -258,9 +427,44 @@ impl ToolManager {
                 .as_ref()
                 .and_then(|config| config.last_health.clone())
                 .unwrap_or_else(|| "not-checked".into()),
-            error: receipt.and_then(|config| config.last_error),
+            error: receipt
+                .as_ref()
+                .and_then(|config| config.last_error.clone()),
             ownership: "Switchboard-managed sidecar; Headroom remains the sole provider proxy",
             live_request_routing: false,
+            promotion: LeanctxPromotionStatus {
+                status: receipt
+                    .as_ref()
+                    .map(|config| config.promotion.status.clone())
+                    .unwrap_or_else(|| "blocked".into()),
+                capability_version: receipt
+                    .as_ref()
+                    .and_then(|config| config.promotion.capability_version.clone()),
+                capability_version_ok: receipt
+                    .as_ref()
+                    .map(|config| config.promotion.capability_version_ok)
+                    .unwrap_or(false),
+                protected_content_ok: receipt
+                    .as_ref()
+                    .map(|config| config.promotion.protected_content_ok)
+                    .unwrap_or(false),
+                fail_open_ok: receipt
+                    .as_ref()
+                    .map(|config| config.promotion.fail_open_ok)
+                    .unwrap_or(false),
+                shadow_contract_ok: receipt
+                    .as_ref()
+                    .map(|config| config.promotion.shadow_contract_ok)
+                    .unwrap_or(false),
+                live_promotion_allowed: receipt
+                    .as_ref()
+                    .map(|config| config.promotion.live_promotion_allowed)
+                    .unwrap_or(false),
+                reasons: receipt
+                    .as_ref()
+                    .map(|config| config.promotion.reasons.clone())
+                    .unwrap_or_else(|| vec!["leanctx is not configured".into()]),
+            },
         }
     }
 
@@ -351,5 +555,36 @@ mod tests {
             vec!["serve", "--shadow"]
         );
         assert!(parse_args_json(Some(r#"{"not":"an array"}"#.into())).is_err());
+    }
+
+    #[test]
+    fn promotion_is_blocked_when_evidence_is_missing() {
+        let evidence = evaluate_promotion_capabilities(LeanctxCapabilitiesResponse {
+            version: None,
+            capabilities: Vec::new(),
+            protected_content: None,
+            fail_open: None,
+            mode: None,
+        });
+        assert_eq!(evidence.status, "blocked");
+        assert!(!evidence.live_promotion_allowed);
+        assert!(evidence
+            .reasons
+            .iter()
+            .any(|reason| reason.contains("protected-content")));
+    }
+
+    #[test]
+    fn complete_evidence_is_only_eligible_for_review() {
+        let evidence = evaluate_promotion_capabilities(LeanctxCapabilitiesResponse {
+            version: Some("0.1.0".into()),
+            capabilities: vec![REQUIRED_LEANCTX_CAPABILITY.into()],
+            protected_content: Some(true),
+            fail_open: Some(true),
+            mode: Some("shadow".into()),
+        });
+        assert_eq!(evidence.status, "eligible-for-review");
+        assert!(evidence.live_promotion_allowed);
+        assert!(evidence.shadow_contract_ok);
     }
 }

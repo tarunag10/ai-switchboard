@@ -18,6 +18,7 @@ export type OptimizationEngineStatus =
   | "enabled"
   | "needs-repair"
   | "blocked";
+export type OptimizationActivationMode = "supported" | "experimental" | "blocked";
 export type OptimizationBoundary = "local" | "remote";
 export type OptimizationVisibility = "none" | "prompt" | "output" | "prompt-and-output";
 export type OptimizationLossiness = "lossless" | "lossy" | "configurable";
@@ -47,6 +48,10 @@ export interface OptimizationEngine {
   id: OptimizationEngineId;
   label: string;
   status: OptimizationEngineStatus;
+  /** Whether an activation caller may enable this engine. Experimental and blocked engines are never activatable. */
+  activationMode: OptimizationActivationMode;
+  /** Evidence that must be present before this engine can leave its current safety boundary. */
+  evidenceRequirements: readonly string[];
   boundary: OptimizationBoundary;
   visibility: OptimizationVisibility;
   lossiness: OptimizationLossiness;
@@ -89,14 +94,36 @@ export function createOptimizationLifecycleReceipt(
 const guidance = (setup: string, rollback: string, off: string) => ({ setup, rollback, off });
 
 export const optimizationEngines: readonly OptimizationEngine[] = [
-  { id: "headroom-native", label: "Headroom Native", status: "enabled", boundary: "local", visibility: "prompt", lossiness: "configurable", supportedScope: "text-and-image", evidenceType: "native-metric", ...guidance("Use the bundled native engine.", "Restore the previous Switchboard profile.", "Disable native optimization in Settings."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
-  { id: "rtk", label: "RTK", status: "available", boundary: "local", visibility: "prompt", lossiness: "configurable", supportedScope: "text", evidenceType: "command-output", ...guidance("Install or select the local RTK binary.", "Remove the RTK preset from the profile.", "Turn off RTK presets."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
-  { id: "leanctx", label: "Lean Context", status: "shadow", boundary: "local", visibility: "prompt", lossiness: "configurable", supportedScope: "text", evidenceType: "benchmark", ...guidance("Configure a local context budget and observe-only mode.", "Restore the uncompressed context pack.", "Set the engine to disabled."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
-  { id: "llmlingua-2", label: "LLMLingua-2", status: "blocked", boundary: "local", visibility: "prompt", lossiness: "lossy", supportedScope: "text", evidenceType: "benchmark", ...guidance("Install the local model and record a quality baseline.", "Discard the compressed prompt and use the original.", "Keep the engine blocked until quality gates pass."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
-  { id: "chonkify", label: "Chonkify", status: "blocked", boundary: "local", visibility: "prompt", lossiness: "lossy", supportedScope: "text", evidenceType: "manual-review", ...guidance("Confirm license and source-provenance evidence before installation.", "Restore the original context pack from backup.", "Keep disabled until license and provenance gates pass."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
-  { id: "semantic-cache", label: "Exact Replay Cache", status: "available", boundary: "local", visibility: "prompt-and-output", lossiness: "configurable", supportedScope: "text", evidenceType: "cache-hit-rate", ...guidance(describeSemanticCachePolicy(), "Clear the cache and resume direct requests.", "Disable cache reads and writes."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: { policy: "exact-v1", evidence: "estimated until counterfactual provider evidence", compression: "separate" } },
-  { id: "pxpipe-text-image", label: "PXPipe Text/Image", status: "blocked", boundary: "local", visibility: "prompt", lossiness: "lossy", supportedScope: "text", evidenceType: "manual-review", ...guidance("Wait for a versioned Headroom text_image capability and run shadow mode.", "Restore native Headroom text handling.", "Keep disabled until upstream support and quality gates pass."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
+  { id: "headroom-native", label: "Headroom Native", status: "enabled", activationMode: "supported", evidenceRequirements: ["healthy native runtime", "native runtime metric"], boundary: "local", visibility: "prompt", lossiness: "configurable", supportedScope: "text-and-image", evidenceType: "native-metric", ...guidance("Use the bundled native engine.", "Restore the previous Switchboard profile.", "Disable native optimization in Settings."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
+  { id: "rtk", label: "RTK", status: "available", activationMode: "supported", evidenceRequirements: ["local command output"], boundary: "local", visibility: "prompt", lossiness: "configurable", supportedScope: "text", evidenceType: "command-output", ...guidance("Install or select the local RTK binary.", "Remove the RTK preset from the profile.", "Turn off RTK presets."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
+  { id: "leanctx", label: "Lean Context", status: "shadow", activationMode: "experimental", evidenceRequirements: ["shadow quality benchmark", "protected-content checks", "fail-open latency evidence"], boundary: "local", visibility: "prompt", lossiness: "configurable", supportedScope: "text", evidenceType: "benchmark", ...guidance("Configure a local context budget and observe-only mode.", "Restore the uncompressed context pack.", "Set the engine to disabled."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
+  { id: "llmlingua-2", label: "LLMLingua-2", status: "blocked", activationMode: "experimental", evidenceRequirements: ["local model", "quality baseline", "protected-content gates", "fail-open path"], boundary: "local", visibility: "prompt", lossiness: "lossy", supportedScope: "text", evidenceType: "benchmark", ...guidance("Install the local model and record a quality baseline.", "Discard the compressed prompt and use the original.", "Keep the engine blocked until quality gates pass."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
+  { id: "chonkify", label: "Chonkify", status: "blocked", activationMode: "blocked", evidenceRequirements: ["license evidence", "source-provenance evidence", "deterministic pack review"], boundary: "local", visibility: "prompt", lossiness: "lossy", supportedScope: "text", evidenceType: "manual-review", ...guidance("Confirm license and source-provenance evidence before installation.", "Restore the original context pack from backup.", "Keep disabled until license and provenance gates pass."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
+  { id: "semantic-cache", label: "Exact Replay Cache", status: "available", activationMode: "supported", evidenceRequirements: ["exact cache-hit evidence", "secret screening"], boundary: "local", visibility: "prompt-and-output", lossiness: "configurable", supportedScope: "text", evidenceType: "cache-hit-rate", ...guidance(describeSemanticCachePolicy(), "Clear the cache and resume direct requests.", "Disable cache reads and writes."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: { policy: "exact-v1", evidence: "estimated until counterfactual provider evidence", compression: "separate" } },
+  { id: "pxpipe-text-image", label: "PXPipe Text/Image", status: "blocked", activationMode: "experimental", evidenceRequirements: ["versioned Headroom text_image seam", "shadow token evidence", "visual quality evidence"], boundary: "local", visibility: "prompt", lossiness: "lossy", supportedScope: "text", evidenceType: "manual-review", ...guidance("Wait for a versioned Headroom text_image capability and run shadow mode.", "Restore native Headroom text handling.", "Keep disabled until upstream support and quality gates pass."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
 ] as const;
+
+const engineById = new Map(optimizationEngines.map((engine) => [engine.id, engine]));
+
+export function getOptimizationEngine(engineId: OptimizationEngineId): OptimizationEngine {
+  return engineById.get(engineId)!;
+}
+
+export function canActivateOptimizationEngine(engineId: OptimizationEngineId): boolean {
+  const engine = getOptimizationEngine(engineId);
+  return engine.activationMode === "supported" && engine.status !== "blocked" && engine.status !== "needs-repair";
+}
+
+export function optimizationEngineActivationBlocker(engineId: OptimizationEngineId): string | null {
+  const engine = getOptimizationEngine(engineId);
+  if (canActivateOptimizationEngine(engineId)) return null;
+  return `${engine.label} is ${engine.activationMode}; activation is a safe no-op until these gates pass: ${engine.evidenceRequirements.join(", ")}.`;
+}
+
+/** Master activation callers must pass this allowlist, never the complete registry. */
+export function filterActivatableOptimizationEngineIds(ids: readonly string[]): OptimizationEngineId[] {
+  return ids.filter((id): id is OptimizationEngineId => optimizationEngineIds.includes(id as OptimizationEngineId) && canActivateOptimizationEngine(id as OptimizationEngineId));
+}
 
 export function validateOptimizationEngineGovernance(engines: readonly OptimizationEngine[] = optimizationEngines): string[] {
   const errors: string[] = [];
@@ -105,6 +132,8 @@ export function validateOptimizationEngineGovernance(engines: readonly Optimizat
     if (ids.has(engine.id)) errors.push(`duplicate engine id: ${engine.id}`);
     ids.add(engine.id);
     if (!engine.setup || !engine.rollback || !engine.off) errors.push(`missing lifecycle guidance: ${engine.id}`);
+    if (!engine.activationMode || engine.evidenceRequirements.length === 0) errors.push(`activation evidence missing: ${engine.id}`);
+    if (engine.activationMode !== "supported" && canActivateOptimizationEngine(engine.id)) errors.push(`gated engine is activatable: ${engine.id}`);
     if (!engine.governance.userOptIn || !engine.governance.secretSafePreview || !engine.governance.reversible || !engine.governance.evidenceRequired) errors.push(`governance gate failed: ${engine.id}`);
     if (engine.boundary === "remote" && !engine.governance.remoteDisclosure) errors.push(`remote disclosure missing: ${engine.id}`);
   }

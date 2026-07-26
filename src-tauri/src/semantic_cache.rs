@@ -80,7 +80,21 @@ impl<'a> CacheRequest<'a> {
     }
 
     pub fn cacheable(&self) -> bool {
-        self.bypass_reasons().is_empty()
+        self.bypass_reasons().is_empty() && self.namespace.is_scoped()
+    }
+}
+
+impl CacheNamespace {
+    /// A cache namespace must be explicit enough to prevent an anonymous or
+    /// partially initialized caller from sharing responses with another
+    /// scope. `request_variant` may be empty because it represents the
+    /// absence of additional variant headers.
+    pub fn is_scoped(&self) -> bool {
+        !self.provider.trim().is_empty()
+            && !self.model.trim().is_empty()
+            && !self.account.trim().is_empty()
+            && !self.workspace.trim().is_empty()
+            && !self.policy.trim().is_empty()
     }
 }
 
@@ -121,7 +135,7 @@ impl SemanticCache {
         self.connection.execute_batch("PRAGMA journal_mode=WAL; PRAGMA secure_delete=ON;
             CREATE TABLE IF NOT EXISTS semantic_cache (
               key_hash TEXT PRIMARY KEY, provider TEXT NOT NULL, model TEXT NOT NULL,
-              account TEXT NOT NULL, workspace TEXT NOT NULL, policy TEXT NOT NULL,
+              account TEXT NOT NULL, workspace TEXT NOT NULL, policy TEXT NOT NULL, request_variant TEXT NOT NULL DEFAULT '',
               response TEXT NOT NULL, metadata TEXT NOT NULL, status_code INTEGER NOT NULL DEFAULT 200, expires_at INTEGER NOT NULL,
               no_cache INTEGER NOT NULL DEFAULT 0, invalidated INTEGER NOT NULL DEFAULT 0
             );")?;
@@ -130,6 +144,10 @@ impl SemanticCache {
         // error on fresh/current databases.
         let _ = self.connection.execute(
             "ALTER TABLE semantic_cache ADD COLUMN status_code INTEGER NOT NULL DEFAULT 200",
+            [],
+        );
+        let _ = self.connection.execute(
+            "ALTER TABLE semantic_cache ADD COLUMN request_variant TEXT NOT NULL DEFAULT ''",
             [],
         );
         self.purge_expired()?;
@@ -180,8 +198,8 @@ impl SemanticCache {
         let metadata = serde_json::to_string(&response.metadata)
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
         self.connection.execute("INSERT OR REPLACE INTO semantic_cache
-            (key_hash,provider,model,account,workspace,policy,response,metadata,status_code,expires_at,no_cache,invalidated)
-            VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,0,0)", params![key, request.namespace.provider, request.namespace.model, request.namespace.account, request.namespace.workspace, request.namespace.policy, response.body, metadata, response.status_code, unix_seconds().saturating_add(response.ttl_seconds as i64)])?;
+            (key_hash,provider,model,account,workspace,policy,request_variant,response,metadata,status_code,expires_at,no_cache,invalidated)
+            VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,0,0)", params![key, request.namespace.provider, request.namespace.model, request.namespace.account, request.namespace.workspace, request.namespace.policy, request.namespace.request_variant, response.body, metadata, response.status_code, unix_seconds().saturating_add(response.ttl_seconds as i64)])?;
         Ok(true)
     }
 
@@ -218,6 +236,10 @@ pub struct SemanticCacheStatus {
     pub entries: u64,
     pub hits: u64,
     pub misses: u64,
+    pub storage_available: bool,
+    pub read_failures: u64,
+    pub write_failures: u64,
+    pub evidence: &'static str,
     pub database_path: String,
     pub policy: &'static str,
     pub disclosure: &'static str,
@@ -233,6 +255,9 @@ pub struct SemanticCacheService {
     enabled: AtomicBool,
     hits: AtomicU64,
     misses: AtomicU64,
+    read_failures: AtomicU64,
+    write_failures: AtomicU64,
+    storage_available: AtomicBool,
 }
 
 impl SemanticCacheService {
@@ -255,6 +280,9 @@ impl SemanticCacheService {
             enabled: AtomicBool::new(enabled),
             hits: AtomicU64::new(0),
             misses: AtomicU64::new(0),
+            read_failures: AtomicU64::new(0),
+            write_failures: AtomicU64::new(0),
+            storage_available: AtomicBool::new(true),
         })
     }
 
@@ -288,6 +316,8 @@ impl SemanticCacheService {
                 None
             }
             Err(err) => {
+                self.read_failures.fetch_add(1, Ordering::Relaxed);
+                self.storage_available.store(false, Ordering::Release);
                 log::warn!("semantic cache read failed: {err}");
                 None
             }
@@ -299,6 +329,8 @@ impl SemanticCacheService {
             return;
         }
         if let Err(err) = self.cache.lock().put(request, response) {
+            self.write_failures.fetch_add(1, Ordering::Relaxed);
+            self.storage_available.store(false, Ordering::Release);
             log::warn!("semantic cache write failed: {err}");
         }
     }
@@ -308,12 +340,29 @@ impl SemanticCacheService {
     }
 
     pub fn status(&self) -> SemanticCacheStatus {
-        let entries = self.cache.lock().entry_count().unwrap_or(0);
+        let entries = match self.cache.lock().entry_count() {
+            Ok(entries) => entries,
+            Err(err) => {
+                self.read_failures.fetch_add(1, Ordering::Relaxed);
+                self.storage_available.store(false, Ordering::Release);
+                log::warn!("semantic cache status read failed: {err}");
+                0
+            }
+        };
+        let storage_available = self.storage_available.load(Ordering::Acquire);
         SemanticCacheStatus {
             enabled: self.enabled(),
             entries,
             hits: self.hits.load(Ordering::Relaxed),
             misses: self.misses.load(Ordering::Relaxed),
+            storage_available,
+            read_failures: self.read_failures.load(Ordering::Relaxed),
+            write_failures: self.write_failures.load(Ordering::Relaxed),
+            evidence: if storage_available {
+                "local-observed-exact-replay"
+            } else {
+                "unavailable-storage-error"
+            },
             database_path: self.database_path.display().to_string(),
             policy: "exact-v1",
             disclosure: "Local exact replay only; response bodies remain in local app storage until TTL or clear. Streaming, tools/MCP, image content, sensitive markers in requests or responses, high temperature, and no-cache requests bypass. Marker screening is conservative, not a guarantee of secrecy.",
@@ -421,6 +470,46 @@ mod tests {
     }
 
     #[test]
+    fn namespace_invalidation_clears_all_variants_but_not_other_scopes() {
+        let c = SemanticCache::open_in_memory().unwrap();
+        let r = request();
+        let mut variant = request();
+        variant.namespace.request_variant = "sha256:variant".into();
+        let mut other = request();
+        other.namespace.workspace = "other-workspace".into();
+        assert!(c.put(&r, &response()).unwrap());
+        assert!(c.put(&variant, &response()).unwrap());
+        assert!(c.put(&other, &response()).unwrap());
+
+        assert_eq!(c.invalidate_namespace(&r.namespace).unwrap(), 2);
+        assert!(c.get(&r).unwrap().is_none());
+        assert!(c.get(&variant).unwrap().is_none());
+        assert!(c.get(&other).unwrap().is_some());
+    }
+
+    #[test]
+    fn unscoped_namespace_is_fail_closed() {
+        let mut r = request();
+        r.namespace.account.clear();
+        assert!(!r.namespace.is_scoped());
+        assert!(!r.cacheable());
+        let c = SemanticCache::open_in_memory().unwrap();
+        assert!(!c.put(&r, &response()).unwrap());
+        assert!(c.get(&r).unwrap().is_none());
+    }
+
+    #[test]
+    fn response_no_cache_is_never_stored() {
+        let c = SemanticCache::open_in_memory().unwrap();
+        let mut response = response();
+        response.no_cache = true;
+        let r = request();
+        assert!(!c.put(&r, &response).unwrap());
+        assert!(c.get(&r).unwrap().is_none());
+        assert_eq!(c.entry_count().unwrap(), 0);
+    }
+
+    #[test]
     fn expired_rows_are_purged_instead_of_retaining_response_bodies() {
         let c = SemanticCache::open_in_memory().unwrap();
         let r = request();
@@ -473,6 +562,10 @@ mod tests {
         let status = service.status();
         assert_eq!(status.entries, 1);
         assert_eq!(status.hits, 1);
+        assert!(status.storage_available);
+        assert_eq!(status.evidence, "local-observed-exact-replay");
+        assert_eq!(status.read_failures, 0);
+        assert_eq!(status.write_failures, 0);
         service.clear().unwrap();
         assert_eq!(service.status().entries, 0);
         service.set_enabled(false).unwrap();

@@ -6,6 +6,8 @@ import {
   previewOptimizationEngineConfig,
   summarizeOptimizationEngineStatus,
   createOptimizationLifecycleReceipt,
+  canActivateOptimizationEngine,
+  optimizationEngineActivationBlocker,
   type OptimizationReceipt,
   type OptimizationEngine,
   type OptimizationEngineId,
@@ -49,6 +51,16 @@ type LeanctxSidecarStatus = {
   error: string | null;
   ownership: string;
   liveRequestRouting: boolean;
+  promotion?: {
+    status: string;
+    capabilityVersion: string | null;
+    capabilityVersionOk: boolean;
+    protectedContentOk: boolean;
+    failOpenOk: boolean;
+    shadowContractOk: boolean;
+    livePromotionAllowed: boolean;
+    reasons: string[];
+  };
 };
 
 type SemanticCacheStatus = {
@@ -59,6 +71,10 @@ type SemanticCacheStatus = {
   databasePath: string;
   policy: string;
   disclosure: string;
+  storageAvailable: boolean;
+  readFailures: number;
+  writeFailures: number;
+  evidence: string;
 };
 
 type DisplayState =
@@ -156,7 +172,8 @@ function loadState(): OptimizationEngineLocalState {
   try {
     const parsed = JSON.parse(window.localStorage.getItem(storageKey) ?? "null") as Partial<OptimizationEngineLocalState> | null;
     if (parsed?.version !== 1 || !parsed.enabled || !Array.isArray(parsed.receipts)) return emptyState();
-    return { version: 1, enabled: parsed.enabled, receipts: parsed.receipts.slice(0, 30) };
+    const enabled = Object.fromEntries(Object.entries(parsed.enabled).filter(([id, value]) => value === true && optimizationEngineIds.includes(id as OptimizationEngineId) && canActivateOptimizationEngine(id as OptimizationEngineId))) as Partial<Record<OptimizationEngineId, boolean>>;
+    return { version: 1, enabled, receipts: parsed.receipts.slice(0, 30) };
   } catch {
     return emptyState();
   }
@@ -197,7 +214,7 @@ export function OptimizationEngineProfilesCard({
   }, [localState]);
 
   const recordAction = (engine: OptimizationEngine, enabled: boolean, actionOverride?: string) => {
-    if (engine.id === "rtk" || engine.id === "headroom-native") return;
+    if (engine.id === "rtk" || engine.id === "headroom-native" || !canActivateOptimizationEngine(engine.id)) return;
     const action = actionOverride ?? (enabled ? "enabled" : "disabled");
     const receipt = createOptimizationLifecycleReceipt(engine.id, action);
     setLocalState((current) => ({
@@ -321,6 +338,7 @@ function OptimizationEngineRow({
   const [statusError, setStatusError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const blocked = engine.status === "blocked";
+  const activationBlocked = !canActivateOptimizationEngine(engine.id);
 
   const refreshBackendStatus = async () => {
     if (engine.id !== "leanctx" && engine.id !== "semantic-cache") return;
@@ -349,6 +367,11 @@ function OptimizationEngineRow({
   };
 
   const handleToggle = async () => {
+    if (activationBlocked) {
+      setOpen(true);
+      setActionError(optimizationEngineActivationBlocker(engine.id));
+      return;
+    }
     if (statusError || (engine.id === "leanctx" && !leanctxStatus) || (engine.id === "semantic-cache" && !semanticCacheStatus)) {
       await refreshBackendStatus();
       return;
@@ -424,6 +447,16 @@ function OptimizationEngineRow({
           ? runtimeStatus?.rtk?.enabled === true
           : enabled;
   const state = displayState(engine, effectiveEnabled, leanctxStatus, semanticCacheStatus, runtimeStatus, statusError);
+  const promotion = leanctxStatus?.promotion ?? {
+    status: "blocked",
+    capabilityVersion: null,
+    capabilityVersionOk: false,
+    protectedContentOk: false,
+    failOpenOk: false,
+    shadowContractOk: false,
+    livePromotionAllowed: false,
+    reasons: ["promotion evidence is unavailable"],
+  };
   const statusManaged = engine.id === "leanctx" || engine.id === "semantic-cache";
   const statusKnown = !statusManaged || (!statusError && (engine.id === "leanctx" ? leanctxStatus !== null : semanticCacheStatus !== null));
   const preview = previewOptimizationEngineConfig(engine);
@@ -436,8 +469,10 @@ function OptimizationEngineRow({
     `# Rollback: ${engine.rollback}`,
     `# Off: ${engine.off}`,
   ].join("\n");
-  const toggleLabel = engine.id === "headroom-native"
-    ? "Managed by Headroom runtime"
+  const toggleLabel = activationBlocked
+    ? "Activation unavailable"
+    : engine.id === "headroom-native"
+      ? "Managed by Headroom runtime"
       : engine.id === "rtk"
       ? "Manage in Switchboard modes"
       : engine.id === "leanctx"
@@ -458,6 +493,7 @@ function OptimizationEngineRow({
       <p>{engine.lossiness === "lossless" ? "Lossless or protocol-preserving path." : "Lossy or quality-sensitive path; exact-content protection applies."} Scope: {engine.supportedScope}.</p>
       <p><strong>Safety:</strong> {engineSafety[engine.id]}</p>
       {engineBlocker[engine.id] && <p role="note"><strong>{engineBlocker[engine.id]}</strong></p>}
+      {activationBlocked && <p role="note"><strong>Activation boundary:</strong> {engine.activationMode === "experimental" ? "Experimental evidence-only profile." : "Blocked profile."} Individual and master activation are safe no-ops. Required evidence: {engine.evidenceRequirements.join("; ")}.</p>}
       {engine.id === "leanctx" && <p role="note"><strong>Setup:</strong> provide LEANCTX_EXECUTABLE and a loopback-only LEANCTX_BASE_URL; optional LEANCTX_ARGS_JSON and LEANCTX_VERSION are user-supplied.</p>}
       {engine.id === "semantic-cache" && <p role="note"><strong>Safety scope:</strong> cache only eligible repeated text requests. Obvious secret markers in requests or responses bypass the cache; response bodies remain local until TTL or clear.</p>}
       <div className="gateway-profile__facts">
@@ -470,7 +506,7 @@ function OptimizationEngineRow({
           type="button"
           className="addon-card__action"
           aria-label={`${toggleLabel} for ${engine.label}`}
-          disabled={blocked || engine.id === "headroom-native" || engine.id === "rtk" || checking || !statusKnown}
+          disabled={activationBlocked || blocked || engine.id === "headroom-native" || engine.id === "rtk" || checking || !statusKnown}
           onClick={() => void handleToggle()}
         >
           {checking ? "Working…" : toggleLabel}
@@ -517,12 +553,15 @@ function OptimizationEngineRow({
               <p><strong>Managed sidecar:</strong> {leanctxStatus.configured ? "configured" : "not configured"}; mode: {leanctxStatus.mode}; running: {leanctxStatus.running ? "yes" : "no"}.</p>
               <p><strong>Health:</strong> {leanctxStatus.health}. Executable present: {leanctxStatus.executablePresent ? "yes" : "no"}; loopback-only: {leanctxStatus.loopbackOnly ? "yes" : "no"}.</p>
               <p><strong>Live provider routing:</strong> No. Headroom remains the sole provider proxy. {leanctxStatus.ownership}</p>
+              <p><strong>Promotion gate:</strong> {promotion.status}; capability/version: {promotion.capabilityVersionOk ? "pass" : "missing"}; protected content: {promotion.protectedContentOk ? "pass" : "missing"}; fail-open: {promotion.failOpenOk ? "pass" : "missing"}; shadow contract: {promotion.shadowContractOk ? "pass" : "missing"}.</p>
+              {promotion.reasons.length > 0 && <p><strong>Promotion evidence:</strong> {promotion.reasons.join("; ")}</p>}
               {leanctxStatus.error && <p><strong>Last error:</strong> {leanctxStatus.error}</p>}
             </div>
           )}
           {engine.id === "semantic-cache" && semanticCacheStatus && (
             <div>
               <p><strong>Backend:</strong> {semanticCacheStatus.enabled ? "enabled" : "disabled"}; {semanticCacheStatus.entries} live entries; {semanticCacheStatus.hits} hits / {semanticCacheStatus.misses} misses.</p>
+              <p><strong>Evidence:</strong> {semanticCacheStatus.evidence}; storage {semanticCacheStatus.storageAvailable ? "available" : "unavailable"}; read failures {semanticCacheStatus.readFailures}; write failures {semanticCacheStatus.writeFailures}.</p>
               <p><strong>Policy:</strong> {semanticCacheStatus.policy}. {semanticCacheStatus.disclosure}</p>
               <p><strong>Database:</strong> local app storage only; prompt text is never persisted as a key, while eligible response bodies remain until TTL or clear. Secret-marker screening is conservative and not a guarantee of secrecy.</p>
               <button
