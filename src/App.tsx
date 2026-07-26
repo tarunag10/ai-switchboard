@@ -255,6 +255,24 @@ import { UsageSavingsView } from "./components/UsageSavingsView";
 import { TokenXrayView } from "./components/TokenXrayView";
 import { DailyUsageBriefingView } from "./components/DailyUsageBriefingView";
 import { AgentMemoryInspector } from "./components/AgentMemoryInspector";
+import {
+  MasterActivationCard,
+  type MasterFeatureId,
+  type MasterFeatureState,
+  type MasterFeatureStatus,
+} from "./components/MasterActivationCard";
+import {
+  createMasterActivationPlan,
+  executeMasterActivation,
+  createMasterDeactivationPlan,
+  executeMasterDeactivation,
+  type MasterActivationReceipt,
+} from "./lib/masterActivation";
+import { getAgentMemorySnapshot } from "./lib/agentMemory";
+import {
+  loadDailyUsageBriefing,
+  loadTokenXraySnapshot,
+} from "./lib/usageAnalytics";
 import type {
   AppUpdateConfiguration,
   AvailableAppUpdate,
@@ -483,6 +501,23 @@ export default function App() {
   const [startupCopy, setStartupCopy] = useState("Opening launch window…");
   const [startupReady, setStartupReady] = useState(false);
   const [activeView, setActiveView] = useState<TrayView>("home");
+  const [masterActivationState, setMasterActivationState] =
+    useState<MasterFeatureStatus>("ready");
+  const [masterFeatureStates, setMasterFeatureStates] = useState<
+    Partial<Record<MasterFeatureId, MasterFeatureState>>
+  >({});
+  const [masterActivationProgress, setMasterActivationProgress] = useState({
+    completed: 0,
+    total: 9,
+  });
+  const [masterActivationReceipt, setMasterActivationReceipt] = useState<{
+    activation: MasterActivationReceipt;
+    previousMode: SwitchboardMode;
+    mcpWasActive: boolean;
+  } | null>(null);
+  const [masterOperation, setMasterOperation] = useState<
+    "activate" | "deactivate"
+  >("activate");
   const [pricingAudience, setPricingAudience] =
     useState<PricingAudience>("individual");
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("annual");
@@ -2694,7 +2729,7 @@ export default function App() {
     }
   }
 
-  async function prepareRepoMemoryMcp() {
+  async function prepareRepoMemoryMcp(): Promise<boolean> {
     setAddonBusyId("repo-memory");
     setAddonBusyLabel("Preparing Repo Memory MCP...");
     setAddonError(null);
@@ -2709,19 +2744,300 @@ export default function App() {
         message:
           "Repo Memory MCP prepared. The app installed it, ran the read-only smoke check, and marked it active for supported agents.",
       });
+      return true;
     } catch (error) {
       setAddonError(
         error instanceof Error
           ? error.message
           : "Repo Memory MCP could not be prepared.",
       );
+      return false;
     } finally {
       setAddonBusyId(null);
       setAddonBusyLabel(null);
     }
   }
 
-  async function setRepoMemoryMcpActive(active: boolean) {
+  function setMasterFeature(
+    id: MasterFeatureId,
+    state: MasterFeatureState,
+  ) {
+    setMasterFeatureStates((current) => ({ ...current, [id]: state }));
+  }
+
+  function removeMasterOwnedFeature(id: MasterFeatureId) {
+    setMasterActivationReceipt((current) => {
+      if (!current) return current;
+      const ownedId = id === "gateway-mcp" ? "repo-memory-mcp" : id;
+      const ownedActions = current.activation.ownedActions.filter(
+        (action) => action.id !== ownedId,
+      );
+      if (ownedActions.length === 0) return null;
+      return {
+        ...current,
+        activation: { ...current.activation, ownedActions },
+      };
+    });
+  }
+
+  function masterFeatureView(id: MasterFeatureId): TrayView {
+    switch (id) {
+      case "agent-memory":
+        return "agentMemory";
+      case "token-xray":
+        return "xray";
+      case "daily-briefing":
+        return "briefing";
+      case "agent-session":
+        return "optimization";
+      case "repo-intelligence":
+        return "repoIntelligence";
+      case "addons":
+      case "gateway-mcp":
+        return "addons";
+      case "doctor":
+        return "doctor";
+      case "rollback":
+        return "home";
+    }
+  }
+
+  async function activateMasterFeature(id: MasterFeatureId) {
+    setMasterFeature(id, { status: "running", actionLabel: "Working…" });
+    try {
+      switch (id) {
+        case "agent-memory":
+          await getAgentMemorySnapshot();
+          break;
+        case "token-xray":
+          await loadTokenXraySnapshot();
+          break;
+        case "daily-briefing":
+          await loadDailyUsageBriefing();
+          break;
+        case "repo-intelligence":
+          await invoke("get_latest_repo_intelligence_summary");
+          break;
+        case "gateway-mcp":
+          if (!(await prepareRepoMemoryMcp())) {
+            throw new Error("Repo Memory MCP could not be prepared.");
+          }
+          break;
+        case "doctor":
+          await refreshDoctorReport();
+          break;
+        case "addons":
+          await Promise.all([refreshRuntimeStatus(), refreshConnectors()]);
+          break;
+        case "rollback":
+          await refreshDoctorReport();
+          break;
+        case "agent-session":
+          setActiveView("optimization");
+          setMasterFeature(id, {
+            status: "partial",
+            actionLabel: "Open",
+            detail: "Prepare and copy the session payload before launch.",
+          });
+          return;
+      }
+      setMasterFeature(id, {
+        status: "complete",
+        actionLabel: "Run again",
+        detail: "Local evidence refreshed.",
+      });
+    } catch (error) {
+      setMasterFeature(id, {
+        status: "error",
+        actionLabel: "Retry",
+        detail: error instanceof Error ? error.message : "Action failed.",
+      });
+    }
+  }
+
+  async function activateEverything() {
+    if (masterActivationState === "running") return;
+    const previousMode = switchboardMode;
+    const mcpWasActive = runtimeStatus?.repoMemoryMcpActive === true;
+    setMasterOperation("activate");
+    setMasterActivationState("running");
+    setMasterFeatureStates({});
+    setMasterActivationProgress({ completed: 0, total: 9 });
+    try {
+      await handleSetSwitchboardMode("full");
+      const activatedRuntime = await invoke<RuntimeStatus>(
+        "get_runtime_status",
+      );
+      applyRuntimeStatusIfChanged(activatedRuntime);
+      if (!activatedRuntime.running || !activatedRuntime.proxyReachable) {
+        throw new Error(
+          "The full local mode did not bring the Headroom runtime online.",
+        );
+      }
+      const callbacks = {
+        refreshAgentMemory: async () => {
+          await getAgentMemorySnapshot();
+          setMasterFeature("agent-memory", {
+            status: "complete",
+            detail: "Local memory metadata refreshed.",
+          });
+        },
+        refreshRepoIntelligence: async () => {
+          await invoke("get_latest_repo_intelligence_summary");
+          setMasterFeature("repo-intelligence", {
+            status: "complete",
+            detail: "Latest local repository evidence checked.",
+          });
+        },
+        refreshTokenXray: async () => {
+          await loadTokenXraySnapshot();
+          setMasterFeature("token-xray", {
+            status: "complete",
+            detail: "Local token evidence refreshed.",
+          });
+        },
+        refreshDailyBriefing: async () => {
+          await loadDailyUsageBriefing();
+          setMasterFeature("daily-briefing", {
+            status: "complete",
+            detail: "Local briefing evidence refreshed.",
+          });
+        },
+        ...(mcpWasActive
+          ? {}
+          : {
+              prepareRepoMemoryMcp: async () => {
+                if (!(await prepareRepoMemoryMcp())) {
+                  throw new Error("Repo Memory MCP could not be prepared.");
+                }
+                setMasterFeature("gateway-mcp", {
+                  status: "complete",
+                  detail: "Read-only Repo Memory MCP prepared.",
+                });
+              },
+            }),
+      };
+      const plan = createMasterActivationPlan({
+        runtimeState:
+          runtimeStatus?.running && runtimeStatus.proxyReachable
+            ? "running"
+            : "offline",
+        callbacks,
+      });
+      const result = await executeMasterActivation(plan, { callbacks });
+      await Promise.all([refreshRuntimeStatus(), refreshConnectors(), refreshDoctorReport()]);
+      setMasterFeature("addons", { status: "complete", detail: "Runtime and connector health refreshed." });
+      setMasterFeature("doctor", { status: "complete", detail: "Doctor report refreshed." });
+      setMasterFeature("rollback", { status: "complete", detail: "Rollback inventory is available in Doctor/Home." });
+      setMasterFeature("agent-session", { status: "partial", actionLabel: "Open", detail: "Prepare and copy a payload before launch." });
+      const completed = new Set(result.completed.map((item) => item.id));
+      if (result.receipt.ownedActions.length > 0) {
+        setMasterActivationReceipt({
+          activation: result.receipt,
+          previousMode,
+          mcpWasActive,
+        });
+      }
+      setMasterActivationProgress({ completed: Math.min(9, completed.size + 3), total: 9 });
+      setMasterActivationState(result.failed.length ? "partial" : "complete");
+    } catch (error) {
+      setMasterActivationState("error");
+      setMasterFeature("doctor", {
+        status: "error",
+        actionLabel: "Retry",
+        detail: error instanceof Error ? error.message : "Master activation failed.",
+      });
+    }
+  }
+
+  async function deactivateMasterFeature(id: MasterFeatureId) {
+    const receipt = masterActivationReceipt;
+    if (!receipt) return;
+    setMasterFeature(id, { status: "running", actionLabel: "Working…" });
+    try {
+      if (id === "gateway-mcp" && !receipt.mcpWasActive) {
+        if (!(await setRepoMemoryMcpActive(false))) {
+          throw new Error("Repo Memory MCP could not be stopped.");
+        }
+      }
+      setMasterFeature(id, {
+        status: "ready",
+        actionLabel: "Activate",
+        detail:
+          id === "gateway-mcp" && receipt.mcpWasActive
+            ? "MCP was already active before master activation; it was left untouched."
+            : "No master-owned state remains active.",
+      });
+      removeMasterOwnedFeature(id);
+    } catch (error) {
+      setMasterFeature(id, {
+        status: "error",
+        actionLabel: "Retry deactivation",
+        detail: error instanceof Error ? error.message : "Deactivation failed.",
+      });
+    }
+  }
+
+  async function deactivateEverything() {
+    const receipt = masterActivationReceipt;
+    if (!receipt || masterActivationState === "running") return;
+    setMasterOperation("deactivate");
+    setMasterActivationState("running");
+    try {
+      const callbacks = {
+        deactivateAgentMemory: async () => undefined,
+        deactivateRepoIntelligence: async () => undefined,
+        deactivateTokenXray: async () => undefined,
+        deactivateDailyBriefing: async () => undefined,
+        ...(receipt.mcpWasActive
+          ? {}
+          : {
+              stopRepoMemoryMcp: async () => {
+                if (!(await setRepoMemoryMcpActive(false))) {
+                  throw new Error("Repo Memory MCP could not be stopped.");
+                }
+              },
+            }),
+      };
+      const plan = createMasterDeactivationPlan({
+        receipt: receipt.activation,
+        callbacks,
+      });
+      const result = await executeMasterDeactivation(plan, {
+        receipt: receipt.activation,
+        callbacks,
+      });
+      if (receipt.previousMode !== "full") {
+        await handleSetSwitchboardMode(receipt.previousMode);
+      }
+      await Promise.all([refreshRuntimeStatus(), refreshConnectors(), refreshDoctorReport()]);
+      const failed = result.failed.length > 0;
+      if (!failed) {
+        setMasterActivationReceipt(null);
+        setMasterActivationProgress({ completed: 0, total: 9 });
+        setMasterFeatureStates({});
+        setMasterActivationState("ready");
+      } else {
+        setMasterActivationState("partial");
+        for (const item of result.failed) {
+          setMasterFeature(item.id === "repo-memory-mcp" ? "gateway-mcp" : "addons", {
+            status: "error",
+            actionLabel: "Retry deactivation",
+            detail: item.detail,
+          });
+        }
+      }
+    } catch (error) {
+      setMasterActivationState("partial");
+      setMasterFeature("doctor", {
+        status: "error",
+        actionLabel: "Retry deactivation",
+        detail: error instanceof Error ? error.message : "Master deactivation failed.",
+      });
+    }
+  }
+
+  async function setRepoMemoryMcpActive(active: boolean): Promise<boolean> {
     setAddonBusyId("repo-memory");
     setAddonBusyLabel(active ? "Starting Repo Memory MCP..." : "Stopping Repo Memory MCP...");
     setAddonError(null);
@@ -2738,6 +3054,7 @@ export default function App() {
           ? "Repo Memory MCP marked active. Supported agents can request read-only repo context."
           : "Repo Memory MCP stopped for this app session. Agent MCP configuration was left intact.",
       });
+      return true;
     } catch (error) {
       setAddonError(
         error instanceof Error
@@ -2746,6 +3063,7 @@ export default function App() {
             ? "Repo Memory MCP could not be started."
             : "Repo Memory MCP could not be stopped.",
       );
+      return false;
     } finally {
       setAddonBusyId(null);
       setAddonBusyLabel(null);
@@ -4799,6 +5117,22 @@ export default function App() {
           setSavingsCalculatorScope={setSavingsCalculatorScope}
           historyLoadTimedOut={historyLoadTimedOut}
           chartResetSignal={chartResetSignal}
+          masterActivationState={masterActivationState}
+          masterActivationProgress={masterActivationProgress}
+          masterFeatureStates={masterFeatureStates}
+          onActivateEverything={() => void activateEverything()}
+          onDeactivateEverything={() => void deactivateEverything()}
+          onActivateMasterFeature={(featureId) =>
+            void activateMasterFeature(featureId)
+          }
+          onDeactivateMasterFeature={(featureId) =>
+            void deactivateMasterFeature(featureId)
+          }
+          onOpenMasterFeature={(featureId) =>
+            setActiveView(masterFeatureView(featureId))
+          }
+          masterActivationIsActive={masterActivationReceipt !== null}
+          masterOperation={masterOperation}
         />
 
         <UsageSavingsView

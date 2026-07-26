@@ -40,6 +40,12 @@ import { ClientSavingsTrendsCard } from "./ClientSavingsTrendsCard";
 import { DailySavingsChart } from "./DailySavingsChart";
 import { OutputReductionChip } from "./OutputReductionChip";
 import type { SavingsChartMode } from "./SavingsChartTooltip";
+import {
+  MasterActivationCard,
+  type MasterFeatureId,
+  type MasterFeatureState,
+  type MasterFeatureStatus,
+} from "./MasterActivationCard";
 
 export interface HomeViewProps {
   hidden?: boolean;
@@ -115,6 +121,16 @@ export interface HomeViewProps {
   setSavingsCalculatorScope: (scope: SavingsCalculatorScope) => void;
   historyLoadTimedOut: boolean;
   chartResetSignal: number;
+  masterActivationState: MasterFeatureStatus;
+  masterActivationProgress: { completed: number; total: number };
+  masterFeatureStates: Partial<Record<MasterFeatureId, MasterFeatureState>>;
+  onActivateEverything: () => void;
+  onDeactivateEverything: () => void;
+  onActivateMasterFeature: (featureId: MasterFeatureId) => void;
+  onDeactivateMasterFeature: (featureId: MasterFeatureId) => void;
+  onOpenMasterFeature: (featureId: MasterFeatureId) => void;
+  masterActivationIsActive: boolean;
+  masterOperation: "activate" | "deactivate";
 }
 
 export function HomeView({
@@ -180,6 +196,16 @@ export function HomeView({
   setSavingsCalculatorScope,
   historyLoadTimedOut,
   chartResetSignal,
+  masterActivationState,
+  masterActivationProgress,
+  masterFeatureStates,
+  onActivateEverything,
+  onDeactivateEverything,
+  onActivateMasterFeature,
+  onDeactivateMasterFeature,
+  onOpenMasterFeature,
+  masterActivationIsActive,
+  masterOperation,
 }: HomeViewProps) {
   return (
     <div className="tray-content" hidden={hidden}>
@@ -305,6 +331,19 @@ export function HomeView({
           );
         })()}
       </section>
+
+      <MasterActivationCard
+        activationState={masterActivationState}
+        progress={masterActivationProgress}
+        featureStates={masterFeatureStates}
+        onActivateAll={onActivateEverything}
+        onDeactivateAll={onDeactivateEverything}
+        onActivateFeature={onActivateMasterFeature}
+        onDeactivateFeature={onDeactivateMasterFeature}
+        onOpenFeature={onOpenMasterFeature}
+        isActive={masterActivationIsActive}
+        operation={masterOperation}
+      />
 
       {(() => {
         const codexConnector = aggregateClientConnectors(connectors).find(
