@@ -56,6 +56,7 @@ mod pricing;
 mod pricing_commands;
 mod process_runner;
 mod proxy_intercept;
+mod proxy_session_auth;
 mod release_evidence;
 mod repo_intelligence;
 mod repo_intelligence_commands;
@@ -758,6 +759,8 @@ pub fn run() {
             semantic_cache::get_semantic_cache_status,
             semantic_cache::set_semantic_cache_enabled,
             semantic_cache::clear_semantic_cache,
+            proxy_session_auth::get_proxy_session_auth_status,
+            proxy_session_auth::set_proxy_session_auth_enforce,
             addon_commands::set_caveman_level,
             repo_memory_commands::install_repo_memory_mcp,
             repo_memory_commands::start_repo_memory_mcp,

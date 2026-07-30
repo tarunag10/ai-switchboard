@@ -42,5 +42,49 @@
     "optimizedFacts": ["headings", "tables", "section order"],
     "wrongOmissions": [],
     "agentSuccessProxy": "not_applicable"
+  },
+  {
+    "category": "shell_output",
+    "name": "long ci log tail",
+    "original": "[2026-07-30T10:00:01Z] npm ci\nadded 1842 packages in 42s\n[2026-07-30T10:01:02Z] cargo test --lib proxy_session_auth\nrunning 4 tests\ntest validates_matching_session_header ... ok\ntest rejects_missing_and_invalid_headers ... ok\ntest debug_never_leaks_token ... ok\ntest enforce_status_labels_progress ... ok\ntest result: ok. 4 passed; 0 failed\n[2026-07-30T10:02:11Z] vitest run src/lib/modeInspectorVerdict.test.ts\n Test Files  1 passed (1)\n      Tests  3 passed (3)\n",
+    "optimized": "CI: npm ci ok; cargo lib proxy_session_auth 4/4 passed; vitest modeInspectorVerdict 3/3 passed.",
+    "latencyOverheadMs": 11,
+    "relevantFacts": ["npm ci", "proxy_session_auth", "4 passed", "modeInspectorVerdict", "3 passed"],
+    "optimizedFacts": ["npm ci", "proxy_session_auth", "4 passed", "modeInspectorVerdict", "3 passed"],
+    "wrongOmissions": [],
+    "agentSuccessProxy": "pass"
+  },
+  {
+    "category": "repo_context_pack",
+    "name": "agent transcript excerpt",
+    "original": "user: read the whole repo and summarize every file including node_modules and dist\nassistant: scanning 1842 files across node_modules dist coverage graphify-out src src-tauri docs scripts tests fixtures connectors research benchmarks public\nassistant: found App.tsx SwitchboardPanel.tsx client_adapters.rs repo_intelligence.rs tool_manager.rs styles.css pricing.rs state.rs proxy_intercept.rs semantic_cache.rs\nassistant: repeating broad scan node_modules dist coverage graphify-out src src-tauri docs scripts tests fixtures connectors research benchmarks public",
+    "optimized": "task-aware pack: src/components/SwitchboardPanel.tsx src-tauri/src/proxy_session_auth.rs docs/world-class-token-savings/IMPLEMENTATION-PLAN.md nearest tests config hubs",
+    "latencyOverheadMs": 31,
+    "relevantFacts": ["SwitchboardPanel", "proxy_session_auth", "IMPLEMENTATION-PLAN", "nearest tests"],
+    "optimizedFacts": ["SwitchboardPanel", "proxy_session_auth", "IMPLEMENTATION-PLAN", "nearest tests"],
+    "wrongOmissions": [],
+    "agentSuccessProxy": "pass"
+  },
+  {
+    "category": "document_conversion",
+    "name": "json api error blob",
+    "original": "{\"error\":{\"type\":\"invalid_request_error\",\"message\":\"messages.0.content.0: expected text block but got tool_result\",\"param\":\"messages\",\"code\":\"invalid_value\"},\"request_id\":\"req_01HXYZ\",\"provider\":\"anthropic\",\"status\":400,\"headers\":{\"x-request-id\":\"req_01HXYZ\"},\"retryable\":false}",
+    "optimized": "400 invalid_request_error: messages.0.content.0 expected text block but got tool_result (param messages, request req_01HXYZ).",
+    "latencyOverheadMs": 5,
+    "relevantFacts": ["400", "invalid_request_error", "tool_result", "messages", "req_01HXYZ"],
+    "optimizedFacts": ["400", "invalid_request_error", "tool_result", "messages", "req_01HXYZ"],
+    "wrongOmissions": [],
+    "agentSuccessProxy": "pass"
+  },
+  {
+    "category": "shell_output",
+    "name": "git diff stat noise",
+    "original": " docs/world-class-token-savings/README.md |  18 +\n docs/world-class-token-savings/CURSOR-ANALYSIS-2026-07-30.md | 210 +\n src-tauri/src/proxy_session_auth.rs | 248 +++++++++++++++++++++\n src/lib/modeInspectorVerdict.ts |  72 +++++\n 4 files changed, 548 insertions(+)\n create mode 100644 docs/world-class-token-savings/README.md\n create mode 100644 src-tauri/src/proxy_session_auth.rs",
+    "optimized": "4 files changed, +548: world-class-token-savings docs, proxy_session_auth.rs, modeInspectorVerdict.ts.",
+    "latencyOverheadMs": 7,
+    "relevantFacts": ["4 files changed", "+548", "proxy_session_auth.rs", "modeInspectorVerdict.ts"],
+    "optimizedFacts": ["4 files changed", "+548", "proxy_session_auth.rs", "modeInspectorVerdict.ts"],
+    "wrongOmissions": [],
+    "agentSuccessProxy": "pass"
   }
 ]

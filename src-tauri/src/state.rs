@@ -130,6 +130,8 @@ pub struct AppState {
     /// Local exact response cache. This is separate from Headroom compression
     /// and remains disabled until the user explicitly opts in.
     pub semantic_cache: std::sync::Arc<crate::semantic_cache::SemanticCacheService>,
+    /// Per-app-session token for optional local proxy authentication.
+    pub proxy_session_auth: std::sync::Arc<crate::proxy_session_auth::ProxySessionAuth>,
     /// Dedicated content-free analytics snapshots. This never aliases the
     /// savings ledger, so clearing analytics cannot remove attribution evidence.
     analytics_dir: PathBuf,
@@ -317,9 +319,12 @@ impl AppState {
         let savings_tracker = SavingsTracker::load_or_create(&base_dir)?;
         let activity_facts = ActivityFacts::load_or_create(&base_dir)?;
 
+        let proxy_session_auth =
+            crate::proxy_session_auth::ProxySessionAuth::open(&base_dir);
         let state = Self {
             tool_manager,
             semantic_cache,
+            proxy_session_auth,
             analytics_dir: base_dir.join("analytics"),
             recent_usage: Mutex::new(Vec::new()),
             token_xray_revision: AtomicU64::new(0),
@@ -415,6 +420,7 @@ impl AppState {
             Arc::clone(&self.proxy_bypass),
             Arc::clone(&self.codex_bypass),
             Arc::clone(&self.semantic_cache),
+            Arc::clone(&self.proxy_session_auth),
             fresh_bearer_tx,
         );
         self.invalidate_runtime_status_cache();

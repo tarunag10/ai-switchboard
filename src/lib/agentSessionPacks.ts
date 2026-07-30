@@ -92,6 +92,52 @@ export const AGENT_SESSION_PRESETS: AgentSessionPreset[] = [
   },
 ];
 
+function taskAffinityScore(task: string, pack: AgentSessionPackCandidate): number {
+  const taskLower = task.toLowerCase();
+  const haystack = `${pack.id} ${pack.name} ${pack.summary}`.toLowerCase();
+  return taskLower
+    .split(/\W+/)
+    .filter((token) => token.length >= 4)
+    .reduce((score, token) => score + (haystack.includes(token) ? 1 : 0), 0);
+}
+
+export interface AgentSessionPackRecommendation {
+  packId?: string;
+  reason: string;
+}
+
+export function recommendAgentSessionPackId(
+  request: Pick<AgentSessionPackRequest, "task" | "tokenBudget" | "candidates">,
+): AgentSessionPackRecommendation {
+  const budget = Math.max(0, Math.floor(request.tokenBudget));
+  const affordable = request.candidates.filter((pack) => pack.estimatedTokens <= budget);
+  if (affordable.length === 0) {
+    return { reason: "No pack fits the current token budget." };
+  }
+
+  const ranked = [...affordable].sort((left, right) => {
+    const affinityDelta =
+      taskAffinityScore(request.task, right) - taskAffinityScore(request.task, left);
+    if (affinityDelta !== 0) return affinityDelta;
+
+    const cacheableLeft = left.cacheableTokens ?? left.estimatedTokens;
+    const cacheableRight = right.cacheableTokens ?? right.estimatedTokens;
+    const cacheRatioLeft = cacheableLeft / Math.max(1, left.estimatedTokens);
+    const cacheRatioRight = cacheableRight / Math.max(1, right.estimatedTokens);
+    if (cacheRatioRight !== cacheRatioLeft) {
+      return cacheRatioRight - cacheRatioLeft;
+    }
+
+    return left.estimatedTokens - right.estimatedTokens;
+  });
+
+  const best = ranked[0];
+  return {
+    packId: best.id,
+    reason: `Cheapest valid pack with the strongest cacheable prefix yield (${best.name}).`,
+  };
+}
+
 export function prepareStartAgentSessionPack(
   request: AgentSessionPackRequest,
 ): AgentSessionPackPreparation {

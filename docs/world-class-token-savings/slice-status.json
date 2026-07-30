@@ -1,0 +1,92 @@
+{
+  "program": "world-class-token-savings",
+  "updatedAt": "2026-07-30",
+  "implementationStartedAt": "2026-07-30",
+  "analysisDocument": "docs/world-class-token-savings/CURSOR-ANALYSIS-2026-07-30.md",
+  "implementationPlan": "docs/world-class-token-savings/IMPLEMENTATION-PLAN.md",
+  "phases": {
+    "P0": {
+      "title": "Trust seal",
+      "slices": [
+        {
+          "id": "P0.1",
+          "name": "Public installed-app and reboot proof",
+          "status": "blocked",
+          "blocker": "Requires signed install + physical reboot marker"
+        },
+        {
+          "id": "P0.2",
+          "name": "Mode Inspector proves active reality",
+          "status": "in_progress",
+          "note": "Inspector verdict module + Home wiring shipped 2026-07-30"
+        },
+        {
+          "id": "P0.3",
+          "name": "Per-session proxy auth token",
+          "status": "in_progress",
+          "note": "proxy_session_auth.rs + intercept validation shipped 2026-07-30"
+        },
+        {
+          "id": "P0.4",
+          "name": "Local-only network and trust-seal checks",
+          "status": "in_progress",
+          "note": "check:world-class-plan script shipped 2026-07-30"
+        }
+      ]
+    },
+    "P1": {
+      "title": "Savings supremacy",
+      "slices": [
+        {
+          "id": "P1.1",
+          "name": "Golden benchmark suite",
+          "status": "in_progress",
+          "note": "8 fixtures + schema gate shipped 2026-07-30"
+        },
+        {
+          "id": "P1.2",
+          "name": "Exact cache default policy",
+          "status": "in_progress",
+          "note": "recommendExactCacheDefault + Addons UI copy shipped 2026-07-30"
+        },
+        {
+          "id": "P1.3",
+          "name": "leanctx evidence-gated promotion",
+          "status": "planned"
+        },
+        {
+          "id": "P1.4",
+          "name": "Provider-billed counterfactual measurement",
+          "status": "planned"
+        }
+      ]
+    },
+    "P2": {
+      "title": "Universal agent coverage",
+      "slices": [
+        {
+          "id": "P2.1",
+          "name": "Cheapest-correct Agent Session pack",
+          "status": "in_progress",
+          "note": "recommendAgentSessionPackId + panel auto-select shipped 2026-07-30"
+        },
+        {
+          "id": "P2.2",
+          "name": "Cursor native write gate",
+          "status": "blocked",
+          "blocker": "No documented Cursor on-disk provider schema"
+        },
+        {
+          "id": "P2.3",
+          "name": "OS-level Repo Memory MCP supervision",
+          "status": "planned"
+        },
+        {
+          "id": "P2.4",
+          "name": "Connector promotion past sidecar",
+          "status": "ongoing"
+        }
+      ]
+    }
+  }
+}

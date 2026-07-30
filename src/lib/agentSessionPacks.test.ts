@@ -4,6 +4,7 @@ import {
   buildAgentSessionPayload,
   getAgentSessionActionLabel,
   prepareStartAgentSessionPack,
+  recommendAgentSessionPackId,
   type AgentSessionPackCandidate,
 } from "./agentSessionPacks";
 
@@ -26,6 +27,15 @@ const candidates: AgentSessionPackCandidate[] = [
 ];
 
 describe("prepareStartAgentSessionPack", () => {
+  it("recommends the cheapest affordable pack with better cacheable yield", () => {
+    const recommendation = recommendAgentSessionPackId({
+      task: "implementation workflow",
+      tokenBudget: 1_000,
+      candidates,
+    });
+    expect(recommendation.packId).toBe("implementation");
+  });
+
   it("selects the preferred pack and reports remaining/cacheable budget", () => {
     const preparation = prepareStartAgentSessionPack({
       agentId: "codex",

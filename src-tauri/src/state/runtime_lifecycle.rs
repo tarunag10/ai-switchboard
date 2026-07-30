@@ -225,6 +225,7 @@ impl AppState {
         self.record_repo_memory_mcp_supervision(&repo_memory_mcp_supervision_status);
         let repo_memory_mcp_session = self.repo_memory_mcp_state.lock().clone();
 
+        let proxy_session = self.proxy_session_auth.status();
         RuntimeStatus {
             platform: platform.into(),
             support_tier: support_tier.into(),
@@ -235,10 +236,8 @@ impl AppState {
             auto_paused,
             proxy_reachable,
             proxy_bind_address: "127.0.0.1:6767".to_string(),
-            proxy_auth_status: "loopback_validated_unauthenticated".to_string(),
-            proxy_auth_detail:
-                "Intercept binds only to 127.0.0.1 and rejects browser Origin/non-loopback Host requests; managed clients do not yet support a shared per-session auth header."
-                    .to_string(),
+            proxy_auth_status: proxy_session.status,
+            proxy_auth_detail: proxy_session.detail,
             headroom_pid,
             launch_agent_status,
             backend_status,

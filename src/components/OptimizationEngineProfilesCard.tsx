@@ -12,6 +12,7 @@ import {
   type OptimizationEngine,
   type OptimizationEngineId,
 } from "../lib/optimizationEngines";
+import { recommendExactCacheDefault } from "../lib/exactCacheDefaultPolicy";
 import type { RuntimeStatus } from "../lib/types";
 
 type OptimizationAddonReadinessReport = {
@@ -561,6 +562,21 @@ function OptimizationEngineRow({
           {engine.id === "semantic-cache" && semanticCacheStatus && (
             <div>
               <p><strong>Backend:</strong> {semanticCacheStatus.enabled ? "enabled" : "disabled"}; {semanticCacheStatus.entries} live entries; {semanticCacheStatus.hits} hits / {semanticCacheStatus.misses} misses.</p>
+              {!semanticCacheStatus.enabled && runtimeStatus ? (
+                <p>
+                  <strong>Recommendation:</strong>{" "}
+                  {
+                    recommendExactCacheDefault({
+                      mode:
+                        runtimeStatus.rtk?.enabled && !runtimeStatus.proxyReachable
+                          ? "rtk"
+                          : "full",
+                      semanticCacheEnabled: semanticCacheStatus.enabled,
+                      proxyReachable: Boolean(runtimeStatus.proxyReachable),
+                    }).reason
+                  }
+                </p>
+              ) : null}
               <p><strong>Evidence:</strong> {semanticCacheStatus.evidence}; storage {semanticCacheStatus.storageAvailable ? "available" : "unavailable"}; read failures {semanticCacheStatus.readFailures}; write failures {semanticCacheStatus.writeFailures}.</p>
               <p><strong>Policy:</strong> {semanticCacheStatus.policy}. {semanticCacheStatus.disclosure}</p>
               <p><strong>Database:</strong> local app storage only; prompt text is never persisted as a key, while eligible response bodies remain until TTL or clear. Secret-marker screening is conservative and not a guarantee of secrecy.</p>

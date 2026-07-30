@@ -349,14 +349,34 @@ repair_action: Some("reset_codex_bypass".to_string()),
 });
     }
 
-    if runtime.proxy_reachable && runtime.proxy_auth_status != "authenticated" {
+    if runtime.proxy_reachable
+        && matches!(
+            runtime.proxy_auth_status.as_str(),
+            "loopback_validated_unauthenticated" | "session_token_enforced"
+        )
+    {
+        let (title, body) = if runtime.proxy_auth_status == "session_token_enforced" {
+            (
+                "Proxy session auth is enforced but unvalidated".to_string(),
+                format!(
+                    "The local proxy on {} requires `{}`, but no validated requests have arrived yet. Managed clients still default to advisory mode; enable shims or disable enforcement until clients send the session header.",
+                    runtime.proxy_bind_address,
+                    crate::proxy_session_auth::PROXY_SESSION_HEADER
+                ),
+            )
+        } else {
+            (
+                "Proxy is loopback-only, not authenticated".to_string(),
+                format!(
+                    "The local proxy is bound to {} and rejects browser Origin/non-loopback Host requests, but managed clients do not yet send a per-session auth token. Treat localhost as local-process trust, not a security boundary.",
+                    runtime.proxy_bind_address
+                ),
+            )
+        };
         issues.push(DoctorIssue {
             id: "proxy_loopback_unauthenticated".to_string(),
-            title: "Proxy is loopback-only, not authenticated".to_string(),
-            body: format!(
-                "The local proxy is bound to {} and rejects browser Origin/non-loopback Host requests, but managed clients do not yet send a per-session auth token. Treat localhost as local-process trust, not a security boundary.",
-                runtime.proxy_bind_address
-            ),
+            title,
+            body,
             severity: DoctorSeverity::Warning,
             repair_action: None,
         });

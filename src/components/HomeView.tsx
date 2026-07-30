@@ -399,6 +399,7 @@ export function HomeView({
         summary={switchboardModeCopy}
         localOnly={switchboardLocalOnly}
         proxyStatus={switchboardProxyStatus}
+        proxyAuthStatus={runtimeStatus?.proxyAuthStatus}
         headroomDetail={switchboardHeadroomLabel}
         rtkStatus={switchboardRtkLabel}
         rtkDetail={switchboardRtkDetail}

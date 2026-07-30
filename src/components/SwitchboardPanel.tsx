@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 
 import { codexConcurrencyGuidance } from "../lib/codexConcurrencyGuidance";
+import { deriveModeInspectorVerdict } from "../lib/modeInspectorVerdict";
 import { localOnlySetupLabel, remoteServicesCopy } from "../lib/remoteServices";
 import { switchboardModeDiagnostic } from "../lib/switchboardDiagnostics";
 import {
@@ -33,6 +34,7 @@ interface SwitchboardPanelProps {
   summary: string;
   localOnly: boolean;
   proxyStatus: string;
+  proxyAuthStatus?: string;
   headroomDetail: string;
   rtkStatus: string;
   rtkDetail: string;
@@ -82,6 +84,7 @@ export function SwitchboardPanel({
   summary,
   localOnly,
   proxyStatus,
+  proxyAuthStatus,
   headroomDetail,
   rtkStatus,
   rtkDetail,
@@ -126,6 +129,18 @@ export function SwitchboardPanel({
     savedHistory,
   );
   const showStaleShellWarning = Boolean(needsAttention);
+  const inspectorVerdict = deriveModeInspectorVerdict({
+    requestedMode: modeLabel,
+    activeMode: activeModeLabel,
+    proxyStatus,
+    proxyAuthStatus,
+    staleShellWarning: showStaleShellWarning,
+    rows: inspectorRows.map((row) => ({
+      id: row.label,
+      label: row.label,
+      status: row.status,
+    })),
+  });
   const savingsModeCopy =
     savingsMode === "aggressive"
       ? "Lower thresholds and stronger compression for noisy context."
@@ -336,6 +351,11 @@ export function SwitchboardPanel({
     >
       {showInspectorDetails ? "Hide details" : "Details"}
     </button>
+  </div>
+  <div>
+    <span>Inspector verdict</span>
+    <strong>{inspectorVerdict.verdict}</strong>
+    {showInspectorDetails ? <small>{inspectorVerdict.summary}</small> : null}
   </div>
   <div>
     <span>Requested</span>

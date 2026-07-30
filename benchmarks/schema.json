@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "minimumFixtures": 8,
+  "minimumCategories": 3,
+  "requiredCategories": ["shell_output", "repo_context_pack", "document_conversion"],
+  "requiredFields": [
+    "category",
+    "name",
+    "original",
+    "optimized",
+    "relevantFacts",
+    "optimizedFacts",
+    "wrongOmissions"
+  ],
+  "qualityGates": {
+    "minimumRelevantFactRetentionPct": 95,
+    "maximumWrongOmissionRatePct": 0
+  }
+}

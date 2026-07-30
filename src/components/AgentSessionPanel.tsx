@@ -1,11 +1,12 @@
 import { CheckCircle, ClipboardText, Copy, Package, WarningCircle } from "@phosphor-icons/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   AGENT_SESSION_PRESETS,
   buildAgentSessionPayload,
   getAgentSessionActionLabel,
   prepareStartAgentSessionPack,
+  recommendAgentSessionPackId,
 } from "../lib/agentSessionPacks";
 import { formatCompactNumber } from "../lib/optimization";
 
@@ -35,7 +36,24 @@ export function AgentSessionPanel() {
     [agent?.id, activePackId, budget, task],
   );
   const selectedPack = agent?.packs.find((pack) => pack.id === activePackId);
+  const recommendation = useMemo(
+    () =>
+      recommendAgentSessionPackId({
+        task,
+        tokenBudget: budget,
+        candidates: agent?.packs ?? [],
+      }),
+    [agent?.packs, budget, task],
+  );
   const canCopy = preparation.inject && payload.length > 0;
+
+  useEffect(() => {
+    if (!agent || !recommendation.packId) return;
+    const current = agent.packs.find((pack) => pack.id === packId);
+    if (!current || current.estimatedTokens > budget) {
+      setPackId(recommendation.packId);
+    }
+  }, [agent, budget, packId, recommendation.packId]);
 
   async function copyPayload() {
     if (!canCopy) return;
@@ -157,6 +175,8 @@ export function AgentSessionPanel() {
       {selectedPack ? (
         <p className="optimize-minimal__meta">
           {selectedPack.summary} Estimated {formatCompactNumber(selectedPack.estimatedTokens)} tokens.
+          {" "}
+          Recommended: {recommendation.reason}
         </p>
       ) : null}
 

@@ -33,6 +33,7 @@ use crate::optimization::telemetry;
 use crate::semantic_cache::{
     CacheHit, CacheNamespace, CacheRequest, CacheResponse, SemanticCacheService,
 };
+use crate::proxy_session_auth::{ProxySessionAuth, ProxySessionValidation, PROXY_SESSION_HEADER};
 
 pub const INTERCEPT_PORT: u16 = 6767;
 
@@ -96,6 +97,7 @@ pub fn spawn(
     bypass: BypassFlag,
     codex_bypass: BypassFlag,
     semantic_cache: Arc<SemanticCacheService>,
+    proxy_session_auth: Arc<ProxySessionAuth>,
     fresh_bearer_tx: FreshBearerNotifier,
 ) {
     let upstream_base = Arc::new(ANTHROPIC_DIRECT_BASE.to_string());
@@ -116,6 +118,7 @@ pub fn spawn(
                     bypass,
                     codex_bypass,
                     Some(semantic_cache),
+                    proxy_session_auth,
                     fresh_bearer_tx,
                     upstream_base,
                 )
@@ -166,6 +169,7 @@ async fn run(
     bypass: BypassFlag,
     codex_bypass: BypassFlag,
     semantic_cache: Option<Arc<SemanticCacheService>>,
+    proxy_session_auth: Arc<ProxySessionAuth>,
     fresh_bearer_tx: FreshBearerNotifier,
     upstream_base: Arc<String>,
 ) -> std::io::Result<()> {
@@ -180,6 +184,7 @@ async fn run(
                 let bypass = bypass.clone();
                 let codex_bypass = codex_bypass.clone();
                 let semantic_cache = semantic_cache.clone();
+                let proxy_session_auth = proxy_session_auth.clone();
                 let upstream_base = upstream_base.clone();
                 let tx = fresh_bearer_tx.clone();
                 tokio::spawn(handle(
@@ -190,6 +195,7 @@ async fn run(
                     bypass,
                     codex_bypass,
                     semantic_cache,
+                    proxy_session_auth,
                     tx,
                     upstream_base,
                 ));
@@ -225,6 +231,7 @@ async fn handle(
     bypass: BypassFlag,
     codex_bypass: BypassFlag,
     semantic_cache: Option<Arc<SemanticCacheService>>,
+    proxy_session_auth: Arc<ProxySessionAuth>,
     fresh_bearer_tx: FreshBearerNotifier,
     upstream_base: Arc<String>,
 ) {
@@ -257,6 +264,30 @@ async fn handle(
             .write_all(b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n")
             .await;
         return;
+    }
+
+    match proxy_session_auth.validate_request_headers(&buf) {
+        ProxySessionValidation::Valid => {}
+        ProxySessionValidation::Missing if proxy_session_auth.enforce() => {
+            let _ = client
+                .write_all(
+                    format!(
+                        "HTTP/1.1 401 Unauthorized\r\nContent-Type: text/plain\r\nContent-Length: 47\r\n\r\nMissing required {PROXY_SESSION_HEADER} header.\r\n"
+                    )
+                    .as_bytes(),
+                )
+                .await;
+            return;
+        }
+        ProxySessionValidation::Invalid if proxy_session_auth.enforce() => {
+            let _ = client
+                .write_all(
+                    b"HTTP/1.1 403 Forbidden\r\nContent-Type: text/plain\r\nContent-Length: 33\r\n\r\nInvalid proxy session token.\r\n",
+                )
+                .await;
+            return;
+        }
+        ProxySessionValidation::Missing | ProxySessionValidation::Invalid => {}
     }
 
     // Whether this is a Codex (OpenAI-path) request. Parsed once here and
@@ -1751,6 +1782,10 @@ mod tests {
     use tokio::net::{TcpListener, TcpStream};
     use tokio::time::{timeout, Duration};
 
+    fn test_proxy_session_auth() -> Arc<crate::proxy_session_auth::ProxySessionAuth> {
+        crate::proxy_session_auth::ProxySessionAuth::open(std::env::temp_dir().as_path())
+    }
+
     #[test]
     fn finds_header_boundary() {
         let request = b"POST /v1/messages HTTP/1.1\r\nHost: localhost\r\n\r\n{\"x\":1}";
@@ -2086,6 +2121,7 @@ mod tests {
                 Arc::new(AtomicBool::new(false)),
                 Arc::new(AtomicBool::new(false)),
                 Some(cache_for_run),
+                test_proxy_session_auth(),
                 fresh_bearer_tx,
                 upstream_base,
             )
@@ -2187,6 +2223,7 @@ mod tests {
                 bypass_for_run,
                 Arc::new(AtomicBool::new(false)),
                 None,
+                test_proxy_session_auth(),
                 fresh_bearer_tx,
                 upstream_base,
             )
@@ -2274,6 +2311,7 @@ mod tests {
                 bypass_for_run,
                 Arc::new(AtomicBool::new(false)),
                 None,
+                test_proxy_session_auth(),
                 fresh_bearer_tx,
                 upstream_base,
             )
@@ -2533,6 +2571,7 @@ mod tests {
                 bypass,
                 Arc::new(AtomicBool::new(false)),
                 None,
+                test_proxy_session_auth(),
                 fresh_bearer_tx,
                 upstream_base_arc,
             )
@@ -2677,6 +2716,7 @@ mod tests {
                 bypass,
                 Arc::new(AtomicBool::new(false)),
                 None,
+                test_proxy_session_auth(),
                 fresh_bearer_tx,
                 upstream_base_arc,
             )
@@ -2773,6 +2813,7 @@ mod tests {
                 bypass_for_run,
                 Arc::new(AtomicBool::new(false)),
                 None,
+                test_proxy_session_auth(),
                 fresh_bearer_tx,
                 upstream_base,
             )
