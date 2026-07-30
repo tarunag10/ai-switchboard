@@ -46,7 +46,7 @@ export function ProxySessionAuthCard() {
   const copy = describeProxySessionAuthStatus(status);
 
   return (
-    <article className="soft-card panel-card">
+    <article className="soft-card panel-card" id="proxy-session-auth">
       <div className="panel-card__header">
         <div>
           <h3>Proxy session auth</h3>

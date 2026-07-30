@@ -267,7 +267,9 @@ import {
   executeMasterActivation,
   createMasterDeactivationPlan,
   executeMasterDeactivation,
+  type MasterActivationLocalFeatureId,
   type MasterActivationReceipt,
+  type MasterDeactivationCallbacks,
 } from "./lib/masterActivation";
 import { resolveMasterActivationLocalOptimizations } from "./lib/leanctxPromotionGate";
 import { describeProxySessionAuthStatus } from "./lib/proxySessionAuth";
@@ -504,6 +506,9 @@ export default function App() {
   const [startupCopy, setStartupCopy] = useState("Opening launch window…");
   const [startupReady, setStartupReady] = useState(false);
   const [activeView, setActiveView] = useState<TrayView>("home");
+  const [settingsFocusTarget, setSettingsFocusTarget] = useState<string | null>(
+    null,
+  );
   const [masterActivationState, setMasterActivationState] =
     useState<MasterFeatureStatus>("ready");
   const [masterFeatureStates, setMasterFeatureStates] = useState<
@@ -2834,11 +2839,11 @@ export default function App() {
           break;
         case "rollback":
           await refreshDoctorReport();
-          setActiveView("settings");
+          openSettingsFocus("rollback-center");
           setMasterFeature(id, {
             status: "partial",
             actionLabel: "Open Settings",
-            detail: "Rollback inventory is in Settings below the connector panel.",
+            detail: "Rollback inventory is in Settings below.",
           });
           return;
         case "agent-session":
@@ -2994,23 +2999,121 @@ export default function App() {
     }
   }
 
+  function openSettingsFocus(targetId: string) {
+    setSettingsFocusTarget(targetId);
+    setActiveView("settings");
+  }
+
+  useEffect(() => {
+    if (activeView !== "settings" || !settingsFocusTarget) {
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      document.getElementById(settingsFocusTarget)?.scrollIntoView({
+        block: "start",
+        behavior: "smooth",
+      });
+      setSettingsFocusTarget(null);
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [activeView, settingsFocusTarget]);
+
+  function masterFeatureToOwnedActionId(
+    id: MasterFeatureId,
+  ): MasterActivationLocalFeatureId | null {
+    switch (id) {
+      case "agent-memory":
+        return "agent-memory";
+      case "token-xray":
+        return "token-xray";
+      case "daily-briefing":
+        return "daily-briefing";
+      case "repo-intelligence":
+        return "repo-intelligence";
+      case "addons":
+        return "local-optimizations";
+      case "gateway-mcp":
+        return "repo-memory-mcp";
+      case "agent-session":
+      case "doctor":
+      case "rollback":
+        return null;
+    }
+  }
+
+  function createMasterDeactivationCallbacks(
+    receipt: NonNullable<typeof masterActivationReceipt>,
+  ): MasterDeactivationCallbacks {
+    return {
+      deactivateAgentMemory: async () => undefined,
+      deactivateRepoIntelligence: async () => undefined,
+      deactivateTokenXray: async () => undefined,
+      deactivateDailyBriefing: async () => undefined,
+      disableLocalOptimization: async (optimizationId: string) => {
+        if (optimizationId === "semantic-cache") {
+          await invoke("set_semantic_cache_enabled", { enabled: false });
+        } else if (optimizationId === "leanctx-shadow") {
+          await invoke("set_addon_enabled", { id: "leanctx", enabled: false });
+        }
+      },
+      ...(receipt.mcpWasActive
+        ? {}
+        : {
+            stopRepoMemoryMcp: async () => {
+              if (!(await setRepoMemoryMcpActive(false))) {
+                throw new Error("Repo Memory MCP could not be stopped.");
+              }
+            },
+          }),
+    };
+  }
+
   async function deactivateMasterFeature(id: MasterFeatureId) {
     const receipt = masterActivationReceipt;
     if (!receipt) return;
     setMasterFeature(id, { status: "running", actionLabel: "Working…" });
-    try {
-      if (id === "gateway-mcp" && !receipt.mcpWasActive) {
-        if (!(await setRepoMemoryMcpActive(false))) {
-          throw new Error("Repo Memory MCP could not be stopped.");
-        }
-      }
+    const ownedActionId = masterFeatureToOwnedActionId(id);
+
+    if (!ownedActionId) {
+      setMasterFeature(id, {
+        status: "ready",
+        actionLabel: "Activate",
+        detail: "No master-owned backend state remains active for this feature.",
+      });
+      return;
+    }
+
+    const owned = receipt.activation.ownedActions.find(
+      (action) => action.id === ownedActionId,
+    );
+    if (!owned) {
       setMasterFeature(id, {
         status: "ready",
         actionLabel: "Activate",
         detail:
-          id === "gateway-mcp" && receipt.mcpWasActive
-            ? "MCP was already active before master activation; it was left untouched."
-            : "No master-owned state remains active.",
+          "This feature was refreshed during activation but left no reversible master-owned state.",
+      });
+      return;
+    }
+
+    try {
+      const partialReceipt: MasterActivationReceipt = {
+        ...receipt.activation,
+        ownedActions: [owned],
+      };
+      const plan = createMasterDeactivationPlan({ receipt: partialReceipt });
+      const result = await executeMasterDeactivation(plan, {
+        receipt: partialReceipt,
+        callbacks: createMasterDeactivationCallbacks(receipt),
+      });
+      if (result.failed.length > 0) {
+        throw new Error(result.failed[0]?.detail ?? "Deactivation failed.");
+      }
+      await refreshRuntimeStatus();
+      setMasterFeature(id, {
+        status: "ready",
+        actionLabel: "Activate",
+        detail: "Master-owned state for this feature was reversed.",
       });
       removeMasterOwnedFeature(id);
     } catch (error) {
@@ -3028,28 +3131,7 @@ export default function App() {
     setMasterOperation("deactivate");
     setMasterActivationState("running");
     try {
-      const callbacks = {
-        deactivateAgentMemory: async () => undefined,
-        deactivateRepoIntelligence: async () => undefined,
-        deactivateTokenXray: async () => undefined,
-        deactivateDailyBriefing: async () => undefined,
-        disableLocalOptimization: async (optimizationId: string) => {
-          if (optimizationId === "semantic-cache") {
-            await invoke("set_semantic_cache_enabled", { enabled: false });
-          } else if (optimizationId === "leanctx-shadow") {
-            await invoke("set_addon_enabled", { id: "leanctx", enabled: false });
-          }
-        },
-        ...(receipt.mcpWasActive
-          ? {}
-          : {
-              stopRepoMemoryMcp: async () => {
-                if (!(await setRepoMemoryMcpActive(false))) {
-                  throw new Error("Repo Memory MCP could not be stopped.");
-                }
-              },
-            }),
-      };
+      const callbacks = createMasterDeactivationCallbacks(receipt);
       const plan = createMasterDeactivationPlan({
         receipt: receipt.activation,
         callbacks,
@@ -4869,7 +4951,7 @@ export default function App() {
         runtimeStatus?.proxyAuthDetail ??
         "Proxy session auth status is unavailable.",
       actionLabel: "Open Settings",
-      onAction: () => setActiveView("settings"),
+      onAction: () => openSettingsFocus("proxy-session-auth"),
     },
     {
       label: "Headroom MCP",
@@ -5205,9 +5287,13 @@ export default function App() {
           onDeactivateMasterFeature={(featureId) =>
             void deactivateMasterFeature(featureId)
           }
-          onOpenMasterFeature={(featureId) =>
-            setActiveView(masterFeatureView(featureId))
-          }
+          onOpenMasterFeature={(featureId) => {
+            if (featureId === "rollback") {
+              openSettingsFocus("rollback-center");
+              return;
+            }
+            setActiveView(masterFeatureView(featureId));
+          }}
           masterActivationIsActive={masterActivationReceipt !== null}
           masterOperation={masterOperation}
         />
