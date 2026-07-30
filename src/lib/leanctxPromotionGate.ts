@@ -73,7 +73,9 @@ export const MASTER_ACTIVATION_LEANCTX_SHADOW_ID = "leanctx-shadow";
 export function resolveMasterActivationLocalOptimizations(
   leanctxPromotion?: LeanctxPromotionStatus | null,
 ): string[] {
-  const optimizers = [...filterActivatableOptimizationEngineIds(["semantic-cache"])];
+  const optimizers: string[] = [
+    ...filterActivatableOptimizationEngineIds(["semantic-cache"]),
+  ];
   if (canActivateLeanctxShadow(leanctxPromotion)) {
     optimizers.push(MASTER_ACTIVATION_LEANCTX_SHADOW_ID);
   }

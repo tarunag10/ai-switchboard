@@ -73,12 +73,12 @@ const FEATURES: FeatureDefinition[] = [
   { id: "agent-memory", label: "Agent Memory", description: "Screen, compact, and safely prepare durable context.", icon: Cpu, defaultDetail: "Ready for local memory preparation." },
   { id: "token-xray", label: "Token X-Ray", description: "Inspect token pressure, cacheability, and context health.", icon: Lightning, defaultDetail: "Ready to inspect the current context." },
   { id: "daily-briefing", label: "Daily Briefing", description: "Refresh the local usage summary and recommendations.", icon: Info, defaultDetail: "Ready to refresh today's briefing." },
-  { id: "agent-session", label: "Agent Session", description: "Prepare a stable-prefix handoff for your selected agent.", icon: Play, defaultDetail: "Ready to prepare a session payload." },
+  { id: "agent-session", label: "Agent Session", description: "Prepare a stable-prefix handoff for your selected agent.", icon: Play, defaultDetail: "Opens Optimize to copy a session payload." },
   { id: "repo-intelligence", label: "Repo Intelligence", description: "Index the repository and build a focused context pack.", icon: Gear, defaultDetail: "Ready to index the active repository." },
   { id: "addons", label: "Add-ons", description: "Check governed sidecars and local optimization engines.", icon: Wrench, defaultDetail: "Ready to inspect add-on health." },
   { id: "gateway-mcp", label: "Gateway / MCP", description: "Review governed profiles and Repo Memory MCP readiness.", icon: LockKey, defaultDetail: "Guided setup; no external traffic is changed automatically." },
   { id: "doctor", label: "Doctor", description: "Run local diagnostics and surface repairable drift.", icon: Wrench, defaultDetail: "Ready to run local diagnostics." },
-  { id: "rollback", label: "Rollback", description: "Verify that every change has a reversible recovery path.", icon: ArrowSquareOut, defaultDetail: "Ready to inspect rollback coverage." },
+  { id: "rollback", label: "Rollback inventory", description: "Refresh Doctor and open Settings rollback coverage.", icon: ArrowSquareOut, defaultDetail: "Ready to inspect rollback inventory." },
 ];
 
 function statusLabel(status: MasterFeatureStatus): string {
@@ -116,7 +116,13 @@ export function MasterActivationCard({
   const isDeactivating = operation === "deactivate" || (isWorkspaceActive && isRunning);
   const isPartial = activationState === "partial" || activationState === "gated" || activationState === "manual";
   const primaryAction = isWorkspaceActive ? onDeactivateAll : onActivateAll;
-  const primaryActionLabel = isDeactivating ? "Deactivating workspace…" : isWorkspaceActive ? "Deactivate everything" : isRunning ? "Activating workspace…" : "Activate everything";
+  const primaryActionLabel = isDeactivating
+    ? "Deactivating workspace…"
+    : isWorkspaceActive
+      ? "Deactivate local workspace"
+      : isRunning
+        ? "Activating workspace…"
+        : "Activate everything";
 
   return (
     <section className={`master-activation-card ${className}`.trim()} aria-labelledby={`${statusId}-title`}>

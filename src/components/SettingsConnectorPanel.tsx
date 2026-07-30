@@ -1,4 +1,5 @@
-import { type Dispatch, type SetStateAction } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { Copy, Info, Sparkle } from "@phosphor-icons/react";
 import {
   aggregateClientConnectors,
@@ -24,6 +25,10 @@ import {
   getConnectorUnavailableReason,
   getPlannedConnectorNextStep,
 } from "../lib/settingsConnectorCopy";
+import {
+  describeCursorNativeGate,
+  type CursorNativeSchemaAssessment,
+} from "../lib/cursorNativeGate";
 import type { ClientConnectorStatus } from "../lib/types";
 
 export interface PlannedConnectorReadinessSummary {
@@ -69,6 +74,21 @@ export function SettingsConnectorPanel({
   toggleConnector,
   copyPlannedConnectorCommand,
 }: SettingsConnectorPanelProps) {
+  const [cursorNativeAssessment, setCursorNativeAssessment] =
+    useState<CursorNativeSchemaAssessment | null>(null);
+
+  useEffect(() => {
+    if (openConnectorHelpId !== "cursor") {
+      setCursorNativeAssessment(null);
+      return;
+    }
+    void invoke<CursorNativeSchemaAssessment>(
+      "get_cursor_native_schema_assessment",
+    )
+      .then(setCursorNativeAssessment)
+      .catch(() => setCursorNativeAssessment(null));
+  }, [openConnectorHelpId]);
+
   return (
     <article className="soft-card panel-card">
       <div className="panel-card__header">
@@ -149,6 +169,8 @@ export function SettingsConnectorPanel({
             const unavailableReason = getConnectorUnavailableReason(connector);
             const detectionWarning = getConnectorDetectionWarning(connector);
             const toggleDisabled = connectorsBusy || controlState.disabled;
+            const manualOnly =
+              controlState.disabled && !connectorSupportsAutomaticSetup(connector);
             const plannedConnector = getPlannedConnector(connector.clientId);
             const plannedSetupGuide = plannedConnector
               ? getPlannedConnectorSetupGuide(plannedConnector.id)
@@ -252,6 +274,16 @@ export function SettingsConnectorPanel({
                               ? "Promoted for this documented connector surface. Credentials, account state, and model selection remain manual."
                               : `${plannedReadiness.nativeWriteEvidence} Native gate: ${plannedReadiness.stages.find((stage) => stage.id === plannedReadiness.nativeNextBlockedStage)?.label ?? "manual"}.`}
                           </p>
+                          {connector.clientId === "cursor" &&
+                          cursorNativeAssessment ? (
+                            <p className="connector-plan__native-boundary">
+                              <strong>Schema assessment:</strong>{" "}
+                              {
+                                describeCursorNativeGate(cursorNativeAssessment)
+                                  .summary
+                              }
+                            </p>
+                          ) : null}
                           <div
                             className="connector-plan__stage-row"
                             aria-label={`${connector.name} readiness contract`}
@@ -479,23 +511,46 @@ export function SettingsConnectorPanel({
                   ) : null}
                 </div>
                 <div className="connector-item__controls">
-                  <button
-                    className="connector-item__action connector-item__action--primary"
-                    disabled={toggleDisabled}
-                    onClick={() =>
-                      void toggleConnector(connector, !connector.enabled)
-                    }
-                    title={
-                      controlState.reason ?? unavailableReason ?? undefined
-                    }
-                    type="button"
-                  >
-                    {connector.enabled
-                      ? "Disable"
-                      : connectorSupportsAutomaticSetup(connector)
-                        ? "Enable"
-                        : "Manual setup"}
-                  </button>
+                  {manualOnly ? (
+                    <button
+                      className="connector-item__action connector-item__action--primary"
+                      disabled={connectorsBusy}
+                      onClick={() =>
+                        void copyPlannedConnectorCommand(
+                          [
+                            getPlannedConnectorSetupChecklistScript(),
+                            controlState.reason ?? "",
+                            plannedReadiness?.nativeWriteEvidence ?? "",
+                            connectorSetupHint ?? "",
+                          ]
+                            .filter(Boolean)
+                            .join("\n\n"),
+                          `${connector.name} manual guide`,
+                        )
+                      }
+                      type="button"
+                    >
+                      Copy manual guide
+                    </button>
+                  ) : (
+                    <button
+                      className="connector-item__action connector-item__action--primary"
+                      disabled={toggleDisabled}
+                      onClick={() =>
+                        void toggleConnector(connector, !connector.enabled)
+                      }
+                      title={
+                        controlState.reason ?? unavailableReason ?? undefined
+                      }
+                      type="button"
+                    >
+                      {connector.enabled
+                        ? "Disable"
+                        : connectorSupportsAutomaticSetup(connector)
+                          ? "Enable"
+                          : "Manual setup"}
+                    </button>
+                  )}
                   <button
                     aria-checked={connector.enabled}
                     aria-label={`${connector.enabled ? "Disable" : "Enable"} ${connector.name} connector`}

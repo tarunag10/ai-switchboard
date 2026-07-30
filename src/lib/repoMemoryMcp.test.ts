@@ -280,4 +280,15 @@ describe("repoMemoryMcpLifecycle", () => {
     expect(lifecycle.status).toBe("Relaunch failed");
     expect(lifecycle.copy).toContain("relaunch verification failed");
   });
+
+  it("adds relaunch context to inspector rows", () => {
+    const row = repoMemoryMcpInspectorRow({
+      configured: true,
+      active: true,
+      supervisionStatus: "verified_active",
+      relaunchSurvivalStatus: "verified",
+      supervisionScope: "relaunch_verified",
+    });
+    expect(row.detail).toContain("App relaunch smoke verified");
+  });
 });

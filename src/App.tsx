@@ -245,6 +245,7 @@ import { SettingsLegalPanel } from "./components/SettingsLegalPanel";
 import { SettingsOpenLoginCard } from "./components/SettingsOpenLoginCard";
 import { SettingsReleaseReadinessCard } from "./components/SettingsReleaseReadinessCard";
 import { SettingsRuntimeStatusCard } from "./components/SettingsRuntimeStatusCard";
+import { ProxySessionAuthCard } from "./components/ProxySessionAuthCard";
 import { RollbackCenter } from "./components/RollbackCenter";
 import { SavingsInfoDialog } from "./components/SavingsInfoDialog";
 import { SettingsTransferCard } from "./components/SettingsTransferCard";
@@ -269,6 +270,7 @@ import {
   type MasterActivationReceipt,
 } from "./lib/masterActivation";
 import { resolveMasterActivationLocalOptimizations } from "./lib/leanctxPromotionGate";
+import { describeProxySessionAuthStatus } from "./lib/proxySessionAuth";
 import { getAgentMemorySnapshot } from "./lib/agentMemory";
 import {
   loadDailyUsageBriefing,
@@ -2799,7 +2801,7 @@ export default function App() {
       case "doctor":
         return "doctor";
       case "rollback":
-        return "home";
+        return "settings";
     }
   }
 
@@ -2832,7 +2834,13 @@ export default function App() {
           break;
         case "rollback":
           await refreshDoctorReport();
-          break;
+          setActiveView("settings");
+          setMasterFeature(id, {
+            status: "partial",
+            actionLabel: "Open Settings",
+            detail: "Rollback inventory is in Settings below the connector panel.",
+          });
+          return;
         case "agent-session":
           setActiveView("optimization");
           setMasterFeature(id, {
@@ -2964,7 +2972,7 @@ export default function App() {
       await Promise.all([refreshRuntimeStatus(), refreshConnectors(), refreshDoctorReport()]);
       setMasterFeature("addons", { status: "complete", detail: "Runtime and connector health refreshed." });
       setMasterFeature("doctor", { status: "complete", detail: "Doctor report refreshed." });
-      setMasterFeature("rollback", { status: "complete", detail: "Rollback inventory is available in Doctor/Home." });
+      setMasterFeature("rollback", { status: "complete", actionLabel: "Open Settings", detail: "Rollback inventory is in Settings." });
       setMasterFeature("agent-session", { status: "partial", actionLabel: "Open", detail: "Prepare and copy a payload before launch." });
       const completed = new Set(result.completed.map((item) => item.id));
       if (result.receipt.ownedActions.length > 0) {
@@ -3025,6 +3033,13 @@ export default function App() {
         deactivateRepoIntelligence: async () => undefined,
         deactivateTokenXray: async () => undefined,
         deactivateDailyBriefing: async () => undefined,
+        disableLocalOptimization: async (optimizationId: string) => {
+          if (optimizationId === "semantic-cache") {
+            await invoke("set_semantic_cache_enabled", { enabled: false });
+          } else if (optimizationId === "leanctx-shadow") {
+            await invoke("set_addon_enabled", { id: "leanctx", enabled: false });
+          }
+        },
         ...(receipt.mcpWasActive
           ? {}
           : {
@@ -4835,6 +4850,28 @@ export default function App() {
           : "RTK shell hook is not installed.",
     },
     {
+      label: "Proxy session auth",
+      status: describeProxySessionAuthStatus(
+        runtimeStatus?.proxyAuthStatus
+          ? {
+              available: true,
+              enforce:
+                runtimeStatus.proxyAuthStatus === "session_token_enforced",
+              fingerprint: "",
+              status: runtimeStatus.proxyAuthStatus,
+              detail: runtimeStatus.proxyAuthDetail ?? "",
+              validatedRequestCount: 0,
+              rejectedRequestCount: 0,
+            }
+          : null,
+      ).label,
+      detail:
+        runtimeStatus?.proxyAuthDetail ??
+        "Proxy session auth status is unavailable.",
+      actionLabel: "Open Settings",
+      onAction: () => setActiveView("settings"),
+    },
+    {
       label: "Headroom MCP",
       status:
         runtimeStatus?.mcpConfigured === true
@@ -4858,6 +4895,8 @@ export default function App() {
         lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
         lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
         supervisionStatus: runtimeStatus?.repoMemoryMcpSupervisionStatus,
+        relaunchSurvivalStatus: runtimeStatus?.repoMemoryMcpRelaunchSurvivalStatus,
+        supervisionScope: runtimeStatus?.repoMemoryMcpSupervisionScope,
         service: runtimeStatus?.repoMemoryMcpService,
       }),
       actionLabel:
@@ -5411,11 +5450,7 @@ export default function App() {
               onApplyImport={() => void applySettingsImport()}
             />
 
-            <article className="soft-card panel-card">
-              <div className="panel-card__header">
-                <div />
-              </div>
-              </article>
+            <ProxySessionAuthCard />
 
               <SettingsConnectorPanel
                 connectors={connectors}

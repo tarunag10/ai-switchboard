@@ -180,6 +180,12 @@ export function AgentSessionPanel() {
         </p>
       ) : null}
 
+      <p className="optimize-minimal__meta" role="note">
+        {copied
+          ? "Payload copied. Paste it into your agent before the task prompt."
+          : "Copy the payload, then paste it into Codex, Claude Code, or Cursor before launching the task."}
+      </p>
+
       <pre className="optimize-minimal__meta">
         <code>{preparation.stablePrefixMarkdown || payload}</code>
       </pre>

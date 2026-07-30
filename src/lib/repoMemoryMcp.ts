@@ -333,9 +333,24 @@ export function repoMemoryMcpLifecycle(
 
 export function repoMemoryMcpInspectorRow(input: RepoMemoryMcpStatusInput) {
   const lifecycle = repoMemoryMcpLifecycle(input);
+  const supervisionNote = input.relaunchSurvivalStatus
+    ? input.relaunchSurvivalStatus === "verified"
+      ? " App relaunch smoke verified."
+      : input.relaunchSurvivalStatus === "pending"
+        ? " Relaunch verification in progress."
+        : input.relaunchSurvivalStatus === "failed"
+          ? " Relaunch verification failed."
+          : input.supervisionScope === "app_session"
+            ? " Supervised for this app session only."
+            : ""
+    : input.supervisionScope === "relaunch_verified"
+      ? " App relaunch smoke verified."
+      : input.active
+        ? " Supervised for this app session only."
+        : "";
   return {
     label: "Repo Memory MCP",
     status: lifecycle.status,
-    detail: lifecycle.detail,
+    detail: `${lifecycle.detail}${supervisionNote}`,
   };
 }
