@@ -539,6 +539,8 @@ impl AppState {
             }
         }
 
+        self.verify_repo_memory_mcp_on_app_relaunch();
+
         // Hold `starting` until the probe `runtime_status()` uses
         // (`is_headroom_proxy_reachable` → 6767/readyz) actually returns true.
         // `wait_for_boot_validation` accepts /livez, which can flip green
@@ -4806,6 +4808,35 @@ mod tests {
                 Some(&healthy_service)
             ),
             "verified_active"
+        );
+
+        let relaunch_pending = super::repo_memory_mcp::RepoMemoryMcpSessionState {
+            relaunch_survival_status: Some("pending".into()),
+            ..verified_this_process.clone()
+        };
+        assert_eq!(
+            super::repo_memory_mcp::repo_memory_mcp_supervision_status(
+                &relaunch_pending,
+                Some(true),
+                current_pid,
+                Some(&healthy_service)
+            ),
+            "relaunch_pending"
+        );
+
+        let relaunch_failed = super::repo_memory_mcp::RepoMemoryMcpSessionState {
+            relaunch_survival_status: Some("failed".into()),
+            active: false,
+            ..verified_this_process.clone()
+        };
+        assert_eq!(
+            super::repo_memory_mcp::repo_memory_mcp_supervision_status(
+                &relaunch_failed,
+                Some(true),
+                current_pid,
+                Some(&healthy_service)
+            ),
+            "relaunch_failed"
         );
 
         let stale_health = super::repo_memory_mcp::RepoMemoryMcpSessionState {

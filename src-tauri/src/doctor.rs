@@ -205,10 +205,19 @@ fn repo_memory_mcp_doctor_issue(runtime: &RuntimeStatus) -> Option<DoctorIssue> 
             "Repo Memory MCP service is unhealthy",
             "Repo Memory MCP is configured, but the current descriptor, script, or Node runtime evidence is not healthy. Repair will restore the app-managed read-only descriptor and re-run the start/smoke check.",
         ),
-        "restart_required" | "unknown_active" | "active" => (
+        "restart_required" | "unknown_active" | "active" | "relaunch_pending" => (
             "repo_memory_mcp_needs_verification",
             "Repo Memory MCP needs verification",
-            "Repo Memory MCP has active session state without current app-process smoke proof. Repair will run the app-managed Prepare MCP flow before agents consume repo-memory tools.",
+            if runtime.repo_memory_mcp_supervision_status == "relaunch_pending" {
+                "Repo Memory MCP was active before this app relaunch. Switchboard is re-running the read-only smoke check before agents consume repo-memory tools."
+            } else {
+                "Repo Memory MCP has active session state without current app-process smoke proof. Repair will run the app-managed Prepare MCP flow before agents consume repo-memory tools."
+            },
+        ),
+        "relaunch_failed" => (
+            "repo_memory_mcp_relaunch_failed",
+            "Repo Memory MCP failed relaunch verification",
+            "Repo Memory MCP was active before relaunch, but the read-only smoke check failed in this app session. Repair will restore the app-managed descriptor and re-run Prepare MCP before agent handoffs.",
         ),
         _ => return None,
     };
@@ -716,6 +725,8 @@ mod doctor_tests {
             repo_memory_mcp_last_started_at: None,
             repo_memory_mcp_last_checked_at: None,
             repo_memory_mcp_supervision_status: "unknown".to_string(),
+            repo_memory_mcp_relaunch_survival_status: "not_applicable".to_string(),
+            repo_memory_mcp_supervision_scope: "app_session".to_string(),
             repo_memory_mcp_service: None,
             ml_installed: None,
             kompress_enabled: None,

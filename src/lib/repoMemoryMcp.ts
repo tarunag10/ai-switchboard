@@ -25,6 +25,8 @@ export interface RepoMemoryMcpStatusInput {
   lastStartedAt?: string | null;
   lastCheckedAt?: string | null;
   supervisionStatus?: string | null;
+  relaunchSurvivalStatus?: string | null;
+  supervisionScope?: string | null;
   service?: {
     managedByApp: boolean;
     readOnly: boolean;
@@ -99,6 +101,42 @@ export function repoMemoryMcpLifecycle(
       ].join("\n"),
     };
   }
+  if (input.supervisionStatus === "relaunch_failed") {
+    return {
+      state: "smoke_failed",
+      status: "Relaunch failed",
+      detail: `Repo Memory MCP was active before relaunch, but the read-only smoke check failed in this app session.${serviceDetail}`,
+      installCommand: repoMemoryMcpInstallCommand,
+      startCommand: repoMemoryMcpStartCommand,
+      stopCommand: repoMemoryMcpStopCommand,
+      verifyCommand: repoMemoryMcpVerifyCommand,
+      copy: [
+        "Repo Memory MCP relaunch verification failed.",
+        `Prepare action: ${repoMemoryMcpInstallCommand} then ${repoMemoryMcpStartCommand}`,
+        `Verify: ${repoMemoryMcpVerifyCommand}`,
+        ...serviceCopy,
+        "Safety: OS-level reboot survival is not claimed; app relaunch smoke must pass before agents rely on MCP context.",
+      ].join("\n"),
+    };
+  }
+
+  if (input.supervisionStatus === "relaunch_pending") {
+    return {
+      state: "restart_required",
+      status: "Relaunch verifying",
+      detail: `Repo Memory MCP was active before this app relaunch. Switchboard is re-running the read-only smoke check.${serviceDetail}`,
+      installCommand: repoMemoryMcpInstallCommand,
+      startCommand: repoMemoryMcpStartCommand,
+      stopCommand: repoMemoryMcpStopCommand,
+      verifyCommand: repoMemoryMcpVerifyCommand,
+      copy: [
+        "Repo Memory MCP relaunch verification is in progress.",
+        `Verify: ${repoMemoryMcpVerifyCommand}`,
+        ...serviceCopy,
+      ].join("\n"),
+    };
+  }
+
   if (input.supervisionStatus === "smoke_failed") {
     const checked = input.lastCheckedAt ? ` Last checked: ${input.lastCheckedAt}.` : "";
     return {

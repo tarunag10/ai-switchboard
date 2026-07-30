@@ -1074,6 +1074,8 @@ pub struct RuntimeStatus {
     pub repo_memory_mcp_last_started_at: Option<DateTime<Utc>>,
     pub repo_memory_mcp_last_checked_at: Option<DateTime<Utc>>,
     pub repo_memory_mcp_supervision_status: String,
+    pub repo_memory_mcp_relaunch_survival_status: String,
+    pub repo_memory_mcp_supervision_scope: String,
     pub repo_memory_mcp_service: Option<RepoMemoryMcpServiceStatus>,
     pub ml_installed: Option<bool>,
     pub kompress_enabled: Option<bool>,

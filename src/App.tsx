@@ -268,6 +268,7 @@ import {
   executeMasterDeactivation,
   type MasterActivationReceipt,
 } from "./lib/masterActivation";
+import { resolveMasterActivationLocalOptimizations } from "./lib/leanctxPromotionGate";
 import { getAgentMemorySnapshot } from "./lib/agentMemory";
 import {
   loadDailyUsageBriefing,
@@ -2874,6 +2875,26 @@ export default function App() {
           "The full local mode did not bring the Headroom runtime online.",
         );
       }
+      let leanctxSidecar: {
+        configured: boolean;
+        promotion?: {
+          status: string;
+          capabilityVersionOk: boolean;
+          protectedContentOk: boolean;
+          failOpenOk: boolean;
+          shadowContractOk: boolean;
+          livePromotionAllowed: boolean;
+          reasons: string[];
+        };
+      } | null = null;
+      try {
+        leanctxSidecar = await invoke("get_leanctx_sidecar_status");
+      } catch {
+        leanctxSidecar = null;
+      }
+      const supportedLocalOptimizations = resolveMasterActivationLocalOptimizations(
+        leanctxSidecar?.promotion ?? null,
+      );
       const callbacks = {
         refreshAgentMemory: async () => {
           await getAgentMemorySnapshot();
@@ -2903,6 +2924,20 @@ export default function App() {
             detail: "Local briefing evidence refreshed.",
           });
         },
+        enableLocalOptimization: async (optimizationId: string) => {
+          if (optimizationId === "semantic-cache") {
+            await invoke("set_semantic_cache_enabled", { enabled: true });
+          } else if (optimizationId === "leanctx-shadow") {
+            if (!leanctxSidecar?.configured) {
+              await invoke("install_addon", { id: "leanctx" });
+            }
+            await invoke("set_addon_enabled", { id: "leanctx", enabled: true });
+          }
+          setMasterFeature("addons", {
+            status: "partial",
+            detail: `Enabled ${optimizationId} from the evidence-gated allowlist.`,
+          });
+        },
         ...(mcpWasActive
           ? {}
           : {
@@ -2922,6 +2957,7 @@ export default function App() {
           runtimeStatus?.running && runtimeStatus.proxyReachable
             ? "running"
             : "offline",
+        supportedLocalOptimizations,
         callbacks,
       });
       const result = await executeMasterActivation(plan, { callbacks });
@@ -4615,6 +4651,8 @@ export default function App() {
     lastStartedAt: runtimeStatus?.repoMemoryMcpLastStartedAt,
     lastCheckedAt: runtimeStatus?.repoMemoryMcpLastCheckedAt,
     supervisionStatus: runtimeStatus?.repoMemoryMcpSupervisionStatus,
+    relaunchSurvivalStatus: runtimeStatus?.repoMemoryMcpRelaunchSurvivalStatus,
+    supervisionScope: runtimeStatus?.repoMemoryMcpSupervisionScope,
     service: runtimeStatus?.repoMemoryMcpService,
   });
   const launchAgentStatus = runtimeStatus?.launchAgentStatus ?? null;

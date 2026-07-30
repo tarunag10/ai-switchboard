@@ -207,7 +207,7 @@
 - Script exits non-zero when required evidence files missing.
 - Documented in Addons promotion matrix copy.
 
-**Status:** `planned`
+**Status:** `in_progress` — `leanctxPromotionGate.ts`, `check:leanctx-promotion-gate.mjs`, and master activation allowlist shipped 2026-07-30.
 
 ---
 
@@ -257,7 +257,13 @@
 
 **Reference:** `docs/connectors.md` Cursor native-write evidence gate.
 
-**Status:** `blocked` — external schema dependency.
+**Tasks:**
+
+1. Add `get_cursor_native_schema_assessment` Tauri command wrapping `cursor_native::assess_native_schema`.
+2. Add `src/lib/cursorNativeGate.ts` and `scripts/check-cursor-native-gate.mjs`.
+3. Keep `supported: false` until Cursor publishes an allowlisted on-disk schema.
+
+**Status:** `in_progress` — assessment command + frontend gate shipped 2026-07-30; native writes remain blocked.
 
 ---
 
@@ -270,7 +276,7 @@
 1. Extend `repo_memory_mcp_supervision_status` with relaunch survival evidence.
 2. Doctor warns when MCP active but supervision degraded.
 
-**Status:** `planned`
+**Status:** `in_progress` — relaunch survival evidence + Doctor warnings shipped 2026-07-30; reboot/OS daemon survival is not claimed.
 
 ---
 
@@ -284,12 +290,12 @@
 
 ## P3 — Platform and maintainability (ongoing)
 
-| Slice | Action |
-| --- | --- |
-| God-file split | Extract `client_adapters.rs` domains; split `App.tsx` views; modularize `styles.css` |
-| File-size budget | Extend `check-file-size-budget.mjs` to `client_adapters.rs`, `App.tsx`, `styles.css` |
-| Cross-platform | CLI parity on Windows/Linux before tray apps |
-| Public leaderboard | Reproducible local benchmark export without secrets |
+| Slice | Action | Status |
+| --- | --- | --- |
+| God-file split | Extract `client_adapters.rs` domains; split `App.tsx` views; modularize `styles.css` | `planned` |
+| File-size budget | Extend `check-file-size-budget.mjs` god-file exemptions + `check:phase3-maintainability.mjs` | `in_progress` |
+| Cross-platform | CLI parity on Windows/Linux before tray apps | `planned` |
+| Public leaderboard | `export:benchmark-leaderboard` local export without secrets | `in_progress` |
 
 ---
 

@@ -266,4 +266,18 @@ describe("repoMemoryMcpLifecycle", () => {
         "Repo Memory MCP lifecycle has not been verified. Use Prepare MCP to install it and run the smoke check before relying on agent MCP handoffs.",
     });
   });
+
+  it("reports relaunch verification failure explicitly", () => {
+    const lifecycle = repoMemoryMcpLifecycle({
+      configured: true,
+      active: false,
+      supervisionStatus: "relaunch_failed",
+      relaunchSurvivalStatus: "failed",
+      supervisionScope: "app_session",
+    });
+
+    expect(lifecycle.state).toBe("smoke_failed");
+    expect(lifecycle.status).toBe("Relaunch failed");
+    expect(lifecycle.copy).toContain("relaunch verification failed");
+  });
 });

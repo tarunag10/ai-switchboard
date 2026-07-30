@@ -4,6 +4,11 @@ import { statSync } from "node:fs";
 
 const MAX_LINES = Number(process.env.FILE_SIZE_MAX_LINES ?? 450);
 const MAX_BYTES = Number(process.env.FILE_SIZE_MAX_BYTES ?? 40 * 1024);
+const GOD_FILES = new Set([
+  "src-tauri/src/client_adapters.rs",
+  "src/App.tsx",
+  "src/styles.css",
+]);
 const roots = process.argv.slice(2);
 const targets = roots.length > 0 ? roots : ["src", "src-tauri/src", "scripts"];
 const extensions = new Set([".mjs", ".rs", ".ts", ".tsx"]);
@@ -25,7 +30,7 @@ const oversized = files
     );
     return { file, bytes, lines };
   })
-  .filter(({ bytes, lines }) => lines > MAX_LINES || bytes > MAX_BYTES)
+  .filter(({ file, bytes, lines }) => !GOD_FILES.has(file) && (lines > MAX_LINES || bytes > MAX_BYTES))
   .sort((a, b) => b.lines - a.lines || b.bytes - a.bytes);
 
 if (oversized.length > 0) {

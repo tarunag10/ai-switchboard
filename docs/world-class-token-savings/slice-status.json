@@ -52,7 +52,8 @@
         {
           "id": "P1.3",
           "name": "leanctx evidence-gated promotion",
-          "status": "planned"
+          "status": "in_progress",
+          "note": "leanctxPromotionGate.ts + check:leanctx-promotion-gate + master activation allowlist shipped 2026-07-30"
         },
         {
           "id": "P1.4",
@@ -73,18 +74,47 @@
         {
           "id": "P2.2",
           "name": "Cursor native write gate",
-          "status": "blocked",
-          "blocker": "No documented Cursor on-disk provider schema"
+          "status": "in_progress",
+          "note": "get_cursor_native_schema_assessment + cursorNativeGate.ts + check:cursor-native-gate shipped 2026-07-30; native writes remain blocked"
         },
         {
           "id": "P2.3",
           "name": "OS-level Repo Memory MCP supervision",
-          "status": "planned"
+          "status": "in_progress",
+          "note": "relaunch survival evidence + Doctor warnings shipped 2026-07-30; reboot/OS daemon not claimed"
         },
         {
           "id": "P2.4",
           "name": "Connector promotion past sidecar",
           "status": "ongoing"
+        }
+      ]
+    },
+    "P3": {
+      "title": "Platform and maintainability",
+      "slices": [
+        {
+          "id": "P3.1",
+          "name": "God-file registry and file-size budget",
+          "status": "in_progress",
+          "note": "check-file-size-budget god-file exemptions + check:phase3-maintainability shipped 2026-07-30"
+        },
+        {
+          "id": "P3.2",
+          "name": "Public benchmark leaderboard export",
+          "status": "in_progress",
+          "note": "export:benchmark-leaderboard shipped 2026-07-30"
+        },
+        {
+          "id": "P3.3",
+          "name": "God-file splits",
+          "status": "planned",
+          "blocker": "client_adapters.rs, App.tsx, styles.css remain tracked exemptions"
+        },
+        {
+          "id": "P3.4",
+          "name": "Cross-platform CLI parity",
+          "status": "planned"
         }
       ]
     }

@@ -13,6 +13,7 @@ import {
   type OptimizationEngineId,
 } from "../lib/optimizationEngines";
 import { recommendExactCacheDefault } from "../lib/exactCacheDefaultPolicy";
+import { evaluateLeanctxPromotionGate } from "../lib/leanctxPromotionGate";
 import type { RuntimeStatus } from "../lib/types";
 
 type OptimizationAddonReadinessReport = {
@@ -458,6 +459,7 @@ function OptimizationEngineRow({
     livePromotionAllowed: false,
     reasons: ["promotion evidence is unavailable"],
   };
+  const promotionGate = evaluateLeanctxPromotionGate(promotion);
   const statusManaged = engine.id === "leanctx" || engine.id === "semantic-cache";
   const statusKnown = !statusManaged || (!statusError && (engine.id === "leanctx" ? leanctxStatus !== null : semanticCacheStatus !== null));
   const preview = previewOptimizationEngineConfig(engine);
@@ -554,7 +556,8 @@ function OptimizationEngineRow({
               <p><strong>Managed sidecar:</strong> {leanctxStatus.configured ? "configured" : "not configured"}; mode: {leanctxStatus.mode}; running: {leanctxStatus.running ? "yes" : "no"}.</p>
               <p><strong>Health:</strong> {leanctxStatus.health}. Executable present: {leanctxStatus.executablePresent ? "yes" : "no"}; loopback-only: {leanctxStatus.loopbackOnly ? "yes" : "no"}.</p>
               <p><strong>Live provider routing:</strong> No. Headroom remains the sole provider proxy. {leanctxStatus.ownership}</p>
-              <p><strong>Promotion gate:</strong> {promotion.status}; capability/version: {promotion.capabilityVersionOk ? "pass" : "missing"}; protected content: {promotion.protectedContentOk ? "pass" : "missing"}; fail-open: {promotion.failOpenOk ? "pass" : "missing"}; shadow contract: {promotion.shadowContractOk ? "pass" : "missing"}.</p>
+              <p><strong>Promotion gate:</strong> {promotionGate.verdict}; capability/version: {promotion.capabilityVersionOk ? "pass" : "missing"}; protected content: {promotion.protectedContentOk ? "pass" : "missing"}; fail-open: {promotion.failOpenOk ? "pass" : "missing"}; shadow contract: {promotion.shadowContractOk ? "pass" : "missing"}.</p>
+              <p><strong>Master activation:</strong> {promotionGate.verdict === "shadow_eligible" || promotionGate.verdict === "live_eligible" ? "leanctx-shadow may be enabled during Activate Everything." : "leanctx-shadow stays blocked until promotion evidence passes."} Live provider routing remains disabled.</p>
               {promotion.reasons.length > 0 && <p><strong>Promotion evidence:</strong> {promotion.reasons.join("; ")}</p>}
               {leanctxStatus.error && <p><strong>Last error:</strong> {leanctxStatus.error}</p>}
             </div>

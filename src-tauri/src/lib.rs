@@ -29,6 +29,7 @@ mod client_sidecar_rollbacks;
 mod codex_threads;
 mod connector_smoke;
 mod cursor_native;
+mod cursor_native_commands;
 mod daily_briefing;
 mod dashboard_commands;
 mod dedicated_cleanup_rollback;
@@ -761,6 +762,7 @@ pub fn run() {
             semantic_cache::clear_semantic_cache,
             proxy_session_auth::get_proxy_session_auth_status,
             proxy_session_auth::set_proxy_session_auth_enforce,
+            cursor_native_commands::get_cursor_native_schema_assessment,
             addon_commands::set_caveman_level,
             repo_memory_commands::install_repo_memory_mcp,
             repo_memory_commands::start_repo_memory_mcp,

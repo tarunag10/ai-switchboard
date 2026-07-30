@@ -27,9 +27,19 @@ const requiredCodeSignals = [
     needles: ["recommendExactCacheDefault"],
   },
   {
-    label: "agent session pack ranking",
-    file: "src/lib/agentSessionPacks.ts",
-    needles: ["recommendAgentSessionPackId"],
+    label: "leanctx promotion gate",
+    file: "src/lib/leanctxPromotionGate.ts",
+    needles: ["resolveMasterActivationLocalOptimizations", "evaluateLeanctxPromotionGate"],
+  },
+  {
+    label: "cursor native write gate",
+    file: "src/lib/cursorNativeGate.ts",
+    needles: ["describeCursorNativeGate"],
+  },
+  {
+    label: "repo memory MCP supervision",
+    file: "src/lib/repoMemoryMcpSupervision.ts",
+    needles: ["deriveRepoMemoryMcpSupervisionSummary"],
   },
 ];
 
@@ -48,8 +58,8 @@ for (const file of requiredFiles) {
 const ledger = JSON.parse(
   fs.readFileSync(path.join(planDir, "slice-status.json"), "utf8"),
 );
-if (!ledger.phases?.P0 || !ledger.phases?.P1 || !ledger.phases?.P2) {
-  fail("slice-status.json must define P0, P1, and P2 phases");
+if (!ledger.phases?.P0 || !ledger.phases?.P1 || !ledger.phases?.P2 || !ledger.phases?.P3) {
+  fail("slice-status.json must define P0, P1, P2, and P3 phases");
 }
 
 for (const signal of requiredCodeSignals) {

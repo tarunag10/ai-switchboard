@@ -1,0 +1,83 @@
+{
+  "generatedAt": "2026-07-30T16:52:58.511Z",
+  "fixtureCount": 8,
+  "categories": [
+    "document_conversion",
+    "repo_context_pack",
+    "shell_output"
+  ],
+  "entries": [
+    {
+      "name": "noisy test log",
+      "category": "shell_output",
+      "relevantFactRetentionPct": 100,
+      "wrongOmissionRatePct": 0,
+      "estimatedInputTokens": null,
+      "estimatedOutputTokens": null,
+      "secretSafe": true
+    },
+    {
+      "name": "stack trace summary",
+      "category": "shell_output",
+      "relevantFactRetentionPct": 100,
+      "wrongOmissionRatePct": 0,
+      "estimatedInputTokens": null,
+      "estimatedOutputTokens": null,
+      "secretSafe": true
+    },
+    {
+      "name": "task-aware pack vs broad scan",
+      "category": "repo_context_pack",
+      "relevantFactRetentionPct": 100,
+      "wrongOmissionRatePct": 0,
+      "estimatedInputTokens": null,
+      "estimatedOutputTokens": null,
+      "secretSafe": true
+    },
+    {
+      "name": "office/pdf markdown handoff",
+      "category": "document_conversion",
+      "relevantFactRetentionPct": 100,
+      "wrongOmissionRatePct": 0,
+      "estimatedInputTokens": null,
+      "estimatedOutputTokens": null,
+      "secretSafe": true
+    },
+    {
+      "name": "long ci log tail",
+      "category": "shell_output",
+      "relevantFactRetentionPct": 100,
+      "wrongOmissionRatePct": 0,
+      "estimatedInputTokens": null,
+      "estimatedOutputTokens": null,
+      "secretSafe": true
+    },
+    {
+      "name": "agent transcript excerpt",
+      "category": "repo_context_pack",
+      "relevantFactRetentionPct": 100,
+      "wrongOmissionRatePct": 0,
+      "estimatedInputTokens": null,
+      "estimatedOutputTokens": null,
+      "secretSafe": true
+    },
+    {
+      "name": "json api error blob",
+      "category": "document_conversion",
+      "relevantFactRetentionPct": 100,
+      "wrongOmissionRatePct": 0,
+      "estimatedInputTokens": null,
+      "estimatedOutputTokens": null,
+      "secretSafe": true
+    },
+    {
+      "name": "git diff stat noise",
+      "category": "shell_output",
+      "relevantFactRetentionPct": 100,
+      "wrongOmissionRatePct": 0,
+      "estimatedInputTokens": null,
+      "estimatedOutputTokens": null,
+      "secretSafe": true
+    }
+  ]
+}

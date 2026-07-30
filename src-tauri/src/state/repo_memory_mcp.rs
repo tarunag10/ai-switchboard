@@ -27,6 +27,12 @@ pub(super) struct RepoMemoryMcpSessionState {
     pub(super) last_restart_at: Option<DateTime<Utc>>,
     #[serde(default)]
     pub(super) last_exit_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub(super) relaunch_survival_status: Option<String>,
+    #[serde(default)]
+    pub(super) last_relaunch_verified_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub(super) supervision_scope: Option<String>,
 }
 
 impl RepoMemoryMcpSessionState {
@@ -225,6 +231,72 @@ impl AppState {
             log::warn!("failed to persist repo-memory MCP failure state: {err:#}");
         }
     }
+
+    /// Re-verify Repo Memory MCP after an app relaunch when persisted session
+    /// state was active under a different supervisor PID.
+    pub fn verify_repo_memory_mcp_on_app_relaunch(&self) {
+        let current_pid = std::process::id();
+        let session = self.repo_memory_mcp_state.lock().clone();
+        if !session.active {
+            return;
+        }
+        let Some(prior_pid) = session.supervisor_pid else {
+            return;
+        };
+        if prior_pid == current_pid {
+            return;
+        }
+        if session.supervision_status.as_deref() != Some("verified_active") {
+            return;
+        }
+
+        {
+            let mut session = self.repo_memory_mcp_state.lock();
+            session.relaunch_survival_status = Some("pending".into());
+            session.supervision_scope = Some("app_session".into());
+            session.last_checked_at = Some(Utc::now());
+            if let Err(err) = self.persist_repo_memory_mcp_state(&session) {
+                log::warn!("failed to persist repo-memory MCP relaunch pending state: {err:#}");
+            }
+        }
+
+        match self.tool_manager.verify_repo_memory_mcp_smoke() {
+            Ok(_) => {
+                let mut session = self.repo_memory_mcp_state.lock();
+                session.active = true;
+                session.relaunch_survival_status = Some("verified".into());
+                session.supervision_scope = Some("relaunch_verified".into());
+                session.last_relaunch_verified_at = Some(Utc::now());
+                session.last_checked_at = Some(Utc::now());
+                session.supervision_status = Some("verified_active".into());
+                session.supervisor_pid = Some(current_pid);
+                if let Err(err) = self.persist_repo_memory_mcp_state(&session) {
+                    log::warn!(
+                        "failed to persist repo-memory MCP relaunch verified state: {err:#}"
+                    );
+                }
+            }
+            Err(err) => {
+                log::warn!("repo-memory MCP relaunch smoke failed: {err:#}");
+                self.stop_repo_memory_mcp_child();
+                let mut session = self.repo_memory_mcp_state.lock();
+                session.active = false;
+                session.relaunch_survival_status = Some("failed".into());
+                session.supervision_scope = Some("app_session".into());
+                session.supervision_status = Some("relaunch_failed".into());
+                session.supervisor_pid = Some(current_pid);
+                session.child_pid = None;
+                session.last_checked_at = Some(Utc::now());
+                session.last_exit_at = Some(Utc::now());
+                if let Err(err) = self.persist_repo_memory_mcp_state(&session) {
+                    log::warn!(
+                        "failed to persist repo-memory MCP relaunch failed state: {err:#}"
+                    );
+                }
+            }
+        }
+        *self.cached_runtime_status.lock() = None;
+    }
 }
 
 pub(super) fn repo_memory_mcp_supervision_status(
@@ -233,6 +305,12 @@ pub(super) fn repo_memory_mcp_supervision_status(
     current_pid: u32,
     service: Option<&RepoMemoryMcpServiceStatus>,
 ) -> String {
+    if session.relaunch_survival_status.as_deref() == Some("failed") {
+        return "relaunch_failed".to_string();
+    }
+    if session.active && session.relaunch_survival_status.as_deref() == Some("pending") {
+        return "relaunch_pending".to_string();
+    }
     if configured == Some(true) && !repo_memory_mcp_service_healthy(service) {
         return "service_unhealthy".to_string();
     }

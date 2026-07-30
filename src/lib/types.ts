@@ -432,6 +432,8 @@ export interface RuntimeStatus {
   repoMemoryMcpLastStartedAt?: string | null;
   repoMemoryMcpLastCheckedAt?: string | null;
   repoMemoryMcpSupervisionStatus?: string | null;
+  repoMemoryMcpRelaunchSurvivalStatus?: string | null;
+  repoMemoryMcpSupervisionScope?: string | null;
   repoMemoryMcpService?: {
     managedByApp: boolean;
     readOnly: boolean;

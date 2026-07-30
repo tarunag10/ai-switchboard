@@ -252,6 +252,14 @@ impl AppState {
             repo_memory_mcp_last_started_at: repo_memory_mcp_session.last_started_at,
             repo_memory_mcp_last_checked_at: repo_memory_mcp_session.last_checked_at,
             repo_memory_mcp_supervision_status,
+            repo_memory_mcp_relaunch_survival_status: repo_memory_mcp_session
+                .relaunch_survival_status
+                .clone()
+                .unwrap_or_else(|| "not_applicable".to_string()),
+            repo_memory_mcp_supervision_scope: repo_memory_mcp_session
+                .supervision_scope
+                .clone()
+                .unwrap_or_else(|| "app_session".to_string()),
             repo_memory_mcp_service,
             ml_installed,
             kompress_enabled,
