@@ -8,6 +8,8 @@ This folder tracks the Cursor architecture review and the execution plan to make
 | --- | --- |
 | [CURSOR-ANALYSIS-2026-07-30.md](./CURSOR-ANALYSIS-2026-07-30.md) | Cursor agent deep-dive: features, robustness scorecard, gaps, verdict |
 | [IMPLEMENTATION-PLAN.md](./IMPLEMENTATION-PLAN.md) | Detailed P0/P1/P2 slices, acceptance criteria, file map, test gates |
+| [COMPREHENSIVE-TOKEN-COMPRESSION-DESIGN.md](./COMPREHENSIVE-TOKEN-COMPRESSION-DESIGN.md) | Design recommendations for a full compression application (engines, cache, workflows) |
+| [COMPREHENSIVE-TOKEN-COMPRESSION-IMPLEMENTATION-PLAN.md](./COMPREHENSIVE-TOKEN-COMPRESSION-IMPLEMENTATION-PLAN.md) | C0–C5 execution plan: tasks, files, acceptance criteria, CI gates |
 | [slice-status.json](./slice-status.json) | Machine-readable slice progress ledger |
 
 ## Commands
