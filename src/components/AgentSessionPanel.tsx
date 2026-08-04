@@ -7,6 +7,7 @@ import {
   getAgentSessionActionLabel,
   prepareStartAgentSessionPack,
   recommendAgentSessionPackId,
+  resolveAgentSessionPreferredPackId,
 } from "../lib/agentSessionPacks";
 import { formatCompactNumber } from "../lib/optimization";
 
@@ -20,8 +21,12 @@ export function AgentSessionPanel() {
   const [task, setTask] = useState("Implement the next scoped optimization slice.");
   const [copied, setCopied] = useState(false);
 
-  const activePackId =
-    agent?.packs.some((pack) => pack.id === packId) ? packId : agent?.packs[0]?.id;
+  const activePackId = resolveAgentSessionPreferredPackId({
+    task,
+    tokenBudget: budget,
+    preferredPackId: packId,
+    candidates: agent?.packs ?? [],
+  });
   const request = {
     agentId: agent?.id ?? "codex",
     task,
@@ -116,6 +121,7 @@ export function AgentSessionPanel() {
               {agent?.packs.map((pack) => (
                 <option key={pack.id} value={pack.id}>
                   {pack.name}
+                  {recommendation.packId === pack.id ? " (recommended)" : ""}
                 </option>
               ))}
             </select>
@@ -175,8 +181,14 @@ export function AgentSessionPanel() {
       {selectedPack ? (
         <p className="optimize-minimal__meta">
           {selectedPack.summary} Estimated {formatCompactNumber(selectedPack.estimatedTokens)} tokens.
-          {" "}
-          Recommended: {recommendation.reason}
+          {recommendation.packId === selectedPack.id ? (
+            <>
+              {" "}
+              <strong>Recommended pack.</strong> {recommendation.reason}
+            </>
+          ) : (
+            <> Recommended: {recommendation.reason}</>
+          )}
         </p>
       ) : null}
 

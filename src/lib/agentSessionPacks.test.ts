@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AGENT_SESSION_PRESETS,
   buildAgentSessionPayload,
   getAgentSessionActionLabel,
   prepareStartAgentSessionPack,
   recommendAgentSessionPackId,
+  resolveAgentSessionPreferredPackId,
   type AgentSessionPackCandidate,
 } from "./agentSessionPacks";
 
@@ -26,7 +28,7 @@ const candidates: AgentSessionPackCandidate[] = [
   },
 ];
 
-describe("prepareStartAgentSessionPack", () => {
+describe("recommendAgentSessionPackId", () => {
   it("recommends the cheapest affordable pack with better cacheable yield", () => {
     const recommendation = recommendAgentSessionPackId({
       task: "implementation workflow",
@@ -35,7 +37,22 @@ describe("prepareStartAgentSessionPack", () => {
     });
     expect(recommendation.packId).toBe("implementation");
   });
+});
 
+describe("resolveAgentSessionPreferredPackId", () => {
+  it("falls back to the recommended pack when the preferred pack exceeds budget", () => {
+    expect(
+      resolveAgentSessionPreferredPackId({
+        task: "implementation workflow",
+        tokenBudget: 800,
+        preferredPackId: "handoff",
+        candidates,
+      }),
+    ).toBe("implementation");
+  });
+});
+
+describe("prepareStartAgentSessionPack", () => {
   it("selects the preferred pack and reports remaining/cacheable budget", () => {
     const preparation = prepareStartAgentSessionPack({
       agentId: "codex",
@@ -107,5 +124,12 @@ describe("prepareStartAgentSessionPack", () => {
       },
     });
     expect(payload).toContain("Own only target files.");
+  });
+});
+
+describe("AGENT_SESSION_PRESETS", () => {
+  it("includes a Cursor agent preset for universal coverage", () => {
+    const cursor = AGENT_SESSION_PRESETS.find((preset) => preset.id === "cursor");
+    expect(cursor?.packs).toHaveLength(2);
   });
 });

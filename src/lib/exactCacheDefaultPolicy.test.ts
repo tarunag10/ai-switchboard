@@ -12,6 +12,15 @@ describe("recommendExactCacheDefault", () => {
     expect(result.recommend).toBe(true);
   });
 
+  it("recommends exact cache in headroom mode when disabled and proxy is reachable", () => {
+    const result = recommendExactCacheDefault({
+      mode: "headroom",
+      semanticCacheEnabled: false,
+      proxyReachable: true,
+    });
+    expect(result.recommend).toBe(true);
+  });
+
   it("does not recommend in off or rtk-only modes", () => {
     expect(
       recommendExactCacheDefault({

@@ -90,6 +90,31 @@ export const AGENT_SESSION_PRESETS: AgentSessionPreset[] = [
       },
     ],
   },
+  {
+    id: "cursor",
+    label: "Cursor",
+    defaultBudget: 20_000,
+    packs: [
+      {
+        id: "implementation",
+        name: "Implementation Pack",
+        summary: "Scoped edits, connector safety, and verification commands for Cursor agents.",
+        estimatedTokens: 2_900,
+        cacheableTokens: 2_500,
+        stablePrefix:
+          "Repo: mac-ai-switchboard\nMode: implementation\nUse Switchboard modes, respect connector gates, and keep native provider writes manual.",
+      },
+      {
+        id: "review",
+        name: "Review Pack",
+        summary: "Diff review, regression risks, and Mode Inspector evidence for Cursor sessions.",
+        estimatedTokens: 2_100,
+        cacheableTokens: 1_850,
+        stablePrefix:
+          "Repo: mac-ai-switchboard\nMode: review\nPrioritize correctness, connector safety, and evidence-backed findings.",
+      },
+    ],
+  },
 ];
 
 function taskAffinityScore(task: string, pack: AgentSessionPackCandidate): number {
@@ -138,6 +163,22 @@ export function recommendAgentSessionPackId(
   };
 }
 
+export function resolveAgentSessionPreferredPackId(
+  request: Pick<
+    AgentSessionPackRequest,
+    "task" | "tokenBudget" | "preferredPackId" | "candidates"
+  >,
+): string | undefined {
+  const preferred = request.candidates.find((pack) => pack.id === request.preferredPackId);
+  if (
+    preferred &&
+    preferred.estimatedTokens <= Math.max(0, Math.floor(request.tokenBudget))
+  ) {
+    return preferred.id;
+  }
+  return recommendAgentSessionPackId(request).packId;
+}
+
 export function prepareStartAgentSessionPack(
   request: AgentSessionPackRequest,
 ): AgentSessionPackPreparation {
@@ -147,8 +188,9 @@ export function prepareStartAgentSessionPack(
     return emptyPreparation(tokenBudget, "pack_injection_disabled");
   }
 
+  const selectedPackId = resolveAgentSessionPreferredPackId(request);
   const selected =
-    request.candidates.find((pack) => pack.id === request.preferredPackId) ??
+    request.candidates.find((pack) => pack.id === selectedPackId) ??
     request.candidates[0];
 
   if (!selected) {

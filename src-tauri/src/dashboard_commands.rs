@@ -142,6 +142,43 @@ pub async fn record_measured_savings_attribution(
     .map_err(|err| err.to_string())?
 }
 
+#[tauri::command]
+pub async fn record_provider_billed_counterfactual(
+    app: AppHandle,
+    request: crate::provider_billed_counterfactual::ProviderBilledCounterfactualRequest,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state: State<'_, AppState> = app.state();
+        state.record_provider_billed_counterfactual(request)
+    })
+    .await
+    .map_err(|err| err.to_string())?
+}
+
+#[tauri::command]
+pub async fn get_provider_billed_usage_snapshot(
+    app: AppHandle,
+) -> Result<crate::provider_billed_counterfactual::ProviderBilledReading, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state: State<'_, AppState> = app.state();
+        let (sent, _saved) = state
+            .headroom_provider_billed_for_xray()
+            .unwrap_or((None, None));
+        let billed = crate::provider_billed_counterfactual::extract_headroom_billed_input_tokens(sent)
+            .ok_or_else(|| {
+                "Headroom /stats did not expose provider-billed input tokens.".to_string()
+            })?;
+        Ok(crate::provider_billed_counterfactual::ProviderBilledReading {
+            provider: crate::provider_billed_counterfactual::ProviderBilledProvider::HeadroomStats,
+            billed_input_tokens: billed,
+            source_endpoint: "headroom /stats".into(),
+            observed_at: chrono::Utc::now(),
+        })
+    })
+    .await
+    .map_err(|err| err.to_string())?
+}
+
 pub(crate) fn lifetime_token_milestone_kind(milestone_tokens_saved: u64) -> &'static str {
     match milestone_tokens_saved {
         1_000_000 => "first_1m",

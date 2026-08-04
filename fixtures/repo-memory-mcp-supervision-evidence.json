@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "supervisionScope": "app_session",
+  "osDaemonSurvivalClaimed": false,
+  "requiredRelaunchStatuses": ["not_applicable", "pending", "verified", "failed", "os_daemon_not_supported"],
+  "notes": [
+    "Repo Memory MCP survives app relaunch with read-only smoke recheck.",
+    "OS-level daemon and reboot survival are not claimed in this phase."
+  ]
+}

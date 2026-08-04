@@ -14,6 +14,7 @@ import {
 } from "../lib/optimizationEngines";
 import { recommendExactCacheDefault } from "../lib/exactCacheDefaultPolicy";
 import { evaluateLeanctxPromotionGate } from "../lib/leanctxPromotionGate";
+import { resolveSwitchboardModeForCache } from "../lib/switchboardModeForCache";
 import type { RuntimeStatus } from "../lib/types";
 
 type OptimizationAddonReadinessReport = {
@@ -460,6 +461,14 @@ function OptimizationEngineRow({
     reasons: ["promotion evidence is unavailable"],
   };
   const promotionGate = evaluateLeanctxPromotionGate(promotion);
+  const exactCacheRecommendation =
+    engine.id === "semantic-cache" && semanticCacheStatus
+      ? recommendExactCacheDefault({
+          mode: resolveSwitchboardModeForCache(runtimeStatus),
+          semanticCacheEnabled: semanticCacheStatus.enabled,
+          proxyReachable: Boolean(runtimeStatus?.proxyReachable),
+        })
+      : null;
   const statusManaged = engine.id === "leanctx" || engine.id === "semantic-cache";
   const statusKnown = !statusManaged || (!statusError && (engine.id === "leanctx" ? leanctxStatus !== null : semanticCacheStatus !== null));
   const preview = previewOptimizationEngineConfig(engine);
@@ -504,6 +513,11 @@ function OptimizationEngineRow({
         <span>{engine.governance.userOptIn ? "User opt-in" : "No user opt-in"}</span>
         <span>{engine.governance.reversible ? "Reversible" : "Not reversible"}</span>
       </div>
+      {engine.id === "semantic-cache" && exactCacheRecommendation?.recommend ? (
+        <p className="optimize-minimal__meta optimize-minimal__meta--notice" role="status">
+          <strong>Recommendation:</strong> {exactCacheRecommendation.reason}
+        </p>
+      ) : null}
       <div className="gateway-profile__actions">
         <button
           type="button"
@@ -514,6 +528,16 @@ function OptimizationEngineRow({
         >
           {checking ? "Working…" : toggleLabel}
         </button>
+        {engine.id === "semantic-cache" && exactCacheRecommendation?.recommend ? (
+          <button
+            type="button"
+            className="addon-card__action addon-card__action--primary"
+            disabled={checking || activationBlocked || blocked}
+            onClick={() => void handleToggle()}
+          >
+            Enable exact cache
+          </button>
+        ) : null}
         {statusManaged && (
           <button
             type="button"
@@ -570,10 +594,7 @@ function OptimizationEngineRow({
                   <strong>Recommendation:</strong>{" "}
                   {
                     recommendExactCacheDefault({
-                      mode:
-                        runtimeStatus.rtk?.enabled && !runtimeStatus.proxyReachable
-                          ? "rtk"
-                          : "full",
+                      mode: resolveSwitchboardModeForCache(runtimeStatus),
                       semanticCacheEnabled: semanticCacheStatus.enabled,
                       proxyReachable: Boolean(runtimeStatus.proxyReachable),
                     }).reason

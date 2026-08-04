@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "requiredSignals": [
+    "capability_version_ok",
+    "protected_content_ok",
+    "fail_open_ok",
+    "shadow_contract_ok"
+  ],
+  "liveProviderRouting": false,
+  "notes": [
+    "leanctx remains shadow-only until live promotion evidence passes review.",
+    "Master activation may enable leanctx-shadow when shadow evidence passes."
+  ]
+}

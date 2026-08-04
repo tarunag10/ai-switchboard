@@ -19,6 +19,7 @@ import { MeasuredAddonSavingsForm } from "./MeasuredAddonSavingsForm";
 import { PlannedAddonCard } from "./PlannedAddonCard";
 import { GatewayProfilesCard } from "./GatewayProfilesCard";
 import { OptimizationEngineProfilesCard } from "./OptimizationEngineProfilesCard";
+import { ProviderBilledCounterfactualCard } from "./ProviderBilledCounterfactualCard";
 
 export interface AddonsViewProps {
   activeView: TrayView;
@@ -341,6 +342,11 @@ export function AddonsView({
               void copyPlannedConnectorCommand(markdown, label)
             }
           />
+          <li className="addon-card addon-card--planned">
+            <ProviderBilledCounterfactualCard
+              onRecorded={onMeasuredAddonSavingsRecorded}
+            />
+          </li>
         </ul>
       </section>
     </div>

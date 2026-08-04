@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "nativeWritesAllowed": false,
+  "requiredSignals": [
+    "assess_native_schema",
+    "supported: false",
+    "CURSOR_NATIVE_GATE_REASON"
+  ],
+  "notes": [
+    "Cursor native provider writes stay blocked until a documented on-disk schema is allowlisted.",
+    "Switchboard-owned sidecar routing and Repo Intelligence packs remain available."
+  ]
+}

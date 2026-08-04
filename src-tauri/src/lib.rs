@@ -58,6 +58,7 @@ mod pricing_commands;
 mod process_runner;
 mod proxy_intercept;
 mod proxy_session_auth;
+mod provider_billed_counterfactual;
 mod release_evidence;
 mod repo_intelligence;
 mod repo_intelligence_commands;
@@ -718,6 +719,8 @@ pub fn run() {
             dashboard_commands::get_savings_attribution_events,
             dashboard_commands::get_savings_attribution_counters,
             dashboard_commands::record_measured_savings_attribution,
+            dashboard_commands::record_provider_billed_counterfactual,
+            dashboard_commands::get_provider_billed_usage_snapshot,
             rollback_commands::preview_managed_config_apply,
             rollback_commands::execute_managed_config_apply,
             rollback_commands::preview_managed_rollback,

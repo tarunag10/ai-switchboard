@@ -45,6 +45,15 @@ if (!libRs.includes("get_cursor_native_schema_assessment")) {
   fail("cursor native assessment command is not registered in lib.rs");
 }
 
+const fixturePath = path.join(root, "fixtures/cursor-native-gate-evidence.json");
+if (!fs.existsSync(fixturePath)) {
+  fail("missing fixtures/cursor-native-gate-evidence.json");
+}
+const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+if (fixture.nativeWritesAllowed !== false) {
+  fail("cursor native gate fixture must keep nativeWritesAllowed false");
+}
+
 console.log(
   JSON.stringify(
     {

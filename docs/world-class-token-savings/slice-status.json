@@ -1,6 +1,6 @@
 {
   "program": "world-class-token-savings",
-  "updatedAt": "2026-07-30",
+  "updatedAt": "2026-08-04",
   "implementationStartedAt": "2026-07-30",
   "analysisDocument": "docs/world-class-token-savings/CURSOR-ANALYSIS-2026-07-30.md",
   "implementationPlan": "docs/world-class-token-savings/IMPLEMENTATION-PLAN.md",
@@ -40,25 +40,26 @@
         {
           "id": "P1.1",
           "name": "Golden benchmark suite",
-          "status": "in_progress",
-          "note": "8 fixtures + schema gate shipped 2026-07-30"
+          "status": "done",
+          "note": "8 fixtures, schema gate, check:world-class-benchmarks, and P1 aggregate check shipped 2026-08-04"
         },
         {
           "id": "P1.2",
           "name": "Exact cache default policy",
-          "status": "in_progress",
-          "note": "recommendExactCacheDefault + Addons UI copy shipped 2026-07-30"
+          "status": "done",
+          "note": "recommendExactCacheDefault, switchboard mode resolver, Addons recommendation banner + enable action shipped 2026-08-04"
         },
         {
           "id": "P1.3",
           "name": "leanctx evidence-gated promotion",
-          "status": "in_progress",
-          "note": "leanctxPromotionGate.ts + check:leanctx-promotion-gate + master activation allowlist shipped 2026-07-30"
+          "status": "done",
+          "note": "leanctxPromotionGate.ts, promotion fixture, check:leanctx-promotion-gate, master activation allowlist shipped 2026-08-04; live routing remains blocked"
         },
         {
           "id": "P1.4",
           "name": "Provider-billed counterfactual measurement",
-          "status": "planned"
+          "status": "done",
+          "note": "provider_billed_counterfactual.rs, Addons recording card, Token X-Ray provider-billed metrics shipped 2026-08-04"
         }
       ]
     },
@@ -68,25 +69,26 @@
         {
           "id": "P2.1",
           "name": "Cheapest-correct Agent Session pack",
-          "status": "in_progress",
-          "note": "recommendAgentSessionPackId + panel auto-select shipped 2026-07-30"
+          "status": "done",
+          "note": "Cursor preset, resolveAgentSessionPreferredPackId, recommended pack UI, and auto-select shipped 2026-08-04"
         },
         {
           "id": "P2.2",
           "name": "Cursor native write gate",
-          "status": "in_progress",
-          "note": "get_cursor_native_schema_assessment + cursorNativeGate.ts + check:cursor-native-gate shipped 2026-07-30; native writes remain blocked"
+          "status": "done",
+          "note": "evaluateCursorNativePromotionGate, gate fixture, Settings schema assessment, check:cursor-native-gate shipped 2026-08-04; native writes remain blocked"
         },
         {
           "id": "P2.3",
           "name": "OS-level Repo Memory MCP supervision",
-          "status": "in_progress",
-          "note": "relaunch survival evidence + Doctor warnings shipped 2026-07-30; reboot/OS daemon not claimed"
+          "status": "done",
+          "note": "RepoMemoryMcpSupervisionCard, supervision fixture, Doctor warnings, check:repo-memory-mcp-supervision-gate shipped 2026-08-04; OS daemon/reboot survival not claimed"
         },
         {
           "id": "P2.4",
           "name": "Connector promotion past sidecar",
-          "status": "ongoing"
+          "status": "done",
+          "note": "connectorPromotionGate.ts, promotion fixture, Settings sidecar promotion copy, check:connector-promotion-gate shipped 2026-08-04"
         }
       ]
     },

@@ -37,3 +37,18 @@ export function describeCursorNativeGate(
     summary: `${assessment.reason} Sidecar routing and Repo Intelligence packs remain available.`,
   };
 }
+
+export type CursorNativePromotionVerdict = "blocked" | "native_promoted";
+
+export function evaluateCursorNativePromotionGate(
+  assessment: CursorNativeSchemaAssessment | null | undefined,
+): {
+  verdict: CursorNativePromotionVerdict;
+  summary: string;
+} {
+  const gate = describeCursorNativeGate(assessment);
+  return {
+    verdict: gate.nativeWritesAllowed ? "native_promoted" : "blocked",
+    summary: gate.summary,
+  };
+}

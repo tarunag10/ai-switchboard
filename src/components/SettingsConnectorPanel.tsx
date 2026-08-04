@@ -26,9 +26,10 @@ import {
   getPlannedConnectorNextStep,
 } from "../lib/settingsConnectorCopy";
 import {
-  describeCursorNativeGate,
+  evaluateCursorNativePromotionGate,
   type CursorNativeSchemaAssessment,
 } from "../lib/cursorNativeGate";
+import { evaluateConnectorPromotionGate } from "../lib/connectorPromotionGate";
 import type { ClientConnectorStatus } from "../lib/types";
 
 export interface PlannedConnectorReadinessSummary {
@@ -279,11 +280,16 @@ export function SettingsConnectorPanel({
                             <p className="connector-plan__native-boundary">
                               <strong>Schema assessment:</strong>{" "}
                               {
-                                describeCursorNativeGate(cursorNativeAssessment)
-                                  .summary
+                                evaluateCursorNativePromotionGate(
+                                  cursorNativeAssessment,
+                                ).summary
                               }
                             </p>
                           ) : null}
+                          <p className="connector-plan__native-boundary">
+                            <strong>Sidecar promotion:</strong>{" "}
+                            {evaluateConnectorPromotionGate(plannedReadiness).reasons.join(" ")}
+                          </p>
                           <div
                             className="connector-plan__stage-row"
                             aria-label={`${connector.name} readiness contract`}

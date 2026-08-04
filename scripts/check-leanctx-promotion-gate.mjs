@@ -64,6 +64,20 @@ if (!gateSource.includes('MASTER_ACTIVATION_LEANCTX_SHADOW_ID = "leanctx-shadow"
   fail("master activation leanctx-shadow id is missing");
 }
 
+const fixturePath = path.join(root, "fixtures/leanctx-promotion-evidence.json");
+if (!fs.existsSync(fixturePath)) {
+  fail("missing fixtures/leanctx-promotion-evidence.json");
+}
+const fixture = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+if (fixture.liveProviderRouting !== false) {
+  fail("leanctx promotion fixture must keep liveProviderRouting false");
+}
+for (const signal of fixture.requiredSignals ?? []) {
+  if (typeof signal !== "string" || !signal.trim()) {
+    fail("leanctx promotion fixture has invalid requiredSignals entry");
+  }
+}
+
 console.log(
   JSON.stringify(
     {

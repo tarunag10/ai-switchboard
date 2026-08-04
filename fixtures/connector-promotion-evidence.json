@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "requiredSidecarStages": [
+    "detected",
+    "manualGuide",
+    "backupImplemented",
+    "applyImplemented",
+    "verifyImplemented",
+    "rollbackImplemented",
+    "offCleanupImplemented"
+  ],
+  "promotedNativeConnectorIds": ["goose", "grok_cli"],
+  "gatedNativeConnectorIds": ["cursor"],
+  "notes": [
+    "Sidecar promotion requires every lifecycle stage to be ready on fixture homes.",
+    "Native provider writes remain a separate gate from managed sidecar routing."
+  ]
+}

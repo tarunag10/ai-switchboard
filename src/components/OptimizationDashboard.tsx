@@ -23,6 +23,7 @@ import {
   validateModelRouting,
 } from "../lib/optimization";
 import { AgentSessionPanel } from "./AgentSessionPanel";
+import { RepoMemoryMcpSupervisionCard } from "./RepoMemoryMcpSupervisionCard";
 import { RedundancyPanel } from "./RedundancyPanel";
 import { RoutingDecisionList, TokenXrayPanel } from "./TokenXrayPanel";
 
@@ -370,6 +371,7 @@ export function OptimizationDashboard() {
       <TokenXrayPanel snapshot={snapshot.tokenXray} />
       <RedundancyPanel findings={snapshot.redundancy} />
       <AgentSessionPanel />
+      <RepoMemoryMcpSupervisionCard />
       <RoutingDecisionList decisions={snapshot.routing} />
       <RoutingValidationPanel />
 

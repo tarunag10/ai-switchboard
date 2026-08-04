@@ -11,6 +11,9 @@ use crate::analytics_models::{
 use crate::analytics_normalization::{confidence, normalize};
 use crate::models::{DashboardState, SavingsAttributionEvent, UsageOutcome};
 use crate::optimization::cache_metrics::CacheTokenMetricsEvidence;
+use crate::provider_billed_counterfactual::{
+    extract_headroom_baseline_tokens, extract_headroom_billed_input_tokens,
+};
 
 const TIMELINE_LIMIT: usize = 50;
 const LIVE_UPDATE_TIMELINE_LIMIT: usize = 12;
@@ -84,6 +87,7 @@ pub(crate) fn build_snapshot_with_cache_metrics(
     dashboard: &DashboardState,
     attribution: Vec<SavingsAttributionEvent>,
     cache_metrics: Option<CacheTokenMetricsEvidence>,
+    headroom_provider_billed: Option<(Option<u64>, Option<u64>)>,
 ) -> TokenXraySnapshotV1 {
     let normalized = normalize(dashboard, attribution, |_| true, |_| true);
     let latest = normalized.usage.iter().max_by_key(|event| event.timestamp);
@@ -176,6 +180,16 @@ pub(crate) fn build_snapshot_with_cache_metrics(
                 "Exact request-level pricing is not available in the current local session.",
             ),
             estimated_savings_usd: savings_usd,
+            provider_billed_input_tokens: provider_billed_metric(
+                headroom_provider_billed,
+                ProviderBilledMetricKind::Optimized,
+                observed_at,
+            ),
+            provider_billed_baseline_tokens: provider_billed_metric(
+                headroom_provider_billed,
+                ProviderBilledMetricKind::Baseline,
+                observed_at,
+            ),
         },
         context_pressure,
         sources: normalized.source_impacts,
@@ -188,6 +202,51 @@ pub(crate) fn build_snapshot_with_cache_metrics(
 enum CacheMetricKind {
     Read,
     Write,
+}
+
+#[derive(Clone, Copy)]
+enum ProviderBilledMetricKind {
+    Optimized,
+    Baseline,
+}
+
+fn provider_billed_metric(
+    headroom_provider_billed: Option<(Option<u64>, Option<u64>)>,
+    kind: ProviderBilledMetricKind,
+    observed_at: Option<chrono::DateTime<Utc>>,
+) -> TokenMetricV1 {
+    let Some((sent, saved)) = headroom_provider_billed else {
+        return TokenMetricV1::unavailable(
+            "provider_billed_usage",
+            "Provider-billed counters require reachable Headroom /stats evidence.",
+        );
+    };
+    let value = match kind {
+        ProviderBilledMetricKind::Optimized => extract_headroom_billed_input_tokens(sent),
+        ProviderBilledMetricKind::Baseline => {
+            extract_headroom_baseline_tokens(sent, saved)
+        }
+    };
+    let Some(value) = value else {
+        return TokenMetricV1::unavailable(
+            "provider_billed_usage",
+            "Headroom /stats did not expose a complete provider-billed counterfactual pair.",
+        );
+    };
+    TokenMetricV1 {
+        value: Some(value as f64),
+        confidence: AnalyticsEvidenceConfidence::Measured,
+        source: "headroom_stats_provider_billed".into(),
+        observed_at,
+        caveat: Some(match kind {
+            ProviderBilledMetricKind::Optimized => {
+                "Measured after-compression billed input tokens from Headroom /stats.".into()
+            }
+            ProviderBilledMetricKind::Baseline => {
+                "Measured counterfactual baseline reconstructed from saved + sent Headroom /stats counters.".into()
+            }
+        }),
+    }
 }
 
 fn cache_metric(
@@ -540,6 +599,7 @@ mod tests {
                 cache_creation_tokens: 2_000,
                 cache_read_tokens: 25_000,
             })),
+            None,
         );
         assert_eq!(snapshot.model.as_deref(), Some("gpt-4o"));
         assert_eq!(snapshot.context_pressure.limit_tokens, Some(128_000));
@@ -561,6 +621,7 @@ mod tests {
             &dashboard_with_usage(vec![usage("https://example.test/model=latest", 10, 2)]),
             vec![],
             None,
+            None,
         );
         assert!(snapshot.model.is_none());
         assert!(snapshot.context_pressure.percent.is_none());
@@ -580,6 +641,7 @@ mod tests {
                 2,
             )]),
             vec![],
+            None,
             None,
         );
         let serialized = serde_json::to_string(&snapshot).expect("serializes snapshot");
@@ -604,7 +666,7 @@ mod tests {
             .map(|index| usage("https://example.test/model=latest", index + 1, 2))
             .collect();
         let snapshot =
-            build_snapshot_with_cache_metrics(&dashboard_with_usage(usage), vec![], None);
+            build_snapshot_with_cache_metrics(&dashboard_with_usage(usage), vec![], None, None);
         let update = live_update_projection(snapshot, 7);
 
         assert_eq!(update.revision, 7);
@@ -622,6 +684,7 @@ mod tests {
             &dashboard_with_usage(vec![usage("https://api.openai.com/gpt-4o", 10, 2)]),
             vec![],
             None,
+            None,
         );
         let mut coalescer = TokenXrayUpdateCoalescer::default();
 
@@ -635,10 +698,12 @@ mod tests {
             &dashboard_with_usage(vec![usage("https://api.openai.com/gpt-4o", 10, 2)]),
             vec![],
             None,
+            None,
         );
         let changed = build_snapshot_with_cache_metrics(
             &dashboard_with_usage(vec![usage("https://api.openai.com/gpt-4o", 11, 2)]),
             vec![],
+            None,
             None,
         );
         let mut coalescer = TokenXrayUpdateCoalescer::default();

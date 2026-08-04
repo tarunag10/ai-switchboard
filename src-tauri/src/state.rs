@@ -1650,6 +1650,7 @@ impl AppState {
             crate::optimization::telemetry_store::prompt_cache_totals_evidence_result()
                 .ok()
                 .flatten(),
+            self.headroom_provider_billed_for_xray(),
         );
         self.token_xray_update_coalescer
             .lock()
@@ -1814,6 +1815,27 @@ impl AppState {
         };
 
         self.append_savings_attribution(&event)
+    }
+
+    pub fn headroom_provider_billed_for_xray(&self) -> Option<(Option<u64>, Option<u64>)> {
+        self.cached_headroom_stats().map(|stats| {
+            (
+                stats.session_total_tokens_sent,
+                stats.session_estimated_tokens_saved,
+            )
+        })
+    }
+
+    pub fn record_provider_billed_counterfactual(
+        &self,
+        request: crate::provider_billed_counterfactual::ProviderBilledCounterfactualRequest,
+    ) -> Result<(), String> {
+        let event = crate::provider_billed_counterfactual::build_provider_billed_attribution_event(
+            &request,
+        )
+        .map_err(|error| format!("{error:?}"))?;
+        self.append_savings_attribution(&event)
+            .map_err(|error| error.to_string())
     }
 
     pub fn dashboard_with_pending_milestones(&self) -> (DashboardState, PendingMilestones) {

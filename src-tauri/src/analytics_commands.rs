@@ -20,6 +20,7 @@ pub async fn get_token_xray_snapshot(app: AppHandle) -> Result<TokenXraySnapshot
             crate::optimization::telemetry_store::prompt_cache_totals_evidence_result()
                 .ok()
                 .flatten(),
+            state.headroom_provider_billed_for_xray(),
         )
     })
     .await
@@ -48,8 +49,14 @@ fn xray_snapshot(
     dashboard: &DashboardState,
     attribution: Vec<SavingsAttributionEvent>,
     cache_metrics: Option<CacheTokenMetricsEvidence>,
+    headroom_provider_billed: Option<(Option<u64>, Option<u64>)>,
 ) -> TokenXraySnapshotV1 {
-    token_xray::build_snapshot_with_cache_metrics(dashboard, attribution, cache_metrics)
+    token_xray::build_snapshot_with_cache_metrics(
+        dashboard,
+        attribution,
+        cache_metrics,
+        headroom_provider_billed,
+    )
 }
 
 /// Builds the local current-day briefing from the existing in-memory usage and
@@ -155,7 +162,7 @@ mod tests {
 
     #[test]
     fn command_mapper_keeps_failed_cache_telemetry_unavailable() {
-        let snapshot = xray_snapshot(&empty_dashboard(), vec![], None);
+        let snapshot = xray_snapshot(&empty_dashboard(), vec![], None, None);
         assert!(snapshot.metrics.cache_read_tokens.value.is_none());
         assert!(matches!(
             snapshot.metrics.cache_read_tokens.confidence,

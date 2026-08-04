@@ -32,6 +32,31 @@ const requiredCodeSignals = [
     needles: ["resolveMasterActivationLocalOptimizations", "evaluateLeanctxPromotionGate"],
   },
   {
+    label: "provider-billed counterfactual",
+    file: "src/lib/providerBilledCounterfactual.ts",
+    needles: ["validateProviderBilledCounterfactual", "recordProviderBilledCounterfactual"],
+  },
+  {
+    label: "switchboard mode resolver for cache",
+    file: "src/lib/switchboardModeForCache.ts",
+    needles: ["resolveSwitchboardModeForCache"],
+  },
+  {
+    label: "agent session pack recommendation",
+    file: "src/lib/agentSessionPacks.ts",
+    needles: ["recommendAgentSessionPackId", "resolveAgentSessionPreferredPackId"],
+  },
+  {
+    label: "connector promotion gate",
+    file: "src/lib/connectorPromotionGate.ts",
+    needles: ["evaluateConnectorPromotionGate"],
+  },
+  {
+    label: "repo memory MCP supervision",
+    file: "src/lib/repoMemoryMcpSupervision.ts",
+    needles: ["deriveRepoMemoryMcpSupervisionSummary"],
+  },
+  {
     label: "cursor native write gate",
     file: "src/lib/cursorNativeGate.ts",
     needles: ["describeCursorNativeGate"],

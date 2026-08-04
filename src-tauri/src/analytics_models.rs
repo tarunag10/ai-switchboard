@@ -116,6 +116,17 @@ pub struct TokenXrayMetricsV1 {
     pub avoided_tokens: TokenMetricV1,
     pub estimated_cost_usd: TokenMetricV1,
     pub estimated_savings_usd: TokenMetricV1,
+    #[serde(default = "default_provider_billed_metric")]
+    pub provider_billed_input_tokens: TokenMetricV1,
+    #[serde(default = "default_provider_billed_metric")]
+    pub provider_billed_baseline_tokens: TokenMetricV1,
+}
+
+fn default_provider_billed_metric() -> TokenMetricV1 {
+    TokenMetricV1::unavailable(
+        "provider_billed_usage",
+        "Provider-billed input tokens are unavailable until a credible usage endpoint exposes them.",
+    )
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
