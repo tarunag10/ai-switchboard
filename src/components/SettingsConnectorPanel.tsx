@@ -513,7 +513,7 @@ export function SettingsConnectorPanel({
                 <div className="connector-item__controls">
                   {manualOnly ? (
                     <button
-                      className="connector-item__action connector-item__action--primary"
+                      className="secondary-button secondary-button--small connector-item__manual-guide"
                       disabled={connectorsBusy}
                       onClick={() =>
                         void copyPlannedConnectorCommand(

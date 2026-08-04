@@ -46,28 +46,38 @@ export function ProxySessionAuthCard() {
   const copy = describeProxySessionAuthStatus(status);
 
   return (
-    <article className="soft-card panel-card" id="proxy-session-auth">
+    <article
+      className="soft-card panel-card proxy-session-auth-card"
+      id="proxy-session-auth"
+    >
       <div className="panel-card__header">
         <div>
           <h3>Proxy session auth</h3>
-          <p className="panel-card__lede">
+          <p>
             Optional per-app-session token for loopback Headroom proxy traffic.
           </p>
         </div>
       </div>
-      <p role="status" aria-live="polite">
+      <p className="proxy-session-auth-card__status" role="status" aria-live="polite">
         <strong>{copy.label}.</strong> {copy.detail}
       </p>
       {status ? (
-        <p className="optimize-minimal__meta">
-          Validated {status.validatedRequestCount} · Rejected{" "}
-          {status.rejectedRequestCount}
-        </p>
+        <div
+          className="proxy-session-auth-card__metrics"
+          aria-label="Proxy session auth counters"
+        >
+          <span>
+            Validated <strong>{status.validatedRequestCount}</strong>
+          </span>
+          <span>
+            Rejected <strong>{status.rejectedRequestCount}</strong>
+          </span>
+        </div>
       ) : null}
-      <div className="connector-item__controls">
+      <div className="settings-transfer__actions">
         <button
           type="button"
-          className="connector-item__action connector-item__action--primary"
+          className="secondary-button secondary-button--small"
           disabled={busy || !status?.available}
           onClick={() => void setEnforce(!status?.enforce)}
         >
@@ -79,7 +89,7 @@ export function ProxySessionAuthCard() {
         </button>
         <button
           type="button"
-          className="connector-item__action"
+          className="secondary-button secondary-button--small"
           disabled={busy}
           onClick={() => void refresh()}
         >
