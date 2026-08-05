@@ -52,6 +52,10 @@ export interface MasterActivationCardProps {
   /** Optional so existing activation-only callers remain source-compatible. */
   onDeactivateFeature?: (featureId: MasterFeatureId) => void | Promise<void>;
   onOpenFeature?: (featureId: MasterFeatureId) => void;
+  /** Enables the evidence-gated max compression preset. */
+  onActivateMaxCompression?: () => void | Promise<void>;
+  maxCompressionDisclosure?: string;
+  maxCompressionBusy?: boolean;
   /** Overrides the derived active state when activation is managed externally. */
   isActive?: boolean;
   /** Identifies which operation is currently represented by a running state. */
@@ -101,6 +105,9 @@ export function MasterActivationCard({
   onActivateFeature,
   onDeactivateFeature,
   onOpenFeature,
+  onActivateMaxCompression,
+  maxCompressionDisclosure,
+  maxCompressionBusy = false,
   isActive,
   operation,
   title = "Activate your AI workspace",
@@ -131,6 +138,7 @@ export function MasterActivationCard({
         .master-activation-card:before{content:"";position:absolute;inset:0 0 auto;height:4px;background:linear-gradient(90deg,var(--master-accent),#e6a43a,var(--master-green))}
         .master-activation-card__head{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.master-activation-card__eyebrow{margin:0 0 8px;color:var(--master-accent);font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}.master-activation-card h2{margin:0;font-size:clamp(20px,2.5vw,30px);letter-spacing:-.03em}.master-activation-card__description{max-width:590px;margin:8px 0 0;color:var(--master-muted);line-height:1.5}.master-activation-card__summary{flex:0 0 auto;text-align:right}.master-activation-card__summary strong{display:block;font-size:25px;line-height:1}.master-activation-card__summary span{color:var(--master-muted);font-size:12px}
         .master-activation-card__primary{display:inline-flex;align-items:center;justify-content:center;gap:9px;margin-top:20px;border:0;border-radius:10px;background:var(--master-ink);color:#fff;padding:13px 18px;font:inherit;font-weight:750;cursor:pointer;transition:transform .16s ease,background .16s ease}.master-activation-card__primary:hover:not(:disabled){background:#263746;transform:translateY(-1px)}.master-activation-card__primary:focus-visible,.master-activation-card button:focus-visible{outline:3px solid #e6a43a;outline-offset:3px}.master-activation-card__primary:disabled{cursor:wait;opacity:.65}
+        .master-activation-card__secondary{display:inline-flex;align-items:center;justify-content:center;gap:9px;margin-top:10px;margin-left:0;border:1px solid var(--master-line);border-radius:10px;background:#fff;color:var(--master-ink);padding:11px 16px;font:inherit;font-weight:700;cursor:pointer}.master-activation-card__secondary:hover:not(:disabled){background:#f7faf8}.master-activation-card__secondary:disabled{cursor:wait;opacity:.65}
         .master-activation-card__progress{margin-top:20px}.master-activation-card__progress-label{display:flex;justify-content:space-between;gap:12px;color:var(--master-muted);font-size:12px;margin-bottom:7px}.master-activation-card__progress-track{height:7px;border-radius:99px;background:#e6ece8;overflow:hidden}.master-activation-card__progress-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--master-accent),var(--master-green));transition:width .25s ease}.master-activation-card__state{margin:12px 0 0;color:var(--master-muted);font-size:13px}.master-activation-card__state strong{color:var(--master-ink)}
         .master-activation-card__list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:22px 0 0;padding:0;list-style:none}.master-activation-card__row{display:flex;align-items:center;gap:12px;min-width:0;border:1px solid var(--master-line);border-radius:12px;background:rgba(255,255,255,.7);padding:12px}.master-activation-card__icon{display:grid;place-items:center;flex:none;width:31px;height:31px;border-radius:9px;background:#edf2ef;color:var(--master-green)}.master-activation-card__copy{min-width:0;flex:1}.master-activation-card__copy strong{display:block;font-size:13px}.master-activation-card__copy p{margin:3px 0 0;color:var(--master-muted);font-size:11px;line-height:1.35}.master-activation-card__meta{display:flex;align-items:center;gap:5px;margin-top:5px;color:var(--master-muted);font-size:10px}.master-activation-card__meta svg{width:14px;color:var(--master-green)}.master-activation-card__row[data-status="gated"] .master-activation-card__meta,.master-activation-card__row[data-status="manual"] .master-activation-card__meta,.master-activation-card__row[data-status="error"] .master-activation-card__meta{color:#a2492f}.master-activation-card__row[data-status="complete"] .master-activation-card__icon{background:#dff1e8;color:var(--master-green)}.master-activation-card__status-dot{display:block;width:8px;height:8px;border-radius:50%;background:#aebbc2}.master-activation-card__actions{display:flex;flex-direction:column;gap:5px;flex:none}.master-activation-card__action{border:0;background:transparent;color:var(--master-ink);font:inherit;font-size:11px;font-weight:700;cursor:pointer;padding:4px}.master-activation-card__action:hover{text-decoration:underline}.master-activation-card__action:disabled{cursor:not-allowed;opacity:.45;text-decoration:none}
         .master-activation-card__disclosure{display:flex;gap:8px;align-items:flex-start;margin:18px 0 0;padding:11px 12px;border-radius:10px;background:#eef2f2;color:var(--master-muted);font-size:11px;line-height:1.45}.master-activation-card__disclosure svg{flex:none;color:#65777e;margin-top:1px}.master-activation-card__spin{animation:master-spin .9s linear infinite}@keyframes master-spin{to{transform:rotate(360deg)}}
@@ -146,6 +154,18 @@ export function MasterActivationCard({
             {isRunning ? <CircleNotch className="master-activation-card__spin" weight="bold" aria-hidden="true" /> : <Play weight="fill" aria-hidden="true" />}
             {primaryActionLabel}
           </button>
+          {onActivateMaxCompression ? (
+            <button
+              className="master-activation-card__secondary"
+              type="button"
+              onClick={() => void onActivateMaxCompression()}
+              disabled={isRunning || maxCompressionBusy || isWorkspaceActive}
+              aria-label="Enable max compression"
+            >
+              <Lightning weight="fill" aria-hidden="true" />
+              {maxCompressionBusy ? "Enabling max compression…" : "Enable max compression"}
+            </button>
+          ) : null}
         </div>
         <div className="master-activation-card__summary" aria-label={`${completed} of ${total} features complete`}>
           <strong>{completed}/{total}</strong><span>features ready</span>
@@ -174,7 +194,7 @@ export function MasterActivationCard({
           </li>;
         })}
       </ul>
-      <p className="master-activation-card__disclosure"><Info weight="duotone" aria-hidden="true" /><span><strong>Safety boundary:</strong> activation prepares and verifies local capabilities. Gateway/MCP setup, provider credentials, external infrastructure, and any destructive rollback action remain explicitly gated or manual.</span></p>
+      <p className="master-activation-card__disclosure"><Info weight="duotone" aria-hidden="true" /><span><strong>Safety boundary:</strong> activation prepares and verifies local capabilities. Gateway/MCP setup, provider credentials, external infrastructure, and any destructive rollback action remain explicitly gated or manual.{maxCompressionDisclosure ? <> <strong>Max compression:</strong> {maxCompressionDisclosure}</> : null}</span></p>
     </section>
   );
 }

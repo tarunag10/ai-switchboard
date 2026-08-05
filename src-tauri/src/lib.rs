@@ -17,6 +17,7 @@ mod claude_sessions;
 mod cli_discovery;
 mod cli_entry;
 mod client_adapters;
+mod compression_commands;
 mod client_cleanup;
 mod client_connector_list;
 mod client_connector_status;
@@ -54,6 +55,7 @@ mod optimization_addons_readiness;
 mod optimization_commands;
 mod port_conflict;
 mod pricing;
+mod provider_upstream_profiles;
 mod pricing_commands;
 mod process_runner;
 mod proxy_intercept;
@@ -824,6 +826,14 @@ pub fn run() {
             learning_commands::get_headroom_learn_prereq_status,
             learning_commands::start_headroom_learn,
             activity_commands::get_transformations_feed,
+            compression_commands::get_compression_profile,
+            compression_commands::set_compression_profile,
+            compression_commands::clear_compression_profile_command,
+            compression_commands::get_provider_upstream_profiles,
+            compression_commands::set_provider_upstream_profiles,
+            compression_commands::clear_provider_upstream_profiles_command,
+            compression_commands::test_provider_upstream_profile,
+            compression_commands::get_headroom_content_class_stats,
             client_setup_commands::apply_client_setup,
             client_setup_commands::verify_client_setup,
             connector_smoke::run_connector_smoke_test,

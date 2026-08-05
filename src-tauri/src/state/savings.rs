@@ -378,7 +378,10 @@ pub(super) fn maybe_append_measured_headroom_attribution(
         total_tokens_sent: optimized_tokens,
         request_delta,
         evidence: vec![format!(
-            "Headroom /stats measured {saved_tokens} saved tokens from {baseline_tokens} before to {optimized_tokens} after using session_estimated_tokens_saved and session_total_tokens_sent."
+            "Headroom /stats measured {saved_tokens} saved tokens from {baseline_tokens} before to {optimized_tokens} after using session_estimated_tokens_saved and session_total_tokens_sent. compression_preset={}.",
+            crate::tool_manager::compression_profiles::load_compression_profile()
+                .preset_id
+                .as_str()
         )],
     };
 
@@ -1364,6 +1367,16 @@ pub(super) struct HeadroomDashboardStats {
     pub(super) session_total_tokens_sent: Option<u64>,
     pub(super) savings_history: Vec<HeadroomSavingsHistoryPoint>,
     pub(super) output_reduction: Option<OutputReduction>,
+    pub(super) content_class: ContentClassCompressionStats,
+}
+
+/// Per-content-class compression savings parsed from Headroom `/stats` when exposed.
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ContentClassCompressionStats {
+    pub tool_result_tokens: Option<u64>,
+    pub history_tokens: Option<u64>,
+    pub user_message_tokens: Option<u64>,
 }
 
 /// Counterfactual output-token reduction from the proxy's output shaper,
@@ -1551,6 +1564,81 @@ pub(super) fn parse_output_reduction(root: &Value) -> Option<OutputReduction> {
     })
 }
 
+fn parse_content_class_bucket(node: &Value) -> Option<u64> {
+    find_u64_key_recursive(
+        node,
+        &[
+            "tokensSaved",
+            "tokens_saved",
+            "savedTokens",
+            "saved_tokens",
+            "saved",
+            "estimatedTokensSaved",
+            "estimated_tokens_saved",
+        ],
+    )
+}
+
+fn content_class_layer_value(root: &Value, keys: &[&str]) -> Option<u64> {
+    if let Some(by_layer) = value_at_path(root, &["savings", "by_layer"]) {
+        for key in keys {
+            if let Some(node) = by_layer.get(*key) {
+                if let Some(value) = parse_content_class_bucket(node) {
+                    return Some(value);
+                }
+            }
+        }
+    }
+    if let Some(by_content) = value_at_path(root, &["savings", "by_content_class"])
+        .or_else(|| value_at_path(root, &["compression", "by_content_class"]))
+    {
+        for key in keys {
+            if let Some(node) = by_content.get(*key) {
+                if let Some(value) = parse_content_class_bucket(node) {
+                    return Some(value);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Parse tool-result, history, and user-message savings buckets from `/stats`.
+pub(super) fn parse_content_class_compression(root: &Value) -> ContentClassCompressionStats {
+    ContentClassCompressionStats {
+        tool_result_tokens: content_class_layer_value(
+            root,
+            &[
+                "tool_results",
+                "tool_result",
+                "tool-results",
+                "toolResults",
+            ],
+        ),
+        history_tokens: content_class_layer_value(
+            root,
+            &["history", "history_compression", "historyCompression"],
+        ),
+        user_message_tokens: content_class_layer_value(
+            root,
+            &[
+                "user_messages",
+                "user_message",
+                "user-messages",
+                "userMessages",
+            ],
+        ),
+    }
+}
+
+impl ContentClassCompressionStats {
+    pub fn is_empty(self) -> bool {
+        self.tool_result_tokens.is_none()
+            && self.history_tokens.is_none()
+            && self.user_message_tokens.is_none()
+    }
+}
+
 pub(super) fn parse_headroom_stats_from_json(body: &str) -> Option<HeadroomDashboardStats> {
     let root = serde_json::from_str::<Value>(body).ok()?;
 
@@ -1706,6 +1794,7 @@ pub(super) fn parse_headroom_stats_from_json(body: &str) -> Option<HeadroomDashb
         .unwrap_or_default();
 
     let output_reduction = parse_output_reduction(&root);
+    let content_class = parse_content_class_compression(&root);
 
     if requests.is_none()
         && tokens.is_none()
@@ -1713,6 +1802,7 @@ pub(super) fn parse_headroom_stats_from_json(body: &str) -> Option<HeadroomDashb
         && session_total_tokens_sent.is_none()
         && actual_cost_usd.is_none()
         && output_reduction.is_none()
+        && content_class.is_empty()
     {
         None
     } else {
@@ -1725,6 +1815,7 @@ pub(super) fn parse_headroom_stats_from_json(body: &str) -> Option<HeadroomDashb
             session_total_tokens_sent,
             savings_history,
             output_reduction,
+            content_class,
         })
     }
 }
@@ -2445,8 +2536,8 @@ mod tests {
         aggregate_savings_attribution_counters, aggregate_weekly_totals,
         build_addon_attribution_event, build_agent_memory_attribution_event,
         build_repo_intelligence_attribution_event, lifetime_usd_milestones_crossed,
-        most_recent_monday, DailySavingsBucket, HeadroomDashboardStats,
-        HeadroomSavingsHistoryPoint, SavingsTracker,
+        most_recent_monday, parse_headroom_stats_from_json, DailySavingsBucket,
+        HeadroomDashboardStats, HeadroomSavingsHistoryPoint, SavingsTracker,
     };
 
     fn make_tracker() -> SavingsTracker {
@@ -2526,6 +2617,7 @@ mod tests {
             session_actual_cost_usd: Some(0.0),
             session_total_tokens_sent: Some(0),
             savings_history: Vec::new(),
+            ..Default::default()
         };
         tracker.observe(&stats);
         let milestones = tracker.take_pending_lifetime_usd_milestones();
@@ -2544,6 +2636,7 @@ mod tests {
             session_actual_cost_usd: Some(2.0),
             session_total_tokens_sent: Some(7500),
             savings_history: Vec::new(),
+            ..Default::default()
         };
 
         tracker.observe(&stats);
@@ -3006,5 +3099,26 @@ mod tests {
             most_recent_monday(NaiveDate::from_ymd_opt(2026, 5, 3).unwrap()),
             NaiveDate::from_ymd_opt(2026, 4, 27).unwrap()
         );
+    }
+
+    #[test]
+    fn parse_content_class_reads_by_layer_buckets() {
+        let parsed = parse_headroom_stats_from_json(
+            r#"{
+                "requests": { "total": 3 },
+                "tokens": { "saved": 900 },
+                "savings": {
+                    "by_layer": {
+                        "tool_results": { "tokens_saved": 400 },
+                        "history": { "tokens_saved": 300 },
+                        "user_messages": { "tokens_saved": 200 }
+                    }
+                }
+            }"#,
+        )
+        .expect("parsed stats");
+        assert_eq!(parsed.content_class.tool_result_tokens, Some(400));
+        assert_eq!(parsed.content_class.history_tokens, Some(300));
+        assert_eq!(parsed.content_class.user_message_tokens, Some(200));
     }
 }

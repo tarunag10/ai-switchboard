@@ -50,6 +50,7 @@ mod repo_memory_mcp;
 mod runtime_lifecycle;
 mod runtime_maintenance;
 mod savings;
+pub use savings::ContentClassCompressionStats;
 use headroom_learn_runtime::HeadroomLearnRuntimeState;
 use launch_profile::{
     persist_last_known_good_plan, persist_launch_profile, LastKnownGoodPlan, LaunchProfile,
@@ -1651,6 +1652,7 @@ impl AppState {
                 .ok()
                 .flatten(),
             self.headroom_provider_billed_for_xray(),
+            self.headroom_content_class_for_xray(),
         );
         self.token_xray_update_coalescer
             .lock()
@@ -1824,6 +1826,12 @@ impl AppState {
                 stats.session_estimated_tokens_saved,
             )
         })
+    }
+
+    pub fn headroom_content_class_for_xray(
+        &self,
+    ) -> Option<crate::state::ContentClassCompressionStats> {
+        self.cached_headroom_stats().map(|stats| stats.content_class)
     }
 
     pub fn record_provider_billed_counterfactual(
@@ -3236,6 +3244,7 @@ mod tests {
                 session_actual_cost_usd: Some(0.5),
                 session_total_tokens_sent: Some(12_000_000),
                 savings_history: Vec::new(),
+                ..Default::default()
             })
             .expect("snapshot");
 
@@ -3255,6 +3264,7 @@ mod tests {
                 session_actual_cost_usd: Some(1.0),
                 session_total_tokens_sent: Some(21_000_000),
                 savings_history: Vec::new(),
+                ..Default::default()
             })
             .expect("snapshot");
 
@@ -3284,6 +3294,7 @@ mod tests {
             session_actual_cost_usd: Some(0.5),
             session_total_tokens_sent: Some(1_500_000),
             savings_history: Vec::new(),
+            ..Default::default()
         };
 
         let (_, _, _, read_only) = state
@@ -3328,6 +3339,7 @@ mod tests {
                 session_actual_cost_usd: Some(3.8),
                 session_total_tokens_sent: Some(3_800),
                 savings_history: Vec::new(),
+                ..Default::default()
             })
             .expect("first snapshot");
         assert_eq!(first.session_requests, 10);
@@ -3348,6 +3360,7 @@ mod tests {
                 session_actual_cost_usd: Some(4.5),
                 session_total_tokens_sent: Some(4_500),
                 savings_history: Vec::new(),
+                ..Default::default()
             })
             .expect("second snapshot");
         assert_eq!(second.session_requests, 12);
@@ -3372,6 +3385,7 @@ mod tests {
                 session_actual_cost_usd: Some(4.0),
                 session_total_tokens_sent: Some(4_000),
                 savings_history: Vec::new(),
+                ..Default::default()
             })
             .expect("initial session");
 
@@ -3385,6 +3399,7 @@ mod tests {
                 session_actual_cost_usd: Some(0.9),
                 session_total_tokens_sent: Some(900),
                 savings_history: Vec::new(),
+                ..Default::default()
             })
             .expect("reset snapshot");
         assert_eq!(reset.session_requests, 2);
@@ -3412,6 +3427,7 @@ mod tests {
                     history_point_at(2026, 3, 20, 12, 400),
                     history_point_at(2026, 3, 21, 12, 1_000),
                 ],
+                ..Default::default()
             })
             .expect("snapshot");
 
@@ -3490,6 +3506,7 @@ mod tests {
                     history_point_at(y1, m1, d1, h1, 400),
                     history_point_at(y2, m2, d2, h2, 1_000),
                 ],
+                ..Default::default()
             })
             .expect("snapshot");
 
@@ -4051,6 +4068,7 @@ mod tests {
                 session_actual_cost_usd: Some(0.3),
                 session_total_tokens_sent: Some(3_000),
                 savings_history: Vec::new(),
+                ..Default::default()
             })
             .expect("snapshot");
 
@@ -4076,6 +4094,7 @@ mod tests {
                     history_point_at(2026, 3, 20, 12, 400),
                     history_point_at(2026, 3, 21, 12, 1_000),
                 ],
+                ..Default::default()
             })
             .expect("first snapshot");
 
@@ -4093,6 +4112,7 @@ mod tests {
                     history_point_at(2026, 3, 20, 12, 400),
                     history_point_at(2026, 3, 21, 12, 1_000),
                 ],
+                ..Default::default()
             })
             .expect("second snapshot");
 
@@ -4119,6 +4139,7 @@ mod tests {
                     history_point_at(2026, 3, 20, 8, 0),
                     history_point_at(2026, 3, 20, 9, 400),
                 ],
+                ..Default::default()
             })
             .expect("first snapshot");
 
@@ -4135,6 +4156,7 @@ mod tests {
                     history_point_at(2026, 3, 20, 9, 400),
                     history_point_at(2026, 3, 20, 10, 1_000),
                 ],
+                ..Default::default()
             })
             .expect("second snapshot");
 
@@ -4215,6 +4237,7 @@ mod tests {
                     history_point_at(2026, 3, 24, 11, 0),
                     history_point_at(2026, 3, 24, 12, 10_200),
                 ],
+                ..Default::default()
             })
             .expect("snapshot");
 
@@ -4242,6 +4265,7 @@ mod tests {
                     history_point_at(2026, 3, 20, 9, 400),
                     history_point_at(2026, 3, 20, 10, 1_000),
                 ],
+                ..Default::default()
             })
             .expect("first snapshot");
 
@@ -4258,6 +4282,7 @@ mod tests {
                     history_point_at(2026, 3, 20, 10, 1_000),
                     history_point_at(2026, 3, 20, 10, 1_200),
                 ],
+                ..Default::default()
             })
             .expect("second snapshot");
 
@@ -4281,6 +4306,7 @@ mod tests {
                 session_actual_cost_usd: Some(0.12),
                 session_total_tokens_sent: Some(1_200),
                 savings_history: vec![history_point_at(2026, 3, 20, 9, 400)],
+                ..Default::default()
             })
             .expect("snapshot");
 
@@ -4306,6 +4332,7 @@ mod tests {
                     history_point_at(2026, 3, 20, 9, 8_000),
                     history_point_at(2026, 3, 20, 10, 10_000),
                 ],
+                ..Default::default()
             })
             .expect("snapshot");
 
@@ -4337,6 +4364,7 @@ mod tests {
                     history_point_at(2026, 3, 20, 9, 4_000),
                     history_point_at(2026, 3, 20, 10, 7_000),
                 ],
+                ..Default::default()
             })
             .expect("first snapshot");
 
@@ -4353,6 +4381,7 @@ mod tests {
                     history_point_at(2026, 3, 20, 10, 7_000),
                     history_point_at(2026, 3, 20, 11, 10_000),
                 ],
+                ..Default::default()
             })
             .expect("second snapshot");
 
@@ -4377,6 +4406,7 @@ mod tests {
                 session_actual_cost_usd: Some(4.0),
                 session_total_tokens_sent: Some(4_000),
                 savings_history: Vec::new(),
+                ..Default::default()
             })
             .expect("first snapshot");
 
@@ -4390,6 +4420,7 @@ mod tests {
                 session_actual_cost_usd: None,
                 session_total_tokens_sent: None,
                 savings_history: Vec::new(),
+                ..Default::default()
             })
             .expect("second snapshot");
 
@@ -4441,6 +4472,7 @@ mod tests {
                 session_actual_cost_usd: Some(2.4),
                 session_total_tokens_sent: Some(4_400),
                 savings_history: Vec::new(),
+                ..Default::default()
             })
             .expect("snapshot");
 
@@ -4712,6 +4744,7 @@ mod tests {
             session_actual_cost_usd: Some(0.5),
             session_total_tokens_sent: Some(3_000),
             savings_history: vec![hp(9, 0), hp(10, 1_000)],
+            ..Default::default()
         });
         let total_first: u64 = tracker
             .hourly_savings()
@@ -4729,6 +4762,7 @@ mod tests {
             session_actual_cost_usd: Some(1.5),
             session_total_tokens_sent: Some(9_000),
             savings_history: vec![hp(9, 0), hp(10, 1_000), hp(11, 3_000)],
+        ..Default::default()
         });
         let total_second: u64 = tracker
             .hourly_savings()
@@ -4991,6 +5025,7 @@ mod tests {
             session_total_tokens_sent: Some(7_500),
             savings_history: Vec::new(),
             output_reduction: None,
+            ..Default::default()
         };
 
         super::maybe_append_measured_headroom_attribution(&mut tracker, &stats)
@@ -5021,6 +5056,7 @@ mod tests {
             session_total_tokens_sent: Some(7_500),
             savings_history: Vec::new(),
             output_reduction: None,
+            ..Default::default()
         };
 
         super::maybe_append_measured_headroom_attribution(&mut tracker, &stats)

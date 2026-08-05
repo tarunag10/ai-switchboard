@@ -126,6 +126,7 @@ const REPO_MEMORY_MCP_NAME: &str = "repo-memory";
 const REPO_MEMORY_MCP_SMOKE_TEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 mod caveman;
+pub(crate) mod compression_profiles;
 mod headroom_receipt;
 mod headroom_runtime;
 mod leanctx;

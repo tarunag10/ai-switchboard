@@ -67,6 +67,7 @@ interface SwitchboardPanelProps {
   autoFixBusy?: boolean;
   onManageClients: () => void;
   onManageRtk: () => void;
+  onOpenCompressionPlaybook?: () => void;
 }
 
 const SWITCHBOARD_MODES: SwitchboardMode[] = ["full", "headroom", "rtk", "off"];
@@ -109,6 +110,7 @@ export function SwitchboardPanel({
   autoFixBusy = false,
   onManageClients,
   onManageRtk,
+  onOpenCompressionPlaybook,
 }: SwitchboardPanelProps) {
   const modeDiagnostic = switchboardModeDiagnostic(
     mode,
@@ -356,6 +358,15 @@ export function SwitchboardPanel({
     <span>Inspector verdict</span>
     <strong>{inspectorVerdict.verdict}</strong>
     {showInspectorDetails ? <small>{inspectorVerdict.summary}</small> : null}
+    {inspectorVerdict.verdict !== "aligned" && onOpenCompressionPlaybook ? (
+      <button
+        type="button"
+        className="switchboard-panel__inspector-action"
+        onClick={onOpenCompressionPlaybook}
+      >
+        Open compression playbook
+      </button>
+    ) : null}
   </div>
   <div>
     <span>Requested</span>

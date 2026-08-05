@@ -131,6 +131,12 @@ export interface HomeViewProps {
   onOpenMasterFeature: (featureId: MasterFeatureId) => void;
   masterActivationIsActive: boolean;
   masterOperation: "activate" | "deactivate";
+  onActivateMaxCompression?: () => void;
+  maxCompressionBusy?: boolean;
+  maxCompressionDisclosure?: string;
+  exactCacheRecommended?: boolean;
+  semanticCacheEnabled?: boolean;
+  onOpenCompressionPlaybook?: () => void;
 }
 
 export function HomeView({
@@ -206,6 +212,12 @@ export function HomeView({
   onOpenMasterFeature,
   masterActivationIsActive,
   masterOperation,
+  onActivateMaxCompression,
+  maxCompressionBusy = false,
+  maxCompressionDisclosure,
+  exactCacheRecommended = false,
+  semanticCacheEnabled = false,
+  onOpenCompressionPlaybook,
 }: HomeViewProps) {
   return (
     <div className="tray-content" hidden={hidden}>
@@ -341,6 +353,9 @@ export function HomeView({
         onActivateFeature={onActivateMasterFeature}
         onDeactivateFeature={onDeactivateMasterFeature}
         onOpenFeature={onOpenMasterFeature}
+        onActivateMaxCompression={onActivateMaxCompression}
+        maxCompressionDisclosure={maxCompressionDisclosure}
+        maxCompressionBusy={maxCompressionBusy}
         isActive={masterActivationIsActive}
         operation={masterOperation}
       />
@@ -428,6 +443,7 @@ export function HomeView({
         autoFixBusy={doctorRepairBusy === "repair_all"}
         onManageClients={() => setActiveView("settings")}
         onManageRtk={() => setActiveView("addons")}
+        onOpenCompressionPlaybook={onOpenCompressionPlaybook}
       />
 
       <SwitchboardDoctorPanel
@@ -436,6 +452,8 @@ export function HomeView({
         error={doctorRepairError}
         successMessage={doctorRepairSuccess}
         footprintReport={managedFootprintReport}
+        exactCacheRecommended={exactCacheRecommended}
+        semanticCacheEnabled={semanticCacheEnabled}
         onRepair={(action) => void handleDoctorRepair(action)}
       />
 

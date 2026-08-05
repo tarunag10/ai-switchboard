@@ -14,6 +14,7 @@ use crate::optimization::cache_metrics::CacheTokenMetricsEvidence;
 use crate::provider_billed_counterfactual::{
     extract_headroom_baseline_tokens, extract_headroom_billed_input_tokens,
 };
+use crate::state::ContentClassCompressionStats;
 
 const TIMELINE_LIMIT: usize = 50;
 const LIVE_UPDATE_TIMELINE_LIMIT: usize = 12;
@@ -88,6 +89,7 @@ pub(crate) fn build_snapshot_with_cache_metrics(
     attribution: Vec<SavingsAttributionEvent>,
     cache_metrics: Option<CacheTokenMetricsEvidence>,
     headroom_provider_billed: Option<(Option<u64>, Option<u64>)>,
+    content_class: Option<ContentClassCompressionStats>,
 ) -> TokenXraySnapshotV1 {
     let normalized = normalize(dashboard, attribution, |_| true, |_| true);
     let latest = normalized.usage.iter().max_by_key(|event| event.timestamp);
@@ -190,6 +192,21 @@ pub(crate) fn build_snapshot_with_cache_metrics(
                 ProviderBilledMetricKind::Baseline,
                 observed_at,
             ),
+            compression_tool_result_tokens: content_class_metric(
+                content_class,
+                ContentClassMetricKind::ToolResult,
+                observed_at,
+            ),
+            compression_history_tokens: content_class_metric(
+                content_class,
+                ContentClassMetricKind::History,
+                observed_at,
+            ),
+            compression_user_message_tokens: content_class_metric(
+                content_class,
+                ContentClassMetricKind::UserMessage,
+                observed_at,
+            ),
         },
         context_pressure,
         sources: normalized.source_impacts,
@@ -208,6 +225,51 @@ enum CacheMetricKind {
 enum ProviderBilledMetricKind {
     Optimized,
     Baseline,
+}
+
+#[derive(Clone, Copy)]
+enum ContentClassMetricKind {
+    ToolResult,
+    History,
+    UserMessage,
+}
+
+fn content_class_metric(
+    stats: Option<ContentClassCompressionStats>,
+    kind: ContentClassMetricKind,
+    observed_at: Option<chrono::DateTime<Utc>>,
+) -> TokenMetricV1 {
+    let Some(stats) = stats else {
+        return TokenMetricV1::unavailable(
+            "headroom_content_class_stats",
+            "Content-class compression breakdown requires reachable Headroom /stats evidence.",
+        );
+    };
+    let value = match kind {
+        ContentClassMetricKind::ToolResult => stats.tool_result_tokens,
+        ContentClassMetricKind::History => stats.history_tokens,
+        ContentClassMetricKind::UserMessage => stats.user_message_tokens,
+    };
+    let label = match kind {
+        ContentClassMetricKind::ToolResult => "tool-result compression",
+        ContentClassMetricKind::History => "history compression",
+        ContentClassMetricKind::UserMessage => "user-message compression",
+    };
+    let Some(value) = value else {
+        return TokenMetricV1::unavailable(
+            "headroom_content_class_stats",
+            format!("Headroom /stats did not expose a {label} savings bucket."),
+        );
+    };
+    TokenMetricV1 {
+        value: Some(value as f64),
+        confidence: AnalyticsEvidenceConfidence::Measured,
+        source: "headroom_stats_content_class".into(),
+        observed_at,
+        caveat: Some(format!(
+            "Measured {label} savings from Headroom /stats content-class buckets."
+        )),
+    }
 }
 
 fn provider_billed_metric(
@@ -600,6 +662,7 @@ mod tests {
                 cache_read_tokens: 25_000,
             })),
             None,
+            None,
         );
         assert_eq!(snapshot.model.as_deref(), Some("gpt-4o"));
         assert_eq!(snapshot.context_pressure.limit_tokens, Some(128_000));
@@ -622,6 +685,7 @@ mod tests {
             vec![],
             None,
             None,
+            None,
         );
         assert!(snapshot.model.is_none());
         assert!(snapshot.context_pressure.percent.is_none());
@@ -641,6 +705,7 @@ mod tests {
                 2,
             )]),
             vec![],
+            None,
             None,
             None,
         );
@@ -666,7 +731,7 @@ mod tests {
             .map(|index| usage("https://example.test/model=latest", index + 1, 2))
             .collect();
         let snapshot =
-            build_snapshot_with_cache_metrics(&dashboard_with_usage(usage), vec![], None, None);
+            build_snapshot_with_cache_metrics(&dashboard_with_usage(usage), vec![], None, None, None);
         let update = live_update_projection(snapshot, 7);
 
         assert_eq!(update.revision, 7);
@@ -685,6 +750,7 @@ mod tests {
             vec![],
             None,
             None,
+            None,
         );
         let mut coalescer = TokenXrayUpdateCoalescer::default();
 
@@ -699,10 +765,12 @@ mod tests {
             vec![],
             None,
             None,
+            None,
         );
         let changed = build_snapshot_with_cache_metrics(
             &dashboard_with_usage(vec![usage("https://api.openai.com/gpt-4o", 11, 2)]),
             vec![],
+            None,
             None,
             None,
         );

@@ -13,6 +13,7 @@ import {
   formatPlannedConnectorDoctorDossiers,
   formatVerifyOffModeShareText,
   plannedConnectorDoctorPreviewRows,
+  summarizeCompressionDoctorPlaybook,
 } from "../lib/doctorRepairCopy";
 import {
   formatManagedFootprintReport,
@@ -32,6 +33,8 @@ interface SwitchboardDoctorPanelProps {
   error: string | null;
   successMessage?: string | null;
   footprintReport?: ManagedFootprintReport | null;
+  exactCacheRecommended?: boolean;
+  semanticCacheEnabled?: boolean;
   onRepair: (action: string) => void;
 }
 
@@ -45,6 +48,8 @@ export function SwitchboardDoctorPanel({
   error,
   successMessage,
   footprintReport,
+  exactCacheRecommended = false,
+  semanticCacheEnabled = false,
   onRepair,
 }: SwitchboardDoctorPanelProps) {
   if (!report) {
@@ -87,6 +92,10 @@ export function SwitchboardDoctorPanel({
   const connectorPreviewRows = hasPlannedConnectorEvidence
     ? plannedConnectorDoctorPreviewRows()
     : [];
+  const compressionPlaybook = summarizeCompressionDoctorPlaybook(report, {
+    exactCacheRecommended,
+    semanticCacheEnabled,
+  });
 
   const [copyNotice, setCopyNotice] = useState<string | null>(null);
   const [retaggingSettings, setRetaggingSettings] =
@@ -377,6 +386,50 @@ export function SwitchboardDoctorPanel({
           </p>
         ) : null}
       </section>
+
+      {compressionPlaybook.hasOpenCompressionIssues ? (
+        <section
+          id="doctor-compression-playbook"
+          className="switchboard-doctor__playbook"
+          aria-label="Compression repair playbook"
+        >
+          <div className="switchboard-doctor__playbook-head">
+            <strong>Compression repair playbook</strong>
+            <span>{compressionPlaybook.openIssueCount} open</span>
+          </div>
+          <p className="switchboard-doctor__playbook-note">
+            Repairs run in order: runtime, routing, RTK, cache, repo index, then
+            Repo Memory MCP. Existing consent and backup gates still apply.
+          </p>
+          <ol className="switchboard-doctor__playbook-stages">
+            {compressionPlaybook.stages
+              .filter((entry) => entry.openIssues.length > 0)
+              .map((entry) => (
+                <li key={entry.stage.id}>
+                  <strong>{entry.stage.label}</strong>
+                  <span>{entry.openIssues.length}</span>
+                  <p>{entry.stage.guidance}</p>
+                  {entry.nextRepairLabel ? (
+                    <button
+                      type="button"
+                      className="switchboard-doctor__repair"
+                      disabled={busyAction !== null || !entry.nextRepairAction}
+                      onClick={() =>
+                        entry.nextRepairAction
+                          ? onRepair(entry.nextRepairAction)
+                          : undefined
+                      }
+                    >
+                      {busyAction === entry.nextRepairAction
+                        ? "Working"
+                        : entry.nextRepairLabel}
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+          </ol>
+        </section>
+      ) : null}
 
       {report.issues.length > 0 ? (
         <div

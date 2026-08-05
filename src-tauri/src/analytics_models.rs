@@ -120,6 +120,19 @@ pub struct TokenXrayMetricsV1 {
     pub provider_billed_input_tokens: TokenMetricV1,
     #[serde(default = "default_provider_billed_metric")]
     pub provider_billed_baseline_tokens: TokenMetricV1,
+    #[serde(default = "default_compression_class_metric")]
+    pub compression_tool_result_tokens: TokenMetricV1,
+    #[serde(default = "default_compression_class_metric")]
+    pub compression_history_tokens: TokenMetricV1,
+    #[serde(default = "default_compression_class_metric")]
+    pub compression_user_message_tokens: TokenMetricV1,
+}
+
+fn default_compression_class_metric() -> TokenMetricV1 {
+    TokenMetricV1::unavailable(
+        "headroom_content_class_stats",
+        "Content-class compression breakdown is unavailable until Headroom /stats exposes the bucket.",
+    )
 }
 
 fn default_provider_billed_metric() -> TokenMetricV1 {

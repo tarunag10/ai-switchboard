@@ -115,7 +115,7 @@ pub fn get_doctor_report(state: State<'_, AppState>) -> DoctorReport {
     doctor::build_doctor_report(&state)
 }
 
-fn repair_runtime(state: &AppState) -> Result<(), String> {
+pub(crate) fn repair_runtime(state: &AppState) -> Result<(), String> {
     state.stop_headroom();
     state.set_runtime_auto_paused(false);
     state.resume_runtime().map_err(|err| err.to_string())?;

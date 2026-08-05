@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use crate::client_adapters;
 use crate::codex_threads;
 use crate::models::{DoctorIssue, DoctorReport, DoctorSeverity, RuntimeStatus, SwitchboardMode};
+use crate::provider_upstream_profiles;
 use crate::repo_intelligence;
 use crate::state::AppState;
 use crate::switchboard_commands::{switchboard_mode_label, switchboard_mode_wants_headroom};
@@ -306,6 +307,18 @@ pub(crate) fn build_doctor_report(state: &AppState) -> DoctorReport {
 
     if let Some(issue) = repo_memory_mcp_doctor_issue(&runtime) {
         issues.push(issue);
+    }
+
+    if let Some((id, body)) =
+        provider_upstream_profiles::doctor_upstream_issue(&provider_upstream_profiles::load_provider_upstream_profiles())
+    {
+        issues.push(DoctorIssue {
+            id,
+            title: "Provider upstream override is misconfigured".to_string(),
+            body,
+            severity: DoctorSeverity::Error,
+            repair_action: None,
+        });
     }
 
     if desired_mode != inferred_mode {

@@ -879,3 +879,51 @@ export interface HeadroomAuthCodeRequest {
   email: string;
   expiresInSeconds: number;
 }
+
+export interface CompressionProfileAdvanced {
+  compressUserMessages: boolean;
+  compressToolResults: boolean;
+  compressHistory: boolean;
+  outputShaper: boolean;
+}
+
+export interface CompressionProfilePreset {
+  id: string;
+  label: string;
+  description: string;
+  savingsMode: string;
+}
+
+export interface CompressionProfileView {
+  version: number;
+  presetId: string;
+  advanced: CompressionProfileAdvanced;
+  effectiveSavingsMode: string;
+  historyCompressionSupported: boolean;
+  presets: CompressionProfilePreset[];
+  storagePath: string;
+}
+
+export interface ProviderUpstreamOverride {
+  enabled: boolean;
+  url: string;
+}
+
+export interface ProviderUpstreamProfilesState {
+  version: number;
+  openai: ProviderUpstreamOverride;
+  anthropic: ProviderUpstreamOverride;
+}
+
+export interface ProviderUpstreamTestResult {
+  provider: string;
+  ok: boolean;
+  statusCode: number | null;
+  detail: string;
+}
+
+export interface ContentClassCompressionStats {
+  toolResultTokens: number | null;
+  historyTokens: number | null;
+  userMessageTokens: number | null;
+}

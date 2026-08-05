@@ -119,6 +119,64 @@
           "status": "planned"
         }
       ]
+    },
+    "C0": {
+      "title": "Compression product shell",
+      "slices": [
+        {
+          "id": "C0.1",
+          "name": "Unified compression dashboard",
+          "status": "done",
+          "note": "compressionDashboard.ts, OptimizationDashboard overview panel, unit tests shipped 2026-08-04"
+        },
+        {
+          "id": "C0.2",
+          "name": "Max compression master activation",
+          "status": "done",
+          "note": "maxCompressionActivation.ts, MasterActivationCard preset, App wiring, unit tests shipped 2026-08-04"
+        },
+        {
+          "id": "C0.3",
+          "name": "Doctor compression repair playbook",
+          "status": "done",
+          "note": "doctorCompressionPlaybook.ts, SwitchboardDoctorPanel + Mode Inspector link, unit tests shipped 2026-08-04"
+        },
+        {
+          "id": "C0.4",
+          "name": "Start Agent Session compression checklist",
+          "status": "done",
+          "note": "agentSessionCompressionChecklist.ts, AgentSessionPanel checklist + acknowledgment gate, unit tests shipped 2026-08-04"
+        }
+      ]
+    },
+    "C1": {
+      "title": "Headroom depth",
+      "slices": [
+        {
+          "id": "C1.1",
+          "name": "Compression profile presets",
+          "status": "done",
+          "note": "compression_profiles.rs, headroom_runtime env wiring, OptimizationEngineProfilesCard preset picker, Tauri commands shipped 2026-08-05"
+        },
+        {
+          "id": "C1.2",
+          "name": "Per-provider upstream profiles",
+          "status": "done",
+          "note": "provider_upstream_profiles.rs, SettingsProviderUpstreamCard, Doctor URL checks, BYOK dossier + connectors.md shipped 2026-08-05"
+        },
+        {
+          "id": "C1.3",
+          "name": "Content-class compression breakdown",
+          "status": "done",
+          "note": "Headroom /stats content-class parsing, Token X-Ray metrics, compression dashboard rows shipped 2026-08-05"
+        },
+        {
+          "id": "C1.4",
+          "name": "Tool-result vs history UI toggles",
+          "status": "done",
+          "note": "Headroom Native advanced toggles with unsupported-history Doctor copy shipped 2026-08-05"
+        }
+      ]
     }
   }
 }

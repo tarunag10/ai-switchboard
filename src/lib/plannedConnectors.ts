@@ -1036,7 +1036,22 @@ const plannedConnectorSafetyDossiers: Record<
     rollbackStrategy:
       "Restore assistant settings from backup and remove only Switchboard-managed local proxy routing entries.",
   },
+  byok_openai_compatible: {
+    connectorId: "byok_openai_compatible",
+    configPathStrategy:
+      "No connector file writes. Configure OPENAI_TARGET_API_URL in Settings → Provider upstream.",
+    providerSemantics:
+      "Route OpenAI-compatible clients through Headroom to a BYOK upstream such as DeepSeek, Azure OpenAI, or Together.",
+    accountCaveat:
+      "API keys stay in the user's provider account or client config. Switchboard stores only the validated upstream URL override.",
+    rollbackStrategy:
+      "Clear provider upstream overrides in Settings to restore default OpenAI routing.",
+  },
 };
+
+export function getByokOpenAiCompatibleDossier() {
+  return getPlannedConnectorSafetyDossier("byok_openai_compatible");
+}
 
 export function getPlannedConnector(id: string) {
   return (

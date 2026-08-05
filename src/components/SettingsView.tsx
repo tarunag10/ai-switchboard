@@ -26,6 +26,7 @@ import { SettingsLegalPanel } from "./SettingsLegalPanel";
 import { SettingsOpenLoginCard } from "./SettingsOpenLoginCard";
 import { SettingsReleaseReadinessCard } from "./SettingsReleaseReadinessCard";
 import { SettingsRuntimeStatusCard } from "./SettingsRuntimeStatusCard";
+import { SettingsProviderUpstreamCard } from "./SettingsProviderUpstreamCard";
 import { SettingsUninstallCard } from "./SettingsUninstallCard";
 import { SettingsConnectorPanel } from "./SettingsConnectorPanel";
 import { SettingsFooterActions } from "./SettingsFooterActions";
@@ -592,6 +593,7 @@ export function SettingsView({
           runtimeStatus={runtimeStatus}
           showHeadroomDetails={showHeadroomDetails}
         />
+        <SettingsProviderUpstreamCard />
         <SettingsReleaseReadinessCard
           copyReleaseReadinessReport={copyReleaseReadinessReport}
           formatLocalReleaseEvidenceSequenceCopy={

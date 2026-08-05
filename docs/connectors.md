@@ -48,6 +48,12 @@ Before a connector moves to Managed, it must have:
 
 Repo Intelligence packs are safe for every listed tool because they are read-only and copyable. Goose additionally has the managed Repo Memory MCP bridge for read-only context handoff. Provider routing and account-specific config remain allowlisted field-by-field; credentials, account state, and model selection are never managed.
 
+### BYOK upstream routing
+
+For bring-your-own-key OpenAI-compatible providers (DeepSeek, Azure OpenAI, Together, and similar), Switchboard does not store API keys. Instead, use **Settings → Provider upstream** to set validated `OPENAI_TARGET_API_URL` and `ANTHROPIC_TARGET_API_URL` overrides that Headroom reads at proxy spawn time. Overrides live only in local app storage (`provider-upstream-profiles.json`), never in git-managed files. Doctor flags invalid URLs before production routing. Clear overrides to restore default OpenAI and Anthropic endpoints.
+
+See the `byok_openai_compatible` safety dossier in `plannedConnectors.ts` for guided copy and rollback expectations.
+
 ### Native provider writes versus sidecars
 
 Readiness distinguishes a Switchboard-owned sidecar from a promoted native

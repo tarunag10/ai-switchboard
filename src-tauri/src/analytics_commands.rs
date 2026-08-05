@@ -21,6 +21,7 @@ pub async fn get_token_xray_snapshot(app: AppHandle) -> Result<TokenXraySnapshot
                 .ok()
                 .flatten(),
             state.headroom_provider_billed_for_xray(),
+            state.headroom_content_class_for_xray(),
         )
     })
     .await
@@ -50,12 +51,14 @@ fn xray_snapshot(
     attribution: Vec<SavingsAttributionEvent>,
     cache_metrics: Option<CacheTokenMetricsEvidence>,
     headroom_provider_billed: Option<(Option<u64>, Option<u64>)>,
+    content_class: Option<crate::state::ContentClassCompressionStats>,
 ) -> TokenXraySnapshotV1 {
     token_xray::build_snapshot_with_cache_metrics(
         dashboard,
         attribution,
         cache_metrics,
         headroom_provider_billed,
+        content_class,
     )
 }
 
@@ -162,7 +165,7 @@ mod tests {
 
     #[test]
     fn command_mapper_keeps_failed_cache_telemetry_unavailable() {
-        let snapshot = xray_snapshot(&empty_dashboard(), vec![], None, None);
+        let snapshot = xray_snapshot(&empty_dashboard(), vec![], None, None, None);
         assert!(snapshot.metrics.cache_read_tokens.value.is_none());
         assert!(matches!(
             snapshot.metrics.cache_read_tokens.confidence,

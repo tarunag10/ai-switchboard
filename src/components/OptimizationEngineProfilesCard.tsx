@@ -15,7 +15,7 @@ import {
 import { recommendExactCacheDefault } from "../lib/exactCacheDefaultPolicy";
 import { evaluateLeanctxPromotionGate } from "../lib/leanctxPromotionGate";
 import { resolveSwitchboardModeForCache } from "../lib/switchboardModeForCache";
-import type { RuntimeStatus } from "../lib/types";
+import type { RuntimeStatus, CompressionProfileView } from "../lib/types";
 
 type OptimizationAddonReadinessReport = {
   profileId: OptimizationEngineId;
@@ -628,6 +628,7 @@ function OptimizationEngineRow({
             <div>
               <p><strong>Live routing:</strong> {runtimeStatus.running && runtimeStatus.proxyReachable ? "Headroom proxy is reachable." : "Headroom proxy is not currently reachable."}</p>
               <p><strong>Native compressor:</strong> {runtimeStatus.kompressEnabled === true ? "enabled" : runtimeStatus.kompressEnabled === false ? "not enabled" : "status unavailable"}. ML runtime: {runtimeStatus.mlInstalled === true ? "installed" : runtimeStatus.mlInstalled === false ? "not installed" : "status unavailable"}.</p>
+              <HeadroomNativeCompressionPanel runtimeStatus={runtimeStatus} />
               {runtimeStatus.startupErrorHint || runtimeStatus.startupError ? <p role="alert"><strong>Runtime evidence:</strong> {runtimeStatus.startupErrorHint ?? runtimeStatus.startupError}</p> : null}
             </div>
           )}
@@ -641,6 +642,192 @@ function OptimizationEngineRow({
           )}
         </div>
       )}
+    </section>
+  );
+}
+
+function HeadroomNativeCompressionPanel({
+  runtimeStatus,
+}: {
+  runtimeStatus: RuntimeStatus;
+}) {
+  const [profile, setProfile] = useState<CompressionProfileView | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = async () => {
+    try {
+      setProfile(await invoke<CompressionProfileView>("get_compression_profile"));
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+  }, [runtimeStatus.running, runtimeStatus.proxyReachable]);
+
+  const applyProfile = async (
+    presetId: string,
+    advanced = profile?.advanced,
+  ) => {
+    const restart = window.confirm(
+      "Apply this Headroom compression profile? The proxy restarts to pick up new env flags.",
+    );
+    if (!restart) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setProfile(
+        await invoke<CompressionProfileView>("set_compression_profile", {
+          presetId,
+          advanced,
+          restartHeadroom: true,
+        }),
+      );
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const updateAdvanced = async (
+    patch: Partial<CompressionProfileView["advanced"]>,
+  ) => {
+    if (!profile) return;
+    const nextAdvanced = { ...profile.advanced, ...patch };
+    await applyProfile(profile.presetId, nextAdvanced);
+  };
+
+  if (!profile) {
+    return <p className="optimize-minimal__meta">Loading compression profile…</p>;
+  }
+
+  return (
+    <section aria-labelledby="headroom-compression-title" className="gateway-profile__details">
+      <strong id="headroom-compression-title">Compression preset</strong>
+      <p className="optimize-minimal__meta">
+        Effective savings mode: <strong>{profile.effectiveSavingsMode}</strong>. Stored at{" "}
+        {profile.storagePath}.
+      </p>
+      <div className="gateway-profile__actions">
+        {profile.presets.map((preset) => (
+          <button
+            key={preset.id}
+            className={`addon-card__action${profile.presetId === preset.id ? " addon-card__action--primary" : ""}`}
+            disabled={busy || profile.presetId === preset.id}
+            onClick={() => void applyProfile(preset.id)}
+            type="button"
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      <ul>
+        {profile.presets.map((preset) => (
+          <li key={`${preset.id}-detail`}>
+            <strong>{preset.label}</strong> ({preset.savingsMode}): {preset.description}
+          </li>
+        ))}
+      </ul>
+      <button
+        className="addon-card__action"
+        aria-expanded={advancedOpen}
+        onClick={() => setAdvancedOpen((value) => !value)}
+        type="button"
+      >
+        {advancedOpen ? "Hide advanced toggles" : "Show advanced toggles"}
+      </button>
+      {advancedOpen ? (
+        <div>
+          <p className="optimize-minimal__meta">
+            Advanced toggles map to Headroom spawn env flags. Clearing the profile restores shipped
+            defaults without touching your standalone Headroom install.
+          </p>
+          <label>
+            <input
+              checked={profile.advanced.compressUserMessages}
+              disabled={busy}
+              onChange={(event) =>
+                void updateAdvanced({ compressUserMessages: event.target.checked })
+              }
+              type="checkbox"
+            />{" "}
+            Compress user messages
+          </label>
+          <label>
+            <input
+              checked={profile.advanced.compressToolResults}
+              disabled={busy}
+              onChange={(event) =>
+                void updateAdvanced({ compressToolResults: event.target.checked })
+              }
+              type="checkbox"
+            />{" "}
+            Compress tool results
+          </label>
+          <label>
+            <input
+              checked={profile.advanced.compressHistory}
+              disabled={busy || !profile.historyCompressionSupported}
+              onChange={(event) =>
+                void updateAdvanced({ compressHistory: event.target.checked })
+              }
+              type="checkbox"
+            />{" "}
+            Compress history
+          </label>
+          {!profile.historyCompressionSupported ? (
+            <p role="note">
+              History compression is unavailable on the pinned Headroom build. Doctor can explain
+              the upstream limitation.
+            </p>
+          ) : null}
+          <label>
+            <input
+              checked={profile.advanced.outputShaper}
+              disabled={busy}
+              onChange={(event) =>
+                void updateAdvanced({ outputShaper: event.target.checked })
+              }
+              type="checkbox"
+            />{" "}
+            Output shaper
+          </label>
+          <button
+            className="addon-card__action"
+            disabled={busy}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  "Reset compression profile to shipped defaults and restart Headroom?",
+                )
+              ) {
+                return;
+              }
+              setBusy(true);
+              void invoke<CompressionProfileView>("clear_compression_profile_command", {
+                restartHeadroom: true,
+              })
+                .then(setProfile)
+                .catch((reason: unknown) =>
+                  setError(reason instanceof Error ? reason.message : String(reason)),
+                )
+                .finally(() => setBusy(false));
+            }}
+            type="button"
+          >
+            Reset to defaults
+          </button>
+        </div>
+      ) : null}
+      {error ? (
+        <p className="gateway-profile__inline-feedback" role="alert">
+          <strong>Compression profile failed:</strong> {error}
+        </p>
+      ) : null}
     </section>
   );
 }

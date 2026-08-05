@@ -115,7 +115,12 @@ impl ToolManager {
             // proxy ends up trying to bind the foreign-held port.
             // Use the console_scripts entrypoint when available to avoid the Python
             // -m double-import RuntimeWarning. Fall back to -m if missing.
-            let savings_mode = crate::client_adapters::load_savings_mode();
+            let compression_profile =
+                crate::tool_manager::compression_profiles::load_compression_profile();
+            let savings_mode =
+                crate::tool_manager::compression_profiles::effective_savings_mode(&compression_profile);
+            let upstream_profiles =
+                crate::provider_upstream_profiles::load_provider_upstream_profiles();
             repair_console_script_interpreter(&entrypoint, &python)?;
             let startup_variants: Vec<(PathBuf, Vec<String>)> = if entrypoint.exists() {
                 vec![
@@ -174,44 +179,15 @@ impl ToolManager {
                     // proxy's retry path does not catch SSL/RemoteProtocolError,
                     // so the raw error leaks back to the client. Fresh
                     // connection per request avoids reuse of a poisoned socket.
-                    .env("HEADROOM_MAX_KEEPALIVE", "0")
-                    // Optimization mode. Always token: maximize raw-token savings via
-                    // prior-turn compression. (Cache mode and the auth-based auto-switch
-                    // were removed; cache mode contributed no measurable savings over
-                    // Claude Code's native prefix caching.)
-                    .env("HEADROOM_MODE", "token")
-                    // Enable plain user-message text compression in addition to
-                    // tool results. Primary motive is Codex/OpenAI: with a 0.5
-                    // read-discount and 0.0 write-penalty, compressing user text
-                    // clears the force-compress threshold and yields real savings.
-                    // This is the only desktop-side lever (the `headroom proxy`
-                    // entrypoint reads this env only; it exposes no CLI flag), and
-                    // it is process-global on the single shared proxy. Anthropic
-                    // blast radius is small: its 0.9 read-discount means already-
-                    // cached content almost never busts the frozen prefix, and
-                    // protect_recent/min_tokens guard the just-typed prompt.
-                    .env("HEADROOM_COMPRESS_USER_MESSAGES", "1")
-                    // Output-token shaping (new in headroom-ai 0.27.0). The proxy
-                    // never emits output tokens, so this works request-side: it
-                    // appends a byte-stable verbosity instruction to the TAIL of
-                    // the system prompt (after the cache_control breakpoint, so the
-                    // provider prefix cache is preserved) and lowers an
-                    // already-present output_config.effort on mechanically-classified
-                    // turns. Off by default upstream; enabled here. Effort router
-                    // and mechanical-effort use upstream defaults (on, "low"). The
-                    // shaper only ever lowers an effort the client already sent and
-                    // never toggles thinking.type, so it cannot 400 a model that
-                    // lacks effort support.
-                    .env("HEADROOM_OUTPUT_SHAPER", "1")
-                    // Pin the steering level explicitly. An explicit env is the
-                    // manual-override tier in the shaper's level resolution, so it
-                    // wins over the per-user learned level written to verbosity.json
-                    // by the baseline-seeding `learn --verbosity` run. That keeps
-                    // steering uniform/predictable across users while the seeded
-                    // baseline still feeds the /stats savings estimate. Level 2 =
-                    // skip pre/postamble, don't restate in-context code/tool output.
-                    .env("HEADROOM_VERBOSITY_LEVEL", "2");
-                apply_savings_mode_env(&mut command, &savings_mode);
+                    .env("HEADROOM_MAX_KEEPALIVE", "0");
+                crate::tool_manager::compression_profiles::apply_compression_profile_env(
+                    &mut command,
+                    &compression_profile,
+                );
+                crate::provider_upstream_profiles::apply_provider_upstream_env(
+                    &mut command,
+                    &upstream_profiles,
+                );
                 let mut child = command
                     .stdin(Stdio::null())
                     .stdout(Stdio::from(

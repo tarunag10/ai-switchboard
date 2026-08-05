@@ -12,7 +12,19 @@ import {
   doctorPreviewConnectors,
   pendingPlannedConnectors,
 } from "./plannedConnectors";
+import {
+  buildCompressionPlaybookSummary,
+  compressionPlaybookShareText,
+  type CompressionPlaybookSummary,
+} from "./doctorCompressionPlaybook";
 import type { DoctorIssue, DoctorReport } from "./types";
+
+export {
+  buildCompressionPlaybookSummary,
+  compressionPlaybookShareText,
+  COMPRESSION_PLAYBOOK_ORDER,
+  type CompressionPlaybookSummary,
+} from "./doctorCompressionPlaybook";
 
 export interface PlannedConnectorDoctorPreviewRow {
   id: string;
@@ -512,6 +524,26 @@ export function doctorIssueGuidance(issue: DoctorIssue): string {
       }
       return doctorIssueActionHint(issue.repairAction);
   }
+}
+
+export function formatCompressionPlaybookDoctorText(
+  summary: CompressionPlaybookSummary,
+): string {
+  return compressionPlaybookShareText(summary);
+}
+
+export function summarizeCompressionDoctorPlaybook(
+  report: DoctorReport,
+  options: {
+    exactCacheRecommended?: boolean;
+    semanticCacheEnabled?: boolean;
+  } = {},
+): CompressionPlaybookSummary {
+  return buildCompressionPlaybookSummary({
+    issues: report.issues,
+    exactCacheRecommended: options.exactCacheRecommended,
+    semanticCacheEnabled: options.semanticCacheEnabled,
+  });
 }
 
 export function formatDoctorReportShareText(report: DoctorReport): string {

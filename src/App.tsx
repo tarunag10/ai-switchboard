@@ -245,6 +245,7 @@ import { SettingsLegalPanel } from "./components/SettingsLegalPanel";
 import { SettingsOpenLoginCard } from "./components/SettingsOpenLoginCard";
 import { SettingsReleaseReadinessCard } from "./components/SettingsReleaseReadinessCard";
 import { SettingsRuntimeStatusCard } from "./components/SettingsRuntimeStatusCard";
+import { SettingsProviderUpstreamCard } from "./components/SettingsProviderUpstreamCard";
 import { ProxySessionAuthCard } from "./components/ProxySessionAuthCard";
 import { RollbackCenter } from "./components/RollbackCenter";
 import { SavingsInfoDialog } from "./components/SavingsInfoDialog";
@@ -272,6 +273,12 @@ import {
   type MasterDeactivationCallbacks,
 } from "./lib/masterActivation";
 import { resolveMasterActivationLocalOptimizations } from "./lib/leanctxPromotionGate";
+import {
+  createMaxCompressionActivationPlan,
+  createMaxCompressionLifecycleReceipts,
+} from "./lib/maxCompressionActivation";
+import { recommendExactCacheDefault } from "./lib/exactCacheDefaultPolicy";
+import { resolveSwitchboardModeForCache } from "./lib/switchboardModeForCache";
 import { describeProxySessionAuthStatus } from "./lib/proxySessionAuth";
 import { getAgentMemorySnapshot } from "./lib/agentMemory";
 import {
@@ -526,6 +533,8 @@ export default function App() {
   const [masterOperation, setMasterOperation] = useState<
     "activate" | "deactivate"
   >("activate");
+  const [maxCompressionBusy, setMaxCompressionBusy] = useState(false);
+  const [semanticCacheEnabled, setSemanticCacheEnabled] = useState(false);
   const [pricingAudience, setPricingAudience] =
     useState<PricingAudience>("individual");
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("annual");
@@ -2412,6 +2421,14 @@ export default function App() {
       const runtime = await invoke<RuntimeStatus>("get_runtime_status");
       applyRuntimeStatusIfChanged(runtime);
       void maybeFireUrgentRuntimeNotification(runtime);
+      try {
+        const cache = await invoke<{ enabled: boolean }>(
+          "get_semantic_cache_status",
+        );
+        setSemanticCacheEnabled(cache.enabled);
+      } catch {
+        setSemanticCacheEnabled(false);
+      }
     } catch (error) {
       setConnectorsError(
         error instanceof Error
@@ -3039,6 +3056,65 @@ export default function App() {
       case "rollback":
         return null;
     }
+  }
+
+  async function activateMaxCompression() {
+    if (masterActivationState === "running" || maxCompressionBusy) return;
+    setMaxCompressionBusy(true);
+    try {
+      const plan = createMaxCompressionActivationPlan({
+        mode: "full",
+        proxyReachable: runtimeStatus?.proxyReachable ?? false,
+        semanticCacheEnabled,
+      });
+      void createMaxCompressionLifecycleReceipts(plan);
+      await handleSetSwitchboardMode("full");
+      const activatedRuntime = await invoke<RuntimeStatus>("get_runtime_status");
+      applyRuntimeStatusIfChanged(activatedRuntime);
+      if (!activatedRuntime.running || !activatedRuntime.proxyReachable) {
+        throw new Error(
+          "Max compression requires a reachable Headroom runtime in Full mode.",
+        );
+      }
+      if (plan.engines.includes("semantic-cache")) {
+        await invoke("set_semantic_cache_enabled", { enabled: true });
+        setSemanticCacheEnabled(true);
+      }
+      if (plan.engines.includes("rtk")) {
+        await invoke("set_rtk_enabled", { enabled: true });
+      }
+      setActiveView("repoIntelligence");
+      await Promise.all([refreshRuntimeStatus(), refreshConnectors(), refreshDoctorReport()]);
+      setMasterFeature("doctor", {
+        status: "complete",
+        detail: "Doctor refreshed after max compression activation.",
+      });
+      setMasterFeature("repo-intelligence", {
+        status: "partial",
+        actionLabel: "Open",
+        detail: "Index the active repository before starting an agent session.",
+      });
+    } catch (error) {
+      setMasterFeature("doctor", {
+        status: "error",
+        actionLabel: "Retry",
+        detail:
+          error instanceof Error
+            ? error.message
+            : "Max compression activation failed.",
+      });
+    } finally {
+      setMaxCompressionBusy(false);
+    }
+  }
+
+  function openCompressionPlaybook() {
+    setActiveView("home");
+    window.setTimeout(() => {
+      document
+        .getElementById("doctor-compression-playbook")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
   }
 
   function createMasterDeactivationCallbacks(
@@ -4855,6 +4931,16 @@ export default function App() {
     codexRoutingConnector?.setupVerification?.failures.some((failure) =>
       /provider block/i.test(failure),
     ) === true;
+  const exactCacheRecommended = recommendExactCacheDefault({
+    mode: resolveSwitchboardModeForCache(runtimeStatus),
+    semanticCacheEnabled,
+    proxyReachable: runtimeStatus?.proxyReachable ?? false,
+  }).recommend;
+  const maxCompressionDisclosure = createMaxCompressionActivationPlan({
+    mode: resolveSwitchboardModeForCache(runtimeStatus),
+    semanticCacheEnabled,
+    proxyReachable: runtimeStatus?.proxyReachable ?? false,
+  }).excludedCopy;
   const switchboardInspectorRows = [
     {
       label: "Proxy listener",
@@ -5296,6 +5382,12 @@ export default function App() {
           }}
           masterActivationIsActive={masterActivationReceipt !== null}
           masterOperation={masterOperation}
+          onActivateMaxCompression={() => void activateMaxCompression()}
+          maxCompressionBusy={maxCompressionBusy}
+          maxCompressionDisclosure={maxCompressionDisclosure}
+          exactCacheRecommended={exactCacheRecommended}
+          semanticCacheEnabled={semanticCacheEnabled}
+          onOpenCompressionPlaybook={openCompressionPlaybook}
         />
 
         <UsageSavingsView
@@ -5586,6 +5678,7 @@ export default function App() {
               showHeadroomDetails={showHeadroomDetails}
               showLogsLabel="Show headroom logs"
             />
+            <SettingsProviderUpstreamCard />
             <SettingsReleaseReadinessCard
               copyReleaseReadinessReport={() =>
                 void copyReleaseReadinessReport()
