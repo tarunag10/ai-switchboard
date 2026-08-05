@@ -39,6 +39,7 @@ mod doctor;
 mod external_open;
 mod gateway_readiness;
 mod goose_provider_configs;
+mod headroom_advanced_settings;
 mod headroom_learn;
 mod insights;
 mod keychain;
@@ -765,6 +766,9 @@ pub fn run() {
             semantic_cache::get_semantic_cache_status,
             semantic_cache::set_semantic_cache_enabled,
             semantic_cache::clear_semantic_cache,
+            semantic_cache::get_semantic_cache_stats,
+            semantic_cache::clear_semantic_cache_namespace,
+            semantic_cache::set_semantic_cache_v2_enabled,
             proxy_session_auth::get_proxy_session_auth_status,
             proxy_session_auth::set_proxy_session_auth_enforce,
             cursor_native_commands::get_cursor_native_schema_assessment,
@@ -834,6 +838,8 @@ pub fn run() {
             compression_commands::clear_provider_upstream_profiles_command,
             compression_commands::test_provider_upstream_profile,
             compression_commands::get_headroom_content_class_stats,
+            compression_commands::get_headroom_advanced_settings,
+            compression_commands::set_headroom_advanced_settings,
             client_setup_commands::apply_client_setup,
             client_setup_commands::verify_client_setup,
             connector_smoke::run_connector_smoke_test,

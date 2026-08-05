@@ -13,14 +13,46 @@ describe("OptimizationEngineProfilesCard", () => {
   beforeEach(() => {
     invoke.mockReset();
     window.localStorage.clear();
-    invoke.mockResolvedValue({
-      profileId: "leanctx",
-      configuration: [{ label: "Base URL", environmentVariable: "LEANCTX_BASE_URL", present: true }],
-      executablePresent: false,
-      pathPresent: false,
-      connectivity: { attempted: false, status: "not-run", detail: "No connectivity preflight was run." },
-      live: false,
-      guidance: "Advisory presence only.",
+    invoke.mockImplementation((command: string) => {
+      if (command === "get_semantic_cache_status") {
+        return Promise.resolve({
+          enabled: false,
+          semanticV2Enabled: false,
+          entries: 0,
+          hits: 0,
+          misses: 0,
+          databasePath: "/local/semantic-cache.sqlite3",
+          policy: "exact-v1",
+          disclosure: "Local exact replay only.",
+          storageAvailable: true,
+          readFailures: 0,
+          writeFailures: 0,
+          evidence: "local-observed-exact-replay",
+        });
+      }
+      if (command === "get_semantic_cache_stats") {
+        return Promise.resolve({ namespaces: [] });
+      }
+      if (command === "get_compression_profile") {
+        return Promise.resolve({
+          version: 1,
+          presetId: "balanced",
+          advanced: {},
+          effectiveSavingsMode: "balanced",
+          historyCompressionSupported: false,
+          presets: [{ id: "balanced", label: "Balanced", description: "", savingsMode: "balanced" }],
+          storagePath: "/tmp/profile.json",
+        });
+      }
+      return Promise.resolve({
+        profileId: "leanctx",
+        configuration: [{ label: "Base URL", environmentVariable: "LEANCTX_BASE_URL", present: true }],
+        executablePresent: false,
+        pathPresent: false,
+        connectivity: { attempted: false, status: "not-run", detail: "No connectivity preflight was run." },
+        live: false,
+        guidance: "Advisory presence only.",
+      });
     });
   });
 
@@ -31,11 +63,11 @@ describe("OptimizationEngineProfilesCard", () => {
     expect(screen.getAllByText("Chonkify").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("PXPipe Text/Image")).toBeInTheDocument();
     expect(screen.getByLabelText("Headroom Native state: checking")).toBeInTheDocument();
-    expect(screen.getByLabelText("Chonkify state: blocked")).toBeInTheDocument();
+    expect(screen.getByLabelText("Chonkify state: ready")).toBeInTheDocument();
     expect(screen.getByText(/Headroom Native is the only live provider compressor/)).toBeInTheDocument();
-    expect(screen.getByText(/license and source-provenance evidence is incomplete/)).toBeInTheDocument();
-    expect(screen.getAllByText(/Individual and master activation are safe no-ops/)).toHaveLength(4);
-    expect(screen.getByRole("button", { name: "Activation unavailable for Chonkify" })).toBeDisabled();
+    expect(screen.getByText(/no upstream Headroom text_image capability/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Individual and master activation are safe no-ops/)).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "Activation unavailable for PXPipe Text/Image" })).toBeDisabled();
     expect(screen.getByRole("region", { name: "Token optimization evidence and promotion matrix" })).toBeInTheDocument();
     expect(screen.getAllByText("Design-only").length).toBe(2);
   });
@@ -44,7 +76,7 @@ describe("OptimizationEngineProfilesCard", () => {
     render(<OptimizationEngineProfilesCard onCopyGuidance={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Recheck token optimization promotion gates" }));
     expect(await screen.findByText(/Promotion gates rechecked at/)).toBeInTheDocument();
-    expect(screen.getByLabelText("Chonkify state: blocked")).toBeInTheDocument();
+    expect(screen.getByLabelText("PXPipe Text/Image state: blocked")).toBeInTheDocument();
   });
 
   it("does not restore persisted experimental or blocked enablement", () => {
@@ -88,13 +120,21 @@ describe("OptimizationEngineProfilesCard", () => {
       if (command === "get_semantic_cache_status") {
         return Promise.resolve({
           enabled: false,
+          semanticV2Enabled: false,
           entries: 0,
           hits: 0,
           misses: 0,
           databasePath: "/local/semantic-cache.sqlite3",
           policy: "exact-v1",
           disclosure: "Local exact replay only.",
+          storageAvailable: true,
+          readFailures: 0,
+          writeFailures: 0,
+          evidence: "local-observed-exact-replay",
         });
+      }
+      if (command === "get_semantic_cache_stats") {
+        return Promise.resolve({ namespaces: [] });
       }
       if (command === "set_addon_enabled") return Promise.resolve({});
       return Promise.resolve({

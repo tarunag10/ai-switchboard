@@ -412,6 +412,22 @@ fn run_single_doctor_repair_action(state: &AppState, action: &str) -> Result<(),
         "repair_ponytail_plugin" => repair_ponytail_plugin(state),
         "clear_repo_intelligence_index" => clear_repo_intelligence_index(),
         "install_repo_memory_mcp" => repair_repo_memory_mcp(state),
+        "enable_semantic_cache" => {
+            if matches!(
+                client_adapters::load_switchboard_mode(),
+                Some(SwitchboardMode::Off | SwitchboardMode::Rtk)
+            ) {
+                return Err(
+                    "Exact cache requires Full or Headroom mode; Off and RTK-only modes do not serve cached provider responses."
+                        .into(),
+                );
+            }
+            state
+                .semantic_cache
+                .set_enabled(true)
+                .map_err(|err| err.to_string())?;
+            Ok(())
+        }
         other => Err(format!("unknown doctor repair action: {other}")),
     }
 }

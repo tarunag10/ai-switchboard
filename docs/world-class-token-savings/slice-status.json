@@ -212,6 +212,93 @@
           "note": "codexConcurrencyGuidance banner with troubleshooting doc link shipped 2026-08-05"
         }
       ]
+    },
+    "C3": {
+      "title": "Cache and measurement",
+      "slices": [
+        {
+          "id": "C3.1",
+          "name": "Exact cache Doctor integration",
+          "status": "done",
+          "note": "exact_cache_recommended Doctor issue + enable_semantic_cache repair shipped 2026-08-05"
+        },
+        {
+          "id": "C3.2",
+          "name": "Cache namespace inspector",
+          "status": "done",
+          "note": "get_semantic_cache_stats, clear_semantic_cache_namespace, namespace table in OptimizationEngineProfilesCard shipped 2026-08-05"
+        },
+        {
+          "id": "C3.3",
+          "name": "Semantic similarity cache v2",
+          "status": "done",
+          "note": "semantic-v2 policy, opt-in toggle, check:semantic-cache-v2-gate shipped 2026-08-05; default off"
+        },
+        {
+          "id": "C3.4",
+          "name": "Benchmark and quality expansion",
+          "status": "done",
+          "note": "12 fixtures across 7 categories, check:comprehensive-compression-plan, leaderboard engineId/presetId shipped 2026-08-05"
+        },
+        {
+          "id": "C3.5",
+          "name": "Provider-billed scheduled sampling",
+          "status": "done",
+          "note": "providerBilledScheduledSampling.ts opt-in weekly sampling UI shipped 2026-08-05"
+        }
+      ]
+    },
+    "C4": {
+      "title": "Engine promotion",
+      "slices": [
+        {
+          "id": "C4.1",
+          "name": "leanctx live routing",
+          "status": "done",
+          "note": "leanctx-live-fixtures.json + shadow-only live_request_routing=false preserved 2026-08-05"
+        },
+        {
+          "id": "C4.2",
+          "name": "PXPipe text/image",
+          "status": "done",
+          "note": "pxpipePromotionGate.ts, promotion fixture, check:pxpipe-promotion-gate shipped 2026-08-05; remains experimental"
+        },
+        {
+          "id": "C4.3",
+          "name": "LLMLingua-2 blocked path",
+          "status": "done",
+          "note": "docs/llmlingua-2-requirements.md shipped 2026-08-05; activation stays experimental"
+        }
+      ]
+    },
+    "C5": {
+      "title": "Coverage and external integration",
+      "slices": [
+        {
+          "id": "C5.1",
+          "name": "BYOK connector dossier and Doctor checks",
+          "status": "done",
+          "note": "doctor_byok_openai_compatible_issue for proxy + managed client routing shipped 2026-08-05"
+        },
+        {
+          "id": "C5.2",
+          "name": "LiteLLM guided wizard enrichment",
+          "status": "done",
+          "note": "litellm wizard checklist + env template download in GatewayProfilesCard shipped 2026-08-05"
+        },
+        {
+          "id": "C5.3",
+          "name": "cc-switch reconciler toggle",
+          "status": "done",
+          "note": "headroom_advanced_settings.rs, SettingsHeadroomAdvancedCard, spawn env injection shipped 2026-08-05"
+        },
+        {
+          "id": "C5.4",
+          "name": "Connector native routing promotion",
+          "status": "done",
+          "note": "connectorPromotionGate.ts remains source of truth; promotion copy unchanged 2026-08-05"
+        }
+      ]
     }
   }
 }

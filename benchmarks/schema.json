@@ -1,8 +1,16 @@
 {
   "schemaVersion": 1,
-  "minimumFixtures": 8,
-  "minimumCategories": 3,
-  "requiredCategories": ["shell_output", "repo_context_pack", "document_conversion"],
+  "minimumFixtures": 12,
+  "minimumCategories": 6,
+  "requiredCategories": [
+    "shell_output",
+    "repo_context_pack",
+    "document_conversion",
+    "tool_heavy_transcript",
+    "streaming_bypass",
+    "cache_bust",
+    "headroom_refusal"
+  ],
   "requiredFields": [
     "category",
     "name",

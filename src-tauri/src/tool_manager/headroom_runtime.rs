@@ -188,6 +188,10 @@ impl ToolManager {
                     &mut command,
                     &upstream_profiles,
                 );
+                crate::headroom_advanced_settings::apply_headroom_advanced_env(
+                    &mut command,
+                    &crate::headroom_advanced_settings::load_headroom_advanced_settings(),
+                );
                 let mut child = command
                     .stdin(Stdio::null())
                     .stdout(Stdio::from(

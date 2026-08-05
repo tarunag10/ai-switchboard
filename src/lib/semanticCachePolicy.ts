@@ -27,6 +27,13 @@ export interface SemanticCachePolicy {
   semanticTemperatureMax: number;
 }
 
+export interface SemanticCacheV2Policy {
+  policyVersion: "semantic-v2";
+  semanticTemperatureMax: number;
+  embeddingModelConsentRequired: boolean;
+  localOnlyBoundary: boolean;
+}
+
 export interface CacheDecision {
   classification: CacheClass;
   reason?:
@@ -51,7 +58,15 @@ const DEFAULT_POLICY: SemanticCachePolicy = {
   semanticTemperatureMax: 0.2,
 };
 
+const SEMANTIC_V2_POLICY: SemanticCacheV2Policy = {
+  policyVersion: "semantic-v2",
+  semanticTemperatureMax: 0.2,
+  embeddingModelConsentRequired: true,
+  localOnlyBoundary: true,
+};
+
 export const defaultSemanticCachePolicy = DEFAULT_POLICY;
+export const semanticCacheV2Policy = SEMANTIC_V2_POLICY;
 
 export const semanticCacheBypassReasons = [
   "streaming",
@@ -65,6 +80,17 @@ export const semanticCacheBypassReasons = [
 
 export function describeSemanticCachePolicy(): string {
   return "Separate cache savings: exact first, semantic opt-in; bypass streaming, tools/MCP, sensitive or no-cache requests, high temperature, rapid repo changes, and open tool calls.";
+}
+
+export function describeSemanticCacheV2Policy(): string {
+  return "Semantic v2 similarity replay is opt-in, local-only, and labels hits estimated until a provider-billed counterfactual pair exists. Streaming, tools/MCP, sensitive markers, and open tool calls always bypass.";
+}
+
+export function canEnableSemanticCacheV2(input: {
+  exactCacheEnabled: boolean;
+  embeddingModelConsent: boolean;
+}): boolean {
+  return input.exactCacheEnabled && input.embeddingModelConsent;
 }
 
 export function classifySemanticCacheRequest(

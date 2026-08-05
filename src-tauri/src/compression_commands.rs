@@ -9,6 +9,9 @@ use crate::provider_upstream_profiles::{
     validate_provider_upstream_profiles, ProviderUpstreamProfilesState,
     ProviderUpstreamTestResult,
 };
+use crate::headroom_advanced_settings::{
+    load_headroom_advanced_settings, save_headroom_advanced_settings, HeadroomAdvancedSettings,
+};
 use crate::state::{AppState, ContentClassCompressionStats};
 use crate::switchboard_commands::repair_runtime;
 use crate::tool_manager::compression_profiles::{
@@ -132,6 +135,25 @@ pub async fn get_headroom_content_class_stats(
     Ok(state
         .headroom_content_class_for_xray()
         .unwrap_or_default())
+}
+
+#[tauri::command]
+pub async fn get_headroom_advanced_settings() -> Result<HeadroomAdvancedSettings, String> {
+    Ok(load_headroom_advanced_settings())
+}
+
+#[tauri::command]
+pub async fn set_headroom_advanced_settings(
+    app: AppHandle,
+    settings: HeadroomAdvancedSettings,
+    restart_headroom: bool,
+) -> Result<HeadroomAdvancedSettings, String> {
+    let saved = save_headroom_advanced_settings(&settings).map_err(|err| err.to_string())?;
+    if restart_headroom {
+        let app_state: State<'_, AppState> = app.state();
+        repair_runtime(&app_state)?;
+    }
+    Ok(saved)
 }
 
 fn savings_mode_label(mode: &SavingsMode) -> String {

@@ -131,7 +131,7 @@ function cacheStageOpen(
         title: "Exact replay cache is eligible but disabled",
         body: "Full or Headroom mode is healthy enough to recommend exact cache. Enable it from Add-ons or Max compression; cache hits remain separate from compression savings.",
         severity: "warning",
-        repairAction: null,
+        repairAction: "enable_semantic_cache",
       },
     ];
   }

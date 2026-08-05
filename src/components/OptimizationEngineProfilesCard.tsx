@@ -13,6 +13,10 @@ import {
   type OptimizationEngineId,
 } from "../lib/optimizationEngines";
 import { recommendExactCacheDefault } from "../lib/exactCacheDefaultPolicy";
+import {
+  canEnableSemanticCacheV2,
+  describeSemanticCacheV2Policy,
+} from "../lib/semanticCachePolicy";
 import { evaluateLeanctxPromotionGate } from "../lib/leanctxPromotionGate";
 import { resolveSwitchboardModeForCache } from "../lib/switchboardModeForCache";
 import type { RuntimeStatus, CompressionProfileView } from "../lib/types";
@@ -68,6 +72,7 @@ type LeanctxSidecarStatus = {
 
 type SemanticCacheStatus = {
   enabled: boolean;
+  semanticV2Enabled: boolean;
   entries: number;
   hits: number;
   misses: number;
@@ -78,6 +83,22 @@ type SemanticCacheStatus = {
   readFailures: number;
   writeFailures: number;
   evidence: string;
+};
+
+type SemanticCacheNamespaceStat = {
+  provider: string;
+  model: string;
+  account: string;
+  workspace: string;
+  policy: string;
+  hits: number;
+  misses: number;
+  entries: number;
+  lastHitAt: number | null;
+};
+
+type SemanticCacheStats = {
+  namespaces: SemanticCacheNamespaceStat[];
 };
 
 type DisplayState =
@@ -337,11 +358,19 @@ function OptimizationEngineRow({
   const [readiness, setReadiness] = useState<OptimizationAddonReadinessReport | null>(null);
   const [leanctxStatus, setLeanctxStatus] = useState<LeanctxSidecarStatus | null>(null);
   const [semanticCacheStatus, setSemanticCacheStatus] = useState<SemanticCacheStatus | null>(null);
+  const [semanticCacheStats, setSemanticCacheStats] = useState<SemanticCacheStats | null>(null);
+  const [semanticV2Consent, setSemanticV2Consent] = useState(false);
+  const [namespaceClearPhrase, setNamespaceClearPhrase] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const blocked = engine.status === "blocked";
   const activationBlocked = !canActivateOptimizationEngine(engine.id);
+
+  const refreshSemanticCacheStatus = async () => {
+    setSemanticCacheStatus(await invoke<SemanticCacheStatus>("get_semantic_cache_status"));
+    setSemanticCacheStats(await invoke<SemanticCacheStats>("get_semantic_cache_stats"));
+  };
 
   const refreshBackendStatus = async () => {
     if (engine.id !== "leanctx" && engine.id !== "semantic-cache") return;
@@ -350,7 +379,7 @@ function OptimizationEngineRow({
       if (engine.id === "leanctx") {
         setLeanctxStatus(await invoke<LeanctxSidecarStatus>("get_leanctx_sidecar_status"));
       } else {
-        setSemanticCacheStatus(await invoke<SemanticCacheStatus>("get_semantic_cache_status"));
+        await refreshSemanticCacheStatus();
       }
     } catch (error: unknown) {
       setStatusError(error instanceof Error ? error.message : String(error));
@@ -363,10 +392,6 @@ function OptimizationEngineRow({
 
   const refreshLeanctxStatus = async () => {
     if (engine.id === "leanctx") await refreshBackendStatus();
-  };
-
-  const refreshSemanticCacheStatus = async () => {
-    if (engine.id === "semantic-cache") await refreshBackendStatus();
   };
 
   const handleToggle = async () => {
@@ -603,6 +628,120 @@ function OptimizationEngineRow({
               ) : null}
               <p><strong>Evidence:</strong> {semanticCacheStatus.evidence}; storage {semanticCacheStatus.storageAvailable ? "available" : "unavailable"}; read failures {semanticCacheStatus.readFailures}; write failures {semanticCacheStatus.writeFailures}.</p>
               <p><strong>Policy:</strong> {semanticCacheStatus.policy}. {semanticCacheStatus.disclosure}</p>
+              <p><strong>Semantic v2:</strong> {describeSemanticCacheV2Policy()}</p>
+              <label className="optimize-project-row">
+                <span className="optimize-project-row__main">
+                  <span className="optimize-project-row__name">Embedding model consent</span>
+                  <span className="optimize-project-row__meta">
+                    Required before enabling semantic v2 similarity replay.
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={semanticV2Consent}
+                  disabled={checking || !semanticCacheStatus.enabled}
+                  onChange={(event) => setSemanticV2Consent(event.target.checked)}
+                />
+              </label>
+              <button
+                type="button"
+                className="addon-card__action"
+                disabled={
+                  checking ||
+                  !canEnableSemanticCacheV2({
+                    exactCacheEnabled: semanticCacheStatus.enabled,
+                    embeddingModelConsent: semanticV2Consent,
+                  })
+                }
+                onClick={async () => {
+                  setChecking(true);
+                  try {
+                    await invoke("set_semantic_cache_v2_enabled", {
+                      enabled: !semanticCacheStatus.semanticV2Enabled,
+                    });
+                    await refreshSemanticCacheStatus();
+                  } catch (error: unknown) {
+                    setActionError(error instanceof Error ? error.message : String(error));
+                  } finally {
+                    setChecking(false);
+                  }
+                }}
+              >
+                {semanticCacheStatus.semanticV2Enabled
+                  ? "Disable semantic v2"
+                  : "Enable semantic v2"}
+              </button>
+              {semanticCacheStats?.namespaces && semanticCacheStats.namespaces.length > 0 ? (
+                <table className="gateway-profile__table">
+                  <caption>Cache namespaces (no prompt bodies)</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Provider</th>
+                      <th scope="col">Model</th>
+                      <th scope="col">Hits</th>
+                      <th scope="col">Misses</th>
+                      <th scope="col">Entries</th>
+                      <th scope="col">Last hit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {semanticCacheStats.namespaces.map((row) => (
+                      <tr key={`${row.provider}:${row.model}`}>
+                        <td>{row.provider}</td>
+                        <td>{row.model}</td>
+                        <td>{row.hits}</td>
+                        <td>{row.misses}</td>
+                        <td>{row.entries}</td>
+                        <td>
+                          {row.lastHitAt
+                            ? new Date(row.lastHitAt * 1000).toLocaleString()
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p>No namespace stats recorded yet.</p>
+              )}
+              <label>
+                Confirmation phrase to clear a namespace
+                <input
+                  value={namespaceClearPhrase}
+                  onChange={(event) => setNamespaceClearPhrase(event.target.value)}
+                  placeholder="clear cache namespace"
+                />
+              </label>
+              <button
+                type="button"
+                className="addon-card__action"
+                disabled={checking || namespaceClearPhrase !== "clear cache namespace"}
+                onClick={async () => {
+                  const first = semanticCacheStats?.namespaces[0];
+                  if (!first) return;
+                  setChecking(true);
+                  try {
+                    await invoke("clear_semantic_cache_namespace", {
+                      request: {
+                        provider: first.provider,
+                        model: first.model,
+                        account: first.account,
+                        workspace: first.workspace,
+                        policy: first.policy,
+                        confirmationPhrase: namespaceClearPhrase,
+                      },
+                    });
+                    setNamespaceClearPhrase("");
+                    await refreshSemanticCacheStatus();
+                  } catch (error: unknown) {
+                    setActionError(error instanceof Error ? error.message : String(error));
+                  } finally {
+                    setChecking(false);
+                  }
+                }}
+              >
+                Clear first namespace
+              </button>
               <p><strong>Database:</strong> local app storage only; prompt text is never persisted as a key, while eligible response bodies remain until TTL or clear. Secret-marker screening is conservative and not a guarantee of secrecy.</p>
               <button
                 type="button"

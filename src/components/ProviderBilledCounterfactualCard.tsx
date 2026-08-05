@@ -1,10 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   loadProviderBilledUsageSnapshot,
   recordProviderBilledCounterfactual,
   type ProviderBilledProvider,
 } from "../lib/providerBilledCounterfactual";
+import {
+  DEFAULT_PROVIDER_BILLED_SAMPLING,
+  loadProviderBilledSamplingSettings,
+  providerBilledSamplingDisclosure,
+  saveProviderBilledSamplingSettings,
+  shouldRunProviderBilledSample,
+} from "../lib/providerBilledScheduledSampling";
 
 interface ProviderBilledCounterfactualCardProps {
   onRecorded: () => Promise<void>;
@@ -25,6 +32,11 @@ export function ProviderBilledCounterfactualCard({
   const [baselineEvidence, setBaselineEvidence] = useState("");
   const [optimizedEvidence, setOptimizedEvidence] = useState("");
   const [requestDelta, setRequestDelta] = useState("1");
+  const [sampling, setSampling] = useState(DEFAULT_PROVIDER_BILLED_SAMPLING);
+
+  useEffect(() => {
+    setSampling(loadProviderBilledSamplingSettings());
+  }, []);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -188,6 +200,34 @@ export function ProviderBilledCounterfactualCard({
           {status}
         </p>
       ) : null}
+      <section className="provider-billed-card__sampling" aria-label="Scheduled sampling">
+        <h4>Weekly counterfactual sampling</h4>
+        <p>{providerBilledSamplingDisclosure()}</p>
+        <label className="optimize-project-row">
+          <span className="optimize-project-row__main">
+            <span className="optimize-project-row__name">Opt in to weekly sampling</span>
+            <span className="optimize-project-row__meta">
+              {sampling.lastSampleAt
+                ? `Last sample: ${new Date(sampling.lastSampleAt).toLocaleString()}`
+                : "No samples recorded yet."}
+              {shouldRunProviderBilledSample(sampling) && sampling.enabled
+                ? " A sample is due on the next manual capture."
+                : ""}
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={sampling.enabled}
+            onChange={(event) => {
+              const next = saveProviderBilledSamplingSettings({
+                ...sampling,
+                enabled: event.target.checked,
+              });
+              setSampling(next);
+            }}
+          />
+        </label>
+      </section>
     </article>
   );
 }

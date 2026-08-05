@@ -86,5 +86,57 @@
     "optimizedFacts": ["4 files changed", "+548", "proxy_session_auth.rs", "modeInspectorVerdict.ts"],
     "wrongOmissions": [],
     "agentSuccessProxy": "pass"
+  },
+  {
+    "category": "tool_heavy_transcript",
+    "name": "multi-tool call transcript",
+    "original": "assistant: calling bash with npm test\nassistant: tool_result exit 0\nassistant: calling read_file src/App.tsx\nassistant: calling grep semantic_cache\nassistant: repeating stack frames bash npm test read_file grep semantic_cache bash npm test read_file grep",
+    "optimized": "tool summary: npm test passed; inspected App.tsx; grep found semantic_cache references.",
+    "latencyOverheadMs": 14,
+    "relevantFacts": ["npm test", "App.tsx", "semantic_cache"],
+    "optimizedFacts": ["npm test", "App.tsx", "semantic_cache"],
+    "wrongOmissions": [],
+    "agentSuccessProxy": "pass",
+    "engineId": "headroom-native",
+    "presetId": "balanced"
+  },
+  {
+    "category": "streaming_bypass",
+    "name": "streaming request bypass",
+    "original": "stream=true temperature=0.1 repeated chunk delta delta delta tool call pending open stream marker",
+    "optimized": "bypass: streaming request must not be cached or compressed in-place.",
+    "latencyOverheadMs": 2,
+    "relevantFacts": ["streaming", "bypass", "not cached"],
+    "optimizedFacts": ["streaming", "bypass", "not cached"],
+    "wrongOmissions": [],
+    "agentSuccessProxy": "pass",
+    "engineId": "semantic-cache",
+    "presetId": "exact-v1"
+  },
+  {
+    "category": "cache_bust",
+    "name": "no-cache marker",
+    "original": "Cache-Control: no-cache x-headroom-no-cache: 1 repeated prompt body repeated prompt body",
+    "optimized": "bypass: explicit no-cache marker prevents replay.",
+    "latencyOverheadMs": 1,
+    "relevantFacts": ["no-cache", "bypass"],
+    "optimizedFacts": ["no-cache", "bypass"],
+    "wrongOmissions": [],
+    "agentSuccessProxy": "pass",
+    "engineId": "semantic-cache",
+    "presetId": "exact-v1"
+  },
+  {
+    "category": "headroom_refusal",
+    "name": "protected tool json refusal",
+    "original": "{\"tool\":\"bash\",\"command\":\"npm test -- --runInBand\"}",
+    "optimized": "{\"tool\":\"bash\",\"command\":\"npm test -- --runInBand\"}",
+    "latencyOverheadMs": 3,
+    "relevantFacts": ["byte-identical", "tool json"],
+    "optimizedFacts": ["byte-identical", "tool json"],
+    "wrongOmissions": [],
+    "agentSuccessProxy": "pass",
+    "engineId": "leanctx",
+    "presetId": "shadow"
   }
 ]

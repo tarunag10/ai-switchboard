@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "name": "protected-tool-json",
+      "input": "{\"tool\":\"bash\",\"command\":\"npm test\"}",
+      "mustRemainByteIdentical": true
+    },
+    {
+      "name": "protected-path-span",
+      "input": "src/lib/agentSessionPacks.ts:42",
+      "mustRemainByteIdentical": true
+    },
+    {
+      "name": "fail-open-timeout",
+      "timeoutMs": 250,
+      "expectFallback": true
+    }
+  ]
+}

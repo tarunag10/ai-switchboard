@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "headroomCapability": "text_image",
+  "minHeadroomVersion": "pinned-wheel",
+  "visualQualityChecklistSigned": false,
+  "requiredSignals": [
+    "headroom_text_image_seam",
+    "shadow_token_evidence",
+    "visual_quality_checklist"
+  ],
+  "notes": [
+    "PXPipe remains experimental until the pinned Headroom wheel exposes a versioned text_image seam and visual quality review passes."
+  ]
+}

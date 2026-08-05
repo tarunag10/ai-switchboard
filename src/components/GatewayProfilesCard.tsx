@@ -8,6 +8,8 @@ import {
   gatewayProfileLifecycleSummary,
   gatewayProfileStatus,
   gatewayProfiles,
+  litellmLocalCacheEnvTemplate,
+  litellmLocalCacheWizardSteps,
   parseGatewayProfileLocalState,
   type GatewayProfile,
   type GatewayProfileLocalState,
@@ -193,6 +195,23 @@ function GatewayProfileRow({
             <button type="button" className="addon-card__action" disabled={checkingReadiness} onClick={() => void checkReadiness(true)}>
               Run opt-in local proxy preflight
             </button>
+          )}
+          {profile.id === "litellm-local-cache" && (
+            <section aria-label="LiteLLM guided wizard">
+              <h4>LiteLLM setup checklist</h4>
+              <ol>
+                {litellmLocalCacheWizardSteps().map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+              <button
+                type="button"
+                className="addon-card__action addon-card__action--primary"
+                onClick={() => onCopyGuidance(litellmLocalCacheEnvTemplate(), "LiteLLM env template")}
+              >
+                Download env template
+              </button>
+            </section>
           )}
           {readinessError && <p role="alert">{readinessError}</p>}
           {readiness && <div>

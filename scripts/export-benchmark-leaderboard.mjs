@@ -29,6 +29,8 @@ const leaderboard = fixtures.map((fixture) => {
   return {
     name: fixture.name,
     category: fixture.category,
+    engineId: fixture.engineId ?? null,
+    presetId: fixture.presetId ?? null,
     relevantFactRetentionPct: Number(retained.toFixed(2)),
     wrongOmissionRatePct: Number(omissionRate.toFixed(2)),
     estimatedInputTokens: fixture.estimatedInputTokens ?? null,

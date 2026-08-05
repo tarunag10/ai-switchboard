@@ -86,6 +86,8 @@ export function doctorRepairLabel(action: string): string {
       return "Clear index";
     case "install_repo_memory_mcp":
       return "Prepare MCP";
+    case "enable_semantic_cache":
+      return "Enable exact cache";
     default:
       return "Repair";
   }

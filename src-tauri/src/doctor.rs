@@ -30,6 +30,32 @@ pub(crate) fn switchboard_mode_blocks_doctor_repair(
     !switchboard_mode_wants_headroom(mode) && doctor_repair_action_restores_headroom(action)
 }
 
+fn exact_cache_recommended_issue(
+    desired_mode: &SwitchboardMode,
+    runtime: &RuntimeStatus,
+    semantic_cache_enabled: bool,
+) -> Option<DoctorIssue> {
+    if semantic_cache_enabled {
+        return None;
+    }
+    if !matches!(
+        desired_mode,
+        SwitchboardMode::Full | SwitchboardMode::Headroom
+    ) {
+        return None;
+    }
+    if !runtime.proxy_reachable {
+        return None;
+    }
+    Some(DoctorIssue {
+        id: "exact_cache_recommended".to_string(),
+        title: "Exact replay cache is eligible but disabled".to_string(),
+        body: "Full or Headroom mode is healthy enough to recommend exact cache. Enable it from Add-ons or Doctor; cache hits remain separate from compression savings.".to_string(),
+        severity: DoctorSeverity::Warning,
+        repair_action: Some("enable_semantic_cache".to_string()),
+    })
+}
+
 pub(crate) fn infer_switchboard_mode(
     runtime: &RuntimeStatus,
     enabled_client_count: usize,
@@ -319,6 +345,38 @@ pub(crate) fn build_doctor_report(state: &AppState) -> DoctorReport {
             severity: DoctorSeverity::Error,
             repair_action: None,
         });
+    }
+
+    let enabled_managed_clients = connectors
+        .iter()
+        .filter(|client| {
+            client.enabled
+                && matches!(
+                    client.support_status,
+                    crate::models::ClientConnectorSupportStatus::Managed
+                )
+        })
+        .count();
+    if let Some((id, title, body)) = provider_upstream_profiles::doctor_byok_openai_compatible_issue(
+        &provider_upstream_profiles::load_provider_upstream_profiles(),
+        runtime.proxy_reachable,
+        enabled_managed_clients,
+    ) {
+        issues.push(DoctorIssue {
+            id,
+            title,
+            body,
+            severity: DoctorSeverity::Warning,
+            repair_action: None,
+        });
+    }
+
+    if let Some(issue) = exact_cache_recommended_issue(
+        &desired_mode,
+        &runtime,
+        state.semantic_cache.enabled(),
+    ) {
+        issues.push(issue);
     }
 
     if desired_mode != inferred_mode {

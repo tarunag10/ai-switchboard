@@ -58,7 +58,7 @@ describe("doctorCompressionPlaybook", () => {
     expect(summary.stages[0]?.nextRepairLabel).toBe("Restart Headroom");
   });
 
-  it("surfaces cache eligibility without a new repair action", () => {
+  it("surfaces cache eligibility with one-click enable repair", () => {
     const summary = buildCompressionPlaybookSummary({
       issues: [],
       exactCacheRecommended: true,
@@ -69,7 +69,10 @@ describe("doctorCompressionPlaybook", () => {
       .toHaveLength(1);
     expect(
       summary.stages.find((entry) => entry.stage.id === "cache")?.nextRepairAction,
-    ).toBeNull();
+    ).toBe("enable_semantic_cache");
+    expect(
+      summary.stages.find((entry) => entry.stage.id === "cache")?.nextRepairLabel,
+    ).toBe("Enable exact cache");
   });
 
   it("formats a shareable playbook summary", () => {

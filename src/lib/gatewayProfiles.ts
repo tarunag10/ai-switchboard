@@ -266,6 +266,31 @@ export function gatewayReadinessSummary(report: GatewayReadinessReport): string 
   return `${configurationPresent}/${report.configuration.length} configuration and ${credentialsPresent}/${report.credentials.length} credential variables present (values redacted). ${report.connectivity.detail}`;
 }
 
+export function litellmLocalCacheWizardSteps(): string[] {
+  return [
+    "Install LiteLLM locally outside Switchboard.",
+    "Configure a cache backend (Redis, disk, or in-memory) in your LiteLLM config.",
+    "Start the LiteLLM proxy on a loopback port and confirm it responds.",
+    "Point one agent at the local proxy only after a harmless test request succeeds.",
+    "Record cache-hit evidence as estimated until a provider-billed counterfactual pair exists.",
+    "Keep API keys in your secure store; never commit them to this repository.",
+  ];
+}
+
+export function litellmLocalCacheEnvTemplate(): string {
+  return [
+    "# LiteLLM local cache (manual, local-only)",
+    "LITELLM_PROXY_BASE_URL=http://127.0.0.1:4000",
+    "LITELLM_CACHE_ENABLED=1",
+    "LITELLM_CACHE_TYPE=redis",
+    "REDIS_HOST=127.0.0.1",
+    "REDIS_PORT=6379",
+    "# Set provider API keys in your shell or secure store:",
+    "# OPENAI_API_KEY=<set-outside-switchboard>",
+    "# ANTHROPIC_API_KEY=<set-outside-switchboard>",
+  ].join("\n");
+}
+
 export function gatewayProfileLifecycleSummary(profile: GatewayProfile): string {
   const blocked =
     profile.lifecycle.stages.find((stage) => stage.state === "blocked") ??

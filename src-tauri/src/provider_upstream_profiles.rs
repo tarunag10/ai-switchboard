@@ -201,6 +201,31 @@ pub fn doctor_upstream_issue(state: &ProviderUpstreamProfilesState) -> Option<(S
     None
 }
 
+pub fn doctor_byok_openai_compatible_issue(
+    upstream: &ProviderUpstreamProfilesState,
+    proxy_reachable: bool,
+    enabled_managed_client_count: usize,
+) -> Option<(String, String, String)> {
+    if !upstream.openai.enabled {
+        return None;
+    }
+    if !proxy_reachable {
+        return Some((
+            "byok_openai_proxy_unreachable".to_string(),
+            "BYOK OpenAI-compatible routing needs a healthy loopback proxy".to_string(),
+            "OpenAI-compatible upstream override is enabled, but the Headroom proxy on 127.0.0.1:6767 is not reachable. Start or repair Headroom before pointing clients at the local proxy.".to_string(),
+        ));
+    }
+    if enabled_managed_client_count == 0 {
+        return Some((
+            "byok_openai_clients_not_routed".to_string(),
+            "BYOK OpenAI-compatible routing has no managed clients on 6767".to_string(),
+            "OpenAI-compatible upstream override is enabled, but no managed client is connected through the 127.0.0.1:6767 proxy. Repair or enable at least one managed client so traffic reaches Headroom before the upstream override.".to_string(),
+        ));
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

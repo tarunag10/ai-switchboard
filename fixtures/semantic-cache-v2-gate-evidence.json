@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "policyVersion": "semantic-v2",
+  "embeddingModelConsent": true,
+  "localOnlyBoundary": true,
+  "defaultEnabled": false,
+  "requiredDisclosures": [
+    "Similarity replay is estimated until a provider-billed counterfactual pair exists.",
+    "Streaming, tools, MCP, sensitive markers, and open tool calls always bypass semantic v2."
+  ]
+}
