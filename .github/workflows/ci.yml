@@ -69,6 +69,9 @@ jobs:
       - name: Check governance docs
         run: npm run check:governance
 
+      - name: Check comprehensive compression program
+        run: npm run check:comprehensive-compression-success
+
       - name: Check Rust formatting
         run: npm run fmt:desktop
 

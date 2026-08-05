@@ -1,6 +1,12 @@
 {
   "program": "world-class-token-savings",
   "updatedAt": "2026-08-05",
+  "comprehensiveCompressionProgram": {
+    "status": "complete",
+    "completedAt": "2026-08-05",
+    "exitGate": "check:comprehensive-compression-success",
+    "rollbackDoc": "docs/world-class-token-savings/COMPRESSION-ROLLBACK-OFF-MODE.md"
+  },
   "implementationStartedAt": "2026-07-30",
   "analysisDocument": "docs/world-class-token-savings/CURSOR-ANALYSIS-2026-07-30.md",
   "implementationPlan": "docs/world-class-token-savings/IMPLEMENTATION-PLAN.md",
@@ -104,8 +110,8 @@
         {
           "id": "P3.2",
           "name": "Public benchmark leaderboard export",
-          "status": "in_progress",
-          "note": "export:benchmark-leaderboard shipped 2026-07-30"
+          "status": "done",
+          "note": "export:benchmark-leaderboard with engineId/presetId fields; CI compression success gate shipped 2026-08-05"
         },
         {
           "id": "P3.3",

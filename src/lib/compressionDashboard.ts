@@ -1,4 +1,5 @@
 import type { RepoSavingsEstimate } from "./repoIntelligence";
+import { describeCompressionAttributionPolicy } from "./compressionAttributionRules";
 import type {
   DashboardState,
   RtkTodayStats,
@@ -119,6 +120,7 @@ export function buildCompressionDashboardOverview(
   const scope = input.scope ?? "today";
   const sources: CompressionSourceRow[] = [];
   const caveats: string[] = [
+    describeCompressionAttributionPolicy(),
     "Cache replay savings are shown separately from live-request compression.",
     "Sources without data are omitted rather than shown as zero measured savings.",
   ];
