@@ -482,6 +482,10 @@ className="switchboard-panel__footprint"
                 <li key={step}>{step}</li>
               ))}
             </ul>
+            <p className="optimize-minimal__meta">
+              Troubleshooting:{" "}
+              <code>{codexGuidance.troubleshootingDocPath}</code>
+            </p>
           </div>
           <button
             type="button"

@@ -1,6 +1,6 @@
 {
   "program": "world-class-token-savings",
-  "updatedAt": "2026-08-04",
+  "updatedAt": "2026-08-05",
   "implementationStartedAt": "2026-07-30",
   "analysisDocument": "docs/world-class-token-savings/CURSOR-ANALYSIS-2026-07-30.md",
   "implementationPlan": "docs/world-class-token-savings/IMPLEMENTATION-PLAN.md",
@@ -175,6 +175,41 @@
           "name": "Tool-result vs history UI toggles",
           "status": "done",
           "note": "Headroom Native advanced toggles with unsupported-history Doctor copy shipped 2026-08-05"
+        }
+      ]
+    },
+    "C2": {
+      "title": "Context and shell layers",
+      "slices": [
+        {
+          "id": "C2.1",
+          "name": "Chonkify promotion for Repo Intelligence packs",
+          "status": "done",
+          "note": "chonkifyPromotionGate.ts, provenance fixtures, check:chonkify-promotion-gate, repo-intelligence --compression chonkify, Repo Intelligence size estimate shipped 2026-08-05"
+        },
+        {
+          "id": "C2.2",
+          "name": "Session budget enforcer",
+          "status": "done",
+          "note": "effectiveAgentSessionTokenBudget, persisted Agent Session budget, repo-intelligence budgetEnforcement shipped 2026-08-05"
+        },
+        {
+          "id": "C2.3",
+          "name": "Repo Memory MCP budget parameters",
+          "status": "done",
+          "note": "max_tokens/maxTokens and depth bounds in MCP schemas and handler, docs/repo-memory-mcp.md shipped 2026-08-05"
+        },
+        {
+          "id": "C2.4",
+          "name": "RTK preset library",
+          "status": "done",
+          "note": "task presets in rtk-presets.mjs, optimization-report --rtk-presets, Addons env-block copy shipped 2026-08-05"
+        },
+        {
+          "id": "C2.5",
+          "name": "Codex parallel-session guard",
+          "status": "done",
+          "note": "codexConcurrencyGuidance banner with troubleshooting doc link shipped 2026-08-05"
         }
       ]
     }

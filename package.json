@@ -69,6 +69,7 @@
     "check:world-class-benchmarks": "node scripts/check-world-class-benchmarks.mjs",
     "check:world-class-plan": "node scripts/check-world-class-token-savings-plan.mjs",
     "check:leanctx-promotion-gate": "node scripts/check-leanctx-promotion-gate.mjs",
+    "check:chonkify-promotion-gate": "node scripts/check-chonkify-promotion-gate.mjs",
     "check:p1-savings-supremacy": "node scripts/check-p1-savings-supremacy.mjs",
     "check:p2-universal-agent-coverage": "node scripts/check-p2-universal-agent-coverage.mjs",
     "check:connector-promotion-gate": "node scripts/check-connector-promotion-gate.mjs",

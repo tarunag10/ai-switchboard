@@ -7,6 +7,14 @@ import {
   type RepoPackSourceFile,
 } from "./repoPackCompression";
 import {
+  chonkifyRepoPackAdapter,
+  repoPackSourceFilesFromContextPack,
+} from "./chonkifyRepoPackAdapter";
+import {
+  canActivateChonkifyRepoPack,
+  chonkifyLicenseMetadataForRepoPack,
+} from "./chonkifyPromotionGate";
+import {
   getPlannedConnector,
   getPlannedConnectorConfigCreationPlan,
   getPlannedConnectorSafetyDossier,
@@ -1568,6 +1576,63 @@ export function formatRepoAgentHandoffMarkdown(
   ]
     .filter((line) => line !== "")
     .join("\n");
+}
+
+export function estimateRepoPackCompressionSavings(
+  pack: RepoContextPack,
+  compressionConfig: RepoPackCompressionConfig = {},
+): {
+  nativeTokens: number;
+  compressedTokens: number | null;
+  blocked: boolean;
+  blockedReason: string | null;
+} {
+  const nativeTokens = pack.estimatedTokens;
+  if ((compressionConfig.mode ?? "off") === "off") {
+    return {
+      nativeTokens,
+      compressedTokens: nativeTokens,
+      blocked: false,
+      blockedReason: null,
+    };
+  }
+  const result = compressRepoPack({
+    currentPack: pack,
+    files:
+      compressionConfig.sourceFiles ?? repoPackSourceFilesFromContextPack(pack),
+    config: compressionConfig.config,
+    enabled: true,
+    licenseMetadata:
+      compressionConfig.licenseMetadata ?? chonkifyLicenseMetadataForRepoPack(),
+    adapter: compressionConfig.adapter ?? chonkifyRepoPackAdapter,
+  });
+  if (result.blocked) {
+    return {
+      nativeTokens,
+      compressedTokens: null,
+      blocked: true,
+      blockedReason: result.blockedReason,
+    };
+  }
+  return {
+    nativeTokens,
+    compressedTokens: result.pack.estimatedTokens,
+    blocked: false,
+    blockedReason: null,
+  };
+}
+
+export function buildRepoPackCompressionConfig(
+  mode: RepoPackCompressionMode,
+): RepoPackCompressionConfig {
+  if (mode !== "chonkify") {
+    return { mode: "off" };
+  }
+  return {
+    mode: "chonkify",
+    licenseMetadata: chonkifyLicenseMetadataForRepoPack(),
+    adapter: canActivateChonkifyRepoPack() ? chonkifyRepoPackAdapter : undefined,
+  };
 }
 
 /** Resolve the optional compressor without changing the shipped pack by default. */

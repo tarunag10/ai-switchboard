@@ -131,11 +131,27 @@ export interface AgentSessionPackRecommendation {
   reason: string;
 }
 
+export function effectiveAgentSessionTokenBudget(tokenBudget: number): number | null {
+  const normalized = Math.max(0, Math.floor(tokenBudget));
+  return normalized === 0 ? null : normalized;
+}
+
+export function packFitsBudget(
+  estimatedTokens: number,
+  tokenBudget: number,
+): boolean {
+  const cap = effectiveAgentSessionTokenBudget(tokenBudget);
+  return cap === null || estimatedTokens <= cap;
+}
+
 export function recommendAgentSessionPackId(
   request: Pick<AgentSessionPackRequest, "task" | "tokenBudget" | "candidates">,
 ): AgentSessionPackRecommendation {
-  const budget = Math.max(0, Math.floor(request.tokenBudget));
-  const affordable = request.candidates.filter((pack) => pack.estimatedTokens <= budget);
+  const cap = effectiveAgentSessionTokenBudget(request.tokenBudget);
+  const affordable =
+    cap === null
+      ? request.candidates
+      : request.candidates.filter((pack) => pack.estimatedTokens <= cap);
   if (affordable.length === 0) {
     return { reason: "No pack fits the current token budget." };
   }
@@ -170,10 +186,7 @@ export function resolveAgentSessionPreferredPackId(
   >,
 ): string | undefined {
   const preferred = request.candidates.find((pack) => pack.id === request.preferredPackId);
-  if (
-    preferred &&
-    preferred.estimatedTokens <= Math.max(0, Math.floor(request.tokenBudget))
-  ) {
+  if (preferred && packFitsBudget(preferred.estimatedTokens, request.tokenBudget)) {
     return preferred.id;
   }
   return recommendAgentSessionPackId(request).packId;
@@ -182,10 +195,10 @@ export function resolveAgentSessionPreferredPackId(
 export function prepareStartAgentSessionPack(
   request: AgentSessionPackRequest,
 ): AgentSessionPackPreparation {
-  const tokenBudget = Math.max(0, Math.floor(request.tokenBudget));
+  const cap = effectiveAgentSessionTokenBudget(request.tokenBudget);
 
   if (!request.enabled) {
-    return emptyPreparation(tokenBudget, "pack_injection_disabled");
+    return emptyPreparation(request.tokenBudget, "pack_injection_disabled");
   }
 
   const selectedPackId = resolveAgentSessionPreferredPackId(request);
@@ -194,16 +207,16 @@ export function prepareStartAgentSessionPack(
     request.candidates[0];
 
   if (!selected) {
-    return emptyPreparation(tokenBudget, "no_context_pack_available");
+    return emptyPreparation(request.tokenBudget, "no_context_pack_available");
   }
 
-  if (selected.estimatedTokens > tokenBudget) {
+  if (!packFitsBudget(selected.estimatedTokens, request.tokenBudget)) {
     return {
       inject: false,
       packId: selected.id,
       packName: selected.name,
       reason: "context_pack_exceeds_budget",
-      remainingBudget: tokenBudget,
+      remainingBudget: cap ?? 0,
       stablePrefixMarkdown: "",
       cacheableTokens: 0,
     };
@@ -214,7 +227,7 @@ export function prepareStartAgentSessionPack(
     packId: selected.id,
     packName: selected.name,
     reason: "context_pack_injected",
-    remainingBudget: tokenBudget - selected.estimatedTokens,
+    remainingBudget: cap === null ? 0 : cap - selected.estimatedTokens,
     stablePrefixMarkdown: formatStablePrefixMarkdown(request, selected),
     cacheableTokens: selected.cacheableTokens ?? selected.estimatedTokens,
   };
@@ -269,10 +282,11 @@ function emptyPreparation(
   tokenBudget: number,
   reason: AgentSessionPackReason,
 ): AgentSessionPackPreparation {
+  const cap = effectiveAgentSessionTokenBudget(tokenBudget);
   return {
     inject: false,
     reason,
-    remainingBudget: tokenBudget,
+    remainingBudget: cap ?? 0,
     stablePrefixMarkdown: "",
     cacheableTokens: 0,
   };

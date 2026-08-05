@@ -3,6 +3,7 @@ import fs from "node:fs";
 import {
   buildRtkPresetDecision,
   frameworkPresets,
+  taskPresets,
 } from "./rtk-presets.mjs";
 
 const PROMPT_KEYS = new Set(["content", "message", "messages", "prompt", "prompts", "raw", "text", "transcript"]);
@@ -158,9 +159,16 @@ function rtkPresets(snapshot, args) {
     output: args.presetOutput || source.output || "",
   });
   return {
-    available: frameworkPresets.map((preset) => preset.id),
+    available: [...frameworkPresets.map((preset) => preset.id), ...taskPresets.map((preset) => preset.id)],
+    taskPresets: taskPresets.map((preset) => ({
+      id: preset.id,
+      label: preset.label,
+      envBlock: preset.envBlock,
+    })),
     selectedPreset: decision.selectedPreset,
     detectedFramework: decision.detectedFramework,
+    presetKind: decision.presetKind,
+    presetId: decision.presetId,
     reason: decision.reason,
     estimatedTokensSaved: decision.estimatedTokensSaved,
     collapsedCounts: decision.collapsedCounts,
@@ -234,14 +242,25 @@ export function renderMarkdown(report) {
 }
 
 function renderRtkPresetMarkdown(report) {
+  const taskPresetLines = (report.rtkPresets.taskPresets ?? []).flatMap((preset) => [
+    `### ${preset.label}`,
+    "```shell",
+    preset.envBlock,
+    "```",
+    "",
+  ]);
   return [
     "# RTK Presets",
     "",
     line("Available", report.rtkPresets.available.join(", ")),
     line("Selected", report.rtkPresets.selectedPreset ?? "none", report.rtkPresets.reason),
     line("Detected", report.rtkPresets.detectedFramework ?? "none"),
+    line("Preset kind", report.rtkPresets.presetKind ?? "none"),
+    line("Preset id", report.rtkPresets.presetId ?? "none"),
     line("Estimated savings", `${report.rtkPresets.estimatedTokensSaved} tokens`),
     "",
+    "## Task preset env blocks",
+    ...taskPresetLines,
   ].join("\n");
 }
 

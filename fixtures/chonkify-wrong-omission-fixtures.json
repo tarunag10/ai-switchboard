@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "name": "implementation-pack-critical-path",
+      "relevantFacts": [
+        "src/App.tsx exports the root shell",
+        "src/lib/types.ts defines RuntimeStatus",
+        "scripts/repo-intelligence.mjs builds Repo Intelligence summaries"
+      ],
+      "wrongOmissions": []
+    },
+    {
+      "name": "handoff-pack-status",
+      "relevantFacts": [
+        "Agent session packs declare defaultBudget",
+        "Repo Intelligence preserves read-only safety boundaries"
+      ],
+      "wrongOmissions": []
+    }
+  ]
+}

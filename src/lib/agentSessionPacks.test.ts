@@ -7,6 +7,7 @@ import {
   prepareStartAgentSessionPack,
   recommendAgentSessionPackId,
   resolveAgentSessionPreferredPackId,
+  effectiveAgentSessionTokenBudget,
   type AgentSessionPackCandidate,
 } from "./agentSessionPacks";
 
@@ -84,6 +85,21 @@ describe("prepareStartAgentSessionPack", () => {
     expect(preparation.inject).toBe(false);
     expect(preparation.reason).toBe("pack_injection_disabled");
     expect(preparation.remainingBudget).toBe(1_000);
+  });
+
+  it("treats budget 0 as unlimited", () => {
+    const preparation = prepareStartAgentSessionPack({
+      agentId: "codex",
+      task: "build",
+      tokenBudget: 0,
+      enabled: true,
+      preferredPackId: "handoff",
+      candidates,
+    });
+
+    expect(preparation.inject).toBe(true);
+    expect(preparation.reason).toBe("context_pack_injected");
+    expect(effectiveAgentSessionTokenBudget(0)).toBeNull();
   });
 
   it("blocks packs that exceed the budget", () => {

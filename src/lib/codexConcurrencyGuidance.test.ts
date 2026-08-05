@@ -46,6 +46,7 @@ describe("codexConcurrencyGuidance", () => {
       ],
       recommendedMode: "rtk",
       actionLabel: "Switch to RTK only",
+      troubleshootingDocPath: "docs/codex-compression-troubleshooting.md",
     });
     expect(codexConcurrencyGuidance("headroom", "codex")).not.toBeNull();
   });

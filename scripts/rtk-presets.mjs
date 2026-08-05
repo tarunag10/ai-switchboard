@@ -1,4 +1,61 @@
 const FRAMEWORK_IDS = new Set(["vitest", "jest", "pytest", "cargo"]);
+const TASK_PRESET_IDS = new Set(["test", "build", "grep", "git-log"]);
+
+export const taskPresets = [
+  {
+    id: "test",
+    label: "Test",
+    envBlock: [
+      "# RTK task preset: test",
+      "export RTK_TASK_PRESET=test",
+      "# Prefix test commands with rtk, for example:",
+      "# rtk npm test",
+      "# rtk vitest run",
+      "# rtk pytest",
+      "# rtk cargo test --manifest-path src-tauri/Cargo.toml",
+    ].join("\n"),
+    commandHints: ["npm test", "vitest", "pytest", "cargo test"],
+  },
+  {
+    id: "build",
+    label: "Build",
+    envBlock: [
+      "# RTK task preset: build",
+      "export RTK_TASK_PRESET=build",
+      "# Prefix build commands with rtk, for example:",
+      "# rtk npm run build",
+      "# rtk cargo build --manifest-path src-tauri/Cargo.toml",
+      "# rtk tsc",
+    ].join("\n"),
+    commandHints: ["npm run build", "cargo build", "tsc"],
+  },
+  {
+    id: "grep",
+    label: "Grep",
+    envBlock: [
+      "# RTK task preset: grep",
+      "export RTK_TASK_PRESET=grep",
+      "# Prefix search commands with rtk, for example:",
+      "# rtk rg pattern src",
+      "# rtk grep -R pattern src",
+    ].join("\n"),
+    commandHints: ["rg", "grep", "rtk grep"],
+  },
+  {
+    id: "git-log",
+    label: "Git log",
+    envBlock: [
+      "# RTK task preset: git-log",
+      "export RTK_TASK_PRESET=git-log",
+      "# Prefix git history commands with rtk, for example:",
+      "# rtk git log --oneline -20",
+      "# rtk git diff --stat",
+    ].join("\n"),
+    commandHints: ["git log", "git diff", "rtk git log"],
+  },
+];
+
+const taskPresetById = new Map(taskPresets.map((preset) => [preset.id, preset]));
 
 const re = (source, flags = "i") => new RegExp(source, flags);
 
@@ -148,8 +205,23 @@ export function getFrameworkPreset(id) {
   return presetById.get(id);
 }
 
+export function getTaskPreset(id) {
+  return taskPresetById.get(id);
+}
+
+export function buildTaskPresetEnvBlock(presetId) {
+  return getTaskPreset(presetId)?.envBlock ?? null;
+}
+
 export function normalizePresetMode(value = "auto") {
-  if (value === "auto" || value === "none" || FRAMEWORK_IDS.has(value)) return value;
+  if (
+    value === "auto" ||
+    value === "none" ||
+    FRAMEWORK_IDS.has(value) ||
+    TASK_PRESET_IDS.has(value)
+  ) {
+    return value;
+  }
   throw new Error(`Unknown RTK preset mode: ${value}`);
 }
 
@@ -178,16 +250,24 @@ export function chooseFrameworkPreset({ mode = "auto", ...signals } = {}) {
   if (normalizedMode === "none") {
     return { selectedPreset: "none", reason: "RTK preset filtering disabled" };
   }
+  if (TASK_PRESET_IDS.has(normalizedMode)) {
+    return {
+      selectedPreset: normalizedMode,
+      presetKind: "task",
+      reason: `Task preset selected: ${normalizedMode}`,
+    };
+  }
   if (FRAMEWORK_IDS.has(normalizedMode)) {
     return {
       selectedPreset: normalizedMode,
       detectedFramework: detectFrameworkPreset(signals),
+      presetKind: "framework",
       reason: `Manual preset selected: ${normalizedMode}`,
     };
   }
   const detectedFramework = detectFrameworkPreset(signals);
   return detectedFramework
-    ? { selectedPreset: detectedFramework, detectedFramework, reason: `Detected ${detectedFramework} from command/files/output` }
+    ? { selectedPreset: detectedFramework, detectedFramework, presetKind: "framework", reason: `Detected ${detectedFramework} from command/files/output` }
     : { selectedPreset: "auto", reason: "No framework preset detected" };
 }
 
@@ -258,6 +338,11 @@ export function buildRtkPresetDecision({ command = "", mode = "auto", files = []
     command,
     selectedPreset: selection.selectedPreset,
     detectedFramework: selection.detectedFramework,
+    presetKind: selection.presetKind ?? (FRAMEWORK_IDS.has(selection.selectedPreset) ? "framework" : "none"),
+    presetId:
+      selection.selectedPreset !== "auto" && selection.selectedPreset !== "none"
+        ? selection.selectedPreset
+        : undefined,
     reason: selection.reason,
   };
   if (selection.selectedPreset !== "auto" && selection.selectedPreset !== "none" && output) {

@@ -6,7 +6,9 @@ import {
   buildRepoAgentHandoffPayload,
   buildRepoAgentManifest,
   buildRepoIntelligenceSummary,
+  buildRepoPackCompressionConfig,
   estimateRepoIntelligenceSavings,
+  estimateRepoPackCompressionSavings,
   formatRepoAgentHandoffMarkdown,
   formatAgentSessionPreparationJson,
   formatAgentSessionSelectedPackMarkdown,
@@ -26,6 +28,7 @@ import {
   type RepoPackCompressionMode,
   type RepoSavingsEstimate,
 } from "../lib/repoIntelligence";
+import { canActivateChonkifyRepoPack } from "../lib/chonkifyPromotionGate";
 
 export const repoIntelligencePreview = buildRepoIntelligenceSummary([
   { path: "src/App.tsx", bytes: 184_000 },
@@ -131,10 +134,8 @@ export function RepoIntelligencePreview({
     sessionPreparation,
     hasRealIndex,
   );
-  const packCompressionConfig: RepoPackCompressionConfig =
-    packCompressionMode === "chonkify"
-      ? { mode: "chonkify", licenseMetadata: "NOASSERTION" }
-      : { mode: "off" };
+  const packCompressionConfig = buildRepoPackCompressionConfig(packCompressionMode);
+  const chonkifyEligible = canActivateChonkifyRepoPack();
   const verificationDetailsId = "repo-intelligence-verification-details";
   const modeReasoningId = "repo-intelligence-mode-reasoning";
   const graphDiagnosticsId = "repo-intelligence-graph-diagnostics";
@@ -472,7 +473,9 @@ export function RepoIntelligencePreview({
             value={packCompressionMode}
           >
             <option value="off">Native deterministic (recommended)</option>
-            <option value="chonkify">Chonkify (blocked pending license)</option>
+            <option value="chonkify">
+              Chonkify {chonkifyEligible ? "(repo-pack eligible)" : "(blocked pending license)"}
+            </option>
           </select>
         </label>
         {!isPreview ? (
@@ -526,7 +529,9 @@ export function RepoIntelligencePreview({
       ) : null}
       <p className="repo-intelligence-preview__path" role="note">
         {packCompressionMode === "chonkify"
-          ? "Chonkify is selected for evidence preview only. Current license metadata is NOASSERTION, so native deterministic packs remain unchanged and savings stay unclaimed."
+          ? chonkifyEligible
+            ? "Chonkify is eligible for read-only Repo Intelligence packs. Copy dialogs show native vs chonkify token estimates; savings remain labelled estimated."
+            : "Chonkify is selected for evidence preview only. Current license metadata is NOASSERTION, so native deterministic packs remain unchanged and savings stay unclaimed."
           : "Native deterministic packs are the default. Any future chonkify reduction will retain source spans and be labelled estimated."}
       </p>
       {copyNotice ? (
@@ -885,7 +890,12 @@ export function RepoIntelligencePreview({
         </div>
       ) : null}
       <div className="repo-intelligence-preview__grid">
-        {summary.packs.map((pack) => (
+        {summary.packs.map((pack) => {
+          const compressionEstimate =
+            packCompressionMode === "chonkify"
+              ? estimateRepoPackCompressionSavings(pack, packCompressionConfig)
+              : null;
+          return (
           <article className="repo-intelligence-pack" key={pack.id}>
             <div className="repo-intelligence-pack__heading">
               <span>{pack.title}</span>
@@ -895,6 +905,12 @@ export function RepoIntelligencePreview({
             <span className="repo-intelligence-pack__meta">
               {pack.files.length} files &middot; about{" "}
               {pack.estimatedTokens.toLocaleString()} tokens
+              {compressionEstimate && !compressionEstimate.blocked && compressionEstimate.compressedTokens !== null
+                ? ` · chonkify ~${compressionEstimate.compressedTokens.toLocaleString()} tokens`
+                : ""}
+              {compressionEstimate?.blocked
+                ? " · chonkify blocked"
+                : ""}
             </span>
             {!isPreview ? (
               <button
@@ -906,7 +922,8 @@ export function RepoIntelligencePreview({
               </button>
             ) : null}
           </article>
-        ))}
+        );
+        })}
       </div>
 
       <section

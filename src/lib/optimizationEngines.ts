@@ -1,4 +1,5 @@
 import { describeSemanticCachePolicy } from "./semanticCachePolicy";
+import { canActivateChonkifyRepoPack } from "./chonkifyPromotionGate";
 
 export const optimizationEngineIds = [
   "headroom-native",
@@ -93,12 +94,46 @@ export function createOptimizationLifecycleReceipt(
 
 const guidance = (setup: string, rollback: string, off: string) => ({ setup, rollback, off });
 
+const chonkifyEngineBase = {
+  id: "chonkify" as const,
+  label: "Chonkify",
+  evidenceRequirements: ["license evidence", "source-provenance evidence", "deterministic pack review"] as const,
+  boundary: "local" as const,
+  visibility: "prompt" as const,
+  lossiness: "lossy" as const,
+  supportedScope: "text" as const,
+  evidenceType: "manual-review" as const,
+  ...guidance(
+    "Confirm license and source-provenance evidence before installation.",
+    "Restore the original context pack from backup.",
+    "Keep disabled until license and provenance gates pass.",
+  ),
+  governance: {
+    userOptIn: true,
+    secretSafePreview: true,
+    reversible: true,
+    remoteDisclosure: false,
+    evidenceRequired: true,
+  },
+  config: {},
+};
+
 export const optimizationEngines: readonly OptimizationEngine[] = [
   { id: "headroom-native", label: "Headroom Native", status: "enabled", activationMode: "supported", evidenceRequirements: ["healthy native runtime", "native runtime metric"], boundary: "local", visibility: "prompt", lossiness: "configurable", supportedScope: "text-and-image", evidenceType: "native-metric", ...guidance("Use the bundled native engine.", "Restore the previous Switchboard profile.", "Disable native optimization in Settings."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
   { id: "rtk", label: "RTK", status: "available", activationMode: "supported", evidenceRequirements: ["local command output"], boundary: "local", visibility: "prompt", lossiness: "configurable", supportedScope: "text", evidenceType: "command-output", ...guidance("Install or select the local RTK binary.", "Remove the RTK preset from the profile.", "Turn off RTK presets."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
   { id: "leanctx", label: "Lean Context", status: "shadow", activationMode: "experimental", evidenceRequirements: ["shadow quality benchmark", "protected-content checks", "fail-open latency evidence"], boundary: "local", visibility: "prompt", lossiness: "configurable", supportedScope: "text", evidenceType: "benchmark", ...guidance("Configure a local context budget and observe-only mode.", "Restore the uncompressed context pack.", "Set the engine to disabled."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
   { id: "llmlingua-2", label: "LLMLingua-2", status: "blocked", activationMode: "experimental", evidenceRequirements: ["local model", "quality baseline", "protected-content gates", "fail-open path"], boundary: "local", visibility: "prompt", lossiness: "lossy", supportedScope: "text", evidenceType: "benchmark", ...guidance("Install the local model and record a quality baseline.", "Discard the compressed prompt and use the original.", "Keep the engine blocked until quality gates pass."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
-  { id: "chonkify", label: "Chonkify", status: "blocked", activationMode: "blocked", evidenceRequirements: ["license evidence", "source-provenance evidence", "deterministic pack review"], boundary: "local", visibility: "prompt", lossiness: "lossy", supportedScope: "text", evidenceType: "manual-review", ...guidance("Confirm license and source-provenance evidence before installation.", "Restore the original context pack from backup.", "Keep disabled until license and provenance gates pass."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
+  canActivateChonkifyRepoPack()
+    ? {
+        ...chonkifyEngineBase,
+        status: "available",
+        activationMode: "supported",
+      }
+    : {
+        ...chonkifyEngineBase,
+        status: "blocked",
+        activationMode: "blocked",
+      },
   { id: "semantic-cache", label: "Exact Replay Cache", status: "available", activationMode: "supported", evidenceRequirements: ["exact cache-hit evidence", "secret screening"], boundary: "local", visibility: "prompt-and-output", lossiness: "configurable", supportedScope: "text", evidenceType: "cache-hit-rate", ...guidance(describeSemanticCachePolicy(), "Clear the cache and resume direct requests.", "Disable cache reads and writes."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: { policy: "exact-v1", evidence: "estimated until counterfactual provider evidence", compression: "separate" } },
   { id: "pxpipe-text-image", label: "PXPipe Text/Image", status: "blocked", activationMode: "experimental", evidenceRequirements: ["versioned Headroom text_image seam", "shadow token evidence", "visual quality evidence"], boundary: "local", visibility: "prompt", lossiness: "lossy", supportedScope: "text", evidenceType: "manual-review", ...guidance("Wait for a versioned Headroom text_image capability and run shadow mode.", "Restore native Headroom text handling.", "Keep disabled until upstream support and quality gates pass."), governance: { userOptIn: true, secretSafePreview: true, reversible: true, remoteDisclosure: false, evidenceRequired: true }, config: {} },
 ] as const;

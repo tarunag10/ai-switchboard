@@ -20,6 +20,7 @@ import { PlannedAddonCard } from "./PlannedAddonCard";
 import { GatewayProfilesCard } from "./GatewayProfilesCard";
 import { OptimizationEngineProfilesCard } from "./OptimizationEngineProfilesCard";
 import { ProviderBilledCounterfactualCard } from "./ProviderBilledCounterfactualCard";
+import { RTK_TASK_PRESETS } from "../lib/rtkTaskPresets";
 
 export interface AddonsViewProps {
   activeView: TrayView;
@@ -81,6 +82,7 @@ export function AddonsView({
 }: AddonsViewProps) {
   const [showRtkDetails, setShowRtkDetails] = useState(false);
   const [rtkActivityLines, setRtkActivityLines] = useState<string[]>([]);
+  const [rtkPresetNotice, setRtkPresetNotice] = useState<string | null>(null);
   const rtkActivityRef = useRef<HTMLPreElement | null>(null);
 
   useEffect(() => {
@@ -195,6 +197,39 @@ export function AddonsView({
                       : "No RTK activity yet."}
                   </pre>
                 ) : null}
+                <div className="addon-card__preset-block">
+                  <p className="addon-card__hint">
+                    Copy a task preset env block into your shell profile. Prefix
+                    matching commands with <code>rtk</code> so receipts can
+                    attribute the preset id.
+                  </p>
+                  <ul className="addon-card__preset-list">
+                    {RTK_TASK_PRESETS.map((preset) => (
+                      <li key={preset.id}>
+                        <button
+                          type="button"
+                          className="addon-card__link"
+                          onClick={async () => {
+                            if (!navigator.clipboard) {
+                              setRtkPresetNotice("Clipboard unavailable.");
+                              return;
+                            }
+                            await navigator.clipboard.writeText(preset.envBlock);
+                            setRtkPresetNotice(`Copied ${preset.label} preset env block.`);
+                            window.setTimeout(() => setRtkPresetNotice(null), 1800);
+                          }}
+                        >
+                          Copy {preset.label} preset
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  {rtkPresetNotice ? (
+                    <p className="addon-card__hint" role="status">
+                      {rtkPresetNotice}
+                    </p>
+                  ) : null}
+                </div>
               </>
             ) : null}
           </AddonCard>

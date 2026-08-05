@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import path from "node:path";
+import { chonkifyPackFiles } from "./chonkify-adapter.mjs";
 
 const INDEXER_VERSION = "path-graph-v10";
 
@@ -593,6 +594,7 @@ function parseArgs(argv) {
     providerRoutingSafe: null,
     headroomCompressionRisk: false,
     cleanPassThrough: false,
+    compression: "off",
   };
   const positional = [];
 
@@ -637,6 +639,11 @@ function parseArgs(argv) {
       options.headroomCompressionRisk = true;
     } else if (arg === "--clean-pass-through") {
       options.cleanPassThrough = true;
+    } else if (arg === "--compression") {
+      options.compression = argv[index + 1] ?? "off";
+      index += 1;
+    } else if (arg.startsWith("--compression=")) {
+      options.compression = arg.slice("--compression=".length);
     } else if (arg === "--format") {
       options.format = argv[index + 1] ?? "json";
       options.formatProvided = true;
@@ -679,7 +686,8 @@ Options:
                        Print Start Agent Session preparation for --agent
   --task <type>        Session task: implementation, verification, handoff, risk_review, release_handoff
   --query <text>       Optional free-form task query for task-aware context ranking
-  --budget <tokens>    Optional token budget for task-aware context ranking
+  --budget <tokens>    Optional token budget for task-aware context ranking (0 = unlimited)
+  --compression <mode> Optional repo pack compression: off or chonkify
   --headroom-healthy   Mark Headroom engine healthy for mode recommendation
   --rtk-healthy        Mark RTK healthy for mode recommendation
   --provider-routing-safe|--provider-routing-unsafe
@@ -971,7 +979,103 @@ function slugifyTaskId(task) {
 }
 
 function normalizedTaskBudget(value, fallback = 8000) {
-  return Number.isFinite(value) && value > 0 ? Math.round(value) : fallback;
+  if (Number.isFinite(value) && value === 0) return null;
+  if (Number.isFinite(value) && value > 0) return Math.round(value);
+  return fallback;
+}
+
+function loadChonkifyPromotionPassed() {
+  try {
+    const fixturePath = path.join(process.cwd(), "fixtures/chonkify-provenance-evidence.json");
+    const evidence = JSON.parse(fs.readFileSync(fixturePath, "utf8"));
+    return evidence.license === "MIT";
+  } catch {
+    return false;
+  }
+}
+
+function applyPackCompression(pack, compressionMode) {
+  if (compressionMode !== "chonkify" || !loadChonkifyPromotionPassed()) {
+    return pack;
+  }
+  const files = pack.files.map((file) => ({
+    path: file.path,
+    content: file.preview ?? "",
+    estimatedTokens: file.estimatedTokens,
+  }));
+  const compressed = chonkifyPackFiles(files);
+  const compressedByPath = new Map(compressed.files.map((file) => [file.path, file]));
+  return {
+    ...pack,
+    files: pack.files.map((file) => {
+      const next = compressedByPath.get(file.path);
+      return next
+        ? { ...file, estimatedTokens: next.estimatedTokens ?? file.estimatedTokens }
+        : file;
+    }),
+    estimatedTokens: compressed.estimatedTokens,
+    compression: compressed.metadata,
+  };
+}
+
+function recommendPackWithinBudget(summary, packId, budgetTokens) {
+  const budget = normalizedTaskBudget(budgetTokens, null);
+  const pack =
+    summary.packs.find((candidate) => candidate.id === packId) ?? summary.packs[0];
+  if (!pack || budget === null || pack.estimatedTokens <= budget) {
+    return {
+      pack,
+      warning: null,
+      suggestedPackId: null,
+      exceedsBudget: false,
+    };
+  }
+  const affordable = summary.packs
+    .filter((candidate) => candidate.estimatedTokens <= budget)
+    .sort(
+      (left, right) =>
+        left.estimatedTokens - right.estimatedTokens ||
+        left.id.localeCompare(right.id),
+    );
+  return {
+    pack,
+    warning: `Selected pack "${pack.id}" (${pack.estimatedTokens.toLocaleString()} tokens) exceeds the ${budget.toLocaleString()} token budget.`,
+    suggestedPackId: affordable[0]?.id ?? null,
+    exceedsBudget: true,
+  };
+}
+
+const MCP_BUDGET_LIMITS = {
+  maxTokens: 12_000,
+  maxDepth: 3,
+};
+
+function normalizeMcpBudgetArgs(args = {}) {
+  const maxTokensRaw =
+    args.max_tokens ?? args.maxTokens ?? args.budget_tokens ?? args.budgetTokens;
+  const depthRaw = args.depth;
+  const requestedMax = Number(maxTokensRaw);
+  const requestedDepth = Number(depthRaw);
+  if (Number.isFinite(requestedMax) && requestedMax > MCP_BUDGET_LIMITS.maxTokens) {
+    throw new Error(
+      `max_tokens ${requestedMax} exceeds the read-only MCP limit of ${MCP_BUDGET_LIMITS.maxTokens}. Lower the request or split the task.`,
+    );
+  }
+  if (Number.isFinite(requestedDepth) && requestedDepth > MCP_BUDGET_LIMITS.maxDepth) {
+    throw new Error(
+      `depth ${requestedDepth} exceeds the read-only MCP limit of ${MCP_BUDGET_LIMITS.maxDepth}.`,
+    );
+  }
+  return {
+    maxTokens:
+      Number.isFinite(requestedMax) && requestedMax > 0
+        ? Math.min(requestedMax, MCP_BUDGET_LIMITS.maxTokens)
+        : MCP_BUDGET_LIMITS.maxTokens,
+    depth:
+      Number.isFinite(requestedDepth) && requestedDepth > 0
+        ? Math.min(requestedDepth, MCP_BUDGET_LIMITS.maxDepth)
+        : MCP_BUDGET_LIMITS.maxDepth,
+  };
 }
 
 function dedupeFilesByPath(files) {
@@ -2319,14 +2423,15 @@ function formatSinglePackMarkdown(summary, selectedPack) {
 }
 
 function buildBudgetedContextPack(summary, selectedPack, args) {
-  const hasBudget = Number.isFinite(args.budget_tokens) || Number.isFinite(args.budgetTokens);
+  const budgetRaw = args.budget_tokens ?? args.budgetTokens;
+  const hasBudget = Number.isFinite(budgetRaw);
   const hasTask = typeof args.task === "string" && args.task.trim().length > 0;
   if (!hasBudget && !hasTask) return selectedPack;
 
-  const budget = normalizedTaskBudget(
-    args.budget_tokens ?? args.budgetTokens,
-    selectedPack.estimatedTokens,
-  );
+  const budget = hasBudget
+    ? normalizedTaskBudget(budgetRaw, selectedPack.estimatedTokens)
+    : selectedPack.estimatedTokens;
+  if (budget === null) return selectedPack;
   const task = String(args.task ?? selectedPack.id);
   const taskContext = buildTaskContextPack(
     selectedPack.files,
@@ -2702,14 +2807,20 @@ function buildAgentSessionPreparation(summary, options) {
     copyState.status === "blocked"
       ? null
       : buildAgentHandoffPayload(summary, profile.id, packId);
+  const budgetCheck = recommendPackWithinBudget(summary, packId, options.budgetTokens);
+  const hasSessionBudget =
+    Number.isFinite(options.budgetTokens) && options.budgetTokens !== 0;
   const taskContext =
-    options.taskQuery?.trim() || options.budgetTokens
+    options.taskQuery?.trim() || hasSessionBudget
       ? buildTaskContextPack(
           dedupeFilesByPath(summary.packs.flatMap((contextPack) => contextPack.files)),
           summary.graph,
           taskType,
           options.taskQuery?.trim() || taskType,
-          normalizedTaskBudget(options.budgetTokens),
+          normalizedTaskBudget(
+            options.budgetTokens,
+            budgetCheck.pack?.estimatedTokens ?? 8000,
+          ),
         )
       : summary.taskPacks?.find((pack) => pack.task === taskType) ??
         summary.taskPacks?.[0] ??
@@ -2732,6 +2843,12 @@ function buildAgentSessionPreparation(summary, options) {
     copyArtifacts,
     recommendedMode: modeRecommendation.mode,
     recommendedModeReason: modeRecommendation.reason,
+    budgetEnforcement: {
+      budgetTokens: normalizedTaskBudget(options.budgetTokens, null),
+      exceedsBudget: budgetCheck.exceedsBudget,
+      warning: budgetCheck.warning,
+      suggestedPackId: budgetCheck.suggestedPackId,
+    },
     safety: {
       readOnly: true,
       excludesSecretLikePaths: true,
@@ -2765,6 +2882,14 @@ function formatAgentSessionMarkdown(preparation) {
       .map((artifact) => `${artifact.label}=${artifact.available ? "ready" : "blocked"}`)
       .join(", ")}`,
   ];
+  if (preparation.budgetEnforcement?.warning) {
+    lines.push(
+      `Budget warning: ${preparation.budgetEnforcement.warning}`,
+      preparation.budgetEnforcement.suggestedPackId
+        ? `Suggested smaller pack: ${preparation.budgetEnforcement.suggestedPackId}`
+        : "Suggested smaller pack: none available within budget",
+    );
+  }
   if (preparation.configReadiness) {
     lines.push(
       `Connector readiness: ${preparation.configReadiness.plannedConnectorName} (${preparation.configReadiness.plannedConnectorId})`,
@@ -2960,6 +3085,7 @@ function mcpTextResult(value) {
 }
 
 function handleRepoMemoryTool(summary, name, args = {}) {
+  const budget = normalizeMcpBudgetArgs(args);
   if (name === "switchboard.list_context_packs") {
     return mcpTextResult({
       repoRoot: summary.repoRoot,
@@ -2980,14 +3106,14 @@ function handleRepoMemoryTool(summary, name, args = {}) {
           candidate.id ===
           (args.packId ?? args.pack_id ?? args.id ?? "implementation"),
       ) ?? summary.packs[0];
-    return mcpTextResult(
-      formatSinglePackMarkdown(
-        summary,
-        name === "switchboard.build_context_pack"
-          ? buildBudgetedContextPack(summary, pack, args)
-          : pack,
-      ),
-    );
+    const boundedPack =
+      name === "switchboard.build_context_pack"
+        ? buildBudgetedContextPack(summary, pack, {
+            ...args,
+            budget_tokens: args.budget_tokens ?? args.budgetTokens ?? budget.maxTokens,
+          })
+        : pack;
+    return mcpTextResult(formatSinglePackMarkdown(summary, boundedPack));
   }
   if (name === "switchboard.get_repo_graph_summary") {
     return mcpTextResult({
@@ -2998,17 +3124,21 @@ function handleRepoMemoryTool(summary, name, args = {}) {
   }
   if (name === "repo_symbol_lookup") {
     const query = String(args.query ?? "").toLowerCase();
+    const limit = Math.min(25, budget.depth * 10);
     const symbols = (summary.graph?.symbols ?? [])
       .filter((symbol) => !query || symbol.name.toLowerCase().includes(query))
-      .slice(0, 25);
+      .slice(0, limit);
     return mcpTextResult({
       repoRoot: summary.repoRoot,
       symbols,
+      depth: budget.depth,
+      maxTokens: budget.maxTokens,
       safety: repoMemorySafety(),
     });
   }
   if (name === "repo_dependents_of") {
     const target = String(args.target ?? "");
+    const limit = Math.min(50, budget.depth * 20);
     const edges = [
       ...(summary.graph?.importEdges ?? []),
       ...(summary.graph?.symbolEdges ?? []),
@@ -3017,11 +3147,13 @@ function handleRepoMemoryTool(summary, name, args = {}) {
         (edge) =>
           !target || edge.to.includes(target) || edge.from.includes(target),
       )
-      .slice(0, 50);
+      .slice(0, limit);
     return mcpTextResult({
       repoRoot: summary.repoRoot,
       target,
       edges,
+      depth: budget.depth,
+      maxTokens: budget.maxTokens,
       safety: repoMemorySafety(),
     });
   }
@@ -3052,6 +3184,9 @@ function runRepoMemoryMcpServer(options) {
           pack_id: { type: "string" },
           task: { type: "string" },
           budget_tokens: { type: "number" },
+          max_tokens: { type: "number" },
+          maxTokens: { type: "number" },
+          depth: { type: "number" },
         },
       },
       annotations: { readOnlyHint: true },
@@ -3072,7 +3207,7 @@ function runRepoMemoryMcpServer(options) {
         "Return a read-only Repo Intelligence context pack as Markdown; secret-like paths are excluded and repositories are not modified.",
       inputSchema: {
         type: "object",
-        properties: { packId: { type: "string" } },
+        properties: { packId: { type: "string" }, max_tokens: { type: "number" }, maxTokens: { type: "number" }, depth: { type: "number" } },
       },
       annotations: { readOnlyHint: true },
     },
@@ -3082,7 +3217,7 @@ function runRepoMemoryMcpServer(options) {
         "Search the latest Repo Intelligence symbol graph read-only; secret-like paths are excluded and repositories are not modified.",
       inputSchema: {
         type: "object",
-        properties: { query: { type: "string" } },
+        properties: { query: { type: "string" }, max_tokens: { type: "number" }, maxTokens: { type: "number" }, depth: { type: "number" } },
       },
       annotations: { readOnlyHint: true },
     },
@@ -3092,7 +3227,7 @@ function runRepoMemoryMcpServer(options) {
         "Return read-only import/symbol edges that point at a file or symbol; secret-like paths are excluded and repositories are not modified.",
       inputSchema: {
         type: "object",
-        properties: { target: { type: "string" } },
+        properties: { target: { type: "string" }, max_tokens: { type: "number" }, maxTokens: { type: "number" }, depth: { type: "number" } },
       },
       annotations: { readOnlyHint: true },
     },
@@ -3232,18 +3367,31 @@ if (options.mcpServe) {
       process.exit(1);
     }
     if (options.format === "markdown")
-      await writeCliOutput(formatSinglePackMarkdown(summary, selectedPack));
+      await writeCliOutput(
+        formatSinglePackMarkdown(
+          summary,
+          applyPackCompression(selectedPack, options.compression),
+        ),
+      );
     else
       await writeCliOutput(
         JSON.stringify(
-          { repoRoot: summary.repoRoot, pack: selectedPack },
+          {
+            repoRoot: summary.repoRoot,
+            pack: applyPackCompression(selectedPack, options.compression),
+          },
           null,
           2,
         ),
       );
   } else if (options.format === "markdown") {
     for (const contextPack of summary.packs) {
-      await writeCliOutput(formatSinglePackMarkdown(summary, contextPack));
+      await writeCliOutput(
+        formatSinglePackMarkdown(
+          summary,
+          applyPackCompression(contextPack, options.compression),
+        ),
+      );
       await writeCliOutput("\n---\n");
     }
   } else {

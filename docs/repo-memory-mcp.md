@@ -26,7 +26,8 @@ Goose is managed for this bridge and for its separately allowlisted native endpo
   `switchboard.list_context_packs`, `switchboard.build_context_pack`, and
   `switchboard.get_repo_graph_summary`.
 - Safety: read-only tools, secret-like paths excluded, generated/vendor paths skipped, and pack output bounded by Repo Intelligence budgets.
-- `switchboard.build_context_pack` honors `budget_tokens` and `task` arguments. The response reports the selected budget, task, and omitted-file count; it never falls back to an unbounded pack when a budget is requested.
+- `switchboard.build_context_pack` honors `budget_tokens`, `max_tokens`/`maxTokens`, and `task` arguments. The response reports the selected budget, task, and omitted-file count; it never falls back to an unbounded pack when a budget is requested.
+- `repo_symbol_lookup` and `repo_dependents_of` accept optional `depth` and `max_tokens`/`maxTokens` bounds. Requests above the server limits (`depth` 3, `max_tokens` 12,000) are refused with an actionable error.
 
 ## Agent Consumption
 

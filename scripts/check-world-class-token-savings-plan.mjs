@@ -42,6 +42,11 @@ const requiredCodeSignals = [
     needles: ["resolveSwitchboardModeForCache"],
   },
   {
+    label: "chonkify promotion gate",
+    file: "src/lib/chonkifyPromotionGate.ts",
+    needles: ["evaluateChonkifyPromotionGate", "canActivateChonkifyRepoPack"],
+  },
+  {
     label: "agent session pack recommendation",
     file: "src/lib/agentSessionPacks.ts",
     needles: ["recommendAgentSessionPackId", "resolveAgentSessionPreferredPackId"],

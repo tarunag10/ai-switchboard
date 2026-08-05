@@ -43,10 +43,11 @@ describe("optimization engine registry", () => {
   });
 
   it("never allows experimental or blocked engines into an activation allowlist", () => {
-    expect(filterActivatableOptimizationEngineIds(["semantic-cache", "leanctx", "llmlingua-2", "chonkify", "pxpipe-text-image"])).toEqual(["semantic-cache"]);
+    expect(filterActivatableOptimizationEngineIds(["semantic-cache", "leanctx", "llmlingua-2", "chonkify", "pxpipe-text-image"])).toEqual(
+      canActivateOptimizationEngine("chonkify") ? ["semantic-cache", "chonkify"] : ["semantic-cache"],
+    );
     expect(canActivateOptimizationEngine("leanctx")).toBe(false);
     expect(canActivateOptimizationEngine("llmlingua-2")).toBe(false);
-    expect(canActivateOptimizationEngine("chonkify")).toBe(false);
     expect(canActivateOptimizationEngine("pxpipe-text-image")).toBe(false);
     expect(optimizationEngineActivationBlocker("pxpipe-text-image")).toMatch(/safe no-op/);
   });

@@ -118,6 +118,16 @@ test("decision includes byte and token savings when filtering output", () => {
   });
   assert.equal(decision.selectedPreset, "cargo");
   assert.equal(decision.detectedFramework, "cargo");
+  assert.equal(decision.presetKind, "framework");
+  assert.equal(decision.presetId, "cargo");
   assert.ok(decision.originalBytes > decision.filteredBytes);
   assert.ok(decision.estimatedTokensSaved > 0);
+});
+
+test("task presets expose shell env blocks and preset ids", () => {
+  const decision = buildRtkPresetDecision({ mode: "test", command: "npm test" });
+  assert.equal(decision.selectedPreset, "test");
+  assert.equal(decision.presetKind, "task");
+  assert.equal(decision.presetId, "test");
+  assert.match(decision.reason, /Task preset selected: test/);
 });

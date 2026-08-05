@@ -9,6 +9,7 @@ import {
 import {
   AGENT_SESSION_PRESETS,
   buildAgentSessionPayload,
+  effectiveAgentSessionTokenBudget,
   getAgentSessionActionLabel,
   prepareStartAgentSessionPack,
   recommendAgentSessionPackId,
@@ -21,6 +22,31 @@ import type { RuntimeStatus, SwitchboardMode, SwitchboardState } from "../lib/ty
 type SemanticCacheStatus = {
   enabled: boolean;
 };
+
+const BUDGET_STORAGE_KEY = "ai-switchboard.agent-session.budget.v1";
+
+function loadStoredBudget(agentId: string, defaultBudget: number): number {
+  try {
+    const raw = localStorage.getItem(BUDGET_STORAGE_KEY);
+    if (!raw) return defaultBudget;
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    const stored = parsed[agentId];
+    return Number.isFinite(stored) && stored >= 0 ? stored : defaultBudget;
+  } catch {
+    return defaultBudget;
+  }
+}
+
+function persistStoredBudget(agentId: string, budget: number) {
+  try {
+    const raw = localStorage.getItem(BUDGET_STORAGE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as Record<string, number>) : {};
+    parsed[agentId] = Math.max(0, Math.floor(budget));
+    localStorage.setItem(BUDGET_STORAGE_KEY, JSON.stringify(parsed));
+  } catch {
+    // Ignore local settings persistence failures.
+  }
+}
 
 export function AgentSessionPanel() {
   const [agentId, setAgentId] = useState(AGENT_SESSION_PRESETS[0]?.id ?? "");
@@ -35,7 +61,9 @@ export function AgentSessionPanel() {
     AGENT_SESSION_PRESETS.find((preset) => preset.id === agentId) ??
     AGENT_SESSION_PRESETS[0];
   const [packId, setPackId] = useState(agent?.packs[0]?.id ?? "");
-  const [budget, setBudget] = useState(agent?.defaultBudget ?? 16_000);
+  const [budget, setBudget] = useState(() =>
+    loadStoredBudget(agent?.id ?? "codex", agent?.defaultBudget ?? 16_000),
+  );
   const [task, setTask] = useState("Implement the next scoped optimization slice.");
   const [copied, setCopied] = useState(false);
 
@@ -94,6 +122,7 @@ export function AgentSessionPanel() {
     payload.length > 0 &&
     (!checklist.blocked || acknowledged) &&
     (!checklist.canCopyWithAcknowledgment || acknowledged);
+  const budgetCap = effectiveAgentSessionTokenBudget(budget);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,12 +154,17 @@ export function AgentSessionPanel() {
   }, [agentId, activePackId, budget, checklist.blocked, checklist.hasWarnings]);
 
   useEffect(() => {
-    if (!agent || !recommendation.packId) return;
+    if (!agent || !recommendation.packId || budgetCap === null) return;
     const current = agent.packs.find((pack) => pack.id === packId);
-    if (!current || current.estimatedTokens > budget) {
+    if (!current || current.estimatedTokens > budgetCap) {
       setPackId(recommendation.packId);
     }
-  }, [agent, budget, packId, recommendation.packId]);
+  }, [agent, budget, budgetCap, packId, recommendation.packId]);
+
+  useEffect(() => {
+    if (!agent?.id) return;
+    persistStoredBudget(agent.id, budget);
+  }, [agent?.id, budget]);
 
   async function copyPayload() {
     if (!canCopy) return;
@@ -143,7 +177,7 @@ export function AgentSessionPanel() {
     const nextAgent = AGENT_SESSION_PRESETS.find((preset) => preset.id === nextAgentId);
     setAgentId(nextAgentId);
     setPackId(nextAgent?.packs[0]?.id ?? "");
-    setBudget(nextAgent?.defaultBudget ?? 16_000);
+    setBudget(loadStoredBudget(nextAgentId, nextAgent?.defaultBudget ?? 16_000));
     setCopied(false);
   }
 
@@ -210,6 +244,11 @@ export function AgentSessionPanel() {
               value={budget}
               onChange={(event) => setBudget(Number(event.target.value))}
             />
+            <span className="optimize-minimal__meta">
+              {budgetCap === null
+                ? "0 means no session budget limit."
+                : `Ceiling: ${formatCompactNumber(budgetCap)} tokens.`}
+            </span>
           </span>
         </label>
 
@@ -281,8 +320,9 @@ export function AgentSessionPanel() {
         <div className="install-progress__step">
           <Package weight="duotone" aria-hidden="true" />
           <span>
-            {formatCompactNumber(preparation.remainingBudget)} remaining,{" "}
-            {formatCompactNumber(preparation.cacheableTokens)} cacheable
+            {budgetCap === null
+              ? `${formatCompactNumber(preparation.cacheableTokens)} cacheable, no budget limit`
+              : `${formatCompactNumber(preparation.remainingBudget)} remaining, ${formatCompactNumber(preparation.cacheableTokens)} cacheable`}
           </span>
         </div>
       </div>

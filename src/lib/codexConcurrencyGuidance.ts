@@ -10,6 +10,7 @@ export interface CodexConcurrencyGuidance {
   steps: string[];
   recommendedMode: SwitchboardMode;
   actionLabel: string;
+  troubleshootingDocPath: string;
 }
 
 function formatTokens(value: number) {
@@ -113,5 +114,6 @@ export function codexConcurrencyGuidance(
     ],
     recommendedMode: "rtk",
     actionLabel: "Switch to RTK only",
+    troubleshootingDocPath: "docs/codex-compression-troubleshooting.md",
   };
 }
