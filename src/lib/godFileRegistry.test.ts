@@ -24,9 +24,12 @@ describe("godFileRegistry", () => {
   it("tracks watchlist frontier files", () => {
     expect(watchlistRegistryPaths()).toContain("src/app/TrayApp.tsx");
     expect(watchlistRegistryPaths()).toContain(
+      "src-tauri/src/client_setup_apply.rs",
+    );
+    expect(watchlistRegistryPaths()).not.toContain(
       "src/components/OptimizationDashboard.tsx",
     );
-    expect(trackedOversizeRegistryPaths()).toHaveLength(3);
+    expect(trackedOversizeRegistryPaths()).toHaveLength(2);
   });
 
   it("tracks split modules from the god-file program", () => {
@@ -36,6 +39,8 @@ describe("godFileRegistry", () => {
         "src/app/TrayApp.tsx",
         "src/components/TrayAppShell.tsx",
         "src/components/SettingsView.tsx",
+        "src/components/OptimizationCompressionOverview.tsx",
+        "src-tauri/src/client_codex_setup.rs",
         "src/styles/tokens.css",
         "src/styles.css",
       ]),

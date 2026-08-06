@@ -160,6 +160,48 @@
       "path": "src/styles.css",
       "parent": "global-styles",
       "domain": "design-system-remainder"
+    },
+    {
+      "id": "optimization-compression-overview",
+      "path": "src/components/OptimizationCompressionOverview.tsx",
+      "parent": "optimization-dashboard",
+      "domain": "compression-overview-panel"
+    },
+    {
+      "id": "optimization-action-controls",
+      "path": "src/components/OptimizationActionControls.tsx",
+      "parent": "optimization-dashboard",
+      "domain": "optimization-action-controls"
+    },
+    {
+      "id": "optimization-validation-panels",
+      "path": "src/components/OptimizationValidationPanels.tsx",
+      "parent": "optimization-dashboard",
+      "domain": "optimization-validation-panels"
+    },
+    {
+      "id": "optimization-pack-rtk",
+      "path": "src/components/OptimizationPackRtkPanel.tsx",
+      "parent": "optimization-dashboard",
+      "domain": "optimization-pack-rtk-panel"
+    },
+    {
+      "id": "runtime-upgrade-overlay",
+      "path": "src/components/RuntimeUpgradeOverlay.tsx",
+      "parent": "app-shell",
+      "domain": "runtime-upgrade-overlay"
+    },
+    {
+      "id": "tray-addon-copy",
+      "path": "src/lib/trayAddonCopy.ts",
+      "parent": "app-shell",
+      "domain": "tray-addon-copy"
+    },
+    {
+      "id": "client-codex-setup",
+      "path": "src-tauri/src/client_codex_setup.rs",
+      "parent": "client-adapters",
+      "domain": "client-codex-setup"
     }
   ],
   "watchlist": [
@@ -167,31 +209,21 @@
       "id": "tray-app-controller",
       "path": "src/app/TrayApp.tsx",
       "domain": "desktop-shell",
-      "splitSlice": "P3.3",
-      "baselineLines": 5042,
-      "baselineBytes": 172009,
+      "splitSlice": "P3.3-watchlist",
+      "baselineLines": 4847,
+      "baselineBytes": 164459,
       "maxGrowthLines": 150,
-      "reason": "Tray app controller after App.tsx re-export; hook extraction planned."
+      "reason": "Tray app controller; pricing and master-activation hook extraction planned."
     },
     {
       "id": "client-setup-apply",
       "path": "src-tauri/src/client_setup_apply.rs",
       "domain": "managed-client-routing",
-      "splitSlice": "P3.3",
-      "baselineLines": 1882,
-      "baselineBytes": 72412,
+      "splitSlice": "P3.3-watchlist",
+      "baselineLines": 1621,
+      "baselineBytes": 63263,
       "maxGrowthLines": 100,
-      "reason": "Client setup apply monolith; Codex and Claude config helpers planned."
-    },
-    {
-      "id": "optimization-dashboard",
-      "path": "src/components/OptimizationDashboard.tsx",
-      "domain": "compression-ui",
-      "splitSlice": "P3.3",
-      "baselineLines": 610,
-      "baselineBytes": 20667,
-      "maxGrowthLines": 50,
-      "reason": "Compression dashboard shell; panel extraction planned."
+      "reason": "Client setup apply router; Claude settings and sidecar modules planned."
     }
   ],
   "notes": [

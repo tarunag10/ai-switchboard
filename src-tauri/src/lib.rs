@@ -19,6 +19,7 @@ mod cli_entry;
 mod client_adapters;
 mod client_integrations;
 mod client_managed_config;
+mod client_codex_setup;
 mod client_setup_apply;
 mod client_setup_state;
 mod compression_commands;

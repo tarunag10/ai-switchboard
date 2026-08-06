@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-06T04:13:27.529Z",
+  "generatedAt": "2026-08-06T14:43:26.374Z",
   "defaultBudget": {
     "maxLines": 450,
     "maxBytes": 40960
@@ -11,11 +11,11 @@
       "domain": "desktop-shell",
       "splitSlice": "P3.3",
       "baselineLines": 5042,
-      "measuredLines": 5042,
-      "growthLines": 0,
+      "measuredLines": 4847,
+      "growthLines": -195,
       "lineCeiling": 5192,
       "withinGrowth": true,
-      "measuredBytes": 172009
+      "measuredBytes": 164459
     },
     {
       "id": "client-setup-apply",
@@ -23,11 +23,11 @@
       "domain": "managed-client-routing",
       "splitSlice": "P3.3",
       "baselineLines": 1882,
-      "measuredLines": 1882,
-      "growthLines": 0,
+      "measuredLines": 1621,
+      "growthLines": -261,
       "lineCeiling": 1982,
       "withinGrowth": true,
-      "measuredBytes": 72412
+      "measuredBytes": 63263
     },
     {
       "id": "optimization-dashboard",
@@ -35,11 +35,11 @@
       "domain": "compression-ui",
       "splitSlice": "P3.3",
       "baselineLines": 610,
-      "measuredLines": 610,
-      "growthLines": 0,
+      "measuredLines": 129,
+      "growthLines": -481,
       "lineCeiling": 660,
       "withinGrowth": true,
-      "measuredBytes": 20667
+      "measuredBytes": 4942
     }
   ]
 }
