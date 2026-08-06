@@ -14,7 +14,6 @@ use crate::client_provider_configs::{
     remove_grok_provider_config, remove_opencode_provider_config,
     remove_windsurf_provider_config, remove_zed_provider_config, HEADROOM_ANTHROPIC_BASE_URL,
 };
-use crate::client_setup_apply::apply_client_setup;
 use crate::client_setup_state::{
     load_setup_state, normalized_setup_id, resolve_client_shell_targets_for_cleanup,
     write_setup_state,
@@ -152,14 +151,4 @@ pub fn clear_client_setups() -> Result<()> {
     }
 
     Ok(())
-}
-/// Remove the PreToolUse entry pointing at `headroom-rtk-rewrite.sh`. Drops
-/// the `PreToolUse` array if it becomes empty, and the `hooks` object if it
-/// has no remaining event arrays. Returns true if the file was modified.
-pub fn restore_client_setups() {
-    let state = load_setup_state();
-    let to_restore: Vec<String> = state.remembered_clients.keys().cloned().collect();
-    for client_id in to_restore {
-        let _ = apply_client_setup(&client_id);
-    }
 }

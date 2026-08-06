@@ -65,7 +65,7 @@ use crate::models::{
     ClientSetupResult, ClientSetupVerification, ManagedConfigApplyPreview,
     ManagedConfigApplyResult, ManagedRollbackExecutionStatus,
 };
-use crate::client_setup_verify::verify_client_setup;
+pub use crate::client_setup_verify::verify_client_setup;
 
 // Raw proxy base — use provider-specific constants below when configuring client endpoints.
 const HEADROOM_PROXY_URL: &str = "http://127.0.0.1:6767";
@@ -308,9 +308,17 @@ fn client_setup_next_steps(client_id: &str) -> Vec<String> {
     ]
 }
 
-pub use crate::client_setup_verify::verify_client_setup;
+/// Re-applies setup for all clients that were active at the last pause or quit.
+pub fn restore_client_setups() {
+    let state = load_setup_state();
+    let to_restore: Vec<String> = state.remembered_clients.keys().cloned().collect();
+    for client_id in to_restore {
+        let _ = apply_client_setup(&client_id);
+    }
+}
+
 pub use crate::client_setup_disable::{
-    clear_client_setups, disable_client_setup, restore_client_setups,
+    clear_client_setups, disable_client_setup,
 };
 pub(crate) use crate::client_claude_settings::{
     remove_pre_tool_use_markers, strip_headroom_hook_from_settings,

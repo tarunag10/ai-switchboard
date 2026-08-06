@@ -477,7 +477,11 @@ impl SemanticCacheService {
             return None;
         }
         let semantic_v2 = self.semantic_v2_active();
-        match self.cache.lock().get(request, semantic_v2) {
+        let lookup = {
+            let cache = self.cache.lock();
+            cache.get(request, semantic_v2)
+        };
+        match lookup {
             Ok(Some(hit)) => {
                 self.hits.fetch_add(1, Ordering::Relaxed);
                 if let Err(err) = self
