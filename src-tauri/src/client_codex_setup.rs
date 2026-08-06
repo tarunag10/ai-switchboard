@@ -46,7 +46,7 @@ fn clear_legacy_codex_gui_launch_env() -> Result<()> {
 // but it also forces Codex to demand an OpenAI OAuth login (issue #406), which
 // would break users authenticated with an OpenAI API key. See
 // `codex_uses_chatgpt_auth`.
-pub(crate) const CODEX_ROOT_BLOCK_ID: &str = "codex_cli";
+pub const CODEX_ROOT_BLOCK_ID: &str = "codex_cli";
 const CODEX_TABLE_BLOCK_ID: &str = "codex_cli_provider";
 
 fn codex_root_keys_body() -> String {

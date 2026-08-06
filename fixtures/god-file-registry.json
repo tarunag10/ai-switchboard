@@ -202,6 +202,48 @@
       "path": "src-tauri/src/client_codex_setup.rs",
       "parent": "client-adapters",
       "domain": "client-codex-setup"
+    },
+    {
+      "id": "client-claude-settings",
+      "path": "src-tauri/src/client_claude_settings.rs",
+      "parent": "client-adapters",
+      "domain": "client-claude-settings"
+    },
+    {
+      "id": "client-setup-sidecar",
+      "path": "src-tauri/src/client_setup_sidecar.rs",
+      "parent": "client-adapters",
+      "domain": "client-setup-sidecar"
+    },
+    {
+      "id": "client-shell-setup",
+      "path": "src-tauri/src/client_shell_setup.rs",
+      "parent": "client-adapters",
+      "domain": "client-shell-setup"
+    },
+    {
+      "id": "client-setup-verify",
+      "path": "src-tauri/src/client_setup_verify.rs",
+      "parent": "client-adapters",
+      "domain": "client-setup-verify"
+    },
+    {
+      "id": "client-setup-disable",
+      "path": "src-tauri/src/client_setup_disable.rs",
+      "parent": "client-adapters",
+      "domain": "client-setup-disable"
+    },
+    {
+      "id": "tray-loaders",
+      "path": "src/lib/trayLoaders.ts",
+      "parent": "app-shell",
+      "domain": "tray-data-loaders"
+    },
+    {
+      "id": "tray-inspector-rows",
+      "path": "src/lib/trayInspectorRows.ts",
+      "parent": "app-shell",
+      "domain": "tray-inspector-rows"
     }
   ],
   "watchlist": [
@@ -210,20 +252,10 @@
       "path": "src/app/TrayApp.tsx",
       "domain": "desktop-shell",
       "splitSlice": "P3.3-watchlist",
-      "baselineLines": 4847,
+      "baselineLines": 4563,
       "baselineBytes": 164459,
       "maxGrowthLines": 150,
-      "reason": "Tray app controller; pricing and master-activation hook extraction planned."
-    },
-    {
-      "id": "client-setup-apply",
-      "path": "src-tauri/src/client_setup_apply.rs",
-      "domain": "managed-client-routing",
-      "splitSlice": "P3.3-watchlist",
-      "baselineLines": 1621,
-      "baselineBytes": 63263,
-      "maxGrowthLines": 100,
-      "reason": "Client setup apply router; Claude settings and sidecar modules planned."
+      "reason": "Tray app controller; master-activation hook extraction planned."
     }
   ],
   "notes": [
